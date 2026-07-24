@@ -1,0 +1,58 @@
+# 扩展
+extensions = [
+    'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',
+    'sphinx.ext.viewcode',
+    'sphinx.ext.napoleon',
+    'sphinx.ext.intersphinx',
+    'myst_parser',
+    'sphinx_autodoc_typehints',
+]
+
+# 主题配置
+html_theme = 'furo'
+
+# 静态资源与原样发布页面（相对于 source 目录）
+html_logo = "_static/img/logo.png"
+html_favicon = "_static/img/Icon.png"
+html_static_path = ["_static"]
+html_extra_path = ["_extra"]
+html_css_files = ["custom.css"]
+
+# Furo 主题选项
+html_theme_options = {
+    "sidebar_hide_name": False,
+    "navigation_with_keys": True,
+}
+
+# 路径配置
+import sys
+import os
+sys.path.insert(0, os.path.abspath('../source'))
+
+# 项目信息
+project = 'EAI-HMRS Simulator'
+copyright = '2026, Rosolab'
+author = 'Haixu Zhang'
+release = '0.1.0'
+
+# 语言
+language = 'zh_CN'  # 或 'en'
+
+# 源文件扩展
+source_suffix = {
+    '.rst': 'restructuredtext',
+    '.md': 'myst',
+}
+
+# 自动文档配置
+autodoc_default_options = {
+    'members': True,
+    'undoc-members': True,
+    'show-inheritance': True,
+}
+
+# Napoleon 配置（用于 Google/NumPy 风格文档字符串）
+napoleon_google_docstring = True
+napoleon_numpy_docstring = True
+napoleon_include_init_with_doc = False

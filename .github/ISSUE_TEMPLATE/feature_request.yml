@@ -1,0 +1,54 @@
+name: Feature request
+description: Propose a scoped feature or improvement.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For open-ended ideas or early design discussion, please use GitHub Discussions first.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      placeholder: What are you trying to do, and what is currently blocking you?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      placeholder: Describe the smallest useful behavior or workflow you want.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Environment composition or Env DIY
+        - Robots, humans, sensors, or assets
+        - Controllers or policies
+        - ROS2 or Nav2
+        - Documentation
+        - Packaging or release
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      placeholder: Mention any workaround, related project, or prior discussion.
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I searched existing GitHub Issues and Discussions.
+          required: true
+        - label: This request is scoped enough for maintainers to triage.
+          required: true

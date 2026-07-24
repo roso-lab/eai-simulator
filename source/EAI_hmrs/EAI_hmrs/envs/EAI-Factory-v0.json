@@ -1,0 +1,84 @@
+{
+  "robots": [
+    {
+      "attachments": [
+        {
+          "controller": null,
+          "type": "gshub"
+        }
+      ],
+      "controller": {
+        "cfg": "CARTER_DIFF_CFG",
+        "mode": "default"
+      },
+      "type": "carter",
+      "visual": {
+        "x": 0.2721,
+        "y": 0.5524
+      }
+    },
+    {
+      "attachments": [
+        {
+          "controller": {
+            "cfg": "UR5_IK_CFG",
+            "mode": "default"
+          },
+          "type": "ur5"
+        }
+      ],
+      "controller": {
+        "cfg": "M20_ROUGH_RSL_CFG",
+        "mode": "default"
+      },
+      "type": "m20",
+      "visual": {
+        "x": 0.3039,
+        "y": 0.1693
+      }
+    },
+    {
+      "attachments": [
+        {
+          "controller": {
+            "cfg": "UR5_IK_CFG",
+            "mode": "default"
+          },
+          "type": "ur5"
+        }
+      ],
+      "controller": {
+        "cfg": "M20_ROUGH_RSL_CFG",
+        "mode": "default"
+      },
+      "type": "m20",
+      "visual": {
+        "x": 0.4282,
+        "y": 0.5294
+      }
+    },
+    {
+      "attachments": [
+        {
+          "controller": {
+            "cfg": "UR5_IK_CFG",
+            "mode": "default"
+          },
+          "type": "ur5"
+        }
+      ],
+      "controller": {
+        "cfg": "SCOUT_DIFF_CFG",
+        "mode": "default"
+      },
+      "type": "scout",
+      "visual": {
+        "x": 0.5414,
+        "y": 0.6069
+      }
+    }
+  ],
+  "scene_key": "factory",
+  "task_name": "EAI-Factory-v0",
+  "version": 1
+}

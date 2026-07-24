@@ -1,0 +1,28 @@
+title: "[Idea]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for early proposals, research ideas, integration directions, and community roadmap discussion.
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What should become possible if this idea works?
+      placeholder: Describe the outcome, not only the implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Share use cases, constraints, links, prior experiments, or related simulators.
+    validations:
+      required: false
+  - type: textarea
+    id: path
+    attributes:
+      label: Possible path
+      description: Optional implementation sketch or collaboration plan.
+    validations:
+      required: false

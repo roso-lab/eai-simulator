@@ -1,0 +1,46 @@
+{
+  "robots": [
+    {
+      "attachments": [{"controller": {"cfg": "UR5_IK_CFG", "mode": "default"}, "type": "ur5"}],
+      "controller": {"cfg": "M20_ROUGH_RSL_CFG", "mode": "default"},
+      "type": "m20",
+      "visual": {"x": 0.3564, "y": 0.2869}
+    },
+    {
+      "attachments": [
+        {"controller": {"cfg": "UR5_IK_CFG", "mode": "default"}, "type": "ur5"},
+        {"controller": {"cfg": "UR5_IK_CFG", "mode": "default"}, "type": "ur5"}
+      ],
+      "controller": {"cfg": "B2_VELOCITY_RSL_CFG", "mode": "default"},
+      "type": "b2",
+      "visual": {"x": 0.5981, "y": 0.3214}
+    },
+    {
+      "attachments": [{"controller": {"cfg": "UR5_IK_CFG", "mode": "default"}, "type": "ur5"}],
+      "controller": {"cfg": "CARTER_DIFF_CFG", "mode": "default"},
+      "type": "carter",
+      "visual": {"x": 0.1326, "y": 0.4835}
+    },
+    {
+      "attachments": [{"controller": {"cfg": "UR5_IK_CFG", "mode": "default"}, "type": "ur5"}],
+      "controller": {"cfg": "GO2_VELOCITY_RSL_CFG", "mode": "default"},
+      "type": "go2",
+      "visual": {"x": 0.4102, "y": 0.6055}
+    },
+    {
+      "attachments": [{"controller": {"cfg": "UR5_IK_CFG", "mode": "default"}, "type": "ur5"}],
+      "controller": {"cfg": "LITE3_VELOCITY_RSL_CFG", "mode": "default"},
+      "type": "lite3",
+      "visual": {"x": 0.5483, "y": 0.4763}
+    },
+    {
+      "attachments": [{"controller": {"cfg": "UR5_IK_CFG", "mode": "default"}, "type": "ur5"}],
+      "controller": {"cfg": "SCOUT_DIFF_CFG", "mode": "default"},
+      "type": "scout",
+      "visual": {"x": 0.7555, "y": 0.5997}
+    }
+  ],
+  "scene_key": "plane",
+  "task_name": "123",
+  "version": 1
+}

@@ -1,0 +1,20 @@
+title: "[Q&A]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for setup questions, usage questions, and requests for pointers.
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      placeholder: What are you trying to understand or accomplish?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Include commands, environment details, links, or screenshots if they help.
+    validations:
+      required: false

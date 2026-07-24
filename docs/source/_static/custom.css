@@ -1,0 +1,63 @@
+:root {
+  --eai-accent: #176b87;
+  --eai-accent-strong: #0f536b;
+  --eai-surface: #f4f8fa;
+  --eai-border: #d7e3e8;
+}
+
+body {
+  font-feature-settings: "tnum" 1, "cv05" 1;
+}
+
+.sidebar-brand-text {
+  font-weight: 760;
+  letter-spacing: -0.02em;
+}
+
+.content h1,
+.content h2,
+.content h3 {
+  letter-spacing: -0.025em;
+}
+
+.content h1 {
+  color: var(--eai-accent-strong);
+}
+
+.content h2 {
+  border-bottom: 1px solid var(--eai-border);
+  padding-bottom: 0.35rem;
+}
+
+.content a {
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.14em;
+}
+
+.content table {
+  border: 1px solid var(--eai-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.content table th {
+  background: var(--eai-surface);
+}
+
+.content pre {
+  border: 1px solid var(--eai-border);
+  border-radius: 8px;
+}
+
+.content blockquote {
+  border-left-color: var(--eai-accent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --eai-accent: #72c2df;
+    --eai-accent-strong: #9bd9eb;
+    --eai-surface: #202c31;
+    --eai-border: #3b4c53;
+  }
+}

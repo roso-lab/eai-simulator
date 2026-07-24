@@ -1,0 +1,15 @@
+from isaaclab.sim.spawners.from_files import UsdFileCfg
+from isaaclab.utils import configclass
+
+from EAI_assets.asset_resolver import asset_path
+
+
+DESERT_USD_PATH = asset_path("scene/desert/real_dust_scene_tiny.usda")
+
+
+@configclass
+class DesertCfg(UsdFileCfg):
+    usd_path: str = DESERT_USD_PATH
+
+
+DESERT_CFG = DesertCfg()

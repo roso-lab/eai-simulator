@@ -1,0 +1,72 @@
+id: sensor.z1
+name: Unitree Z1 Manipulator Attachment
+category: sensor
+models: [z1]
+description: Unitree Z1 arm and gripper interfaces attached to a supported mobile robot.
+interfaces:
+  - id: ros.z1.target_pose
+    name: End-effector target pose
+    protocol: ros2
+    direction: input
+    kind: topic
+    endpoint: /{robot}/z1/target_pose
+    data_type: geometry_msgs/msg/PoseStamped
+    description: Full 6D end-effector target consumed by the native shared manipulator OmniGraph bridge.
+    example: 'ros2 topic pub --once /{robot}/z1/target_pose geometry_msgs/msg/PoseStamped "{header: {frame_id: base_link}, pose: {position: {x: 0.35, y: 0.0, z: 0.45}, orientation: {w: 1.0}}}"'
+  - id: ros.z1.joint_command
+    name: Arm joint position command
+    protocol: ros2
+    direction: input
+    kind: topic
+    endpoint: /{robot}/z1/joint_command
+    data_type: sensor_msgs/msg/JointState
+    description: Desired positions for the six Z1 arm joints; the gripper is controlled separately.
+    example: 'ros2 topic pub --once /{robot}/z1/joint_command sensor_msgs/msg/JointState "{name: [joint1, joint2, joint3, joint4, joint5, joint6], position: [0.0, 0.8, -1.2, 0.0, 0.0, 0.0]}"'
+  - id: ros.z1.joint_states
+    name: Arm joint states
+    protocol: ros2
+    direction: output
+    kind: topic
+    endpoint: /{robot}/z1/joint_states
+    data_type: sensor_msgs/msg/JointState
+    description: Current positions and velocities for the six Z1 arm joints.
+    example: ros2 topic echo --once /{robot}/z1/joint_states
+    read_only_test: {type: ros_topic}
+  - id: ros.z1.ee_pose
+    name: End-effector pose
+    protocol: ros2
+    direction: output
+    kind: topic
+    endpoint: /{robot}/z1/ee_pose
+    data_type: geometry_msgs/msg/PoseStamped
+    description: Current Z1 end-effector pose in the simulation world frame.
+    example: ros2 topic echo --once /{robot}/z1/ee_pose
+    read_only_test: {type: ros_topic}
+  - id: ros.z1.gripper_command
+    name: Gripper position command
+    protocol: ros2
+    direction: input
+    kind: topic
+    endpoint: /{robot}/z1/gripper_command
+    data_type: sensor_msgs/msg/JointState
+    description: Desired position for jointGripper.
+    example: 'ros2 topic pub --once /{robot}/z1/gripper_command sensor_msgs/msg/JointState "{name: [jointGripper], position: [-0.35]}"'
+  - id: ros.z1.gripper_state
+    name: Gripper state
+    protocol: ros2
+    direction: output
+    kind: topic
+    endpoint: /{robot}/z1/gripper_state
+    data_type: sensor_msgs/msg/JointState
+    description: Current position and velocity of jointGripper.
+    example: ros2 topic echo --once /{robot}/z1/gripper_state
+    read_only_test: {type: ros_topic}
+  - id: python.z1.ik_controller
+    name: Shared Z1 IK controller
+    protocol: python
+    direction: input
+    kind: class
+    endpoint: EAI_assets.controller.traditional.z1_ik.Z1_IK_CFG
+    data_type: Z1_IK_CFG
+    description: Shared full-pose DLS Differential IK controller with independent gripper control.
+    example: controller = Z1_IK_CFG

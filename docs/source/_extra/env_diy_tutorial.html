@@ -1,0 +1,3093 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="EAI Env DIY 轻量 2D 浏览器交互教程">
+  <title>EAI Env DIY | 2D 布局交互教程</title>
+  <script>
+    if (new URLSearchParams(window.location.search).get("embed") === "1") {
+      document.documentElement.dataset.embed = "true";
+    }
+  </script>
+  <style>
+    :root {
+      --app-bg: #edf3f8;
+      --side-bg: #f4f8fc;
+      --canvas-bg: #0f1720;
+      --accent: #49bfff;
+      --select: #00b7ff;
+      --ink: #102030;
+      --graphite: #0f1720;
+      --paper: var(--app-bg);
+      --panel: #ffffff;
+      --line: #c8d6e3;
+      --muted: #526170;
+      --teal: var(--accent);
+      --teal-strong: #005e86;
+      --signal: #d7f0ff;
+      --danger: #b83a42;
+      --radius: 6px;
+      color-scheme: light;
+      font-family: Inter, "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+      font-synthesis: none;
+    }
+
+    * {
+      box-sizing: border-box;
+      letter-spacing: 0;
+    }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      color: var(--ink);
+      background: var(--paper);
+      font-size: 14px;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      color: inherit;
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    button:focus-visible,
+    [tabindex="0"]:focus-visible {
+      outline: 2px solid var(--teal);
+      outline-offset: 2px;
+    }
+
+    .app-shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: 56px minmax(0, 1fr);
+      background: var(--paper);
+    }
+
+    .topbar {
+      position: relative;
+      z-index: 3;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      min-width: 0;
+      padding: 0 18px;
+      color: #f8fbfa;
+      background: var(--canvas-bg);
+      border-bottom: 1px solid #243443;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: max-content;
+    }
+
+    .brand-mark {
+      width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      color: #004769;
+      background: #d7f0ff;
+      border-radius: 4px;
+    }
+
+    .brand-mark svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 16px;
+      line-height: 1;
+      font-weight: 720;
+    }
+
+    .project-trail {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 0;
+      padding-left: 18px;
+      color: #c8d6e3;
+      border-left: 1px solid #2c3b4a;
+    }
+
+    .project-trail strong {
+      overflow: hidden;
+      color: #f8fbfa;
+      font-size: 13px;
+      font-weight: 600;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .draft-status {
+      min-width: max-content;
+      padding: 3px 6px;
+      color: #d8e7ef;
+      border: 1px solid #3d5266;
+      border-radius: 4px;
+      font-size: 11px;
+      line-height: 1;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+    }
+
+    .mode-switch {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px;
+      background: #0b141d;
+      border: 1px solid #3d5266;
+      border-radius: 6px;
+    }
+
+    .mode-button {
+      min-height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 0 8px;
+      color: #aebfce;
+      background: transparent;
+      border: 0;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 650;
+    }
+
+    .mode-button:hover,
+    .mode-button.is-active {
+      color: #f8fbfa;
+      background: #1d3b50;
+    }
+
+    .mode-button svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .topbar-button {
+      min-height: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 0 10px;
+      color: #eef6ff;
+      background: transparent;
+      border: 1px solid #3d5266;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .topbar-button:hover {
+      background: #162331;
+      border-color: #7fbfff;
+    }
+
+    .topbar-button svg {
+      width: 15px;
+      height: 15px;
+    }
+
+    .workspace {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 72px minmax(420px, 1fr) minmax(300px, 360px);
+    }
+
+    .step-rail {
+      position: relative;
+      z-index: 2;
+      min-height: 0;
+      color: #3d4b59;
+      background: var(--side-bg);
+      border-right: 1px solid var(--line);
+    }
+
+    .step-rail ol {
+      display: grid;
+      grid-template-rows: repeat(6, minmax(72px, 1fr));
+      height: 100%;
+      max-height: 612px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .step-button {
+      position: relative;
+      width: 100%;
+      min-height: 72px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 4px;
+      color: #3d4b59;
+      background: transparent;
+      border: 0;
+      border-bottom: 1px solid var(--line);
+      font-size: 11px;
+      line-height: 1.2;
+    }
+
+    .step-button svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .step-button[aria-current="step"] {
+      color: #005e86;
+      background: #d7f0ff;
+    }
+
+    .step-button[aria-current="step"]::before {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 4px;
+      content: "";
+      background: var(--select);
+    }
+
+    .step-number {
+      position: absolute;
+      top: 7px;
+      right: 7px;
+      color: #7890a0;
+      font-size: 9px;
+      line-height: 1;
+    }
+
+    .step-button[aria-current="step"] .step-number {
+      color: #005e86;
+    }
+
+    .editor-main {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: 48px minmax(0, 1fr) minmax(164px, 28vh);
+      overflow: hidden;
+      background: var(--app-bg);
+    }
+
+    .editor-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      padding: 0 18px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .editor-toolbar h2 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .toolbar-kicker {
+      min-width: max-content;
+      color: var(--teal-strong);
+      font-size: 11px;
+      font-weight: 750;
+      text-transform: uppercase;
+    }
+
+    .toolbar-separator {
+      width: 1px;
+      height: 20px;
+      background: var(--line);
+    }
+
+    .toolbar-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      background: var(--teal);
+      border-radius: 50%;
+    }
+
+    .canvas-region {
+      min-height: 0;
+      display: grid;
+      place-items: center;
+      overflow: auto;
+      padding: 24px;
+    }
+
+    .scene-canvas {
+      position: relative;
+      width: min(100%, 960px);
+      aspect-ratio: 16 / 10;
+      min-height: 270px;
+      overflow: hidden;
+      background: #d8e7ef;
+      border: 1px solid #c8d6e3;
+      border-radius: var(--radius);
+      box-shadow: 0 8px 24px rgba(21, 47, 52, 0.08);
+    }
+
+    .canvas-chrome {
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 10px;
+      color: #d8e7ef;
+      background: var(--canvas-bg);
+      border-bottom: 1px solid #243443;
+      font-size: 11px;
+    }
+
+    .viewport-label {
+      color: #ffffff;
+      font-weight: 650;
+    }
+
+    .canvas-axis {
+      margin-left: auto;
+      color: #9db4c4;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 10px;
+    }
+
+    .canvas-empty {
+      position: absolute;
+      inset: 34px 0 26px;
+      display: grid;
+      place-content: center;
+      justify-items: center;
+      gap: 11px;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .canvas-empty-icon {
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      color: var(--teal-strong);
+      background: #f4f8fc;
+      border: 1px solid #c8d6e3;
+      border-radius: 6px;
+    }
+
+    .canvas-empty-icon svg {
+      width: 22px;
+      height: 22px;
+    }
+
+    .canvas-empty strong {
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .canvas-empty p {
+      max-width: 320px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .canvas-footer {
+      position: absolute;
+      inset: auto 0 0 0;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 10px;
+      color: #526170;
+      background: #f4f8fc;
+      border-top: 1px solid #c8d6e3;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 9px;
+    }
+
+    .review-region {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: 38px minmax(0, 1fr);
+      background: var(--panel);
+      border-top: 1px solid var(--line);
+    }
+
+    .review-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .review-header h2 {
+      margin: 0;
+      font-size: 12px;
+      font-weight: 720;
+    }
+
+    .review-tag {
+      padding: 2px 5px;
+      color: var(--teal-strong);
+      background: #e8f4ff;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .review-state {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .json-preview {
+      min-height: 0;
+      margin: 0;
+      overflow: auto;
+      padding: 12px 18px 16px;
+      color: #d8e7ef;
+      background: var(--canvas-bg);
+      font: 11px/1.55 "SFMono-Regular", Consolas, monospace;
+      tab-size: 2;
+    }
+
+    .context-panel {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) 42px;
+      background: var(--panel);
+      border-left: 1px solid var(--line);
+    }
+
+    .context-header {
+      padding: 16px 16px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .context-kicker {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--teal-strong);
+      font-size: 10px;
+      font-weight: 780;
+      text-transform: uppercase;
+    }
+
+    .context-header h2 {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.25;
+      font-weight: 740;
+    }
+
+    .context-header p {
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .scene-list {
+      min-height: 0;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .scene-option {
+      width: 100%;
+      min-height: 72px;
+      display: grid;
+      grid-template-columns: 92px minmax(0, 1fr) 18px;
+      align-items: center;
+      gap: 11px;
+      padding: 8px;
+      text-align: left;
+      background: transparent;
+      border: 1px solid transparent;
+      border-bottom-color: var(--line);
+      border-radius: 4px;
+    }
+
+    .scene-option:hover {
+      background: #edf8ff;
+      border-color: #9ad7ff;
+    }
+
+    .scene-option[aria-pressed="true"],
+    .asset-card[aria-pressed="true"] {
+      background: #d7f0ff;
+      border-color: var(--teal);
+    }
+
+    .scene-thumb {
+      width: 92px;
+      aspect-ratio: 16 / 10;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      color: var(--muted);
+      background: #edf3f8;
+      border: 1px solid #d5e0ea;
+      border-radius: 4px;
+    }
+
+    .scene-thumb img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+    }
+
+    .scene-copy {
+      min-width: 0;
+    }
+
+    .scene-copy strong {
+      display: block;
+      overflow: hidden;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 700;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .scene-copy span {
+      display: block;
+      margin-top: 4px;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 10px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .scene-option > svg {
+      width: 16px;
+      height: 16px;
+      color: #5c6b7a;
+    }
+
+    .asset-list,
+    .inspector,
+    .review-tools {
+      min-height: 0;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .catalog-section-title {
+      margin: 8px 2px 6px;
+      color: var(--ink);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .asset-card,
+    .inspector-card {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 54px minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+      min-height: 68px;
+      margin-bottom: 7px;
+      padding: 8px;
+      text-align: left;
+      background: transparent;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+    }
+
+    .asset-card:hover:not(:disabled) {
+      background: #edf8ff;
+      border-color: #9ad7ff;
+    }
+
+    .asset-card:disabled {
+      cursor: not-allowed;
+      opacity: 0.62;
+    }
+
+    .asset-card[draggable="true"] {
+      cursor: grab;
+      touch-action: none;
+    }
+
+    .asset-card[draggable="true"]:active,
+    .asset-card.is-dragging {
+      cursor: grabbing;
+    }
+
+    .asset-card.is-dragging {
+      background: #d7f0ff;
+      border-color: var(--select);
+      box-shadow: 0 0 0 2px rgba(0, 183, 255, 0.16);
+      opacity: 0.82;
+    }
+
+    .asset-card img,
+    .placed-robot img,
+    .attachment-badge img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .asset-icon {
+      width: 54px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      background: #edf3f8;
+      border: 1px solid #d5e0ea;
+      border-radius: 4px;
+    }
+
+    .asset-copy strong,
+    .inspector-card strong {
+      display: block;
+      overflow-wrap: anywhere;
+      font-size: 13px;
+      font-weight: 720;
+    }
+
+    .asset-copy span,
+    .inspector-card span,
+    .compat-note {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.35;
+    }
+
+    .scene-backdrop {
+      position: absolute;
+      inset: 34px 0 26px;
+      overflow: hidden;
+      background: #d8e7ef;
+    }
+
+    .scene-backdrop img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+    }
+
+    .scene-backdrop-fallback {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      place-content: center;
+      justify-items: center;
+      gap: 8px;
+      color: #526170;
+      background: #d8e7ef;
+    }
+
+    .scene-backdrop-fallback svg {
+      width: 28px;
+      height: 28px;
+    }
+
+    .scene-canvas[data-drop-target="robot"] {
+      outline: 2px solid var(--select);
+      outline-offset: 3px;
+      box-shadow: 0 0 0 6px rgba(0, 183, 255, 0.14), 0 8px 24px rgba(21, 47, 52, 0.08);
+    }
+
+    .placed-robot {
+      position: absolute;
+      z-index: 2;
+      width: 76px;
+      min-height: 68px;
+      display: grid;
+      grid-template-rows: 48px auto;
+      place-items: center;
+      padding: 4px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid #7fc8ff;
+      border-radius: 6px;
+      box-shadow: 0 8px 18px rgba(21, 47, 52, 0.18);
+      transform: translate(-50%, -50%);
+      touch-action: none;
+    }
+
+    .placed-robot[aria-pressed="true"] {
+      border-color: var(--teal);
+      box-shadow: 0 0 0 2px rgba(20, 127, 118, 0.18), 0 8px 18px rgba(21, 47, 52, 0.18);
+    }
+
+    .placed-robot[data-drop-active="true"] {
+      border-color: var(--select);
+      box-shadow: 0 0 0 4px rgba(0, 183, 255, 0.24), 0 8px 18px rgba(21, 47, 52, 0.18);
+    }
+
+    .placed-robot span {
+      overflow: hidden;
+      max-width: 68px;
+      color: var(--ink);
+      font-size: 10px;
+      font-weight: 720;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .attachment-badge {
+      position: absolute;
+      z-index: 3;
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      padding: 3px;
+      background: #ffffff;
+      border: 1px solid #7fc8ff;
+      border-radius: 4px;
+      box-shadow: 0 4px 12px rgba(21, 47, 52, 0.16);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    .field-grid {
+      display: grid;
+      gap: 9px;
+      margin-top: 10px;
+    }
+
+    .field-row {
+      display: grid;
+      gap: 5px;
+    }
+
+    .field-row label {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 720;
+      text-transform: uppercase;
+    }
+
+    .field-row input,
+    .field-row select,
+    .json-output {
+      width: 100%;
+      min-height: 34px;
+      padding: 6px 8px;
+      color: var(--ink);
+      background: #ffffff;
+      border: 1px solid #bdcbc8;
+      border-radius: 4px;
+    }
+
+    .json-output {
+      min-height: 188px;
+      font: 11px/1.55 "SFMono-Regular", Consolas, monospace;
+      resize: vertical;
+    }
+
+    .inline-actions,
+    .review-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 10px;
+    }
+
+    .validation-errors {
+      display: grid;
+      gap: 5px;
+      margin: 8px 0;
+      color: var(--danger);
+      font-size: 11px;
+      font-weight: 650;
+    }
+
+    .mobile-panel-button {
+      display: none;
+    }
+
+    .context-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 0 16px;
+      color: var(--muted);
+      background: var(--side-bg);
+      border-top: 1px solid var(--line);
+      font-size: 11px;
+    }
+
+    .catalog-count {
+      color: var(--teal-strong);
+      font-weight: 720;
+    }
+
+    .asset-fallback {
+      min-width: 72px;
+      min-height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 6px;
+      color: var(--danger);
+      background: #fff5f5;
+      border: 1px solid #e5b9bc;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 650;
+      line-height: 1.2;
+      text-align: center;
+    }
+
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 20;
+      max-width: min(340px, calc(100vw - 36px));
+      padding: 10px 12px;
+      color: #ffffff;
+      background: var(--danger);
+      border-radius: 4px;
+      box-shadow: 0 8px 20px rgba(21, 47, 52, 0.18);
+      font-size: 12px;
+      font-weight: 650;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px);
+      transition: opacity 120ms ease, transform 120ms ease;
+    }
+
+    .toast[data-visible="true"] {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    dialog {
+      width: min(460px, calc(100vw - 32px));
+      padding: 0;
+      color: var(--ink);
+      background: var(--panel);
+      border: 1px solid #c8d6e3;
+      border-radius: var(--radius);
+      box-shadow: 0 18px 48px rgba(21, 47, 52, 0.24);
+    }
+
+    dialog::backdrop {
+      background: rgba(0, 0, 0, 0);
+      backdrop-filter: none;
+    }
+
+    #tutorial-dialog {
+      position: fixed;
+      inset: auto auto 24px 24px;
+      z-index: 30;
+      width: min(390px, calc(100vw - 48px));
+      margin: 0;
+      border-color: var(--accent);
+      box-shadow: 0 14px 34px rgba(15, 23, 32, 0.18), 0 0 0 1px rgba(73, 191, 255, 0.16);
+    }
+
+    #tutorial-dialog .dialog-header {
+      background: var(--side-bg);
+    }
+
+    #tutorial-dialog .dialog-body strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--ink);
+      font-size: 15px;
+    }
+
+    #isaac-3d-dialog {
+      width: min(600px, calc(100vw - 32px));
+    }
+
+    #isaac-3d-dialog .dialog-body {
+      display: grid;
+      gap: 12px;
+    }
+
+    #isaac-3d-dialog ol {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding-left: 22px;
+    }
+
+    #isaac-3d-dialog code {
+      color: #005e86;
+      font-weight: 650;
+    }
+
+    #isaac-3d-dialog pre {
+      overflow: auto;
+      margin: 0;
+      padding: 10px 12px;
+      color: #d7f0ff;
+      background: #0f1720;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    .tour-target-ring {
+      position: fixed;
+      z-index: 18;
+      border: 2px solid var(--select);
+      border-radius: 8px;
+      box-shadow: 0 0 0 4px rgba(0, 183, 255, 0.16), 0 0 0 9999px rgba(15, 23, 32, 0.02);
+      pointer-events: none;
+      transition: left 160ms ease, top 160ms ease, width 160ms ease, height 160ms ease;
+    }
+
+    .tour-target-ring::after {
+      position: absolute;
+      inset: -7px;
+      content: "";
+      border: 1px solid rgba(0, 183, 255, 0.42);
+      border-radius: 12px;
+      animation: tour-pulse 1.8s ease-out infinite;
+    }
+
+    .tour-arrow {
+      position: absolute;
+      right: -42px;
+      top: 50%;
+      width: 34px;
+      height: 2px;
+      background: var(--select);
+      transform: translateY(-50%);
+    }
+
+    .tour-arrow::after {
+      position: absolute;
+      right: -1px;
+      top: 50%;
+      width: 10px;
+      height: 10px;
+      content: "";
+      border-top: 2px solid var(--select);
+      border-right: 2px solid var(--select);
+      transform: translateY(-50%) rotate(45deg);
+    }
+
+    @keyframes tour-pulse {
+      from {
+        opacity: 0.7;
+        transform: scale(1);
+      }
+      to {
+        opacity: 0;
+        transform: scale(1.05);
+      }
+    }
+
+    .dialog-header {
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .dialog-header h2 {
+      margin: 0;
+      font-size: 17px;
+    }
+
+    .dialog-body {
+      padding: 16px 18px;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .dialog-body p {
+      margin: 0;
+    }
+
+    .dialog-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 12px 18px;
+      background: var(--side-bg);
+      border-top: 1px solid var(--line);
+    }
+
+    .button {
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 13px;
+      border: 1px solid #c8d6e3;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .button-secondary {
+      color: var(--ink);
+      background: var(--panel);
+    }
+
+    .button-primary {
+      color: #004769;
+      background: var(--signal);
+      border-color: var(--accent);
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    .workspace {
+      grid-template-columns: minmax(480px, 1fr) minmax(320px, 390px);
+      gap: 14px;
+      padding: 14px;
+      background:
+        radial-gradient(circle at 18% 0%, rgba(73, 191, 255, 0.12), transparent 34%),
+        var(--app-bg);
+    }
+
+    .editor-main,
+    .right-sidebar {
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid rgba(165, 185, 202, 0.72);
+      border-radius: 14px;
+      box-shadow: 0 14px 36px rgba(34, 61, 82, 0.1);
+    }
+
+    .right-sidebar {
+      display: grid;
+      grid-template-rows: 74px minmax(0, 1fr);
+    }
+
+    .step-rail {
+      min-height: 0;
+      background: linear-gradient(180deg, #f9fcff, #eef6fb);
+      border-right: 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .step-rail ol {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-rows: 74px;
+      width: 100%;
+      height: 74px;
+      max-height: none;
+    }
+
+    .step-button {
+      min-height: 74px;
+      gap: 5px;
+      border-right: 1px solid rgba(200, 214, 227, 0.8);
+      border-bottom: 0;
+      border-radius: 0;
+    }
+
+    .step-button:last-child {
+      border-right: 0;
+    }
+
+    .step-button[aria-current="step"]::before {
+      inset: auto 10px 0;
+      width: auto;
+      height: 3px;
+      border-radius: 999px 999px 0 0;
+    }
+
+    .step-number {
+      top: 6px;
+      right: 7px;
+    }
+
+    .context-panel {
+      min-height: 0;
+      border-left: 0;
+      background: rgba(255, 255, 255, 0.96);
+    }
+
+    .context-header {
+      padding: 16px 18px 13px;
+      background: linear-gradient(135deg, #ffffff 0%, #f2f9fd 100%);
+    }
+
+    .context-header h2 {
+      font-size: 17px;
+    }
+
+    .scene-list,
+    .asset-list,
+    .inspector,
+    .review-tools {
+      padding: 12px;
+    }
+
+    .scene-option,
+    .asset-card,
+    .inspector-card {
+      margin-bottom: 9px;
+      background: #ffffff;
+      border-color: #d5e2ec;
+      border-radius: 11px;
+      box-shadow: 0 5px 14px rgba(34, 61, 82, 0.055);
+    }
+
+    .asset-card {
+      min-height: 74px;
+      padding: 10px;
+    }
+
+    .asset-icon,
+    .scene-thumb {
+      border-radius: 8px;
+      background: linear-gradient(145deg, #edf5fa, #ffffff);
+    }
+
+    .editor-toolbar {
+      min-height: 52px;
+      padding-inline: 18px;
+      background: linear-gradient(90deg, #ffffff, #f5fbff);
+    }
+
+    .canvas-region {
+      padding: 18px;
+    }
+
+    .scene-canvas {
+      border-radius: 12px;
+      border-color: #afc4d4;
+      box-shadow: 0 16px 34px rgba(17, 40, 57, 0.16);
+    }
+
+    .scene-canvas[data-drop-target="scene"] {
+      outline: 2px solid #43d2ff;
+      outline-offset: 4px;
+      box-shadow: 0 0 0 7px rgba(67, 210, 255, 0.16), 0 16px 34px rgba(17, 40, 57, 0.16);
+    }
+
+    .canvas-empty {
+      background-image: radial-gradient(circle, rgba(82, 121, 148, 0.22) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    .canvas-empty-icon {
+      width: 54px;
+      height: 54px;
+      border-radius: 14px;
+      box-shadow: 0 10px 24px rgba(0, 94, 134, 0.12);
+    }
+
+    .topbar {
+      background: linear-gradient(90deg, #0c1721 0%, #132b3b 58%, #0d2130 100%);
+    }
+
+    .brand-mark,
+    .draft-status,
+    .topbar-button,
+    .button {
+      border-radius: 8px;
+    }
+
+    @media (max-width: 820px) {
+      .workspace {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(500px, 1fr) minmax(420px, auto);
+        padding: 10px;
+      }
+
+      .editor-main {
+        grid-column: 1;
+        grid-row: 1;
+      }
+
+      .right-sidebar {
+        grid-column: 1;
+        grid-row: 2;
+        min-height: 420px;
+      }
+
+      .project-trail {
+        display: none;
+      }
+
+      .mobile-panel-button {
+        display: inline-flex;
+      }
+    }
+
+    html[data-embed="true"],
+    html[data-embed="true"] body {
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+    }
+
+    html[data-embed="true"] .app-shell {
+      min-height: 100%;
+      height: 100vh;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    html[data-embed="true"] .topbar {
+      min-height: 44px;
+      padding-inline: 12px;
+    }
+
+    html[data-embed="true"] .brand-mark {
+      width: 20px;
+      height: 20px;
+    }
+
+    html[data-embed="true"] .brand h1 {
+      font-size: 13px;
+    }
+
+    html[data-embed="true"] .workspace {
+      grid-template-columns: minmax(360px, 1fr) minmax(270px, 330px);
+      grid-template-rows: minmax(0, 1fr);
+      gap: 8px;
+      padding: 8px;
+    }
+
+    html[data-embed="true"] .editor-main {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    html[data-embed="true"] .step-button {
+      min-height: 62px;
+      font-size: 9px;
+    }
+
+    html[data-embed="true"] .editor-main {
+      grid-template-rows: 42px minmax(0, 1fr) 122px;
+    }
+
+    html[data-embed="true"] .right-sidebar {
+      grid-column: 2;
+      grid-row: 1;
+      min-width: 270px;
+      min-height: 0;
+      grid-template-rows: 62px minmax(0, 1fr);
+    }
+
+    html[data-embed="true"] .step-rail ol {
+      grid-template-rows: 62px;
+      height: 62px;
+    }
+
+    html[data-embed="true"] .mobile-panel-button {
+      display: none;
+    }
+
+    html[data-embed="true"] #tutorial-dialog {
+      inset: clamp(76px, 15vh, 112px) auto auto clamp(12px, 11vw, 76px);
+      width: min(252px, calc(100vw - 28px));
+      box-shadow: 0 8px 22px rgba(15, 23, 32, 0.14), 0 0 0 1px rgba(73, 191, 255, 0.14);
+    }
+
+    html[data-embed="true"] #tutorial-dialog .dialog-header {
+      padding: 7px 11px 6px;
+    }
+
+    html[data-embed="true"] #tutorial-dialog .dialog-header h2 {
+      font-size: 13px;
+    }
+
+    html[data-embed="true"] #tutorial-dialog .dialog-body {
+      padding: 7px 11px;
+      font-size: 11px;
+      line-height: 1.3;
+    }
+
+    html[data-embed="true"] #tutorial-dialog .dialog-body strong {
+      margin-bottom: 0;
+      font-size: 12px;
+    }
+
+    html[data-embed="true"] #tutorial-dialog .dialog-body p {
+      display: none;
+    }
+
+    html[data-embed="true"] #tutorial-dialog .dialog-actions {
+      gap: 5px;
+      padding: 7px 11px;
+    }
+
+    html[data-embed="true"] #tutorial-dialog .dialog-actions .button {
+      min-height: 28px;
+      padding: 0 8px;
+      font-size: 10px;
+    }
+
+    @media (max-width: 640px) {
+      .topbar {
+        gap: 8px;
+        padding: 0 10px;
+      }
+
+      .topbar-button {
+        width: auto;
+        min-width: 78px;
+        padding: 0 9px;
+      }
+
+      .mode-button {
+        width: 30px;
+        padding: 0;
+      }
+
+      .mode-button span {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
+
+      .workspace {
+        grid-template-columns: minmax(210px, 1fr) minmax(168px, 42vw);
+        grid-template-rows: minmax(0, 1fr);
+        gap: 5px;
+        padding: 5px;
+      }
+
+      .step-rail {
+        min-width: 0;
+        min-height: 56px;
+        overflow-x: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .step-rail ol {
+        grid-template-columns: repeat(6, minmax(52px, 1fr));
+        grid-template-rows: 56px;
+        width: max(100%, 312px);
+        height: 56px;
+      }
+
+      .step-button {
+        min-height: 56px;
+        font-size: 9px;
+        border-right: 1px solid var(--line);
+        border-bottom: 0;
+      }
+
+      .step-number {
+        display: none;
+      }
+
+      .editor-main {
+        grid-column: 1;
+        grid-row: 1;
+        grid-template-rows: 44px minmax(0, 1fr) 132px;
+      }
+
+      .right-sidebar {
+        grid-column: 2;
+        grid-row: 1;
+        min-width: 0;
+        min-height: 0;
+        grid-template-rows: 56px minmax(0, 1fr);
+      }
+
+      .editor-toolbar {
+        padding: 0 12px;
+      }
+
+      .toolbar-status {
+        display: none;
+      }
+
+      .canvas-region {
+        place-items: start center;
+        padding: 8px;
+      }
+
+      .scene-canvas {
+        min-height: 0;
+      }
+
+      .context-panel {
+        min-height: 0;
+      }
+
+      .context-header {
+        padding: 10px;
+      }
+
+      .context-header h2 {
+        font-size: 13px;
+      }
+
+      .context-header p {
+        display: none;
+      }
+
+      .scene-list,
+      .asset-list,
+      .inspector,
+      .review-tools {
+        padding: 6px;
+      }
+
+      .asset-card,
+      .scene-option,
+      .inspector-card {
+        grid-template-columns: 38px minmax(0, 1fr);
+        min-height: 54px;
+        gap: 7px;
+        padding: 6px;
+        border-radius: 8px;
+      }
+
+      .asset-icon {
+        width: 38px;
+        height: 36px;
+      }
+
+      .asset-copy strong,
+      .inspector-card strong {
+        font-size: 11px;
+      }
+
+      .asset-copy span,
+      .inspector-card span,
+      .compat-note {
+        font-size: 8px;
+      }
+
+      .context-footer {
+        padding-inline: 8px;
+        font-size: 9px;
+      }
+
+      .canvas-chrome,
+      .canvas-footer {
+        font-size: 8px;
+      }
+
+      .canvas-axis {
+        display: none;
+      }
+
+      .review-header {
+        padding-inline: 8px;
+      }
+
+      .review-header h2,
+      .review-state {
+        font-size: 9px;
+      }
+
+      .json-preview {
+        padding-inline: 8px;
+        font-size: 9px;
+      }
+    }
+
+    @media (max-width: 360px) {
+      .brand h1 {
+        font-size: 14px;
+      }
+
+      .topbar-button {
+        min-width: 42px;
+        padding-inline: 8px;
+      }
+
+      .topbar-button span {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand" aria-label="EAI Env DIY">
+        <span class="brand-mark" aria-hidden="true"><i data-lucide="boxes"></i></span>
+        <h1>EAI Env DIY 浏览器教程</h1>
+      </div>
+      <div class="project-trail" aria-label="当前项目">
+        <strong>未命名环境</strong>
+        <span class="draft-status">草稿</span>
+      </div>
+      <div class="topbar-actions">
+        <div class="mode-switch" role="group" aria-label="教程模式">
+          <button class="mode-button is-active" type="button" data-tutorial-mode="browser" aria-pressed="true" aria-label="Browser 2D 模式">
+            <i data-lucide="monitor" aria-hidden="true"></i>
+            <span>Browser 2D</span>
+          </button>
+          <button class="mode-button" type="button" data-tutorial-mode="isaac" aria-pressed="false" aria-label="Isaac Sim 3D 模式">
+            <i data-lucide="box" aria-hidden="true"></i>
+            <span>Isaac Sim 3D</span>
+          </button>
+        </div>
+        <button class="topbar-button mobile-panel-button" type="button" data-open-panel aria-label="打开资产与属性面板">
+          <i data-lucide="panel-right-open" aria-hidden="true"></i>
+          <span>资产</span>
+        </button>
+        <button class="topbar-button" type="button" data-open-tutorial aria-label="打开教程" aria-haspopup="dialog">
+          <i data-lucide="book-open" aria-hidden="true"></i>
+          <span>打开教程</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <main class="editor-main">
+        <header class="editor-toolbar">
+          <span class="toolbar-kicker">步骤 01</span>
+          <span class="toolbar-separator" aria-hidden="true"></span>
+          <h2>选择基础场景</h2>
+          <span class="toolbar-status"><span class="status-dot" aria-hidden="true"></span>工作区就绪</span>
+        </header>
+
+        <section class="canvas-region" aria-label="环境预览工作区">
+          <div class="scene-canvas" data-testid="scene-canvas" tabindex="0" aria-label="场景画布，尚未选择场景">
+            <div class="canvas-chrome">
+              <span class="viewport-label">2D 布局预览</span>
+              <span>visual.x/y</span>
+              <span class="canvas-axis">X 0.00&nbsp;&nbsp;Y 0.00</span>
+            </div>
+            <div class="canvas-empty">
+              <span class="canvas-empty-icon" aria-hidden="true"><i data-lucide="scan"></i></span>
+              <strong>拖拽场景到左侧画布</strong>
+              <p>此画布复现轻量窗口流程；真实三维位置请在 Isaac Sim 中使用 --diy-3d。</p>
+            </div>
+            <div class="canvas-footer" aria-hidden="true">
+              <span>LAYOUT</span>
+              <span>VISUAL.X/Y</span>
+              <span>2D ONLY</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="review-region" aria-labelledby="review-title" aria-live="polite" aria-atomic="false">
+          <header class="review-header">
+            <h2 id="review-title">配置审查</h2>
+            <span class="review-tag">实时 JSON</span>
+            <span class="review-state">等待场景选择</span>
+          </header>
+          <pre class="json-preview"><code>{
+  "version": 1,
+  "task_name": "my_env",
+  "scene_key": null,
+  "robots": []
+}</code></pre>
+        </section>
+      </main>
+
+      <div class="right-sidebar">
+        <nav class="step-rail" aria-label="环境搭建步骤">
+          <ol>
+            <li><button class="step-button" type="button" data-stage="1" aria-current="step"><span class="step-number">01</span><i data-lucide="image" aria-hidden="true"></i><span>Scenes</span></button></li>
+            <li><button class="step-button" type="button" data-stage="2"><span class="step-number">02</span><i data-lucide="bot" aria-hidden="true"></i><span>Robots</span></button></li>
+            <li><button class="step-button" type="button" data-stage="3"><span class="step-number">03</span><i data-lucide="package" aria-hidden="true"></i><span>Payloads</span></button></li>
+            <li><button class="step-button" type="button" data-stage="4" aria-label="Tools 与 CFG"><span class="step-number">04</span><i data-lucide="wrench" aria-hidden="true"></i><span>Tools</span></button></li>
+            <li><button class="step-button" type="button" data-stage="5"><span class="step-number">05</span><i data-lucide="braces" aria-hidden="true"></i><span>配置</span></button></li>
+            <li><button class="step-button" type="button" data-stage="6" aria-label="检查与导出"><span class="step-number">06</span><i data-lucide="badge-check" aria-hidden="true"></i><span>导出</span></button></li>
+          </ol>
+        </nav>
+
+        <aside class="context-panel" data-testid="context-panel" aria-labelledby="context-title">
+          <header class="context-header">
+            <span class="context-kicker">场景目录</span>
+            <h2 id="context-title">选择环境模板</h2>
+            <p>拖拽一个场景到左侧画布，为环境确定空间基础。</p>
+          </header>
+          <div class="scene-list" id="scene-list" aria-label="可用场景"></div>
+          <footer class="context-footer">
+            <span>仓库素材</span>
+            <span class="catalog-count" id="scene-count">0 个场景</span>
+          </footer>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <dialog id="tutorial-dialog" aria-labelledby="tutorial-title">
+    <header class="dialog-header">
+      <h2 id="tutorial-title">Env DIY 教程</h2>
+    </header>
+    <div class="dialog-body">
+      <p>本网页按 Scenes、Robots、Payloads、Tools、配置和审查六个步骤复现轻量 2D 流程；Payloads 下分为 Manipulators 和 Sensors。它不是 Isaac Sim Viewport，真实 spawn_pose 请运行 python simulator.py --diy-3d。Isaac Sim 扩展会默认停靠在右侧，目录使用本地缩略图，并在 Placed Robots 中显示每个 robot ID 的生成状态；拖放机器人时会校验 PhysX 碰撞表面，Run 会通过状态栏和 Kit 通知报告未解决的失败，UR5/Z1 作为固定 Payload 装配到宿主。</p>
+      <p><strong>状态提示：</strong><code>--diy-3d</code> 仍处于持续优化阶段，插件布局、资产目录和部分控制器接口可能随版本调整。开发或联调时请保留导出的 selection JSON，并在正式实验前锁定仓库版本。</p>
+    </div>
+    <form class="dialog-actions" method="dialog">
+      <button class="button button-primary" value="close">知道了</button>
+    </form>
+  </dialog>
+
+  <dialog id="isaac-3d-dialog" aria-labelledby="isaac-3d-title">
+    <header class="dialog-header">
+      <h2 id="isaac-3d-title">Isaac Sim 3D 编辑模式</h2>
+    </header>
+    <div class="dialog-body">
+      <p>真实的高度、碰撞和 spawn_pose 需要在 Isaac Sim Viewport 中编辑。本页的 Browser 2D 画布只用于熟悉配置结构与导出 JSON。<strong>当前 --diy-3d 仍处于持续优化阶段</strong>，插件布局、资产目录和控制器接口可能随版本调整。</p>
+      <ol>
+        <li>在工程根目录运行 <code>python simulator.py --diy-3d --device=cuda:0</code>。</li>
+        <li>Isaac Sim 启动一次后，右侧打开 Env DIY 3D 插件，依次选择 Scenes、Robots、Payloads 和 Tools。</li>
+        <li>UR5/Z1 会固定装配到兼容宿主；每个机器人保持独立 assembly，新增或失败不会清除其他有效机器人。</li>
+        <li>在 Run 前检查 USD 与 controller cfg。缺失资产可单项下载，或用 Download all and run 一次性准备。</li>
+        <li>点击 Run 后销毁预览 Stage/资源，并在同一个 Kit 进程中创建正式环境，随后进入仿真循环。</li>
+      </ol>
+      <pre><code>python simulator.py --diy-3d --device=cuda:0</code></pre>
+      <p>受 gated 资产或控制器模型限制时，先在终端执行 <code>hf auth login</code>，再按插件中的 Recheck；需要申请权限时使用插件提供的 HF 链接。</p>
+    </div>
+    <form class="dialog-actions" method="dialog">
+      <button class="button button-primary" value="close">返回教程</button>
+    </form>
+  </dialog>
+
+  <dialog id="confirmation-dialog" aria-labelledby="confirmation-title">
+    <header class="dialog-header">
+      <h2 id="confirmation-title">确认操作</h2>
+    </header>
+    <div class="dialog-body">
+      <p id="confirmation-message">请确认是否继续当前操作。</p>
+    </div>
+    <form class="dialog-actions" method="dialog">
+      <button class="button button-secondary" value="cancel">取消</button>
+      <button class="button button-primary" value="confirm">确认</button>
+    </form>
+  </dialog>
+
+  <div class="tour-target-ring" hidden aria-hidden="true">
+    <span class="tour-arrow"></span>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <div id="asset-preloader" hidden aria-hidden="true"></div>
+  <datalist id="known-cfg-values"></datalist>
+
+  <script id="lucide-script" async src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" integrity="sha384-uTYyvsSSUZeaPhb5RbKlQa0zY/WpX/QHfvg2mczXyBQOpkWPEDy9lczyp+w7SKXu" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script>
+    (() => {
+      "use strict";
+
+      const catalog = Object.freeze({
+        scenes: Object.freeze([
+          { id: "plane", label: "平地", image: "env-diy-assets/scene/plane.png" },
+          { id: "warehouse", label: "仓库", image: "env-diy-assets/scene/warehouse.png" },
+          { id: "factory", label: "工厂", image: "env-diy-assets/scene/factory.png" },
+          { id: "airs", label: "AIRS 实验室", image: "env-diy-assets/scene/airs.png" },
+          { id: "table", label: "桌面", image: null },
+          { id: "garden", label: "花园", image: "env-diy-assets/scene/garden.png" },
+          { id: "indoor", label: "室内墙体", image: null },
+          { id: "desert", label: "沙漠", image: "env-diy-assets/scene/desert.png" },
+          { id: "hospital", label: "医院", image: "env-diy-assets/scene/hospital.png" }
+        ]),
+        robots: Object.freeze({
+          carter: { label: "Carter", image: "env-diy-assets/robot/carter.png", cfg: "CARTER_DIFF_CFG" },
+          pepper: { label: "Pepper", image: "env-diy-assets/robot/pepper.png", cfg: "PEPPER_HOLONOMIC_CFG" },
+          go2: { label: "Go2", image: "env-diy-assets/robot/go2.png", cfg: "GO2_VELOCITY_RSL_CFG" },
+          b2: { label: "B2", image: "env-diy-assets/robot/b2.png", cfg: "B2_VELOCITY_RSL_CFG" },
+          m20: { label: "M20", image: "env-diy-assets/robot/M20.png", cfg: "M20_ROUGH_RSL_CFG" },
+          scout: { label: "Scout", image: "env-diy-assets/robot/scout.png", cfg: "SCOUT_DIFF_CFG" },
+          g1: { label: "G1", image: "env-diy-assets/robot/g1.png", cfg: "G1_SKRL_CFG" },
+          cf2x: { label: "CF2X", image: "env-diy-assets/robot/cf2x.png", cfg: "QUADCOPTER_GOAL_SKRL_CFG" },
+          human: { label: "Human", image: "env-diy-assets/robot/human.png", cfg: "HUMAN_ANIMATION_CFG" },
+          lite3: { label: "Lite3", image: "env-diy-assets/robot/lite3.png", cfg: "LITE3_VELOCITY_RSL_CFG" }
+        }),
+        manipulators: Object.freeze({
+          ur5: { label: "UR5", image: "env-diy-assets/manipulator/ur5.png", supported: ["carter", "go2", "b2", "m20", "scout", "lite3"], cfg: "UR5_IK_CFG" },
+          z1: { label: "Z1", image: "env-diy-assets/manipulator/z1.png", supported: ["carter", "go2", "b2", "m20", "scout", "lite3"], cfg: "Z1_IK_CFG" }
+        }),
+        sensors: Object.freeze({
+          gshub: { label: "GS-Hub", image: "env-diy-assets/sensor/gshub.png", supported: ["carter", "go2", "b2", "m20", "scout", "lite3"] },
+          lidar: { label: "LiDAR", image: "env-diy-assets/sensor/lidar.png", supported: ["carter", "go2", "b2", "m20", "lite3"] }
+        }),
+        tools: Object.freeze({
+          ros: { label: "ROS", image: "env-diy-assets/tool/ros.png", supported: ["carter", "go2", "b2", "m20", "scout", "lite3", "pepper", "g1", "cf2x"] },
+          keyboard: { label: "Keyboard", image: "env-diy-assets/tool/keyboard.png", supported: ["carter", "pepper", "go2", "b2", "m20", "scout", "g1", "cf2x", "human", "lite3"] }
+        })
+      });
+
+      const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+      const canonicalKey = value => typeof value === "string" ? value.trim().toLowerCase() : "";
+      const clampCoord = value => {
+        const number = Number(value);
+        const finiteValue = Number.isFinite(number) ? number : 0.5;
+        return Math.round(Math.max(0, Math.min(1, finiteValue)) * 10000) / 10000;
+      };
+      const cloneValue = value => typeof window.structuredClone === "function"
+        ? window.structuredClone(value)
+        : JSON.parse(JSON.stringify(value));
+
+      const DRAFT_KEY = "eai-env-diy-draft-v1";
+      const TOUR_KEY = "eai-env-diy-tour-complete";
+      const cfgNames = Object.freeze([
+        "CARTER_DIFF_CFG",
+        "PEPPER_HOLONOMIC_CFG",
+        "GO2_VELOCITY_RSL_CFG",
+        "B2_VELOCITY_RSL_CFG",
+        "M20_ROUGH_RSL_CFG",
+        "SCOUT_DIFF_CFG",
+        "G1_SKRL_CFG",
+        "QUADCOPTER_GOAL_SKRL_CFG",
+        "HUMAN_ANIMATION_CFG",
+        "LITE3_VELOCITY_RSL_CFG",
+        "UR5_IK_CFG",
+        "Z1_IK_CFG"
+      ]);
+      const stageMeta = Object.freeze({
+        1: { kicker: "步骤 01", title: "选择 Scenes", context: "Scenes 目录", heading: "选择环境模板", copy: "浏览仓库内置场景，为本次环境配置确定空间基础。" },
+        2: { kicker: "步骤 02", title: "添加 Robots", context: "Robots 目录", heading: "拖动机器人到画布", copy: "从右侧拖动机器人卡片到左侧画布。这里记录 visual.x/y 布局；真实三维 spawn_pose 由 --diy-3d 编辑器生成。" },
+        3: { kicker: "步骤 03", title: "配置 Payloads", context: "Payloads 目录", heading: "拖动 Payloads 到机器人", copy: "Payloads 分为 Manipulators（UR5/Z1）和 Sensors（GS-Hub/LiDAR）；将兼容项拖到目标机器人上完成绑定。" },
+        4: { kicker: "步骤 04", title: "添加 Tools", context: "Tools 目录", heading: "拖动工具到机器人", copy: "将 ROS / Keyboard 工具拖到目标机器人上；工具表示通信与控制通道，不是物理硬件。" },
+        5: { kicker: "步骤 05", title: "选择 CFG", context: "控制器配置", heading: "检查控制器 CFG", copy: "默认 CFG 来自当前工程目录，可切换为手动填写。" },
+        6: { kicker: "步骤 06", title: "检查与导出", context: "导出 JSON", heading: "保存并运行", copy: "导出后将 JSON 放入工程环境目录，再用生成命令启动仿真。" }
+      });
+
+      const state = {
+        stage: 1,
+        scene: null,
+        robots: [],
+        selectedRobotId: null,
+        nextRobotNumber: 1,
+        taskName: "my_env",
+        validationErrors: []
+      };
+
+      const exportPayload = () => ({
+        version: 1,
+        task_name: state.taskName,
+        scene_key: state.scene,
+        robots: state.robots.map(robot => ({
+          type: robot.type,
+          controller: {
+            mode: robot.controller.mode,
+            cfg: robot.controller.cfg
+          },
+          visual: {
+            x: robot.x,
+            y: robot.y
+          },
+          attachments: robot.attachments.map(attachment => ({
+            type: attachment.type,
+            controller: attachment.controller ? {
+              mode: attachment.controller.mode,
+              cfg: attachment.controller.cfg
+            } : null
+          }))
+        }))
+      });
+
+      const toast = document.getElementById("toast");
+      const contextPanel = document.querySelector("[data-testid=context-panel]");
+      const contextKicker = document.querySelector(".context-kicker");
+      const contextTitle = document.getElementById("context-title");
+      const contextCopy = document.querySelector(".context-header p");
+      const contextBody = document.getElementById("scene-list");
+      const contextFooter = document.querySelector(".context-footer");
+      const canvas = document.querySelector("[data-testid=scene-canvas]");
+      const tutorialDialog = document.getElementById("tutorial-dialog");
+      const isaac3dDialog = document.getElementById("isaac-3d-dialog");
+      const confirmationDialog = document.getElementById("confirmation-dialog");
+      const tourRing = document.querySelector(".tour-target-ring");
+      let storageAvailable = true;
+      let toastTimer;
+      let draftTimer;
+      let catalogRendered = false;
+      let tourIndex = 0;
+      let dragState = null;
+      let paletteDragPayload = null;
+      let palettePointerDrag = null;
+
+      const announce = message => {
+        window.clearTimeout(toastTimer);
+        toast.textContent = message;
+        toast.dataset.visible = "true";
+        toastTimer = window.setTimeout(() => {
+          toast.dataset.visible = "false";
+        }, 4200);
+      };
+
+      const announceAssetFailure = () => announce("素材图片未能加载");
+      const selectedRobot = () => state.robots.find(robot => robot.id === state.selectedRobotId) || null;
+      const sceneById = id => catalog.scenes.find(scene => scene.id === id) || null;
+      const labelForRobot = type => catalog.robots[type]?.label || type;
+      const labelsForTypes = types => types.map(labelForRobot).join("、");
+      const attachmentEntry = type => catalog.manipulators[type] || catalog.sensors[type] || catalog.tools[type] || null;
+      const payloadGroups = Object.freeze([
+        ["manipulator", "Manipulators", catalog.manipulators],
+        ["sensor", "Sensors", catalog.sensors]
+      ]);
+      const runtimeName = robot => {
+        let count = 0;
+        for (const item of state.robots) {
+          if (item.type === robot.type) count += 1;
+          if (item.id === robot.id) return `${robot.type}_${count}`;
+        }
+        return `${robot.type}_1`;
+      };
+      const stateHasWork = () => Boolean(state.scene || state.robots.length || state.taskName !== "my_env");
+
+      const readStorage = key => {
+        if (!storageAvailable) return null;
+        try {
+          return window.localStorage.getItem(key);
+        } catch (_error) {
+          storageAvailable = false;
+          announce("浏览器未允许本地草稿保存，当前编辑仍可继续");
+          return null;
+        }
+      };
+
+      const writeStorage = (key, value) => {
+        if (!storageAvailable) return;
+        try {
+          window.localStorage.setItem(key, value);
+        } catch (_error) {
+          storageAvailable = false;
+          announce("浏览器未允许本地草稿保存，当前编辑仍可继续");
+        }
+      };
+
+      const removeStorage = key => {
+        if (!storageAvailable) return;
+        try {
+          window.localStorage.removeItem(key);
+        } catch (_error) {
+          storageAvailable = false;
+        }
+      };
+
+      const scheduleDraft = () => {
+        window.clearTimeout(draftTimer);
+        draftTimer = window.setTimeout(() => {
+          writeStorage(DRAFT_KEY, JSON.stringify({
+            stage: state.stage,
+            scene: state.scene,
+            robots: state.robots,
+            selectedRobotId: state.selectedRobotId,
+            nextRobotNumber: state.nextRobotNumber,
+            taskName: state.taskName
+          }));
+        }, 250);
+      };
+
+      const applyStateSnapshot = snapshot => {
+        state.stage = Number.isInteger(snapshot.stage) ? Math.min(6, Math.max(1, snapshot.stage)) : 1;
+        state.scene = snapshot.scene && sceneById(snapshot.scene) ? snapshot.scene : null;
+        state.robots = Array.isArray(snapshot.robots)
+          ? snapshot.robots.filter(robot => robot && hasOwn(catalog.robots, robot.type)).map((robot, index) => ({
+            id: robot.id || `robot-${index + 1}`,
+            type: robot.type,
+            x: clampCoord(robot.x),
+            y: clampCoord(robot.y),
+            controller: robot.controller && robot.controller.mode === "manual"
+              ? { mode: "manual", cfg: String(robot.controller.cfg || catalog.robots[robot.type].cfg) }
+              : { mode: "default", cfg: catalog.robots[robot.type].cfg },
+            attachments: Array.isArray(robot.attachments) ? robot.attachments.filter(attachment => {
+              const entry = attachmentEntry(attachment.type);
+              return entry && entry.supported.includes(robot.type);
+            }).map(attachment => {
+              const entry = attachmentEntry(attachment.type);
+              return {
+                type: attachment.type,
+                controller: entry.cfg ? {
+                  mode: attachment.controller?.mode === "manual" ? "manual" : "default",
+                  cfg: String(attachment.controller?.cfg || entry.cfg)
+                } : null
+              };
+            }) : []
+          }))
+          : [];
+        state.selectedRobotId = state.robots.some(robot => robot.id === snapshot.selectedRobotId)
+          ? snapshot.selectedRobotId
+          : state.robots.at(-1)?.id || null;
+        state.nextRobotNumber = Math.max(Number(snapshot.nextRobotNumber) || 1, state.robots.length + 1);
+        state.taskName = typeof snapshot.taskName === "string" ? snapshot.taskName : "my_env";
+        state.validationErrors = [];
+      };
+
+      document.addEventListener("error", event => {
+        const image = event.target;
+        if (!(image instanceof HTMLImageElement) || image.dataset.fallbackApplied) {
+          return;
+        }
+
+        image.dataset.fallbackApplied = "true";
+        image.hidden = true;
+        const fallback = document.createElement("span");
+        fallback.className = "asset-fallback";
+        fallback.setAttribute("role", "img");
+        fallback.setAttribute("aria-label", `${image.alt || "素材"}图片未能加载`);
+        fallback.textContent = "素材不可用";
+        image.insertAdjacentElement("afterend", fallback);
+        announceAssetFailure();
+      }, true);
+
+      const createIcon = name => {
+        const icon = document.createElement("i");
+        icon.dataset.lucide = name;
+        icon.setAttribute("aria-hidden", "true");
+        return icon;
+      };
+
+      const createButton = (className, label, onClick) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = className;
+        button.textContent = label;
+        button.addEventListener("click", onClick);
+        return button;
+      };
+
+      const dragMimeType = "application/x-eai-env-diy-asset";
+      const draggableGroups = new Set(["scene", "robot", "manipulator", "sensor", "tool"]);
+      const isAttachmentPayload = payload => payload?.group === "manipulator" || payload?.group === "sensor" || payload?.group === "tool";
+      const dragInstruction = (group, label) => group === "scene"
+        ? `拖动 ${label} 到左侧画布来选择场景`
+        : group === "robot"
+          ? `拖动 ${label} 到左侧画布来添加机器人`
+          : `拖动 ${label} 到画布中的目标机器人上完成绑定`;
+
+      const readAssetPayload = event => {
+        const transfer = event.dataTransfer;
+        const raw = transfer?.getData(dragMimeType) || transfer?.getData("text/plain") || "";
+        if (raw) {
+          try {
+            const payload = JSON.parse(raw);
+            if (payload && draggableGroups.has(payload.group)) return payload;
+          } catch (_error) {
+            const [group, key] = raw.split(":");
+            if (draggableGroups.has(group) && key) return { group, key };
+          }
+        }
+        return paletteDragPayload;
+      };
+
+      const clearDropIndicators = () => {
+        canvas.removeAttribute("data-drop-target");
+        document.querySelectorAll("[data-drop-active]").forEach(node => {
+          node.removeAttribute("data-drop-active");
+        });
+      };
+
+      const canvasCoordinatesFromEvent = event => {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: (event.clientX - rect.left) / Math.max(1, rect.width),
+          y: (event.clientY - rect.top - 34) / Math.max(1, rect.height - 60)
+        };
+      };
+
+      const robotDropNodeFromTarget = target => target?.closest?.("[data-robot-id]") || null;
+
+      const applyPaletteDrop = (payload, event, target) => {
+        if (!payload) return false;
+        if (payload.group === "scene") {
+          if (!canvas.contains(target)) return false;
+          selectSceneFromUi(payload.key);
+          announce(`${catalog.scenes.find(scene => scene.id === payload.key)?.label || payload.key} 场景已放入画布`);
+          return true;
+        }
+        if (payload.group === "robot") {
+          if (!canvas.contains(target)) return false;
+          const { x, y } = canvasCoordinatesFromEvent(event);
+          const id = actions.addRobot(payload.key, x, y);
+          announce(`${labelForRobot(payload.key)} 已添加到画布`);
+          window.setTimeout(() => {
+            document.querySelector(`[data-robot-id="${id}"]`)?.focus({ preventScroll: true });
+          }, 0);
+          return true;
+        }
+
+        if (isAttachmentPayload(payload)) {
+          const robotNode = robotDropNodeFromTarget(target);
+          if (!robotNode) {
+            announce("请将 Payload 或工具拖到目标机器人上");
+            return false;
+          }
+          const robot = state.robots.find(item => item.id === robotNode.dataset.robotId);
+          if (!robot) return false;
+          state.selectedRobotId = robot.id;
+          if (actions.attach(robot.id, payload.key)) {
+            const entry = attachmentEntry(payload.key);
+            announce(`${entry.label} 已绑定到 ${runtimeName(robot)}`);
+          } else {
+            announce("该附件与当前机器人不兼容或已经添加");
+            render();
+          }
+          return true;
+        }
+
+        return false;
+      };
+
+      const updatePointerDragIndicator = event => {
+        if (!palettePointerDrag?.active) return;
+        const target = document.elementFromPoint(event.clientX, event.clientY);
+        const payload = palettePointerDrag.payload;
+        clearDropIndicators();
+        if ((payload.group === "scene" || payload.group === "robot") && target && canvas.contains(target)) {
+          canvas.dataset.dropTarget = payload.group;
+        }
+        if (isAttachmentPayload(payload)) {
+          robotDropNodeFromTarget(target)?.setAttribute("data-drop-active", "true");
+        }
+      };
+
+      const renderPreloader = () => {
+        const groups = [
+          ["scenes", catalog.scenes.map(scene => [scene.id, scene])],
+          ["robots", Object.entries(catalog.robots)],
+          ["manipulators", Object.entries(catalog.manipulators)],
+          ["sensors", Object.entries(catalog.sensors)],
+          ["tools", Object.entries(catalog.tools)]
+        ];
+        const fragment = document.createDocumentFragment();
+
+        groups.forEach(([group, entries]) => {
+          entries.forEach(([key, entry]) => {
+            if (!entry.image) return;
+            const image = document.createElement("img");
+            image.setAttribute("data-asset-image", "");
+            image.dataset.catalogGroup = group;
+            image.dataset.catalogKey = key;
+            image.dataset.catalogEntry = JSON.stringify(entry);
+            image.src = entry.image;
+            image.alt = entry.label;
+            fragment.append(image);
+          });
+        });
+
+        document.getElementById("asset-preloader").replaceChildren(fragment);
+        document.getElementById("known-cfg-values").replaceChildren(
+          ...cfgNames.map(name => {
+            const option = document.createElement("option");
+            option.value = name;
+            return option;
+          })
+        );
+      };
+
+      const setHeader = meta => {
+        document.querySelector(".toolbar-kicker").textContent = meta.kicker;
+        document.querySelector(".editor-toolbar h2").textContent = meta.title;
+        contextKicker.textContent = meta.context;
+        contextTitle.textContent = meta.heading;
+        contextCopy.textContent = meta.copy;
+      };
+
+      const selectSceneFromUi = sceneId => {
+        if (state.robots.length && state.scene && state.scene !== sceneId) {
+          askConfirmation({
+            title: "更换场景",
+            message: "更换场景会清空当前已放置的机器人与附件。",
+            cancelLabel: "保留当前场景",
+            confirmLabel: "更换场景",
+            beforeConfirm: () => actions.selectScene(sceneId)
+          }).then(confirmed => {
+            if (!confirmed) return;
+          });
+          return;
+        }
+        actions.selectScene(sceneId);
+      };
+
+      const renderScenes = () => {
+        const fragment = document.createDocumentFragment();
+
+        catalog.scenes.forEach(scene => {
+          const option = makeAssetCard({
+            key: scene.id,
+            entry: scene,
+            group: "scene",
+            note: state.scene === scene.id ? "当前场景 · 可拖动重新放置" : "拖到左侧画布选择",
+            pressed: state.scene === scene.id,
+            onClick: () => selectSceneFromUi(scene.id)
+          });
+          option.classList.add("scene-option");
+          const image = option.querySelector("img");
+          if (image) image.alt = `${scene.label}场景预览`;
+          fragment.append(option);
+        });
+
+        contextBody.className = "scene-list";
+        contextBody.replaceChildren(fragment);
+        contextFooter.innerHTML = `<span>仓库素材</span><span class="catalog-count">${catalog.scenes.length} 个场景</span>`;
+      };
+
+      const makeAssetCard = ({ key, entry, group, disabled = false, note = "", pressed = false, onClick }) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "asset-card";
+        button.disabled = disabled;
+        const canDrag = !disabled && draggableGroups.has(group);
+        const destination = group === "scene" || group === "robot" ? " 到左侧画布" : " 到目标机器人";
+        button.draggable = canDrag;
+        button.dataset.assetKind = group;
+        button.dataset.assetKey = key;
+        const fallbackAction = group === "scene" ? `；点击选择${entry.label}场景` : "";
+        button.setAttribute("aria-label", `${disabled ? "不可拖动" : "拖动"} ${entry.label}${disabled ? "" : destination}${fallbackAction}`);
+        button.setAttribute("aria-pressed", String(pressed));
+        button.addEventListener("click", event => {
+          if (button.dataset.suppressClick === "true") {
+            delete button.dataset.suppressClick;
+            return;
+          }
+          onClick(event);
+        });
+        button.addEventListener("pointerdown", event => {
+          if (!canDrag || event.button !== 0) return;
+          palettePointerDrag = {
+            payload: { group, key, label: entry.label },
+            source: button,
+            startX: event.clientX,
+            startY: event.clientY,
+            active: false,
+            pointerId: event.pointerId
+          };
+          button.setPointerCapture?.(event.pointerId);
+        });
+        button.addEventListener("dragstart", event => {
+          if (!canDrag) {
+            event.preventDefault();
+            return;
+          }
+          if (palettePointerDrag?.source === button) {
+            button.releasePointerCapture?.(palettePointerDrag.pointerId);
+            palettePointerDrag = null;
+          }
+          paletteDragPayload = { group, key, label: entry.label };
+          button.classList.add("is-dragging");
+          event.dataTransfer.effectAllowed = "copy";
+          event.dataTransfer.setData(dragMimeType, JSON.stringify(paletteDragPayload));
+          event.dataTransfer.setData("text/plain", `${group}:${key}`);
+        });
+        button.addEventListener("dragend", () => {
+          if (palettePointerDrag?.source === button) {
+            button.releasePointerCapture?.(palettePointerDrag.pointerId);
+            palettePointerDrag = null;
+          }
+          button.classList.remove("is-dragging");
+          paletteDragPayload = null;
+          clearDropIndicators();
+        });
+
+        const icon = document.createElement("span");
+        icon.className = "asset-icon";
+        if (entry.image) {
+          const image = document.createElement("img");
+          image.src = entry.image;
+          image.alt = `${entry.label} ${group}`;
+          icon.append(image);
+        } else {
+          const fallbackIcon = document.createElement("i");
+          fallbackIcon.dataset.lucide = "box";
+          fallbackIcon.setAttribute("aria-hidden", "true");
+          icon.append(fallbackIcon);
+        }
+
+        const copy = document.createElement("span");
+        copy.className = "asset-copy";
+        const title = document.createElement("strong");
+        title.textContent = entry.label;
+        const meta = document.createElement("span");
+        meta.textContent = note || key;
+        copy.append(title, meta);
+        button.append(icon, copy);
+        return button;
+      };
+
+      const renderRobots = () => {
+        const fragment = document.createDocumentFragment();
+        Object.entries(catalog.robots).forEach(([key, entry]) => {
+          fragment.append(makeAssetCard({
+            key,
+            entry,
+            group: "robot",
+            note: `默认 CFG: ${entry.cfg}`,
+            onClick: () => announce(dragInstruction("robot", entry.label))
+          }));
+        });
+        contextBody.className = "asset-list";
+        contextBody.replaceChildren(fragment);
+        contextFooter.innerHTML = `<span>机器人</span><span class="catalog-count">${Object.keys(catalog.robots).length} 个类型</span>`;
+      };
+
+      const appendAttachmentCards = (fragment, kind, entries, robot) => {
+        Object.entries(entries).forEach(([key, entry]) => {
+          const supported = robot ? entry.supported.includes(robot.type) : false;
+          const duplicate = robot ? robot.attachments.some(item => item.type === key) : false;
+          const manipulatorAlreadyAttached = kind === "manipulator" && robot
+            ? robot.attachments.some(item => hasOwn(catalog.manipulators, item.type))
+            : false;
+          const disabled = Boolean(robot && (!supported || duplicate || manipulatorAlreadyAttached));
+          const note = !robot
+            ? `拖到兼容机器人 · 支持 ${labelsForTypes(entry.supported)}`
+            : duplicate
+              ? "该附件已经添加到此机器人"
+              : manipulatorAlreadyAttached
+                ? "该机器人已经挂载机械臂"
+                : supported ? `支持当前 ${labelForRobot(robot.type)}` : `支持 ${labelsForTypes(entry.supported)}`;
+          fragment.append(makeAssetCard({
+            key,
+            entry,
+            group: kind,
+            disabled,
+            note,
+            pressed: duplicate,
+            onClick: () => announce(dragInstruction(kind, entry.label))
+          }));
+        });
+      };
+
+      const renderAttachmentCatalog = (kind, entries) => {
+        const robot = selectedRobot();
+        const fragment = document.createDocumentFragment();
+        appendAttachmentCards(fragment, kind, entries, robot);
+        contextBody.className = "asset-list";
+        contextBody.replaceChildren(fragment);
+        contextFooter.innerHTML = `<span>${robot ? runtimeName(robot) : "未选择机器人"}</span><span class="catalog-count">${Object.keys(entries).length} 项</span>`;
+      };
+
+      const renderPayloadCatalog = () => {
+        const robot = selectedRobot();
+        const fragment = document.createDocumentFragment();
+        let total = 0;
+        payloadGroups.forEach(([kind, label, entries]) => {
+          const heading = document.createElement("h3");
+          heading.className = "catalog-section-title";
+          heading.textContent = label;
+          fragment.append(heading);
+          appendAttachmentCards(fragment, kind, entries, robot);
+          total += Object.keys(entries).length;
+        });
+        contextBody.className = "asset-list";
+        contextBody.replaceChildren(fragment);
+        contextFooter.innerHTML = `<span>${robot ? runtimeName(robot) : "未选择机器人"}</span><span class="catalog-count">${total} 项</span>`;
+      };
+
+      const renderInspector = () => {
+        const robot = selectedRobot();
+        contextBody.className = "inspector";
+        if (!robot) {
+          contextBody.innerHTML = `<article class="inspector-card"><span class="asset-icon">${createIcon("mouse-pointer-2").outerHTML}</span><span><strong>尚未选择机器人</strong><span>在画布中选择一个机器人后，可编辑控制器 CFG 与附件。</span></span></article>`;
+          contextFooter.innerHTML = `<span>CFG</span><span class="catalog-count">等待选择</span>`;
+          renderIcons();
+          return;
+        }
+
+        const defaultCfg = catalog.robots[robot.type].cfg;
+        const attachmentRows = robot.attachments.map((attachment, index) => {
+          const entry = attachmentEntry(attachment.type);
+          const controller = attachment.controller;
+          return `<div class="inspector-card">
+            <span class="asset-icon"><img src="${entry.image}" alt="${entry.label}"></span>
+            <span><strong>${entry.label}</strong><span>${controller ? `控制器 ${controller.cfg}` : "无独立控制器"}</span>
+            ${controller ? `<div class="field-grid">
+              <div class="field-row">
+                <label for="attachment-controller-mode-${index}">${entry.label} 控制器模式</label>
+                <select id="attachment-controller-mode-${index}" aria-label="${entry.label} 控制器模式" data-attachment-mode="${index}">
+                  <option value="default">默认（${entry.cfg}）</option>
+                  <option value="manual">手动填写</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <label for="attachment-controller-cfg-${index}">${entry.label} 自定义 CFG</label>
+                <input id="attachment-controller-cfg-${index}" aria-label="${entry.label} 自定义 CFG" list="known-cfg-values" data-attachment-cfg="${index}" value="${controller.cfg}">
+              </div>
+            </div>` : ""}
+            <button class="button button-secondary" type="button" data-remove-attachment="${index}">移除</button></span>
+          </div>`;
+        }).join("");
+
+        contextBody.innerHTML = `
+          <article class="inspector-card">
+            <span class="asset-icon"><img src="${catalog.robots[robot.type].image}" alt="${labelForRobot(robot.type)}"></span>
+            <span><strong>${runtimeName(robot)}</strong><span>X ${robot.x.toFixed(4)} · Y ${robot.y.toFixed(4)}</span></span>
+          </article>
+          <div class="field-grid">
+            <div class="field-row">
+              <label for="robot-controller-mode">机器人控制器模式</label>
+              <select id="robot-controller-mode" aria-label="机器人控制器模式">
+                <option value="default">默认（${defaultCfg}）</option>
+                <option value="manual">手动填写</option>
+              </select>
+            </div>
+            <div class="field-row" id="manual-cfg-row">
+              <label for="robot-controller-cfg">自定义机器人 CFG</label>
+              <input id="robot-controller-cfg" aria-label="自定义机器人 CFG" list="known-cfg-values" value="${robot.controller.cfg}">
+            </div>
+            <div class="inline-actions">
+              <button class="button button-secondary" type="button" data-delete-selected>删除选中机器人</button>
+              <button class="button button-secondary" type="button" data-reset-env>重置环境</button>
+            </div>
+          </div>
+          ${attachmentRows || `<p class="compat-note">尚未添加 Payload 或工具。</p>`}
+        `;
+
+        const mode = contextBody.querySelector("#robot-controller-mode");
+        const cfg = contextBody.querySelector("#robot-controller-cfg");
+        mode.value = robot.controller.mode;
+        cfg.disabled = robot.controller.mode !== "manual";
+        mode.addEventListener("change", () => actions.setRobotController(robot.id, mode.value, cfg.value));
+        cfg.addEventListener("input", () => actions.setRobotController(robot.id, "manual", cfg.value));
+        contextBody.querySelector("[data-delete-selected]").addEventListener("click", () => actions.deleteRobot(robot.id));
+        contextBody.querySelector("[data-reset-env]").addEventListener("click", () => {
+          askConfirmation({
+            title: "重置环境",
+            message: "这会清空当前场景、机器人、附件和名称。",
+            cancelLabel: "取消",
+            confirmLabel: "确认重置",
+            beforeConfirm: actions.reset
+          }).then(confirmed => {
+            if (!confirmed) return;
+          });
+        });
+        contextBody.querySelectorAll("[data-remove-attachment]").forEach(button => {
+          button.addEventListener("click", () => actions.removeAttachment(robot.id, Number(button.dataset.removeAttachment)));
+        });
+        contextBody.querySelectorAll("[data-attachment-mode]").forEach(select => {
+          const index = Number(select.dataset.attachmentMode);
+          const attachment = robot.attachments[index];
+          const cfg = contextBody.querySelector(`[data-attachment-cfg="${index}"]`);
+          select.value = attachment.controller?.mode || "default";
+          cfg.disabled = select.value !== "manual";
+          select.addEventListener("change", () => actions.setAttachmentController(robot.id, index, select.value, cfg.value));
+        });
+        contextBody.querySelectorAll("[data-attachment-cfg]").forEach(input => {
+          const index = Number(input.dataset.attachmentCfg);
+          input.addEventListener("input", () => actions.setAttachmentController(robot.id, index, "manual", input.value));
+        });
+        contextFooter.innerHTML = `<span>${runtimeName(robot)}</span><span class="catalog-count">${robot.attachments.length} 个附件</span>`;
+      };
+
+      const validateForExport = () => {
+        const errors = [];
+        if (!state.scene || !state.robots.length) {
+          errors.push("请先选择场景并添加至少一个机器人");
+        }
+        if (!/^[A-Za-z0-9_-]+$/.test(state.taskName || "") || state.taskName.endsWith(".json")) {
+          errors.push("Env 名称只能包含字母、数字、下划线和短横线");
+        }
+        state.robots.forEach(robot => {
+          if (robot.controller.mode === "manual" && !robot.controller.cfg.trim()) {
+            errors.push("请输入有效的 CFG 名称");
+          }
+          robot.attachments.forEach(attachment => {
+            if (attachment.controller?.mode === "manual" && !attachment.controller.cfg.trim()) {
+              errors.push("请输入有效的 CFG 名称");
+            }
+          });
+        });
+        return [...new Set(errors)];
+      };
+
+      const renderReviewTools = () => {
+        const errors = state.validationErrors;
+        const name = state.taskName || "my_env";
+        contextBody.className = "review-tools";
+        contextBody.innerHTML = `
+          <div class="field-grid">
+            <div class="field-row">
+              <label for="task-name-input">Env 名称</label>
+              <input id="task-name-input" aria-label="Env 名称" value="${state.taskName}">
+            </div>
+            <div class="validation-errors" role="alert">${errors.map(error => `<span>${error}</span>`).join("")}</div>
+            <div class="field-row">
+              <label for="json-output">JSON</label>
+              <textarea id="json-output" class="json-output" readonly>${JSON.stringify(exportPayload(), null, 2)}</textarea>
+            </div>
+            <p class="compat-note">目标路径：<code>source/EAI_hmrs/EAI_hmrs/envs/${name}.json</code></p>
+            <p class="compat-note">运行命令：<code>python simulator.py --env=${name} --num_envs=1 --device=cuda:0</code></p>
+            <p class="compat-note"><code>visual.x/y</code> 仅表示本页与 Tk 窗口的 2D 布局，不是仿真出生坐标。</p>
+            <p class="compat-note">此网页不会启动 Isaac Sim；资产门禁用本地模拟状态复现 <code>READY / MISSING / DOWNLOADING / AUTH_REQUIRED / ACCESS_PENDING / FAILED</code>。真实插件会在同一 Kit 进程中完成编辑到正式运行，真实高度和 <code>spawn_pose</code> 仍需运行 <code>python simulator.py --diy-3d</code>。</p>
+            <div class="review-actions">
+              <button class="button button-secondary" type="button" data-check-assets>检查资产</button>
+              <button class="button button-secondary" type="button" data-request-access>申请 HF 权限</button>
+              <button class="button button-secondary" type="button" data-terminal-login>终端登录</button>
+              <button class="button button-primary" type="button" data-download-all-run>Download all and run</button>
+              <button class="button button-secondary" type="button" data-copy-json>复制 JSON</button>
+              <button class="button button-secondary" type="button" data-copy-path>复制路径</button>
+              <button class="button button-secondary" type="button" data-copy-command>复制命令</button>
+              <button class="button button-primary" type="button" data-download-json>下载 JSON</button>
+            </div>
+          </div>
+        `;
+        contextBody.querySelector("#task-name-input").addEventListener("input", event => actions.setTaskName(event.target.value));
+        contextBody.querySelector("[data-copy-json]").addEventListener("click", () => copyText(JSON.stringify(exportPayload(), null, 2)));
+        contextBody.querySelector("[data-copy-path]").addEventListener("click", () => copyText(`source/EAI_hmrs/EAI_hmrs/envs/${state.taskName || "my_env"}.json`));
+        contextBody.querySelector("[data-copy-command]").addEventListener("click", () => copyText(`python simulator.py --env=${state.taskName || "my_env"} --num_envs=1 --device=cuda:0`));
+        contextBody.querySelector("[data-download-json]").addEventListener("click", downloadJson);
+        contextBody.querySelector("[data-check-assets]").addEventListener("click", () => {
+          announce("资产检查完成：当前教程状态为 READY；本地插件会按 selection 检查 USD、Payload 和 controller cfg。");
+        });
+        contextBody.querySelector("[data-request-access]").addEventListener("click", () => {
+          window.open("https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets", "_blank", "noopener");
+          announce("已打开 gated HF 数据集申请页面");
+        });
+        contextBody.querySelector("[data-terminal-login]").addEventListener("click", () => {
+          copyText("hf auth login");
+          announce("已复制 hf auth login；在启动 Isaac Sim 的终端完成登录后选择 Recheck");
+        });
+        contextBody.querySelector("[data-download-all-run]").addEventListener("click", () => {
+          if (errors.length) {
+            announce("请先修复 JSON 校验错误，再下载并运行");
+            return;
+          }
+          const runState = document.querySelector(".review-state");
+          runState.textContent = "READY · PREPARING · RUNNING（同一 Kit 进程）";
+          announce("selection 已保存；真实 --diy-3d 会在同一个 Isaac Sim 进程中创建正式环境");
+        });
+        contextFooter.innerHTML = `<span>版本 1 schema</span><span class="catalog-count">${state.robots.length} 个机器人</span>`;
+      };
+
+      const renderIcons = () => {
+        if (window.lucide) {
+          window.lucide.createIcons({ attrs: { "stroke-width": 1.8 } });
+        }
+      };
+
+      const renderState = () => {
+        const scene = catalog.scenes.find(entry => entry.id === state.scene);
+        const meta = stageMeta[state.stage] || stageMeta[1];
+        setHeader(meta);
+        document.querySelectorAll(".step-button").forEach(button => {
+          button.setAttribute("aria-current", Number(button.dataset.stage) === state.stage ? "step" : "false");
+        });
+        document.querySelector(".project-trail strong").textContent = state.taskName;
+        document.querySelector(".review-state").textContent = scene
+          ? `${scene.label} · ${state.robots.length} 个机器人`
+          : "等待场景选择";
+        document.querySelector(".json-preview code").textContent = JSON.stringify(exportPayload(), null, 2);
+        canvas.setAttribute("aria-label", scene ? `${scene.label}场景画布` : "场景画布，尚未选择场景");
+        renderCanvas(scene);
+        if (state.stage === 1) renderScenes();
+        if (state.stage === 2) renderRobots();
+        if (state.stage === 3) renderPayloadCatalog();
+        if (state.stage === 4) renderAttachmentCatalog("tool", catalog.tools);
+        if (state.stage === 5) renderInspector();
+        if (state.stage === 6) renderReviewTools();
+      };
+
+      const render = () => {
+        if (!catalogRendered) {
+          renderPreloader();
+          catalogRendered = true;
+        }
+        renderState();
+        renderIcons();
+      };
+
+      const renderCanvas = scene => {
+        canvas.querySelectorAll(".scene-backdrop, .placed-robot, .attachment-badge").forEach(node => node.remove());
+        if (scene) {
+          const backdrop = document.createElement("div");
+          backdrop.className = "scene-backdrop";
+          if (scene.image) {
+            const image = document.createElement("img");
+            image.src = scene.image;
+            image.alt = `${scene.label}场景`;
+            backdrop.append(image);
+          } else {
+            const fallback = document.createElement("span");
+            fallback.className = "scene-backdrop-fallback";
+            fallback.innerHTML = `<i data-lucide="box" aria-hidden="true"></i><strong>${scene.label}</strong>`;
+            backdrop.append(fallback);
+          }
+          canvas.insertBefore(backdrop, canvas.querySelector(".canvas-empty"));
+        }
+        canvas.querySelector(".canvas-empty").hidden = Boolean(scene);
+        state.robots.forEach(robot => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "placed-robot";
+          button.dataset.robotId = robot.id;
+          button.style.left = `${robot.x * 100}%`;
+          button.style.top = `${34 + robot.y * (canvas.clientHeight - 60)}px`;
+          button.setAttribute("aria-label", `选择 ${runtimeName(robot)}`);
+          button.setAttribute("aria-pressed", String(state.selectedRobotId === robot.id));
+          button.innerHTML = `<img src="${catalog.robots[robot.type].image}" alt=""><span>${runtimeName(robot)}</span>`;
+          button.addEventListener("pointerdown", event => {
+            dragState = { id: robot.id };
+            state.selectedRobotId = robot.id;
+            button.setPointerCapture?.(event.pointerId);
+            renderContextOnly();
+          });
+          button.addEventListener("click", () => actions.selectRobot(robot.id));
+          button.addEventListener("dragover", event => {
+            const payload = readAssetPayload(event);
+            if (!isAttachmentPayload(payload)) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "copy";
+            button.dataset.dropActive = "true";
+          });
+          button.addEventListener("dragleave", event => {
+            if (!button.contains(event.relatedTarget)) {
+              button.removeAttribute("data-drop-active");
+            }
+          });
+          button.addEventListener("drop", event => {
+            const payload = readAssetPayload(event);
+            if (!isAttachmentPayload(payload)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            clearDropIndicators();
+            state.selectedRobotId = robot.id;
+            if (actions.attach(robot.id, payload.key)) {
+              const entry = attachmentEntry(payload.key);
+              announce(`${entry.label} 已绑定到 ${runtimeName(robot)}`);
+            } else {
+              announce("该附件与当前机器人不兼容或已经添加");
+              render();
+            }
+          });
+          canvas.append(button);
+
+          robot.attachments.forEach((attachment, index) => {
+            const entry = attachmentEntry(attachment.type);
+            const badge = document.createElement("span");
+            badge.className = "attachment-badge";
+            badge.style.left = `${Math.min(96, robot.x * 100 + 6 + index * 6)}%`;
+            badge.style.top = `${34 + Math.max(20, robot.y * (canvas.clientHeight - 60) - 24 - index * 6)}px`;
+            badge.title = entry.label;
+            badge.innerHTML = `<img src="${entry.image}" alt="${entry.label}">`;
+            canvas.append(badge);
+          });
+        });
+      };
+
+      const renderContextOnly = () => {
+        if (state.stage === 3) renderPayloadCatalog();
+        if (state.stage === 4) renderAttachmentCatalog("tool", catalog.tools);
+        if (state.stage === 5) renderInspector();
+      };
+
+      const actions = {
+        setStage(stage) {
+          state.stage = Math.min(6, Math.max(1, Number(stage) || 1));
+          render();
+          scheduleDraft();
+        },
+
+        selectScene(scene) {
+          const sceneKey = canonicalKey(scene);
+          if (!catalog.scenes.some(entry => entry.id === sceneKey)) {
+            throw new RangeError(`Unknown scene: ${scene}`);
+          }
+
+          state.scene = sceneKey;
+          state.robots = [];
+          state.selectedRobotId = null;
+          state.nextRobotNumber = 1;
+          render();
+          scheduleDraft();
+        },
+
+        addRobot(type, x = 0.5, y = 0.5) {
+          const robotType = canonicalKey(type);
+          if (!hasOwn(catalog.robots, robotType)) {
+            throw new RangeError(`Unknown robot type: ${type}`);
+          }
+
+          const id = `robot-${state.nextRobotNumber}`;
+          state.nextRobotNumber += 1;
+          state.robots.push({
+            id,
+            type: robotType,
+            x: clampCoord(x),
+            y: clampCoord(y),
+            controller: { mode: "default", cfg: catalog.robots[robotType].cfg },
+            attachments: []
+          });
+          state.selectedRobotId = id;
+          render();
+          scheduleDraft();
+          return id;
+        },
+
+        selectRobot(robotId) {
+          state.selectedRobotId = state.robots.some(robot => robot.id === robotId) ? robotId : null;
+          render();
+          scheduleDraft();
+        },
+
+        moveRobot(robotId, x, y) {
+          const robot = state.robots.find(entry => entry.id === robotId);
+          if (!robot) return false;
+          robot.x = clampCoord(x);
+          robot.y = clampCoord(y);
+          state.selectedRobotId = robotId;
+          render();
+          scheduleDraft();
+          return true;
+        },
+
+        deleteRobot(robotId) {
+          state.robots = state.robots.filter(robot => robot.id !== robotId);
+          if (state.selectedRobotId === robotId) {
+            state.selectedRobotId = state.robots.at(-1)?.id || null;
+          }
+          render();
+          scheduleDraft();
+        },
+
+        attach(robotId, type) {
+          const robot = state.robots.find(entry => entry.id === robotId);
+          const attachmentType = canonicalKey(type);
+          const entry = attachmentEntry(attachmentType);
+          if (!robot || !entry || !entry.supported.includes(robot.type)) {
+            return false;
+          }
+          if (robot.attachments.some(attachment => attachment.type === attachmentType)) {
+            return false;
+          }
+          if (hasOwn(catalog.manipulators, attachmentType)
+            && robot.attachments.some(attachment => hasOwn(catalog.manipulators, attachment.type))) {
+            return false;
+          }
+
+          robot.attachments.push({
+            type: attachmentType,
+            controller: entry.cfg ? { mode: "default", cfg: entry.cfg } : null
+          });
+          render();
+          scheduleDraft();
+          return true;
+        },
+
+        removeAttachment(robotId, index) {
+          const robot = state.robots.find(entry => entry.id === robotId);
+          if (!robot || index < 0 || index >= robot.attachments.length) return false;
+          robot.attachments.splice(index, 1);
+          render();
+          scheduleDraft();
+          return true;
+        },
+
+        setRobotController(robotId, mode, cfg) {
+          const robot = state.robots.find(entry => entry.id === robotId);
+          if (!robot) return false;
+          robot.controller = mode === "manual"
+            ? { mode: "manual", cfg: String(cfg ?? robot.controller.cfg) }
+            : { mode: "default", cfg: catalog.robots[robot.type].cfg };
+          render();
+          scheduleDraft();
+          return true;
+        },
+
+        setAttachmentController(robotId, index, mode, cfg) {
+          const robot = state.robots.find(entry => entry.id === robotId);
+          const attachment = robot?.attachments[index];
+          const entry = attachment ? attachmentEntry(attachment.type) : null;
+          if (!attachment || !entry?.cfg) return false;
+          attachment.controller = mode === "manual"
+            ? { mode: "manual", cfg: String(cfg ?? attachment.controller?.cfg ?? entry.cfg) }
+            : { mode: "default", cfg: entry.cfg };
+          render();
+          scheduleDraft();
+          return true;
+        },
+
+        setTaskName(value) {
+          state.taskName = typeof value === "string" ? value.trim() : "";
+          render();
+          scheduleDraft();
+        },
+
+        reset() {
+          state.stage = 1;
+          state.scene = null;
+          state.robots = [];
+          state.selectedRobotId = null;
+          state.nextRobotNumber = 1;
+          state.taskName = "my_env";
+          state.validationErrors = [];
+          render();
+          removeStorage(DRAFT_KEY);
+        }
+      };
+
+      const attachFromUi = type => {
+        const robot = selectedRobot();
+        if (!robot) {
+          announce("先在画布中选择目标机器人");
+          return;
+        }
+        if (!actions.attach(robot.id, type)) {
+          announce("该附件与当前机器人不兼容或已经添加");
+        }
+      };
+
+      const askConfirmation = ({ title, message, cancelLabel = "取消", confirmLabel = "确认", beforeConfirm = null }) => new Promise(resolve => {
+        confirmationDialog.querySelector("#confirmation-title").textContent = title;
+        confirmationDialog.querySelector("#confirmation-message").textContent = message;
+        const cancel = confirmationDialog.querySelector("[value=cancel]");
+        const confirm = confirmationDialog.querySelector("[value=confirm]");
+        cancel.textContent = cancelLabel;
+        confirm.textContent = confirmLabel;
+        const onConfirmClick = () => {
+          if (typeof beforeConfirm === "function") {
+            beforeConfirm();
+          }
+        };
+        const onClose = () => {
+          confirmationDialog.removeEventListener("close", onClose);
+          confirm.removeEventListener("click", onConfirmClick);
+          resolve(confirmationDialog.returnValue === "confirm");
+        };
+        confirm.addEventListener("click", onConfirmClick, { once: true });
+        confirmationDialog.addEventListener("close", onClose);
+        confirmationDialog.showModal();
+      });
+
+      const copyText = async text => {
+        try {
+          await navigator.clipboard.writeText(text);
+          announce("已复制");
+        } catch (_error) {
+          const output = document.getElementById("json-output");
+          output?.focus();
+          output?.select();
+          announce("浏览器未授予剪贴板权限，请按 Ctrl/Cmd+C 复制");
+        }
+      };
+
+      const downloadJson = () => {
+        state.validationErrors = validateForExport();
+        render();
+        if (state.validationErrors.length) {
+          document.getElementById("task-name-input")?.focus();
+          return;
+        }
+        try {
+          const blob = new Blob([JSON.stringify(exportPayload(), null, 2)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `${state.taskName}.json`;
+          document.body.append(link);
+          link.click();
+          link.remove();
+          URL.revokeObjectURL(url);
+          announce("JSON 已生成");
+        } catch (_error) {
+          announce("下载失败，请使用复制 JSON");
+        }
+      };
+
+      const tourSteps = [
+        { title: "欢迎来到 Env DIY", copy: "这个网页复刻本地轻量 2D Env DIY 的核心流程。顶部的 Browser 2D 用于熟悉 JSON 与兼容关系；真实三维编辑使用 Isaac Sim 3D。", target: ".workspace", stage: 1 },
+        { title: "切换到 Isaac Sim 3D", copy: "点击顶部 Isaac Sim 3D 可查看本地插件的启动与运行流程。插件默认停靠在 Isaac Sim 右侧，Run 会在同一个 Kit 进程内切换到正式环境。", target: ".mode-button[data-tutorial-mode='isaac']", stage: 1 },
+        { title: "选择一个场景", copy: "右侧场景卡片来自仓库素材目录。选择场景后，机器人会放到左侧深色画布中。", target: ".scene-option", stage: 1 },
+        { title: "拖入机器人", copy: "从右侧把机器人卡片拖到左侧画布；同类机器人会按 carter_1、carter_2 生成实例名。", target: ".asset-card", stage: 2 },
+        { title: "拖动画布中的机器人", copy: "机器人在深色画布中的拖动只更新 visual.x/y；高度和物理位姿不由本页表示。", target: "[data-testid=scene-canvas]", stage: 2 },
+        { title: "拖入 Payloads", copy: "Manipulators（UR5/Z1）和 Sensors（GS-Hub/LiDAR）会按当前工程的兼容矩阵启用或禁用；同一机器人不能同时挂载 UR5 和 Z1。Isaac Sim 中机械臂会固定装配到宿主，生成失败时可在 Placed Robots 中按 robot ID 重试或删除。", target: ".context-panel", stage: 3 },
+        { title: "拖入工具与选择 CFG", copy: "Tools 对应 ROS / Keyboard 控制通道，同样拖到目标机器人；CFG 可以保持默认，也可以进入配置页手动填写。", target: ".step-button[data-stage='4']", stage: 4 },
+        { title: "检查并导出", copy: "最后检查 JSON，复制或下载到 source/EAI_hmrs/EAI_hmrs/envs/ 后即可用 simulator.py 启动。", target: ".review-region", stage: 6 }
+      ];
+
+      const updateTourSpotlight = () => {
+        const step = tourSteps[tourIndex];
+        const target = document.querySelector(step.target) || document.querySelector(".workspace");
+        if (!target || !tourRing) return;
+        const rect = target.getBoundingClientRect();
+        const pad = 8;
+        tourRing.hidden = false;
+        tourRing.style.left = `${Math.max(8, rect.left - pad)}px`;
+        tourRing.style.top = `${Math.max(8, rect.top - pad)}px`;
+        tourRing.style.width = `${Math.max(36, Math.min(window.innerWidth - 16, rect.width + pad * 2))}px`;
+        tourRing.style.height = `${Math.max(36, Math.min(window.innerHeight - 16, rect.height + pad * 2))}px`;
+      };
+
+      const renderTour = () => {
+        const { title, copy, stage } = tourSteps[tourIndex];
+        if (state.stage !== stage) {
+          actions.setStage(stage);
+        }
+        tutorialDialog.querySelector(".dialog-body").innerHTML = `<strong>${title}</strong><p>${copy}</p>`;
+        const actionsNode = tutorialDialog.querySelector(".dialog-actions");
+        actionsNode.innerHTML = "";
+        actionsNode.append(
+          createButton("button button-secondary", "跳过教程", finishTour),
+          createButton("button button-secondary", "上一步", () => {
+            tourIndex = Math.max(0, tourIndex - 1);
+            renderTour();
+          }),
+          createButton("button button-primary", tourIndex === tourSteps.length - 1 ? "完成" : "下一步", () => {
+            if (tourIndex === tourSteps.length - 1) finishTour();
+            else {
+              tourIndex += 1;
+              actions.setStage(Math.min(6, tourIndex + 1));
+              renderTour();
+            }
+          })
+        );
+        actionsNode.querySelectorAll("button")[1].disabled = tourIndex === 0;
+        window.requestAnimationFrame(updateTourSpotlight);
+      };
+
+      const startTour = (index = 0) => {
+        tourIndex = index;
+        renderTour();
+        if (!tutorialDialog.open) tutorialDialog.show();
+        window.requestAnimationFrame(updateTourSpotlight);
+      };
+
+      const finishTour = () => {
+        writeStorage(TOUR_KEY, "true");
+        if (tutorialDialog.open) tutorialDialog.close();
+        if (tourRing) tourRing.hidden = true;
+        window.setTimeout(() => {
+          document.querySelector("[data-open-tutorial]")?.focus({ preventScroll: true });
+        }, 0);
+      };
+
+      const requestTutorialExit = () => {
+        if (!tutorialDialog.open) return;
+        const currentIndex = tourIndex;
+        tutorialDialog.close();
+        if (tourRing) tourRing.hidden = true;
+        askConfirmation({ title: "退出教程", message: "是否退出当前教程？", cancelLabel: "继续学习", confirmLabel: "退出教程" })
+          .then(confirmed => {
+            if (confirmed) finishTour();
+            else startTour(currentIndex);
+          });
+      };
+
+      const setTutorialMode = mode => {
+        const normalizedMode = mode === "isaac" ? "isaac" : "browser";
+        document.documentElement.dataset.tutorialMode = normalizedMode;
+        document.querySelectorAll("[data-tutorial-mode]").forEach(button => {
+          const active = button.dataset.tutorialMode === normalizedMode;
+          button.classList.toggle("is-active", active);
+          button.setAttribute("aria-pressed", String(active));
+        });
+        if (normalizedMode === "isaac") {
+          if (!isaac3dDialog.open) isaac3dDialog.showModal();
+        } else if (isaac3dDialog.open) {
+          isaac3dDialog.close();
+        }
+      };
+
+      document.getElementById("lucide-script").addEventListener("load", renderIcons, { once: true });
+      document.querySelectorAll("[data-tutorial-mode]").forEach(button => {
+        button.addEventListener("click", () => setTutorialMode(button.dataset.tutorialMode));
+      });
+      document.querySelector("[data-open-tutorial]").addEventListener("click", () => {
+        startTour(0);
+      });
+      document.querySelector("[data-open-panel]").addEventListener("click", () => {
+        contextPanel.scrollIntoView({ block: "start", behavior: "smooth" });
+      });
+      document.querySelectorAll(".step-button").forEach(button => {
+        button.addEventListener("click", () => actions.setStage(Number(button.dataset.stage)));
+      });
+      canvas.addEventListener("dragover", event => {
+        const payload = readAssetPayload(event);
+        if (!payload) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+        if (payload.group === "scene" || payload.group === "robot") {
+          canvas.dataset.dropTarget = payload.group;
+        }
+      });
+      canvas.addEventListener("dragleave", event => {
+        if (!canvas.contains(event.relatedTarget)) {
+          canvas.removeAttribute("data-drop-target");
+        }
+      });
+      canvas.addEventListener("drop", event => {
+        const payload = readAssetPayload(event);
+        if (!payload) return;
+        event.preventDefault();
+        clearDropIndicators();
+        if (payload.group === "scene") {
+          selectSceneFromUi(payload.key);
+          announce(`${catalog.scenes.find(scene => scene.id === payload.key)?.label || payload.key} 场景已放入画布`);
+          return;
+        }
+        if (payload.group === "robot") {
+          const { x, y } = canvasCoordinatesFromEvent(event);
+          const id = actions.addRobot(payload.key, x, y);
+          announce(`${labelForRobot(payload.key)} 已添加到画布`);
+          window.setTimeout(() => {
+            document.querySelector(`[data-robot-id="${id}"]`)?.focus({ preventScroll: true });
+          }, 0);
+          return;
+        }
+        if (isAttachmentPayload(payload)) {
+          announce("请将 Payload 或工具拖到目标机器人上");
+        }
+      });
+      document.addEventListener("pointermove", event => {
+        if (palettePointerDrag) {
+          const distance = Math.hypot(event.clientX - palettePointerDrag.startX, event.clientY - palettePointerDrag.startY);
+          if (!palettePointerDrag.active && distance > 6) {
+            palettePointerDrag.active = true;
+            paletteDragPayload = palettePointerDrag.payload;
+            palettePointerDrag.source.classList.add("is-dragging");
+          }
+          if (palettePointerDrag.active) {
+            event.preventDefault();
+            updatePointerDragIndicator(event);
+          }
+          return;
+        }
+        if (!dragState) return;
+        const { x, y } = canvasCoordinatesFromEvent(event);
+        actions.moveRobot(
+          dragState.id,
+          x,
+          y
+        );
+      });
+      document.addEventListener("pointerup", event => {
+        if (palettePointerDrag) {
+          const drag = palettePointerDrag;
+          palettePointerDrag = null;
+          drag.source.releasePointerCapture?.(drag.pointerId);
+          drag.source.classList.remove("is-dragging");
+          paletteDragPayload = null;
+          clearDropIndicators();
+          if (drag.active) {
+            drag.source.dataset.suppressClick = "true";
+            event.preventDefault();
+            applyPaletteDrop(drag.payload, event, document.elementFromPoint(event.clientX, event.clientY));
+          }
+          return;
+        }
+        dragState = null;
+      });
+      document.addEventListener("pointercancel", () => {
+        if (palettePointerDrag) {
+          palettePointerDrag.source.classList.remove("is-dragging");
+          palettePointerDrag = null;
+          paletteDragPayload = null;
+          clearDropIndicators();
+        }
+        dragState = null;
+      });
+      tutorialDialog.addEventListener("cancel", event => {
+        event.preventDefault();
+        requestTutorialExit();
+      });
+      window.addEventListener("resize", () => {
+        if (tutorialDialog.open) updateTourSpotlight();
+      });
+      document.addEventListener("keydown", event => {
+        if (event.key === "Escape" && tutorialDialog.open) {
+          event.preventDefault();
+          requestTutorialExit();
+        }
+      });
+
+      window.EnvDIY = {
+        catalogSummary: () => ({
+          scenes: catalog.scenes.length,
+          robots: Object.keys(catalog.robots).length,
+          payloads: Object.keys(catalog.manipulators).length + Object.keys(catalog.sensors).length,
+          manipulators: Object.keys(catalog.manipulators).length,
+          sensors: Object.keys(catalog.sensors).length,
+          tools: Object.keys(catalog.tools).length
+        })
+      };
+      Object.assign(window.EnvDIY, {
+        actions,
+        exportPayload,
+        debugState: () => cloneValue(state)
+      });
+      setTutorialMode("browser");
+      const draft = readStorage(DRAFT_KEY);
+      if (draft && readStorage(TOUR_KEY) === "true") {
+        try {
+          const snapshot = JSON.parse(draft);
+          askConfirmation({
+            title: "恢复未完成的环境",
+            message: "检测到上次未完成的 Env DIY 草稿。",
+            cancelLabel: "丢弃草稿",
+            confirmLabel: "恢复草稿",
+            beforeConfirm: () => {
+              applyStateSnapshot(snapshot);
+              render();
+              announce("已恢复草稿");
+            }
+          })
+            .then(confirmed => {
+              if (!confirmed) {
+                removeStorage(DRAFT_KEY);
+              }
+            });
+        } catch (_error) {
+          removeStorage(DRAFT_KEY);
+        }
+      } else if (readStorage(TOUR_KEY) !== "true") {
+        window.setTimeout(() => startTour(0), 80);
+      }
+      render();
+    })();
+  </script>
+</body>
+</html>

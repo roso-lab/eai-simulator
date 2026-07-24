@@ -1,0 +1,24 @@
+{
+  "robots": [
+    {
+      "attachments": [
+        {
+          "controller": null,
+          "type": "keyboard"
+        }
+      ],
+      "controller": {
+        "cfg": "CARTER_DIFF_CFG",
+        "mode": "default"
+      },
+      "type": "carter",
+      "visual": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    }
+  ],
+  "scene_key": "plane",
+  "task_name": "keyboard",
+  "version": 1
+}

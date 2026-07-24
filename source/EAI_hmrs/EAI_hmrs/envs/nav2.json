@@ -1,0 +1,28 @@
+{
+  "robots": [
+    {
+      "attachments": [
+        {
+          "controller": null,
+          "type": "gshub"
+        },
+        {
+          "controller": null,
+          "type": "ros"
+        }
+      ],
+      "controller": {
+        "cfg": "CARTER_DIFF_CFG",
+        "mode": "default"
+      },
+      "type": "carter",
+      "visual": {
+        "x": 0.3798,
+        "y": 0.2798
+      }
+    }
+  ],
+  "scene_key": "factory",
+  "task_name": "nav2",
+  "version": 1
+}

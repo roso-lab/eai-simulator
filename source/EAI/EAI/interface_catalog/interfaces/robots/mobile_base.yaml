@@ -1,0 +1,24 @@
+id: robot.mobile_base
+name: Mobile Robot Base
+category: robot
+models: [carter, scout, mushr_v2, go2, b2, lite3, m20, cf2x, g1, pepper]
+description: Common simulator movement interfaces for mobile robots.
+interfaces:
+  - id: ros.cmd_vel
+    name: Velocity command
+    protocol: ros2
+    direction: input
+    kind: topic
+    endpoint: /{robot}/cmd_vel
+    data_type: geometry_msgs/msg/Twist
+    description: Sends linear and angular velocity commands through the optional ROS bridge.
+    example: 'ros2 topic pub --once /{robot}/cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.2}, angular: {z: 0.0}}"'
+  - id: python.env_step
+    name: Simulator step action
+    protocol: python
+    direction: input
+    kind: method
+    endpoint: env.step
+    data_type: dict[str, torch.Tensor]
+    description: Advances the simulator with an action tensor for each robot instance.
+    example: 'env.step({"{robot}": command_tensor})'

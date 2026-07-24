@@ -1,0 +1,24 @@
+{
+  "robots": [
+    {
+      "attachments": [
+        {
+          "controller": null,
+          "type": "keyboard"
+        }
+      ],
+      "controller": {
+        "cfg": "HUMAN_ANIMATION_CFG",
+        "mode": "default"
+      },
+      "type": "human",
+      "visual": {
+        "x": 0.6865,
+        "y": 0.3945
+      }
+    }
+  ],
+  "scene_key": "plane",
+  "task_name": "human",
+  "version": 1
+}

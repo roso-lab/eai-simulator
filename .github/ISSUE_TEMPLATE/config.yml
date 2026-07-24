@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions, ideas, and community discussion
+    url: https://github.com/Huang-Qijun/eai-simulator/discussions
+    about: Use GitHub Discussions for open-ended questions, design ideas, and community proposals.
+  - name: Security vulnerability
+    url: https://github.com/Huang-Qijun/eai-simulator/security/advisories/new
+    about: Report suspected vulnerabilities privately. Do not create a public issue for security reports.
+  - name: Community workflow
+    url: https://github.com/Huang-Qijun/eai-simulator/blob/main/docs/community_workflow.md
+    about: Read how the public GitHub community and internal GitLab maintenance flow work together.

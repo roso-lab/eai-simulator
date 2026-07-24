@@ -1,0 +1,19 @@
+[package]
+version = "0.1.0"
+title = "EAI Env DIY 3D"
+description = "Run-before-simulation USD authoring for EAI Env DIY"
+category = "robotics"
+keywords = ["isaac", "environment", "authoring", "robotics"]
+
+[dependencies]
+"isaaclab" = {}
+"omni.kit.notification_manager" = {}
+"omni.kit.uiapp" = {}
+"omni.kit.viewport.window" = {}
+"omni.usd" = {}
+
+[core]
+reloadable = true
+
+[[python.module]]
+name = "EAI_env_diy"

@@ -1,0 +1,28 @@
+{
+  "robots": [
+    {
+      "attachments": [
+        {
+          "controller": null,
+          "type": "gshub"
+        },
+        {
+          "controller": null,
+          "type": "ros"
+        }
+      ],
+      "controller": {
+        "cfg": "LITE3_VELOCITY_RSL_CFG",
+        "mode": "default"
+      },
+      "type": "lite3",
+      "visual": {
+        "x": 0.2762,
+        "y": 0.34
+      }
+    }
+  ],
+  "scene_key": "factory",
+  "task_name": "lite3",
+  "version": 1
+}

@@ -1,0 +1,77 @@
+name: Deploy Documentation
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'docs/**'
+      - '.github/workflows/deploy-docs.yml'
+  workflow_dispatch:  # 允许手动触发
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install sphinx furo myst-parser sphinx-autodoc-typehints
+
+      - name: Build documentation
+        run: |
+          cd docs
+          make clean
+          make html
+
+      - name: Verify Env DIY tutorial artifact
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          root = Path("docs/build/html")
+          tutorial = root / "env_diy_tutorial.html"
+          images = sorted((root / "env-diy-assets").rglob("*.png"))
+          signature = b"\x89PNG\r\n\x1a\n"
+          invalid = [str(path.relative_to(root)) for path in images if path.read_bytes()[:8] != signature]
+
+          if not tutorial.is_file():
+              raise SystemExit("missing built Env DIY tutorial HTML")
+          if len(images) != 22:
+              raise SystemExit(f"expected 22 built Env DIY PNGs, found {len(images)}")
+          if invalid:
+              raise SystemExit(f"invalid built PNG files: {invalid}")
+          print("verified Env DIY tutorial HTML and 22 PNG assets")
+          PY
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/build/html
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
