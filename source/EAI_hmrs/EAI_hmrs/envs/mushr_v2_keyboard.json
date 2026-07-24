@@ -1,0 +1,24 @@
+{
+  "robots": [
+    {
+      "attachments": [
+        {
+          "controller": null,
+          "type": "keyboard"
+        }
+      ],
+      "controller": {
+        "cfg": "MUSHR_ACKERMANN_CFG",
+        "mode": "default"
+      },
+      "type": "mushr_v2",
+      "visual": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    }
+  ],
+  "scene_key": "plane",
+  "task_name": "mushr_v2_keyboard",
+  "version": 1
+}

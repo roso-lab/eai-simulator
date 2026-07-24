@@ -1,0 +1,26 @@
+id: sensor.lidar
+name: ROS LiDAR
+category: sensor
+models: [lidar, ros_lidar, velodyne]
+description: Standalone LiDAR outputs.
+interfaces:
+  - id: ros.lidar.point_cloud
+    name: LiDAR point cloud
+    protocol: ros2
+    direction: output
+    kind: topic
+    endpoint: /{robot}/cloud
+    data_type: sensor_msgs/msg/PointCloud2
+    description: Raw LiDAR point cloud.
+    example: ros2 topic echo --once /{robot}/cloud
+    read_only_test: {type: ros_topic}
+  - id: ros.lidar.odometry
+    name: LiDAR odometry
+    protocol: ros2
+    direction: output
+    kind: topic
+    endpoint: /{robot}/odometry
+    data_type: nav_msgs/msg/Odometry
+    description: Odometry output from the LiDAR attachment graph.
+    example: ros2 topic echo --once /{robot}/odometry
+    read_only_test: {type: ros_topic}

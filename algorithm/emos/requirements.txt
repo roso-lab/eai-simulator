@@ -1,0 +1,6 @@
+# EMOS LLM stack (emos/brain/API) — install into your Isaac Lab env, e.g.:
+#   pip install -r /path/to/EAI/algorithm/emos/requirements.txt
+docstring-parser>=0.16
+colorama>=0.4.6
+openai>=1.0.0,<2
+pydantic>=2.0.0

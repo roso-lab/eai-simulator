@@ -1,0 +1,35 @@
+{
+  "robots": [
+    {
+      "attachments": [
+        {
+          "controller": {
+            "cfg": "UR5_IK_CFG",
+            "mode": "default"
+          },
+          "type": "ur5"
+        },
+        {
+          "controller": null,
+          "type": "keyboard"
+        },
+        {
+          "controller": null,
+          "type": "ros"
+        }
+      ],
+      "controller": {
+        "cfg": "M20_ROUGH_RSL_CFG",
+        "mode": "default"
+      },
+      "type": "m20",
+      "visual": {
+        "x": 0.471,
+        "y": 0.4017
+      }
+    }
+  ],
+  "scene_key": "plane",
+  "task_name": "m20_ur5_kb_ros",
+  "version": 1
+}

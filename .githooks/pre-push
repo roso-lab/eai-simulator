@@ -1,0 +1,75 @@
+#!/bin/bash
+#
+# Git pre-push hook to enforce branch naming conventions
+#
+# Allowed branch patterns:
+#   - main, master, develop, development
+#   - feature/<name>
+#   - bugfix/<name>
+#   - hotfix/<name>
+#   - release/<name>
+#   - chore/<name>
+#   - docs/<name>
+#   - refactor/<name>
+#   - test/<name>  (for test-related branches, not standalone "test")
+#   - ci/<name>
+#
+
+# Get current branch name
+BRANCH_NAME=$(git symbolic-ref --short HEAD 2>/dev/null)
+
+# If we can't get branch name (detached HEAD), allow the push
+if [ -z "$BRANCH_NAME" ]; then
+    exit 0
+fi
+
+# Define allowed branch patterns
+# Main branches
+MAIN_BRANCHES="^(main|master|develop|development)$"
+
+# Feature branches with prefix
+PREFIX_BRANCHES="^(feature|bugfix|hotfix|release|chore|docs|refactor|test|ci|fix|perf|style|build)/.+$"
+
+# Check if branch matches allowed patterns
+if echo "$BRANCH_NAME" | grep -qE "$MAIN_BRANCHES"; then
+    exit 0
+fi
+
+if echo "$BRANCH_NAME" | grep -qE "$PREFIX_BRANCHES"; then
+    exit 0
+fi
+
+
+# Branch name doesn't match any allowed pattern
+echo ""
+echo "========================================="
+echo "  ❌ BRANCH NAMING ERROR"
+echo "========================================="
+echo ""
+echo "Branch name '$BRANCH_NAME' does not follow naming conventions."
+echo ""
+echo "Allowed patterns:"
+echo "  • main, master, develop, development"
+echo "  • feature/<name>    - New features"
+echo "  • bugfix/<name>     - Bug fixes"
+echo "  • hotfix/<name>     - Urgent production fixes"
+echo "  • release/<name>    - Release preparation"
+echo "  • chore/<name>      - Maintenance tasks"
+echo "  • docs/<name>       - Documentation"
+echo "  • refactor/<name>   - Code refactoring"
+echo "  • test/<name>       - Test-related changes"
+echo "  • ci/<name>         - CI/CD changes"
+echo "  • fix/<name>        - General fixes"
+echo "  • perf/<name>       - Performance improvements"
+echo ""
+echo "Examples:"
+echo "  feature/user-authentication"
+echo "  bugfix/login-error"
+echo "  hotfix/critical-security-patch"
+echo "  chore/update-dependencies"
+echo ""
+echo "To rename your branch:"
+echo "  git branch -m $BRANCH_NAME feature/<new-name>"
+echo ""
+echo "========================================="
+exit 1

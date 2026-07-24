@@ -1,0 +1,53 @@
+id: sensor.ur5
+name: UR5 Manipulator Attachment
+category: sensor
+models: [ur5]
+description: UR5 arm control interfaces attached to a supported mobile robot.
+interfaces:
+  - id: ros.ur5.target_pose
+    name: End-effector target pose
+    protocol: ros2
+    direction: input
+    kind: topic
+    endpoint: /{robot}/ur5/target_pose
+    data_type: geometry_msgs/msg/PoseStamped
+    description: Desired end-effector pose consumed by the native Isaac ROS2 OmniGraph bridge.
+    example: 'ros2 topic pub --once /{robot}/ur5/target_pose geometry_msgs/msg/PoseStamped "{header: {frame_id: world}, pose: {position: {x: 0.6, y: 0.0, z: 0.8}, orientation: {w: 1.0}}}"'
+  - id: ros.ur5.joint_command
+    name: Joint position command
+    protocol: ros2
+    direction: input
+    kind: topic
+    endpoint: /{robot}/ur5/joint_command
+    data_type: sensor_msgs/msg/JointState
+    description: Desired positions for the six canonical UR5 joints.
+    example: 'ros2 topic pub --once /{robot}/ur5/joint_command sensor_msgs/msg/JointState "{position: [0.0, -1.2, 1.3, -1.57, -1.57, 0.0]}"'
+  - id: ros.ur5.joint_states
+    name: Joint states
+    protocol: ros2
+    direction: output
+    kind: topic
+    endpoint: /{robot}/ur5/joint_states
+    data_type: sensor_msgs/msg/JointState
+    description: Current UR5 joint positions and velocities.
+    example: ros2 topic echo --once /{robot}/ur5/joint_states
+    read_only_test: {type: ros_topic}
+  - id: ros.ur5.ee_pose
+    name: End-effector pose
+    protocol: ros2
+    direction: output
+    kind: topic
+    endpoint: /{robot}/ur5/ee_pose
+    data_type: geometry_msgs/msg/PoseStamped
+    description: Current UR5 end-effector pose in the simulation world frame.
+    example: ros2 topic echo --once /{robot}/ur5/ee_pose
+    read_only_test: {type: ros_topic}
+  - id: python.ur5.ik_controller
+    name: UR5 IK controller
+    protocol: python
+    direction: input
+    kind: class
+    endpoint: EAI.controllers.ik_controller
+    data_type: UR5_IK_CFG
+    description: Python-side inverse-kinematics controller configuration.
+    example: controller = env_cfg.controllers["{robot}_ur5"]

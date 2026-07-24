@@ -1,0 +1,89 @@
+name: Bug report
+description: Report a reproducible bug in the public EAI Simulator repository.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve EAI Simulator. Please include enough detail for maintainers to reproduce the problem.
+  - type: input
+    id: version
+    attributes:
+      label: EAI Simulator version or commit
+      description: Use a release tag, branch name, or commit hash.
+      placeholder: "v0.1.0, main@abcdef0, or the commit shown by git rev-parse --short HEAD"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Installation
+        - Isaac Sim or Isaac Lab integration
+        - Environment composition or Env DIY
+        - Robots, humans, sensors, or assets
+        - Controllers or policies
+        - ROS2 or Nav2
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: System environment
+      description: Include OS, GPU/driver, Isaac Sim, Isaac Lab, ROS2, Python, and conda environment details when relevant.
+      placeholder: |
+        OS:
+        GPU and driver:
+        Isaac Sim:
+        Isaac Lab:
+        ROS2:
+        Python:
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide the smallest command sequence, config file, or scenario that reproduces the bug.
+      placeholder: |
+        1. Run ...
+        2. Open ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      placeholder: What happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs, traceback, screenshots, or recordings
+      description: Paste logs inside fenced code blocks. Attach screenshots or short recordings if they help.
+      render: shell
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I searched existing GitHub Issues and Discussions.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true

@@ -1,0 +1,139 @@
+# C++
+**/cmake-build*/
+**/build*/
+**/*.so
+**/*.log*
+
+# Omniverse
+**/*.dmp
+**/.thumbs
+
+# Python
+.DS_Store
+**/*.egg-info/
+**/__pycache__/
+**/.pytest_cache/
+**/.cache/huggingface/
+**/*.pyc
+**/*.pb
+
+# Docker/Singularity
+**/*.sif
+docker/cluster/exports/
+docker/.container.cfg
+
+# IDE
+**/.idea/
+**/.vscode/
+**/node_modules/
+**/test-results/
+**/playwright-report/
+# Don't ignore the top-level .vscode directory as it is
+# used to configure VS Code settings
+!.vscode
+
+# Outputs
+**/output/*
+**/outputs/*
+**/videos/*
+**/wandb/*
+**/.neptune/*
+docker/artifacts/
+*.tmp
+
+# Downloaded USD assets
+/usd/*
+!/usd/picture/
+!/usd/picture/**
+
+# Downloaded controller assets
+/source/EAI_assets/EAI_assets/controller/
+
+# Local runtime output directories
+/log/
+/logs/
+/tmp/
+/.worktrees/
+/.superpowers/
+/docs/superpowers/
+
+# Local agent and personal memory state
+/.agents/
+/.agentmemory/
+/memory/
+/data/
+/MEMORY.md
+/TOOLS.md
+/HEARTBEAT.md
+
+# Local experiment outputs
+/algorithm/TeamWeaver/
+/algorithm/arm_control/
+/algorithm/emos/radxa_data/model_comparison_*/
+/algorithm/emos/radxa_data/robot_headless_*/
+/algorithm/emos/radxa_data/smoke_*/
+/algorithm/emos/radxa_data/*.csv
+/algorithm/emos/radxa_data/*.json
+
+# Doc Outputs
+**/docs/_build/*
+**/generated/*
+
+# Isaac-Sim packman
+_isaac_sim*
+_repo
+_build
+.lastformat
+
+# Pre-Trained Checkpoints
+/.pretrained_checkpoints/
+
+# Teleop Recorded Dataset
+/datasets/
+
+# Tests
+tests/
+/source/EAI_assets/test/
+
+# Docker history
+.isaac-lab-docker-history
+ros2_cmd_vel.json
+*.json
+!/source/EAI_hmrs/EAI_hmrs/envs/*.json
+/source/EAI_hmrs/EAI_hmrs/envs/test*.json
+/source/EAI_hmrs/EAI_hmrs/envs/n.json
+*.0
+
+/test_results/
+
+# MuSHR Nano v2 EAI integration bundle
+# Keep the general downloaded-asset ignores above, but include this robot's
+# self-contained USD, controller adapter, and focused regression tests.
+!/usd/
+/usd/*
+!/usd/robot/
+/usd/robot/*
+!/usd/robot/mushr_v2/
+/usd/robot/mushr_v2/*
+!/usd/robot/mushr_v2/mushr_nano_v2.usd
+!/source/EAI_assets/EAI_assets/controller/
+/source/EAI_assets/EAI_assets/controller/*
+!/source/EAI_assets/EAI_assets/controller/traditional/
+/source/EAI_assets/EAI_assets/controller/traditional/*
+!/source/EAI_assets/EAI_assets/controller/traditional/mushr_ackermann/
+/source/EAI_assets/EAI_assets/controller/traditional/mushr_ackermann/*
+!/source/EAI_assets/EAI_assets/controller/traditional/mushr_ackermann/__init__.py
+!/source/EAI_assets/EAI_assets/controller/traditional/mushr_ackermann/kinematics.py
+!/source/EAI_assets/EAI_assets/controller/traditional/mushr_ackermann/mushr_ackermann.py
+!/source/EAI_assets/test/
+/source/EAI_assets/test/*
+!/source/EAI_assets/test/test_mushr_ackermann_controller.py
+!/source/EAI_assets/test/test_mushr_v2_registration.py
+
+# Runtime assets and tests are maintained outside the source repository.
+/usd/
+/source/EAI_assets/EAI_assets/controller/
+/source/EAI_assets/test/
+/docs/test-reports/
+test_*.py
+*_test.py

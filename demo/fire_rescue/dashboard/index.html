@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>工厂内异构多机协同巡检 监控仪表板</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/design-tokens.css">
+  <style>
+    :root {
+      --bg-primary:#030407; --bg-elevated:#080911; --bg-surface:#0d1117;
+      --bg-card:#131a26; --bg-hover:#1a2332; --glass-border:rgba(255,255,255,.05);
+      --accent:#00e5c0; --accent-dim:rgba(0,229,192,.1); --purple:#9f7aea;
+      --cyan:#22d3ee; --amber:#fbbf24; --rose:#f43f5e; --green:#10b981;
+      --text-1:#f4f6f9; --text-2:#9ca3af; --text-3:#525c70;
+      --font-d:'Outfit',sans-serif; --font-m:'JetBrains Mono',monospace; --font-u:'Noto Sans SC',sans-serif;
+      --r-sm:6px; --r-md:10px; --r-lg:14px; --tr:220ms cubic-bezier(.4,0,.2,1);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:var(--font-u);background:var(--bg-primary);color:var(--text-1);height:100vh;overflow:hidden;line-height:1.5}
+    .shell{display:flex;flex-direction:column;height:100vh}
+
+    .hdr{display:flex;align-items:center;gap:12px;padding:0 18px;height:50px;flex-shrink:0;background:rgba(8,9,17,.96);border-bottom:1px solid var(--glass-border)}
+    .logo{width:28px;height:28px;border-radius:var(--r-sm);background:linear-gradient(135deg,var(--rose),var(--purple));display:flex;align-items:center;justify-content:center;font-family:var(--font-m);font-size:9px;font-weight:700;color:#fff}
+    .brand{font-size:13px;font-weight:600}
+    .badge-mode{margin-left:12px;padding:2px 8px;border-radius:var(--r-sm);background:rgba(244,63,94,.12);color:var(--rose);font-size:10px;font-weight:600;letter-spacing:.05em}
+    .hstats{display:flex;gap:14px;margin-left:auto}
+    .hs{text-align:center}
+    .hs-l{font-size:9px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em}
+    .hs-v{font-family:var(--font-m);font-size:12px;color:var(--accent)}
+    .api-dot{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text-3)}
+    .dot{width:7px;height:7px;border-radius:50%;background:var(--rose)}
+    .dot.on{background:var(--green);box-shadow:0 0 6px var(--green)}
+
+    .main{flex:1;display:flex;overflow:hidden;min-height:0}
+
+    /* 左侧面板：机器人状态 + 系统日志 */
+    .lp{width:320px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid var(--glass-border);background:var(--bg-elevated)}
+    .lp-sec{padding:7px 9px 5px;border-bottom:1px solid var(--glass-border);flex-shrink:0}
+    .sec-ttl{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-3);margin-bottom:5px;display:flex;align-items:center;gap:5px}
+    .sec-ttl::after{content:'';flex:1;height:1px;background:var(--glass-border)}
+
+    .rmc{display:flex;align-items:center;gap:7px;padding:5px 7px;border-radius:var(--r-sm);margin-bottom:3px;cursor:default}
+    .rmc.selectable{cursor:pointer;border:1.5px solid transparent;transition:var(--tr)}
+    .rmc.selectable:hover{background:var(--bg-hover);border-color:rgba(255,255,255,.1)}
+    .rmc.selectable.sel{border-color:var(--accent);background:var(--accent-dim)}
+    .goal-hint{padding:8px;border-radius:var(--r-sm);background:var(--bg-card);border:1px solid var(--glass-border);display:none}
+    .goal-hint-ttl{font-size:10px;color:var(--accent);font-weight:600;margin-bottom:3px}
+    .goal-hint-txt{font-size:10px;color:var(--text-3);line-height:1.5}
+    #goal-status{font-size:10px;color:var(--amber);font-family:var(--font-m);margin-top:4px}
+    .rdot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+    .rdot.ok{background:var(--green);box-shadow:0 0 4px var(--green)}
+    .rdot.nav{background:var(--accent);box-shadow:0 0 4px var(--accent);animation:blink 1.2s ease-in-out infinite}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+    .ri{flex:1;min-width:0}
+    .rn{font-size:11px;font-weight:600;font-family:var(--font-m)}
+    .rp{font-size:9px;color:var(--text-3);font-family:var(--font-m)}
+    .rb{font-size:9px;padding:1px 5px;border-radius:3px}
+    .rb.nav{background:rgba(0,229,192,.15);color:var(--accent)}
+    .rb.agv{background:rgba(255,255,255,.05);color:var(--text-3)}
+    .task-chain{display:flex;align-items:center;flex-wrap:wrap;gap:3px;padding:2px 7px 4px;min-height:16px}
+    .task-chip{font-size:9px;padding:1px 6px;border-radius:3px;font-family:var(--font-m);border:1px solid transparent;white-space:nowrap}
+    .task-chip.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);font-weight:600}
+    .task-chip.pending{background:rgba(255,255,255,.04);border-color:var(--glass-border);color:var(--text-3)}
+    .task-chip.patrol{background:rgba(159,122,234,.12);border-color:rgba(159,122,234,.3);color:var(--purple)}
+    .task-chip.idle{color:var(--text-3);font-style:italic}
+    .task-arrow{font-size:9px;color:var(--text-3);flex-shrink:0}
+    .task-box{margin-top:8px;padding:8px;border-radius:var(--r-sm);background:var(--bg-card);border:1px solid var(--glass-border)}
+    .task-row{display:flex;align-items:center;gap:7px;margin-bottom:6px}
+    .task-row:last-child{margin-bottom:0}
+    .task-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--text-3)}
+    .task-dot.pending{background:var(--text-3)}
+    .task-dot.in-progress{background:var(--amber);box-shadow:0 0 6px rgba(251,191,36,.7)}
+    .task-dot.done{background:var(--green);box-shadow:0 0 6px rgba(16,185,129,.7)}
+    .task-label{font-size:10px;color:var(--text-2);flex:1}
+    .task-state{font-size:9px;color:var(--text-3);font-family:var(--font-m)}
+    .task-state.done{color:var(--green);font-weight:600}
+
+    .log-area{flex:1;overflow-y:auto;padding:7px 9px;display:flex;flex-direction:column;gap:4px;min-height:0}
+    .log-item{font-size:10px;line-height:1.4;padding:3px 6px;border-radius:4px;background:var(--bg-card);border:1px solid var(--glass-border)}
+    .log-item .log-s{font-size:9px;color:var(--text-3);font-family:var(--font-m)}
+
+    /* 右侧：视频 + 地图 */
+    .dvp{position:relative;flex:1;overflow:hidden;background:#000;min-width:0}
+    .dv-primary{position:absolute;inset:0;overflow:hidden}
+    #stream-img{width:100%;height:100%;object-fit:contain;display:none}
+    #dv-map-cv{position:absolute;inset:10px 14px;width:calc(100% - 28px);height:calc(100% - 20px);cursor:crosshair;display:none;border-radius:8px}
+    .dv-ph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--text-3)}
+    .dv-ph-icon{font-size:38px;opacity:.3}
+    .dv-top{position:absolute;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;gap:7px;padding:7px 11px;background:linear-gradient(to bottom,rgba(3,4,7,.85),transparent);pointer-events:none}
+    .dv-top-ttl{font-size:11px;color:var(--text-2);font-family:var(--font-m)}
+    .badge{display:inline-flex;padding:2px 7px;border-radius:var(--r-sm);font-size:9px;font-weight:600}
+    .bg-g{background:rgba(16,185,129,.15);color:var(--green)}
+    .bg-a{background:rgba(251,191,36,.15);color:var(--amber)}
+    .bg-r{background:rgba(244,63,94,.15);color:var(--rose)}
+    .danger-btn{padding:3px 10px;border-radius:var(--r-sm);border:1px solid rgba(244,63,94,.35);background:rgba(244,63,94,.14);color:var(--rose);font-size:10px;cursor:pointer;pointer-events:auto;font-family:var(--font-u);transition:var(--tr)}
+    .danger-btn:hover{background:rgba(244,63,94,.25)}
+    .dv-pip{position:absolute;bottom:13px;right:13px;z-index:10;width:200px;height:130px;border:2px solid var(--accent);border-radius:var(--r-md);overflow:hidden;cursor:pointer;box-shadow:0 4px 18px rgba(0,0,0,.55)}
+    #pip-map{position:absolute;inset:0;width:100%;height:100%}
+    #pip-vid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
+    .pip-lbl{position:absolute;top:4px;left:5px;z-index:11;font-size:8px;pointer-events:none;background:rgba(3,4,7,.8);color:var(--text-3);padding:1px 5px;border-radius:3px;font-family:var(--font-m)}
+    .pip-hint{position:absolute;bottom:3px;right:5px;z-index:11;font-size:7px;pointer-events:none;color:var(--text-3);opacity:.85;font-family:var(--font-m)}
+
+    /* EMOS 分配弹窗（与实验组同布局，纯机器人模式只读、无审批按钮） */
+    .emos-popup-overlay{display:none;position:fixed;inset:0;z-index:100;background:rgba(3,4,7,.7);backdrop-filter:blur(3px);align-items:center;justify-content:center}
+    .emos-popup-overlay.open{display:flex}
+    .emos-popup{background:linear-gradient(180deg,rgba(19,26,38,.98),rgba(10,14,22,.98));border:1px solid var(--glass-border);border-radius:var(--r-lg);width:900px;max-width:92vw;max-height:88vh;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.6);display:flex;flex-direction:column}
+    .ep-hdr{display:flex;align-items:center;gap:8px;padding:12px 18px;border-bottom:1px solid var(--glass-border)}
+    .ep-hdr-title{font-size:14px;font-weight:600;color:var(--amber)}
+    .ep-hdr-phase{font-size:10px;color:var(--text-3);font-family:var(--font-m);margin-left:auto}
+    .ep-body{display:flex;flex:1;overflow:hidden;min-height:0}
+    .ep-assign{flex:1;padding:14px;display:flex;gap:12px;position:relative;overflow:auto}
+    .ep-col{display:flex;flex-direction:column;gap:10px;flex-shrink:0;width:180px}
+    .ep-col-title{font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px}
+    .ep-box{padding:10px 12px;border-radius:var(--r-md);border:2px solid var(--glass-border);background:var(--bg-card);min-height:60px;cursor:default}
+    .ep-box.ep-readonly:hover{border-color:var(--glass-border);transform:none}
+    .ep-box .ep-name{font-size:12px;font-weight:600;font-family:var(--font-m)}
+    .ep-box .ep-desc{font-size:10px;color:var(--text-2);margin-top:3px;line-height:1.4}
+    .ep-box .ep-pos{font-size:9px;color:var(--text-3);font-family:var(--font-m);margin-top:2px}
+    .ep-svg{position:absolute;inset:0;pointer-events:none;z-index:1}
+    .ep-tree{width:260px;border-left:1px solid var(--glass-border);padding:14px;overflow-y:auto;flex-shrink:0}
+    .ep-tree-title{font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+    .tree-node{position:relative;padding-left:18px;margin-bottom:6px}
+    .tree-node::before{content:'';position:absolute;left:6px;top:0;bottom:0;width:1px;background:var(--glass-border)}
+    .tree-node:last-child::before{bottom:50%}
+    .tree-node .tn-dot{position:absolute;left:3px;top:5px;width:7px;height:7px;border-radius:50%;border:1.5px solid var(--text-3);background:var(--bg-card)}
+    .tree-node.active .tn-dot{border-color:var(--accent);background:var(--accent);box-shadow:0 0 6px rgba(0,229,192,.3)}
+    .tree-node.done .tn-dot{border-color:var(--green);background:var(--green)}
+    .tree-node .tn-label{font-size:11px;color:var(--text-2)}
+    .tree-node.active .tn-label{color:var(--accent);font-weight:500}
+    .tree-children{margin-left:8px}
+    .ep-footer{display:flex;align-items:center;gap:12px;padding:10px 18px;border-top:1px solid var(--glass-border);flex-wrap:wrap}
+    .ep-ro-hint{font-size:11px;color:var(--text-2);flex:1;min-width:200px}
+    .ep-btn{padding:6px 18px;border-radius:var(--r-sm);font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:var(--font-u);transition:var(--tr)}
+    .ep-btn.close{background:rgba(244,63,94,.1);color:var(--rose);border:1px solid rgba(244,63,94,.2)}
+    .ep-btn.close:hover{background:rgba(244,63,94,.2)}
+    .emos-mini{display:none;position:fixed;top:62px;right:14px;z-index:40;padding:5px 12px;border-radius:var(--r-md);background:linear-gradient(135deg,rgba(251,191,36,.15),rgba(251,146,36,.08));border:1px solid rgba(251,191,36,.3);cursor:pointer;font-size:11px;color:var(--amber);font-weight:500;box-shadow:0 4px 14px rgba(0,0,0,.3);transition:var(--tr)}
+    .emos-mini:hover{background:linear-gradient(135deg,rgba(251,191,36,.25),rgba(251,146,36,.15));transform:translateY(-1px)}
+    .emos-mini.show{display:flex;align-items:center;gap:6px}
+
+    /* 右下角地图点击放大：仅查看 */
+    .map-zoom-overlay{display:none;position:fixed;inset:0;z-index:200;background:rgba(3,4,7,.85);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:20px}
+    .map-zoom-overlay.open{display:flex}
+    .map-zoom-panel{width:min(94vw,1120px);height:min(82vh,720px);background:var(--bg-card);border:1px solid var(--glass-border);border-radius:var(--r-lg);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.55)}
+    .map-zoom-hdr{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--glass-border);flex-shrink:0;font-size:12px;color:var(--text-2)}
+    .map-zoom-hdr button{margin-left:auto;padding:4px 12px;border-radius:var(--r-sm);border:1px solid rgba(244,63,94,.25);background:rgba(244,63,94,.1);color:var(--rose);font-size:11px;cursor:pointer;font-family:var(--font-u)}
+    .map-zoom-hdr button:hover{background:rgba(244,63,94,.18)}
+    #map-zoom-cv{flex:1;width:100%;min-height:0;display:block;cursor:grab}
+
+    /* 实验结果弹窗（成功/失败） */
+    .result-overlay{display:none;position:fixed;inset:0;z-index:260;background:rgba(3,4,7,.78);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:20px}
+    .result-overlay.open{display:flex}
+    .result-card{width:min(560px,92vw);background:linear-gradient(180deg,rgba(19,26,38,.98),rgba(10,14,22,.98));border:1px solid var(--glass-border);border-radius:var(--r-lg);box-shadow:0 24px 80px rgba(0,0,0,.55);overflow:hidden}
+    .result-hdr{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--glass-border)}
+    .result-badge{font-size:11px;padding:2px 8px;border-radius:var(--r-sm);font-weight:600}
+    .result-badge.ok{background:rgba(16,185,129,.16);color:var(--green)}
+    .result-badge.fail{background:rgba(244,63,94,.16);color:var(--rose)}
+    .result-title{font-size:15px;font-weight:700}
+    .result-body{padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+    .result-row{font-size:12px;color:var(--text-2)}
+    .result-reason{font-size:12px;line-height:1.6;color:var(--text-1);background:rgba(255,255,255,.03);border:1px solid var(--glass-border);padding:8px 10px;border-radius:var(--r-sm)}
+    .result-footer{display:flex;justify-content:flex-end;padding:10px 16px;border-top:1px solid var(--glass-border)}
+    .result-btn{padding:6px 14px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);color:var(--text-1);font-size:12px;cursor:pointer;font-family:var(--font-u)}
+
+    ::-webkit-scrollbar{width:4px;height:4px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px}
+
+    /* ZHO token skin: keep the robot-only/OpenClaw DOM and JS contract intact. */
+    :root{
+      --theia-ui-font-family:"Noto Sans SC","Microsoft YaHei","PingFang SC","Segoe UI",Arial,sans-serif;
+      --theia-code-font-family:"JetBrains Mono","Consolas","Menlo","Courier New",monospace;
+      --theia-editor-background:#f7f8fb;
+      --theia-sideBar-background:#ffffff;
+      --theia-list-hoverBackground:#eef1f8;
+      --theia-panel-border:#dfe3ec;
+      --theia-foreground:#172033;
+      --theia-descriptionForeground:#647087;
+      --bg-primary:var(--zho-surface-bg);
+      --bg-elevated:var(--zho-surface-panel);
+      --bg-surface:var(--zho-gray-50);
+      --bg-card:#ffffff;
+      --bg-hover:var(--zho-surface-hover);
+      --glass-border:rgba(31,41,55,.12);
+      --accent:var(--zho-color-primary);
+      --accent-dim:rgba(93,111,212,.12);
+      --purple:var(--zho-color-primary-hover);
+      --cyan:var(--zho-color-info);
+      --amber:var(--zho-color-warning);
+      --rose:var(--zho-color-danger);
+      --green:var(--zho-color-success);
+      --text-1:var(--zho-text-primary);
+      --text-2:var(--zho-text-secondary);
+      --text-3:var(--zho-gray-400);
+      --font-d:var(--zho-font-family-ui);
+      --font-m:var(--zho-font-family-code);
+      --font-u:var(--zho-font-family-ui);
+      --r-sm:var(--zho-radius-sm);
+      --r-md:var(--zho-radius-md);
+      --r-lg:var(--zho-radius-lg);
+      --tr:var(--zho-transition-fast) ease;
+    }
+    body{background:var(--bg-primary);color:var(--text-1);-webkit-font-smoothing:antialiased}
+    .hdr{height:56px;background:var(--bg-elevated);border-bottom:1px solid var(--glass-border);box-shadow:var(--zho-shadow-sm)}
+    .logo{background:linear-gradient(135deg,var(--accent),var(--purple));border-radius:var(--r-sm)}
+    .brand{font-size:13px;font-weight:600;color:var(--text-1)}
+    .badge-mode{background:var(--zho-color-danger-soft-bg);color:var(--zho-color-danger-soft-fg);border:1px solid rgba(239,83,80,.2)}
+    .lp,.lp-sec{background:var(--bg-elevated);border-color:var(--glass-border)}
+    .lp{box-shadow:var(--zho-shadow-sm)}
+    .rmc.selectable:hover,.rmc.selectable.sel,.goal-hint,.task-box,.log-item,.emos-popup,.map-zoom-panel,.result-card,.ep-box{background:var(--bg-card);border-color:var(--glass-border);box-shadow:var(--zho-shadow-sm)}
+    .rmc.selectable.sel{border-color:var(--accent);background:var(--accent-dim)}
+    .task-chip.pending{background:var(--zho-gray-50);border-color:var(--glass-border)}
+    .dvp{background:#0b1020}
+    .dv-top{background:linear-gradient(to bottom,rgba(17,24,39,.7),transparent)}
+    .dv-pip{border-color:var(--accent);box-shadow:var(--zho-shadow-md)}
+    .emos-popup-overlay,.map-zoom-overlay,.result-overlay{background:rgba(247,248,251,.76);backdrop-filter:blur(6px)}
+    .ep-hdr,.ep-footer,.map-zoom-hdr,.result-hdr,.result-footer{border-color:var(--glass-border);background:rgba(255,255,255,.78)}
+    .ep-ro-hint{color:var(--text-2)}
+    .danger-btn{background:var(--zho-color-danger-soft-bg);color:var(--zho-color-danger-soft-fg);border-color:rgba(239,83,80,.28)}
+    .emos-mini{top:68px;background:var(--zho-color-warning-soft-bg);color:var(--zho-color-warning-soft-fg);border-color:rgba(255,152,0,.28);box-shadow:var(--zho-shadow-md)}
+  </style>
+</head>
+<body>
+<div class="shell">
+  <header class="hdr">
+    <div class="logo" id="mode-logo">RB</div>
+    <div class="brand" id="mode-brand">工厂内异构多机协同巡检 监控仪表板 · 纯机器人对照组</div>
+    <span class="badge-mode" id="mode-badge">ROBOT-ONLY · 只读</span>
+    <div class="hstats">
+      <div class="hs"><div class="hs-l">机器人</div><div class="hs-v" id="h-robots">—</div></div>
+      <div class="hs"><div class="hs-l">步数</div><div class="hs-v" id="h-step">—</div></div>
+      <div class="hs"><div class="hs-l">FPS</div><div class="hs-v" id="h-fps">—</div></div>
+      <div class="hs"><div class="hs-l">运行</div><div class="hs-v" id="h-runtime">—</div></div>
+    </div>
+    <div class="api-dot"><div class="dot" id="api-dot"></div><span id="api-status">未连接</span></div>
+  </header>
+
+  <div class="main">
+    <div class="lp">
+      <div class="lp-sec">
+        <div class="sec-ttl">机器人状态</div>
+        <div id="rmc-container"><div style="color:var(--text-3);font-size:11px;padding:4px;">等待连接...</div></div>
+        <div class="goal-hint" id="goal-hint">
+          <div class="goal-hint-ttl">人工直线导航</div>
+          <div class="goal-hint-txt">选择机器人后在地图上点击两次确认目标（第一次标记，附近再点确认）</div>
+          <div id="goal-status"></div>
+        </div>
+      </div>
+      <div class="lp-sec">
+        <div class="task-box">
+          <div class="sec-ttl">任务完成状态</div>
+          <div class="task-row">
+            <div class="task-dot pending" id="task1-dot"></div>
+            <div class="task-label">子任务1：拿到灭火器</div>
+            <div class="task-state" id="task1-state">未开始</div>
+          </div>
+          <div class="task-row">
+            <div class="task-dot pending" id="task2-dot"></div>
+            <div class="task-label">子任务2：敲击紧急救援按钮</div>
+            <div class="task-state" id="task2-state">未开始</div>
+          </div>
+          <div class="task-row">
+            <div class="task-dot pending" id="task3-dot"></div>
+            <div class="task-label">应急任务：清理阻碍救援的障碍物</div>
+            <div class="task-state" id="task3-state">未开始</div>
+          </div>
+          <div class="task-row">
+            <div class="task-dot pending" id="formation-dot"></div>
+            <div class="task-label">火源3m内作业机器人（成功需≥3）</div>
+            <div class="task-state" id="formation-state">—</div>
+          </div>
+          <div class="task-row">
+            <div class="task-dot pending" id="extfire-dot"></div>
+            <div class="task-label">搬运灭火器机器人位于火源点(≤3m)</div>
+            <div class="task-state" id="extfire-state">—</div>
+          </div>
+        </div>
+      </div>
+      <div class="lp-sec"><div class="sec-ttl">系统日志（只读）</div></div>
+      <div class="log-area" id="log-area"></div>
+    </div>
+
+    <div class="dvp" id="dvp">
+      <div class="dv-primary">
+        <img id="stream-img" alt=""/>
+        <canvas id="dv-map-cv"></canvas>
+        <div id="dv-ph" class="dv-ph"><div class="dv-ph-icon">📡</div><div style="font-size:13px;">等待视频流...</div></div>
+      </div>
+      <div class="dv-top">
+        <span class="dv-top-ttl" id="dv-lbl">Isaac Sim 实时画面（只读观察）</span>
+        <span class="badge bg-r" id="fps-badge">FPS —</span>
+        <button type="button" class="danger-btn" onclick="manualEndAsFail()">🛑 手动结束(失败)</button>
+        <button style="margin-left:auto;padding:3px 9px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,.1);background:rgba(3,4,7,.6);color:var(--text-2);font-size:10px;cursor:pointer;pointer-events:auto" onclick="swapViews()">⇄ 切换</button>
+      </div>
+      <div class="dv-pip" id="pip" onclick="onPipClick(event)">
+        <canvas id="pip-map"></canvas>
+        <img id="pip-vid" alt=""/>
+        <div class="pip-lbl" id="pip-lbl">导航地图</div>
+        <div class="pip-hint" id="pip-hint">点地图放大 · 仅查看</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <!-- 任务分配（自动执行，弹窗仅展示） -->
+  <div class="emos-popup-overlay" id="emos-popup-overlay">
+    <div class="emos-popup">
+      <div class="ep-hdr">
+        <span class="ep-hdr-title" id="assignment-popup-title">⚡ EMOS 任务分配方案</span>
+        <span class="ep-hdr-phase" id="ep-phase">阶段：—</span>
+      </div>
+      <div class="ep-body">
+        <div class="ep-assign" id="ep-assign">
+          <div class="ep-col" id="ep-robots">
+            <div class="ep-col-title">机器人</div>
+          </div>
+          <svg class="ep-svg" id="ep-svg"></svg>
+          <div class="ep-col" id="ep-tasks" style="margin-left:auto;">
+            <div class="ep-col-title">任务 / 事件</div>
+          </div>
+        </div>
+        <div class="ep-tree" id="ep-tree">
+          <div class="ep-tree-title">行动流程</div>
+          <div id="ep-tree-content"></div>
+        </div>
+      </div>
+      <div class="ep-footer">
+        <span class="ep-ro-hint" id="assignment-popup-hint">纯机器人模式：分配已由系统自动执行，无需网页确认。</span>
+        <button type="button" class="ep-btn close" onclick="closeEmosPopup()">关闭</button>
+      </div>
+    </div>
+  </div>
+  <div class="emos-mini" id="emos-mini" onclick="openEmosPopup()">
+    <span>📋</span> <span id="emos-mini-text">EMOS 任务分配</span>
+  </div>
+
+  <div class="map-zoom-overlay" id="map-zoom-overlay" onclick="if(event.target===this)closeMapZoom()">
+    <div class="map-zoom-panel" onclick="event.stopPropagation()">
+      <div class="map-zoom-hdr">
+        <span id="map-zoom-title">导航地图 · 仅查看（不可设目标或改派）</span>
+        <button type="button" onclick="closeMapZoom()">✕ 关闭</button>
+      </div>
+      <canvas id="map-zoom-cv"></canvas>
+    </div>
+  </div>
+
+  <div class="result-overlay" id="result-overlay" onclick="if(event.target===this)closeResultPopup()">
+    <div class="result-card" onclick="event.stopPropagation()">
+      <div class="result-hdr">
+        <span class="result-badge" id="result-badge">状态</span>
+        <span class="result-title" id="result-title">实验结束</span>
+      </div>
+      <div class="result-body">
+        <div class="result-row" id="result-runtime">任务时长：—</div>
+        <div class="result-row" id="result-step">仿真步数：—</div>
+        <div class="result-reason" id="result-reason">—</div>
+      </div>
+      <div class="result-footer">
+        <button type="button" class="result-btn" onclick="closeResultPopup()">我知道了</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+var API_BASE=(function(){if(window.location.protocol==='http:'||window.location.protocol==='https:')return window.location.protocol+'//'+window.location.host;return'http://localhost:8767'})();
+var WS_URL=(function(){if(window.location.protocol==='http:')return'ws://'+window.location.hostname+':8766';return'ws://localhost:8766'})();
+
+var robots={},sim={},hazards=[],emosState={},mapMeta={},mapImg=new Image(),mapImgOk=false;
+var vidIsPrimary=true,chatSeenCount=0;
+var emosPopupData=null,emosAssignments={},emosTaskCatalog=[],emosPopupShown=false;
+var RC_NAMES={m20_1:'M20-1',m20_2:'M20-2',carter_1:'Carter-1',scout_1:'Scout-1'};
+var mapZoomTimer=null;
+var taskResultPopupShown=false,lastSimRunning=null,_lastTrialPopupSeq=0;
+var selectedRobot='m20_1',goalPending=null,_manualNavEnabled=false;
+function isOpenClawMode(simData){return !!(simData&&String(simData.mode||'').toLowerCase()==='openclaw')}
+function applyDashboardMode(simData){
+  var oc=isOpenClawMode(simData);
+  _manualNavEnabled=oc;
+  var logo=document.getElementById('mode-logo'),brand=document.getElementById('mode-brand'),badge=document.getElementById('mode-badge');
+  var title=document.getElementById('assignment-popup-title'),hint=document.getElementById('assignment-popup-hint'),mini=document.getElementById('emos-mini-text');
+  if(logo)logo.textContent=oc?'OC':'RB';
+  if(brand)brand.textContent=oc?'工厂内异构多机协同巡检 监控仪表板 · OpenClaw 对照组':'工厂内异构多机协同巡检 监控仪表板 · 纯机器人对照组';
+  if(badge)badge.textContent=oc?'OPENCLAW':'ROBOT-ONLY · 只读';
+  if(title)title.textContent=oc?'⚡ OpenClaw 任务分配方案':'⚡ EMOS 任务分配方案';
+  if(hint)hint.textContent=oc?'OpenClaw 模式：分配由外部控制端提交，网页仅展示。':'纯机器人模式：分配已由系统自动执行，无需网页确认。';
+  if(mini&&!/\(\d+\)/.test(mini.textContent||''))mini.textContent=oc?'OpenClaw 任务分配':'EMOS 任务分配';
+  var gh=document.getElementById('goal-hint');if(gh)gh.style.display=oc?'block':'none';
+  var phint=document.getElementById('pip-hint');if(phint&&vidIsPrimary)phint.textContent=oc?'点地图导航':'点地图放大 · 仅查看';
+  var mzt=document.getElementById('map-zoom-title');if(mzt)mzt.textContent=oc?'导航地图 · 点击设定目标':'导航地图 · 仅查看（不可设目标或改派）';
+  var mzcv=document.getElementById('map-zoom-cv');if(mzcv)mzcv.style.cursor=oc?'crosshair':'grab';
+}
+function maybeTrialPopupAlert(simData){
+  if(!simData||!simData.trial_popup)return;
+  var tp=simData.trial_popup,seq=parseInt(tp.seq,10)||0;
+  if(seq<=_lastTrialPopupSeq)return;
+  _lastTrialPopupSeq=seq;
+  var title=(String(tp.outcome)==='success')?'任务完成':'任务结束';
+  var hl=tp.hazard_label?('火源：'+tp.hazard_label+'\n'):'';
+  alert(title+'\n'+hl+'任务时长：'+(Number(tp.sim_s)||0).toFixed(2)+' 秒');
+}
+var RC={m20_1:'#00e5c0',m20_2:'#22d3ee',carter_1:'#9f7aea',scout_1:'#c4b5fd'};
+var COLOUR_MAP={'yellow':'#fbbf24','red':'#f43f5e','green':'#10b981','blue':'#38bdf8','purple':'#9f7aea'};
+
+var ws=null,fc=0,fpsCalc=0,fpsTs=Date.now(),fpsDisp=0,lastObjUrl=null;
+function connectStream(){
+  if(ws&&ws.readyState<=1)ws.close();
+  ws=new WebSocket(WS_URL);ws.binaryType='arraybuffer';
+  ws.onmessage=function(e){
+    if(!(e.data instanceof ArrayBuffer))return;
+    var blob=new Blob([e.data],{type:'image/jpeg'});var url=URL.createObjectURL(blob);
+    var si=document.getElementById('stream-img'),pv=document.getElementById('pip-vid');
+    function s(el){if(!el)return;el.onload=function(){if(lastObjUrl)URL.revokeObjectURL(lastObjUrl);lastObjUrl=url};el.src=url}
+    s(si);s(pv);
+    if(vidIsPrimary){var ph=document.getElementById('dv-ph');if(ph)ph.style.display='none';if(si)si.style.display='block'}
+    fc++;fpsCalc++;var now=Date.now();if(now-fpsTs>=1000){fpsDisp=Math.round(fpsCalc*1000/(now-fpsTs));fpsCalc=0;fpsTs=now}
+    if(vidIsPrimary){var fb=document.getElementById('fps-badge');if(fb){fb.textContent='FPS '+fpsDisp;fb.className='badge '+(fpsDisp>=20?'bg-g':fpsDisp>=10?'bg-a':'bg-r')}}
+  };
+  ws.onclose=function(){setTimeout(connectStream,3000)};
+  ws.onerror=function(){};
+}
+
+function swapViews(){
+  vidIsPrimary=!vidIsPrimary;
+  var si=document.getElementById('stream-img'),cv=document.getElementById('dv-map-cv'),pm=document.getElementById('pip-map'),pv=document.getElementById('pip-vid'),ph=document.getElementById('dv-ph'),pl=document.getElementById('pip-lbl'),phint=document.getElementById('pip-hint'),dl=document.getElementById('dv-lbl');
+  if(vidIsPrimary){if(si)si.style.display=(ws&&ws.readyState===1)?'block':'none';if(ph)ph.style.display=(ws&&ws.readyState===1)?'none':'flex';if(cv)cv.style.display='none';if(pm)pm.style.display='block';if(pv)pv.style.display='none';if(pl)pl.textContent='导航地图';if(phint)phint.textContent=_manualNavEnabled?'点地图导航':'点地图放大 · 仅查看';if(dl)dl.textContent='Isaac Sim 实时画面'}
+  else{if(si)si.style.display='none';if(ph)ph.style.display='none';if(cv&&_manualNavEnabled){cv.style.display='block';resizeCv('dv-map-cv');drawMap('dv-map-cv',false)}if(pm)pm.style.display='none';if(pv)pv.style.display='block';if(pl)pl.textContent='实时画面';if(phint)phint.textContent='点击切回小地图';if(dl)dl.textContent=_manualNavEnabled?'工厂地图 · 点击直线导航':'导航地图'}
+}
+
+function drawMapZoom(){
+  var ov=document.getElementById('map-zoom-overlay');if(!ov||!ov.classList.contains('open'))return;
+  var cv=document.getElementById('map-zoom-cv');if(!cv)return;
+  var panel=cv.parentElement;if(!panel)return;
+  var rect=panel.getBoundingClientRect();
+  var w=Math.max(320,Math.floor(rect.width-4)),h=Math.max(240,Math.floor(rect.height-52));
+  if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h}
+  drawOnCv(cv,false);
+}
+function openMapZoom(){
+  var ov=document.getElementById('map-zoom-overlay');if(!ov)return;
+  ov.classList.add('open');
+  drawMapZoom();
+  if(mapZoomTimer)clearInterval(mapZoomTimer);
+  mapZoomTimer=setInterval(drawMapZoom,400);
+}
+function closeMapZoom(){
+  var ov=document.getElementById('map-zoom-overlay');if(!ov)return;
+  ov.classList.remove('open');
+  if(mapZoomTimer){clearInterval(mapZoomTimer);mapZoomTimer=null}
+}
+function onPipClick(e){
+  e.stopPropagation();e.preventDefault();
+  if(vidIsPrimary){
+    if(_manualNavEnabled){_pipClickIsSwap=true;swapViews()}else{openMapZoom()}
+  }else{swapViews()}
+}
+var _pipClickIsSwap=false;
+
+function w2c(wx,wy,cv,m){if(!m||!m.resolution)return[0,0];var px=(wx-m.origin_x)/m.resolution;var py=(wy-m.origin_y)/m.resolution;var sx=cv.width/(m.map_width_px||m.width_px||1);var sy=cv.height/(m.map_height_px||m.height_px||1);return[px*sx,((m.map_height_px||m.height_px||1)-py)*sy]}
+function c2w(cx,cy,cv,m){if(!m||!m.resolution)return[0,0];var mw=m.map_width_px||m.width_px||1;var mh=m.map_height_px||m.height_px||1;var sx=cv.width/mw,sy=cv.height/mh;return[m.origin_x+(cx/sx)*m.resolution,m.origin_y+(mh-cy/sy)*m.resolution]}
+function resizeCv(id){var cv=document.getElementById(id);if(!cv)return;var r=cv.getBoundingClientRect();if(r.width>10)cv.width=Math.floor(r.width);if(r.height>10)cv.height=Math.floor(r.height)}
+function selectRobot(name){selectedRobot=name;var cards=document.querySelectorAll('.rmc.selectable');cards.forEach(function(c){c.classList.toggle('sel',c.getAttribute('data-robot')===name)});drawPip();if(!vidIsPrimary)drawMap('dv-map-cv',false)}
+function initClick(cvId){
+  var cv=document.getElementById(cvId);if(!cv)return;
+  cv.addEventListener('click',function(e){
+    if(!_manualNavEnabled)return;
+    if(cvId==='pip-map'&&_pipClickIsSwap){_pipClickIsSwap=false;return}
+    var rect=cv.getBoundingClientRect();var cx=(e.clientX-rect.left)*(cv.width/rect.width);var cy=(e.clientY-rect.top)*(cv.height/rect.height);
+    var w=c2w(cx,cy,cv,mapMeta);var wx=parseFloat(w[0].toFixed(2)),wy=parseFloat(w[1].toFixed(2));var now=Date.now();
+    if(goalPending&&goalPending.cvId===cvId&&(now-goalPending.ts)<=5000){
+      var dist=Math.hypot(cx-goalPending.cx0,cy-goalPending.cy0);
+      if(dist<=30){if(goalPending.timeoutId)clearTimeout(goalPending.timeoutId);sendGoal(selectedRobot,goalPending.wx,goalPending.wy);goalPending=null;return}
+    }
+    if(goalPending&&goalPending.timeoutId)clearTimeout(goalPending.timeoutId);
+    goalPending={cvId:cvId,wx:wx,wy:wy,cx0:cx,cy0:cy,ts:now,timeoutId:setTimeout(function(){goalPending=null;var gs=document.getElementById('goal-status');if(gs)gs.textContent='超时未确认';drawPip();if(!vidIsPrimary)drawMap('dv-map-cv',false)},5000)};
+    var gs=document.getElementById('goal-status');if(gs)gs.textContent='已标记 ('+wx+', '+wy+') — 再点附近确认';
+    drawPip();if(!vidIsPrimary)drawMap('dv-map-cv',false);
+  });
+}
+function sendGoal(robot,x,y){
+  fetch(API_BASE+'/api/robots/'+robot+'/goal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({x:x,y:y})})
+  .then(function(r){return r.json()}).then(function(){
+    var gs=document.getElementById('goal-status');if(gs)gs.textContent='✅ 直线导航 → '+robot+' ('+x+', '+y+')';
+    setTimeout(fetchAll,600);
+  }).catch(function(e){var gs=document.getElementById('goal-status');if(gs)gs.textContent='❌ 发送失败: '+e});
+}
+function drawOnCv(cv,mini){
+  if(!cv||cv.width===0||cv.height===0)return;var ctx=cv.getContext('2d');ctx.clearRect(0,0,cv.width,cv.height);
+  if(mapImgOk)ctx.drawImage(mapImg,0,0,cv.width,cv.height);else{ctx.fillStyle='#0d1520';ctx.fillRect(0,0,cv.width,cv.height)}
+  if(!mapMeta.resolution)return;
+  hazards.forEach(function(hz){
+    if(!hz||!hz.pos)return;
+    var hid=(hz.id!=null?hz.id:'?');
+    var p=w2c(hz.pos.x||0,hz.pos.y||0,cv,mapMeta);
+    var r=mini?5:9;
+    ctx.beginPath();ctx.arc(p[0],p[1],r,0,Math.PI*2);ctx.fillStyle='rgba(244,63,94,.28)';ctx.fill();
+    ctx.beginPath();ctx.arc(p[0],p[1],mini?2.6:4.2,0,Math.PI*2);ctx.fillStyle='#f43f5e';ctx.fill();
+    if(!mini){
+      ctx.fillStyle='#f43f5e';
+      ctx.font='11px monospace';
+      ctx.textAlign='left';
+      ctx.fillText('🔥火源#'+hid,p[0]+10,p[1]-8);
+    }
+  });
+  Object.keys(robots).forEach(function(name){
+    var r=robots[name],color=RC[name]||'#aaa',wps=r.waypoints||[],cidx=r.current_idx||0;
+    if(wps.length>1){ctx.beginPath();ctx.strokeStyle=color+'30';ctx.lineWidth=mini?1:1.5;var p0=w2c(wps[0][0],wps[0][1],cv,mapMeta);ctx.moveTo(p0[0],p0[1]);for(var i=1;i<wps.length;i++){var pi=w2c(wps[i][0],wps[i][1],cv,mapMeta);ctx.lineTo(pi[0],pi[1])}ctx.stroke();
+    if(cidx<wps.length){ctx.beginPath();ctx.strokeStyle='#fbbf24';ctx.lineWidth=mini?1.5:2;var rp=w2c(wps[cidx][0],wps[cidx][1],cv,mapMeta);ctx.moveTo(rp[0],rp[1]);for(var j=cidx+1;j<wps.length;j++){var pj=w2c(wps[j][0],wps[j][1],cv,mapMeta);ctx.lineTo(pj[0],pj[1])}ctx.stroke()}
+    var last=wps[wps.length-1];var gp=w2c(last[0],last[1],cv,mapMeta);ctx.beginPath();ctx.arc(gp[0],gp[1],mini?3:5,0,Math.PI*2);ctx.fillStyle='#22d3ee';ctx.fill()}
+    var rpos=w2c(r.pos_x||0,r.pos_y||0,cv,mapMeta);ctx.beginPath();ctx.arc(rpos[0],rpos[1],mini?4:7,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();
+    if(_manualNavEnabled&&name===selectedRobot){ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke()}
+    if(!mini){ctx.fillStyle=color;ctx.font='10px monospace';ctx.textAlign='left';ctx.fillText(name,rpos[0]+9,rpos[1]+4)}
+  });
+  if(_manualNavEnabled&&goalPending){
+    var pp=w2c(goalPending.wx,goalPending.wy,cv,mapMeta);
+    ctx.beginPath();ctx.arc(pp[0],pp[1],mini?4:6,0,Math.PI*2);ctx.strokeStyle='#fbbf24';ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='rgba(251,191,36,0.22)';ctx.fill();
+  }
+}
+function drawMap(cvId,mini){var cv=document.getElementById(cvId);if(!cv||cv.width===0||cv.height===0)return;drawOnCv(cv,mini)}
+function drawPip(){var cv=document.getElementById('pip-map');if(cv){cv.width=cv.offsetWidth||200;cv.height=cv.offsetHeight||130}drawOnCv(cv,true)}
+
+function addLog(sender,text){
+  var area=document.getElementById('log-area');if(!area)return;
+  var d=document.createElement('div');d.className='log-item';d.innerHTML='<div class="log-s">'+sender+'</div>'+text.replace(/\n/g,'<br>');
+  area.appendChild(d);area.scrollTop=area.scrollHeight;
+  var all=area.querySelectorAll('.log-item');if(all.length>80)area.removeChild(all[0]);
+}
+function syncChat(msgs){if(msgs.length<=chatSeenCount)return;var n=msgs.slice(chatSeenCount);chatSeenCount=msgs.length;n.forEach(function(m){addLog(m.sender||'EMOS',m.text||'')})}
+
+function closeResultPopup(){var ov=document.getElementById('result-overlay');if(ov)ov.classList.remove('open')}
+function manualEndAsFail(){
+  if(!window.confirm('确认手动结束本轮任务并按“失败”记录吗？'))return;
+  fetch(API_BASE+'/api/manual/task_end',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({type:'simulation_end'})
+  }).then(function(r){return r.json()}).then(function(){
+    addLog('操作员','🛑 已发送手动结束请求（本轮将按失败记录）');
+  }).catch(function(e){
+    addLog('系统','❌ 手动结束请求失败: '+e);
+  });
+}
+function showResultPopup(success,simData){
+  var ov=document.getElementById('result-overlay'),bd=document.getElementById('result-badge'),tt=document.getElementById('result-title');
+  var rr=document.getElementById('result-reason'),rt=document.getElementById('result-runtime'),rs=document.getElementById('result-step');
+  if(!ov||!bd||!tt||!rr||!rt||!rs)return;
+  var s=simData&&simData.runtime_s?simData.runtime_s:0,mm=Math.floor(s/60),ss=Math.floor(s%60);
+  rt.textContent='任务时长：'+mm+':'+(ss<10?'0':'')+ss;
+  rs.textContent='仿真步数：'+((simData&&simData.step)||0).toLocaleString();
+  if(success){
+    bd.className='result-badge ok';bd.textContent='SUCCESS';
+    tt.textContent='任务完成';
+    rr.textContent='所有机器人均已满足任务完成条件，实验成功结束。';
+  }else{
+    bd.className='result-badge fail';bd.textContent='FAILED';
+    tt.textContent='任务失败';
+    var fr=(simData&&simData.fail_reason)||'未在规定条件内完成任务';
+    rr.textContent='失败原因：'+fr;
+  }
+  ov.classList.add('open');
+}
+function maybeShowTaskResultPopup(simData){
+  if(!simData)return;
+  var running=!!simData.running;
+  if(running&&lastSimRunning===false){
+    taskResultPopupShown=false;
+    closeResultPopup();
+  }
+  var result=String(simData.result||'').toLowerCase();
+  var hasFinal=(result==='success'||result==='fail');
+  var shouldShow=((lastSimRunning===true&&!running&&hasFinal)||(lastSimRunning===null&&!running&&hasFinal));
+  if(!taskResultPopupShown&&shouldShow){
+    showResultPopup(result==='success',simData);
+    addLog('系统',result==='success'?'✅ 任务完成，仿真成功结束。':'❌ 任务失败：'+((simData&&simData.fail_reason)||'未在规定条件内完成'));
+    taskResultPopupShown=true;
+  }
+  lastSimRunning=running;
+}
+
+function showEmosPopup(emos){
+  emosPopupData=emos;emosAssignments={};emosTaskCatalog=[];
+  var a=emos.assignments||{},taskMap={};
+  Object.keys(a).forEach(function(rn){
+    var t=Object.assign({},a[rn]);emosAssignments[rn]=t;
+    var key=(t.subtask||'')+'|'+(t.target_xy||[]).join(',');
+    if(!taskMap[key]){taskMap[key]=true;emosTaskCatalog.push({subtask:t.subtask||'未知任务',target_xy:t.target_xy||[0,0],colour:t.colour||''})}
+  });
+  renderEmosPopupReadonly();
+  document.getElementById('emos-popup-overlay').classList.add('open');
+  document.getElementById('emos-mini').classList.remove('show');
+  emosPopupShown=true;
+}
+function openEmosPopup(){if(!emosPopupData)return;document.getElementById('emos-popup-overlay').classList.add('open');document.getElementById('emos-mini').classList.remove('show');renderEmosPopupReadonly()}
+function closeEmosPopup(){
+  document.getElementById('emos-popup-overlay').classList.remove('open');
+  if(emosPopupShown){
+    document.getElementById('emos-mini').classList.add('show');
+    var cnt=Object.keys(emosAssignments).length;
+    document.getElementById('emos-mini-text').textContent=(isOpenClawMode(sim)?'OpenClaw 任务':'EMOS 任务')+' ('+cnt+')';
+  }
+}
+function renderEmosPopupReadonly(){
+  var rc=document.getElementById('ep-robots'),tc=document.getElementById('ep-tasks'),ph=document.getElementById('ep-phase');
+  if(ph)ph.textContent='阶段：'+(emosPopupData&&emosPopupData.phase?emosPopupData.phase:'—');
+  rc.innerHTML='<div class="ep-col-title">机器人</div>';
+  tc.innerHTML='<div class="ep-col-title">任务 / 事件</div>';
+  var robotNames=Object.keys(RC_NAMES);
+  var taskList=emosTaskCatalog&&emosTaskCatalog.length>0?emosTaskCatalog.slice():[];
+  robotNames.forEach(function(rn){
+    var box=document.createElement('div');box.className='ep-box ep-readonly';box.id='ep-r-'+rn;
+    box.style.borderColor=RC[rn]||'#555';
+    var rdata=robots[rn]||{};
+    box.innerHTML='<div class="ep-name" style="color:'+(RC[rn]||'#aaa')+';">'+(RC_NAMES[rn]||rn)+'</div>'+
+      '<div class="ep-desc">'+(emosAssignments[rn]?emosAssignments[rn].subtask||'—':'<i style="color:var(--text-3);">无任务</i>')+'</div>'+
+      '<div class="ep-pos">('+((rdata.pos_x||0).toFixed(1))+', '+((rdata.pos_y||0).toFixed(1))+')</div>';
+    rc.appendChild(box);
+  });
+  taskList.forEach(function(t,i){
+    var box=document.createElement('div');box.className='ep-box ep-readonly';box.id='ep-t-'+i;
+    box.innerHTML='<div class="ep-name">'+t.subtask+'</div>'+
+      '<div class="ep-pos">目标：('+((t.target_xy[0]||0).toFixed(1))+', '+((t.target_xy[1]||0).toFixed(1))+')</div>';
+    tc.appendChild(box);
+  });
+  renderFlowTreeRb();
+  setTimeout(drawEmosLinesRb,50);
+}
+function drawEmosLinesRb(){
+  var svg=document.getElementById('ep-svg');if(!svg)return;
+  var container=document.getElementById('ep-assign');if(!container)return;
+  var cr=container.getBoundingClientRect();
+  svg.setAttribute('width',cr.width);svg.setAttribute('height',cr.height);svg.innerHTML='';
+  var taskList=emosTaskCatalog&&emosTaskCatalog.length>0?emosTaskCatalog.slice():[];
+  var taskMap={};
+  taskList.forEach(function(t,idx){var key=(t.subtask||'')+'|'+(t.target_xy||[]).join(',');taskMap[key]=idx});
+  Object.keys(emosAssignments).forEach(function(rn){
+    var rEl=document.getElementById('ep-r-'+rn),t=emosAssignments[rn];
+    var key=(t.subtask||'')+'|'+(t.target_xy||[]).join(',');
+    var tIdx=taskMap[key];var tEl=document.getElementById('ep-t-'+tIdx);
+    if(!rEl||!tEl)return;
+    var rr=rEl.getBoundingClientRect(),tr=tEl.getBoundingClientRect();
+    var x1=rr.right-cr.left,y1=rr.top+rr.height/2-cr.top,x2=tr.left-cr.left,y2=tr.top+tr.height/2-cr.top;
+    var mx=(x1+x2)/2;
+    var line=document.createElementNS('http://www.w3.org/2000/svg','path');
+    line.setAttribute('d','M'+x1+','+y1+' C'+mx+','+y1+' '+mx+','+y2+' '+x2+','+y2);
+    line.setAttribute('stroke',RC[rn]||'#555');line.setAttribute('stroke-width','2');line.setAttribute('fill','none');line.setAttribute('opacity','0.6');
+    svg.appendChild(line);
+    var dot=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    dot.setAttribute('cx',x2);dot.setAttribute('cy',y2);dot.setAttribute('r','4');dot.setAttribute('fill',RC[rn]||'#555');svg.appendChild(dot);
+  });
+}
+function renderFlowTreeRb(){
+  var el=document.getElementById('ep-tree-content');if(!el)return;
+  var phase=(emosPopupData&&emosPopupData.phase)||'idle';
+  var html='';
+  html+='<div class="tree-node done"><div class="tn-dot"></div><div class="tn-label">危险事件检测</div></div>';
+  html+='<div class="tree-node done"><div class="tn-dot"></div><div class="tn-label">EMOS 多轮讨论</div></div>';
+  html+='<div class="tree-node '+(phase==='done'?'active':'')+'"><div class="tn-dot"></div><div class="tn-label">任务分配</div></div>';
+  html+='<div class="tree-children">';
+  Object.keys(emosAssignments).forEach(function(rn){
+    var t=emosAssignments[rn],color=RC[rn]||'#aaa';
+    html+='<div class="tree-node"><div class="tn-dot" style="border-color:'+color+';background:'+color+';"></div>';
+    html+='<div class="tn-label" style="color:'+color+';">'+(RC_NAMES[rn]||rn)+'</div>';
+    html+='<div class="tree-children">';
+    html+='<div class="tree-node"><div class="tn-dot"></div><div class="tn-label" style="font-size:10px;">→ '+(t.subtask||'待定')+'</div></div>';
+    if(t.target_xy){html+='<div class="tree-node"><div class="tn-dot"></div><div class="tn-label" style="font-size:10px;">导航至 ('+((t.target_xy[0]||0).toFixed(1))+', '+((t.target_xy[1]||0).toFixed(1))+')</div></div>'}
+    html+='</div></div>';
+  });
+  html+='</div>';
+  html+='<div class="tree-node"><div class="tn-dot"></div><div class="tn-label">任务执行</div></div>';
+  html+='<div class="tree-node"><div class="tn-dot"></div><div class="tn-label">完成报告</div></div>';
+  el.innerHTML=html;
+}
+
+function renderTaskChain(robotName,taskQueue,currentIndex,isPatrolling){
+  var el=document.getElementById('task-chain-'+robotName);if(!el)return;el.innerHTML='';
+  if(isPatrolling){var c=document.createElement('span');c.className='task-chip patrol';c.textContent='⟳ 巡逻中';el.appendChild(c);return}
+  if(!taskQueue||taskQueue.length===0){var c=document.createElement('span');c.className='task-chip idle';c.textContent='待命';el.appendChild(c);return}
+  var cidx=currentIndex||0;taskQueue.forEach(function(task,i){
+    if(i>0){var a=document.createElement('span');a.className='task-arrow';a.textContent='→';el.appendChild(a)}
+    var chip=document.createElement('span');chip.className='task-chip '+(i===cidx?'active':'pending');
+    var colour=task.subtask_colour||'';var dotColor=COLOUR_MAP[colour]||'var(--text-3)';
+    var dot=colour?'<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:'+dotColor+';margin-right:3px;vertical-align:middle"></span>':'';
+    chip.innerHTML=dot+(task.subtask_name||task.task_type||'任务');el.appendChild(chip)
+  });
+}
+
+function _applyTaskState(dotId,stateId,payload){
+  var dot=document.getElementById(dotId),st=document.getElementById(stateId);
+  if(!dot||!st)return;
+  var s=payload&&payload.state?String(payload.state):'pending';
+  dot.classList.remove('pending','in-progress','done');
+  st.classList.remove('done');
+  if(s==='done'){dot.classList.add('done');st.textContent='✓ 已完成';st.classList.add('done');}
+  else if(s==='in_progress'){dot.classList.add('in-progress');st.textContent='进行中';}
+  else if(s==='skipped'){dot.classList.add('done');st.textContent='— 未触发';st.classList.add('done');}
+  else{dot.classList.add('pending');st.textContent='未开始';}
+}
+
+function updateFormationRow(fm){
+  var dot=document.getElementById('formation-dot'),st=document.getElementById('formation-state');
+  if(!dot||!st)return;
+  dot.classList.remove('pending','in-progress','done');
+  st.classList.remove('done');
+  if(!fm||!fm.fire_active){
+    dot.classList.add('pending');
+    st.textContent='—';
+    return;
+  }
+  var c=Math.max(0,parseInt(fm.near_fire_count,10)||0);
+  var req=Math.max(1,parseInt(fm.near_fire_required,10)||3);
+  if(c>=req){
+    dot.classList.add('done');
+    st.textContent='✓ ('+c+'/'+req+')';
+    st.classList.add('done');
+  }else{
+    dot.classList.add('in-progress');
+    st.textContent='('+c+'/'+req+')';
+  }
+}
+
+function updateExtinguisherFireRow(fm){
+  var dot=document.getElementById('extfire-dot'),st=document.getElementById('extfire-state');
+  if(!dot||!st)return;
+  dot.classList.remove('pending','in-progress','done');
+  st.classList.remove('done');
+  if(!fm||!fm.fire_active){
+    dot.classList.add('pending');
+    st.textContent='—';
+    return;
+  }
+  if(!!fm.extinguisher_in_radius){
+    dot.classList.add('done');
+    st.textContent='✓ 已在3m内';
+    st.classList.add('done');
+  }else{
+    dot.classList.add('in-progress');
+    st.textContent='未达成';
+  }
+}
+
+function updateTaskStatus(simData){
+  var ts=simData&&(simData.task_status||simData.manual_task_status)?(simData.task_status||simData.manual_task_status):{};
+  _applyTaskState('task1-dot','task1-state',ts.task1);
+  _applyTaskState('task2-dot','task2-state',ts.task2);
+  _applyTaskState('task3-dot','task3-state',ts.emergency_task);
+  updateFormationRow(ts.formation);
+  updateExtinguisherFireRow(ts.formation);
+}
+
+function fetchAll(){
+  fetch(API_BASE+'/api/all').then(function(r){return r.json()}).then(function(d){
+    document.getElementById('api-dot').className='dot on';document.getElementById('api-status').textContent='已连接';
+    if(d.sim){sim=d.sim;applyDashboardMode(d.sim);document.getElementById('h-step').textContent=(d.sim.step||0).toLocaleString();document.getElementById('h-fps').textContent=(d.sim.fps||0).toFixed(1);var s=d.sim.runtime_s||0,mm=Math.floor(s/60),ss=Math.floor(s%60);document.getElementById('h-runtime').textContent=mm+':'+(ss<10?'0':'')+ss;maybeShowTaskResultPopup(d.sim);maybeTrialPopupAlert(d.sim);updateTaskStatus(d.sim)}
+    if(Array.isArray(d.hazards)){hazards=d.hazards}else{hazards=[]}
+    if(d.robots&&typeof d.robots==='object'&&!Array.isArray(d.robots)){
+      robots=d.robots;document.getElementById('h-robots').textContent=Object.keys(robots).length+' / 4';
+      var ctr=document.getElementById('rmc-container');ctr.innerHTML='';
+      Object.keys(robots).forEach(function(name){
+        var r=robots[name],color=RC[name]||'#aaa';var dotCls=r.rrt_active?'nav':'ok';
+        var card=document.createElement('div');card.className='rmc'+(_manualNavEnabled?' selectable':'')+((_manualNavEnabled&&name===selectedRobot)?' sel':'');
+        card.setAttribute('data-robot',name);
+        if(_manualNavEnabled)card.onclick=function(){selectRobot(name)};
+        card.innerHTML='<div class="rdot '+dotCls+'"></div><div class="ri"><div class="rn" style="color:'+color+'">'+name+'</div><div class="rp">('+(r.pos_x||0).toFixed(1)+', '+(r.pos_y||0).toFixed(1)+')</div></div><span class="rb '+(r.rrt_active?'nav':'agv')+'">'+(r.rrt_active?'导航中':(name.startsWith('m20')?'RL':'AGV'))+'</span>';
+        ctr.appendChild(card);
+        var chainDiv=document.createElement('div');chainDiv.className='task-chain';chainDiv.id='task-chain-'+name;ctr.appendChild(chainDiv);
+        renderTaskChain(name,r.task_queue,r.current_task_index,r.is_patrolling);
+      });
+      drawPip();if(!vidIsPrimary&&_manualNavEnabled)drawMap('dv-map-cv',false);
+      var zov=document.getElementById('map-zoom-overlay');if(zov&&zov.classList.contains('open'))drawMapZoom();
+    }
+    if(d.emos){
+      var prevPhase=emosState.phase||'';
+      var prevAssignCount=emosState.assignments?Object.keys(emosState.assignments).length:0;
+      emosState=d.emos;
+      var newAssignCount=d.emos.assignments?Object.keys(d.emos.assignments).length:0;
+      if(d.emos.phase==='done'&&prevPhase!=='done'&&d.emos.assignments&&newAssignCount>0){showEmosPopup(d.emos)}
+      if(d.emos.phase==='done'&&prevPhase==='done'&&newAssignCount>prevAssignCount){
+        emosPopupData=d.emos;var a=d.emos.assignments||{};emosAssignments={};emosTaskCatalog=[];var taskMap={};
+        Object.keys(a).forEach(function(rn){
+          var t=Object.assign({},a[rn]);emosAssignments[rn]=t;
+          var key=(t.subtask||'')+'|'+(t.target_xy||[]).join(',');
+          if(!taskMap[key]){taskMap[key]=true;emosTaskCatalog.push({subtask:t.subtask||'未知任务',target_xy:t.target_xy||[0,0],colour:t.colour||''})}
+        });
+        var epov=document.getElementById('emos-popup-overlay');
+        if(epov&&epov.classList.contains('open')){renderEmosPopupReadonly()}
+        var cnt=Object.keys(emosAssignments).length,mtx=document.getElementById('emos-mini-text');if(mtx)mtx.textContent=(isOpenClawMode(sim)?'OpenClaw 任务':'EMOS 任务')+' ('+cnt+')';
+      }
+      if(d.emos.phase==='running'&&prevPhase==='done'){addLog('EMOS','⚡ 动态重规划已触发，正在重新分配任务…')}
+    }
+    if(d.chat&&Array.isArray(d.chat))syncChat(d.chat);
+  }).catch(function(){document.getElementById('api-dot').className='dot';document.getElementById('api-status').textContent='未连接'});
+}
+function fetchMapMeta(){fetch(API_BASE+'/api/map/meta').then(function(r){return r.json()}).then(function(d){mapMeta=d;mapImg=new Image();mapImg.onload=function(){mapImgOk=true};mapImg.src=API_BASE+'/api/map'}).catch(function(){})}
+
+window.addEventListener('resize',function(){
+  resizeCv('dv-map-cv');if(!vidIsPrimary&&_manualNavEnabled)drawMap('dv-map-cv',false);
+  var zov=document.getElementById('map-zoom-overlay');
+  if(zov&&zov.classList.contains('open'))drawMapZoom();
+});
+window.addEventListener('load',function(){
+  connectStream();fetchMapMeta();fetchAll();
+  setInterval(fetchAll,2000);setInterval(function(){drawPip();if(!vidIsPrimary&&_manualNavEnabled)drawMap('dv-map-cv',false)},500);
+  initClick('dv-map-cv');initClick('pip-map');initClick('map-zoom-cv');
+  setTimeout(function(){resizeCv('dv-map-cv');var pm=document.getElementById('pip-map');if(pm){pm.width=pm.offsetWidth||200;pm.height=pm.offsetHeight||130}},200);
+});
+</script>
+</body>
+</html>

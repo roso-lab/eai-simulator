@@ -1,0 +1,46 @@
+#!/bin/bash
+#
+# Git commit-msg hook to enforce commit message format: #IID xxx
+# This hook validates that every commit message contains a GitLab issue reference
+#
+# Format: #IID <description>
+# Examples:
+#   #123 Add user authentication feature
+#   #456 Fix memory leak in data processing
+#   #789 Update documentation for API endpoints
+
+COMMIT_MSG_FILE=$1
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# Pattern: starts with #, followed by one or more digits, then space and description
+PATTERN="^#[0-9]+ .+"
+
+# Allow merge commits, revert commits, and other git-generated messages
+if echo "$COMMIT_MSG" | grep -qE "^(Merge|Revert|fixup!|squash!|amend!)"; then
+    exit 0
+fi
+
+# Check if the commit message matches the required pattern
+if ! echo "$COMMIT_MSG" | head -n1 | grep -qE "$PATTERN"; then
+    echo ""
+    echo "========================================="
+    echo "  ❌ COMMIT MESSAGE FORMAT ERROR"
+    echo "========================================="
+    echo ""
+    echo "Your commit message must start with an issue ID."
+    echo ""
+    echo "Required format: #IID <description>"
+    echo ""
+    echo "Examples:"
+    echo "  #123 Add new feature"
+    echo "  #456 Fix bug in login page"
+    echo "  #789 Update configuration"
+    echo ""
+    echo "Your message was:"
+    echo "  $(head -n1 "$COMMIT_MSG_FILE")"
+    echo ""
+    echo "========================================="
+    exit 1
+fi
+
+exit 0
