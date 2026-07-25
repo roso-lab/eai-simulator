@@ -447,6 +447,10 @@ def interactive_selection_to_dict(selection: InteractiveSelection) -> dict[str, 
 
 
 def interactive_selection_from_dict(data: dict[str, Any]) -> InteractiveSelection:
+    scene_key = str(data["scene_key"]).strip().lower()
+    if scene_key not in {key for key, _label in SCENE_CHOICES}:
+        raise ValueError(f"Unknown scene '{scene_key}'.")
+
     robots = []
     for robot in data.get("robots", []):
         robot_type = _canonical_robot_type(str(robot["type"]))
@@ -486,7 +490,7 @@ def interactive_selection_from_dict(data: dict[str, Any]) -> InteractiveSelectio
             )
         )
     return InteractiveSelection(
-        scene_key=str(data["scene_key"]),
+        scene_key=scene_key,
         robots=tuple(robots),
         task_name=data.get("task_name"),
     )

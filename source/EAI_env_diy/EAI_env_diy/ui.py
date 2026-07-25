@@ -123,28 +123,13 @@ class EnvDiyWindow:
         return ui.Image(str(path), width=size, height=size, tooltip=f"{group}/{key}")
 
     def _asset_requirement(self, requirement_id: str):
-        """Build a minimal selection containing one card's dependency."""
         from EAI_assets import asset_resolver
 
         try:
-            if requirement_id.startswith("scene:"):
-                selection = {"scene_key": requirement_id.split(":", 1)[1], "robots": []}
-            elif requirement_id.startswith("robot:"):
-                selection = {
-                    "scene_key": self.model.scene_key or "plane",
-                    "robots": [{"type": requirement_id.split(":", 1)[1], "attachments": []}],
-                }
-            elif "@" in requirement_id:
-                prefix, value = requirement_id.split(":", 1)
-                attachment_type, host = value.split("@", 1)
-                selection = {
-                    "scene_key": self.model.scene_key or "plane",
-                    "robots": [{"type": host, "attachments": [{"type": attachment_type}]}],
-                }
-            else:
-                return None
-            graph = asset_resolver.resolve_selection(selection)
-            return next((item for item in graph.requirements if item.id == requirement_id), None)
+            return asset_resolver.resolve_card_requirement(
+                requirement_id,
+                scene_key=self.model.scene_key or "plane",
+            )
         except (TypeError, ValueError, KeyError):
             return None
 
@@ -170,7 +155,8 @@ class EnvDiyWindow:
             return
         self._set_status(f"Downloading {requirement.label}...")
         try:
-            self.asset_manager.submit(requirement, self._on_asset_downloaded)
+            pending = self.asset_manager.submit(requirement, self._on_asset_downloaded)
+            self._refresh_asset_control(requirement_id, pending)
         except Exception as exc:
             self._set_status(f"Asset download failed: {exc}")
 
@@ -261,18 +247,10 @@ class EnvDiyWindow:
         self._set_status(status.message or f"{requirement.label}: {status.state.value}")
 
     def _payload_card_state(self, attachment_type: str) -> None:
-        host = None
-        if self.selected_robot_id is not None:
-            try:
-                host = self.model.robot(self.selected_robot_id).type
-            except KeyError:
-                host = None
-        if host is None:
-            ui.Label("Select host", width=70, height=24)
-            return
-        category = catalog.attachment_entry(attachment_type).category
-        prefix = "payload" if category == "manipulator" else "sensor"
-        self._asset_card_state(f"{prefix}:{attachment_type}@{host}")
+        from EAI_assets import asset_resolver
+
+        requirement_id = asset_resolver.attachment_requirement_id(attachment_type)
+        self._asset_card_state(requirement_id)
 
     def _build_robots(self) -> None:
         with ui.CollapsableFrame("Robots", collapsed=False):
@@ -534,12 +512,14 @@ class EnvDiyWindow:
             self._set_status("Select a host robot first.")
             return
         try:
+            from EAI_assets import asset_resolver
+
             host = self.model.robot(target).type
-            entry = catalog.attachment_entry(attachment_type)
-            prefix = "payload" if entry.category == "manipulator" else "sensor"
-            if entry.category == "tool":
-                prefix = "tool"
-            status = self._asset_status(f"{prefix}:{attachment_type}@{host}")
+            requirement_id = asset_resolver.attachment_requirement_id(
+                attachment_type,
+                robot_type=host,
+            )
+            status = self._asset_status(requirement_id)
             state = getattr(getattr(status, "state", None), "value", getattr(status, "state", "READY"))
             if state != "READY":
                 self._set_status(f"{attachment_type} is {state}; download it before attaching.")
