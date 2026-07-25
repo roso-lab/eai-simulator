@@ -131,7 +131,9 @@ ros2_cmd_vel.json
 !/source/EAI_assets/test/test_mushr_v2_registration.py
 
 # Runtime assets and tests are maintained outside the source repository.
-/usd/
+/usd/*
+!/usd/picture/
+!/usd/picture/**
 /source/EAI_assets/EAI_assets/controller/
 /source/EAI_assets/test/
 /docs/test-reports/
