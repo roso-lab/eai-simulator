@@ -709,37 +709,48 @@ def _build_asset_payload(
 
 def _missing_controller_package(exc: ModuleNotFoundError) -> bool:
     missing_name = getattr(exc, "name", None)
-    return isinstance(missing_name, str) and (
-        missing_name == "EAI_assets.controller" or missing_name.startswith("EAI_assets.controller.")
-    )
+    return isinstance(missing_name, str) and missing_name.startswith("EAI_assets.controller.")
 
 
-def _clear_modules_for_controller_retry() -> None:
+def _clear_modules_for_controller_retry(*, clear_controller_cache=None) -> None:
+    if clear_controller_cache is None:
+        from EAI_hmrs.controller_loader import clear_controller_module_cache
+
+        clear_controller_cache = clear_controller_module_cache
+    clear_controller_cache()
     prefixes = ("EAI_assets.controller", "EAI_hmrs.envs")
     for name in list(sys.modules):
         if any(name == prefix or name.startswith(f"{prefix}.") for prefix in prefixes):
             sys.modules.pop(name, None)
 
 
-def _ensure_controller_package_available_for_retry(*, load_asset_resolver=None) -> None:
+def _ensure_controller_module_available_for_retry(module_name: str, *, load_asset_resolver=None) -> None:
     resolver = (load_asset_resolver or _load_asset_resolver)()
 
     try:
-        resolver.ensure_controller_package_available()
+        resolver.ensure_controller_module_available(module_name)
     except (resolver.AssetDownloadAccessError, FileNotFoundError) as exc:
         print(str(exc))
         raise SystemExit(1) from exc
 
 
-def _run_with_controller_package_retry(operation, *, load_asset_resolver=None):
+def _run_with_controller_package_retry(
+    operation,
+    *,
+    load_asset_resolver=None,
+    clear_controller_cache=None,
+):
     try:
         return operation()
     except ModuleNotFoundError as exc:
         if not _missing_controller_package(exc):
             raise
-        _ensure_controller_package_available_for_retry(load_asset_resolver=load_asset_resolver)
+        _ensure_controller_module_available_for_retry(
+            exc.name,
+            load_asset_resolver=load_asset_resolver,
+        )
         importlib.invalidate_caches()
-        _clear_modules_for_controller_retry()
+        _clear_modules_for_controller_retry(clear_controller_cache=clear_controller_cache)
         return operation()
 
 

@@ -12,6 +12,8 @@ from EAI_assets.asset_requirements import (
     RequirementGraph,
     RequirementKind,
     RequirementState,
+    attachment_requirement_id,
+    resolve_card_requirement,
     resolve_selection,
 )
 
@@ -55,6 +57,11 @@ _CONTROLLER_PATH_ATTRS = (
     "nav_model_path",
     "locomotion_model_path",
 )
+_CONTROLLER_BUNDLE_DEPENDENCIES = {
+    ("traditional", "z1_ik"): (
+        Path("traditional/manipulator_ik/manipulator_ik.py"),
+    ),
+}
 
 
 class AssetDownloadAccessError(RuntimeError):
@@ -79,7 +86,10 @@ class AssetStatus:
 
 def requirement_local_paths(requirement: AssetRequirement) -> tuple[Path, ...]:
     root = controller_root() if requirement.kind is RequirementKind.CONTROLLER else usd_root()
-    return tuple(root / path for path in requirement.relative_paths)
+    paths = tuple(root / path for path in requirement.relative_paths)
+    if requirement.kind is RequirementKind.CONTROLLER:
+        return tuple(Path(path) for path in _expand_controller_asset_paths(paths))
+    return paths
 
 
 def inspect_requirement(requirement: AssetRequirement) -> AssetStatus:
@@ -391,12 +401,62 @@ def ensure_controller_assets_for_paths(
     downloader: Callable[..., Any] | None = None,
 ) -> list[str]:
     return _ensure_asset_paths(
-        paths,
+        _expand_controller_asset_paths(paths),
         asset_label="controller assets",
         remote_root="controller",
         local_root=controller_root(),
         downloader=downloader,
     )
+
+
+def ensure_controller_module_available(
+    module_name: str,
+    *,
+    downloader: Callable[..., Any] | None = None,
+) -> list[str]:
+    prefix = "EAI_assets.controller."
+    if not isinstance(module_name, str) or not module_name.startswith(prefix):
+        raise ValueError(f"Not an on-demand controller module: {module_name!r}")
+
+    relative_parts = tuple(part for part in module_name[len(prefix) :].split(".") if part)
+    if len(relative_parts) < 2 or any(not part.isidentifier() for part in relative_parts):
+        raise ValueError(f"Cannot resolve controller bundle for module: {module_name!r}")
+
+    bundle_parts = relative_parts[:2]
+    module_parts = relative_parts if len(relative_parts) > 2 else (*bundle_parts, bundle_parts[-1])
+    module_path = controller_root().joinpath(*module_parts).with_suffix(".py")
+    return ensure_controller_assets_for_paths([str(module_path)], downloader=downloader)
+
+
+def _expand_controller_asset_paths(paths: Iterable[str | os.PathLike[str]]) -> list[str]:
+    expanded: list[str] = []
+    seen: set[str] = set()
+
+    def normalize(path: str | os.PathLike[str]) -> Path:
+        candidate = Path(path).expanduser()
+        if not candidate.is_absolute():
+            parts = candidate.parts
+            if parts and parts[0] == "controller":
+                candidate = Path(*parts[1:])
+            candidate = controller_root() / candidate
+        return candidate
+
+    def add(path: str | os.PathLike[str]) -> None:
+        normalized = str(normalize(path))
+        if normalized not in seen:
+            seen.add(normalized)
+            expanded.append(normalized)
+
+    for path in paths:
+        local_path = normalize(path)
+        add(local_path)
+        remote = _remote_path_for_local(str(local_path))
+        parts = remote.parts
+        if len(parts) < 3 or parts[0] != "controller":
+            continue
+        for dependency in _CONTROLLER_BUNDLE_DEPENDENCIES.get((parts[1], parts[2]), ()):
+            add(dependency)
+    return expanded
 
 
 def _ensure_asset_paths(
