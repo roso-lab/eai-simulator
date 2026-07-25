@@ -17,9 +17,7 @@ SCENE_CHOICES = (
     ("warehouse", "Warehouse"),
     ("factory", "Factory"),
     ("airs", "AIRS scene"),
-    ("table", "Table"),
     ("garden", "Garden"),
-    ("indoor", "Indoor walls"),
     ("desert", "Desert"),
     ("hospital", "Hospital"),
 )

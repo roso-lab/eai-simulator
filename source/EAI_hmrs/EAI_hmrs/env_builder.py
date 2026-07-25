@@ -95,9 +95,7 @@ SCENE_OPTIONS = [
         prim_path="/World/Indoor",
     ),
     SceneOption("airs", "AIRS scene", ("EAI_assets.scene.airs", "AIRS_CFG")),
-    SceneOption("table", "Table", ("EAI_assets.scene.table", "TABLE_CFG")),
     SceneOption("garden", "Garden", ("EAI_assets.scene.garden", "GARDEN_CFG")),
-    SceneOption("indoor", "Indoor walls", ("EAI_assets.scene.walls", "WALLS_CFG")),
     SceneOption(
         "desert",
         "Desert",

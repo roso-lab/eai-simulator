@@ -54,9 +54,7 @@ _SCENE_PATHS = {
     "warehouse": ("scene/warehouse/warehouse.usd",),
     "factory": ("scene/factory/factory.usd",),
     "airs": ("scene/airs/airs.usd",),
-    "table": ("scene/table/table.usd",),
     "garden": ("scene/garden/garden.usd",),
-    "indoor": ("scene/indoor/walls.usd", "scene/indoor/floor.usd"),
     "desert": ("scene/desert/real_dust_scene_tiny.usda",),
     "hospital": (
         "scene/hospital/hospital_local.usda",
@@ -136,6 +134,32 @@ def _catalog_module(catalog_module=None):
     return catalog
 
 
+def attachment_requirement_id(
+    attachment_type: str,
+    *,
+    robot_type: str | None = None,
+    catalog_module=None,
+) -> str:
+    catalog_module = _catalog_module(catalog_module)
+    key = str(attachment_type).strip().lower()
+    entry = catalog_module.attachment_entry(key)
+    if getattr(entry, "visual_only", False):
+        raise ValueError(f"Unknown attachment '{attachment_type}'.")
+    if robot_type is not None and not entry.supports(robot_type):
+        raise ValueError(
+            f"Attachment '{key}' is not supported by robot "
+            f"'{str(robot_type).strip().lower()}'."
+        )
+    category = str(getattr(entry, "category", "sensor"))
+    if category == "manipulator":
+        return f"payload:{key}"
+    if category != "tool":
+        return f"sensor:{key}"
+    if not robot_type:
+        raise ValueError(f"Tool '{key}' requires a host robot.")
+    return f"tool:{key}@{str(robot_type).strip().lower()}"
+
+
 def _controller_requirement(cfg: str, catalog_module) -> AssetRequirement:
     paths = _CONTROLLER_PATHS.get(cfg, ())
     return AssetRequirement(
@@ -185,29 +209,39 @@ def resolve_selection(selection: Mapping[str, Any], *, catalog_module=None) -> R
         cfg = _controller_cfg(robot.get("controller"), default_cfg)
         if cfg:
             _add(entries, _controller_requirement(cfg, catalog_module))
-        for attachment in robot.get("attachments", ()):
+        attachments = tuple(robot.get("attachments", ()) or ())
+        for attachment in attachments:
             if not isinstance(attachment, Mapping):
                 raise ValueError("robot.attachments entries must be objects")
+        catalog_module.validate_attachment_types(
+            robot_type,
+            tuple(str(attachment.get("type") or "") for attachment in attachments),
+        )
+        for attachment in attachments:
             attachment_type = str(attachment.get("type") or "").strip().lower()
             catalog_entry = catalog_module.attachment_entry(attachment_type)
             category = str(getattr(catalog_entry, "category", "sensor"))
             if category == "tool":
                 kind = RequirementKind.TOOL
-                prefix = "tool"
                 paths = ()
+                label = f"{attachment_type} on {robot_type}"
             elif category == "manipulator":
                 kind = RequirementKind.PAYLOAD
-                prefix = "payload"
                 paths = _PAYLOAD_PATHS.get(attachment_type, ())
+                label = f"Payload {attachment_type}"
             else:
                 kind = RequirementKind.SENSOR
-                prefix = "sensor"
                 paths = _PAYLOAD_PATHS.get(attachment_type, ())
+                label = f"Sensor {attachment_type}"
             _add(
                 entries,
                 AssetRequirement(
-                    id=f"{prefix}:{attachment_type}@{robot_type}",
-                    label=f"{attachment_type} on {robot_type}",
+                    id=attachment_requirement_id(
+                        attachment_type,
+                        robot_type=robot_type,
+                        catalog_module=catalog_module,
+                    ),
+                    label=label,
                     kind=kind,
                     relative_paths=paths,
                 ),
@@ -217,6 +251,52 @@ def resolve_selection(selection: Mapping[str, Any], *, catalog_module=None) -> R
                 _add(entries, _controller_requirement(attachment_cfg, catalog_module))
 
     return RequirementGraph(tuple(entries.values()))
+
+
+def resolve_card_requirement(
+    requirement_id: str,
+    *,
+    scene_key: str = "plane",
+    catalog_module=None,
+) -> AssetRequirement:
+    catalog_module = _catalog_module(catalog_module)
+    item_id = str(requirement_id).strip().lower()
+    if item_id.startswith("scene:"):
+        selection = {"scene_key": item_id.split(":", 1)[1], "robots": []}
+    elif item_id.startswith("robot:"):
+        robot_type = item_id.split(":", 1)[1]
+        selection = {
+            "scene_key": scene_key,
+            "robots": [{"type": robot_type, "attachments": []}],
+        }
+    elif item_id.startswith(("payload:", "sensor:")):
+        attachment_type = item_id.split(":", 1)[1]
+        entry = catalog_module.attachment_entry(attachment_type)
+        expected_id = attachment_requirement_id(
+            attachment_type,
+            catalog_module=catalog_module,
+        )
+        if item_id != expected_id:
+            raise ValueError(f"Unknown asset requirement '{requirement_id}'.")
+        if not entry.supported_robots:
+            raise ValueError(f"Attachment '{attachment_type}' has no supported host robot.")
+        selection = {
+            "scene_key": scene_key,
+            "robots": [
+                {
+                    "type": entry.supported_robots[0],
+                    "attachments": [{"type": attachment_type}],
+                }
+            ],
+        }
+    else:
+        raise ValueError(f"Unsupported asset requirement '{requirement_id}'.")
+
+    graph = resolve_selection(selection, catalog_module=catalog_module)
+    try:
+        return next(item for item in graph.requirements if item.id == item_id)
+    except StopIteration as exc:
+        raise ValueError(f"Unknown asset requirement '{requirement_id}'.") from exc
 
 
 def requirements_for_selection(selection: Mapping[str, Any], *, catalog_module=None) -> tuple[AssetRequirement, ...]:
