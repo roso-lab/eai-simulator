@@ -170,6 +170,11 @@ def _selection_requires_omnigraph(selection_data: dict[str, Any] | None) -> bool
     )
 
 
+def _enable_required_selection_extensions(selection_data: dict[str, Any] | None) -> None:
+    if _selection_requires_omnigraph(selection_data):
+        _enable_isaac_extension("omni.graph")
+
+
 def _repo_root() -> Path:
     return Path(__file__).resolve().parent
 
@@ -278,7 +283,9 @@ def _enable_isaac_extension(extension_name: str) -> None:
             module = importlib.import_module(module_name)
         except ModuleNotFoundError:
             continue
-        module.enable_extension(extension_name)
+        result = module.enable_extension(extension_name)
+        if result is False:
+            raise RuntimeError(f"Kit could not enable extension '{extension_name}'.")
         return
     raise ModuleNotFoundError("No Isaac Sim extension enable helper is available")
 
@@ -758,6 +765,7 @@ def _collect_asset_payload_after_app(args: argparse.Namespace, task_request: Tas
     selection_data = None
     saved_task_data = None
     task_name = task_request.task_name
+    validation_source = "DIY env"
     requested_env = _requested_env_name(args)
     if requested_env:
         source = resolve_task_source(
@@ -771,13 +779,7 @@ def _collect_asset_payload_after_app(args: argparse.Namespace, task_request: Tas
 
         selection = interactive_selection_from_dict(saved_task_data)
         selection_data = interactive_selection_to_dict(selection)
-        from EAI_hmrs.env_builder import build_interactive_env_cfg_from_selection
-
-        try:
-            env_cfg = build_interactive_env_cfg_from_selection(selection)
-        except ValueError as exc:
-            print(f"❌ JSON env cannot be executed: {exc}")
-            raise SystemExit(1) from exc
+        validation_source = "JSON env"
     elif task_request.selection is not None:
         selection = task_request.selection
         saved_task_data = task_request.saved_task
@@ -785,19 +787,18 @@ def _collect_asset_payload_after_app(args: argparse.Namespace, task_request: Tas
         from EAI.hmrs_env.env_diy.flow import interactive_selection_to_dict as flow_selection_to_dict
 
         selection_data = flow_selection_to_dict(selection)
-        from EAI_hmrs.env_builder import build_interactive_env_cfg_from_selection
-
         task_name = "EAI-Interactive-v0"
-        try:
-            env_cfg = build_interactive_env_cfg_from_selection(selection)
-        except ValueError as exc:
-            print(f"❌ DIY env cannot be executed: {exc}")
-            raise SystemExit(1) from exc
     else:
         raise RuntimeError("No task or DIY selection was resolved.")
 
-    if _selection_requires_omnigraph(selection_data):
-        _enable_isaac_extension("omni.graph")
+    _enable_required_selection_extensions(selection_data)
+    from EAI_hmrs.env_builder import build_interactive_env_cfg_from_selection
+
+    try:
+        env_cfg = build_interactive_env_cfg_from_selection(selection)
+    except ValueError as exc:
+        print(f"❌ {validation_source} cannot be executed: {exc}")
+        raise SystemExit(1) from exc
     _initialize_preflight_env_cfg(env_cfg, num_envs=args.num_envs, device=args.device)
     return _build_asset_payload(
         task_name=task_name,
@@ -1318,8 +1319,7 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
     env = None
     ur5_manager = None
     try:
-        if _selection_requires_omnigraph(selection_data):
-            _enable_isaac_extension("omni.graph")
+        _enable_required_selection_extensions(selection_data)
         if config.enable_ros_bridge_extension:
             _enable_isaac_extension("isaacsim.ros2.bridge")
 
