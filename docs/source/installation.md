@@ -22,6 +22,22 @@
 5. **操作系统**:
    - Linux（Ubuntu 22.04 推荐）
 
+### inotify 文件监听容量
+
+Isaac Sim 会为大量扩展和资产目录创建文件监听。首次安装后运行一次：
+
+```bash
+sudo ./tools/configure_inotify_limits.sh
+sysctl fs.inotify.max_user_watches \
+       fs.inotify.max_user_instances \
+       fs.inotify.max_queued_events
+```
+
+工具会保留主机上已经更高的限制，并将配置持久化到
+`/etc/sysctl.d/90-eai-isaac-sim-inotify.conf`。日志中的
+`Failed to create change watch ... errno=28` 表示当前用户的 inotify
+监听资源已耗尽，不表示磁盘空间或磁盘 inode 已满。
+
 ### 可选项
 
 - **ROS2 Humble**: 如果需要使用 GS-Hub 传感器和 ROS2 导航

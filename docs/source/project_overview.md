@@ -256,6 +256,14 @@ python simulator.py --diy-3d --device=cuda:0
 
 三维入口、资产下载和同一 Kit 进程的运行边界见[环境说明](environments.md)。
 
+```{figure} assets/media/eai_env_diy.gif
+:alt: EAI Env DIY 三维编辑与运行演示
+:class: eai-doc-media
+:width: 100%
+
+EAI Env DIY 三维场景编辑、资产准备与运行流程
+```
+
 **终端快速方式**:
 
 1. 启动 `python simulator.py --num_envs=1 --device=cuda:0`。
