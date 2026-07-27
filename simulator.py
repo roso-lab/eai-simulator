@@ -170,6 +170,50 @@ def _selection_requires_omnigraph(selection_data: dict[str, Any] | None) -> bool
     )
 
 
+_INOTIFY_MINIMUMS = {
+    "max_user_watches": 524288,
+    "max_user_instances": 1024,
+    "max_queued_events": 32768,
+}
+
+
+def _read_inotify_limits(root: Path = Path("/proc/sys/fs/inotify")) -> dict[str, int]:
+    return {
+        name: int((root / name).read_text(encoding="utf-8").strip())
+        for name in _INOTIFY_MINIMUMS
+    }
+
+
+def _inotify_limit_warning(limits: dict[str, int]) -> str | None:
+    low = [
+        f"{name}={limits.get(name, 0)} (need >= {minimum})"
+        for name, minimum in _INOTIFY_MINIMUMS.items()
+        if limits.get(name, 0) < minimum
+    ]
+    if not low:
+        return None
+    return (
+        "[EAI Simulator] Warning: inotify limits are below the supported Isaac Sim minimums: "
+        + ", ".join(low)
+        + ". Run sudo tools/configure_inotify_limits.sh once."
+    )
+
+
+def _warn_if_inotify_limits_are_low() -> None:
+    try:
+        warning = _inotify_limit_warning(_read_inotify_limits())
+    except (OSError, ValueError) as exc:
+        print(f"[EAI Simulator] Warning: could not read inotify limits: {exc}")
+        return
+    if warning:
+        print(warning)
+
+
+def _enable_required_selection_extensions(selection_data: dict[str, Any] | None) -> None:
+    if _selection_requires_omnigraph(selection_data):
+        _enable_isaac_extension("omni.graph")
+
+
 def _repo_root() -> Path:
     return Path(__file__).resolve().parent
 
@@ -278,7 +322,9 @@ def _enable_isaac_extension(extension_name: str) -> None:
             module = importlib.import_module(module_name)
         except ModuleNotFoundError:
             continue
-        module.enable_extension(extension_name)
+        result = module.enable_extension(extension_name)
+        if result is False:
+            raise RuntimeError(f"Kit could not enable extension '{extension_name}'.")
         return
     raise ModuleNotFoundError("No Isaac Sim extension enable helper is available")
 
@@ -758,6 +804,7 @@ def _collect_asset_payload_after_app(args: argparse.Namespace, task_request: Tas
     selection_data = None
     saved_task_data = None
     task_name = task_request.task_name
+    validation_source = "DIY env"
     requested_env = _requested_env_name(args)
     if requested_env:
         source = resolve_task_source(
@@ -771,13 +818,7 @@ def _collect_asset_payload_after_app(args: argparse.Namespace, task_request: Tas
 
         selection = interactive_selection_from_dict(saved_task_data)
         selection_data = interactive_selection_to_dict(selection)
-        from EAI_hmrs.env_builder import build_interactive_env_cfg_from_selection
-
-        try:
-            env_cfg = build_interactive_env_cfg_from_selection(selection)
-        except ValueError as exc:
-            print(f"❌ JSON env cannot be executed: {exc}")
-            raise SystemExit(1) from exc
+        validation_source = "JSON env"
     elif task_request.selection is not None:
         selection = task_request.selection
         saved_task_data = task_request.saved_task
@@ -785,19 +826,18 @@ def _collect_asset_payload_after_app(args: argparse.Namespace, task_request: Tas
         from EAI.hmrs_env.env_diy.flow import interactive_selection_to_dict as flow_selection_to_dict
 
         selection_data = flow_selection_to_dict(selection)
-        from EAI_hmrs.env_builder import build_interactive_env_cfg_from_selection
-
         task_name = "EAI-Interactive-v0"
-        try:
-            env_cfg = build_interactive_env_cfg_from_selection(selection)
-        except ValueError as exc:
-            print(f"❌ DIY env cannot be executed: {exc}")
-            raise SystemExit(1) from exc
     else:
         raise RuntimeError("No task or DIY selection was resolved.")
 
-    if _selection_requires_omnigraph(selection_data):
-        _enable_isaac_extension("omni.graph")
+    _enable_required_selection_extensions(selection_data)
+    from EAI_hmrs.env_builder import build_interactive_env_cfg_from_selection
+
+    try:
+        env_cfg = build_interactive_env_cfg_from_selection(selection)
+    except ValueError as exc:
+        print(f"❌ {validation_source} cannot be executed: {exc}")
+        raise SystemExit(1) from exc
     _initialize_preflight_env_cfg(env_cfg, num_envs=args.num_envs, device=args.device)
     return _build_asset_payload(
         task_name=task_name,
@@ -937,25 +977,75 @@ def _run_diy_3d_authoring_in_process(
     return _task_request_from_diy_3d_result(result.to_dict()), simulation_app
 
 
-def _reset_kit_after_failed_formal_env(simulation_app: Any) -> None:
-    """Return a partially-created formal environment to an empty authoring Stage."""
+def _pump_kit_updates(simulation_app: Any, count: int) -> None:
+    for _ in range(count):
+        if not simulation_app.is_running():
+            raise RuntimeError("Kit stopped while preparing the formal simulation Stage.")
+        simulation_app.update()
 
-    try:
+
+def _normalized_physics_device(value: str) -> str:
+    normalized = str(value).strip().lower()
+    return "cuda:0" if normalized == "cuda" else normalized
+
+
+def _prepare_formal_gpu_stage(
+    simulation_app: Any,
+    requested_device: str,
+    *,
+    timeline: Any | None = None,
+    usd_context: Any | None = None,
+    simulation_manager: Any | None = None,
+    physics_scene_type: Any | None = None,
+    pre_stage_updates: int = 2,
+    post_stage_updates: int = 4,
+) -> None:
+    """Drain preview callbacks and prepare an empty Stage for formal PhysX setup."""
+
+    if timeline is None:
         import omni.timeline
 
-        omni.timeline.get_timeline_interface().stop()
-    except (ImportError, ModuleNotFoundError, AttributeError, RuntimeError):
-        pass
-    try:
+        timeline = omni.timeline.get_timeline_interface()
+    if usd_context is None:
         import omni.usd
 
-        context = omni.usd.get_context()
-        context.new_stage()
-    except (ImportError, ModuleNotFoundError, AttributeError, RuntimeError):
-        pass
-    for _ in range(2):
-        if simulation_app.is_running():
-            simulation_app.update()
+        usd_context = omni.usd.get_context()
+    if simulation_manager is None:
+        from isaacsim.core.simulation_manager import SimulationManager
+
+        simulation_manager = SimulationManager
+    if physics_scene_type is None:
+        from pxr import UsdPhysics
+
+        physics_scene_type = UsdPhysics.Scene
+
+    timeline.stop()
+    _pump_kit_updates(simulation_app, pre_stage_updates)
+    usd_context.new_stage()
+    _pump_kit_updates(simulation_app, post_stage_updates)
+
+    stage = usd_context.get_stage()
+    if stage is None:
+        raise RuntimeError("Kit did not create a fresh USD Stage for the formal simulation.")
+    physics_scenes = [str(prim.GetPath()) for prim in stage.Traverse() if prim.IsA(physics_scene_type)]
+    if physics_scenes:
+        raise RuntimeError(
+            "PhysicsScene remains on the fresh formal Stage: " + ", ".join(physics_scenes)
+        )
+
+    simulation_manager.set_physics_sim_device(requested_device)
+    actual_device = simulation_manager.get_physics_sim_device()
+    if _normalized_physics_device(actual_device) != _normalized_physics_device(requested_device):
+        raise RuntimeError(
+            "Formal physics device mismatch: "
+            f"requested {requested_device}, SimulationManager reported {actual_device}."
+        )
+
+
+def _reset_kit_after_failed_formal_env(simulation_app: Any, requested_device: str) -> None:
+    """Return a partially-created formal environment to an empty authoring Stage."""
+
+    _prepare_formal_gpu_stage(simulation_app, requested_device)
 
 
 def cmd_vel_bridge_robot_names(
@@ -1318,8 +1408,7 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
     env = None
     ur5_manager = None
     try:
-        if _selection_requires_omnigraph(selection_data):
-            _enable_isaac_extension("omni.graph")
+        _enable_required_selection_extensions(selection_data)
         if config.enable_ros_bridge_extension:
             _enable_isaac_extension("isaacsim.ros2.bridge")
 
@@ -1365,6 +1454,7 @@ def main() -> None:
     interface_exit_code = _dispatch_interface_cli(sys.argv[1:])
     if interface_exit_code is not None:
         raise SystemExit(interface_exit_code)
+    _warn_if_inotify_limits_are_low()
     _ensure_repo_sources_on_path()
     preflight_parser = _base_parser()
     preflight_args, hydra_args = preflight_parser.parse_known_args()
@@ -1421,6 +1511,8 @@ def main() -> None:
     entered_session = False
     session_context = None
     try:
+        if existing_simulation_app is not None:
+            _prepare_formal_gpu_stage(existing_simulation_app, args_cli.device)
         while True:
             session_context = open_simulator_session(launch_config)
             try:
@@ -1428,7 +1520,7 @@ def main() -> None:
             except Exception as exc:
                 if existing_simulation_app is None:
                     raise
-                _reset_kit_after_failed_formal_env(existing_simulation_app)
+                _reset_kit_after_failed_formal_env(existing_simulation_app, args_cli.device)
                 task_request, _ = _run_diy_3d_authoring_in_process(
                     args_cli,
                     simulation_app=existing_simulation_app,
@@ -1440,6 +1532,7 @@ def main() -> None:
                         print("Env DIY 3D selection saved after formal environment rollback.")
                     return
                 selection_data = task_request.selection_data
+                _prepare_formal_gpu_stage(existing_simulation_app, args_cli.device)
                 launch_config = replace(launch_config, selection_data=selection_data)
                 continue
             entered_session = True
