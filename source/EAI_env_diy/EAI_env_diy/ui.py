@@ -166,6 +166,15 @@ class EnvDiyWindow:
         self._set_status(f"{status.requirement.label}: {state}")
         self._robot_list_frame.rebuild()
         self._selection_frame.rebuild()
+        if self.asset_manager is not None and state == "READY":
+            try:
+                self.asset_manager.refresh_downloaded_assets((status,))
+            except Exception as exc:
+                self._pending_finish = None
+                message = f"Cannot refresh downloaded asset imports: {exc}"
+                self._set_status(message)
+                post_preview_error(message)
+                return
         if self._pending_finish is not None and state == "READY":
             action, save = self._pending_finish
             self._pending_finish = None
@@ -686,26 +695,48 @@ class EnvDiyWindow:
             )
             return False
 
-        def completed(results) -> None:
-            failures = tuple(
-                status for status in results if status.state != asset_resolver.RequirementState.READY
-            )
-            if failures:
-                self._pending_finish = None
-                self._set_status("Asset download failed: " + "; ".join(status.message for status in failures))
-                post_preview_error(self._status.text)
-                return
-            self._download_all_button.visible = False
-            if self._pending_finish is not None:
-                action, save = self._pending_finish
-                self._pending_finish = None
-                self._finish(action, save=save)
-
-        self.asset_manager.submit_all(graph, completed)
+        self.asset_manager.submit_all(graph, self._complete_downloaded_run)
         self._set_status("Downloading selection assets...")
         return False
 
-    def _finish(self, action: str, *, save: bool) -> None:
+    def _complete_downloaded_run(self, results) -> None:
+        from EAI_assets import asset_resolver
+
+        try:
+            if self.asset_manager is None:
+                raise RuntimeError("Asset download manager is unavailable.")
+            statuses = self.asset_manager.finalize_downloads(
+                self.model.to_selection_dict(),
+                results,
+            )
+        except Exception as exc:
+            self._pending_finish = None
+            message = f"Cannot revalidate downloaded selection assets: {exc}"
+            self._set_status(message)
+            post_preview_error(message)
+            return
+
+        missing_ids = tuple(
+            status.requirement.id
+            for status in statuses
+            if status.state != asset_resolver.RequirementState.READY
+        )
+        if missing_ids:
+            self._pending_finish = None
+            self._download_all_button.visible = True
+            message = "Downloaded assets failed final inspection: " + ", ".join(missing_ids)
+            self._set_status(message)
+            post_preview_error(message)
+            return
+
+        self._download_all_button.visible = False
+        pending = self._pending_finish
+        self._pending_finish = None
+        if pending is not None:
+            action, save = pending
+            self._finish(action, save=save, assets_revalidated=True)
+
+    def _finish(self, action: str, *, save: bool, assets_revalidated: bool = False) -> None:
         unresolved = sorted(
             {
                 *self.preview.robot_diagnostics,
@@ -721,7 +752,7 @@ class EnvDiyWindow:
             self._set_status(message)
             post_preview_error(message)
             return
-        if not self._start_missing_downloads():
+        if not assets_revalidated and not self._start_missing_downloads():
             self._pending_finish = (action, save)
             return
         try:

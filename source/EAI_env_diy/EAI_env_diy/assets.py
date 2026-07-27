@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import importlib
 import queue
 import threading
 from typing import Callable, Iterable
@@ -24,9 +25,13 @@ class AssetDownloadManager:
         *,
         resolver=asset_resolver,
         dispatch_to_kit: Callable[[Callable[[], None]], None] | None = None,
+        invalidate_caches: Callable[[], None] = importlib.invalidate_caches,
+        clear_controller_cache: Callable[[], None] | None = None,
     ) -> None:
         self.resolver = resolver
         self._dispatch = dispatch_to_kit or (lambda callback: callback())
+        self._invalidate_caches = invalidate_caches
+        self._clear_controller_cache = clear_controller_cache
         self._queue: queue.Queue[_DownloadJob | None] = queue.Queue()
         self._statuses: dict[str, object] = {}
         self._lock = threading.RLock()
@@ -43,6 +48,35 @@ class AssetDownloadManager:
         with self._lock:
             self._statuses[requirement.id] = status
         return status
+
+    def _refresh_import_state(self, statuses: Iterable[object]) -> None:
+        statuses = tuple(statuses)
+        self._invalidate_caches()
+        controller_ready = any(
+            status.state == self.resolver.RequirementState.READY
+            and getattr(status.requirement.kind, "value", status.requirement.kind) == "controller"
+            for status in statuses
+        )
+        if not controller_ready:
+            return
+        clear_cache = self._clear_controller_cache
+        if clear_cache is None:
+            from EAI_hmrs.controller_loader import clear_controller_module_cache
+
+            clear_cache = clear_controller_module_cache
+        clear_cache()
+
+    def refresh_downloaded_assets(self, statuses: Iterable[object]) -> None:
+        self._refresh_import_state(tuple(statuses))
+
+    def finalize_downloads(self, selection: dict, downloaded_statuses: Iterable[object]):
+        self.refresh_downloaded_assets(tuple(downloaded_statuses))
+        graph = self.resolver.resolve_selection(selection)
+        statuses = tuple(self.resolver.inspect_graph(graph))
+        with self._lock:
+            for status in statuses:
+                self._statuses[status.requirement.id] = status
+        return statuses
 
     def submit(self, requirement, callback: Callable[[object], None] | None = None):
         with self._lock:
