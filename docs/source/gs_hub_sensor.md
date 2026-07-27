@@ -1,3 +1,7 @@
+---
+orphan: true
+---
+
 # GS-Hub 传感器
 
 GS-Hub 是一个集成传感器模块，包含激光雷达（Lidar）和里程计（Odometry），用于 ROS2 导航栈集成。

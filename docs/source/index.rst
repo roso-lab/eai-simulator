@@ -29,7 +29,7 @@ EAI 是一个社会化物理仿真器（Social-Physical Simulator）。
 浏览器环境搭建工具：`打开 EAI Env DIY 工作台 <env_diy_tutorial.html>`_
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :titlesonly:
    :caption: 文档导航
 

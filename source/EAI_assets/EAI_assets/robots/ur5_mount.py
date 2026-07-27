@@ -59,7 +59,7 @@ UR5_MOUNT_PROFILES = {
     "carter": Ur5MountProfile(
         robot_type="carter",
         mount_body_path="Carter/GS_Hub_chassis_link",
-        mount_position=(0.0, 0.0, 0.480),
+        mount_position=(0.0, 0.0, 0.414),
         mount_rotation=_YAW_PI,
         visual_scale=1.0,
         mass_scale=0.05,
@@ -68,7 +68,7 @@ UR5_MOUNT_PROFILES = {
     "go2": Ur5MountProfile(
         robot_type="go2",
         mount_body_path="base",
-        mount_position=(0.0, 0.0, 0.089),
+        mount_position=(0.0, 0.0, 0.056),
         mount_rotation=_YAW_PI,
         visual_scale=1.0,
         mass_scale=0.01,
@@ -77,7 +77,7 @@ UR5_MOUNT_PROFILES = {
     "b2": Ur5MountProfile(
         robot_type="b2",
         mount_body_path="base_link",
-        mount_position=(0.0, 0.0, 0.243),
+        mount_position=(0.0, 0.0, 0.085),
         mount_rotation=_YAW_PI,
         visual_scale=1.0,
         mass_scale=0.07,

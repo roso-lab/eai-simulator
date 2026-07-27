@@ -215,4 +215,4 @@ ls source/EAI_hmrs/EAI_hmrs/envs/EAI-Factory-v0.json
 
 - :doc:`环境说明 <environments>`
 - :doc:`项目概览 <project_overview>`
-- :doc:`控制器开发指南 <controller_guide>`
+- :doc:`控制器开发 <controller_guide>`

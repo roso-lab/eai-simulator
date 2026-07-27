@@ -160,34 +160,6 @@ Isaac Sim ROS2 Bridge 通常随 Isaac Sim 一起安装。如果未安装：
 1. 通过 Omniverse Launcher 安装扩展
 2. 或参考 [Isaac Sim ROS2 Bridge 文档](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/install_ext_ros_bridge.html)
 
-## IDE 配置（可选）
-
-### VSCode
-
-1. **运行 VSCode 任务**:
-   - 按 `Ctrl+Shift+P`
-   - 选择 `Tasks: Run Task`
-   - 运行 `setup_python_env`
-   - 输入 Isaac Sim 安装路径
-
-2. **配置 Python 解释器**:
-   - 选择 Isaac Lab 的 Python 环境
-   - 确保 `.vscode/.python.env` 已创建
-
-3. **配置 Pylance**（如果需要）:
-   
-   在 `.vscode/settings.json` 中添加：
-
-   ```json
-   {
-     "python.analysis.extraPaths": [
-       "<path-to-project>/source/EAI",
-       "<path-to-project>/source/EAI_assets",
-       "<path-to-project>/source/EAI_hmrs"
-     ]
-   }
-   ```
-
 ## 常见问题
 
 ### Q1: `ModuleNotFoundError: No module named 'EAI'`
