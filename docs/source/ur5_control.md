@@ -1,3 +1,7 @@
+---
+orphan: true
+---
+
 # 机械臂
 
 UR5 和 Z1 都通过 Isaac Sim 内部的 **ROS2 Bridge + OmniGraph** 通信。ROS2 消息直接进入仿真器，不经过 `tmp/` 文件，也不需要额外启动机械臂 bridge 进程。

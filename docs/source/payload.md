@@ -65,9 +65,5 @@ GS-Hub 只有在同一宿主添加 `ros` 时才启用相机、点云和里程计
 
 ## 分类文档
 
-```{toctree}
-:maxdepth: 1
-
-gs_hub_sensor
-ur5_control
-```
+- [GS-Hub 传感器](gs_hub_sensor.md)
+- [机械臂](ur5_control.md)

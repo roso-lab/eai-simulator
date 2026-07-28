@@ -41,9 +41,9 @@ class Z1MountProfile:
 
 _YAW_PI = (0.0, 0.0, 0.0, 1.0)
 Z1_MOUNT_PROFILES = {
-    "carter": Z1MountProfile("carter", "Carter/GS_Hub_chassis_link", (0.0, 0.0, 0.480), _YAW_PI, 0.20),
-    "go2": Z1MountProfile("go2", "base", (0.0, 0.0, 0.089), _YAW_PI, 0.03),
-    "b2": Z1MountProfile("b2", "base_link", (0.0, 0.0, 0.243), _YAW_PI, 0.20),
+    "carter": Z1MountProfile("carter", "Carter/GS_Hub_chassis_link", (0.0, 0.0, 0.414), _YAW_PI, 0.20),
+    "go2": Z1MountProfile("go2", "base", (0.0, 0.0, 0.056), _YAW_PI, 0.03),
+    "b2": Z1MountProfile("b2", "base_link", (0.0, 0.0, 0.085), _YAW_PI, 0.20),
     "m20": Z1MountProfile("m20", "base_link", (0.0, 0.0, 0.0852), _YAW_PI, 0.10),
     "scout": Z1MountProfile("scout", "base_link", (0.0, 0.0, 0.1162), _YAW_PI, 0.15),
     "lite3": Z1MountProfile("lite3", "TORSO", (0.0, 0.0, 0.073), _YAW_PI, 0.03),
