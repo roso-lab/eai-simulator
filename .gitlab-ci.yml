@@ -1,0 +1,15 @@
+stages:
+  - deploy
+
+sync_to_gitee:
+  stage: deploy
+  image: alpine:3.20
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+    - when: never
+  before_script:
+    - apk add --no-cache ca-certificates git
+  script:
+    - test -n "$REMOTE_USER"
+    - test -n "$REMOTE_TOKEN"
+    - git push --force "https://${REMOTE_USER}:${REMOTE_TOKEN}@gitee.com/HuangQijun0909/test.git" "HEAD:refs/heads/develop"
