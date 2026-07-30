@@ -1,18 +1,39 @@
 stages:
   - deploy
 
-sync_to_gitee:
+sync_to_github:
   stage: deploy
   image:
-    name: docker.m.daocloud.io/alpine/git:2.45.2
+    name: docker.m.daocloud.io/library/alpine:3.20
     entrypoint: [""]
   rules:
     - if: '$CI_COMMIT_BRANCH == "develop"'
     - when: never
-  variables:
-    GIT_LFS_SKIP_PUSH: "1"
+  before_script:
+    - |
+      set -eu
+      installed=0
+      for mirror in \
+        "https://mirrors.aliyun.com/alpine" \
+        "https://mirrors.cloud.tencent.com/alpine" \
+        "https://mirrors.ustc.edu.cn/alpine" \
+        "https://dl-cdn.alpinelinux.org/alpine"; do
+        printf '%s\n%s\n' "$mirror/v3.20/main" "$mirror/v3.20/community" > /etc/apk/repositories
+        if apk update && apk add ca-certificates git git-lfs; then
+          installed=1
+          break
+        fi
+        echo "apk install failed with $mirror, trying next mirror" >&2
+        sleep 5
+      done
+      test "$installed" = 1
+    - git lfs update --force
   script:
     - git --version
-    - test -n "$REMOTE_USER"
-    - test -n "$REMOTE_TOKEN"
-    - git push --force "https://${REMOTE_USER}:${REMOTE_TOKEN}@gitee.com/HuangQijun0909/test.git" "HEAD:refs/heads/develop"
+    - git lfs version
+    - test -n "$GITHUB_TOKEN"
+    - git lfs fetch origin "$CI_COMMIT_SHA"
+    - git remote add github "https://x-access-token:${GITHUB_TOKEN}@github.com/roso-lab/eai-simulator.git"
+    - git config --global lfs.https://github.com/.locksverify false
+    - git lfs push github "$CI_COMMIT_SHA"
+    - git push --force github "HEAD:refs/heads/main"
