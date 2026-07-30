@@ -9,6 +9,8 @@ sync_to_gitee:
   rules:
     - if: '$CI_COMMIT_BRANCH == "develop"'
     - when: never
+  variables:
+    GIT_LFS_SKIP_PUSH: "1"
   script:
     - git --version
     - test -n "$REMOTE_USER"
