@@ -11,7 +11,7 @@ Only the latest revision on the default branch is actively supported with securi
 Do not disclose a suspected vulnerability in a public Issue, pull request, discussion, or chat.
 
 1. Use GitHub private vulnerability reporting:
-   <https://github.com/Huang-Qijun/eai-simulator/security/advisories/new>.
+   <https://github.com/roso-lab/eai-simulator/security/advisories/new>.
 2. If you are an internal maintainer, you may instead open a confidential GitLab issue.
 3. Verify that the report is private before submitting technical details.
 4. If no private reporting channel is available, do not submit vulnerability details through a
