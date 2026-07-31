@@ -1,74 +1,119 @@
-[English](README.md) | [中文](docs/README.zh-CN.md)
-
 <p align="center">
-  <img src="docs/source/_static/img/logo.png" alt="EAI Simulator logo" width="640">
+  <a href="README.md">English</a> · <a href="docs/README.zh-CN.md">中文</a>
 </p>
 
-# EAI Simulator
+<p align="center">
+  <img src="docs/source/_static/img/logo.png" alt="EAI Simulator logo" width="520">
+</p>
 
-[![Platform](https://img.shields.io/badge/platform-linux--64-orange.svg)](https://releases.ubuntu.com/22.04/)
-[![Isaac Sim](https://img.shields.io/badge/Isaac%20Sim-5.1-76B900.svg)](https://docs.isaacsim.omniverse.nvidia.com/5.1.0/index.html)
-[![License](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
+<h1 align="center">EAI Simulator</h1>
 
-EAI Simulator is a social-physical simulation platform built on Isaac Lab. It couples physical
-simulation with social rules to create heterogeneous human-robot environments with roles,
-information flow, multimodal sensing, and reusable control interfaces.
+<p align="center">
+  <a href="https://releases.ubuntu.com/22.04/"><img src="https://img.shields.io/badge/platform-linux--64-orange.svg" alt="Platform: Linux x86-64"></a>
+  <a href="https://docs.isaacsim.omniverse.nvidia.com/5.1.0/index.html"><img src="https://img.shields.io/badge/Isaac%20Sim-5.1-76B900.svg" alt="Isaac Sim 5.1"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow.svg" alt="License: MIT"></a>
+</p>
 
-## Key Features
+<p align="center">
+  <strong>A social-physical simulator for human-robot coexistence.</strong><br>
+  Compose heterogeneous environments, connect perception and control, and evaluate collaborative embodied tasks on Isaac Lab.
+</p>
 
-- Heterogeneous robots, humans, manipulators, sensors, and scenes.
-- JSON environments and Env DIY workflows for composing simulations.
-- Reinforcement learning, traditional control, and external policy integration.
-- ROS2 interfaces for navigation, velocity control, and manipulators.
-- Gated USD assets and policy weights downloaded from Hugging Face on demand.
+<p align="center">
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html"><strong>Get Started</strong></a> ·
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/"><strong>Documentation</strong></a> ·
+  <a href="#community--support"><strong>Community</strong></a>
+</p>
 
-## Prerequisites
+<p align="center">
+  <img src="docs/source/assets/media/demo.gif" alt="EAI Simulator running heterogeneous robots and tasks" width="960">
+</p>
 
-- Linux (Ubuntu 22.04 recommended)
-- Isaac Sim 5.1
-- Isaac Lab 2.x and its conda environment
-- ROS2 Humble for ROS2 and Nav2 workflows (optional)
+## Features
+
+<table>
+<tr>
+<td width="43%" valign="middle">
+  <h3>Compose environments visually</h3>
+  <p>Choose a scene, place heterogeneous robots, attach manipulators and sensors, and save the result as a reusable JSON environment. Env DIY supports lightweight composition and true 3D placement in Isaac Sim.</p>
+  <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html">Environment guide →</a></p>
+</td>
+<td width="57%">
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html"><img src="docs/source/assets/media/eai_env_diy.gif" alt="Composing and running an environment with EAI Env DIY" width="100%"></a>
+</td>
+</tr>
+<tr>
+<td width="43%" valign="middle">
+  <h3>Bring heterogeneous agents together</h3>
+  <p>Run humans, legged robots, mobile bases, aerial robots, and robot-manipulator systems in one environment through consistent entity, controller, and attachment definitions.</p>
+  <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/project_overview.html">Explore the platform →</a></p>
+</td>
+<td width="57%">
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/project_overview.html"><img src="docs/source/assets/media/eai-keyboard.gif" alt="Controlling heterogeneous EAI agents in one simulation" width="100%"></a>
+</td>
+</tr>
+<tr>
+<td width="43%" valign="middle">
+  <h3>Connect perception and control</h3>
+  <p>Attach GS-Hub or LiDAR sensing and connect keyboard control, ROS2 velocity commands, Nav2, UR5/Z1 manipulators, or external policies without rebuilding the environment.</p>
+  <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/interface_catalog.html">Browse interfaces →</a></p>
+</td>
+<td width="57%">
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/gs_hub_sensor.html"><img src="docs/source/assets/media/gs-hub_demo.gif" alt="GS-Hub multimodal sensor output in EAI Simulator" width="100%"></a>
+</td>
+</tr>
+<tr>
+<td width="43%" valign="middle">
+  <h3>Run collaborative experiments</h3>
+  <p>Move from navigation and manipulation to multi-agent discussion, capability-aware task allocation, and coordinated experiments such as Fire Rescue.</p>
+  <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html#fire-rescue-demo">Run an experiment →</a></p>
+</td>
+<td width="57%">
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html#nav2"><img src="docs/source/assets/media/eai-nav.gif" alt="Carter executing Nav2 navigation in the Factory scene" width="100%"></a>
+</td>
+</tr>
+</table>
+
+## Built for Robotics Research
+
+| Heterogeneous entities | Composable worlds | Perception and control |
+| --- | --- | --- |
+| Humans, Carter, Pepper, MuSHR, Scout, Go2, B2, M20, Lite3, G1, and CF2X | Plane, warehouse, factory, AIRS, garden, desert, hospital, and reusable JSON environments | Traditional and RL controllers, ROS2, Nav2, GS-Hub, LiDAR, UR5, Z1, and external policies |
+
+The README summarizes the supported surface. Use the detailed guides as the source of truth:
+
+- **[Getting Started](https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html):** install dependencies, request assets, and run the first environment.
+- **[Build Environments](https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html):** JSON environments, Env DIY, 3D placement, and payloads.
+- **[ROS2 Interfaces](https://www.rosolab.com/roso-lab/eai-simulator/docs/interface_catalog.html):** command input, sensor output, Nav2, and manipulators.
+- **[Controller Development](https://www.rosolab.com/roso-lab/eai-simulator/docs/controller_guide.html):** traditional, RL, IK, and external controller integration.
 
 ## Quick Start
 
+Before starting, install **Ubuntu 22.04**, **Isaac Sim 5.1**, and **Isaac Lab 2.x** with its `env_isaaclab` conda environment. ROS2 Humble is optional unless you use ROS2 or Nav2 workflows.
+
+Request access to the gated [EAI Simulator assets dataset](https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets), then run:
+
 ```bash
-git clone https://github.com/Huang-Qijun/eai-simulator.git
+git clone https://github.com/roso-lab/eai-simulator.git
 cd eai-simulator
-source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate env_isaaclab
 ./tools/install_packages.sh
-```
-
-Request access to
-[the EAI Simulator assets dataset](https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets),
-then authenticate and start the recommended example:
-
-```bash
 hf auth login
 python simulator.py --env robo
 ```
 
-## Documentation
+See the [installation guide](https://www.rosolab.com/roso-lab/eai-simulator/docs/installation.html) for conda initialization, asset configuration, ROS2 setup, and troubleshooting.
 
-See the [EAI Simulator documentation](https://www.rosolab.com/roso-lab/eai-simulator/docs/) for detailed
-installation, configuration, and development guides. The documentation source lives in
-[docs/source](docs/source).
+## Community & Support
 
-## Community and Contributing
+- **[GitHub Discussions](https://github.com/roso-lab/eai-simulator/discussions):** questions, research scenarios, early ideas, and community proposals.
+- **[GitHub Issues](https://github.com/roso-lab/eai-simulator/issues):** reproducible bugs, scoped feature requests, and documentation problems.
+- **[Contributing](CONTRIBUTING.md):** development setup, testing expectations, pull requests, and the GitHub/GitLab maintenance workflow.
+- **[Support](SUPPORT.md):** channel selection and support boundaries.
+- **[Security](SECURITY.md):** private vulnerability reporting. Do not report security issues publicly.
 
-This GitHub repository is the public mirror and community entry point. Maintainers continue
-canonical development in the internal GitLab repository, then mirror public updates back to GitHub.
-
-- Use [GitHub Issues](https://github.com/Huang-Qijun/eai-simulator/issues) for reproducible bugs,
-  scoped feature requests, and documentation problems.
-- Use [GitHub Discussions](https://github.com/Huang-Qijun/eai-simulator/discussions) for questions,
-  early ideas, and community proposals.
-- Read [CONTRIBUTING.md](CONTRIBUTING.md), [SUPPORT.md](SUPPORT.md), and
-  [docs/community_workflow.md](docs/community_workflow.md) before opening a pull request.
-- Report vulnerabilities privately according to [SECURITY.md](SECURITY.md).
+GitHub is the public community entry point. Maintainers continue canonical development in the internal GitLab repository and mirror public updates back to GitHub.
 
 ## License
 
-The source code in this repository is available under the [MIT License](LICENSE). Isaac Sim,
-Isaac Lab, Omniverse components, third-party dependencies, and downloaded assets remain subject
-to their respective license terms.
+The source code in this repository is available under the [MIT License](LICENSE). Isaac Sim, Isaac Lab, Omniverse components, third-party dependencies, and downloaded assets remain subject to their respective license terms.

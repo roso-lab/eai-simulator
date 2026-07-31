@@ -5,8 +5,8 @@
 Use the public GitHub community channels for non-security support:
 
 - **Questions and usage help:** open a
-  [GitHub Discussion](https://github.com/Huang-Qijun/eai-simulator/discussions).
-- **Reproducible bugs:** open a [GitHub Issue](https://github.com/Huang-Qijun/eai-simulator/issues)
+  [GitHub Discussion](https://github.com/roso-lab/eai-simulator/discussions).
+- **Reproducible bugs:** open a [GitHub Issue](https://github.com/roso-lab/eai-simulator/issues)
   with the bug report template.
 - **Feature ideas:** start with a Discussion if the scope is still open, or open a GitHub Issue if
   the request is already concrete.
