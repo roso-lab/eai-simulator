@@ -1,73 +1,119 @@
-[English](../README.md) | [中文](README.zh-CN.md)
-
 <p align="center">
-  <img src="docs/source/_static/img/logo.png" alt="EAI Simulator 标志" width="640">
+  <a href="../README.md">English</a> · <a href="README.zh-CN.md">中文</a>
 </p>
 
-# EAI Simulator
+<p align="center">
+  <img src="source/_static/img/logo.png" alt="EAI Simulator 标志" width="520">
+</p>
 
-[![Platform](https://img.shields.io/badge/platform-linux--64-orange.svg)](https://releases.ubuntu.com/22.04/)
-[![Isaac Sim](https://img.shields.io/badge/Isaac%20Sim-5.1-76B900.svg)](https://docs.isaacsim.omniverse.nvidia.com/5.1.0/index.html)
-[![License](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
+<h1 align="center">EAI Simulator</h1>
 
-EAI Simulator 是一个基于 Isaac Lab 的社会化物理仿真平台。它将物理仿真与社会规则结合，
-为控制算法提供包含角色、信息流、多模态感知和统一控制接口的异构人机环境。
+<p align="center">
+  <a href="https://releases.ubuntu.com/22.04/"><img src="https://img.shields.io/badge/platform-linux--64-orange.svg" alt="平台：Linux x86-64"></a>
+  <a href="https://docs.isaacsim.omniverse.nvidia.com/5.1.0/index.html"><img src="https://img.shields.io/badge/Isaac%20Sim-5.1-76B900.svg" alt="Isaac Sim 5.1"></a>
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow.svg" alt="许可证：MIT"></a>
+</p>
 
-## 核心能力
+<p align="center">
+  <strong>面向人机共融研究的社会化物理仿真平台。</strong><br>
+  基于 Isaac Lab 组合异构环境、连接感知与控制，并验证具身智能协作任务。
+</p>
 
-- 集成人类、异构机器人、机械臂、传感器和多类场景。
-- 通过 JSON 环境和 Env DIY 工作流组合仿真任务。
-- 支持强化学习、传统控制和外部策略接入。
-- 提供导航、速度控制和机械臂相关的 ROS2 接口。
-- 从 Hugging Face 按需下载受限访问的 USD 资产和策略权重。
+<p align="center">
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html"><strong>快速开始</strong></a> ·
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/"><strong>完整文档</strong></a> ·
+  <a href="#社区与支持"><strong>社区</strong></a>
+</p>
 
-## 前置条件
+<p align="center">
+  <img src="source/assets/media/demo.gif" alt="EAI Simulator 异构机器人与任务运行演示" width="960">
+</p>
 
-- Linux（推荐 Ubuntu 22.04）
-- Isaac Sim 5.1
-- Isaac Lab 2.x 及其 conda 环境
-- ROS2 Humble（仅 ROS2 和 Nav2 工作流需要）
+## 功能特性
+
+<table>
+<tr>
+<td width="43%" valign="middle">
+  <h3>可视化组合仿真环境</h3>
+  <p>选择场景、放置异构机器人、添加机械臂和传感器，再将结果保存为可复用的 JSON 环境。Env DIY 同时支持轻量组合与 Isaac Sim 中的真实三维布置。</p>
+  <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html">环境指南 →</a></p>
+</td>
+<td width="57%">
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html"><img src="source/assets/media/eai_env_diy.gif" alt="使用 EAI Env DIY 组合并运行环境" width="100%"></a>
+</td>
+</tr>
+<tr>
+<td width="43%" valign="middle">
+  <h3>让异构智能体进入同一世界</h3>
+  <p>通过一致的实体、控制器和附件定义，让人、足式机器人、移动底盘、飞行器和机器人机械臂组合在同一个环境中运行。</p>
+  <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/project_overview.html">了解平台能力 →</a></p>
+</td>
+<td width="57%">
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/project_overview.html"><img src="source/assets/media/eai-keyboard.gif" alt="在同一仿真中控制 EAI 异构智能体" width="100%"></a>
+</td>
+</tr>
+<tr>
+<td width="43%" valign="middle">
+  <h3>连接感知与控制</h3>
+  <p>挂载 GS-Hub 或 LiDAR，并连接键盘控制、ROS2 速度命令、Nav2、UR5/Z1 机械臂或外部策略，无需重新实现环境。</p>
+  <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/interface_catalog.html">查看接口 →</a></p>
+</td>
+<td width="57%">
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/gs_hub_sensor.html"><img src="source/assets/media/gs-hub_demo.gif" alt="EAI Simulator 中的 GS-Hub 多模态传感输出" width="100%"></a>
+</td>
+</tr>
+<tr>
+<td width="43%" valign="middle">
+  <h3>运行多智能体协作实验</h3>
+  <p>从导航和操作扩展到多智能体讨论、基于能力的任务分配，以及 Fire Rescue 等协同实验。</p>
+  <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html#fire-rescue-demo">运行实验 →</a></p>
+</td>
+<td width="57%">
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html#nav2"><img src="source/assets/media/eai-nav.gif" alt="Carter 在 Factory 场景中执行 Nav2 导航" width="100%"></a>
+</td>
+</tr>
+</table>
+
+## 面向机器人研究
+
+| 异构实体 | 可组合世界 | 感知与控制 |
+| --- | --- | --- |
+| Human、Carter、Pepper、MuSHR、Scout、Go2、B2、M20、Lite3、G1 和 CF2X | Plane、Warehouse、Factory、AIRS、Garden、Desert、Hospital 和可复用 JSON 环境 | 传统与 RL 控制器、ROS2、Nav2、GS-Hub、LiDAR、UR5、Z1 和外部策略 |
+
+README 只概括支持范围，详细能力以专题文档为准：
+
+- **[快速开始](https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html)：** 安装依赖、申请资产并运行第一个环境。
+- **[构建环境](https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html)：** JSON 环境、Env DIY、三维布置与 Payload。
+- **[ROS2 接口](https://www.rosolab.com/roso-lab/eai-simulator/docs/interface_catalog.html)：** 控制输入、传感输出、Nav2 与机械臂。
+- **[控制器开发](https://www.rosolab.com/roso-lab/eai-simulator/docs/controller_guide.html)：** 传统控制、RL、IK 和外部控制器接入。
 
 ## 快速开始
 
+开始前需要安装 **Ubuntu 22.04**、**Isaac Sim 5.1**、**Isaac Lab 2.x**，并准备 Isaac Lab 的 `env_isaaclab` conda 环境。只有 ROS2 或 Nav2 工作流需要 ROS2 Humble。
+
+先申请 gated [EAI Simulator 资产数据集](https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets)的访问权限，然后运行：
+
 ```bash
-git clone https://github.com/Huang-Qijun/eai-simulator.git
+git clone https://github.com/roso-lab/eai-simulator.git
 cd eai-simulator
-source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate env_isaaclab
 ./tools/install_packages.sh
-```
-
-先申请
-[EAI Simulator 资产数据集](https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets)访问权限，
-然后登录并启动推荐示例：
-
-```bash
 hf auth login
 python simulator.py --env robo
 ```
 
-## 文档
+conda 初始化、资产配置、ROS2 安装和常见问题见[安装指南](https://www.rosolab.com/roso-lab/eai-simulator/docs/installation.html)。
 
-详细的安装、配置与开发说明请参阅
-[EAI Simulator 文档](https://www.rosolab.com/roso-lab/eai-simulator/docs/)。文档源文件位于
-[docs/source](docs/source)。
+## 社区与支持
 
-## 社区与贡献
+- **[GitHub Discussions](https://github.com/roso-lab/eai-simulator/discussions)：** 使用问题、研究场景、早期想法和社区提案。
+- **[GitHub Issues](https://github.com/roso-lab/eai-simulator/issues)：** 可复现 bug、范围明确的功能请求和文档问题。
+- **[贡献指南](CONTRIBUTING.zh-CN.md)：** 开发环境、测试要求、Pull Request 和 GitHub/GitLab 维护流程。
+- **[支持说明](SUPPORT.zh-CN.md)：** 渠道选择和支持边界。
+- **[安全策略](SECURITY.zh-CN.md)：** 私密漏洞报告。请勿公开报告安全问题。
 
-这个 GitHub 仓库是公开镜像和社区入口。维护者继续在内部 GitLab 仓库中进行主线开发，再将公开更新
-镜像回 GitHub。
-
-- 可复现 bug、范围清晰的功能请求和文档问题请使用
-  [GitHub Issues](https://github.com/Huang-Qijun/eai-simulator/issues)。
-- 问答、早期想法和社区提案请使用
-  [GitHub Discussions](https://github.com/Huang-Qijun/eai-simulator/discussions)。
-- 提交 Pull Request 前请阅读 [CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md)、
-  [SUPPORT.zh-CN.md](SUPPORT.zh-CN.md) 和
-  [community_workflow.zh-CN.md](community_workflow.zh-CN.md)。
-- 安全漏洞请按照 [SECURITY.zh-CN.md](SECURITY.zh-CN.md) 私下报告。
+GitHub 是公开社区入口。维护者继续在内部 GitLab 仓库中进行主线开发，并将公开更新镜像回 GitHub。
 
 ## 许可证
 
-本仓库源代码采用 [MIT License](LICENSE)。Isaac Sim、Isaac Lab、Omniverse 组件、第三方依赖和
-下载资产仍分别受其各自许可证约束。
+本仓库源代码采用 [MIT License](../LICENSE)。Isaac Sim、Isaac Lab、Omniverse 组件、第三方依赖和下载资产仍分别受其各自许可证约束。

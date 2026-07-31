@@ -1,0 +1,60 @@
+{% extends "!page.html" %}
+
+{% block announcement %}
+<header class="eai-product-header">
+  <div class="eai-product-header__inner">
+    <label class="eai-product-header__nav-toggle" for="__navigation" title="打开文档导航">
+      <span class="icon" aria-hidden="true"><svg><use href="#svg-menu"></use></svg></span>
+      <span class="visually-hidden">打开文档导航</span>
+    </label>
+
+    <a class="eai-product-header__brand" href="{{ pathto(master_doc) }}" aria-label="EAI Simulator 文档首页">
+      <img src="{{ pathto('_static/img/Icon.png', 1) }}" alt="" width="28" height="28">
+      <span class="eai-product-header__brand-full">EAI Simulator Documentation</span>
+      <span class="eai-product-header__brand-short">EAI Simulator Docs</span>
+    </a>
+
+    <details class="eai-version-menu">
+      <summary aria-label="选择文档版本">
+        <span>v{{ release }}</span>
+        <span class="eai-version-menu__chevron" aria-hidden="true"></span>
+      </summary>
+      <div class="eai-version-menu__panel">
+        <a href="{{ pathto(master_doc) }}" aria-current="page">
+          <span>v{{ release }}</span>
+          <small>当前文档</small>
+        </a>
+        <a class="eai-version-menu__archive" href="{{ pathto('versions') }}">版本归档</a>
+      </div>
+    </details>
+
+    <nav class="eai-product-header__actions" aria-label="文档工具">
+      <a class="eai-product-header__search eai-icon-button" href="{{ pathto('search') }}" aria-label="搜索文档" title="搜索文档">
+        <span aria-hidden="true"></span>
+      </a>
+      <div class="theme-toggle-container eai-product-header__theme">
+        <button class="theme-toggle eai-icon-button" aria-label="切换浅色、深色或自动主题" title="切换主题">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <a class="eai-product-header__github" href="{{ eai_repository_url }}">GitHub</a>
+      <a class="eai-product-header__community" href="{{ eai_community_url }}">Community</a>
+    </nav>
+  </div>
+</header>
+{% endblock announcement %}
+
+{% block left_sidebar %}
+<div class="sidebar-sticky">
+  {%- for sidebar_section in sidebars %}
+    {%- include sidebar_section %}
+  {%- endfor %}
+  <nav class="eai-sidebar-meta" aria-label="社区链接">
+    <a href="{{ eai_repository_url }}">GitHub</a>
+    <a href="{{ eai_community_url }}">Community</a>
+  </nav>
+</div>
+{% endblock left_sidebar %}

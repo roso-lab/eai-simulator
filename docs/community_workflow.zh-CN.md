@@ -14,7 +14,7 @@ Pull Request 在完成 triage 之前都视为公开入口信息。
 
 ## 镜像设置
 
-1. 在公开准备清单完成前，保持 `https://github.com/Huang-Qijun/eai-simulator.git` 为 private。
+1. 在公开准备清单完成前，保持 `https://github.com/roso-lab/eai-simulator.git` 为 private。
 2. 在 GitHub 创建以下任一凭据：
    - 仅限该仓库、具备 **Contents: Read and write** 权限的 fine-grained token；
    - 或者一个专用于 GitLab 镜像、具备写权限的 deploy key。

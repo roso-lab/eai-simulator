@@ -18,7 +18,7 @@ triage and port the work internally.
 
 ## Mirror Setup
 
-1. Keep `https://github.com/Huang-Qijun/eai-simulator.git` private until the public-readiness
+1. Keep `https://github.com/roso-lab/eai-simulator.git` private until the public-readiness
    checklist below is complete.
 2. In GitHub, create either:
    - a fine-grained token scoped to this repository with **Contents: Read and write**, or
