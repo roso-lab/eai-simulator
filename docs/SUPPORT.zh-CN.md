@@ -5,9 +5,9 @@
 非安全问题请使用公开 GitHub 社区渠道：
 
 - **问答与使用帮助：** 创建
-  [GitHub Discussion](https://github.com/Huang-Qijun/eai-simulator/discussions)。
+  [GitHub Discussion](https://github.com/roso-lab/eai-simulator/discussions)。
 - **可复现 bug：** 使用 bug report 模板创建
-  [GitHub Issue](https://github.com/Huang-Qijun/eai-simulator/issues)。
+  [GitHub Issue](https://github.com/roso-lab/eai-simulator/issues)。
 - **功能想法：** 如果范围还开放，先发 Discussion；如果需求已经清晰，可以创建 GitHub Issue。
 - **文档问题：** 使用 documentation 模板创建 GitHub Issue。
 

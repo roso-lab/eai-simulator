@@ -17,7 +17,7 @@
 ## 开发环境
 
 ```bash
-git clone https://github.com/Huang-Qijun/eai-simulator.git
+git clone https://github.com/roso-lab/eai-simulator.git
 cd eai-simulator
 ./tools/setup-git-hooks.sh
 source "$(conda info --base)/etc/profile.d/conda.sh"

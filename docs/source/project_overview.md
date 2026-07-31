@@ -1,16 +1,16 @@
 # 项目总览
 
-本文档提供 EAI-HMRS 项目的完整概览，包括平台能力、目录结构、核心模块、环境说明、工作流等。
+本文档面向需要评估、使用或扩展 EAI Simulator 的研究者与开发者，说明平台边界、目录结构、实体目录、控制接口和主要工作流。
 
 ## 平台简介
 
-EAI 是一个社会化物理仿真器（Social-Physical Simulator）。
+EAI Simulator 是一个面向人机共融研究的社会化物理仿真平台。
 
-它初始化一个包含人类与机器人的社会，通过物理引擎与社会规则引擎的耦合，模拟人机共融的复杂动态。控制算法接入的不是空场景，而是一个有规则、有角色、有信息流动、有多模态感知的社会。
+平台基于 Isaac Lab 提供可配置的物理仿真和异构控制入口。环境层负责组合人、机器人、机械臂与传感器；算法和 Demo 层可以进一步定义角色、信息流、任务约束、多智能体讨论与协作规则。因此，社会化能力是可组合的环境与实验能力，而不是所有 JSON 环境默认启用的独立规则引擎。
 
-- 基于 Isaac Lab 构建物理仿真层，支持异构控制（RL / 传统控制 / MPC）。
-- 已集成四足/腿式机器人（Go2、B2、Lite3、M20）、人形（G1）、四旋翼、移动底盘（Carter、Scout、Pepper）、机械臂/组合平台和人体资产等。
-- 当前仓库聚焦仿真运行、推理环境以及预训练策略加载。
+- 基于 Isaac Lab 构建物理仿真层，支持强化学习、传统控制和外部策略接入。
+- 当前目录覆盖足式/人形/飞行机器人、移动底盘、机械臂组合平台和人体资产。
+- 当前仓库聚焦仿真运行、推理环境、预训练策略加载、ROS2 接口与可复用实验入口。
 
 ## 架构图
 
@@ -102,7 +102,7 @@ eai-simulator/
 
 - 基于 `MultiRobotDirectEnv`（DirectMARL 架构）
 - 统一 `controllers` 字典管理
-- 移除 Domain Randomization（确定性物理）
+- 默认不启用 Domain Randomization
 - 移除 Reward Functions
 
 **环境列表**: 参考 :doc:`环境说明 <environments>`
@@ -113,7 +113,7 @@ eai-simulator/
 `simulator.py` 只使用 JSON 环境。传入 `--env=<name>` 时读取
 `source/EAI_hmrs/EAI_hmrs/envs/<name>.json`；未指定 `--env` 时进入 Env DIY。需要真实三维编辑时使用 `python simulator.py --diy-3d`，它把 Viewport transform 保存为物理 `spawn_pose`。
 机器人选择由 `source/EAI/EAI/hmrs_env/env_diy/flow.py::ROBOT_KEYS` 和
-`source/EAI_hmrs/EAI_hmrs/env_builder.py::ROBOT_OPTIONS` 定义，目前可选 10 类：
+`source/EAI_hmrs/EAI_hmrs/env_builder.py::ROBOT_OPTIONS` 定义，目前可选 11 类：
 
 | Env DIY key | 机器人/对象 | 默认控制器 | 可选附件 | 常用入口 |
 | ---------- | ---------- | ---------- | -------- | -------- |
@@ -123,6 +123,7 @@ eai-simulator/
 | `b2` | Unitree B2 | `B2_VELOCITY_RSL_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
 | `m20` | DeepRobotics M20 | `M20_ROUGH_RSL_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
 | `scout` | Scout mobile base | `SCOUT_DIFF_CFG` | GS-Hub, UR5, Z1 | JSON / Env DIY |
+| `mushr_v2` | MuSHR Nano v2 Ackermann base | `MUSHR_ACKERMANN_CFG` | - | JSON / Env DIY |
 | `g1` | Unitree G1 | `G1_SKRL_CFG` | - | JSON / Env DIY |
 | `cf2x` | Crazyflie CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | - | JSON / Env DIY |
 | `human` | Human animation | `HUMAN_ANIMATION_CFG` | - | JSON / Env DIY |
@@ -175,48 +176,6 @@ eai-simulator/
 ## Env DIY 与外部接口示例
 
 Env DIY 是 `simulator.py` 的自定义 env 入口，用于快速组合场景、机器人、传感器和外部控制工具。
-
-<style>
-.env-diy-overview-card {
-  margin: 1.25rem 0 1.5rem;
-  padding: 0.85rem;
-  background: #edf3f8;
-  border: 1px solid #c8d6e3;
-  border-radius: 10px;
-}
-.env-diy-overview-card__title {
-  margin: 0 0 0.65rem;
-  color: #102030;
-  font-weight: 700;
-}
-.env-diy-overview-frame {
-  width: 100%;
-  height: min(720px, 82vh);
-  display: block;
-  background: #f4f8fc;
-  border: 1px solid #c8d6e3;
-  border-radius: 8px;
-}
-figure.eai-doc-media {
-  margin: 1.15rem auto 1.5rem;
-  padding: 0.7rem;
-  background: linear-gradient(145deg, #f8fbfd, #edf5fa);
-  border: 1px solid #c8d6e3;
-  border-radius: 12px;
-  box-shadow: 0 10px 28px rgba(27, 58, 79, 0.08);
-}
-figure.eai-doc-media img {
-  width: 100%;
-  display: block;
-  border-radius: 8px;
-}
-figure.eai-doc-media figcaption {
-  margin-top: 0.6rem;
-  color: #526170;
-  font-size: 0.9rem;
-  text-align: center;
-}
-</style>
 
 下面的演示展示了从环境配置到仿真运行的整体效果；可以先观看完整流程，再在嵌入式工作台中逐步尝试。
 

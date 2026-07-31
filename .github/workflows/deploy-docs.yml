@@ -42,11 +42,12 @@ jobs:
         run: |
           cd docs
           make clean
-          make html
+          make html SPHINXOPTS="-W --keep-going"
 
       - name: Verify Env DIY tutorial artifact
         run: |
           python - <<'PY'
+          import re
           from pathlib import Path
 
           root = Path("docs/build/html")
@@ -57,11 +58,24 @@ jobs:
 
           if not tutorial.is_file():
               raise SystemExit("missing built Env DIY tutorial HTML")
-          if len(images) != 22:
-              raise SystemExit(f"expected 22 built Env DIY PNGs, found {len(images)}")
+
+          references = set(re.findall(
+              r"env-diy-assets/[A-Za-z0-9_./-]+\.png",
+              tutorial.read_text(encoding="utf-8"),
+          ))
+          built = {path.relative_to(root).as_posix() for path in images}
+          missing = sorted(references - built)
+          unexpected = sorted(built - references)
+
+          if not references:
+              raise SystemExit("Env DIY tutorial contains no PNG asset references")
+          if missing or unexpected:
+              raise SystemExit(
+                  f"Env DIY PNG mismatch: missing={missing}, unexpected={unexpected}"
+              )
           if invalid:
               raise SystemExit(f"invalid built PNG files: {invalid}")
-          print("verified Env DIY tutorial HTML and 22 PNG assets")
+          print(f"verified Env DIY tutorial HTML and {len(images)} referenced PNG assets")
           PY
 
       - name: Setup Pages

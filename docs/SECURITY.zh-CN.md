@@ -11,7 +11,7 @@
 不要在公开 Issue、Pull Request、Discussion 或聊天中披露疑似漏洞。
 
 1. 使用 GitHub 私有漏洞报告：
-   <https://github.com/Huang-Qijun/eai-simulator/security/advisories/new>。
+   <https://github.com/roso-lab/eai-simulator/security/advisories/new>。
 2. 如果你是内部维护者，也可以创建 GitLab confidential issue。
 3. 提交技术细节前，请确认报告渠道是私有的。
 4. 如果没有可用的私有报告渠道，不要通过公开渠道提交漏洞细节。请先联系维护者索取私有渠道。
