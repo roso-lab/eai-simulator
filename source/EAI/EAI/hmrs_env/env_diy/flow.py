@@ -53,14 +53,19 @@ def parse_robot_digit_selection(raw: str, *, robot_keys: tuple[str, ...] = ROBOT
     text = raw.strip()
     if not text:
         raise ValueError("Please enter at least one robot number.")
+    keys_by_name = {key.lower(): key for key in robot_keys}
+    if text.lower() in keys_by_name:
+        return (keys_by_name[text.lower()],)
     selected: list[str] = []
-    for char in text:
-        if not char.isdigit():
-            raise ValueError(f"Invalid robot number: {char}")
-        index = 9 if char == "0" else int(char) - 1
-        if index >= len(robot_keys):
-            raise ValueError(f"Robot number out of range: {char}")
+    for token in text.split():
+        if not token.isdigit():
+            raise ValueError(f"Invalid robot number: {token}")
+        index = int(token) - 1
+        if index < 0 or index >= len(robot_keys):
+            raise ValueError(f"Robot number out of range: {token}")
         selected.append(robot_keys[index])
+    if not selected:
+        raise ValueError("Please enter at least one robot number.")
     return tuple(selected)
 
 
@@ -253,12 +258,11 @@ def _choose_scene(*, allow_back: bool, input_func, print_func) -> str | None:
 
 
 def _choose_robot_digits(*, input_func, print_func) -> tuple[str, ...] | None:
-    print_func("\n请选择机器人，可直接输入数字串，重复数字代表多个同类机器人。")
+    print_func("\n请选择机器人，输入数字编号，多个用空格分隔。")
     for index, key in enumerate(ROBOT_KEYS, start=1):
-        label = "0" if index == 10 else str(index)
-        print_func(f"  {label}. {ROBOT_LABELS.get(key, key)}")
+        print_func(f"  {index:>2}. {ROBOT_LABELS.get(key, key)}")
     while True:
-        raw = input_func("输入机器人编号串，例如 12357，默认 1: ").strip()
+        raw = input_func("输入机器人编号（例如 1 11），默认 1: ").strip()
         if not raw:
             raw = "1"
         if is_back_token(raw):

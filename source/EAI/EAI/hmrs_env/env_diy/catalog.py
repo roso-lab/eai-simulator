@@ -34,6 +34,7 @@ ROBOT_KEYS = (
     "cf2x",
     "human",
     "lite3",
+    "coco",
 )
 
 ROBOT_LABELS = {
@@ -44,6 +45,7 @@ ROBOT_LABELS = {
     "m20": "DeepRobotics M20",
     "scout": "Scout mobile base",
     "mushr_v2": "MuSHR Nano v2 Ackermann base",
+    "coco": "Coco AIRS Ackermann base",
     "g1": "Unitree G1",
     "cf2x": "Crazyflie CF2X",
     "human": "Human animation",
@@ -58,6 +60,7 @@ _DEFAULT_CONTROLLER_CFG = {
     "m20": "M20_ROUGH_RSL_CFG",
     "scout": "SCOUT_DIFF_CFG",
     "mushr_v2": "MUSHR_ACKERMANN_CFG",
+    "coco": "COCO_ACKERMANN_CFG",
     "g1": "G1_SKRL_CFG",
     "cf2x": "QUADCOPTER_GOAL_SKRL_CFG",
     "human": "HUMAN_ANIMATION_CFG",
@@ -73,6 +76,7 @@ _CONTROLLER_CFG_NAMES = (
     "SCOUT_DIFF_CFG",
     "MUSHR_ACKERMANN_CFG",
     "MUSHR_RWD_ACKERMANN_CFG",
+    "COCO_ACKERMANN_CFG",
     "G1_SKRL_CFG",
     "QUADCOPTER_GOAL_SKRL_CFG",
     "HUMAN_ANIMATION_CFG",
@@ -195,14 +199,14 @@ def tool_catalog() -> dict[str, AttachmentCatalogEntry]:
             name="ros",
             asset_cfg=None,
             controller_cfg=None,
-            supported_robots=("carter", "go2", "b2", "m20", "scout", "lite3", "pepper", "g1", "cf2x"),
+            supported_robots=("carter", "go2", "b2", "m20", "scout", "coco", "lite3", "pepper", "g1", "cf2x"),
             category="tool",
         ),
         "keyboard": AttachmentCatalogEntry(
             name="keyboard",
             asset_cfg=None,
             controller_cfg=None,
-            supported_robots=("carter", "go2", "b2", "m20", "scout", "mushr_v2", "pepper", "g1", "cf2x", "lite3", "human"),
+            supported_robots=("carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "pepper", "g1", "cf2x", "lite3", "human"),
             category="tool",
         ),
     }
