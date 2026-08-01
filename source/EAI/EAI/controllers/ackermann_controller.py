@@ -19,14 +19,14 @@ from .base import ControllerCfg
 class AckermannControllerCfg(ControllerCfg):
     """Configuration shared by front-steered mobile bases.
 
-    Commands are ``[vx, vy, wz]`` or ``[vx, wz]``.  The controller produces
-    two steering position targets followed by drive-wheel angular velocities.
+    Commands are ``[vx, vy, wz]`` or ``[vx, wz]``. The controller produces the
+    configured steering position targets followed by drive-wheel velocities.
     """
 
     wheel_base: float = 0.4
     track_width: float = 0.2
     wheel_radius: float = 0.1
-    steering_joint_names: tuple[str, str] = ("front_left_steer", "front_right_steer")
+    steering_joint_names: tuple[str, ...] = ("front_left_steer", "front_right_steer")
     drive_joint_names: tuple[str, ...] = ("back_left_wheel", "back_right_wheel")
     drive_mode: str = "rwd"
     max_linear_speed: float = 3.0
@@ -42,7 +42,8 @@ class AckermannControllerCfg(ControllerCfg):
     ) -> torch.Tensor:
         """Command-driven controllers do not consume an observation policy."""
 
-        return torch.zeros((env.num_envs, 2 + len(self.drive_joint_names)), device=env.device)
+        action_dim = len(self.steering_joint_names) + len(self.drive_joint_names)
+        return torch.zeros((env.num_envs, action_dim), device=env.device)
 
     def load(
         self,
@@ -52,4 +53,3 @@ class AckermannControllerCfg(ControllerCfg):
         env: Any,
     ) -> Dict[str, Any]:
         return {"name": robot_name}
-
