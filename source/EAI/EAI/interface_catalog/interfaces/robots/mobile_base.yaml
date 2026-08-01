@@ -1,7 +1,7 @@
 id: robot.mobile_base
 name: Mobile Robot Base
 category: robot
-models: [carter, scout, mushr_v2, go2, b2, lite3, m20, cf2x, g1, pepper]
+models: [carter, scout, mushr_v2, coco, go2, b2, lite3, m20, cf2x, g1, pepper]
 description: Common simulator movement interfaces for mobile robots.
 interfaces:
   - id: ros.cmd_vel

@@ -1752,7 +1752,9 @@
           g1: { label: "G1", image: "env-diy-assets/robot/g1.png", cfg: "G1_SKRL_CFG" },
           cf2x: { label: "CF2X", image: "env-diy-assets/robot/cf2x.png", cfg: "QUADCOPTER_GOAL_SKRL_CFG" },
           human: { label: "Human", image: "env-diy-assets/robot/human.png", cfg: "HUMAN_ANIMATION_CFG" },
-          lite3: { label: "Lite3", image: "env-diy-assets/robot/lite3.png", cfg: "LITE3_VELOCITY_RSL_CFG" }
+          lite3: { label: "Lite3", image: "env-diy-assets/robot/lite3.png", cfg: "LITE3_VELOCITY_RSL_CFG" },
+          mushr_v2: { label: "MuSHR", image: "env-diy-assets/robot/mushr_v2.png", cfg: "MUSHR_ACKERMANN_CFG" },
+          coco: { label: "Coco AIRS", image: "env-diy-assets/robot/coco.png", cfg: "COCO_ACKERMANN_CFG" }
         }),
         manipulators: Object.freeze({
           ur5: { label: "UR5", image: "env-diy-assets/manipulator/ur5.png", supported: ["carter", "go2", "b2", "m20", "scout", "lite3"], cfg: "UR5_IK_CFG" },
@@ -1763,8 +1765,8 @@
           lidar: { label: "LiDAR", image: "env-diy-assets/sensor/lidar.png", supported: ["carter", "go2", "b2", "m20", "lite3"] }
         }),
         tools: Object.freeze({
-          ros: { label: "ROS", image: "env-diy-assets/tool/ros.png", supported: ["carter", "go2", "b2", "m20", "scout", "lite3", "pepper", "g1", "cf2x"] },
-          keyboard: { label: "Keyboard", image: "env-diy-assets/tool/keyboard.png", supported: ["carter", "pepper", "go2", "b2", "m20", "scout", "g1", "cf2x", "human", "lite3"] }
+          ros: { label: "ROS", image: "env-diy-assets/tool/ros.png", supported: ["carter", "go2", "b2", "m20", "scout", "lite3", "pepper", "g1", "cf2x", "mushr_v2", "coco"] },
+          keyboard: { label: "Keyboard", image: "env-diy-assets/tool/keyboard.png", supported: ["carter", "pepper", "go2", "b2", "m20", "scout", "g1", "cf2x", "human", "lite3", "mushr_v2", "coco"] }
         })
       });
 
@@ -1792,6 +1794,8 @@
         "QUADCOPTER_GOAL_SKRL_CFG",
         "HUMAN_ANIMATION_CFG",
         "LITE3_VELOCITY_RSL_CFG",
+        "MUSHR_ACKERMANN_CFG",
+        "COCO_ACKERMANN_CFG",
         "UR5_IK_CFG",
         "Z1_IK_CFG"
       ]);

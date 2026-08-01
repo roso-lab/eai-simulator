@@ -15,6 +15,7 @@ from EAI.hmrs_env import MultiRobotDirectEnvCfg
 from EAI_assets.humans import HUMAN_FEMALE_DEFAULT_Z, HUMAN_FEMALE_IDLE_CFG, HUMAN_FEMALE_RIG_CFG, HUMAN_FEMALE_WALK_CFG
 from EAI_assets.robots.b2 import B2_CFG
 from EAI_assets.robots.carter import CARTER_CFG
+from EAI_assets.robots.coco import COCO_CFG
 from EAI_assets.robots.deeprobotics import (
     DEEPROBOTICS_LITE3_CFG,
     DEEPROBOTICS_M20_CFG,
@@ -122,6 +123,7 @@ CONTROLLER_CFG_IMPORTS = {
     "SCOUT_DIFF_CFG": ("traditional/scout_diff/scout_diff.py", "SCOUT_DIFF_CFG"),
     "MUSHR_ACKERMANN_CFG": ("traditional/mushr_ackermann/mushr_ackermann.py", "MUSHR_ACKERMANN_CFG"),
     "MUSHR_RWD_ACKERMANN_CFG": ("traditional/mushr_ackermann/mushr_ackermann.py", "MUSHR_RWD_ACKERMANN_CFG"),
+    "COCO_ACKERMANN_CFG": ("traditional/coco_ackermann/coco_ackermann.py", "COCO_ACKERMANN_CFG"),
     "G1_SKRL_CFG": ("rl/g1_skrl/g1_skrl.py", "G1_SKRL_CFG"),
     "QUADCOPTER_GOAL_SKRL_CFG": ("rl/quadcopter_goal_skrl/quadcopter_goal_skrl.py", "QUADCOPTER_GOAL_SKRL_CFG"),
     "HUMAN_ANIMATION_CFG": ("traditional/human_animation/human_animation.py", "HUMAN_ANIMATION_CFG"),
@@ -204,6 +206,7 @@ ROBOT_OPTIONS = [
         gshub_mount_link="mushr_nano/base_link",
         lidar_mount_link="mushr_nano/laser_link",
     ),
+    RobotOption("coco", "Coco AIRS Ackermann base", COCO_CFG, "COCO_ACKERMANN_CFG", 0.3),
     RobotOption("g1", "Unitree G1", G1_CFG, "G1_SKRL_CFG", 0.74),
     RobotOption("cf2x", "Crazyflie CF2X", CRAZYFLIE_CFG, "QUADCOPTER_GOAL_SKRL_CFG", 1.0),
     RobotOption("human", "Human animation", None, "HUMAN_ANIMATION_CFG", HUMAN_FEMALE_DEFAULT_Z),

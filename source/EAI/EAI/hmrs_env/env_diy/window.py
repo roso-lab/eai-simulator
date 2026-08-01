@@ -30,6 +30,7 @@ ROBOT_NAMES = (
     "b2",
     "carter",
     "cf2x",
+    "coco",
     "g1",
     "go2",
     "human",
