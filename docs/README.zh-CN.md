@@ -22,6 +22,7 @@
 <p align="center">
   <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html"><strong>快速开始</strong></a> ·
   <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/"><strong>完整文档</strong></a> ·
+  <a href="https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0"><strong>v0.1.0 发布说明</strong></a> ·
   <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/roadmap.html"><strong>功能规划</strong></a> ·
   <a href="#社区与支持"><strong>社区</strong></a>
 </p>
@@ -87,6 +88,11 @@ README 只概括支持范围，详细能力以专题文档为准：
 - **[构建环境](https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html)：** JSON 环境、Env DIY、三维布置与 Payload。
 - **[ROS2 接口](https://www.rosolab.com/roso-lab/eai-simulator/docs/interface_catalog.html)：** 控制输入、传感输出、Nav2 与机械臂。
 - **[控制器开发](https://www.rosolab.com/roso-lab/eai-simulator/docs/controller_guide.html)：** 传统控制、RL、IK 和外部控制器接入。
+
+## 版本发布与功能规划
+
+- **[v0.1.0 发布说明](https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0)：** 查看当前已发布版本包含的能力、运行要求和已知注意事项。
+- **[功能规划](https://www.rosolab.com/roso-lab/eai-simulator/docs/roadmap.html)：** 了解仍在开发、尚未包含在当前发布版本中的下一阶段能力。
 
 ## 快速开始
 
