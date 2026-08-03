@@ -22,12 +22,12 @@
        (Robotics Ecosystem section): sd-tab-set + isaacsim-flow-rows
        ============================================================ */
 
-    /* ---- NVIDIA / pydata theme design tokens ---- */
+    /* ---- Site theme design tokens (blue, aligned with the rosolab docs site) ---- */
     :root {
-      --nv-color-green: #76b900;
-      --nv-color-green-2: #004831;
-      --isaacsim-nv-green-rgb: 118, 185, 0;
-      --isaacsim-nv-green-2-rgb: 0, 72, 49;
+      --nv-color-green: #2f81f7;
+      --nv-color-green-2: #1554a0;
+      --isaacsim-nv-green-rgb: 47, 129, 247;
+      --isaacsim-nv-green-2-rgb: 21, 84, 160;
 
       --pst-color-background: #fff;
       --pst-color-on-background: #fff;
@@ -41,8 +41,8 @@
 
       /* sphinx-design tab-set */
       --sd-fontsize-tabs-label: 1rem;
-      --sd-color-tabs-label-active: #111713;
-      --sd-color-tabs-label-hover: #111713;
+      --sd-color-tabs-label-active: #121820;
+      --sd-color-tabs-label-hover: #121820;
       --sd-color-tabs-label-inactive: #66686c;
       --sd-color-tabs-overline: rgba(36, 45, 55, 0.12);
       --sd-color-tabs-underline: rgba(36, 45, 55, 0.12);
@@ -50,13 +50,13 @@
       --sd-color-tabs-underline-hover: rgba(var(--isaacsim-nv-green-rgb), 0.55);
       --sd-color-tabs-underline-inactive: transparent;
 
-      /* Tab content frame border (deep green, frames the content) */
-      --eai-frame-border: #00664f;
+      /* Tab content frame border (deep blue, frames the content) */
+      --eai-frame-border: #0f478a;
 
       /* Theme-aware component colors (light defaults; overridden in dark) */
-      --eai-tab-active-bg: #f5faec;
+      --eai-tab-active-bg: #e8f0fa;
       --eai-site-bar-bg: rgba(255, 255, 255, 0.96);
-      --eai-accent: #004831;
+      --eai-accent: #1554a0;
       --eai-footer-color: #8b8e92;
       --eai-badge-bg: rgba(36, 45, 55, 0.06);
 
@@ -86,11 +86,20 @@
 
     html { background: var(--pst-color-background, #fff); }
 
+    @font-face {
+      font-family: "EAI DINish";
+      src: url("_static/fonts/DINish-Variable.woff2") format("woff2");
+      font-style: oblique 0deg 12deg;
+      font-weight: 100 900;
+      font-stretch: 75% 125%;
+      font-display: swap;
+    }
+
     body {
       margin: 0; min-width: 0; overflow-x: hidden;
       color: var(--pst-color-text-base, #1a1a1a);
       background: var(--pst-color-background, #fff);
-      font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+      font-family: "EAI DINish", "Noto Sans CJK SC", "Source Han Sans SC", "Microsoft YaHei", system-ui, sans-serif;
       font-size: 16px; line-height: 1.55; letter-spacing: 0;
     }
 
@@ -135,7 +144,7 @@
 
     .eai-eyebrow {
       display: block; margin: 0 0 8px;
-      color: var(--eai-accent, #004831);
+      color: var(--eai-accent, #1554a0);
       font-size: 13px; font-weight: 800;
       text-transform: uppercase; letter-spacing: 0.08em;
     }
@@ -175,7 +184,7 @@
       user-select: none;
     }
     .sd-tab-set > input:checked + label {
-      border-color: var(--eai-frame-border, #00664f);
+      border-color: var(--eai-frame-border, #0f478a);
       border-bottom-width: 0;
       background: var(--eai-tab-active-bg);
       color: var(--sd-color-tabs-label-active);
@@ -204,7 +213,7 @@
     .sd-tab-content {
       display: none; order: 99;
       padding: 1.1rem 1.3rem; width: 100%;
-      border: 2px solid var(--eai-frame-border, #00664f);
+      border: 2px solid var(--eai-frame-border, #0f478a);
       border-radius: 0;
       background: var(--pst-color-background, #fff);
     }
@@ -229,13 +238,13 @@
       transition: border-color var(--isaacsim-motion-emphasis), box-shadow var(--isaacsim-motion-emphasis), transform var(--isaacsim-motion-emphasis);
     }
     .isaacsim-surface--interactive:hover {
-      border-color: var(--isaacsim-surface-hover-border, var(--nv-color-green, #76b900));
+      border-color: var(--isaacsim-surface-hover-border, var(--nv-color-green, #2f81f7));
       box-shadow: var(--isaacsim-surface-hover-shadow, var(--bs-box-shadow, 0 0.5rem 1rem rgba(0,0,0,0.15)));
       transform: var(--isaacsim-surface-hover-transform, translateY(-2px));
     }
     .isaacsim-surface--interactive:focus-visible {
-      outline: 2px solid var(--pst-color-accent, var(--nv-color-green, #76b900));
-      outline-offset: 3px; border-color: var(--isaacsim-surface-focus-border, var(--nv-color-green, #76b900));
+      outline: 2px solid var(--pst-color-accent, var(--nv-color-green, #2f81f7));
+      outline-offset: 3px; border-color: var(--isaacsim-surface-focus-border, var(--nv-color-green, #2f81f7));
     }
 
     .isaacsim-title-sm, .isaacsim-title-md {
@@ -262,7 +271,7 @@
       font-weight: 700; line-height: 1.2;
       letter-spacing: var(--isaacsim-kicker-spacing, 0.12em);
       text-transform: uppercase;
-      color: var(--isaacsim-kicker-color, var(--pst-color-primary, var(--nv-color-green-2, #004831)));
+      color: var(--isaacsim-kicker-color, var(--pst-color-primary, var(--nv-color-green-2, #1554a0)));
     }
 
     .isaacsim-marker {
@@ -277,7 +286,7 @@
       background: var(--isaacsim-marker-bg, rgba(var(--isaacsim-marker-tone), 0.12));
       border: var(--isaacsim-marker-border-width, 1px) solid var(--isaacsim-marker-border, rgba(var(--isaacsim-marker-tone), 0.22));
       box-shadow: var(--isaacsim-marker-shadow, none);
-      color: var(--isaacsim-marker-color, var(--pst-color-primary, var(--nv-color-green-2, #004831))) !important;
+      color: var(--isaacsim-marker-color, var(--pst-color-primary, var(--nv-color-green-2, #1554a0))) !important;
       font-family: inherit;
       font-size: var(--isaacsim-marker-font-size, 0.72rem);
       font-weight: 800; line-height: 1;
@@ -297,7 +306,7 @@
     .isaacsim-flow-rows { container-type: inline-size; }
 
     .isaacsim-flow-rows__intro {
-      max-width: 58rem; margin: 0;
+      max-width: 58rem; margin: 0 0 1rem;
       color: var(--pst-color-text-muted, #555);
       font-size: 0.88rem; line-height: 1.55;
     }
@@ -318,7 +327,7 @@
       gap: 0.62rem; align-items: stretch;
       min-width: 0; padding: 0; border: 0; background: transparent;
     }
-    .isaacsim-flow-row__arrow {
+    .isaacsim-flow-arrow.isaacsim-flow-row__arrow {
       --isaacsim-flow-arrow-rgb: var(--isaacsim-flow-row-tone);
       --isaacsim-flow-arrow-transform: translateX(-50%);
       --isaacsim-flow-arrow-size: 1.42rem;
@@ -373,7 +382,7 @@
     .isaacsim-flow-row__detail-meta { display: block; margin-top: 0.15rem; }
     .isaacsim-flow-row__detail-link {
       flex: 0 0 auto;
-      color: var(--pst-color-primary, var(--nv-color-green-2, #004831)) !important;
+      color: var(--pst-color-primary, var(--nv-color-green-2, #1554a0)) !important;
       font-size: 0.74rem; font-weight: 760;
       text-decoration: none !important;
       white-space: nowrap;
@@ -445,7 +454,7 @@
     .isaacsim-fact-card { --isaacsim-surface-padding: 0.85rem 0.9rem; }
     .isaacsim-fact-card strong {
       display: block; margin-bottom: 0.25rem;
-      color: var(--pst-color-primary, var(--nv-color-green-2, #004831));
+      color: var(--pst-color-primary, var(--nv-color-green-2, #1554a0));
       font-size: 0.82rem; font-weight: 800; line-height: 1.25;
     }
     .isaacsim-fact-card span { display: block; font-size: 0.74rem; line-height: 1.45; }
@@ -471,7 +480,7 @@
       margin: 2.75rem 0 0;
       font-size: 0.68rem; font-weight: 700;
       text-transform: uppercase; letter-spacing: 0.12em;
-      color: var(--eai-accent, #004831);
+      color: var(--eai-accent, #1554a0);
     }
     .eai-section-heading {
       margin: 0.6rem 0 1.05rem;
@@ -513,17 +522,18 @@
       --pst-color-text-base: #eee;
       --pst-color-text-muted: #989898;
       --pst-color-heading: #fff;
-      --pst-color-primary: var(--nv-color-green);
+      --pst-color-primary: #ffffff;
       --pst-color-border: #262626;
       --sd-color-tabs-label-active: #fff;
       --sd-color-tabs-label-hover: #fff;
       --sd-color-tabs-label-inactive: rgba(255, 255, 255, 0.62);
       --sd-color-tabs-overline: rgba(255, 255, 255, 0.1);
       --sd-color-tabs-underline: rgba(255, 255, 255, 0.1);
-      --eai-frame-border: var(--nv-color-green);
+      --sd-color-tabs-underline-active: #ffffff;
+      --eai-frame-border: #ffffff;
       --eai-tab-active-bg: #171717;
       --eai-site-bar-bg: rgba(0, 0, 0, 0.96);
-      --eai-accent: var(--nv-color-green);
+      --eai-accent: #ffffff;
       --eai-footer-color: rgba(255, 255, 255, 0.5);
       --eai-badge-bg: rgba(255, 255, 255, 0.08);
     }
@@ -536,17 +546,18 @@
         --pst-color-text-base: #eee;
         --pst-color-text-muted: #989898;
         --pst-color-heading: #fff;
-        --pst-color-primary: var(--nv-color-green);
+        --pst-color-primary: #ffffff;
         --pst-color-border: #262626;
         --sd-color-tabs-label-active: #fff;
         --sd-color-tabs-label-hover: #fff;
         --sd-color-tabs-label-inactive: rgba(255, 255, 255, 0.62);
         --sd-color-tabs-overline: rgba(255, 255, 255, 0.1);
         --sd-color-tabs-underline: rgba(255, 255, 255, 0.1);
-        --eai-frame-border: var(--nv-color-green);
+        --sd-color-tabs-underline-active: #ffffff;
+        --eai-frame-border: #ffffff;
         --eai-tab-active-bg: #171717;
         --eai-site-bar-bg: rgba(0, 0, 0, 0.96);
-        --eai-accent: var(--nv-color-green);
+        --eai-accent: #ffffff;
         --eai-footer-color: rgba(255, 255, 255, 0.5);
         --eai-badge-bg: rgba(255, 255, 255, 0.08);
       }
@@ -589,7 +600,7 @@
           <p class="isaacsim-flow-rows__intro">每一行表示一个工作流阶段，以及负责支撑该阶段的架构层。</p>
           <ol class="isaacsim-flow-rows__list">
 
-            <li class="isaacsim-flow-row" style="--isaacsim-flow-row-tone: 118,185,0;">
+            <li class="isaacsim-flow-row" style="--isaacsim-flow-row-tone: 98,166,249;">
               <span aria-hidden="true" class="isaacsim-flow-arrow isaacsim-flow-arrow--down isaacsim-flow-row__arrow"></span>
               <div class="isaacsim-flow-row__stage isaacsim-surface">
                 <span class="isaacsim-flow-row__marker isaacsim-marker isaacsim-marker--square">01</span>
@@ -610,7 +621,7 @@
               </article>
             </li>
 
-            <li class="isaacsim-flow-row" style="--isaacsim-flow-row-tone: 44,95,163;">
+            <li class="isaacsim-flow-row" style="--isaacsim-flow-row-tone: 35,130,247;">
               <span aria-hidden="true" class="isaacsim-flow-arrow isaacsim-flow-arrow--down isaacsim-flow-row__arrow"></span>
               <div class="isaacsim-flow-row__stage isaacsim-surface">
                 <span class="isaacsim-flow-row__marker isaacsim-marker isaacsim-marker--square">02</span>
@@ -631,7 +642,7 @@
               </article>
             </li>
 
-            <li class="isaacsim-flow-row" style="--isaacsim-flow-row-tone: 30,140,160;">
+            <li class="isaacsim-flow-row" style="--isaacsim-flow-row-tone: 8,99,210;">
               <span aria-hidden="true" class="isaacsim-flow-arrow isaacsim-flow-arrow--down isaacsim-flow-row__arrow"></span>
               <div class="isaacsim-flow-row__stage isaacsim-surface">
                 <span class="isaacsim-flow-row__marker isaacsim-marker isaacsim-marker--square">03</span>
@@ -652,7 +663,7 @@
               </article>
             </li>
 
-            <li class="isaacsim-flow-row" style="--isaacsim-flow-row-tone: 80,150,35;">
+            <li class="isaacsim-flow-row" style="--isaacsim-flow-row-tone: 5,69,148;">
               <span aria-hidden="true" class="isaacsim-flow-arrow isaacsim-flow-arrow--down isaacsim-flow-row__arrow"></span>
               <div class="isaacsim-flow-row__stage isaacsim-surface">
                 <span class="isaacsim-flow-row__marker isaacsim-marker isaacsim-marker--square">04</span>
@@ -684,7 +695,7 @@
           <p class="isaacsim-flow-rows__intro">开发过程形成可重复执行的闭环，每一步都可以独立替换或复用。</p>
           <ol class="isaacsim-flow-rows__list">
 
-            <li class="isaacsim-flow-row" style="--isaacsim-flow-row-tone: 118,185,0;">
+            <li class="isaacsim-flow-row" style="--isaacsim-flow-row-tone: 98,166,249;">
               <span aria-hidden="true" class="isaacsim-flow-arrow isaacsim-flow-arrow--down isaacsim-flow-row__arrow"></span>
               <div class="isaacsim-flow-row__stage isaacsim-surface">
                 <span class="isaacsim-flow-row__marker isaacsim-marker isaacsim-marker--square">01</span>
@@ -705,7 +716,7 @@
               </article>
             </li>
 
-            <li class="isaacsim-flow-row" style="--isaacsim-flow-row-tone: 44,95,163;">
+            <li class="isaacsim-flow-row" style="--isaacsim-flow-row-tone: 35,130,247;">
               <span aria-hidden="true" class="isaacsim-flow-arrow isaacsim-flow-arrow--down isaacsim-flow-row__arrow"></span>
               <div class="isaacsim-flow-row__stage isaacsim-surface">
                 <span class="isaacsim-flow-row__marker isaacsim-marker isaacsim-marker--square">02</span>
@@ -726,7 +737,7 @@
               </article>
             </li>
 
-            <li class="isaacsim-flow-row" style="--isaacsim-flow-row-tone: 30,140,160;">
+            <li class="isaacsim-flow-row" style="--isaacsim-flow-row-tone: 8,99,210;">
               <span aria-hidden="true" class="isaacsim-flow-arrow isaacsim-flow-arrow--down isaacsim-flow-row__arrow"></span>
               <div class="isaacsim-flow-row__stage isaacsim-surface">
                 <span class="isaacsim-flow-row__marker isaacsim-marker isaacsim-marker--square">03</span>
@@ -747,7 +758,7 @@
               </article>
             </li>
 
-            <li class="isaacsim-flow-row" style="--isaacsim-flow-row-tone: 80,150,35;">
+            <li class="isaacsim-flow-row" style="--isaacsim-flow-row-tone: 5,69,148;">
               <span aria-hidden="true" class="isaacsim-flow-arrow isaacsim-flow-arrow--down isaacsim-flow-row__arrow"></span>
               <div class="isaacsim-flow-row__stage isaacsim-surface">
                 <span class="isaacsim-flow-row__marker isaacsim-marker isaacsim-marker--square">04</span>
@@ -762,7 +773,7 @@
                     <strong class="isaacsim-flow-row__detail-title isaacsim-title-sm">反馈与评估</strong>
                     <span class="isaacsim-flow-row__detail-meta isaacsim-meta">Evaluate</span>
                   </div>
-                  <a class="isaacsim-flow-row__detail-link" href="https://github.com/roso-lab/eai-simulator/tree/develop/demo/fire_rescue">查看示例</a>
+                  <a class="isaacsim-flow-row__detail-link" href="https://www.rosolab.com/roso-lab/eai-simulator/tree/develop/demo/fire_rescue">查看示例</a>
                 </div>
                 <p class="isaacsim-flow-row__detail-copy isaacsim-copy-sm">把运行状态提供给外部实验，依据结果调整配置并进入下一轮。</p>
               </article>
@@ -779,7 +790,7 @@
           <p class="isaacsim-flow-rows__intro">架构通过清晰边界隔离资源获取、配置生成、仿真状态和外部应用。</p>
           <ol class="isaacsim-flow-rows__list">
 
-            <li class="isaacsim-flow-row" style="--isaacsim-flow-row-tone: 118,185,0;">
+            <li class="isaacsim-flow-row" style="--isaacsim-flow-row-tone: 98,166,249;">
               <span aria-hidden="true" class="isaacsim-flow-arrow isaacsim-flow-arrow--down isaacsim-flow-row__arrow"></span>
               <div class="isaacsim-flow-row__stage isaacsim-surface">
                 <span class="isaacsim-flow-row__marker isaacsim-marker isaacsim-marker--square">01</span>
@@ -800,7 +811,7 @@
               </article>
             </li>
 
-            <li class="isaacsim-flow-row" style="--isaacsim-flow-row-tone: 44,95,163;">
+            <li class="isaacsim-flow-row" style="--isaacsim-flow-row-tone: 35,130,247;">
               <span aria-hidden="true" class="isaacsim-flow-arrow isaacsim-flow-arrow--down isaacsim-flow-row__arrow"></span>
               <div class="isaacsim-flow-row__stage isaacsim-surface">
                 <span class="isaacsim-flow-row__marker isaacsim-marker isaacsim-marker--square">02</span>
@@ -821,7 +832,7 @@
               </article>
             </li>
 
-            <li class="isaacsim-flow-row" style="--isaacsim-flow-row-tone: 30,140,160;">
+            <li class="isaacsim-flow-row" style="--isaacsim-flow-row-tone: 8,99,210;">
               <span aria-hidden="true" class="isaacsim-flow-arrow isaacsim-flow-arrow--down isaacsim-flow-row__arrow"></span>
               <div class="isaacsim-flow-row__stage isaacsim-surface">
                 <span class="isaacsim-flow-row__marker isaacsim-marker isaacsim-marker--square">03</span>
@@ -842,7 +853,7 @@
               </article>
             </li>
 
-            <li class="isaacsim-flow-row" style="--isaacsim-flow-row-tone: 80,150,35;">
+            <li class="isaacsim-flow-row" style="--isaacsim-flow-row-tone: 5,69,148;">
               <span aria-hidden="true" class="isaacsim-flow-arrow isaacsim-flow-arrow--down isaacsim-flow-row__arrow"></span>
               <div class="isaacsim-flow-row__stage isaacsim-surface">
                 <span class="isaacsim-flow-row__marker isaacsim-marker isaacsim-marker--square">04</span>
@@ -857,7 +868,7 @@
                     <strong class="isaacsim-flow-row__detail-title isaacsim-title-sm">应用边界</strong>
                     <span class="isaacsim-flow-row__detail-meta isaacsim-meta">Application boundary</span>
                   </div>
-                  <a class="isaacsim-flow-row__detail-link" href="https://github.com/roso-lab/eai-simulator/tree/develop/algorithm">查看算法</a>
+                  <a class="isaacsim-flow-row__detail-link" href="https://www.rosolab.com/roso-lab/eai-simulator/tree/develop/algorithm">查看算法</a>
                 </div>
                 <p class="isaacsim-flow-row__detail-copy isaacsim-copy-sm">算法与实验通过会话和接口契约接入，保持可独立开发、替换与验证。</p>
               </article>
