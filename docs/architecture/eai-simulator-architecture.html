@@ -1,0 +1,711 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EAI Simulator Architecture</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1a1a1a;
+      --muted: #66686c;
+      --quiet: #f5f6f7;
+      --surface: #ffffff;
+      --line: #d9dde2;
+      --line-strong: #c9ced5;
+      --green: #76b900;
+      --green-dark: #00664f;
+      --green-soft: #f1f8e8;
+      --blue: #3979bf;
+      --blue-soft: #eef5fc;
+      --shadow: 0 2px 8px rgba(18, 25, 33, 0.07);
+      --content: 1180px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      background: #f3f4f5;
+    }
+
+    body {
+      margin: 0;
+      min-width: 0;
+      overflow-x: hidden;
+      color: var(--ink);
+      background: var(--surface);
+      font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.55;
+      letter-spacing: 0;
+    }
+
+    button,
+    a {
+      font: inherit;
+    }
+
+    .page-shell {
+      min-height: 100vh;
+      background:
+        linear-gradient(90deg, transparent calc(50% - 590px), #edf0f2 calc(50% - 590px), #edf0f2 calc(50% - 589px), transparent calc(50% - 589px)),
+        linear-gradient(90deg, transparent calc(50% + 589px), #edf0f2 calc(50% + 589px), #edf0f2 calc(50% + 590px), transparent calc(50% + 590px));
+    }
+
+    .site-bar {
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.96);
+    }
+
+    .site-bar__inner {
+      width: min(calc(100% - 40px), var(--content));
+      height: 58px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      min-width: 0;
+      font-weight: 700;
+    }
+
+    .brand__mark {
+      width: 24px;
+      height: 24px;
+      border: 4px solid var(--green);
+      border-right-color: var(--green-dark);
+      flex: 0 0 auto;
+    }
+
+    .brand__name {
+      white-space: nowrap;
+    }
+
+    .site-bar__meta {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    main {
+      width: min(calc(100% - 40px), var(--content));
+      margin: 0 auto;
+      padding: 56px 0 72px;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--green-dark);
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 820px;
+      margin: 0;
+      font-size: 38px;
+      line-height: 1.2;
+      font-weight: 750;
+    }
+
+    .lead {
+      max-width: 820px;
+      margin: 14px 0 32px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .tabs {
+      display: flex;
+      align-items: flex-end;
+      gap: 0;
+      min-height: 43px;
+      overflow-x: auto;
+      border-bottom: 2px solid var(--green-dark);
+      scrollbar-width: thin;
+    }
+
+    .tab {
+      min-height: 42px;
+      padding: 10px 18px;
+      border: 0;
+      border-top: 1px solid transparent;
+      border-right: 1px solid transparent;
+      border-left: 1px solid transparent;
+      background: var(--quiet);
+      color: #3d3f42;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .tab:hover {
+      color: var(--green-dark);
+      background: #f8faf6;
+    }
+
+    .tab[aria-selected="true"] {
+      position: relative;
+      top: 2px;
+      border-color: var(--green-dark);
+      border-bottom-color: var(--surface);
+      background: var(--surface);
+      color: var(--green-dark);
+    }
+
+    .architecture {
+      padding: 15px 12px 12px;
+      border: 2px solid var(--green-dark);
+      border-top: 0;
+    }
+
+    .panel[hidden] {
+      display: none;
+    }
+
+    .panel__intro {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .workflow {
+      display: grid;
+      grid-template-columns: minmax(280px, 36%) minmax(0, 64%);
+      column-gap: 12px;
+      row-gap: 24px;
+    }
+
+    .step,
+    .component {
+      min-height: 108px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .step {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 22px 18px;
+      border-color: #dfe7cf;
+    }
+
+    .step:not(.step--last)::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: calc(100% + 1px);
+      width: 2px;
+      height: 22px;
+      background: var(--blue);
+      transform: translateX(-50%);
+    }
+
+    .step:not(.step--last)::before {
+      content: "";
+      position: absolute;
+      z-index: 1;
+      left: 50%;
+      top: calc(100% + 17px);
+      border-top: 7px solid var(--blue);
+      border-right: 5px solid transparent;
+      border-left: 5px solid transparent;
+      transform: translateX(-50%);
+    }
+
+    .step__number {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      flex: 0 0 42px;
+      place-items: center;
+      border: 1px solid #cfe0ad;
+      background: var(--green-soft);
+      color: var(--green-dark);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .step__title {
+      margin: 0;
+      font-size: 16px;
+      line-height: 1.35;
+      font-weight: 750;
+    }
+
+    .step__note {
+      display: inline-block;
+      margin-top: 7px;
+      padding: 2px 8px;
+      background: var(--quiet);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .component {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 22px;
+      padding: 18px 20px 18px 17px;
+      border-left: 5px solid var(--green);
+    }
+
+    .component--blue {
+      border-left-color: var(--blue);
+    }
+
+    .component__title {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.3;
+      font-weight: 750;
+    }
+
+    .component__kind {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .component__description {
+      max-width: 720px;
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .component__link {
+      padding: 6px 0;
+      color: var(--green-dark);
+      font-size: 12px;
+      font-weight: 800;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .component__link:hover {
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .principles {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin-top: 46px;
+      border-top: 1px solid var(--line-strong);
+      border-bottom: 1px solid var(--line-strong);
+    }
+
+    .principle {
+      min-width: 0;
+      padding: 22px 24px 24px 0;
+    }
+
+    .principle + .principle {
+      padding-left: 24px;
+      border-left: 1px solid var(--line);
+    }
+
+    .principle__index {
+      color: var(--green-dark);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .principle h2 {
+      margin: 7px 0 5px;
+      font-size: 17px;
+    }
+
+    .principle p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    footer {
+      width: min(calc(100% - 40px), var(--content));
+      margin: 0 auto;
+      padding: 22px 0 28px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @media (max-width: 760px) {
+      .page-shell {
+        background: var(--surface);
+      }
+
+      .site-bar__inner,
+      main,
+      footer {
+        width: min(calc(100% - 28px), var(--content));
+      }
+
+      .site-bar__meta {
+        display: none;
+      }
+
+      main {
+        padding-top: 38px;
+      }
+
+      h1 {
+        font-size: 30px;
+      }
+
+      .lead {
+        font-size: 16px;
+      }
+
+      .tab {
+        padding-right: 14px;
+        padding-left: 14px;
+      }
+
+      .architecture {
+        width: 100%;
+        padding: 14px 10px 10px;
+      }
+
+      .panel,
+      .workflow,
+      .step,
+      .component,
+      .component > div {
+        min-width: 0;
+        max-width: 100%;
+      }
+
+      .workflow {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+
+      .step,
+      .component {
+        min-height: 100px;
+      }
+
+      .step {
+        grid-row: auto;
+      }
+
+      .step:not(.step--last)::after,
+      .step:not(.step--last)::before {
+        display: none;
+      }
+
+      .component {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        margin-bottom: 22px;
+      }
+
+      .component:not(.component--last)::after {
+        content: "↓";
+        position: absolute;
+        left: 50%;
+        bottom: -27px;
+        margin: 0;
+        color: var(--blue);
+        font-weight: 800;
+        transform: translateX(-50%);
+      }
+
+      h1,
+      .lead,
+      .panel__intro,
+      .component__description,
+      .principle p {
+        overflow-wrap: anywhere;
+      }
+
+      .component__link {
+        justify-self: start;
+      }
+
+      .principles {
+        grid-template-columns: 1fr;
+      }
+
+      .principle,
+      .principle + .principle {
+        padding: 18px 0;
+        border-left: 0;
+      }
+
+      .principle + .principle {
+        border-top: 1px solid var(--line);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <header class="site-bar">
+      <div class="site-bar__inner">
+        <div class="brand">
+          <span class="brand__mark" aria-hidden="true"></span>
+          <span class="brand__name">EAI Simulator</span>
+        </div>
+        <div class="site-bar__meta">Architecture overview</div>
+      </div>
+    </header>
+
+    <main>
+      <p class="eyebrow">System overview</p>
+      <h1>配置驱动的仿真开发框架</h1>
+      <p class="lead">从实验描述到环境装配、仿真运行和外部系统连接，各阶段围绕统一的 Isaac Sim 运行时协同。</p>
+
+      <div class="tabs" role="tablist" aria-label="架构视图">
+        <button class="tab" id="tab-overview" type="button" role="tab" aria-selected="true" aria-controls="panel-overview">架构概览</button>
+        <button class="tab" id="tab-loop" type="button" role="tab" aria-selected="false" aria-controls="panel-loop" tabindex="-1">开发闭环</button>
+        <button class="tab" id="tab-boundary" type="button" role="tab" aria-selected="false" aria-controls="panel-boundary" tabindex="-1">系统边界</button>
+      </div>
+
+      <section class="architecture">
+        <div class="panel" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview">
+          <p class="panel__intro">每一行表示一个工作流阶段，以及负责支撑该阶段的架构层。</p>
+          <div class="workflow">
+            <article class="step">
+              <span class="step__number">01</span>
+              <div><h2 class="step__title">描述实验</h2></div>
+            </article>
+            <article class="component">
+              <div>
+                <h2 class="component__title">资源与配置层</h2>
+                <div class="component__kind">Declarative inputs</div>
+                <p class="component__description">描述进入仿真的资源、实体能力、空间关系与任务约束，保持实验输入可保存、可复用。</p>
+              </div>
+              <a class="component__link" href="../../docs/source/environments.md">查看文档</a>
+            </article>
+
+            <article class="step">
+              <span class="step__number">02</span>
+              <div><h2 class="step__title">装配环境</h2></div>
+            </article>
+            <article class="component component--blue">
+              <div>
+                <h2 class="component__title">环境构建层</h2>
+                <div class="component__kind">Dynamic assembly</div>
+                <p class="component__description">把声明式选择转换为可执行的场景与环境配置，并在启动前完成兼容性和依赖检查。</p>
+              </div>
+              <a class="component__link" href="../../docs/source/project_overview.md">查看文档</a>
+            </article>
+
+            <article class="step">
+              <span class="step__number">03</span>
+              <div><h2 class="step__title">运行仿真</h2></div>
+            </article>
+            <article class="component component--blue">
+              <div>
+                <h2 class="component__title">Isaac Sim 运行时</h2>
+                <div class="component__kind">Shared simulation runtime</div>
+                <p class="component__description">统一承载物理步进、渲染、状态更新、感知输出以及面向实体的控制循环。</p>
+              </div>
+              <a class="component__link" href="../../docs/source/getting_started.md">查看文档</a>
+            </article>
+
+            <article class="step step--last">
+              <span class="step__number">04</span>
+              <div><h2 class="step__title">连接实验</h2></div>
+            </article>
+            <article class="component component--last">
+              <div>
+                <h2 class="component__title">接口与实验层</h2>
+                <div class="component__kind">External integration</div>
+                <p class="component__description">读取仿真反馈、接收外部目标，并将算法、工具和实验编排接入同一个运行过程。</p>
+              </div>
+              <a class="component__link" href="../../docs/source/interface_catalog.md">查看文档</a>
+            </article>
+          </div>
+        </div>
+
+        <div class="panel" id="panel-loop" role="tabpanel" aria-labelledby="tab-loop" hidden>
+          <p class="panel__intro">开发过程形成可重复执行的闭环，每一步都可以独立替换或复用。</p>
+          <div class="workflow">
+            <article class="step">
+              <span class="step__number">01</span>
+              <div><h2 class="step__title">准备资源</h2></div>
+            </article>
+            <article class="component">
+              <div>
+                <h2 class="component__title">依赖解析</h2>
+                <div class="component__kind">Prepare</div>
+                <p class="component__description">根据实验声明识别所需资源，检查本地状态并补齐运行依赖。</p>
+              </div>
+              <a class="component__link" href="../../docs/source/installation.md">查看文档</a>
+            </article>
+
+            <article class="step">
+              <span class="step__number">02</span>
+              <div><h2 class="step__title">生成配置</h2></div>
+            </article>
+            <article class="component component--blue">
+              <div>
+                <h2 class="component__title">声明式装配</h2>
+                <div class="component__kind">Configure</div>
+                <p class="component__description">将实验选择编译为场景、实体和运行参数，使同一描述能够稳定复现。</p>
+              </div>
+              <a class="component__link" href="../../docs/source/environments.md">查看文档</a>
+            </article>
+
+            <article class="step">
+              <span class="step__number">03</span>
+              <div><h2 class="step__title">执行循环</h2></div>
+            </article>
+            <article class="component component--blue">
+              <div>
+                <h2 class="component__title">仿真会话</h2>
+                <div class="component__kind">Simulate</div>
+                <p class="component__description">管理应用与环境生命周期，在共享场景中持续推进世界状态。</p>
+              </div>
+              <a class="component__link" href="../../docs/source/getting_started.md">查看文档</a>
+            </article>
+
+            <article class="step step--last">
+              <span class="step__number">04</span>
+              <div><h2 class="step__title">观察迭代</h2></div>
+            </article>
+            <article class="component component--last">
+              <div>
+                <h2 class="component__title">反馈与评估</h2>
+                <div class="component__kind">Evaluate</div>
+                <p class="component__description">把运行状态提供给外部实验，依据结果调整配置并进入下一轮。</p>
+              </div>
+              <a class="component__link" href="../../demo/fire_rescue/README.md">查看示例</a>
+            </article>
+          </div>
+        </div>
+
+        <div class="panel" id="panel-boundary" role="tabpanel" aria-labelledby="tab-boundary" hidden>
+          <p class="panel__intro">架构通过清晰边界隔离资源获取、配置生成、仿真状态和外部应用。</p>
+          <div class="workflow">
+            <article class="step">
+              <span class="step__number">01</span>
+              <div><h2 class="step__title">资源供给</h2></div>
+            </article>
+            <article class="component">
+              <div>
+                <h2 class="component__title">资产边界</h2>
+                <div class="component__kind">Asset boundary</div>
+                <p class="component__description">源码只声明资源需求，体积较大的运行资产独立管理并按需进入本地缓存。</p>
+              </div>
+              <a class="component__link" href="../../docs/source/installation.md">查看文档</a>
+            </article>
+
+            <article class="step">
+              <span class="step__number">02</span>
+              <div><h2 class="step__title">配置编译</h2></div>
+            </article>
+            <article class="component component--blue">
+              <div>
+                <h2 class="component__title">构建边界</h2>
+                <div class="component__kind">Builder boundary</div>
+                <p class="component__description">稳定的数据结构与具体运行配置分离，编辑工具和终端流程共享同一份语义。</p>
+              </div>
+              <a class="component__link" href="../../docs/source/environments.md">查看文档</a>
+            </article>
+
+            <article class="step">
+              <span class="step__number">03</span>
+              <div><h2 class="step__title">状态演化</h2></div>
+            </article>
+            <article class="component component--blue">
+              <div>
+                <h2 class="component__title">运行时边界</h2>
+                <div class="component__kind">Runtime boundary</div>
+                <p class="component__description">环境负责状态与动作协议，任务逻辑不侵入底层物理和场景生命周期。</p>
+              </div>
+              <a class="component__link" href="../../docs/source/controller_guide.md">查看文档</a>
+            </article>
+
+            <article class="step step--last">
+              <span class="step__number">04</span>
+              <div><h2 class="step__title">系统接入</h2></div>
+            </article>
+            <article class="component component--last">
+              <div>
+                <h2 class="component__title">应用边界</h2>
+                <div class="component__kind">Application boundary</div>
+                <p class="component__description">算法与实验通过会话和接口契约接入，保持可独立开发、替换与验证。</p>
+              </div>
+              <a class="component__link" href="../../algorithm/README.md">查看算法</a>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="principles" aria-label="架构原则">
+        <article class="principle">
+          <span class="principle__index">01</span>
+          <h2>声明式</h2>
+          <p>实验描述与运行实现分离，让环境能够保存、检查和重建。</p>
+        </article>
+        <article class="principle">
+          <span class="principle__index">02</span>
+          <h2>可组合</h2>
+          <p>资源、能力、接口和实验逻辑可以按工作流需求重新组合。</p>
+        </article>
+        <article class="principle">
+          <span class="principle__index">03</span>
+          <h2>运行时解耦</h2>
+          <p>共享仿真状态保持稳定，外部算法和实验围绕标准契约演进。</p>
+        </article>
+      </section>
+    </main>
+
+    <footer>EAI Simulator · Architecture overview</footer>
+  </div>
+
+  <script>
+    const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
+    const panels = Array.from(document.querySelectorAll('[role="tabpanel"]'));
+
+    function activateTab(tab) {
+      tabs.forEach((item) => {
+        const active = item === tab;
+        item.setAttribute('aria-selected', String(active));
+        item.tabIndex = active ? 0 : -1;
+      });
+      panels.forEach((panel) => {
+        panel.hidden = panel.id !== tab.getAttribute('aria-controls');
+      });
+    }
+
+    tabs.forEach((tab, index) => {
+      tab.addEventListener('click', () => activateTab(tab));
+      tab.addEventListener('keydown', (event) => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        let next = index;
+        if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
+        if (event.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length;
+        if (event.key === 'Home') next = 0;
+        if (event.key === 'End') next = tabs.length - 1;
+        activateTab(tabs[next]);
+        tabs[next].focus();
+      });
+    });
+  </script>
+</body>
+</html>
