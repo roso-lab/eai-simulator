@@ -11,6 +11,7 @@
 <p align="center">
   <a href="https://releases.ubuntu.com/22.04/"><img src="https://img.shields.io/badge/platform-linux--64-orange.svg" alt="Platform: Linux x86-64"></a>
   <a href="https://docs.isaacsim.omniverse.nvidia.com/5.1.0/index.html"><img src="https://img.shields.io/badge/Isaac%20Sim-5.1-76B900.svg" alt="Isaac Sim 5.1"></a>
+  <a href="https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0"><img src="https://img.shields.io/badge/release-v0.1.0-007ec6.svg" alt="Release: v0.1.0"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
 
@@ -22,8 +23,6 @@
 <p align="center">
   <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html"><strong>Get Started</strong></a> ·
   <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/"><strong>Documentation</strong></a> ·
-  <a href="https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0"><strong>v0.1.0 Release</strong></a> ·
-  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/roadmap.html"><strong>Roadmap</strong></a> ·
   <a href="#community--support"><strong>Community</strong></a>
 </p>
 
