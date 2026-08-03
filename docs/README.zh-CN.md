@@ -11,6 +11,7 @@
 <p align="center">
   <a href="https://releases.ubuntu.com/22.04/"><img src="https://img.shields.io/badge/platform-linux--64-orange.svg" alt="平台：Linux x86-64"></a>
   <a href="https://docs.isaacsim.omniverse.nvidia.com/5.1.0/index.html"><img src="https://img.shields.io/badge/Isaac%20Sim-5.1-76B900.svg" alt="Isaac Sim 5.1"></a>
+  <a href="https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0"><img src="https://img.shields.io/badge/release-v0.1.0-007ec6.svg" alt="发布版本：v0.1.0"></a>
   <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow.svg" alt="许可证：MIT"></a>
 </p>
 
@@ -86,6 +87,11 @@ README 只概括支持范围，详细能力以专题文档为准：
 - **[构建环境](https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html)：** JSON 环境、Env DIY、三维布置与 Payload。
 - **[ROS2 接口](https://www.rosolab.com/roso-lab/eai-simulator/docs/interface_catalog.html)：** 控制输入、传感输出、Nav2 与机械臂。
 - **[控制器开发](https://www.rosolab.com/roso-lab/eai-simulator/docs/controller_guide.html)：** 传统控制、RL、IK 和外部控制器接入。
+
+## 版本发布与功能规划
+
+- **[v0.1.0 发布说明](https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0)：** 查看当前已发布版本包含的能力、运行要求和已知注意事项。
+- **[功能规划](https://www.rosolab.com/roso-lab/eai-simulator/docs/roadmap.html)：** 了解仍在开发、尚未包含在当前发布版本中的下一阶段能力。
 
 ## 快速开始
 
