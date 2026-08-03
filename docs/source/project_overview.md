@@ -14,11 +14,12 @@ EAI Simulator 是一个面向人机共融研究的社会化物理仿真平台。
 
 ## 架构图
 
-```{image} assets/media/framework.png
-:alt: EAI 仿真器解耦扩展框架
-:align: center
-:width: 100%
-```
+<iframe
+  class="eai-architecture-frame"
+  src="eai-simulator-architecture.html?embed=1"
+  title="EAI Simulator 交互式架构图"
+  loading="eager"
+></iframe>
 
 ## 项目目录结构
 

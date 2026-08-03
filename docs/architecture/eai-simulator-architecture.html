@@ -4,6 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>EAI Simulator Architecture</title>
+  <base target="_parent">
+  <script>
+    if (new URLSearchParams(window.location.search).get("embed") === "1") {
+      document.documentElement.dataset.embed = "true";
+    }
+  </script>
   <style>
     :root {
       color-scheme: light;
@@ -457,6 +463,79 @@
         border-top: 1px solid var(--line);
       }
     }
+
+    html[data-embed="true"],
+    html[data-embed="true"] body {
+      background: transparent;
+    }
+
+    html[data-embed="true"] body {
+      overflow: hidden;
+    }
+
+    html[data-embed="true"] .page-shell {
+      min-height: 0;
+      background: none;
+    }
+
+    html[data-embed="true"] .site-bar,
+    html[data-embed="true"] main > .eyebrow,
+    html[data-embed="true"] main > h1,
+    html[data-embed="true"] main > .lead,
+    html[data-embed="true"] footer {
+      display: none;
+    }
+
+    html[data-embed="true"] main {
+      width: 100%;
+      padding: 0;
+    }
+
+    html[data-embed="true"] .principles {
+      margin-top: 30px;
+    }
+
+    @media (min-width: 620px) and (max-width: 760px) {
+      html[data-embed="true"] .workflow {
+        grid-template-columns: minmax(180px, 31%) minmax(0, 69%);
+        column-gap: 10px;
+        row-gap: 20px;
+      }
+
+      html[data-embed="true"] .step,
+      html[data-embed="true"] .component {
+        min-height: 108px;
+      }
+
+      html[data-embed="true"] .step:not(.step--last)::after,
+      html[data-embed="true"] .step:not(.step--last)::before {
+        display: block;
+      }
+
+      html[data-embed="true"] .component {
+        grid-template-columns: 1fr auto;
+        gap: 16px;
+        margin-bottom: 0;
+      }
+
+      html[data-embed="true"] .component:not(.component--last)::after {
+        content: none;
+      }
+
+      html[data-embed="true"] .principles {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      html[data-embed="true"] .principle {
+        padding: 22px 18px 24px 0;
+      }
+
+      html[data-embed="true"] .principle + .principle {
+        padding: 22px 18px 24px;
+        border-top: 0;
+        border-left: 1px solid var(--line);
+      }
+    }
   </style>
 </head>
 <body>
@@ -496,7 +575,7 @@
                 <div class="component__kind">Declarative inputs</div>
                 <p class="component__description">描述进入仿真的资源、实体能力、空间关系与任务约束，保持实验输入可保存、可复用。</p>
               </div>
-              <a class="component__link" href="../../docs/source/environments.md">查看文档</a>
+              <a class="component__link" href="environments.html">查看文档</a>
             </article>
 
             <article class="step">
@@ -509,7 +588,7 @@
                 <div class="component__kind">Dynamic assembly</div>
                 <p class="component__description">把声明式选择转换为可执行的场景与环境配置，并在启动前完成兼容性和依赖检查。</p>
               </div>
-              <a class="component__link" href="../../docs/source/project_overview.md">查看文档</a>
+              <a class="component__link" href="project_overview.html">查看文档</a>
             </article>
 
             <article class="step">
@@ -522,7 +601,7 @@
                 <div class="component__kind">Shared simulation runtime</div>
                 <p class="component__description">统一承载物理步进、渲染、状态更新、感知输出以及面向实体的控制循环。</p>
               </div>
-              <a class="component__link" href="../../docs/source/getting_started.md">查看文档</a>
+              <a class="component__link" href="getting_started.html">查看文档</a>
             </article>
 
             <article class="step step--last">
@@ -535,7 +614,7 @@
                 <div class="component__kind">External integration</div>
                 <p class="component__description">读取仿真反馈、接收外部目标，并将算法、工具和实验编排接入同一个运行过程。</p>
               </div>
-              <a class="component__link" href="../../docs/source/interface_catalog.md">查看文档</a>
+              <a class="component__link" href="interface_catalog.html">查看文档</a>
             </article>
           </div>
         </div>
@@ -553,7 +632,7 @@
                 <div class="component__kind">Prepare</div>
                 <p class="component__description">根据实验声明识别所需资源，检查本地状态并补齐运行依赖。</p>
               </div>
-              <a class="component__link" href="../../docs/source/installation.md">查看文档</a>
+              <a class="component__link" href="installation.html">查看文档</a>
             </article>
 
             <article class="step">
@@ -566,7 +645,7 @@
                 <div class="component__kind">Configure</div>
                 <p class="component__description">将实验选择编译为场景、实体和运行参数，使同一描述能够稳定复现。</p>
               </div>
-              <a class="component__link" href="../../docs/source/environments.md">查看文档</a>
+              <a class="component__link" href="environments.html">查看文档</a>
             </article>
 
             <article class="step">
@@ -579,7 +658,7 @@
                 <div class="component__kind">Simulate</div>
                 <p class="component__description">管理应用与环境生命周期，在共享场景中持续推进世界状态。</p>
               </div>
-              <a class="component__link" href="../../docs/source/getting_started.md">查看文档</a>
+              <a class="component__link" href="getting_started.html">查看文档</a>
             </article>
 
             <article class="step step--last">
@@ -592,7 +671,7 @@
                 <div class="component__kind">Evaluate</div>
                 <p class="component__description">把运行状态提供给外部实验，依据结果调整配置并进入下一轮。</p>
               </div>
-              <a class="component__link" href="../../demo/fire_rescue/README.md">查看示例</a>
+              <a class="component__link" href="https://github.com/roso-lab/eai-simulator/tree/develop/demo/fire_rescue">查看示例</a>
             </article>
           </div>
         </div>
@@ -610,7 +689,7 @@
                 <div class="component__kind">Asset boundary</div>
                 <p class="component__description">源码只声明资源需求，体积较大的运行资产独立管理并按需进入本地缓存。</p>
               </div>
-              <a class="component__link" href="../../docs/source/installation.md">查看文档</a>
+              <a class="component__link" href="installation.html">查看文档</a>
             </article>
 
             <article class="step">
@@ -623,7 +702,7 @@
                 <div class="component__kind">Builder boundary</div>
                 <p class="component__description">稳定的数据结构与具体运行配置分离，编辑工具和终端流程共享同一份语义。</p>
               </div>
-              <a class="component__link" href="../../docs/source/environments.md">查看文档</a>
+              <a class="component__link" href="environments.html">查看文档</a>
             </article>
 
             <article class="step">
@@ -636,7 +715,7 @@
                 <div class="component__kind">Runtime boundary</div>
                 <p class="component__description">环境负责状态与动作协议，任务逻辑不侵入底层物理和场景生命周期。</p>
               </div>
-              <a class="component__link" href="../../docs/source/controller_guide.md">查看文档</a>
+              <a class="component__link" href="controller_guide.html">查看文档</a>
             </article>
 
             <article class="step step--last">
@@ -649,7 +728,7 @@
                 <div class="component__kind">Application boundary</div>
                 <p class="component__description">算法与实验通过会话和接口契约接入，保持可独立开发、替换与验证。</p>
               </div>
-              <a class="component__link" href="../../algorithm/README.md">查看算法</a>
+              <a class="component__link" href="https://github.com/roso-lab/eai-simulator/tree/develop/algorithm">查看算法</a>
             </article>
           </div>
         </div>
@@ -680,6 +759,15 @@
   <script>
     const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
     const panels = Array.from(document.querySelectorAll('[role="tabpanel"]'));
+    const embedded = document.documentElement.dataset.embed === "true";
+
+    function publishEmbeddedHeight() {
+      if (!embedded) return;
+      window.parent.postMessage({
+        type: "eai-architecture-resize",
+        height: document.documentElement.scrollHeight,
+      }, "*");
+    }
 
     function activateTab(tab) {
       tabs.forEach((item) => {
@@ -690,6 +778,7 @@
       panels.forEach((panel) => {
         panel.hidden = panel.id !== tab.getAttribute('aria-controls');
       });
+      window.requestAnimationFrame(publishEmbeddedHeight);
     }
 
     tabs.forEach((tab, index) => {
@@ -706,6 +795,14 @@
         tabs[next].focus();
       });
     });
+
+    if (embedded) {
+      const resizeObserver = new ResizeObserver(publishEmbeddedHeight);
+      resizeObserver.observe(document.body);
+      window.addEventListener("load", publishEmbeddedHeight, { once: true });
+      document.fonts?.ready.then(publishEmbeddedHeight);
+      publishEmbeddedHeight();
+    }
   </script>
 </body>
 </html>

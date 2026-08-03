@@ -629,6 +629,16 @@ input:focus-visible {
   background: var(--eai-page);
 }
 
+.content .eai-architecture-frame {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  min-height: 720px;
+  margin: 0 0 var(--eai-space-4);
+  border: 0;
+  background: transparent;
+}
+
 .eai-workflow-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

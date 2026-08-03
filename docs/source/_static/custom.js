@@ -51,9 +51,45 @@ function startHomepageMotion() {
   });
 }
 
+function syncArchitectureFrameHeight() {
+  const frame = document.querySelector(".eai-architecture-frame");
+
+  if (!frame) {
+    return;
+  }
+
+  function applyHeight(height) {
+    if (!Number.isFinite(height)) {
+      return;
+    }
+
+    frame.style.height = `${Math.max(480, Math.ceil(height))}px`;
+  }
+
+  function measureFrame() {
+    applyHeight(frame.contentDocument?.documentElement.scrollHeight);
+  }
+
+  window.addEventListener("message", (event) => {
+    if (
+      event.source !== frame.contentWindow
+      || event.data?.type !== "eai-architecture-resize"
+      || !Number.isFinite(event.data.height)
+    ) {
+      return;
+    }
+
+    applyHeight(event.data.height);
+  });
+
+  frame.addEventListener("load", measureFrame);
+  measureFrame();
+}
+
 function startDocumentationUi() {
   enhanceVersionMenu();
   startHomepageMotion();
+  syncArchitectureFrameHeight();
 }
 
 if (document.readyState === "loading") {
