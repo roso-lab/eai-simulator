@@ -136,3 +136,11 @@ EAI Simulator 文档
    :caption: 开发与扩展
 
    controller_guide
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :titlesonly:
+   :caption: 项目动态
+
+   roadmap

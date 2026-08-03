@@ -22,6 +22,7 @@
 <p align="center">
   <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html"><strong>快速开始</strong></a> ·
   <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/"><strong>完整文档</strong></a> ·
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/roadmap.html"><strong>功能规划</strong></a> ·
   <a href="#社区与支持"><strong>社区</strong></a>
 </p>
 
