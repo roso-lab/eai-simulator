@@ -1,4 +1,4 @@
-# 快速开始 (Quick Start)
+# 快速开始
 
 本文档介绍 EAI Simulator 当前的 JSON 环境工作流。工程当前以 Isaac Sim 5.1、Isaac Lab 2.x 和 `env_isaaclab` conda 环境为基准。
 
