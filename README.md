@@ -22,6 +22,7 @@
 <p align="center">
   <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html"><strong>Get Started</strong></a> ·
   <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/"><strong>Documentation</strong></a> ·
+  <a href="https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0"><strong>v0.1.0 Release</strong></a> ·
   <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/roadmap.html"><strong>Roadmap</strong></a> ·
   <a href="#community--support"><strong>Community</strong></a>
 </p>
@@ -87,6 +88,11 @@ The README summarizes the supported surface. Use the detailed guides as the sour
 - **[Build Environments](https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html):** JSON environments, Env DIY, 3D placement, and payloads.
 - **[ROS2 Interfaces](https://www.rosolab.com/roso-lab/eai-simulator/docs/interface_catalog.html):** command input, sensor output, Nav2, and manipulators.
 - **[Controller Development](https://www.rosolab.com/roso-lab/eai-simulator/docs/controller_guide.html):** traditional, RL, IK, and external controller integration.
+
+## Releases & Roadmap
+
+- **[v0.1.0 Release](https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0):** review the capabilities, requirements, and known considerations included in the current published version.
+- **[Roadmap](https://www.rosolab.com/roso-lab/eai-simulator/docs/roadmap.html):** preview planned capabilities that are still under development and are not part of the current release.
 
 ## Quick Start
 
