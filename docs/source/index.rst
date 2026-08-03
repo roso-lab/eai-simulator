@@ -91,6 +91,7 @@ EAI Simulator 文档
      <a href="environments.html"><span>环境与实体</span><strong>构建可复用的仿真世界</strong></a>
      <a href="interface_catalog.html"><span>接口与控制</span><strong>连接 ROS2、传感器与机械臂</strong></a>
      <a href="controller_guide.html"><span>开发与实验</span><strong>扩展控制器与协作流程</strong></a>
+     <a href="roadmap.html"><span>项目动态</span><strong>查看下一阶段功能规划</strong></a>
    </nav>
 
 .. toctree::

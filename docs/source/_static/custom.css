@@ -201,6 +201,52 @@ samp {
   mask: var(--icon-search) center / contain no-repeat;
 }
 
+.eai-language-switch {
+  box-sizing: border-box;
+  display: inline-flex;
+  height: 32px;
+  flex: 0 0 auto;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid var(--eai-border);
+  border-radius: var(--eai-radius);
+  color: var(--eai-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.eai-language-switch__item {
+  box-sizing: border-box;
+  display: grid;
+  min-width: 30px;
+  padding: 0 6px;
+  place-items: center;
+  color: inherit;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.eai-language-switch__item + .eai-language-switch__item {
+  border-left: 1px solid var(--eai-border);
+}
+
+.eai-language-switch__item.is-current {
+  background: var(--eai-ink);
+  color: var(--eai-page);
+}
+
+.eai-language-switch a.eai-language-switch__item:hover {
+  background: var(--eai-surface);
+  color: var(--eai-ink);
+}
+
+.eai-language-switch a.eai-language-switch__item:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid var(--eai-accent);
+  outline-offset: -2px;
+}
+
 .eai-product-header .theme-toggle svg {
   width: 20px;
   height: 20px;
@@ -688,7 +734,7 @@ input:focus-visible {
 
 .eai-next-links {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--eai-space-3);
   margin: var(--eai-space-3) 0 var(--eai-space-7);
 }
@@ -1062,6 +1108,10 @@ body[data-theme="dark"] .content .eai-button--primary:hover {
   .content {
     padding-right: var(--eai-space-4);
     padding-left: var(--eai-space-4);
+  }
+
+  .eai-next-links {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

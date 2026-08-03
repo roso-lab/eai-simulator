@@ -1,0 +1,35 @@
+<div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">About EAI</span></p>
+  <ul class="{{ 'current' if pagename == 'project_overview_en' else '' }}">
+    <li class="toctree-l1{% if pagename == 'project_overview_en' %} current current-page{% endif %}"><a class="{% if pagename == 'project_overview_en' %}current {% endif %}reference internal" href="{{ pathto('project_overview_en') }}">Project Overview</a></li>
+  </ul>
+
+  <p class="caption" role="heading"><span class="caption-text">Get Started</span></p>
+  <ul>
+    <li class="toctree-l1"><a class="reference internal" href="{{ pathto('getting_started') }}">Quick Start</a></li>
+    <li class="toctree-l1"><a class="reference internal" href="{{ pathto('installation') }}">Installation Guide</a></li>
+  </ul>
+
+  <p class="caption" role="heading"><span class="caption-text">Build Environments</span></p>
+  <ul>
+    <li class="toctree-l1"><a class="reference internal" href="{{ pathto('environments') }}">Environment Guide</a></li>
+    <li class="toctree-l1"><a class="reference internal" href="{{ pathto('payload') }}">Payloads</a></li>
+  </ul>
+
+  <p class="caption" role="heading"><span class="caption-text">Connect and Control</span></p>
+  <ul>
+    <li class="toctree-l1"><a class="reference internal" href="{{ pathto('interface_catalog') }}">Interface Catalog</a></li>
+    <li class="toctree-l1"><a class="reference internal" href="{{ pathto('gs_hub_sensor') }}">GS-Hub Sensor</a></li>
+    <li class="toctree-l1"><a class="reference internal" href="{{ pathto('ur5_control') }}">Manipulator</a></li>
+  </ul>
+
+  <p class="caption" role="heading"><span class="caption-text">Develop and Extend</span></p>
+  <ul>
+    <li class="toctree-l1"><a class="reference internal" href="{{ pathto('controller_guide') }}">Controller Development</a></li>
+  </ul>
+
+  <p class="caption" role="heading"><span class="caption-text">Project Updates</span></p>
+  <ul class="{{ 'current' if pagename == 'roadmap_en' else '' }}">
+    <li class="toctree-l1{% if pagename == 'roadmap_en' %} current current-page{% endif %}"><a class="{% if pagename == 'roadmap_en' %}current {% endif %}reference internal" href="{{ pathto('roadmap_en') }}">Next-Stage Feature Roadmap</a></li>
+  </ul>
+</div>
