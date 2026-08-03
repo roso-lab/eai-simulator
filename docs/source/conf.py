@@ -31,7 +31,7 @@ html_sidebars = {
 html_logo = "_static/img/logo.png"
 html_favicon = "_static/img/Icon.png"
 html_static_path = ["_static"]
-html_extra_path = ["_extra"]
+html_extra_path = ["_extra", "../architecture"]
 html_css_files = ["custom.css"]
 html_js_files = [("custom.js", {"type": "module"})]
 

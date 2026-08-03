@@ -1,39 +1,52 @@
 {% extends "!page.html" %}
 
+{% set is_english_page = pagename in ['project_overview_en', 'roadmap_en'] %}
+{% set chinese_target = 'roadmap' if pagename == 'roadmap_en' else 'project_overview' %}
+{% set english_target = 'roadmap_en' if pagename == 'roadmap' else 'project_overview_en' %}
+
 {% block announcement %}
 <header class="eai-product-header">
   <div class="eai-product-header__inner">
-    <label class="eai-product-header__nav-toggle" for="__navigation" title="打开文档导航">
+    <label class="eai-product-header__nav-toggle" for="__navigation" title="{{ 'Open documentation navigation' if is_english_page else '打开文档导航' }}">
       <span class="icon" aria-hidden="true"><svg><use href="#svg-menu"></use></svg></span>
-      <span class="visually-hidden">打开文档导航</span>
+      <span class="visually-hidden">{{ 'Open documentation navigation' if is_english_page else '打开文档导航' }}</span>
     </label>
 
-    <a class="eai-product-header__brand" href="{{ pathto(master_doc) }}" aria-label="EAI Simulator 文档首页">
+    <a class="eai-product-header__brand" href="{{ pathto(master_doc) }}" aria-label="{{ 'EAI Simulator documentation home' if is_english_page else 'EAI Simulator 文档首页' }}">
       <img src="{{ pathto('_static/img/Icon.png', 1) }}" alt="" width="28" height="28">
       <span class="eai-product-header__brand-full">EAI Simulator Documentation</span>
       <span class="eai-product-header__brand-short">EAI Simulator Docs</span>
     </a>
 
     <details class="eai-version-menu">
-      <summary aria-label="选择文档版本">
+      <summary aria-label="{{ 'Select documentation version' if is_english_page else '选择文档版本' }}">
         <span>v{{ release }}</span>
         <span class="eai-version-menu__chevron" aria-hidden="true"></span>
       </summary>
       <div class="eai-version-menu__panel">
         <a href="{{ pathto(master_doc) }}" aria-current="page">
           <span>v{{ release }}</span>
-          <small>当前文档</small>
+          <small>{{ 'Current docs' if is_english_page else '当前文档' }}</small>
         </a>
-        <a class="eai-version-menu__archive" href="{{ pathto('versions') }}">版本归档</a>
+        <a class="eai-version-menu__archive" href="{{ pathto('versions') }}">{{ 'Version archive' if is_english_page else '版本归档' }}</a>
       </div>
     </details>
 
-    <nav class="eai-product-header__actions" aria-label="文档工具">
-      <a class="eai-product-header__search eai-icon-button" href="{{ pathto('search') }}" aria-label="搜索文档" title="搜索文档">
+    <nav class="eai-product-header__actions" aria-label="{{ 'Documentation tools' if is_english_page else '文档工具' }}">
+      <a class="eai-product-header__search eai-icon-button" href="{{ pathto('search') }}" aria-label="{{ 'Search documentation' if is_english_page else '搜索文档' }}" title="{{ 'Search documentation' if is_english_page else '搜索文档' }}">
         <span aria-hidden="true"></span>
       </a>
+      <div class="eai-language-switch" role="group" aria-label="{{ 'Switch documentation language' if is_english_page else '切换文档语言' }}">
+        {% if is_english_page %}
+        <a class="eai-language-switch__item" href="{{ pathto(chinese_target) }}" hreflang="zh-CN" lang="zh-CN" title="打开对应中文页面">中</a>
+        <span class="eai-language-switch__item is-current" aria-current="page" lang="en" title="Current language: English">EN</span>
+        {% else %}
+        <span class="eai-language-switch__item is-current" aria-current="page" lang="zh-CN" title="当前语言：中文">中</span>
+        <a class="eai-language-switch__item" href="{{ pathto(english_target) }}" hreflang="en" lang="en" title="Open the corresponding English page">EN</a>
+        {% endif %}
+      </div>
       <div class="theme-toggle-container eai-product-header__theme">
-        <button class="theme-toggle eai-icon-button" aria-label="切换浅色、深色或自动主题" title="切换主题">
+        <button class="theme-toggle eai-icon-button" aria-label="{{ 'Switch light, dark, or auto theme' if is_english_page else '切换浅色、深色或自动主题' }}" title="{{ 'Switch theme' if is_english_page else '切换主题' }}">
           <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
           <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
           <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
@@ -49,10 +62,17 @@
 
 {% block left_sidebar %}
 <div class="sidebar-sticky">
+  {%- if is_english_page %}
+    {%- include "sidebar/search_en.html" %}
+    {%- include "sidebar/scroll-start.html" %}
+    {%- include "sidebar/navigation_en.html" %}
+    {%- include "sidebar/scroll-end.html" %}
+  {%- else %}
   {%- for sidebar_section in sidebars %}
     {%- include sidebar_section %}
   {%- endfor %}
-  <nav class="eai-sidebar-meta" aria-label="社区链接">
+  {%- endif %}
+  <nav class="eai-sidebar-meta" aria-label="{{ 'Community links' if is_english_page else '社区链接' }}">
     <a href="{{ eai_repository_url }}">GitHub</a>
     <a href="{{ eai_community_url }}">Community</a>
   </nav>

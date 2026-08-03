@@ -14,11 +14,12 @@ EAI Simulator 是一个面向人机共融研究的社会化物理仿真平台。
 
 ## 架构图
 
-```{image} assets/media/framework.png
-:alt: EAI 仿真器解耦扩展框架
-:align: center
-:width: 100%
-```
+<iframe
+  class="eai-architecture-frame"
+  src="eai-simulator-architecture.html?embed=1&amp;theme-sync=3"
+  title="EAI Simulator 交互式架构图"
+  loading="eager"
+></iframe>
 
 ## 项目目录结构
 
@@ -105,7 +106,7 @@ eai-simulator/
 - 默认不启用 Domain Randomization
 - 移除 Reward Functions
 
-**环境列表**: 参考 :doc:`环境说明 <environments>`
+**环境列表**: 参考[环境说明](environments.md)。
 
 ## 控制器与机器人（simulator.py 可调用）
 
@@ -326,7 +327,7 @@ Factory + Carter + GS-Hub 的 Nav2 导航效果
 - `controllers` 字典键名必须与场景资产名一致，顺序决定观测/动作拼接顺序。
 - 所有控制器通过环境的 `_pre_physics_step` 接口统一处理，无需手动调用 Dispatcher。
 - 预训练策略加载配置和传统控制器放在 `source/EAI_assets/EAI_assets/controller/`。
-- 控制器开发请参考 :doc:`控制器开发 <controller_guide>`。
+- 控制器开发请参考[控制器开发指南](controller_guide.md)。
 - 资产 USD 本地路径位于 `usd/`（如 `usd/robot/m20/M20.usd`、`usd/robot/go2/go2.usd`）；缺失的 USD 和 RL 模型会从 [Hugging Face 资产仓库](https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets) 按需下载，访问该 gated dataset 前需要先申请权限。
 - 文档构建：`cd docs && make html`；本地预览 `cd build/html && python -m http.server 8000`。
 
@@ -336,8 +337,9 @@ Factory + Carter + GS-Hub 的 Nav2 导航效果
 
 ## 参考页面
 
-- **快速开始**: :doc:`getting_started`
-- **安装指南**: :doc:`installation`
-- **环境说明**: :doc:`environments`
-- **控制器开发**: :doc:`controller_guide`
-- **GS-Hub 传感器**: :doc:`gs_hub_sensor`
+- **快速开始**: [开始第一次运行](getting_started.md)
+- **安装指南**: [安装与依赖配置](installation.md)
+- **环境说明**: [环境配置与使用](environments.md)
+- **控制器开发**: [控制器开发指南](controller_guide.md)
+- **GS-Hub 传感器**: [GS-Hub 使用说明](gs_hub_sensor.md)
+- **下一阶段功能规划**: [查看项目 Roadmap](roadmap.md)
