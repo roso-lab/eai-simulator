@@ -1,8 +1,11 @@
 {% extends "!page.html" %}
 
-{% set is_english_page = pagename in ['project_overview_en', 'roadmap_en'] %}
-{% set chinese_target = 'roadmap' if pagename == 'roadmap_en' else 'project_overview' %}
-{% set english_target = 'roadmap_en' if pagename == 'roadmap' else 'project_overview_en' %}
+{% set bilingual_pages = ['index', 'project_overview', 'getting_started', 'installation', 'environments', 'payload', 'interface_catalog', 'gs_hub_sensor', 'ur5_control', 'controller_guide', 'roadmap', 'versions'] %}
+{% set english_pages = ['index_en', 'project_overview_en', 'getting_started_en', 'installation_en', 'environments_en', 'payload_en', 'interface_catalog_en', 'gs_hub_sensor_en', 'ur5_control_en', 'controller_guide_en', 'roadmap_en', 'versions_en'] %}
+{% set is_english_page = pagename in english_pages %}
+{% set chinese_target = pagename[:-3] if is_english_page else pagename %}
+{% set english_target = pagename ~ '_en' if pagename in bilingual_pages else 'index_en' %}
+{% set documentation_home = 'index_en' if is_english_page else master_doc %}
 
 {% block announcement %}
 <header class="eai-product-header">
@@ -12,7 +15,7 @@
       <span class="visually-hidden">{{ 'Open documentation navigation' if is_english_page else '打开文档导航' }}</span>
     </label>
 
-    <a class="eai-product-header__brand" href="{{ pathto(master_doc) }}" aria-label="{{ 'EAI Simulator documentation home' if is_english_page else 'EAI Simulator 文档首页' }}">
+    <a class="eai-product-header__brand" href="{{ pathto(documentation_home) }}" aria-label="{{ 'EAI Simulator documentation home' if is_english_page else 'EAI Simulator 文档首页' }}">
       <img src="{{ pathto('_static/img/Icon.png', 1) }}" alt="" width="28" height="28">
       <span class="eai-product-header__brand-full">EAI Simulator Documentation</span>
       <span class="eai-product-header__brand-short">EAI Simulator Docs</span>
@@ -24,11 +27,11 @@
         <span class="eai-version-menu__chevron" aria-hidden="true"></span>
       </summary>
       <div class="eai-version-menu__panel">
-        <a href="{{ pathto(master_doc) }}" aria-current="page">
+        <a href="{{ pathto(documentation_home) }}" aria-current="page">
           <span>v{{ release }}</span>
           <small>{{ 'Current docs' if is_english_page else '当前文档' }}</small>
         </a>
-        <a class="eai-version-menu__archive" href="{{ pathto('versions') }}">{{ 'Version archive' if is_english_page else '版本归档' }}</a>
+        <a class="eai-version-menu__archive" href="{{ pathto('versions_en' if is_english_page else 'versions') }}">{{ 'Version archive' if is_english_page else '版本归档' }}</a>
       </div>
     </details>
 
@@ -38,7 +41,7 @@
       </a>
       <div class="eai-language-switch" role="group" aria-label="{{ 'Switch documentation language' if is_english_page else '切换文档语言' }}">
         {% if is_english_page %}
-        <a class="eai-language-switch__item" href="{{ pathto(chinese_target) }}" hreflang="zh-CN" lang="zh-CN" title="打开对应中文页面">中</a>
+        <a class="eai-language-switch__item" href="{{ pathto(chinese_target) }}" hreflang="zh-CN" lang="zh-CN" title="Open the corresponding Chinese page">中</a>
         <span class="eai-language-switch__item is-current" aria-current="page" lang="en" title="Current language: English">EN</span>
         {% else %}
         <span class="eai-language-switch__item is-current" aria-current="page" lang="zh-CN" title="当前语言：中文">中</span>

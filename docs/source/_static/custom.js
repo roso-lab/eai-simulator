@@ -128,11 +128,39 @@ function syncArchitectureFrameTheme() {
   sendTheme();
 }
 
+function localizeEnglishPageChrome() {
+  const englishMarker = document.querySelector(
+    '.eai-language-switch__item.is-current[lang="en"]'
+  );
+
+  if (!englishMarker) {
+    return;
+  }
+
+  document.documentElement.lang = "en";
+
+  document.querySelectorAll("a.headerlink").forEach((link) => {
+    link.title = "Link to this heading.";
+  });
+
+  const indexLink = document.querySelector('link[rel="index"]');
+  const searchLink = document.querySelector('link[rel="search"]');
+
+  if (indexLink) {
+    indexLink.title = "Index";
+  }
+
+  if (searchLink) {
+    searchLink.title = "Search";
+  }
+}
+
 function startDocumentationUi() {
   enhanceVersionMenu();
   startHomepageMotion();
   syncArchitectureFrameHeight();
   syncArchitectureFrameTheme();
+  localizeEnglishPageChrome();
 }
 
 if (document.readyState === "loading") {

@@ -12,6 +12,7 @@
   --eai-page: #ffffff;
   --eai-surface: #f1f4f7;
   --eai-surface-strong: #e7ecf1;
+  --eai-workflow-card-background: #ffffff;
   --eai-ink: #121820;
   --eai-text: #242b33;
   --eai-muted: #5d6975;
@@ -701,7 +702,7 @@ input:focus-visible {
   border: 1px solid var(--eai-border);
   border-top: 3px solid var(--eai-accent);
   border-radius: var(--eai-radius);
-  background: var(--eai-surface);
+  background: var(--eai-workflow-card-background);
   color: var(--eai-muted);
   text-decoration: none;
   transition: background-color 200ms ease, border-color 200ms ease;
@@ -841,6 +842,7 @@ body[data-theme="dark"] {
   --eai-page: #000000;
   --eai-surface: #171717;
   --eai-surface-strong: #202020;
+  --eai-workflow-card-background: var(--eai-surface);
   --eai-ink: #ffffff;
   --eai-text: #ededed;
   --eai-muted: #989898;
@@ -935,6 +937,7 @@ body[data-theme="dark"] .content .eai-button--primary:hover {
     --eai-page: #000000;
     --eai-surface: #171717;
     --eai-surface-strong: #202020;
+    --eai-workflow-card-background: var(--eai-surface);
     --eai-ink: #ffffff;
     --eai-text: #ededed;
     --eai-muted: #989898;

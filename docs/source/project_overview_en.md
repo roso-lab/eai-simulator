@@ -71,13 +71,13 @@ eai-simulator/
 
 **Main components**:
 
-- `**controllers/`**: Controller base classes and loaders
+- **`controllers/`**: Controller base classes and loaders
   - `base.py`: The `ControllerCfg` base class and its unified interface
   - `skrl_controller.py`: Base class for SKRL reinforcement-learning controllers
   - `rsl_controller.py`: Base class for RSL-RL ONNX controllers
   - `differential_drive_controller.py`: Base class for differential-drive controllers
   - `utils.py`: Utilities such as `ONNXPolicy` and model loading
-- `**hmrs_env/**`: Multi-robot environment base classes
+- **`hmrs_env/`**: Multi-robot environment base classes
   - `multi_robot_direct_env.py`: `MultiRobotDirectEnv`, built on DirectMARL
 
 ### EAI_assets (Assets and Controllers)
@@ -88,12 +88,12 @@ eai-simulator/
 
 **Main components**:
 
-- `**robots/`**: Robot asset configurations, including USD paths and physical parameters
-- `**scene/**`: Scene configurations, including terrain, lighting, and obstacles
-- `**sensor/**`: Sensor configurations
+- **`robots/`**: Robot asset configurations, including USD paths and physical parameters
+- **`scene/`**: Scene configurations, including terrain, lighting, and obstacles
+- **`sensor/`**: Sensor configurations
   - `high_sensor/`: High-frequency sensors with CPU streams, such as GS-Hub
   - `low_sensor/`: Low-frequency GPU streams for reinforcement learning
-- `**controller/**`: Controller configurations
+- **`controller/`**: Controller configurations
   - `traditional/`: Conventional controllers such as differential drive
   - `rl/`: Reinforcement-learning controllers using SKRL or RSL-RL
 
@@ -110,7 +110,7 @@ eai-simulator/
 - Does not enable domain randomization by default
 - Removes reward functions
 
-**Environment list**: See the [Environment Guide](environments.md).
+**Environment list**: See the [Environment Guide](environments_en.md).
 
 ## Controllers and Robots Available to simulator.py
 
@@ -215,7 +215,7 @@ The `visual.x/y` values in the lightweight window describe canvas layout, not si
 python simulator.py --diy-3d --device=cuda:0
 ```
 
-See the [Environment Guide](environments.md) for the 3D entry point, asset downloads, and the execution boundary within a single Kit process.
+See the [Environment Guide](environments_en.md) for the 3D entry point, asset downloads, and the execution boundary within a single Kit process.
 
 ```{figure} assets/media/eai_env_diy.gif
 :alt: EAI Env DIY 3D editing and execution demonstration
@@ -327,7 +327,7 @@ Nav2 navigation with Factory, Carter, and GS-Hub
 - Keys in the `controllers` dictionary must match scene asset names. Dictionary order determines the observation and action concatenation order.
 - All controllers are handled through the environment's `_pre_physics_step` interface; the Dispatcher does not need to be called manually.
 - Pretrained-policy loading configurations and conventional controllers live in `source/EAI_assets/EAI_assets/controller/`.
-- See the [Controller Development Guide](controller_guide.md) for controller development.
+- See the [Controller Development Guide](controller_guide_en.md) for controller development.
 - Local USD assets are stored under `usd/`, for example `usd/robot/m20/M20.usd` and `usd/robot/go2/go2.usd`. Missing USD assets and RL models are downloaded on demand from the [Hugging Face asset repository](https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets). Access to this gated dataset must be requested first.
 - Build the documentation with `cd docs && make html`. Preview it locally with `cd build/html && python -m http.server 8000`.
 
@@ -337,9 +337,9 @@ The repository focuses on simulation execution, asset configuration, controller 
 
 ## Related Pages
 
-- **Quick Start**: [Run Your First Simulation](getting_started.md)
-- **Installation Guide**: [Installation and Dependencies](installation.md)
-- **Environment Guide**: [Environment Configuration and Usage](environments.md)
-- **Controller Development**: [Controller Development Guide](controller_guide.md)
-- **GS-Hub Sensor**: [GS-Hub Usage Guide](gs_hub_sensor.md)
+- **Quick Start**: [Run Your First Simulation](getting_started_en.md)
+- **Installation Guide**: [Installation and Dependencies](installation_en.md)
+- **Environment Guide**: [Environment Configuration and Usage](environments_en.md)
+- **Controller Development**: [Controller Development Guide](controller_guide_en.md)
+- **GS-Hub Sensor**: [GS-Hub Usage Guide](gs_hub_sensor_en.md)
 - **Next-Stage Feature Roadmap**: [View the Project Roadmap](roadmap_en.md)

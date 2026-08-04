@@ -2,16 +2,6 @@
 
 本文档详细说明 EAI 平台的控制器架构和如何添加自定义控制器。
 
-## 📋 目录
-
-1. 控制器架构概述
-2. 已包含的控制器
-3. 如何定义新控制器
-4. 函数接口详解
-5. 完整示例
-
----
-
 ## 控制器架构概述
 
 ### ControllerCfg 基类
@@ -103,8 +93,6 @@ class ControllerCfg:
 | Human | `HUMAN_ANIMATION_CFG` | 运动学动画 |
 
 UR5 和 Z1 不属于宿主 controller，而是挂载到宿主后的 auxiliary controller：`UR5_IK_CFG` 和 `Z1_IK_CFG`。它们都来自 `ManipulatorIkControllerCfg`，并由宿主 selection 中的实际附件实例触发；不会为未挂载的机械臂创建 articulation 或 ROS2 topic。
-
----
 
 ## 已包含的控制器
 
@@ -238,8 +226,6 @@ ROS2 OmniGraph 只在 selection 中存在对应附件时建立。消息进入 `M
 
 详细 topic、消息类型、Z1 夹爪命令和 `manipulator_command.py` 示例见 :doc:`机械臂 <ur5_control>`。
 
-
----
 
 ## 如何定义新控制器
 
@@ -470,10 +456,10 @@ def compute_action(self, env, robot_name, observations, controller_dict):
 #### 1.4 基础类的职责
 
 控制器基础类应该：
-- ✅ 定义控制器类型的**通用参数**（如 MPC 的 `horizon`、`dt`）
-- ✅ 实现**通用的加载逻辑**（如 MPC 求解器初始化）
-- ✅ 实现**通用的动作计算逻辑**（如 MPC 求解流程）
-- ❌ **不应该**包含机器人特定的实现（这些应该在具体配置中定义）
+- 定义控制器类型的**通用参数**（如 MPC 的 `horizon`、`dt`）
+- 实现**通用的加载逻辑**（如 MPC 求解器初始化）
+- 实现**通用的动作计算逻辑**（如 MPC 求解流程）
+- 不在基础类中包含机器人特定的实现；这些实现应放在具体配置中
 
 #### 1.5 与 ControllerCfg 的兼容性
 
@@ -599,8 +585,6 @@ YOUR_ROBOT_MPC_CFG = MPCControllerCfg(
 python simulator.py --env=your_robot_demo --device=cuda:0
 ```
 
----
-
 ## 函数接口详解
 
 ### observation_func
@@ -669,8 +653,6 @@ python simulator.py --env=your_robot_demo --device=cuda:0
 - 对于传统控制器，直接转换命令为动作
 - 对于 RL 控制器，通常使用默认实现 `compute_skrl_action_from_command` 或 `compute_rsl_action_from_command`
 - 对于目标位置控制（如无人机），需要自定义处理零向量占位符
-
----
 
 ## 控制器基础类详解
 
@@ -795,8 +777,6 @@ CONTROLLER_CFG_IMPORTS = {
 
 随后在环境 JSON 的 `controller.cfg` 中填写 `YOUR_ROBOT_MPC_CFG`。
 
----
-
 ## 完整示例
 
 ### 示例 1: 传统控制器（差速驱动）
@@ -826,8 +806,6 @@ UR5 使用 `UR5_IK_CFG`，Z1 使用 `Z1_IK_CFG`。两者复用 `ManipulatorIkCon
 机械臂作为独立 `<robot>_arm` articulation 注册，并通过 FixedJoint 连接宿主。控制器只处理明确分配给自己的机器人实例，UR5/Z1、多机器人之间不会交叉消费命令。同一机器人不能同时挂载 UR5 和 Z1。完整 topic、消息格式和测试命令参见[机械臂](ur5_control.md)。
 
 控制器代码和模型属于按需下载资产，不随 Git 提交。更新控制器时应上传到 Hugging Face 中对应的 `controller/` 路径，并使用资产解析器下载；Git 中只保留通用挂载、环境注册和接口代码。
-
----
 
 ## 总结
 
