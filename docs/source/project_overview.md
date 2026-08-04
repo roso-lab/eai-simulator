@@ -67,13 +67,13 @@ eai-simulator/
 
 **主要组件**:
 
-- `**controllers/`**: 控制器基类与加载器
+- **`controllers/`**: 控制器基类与加载器
   - `base.py`: `ControllerCfg` 基类，定义统一接口
   - `skrl_controller.py`: SKRL RL 控制器基类
   - `rsl_controller.py`: RSL-RL ONNX 控制器基类
   - `differential_drive_controller.py`: 差速驱动控制器基类
   - `utils.py`: 工具函数（ONNXPolicy、模型加载等）
-- `**hmrs_env/**`: 多机器人环境基类
+- **`hmrs_env/`**: 多机器人环境基类
   - `multi_robot_direct_env.py`: `MultiRobotDirectEnv`，基于 DirectMARL
 
 ### EAI_assets（资产与控制器）
@@ -84,12 +84,12 @@ eai-simulator/
 
 **主要组件**:
 
-- `**robots/`**: 机器人资产配置（USD 路径、物理参数等）
-- `**scene/**`: 场景配置（地形、光照、障碍物等）
-- `**sensor/**`: 传感器配置
+- **`robots/`**: 机器人资产配置（USD 路径、物理参数等）
+- **`scene/`**: 场景配置（地形、光照、障碍物等）
+- **`sensor/`**: 传感器配置
   - `high_sensor/`: 高频传感器（CPU 流，如 GS-Hub）
   - `low_sensor/`: 低频传感器（GPU 流，用于 RL）
-- `**controller/**`: 控制器配置
+- **`controller/`**: 控制器配置
   - `traditional/`: 传统控制器（差速驱动等）
   - `rl/`: RL 控制器（SKRL、RSL-RL）
 
