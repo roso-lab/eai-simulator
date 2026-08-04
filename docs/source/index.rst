@@ -145,3 +145,12 @@ EAI Simulator 文档
    :caption: 项目动态
 
    roadmap
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :titlesonly:
+   :caption: 社区
+
+   community
+   community_guidelines

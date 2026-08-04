@@ -15,7 +15,14 @@ templates_path = ["_templates"]
 
 html_context = {
     "eai_repository_url": "https://github.com/roso-lab/eai-simulator",
-    "eai_community_url": "https://github.com/roso-lab/eai-simulator/discussions",
+    # Cusdis 评论组件配置(社区页论坛)。启用步骤:
+    # 1) 在 https://cusdis.com 注册并创建一个站点/app,复制 app_id 填入;
+    # 2) app_id 为空时社区页不渲染评论区(避免控制台报错);
+    # 3) 若需自托管,把 host 改成自托管地址并在 Cusdis 侧配置对应 host。
+    "eai_cusdis": {
+        "host": "https://cusdis.com",
+        "app_id": "671109d6-0f53-405d-9cd7-cf23316878ce",  # cusdis.com 站点 app id
+    },
 }
 
 html_sidebars = {
