@@ -20,3 +20,12 @@ DINish is used for Latin glyphs only. Chinese text falls back to system CJK font
 - License: MIT, stored at `LICENSE-animejs.md`
 
 Only `animate` and `stagger` are imported by the EAI documentation homepage.
+
+## Primer Octicons
+
+- File: inline SVG symbols in `../../_templates/page.html`
+- Version: 19.19.0
+- Source: `https://github.com/primer/octicons/tree/v19.19.0`
+- License: MIT, stored at `LICENSE-octicons.md`
+
+The community discussion categories and topic chooser use selected Octicons.

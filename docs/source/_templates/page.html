@@ -1,7 +1,7 @@
 {% extends "!page.html" %}
 
-{% set bilingual_pages = ['index', 'project_overview', 'getting_started', 'installation', 'environments', 'payload', 'interface_catalog', 'gs_hub_sensor', 'ur5_control', 'controller_guide', 'roadmap', 'versions'] %}
-{% set english_pages = ['index_en', 'project_overview_en', 'getting_started_en', 'installation_en', 'environments_en', 'payload_en', 'interface_catalog_en', 'gs_hub_sensor_en', 'ur5_control_en', 'controller_guide_en', 'roadmap_en', 'versions_en'] %}
+{% set bilingual_pages = ['index', 'project_overview', 'getting_started', 'installation', 'environments', 'payload', 'interface_catalog', 'gs_hub_sensor', 'ur5_control', 'controller_guide', 'roadmap', 'versions', 'community', 'community_guidelines'] %}
+{% set english_pages = ['index_en', 'project_overview_en', 'getting_started_en', 'installation_en', 'environments_en', 'payload_en', 'interface_catalog_en', 'gs_hub_sensor_en', 'ur5_control_en', 'controller_guide_en', 'roadmap_en', 'versions_en', 'community_en', 'community_guidelines_en'] %}
 {% set is_english_page = pagename in english_pages %}
 {% set chinese_target = pagename[:-3] if is_english_page else pagename %}
 {% set english_target = pagename ~ '_en' if pagename in bilingual_pages else 'index_en' %}
@@ -57,7 +57,7 @@
         </button>
       </div>
       <a class="eai-product-header__github" href="{{ eai_repository_url }}">GitHub</a>
-      <a class="eai-product-header__community" href="{{ eai_community_url }}">Community</a>
+      <a class="eai-product-header__community" href="{{ pathto('community_en' if is_english_page else 'community') }}">Community</a>
     </nav>
   </div>
 </header>
@@ -77,7 +77,158 @@
   {%- endif %}
   <nav class="eai-sidebar-meta" aria-label="{{ 'Community links' if is_english_page else '社区链接' }}">
     <a href="{{ eai_repository_url }}">GitHub</a>
-    <a href="{{ eai_community_url }}">Community</a>
+    <a href="{{ pathto('community_en' if is_english_page else 'community') }}">Community</a>
   </nav>
 </div>
 {% endblock left_sidebar %}
+
+{% block content %}
+{{ body }}
+{% if eai_cusdis.app_id and pagename in ['community', 'community_en'] %}
+{% set forum_page_id = pagename|replace('_en', '') %}
+<section class="eai-forum" data-lang="{{ 'en' if is_english_page else 'zh-CN' }}" aria-labelledby="eai-forum-title">
+  <div class="eai-forum__heading">
+    <h2 id="eai-forum-title">{{ 'Community discussions' if is_english_page else '社区讨论' }}</h2>
+    <button type="button" class="eai-forum__toggle" data-eai-forum-toggle
+            data-label-show="{{ 'Write a comment' if is_english_page else '写评论' }}"
+            data-label-hide="{{ 'Collapse' if is_english_page else '收起' }}"
+            aria-controls="eai-forum-compose-dialog cusdis_thread" aria-expanded="false">{{ 'Write a comment' if is_english_page else '写评论' }}</button>
+  </div>
+  <svg class="eai-forum-icon-sprite" aria-hidden="true">
+    <symbol id="eai-icon-discussions" viewBox="0 0 16 16"><path d="M1.75 1h8.5c.966 0 1.75.784 1.75 1.75v5.5A1.75 1.75 0 0 1 10.25 10H7.061l-2.574 2.573A1.458 1.458 0 0 1 2 11.543V10h-.25A1.75 1.75 0 0 1 0 8.25v-5.5C0 1.784.784 1 1.75 1ZM1.5 2.75v5.5c0 .138.112.25.25.25h1a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h3.5a.25.25 0 0 0 .25-.25v-5.5a.25.25 0 0 0-.25-.25h-8.5a.25.25 0 0 0-.25.25Zm13 2a.25.25 0 0 0-.25-.25h-.5a.75.75 0 0 1 0-1.5h.5c.966 0 1.75.784 1.75 1.75v5.5A1.75 1.75 0 0 1 14.25 12H14v1.543a1.458 1.458 0 0 1-2.487 1.03L9.22 12.28a.749.749 0 0 1 .326-1.275.749.749 0 0 1 .734.215l2.22 2.22v-2.19a.75.75 0 0 1 .75-.75h1a.25.25 0 0 0 .25-.25Z"/></symbol>
+    <symbol id="eai-icon-general" viewBox="0 0 16 16"><path d="M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0 1 13.25 12H9.06l-2.573 2.573A1.458 1.458 0 0 1 4 13.543V12H2.75A1.75 1.75 0 0 1 1 10.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h4.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></symbol>
+    <symbol id="eai-icon-ideas" viewBox="0 0 16 16"><path d="M8 1.5c-2.363 0-4 1.69-4 3.75 0 .984.424 1.625.984 2.304l.214.253c.223.264.47.556.673.848.284.411.537.896.621 1.49a.75.75 0 0 1-1.484.211c-.04-.282-.163-.547-.37-.847a8.456 8.456 0 0 0-.542-.68c-.084-.1-.173-.205-.268-.32C3.201 7.75 2.5 6.766 2.5 5.25 2.5 2.31 4.863 0 8 0s5.5 2.31 5.5 5.25c0 1.516-.701 2.5-1.328 3.259-.095.115-.184.22-.268.319-.207.245-.383.453-.541.681-.208.3-.33.565-.37.847a.751.751 0 0 1-1.485-.212c.084-.593.337-1.078.621-1.489.203-.292.45-.584.673-.848.075-.088.147-.173.213-.253.561-.679.985-1.32.985-2.304 0-2.06-1.637-3.75-4-3.75ZM5.75 12h4.5a.75.75 0 0 1 0 1.5h-4.5a.75.75 0 0 1 0-1.5ZM6 15.25a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Z"/></symbol>
+    <symbol id="eai-icon-polls" viewBox="0 0 16 16"><path d="M2.5 1.75v11.5c0 .138.112.25.25.25h3.17a.75.75 0 0 1 0 1.5H2.75A1.75 1.75 0 0 1 1 13.25V1.75C1 .784 1.784 0 2.75 0h8.5C12.216 0 13 .784 13 1.75v7.736a.75.75 0 0 1-1.5 0V1.75a.25.25 0 0 0-.25-.25h-8.5a.25.25 0 0 0-.25.25Zm13.274 9.537v-.001l-4.557 4.45a.75.75 0 0 1-1.055-.008l-1.943-1.95a.75.75 0 0 1 1.062-1.058l1.419 1.425 4.026-3.932a.75.75 0 1 1 1.048 1.074ZM4.75 4h4.5a.75.75 0 0 1 0 1.5h-4.5a.75.75 0 0 1 0-1.5ZM4 7.75A.75.75 0 0 1 4.75 7h2a.75.75 0 0 1 0 1.5h-2A.75.75 0 0 1 4 7.75Z"/></symbol>
+    <symbol id="eai-icon-qa" viewBox="0 0 16 16"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.92 6.085h.001a.749.749 0 1 1-1.342-.67c.169-.339.436-.701.849-.977C6.845 4.16 7.369 4 8 4a2.756 2.756 0 0 1 1.637.525c.503.377.863.965.863 1.725 0 .448-.115.83-.329 1.15-.205.307-.47.513-.692.662-.109.072-.22.138-.313.195l-.006.004a6.24 6.24 0 0 0-.26.16.952.952 0 0 0-.276.245.75.75 0 0 1-1.248-.832c.184-.264.42-.489.692-.661.103-.067.207-.132.313-.195l.007-.004c.1-.061.182-.11.258-.161a.969.969 0 0 0 .277-.245C8.96 6.514 9 6.427 9 6.25a.612.612 0 0 0-.262-.525A1.27 1.27 0 0 0 8 5.5c-.369 0-.595.09-.74.187a1.01 1.01 0 0 0-.34.398ZM9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"/></symbol>
+    <symbol id="eai-icon-show" viewBox="0 0 16 16"><path d="M14.184 1.143v-.001l1.422 2.464a1.75 1.75 0 0 1-.757 2.451L3.104 11.713a1.75 1.75 0 0 1-2.275-.702l-.447-.775a1.75 1.75 0 0 1 .53-2.32L11.682.573a1.748 1.748 0 0 1 2.502.57Zm-4.709 9.32h-.001l2.644 3.863a.75.75 0 1 1-1.238.848l-1.881-2.75v2.826a.75.75 0 0 1-1.5 0v-2.826l-1.881 2.75a.75.75 0 1 1-1.238-.848l2.049-2.992a.746.746 0 0 1 .293-.253l1.809-.87a.749.749 0 0 1 .944.252ZM9.436 3.92h-.001l-4.97 3.39.942 1.63 5.42-2.61Zm3.091-2.108h.001l-1.85 1.26 1.505 2.605 2.016-.97a.247.247 0 0 0 .13-.151.247.247 0 0 0-.022-.199l-1.422-2.464a.253.253 0 0 0-.161-.119.254.254 0 0 0-.197.038ZM1.756 9.157a.25.25 0 0 0-.075.33l.447.775a.25.25 0 0 0 .325.1l1.598-.769-.83-1.436-1.465 1Z"/></symbol>
+    <symbol id="eai-icon-close" viewBox="0 0 16 16"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></symbol>
+    <symbol id="eai-icon-chevron-right" viewBox="0 0 16 16"><path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z"/></symbol>
+  </svg>
+  <dialog id="eai-forum-compose-dialog" class="eai-forum-compose" data-eai-forum-compose aria-labelledby="eai-forum-compose-title">
+    <div class="eai-forum-compose__surface">
+      <header class="eai-forum-compose__header">
+        <h3 id="eai-forum-compose-title">{{ 'Choose a topic' if is_english_page else '选择发帖话题' }}</h3>
+        <button type="button" class="eai-forum-compose__close" data-eai-forum-compose-close
+                aria-label="{{ 'Close topic selection' if is_english_page else '关闭话题选择' }}" title="{{ 'Close' if is_english_page else '关闭' }}"><svg aria-hidden="true"><use href="#eai-icon-close"></use></svg></button>
+      </header>
+      <div class="eai-forum-compose__options">
+        <button type="button" data-eai-forum-compose-option="general">
+          <span class="eai-forum-compose__icon" aria-hidden="true"><svg><use href="#eai-icon-general"></use></svg></span>
+          <span><strong>{{ 'General' if is_english_page else '综合' }}</strong><small>{{ 'General questions and open discussion' if is_english_page else '一般问题与开放讨论' }}</small></span>
+          <span class="eai-forum-compose__arrow" aria-hidden="true"><svg><use href="#eai-icon-chevron-right"></use></svg></span>
+        </button>
+        <button type="button" data-eai-forum-compose-option="ideas">
+          <span class="eai-forum-compose__icon" aria-hidden="true"><svg><use href="#eai-icon-ideas"></use></svg></span>
+          <span><strong>{{ 'Ideas' if is_english_page else '想法' }}</strong><small>{{ 'Feature proposals and research directions' if is_english_page else '功能建议与研究方向' }}</small></span>
+          <span class="eai-forum-compose__arrow" aria-hidden="true"><svg><use href="#eai-icon-chevron-right"></use></svg></span>
+        </button>
+        <button type="button" data-eai-forum-compose-option="polls">
+          <span class="eai-forum-compose__icon" aria-hidden="true"><svg><use href="#eai-icon-polls"></use></svg></span>
+          <span><strong>{{ 'Polls' if is_english_page else '投票' }}</strong><small>{{ 'Community polls and design choices' if is_english_page else '社区投票与方案选择' }}</small></span>
+          <span class="eai-forum-compose__arrow" aria-hidden="true"><svg><use href="#eai-icon-chevron-right"></use></svg></span>
+        </button>
+        <button type="button" data-eai-forum-compose-option="q-and-a">
+          <span class="eai-forum-compose__icon" aria-hidden="true"><svg><use href="#eai-icon-qa"></use></svg></span>
+          <span><strong>{{ 'Q&A' if is_english_page else '问答' }}</strong><small>{{ 'Reproducible questions and answers' if is_english_page else '可复现的问题与解答' }}</small></span>
+          <span class="eai-forum-compose__arrow" aria-hidden="true"><svg><use href="#eai-icon-chevron-right"></use></svg></span>
+        </button>
+        <button type="button" data-eai-forum-compose-option="show-and-tell">
+          <span class="eai-forum-compose__icon" aria-hidden="true"><svg><use href="#eai-icon-show"></use></svg></span>
+          <span><strong>{{ 'Show and tell' if is_english_page else '展示与交流' }}</strong><small>{{ 'Share environments, experiments, and extensions' if is_english_page else '分享场景、实验与扩展成果' }}</small></span>
+          <span class="eai-forum-compose__arrow" aria-hidden="true"><svg><use href="#eai-icon-chevron-right"></use></svg></span>
+        </button>
+      </div>
+    </div>
+  </dialog>
+  <div class="eai-forum__layout">
+    <aside class="eai-forum__sidebar" aria-label="{{ 'Discussion categories' if is_english_page else '讨论分类' }}">
+      <p class="eai-forum__sidebar-title">{{ 'Categories' if is_english_page else '分类' }}</p>
+      <nav class="eai-forum-categories" aria-label="{{ 'Choose a discussion category' if is_english_page else '选择讨论分类' }}">
+        <button type="button" class="is-active" data-eai-forum-category data-category="all"
+                data-category-label="{{ 'All discussions' if is_english_page else '全部讨论' }}"
+                data-category-description="{{ 'Browse discussions across every topic' if is_english_page else '浏览所有话题下的讨论' }}"
+                aria-pressed="true" aria-controls="eai-forum-all-discussions">
+          <span class="eai-forum-category__icon" aria-hidden="true"><svg><use href="#eai-icon-discussions"></use></svg></span>
+          <span>{{ 'All' if is_english_page else '全部' }}</span>
+        </button>
+        <button type="button" data-eai-forum-category data-category="general"
+                data-page-id="{{ forum_page_id }}"
+                data-page-title="EAI Community / General"
+                data-category-label="{{ 'General' if is_english_page else '综合' }}"
+                data-category-description="{{ 'General questions and open discussion' if is_english_page else '一般问题与开放讨论' }}"
+                aria-pressed="false" aria-controls="cusdis_thread">
+          <span class="eai-forum-category__icon" aria-hidden="true"><svg><use href="#eai-icon-general"></use></svg></span>
+          <span>{{ 'General' if is_english_page else '综合' }}</span>
+        </button>
+        <button type="button" data-eai-forum-category data-category="ideas"
+                data-page-id="{{ forum_page_id }}:ideas"
+                data-page-title="EAI Community / Ideas"
+                data-category-label="{{ 'Ideas' if is_english_page else '想法' }}"
+                data-category-description="{{ 'Feature proposals and research directions' if is_english_page else '功能建议与研究方向' }}"
+                aria-pressed="false" aria-controls="cusdis_thread">
+          <span class="eai-forum-category__icon" aria-hidden="true"><svg><use href="#eai-icon-ideas"></use></svg></span>
+          <span>{{ 'Ideas' if is_english_page else '想法' }}</span>
+        </button>
+        <button type="button" data-eai-forum-category data-category="polls"
+                data-page-id="{{ forum_page_id }}:polls"
+                data-page-title="EAI Community / Polls"
+                data-category-label="{{ 'Polls' if is_english_page else '投票' }}"
+                data-category-description="{{ 'Community polls and design choices' if is_english_page else '社区投票与方案选择' }}"
+                aria-pressed="false" aria-controls="cusdis_thread">
+          <span class="eai-forum-category__icon" aria-hidden="true"><svg><use href="#eai-icon-polls"></use></svg></span>
+          <span>{{ 'Polls' if is_english_page else '投票' }}</span>
+        </button>
+        <button type="button" data-eai-forum-category data-category="q-and-a"
+                data-page-id="{{ forum_page_id }}:q-and-a"
+                data-page-title="EAI Community / Q&amp;A"
+                data-category-label="{{ 'Q&A' if is_english_page else '问答' }}"
+                data-category-description="{{ 'Reproducible questions and answers' if is_english_page else '可复现的问题与解答' }}"
+                aria-pressed="false" aria-controls="cusdis_thread">
+          <span class="eai-forum-category__icon" aria-hidden="true"><svg><use href="#eai-icon-qa"></use></svg></span>
+          <span>{{ 'Q&A' if is_english_page else '问答' }}</span>
+        </button>
+        <button type="button" data-eai-forum-category data-category="show-and-tell"
+                data-page-id="{{ forum_page_id }}:show-and-tell"
+                data-page-title="EAI Community / Show and tell"
+                data-category-label="{{ 'Show and tell' if is_english_page else '展示与交流' }}"
+                data-category-description="{{ 'Share environments, experiments, and extensions' if is_english_page else '分享场景、实验与扩展成果' }}"
+                aria-pressed="false" aria-controls="cusdis_thread">
+          <span class="eai-forum-category__icon" aria-hidden="true"><svg><use href="#eai-icon-show"></use></svg></span>
+          <span>{{ 'Show and tell' if is_english_page else '展示与交流' }}</span>
+        </button>
+      </nav>
+    </aside>
+    <div class="eai-forum__stream">
+      <header class="eai-forum__category-heading" aria-live="polite">
+        <span class="eai-forum__category-icon" data-eai-forum-category-icon aria-hidden="true"><svg><use href="#eai-icon-discussions"></use></svg></span>
+        <span>
+          <strong data-eai-forum-category-title>{{ 'All discussions' if is_english_page else '全部讨论' }}</strong>
+          <small data-eai-forum-category-description>{{ 'Browse discussions across every topic' if is_english_page else '浏览所有话题下的讨论' }}</small>
+        </span>
+      </header>
+      <div id="eai-forum-all-discussions" class="eai-forum-all" data-eai-forum-all
+           data-loading-label="{{ 'Loading discussions...' if is_english_page else '正在加载讨论...' }}"
+           data-empty-label="{{ 'No discussions yet.' if is_english_page else '还没有讨论。' }}"
+           data-error-label="{{ 'Discussions could not be loaded. Try again later.' if is_english_page else '讨论加载失败，请稍后重试。' }}"
+           data-open-label="{{ 'View and reply' if is_english_page else '查看与回复' }}"
+           data-replies-label="{{ 'replies' if is_english_page else '条回复' }}">
+        <p class="eai-forum-all__status" data-eai-forum-all-status aria-live="polite">{{ 'Loading discussions...' if is_english_page else '正在加载讨论...' }}</p>
+        <div class="eai-forum-all__list" data-eai-forum-all-list></div>
+      </div>
+      <div id="cusdis_thread"
+           data-host="{{ eai_cusdis.host }}"
+           data-app-id="{{ eai_cusdis.app_id }}"
+           data-theme="auto" hidden></div>
+    </div>
+  </div>
+  <script>
+    window.CUSDIS_PREVENT_INITIAL_RENDER = true;
+    document.getElementById("cusdis_thread").dataset.pageUrl = location.href;
+  </script>
+  {% if not is_english_page %}
+  <script defer src="{{ eai_cusdis.host }}/js/widget/lang/zh-cn.js"></script>
+  {% endif %}
+  <script defer src="{{ eai_cusdis.host }}/js/cusdis.es.js"></script>
+</section>
+{% endif %}
+{% endblock %}

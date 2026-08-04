@@ -147,3 +147,12 @@ Continue Exploring
    :caption: Project Updates
 
    roadmap_en
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :titlesonly:
+   :caption: Community
+
+   community_en
+   community_guidelines_en
