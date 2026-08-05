@@ -11,7 +11,7 @@ EAI Community
          <p class="eai-community-eyebrow">COMMUNITY FORUM</p>
          <p class="eai-community-lede">Share practical experience, troubleshoot problems, and help shape what EAI Simulator builds next.</p>
        </div>
-       <a class="eai-button eai-button--primary" href="#cusdis_thread" data-eai-forum-cta>Join the discussion</a>
+       <a class="eai-button eai-button--primary" href="#eai-forum-title" data-eai-forum-scroll>Join the discussion</a>
      </header>
 
      <section class="eai-community-toolbar" aria-label="Filter community topics">

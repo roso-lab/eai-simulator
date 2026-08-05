@@ -694,6 +694,19 @@ function injectForumStyles(doc) {
       display: none !important;
     }
 
+    html.eai-github-authenticated .eai-github-identity-row,
+    html.eai-github-authenticated .eai-github-identity-field,
+    html.eai-github-authenticated .eai-github-identity-input,
+    html.eai-github-authenticated #root div.grid.grid-cols-1.gap-4
+      > div.grid.grid-cols-2.gap-4 {
+      display: none !important;
+    }
+
+    html:not(.eai-github-authenticated) #root div.mt-4.px-1 textarea,
+    html:not(.eai-github-authenticated) #root div.mt-4.px-1 button.text-sm.bg-gray-200 {
+      display: none !important;
+    }
+
     /* 表单标签 */
     #root label {
       color: var(--eai-c-muted) !important;
@@ -953,6 +966,418 @@ function expandForumFrame() {
   }, 200);
 }
 
+function setupGithubCommentLogin() {
+  const forumArea = document.querySelector(".eai-forum");
+  const auth = forumArea?.querySelector("[data-eai-github-auth]");
+  const loginButton = auth?.querySelector("[data-eai-github-login]");
+  const user = auth?.querySelector("[data-eai-github-user]");
+  const avatar = auth?.querySelector("[data-eai-github-avatar]");
+  const identity = auth?.querySelector("[data-eai-github-identity]");
+  const logoutButton = auth?.querySelector("[data-eai-github-logout]");
+  const status = auth?.querySelector("[data-eai-github-status]");
+  const thread = forumArea?.querySelector("#cusdis_thread");
+  const rawWorkerUrl = forumArea?.dataset.githubOauthUrl?.trim();
+
+  if (!forumArea || !auth || !loginButton || !user || !identity
+      || !logoutButton || !status || !thread || !rawWorkerUrl) {
+    return;
+  }
+
+  let workerOrigin;
+
+  try {
+    const workerUrl = new URL(rawWorkerUrl);
+    const localWorker = workerUrl.protocol === "http:"
+      && ["127.0.0.1", "localhost"].includes(workerUrl.hostname);
+
+    if (workerUrl.protocol !== "https:" && !localWorker) {
+      throw new Error("The OAuth Worker must use HTTPS");
+    }
+
+    workerOrigin = workerUrl.origin;
+  } catch (error) {
+    auth.hidden = true;
+    return;
+  }
+
+  const isEnglish = forumArea.dataset.lang === "en";
+  const pendingKey = "eai.github.oauth.pending.v1";
+  const profileKey = "eai.github.profile.v1";
+  const messages = isEnglish ? {
+    blocked: "The GitHub sign-in window was blocked.",
+    cancelled: "GitHub sign-in was not completed.",
+    denied: "GitHub authorization was cancelled.",
+    failed: "GitHub sign-in failed. Please try again.",
+    signedIn: "GitHub profile synced.",
+    signedOut: "Signed out of GitHub.",
+    waiting: "Waiting for GitHub authorization...",
+  } : {
+    blocked: "GitHub 登录窗口被浏览器拦截。",
+    cancelled: "GitHub 登录未完成。",
+    denied: "已取消 GitHub 授权。",
+    failed: "GitHub 登录失败，请重试。",
+    signedIn: "GitHub 用户信息已同步。",
+    signedOut: "已退出 GitHub 登录。",
+    waiting: "正在等待 GitHub 授权...",
+  };
+  let oauthPopup = null;
+  let popupTimer = null;
+  let statusTimer = null;
+  let formObserver = null;
+  let observedDocument = null;
+  let forceFillPending = false;
+
+  function readSession(key) {
+    try {
+      return JSON.parse(sessionStorage.getItem(key) || "null");
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function writeSession(key, value) {
+    try {
+      sessionStorage.setItem(key, JSON.stringify(value));
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function removeSession(key) {
+    try {
+      sessionStorage.removeItem(key);
+    } catch (error) {
+      // The current page can still use the in-memory profile when storage is unavailable.
+    }
+  }
+
+  function normalizeProfile(value) {
+    if (!value || typeof value !== "object") {
+      return null;
+    }
+
+    const login = typeof value.login === "string" ? value.login.trim() : "";
+    const email = typeof value.email === "string" ? value.email.trim() : "";
+    const name = typeof value.name === "string" && value.name.trim()
+      ? value.name.trim()
+      : login;
+    let avatarUrl = "";
+
+    try {
+      const candidate = new URL(value.avatarUrl || "");
+      const trustedHost = candidate.hostname === "avatars.githubusercontent.com"
+        || candidate.hostname.endsWith(".githubusercontent.com");
+      avatarUrl = candidate.protocol === "https:" && trustedHost ? candidate.href : "";
+    } catch (error) {
+      avatarUrl = "";
+    }
+
+    if (!/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,78}[A-Za-z0-9])?$/u.test(login)
+        || login.length > 80 || email.length > 320 || !email.includes("@")) {
+      return null;
+    }
+
+    return { avatarUrl, email, login, name: name.slice(0, 200) };
+  }
+
+  let profile = normalizeProfile(readSession(profileKey));
+  let pending = readSession(pendingKey);
+
+  if (!pending || typeof pending.nonce !== "string"
+      || Date.now() - Number(pending.createdAt) > 10 * 60 * 1000) {
+    pending = null;
+    removeSession(pendingKey);
+  }
+
+  function setStatus(message = "", state = "") {
+    clearTimeout(statusTimer);
+    status.textContent = message;
+    status.hidden = !message;
+    status.dataset.state = state;
+  }
+
+  function clearStatusLater() {
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(() => setStatus(), 5000);
+  }
+
+  function renderProfile() {
+    const isSignedIn = Boolean(profile);
+    forumArea.dataset.githubAuthenticated = String(isSignedIn);
+    loginButton.hidden = isSignedIn;
+    user.hidden = !isSignedIn;
+    forumArea.dispatchEvent(new CustomEvent("eai:github-auth-changed", {
+      detail: { authenticated: isSignedIn },
+    }));
+
+    if (!profile) {
+      identity.textContent = "";
+      identity.removeAttribute("title");
+      avatar?.removeAttribute("src");
+      avatar?.setAttribute("hidden", "");
+      return;
+    }
+
+    identity.textContent = `@${profile.login}`;
+    identity.title = `@${profile.login}`;
+
+    if (avatar && profile.avatarUrl) {
+      avatar.src = profile.avatarUrl;
+      avatar.hidden = false;
+    } else {
+      avatar?.removeAttribute("src");
+      avatar?.setAttribute("hidden", "");
+    }
+  }
+
+  function updateInput(input, value) {
+    input.value = value;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  function applyProfile(force = false) {
+    const doc = forumArea.querySelector("iframe")?.contentDocument;
+    const nicknameInputs = [...(doc?.querySelectorAll('input[name="nickname"]') || [])];
+    const emailInputs = [...(doc?.querySelectorAll('input[name="email"]') || [])];
+
+    if (nicknameInputs.length === 0 || emailInputs.length === 0) {
+      return false;
+    }
+
+    const isSignedIn = Boolean(profile);
+    doc.documentElement.classList.toggle("eai-github-authenticated", isSignedIn);
+
+    doc.querySelectorAll(".eai-github-identity-row").forEach((candidate) => {
+      candidate.classList.remove("eai-github-identity-row");
+    });
+
+    nicknameInputs.forEach((nicknameInput) => {
+      let candidate = nicknameInput.parentElement;
+
+      while (candidate && candidate !== doc.body) {
+        const containsEmail = emailInputs.some((emailInput) => candidate.contains(emailInput));
+
+        if (containsEmail) {
+          if (!candidate.querySelector("textarea")) {
+            candidate.classList.toggle("eai-github-identity-row", isSignedIn);
+          }
+          break;
+        }
+
+        candidate = candidate.parentElement;
+      }
+    });
+
+    [...nicknameInputs, ...emailInputs].forEach((input) => {
+      const label = input.closest("label") || (input.id
+        ? [...doc.querySelectorAll("label")].find((candidate) => candidate.htmlFor === input.id)
+        : null);
+      input.readOnly = isSignedIn;
+      input.classList.toggle("eai-github-identity-input", isSignedIn);
+      label?.classList.toggle("eai-github-identity-field", isSignedIn);
+    });
+
+    [...doc.querySelectorAll("label")].forEach((label) => {
+      const isIdentityLabel = /nickname|email|\u6635\u79f0|\u90ae\u7bb1/iu
+        .test(label.textContent || "");
+      label.classList.toggle("eai-github-identity-field", isSignedIn && isIdentityLabel);
+    });
+
+    if (!profile) {
+      return false;
+    }
+
+    nicknameInputs.forEach((input) => {
+      if (force || !input.value.trim()) {
+        updateInput(input, profile.login);
+      }
+    });
+
+    emailInputs.forEach((input) => {
+      if (force || !input.value.trim()) {
+        updateInput(input, profile.email);
+      }
+    });
+
+    forceFillPending = false;
+    return true;
+  }
+
+  function clearMatchingProfile(oldProfile) {
+    const doc = forumArea.querySelector("iframe")?.contentDocument;
+
+    doc?.querySelectorAll('input[name="nickname"]').forEach((input) => {
+      if (input.value === oldProfile?.login) {
+        updateInput(input, "");
+      }
+    });
+
+    doc?.querySelectorAll('input[name="email"]').forEach((input) => {
+      if (input.value === oldProfile?.email) {
+        updateInput(input, "");
+      }
+    });
+  }
+
+  function connectForm() {
+    const frame = forumArea.querySelector("iframe");
+    const doc = frame?.contentDocument;
+
+    if (!doc?.body) {
+      return false;
+    }
+
+    if (formObserver && observedDocument !== doc) {
+      formObserver.disconnect();
+      formObserver = null;
+    }
+
+    if (!formObserver) {
+      observedDocument = doc;
+      formObserver = new MutationObserver(() => applyProfile(forceFillPending));
+      formObserver.observe(doc.body, { childList: true, subtree: true });
+      frame.addEventListener("load", () => setTimeout(connectForm, 0), { once: true });
+    }
+
+    applyProfile(forceFillPending);
+    return true;
+  }
+
+  function createNonce() {
+    if (typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+
+    const bytes = crypto.getRandomValues(new Uint8Array(24));
+    let binary = "";
+
+    bytes.forEach((byte) => {
+      binary += String.fromCharCode(byte);
+    });
+
+    return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/u, "");
+  }
+
+  function setBusy(isBusy) {
+    loginButton.disabled = isBusy;
+    loginButton.setAttribute("aria-busy", String(isBusy));
+  }
+
+  function watchPopup(nonce) {
+    clearInterval(popupTimer);
+    popupTimer = setInterval(() => {
+      if (oauthPopup && !oauthPopup.closed) {
+        return;
+      }
+
+      clearInterval(popupTimer);
+      oauthPopup = null;
+      setTimeout(() => {
+        if (pending?.nonce !== nonce) {
+          return;
+        }
+
+        pending = null;
+        removeSession(pendingKey);
+        setBusy(false);
+        setStatus(messages.cancelled, "error");
+      }, 500);
+    }, 400);
+  }
+
+  function startLogin() {
+    const nonce = createNonce();
+    const authorizeUrl = new URL("/oauth/github/start", workerOrigin);
+    pending = { createdAt: Date.now(), nonce };
+    writeSession(pendingKey, pending);
+    authorizeUrl.searchParams.set("origin", window.location.origin);
+    authorizeUrl.searchParams.set("state", nonce);
+    authorizeUrl.searchParams.set("lang", isEnglish ? "en" : "zh-CN");
+
+    setBusy(true);
+    setStatus(messages.waiting);
+    oauthPopup = window.open(
+      authorizeUrl.href,
+      "eai-github-oauth",
+      "popup=yes,width=560,height=720,resizable=yes,scrollbars=yes",
+    );
+
+    if (!oauthPopup) {
+      pending = null;
+      removeSession(pendingKey);
+      setBusy(false);
+      setStatus(messages.blocked, "error");
+      return;
+    }
+
+    oauthPopup.focus();
+    watchPopup(nonce);
+  }
+
+  loginButton.addEventListener("click", startLogin);
+  forumArea.addEventListener("eai:github-login-request", startLogin);
+  logoutButton.addEventListener("click", () => {
+    const oldProfile = profile;
+    profile = null;
+    forceFillPending = false;
+    removeSession(profileKey);
+    clearMatchingProfile(oldProfile);
+    renderProfile();
+    connectForm();
+    setStatus(messages.signedOut);
+    clearStatusLater();
+  });
+
+  window.addEventListener("message", (event) => {
+    const data = event.data;
+
+    if (event.origin !== workerOrigin || !data || data.source !== "eai-github-oauth"
+        || typeof data.state !== "string" || data.state !== pending?.nonce
+        || (oauthPopup && event.source !== oauthPopup)) {
+      return;
+    }
+
+    pending = null;
+    removeSession(pendingKey);
+    clearInterval(popupTimer);
+    oauthPopup = null;
+    setBusy(false);
+
+    if (data.error) {
+      setStatus(data.error === "authorization_denied" ? messages.denied : messages.failed, "error");
+      return;
+    }
+
+    const receivedProfile = normalizeProfile(data.profile);
+
+    if (!receivedProfile) {
+      setStatus(messages.failed, "error");
+      return;
+    }
+
+    profile = receivedProfile;
+    writeSession(profileKey, profile);
+    forceFillPending = true;
+    renderProfile();
+    applyProfile(true);
+    setStatus(messages.signedIn, "success");
+    clearStatusLater();
+  });
+
+  const threadObserver = new MutationObserver(() => setTimeout(connectForm, 120));
+  threadObserver.observe(thread, { childList: true });
+  forumArea.addEventListener("eai:forum-category-changed", () => setTimeout(connectForm, 120));
+  renderProfile();
+
+  const startedAt = Date.now();
+  const poll = setInterval(() => {
+    if (connectForm() || Date.now() - startedAt > 15000) {
+      clearInterval(poll);
+    }
+  }, 200);
+}
+
 function setupForumFormToggle() {
   const forumArea = document.querySelector(".eai-forum");
   const toggle = forumArea?.querySelector("[data-eai-forum-toggle]");
@@ -969,26 +1394,75 @@ function setupForumFormToggle() {
 
   const showLabel = toggle.dataset.labelShow || "Write a comment";
   const hideLabel = toggle.dataset.labelHide || "Collapse";
+  const loginLabel = toggle.dataset.labelLogin || "Sign in to comment";
   let formHidden = true;
-  const ctaButtons = [...document.querySelectorAll("[data-eai-forum-cta]")];
+  const scrollButtons = [...document.querySelectorAll("[data-eai-forum-scroll]")];
   let formObserver = null;
   let formObservedDoc = null;
+  let lockedScrollPosition = null;
+
+  function isAuthenticated() {
+    return forumArea.dataset.githubAuthenticated === "true";
+  }
+
+  function requestLogin() {
+    forumArea.dispatchEvent(new CustomEvent("eai:github-login-request"));
+  }
 
   function syncToggle() {
-    const isExpanded = composer.open || !formHidden;
-    toggle.textContent = isExpanded ? hideLabel : showLabel;
+    const canComment = isAuthenticated();
+    const isExpanded = canComment && (composer.open || !formHidden);
+    toggle.textContent = canComment ? (isExpanded ? hideLabel : showLabel) : loginLabel;
     toggle.setAttribute("aria-expanded", String(isExpanded));
+    toggle.dataset.authenticated = String(canComment);
   }
 
   function syncForm() {
     const doc = forumArea.querySelector("iframe")?.contentDocument;
+    const canComment = isAuthenticated();
 
     if (doc?.documentElement) {
       injectForumStyles(doc);
-      doc.documentElement.classList.toggle("eai-form-hidden", formHidden);
+      doc.documentElement.classList.toggle("eai-github-authenticated", canComment);
+      doc.documentElement.classList.toggle("eai-form-hidden", formHidden || !canComment);
     }
 
     syncToggle();
+  }
+
+  function lockPageScroll() {
+    if (lockedScrollPosition) {
+      return;
+    }
+
+    lockedScrollPosition = { left: window.scrollX, top: window.scrollY };
+    document.body.style.setProperty(
+      "--eai-forum-locked-scroll-x",
+      `${lockedScrollPosition.left}px`,
+    );
+    document.body.style.setProperty(
+      "--eai-forum-locked-scroll-y",
+      `${lockedScrollPosition.top}px`,
+    );
+    document.documentElement.classList.add("eai-forum-composer-open");
+    document.body.classList.add("eai-forum-composer-open");
+  }
+
+  function unlockPageScroll() {
+    const scrollPosition = lockedScrollPosition;
+    lockedScrollPosition = null;
+    document.documentElement.classList.remove("eai-forum-composer-open");
+    document.body.classList.remove("eai-forum-composer-open");
+    document.body.style.removeProperty("--eai-forum-locked-scroll-x");
+    document.body.style.removeProperty("--eai-forum-locked-scroll-y");
+
+    if (scrollPosition) {
+      window.scrollTo({
+        behavior: "instant",
+        left: scrollPosition.left,
+        top: scrollPosition.top,
+      });
+    }
   }
 
   function closeComposer() {
@@ -996,13 +1470,18 @@ function setupForumFormToggle() {
       composer.close();
     }
 
-    document.documentElement.classList.remove("eai-forum-composer-open");
-    document.body.classList.remove("eai-forum-composer-open");
+    unlockPageScroll();
     syncToggle();
   }
 
   function showComposer(event) {
     event?.preventDefault();
+
+    if (!isAuthenticated()) {
+      requestLogin();
+      return;
+    }
+
     const activeCategory = forumArea.dataset.activeForumCategory || "all";
     const preferredOption = composerOptions.find(
       (option) => option.dataset.eaiForumComposeOption === activeCategory,
@@ -1010,6 +1489,8 @@ function setupForumFormToggle() {
 
     formHidden = true;
     syncForm();
+
+    lockPageScroll();
 
     if (!composer.open) {
       if (typeof composer.showModal === "function") {
@@ -1019,18 +1500,25 @@ function setupForumFormToggle() {
       }
     }
 
-    document.documentElement.classList.add("eai-forum-composer-open");
-    document.body.classList.add("eai-forum-composer-open");
     syncToggle();
-    requestAnimationFrame(() => preferredOption.focus({ preventScroll: true }));
+    requestAnimationFrame(() => {
+      preferredOption.focus({ preventScroll: true });
+    });
   }
 
   function openForm() {
+    if (!isAuthenticated()) {
+      formHidden = true;
+      syncForm();
+      requestLogin();
+      return;
+    }
+
     closeComposer();
     formHidden = false;
     syncForm();
-
     const startedAt = Date.now();
+    const scrollPosition = { left: window.scrollX, top: window.scrollY };
 
     function focusWhenReady() {
       syncForm();
@@ -1039,8 +1527,12 @@ function setupForumFormToggle() {
         ?.contentDocument?.querySelector("textarea");
 
       if (textarea) {
-        textarea.focus();
-        thread.scrollIntoView({ behavior: "smooth", block: "start" });
+        textarea.focus({ preventScroll: true });
+        window.scrollTo({
+          behavior: "instant",
+          left: scrollPosition.left,
+          top: scrollPosition.top,
+        });
       } else if (Date.now() - startedAt < 10000) {
         setTimeout(focusWhenReady, 100);
       }
@@ -1060,8 +1552,11 @@ function setupForumFormToggle() {
     }
   });
 
-  ctaButtons.forEach((cta) => {
-    cta.addEventListener("click", showComposer);
+  scrollButtons.forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      forumArea.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   });
 
   composerOptions.forEach((option) => {
@@ -1087,8 +1582,7 @@ function setupForumFormToggle() {
   });
 
   composer.addEventListener("close", () => {
-    document.documentElement.classList.remove("eai-forum-composer-open");
-    document.body.classList.remove("eai-forum-composer-open");
+    unlockPageScroll();
     syncToggle();
   });
 
@@ -1101,6 +1595,14 @@ function setupForumFormToggle() {
   });
 
   forumArea.addEventListener("eai:forum-open-form", openForm);
+  forumArea.addEventListener("eai:github-auth-changed", (event) => {
+    if (!event.detail?.authenticated) {
+      formHidden = true;
+      closeComposer();
+    }
+
+    syncForm();
+  });
 
   function connect() {
     const doc = forumArea.querySelector("iframe")?.contentDocument;
@@ -1120,6 +1622,24 @@ function setupForumFormToggle() {
     }
 
     formObservedDoc = doc;
+    doc.addEventListener("click", (event) => {
+      const replyButton = event.target.closest?.(
+        "button.font-medium.text-sm.text-gray-500",
+      );
+
+      if (!isAuthenticated() && replyButton) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        requestLogin();
+      }
+    }, true);
+    doc.addEventListener("submit", (event) => {
+      if (!isAuthenticated()) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        requestLogin();
+      }
+    }, true);
     formObserver = new MutationObserver(syncForm);
     formObserver.observe(doc.body, {
       childList: true,
@@ -1150,6 +1670,7 @@ function startDocumentationUi() {
   localizeEnglishPageChrome();
   enhanceCommunityForum();
   setupForumCategories();
+  setupGithubCommentLogin();
   syncForumTheme();
   expandForumFrame();
   setupForumFormToggle();
