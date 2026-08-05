@@ -39,6 +39,8 @@ jobs:
           pip install sphinx furo myst-parser sphinx-autodoc-typehints
 
       - name: Build documentation
+        env:
+          EAI_GITHUB_OAUTH_URL: ${{ vars.EAI_GITHUB_OAUTH_URL }}
         run: |
           cd docs
           make clean

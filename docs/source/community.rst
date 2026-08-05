@@ -9,7 +9,7 @@ EAI 社区
          <p class="eai-community-eyebrow">COMMUNITY FORUM</p>
          <p class="eai-community-lede">交流使用经验、排查问题，并参与 EAI Simulator 的后续建设。</p>
        </div>
-       <a class="eai-button eai-button--primary" href="#cusdis_thread" data-eai-forum-cta>参与讨论</a>
+       <a class="eai-button eai-button--primary" href="#eai-forum-title" data-eai-forum-scroll>参与讨论</a>
      </header>
 
      <section class="eai-community-toolbar" aria-label="筛选社区主题">

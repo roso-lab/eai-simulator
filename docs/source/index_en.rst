@@ -155,4 +155,3 @@ Continue Exploring
    :caption: Community
 
    community_en
-   community_guidelines_en

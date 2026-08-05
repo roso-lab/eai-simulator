@@ -1,3 +1,10 @@
+import os
+import sys
+
+
+DEFAULT_GITHUB_OAUTH_URL = "https://eai-community-oauth.2190891063.workers.dev"
+
+
 # 扩展
 extensions = [
     'sphinx.ext.autodoc',
@@ -22,6 +29,11 @@ html_context = {
     "eai_cusdis": {
         "host": "https://cusdis.com",
         "app_id": "671109d6-0f53-405d-9cd7-cf23316878ce",  # cusdis.com 站点 app id
+    },
+    "eai_github_oauth": {
+        "url": (
+            os.getenv("EAI_GITHUB_OAUTH_URL") or DEFAULT_GITHUB_OAUTH_URL
+        ).rstrip("/"),
     },
 }
 
@@ -51,8 +63,6 @@ html_theme_options = {
 }
 
 # 路径配置
-import sys
-import os
 sys.path.insert(0, os.path.abspath('../source'))
 
 # 项目信息

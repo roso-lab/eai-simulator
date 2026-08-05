@@ -153,4 +153,3 @@ EAI Simulator 文档
    :caption: 社区
 
    community
-   community_guidelines

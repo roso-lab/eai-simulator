@@ -41,8 +41,17 @@ html {
   scrollbar-gutter: stable;
 }
 
-html.eai-forum-composer-open,
+html.eai-forum-composer-open {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 body.eai-forum-composer-open {
+  position: fixed;
+  top: calc(-1 * var(--eai-forum-locked-scroll-y, 0px));
+  right: 0;
+  left: calc(-1 * var(--eai-forum-locked-scroll-x, 0px));
+  width: 100%;
   overflow: hidden;
   overscroll-behavior: none;
 }
@@ -1178,6 +1187,7 @@ input:focus-visible {
   margin-top: var(--eai-space-7);
   padding-top: var(--eai-space-4);
   border-top: 1px solid var(--eai-border);
+  scroll-margin-top: calc(var(--eai-header-height) + 16px);
 }
 
 .eai-forum__heading {
@@ -1191,6 +1201,127 @@ input:focus-visible {
 
 .eai-forum__heading h2 {
   margin: 0;
+}
+
+.eai-forum__heading-actions {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.eai-forum-auth {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 260px;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.eai-forum-auth [hidden] {
+  display: none !important;
+}
+
+.eai-forum-auth__login,
+.eai-forum-auth__logout {
+  box-sizing: border-box;
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--eai-border-strong);
+  border-radius: var(--eai-radius);
+  cursor: pointer;
+  font: inherit;
+}
+
+.eai-forum-auth__login {
+  gap: 7px;
+  padding: 0 11px;
+  background: var(--eai-ink);
+  color: var(--eai-page);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.eai-forum-auth__login:hover,
+.eai-forum-auth__login:focus-visible {
+  opacity: 0.84;
+}
+
+.eai-forum-auth__login:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.eai-forum-auth__login svg,
+.eai-forum-auth__logout svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  fill: currentColor;
+}
+
+.eai-forum-auth__user {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.eai-forum-auth__avatar {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.eai-forum-auth__identity {
+  min-width: 0;
+  max-width: 130px;
+  overflow: hidden;
+  color: var(--eai-ink);
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eai-forum-auth__logout {
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  background: transparent;
+  color: var(--eai-muted);
+}
+
+.eai-forum-auth__logout:hover,
+.eai-forum-auth__logout:focus-visible {
+  border-color: var(--eai-ink);
+  background: var(--eai-surface);
+  color: var(--eai-ink);
+}
+
+.eai-forum-auth__status {
+  flex: 1 0 100%;
+  color: var(--eai-muted);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.eai-forum-auth__status[data-state="error"] {
+  color: #b42318;
 }
 
 .eai-forum-icon-sprite {
@@ -1592,6 +1723,11 @@ input:focus-visible {
   background: var(--eai-surface);
 }
 
+.eai-forum__toggle[data-authenticated="false"] {
+  border-color: var(--eai-border-strong);
+  color: var(--eai-muted);
+}
+
 .eai-community-aside {
   padding-left: var(--eai-space-3);
   border-left: 1px solid var(--eai-border);
@@ -1735,6 +1871,10 @@ body[data-theme="dark"] .content .eai-button--primary:hover {
   color: #000000;
 }
 
+body[data-theme="dark"] .eai-forum-auth__status[data-state="error"] {
+  color: #ff8d85;
+}
+
 @media (prefers-color-scheme: dark) {
   body:not([data-theme="light"]) {
     --eai-page: #000000;
@@ -1828,6 +1968,10 @@ body[data-theme="dark"] .content .eai-button--primary:hover {
     border-color: #d7d7d7;
     background: #d7d7d7;
     color: #000000;
+  }
+
+  body:not([data-theme="light"]) .eai-forum-auth__status[data-state="error"] {
+    color: #ff8d85;
   }
 }
 
@@ -2054,6 +2198,26 @@ body[data-theme="dark"] .content .eai-button--primary:hover {
     padding: var(--eai-space-3) 0 0;
     border-top: 1px solid var(--eai-border);
     border-left: 0;
+  }
+
+  .eai-forum__heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .eai-forum__heading-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .eai-forum-auth {
+    max-width: 100%;
+    flex: 1 1 170px;
+    justify-content: flex-start;
+  }
+
+  .eai-forum-auth__status {
+    text-align: left;
   }
 
   .eai-forum__layout {
