@@ -7,7 +7,8 @@ Cloudflare Worker 完成，浏览器和仓库中都不保存 GitHub Client Secre
 
 在 GitHub 的 **Settings > Developer settings > OAuth Apps** 中创建应用：
 
-- Homepage URL：文档站地址，例如 `https://roso-lab.github.io/eai-simulator/`
+- Homepage URL：正式文档站地址，当前为
+  `https://www.rosolab.com/roso-lab/eai-simulator/docs/`
 - Authorization callback URL：`https://<worker-domain>/oauth/github/callback`
 
 也可以复用允许用户授权的 GitHub App，但必须把账户权限
