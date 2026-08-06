@@ -1,0 +1,32 @@
+{% macro nav_item(target, label) -%}
+  <ul class="{{ 'current' if pagename == target else '' }}">
+    <li class="toctree-l1{% if pagename == target %} current current-page{% endif %}"><a class="{% if pagename == target %}current {% endif %}reference internal" href="{{ pathto(target) }}">{{ label }}</a></li>
+  </ul>
+{%- endmacro %}
+
+<div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">了解 EAI</span></p>
+  {{ nav_item('project_overview', '项目概览') }}
+
+  <p class="caption" role="heading"><span class="caption-text">开始使用</span></p>
+  {{ nav_item('getting_started', '快速开始') }}
+  {{ nav_item('installation', '安装指南') }}
+
+  <p class="caption" role="heading"><span class="caption-text">构建环境</span></p>
+  {{ nav_item('environments', '环境指南') }}
+  {{ nav_item('payload', 'Payload 资产') }}
+
+  <p class="caption" role="heading"><span class="caption-text">连接与控制</span></p>
+  {{ nav_item('interface_catalog', '接口目录') }}
+  {{ nav_item('gs_hub_sensor', 'GS-Hub 传感器') }}
+  {{ nav_item('ur5_control', '机械臂控制') }}
+
+  <p class="caption" role="heading"><span class="caption-text">开发与扩展</span></p>
+  {{ nav_item('controller_guide', '控制器开发') }}
+
+  <p class="caption" role="heading"><span class="caption-text">项目动态</span></p>
+  {{ nav_item('roadmap', '下一阶段路线图') }}
+
+  <p class="caption" role="heading"><span class="caption-text">社区</span></p>
+  {{ nav_item('community', '社区论坛') }}
+</div>
