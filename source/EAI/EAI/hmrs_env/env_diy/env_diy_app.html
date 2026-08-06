@@ -1,0 +1,2578 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="data:,">
+  <script>
+    if (new URLSearchParams(window.location.search).get("embed") === "1") {
+      document.documentElement.dataset.embed = "true";
+    }
+  </script>
+  <title>EAI Env DIY</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17232c;
+      --muted: #66747f;
+      --quiet: #89959e;
+      --line: #c9d3da;
+      --line-strong: #aab9c3;
+      --surface: #ffffff;
+      --surface-soft: #f5f8f9;
+      --workspace: #eef3f5;
+      --accent: #007d9f;
+      --accent-dark: #075f78;
+      --accent-soft: #e2f4f8;
+      --scene: #1685a4;
+      --robot: #445c6b;
+      --payload: #b46a00;
+      --payload-soft: #fff4dc;
+      --tool: #367455;
+      --tool-soft: #e9f5ed;
+      --controller: #665592;
+      --controller-soft: #f0ecfa;
+      --danger: #a33f3f;
+      --danger-soft: #faeaea;
+      --success: #287149;
+      --shadow: 0 12px 32px rgba(30, 48, 60, .12);
+      --lineage-column-width: 148px;
+      --lineage-column-gap: 18px;
+      --lineage-track-width: 812px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+      min-height: 0;
+    }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #dfe6e9;
+      color: var(--ink);
+      font-family: Inter, "Noto Sans SC", "Microsoft YaHei", Arial, sans-serif;
+      letter-spacing: 0;
+    }
+
+    button,
+    input,
+    textarea {
+      font: inherit;
+      letter-spacing: 0;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible {
+      outline: 3px solid rgba(0, 125, 159, .28);
+      outline-offset: 2px;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+    }
+
+    .app-shell {
+      width: min(1540px, calc(100% - 24px));
+      height: calc(100vh - 24px);
+      min-height: 0;
+      margin: 12px auto;
+      overflow: hidden;
+      border: 1px solid #b9c5cd;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .topbar {
+      min-height: 62px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--line);
+      background: #172730;
+      color: #f7fbfc;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      flex: 0 0 34px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255, 255, 255, .35);
+      background: #0d7d99;
+      font: 800 12px/1 Consolas, monospace;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.2;
+    }
+
+    .brand p {
+      margin: 3px 0 0;
+      color: #b9c8cf;
+      font-size: 10px;
+    }
+
+    .project-trail {
+      flex: 1;
+      min-width: 0;
+      color: #cad6dc;
+      font-size: 11px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .button {
+      min-height: 34px;
+      border: 1px solid #b9c7cf;
+      border-radius: 4px;
+      background: #ffffff;
+      color: #21323d;
+      padding: 7px 11px;
+      font-weight: 750;
+      font-size: 11px;
+      line-height: 1.2;
+    }
+
+    .button:hover:not(:disabled) {
+      border-color: #758b98;
+      background: #f5f8f9;
+    }
+
+    .button-primary {
+      border-color: #1686a5;
+      background: #dff3f7;
+      color: #075d76;
+    }
+
+    .button-danger {
+      border-color: #d3a9a9;
+      background: #fff;
+      color: var(--danger);
+    }
+
+    .topbar .button {
+      border-color: #52656f;
+      background: #243740;
+      color: #f4f8fa;
+    }
+
+    .topbar .button-primary {
+      border-color: #4ba9bf;
+      background: #0a7894;
+    }
+
+    .app-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) clamp(280px, 27vw, 370px);
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .workspace-main {
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      padding: 14px;
+      background: var(--workspace);
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) 210px;
+      gap: 12px;
+    }
+
+    .lineage-panel,
+    .review-panel,
+    .catalog-panel {
+      min-width: 0;
+      border: 1px solid var(--line-strong);
+      background: var(--surface);
+    }
+
+    .lineage-panel {
+      display: flex;
+      min-height: 0;
+      overflow: hidden;
+      flex-direction: column;
+    }
+
+    .lineage-toolbar {
+      min-height: 52px;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .lineage-title {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .lineage-title h2 {
+      margin: 0;
+      font-size: 14px;
+    }
+
+    .lineage-title p {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.35;
+    }
+
+    .workspace-status {
+      max-width: 36%;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.35;
+      text-align: right;
+    }
+
+    .lineage-scroll {
+      min-height: 0;
+      flex: 1;
+      overflow: hidden;
+      padding: 14px;
+      background-color: #f7fafb;
+      background-image:
+        linear-gradient(#e8eef1 1px, transparent 1px),
+        linear-gradient(90deg, #e8eef1 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    .lineage-track {
+      width: var(--lineage-track-width);
+      min-width: var(--lineage-track-width);
+    }
+
+    .lineage-headings {
+      display: grid;
+      grid-template-columns: repeat(5, var(--lineage-column-width));
+      gap: var(--lineage-column-gap);
+      margin-bottom: 14px;
+    }
+
+    .lineage-heading {
+      min-width: 0;
+      min-height: 64px;
+      border: 1px solid #c2cdd5;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, .95);
+      padding: 8px;
+      color: #40515d;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-align: left;
+    }
+
+    .lineage-heading:hover {
+      border-color: #718895;
+    }
+
+    .lineage-heading.is-active {
+      border: 2px solid var(--accent);
+      background: #ebf8fb;
+      color: var(--accent-dark);
+      box-shadow: 0 0 0 3px rgba(0, 125, 159, .1);
+    }
+
+    .heading-visual {
+      width: 42px;
+      height: 42px;
+      flex: 0 0 42px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      background: #eaf0f3;
+    }
+
+    .heading-visual img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .heading-scene .heading-visual img {
+      object-fit: cover;
+    }
+
+    .heading-cfg {
+      color: var(--controller);
+      background: var(--controller-soft);
+      font: 850 10px/1 Consolas, monospace;
+    }
+
+    .heading-copy {
+      min-width: 0;
+    }
+
+    .heading-number {
+      display: block;
+      margin-bottom: 2px;
+      color: #7b8993;
+      font-size: 9px;
+      font-weight: 850;
+    }
+
+    .heading-name {
+      display: block;
+      font-size: 12px;
+      font-weight: 850;
+      line-height: 1.15;
+      overflow-wrap: normal;
+      word-break: normal;
+    }
+
+    .lineage-heading.is-active .heading-number::after {
+      content: "  已选";
+      color: var(--accent);
+    }
+
+    .lineage-tree {
+      min-height: 270px;
+    }
+
+    .lineage-empty {
+      min-height: 270px;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .lineage-body {
+      display: grid;
+      grid-template-columns: var(--lineage-column-width) minmax(0, 1fr);
+      gap: var(--lineage-column-gap);
+      min-height: 270px;
+      position: relative;
+    }
+
+    .scene-column {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      position: relative;
+      z-index: 2;
+    }
+
+    .scene-column.has-branches::after {
+      content: "";
+      position: absolute;
+      left: 100%;
+      top: 50%;
+      width: 9px;
+      border-top: 2px solid #aebdc6;
+      z-index: -1;
+    }
+
+    .branches {
+      min-width: 0;
+      display: grid;
+      gap: 14px;
+      position: relative;
+    }
+
+    .branches.has-many::before {
+      content: "";
+      position: absolute;
+      left: -9px;
+      top: var(--branch-trunk-top, 60px);
+      bottom: var(--branch-trunk-bottom, 60px);
+      border-left: 2px solid #aebdc6;
+    }
+
+    .branch {
+      min-width: 0;
+      min-height: 120px;
+      display: grid;
+      grid-template-columns: repeat(4, var(--lineage-column-width));
+      gap: var(--lineage-column-gap);
+      align-items: center;
+      position: relative;
+    }
+
+    .branch::before {
+      content: "";
+      position: absolute;
+      left: -9px;
+      top: 50%;
+      width: 83px;
+      border-top: 2px solid #aebdc6;
+      z-index: 0;
+    }
+
+    .branch.depth-payload::before {
+      width: 249px;
+    }
+
+    .branch.depth-tool::before {
+      width: 415px;
+    }
+
+    .branch.depth-controller::before {
+      width: 581px;
+    }
+
+    .branch-cell {
+      min-width: 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .node-stack {
+      display: grid;
+      gap: 8px;
+    }
+
+    .lineage-node {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid #bac7d0;
+      border-left: 5px solid var(--scene);
+      border-radius: 4px;
+      background: #ffffff;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .lineage-node:hover {
+      border-color: #708694;
+      border-left-color: var(--scene);
+    }
+
+    .lineage-node.is-selected {
+      border: 2px solid var(--accent);
+      border-left-width: 5px;
+      box-shadow: 0 0 0 3px rgba(0, 125, 159, .13);
+    }
+
+    .lineage-node.robot-node {
+      border-left-color: var(--robot);
+    }
+
+    .lineage-node.payload-node {
+      border-left-color: var(--payload);
+    }
+
+    .lineage-node.tool-node {
+      border-left-color: var(--tool);
+    }
+
+    .lineage-node.controller-node {
+      border-left-color: var(--controller);
+    }
+
+    .lineage-node.is-selected,
+    .lineage-node.is-context {
+      border-color: var(--accent);
+      border-left-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(0, 125, 159, .13);
+    }
+
+    .lineage-node.is-context {
+      background: #f2fbfd;
+    }
+
+    .node-select {
+      width: 100%;
+      min-width: 0;
+      min-height: 112px;
+      border: 0;
+      background: transparent;
+      padding: 20px 8px 8px;
+      color: var(--ink);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      text-align: center;
+    }
+
+    .node-select img {
+      width: 64px;
+      height: 54px;
+      object-fit: contain;
+      background: #edf2f4;
+    }
+
+    .scene-node .node-select img {
+      width: 76px;
+      height: 56px;
+      object-fit: cover;
+    }
+
+    .node-name {
+      display: block;
+      width: 100%;
+      font-size: 14px;
+      font-weight: 850;
+      line-height: 1.25;
+      overflow-wrap: normal;
+      word-break: normal;
+    }
+
+    .node-remove {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 24px;
+      height: 24px;
+      border: 0;
+      border-radius: 3px;
+      background: transparent;
+      color: #788690;
+      font-size: 19px;
+      line-height: 22px;
+    }
+
+    .node-remove:hover {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    .payload-node .node-select {
+      min-height: 68px;
+      padding: 6px 29px 6px 7px;
+      display: grid;
+      grid-template-columns: 50px minmax(0, 1fr);
+      gap: 9px;
+      text-align: left;
+    }
+
+    .payload-node .node-select img {
+      width: 50px;
+      height: 50px;
+    }
+
+    .payload-node .node-name {
+      font-size: 14px;
+    }
+
+    .tool-node .node-select {
+      min-height: 68px;
+      padding: 6px 29px 6px 7px;
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr);
+      gap: 8px;
+      text-align: left;
+    }
+
+    .tool-node .node-select img {
+      width: 44px;
+      height: 40px;
+    }
+
+    .tool-node .node-name {
+      font-size: 13px;
+    }
+
+    .controller-node .node-select {
+      min-height: 66px;
+      padding: 9px 29px 9px 9px;
+      display: flex;
+      align-items: center;
+      text-align: left;
+    }
+
+    .controller-node .node-name {
+      color: #4f4177;
+      font-family: Consolas, "SFMono-Regular", monospace;
+      font-size: 13px;
+      line-height: 1.35;
+      overflow-wrap: normal;
+      word-break: normal;
+    }
+
+    .review-panel {
+      display: grid;
+      grid-template-columns: minmax(220px, 310px) minmax(0, 1fr);
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .review-controls {
+      min-width: 0;
+      min-height: 0;
+      overflow: auto;
+      padding: 12px;
+      border-right: 1px solid var(--line);
+    }
+
+    .review-controls h2 {
+      margin: 0 0 5px;
+      font-size: 14px;
+    }
+
+    .review-controls > p {
+      margin: 0 0 11px;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.4;
+    }
+
+    .field-label {
+      display: block;
+      margin-bottom: 5px;
+      color: #42525d;
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .text-input {
+      width: 100%;
+      height: 36px;
+      border: 1px solid #b8c6ce;
+      border-radius: 4px;
+      background: #fff;
+      color: var(--ink);
+      padding: 7px 9px;
+      font-size: 12px;
+    }
+
+    .validation-list {
+      min-height: 22px;
+      margin: 8px 0;
+      padding: 0;
+      list-style: none;
+      color: var(--danger);
+      font-size: 10px;
+      line-height: 1.45;
+    }
+
+    .review-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .review-code {
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      background: #16242c;
+      color: #dce9ed;
+    }
+
+    .review-code-header {
+      min-height: 38px;
+      flex: 0 0 auto;
+      padding: 8px 10px;
+      border-bottom: 1px solid #344750;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: #bdd0d8;
+      font-size: 10px;
+    }
+
+    .review-state.is-valid {
+      color: #8ed1aa;
+    }
+
+    .json-preview {
+      min-height: 0;
+      flex: 1;
+      margin: 0;
+      padding: 10px 12px;
+      overflow: auto;
+      font: 10px/1.5 Consolas, "SFMono-Regular", monospace;
+      white-space: pre;
+    }
+
+    .catalog-panel {
+      min-height: 0;
+      overflow: hidden;
+      border-width: 0 0 0 1px;
+      display: flex;
+      flex-direction: column;
+      background: #f8fafb;
+    }
+
+    .catalog-header {
+      padding: 12px 12px 10px;
+      border-bottom: 1px solid var(--line);
+      background: #ffffff;
+    }
+
+    .catalog-kicker {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--accent-dark);
+      font-size: 9px;
+      font-weight: 850;
+      text-transform: uppercase;
+    }
+
+    .catalog-header h2 {
+      margin: 0;
+      font-size: 15px;
+    }
+
+    .catalog-target {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.4;
+    }
+
+    .catalog-tabs {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      border-bottom: 1px solid var(--line);
+      background: #eef3f5;
+    }
+
+    .catalog-tab {
+      min-width: 0;
+      min-height: 43px;
+      border: 0;
+      border-right: 1px solid #d0d9df;
+      border-bottom: 3px solid transparent;
+      background: transparent;
+      color: #52616c;
+      padding: 6px 3px 4px;
+      font-size: 9px;
+      font-weight: 800;
+      overflow-wrap: normal;
+    }
+
+    .catalog-tab:last-child {
+      border-right: 0;
+    }
+
+    .catalog-tab.is-active {
+      border-bottom-color: var(--accent);
+      background: #fff;
+      color: var(--accent-dark);
+    }
+
+    .catalog-context {
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+      color: #52616c;
+      font-size: 10px;
+      line-height: 1.45;
+    }
+
+    .catalog-body {
+      min-height: 0;
+      flex: 1;
+      overflow: auto;
+      padding: 10px;
+    }
+
+    .catalog-grid {
+      display: grid;
+      gap: 8px;
+    }
+
+    .catalog-grid.scene-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .catalog-card {
+      min-width: 0;
+      min-height: 84px;
+      border: 1px solid #c5d0d7;
+      border-radius: 5px;
+      background: #fff;
+      padding: 7px;
+      display: grid;
+      grid-template-columns: 62px minmax(0, 1fr) 32px;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .catalog-card.scene-card {
+      grid-template-columns: 1fr 32px;
+      align-items: end;
+    }
+
+    .catalog-card.is-disabled {
+      background: #f0f3f4;
+      color: #7f8b93;
+    }
+
+    .catalog-card img {
+      width: 62px;
+      height: 62px;
+      object-fit: contain;
+      background: #edf2f4;
+    }
+
+    .scene-card img {
+      grid-column: 1 / -1;
+      width: 100%;
+      height: 78px;
+      object-fit: cover;
+    }
+
+    .catalog-card-copy {
+      min-width: 0;
+    }
+
+    .catalog-card h3 {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.2;
+      overflow-wrap: normal;
+      word-break: normal;
+    }
+
+    .catalog-card p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 9px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+
+    .catalog-card.is-disabled p {
+      color: #8c5d5d;
+    }
+
+    .card-action {
+      width: 32px;
+      height: 32px;
+      border: 1px solid #79a8b5;
+      border-radius: 4px;
+      background: var(--accent-soft);
+      color: var(--accent-dark);
+      display: grid;
+      place-items: center;
+      padding: 0;
+      font-size: 18px;
+      font-weight: 850;
+    }
+
+    .card-action.is-replace {
+      font-size: 15px;
+    }
+
+    .card-action:disabled {
+      border-color: #c9d0d4;
+      background: #e5e9eb;
+      color: #929da4;
+    }
+
+    .payload-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5px;
+      margin-bottom: 9px;
+      padding: 3px;
+      border: 1px solid #d1d9de;
+      background: #edf2f4;
+    }
+
+    .payload-tab {
+      min-height: 31px;
+      border: 0;
+      border-radius: 3px;
+      background: transparent;
+      color: #596872;
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .payload-tab.is-active {
+      background: #fff;
+      color: #8d5600;
+      box-shadow: 0 1px 3px rgba(25, 41, 51, .12);
+    }
+
+    .catalog-empty {
+      min-height: 180px;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.5;
+      text-align: center;
+    }
+
+    .controller-list {
+      display: grid;
+      gap: 9px;
+    }
+
+    .controller-card {
+      border: 1px solid #c7bedc;
+      border-left: 5px solid var(--controller);
+      border-radius: 5px;
+      background: #fff;
+      padding: 10px;
+    }
+
+    .controller-card.is-focused {
+      box-shadow: 0 0 0 3px rgba(102, 85, 146, .14);
+    }
+
+    .controller-card h3 {
+      margin: 0 0 3px;
+      font-size: 12px;
+    }
+
+    .controller-card p {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 9px;
+    }
+
+    .mode-control {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      margin-bottom: 7px;
+      padding: 3px;
+      border: 1px solid #d4cde5;
+      background: var(--controller-soft);
+    }
+
+    .mode-button {
+      min-height: 29px;
+      border: 0;
+      border-radius: 3px;
+      background: transparent;
+      color: #665b7f;
+      font-size: 9px;
+      font-weight: 800;
+    }
+
+    .mode-button.is-active {
+      background: #fff;
+      color: #4e3f75;
+      box-shadow: 0 1px 3px rgba(42, 31, 70, .14);
+    }
+
+    .controller-input {
+      width: 100%;
+      min-height: 34px;
+      border: 1px solid #bfb5d8;
+      border-radius: 4px;
+      padding: 7px 8px;
+      color: #443568;
+      font: 10px/1.3 Consolas, "SFMono-Regular", monospace;
+    }
+
+    .controller-input:disabled {
+      background: #f2f0f7;
+      color: #776e8a;
+    }
+
+    .catalog-footer {
+      min-height: 38px;
+      padding: 8px 11px;
+      border-top: 1px solid var(--line);
+      background: #fff;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 9px;
+    }
+
+    dialog {
+      width: min(540px, calc(100% - 24px));
+      max-height: calc(100vh - 24px);
+      padding: 0;
+      border: 1px solid #aab8c1;
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      box-shadow: 0 24px 70px rgba(10, 24, 32, .3);
+    }
+
+    dialog::backdrop {
+      background: rgba(15, 29, 37, .48);
+    }
+
+    .dialog-header {
+      padding: 13px 15px;
+      border-bottom: 1px solid var(--line);
+      background: #f3f7f8;
+    }
+
+    .dialog-header h2 {
+      margin: 0;
+      font-size: 15px;
+    }
+
+    .dialog-body {
+      padding: 15px;
+      color: #384852;
+      font-size: 11px;
+      line-height: 1.65;
+      overflow: auto;
+    }
+
+    .dialog-body strong {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--ink);
+      font-size: 15px;
+    }
+
+    .dialog-body p {
+      margin: 0 0 9px;
+    }
+
+    .dialog-body p:last-child {
+      margin-bottom: 0;
+    }
+
+    .dialog-body code {
+      padding: 1px 3px;
+      background: #eaf0f2;
+      color: #174e60;
+      font-family: Consolas, monospace;
+    }
+
+    .command-block {
+      margin: 8px 0;
+      padding: 9px 10px;
+      overflow: auto;
+      background: #172730;
+      color: #d8e8ed;
+      font: 10px/1.55 Consolas, monospace;
+      white-space: pre;
+    }
+
+    .dialog-actions {
+      padding: 10px 15px;
+      border-top: 1px solid var(--line);
+      display: flex;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    .toast {
+      position: fixed;
+      z-index: 50;
+      left: 50%;
+      bottom: 18px;
+      max-width: min(480px, calc(100% - 24px));
+      padding: 9px 12px;
+      border-radius: 4px;
+      background: #172730;
+      color: #f2f8fa;
+      box-shadow: 0 8px 25px rgba(15, 31, 40, .25);
+      font-size: 11px;
+      line-height: 1.4;
+      opacity: 0;
+      transform: translate(-50%, 10px);
+      pointer-events: none;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+
+    .toast[data-visible="true"] {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    .asset-fallback {
+      display: grid;
+      place-items: center;
+      width: 100%;
+      min-height: 50px;
+      background: #edf1f3;
+      color: #78858e;
+      font-size: 9px;
+      text-align: center;
+    }
+
+    html[data-embed="true"],
+    html[data-embed="true"] body {
+      min-height: 100%;
+      background: #edf2f4;
+    }
+
+    html[data-embed="true"] .app-shell {
+      width: 100%;
+      height: 100vh;
+      min-height: 0;
+      margin: 0;
+      border: 0;
+      box-shadow: none;
+    }
+
+    html[data-embed="true"] .topbar {
+      min-height: 48px;
+      padding-block: 6px;
+    }
+
+    html[data-embed="true"] .brand p,
+    html[data-embed="true"] .project-trail {
+      display: none;
+    }
+
+    html[data-embed="true"] .app-layout {
+      min-height: 0;
+    }
+
+    @media (max-width: 640px) {
+      .app-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: max-content minmax(520px, max-content);
+        overflow: auto;
+      }
+
+      .catalog-panel {
+        min-height: 520px;
+        border-width: 1px 0 0;
+      }
+
+      .catalog-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .workspace-main {
+        min-height: 760px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .app-shell {
+        width: 100%;
+        height: 100vh;
+        min-height: 0;
+        margin: 0;
+        border: 0;
+      }
+
+      .topbar {
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
+
+      .project-trail {
+        display: none;
+      }
+
+      .top-actions {
+        width: 100%;
+      }
+
+      .top-actions .button {
+        flex: 1;
+      }
+
+      .workspace-main {
+        min-height: 0;
+        overflow: visible;
+        padding: 8px;
+        grid-template-rows: 500px auto;
+      }
+
+      .lineage-toolbar {
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
+
+      .workspace-status {
+        max-width: 100%;
+        width: 100%;
+        text-align: left;
+      }
+
+      .review-panel {
+        height: auto;
+        overflow: visible;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto minmax(250px, auto);
+      }
+
+      .review-controls {
+        min-height: auto;
+        overflow: visible;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .review-code {
+        min-height: 250px;
+      }
+
+      .catalog-grid,
+      .catalog-grid.scene-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .brand h1 {
+        font-size: 14px;
+      }
+
+      .brand-mark {
+        width: 30px;
+        height: 30px;
+        flex-basis: 30px;
+      }
+
+      .button {
+        padding-inline: 8px;
+        font-size: 10px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand" aria-label="EAI Env DIY">
+        <span class="brand-mark" aria-hidden="true">EAI</span>
+        <div>
+          <h1>Env DIY</h1>
+          <p>Scene → Robot → Payload → Tool → Controller</p>
+        </div>
+      </div>
+      <div class="project-trail">当前配置：<strong id="project-name">my_env</strong></div>
+      <div class="top-actions">
+        <button class="button button-primary" type="button" data-complete-selection>完成选择</button>
+      </div>
+    </header>
+
+    <div class="app-layout">
+      <main class="workspace-main">
+        <section class="lineage-panel" aria-labelledby="lineage-title">
+          <div class="lineage-toolbar">
+            <div class="lineage-title">
+              <h2 id="lineage-title">环境谱系</h2>
+              <p>物理位置不在谱系中表示；真实 <code>spawn_pose</code> 请使用 <code>--diy-3d</code>。</p>
+            </div>
+            <div class="workspace-status" id="workspace-status" role="status">从 Scene 开始选择</div>
+            <button class="button button-danger" type="button" data-delete-selected disabled>删除所选</button>
+            <button class="button" type="button" data-reset>重置</button>
+          </div>
+
+          <div class="lineage-scroll">
+            <div class="lineage-track">
+              <div class="lineage-headings" aria-label="环境谱系层级">
+                <button class="lineage-heading heading-scene is-active" type="button" data-lineage-column="scene">
+                  <span class="heading-visual"><img src="../../../../../usd/picture/scene/warehouse.png" alt=""></span>
+                  <span class="heading-copy"><span class="heading-number">01</span><span class="heading-name">Scene</span></span>
+                </button>
+                <button class="lineage-heading" type="button" data-lineage-column="robot">
+                  <span class="heading-visual"><img src="../../../../../usd/picture/processed/robot/carter.png" alt=""></span>
+                  <span class="heading-copy"><span class="heading-number">02</span><span class="heading-name">Robot</span></span>
+                </button>
+                <button class="lineage-heading" type="button" data-lineage-column="payload">
+                  <span class="heading-visual"><img src="../../../../../usd/picture/processed/manipulator/ur5.png" alt=""></span>
+                  <span class="heading-copy"><span class="heading-number">03</span><span class="heading-name">Payload</span></span>
+                </button>
+                <button class="lineage-heading" type="button" data-lineage-column="tool">
+                  <span class="heading-visual"><img src="../../../../../usd/picture/processed/tool/ros.png" alt=""></span>
+                  <span class="heading-copy"><span class="heading-number">04</span><span class="heading-name">Tool</span></span>
+                </button>
+                <button class="lineage-heading" type="button" data-lineage-column="controller">
+                  <span class="heading-visual heading-cfg">CFG</span>
+                  <span class="heading-copy"><span class="heading-number">05</span><span class="heading-name">Controller</span></span>
+                </button>
+              </div>
+              <div id="lineage-tree" class="lineage-tree" aria-live="polite"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="review-panel" aria-labelledby="review-title">
+          <div class="review-controls">
+            <h2 id="review-title">配置审查</h2>
+            <p>完成前检查名称、Scene、Robot 与实时 JSON。</p>
+            <label class="field-label" for="task-name-input">环境名称</label>
+            <input class="text-input" id="task-name-input" type="text" value="my_env" autocomplete="off">
+            <ul class="validation-list" id="validation-list" aria-live="polite"></ul>
+            <div class="review-actions">
+              <button class="button" type="button" data-copy-json>复制 JSON</button>
+              <button class="button button-primary" type="button" data-download-json>下载 JSON</button>
+            </div>
+          </div>
+          <div class="review-code">
+            <header class="review-code-header">
+              <span>selection JSON · version 1</span>
+              <span class="review-state" id="review-state">等待 Scene 与 Robot</span>
+            </header>
+            <pre class="json-preview" id="json-preview"></pre>
+          </div>
+        </section>
+      </main>
+
+      <aside class="catalog-panel" id="catalog-panel" aria-labelledby="catalog-title">
+        <header class="catalog-header">
+          <span class="catalog-kicker" id="catalog-kicker">Scene catalog</span>
+          <h2 id="catalog-title">选择 Scene</h2>
+          <p class="catalog-target" id="catalog-target">目标：环境根节点</p>
+        </header>
+        <nav class="catalog-tabs" aria-label="资源目录">
+          <button class="catalog-tab is-active" type="button" data-catalog-category="scene">Scenes</button>
+          <button class="catalog-tab" type="button" data-catalog-category="robot">Robots</button>
+          <button class="catalog-tab" type="button" data-catalog-category="payload">Payloads</button>
+          <button class="catalog-tab" type="button" data-catalog-category="tool">Tools</button>
+        </nav>
+        <div class="catalog-context" id="catalog-context">点击资源卡上的“+”选择 Scene。</div>
+        <div class="catalog-body" id="catalog-body"></div>
+        <footer class="catalog-footer">
+          <span>本地仓库素材</span>
+          <span id="catalog-count">0 项</span>
+        </footer>
+      </aside>
+    </div>
+  </div>
+
+  <dialog id="confirmation-dialog" aria-labelledby="confirmation-title">
+    <header class="dialog-header">
+      <h2 id="confirmation-title">确认操作</h2>
+    </header>
+    <div class="dialog-body">
+      <p id="confirmation-message">请确认是否继续。</p>
+    </div>
+    <form class="dialog-actions" method="dialog">
+      <button class="button" id="confirmation-cancel" value="cancel">取消</button>
+      <button class="button button-primary" id="confirmation-confirm" value="confirm">确认</button>
+    </form>
+  </dialog>
+
+  <dialog id="completion-dialog" aria-labelledby="completion-title">
+    <header class="dialog-header">
+      <h2 id="completion-title">配置已通过检查</h2>
+    </header>
+    <div class="dialog-body">
+      <p>将导出的 JSON 放入 <code>source/EAI_hmrs/EAI_hmrs/envs/</code>，然后通过环境名称启动。</p>
+      <pre class="command-block" id="completion-commands"></pre>
+      <p>谱系不表示物理位置。需要在 Isaac Sim Viewport 中编辑高度、碰撞面和 <code>spawn_pose</code> 时，运行 <code>python simulator.py --diy-3d --device=cuda:0</code>。该入口仍在持续优化，正式实验前请保留 selection JSON 并锁定仓库版本。</p>
+    </div>
+    <div class="dialog-actions">
+      <button class="button" type="button" data-completion-copy>复制 JSON</button>
+      <button class="button button-primary" type="button" data-completion-download>下载 JSON</button>
+      <button class="button" type="button" data-completion-close>返回编辑</button>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+  <textarea id="copy-fallback" hidden aria-hidden="true"></textarea>
+  <datalist id="known-cfg-values"></datalist>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const catalog = Object.freeze({
+        scenes: Object.freeze([
+          { id: "plane", label: "平地", image: "../../../../../usd/picture/scene/plane.png" },
+          { id: "warehouse", label: "仓库", image: "../../../../../usd/picture/scene/warehouse.png" },
+          { id: "factory", label: "工厂", image: "../../../../../usd/picture/scene/factory.png" },
+          { id: "airs", label: "AIRS 实验室", image: "../../../../../usd/picture/scene/airs.png" },
+          { id: "garden", label: "花园", image: "../../../../../usd/picture/scene/garden.png" },
+          { id: "desert", label: "沙漠", image: "../../../../../usd/picture/scene/desert.png" },
+          { id: "hospital", label: "医院", image: "../../../../../usd/picture/scene/hospital.png" }
+        ]),
+        robots: Object.freeze({
+          carter: { label: "Carter", image: "../../../../../usd/picture/processed/robot/carter.png", cfg: "CARTER_DIFF_CFG" },
+          pepper: { label: "Pepper", image: "../../../../../usd/picture/processed/robot/pepper.png", cfg: "PEPPER_HOLONOMIC_CFG" },
+          go2: { label: "Go2", image: "../../../../../usd/picture/processed/robot/go2.png", cfg: "GO2_VELOCITY_RSL_CFG" },
+          b2: { label: "B2", image: "../../../../../usd/picture/processed/robot/b2.png", cfg: "B2_VELOCITY_RSL_CFG" },
+          m20: { label: "M20", image: "../../../../../usd/picture/processed/robot/M20.png", cfg: "M20_ROUGH_RSL_CFG" },
+          scout: { label: "Scout", image: "../../../../../usd/picture/processed/robot/scout.png", cfg: "SCOUT_DIFF_CFG" },
+          g1: { label: "G1", image: "../../../../../usd/picture/processed/robot/g1.png", cfg: "G1_SKRL_CFG" },
+          cf2x: { label: "CF2X", image: "../../../../../usd/picture/processed/robot/cf2x.png", cfg: "QUADCOPTER_GOAL_SKRL_CFG" },
+          human: { label: "Human", image: "../../../../../usd/picture/processed/robot/human.png", cfg: "HUMAN_ANIMATION_CFG" },
+          lite3: { label: "Lite3", image: "../../../../../usd/picture/processed/robot/lite3.png", cfg: "LITE3_VELOCITY_RSL_CFG" },
+          mushr_v2: { label: "MuSHR", image: "../../../../../usd/picture/processed/robot/mushr_v2.png", cfg: "MUSHR_ACKERMANN_CFG" },
+          coco: { label: "Coco AIRS", image: "../../../../../usd/picture/processed/robot/coco.png", cfg: "COCO_ACKERMANN_CFG" }
+        }),
+        manipulators: Object.freeze({
+          ur5: { label: "UR5", image: "../../../../../usd/picture/processed/manipulator/ur5.png", supported: ["carter", "go2", "b2", "m20", "scout", "lite3"], cfg: "UR5_IK_CFG" },
+          z1: { label: "Z1", image: "../../../../../usd/picture/processed/manipulator/z1.png", supported: ["carter", "go2", "b2", "m20", "scout", "lite3"], cfg: "Z1_IK_CFG" }
+        }),
+        sensors: Object.freeze({
+          gshub: { label: "GS-Hub", image: "../../../../../usd/picture/processed/sensor/gshub.png", supported: ["carter", "go2", "b2", "m20", "scout", "lite3"] },
+          lidar: { label: "LiDAR", image: "../../../../../usd/picture/processed/sensor/lidar.png", supported: ["carter", "go2", "b2", "m20", "lite3"] }
+        }),
+        tools: Object.freeze({
+          ros: { label: "ROS", image: "../../../../../usd/picture/processed/tool/ros.png", supported: ["carter", "go2", "b2", "m20", "scout", "lite3", "pepper", "g1", "cf2x", "mushr_v2", "coco"] },
+          keyboard: { label: "Keyboard", image: "../../../../../usd/picture/processed/tool/keyboard.png", supported: ["carter", "pepper", "go2", "b2", "m20", "scout", "g1", "cf2x", "human", "lite3", "mushr_v2", "coco"] }
+        })
+      });
+
+      const DRAFT_KEY = "eai-env-diy-draft-v1";
+      const categoryLabels = Object.freeze({
+        scene: "Scene",
+        robot: "Robot",
+        payload: "Payload",
+        tool: "Tool",
+        controller: "Controller"
+      });
+      const state = {
+        taskName: "my_env",
+        sceneKey: null,
+        robots: [],
+        selection: { category: "scene" },
+        activeRobotId: null,
+        nextRobotNumber: 1,
+        payloadGroup: "manipulator",
+        validationErrors: []
+      };
+
+      const lineageTree = document.getElementById("lineage-tree");
+      const lineageScroll = document.querySelector(".lineage-scroll");
+      const lineageTrack = document.querySelector(".lineage-track");
+      const catalogBody = document.getElementById("catalog-body");
+      const catalogTitle = document.getElementById("catalog-title");
+      const catalogKicker = document.getElementById("catalog-kicker");
+      const catalogTarget = document.getElementById("catalog-target");
+      const catalogContext = document.getElementById("catalog-context");
+      const catalogCount = document.getElementById("catalog-count");
+      const workspaceStatus = document.getElementById("workspace-status");
+      const reviewState = document.getElementById("review-state");
+      const jsonPreview = document.getElementById("json-preview");
+      const validationList = document.getElementById("validation-list");
+      const taskNameInput = document.getElementById("task-name-input");
+      const confirmationDialog = document.getElementById("confirmation-dialog");
+      const completionDialog = document.getElementById("completion-dialog");
+      const toast = document.getElementById("toast");
+      let storageAvailable = true;
+      let draftTimer = 0;
+      let toastTimer = 0;
+      let lineageFitFrame = 0;
+
+      const updateLineageConnectorLayout = () => {
+        const branches = lineageTree.querySelector(".branches.has-many");
+        if (!branches) return;
+        const branchItems = branches.querySelectorAll(":scope > .branch");
+        const firstBranch = branchItems[0];
+        const lastBranch = branchItems[branchItems.length - 1];
+        if (!firstBranch || !lastBranch) return;
+        const firstCenter = firstBranch.offsetTop + firstBranch.offsetHeight / 2;
+        const lastCenter = lastBranch.offsetTop + lastBranch.offsetHeight / 2;
+        branches.style.setProperty("--branch-trunk-top", firstCenter + "px");
+        branches.style.setProperty("--branch-trunk-bottom", Math.max(0, branches.scrollHeight - lastCenter) + "px");
+      };
+
+      const fitLineageToViewport = () => {
+        lineageTrack.style.zoom = "1";
+        updateLineageConnectorLayout();
+        const styles = window.getComputedStyle(lineageScroll);
+        const verticalPadding = parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom);
+        const horizontalPadding = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
+        const availableHeight = Math.max(1, lineageScroll.clientHeight - verticalPadding - 2);
+        const availableWidth = Math.max(1, lineageScroll.clientWidth - horizontalPadding - 2);
+        const naturalHeight = lineageTrack.scrollHeight;
+        const naturalWidth = lineageTrack.scrollWidth;
+        const scale = Math.min(1, availableHeight / naturalHeight, availableWidth / naturalWidth);
+        lineageTrack.style.zoom = String(scale);
+        lineageScroll.scrollTop = 0;
+        lineageScroll.scrollLeft = 0;
+      };
+
+      const scheduleLineageFit = () => {
+        if (lineageFitFrame) return;
+        lineageFitFrame = window.requestAnimationFrame(() => {
+          lineageFitFrame = 0;
+          fitLineageToViewport();
+        });
+      };
+
+      const cloneValue = value => typeof window.structuredClone === "function"
+        ? window.structuredClone(value)
+        : JSON.parse(JSON.stringify(value));
+
+      const escapeHtml = value => String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+
+      const cfgMarkup = value => escapeHtml(value).replaceAll("_", "_<wbr>");
+      const sceneEntry = key => catalog.scenes.find(item => item.id === key) || null;
+      const payloadEntry = key => catalog.manipulators[key] || catalog.sensors[key] || null;
+      const attachmentEntry = key => payloadEntry(key) || catalog.tools[key] || null;
+      const payloadSubtype = key => catalog.manipulators[key] ? "manipulator" : "sensor";
+      const activeRobot = () => state.robots.find(robot => robot.id === state.activeRobotId) || null;
+      const selectedRobot = () => state.robots.find(robot => robot.id === state.selection.robotId) || null;
+      const hasWork = () => Boolean(state.sceneKey || state.robots.length || state.taskName !== "my_env");
+
+      const announce = message => {
+        window.clearTimeout(toastTimer);
+        toast.textContent = message;
+        toast.dataset.visible = "true";
+        toastTimer = window.setTimeout(() => {
+          toast.dataset.visible = "false";
+        }, 3600);
+      };
+
+      const readStorage = key => {
+        if (!storageAvailable) return null;
+        try {
+          return window.localStorage.getItem(key);
+        } catch (_error) {
+          storageAvailable = false;
+          announce("浏览器未允许本地草稿保存，当前编辑仍可继续");
+          return null;
+        }
+      };
+
+      const writeStorage = (key, value) => {
+        if (!storageAvailable) return;
+        try {
+          window.localStorage.setItem(key, value);
+        } catch (_error) {
+          storageAvailable = false;
+          announce("浏览器未允许本地草稿保存，当前编辑仍可继续");
+        }
+      };
+
+      const removeStorage = key => {
+        if (!storageAvailable) return;
+        try {
+          window.localStorage.removeItem(key);
+        } catch (_error) {
+          storageAvailable = false;
+        }
+      };
+
+      const snapshotState = () => ({
+        taskName: state.taskName,
+        sceneKey: state.sceneKey,
+        robots: state.robots,
+        activeRobotId: state.activeRobotId,
+        nextRobotNumber: state.nextRobotNumber,
+        payloadGroup: state.payloadGroup
+      });
+
+      const scheduleDraft = () => {
+        window.clearTimeout(draftTimer);
+        if (!hasWork()) {
+          removeStorage(DRAFT_KEY);
+          return;
+        }
+        draftTimer = window.setTimeout(() => {
+          writeStorage(DRAFT_KEY, JSON.stringify(snapshotState()));
+        }, 220);
+      };
+
+      const normalizedController = (value, defaultCfg) => {
+        const manual = value && value.mode === "manual";
+        return {
+          mode: manual ? "manual" : "default",
+          cfg: String(manual ? value.cfg || defaultCfg : defaultCfg)
+        };
+      };
+
+      const normalizePayloads = (robot, type) => {
+        if (Array.isArray(robot.payloads)) {
+          return robot.payloads.filter(item => {
+            const entry = item && payloadEntry(item.type);
+            return entry && entry.supported.includes(type);
+          }).map(item => {
+            const entry = payloadEntry(item.type);
+            return {
+              type: item.type,
+              subtype: payloadSubtype(item.type),
+              controller: entry.cfg ? normalizedController(item.controller, entry.cfg) : null
+            };
+          });
+        }
+        return (Array.isArray(robot.attachments) ? robot.attachments : []).filter(item => {
+          const entry = item && payloadEntry(item.type);
+          return entry && entry.supported.includes(type);
+        }).map(item => {
+          const entry = payloadEntry(item.type);
+          return {
+            type: item.type,
+            subtype: payloadSubtype(item.type),
+            controller: entry.cfg ? normalizedController(item.controller, entry.cfg) : null
+          };
+        });
+      };
+
+      const normalizeTools = (robot, type) => {
+        const source = Array.isArray(robot.tools)
+          ? robot.tools
+          : (Array.isArray(robot.attachments) ? robot.attachments.map(item => item.type) : []);
+        return [...new Set(source.filter(key => catalog.tools[key] && catalog.tools[key].supported.includes(type)))];
+      };
+
+      const applyStateSnapshot = snapshot => {
+        const sceneKey = snapshot && (snapshot.sceneKey || snapshot.scene);
+        state.sceneKey = sceneEntry(sceneKey) ? sceneKey : null;
+        state.robots = Array.isArray(snapshot && snapshot.robots)
+          ? snapshot.robots.filter(robot => robot && catalog.robots[robot.type]).map((robot, index) => {
+              const type = robot.type;
+              return {
+                id: String(robot.id || "robot-" + (index + 1)),
+                type,
+                controller: normalizedController(robot.controller, catalog.robots[type].cfg),
+                payloads: normalizePayloads(robot, type),
+                tools: normalizeTools(robot, type)
+              };
+            })
+          : [];
+        state.taskName = typeof snapshot.taskName === "string" ? snapshot.taskName : "my_env";
+        const requestedActive = snapshot.activeRobotId || snapshot.selectedRobotId;
+        state.activeRobotId = state.robots.some(robot => robot.id === requestedActive)
+          ? requestedActive
+          : state.robots.at(-1)?.id || null;
+        state.nextRobotNumber = Math.max(
+          Number(snapshot.nextRobotNumber) || 1,
+          state.robots.reduce((max, robot) => {
+            const suffix = Number(robot.id.split("-").at(-1));
+            return Number.isFinite(suffix) ? Math.max(max, suffix + 1) : max;
+          }, 1)
+        );
+        state.payloadGroup = snapshot.payloadGroup === "sensor" ? "sensor" : "manipulator";
+        state.selection = { category: state.sceneKey ? "robot" : "scene" };
+        state.validationErrors = [];
+      };
+
+      const exportPayload = () => ({
+        version: 1,
+        task_name: state.taskName.trim(),
+        scene_key: state.sceneKey,
+        robots: state.robots.map(robot => ({
+          type: robot.type,
+          controller: {
+            mode: robot.controller.mode,
+            cfg: robot.controller.cfg
+          },
+          visual: {
+            x: 0,
+            y: 0
+          },
+          attachments: [
+            ...robot.payloads.map(payload => ({
+              type: payload.type,
+              controller: payload.controller ? {
+                mode: payload.controller.mode,
+                cfg: payload.controller.cfg
+              } : null
+            })),
+            ...robot.tools.map(tool => ({
+              type: tool,
+              controller: null
+            }))
+          ]
+        }))
+      });
+
+      const pywebviewBridge = () => {
+        const api = window.pywebview && window.pywebview.api;
+        return api && typeof api.submit_selection === "function" ? api : null;
+      };
+
+      const updateWebviewActions = () => {
+        const label = pywebviewBridge() ? "保存并运行" : "下载 JSON";
+        document.querySelectorAll("[data-download-json], [data-completion-download]").forEach(button => {
+          button.textContent = label;
+        });
+      };
+
+      const validateForExport = () => {
+        const errors = [];
+        if (!state.taskName.trim()) errors.push("请输入环境名称");
+        if (!state.sceneKey) errors.push("请选择一个 Scene");
+        if (!state.robots.length) errors.push("请至少添加一个 Robot");
+        return errors;
+      };
+
+      const selectionMatches = (category, robotId, key, controllerTarget) => {
+        if (state.selection.category !== category) return false;
+        if (robotId && state.selection.robotId !== robotId) return false;
+        if (key && state.selection.key !== key) return false;
+        if (controllerTarget && state.selection.controllerTarget !== controllerTarget) return false;
+        return Boolean(state.selection.node);
+      };
+
+      const nodeRemoveButton = (category, robotId, key, controllerTarget, label) => {
+        const attributes = [
+          'data-action="remove-node"',
+          'data-category="' + category + '"',
+          robotId ? 'data-robot-id="' + escapeHtml(robotId) + '"' : "",
+          key ? 'data-key="' + escapeHtml(key) + '"' : "",
+          controllerTarget ? 'data-controller-target="' + escapeHtml(controllerTarget) + '"' : ""
+        ].filter(Boolean).join(" ");
+        return '<button class="node-remove" type="button" ' + attributes + ' title="' + escapeHtml(label) + '" aria-label="' + escapeHtml(label) + '">&times;</button>';
+      };
+
+      const imageNode = (category, className, image, name, robotId, key) => {
+        const selected = selectionMatches(category, robotId, key, null);
+        const attributes = [
+          'data-action="select-node"',
+          'data-category="' + category + '"',
+          robotId ? 'data-robot-id="' + escapeHtml(robotId) + '"' : "",
+          key ? 'data-key="' + escapeHtml(key) + '"' : ""
+        ].filter(Boolean).join(" ");
+        return '<div class="lineage-node ' + className + (selected ? " is-selected" : "") + '">' +
+          '<button class="node-select" type="button" ' + attributes + '>' +
+            '<img src="' + escapeHtml(image) + '" alt="' + escapeHtml(name) + '">' +
+            '<span class="node-name">' + escapeHtml(name) + '</span>' +
+          '</button>' +
+          nodeRemoveButton(category, robotId, key, null, "删除 " + name) +
+        '</div>';
+      };
+
+      const controllerNode = (robotId, target, cfg) => {
+        const selected = selectionMatches("controller", robotId, null, target);
+        return '<div class="lineage-node controller-node' + (selected ? " is-selected" : "") + '">' +
+          '<button class="node-select" type="button" data-action="select-node" data-category="controller" data-robot-id="' + escapeHtml(robotId) + '" data-controller-target="' + escapeHtml(target) + '">' +
+            '<span class="node-name">' + cfgMarkup(cfg) + '</span>' +
+          '</button>' +
+          nodeRemoveButton("controller", robotId, null, target, "恢复默认 Controller") +
+        '</div>';
+      };
+
+      const renderLineage = () => {
+        if (!state.sceneKey && !state.robots.length) {
+          lineageTree.innerHTML = '<p class="lineage-empty">选择 Scene 列，并从右侧目录开始配置</p>';
+          return;
+        }
+
+        const scene = sceneEntry(state.sceneKey);
+        const sceneHtml = scene
+          ? imageNode("scene", "scene-node", scene.image, scene.label, null, scene.id)
+          : "";
+        const branches = state.robots.map(robot => {
+          const robotEntry = catalog.robots[robot.type];
+          const isContext = robotContextCategories.has(state.selection.category) &&
+            state.activeRobotId === robot.id;
+          const payloads = robot.payloads.map(payload => {
+            const entry = payloadEntry(payload.type);
+            return imageNode("payload", "payload-node", entry.image, entry.label, robot.id, payload.type);
+          }).join("");
+          const tools = robot.tools.map(tool => {
+            const entry = catalog.tools[tool];
+            return imageNode("tool", "tool-node", entry.image, entry.label, robot.id, tool);
+          }).join("");
+          const controllers = [
+            controllerNode(robot.id, "robot", robot.controller.cfg),
+            ...robot.payloads.filter(payload => payload.controller).map(payload =>
+              controllerNode(robot.id, "payload:" + payload.type, payload.controller.cfg)
+            )
+          ].join("");
+          const depth = controllers ? "controller" : tools ? "tool" : payloads ? "payload" : "robot";
+          return '<div class="branch depth-' + depth + '" data-branch-id="' + escapeHtml(robot.id) + '">' +
+            '<div class="branch-cell">' +
+              imageNode("robot", "robot-node" + (isContext ? " is-context" : ""), robotEntry.image, robotEntry.label, robot.id, robot.type) +
+            '</div>' +
+            '<div class="branch-cell payload-cell">' + (payloads ? '<div class="node-stack">' + payloads + '</div>' : "") + '</div>' +
+            '<div class="branch-cell tool-cell">' + (tools ? '<div class="node-stack">' + tools + '</div>' : "") + '</div>' +
+            '<div class="branch-cell controller-cell"><div class="node-stack">' + controllers + '</div></div>' +
+          '</div>';
+        }).join("");
+        const manyClass = state.robots.length > 1 ? " has-many" : "";
+        lineageTree.innerHTML = '<div class="lineage-body">' +
+          '<div class="scene-column' + (state.robots.length ? " has-branches" : "") + '">' + sceneHtml + '</div>' +
+          '<div class="branches' + manyClass + '">' + branches + '</div>' +
+        '</div>';
+      };
+
+      const robotLabelWithIndex = robot => {
+        const index = state.robots.findIndex(item => item.id === robot.id);
+        return catalog.robots[robot.type].label + " / 分支 " + String(index + 1).padStart(2, "0");
+      };
+
+      const robotContextCategories = new Set(["payload", "tool", "controller"]);
+
+      const setCategory = (category, options = {}) => {
+        if (!categoryLabels[category]) return;
+        const previousCategory = state.selection.category;
+        if (robotContextCategories.has(category) && previousCategory !== category) {
+          state.activeRobotId = null;
+        }
+        state.selection = { category };
+        if (category === "payload" && options.payloadGroup) {
+          state.payloadGroup = options.payloadGroup;
+        }
+        render();
+        if (!options.silent) {
+          const target = activeRobot();
+          workspaceStatus.textContent = target && category !== "scene" && category !== "robot"
+            ? "已选择 " + categoryLabels[category] + " 列 · " + robotLabelWithIndex(target)
+            : "已选择 " + categoryLabels[category] + " 列";
+        }
+      };
+
+      const selectRobotContext = robotId => {
+        const robot = state.robots.find(item => item.id === robotId);
+        if (!robot || !robotContextCategories.has(state.selection.category)) return;
+        state.activeRobotId = robot.id;
+        state.selection = { category: state.selection.category };
+        render();
+        workspaceStatus.textContent = robotLabelWithIndex(robot) + " · " + categoryLabels[state.selection.category] + " 目标";
+      };
+
+      const selectNode = selection => {
+        state.selection = { ...selection, node: true };
+        if (selection.robotId) state.activeRobotId = selection.robotId;
+        if (selection.category === "payload" && selection.key) {
+          state.payloadGroup = payloadSubtype(selection.key);
+          state.selection.subtype = state.payloadGroup;
+        }
+        render();
+        workspaceStatus.textContent = "已选择 " + categoryLabels[selection.category] + " 节点 · 右侧可替换";
+      };
+
+      const compatibilityReason = (robotType, key) => {
+        const entry = attachmentEntry(key);
+        return entry && entry.supported.includes(robotType) ? "" : "与当前 Robot 不兼容";
+      };
+
+      const robotReplacementReason = (robot, candidateType) => {
+        if (robot.type === candidateType) return "当前 Robot";
+        const incompatible = [
+          ...robot.payloads.map(item => item.type),
+          ...robot.tools
+        ].filter(key => compatibilityReason(candidateType, key));
+        if (!incompatible.length) return "";
+        const labels = incompatible.map(key => attachmentEntry(key).label).join("、");
+        return "现有 " + labels + " 不兼容";
+      };
+
+      const cardMarkup = (group, key, entry, availability, replace) => {
+        const disabled = Boolean(availability);
+        const actionLabel = replace
+          ? "替换为 " + entry.label
+          : (group === "scene" ? "选择 " : "添加 ") + entry.label;
+        const actionSymbol = replace ? "&#8635;" : "+";
+        const meta = availability || (
+          group === "robot"
+            ? "Default: " + entry.cfg
+            : group === "manipulator"
+              ? "Controller: " + entry.cfg
+              : group === "sensor"
+                ? "Sensor payload"
+                : group === "tool"
+                  ? "控制与通信通道"
+                  : "Scene template"
+        );
+        const sceneClass = group === "scene" ? " scene-card" : "";
+        const image = '<img src="' + escapeHtml(entry.image) + '" alt="' + escapeHtml(entry.label) + '">';
+        const copy = '<div class="catalog-card-copy"><h3>' + escapeHtml(entry.label) + '</h3><p>' + escapeHtml(meta) + '</p></div>';
+        const action = '<button class="card-action' + (replace ? " is-replace" : "") + '" type="button" data-action="apply-catalog" data-group="' + group + '" data-key="' + escapeHtml(key) + '" title="' + escapeHtml(actionLabel) + '" aria-label="' + escapeHtml(actionLabel) + '"' + (disabled ? " disabled" : "") + ">" + actionSymbol + "</button>";
+        return '<article class="catalog-card' + sceneClass + (disabled ? " is-disabled" : "") + '">' +
+          (group === "scene" ? image + copy + action : image + copy + action) +
+        '</article>';
+      };
+
+      const payloadAvailability = (robot, key, subtype, replacing) => {
+        if (!robot) return "请先选择一个 Robot 分支";
+        const incompatible = compatibilityReason(robot.type, key);
+        if (incompatible) return incompatible;
+        if (replacing) {
+          if (state.selection.key === key) return "当前 Payload";
+          if (robot.payloads.some(item => item.type === key && item.type !== state.selection.key)) {
+            return "该 Payload 已添加";
+          }
+          if (subtype === "manipulator") {
+            const otherManipulator = robot.payloads.find(item =>
+              item.subtype === "manipulator" && item.type !== state.selection.key
+            );
+            if (otherManipulator) return "当前分支已有 " + payloadEntry(otherManipulator.type).label;
+          }
+          return "";
+        }
+        if (robot.payloads.some(item => item.type === key)) return "该 Payload 已添加";
+        if (subtype === "manipulator" && robot.payloads.some(item => item.subtype === "manipulator")) {
+          return "一个 Robot 只能挂载一个机械臂";
+        }
+        return "";
+      };
+
+      const toolAvailability = (robot, key, replacing) => {
+        if (!robot) return "请先选择一个 Robot 分支";
+        const incompatible = compatibilityReason(robot.type, key);
+        if (incompatible) return incompatible;
+        if (state.selection.key === key && replacing) return "当前 Tool";
+        if (robot.tools.some(item => item === key && item !== state.selection.key)) return "该 Tool 已添加";
+        return "";
+      };
+
+      const renderSceneCatalog = () => {
+        const replacing = state.selection.node && state.selection.category === "scene";
+        catalogBody.innerHTML = '<div class="catalog-grid scene-grid">' + catalog.scenes.map(entry => {
+          const current = state.sceneKey === entry.id ? "当前 Scene" : "";
+          return cardMarkup("scene", entry.id, entry, current, replacing);
+        }).join("") + '</div>';
+        catalogCount.textContent = catalog.scenes.length + " 个 Scene";
+        catalogKicker.textContent = "Scene catalog";
+        catalogTitle.textContent = replacing ? "替换 Scene" : "选择 Scene";
+        catalogTarget.textContent = "目标：环境根节点";
+        catalogContext.textContent = replacing
+          ? "选择新 Scene 会保留已有 Robot 分支。"
+          : state.sceneKey
+            ? "点击“+”继续选择；点击左侧 Scene 节点后进入替换模式。"
+            : "点击“+”建立环境根节点。";
+      };
+
+      const renderRobotCatalog = () => {
+        const replacing = state.selection.node && state.selection.category === "robot";
+        const target = replacing ? selectedRobot() : null;
+        const entries = Object.entries(catalog.robots);
+        catalogBody.innerHTML = '<div class="catalog-grid">' + entries.map(([key, entry]) => {
+          const reason = target
+            ? robotReplacementReason(target, key)
+            : state.sceneKey ? "" : "请先选择 Scene";
+          return cardMarkup("robot", key, entry, reason, replacing);
+        }).join("") + '</div>';
+        catalogCount.textContent = entries.length + " 个 Robot";
+        catalogKicker.textContent = "Robot catalog";
+        catalogTitle.textContent = replacing ? "替换 Robot" : "添加 Robot";
+        catalogTarget.textContent = replacing && target
+          ? "目标：" + robotLabelWithIndex(target)
+          : "目标：新 Robot 分支";
+        catalogContext.textContent = replacing
+          ? "兼容的替换会保留当前 Payload 与 Tool。"
+          : "点击“+”创建独立分支和默认 Controller。";
+      };
+
+      const renderPayloadCatalog = () => {
+        const robot = activeRobot();
+        const replacing = state.selection.node && state.selection.category === "payload";
+        const group = replacing ? state.selection.subtype : state.payloadGroup;
+        const entries = group === "manipulator"
+          ? Object.entries(catalog.manipulators)
+          : Object.entries(catalog.sensors);
+        const groupTabs = '<div class="payload-tabs" role="group" aria-label="Payload 类型">' +
+          '<button class="payload-tab' + (group === "manipulator" ? " is-active" : "") + '" type="button" data-payload-group="manipulator"' + (replacing && group !== "manipulator" ? " disabled" : "") + '>Manipulators</button>' +
+          '<button class="payload-tab' + (group === "sensor" ? " is-active" : "") + '" type="button" data-payload-group="sensor"' + (replacing && group !== "sensor" ? " disabled" : "") + '>Sensors</button>' +
+        '</div>';
+        catalogBody.innerHTML = groupTabs + '<div class="catalog-grid">' + entries.map(([key, entry]) => {
+          const reason = payloadAvailability(robot, key, group, replacing);
+          return cardMarkup(group, key, entry, reason, replacing);
+        }).join("") + '</div>';
+        catalogCount.textContent = entries.length + " 个 " + (group === "manipulator" ? "Manipulator" : "Sensor");
+        catalogKicker.textContent = "Payload catalog";
+        catalogTitle.textContent = replacing ? "替换 Payload" : "添加 Payload";
+        catalogTarget.textContent = robot ? "目标：" + robotLabelWithIndex(robot) : "目标：尚未选择 Robot";
+        catalogContext.textContent = replacing
+          ? "仅显示与所选 Payload 同类的替换项。"
+          : "一个分支可添加一个机械臂和多个不同传感器。";
+      };
+
+      const renderToolCatalog = () => {
+        const robot = activeRobot();
+        const replacing = state.selection.node && state.selection.category === "tool";
+        const entries = Object.entries(catalog.tools);
+        catalogBody.innerHTML = '<div class="catalog-grid">' + entries.map(([key, entry]) => {
+          const reason = toolAvailability(robot, key, replacing);
+          return cardMarkup("tool", key, entry, reason, replacing);
+        }).join("") + '</div>';
+        catalogCount.textContent = entries.length + " 个 Tool";
+        catalogKicker.textContent = "Tool catalog";
+        catalogTitle.textContent = replacing ? "替换 Tool" : "添加 Tool";
+        catalogTarget.textContent = robot ? "目标：" + robotLabelWithIndex(robot) : "目标：尚未选择 Robot";
+        catalogContext.textContent = replacing
+          ? "选择资源会替换当前 Tool。"
+          : "同一分支可添加多个不同 Tool。";
+      };
+
+      const controllerTargets = robot => {
+        if (!robot) return [];
+        return [
+          {
+            key: "robot",
+            label: catalog.robots[robot.type].label,
+            controller: robot.controller,
+            defaultCfg: catalog.robots[robot.type].cfg
+          },
+          ...robot.payloads.filter(payload => payload.controller).map(payload => ({
+            key: "payload:" + payload.type,
+            label: payloadEntry(payload.type).label,
+            controller: payload.controller,
+            defaultCfg: payloadEntry(payload.type).cfg
+          }))
+        ];
+      };
+
+      const renderControllerCatalog = () => {
+        const robot = activeRobot();
+        const targets = controllerTargets(robot);
+        if (!robot) {
+          catalogBody.innerHTML = '<p class="catalog-empty">先点击一个 Robot 节点，再编辑它的 Controller</p>';
+        } else {
+          catalogBody.innerHTML = '<div class="controller-list">' + targets.map(target => {
+            const focused = state.selection.node &&
+              state.selection.category === "controller" &&
+              state.selection.controllerTarget === target.key;
+            return '<section class="controller-card' + (focused ? " is-focused" : "") + '">' +
+              '<h3>' + escapeHtml(target.label) + '</h3>' +
+              '<p>Default: ' + escapeHtml(target.defaultCfg) + '</p>' +
+              '<div class="mode-control" role="group" aria-label="' + escapeHtml(target.label) + ' Controller 模式">' +
+                '<button class="mode-button' + (target.controller.mode === "default" ? " is-active" : "") + '" type="button" data-action="controller-mode" data-target="' + escapeHtml(target.key) + '" data-mode="default">Default</button>' +
+                '<button class="mode-button' + (target.controller.mode === "manual" ? " is-active" : "") + '" type="button" data-action="controller-mode" data-target="' + escapeHtml(target.key) + '" data-mode="manual">Manual</button>' +
+              '</div>' +
+              '<input class="controller-input" data-controller-input="' + escapeHtml(target.key) + '" value="' + escapeHtml(target.controller.cfg) + '" list="known-cfg-values" aria-label="' + escapeHtml(target.label) + ' Controller CFG"' + (target.controller.mode === "default" ? " disabled" : "") + '>' +
+            '</section>';
+          }).join("") + '</div>';
+        }
+        catalogCount.textContent = targets.length + " 个 Controller";
+        catalogKicker.textContent = "Controller editor";
+        catalogTitle.textContent = "编辑 Controller";
+        catalogTarget.textContent = robot ? "目标：" + robotLabelWithIndex(robot) : "目标：尚未选择 Robot";
+        catalogContext.textContent = "删除 Controller 节点会恢复目录默认 CFG，不会留下无效空值。";
+      };
+
+      const renderCatalog = () => {
+        const category = state.selection.category;
+        document.querySelectorAll("[data-catalog-category]").forEach(button => {
+          button.classList.toggle("is-active", button.dataset.catalogCategory === category);
+        });
+        if (category === "scene") renderSceneCatalog();
+        if (category === "robot") renderRobotCatalog();
+        if (category === "payload") renderPayloadCatalog();
+        if (category === "tool") renderToolCatalog();
+        if (category === "controller") renderControllerCatalog();
+      };
+
+      const updateReview = () => {
+        const payload = exportPayload();
+        jsonPreview.textContent = JSON.stringify(payload, null, 2);
+        document.getElementById("project-name").textContent = state.taskName.trim() || "未命名环境";
+        if (taskNameInput.value !== state.taskName) taskNameInput.value = state.taskName;
+        validationList.innerHTML = state.validationErrors.map(error => "<li>" + escapeHtml(error) + "</li>").join("");
+        const errors = validateForExport();
+        reviewState.textContent = errors.length ? "待完成 " + errors.length + " 项" : "配置有效";
+        reviewState.classList.toggle("is-valid", errors.length === 0);
+      };
+
+      const render = () => {
+        document.querySelectorAll("[data-lineage-column]").forEach(button => {
+          button.classList.toggle("is-active", button.dataset.lineageColumn === state.selection.category);
+        });
+        document.querySelector("[data-delete-selected]").disabled = !state.selection.node;
+        renderLineage();
+        renderCatalog();
+        updateReview();
+        scheduleLineageFit();
+      };
+
+      const addRobot = type => {
+        const id = "robot-" + state.nextRobotNumber;
+        state.nextRobotNumber += 1;
+        state.robots.push({
+          id,
+          type,
+          controller: { mode: "default", cfg: catalog.robots[type].cfg },
+          payloads: [],
+          tools: []
+        });
+        state.activeRobotId = id;
+        announce(catalog.robots[type].label + " 已添加");
+      };
+
+      const replaceRobot = (robot, type) => {
+        const reason = robotReplacementReason(robot, type);
+        if (reason) {
+          announce(reason);
+          return false;
+        }
+        robot.type = type;
+        robot.controller = { mode: "default", cfg: catalog.robots[type].cfg };
+        announce("Robot 已替换为 " + catalog.robots[type].label);
+        return true;
+      };
+
+      const applyPayload = (robot, key, subtype) => {
+        const replacing = state.selection.node && state.selection.category === "payload";
+        const reason = payloadAvailability(robot, key, subtype, replacing);
+        if (reason) {
+          announce(reason);
+          return false;
+        }
+        const entry = payloadEntry(key);
+        const nextPayload = {
+          type: key,
+          subtype,
+          controller: entry.cfg ? { mode: "default", cfg: entry.cfg } : null
+        };
+        if (replacing) {
+          const index = robot.payloads.findIndex(item => item.type === state.selection.key);
+          if (index < 0) return false;
+          robot.payloads.splice(index, 1, nextPayload);
+          announce("Payload 已替换为 " + entry.label);
+        } else {
+          robot.payloads.push(nextPayload);
+          announce(entry.label + " 已添加到 " + robotLabelWithIndex(robot));
+        }
+        return true;
+      };
+
+      const applyTool = (robot, key) => {
+        const replacing = state.selection.node && state.selection.category === "tool";
+        const reason = toolAvailability(robot, key, replacing);
+        if (reason) {
+          announce(reason);
+          return false;
+        }
+        if (replacing) {
+          const index = robot.tools.indexOf(state.selection.key);
+          if (index < 0) return false;
+          robot.tools.splice(index, 1, key);
+          announce("Tool 已替换为 " + catalog.tools[key].label);
+        } else {
+          robot.tools.push(key);
+          announce(catalog.tools[key].label + " 已添加到 " + robotLabelWithIndex(robot));
+        }
+        return true;
+      };
+
+      const applyCatalog = (group, key) => {
+        let changed = false;
+        if (group === "scene") {
+          if (state.sceneKey === key) return;
+          state.sceneKey = key;
+          announce(sceneEntry(key).label + (state.robots.length ? " 已替换，Robot 分支保持不变" : " 已选择"));
+          changed = true;
+        } else if (group === "robot") {
+          const replacing = state.selection.node && state.selection.category === "robot";
+          if (!replacing && !state.sceneKey) {
+            announce("请先选择 Scene");
+            return;
+          }
+          changed = replacing ? replaceRobot(selectedRobot(), key) : (addRobot(key), true);
+        } else if (group === "manipulator" || group === "sensor") {
+          const robot = activeRobot();
+          if (!robot) {
+            announce("请先选择一个 Robot 分支");
+            return;
+          }
+          changed = applyPayload(robot, key, group);
+        } else if (group === "tool") {
+          const robot = activeRobot();
+          if (!robot) {
+            announce("请先选择一个 Robot 分支");
+            return;
+          }
+          changed = applyTool(robot, key);
+        }
+        if (changed) {
+          const category = group === "manipulator" || group === "sensor" ? "payload" : group;
+          state.selection = { category };
+          if (category === "payload") state.payloadGroup = group;
+          state.validationErrors = [];
+          scheduleDraft();
+          render();
+          workspaceStatus.textContent = categoryLabels[category] + " 已更新 · 可继续添加";
+        }
+      };
+
+      const controllerForTarget = (robot, target) => {
+        if (target === "robot") {
+          return {
+            value: robot.controller,
+            defaultCfg: catalog.robots[robot.type].cfg
+          };
+        }
+        const type = target.startsWith("payload:") ? target.slice(8) : "";
+        const payload = robot.payloads.find(item => item.type === type && item.controller);
+        return payload ? { value: payload.controller, defaultCfg: payloadEntry(type).cfg } : null;
+      };
+
+      const setControllerMode = (target, mode) => {
+        const robot = activeRobot();
+        const controller = robot && controllerForTarget(robot, target);
+        if (!controller) return;
+        controller.value.mode = mode === "manual" ? "manual" : "default";
+        if (controller.value.mode === "default") controller.value.cfg = controller.defaultCfg;
+        state.selection = { category: "controller" };
+        scheduleDraft();
+        render();
+        if (mode === "manual") {
+          window.setTimeout(() => {
+            catalogBody.querySelector('[data-controller-input="' + CSS.escape(target) + '"]')?.focus();
+          }, 0);
+        }
+      };
+
+      const updateControllerCfg = (target, cfg) => {
+        const robot = activeRobot();
+        const controller = robot && controllerForTarget(robot, target);
+        if (!controller) return;
+        const normalized = String(cfg).trim();
+        if (!normalized) {
+          announce("Controller CFG 不能为空");
+          render();
+          return;
+        }
+        controller.value.mode = "manual";
+        controller.value.cfg = normalized;
+        state.selection = { category: "controller" };
+        scheduleDraft();
+        window.setTimeout(render, 0);
+        announce("Controller CFG 已更新");
+      };
+
+      const askConfirmation = ({
+        title,
+        message,
+        cancelLabel = "取消",
+        confirmLabel = "确认"
+      }) => new Promise(resolve => {
+        document.getElementById("confirmation-title").textContent = title;
+        document.getElementById("confirmation-message").textContent = message;
+        document.getElementById("confirmation-cancel").textContent = cancelLabel;
+        document.getElementById("confirmation-confirm").textContent = confirmLabel;
+        const onClose = () => {
+          confirmationDialog.removeEventListener("close", onClose);
+          resolve(confirmationDialog.returnValue === "confirm");
+        };
+        confirmationDialog.addEventListener("close", onClose);
+        confirmationDialog.showModal();
+      });
+
+      const deleteSelection = async selection => {
+        if (!selection || !selection.node) return;
+        if (selection.category === "scene") {
+          const confirmed = await askConfirmation({
+            title: "删除 Scene",
+            message: "删除 Scene 会同时清除所有 Robot、Payload、Tool 与 Controller。是否继续？",
+            confirmLabel: "删除全部"
+          });
+          if (!confirmed) return;
+          state.sceneKey = null;
+          state.robots = [];
+          state.activeRobotId = null;
+          state.selection = { category: "scene" };
+          announce("环境谱系已清空");
+        } else if (selection.category === "robot") {
+          const robot = state.robots.find(item => item.id === selection.robotId);
+          if (!robot) return;
+          if (robot.payloads.length || robot.tools.length) {
+            const confirmed = await askConfirmation({
+              title: "删除 Robot",
+              message: "删除该 Robot 会同时删除它的 Payload、Tool 与 Controller。是否继续？",
+              confirmLabel: "删除分支"
+            });
+            if (!confirmed) return;
+          }
+          state.robots = state.robots.filter(item => item.id !== robot.id);
+          state.activeRobotId = state.robots.at(-1)?.id || null;
+          state.selection = { category: "robot" };
+          announce("Robot 分支已删除");
+        } else if (selection.category === "payload") {
+          const robot = state.robots.find(item => item.id === selection.robotId);
+          if (!robot) return;
+          robot.payloads = robot.payloads.filter(item => item.type !== selection.key);
+          state.activeRobotId = robot.id;
+          state.selection = { category: "payload" };
+          announce("Payload 与其 Controller 已删除");
+        } else if (selection.category === "tool") {
+          const robot = state.robots.find(item => item.id === selection.robotId);
+          if (!robot) return;
+          robot.tools = robot.tools.filter(item => item !== selection.key);
+          state.activeRobotId = robot.id;
+          state.selection = { category: "tool" };
+          announce("Tool 已删除");
+        } else if (selection.category === "controller") {
+          const robot = state.robots.find(item => item.id === selection.robotId);
+          const controller = robot && controllerForTarget(robot, selection.controllerTarget);
+          if (!controller) return;
+          controller.value.mode = "default";
+          controller.value.cfg = controller.defaultCfg;
+          state.activeRobotId = robot.id;
+          state.selection = { category: "controller" };
+          announce("Controller 已恢复默认 CFG");
+        }
+        state.validationErrors = [];
+        scheduleDraft();
+        render();
+      };
+
+      const resetState = async () => {
+        if (hasWork()) {
+          const confirmed = await askConfirmation({
+            title: "重置环境",
+            message: "重置会清除当前 Scene 和所有 Robot 分支。是否继续？",
+            confirmLabel: "重置"
+          });
+          if (!confirmed) return;
+        }
+        state.taskName = "my_env";
+        state.sceneKey = null;
+        state.robots = [];
+        state.selection = { category: "scene" };
+        state.activeRobotId = null;
+        state.nextRobotNumber = 1;
+        state.payloadGroup = "manipulator";
+        state.validationErrors = [];
+        removeStorage(DRAFT_KEY);
+        render();
+        announce("已重置");
+      };
+
+      const copyText = async text => {
+        try {
+          await navigator.clipboard.writeText(text);
+          announce("JSON 已复制");
+        } catch (_error) {
+          const fallback = document.getElementById("copy-fallback");
+          fallback.hidden = false;
+          fallback.value = text;
+          fallback.focus();
+          fallback.select();
+          const copied = document.execCommand && document.execCommand("copy");
+          fallback.hidden = true;
+          announce(copied ? "JSON 已复制" : "浏览器未授予剪贴板权限");
+        }
+      };
+
+      const prepareCompletion = () => {
+        state.validationErrors = validateForExport();
+        render();
+        if (state.validationErrors.length) {
+          announce("请先完成配置审查");
+          document.querySelector(".review-panel").scrollIntoView({ behavior: "smooth", block: "center" });
+          return false;
+        }
+        const taskName = state.taskName.trim();
+        document.getElementById("completion-commands").textContent =
+          "python simulator.py --env " + taskName + "\n" +
+          "python simulator.py --diy-3d --device=cuda:0";
+        completionDialog.showModal();
+        return true;
+      };
+
+      const downloadJson = async () => {
+        state.validationErrors = validateForExport();
+        render();
+        if (state.validationErrors.length) {
+          announce("请先完成配置审查");
+          return false;
+        }
+        const bridge = pywebviewBridge();
+        if (bridge) {
+          try {
+            await bridge.submit_selection(exportPayload());
+            removeStorage(DRAFT_KEY);
+            announce("环境已保存，正在启动");
+            return true;
+          } catch (_error) {
+            announce("保存失败，请检查终端日志");
+            return false;
+          }
+        }
+        try {
+          const blob = new Blob([JSON.stringify(exportPayload(), null, 2)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = state.taskName.trim() + ".json";
+          document.body.append(link);
+          link.click();
+          link.remove();
+          URL.revokeObjectURL(url);
+          removeStorage(DRAFT_KEY);
+          announce("JSON 已生成");
+          return true;
+        } catch (_error) {
+          announce("下载失败，请使用复制 JSON");
+          return false;
+        }
+      };
+
+      document.addEventListener("error", event => {
+        const image = event.target;
+        if (!(image instanceof HTMLImageElement) || image.dataset.fallbackApplied) return;
+        image.dataset.fallbackApplied = "true";
+        image.hidden = true;
+        const fallback = document.createElement("span");
+        fallback.className = "asset-fallback";
+        fallback.setAttribute("role", "img");
+        fallback.setAttribute("aria-label", (image.alt || "素材") + "图片未能加载");
+        fallback.textContent = "素材不可用";
+        image.insertAdjacentElement("afterend", fallback);
+        announce("素材图片未能加载");
+      }, true);
+
+      document.querySelectorAll("[data-lineage-column]").forEach(button => {
+        button.addEventListener("click", () => setCategory(button.dataset.lineageColumn));
+      });
+
+      document.querySelectorAll("[data-catalog-category]").forEach(button => {
+        button.addEventListener("click", () => setCategory(button.dataset.catalogCategory));
+      });
+
+      lineageTree.addEventListener("click", event => {
+        const remove = event.target.closest('[data-action="remove-node"]');
+        if (remove) {
+          deleteSelection({
+            category: remove.dataset.category,
+            robotId: remove.dataset.robotId,
+            key: remove.dataset.key,
+            controllerTarget: remove.dataset.controllerTarget,
+            node: true
+          });
+          return;
+        }
+        const node = event.target.closest('[data-action="select-node"]');
+        if (!node) return;
+        if (node.dataset.category === "robot" && robotContextCategories.has(state.selection.category)) {
+          selectRobotContext(node.dataset.robotId);
+          return;
+        }
+        selectNode({
+          category: node.dataset.category,
+          robotId: node.dataset.robotId,
+          key: node.dataset.key,
+          controllerTarget: node.dataset.controllerTarget
+        });
+      });
+
+      catalogBody.addEventListener("click", event => {
+        const payloadTab = event.target.closest("[data-payload-group]");
+        if (payloadTab && !payloadTab.disabled) {
+          state.payloadGroup = payloadTab.dataset.payloadGroup;
+          renderCatalog();
+          return;
+        }
+        const action = event.target.closest('[data-action="apply-catalog"]');
+        if (action && !action.disabled) {
+          applyCatalog(action.dataset.group, action.dataset.key);
+          return;
+        }
+        const mode = event.target.closest('[data-action="controller-mode"]');
+        if (mode) setControllerMode(mode.dataset.target, mode.dataset.mode);
+      });
+
+      catalogBody.addEventListener("change", event => {
+        const input = event.target.closest("[data-controller-input]");
+        if (input) updateControllerCfg(input.dataset.controllerInput, input.value);
+      });
+
+      taskNameInput.addEventListener("input", () => {
+        state.taskName = taskNameInput.value;
+        state.validationErrors = [];
+        updateReview();
+        scheduleDraft();
+      });
+
+      document.querySelector("[data-delete-selected]").addEventListener("click", () => {
+        deleteSelection({ ...state.selection });
+      });
+      document.querySelector("[data-reset]").addEventListener("click", resetState);
+      document.querySelector("[data-complete-selection]").addEventListener("click", prepareCompletion);
+      document.querySelector("[data-copy-json]").addEventListener("click", () => {
+        copyText(JSON.stringify(exportPayload(), null, 2));
+      });
+      document.querySelector("[data-download-json]").addEventListener("click", downloadJson);
+      document.querySelector("[data-completion-copy]").addEventListener("click", () => {
+        copyText(JSON.stringify(exportPayload(), null, 2));
+      });
+      document.querySelector("[data-completion-download]").addEventListener("click", downloadJson);
+      document.querySelector("[data-completion-close]").addEventListener("click", () => completionDialog.close());
+      window.addEventListener("pywebviewready", updateWebviewActions);
+      updateWebviewActions();
+
+      window.addEventListener("resize", scheduleLineageFit);
+
+      document.getElementById("known-cfg-values").replaceChildren(
+        ...Object.values(catalog.robots).map(entry => entry.cfg)
+          .concat(Object.values(catalog.manipulators).map(entry => entry.cfg))
+          .map(cfg => {
+            const option = document.createElement("option");
+            option.value = cfg;
+            return option;
+          })
+      );
+
+      window.EnvDIY = {
+        actions: {
+          setCategory,
+          selectNode,
+          applyCatalog,
+          deleteSelection,
+          resetState,
+          setControllerMode,
+          updateControllerCfg
+        },
+        catalogSummary: () => ({
+          scenes: catalog.scenes.length,
+          robots: Object.keys(catalog.robots).length,
+          payloads: Object.keys(catalog.manipulators).length + Object.keys(catalog.sensors).length,
+          tools: Object.keys(catalog.tools).length
+        }),
+        debugState: () => cloneValue(state),
+        exportPayload
+      };
+
+      const draft = readStorage(DRAFT_KEY);
+      if (draft) {
+        try {
+          const snapshot = JSON.parse(draft);
+          askConfirmation({
+            title: "恢复未完成的环境",
+            message: "检测到上次未完成的 Env DIY 草稿。",
+            cancelLabel: "丢弃草稿",
+            confirmLabel: "恢复草稿"
+          }).then(confirmed => {
+            if (confirmed) {
+              applyStateSnapshot(snapshot);
+              render();
+              announce("已恢复草稿");
+            } else {
+              removeStorage(DRAFT_KEY);
+            }
+          });
+        } catch (_error) {
+          removeStorage(DRAFT_KEY);
+        }
+      }
+
+      render();
+    })();
+  </script>
+</body>
+</html>

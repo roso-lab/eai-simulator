@@ -601,7 +601,7 @@ def _choose_visual_diy(repo_root: Path):
     cmd = [
         sys.executable,
         "-m",
-        "EAI.hmrs_env.env_diy.window",
+        "EAI.hmrs_env.env_diy.webview_app",
         "--keyboard-preflight-output",
         str(output_path),
     ]
@@ -609,6 +609,14 @@ def _choose_visual_diy(repo_root: Path):
     source_root = str(repo_root / "source" / "EAI")
     existing_pythonpath = env.get("PYTHONPATH")
     env["PYTHONPATH"] = source_root if not existing_pythonpath else os.pathsep.join((source_root, existing_pythonpath))
+    if sys.platform.startswith("linux"):
+        environment_lib = str(Path(sys.prefix) / "lib")
+        existing_library_path = env.get("LD_LIBRARY_PATH")
+        env["LD_LIBRARY_PATH"] = (
+            environment_lib
+            if not existing_library_path
+            else os.pathsep.join((environment_lib, existing_library_path))
+        )
     subprocess.run(cmd, check=True, cwd=repo_root, env=env)
     if not output_path.exists():
         raise SystemExit(0)
