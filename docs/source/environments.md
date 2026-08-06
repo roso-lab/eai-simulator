@@ -186,7 +186,7 @@ python simulator.py --diy-3d --device=cuda:0
 
 > **持续优化中**：该入口适合开发、资产验证和控制器联调。插件布局、资产目录、下载状态和部分控制器接口可能随版本调整，建议每次运行前保留导出的 selection JSON。
 
-插件会在 Isaac Sim 启动后停靠在右侧面板。选择 `Scenes`、`Robots`、`Payloads` 和 `Tools` 后，可以在 Viewport 中用 transform gizmo 或数值字段编辑真实三维位置；`Snap` 使用碰撞几何吸附到表面，`spawn_pose` 中的高度和旋转会写入正式环境。浏览器教程与轻量窗口的 `visual.x/y` 只表示 2D 布局，不代表物理出生位置。
+插件会在 Isaac Sim 启动后停靠在右侧面板。选择 `Scenes`、`Robots`、`Payloads` 和 `Tools` 后，可以在 Viewport 中用 transform gizmo 或数值字段编辑真实三维位置；`Snap` 使用碰撞几何吸附到表面，`spawn_pose` 中的高度和旋转会写入正式环境。浏览器教程只展示对象所属关系，其中导出的 `visual.x/y` 是兼容占位值；轻量窗口的 `visual.x/y` 只表示 2D 布局。两者都不代表物理出生位置。
 
 UR5/Z1 属于 `Payloads → Manipulators`，必须挂载到兼容宿主，不能作为独立机器人拖动。移动宿主时附件随宿主移动；机械臂控制器和 ROS2 topic 的使用方式见[机械臂](ur5_control.md)。
 
@@ -194,7 +194,7 @@ UR5/Z1 属于 `Payloads → Manipulators`，必须挂载到兼容宿主，不能
 
 点击 `Run` 后，程序只使用一个 Isaac Sim AppLauncher：先销毁预览 Stage，再在同一个 Kit 进程中创建正式环境。某个机器人或附件生成失败时，其他已经成功的对象会保留；修正或下载依赖后可在原编辑器中重试。当前阶段只支持仿真运行前编辑，运行中的动态增删和移动属于后续功能。
 
-交互式浏览器教程位于 <a href="env_diy_tutorial.html">Env DIY 工作台</a>，其中的 `Browser 2D / Isaac Sim 3D` 模式切换用于区分布局演示和真实三维编辑器。
+交互式浏览器教程位于 <a href="env_diy_tutorial.html">Env DIY 工作台</a>。工作台通过 `Scene → Robot → Payload → Tool → Controller` 环境谱系引导配置并导出 selection JSON；如需编辑真实三维位置，请使用上述 `--diy-3d` 入口。
 
 ## 外部 Demo 接口
 
