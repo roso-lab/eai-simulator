@@ -23,7 +23,7 @@
 <p align="center">
   <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html"><strong>Get Started</strong></a> ·
   <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/"><strong>Documentation</strong></a> ·
-  <a href="#community--support"><strong>Community</strong></a>
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/community_en.html"><strong>Community</strong></a>
 </p>
 
 <p align="center">
@@ -37,10 +37,10 @@
 <td width="43%" valign="middle">
   <h3>Compose environments visually</h3>
   <p>Choose a scene, place heterogeneous robots, attach manipulators and sensors, and save the result as a reusable JSON environment. Env DIY supports lightweight composition and true 3D placement in Isaac Sim.</p>
-  <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html">Environment guide →</a></p>
+  <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html">Environment guide →</a> · <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/env_diy_tutorial.html">Interactive workbench →</a></p>
 </td>
 <td width="57%">
-  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html"><img src="docs/source/assets/media/eai_env_diy.gif" alt="Composing and running an environment with EAI Env DIY" width="100%"></a>
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/env_diy_tutorial.html"><img src="docs/source/assets/media/eai_env_diy.gif" alt="Composing and running an environment with EAI Env DIY" width="100%"></a>
 </td>
 </tr>
 <tr>
