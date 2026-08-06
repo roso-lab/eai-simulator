@@ -23,7 +23,7 @@
 <p align="center">
   <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html"><strong>快速开始</strong></a> ·
   <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/"><strong>完整文档</strong></a> ·
-  <a href="#社区与支持"><strong>社区</strong></a>
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/community.html"><strong>社区</strong></a>
 </p>
 
 <p align="center">
@@ -37,10 +37,10 @@
 <td width="43%" valign="middle">
   <h3>可视化组合仿真环境</h3>
   <p>选择场景、放置异构机器人、添加机械臂和传感器，再将结果保存为可复用的 JSON 环境。Env DIY 同时支持轻量组合与 Isaac Sim 中的真实三维布置。</p>
-  <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html">环境指南 →</a></p>
+  <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html">环境指南 →</a> · <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/env_diy_tutorial.html">交互式工作台 →</a></p>
 </td>
 <td width="57%">
-  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html"><img src="source/assets/media/eai_env_diy.gif" alt="使用 EAI Env DIY 组合并运行环境" width="100%"></a>
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/env_diy_tutorial.html"><img src="source/assets/media/eai_env_diy.gif" alt="使用 EAI Env DIY 组合并运行环境" width="100%"></a>
 </td>
 </tr>
 <tr>

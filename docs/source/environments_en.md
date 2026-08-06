@@ -186,7 +186,7 @@ python simulator.py --diy-3d --device=cuda:0
 
 > **Continuous optimization**: This entrance is suitable for development, asset verification and controller joint debugging. Plug-in layout, asset catalog, download status and some controller interfaces may be adjusted with versions. It is recommended to retain the exported selection JSON before each run.
 
-The plugin will be docked to the right panel when Isaac Sim is launched. After selecting `Scenes`, `Robots`, `Payloads` and `Tools`, the real 3D position can be edited in the Viewport with a transform gizmo or numeric field; `Snap` snaps to the surface using collision geometry, and the height and rotation in `spawn_pose` are written to the formal environment. The `visual.x/y` of the browser tutorial and lightweight window only represents the 2D layout and does not represent the physical birth position.
+The plugin will be docked to the right panel when Isaac Sim is launched. After selecting `Scenes`, `Robots`, `Payloads` and `Tools`, the real 3D position can be edited in the Viewport with a transform gizmo or numeric field; `Snap` snaps to the surface using collision geometry, and the height and rotation in `spawn_pose` are written to the formal environment. The browser tutorial only shows ownership relationships, and its exported `visual.x/y` values are compatibility placeholders; the lightweight window uses `visual.x/y` only for its 2D layout. Neither represents a physical spawn position.
 
 UR5/Z1 belongs under `Payloads > Manipulators`, must be mounted to a compatible host, and cannot be dragged as an independent robot. When the host moves, its attachment moves with it. For manipulator controllers and ROS2 topics, see [Manipulator Control](ur5_control_en.md).
 
@@ -194,7 +194,7 @@ You can download assets individually on the card before running, or you can use 
 
 After clicking `Run`, the program uses only one Isaac Sim AppLauncher: first destroy the preview stage, and then create the formal environment in the same Kit process. When a robot or attachment fails to be generated, other successful objects will be retained; you can try again in the original editor after correcting or downloading dependencies. At the current stage, only editing before simulation is supported. Dynamic addition, deletion and movement during operation are follow-up functions.
 
-The interactive browser tutorial is located in the <a href="env_diy_tutorial.html">Env DIY Workbench</a>, where the `Browser 2D / Isaac Sim 3D` mode switch is used to distinguish the layout demo from the real 3D editor.
+The interactive browser tutorial is available in the <a href="env_diy_tutorial.html">Env DIY Workbench</a>. It guides configuration and selection JSON export through the `Scene → Robot → Payload → Tool → Controller` lineage; use the `--diy-3d` entry point above to edit real 3D positions.
 
 ## External Demo interface
 
