@@ -17,6 +17,9 @@ setup(
             "interfaces/robots/*.yaml",
             "interfaces/sensors/*.yaml",
         ],
+        "EAI.hmrs_env.env_diy": [
+            "env_diy_app.html",
+        ],
     },
     python_requires=">=3.10",
     install_requires=[
@@ -24,6 +27,8 @@ setup(
         "skrl",
         "torch",
         "pyyaml",
+        "pywebview[qt]; platform_system == 'Linux'",
+        "pywebview; platform_system != 'Linux'",
     ],
     classifiers=[
         "Natural Language :: English",
