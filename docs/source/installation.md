@@ -63,6 +63,9 @@ conda activate env_isaaclab
 
 使用提供的安装脚本（推荐）：
 
+安装模式会检查 Qt xcb 平台插件所需的 `libxcb-cursor0`。如果系统尚未安装该依赖，
+脚本会通过 `sudo apt-get` 自动安装，并可能提示输入管理员密码。
+
 ```bash
 # 安装所有包
 ./tools/install_packages.sh
