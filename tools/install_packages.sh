@@ -6,7 +6,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 # EAI Simulator 包安装脚本
-# 此脚本会安装 source 目录下的所有 Python 包
+# 此脚本会安装 Qt 系统依赖和 source 目录下的所有 Python 包
 #
 # 用法:
 #   ./tools/install_packages.sh            # 安装所有包（静默模式）
@@ -36,6 +36,44 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# 安装 PyQt6 xcb 平台插件所需的 Ubuntu 系统依赖
+install_system_dependencies() {
+    local package="libxcb-cursor0"
+    local -a privilege_command=()
+
+    if command -v dpkg-query > /dev/null 2>&1 \
+        && dpkg-query -W -f='${Status}' "${package}" 2> /dev/null \
+            | grep -q "ok installed"; then
+        print_info "系统依赖 ${package} 已安装"
+        return 0
+    fi
+
+    if ! command -v apt-get > /dev/null 2>&1; then
+        print_error "未找到 apt-get，无法自动安装系统依赖 ${package}"
+        return 1
+    fi
+
+    if [ "${EUID}" -ne 0 ]; then
+        if ! command -v sudo > /dev/null 2>&1; then
+            print_error "安装 ${package} 需要 root 权限，但未找到 sudo"
+            return 1
+        fi
+        privilege_command=(sudo)
+    fi
+
+    print_info "正在安装系统依赖 ${package}..."
+    if ! "${privilege_command[@]}" apt-get update; then
+        print_error "更新 apt 软件包索引失败"
+        return 1
+    fi
+    if ! "${privilege_command[@]}" apt-get install -y "${package}"; then
+        print_error "系统依赖 ${package} 安装失败"
+        return 1
+    fi
+
+    print_info "系统依赖 ${package} 安装成功"
+}
+
 # 解析命令行参数
 VERBOSE=false
 UNINSTALL=false
@@ -62,6 +100,9 @@ for arg in "$@"; do
             echo "  - EAI"
             echo "  - EAI_assets"
             echo "  - EAI_hmrs"
+            echo ""
+            echo "安装模式还会检查系统依赖:"
+            echo "  - libxcb-cursor0"
             exit 0
             ;;
     esac
@@ -98,6 +139,9 @@ if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
     echo "  - EAI"
     echo "  - EAI_assets"
     echo "  - EAI_hmrs"
+    echo ""
+    echo "安装模式还会检查系统依赖:"
+    echo "  - libxcb-cursor0"
     exit 0
 fi
 
@@ -110,6 +154,14 @@ SOURCE_DIR="${PROJECT_ROOT}/source"
 if [ ! -d "${SOURCE_DIR}" ]; then
     print_error "source 目录不存在: ${SOURCE_DIR}"
     exit 1
+fi
+
+if [ "${UNINSTALL}" = false ]; then
+    if ! install_system_dependencies; then
+        print_error "系统依赖安装未完成，终止安装"
+        exit 1
+    fi
+    echo ""
 fi
 
 print_info "开始${ACTION} source 目录下的所有包..."
