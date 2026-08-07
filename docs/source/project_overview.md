@@ -118,7 +118,7 @@ eai-simulator/
 
 | Env DIY key | 机器人/对象 | 默认控制器 | 可选附件 | 常用入口 |
 | ---------- | ---------- | ---------- | -------- | -------- |
-| `carter` | Carter differential base | `CARTER_DIFF_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
+| `carter` | Carter differential base | `CARTER_DIFF_CFG` | GS-Hub, LiDAR, Z1 | JSON / Env DIY |
 | `pepper` | Pepper holonomic base | `PEPPER_HOLONOMIC_CFG` | - | JSON / Env DIY |
 | `go2` | Unitree Go2 | `GO2_VELOCITY_RSL_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
 | `b2` | Unitree B2 | `B2_VELOCITY_RSL_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |

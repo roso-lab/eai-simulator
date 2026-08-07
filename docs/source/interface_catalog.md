@@ -53,7 +53,7 @@ UR5 接口清单包含两个输入 topic 和两个输出 topic：
 | `ros.ur5.joint_states` | `/{robot}/ur5/joint_states` | 输出 |
 | `ros.ur5.ee_pose` | `/{robot}/ur5/ee_pose` | 输出 |
 
-这些接口适用于 Carter、Go2、B2、M20、Scout 和 Lite3。端点中的 `{robot}` 始终替换为 Env Builder 生成的实际实例名，例如 `carter_1`、`go2_1` 或 `m20_2`。接口目录和运行时注册都按场景中真正挂载 `ur5` 的实例展开，不会为未挂载机械臂的机器人创建 UR5 topic。
+这些接口适用于 Go2、B2、M20、Scout 和 Lite3。端点中的 `{robot}` 始终替换为 Env Builder 生成的实际实例名，例如 `go2_1` 或 `m20_2`。接口目录和运行时注册都按场景中真正挂载 `ur5` 的实例展开，不会为未挂载机械臂的机器人创建 UR5 topic。
 
 UR5 topic 由 Isaac Sim ROS2 Bridge 的原生 OmniGraph 节点直接创建，命名层级与 GS-Hub 保持一致：机器人实例名位于一级 namespace，设备名 `ur5` 位于二级 namespace。机械臂接口不使用 `tmp/` 文件，也不需要独立 Python bridge。
 

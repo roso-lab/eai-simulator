@@ -56,15 +56,6 @@ class Ur5MountProfile:
 _YAW_PI = (0.0, 0.0, 0.0, 1.0)
 
 UR5_MOUNT_PROFILES = {
-    "carter": Ur5MountProfile(
-        robot_type="carter",
-        mount_body_path="Carter/GS_Hub_chassis_link",
-        mount_position=(0.0, 0.0, 0.414),
-        mount_rotation=_YAW_PI,
-        visual_scale=1.0,
-        mass_scale=0.05,
-        enable_self_collisions=False,
-    ),
     "go2": Ur5MountProfile(
         robot_type="go2",
         mount_body_path="base",

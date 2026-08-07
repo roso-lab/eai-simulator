@@ -120,7 +120,7 @@ Robot choices are defined by `source/EAI/EAI/hmrs_env/env_diy/flow.py::ROBOT_KEY
 
 | Env DIY key | Robot / object | Default controller | Optional payloads | Common entry point |
 | ----------- | -------------- | ------------------ | ----------------- | ------------------ |
-| `carter` | Carter differential base | `CARTER_DIFF_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
+| `carter` | Carter differential base | `CARTER_DIFF_CFG` | GS-Hub, LiDAR, Z1 | JSON / Env DIY |
 | `pepper` | Pepper holonomic base | `PEPPER_HOLONOMIC_CFG` | - | JSON / Env DIY |
 | `go2` | Unitree Go2 | `GO2_VELOCITY_RSL_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
 | `b2` | Unitree B2 | `B2_VELOCITY_RSL_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |

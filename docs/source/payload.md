@@ -58,7 +58,7 @@ GS-Hub 只有在同一宿主添加 `ros` 时才启用相机、点云和里程计
 |---|---|---|---|
 | GS-Hub | Sensor | Carter、Go2、B2、M20、Scout、Lite3 | 无 |
 | LiDAR | Sensor | Carter、Go2、B2、M20、Lite3 | 无 |
-| UR5 | Manipulator | Carter、Go2、B2、M20、Scout、Lite3 | `UR5_IK_CFG` |
+| UR5 | Manipulator | Go2、B2、M20、Scout、Lite3 | `UR5_IK_CFG` |
 | Z1 | Manipulator | Carter、Go2、B2、M20、Scout、Lite3 | `Z1_IK_CFG` |
 
 同一宿主可以同时安装兼容的传感器和一种机械臂，但不能同时安装 UR5 与 Z1。每个实例的 ROS2 namespace 使用 Builder 生成的机器人名称，例如 `go2_1`、`m20_1`；多机器人之间的传感器数据和机械臂命令相互隔离。

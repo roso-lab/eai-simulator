@@ -130,7 +130,7 @@ Payloads
 Tools                           # ROS, Keyboard
 ```
 
-The UR5 and Z1 are robotic arms that must be mounted on a host robot, they are not sensors, and they are not robots that can be spawned independently. `ur5` or `z1` payloads can be added in Env DIY for Carter, Go2, B2, M20, Scout and Lite3. UR5 and Z1 cannot be mounted at the same time on the same robot; UI, JSON parsing, storage loading and Builder all check this mutual exclusion rule.
+The UR5 and Z1 are robotic arms that must be mounted on a host robot; they are not sensors or robots that can be spawned independently. In Env DIY, Go2, B2, M20, Scout and Lite3 support the `ur5` payload, while Carter, Go2, B2, M20, Scout and Lite3 support the `z1` payload. UR5 and Z1 cannot be mounted at the same time on the same robot; UI, JSON parsing, storage loading and Builder all check this mutual exclusion rule.
 
 Builder selects the mount profile according to the robot type, creates the robotic arm as an independent `<robot>_arm` articulation, then fixes it to the host through a universal FixedJoint, and automatically loads `UR5_IK_CFG` or `Z1_IK_CFG`. The simulator only creates corresponding ROS2 OmniGraph for the actual mounted instance. UR5 offers:
 

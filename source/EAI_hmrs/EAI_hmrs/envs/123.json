@@ -16,7 +16,7 @@
       "visual": {"x": 0.5981, "y": 0.3214}
     },
     {
-      "attachments": [{"controller": {"cfg": "UR5_IK_CFG", "mode": "default"}, "type": "ur5"}],
+      "attachments": [],
       "controller": {"cfg": "CARTER_DIFF_CFG", "mode": "default"},
       "type": "carter",
       "visual": {"x": 0.1326, "y": 0.4835}

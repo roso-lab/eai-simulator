@@ -156,7 +156,8 @@ def controller_cfg_names() -> tuple[str, ...]:
 
 def _attachment_entries() -> tuple[AttachmentCatalogEntry, ...]:
     gshub_hosts = ("carter", "go2", "b2", "m20", "scout", "lite3")
-    manipulator_hosts = ("carter", "go2", "b2", "m20", "scout", "lite3")
+    ur5_hosts = ("go2", "b2", "m20", "scout", "lite3")
+    z1_hosts = ("carter", "go2", "b2", "m20", "scout", "lite3")
     return (
         AttachmentCatalogEntry(
             name="gshub",
@@ -176,14 +177,14 @@ def _attachment_entries() -> tuple[AttachmentCatalogEntry, ...]:
             name="ur5",
             asset_cfg="MountedUr5ArmCfg",
             controller_cfg="UR5_IK_CFG",
-            supported_robots=manipulator_hosts,
+            supported_robots=ur5_hosts,
             category="manipulator",
         ),
         AttachmentCatalogEntry(
             name="z1",
             asset_cfg="MountedZ1ArmCfg",
             controller_cfg="Z1_IK_CFG",
-            supported_robots=manipulator_hosts,
+            supported_robots=z1_hosts,
             category="manipulator",
         ),
     )
