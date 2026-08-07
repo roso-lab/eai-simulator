@@ -63,6 +63,10 @@ conda activate env_isaaclab
 
 Use the provided installation script (recommended):
 
+In installation mode, the script checks for `libxcb-cursor0`, which is required by the Qt xcb
+platform plugin. If it is missing, the script installs it with `sudo apt-get` and may prompt for
+an administrator password.
+
 ```bash
 # Install all packages
 ./tools/install_packages.sh
