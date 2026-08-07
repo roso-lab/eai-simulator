@@ -11,7 +11,6 @@
 <p align="center">
   <a href="https://releases.ubuntu.com/22.04/"><img src="https://img.shields.io/badge/platform-linux--64-orange.svg" alt="Platform: Linux x86-64"></a>
   <a href="https://docs.isaacsim.omniverse.nvidia.com/5.1.0/index.html"><img src="https://img.shields.io/badge/Isaac%20Sim-5.1-76B900.svg" alt="Isaac Sim 5.1"></a>
-  <a href="https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0"><img src="https://img.shields.io/badge/release-v0.1.0-007ec6.svg" alt="Release: v0.1.0"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
 
@@ -23,7 +22,7 @@
 <p align="center">
   <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html"><strong>Get Started</strong></a> ·
   <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/"><strong>Documentation</strong></a> ·
-  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/community_en.html"><strong>Community</strong></a>
+  <a href="#community--support"><strong>Community</strong></a>
 </p>
 
 <p align="center">
@@ -35,22 +34,12 @@
 <table>
 <tr>
 <td width="43%" valign="middle">
-  <h3>Compose environments visually</h3>
-  <p>Choose a scene, place heterogeneous robots, attach manipulators and sensors, and save the result as a reusable JSON environment. Env DIY supports lightweight composition and true 3D placement in Isaac Sim.</p>
-  <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html">Environment guide →</a> · <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/env_diy_tutorial.html">Interactive workbench →</a></p>
+  <h3>World, agent, controller — independently composed</h3>
+  <p>仿真世界定义、异构智能体配置、控制与感知接口——三者独立设计、独立组合。预置丰富的机器人、传感器和控制器，同时每个层面暴露标准接口，让外部算法和自定义 payload 解耦接入，不修改核心即可扩展。</p>
+  <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html">Environment guide →</a></p>
 </td>
 <td width="57%">
-  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/env_diy_tutorial.html"><img src="docs/source/assets/media/eai_env_diy.gif" alt="Composing and running an environment with EAI Env DIY" width="100%"></a>
-</td>
-</tr>
-<tr>
-<td width="43%" valign="middle">
-  <h3>Bring heterogeneous agents together</h3>
-  <p>Run humans, legged robots, mobile bases, aerial robots, and robot-manipulator systems in one environment through consistent entity, controller, and attachment definitions.</p>
-  <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/project_overview.html">Explore the platform →</a></p>
-</td>
-<td width="57%">
-  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/project_overview.html"><img src="docs/source/assets/media/eai-keyboard.gif" alt="Controlling heterogeneous EAI agents in one simulation" width="100%"></a>
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html"><img src="docs/source/assets/media/eai_env_diy.gif" alt="Composing and running an environment with EAI Env DIY" width="100%"></a>
 </td>
 </tr>
 <tr>
@@ -70,7 +59,7 @@
   <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html#fire-rescue-demo">Run an experiment →</a></p>
 </td>
 <td width="57%">
-  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html#nav2"><img src="docs/source/assets/media/eai-nav.gif" alt="Carter executing Nav2 navigation in the Factory scene" width="100%"></a>
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html#fire-rescue-demo"><img src="docs/source/assets/media/demo.gif" alt="EAI Simulator running heterogeneous robots and tasks" width="100%"></a>
 </td>
 </tr>
 </table>
@@ -87,11 +76,6 @@ The README summarizes the supported surface. Use the detailed guides as the sour
 - **[Build Environments](https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html):** JSON environments, Env DIY, 3D placement, and payloads.
 - **[ROS2 Interfaces](https://www.rosolab.com/roso-lab/eai-simulator/docs/interface_catalog.html):** command input, sensor output, Nav2, and manipulators.
 - **[Controller Development](https://www.rosolab.com/roso-lab/eai-simulator/docs/controller_guide.html):** traditional, RL, IK, and external controller integration.
-
-## Releases & Roadmap
-
-- **[v0.1.0 Release](https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0):** review the capabilities, requirements, and known considerations included in the current published version.
-- **[Roadmap](https://www.rosolab.com/roso-lab/eai-simulator/docs/roadmap.html):** preview planned capabilities that are still under development and are not part of the current release.
 
 ## Quick Start
 
