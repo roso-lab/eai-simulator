@@ -140,7 +140,6 @@ ROBOT_OPTIONS = [
         "CARTER_DIFF_CFG",
         0.2,
         "Carter/GS_Hub_chassis_link",
-        ur5_mount_profile=UR5_MOUNT_PROFILES["carter"],
         z1_mount_profile=Z1_MOUNT_PROFILES["carter"],
         gshub_offset=(0.026, 0.0, 0.418),
         lidar_mount_link="Carter/GS_Hub_chassis_link",
