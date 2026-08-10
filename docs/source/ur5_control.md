@@ -63,7 +63,7 @@ python simulator.py \
 
 | 机械臂 | 支持的宿主机器人 | 额外接口 |
 | --- | --- | --- |
-| UR5 | Carter、Go2、B2、M20、Scout、Lite3 | 无 |
+| UR5 | Go2、B2、M20、Scout、Lite3 | 无 |
 | Z1 | Carter、Go2、B2、M20、Scout、Lite3 | 独立夹爪 topic |
 
 同一个机器人不能同时挂载 UR5 和 Z1；不同机器人可以分别选择不同机械臂：

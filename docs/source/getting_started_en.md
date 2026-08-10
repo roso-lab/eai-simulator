@@ -45,11 +45,11 @@ find source/EAI_hmrs/EAI_hmrs/envs -maxdepth 1 -name '*.json' -printf '%f\n' | s
 
 | Command | Interface | Applicable scenarios | Pose source |
 |---|---|---|---|
-| `python simulator.py` | Lightweight visual window or terminal fast (select `1`/`2` after launch) | Quickly combine and save JSON | 2D `visual.x/y` or Builder default location |
+| `python simulator.py` | Env DIY startup menu (select `1`/`2`/`3` after launch) | Choose the lightweight window, terminal setup, or 3D editor | Depends on the selected mode |
 | `python simulator.py --diy-3d` | Isaac Sim right side Env DIY 3D plug-in | Requires real collision surface, height and 3D drag | Real `spawn_pose` |
 | `python simulator.py --env=<name>` | Go directly to the official simulation | Start a saved JSON environment | `spawn_pose` in JSON or the default location |
 
-`--diy-3d` is an independent entry and will not add a third item to the two prompts that do not specify `--env`. After completing the pre-run editing, click `Run` in the plug-in, and the program will switch from the preview stage to the formal environment in the same Isaac Sim/Kit process, and Isaac Sim will not be closed and reopened.
+When `--env` is omitted, select `3` from the startup menu to open the 3D editor; `--diy-3d` remains available as a direct entry point. After completing the pre-run editing, click `Run` in the plug-in, and the program will switch from the preview stage to the formal environment in the same Isaac Sim/Kit process, and Isaac Sim will not be closed and reopened.
 
 > **Current status**: `--diy-3d` is still in the continuous optimization stage. It is recommended for development, asset verification and process joint debugging; plug-in layout, asset catalog and some controller interfaces may be adjusted with the version. Please keep the exported selection JSON for formal experiments.
 

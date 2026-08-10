@@ -63,7 +63,7 @@ The control path only requires the main `simulator.py` process. Do not start ano
 
 | Robot Arm | Supported Host Robots | Additional Interfaces |
 | --- | --- | --- |
-| UR5 | Carter, Go2, B2, M20, Scout, Lite3 | None |
+| UR5 | Go2, B2, M20, Scout, Lite3 | None |
 | Z1 | Carter, Go2, B2, M20, Scout, Lite3 | Independent gripper topic |
 
 The same robot cannot mount UR5 and Z1 at the same time; different robots can select different robotic arms:
