@@ -22,22 +22,6 @@ This document details how to install and configure the EAI platform.
 5. **Operating system**:
    - Linux (Ubuntu 22.04 recommended)
 
-### inotify file listening capacity
-
-Isaac Sim creates file listeners for a number of extensions and asset catalogs. Run once after first installation:
-
-```bash
-sudo ./tools/configure_inotify_limits.sh
-sysctl fs.inotify.max_user_watches \
-       fs.inotify.max_user_instances \
-       fs.inotify.max_queued_events
-```
-
-The tool retains the already higher limit on the host and persists the configuration to
-`/etc/sysctl.d/90-eai-isaac-sim-inotify.conf`. in the log
-`Failed to create change watch ... errno=28` represents the current user's inotify
-Listening resources are exhausted, which does not mean that disk space or disk inodes are full.
-
 ### Optional
 
 - **ROS2 Humble**: If you need to use GS-Hub sensor and ROS2 navigation
