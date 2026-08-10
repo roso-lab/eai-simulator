@@ -349,6 +349,18 @@ def _create_rtx_lidar_from_downloaded_asset(stage, lidar_root_path: str) -> str 
     return _find_rtx_lidar_sensor_path(stage, lidar_root_path)
 
 
+def spawn_ros_lidar_preview_visual(stage, specific_path: str) -> str:
+    """Add the visible HESAI model to a preview-only ROS LiDAR shell."""
+    lidar_prim_path = f"{str(specific_path).rstrip('/')}/{_ROS_LIDAR_SENSOR_SUFFIX}"
+    sensor_path = _create_rtx_lidar_from_downloaded_asset(stage, lidar_prim_path)
+    if not sensor_path:
+        raise RuntimeError(
+            "LiDAR preview model could not be loaded at "
+            f"{lidar_prim_path}; check network access or EAI_LIDAR_ASSET_CACHE"
+        )
+    return sensor_path
+
+
 def _create_rtx_lidar_render_product(stage, lidar_prim_path: str) -> str | None:
     try:
         from isaacsim.core.experimental.utils.app import enable_extension

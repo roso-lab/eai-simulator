@@ -15,6 +15,62 @@ LIDAR_SUPPORTED_ROBOTS = frozenset(catalog.attachment_entry("lidar").supported_r
 TERMINAL_CONTROLLER_STEP = 8
 SCENE_CHOICES = catalog.SCENE_CHOICES
 ROBOT_LABELS = catalog.ROBOT_LABELS
+_TERMINAL_RULE = "-" * 72
+_TERMINAL_STEP_COUNT = 5
+
+
+def _print_terminal_banner(print_func) -> None:
+    print_func("")
+    print_func("=" * 72)
+    print_func("  EAI ENV DIY  |  终端快速配置")
+    print_func("  Scenes  >  Robots  >  Payloads  >  Tools  >  Controllers")
+    print_func("=" * 72)
+    print_func("  Enter 使用默认值或跳过可选项，b 返回上一步")
+
+
+def _print_terminal_step(print_func, number: int, title: str, detail: str) -> None:
+    print_func(f"\n[{number}/{_TERMINAL_STEP_COUNT}] {title}")
+    print_func(_TERMINAL_RULE)
+    print_func(f"  {detail}")
+
+
+def _print_terminal_subsection(print_func, title: str) -> None:
+    print_func(f"\n  {title}")
+    print_func("  " + "-" * 36)
+
+
+def _print_choice_grid(items: list[str] | tuple[str, ...], *, print_func) -> None:
+    if not items:
+        return
+    row_count = (len(items) + 1) // 2
+    column_width = max(len(item) for item in items) + 4
+    for row in range(row_count):
+        cells = []
+        for index in (row, row + row_count):
+            if index < len(items):
+                cells.append(items[index].ljust(column_width))
+        print_func("  " + "".join(cells).rstrip())
+
+
+def _print_selection_summary(
+    scene_key: str,
+    robots: list[RobotSelection],
+    *,
+    print_func,
+) -> None:
+    scene_label = next(
+        (label for key, label in SCENE_CHOICES if key == scene_key),
+        scene_key,
+    )
+    print_func("\n配置预览")
+    print_func(_TERMINAL_RULE)
+    print_func(f"  Scene    {scene_label} ({scene_key})")
+    print_func(f"  Robots   {len(robots)}")
+    for index, robot in enumerate(robots, start=1):
+        payloads = ", ".join(item.type for item in robot.attachments) or "none"
+        print_func(f"    {index:>2}. {robot.type}_{index}")
+        print_func(f"        Payloads    {payloads}")
+        print_func(f"        Controller  {robot.controller.cfg or 'none'}")
 
 
 @dataclass(frozen=True)
@@ -89,7 +145,7 @@ def choose_terminal_interactive_selection(
     input_func=input,
     print_func=print,
 ) -> InteractiveSelection | None:
-    print_func("\n未指定 --env，进入 EAI 交互式环境选择。")
+    _print_terminal_banner(print_func)
     step = start_step
     scene_key: str | None = None
     robots: list[RobotSelection] = []
@@ -130,7 +186,13 @@ def choose_terminal_interactive_selection(
             continue
 
         if step == 2:
-            print_func("\nPayloads / Manipulators")
+            _print_terminal_step(
+                print_func,
+                3,
+                "Payloads / 载荷",
+                "先配置机械臂，再配置传感器",
+            )
+            _print_terminal_subsection(print_func, "Manipulators / 机械臂")
             updated = _choose_attachments(
                 "UR5",
                 "ur5",
@@ -162,7 +224,7 @@ def choose_terminal_interactive_selection(
             continue
 
         if step == 4:
-            print_func("\nPayloads / Sensors")
+            _print_terminal_subsection(print_func, "Sensors / 传感器")
             updated = _choose_attachments(
                 "GSHub",
                 "gshub",
@@ -193,7 +255,12 @@ def choose_terminal_interactive_selection(
             continue
 
         if step == 6:
-            print_func("\nTools")
+            _print_terminal_step(
+                print_func,
+                4,
+                "Tools / 工具",
+                "为选中的机器人启用外部控制工具",
+            )
             updated = _choose_attachments(
                 "ROS tool",
                 "ros",
@@ -224,6 +291,12 @@ def choose_terminal_interactive_selection(
             step = TERMINAL_CONTROLLER_STEP
             continue
 
+        _print_terminal_step(
+            print_func,
+            5,
+            "Controllers / 控制器",
+            "保留默认 cfg，或按对象单独修改",
+        )
         updated = _maybe_override_controllers(
             before_controller_override,
             input_func=input_func,
@@ -234,15 +307,19 @@ def choose_terminal_interactive_selection(
             continue
         if scene_key is None:
             raise RuntimeError("Scene was not selected.")
+        _print_selection_summary(scene_key, updated, print_func=print_func)
         return InteractiveSelection(scene_key=scene_key, robots=tuple(updated))
 
 
 def _choose_scene(*, allow_back: bool, input_func, print_func) -> str | None:
-    print_func("\n请选择场景:")
-    for index, (_key, label) in enumerate(SCENE_CHOICES, start=1):
-        print_func(f"  {index}. {label}")
+    _print_terminal_step(print_func, 1, "Scenes / 场景", "选择仿真环境")
+    options = tuple(
+        f"{index:>2}. {label}"
+        for index, (_key, label) in enumerate(SCENE_CHOICES, start=1)
+    )
+    _print_choice_grid(options, print_func=print_func)
     while True:
-        raw = input_func(f"输入编号 [1-{len(SCENE_CHOICES)}]，默认 1: ").strip()
+        raw = input_func(f"\n选择场景 [1-{len(SCENE_CHOICES)}] (默认 1): ").strip()
         if allow_back and is_back_token(raw):
             return None
         if not raw:
@@ -250,19 +327,27 @@ def _choose_scene(*, allow_back: bool, input_func, print_func) -> str | None:
         try:
             value = int(raw)
         except ValueError:
-            print_func("请输入数字编号。")
+            print_func("  ! 请输入数字编号。")
             continue
         if 1 <= value <= len(SCENE_CHOICES):
             return SCENE_CHOICES[value - 1][0]
-        print_func("编号超出范围。")
+        print_func("  ! 编号超出范围。")
 
 
 def _choose_robot_digits(*, input_func, print_func) -> tuple[str, ...] | None:
-    print_func("\n请选择机器人，输入数字编号，多个用空格分隔。")
-    for index, key in enumerate(ROBOT_KEYS, start=1):
-        print_func(f"  {index:>2}. {ROBOT_LABELS.get(key, key)}")
+    _print_terminal_step(
+        print_func,
+        2,
+        "Robots / 机器人",
+        "可多选，使用空格分隔编号",
+    )
+    options = tuple(
+        f"{index:>2}. {ROBOT_LABELS.get(key, key)}"
+        for index, key in enumerate(ROBOT_KEYS, start=1)
+    )
+    _print_choice_grid(options, print_func=print_func)
     while True:
-        raw = input_func("输入机器人编号（例如 1 11），默认 1: ").strip()
+        raw = input_func("\n选择机器人 (例如 1 11，默认 1): ").strip()
         if not raw:
             raw = "1"
         if is_back_token(raw):
@@ -270,7 +355,7 @@ def _choose_robot_digits(*, input_func, print_func) -> tuple[str, ...] | None:
         try:
             return parse_robot_digit_selection(raw)
         except ValueError as exc:
-            print_func(f"输入无效: {exc}")
+            print_func(f"  ! 输入无效: {exc}")
 
 
 def _choose_attachments(
@@ -290,14 +375,16 @@ def _choose_attachments(
             and any(item.type in {"ur5", "z1"} for item in robot.attachments)
         )
     ]
+    _print_terminal_subsection(print_func, label)
     if not candidates:
-        print_func(f"\n没有可装配 {label} 的机器人。")
+        print_func("    无兼容机器人，已跳过。")
         return robots
-    print_func(f"\n可装配 {label} 的机器人:")
     for index, robot in candidates:
-        print_func(f"  {index}. {robot.type}_{index}")
+        robot_name = f"{robot.type}_{index}"
+        robot_label = ROBOT_LABELS.get(robot.type, robot.type)
+        print_func(f"    [{index:>2}] {robot_name:<18} {robot_label}")
     while True:
-        raw = input_func(f"输入需要装配 {label} 的机器人编号，空为不装配: ").strip()
+        raw = input_func(f"  装配 {label} 到 (空为跳过): ").strip()
         if not raw:
             return robots
         if is_back_token(raw):
@@ -305,11 +392,11 @@ def _choose_attachments(
         try:
             selected = _parse_attachment_indices(raw)
         except ValueError:
-            print_func("请输入编号，多个编号用空格或逗号分隔。")
+            print_func("    ! 请输入编号，多个编号用空格或逗号分隔。")
             continue
         valid = {index for index, _robot in candidates}
         if not selected <= valid:
-            print_func("编号包含不可装配的机器人。")
+            print_func("    ! 编号包含不可装配的机器人。")
             continue
         updated = []
         for index, robot in enumerate(robots, start=1):
@@ -321,6 +408,12 @@ def _choose_attachments(
             updated.append(
                 RobotSelection(robot.type, robot.controller, robot.visual, tuple(attachments), robot.spawn_pose)
             )
+        selected_names = [
+            f"{robot.type}_{index}"
+            for index, robot in enumerate(robots, start=1)
+            if index in selected
+        ]
+        print_func(f"    已选择: {', '.join(selected_names)}")
         return updated
 
 
@@ -341,21 +434,27 @@ def _maybe_override_controllers(
     if not should_override:
         return robots
 
-    print_func("\n可用 controller cfg:")
-    for name in controller_cfg_names():
-        print_func(f"  - {name}")
+    _print_terminal_subsection(print_func, "可用 controller cfg")
+    cfg_options = tuple(f"- {name}" for name in controller_cfg_names())
+    _print_choice_grid(cfg_options, print_func=print_func)
     updated = list(robots)
     while True:
         options: list[tuple[str, int, str | None]] = []
-        print_func("\n可修改 controller 的对象:")
+        _print_terminal_subsection(print_func, "可修改的对象")
         display_index = 1
         for robot_index, robot in enumerate(updated):
-            print_func(f"  {display_index}. {robot.type}_{robot_index + 1} base ({robot.controller.cfg})")
+            print_func(
+                f"    [{display_index:>2}] {robot.type}_{robot_index + 1} base "
+                f"({robot.controller.cfg})"
+            )
             options.append(("robot", robot_index, None))
             display_index += 1
             for attachment in robot.attachments:
                 if attachment.controller is not None:
-                    print_func(f"  {display_index}. {robot.type}_{robot_index + 1} {attachment.type} ({attachment.controller.cfg})")
+                    print_func(
+                        f"    [{display_index:>2}] {robot.type}_{robot_index + 1} "
+                        f"{attachment.type} ({attachment.controller.cfg})"
+                    )
                     options.append(("attachment", robot_index, attachment.type))
                     display_index += 1
         raw = input_func("输入要修改的对象编号，空为完成: ").strip()
@@ -366,16 +465,16 @@ def _maybe_override_controllers(
         try:
             target = int(raw)
         except ValueError:
-            print_func("请输入数字编号。")
+            print_func("  ! 请输入数字编号。")
             continue
         if not (1 <= target <= len(options)):
-            print_func("编号超出范围。")
+            print_func("  ! 编号超出范围。")
             continue
         cfg_name = input_func("输入新的 cfg 名称: ").strip()
         if is_back_token(cfg_name):
             continue
         if cfg_name not in controller_cfg_names():
-            print_func(f"未知 cfg: {cfg_name}")
+            print_func(f"  ! 未知 cfg: {cfg_name}")
             continue
         kind, robot_index, attachment_type = options[target - 1]
         robot = updated[robot_index]
@@ -424,7 +523,7 @@ def _ask_yes_no_or_back(prompt: str, *, default: bool, input_func, print_func) -
             return True
         if raw in {"n", "no"}:
             return False
-        print_func("请输入 y、n 或 b。")
+        print_func("  ! 请输入 y、n 或 b。")
 
 
 def interactive_selection_to_dict(selection: InteractiveSelection) -> dict[str, Any]:

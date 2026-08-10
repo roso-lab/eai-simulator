@@ -17,13 +17,17 @@
 # 字段说明：
 #   motion_model   : amcl 运动模型 —— differential(差速) 或 omni(全向)
 #   robot_radius   : costmap 碰撞半径 (m)
-#   lidar_xyz      : GSHub 雷达相对 base 的安装偏移 [x,y,z] (m)，用于 base_link→lidar_link 静态 TF
-#   lidar_rpy      : GSHub 雷达相对 base 的姿态 [roll,pitch,yaw] (rad)，Carter 的 mid360 约下倾 19.4°
+#   nav_base_offset_xyz : 仿真车体原点到 Nav2 运动学基点的车体系偏移 (m)
+#   footprint      : 可选，Nav2 运动学基点坐标系下的底盘轮廓；设置后替代 robot_radius
+#   sensor_mounts  : 每种传感器相对 base 的安装位姿；gshub 与独立 lidar 必须分别标定
+#   lidar_xyz/rpy  : 旧版 GS-Hub 标定兼容字段；新配置由 sensor_mounts 优先覆盖
 #   max_vel_x / max_vel_theta : 最大线/角速度
 #   acc_lim_x / acc_lim_theta : 线/角加速度上限
 #   min_vel_x      : 最小线速度（差速 0；全向可负，允许后退）
 #   min_speed_xy   : DWB 最小平移速度模长，不能为负；Go2 可倒车时仍保持 0
 #   xy/yaw_goal_tolerance, progress_* : 可选 Nav2 controller 调优参数；未填则用 Carter 验证默认值
+#   controller_plugin / planner_plugin : 可选车型级 Nav2 插件；Ackermann 车型不能使用原地旋转式 DWB 路径
+#   minimum_turning_radius : Ackermann 最小转弯半径 (m)
 #   inflation_radius : 可选 costmap 膨胀半径；未填则取 max(0.55, robot_radius)
 #   scan_z_min/max : 点云→激光的高度切片（lidar_link 系，排地面/天花板）
 #   scan_range_min : 点云→激光的最小有效距离，至少覆盖机器人本体半径，过滤自体回波
@@ -33,6 +37,9 @@ robot_profiles:
     robot_radius: 0.35
     lidar_xyz: [0.026, 0.0, 0.418]
     lidar_rpy: [0.0, 0.339, 0.0]
+    sensor_mounts:
+      gshub: {xyz: [0.026, 0.0, 0.418], rpy: [0.0, 0.339, 0.0]}
+      lidar: {xyz: [0.026, 0.0, 0.444862], rpy: [0.0, 0.0, 0.0]}
     max_vel_x: 0.8
     max_vel_theta: 1.5
     acc_lim_x: 2.5
@@ -47,6 +54,9 @@ robot_profiles:
     robot_radius: 0.30
     lidar_xyz: [0.026, 0.0, 0.0]
     lidar_rpy: [0.0, 0.339, 0.0]
+    sensor_mounts:
+      gshub: {xyz: [0.026, 0.0, 0.0], rpy: [0.0, 0.339, 0.0]}
+      lidar: {xyz: [0.22631, -0.003, 0.136534], rpy: [0.0, 0.0, 0.0]}
     max_vel_x: 1.0
     max_vel_theta: 1.5
     acc_lim_x: 2.5
@@ -68,11 +78,17 @@ robot_profiles:
     robot_radius: 0.50
     lidar_xyz: [0.36723, 0.0, 0.223494]
     lidar_rpy: [0.0, 0.339, 0.0]
+    sensor_mounts:
+      gshub: {xyz: [0.36723, 0.0, 0.223494], rpy: [0.0, 0.339, 0.0]}
+      lidar: {xyz: [0.36723, 0.0, 0.2902], rpy: [0.0, 0.0, 0.0]}
     max_vel_x: 1.0
     max_vel_theta: 1.2
     acc_lim_x: 2.0
     acc_lim_theta: 3.0
-    min_vel_x: -0.5
+    # The deployed B2 locomotion policy does not produce useful reverse motion.
+    # Keep DWB forward-only so side/rear goals rotate first instead of stalling
+    # on a negative linear.x command.
+    min_vel_x: 0.0
     min_speed_xy: 0.0
     xy_goal_tolerance: 0.6
     yaw_goal_tolerance: 3.14
@@ -88,6 +104,9 @@ robot_profiles:
     robot_radius: 0.38
     lidar_xyz: [0.16669, 0.0, 0.06773]
     lidar_rpy: [0.0, 0.339, 0.0]
+    sensor_mounts:
+      gshub: {xyz: [0.16669, 0.0, 0.06773], rpy: [0.0, 0.339, 0.0]}
+      lidar: {xyz: [0.16669, 0.0, 0.114523], rpy: [0.0, 0.0, 0.0]}
     max_vel_x: 0.8
     max_vel_theta: 1.2
     acc_lim_x: 2.0
@@ -108,11 +127,17 @@ robot_profiles:
     robot_radius: 0.60
     lidar_xyz: [0.24749, 0.0, 0.11309]
     lidar_rpy: [0.0, 0.339, 0.0]
+    sensor_mounts:
+      gshub: {xyz: [0.24749, 0.0, 0.11309], rpy: [0.0, 0.339, 0.0]}
+      lidar: {xyz: [0.24749, 0.0, 0.160402], rpy: [0.0, 0.0, 0.0]}
     max_vel_x: 0.8
     max_vel_theta: 1.2
     acc_lim_x: 2.0
     acc_lim_theta: 2.5
     min_vel_x: 0.0
+    controller_plugin: rotation_shim_dwb
+    progress_required_movement_radius: 0.05
+    progress_movement_time_allowance: 30.0
     scan_z_min: 0.05
     scan_z_max: 1.50
     scan_range_min: 0.60
@@ -123,6 +148,9 @@ robot_profiles:
     robot_radius: 0.50
     lidar_xyz: [0.29718, 0.0, 0.07994]
     lidar_rpy: [0.0, 0.339, 0.0]
+    sensor_mounts:
+      gshub: {xyz: [0.29718, 0.0, 0.07994], rpy: [0.0, 0.339, 0.0]}
+      lidar: {xyz: [0.29718, 0.0, 0.121437], rpy: [0.0, 0.0, 0.0]}
     max_vel_x: 0.8
     max_vel_theta: 1.2
     acc_lim_x: 2.0
@@ -137,12 +165,64 @@ robot_profiles:
     scan_z_max: 1.50
     scan_range_min: 0.50
 
+  MuSHR Nano v2:
+    motion_model: differential
+    # USD XY 外接圆约 0.271m；留出车轮和转弯余量。
+    robot_radius: 0.30
+    sensor_mounts:
+      lidar: {xyz: [-0.035325, 0.0, 0.18495], rpy: [0.0, 0.0, 0.0]}
+    max_vel_x: 0.8
+    max_vel_theta: 1.0
+    acc_lim_x: 1.5
+    acc_lim_theta: 2.0
+    min_vel_x: 0.0
+    xy_goal_tolerance: 0.35
+    yaw_goal_tolerance: 3.14
+    progress_required_movement_radius: 0.05
+    progress_movement_time_allowance: 30.0
+    scan_z_min: 0.03
+    scan_z_max: 1.00
+    scan_range_min: 0.30
+
+  Coco AIRS:
+    motion_model: differential
+    # 仿真 odometry 位于车体几何中心，而 Ackermann 规划/控制基点必须位于后轴。
+    # USD 后轴相对车体中心 x=-0.235m；轮廓是后轴坐标下的底盘 bbox 加安全余量。
+    robot_radius: 0.50
+    nav_base_offset_xyz: [-0.235, 0.0, 0.0]
+    footprint: [[-0.18, -0.34], [-0.18, 0.34], [0.65, 0.34], [0.65, -0.34]]
+    sensor_mounts:
+      gshub: {xyz: [0.0, 0.0, 0.430962], rpy: [0.0, 0.339, 0.0]}
+      lidar: {xyz: [0.0, 0.0, 0.478662], rpy: [0.0, 0.0, 0.0]}
+    max_vel_x: 0.6
+    max_vel_theta: 0.6
+    acc_lim_x: 1.0
+    acc_lim_theta: 1.5
+    # Smac REEDS_SHEPP paths include reverse segments. The Coco controller
+    # supports negative wheel speed, so the velocity smoother must not clamp it.
+    min_vel_x: -0.4
+    controller_plugin: regulated_pure_pursuit
+    planner_plugin: smac_hybrid
+    minimum_turning_radius: 1.25
+    allow_reversing: true
+    desired_linear_vel: 0.4
+    xy_goal_tolerance: 0.6
+    yaw_goal_tolerance: 3.14
+    progress_required_movement_radius: 0.05
+    progress_movement_time_allowance: 30.0
+    scan_z_min: 0.03
+    scan_z_max: 1.50
+    scan_range_min: 0.50
+
 # 未登记机器人类型的保守回退（会打印告警）
 default_profile:
   motion_model: differential
   robot_radius: 0.35
   lidar_xyz: [0.0, 0.0, 0.40]
   lidar_rpy: [0.0, 0.0, 0.0]
+  sensor_mounts:
+    gshub: {xyz: [0.0, 0.0, 0.40], rpy: [0.0, 0.0, 0.0]}
+    lidar: {xyz: [0.0, 0.0, 0.40], rpy: [0.0, 0.0, 0.0]}
   max_vel_x: 0.5
   max_vel_theta: 1.0
   acc_lim_x: 2.0

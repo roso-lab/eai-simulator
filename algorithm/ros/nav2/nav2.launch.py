@@ -13,8 +13,8 @@ nav2_setup.py to generate concrete params/pc2scan/rviz files, then starts:
 
 Usage:
     source /opt/ros/humble/setup.bash
-    ros2 launch algorithm/ros/nav2/nav2.launch.py robot_name:=carter_1 robot_type:=Carter scene:=factory
-    ros2 launch algorithm/ros/nav2/nav2.launch.py robot_name:=go2_1 robot_type:=Go2 scene:=plane rviz:=true
+    ros2 launch algorithm/ros/nav2/nav2.launch.py robot_name:=carter_1 robot_type:=Carter sensor:=auto scene:=factory
+    ros2 launch algorithm/ros/nav2/nav2.launch.py robot_name:=go2_1 robot_type:=Go2 sensor:=lidar scene:=plane rviz:=true
 """
 
 import os
@@ -47,6 +47,7 @@ def _run_setup(context):
     robot = robot_name_arg if robot_name_arg else robot_arg
 
     robot_type = LaunchConfiguration("robot_type").perform(context)
+    sensor = LaunchConfiguration("sensor").perform(context)
     scene = LaunchConfiguration("scene").perform(context)
     map_arg = LaunchConfiguration("map").perform(context)
     pose_arg = LaunchConfiguration("pose").perform(context)
@@ -60,6 +61,8 @@ def _run_setup(context):
         robot,
         "--scene",
         scene,
+        "--sensor",
+        sensor,
         "--runtime-snapshot",
         runtime_snapshot_arg,
     ]
@@ -68,7 +71,9 @@ def _run_setup(context):
     if map_arg:
         cmd += ["--map", map_arg]
     if pose_arg:
-        cmd += ["--pose", pose_arg]
+        # Keep a leading negative x coordinate attached to the option name;
+        # argparse otherwise treats values such as -3,0,0 as another option.
+        cmd += [f"--pose={pose_arg}"]
 
     result = subprocess.run(cmd, capture_output=True, text=True)
     sys.stdout.write(result.stdout)
@@ -79,7 +84,8 @@ def _run_setup(context):
     kv = {}
     for line in result.stdout.strip().splitlines():
         if "=" in line and line.split("=", 1)[0] in (
-            "PARAMS", "PC2SCAN", "RVIZ", "LIDAR_XYZ", "LIDAR_RPY", "MAP"
+            "PARAMS", "PC2SCAN", "RVIZ", "SENSOR", "LIDAR_XYZ", "LIDAR_RPY",
+            "BASE_OFFSET", "MAP"
         ):
             k, v = line.split("=", 1)
             kv[k] = v
@@ -89,6 +95,7 @@ def _run_setup(context):
     rviz_file = kv["RVIZ"]
     lidar_xyz = kv.get("LIDAR_XYZ", "0.0,0.0,0.4")
     lidar_rpy = kv.get("LIDAR_RPY", "0.0,0.0,0.0")
+    base_offset = kv.get("BASE_OFFSET", "0.0,0.0,0.0")
     map_path = kv.get("MAP", "")
 
     if not map_path:
@@ -99,12 +106,14 @@ def _run_setup(context):
 
     lx, ly, lz = lidar_xyz.split(",")
     lr, lp, lyaw = lidar_rpy.split(",")
+    bx, by, bz = base_offset.split(",")
 
     tf_bridge = Node(
         executable=os.environ.get("EAI_NAV2_ROS_PYTHON", "/usr/bin/python3"),
         arguments=[TF_BRIDGE, "--ros-args",
                    "-p", f"robot:={robot}",
                    "-p", "use_sim_time:=true",
+                   "-p", f"base_offset_xyz:=[{bx}, {by}, {bz}]",
                    "-p", f"lidar_xyz:=[{lx}, {ly}, {lz}]",
                    "-p", f"lidar_rpy:=[{lr}, {lp}, {lyaw}]"],
         name="eai_nav2_tf_bridge",
@@ -200,6 +209,8 @@ def generate_launch_description():
                               description="Legacy robot instance name alias"),
         DeclareLaunchArgument("robot_type", default_value="",
                               description="Robot profile type, such as Carter/Go2/B2/Scout"),
+        DeclareLaunchArgument("sensor", default_value="auto",
+                              description="Point cloud source: auto, gshub, or lidar"),
         DeclareLaunchArgument("scene", default_value="factory",
                               description="Scene name used for map and default pose lookup"),
         DeclareLaunchArgument("map", default_value="",

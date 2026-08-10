@@ -1,6 +1,6 @@
 # EAI 仿真器 + Nav2 自主导航
 
-在 Factory 场景中用 Nav2 对仿真机器人做自主导航。仿真侧发布 odometry/点云/相机并订阅
+在 Factory 场景中用 Nav2 对仿真机器人做自主导航。仿真侧通过 GS-Hub 或独立 LiDAR 发布 odometry/点云并订阅
 `/<robot>/cmd_vel`，本目录补齐 Nav2 需要的 TF、激光扫描、定位与导航栈。
 
 ## 架构
@@ -8,7 +8,7 @@
 ```
 Isaac Sim (GUI, conda env_isaaclab)          系统 ROS2 (humble)
   simulator.py --env=nav2                      nav2.launch.py
-  └─ GSHub 发布:                                 ├─ tf_bridge.py
+  └─ GS-Hub / LiDAR 发布:                        ├─ tf_bridge.py
      /carter_1/odometry (mapping_init→base_link)  │   odom→base_link (动态)
      /carter_1/cloud   (frame=mapping_init)        │   base_link→lidar_link (静态)
      /carter_1/GS_Hub_{L,R}_cam                     │   点云重发布 frame=lidar_link → /scan_cloud
@@ -21,15 +21,33 @@ Isaac Sim (GUI, conda env_isaaclab)          系统 ROS2 (humble)
 
 ## 运行
 
+Isaac Sim 只在 Conda `env_isaaclab` 中运行。Nav2、RViz、`ros2 topic` 和发送目标均必须使用
+`/opt/ros/humble`，不能从 Conda 环境启动。手动执行 ROS 命令时先进入干净的系统 shell：
+
+```bash
+env -i \
+  HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" \
+  PATH=/usr/bin:/bin:/opt/ros/humble/bin LANG=C.UTF-8 \
+  RMW_IMPLEMENTATION=rmw_cyclonedds_cpp \
+  DISPLAY="${DISPLAY:-}" XAUTHORITY="${XAUTHORITY:-$HOME/.Xauthority}" \
+  XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" \
+  DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-}" \
+  bash --noprofile --norc
+source /opt/ros/humble/setup.bash
+cd /home/airs/eai-simulator
+```
+
+以下“系统 ROS2”终端命令都在这个干净 shell 内执行。一键脚本会自动做同样的环境隔离。
+
 ### Factory + Carter + GS-Hub 示例
 ```bash
 # 终端 1：仿真（必须 GUI 模式，见下方注意）
 conda activate env_isaaclab
 python simulator.py --env=nav2 --num_envs=1 --device=cuda:0
 
-# 终端 2：Nav2 栈和 RViz（系统 ROS2）
+# 终端 2：Nav2 栈和 RViz（按上方模板进入干净的系统 ROS2 shell）
 source /opt/ros/humble/setup.bash
-cd ~/eai-simulator
+cd /home/airs/eai-simulator
 ros2 launch algorithm/ros/nav2/nav2.launch.py robot_name:=carter_1 robot_type:=Carter scene:=factory rviz:=true
 
 # 终端 3：发送导航目标（系统 ROS2）
@@ -38,6 +56,15 @@ source /opt/ros/humble/setup.bash
 ```
 
 `nav2` 位于 `source/EAI_hmrs/EAI_hmrs/envs/nav2.json`。它选择 Factory 场景和 Carter，并挂载 GS-Hub 与 ROS tool。Builder 生成的实例名是 `carter_1`，Nav2 的 `robot_name` 必须保持一致。
+
+独立 LiDAR 使用相同的 ROS topic 契约。Env DIY 中给机器人挂载 `LiDAR` 和 `ROS` 后，默认的 `sensor:=auto` 会从 `tmp/runtime_interfaces.json` 核对实际附件并选用对应标定。也可显式指定：
+
+```bash
+ros2 launch algorithm/ros/nav2/nav2.launch.py \
+    robot_name:=scout_1 robot_type:=Scout sensor:=lidar scene:=factory
+```
+
+当前独立 LiDAR 支持 Carter、Go2、B2、M20、Scout、Lite3、MuSHR v2 和 Coco；GS-Hub 支持 Carter、Go2、B2、M20、Scout、Coco 和 Lite3。不支持的组合不会出现在 Env DIY 中。同一台机器人不要同时启用 GS-Hub 和 LiDAR，两者都会发布 `/<robot>/cloud` 与 `/<robot>/odometry`。
 
 Nav2 启动时会读取 `tmp/runtime_interfaces.json`，使用活动仿真中对应机器人的实际世界位姿初始化 AMCL。因此 JSON/Env DIY 3D 自定义位置和 Builder 自动排列位置都不需要另行登记。
 
@@ -85,16 +112,21 @@ AMCL 粒子云、TF 树、机器人足迹。可用工具栏：
 
 RViz 配置由 `nav2_setup.py` 从 `nav2_view.template.rviz` 生成到 `/tmp/eai_nav2_<robot>/view.rviz`（Fixed Frame = `map`，scan 话题自动带机器人命名空间）。没有机器人 URDF，所以 RobotModel 显示为空属正常，用 TF 显示看机器人位姿即可。
 
-## GSHub 专用点云处理
+## 点云与 TF 对齐
 
-GSHub/Mid360 的 ROS 输出不能直接交给 Nav2 使用，本目录把专用处理收口在
+GS-Hub/Mid360 与独立 LiDAR 的 ROS 输出都需要补齐 Nav2 TF，本目录把处理收口在
 `tf_bridge.py`、`nav2_profiles.yaml` 和 `pointcloud_to_laserscan.template.yaml`：
 
 - GSHub 发布的 odometry frame 是 `mapping_init`，点云 frame 也写成 `mapping_init`，但点云数值实际是 Mid360 传感器坐标。
 - `tf_bridge.py` 把 odometry 语义接成标准 TF `odom -> base_link`，并把点云重发到 `/<robot>/scan_cloud`，frame 改为 `lidar_link`。
-- Carter 上的 GSHub 前向 Mid360 有下倾姿态，`nav2_profiles.yaml` 为 Carter 记录 `lidar_rpy: [0.0, 0.339, 0.0]`。
+- `nav2_profiles.yaml` 的 `sensor_mounts` 分别保存 `gshub` 与 `lidar` 标定。例如 Carter GS-Hub 前向 Mid360 下倾约 19.4°，独立 LiDAR 则保持水平。
 - `pointcloud_to_laserscan` 使用 `target_frame: base_link` 后再做高度切片，避免把下倾雷达看到的地面投成车前横向假障碍。
 - `scan_range_min` 至少覆盖车体半径，用来过滤近距离自体/安装结构回波。
+
+Scout 与 Coco 还有车型级运动学对齐：
+
+- Scout 的四个固定轮在地面上有明显滑移转向阻力。ROS `angular.z` 在仿真控制桥中使用实测的 `2.9` 校正倍率，Nav2 用 `RotationShimController + DWB`，侧向目标先完成原地朝向对齐。
+- Coco 是 Ackermann 前轮转向车。仿真 odometry 原点在车体中心，而 Smac/RPP 的运动学基点在后轴，因此 profile 用 `nav_base_offset_xyz: [-0.235, 0, 0]` 把 `odom -> base_link`、AMCL 初始位姿和 LiDAR TF 一起换算到后轴，并使用后轴坐标下的矩形 footprint。规划/控制组合为 Smac Hybrid-A*（Reeds-Shepp）和 Regulated Pure Pursuit，支持不能原地旋转时的前进/倒车曲线。
 
 调试时优先看这两个处理后的话题：
 
@@ -110,11 +142,11 @@ RViz 里如果只检查传感器干净程度，Fixed Frame 可临时设为 `base
 
 ## ⚠️ 重要注意事项
 
-1. **必须 GUI 模式**：`--headless` 会让 GSHub 停止发布所有传感器/里程计（ROS2 发布图依赖渲染管线）；`--headless --enable_cameras` 会崩溃（Prim is not a Lidar）。所以仿真只能带界面跑。不用时请及时 Ctrl+C / `run_nav2.sh` 自动清理，避免占显存。
+1. **必须 GUI 模式**：GS-Hub 和独立 RTX LiDAR 的 ROS2 发布图都依赖 GUI 渲染管线。headless 下可能只注册 publisher 而没有消息，因此验收必须实际读取 `/clock`、odometry 和 cloud 样本，不能只看 `ros2 topic list`。不用时请及时 Ctrl+C / `run_nav2.sh` 自动清理，避免占显存。
 
 2. **目标点必须在自由空间**：地图里墙/障碍是致命代价，把目标设在墙里或膨胀区内规划器会失败（`failed to create plan`）。可用完全空闲的点，例如 `(-7.97,-6.53)`、`(0.0,0.0)`。机器人位置以当前运行时快照为准。
 
-3. **系统 vs conda python**：发目标、手动跑 ROS 脚本一律用系统环境（`source /opt/ros/humble/setup.bash` + `/usr/bin/python3`）；conda 里没有 ROS Humble 可用的 rclpy。
+3. **系统 vs conda python**：发目标、手动跑 ROS 脚本一律使用上面的 `env -i` 干净环境、`/opt/ros/humble` 和 `/usr/bin/python3`。不能只在已激活 Conda 的终端里 `source /opt/ros/humble/setup.bash`，否则 Conda 的 Python/动态库路径仍会污染 ROS。系统 Nav2 固定使用 CycloneDDS；Conda 只运行 Isaac Sim。
 
 4. **崩溃后清显存**：仿真被强杀后可能残留占显存的进程，重启前 `pkill -9 -f keyboard.py`。
 
@@ -154,9 +186,10 @@ launch 参数：
 - `robot_name` — 机器人实例名 = ROS 话题命名空间（Env DIY 按类型生成 `carter_1`/`go2_1`；`nav2.json` 生成 `carter_1`）
 - `robot` — 旧参数别名；新命令优先用 `robot_name`
 - `robot_type` — 机器人类型，查 `nav2_profiles.yaml` 的物理参数（Carter/Go2/B2/Scout…）。空则按实例名首段猜测
+- `sensor` — `auto`（默认）、`gshub` 或 `lidar`；`auto` 强校验活动仿真附件，避免使用错误的安装 TF
 - `scene` — 场景名，用于选择地图并校验活动仿真场景
 - `map` — 可选显式地图 yaml，覆盖场景地图表
-- `pose` — 可选显式初始位姿 `x,y,yaw`；未指定时从活动仿真的运行时快照读取机器人实际世界位姿
+- `pose` — 可选显式初始位姿 `x,y,yaw`；坐标表示仿真车体原点，生成器会按车型换算 Nav2 基点；未指定时从活动仿真的运行时快照读取机器人实际世界位姿
 - `runtime_snapshot` — 运行时快照路径，默认 `tmp/runtime_interfaces.json`
 - `rviz` — `true` 时同时开 RViz
 
@@ -165,10 +198,10 @@ AMCL 位姿优先级为：显式 `pose:=x,y,yaw`，然后是活动仿真的实�
 ### 新增一个机器人/场景
 
 编辑 `nav2_profiles.yaml`：
-- 新机器人：在 `robot_profiles` 加一条（键 = 控制器 cfg 的 `robot_type` 字符串），填 `motion_model`（differential/omni）、`robot_radius`、`lidar_xyz`、速度/加速度、`scan_z_min/max`
+- 新机器人：在 `robot_profiles` 加一条（键 = 控制器 cfg 的 `robot_type` 字符串），填 `motion_model`、`robot_radius`、`sensor_mounts`、速度/加速度、`scan_z_min/max`；若运动学基点不在仿真原点，再填 `nav_base_offset_xyz` 和对应基点坐标下的 `footprint`
 - 新场景地图：在 `scene_maps` 加 `<场景>: <地图yaml相对路径>`（需要先有 2D 占用地图）
 
 ### 当前限制
 
 - **factory 有现成占用地图；plane 会自动生成空白占用图**。其他场景（warehouse/airs/garden/desert）暂无 `*_map.yaml`，需先离线生成占用图或用 slam_toolbox 边走边建，再登记到 `scene_maps`。
-- **一键脚本 `run_nav2.sh` 默认跑 `nav2.json` 中的 Carter + Factory 配置**。其他机器人或场景通过 Env DIY 临时生成 JSON，不在仓库中保留组合样例。
+- **一键脚本 `run_nav2.sh` 默认跑 `nav2.json` 中的 Carter + Factory 配置**。其他机器人或场景可通过 Env DIY 生成。

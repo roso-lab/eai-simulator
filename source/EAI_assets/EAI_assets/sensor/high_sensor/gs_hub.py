@@ -190,7 +190,7 @@ configure_ros_env()
 
 
 import omni.usd
-from pxr import Sdf
+from pxr import Sdf, UsdPhysics
 import isaaclab.sim as sim_utils
 import isaaclab.sim.utils as prim_utils
 from isaaclab.assets import AssetBaseCfg
@@ -202,6 +202,40 @@ gs_hub_path = asset_path("payloads/sensors/gs_hub/GS_Hub_fix_type.usd")
 # 全局字典：临时存储每个 GSHub 实例的 enable_ros_publish 配置
 # Key: prim_path, Value: bool
 _gshub_ros_publish_config = {}
+_gshub_disable_physics_config = {}
+
+
+def _disable_gshub_payload_physics(stage, specific_path: str) -> tuple[bool, bool]:
+    """Keep a mounted GS-Hub visual/sensor-only instead of extending the chassis."""
+    base_link_path = f"{specific_path}/GS_Hub/base_link"
+    collision_path = f"{base_link_path}/collisions"
+
+    collision_disabled = False
+    collision_prim = stage.GetPrimAtPath(collision_path)
+    if collision_prim and collision_prim.IsValid():
+        UsdPhysics.CollisionAPI(collision_prim).CreateCollisionEnabledAttr(False)
+        collision_disabled = True
+
+    mass_removed = False
+    base_link_prim = stage.GetPrimAtPath(base_link_path)
+    if (
+        base_link_prim
+        and base_link_prim.IsValid()
+        and base_link_prim.HasAPI(UsdPhysics.MassAPI)
+    ):
+        mass_removed = base_link_prim.RemoveAPI(UsdPhysics.MassAPI)
+
+    return collision_disabled, mass_removed
+
+
+def _gshub_physics_disabled_for_instance(cfg, prim_path: str, specific_path: str) -> bool:
+    if bool(getattr(cfg, "disable_physics", False)):
+        return True
+    return any(
+        bool(_gshub_disable_physics_config.get(path_key, False))
+        for path_key in (prim_path, specific_path, f"{specific_path}/GS_Hub")
+    )
+
 
 def spawn_and_fix_gshub(prim_path, cfg, translation, orientation):
     """
@@ -241,6 +275,15 @@ def spawn_and_fix_gshub(prim_path, cfg, translation, orientation):
 
     # --- 2. 循环处理每一个实例 (关键修复点) ---
     for specific_path in resolved_paths:  # <--- 这里必须循环！
+        if _gshub_physics_disabled_for_instance(cfg, prim_path, specific_path):
+            collision_disabled, mass_removed = _disable_gshub_payload_physics(
+                stage, specific_path
+            )
+            print(
+                "[GSHub] Payload physics disabled: "
+                f"collision={collision_disabled}, mass={mass_removed} ({specific_path})"
+            )
+
         # 1. 寻找 Graph 路径
         # 尝试默认路径 .../GS_Hub/Graphs/...
         graph_path = f"{specific_path}/GS_Hub/Graphs/ROS2_publish_Lidar_Odom"
@@ -297,6 +340,7 @@ def spawn_and_fix_gshub(prim_path, cfg, translation, orientation):
 class GSHubCfg(AssetBaseCfg):
     ros_namespace: str | None = None
     enable_ros_publish: bool = True  # 是否激活 ROS2 发布节点（默认 True 保持向后兼容）
+    disable_physics: bool = False
     spawn = sim_utils.UsdFileCfg(
         usd_path=gs_hub_path,
         func=spawn_and_fix_gshub,
