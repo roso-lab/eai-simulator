@@ -155,7 +155,8 @@ def controller_cfg_names() -> tuple[str, ...]:
 
 
 def _attachment_entries() -> tuple[AttachmentCatalogEntry, ...]:
-    gshub_hosts = ("carter", "go2", "b2", "m20", "scout", "lite3")
+    gshub_hosts = ("carter", "go2", "b2", "m20", "scout", "coco", "lite3")
+    lidar_hosts = ("carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3")
     ur5_hosts = ("go2", "b2", "m20", "scout", "lite3")
     z1_hosts = ("carter", "go2", "b2", "m20", "scout", "lite3")
     return (
@@ -170,7 +171,7 @@ def _attachment_entries() -> tuple[AttachmentCatalogEntry, ...]:
             name="lidar",
             asset_cfg="RosLidarCfg",
             controller_cfg=None,
-            supported_robots=("carter", "go2", "b2", "m20", "lite3"),
+            supported_robots=lidar_hosts,
             category="sensor",
         ),
         AttachmentCatalogEntry(
@@ -200,7 +201,10 @@ def tool_catalog() -> dict[str, AttachmentCatalogEntry]:
             name="ros",
             asset_cfg=None,
             controller_cfg=None,
-            supported_robots=("carter", "go2", "b2", "m20", "scout", "coco", "lite3", "pepper", "g1", "cf2x"),
+            supported_robots=(
+                "carter", "go2", "b2", "m20", "scout", "mushr_v2",
+                "coco", "lite3", "pepper", "g1", "cf2x",
+            ),
             category="tool",
         ),
         "keyboard": AttachmentCatalogEntry(

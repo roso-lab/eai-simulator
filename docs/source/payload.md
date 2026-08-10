@@ -56,8 +56,8 @@ GS-Hub 只有在同一宿主添加 `ros` 时才启用相机、点云和里程计
 
 | 载荷 | 分类 | 支持的宿主机器人 | 默认控制配置 |
 |---|---|---|---|
-| GS-Hub | Sensor | Carter、Go2、B2、M20、Scout、Lite3 | 无 |
-| LiDAR | Sensor | Carter、Go2、B2、M20、Lite3 | 无 |
+| GS-Hub | Sensor | Carter、Go2、B2、M20、Scout、Coco、Lite3 | 无 |
+| LiDAR | Sensor | Carter、Go2、B2、M20、Scout、MuSHR v2、Coco、Lite3 | 无 |
 | UR5 | Manipulator | Go2、B2、M20、Scout、Lite3 | `UR5_IK_CFG` |
 | Z1 | Manipulator | Carter、Go2、B2、M20、Scout、Lite3 | `Z1_IK_CFG` |
 

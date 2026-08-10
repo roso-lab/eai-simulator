@@ -56,8 +56,8 @@ GS-Hub only enables camera, point cloud and odometry publishing if `ros` is adde
 
 | Payload | Classification | Supported host robots | Default control configuration |
 |---|---|---|---|
-| GS-Hub | Sensor | Carter, Go2, B2, M20, Scout, Lite3 | None |
-| LiDAR | Sensor | Carter, Go2, B2, M20, Lite3 | None |
+| GS-Hub | Sensor | Carter, Go2, B2, M20, Scout, Coco, Lite3 | None |
+| LiDAR | Sensor | Carter, Go2, B2, M20, Scout, MuSHR v2, Coco, Lite3 | None |
 | UR5 | Manipulator | Go2, B2, M20, Scout, Lite3 | `UR5_IK_CFG` |
 | Z1 | Manipulator | Carter, Go2, B2, M20, Scout, Lite3 | `Z1_IK_CFG` |
 

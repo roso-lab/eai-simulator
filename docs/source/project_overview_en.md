@@ -114,7 +114,7 @@ eai-simulator/
 
 ## Controllers and Robots Available to simulator.py
 
-`simulator.py` only uses JSON environments. With `--env=<name>`, it loads `source/EAI_hmrs/EAI_hmrs/envs/<name>.json`. Without `--env`, it opens Env DIY. For true 3D editing, run `python simulator.py --diy-3d`; this saves Viewport transforms as physical `spawn_pose` values.
+`simulator.py` only uses JSON environments. With `--env=<name>`, it loads `source/EAI_hmrs/EAI_hmrs/envs/<name>.json`. Without `--env`, it opens the Env DIY startup menu. Select item 3 or run `python simulator.py --diy-3d` for true 3D editing; this saves Viewport transforms as physical `spawn_pose` values.
 
 Robot choices are defined by `source/EAI/EAI/hmrs_env/env_diy/flow.py::ROBOT_KEYS` and `source/EAI_hmrs/EAI_hmrs/env_builder.py::ROBOT_OPTIONS`. The following 12 types are currently available:
 
@@ -125,15 +125,15 @@ Robot choices are defined by `source/EAI/EAI/hmrs_env/env_diy/flow.py::ROBOT_KEY
 | `go2` | Unitree Go2 | `GO2_VELOCITY_RSL_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
 | `b2` | Unitree B2 | `B2_VELOCITY_RSL_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
 | `m20` | DeepRobotics M20 | `M20_ROUGH_RSL_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
-| `scout` | Scout mobile base | `SCOUT_DIFF_CFG` | GS-Hub, UR5, Z1 | JSON / Env DIY |
+| `scout` | Scout mobile base | `SCOUT_DIFF_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
 | `g1` | Unitree G1 | `G1_SKRL_CFG` | - | JSON / Env DIY |
 | `cf2x` | Crazyflie CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | - | JSON / Env DIY |
 | `human` | Human animation | `HUMAN_ANIMATION_CFG` | - | JSON / Env DIY |
 | `lite3` | DeepRobotics Lite3 | `LITE3_VELOCITY_RSL_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
-| `mushr_v2` | MuSHR Nano v2 Ackermann base | `MUSHR_ACKERMANN_CFG` | keyboard, ROS | JSON / Env DIY |
-| `coco` | Coco AIRS Ackermann base | `COCO_ACKERMANN_CFG` | keyboard, ROS | JSON / Env DIY |
+| `mushr_v2` | MuSHR Nano v2 Ackermann base | `MUSHR_ACKERMANN_CFG` | LiDAR, keyboard, ROS | JSON / Env DIY |
+| `coco` | Coco AIRS Ackermann base | `COCO_ACKERMANN_CFG` | GS-Hub, LiDAR, keyboard, ROS | JSON / Env DIY |
 
-> Controller configurations are stored in `source/EAI_assets/EAI_assets/controller/`, under `rl/` and `traditional/`. `UR5_IK_CFG` and `Z1_IK_CFG` provide manipulator attachments for the six compatible host types.
+> Controller configurations are stored in `source/EAI_assets/EAI_assets/controller/`, under `rl/` and `traditional/`. `UR5_IK_CFG` and `Z1_IK_CFG` provide manipulator attachments for the compatible hosts listed above.
 
 ## Environments and Tasks
 
@@ -149,10 +149,10 @@ Robot choices are defined by `source/EAI/EAI/hmrs_env/env_diy/flow.py::ROBOT_KEY
    ```bash
    python simulator.py --num_envs=1 --device=cuda:0
    ```
-   The prompt offers two environment-authoring methods:
+   The prompt offers three environment-authoring methods:
    - `1. Visual window`: Use the Env DIY window to select `Scenes -> Robots -> Payloads -> Tools`. Payloads are grouped into Manipulators (UR5/Z1) and Sensors (GS-Hub/LiDAR). The result can be saved as `source/EAI_hmrs/EAI_hmrs/envs/<env_name>.json`.
    - `2. Terminal quick setup`: Select a scene, host robot, manipulator, sensor, tool, and controller in the same order as the visual window, then choose whether to save and run the environment immediately.
-   - Standalone 3D entry point: Run `python simulator.py --diy-3d --device=cuda:0` to edit the robots' physical `spawn_pose` values directly in the Isaac Sim Viewport. This does not add a third choice to the default prompt, so the existing terminal and Tk workflows remain unchanged.
+   - `3. Isaac Sim 3D editor`: Edit the robots' physical `spawn_pose` values directly in the Isaac Sim Viewport. You can also run `python simulator.py --diy-3d --device=cuda:0` to enter it directly.
 
 2. **Request Hugging Face asset access before the first run** - Large USD assets and RL model weights are not stored directly in Git. They are provided through the gated Hugging Face dataset [HuangQIjun/eai-simulator-assets](https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets).
    Submit an access request on that page. After your account is approved, sign in from the terminal:
