@@ -477,7 +477,10 @@ class PreviewStage:
         if sensor_type == "gshub":
             from EAI_assets.sensor.high_sensor.gs_hub import gs_hub_path as usd_path
         else:
-            from EAI_assets.sensor.low_sensor.ros_lidar import ros_lidar_path as usd_path
+            from EAI_assets.sensor.low_sensor.ros_lidar import (
+                ros_lidar_path as usd_path,
+                spawn_ros_lidar_preview_visual,
+            )
 
         spawn_cfg = sim_utils.UsdFileCfg(usd_path=usd_path)
         with PreviewStage._use_stage(stage):
@@ -487,6 +490,9 @@ class PreviewStage:
                 translation=position,
                 orientation=rotation,
             )
+        if sensor_type == "lidar":
+            with PreviewStage._use_stage(stage):
+                spawn_ros_lidar_preview_visual(stage, prim_path)
         root = stage.GetPrimAtPath(prim_path)
         for prim in Usd.PrimRange(root):
             if prim.GetName() == "Graphs":
