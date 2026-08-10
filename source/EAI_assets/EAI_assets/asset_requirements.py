@@ -102,21 +102,87 @@ _PAYLOAD_PATHS = {
 }
 
 _CONTROLLER_PATHS = {
-    "CARTER_DIFF_CFG": ("traditional/carter_diff/carter_diff.py",),
-    "PEPPER_HOLONOMIC_CFG": ("traditional/pepper_holonomic/pepper_holonomic.py",),
-    "GO2_VELOCITY_RSL_CFG": ("rl/go2_rsl_rl/model/policy.onnx",),
-    "B2_VELOCITY_RSL_CFG": ("rl/b2_rsl_rl/model/policy.onnx",),
-    "M20_ROUGH_RSL_CFG": ("rl/m20_rough_rsl/model/m20_rough.onnx",),
-    "SCOUT_DIFF_CFG": ("traditional/scout_diff/scout_diff.py",),
-    "MUSHR_ACKERMANN_CFG": ("traditional/mushr_ackermann/mushr_ackermann.py",),
-    "MUSHR_RWD_ACKERMANN_CFG": ("traditional/mushr_ackermann/mushr_ackermann.py",),
-    "COCO_ACKERMANN_CFG": ("traditional/coco_ackermann/coco_ackermann.py",),
-    "G1_SKRL_CFG": ("rl/g1_skrl/model/g1.pt",),
-    "QUADCOPTER_GOAL_SKRL_CFG": ("rl/quadcopter_goal_skrl/model/quadcopter.pt",),
-    "HUMAN_ANIMATION_CFG": ("traditional/human_animation/human_animation.py",),
-    "LITE3_VELOCITY_RSL_CFG": ("rl/lite3_rsl_rl/model/policy.onnx",),
-    "UR5_IK_CFG": ("traditional/ur5_ik/ur5_ik.py",),
-    "Z1_IK_CFG": ("traditional/z1_ik/z1_ik.py",),
+    # ── Traditional controllers ──────────────────────────────────────────
+    "CARTER_DIFF_CFG": (
+        "traditional/carter_diff/__init__.py",
+        "traditional/carter_diff/carter_diff.py",
+    ),
+    "PEPPER_HOLONOMIC_CFG": (
+        "traditional/pepper_holonomic/__init__.py",
+        "traditional/pepper_holonomic/pepper_holonomic.py",
+    ),
+    "SCOUT_DIFF_CFG": (
+        "traditional/scout_diff/__init__.py",
+        "traditional/scout_diff/scout_diff.py",
+    ),
+    "MUSHR_ACKERMANN_CFG": (
+        "traditional/mushr_ackermann/__init__.py",
+        "traditional/mushr_ackermann/mushr_ackermann.py",
+        "traditional/mushr_ackermann/kinematics.py",
+    ),
+    "MUSHR_RWD_ACKERMANN_CFG": (
+        "traditional/mushr_ackermann/__init__.py",
+        "traditional/mushr_ackermann/mushr_ackermann.py",
+        "traditional/mushr_ackermann/kinematics.py",
+    ),
+    "COCO_ACKERMANN_CFG": (
+        "traditional/coco_ackermann/__init__.py",
+        "traditional/coco_ackermann/coco_ackermann.py",
+        "traditional/coco_ackermann/kinematics.py",
+    ),
+    "HUMAN_ANIMATION_CFG": (
+        "traditional/human_animation/__init__.py",
+        "traditional/human_animation/human_animation.py",
+    ),
+    "UR5_IK_CFG": (
+        "traditional/manipulator_ik/__init__.py",
+        "traditional/manipulator_ik/manipulator_ik.py",
+        "traditional/ur5_ik/__init__.py",
+        "traditional/ur5_ik/ur5_ik.py",
+    ),
+    "Z1_IK_CFG": (
+        "traditional/manipulator_ik/__init__.py",
+        "traditional/manipulator_ik/manipulator_ik.py",
+        "traditional/z1_ik/__init__.py",
+        "traditional/z1_ik/z1_ik.py",
+    ),
+    # ── RSL (ONNX) controllers ───────────────────────────────────────────
+    "GO2_VELOCITY_RSL_CFG": (
+        "rl/go2_rsl_rl/__init__.py",
+        "rl/go2_rsl_rl/go2_rsl_rl.py",
+        "rl/go2_rsl_rl/model/policy.onnx",
+    ),
+    "B2_VELOCITY_RSL_CFG": (
+        "rl/b2_rsl_rl/__init__.py",
+        "rl/b2_rsl_rl/b2_rsl_rl.py",
+        "rl/b2_rsl_rl/model/policy.onnx",
+        "rl/b2_rsl_rl/model/policy.pt",
+    ),
+    "M20_ROUGH_RSL_CFG": (
+        "rl/m20_rough_rsl/__init__.py",
+        "rl/m20_rough_rsl/m20_rough_rsl.py",
+        "rl/m20_rough_rsl/model/m20_rough.onnx",
+    ),
+    "LITE3_VELOCITY_RSL_CFG": (
+        "rl/lite3_rsl_rl/__init__.py",
+        "rl/lite3_rsl_rl/lite3_rsl_rl.py",
+        "rl/lite3_rsl_rl/model/policy.onnx",
+    ),
+    # ── SKRL controllers ─────────────────────────────────────────────────
+    "G1_SKRL_CFG": (
+        "rl/g1_skrl/__init__.py",
+        "rl/g1_skrl/g1_skrl.py",
+        "rl/g1_skrl/model/g1.pt",
+        "rl/rl_cfg/__init__.py",
+        "rl/rl_cfg/g1_skrl_flat_ppo_cfg.yaml",
+    ),
+    "QUADCOPTER_GOAL_SKRL_CFG": (
+        "rl/quadcopter_goal_skrl/__init__.py",
+        "rl/quadcopter_goal_skrl/quadcopter_goal_skrl.py",
+        "rl/quadcopter_goal_skrl/model/quadcopter.pt",
+        "rl/rl_cfg/__init__.py",
+        "rl/rl_cfg/quadcopter_goal_skrl_ppo_cfg.yaml",
+    ),
 }
 
 
