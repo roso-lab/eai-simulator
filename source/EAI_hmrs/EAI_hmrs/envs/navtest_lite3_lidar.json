@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "task_name": "navtest_lite3_lidar",
+  "scene_key": "factory",
+  "robots": [
+    {
+      "type": "lite3",
+      "controller": {"mode": "default", "cfg": "LITE3_VELOCITY_RSL_CFG"},
+      "spawn_pose": {
+        "position": [-3.0, 0.0, 0.35],
+        "rotation": [1.0, 0.0, 0.0, 0.0]
+      },
+      "visual": {"x": 0.5, "y": 0.5},
+      "attachments": [
+        {"type": "lidar", "controller": null},
+        {"type": "ros", "controller": null}
+      ]
+    }
+  ]
+}

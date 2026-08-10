@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "task_name": "navtest_scout_gshub",
+  "scene_key": "factory",
+  "robots": [
+    {
+      "type": "scout",
+      "controller": {"mode": "default", "cfg": "SCOUT_DIFF_CFG"},
+      "spawn_pose": {
+        "position": [-3.0, 0.0, 0.2],
+        "rotation": [1.0, 0.0, 0.0, 0.0]
+      },
+      "visual": {"x": 0.5, "y": 0.5},
+      "attachments": [
+        {"type": "gshub", "controller": null},
+        {"type": "ros", "controller": null}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "task_name": "navtest_go2_lidar",
+  "scene_key": "factory",
+  "robots": [
+    {
+      "type": "go2",
+      "controller": {"mode": "default", "cfg": "GO2_VELOCITY_RSL_CFG"},
+      "spawn_pose": {
+        "position": [-3.0, 0.0, 0.4],
+        "rotation": [1.0, 0.0, 0.0, 0.0]
+      },
+      "visual": {"x": 0.5, "y": 0.5},
+      "attachments": [
+        {"type": "lidar", "controller": null},
+        {"type": "ros", "controller": null}
+      ]
+    }
+  ]
+}

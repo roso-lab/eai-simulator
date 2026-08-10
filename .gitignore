@@ -139,3 +139,5 @@ ros2_cmd_vel.json
 /docs/test-reports/
 test_*.py
 *_test.py
+!/algorithm/ros/nav2/tests/
+!/algorithm/ros/nav2/tests/test_lidar_nav2_contract.py

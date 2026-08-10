@@ -75,8 +75,11 @@ class RobotOption:
     z1_mount_profile: Z1MountProfile | None = None
     gshub_offset: tuple[float, float, float] = (0.026, 0.0, 0.0)
     lidar_mount_link: str | None = None
+    # The HESAI XT32 mounting flange is 47.7 mm below its sensor origin. The
+    # cable reaches 88.7 mm below the origin and must not be used as the mount plane.
     lidar_offset: tuple[float, float, float] = (0.0, 0.0, 0.0)
     lidar_rot: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
+    gshub_disable_physics: bool = False
 
 
 DESERT_SCENE_Z_OFFSET = -4322.563
@@ -143,7 +146,7 @@ ROBOT_OPTIONS = [
         z1_mount_profile=Z1_MOUNT_PROFILES["carter"],
         gshub_offset=(0.026, 0.0, 0.418),
         lidar_mount_link="Carter/GS_Hub_chassis_link",
-        lidar_offset=(0.026, 0.0, 0.418),
+        lidar_offset=(0.026, 0.0, 0.444862),
     ),
     RobotOption("pepper", "Pepper holonomic base", PEPPER_CFG, "PEPPER_HOLONOMIC_CFG", 0.0),
     RobotOption(
@@ -156,7 +159,7 @@ ROBOT_OPTIONS = [
         ur5_mount_profile=UR5_MOUNT_PROFILES["go2"],
         z1_mount_profile=Z1_MOUNT_PROFILES["go2"],
         lidar_mount_link="base",
-        lidar_offset=(0.22631, -0.003, 0.13055),
+        lidar_offset=(0.22631, -0.003, 0.136534),
         lidar_rot=(1.0, 0.0, 0.0, 0.0),
     ),
     RobotOption(
@@ -170,7 +173,7 @@ ROBOT_OPTIONS = [
         z1_mount_profile=Z1_MOUNT_PROFILES["b2"],
         gshub_offset=(0.36723, 0.0, 0.223494),
         lidar_mount_link="base_link",
-        lidar_offset=(0.0, 0.0, 0.5),
+        lidar_offset=(0.36723, 0.0, 0.2902),
     ),
     RobotOption(
         "m20",
@@ -183,7 +186,7 @@ ROBOT_OPTIONS = [
         z1_mount_profile=Z1_MOUNT_PROFILES["m20"],
         gshub_offset=(0.29718, 0.0, 0.07994),
         lidar_mount_link="base_link",
-        lidar_offset=(0.0, 0.0, 0.5),
+        lidar_offset=(0.29718, 0.0, 0.121437),
     ),
     RobotOption(
         "scout",
@@ -195,6 +198,8 @@ ROBOT_OPTIONS = [
         ur5_mount_profile=UR5_MOUNT_PROFILES["scout"],
         z1_mount_profile=Z1_MOUNT_PROFILES["scout"],
         gshub_offset=(0.24749, 0.0, 0.11309),
+        lidar_mount_link="base_link",
+        lidar_offset=(0.24749, 0.0, 0.160402),
     ),
     RobotOption(
         "mushr_v2",
@@ -203,9 +208,22 @@ ROBOT_OPTIONS = [
         "MUSHR_ACKERMANN_CFG",
         0.0,
         gshub_mount_link="mushr_nano/base_link",
-        lidar_mount_link="mushr_nano/laser_link",
+        lidar_mount_link="mushr_nano/base_link",
+        lidar_offset=(-0.035325, 0.0, 0.18495),
     ),
-    RobotOption("coco", "Coco AIRS Ackermann base", COCO_CFG, "COCO_ACKERMANN_CFG", 0.3),
+    RobotOption(
+        "coco",
+        "Coco AIRS Ackermann base",
+        COCO_CFG,
+        "COCO_ACKERMANN_CFG",
+        0.3,
+        gshub_mount_link="base_link",
+        # Coco roof plane is 47.7 mm below the calibrated standalone LiDAR origin.
+        gshub_offset=(0.0, 0.0, 0.430962),
+        lidar_mount_link="base_link",
+        lidar_offset=(0.0, 0.0, 0.478662),
+        gshub_disable_physics=True,
+    ),
     RobotOption("g1", "Unitree G1", G1_CFG, "G1_SKRL_CFG", 0.74),
     RobotOption("cf2x", "Crazyflie CF2X", CRAZYFLIE_CFG, "QUADCOPTER_GOAL_SKRL_CFG", 1.0),
     RobotOption("human", "Human animation", None, "HUMAN_ANIMATION_CFG", HUMAN_FEMALE_DEFAULT_Z),
@@ -220,7 +238,7 @@ ROBOT_OPTIONS = [
         z1_mount_profile=Z1_MOUNT_PROFILES["lite3"],
         gshub_offset=(0.16669, 0.0, 0.06773),
         lidar_mount_link="TORSO",
-        lidar_offset=(0.0, 0.0, 0.35),
+        lidar_offset=(0.16669, 0.0, 0.114523),
     ),
 ]
 
@@ -426,11 +444,16 @@ def build_interactive_env_cfg(
                 prim_path=gshub_prim_path,
                 init_state=AssetBaseCfg.InitialStateCfg(pos=robot.gshub_offset),
                 ros_namespace=f"/{name}",
-                enable_ros_publish=ros_enabled,  # 传给 GSHubCfg（虽然 spawn 时用不上，但保留向后兼容）
+                # Retain the cfg field as well as the legacy global path map.
+                enable_ros_publish=ros_enabled,
+                disable_physics=robot.gshub_disable_physics,
             )
 
             # 同时写入全局字典作为备用（兼容旧代码）
-            from EAI_assets.sensor.high_sensor.gs_hub import _gshub_ros_publish_config
+            from EAI_assets.sensor.high_sensor.gs_hub import (
+                _gshub_disable_physics_config,
+                _gshub_ros_publish_config,
+            )
             # 尝试多种可能的路径格式
             for path_variant in [
                 gshub_prim_path,
@@ -438,6 +461,7 @@ def build_interactive_env_cfg(
                 f"/World/envs/env_./{name}/{robot.gshub_mount_link}/GSHub",
             ]:
                 _gshub_ros_publish_config[path_variant] = ros_enabled
+                _gshub_disable_physics_config[path_variant] = robot.gshub_disable_physics
 
         if any(attachment.type == "lidar" for attachment in selection.attachments) and robot.lidar_mount_link:
             from EAI_assets.sensor.low_sensor import RosLidarCfg
@@ -473,7 +497,11 @@ def _add_human(
     robot: RobotOption,
     selection: RobotSelection,
 ) -> None:
-    unsupported = [attachment.type for attachment in selection.attachments if attachment.type not in {"keyboard", "ros"}]
+    unsupported = [
+        attachment.type
+        for attachment in selection.attachments
+        if attachment.type not in {"keyboard", "ros"}
+    ]
     if unsupported:
         raise ValueError(
             "Human animation robots only support non-physical DIY tools: "
