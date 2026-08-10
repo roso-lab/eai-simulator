@@ -19,6 +19,13 @@ from typing import Any, Callable, Iterator
 
 KEYBOARD_CMD_VEL_GOAL_STEP_SCALE = 0.2
 
+# Scout's four fixed wheels resist lateral motion, so its effective skid-steer
+# track is much wider than the 0.498 m geometric controller value. Factory-floor
+# pure-yaw pulses at two wheel speeds expose a sizable breakaway threshold; a
+# 2.9 scale gives about 0.5 rad/s actual yaw for a 0.5 rad/s ROS command without
+# changing the downloaded controller asset.
+SCOUT_CMD_VEL_ANGULAR_SCALE = 2.9
+
 
 def _load_interface_cli():
     _ensure_repo_sources_on_path()
@@ -158,7 +165,7 @@ def _runtime_device_for_env(
 def _selection_requires_omnigraph(selection_data: dict[str, Any] | None) -> bool:
     if not selection_data:
         return False
-    graph_attachments = {"ur5", "z1", "ros"}
+    graph_attachments = {"gshub", "lidar", "ur5", "z1", "ros"}
     return any(
         isinstance(robot, dict)
         and any(
@@ -431,6 +438,8 @@ def _handle_preflight_payload(
     ensure_usd_assets=None,
     ensure_controller_assets=None,
 ) -> tuple[str, dict[str, Any] | None]:
+    if payload.get("startup_mode") == "diy-3d":
+        raise Diy3dRequested
     if not payload.get("should_run", True):
         raise SystemExit(0)
     asset_resolver = _load_asset_resolver()
@@ -503,6 +512,10 @@ class BackToDiyMethod(Exception):
     """Raised when terminal DIY backs out to the method chooser."""
 
 
+class Diy3dRequested(Exception):
+    """Raised when the Env DIY method chooser requests the 3D editor."""
+
+
 def _resolve_startup_mode(args: argparse.Namespace) -> str:
     if bool(getattr(args, "diy_3d", False)):
         if _requested_env_name(args):
@@ -551,6 +564,7 @@ def _diy_method_prompt_text() -> str:
         "\n未指定 --env，请选择 env 制定方式："
         "\n  1. 可视化窗口（Scenes → Robots → Payloads → Tools）"
         "\n  2. 终端快速（同样顺序，Payloads 先机械臂后传感器）"
+        "\n  3. Isaac Sim 3D 编辑器（编辑真实位置、旋转与碰撞面）"
     )
 
 
@@ -558,7 +572,7 @@ def choose_diy_selection_before_preflight():
     repo_root = _repo_root()
     while True:
         print(_diy_method_prompt_text())
-        raw = input("输入 1 或 2: ").strip()
+        raw = input("输入 1、2 或 3: ").strip()
         if raw == "1":
             return _choose_visual_diy(repo_root)
         if raw == "2":
@@ -566,7 +580,9 @@ def choose_diy_selection_before_preflight():
                 return _choose_terminal_diy(repo_root)
             except BackToDiyMethod:
                 continue
-        print("请输入 1 或 2。")
+        if raw == "3":
+            raise Diy3dRequested
+        print("请输入 1、2 或 3。")
 
 
 def _requested_env_name(args: argparse.Namespace) -> str | None:
@@ -667,11 +683,14 @@ def _complete_terminal_selection(
     _ensure_repo_sources_on_path()
     from EAI.hmrs_env.env_diy.storage import save_task
 
+    print("\n[完成] 保存与运行")
+    print("-" * 72)
+    print("  可以保存为可复用的 JSON env，并选择是否立即运行")
     saved_task = None
     step = "save"
     while True:
         if step == "save":
-            save_choice = _ask_yes_no_or_back("是否保存 env", default=True, input_func=input_func)
+            save_choice = _ask_yes_no_or_back("保存此 env", default=True, input_func=input_func)
             if save_choice is None:
                 return TerminalCompletionResult(None, False, back_to_controller=True)
             if not save_choice:
@@ -680,9 +699,9 @@ def _complete_terminal_selection(
             continue
 
         if step == "name":
-            name = input_func("请输入 env 名称 (b 返回): ").strip()
+            name = input_func("env 名称 (b 返回): ").strip()
             if not name:
-                print("env 名称不能为空。")
+                print("  ! env 名称不能为空。")
                 continue
             if name.lower() in {"b", "back"}:
                 step = "save"
@@ -694,14 +713,15 @@ def _complete_terminal_selection(
                     repo_root=repo_root,
                 )
             except ValueError as exc:
-                print(f"env 名称无效: {exc}")
+                print(f"  ! env 名称无效: {exc}")
                 continue
             saved_task = json.loads(saved_path.read_text(encoding="utf-8"))
-            print(f"已保存 env: {saved_path}")
+            print("\n  已保存 env")
+            print(f"  {saved_path}")
             step = "execute"
             continue
 
-        should_run = _ask_yes_no_or_back("是否运行", default=True, input_func=input_func)
+        should_run = _ask_yes_no_or_back("立即运行", default=True, input_func=input_func)
         if should_run is None:
             saved_task = None
             step = "save"
@@ -721,7 +741,7 @@ def _ask_yes_no_or_back(prompt: str, *, default: bool, input_func=input) -> bool
             return True
         if raw in {"n", "no"}:
             return False
-        print("请输入 y、n 或 b。")
+        print("  ! 请输入 y、n 或 b。")
 
 
 def _initialize_preflight_env_cfg(env_cfg: Any, *, num_envs: int, device: str) -> None:
@@ -860,7 +880,20 @@ def _collect_asset_payload_after_app(args: argparse.Namespace, task_request: Tas
 
 def _run_asset_preflight_worker(args: argparse.Namespace) -> None:
     _ensure_repo_sources_on_path()
-    task_request = _resolve_task_request_before_app(args)
+    try:
+        task_request = _resolve_task_request_before_app(args)
+    except Diy3dRequested:
+        payload = {
+            "startup_mode": "diy-3d",
+            "task_name": None,
+            "selection": None,
+            "saved_task": None,
+            "usd_paths": [],
+            "controller_paths": [],
+            "should_run": False,
+        }
+        Path(args.preflight_output).write_text(json.dumps(payload), encoding="utf-8")
+        return
 
     if not task_request.should_run:
         payload = {
@@ -1172,7 +1205,12 @@ def _transform_cmd_vel_for_robot(
     vy: float,
     wz: float,
 ) -> tuple[float, float, float]:
-    return float(vx), float(vy), float(wz)
+    angular_scale = (
+        SCOUT_CMD_VEL_ANGULAR_SCALE
+        if str(robot_type or "").strip().casefold() == "scout"
+        else 1.0
+    )
+    return float(vx), float(vy), float(wz) * angular_scale
 
 
 def _apply_cmd_vel_bridge_commands(
@@ -1475,6 +1513,12 @@ def main() -> None:
         preflight_parser.error(str(exc))
     task_request = None
     existing_simulation_app = None
+    if startup_mode != "diy-3d":
+        try:
+            env_name, selection_data = _run_asset_preflight(preflight_args, task_request)
+        except Diy3dRequested:
+            startup_mode = "diy-3d"
+
     if startup_mode == "diy-3d":
         from isaaclab.app import AppLauncher
 
@@ -1491,8 +1535,6 @@ def main() -> None:
         selection_data = task_request.selection_data
         sys.argv = [sys.argv[0]] + hydra_args
     else:
-        env_name, selection_data = _run_asset_preflight(preflight_args, task_request)
-
         from isaaclab.app import AppLauncher
 
         launch_parser = _base_parser(include_device=False)

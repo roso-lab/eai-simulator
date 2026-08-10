@@ -1474,12 +1474,12 @@
           coco: { label: "Coco AIRS", image: "env-diy-assets/robot/coco.png", cfg: "COCO_ACKERMANN_CFG" }
         }),
         manipulators: Object.freeze({
-          ur5: { label: "UR5", image: "env-diy-assets/manipulator/ur5.png", supported: ["carter", "go2", "b2", "m20", "scout", "lite3"], cfg: "UR5_IK_CFG" },
+          ur5: { label: "UR5", image: "env-diy-assets/manipulator/ur5.png", supported: ["go2", "b2", "m20", "scout", "lite3"], cfg: "UR5_IK_CFG" },
           z1: { label: "Z1", image: "env-diy-assets/manipulator/z1.png", supported: ["carter", "go2", "b2", "m20", "scout", "lite3"], cfg: "Z1_IK_CFG" }
         }),
         sensors: Object.freeze({
-          gshub: { label: "GS-Hub", image: "env-diy-assets/sensor/gshub.png", supported: ["carter", "go2", "b2", "m20", "scout", "lite3"] },
-          lidar: { label: "LiDAR", image: "env-diy-assets/sensor/lidar.png", supported: ["carter", "go2", "b2", "m20", "lite3"] }
+          gshub: { label: "GS-Hub", image: "env-diy-assets/sensor/gshub.png", supported: ["carter", "go2", "b2", "m20", "scout", "coco", "lite3"] },
+          lidar: { label: "LiDAR", image: "env-diy-assets/sensor/lidar.png", supported: ["carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3"] }
         }),
         tools: Object.freeze({
           ros: { label: "ROS", image: "env-diy-assets/tool/ros.png", supported: ["carter", "go2", "b2", "m20", "scout", "lite3", "pepper", "g1", "cf2x", "mushr_v2", "coco"] },

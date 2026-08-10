@@ -7,13 +7,14 @@ nav2_setup.py —— 按"机器人类型 + 场景"生成 Nav2 配置文件（par
 把占位符替换成具体值，输出到 --out 目录（默认 /tmp/eai_nav2_<robot>）。
 
 典型用法（由 nav2.launch.py 自动调用，一般不用手动跑）：
-    python3 nav2_setup.py --robot carter_1 --robot-type Carter --scene factory \\
+    python3 nav2_setup.py --robot carter_1 --robot-type Carter --sensor auto --scene factory \\
         --out /tmp/eai_nav2_carter_1
 
 参数：
     --robot       机器人实例名（ROS 话题命名空间，如 carter_1 / go2_1）。必填。
     --robot-type  机器人类型（查 robot_profiles，如 Carter/Go2/B2/Scout）。
                   不填则默认用 --robot 首段首字母大写猜测，查不到用 default_profile。
+    --sensor      传感器类型：auto/gshub/lidar。auto 从运行时快照的 attachments 强校验。
     --scene       场景名（查 scene_maps 找地图，并校验活动仿真场景）。默认 factory。
     --map         显式指定地图 yaml（覆盖 scene 查表）。
     --pose        显式初始位姿 "x,y,yaw"（覆盖活动仿真位姿）。
@@ -54,20 +55,32 @@ DEFAULT_YAW_GOAL_TOLERANCE = 0.25
 DEFAULT_PROGRESS_REQUIRED_MOVEMENT_RADIUS = 0.5
 DEFAULT_PROGRESS_MOVEMENT_TIME_ALLOWANCE = 10.0
 DEFAULT_INFLATION_RADIUS = 0.55
+SENSOR_TYPES = ("gshub", "lidar")
+ROBOT_TYPE_ALIASES = {
+    "mushr_v2": "MuSHR Nano v2",
+    "mushr nano v2": "MuSHR Nano v2",
+    "coco": "Coco AIRS",
+    "coco airs": "Coco AIRS",
+}
 
 
 def load_profiles():
-    with open(PROFILES) as f:
+    with open(PROFILES, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
 def resolve_profile(profiles, robot_type, robot_name):
     """按 robot_type 查物理参数；查不到猜测；再查不到用 default（告警）。"""
     table = profiles["robot_profiles"]
-    if robot_type and robot_type in table:
-        return robot_type, dict(table[robot_type])
-    # 猜测：用实例名首段首字母大写（carter_1 -> Carter）
-    guess = robot_name.split("_")[0].capitalize()
+    names_by_casefold = {name.casefold(): name for name in table}
+    requested = str(robot_type or "").strip()
+    requested_name = ROBOT_TYPE_ALIASES.get(requested.casefold()) or names_by_casefold.get(requested.casefold())
+    if requested_name:
+        return requested_name, dict(table[requested_name])
+    # 去掉实例编号后猜测（carter_1 -> Carter，mushr_v2_1 -> MuSHR Nano v2）。
+    instance_type = robot_name.rsplit("_", 1)[0]
+    guess = ROBOT_TYPE_ALIASES.get(instance_type.casefold(), instance_type.capitalize())
+    guess = names_by_casefold.get(guess.casefold(), guess)
     if guess in table:
         print(f"[nav2_setup] ℹ️  未指定 --robot-type，按实例名猜测为 '{guess}'")
         return guess, dict(table[guess])
@@ -119,7 +132,7 @@ def pid_is_alive(pid):
     return True
 
 
-def resolve_runtime_pose(
+def resolve_runtime_robot(
     snapshot_path,
     robot_name,
     scene,
@@ -173,6 +186,25 @@ def resolve_runtime_pose(
         raise RuntimeError(
             f"Robot {robot_name!r} is absent from runtime snapshot. {override}"
         )
+    return robot
+
+
+def resolve_runtime_pose(
+    snapshot_path,
+    robot_name,
+    scene,
+    *,
+    now=None,
+    pid_checker=pid_is_alive,
+):
+    robot = resolve_runtime_robot(
+        snapshot_path,
+        robot_name,
+        scene,
+        now=now,
+        pid_checker=pid_checker,
+    )
+    override = "Start/restart simulator.py or pass pose:=x,y,yaw."
     world_pose = robot.get("world_pose")
     try:
         position = [float(value) for value in world_pose["position"]]
@@ -194,6 +226,97 @@ def resolve_runtime_pose(
     return {"x": position[0], "y": position[1], "yaw": yaw}, "runtime_snapshot"
 
 
+def resolve_sensor(
+    requested_sensor,
+    snapshot_path,
+    robot_name,
+    scene,
+    *,
+    now=None,
+    pid_checker=pid_is_alive,
+):
+    if requested_sensor != "auto":
+        return requested_sensor, "explicit"
+    robot = resolve_runtime_robot(
+        snapshot_path,
+        robot_name,
+        scene,
+        now=now,
+        pid_checker=pid_checker,
+    )
+    attachments = robot.get("attachments")
+    if not isinstance(attachments, list):
+        raise RuntimeError(
+            f"Robot {robot_name!r} has invalid attachments in runtime snapshot. "
+            "Pass sensor:=gshub or sensor:=lidar explicitly."
+        )
+    sensors = [sensor for sensor in SENSOR_TYPES if sensor in attachments]
+    if len(sensors) == 1:
+        return sensors[0], "runtime_snapshot"
+    if not sensors:
+        raise RuntimeError(
+            f"Robot {robot_name!r} has neither GS-Hub nor LiDAR attached. "
+            "Attach one sensor or pass sensor:=gshub/sensor:=lidar after verifying the simulation."
+        )
+    raise RuntimeError(
+        f"Robot {robot_name!r} has both GS-Hub and LiDAR attached; both publish the same "
+        "cloud/odometry topics. Keep only one sensor, or select sensor:=gshub/sensor:=lidar "
+        "explicitly and disable the other publisher."
+    )
+
+
+def resolve_sensor_mount(profile, sensor):
+    mounts = profile.get("sensor_mounts", {})
+    mount = mounts.get(sensor) if isinstance(mounts, dict) else None
+    if mount is None and sensor == "gshub" and "lidar_xyz" in profile:
+        mount = {
+            "xyz": profile["lidar_xyz"],
+            "rpy": profile.get("lidar_rpy", [0.0, 0.0, 0.0]),
+        }
+    if not isinstance(mount, dict):
+        raise ValueError(f"当前机器人 profile 不支持传感器 {sensor!r}")
+    try:
+        xyz = [float(value) for value in mount["xyz"]]
+        rpy = [float(value) for value in mount.get("rpy", [0.0, 0.0, 0.0])]
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError(f"传感器 {sensor!r} 的安装标定无效") from exc
+    if len(xyz) != 3 or len(rpy) != 3 or not all(
+        math.isfinite(value) for value in xyz + rpy
+    ):
+        raise ValueError(f"传感器 {sensor!r} 的安装标定必须是有限的 xyz/rpy 三元组")
+    return xyz, rpy
+
+
+def resolve_nav_base_offset(profile):
+    """Return the simulator-root -> Nav2-base local translation."""
+    try:
+        offset = [float(value) for value in profile.get("nav_base_offset_xyz", [0.0, 0.0, 0.0])]
+    except (TypeError, ValueError) as exc:
+        raise ValueError("nav_base_offset_xyz 必须是有限的 xyz 三元组") from exc
+    if len(offset) != 3 or not all(math.isfinite(value) for value in offset):
+        raise ValueError("nav_base_offset_xyz 必须是有限的 xyz 三元组")
+    return offset
+
+
+def resolve_navigation_sensor_mount(profile, sensor, base_offset_xyz):
+    """Convert a physical mount from simulator-root coordinates to Nav2 base."""
+    xyz, rpy = resolve_sensor_mount(profile, sensor)
+    return [xyz[index] - base_offset_xyz[index] for index in range(3)], rpy
+
+
+def resolve_navigation_pose(pose, base_offset_xyz):
+    """Move a simulator-root planar pose to the configured Nav2 base point."""
+    yaw = float(pose.get("yaw", 0.0))
+    cos_yaw = math.cos(yaw)
+    sin_yaw = math.sin(yaw)
+    offset_x, offset_y = base_offset_xyz[:2]
+    return {
+        "x": float(pose["x"]) + cos_yaw * offset_x - sin_yaw * offset_y,
+        "y": float(pose["y"]) + sin_yaw * offset_x + cos_yaw * offset_y,
+        "yaw": yaw,
+    }
+
+
 def resolve_pose(robot_name, scene, explicit_pose, runtime_snapshot):
     if explicit_pose:
         try:
@@ -207,16 +330,149 @@ def resolve_pose(robot_name, scene, explicit_pose, runtime_snapshot):
 
 
 def render(template_path, subs):
-    s = open(template_path).read()
+    with open(template_path, encoding="utf-8") as stream:
+        s = stream.read()
     for k, v in subs.items():
         s = s.replace(k, str(v))
     return s
+
+
+def apply_navigation_plugin_profile(params, profile):
+    """Replace the default NavFn/DWB pair for constrained drive kinematics."""
+    controller_plugin = profile.get("controller_plugin", "dwb")
+    planner_plugin = profile.get("planner_plugin", "navfn")
+    if controller_plugin == "dwb" and planner_plugin == "navfn":
+        return params
+    if controller_plugin == "rotation_shim_dwb" and planner_plugin == "navfn":
+        controller = params["controller_server"]["ros__parameters"]
+        follow_path = controller["FollowPath"]
+        follow_path.update({
+            "plugin": "nav2_rotation_shim_controller::RotationShimController",
+            "primary_controller": "dwb_core::DWBLocalPlanner",
+            "angular_dist_threshold": 0.6,
+            "angular_disengage_threshold": 0.2,
+            "forward_sampling_distance": 0.5,
+            "rotate_to_heading_angular_vel": 0.6,
+            "max_angular_accel": float(profile["acc_lim_theta"]),
+            "simulate_ahead_time": 1.0,
+            "rotate_to_goal_heading": False,
+            "closed_loop": True,
+        })
+        return params
+    if (controller_plugin, planner_plugin) != (
+        "regulated_pure_pursuit",
+        "smac_hybrid",
+    ):
+        raise ValueError(
+            "Unsupported Nav2 plugin pair: "
+            f"controller={controller_plugin!r}, planner={planner_plugin!r}"
+        )
+
+    minimum_turning_radius = float(profile["minimum_turning_radius"])
+    allow_reversing = bool(profile.get("allow_reversing", False))
+    controller = params["controller_server"]["ros__parameters"]
+    controller["FollowPath"] = {
+        "plugin": (
+            "nav2_regulated_pure_pursuit_controller::"
+            "RegulatedPurePursuitController"
+        ),
+        "desired_linear_vel": float(
+            profile.get("desired_linear_vel", profile["max_vel_x"])
+        ),
+        "lookahead_dist": 0.6,
+        "min_lookahead_dist": 0.3,
+        "max_lookahead_dist": 0.9,
+        "lookahead_time": 1.5,
+        "transform_tolerance": 0.2,
+        "use_velocity_scaled_lookahead_dist": True,
+        "min_approach_linear_velocity": 0.1,
+        "approach_velocity_scaling_dist": 0.6,
+        "use_collision_detection": True,
+        "max_allowed_time_to_collision_up_to_carrot": 1.0,
+        "use_regulated_linear_velocity_scaling": True,
+        "use_cost_regulated_linear_velocity_scaling": True,
+        "regulated_linear_scaling_min_radius": minimum_turning_radius,
+        "regulated_linear_scaling_min_speed": 0.1,
+        "cost_scaling_dist": 0.6,
+        "cost_scaling_gain": 1.0,
+        "inflation_cost_scaling_factor": 3.0,
+        # An Ackermann axle cannot execute RPP's in-place heading rotation.
+        "use_rotate_to_heading": False,
+        "allow_reversing": allow_reversing,
+        "max_angular_accel": float(profile["acc_lim_theta"]),
+    }
+
+    planner = params["planner_server"]["ros__parameters"]
+    planner["GridBased"] = {
+        "plugin": "nav2_smac_planner/SmacPlannerHybrid",
+        "tolerance": float(profile.get("xy_goal_tolerance", 0.5)),
+        "downsample_costmap": False,
+        "allow_unknown": True,
+        "max_iterations": 1000000,
+        "max_planning_time": 5.0,
+        "motion_model_for_search": "REEDS_SHEPP" if allow_reversing else "DUBIN",
+        "angle_quantization_bins": 72,
+        "analytic_expansion_ratio": 3.5,
+        "analytic_expansion_max_length": max(5.0, 4.0 * minimum_turning_radius),
+        "minimum_turning_radius": minimum_turning_radius,
+        "reverse_penalty": 2.0,
+        "change_penalty": 0.0,
+        "non_straight_penalty": 1.2,
+        "cost_penalty": 2.0,
+        "lookup_table_size": 20.0,
+        "cache_obstacle_heuristic": False,
+        "smooth_path": True,
+    }
+    return params
+
+
+def apply_costmap_geometry_profile(params, profile):
+    """Use a base-relative polygon where a circular footprint is insufficient."""
+    footprint = profile.get("footprint")
+    if footprint is None:
+        return params
+    try:
+        points = [[float(coordinate) for coordinate in point] for point in footprint]
+    except (TypeError, ValueError) as exc:
+        raise ValueError("footprint 必须是有限的 xy 点列表") from exc
+    if len(points) < 3 or any(
+        len(point) != 2 or not all(math.isfinite(value) for value in point)
+        for point in points
+    ):
+        raise ValueError("footprint 必须至少包含三个有限的 xy 点")
+    for costmap_name in ("local_costmap", "global_costmap"):
+        costmap = params[costmap_name][costmap_name]["ros__parameters"]
+        costmap.pop("robot_radius", None)
+        # nav2_costmap_2d declares footprint as a string and parses the polygon
+        # itself; ROS 2 parameters do not support nested numeric arrays.
+        costmap["footprint"] = str(points)
+    return params
+
+
+def render_navigation_plugin_profile(params_text, profile):
+    """Apply optional plugin/geometry settings, keeping default profiles byte-stable."""
+    if (
+        profile.get("controller_plugin", "dwb") == "dwb"
+        and profile.get("planner_plugin", "navfn") == "navfn"
+        and "footprint" not in profile
+    ):
+        return params_text
+    params = yaml.safe_load(params_text)
+    params = apply_navigation_plugin_profile(params, profile)
+    params = apply_costmap_geometry_profile(params, profile)
+    return yaml.safe_dump(params, sort_keys=False)
 
 
 def main():
     ap = argparse.ArgumentParser(description="生成 Nav2 配置（按机器人/场景）")
     ap.add_argument("--robot", required=True, help="机器人实例名 = ROS 命名空间")
     ap.add_argument("--robot-type", default=None, help="机器人类型（查物理参数表）")
+    ap.add_argument(
+        "--sensor",
+        choices=("auto", *SENSOR_TYPES),
+        default="auto",
+        help="点云/里程计传感器；auto 从活动仿真附件中检测",
+    )
     ap.add_argument("--scene", default="factory", help="场景名（查地图并校验活动仿真）")
     ap.add_argument("--map", default=None, help="显式地图 yaml（覆盖 scene）")
     ap.add_argument("--pose", default=None, help="显式初始位姿 x,y,yaw（覆盖活动仿真）")
@@ -234,12 +490,24 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
     map_path = resolve_map(profiles, args.scene, args.map, out_dir)
     try:
+        base_offset_xyz = resolve_nav_base_offset(prof)
+        sensor, sensor_source = resolve_sensor(
+            args.sensor,
+            args.runtime_snapshot,
+            args.robot,
+            args.scene,
+        )
+        physical_lidar_xyz, _physical_lidar_rpy = resolve_sensor_mount(prof, sensor)
+        lidar_xyz, lidar_rpy = resolve_navigation_sensor_mount(
+            prof, sensor, base_offset_xyz
+        )
         pose, pose_source = resolve_pose(
             args.robot,
             args.scene,
             args.pose,
             args.runtime_snapshot,
         )
+        pose = resolve_navigation_pose(pose, base_offset_xyz)
     except (RuntimeError, ValueError) as exc:
         ap.error(str(exc))
 
@@ -280,6 +548,7 @@ def main():
     params = render(PARAMS_TPL, params_subs)
     if pose.get("yaw", 0.0) != 0.0:
         params = params.replace("      yaw: 0.0\n", f"      yaw: {pose['yaw']}\n", 1)
+    params = render_navigation_plugin_profile(params, prof)
 
     pc2scan = render(PC2SCAN_TPL, {
         "@@SCAN_Z_MIN@@": prof["scan_z_min"],
@@ -291,26 +560,33 @@ def main():
     params_out = os.path.join(out_dir, "nav2_params.yaml")
     pc2scan_out = os.path.join(out_dir, "pointcloud_to_laserscan.yaml")
     rviz_out = os.path.join(out_dir, "view.rviz")
-    open(params_out, "w").write(params)
-    open(pc2scan_out, "w").write(pc2scan)
-    open(rviz_out, "w").write(rviz)
+    for path, content in (
+        (params_out, params),
+        (pc2scan_out, pc2scan),
+        (rviz_out, rviz),
+    ):
+        with open(path, "w", encoding="utf-8") as stream:
+            stream.write(content)
 
-    lidar_xyz = prof["lidar_xyz"]
-    lidar_rpy = prof.get("lidar_rpy", [0.0, 0.0, 0.0])
-    with open(os.path.join(out_dir, "meta.txt"), "w") as f:
+    with open(os.path.join(out_dir, "meta.txt"), "w", encoding="utf-8") as f:
         f.write(f"robot={args.robot}\nrobot_type={robot_type}\nscene={args.scene}\n")
+        f.write(f"sensor={sensor}\nsensor_source={sensor_source}\n")
         f.write(
             f"map={map_path}\npose={pose}\npose_source={pose_source}\n"
             f"motion_model={motion}\n"
         )
         f.write(f"lidar_xyz={lidar_xyz}\n")
         f.write(f"lidar_rpy={lidar_rpy}\n")
+        f.write(f"physical_lidar_xyz={physical_lidar_xyz}\n")
+        f.write(f"nav_base_offset_xyz={base_offset_xyz}\n")
         f.write(f"xy_goal_tolerance={params_subs['@@XY_GOAL_TOLERANCE@@']}\n")
         f.write(f"yaw_goal_tolerance={params_subs['@@YAW_GOAL_TOLERANCE@@']}\n")
         f.write(f"inflation_radius={params_subs['@@INFLATION_RADIUS@@']}\n")
+        f.write(f"controller_plugin={prof.get('controller_plugin', 'dwb')}\n")
+        f.write(f"planner_plugin={prof.get('planner_plugin', 'navfn')}\n")
 
     print(f"[nav2_setup] ✅ 已生成 Nav2 配置到 {out_dir}")
-    print(f"  机器人={args.robot} 类型={robot_type} 场景={args.scene}")
+    print(f"  机器人={args.robot} 类型={robot_type} 场景={args.scene} 传感器={sensor}")
     print(f"  运动模型={prof['motion_model']} 半径={prof['robot_radius']} "
           f"雷达偏移={lidar_xyz} 雷达姿态={lidar_rpy}")
     print(f"  地图={map_path or '（无，需 --map 或先建图）'}")
@@ -319,8 +595,12 @@ def main():
     print(f"PARAMS={params_out}")
     print(f"PC2SCAN={pc2scan_out}")
     print(f"RVIZ={rviz_out}")
+    print(f"SENSOR={sensor}")
     print(f"LIDAR_XYZ={lidar_xyz[0]},{lidar_xyz[1]},{lidar_xyz[2]}")
     print(f"LIDAR_RPY={lidar_rpy[0]},{lidar_rpy[1]},{lidar_rpy[2]}")
+    print(
+        f"BASE_OFFSET={base_offset_xyz[0]},{base_offset_xyz[1]},{base_offset_xyz[2]}"
+    )
     print(f"POSE_SOURCE={pose_source}")
     print(f"MAP={map_path or ''}")
 

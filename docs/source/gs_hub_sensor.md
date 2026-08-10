@@ -6,7 +6,7 @@ orphan: true
 
 GS-Hub 是一个集成传感器模块，包含激光雷达（Lidar）和里程计（Odometry），用于 ROS2 导航栈集成。
 
-GS-Hub 可挂载到 Carter、Go2、B2、M20、Scout 和 Lite3。除点云与里程计外，当前 GS-Hub USD Graph 还会发布左右相机图像，可使用仓库中的 `algorithm/ros/tools/vis_sensors.py` 同时查看双目图像和点云俯视图。
+GS-Hub 可挂载到 Carter、Go2、B2、M20、Scout、Coco 和 Lite3。除点云与里程计外，当前 GS-Hub USD Graph 还会发布左右相机图像，可使用仓库中的 `algorithm/ros/tools/vis_sensors.py` 同时查看双目图像和点云俯视图。相机、点云和里程计发布需要在同一宿主机器人上挂载 `ros` tool。
 
 ## 功能概述
 

@@ -6,7 +6,7 @@ orphan: true
 
 GS-Hub is an integrated sensor module, including Lidar and Odometry, for ROS2 navigation stack integration.
 
-GS-Hub can be mounted to Carter, Go2, B2, M20, Scout and Lite3. In addition to point clouds and odometry, the current GS-Hub USD Graph also publishes left and right camera images. You can use `algorithm/ros/tools/vis_sensors.py` in the warehouse to view binocular images and point cloud top views at the same time.
+GS-Hub can be mounted to Carter, Go2, B2, M20, Scout, Coco, and Lite3. In addition to point clouds and odometry, the current GS-Hub USD Graph publishes left and right camera images. Use `algorithm/ros/tools/vis_sensors.py` to view the stereo images and point-cloud top view together. Camera, point-cloud, and odometry publishing requires the `ros` tool on the same host robot.
 
 ## Function Overview
 

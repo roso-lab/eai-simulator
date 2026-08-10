@@ -112,27 +112,27 @@ eai-simulator/
 
 
 `simulator.py` 只使用 JSON 环境。传入 `--env=<name>` 时读取
-`source/EAI_hmrs/EAI_hmrs/envs/<name>.json`；未指定 `--env` 时进入 Env DIY。需要真实三维编辑时使用 `python simulator.py --diy-3d`，它把 Viewport transform 保存为物理 `spawn_pose`。
+`source/EAI_hmrs/EAI_hmrs/envs/<name>.json`；未指定 `--env` 时进入 Env DIY 启动菜单。选择第 3 项或使用 `python simulator.py --diy-3d` 可进入真实三维编辑，它把 Viewport transform 保存为物理 `spawn_pose`。
 机器人选择由 `source/EAI/EAI/hmrs_env/env_diy/flow.py::ROBOT_KEYS` 和
 `source/EAI_hmrs/EAI_hmrs/env_builder.py::ROBOT_OPTIONS` 定义，目前可选 12 类：
 
 | Env DIY key | 机器人/对象 | 默认控制器 | 可选附件 | 常用入口 |
 | ---------- | ---------- | ---------- | -------- | -------- |
-| `carter` | Carter differential base | `CARTER_DIFF_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
+| `carter` | Carter differential base | `CARTER_DIFF_CFG` | GS-Hub, LiDAR, Z1 | JSON / Env DIY |
 | `pepper` | Pepper holonomic base | `PEPPER_HOLONOMIC_CFG` | - | JSON / Env DIY |
 | `go2` | Unitree Go2 | `GO2_VELOCITY_RSL_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
 | `b2` | Unitree B2 | `B2_VELOCITY_RSL_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
 | `m20` | DeepRobotics M20 | `M20_ROUGH_RSL_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
-| `scout` | Scout mobile base | `SCOUT_DIFF_CFG` | GS-Hub, UR5, Z1 | JSON / Env DIY |
+| `scout` | Scout mobile base | `SCOUT_DIFF_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
 | `g1` | Unitree G1 | `G1_SKRL_CFG` | - | JSON / Env DIY |
 | `cf2x` | Crazyflie CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | - | JSON / Env DIY |
 | `human` | Human animation | `HUMAN_ANIMATION_CFG` | - | JSON / Env DIY |
 | `lite3` | DeepRobotics Lite3 | `LITE3_VELOCITY_RSL_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
-| `mushr_v2` | MuSHR Nano v2 Ackermann base | `MUSHR_ACKERMANN_CFG` | keyboard, ROS | JSON / Env DIY |
-| `coco` | Coco AIRS Ackermann base | `COCO_ACKERMANN_CFG` | keyboard, ROS | JSON / Env DIY |
+| `mushr_v2` | MuSHR Nano v2 Ackermann base | `MUSHR_ACKERMANN_CFG` | LiDAR, keyboard, ROS | JSON / Env DIY |
+| `coco` | Coco AIRS Ackermann base | `COCO_ACKERMANN_CFG` | GS-Hub, LiDAR, keyboard, ROS | JSON / Env DIY |
 
 
-> 控制器配置位置：`source/EAI_assets/EAI_assets/controller/`（`rl/` 与 `traditional/`）。`UR5_IK_CFG` 和 `Z1_IK_CFG` 分别用于六类兼容宿主的机械臂附件。
+> 控制器配置位置：`source/EAI_assets/EAI_assets/controller/`（`rl/` 与 `traditional/`）。`UR5_IK_CFG` 和 `Z1_IK_CFG` 用于上表所列兼容宿主的机械臂附件。
 
 ## 环境与任务
 
@@ -151,7 +151,7 @@ eai-simulator/
   启动后会提示选择 env 制定方式：
   - `1. 可视化窗口`：通过 Env DIY 窗口按 `Scenes → Robots → Payloads → Tools` 选择环境；Payloads 下分为 Manipulators（UR5/Z1）和 Sensors（GS-Hub/LiDAR），可保存为 `source/EAI_hmrs/EAI_hmrs/envs/<env_name>.json`。
   - `2. 终端快速`：按与可视化窗口相同的顺序选择场景、宿主机器人、机械臂、传感器和工具，再选择控制器，并可选择是否保存和立即运行。
-  - 独立 3D 入口：运行 `python simulator.py --diy-3d --device=cuda:0`，在 Isaac Sim Viewport 中编辑机器人真实 `spawn_pose`。该入口不会增加默认提示中的第三项，因此原终端/Tk 工作流保持不变。
+  - `3. Isaac Sim 3D 编辑器`：在 Isaac Sim Viewport 中编辑机器人真实 `spawn_pose`；也可运行 `python simulator.py --diy-3d --device=cuda:0` 直接进入。
 
 2. **首次运行前申请 Hugging Face 资产权限** — 仿真所需的大体积 USD 资产和 RL 模型权重不直接放在 Git 仓库中，统一放在 gated Hugging Face 数据集：
   [HuangQIjun/eai-simulator-assets](https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets)。

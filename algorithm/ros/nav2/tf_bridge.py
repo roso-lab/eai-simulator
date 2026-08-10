@@ -2,8 +2,8 @@
 """
 EAI 仿真器 → Nav2 TF 桥接节点
 
-GSHub 只发布 odometry（frame_id=mapping_init, child=base_link）和点云/相机，
-但**不发布任何 TF**，且所有传感器 frame_id 都写死成 "mapping_init"。
+GS-Hub 与独立 LiDAR 都发布 odometry 和点云，但不发布 Nav2 所需的完整 TF，
+且点云 frame_id 写成 "mapping_init"。
 Nav2 遵循 REP-105，需要完整 TF 链：map → odom → base_link → <sensor>。
 
 本节点负责补齐（在系统 ROS2 环境运行，与仿真器并行）：
@@ -11,7 +11,7 @@ Nav2 遵循 REP-105，需要完整 TF 链：map → odom → base_link → <sens
      （把 mapping_init 语义重命名为标准的 odom 帧）
   2. 广播静态 TF: base_link → lidar_link（雷达安装偏移和下倾姿态）
   3. 重发布点云到 /<robot>/scan_cloud，frame_id 改写为 lidar_link
-     （GSHub 点云数值是 Mid360 传感器坐标；pointcloud_to_laserscan 再按 TF 转到水平 base_link）
+     （点云数值是传感器坐标；pointcloud_to_laserscan 再按 TF 转到水平 base_link）
   4. map → odom 由 AMCL 提供（本节点不发），避免与 AMCL 冲突。
 
 用法：
@@ -51,6 +51,17 @@ def _format_lidar_xyz(value: str) -> str:
     return f"[{parts[0]}, {parts[1]}, {parts[2]}]"
 
 
+def _format_base_offset_xyz(value: str) -> str:
+    text = value.strip().strip("[]")
+    try:
+        parts = [float(part.strip()) for part in text.split(",")]
+    except ValueError as exc:
+        raise SystemExit("--base-offset-xyz 需要格式 x,y,z，例如 -0.235,0.0,0.0") from exc
+    if len(parts) != 3:
+        raise SystemExit("--base-offset-xyz 需要 3 个逗号分隔的数字")
+    return f"[{parts[0]}, {parts[1]}, {parts[2]}]"
+
+
 def _format_rpy(value: str) -> str:
     text = value.strip().strip("[]")
     try:
@@ -77,6 +88,30 @@ def quaternion_from_rpy(roll: float, pitch: float, yaw: float) -> tuple[float, f
     )
 
 
+def rotate_vector_by_quaternion(vector, quaternion):
+    """Rotate a local xyz vector by an xyzw quaternion."""
+    x, y, z = (float(value) for value in vector)
+    qx, qy, qz, qw = (float(value) for value in quaternion)
+    norm_squared = qx * qx + qy * qy + qz * qz + qw * qw
+    if norm_squared <= 1.0e-16:
+        raise ValueError("orientation quaternion must be non-zero")
+    # This is q * v * q^-1, expanded to avoid a ROS dependency in unit tests.
+    tx = 2.0 * (qy * z - qz * y)
+    ty = 2.0 * (qz * x - qx * z)
+    tz = 2.0 * (qx * y - qy * x)
+    scale = 1.0 / norm_squared
+    return (
+        x + scale * (qw * tx + qy * tz - qz * ty),
+        y + scale * (qw * ty + qz * tx - qx * tz),
+        z + scale * (qw * tz + qx * ty - qy * tx),
+    )
+
+
+def offset_position_by_local_vector(position, quaternion, local_offset):
+    rotated = rotate_vector_by_quaternion(local_offset, quaternion)
+    return tuple(float(position[index]) + rotated[index] for index in range(3))
+
+
 def normalize_cli_args(argv: Sequence[str]) -> list[str]:
     """Accept convenient flags and translate them to ROS parameter arguments."""
     args = list(argv)
@@ -88,6 +123,7 @@ def normalize_cli_args(argv: Sequence[str]) -> list[str]:
         "--odom-frame": "odom_frame",
         "--base-frame": "base_frame",
         "--lidar-frame": "lidar_frame",
+        "--base-offset-xyz": "base_offset_xyz",
         "--lidar-xyz": "lidar_xyz",
         "--lidar-rpy": "lidar_rpy",
     }
@@ -104,7 +140,9 @@ def normalize_cli_args(argv: Sequence[str]) -> list[str]:
             continue
 
         value, i = _flag_value(arg, args, i)
-        if param == "lidar_xyz":
+        if param == "base_offset_xyz":
+            value = _format_base_offset_xyz(value)
+        elif param == "lidar_xyz":
             value = _format_lidar_xyz(value)
         elif param == "lidar_rpy":
             value = _format_rpy(value)
@@ -195,9 +233,10 @@ def make_nav2_tf_bridge_class(ros):
             self.declare_parameter("odom_frame", "odom")
             self.declare_parameter("base_frame", "base_link")
             self.declare_parameter("lidar_frame", "lidar_link")
-            # 雷达相对底盘的安装偏移（Carter GSHub init_state.pos = 0.026, 0, 0.418）
+            # 仿真 odometry 原点到 Nav2 运动学基点的车体系平移。
+            self.declare_parameter("base_offset_xyz", [0.0, 0.0, 0.0])
+            # 雷达相对底盘的安装位姿由 nav2_setup 按机器人和传感器类型传入。
             self.declare_parameter("lidar_xyz", [0.026, 0.0, 0.418])
-            # 雷达相对底盘的安装姿态。Carter GSHub 前向 Mid360 约下倾 19.4°。
             self.declare_parameter("lidar_rpy", [0.0, 0.339, 0.0])
 
             # 使用仿真时间（关键）：与 /clock 对齐，否则 TF 时间戳与传感器不匹配，
@@ -210,6 +249,7 @@ def make_nav2_tf_bridge_class(ros):
             self.odom_frame = self.get_parameter("odom_frame").value
             self.base_frame = self.get_parameter("base_frame").value
             self.lidar_frame = self.get_parameter("lidar_frame").value
+            self.base_offset_xyz = list(self.get_parameter("base_offset_xyz").value)
             self.lidar_xyz = list(self.get_parameter("lidar_xyz").value)
             self.lidar_rpy = list(self.get_parameter("lidar_rpy").value)
 
@@ -224,7 +264,7 @@ def make_nav2_tf_bridge_class(ros):
                 Odometry, odom_topic, self.on_odom, qos_profile_sensor_data
             )
 
-            # 点云重发布（GSHub/Mid360 点云数值是传感器坐标，frame_id 改成 lidar_link）
+            # 点云重发布：数值保持传感器坐标，仅把 frame_id 对齐到 lidar_link。
             cloud_in = f"/{self.robot}/cloud"
             cloud_out = f"/{self.robot}/scan_cloud"
             self.cloud_pub = self.create_publisher(PointCloud2, cloud_out, qos_profile_sensor_data)
@@ -235,6 +275,7 @@ def make_nav2_tf_bridge_class(ros):
             self.get_logger().info(
                 f"TF Bridge 启动: robot={self.robot}\n"
                 f"  订阅里程计: {odom_topic} → 广播 TF {self.odom_frame}→{self.base_frame}\n"
+                f"  Nav2 基点偏移: xyz={self.base_offset_xyz}\n"
                 f"  静态 TF: {self.base_frame}→{self.lidar_frame} @ xyz={self.lidar_xyz}, rpy={self.lidar_rpy}\n"
                 f"  点云重发布: {cloud_in} → {cloud_out} (frame_id={self.lidar_frame})"
             )
@@ -265,9 +306,16 @@ def make_nav2_tf_bridge_class(ros):
             t.header.stamp = msg.header.stamp
             t.header.frame_id = self.odom_frame
             t.child_frame_id = self.base_frame
-            t.transform.translation.x = msg.pose.pose.position.x
-            t.transform.translation.y = msg.pose.pose.position.y
-            t.transform.translation.z = msg.pose.pose.position.z
+            position = msg.pose.pose.position
+            orientation = msg.pose.pose.orientation
+            base_position = offset_position_by_local_vector(
+                (position.x, position.y, position.z),
+                (orientation.x, orientation.y, orientation.z, orientation.w),
+                self.base_offset_xyz,
+            )
+            t.transform.translation.x = base_position[0]
+            t.transform.translation.y = base_position[1]
+            t.transform.translation.z = base_position[2]
             t.transform.rotation = msg.pose.pose.orientation
             self.tf_broadcaster.sendTransform(t)
 

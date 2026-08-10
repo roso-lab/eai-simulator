@@ -45,11 +45,11 @@ find source/EAI_hmrs/EAI_hmrs/envs -maxdepth 1 -name '*.json' -printf '%f\n' | s
 
 | 命令 | 界面 | 适用场景 | 位姿来源 |
 |---|---|---|---|
-| `python simulator.py` | 轻量可视化窗口或终端快速（启动后选择 `1`/`2`） | 快速组合并保存 JSON | 2D `visual.x/y` 或 Builder 默认位置 |
+| `python simulator.py` | Env DIY 启动菜单（启动后选择 `1`/`2`/`3`） | 选择轻量窗口、终端快速或 3D 编辑器 | 取决于所选模式 |
 | `python simulator.py --diy-3d` | Isaac Sim 右侧 Env DIY 3D 插件 | 需要真实碰撞面、高度和三维拖动 | 真实 `spawn_pose` |
 | `python simulator.py --env=<name>` | 直接进入正式仿真 | 启动已保存的 JSON 环境 | JSON 中的 `spawn_pose` 或默认位置 |
 
-`--diy-3d` 是独立入口，不会在未指定 `--env` 的两项提示中增加第三项。运行前编辑完成后点击插件中的 `Run`，程序会在同一个 Isaac Sim/Kit 进程中从预览 Stage 切换到正式环境，不会关闭再打开 Isaac Sim。
+未指定 `--env` 时，可在启动菜单中选择 `3` 进入 3D 编辑器；`--diy-3d` 仍可作为直接入口。运行前编辑完成后点击插件中的 `Run`，程序会在同一个 Isaac Sim/Kit 进程中从预览 Stage 切换到正式环境，不会关闭再打开 Isaac Sim。
 
 > **当前状态**：`--diy-3d` 仍处于持续优化阶段。建议用于开发、资产验证和流程联调；插件布局、资产目录和部分控制器接口可能随版本调整，正式实验请保留导出的 selection JSON。
 

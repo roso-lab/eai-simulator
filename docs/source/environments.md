@@ -130,7 +130,7 @@ Payloads
 Tools                          # ROS、Keyboard
 ```
 
-UR5 和 Z1 是必须安装在宿主机器人上的机械臂，不是传感器，也不是可以独立生成的机器人。在 Env DIY 中可以为 Carter、Go2、B2、M20、Scout 和 Lite3 添加 `ur5` 或 `z1` payload。同一机器人上 UR5 和 Z1 不能同时挂载；UI、JSON 解析、存储加载和 Builder 都会检查这一互斥规则。
+UR5 和 Z1 是必须安装在宿主机器人上的机械臂，不是传感器，也不是可以独立生成的机器人。在 Env DIY 中，Go2、B2、M20、Scout 和 Lite3 支持 `ur5` payload；Carter、Go2、B2、M20、Scout 和 Lite3 支持 `z1` payload。同一机器人上 UR5 和 Z1 不能同时挂载；UI、JSON 解析、存储加载和 Builder 都会检查这一互斥规则。
 
 Builder 根据机器人类型选择 mount profile，把机械臂创建为独立 `<robot>_arm` articulation，再通过通用 FixedJoint 固定到宿主，并自动加载 `UR5_IK_CFG` 或 `Z1_IK_CFG`。模拟器只为实际挂载实例创建对应的 ROS2 OmniGraph。UR5 提供：
 
