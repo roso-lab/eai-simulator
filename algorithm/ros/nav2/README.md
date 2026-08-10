@@ -204,4 +204,4 @@ AMCL 位姿优先级为：显式 `pose:=x,y,yaw`，然后是活动仿真的实�
 ### 当前限制
 
 - **factory 有现成占用地图；plane 会自动生成空白占用图**。其他场景（warehouse/airs/garden/desert）暂无 `*_map.yaml`，需先离线生成占用图或用 slam_toolbox 边走边建，再登记到 `scene_maps`。
-- **一键脚本 `run_nav2.sh` 默认跑 `nav2.json` 中的 Carter + Factory 配置**。`navtest_*_lidar.json` 以及 Coco/Scout 的 `navtest_*_gshub.json` 是 Factory 验收场景；其他组合可通过 Env DIY 生成。
+- **一键脚本 `run_nav2.sh` 默认跑 `nav2.json` 中的 Carter + Factory 配置**。其他机器人或场景可通过 Env DIY 生成。
