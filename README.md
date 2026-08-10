@@ -35,7 +35,7 @@
 <tr>
 <td width="43%" valign="middle">
   <h3>World, agent, controller — independently composed</h3>
-  <p>仿真世界定义、异构智能体配置、控制与感知接口——三者独立设计、独立组合。预置丰富的机器人、传感器和控制器，同时每个层面暴露标准接口，让外部算法和自定义 payload 解耦接入，不修改核心即可扩展。</p>
+  <p>Define simulation worlds, configure heterogeneous agents, and connect perception and control — three independent layers that compose freely. Pre-configured robots, sensors, and controllers are ready out of the box, while standard interfaces at every layer allow external algorithms and custom payloads to plug in without modifying the core.</p>
   <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html">Environment guide →</a></p>
 </td>
 <td width="57%">
