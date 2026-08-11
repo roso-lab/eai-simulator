@@ -40,7 +40,7 @@
     <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html"><img src="docs/source/assets/media/终端.gif" alt="Composing an environment with the Env DIY terminal workflow" width="30%"></a>
   </p>
   <h3>World, agent, controller — independently composed</h3>
-  <p>Define simulation worlds, configure heterogeneous agents, and connect perception and control — three independent layers that compose freely. Pre-configured robots, sensors, and controllers are ready out of the box, while standard interfaces at every layer allow external algorithms and custom payloads to plug in without modifying the core.</p>
+  <p>Define simulation worlds, configure heterogeneous agents, and connect perception and control — three independent layers that compose freely. Pre-configured robots, sensors, and controllers are ready out of the box, while standard interfaces at every layer allow external algorithms and custom payloads to plug in without modifying the core. Build environments through a visual editor, an in-simulator 3D plugin, or a guided terminal workflow—all producing the same reusable JSON format.</p>
   <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html">Environment guide →</a></p>
 </td>
 </tr>
