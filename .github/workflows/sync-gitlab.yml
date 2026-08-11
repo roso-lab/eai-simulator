@@ -3,6 +3,9 @@ name: Synchronize GitLab and GitHub
 on:
   schedule:
     - cron: "*/5 * * * *"
+  repository_dispatch:
+    types:
+      - gitlab_merge_request
   pull_request_target:
     types:
       - opened
@@ -40,7 +43,11 @@ jobs:
   pull-from-gitlab:
     if: >-
       github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && inputs.direction == 'pull')
+      (github.event_name == 'workflow_dispatch' && inputs.direction == 'pull') ||
+      (github.event_name == 'repository_dispatch' &&
+        github.event.client_payload.project_id == '1' &&
+        github.event.client_payload.action == 'merge' &&
+        github.event.client_payload.target_branch == 'develop')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -118,7 +125,12 @@ jobs:
     if: >-
       github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' &&
-        (inputs.direction == 'pull' || inputs.direction == 'status'))
+        (inputs.direction == 'pull' || inputs.direction == 'status')) ||
+      (github.event_name == 'repository_dispatch' &&
+        github.event.client_payload.project_id == '1' &&
+        startsWith(github.event.client_payload.source_branch, 'github-pr/') &&
+        (github.event.client_payload.action == 'close' ||
+          github.event.client_payload.action == 'reopen'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
