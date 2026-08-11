@@ -14,6 +14,8 @@ The GitLab `develop` branch and GitHub `main` branch are synchronized by the
   original pull request as merged.
 - Do not commit directly to `github-pr/*`; GitHub Actions may replace these
   branches.
+- Additional commits pushed to an open GitHub pull request update the same
+  GitLab branch and merge request.
 - Do not squash synchronization merge requests. Keeping the original commits
   preserves author attribution on both services.
 - Resolve merge conflicts through the merge request before merging it.
