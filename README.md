@@ -39,7 +39,11 @@
   <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html">Environment guide →</a></p>
 </td>
 <td width="57%">
-  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html"><img src="docs/source/assets/media/eai_env_diy.gif" alt="Composing and running an environment with EAI Env DIY" width="100%"></a>
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html">
+    <img src="docs/source/assets/media/可视化.gif" alt="Composing an environment in the Env DIY visual editor" width="100%"><br>
+    <img src="docs/source/assets/media/插件.gif" alt="Preparing and running an environment in the Env DIY 3D plugin" width="100%"><br>
+    <img src="docs/source/assets/media/终端.gif" alt="Composing an environment with the Env DIY terminal workflow" width="100%">
+  </a>
 </td>
 </tr>
 <tr>
