@@ -1,0 +1,2 @@
+Temporary test for GitLab MR close and reopen state synchronization.
+Created on 2026-08-11.
