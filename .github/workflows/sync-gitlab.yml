@@ -185,7 +185,7 @@ jobs:
             exit 1
           fi
 
-          git rm --ignore-unmatch .github/workflows/sync-gitlab.yml
+          git rm -f --ignore-unmatch .github/workflows/sync-gitlab.yml
           git commit -m "chore: stage GitHub PR #${PR_NUMBER} for GitLab review"
 
           gitlab_branch="github-pr/${PR_NUMBER}"
