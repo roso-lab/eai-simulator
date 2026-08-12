@@ -38,12 +38,6 @@
     },
     {
       "attachments": [{"controller": null, "type": "keyboard"}],
-      "controller": {"cfg": "HUMAN_ANIMATION_CFG", "mode": "default"},
-      "type": "human",
-      "visual": {"x": 0.8688, "y": 0.6399}
-    },
-    {
-      "attachments": [{"controller": null, "type": "keyboard"}],
       "controller": {"cfg": "LITE3_VELOCITY_RSL_CFG", "mode": "default"},
       "type": "lite3",
       "visual": {"x": 0.6519, "y": 0.6442}
@@ -59,6 +53,18 @@
       "controller": {"cfg": "SCOUT_DIFF_CFG", "mode": "default"},
       "type": "scout",
       "visual": {"x": 0.0953, "y": 0.4835}
+    },
+    {
+      "attachments": [{"controller": null, "type": "keyboard"}],
+      "controller": {"cfg": "MUSHR_ACKERMANN_CFG", "mode": "default"},
+      "type": "mushr_v2",
+      "visual": {"x": 0.35, "y": 0.72}
+    },
+    {
+      "attachments": [{"controller": null, "type": "keyboard"}],
+      "controller": {"cfg": "COCO_ACKERMANN_CFG", "mode": "default"},
+      "type": "coco",
+      "visual": {"x": 0.55, "y": 0.72}
     }
   ],
   "scene_key": "plane",
