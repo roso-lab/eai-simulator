@@ -54,25 +54,14 @@ jobs:
       contents: write
     env:
       GIT_LFS_SKIP_SMUDGE: "1"
+      GITLAB_REPOSITORY_TOKEN: ${{ secrets.GITLAB_REPOSITORY_TOKEN }}
 
     steps:
-      - name: Configure GitLab SSH access
-        env:
-          GITLAB_SSH_PRIVATE_KEY: ${{ secrets.GITLAB_SSH_PRIVATE_KEY }}
-        run: |
-          test -n "$GITLAB_SSH_PRIVATE_KEY"
-          install -m 700 -d "$HOME/.ssh"
-          printf '%s\n' "$GITLAB_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
-          chmod 600 "$HOME/.ssh/id_ed25519"
-          printf '%s\n' \
-            '[rosolab.com]:2222 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICYP3DzVR9pUBu7oHl0himtciQN0RFZAmFydNuCQT86S' \
-            > "$HOME/.ssh/known_hosts"
-          chmod 600 "$HOME/.ssh/known_hosts"
-
       - name: Pull GitLab develop and update GitHub main
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          test -n "$GITLAB_REPOSITORY_TOKEN"
           mkdir repository
           cd repository
 
@@ -84,7 +73,7 @@ jobs:
           github_sha=$(git rev-parse HEAD)
 
           git remote add gitlab \
-            'ssh://git@rosolab.com:2222/roso-lab/eai-simulator.git'
+            "https://oauth2:${GITLAB_REPOSITORY_TOKEN}@rosolab.com/roso-lab/eai-simulator.git"
           git fetch gitlab \
             develop:refs/remotes/gitlab/develop
 
@@ -232,26 +221,15 @@ jobs:
       pull-requests: read
     env:
       GIT_LFS_SKIP_SMUDGE: "1"
+      GITLAB_REPOSITORY_TOKEN: ${{ secrets.GITLAB_REPOSITORY_TOKEN }}
       PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
 
     steps:
-      - name: Configure GitLab SSH access
-        env:
-          GITLAB_SSH_PRIVATE_KEY: ${{ secrets.GITLAB_SSH_PRIVATE_KEY }}
-        run: |
-          test -n "$GITLAB_SSH_PRIVATE_KEY"
-          install -m 700 -d "$HOME/.ssh"
-          printf '%s\n' "$GITLAB_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
-          chmod 600 "$HOME/.ssh/id_ed25519"
-          printf '%s\n' \
-            '[rosolab.com]:2222 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICYP3DzVR9pUBu7oHl0himtciQN0RFZAmFydNuCQT86S' \
-            > "$HOME/.ssh/known_hosts"
-          chmod 600 "$HOME/.ssh/known_hosts"
-
       - name: Mirror GitHub PR to a GitLab merge request
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          test -n "$GITLAB_REPOSITORY_TOKEN"
           case "$PR_NUMBER" in
             ''|*[!0-9]*)
               echo "::error::A numeric GitHub PR number is required."
@@ -275,7 +253,7 @@ jobs:
             "+refs/pull/${PR_NUMBER}/head:refs/remotes/github/pr/${PR_NUMBER}"
 
           git remote add gitlab \
-            'ssh://git@rosolab.com:2222/roso-lab/eai-simulator.git'
+            "https://oauth2:${GITLAB_REPOSITORY_TOKEN}@rosolab.com/roso-lab/eai-simulator.git"
           git fetch gitlab \
             develop:refs/remotes/gitlab/develop
 
