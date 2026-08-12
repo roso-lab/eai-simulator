@@ -35,22 +35,12 @@
 <table>
 <tr>
 <td width="43%" valign="middle">
-  <h3>可视化组合仿真环境</h3>
-  <p>选择场景、放置异构机器人、添加机械臂和传感器，再将结果保存为可复用的 JSON 环境。Env DIY 同时支持轻量组合与 Isaac Sim 中的真实三维布置。</p>
-  <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html">环境指南 →</a> · <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/env_diy_tutorial.html">交互式工作台 →</a></p>
+  <h3>世界、智能体、控制器——独立定义，自由组合</h3>
+  <p>仿真世界定义、异构智能体配置、控制与感知接口——三者独立设计、独立组合。预置丰富的机器人、传感器和控制器，同时每个层面暴露标准接口，让外部算法和自定义 payload 解耦接入，不修改核心即可扩展。环境构建支持可视化编辑器、仿真内三维插件和引导式终端三种 Env DIY 工作流，均生成统一、可复用的 JSON 格式。</p>
+  <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html">环境指南 →</a></p>
 </td>
 <td width="57%">
   <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/env_diy_tutorial.html"><img src="source/assets/media/eai_env_diy.gif" alt="使用 EAI Env DIY 组合并运行环境" width="100%"></a>
-</td>
-</tr>
-<tr>
-<td width="43%" valign="middle">
-  <h3>让异构智能体进入同一世界</h3>
-  <p>通过一致的实体、控制器和附件定义，让人、足式机器人、移动底盘、飞行器和机器人机械臂组合在同一个环境中运行。</p>
-  <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/project_overview.html">了解平台能力 →</a></p>
-</td>
-<td width="57%">
-  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/project_overview.html"><img src="source/assets/media/eai-keyboard.gif" alt="在同一仿真中控制 EAI 异构智能体" width="100%"></a>
 </td>
 </tr>
 <tr>
@@ -70,7 +60,7 @@
   <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html#fire-rescue-demo">运行实验 →</a></p>
 </td>
 <td width="57%">
-  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html#nav2"><img src="source/assets/media/eai-nav.gif" alt="Carter 在 Factory 场景中执行 Nav2 导航" width="100%"></a>
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html#fire-rescue-demo"><img src="source/assets/media/demo.gif" alt="EAI Simulator 异构机器人与任务运行演示" width="100%"></a>
 </td>
 </tr>
 </table>

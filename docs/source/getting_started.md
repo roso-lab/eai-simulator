@@ -65,7 +65,7 @@ python simulator.py --env robo
 source/EAI_hmrs/EAI_hmrs/envs/robo.json
 ```
 
-`robo` 环境在平面场景中加载 human 和工程支持的其他机器人，并为每个对象启用键盘控制。
+`robo` 环境在平面场景中加载轮式、足式、人形及无人机等异构机器人，并为每个对象启用键盘控制。
 
 ## Env DIY
 
