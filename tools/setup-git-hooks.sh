@@ -28,21 +28,6 @@ git config core.hooksPath .githooks
 echo "🔐 Making hooks executable..."
 chmod +x .githooks/*
 
-# Install pre-commit hooks (if pre-commit is available)
-if command -v pre-commit &> /dev/null; then
-    echo "🔧 Installing pre-commit hooks..."
-    pre-commit install
-    pre-commit install --hook-type commit-msg
-    pre-commit install --hook-type pre-push
-    echo "✅ pre-commit hooks installed successfully!"
-else
-    echo "⚠️  pre-commit not found. Install it with: pip install pre-commit"
-    echo "   Then run:"
-    echo "     pre-commit install"
-    echo "     pre-commit install --hook-type commit-msg"
-    echo "     pre-commit install --hook-type pre-push"
-fi
-
 echo ""
 echo "========================================="
 echo "  ✅ Git hooks setup complete!"
