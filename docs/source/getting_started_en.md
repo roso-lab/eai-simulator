@@ -117,7 +117,7 @@ source /opt/ros/humble/setup.bash
 /usr/bin/python3 algorithm/keyboard/keyboard.py --robot mushr_v2_1 --linear-speed 0.5 --angular-speed 0.8
 ```
 
-`W/S` controls `linear.x`, `C/V` controls `angular.z`; MuSHR does not use `linear.y` and cannot rotate in place.
+`W/S` controls `linear.x`, `A/D` controls `linear.y`, `R/F` controls aerial ascent/descent through `linear.z`, and `C/V` controls `angular.z`; MuSHR does not use `linear.y` and cannot rotate in place. Use `--vertical-speed` to configure the aerial vertical speed separately.
 
 All objects in the `robo` environment also have the `keyboard` tool configured. After the emulation is started, you can run the unified keyboard publisher in another terminal:
 

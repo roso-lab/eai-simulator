@@ -53,9 +53,17 @@ def resolve_scene_interfaces(
         robots = [{"type": name.rsplit("_", 1)[0], "instance_name": name, "attachments": []} for name in possible_agents]
 
     resolved: list[ResolvedInterface] = []
+    type_counts: dict[str, int] = {}
     for index, robot in enumerate(robots, start=1):
         robot_type = str(robot.get("type", "robot"))
-        instance_name = str(robot.get("instance_name") or f"{robot_type}_{index}")
+        normalized_type = robot_type.casefold()
+        type_counts[normalized_type] = type_counts.get(normalized_type, 0) + 1
+        runtime_name = possible_agents[index - 1] if possible_agents and index <= len(possible_agents) else None
+        instance_name = str(
+            runtime_name
+            or robot.get("instance_name")
+            or f"{robot_type}_{type_counts[normalized_type]}"
+        )
         attachments = [str(item.get("type")) for item in robot.get("attachments", [])]
         targets = [(device, None) for device in catalog.devices if device.category == "robot" and device.matches_model(robot_type)]
         targets.extend(

@@ -90,6 +90,8 @@ The lightweight window, terminal quick setup, and Isaac Sim 3D extension share t
 | Scout | `SCOUT_DIFF_CFG` | Differential drive |
 | G1 | `G1_SKRL_CFG` | SKRL PPO |
 | CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | SKRL target position |
+| 3DR Iris | `PEGASUS_IRIS_POSITION_CFG` | Pegasus geometric position/yaw control |
+| Pegasus X4 | `PEGASUS_X4_POSITION_CFG` | Pegasus geometric position/yaw control |
 | Human | `HUMAN_ANIMATION_CFG` | Kinematic Animation |
 
 UR5 and Z1 do not belong to the host controller, but are auxiliary controllers mounted to the host: `UR5_IK_CFG` and `Z1_IK_CFG`. They all come from `ManipulatorIkControllerCfg` and are triggered by the actual attachment instance in the host selection; no articulation or ROS2 topic is created for unmounted manipulators.
@@ -805,7 +807,7 @@ UR5 uses `UR5_IK_CFG` and Z1 uses `Z1_IK_CFG`. The two reuse `ManipulatorIkContr
 
 The robot arm is registered as an independent `<robot>_arm` articulation and connected to the host through FixedJoint. The controller only processes robot instances that are explicitly assigned to itself. UR5/Z1 and multiple robots will not cross-consume commands. The same robot cannot mount UR5 and Z1 at the same time. For the complete topic, message format and test commands, see [Robotic Arm](ur5_control_en.md).
 
-Controller code and models are download-on-demand assets and are not committed with Git. When updating the controller, it should be uploaded to the corresponding `controller/` path in Hugging Face and downloaded using the asset parser; only universal mounts, environment registration and interface codes are retained in Git.
+Controller code and models are download-on-demand assets and are not committed with Git. When updating a controller, upload it to the corresponding Hugging Face `controller/` path for the asset resolver to download; Git retains only the shared controller contract, mounts, environment registration, and interface code. The Pegasus controller class, dynamics algorithms, and airframe parameters all live in the provider's `controller/traditional/pegasus_multirotor/` bundle.
 
 ## Summary
 

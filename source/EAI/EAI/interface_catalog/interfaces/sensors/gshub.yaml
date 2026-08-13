@@ -13,6 +13,7 @@ interfaces:
     data_type: sensor_msgs/msg/Image
     description: Left GS-Hub image stream.
     example: ros2 topic echo --once /{robot}/GS_Hub_L_cam
+    requires_attachment: camera
     read_only_test: {type: ros_topic}
   - id: ros.gshub.right_image
     name: Right camera image
@@ -23,6 +24,7 @@ interfaces:
     data_type: sensor_msgs/msg/Image
     description: Right GS-Hub image stream.
     example: ros2 topic echo --once /{robot}/GS_Hub_R_cam
+    requires_attachment: camera
     read_only_test: {type: ros_topic}
   - id: ros.gshub.point_cloud
     name: Point cloud
@@ -33,6 +35,7 @@ interfaces:
     data_type: sensor_msgs/msg/PointCloud2
     description: Registered GS-Hub point cloud output.
     example: ros2 topic echo --once /{robot}/cloud
+    requires_attachment: ros
     read_only_test: {type: ros_topic}
   - id: ros.gshub.odometry
     name: Odometry
@@ -43,6 +46,7 @@ interfaces:
     data_type: nav_msgs/msg/Odometry
     description: GS-Hub odometry output.
     example: ros2 topic echo --once /{robot}/odometry
+    requires_attachment: ros
     read_only_test: {type: ros_topic}
   - id: ros.gshub.scan
     name: Derived laser scan
@@ -53,4 +57,5 @@ interfaces:
     data_type: sensor_msgs/msg/LaserScan
     description: LaserScan derived by the navigation pipeline from the point cloud.
     example: ros2 topic echo --once /{robot}/scan
+    requires_attachment: ros
     read_only_test: {type: ros_topic}

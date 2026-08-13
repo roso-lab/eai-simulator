@@ -6,7 +6,7 @@ orphan: true
 
 GS-Hub is an integrated sensor module, including Lidar and Odometry, for ROS2 navigation stack integration.
 
-GS-Hub can be mounted to Carter, Go2, B2, M20, Scout, Coco, and Lite3. In addition to point clouds and odometry, the current GS-Hub USD Graph publishes left and right camera images. Use `algorithm/ros/tools/vis_sensors.py` to view the stereo images and point-cloud top view together. Camera, point-cloud, and odometry publishing requires the `ros` tool on the same host robot.
+GS-Hub can be mounted to Carter, Go2, B2, M20, Scout, Coco, and Lite3. In addition to point clouds and odometry, the current GS-Hub USD Graph publishes left and right camera images. Use `algorithm/ros/tools/vis_sensors.py` to view the stereo images and point-cloud top view together. The `camera` tool exclusively controls the image graphs; the `ros` tool exclusively controls point-cloud and odometry publishing.
 
 ## Function Overview
 
@@ -52,7 +52,9 @@ class YourSceneCfg(InteractiveSceneCfg):
         # External parameter calibration data (relative to chassis link)
         init_state=AssetBaseCfg.InitialStateCfg(
             pos=(0.026, 0, 0.418), # (x, y, z) meters
-        )
+        ),
+        enable_camera_publish=True,
+        enable_ros_publish=True,
     )
 ```
 
@@ -177,7 +179,7 @@ ros2 topic echo /carter_1/scan
 
 ### Example 3: Visualizing GS-Hub camera and point cloud
 
-First start the graphical simulation environment with GS-Hub and ROS tool in a terminal. The `nav2` environment built into the warehouse uses Factory + Carter + GS-Hub:
+First start the graphical simulation environment with GS-Hub, Camera Tool, and ROS Tool in a terminal. The built-in `nav2` environment uses Factory + Carter + GS-Hub:
 
 ```bash
 conda activate env_isaaclab
@@ -201,6 +203,16 @@ The script will subscribe to the following three topics and open three OpenCV wi
 /carter_1/cloud
 ```
 
+Run the visualizer without arguments to show every camera on the current ROS
+graph, including the Iris, Pegasus, and CF2X monocular cameras and all GS-Hub
+left/right cameras. The script continues discovering camera topics that start
+later:
+
+```bash
+source /opt/ros/humble/setup.bash
+python3 algorithm/ros/tools/vis_sensors.py
+```
+
 Other bots simply replace the namespace. For example, check out the GS-Hub of the first Go2:
 
 ```bash
@@ -208,11 +220,11 @@ source /opt/ros/humble/setup.bash
 python3 algorithm/ros/tools/vis_sensors.py --sensor gshub --namespace /go2_1
 ```
 
-If you use an old GS-Hub scenario that does not have namespaces divided by robot instances, the default namespace of the script is `/isaac` and can be run directly:
+For an old GS-Hub scene without per-robot namespaces, explicit GS-Hub mode defaults to the `/isaac` namespace:
 
 ```bash
 source /opt/ros/humble/setup.bash
-python3 algorithm/ros/tools/vis_sensors.py
+python3 algorithm/ros/tools/vis_sensors.py --sensor gshub
 ```
 
 Before running, the system Python environment needs to provide `rclpy`, `sensor_msgs`, `cv_bridge`, OpenCV and NumPy. If there is no image in the window, first check whether the corresponding topic exists and continue to publish:

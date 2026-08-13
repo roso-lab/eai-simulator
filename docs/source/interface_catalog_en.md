@@ -24,6 +24,9 @@ View interface description and calling examples:
 
 ```bash
 python simulator.py interfaces show ros.cmd_vel
+python simulator.py interfaces show ros.aerial_camera_image
+python simulator.py interfaces show ros.aerial_camera_info
+python simulator.py interfaces show ros.aerial_cmd_vel
 python simulator.py interfaces show ros.gshub.left_image
 python simulator.py interfaces show ros.ur5.joint_command
 python simulator.py interfaces show ros.ur5.ee_pose
@@ -33,10 +36,56 @@ python simulator.py interfaces show ros.z1.gripper_command
 Querying the interface created by a saved scene:
 
 ```bash
-python simulator.py interfaces scene --env EAI-Factory-v0
+python simulator.py interfaces scene --env pegasus_drones
 ```
 
 All major query commands support `--json` for easy scripting.
+
+## Camera interfaces
+
+The built-in forward-facing monocular cameras on Iris, Pegasus, and CF2X use the same ROS2 interfaces:
+
+| Interface ID | Endpoint Template | Message Type |
+|---|---|---|
+| `ros.aerial_camera_image` | `/{robot}/camera/image_raw` | `sensor_msgs/msg/Image` |
+| `ros.aerial_camera_info` | `/{robot}/camera/camera_info` | `sensor_msgs/msg/CameraInfo` |
+
+The sensors are installed on the aerial robots by default; image and calibration topics are published only when `camera` is selected under Tools in Env DIY. The Camera Tool is independent of the ROS Tool, so Camera can be selected without ROS. `{robot}` is replaced by the scene instance name, such as `iris_1`, `pegasus_1`, or `cf2x_1`.
+
+GS-Hub exposes the stereo image interfaces `ros.gshub.left_image` (`/{robot}/GS_Hub_L_cam`) and `ros.gshub.right_image` (`/{robot}/GS_Hub_R_cam`). Both use `sensor_msgs/msg/Image` and are also controlled by the Camera Tool. GS-Hub point-cloud, odometry, and scan output remain controlled by the ROS Tool.
+
+Use the unified viewer to display every camera topic that exists now or starts later:
+
+```bash
+source /opt/ros/humble/setup.bash
+python3 algorithm/ros/tools/vis_sensors.py
+```
+
+To display only the camera below one aerial robot namespace:
+
+```bash
+python3 algorithm/ros/tools/vis_sensors.py --sensor camera --namespace /iris_1
+```
+
+## Keyboard motion interface
+
+Either the Keyboard Tool or the ROS Tool enables the `/<robot>/cmd_vel` subscriber. Aerial robots use the `ros.aerial_cmd_vel` interface with `geometry_msgs/msg/Twist`; the keyboard publisher maps keys as follows:
+
+| Keys | Twist Field | Motion |
+|---|---|---|
+| `W/S` | `linear.x` | Forward/backward |
+| `A/D` | `linear.y` | Left/right lateral motion (on holonomic robots) |
+| `R/F` | `linear.z` | Ascend/descend |
+| `C/V` | `angular.z` | Yaw |
+
+Use `K` or Space to stop, `Q` to switch between discovered robots, and `Esc` or `Ctrl-C` to exit. `--linear-speed`, `--vertical-speed`, and `--angular-speed` configure the planar, vertical, and yaw command magnitudes respectively. For example:
+
+```bash
+source /opt/ros/humble/setup.bash
+python3 algorithm/keyboard/keyboard.py \
+  --robot iris_1 \
+  --vertical-speed 0.5
+```
 
 ## Robotic arm interface
 

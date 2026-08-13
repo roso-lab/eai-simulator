@@ -6,7 +6,7 @@ orphan: true
 
 GS-Hub 是一个集成传感器模块，包含激光雷达（Lidar）和里程计（Odometry），用于 ROS2 导航栈集成。
 
-GS-Hub 可挂载到 Carter、Go2、B2、M20、Scout、Coco 和 Lite3。除点云与里程计外，当前 GS-Hub USD Graph 还会发布左右相机图像，可使用仓库中的 `algorithm/ros/tools/vis_sensors.py` 同时查看双目图像和点云俯视图。相机、点云和里程计发布需要在同一宿主机器人上挂载 `ros` tool。
+GS-Hub 可挂载到 Carter、Go2、B2、M20、Scout、Coco 和 Lite3。除点云与里程计外，当前 GS-Hub USD Graph 还会发布左右相机图像，可使用仓库中的 `algorithm/ros/tools/vis_sensors.py` 同时查看双目图像和点云俯视图。左右图像只受同一宿主上的 `camera` tool 控制；点云和里程计只受 `ros` tool 控制，两个开关彼此独立。
 
 ## 功能概述
 
@@ -52,7 +52,9 @@ class YourSceneCfg(InteractiveSceneCfg):
         # 外参标定数据（相对于底盘链接）
         init_state=AssetBaseCfg.InitialStateCfg(
             pos=(0.026, 0, 0.418),  # (x, y, z) 米
-        )
+        ),
+        enable_camera_publish=True,
+        enable_ros_publish=True,
     )
 ```
 
@@ -177,7 +179,7 @@ ros2 topic echo /carter_1/scan
 
 ### 示例 3: 可视化 GS-Hub 相机与点云
 
-先在一个终端启动带 GS-Hub 和 ROS tool 的图形化仿真环境。仓库内置的 `nav2` 环境使用 Factory + Carter + GS-Hub：
+先在一个终端启动带 GS-Hub、Camera Tool 和 ROS Tool 的图形化仿真环境。仓库内置的 `nav2` 环境使用 Factory + Carter + GS-Hub：
 
 ```bash
 conda activate env_isaaclab
@@ -201,6 +203,14 @@ python3 algorithm/ros/tools/vis_sensors.py \
 /carter_1/cloud
 ```
 
+查看当前 ROS graph 中的全部相机（包括 Iris、Pegasus、CF2X 单目相机和所有 GS-Hub
+左右相机）时，不需要指定参数。脚本会持续发现后启动的相机 topic：
+
+```bash
+source /opt/ros/humble/setup.bash
+python3 algorithm/ros/tools/vis_sensors.py
+```
+
 其他机器人只需替换 namespace。例如查看第一台 Go2 的 GS-Hub：
 
 ```bash
@@ -208,11 +218,11 @@ source /opt/ros/humble/setup.bash
 python3 algorithm/ros/tools/vis_sensors.py --sensor gshub --namespace /go2_1
 ```
 
-如果使用旧的、没有按机器人实例划分 namespace 的 GS-Hub 场景，脚本默认 namespace 是 `/isaac`，可直接运行：
+如果使用旧的、没有按机器人实例划分 namespace 的 GS-Hub 场景，显式 GS-Hub 模式默认 namespace 是 `/isaac`：
 
 ```bash
 source /opt/ros/humble/setup.bash
-python3 algorithm/ros/tools/vis_sensors.py
+python3 algorithm/ros/tools/vis_sensors.py --sensor gshub
 ```
 
 运行前需要系统 Python 环境提供 `rclpy`、`sensor_msgs`、`cv_bridge`、OpenCV 和 NumPy。若窗口没有图像，先检查对应话题是否存在并持续发布：

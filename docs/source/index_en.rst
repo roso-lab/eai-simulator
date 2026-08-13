@@ -130,6 +130,7 @@ Continue Exploring
 
    interface_catalog_en
    gs_hub_sensor_en
+   pegasus_drones_en
    ur5_control_en
 
 .. toctree::
