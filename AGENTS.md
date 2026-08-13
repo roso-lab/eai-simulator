@@ -66,21 +66,15 @@ cd eai-simulator
 ./tools/setup-git-hooks.sh
 ```
 
-The script changes repository configuration by setting `core.hooksPath` to `.githooks`, makes the repository hooks executable, and thereby activates the current `post-checkout` warning. That warning prints destructive delete/recreate advice for nonconforming branch names; never copy that advice. If the `pre-commit` command is available, the helper's later `pre-commit install` call can refuse to run while `core.hooksPath` is set. Because the script uses `set -e`, that refusal ends the helper with a nonzero status after the repository hooks have already been configured. The helper therefore does not reliably install pre-commit-managed hook types; do not treat that nonzero status by itself as evidence that `.githooks` is inactive.
+The script changes repository configuration by setting `core.hooksPath` to `.githooks`, makes the repository hooks executable, and thereby activates the current `post-checkout` warning. That warning prints destructive delete/recreate advice for nonconforming branch names; never copy that advice.
 
 After running the helper, diagnose the resulting configuration without running hooks:
 
 ```bash
 git config --get core.hooksPath
 find .githooks -maxdepth 1 -type f -perm -u+x -print | sort
-command -v pre-commit || true
 git lfs version
-if command -v pre-commit >/dev/null 2>&1; then
-  pre-commit validate-config .pre-commit-config.yaml
-fi
 ```
-
-The conditional command validates only the pre-commit configuration; it does not run hooks or bootstrap their environments. Real pre-commit runs are separate, opt-in, path-scoped verification. They can download hook environments and rewrite files, so follow section 16 and review every affected diff afterward.
 
 ### Initialize and Activate Conda
 
@@ -2169,12 +2163,11 @@ Every regular commit message must start with the related issue identifier:
 
 Maintainers use the internal GitLab IID after promotion; public contributors may use the GitHub issue number. Merge, Revert, `fixup!`, `squash!`, and `amend!` commits are exempt. Conventional prefixes such as `feat:`, `fix:`, or `docs:` are not regular-message exemptions by themselves. `CONTRIBUTING.md` is the normative policy. The current `.githooks/commit-msg` implementation is only a prefix heuristic: it accepts any subject beginning with `Merge`, `Revert`, `fixup!`, `squash!`, or `amend!`, even when the commit is not genuinely Git-generated or a valid fixup. Passing that hook does not prove policy compliance.
 
-`tools/setup-git-hooks.sh` sets `core.hooksPath` to `.githooks`, makes repository hooks executable, and then invokes `pre-commit install` when `pre-commit` is available. `pre-commit` can refuse installation while `core.hooksPath` is set; because the helper uses `set -e`, that later refusal can return nonzero even though `.githooks` was already activated. Diagnose the resulting state directly:
+`tools/setup-git-hooks.sh` sets `core.hooksPath` to `.githooks` and makes the repository hooks executable. Diagnose the resulting state directly:
 
 ```bash
 git config --get core.hooksPath
 find .githooks -maxdepth 1 -type f -perm -u+x -print | sort
-command -v pre-commit || true
 git lfs version
 ```
 
@@ -2188,13 +2181,6 @@ EAI_NEW_BRANCH=feature/reviewed-name
 printf 'rename %s -> %s\n' "$EAI_CURRENT_BRANCH" "$EAI_NEW_BRANCH"
 git check-ref-format --branch "$EAI_NEW_BRANCH"
 git branch -m -- "$EAI_CURRENT_BRANCH" "$EAI_NEW_BRANCH"
-```
-
-Running pre-commit is separate, opt-in verification, not hook-state diagnosis. It may download hook environments and may modify reviewed files through Black, isort, pyupgrade, license insertion, trailing-whitespace cleanup, or end-of-file fixing. Scope it to explicit paths, then re-review their worktree diffs. For an AGENTS-only documentation change:
-
-```bash
-pre-commit run --files AGENTS.md
-git diff -- AGENTS.md
 ```
 
 Assume the worktree can already contain someone else's tracked and untracked work. At the start and before every commit:
