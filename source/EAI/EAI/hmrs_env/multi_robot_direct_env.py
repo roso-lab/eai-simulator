@@ -182,6 +182,10 @@ class MultiRobotDirectEnv(DirectMARLEnv):
         For controllers without observation_func, returns an empty observation tensor.
         """
         
+        aerial_sensor_manager = getattr(self, "_aerial_sensor_manager", None)
+        if aerial_sensor_manager is not None:
+            aerial_sensor_manager.update(self.step_dt)
+
         observations = {}
         for robot_name in self.cfg.possible_agents:
             controller_cfg = self._controller_configs[robot_name]
@@ -376,7 +380,16 @@ class MultiRobotDirectEnv(DirectMARLEnv):
             robot.write_joint_state_to_sim(joint_pos, joint_vel, None, env_ids)
             robot.set_joint_position_target(joint_pos, env_ids=env_ids)
 
+        for robot_name, controller_cfg in self._controller_configs.items():
+            reset = getattr(controller_cfg, "reset", None)
+            controller_dict = self._controllers_dict.get(robot_name)
+            if callable(reset) and controller_dict is not None:
+                reset(self, robot_name, controller_dict, env_ids)
+
         self.actions_dict = {}
+        aerial_sensor_manager = getattr(self, "_aerial_sensor_manager", None)
+        if aerial_sensor_manager is not None:
+            aerial_sensor_manager.reset(env_ids)
         # Controllers can override this if they need to reset their state
         hook = getattr(self.cfg, "after_reset_idx_hook", None)
         if hook is not None and callable(hook):

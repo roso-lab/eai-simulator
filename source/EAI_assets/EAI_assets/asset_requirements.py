@@ -84,6 +84,22 @@ _ROBOT_PATHS = {
     ),
     "g1": ("robot/g1/g1_29dof_with_inspire_rev_1_0.usd",),
     "cf2x": ("robot/cf2x/cf2x.usd",),
+    "iris": (
+        "robot/pegasus/iris/iris.usd",
+        "robot/pegasus/iris/iris_thumbnail.png",
+    ),
+    "pegasus": (
+        "robot/pegasus/pegasus/pegasus_optimized.usdc",
+        "robot/pegasus/pegasus/pegasus.usd",
+        "robot/pegasus/pegasus/pegasus_thumbnail.png",
+        "robot/pegasus/pegasus/Materials/Base/Metals/Aluminum_Anodized/Aluminum_Anodized_BaseColor.png",
+        "robot/pegasus/pegasus/Materials/Base/Metals/Aluminum_Anodized/Aluminum_Anodized_Normal.png",
+        "robot/pegasus/pegasus/Materials/Base/Metals/Aluminum_Anodized/Aluminum_Anodized_ORM.png",
+        "robot/pegasus/pegasus/Materials/Base/Metals/Aluminum_Anodized_Black.mdl",
+        "robot/pegasus/pegasus/Materials/Base/Plastics/Plastic_ABS.mdl",
+        "robot/pegasus/pegasus/Materials/Base/Plastics/Plastic_ABS_1.mdl",
+        "robot/pegasus/pegasus/Materials/Base/Plastics/Plastic_ABS_1_1.mdl",
+    ),
     "human": ("human/HumanFemale.usd",),
     "lite3": (
         "robot/lite3/Lite3_canonical.usdc",
@@ -133,6 +149,30 @@ _CONTROLLER_PATHS = {
     "HUMAN_ANIMATION_CFG": (
         "traditional/human_animation/__init__.py",
         "traditional/human_animation/human_animation.py",
+    ),
+    "PEGASUS_IRIS_POSITION_CFG": (
+        "traditional/pegasus_multirotor/__init__.py",
+        "traditional/pegasus_multirotor/controller.py",
+        "traditional/pegasus_multirotor/multirotor.py",
+        "traditional/pegasus_multirotor/pegasus_multirotor.py",
+    ),
+    "PEGASUS_IRIS_ROTOR_CFG": (
+        "traditional/pegasus_multirotor/__init__.py",
+        "traditional/pegasus_multirotor/controller.py",
+        "traditional/pegasus_multirotor/multirotor.py",
+        "traditional/pegasus_multirotor/pegasus_multirotor.py",
+    ),
+    "PEGASUS_X4_POSITION_CFG": (
+        "traditional/pegasus_multirotor/__init__.py",
+        "traditional/pegasus_multirotor/controller.py",
+        "traditional/pegasus_multirotor/multirotor.py",
+        "traditional/pegasus_multirotor/pegasus_multirotor.py",
+    ),
+    "PEGASUS_X4_ROTOR_CFG": (
+        "traditional/pegasus_multirotor/__init__.py",
+        "traditional/pegasus_multirotor/controller.py",
+        "traditional/pegasus_multirotor/multirotor.py",
+        "traditional/pegasus_multirotor/pegasus_multirotor.py",
     ),
     "UR5_IK_CFG": (
         "traditional/manipulator_ik/__init__.py",

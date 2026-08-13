@@ -32,6 +32,16 @@ from .z1_omnigraph import (
     get_z1_graph_manager,
     z1_topic_names,
 )
+from .aerial_sensor_suite import (
+    AerialSensorModel,
+    AerialSensorModelConfig,
+    AerialSensorRobotSpec,
+    AerialSensorSuiteManager,
+    aerial_sensor_specs_from_selection,
+    aerial_sensor_topic_names,
+    attach_aerial_sensor_manager,
+    get_aerial_sensor_manager,
+)
 
 __all__ = [
     "ROS2CmdVelBridge",
@@ -55,4 +65,12 @@ __all__ = [
     "Z1_MODEL_SPEC",
     "get_z1_graph_manager",
     "z1_topic_names",
+    "AerialSensorModel",
+    "AerialSensorModelConfig",
+    "AerialSensorRobotSpec",
+    "AerialSensorSuiteManager",
+    "aerial_sensor_specs_from_selection",
+    "aerial_sensor_topic_names",
+    "attach_aerial_sensor_manager",
+    "get_aerial_sensor_manager",
 ]

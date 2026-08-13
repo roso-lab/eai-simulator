@@ -8,6 +8,10 @@
         },
         {
           "controller": null,
+          "type": "camera"
+        },
+        {
+          "controller": null,
           "type": "ros"
         }
       ],
