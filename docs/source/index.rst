@@ -128,6 +128,7 @@ EAI Simulator 文档
 
    interface_catalog
    gs_hub_sensor
+   pegasus_drones
    ur5_control
 
 .. toctree::

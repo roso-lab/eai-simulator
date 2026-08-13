@@ -50,7 +50,7 @@ python simulator.py --env=<env_name> --num_envs=1 --device=cuda:0
   → MultiRobotDirectEnv 启动正式环境
 ```
 
-GS-Hub 只有在同一宿主添加 `ros` 时才启用相机、点云和里程计发布。UR5/Z1 会随机械臂附件自动创建对应 OmniGraph，不需要额外的 `ros` 才能使用机械臂 topic。
+GS-Hub 的左右相机图像只由同一宿主上的 `camera` tool 控制，点云和里程计只由 `ros` tool 控制。Iris、Pegasus、CF2X 默认带有相机、`Example_Rotary` LiDAR 和基础传感器；Camera/ROS Tool 只控制相应 topic 发布。地面机器人只有先挂载 GS-Hub 才能选择 Camera Tool。UR5/Z1 会随机械臂附件自动创建对应 OmniGraph，不需要额外的 `ros` 才能使用机械臂 topic。
 
 ## 适配性
 

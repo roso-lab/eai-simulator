@@ -111,6 +111,8 @@ class AuthoringModel:
         key = str(attachment_type).strip().lower()
         robot = self.robot(robot_id)
         robot.attachments = [item for item in robot.attachments if item.type != key]
+        if key == "gshub" and robot.type not in {"cf2x", "iris", "pegasus"}:
+            robot.attachments = [item for item in robot.attachments if item.type != "camera"]
 
     def set_robot_controller(self, robot_id: str, mode: str, cfg: str | None) -> None:
         self.robot(robot_id).controller = _controller_choice(mode, cfg)

@@ -24,6 +24,9 @@ python simulator.py interfaces search --protocol ros2 --text "point cloud"
 
 ```bash
 python simulator.py interfaces show ros.cmd_vel
+python simulator.py interfaces show ros.aerial_camera_image
+python simulator.py interfaces show ros.aerial_camera_info
+python simulator.py interfaces show ros.aerial_cmd_vel
 python simulator.py interfaces show ros.gshub.left_image
 python simulator.py interfaces show ros.ur5.joint_command
 python simulator.py interfaces show ros.ur5.ee_pose
@@ -33,10 +36,56 @@ python simulator.py interfaces show ros.z1.gripper_command
 查询某个已保存场景会创建的接口：
 
 ```bash
-python simulator.py interfaces scene --env EAI-Factory-v0
+python simulator.py interfaces scene --env pegasus_drones
 ```
 
 所有主要查询命令均支持 `--json`，便于脚本处理。
+
+## 相机接口
+
+Iris、Pegasus 和 CF2X 的内置前视单目相机使用相同的 ROS2 接口：
+
+| 接口 ID | 端点模板 | 消息类型 |
+|---|---|---|
+| `ros.aerial_camera_image` | `/{robot}/camera/image_raw` | `sensor_msgs/msg/Image` |
+| `ros.aerial_camera_info` | `/{robot}/camera/camera_info` | `sensor_msgs/msg/CameraInfo` |
+
+传感器默认安装在无人机上；只有在 Env DIY 的 Tools 中选择 `camera` 后，才会发布上述图像和标定 topic。Camera Tool 独立于 `ros` Tool，可以只选择 Camera 而不选择 ROS。`{robot}` 替换为场景中的实例名，例如 `iris_1`、`pegasus_1` 或 `cf2x_1`。
+
+GS-Hub 的双目图像接口为 `ros.gshub.left_image`（`/{robot}/GS_Hub_L_cam`）和 `ros.gshub.right_image`（`/{robot}/GS_Hub_R_cam`），消息类型同为 `sensor_msgs/msg/Image`，也由 Camera Tool 控制。GS-Hub 点云、里程计和 scan 仍由 ROS Tool 控制。
+
+统一查看当前及稍后启动的全部相机图像：
+
+```bash
+source /opt/ros/humble/setup.bash
+python3 algorithm/ros/tools/vis_sensors.py
+```
+
+也可以只查看一个无人机 namespace 下的相机：
+
+```bash
+python3 algorithm/ros/tools/vis_sensors.py --sensor camera --namespace /iris_1
+```
+
+## 键盘运动接口
+
+Keyboard Tool 与 ROS Tool 都可以为机器人启用 `/<robot>/cmd_vel` 订阅。无人机使用 `ros.aerial_cmd_vel` 接口和 `geometry_msgs/msg/Twist` 消息；键盘发布器的按键映射如下：
+
+| 按键 | Twist 字段 | 动作 |
+|---|---|---|
+| `W/S` | `linear.x` | 前进/后退 |
+| `A/D` | `linear.y` | 左/右侧飞（支持全向运动的机器人） |
+| `R/F` | `linear.z` | 上升/下降 |
+| `C/V` | `angular.z` | 偏航 |
+
+`K` 或空格停止，`Q` 切换已发现的机器人，`Esc` 或 `Ctrl-C` 退出。使用 `--linear-speed`、`--vertical-speed` 和 `--angular-speed` 分别设置平移、垂直和偏航命令幅值，例如：
+
+```bash
+source /opt/ros/humble/setup.bash
+python3 algorithm/keyboard/keyboard.py \
+  --robot iris_1 \
+  --vertical-speed 0.5
+```
 
 ## 机械臂接口
 

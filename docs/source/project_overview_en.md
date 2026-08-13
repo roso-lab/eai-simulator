@@ -150,7 +150,7 @@ Robot choices are defined by `source/EAI/EAI/hmrs_env/env_diy/flow.py::ROBOT_KEY
    python simulator.py --num_envs=1 --device=cuda:0
    ```
    The prompt offers three environment-authoring methods:
-   - `1. Visual window`: Use the Env DIY window to select `Scenes -> Robots -> Payloads -> Tools`. Payloads are grouped into Manipulators (UR5/Z1) and Sensors (GS-Hub/LiDAR). The result can be saved as `source/EAI_hmrs/EAI_hmrs/envs/<env_name>.json`.
+   - `1. Visual window`: Use the Env DIY window to select `Scenes -> Robots -> Payloads -> Tools`. Payloads are grouped into Manipulators (UR5/Z1) and Sensors (GS-Hub/LiDAR), while Tools provides Camera/Keyboard/ROS. The Camera Tool independently controls ROS image publication for the built-in monocular cameras on Iris, Pegasus, and CF2X and for the GS-Hub cameras. The ROS Tool controls LiDAR, IMU, GPS, magnetometer, and barometer publication for all three aerial robots, plus GS-Hub LiDAR point-cloud, odometry, and scan publication. The result can be saved as `source/EAI_hmrs/EAI_hmrs/envs/<env_name>.json`.
    - `2. Terminal quick setup`: Select a scene, host robot, manipulator, sensor, tool, and controller in the same order as the visual window, then choose whether to save and run the environment immediately.
    - `3. Isaac Sim 3D editor`: Edit the robots' physical `spawn_pose` values directly in the Isaac Sim Viewport. You can also run `python simulator.py --diy-3d --device=cuda:0` to enter it directly.
 
@@ -202,7 +202,7 @@ EAI Simulator scene, robot, and task execution
    ```
 2. Select `1. Visual window` in the prompt.
 3. Drag a scene card onto the canvas, then drag robot cards to their target positions in the scene.
-4. Open `Payloads`. Choose UR5/Z1 under `Manipulators` or GS-Hub/LiDAR under `Sensors`, then open `Tools` to choose Keyboard/ROS. After selecting a robot, cards that are incompatible, already attached, or would add a second manipulator are disabled.
+4. Open `Payloads`. Choose UR5/Z1 under `Manipulators` or GS-Hub/LiDAR under `Sensors`, then open `Tools` to choose Camera/Keyboard/ROS. The Camera Tool independently controls ROS image publication for the built-in monocular cameras on Iris, Pegasus, and CF2X and for the GS-Hub cameras. The ROS Tool controls LiDAR, IMU, GPS, magnetometer, and barometer publication for all three aerial robots, plus GS-Hub LiDAR point-cloud, odometry, and scan publication. After selecting a robot, cards that are incompatible, already attached, or would add a second manipulator are disabled.
 5. Select `Complete Selection` and save the environment if needed. Saved configurations are written to `source/EAI_hmrs/EAI_hmrs/envs/<env_name>.json`.
 6. Launch a saved environment directly on subsequent runs:
    ```bash
@@ -229,7 +229,7 @@ EAI Env DIY 3D scene editing, asset preparation, and execution workflow
 
 1. Run `python simulator.py --num_envs=1 --device=cuda:0`.
 2. Select `2. Terminal quick setup` in the prompt.
-3. Select a scene, host robot, UR5/Z1 manipulator, GS-Hub/LiDAR sensor, keyboard/ros tool, and controller in sequence.
+3. Select a scene, host robot, UR5/Z1 manipulator, GS-Hub/LiDAR sensor, camera/keyboard/ros tool, and controller in sequence. The Camera and ROS Tools have the same publication responsibilities as in the visual workflow.
 4. Follow the prompts to choose whether to save and immediately run the environment.
 
 **Keyboard external interface example**:
@@ -252,7 +252,7 @@ source /opt/ros/humble/setup.bash && python3 algorithm/keyboard/keyboard.py
 source /opt/ros/humble/setup.bash && python3 algorithm/keyboard/keyboard.py --robot carter_1
 ```
 
-Controls: `W/S/A/D` translate, `C/V` turn, `K` or Space stops, `Q` switches between robots, and `Esc` or `Ctrl-C` exits. This script uses ROS Humble's `rclpy`; the system `python3` is recommended.
+Controls: `W/S/A/D` translate, `R/F` makes aerial robots ascend/descend, `C/V` turns, `K` or Space stops, `Q` switches between robots, and `Esc` or `Ctrl-C` exits. Set aerial vertical speed with `--vertical-speed`. This script uses ROS Humble's `rclpy`; the system `python3` is recommended.
 
 ```{figure} assets/media/eai-keyboard.gif
 :alt: Controlling an EAI robot with the keyboard
@@ -264,7 +264,7 @@ The Keyboard tool controls a robot through ROS2 `cmd_vel`
 
 **Nav2 navigation example (Factory + Carter + GS-Hub)**:
 
-The included Nav2 example is `source/EAI_hmrs/EAI_hmrs/envs/nav2.json`. It selects the Factory scene and Carter, then adds GS-Hub and the ROS tool. GS-Hub supplies point clouds and odometry. The ROS tool enables the `/carter_1/cmd_vel` subscriber and publishes sensor data to ROS.
+The included Nav2 example is `source/EAI_hmrs/EAI_hmrs/envs/nav2.json`. It selects the Factory scene and Carter, then adds GS-Hub, the Camera Tool, and the ROS Tool. The Camera Tool enables GS-Hub image publication. The ROS Tool enables the `/carter_1/cmd_vel` subscriber and GS-Hub LiDAR point-cloud, odometry, and scan publication.
 
 In terminal 1, launch the simulator. Nav2 and GS-Hub simulations require the Isaac Sim GUI and cannot run headless:
 

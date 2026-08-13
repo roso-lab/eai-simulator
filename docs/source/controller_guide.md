@@ -90,6 +90,8 @@ class ControllerCfg:
 | Scout | `SCOUT_DIFF_CFG` | 差速驱动 |
 | G1 | `G1_SKRL_CFG` | SKRL PPO |
 | CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | SKRL 目标位置 |
+| 3DR Iris | `PEGASUS_IRIS_POSITION_CFG` | Pegasus 几何位置/航向控制 |
+| Pegasus X4 | `PEGASUS_X4_POSITION_CFG` | Pegasus 几何位置/航向控制 |
 | Human | `HUMAN_ANIMATION_CFG` | 运动学动画 |
 
 UR5 和 Z1 不属于宿主 controller，而是挂载到宿主后的 auxiliary controller：`UR5_IK_CFG` 和 `Z1_IK_CFG`。它们都来自 `ManipulatorIkControllerCfg`，并由宿主 selection 中的实际附件实例触发；不会为未挂载的机械臂创建 articulation 或 ROS2 topic。
@@ -805,7 +807,7 @@ UR5 使用 `UR5_IK_CFG`，Z1 使用 `Z1_IK_CFG`。两者复用 `ManipulatorIkCon
 
 机械臂作为独立 `<robot>_arm` articulation 注册，并通过 FixedJoint 连接宿主。控制器只处理明确分配给自己的机器人实例，UR5/Z1、多机器人之间不会交叉消费命令。同一机器人不能同时挂载 UR5 和 Z1。完整 topic、消息格式和测试命令参见[机械臂](ur5_control.md)。
 
-控制器代码和模型属于按需下载资产，不随 Git 提交。更新控制器时应上传到 Hugging Face 中对应的 `controller/` 路径，并使用资产解析器下载；Git 中只保留通用挂载、环境注册和接口代码。
+控制器代码和模型属于按需下载资产，不随 Git 提交。更新控制器时应上传到 Hugging Face 中对应的 `controller/` 路径，并使用资产解析器下载；Git 中只保留通用控制器契约、挂载、环境注册和接口代码。Pegasus 的控制器类、动力学算法和机型参数均位于 provider 的 `controller/traditional/pegasus_multirotor/` bundle。
 
 ## 总结
 

@@ -50,7 +50,7 @@ Environment JSON
   → MultiRobotDirectEnv starts the formal environment
 ```
 
-GS-Hub only enables camera, point cloud and odometry publishing if `ros` is added to the same host. UR5/Z1 will automatically create the corresponding OmniGraph with the robot arm attachment, and no additional `ros` is required to use the robot arm topic.
+The `camera` tool exclusively controls GS-Hub left/right image publishing, while the `ros` tool exclusively controls point-cloud and odometry publishing. Iris, Pegasus, and CF2X carry a camera, `Example_Rotary` LiDAR, and base sensors by default; Camera/ROS Tools only gate the corresponding topic publishers. A ground robot can select Camera Tool only after mounting GS-Hub. UR5/Z1 automatically creates its OmniGraph with the arm attachment and does not require an additional `ros` tool.
 
 ## Compatibility
 

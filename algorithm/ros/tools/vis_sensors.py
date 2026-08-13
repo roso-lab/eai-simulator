@@ -1,27 +1,56 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 import argparse
+from collections.abc import Iterable, Sequence
+from typing import Any
+
+import cv2
+import numpy as np
 import rclpy
+from cv_bridge import CvBridge
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import Image, PointCloud2
-from cv_bridge import CvBridge
-import cv2
-import numpy as np
-import struct
-import math
 
 
-def normalize_namespace(namespace):
+ROS_IMAGE_TYPES = frozenset({"sensor_msgs/msg/Image", "sensor_msgs/Image"})
+
+
+def normalize_namespace(namespace: str | None) -> str:
     text = str(namespace or "").strip().strip("/")
     if not text:
         return ""
     return "/" + "/".join(part for part in text.split("/") if part)
 
 
-def sensor_topics_for_namespace(namespace, sensor="gshub"):
+def topic_is_in_namespace(topic: str, namespace: str | None) -> bool:
+    prefix = normalize_namespace(namespace)
+    normalized_topic = "/" + str(topic).strip().strip("/")
+    return not prefix or normalized_topic == prefix or normalized_topic.startswith(f"{prefix}/")
+
+
+def discover_image_topics(
+    topics_and_types: Iterable[tuple[str, Sequence[str]]],
+    namespace: str | None = None,
+) -> tuple[str, ...]:
+    return tuple(
+        sorted(
+            {
+                "/" + topic.strip().strip("/")
+                for topic, topic_types in topics_and_types
+                if ROS_IMAGE_TYPES.intersection(topic_types) and topic_is_in_namespace(topic, namespace)
+            }
+        )
+    )
+
+
+def sensor_topics_for_namespace(namespace: str | None, sensor: str = "gshub") -> tuple[str, ...]:
     prefix = normalize_namespace(namespace)
     if sensor == "lidar":
         return (f"{prefix}/cloud",)
+    if sensor == "camera":
+        return (f"{prefix}/camera/image_raw",)
     return (
         f"{prefix}/GS_Hub_L_cam",
         f"{prefix}/GS_Hub_R_cam",
@@ -29,163 +58,223 @@ def sensor_topics_for_namespace(namespace, sensor="gshub"):
     )
 
 
-def parse_args(args=None):
-    parser = argparse.ArgumentParser(description="Visualize ROS2 camera and point cloud sensor topics.")
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Visualize EAI ROS2 camera and point-cloud topics. Without arguments, "
+            "all sensor_msgs/msg/Image topics are discovered automatically."
+        )
+    )
     parser.add_argument(
         "--sensor",
-        default="gshub",
-        choices=("gshub", "lidar"),
-        help="Sensor topic set to visualize. gshub subscribes cameras and cloud; lidar subscribes cloud only.",
+        default="auto",
+        choices=("auto", "camera", "gshub", "lidar"),
+        help=(
+            "auto discovers every Image topic; camera discovers Image topics below --namespace; "
+            "gshub subscribes its stereo cameras and cloud; lidar subscribes cloud only."
+        ),
     )
     parser.add_argument(
         "--namespace",
-        default="/isaac",
-        help="ROS2 namespace for one GSHub instance, e.g. /isaac, /go2_1, /b2_1, /m20_1.",
+        default=None,
+        help=(
+            "Optional robot namespace, such as /iris_1 or /carter_1. Explicit gshub/lidar mode "
+            "defaults to the legacy /isaac namespace."
+        ),
     )
-    parsed_args, ros_args = parser.parse_known_args(args)
+    parser.add_argument(
+        "--window-size",
+        type=int,
+        default=600,
+        help="Maximum image edge and point-cloud window size in pixels (default: 600).",
+    )
+    parser.add_argument(
+        "--discovery-interval",
+        type=float,
+        default=1.0,
+        help="Seconds between ROS graph scans in auto/camera mode (default: 1.0).",
+    )
+    return parser
+
+
+def parse_args(args: Sequence[str] | None = None) -> argparse.Namespace:
+    parsed_args, ros_args = build_parser().parse_known_args(args)
+    if parsed_args.window_size <= 0:
+        raise SystemExit("--window-size must be greater than zero")
+    if parsed_args.discovery_interval <= 0.0:
+        raise SystemExit("--discovery-interval must be greater than zero")
+    if parsed_args.namespace is None:
+        parsed_args.namespace = "/isaac" if parsed_args.sensor in {"gshub", "lidar"} else ""
     parsed_args.ros_args = ros_args
     return parsed_args
 
 
-class SensorVisualizer(Node):
-    def __init__(self, namespace="/isaac", sensor="gshub"):
-        super().__init__('isaac_sensor_vis')
-        self.bridge = CvBridge()
+def resize_to_fit(image: np.ndarray, maximum_edge: int) -> np.ndarray:
+    height, width = image.shape[:2]
+    if height <= 0 or width <= 0:
+        raise ValueError("Cannot display an empty image")
+    scale = float(maximum_edge) / float(max(height, width))
+    target = (max(1, round(width * scale)), max(1, round(height * scale)))
+    interpolation = cv2.INTER_AREA if scale < 1.0 else cv2.INTER_LINEAR
+    return cv2.resize(image, target, interpolation=interpolation)
 
-        # --- 配置 ---
+
+class SensorVisualizer(Node):
+    def __init__(
+        self,
+        namespace: str = "",
+        sensor: str = "auto",
+        window_size: int = 600,
+        discovery_interval: float = 1.0,
+    ) -> None:
+        super().__init__("eai_sensor_visualizer")
+        self.bridge = CvBridge()
         self.sensor = sensor
         self.namespace = normalize_namespace(namespace)
-        topics = sensor_topics_for_namespace(self.namespace, sensor=self.sensor)
-        if self.sensor == "lidar":
-            self.topic_cam_l = None
-            self.topic_cam_r = None
-            self.topic_cloud = topics[0]
+        self.lidar_view_range = 10.0
+        self.window_size = int(window_size)
+        self.image_subscriptions: dict[str, Any] = {}
+        self.image_windows: dict[str, str] = {}
+        self.cloud_subscription = None
+        self.discovery_timer = None
+
+        if self.sensor == "gshub":
+            topic_left, topic_right, topic_cloud = sensor_topics_for_namespace(self.namespace, "gshub")
+            self._subscribe_image(topic_left, f"GS-Hub Left: {topic_left}")
+            self._subscribe_image(topic_right, f"GS-Hub Right: {topic_right}")
+            self._subscribe_cloud(topic_cloud)
+        elif self.sensor == "lidar":
+            self._subscribe_cloud(sensor_topics_for_namespace(self.namespace, "lidar")[0])
         else:
-            self.topic_cam_l, self.topic_cam_r, self.topic_cloud = topics
+            self._discover_images()
+            self.discovery_timer = self.create_timer(float(discovery_interval), self._discover_images)
+            scope = f" below {self.namespace}" if self.namespace else ""
+            print(f"Discovering all sensor_msgs/msg/Image topics{scope}...")
 
-        # 视图配置
-        self.lidar_view_range = 10.0  # 显示半径 10米
-        self.window_size = 600  # 🔥 修改点：统一所有窗口大小为 600
+    def _subscribe_image(self, topic: str, window_name: str | None = None) -> None:
+        if topic in self.image_subscriptions:
+            return
+        title = window_name or f"Camera: {topic}"
 
-        # --- 订阅者 ---
-        self.sub_l = None
-        self.sub_r = None
-        if self.sensor == "gshub":
-            self.sub_l = self.create_subscription(
-                Image,
-                self.topic_cam_l,
-                self.cb_cam_l,
-                qos_profile_sensor_data
-            )
+        def callback(message: Image, *, source_topic: str = topic) -> None:
+            self.show_image(message, self.image_windows[source_topic])
 
-            self.sub_r = self.create_subscription(
-                Image,
-                self.topic_cam_r,
-                self.cb_cam_r,
-                qos_profile_sensor_data
-            )
-
-        self.sub_cloud = self.create_subscription(
-            PointCloud2,
-            self.topic_cloud,
-            self.cb_cloud,
-            qos_profile_sensor_data
+        self.image_windows[topic] = title
+        self.image_subscriptions[topic] = self.create_subscription(
+            Image,
+            topic,
+            callback,
+            qos_profile_sensor_data,
         )
+        print(f"Subscribed to image: {topic}")
 
-        if self.sensor == "gshub":
-            print(f"Waiting for images on {self.topic_cam_l} & {self.topic_cam_r}...")
-        print(f"Waiting for pointcloud on {self.topic_cloud}...")
+    def _subscribe_cloud(self, topic: str) -> None:
+        if self.cloud_subscription is not None:
+            return
+        self.cloud_subscription = self.create_subscription(
+            PointCloud2,
+            topic,
+            self.cb_cloud,
+            qos_profile_sensor_data,
+        )
+        print(f"Subscribed to pointcloud: {topic}")
 
-    def cb_cam_l(self, msg):
-        self.show_image(msg, "Left Camera")
-
-    def cb_cam_r(self, msg):
-        self.show_image(msg, "Right Camera")
-
-    def show_image(self, msg, window_name):
+    def _discover_images(self) -> None:
         try:
-            # ROS Image -> OpenCV Image
-            if msg.encoding == "rgb8":
-                cv_img = self.bridge.imgmsg_to_cv2(msg, "rgb8")
-                cv_img = cv2.cvtColor(cv_img, cv2.COLOR_RGB2BGR)
-            else:
-                cv_img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+            topics = discover_image_topics(self.get_topic_names_and_types(), self.namespace)
+        except Exception as exc:
+            self.get_logger().warning(f"Failed to inspect ROS topics: {exc}")
+            return
+        for topic in topics:
+            self._subscribe_image(topic)
 
-            # 🔥 修改点：强制调整图像大小为 (600, 600)
-            # 注意：这可能会改变图像的长宽比，如果你介意拉伸，可以只指定宽度
-            cv_img = cv2.resize(cv_img, (self.window_size, self.window_size))
+    def _message_to_bgr(self, message: Image) -> np.ndarray:
+        try:
+            return self.bridge.imgmsg_to_cv2(message, desired_encoding="bgr8")
+        except Exception:
+            image = np.asarray(self.bridge.imgmsg_to_cv2(message, desired_encoding="passthrough"))
+            if image.dtype != np.uint8:
+                image = cv2.normalize(image, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+            if image.ndim == 2:
+                return cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+            if image.ndim != 3:
+                raise ValueError(f"Unsupported image shape: {image.shape}")
+            if image.shape[2] == 4:
+                code = cv2.COLOR_RGBA2BGR if message.encoding.lower().startswith("rgba") else cv2.COLOR_BGRA2BGR
+                return cv2.cvtColor(image, code)
+            if image.shape[2] == 3 and message.encoding.lower().startswith("rgb"):
+                return cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+            if image.shape[2] == 3:
+                return image
+            raise ValueError(f"Unsupported image shape: {image.shape}")
 
-            # 显示
-            cv2.imshow(window_name, cv_img)
+    def show_image(self, message: Image, window_name: str) -> None:
+        try:
+            image = resize_to_fit(self._message_to_bgr(message), self.window_size)
+            cv2.imshow(window_name, image)
             cv2.waitKey(1)
-        except Exception as e:
-            self.get_logger().error(f"Cam Error: {e}")
+        except Exception as exc:
+            self.get_logger().error(f"Failed to display {window_name}: {exc}")
 
-    def cb_cloud(self, msg):
-        """
-        简单的点云转图像可视化 (俯视图)
-        """
+    def cb_cloud(self, message: PointCloud2) -> None:
         try:
-            # 1. 解析 PointCloud2
-            offset_x = -1
-            offset_y = -1
-            for field in msg.fields:
-                if field.name == 'x': offset_x = field.offset
-                if field.name == 'y': offset_y = field.offset
-
-            if offset_x == -1 or offset_y == -1:
+            offsets = {field.name: field.offset for field in message.fields}
+            if "x" not in offsets or "y" not in offsets or message.point_step < 4:
                 return
+            count = len(message.data) // message.point_step
+            points = np.ndarray(
+                shape=(count,),
+                dtype=np.dtype(
+                    {
+                        "names": ("x", "y"),
+                        "formats": ("<f4", "<f4"),
+                        "offsets": (offsets["x"], offsets["y"]),
+                        "itemsize": message.point_step,
+                    }
+                ),
+                buffer=message.data,
+            )
+            x = points["x"]
+            y = points["y"]
+            finite = np.isfinite(x) & np.isfinite(y)
+            x = x[finite]
+            y = y[finite]
 
-            points_data = np.frombuffer(msg.data, dtype=np.float32)
-            step = msg.point_step // 4
-            if step < 3: return
+            image = np.zeros((self.window_size, self.window_size, 3), dtype=np.uint8)
+            scale = (self.window_size / 2.0) / self.lidar_view_range
+            u = (self.window_size / 2.0 - y * scale).astype(np.int32)
+            v = (self.window_size / 2.0 - x * scale).astype(np.int32)
+            visible = (u >= 0) & (u < self.window_size) & (v >= 0) & (v < self.window_size)
+            image[v[visible], u[visible]] = (255, 255, 255)
 
-            points = points_data.reshape(-1, step)
-            x = points[:, 0]
-            y = points[:, 1]
-
-            mask = np.isfinite(x) & np.isfinite(y)
-            x = x[mask]
-            y = y[mask]
-
-            # 2. 绘制俯视图
-            # 🔥 修改点：使用统一的 self.window_size
-            img = np.zeros((self.window_size, self.window_size, 3), dtype=np.uint8)
-
-            scale = (self.window_size / 2) / self.lidar_view_range
-
-            u = (self.window_size / 2 - y * scale).astype(np.int32)
-            v = (self.window_size / 2 - x * scale).astype(np.int32)
-
-            valid_idx = (u >= 0) & (u < self.window_size) & (v >= 0) & (v < self.window_size)
-            u = u[valid_idx]
-            v = v[valid_idx]
-
-            img[v, u] = (255, 255, 255)
-
-            c = self.window_size // 2
-            cv2.circle(img, (c, c), 5, (0, 0, 255), -1)
-            cv2.arrowedLine(img, (c, c), (c, c - 30), (0, 255, 0), 2)
-
-            cv2.imshow("Lidar BEV", img)
+            center = self.window_size // 2
+            cv2.circle(image, (center, center), 5, (0, 0, 255), -1)
+            cv2.arrowedLine(image, (center, center), (center, center - 30), (0, 255, 0), 2)
+            cv2.imshow(f"Lidar BEV: {self.namespace or '/'}", image)
             cv2.waitKey(1)
+        except Exception as exc:
+            self.get_logger().error(f"Failed to display pointcloud: {exc}")
 
-        except Exception as e:
-            pass
 
-
-def main(args=None):
+def main(args: Sequence[str] | None = None) -> int:
     parsed_args = parse_args(args)
     rclpy.init(args=parsed_args.ros_args)
-    node = SensorVisualizer(namespace=parsed_args.namespace, sensor=parsed_args.sensor)
+    node = SensorVisualizer(
+        namespace=parsed_args.namespace,
+        sensor=parsed_args.sensor,
+        window_size=parsed_args.window_size,
+        discovery_interval=parsed_args.discovery_interval,
+    )
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
         pass
-    node.destroy_node()
-    rclpy.shutdown()
-    cv2.destroyAllWindows()
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+        cv2.destroyAllWindows()
+    return 0
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -12,7 +12,8 @@ KEYBOARD_SUPPORTED_ROBOTS = frozenset(catalog.tool_catalog()["keyboard"].support
 UR5_SUPPORTED_ROBOTS = frozenset(catalog.attachment_entry("ur5").supported_robots)
 Z1_SUPPORTED_ROBOTS = frozenset(catalog.attachment_entry("z1").supported_robots)
 LIDAR_SUPPORTED_ROBOTS = frozenset(catalog.attachment_entry("lidar").supported_robots)
-TERMINAL_CONTROLLER_STEP = 8
+CAMERA_SUPPORTED_ROBOTS = frozenset(catalog.tool_catalog()["camera"].supported_robots)
+TERMINAL_CONTROLLER_STEP = 9
 SCENE_CHOICES = catalog.SCENE_CHOICES
 ROBOT_LABELS = catalog.ROBOT_LABELS
 _TERMINAL_RULE = "-" * 72
@@ -277,6 +278,21 @@ def choose_terminal_interactive_selection(
 
         if step == 7:
             updated = _choose_attachments(
+                "Camera tool",
+                "camera",
+                robots,
+                input_func=input_func,
+                print_func=print_func,
+            )
+            if updated is None:
+                step = 6
+                continue
+            robots = updated
+            step = 8
+            continue
+
+        if step == 8:
+            updated = _choose_attachments(
                 "Keyboard tool",
                 "keyboard",
                 robots,
@@ -284,7 +300,7 @@ def choose_terminal_interactive_selection(
                 print_func=print_func,
             )
             if updated is None:
-                step = 6
+                step = 7
                 continue
             robots = updated
             before_controller_override = list(robots)
@@ -303,7 +319,7 @@ def choose_terminal_interactive_selection(
             print_func=print_func,
         )
         if updated is None:
-            step = 7
+            step = 8
             continue
         if scene_key is None:
             raise RuntimeError("Scene was not selected.")
@@ -370,6 +386,12 @@ def _choose_attachments(
         (index, robot)
         for index, robot in enumerate(robots, start=1)
         if attachment_supported(robot.type, attachment_type)
+        and not (robot.type in {"iris", "pegasus"} and attachment_type == "lidar")
+        and not (
+            attachment_type == "camera"
+            and robot.type not in {"cf2x", "iris", "pegasus"}
+            and not any(item.type == "gshub" for item in robot.attachments)
+        )
         and not (
             attachment_type in {"ur5", "z1"}
             and any(item.type in {"ur5", "z1"} for item in robot.attachments)

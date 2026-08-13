@@ -130,7 +130,7 @@ def _publish_runtime_interface_snapshot(
     )
     interfaces = []
     for entry in resolved:
-        if entry.interface_id == "ros.cmd_vel" and entry.instance_name not in cmd_vel_agents:
+        if entry.endpoint.endswith("/cmd_vel") and entry.instance_name not in cmd_vel_agents:
             continue
         interfaces.append(entry.to_dict())
     snapshot = build_snapshot(
@@ -165,16 +165,59 @@ def _runtime_device_for_env(
 def _selection_requires_omnigraph(selection_data: dict[str, Any] | None) -> bool:
     if not selection_data:
         return False
-    graph_attachments = {"gshub", "lidar", "ur5", "z1", "ros"}
+    graph_attachments = {"gshub", "lidar", "camera", "ur5", "z1", "ros"}
+    aerial_types = {"cf2x", "iris", "pegasus"}
     return any(
         isinstance(robot, dict)
-        and any(
-            isinstance(attachment, dict)
-            and str(attachment.get("type", "")).strip().lower() in graph_attachments
-            for attachment in robot.get("attachments", ())
+        and (
+            str(robot.get("type", "")).strip().lower() in aerial_types
+            or any(
+                isinstance(attachment, dict)
+                and str(attachment.get("type", "")).strip().lower() in graph_attachments
+                for attachment in robot.get("attachments", ())
+            )
         )
         for robot in selection_data.get("robots", ())
     )
+
+
+def _sensor_scene_single_env_reasons(selection_data: dict[str, Any] | None) -> tuple[str, ...]:
+    if not selection_data:
+        return ()
+    reasons = []
+    aerial_types = {"cf2x", "iris", "pegasus"}
+    sensor_tools = {"camera", "ros"}
+    for index, robot in enumerate(selection_data.get("robots", ()), start=1):
+        if not isinstance(robot, dict):
+            continue
+        robot_type = str(robot.get("type", "")).strip().lower()
+        attachments = {
+            str(attachment.get("type", "")).strip().lower()
+            for attachment in robot.get("attachments", ())
+            if isinstance(attachment, dict)
+        }
+        enabled_tools = attachments & sensor_tools
+        if robot_type in aerial_types:
+            tools = ", ".join(sorted(enabled_tools)) or "default sensors"
+            reasons.append(f"robot {index} ({robot_type}: {tools})")
+        elif "gshub" in attachments and enabled_tools:
+            tools = ", ".join(sorted(enabled_tools))
+            reasons.append(f"robot {index} ({robot_type or 'unknown'}: {tools})")
+    return tuple(reasons)
+
+
+def _validate_sensor_scene_num_envs(
+    selection_data: dict[str, Any] | None,
+    num_envs: int,
+) -> None:
+    if num_envs == 1:
+        return
+    reasons = _sensor_scene_single_env_reasons(selection_data)
+    if reasons:
+        raise ValueError(
+            "Aerial/GSHub sensor resources support exactly one environment; "
+            f"got num_envs={num_envs} for {', '.join(reasons)}. Use --num_envs 1."
+        )
 
 
 _INOTIFY_MINIMUMS = {
@@ -858,6 +901,7 @@ def _collect_asset_payload_after_app(args: argparse.Namespace, task_request: Tas
     else:
         raise RuntimeError("No task or DIY selection was resolved.")
 
+    _validate_sensor_scene_num_envs(selection_data, args.num_envs)
     _enable_required_selection_extensions(selection_data)
     from EAI_hmrs.env_builder import build_interactive_env_cfg_from_selection
 
@@ -971,6 +1015,7 @@ def _run_diy_3d_authoring_in_process(
         launcher_options.pop("interfaces_menu", None)
         launcher_options.setdefault("headless", False)
         launcher_options.setdefault("device", getattr(args, "device", "cuda:0"))
+        launcher_options["enable_cameras"] = True
         app_launcher = AppLauncher(launcher_options)
         simulation_app = app_launcher.app
 
@@ -1185,6 +1230,34 @@ def _setup_ur5_graph_manager(
     return manager
 
 
+def _setup_aerial_sensor_manager(
+    *,
+    base_env: Any,
+    selection_data: dict[str, Any] | None,
+    possible_agents: list[str],
+    seed: int = 0,
+):
+    from EAI.hmrs_ros.aerial_sensor_suite import (
+        AerialSensorSuiteManager,
+        aerial_sensor_specs_from_selection,
+        attach_aerial_sensor_manager,
+        get_aerial_sensor_manager,
+    )
+
+    specs = aerial_sensor_specs_from_selection(selection_data, possible_agents)
+    if not specs:
+        return None
+    manager = get_aerial_sensor_manager(base_env)
+    if manager is not None:
+        return manager
+    manager = AerialSensorSuiteManager(base_env, specs, seed=seed)
+    if not manager.registered_robots:
+        manager.close()
+        return None
+    attach_aerial_sensor_manager(base_env, manager)
+    return manager
+
+
 def active_cmd_vel_bridge_robot_names(
     selection_data: dict[str, Any] | None,
     *,
@@ -1266,7 +1339,12 @@ def _goal_position_delta(
     vz: float,
     dt: float,
 ) -> tuple[float, float, float]:
-    if str(robot_type or "").lower() in {"human", "quadcopter"}:
+    if str(robot_type or "").lower() in {
+        "human",
+        "quadcopter",
+        "pegasusiris",
+        "pegasusx4",
+    }:
         return (
             vx * KEYBOARD_CMD_VEL_GOAL_STEP_SCALE,
             vy * KEYBOARD_CMD_VEL_GOAL_STEP_SCALE,
@@ -1409,12 +1487,21 @@ def _session_env_init_args(config: SimulatorLaunchConfig) -> SimpleNamespace:
     )
 
 
-def _app_launcher_args(config: SimulatorLaunchConfig) -> dict[str, Any]:
+def _app_launcher_args(
+    config: SimulatorLaunchConfig,
+    selection_data: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     args = dict(config.app_launcher_args)
     args.pop("interfaces_menu", None)
     args.setdefault("headless", config.headless)
     args.setdefault("device", config.device)
     args.setdefault("ml_framework", config.ml_framework)
+    effective_selection = selection_data if selection_data is not None else config.selection_data
+    if effective_selection:
+        from EAI.physics.aerial_sensors import selection_requires_aerial_camera
+
+        if selection_requires_aerial_camera(effective_selection):
+            args["enable_cameras"] = True
     return args
 
 
@@ -1428,6 +1515,7 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         selection_data = config.selection_data
     else:
         env_name, selection_data = _run_asset_preflight(_session_preflight_args(config))
+    _validate_sensor_scene_num_envs(selection_data, config.num_envs)
     runtime_device = _runtime_device_for_env(env_name, selection_data, config.device)
     if runtime_device != config.device:
         print(
@@ -1447,12 +1535,13 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
     if owns_simulation_app:
         from isaaclab.app import AppLauncher
 
-        app_launcher = AppLauncher(_app_launcher_args(config))
+        app_launcher = AppLauncher(_app_launcher_args(config, selection_data))
         simulation_app = app_launcher.app
     else:
         simulation_app = config.existing_simulation_app
     env = None
     ur5_manager = None
+    aerial_sensor_manager = None
     try:
         _enable_required_selection_extensions(selection_data)
         if config.enable_ros_bridge_extension:
@@ -1473,6 +1562,12 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
                 possible_agents=possible_agents,
                 env_cfg=env_cfg,
             )
+        aerial_sensor_manager = _setup_aerial_sensor_manager(
+            base_env=base_env,
+            selection_data=selection_data,
+            possible_agents=possible_agents,
+            seed=config.seed,
+        )
 
         yield SimulatorSession(
             simulation_app=simulation_app,
@@ -1487,6 +1582,8 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         )
     finally:
         try:
+            if aerial_sensor_manager is not None:
+                aerial_sensor_manager.close()
             if ur5_manager is not None:
                 ur5_manager.close()
             if env is not None:
@@ -1596,7 +1693,7 @@ def main() -> None:
         possible_agents = session.possible_agents
         num_envs = session.num_envs
         runtime_device = session.device
-        robot_commands = {agent: torch.zeros((num_envs, 3), device=runtime_device) for agent in possible_agents}
+        robot_commands = {}
         robot_types: dict[str, str | None] = {}
         controller_cfgs: dict[str, Any] = {}
         goal_controlled_robots: set[str] = set()
@@ -1606,11 +1703,20 @@ def main() -> None:
             entry = env_cfg.controllers.get(agent_name) if hasattr(env_cfg, "controllers") else None
             controller_cfg, _aux = normalize_controller_entry(entry) if entry else (None, ())
             controller_cfgs[agent_name] = controller_cfg
+            command_dim = (
+                int(getattr(controller_cfg, "action_dim", 4))
+                if getattr(controller_cfg, "control_mode", None) == "rotor_velocity"
+                else 3
+            )
+            robot_commands[agent_name] = torch.zeros((num_envs, command_dim), device=runtime_device)
             robot_type = getattr(controller_cfg, "robot_type", None)
             robot_types[agent_name] = robot_type
             if getattr(controller_cfg, "command_name", None) == "goal_position" or robot_type in {"Quadcopter", "M20Nav"}:
                 goal_controlled_robots.add(agent_name)
-            if hasattr(controller_cfg, "yaw_command_name"):
+            if (
+                hasattr(controller_cfg, "yaw_command_name")
+                and getattr(controller_cfg, "control_mode", None) != "rotor_velocity"
+            ):
                 yaw_goal_controlled_robots.add(agent_name)
                 yaw_command_names[agent_name] = getattr(controller_cfg, "yaw_command_name", "goal_yaw")
 
@@ -1660,6 +1766,11 @@ def main() -> None:
                 explicit=getattr(args_cli, "enable_cmd_vel_bridge", False),
             )
         )
+        bridge_agents = {
+            agent_name
+            for agent_name in bridge_agents
+            if getattr(controller_cfgs.get(agent_name), "control_mode", None) != "rotor_velocity"
+        }
         if bridge_agents:
             from EAI.hmrs_ros import ROS2CmdVelBridge
 
