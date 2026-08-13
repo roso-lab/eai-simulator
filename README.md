@@ -33,15 +33,13 @@
 
 <table>
 <tr>
-<td colspan="2">
-  <p align="center">
-    <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html"><img src="docs/source/assets/media/可视化.gif" alt="Composing an environment in the Env DIY visual editor" width="30%"></a>&emsp;
-    <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html"><img src="docs/source/assets/media/插件.gif" alt="Preparing and running an environment in the Env DIY 3D plugin" width="30%"></a>&emsp;
-    <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html"><img src="docs/source/assets/media/终端.gif" alt="Composing an environment with the Env DIY terminal workflow" width="30%"></a>
-  </p>
+<td width="43%" valign="middle">
   <h3>World, agent, controller — independently composed</h3>
   <p>Define simulation worlds, configure heterogeneous agents, and connect perception and control — three independent layers that compose freely. Pre-configured robots, sensors, and controllers are ready out of the box, while standard interfaces at every layer allow external algorithms and custom payloads to plug in without modifying the core. Build environments through a visual editor, an in-simulator 3D plugin, or a guided terminal workflow—all producing the same reusable JSON format.</p>
   <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html">Environment guide →</a></p>
+</td>
+<td width="57%">
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html"><img src="docs/source/assets/media/feature-可视化diy.gif" alt="Composing an environment in the Env DIY visual editor" width="100%"></a>
 </td>
 </tr>
 <tr>

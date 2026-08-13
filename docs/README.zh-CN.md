@@ -40,7 +40,7 @@
   <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html">环境指南 →</a></p>
 </td>
 <td width="57%">
-  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/env_diy_tutorial.html"><img src="source/assets/media/eai_env_diy.gif" alt="使用 EAI Env DIY 组合并运行环境" width="100%"></a>
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/env_diy_tutorial.html"><img src="source/assets/media/feature-可视化diy.gif" alt="使用 EAI Env DIY 可视化编辑器组合并运行环境" width="100%"></a>
 </td>
 </tr>
 <tr>
