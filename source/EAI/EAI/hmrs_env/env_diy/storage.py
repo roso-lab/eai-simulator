@@ -109,14 +109,20 @@ def _normalize_task_payload(task_name: str, task_data: dict[str, Any]) -> dict[s
     robots = []
     for robot in task_data.get("robots", []):
         visual = robot.get("visual") or {}
+        robot_type = _canonical_robot_type(str(robot["type"]))
+        attachments = _deduplicate_attachments(robot.get("attachments", []))
+        catalog.validate_attachment_types(
+            robot_type,
+            tuple(attachment["type"] for attachment in attachments),
+        )
         normalized = {
-            "type": _canonical_robot_type(str(robot["type"])),
+            "type": robot_type,
             "controller": _controller_dict(robot.get("controller")),
             "visual": {
                 "x": float(visual.get("x", robot.get("x", 0.0))),
                 "y": float(visual.get("y", robot.get("y", 0.0))),
             },
-            "attachments": _deduplicate_attachments(robot.get("attachments", [])),
+            "attachments": attachments,
         }
         spawn_pose = _spawn_pose_dict(robot.get("spawn_pose"))
         if spawn_pose is not None:

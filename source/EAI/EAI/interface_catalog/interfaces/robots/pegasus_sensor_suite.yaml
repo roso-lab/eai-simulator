@@ -1,0 +1,53 @@
+# Copyright (c) 2026, EAI Simulator contributors.
+# SPDX-License-Identifier: BSD-3-Clause
+
+id: robot.pegasus_sensor_suite
+name: Aerial Base Sensors
+category: robot
+models: [iris, pegasus, cf2x]
+description: Built-in inertial and navigation sensors for supported aerial robots.
+interfaces:
+  - id: ros.aerial_imu
+    name: IMU
+    protocol: ros2
+    direction: output
+    kind: topic
+    endpoint: /{robot}/sensors/imu
+    data_type: sensor_msgs/msg/Imu
+    description: Noisy accelerometer and gyroscope data with turn-on bias and first-order random-walk drift.
+    example: ros2 topic echo --once /{robot}/sensors/imu
+    requires_attachment: ros
+    read_only_test: {type: ros_topic}
+  - id: ros.aerial_gps
+    name: GPS fix
+    protocol: ros2
+    direction: output
+    kind: topic
+    endpoint: /{robot}/sensors/gps
+    data_type: sensor_msgs/msg/NavSatFix
+    description: Noisy geodetic position derived from the simulated ENU world position.
+    example: ros2 topic echo --once /{robot}/sensors/gps
+    requires_attachment: ros
+    read_only_test: {type: ros_topic}
+  - id: ros.aerial_magnetometer
+    name: Magnetometer
+    protocol: ros2
+    direction: output
+    kind: topic
+    endpoint: /{robot}/sensors/mag
+    data_type: sensor_msgs/msg/MagneticField
+    description: Body-frame magnetic field with white noise and first-order random-walk bias.
+    example: ros2 topic echo --once /{robot}/sensors/mag
+    requires_attachment: ros
+    read_only_test: {type: ros_topic}
+  - id: ros.aerial_barometer
+    name: Barometer
+    protocol: ros2
+    direction: output
+    kind: topic
+    endpoint: /{robot}/sensors/barometer
+    data_type: sensor_msgs/msg/FluidPressure
+    description: International-standard-atmosphere pressure with configurable noise and drift.
+    example: ros2 topic echo --once /{robot}/sensors/barometer
+    requires_attachment: ros
+    read_only_test: {type: ros_topic}

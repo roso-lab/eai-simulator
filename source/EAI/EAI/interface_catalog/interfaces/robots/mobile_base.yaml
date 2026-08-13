@@ -1,7 +1,7 @@
 id: robot.mobile_base
 name: Mobile Robot Base
 category: robot
-models: [carter, scout, mushr_v2, coco, go2, b2, lite3, m20, cf2x, g1, pepper]
+models: [carter, scout, mushr_v2, coco, go2, b2, lite3, m20, g1, pepper]
 description: Common simulator movement interfaces for mobile robots.
 interfaces:
   - id: ros.cmd_vel
@@ -13,6 +13,7 @@ interfaces:
     data_type: geometry_msgs/msg/Twist
     description: Sends linear and angular velocity commands through the optional ROS bridge.
     example: 'ros2 topic pub --once /{robot}/cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.2}, angular: {z: 0.0}}"'
+    requires_attachment: ros
   - id: python.env_step
     name: Simulator step action
     protocol: python

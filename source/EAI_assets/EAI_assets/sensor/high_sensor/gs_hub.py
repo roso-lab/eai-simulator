@@ -88,6 +88,14 @@ _GSHUB_ROS_NAMESPACE_NODE_SUFFIXES = (
     "GS_Hub/Graphs/ROS2_publish_Lidar_Odom/ros2_publish_odometry",
 )
 
+_GSHUB_CAMERA_GRAPH_PATHS = (
+    "GS_Hub/Graphs/ROS2_publish_L_cam",
+    "GS_Hub/Graphs/ROS2_publish_R_cam",
+)
+_GSHUB_ROS_GRAPH_PATHS = (
+    "GS_Hub/Graphs/ROS2_publish_Lidar_Odom",
+)
+
 
 def _sanitize_ros_name_component(component: str) -> str:
     cleaned = re.sub(r"[^A-Za-z0-9_]", "_", str(component).strip())
@@ -156,33 +164,28 @@ def _apply_gshub_ros_namespace(stage, specific_path: str, namespace: str) -> int
     return updated
 
 
-def _disable_gshub_ros_publishers(stage, gshub_root_path: str) -> int:
-    """禁用 GSHub 的 ROS2 publish OmniGraph 节点。
-
-    方法：直接禁用（SetActive False）或删除 Graph prim，彻底阻止节点执行。
-    """
-    # GSHub 的 4 个 publish Graph 相对路径（父级，包含整个 publish 子图）
-    PUBLISH_GRAPH_PATHS = [
-        "GS_Hub/Graphs/ROS2_publish_Lidar_Odom",
-        "GS_Hub/Graphs/ROS2_publish_L_cam",
-        "GS_Hub/Graphs/ROS2_publish_R_cam",
-    ]
-
-    disabled = 0
-    for rel_path in PUBLISH_GRAPH_PATHS:
+def _set_gshub_publish_graphs_active(
+    stage,
+    gshub_root_path: str,
+    graph_paths: tuple[str, ...],
+    enabled: bool,
+) -> int:
+    """Set one group of embedded GSHub publisher graphs active or inactive."""
+    updated = 0
+    for rel_path in graph_paths:
         full_path = f"{gshub_root_path}/{rel_path}"
         prim = stage.GetPrimAtPath(full_path)
         if not prim.IsValid():
             continue
 
         try:
-            # 方法：SetActive(False) 禁用整个 Graph（包含其下所有节点）
-            prim.SetActive(False)
-            disabled += 1
+            prim.SetActive(bool(enabled))
+            updated += 1
         except Exception as e:
-            print(f"[GSHub] ⚠️  Failed to disable graph {full_path}: {e}", flush=True)
+            action = "enable" if enabled else "disable"
+            print(f"[GSHub] ⚠️  Failed to {action} graph {full_path}: {e}", flush=True)
 
-    return disabled
+    return updated
 
 
 # 🔥 立即执行配置 🔥
@@ -199,9 +202,10 @@ from EAI_assets.asset_resolver import asset_path
 
 gs_hub_path = asset_path("payloads/sensors/gs_hub/GS_Hub_fix_type.usd")
 
-# 全局字典：临时存储每个 GSHub 实例的 enable_ros_publish 配置
+# 全局字典：临时存储每个 GSHub 实例的发布配置
 # Key: prim_path, Value: bool
 _gshub_ros_publish_config = {}
+_gshub_camera_publish_config = {}
 _gshub_disable_physics_config = {}
 
 
@@ -284,12 +288,43 @@ def spawn_and_fix_gshub(prim_path, cfg, translation, orientation):
                 f"collision={collision_disabled}, mass={mass_removed} ({specific_path})"
             )
 
+        # LiDAR/odometry and camera publishers have independent tool gates.
+        has_ros_gate = hasattr(cfg, "enable_ros_publish")
+        has_camera_gate = hasattr(cfg, "enable_camera_publish")
+        enable_ros_publish = bool(getattr(cfg, "enable_ros_publish", True))
+        enable_camera_publish = bool(getattr(cfg, "enable_camera_publish", True))
+
+        # Older callers used a plain UsdFileCfg and path maps. Keep that as a fallback.
+        if not has_ros_gate:
+            for path_key in [prim_path, specific_path, f"{specific_path}/GS_Hub"]:
+                if path_key in _gshub_ros_publish_config:
+                    enable_ros_publish = _gshub_ros_publish_config[path_key]
+                    break
+        if not has_camera_gate:
+            for path_key in [prim_path, specific_path, f"{specific_path}/GS_Hub"]:
+                if path_key in _gshub_camera_publish_config:
+                    enable_camera_publish = _gshub_camera_publish_config[path_key]
+                    break
+
+        ros_graph_count = _set_gshub_publish_graphs_active(
+            stage,
+            specific_path,
+            _GSHUB_ROS_GRAPH_PATHS,
+            enable_ros_publish,
+        )
+        camera_graph_count = _set_gshub_publish_graphs_active(
+            stage,
+            specific_path,
+            _GSHUB_CAMERA_GRAPH_PATHS,
+            enable_camera_publish,
+        )
+
         # 1. 寻找 Graph 路径
         # 尝试默认路径 .../GS_Hub/Graphs/...
         graph_path = f"{specific_path}/GS_Hub/Graphs/ROS2_publish_Lidar_Odom"
-        if not stage.GetPrimAtPath(graph_path).IsValid():
+        if enable_ros_publish and not stage.GetPrimAtPath(graph_path).IsValid():
             print(f"[GSHub] ⚠️ Warning: Graph not found at {specific_path}, skipping fix.")
-            return
+            continue
 
         # 2. 计算目标 Robot 路径 (Articulation Root)
         try:
@@ -300,9 +335,9 @@ def spawn_and_fix_gshub(prim_path, cfg, translation, orientation):
 
         # 3. 定位节点并修改 Relationship
         node_path = f"{graph_path}/isaac_compute_odometry_node"
-        node_prim = stage.GetPrimAtPath(node_path)
+        node_prim = stage.GetPrimAtPath(node_path) if enable_ros_publish else None
 
-        if node_prim.IsValid():
+        if node_prim is not None and node_prim.IsValid():
             rel_name = "inputs:chassisPrim"
             rel = node_prim.GetRelationship(rel_name)
 
@@ -313,22 +348,10 @@ def spawn_and_fix_gshub(prim_path, cfg, translation, orientation):
             # === 强制修复连接 ===
             rel.SetTargets([target_path])
             print(f"[GSHub] ✅ Fixed Odometry: {node_path} -> {target_path}")
-        else:
+        elif enable_ros_publish:
             print(f"[GSHub] ❌ Odometry Node not found at {node_path}")
 
-        # 如果禁用 ROS 发布,停用 publish 节点
-        enable_ros_publish = True  # 默认开启（向后兼容）
-
-        # 尝试从全局字典读取（多种路径格式）
-        for path_key in [prim_path, specific_path, f"{specific_path}/GS_Hub"]:
-            if path_key in _gshub_ros_publish_config:
-                enable_ros_publish = _gshub_ros_publish_config[path_key]
-                break
-
-        if not enable_ros_publish:
-            disabled_count = _disable_gshub_ros_publishers(stage, specific_path)
-            print(f"[GSHub] 🔇 ROS publish disabled for {specific_path.split('/')[-3]}", flush=True)
-        else:
+        if enable_ros_publish or enable_camera_publish:
             namespace = _gshub_ros_namespace_for_instance(cfg, specific_path)
             updated_count = _apply_gshub_ros_namespace(stage, specific_path, namespace)
             if updated_count:
@@ -336,13 +359,37 @@ def spawn_and_fix_gshub(prim_path, cfg, translation, orientation):
             elif namespace:
                 print(f"[GSHub] ⚠️ ROS namespace not applied for {specific_path}: {namespace}")
 
+        print(
+            "[GSHub] Publisher graphs: "
+            f"lidar/odom={'on' if enable_ros_publish else 'off'} ({ros_graph_count}), "
+            f"camera={'on' if enable_camera_publish else 'off'} ({camera_graph_count})",
+            flush=True,
+        )
+
+@configclass
+class GSHubSpawnCfg(sim_utils.UsdFileCfg):
+    ros_namespace: str | None = None
+    enable_ros_publish: bool = True  # 是否激活 LiDAR/odometry ROS2 发布节点
+    enable_camera_publish: bool = True  # 是否激活左右相机 ROS2 发布节点
+    disable_physics: bool = False
+
+
 @configclass
 class GSHubCfg(AssetBaseCfg):
     ros_namespace: str | None = None
-    enable_ros_publish: bool = True  # 是否激活 ROS2 发布节点（默认 True 保持向后兼容）
+    enable_ros_publish: bool = True
+    enable_camera_publish: bool = True
     disable_physics: bool = False
-    spawn = sim_utils.UsdFileCfg(
+    spawn = GSHubSpawnCfg(
         usd_path=gs_hub_path,
         func=spawn_and_fix_gshub,
     )
     asset_dependencies = (gs_hub_path,)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.spawn, GSHubSpawnCfg):
+            return
+        self.spawn.ros_namespace = self.ros_namespace
+        self.spawn.enable_ros_publish = self.enable_ros_publish
+        self.spawn.enable_camera_publish = self.enable_camera_publish
+        self.spawn.disable_physics = self.disable_physics
