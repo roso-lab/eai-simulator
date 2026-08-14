@@ -100,7 +100,6 @@ _ROBOT_PATHS = {
         "robot/pegasus/pegasus/Materials/Base/Plastics/Plastic_ABS_1.mdl",
         "robot/pegasus/pegasus/Materials/Base/Plastics/Plastic_ABS_1_1.mdl",
     ),
-    "human": ("human/HumanFemale.usd",),
     "lite3": (
         "robot/lite3/Lite3_canonical.usdc",
         "robot/lite3/configuration/Lite3_base.usd",
@@ -148,10 +147,6 @@ _CONTROLLER_PATHS = {
         "traditional/coco_ackermann/__init__.py",
         "traditional/coco_ackermann/coco_ackermann.py",
         "traditional/coco_ackermann/kinematics.py",
-    ),
-    "HUMAN_ANIMATION_CFG": (
-        "traditional/human_animation/__init__.py",
-        "traditional/human_animation/human_animation.py",
     ),
     "PEGASUS_IRIS_POSITION_CFG": (
         "traditional/pegasus_multirotor/__init__.py",

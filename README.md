@@ -11,6 +11,7 @@
 <p align="center">
   <a href="https://releases.ubuntu.com/22.04/"><img src="https://img.shields.io/badge/platform-linux--64-orange.svg" alt="Platform: Linux x86-64"></a>
   <a href="https://docs.isaacsim.omniverse.nvidia.com/5.1.0/index.html"><img src="https://img.shields.io/badge/Isaac%20Sim-5.1-76B900.svg" alt="Isaac Sim 5.1"></a>
+  <a href="https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0"><img src="https://img.shields.io/badge/release-v0.1.0-007ec6.svg" alt="Release: v0.1.0"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
 
@@ -33,15 +34,13 @@
 
 <table>
 <tr>
-<td colspan="2">
-  <p align="center">
-    <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html"><img src="docs/source/assets/media/可视化.gif" alt="Composing an environment in the Env DIY visual editor" width="30%"></a>&emsp;
-    <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html"><img src="docs/source/assets/media/插件.gif" alt="Preparing and running an environment in the Env DIY 3D plugin" width="30%"></a>&emsp;
-    <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html"><img src="docs/source/assets/media/终端.gif" alt="Composing an environment with the Env DIY terminal workflow" width="30%"></a>
-  </p>
+<td width="43%" valign="middle">
   <h3>World, agent, controller — independently composed</h3>
   <p>Define simulation worlds, configure heterogeneous agents, and connect perception and control — three independent layers that compose freely. Pre-configured robots, sensors, and controllers are ready out of the box, while standard interfaces at every layer allow external algorithms and custom payloads to plug in without modifying the core. Build environments through a visual editor, an in-simulator 3D plugin, or a guided terminal workflow—all producing the same reusable JSON format.</p>
   <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html">Environment guide →</a></p>
+</td>
+<td width="57%">
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html"><img src="docs/source/assets/media/feature-可视化diy.gif" alt="Composing an environment in the Env DIY visual editor" width="100%"></a>
 </td>
 </tr>
 <tr>
@@ -78,6 +77,12 @@ The README summarizes the supported surface. Use the detailed guides as the sour
 - **[Build Environments](https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html):** JSON environments, Env DIY, 3D placement, and payloads.
 - **[ROS2 Interfaces](https://www.rosolab.com/roso-lab/eai-simulator/docs/interface_catalog.html):** command input, sensor output, Nav2, and manipulators.
 - **[Controller Development](https://www.rosolab.com/roso-lab/eai-simulator/docs/controller_guide.html):** traditional, RL, IK, and external controller integration.
+- **[Human Asset Development](https://www.rosolab.com/roso-lab/eai-simulator/docs/human_assets_en.html):** 44 registry-driven actors, 12 standard actions, path following, and unified GUI/headless validation.
+
+## Releases & Roadmap
+
+- **[v0.1.0 Release Notes](https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0):** review the capabilities, runtime requirements, and known caveats included in the currently released version.
+- **[Roadmap](https://www.rosolab.com/roso-lab/eai-simulator/docs/roadmap.html):** discover the next-stage capabilities still under development and not yet included in the current release.
 
 ## Quick Start
 

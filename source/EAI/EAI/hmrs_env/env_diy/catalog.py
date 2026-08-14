@@ -34,7 +34,6 @@ ROBOT_KEYS = (
     "cf2x",
     "iris",
     "pegasus",
-    "human",
     "lite3",
     "coco",
 )
@@ -52,7 +51,6 @@ ROBOT_LABELS = {
     "cf2x": "Crazyflie CF2X",
     "iris": "Pegasus 3DR Iris",
     "pegasus": "Pegasus research quadrotor",
-    "human": "Human animation",
     "lite3": "DeepRobotics Lite3",
 }
 
@@ -74,7 +72,6 @@ _DEFAULT_CONTROLLER_CFG = {
     "cf2x": "QUADCOPTER_GOAL_SKRL_CFG",
     "iris": "PEGASUS_IRIS_POSITION_CFG",
     "pegasus": "PEGASUS_X4_POSITION_CFG",
-    "human": "HUMAN_ANIMATION_CFG",
     "lite3": "LITE3_VELOCITY_RSL_CFG",
 }
 
@@ -94,7 +91,6 @@ _CONTROLLER_CFG_NAMES = (
     "PEGASUS_IRIS_ROTOR_CFG",
     "PEGASUS_X4_POSITION_CFG",
     "PEGASUS_X4_ROTOR_CFG",
-    "HUMAN_ANIMATION_CFG",
     "LITE3_VELOCITY_RSL_CFG",
     "UR5_IK_CFG",
     "Z1_IK_CFG",
@@ -238,7 +234,7 @@ def tool_catalog() -> dict[str, AttachmentCatalogEntry]:
             name="keyboard",
             asset_cfg=None,
             controller_cfg=None,
-            supported_robots=("carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "pepper", "g1", "cf2x", "iris", "pegasus", "lite3", "human"),
+            supported_robots=("carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "pepper", "g1", "cf2x", "iris", "pegasus", "lite3"),
             category="tool",
         ),
     }

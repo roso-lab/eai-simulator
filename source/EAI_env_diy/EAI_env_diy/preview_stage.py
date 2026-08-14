@@ -356,38 +356,30 @@ class PreviewStage:
         host_path = f"{assembly_path}/Host"
         stage = omni.usd.get_context().get_stage()
         stage.DefinePrim(assembly_path, "Xform")
-        if robot.type == "human":
-            self._spawn_human(
-                host_path,
-                (0.0, 0.0, 0.0),
-                (1.0, 0.0, 0.0, 0.0),
-                stage=stage,
+        if option.cfg is None:
+            raise ValueError("robot has no preview articulation cfg")
+        spawn_cfg = option.cfg.spawn
+        usd_path = getattr(spawn_cfg, "usd_path", None)
+        # ``UsdFileCfg`` accepts both local paths and Isaac Sim/Nucleus
+        # virtual paths (for example ``/IsaacLab/Robots/...`` or
+        # ``omniverse://...``).  The USD validator opens a filesystem
+        # path, so applying it to a virtual path turns a valid remote
+        # asset into a false ``missing_file`` failure before the actual
+        # Isaac spawner gets a chance to resolve it.
+        if usd_path and self._is_local_usd_path(usd_path):
+            report = validate_usd_asset(
+                usd_path,
+                require_articulation_root=True,
             )
-        else:
-            if option.cfg is None:
-                raise ValueError("robot has no preview articulation cfg")
-            spawn_cfg = option.cfg.spawn
-            usd_path = getattr(spawn_cfg, "usd_path", None)
-            # ``UsdFileCfg`` accepts both local paths and Isaac Sim/Nucleus
-            # virtual paths (for example ``/IsaacLab/Robots/...`` or
-            # ``omniverse://...``).  The USD validator opens a filesystem
-            # path, so applying it to a virtual path turns a valid remote
-            # asset into a false ``missing_file`` failure before the actual
-            # Isaac spawner gets a chance to resolve it.
-            if usd_path and self._is_local_usd_path(usd_path):
-                report = validate_usd_asset(
-                    usd_path,
-                    require_articulation_root=True,
-                )
-                if not report.ok:
-                    raise RuntimeError(report.format_diagnostics())
-            with self._use_stage(stage):
-                spawn_cfg.func(
-                    host_path,
-                    spawn_cfg,
-                    translation=(0.0, 0.0, 0.0),
-                    orientation=(1.0, 0.0, 0.0, 0.0),
-                )
+            if not report.ok:
+                raise RuntimeError(report.format_diagnostics())
+        with self._use_stage(stage):
+            spawn_cfg.func(
+                host_path,
+                spawn_cfg,
+                translation=(0.0, 0.0, 0.0),
+                orientation=(1.0, 0.0, 0.0, 0.0),
+            )
         manipulator = next(
             (item.type for item in robot.attachments if item.type in {"ur5", "z1"}),
             None,
@@ -497,19 +489,6 @@ class PreviewStage:
         for prim in Usd.PrimRange(root):
             if prim.GetName() == "Graphs":
                 prim.SetActive(False)
-
-    @staticmethod
-    def _spawn_human(prim_path: str, position, rotation, *, stage) -> None:
-        from EAI_assets.humans import HUMAN_FEMALE_RIG_CFG
-
-        spawn_cfg = HUMAN_FEMALE_RIG_CFG.spawn
-        with PreviewStage._use_stage(stage):
-            spawn_cfg.func(
-                prim_path,
-                spawn_cfg,
-                translation=position,
-                orientation=rotation,
-            )
 
     def select_robot(self, robot_id: str) -> None:
         import omni.usd
