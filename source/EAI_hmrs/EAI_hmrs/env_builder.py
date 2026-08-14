@@ -215,10 +215,6 @@ ROBOT_OPTIONS = [
         MUSHR_V2_CFG,
         "MUSHR_ACKERMANN_CFG",
         0.0,
-        orsus_mount_link="mushr_nano/base_link",
-        # Orsus base rests on the same deck as the HESAI lidar flange, 47.7 mm
-        # below the lidar's sensor origin (see the lidar_offset comment below).
-        orsus_offset=(-0.035325, 0.0, 0.13725),
         lidar_mount_link="mushr_nano/base_link",
         lidar_offset=(-0.035325, 0.0, 0.18495),
         camera_mount_link="mushr_nano/camera_link",
