@@ -96,6 +96,9 @@ _ORSUS_ROS_GRAPH_PATHS = (
     "Orsus/Graphs/ROS2_publish_Lidar_Odom",
 )
 _ORSUS_LIDAR_PRIM_PATH = "Orsus/base_link/lidar_link/Orsus_Lidar"
+_ORSUS_MID360_RTX_ASSET_PATH = str(
+    Path(__file__).with_name("orsus_mid360_rtx.usda")
+)
 
 
 def _sanitize_ros_name_component(component: str) -> str:
@@ -273,7 +276,12 @@ def _create_orsus_rtx_lidar_publisher(
         _destroy_rtx_lidar_render_product,
     )
 
-    render_product_path = _create_rtx_lidar_render_product(stage, lidar_prim_path)
+    render_product_path = _create_rtx_lidar_render_product(
+        stage,
+        lidar_prim_path,
+        sensor_asset_path=_ORSUS_MID360_RTX_ASSET_PATH,
+        allow_official_asset_fallback=False,
+    )
     if not render_product_path:
         raise RuntimeError(f"Failed to create Orsus RTX LiDAR at {lidar_prim_path}")
 
@@ -598,7 +606,7 @@ class OrsusCfg(AssetBaseCfg):
         usd_path=orsus_path,
         func=spawn_and_fix_orsus,
     )
-    asset_dependencies = (orsus_source_path,)
+    asset_dependencies = (orsus_source_path, _ORSUS_MID360_RTX_ASSET_PATH)
 
     def __post_init__(self) -> None:
         if not isinstance(self.spawn, OrsusSpawnCfg):

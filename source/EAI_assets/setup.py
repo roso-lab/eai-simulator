@@ -25,6 +25,7 @@ setup(
     description=EXTENSION_TOML_DATA["package"]["description"],
     keywords=EXTENSION_TOML_DATA["package"]["keywords"],
     include_package_data=True,
+    package_data={"EAI_assets": ["sensor/high_sensor/*.usda"]},
     python_requires=">=3.10",
     packages=["EAI_assets"],
     install_requires=[
