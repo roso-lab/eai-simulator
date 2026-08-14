@@ -24,8 +24,10 @@ skateboarder、static biker 和 wheelchair。是否可播放动作由每个资�
 
 放置由 manifest 显式控制：`content_up_axis` 描述文件中实际几何的高度轴（`Y` 或 `Z`），
 `yaw_offset` 修正可见正面，`scale` 修正尺寸，`ground_offset` 设置离地间隙。runtime 会先保留
-被引用 USD 根节点自带的变换，再应用这些资产级校正并按变换后的可见包围盒落地；不能仅相信
-转换 USD 的 stage `upAxis` 元数据。RPM 和活动资产的实际内容均为 Y-up。
+被引用 USD 根节点自带的变换，再应用这些资产级校正。蒙皮角色按当前 UsdSkel 姿态变形后的
+可见网格点贴地，非蒙皮网格或无法计算 skinning 的内容使用 USD 包围盒回退；角色生成、动作
+切换和恢复 locomotion 时会按当前姿态重新贴地。不能仅相信转换 USD 的 stage `upAxis`
+元数据。RPM 和活动资产的实际内容均为 Y-up。
 
 角色数据位于：
 
@@ -39,6 +41,7 @@ skateboarder、static biker 和 wheelchair。是否可播放动作由每个资�
 - `pack-checksums.json`：provider 中 `characters`、`activities`、`motions` 三个 pack 的校验信息。
 
 大型 USD、纹理、缓存和本地自定义动作通常由 provider 或本地流程维护并被 Git 忽略；
+运行时文件仍必须安装在 `usd/human/` 下，manifest 不允许引用 human root 外的路径。
 `redistribution_status=review_required` 也不表示已经获得再分发许可。
 
 ## 已部署标准动作
@@ -137,6 +140,8 @@ conda run --no-capture-output -n env_isaaclab \
   python -u tools/human_assets/run_demo.py --headless
 ```
 
+成功时最后输出 `Verified unified human matrix: 39x12 + 4 + 1`。
+
 ## 自定义路径
 
 路径由 `HumanActorConfig.waypoints` 定义，坐标使用 stage 的米制 XYZ。至少提供两个点；
@@ -227,22 +232,3 @@ pack hash。
 Provider 上传到 Hugging Face 后必须创建 immutable tag、同步更新 `pack-checksums.json`，并从
 干净仓库根目录验证该固定 revision。源代码映射、provider 文件、tag 和校验元数据必须属于同一
 发布版本。
-
-## 验证
-
-纯 Python 检查：
-
-```bash
-PYTHONPATH="$PWD/source/EAI_assets" PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
-  python -m pytest -q source/EAI_assets/test/test_human_*.py
-python tools/human_assets/validate_assets.py --manifest usd/human/manifest.json
-```
-
-Isaac Sim 5.1 headless 演示：
-
-```bash
-conda run --no-capture-output -n env_isaaclab \
-  python -u tools/human_assets/run_demo.py --headless
-```
-
-结构验证要求 manifest 引用的所有 provider payload 已安装；文件缺失时失败是预期行为。

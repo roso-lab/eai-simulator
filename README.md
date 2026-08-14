@@ -77,6 +77,7 @@ The README summarizes the supported surface. Use the detailed guides as the sour
 - **[Build Environments](https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html):** JSON environments, Env DIY, 3D placement, and payloads.
 - **[ROS2 Interfaces](https://www.rosolab.com/roso-lab/eai-simulator/docs/interface_catalog.html):** command input, sensor output, Nav2, and manipulators.
 - **[Controller Development](https://www.rosolab.com/roso-lab/eai-simulator/docs/controller_guide.html):** traditional, RL, IK, and external controller integration.
+- **[Human Asset Development](https://www.rosolab.com/roso-lab/eai-simulator/docs/human_assets_en.html):** 44 registry-driven actors, 12 standard actions, path following, and unified GUI/headless validation.
 
 ## Releases & Roadmap
 

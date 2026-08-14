@@ -30,10 +30,11 @@ def asset_orientation(asset: Any, Gf: Any) -> Any:
 
 def grounding_world_range(prim: Any) -> Any:
     """Return bounds suitable for grounding and framing visible human geometry."""
-    from pxr import Gf, Usd, UsdGeom
+    from pxr import Gf, Usd, UsdGeom, UsdSkel, Vt
 
+    time = Usd.TimeCode.Default()
     cache = UsdGeom.BBoxCache(
-        Usd.TimeCode.Default(),
+        time,
         [
             UsdGeom.Tokens.default_,
             UsdGeom.Tokens.render,
@@ -43,9 +44,15 @@ def grounding_world_range(prim: Any) -> Any:
     )
     composed_range = cache.ComputeWorldBound(prim).ComputeAlignedRange()
 
-    visible_minimum: list[float] | None = None
-    visible_maximum: list[float] | None = None
-    for descendant in Usd.PrimRange(prim):
+    descendants = list(Usd.PrimRange(prim))
+    skel_cache = UsdSkel.Cache()
+    for descendant in descendants:
+        if descendant.IsA(UsdSkel.Root):
+            skel_cache.Populate(UsdSkel.Root(descendant), Usd.PrimDefaultPredicate)
+
+    visible_range = Gf.Range3d()
+    xform_cache = UsdGeom.XformCache(time)
+    for descendant in descendants:
         if not descendant.IsA(UsdGeom.Mesh):
             continue
         imageable = UsdGeom.Imageable(descendant)
@@ -54,29 +61,30 @@ def grounding_world_range(prim: Any) -> Any:
         purpose = imageable.GetPurposeAttr().Get() or UsdGeom.Tokens.default_
         if purpose not in {UsdGeom.Tokens.default_, UsdGeom.Tokens.render}:
             continue
-        mesh_range = cache.ComputeWorldBound(descendant).ComputeAlignedRange()
-        if mesh_range.IsEmpty():
-            continue
-        mesh_minimum = mesh_range.GetMin()
-        mesh_maximum = mesh_range.GetMax()
-        if visible_minimum is None:
-            visible_minimum = [float(value) for value in mesh_minimum]
-            visible_maximum = [float(value) for value in mesh_maximum]
-            continue
-        for axis in range(3):
-            visible_minimum[axis] = min(
-                visible_minimum[axis], float(mesh_minimum[axis])
-            )
-            visible_maximum[axis] = max(
-                visible_maximum[axis], float(mesh_maximum[axis])
-            )
 
-    if visible_minimum is None or visible_maximum is None:
+        mesh = UsdGeom.Mesh(descendant)
+        skinning_query = skel_cache.GetSkinningQuery(descendant)
+        skeleton = UsdSkel.BindingAPI(descendant).GetInheritedSkeleton()
+        if skinning_query and skeleton:
+            skel_query = skel_cache.GetSkelQuery(skeleton)
+            points_value = mesh.GetPointsAttr().Get(time)
+            if skel_query and points_value:
+                points = Vt.Vec3fArray(points_value)
+                skinning_transforms = skel_query.ComputeSkinningTransforms(time)
+                if skinning_query.ComputeSkinnedPoints(skinning_transforms, points):
+                    mesh_to_world = xform_cache.GetLocalToWorldTransform(descendant)
+                    for point in points:
+                        visible_range.UnionWith(
+                            mesh_to_world.Transform(Gf.Vec3d(point))
+                        )
+                    continue
+
+        mesh_range = cache.ComputeWorldBound(descendant).ComputeAlignedRange()
+        if not mesh_range.IsEmpty():
+            visible_range.UnionWith(mesh_range)
+
+    if visible_range.IsEmpty():
         return composed_range
-    visible_range = Gf.Range3d(
-        Gf.Vec3d(*visible_minimum),
-        Gf.Vec3d(*visible_maximum),
-    )
     if composed_range.IsEmpty():
         return visible_range
     auxiliary_gap = float(visible_range.GetMin()[2]) - float(
