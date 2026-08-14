@@ -341,11 +341,11 @@ def _ensure_rtx_lidar_schema(stage, lidar_prim_path: str) -> bool:
     return lidar_prim.HasAPI(_RTX_LIDAR_REQUIRED_SCHEMA)
 
 
-def _create_rtx_lidar_from_downloaded_asset(stage, lidar_root_path: str) -> str | None:
-    asset_path = _download_official_lidar_usd()
-    if not asset_path:
-        return None
-
+def _create_rtx_lidar_from_asset(
+    stage,
+    lidar_root_path: str,
+    lidar_asset_path: str,
+) -> str | None:
     existing_prim = stage.GetPrimAtPath(lidar_root_path)
     if _prim_is_valid(existing_prim):
         stage.RemovePrim(lidar_root_path)
@@ -357,13 +357,27 @@ def _create_rtx_lidar_from_downloaded_asset(stage, lidar_root_path: str) -> str 
             # reference directly keeps the fallback independent of the
             # deprecated ``isaacsim.core.utils`` extension.
             root = stage.DefinePrim(lidar_root_path, "Xform")
-            root.GetReferences().AddReference(asset_path)
+            root.GetReferences().AddReference(lidar_asset_path)
         else:
-            add_reference_to_stage(usd_path=asset_path, prim_path=lidar_root_path, prim_type="Xform")
+            add_reference_to_stage(
+                usd_path=lidar_asset_path,
+                prim_path=lidar_root_path,
+                prim_type="Xform",
+            )
     except Exception as exc:
-        print(f"[RosLidar] Warning: Failed to reference downloaded LiDAR asset: {exc}")
+        print(
+            "[RosLidar] Warning: Failed to reference RTX LiDAR asset "
+            f"{lidar_asset_path}: {exc}"
+        )
         return None
     return _find_rtx_lidar_sensor_path(stage, lidar_root_path)
+
+
+def _create_rtx_lidar_from_downloaded_asset(stage, lidar_root_path: str) -> str | None:
+    asset_path = _download_official_lidar_usd()
+    if not asset_path:
+        return None
+    return _create_rtx_lidar_from_asset(stage, lidar_root_path, asset_path)
 
 
 def spawn_ros_lidar_preview_visual(stage, specific_path: str) -> str:
@@ -378,7 +392,14 @@ def spawn_ros_lidar_preview_visual(stage, specific_path: str) -> str:
     return sensor_path
 
 
-def _create_rtx_lidar_render_product(stage, lidar_prim_path: str) -> str | None:
+def _create_rtx_lidar_render_product(
+    stage,
+    lidar_prim_path: str,
+    *,
+    sensor_asset_path: str | None = None,
+    allow_official_asset_fallback: bool = True,
+) -> str | None:
+    """Create an RTX render product from a caller asset or the default HESAI sensor."""
     try:
         from isaacsim.core.experimental.utils.app import enable_extension
         modern = True
@@ -400,8 +421,15 @@ def _create_rtx_lidar_render_product(stage, lidar_prim_path: str) -> str | None:
     omni.kit.app.get_app().update()
     import omni.replicator.core as rep
 
-    sensor_path = _find_rtx_lidar_sensor_path(stage, lidar_prim_path)
-    if not sensor_path and modern:
+    if sensor_asset_path:
+        sensor_path = _create_rtx_lidar_from_asset(
+            stage,
+            lidar_prim_path,
+            sensor_asset_path,
+        )
+    else:
+        sensor_path = _find_rtx_lidar_sensor_path(stage, lidar_prim_path)
+    if not sensor_asset_path and not sensor_path and modern:
         try:
             sensor_path = _create_rtx_lidar_from_experimental_api(lidar_prim_path)
         except Exception as exc:
@@ -411,7 +439,7 @@ def _create_rtx_lidar_render_product(stage, lidar_prim_path: str) -> str | None:
             sensor_path = _find_rtx_lidar_sensor_path(stage, lidar_prim_path)
             if not sensor_path:
                 print(f"[RosLidar] Warning: Failed to create RTX LiDAR with the Isaac Sim 6 API: {exc}")
-    if not sensor_path and not modern:
+    if not sensor_asset_path and not sensor_path and not modern:
         existing_prim = stage.GetPrimAtPath(lidar_prim_path)
         if _prim_is_valid(existing_prim):
             stage.RemovePrim(lidar_prim_path)
@@ -436,7 +464,7 @@ def _create_rtx_lidar_render_product(stage, lidar_prim_path: str) -> str | None:
                 or _find_rtx_lidar_sensor_path(stage, lidar_prim_path)
             )
 
-    if not sensor_path and not modern:
+    if not sensor_path and not modern and allow_official_asset_fallback:
         sensor_path = _create_rtx_lidar_from_downloaded_asset(stage, lidar_prim_path)
     if not sensor_path:
         return None
