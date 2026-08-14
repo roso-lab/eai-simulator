@@ -6,7 +6,7 @@ from typing import Any
 from . import catalog
 
 ROBOT_KEYS = catalog.ROBOT_KEYS
-GSHUB_SUPPORTED_ROBOTS = frozenset(catalog.attachment_entry("gshub").supported_robots)
+ORSUS_SUPPORTED_ROBOTS = frozenset(catalog.attachment_entry("orsus").supported_robots)
 ROS_TOOL_SUPPORTED_ROBOTS = frozenset(catalog.tool_catalog()["ros"].supported_robots)
 KEYBOARD_SUPPORTED_ROBOTS = frozenset(catalog.tool_catalog()["keyboard"].supported_robots)
 UR5_SUPPORTED_ROBOTS = frozenset(catalog.attachment_entry("ur5").supported_robots)
@@ -227,8 +227,8 @@ def choose_terminal_interactive_selection(
         if step == 4:
             _print_terminal_subsection(print_func, "Sensors / 传感器")
             updated = _choose_attachments(
-                "GSHub",
-                "gshub",
+                "Orsus",
+                "orsus",
                 robots,
                 input_func=input_func,
                 print_func=print_func,
@@ -389,8 +389,8 @@ def _choose_attachments(
         and not (robot.type in {"iris", "pegasus"} and attachment_type == "lidar")
         and not (
             attachment_type == "camera"
-            and robot.type not in {"cf2x", "iris", "pegasus"}
-            and not any(item.type == "gshub" for item in robot.attachments)
+            and robot.type not in catalog.BUILTIN_CAMERA_ROBOTS
+            and not any(item.type == "orsus" for item in robot.attachments)
         )
         and not (
             attachment_type in {"ur5", "z1"}

@@ -5,7 +5,7 @@
 #   bash algorithm/ros/nav2/run_nav2.sh            # 启动仿真 + Nav2
 #   bash algorithm/ros/nav2/run_nav2.sh --rviz     # 额外启动 RViz 可视化
 #
-# 注意: 仿真必须 GUI 模式（headless 下 GSHub 不发布传感器），不支持 --headless。
+# 注意: 仿真必须 GUI 模式（headless 下 Orsus 不发布传感器），不支持 --headless。
 #
 # 脚本会:
 #   1. 启动 Isaac Sim 仿真 (conda env_isaaclab)

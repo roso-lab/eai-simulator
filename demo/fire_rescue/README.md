@@ -52,14 +52,14 @@ EAI.hmrs_env.MultiRobotDirectEnv
 
 `source/EAI_hmrs/EAI_hmrs/envs/EAI-Factory-v0.json` 声明 Factory 场景和四台机器人：
 
-- `carter_1`：Carter 差速底盘，GS-Hub 数据采集。
+- `carter_1`：Carter 差速底盘，Orsus 数据采集。
 - `m20_1`：M20 + UR5。
 - `m20_2`：M20 + UR5。
 - `scout_1`：Scout + UR5，负责救援通道按钮。
 
 附件使用实验最小配置：
 
-- 只有 `carter_1` 挂载 GS-Hub；
+- 只有 `carter_1` 挂载 Orsus；
 - `m20_1`、`m20_2` 和 `scout_1` 只挂载任务所需的 UR5；
 - Fire Rescue 不使用 Nav2，JSON 中不挂载 `ros`，启动时也不加载 Isaac ROS Bridge。
 

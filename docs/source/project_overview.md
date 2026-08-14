@@ -44,7 +44,7 @@ eai-simulator/
 │   ├── EAI_assets/EAI_assets/
 │   │   ├── robots/                      # 机器人资产
 │   │   ├── scene/                       # 场景资产配置
-│   │   ├── sensor/                      # GS-Hub 与 LiDAR
+│   │   ├── sensor/                      # Orsus 与 LiDAR
 │   │   └── controller/                  # 传统控制器和已训练策略配置
 │   ├── EAI_env_diy/
 │   │   ├── config/extension.toml        # 可重载 Isaac Sim Extension 清单
@@ -87,7 +87,7 @@ eai-simulator/
 - **`robots/`**: 机器人资产配置（USD 路径、物理参数等）
 - **`scene/`**: 场景配置（地形、光照、障碍物等）
 - **`sensor/`**: 传感器配置
-  - `high_sensor/`: 高频传感器（CPU 流，如 GS-Hub）
+  - `high_sensor/`: 高频传感器（CPU 流，如 Orsus）
   - `low_sensor/`: 低频传感器（GPU 流，用于 RL）
 - **`controller/`**: 控制器配置
   - `traditional/`: 传统控制器（差速驱动等）
@@ -118,18 +118,18 @@ eai-simulator/
 
 | Env DIY key | 机器人/对象 | 默认控制器 | 可选附件 | 常用入口 |
 | ---------- | ---------- | ---------- | -------- | -------- |
-| `carter` | Carter differential base | `CARTER_DIFF_CFG` | GS-Hub, LiDAR, Z1 | JSON / Env DIY |
+| `carter` | Carter differential base | `CARTER_DIFF_CFG` | Orsus, LiDAR, Z1 | JSON / Env DIY |
 | `pepper` | Pepper holonomic base | `PEPPER_HOLONOMIC_CFG` | - | JSON / Env DIY |
-| `go2` | Unitree Go2 | `GO2_VELOCITY_RSL_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
-| `b2` | Unitree B2 | `B2_VELOCITY_RSL_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
-| `m20` | DeepRobotics M20 | `M20_ROUGH_RSL_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
-| `scout` | Scout mobile base | `SCOUT_DIFF_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
+| `go2` | Unitree Go2 | `GO2_VELOCITY_RSL_CFG` | Orsus, LiDAR, UR5, Z1 | JSON / Env DIY |
+| `b2` | Unitree B2 | `B2_VELOCITY_RSL_CFG` | Orsus, LiDAR, UR5, Z1 | JSON / Env DIY |
+| `m20` | DeepRobotics M20 | `M20_ROUGH_RSL_CFG` | Orsus, LiDAR, UR5, Z1 | JSON / Env DIY |
+| `scout` | Scout mobile base | `SCOUT_DIFF_CFG` | Orsus, LiDAR, UR5, Z1 | JSON / Env DIY |
 | `g1` | Unitree G1 | `G1_SKRL_CFG` | - | JSON / Env DIY |
 | `cf2x` | Crazyflie CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | - | JSON / Env DIY |
 | `human` | Human animation | `HUMAN_ANIMATION_CFG` | - | JSON / Env DIY |
-| `lite3` | DeepRobotics Lite3 | `LITE3_VELOCITY_RSL_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
-| `mushr_v2` | MuSHR Nano v2 Ackermann base | `MUSHR_ACKERMANN_CFG` | LiDAR, keyboard, ROS | JSON / Env DIY |
-| `coco` | Coco AIRS Ackermann base | `COCO_ACKERMANN_CFG` | GS-Hub, LiDAR, keyboard, ROS | JSON / Env DIY |
+| `lite3` | DeepRobotics Lite3 | `LITE3_VELOCITY_RSL_CFG` | Orsus, LiDAR, UR5, Z1 | JSON / Env DIY |
+| `mushr_v2` | MuSHR Nano v2 Ackermann base | `MUSHR_ACKERMANN_CFG` | 内置相机、LiDAR、keyboard、ROS | JSON / Env DIY |
+| `coco` | Coco AIRS Ackermann base | `COCO_ACKERMANN_CFG` | Orsus, LiDAR, keyboard, ROS | JSON / Env DIY |
 
 
 > 控制器配置位置：`source/EAI_assets/EAI_assets/controller/`（`rl/` 与 `traditional/`）。`UR5_IK_CFG` 和 `Z1_IK_CFG` 用于上表所列兼容宿主的机械臂附件。
@@ -149,7 +149,7 @@ eai-simulator/
   python simulator.py --num_envs=1 --device=cuda:0
   ```
   启动后会提示选择 env 制定方式：
-  - `1. 可视化窗口`：通过 Env DIY 窗口按 `Scenes → Robots → Payloads → Tools` 选择环境；Payloads 下分为 Manipulators（UR5/Z1）和 Sensors（GS-Hub/LiDAR），Tools 提供 Camera/Keyboard/ROS。Camera Tool 独立控制 Iris、Pegasus、CF2X 内置单目相机和 GS-Hub 相机的 ROS 图像发布；ROS Tool 控制三种无人机的 LiDAR、IMU、GPS、磁力计和气压计，以及 GS-Hub 的 LiDAR 点云、里程计和 scan 发布。配置可保存为 `source/EAI_hmrs/EAI_hmrs/envs/<env_name>.json`。
+  - `1. 可视化窗口`：通过 Env DIY 窗口按 `Scenes → Robots → Payloads → Tools` 选择环境；Payloads 下分为 Manipulators（UR5/Z1）和 Sensors（Orsus/LiDAR），Tools 提供 Camera/Keyboard/ROS。Camera Tool 独立控制 Iris、Pegasus、CF2X、MuSHR 的内置单目相机，以及兼容宿主上的 Orsus 相机 ROS 图像发布；ROS Tool 控制三种无人机的 LiDAR、IMU、GPS、磁力计和气压计，以及 Orsus 的 LiDAR 点云、里程计和 scan 发布。配置可保存为 `source/EAI_hmrs/EAI_hmrs/envs/<env_name>.json`。
   - `2. 终端快速`：按与可视化窗口相同的顺序选择场景、宿主机器人、机械臂、传感器和工具，再选择控制器，并可选择是否保存和立即运行。
   - `3. Isaac Sim 3D 编辑器`：在 Isaac Sim Viewport 中编辑机器人真实 `spawn_pose`；也可运行 `python simulator.py --diy-3d --device=cuda:0` 直接进入。
 
@@ -202,7 +202,7 @@ EAI Simulator 场景、机器人与任务运行演示
   ```
 2. 在提示中选择 `1. 可视化窗口`。
 3. 在 Env DIY 窗口中将场景卡拖入画布，再将机器人卡拖到场景中的目标位置。
-4. 切换到“Payloads”，在 “Manipulators” 子页选择 UR5/Z1，或在 “Sensors” 子页选择 GS-Hub/LiDAR；再切换到 “Tools” 选择 Camera/Keyboard/ROS。Camera Tool 独立控制 Iris、Pegasus、CF2X 内置单目相机和 GS-Hub 相机的 ROS 图像发布；ROS Tool 控制三种无人机的 LiDAR、IMU、GPS、磁力计和气压计，以及 GS-Hub 的 LiDAR 点云、里程计和 scan 发布。选中机器人后，不兼容、已添加或已有另一种机械臂的卡片会显示为不可拖动状态。
+4. 切换到“Payloads”，在 “Manipulators” 子页选择 UR5/Z1，或在 “Sensors” 子页选择 Orsus/LiDAR；再切换到 “Tools” 选择 Camera/Keyboard/ROS。Camera Tool 独立控制 Iris、Pegasus、CF2X、MuSHR 的内置单目相机，以及兼容宿主上的 Orsus 相机 ROS 图像发布；ROS Tool 控制三种无人机的 LiDAR、IMU、GPS、磁力计和气压计，以及 Orsus 的 LiDAR 点云、里程计和 scan 发布。选中机器人后，不兼容、已添加或已有另一种机械臂的卡片会显示为不可拖动状态。
 5. 点击 `Complete Selection`，按需保存 env；保存后会写入 `source/EAI_hmrs/EAI_hmrs/envs/<env_name>.json`。
 6. 如果保存了 env，之后可直接启动：
   ```bash
@@ -229,7 +229,7 @@ EAI Env DIY 三维场景编辑、资产准备与运行流程
 
 1. 启动 `python simulator.py --num_envs=1 --device=cuda:0`。
 2. 在提示中选择 `2. 终端快速`。
-3. 按步骤选择场景、宿主机器人、UR5/Z1 机械臂、GS-Hub/LiDAR 传感器、camera/keyboard/ros 工具和控制器。Camera Tool 与 ROS Tool 的发布职责和可视化方式相同。
+3. 按步骤选择场景、宿主机器人、UR5/Z1 机械臂、Orsus/LiDAR 传感器、camera/keyboard/ros 工具和控制器。Camera Tool 与 ROS Tool 的发布职责和可视化方式相同。
 4. 根据提示选择是否保存 env、是否立即运行。
 
 **keyboard 外部接口示例**:
@@ -262,11 +262,11 @@ source /opt/ros/humble/setup.bash && python3 algorithm/keyboard/keyboard.py --ro
 Keyboard 工具通过 ROS2 `cmd_vel` 控制机器人
 ```
 
-**Nav2 导航示例（Factory + Carter + GS-Hub）**:
+**Nav2 导航示例（Factory + Carter + Orsus）**:
 
-仓库保留的 Nav2 示例是 `source/EAI_hmrs/EAI_hmrs/envs/nav2.json`。它选择 Factory 场景和 Carter，并添加 GS-Hub、Camera 与 ROS Tool。Camera Tool 开启 GS-Hub 图像发布；ROS Tool 开启 `/carter_1/cmd_vel` 订阅，以及 GS-Hub 的 LiDAR 点云、里程计和 scan 发布。
+仓库保留的 Nav2 示例是 `source/EAI_hmrs/EAI_hmrs/envs/nav2.json`。它选择 Factory 场景和 Carter，并添加 Orsus、Camera 与 ROS Tool。Camera Tool 开启 Orsus 图像发布；ROS Tool 开启 `/carter_1/cmd_vel` 订阅，以及 Orsus 的 LiDAR 点云、里程计和 scan 发布。
 
-终端 1 启动仿真。Nav2 / GS-Hub 相关仿真必须使用 Isaac Sim GUI，不能使用 headless：
+终端 1 启动仿真。Nav2 / Orsus 相关仿真必须使用 Isaac Sim GUI，不能使用 headless：
 
 ```bash
 conda activate env_isaaclab
@@ -294,7 +294,7 @@ source /opt/ros/humble/setup.bash
 :class: eai-doc-media
 :width: 100%
 
-Factory + Carter + GS-Hub 的 Nav2 导航效果
+Factory + Carter + Orsus 的 Nav2 导航效果
 ```
 
 ## 安装与常用命令
@@ -341,5 +341,5 @@ Factory + Carter + GS-Hub 的 Nav2 导航效果
 - **安装指南**: [安装与依赖配置](installation.md)
 - **环境说明**: [环境配置与使用](environments.md)
 - **控制器开发**: [控制器开发指南](controller_guide.md)
-- **GS-Hub 传感器**: [GS-Hub 使用说明](gs_hub_sensor.md)
+- **Orsus 传感器**: [Orsus 使用说明](orsus_sensor.md)
 - **下一阶段功能规划**: [查看项目 Roadmap](roadmap.md)

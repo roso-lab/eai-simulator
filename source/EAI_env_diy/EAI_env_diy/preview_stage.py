@@ -424,14 +424,14 @@ class PreviewStage:
             )
 
         attachment_types = {item.type for item in robot.attachments}
-        if "gshub" in attachment_types and option.gshub_mount_link:
-            gshub_mount_path = f"{host_path}/{option.gshub_mount_link}"
-            if not stage.GetPrimAtPath(gshub_mount_path).IsValid():
-                raise RuntimeError(f"{robot.type}: GSHub mount link does not exist: {gshub_mount_path}")
+        if "orsus" in attachment_types and option.orsus_mount_link:
+            orsus_mount_path = f"{host_path}/{option.orsus_mount_link}"
+            if not stage.GetPrimAtPath(orsus_mount_path).IsValid():
+                raise RuntimeError(f"{robot.type}: Orsus mount link does not exist: {orsus_mount_path}")
             self._spawn_sensor_reference(
-                f"{gshub_mount_path}/GSHub",
-                "gshub",
-                option.gshub_offset,
+                f"{orsus_mount_path}/Orsus",
+                "orsus",
+                option.orsus_offset,
                 (1.0, 0.0, 0.0, 0.0),
                 stage=stage,
             )
@@ -474,8 +474,8 @@ class PreviewStage:
         parent_path = prim_path.rsplit("/", 1)[0]
         if not stage.GetPrimAtPath(parent_path).IsValid():
             raise RuntimeError(f"{sensor_type}: mount parent does not exist: {parent_path}")
-        if sensor_type == "gshub":
-            from EAI_assets.sensor.high_sensor.gs_hub import gs_hub_path as usd_path
+        if sensor_type == "orsus":
+            from EAI_assets.sensor.high_sensor.orsus import orsus_path as usd_path
         else:
             from EAI_assets.sensor.low_sensor.ros_lidar import (
                 ros_lidar_path as usd_path,

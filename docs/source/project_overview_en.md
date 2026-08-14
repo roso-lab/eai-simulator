@@ -48,7 +48,7 @@ eai-simulator/
 │   ├── EAI_assets/EAI_assets/
 │   │   ├── robots/                      # Robot assets
 │   │   ├── scene/                       # Scene asset configuration
-│   │   ├── sensor/                      # GS-Hub and LiDAR
+│   │   ├── sensor/                      # Orsus and LiDAR
 │   │   └── controller/                  # Conventional controllers and trained policy configurations
 │   ├── EAI_env_diy/
 │   │   ├── config/extension.toml        # Reloadable Isaac Sim Extension manifest
@@ -91,7 +91,7 @@ eai-simulator/
 - **`robots/`**: Robot asset configurations, including USD paths and physical parameters
 - **`scene/`**: Scene configurations, including terrain, lighting, and obstacles
 - **`sensor/`**: Sensor configurations
-  - `high_sensor/`: High-frequency sensors with CPU streams, such as GS-Hub
+  - `high_sensor/`: High-frequency sensors with CPU streams, such as Orsus
   - `low_sensor/`: Low-frequency GPU streams for reinforcement learning
 - **`controller/`**: Controller configurations
   - `traditional/`: Conventional controllers such as differential drive
@@ -120,18 +120,18 @@ Robot choices are defined by `source/EAI/EAI/hmrs_env/env_diy/flow.py::ROBOT_KEY
 
 | Env DIY key | Robot / object | Default controller | Optional payloads | Common entry point |
 | ----------- | -------------- | ------------------ | ----------------- | ------------------ |
-| `carter` | Carter differential base | `CARTER_DIFF_CFG` | GS-Hub, LiDAR, Z1 | JSON / Env DIY |
+| `carter` | Carter differential base | `CARTER_DIFF_CFG` | Orsus, LiDAR, Z1 | JSON / Env DIY |
 | `pepper` | Pepper holonomic base | `PEPPER_HOLONOMIC_CFG` | - | JSON / Env DIY |
-| `go2` | Unitree Go2 | `GO2_VELOCITY_RSL_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
-| `b2` | Unitree B2 | `B2_VELOCITY_RSL_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
-| `m20` | DeepRobotics M20 | `M20_ROUGH_RSL_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
-| `scout` | Scout mobile base | `SCOUT_DIFF_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
+| `go2` | Unitree Go2 | `GO2_VELOCITY_RSL_CFG` | Orsus, LiDAR, UR5, Z1 | JSON / Env DIY |
+| `b2` | Unitree B2 | `B2_VELOCITY_RSL_CFG` | Orsus, LiDAR, UR5, Z1 | JSON / Env DIY |
+| `m20` | DeepRobotics M20 | `M20_ROUGH_RSL_CFG` | Orsus, LiDAR, UR5, Z1 | JSON / Env DIY |
+| `scout` | Scout mobile base | `SCOUT_DIFF_CFG` | Orsus, LiDAR, UR5, Z1 | JSON / Env DIY |
 | `g1` | Unitree G1 | `G1_SKRL_CFG` | - | JSON / Env DIY |
 | `cf2x` | Crazyflie CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | - | JSON / Env DIY |
 | `human` | Human animation | `HUMAN_ANIMATION_CFG` | - | JSON / Env DIY |
-| `lite3` | DeepRobotics Lite3 | `LITE3_VELOCITY_RSL_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
-| `mushr_v2` | MuSHR Nano v2 Ackermann base | `MUSHR_ACKERMANN_CFG` | LiDAR, keyboard, ROS | JSON / Env DIY |
-| `coco` | Coco AIRS Ackermann base | `COCO_ACKERMANN_CFG` | GS-Hub, LiDAR, keyboard, ROS | JSON / Env DIY |
+| `lite3` | DeepRobotics Lite3 | `LITE3_VELOCITY_RSL_CFG` | Orsus, LiDAR, UR5, Z1 | JSON / Env DIY |
+| `mushr_v2` | MuSHR Nano v2 Ackermann base | `MUSHR_ACKERMANN_CFG` | Built-in camera, LiDAR, keyboard, ROS | JSON / Env DIY |
+| `coco` | Coco AIRS Ackermann base | `COCO_ACKERMANN_CFG` | Orsus, LiDAR, keyboard, ROS | JSON / Env DIY |
 
 > Controller configurations are stored in `source/EAI_assets/EAI_assets/controller/`, under `rl/` and `traditional/`. `UR5_IK_CFG` and `Z1_IK_CFG` provide manipulator attachments for the compatible hosts listed above.
 
@@ -150,7 +150,7 @@ Robot choices are defined by `source/EAI/EAI/hmrs_env/env_diy/flow.py::ROBOT_KEY
    python simulator.py --num_envs=1 --device=cuda:0
    ```
    The prompt offers three environment-authoring methods:
-   - `1. Visual window`: Use the Env DIY window to select `Scenes -> Robots -> Payloads -> Tools`. Payloads are grouped into Manipulators (UR5/Z1) and Sensors (GS-Hub/LiDAR), while Tools provides Camera/Keyboard/ROS. The Camera Tool independently controls ROS image publication for the built-in monocular cameras on Iris, Pegasus, and CF2X and for the GS-Hub cameras. The ROS Tool controls LiDAR, IMU, GPS, magnetometer, and barometer publication for all three aerial robots, plus GS-Hub LiDAR point-cloud, odometry, and scan publication. The result can be saved as `source/EAI_hmrs/EAI_hmrs/envs/<env_name>.json`.
+   - `1. Visual window`: Use the Env DIY window to select `Scenes -> Robots -> Payloads -> Tools`. Payloads are grouped into Manipulators (UR5/Z1) and Sensors (Orsus/LiDAR), while Tools provides Camera/Keyboard/ROS. The Camera Tool independently controls ROS image publication for the built-in monocular cameras on Iris, Pegasus, CF2X, and MuSHR, plus Orsus cameras on compatible hosts. The ROS Tool controls LiDAR, IMU, GPS, magnetometer, and barometer publication for all three aerial robots, plus Orsus LiDAR point-cloud, odometry, and scan publication. The result can be saved as `source/EAI_hmrs/EAI_hmrs/envs/<env_name>.json`.
    - `2. Terminal quick setup`: Select a scene, host robot, manipulator, sensor, tool, and controller in the same order as the visual window, then choose whether to save and run the environment immediately.
    - `3. Isaac Sim 3D editor`: Edit the robots' physical `spawn_pose` values directly in the Isaac Sim Viewport. You can also run `python simulator.py --diy-3d --device=cuda:0` to enter it directly.
 
@@ -202,7 +202,7 @@ EAI Simulator scene, robot, and task execution
    ```
 2. Select `1. Visual window` in the prompt.
 3. Drag a scene card onto the canvas, then drag robot cards to their target positions in the scene.
-4. Open `Payloads`. Choose UR5/Z1 under `Manipulators` or GS-Hub/LiDAR under `Sensors`, then open `Tools` to choose Camera/Keyboard/ROS. The Camera Tool independently controls ROS image publication for the built-in monocular cameras on Iris, Pegasus, and CF2X and for the GS-Hub cameras. The ROS Tool controls LiDAR, IMU, GPS, magnetometer, and barometer publication for all three aerial robots, plus GS-Hub LiDAR point-cloud, odometry, and scan publication. After selecting a robot, cards that are incompatible, already attached, or would add a second manipulator are disabled.
+4. Open `Payloads`. Choose UR5/Z1 under `Manipulators` or Orsus/LiDAR under `Sensors`, then open `Tools` to choose Camera/Keyboard/ROS. The Camera Tool independently controls ROS image publication for the built-in monocular cameras on Iris, Pegasus, CF2X, and MuSHR, plus Orsus cameras on compatible hosts. The ROS Tool controls LiDAR, IMU, GPS, magnetometer, and barometer publication for all three aerial robots, plus Orsus LiDAR point-cloud, odometry, and scan publication. After selecting a robot, cards that are incompatible, already attached, or would add a second manipulator are disabled.
 5. Select `Complete Selection` and save the environment if needed. Saved configurations are written to `source/EAI_hmrs/EAI_hmrs/envs/<env_name>.json`.
 6. Launch a saved environment directly on subsequent runs:
    ```bash
@@ -229,7 +229,7 @@ EAI Env DIY 3D scene editing, asset preparation, and execution workflow
 
 1. Run `python simulator.py --num_envs=1 --device=cuda:0`.
 2. Select `2. Terminal quick setup` in the prompt.
-3. Select a scene, host robot, UR5/Z1 manipulator, GS-Hub/LiDAR sensor, camera/keyboard/ros tool, and controller in sequence. The Camera and ROS Tools have the same publication responsibilities as in the visual workflow.
+3. Select a scene, host robot, UR5/Z1 manipulator, Orsus/LiDAR sensor, camera/keyboard/ros tool, and controller in sequence. The Camera and ROS Tools have the same publication responsibilities as in the visual workflow.
 4. Follow the prompts to choose whether to save and immediately run the environment.
 
 **Keyboard external interface example**:
@@ -262,11 +262,11 @@ Controls: `W/S/A/D` translate, `R/F` makes aerial robots ascend/descend, `C/V` t
 The Keyboard tool controls a robot through ROS2 `cmd_vel`
 ```
 
-**Nav2 navigation example (Factory + Carter + GS-Hub)**:
+**Nav2 navigation example (Factory + Carter + Orsus)**:
 
-The included Nav2 example is `source/EAI_hmrs/EAI_hmrs/envs/nav2.json`. It selects the Factory scene and Carter, then adds GS-Hub, the Camera Tool, and the ROS Tool. The Camera Tool enables GS-Hub image publication. The ROS Tool enables the `/carter_1/cmd_vel` subscriber and GS-Hub LiDAR point-cloud, odometry, and scan publication.
+The included Nav2 example is `source/EAI_hmrs/EAI_hmrs/envs/nav2.json`. It selects the Factory scene and Carter, then adds Orsus, the Camera Tool, and the ROS Tool. The Camera Tool enables Orsus image publication. The ROS Tool enables the `/carter_1/cmd_vel` subscriber and Orsus LiDAR point-cloud, odometry, and scan publication.
 
-In terminal 1, launch the simulator. Nav2 and GS-Hub simulations require the Isaac Sim GUI and cannot run headless:
+In terminal 1, launch the simulator. Nav2 and Orsus simulations require the Isaac Sim GUI and cannot run headless:
 
 ```bash
 conda activate env_isaaclab
@@ -294,7 +294,7 @@ After the map, sensors, and ROS channels are configured, Nav2 plans and executes
 :class: eai-doc-media
 :width: 100%
 
-Nav2 navigation with Factory, Carter, and GS-Hub
+Nav2 navigation with Factory, Carter, and Orsus
 ```
 
 ## Installation and Common Commands
@@ -341,5 +341,5 @@ The repository focuses on simulation execution, asset configuration, controller 
 - **Installation Guide**: [Installation and Dependencies](installation_en.md)
 - **Environment Guide**: [Environment Configuration and Usage](environments_en.md)
 - **Controller Development**: [Controller Development Guide](controller_guide_en.md)
-- **GS-Hub Sensor**: [GS-Hub Usage Guide](gs_hub_sensor_en.md)
+- **Orsus Sensor**: [Orsus Usage Guide](orsus_sensor_en.md)
 - **Next-Stage Feature Roadmap**: [View the Project Roadmap](roadmap_en.md)

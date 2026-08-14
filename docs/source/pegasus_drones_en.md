@@ -32,7 +32,7 @@ publish camera topics, and selecting both tools publishes both streams.
 After starting the simulator, run the unified sensor visualizer from a ROS 2
 Humble terminal. With no arguments it dynamically discovers every
 `sensor_msgs/msg/Image` topic on the current ROS graph, covering the Iris,
-Pegasus, and CF2X monocular cameras as well as both GS-Hub cameras. Cameras that
+Pegasus, and CF2X monocular cameras as well as both Orsus cameras. Cameras that
 appear after the visualizer starts are subscribed automatically:
 
 ```bash

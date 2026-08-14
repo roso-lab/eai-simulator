@@ -42,7 +42,7 @@ EAI Simulator 文档
      <a class="eai-workflow-card eai-workflow-card--connect" href="interface_catalog.html">
        <span class="eai-workflow-stage">03 / CONNECT</span>
        <strong>连接感知与控制</strong>
-       <span>查询 ROS2、Nav2、GS-Hub、LiDAR 与机械臂接口。</span>
+       <span>查询 ROS2、Nav2、Orsus、LiDAR 与机械臂接口。</span>
        <span class="eai-workflow-link">浏览接口目录</span>
      </a>
      <a class="eai-workflow-card eai-workflow-card--extend" href="controller_guide.html">
@@ -127,7 +127,7 @@ EAI Simulator 文档
    :caption: 连接与控制
 
    interface_catalog
-   gs_hub_sensor
+   orsus_sensor
    pegasus_drones
    ur5_control
 

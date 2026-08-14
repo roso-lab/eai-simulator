@@ -24,7 +24,7 @@
 
 ### 可选项
 
-- **ROS2 Humble**: 如果需要使用 GS-Hub 传感器和 ROS2 导航
+- **ROS2 Humble**: 如果需要使用 Orsus 传感器和 ROS2 导航
 - **Git**: 用于克隆仓库
 
 ## 安装步骤
@@ -116,7 +116,7 @@ python simulator.py --env robo
 
 ### 安装 ROS2 Humble
 
-如果您需要使用 GS-Hub 传感器和 ROS2 导航：
+如果您需要使用 Orsus 传感器和 ROS2 导航：
 
 ```bash
 # Ubuntu 22.04

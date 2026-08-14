@@ -14,11 +14,11 @@ python simulator.py interfaces list
 
 ```bash
 python simulator.py interfaces search --robot scout
-python simulator.py interfaces search --sensor gshub --data-type image
+python simulator.py interfaces search --sensor orsus --data-type image
 python simulator.py interfaces search --protocol ros2 --text "point cloud"
 ```
 
-`--sensor` 只用于 GS-Hub、LiDAR 等环境感知设备。UR5/Z1 通过机械臂接口 ID（例如 `ros.ur5.joint_command`）查询。
+`--sensor` 只用于 Orsus、LiDAR 等环境感知设备。UR5/Z1 通过机械臂接口 ID（例如 `ros.ur5.joint_command`）查询。
 
 查看接口说明与调用示例：
 
@@ -27,7 +27,7 @@ python simulator.py interfaces show ros.cmd_vel
 python simulator.py interfaces show ros.aerial_camera_image
 python simulator.py interfaces show ros.aerial_camera_info
 python simulator.py interfaces show ros.aerial_cmd_vel
-python simulator.py interfaces show ros.gshub.left_image
+python simulator.py interfaces show ros.orsus.left_image
 python simulator.py interfaces show ros.ur5.joint_command
 python simulator.py interfaces show ros.ur5.ee_pose
 python simulator.py interfaces show ros.z1.gripper_command
@@ -52,7 +52,16 @@ Iris、Pegasus 和 CF2X 的内置前视单目相机使用相同的 ROS2 接口�
 
 传感器默认安装在无人机上；只有在 Env DIY 的 Tools 中选择 `camera` 后，才会发布上述图像和标定 topic。Camera Tool 独立于 `ros` Tool，可以只选择 Camera 而不选择 ROS。`{robot}` 替换为场景中的实例名，例如 `iris_1`、`pegasus_1` 或 `cf2x_1`。
 
-GS-Hub 的双目图像接口为 `ros.gshub.left_image`（`/{robot}/GS_Hub_L_cam`）和 `ros.gshub.right_image`（`/{robot}/GS_Hub_R_cam`），消息类型同为 `sensor_msgs/msg/Image`，也由 Camera Tool 控制。GS-Hub 点云、里程计和 scan 仍由 ROS Tool 控制。
+MuSHR Nano v2 的内置前视单目相机使用独立的接口声明：
+
+| 接口 ID | 端点模板 | 消息类型 |
+|---|---|---|
+| `ros.mushr_camera_image` | `/{robot}/camera/image_raw` | `sensor_msgs/msg/Image` |
+| `ros.mushr_camera_info` | `/{robot}/camera/camera_info` | `sensor_msgs/msg/CameraInfo` |
+
+选择 `camera` tool 后才会创建 MuSHR 的相机 prim 和发布接口。该内置相机使用 `/camera/*`，不依赖 Orsus；MuSHR 不支持挂载 Orsus。包含 MuSHR 内置相机或 Orsus 的传感器场景必须使用 `--num_envs 1`。
+
+Orsus 的双目图像接口为 `ros.orsus.left_image`（`/{robot}/Orsus_L_cam`）和 `ros.orsus.right_image`（`/{robot}/Orsus_R_cam`），消息类型同为 `sensor_msgs/msg/Image`，也由 Camera Tool 控制。Orsus 点云、里程计和 scan 仍由 ROS Tool 控制。
 
 统一查看当前及稍后启动的全部相机图像：
 
@@ -104,7 +113,7 @@ UR5 接口清单包含两个输入 topic 和两个输出 topic：
 
 这些接口适用于 Go2、B2、M20、Scout 和 Lite3。端点中的 `{robot}` 始终替换为 Env Builder 生成的实际实例名，例如 `go2_1` 或 `m20_2`。接口目录和运行时注册都按场景中真正挂载 `ur5` 的实例展开，不会为未挂载机械臂的机器人创建 UR5 topic。
 
-UR5 topic 由 Isaac Sim ROS2 Bridge 的原生 OmniGraph 节点直接创建，命名层级与 GS-Hub 保持一致：机器人实例名位于一级 namespace，设备名 `ur5` 位于二级 namespace。机械臂接口不使用 `tmp/` 文件，也不需要独立 Python bridge。
+UR5 topic 由 Isaac Sim ROS2 Bridge 的原生 OmniGraph 节点直接创建，命名层级与 Orsus 保持一致：机器人实例名位于一级 namespace，设备名 `ur5` 位于二级 namespace。机械臂接口不使用 `tmp/` 文件，也不需要独立 Python bridge。
 
 查询已保存 DIY 环境中的实际机械臂端点：
 
@@ -178,20 +187,20 @@ python simulator.py interfaces menu
 默认只检查接口是否存在：
 
 ```bash
-python simulator.py interfaces test ros.gshub.left_image --endpoint /carter_1/GS_Hub_L_cam
+python simulator.py interfaces test ros.orsus.left_image --endpoint /carter_1/Orsus_L_cam
 ```
 
 读取一条消息摘要，不输出完整图像或点云负载：
 
 ```bash
-python simulator.py interfaces test ros.gshub.left_image \
-  --endpoint /carter_1/GS_Hub_L_cam --mode sample
+python simulator.py interfaces test ros.orsus.left_image \
+  --endpoint /carter_1/Orsus_L_cam --mode sample
 ```
 
 在有限时间内统计 Topic 频率：
 
 ```bash
-python simulator.py interfaces test ros.gshub.point_cloud \
+python simulator.py interfaces test ros.orsus.point_cloud \
   --endpoint /carter_1/cloud --mode hz
 ```
 

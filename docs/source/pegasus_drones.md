@@ -26,7 +26,7 @@ python simulator.py --env=pegasus_drones --device=cuda:0
 
 启动仿真后，可在 ROS 2 Humble 终端直接运行统一传感器查看器。无参数模式会动态发现
 当前 ROS graph 中的所有 `sensor_msgs/msg/Image` topic，因此同时支持 Iris、Pegasus、
-CF2X 单目相机和 GS-Hub 左右相机；即使相机晚于查看器启动，也会自动订阅：
+CF2X 单目相机和 Orsus 左右相机；即使相机晚于查看器启动，也会自动订阅：
 
 ```bash
 source /opt/ros/humble/setup.bash
