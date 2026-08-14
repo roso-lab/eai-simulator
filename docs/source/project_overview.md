@@ -114,7 +114,7 @@ eai-simulator/
 `simulator.py` 只使用 JSON 环境。传入 `--env=<name>` 时读取
 `source/EAI_hmrs/EAI_hmrs/envs/<name>.json`；未指定 `--env` 时进入 Env DIY 启动菜单。选择第 3 项或使用 `python simulator.py --diy-3d` 可进入真实三维编辑，它把 Viewport transform 保存为物理 `spawn_pose`。
 机器人选择由 `source/EAI/EAI/hmrs_env/env_diy/flow.py::ROBOT_KEYS` 和
-`source/EAI_hmrs/EAI_hmrs/env_builder.py::ROBOT_OPTIONS` 定义，目前可选 12 类：
+`source/EAI_hmrs/EAI_hmrs/env_builder.py::ROBOT_OPTIONS` 定义，目前可选 11 类：
 
 | Env DIY key | 机器人/对象 | 默认控制器 | 可选附件 | 常用入口 |
 | ---------- | ---------- | ---------- | -------- | -------- |
@@ -126,7 +126,6 @@ eai-simulator/
 | `scout` | Scout mobile base | `SCOUT_DIFF_CFG` | Orsus, LiDAR, UR5, Z1 | JSON / Env DIY |
 | `g1` | Unitree G1 | `G1_SKRL_CFG` | - | JSON / Env DIY |
 | `cf2x` | Crazyflie CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | - | JSON / Env DIY |
-| `human` | Human animation | `HUMAN_ANIMATION_CFG` | - | JSON / Env DIY |
 | `lite3` | DeepRobotics Lite3 | `LITE3_VELOCITY_RSL_CFG` | Orsus, LiDAR, UR5, Z1 | JSON / Env DIY |
 | `mushr_v2` | MuSHR Nano v2 Ackermann base | `MUSHR_ACKERMANN_CFG` | 内置相机、LiDAR、keyboard、ROS | JSON / Env DIY |
 | `coco` | Coco AIRS Ackermann base | `COCO_ACKERMANN_CFG` | Orsus, LiDAR, keyboard, ROS | JSON / Env DIY |
@@ -137,7 +136,7 @@ eai-simulator/
 ## 环境与任务
 
 - 所有环境配置位于 `source/EAI_hmrs/EAI_hmrs/envs/`，目录内只放 JSON。
-- `robo.json` 是包含 human 和其他机器人、可通过键盘控制的综合快速开始环境。
+- `robo.json` 是包含多种机器人并启用键盘控制的综合快速开始环境。
 - `EAI-Factory-v0.json` 是 Fire Rescue 使用的固定机器人组合。
 - Env DIY 保存结果与手工维护的环境使用相同 schema 和启动方式。
 - 通过 `python simulator.py --env=<env_name>` 启动，不包含 `.json` 后缀。

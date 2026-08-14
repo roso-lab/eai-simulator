@@ -17,7 +17,7 @@ This document details how to install and configure the EAI platform.
 
 4. **Run the device**:
    - Common robot environment supports CPU or CUDA GPU
-   - Environments containing human will automatically use CPU PhysX to circumvent Isaac Sim 5.1 GPU pose write crash
+   - The registry-driven human demo uses CPU PhysX to avoid Isaac Sim 5.1 GPU pose-write crashes
 
 5. **Operating system**:
    - Linux (Ubuntu 22.04 recommended)

@@ -24,13 +24,13 @@ source/EAI_hmrs/EAI_hmrs/envs/robo.json
 
 `--env` only passes the file name, without the `.json` suffix. The name can contain letters, numbers, underscores, and hyphens.
 
-`robo.json` contains a human and the currently supported robots, with keyboard control enabled for each entity. When a human is present, the simulator automatically uses CPU PhysX; environments without humans can still use the GPU via `--device=cuda:0`.
+`robo.json` contains the currently supported robot set, with keyboard control enabled for each entity. Registry-driven human assets are not Env DIY robots; run them separately with `python -u tools/human_assets/run_demo.py`. See [Human Asset Development](human_assets_en.md) for the development API and validation matrix.
 
 Warehouse built-in environment:
 
 | Name | Purpose |
 |---|---|
-| `robo` | Comprehensive rapid verification environment for all robots and humans |
+| `robo` | Comprehensive rapid verification environment for multiple robots |
 | `keyboard` | Carter minimal keyboard control environment |
 | `nav2` | Factory + Carter Nav2 Example |
 | `EAI-Factory-v0` | Use EAI simulator to implement complex experimental demo |
@@ -169,6 +169,12 @@ python simulator.py --device=cuda:0
 ```
 
 The visualization window and terminal quick mode use the same selection sequence: `Scenes ↙ Robots ↙ Payloads ↙ Tools`. In terminal mode, first select Manipulators and then Sensors in Payloads; the Isaac Sim 3D extension is docked on the right panel by default, and the two groups Manipulators/Sensors are used in `Payloads`. The underlying JSON still uses `robots[].attachments[]` to save the payload to be compatible with existing environment files.
+
+The three build workflows: the visual editor, the in-simulator 3D plugin, and the guided terminal:
+
+| Visual editor | Isaac Sim plugin | Guided terminal |
+|:---:|:---:|:---:|
+| ![Visual editor](assets/media/eai_env_diy_visual.gif) | ![Isaac Sim plugin](assets/media/eai_env_diy_plugin.gif) | ![Guided terminal](assets/media/eai_env_diy_terminal.gif) |
 
 After completing the selection, you can run it directly or save it to `source/EAI_hmrs/EAI_hmrs/envs/`. Use the saved name when booting again:
 

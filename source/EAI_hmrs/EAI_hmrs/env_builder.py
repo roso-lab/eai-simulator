@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import importlib
-import math
 from typing import Any
 
 import isaaclab.sim as sim_utils
@@ -12,7 +11,6 @@ from isaaclab.terrains import TerrainImporterCfg
 from isaaclab.utils import configclass
 
 from EAI.hmrs_env import MultiRobotDirectEnvCfg
-from EAI_assets.humans import HUMAN_FEMALE_DEFAULT_Z, HUMAN_FEMALE_IDLE_CFG, HUMAN_FEMALE_RIG_CFG, HUMAN_FEMALE_WALK_CFG
 from EAI_assets.robots.b2 import B2_CFG
 from EAI_assets.robots.carter import CARTER_CFG
 from EAI_assets.robots.coco import COCO_CFG
@@ -89,10 +87,6 @@ class RobotOption:
 DESERT_SCENE_Z_OFFSET = -4322.563
 HOSPITAL_SCENE_OFFSET = (-23.0896, 0.7555, -0.0010)
 HOSPITAL_ROBOT_SPAWN_ORIGIN = (1.175, 1.8)
-HUMAN_INITIAL_YAW = math.pi * 0.5
-HUMAN_INITIAL_ROT = (0.707106781187, 0.0, 0.0, 0.707106781187)
-
-
 SCENE_OPTIONS = [
     SceneOption("plane", "Plane flat ground", None),
     SceneOption("warehouse", "Warehouse", ("EAI_assets.scene.warehouse", "WAREHOUSE_CFG")),
@@ -137,7 +131,6 @@ CONTROLLER_CFG_IMPORTS = {
     "PEGASUS_IRIS_ROTOR_CFG": ("traditional/pegasus_multirotor/pegasus_multirotor.py", "PEGASUS_IRIS_ROTOR_CFG"),
     "PEGASUS_X4_POSITION_CFG": ("traditional/pegasus_multirotor/pegasus_multirotor.py", "PEGASUS_X4_POSITION_CFG"),
     "PEGASUS_X4_ROTOR_CFG": ("traditional/pegasus_multirotor/pegasus_multirotor.py", "PEGASUS_X4_ROTOR_CFG"),
-    "HUMAN_ANIMATION_CFG": ("traditional/human_animation/human_animation.py", "HUMAN_ANIMATION_CFG"),
     "UR5_IK_CFG": ("traditional/ur5_ik/ur5_ik.py", "UR5_IK_CFG"),
     "Z1_IK_CFG": ("traditional/z1_ik/z1_ik.py", "Z1_IK_CFG"),
 }
@@ -274,7 +267,6 @@ ROBOT_OPTIONS = [
         camera_offset=(0.12, 0.0, 0.02),
         camera_rot=(0.5, 0.5, -0.5, -0.5),
     ),
-    RobotOption("human", "Human animation", None, "HUMAN_ANIMATION_CFG", HUMAN_FEMALE_DEFAULT_Z),
     RobotOption(
         "lite3",
         "DeepRobotics Lite3",
@@ -424,11 +416,8 @@ def build_interactive_env_cfg(
         position, rotation = _selection_spawn_pose(
             selection,
             default_position=(x, y, robot.default_z),
-            default_rotation=HUMAN_INITIAL_ROT if robot.key == "human" else (1.0, 0.0, 0.0, 0.0),
+            default_rotation=(1.0, 0.0, 0.0, 0.0),
         )
-        if robot.key == "human":
-            _add_human(attrs, controllers, name, position, rotation, robot, selection)
-            continue
 
         has_ur5 = any(attachment.type == "ur5" for attachment in selection.attachments)
         has_z1 = any(attachment.type == "z1" for attachment in selection.attachments)
@@ -572,50 +561,6 @@ def build_interactive_env_cfg(
     return env_cfg
 
 
-def _add_human(
-    attrs: dict[str, Any],
-    controllers: dict[str, Any],
-    name: str,
-    position: tuple[float, float, float],
-    rotation: tuple[float, float, float, float],
-    robot: RobotOption,
-    selection: RobotSelection,
-) -> None:
-    unsupported = [
-        attachment.type
-        for attachment in selection.attachments
-        if attachment.type not in {"keyboard", "ros"}
-    ]
-    if unsupported:
-        raise ValueError(
-            "Human animation robots only support non-physical DIY tools: "
-            + ", ".join(sorted(set(unsupported)))
-        )
-
-    rig_path = f"{{ENV_REGEX_NS}}/{name}_Rig"
-    rig_attr = f"{name}_rig"
-    idle_attr = f"{name}_idle"
-    walk_attr = f"{name}_walk"
-
-    attrs["__annotations__"][rig_attr] = AssetBaseCfg
-    rig_cfg = HUMAN_FEMALE_RIG_CFG.replace(prim_path=rig_path)
-    rig_cfg.init_state.pos = position
-    rig_cfg.init_state.rot = rotation
-    attrs[rig_attr] = rig_cfg
-
-    attrs["__annotations__"][idle_attr] = AssetBaseCfg
-    idle_cfg = HUMAN_FEMALE_IDLE_CFG.replace(prim_path=f"{rig_path}/Idle")
-    idle_cfg.init_state.pos = (0.0, 0.0, 0.0)
-    attrs[idle_attr] = idle_cfg
-
-    attrs["__annotations__"][walk_attr] = AssetBaseCfg
-    walk_cfg = HUMAN_FEMALE_WALK_CFG.replace(prim_path=f"{rig_path}/Walk")
-    walk_cfg.init_state.pos = (0.0, 0.0, 0.0)
-    attrs[walk_attr] = walk_cfg
-
-    controllers[name] = _resolve_human_controller(selection.controller, name, rig_path, position)
-
-
 def _selection_spawn_pose(
     selection: RobotSelection,
     *,
@@ -626,27 +571,6 @@ def _selection_spawn_pose(
     position = tuple(spawn_pose.get("position", default_position))
     rotation = tuple(spawn_pose.get("rotation", default_rotation))
     return position, rotation
-
-
-def _resolve_human_controller(
-    choice: ControllerChoice | None,
-    name: str,
-    rig_path: str,
-    initial_position: tuple[float, float, float],
-) -> Any:
-    cfg_name = choice.cfg if choice is not None else None
-    if cfg_name not in (None, "manual", "HUMAN_ANIMATION_CFG"):
-        raise ValueError(
-            f"Human animation robot '{name}' requires HUMAN_ANIMATION_CFG, got '{cfg_name}'."
-        )
-    controller_cls = _controller_attr_by_name("HUMAN_ANIMATION_CFG", "HumanAnimationControllerCfg")
-    return controller_cls(
-        rig_prim_path=rig_path,
-        idle_prim_path=f"{rig_path}/Idle",
-        walk_prim_path=f"{rig_path}/Walk",
-        walk_animation_prim_path=f"{rig_path}/Walk/SkelAnim",
-        initial_position=initial_position,
-    )
 
 
 def _resolve_controller(choice: ControllerChoice | None, *, fallback: Any) -> Any:

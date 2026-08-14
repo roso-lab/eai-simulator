@@ -17,7 +17,7 @@
 
 4. **运行设备**:
    - 普通机器人环境支持 CPU 或 CUDA GPU
-   - 包含 human 的环境会自动使用 CPU PhysX，规避 Isaac Sim 5.1 GPU 姿态写入崩溃
+   - registry 人类资产演示使用 CPU PhysX，规避 Isaac Sim 5.1 GPU 姿态写入崩溃
 
 5. **操作系统**:
    - Linux（Ubuntu 22.04 推荐）

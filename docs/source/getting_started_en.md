@@ -65,7 +65,7 @@ This is the quick start command recommended by the project. `--env robo` will re
 source/EAI_hmrs/EAI_hmrs/envs/robo.json
 ```
 
-The `robo` environment loads human and other robots supported by the project in a flat scene and enables keyboard control for each object.
+The `robo` environment loads supported heterogeneous robots in a flat scene and enables keyboard control for each object. Run registry-driven human assets separately with `python -u tools/human_assets/run_demo.py`; see [Human Asset Development](human_assets_en.md) for the complete capability contract.
 
 ## Env DIY
 
@@ -203,10 +203,6 @@ ls source/EAI_hmrs/EAI_hmrs/envs/EAI-Factory-v0.json
 
 Keep `--num_envs=1` to close other GPU-hogging processes.
 
-### Automatically switch to CPU when human is included
-
-This is a compatible strategy under Isaac Sim 5.1 and is not a parameter failure. GPU `RigidBodyView.set_transforms()` will trigger CUDA error 700, and GPU kinematic targets are not implemented in the current PhysX tensor API. The simulator therefore uses CPU PhysX to update the human's kinematic rigidbody while retaining full collision and animation.
-
 ### ROS2 topic is not published
 
 Confirm that the robot contains a `ros` or `keyboard` attachment in the JSON, and check the Isaac Sim ROS2 Bridge and ROS Humble environment variables.
@@ -216,3 +212,4 @@ Confirm that the robot contains a `ros` or `keyboard` attachment in the JSON, an
 - [Environment Guide](environments_en.md)
 - [Project Overview](project_overview_en.md)
 - [Controller Development](controller_guide_en.md)
+- [Human Asset Development](human_assets_en.md)

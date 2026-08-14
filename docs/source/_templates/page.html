@@ -1,7 +1,7 @@
 {% extends "!page.html" %}
 
-{% set bilingual_pages = ['index', 'project_overview', 'getting_started', 'installation', 'environments', 'payload', 'interface_catalog', 'orsus_sensor', 'pegasus_drones', 'ur5_control', 'controller_guide', 'roadmap', 'versions', 'community', 'community_guidelines'] %}
-{% set english_pages = ['index_en', 'project_overview_en', 'getting_started_en', 'installation_en', 'environments_en', 'payload_en', 'interface_catalog_en', 'orsus_sensor_en', 'pegasus_drones_en', 'ur5_control_en', 'controller_guide_en', 'roadmap_en', 'versions_en', 'community_en', 'community_guidelines_en'] %}
+{% set bilingual_pages = ['index', 'project_overview', 'getting_started', 'installation', 'environments', 'payload', 'interface_catalog', 'orsus_sensor', 'pegasus_drones', 'ur5_control', 'controller_guide', 'human_assets', 'roadmap', 'versions', 'community', 'community_guidelines'] %}
+{% set english_pages = ['index_en', 'project_overview_en', 'getting_started_en', 'installation_en', 'environments_en', 'payload_en', 'interface_catalog_en', 'orsus_sensor_en', 'pegasus_drones_en', 'ur5_control_en', 'controller_guide_en', 'human_assets_en', 'roadmap_en', 'versions_en', 'community_en', 'community_guidelines_en'] %}
 {% set is_english_page = pagename in english_pages %}
 {% set chinese_target = pagename[:-3] if is_english_page else pagename %}
 {% set english_target = pagename ~ '_en' if pagename in bilingual_pages else 'index_en' %}

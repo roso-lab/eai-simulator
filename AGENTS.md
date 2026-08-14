@@ -66,21 +66,15 @@ cd eai-simulator
 ./tools/setup-git-hooks.sh
 ```
 
-The script changes repository configuration by setting `core.hooksPath` to `.githooks`, makes the repository hooks executable, and thereby activates the current `post-checkout` warning. That warning prints destructive delete/recreate advice for nonconforming branch names; never copy that advice. If the `pre-commit` command is available, the helper's later `pre-commit install` call can refuse to run while `core.hooksPath` is set. Because the script uses `set -e`, that refusal ends the helper with a nonzero status after the repository hooks have already been configured. The helper therefore does not reliably install pre-commit-managed hook types; do not treat that nonzero status by itself as evidence that `.githooks` is inactive.
+The script changes repository configuration by setting `core.hooksPath` to `.githooks`, makes the repository hooks executable, and thereby activates the current `post-checkout` warning. That warning prints destructive delete/recreate advice for nonconforming branch names; never copy that advice.
 
 After running the helper, diagnose the resulting configuration without running hooks:
 
 ```bash
 git config --get core.hooksPath
 find .githooks -maxdepth 1 -type f -perm -u+x -print | sort
-command -v pre-commit || true
 git lfs version
-if command -v pre-commit >/dev/null 2>&1; then
-  pre-commit validate-config .pre-commit-config.yaml
-fi
 ```
-
-The conditional command validates only the pre-commit configuration; it does not run hooks or bootstrap their environments. Real pre-commit runs are separate, opt-in, path-scoped verification. They can download hook environments and rewrite files, so follow section 16 and review every affected diff afterward.
 
 ### Initialize and Activate Conda
 
@@ -984,55 +978,48 @@ Changing only the shared catalog while leaving HTML data stale, adding a 3D card
 
 #### Goal
 
-Maintain either the legacy selectable animated human or the registry-driven human packs/actions without mixing their storage and runtime contracts.
+Maintain the registry-driven human packs, actions, path following, and stage runtime.
 
 #### Authoritative files
 
-The legacy selectable `human` path uses catalog/builder wiring, `source/EAI_assets/EAI_assets/humans/human_female.py`, and the resolver controller bundle. Registry-driven behavior lives in `source/EAI_assets/EAI_assets/humans/`; maintained metadata is `usd/human/manifest.json`, `manifest.schema.json`, `pack-checksums.json`, and `audit-summary.json`; authoring and migration entry points are the tracked human tools under `tools/`.
+Registry-driven behavior lives in `source/EAI_assets/EAI_assets/humans/`; maintained metadata is `usd/human/manifest.json`, `manifest.schema.json`, `pack-checksums.json`, and `audit-summary.json`; authoring, demo, and maintenance entry points are under `tools/human_assets/`. `asset_placement.py` owns orientation, scale, and grounding from the current visible pose. Human actors use the dedicated stage runtime and unified demo outside the Env DIY robot and traditional controller catalogs.
 
 #### Related registration/compatibility points
 
-Large character, activity, motion, texture, cache, action, and custom-action files are external or ignored; metadata is tracked. Use `HumanAssetRegistry`, `HumanActionPublisher`, conversion/migration tools, validation, and cache builders rather than hand-editing generated registries. `tools/migrate_human_activity_assets.py` writes `manifest.json` and `audit-summary.json`; `tools/convert_human_gltf_assets.py` writes conversion diagnostics. No tracked tool regenerates `usd/human/pack-checksums.json`, so checksum publication remains an external maintainer/provider release step. Any selected animated human forces CPU PhysX on Isaac Sim 5.1. The shared catalog currently permits `keyboard` for `human` but not `ros`; the builder defensively accepts either non-physical tool after parsing.
+Large character, activity, motion, texture, cache, action, and custom-action files are provider-managed or ignored, but every runtime payload is installed below the active `usd/human/` root and every manifest runtime path remains relative to that root. Use `HumanAssetRegistry`, `HumanActionPublisher`, conversion/migration tools, validation, and cache builders rather than hand-editing generated registries. `tools/human_assets/migrate_assets.py` writes `manifest.json` and `audit-summary.json`; `tools/human_assets/convert_gltf_assets.py` writes conversion diagnostics. No tracked tool regenerates `usd/human/pack-checksums.json`, so checksum publication remains an external maintainer/provider release step. Animated human stage workflows use CPU PhysX on Isaac Sim 5.1 when pose writes require it.
 
 #### Implementation steps
 
-1. Decide whether the change affects the legacy single human selection, registry assets, canonical motions, custom actions, retarget caches, path following, or stage runtime.
-2. For registry content, run the appropriate conversion or migration tool and review licensing/redistribution fields. The migration interface is `python tools/migrate_human_activity_assets.py --source-root <approved-source-root> --target-root usd/human --dry-run`; omit `--dry-run` only after reviewing the plan. It regenerates the manifest and audit summary, not pack checksums.
-3. Validate schema, skeleton signatures, motion compatibility, relative paths, and cache invalidation; do not commit external packs or caches. Give the provider maintainer the exact pack roots, sizes, hashes, license/provenance, and immutable revision needed to publish matching `pack-checksums.json`; newcomers cannot reproduce that release metadata with a tracked command.
+1. Decide whether the change affects registry assets, canonical motions, custom actions, retarget caches, path following, or stage runtime.
+2. For registry content, run the appropriate conversion or migration tool and review licensing/redistribution fields. The migration interface is `python tools/human_assets/migrate_assets.py --source-root <approved-source-root> --target-root usd/human --dry-run`; omit `--dry-run` only after reviewing the plan. It regenerates the manifest and audit summary, not pack checksums.
+3. Validate schema, skeleton signatures, motion compatibility, human-root-relative paths, current-pose grounding, and cache invalidation; do not commit external packs or caches. Give the provider maintainer the exact pack roots, sizes, hashes, license/provenance, and immutable revision needed to publish matching `pack-checksums.json`; newcomers cannot reproduce that release metadata with a tracked command.
 4. Update resolver stable-pack behavior and tests only when the distribution contract changes.
-5. For the legacy selectable human, keep catalog, requirements, controller cfg, rig/idle/walk prims, spawn height/yaw, UI image, and CPU fallback synchronized.
+5. For live animation changes, keep the manifest motion contract, retarget cache, facing offset, path policy, stage runtime, placement behavior, and `tools/human_assets/run_demo.py` synchronized.
 
 #### Minimum verification
 
-Parse the maintained metadata and run the pure human registry/runtime suites:
+Use the unified demo for the complete human capability check. GUI mode loads all 44 actors and supports `Q` selection plus action numbers `1-12`:
 
 ```bash
-python -m json.tool usd/human/manifest.json >/dev/null
-python -m json.tool usd/human/manifest.schema.json >/dev/null
-python -m json.tool usd/human/pack-checksums.json >/dev/null
-python -m json.tool usd/human/audit-summary.json >/dev/null
-PYTHONPATH=source/EAI_assets python -m pytest -q \
-  source/EAI_assets/test/test_human_asset_registry.py \
-  source/EAI_assets/test/test_human_animation_runtime.py \
-  source/EAI_assets/test/test_human_path_follower.py \
-  source/EAI_assets/test/test_human_spawner.py
+python -u tools/human_assets/run_demo.py
 ```
 
-When every manifest-referenced payload is present below the default `usd/` or configured `EAI_USD_ROOT`, run the exact structural validator:
+For automated validation, run the same backend and control state machine headlessly:
 
 ```bash
-PYTHONPATH=source/EAI_assets python tools/validate_human_assets.py --manifest usd/human/manifest.json
+conda run --no-capture-output -n env_isaaclab \
+  python -u tools/human_assets/run_demo.py --headless
 ```
 
-Without the full payload that command must fail for missing files. Tests that import `pxr`, including portions of `test_human_action_authoring.py`, `test_human_stage_runtime.py`, and `test_human_usd_animation_adapter.py`, may skip when USD Python is unavailable; report those skips explicitly.
+The expected final summary is `Verified unified human matrix: 39x12 + 4 + 1`. Both modes require Isaac Sim 5.1 and every manifest-referenced payload below the default `usd/` or configured `EAI_USD_ROOT`; missing payloads are failures, not skipped coverage.
 
 #### Full integration verification
 
-Use Isaac to verify stage composition, skeleton animation, retarget cache use, path following, pause ownership, cleanup, and CPU PhysX fallback with real packs. Some tracked acceptance/integration tests contain local, untracked, or version-specific assumptions, so audit their prerequisites rather than claiming clean-checkout coverage.
+The headless command above verifies 39 x 12 skeletal actions, four rigid outbound-return movements, one static actor, animation samples, retarget cache use, path policies, current-pose grounding, bounds, exact position restoration, and cleanup with real packs. Use GUI mode to inspect visible facing, hand poses, props, and motion quality that cannot be established from numeric assertions alone.
 
 #### Common omissions
 
-Hand-editing generated manifest records, committing large packs/caches, claiming the conversion/migration tools generate pack checksums, changing provider assets without matching external checksum publication, ignoring license fields or skeleton signatures, testing only with `pxr` absent, expecting GPU PhysX for animated humans, or conflating registry packs with the legacy `HumanFemale` selection.
+Hand-editing generated manifest records, committing large packs/caches, adding absolute runtime paths, claiming the conversion/migration tools generate pack checksums, changing provider assets without matching external checksum publication, ignoring license fields or skeleton signatures, relying on bounds that ignore the current skinned pose, expecting GPU PhysX for animated humans, or registering human actors as Env DIY robots/controllers.
 
 ### Add or Modify an Algorithm
 
@@ -1309,7 +1296,7 @@ Therefore, `asset present != selectable != runnable != runtime activated`. Verif
 
 - Attachment and tool host lists are source-controlled and expected to evolve. Query `attachment_catalog()` and `tool_catalog()` with the command above; do not copy a snapshot of the host lists into new code or documentation.
 - A robot may contain several distinct sensors/tools, but only one manipulator type. Repeated identical attachments are deduplicated; a UR5/Z1 mixture is rejected. Unknown attachments are returned by `attachment_entry()` as visual-only compatibility records, then rejected by validation and requirements.
-- `camera`, `keyboard`, and `ros` are non-physical tools with separate host sets. Camera is available on Iris/Pegasus/CF2X and on Orsus-capable ground robots, where normal validation requires the `orsus` attachment. The catalog currently permits keyboard but not ROS or camera on the legacy `human`; the human builder's defensive check concerns only keyboard/ROS if a caller bypasses normal catalog validation. Normal saved/DIY flows must obey the catalog.
+- `camera`, `keyboard`, and `ros` are non-physical tools with separate host sets. Camera is available on Iris/Pegasus/CF2X and on Orsus-capable ground robots, where normal validation requires the `orsus` attachment. Normal saved/DIY flows must obey the catalog; registry-driven humans use their independent demo and stage runtime rather than these Env DIY tools.
 - Physical compatibility is not established by adding a host name alone. Sensor hosts require valid mount links/offsets; manipulator hosts require a mount profile and formal/preview assembly support.
 
 ### User Interface and Image Synchronization
@@ -1373,7 +1360,7 @@ The tracked human files have distinct roles:
 
 Tracked metadata does not mean the referenced character, activity, motion, texture, cache, or action payload is present locally. It also does not grant redistribution rights: fields such as `review_required` still require a maintainer's provenance and license decision.
 
-`tools/build_human_motion_cache.py` generates per-asset retarget caches, defaulting below `usd/human/motions/cache/`, and records source and target hashes. Current runtime verification recomputes and enforces those two hashes. The cache format can hold an optional dependency hash, but it is checked only when a caller supplies an expected dependency hash; the current stage runtime does not provide one end to end. Rebuild caches through the tool after changing source motion or target skeleton data; do not hand-edit cache JSON.
+`tools/human_assets/build_motion_cache.py` generates per-asset retarget caches, defaulting below `usd/human/motions/cache/`, and records source and target hashes. Current runtime verification recomputes and enforces those two hashes. The cache format can hold an optional dependency hash, but it is checked only when a caller supplies an expected dependency hash; the current stage runtime does not provide one end to end. Rebuild caches through the tool after changing source motion or target skeleton data; do not hand-edit cache JSON.
 
 `HumanActionPublisher` stages an authored action, writes its content hash and a custom overlay manifest, then uses several atomic renames for the old action backup, new action directory, and catalog. Its caught-exception path performs in-process rollback, but the directory and catalog are not one crash-atomic filesystem transaction. It refuses canonical IDs such as `idle`, `walk`, and `greeting`; custom overlays extend the registry and cannot replace canonical records. External packs, caches, custom-action payloads, and their generated overlay live under ignored human directories unless a maintained workflow explicitly adds a narrow tracked exception.
 
@@ -1478,7 +1465,7 @@ external geometry_msgs/msg/Twist on /<instance>/cmd_vel
 
 A selected `keyboard` or `ros` tool causes the launcher to consider that robot for a cmd_vel subscriber. `--enable-cmd-vel-bridge` forces consideration for every robot; `--enable-nav2-bridge` is only a deprecated alias for the same flag. A bridge is retained, printed as enabled, and included in `tmp/runtime_interfaces.json` only when `setup()` succeeds. The bridge has no stale-command watchdog: the latest Twist remains effective until another message, including zero, replaces it or the bridge is cleaned up. Publishers that may stop unexpectedly must send zero and live tests must confirm the robot stops.
 
-Robot instance topics use per-type occurrence names from the builder, for example `/carter_1/cmd_vel`, `/go2_1/cmd_vel`, and `/carter_2/cmd_vel`. On the direct action-tensor path, the current bridge reads `linear.x` and `angular.z` and sets `linear.y` to zero. Scout angular velocity is additionally multiplied by `SCOUT_CMD_VEL_ANGULAR_SCALE`. Do not promise lateral A/D motion for ordinary holonomic bases: although the keyboard message contains `linear.y`, that component is dropped by the direct path. Goal-controlled robots use the full Twist and integrate linear components into `goal_position`; human/quadcopter goal updates use a fixed keyboard step scale rather than frame `dt`, and supported yaw goals are integrated separately.
+Robot instance topics use per-type occurrence names from the builder, for example `/carter_1/cmd_vel`, `/go2_1/cmd_vel`, and `/carter_2/cmd_vel`. On the direct action-tensor path, the current bridge reads `linear.x` and `angular.z` and sets `linear.y` to zero. Scout angular velocity is additionally multiplied by `SCOUT_CMD_VEL_ANGULAR_SCALE`. Do not promise lateral A/D motion for ordinary holonomic bases: although the keyboard message contains `linear.y`, that component is dropped by the direct path. Goal-controlled robots use the full Twist and integrate linear components into `goal_position`; quadcopter goal updates use a fixed keyboard step scale rather than frame `dt`, and supported yaw goals are integrated separately.
 
 The keyboard publisher emits one Twist per key event and sends zero when switching or exiting; its `--rate` argument is currently parsed but does not create periodic publication. `algorithm/ros/tools/ros2_send_cmd_vel.py` is the separate rate-based test publisher when `--rate` is positive, but its Ctrl+C cleanup does not publish zero. Because the bridge has no watchdog, stop a continuous motion test by running a sustained zero publisher in another sourced ROS Humble terminal, wait until repeated zeros have reached the existing subscriber, and then stop that zero publisher. Do not use the tool's one-shot mode as a safety stop. The keyboard publisher's connected cleanup path is another option.
 
@@ -2169,12 +2156,11 @@ Every regular commit message must start with the related issue identifier:
 
 Maintainers use the internal GitLab IID after promotion; public contributors may use the GitHub issue number. Merge, Revert, `fixup!`, `squash!`, and `amend!` commits are exempt. Conventional prefixes such as `feat:`, `fix:`, or `docs:` are not regular-message exemptions by themselves. `CONTRIBUTING.md` is the normative policy. The current `.githooks/commit-msg` implementation is only a prefix heuristic: it accepts any subject beginning with `Merge`, `Revert`, `fixup!`, `squash!`, or `amend!`, even when the commit is not genuinely Git-generated or a valid fixup. Passing that hook does not prove policy compliance.
 
-`tools/setup-git-hooks.sh` sets `core.hooksPath` to `.githooks`, makes repository hooks executable, and then invokes `pre-commit install` when `pre-commit` is available. `pre-commit` can refuse installation while `core.hooksPath` is set; because the helper uses `set -e`, that later refusal can return nonzero even though `.githooks` was already activated. Diagnose the resulting state directly:
+`tools/setup-git-hooks.sh` sets `core.hooksPath` to `.githooks` and makes the repository hooks executable. Diagnose the resulting state directly:
 
 ```bash
 git config --get core.hooksPath
 find .githooks -maxdepth 1 -type f -perm -u+x -print | sort
-command -v pre-commit || true
 git lfs version
 ```
 
@@ -2188,13 +2174,6 @@ EAI_NEW_BRANCH=feature/reviewed-name
 printf 'rename %s -> %s\n' "$EAI_CURRENT_BRANCH" "$EAI_NEW_BRANCH"
 git check-ref-format --branch "$EAI_NEW_BRANCH"
 git branch -m -- "$EAI_CURRENT_BRANCH" "$EAI_NEW_BRANCH"
-```
-
-Running pre-commit is separate, opt-in verification, not hook-state diagnosis. It may download hook environments and may modify reviewed files through Black, isort, pyupgrade, license insertion, trailing-whitespace cleanup, or end-of-file fixing. Scope it to explicit paths, then re-review their worktree diffs. For an AGENTS-only documentation change:
-
-```bash
-pre-commit run --files AGENTS.md
-git diff -- AGENTS.md
 ```
 
 Assume the worktree can already contain someone else's tracked and untracked work. At the start and before every commit:
@@ -2513,7 +2492,7 @@ Directories in this table mean the tracked source inventory below that directory
 | Sensor | `source/EAI_assets/EAI_assets/sensor/`; `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `source/EAI_env_diy/EAI_env_diy/preview_stage.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/ui.py`; `usd/picture/processed/sensor/`; `source/EAI/EAI/interface_catalog/interfaces/` | Sections 7, 8, 10, 11, and 12; synchronize cfg, compatibility, formal/preview mounts, requirements/provider resolution, both UIs, image, declaration, and actual publisher activation. |
 | UR5 | `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `source/EAI_assets/EAI_assets/robots/manipulator_mount.py`; `source/EAI_assets/EAI_assets/robots/ur5_mount.py`; `source/EAI_env_diy/EAI_env_diy/preview_stage.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/ui.py`; `usd/picture/processed/manipulator/ur5.png`; `source/EAI/EAI/interface_catalog/interfaces/sensors/ur5.yaml`; `source/EAI/EAI/hmrs_ros/manipulator_omnigraph.py`; `source/EAI/EAI/hmrs_ros/ur5_omnigraph.py`; `simulator.py` | Sections 6, 8, 10, 11, and 12; synchronize compatibility, mount/preview assembly, controller requirements/provider resolution, UI/image, declarations, graph, and current main-session activation. |
 | Z1 | `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `source/EAI_assets/EAI_assets/robots/z1.py`; `source/EAI_assets/EAI_assets/robots/manipulator_mount.py`; `source/EAI_assets/EAI_assets/robots/z1_mount.py`; `source/EAI_env_diy/EAI_env_diy/preview_stage.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/ui.py`; `usd/picture/processed/manipulator/z1.png`; `source/EAI/EAI/interface_catalog/interfaces/sensors/z1.yaml`; `source/EAI/EAI/hmrs_ros/manipulator_omnigraph.py`; `source/EAI/EAI/hmrs_ros/z1_omnigraph.py`; `simulator.py` | Sections 6, 8, 10, 11, and 12; synchronize the direct arm asset/actuator cfg, compatibility, mount/preview assembly, controller requirements/provider resolution, UI/image, declarations, and graph helpers; main-session activation remains absent. |
-| Human animation | `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_hmrs/EAI_hmrs/controller_loader.py`; `source/EAI_assets/EAI_assets/humans/`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/ui.py`; `source/EAI_env_diy/EAI_env_diy/preview_stage.py`; `usd/human/manifest.json`; `usd/human/manifest.schema.json`; `usd/human/pack-checksums.json`; `usd/human/audit-summary.json`; `usd/picture/processed/robot/human.png`; `tools/convert_human_gltf_assets.py`; `tools/migrate_human_activity_assets.py`; `tools/validate_human_assets.py`; `tools/build_human_motion_cache.py`; `tools/edit_human_action.py`; `tools/import_human_action.py`; `simulator.py` | Sections 3, 6, 8, 10, 11, and 13; distinguish legacy selection/controller/UI, registry/runtime, CPU PhysX fallback, maintained metadata, conversion/validation/authoring tools, external payloads, integrity, and publication rights. |
+| Human animation | `source/EAI_assets/EAI_assets/humans/`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `usd/human/README.md`; `usd/human/manifest.json`; `usd/human/manifest.schema.json`; `usd/human/pack-checksums.json`; `usd/human/audit-summary.json`; `tools/human_assets/` | Sections 3, 6, 8, 10, 11, and 13; keep registry/runtime, path and action contracts, maintained metadata, conversion/validation/authoring tools, external payloads, integrity, and publication rights synchronized. |
 | Asset download | `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py` | Sections 6, 7, 8, and 11; requirement seeds, transitive discovery, provider revision, installation, and human integrity are distinct boundaries. |
 | Env DIY lightweight UI | `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI/EAI/hmrs_env/env_diy/flow.py`; `source/EAI/EAI/hmrs_env/env_diy/storage.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI/EAI/hmrs_env/env_diy/webview_app.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI/setup.py`; `usd/picture/` | Sections 5, 6, 8, 9, and 10; keep selection, persistence, embedded vocabulary, bridge payload, builder/requirements, package data, and images synchronized. |
 | Env DIY 3D | `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI/EAI/hmrs_env/env_diy/flow.py`; `source/EAI/EAI/hmrs_env/env_diy/storage.py`; `source/EAI_env_diy/EAI_env_diy/`; `source/EAI_env_diy/config/extension.toml`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI/setup.py`; `usd/picture/`; `simulator.py` | Sections 5, 6, 8, 9, and 10; synchronize the portable contract, Kit authoring/preview/download/result lifecycle, builder/requirements, package data, images, and stage transition. |

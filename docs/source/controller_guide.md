@@ -92,7 +92,6 @@ class ControllerCfg:
 | CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | SKRL 目标位置 |
 | 3DR Iris | `PEGASUS_IRIS_POSITION_CFG` | Pegasus 几何位置/航向控制 |
 | Pegasus X4 | `PEGASUS_X4_POSITION_CFG` | Pegasus 几何位置/航向控制 |
-| Human | `HUMAN_ANIMATION_CFG` | 运动学动画 |
 
 UR5 和 Z1 不属于宿主 controller，而是挂载到宿主后的 auxiliary controller：`UR5_IK_CFG` 和 `Z1_IK_CFG`。它们都来自 `ManipulatorIkControllerCfg`，并由宿主 selection 中的实际附件实例触发；不会为未挂载的机械臂创建 articulation 或 ROS2 topic。
 
@@ -197,23 +196,7 @@ GO2_VELOCITY_RSL_CFG = Go2VelocityRSLControllerCfg(
   - 观测: 48维（包含速度、姿态、16个关节状态等）
   - 动作: 16维（12个腿关节位置 + 4个轮子速度）
 
-### 4. HumanAnimationControllerCfg（人体动画控制器）
-
-**文件位置**: `source/EAI_assets/EAI_assets/controller/traditional/human_animation/human_animation.py`
-
-**用途**: 将键盘目标转换为 human 的转向、碰撞检测、刚体位移和行走动画。
-
-运行过程采用“先转身，再前进”的状态机。controller 独立维护位置和 yaw，只有 PhysX 接受实际位移后才播放行走动画；停止命令会把目标立即收敛到当前位置。
-
-#### Isaac Sim 5.1 / Isaac Lab 2.x 经验结论
-
-- 只修改 USD Xform 会让模型看起来在动，但不会可靠移动 PhysX 刚体和碰撞体；带碰撞的移动必须写入实时 PhysX rigid-body transform。
-- Isaac Sim 5.1 中，GPU `RigidBodyView.set_transforms()` 会触发 CUDA error 700，Direct GPU API 下 dynamic control 不可用，GPU kinematic targets 也未实现。包含 human 的环境因此自动使用 CPU PhysX。
-- human 使用不可见的运动学胶囊作为碰撞代理。平移前通过 PhysX overlap query 检查候选位置，碰撞时保持 idle，不播放原地行走动画。
-- 键盘目标步长、刚体移动速度、转身速度和动画 FPS 必须分开设置。键盘步长不能直接使用很小的 physics `dt`，动画速度也不应决定世界坐标位移。
-- `K` 或空格停止时，桥接层必须同时清零速度并把目标位置/yaw 对齐到 controller 当前状态，否则角色会继续追赶之前累计的目标。
-
-### 5. ManipulatorIkControllerCfg（UR5/Z1）
+### 4. ManipulatorIkControllerCfg（UR5/Z1）
 
 **基础实现**：`source/EAI_assets/EAI_assets/controller/traditional/manipulator_ik/manipulator_ik.py`
 

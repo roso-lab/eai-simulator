@@ -24,13 +24,13 @@ source/EAI_hmrs/EAI_hmrs/envs/robo.json
 
 `--env` 只传文件名，不包含 `.json` 后缀。名称可包含字母、数字、下划线和连字符。
 
-`robo.json` 包含 human 和当前支持的其他机器人，并为每个对象启用键盘控制。human 存在时，仿真器会自动使用 CPU PhysX；不含 human 的环境仍可通过 `--device=cuda:0` 使用 GPU。
+`robo.json` 包含当前支持的多种机器人，并为每个对象启用键盘控制。registry 人类资产不属于 Env DIY 环境，使用 `python -u tools/human_assets/run_demo.py` 单独运行；开发接口和验证矩阵见[人类资产开发](human_assets.md)。
 
 仓库内置环境：
 
 | 名称 | 用途 |
 |---|---|
-| `robo` | 全部机器人与 human 的综合快速验证环境 |
+| `robo` | 多种机器人的综合快速验证环境 |
 | `keyboard` | Carter 最小键盘控制环境 |
 | `nav2` | Factory + Carter Nav2 示例 |
 | `EAI-Factory-v0` | 利用EAI仿真器实现复杂实验demo |
@@ -169,6 +169,12 @@ python simulator.py --device=cuda:0
 ```
 
 可视化窗口和终端快速模式使用相同的选择顺序：`Scenes → Robots → Payloads → Tools`。终端模式在 Payloads 中先选择 Manipulators，再选择 Sensors；Isaac Sim 3D 扩展默认停靠在右侧面板，`Payloads` 中使用 Manipulators/Sensors 两个分组。底层 JSON 仍使用 `robots[].attachments[]` 保存 payload，以兼容已有环境文件。
+
+三种构建方式示意：可视化编辑器、仿真内三维插件和引导式终端：
+
+| 可视化编辑器 | Isaac Sim 插件 | 引导式终端 |
+|:---:|:---:|:---:|
+| ![可视化编辑器](assets/media/eai_env_diy_visual.gif) | ![Isaac Sim 插件](assets/media/eai_env_diy_plugin.gif) | ![引导式终端](assets/media/eai_env_diy_terminal.gif) |
 
 完成选择后可直接运行，也可保存到 `source/EAI_hmrs/EAI_hmrs/envs/`。再次启动时使用保存名称：
 
