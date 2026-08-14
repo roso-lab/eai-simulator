@@ -11,15 +11,15 @@
     },
     "usd/human/activities/**": {
       "root": "usd/human/activities",
-      "file_count": 26,
-      "size_bytes": 276322503,
-      "sha256": "039bbc1c2376219f36ea4ec1e991200fb2a313163dd91a0e5c450e6b0cc088ae"
+      "file_count": 23,
+      "size_bytes": 201272129,
+      "sha256": "a674c226d95acd693975585ae806fae8ce6eceb02a99de79cd9ac80b1159e065"
     },
     "usd/human/motions/**": {
       "root": "usd/human/motions",
-      "file_count": 192,
-      "size_bytes": 139053483,
-      "sha256": "1a7adbbf2ae546aa73648f71d105e7d51f5ec6477485bbcbeff300b2c867f048"
+      "file_count": 588,
+      "size_bytes": 152014138,
+      "sha256": "2947bb81e7753af5fb1dae7d6f9100ce090ff284f4f391353e9487b0531f8910"
     }
   }
 }
