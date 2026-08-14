@@ -77,6 +77,11 @@ The README summarizes the supported surface. Use the detailed guides as the sour
 - **[ROS2 Interfaces](https://www.rosolab.com/roso-lab/eai-simulator/docs/interface_catalog.html):** command input, sensor output, Nav2, and manipulators.
 - **[Controller Development](https://www.rosolab.com/roso-lab/eai-simulator/docs/controller_guide.html):** traditional, RL, IK, and external controller integration.
 
+## Releases & Roadmap
+
+- **[v0.1.0 Release Notes](https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0):** review the capabilities, runtime requirements, and known caveats included in the currently released version.
+- **[Roadmap](https://www.rosolab.com/roso-lab/eai-simulator/docs/roadmap.html):** discover the next-stage capabilities still under development and not yet included in the current release.
+
 ## Quick Start
 
 Before starting, install **Ubuntu 22.04**, **Isaac Sim 5.1**, and **Isaac Lab 2.x** with its `env_isaaclab` conda environment. ROS2 Humble is optional unless you use ROS2 or Nav2 workflows.
