@@ -40,7 +40,7 @@ FACTORY_EMOS_SCENARIO_DICT: Dict[str, Any] = {
         "blue": {
             "name": "数据采集",
             "description": "前往现场采集图像与雷达数据并回传，需传感器套件。",
-            "match_keywords": ["blue", "蓝", "数据", "采集", "图像", "雷达", "传感", "gs-hub", "gshub"],
+            "match_keywords": ["blue", "蓝", "数据", "采集", "图像", "雷达", "传感", "orsus"],
         },
         "yellow": {
             "name": "灭火器运送",
@@ -66,7 +66,7 @@ FACTORY_EMOS_SCENARIO_DICT: Dict[str, Any] = {
             "title": "打开救援通道约束：",
             "lines": [
                 "救援通道按钮仅由 scout_1（Scout + 背部 UR5）执行敲击",
-                "carter_1 搭载 GS-Hub 传感器，无用于敲击的 UR5 臂，禁止分配 green 子任务",
+                "carter_1 搭载 Orsus 传感器，无用于敲击的 UR5 臂，禁止分配 green 子任务",
                 "仿真中绿色任务与 scout_1 的机械臂控制器绑定，分配错误时系统会自动改派",
             ],
         },
@@ -104,7 +104,7 @@ FACTORY_EMOS_AGENT_RESUMES: Dict[str, Dict[str, List[str] | str]] = {
         "robot_type": "Carter 差速无人车",
         "capabilities": [
             "轮式移动，体型较小，速度快但仅限平坦地面",
-            "搭载 GS-Hub 传感器套件（摄像头+雷达点云）",
+            "搭载 Orsus 传感器套件（摄像头+雷达点云）",
             "适合数据采集与传输任务",
         ],
     },

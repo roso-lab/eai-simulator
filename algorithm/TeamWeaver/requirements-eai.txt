@@ -1,0 +1,24 @@
+# TeamWeaver EAI adapter dependencies
+#
+# Scope: the pure-Python EAI integration layer under
+#   algorithm/TeamWeaver/TeamWeaver/eai_adapter
+#
+# The upstream paper core (agent/ llm/ planner/ world_model/ tools/ ...) needs
+# Habitat-Sim / PARTNR / PyTorch / Hydra and is NOT covered by this file.
+
+# --- Required: numeric stack (allocation cost matrices, MIQP fallback) ---
+numpy>=1.23
+scipy>=1.9
+
+# --- Required: DeepSeek semantic decomposition (OpenAI-compatible client) ---
+openai>=1.0
+httpx>=0.24
+
+# --- Optional: MIQP solver ---
+# When gurobipy is unavailable, DynamicMIQPAllocator / DynamicFactoryAllocator
+# automatically fall back to scipy's Hungarian assignment, so this is not a hard
+# requirement for basic operation.
+# gurobipy>=10.0
+
+# --- Tests ---
+pytest>=7.0

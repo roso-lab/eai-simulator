@@ -338,7 +338,7 @@ class EnvDiyWindow:
                         )
                         self._payload_card_state(key)
                 ui.Label("Sensors")
-                for key in ("gshub", "lidar"):
+                for key in ("orsus", "lidar"):
                     with ui.HStack(spacing=6, height=40):
                         self._asset_image("sensor", key)
                         ui.Button(
@@ -354,9 +354,9 @@ class EnvDiyWindow:
     def _build_tools(self) -> None:
         with ui.CollapsableFrame("Tools", collapsed=True):
             with ui.VStack(spacing=4):
-                for key in ("ros", "keyboard"):
+                for key in ("ros", "camera", "keyboard"):
                     with ui.HStack(spacing=6, height=40):
-                        self._asset_image("tool", key)
+                        self._asset_image("sensor" if key == "camera" else "tool", key)
                         ui.Button(
                             key.upper(),
                             width=210,

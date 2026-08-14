@@ -32,6 +32,8 @@ ROBOT_KEYS = (
     "mushr_v2",
     "g1",
     "cf2x",
+    "iris",
+    "pegasus",
     "lite3",
     "coco",
 )
@@ -47,8 +49,15 @@ ROBOT_LABELS = {
     "coco": "Coco AIRS Ackermann base",
     "g1": "Unitree G1",
     "cf2x": "Crazyflie CF2X",
+    "iris": "Pegasus 3DR Iris",
+    "pegasus": "Pegasus research quadrotor",
     "lite3": "DeepRobotics Lite3",
 }
+
+# Robots that carry a built-in monocular camera, so the Camera tool does not
+# require a Orsus stereo payload. Aerial robots publish through the aerial
+# sensor suite; MuSHR publishes through its own front-facing camera.
+BUILTIN_CAMERA_ROBOTS = frozenset({"cf2x", "iris", "pegasus", "mushr_v2"})
 
 _DEFAULT_CONTROLLER_CFG = {
     "carter": "CARTER_DIFF_CFG",
@@ -61,6 +70,8 @@ _DEFAULT_CONTROLLER_CFG = {
     "coco": "COCO_ACKERMANN_CFG",
     "g1": "G1_SKRL_CFG",
     "cf2x": "QUADCOPTER_GOAL_SKRL_CFG",
+    "iris": "PEGASUS_IRIS_POSITION_CFG",
+    "pegasus": "PEGASUS_X4_POSITION_CFG",
     "lite3": "LITE3_VELOCITY_RSL_CFG",
 }
 
@@ -76,6 +87,10 @@ _CONTROLLER_CFG_NAMES = (
     "COCO_ACKERMANN_CFG",
     "G1_SKRL_CFG",
     "QUADCOPTER_GOAL_SKRL_CFG",
+    "PEGASUS_IRIS_POSITION_CFG",
+    "PEGASUS_IRIS_ROTOR_CFG",
+    "PEGASUS_X4_POSITION_CFG",
+    "PEGASUS_X4_ROTOR_CFG",
     "LITE3_VELOCITY_RSL_CFG",
     "UR5_IK_CFG",
     "Z1_IK_CFG",
@@ -151,16 +166,18 @@ def controller_cfg_names() -> tuple[str, ...]:
 
 
 def _attachment_entries() -> tuple[AttachmentCatalogEntry, ...]:
-    gshub_hosts = ("carter", "go2", "b2", "m20", "scout", "coco", "lite3")
+    orsus_hosts = (
+        "carter", "go2", "b2", "m20", "scout", "coco", "lite3",
+    )
     lidar_hosts = ("carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3")
     ur5_hosts = ("go2", "b2", "m20", "scout", "lite3")
     z1_hosts = ("carter", "go2", "b2", "m20", "scout", "lite3")
     return (
         AttachmentCatalogEntry(
-            name="gshub",
-            asset_cfg="GSHubCfg",
+            name="orsus",
+            asset_cfg="OrsusCfg",
             controller_cfg=None,
-            supported_robots=gshub_hosts,
+            supported_robots=orsus_hosts,
             category="sensor",
         ),
         AttachmentCatalogEntry(
@@ -193,13 +210,23 @@ def attachment_catalog() -> dict[str, AttachmentCatalogEntry]:
 
 def tool_catalog() -> dict[str, AttachmentCatalogEntry]:
     return {
+        "camera": AttachmentCatalogEntry(
+            name="camera",
+            asset_cfg=None,
+            controller_cfg=None,
+            supported_robots=(
+                "carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3",
+                "cf2x", "iris", "pegasus",
+            ),
+            category="tool",
+        ),
         "ros": AttachmentCatalogEntry(
             name="ros",
             asset_cfg=None,
             controller_cfg=None,
             supported_robots=(
                 "carter", "go2", "b2", "m20", "scout", "mushr_v2",
-                "coco", "lite3", "pepper", "g1", "cf2x",
+                "coco", "lite3", "pepper", "g1", "cf2x", "iris", "pegasus",
             ),
             category="tool",
         ),
@@ -207,7 +234,7 @@ def tool_catalog() -> dict[str, AttachmentCatalogEntry]:
             name="keyboard",
             asset_cfg=None,
             controller_cfg=None,
-            supported_robots=("carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "pepper", "g1", "cf2x", "lite3"),
+            supported_robots=("carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "pepper", "g1", "cf2x", "iris", "pegasus", "lite3"),
             category="tool",
         ),
     }
@@ -250,6 +277,10 @@ def validate_attachment_types(robot_type: str, attachment_types: list[str] | tup
             manipulator = attachment_type
         if attachment_type not in normalized:
             normalized.append(attachment_type)
+    if "camera" in normalized and host not in BUILTIN_CAMERA_ROBOTS and "orsus" not in normalized:
+        raise ValueError(
+            f"Camera tool on robot '{host}' requires the Orsus payload."
+        )
     return tuple(normalized)
 
 

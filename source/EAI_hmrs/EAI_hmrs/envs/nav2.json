@@ -4,7 +4,11 @@
       "attachments": [
         {
           "controller": null,
-          "type": "gshub"
+          "type": "orsus"
+        },
+        {
+          "controller": null,
+          "type": "camera"
         },
         {
           "controller": null,

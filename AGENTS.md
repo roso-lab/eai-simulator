@@ -47,7 +47,7 @@ Selections containing animated humans force CPU PhysX. Isaac Sim 5.1 cannot safe
 
 The default gated Hugging Face dataset is `HuangQIjun/eai-simulator-assets`; large assets and model files from that dataset are not all stored in Git. Relevant workflows can require approved dataset access, Hugging Face authentication, network access, local disk capacity, and acceptance of the upstream asset or model terms. Asset resolution uses this dataset by default and reads `EAI_ASSETS_HF_REPO` only as an optional repository-ID override.
 
-The runtime resolver defaults `EAI_ASSETS_HF_REVISION` to `v0.1.0-beta.1`, which is the published immutable tag on `HuangQIjun/eai-simulator-assets`. All provider-backed asset resolution, including the standard `robo` first launch, uses this revision by default. The provider's moving `main` revision is available as an explicit diagnostic override (`EAI_ASSETS_HF_REVISION=main`) but is not the supported baseline.
+The runtime resolver defaults `EAI_ASSETS_HF_REVISION` to the provider's moving `main` revision on `HuangQIjun/eai-simulator-assets`, so provider-backed asset resolution uses the latest published assets by default. Reproducible or release workflows should explicitly set `EAI_ASSETS_HF_REVISION` to an immutable tag or commit.
 
 ## 4. First-Time Repository Setup
 
@@ -145,7 +145,7 @@ The hook path should be `.githooks`, the shell syntax check should exit successf
 python simulator.py --env robo
 ```
 
-`robo` is the required first full launch. An explicit `EAI_ASSETS_HF_REVISION=main` override is a moving diagnostic, not a supported baseline.
+`robo` is the required first full launch. It follows the moving provider `main` revision unless `EAI_ASSETS_HF_REVISION` explicitly pins an immutable tag or commit.
 
 Remember that `robo` is not a minimal smoke test. Its environment selects ten robots and their controllers, making it a broad, resource-intensive Isaac Sim integration launch. The selection includes an animated human, so a requested CUDA physics device falls back to CPU PhysX; rendering and controller workloads can still require the configured CUDA GPU. The launch can also require network access for gated assets that are not already cached. Run it only after the simulator environment, package installs, Hugging Face access, display or headless configuration, and asset storage are ready.
 
@@ -324,9 +324,9 @@ After the final scene starts, the launcher resolves declared interfaces for the 
 
 Changes that add or replace resolver-managed USD, controller code, configuration, or weights are incomplete until those files are published to an asset-provider revision. Provider publication is maintainer-owned: the repository has no tracked upload command, and publication requires dataset write access. The handoff must name the repository ID, an immutable tag/revision, exact remote paths below `usd/` or `controller/`, file sizes and hashes, license/provenance, and the matching catalog, builder, requirement, or controller mappings. Publish or tag the intended immutable revision, update the runtime default when appropriate, and verify that exact revision from a clean checkout before declaring an asset-backed feature complete. Follow the provider publication and clean-root verification procedure in section 11; do not merge or release a source mapping that points only to a maintainer's local files.
 
-`asset_resolver.py` defaults `EAI_ASSETS_HF_REVISION` to `v0.1.0-beta.1`, a published immutable tag on `HuangQIjun/eai-simulator-assets`. Reading the guide and running checks explicitly described as lightweight or offline do not require provider/network access; asset-backed implementation and integration workflows can require it. The following checks are provider/network-dependent and use the default revision; `main` is available as an explicitly selected moving diagnostic candidate, not the immutable revision that a release should target.
+`asset_resolver.py` defaults `EAI_ASSETS_HF_REVISION` to the moving `main` revision on `HuangQIjun/eai-simulator-assets`. Reading the guide and running checks explicitly described as lightweight or offline do not require provider/network access; asset-backed implementation and integration workflows can require it. The following checks are provider/network-dependent and use the latest provider revision by default. Reproducible checks and releases should explicitly select an immutable tag or commit.
 
-First perform a non-mutating provider path check. Then, when an actual isolated download is appropriate, set `EAI_ASSETS_HF_REVISION=main` explicitly and use temporary roots so existing user assets are not overwritten. This override does not change the source default:
+First perform a non-mutating provider path check. Then, when an actual isolated download is appropriate, explicitly set `EAI_ASSETS_HF_REVISION=main` for clarity and use temporary roots so existing user assets are not overwritten. This matches the source default:
 
 ```bash
 (
@@ -716,14 +716,14 @@ Synchronize the catalog entry, host list, category, asset cfg name, `_PAYLOAD_PA
 3. Add the provider entry paths to `_PAYLOAD_PATHS`, add per-host mount link, position, rotation, or specialized flags to `RobotOption`, and complete the provider-backed asset handoff at the start of this section.
 4. Build the formal scene attributes and implement equivalent preview-stage behavior.
 5. Add the terminal, 3D UI, HTML duplicate, and `usd/picture/processed/sensor/` image.
-6. Add or update interface YAML only for real topics/methods and ensure the responsible runtime enables required extensions and publishers. For GS-Hub, `gshub` plus `ros` enables `GSHubCfg(enable_ros_publish=True)`; `keyboard` only enables cmd_vel bridge consideration and does not enable GS-Hub publishing.
+6. Add or update interface YAML only for real topics/methods and ensure the responsible runtime enables required extensions and publishers. Orsus uses independent gates: `orsus` plus `camera` enables its left/right image graphs through `OrsusCfg(enable_camera_publish=True)`, while `orsus` plus `ros` enables its point-cloud/odometry graph through `OrsusCfg(enable_ros_publish=True)` and declares the downstream scan capability. Iris, Pegasus, and CF2X always carry the built-in monocular camera, `Example_Rotary` RTX LiDAR, and base IMU/GPS/magnetometer/barometer models; `camera` enables only the image publishers, while `ros` enables only the LiDAR and base-sensor publishers. `keyboard` only enables cmd_vel bridge consideration.
 
 #### Minimum verification
 
 Use a supported host to check catalog compatibility, requirement expansion, interface loading, and UI/image integrity without Isaac or ROS:
 
 ```bash
-ATTACHMENT=gshub
+ATTACHMENT=orsus
 HOST_ROBOT=carter
 ATTACHMENT="$ATTACHMENT" HOST_ROBOT="$HOST_ROBOT" PYTHONPATH=source/EAI:source/EAI_assets python - <<'PY'
 import os
@@ -740,12 +740,16 @@ selection = {
     "robots": [{
         "type": host,
         "controller": {"mode": "default", "cfg": catalog.default_controller_cfg(host)},
-        "attachments": [{"type": attachment}, {"type": "ros"}],
+        "attachments": [
+            {"type": attachment},
+            {"type": "camera"},
+            {"type": "ros"},
+        ],
     }],
 }
 graph = resolve_selection(selection)
 assert any(item.id == f"sensor:{attachment}" for item in graph.requirements)
-load_catalog().interface("ros.gshub.left_image")
+load_catalog().interface("ros.orsus.left_image")
 print(*(item.id for item in graph.requirements), sep="\n")
 PY
 test -e "usd/picture/processed/sensor/$ATTACHMENT.png"
@@ -756,7 +760,7 @@ Add exact rejected-host and duplicate-normalization cases to the focused tests c
 
 #### Full integration verification
 
-In Isaac, attach the sensor to every declared host family, inspect mount transforms and prim validity, and start its real publisher. For GS-Hub, include a saved selection containing both `gshub` and `ros`, verify the actual GS-Hub topics and runtime snapshot, then run `python simulator.py interfaces status --probe` and appropriate read-only probes in a configured ROS2 environment. Also verify that replacing `ros` with `keyboard` leaves cmd_vel available but does not enable GS-Hub publishing.
+In Isaac, attach the sensor to every declared host family, inspect mount transforms and prim validity, and start its real publisher. For Orsus, verify the independent gate matrix: `orsus` plus `camera` publishes only the left/right images; `orsus` plus `ros` publishes point cloud and odometry but no images; selecting all three publishes both groups, with `scan` still requiring the external conversion pipeline. For Iris, Pegasus, and CF2X, verify `camera`-only, `ros`-only, and combined selections: camera topics require `camera`, while LiDAR and base sensor topics require `ros`. Then inspect the runtime snapshot and run `python simulator.py interfaces status --probe` plus appropriate read-only probes in a configured ROS2 environment. A `orsus` plus `keyboard` selection leaves cmd_vel available but enables neither Orsus publisher group.
 
 #### Common omissions
 
@@ -829,7 +833,7 @@ In Isaac, inspect each passive payload's mounted prim, transform, physics, and c
 
 Requiring arm behavior from a passive payload, allowing UR5 and Z1 together, defining only a visual mount, forgetting controlled-manipulator host articulation changes, losing the attachment controller during parsing, using a single controller instead of a base/auxiliary tuple, or mistaking inactive Z1 declarations for a live graph.
 
-### Add a Keyboard or ROS2 Tool
+### Add a Camera, Keyboard, or ROS2 Tool
 
 #### Goal
 
@@ -841,7 +845,7 @@ Add a non-physical tool selection that enables a concrete runtime consumer or ex
 
 #### Related registration/compatibility points
 
-Tools are separate from `attachment_catalog()`. Synchronize host compatibility, hardcoded terminal/3D/HTML lists, `usd/picture/processed/tool/`, the actual runtime consumer, and optional interface declarations. Today `keyboard` and `ros` selections both cause the launcher to consider that robot for a cmd_vel bridge; the external keyboard program publishes Twist. Only `ros` also sets the builder's ROS-enabled flag, which enables GS-Hub publishing when the same robot has `gshub`. Declaration alone does not activate behavior.
+Tools are separate from `attachment_catalog()`. Synchronize host compatibility, hardcoded terminal/3D/HTML lists, `usd/picture/processed/tool/`, the actual runtime consumer, and optional interface declarations. The current tools are `camera`, `keyboard`, and `ros`. `keyboard` and `ros` both cause the launcher to consider that robot for a cmd_vel bridge; the external keyboard program publishes Twist. `camera` independently enables Orsus image graphs when the same robot has `orsus`, or the built-in monocular-camera publishers on Iris, Pegasus, and CF2X. `ros` enables the Orsus point-cloud/odometry graph and each aerial robot's RTX LiDAR and base-sensor publishers; the aerial sensor resources themselves exist without either tool. Declaration alone does not activate behavior.
 
 #### Implementation steps
 
@@ -853,7 +857,7 @@ Tools are separate from `attachment_catalog()`. Synchronize host compatibility, 
 
 #### Minimum verification
 
-Check tool compatibility and selection round-trip, parse the keyboard publisher, resolve the tracked keyboard scene interfaces, and validate the HTML without starting ROS2:
+Check Camera/Keyboard/ROS tool compatibility and selection round-trip, parse the keyboard publisher, resolve the tracked keyboard scene interfaces, and validate the HTML without starting ROS2:
 
 ```bash
 PYTHONPATH=source/EAI python - <<'PY'
@@ -864,6 +868,7 @@ from EAI.hmrs_env.env_diy.flow import (
 )
 
 assert catalog.tool_catalog()["keyboard"].supports("carter")
+assert catalog.tool_catalog()["camera"].supports("iris")
 selection = interactive_selection_from_dict({
     "scene_key": "plane",
     "robots": [{"type": "carter", "attachments": [{"type": "keyboard"}]}],
@@ -884,7 +889,7 @@ node tools/check_env_diy_runtime.mjs all
 
 #### Full integration verification
 
-Launch a compatible saved environment, start the configured ROS2 bridge, run the keyboard or ROS publisher with system ROS Python, verify the exact `/<instance>/cmd_vel` endpoint, and confirm the runtime snapshot lists only bridges that started. For a `gshub` host, separately verify that `ros` enables GS-Hub topics while `keyboard` does not.
+Launch a compatible saved environment, start the configured ROS2 bridge, run the keyboard or ROS publisher with system ROS Python, verify the exact `/<instance>/cmd_vel` endpoint, and confirm the runtime snapshot lists only bridges that started. For a `orsus` host, independently verify that `camera` enables only image topics and `ros` enables only point-cloud/odometry topics; `keyboard` enables neither sensor publisher group. For Iris, Pegasus, and CF2X, verify that `camera` enables monocular image/CameraInfo topics while `ros` enables LiDAR and, where supported, the base sensor topics.
 
 #### Common omissions
 
@@ -1298,7 +1303,7 @@ Therefore, `asset present != selectable != runnable != runtime activated`. Verif
 
 - Attachment and tool host lists are source-controlled and expected to evolve. Query `attachment_catalog()` and `tool_catalog()` with the command above; do not copy a snapshot of the host lists into new code or documentation.
 - A robot may contain several distinct sensors/tools, but only one manipulator type. Repeated identical attachments are deduplicated; a UR5/Z1 mixture is rejected. Unknown attachments are returned by `attachment_entry()` as visual-only compatibility records, then rejected by validation and requirements.
-- `keyboard` and `ros` are non-physical tools with separate host sets. Normal saved/DIY flows must obey the catalog; registry-driven humans use their independent demo and stage runtime rather than these Env DIY tools.
+- `camera`, `keyboard`, and `ros` are non-physical tools with separate host sets. Camera is available on Iris/Pegasus/CF2X and on Orsus-capable ground robots, where normal validation requires the `orsus` attachment. Normal saved/DIY flows must obey the catalog; registry-driven humans use their independent demo and stage runtime rather than these Env DIY tools.
 - Physical compatibility is not established by adding a host name alone. Sensor hosts require valid mount links/offsets; manipulator hosts require a mount profile and formal/preview assembly support.
 
 ### User Interface and Image Synchronization
@@ -1334,14 +1339,14 @@ Selection resolution validates scene and robot keys through its seed maps, uses 
 The resolver recognizes these environment variables:
 
 - `EAI_ASSETS_HF_REPO` overrides the dataset repository ID; the default is `HuangQIjun/eai-simulator-assets`.
-- `EAI_ASSETS_HF_REVISION` selects the branch, tag, or commit. Missing or whitespace-only values fall back to `v0.1.0-beta.1`.
+- `EAI_ASSETS_HF_REVISION` selects the branch, tag, or commit. Missing or whitespace-only values fall back to `main`.
 - `EAI_ASSETS_AUTO_DOWNLOAD` defaults to enabled. The case-insensitive values `0`, `false`, `no`, and `off` disable automatic downloads; other values enable them.
 - `EAI_USD_ROOT` and `EAI_CONTROLLER_ROOT` replace the local USD and controller roots. Relative configured values are expanded and resolved by the current process, so use intentional locations and inspect them before launch. Human downloads read checksum metadata from `<active USD root>/human/pack-checksums.json`; a fresh custom `EAI_USD_ROOT` must be provisioned with metadata matching the selected revision before requesting a human pack.
 - `HF_TOKEN` and `HUGGING_FACE_HUB_TOKEN` are recognized credential inputs. Otherwise the resolver looks under `HF_HOME`, defaulting to the Hugging Face user cache, for `token` or `stored_tokens`. `HF_HOME` is a Hugging Face credential/cache boundary; it does not replace either EAI asset root.
 
 Dataset access approval and CLI authentication are separate. Request access to the gated dataset, wait for approval, and then run `hf auth login` in the same user environment that launches the simulator. Never print, echo, commit, or paste a token into a command line or diagnostic report, and do not use token-display commands as a health check.
 
-The runtime default `v0.1.0-beta.1` is the published immutable tag on the provider. The moving `main` revision is available for explicit diagnosis but is not the supported baseline.
+The runtime default `main` follows the latest provider commit. Pin an immutable provider tag or commit when reproducibility is required.
 
 ### Download, Installation, and Integrity Semantics
 
@@ -1379,23 +1384,16 @@ Keep these failures distinct:
 - `AssetIntegrityError` means trusted human checksum metadata, staged contents, or path-safety checks failed. Do not bypass it by disabling validation or merging staged files manually.
 - Other download, network, CLI, or provider errors remain `FAILED` and retain their diagnostic output.
 
-The following provider commands are read-only but require network access, the `hf` CLI, and approved gated-dataset credentials. The first verifies the default revision resolves; the second tests the moving `main` branch as a diagnostic and does not establish a release baseline:
+The following provider command is read-only but requires network access, the `hf` CLI, and approved gated-dataset credentials. It verifies that the moving default `main` revision resolves. For reproducible validation, replace `main` with an immutable tag or commit:
 
 ```bash
-EAI_ASSET_DEFAULT_REVISION=v0.1.0-beta.1
+EAI_ASSET_DEFAULT_REVISION=main
 hf download HuangQIjun/eai-simulator-assets \
   --type dataset \
   --revision "$EAI_ASSET_DEFAULT_REVISION" \
   --include usd/robot/carter/carter.usd \
   --dry-run
 
-EAI_ASSET_DIAGNOSTIC_REVISION=main
-hf download HuangQIjun/eai-simulator-assets \
-  --type dataset \
-  --revision "$EAI_ASSET_DIAGNOSTIC_REVISION" \
-  --include usd/robot/carter/carter.usd \
-  --include controller/traditional/carter_diff/carter_diff.py \
-  --dry-run
 ```
 
 ### Commit Exclusions and Maintained Exceptions
@@ -1455,7 +1453,7 @@ Run `simulator.py` in `env_isaaclab`. Run external programs that import ROS Humb
 
 `algorithm/keyboard/keyboard.py` detects the common `_rclpy_pybind11`/Python-version mismatch and tells the operator to use `/usr/bin/python3`; it does not re-exec automatically. `algorithm/ros/nav2/tf_bridge.py` does re-exec to `EAI_NAV2_ROS_PYTHON` or `/usr/bin/python3` when it detects Conda or a non-3.10 ABI, unless `EAI_NAV2_NO_REEXEC=1`. The unified Nav2 launch also uses `EAI_NAV2_ROS_PYTHON` for that bridge. Treat these as process boundaries, not permission to merge the simulator and system ROS environments.
 
-Before application launch, `simulator.py` looks for the Isaac ROS2 bridge under `ISAAC_ROS_PATH`, then `EAI_ISAACSIM_ROOT` or `ISAACSIM_ROOT`, followed by conventional user install locations. When found, it sets `ISAAC_ROS_PATH` and prepends the bridge `lib` and prefix paths. The launcher itself uses `setdefault()` for `ROS_DISTRO=humble` and `RMW_IMPLEMENTATION=rmw_fastrtps_cpp`, but importing the current GS-Hub or LiDAR modules normally assigns those values directly and can overwrite caller choices with Fast DDS unless their sensor ROS-environment setup is disabled. Diagnose the process's final environment rather than assuming an explicit earlier RMW value survived sensor imports.
+Before application launch, `simulator.py` looks for the Isaac ROS2 bridge under `ISAAC_ROS_PATH`, then `EAI_ISAACSIM_ROOT` or `ISAACSIM_ROOT`, followed by conventional user install locations. When found, it sets `ISAAC_ROS_PATH` and prepends the bridge `lib` and prefix paths. The launcher itself uses `setdefault()` for `ROS_DISTRO=humble` and `RMW_IMPLEMENTATION=rmw_fastrtps_cpp`, but importing the current Orsus or LiDAR modules normally assigns those values directly and can overwrite caller choices with Fast DDS unless their sensor ROS-environment setup is disabled. Diagnose the process's final environment rather than assuming an explicit earlier RMW value survived sensor imports.
 
 `algorithm/ros/nav2/run_nav2.sh` launches system Nav2 under `env -i` with CycloneDDS but does not forward `ROS_DOMAIN_ID` or other discovery variables. Its Nav2 side therefore uses domain 0, while its simulator child can inherit a caller's nonzero domain; the script currently requires the simulator/default domain to remain 0. A manual launch can inherit an explicitly matched `ROS_DOMAIN_ID` and relevant discovery/network settings in both prepared process environments. Confirm the actual domain, RMW, and discovery configuration on each side.
 
@@ -1488,11 +1486,13 @@ Presence of either publisher does not prove the Isaac subscriber graph is active
 
 ### Sensor Publishers and Topic Collisions
 
-GS-Hub and standalone LiDAR own their ROS publishers in their asset/OmniGraph implementations, not in `ROS2CmdVelBridge`. GS-Hub is built with `enable_ros_publish=True` only when the same robot has both `gshub` and the `ros` tool; `keyboard` enables cmd_vel consideration but does not enable GS-Hub publishing. A `lidar` attachment creates its own ROS LiDAR asset publisher independently of the `ros` tool.
+Orsus and standalone LiDAR own their ROS publishers in their asset/OmniGraph implementations, not in `ROS2CmdVelBridge`. Orsus has two independent builder flags: the `camera` tool sets `enable_camera_publish=True` for its left/right image graphs, while the `ros` tool sets `enable_ros_publish=True` for its point-cloud/odometry graph; both require the physical `orsus` attachment. The catalog associates the derived Orsus scan with `ros`, but samples appear only when the external pointcloud-to-laserscan pipeline runs. `keyboard` enables cmd_vel consideration but neither Orsus graph. A standalone ground-robot `lidar` attachment creates its own ROS LiDAR asset publisher independently of the `ros` tool.
 
-When enabled, both sensors use `/<instance>/cloud` and `/<instance>/odometry`. The LiDAR attachment publishes independently; GS-Hub collides with it only when GS-Hub ROS publication is enabled by the same robot's `ros` tool. `nav2_setup.py --sensor auto` conservatively rejects both attachments from the runtime snapshot regardless of whether the GS-Hub graph is enabled. Keep one publisher active, or explicitly select one only after disabling the other. `/<instance>/scan_cloud` is a topic: `tf_bridge.py` republishes `/<instance>/cloud` there with `header.frame_id` changed to `lidar_link`, and `pointcloud_to_laserscan` consumes it to produce `/<instance>/scan`.
+Iris, Pegasus, and CF2X use a separate built-in aerial sensor suite. Their `camera` tool enables the monocular image and CameraInfo publishers, while `ros` enables the Pegasus `Example_Rotary` RTX LiDAR point cloud plus noisy IMU, GPS, magnetometer, and barometer publishers.
 
-Publisher presence is weaker than data flow. RTX/render-dependent graphs can register topics while producing no samples, especially in headless or incompletely rendered sessions. Sensor acceptance therefore requires live sampling and rate checks for `/clock`, odometry, cloud, images where applicable, and the derived scan, in the actual GUI/headless mode being supported.
+When enabled, both sensors use `/<instance>/cloud` and `/<instance>/odometry`. The LiDAR attachment publishes independently; Orsus collides with it only when Orsus ROS publication is enabled by the same robot's `ros` tool. `nav2_setup.py --sensor auto` conservatively rejects both attachments from the runtime snapshot regardless of whether the Orsus graph is enabled. Keep one publisher active, or explicitly select one only after disabling the other. `/<instance>/scan_cloud` is a topic: `tf_bridge.py` republishes `/<instance>/cloud` there with `header.frame_id` changed to `lidar_link`, and `pointcloud_to_laserscan` consumes it to produce `/<instance>/scan`.
+
+Publisher presence is weaker than data flow. RTX/render-dependent graphs can register topics while producing no samples, especially in headless or incompletely rendered sessions. Sensor acceptance therefore requires live sampling and rate checks for `/clock`, Orsus odometry/cloud/images and derived scan where selected, plus aerial camera, LiDAR, and applicable base-sensor topics, in the actual GUI/headless mode being supported. Camera-only and ROS-only selections must also confirm that topics from the other gate are absent.
 
 ### UR5 and Z1 Manipulator Interfaces
 
@@ -1531,7 +1531,7 @@ This static generation check uses an explicit tracked map, explicit pose and sen
   python algorithm/ros/nav2/nav2_setup.py \
     --robot carter_1 \
     --robot-type Carter \
-    --sensor gshub \
+    --sensor orsus \
     --scene factory \
     --map demo/fire_rescue/assets/factory_map.yaml \
     --pose 0,0,0 \
@@ -1541,7 +1541,7 @@ This static generation check uses an explicit tracked map, explicit pose and sen
 
 The unified `nav2.launch.py` runs that generator, starts the TF bridge, converts `/<instance>/scan_cloud` to `/<instance>/scan`, starts map server and AMCL, then controller, smoother, planner, behavior, BT navigator, waypoint follower, velocity smoother, lifecycle manager, and optional RViz. `tf_bridge.py` publishes dynamic `odom -> base_link` and static `base_link -> lidar_link`; the selected robot/sensor profile supplies the base offset and LiDAR mount values passed to that node. AMCL supplies `map -> odom`. Controller/behavior output is remapped to `cmd_vel_nav`; the velocity smoother publishes the final `/<instance>/cmd_vel`. The ROS package `pointcloud_to_laserscan` is therefore a runtime dependency, not an optional visualization tool.
 
-The profile's implicit Factory map is `usd/scene/factory/factory_map.yaml`, which is not tracked and is not reliable in a clean checkout. `run_nav2.sh` has no map argument and relies on that absent implicit file, so it is not a clean-checkout-capable launcher. Use the manual launch path with an explicit valid map. This example assumes a running simulator selection with `carter_1`, exactly one GS-Hub publisher enabled through `gshub` plus `ros`, matching ROS discovery settings, and a fresh runtime snapshot:
+The profile's implicit Factory map is `usd/scene/factory/factory_map.yaml`, which is not tracked and is not reliable in a clean checkout. `run_nav2.sh` has no map argument and relies on that absent implicit file, so it is not a clean-checkout-capable launcher. Use the manual launch path with an explicit valid map. This example assumes a running simulator selection with `carter_1`, exactly one Orsus point-cloud/odometry graph enabled through `orsus` plus `ros`, independently enabled Orsus images through `camera`, matching ROS discovery settings, and a fresh runtime snapshot:
 
 Before launching, run this non-mutating preflight for the exact predictable output directory:
 
@@ -1573,7 +1573,7 @@ EAI_NAV2_MAP="$(pwd)/demo/fire_rescue/assets/factory_map.yaml"
 ros2 launch algorithm/ros/nav2/nav2.launch.py \
   robot_name:=carter_1 \
   robot_type:=Carter \
-  sensor:=gshub \
+  sensor:=orsus \
   scene:=factory \
   map:="$EAI_NAV2_MAP" \
   rviz:=true
@@ -1603,7 +1603,7 @@ python simulator.py interfaces test ros.lidar.odometry \
   --endpoint /carter_1/odometry --mode sample --json
 ```
 
-Declarations are capability metadata, not activation records. Static scene resolution includes interfaces by model/attachment. At runtime the launcher filters only `ros.cmd_vel` entries to bridges whose setup succeeded; other sensor and manipulator declarations can remain in the snapshot even when their publisher or graph did not start. Known examples are the GS-Hub `scan` declaration, which actually depends on the external Nav2 conversion pipeline; GS-Hub and LiDAR declarations that collide on cloud/odometry; Z1 declarations without main-session registration; and UR5 declarations whose active status still depends on successful graph setup.
+Declarations are capability metadata, not activation records. Static scene resolution includes interfaces by model/attachment. At runtime the launcher filters only `ros.cmd_vel` entries to bridges whose setup succeeded; other sensor and manipulator declarations can remain in the snapshot even when their publisher or graph did not start. Known examples are the Orsus `scan` declaration, which actually depends on the external Nav2 conversion pipeline; Orsus and LiDAR declarations that collide on cloud/odometry; Z1 declarations without main-session registration; and UR5 declarations whose active status still depends on successful graph setup.
 
 Presence probes only show that a topic name and type are discoverable. Sample and frequency probes provide stronger read-only evidence but can still miss semantic errors in frames, values, timing, or command application. Input declarations such as cmd_vel and manipulator commands intentionally have no `read_only_test`; the CLI blocks probing them so diagnosis cannot publish commands accidentally.
 
@@ -1842,7 +1842,7 @@ Run only the entry point relevant to the change. Prerequisites include Ubuntu 22
 
 Fire Rescue adds optional EMOS/global-planner dependencies such as the OpenAI-compatible Python client, PyYAML, and Pillow. Its default `zhipu-glm4-flash` preset requires `ZHIPU_API_KEY` and can make real network API calls that incur provider cost. Other presets require their named key, such as `OPENAI_API_KEY` or `DEEPSEEK_API_KEY`. Review the selected endpoint, credential environment, budget, and network policy before launch. Individual OpenAI-compatible client calls use a 60-second timeout and the experiment can wait up to 160 seconds before dispatching its local fallback, so a fallback does not make the launch offline or cost-free. Pytest must mock the client and fallback timing; never use a real LLM credential or request in automated tests.
 
-These commands were not run while validating this guide. The default resolver revision `v0.1.0-beta.1` is published on the provider. `EAI_ASSETS_HF_REVISION=main` is available as a moving diagnostic override but is not release evidence.
+These commands were not run while validating this guide. The default resolver revision `main` follows the latest provider commit and is not immutable release evidence; pin a tag or commit for reproducible validation.
 
 When heavy verification is available, record the exact command, environment versions, selected JSON, asset repository and immutable revision, GPU, display/headless mode, startup/reset result, controller load, representative steps, and clean shutdown. A window opening is not enough: first reset and at least one behavior-relevant step must succeed.
 
@@ -1856,7 +1856,7 @@ Live verification uses system Python/ROS2 Humble and a separately running Isaac 
 | --- | --- |
 | Discovery | Matching `ROS_DOMAIN_ID` and middleware, expected topic names and types, fresh `/clock`, and no duplicate publishers. |
 | Cmd_vel | `/<instance>/cmd_vel` subscriber exists, a bounded nonzero command changes the robot, and a later zero command stops it. |
-| Sensor and odometry | Fresh samples and plausible rates on `/<instance>/cloud` and `/<instance>/odometry`; GS-Hub scan additionally requires the external conversion pipeline. |
+| Sensor and odometry | For Orsus, fresh image samples under `camera` and fresh `/<instance>/cloud` plus `/<instance>/odometry` samples under `ros`; scan additionally requires the external conversion pipeline. For aerial robots, fresh camera samples under `camera` and LiDAR plus applicable base-sensor samples under `ros`. |
 | TF | Timestamped `odom -> base_link` plus static `base_link -> lidar_link`, and Nav2's `map -> odom` when localization is active. |
 | Nav2 | Nodes reach active lifecycle state, `navigate_to_pose` accepts the goal, feedback advances, terminal status is successful, and final pose is plausible. |
 | Manipulator | UR5 command subscribers and changing `joint_states`/`ee_pose`; Z1 remains a known main-session activation gap. |
@@ -1970,7 +1970,7 @@ Keep credentials, gated approval, revision existence, ordinary-file completeness
 
 ```bash
 EAI_HF_REPO="${EAI_ASSETS_HF_REPO:-HuangQIjun/eai-simulator-assets}"
-EAI_HF_REVISION="${EAI_ASSETS_HF_REVISION:-v0.1.0-beta.1}"
+EAI_HF_REVISION="${EAI_ASSETS_HF_REVISION:-main}"
 hf auth whoami
 hf datasets info "$EAI_HF_REPO" --revision "$EAI_HF_REVISION"
 hf download "$EAI_HF_REPO" \
@@ -1984,7 +1984,7 @@ hf download "$EAI_HF_REPO" \
 | --- | --- | --- | --- |
 | 401, invalid/expired token, or `AUTH_REQUIRED` | Authentication | `hf auth whoami`; inspect only whether `HF_TOKEN`, `HUGGING_FACE_HUB_TOKEN`, or the intended `HF_HOME` is configured, never its value | Reauthenticate with `hf auth login` in the simulator user's environment, then repeat the dry-run. |
 | 403, gated denial, or `ACCESS_PENDING` | Dataset access approval | Confirm the authenticated account and repository ID | Check approval with the provider owner; a valid token does not grant gated access. |
-| `Revision Not Found` | Requested tag/commit is absent | Print only `EAI_HF_REPO` and `EAI_HF_REVISION`; run `hf datasets info` | Maintainer publishes/repairs an immutable revision. The current default `v0.1.0-beta.1` is published and resolves; `main` is diagnostic only. |
+| `Revision Not Found` | Requested branch/tag/commit is absent | Print only `EAI_HF_REPO` and `EAI_HF_REVISION`; run `hf datasets info` | Use the default `main` branch or select an existing immutable tag/commit. |
 | Requested ordinary USD/controller file is still missing after a download | Requirement seed, provider path, allow pattern, or partial ordinary merge | Inspect the exact local path, requirement mapping, collected configuration paths, and provider dry-run | Retry from a deliberately isolated asset root and verify every selected/transitive path. Ordinary bundles have requested-file postchecks but no whole-bundle checksum or rollback guarantee. |
 | `AssetIntegrityError`, revision/checksum mismatch, unsafe path, or failed human replacement | Human checksum metadata and staged-pack transaction | Parse `usd/human/pack-checksums.json`, compare its revision with `EAI_HF_REVISION`, and run the resolver subset in section 13 | Install the exact released human packs in an isolated root and run the specific checksum cases. Never bypass validation or hand-merge failed staging output. |
 
@@ -2100,7 +2100,7 @@ ros2 lifecycle nodes
 | Catalog lists a topic but `ros2 topic list` does not | Declaration exists, publisher/bridge activation failed, or discovery domains differ | Compare saved selection, runtime snapshot, catalog resolution, `ROS_DOMAIN_ID`, and middleware | Check publisher/subscriber counts and simulator graph logs; declarations alone are not activation. |
 | Cmd_vel is discoverable but robot does not move | Wrong instance, bridge inactive, command timeout/shape, or controller application | Confirm `/<instance>/cmd_vel` type/count and selected `ros`/`keyboard` tool or launcher flag | Send a bounded command, observe motion, then send zero and confirm stop. Do not publish during read-only diagnosis. |
 | Odometry exists but TF/Nav2 fails | Missing/stale `odom -> base_link`, incorrect timestamps/frames, absent `map -> odom`, or duplicate sensor publishers | Inspect one odometry sample, `/clock`, `/tf`, `/tf_static`, and configured robot/sensor profile | Run `ros2 run tf2_ros tf2_echo odom base_link` and `map base_link`; validate continuity and timestamps. Current topic is `/<instance>/odometry`, not `/<instance>/odom`. |
-| `/<instance>/scan` is absent while cloud exists | GS-Hub declaration describes derived output but pointcloud-to-laserscan pipeline is not running | Inspect `/<instance>/cloud`, Nav2 launch, and `pointcloud_to_laserscan` node | Verify `scan_cloud` and `scan` rates/frames after starting the supported single-stack pipeline. |
+| `/<instance>/scan` is absent while cloud exists | Orsus declaration describes derived output but pointcloud-to-laserscan pipeline is not running | Inspect `/<instance>/cloud`, Nav2 launch, and `pointcloud_to_laserscan` node | Verify `scan_cloud` and `scan` rates/frames after starting the supported single-stack pipeline. |
 | Nav2 nodes exist but goals stall or fail | Lifecycle, map/localization, TF, scan, odometry, planner/controller, or final cmd_vel chain | Inspect lifecycle nodes, action list, generated config, map path, and topic counts | Require active lifecycle, accepted goal, progressing feedback, terminal status, and plausible final pose. A zero `send_goal.py` exit code alone is insufficient. |
 
 ROS2 Humble tools and `rclpy` programs normally use system Python 3.10, while the simulator remains in `env_isaaclab`. Do not fix one side by contaminating the other interpreter. The tracked suite provides no live ROS automation.
@@ -2234,7 +2234,7 @@ Use this checklist for every change; omit an item only when it is demonstrably o
 - [ ] A simulator change was verified through configuration construction, first reset/controller load, representative behavior, and clean shutdown when heavy integration was available. A `pxr` test or opened window was not substituted for this evidence.
 - [ ] ROS/interface changes distinguish catalog declaration, snapshot presence, discovery, samples/rates, TF, command application, lifecycle/action status, and final behavior. Z1 and other known activation gaps are not reported as working.
 - [ ] Provider-backed files have maintainer publication evidence: repository ID, immutable tag/commit, exact paths, sizes and hashes, provenance and license, synchronized source maps/checksum metadata/default revision, and verification from clean asset roots. A local file or moving `main` dry-run is not sufficient.
-- [ ] Human-pack integrity metadata matches the immutable provider payload and revision. The `v0.1.0-beta.1` provider revision is published; verify that `pack-checksums.json` checksums match the tagged payload before claiming standard asset-backed first-launch support.
+- [ ] Human-pack integrity metadata matches the selected provider payload and revision. For reproducible validation, pin an immutable provider tag or commit and verify that `pack-checksums.json` checksums match it before claiming standard asset-backed first-launch support.
 - [ ] `git status --short` and every exact scoped worktree diff were reviewed. When staging/commit was authorized, `git diff --cached --name-status` contains exactly the intended paths, `git diff --cached -- <each exact path>` was inspected, `git diff --cached --check` passed, secret findings were reported only as redacted file/line locations and investigated, and the maintained scanner result or heuristic limitation was recorded. When staging was not authorized, the index was preserved and these cached checks were reported as not applicable. Ignore diagnostics and tracked-file inventory show no `.env`, private/internal notes, downloaded assets, weights, caches, runtime snapshots, generated output, or unrelated staged files.
 - [ ] The final report states the exact files changed, behavioral/documentation outcome, commands and results, commit SHA when applicable, remaining work, and all validation limitations without converting observed local baseline counts into project guarantees.
 
@@ -2442,7 +2442,7 @@ source /opt/ros/humble/setup.bash
 /usr/bin/python3 algorithm/keyboard/keyboard.py --robot carter_1
 ```
 
-**Heavy Isaac/GPU/provider plus live ROS bridge prerequisite for Nav2.** In `env_isaaclab`, start the tracked `nav2` selection before the separate system ROS2 launch. It selects Factory, `carter_1`, one GS-Hub, and the `ros` tool, and requires the selected gated assets plus matching ROS discovery settings:
+**Heavy Isaac/GPU/provider plus live ROS bridge prerequisite for Nav2.** In `env_isaaclab`, start the tracked `nav2` selection before the separate system ROS2 launch. It selects Factory, `carter_1`, one Orsus, and both the `camera` and `ros` tools: `camera` enables the Orsus image graphs, while `ros` enables its point-cloud/odometry graph and cmd_vel bridge consideration. The launch requires the selected gated assets plus matching ROS discovery settings:
 
 ```bash
 python simulator.py --env nav2
@@ -2457,7 +2457,7 @@ source /opt/ros/humble/setup.bash
 ros2 launch algorithm/ros/nav2/nav2.launch.py \
   robot_name:=carter_1 \
   robot_type:=Carter \
-  sensor:=gshub \
+  sensor:=orsus \
   scene:=factory \
   map:="$(pwd)/demo/fire_rescue/assets/factory_map.yaml" \
   rviz:=false

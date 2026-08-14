@@ -18,6 +18,9 @@ from typing import Any, Callable, Iterator
 
 
 KEYBOARD_CMD_VEL_GOAL_STEP_SCALE = 0.2
+_ORSUS_RTX_PRELOAD_KIT_ARGS = (
+    "--enable omni.usd.schema.omni_sensors --enable isaacsim.sensors.rtx"
+)
 
 # Scout's four fixed wheels resist lateral motion, so its effective skid-steer
 # track is much wider than the 0.498 m geometric controller value. Factory-floor
@@ -130,7 +133,7 @@ def _publish_runtime_interface_snapshot(
     )
     interfaces = []
     for entry in resolved:
-        if entry.interface_id == "ros.cmd_vel" and entry.instance_name not in cmd_vel_agents:
+        if entry.endpoint.endswith("/cmd_vel") and entry.instance_name not in cmd_vel_agents:
             continue
         interfaces.append(entry.to_dict())
     snapshot = build_snapshot(
@@ -165,16 +168,81 @@ def _runtime_device_for_env(
 def _selection_requires_omnigraph(selection_data: dict[str, Any] | None) -> bool:
     if not selection_data:
         return False
-    graph_attachments = {"gshub", "lidar", "ur5", "z1", "ros"}
+    graph_attachments = {"orsus", "lidar", "camera", "ur5", "z1", "ros"}
+    aerial_types = {"cf2x", "iris", "pegasus"}
+    return any(
+        isinstance(robot, dict)
+        and (
+            str(robot.get("type", "")).strip().lower() in aerial_types
+            or any(
+                isinstance(attachment, dict)
+                and str(attachment.get("type", "")).strip().lower() in graph_attachments
+                for attachment in robot.get("attachments", ())
+            )
+        )
+        for robot in selection_data.get("robots", ())
+    )
+
+
+def _selection_has_attachment(
+    selection_data: dict[str, Any] | None,
+    attachment_type: str,
+) -> bool:
+    if not selection_data:
+        return False
+    expected = str(attachment_type).strip().lower()
     return any(
         isinstance(robot, dict)
         and any(
             isinstance(attachment, dict)
-            and str(attachment.get("type", "")).strip().lower() in graph_attachments
+            and str(attachment.get("type", "")).strip().lower() == expected
             for attachment in robot.get("attachments", ())
         )
         for robot in selection_data.get("robots", ())
     )
+
+
+def _sensor_scene_single_env_reasons(selection_data: dict[str, Any] | None) -> tuple[str, ...]:
+    if not selection_data:
+        return ()
+    reasons = []
+    aerial_types = {"cf2x", "iris", "pegasus"}
+    sensor_tools = {"camera", "ros"}
+    for index, robot in enumerate(selection_data.get("robots", ()), start=1):
+        if not isinstance(robot, dict):
+            continue
+        robot_type = str(robot.get("type", "")).strip().lower()
+        attachments = {
+            str(attachment.get("type", "")).strip().lower()
+            for attachment in robot.get("attachments", ())
+            if isinstance(attachment, dict)
+        }
+        enabled_tools = attachments & sensor_tools
+        if robot_type in aerial_types:
+            tools = ", ".join(sorted(enabled_tools)) or "default sensors"
+            reasons.append(f"robot {index} ({robot_type}: {tools})")
+        elif robot_type == "mushr_v2" and "camera" in attachments:
+            # MuSHR's built-in front camera uses the aerial sensor suite's
+            # single-environment render product, unlike the Orsus stereo path.
+            reasons.append(f"robot {index} (mushr_v2: camera)")
+        elif "orsus" in attachments and enabled_tools:
+            tools = ", ".join(sorted(enabled_tools))
+            reasons.append(f"robot {index} ({robot_type or 'unknown'}: {tools})")
+    return tuple(reasons)
+
+
+def _validate_sensor_scene_num_envs(
+    selection_data: dict[str, Any] | None,
+    num_envs: int,
+) -> None:
+    if num_envs == 1:
+        return
+    reasons = _sensor_scene_single_env_reasons(selection_data)
+    if reasons:
+        raise ValueError(
+            "Aerial/Orsus sensor resources support exactly one environment; "
+            f"got num_envs={num_envs} for {', '.join(reasons)}. Use --num_envs 1."
+        )
 
 
 _INOTIFY_MINIMUMS = {
@@ -219,6 +287,18 @@ def _warn_if_inotify_limits_are_low() -> None:
 def _enable_required_selection_extensions(selection_data: dict[str, Any] | None) -> None:
     if _selection_requires_omnigraph(selection_data):
         _enable_isaac_extension("omni.graph")
+    if _selection_has_attachment(selection_data, "orsus"):
+        _enable_isaac_extension("isaacsim.sensors.rtx")
+
+
+def _prepare_replicator_for_app_close() -> None:
+    """Prevent Replicator shutdown from stopping Isaac Lab's live timeline."""
+    try:
+        import omni.replicator.core as rep
+
+        rep.orchestrator.set_capture_on_play(False)
+    except Exception as exc:
+        print(f"[EAI Simulator] Warning: Replicator close preparation failed: {exc}")
 
 
 def _repo_root() -> Path:
@@ -476,7 +556,7 @@ class SimulatorLaunchConfig:
     seed: int = 0
     headless: bool = False
     enable_ros_bridge_extension: bool = True
-    disable_gshub_ros_env: bool = False
+    disable_orsus_ros_env: bool = False
     enable_cmd_vel_bridge: bool = False
     ml_framework: str = "torch"
     app_launcher_args: dict[str, Any] = field(default_factory=dict)
@@ -858,6 +938,7 @@ def _collect_asset_payload_after_app(args: argparse.Namespace, task_request: Tas
     else:
         raise RuntimeError("No task or DIY selection was resolved.")
 
+    _validate_sensor_scene_num_envs(selection_data, args.num_envs)
     _enable_required_selection_extensions(selection_data)
     from EAI_hmrs.env_builder import build_interactive_env_cfg_from_selection
 
@@ -946,8 +1027,8 @@ def _run_asset_preflight(
             cmd.extend(["--env", args.env])
         env = os.environ.copy()
         env["HEADLESS"] = "1"
-        if getattr(args, "disable_gshub_ros_env", False):
-            env["EAI_DISABLE_GSHUB_ROS_ENV"] = "1"
+        if getattr(args, "disable_orsus_ros_env", False):
+            env["EAI_DISABLE_ORSUS_ROS_ENV"] = "1"
         _run_preflight_subprocess(cmd, env)
         payload = _read_preflight_payload(output_path)
     return _handle_preflight_payload(payload)
@@ -971,6 +1052,11 @@ def _run_diy_3d_authoring_in_process(
         launcher_options.pop("interfaces_menu", None)
         launcher_options.setdefault("headless", False)
         launcher_options.setdefault("device", getattr(args, "device", "cuda:0"))
+        launcher_options["enable_cameras"] = True
+        existing_kit_args = str(launcher_options.get("kit_args", "")).strip()
+        launcher_options["kit_args"] = " ".join(
+            item for item in (existing_kit_args, _ORSUS_RTX_PRELOAD_KIT_ARGS) if item
+        )
         app_launcher = AppLauncher(launcher_options)
         simulation_app = app_launcher.app
 
@@ -1185,6 +1271,34 @@ def _setup_ur5_graph_manager(
     return manager
 
 
+def _setup_aerial_sensor_manager(
+    *,
+    base_env: Any,
+    selection_data: dict[str, Any] | None,
+    possible_agents: list[str],
+    seed: int = 0,
+):
+    from EAI.hmrs_ros.aerial_sensor_suite import (
+        AerialSensorSuiteManager,
+        aerial_sensor_specs_from_selection,
+        attach_aerial_sensor_manager,
+        get_aerial_sensor_manager,
+    )
+
+    specs = aerial_sensor_specs_from_selection(selection_data, possible_agents)
+    if not specs:
+        return None
+    manager = get_aerial_sensor_manager(base_env)
+    if manager is not None:
+        return manager
+    manager = AerialSensorSuiteManager(base_env, specs, seed=seed)
+    if not manager.registered_robots:
+        manager.close()
+        return None
+    attach_aerial_sensor_manager(base_env, manager)
+    return manager
+
+
 def active_cmd_vel_bridge_robot_names(
     selection_data: dict[str, Any] | None,
     *,
@@ -1266,7 +1380,12 @@ def _goal_position_delta(
     vz: float,
     dt: float,
 ) -> tuple[float, float, float]:
-    if str(robot_type or "").lower() in {"human", "quadcopter"}:
+    if str(robot_type or "").lower() in {
+        "human",
+        "quadcopter",
+        "pegasusiris",
+        "pegasusx4",
+    }:
         return (
             vx * KEYBOARD_CMD_VEL_GOAL_STEP_SCALE,
             vy * KEYBOARD_CMD_VEL_GOAL_STEP_SCALE,
@@ -1395,7 +1514,7 @@ def _session_preflight_args(config: SimulatorLaunchConfig) -> SimpleNamespace:
         device=config.device,
         preflight_output=None,
         enable_cmd_vel_bridge=config.enable_cmd_vel_bridge,
-        disable_gshub_ros_env=config.disable_gshub_ros_env,
+        disable_orsus_ros_env=config.disable_orsus_ros_env,
         ml_framework=config.ml_framework,
         seed=config.seed,
     )
@@ -1409,12 +1528,37 @@ def _session_env_init_args(config: SimulatorLaunchConfig) -> SimpleNamespace:
     )
 
 
-def _app_launcher_args(config: SimulatorLaunchConfig) -> dict[str, Any]:
+def _app_launcher_args(
+    config: SimulatorLaunchConfig,
+    selection_data: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     args = dict(config.app_launcher_args)
     args.pop("interfaces_menu", None)
     args.setdefault("headless", config.headless)
     args.setdefault("device", config.device)
     args.setdefault("ml_framework", config.ml_framework)
+    effective_selection = selection_data if selection_data is not None else config.selection_data
+    if effective_selection:
+        from EAI.physics.aerial_sensors import selection_requires_aerial_camera
+
+        if selection_requires_aerial_camera(effective_selection):
+            args["enable_cameras"] = True
+        if _selection_has_attachment(effective_selection, "orsus"):
+            motion_bvh_args = (
+                "--/renderer/raytracingMotion/enabled=true "
+                "--/renderer/raytracingMotion/enableHydraEngineMasking=true "
+                "--/renderer/raytracingMotion/enabledForHydraEngines='0'"
+            )
+            existing_kit_args = str(args.get("kit_args", "")).strip()
+            args["kit_args"] = " ".join(
+                item
+                for item in (
+                    existing_kit_args,
+                    _ORSUS_RTX_PRELOAD_KIT_ARGS,
+                    motion_bvh_args,
+                )
+                if item
+            )
     return args
 
 
@@ -1428,6 +1572,7 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         selection_data = config.selection_data
     else:
         env_name, selection_data = _run_asset_preflight(_session_preflight_args(config))
+    _validate_sensor_scene_num_envs(selection_data, config.num_envs)
     runtime_device = _runtime_device_for_env(env_name, selection_data, config.device)
     if runtime_device != config.device:
         print(
@@ -1437,8 +1582,8 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         app_launcher_args = dict(config.app_launcher_args)
         app_launcher_args["device"] = runtime_device
         config = replace(config, device=runtime_device, app_launcher_args=app_launcher_args)
-    if config.disable_gshub_ros_env:
-        os.environ["EAI_DISABLE_GSHUB_ROS_ENV"] = "1"
+    if config.disable_orsus_ros_env:
+        os.environ["EAI_DISABLE_ORSUS_ROS_ENV"] = "1"
     if config.enable_ros_bridge_extension:
         configure_isaac_ros_bridge_env()
 
@@ -1447,12 +1592,14 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
     if owns_simulation_app:
         from isaaclab.app import AppLauncher
 
-        app_launcher = AppLauncher(_app_launcher_args(config))
+        app_launcher = AppLauncher(_app_launcher_args(config, selection_data))
         simulation_app = app_launcher.app
     else:
         simulation_app = config.existing_simulation_app
     env = None
     ur5_manager = None
+    aerial_sensor_manager = None
+    orsus_cleanup = None
     try:
         _enable_required_selection_extensions(selection_data)
         if config.enable_ros_bridge_extension:
@@ -1465,6 +1612,18 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         base_env = env.unwrapped if hasattr(env, "unwrapped") else env
         possible_agents = list(base_env.possible_agents)
         env.reset()
+        from EAI_assets.sensor.high_sensor.orsus import (
+            close_orsus_ros_resources,
+            setup_pending_orsus_ros_graphs,
+        )
+
+        orsus_cleanup = close_orsus_ros_resources
+        orsus_graph_count = setup_pending_orsus_ros_graphs()
+        if orsus_graph_count:
+            print(
+                f"[EAI Simulator] Created {orsus_graph_count} instance-safe "
+                "Orsus RTX LiDAR/odometry publisher set(s)."
+            )
         ur5_manager = getattr(base_env, "_ur5_ros2_manager", None)
         if ur5_manager is None:
             ur5_manager = _setup_ur5_graph_manager(
@@ -1473,6 +1632,12 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
                 possible_agents=possible_agents,
                 env_cfg=env_cfg,
             )
+        aerial_sensor_manager = _setup_aerial_sensor_manager(
+            base_env=base_env,
+            selection_data=selection_data,
+            possible_agents=possible_agents,
+            seed=config.seed,
+        )
 
         yield SimulatorSession(
             simulation_app=simulation_app,
@@ -1487,12 +1652,17 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         )
     finally:
         try:
+            if orsus_cleanup is not None:
+                orsus_cleanup()
+            if aerial_sensor_manager is not None:
+                aerial_sensor_manager.close()
             if ur5_manager is not None:
                 ur5_manager.close()
             if env is not None:
                 env.close()
         finally:
             if owns_simulation_app:
+                _prepare_replicator_for_app_close()
                 simulation_app.close()
 
 
@@ -1596,7 +1766,7 @@ def main() -> None:
         possible_agents = session.possible_agents
         num_envs = session.num_envs
         runtime_device = session.device
-        robot_commands = {agent: torch.zeros((num_envs, 3), device=runtime_device) for agent in possible_agents}
+        robot_commands = {}
         robot_types: dict[str, str | None] = {}
         controller_cfgs: dict[str, Any] = {}
         goal_controlled_robots: set[str] = set()
@@ -1606,11 +1776,20 @@ def main() -> None:
             entry = env_cfg.controllers.get(agent_name) if hasattr(env_cfg, "controllers") else None
             controller_cfg, _aux = normalize_controller_entry(entry) if entry else (None, ())
             controller_cfgs[agent_name] = controller_cfg
+            command_dim = (
+                int(getattr(controller_cfg, "action_dim", 4))
+                if getattr(controller_cfg, "control_mode", None) == "rotor_velocity"
+                else 3
+            )
+            robot_commands[agent_name] = torch.zeros((num_envs, command_dim), device=runtime_device)
             robot_type = getattr(controller_cfg, "robot_type", None)
             robot_types[agent_name] = robot_type
             if getattr(controller_cfg, "command_name", None) == "goal_position" or robot_type in {"Quadcopter", "M20Nav"}:
                 goal_controlled_robots.add(agent_name)
-            if hasattr(controller_cfg, "yaw_command_name"):
+            if (
+                hasattr(controller_cfg, "yaw_command_name")
+                and getattr(controller_cfg, "control_mode", None) != "rotor_velocity"
+            ):
                 yaw_goal_controlled_robots.add(agent_name)
                 yaw_command_names[agent_name] = getattr(controller_cfg, "yaw_command_name", "goal_yaw")
 
@@ -1660,6 +1839,11 @@ def main() -> None:
                 explicit=getattr(args_cli, "enable_cmd_vel_bridge", False),
             )
         )
+        bridge_agents = {
+            agent_name
+            for agent_name in bridge_agents
+            if getattr(controller_cfgs.get(agent_name), "control_mode", None) != "rotor_velocity"
+        }
         if bridge_agents:
             from EAI.hmrs_ros import ROS2CmdVelBridge
 
@@ -1745,3 +1929,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+    #测试
