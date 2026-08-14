@@ -67,7 +67,6 @@ docker/artifacts/
 /HEARTBEAT.md
 
 # Local experiment outputs
-/algorithm/TeamWeaver/
 /algorithm/arm_control/
 /algorithm/emos/radxa_data/model_comparison_*/
 /algorithm/emos/radxa_data/robot_headless_*/
@@ -139,3 +138,18 @@ ros2_cmd_vel.json
 /docs/test-reports/
 test_*.py
 *_test.py
+
+# Human registry metadata, runtime foundation, tests, and tools are maintained here.
+!/usd/human/
+/usd/human/*
+!/usd/human/README.md
+!/usd/human/manifest.json
+!/usd/human/manifest.schema.json
+!/usd/human/audit-summary.json
+!/usd/human/pack-checksums.json
+!/source/EAI_assets/test/
+!/source/EAI_assets/test/test_human_*.py
+!/source/EAI_assets/EAI_assets/humans/action.schema.json
+!/tools/human_assets/
+!/tools/human_assets/**
+/tools/human_assets/**/__pycache__/

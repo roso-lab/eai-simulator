@@ -1,0 +1,139 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# API Keys and Secrets
+**/api_key.txt
+**/*_key.txt
+**/*secret*
+**/*password*
+**/credentials.json
+**/.secrets
+
+# Data files (large datasets)
+data/datasets/
+*.json.gz
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+
+# Model checkpoints and weights
+*.pth
+*.pt
+*.ckpt
+*.bin
+*.safetensors
+checkpoints/
+models/
+weights/
+pretrained/
+
+# Output files
+outputs/
+results/
+logs/
+wandb/
+tensorboard/
+*.log
+
+# Habitat-Sim (if installed locally)
+habitat_sim/
+habitat-lab/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Compiled files
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.dylib
+*.dll
+
+# Coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# Hydra outputs
+outputs/
+.hydra/
+
+# Weights & Biases
+wandb/
+
+# Local configuration
+config.local.yaml
+*.local.yaml
+
