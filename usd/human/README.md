@@ -44,6 +44,25 @@ skateboarder、static biker 和 wheelchair。是否可播放动作由每个资�
 运行时文件仍必须安装在 `usd/human/` 下，manifest 不允许引用 human root 外的路径。
 `redistribution_status=review_required` 也不表示已经获得再分发许可。
 
+## 下载完整资产
+
+Human 大型资产由 gated Hugging Face dataset
+[`HuangQIjun/eai-simulator-assets`](https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets)
+提供。先申请访问权限并等待批准，然后从 Git 仓库根目录执行：
+
+```bash
+hf auth login
+hf download HuangQIjun/eai-simulator-assets \
+  --type dataset \
+  --revision v0.1.0-beta.1 \
+  --include "usd/human/**" \
+  --local-dir .
+```
+
+命令会按原相对路径一次性下载全部角色、活动资产、动作源和 retarget cache，直接补齐
+`usd/human/`。这里不提供按角色、动作或 pack 拆分下载；`v0.1.0-beta.1` 与
+`pack-checksums.json` 绑定，用于保证下载内容可复现。下载完成后可直接执行本文的统一 demo。
+
 ## 已部署标准动作
 
 下表来自 `manifest.json`。`采样范围` 是源动画 time code 的闭区间；`-` 表示使用源动画

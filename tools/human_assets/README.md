@@ -8,6 +8,23 @@
 human root 的路径。转换或迁移命令可以读取经过批准的外部输入，但生成的运行时内容不能依赖
 开发者主目录或其他仓库外绝对路径。
 
+## 安装完整运行时资产
+
+先取得 gated dataset
+[`HuangQIjun/eai-simulator-assets`](https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets)
+的访问权限，再从 Git 仓库根目录一次性下载全部 Human 资产：
+
+```bash
+hf auth login
+hf download HuangQIjun/eai-simulator-assets \
+  --type dataset \
+  --revision v0.1.0-beta.1 \
+  --include "usd/human/**" \
+  --local-dir .
+```
+
+该命令直接补齐 `usd/human/`，不提供按角色、动作或 pack 拆分的下载入口。
+
 ## 文件职责
 
 | 文件 | 运行环境 | 输入 | 输出 |

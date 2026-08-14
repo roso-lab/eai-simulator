@@ -35,6 +35,30 @@ source repository maintains the manifest, schema, audit records, and pack
 checksum metadata. The provider supplies matching `characters/`, `activities/`,
 and `motions/` contents.
 
+## Download the complete payload
+
+The large Human USD files, textures, motions, and retarget caches are hosted in
+the gated Hugging Face dataset
+[`HuangQIjun/eai-simulator-assets`](https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets).
+Request access on that page and wait for approval. Then authenticate and run the
+single complete download from the Git repository root:
+
+```bash
+hf auth login
+hf download HuangQIjun/eai-simulator-assets \
+  --type dataset \
+  --revision v0.1.0-beta.1 \
+  --include "usd/human/**" \
+  --local-dir .
+```
+
+The command pins the immutable tag recorded by `pack-checksums.json` and
+preserves the provider paths, so the download fills the repository's
+`usd/human/` tree directly. Human runtime assets are distributed only as this
+complete payload; there are no per-actor, per-action, or per-pack download
+commands. After it completes, run the unified GUI or headless validation later
+on this page.
+
 ## Actor capabilities
 
 Each asset record declares its capabilities explicitly. Callers must not infer

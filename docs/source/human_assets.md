@@ -29,6 +29,25 @@ PhysX；渲染仍可使用 CUDA GPU。
 记录和 pack 校验元数据；Provider 负责与这些元数据匹配的 `characters/`、`activities/` 和
 `motions/` 内容。
 
+## 下载完整资产
+
+Human 的大型 USD、纹理、动作和 retarget cache 位于 gated Hugging Face dataset
+[`HuangQIjun/eai-simulator-assets`](https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets)。
+先在该页面申请访问权限并等待批准，再从 Git 仓库根目录登录并一次性下载全部 Human 资产：
+
+```bash
+hf auth login
+hf download HuangQIjun/eai-simulator-assets \
+  --type dataset \
+  --revision v0.1.0-beta.1 \
+  --include "usd/human/**" \
+  --local-dir .
+```
+
+该命令固定到与 `pack-checksums.json` 一致的不可变 tag，并保持 Provider 中的相对路径，下载
+结果会直接补齐当前仓库的 `usd/human/`。Human 运行时只提供这一种完整下载方式，不按角色、
+动作或 pack 拆分下载。下载完成后即可运行本页后面的统一 GUI 或 headless 验证命令。
+
 ## 角色能力
 
 每条资产记录通过以下字段声明能力，调用方不应根据目录名推断行为：
