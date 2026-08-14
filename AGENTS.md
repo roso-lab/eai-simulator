@@ -722,14 +722,14 @@ Synchronize the catalog entry, host list, category, asset cfg name, `_PAYLOAD_PA
 3. Add the provider entry paths to `_PAYLOAD_PATHS`, add per-host mount link, position, rotation, or specialized flags to `RobotOption`, and complete the provider-backed asset handoff at the start of this section.
 4. Build the formal scene attributes and implement equivalent preview-stage behavior.
 5. Add the terminal, 3D UI, HTML duplicate, and `usd/picture/processed/sensor/` image.
-6. Add or update interface YAML only for real topics/methods and ensure the responsible runtime enables required extensions and publishers. GS-Hub uses independent gates: `gshub` plus `camera` enables its left/right image graphs through `GSHubCfg(enable_camera_publish=True)`, while `gshub` plus `ros` enables its point-cloud/odometry graph through `GSHubCfg(enable_ros_publish=True)` and declares the downstream scan capability. Iris, Pegasus, and CF2X always carry the built-in monocular camera, `Example_Rotary` RTX LiDAR, and base IMU/GPS/magnetometer/barometer models; `camera` enables only the image publishers, while `ros` enables only the LiDAR and base-sensor publishers. `keyboard` only enables cmd_vel bridge consideration.
+6. Add or update interface YAML only for real topics/methods and ensure the responsible runtime enables required extensions and publishers. Orsus uses independent gates: `orsus` plus `camera` enables its left/right image graphs through `OrsusCfg(enable_camera_publish=True)`, while `orsus` plus `ros` enables its point-cloud/odometry graph through `OrsusCfg(enable_ros_publish=True)` and declares the downstream scan capability. Iris, Pegasus, and CF2X always carry the built-in monocular camera, `Example_Rotary` RTX LiDAR, and base IMU/GPS/magnetometer/barometer models; `camera` enables only the image publishers, while `ros` enables only the LiDAR and base-sensor publishers. `keyboard` only enables cmd_vel bridge consideration.
 
 #### Minimum verification
 
 Use a supported host to check catalog compatibility, requirement expansion, interface loading, and UI/image integrity without Isaac or ROS:
 
 ```bash
-ATTACHMENT=gshub
+ATTACHMENT=orsus
 HOST_ROBOT=carter
 ATTACHMENT="$ATTACHMENT" HOST_ROBOT="$HOST_ROBOT" PYTHONPATH=source/EAI:source/EAI_assets python - <<'PY'
 import os
@@ -755,7 +755,7 @@ selection = {
 }
 graph = resolve_selection(selection)
 assert any(item.id == f"sensor:{attachment}" for item in graph.requirements)
-load_catalog().interface("ros.gshub.left_image")
+load_catalog().interface("ros.orsus.left_image")
 print(*(item.id for item in graph.requirements), sep="\n")
 PY
 test -e "usd/picture/processed/sensor/$ATTACHMENT.png"
@@ -766,7 +766,7 @@ Add exact rejected-host and duplicate-normalization cases to the focused tests c
 
 #### Full integration verification
 
-In Isaac, attach the sensor to every declared host family, inspect mount transforms and prim validity, and start its real publisher. For GS-Hub, verify the independent gate matrix: `gshub` plus `camera` publishes only the left/right images; `gshub` plus `ros` publishes point cloud and odometry but no images; selecting all three publishes both groups, with `scan` still requiring the external conversion pipeline. For Iris, Pegasus, and CF2X, verify `camera`-only, `ros`-only, and combined selections: camera topics require `camera`, while LiDAR and base sensor topics require `ros`. Then inspect the runtime snapshot and run `python simulator.py interfaces status --probe` plus appropriate read-only probes in a configured ROS2 environment. A `gshub` plus `keyboard` selection leaves cmd_vel available but enables neither GS-Hub publisher group.
+In Isaac, attach the sensor to every declared host family, inspect mount transforms and prim validity, and start its real publisher. For Orsus, verify the independent gate matrix: `orsus` plus `camera` publishes only the left/right images; `orsus` plus `ros` publishes point cloud and odometry but no images; selecting all three publishes both groups, with `scan` still requiring the external conversion pipeline. For Iris, Pegasus, and CF2X, verify `camera`-only, `ros`-only, and combined selections: camera topics require `camera`, while LiDAR and base sensor topics require `ros`. Then inspect the runtime snapshot and run `python simulator.py interfaces status --probe` plus appropriate read-only probes in a configured ROS2 environment. A `orsus` plus `keyboard` selection leaves cmd_vel available but enables neither Orsus publisher group.
 
 #### Common omissions
 
@@ -851,7 +851,7 @@ Add a non-physical tool selection that enables a concrete runtime consumer or ex
 
 #### Related registration/compatibility points
 
-Tools are separate from `attachment_catalog()`. Synchronize host compatibility, hardcoded terminal/3D/HTML lists, `usd/picture/processed/tool/`, the actual runtime consumer, and optional interface declarations. The current tools are `camera`, `keyboard`, and `ros`. `keyboard` and `ros` both cause the launcher to consider that robot for a cmd_vel bridge; the external keyboard program publishes Twist. `camera` independently enables GS-Hub image graphs when the same robot has `gshub`, or the built-in monocular-camera publishers on Iris, Pegasus, and CF2X. `ros` enables the GS-Hub point-cloud/odometry graph and each aerial robot's RTX LiDAR and base-sensor publishers; the aerial sensor resources themselves exist without either tool. Declaration alone does not activate behavior.
+Tools are separate from `attachment_catalog()`. Synchronize host compatibility, hardcoded terminal/3D/HTML lists, `usd/picture/processed/tool/`, the actual runtime consumer, and optional interface declarations. The current tools are `camera`, `keyboard`, and `ros`. `keyboard` and `ros` both cause the launcher to consider that robot for a cmd_vel bridge; the external keyboard program publishes Twist. `camera` independently enables Orsus image graphs when the same robot has `orsus`, or the built-in monocular-camera publishers on Iris, Pegasus, and CF2X. `ros` enables the Orsus point-cloud/odometry graph and each aerial robot's RTX LiDAR and base-sensor publishers; the aerial sensor resources themselves exist without either tool. Declaration alone does not activate behavior.
 
 #### Implementation steps
 
@@ -895,7 +895,7 @@ node tools/check_env_diy_runtime.mjs all
 
 #### Full integration verification
 
-Launch a compatible saved environment, start the configured ROS2 bridge, run the keyboard or ROS publisher with system ROS Python, verify the exact `/<instance>/cmd_vel` endpoint, and confirm the runtime snapshot lists only bridges that started. For a `gshub` host, independently verify that `camera` enables only image topics and `ros` enables only point-cloud/odometry topics; `keyboard` enables neither sensor publisher group. For Iris, Pegasus, and CF2X, verify that `camera` enables monocular image/CameraInfo topics while `ros` enables LiDAR and, where supported, the base sensor topics.
+Launch a compatible saved environment, start the configured ROS2 bridge, run the keyboard or ROS publisher with system ROS Python, verify the exact `/<instance>/cmd_vel` endpoint, and confirm the runtime snapshot lists only bridges that started. For a `orsus` host, independently verify that `camera` enables only image topics and `ros` enables only point-cloud/odometry topics; `keyboard` enables neither sensor publisher group. For Iris, Pegasus, and CF2X, verify that `camera` enables monocular image/CameraInfo topics while `ros` enables LiDAR and, where supported, the base sensor topics.
 
 #### Common omissions
 
@@ -1309,7 +1309,7 @@ Therefore, `asset present != selectable != runnable != runtime activated`. Verif
 
 - Attachment and tool host lists are source-controlled and expected to evolve. Query `attachment_catalog()` and `tool_catalog()` with the command above; do not copy a snapshot of the host lists into new code or documentation.
 - A robot may contain several distinct sensors/tools, but only one manipulator type. Repeated identical attachments are deduplicated; a UR5/Z1 mixture is rejected. Unknown attachments are returned by `attachment_entry()` as visual-only compatibility records, then rejected by validation and requirements.
-- `camera`, `keyboard`, and `ros` are non-physical tools with separate host sets. Camera is available on Iris/Pegasus/CF2X and on GS-Hub-capable ground robots, where normal validation requires the `gshub` attachment. The catalog currently permits keyboard but not ROS or camera on the legacy `human`; the human builder's defensive check concerns only keyboard/ROS if a caller bypasses normal catalog validation. Normal saved/DIY flows must obey the catalog.
+- `camera`, `keyboard`, and `ros` are non-physical tools with separate host sets. Camera is available on Iris/Pegasus/CF2X and on Orsus-capable ground robots, where normal validation requires the `orsus` attachment. The catalog currently permits keyboard but not ROS or camera on the legacy `human`; the human builder's defensive check concerns only keyboard/ROS if a caller bypasses normal catalog validation. Normal saved/DIY flows must obey the catalog.
 - Physical compatibility is not established by adding a host name alone. Sensor hosts require valid mount links/offsets; manipulator hosts require a mount profile and formal/preview assembly support.
 
 ### User Interface and Image Synchronization
@@ -1459,7 +1459,7 @@ Run `simulator.py` in `env_isaaclab`. Run external programs that import ROS Humb
 
 `algorithm/keyboard/keyboard.py` detects the common `_rclpy_pybind11`/Python-version mismatch and tells the operator to use `/usr/bin/python3`; it does not re-exec automatically. `algorithm/ros/nav2/tf_bridge.py` does re-exec to `EAI_NAV2_ROS_PYTHON` or `/usr/bin/python3` when it detects Conda or a non-3.10 ABI, unless `EAI_NAV2_NO_REEXEC=1`. The unified Nav2 launch also uses `EAI_NAV2_ROS_PYTHON` for that bridge. Treat these as process boundaries, not permission to merge the simulator and system ROS environments.
 
-Before application launch, `simulator.py` looks for the Isaac ROS2 bridge under `ISAAC_ROS_PATH`, then `EAI_ISAACSIM_ROOT` or `ISAACSIM_ROOT`, followed by conventional user install locations. When found, it sets `ISAAC_ROS_PATH` and prepends the bridge `lib` and prefix paths. The launcher itself uses `setdefault()` for `ROS_DISTRO=humble` and `RMW_IMPLEMENTATION=rmw_fastrtps_cpp`, but importing the current GS-Hub or LiDAR modules normally assigns those values directly and can overwrite caller choices with Fast DDS unless their sensor ROS-environment setup is disabled. Diagnose the process's final environment rather than assuming an explicit earlier RMW value survived sensor imports.
+Before application launch, `simulator.py` looks for the Isaac ROS2 bridge under `ISAAC_ROS_PATH`, then `EAI_ISAACSIM_ROOT` or `ISAACSIM_ROOT`, followed by conventional user install locations. When found, it sets `ISAAC_ROS_PATH` and prepends the bridge `lib` and prefix paths. The launcher itself uses `setdefault()` for `ROS_DISTRO=humble` and `RMW_IMPLEMENTATION=rmw_fastrtps_cpp`, but importing the current Orsus or LiDAR modules normally assigns those values directly and can overwrite caller choices with Fast DDS unless their sensor ROS-environment setup is disabled. Diagnose the process's final environment rather than assuming an explicit earlier RMW value survived sensor imports.
 
 `algorithm/ros/nav2/run_nav2.sh` launches system Nav2 under `env -i` with CycloneDDS but does not forward `ROS_DOMAIN_ID` or other discovery variables. Its Nav2 side therefore uses domain 0, while its simulator child can inherit a caller's nonzero domain; the script currently requires the simulator/default domain to remain 0. A manual launch can inherit an explicitly matched `ROS_DOMAIN_ID` and relevant discovery/network settings in both prepared process environments. Confirm the actual domain, RMW, and discovery configuration on each side.
 
@@ -1492,13 +1492,13 @@ Presence of either publisher does not prove the Isaac subscriber graph is active
 
 ### Sensor Publishers and Topic Collisions
 
-GS-Hub and standalone LiDAR own their ROS publishers in their asset/OmniGraph implementations, not in `ROS2CmdVelBridge`. GS-Hub has two independent builder flags: the `camera` tool sets `enable_camera_publish=True` for its left/right image graphs, while the `ros` tool sets `enable_ros_publish=True` for its point-cloud/odometry graph; both require the physical `gshub` attachment. The catalog associates the derived GS-Hub scan with `ros`, but samples appear only when the external pointcloud-to-laserscan pipeline runs. `keyboard` enables cmd_vel consideration but neither GS-Hub graph. A standalone ground-robot `lidar` attachment creates its own ROS LiDAR asset publisher independently of the `ros` tool.
+Orsus and standalone LiDAR own their ROS publishers in their asset/OmniGraph implementations, not in `ROS2CmdVelBridge`. Orsus has two independent builder flags: the `camera` tool sets `enable_camera_publish=True` for its left/right image graphs, while the `ros` tool sets `enable_ros_publish=True` for its point-cloud/odometry graph; both require the physical `orsus` attachment. The catalog associates the derived Orsus scan with `ros`, but samples appear only when the external pointcloud-to-laserscan pipeline runs. `keyboard` enables cmd_vel consideration but neither Orsus graph. A standalone ground-robot `lidar` attachment creates its own ROS LiDAR asset publisher independently of the `ros` tool.
 
 Iris, Pegasus, and CF2X use a separate built-in aerial sensor suite. Their `camera` tool enables the monocular image and CameraInfo publishers, while `ros` enables the Pegasus `Example_Rotary` RTX LiDAR point cloud plus noisy IMU, GPS, magnetometer, and barometer publishers.
 
-When enabled, both sensors use `/<instance>/cloud` and `/<instance>/odometry`. The LiDAR attachment publishes independently; GS-Hub collides with it only when GS-Hub ROS publication is enabled by the same robot's `ros` tool. `nav2_setup.py --sensor auto` conservatively rejects both attachments from the runtime snapshot regardless of whether the GS-Hub graph is enabled. Keep one publisher active, or explicitly select one only after disabling the other. `/<instance>/scan_cloud` is a topic: `tf_bridge.py` republishes `/<instance>/cloud` there with `header.frame_id` changed to `lidar_link`, and `pointcloud_to_laserscan` consumes it to produce `/<instance>/scan`.
+When enabled, both sensors use `/<instance>/cloud` and `/<instance>/odometry`. The LiDAR attachment publishes independently; Orsus collides with it only when Orsus ROS publication is enabled by the same robot's `ros` tool. `nav2_setup.py --sensor auto` conservatively rejects both attachments from the runtime snapshot regardless of whether the Orsus graph is enabled. Keep one publisher active, or explicitly select one only after disabling the other. `/<instance>/scan_cloud` is a topic: `tf_bridge.py` republishes `/<instance>/cloud` there with `header.frame_id` changed to `lidar_link`, and `pointcloud_to_laserscan` consumes it to produce `/<instance>/scan`.
 
-Publisher presence is weaker than data flow. RTX/render-dependent graphs can register topics while producing no samples, especially in headless or incompletely rendered sessions. Sensor acceptance therefore requires live sampling and rate checks for `/clock`, GS-Hub odometry/cloud/images and derived scan where selected, plus aerial camera, LiDAR, and applicable base-sensor topics, in the actual GUI/headless mode being supported. Camera-only and ROS-only selections must also confirm that topics from the other gate are absent.
+Publisher presence is weaker than data flow. RTX/render-dependent graphs can register topics while producing no samples, especially in headless or incompletely rendered sessions. Sensor acceptance therefore requires live sampling and rate checks for `/clock`, Orsus odometry/cloud/images and derived scan where selected, plus aerial camera, LiDAR, and applicable base-sensor topics, in the actual GUI/headless mode being supported. Camera-only and ROS-only selections must also confirm that topics from the other gate are absent.
 
 ### UR5 and Z1 Manipulator Interfaces
 
@@ -1537,7 +1537,7 @@ This static generation check uses an explicit tracked map, explicit pose and sen
   python algorithm/ros/nav2/nav2_setup.py \
     --robot carter_1 \
     --robot-type Carter \
-    --sensor gshub \
+    --sensor orsus \
     --scene factory \
     --map demo/fire_rescue/assets/factory_map.yaml \
     --pose 0,0,0 \
@@ -1547,7 +1547,7 @@ This static generation check uses an explicit tracked map, explicit pose and sen
 
 The unified `nav2.launch.py` runs that generator, starts the TF bridge, converts `/<instance>/scan_cloud` to `/<instance>/scan`, starts map server and AMCL, then controller, smoother, planner, behavior, BT navigator, waypoint follower, velocity smoother, lifecycle manager, and optional RViz. `tf_bridge.py` publishes dynamic `odom -> base_link` and static `base_link -> lidar_link`; the selected robot/sensor profile supplies the base offset and LiDAR mount values passed to that node. AMCL supplies `map -> odom`. Controller/behavior output is remapped to `cmd_vel_nav`; the velocity smoother publishes the final `/<instance>/cmd_vel`. The ROS package `pointcloud_to_laserscan` is therefore a runtime dependency, not an optional visualization tool.
 
-The profile's implicit Factory map is `usd/scene/factory/factory_map.yaml`, which is not tracked and is not reliable in a clean checkout. `run_nav2.sh` has no map argument and relies on that absent implicit file, so it is not a clean-checkout-capable launcher. Use the manual launch path with an explicit valid map. This example assumes a running simulator selection with `carter_1`, exactly one GS-Hub point-cloud/odometry graph enabled through `gshub` plus `ros`, independently enabled GS-Hub images through `camera`, matching ROS discovery settings, and a fresh runtime snapshot:
+The profile's implicit Factory map is `usd/scene/factory/factory_map.yaml`, which is not tracked and is not reliable in a clean checkout. `run_nav2.sh` has no map argument and relies on that absent implicit file, so it is not a clean-checkout-capable launcher. Use the manual launch path with an explicit valid map. This example assumes a running simulator selection with `carter_1`, exactly one Orsus point-cloud/odometry graph enabled through `orsus` plus `ros`, independently enabled Orsus images through `camera`, matching ROS discovery settings, and a fresh runtime snapshot:
 
 Before launching, run this non-mutating preflight for the exact predictable output directory:
 
@@ -1579,7 +1579,7 @@ EAI_NAV2_MAP="$(pwd)/demo/fire_rescue/assets/factory_map.yaml"
 ros2 launch algorithm/ros/nav2/nav2.launch.py \
   robot_name:=carter_1 \
   robot_type:=Carter \
-  sensor:=gshub \
+  sensor:=orsus \
   scene:=factory \
   map:="$EAI_NAV2_MAP" \
   rviz:=true
@@ -1609,7 +1609,7 @@ python simulator.py interfaces test ros.lidar.odometry \
   --endpoint /carter_1/odometry --mode sample --json
 ```
 
-Declarations are capability metadata, not activation records. Static scene resolution includes interfaces by model/attachment. At runtime the launcher filters only `ros.cmd_vel` entries to bridges whose setup succeeded; other sensor and manipulator declarations can remain in the snapshot even when their publisher or graph did not start. Known examples are the GS-Hub `scan` declaration, which actually depends on the external Nav2 conversion pipeline; GS-Hub and LiDAR declarations that collide on cloud/odometry; Z1 declarations without main-session registration; and UR5 declarations whose active status still depends on successful graph setup.
+Declarations are capability metadata, not activation records. Static scene resolution includes interfaces by model/attachment. At runtime the launcher filters only `ros.cmd_vel` entries to bridges whose setup succeeded; other sensor and manipulator declarations can remain in the snapshot even when their publisher or graph did not start. Known examples are the Orsus `scan` declaration, which actually depends on the external Nav2 conversion pipeline; Orsus and LiDAR declarations that collide on cloud/odometry; Z1 declarations without main-session registration; and UR5 declarations whose active status still depends on successful graph setup.
 
 Presence probes only show that a topic name and type are discoverable. Sample and frequency probes provide stronger read-only evidence but can still miss semantic errors in frames, values, timing, or command application. Input declarations such as cmd_vel and manipulator commands intentionally have no `read_only_test`; the CLI blocks probing them so diagnosis cannot publish commands accidentally.
 
@@ -1862,7 +1862,7 @@ Live verification uses system Python/ROS2 Humble and a separately running Isaac 
 | --- | --- |
 | Discovery | Matching `ROS_DOMAIN_ID` and middleware, expected topic names and types, fresh `/clock`, and no duplicate publishers. |
 | Cmd_vel | `/<instance>/cmd_vel` subscriber exists, a bounded nonzero command changes the robot, and a later zero command stops it. |
-| Sensor and odometry | For GS-Hub, fresh image samples under `camera` and fresh `/<instance>/cloud` plus `/<instance>/odometry` samples under `ros`; scan additionally requires the external conversion pipeline. For aerial robots, fresh camera samples under `camera` and LiDAR plus applicable base-sensor samples under `ros`. |
+| Sensor and odometry | For Orsus, fresh image samples under `camera` and fresh `/<instance>/cloud` plus `/<instance>/odometry` samples under `ros`; scan additionally requires the external conversion pipeline. For aerial robots, fresh camera samples under `camera` and LiDAR plus applicable base-sensor samples under `ros`. |
 | TF | Timestamped `odom -> base_link` plus static `base_link -> lidar_link`, and Nav2's `map -> odom` when localization is active. |
 | Nav2 | Nodes reach active lifecycle state, `navigate_to_pose` accepts the goal, feedback advances, terminal status is successful, and final pose is plausible. |
 | Manipulator | UR5 command subscribers and changing `joint_states`/`ee_pose`; Z1 remains a known main-session activation gap. |
@@ -2106,7 +2106,7 @@ ros2 lifecycle nodes
 | Catalog lists a topic but `ros2 topic list` does not | Declaration exists, publisher/bridge activation failed, or discovery domains differ | Compare saved selection, runtime snapshot, catalog resolution, `ROS_DOMAIN_ID`, and middleware | Check publisher/subscriber counts and simulator graph logs; declarations alone are not activation. |
 | Cmd_vel is discoverable but robot does not move | Wrong instance, bridge inactive, command timeout/shape, or controller application | Confirm `/<instance>/cmd_vel` type/count and selected `ros`/`keyboard` tool or launcher flag | Send a bounded command, observe motion, then send zero and confirm stop. Do not publish during read-only diagnosis. |
 | Odometry exists but TF/Nav2 fails | Missing/stale `odom -> base_link`, incorrect timestamps/frames, absent `map -> odom`, or duplicate sensor publishers | Inspect one odometry sample, `/clock`, `/tf`, `/tf_static`, and configured robot/sensor profile | Run `ros2 run tf2_ros tf2_echo odom base_link` and `map base_link`; validate continuity and timestamps. Current topic is `/<instance>/odometry`, not `/<instance>/odom`. |
-| `/<instance>/scan` is absent while cloud exists | GS-Hub declaration describes derived output but pointcloud-to-laserscan pipeline is not running | Inspect `/<instance>/cloud`, Nav2 launch, and `pointcloud_to_laserscan` node | Verify `scan_cloud` and `scan` rates/frames after starting the supported single-stack pipeline. |
+| `/<instance>/scan` is absent while cloud exists | Orsus declaration describes derived output but pointcloud-to-laserscan pipeline is not running | Inspect `/<instance>/cloud`, Nav2 launch, and `pointcloud_to_laserscan` node | Verify `scan_cloud` and `scan` rates/frames after starting the supported single-stack pipeline. |
 | Nav2 nodes exist but goals stall or fail | Lifecycle, map/localization, TF, scan, odometry, planner/controller, or final cmd_vel chain | Inspect lifecycle nodes, action list, generated config, map path, and topic counts | Require active lifecycle, accepted goal, progressing feedback, terminal status, and plausible final pose. A zero `send_goal.py` exit code alone is insufficient. |
 
 ROS2 Humble tools and `rclpy` programs normally use system Python 3.10, while the simulator remains in `env_isaaclab`. Do not fix one side by contaminating the other interpreter. The tracked suite provides no live ROS automation.
@@ -2456,7 +2456,7 @@ source /opt/ros/humble/setup.bash
 /usr/bin/python3 algorithm/keyboard/keyboard.py --robot carter_1
 ```
 
-**Heavy Isaac/GPU/provider plus live ROS bridge prerequisite for Nav2.** In `env_isaaclab`, start the tracked `nav2` selection before the separate system ROS2 launch. It selects Factory, `carter_1`, one GS-Hub, and both the `camera` and `ros` tools: `camera` enables the GS-Hub image graphs, while `ros` enables its point-cloud/odometry graph and cmd_vel bridge consideration. The launch requires the selected gated assets plus matching ROS discovery settings:
+**Heavy Isaac/GPU/provider plus live ROS bridge prerequisite for Nav2.** In `env_isaaclab`, start the tracked `nav2` selection before the separate system ROS2 launch. It selects Factory, `carter_1`, one Orsus, and both the `camera` and `ros` tools: `camera` enables the Orsus image graphs, while `ros` enables its point-cloud/odometry graph and cmd_vel bridge consideration. The launch requires the selected gated assets plus matching ROS discovery settings:
 
 ```bash
 python simulator.py --env nav2
@@ -2471,7 +2471,7 @@ source /opt/ros/humble/setup.bash
 ros2 launch algorithm/ros/nav2/nav2.launch.py \
   robot_name:=carter_1 \
   robot_type:=Carter \
-  sensor:=gshub \
+  sensor:=orsus \
   scene:=factory \
   map:="$(pwd)/demo/fire_rescue/assets/factory_map.yaml" \
   rviz:=false

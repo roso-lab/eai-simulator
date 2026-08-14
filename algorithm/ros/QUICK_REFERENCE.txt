@@ -23,8 +23,8 @@
     /{robot}_nav/cmd_vel              → 速度控制
 
   发布（传感器输出，自动）:
-    /{robot}_nav/GS_Hub_L_cam         → 左相机
-    /{robot}_nav/GS_Hub_R_cam         → 右相机
+    /{robot}_nav/Orsus_L_cam         → 左相机
+    /{robot}_nav/Orsus_R_cam         → 右相机
     /{robot}_nav/cloud                → 点云
     /{robot}_nav/odom                 → 里程计
 
@@ -102,7 +102,7 @@
 └──────────────────────────────────────────────────────────────────┘
   ✅ 独立实现（不修改 keyboard.py）
   ✅ 原生 ROS2 Bridge（无外部依赖）
-  ✅ 自动传感器发布（GSHub）
+  ✅ 自动传感器发布（Orsus）
   ✅ 4 种机器人支持
   ✅ Nav2 即插即用
   ✅ 完整文档

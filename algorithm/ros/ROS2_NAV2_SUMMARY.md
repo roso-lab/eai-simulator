@@ -21,7 +21,7 @@
 **功能**：
 - 在 Factory 场景中加载单个机器人
 - 支持 4 种机器人类型：carter, scout, go2, b2
-- 自动配置 GSHub 传感器（双目相机 + 点云 + 里程计）
+- 自动配置 Orsus 传感器（双目相机 + 点云 + 里程计）
 - 集成 ROS2CmdVelBridge 订阅 cmd_vel
 
 **使用示例**：
@@ -74,10 +74,10 @@ ROS2 Domain                    Isaac Sim
     │                           env.step()
     │                               │
     │  ┌─────────────────────────────┘
-    │  │ GSHub Auto-Publish
+    │  │ Orsus Auto-Publish
     │  │
-    │<─┤ /robot_name/GS_Hub_L_cam (Image)
-    │<─┤ /robot_name/GS_Hub_R_cam (Image)
+    │<─┤ /robot_name/Orsus_L_cam (Image)
+    │<─┤ /robot_name/Orsus_R_cam (Image)
     │<─┤ /robot_name/cloud (PointCloud2)
     │<─┤ /robot_name/odom (Odometry)
     │
@@ -97,8 +97,8 @@ ROS2 Domain                    Isaac Sim
 - **原因**：Nav2 通常是单机器人导航
 - **实现**：动态创建场景配置，支持机器人选择
 
-#### 4. GSHub 自动发布
-- **原因**：传感器发布已由 GSHub 处理，无需额外代码
+#### 4. Orsus 自动发布
+- **原因**：传感器发布已由 Orsus 处理，无需额外代码
 - **实现**：ROS2CmdVelBridge 只负责控制输入
 
 ---
@@ -108,25 +108,25 @@ ROS2 Domain                    Isaac Sim
 ### Carter (差速驱动)
 - **控制器**: CARTER_DIFF_CFG
 - **默认高度**: 0.0m
-- **传感器**: GSHub (双目 + 激光)
+- **传感器**: Orsus (双目 + 激光)
 - **适用场景**: 平坦地面导航
 
 ### Scout (差速驱动)
 - **控制器**: SCOUT_DIFF_CFG
 - **默认高度**: 0.2m
-- **传感器**: GSHub
+- **传感器**: Orsus
 - **适用场景**: 大型平台导航
 
 ### Go2 (四足RL控制)
 - **控制器**: GO2_RSL_CFG
 - **默认高度**: 0.4m
-- **传感器**: GSHub
+- **传感器**: Orsus
 - **适用场景**: 复杂地形导航
 
 ### B2 (人形RL控制)
 - **控制器**: B2_RSL_CFG
 - **默认高度**: 0.85m
-- **传感器**: GSHub
+- **传感器**: Orsus
 - **适用场景**: 双足导航研究
 
 ---
@@ -169,8 +169,8 @@ ros2 run rviz2 rviz2
 ### 订阅（仿真器 → ROS2）
 | 话题 | 类型 | 频率 | 说明 |
 |------|------|------|------|
-| `/robot_name/GS_Hub_L_cam` | sensor_msgs/Image | ~30Hz | 左相机图像 |
-| `/robot_name/GS_Hub_R_cam` | sensor_msgs/Image | ~30Hz | 右相机图像 |
+| `/robot_name/Orsus_L_cam` | sensor_msgs/Image | ~30Hz | 左相机图像 |
+| `/robot_name/Orsus_R_cam` | sensor_msgs/Image | ~30Hz | 右相机图像 |
 | `/robot_name/cloud` | sensor_msgs/PointCloud2 | ~30Hz | 激光点云 |
 | `/robot_name/odom` | nav_msgs/Odometry | ~50Hz | 里程计 |
 

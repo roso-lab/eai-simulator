@@ -32,8 +32,8 @@ ros2 topic list | grep nav
 
 # 应该看到:
 # /carter_1/cmd_vel
-# /carter_1/GS_Hub_L_cam
-# /carter_1/GS_Hub_R_cam
+# /carter_1/Orsus_L_cam
+# /carter_1/Orsus_R_cam
 # /carter_1/cloud
 # /carter_1/odom
 ```
@@ -131,9 +131,9 @@ ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose \
 ### 发布的话题
 
 #### 1. 相机图像
-- **左相机**: `/{robot_name}/GS_Hub_L_cam` (sensor_msgs/Image)
-- **右相机**: `/{robot_name}/GS_Hub_R_cam` (sensor_msgs/Image)
-- **分辨率**: 取决于 GSHub 配置
+- **左相机**: `/{robot_name}/Orsus_L_cam` (sensor_msgs/Image)
+- **右相机**: `/{robot_name}/Orsus_R_cam` (sensor_msgs/Image)
+- **分辨率**: 取决于 Orsus 配置
 - **编码**: rgb8
 
 #### 2. 点云数据
@@ -162,7 +162,7 @@ ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose \
 python algorithm/ros/tools/ros2_nav2_test.py --robot carter
 # 默认位置: (-7.6, -8.0, 0.0)
 # 类型: 差速驱动
-# 传感器: GSHub (双目相机 + 激光雷达)
+# 传感器: Orsus (双目相机 + 激光雷达)
 # 最大速度: ~1.0 m/s
 ```
 
@@ -246,7 +246,7 @@ python algorithm/ros/tools/ros2_nav2_test.py \
 **症状**：`ros2 topic echo /carter_1/cloud` 无输出
 
 **检查步骤**：
-1. 确认 GSHub 传感器已初始化：查看仿真器启动日志
+1. 确认 Orsus 传感器已初始化：查看仿真器启动日志
 2. 等待几秒（传感器初始化需要时间）
 3. 检查话题频率：`ros2 topic hz /carter_1/cloud`
 4. 如果频率为 0，重启仿真器
@@ -256,7 +256,7 @@ python algorithm/ros/tools/ros2_nav2_test.py \
 ## 📈 性能优化
 
 ### 降低点云发布频率
-如果点云数据量太大，可以在 GSHub 配置中调整发布频率。
+如果点云数据量太大，可以在 Orsus 配置中调整发布频率。
 
 ### 使用无头模式
 ```bash

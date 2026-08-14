@@ -50,7 +50,7 @@ def configure_ros_env():
     """
     自动查找 Isaac Sim ROS2 Bridge 路径并配置环境变量。
     """
-    if os.environ.get("EAI_DISABLE_GSHUB_ROS_ENV", "").strip().casefold() in {"1", "true", "yes", "on"}:
+    if os.environ.get("EAI_DISABLE_ORSUS_ROS_ENV", "").strip().casefold() in {"1", "true", "yes", "on"}:
         return None
 
     # 1. 设置基础变量
@@ -83,19 +83,19 @@ def configure_ros_env():
         os.environ["AMENT_PREFIX_PATH"] = f"{current_ament}:{isaac_ros_path}" if current_ament else isaac_ros_path
 
 
-_GSHUB_ROS_NAMESPACE_NODE_SUFFIXES = (
-    "GS_Hub/Graphs/ROS2_publish_L_cam/ros2_camera_helper",
-    "GS_Hub/Graphs/ROS2_publish_R_cam/ros2_camera_helper",
+_ORSUS_ROS_NAMESPACE_NODE_SUFFIXES = (
+    "Orsus/Graphs/ROS2_publish_L_cam/ros2_camera_helper",
+    "Orsus/Graphs/ROS2_publish_R_cam/ros2_camera_helper",
 )
 
-_GSHUB_CAMERA_GRAPH_PATHS = (
-    "GS_Hub/Graphs/ROS2_publish_L_cam",
-    "GS_Hub/Graphs/ROS2_publish_R_cam",
+_ORSUS_CAMERA_GRAPH_PATHS = (
+    "Orsus/Graphs/ROS2_publish_L_cam",
+    "Orsus/Graphs/ROS2_publish_R_cam",
 )
-_GSHUB_ROS_GRAPH_PATHS = (
-    "GS_Hub/Graphs/ROS2_publish_Lidar_Odom",
+_ORSUS_ROS_GRAPH_PATHS = (
+    "Orsus/Graphs/ROS2_publish_Lidar_Odom",
 )
-_GSHUB_LIDAR_PRIM_PATH = "GS_Hub/base_link/lidar_link/GS_Hub_Lidar"
+_ORSUS_LIDAR_PRIM_PATH = "Orsus/base_link/lidar_link/Orsus_Lidar"
 
 
 def _sanitize_ros_name_component(component: str) -> str:
@@ -119,7 +119,7 @@ def _normalize_ros_namespace(namespace: str | None) -> str:
     return "/" + "/".join(parts)
 
 
-def _robot_name_from_gshub_path(specific_path: str) -> str:
+def _robot_name_from_orsus_path(specific_path: str) -> str:
     parts = [part for part in str(specific_path).split("/") if part]
     for index, part in enumerate(parts):
         if part == "envs" and index + 2 < len(parts) and parts[index + 1].startswith("env_"):
@@ -136,18 +136,18 @@ def _robot_name_from_gshub_path(specific_path: str) -> str:
     return ""
 
 
-def _gshub_ros_namespace_for_instance(cfg, specific_path: str) -> str:
+def _orsus_ros_namespace_for_instance(cfg, specific_path: str) -> str:
     explicit_namespace = getattr(cfg, "ros_namespace", None)
     if explicit_namespace:
         return _normalize_ros_namespace(explicit_namespace)
-    return _normalize_ros_namespace(_robot_name_from_gshub_path(specific_path))
+    return _normalize_ros_namespace(_robot_name_from_orsus_path(specific_path))
 
 
-def _gshub_runtime_graph_path(specific_path: str) -> str:
+def _orsus_runtime_graph_path(specific_path: str) -> str:
     instance_name = _sanitize_ros_name_component(
         specific_path.strip("/").replace("/", "_")
     )
-    return f"/World/EAI_GSHUB_GRAPHS/{instance_name}"
+    return f"/World/EAI_ORSUS_GRAPHS/{instance_name}"
 
 
 def _set_node_namespace(stage, node_path: str, namespace: str) -> bool:
@@ -161,27 +161,27 @@ def _set_node_namespace(stage, node_path: str, namespace: str) -> bool:
     return True
 
 
-def _apply_gshub_ros_namespace(stage, specific_path: str, namespace: str) -> int:
+def _apply_orsus_ros_namespace(stage, specific_path: str, namespace: str) -> int:
     if not namespace:
         return 0
     updated = 0
-    for suffix in _GSHUB_ROS_NAMESPACE_NODE_SUFFIXES:
+    for suffix in _ORSUS_ROS_NAMESPACE_NODE_SUFFIXES:
         node_path = f"{specific_path}/{suffix}"
         if _set_node_namespace(stage, node_path, namespace):
             updated += 1
     return updated
 
 
-def _set_gshub_publish_graphs_active(
+def _set_orsus_publish_graphs_active(
     stage,
-    gshub_root_path: str,
+    orsus_root_path: str,
     graph_paths: tuple[str, ...],
     enabled: bool,
 ) -> int:
-    """Set one group of embedded GSHub publisher graphs active or inactive."""
+    """Set one group of embedded Orsus publisher graphs active or inactive."""
     updated = 0
     for rel_path in graph_paths:
-        full_path = f"{gshub_root_path}/{rel_path}"
+        full_path = f"{orsus_root_path}/{rel_path}"
         prim = stage.GetPrimAtPath(full_path)
         if not prim.IsValid():
             continue
@@ -191,7 +191,7 @@ def _set_gshub_publish_graphs_active(
             updated += 1
         except Exception as e:
             action = "enable" if enabled else "disable"
-            print(f"[GSHub] ⚠️  Failed to {action} graph {full_path}: {e}", flush=True)
+            print(f"[Orsus] ⚠️  Failed to {action} graph {full_path}: {e}", flush=True)
 
     return updated
 
@@ -209,7 +209,7 @@ from isaaclab.utils import configclass
 from EAI_assets.asset_resolver import asset_path
 
 
-def _gshub_runtime_asset_path(source_path: str) -> str:
+def _orsus_runtime_asset_path(source_path: str) -> str:
     """Create a runtime copy without the non-instance-safe LiDAR/odometry graph."""
     source_path = str(Path(source_path).expanduser().resolve())
     source_stat = Path(source_path).stat()
@@ -229,38 +229,38 @@ def _gshub_runtime_asset_path(source_path: str) -> str:
 
     layer = Sdf.Layer.OpenAsAnonymous(source_path)
     if layer is None:
-        raise RuntimeError(f"Failed to open GS-Hub asset: {source_path}")
+        raise RuntimeError(f"Failed to open Orsus asset: {source_path}")
     removed_paths = (
-        Sdf.Path("/Root/GS_Hub/Graphs/ROS2_publish_Lidar_Odom"),
-        Sdf.Path("/Root/GS_Hub/base_link/lidar_link/GS_Hub_Lidar"),
+        Sdf.Path("/Root/Orsus/Graphs/ROS2_publish_Lidar_Odom"),
+        Sdf.Path("/Root/Orsus/base_link/lidar_link/Orsus_Lidar"),
     )
     if layer.GetPrimAtPath(removed_paths[0]) is None:
-        raise RuntimeError(f"GS-Hub LiDAR/odometry graph is missing: {source_path}")
+        raise RuntimeError(f"Orsus LiDAR/odometry graph is missing: {source_path}")
     if layer.GetPrimAtPath(removed_paths[1]) is None:
-        raise RuntimeError(f"GS-Hub LiDAR prim is missing: {source_path}")
+        raise RuntimeError(f"Orsus LiDAR prim is missing: {source_path}")
     namespace_edit = Sdf.BatchNamespaceEdit()
     for removed_path in removed_paths:
         namespace_edit.Add(removed_path, Sdf.Path.emptyPath)
     if not layer.Apply(namespace_edit):
-        raise RuntimeError(f"Failed to remove GS-Hub source graph: {source_path}")
+        raise RuntimeError(f"Failed to remove Orsus source graph: {source_path}")
     if not layer.Export(str(runtime_path)):
-        raise RuntimeError(f"Failed to create GS-Hub runtime asset: {runtime_path}")
+        raise RuntimeError(f"Failed to create Orsus runtime asset: {runtime_path}")
     return str(runtime_path)
 
 
-gs_hub_source_path = asset_path("payloads/sensors/gs_hub/GS_Hub_fix_type.usd")
-gs_hub_path = gs_hub_source_path
+orsus_source_path = asset_path("payloads/sensors/orsus/Orsus_fix_type.usd")
+orsus_path = orsus_source_path
 
-# 全局字典：临时存储每个 GSHub 实例的发布配置
+# 全局字典：临时存储每个 Orsus 实例的发布配置
 # Key: prim_path, Value: bool
-_gshub_ros_publish_config = {}
-_gshub_camera_publish_config = {}
-_gshub_disable_physics_config = {}
-_gshub_ros_graph_requests: dict[str, tuple[str, str, str]] = {}
-_gshub_ros_resources: dict[str, tuple[str, str, object]] = {}
+_orsus_ros_publish_config = {}
+_orsus_camera_publish_config = {}
+_orsus_disable_physics_config = {}
+_orsus_ros_graph_requests: dict[str, tuple[str, str, str]] = {}
+_orsus_ros_resources: dict[str, tuple[str, str, object]] = {}
 
 
-def _create_gshub_rtx_lidar_publisher(
+def _create_orsus_rtx_lidar_publisher(
     stage,
     lidar_prim_path: str,
     namespace: str,
@@ -275,7 +275,7 @@ def _create_gshub_rtx_lidar_publisher(
 
     render_product_path = _create_rtx_lidar_render_product(stage, lidar_prim_path)
     if not render_product_path:
-        raise RuntimeError(f"Failed to create GS-Hub RTX LiDAR at {lidar_prim_path}")
+        raise RuntimeError(f"Failed to create Orsus RTX LiDAR at {lidar_prim_path}")
 
     writer = None
     try:
@@ -296,9 +296,9 @@ def _create_gshub_rtx_lidar_publisher(
     return render_product_path, writer
 
 
-def setup_pending_gshub_ros_graphs() -> int:
+def setup_pending_orsus_ros_graphs() -> int:
     """Create RTX LiDAR publishers and instance-safe odometry graphs."""
-    if not _gshub_ros_graph_requests:
+    if not _orsus_ros_graph_requests:
         return 0
 
     import omni.graph.core as og
@@ -307,9 +307,9 @@ def setup_pending_gshub_ros_graphs() -> int:
     created = 0
     stage = omni.usd.get_context().get_stage()
     for graph_path, (lidar_prim_path, chassis_prim_path, namespace) in tuple(
-        _gshub_ros_graph_requests.items()
+        _orsus_ros_graph_requests.items()
     ):
-        render_product_path, writer = _create_gshub_rtx_lidar_publisher(
+        render_product_path, writer = _create_orsus_rtx_lidar_publisher(
             stage,
             lidar_prim_path,
             namespace,
@@ -393,21 +393,21 @@ def setup_pending_gshub_ros_graphs() -> int:
             if lidar_prim and lidar_prim.IsValid():
                 stage.RemovePrim(lidar_prim_path)
             raise
-        _gshub_ros_resources[graph_path] = (
+        _orsus_ros_resources[graph_path] = (
             lidar_prim_path,
             render_product_path,
             writer,
         )
-        _gshub_ros_graph_requests.pop(graph_path, None)
+        _orsus_ros_graph_requests.pop(graph_path, None)
         created += 1
     return created
 
 
-def close_gshub_ros_resources() -> None:
+def close_orsus_ros_resources() -> None:
     """Release RTX writers, render products, sensors, and odometry graphs."""
-    resources = tuple(_gshub_ros_resources.items())
-    _gshub_ros_resources.clear()
-    _gshub_ros_graph_requests.clear()
+    resources = tuple(_orsus_ros_resources.items())
+    _orsus_ros_resources.clear()
+    _orsus_ros_graph_requests.clear()
     if not resources:
         return
 
@@ -422,30 +422,30 @@ def close_gshub_ros_resources() -> None:
             try:
                 detach()
             except Exception as exc:
-                print(f"[GSHub] Warning: Failed to detach RTX LiDAR writer: {exc}")
+                print(f"[Orsus] Warning: Failed to detach RTX LiDAR writer: {exc}")
         try:
             _destroy_rtx_lidar_render_product(render_product_path)
         except Exception as exc:
-            print(f"[GSHub] Warning: Failed to destroy RTX render product: {exc}")
+            print(f"[Orsus] Warning: Failed to destroy RTX render product: {exc}")
         for prim_path in (graph_path, lidar_prim_path):
             try:
                 prim = stage.GetPrimAtPath(prim_path)
                 if prim and prim.IsValid():
                     stage.RemovePrim(prim_path)
             except Exception as exc:
-                print(f"[GSHub] Warning: Failed to remove {prim_path}: {exc}")
+                print(f"[Orsus] Warning: Failed to remove {prim_path}: {exc}")
 
     try:
         from omni.kit import app as kit_app
 
         kit_app.get_app().update()
     except Exception as exc:
-        print(f"[GSHub] Warning: Failed to finalize RTX LiDAR cleanup: {exc}")
+        print(f"[Orsus] Warning: Failed to finalize RTX LiDAR cleanup: {exc}")
 
 
-def _disable_gshub_payload_physics(stage, specific_path: str) -> tuple[bool, bool]:
-    """Keep a mounted GS-Hub visual/sensor-only instead of extending the chassis."""
-    base_link_path = f"{specific_path}/GS_Hub/base_link"
+def _disable_orsus_payload_physics(stage, specific_path: str) -> tuple[bool, bool]:
+    """Keep a mounted Orsus visual/sensor-only instead of extending the chassis."""
+    base_link_path = f"{specific_path}/Orsus/base_link"
     collision_path = f"{base_link_path}/collisions"
 
     collision_disabled = False
@@ -466,23 +466,23 @@ def _disable_gshub_payload_physics(stage, specific_path: str) -> tuple[bool, boo
     return collision_disabled, mass_removed
 
 
-def _gshub_physics_disabled_for_instance(cfg, prim_path: str, specific_path: str) -> bool:
+def _orsus_physics_disabled_for_instance(cfg, prim_path: str, specific_path: str) -> bool:
     if bool(getattr(cfg, "disable_physics", False)):
         return True
     return any(
-        bool(_gshub_disable_physics_config.get(path_key, False))
-        for path_key in (prim_path, specific_path, f"{specific_path}/GS_Hub")
+        bool(_orsus_disable_physics_config.get(path_key, False))
+        for path_key in (prim_path, specific_path, f"{specific_path}/Orsus")
     )
 
 
-def spawn_and_fix_gshub(prim_path, cfg, translation, orientation):
+def spawn_and_fix_orsus(prim_path, cfg, translation, orientation):
     """
     自定义生成回调函数：
     1. 加载 USD 模型。
     2. 配置双目发布并登记 RTX LiDAR/odometry 运行时资源。
     """
     runtime_cfg = cfg.copy()
-    runtime_cfg.usd_path = _gshub_runtime_asset_path(cfg.usd_path)
+    runtime_cfg.usd_path = _orsus_runtime_asset_path(cfg.usd_path)
     sim_utils.spawn_from_usd(
         prim_path,
         runtime_cfg,
@@ -491,8 +491,8 @@ def spawn_and_fix_gshub(prim_path, cfg, translation, orientation):
     )
 
     # --- B. 立即执行修复逻辑 ---
-    # print(f"[GSHub] ⚙️ Spawning at {prim_path}, applying fix...")
-    target_prim_name = prim_path.split("/")[-1]  # "GSHub"
+    # print(f"[Orsus] ⚙️ Spawning at {prim_path}, applying fix...")
+    target_prim_name = prim_path.split("/")[-1]  # "Orsus"
     parent_regex = prim_path.rpartition("/")[0]  # "/World/envs/env_.*/Robot/base"
 
     # 查找所有匹配的父级路径 (例如 env_0/Robot/base, env_1/Robot/base...)
@@ -500,7 +500,7 @@ def spawn_and_fix_gshub(prim_path, cfg, translation, orientation):
     matched_parents = prim_utils.find_matching_prim_paths(parent_regex)
 
     if not matched_parents:
-        print(f"[GSHub] ⚠️ No parents found matching: {parent_regex}")
+        print(f"[Orsus] ⚠️ No parents found matching: {parent_regex}")
         # 如果找不到父级 (可能是单环境且没用正则)，尝试直接用原路径当做唯一路径
         resolved_paths = [prim_path]
     else:
@@ -508,17 +508,17 @@ def spawn_and_fix_gshub(prim_path, cfg, translation, orientation):
         resolved_paths = [f"{p}/{target_prim_name}" for p in matched_parents]
 
 
-    print(f"[GSHub] ⚙️ Spawning & Fixing for {len(resolved_paths)} instances...")
+    print(f"[Orsus] ⚙️ Spawning & Fixing for {len(resolved_paths)} instances...")
     stage = omni.usd.get_context().get_stage()
 
     # --- 2. 循环处理每一个实例 (关键修复点) ---
     for specific_path in resolved_paths:  # <--- 这里必须循环！
-        if _gshub_physics_disabled_for_instance(cfg, prim_path, specific_path):
-            collision_disabled, mass_removed = _disable_gshub_payload_physics(
+        if _orsus_physics_disabled_for_instance(cfg, prim_path, specific_path):
+            collision_disabled, mass_removed = _disable_orsus_payload_physics(
                 stage, specific_path
             )
             print(
-                "[GSHub] Payload physics disabled: "
+                "[Orsus] Payload physics disabled: "
                 f"collision={collision_disabled}, mass={mass_removed} ({specific_path})"
             )
 
@@ -530,58 +530,58 @@ def spawn_and_fix_gshub(prim_path, cfg, translation, orientation):
 
         # Older callers used a plain UsdFileCfg and path maps. Keep that as a fallback.
         if not has_ros_gate:
-            for path_key in [prim_path, specific_path, f"{specific_path}/GS_Hub"]:
-                if path_key in _gshub_ros_publish_config:
-                    enable_ros_publish = _gshub_ros_publish_config[path_key]
+            for path_key in [prim_path, specific_path, f"{specific_path}/Orsus"]:
+                if path_key in _orsus_ros_publish_config:
+                    enable_ros_publish = _orsus_ros_publish_config[path_key]
                     break
         if not has_camera_gate:
-            for path_key in [prim_path, specific_path, f"{specific_path}/GS_Hub"]:
-                if path_key in _gshub_camera_publish_config:
-                    enable_camera_publish = _gshub_camera_publish_config[path_key]
+            for path_key in [prim_path, specific_path, f"{specific_path}/Orsus"]:
+                if path_key in _orsus_camera_publish_config:
+                    enable_camera_publish = _orsus_camera_publish_config[path_key]
                     break
 
-        camera_graph_count = _set_gshub_publish_graphs_active(
+        camera_graph_count = _set_orsus_publish_graphs_active(
             stage,
             specific_path,
-            _GSHUB_CAMERA_GRAPH_PATHS,
+            _ORSUS_CAMERA_GRAPH_PATHS,
             enable_camera_publish,
         )
 
-        lidar_prim_path = f"{specific_path}/{_GSHUB_LIDAR_PRIM_PATH}"
+        lidar_prim_path = f"{specific_path}/{_ORSUS_LIDAR_PRIM_PATH}"
         if enable_ros_publish:
-            graph_path = _gshub_runtime_graph_path(specific_path)
+            graph_path = _orsus_runtime_graph_path(specific_path)
             chassis_prim_path = str(Sdf.Path(specific_path).GetParentPath())
-            namespace = _gshub_ros_namespace_for_instance(cfg, specific_path)
-            _gshub_ros_graph_requests[graph_path] = (
+            namespace = _orsus_ros_namespace_for_instance(cfg, specific_path)
+            _orsus_ros_graph_requests[graph_path] = (
                 lidar_prim_path,
                 chassis_prim_path,
                 namespace,
             )
-            print(f"[GSHub] RTX LiDAR requested: {lidar_prim_path}")
+            print(f"[Orsus] RTX LiDAR requested: {lidar_prim_path}")
             print(
-                f"[GSHub] Odometry requested: {graph_path}/"
+                f"[Orsus] Odometry requested: {graph_path}/"
                 f"isaac_compute_odometry_node -> {chassis_prim_path}"
             )
 
         ros_graph_count = int(enable_ros_publish)
 
         if enable_ros_publish or enable_camera_publish:
-            namespace = _gshub_ros_namespace_for_instance(cfg, specific_path)
-            updated_count = _apply_gshub_ros_namespace(stage, specific_path, namespace)
+            namespace = _orsus_ros_namespace_for_instance(cfg, specific_path)
+            updated_count = _apply_orsus_ros_namespace(stage, specific_path, namespace)
             if updated_count:
-                print(f"[GSHub] ✅ ROS namespace: {namespace} ({updated_count} publish nodes)")
+                print(f"[Orsus] ✅ ROS namespace: {namespace} ({updated_count} publish nodes)")
             elif namespace:
-                print(f"[GSHub] ⚠️ ROS namespace not applied for {specific_path}: {namespace}")
+                print(f"[Orsus] ⚠️ ROS namespace not applied for {specific_path}: {namespace}")
 
         print(
-            "[GSHub] Publisher graphs: "
+            "[Orsus] Publisher graphs: "
             f"lidar/odom={'on' if enable_ros_publish else 'off'} ({ros_graph_count}), "
             f"camera={'on' if enable_camera_publish else 'off'} ({camera_graph_count})",
             flush=True,
         )
 
 @configclass
-class GSHubSpawnCfg(sim_utils.UsdFileCfg):
+class OrsusSpawnCfg(sim_utils.UsdFileCfg):
     ros_namespace: str | None = None
     enable_ros_publish: bool = True  # 是否激活 LiDAR/odometry ROS2 发布节点
     enable_camera_publish: bool = True  # 是否激活左右相机 ROS2 发布节点
@@ -589,19 +589,19 @@ class GSHubSpawnCfg(sim_utils.UsdFileCfg):
 
 
 @configclass
-class GSHubCfg(AssetBaseCfg):
+class OrsusCfg(AssetBaseCfg):
     ros_namespace: str | None = None
     enable_ros_publish: bool = True
     enable_camera_publish: bool = True
     disable_physics: bool = False
-    spawn = GSHubSpawnCfg(
-        usd_path=gs_hub_path,
-        func=spawn_and_fix_gshub,
+    spawn = OrsusSpawnCfg(
+        usd_path=orsus_path,
+        func=spawn_and_fix_orsus,
     )
-    asset_dependencies = (gs_hub_source_path,)
+    asset_dependencies = (orsus_source_path,)
 
     def __post_init__(self) -> None:
-        if not isinstance(self.spawn, GSHubSpawnCfg):
+        if not isinstance(self.spawn, OrsusSpawnCfg):
             return
         self.spawn.ros_namespace = self.ros_namespace
         self.spawn.enable_ros_publish = self.enable_ros_publish

@@ -57,7 +57,7 @@ ROBOT_LABELS = {
 }
 
 # Robots that carry a built-in monocular camera, so the Camera tool does not
-# require a GSHub stereo payload. Aerial robots publish through the aerial
+# require a Orsus stereo payload. Aerial robots publish through the aerial
 # sensor suite; MuSHR publishes through its own front-facing camera.
 BUILTIN_CAMERA_ROBOTS = frozenset({"cf2x", "iris", "pegasus", "mushr_v2"})
 
@@ -170,7 +170,7 @@ def controller_cfg_names() -> tuple[str, ...]:
 
 
 def _attachment_entries() -> tuple[AttachmentCatalogEntry, ...]:
-    gshub_hosts = (
+    orsus_hosts = (
         "carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3",
     )
     lidar_hosts = ("carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3")
@@ -178,10 +178,10 @@ def _attachment_entries() -> tuple[AttachmentCatalogEntry, ...]:
     z1_hosts = ("carter", "go2", "b2", "m20", "scout", "lite3")
     return (
         AttachmentCatalogEntry(
-            name="gshub",
-            asset_cfg="GSHubCfg",
+            name="orsus",
+            asset_cfg="OrsusCfg",
             controller_cfg=None,
-            supported_robots=gshub_hosts,
+            supported_robots=orsus_hosts,
             category="sensor",
         ),
         AttachmentCatalogEntry(
@@ -281,9 +281,9 @@ def validate_attachment_types(robot_type: str, attachment_types: list[str] | tup
             manipulator = attachment_type
         if attachment_type not in normalized:
             normalized.append(attachment_type)
-    if "camera" in normalized and host not in BUILTIN_CAMERA_ROBOTS and "gshub" not in normalized:
+    if "camera" in normalized and host not in BUILTIN_CAMERA_ROBOTS and "orsus" not in normalized:
         raise ValueError(
-            f"Camera tool on robot '{host}' requires the GSHub payload."
+            f"Camera tool on robot '{host}' requires the Orsus payload."
         )
     return tuple(normalized)
 

@@ -15,15 +15,15 @@ import numpy as np
 
 
 # 工厂场景专用：仅保留
-# - carter_1：Carter + GS-Hub 传感器（无机械臂）
+# - carter_1：Carter + Orsus 传感器（无机械臂）
 # - scout_1：Scout 差速移动底盘 + 背部 UR5 机械臂
 # - m20_1：M20 四足轮腿 + 背部 UR5 机械臂（主要负责操作任务）
 # - m20_2：M20 四足轮腿 + 背部 UR5 机械臂（主要负责协同搬运/抓取）
 ROBOT_DESCRIPTIONS = {
     "carter_1": {
-        "type": "CarterGSHubRobot",
+        "type": "CarterOrsusRobot",
         "description": (
-            "Carter differential drive robot equipped with a GS-Hub high-precision sensor "
+            "Carter differential drive robot equipped with a Orsus high-precision sensor "
             "(Lidar and Odometry via ROS2 bridge). It is specialized for indoor navigation, "
             "mapping, and long-range perception, but it does not have a manipulation arm."
         ),
@@ -160,12 +160,12 @@ def extract_perception_capabilities(
         "max_range": 10.0,  # Sensor detection range, NOT navigation limit
     }
     
-    # 工厂场景：carter_1 带 GS-Hub，scout_1 为 Scout，m20_1 / m20_2 前向相机
+    # 工厂场景：carter_1 带 Orsus，scout_1 为 Scout，m20_1 / m20_2 前向相机
     if robot_name_lower == "carter_1":
         perception.update({
-            "summary": "GS-Hub high-precision sensor: Lidar and Odometry (ROS2 bridge), suitable for indoor mapping and navigation",
-            "sensors": ["lidar", "odometry", "gs_hub"],
-            "camera_height": 0.418,  # GSHub 相对底盘安装高度
+            "summary": "Orsus high-precision sensor: Lidar and Odometry (ROS2 bridge), suitable for indoor mapping and navigation",
+            "sensors": ["lidar", "odometry", "orsus"],
+            "camera_height": 0.418,  # Orsus 相对底盘安装高度
             "hfov": 360.0,  # Lidar 环扫
             "vfov": 30.0,
             "max_range": 15.0,

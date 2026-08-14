@@ -113,7 +113,7 @@ _ROBOT_PATHS = {
 _PAYLOAD_PATHS = {
     "ur5": ("payloads/manipulators/ur5/ur5-noroot.usd",),
     "z1": ("payloads/manipulators/z1/z1_description.usda",),
-    "gshub": ("payloads/sensors/gs_hub/GS_Hub_fix_type.usd",),
+    "orsus": ("payloads/sensors/orsus/Orsus_fix_type.usd",),
     "lidar": ("payloads/sensors/lidar/ros_lidar.usda",),
 }
 
