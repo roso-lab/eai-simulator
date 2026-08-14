@@ -673,7 +673,7 @@ DISCUSSION_TOOLS = []
 
 ROBOT_DESCRIPTION = {
     # 工厂场景
-    "CarterGSHubRobot": "Carter 差速驱动机器人，搭载 GS-Hub 传感器（激光雷达、通过 ROS2 的里程计），用于室内导航与建图。",
+    "CarterOrsusRobot": "Carter 差速驱动机器人，搭载 Orsus 传感器（激光雷达、通过 ROS2 的里程计），用于室内导航与建图。",
     "CarterRobot": "Carter 是一款差速驱动轮式机器人，具备 RGBD / 激光雷达感知能力。",
     "M20FrankaRobot": "M20 轮足四足机器人，背部搭载 Franka Panda 7自由度机械臂，适用于复杂地形操控任务。",
     "M20Robot": "M20 是一款轮足混合四足机器人，结合轮式和腿式运动，适应复杂地形。",

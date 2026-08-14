@@ -1,12 +1,12 @@
 pointcloud_to_laserscan:
   ros__parameters:
-    # 输入点云保持 GSHub/Mid360 的传感器坐标 lidar_link；这里按静态 TF
+    # 输入点云保持 Orsus/Mid360 的传感器坐标 lidar_link；这里按静态 TF
     # 转到水平 base_link 后做高度切片，避免下倾地面回波投成车前横障碍。
     target_frame: base_link
     transform_tolerance: 0.05
 
     # 高度切片（base_link 坐标系，地面约在 z=0）
-    # 下限按机器人调参，避免 GSHub 地面/底盘低位回波被投成车前横向障碍
+    # 下限按机器人调参，避免 Orsus 地面/底盘低位回波被投成车前横向障碍
     min_height: @@SCAN_Z_MIN@@
     max_height: @@SCAN_Z_MAX@@
 
@@ -16,7 +16,7 @@ pointcloud_to_laserscan:
     angle_increment: 0.0087    # ~0.5° 分辨率（720 束）
     scan_time: 0.1             # 10Hz
 
-    # 距离范围（GSHub 雷达）。min 至少覆盖机器人本体半径，避免自体回波。
+    # 距离范围（Orsus 雷达）。min 至少覆盖机器人本体半径，避免自体回波。
     range_min: @@SCAN_RANGE_MIN@@
     range_max: 30.0
 

@@ -1,6 +1,6 @@
 # Payloads
 
-Env DIY saves devices installed on the host robot in `robots[].attachments[]`. Currently divided into Sensors (GS-Hub, LiDAR) and Manipulators (UR5, Z1); the visualization window, terminal quick mode and Isaac Sim 3D editor share the same directory and compatibility rules.
+Env DIY saves devices installed on the host robot in `robots[].attachments[]`. Currently divided into Sensors (Orsus, LiDAR) and Manipulators (UR5, Z1); the visualization window, terminal quick mode and Isaac Sim 3D editor share the same directory and compatibility rules.
 
 ## Project structure
 
@@ -10,11 +10,11 @@ Env DIY saves devices installed on the host robot in `robots[].attachments[]`. C
 | `source/EAI/EAI/hmrs_env/env_diy/flow.py` | Convert interface selection to `AttachmentSelection`, check for duplicates, host compatibility and UR5/Z1 mutual exclusion rules |
 | `source/EAI/EAI/hmrs_env/env_diy/storage.py` | Writes the payload to the environment JSON and normalizes it on reading `robots[].attachments[]` |
 | `source/EAI_hmrs/EAI_hmrs/env_builder.py` | Create sensors, manipulator articulation, FixedJoint and corresponding controllers according to the environment selection |
-| `source/EAI_assets/EAI_assets/sensor/` | Provides asset configuration and ROS2 release implementation of GS-Hub and LiDAR |
+| `source/EAI_assets/EAI_assets/sensor/` | Provides asset configuration and ROS2 release implementation of Orsus and LiDAR |
 | `source/EAI_assets/EAI_assets/robots/*_mount.py` | Define the universal mounting primitives of UR5/Z1 and the installation profiles of different hosts |
 | `source/EAI_assets/EAI_assets/controller/traditional/` | Provides `UR5_IK_CFG`, `Z1_IK_CFG` and public robot arm IK controllers |
 | `source/EAI/EAI/hmrs_ros/manipulator_omnigraph.py` | Create the robot arm ROS2 command and status interface according to the robot instance |
-| `usd/payloads/sensors/` | Save GS-Hub, LiDAR and other sensor USD assets |
+| `usd/payloads/sensors/` | Save Orsus, LiDAR and other sensor USD assets |
 | `usd/payloads/manipulators/` | Save USD, URDF and source description assets of UR5, Z1 and other robotic arms |
 
 ## Usage
@@ -26,7 +26,7 @@ When using Env DIY, first select the host robot and then add compatible devices 
   "type": "go2",
   "controller": {"mode": "default", "cfg": "GO2_VELOCITY_RSL_CFG"},
   "attachments": [
-    {"type": "gshub", "controller": null},
+    {"type": "orsus", "controller": null},
     {"type": "z1", "controller": {"mode": "default", "cfg": "Z1_IK_CFG"}},
     {"type": "ros", "controller": null}
   ]
@@ -50,13 +50,13 @@ Environment JSON
   → MultiRobotDirectEnv starts the formal environment
 ```
 
-GS-Hub only enables camera, point cloud and odometry publishing if `ros` is added to the same host. UR5/Z1 will automatically create the corresponding OmniGraph with the robot arm attachment, and no additional `ros` is required to use the robot arm topic.
+The `camera` tool exclusively controls Orsus left/right image publishing, while the `ros` tool exclusively controls point-cloud and odometry publishing. Iris, Pegasus, and CF2X carry a camera, `Example_Rotary` LiDAR, and base sensors by default; Camera/ROS Tools only gate the corresponding topic publishers. A ground robot can select Camera Tool only after mounting Orsus. UR5/Z1 automatically creates its OmniGraph with the arm attachment and does not require an additional `ros` tool.
 
 ## Compatibility
 
 | Payload | Classification | Supported host robots | Default control configuration |
 |---|---|---|---|
-| GS-Hub | Sensor | Carter, Go2, B2, M20, Scout, Coco, Lite3 | None |
+| Orsus | Sensor | Carter, Go2, B2, M20, Scout, Coco, Lite3 | None |
 | LiDAR | Sensor | Carter, Go2, B2, M20, Scout, MuSHR v2, Coco, Lite3 | None |
 | UR5 | Manipulator | Go2, B2, M20, Scout, Lite3 | `UR5_IK_CFG` |
 | Z1 | Manipulator | Carter, Go2, B2, M20, Scout, Lite3 | `Z1_IK_CFG` |
@@ -65,5 +65,5 @@ Compatible sensors and one type of robotic arm can be installed on the same host
 
 ## Related Guides
 
-- [GS-Hub Sensor](gs_hub_sensor_en.md)
+- [Orsus Sensor](orsus_sensor_en.md)
 - [Robotic arm](ur5_control_en.md)

@@ -2,57 +2,62 @@
 orphan: true
 ---
 
-# GS-Hub 传感器
+# Orsus 传感器
 
-GS-Hub 是一个集成传感器模块，包含激光雷达（Lidar）和里程计（Odometry），用于 ROS2 导航栈集成。
+Orsus 是一个集成双目相机、RTX 激光雷达（LiDAR）和里程计（Odometry）的传感器模块，用于 ROS2 导航栈集成。
 
-GS-Hub 可挂载到 Carter、Go2、B2、M20、Scout、Coco 和 Lite3。除点云与里程计外，当前 GS-Hub USD Graph 还会发布左右相机图像，可使用仓库中的 `algorithm/ros/tools/vis_sensors.py` 同时查看双目图像和点云俯视图。相机、点云和里程计发布需要在同一宿主机器人上挂载 `ros` tool。
+Orsus 可挂载到 Carter、Go2、B2、M20、Scout、Coco 和 Lite3。可使用仓库中的 `algorithm/ros/tools/vis_sensors.py` 同时查看双目图像和点云俯视图。左右图像只受同一宿主上的 `camera` tool 控制；点云和里程计只受 `ros` tool 控制，两个开关彼此独立。
+
+包含 Orsus 的场景当前只支持单环境，启动时必须传入 `--num_envs 1`。
 
 ## 功能概述
 
-GS-Hub 传感器提供以下功能：
+Orsus 传感器提供以下功能：
 
-1. **左/右相机图像**: 发布 `/<robot>/GS_Hub_L_cam` 和 `/<robot>/GS_Hub_R_cam`（sensor_msgs/Image）
+1. **左/右相机图像**: 发布 `/<robot>/Orsus_L_cam` 和 `/<robot>/Orsus_R_cam`（sensor_msgs/Image）
 2. **点云输出**: 发布 `/<robot>/cloud` 话题（sensor_msgs/PointCloud2）
 3. **里程计信息**: 发布 `/<robot>/odometry` 话题（nav_msgs/Odometry）
 4. **ROS2 集成**: 自动配置 ROS2 环境，并按机器人实例名设置话题命名空间
 
 ## 架构
 
-GS-Hub 使用 Isaac Sim 的 Graph 系统实现：
+Orsus 的双目相机沿用资产内的发布 Graph；LiDAR 与里程计资源在运行时按机器人实例创建：
 
 ```
-Carter 机器人
-    ↓ (物理状态)
-GS-Hub Graph
-    ├─ Isaac Compute Odometry Node
-    │   └─ 发布 /<robot>/odometry（里程计）
-    └─ Isaac Publish Lidar Node
-        └─ 发布 /<robot>/cloud（点云）
-    ↓ (ROS2 话题)
+Carter / 其他兼容机器人
+    └─ Orsus
+       ├─ 内置左右相机 Graph
+       │  └─ /<robot>/Orsus_L_cam、/<robot>/Orsus_R_cam
+       ├─ 运行时 RTX LiDAR + Replicator writer
+       │  └─ /<robot>/cloud
+       └─ 运行时实例隔离的 Odometry Graph
+          └─ /<robot>/odometry
+    ↓ ROS2 话题
 ROS2 Navigation2 导航栈
 ```
 
 ## 在环境中使用
 
-### 1. 在场景配置中添加 GS-Hub
+### 1. 在场景配置中添加 Orsus
 
-在环境配置文件的场景类中添加 GS-Hub：
+在环境配置文件的场景类中添加 Orsus：
 
 ```python
-from EAI_assets.sensor.high_sensor import GSHubCfg
+from EAI_assets.sensor.high_sensor import OrsusCfg
 
 @configclass
 class YourSceneCfg(InteractiveSceneCfg):
     # ... 其他资产 ...
     
-    gs_hub = GSHubCfg(
-        # 将 GS-Hub 附加到机器人的底盘链接
-        prim_path="{ENV_REGEX_NS}/Carter/Carter/GS_Hub_chassis_link/GSHub",
+    orsus = OrsusCfg(
+        # 将 Orsus 附加到机器人的底盘链接
+        prim_path="{ENV_REGEX_NS}/Carter/Carter/Orsus_chassis_link/Orsus",
         # 外参标定数据（相对于底盘链接）
         init_state=AssetBaseCfg.InitialStateCfg(
             pos=(0.026, 0, 0.418),  # (x, y, z) 米
-        )
+        ),
+        enable_camera_publish=True,
+        enable_ros_publish=True,
     )
 ```
 
@@ -60,29 +65,27 @@ class YourSceneCfg(InteractiveSceneCfg):
 - `prim_path` 必须指向机器人底盘链接的子路径
 - 位置需要根据实际机器人模型进行标定
 
-### 2. 自动修复机制
+### 2. 运行时资源装配
 
-GS-Hub 在加载时会自动修复 Graph 中的 `chassisPrim` 连接：
+Orsus 加载时会生成一个运行时 USD 缓存副本，移除旧的非实例隔离 LiDAR/里程计 Graph。环境 reset 后再创建 RTX LiDAR 点云 writer，并把新的里程计 Graph 连接到宿主底盘：
 
 ```python
-def spawn_and_fix_gshub(prim_path, cfg, translation, orientation):
-    # 1. 加载 USD 模型
-    sim_utils.spawn_from_usd(...)
-    
-    # 2. 查找所有环境实例
-    matched_parents = prim_utils.find_matching_prim_paths(parent_regex)
-    
-    # 3. 为每个实例修复 Graph 连接
-    for specific_path in resolved_paths:
-        # 修复 odometry node 的 chassisPrim 连接
-        rel.SetTargets([target_path])
+def spawn_and_fix_orsus(prim_path, cfg, translation, orientation):
+    runtime_cfg = cfg.copy()
+    runtime_cfg.usd_path = _orsus_runtime_asset_path(cfg.usd_path)
+    sim_utils.spawn_from_usd(prim_path, runtime_cfg, translation, orientation)
+    # 登记每个实例的 RTX LiDAR 与 odometry 创建请求
+
+def setup_pending_orsus_ros_graphs():
+    # reset 后创建 RTX LiDAR writer 和实例隔离的 odometry Graph
+    ...
 ```
 
-这确保了多环境场景下每个实例都能正确连接到对应的机器人。
+运行时缓存默认写入 `~/.cache/eai-simulator/runtime-assets`，可通过 `EAI_RUNTIME_ASSET_CACHE` 覆盖。关闭 session 时会清理 writer、render product、LiDAR prim 和里程计 Graph。
 
 ## ROS2 环境配置
 
-GS-Hub 会自动配置 ROS2 环境：
+Orsus 会自动配置 ROS2 环境：
 
 ```python
 def configure_ros_env():
@@ -105,15 +108,15 @@ def configure_ros_env():
 
 ## 发布的话题
 
-GS-Hub 会根据机器人实例名设置 ROS namespace。例如 `carter_1` 机器人会发布 `/carter_1/GS_Hub_L_cam`、`/carter_1/GS_Hub_R_cam`、`/carter_1/odometry` 和 `/carter_1/cloud`。
+Orsus 会根据机器人实例名设置 ROS namespace。例如 `carter_1` 机器人会发布 `/carter_1/Orsus_L_cam`、`/carter_1/Orsus_R_cam`、`/carter_1/odometry` 和 `/carter_1/cloud`。
 
-### `/<robot>/GS_Hub_L_cam` 与 `/<robot>/GS_Hub_R_cam` (sensor_msgs/Image)
+### `/<robot>/Orsus_L_cam` 与 `/<robot>/Orsus_R_cam` (sensor_msgs/Image)
 
-左右相机分别提供 GS-Hub 的双目图像。话题 namespace 与 Env DIY 生成的机器人实例名一致，例如第一台 Carter 通常使用：
+左右相机分别提供 Orsus 的双目图像。话题 namespace 与 Env DIY 生成的机器人实例名一致，例如第一台 Carter 通常使用：
 
 ```text
-/carter_1/GS_Hub_L_cam
-/carter_1/GS_Hub_R_cam
+/carter_1/Orsus_L_cam
+/carter_1/Orsus_R_cam
 ```
 
 如果环境包含多台同类型机器人，请先通过 `ros2 topic list` 确认实际实例名。
@@ -133,12 +136,12 @@ GS-Hub 会根据机器人实例名设置 ROS namespace。例如 `carter_1` 机�
 **频率**: 与仿真步频同步（通常 60 Hz）
 
 **内容**:
-- 3D 点云数据，原始 frame 语义由 GS-Hub USD 图给出
+- 3D 点云数据，原始 frame 语义由 Orsus USD 图给出
 - Nav2 使用前应通过 `algorithm/ros/nav2/tf_bridge.py` 和 `pointcloud_to_laserscan` 处理
 
 ### `/<robot>/scan` (sensor_msgs/LaserScan)
 
-`/<robot>/scan` 不是 GS-Hub 直接发布的话题，而是 `algorithm/ros/nav2` 将 `/<robot>/cloud` 处理后生成的 Nav2 输入话题。
+`/<robot>/scan` 不是 Orsus 直接发布的话题，而是 `algorithm/ros/nav2` 将 `/<robot>/cloud` 处理后生成的 Nav2 输入话题。
 
 ## 使用示例
 
@@ -162,8 +165,8 @@ python simulator.py \
 # 列出所有话题
 ros2 topic list
 
-# 筛选 GS-Hub 相机与点云话题
-ros2 topic list | grep -E 'GS_Hub_[LR]_cam|/cloud$'
+# 筛选 Orsus 相机与点云话题
+ros2 topic list | grep -E 'Orsus_[LR]_cam|/cloud$'
 
 # 查看里程计信息（以 carter_1 为例）
 ros2 topic echo /carter_1/odometry
@@ -175,9 +178,9 @@ ros2 topic echo /carter_1/cloud
 ros2 topic echo /carter_1/scan
 ```
 
-### 示例 3: 可视化 GS-Hub 相机与点云
+### 示例 3: 可视化 Orsus 相机与点云
 
-先在一个终端启动带 GS-Hub 和 ROS tool 的图形化仿真环境。仓库内置的 `nav2` 环境使用 Factory + Carter + GS-Hub：
+先在一个终端启动带 Orsus、Camera Tool 和 ROS Tool 的图形化仿真环境。仓库内置的 `nav2` 环境使用 Factory + Carter + Orsus：
 
 ```bash
 conda activate env_isaaclab
@@ -189,46 +192,54 @@ python simulator.py --env=nav2 --num_envs=1 --device=cuda:0
 ```bash
 source /opt/ros/humble/setup.bash
 python3 algorithm/ros/tools/vis_sensors.py \
-  --sensor gshub \
+  --sensor orsus \
   --namespace /carter_1
 ```
 
 脚本会订阅以下三个话题，并打开 `Left Camera`、`Right Camera` 和 `Lidar BEV` 三个 OpenCV 窗口：
 
 ```text
-/carter_1/GS_Hub_L_cam
-/carter_1/GS_Hub_R_cam
+/carter_1/Orsus_L_cam
+/carter_1/Orsus_R_cam
 /carter_1/cloud
 ```
 
-其他机器人只需替换 namespace。例如查看第一台 Go2 的 GS-Hub：
-
-```bash
-source /opt/ros/humble/setup.bash
-python3 algorithm/ros/tools/vis_sensors.py --sensor gshub --namespace /go2_1
-```
-
-如果使用旧的、没有按机器人实例划分 namespace 的 GS-Hub 场景，脚本默认 namespace 是 `/isaac`，可直接运行：
+查看当前 ROS graph 中的全部相机（包括 Iris、Pegasus、CF2X 单目相机和所有 Orsus
+左右相机）时，不需要指定参数。脚本会持续发现后启动的相机 topic：
 
 ```bash
 source /opt/ros/humble/setup.bash
 python3 algorithm/ros/tools/vis_sensors.py
 ```
 
+其他机器人只需替换 namespace。例如查看第一台 Go2 的 Orsus：
+
+```bash
+source /opt/ros/humble/setup.bash
+python3 algorithm/ros/tools/vis_sensors.py --sensor orsus --namespace /go2_1
+```
+
+如果使用旧的、没有按机器人实例划分 namespace 的 Orsus 场景，显式 Orsus 模式默认 namespace 是 `/isaac`：
+
+```bash
+source /opt/ros/humble/setup.bash
+python3 algorithm/ros/tools/vis_sensors.py --sensor orsus
+```
+
 运行前需要系统 Python 环境提供 `rclpy`、`sensor_msgs`、`cv_bridge`、OpenCV 和 NumPy。若窗口没有图像，先检查对应话题是否存在并持续发布：
 
 ```bash
-ros2 topic list | grep GS_Hub
-ros2 topic hz /carter_1/GS_Hub_L_cam
-ros2 topic hz /carter_1/GS_Hub_R_cam
+ros2 topic list | grep Orsus
+ros2 topic hz /carter_1/Orsus_L_cam
+ros2 topic hz /carter_1/Orsus_R_cam
 ```
 
-```{figure} assets/media/gs-hub_demo.gif
-:alt: GS-Hub 左右相机与点云可视化演示
+```{figure} assets/media/orsus_demo.gif
+:alt: Orsus 左右相机与点云可视化演示
 :class: eai-doc-media
 :width: 100%
 
-使用 `vis_sensors.py` 查看 GS-Hub 双目图像与点云俯视图
+使用 `vis_sensors.py` 查看 Orsus 双目图像与点云俯视图
 ```
 
 ### 示例 4: 集成 Navigation2
@@ -253,7 +264,7 @@ bash algorithm/ros/nav2/run_nav2.sh --rviz
 1. 启动仿真环境
    python simulator.py --env=nav2
 
-2. GS-Hub 自动发布话题
+2. Orsus 自动发布话题
    /carter_1/odometry → tf_bridge → odom->base_link
    /carter_1/cloud → tf_bridge + pointcloud_to_laserscan → /carter_1/scan
 
@@ -266,7 +277,7 @@ bash algorithm/ros/nav2/run_nav2.sh --rviz
    → controller.compute_action_from_command(...)
    → controller.apply_action(...)
 
-5. 机器人移动，GS-Hub 更新传感器数据
+5. 机器人移动，Orsus 更新传感器数据
    循环回到步骤 2
 ```
 
@@ -288,7 +299,7 @@ export ROS_DISTRO=humble
 
 ### 问题 2: Graph 连接失败
 
-**检查**: 查看仿真日志中的 `[GSHub]` 消息
+**检查**: 查看仿真日志中的 `[Orsus]` 消息
 
 **解决**: 确认 `prim_path` 正确指向机器人底盘链接
 
@@ -304,7 +315,7 @@ export ROS_DISTRO=humble
 
 ### 添加其他传感器
 
-可以参考 GS-Hub 的实现方式添加其他传感器：
+可以参考 Orsus 的实现方式添加其他传感器：
 
 1. 创建 USD 文件（包含 Graph）
 2. 创建 Python 配置类（继承 `AssetBaseCfg`）
@@ -316,8 +327,8 @@ export ROS_DISTRO=humble
 
 ## 参考
 
-- **实现文件**: `source/EAI_assets/EAI_assets/sensor/high_sensor/gs_hub.py`
-- **USD 文件**: `usd/payloads/sensors/gs_hub/GS_Hub_fix.usd`
+- **实现文件**: `source/EAI_assets/EAI_assets/sensor/high_sensor/orsus.py`
+- **USD 资产**: provider 中的 `payloads/sensors/orsus/Orsus_fix_type.usd`
 - **环境配置示例**: `source/EAI_hmrs/EAI_hmrs/envs/nav2.json`
 - **动态挂载实现**: `source/EAI_hmrs/EAI_hmrs/env_builder.py`
 - **ROS2 Navigation2**: https://navigation.ros.org/

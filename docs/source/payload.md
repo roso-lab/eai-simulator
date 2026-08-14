@@ -1,6 +1,6 @@
 # 载荷组件
 
-Env DIY 将安装到宿主机器人上的设备保存在 `robots[].attachments[]`。当前分为 Sensors（GS-Hub、LiDAR）和 Manipulators（UR5、Z1）；可视化窗口、终端快速模式和 Isaac Sim 3D 编辑器共用同一份目录与兼容性规则。
+Env DIY 将安装到宿主机器人上的设备保存在 `robots[].attachments[]`。当前分为 Sensors（Orsus、LiDAR）和 Manipulators（UR5、Z1）；可视化窗口、终端快速模式和 Isaac Sim 3D 编辑器共用同一份目录与兼容性规则。
 
 ## 工程结构
 
@@ -10,11 +10,11 @@ Env DIY 将安装到宿主机器人上的设备保存在 `robots[].attachments[]
 | `source/EAI/EAI/hmrs_env/env_diy/flow.py` | 将界面选择转换为 `AttachmentSelection`，检查重复项、宿主兼容性以及 UR5/Z1 互斥规则 |
 | `source/EAI/EAI/hmrs_env/env_diy/storage.py` | 将载荷写入环境 JSON，并在读取时规范化 `robots[].attachments[]` |
 | `source/EAI_hmrs/EAI_hmrs/env_builder.py` | 根据环境选择创建传感器、机械臂 articulation、FixedJoint 和对应控制器 |
-| `source/EAI_assets/EAI_assets/sensor/` | 提供 GS-Hub 与 LiDAR 的资产配置和 ROS2 发布实现 |
+| `source/EAI_assets/EAI_assets/sensor/` | 提供 Orsus 与 LiDAR 的资产配置和 ROS2 发布实现 |
 | `source/EAI_assets/EAI_assets/robots/*_mount.py` | 定义 UR5/Z1 的通用挂载原语及不同宿主的安装 profile |
 | `source/EAI_assets/EAI_assets/controller/traditional/` | 提供 `UR5_IK_CFG`、`Z1_IK_CFG` 与公共机械臂 IK 控制器 |
 | `source/EAI/EAI/hmrs_ros/manipulator_omnigraph.py` | 按机器人实例建立机械臂 ROS2 命令与状态接口 |
-| `usd/payloads/sensors/` | 保存 GS-Hub、LiDAR 等传感器 USD 资产 |
+| `usd/payloads/sensors/` | 保存 Orsus、LiDAR 等传感器 USD 资产 |
 | `usd/payloads/manipulators/` | 保存 UR5、Z1 等机械臂 USD、URDF 与源描述资产 |
 
 ## 调用方式
@@ -26,7 +26,7 @@ Env DIY 将安装到宿主机器人上的设备保存在 `robots[].attachments[]
   "type": "go2",
   "controller": {"mode": "default", "cfg": "GO2_VELOCITY_RSL_CFG"},
   "attachments": [
-    {"type": "gshub", "controller": null},
+    {"type": "orsus", "controller": null},
     {"type": "z1", "controller": {"mode": "default", "cfg": "Z1_IK_CFG"}},
     {"type": "ros", "controller": null}
   ]
@@ -50,13 +50,13 @@ python simulator.py --env=<env_name> --num_envs=1 --device=cuda:0
   → MultiRobotDirectEnv 启动正式环境
 ```
 
-GS-Hub 只有在同一宿主添加 `ros` 时才启用相机、点云和里程计发布。UR5/Z1 会随机械臂附件自动创建对应 OmniGraph，不需要额外的 `ros` 才能使用机械臂 topic。
+Orsus 的左右相机图像只由同一宿主上的 `camera` tool 控制，点云和里程计只由 `ros` tool 控制。Iris、Pegasus、CF2X 默认带有相机、`Example_Rotary` LiDAR 和基础传感器；Camera/ROS Tool 只控制相应 topic 发布。地面机器人只有先挂载 Orsus 才能选择 Camera Tool。UR5/Z1 会随机械臂附件自动创建对应 OmniGraph，不需要额外的 `ros` 才能使用机械臂 topic。
 
 ## 适配性
 
 | 载荷 | 分类 | 支持的宿主机器人 | 默认控制配置 |
 |---|---|---|---|
-| GS-Hub | Sensor | Carter、Go2、B2、M20、Scout、Coco、Lite3 | 无 |
+| Orsus | Sensor | Carter、Go2、B2、M20、Scout、Coco、Lite3 | 无 |
 | LiDAR | Sensor | Carter、Go2、B2、M20、Scout、MuSHR v2、Coco、Lite3 | 无 |
 | UR5 | Manipulator | Go2、B2、M20、Scout、Lite3 | `UR5_IK_CFG` |
 | Z1 | Manipulator | Carter、Go2、B2、M20、Scout、Lite3 | `Z1_IK_CFG` |
@@ -65,5 +65,5 @@ GS-Hub 只有在同一宿主添加 `ros` 时才启用相机、点云和里程计
 
 ## 分类文档
 
-- [GS-Hub 传感器](gs_hub_sensor.md)
+- [Orsus 传感器](orsus_sensor.md)
 - [机械臂](ur5_control.md)

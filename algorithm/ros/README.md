@@ -31,8 +31,16 @@ The keyboard process publishes Twist messages directly and does not use file IPC
 
 ```bash
 source /opt/ros/humble/setup.bash
-python3 algorithm/keyboard/keyboard.py --robot carter_1
+python3 algorithm/keyboard/keyboard.py \
+  --robot iris_1 \
+  --vertical-speed 0.5
 ```
+
+`W/S` publishes forward/backward `linear.x`, `A/D` publishes lateral
+`linear.y`, `R/F` publishes ascend/descend `linear.z`, and `C/V` publishes yaw
+`angular.z`. Use `K` or Space to stop, `Q` to switch between discovered robots,
+and `Esc` or `Ctrl-C` to exit. `--linear-speed`, `--vertical-speed`, and
+`--angular-speed` configure the corresponding command magnitudes.
 
 ## Nav2
 
@@ -42,14 +50,31 @@ See `algorithm/ros/nav2/README.md` for setup and launch instructions.
 
 ## Sensor Output
 
-GS-Hub and standalone ROS LiDAR output do not pass through `EAI.hmrs_ros`:
+Orsus and standalone ROS LiDAR output do not pass through `EAI.hmrs_ros`:
 
-- GS-Hub camera images are published by OmniGraph nodes embedded in the GS-Hub USD.
-- GS-Hub point cloud and odometry are published by the GS-Hub LiDAR/Odometry OmniGraph.
+- Orsus camera images are published by OmniGraph nodes embedded in the Orsus USD.
+- Orsus point cloud and odometry are published by the Orsus LiDAR/Odometry OmniGraph.
 - Standalone ROS LiDAR point cloud and odometry are published by its own USD OmniGraph.
-- The JSON `ros` tool controls whether GS-Hub ROS publishers are enabled.
+- The JSON `camera` tool controls the Orsus left/right image graphs.
+- The JSON `ros` tool controls the Orsus point-cloud and odometry graph.
+- Iris, Pegasus, and CF2X always carry their camera, `Example_Rotary` LiDAR,
+  IMU, GPS, magnetometer, and barometer resources. Their JSON `camera` and
+  `ros` tools gate ROS topic publishers, not sensor existence.
 
-The removed JSON file bridge was only an old workaround that copied Twist messages through `/tmp/*.json`. Keyboard, Nav2, GS-Hub, LiDAR, and the current Simulator do not require it.
+Use the same viewer for every published camera. With no arguments it discovers
+all current and later `sensor_msgs/msg/Image` topics, including aerial monocular
+cameras and Orsus stereo cameras:
+
+```bash
+source /opt/ros/humble/setup.bash
+python3 algorithm/ros/tools/vis_sensors.py
+```
+
+Filter to one robot with `--sensor camera --namespace /iris_1`. Existing
+Orsus camera-plus-cloud and cloud-only modes remain available through
+`--sensor orsus --namespace /carter_1` and `--sensor lidar --namespace /carter_1`.
+
+The removed JSON file bridge was only an old workaround that copied Twist messages through `/tmp/*.json`. Keyboard, Nav2, Orsus, LiDAR, and the current Simulator do not require it.
 
 ## Manipulator Control
 

@@ -2,57 +2,62 @@
 orphan: true
 ---
 
-# GS-Hub Sensor
+# Orsus Sensor
 
-GS-Hub is an integrated sensor module, including Lidar and Odometry, for ROS2 navigation stack integration.
+Orsus is an integrated stereo-camera, RTX LiDAR, and odometry sensor module for ROS2 navigation stack integration.
 
-GS-Hub can be mounted to Carter, Go2, B2, M20, Scout, Coco, and Lite3. In addition to point clouds and odometry, the current GS-Hub USD Graph publishes left and right camera images. Use `algorithm/ros/tools/vis_sensors.py` to view the stereo images and point-cloud top view together. Camera, point-cloud, and odometry publishing requires the `ros` tool on the same host robot.
+Orsus can be mounted to Carter, Go2, B2, M20, Scout, Coco, and Lite3. Use `algorithm/ros/tools/vis_sensors.py` to view the stereo images and point-cloud top view together. The `camera` tool exclusively controls the image graphs; the `ros` tool exclusively controls point-cloud and odometry publishing.
+
+Scenes containing Orsus currently support one environment only and must be launched with `--num_envs 1`.
 
 ## Function Overview
 
-The GS-Hub sensor provides the following features:
+The Orsus sensor provides the following features:
 
-1. **Left/Right Camera Image**: Release `/<robot>/GS_Hub_L_cam` and `/<robot>/GS_Hub_R_cam` (sensor_msgs/Image)
+1. **Left/Right Camera Image**: Release `/<robot>/Orsus_L_cam` and `/<robot>/Orsus_R_cam` (sensor_msgs/Image)
 2. **Point Cloud Output**: Publish `/<robot>/cloud` topic (sensor_msgs/PointCloud2)
 3. **Odometry**: Publish the `/<robot>/odometry` topic (nav_msgs/Odometry)
 4. **ROS2 integration**: Automatically configure the ROS2 environment and set the topic namespace according to the robot instance name
 
 ## Architecture
 
-GS-Hub is implemented using Isaac Sim＊s Graph system:
+Orsus keeps the embedded publisher graphs for its stereo cameras. LiDAR and odometry resources are created per robot instance at runtime:
 
 ```
-Carter Robot
-    ∣ (physical state)
-GS-Hub Graph
-    ├── Isaac Compute Odometry Node
-    │   └── Publish /<robot>/odometry
-    └── Isaac Publish Lidar Node
-        └── Publish /<robot>/cloud (point cloud)
-    ∣ (ROS2 topic)
+Carter / another compatible robot
+    └── Orsus
+        ├── Embedded left/right camera graphs
+        │   └── /<robot>/Orsus_L_cam, /<robot>/Orsus_R_cam
+        ├── Runtime RTX LiDAR + Replicator writer
+        │   └── /<robot>/cloud
+        └── Runtime instance-safe odometry graph
+            └── /<robot>/odometry
+    ↓ ROS2 topics
 ROS2 Navigation2 navigation stack
 ```
 
 ## Used in the environment
 
-### 1. Add GS-Hub to the scene configuration
+### 1. Add Orsus to the scene configuration
 
-Add GS-Hub in the scene class of the environment configuration file:
+Add Orsus in the scene class of the environment configuration file:
 
 ```python
-from EAI_assets.sensor.high_sensor import GSHubCfg
+from EAI_assets.sensor.high_sensor import OrsusCfg
 
 @configclass
 class YourSceneCfg(InteractiveSceneCfg):
     # ...other assets ...
 
-    gs_hub = GSHubCfg(
-        # Attach the GS-Hub to the robot's chassis link
-        prim_path="{ENV_REGEX_NS}/Carter/Carter/GS_Hub_chassis_link/GSHub",
+    orsus = OrsusCfg(
+        # Attach the Orsus to the robot's chassis link
+        prim_path="{ENV_REGEX_NS}/Carter/Carter/Orsus_chassis_link/Orsus",
         # External parameter calibration data (relative to chassis link)
         init_state=AssetBaseCfg.InitialStateCfg(
             pos=(0.026, 0, 0.418), # (x, y, z) meters
-        )
+        ),
+        enable_camera_publish=True,
+        enable_ros_publish=True,
     )
 ```
 
@@ -60,29 +65,27 @@ class YourSceneCfg(InteractiveSceneCfg):
 - `prim_path` must point to a subpath of the robot chassis link
 - The position needs to be calibrated based on the actual robot model
 
-### 2. Automatic repair mechanism
+### 2. Runtime resource assembly
 
-GS-Hub will automatically repair the `chassisPrim` connection in Graph when loading:
+When Orsus loads, it creates a cached runtime USD copy without the legacy non-instance-safe LiDAR and odometry graph. After the environment resets, it creates the RTX LiDAR point-cloud writer and connects a new odometry graph to the host chassis:
 
 ```python
-def spawn_and_fix_gshub(prim_path, cfg, translation, orientation):
-    # 1. Load USD model
-    sim_utils.spawn_from_usd(...)
+def spawn_and_fix_orsus(prim_path, cfg, translation, orientation):
+    runtime_cfg = cfg.copy()
+    runtime_cfg.usd_path = _orsus_runtime_asset_path(cfg.usd_path)
+    sim_utils.spawn_from_usd(prim_path, runtime_cfg, translation, orientation)
+    # Register RTX LiDAR and odometry creation requests per instance.
 
-    # 2. Find all environment instances
-    matched_parents = prim_utils.find_matching_prim_paths(parent_regex)
-
-    # 3. Fix Graph connection for each instance
-    for specific_path in resolved_paths:
-        # Repair chassisPrim connection of odometry node
-        rel.SetTargets([target_path])
+def setup_pending_orsus_ros_graphs():
+    # Create the RTX LiDAR writer and instance-safe odometry graph after reset.
+    ...
 ```
 
-This ensures that each instance can be correctly connected to the corresponding robot in a multi-environment scenario.
+The runtime cache defaults to `~/.cache/eai-simulator/runtime-assets` and can be overridden with `EAI_RUNTIME_ASSET_CACHE`. Session shutdown removes the writer, render product, LiDAR prim, and odometry graph.
 
 ## ROS2 environment configuration
 
-GS-Hub will automatically configure the ROS2 environment:
+Orsus will automatically configure the ROS2 environment:
 
 ```python
 def configure_ros_env():
@@ -105,15 +108,15 @@ def configure_ros_env():
 
 ## Published Topics
 
-GS-Hub will set the ROS namespace based on the robot instance name. For example the `carter_1` bot will publish `/carter_1/GS_Hub_L_cam`, `/carter_1/GS_Hub_R_cam`, `/carter_1/odometry` and `/carter_1/cloud`.
+Orsus will set the ROS namespace based on the robot instance name. For example the `carter_1` bot will publish `/carter_1/Orsus_L_cam`, `/carter_1/Orsus_R_cam`, `/carter_1/odometry` and `/carter_1/cloud`.
 
-### `/<robot>/GS_Hub_L_cam` and `/<robot>/GS_Hub_R_cam` (sensor_msgs/Image)
+### `/<robot>/Orsus_L_cam` and `/<robot>/Orsus_R_cam` (sensor_msgs/Image)
 
-The left and right cameras provide binocular images of the GS-Hub respectively. The topic namespace is consistent with the robot instance name generated by Env DIY. For example, the first Carter usually uses:
+The left and right cameras provide binocular images of the Orsus respectively. The topic namespace is consistent with the robot instance name generated by Env DIY. For example, the first Carter usually uses:
 
 ```text
-/carter_1/GS_Hub_L_cam
-/carter_1/GS_Hub_R_cam
+/carter_1/Orsus_L_cam
+/carter_1/Orsus_R_cam
 ```
 
 If the environment contains multiple robots of the same type, please first confirm the actual instance name through `ros2 topic list`.
@@ -133,12 +136,12 @@ If the environment contains multiple robots of the same type, please first confi
 **Frequency**: Synchronized with simulated cadence (usually 60 Hz)
 
 **content**:
-- 3D point cloud data, original frame semantics are given by GS-Hub USD graph
+- 3D point cloud data, original frame semantics are given by Orsus USD graph
 - Nav2 should be processed through `algorithm/ros/nav2/tf_bridge.py` and `pointcloud_to_laserscan` before use
 
 ### `/<robot>/scan` (sensor_msgs/LaserScan)
 
-`/<robot>/scan` is not a topic directly published by GS-Hub, but a Nav2 input topic generated by `algorithm/ros/nav2` after processing `/<robot>/cloud`.
+`/<robot>/scan` is not a topic directly published by Orsus, but a Nav2 input topic generated by `algorithm/ros/nav2` after processing `/<robot>/cloud`.
 
 ## Usage Examples
 
@@ -162,8 +165,8 @@ In another terminal:
 # List all topics
 ros2 topic list
 
-# Filter GS-Hub camera and point cloud topics
-ros2 topic list | grep -E 'GS_Hub_[LR]_cam|/cloud$'
+# Filter Orsus camera and point cloud topics
+ros2 topic list | grep -E 'Orsus_[LR]_cam|/cloud$'
 
 # View odometry (using carter_1 as an example)
 ros2 topic echo /carter_1/odometry
@@ -175,9 +178,9 @@ ros2 topic echo /carter_1/cloud
 ros2 topic echo /carter_1/scan
 ```
 
-### Example 3: Visualizing GS-Hub camera and point cloud
+### Example 3: Visualizing Orsus camera and point cloud
 
-First start the graphical simulation environment with GS-Hub and ROS tool in a terminal. The `nav2` environment built into the warehouse uses Factory + Carter + GS-Hub:
+First start the graphical simulation environment with Orsus, Camera Tool, and ROS Tool in a terminal. The built-in `nav2` environment uses Factory + Carter + Orsus:
 
 ```bash
 conda activate env_isaaclab
@@ -189,46 +192,56 @@ After waiting for Isaac Sim to finish loading, run the visual script in another 
 ```bash
 source /opt/ros/humble/setup.bash
 python3 algorithm/ros/tools/vis_sensors.py \
-  --sensor gshub \
+  --sensor orsus \
   --namespace /carter_1
 ```
 
 The script will subscribe to the following three topics and open three OpenCV windows: `Left Camera`, `Right Camera` and `Lidar BEV`:
 
 ```text
-/carter_1/GS_Hub_L_cam
-/carter_1/GS_Hub_R_cam
+/carter_1/Orsus_L_cam
+/carter_1/Orsus_R_cam
 /carter_1/cloud
 ```
 
-Other bots simply replace the namespace. For example, check out the GS-Hub of the first Go2:
-
-```bash
-source /opt/ros/humble/setup.bash
-python3 algorithm/ros/tools/vis_sensors.py --sensor gshub --namespace /go2_1
-```
-
-If you use an old GS-Hub scenario that does not have namespaces divided by robot instances, the default namespace of the script is `/isaac` and can be run directly:
+Run the visualizer without arguments to show every camera on the current ROS
+graph, including the Iris, Pegasus, and CF2X monocular cameras and all Orsus
+left/right cameras. The script continues discovering camera topics that start
+later:
 
 ```bash
 source /opt/ros/humble/setup.bash
 python3 algorithm/ros/tools/vis_sensors.py
 ```
 
+Other bots simply replace the namespace. For example, check out the Orsus of the first Go2:
+
+```bash
+source /opt/ros/humble/setup.bash
+python3 algorithm/ros/tools/vis_sensors.py --sensor orsus --namespace /go2_1
+```
+
+For an old Orsus scene without per-robot namespaces, explicit Orsus mode defaults to the `/isaac` namespace:
+
+```bash
+source /opt/ros/humble/setup.bash
+python3 algorithm/ros/tools/vis_sensors.py --sensor orsus
+```
+
 Before running, the system Python environment needs to provide `rclpy`, `sensor_msgs`, `cv_bridge`, OpenCV and NumPy. If there is no image in the window, first check whether the corresponding topic exists and continue to publish:
 
 ```bash
-ros2 topic list | grep GS_Hub
-ros2 topic hz /carter_1/GS_Hub_L_cam
-ros2 topic hz /carter_1/GS_Hub_R_cam
+ros2 topic list | grep Orsus
+ros2 topic hz /carter_1/Orsus_L_cam
+ros2 topic hz /carter_1/Orsus_R_cam
 ```
 
-```{figure} assets/media/gs-hub_demo.gif
-:alt: GS-Hub left and right camera and point cloud visualization demonstration
+```{figure} assets/media/orsus_demo.gif
+:alt: Orsus left and right camera and point cloud visualization demonstration
 :class: eai-doc-media
 :width: 100%
 
-Use `vis_sensors.py` to view GS-Hub binocular images and point cloud top views
+Use `vis_sensors.py` to view Orsus binocular images and point cloud top views
 ```
 
 ### Example 4: Integrating Navigation2
@@ -253,7 +266,7 @@ Send navigation target:
 1. Start the simulation environment
    python simulator.py --env=nav2
 
-2. GS-Hub automatically publishes topics
+2. Orsus automatically publishes topics
    /carter_1/odometry ↙ tf_bridge ↙ odom->base_link
    /carter_1/cloud ↙ tf_bridge + pointcloud_to_laserscan ↙ /carter_1/scan
 
@@ -266,7 +279,7 @@ Send navigation target:
    ↙ controller.compute_action_from_command(...)
    ↙ controller.apply_action(...)
 
-5. The robot moves and GS-Hub updates sensor data
+5. The robot moves and Orsus updates sensor data
    Loop back to step 2
 ```
 
@@ -288,7 +301,7 @@ export ROS_DISTRO=humble
 
 ### Problem 2: Graph connection failed
 
-**CHECK**: Check the simulation log for `[GSHub]` messages
+**CHECK**: Check the simulation log for `[Orsus]` messages
 
 **Solution**: Confirm that `prim_path` correctly points to the robot chassis link
 
@@ -304,7 +317,7 @@ export ROS_DISTRO=humble
 
 ### Add other sensors
 
-You can add other sensors by referring to the implementation of GS-Hub:
+You can add other sensors by referring to the implementation of Orsus:
 
 1. Create USD file (including Graph)
 2. Create a Python configuration class (inherits `AssetBaseCfg`)
@@ -316,8 +329,8 @@ Modify the Graph configuration in the USD file and change the topic name.
 
 ## References
 
-- **Implementation file**: `source/EAI_assets/EAI_assets/sensor/high_sensor/gs_hub.py`
-- **USD file**: `usd/payloads/sensors/gs_hub/GS_Hub_fix.usd`
+- **Implementation file**: `source/EAI_assets/EAI_assets/sensor/high_sensor/orsus.py`
+- **USD asset**: provider path `payloads/sensors/orsus/Orsus_fix_type.usd`
 - **Environment configuration example**: `source/EAI_hmrs/EAI_hmrs/envs/nav2.json`
 - **Dynamic mounting implementation**: `source/EAI_hmrs/EAI_hmrs/env_builder.py`
 - **ROS2 Navigation2**: https://navigation.ros.org/

@@ -1,50 +1,54 @@
-id: sensor.gshub
-name: GS-Hub
+id: sensor.orsus
+name: Orsus
 category: sensor
-models: [gshub, gs-hub, gs_hub]
-description: Stereo camera, point cloud, odometry, and scan interfaces published by GS-Hub.
+models: [orsus]
+description: Stereo camera, point cloud, odometry, and scan interfaces published by Orsus.
 interfaces:
-  - id: ros.gshub.left_image
+  - id: ros.orsus.left_image
     name: Left camera image
     protocol: ros2
     direction: output
     kind: topic
-    endpoint: /{robot}/GS_Hub_L_cam
+    endpoint: /{robot}/Orsus_L_cam
     data_type: sensor_msgs/msg/Image
-    description: Left GS-Hub image stream.
-    example: ros2 topic echo --once /{robot}/GS_Hub_L_cam
+    description: Left Orsus image stream.
+    example: ros2 topic echo --once /{robot}/Orsus_L_cam
+    requires_attachment: camera
     read_only_test: {type: ros_topic}
-  - id: ros.gshub.right_image
+  - id: ros.orsus.right_image
     name: Right camera image
     protocol: ros2
     direction: output
     kind: topic
-    endpoint: /{robot}/GS_Hub_R_cam
+    endpoint: /{robot}/Orsus_R_cam
     data_type: sensor_msgs/msg/Image
-    description: Right GS-Hub image stream.
-    example: ros2 topic echo --once /{robot}/GS_Hub_R_cam
+    description: Right Orsus image stream.
+    example: ros2 topic echo --once /{robot}/Orsus_R_cam
+    requires_attachment: camera
     read_only_test: {type: ros_topic}
-  - id: ros.gshub.point_cloud
+  - id: ros.orsus.point_cloud
     name: Point cloud
     protocol: ros2
     direction: output
     kind: topic
     endpoint: /{robot}/cloud
     data_type: sensor_msgs/msg/PointCloud2
-    description: Registered GS-Hub point cloud output.
+    description: Registered Orsus point cloud output.
     example: ros2 topic echo --once /{robot}/cloud
+    requires_attachment: ros
     read_only_test: {type: ros_topic}
-  - id: ros.gshub.odometry
+  - id: ros.orsus.odometry
     name: Odometry
     protocol: ros2
     direction: output
     kind: topic
     endpoint: /{robot}/odometry
     data_type: nav_msgs/msg/Odometry
-    description: GS-Hub odometry output.
+    description: Orsus odometry output.
     example: ros2 topic echo --once /{robot}/odometry
+    requires_attachment: ros
     read_only_test: {type: ros_topic}
-  - id: ros.gshub.scan
+  - id: ros.orsus.scan
     name: Derived laser scan
     protocol: ros2
     direction: output
@@ -53,4 +57,5 @@ interfaces:
     data_type: sensor_msgs/msg/LaserScan
     description: LaserScan derived by the navigation pipeline from the point cloud.
     example: ros2 topic echo --once /{robot}/scan
+    requires_attachment: ros
     read_only_test: {type: ros_topic}

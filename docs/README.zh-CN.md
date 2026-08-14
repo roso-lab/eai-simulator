@@ -46,11 +46,11 @@
 <tr>
 <td width="43%" valign="middle">
   <h3>连接感知与控制</h3>
-  <p>挂载 GS-Hub 或 LiDAR，并连接键盘控制、ROS2 速度命令、Nav2、UR5/Z1 机械臂或外部策略，无需重新实现环境。</p>
+  <p>挂载 Orsus 或 LiDAR，并连接键盘控制、ROS2 速度命令、Nav2、UR5/Z1 机械臂或外部策略，无需重新实现环境。</p>
   <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/interface_catalog.html">查看接口 →</a></p>
 </td>
 <td width="57%">
-  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/gs_hub_sensor.html"><img src="source/assets/media/gs-hub_demo.gif" alt="EAI Simulator 中的 GS-Hub 多模态传感输出" width="100%"></a>
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/orsus_sensor.html"><img src="source/assets/media/orsus_demo.gif" alt="EAI Simulator 中的 Orsus 多模态传感输出" width="100%"></a>
 </td>
 </tr>
 <tr>
@@ -69,7 +69,7 @@
 
 | 异构实体 | 可组合世界 | 感知与控制 |
 | --- | --- | --- |
-| Human、Carter、Pepper、MuSHR、Scout、Go2、B2、M20、Lite3、G1 和 CF2X | Plane、Warehouse、Factory、AIRS、Garden、Desert、Hospital 和可复用 JSON 环境 | 传统与 RL 控制器、ROS2、Nav2、GS-Hub、LiDAR、UR5、Z1 和外部策略 |
+| Human、Carter、Pepper、MuSHR、Scout、Go2、B2、M20、Lite3、G1 和 CF2X | Plane、Warehouse、Factory、AIRS、Garden、Desert、Hospital 和可复用 JSON 环境 | 传统与 RL 控制器、ROS2、Nav2、Orsus、LiDAR、UR5、Z1 和外部策略 |
 
 README 只概括支持范围，详细能力以专题文档为准：
 

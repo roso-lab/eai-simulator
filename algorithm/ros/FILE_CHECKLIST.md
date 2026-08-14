@@ -132,7 +132,7 @@ ros2_nav2_test.py
     ├─> MultiRobotDirectEnv
     ├─> FACTORY_CFG
     ├─> ROBOT_CFG (carter/scout/go2/b2)
-    └─> GSHubCfg
+    └─> OrsusCfg
 
 ros2_send_cmd_vel.py
     └─> rclpy (ROS2 Python)
@@ -189,7 +189,7 @@ ros2_send_cmd_vel.py
    所有 ROS2 导航功能都是独立的
 
 2. **传感器自动发布**  
-   GSHub 会自动发布相机、点云、里程计，无需额外配置
+   Orsus 会自动发布相机、点云、里程计，无需额外配置
 
 3. **机器人命名规则**  
    仿真器中的机器人会自动添加 `_nav` 后缀（例如 `carter_1`）

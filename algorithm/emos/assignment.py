@@ -262,7 +262,7 @@ def sanitize_llm_assignments(
 
     def _can_take_blue(rn: str) -> bool:
         text = _profile_text(rn)
-        return any(kw in text for kw in ("gs-hub", "gshub", "传感", "数据采集", "雷达", "图像"))
+        return any(kw in text for kw in ("orsus", "传感", "数据采集", "雷达", "图像"))
 
     def _can_take_red(rn: str) -> bool:
         text = _profile_text(rn)

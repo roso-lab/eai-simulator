@@ -19,8 +19,8 @@
 #   robot_radius   : costmap 碰撞半径 (m)
 #   nav_base_offset_xyz : 仿真车体原点到 Nav2 运动学基点的车体系偏移 (m)
 #   footprint      : 可选，Nav2 运动学基点坐标系下的底盘轮廓；设置后替代 robot_radius
-#   sensor_mounts  : 每种传感器相对 base 的安装位姿；gshub 与独立 lidar 必须分别标定
-#   lidar_xyz/rpy  : 旧版 GS-Hub 标定兼容字段；新配置由 sensor_mounts 优先覆盖
+#   sensor_mounts  : 每种传感器相对 base 的安装位姿；orsus 与独立 lidar 必须分别标定
+#   lidar_xyz/rpy  : 旧版 Orsus 标定兼容字段；新配置由 sensor_mounts 优先覆盖
 #   max_vel_x / max_vel_theta : 最大线/角速度
 #   acc_lim_x / acc_lim_theta : 线/角加速度上限
 #   min_vel_x      : 最小线速度（差速 0；全向可负，允许后退）
@@ -38,7 +38,7 @@ robot_profiles:
     lidar_xyz: [0.026, 0.0, 0.418]
     lidar_rpy: [0.0, 0.339, 0.0]
     sensor_mounts:
-      gshub: {xyz: [0.026, 0.0, 0.418], rpy: [0.0, 0.339, 0.0]}
+      orsus: {xyz: [0.026, 0.0, 0.418], rpy: [0.0, 0.339, 0.0]}
       lidar: {xyz: [0.026, 0.0, 0.444862], rpy: [0.0, 0.0, 0.0]}
     max_vel_x: 0.8
     max_vel_theta: 1.5
@@ -55,7 +55,7 @@ robot_profiles:
     lidar_xyz: [0.026, 0.0, 0.0]
     lidar_rpy: [0.0, 0.339, 0.0]
     sensor_mounts:
-      gshub: {xyz: [0.026, 0.0, 0.0], rpy: [0.0, 0.339, 0.0]}
+      orsus: {xyz: [0.026, 0.0, 0.0], rpy: [0.0, 0.339, 0.0]}
       lidar: {xyz: [0.22631, -0.003, 0.136534], rpy: [0.0, 0.0, 0.0]}
     max_vel_x: 1.0
     max_vel_theta: 1.5
@@ -79,7 +79,7 @@ robot_profiles:
     lidar_xyz: [0.36723, 0.0, 0.223494]
     lidar_rpy: [0.0, 0.339, 0.0]
     sensor_mounts:
-      gshub: {xyz: [0.36723, 0.0, 0.223494], rpy: [0.0, 0.339, 0.0]}
+      orsus: {xyz: [0.36723, 0.0, 0.223494], rpy: [0.0, 0.339, 0.0]}
       lidar: {xyz: [0.36723, 0.0, 0.2902], rpy: [0.0, 0.0, 0.0]}
     max_vel_x: 1.0
     max_vel_theta: 1.2
@@ -105,7 +105,7 @@ robot_profiles:
     lidar_xyz: [0.16669, 0.0, 0.06773]
     lidar_rpy: [0.0, 0.339, 0.0]
     sensor_mounts:
-      gshub: {xyz: [0.16669, 0.0, 0.06773], rpy: [0.0, 0.339, 0.0]}
+      orsus: {xyz: [0.16669, 0.0, 0.06773], rpy: [0.0, 0.339, 0.0]}
       lidar: {xyz: [0.16669, 0.0, 0.114523], rpy: [0.0, 0.0, 0.0]}
     max_vel_x: 0.8
     max_vel_theta: 1.2
@@ -128,7 +128,7 @@ robot_profiles:
     lidar_xyz: [0.24749, 0.0, 0.11309]
     lidar_rpy: [0.0, 0.339, 0.0]
     sensor_mounts:
-      gshub: {xyz: [0.24749, 0.0, 0.11309], rpy: [0.0, 0.339, 0.0]}
+      orsus: {xyz: [0.24749, 0.0, 0.11309], rpy: [0.0, 0.339, 0.0]}
       lidar: {xyz: [0.24749, 0.0, 0.160402], rpy: [0.0, 0.0, 0.0]}
     max_vel_x: 0.8
     max_vel_theta: 1.2
@@ -149,7 +149,7 @@ robot_profiles:
     lidar_xyz: [0.29718, 0.0, 0.07994]
     lidar_rpy: [0.0, 0.339, 0.0]
     sensor_mounts:
-      gshub: {xyz: [0.29718, 0.0, 0.07994], rpy: [0.0, 0.339, 0.0]}
+      orsus: {xyz: [0.29718, 0.0, 0.07994], rpy: [0.0, 0.339, 0.0]}
       lidar: {xyz: [0.29718, 0.0, 0.121437], rpy: [0.0, 0.0, 0.0]}
     max_vel_x: 0.8
     max_vel_theta: 1.2
@@ -192,7 +192,7 @@ robot_profiles:
     nav_base_offset_xyz: [-0.235, 0.0, 0.0]
     footprint: [[-0.18, -0.34], [-0.18, 0.34], [0.65, 0.34], [0.65, -0.34]]
     sensor_mounts:
-      gshub: {xyz: [0.0, 0.0, 0.430962], rpy: [0.0, 0.339, 0.0]}
+      orsus: {xyz: [0.0, 0.0, 0.430962], rpy: [0.0, 0.339, 0.0]}
       lidar: {xyz: [0.0, 0.0, 0.478662], rpy: [0.0, 0.0, 0.0]}
     max_vel_x: 0.6
     max_vel_theta: 0.6
@@ -221,7 +221,7 @@ default_profile:
   lidar_xyz: [0.0, 0.0, 0.40]
   lidar_rpy: [0.0, 0.0, 0.0]
   sensor_mounts:
-    gshub: {xyz: [0.0, 0.0, 0.40], rpy: [0.0, 0.0, 0.0]}
+    orsus: {xyz: [0.0, 0.0, 0.40], rpy: [0.0, 0.0, 0.0]}
     lidar: {xyz: [0.0, 0.0, 0.40], rpy: [0.0, 0.0, 0.0]}
   max_vel_x: 0.5
   max_vel_theta: 1.0

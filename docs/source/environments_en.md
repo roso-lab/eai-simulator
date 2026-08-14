@@ -68,7 +68,7 @@ Minimal configuration example:
         "y": 0.5
       },
       "attachments": [
-        {"type": "gshub", "controller": null},
+        {"type": "orsus", "controller": null},
         {"type": "ros", "controller": null}
       ]
     }
@@ -126,7 +126,7 @@ Scenes
 Robots #host robot
 Payloads
   ├── Manipulators              # UR5, Z1
-  └── Sensors                   # GS-Hub, LiDAR
+  └── Sensors                   # Orsus, LiDAR
 Tools                           # ROS, Keyboard
 ```
 

@@ -20,6 +20,7 @@ from EAI_assets.robots.deeprobotics import (
 )
 from EAI_assets.robots.go2 import GO2_CFG
 from EAI_assets.robots.pepper import PEPPER_CFG
+from EAI_assets.robots.pegasus import PEGASUS_IRIS_CFG, PEGASUS_X4_CFG
 from EAI_assets.robots.quadcopter import CRAZYFLIE_CFG
 from EAI_assets.robots.scout import SCOUT_CFG
 from EAI_assets.robots.mushr_v2 import MUSHR_V2_CFG, MUSHR_V2_RWD_CFG
@@ -35,7 +36,7 @@ from EAI_assets.robots.z1_mount import (
     Z1MountProfile,
     build_mounted_z1_asset_cfg,
 )
-from EAI_assets.sensor.high_sensor import GSHubCfg
+from EAI_assets.sensor.high_sensor import OrsusCfg
 from EAI_hmrs.controller_loader import load_controller_attr
 from EAI.hmrs_env.env_diy.flow import (
     AttachmentSelection,
@@ -68,16 +69,19 @@ class RobotOption:
     cfg: ArticulationCfg | None
     controller: Any
     default_z: float
-    gshub_mount_link: str | None = None
+    orsus_mount_link: str | None = None
     ur5_mount_profile: Ur5MountProfile | None = None
     z1_mount_profile: Z1MountProfile | None = None
-    gshub_offset: tuple[float, float, float] = (0.026, 0.0, 0.0)
+    orsus_offset: tuple[float, float, float] = (0.026, 0.0, 0.0)
     lidar_mount_link: str | None = None
     # The HESAI XT32 mounting flange is 47.7 mm below its sensor origin. The
     # cable reaches 88.7 mm below the origin and must not be used as the mount plane.
     lidar_offset: tuple[float, float, float] = (0.0, 0.0, 0.0)
     lidar_rot: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
-    gshub_disable_physics: bool = False
+    camera_mount_link: str | None = None
+    camera_offset: tuple[float, float, float] = (0.12, 0.0, 0.02)
+    camera_rot: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
+    orsus_disable_physics: bool = False
 
 
 DESERT_SCENE_Z_OFFSET = -4322.563
@@ -123,6 +127,10 @@ CONTROLLER_CFG_IMPORTS = {
     "COCO_ACKERMANN_CFG": ("traditional/coco_ackermann/coco_ackermann.py", "COCO_ACKERMANN_CFG"),
     "G1_SKRL_CFG": ("rl/g1_skrl/g1_skrl.py", "G1_SKRL_CFG"),
     "QUADCOPTER_GOAL_SKRL_CFG": ("rl/quadcopter_goal_skrl/quadcopter_goal_skrl.py", "QUADCOPTER_GOAL_SKRL_CFG"),
+    "PEGASUS_IRIS_POSITION_CFG": ("traditional/pegasus_multirotor/pegasus_multirotor.py", "PEGASUS_IRIS_POSITION_CFG"),
+    "PEGASUS_IRIS_ROTOR_CFG": ("traditional/pegasus_multirotor/pegasus_multirotor.py", "PEGASUS_IRIS_ROTOR_CFG"),
+    "PEGASUS_X4_POSITION_CFG": ("traditional/pegasus_multirotor/pegasus_multirotor.py", "PEGASUS_X4_POSITION_CFG"),
+    "PEGASUS_X4_ROTOR_CFG": ("traditional/pegasus_multirotor/pegasus_multirotor.py", "PEGASUS_X4_ROTOR_CFG"),
     "UR5_IK_CFG": ("traditional/ur5_ik/ur5_ik.py", "UR5_IK_CFG"),
     "Z1_IK_CFG": ("traditional/z1_ik/z1_ik.py", "Z1_IK_CFG"),
 }
@@ -135,10 +143,10 @@ ROBOT_OPTIONS = [
         CARTER_CFG,
         "CARTER_DIFF_CFG",
         0.2,
-        "Carter/GS_Hub_chassis_link",
+        "Carter/Orsus_chassis_link",
         z1_mount_profile=Z1_MOUNT_PROFILES["carter"],
-        gshub_offset=(0.026, 0.0, 0.418),
-        lidar_mount_link="Carter/GS_Hub_chassis_link",
+        orsus_offset=(0.026, 0.0, 0.418),
+        lidar_mount_link="Carter/Orsus_chassis_link",
         lidar_offset=(0.026, 0.0, 0.444862),
     ),
     RobotOption("pepper", "Pepper holonomic base", PEPPER_CFG, "PEPPER_HOLONOMIC_CFG", 0.0),
@@ -164,7 +172,7 @@ ROBOT_OPTIONS = [
         "base_link",
         ur5_mount_profile=UR5_MOUNT_PROFILES["b2"],
         z1_mount_profile=Z1_MOUNT_PROFILES["b2"],
-        gshub_offset=(0.36723, 0.0, 0.223494),
+        orsus_offset=(0.36723, 0.0, 0.223494),
         lidar_mount_link="base_link",
         lidar_offset=(0.36723, 0.0, 0.2902),
     ),
@@ -174,10 +182,10 @@ ROBOT_OPTIONS = [
         DEEPROBOTICS_M20_CFG,
         "M20_ROUGH_RSL_CFG",
         0.52,
-        gshub_mount_link="base_link",
+        orsus_mount_link="base_link",
         ur5_mount_profile=UR5_MOUNT_PROFILES["m20"],
         z1_mount_profile=Z1_MOUNT_PROFILES["m20"],
-        gshub_offset=(0.29718, 0.0, 0.07994),
+        orsus_offset=(0.29718, 0.0, 0.07994),
         lidar_mount_link="base_link",
         lidar_offset=(0.29718, 0.0, 0.121437),
     ),
@@ -187,10 +195,10 @@ ROBOT_OPTIONS = [
         SCOUT_CFG,
         "SCOUT_DIFF_CFG",
         0.2,
-        gshub_mount_link="base_link",
+        orsus_mount_link="base_link",
         ur5_mount_profile=UR5_MOUNT_PROFILES["scout"],
         z1_mount_profile=Z1_MOUNT_PROFILES["scout"],
-        gshub_offset=(0.24749, 0.0, 0.11309),
+        orsus_offset=(0.24749, 0.0, 0.11309),
         lidar_mount_link="base_link",
         lidar_offset=(0.24749, 0.0, 0.160402),
     ),
@@ -200,9 +208,14 @@ ROBOT_OPTIONS = [
         MUSHR_V2_CFG,
         "MUSHR_ACKERMANN_CFG",
         0.0,
-        gshub_mount_link="mushr_nano/base_link",
         lidar_mount_link="mushr_nano/base_link",
         lidar_offset=(-0.035325, 0.0, 0.18495),
+        camera_mount_link="mushr_nano/camera_link",
+        # The USD housing is a 9 cm wide bar (left-right). Its forward extent is
+        # 4.3 mm from the camera_link origin and its center lies 17.5 mm to -Y.
+        # Keep the pinhole 0.7 mm clear of that face, on the car's centerline.
+        camera_offset=(0.005, -0.0175, 0.0),
+        camera_rot=(0.5, 0.5, -0.5, -0.5),
     ),
     RobotOption(
         "coco",
@@ -210,25 +223,60 @@ ROBOT_OPTIONS = [
         COCO_CFG,
         "COCO_ACKERMANN_CFG",
         0.3,
-        gshub_mount_link="base_link",
+        orsus_mount_link="base_link",
         # Coco roof plane is 47.7 mm below the calibrated standalone LiDAR origin.
-        gshub_offset=(0.0, 0.0, 0.430962),
+        orsus_offset=(0.0, 0.0, 0.430962),
         lidar_mount_link="base_link",
         lidar_offset=(0.0, 0.0, 0.478662),
-        gshub_disable_physics=True,
+        orsus_disable_physics=True,
     ),
     RobotOption("g1", "Unitree G1", G1_CFG, "G1_SKRL_CFG", 0.74),
-    RobotOption("cf2x", "Crazyflie CF2X", CRAZYFLIE_CFG, "QUADCOPTER_GOAL_SKRL_CFG", 1.0),
+    RobotOption(
+        "cf2x",
+        "Crazyflie CF2X",
+        CRAZYFLIE_CFG,
+        "QUADCOPTER_GOAL_SKRL_CFG",
+        1.0,
+        lidar_mount_link="body",
+        lidar_offset=(0.0, 0.0, 0.04),
+        camera_mount_link="body",
+        camera_offset=(0.04, 0.0, 0.02),
+        camera_rot=(0.5, 0.5, -0.5, -0.5),
+    ),
+    RobotOption(
+        "iris",
+        "Pegasus 3DR Iris",
+        PEGASUS_IRIS_CFG,
+        "PEGASUS_IRIS_POSITION_CFG",
+        1.0,
+        lidar_mount_link="body",
+        lidar_offset=(0.0, 0.0, 0.12),
+        camera_mount_link="body",
+        camera_offset=(0.16, 0.0, 0.02),
+        camera_rot=(0.5, 0.5, -0.5, -0.5),
+    ),
+    RobotOption(
+        "pegasus",
+        "Pegasus research quadrotor",
+        PEGASUS_X4_CFG,
+        "PEGASUS_X4_POSITION_CFG",
+        1.0,
+        lidar_mount_link="body",
+        lidar_offset=(0.0, 0.0, 0.10),
+        camera_mount_link="body",
+        camera_offset=(0.12, 0.0, 0.02),
+        camera_rot=(0.5, 0.5, -0.5, -0.5),
+    ),
     RobotOption(
         "lite3",
         "DeepRobotics Lite3",
         DEEPROBOTICS_LITE3_CFG,
         "LITE3_VELOCITY_RSL_CFG",
         0.35,
-        gshub_mount_link="TORSO",
+        orsus_mount_link="TORSO",
         ur5_mount_profile=UR5_MOUNT_PROFILES["lite3"],
         z1_mount_profile=Z1_MOUNT_PROFILES["lite3"],
-        gshub_offset=(0.16669, 0.0, 0.06773),
+        orsus_offset=(0.16669, 0.0, 0.06773),
         lidar_mount_link="TORSO",
         lidar_offset=(0.16669, 0.0, 0.114523),
     ),
@@ -261,8 +309,8 @@ def interactive_selection_from_dict(data: dict[str, Any]) -> InteractiveSelectio
     for key, count in data["robot_counts"]:
         for _index in range(int(count)):
             attachments: list[AttachmentSelection] = []
-            if bool(data.get("use_gshub")) and attachment_supported(str(key), "gshub"):
-                attachments.append(AttachmentSelection("gshub", None))
+            if bool(data.get("use_orsus")) and attachment_supported(str(key), "orsus"):
+                attachments.append(AttachmentSelection("orsus", None))
             if bool(data.get("use_ur5")) and attachment_supported(str(key), "ur5"):
                 attachments.append(AttachmentSelection("ur5", ControllerChoice("default", "UR5_IK_CFG")))
             if bool(data.get("use_lidar")) and attachment_supported(str(key), "lidar"):
@@ -418,41 +466,51 @@ def build_interactive_env_cfg(
 
         controllers[name] = tuple(robot_controllers) if len(robot_controllers) > 1 else robot_controllers[0]
 
-        # GSHub spawn：检查是否有 gshub 硬件 + 是否开启 ROS 通道
-        has_gshub = any(attachment.type == "gshub" for attachment in selection.attachments)
+        # Orsus spawn：检查是否有 orsus 硬件 + 是否开启 ROS 通道
+        has_orsus = any(attachment.type == "orsus" for attachment in selection.attachments)
         ros_enabled = any(attachment.type == "ros" for attachment in selection.attachments)
+        camera_enabled = any(attachment.type == "camera" for attachment in selection.attachments)
         cmd_vel_enabled = any(attachment.type in {"ros", "keyboard"} for attachment in selection.attachments)
 
-        if has_gshub and robot.gshub_mount_link:
-            gshub_prim_path = f"{{ENV_REGEX_NS}}/{name}/{robot.gshub_mount_link}/GSHub"
+        if has_orsus and robot.orsus_mount_link:
+            orsus_prim_path = f"{{ENV_REGEX_NS}}/{name}/{robot.orsus_mount_link}/Orsus"
 
-            # 通过 custom attribute 传递配置（spawn 后立即设置）
-            # 这比全局字典更可靠，因为属性直接附加在 prim 上
-            attrs["__annotations__"][f"gs_hub_{name}"] = AssetBaseCfg
-            attrs[f"gs_hub_{name}"] = GSHubCfg(
-                prim_path=gshub_prim_path,
-                init_state=AssetBaseCfg.InitialStateCfg(pos=robot.gshub_offset),
+            # OrsusCfg copies these gates into its custom spawn configuration.
+            attrs["__annotations__"][f"orsus_{name}"] = AssetBaseCfg
+            attrs[f"orsus_{name}"] = OrsusCfg(
+                prim_path=orsus_prim_path,
+                init_state=AssetBaseCfg.InitialStateCfg(pos=robot.orsus_offset),
                 ros_namespace=f"/{name}",
-                # Retain the cfg field as well as the legacy global path map.
+                # Retain the legacy global path map below for older spawn callers.
                 enable_ros_publish=ros_enabled,
-                disable_physics=robot.gshub_disable_physics,
+                enable_camera_publish=camera_enabled,
+                disable_physics=robot.orsus_disable_physics,
             )
 
             # 同时写入全局字典作为备用（兼容旧代码）
-            from EAI_assets.sensor.high_sensor.gs_hub import (
-                _gshub_disable_physics_config,
-                _gshub_ros_publish_config,
+            from EAI_assets.sensor.high_sensor.orsus import (
+                _orsus_camera_publish_config,
+                _orsus_disable_physics_config,
+                _orsus_ros_publish_config,
             )
             # 尝试多种可能的路径格式
             for path_variant in [
-                gshub_prim_path,
-                f"/World/envs/env_0/{name}/{robot.gshub_mount_link}/GSHub",
-                f"/World/envs/env_./{name}/{robot.gshub_mount_link}/GSHub",
+                orsus_prim_path,
+                f"/World/envs/env_0/{name}/{robot.orsus_mount_link}/Orsus",
+                f"/World/envs/env_./{name}/{robot.orsus_mount_link}/Orsus",
             ]:
-                _gshub_ros_publish_config[path_variant] = ros_enabled
-                _gshub_disable_physics_config[path_variant] = robot.gshub_disable_physics
+                _orsus_ros_publish_config[path_variant] = ros_enabled
+                _orsus_camera_publish_config[path_variant] = camera_enabled
+                _orsus_disable_physics_config[path_variant] = robot.orsus_disable_physics
 
-        if any(attachment.type == "lidar" for attachment in selection.attachments) and robot.lidar_mount_link:
+        is_aerial_sensor_robot = robot.key in {"cf2x", "iris", "pegasus"}
+        is_builtin_camera_robot = robot.key in {
+            "cf2x", "iris", "pegasus", "mushr_v2",
+        }
+        has_selected_lidar = any(
+            attachment.type == "lidar" for attachment in selection.attachments
+        )
+        if robot.lidar_mount_link and not is_aerial_sensor_robot and has_selected_lidar:
             from EAI_assets.sensor.low_sensor import RosLidarCfg
 
             attrs["__annotations__"][f"lidar_{name}"] = AssetBaseCfg
@@ -460,6 +518,32 @@ def build_interactive_env_cfg(
                 prim_path=f"{{ENV_REGEX_NS}}/{name}/{robot.lidar_mount_link}/Lidar",
                 init_state=AssetBaseCfg.InitialStateCfg(pos=robot.lidar_offset, rot=robot.lidar_rot),
                 ros_namespace=f"/{name}",
+            )
+
+        # Robots with a built-in monocular camera (aerial robots and MuSHR)
+        # always carry the physical camera. For aerial robots the Camera Tool
+        # only gates the ROS publishers; for MuSHR it gates the camera prim
+        # itself, since the USD merely provides the empty housing.
+        if (
+            is_builtin_camera_robot
+            and robot.camera_mount_link
+            and (is_aerial_sensor_robot or camera_enabled)
+        ):
+            attrs["__annotations__"][f"camera_{name}"] = AssetBaseCfg
+            attrs[f"camera_{name}"] = AssetBaseCfg(
+                prim_path=f"{{ENV_REGEX_NS}}/{name}/{robot.camera_mount_link}/Camera",
+                init_state=AssetBaseCfg.InitialStateCfg(
+                    pos=robot.camera_offset,
+                    # USD/OpenGL camera: -Z forward, +Y up; body: +X forward, +Z up.
+                    rot=robot.camera_rot,
+                ),
+                spawn=sim_utils.PinholeCameraCfg(
+                    focal_length=24.0,
+                    focus_distance=400.0,
+                    horizontal_aperture=20.955,
+                    vertical_aperture=15.71625,
+                    clipping_range=(0.05, 1000.0),
+                ),
             )
 
     scene_cls = configclass(type("InteractiveEaiSceneCfg", (InteractiveSceneCfg,), attrs))

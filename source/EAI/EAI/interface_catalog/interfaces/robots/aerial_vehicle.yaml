@@ -1,0 +1,61 @@
+# Copyright (c) 2026, EAI Simulator contributors.
+# SPDX-License-Identifier: BSD-3-Clause
+
+id: robot.aerial_vehicle
+name: Aerial Robot
+category: robot
+models: [iris, pegasus, cf2x]
+description: Goal and low-level control interfaces for aerial robots.
+interfaces:
+  - id: ros.aerial_camera_image
+    name: Monocular camera image
+    protocol: ros2
+    direction: output
+    kind: topic
+    endpoint: /{robot}/camera/image_raw
+    data_type: sensor_msgs/msg/Image
+    description: RGB image from the built-in forward-facing monocular camera.
+    example: ros2 topic echo --once /{robot}/camera/image_raw
+    requires_attachment: camera
+    read_only_test: {type: ros_topic}
+  - id: ros.aerial_camera_info
+    name: Monocular camera calibration
+    protocol: ros2
+    direction: output
+    kind: topic
+    endpoint: /{robot}/camera/camera_info
+    data_type: sensor_msgs/msg/CameraInfo
+    description: Intrinsic calibration for the built-in monocular camera.
+    example: ros2 topic echo --once /{robot}/camera/camera_info
+    requires_attachment: camera
+    read_only_test: {type: ros_topic}
+  - id: ros.aerial_lidar_pointcloud
+    name: Pegasus LiDAR point cloud
+    protocol: ros2
+    direction: output
+    kind: topic
+    endpoint: /{robot}/lidar/pointcloud
+    data_type: sensor_msgs/msg/PointCloud2
+    description: Point cloud from the Pegasus Simulator Example_Rotary RTX LiDAR.
+    example: ros2 topic echo --once /{robot}/lidar/pointcloud
+    requires_attachment: ros
+    read_only_test: {type: ros_topic}
+  - id: ros.aerial_cmd_vel
+    name: Aerial goal increment
+    protocol: ros2
+    direction: input
+    kind: topic
+    endpoint: /{robot}/cmd_vel
+    data_type: geometry_msgs/msg/Twist
+    description: Moves the active position and yaw goal using linear xyz and angular z.
+    example: 'ros2 topic pub --once /{robot}/cmd_vel geometry_msgs/msg/Twist "{linear: {z: 0.2}, angular: {z: 0.0}}"'
+    requires_attachment: ros
+  - id: python.aerial_env_step
+    name: Simulator step action
+    protocol: python
+    direction: input
+    kind: method
+    endpoint: env.step
+    data_type: dict[str, torch.Tensor]
+    description: Advances position mode or supplies four rotor speeds in direct mode.
+    example: 'env.step({"{robot}": command_tensor})'

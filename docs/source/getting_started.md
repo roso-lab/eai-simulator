@@ -117,7 +117,7 @@ source /opt/ros/humble/setup.bash
 /usr/bin/python3 algorithm/keyboard/keyboard.py --robot mushr_v2_1 --linear-speed 0.5 --angular-speed 0.8
 ```
 
-`W/S` 控制 `linear.x`，`C/V` 控制 `angular.z`；MuSHR 不使用 `linear.y`，也不能原地旋转。
+`W/S` 控制 `linear.x`，`A/D` 控制 `linear.y`，`R/F` 控制无人机上升/下降的 `linear.z`，`C/V` 控制 `angular.z`；MuSHR 不使用 `linear.y`，也不能原地旋转。可通过 `--vertical-speed` 单独设置无人机垂直速度。
 
 `robo` 环境中的所有对象也已配置 `keyboard` tool。仿真启动后，可在另一个终端运行统一键盘发布器：
 

@@ -12,6 +12,7 @@ from dataclasses import dataclass
 class VelocityCommand:
     linear_x: float = 0.0
     linear_y: float = 0.0
+    linear_z: float = 0.0
     angular_z: float = 0.0
 
 
@@ -32,6 +33,12 @@ def parse_args(args=None) -> argparse.Namespace:
         type=float,
         default=0.5,
         help="Forward/backward speed for W/S (A/D lateral input is only used by holonomic bases).",
+    )
+    parser.add_argument(
+        "--vertical-speed",
+        type=float,
+        default=0.5,
+        help="Vertical speed for aerial robots using R/F.",
     )
     parser.add_argument("--angular-speed", type=float, default=0.8, help="Angular speed for C/V keys.")
     parser.add_argument("--rate", type=float, default=20.0, help="Publish rate in Hz.")
@@ -72,12 +79,20 @@ def next_topic_index(current_index: int, topics: tuple[str, ...]) -> int:
     return (current_index + 1) % len(topics)
 
 
-def command_for_key(key: str, *, linear_speed: float, angular_speed: float) -> VelocityCommand:
+def command_for_key(
+    key: str,
+    *,
+    linear_speed: float,
+    vertical_speed: float = 0.5,
+    angular_speed: float,
+) -> VelocityCommand:
     return {
         "w": VelocityCommand(linear_x=linear_speed),
         "s": VelocityCommand(linear_x=-linear_speed),
         "a": VelocityCommand(linear_y=linear_speed),
         "d": VelocityCommand(linear_y=-linear_speed),
+        "r": VelocityCommand(linear_z=vertical_speed),
+        "f": VelocityCommand(linear_z=-vertical_speed),
         "c": VelocityCommand(angular_z=angular_speed),
         "v": VelocityCommand(angular_z=-angular_speed),
         "k": VelocityCommand(),
@@ -134,6 +149,7 @@ def _publish_command(Twist, publisher, command: VelocityCommand) -> None:
     msg = Twist()
     msg.linear.x = command.linear_x
     msg.linear.y = command.linear_y
+    msg.linear.z = command.linear_z
     msg.angular.z = command.angular_z
     publisher.publish(msg)
 
@@ -162,7 +178,10 @@ def main(args=None) -> None:
     for index, topic in enumerate(topics, start=1):
         marker = " <- current" if index == 1 else ""
         print(f"  [{index}] {topic}{marker}")
-    print("[EAI Keyboard] W/S forward/back, C/V yaw, A/D lateral when supported, K or Space stop, Q switch robot, Esc/Ctrl-C quit.")
+    print(
+        "[EAI Keyboard] W/S forward/back, A/D lateral, R/F ascend/descend, "
+        "C/V yaw, K or Space stop, Q switch robot, Esc/Ctrl-C quit."
+    )
     try:
         while rclpy.ok():
             key = _read_key()
@@ -173,7 +192,12 @@ def main(args=None) -> None:
                 current_index = next_topic_index(current_index, topics)
                 print(f"\n[EAI Keyboard] Switched to {topics[current_index]}")
                 continue
-            command = command_for_key(key, linear_speed=parsed.linear_speed, angular_speed=parsed.angular_speed)
+            command = command_for_key(
+                key,
+                linear_speed=parsed.linear_speed,
+                vertical_speed=parsed.vertical_speed,
+                angular_speed=parsed.angular_speed,
+            )
             _publish_command(Twist, publishers[topics[current_index]], command)
             rclpy.spin_once(node, timeout_sec=0)
     finally:

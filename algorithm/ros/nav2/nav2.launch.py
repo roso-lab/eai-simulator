@@ -210,7 +210,7 @@ def generate_launch_description():
         DeclareLaunchArgument("robot_type", default_value="",
                               description="Robot profile type, such as Carter/Go2/B2/Scout"),
         DeclareLaunchArgument("sensor", default_value="auto",
-                              description="Point cloud source: auto, gshub, or lidar"),
+                              description="Point cloud source: auto, orsus, or lidar"),
         DeclareLaunchArgument("scene", default_value="factory",
                               description="Scene name used for map and default pose lookup"),
         DeclareLaunchArgument("map", default_value="",

@@ -7,5 +7,5 @@
 # Configuration for different assets.
 ##
 
-from .gs_hub import *
+from .orsus import *
 

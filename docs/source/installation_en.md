@@ -24,7 +24,7 @@ This document details how to install and configure the EAI platform.
 
 ### Optional
 
-- **ROS2 Humble**: If you need to use GS-Hub sensor and ROS2 navigation
+- **ROS2 Humble**: If you need to use Orsus sensor and ROS2 navigation
 - **Git**: used to clone the repository
 
 ## Installation steps
@@ -117,7 +117,7 @@ python simulator.py --env robo
 
 ### Install ROS2 Humble
 
-If you need to use the GS-Hub sensor and ROS2 navigation:
+If you need to use the Orsus sensor and ROS2 navigation:
 
 ```bash
 # Ubuntu 22.04
