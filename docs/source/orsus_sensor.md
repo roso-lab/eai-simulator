@@ -6,7 +6,7 @@ orphan: true
 
 Orsus 是一个集成双目相机、RTX 激光雷达（LiDAR）和里程计（Odometry）的传感器模块，用于 ROS2 导航栈集成。
 
-Orsus 可挂载到 Carter、Go2、B2、M20、Scout、MuSHR Nano v2、Coco 和 Lite3。可使用仓库中的 `algorithm/ros/tools/vis_sensors.py` 同时查看双目图像和点云俯视图。左右图像只受同一宿主上的 `camera` tool 控制；点云和里程计只受 `ros` tool 控制，两个开关彼此独立。MuSHR 的内置前视相机与 Orsus 可同时输出。
+Orsus 可挂载到 Carter、Go2、B2、M20、Scout、Coco 和 Lite3。可使用仓库中的 `algorithm/ros/tools/vis_sensors.py` 同时查看双目图像和点云俯视图。左右图像只受同一宿主上的 `camera` tool 控制；点云和里程计只受 `ros` tool 控制，两个开关彼此独立。
 
 包含 Orsus 的场景当前只支持单环境，启动时必须传入 `--num_envs 1`。
 
@@ -24,7 +24,7 @@ Orsus 传感器提供以下功能：
 Orsus 的双目相机沿用资产内的发布 Graph；LiDAR 与里程计资源在运行时按机器人实例创建：
 
 ```
-Carter / MuSHR / 其他兼容机器人
+Carter / 其他兼容机器人
     └─ Orsus
        ├─ 内置左右相机 Graph
        │  └─ /<robot>/Orsus_L_cam、/<robot>/Orsus_R_cam
@@ -64,11 +64,6 @@ class YourSceneCfg(InteractiveSceneCfg):
 **注意**: 
 - `prim_path` 必须指向机器人底盘链接的子路径
 - 位置需要根据实际机器人模型进行标定
-- 通过保存场景使用时，MuSHR 的完整组合示例为 `source/EAI_hmrs/EAI_hmrs/envs/mushr_camera_orsus.json`
-
-```bash
-python simulator.py --env=mushr_camera_orsus --num_envs 1
-```
 
 ### 2. 运行时资源装配
 
@@ -334,6 +329,6 @@ export ROS_DISTRO=humble
 
 - **实现文件**: `source/EAI_assets/EAI_assets/sensor/high_sensor/orsus.py`
 - **USD 资产**: provider 中的 `payloads/sensors/orsus/Orsus_fix_type.usd`
-- **环境配置示例**: `source/EAI_hmrs/EAI_hmrs/envs/mushr_camera_orsus.json`
+- **环境配置示例**: `source/EAI_hmrs/EAI_hmrs/envs/nav2.json`
 - **动态挂载实现**: `source/EAI_hmrs/EAI_hmrs/env_builder.py`
 - **ROS2 Navigation2**: https://navigation.ros.org/

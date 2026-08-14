@@ -171,7 +171,7 @@ def controller_cfg_names() -> tuple[str, ...]:
 
 def _attachment_entries() -> tuple[AttachmentCatalogEntry, ...]:
     orsus_hosts = (
-        "carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3",
+        "carter", "go2", "b2", "m20", "scout", "coco", "lite3",
     )
     lidar_hosts = ("carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3")
     ur5_hosts = ("go2", "b2", "m20", "scout", "lite3")

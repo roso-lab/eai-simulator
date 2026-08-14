@@ -6,7 +6,7 @@ orphan: true
 
 Orsus is an integrated stereo-camera, RTX LiDAR, and odometry sensor module for ROS2 navigation stack integration.
 
-Orsus can be mounted to Carter, Go2, B2, M20, Scout, MuSHR Nano v2, Coco, and Lite3. Use `algorithm/ros/tools/vis_sensors.py` to view the stereo images and point-cloud top view together. The `camera` tool exclusively controls the image graphs; the `ros` tool exclusively controls point-cloud and odometry publishing. MuSHR's built-in front camera can publish alongside Orsus.
+Orsus can be mounted to Carter, Go2, B2, M20, Scout, Coco, and Lite3. Use `algorithm/ros/tools/vis_sensors.py` to view the stereo images and point-cloud top view together. The `camera` tool exclusively controls the image graphs; the `ros` tool exclusively controls point-cloud and odometry publishing.
 
 Scenes containing Orsus currently support one environment only and must be launched with `--num_envs 1`.
 
@@ -24,7 +24,7 @@ The Orsus sensor provides the following features:
 Orsus keeps the embedded publisher graphs for its stereo cameras. LiDAR and odometry resources are created per robot instance at runtime:
 
 ```
-Carter / MuSHR / another compatible robot
+Carter / another compatible robot
     └── Orsus
         ├── Embedded left/right camera graphs
         │   └── /<robot>/Orsus_L_cam, /<robot>/Orsus_R_cam
@@ -64,11 +64,6 @@ class YourSceneCfg(InteractiveSceneCfg):
 **Notice**:
 - `prim_path` must point to a subpath of the robot chassis link
 - The position needs to be calibrated based on the actual robot model
-- For a saved-scene example of the complete MuSHR combination, see `source/EAI_hmrs/EAI_hmrs/envs/mushr_camera_orsus.json`
-
-```bash
-python simulator.py --env=mushr_camera_orsus --num_envs 1
-```
 
 ### 2. Runtime resource assembly
 
@@ -336,6 +331,6 @@ Modify the Graph configuration in the USD file and change the topic name.
 
 - **Implementation file**: `source/EAI_assets/EAI_assets/sensor/high_sensor/orsus.py`
 - **USD asset**: provider path `payloads/sensors/orsus/Orsus_fix_type.usd`
-- **Environment configuration example**: `source/EAI_hmrs/EAI_hmrs/envs/mushr_camera_orsus.json`
+- **Environment configuration example**: `source/EAI_hmrs/EAI_hmrs/envs/nav2.json`
 - **Dynamic mounting implementation**: `source/EAI_hmrs/EAI_hmrs/env_builder.py`
 - **ROS2 Navigation2**: https://navigation.ros.org/

@@ -59,7 +59,7 @@ The built-in forward-facing monocular camera on MuSHR Nano v2 has separate inter
 | `ros.mushr_camera_image` | `/{robot}/camera/image_raw` | `sensor_msgs/msg/Image` |
 | `ros.mushr_camera_info` | `/{robot}/camera/camera_info` | `sensor_msgs/msg/CameraInfo` |
 
-The MuSHR camera prim and publishers are created only when the `camera` tool is selected. The built-in camera can run alongside Orsus: it keeps the `/camera/*` topics while Orsus uses its stereo topics. Sensor scenes containing the MuSHR built-in camera or Orsus must use `--num_envs 1`.
+The MuSHR camera prim and publishers are created only when the `camera` tool is selected. This built-in camera uses the `/camera/*` topics and does not depend on Orsus; MuSHR does not support mounting Orsus. Sensor scenes containing the MuSHR built-in camera or Orsus must use `--num_envs 1`.
 
 Orsus exposes the stereo image interfaces `ros.orsus.left_image` (`/{robot}/Orsus_L_cam`) and `ros.orsus.right_image` (`/{robot}/Orsus_R_cam`). Both use `sensor_msgs/msg/Image` and are also controlled by the Camera Tool. Orsus point-cloud, odometry, and scan output remain controlled by the ROS Tool.
 

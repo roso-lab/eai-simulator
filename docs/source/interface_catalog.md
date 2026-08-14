@@ -59,7 +59,7 @@ MuSHR Nano v2 的内置前视单目相机使用独立的接口声明：
 | `ros.mushr_camera_image` | `/{robot}/camera/image_raw` | `sensor_msgs/msg/Image` |
 | `ros.mushr_camera_info` | `/{robot}/camera/camera_info` | `sensor_msgs/msg/CameraInfo` |
 
-选择 `camera` tool 后才会创建 MuSHR 的相机 prim 和发布接口。它可以与 Orsus 同时启用，内置相机继续使用 `/camera/*`，Orsus 双目使用各自的话题。包含 MuSHR 内置相机或 Orsus 的传感器场景必须使用 `--num_envs 1`。
+选择 `camera` tool 后才会创建 MuSHR 的相机 prim 和发布接口。该内置相机使用 `/camera/*`，不依赖 Orsus；MuSHR 不支持挂载 Orsus。包含 MuSHR 内置相机或 Orsus 的传感器场景必须使用 `--num_envs 1`。
 
 Orsus 的双目图像接口为 `ros.orsus.left_image`（`/{robot}/Orsus_L_cam`）和 `ros.orsus.right_image`（`/{robot}/Orsus_R_cam`），消息类型同为 `sensor_msgs/msg/Image`，也由 Camera Tool 控制。Orsus 点云、里程计和 scan 仍由 ROS Tool 控制。
 
