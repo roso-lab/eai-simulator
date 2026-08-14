@@ -18,6 +18,9 @@ from typing import Any, Callable, Iterator
 
 
 KEYBOARD_CMD_VEL_GOAL_STEP_SCALE = 0.2
+_ORSUS_RTX_PRELOAD_KIT_ARGS = (
+    "--enable omni.usd.schema.omni_sensors --enable isaacsim.sensors.rtx"
+)
 
 # Scout's four fixed wheels resist lateral motion, so its effective skid-steer
 # track is much wider than the 0.498 m geometric controller value. Factory-floor
@@ -1050,6 +1053,10 @@ def _run_diy_3d_authoring_in_process(
         launcher_options.setdefault("headless", False)
         launcher_options.setdefault("device", getattr(args, "device", "cuda:0"))
         launcher_options["enable_cameras"] = True
+        existing_kit_args = str(launcher_options.get("kit_args", "")).strip()
+        launcher_options["kit_args"] = " ".join(
+            item for item in (existing_kit_args, _ORSUS_RTX_PRELOAD_KIT_ARGS) if item
+        )
         app_launcher = AppLauncher(launcher_options)
         simulation_app = app_launcher.app
 
@@ -1544,7 +1551,13 @@ def _app_launcher_args(
             )
             existing_kit_args = str(args.get("kit_args", "")).strip()
             args["kit_args"] = " ".join(
-                item for item in (existing_kit_args, motion_bvh_args) if item
+                item
+                for item in (
+                    existing_kit_args,
+                    _ORSUS_RTX_PRELOAD_KIT_ARGS,
+                    motion_bvh_args,
+                )
+                if item
             )
     return args
 
