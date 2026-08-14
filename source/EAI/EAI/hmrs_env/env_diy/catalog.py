@@ -32,7 +32,6 @@ ROBOT_KEYS = (
     "mushr_v2",
     "g1",
     "cf2x",
-    "human",
     "lite3",
     "coco",
 )
@@ -48,7 +47,6 @@ ROBOT_LABELS = {
     "coco": "Coco AIRS Ackermann base",
     "g1": "Unitree G1",
     "cf2x": "Crazyflie CF2X",
-    "human": "Human animation",
     "lite3": "DeepRobotics Lite3",
 }
 
@@ -63,7 +61,6 @@ _DEFAULT_CONTROLLER_CFG = {
     "coco": "COCO_ACKERMANN_CFG",
     "g1": "G1_SKRL_CFG",
     "cf2x": "QUADCOPTER_GOAL_SKRL_CFG",
-    "human": "HUMAN_ANIMATION_CFG",
     "lite3": "LITE3_VELOCITY_RSL_CFG",
 }
 
@@ -79,7 +76,6 @@ _CONTROLLER_CFG_NAMES = (
     "COCO_ACKERMANN_CFG",
     "G1_SKRL_CFG",
     "QUADCOPTER_GOAL_SKRL_CFG",
-    "HUMAN_ANIMATION_CFG",
     "LITE3_VELOCITY_RSL_CFG",
     "UR5_IK_CFG",
     "Z1_IK_CFG",
@@ -211,7 +207,7 @@ def tool_catalog() -> dict[str, AttachmentCatalogEntry]:
             name="keyboard",
             asset_cfg=None,
             controller_cfg=None,
-            supported_robots=("carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "pepper", "g1", "cf2x", "lite3", "human"),
+            supported_robots=("carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "pepper", "g1", "cf2x", "lite3"),
             category="tool",
         ),
     }

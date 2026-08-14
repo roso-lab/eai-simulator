@@ -150,7 +150,7 @@ def _runtime_device_for_env(
     requested_device: str,
 ) -> str:
     """Use CPU PhysX for animated humans because Isaac Sim 5.1 GPU pose writes crash."""
-    has_human = str(env_name).strip().lower() == "human"
+    has_human = False
     if selection_data:
         has_human = has_human or any(
             str(robot.get("type", "")).strip().lower() == "human"
