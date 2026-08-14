@@ -344,7 +344,7 @@ def selection_requires_aerial_camera(selection_data: Mapping[str, Any] | None) -
     """Return whether the selection needs sensor rendering at app launch.
 
     Aerial robots always carry their camera and RTX LiDAR resources.  Ground
-    robots need this launcher flag when a built-in camera (MuSHR) or the GSHub
+    robots need this launcher flag when a built-in camera (MuSHR) or the Orsus
     camera publisher is selected.
     """
     if not selection_data:

@@ -63,7 +63,7 @@ RESCUE_PANEL_ROSTER: Dict[str, Dict[str, Any]] = {
         "has_arm": True,
     },
     "carter_1": {
-        "type": "差速无人车 Carter1（GS-Hub）",
+        "type": "差速无人车 Carter1（Orsus）",
         "arm": "无",
         "terrain": "平坦通道",
         "has_arm": False,
@@ -691,12 +691,12 @@ class ObstacleRescueManager:
         self.nav.arrived_flags["carter_1"] = True
         self.push_chat(
             "bot", "carter_1",
-            f"🚫 我是 Carter1（差速无人车，搭载 GS-Hub 传感器套件）。\n"
+            f"🚫 我是 Carter1（差速无人车，搭载 Orsus 传感器套件）。\n"
             f"前方通道被一个长条障碍物阻挡，我无法通过！\n"
             f"我的当前位置: ({carter_pos[0]:.1f}, {carter_pos[1]:.1f})\n"
             f"障碍物位置: ({OBSTACLE_POSITION[0]:.1f}, {OBSTACLE_POSITION[1]:.1f})\n"
             f"我没有机械臂，无法自行搬运障碍物。\n"
-            f"通过 GS-Hub 摄像头已拍摄障碍物图像，正在上传至系统。\n"
+            f"通过 Orsus 摄像头已拍摄障碍物图像，正在上传至系统。\n"
             f"请求具有搬运能力的机器人前来支援！",
         )
         print(f"\n{'='*60}")

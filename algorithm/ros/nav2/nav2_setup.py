@@ -14,7 +14,7 @@ nav2_setup.py —— 按"机器人类型 + 场景"生成 Nav2 配置文件（par
     --robot       机器人实例名（ROS 话题命名空间，如 carter_1 / go2_1）。必填。
     --robot-type  机器人类型（查 robot_profiles，如 Carter/Go2/B2/Scout）。
                   不填则默认用 --robot 首段首字母大写猜测，查不到用 default_profile。
-    --sensor      传感器类型：auto/gshub/lidar。auto 从运行时快照的 attachments 强校验。
+    --sensor      传感器类型：auto/orsus/lidar。auto 从运行时快照的 attachments 强校验。
     --scene       场景名（查 scene_maps 找地图，并校验活动仿真场景）。默认 factory。
     --map         显式指定地图 yaml（覆盖 scene 查表）。
     --pose        显式初始位姿 "x,y,yaw"（覆盖活动仿真位姿）。
@@ -55,7 +55,7 @@ DEFAULT_YAW_GOAL_TOLERANCE = 0.25
 DEFAULT_PROGRESS_REQUIRED_MOVEMENT_RADIUS = 0.5
 DEFAULT_PROGRESS_MOVEMENT_TIME_ALLOWANCE = 10.0
 DEFAULT_INFLATION_RADIUS = 0.55
-SENSOR_TYPES = ("gshub", "lidar")
+SENSOR_TYPES = ("orsus", "lidar")
 ROBOT_TYPE_ALIASES = {
     "mushr_v2": "MuSHR Nano v2",
     "mushr nano v2": "MuSHR Nano v2",
@@ -248,19 +248,19 @@ def resolve_sensor(
     if not isinstance(attachments, list):
         raise RuntimeError(
             f"Robot {robot_name!r} has invalid attachments in runtime snapshot. "
-            "Pass sensor:=gshub or sensor:=lidar explicitly."
+            "Pass sensor:=orsus or sensor:=lidar explicitly."
         )
     sensors = [sensor for sensor in SENSOR_TYPES if sensor in attachments]
     if len(sensors) == 1:
         return sensors[0], "runtime_snapshot"
     if not sensors:
         raise RuntimeError(
-            f"Robot {robot_name!r} has neither GS-Hub nor LiDAR attached. "
-            "Attach one sensor or pass sensor:=gshub/sensor:=lidar after verifying the simulation."
+            f"Robot {robot_name!r} has neither Orsus nor LiDAR attached. "
+            "Attach one sensor or pass sensor:=orsus/sensor:=lidar after verifying the simulation."
         )
     raise RuntimeError(
-        f"Robot {robot_name!r} has both GS-Hub and LiDAR attached; both publish the same "
-        "cloud/odometry topics. Keep only one sensor, or select sensor:=gshub/sensor:=lidar "
+        f"Robot {robot_name!r} has both Orsus and LiDAR attached; both publish the same "
+        "cloud/odometry topics. Keep only one sensor, or select sensor:=orsus/sensor:=lidar "
         "explicitly and disable the other publisher."
     )
 
@@ -268,7 +268,7 @@ def resolve_sensor(
 def resolve_sensor_mount(profile, sensor):
     mounts = profile.get("sensor_mounts", {})
     mount = mounts.get(sensor) if isinstance(mounts, dict) else None
-    if mount is None and sensor == "gshub" and "lidar_xyz" in profile:
+    if mount is None and sensor == "orsus" and "lidar_xyz" in profile:
         mount = {
             "xyz": profile["lidar_xyz"],
             "rpy": profile.get("lidar_rpy", [0.0, 0.0, 0.0]),

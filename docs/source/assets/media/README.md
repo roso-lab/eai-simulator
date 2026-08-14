@@ -13,7 +13,7 @@ This directory owns the product demonstrations used by the English README, Chine
 | `demo.gif` | Product overview | Project overview |
 | `eai_env_diy.gif` | Compose environments | Environment guide |
 | `eai-keyboard.gif` | Heterogeneous agents | Project overview |
-| `gs-hub_demo.gif` | Perception and control | GS-Hub guide |
+| `orsus_demo.gif` | Perception and control | Orsus guide |
 | `eai-nav.gif` | Collaborative experiment fallback | Getting started / Nav2 |
 
 ## Recording Contract
@@ -64,7 +64,7 @@ The initial product README reuses the existing recordings without lossy recompre
 | `demo.gif` | 9,705,622 |
 | `eai_env_diy.gif` | 6,798,839 |
 | `eai-keyboard.gif` | 5,225,557 |
-| `gs-hub_demo.gif` | 1,885,224 |
+| `orsus_demo.gif` | 1,885,224 |
 | `eai-nav.gif` | 8,169,454 |
 | **Total** | **31,784,696** |
 

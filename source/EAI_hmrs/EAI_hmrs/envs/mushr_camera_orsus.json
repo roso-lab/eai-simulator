@@ -8,7 +8,7 @@
         },
         {
           "controller": null,
-          "type": "gshub"
+          "type": "orsus"
         },
         {
           "controller": null,
@@ -27,6 +27,6 @@
     }
   ],
   "scene_key": "plane",
-  "task_name": "mushr_camera_gshub",
+  "task_name": "mushr_camera_orsus",
   "version": 1
 }

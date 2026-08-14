@@ -2,7 +2,7 @@
 """
 EAI 仿真器 → Nav2 TF 桥接节点
 
-GS-Hub 与独立 LiDAR 都发布 odometry 和点云，但不发布 Nav2 所需的完整 TF，
+Orsus 与独立 LiDAR 都发布 odometry 和点云，但不发布 Nav2 所需的完整 TF，
 且点云 frame_id 写成 "mapping_init"。
 Nav2 遵循 REP-105，需要完整 TF 链：map → odom → base_link → <sensor>。
 

@@ -1,6 +1,6 @@
 # EAI 仿真器 + Nav2 自主导航
 
-在 Factory 场景中用 Nav2 对仿真机器人做自主导航。仿真侧通过 GS-Hub 或独立 LiDAR 发布 odometry/点云并订阅
+在 Factory 场景中用 Nav2 对仿真机器人做自主导航。仿真侧通过 Orsus 或独立 LiDAR 发布 odometry/点云并订阅
 `/<robot>/cmd_vel`，本目录补齐 Nav2 需要的 TF、激光扫描、定位与导航栈。
 
 ## 架构
@@ -8,10 +8,10 @@
 ```
 Isaac Sim (GUI, conda env_isaaclab)          系统 ROS2 (humble)
   simulator.py --env=nav2                      nav2.launch.py
-  └─ GS-Hub / LiDAR 发布:                        ├─ tf_bridge.py
+  └─ Orsus / LiDAR 发布:                        ├─ tf_bridge.py
      /carter_1/odometry (mapping_init→base_link)  │   odom→base_link (动态)
      /carter_1/cloud   (frame=mapping_init)        │   base_link→lidar_link (静态)
-     /carter_1/GS_Hub_{L,R}_cam                     │   点云重发布 frame=lidar_link → /scan_cloud
+     /carter_1/Orsus_{L,R}_cam                     │   点云重发布 frame=lidar_link → /scan_cloud
   └─ 订阅:                                        ├─ pointcloud_to_laserscan: /scan_cloud→/scan
      /carter_1/cmd_vel ◄──────────────────────┤─ map_server: factory_map.yaml
                                                  ├─ amcl: map→odom (活动仿真实际 root pose)
@@ -39,7 +39,7 @@ cd /home/airs/eai-simulator
 
 以下“系统 ROS2”终端命令都在这个干净 shell 内执行。一键脚本会自动做同样的环境隔离。
 
-### Factory + Carter + GS-Hub 示例
+### Factory + Carter + Orsus 示例
 ```bash
 # 终端 1：仿真（必须 GUI 模式，见下方注意）
 conda activate env_isaaclab
@@ -55,7 +55,7 @@ source /opt/ros/humble/setup.bash
 /usr/bin/python3 algorithm/ros/nav2/send_goal.py --x -5.0 --y -8.0
 ```
 
-`nav2` 位于 `source/EAI_hmrs/EAI_hmrs/envs/nav2.json`。它选择 Factory 场景和 Carter，并挂载 GS-Hub 与 ROS tool。Builder 生成的实例名是 `carter_1`，Nav2 的 `robot_name` 必须保持一致。
+`nav2` 位于 `source/EAI_hmrs/EAI_hmrs/envs/nav2.json`。它选择 Factory 场景和 Carter，并挂载 Orsus 与 ROS tool。Builder 生成的实例名是 `carter_1`，Nav2 的 `robot_name` 必须保持一致。
 
 独立 LiDAR 使用相同的 ROS topic 契约。Env DIY 中给机器人挂载 `LiDAR` 和 `ROS` 后，默认的 `sensor:=auto` 会从 `tmp/runtime_interfaces.json` 核对实际附件并选用对应标定。也可显式指定：
 
@@ -64,7 +64,7 @@ ros2 launch algorithm/ros/nav2/nav2.launch.py \
     robot_name:=scout_1 robot_type:=Scout sensor:=lidar scene:=factory
 ```
 
-当前独立 LiDAR 支持 Carter、Go2、B2、M20、Scout、Lite3、MuSHR v2 和 Coco；GS-Hub 支持 Carter、Go2、B2、M20、Scout、Coco 和 Lite3。不支持的组合不会出现在 Env DIY 中。同一台机器人不要同时启用 GS-Hub 和 LiDAR，两者都会发布 `/<robot>/cloud` 与 `/<robot>/odometry`。
+当前独立 LiDAR 支持 Carter、Go2、B2、M20、Scout、Lite3、MuSHR v2 和 Coco；Orsus 支持 Carter、Go2、B2、M20、Scout、Coco 和 Lite3。不支持的组合不会出现在 Env DIY 中。同一台机器人不要同时启用 Orsus 和 LiDAR，两者都会发布 `/<robot>/cloud` 与 `/<robot>/odometry`。
 
 Nav2 启动时会读取 `tmp/runtime_interfaces.json`，使用活动仿真中对应机器人的实际世界位姿初始化 AMCL。因此 JSON/Env DIY 3D 自定义位置和 Builder 自动排列位置都不需要另行登记。
 
@@ -114,12 +114,12 @@ RViz 配置由 `nav2_setup.py` 从 `nav2_view.template.rviz` 生成到 `/tmp/eai
 
 ## 点云与 TF 对齐
 
-GS-Hub/Mid360 与独立 LiDAR 的 ROS 输出都需要补齐 Nav2 TF，本目录把处理收口在
+Orsus/Mid360 与独立 LiDAR 的 ROS 输出都需要补齐 Nav2 TF，本目录把处理收口在
 `tf_bridge.py`、`nav2_profiles.yaml` 和 `pointcloud_to_laserscan.template.yaml`：
 
-- GSHub 发布的 odometry frame 是 `mapping_init`，点云 frame 也写成 `mapping_init`，但点云数值实际是 Mid360 传感器坐标。
+- Orsus 发布的 odometry frame 是 `mapping_init`，点云 frame 也写成 `mapping_init`，但点云数值实际是 Mid360 传感器坐标。
 - `tf_bridge.py` 把 odometry 语义接成标准 TF `odom -> base_link`，并把点云重发到 `/<robot>/scan_cloud`，frame 改为 `lidar_link`。
-- `nav2_profiles.yaml` 的 `sensor_mounts` 分别保存 `gshub` 与 `lidar` 标定。例如 Carter GS-Hub 前向 Mid360 下倾约 19.4°，独立 LiDAR 则保持水平。
+- `nav2_profiles.yaml` 的 `sensor_mounts` 分别保存 `orsus` 与 `lidar` 标定。例如 Carter Orsus 前向 Mid360 下倾约 19.4°，独立 LiDAR 则保持水平。
 - `pointcloud_to_laserscan` 使用 `target_frame: base_link` 后再做高度切片，避免把下倾雷达看到的地面投成车前横向假障碍。
 - `scan_range_min` 至少覆盖车体半径，用来过滤近距离自体/安装结构回波。
 
@@ -142,7 +142,7 @@ RViz 里如果只检查传感器干净程度，Fixed Frame 可临时设为 `base
 
 ## ⚠️ 重要注意事项
 
-1. **必须 GUI 模式**：GS-Hub 和独立 RTX LiDAR 的 ROS2 发布图都依赖 GUI 渲染管线。headless 下可能只注册 publisher 而没有消息，因此验收必须实际读取 `/clock`、odometry 和 cloud 样本，不能只看 `ros2 topic list`。不用时请及时 Ctrl+C / `run_nav2.sh` 自动清理，避免占显存。
+1. **必须 GUI 模式**：Orsus 和独立 RTX LiDAR 的 ROS2 发布图都依赖 GUI 渲染管线。headless 下可能只注册 publisher 而没有消息，因此验收必须实际读取 `/clock`、odometry 和 cloud 样本，不能只看 `ros2 topic list`。不用时请及时 Ctrl+C / `run_nav2.sh` 自动清理，避免占显存。
 
 2. **目标点必须在自由空间**：地图里墙/障碍是致命代价，把目标设在墙里或膨胀区内规划器会失败（`failed to create plan`）。可用完全空闲的点，例如 `(-7.97,-6.53)`、`(0.0,0.0)`。机器人位置以当前运行时快照为准。
 
@@ -186,7 +186,7 @@ launch 参数：
 - `robot_name` — 机器人实例名 = ROS 话题命名空间（Env DIY 按类型生成 `carter_1`/`go2_1`；`nav2.json` 生成 `carter_1`）
 - `robot` — 旧参数别名；新命令优先用 `robot_name`
 - `robot_type` — 机器人类型，查 `nav2_profiles.yaml` 的物理参数（Carter/Go2/B2/Scout…）。空则按实例名首段猜测
-- `sensor` — `auto`（默认）、`gshub` 或 `lidar`；`auto` 强校验活动仿真附件，避免使用错误的安装 TF
+- `sensor` — `auto`（默认）、`orsus` 或 `lidar`；`auto` 强校验活动仿真附件，避免使用错误的安装 TF
 - `scene` — 场景名，用于选择地图并校验活动仿真场景
 - `map` — 可选显式地图 yaml，覆盖场景地图表
 - `pose` — 可选显式初始位姿 `x,y,yaw`；坐标表示仿真车体原点，生成器会按车型换算 Nav2 基点；未指定时从活动仿真的运行时快照读取机器人实际世界位姿

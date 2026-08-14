@@ -44,7 +44,7 @@ You do not need to read every page first. Choose your current goal and follow a 
      <a class="eai-workflow-card eai-workflow-card--connect" href="interface_catalog_en.html">
        <span class="eai-workflow-stage">03 / CONNECT</span>
        <strong>Connect perception and control</strong>
-       <span>Find ROS2, Nav2, GS-Hub, LiDAR, and manipulator interfaces.</span>
+       <span>Find ROS2, Nav2, Orsus, LiDAR, and manipulator interfaces.</span>
        <span class="eai-workflow-link">Browse Interface Catalog</span>
      </a>
      <a class="eai-workflow-card eai-workflow-card--extend" href="controller_guide_en.html">
@@ -129,7 +129,7 @@ Continue Exploring
    :caption: Connect and Control
 
    interface_catalog_en
-   gs_hub_sensor_en
+   orsus_sensor_en
    pegasus_drones_en
    ur5_control_en
 

@@ -44,7 +44,7 @@ def configure_ros_env():
     disabled_values = {"1", "true", "yes", "on"}
     if any(
         os.environ.get(variable, "").strip().casefold() in disabled_values
-        for variable in ("EAI_DISABLE_SENSOR_ROS_ENV", "EAI_DISABLE_GSHUB_ROS_ENV")
+        for variable in ("EAI_DISABLE_SENSOR_ROS_ENV", "EAI_DISABLE_ORSUS_ROS_ENV")
     ):
         return None
 

@@ -68,7 +68,7 @@ source/EAI_hmrs/EAI_hmrs/envs/robo.json
         "y": 0.5
       },
       "attachments": [
-        {"type": "gshub", "controller": null},
+        {"type": "orsus", "controller": null},
         {"type": "ros", "controller": null}
       ]
     }
@@ -126,7 +126,7 @@ Scenes
 Robots                         # 宿主机器人
 Payloads
   ├── Manipulators              # UR5、Z1
-  └── Sensors                   # GS-Hub、LiDAR
+  └── Sensors                   # Orsus、LiDAR
 Tools                          # ROS、Keyboard
 ```
 
