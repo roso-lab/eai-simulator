@@ -1468,9 +1468,11 @@
           scout: { label: "Scout", image: "env-diy-assets/robot/scout.png", cfg: "SCOUT_DIFF_CFG" },
           g1: { label: "G1", image: "env-diy-assets/robot/g1.png", cfg: "G1_SKRL_CFG" },
           cf2x: { label: "CF2X", image: "env-diy-assets/robot/cf2x.png", cfg: "QUADCOPTER_GOAL_SKRL_CFG" },
+          iris: { label: "Iris", image: "env-diy-assets/robot/iris.png", cfg: "PEGASUS_IRIS_POSITION_CFG" },
+          pegasus: { label: "Pegasus", image: "env-diy-assets/robot/pegasus.png", cfg: "PEGASUS_X4_POSITION_CFG" },
           lite3: { label: "Lite3", image: "env-diy-assets/robot/lite3.png", cfg: "LITE3_VELOCITY_RSL_CFG" },
           mushr_v2: { label: "MuSHR", image: "env-diy-assets/robot/mushr_v2.png", cfg: "MUSHR_ACKERMANN_CFG" },
-          coco: { label: "Coco AIRS", image: "env-diy-assets/robot/coco.png", cfg: "COCO_ACKERMANN_CFG" }
+          coco: { label: "Coco", image: "env-diy-assets/robot/coco.png", cfg: "COCO_ACKERMANN_CFG" }
         }),
         manipulators: Object.freeze({
           ur5: { label: "UR5", image: "env-diy-assets/manipulator/ur5.png", supported: ["go2", "b2", "m20", "scout", "lite3"], cfg: "UR5_IK_CFG" },
@@ -1481,8 +1483,8 @@
           lidar: { label: "LiDAR", image: "env-diy-assets/sensor/lidar.png", supported: ["carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3"] }
         }),
         tools: Object.freeze({
-          ros: { label: "ROS", image: "env-diy-assets/tool/ros.png", supported: ["carter", "go2", "b2", "m20", "scout", "lite3", "pepper", "g1", "cf2x", "mushr_v2", "coco"] },
-          keyboard: { label: "Keyboard", image: "env-diy-assets/tool/keyboard.png", supported: ["carter", "pepper", "go2", "b2", "m20", "scout", "g1", "cf2x", "lite3", "mushr_v2", "coco"] }
+          ros: { label: "ROS", image: "env-diy-assets/tool/ros.png", supported: ["carter", "go2", "b2", "m20", "scout", "lite3", "pepper", "g1", "cf2x", "iris", "pegasus", "mushr_v2", "coco"] },
+          keyboard: { label: "Keyboard", image: "env-diy-assets/tool/keyboard.png", supported: ["carter", "pepper", "go2", "b2", "m20", "scout", "g1", "cf2x", "iris", "pegasus", "lite3", "mushr_v2", "coco"] }
         })
       });
 
