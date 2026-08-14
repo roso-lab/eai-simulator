@@ -139,6 +139,7 @@ Continue Exploring
    :caption: Develop and Extend
 
    controller_guide_en
+   human_assets_en
    pegasus_drones_en
 
 .. toctree::

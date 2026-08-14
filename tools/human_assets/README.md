@@ -4,6 +4,10 @@
 入口。所有命令都从仓库根目录运行；完整资产清单与动作契约见
 [`usd/human/README.md`](../../usd/human/README.md)。
 
+公开运行时使用的角色、纹理、动作和 cache 全部位于 `usd/human/` 下，manifest 只保存相对于
+human root 的路径。转换或迁移命令可以读取经过批准的外部输入，但生成的运行时内容不能依赖
+开发者主目录或其他仓库外绝对路径。
+
 ## 文件职责
 
 | 文件 | 运行环境 | 输入 | 输出 |
@@ -37,6 +41,9 @@ python -u tools/human_assets/run_demo.py
 移动完成时，demo 都会把对应角色恢复到动作前原位。`phone_call` 等 `path_policy=pause` 动作
 保持原地；`path_policy=continue` 动作播放期间沿短路径移动。
 
+角色生成和动作切换时会自动贴地。蒙皮角色按当前 UsdSkel 姿态变形后的可见网格点计算地面
+高度，非蒙皮网格或无法计算 skinning 的内容使用 USD bounds 回退。
+
 Headless 模式使用同一 backend 和控制状态机，完整验证 39 × 12 个骨骼动作、4 个 rigid
 往返移动和 1 个静态角色：
 
@@ -44,6 +51,8 @@ Headless 模式使用同一 backend 和控制状态机，完整验证 39 × 12 �
 conda run --no-capture-output -n env_isaaclab \
   python -u tools/human_assets/run_demo.py --headless
 ```
+
+成功时最后输出 `Verified unified human matrix: 39x12 + 4 + 1`。
 
 创建 JSON 动作草稿：
 

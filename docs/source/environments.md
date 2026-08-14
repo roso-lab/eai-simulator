@@ -24,7 +24,7 @@ source/EAI_hmrs/EAI_hmrs/envs/robo.json
 
 `--env` 只传文件名，不包含 `.json` 后缀。名称可包含字母、数字、下划线和连字符。
 
-`robo.json` 包含当前支持的多种机器人，并为每个对象启用键盘控制。registry 人类资产不属于 Env DIY 环境，使用 `python -u tools/human_assets/run_demo.py` 单独验证。
+`robo.json` 包含当前支持的多种机器人，并为每个对象启用键盘控制。registry 人类资产不属于 Env DIY 环境，使用 `python -u tools/human_assets/run_demo.py` 单独运行；开发接口和验证矩阵见[人类资产开发](human_assets.md)。
 
 仓库内置环境：
 

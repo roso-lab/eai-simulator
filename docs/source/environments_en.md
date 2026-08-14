@@ -24,7 +24,7 @@ source/EAI_hmrs/EAI_hmrs/envs/robo.json
 
 `--env` only passes the file name, without the `.json` suffix. The name can contain letters, numbers, underscores, and hyphens.
 
-`robo.json` contains the currently supported robot set, with keyboard control enabled for each entity. Registry-driven human assets are not Env DIY robots; validate them separately with `python -u tools/human_assets/run_demo.py`.
+`robo.json` contains the currently supported robot set, with keyboard control enabled for each entity. Registry-driven human assets are not Env DIY robots; run them separately with `python -u tools/human_assets/run_demo.py`. See [Human Asset Development](human_assets_en.md) for the development API and validation matrix.
 
 Warehouse built-in environment:
 

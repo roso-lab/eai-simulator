@@ -65,7 +65,7 @@ python simulator.py --env robo
 source/EAI_hmrs/EAI_hmrs/envs/robo.json
 ```
 
-`robo` 环境在平面场景中加载轮式、足式、人形及无人机等异构机器人，并为每个对象启用键盘控制；registry 人类资产通过 `tools/human_assets/run_demo.py` 单独验证。
+`robo` 环境在平面场景中加载轮式、足式、人形及无人机等异构机器人，并为每个对象启用键盘控制；registry 人类资产通过 `python -u tools/human_assets/run_demo.py` 单独运行，完整能力见[人类资产开发](human_assets.md)。
 
 ## Env DIY
 
@@ -212,3 +212,4 @@ ls source/EAI_hmrs/EAI_hmrs/envs/EAI-Factory-v0.json
 - :doc:`环境说明 <environments>`
 - :doc:`项目概览 <project_overview>`
 - :doc:`控制器开发 <controller_guide>`
+- :doc:`人类资产开发 <human_assets>`

@@ -982,51 +982,44 @@ Maintain the registry-driven human packs, actions, path following, and stage run
 
 #### Authoritative files
 
-Registry-driven behavior lives in `source/EAI_assets/EAI_assets/humans/`; maintained metadata is `usd/human/manifest.json`, `manifest.schema.json`, `pack-checksums.json`, and `audit-summary.json`; authoring, demo, and maintenance entry points are under `tools/human_assets/`. Human assets are no longer registered as an Env DIY robot and do not use a controller cfg from the traditional controller catalog.
+Registry-driven behavior lives in `source/EAI_assets/EAI_assets/humans/`; maintained metadata is `usd/human/manifest.json`, `manifest.schema.json`, `pack-checksums.json`, and `audit-summary.json`; authoring, demo, and maintenance entry points are under `tools/human_assets/`. `asset_placement.py` owns orientation, scale, and grounding from the current visible pose. Human actors use the dedicated stage runtime and unified demo outside the Env DIY robot and traditional controller catalogs.
 
 #### Related registration/compatibility points
 
-Large character, activity, motion, texture, cache, action, and custom-action files are external or ignored; metadata is tracked. Use `HumanAssetRegistry`, `HumanActionPublisher`, conversion/migration tools, validation, and cache builders rather than hand-editing generated registries. `tools/human_assets/migrate_assets.py` writes `manifest.json` and `audit-summary.json`; `tools/human_assets/convert_gltf_assets.py` writes conversion diagnostics. No tracked tool regenerates `usd/human/pack-checksums.json`, so checksum publication remains an external maintainer/provider release step. Animated human stage workflows use CPU PhysX on Isaac Sim 5.1 when pose writes require it.
+Large character, activity, motion, texture, cache, action, and custom-action files are provider-managed or ignored, but every runtime payload is installed below the active `usd/human/` root and every manifest runtime path remains relative to that root. Use `HumanAssetRegistry`, `HumanActionPublisher`, conversion/migration tools, validation, and cache builders rather than hand-editing generated registries. `tools/human_assets/migrate_assets.py` writes `manifest.json` and `audit-summary.json`; `tools/human_assets/convert_gltf_assets.py` writes conversion diagnostics. No tracked tool regenerates `usd/human/pack-checksums.json`, so checksum publication remains an external maintainer/provider release step. Animated human stage workflows use CPU PhysX on Isaac Sim 5.1 when pose writes require it.
 
 #### Implementation steps
 
 1. Decide whether the change affects registry assets, canonical motions, custom actions, retarget caches, path following, or stage runtime.
 2. For registry content, run the appropriate conversion or migration tool and review licensing/redistribution fields. The migration interface is `python tools/human_assets/migrate_assets.py --source-root <approved-source-root> --target-root usd/human --dry-run`; omit `--dry-run` only after reviewing the plan. It regenerates the manifest and audit summary, not pack checksums.
-3. Validate schema, skeleton signatures, motion compatibility, relative paths, and cache invalidation; do not commit external packs or caches. Give the provider maintainer the exact pack roots, sizes, hashes, license/provenance, and immutable revision needed to publish matching `pack-checksums.json`; newcomers cannot reproduce that release metadata with a tracked command.
+3. Validate schema, skeleton signatures, motion compatibility, human-root-relative paths, current-pose grounding, and cache invalidation; do not commit external packs or caches. Give the provider maintainer the exact pack roots, sizes, hashes, license/provenance, and immutable revision needed to publish matching `pack-checksums.json`; newcomers cannot reproduce that release metadata with a tracked command.
 4. Update resolver stable-pack behavior and tests only when the distribution contract changes.
-5. For live animation changes, keep the manifest motion contract, retarget cache, path policy, stage runtime, and `tools/human_assets/run_demo.py` synchronized.
+5. For live animation changes, keep the manifest motion contract, retarget cache, facing offset, path policy, stage runtime, placement behavior, and `tools/human_assets/run_demo.py` synchronized.
 
 #### Minimum verification
 
-Parse the maintained metadata and run the pure human registry/runtime suites:
+Use the unified demo for the complete human capability check. GUI mode loads all 44 actors and supports `Q` selection plus action numbers `1-12`:
 
 ```bash
-python -m json.tool usd/human/manifest.json >/dev/null
-python -m json.tool usd/human/manifest.schema.json >/dev/null
-python -m json.tool usd/human/pack-checksums.json >/dev/null
-python -m json.tool usd/human/audit-summary.json >/dev/null
-PYTHONPATH=source/EAI_assets python -m pytest -q \
-  source/EAI_assets/test/test_human_asset_registry.py \
-  source/EAI_assets/test/test_human_animation_runtime.py \
-  source/EAI_assets/test/test_human_path_follower.py \
-  source/EAI_assets/test/test_human_spawner.py
+python -u tools/human_assets/run_demo.py
 ```
 
-When every manifest-referenced payload is present below the default `usd/` or configured `EAI_USD_ROOT`, run the exact structural validator:
+For automated validation, run the same backend and control state machine headlessly:
 
 ```bash
-PYTHONPATH=source/EAI_assets python tools/human_assets/validate_assets.py --manifest usd/human/manifest.json
+conda run --no-capture-output -n env_isaaclab \
+  python -u tools/human_assets/run_demo.py --headless
 ```
 
-Without the full payload that command must fail for missing files. Tests that import `pxr`, including portions of `test_human_action_authoring.py`, `test_human_stage_runtime.py`, and `test_human_usd_animation_adapter.py`, may skip when USD Python is unavailable; report those skips explicitly.
+The expected final summary is `Verified unified human matrix: 39x12 + 4 + 1`. Both modes require Isaac Sim 5.1 and every manifest-referenced payload below the default `usd/` or configured `EAI_USD_ROOT`; missing payloads are failures, not skipped coverage.
 
 #### Full integration verification
 
-Use Isaac to verify stage composition, skeleton animation, retarget cache use, path following, pause ownership, cleanup, and CPU PhysX fallback with real packs. Some tracked acceptance/integration tests contain local, untracked, or version-specific assumptions, so audit their prerequisites rather than claiming clean-checkout coverage.
+The headless command above verifies 39 x 12 skeletal actions, four rigid outbound-return movements, one static actor, animation samples, retarget cache use, path policies, current-pose grounding, bounds, exact position restoration, and cleanup with real packs. Use GUI mode to inspect visible facing, hand poses, props, and motion quality that cannot be established from numeric assertions alone.
 
 #### Common omissions
 
-Hand-editing generated manifest records, committing large packs/caches, claiming the conversion/migration tools generate pack checksums, changing provider assets without matching external checksum publication, ignoring license fields or skeleton signatures, testing only with `pxr` absent, expecting GPU PhysX for animated humans, or reintroducing a retired Env DIY human/controller entry.
+Hand-editing generated manifest records, committing large packs/caches, adding absolute runtime paths, claiming the conversion/migration tools generate pack checksums, changing provider assets without matching external checksum publication, ignoring license fields or skeleton signatures, relying on bounds that ignore the current skinned pose, expecting GPU PhysX for animated humans, or registering human actors as Env DIY robots/controllers.
 
 ### Add or Modify an Algorithm
 

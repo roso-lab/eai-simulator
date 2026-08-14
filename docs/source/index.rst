@@ -137,6 +137,7 @@ EAI Simulator 文档
    :caption: 开发与扩展
 
    controller_guide
+   human_assets
    pegasus_drones
 
 .. toctree::

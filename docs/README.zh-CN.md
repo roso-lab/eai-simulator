@@ -77,6 +77,7 @@ README 只概括支持范围，详细能力以专题文档为准：
 - **[构建环境](https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html)：** JSON 环境、Env DIY、三维布置与 Payload。
 - **[ROS2 接口](https://www.rosolab.com/roso-lab/eai-simulator/docs/interface_catalog.html)：** 控制输入、传感输出、Nav2 与机械臂。
 - **[控制器开发](https://www.rosolab.com/roso-lab/eai-simulator/docs/controller_guide.html)：** 传统控制、RL、IK 和外部控制器接入。
+- **[人类资产开发](https://www.rosolab.com/roso-lab/eai-simulator/docs/human_assets.html)：** 44 个 registry 角色、12 个标准动作、路径跟随与统一 GUI/headless 验证。
 
 ## 版本发布与功能规划
 

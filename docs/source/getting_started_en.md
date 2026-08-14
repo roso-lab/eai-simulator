@@ -65,7 +65,7 @@ This is the quick start command recommended by the project. `--env robo` will re
 source/EAI_hmrs/EAI_hmrs/envs/robo.json
 ```
 
-The `robo` environment loads supported heterogeneous robots in a flat scene and enables keyboard control for each object. Validate registry-driven human assets separately with `tools/human_assets/run_demo.py`.
+The `robo` environment loads supported heterogeneous robots in a flat scene and enables keyboard control for each object. Run registry-driven human assets separately with `python -u tools/human_assets/run_demo.py`; see [Human Asset Development](human_assets_en.md) for the complete capability contract.
 
 ## Env DIY
 
@@ -212,3 +212,4 @@ Confirm that the robot contains a `ros` or `keyboard` attachment in the JSON, an
 - [Environment Guide](environments_en.md)
 - [Project Overview](project_overview_en.md)
 - [Controller Development](controller_guide_en.md)
+- [Human Asset Development](human_assets_en.md)
