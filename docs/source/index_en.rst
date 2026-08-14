@@ -130,7 +130,6 @@ Continue Exploring
 
    interface_catalog_en
    orsus_sensor_en
-   pegasus_drones_en
    ur5_control_en
 
 .. toctree::
@@ -140,6 +139,7 @@ Continue Exploring
    :caption: Develop and Extend
 
    controller_guide_en
+   pegasus_drones_en
 
 .. toctree::
    :hidden:

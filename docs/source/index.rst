@@ -128,7 +128,6 @@ EAI Simulator 文档
 
    interface_catalog
    orsus_sensor
-   pegasus_drones
    ur5_control
 
 .. toctree::
@@ -138,6 +137,7 @@ EAI Simulator 文档
    :caption: 开发与扩展
 
    controller_guide
+   pegasus_drones
 
 .. toctree::
    :hidden:
