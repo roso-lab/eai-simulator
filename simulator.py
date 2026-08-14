@@ -181,6 +181,24 @@ def _selection_requires_omnigraph(selection_data: dict[str, Any] | None) -> bool
     )
 
 
+def _selection_has_attachment(
+    selection_data: dict[str, Any] | None,
+    attachment_type: str,
+) -> bool:
+    if not selection_data:
+        return False
+    expected = str(attachment_type).strip().lower()
+    return any(
+        isinstance(robot, dict)
+        and any(
+            isinstance(attachment, dict)
+            and str(attachment.get("type", "")).strip().lower() == expected
+            for attachment in robot.get("attachments", ())
+        )
+        for robot in selection_data.get("robots", ())
+    )
+
+
 def _sensor_scene_single_env_reasons(selection_data: dict[str, Any] | None) -> tuple[str, ...]:
     if not selection_data:
         return ()
@@ -200,6 +218,10 @@ def _sensor_scene_single_env_reasons(selection_data: dict[str, Any] | None) -> t
         if robot_type in aerial_types:
             tools = ", ".join(sorted(enabled_tools)) or "default sensors"
             reasons.append(f"robot {index} ({robot_type}: {tools})")
+        elif robot_type == "mushr_v2" and "camera" in attachments:
+            # MuSHR's built-in front camera uses the aerial sensor suite's
+            # single-environment render product, unlike the GSHub stereo path.
+            reasons.append(f"robot {index} (mushr_v2: camera)")
         elif "gshub" in attachments and enabled_tools:
             tools = ", ".join(sorted(enabled_tools))
             reasons.append(f"robot {index} ({robot_type or 'unknown'}: {tools})")
@@ -262,6 +284,18 @@ def _warn_if_inotify_limits_are_low() -> None:
 def _enable_required_selection_extensions(selection_data: dict[str, Any] | None) -> None:
     if _selection_requires_omnigraph(selection_data):
         _enable_isaac_extension("omni.graph")
+    if _selection_has_attachment(selection_data, "gshub"):
+        _enable_isaac_extension("isaacsim.sensors.rtx")
+
+
+def _prepare_replicator_for_app_close() -> None:
+    """Prevent Replicator shutdown from stopping Isaac Lab's live timeline."""
+    try:
+        import omni.replicator.core as rep
+
+        rep.orchestrator.set_capture_on_play(False)
+    except Exception as exc:
+        print(f"[EAI Simulator] Warning: Replicator close preparation failed: {exc}")
 
 
 def _repo_root() -> Path:
@@ -1502,6 +1536,16 @@ def _app_launcher_args(
 
         if selection_requires_aerial_camera(effective_selection):
             args["enable_cameras"] = True
+        if _selection_has_attachment(effective_selection, "gshub"):
+            motion_bvh_args = (
+                "--/renderer/raytracingMotion/enabled=true "
+                "--/renderer/raytracingMotion/enableHydraEngineMasking=true "
+                "--/renderer/raytracingMotion/enabledForHydraEngines='0'"
+            )
+            existing_kit_args = str(args.get("kit_args", "")).strip()
+            args["kit_args"] = " ".join(
+                item for item in (existing_kit_args, motion_bvh_args) if item
+            )
     return args
 
 
@@ -1542,6 +1586,7 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
     env = None
     ur5_manager = None
     aerial_sensor_manager = None
+    gshub_cleanup = None
     try:
         _enable_required_selection_extensions(selection_data)
         if config.enable_ros_bridge_extension:
@@ -1554,6 +1599,18 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         base_env = env.unwrapped if hasattr(env, "unwrapped") else env
         possible_agents = list(base_env.possible_agents)
         env.reset()
+        from EAI_assets.sensor.high_sensor.gs_hub import (
+            close_gshub_ros_resources,
+            setup_pending_gshub_ros_graphs,
+        )
+
+        gshub_cleanup = close_gshub_ros_resources
+        gshub_graph_count = setup_pending_gshub_ros_graphs()
+        if gshub_graph_count:
+            print(
+                f"[EAI Simulator] Created {gshub_graph_count} instance-safe "
+                "GS-Hub RTX LiDAR/odometry publisher set(s)."
+            )
         ur5_manager = getattr(base_env, "_ur5_ros2_manager", None)
         if ur5_manager is None:
             ur5_manager = _setup_ur5_graph_manager(
@@ -1582,6 +1639,8 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         )
     finally:
         try:
+            if gshub_cleanup is not None:
+                gshub_cleanup()
             if aerial_sensor_manager is not None:
                 aerial_sensor_manager.close()
             if ur5_manager is not None:
@@ -1590,6 +1649,7 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
                 env.close()
         finally:
             if owns_simulation_app:
+                _prepare_replicator_for_app_close()
                 simulation_app.close()
 
 

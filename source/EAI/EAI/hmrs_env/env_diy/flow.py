@@ -389,7 +389,7 @@ def _choose_attachments(
         and not (robot.type in {"iris", "pegasus"} and attachment_type == "lidar")
         and not (
             attachment_type == "camera"
-            and robot.type not in {"cf2x", "iris", "pegasus"}
+            and robot.type not in catalog.BUILTIN_CAMERA_ROBOTS
             and not any(item.type == "gshub" for item in robot.attachments)
         )
         and not (

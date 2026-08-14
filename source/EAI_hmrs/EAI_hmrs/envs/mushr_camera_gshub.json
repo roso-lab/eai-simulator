@@ -1,0 +1,32 @@
+{
+  "robots": [
+    {
+      "attachments": [
+        {
+          "controller": null,
+          "type": "camera"
+        },
+        {
+          "controller": null,
+          "type": "gshub"
+        },
+        {
+          "controller": null,
+          "type": "ros"
+        }
+      ],
+      "controller": {
+        "cfg": "MUSHR_ACKERMANN_CFG",
+        "mode": "default"
+      },
+      "type": "mushr_v2",
+      "visual": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    }
+  ],
+  "scene_key": "plane",
+  "task_name": "mushr_camera_gshub",
+  "version": 1
+}
