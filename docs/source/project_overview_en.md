@@ -116,7 +116,7 @@ eai-simulator/
 
 `simulator.py` only uses JSON environments. With `--env=<name>`, it loads `source/EAI_hmrs/EAI_hmrs/envs/<name>.json`. Without `--env`, it opens the Env DIY startup menu. Select item 3 or run `python simulator.py --diy-3d` for true 3D editing; this saves Viewport transforms as physical `spawn_pose` values.
 
-Robot choices are defined by `source/EAI/EAI/hmrs_env/env_diy/flow.py::ROBOT_KEYS` and `source/EAI_hmrs/EAI_hmrs/env_builder.py::ROBOT_OPTIONS`. The following 11 types are currently available:
+Robot choices are defined by `source/EAI/EAI/hmrs_env/env_diy/catalog.py::ROBOT_KEYS` and `source/EAI_hmrs/EAI_hmrs/env_builder.py::ROBOT_OPTIONS`. The following 13 types are currently available:
 
 | Env DIY key | Robot / object | Default controller | Optional payloads | Common entry point |
 | ----------- | -------------- | ------------------ | ----------------- | ------------------ |
@@ -127,7 +127,9 @@ Robot choices are defined by `source/EAI/EAI/hmrs_env/env_diy/flow.py::ROBOT_KEY
 | `m20` | DeepRobotics M20 | `M20_ROUGH_RSL_CFG` | Orsus, LiDAR, UR5, Z1 | JSON / Env DIY |
 | `scout` | Scout mobile base | `SCOUT_DIFF_CFG` | Orsus, LiDAR, UR5, Z1 | JSON / Env DIY |
 | `g1` | Unitree G1 | `G1_SKRL_CFG` | - | JSON / Env DIY |
-| `cf2x` | Crazyflie CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | - | JSON / Env DIY |
+| `cf2x` | Crazyflie CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | Built-in camera, keyboard, ROS | JSON / Env DIY |
+| `iris` | Pegasus 3DR Iris | `PEGASUS_IRIS_POSITION_CFG` | Built-in camera, keyboard, ROS | JSON / Env DIY |
+| `pegasus` | Pegasus research quadrotor | `PEGASUS_X4_POSITION_CFG` | Built-in camera, keyboard, ROS | JSON / Env DIY |
 | `lite3` | DeepRobotics Lite3 | `LITE3_VELOCITY_RSL_CFG` | Orsus, LiDAR, UR5, Z1 | JSON / Env DIY |
 | `mushr_v2` | MuSHR Nano v2 Ackermann base | `MUSHR_ACKERMANN_CFG` | Built-in camera, LiDAR, keyboard, ROS | JSON / Env DIY |
 | `coco` | Coco AIRS Ackermann base | `COCO_ACKERMANN_CFG` | Orsus, LiDAR, keyboard, ROS | JSON / Env DIY |

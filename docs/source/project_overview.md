@@ -113,8 +113,8 @@ eai-simulator/
 
 `simulator.py` 只使用 JSON 环境。传入 `--env=<name>` 时读取
 `source/EAI_hmrs/EAI_hmrs/envs/<name>.json`；未指定 `--env` 时进入 Env DIY 启动菜单。选择第 3 项或使用 `python simulator.py --diy-3d` 可进入真实三维编辑，它把 Viewport transform 保存为物理 `spawn_pose`。
-机器人选择由 `source/EAI/EAI/hmrs_env/env_diy/flow.py::ROBOT_KEYS` 和
-`source/EAI_hmrs/EAI_hmrs/env_builder.py::ROBOT_OPTIONS` 定义，目前可选 11 类：
+机器人选择由 `source/EAI/EAI/hmrs_env/env_diy/catalog.py::ROBOT_KEYS` 和
+`source/EAI_hmrs/EAI_hmrs/env_builder.py::ROBOT_OPTIONS` 定义，目前可选 13 类：
 
 | Env DIY key | 机器人/对象 | 默认控制器 | 可选附件 | 常用入口 |
 | ---------- | ---------- | ---------- | -------- | -------- |
@@ -125,7 +125,9 @@ eai-simulator/
 | `m20` | DeepRobotics M20 | `M20_ROUGH_RSL_CFG` | Orsus, LiDAR, UR5, Z1 | JSON / Env DIY |
 | `scout` | Scout mobile base | `SCOUT_DIFF_CFG` | Orsus, LiDAR, UR5, Z1 | JSON / Env DIY |
 | `g1` | Unitree G1 | `G1_SKRL_CFG` | - | JSON / Env DIY |
-| `cf2x` | Crazyflie CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | - | JSON / Env DIY |
+| `cf2x` | Crazyflie CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | 内置相机、keyboard、ROS | JSON / Env DIY |
+| `iris` | Pegasus 3DR Iris | `PEGASUS_IRIS_POSITION_CFG` | 内置相机、keyboard、ROS | JSON / Env DIY |
+| `pegasus` | Pegasus research quadrotor | `PEGASUS_X4_POSITION_CFG` | 内置相机、keyboard、ROS | JSON / Env DIY |
 | `lite3` | DeepRobotics Lite3 | `LITE3_VELOCITY_RSL_CFG` | Orsus, LiDAR, UR5, Z1 | JSON / Env DIY |
 | `mushr_v2` | MuSHR Nano v2 Ackermann base | `MUSHR_ACKERMANN_CFG` | 内置相机、LiDAR、keyboard、ROS | JSON / Env DIY |
 | `coco` | Coco AIRS Ackermann base | `COCO_ACKERMANN_CFG` | Orsus, LiDAR, keyboard, ROS | JSON / Env DIY |
