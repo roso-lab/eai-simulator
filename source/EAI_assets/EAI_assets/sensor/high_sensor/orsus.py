@@ -96,9 +96,6 @@ _ORSUS_ROS_GRAPH_PATHS = (
     "Orsus/Graphs/ROS2_publish_Lidar_Odom",
 )
 _ORSUS_LIDAR_PRIM_PATH = "Orsus/base_link/lidar_link/Orsus_Lidar"
-_ORSUS_MID360_RTX_ASSET_PATH = str(
-    Path(__file__).with_name("orsus_mid360_rtx.usda")
-)
 
 
 def _sanitize_ros_name_component(component: str) -> str:
@@ -252,6 +249,9 @@ def _orsus_runtime_asset_path(source_path: str) -> str:
 
 
 orsus_source_path = asset_path("payloads/sensors/orsus/Orsus_fix_type.usd")
+_ORSUS_MID360_RTX_ASSET_PATH = asset_path(
+    "payloads/sensors/orsus/orsus_mid360_rtx.usda"
+)
 orsus_path = orsus_source_path
 
 # 全局字典：临时存储每个 Orsus 实例的发布配置
