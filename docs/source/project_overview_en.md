@@ -130,7 +130,7 @@ Robot choices are defined by `source/EAI/EAI/hmrs_env/env_diy/flow.py::ROBOT_KEY
 | `cf2x` | Crazyflie CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | - | JSON / Env DIY |
 | `human` | Human animation | `HUMAN_ANIMATION_CFG` | - | JSON / Env DIY |
 | `lite3` | DeepRobotics Lite3 | `LITE3_VELOCITY_RSL_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
-| `mushr_v2` | MuSHR Nano v2 Ackermann base | `MUSHR_ACKERMANN_CFG` | LiDAR, keyboard, ROS | JSON / Env DIY |
+| `mushr_v2` | MuSHR Nano v2 Ackermann base | `MUSHR_ACKERMANN_CFG` | Built-in camera, GS-Hub, LiDAR, keyboard, ROS | JSON / Env DIY |
 | `coco` | Coco AIRS Ackermann base | `COCO_ACKERMANN_CFG` | GS-Hub, LiDAR, keyboard, ROS | JSON / Env DIY |
 
 > Controller configurations are stored in `source/EAI_assets/EAI_assets/controller/`, under `rl/` and `traditional/`. `UR5_IK_CFG` and `Z1_IK_CFG` provide manipulator attachments for the compatible hosts listed above.
@@ -150,7 +150,7 @@ Robot choices are defined by `source/EAI/EAI/hmrs_env/env_diy/flow.py::ROBOT_KEY
    python simulator.py --num_envs=1 --device=cuda:0
    ```
    The prompt offers three environment-authoring methods:
-   - `1. Visual window`: Use the Env DIY window to select `Scenes -> Robots -> Payloads -> Tools`. Payloads are grouped into Manipulators (UR5/Z1) and Sensors (GS-Hub/LiDAR), while Tools provides Camera/Keyboard/ROS. The Camera Tool independently controls ROS image publication for the built-in monocular cameras on Iris, Pegasus, and CF2X and for the GS-Hub cameras. The ROS Tool controls LiDAR, IMU, GPS, magnetometer, and barometer publication for all three aerial robots, plus GS-Hub LiDAR point-cloud, odometry, and scan publication. The result can be saved as `source/EAI_hmrs/EAI_hmrs/envs/<env_name>.json`.
+   - `1. Visual window`: Use the Env DIY window to select `Scenes -> Robots -> Payloads -> Tools`. Payloads are grouped into Manipulators (UR5/Z1) and Sensors (GS-Hub/LiDAR), while Tools provides Camera/Keyboard/ROS. The Camera Tool independently controls ROS image publication for the built-in monocular cameras on Iris, Pegasus, CF2X, and MuSHR and for the GS-Hub cameras. The ROS Tool controls LiDAR, IMU, GPS, magnetometer, and barometer publication for all three aerial robots, plus GS-Hub LiDAR point-cloud, odometry, and scan publication. The result can be saved as `source/EAI_hmrs/EAI_hmrs/envs/<env_name>.json`.
    - `2. Terminal quick setup`: Select a scene, host robot, manipulator, sensor, tool, and controller in the same order as the visual window, then choose whether to save and run the environment immediately.
    - `3. Isaac Sim 3D editor`: Edit the robots' physical `spawn_pose` values directly in the Isaac Sim Viewport. You can also run `python simulator.py --diy-3d --device=cuda:0` to enter it directly.
 
@@ -202,7 +202,7 @@ EAI Simulator scene, robot, and task execution
    ```
 2. Select `1. Visual window` in the prompt.
 3. Drag a scene card onto the canvas, then drag robot cards to their target positions in the scene.
-4. Open `Payloads`. Choose UR5/Z1 under `Manipulators` or GS-Hub/LiDAR under `Sensors`, then open `Tools` to choose Camera/Keyboard/ROS. The Camera Tool independently controls ROS image publication for the built-in monocular cameras on Iris, Pegasus, and CF2X and for the GS-Hub cameras. The ROS Tool controls LiDAR, IMU, GPS, magnetometer, and barometer publication for all three aerial robots, plus GS-Hub LiDAR point-cloud, odometry, and scan publication. After selecting a robot, cards that are incompatible, already attached, or would add a second manipulator are disabled.
+4. Open `Payloads`. Choose UR5/Z1 under `Manipulators` or GS-Hub/LiDAR under `Sensors`, then open `Tools` to choose Camera/Keyboard/ROS. The Camera Tool independently controls ROS image publication for the built-in monocular cameras on Iris, Pegasus, CF2X, and MuSHR and for the GS-Hub cameras. The ROS Tool controls LiDAR, IMU, GPS, magnetometer, and barometer publication for all three aerial robots, plus GS-Hub LiDAR point-cloud, odometry, and scan publication. After selecting a robot, cards that are incompatible, already attached, or would add a second manipulator are disabled.
 5. Select `Complete Selection` and save the environment if needed. Saved configurations are written to `source/EAI_hmrs/EAI_hmrs/envs/<env_name>.json`.
 6. Launch a saved environment directly on subsequent runs:
    ```bash

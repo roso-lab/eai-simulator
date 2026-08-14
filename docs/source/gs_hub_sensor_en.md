@@ -4,9 +4,11 @@ orphan: true
 
 # GS-Hub Sensor
 
-GS-Hub is an integrated sensor module, including Lidar and Odometry, for ROS2 navigation stack integration.
+GS-Hub is an integrated stereo-camera, RTX LiDAR, and odometry sensor module for ROS2 navigation stack integration.
 
-GS-Hub can be mounted to Carter, Go2, B2, M20, Scout, Coco, and Lite3. In addition to point clouds and odometry, the current GS-Hub USD Graph publishes left and right camera images. Use `algorithm/ros/tools/vis_sensors.py` to view the stereo images and point-cloud top view together. The `camera` tool exclusively controls the image graphs; the `ros` tool exclusively controls point-cloud and odometry publishing.
+GS-Hub can be mounted to Carter, Go2, B2, M20, Scout, MuSHR Nano v2, Coco, and Lite3. Use `algorithm/ros/tools/vis_sensors.py` to view the stereo images and point-cloud top view together. The `camera` tool exclusively controls the image graphs; the `ros` tool exclusively controls point-cloud and odometry publishing. MuSHR's built-in front camera can publish alongside GS-Hub.
+
+Scenes containing GS-Hub currently support one environment only and must be launched with `--num_envs 1`.
 
 ## Function Overview
 
@@ -19,17 +21,18 @@ The GS-Hub sensor provides the following features:
 
 ## Architecture
 
-GS-Hub is implemented using Isaac Sim＊s Graph system:
+GS-Hub keeps the embedded publisher graphs for its stereo cameras. LiDAR and odometry resources are created per robot instance at runtime:
 
 ```
-Carter Robot
-    ∣ (physical state)
-GS-Hub Graph
-    ├── Isaac Compute Odometry Node
-    │   └── Publish /<robot>/odometry
-    └── Isaac Publish Lidar Node
-        └── Publish /<robot>/cloud (point cloud)
-    ∣ (ROS2 topic)
+Carter / MuSHR / another compatible robot
+    └── GS-Hub
+        ├── Embedded left/right camera graphs
+        │   └── /<robot>/GS_Hub_L_cam, /<robot>/GS_Hub_R_cam
+        ├── Runtime RTX LiDAR + Replicator writer
+        │   └── /<robot>/cloud
+        └── Runtime instance-safe odometry graph
+            └── /<robot>/odometry
+    ↓ ROS2 topics
 ROS2 Navigation2 navigation stack
 ```
 
@@ -61,26 +64,29 @@ class YourSceneCfg(InteractiveSceneCfg):
 **Notice**:
 - `prim_path` must point to a subpath of the robot chassis link
 - The position needs to be calibrated based on the actual robot model
+- For a saved-scene example of the complete MuSHR combination, see `source/EAI_hmrs/EAI_hmrs/envs/mushr_camera_gshub.json`
 
-### 2. Automatic repair mechanism
+```bash
+python simulator.py --env=mushr_camera_gshub --num_envs 1
+```
 
-GS-Hub will automatically repair the `chassisPrim` connection in Graph when loading:
+### 2. Runtime resource assembly
+
+When GS-Hub loads, it creates a cached runtime USD copy without the legacy non-instance-safe LiDAR and odometry graph. After the environment resets, it creates the RTX LiDAR point-cloud writer and connects a new odometry graph to the host chassis:
 
 ```python
 def spawn_and_fix_gshub(prim_path, cfg, translation, orientation):
-    # 1. Load USD model
-    sim_utils.spawn_from_usd(...)
+    runtime_cfg = cfg.copy()
+    runtime_cfg.usd_path = _gshub_runtime_asset_path(cfg.usd_path)
+    sim_utils.spawn_from_usd(prim_path, runtime_cfg, translation, orientation)
+    # Register RTX LiDAR and odometry creation requests per instance.
 
-    # 2. Find all environment instances
-    matched_parents = prim_utils.find_matching_prim_paths(parent_regex)
-
-    # 3. Fix Graph connection for each instance
-    for specific_path in resolved_paths:
-        # Repair chassisPrim connection of odometry node
-        rel.SetTargets([target_path])
+def setup_pending_gshub_ros_graphs():
+    # Create the RTX LiDAR writer and instance-safe odometry graph after reset.
+    ...
 ```
 
-This ensures that each instance can be correctly connected to the corresponding robot in a multi-environment scenario.
+The runtime cache defaults to `~/.cache/eai-simulator/runtime-assets` and can be overridden with `EAI_RUNTIME_ASSET_CACHE`. Session shutdown removes the writer, render product, LiDAR prim, and odometry graph.
 
 ## ROS2 environment configuration
 
@@ -329,7 +335,7 @@ Modify the Graph configuration in the USD file and change the topic name.
 ## References
 
 - **Implementation file**: `source/EAI_assets/EAI_assets/sensor/high_sensor/gs_hub.py`
-- **USD file**: `usd/payloads/sensors/gs_hub/GS_Hub_fix.usd`
-- **Environment configuration example**: `source/EAI_hmrs/EAI_hmrs/envs/nav2.json`
+- **USD asset**: provider path `payloads/sensors/gs_hub/GS_Hub_fix_type.usd`
+- **Environment configuration example**: `source/EAI_hmrs/EAI_hmrs/envs/mushr_camera_gshub.json`
 - **Dynamic mounting implementation**: `source/EAI_hmrs/EAI_hmrs/env_builder.py`
 - **ROS2 Navigation2**: https://navigation.ros.org/

@@ -128,7 +128,7 @@ eai-simulator/
 | `cf2x` | Crazyflie CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | - | JSON / Env DIY |
 | `human` | Human animation | `HUMAN_ANIMATION_CFG` | - | JSON / Env DIY |
 | `lite3` | DeepRobotics Lite3 | `LITE3_VELOCITY_RSL_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
-| `mushr_v2` | MuSHR Nano v2 Ackermann base | `MUSHR_ACKERMANN_CFG` | LiDAR, keyboard, ROS | JSON / Env DIY |
+| `mushr_v2` | MuSHR Nano v2 Ackermann base | `MUSHR_ACKERMANN_CFG` | 内置相机、GS-Hub、LiDAR、keyboard、ROS | JSON / Env DIY |
 | `coco` | Coco AIRS Ackermann base | `COCO_ACKERMANN_CFG` | GS-Hub, LiDAR, keyboard, ROS | JSON / Env DIY |
 
 
@@ -149,7 +149,7 @@ eai-simulator/
   python simulator.py --num_envs=1 --device=cuda:0
   ```
   启动后会提示选择 env 制定方式：
-  - `1. 可视化窗口`：通过 Env DIY 窗口按 `Scenes → Robots → Payloads → Tools` 选择环境；Payloads 下分为 Manipulators（UR5/Z1）和 Sensors（GS-Hub/LiDAR），Tools 提供 Camera/Keyboard/ROS。Camera Tool 独立控制 Iris、Pegasus、CF2X 内置单目相机和 GS-Hub 相机的 ROS 图像发布；ROS Tool 控制三种无人机的 LiDAR、IMU、GPS、磁力计和气压计，以及 GS-Hub 的 LiDAR 点云、里程计和 scan 发布。配置可保存为 `source/EAI_hmrs/EAI_hmrs/envs/<env_name>.json`。
+  - `1. 可视化窗口`：通过 Env DIY 窗口按 `Scenes → Robots → Payloads → Tools` 选择环境；Payloads 下分为 Manipulators（UR5/Z1）和 Sensors（GS-Hub/LiDAR），Tools 提供 Camera/Keyboard/ROS。Camera Tool 独立控制 Iris、Pegasus、CF2X、MuSHR 的内置单目相机和 GS-Hub 相机的 ROS 图像发布；ROS Tool 控制三种无人机的 LiDAR、IMU、GPS、磁力计和气压计，以及 GS-Hub 的 LiDAR 点云、里程计和 scan 发布。配置可保存为 `source/EAI_hmrs/EAI_hmrs/envs/<env_name>.json`。
   - `2. 终端快速`：按与可视化窗口相同的顺序选择场景、宿主机器人、机械臂、传感器和工具，再选择控制器，并可选择是否保存和立即运行。
   - `3. Isaac Sim 3D 编辑器`：在 Isaac Sim Viewport 中编辑机器人真实 `spawn_pose`；也可运行 `python simulator.py --diy-3d --device=cuda:0` 直接进入。
 
@@ -202,7 +202,7 @@ EAI Simulator 场景、机器人与任务运行演示
   ```
 2. 在提示中选择 `1. 可视化窗口`。
 3. 在 Env DIY 窗口中将场景卡拖入画布，再将机器人卡拖到场景中的目标位置。
-4. 切换到“Payloads”，在 “Manipulators” 子页选择 UR5/Z1，或在 “Sensors” 子页选择 GS-Hub/LiDAR；再切换到 “Tools” 选择 Camera/Keyboard/ROS。Camera Tool 独立控制 Iris、Pegasus、CF2X 内置单目相机和 GS-Hub 相机的 ROS 图像发布；ROS Tool 控制三种无人机的 LiDAR、IMU、GPS、磁力计和气压计，以及 GS-Hub 的 LiDAR 点云、里程计和 scan 发布。选中机器人后，不兼容、已添加或已有另一种机械臂的卡片会显示为不可拖动状态。
+4. 切换到“Payloads”，在 “Manipulators” 子页选择 UR5/Z1，或在 “Sensors” 子页选择 GS-Hub/LiDAR；再切换到 “Tools” 选择 Camera/Keyboard/ROS。Camera Tool 独立控制 Iris、Pegasus、CF2X、MuSHR 的内置单目相机和 GS-Hub 相机的 ROS 图像发布；ROS Tool 控制三种无人机的 LiDAR、IMU、GPS、磁力计和气压计，以及 GS-Hub 的 LiDAR 点云、里程计和 scan 发布。选中机器人后，不兼容、已添加或已有另一种机械臂的卡片会显示为不可拖动状态。
 5. 点击 `Complete Selection`，按需保存 env；保存后会写入 `source/EAI_hmrs/EAI_hmrs/envs/<env_name>.json`。
 6. 如果保存了 env，之后可直接启动：
   ```bash

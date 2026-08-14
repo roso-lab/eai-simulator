@@ -4,9 +4,11 @@ orphan: true
 
 # GS-Hub 传感器
 
-GS-Hub 是一个集成传感器模块，包含激光雷达（Lidar）和里程计（Odometry），用于 ROS2 导航栈集成。
+GS-Hub 是一个集成双目相机、RTX 激光雷达（LiDAR）和里程计（Odometry）的传感器模块，用于 ROS2 导航栈集成。
 
-GS-Hub 可挂载到 Carter、Go2、B2、M20、Scout、Coco 和 Lite3。除点云与里程计外，当前 GS-Hub USD Graph 还会发布左右相机图像，可使用仓库中的 `algorithm/ros/tools/vis_sensors.py` 同时查看双目图像和点云俯视图。左右图像只受同一宿主上的 `camera` tool 控制；点云和里程计只受 `ros` tool 控制，两个开关彼此独立。
+GS-Hub 可挂载到 Carter、Go2、B2、M20、Scout、MuSHR Nano v2、Coco 和 Lite3。可使用仓库中的 `algorithm/ros/tools/vis_sensors.py` 同时查看双目图像和点云俯视图。左右图像只受同一宿主上的 `camera` tool 控制；点云和里程计只受 `ros` tool 控制，两个开关彼此独立。MuSHR 的内置前视相机与 GS-Hub 可同时输出。
+
+包含 GS-Hub 的场景当前只支持单环境，启动时必须传入 `--num_envs 1`。
 
 ## 功能概述
 
@@ -19,17 +21,18 @@ GS-Hub 传感器提供以下功能：
 
 ## 架构
 
-GS-Hub 使用 Isaac Sim 的 Graph 系统实现：
+GS-Hub 的双目相机沿用资产内的发布 Graph；LiDAR 与里程计资源在运行时按机器人实例创建：
 
 ```
-Carter 机器人
-    ↓ (物理状态)
-GS-Hub Graph
-    ├─ Isaac Compute Odometry Node
-    │   └─ 发布 /<robot>/odometry（里程计）
-    └─ Isaac Publish Lidar Node
-        └─ 发布 /<robot>/cloud（点云）
-    ↓ (ROS2 话题)
+Carter / MuSHR / 其他兼容机器人
+    └─ GS-Hub
+       ├─ 内置左右相机 Graph
+       │  └─ /<robot>/GS_Hub_L_cam、/<robot>/GS_Hub_R_cam
+       ├─ 运行时 RTX LiDAR + Replicator writer
+       │  └─ /<robot>/cloud
+       └─ 运行时实例隔离的 Odometry Graph
+          └─ /<robot>/odometry
+    ↓ ROS2 话题
 ROS2 Navigation2 导航栈
 ```
 
@@ -61,26 +64,29 @@ class YourSceneCfg(InteractiveSceneCfg):
 **注意**: 
 - `prim_path` 必须指向机器人底盘链接的子路径
 - 位置需要根据实际机器人模型进行标定
+- 通过保存场景使用时，MuSHR 的完整组合示例为 `source/EAI_hmrs/EAI_hmrs/envs/mushr_camera_gshub.json`
 
-### 2. 自动修复机制
+```bash
+python simulator.py --env=mushr_camera_gshub --num_envs 1
+```
 
-GS-Hub 在加载时会自动修复 Graph 中的 `chassisPrim` 连接：
+### 2. 运行时资源装配
+
+GS-Hub 加载时会生成一个运行时 USD 缓存副本，移除旧的非实例隔离 LiDAR/里程计 Graph。环境 reset 后再创建 RTX LiDAR 点云 writer，并把新的里程计 Graph 连接到宿主底盘：
 
 ```python
 def spawn_and_fix_gshub(prim_path, cfg, translation, orientation):
-    # 1. 加载 USD 模型
-    sim_utils.spawn_from_usd(...)
-    
-    # 2. 查找所有环境实例
-    matched_parents = prim_utils.find_matching_prim_paths(parent_regex)
-    
-    # 3. 为每个实例修复 Graph 连接
-    for specific_path in resolved_paths:
-        # 修复 odometry node 的 chassisPrim 连接
-        rel.SetTargets([target_path])
+    runtime_cfg = cfg.copy()
+    runtime_cfg.usd_path = _gshub_runtime_asset_path(cfg.usd_path)
+    sim_utils.spawn_from_usd(prim_path, runtime_cfg, translation, orientation)
+    # 登记每个实例的 RTX LiDAR 与 odometry 创建请求
+
+def setup_pending_gshub_ros_graphs():
+    # reset 后创建 RTX LiDAR writer 和实例隔离的 odometry Graph
+    ...
 ```
 
-这确保了多环境场景下每个实例都能正确连接到对应的机器人。
+运行时缓存默认写入 `~/.cache/eai-simulator/runtime-assets`，可通过 `EAI_RUNTIME_ASSET_CACHE` 覆盖。关闭 session 时会清理 writer、render product、LiDAR prim 和里程计 Graph。
 
 ## ROS2 环境配置
 
@@ -327,7 +333,7 @@ export ROS_DISTRO=humble
 ## 参考
 
 - **实现文件**: `source/EAI_assets/EAI_assets/sensor/high_sensor/gs_hub.py`
-- **USD 文件**: `usd/payloads/sensors/gs_hub/GS_Hub_fix.usd`
-- **环境配置示例**: `source/EAI_hmrs/EAI_hmrs/envs/nav2.json`
+- **USD 资产**: provider 中的 `payloads/sensors/gs_hub/GS_Hub_fix_type.usd`
+- **环境配置示例**: `source/EAI_hmrs/EAI_hmrs/envs/mushr_camera_gshub.json`
 - **动态挂载实现**: `source/EAI_hmrs/EAI_hmrs/env_builder.py`
 - **ROS2 Navigation2**: https://navigation.ros.org/

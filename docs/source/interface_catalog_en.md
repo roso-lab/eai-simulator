@@ -52,6 +52,15 @@ The built-in forward-facing monocular cameras on Iris, Pegasus, and CF2X use the
 
 The sensors are installed on the aerial robots by default; image and calibration topics are published only when `camera` is selected under Tools in Env DIY. The Camera Tool is independent of the ROS Tool, so Camera can be selected without ROS. `{robot}` is replaced by the scene instance name, such as `iris_1`, `pegasus_1`, or `cf2x_1`.
 
+The built-in forward-facing monocular camera on MuSHR Nano v2 has separate interface declarations:
+
+| Interface ID | Endpoint Template | Message Type |
+|---|---|---|
+| `ros.mushr_camera_image` | `/{robot}/camera/image_raw` | `sensor_msgs/msg/Image` |
+| `ros.mushr_camera_info` | `/{robot}/camera/camera_info` | `sensor_msgs/msg/CameraInfo` |
+
+The MuSHR camera prim and publishers are created only when the `camera` tool is selected. The built-in camera can run alongside GS-Hub: it keeps the `/camera/*` topics while GS-Hub uses its stereo topics. Sensor scenes containing the MuSHR built-in camera or GS-Hub must use `--num_envs 1`.
+
 GS-Hub exposes the stereo image interfaces `ros.gshub.left_image` (`/{robot}/GS_Hub_L_cam`) and `ros.gshub.right_image` (`/{robot}/GS_Hub_R_cam`). Both use `sensor_msgs/msg/Image` and are also controlled by the Camera Tool. GS-Hub point-cloud, odometry, and scan output remain controlled by the ROS Tool.
 
 Use the unified viewer to display every camera topic that exists now or starts later:

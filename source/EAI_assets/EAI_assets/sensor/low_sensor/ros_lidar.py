@@ -125,6 +125,23 @@ def _destroy_ros_lidar_render_products() -> None:
             print(f"[RosLidar] Warning: Failed to destroy RTX LiDAR render product: {exc}")
 
 
+def _destroy_rtx_lidar_render_product(
+    render_product_path: str,
+) -> bool:
+    """Destroy one render product created by ``_create_rtx_lidar_render_product``."""
+    expected_path = str(render_product_path)
+    for index, handle in reversed(tuple(enumerate(_ROS_LIDAR_RENDER_PRODUCT_HANDLES))):
+        handle_path = str(getattr(handle, "path", handle))
+        if handle_path != expected_path:
+            continue
+        _ROS_LIDAR_RENDER_PRODUCT_HANDLES.pop(index)
+        destroy = getattr(handle, "destroy", None)
+        if callable(destroy):
+            destroy()
+        return True
+    return False
+
+
 def _on_ros_lidar_stage_event(event) -> None:
     import omni.usd
 

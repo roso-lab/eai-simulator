@@ -412,16 +412,21 @@ class AerialSensorSuiteManager:
                 if spec.base_sensors:
                     self._runtime.create_sensor_graph(robot_name)
                 if spec.camera:
-                    camera_prim_path = f"/World/envs/env_0/{robot_name}/body/Camera"
+                    camera_prim_path = (
+                        f"/World/envs/env_0/{robot_name}/{spec.camera_mount_link}/Camera"
+                    )
                     self._runtime.create_camera_graph(robot_name, camera_prim_path)
-                body_prim_path = f"/World/envs/env_0/{robot_name}/body"
-                self._runtime.create_aerial_lidar_sensor(
-                    robot_name,
-                    body_prim_path,
-                    spec.lidar_offset,
-                )
-                if spec.lidar:
-                    self._runtime.create_aerial_lidar_publisher(robot_name)
+                # Only aerial robots carry the native RTX LiDAR; MuSHR uses the
+                # optional RosLidarCfg payload instead.
+                if spec.robot_type in AERIAL_SENSOR_TYPES:
+                    body_prim_path = f"/World/envs/env_0/{robot_name}/body"
+                    self._runtime.create_aerial_lidar_sensor(
+                        robot_name,
+                        body_prim_path,
+                        spec.lidar_offset,
+                    )
+                    if spec.lidar:
+                        self._runtime.create_aerial_lidar_publisher(robot_name)
                 active.append(robot_name)
         except Exception:
             self.close()

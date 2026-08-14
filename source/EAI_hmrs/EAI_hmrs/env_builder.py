@@ -216,8 +216,17 @@ ROBOT_OPTIONS = [
         "MUSHR_ACKERMANN_CFG",
         0.0,
         gshub_mount_link="mushr_nano/base_link",
+        # GS-Hub base rests on the same deck as the HESAI lidar flange, 47.7 mm
+        # below the lidar's sensor origin (see the lidar_offset comment below).
+        gshub_offset=(-0.035325, 0.0, 0.13725),
         lidar_mount_link="mushr_nano/base_link",
         lidar_offset=(-0.035325, 0.0, 0.18495),
+        camera_mount_link="mushr_nano/camera_link",
+        # The USD housing is a 9 cm wide bar (left-right). Its forward extent is
+        # 4.3 mm from the camera_link origin and its center lies 17.5 mm to -Y.
+        # Keep the pinhole 0.7 mm clear of that face, on the car's centerline.
+        camera_offset=(0.005, -0.0175, 0.0),
+        camera_rot=(0.5, 0.5, -0.5, -0.5),
     ),
     RobotOption(
         "coco",
@@ -510,6 +519,9 @@ def build_interactive_env_cfg(
                 _gshub_disable_physics_config[path_variant] = robot.gshub_disable_physics
 
         is_aerial_sensor_robot = robot.key in {"cf2x", "iris", "pegasus"}
+        is_builtin_camera_robot = robot.key in {
+            "cf2x", "iris", "pegasus", "mushr_v2",
+        }
         has_selected_lidar = any(
             attachment.type == "lidar" for attachment in selection.attachments
         )
@@ -523,9 +535,15 @@ def build_interactive_env_cfg(
                 ros_namespace=f"/{name}",
             )
 
-        # Aerial robots always carry the physical camera. Camera Tool only
-        # controls whether its ROS image and CameraInfo publishers are created.
-        if is_aerial_sensor_robot and robot.camera_mount_link:
+        # Robots with a built-in monocular camera (aerial robots and MuSHR)
+        # always carry the physical camera. For aerial robots the Camera Tool
+        # only gates the ROS publishers; for MuSHR it gates the camera prim
+        # itself, since the USD merely provides the empty housing.
+        if (
+            is_builtin_camera_robot
+            and robot.camera_mount_link
+            and (is_aerial_sensor_robot or camera_enabled)
+        ):
             attrs["__annotations__"][f"camera_{name}"] = AssetBaseCfg
             attrs[f"camera_{name}"] = AssetBaseCfg(
                 prim_path=f"{{ENV_REGEX_NS}}/{name}/{robot.camera_mount_link}/Camera",

@@ -1,7 +1,9 @@
+import hashlib
 import os
 import re
-import sys
 import site
+import sys
+from pathlib import Path
 
 
 def _find_isaac_ros_bridge_path(ros_distro: str = "humble"):
@@ -84,8 +86,6 @@ def configure_ros_env():
 _GSHUB_ROS_NAMESPACE_NODE_SUFFIXES = (
     "GS_Hub/Graphs/ROS2_publish_L_cam/ros2_camera_helper",
     "GS_Hub/Graphs/ROS2_publish_R_cam/ros2_camera_helper",
-    "GS_Hub/Graphs/ROS2_publish_Lidar_Odom/ros2_publish_point_cloud",
-    "GS_Hub/Graphs/ROS2_publish_Lidar_Odom/ros2_publish_odometry",
 )
 
 _GSHUB_CAMERA_GRAPH_PATHS = (
@@ -95,6 +95,7 @@ _GSHUB_CAMERA_GRAPH_PATHS = (
 _GSHUB_ROS_GRAPH_PATHS = (
     "GS_Hub/Graphs/ROS2_publish_Lidar_Odom",
 )
+_GSHUB_LIDAR_PRIM_PATH = "GS_Hub/base_link/lidar_link/GS_Hub_Lidar"
 
 
 def _sanitize_ros_name_component(component: str) -> str:
@@ -140,6 +141,13 @@ def _gshub_ros_namespace_for_instance(cfg, specific_path: str) -> str:
     if explicit_namespace:
         return _normalize_ros_namespace(explicit_namespace)
     return _normalize_ros_namespace(_robot_name_from_gshub_path(specific_path))
+
+
+def _gshub_runtime_graph_path(specific_path: str) -> str:
+    instance_name = _sanitize_ros_name_component(
+        specific_path.strip("/").replace("/", "_")
+    )
+    return f"/World/EAI_GSHUB_GRAPHS/{instance_name}"
 
 
 def _set_node_namespace(stage, node_path: str, namespace: str) -> bool:
@@ -200,13 +208,239 @@ from isaaclab.assets import AssetBaseCfg
 from isaaclab.utils import configclass
 from EAI_assets.asset_resolver import asset_path
 
-gs_hub_path = asset_path("payloads/sensors/gs_hub/GS_Hub_fix_type.usd")
+
+def _gshub_runtime_asset_path(source_path: str) -> str:
+    """Create a runtime copy without the non-instance-safe LiDAR/odometry graph."""
+    source_path = str(Path(source_path).expanduser().resolve())
+    source_stat = Path(source_path).stat()
+    cache_key = f"v5:{source_path}:{source_stat.st_size}:{source_stat.st_mtime_ns}"
+    digest = hashlib.sha256(cache_key.encode("utf-8")).hexdigest()[:12]
+    source = Path(source_path)
+    runtime_cache = Path(
+        os.environ.get(
+            "EAI_RUNTIME_ASSET_CACHE",
+            Path.home() / ".cache/eai-simulator/runtime-assets",
+        )
+    ).expanduser()
+    runtime_cache.mkdir(parents=True, exist_ok=True)
+    runtime_path = runtime_cache / f"{source.stem}.eai_runtime_{digest}.usdc"
+    if runtime_path.is_file():
+        return str(runtime_path)
+
+    layer = Sdf.Layer.OpenAsAnonymous(source_path)
+    if layer is None:
+        raise RuntimeError(f"Failed to open GS-Hub asset: {source_path}")
+    removed_paths = (
+        Sdf.Path("/Root/GS_Hub/Graphs/ROS2_publish_Lidar_Odom"),
+        Sdf.Path("/Root/GS_Hub/base_link/lidar_link/GS_Hub_Lidar"),
+    )
+    if layer.GetPrimAtPath(removed_paths[0]) is None:
+        raise RuntimeError(f"GS-Hub LiDAR/odometry graph is missing: {source_path}")
+    if layer.GetPrimAtPath(removed_paths[1]) is None:
+        raise RuntimeError(f"GS-Hub LiDAR prim is missing: {source_path}")
+    namespace_edit = Sdf.BatchNamespaceEdit()
+    for removed_path in removed_paths:
+        namespace_edit.Add(removed_path, Sdf.Path.emptyPath)
+    if not layer.Apply(namespace_edit):
+        raise RuntimeError(f"Failed to remove GS-Hub source graph: {source_path}")
+    if not layer.Export(str(runtime_path)):
+        raise RuntimeError(f"Failed to create GS-Hub runtime asset: {runtime_path}")
+    return str(runtime_path)
+
+
+gs_hub_source_path = asset_path("payloads/sensors/gs_hub/GS_Hub_fix_type.usd")
+gs_hub_path = gs_hub_source_path
 
 # 全局字典：临时存储每个 GSHub 实例的发布配置
 # Key: prim_path, Value: bool
 _gshub_ros_publish_config = {}
 _gshub_camera_publish_config = {}
 _gshub_disable_physics_config = {}
+_gshub_ros_graph_requests: dict[str, tuple[str, str, str]] = {}
+_gshub_ros_resources: dict[str, tuple[str, str, object]] = {}
+
+
+def _create_gshub_rtx_lidar_publisher(
+    stage,
+    lidar_prim_path: str,
+    namespace: str,
+) -> tuple[str, object]:
+    """Create the calibrated RTX LiDAR and attach its PointCloud2 writer."""
+    import omni.kit.app
+    import omni.replicator.core as rep
+    from EAI_assets.sensor.low_sensor.ros_lidar import (
+        _create_rtx_lidar_render_product,
+        _destroy_rtx_lidar_render_product,
+    )
+
+    render_product_path = _create_rtx_lidar_render_product(stage, lidar_prim_path)
+    if not render_product_path:
+        raise RuntimeError(f"Failed to create GS-Hub RTX LiDAR at {lidar_prim_path}")
+
+    writer = None
+    try:
+        writer = rep.writers.get("RtxLidarROS2PublishPointCloud")
+        writer.initialize(
+            nodeNamespace=namespace,
+            topicName="cloud",
+            frameId="mapping_init",
+        )
+        writer.attach([render_product_path])
+        omni.kit.app.get_app().update()
+    except Exception:
+        detach = getattr(writer, "detach", None)
+        if callable(detach):
+            detach()
+        _destroy_rtx_lidar_render_product(render_product_path)
+        raise
+    return render_product_path, writer
+
+
+def setup_pending_gshub_ros_graphs() -> int:
+    """Create RTX LiDAR publishers and instance-safe odometry graphs."""
+    if not _gshub_ros_graph_requests:
+        return 0
+
+    import omni.graph.core as og
+
+    keys = og.Controller.Keys
+    created = 0
+    stage = omni.usd.get_context().get_stage()
+    for graph_path, (lidar_prim_path, chassis_prim_path, namespace) in tuple(
+        _gshub_ros_graph_requests.items()
+    ):
+        render_product_path, writer = _create_gshub_rtx_lidar_publisher(
+            stage,
+            lidar_prim_path,
+            namespace,
+        )
+        try:
+            og.Controller.edit(
+                {
+                    "graph_path": graph_path,
+                    "evaluator_name": "execution",
+                    "pipeline_stage": (
+                        og.GraphPipelineStage.GRAPH_PIPELINE_STAGE_SIMULATION
+                    ),
+                },
+                {
+                    keys.CREATE_NODES: [
+                        ("on_playback_tick", "omni.graph.action.OnPlaybackTick"),
+                        (
+                            "isaac_read_simulation_time",
+                            "isaacsim.core.nodes.IsaacReadSimulationTime",
+                        ),
+                        (
+                            "isaac_compute_odometry_node",
+                            "isaacsim.core.nodes.IsaacComputeOdometry",
+                        ),
+                        (
+                            "ros2_publish_odometry",
+                            "isaacsim.ros2.bridge.ROS2PublishOdometry",
+                        ),
+                    ],
+                    keys.SET_VALUES: [
+                        (
+                            "isaac_compute_odometry_node.inputs:chassisPrim",
+                            [Sdf.Path(chassis_prim_path)],
+                        ),
+                        ("ros2_publish_odometry.inputs:nodeNamespace", namespace),
+                        ("ros2_publish_odometry.inputs:topicName", "odometry"),
+                        ("ros2_publish_odometry.inputs:odomFrameId", "mapping_init"),
+                    ],
+                    keys.CONNECT: [
+                        (
+                            "on_playback_tick.outputs:tick",
+                            "isaac_compute_odometry_node.inputs:execIn",
+                        ),
+                        (
+                            "isaac_compute_odometry_node.outputs:execOut",
+                            "ros2_publish_odometry.inputs:execIn",
+                        ),
+                        (
+                            "isaac_compute_odometry_node.outputs:position",
+                            "ros2_publish_odometry.inputs:position",
+                        ),
+                        (
+                            "isaac_compute_odometry_node.outputs:orientation",
+                            "ros2_publish_odometry.inputs:orientation",
+                        ),
+                        (
+                            "isaac_compute_odometry_node.outputs:linearVelocity",
+                            "ros2_publish_odometry.inputs:linearVelocity",
+                        ),
+                        (
+                            "isaac_compute_odometry_node.outputs:angularVelocity",
+                            "ros2_publish_odometry.inputs:angularVelocity",
+                        ),
+                        (
+                            "isaac_read_simulation_time.outputs:simulationTime",
+                            "ros2_publish_odometry.inputs:timeStamp",
+                        ),
+                    ],
+                },
+            )
+        except Exception:
+            detach = getattr(writer, "detach", None)
+            if callable(detach):
+                detach()
+            from EAI_assets.sensor.low_sensor.ros_lidar import (
+                _destroy_rtx_lidar_render_product,
+            )
+
+            _destroy_rtx_lidar_render_product(render_product_path)
+            lidar_prim = stage.GetPrimAtPath(lidar_prim_path)
+            if lidar_prim and lidar_prim.IsValid():
+                stage.RemovePrim(lidar_prim_path)
+            raise
+        _gshub_ros_resources[graph_path] = (
+            lidar_prim_path,
+            render_product_path,
+            writer,
+        )
+        _gshub_ros_graph_requests.pop(graph_path, None)
+        created += 1
+    return created
+
+
+def close_gshub_ros_resources() -> None:
+    """Release RTX writers, render products, sensors, and odometry graphs."""
+    resources = tuple(_gshub_ros_resources.items())
+    _gshub_ros_resources.clear()
+    _gshub_ros_graph_requests.clear()
+    if not resources:
+        return
+
+    from EAI_assets.sensor.low_sensor.ros_lidar import (
+        _destroy_rtx_lidar_render_product,
+    )
+
+    stage = omni.usd.get_context().get_stage()
+    for graph_path, (lidar_prim_path, render_product_path, writer) in resources:
+        detach = getattr(writer, "detach", None)
+        if callable(detach):
+            try:
+                detach()
+            except Exception as exc:
+                print(f"[GSHub] Warning: Failed to detach RTX LiDAR writer: {exc}")
+        try:
+            _destroy_rtx_lidar_render_product(render_product_path)
+        except Exception as exc:
+            print(f"[GSHub] Warning: Failed to destroy RTX render product: {exc}")
+        for prim_path in (graph_path, lidar_prim_path):
+            try:
+                prim = stage.GetPrimAtPath(prim_path)
+                if prim and prim.IsValid():
+                    stage.RemovePrim(prim_path)
+            except Exception as exc:
+                print(f"[GSHub] Warning: Failed to remove {prim_path}: {exc}")
+
+    try:
+        from omni.kit import app as kit_app
+
+        kit_app.get_app().update()
+    except Exception as exc:
+        print(f"[GSHub] Warning: Failed to finalize RTX LiDAR cleanup: {exc}")
 
 
 def _disable_gshub_payload_physics(stage, specific_path: str) -> tuple[bool, bool]:
@@ -245,15 +479,15 @@ def spawn_and_fix_gshub(prim_path, cfg, translation, orientation):
     """
     自定义生成回调函数：
     1. 加载 USD 模型。
-    2. 立即修复内部 Graph 的 chassisPrim 连接。
+    2. 配置双目发布并登记 RTX LiDAR/odometry 运行时资源。
     """
-    # --- A. 标准流程：调用 Isaac Lab 默认加载器 ---
-    # 这会在场景中生成 USD 模型
+    runtime_cfg = cfg.copy()
+    runtime_cfg.usd_path = _gshub_runtime_asset_path(cfg.usd_path)
     sim_utils.spawn_from_usd(
         prim_path,
-        cfg,
+        runtime_cfg,
         translation,
-        orientation
+        orientation,
     )
 
     # --- B. 立即执行修复逻辑 ---
@@ -306,12 +540,6 @@ def spawn_and_fix_gshub(prim_path, cfg, translation, orientation):
                     enable_camera_publish = _gshub_camera_publish_config[path_key]
                     break
 
-        ros_graph_count = _set_gshub_publish_graphs_active(
-            stage,
-            specific_path,
-            _GSHUB_ROS_GRAPH_PATHS,
-            enable_ros_publish,
-        )
         camera_graph_count = _set_gshub_publish_graphs_active(
             stage,
             specific_path,
@@ -319,37 +547,23 @@ def spawn_and_fix_gshub(prim_path, cfg, translation, orientation):
             enable_camera_publish,
         )
 
-        # 1. 寻找 Graph 路径
-        # 尝试默认路径 .../GS_Hub/Graphs/...
-        graph_path = f"{specific_path}/GS_Hub/Graphs/ROS2_publish_Lidar_Odom"
-        if enable_ros_publish and not stage.GetPrimAtPath(graph_path).IsValid():
-            print(f"[GSHub] ⚠️ Warning: Graph not found at {specific_path}, skipping fix.")
-            continue
+        lidar_prim_path = f"{specific_path}/{_GSHUB_LIDAR_PRIM_PATH}"
+        if enable_ros_publish:
+            graph_path = _gshub_runtime_graph_path(specific_path)
+            chassis_prim_path = str(Sdf.Path(specific_path).GetParentPath())
+            namespace = _gshub_ros_namespace_for_instance(cfg, specific_path)
+            _gshub_ros_graph_requests[graph_path] = (
+                lidar_prim_path,
+                chassis_prim_path,
+                namespace,
+            )
+            print(f"[GSHub] RTX LiDAR requested: {lidar_prim_path}")
+            print(
+                f"[GSHub] Odometry requested: {graph_path}/"
+                f"isaac_compute_odometry_node -> {chassis_prim_path}"
+            )
 
-        # 2. 计算目标 Robot 路径 (Articulation Root)
-        try:
-            target_path = Sdf.Path(specific_path).GetParentPath()
-        except Exception:
-            print(f"[GSHub] ❌ Error resolving parent path for {specific_path}")
-            return
-
-        # 3. 定位节点并修改 Relationship
-        node_path = f"{graph_path}/isaac_compute_odometry_node"
-        node_prim = stage.GetPrimAtPath(node_path) if enable_ros_publish else None
-
-        if node_prim is not None and node_prim.IsValid():
-            rel_name = "inputs:chassisPrim"
-            rel = node_prim.GetRelationship(rel_name)
-
-            # 如果关系不存在则创建
-            if not rel:
-                rel = node_prim.CreateRelationship(rel_name)
-
-            # === 强制修复连接 ===
-            rel.SetTargets([target_path])
-            print(f"[GSHub] ✅ Fixed Odometry: {node_path} -> {target_path}")
-        elif enable_ros_publish:
-            print(f"[GSHub] ❌ Odometry Node not found at {node_path}")
+        ros_graph_count = int(enable_ros_publish)
 
         if enable_ros_publish or enable_camera_publish:
             namespace = _gshub_ros_namespace_for_instance(cfg, specific_path)
@@ -384,7 +598,7 @@ class GSHubCfg(AssetBaseCfg):
         usd_path=gs_hub_path,
         func=spawn_and_fix_gshub,
     )
-    asset_dependencies = (gs_hub_path,)
+    asset_dependencies = (gs_hub_source_path,)
 
     def __post_init__(self) -> None:
         if not isinstance(self.spawn, GSHubSpawnCfg):

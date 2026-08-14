@@ -52,6 +52,15 @@ Iris、Pegasus 和 CF2X 的内置前视单目相机使用相同的 ROS2 接口�
 
 传感器默认安装在无人机上；只有在 Env DIY 的 Tools 中选择 `camera` 后，才会发布上述图像和标定 topic。Camera Tool 独立于 `ros` Tool，可以只选择 Camera 而不选择 ROS。`{robot}` 替换为场景中的实例名，例如 `iris_1`、`pegasus_1` 或 `cf2x_1`。
 
+MuSHR Nano v2 的内置前视单目相机使用独立的接口声明：
+
+| 接口 ID | 端点模板 | 消息类型 |
+|---|---|---|
+| `ros.mushr_camera_image` | `/{robot}/camera/image_raw` | `sensor_msgs/msg/Image` |
+| `ros.mushr_camera_info` | `/{robot}/camera/camera_info` | `sensor_msgs/msg/CameraInfo` |
+
+选择 `camera` tool 后才会创建 MuSHR 的相机 prim 和发布接口。它可以与 GS-Hub 同时启用，内置相机继续使用 `/camera/*`，GS-Hub 双目使用各自的话题。包含 MuSHR 内置相机或 GS-Hub 的传感器场景必须使用 `--num_envs 1`。
+
 GS-Hub 的双目图像接口为 `ros.gshub.left_image`（`/{robot}/GS_Hub_L_cam`）和 `ros.gshub.right_image`（`/{robot}/GS_Hub_R_cam`），消息类型同为 `sensor_msgs/msg/Image`，也由 Camera Tool 控制。GS-Hub 点云、里程计和 scan 仍由 ROS Tool 控制。
 
 统一查看当前及稍后启动的全部相机图像：
