@@ -116,7 +116,7 @@ eai-simulator/
 
 `simulator.py` only uses JSON environments. With `--env=<name>`, it loads `source/EAI_hmrs/EAI_hmrs/envs/<name>.json`. Without `--env`, it opens the Env DIY startup menu. Select item 3 or run `python simulator.py --diy-3d` for true 3D editing; this saves Viewport transforms as physical `spawn_pose` values.
 
-Robot choices are defined by `source/EAI/EAI/hmrs_env/env_diy/flow.py::ROBOT_KEYS` and `source/EAI_hmrs/EAI_hmrs/env_builder.py::ROBOT_OPTIONS`. The following 12 types are currently available:
+Robot choices are defined by `source/EAI/EAI/hmrs_env/env_diy/flow.py::ROBOT_KEYS` and `source/EAI_hmrs/EAI_hmrs/env_builder.py::ROBOT_OPTIONS`. The following 11 types are currently available:
 
 | Env DIY key | Robot / object | Default controller | Optional payloads | Common entry point |
 | ----------- | -------------- | ------------------ | ----------------- | ------------------ |
@@ -128,7 +128,6 @@ Robot choices are defined by `source/EAI/EAI/hmrs_env/env_diy/flow.py::ROBOT_KEY
 | `scout` | Scout mobile base | `SCOUT_DIFF_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
 | `g1` | Unitree G1 | `G1_SKRL_CFG` | - | JSON / Env DIY |
 | `cf2x` | Crazyflie CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | - | JSON / Env DIY |
-| `human` | Human animation | `HUMAN_ANIMATION_CFG` | - | JSON / Env DIY |
 | `lite3` | DeepRobotics Lite3 | `LITE3_VELOCITY_RSL_CFG` | GS-Hub, LiDAR, UR5, Z1 | JSON / Env DIY |
 | `mushr_v2` | MuSHR Nano v2 Ackermann base | `MUSHR_ACKERMANN_CFG` | LiDAR, keyboard, ROS | JSON / Env DIY |
 | `coco` | Coco AIRS Ackermann base | `COCO_ACKERMANN_CFG` | GS-Hub, LiDAR, keyboard, ROS | JSON / Env DIY |
@@ -138,7 +137,7 @@ Robot choices are defined by `source/EAI/EAI/hmrs_env/env_diy/flow.py::ROBOT_KEY
 ## Environments and Tasks
 
 - All environment configurations live in `source/EAI_hmrs/EAI_hmrs/envs/`; this directory contains JSON files only.
-- `robo.json` is a comprehensive quick-start environment with a human, multiple robots, and keyboard control.
+- `robo.json` is a comprehensive quick-start environment with multiple robots and keyboard control.
 - `EAI-Factory-v0.json` contains the fixed robot composition used by Fire Rescue.
 - Environments saved by Env DIY use the same schema and launch process as manually maintained environments.
 - Launch an environment with `python simulator.py --env=<env_name>`, omitting the `.json` extension.

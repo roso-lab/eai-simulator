@@ -65,7 +65,7 @@ python simulator.py --env robo
 source/EAI_hmrs/EAI_hmrs/envs/robo.json
 ```
 
-`robo` 环境在平面场景中加载轮式、足式、人形及无人机等异构机器人，并为每个对象启用键盘控制。
+`robo` 环境在平面场景中加载轮式、足式、人形及无人机等异构机器人，并为每个对象启用键盘控制；registry 人类资产通过 `tools/human_assets/run_demo.py` 单独验证。
 
 ## Env DIY
 
@@ -202,10 +202,6 @@ ls source/EAI_hmrs/EAI_hmrs/envs/EAI-Factory-v0.json
 ### CUDA 内存不足
 
 保持 `--num_envs=1`，关闭其他占用 GPU 的进程。
-
-### 包含 human 时自动切换到 CPU
-
-这是 Isaac Sim 5.1 下的兼容策略，不是参数失效。GPU `RigidBodyView.set_transforms()` 会触发 CUDA error 700，GPU kinematic targets 在当前 PhysX tensor API 中也未实现。仿真器因此使用 CPU PhysX 更新 human 的运动学刚体，同时保留完整碰撞和动画。
 
 ### ROS2 话题未发布
 

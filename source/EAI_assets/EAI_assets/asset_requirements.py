@@ -84,7 +84,6 @@ _ROBOT_PATHS = {
     ),
     "g1": ("robot/g1/g1_29dof_with_inspire_rev_1_0.usd",),
     "cf2x": ("robot/cf2x/cf2x.usd",),
-    "human": ("human/HumanFemale.usd",),
     "lite3": (
         "robot/lite3/Lite3_canonical.usdc",
         "robot/lite3/configuration/Lite3_base.usd",
@@ -129,10 +128,6 @@ _CONTROLLER_PATHS = {
         "traditional/coco_ackermann/__init__.py",
         "traditional/coco_ackermann/coco_ackermann.py",
         "traditional/coco_ackermann/kinematics.py",
-    ),
-    "HUMAN_ANIMATION_CFG": (
-        "traditional/human_animation/__init__.py",
-        "traditional/human_animation/human_animation.py",
     ),
     "UR5_IK_CFG": (
         "traditional/manipulator_ik/__init__.py",

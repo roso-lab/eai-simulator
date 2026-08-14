@@ -1,0 +1,67 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Human Action Draft",
+    "description": "A single UsdSkelAnimation draft for smplx_70 actors.",
+    "type": "object",
+    "required": ["action_id", "keyframes"],
+    "properties": {
+        "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1
+        },
+        "action_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+        },
+        "source_profile": {
+            "type": "string",
+            "enum": ["smplx_70"]
+        },
+        "label": {
+            "type": "string"
+        },
+        "fps": {
+            "type": "number",
+            "exclusiveMinimum": 0
+        },
+        "loop": {
+            "type": "boolean"
+        },
+        "keyframes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "required": ["time"],
+                "properties": {
+                    "time": {
+                        "type": "number",
+                        "minimum": 0
+                    },
+                    "joints": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "array",
+                            "minItems": 4,
+                            "maxItems": 4,
+                            "items": {
+                                "type": "number"
+                            }
+                        }
+                    },
+                    "pelvis_translation": {
+                        "type": "array",
+                        "minItems": 3,
+                        "maxItems": 3,
+                        "items": {
+                            "type": "number"
+                        }
+                    }
+                },
+                "additionalProperties": false
+            }
+        }
+    },
+    "additionalProperties": false
+}

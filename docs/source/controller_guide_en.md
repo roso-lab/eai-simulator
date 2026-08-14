@@ -90,7 +90,6 @@ The lightweight window, terminal quick setup, and Isaac Sim 3D extension share t
 | Scout | `SCOUT_DIFF_CFG` | Differential drive |
 | G1 | `G1_SKRL_CFG` | SKRL PPO |
 | CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | SKRL target position |
-| Human | `HUMAN_ANIMATION_CFG` | Kinematic Animation |
 
 UR5 and Z1 do not belong to the host controller, but are auxiliary controllers mounted to the host: `UR5_IK_CFG` and `Z1_IK_CFG`. They all come from `ManipulatorIkControllerCfg` and are triggered by the actual attachment instance in the host selection; no articulation or ROS2 topic is created for unmounted manipulators.
 
@@ -195,23 +194,7 @@ GO2_VELOCITY_RSL_CFG = Go2VelocityRSLControllerCfg(
   - Observation: 48 dimensions (including speed, attitude, 16 joint states, etc.)
   - Action: 16 dimensions (12 leg joint positions + 4 wheel speeds)
 
-### 4. HumanAnimationControllerCfg (Human Animation Controller)
-
-**File location**: `source/EAI_assets/EAI_assets/controller/traditional/human_animation/human_animation.py`
-
-**Use**: Convert keyboard targets to human steering, collision detection, rigid body displacement and walking animations.
-
-The running process adopts a "turn around first, then move forward" state machine. The controller maintains position and yaw independently, and the walking animation is played only after PhysX accepts the actual displacement; the stop command will immediately converge the target to the current position.
-
-#### Isaac Sim 5.1 / Isaac Lab 2.x Experience Conclusion
-
-- Modifying only the USD Xform will make the model appear to be moving, but will not reliably move PhysX rigidbodies and colliders; movement with collision must be written into the real-time PhysX rigid-body transform.
-- In Isaac Sim 5.1, GPU `RigidBodyView.set_transforms()` will trigger CUDA error 700, dynamic control is not available under Direct GPU API, and GPU kinematic targets are not implemented. Environments containing human therefore automatically use CPU PhysX.
-- human uses invisible kinematic capsules as collision proxy. Check the candidate position through PhysX overlap query before translation, keep idle during collision, and do not play the walking animation in place.
-- Keyboard target step size, rigid body movement speed, turn speed and animation FPS must be set separately. The keyboard step size cannot directly use a small physics `dt`, and the animation speed should not determine the world coordinate displacement.
-- When stopped with `K` or space, the bridge layer must simultaneously clear the speed and align the target position/yaw to the controller's current state, otherwise the character will continue to chase the previously accumulated target.
-
-### 5. ManipulatorIkControllerCfg (UR5/Z1)
+### 4. ManipulatorIkControllerCfg (UR5/Z1)
 
 **Basic implementation**: `source/EAI_assets/EAI_assets/controller/traditional/manipulator_ik/manipulator_ik.py`
 
