@@ -1,7 +1,7 @@
 # Copyright (c) 2026, EAI Simulator contributors.
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Pure sensor models and selection helpers for aerial robots."""
+"""Pure sensor models and selection helpers for aerial and built-in cameras."""
 
 from __future__ import annotations
 
@@ -14,6 +14,9 @@ import numpy as np
 
 
 AERIAL_SENSOR_TYPES = frozenset({"cf2x", "iris", "pegasus"})
+# Robots that carry a built-in monocular camera published by the sensor suite.
+# This is aerial robots plus MuSHR (whose USD already contains the camera housing).
+BUILTIN_CAMERA_TYPES = frozenset({"cf2x", "iris", "pegasus", "mushr_v2"})
 # Public compatibility name retained for callers introduced with the Pegasus
 # sensor suite. It now covers every aerial robot supported by that runtime.
 PEGASUS_AERIAL_TYPES = AERIAL_SENSOR_TYPES
@@ -22,6 +25,12 @@ _AERIAL_LIDAR_OFFSETS = {
     "cf2x": (0.0, 0.0, 0.04),
     "iris": (0.0, 0.0, 0.12),
     "pegasus": (0.0, 0.0, 0.10),
+}
+_CAMERA_MOUNT_LINKS = {
+    "cf2x": "body",
+    "iris": "body",
+    "pegasus": "body",
+    "mushr_v2": "mushr_nano/camera_link",
 }
 
 
@@ -88,11 +97,12 @@ class AerialSensorReading:
 
 @dataclass(frozen=True)
 class AerialSensorRobotSpec:
-    """Aerial sensor resources and their independently gated ROS publishers.
+    """Sensor resources and their independently gated ROS publishers.
 
-    Every resolved aerial robot owns the complete physical/model suite.  The
-    booleans below intentionally describe ROS publication only; they do not
-    control whether the camera, LiDAR, or base sensor model exists.
+    Aerial robots own the complete physical/model suite, so their booleans
+    describe ROS publication only. For MuSHR, ``camera`` also identifies its
+    optional built-in camera prim and publisher; aerial-only resources remain
+    disabled.
     """
 
     robot_name: str
@@ -100,6 +110,7 @@ class AerialSensorRobotSpec:
     camera: bool = False
     lidar: bool = False
     base_sensors: bool = False
+    camera_mount_link: str = "body"
     lidar_offset: tuple[float, float, float] = (0.0, 0.0, 0.10)
 
 
@@ -286,7 +297,7 @@ def aerial_sensor_specs_from_selection(
     selection_data: Mapping[str, Any] | None,
     possible_agents: Sequence[str],
 ) -> tuple[AerialSensorRobotSpec, ...]:
-    """Resolve independently gated built-in sensors for supported aerial robots."""
+    """Resolve independently gated built-in sensors for robots with cameras."""
     if not selection_data:
         return ()
     agents = tuple(str(agent) for agent in possible_agents)
@@ -298,7 +309,7 @@ def aerial_sensor_specs_from_selection(
             continue
         robot_type = str(robot.get("type", "")).strip().lower()
         type_counts[robot_type] = type_counts.get(robot_type, 0) + 1
-        if robot_type not in AERIAL_SENSOR_TYPES:
+        if robot_type not in BUILTIN_CAMERA_TYPES:
             continue
         attachments = {
             str(item.get("type", "")).strip().lower()
@@ -321,8 +332,9 @@ def aerial_sensor_specs_from_selection(
                 robot_type=robot_type,
                 base_sensors=ros_enabled and robot_type in _BASE_SENSOR_TYPES,
                 camera=camera_enabled,
-                lidar=ros_enabled,
-                lidar_offset=_AERIAL_LIDAR_OFFSETS[robot_type],
+                lidar=ros_enabled and robot_type in AERIAL_SENSOR_TYPES,
+                camera_mount_link=_CAMERA_MOUNT_LINKS[robot_type],
+                lidar_offset=_AERIAL_LIDAR_OFFSETS.get(robot_type, (0.0, 0.0, 0.10)),
             )
         )
     return tuple(specs)
@@ -332,8 +344,8 @@ def selection_requires_aerial_camera(selection_data: Mapping[str, Any] | None) -
     """Return whether the selection needs sensor rendering at app launch.
 
     Aerial robots always carry their camera and RTX LiDAR resources.  Ground
-    robots only need this launcher flag when their GSHub camera publisher is
-    selected.
+    robots need this launcher flag when a built-in camera (MuSHR) or the Orsus
+    camera publisher is selected.
     """
     if not selection_data:
         return False

@@ -1440,12 +1440,12 @@
           z1: { label: "Z1", image: "../../../../../usd/picture/processed/manipulator/z1.png", supported: ["carter", "go2", "b2", "m20", "scout", "lite3"], cfg: "Z1_IK_CFG" }
         }),
         sensors: Object.freeze({
-          gshub: { label: "GS-Hub", image: "../../../../../usd/picture/processed/sensor/gshub.png", supported: ["carter", "go2", "b2", "m20", "scout", "coco", "lite3"] },
+          orsus: { label: "Orsus", image: "../../../../../usd/picture/processed/sensor/orsus.png", supported: ["carter", "go2", "b2", "m20", "scout", "coco", "lite3"] },
           lidar: { label: "LiDAR", image: "../../../../../usd/picture/processed/sensor/lidar.png", supported: ["carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3"] }
         }),
         tools: Object.freeze({
           ros: { label: "ROS", image: "../../../../../usd/picture/processed/tool/ros.png", supported: ["carter", "go2", "b2", "m20", "scout", "lite3", "pepper", "g1", "cf2x", "iris", "pegasus", "mushr_v2", "coco"] },
-          camera: { label: "Camera", image: "../../../../../usd/picture/processed/sensor/camera.png", supported: ["carter", "go2", "b2", "m20", "scout", "coco", "lite3", "cf2x", "iris", "pegasus"] },
+          camera: { label: "Camera", image: "../../../../../usd/picture/processed/sensor/camera.png", supported: ["carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3", "cf2x", "iris", "pegasus"] },
           keyboard: { label: "Keyboard", image: "../../../../../usd/picture/processed/tool/keyboard.png", supported: ["carter", "pepper", "go2", "b2", "m20", "scout", "g1", "cf2x", "iris", "pegasus", "human", "lite3", "mushr_v2", "coco"] }
         })
       });
@@ -1733,10 +1733,10 @@
         if (!state.sceneKey) errors.push("请选择一个 Scene");
         if (!state.robots.length) errors.push("请至少添加一个 Robot");
         state.robots.forEach(robot => {
-          const aerial = ["cf2x", "iris", "pegasus"].includes(robot.type);
-          const hasGshub = robot.payloads.some(item => item.type === "gshub");
-          if (robot.tools.includes("camera") && !aerial && !hasGshub) {
-            errors.push(robotLabelWithIndex(robot) + " 的 Camera Tool 需要先挂载 GS-Hub");
+          const hasBuiltinCamera = ["cf2x", "iris", "pegasus", "mushr_v2"].includes(robot.type);
+          const hasOrsus = robot.payloads.some(item => item.type === "orsus");
+          if (robot.tools.includes("camera") && !hasBuiltinCamera && !hasOrsus) {
+            errors.push(robotLabelWithIndex(robot) + " 的 Camera Tool 需要先挂载 Orsus");
           }
         });
         return errors;
@@ -1892,10 +1892,10 @@
         ].filter(key => compatibilityReason(candidateType, key));
         if (
           robot.tools.includes("camera")
-          && !["cf2x", "iris", "pegasus"].includes(candidateType)
-          && !robot.payloads.some(item => item.type === "gshub")
+          && !["cf2x", "iris", "pegasus", "mushr_v2"].includes(candidateType)
+          && !robot.payloads.some(item => item.type === "orsus")
         ) {
-          return "Camera Tool 在该 Robot 上需要 GS-Hub";
+          return "Camera Tool 在该 Robot 上需要 Orsus";
         }
         if (!incompatible.length) return "";
         const labels = incompatible.map(key => attachmentEntry(key).label).join("、");
@@ -1934,11 +1934,11 @@
         if (incompatible) return incompatible;
         if (
           replacing
-          && state.selection.key === "gshub"
-          && key !== "gshub"
+          && state.selection.key === "orsus"
+          && key !== "orsus"
           && robot.tools.includes("camera")
-          && !["cf2x", "iris", "pegasus"].includes(robot.type)
-        ) return "Camera Tool 依赖当前 GS-Hub";
+          && !["cf2x", "iris", "pegasus", "mushr_v2"].includes(robot.type)
+        ) return "Camera Tool 依赖当前 Orsus";
         if (replacing) {
           if (state.selection.key === key) return "当前 Payload";
           if (robot.payloads.some(item => item.type === key && item.type !== state.selection.key)) {
@@ -1965,9 +1965,9 @@
         if (incompatible) return incompatible;
         if (
           key === "camera"
-          && !["cf2x", "iris", "pegasus"].includes(robot.type)
-          && !robot.payloads.some(item => item.type === "gshub")
-        ) return "需先挂载 GS-Hub";
+          && !["cf2x", "iris", "pegasus", "mushr_v2"].includes(robot.type)
+          && !robot.payloads.some(item => item.type === "orsus")
+        ) return "需先挂载 Orsus";
         if (state.selection.key === key && replacing) return "当前 Tool";
         if (robot.tools.some(item => item === key && item !== state.selection.key)) return "该 Tool 已添加";
         return "";
@@ -2339,13 +2339,13 @@
           const robot = state.robots.find(item => item.id === selection.robotId);
           if (!robot) return;
           if (
-            selection.key === "gshub"
+            selection.key === "orsus"
             && robot.tools.includes("camera")
-            && !["cf2x", "iris", "pegasus"].includes(robot.type)
+            && !["cf2x", "iris", "pegasus", "mushr_v2"].includes(robot.type)
           ) {
             const confirmed = await askConfirmation({
-              title: "删除 GS-Hub",
-              message: "Camera Tool 依赖 GS-Hub，删除载荷会同时移除 Camera Tool。是否继续？",
+              title: "删除 Orsus",
+              message: "Camera Tool 依赖 Orsus，删除载荷会同时移除 Camera Tool。是否继续？",
               confirmLabel: "删除两者"
             });
             if (!confirmed) return;

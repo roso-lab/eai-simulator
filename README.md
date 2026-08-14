@@ -47,11 +47,11 @@
 <tr>
 <td width="43%" valign="middle">
   <h3>Connect perception and control</h3>
-  <p>Attach GS-Hub or LiDAR sensing and connect keyboard control, ROS2 velocity commands, Nav2, UR5/Z1 manipulators, or external policies without rebuilding the environment.</p>
+  <p>Attach Orsus or LiDAR sensing and connect keyboard control, ROS2 velocity commands, Nav2, UR5/Z1 manipulators, or external policies without rebuilding the environment.</p>
   <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/interface_catalog.html">Browse interfaces →</a></p>
 </td>
 <td width="57%">
-  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/gs_hub_sensor.html"><img src="docs/source/assets/media/gs-hub_demo.gif" alt="GS-Hub multimodal sensor output in EAI Simulator" width="100%"></a>
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/orsus_sensor.html"><img src="docs/source/assets/media/orsus_demo.gif" alt="Orsus multimodal sensor output in EAI Simulator" width="100%"></a>
 </td>
 </tr>
 <tr>
@@ -70,7 +70,7 @@
 
 | Heterogeneous entities | Composable worlds | Perception and control |
 | --- | --- | --- |
-| Humans, Carter, Pepper, MuSHR, Scout, Go2, B2, M20, Lite3, G1, and CF2X | Plane, warehouse, factory, AIRS, garden, desert, hospital, and reusable JSON environments | Traditional and RL controllers, ROS2, Nav2, GS-Hub, LiDAR, UR5, Z1, and external policies |
+| Humans, Carter, Pepper, MuSHR, Scout, Go2, B2, M20, Lite3, G1, and CF2X | Plane, warehouse, factory, AIRS, garden, desert, hospital, and reusable JSON environments | Traditional and RL controllers, ROS2, Nav2, Orsus, LiDAR, UR5, Z1, and external policies |
 
 The README summarizes the supported surface. Use the detailed guides as the source of truth:
 

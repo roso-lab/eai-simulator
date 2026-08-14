@@ -45,15 +45,15 @@ def discover_image_topics(
     )
 
 
-def sensor_topics_for_namespace(namespace: str | None, sensor: str = "gshub") -> tuple[str, ...]:
+def sensor_topics_for_namespace(namespace: str | None, sensor: str = "orsus") -> tuple[str, ...]:
     prefix = normalize_namespace(namespace)
     if sensor == "lidar":
         return (f"{prefix}/cloud",)
     if sensor == "camera":
         return (f"{prefix}/camera/image_raw",)
     return (
-        f"{prefix}/GS_Hub_L_cam",
-        f"{prefix}/GS_Hub_R_cam",
+        f"{prefix}/Orsus_L_cam",
+        f"{prefix}/Orsus_R_cam",
         f"{prefix}/cloud",
     )
 
@@ -68,17 +68,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--sensor",
         default="auto",
-        choices=("auto", "camera", "gshub", "lidar"),
+        choices=("auto", "camera", "orsus", "lidar"),
         help=(
             "auto discovers every Image topic; camera discovers Image topics below --namespace; "
-            "gshub subscribes its stereo cameras and cloud; lidar subscribes cloud only."
+            "orsus subscribes its stereo cameras and cloud; lidar subscribes cloud only."
         ),
     )
     parser.add_argument(
         "--namespace",
         default=None,
         help=(
-            "Optional robot namespace, such as /iris_1 or /carter_1. Explicit gshub/lidar mode "
+            "Optional robot namespace, such as /iris_1 or /carter_1. Explicit orsus/lidar mode "
             "defaults to the legacy /isaac namespace."
         ),
     )
@@ -104,7 +104,7 @@ def parse_args(args: Sequence[str] | None = None) -> argparse.Namespace:
     if parsed_args.discovery_interval <= 0.0:
         raise SystemExit("--discovery-interval must be greater than zero")
     if parsed_args.namespace is None:
-        parsed_args.namespace = "/isaac" if parsed_args.sensor in {"gshub", "lidar"} else ""
+        parsed_args.namespace = "/isaac" if parsed_args.sensor in {"orsus", "lidar"} else ""
     parsed_args.ros_args = ros_args
     return parsed_args
 
@@ -138,10 +138,10 @@ class SensorVisualizer(Node):
         self.cloud_subscription = None
         self.discovery_timer = None
 
-        if self.sensor == "gshub":
-            topic_left, topic_right, topic_cloud = sensor_topics_for_namespace(self.namespace, "gshub")
-            self._subscribe_image(topic_left, f"GS-Hub Left: {topic_left}")
-            self._subscribe_image(topic_right, f"GS-Hub Right: {topic_right}")
+        if self.sensor == "orsus":
+            topic_left, topic_right, topic_cloud = sensor_topics_for_namespace(self.namespace, "orsus")
+            self._subscribe_image(topic_left, f"Orsus Left: {topic_left}")
+            self._subscribe_image(topic_right, f"Orsus Right: {topic_right}")
             self._subscribe_cloud(topic_cloud)
         elif self.sensor == "lidar":
             self._subscribe_cloud(sensor_topics_for_namespace(self.namespace, "lidar")[0])

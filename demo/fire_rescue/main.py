@@ -75,7 +75,7 @@ def main() -> None:
         device=args.device,
         headless=bool(args.headless),
         enable_ros_bridge_extension=False,
-        disable_gshub_ros_env=True,
+        disable_orsus_ros_env=True,
         env_cfg_hook=configure_fire_rescue_env_cfg,
     )
 
