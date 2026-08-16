@@ -1440,11 +1440,12 @@
         }),
         sensors: Object.freeze({
           orsus: { label: "Orsus", image: "../../../../../usd/picture/processed/sensor/orsus.png", supported: ["carter", "go2", "b2", "m20", "scout", "coco", "lite3"] },
+          realsense_d455: { label: "RealSense D455", image: "../../../../../usd/picture/processed/sensor/realsense_d455.png", supported: ["pepper", "mushr_v2", "carter", "go2", "b2", "m20", "scout", "coco", "lite3"] },
           lidar: { label: "LiDAR", image: "../../../../../usd/picture/processed/sensor/lidar.png", supported: ["carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3"] }
         }),
         tools: Object.freeze({
           ros: { label: "ROS", image: "../../../../../usd/picture/processed/tool/ros.png", supported: ["carter", "go2", "b2", "m20", "scout", "lite3", "pepper", "g1", "cf2x", "iris", "pegasus", "mushr_v2", "coco"] },
-          camera: { label: "Camera", image: "../../../../../usd/picture/processed/sensor/camera.png", supported: ["carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3", "cf2x", "iris", "pegasus"] },
+          camera: { label: "Camera", image: "../../../../../usd/picture/processed/sensor/camera.png", supported: ["carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3", "cf2x", "iris", "pegasus", "pepper"] },
           keyboard: { label: "Keyboard", image: "../../../../../usd/picture/processed/tool/keyboard.png", supported: ["carter", "pepper", "go2", "b2", "m20", "scout", "g1", "cf2x", "iris", "pegasus", "lite3", "mushr_v2", "coco"] }
         })
       });
@@ -1733,9 +1734,9 @@
         if (!state.robots.length) errors.push("请至少添加一个 Robot");
         state.robots.forEach(robot => {
           const hasBuiltinCamera = ["cf2x", "iris", "pegasus", "mushr_v2"].includes(robot.type);
-          const hasOrsus = robot.payloads.some(item => item.type === "orsus");
-          if (robot.tools.includes("camera") && !hasBuiltinCamera && !hasOrsus) {
-            errors.push(robotLabelWithIndex(robot) + " 的 Camera Tool 需要先挂载 Orsus");
+          const hasCameraPayload = robot.payloads.some(item => item.type === "orsus" || item.type === "realsense_d455");
+          if (robot.tools.includes("camera") && !hasBuiltinCamera && !hasCameraPayload) {
+            errors.push(robotLabelWithIndex(robot) + " 的 Camera Tool 需要先挂载 Orsus 或 RealSense D455");
           }
         });
         return errors;
@@ -1892,9 +1893,9 @@
         if (
           robot.tools.includes("camera")
           && !["cf2x", "iris", "pegasus", "mushr_v2"].includes(candidateType)
-          && !robot.payloads.some(item => item.type === "orsus")
+          && !robot.payloads.some(item => item.type === "orsus" || item.type === "realsense_d455")
         ) {
-          return "Camera Tool 在该 Robot 上需要 Orsus";
+          return "Camera Tool 在该 Robot 上需要 Orsus 或 RealSense D455";
         }
         if (!incompatible.length) return "";
         const labels = incompatible.map(key => attachmentEntry(key).label).join("、");
@@ -1933,11 +1934,11 @@
         if (incompatible) return incompatible;
         if (
           replacing
-          && state.selection.key === "orsus"
-          && key !== "orsus"
+          && ["orsus", "realsense_d455"].includes(state.selection.key)
+          && !["orsus", "realsense_d455"].includes(key)
           && robot.tools.includes("camera")
           && !["cf2x", "iris", "pegasus", "mushr_v2"].includes(robot.type)
-        ) return "Camera Tool 依赖当前 Orsus";
+        ) return "Camera Tool 依赖当前相机载荷";
         if (replacing) {
           if (state.selection.key === key) return "当前 Payload";
           if (robot.payloads.some(item => item.type === key && item.type !== state.selection.key)) {
@@ -1965,8 +1966,8 @@
         if (
           key === "camera"
           && !["cf2x", "iris", "pegasus", "mushr_v2"].includes(robot.type)
-          && !robot.payloads.some(item => item.type === "orsus")
-        ) return "需先挂载 Orsus";
+          && !robot.payloads.some(item => item.type === "orsus" || item.type === "realsense_d455")
+        ) return "需先挂载 Orsus 或 RealSense D455";
         if (state.selection.key === key && replacing) return "当前 Tool";
         if (robot.tools.some(item => item === key && item !== state.selection.key)) return "该 Tool 已添加";
         return "";
@@ -2338,13 +2339,14 @@
           const robot = state.robots.find(item => item.id === selection.robotId);
           if (!robot) return;
           if (
-            selection.key === "orsus"
+            ["orsus", "realsense_d455"].includes(selection.key)
             && robot.tools.includes("camera")
             && !["cf2x", "iris", "pegasus", "mushr_v2"].includes(robot.type)
           ) {
+            const label = selection.key === "orsus" ? "Orsus" : "RealSense D455";
             const confirmed = await askConfirmation({
-              title: "删除 Orsus",
-              message: "Camera Tool 依赖 Orsus，删除载荷会同时移除 Camera Tool。是否继续？",
+              title: "删除 " + label,
+              message: "Camera Tool 依赖 " + label + "，删除载荷会同时移除 Camera Tool。是否继续？",
               confirmLabel: "删除两者"
             });
             if (!confirmed) return;

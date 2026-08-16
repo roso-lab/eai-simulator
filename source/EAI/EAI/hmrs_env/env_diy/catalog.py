@@ -172,12 +172,22 @@ def _attachment_entries() -> tuple[AttachmentCatalogEntry, ...]:
     lidar_hosts = ("carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3")
     ur5_hosts = ("go2", "b2", "m20", "scout", "lite3")
     z1_hosts = ("carter", "go2", "b2", "m20", "scout", "lite3")
+    # RealSense D455 与 Orsus 一样是可解耦装载的传感器载荷；
+    # pepper 头顶装载作为首轮验证宿主，其余沿用 Orsus 兼容宿主集合。
+    realsense_d455_hosts = ("pepper", "mushr_v2") + orsus_hosts
     return (
         AttachmentCatalogEntry(
             name="orsus",
             asset_cfg="OrsusCfg",
             controller_cfg=None,
             supported_robots=orsus_hosts,
+            category="sensor",
+        ),
+        AttachmentCatalogEntry(
+            name="realsense_d455",
+            asset_cfg="RealSenseD455Cfg",
+            controller_cfg=None,
+            supported_robots=realsense_d455_hosts,
             category="sensor",
         ),
         AttachmentCatalogEntry(
@@ -216,7 +226,7 @@ def tool_catalog() -> dict[str, AttachmentCatalogEntry]:
             controller_cfg=None,
             supported_robots=(
                 "carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3",
-                "cf2x", "iris", "pegasus",
+                "cf2x", "iris", "pegasus", "pepper",
             ),
             category="tool",
         ),
@@ -277,9 +287,11 @@ def validate_attachment_types(robot_type: str, attachment_types: list[str] | tup
             manipulator = attachment_type
         if attachment_type not in normalized:
             normalized.append(attachment_type)
-    if "camera" in normalized and host not in BUILTIN_CAMERA_ROBOTS and "orsus" not in normalized:
+    if "camera" in normalized and host not in BUILTIN_CAMERA_ROBOTS and not (
+        "orsus" in normalized or "realsense_d455" in normalized
+    ):
         raise ValueError(
-            f"Camera tool on robot '{host}' requires the Orsus payload."
+            f"Camera tool on robot '{host}' requires the Orsus or RealSense D455 payload."
         )
     return tuple(normalized)
 

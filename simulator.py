@@ -168,7 +168,7 @@ def _runtime_device_for_env(
 def _selection_requires_omnigraph(selection_data: dict[str, Any] | None) -> bool:
     if not selection_data:
         return False
-    graph_attachments = {"orsus", "lidar", "camera", "ur5", "z1", "ros"}
+    graph_attachments = {"orsus", "realsense_d455", "lidar", "camera", "ur5", "z1", "ros"}
     aerial_types = {"cf2x", "iris", "pegasus"}
     return any(
         isinstance(robot, dict)
@@ -228,6 +228,11 @@ def _sensor_scene_single_env_reasons(selection_data: dict[str, Any] | None) -> t
         elif "orsus" in attachments and enabled_tools:
             tools = ", ".join(sorted(enabled_tools))
             reasons.append(f"robot {index} ({robot_type or 'unknown'}: {tools})")
+        elif "realsense_d455" in attachments and enabled_tools:
+            # D455 与 Orsus 一样按机器人实例命名空间发布；多环境下实例名
+            # 相同会导致话题冲突，因此同样限制单环境。
+            tools = ", ".join(sorted(enabled_tools))
+            reasons.append(f"robot {index} ({robot_type or 'unknown'}: {tools})")
     return tuple(reasons)
 
 
@@ -240,7 +245,7 @@ def _validate_sensor_scene_num_envs(
     reasons = _sensor_scene_single_env_reasons(selection_data)
     if reasons:
         raise ValueError(
-            "Aerial/Orsus sensor resources support exactly one environment; "
+            "Aerial/Orsus/RealSense D455 sensor resources support exactly one environment; "
             f"got num_envs={num_envs} for {', '.join(reasons)}. Use --num_envs 1."
         )
 
@@ -289,6 +294,78 @@ def _enable_required_selection_extensions(selection_data: dict[str, Any] | None)
         _enable_isaac_extension("omni.graph")
     if _selection_has_attachment(selection_data, "orsus"):
         _enable_isaac_extension("isaacsim.sensors.rtx")
+
+
+def _silence_simulation_manager_time_log_spam() -> None:
+    """Silence Isaac Sim 5.1's noisy simulation-time interpolation warnings.
+
+    The simulation manager keeps a 31-sample time-interpolation buffer
+    (designed for ~60Hz: about 0.5s of history). With EAI's 200Hz physics
+    step, every sensor render product's SDG pipeline queries the monotonic
+    simulation time for the *current* frame before the matching physics-step
+    samples exist, so the plugin floods:
+
+        "No adjacent samples found for interpolation at time N/30"
+        "getSimulationTimeMonotonicAtTime: no data found for time N/30,
+         returning current sim time"
+
+    The fallback (returning the current simulation time) is correct, so these
+    are purely cosmetic. Raise that plugin channel's log threshold to ERROR so
+    only real failures remain visible.
+
+    Notes on the carb binding (verified against the shipped ``_carb`` module):
+
+    - ``set_level_threshold_for_source(source, behavior, level)`` requires the
+      ``carb.logging.LogSettingBehavior`` argument (values ``INHERIT``/
+      ``OVERRIDE``); a 2-arg call raises ``TypeError``, and ``INHERIT``
+      silently ignores the level.
+    - Per-source settings are keyed by the client name the plugin registers
+      (``isaacsim.core.simulation_manager.plugin``). We additionally cover the
+      ``__FILE__`` spellings in case a build matches on the file name, and
+      re-apply after the stage exists because plugins may (re-)register their
+      logging source during scene setup.
+
+    ``EAI_DEBUG_NO_LOG_SILENCE=1`` disables this (diagnostics only).
+    """
+    if os.environ.get("EAI_DEBUG_NO_LOG_SILENCE") == "1":
+        return
+    try:
+        import carb
+
+        logging_iface = carb.logging.acquire_logging()
+        override = carb.logging.LogSettingBehavior.OVERRIDE
+        source_keys = (
+            "isaacsim.core.simulation_manager.plugin",
+            "TimeSampleStorage.cpp",
+            "PluginInterface.cpp",
+            "UsdNoticeListener.cpp",
+            "../../../source/extensions/isaacsim.core.simulation_manager/plugins/isaacsim.core.simulation_manager/TimeSampleStorage.cpp",
+            "../../../source/extensions/isaacsim.core.simulation_manager/plugins/isaacsim.core.simulation_manager/PluginInterface.cpp",
+        )
+        for source_key in source_keys:
+            logging_iface.set_level_threshold_for_source(source_key, override, carb.logging.LEVEL_ERROR)
+
+        # 以下来源只有已知的无害告警（第三方插件内部），提升到 ERROR 保持日志干净：
+        # - camera_info_utils: D455 相机未作者化畸变模型时，fallback 到 plumb_bob
+        #   零畸变 + 强制 fy:=fx（渲染器本来就按方形像素渲染），纯提示性告警。
+        # - omni.timeline.plugin: 某内置扩展仍直接使用 ITimeline 回调（弃用提示）。
+        cosmetic_sources = (
+            "isaacsim.ros2.bridge.impl.camera_info_utils",
+            "omni.timeline.plugin",
+        )
+        for source_key in cosmetic_sources:
+            if source_key.startswith("isaacsim.ros2.bridge"):
+                try:
+                    import importlib
+
+                    importlib.import_module(source_key)
+                except Exception:
+                    pass
+            logging_iface.set_level_threshold_for_source(source_key, override, carb.logging.LEVEL_ERROR)
+
+        print("[EAI Simulator] Suppressed isaacsim.core.simulation_manager.plugin warning spam.")
+    except Exception as exc:  # pragma: no cover - best-effort silencing
+        print(f"[EAI Simulator] Warning: failed to silence sim-time log spam: {exc}")
 
 
 def _prepare_replicator_for_app_close() -> None:
@@ -1299,6 +1376,32 @@ def _setup_aerial_sensor_manager(
     return manager
 
 
+def _setup_realsense_imu_manager(
+    *,
+    base_env: Any,
+    seed: int = 0,
+):
+    from EAI.hmrs_ros.realsense_d455_imu import (
+        RealSenseD455ImuManager,
+        attach_realsense_imu_manager,
+        get_realsense_imu_manager,
+        realsense_d455_instance_registry,
+    )
+
+    instances = realsense_d455_instance_registry()
+    if not instances:
+        return None
+    manager = get_realsense_imu_manager(base_env)
+    if manager is not None:
+        return manager
+    manager = RealSenseD455ImuManager(base_env, instances, seed=seed)
+    if not manager.registered_instances:
+        manager.close()
+        return None
+    attach_realsense_imu_manager(base_env, manager)
+    return manager
+
+
 def active_cmd_vel_bridge_robot_names(
     selection_data: dict[str, Any] | None,
     *,
@@ -1596,9 +1699,11 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         simulation_app = app_launcher.app
     else:
         simulation_app = config.existing_simulation_app
+    _silence_simulation_manager_time_log_spam()
     env = None
     ur5_manager = None
     aerial_sensor_manager = None
+    realsense_imu_manager = None
     orsus_cleanup = None
     try:
         _enable_required_selection_extensions(selection_data)
@@ -1612,6 +1717,10 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         base_env = env.unwrapped if hasattr(env, "unwrapped") else env
         possible_agents = list(base_env.possible_agents)
         env.reset()
+        # Re-apply log silencing after scene setup: native plugins can
+        # (re-)register their carb logging source while the stage loads,
+        # which resets per-source thresholds.
+        _silence_simulation_manager_time_log_spam()
         from EAI_assets.sensor.high_sensor.orsus import (
             close_orsus_ros_resources,
             setup_pending_orsus_ros_graphs,
@@ -1638,6 +1747,11 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
             possible_agents=possible_agents,
             seed=config.seed,
         )
+        realsense_imu_manager = _setup_realsense_imu_manager(
+            base_env=base_env,
+            seed=config.seed,
+        )
+
 
         yield SimulatorSession(
             simulation_app=simulation_app,
@@ -1656,6 +1770,8 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
                 orsus_cleanup()
             if aerial_sensor_manager is not None:
                 aerial_sensor_manager.close()
+            if realsense_imu_manager is not None:
+                realsense_imu_manager.close()
             if ur5_manager is not None:
                 ur5_manager.close()
             if env is not None:

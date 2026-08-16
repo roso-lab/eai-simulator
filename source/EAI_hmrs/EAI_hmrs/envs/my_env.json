@@ -1,0 +1,32 @@
+{
+  "robots": [
+    {
+      "attachments": [
+        {
+          "controller": null,
+          "type": "realsense_d455"
+        },
+        {
+          "controller": null,
+          "type": "camera"
+        },
+        {
+          "controller": null,
+          "type": "ros"
+        }
+      ],
+      "controller": {
+        "cfg": "MUSHR_ACKERMANN_CFG",
+        "mode": "default"
+      },
+      "type": "mushr_v2",
+      "visual": {
+        "x": 0.0,
+        "y": 0.0
+      }
+    }
+  ],
+  "scene_key": "factory",
+  "task_name": "my_env",
+  "version": 1
+}
