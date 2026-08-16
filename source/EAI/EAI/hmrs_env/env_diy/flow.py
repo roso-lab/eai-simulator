@@ -7,13 +7,14 @@ from . import catalog
 
 ROBOT_KEYS = catalog.ROBOT_KEYS
 ORSUS_SUPPORTED_ROBOTS = frozenset(catalog.attachment_entry("orsus").supported_robots)
+REALSENSE_D455_SUPPORTED_ROBOTS = frozenset(catalog.attachment_entry("realsense_d455").supported_robots)
 ROS_TOOL_SUPPORTED_ROBOTS = frozenset(catalog.tool_catalog()["ros"].supported_robots)
 KEYBOARD_SUPPORTED_ROBOTS = frozenset(catalog.tool_catalog()["keyboard"].supported_robots)
 UR5_SUPPORTED_ROBOTS = frozenset(catalog.attachment_entry("ur5").supported_robots)
 Z1_SUPPORTED_ROBOTS = frozenset(catalog.attachment_entry("z1").supported_robots)
 LIDAR_SUPPORTED_ROBOTS = frozenset(catalog.attachment_entry("lidar").supported_robots)
 CAMERA_SUPPORTED_ROBOTS = frozenset(catalog.tool_catalog()["camera"].supported_robots)
-TERMINAL_CONTROLLER_STEP = 9
+TERMINAL_CONTROLLER_STEP = 10
 SCENE_CHOICES = catalog.SCENE_CHOICES
 ROBOT_LABELS = catalog.ROBOT_LABELS
 _TERMINAL_RULE = "-" * 72
@@ -242,8 +243,8 @@ def choose_terminal_interactive_selection(
 
         if step == 5:
             updated = _choose_attachments(
-                "LiDAR",
-                "lidar",
+                "RealSense D455",
+                "realsense_d455",
                 robots,
                 input_func=input_func,
                 print_func=print_func,
@@ -256,6 +257,21 @@ def choose_terminal_interactive_selection(
             continue
 
         if step == 6:
+            updated = _choose_attachments(
+                "LiDAR",
+                "lidar",
+                robots,
+                input_func=input_func,
+                print_func=print_func,
+            )
+            if updated is None:
+                step = 5
+                continue
+            robots = updated
+            step = 7
+            continue
+
+        if step == 7:
             _print_terminal_step(
                 print_func,
                 4,
@@ -270,21 +286,6 @@ def choose_terminal_interactive_selection(
                 print_func=print_func,
             )
             if updated is None:
-                step = 5
-                continue
-            robots = updated
-            step = 7
-            continue
-
-        if step == 7:
-            updated = _choose_attachments(
-                "Camera tool",
-                "camera",
-                robots,
-                input_func=input_func,
-                print_func=print_func,
-            )
-            if updated is None:
                 step = 6
                 continue
             robots = updated
@@ -293,6 +294,21 @@ def choose_terminal_interactive_selection(
 
         if step == 8:
             updated = _choose_attachments(
+                "Camera tool",
+                "camera",
+                robots,
+                input_func=input_func,
+                print_func=print_func,
+            )
+            if updated is None:
+                step = 7
+                continue
+            robots = updated
+            step = 9
+            continue
+
+        if step == 9:
+            updated = _choose_attachments(
                 "Keyboard tool",
                 "keyboard",
                 robots,
@@ -300,7 +316,7 @@ def choose_terminal_interactive_selection(
                 print_func=print_func,
             )
             if updated is None:
-                step = 7
+                step = 9
                 continue
             robots = updated
             before_controller_override = list(robots)
@@ -319,7 +335,7 @@ def choose_terminal_interactive_selection(
             print_func=print_func,
         )
         if updated is None:
-            step = 8
+            step = 9
             continue
         if scene_key is None:
             raise RuntimeError("Scene was not selected.")
@@ -390,7 +406,7 @@ def _choose_attachments(
         and not (
             attachment_type == "camera"
             and robot.type not in catalog.BUILTIN_CAMERA_ROBOTS
-            and not any(item.type == "orsus" for item in robot.attachments)
+            and not any(item.type in {"orsus", "realsense_d455"} for item in robot.attachments)
         )
         and not (
             attachment_type in {"ur5", "z1"}

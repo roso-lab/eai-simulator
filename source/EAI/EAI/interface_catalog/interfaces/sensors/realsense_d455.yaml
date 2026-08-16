@@ -1,0 +1,50 @@
+id: sensor.realsense_d455
+name: RealSense D455
+category: sensor
+models: [realsense_d455]
+description: RGB image, depth image, camera info, and IMU interfaces published by the Intel RealSense D455 payload. Images are gated by the camera tool; the IMU is gated by the ros tool.
+interfaces:
+  - id: ros.realsense_d455.rgb_image
+    name: RGB camera image
+    protocol: ros2
+    direction: output
+    kind: topic
+    endpoint: /{robot}/RealsenseD455_rgb
+    data_type: sensor_msgs/msg/Image
+    description: D455 color camera image stream (rgb8).
+    example: ros2 topic echo --once /{robot}/RealsenseD455_rgb
+    requires_attachment: camera
+    read_only_test: {type: ros_topic}
+  - id: ros.realsense_d455.depth_image
+    name: Depth image
+    protocol: ros2
+    direction: output
+    kind: topic
+    endpoint: /{robot}/RealsenseD455_depth
+    data_type: sensor_msgs/msg/Image
+    description: D455 depth image stream (32FC1, distance to image plane in meters).
+    example: ros2 topic echo --once /{robot}/RealsenseD455_depth
+    requires_attachment: camera
+    read_only_test: {type: ros_topic}
+  - id: ros.realsense_d455.camera_info
+    name: Camera info
+    protocol: ros2
+    direction: output
+    kind: topic
+    endpoint: /{robot}/RealsenseD455_camera_info
+    data_type: sensor_msgs/msg/CameraInfo
+    description: Intrinsics of the D455 color camera.
+    example: ros2 topic echo --once /{robot}/RealsenseD455_camera_info
+    requires_attachment: camera
+    read_only_test: {type: ros_topic}
+  - id: ros.realsense_d455.imu
+    name: IMU
+    protocol: ros2
+    direction: output
+    kind: topic
+    endpoint: /{robot}/RealsenseD455_imu
+    data_type: sensor_msgs/msg/Imu
+    description: D455 6-axis IMU (linear acceleration with gravity, angular velocity, orientation).
+    example: ros2 topic echo --once /{robot}/RealsenseD455_imu
+    requires_attachment: ros
+    read_only_test: {type: ros_topic}
