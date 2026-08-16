@@ -51,6 +51,11 @@ def sensor_topics_for_namespace(namespace: str | None, sensor: str = "orsus") ->
         return (f"{prefix}/cloud",)
     if sensor == "camera":
         return (f"{prefix}/camera/image_raw",)
+    if sensor == "realsense":
+        return (
+            f"{prefix}/RealsenseD455_rgb",
+            f"{prefix}/RealsenseD455_depth",
+        )
     return (
         f"{prefix}/Orsus_L_cam",
         f"{prefix}/Orsus_R_cam",
@@ -68,10 +73,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--sensor",
         default="auto",
-        choices=("auto", "camera", "orsus", "lidar"),
+        choices=("auto", "camera", "orsus", "realsense", "lidar"),
         help=(
             "auto discovers every Image topic; camera discovers Image topics below --namespace; "
-            "orsus subscribes its stereo cameras and cloud; lidar subscribes cloud only."
+            "orsus subscribes its stereo cameras and cloud; realsense subscribes the RealSense "
+            "D455 RGB and depth images; lidar subscribes cloud only."
         ),
     )
     parser.add_argument(
@@ -104,7 +110,7 @@ def parse_args(args: Sequence[str] | None = None) -> argparse.Namespace:
     if parsed_args.discovery_interval <= 0.0:
         raise SystemExit("--discovery-interval must be greater than zero")
     if parsed_args.namespace is None:
-        parsed_args.namespace = "/isaac" if parsed_args.sensor in {"orsus", "lidar"} else ""
+        parsed_args.namespace = "/isaac" if parsed_args.sensor in {"orsus", "realsense", "lidar"} else ""
     parsed_args.ros_args = ros_args
     return parsed_args
 
@@ -143,6 +149,11 @@ class SensorVisualizer(Node):
             self._subscribe_image(topic_left, f"Orsus Left: {topic_left}")
             self._subscribe_image(topic_right, f"Orsus Right: {topic_right}")
             self._subscribe_cloud(topic_cloud)
+        elif self.sensor == "realsense":
+            topic_rgb, topic_depth = sensor_topics_for_namespace(self.namespace, "realsense")
+            self._subscribe_image(topic_rgb, f"RealSense RGB: {topic_rgb}")
+            self._subscribe_image(topic_depth, f"RealSense Depth: {topic_depth}")
+            print(f"RealSense IMU topic (not visualized): {normalize_namespace(self.namespace)}/RealsenseD455_imu")
         elif self.sensor == "lidar":
             self._subscribe_cloud(sensor_topics_for_namespace(self.namespace, "lidar")[0])
         else:

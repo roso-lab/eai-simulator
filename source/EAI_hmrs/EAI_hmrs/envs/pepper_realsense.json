@@ -1,0 +1,32 @@
+{
+  "robots": [
+    {
+      "attachments": [
+        {
+          "controller": null,
+          "type": "realsense_d455"
+        },
+        {
+          "controller": null,
+          "type": "camera"
+        },
+        {
+          "controller": null,
+          "type": "ros"
+        }
+      ],
+      "controller": {
+        "cfg": "PEPPER_HOLONOMIC_CFG",
+        "mode": "default"
+      },
+      "type": "pepper",
+      "visual": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    }
+  ],
+  "scene_key": "plane",
+  "task_name": "pepper_realsense",
+  "version": 1
+}

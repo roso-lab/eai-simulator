@@ -338,7 +338,7 @@ class EnvDiyWindow:
                         )
                         self._payload_card_state(key)
                 ui.Label("Sensors")
-                for key in ("orsus", "lidar"):
+                for key in ("orsus", "realsense_d455", "lidar"):
                     with ui.HStack(spacing=6, height=40):
                         self._asset_image("sensor", key)
                         ui.Button(

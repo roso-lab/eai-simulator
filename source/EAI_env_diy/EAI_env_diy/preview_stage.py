@@ -427,6 +427,19 @@ class PreviewStage:
                 (1.0, 0.0, 0.0, 0.0),
                 stage=stage,
             )
+        if "realsense_d455" in attachment_types and option.realsense_mount_link:
+            realsense_mount_path = f"{host_path}/{option.realsense_mount_link}"
+            if not stage.GetPrimAtPath(realsense_mount_path).IsValid():
+                raise RuntimeError(
+                    f"{robot.type}: RealSense D455 mount link does not exist: {realsense_mount_path}"
+                )
+            self._spawn_sensor_reference(
+                f"{realsense_mount_path}/RealsenseD455",
+                "realsense_d455",
+                option.realsense_offset,
+                option.realsense_rot,
+                stage=stage,
+            )
         if "lidar" in attachment_types and option.lidar_mount_link:
             lidar_mount_path = f"{host_path}/{option.lidar_mount_link}"
             if not stage.GetPrimAtPath(lidar_mount_path).IsValid():
@@ -468,6 +481,10 @@ class PreviewStage:
             raise RuntimeError(f"{sensor_type}: mount parent does not exist: {parent_path}")
         if sensor_type == "orsus":
             from EAI_assets.sensor.high_sensor.orsus import orsus_path as usd_path
+        elif sensor_type == "realsense_d455":
+            from EAI_assets.sensor.high_sensor.realsense_d455 import (
+                _REALSENSE_SOURCE_ASSET_PATH as usd_path,
+            )
         else:
             from EAI_assets.sensor.low_sensor.ros_lidar import (
                 ros_lidar_path as usd_path,

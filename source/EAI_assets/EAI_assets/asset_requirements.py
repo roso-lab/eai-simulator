@@ -116,6 +116,10 @@ _PAYLOAD_PATHS = {
         "payloads/sensors/orsus/Orsus_fix_type.usd",
         "payloads/sensors/orsus/orsus_mid360_rtx.usda",
     ),
+    "realsense_d455": (
+        "payloads/sensors/realsense_d455/rsd455_d455.usd",
+        "payloads/sensors/realsense_d455/rsd455.usd",
+    ),
     "lidar": ("payloads/sensors/lidar/ros_lidar.usda",),
 }
 

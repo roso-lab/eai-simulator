@@ -42,6 +42,12 @@ from .aerial_sensor_suite import (
     attach_aerial_sensor_manager,
     get_aerial_sensor_manager,
 )
+from .realsense_d455_imu import (
+    RealSenseD455ImuManager,
+    attach_realsense_imu_manager,
+    get_realsense_imu_manager,
+    realsense_d455_instance_registry,
+)
 
 __all__ = [
     "ROS2CmdVelBridge",
@@ -73,4 +79,8 @@ __all__ = [
     "aerial_sensor_topic_names",
     "attach_aerial_sensor_manager",
     "get_aerial_sensor_manager",
+    "RealSenseD455ImuManager",
+    "attach_realsense_imu_manager",
+    "get_realsense_imu_manager",
+    "realsense_d455_instance_registry",
 ]

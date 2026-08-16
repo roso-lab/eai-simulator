@@ -30,7 +30,9 @@ _CAMERA_MOUNT_LINKS = {
     "cf2x": "body",
     "iris": "body",
     "pegasus": "body",
-    "mushr_v2": "mushr_nano/camera_link",
+    # MuSHR USD 中相机与 camera_link 已被删除，幸存的挂架为
+    # camera_bottom_screw_frame（含 camera_link_joint 固定关节）。
+    "mushr_v2": "mushr_nano/camera_bottom_screw_frame",
 }
 
 
@@ -318,6 +320,13 @@ def aerial_sensor_specs_from_selection(
         }
         ros_enabled = "ros" in attachments
         camera_enabled = "camera" in attachments
+        # MuSHR 改装 RealSense D455 后，D455 即机器人的相机：内置单目相机
+        # 不再由 env_builder 合成（见 env_builder 的 has_realsense 分支），
+        # 因此 aerial 套件也不应为其建图，图像发布完全由 D455 载荷负责。
+        d455_replaces_mushr_camera = (
+            robot_type == "mushr_v2" and "realsense_d455" in attachments
+        )
+        spec_camera = camera_enabled and not d455_replaces_mushr_camera
         default_name = f"{robot_type}_{type_counts[robot_type]}"
         robot_name = (
             default_name
@@ -331,7 +340,7 @@ def aerial_sensor_specs_from_selection(
                 robot_name=robot_name,
                 robot_type=robot_type,
                 base_sensors=ros_enabled and robot_type in _BASE_SENSOR_TYPES,
-                camera=camera_enabled,
+                camera=spec_camera,
                 lidar=ros_enabled and robot_type in AERIAL_SENSOR_TYPES,
                 camera_mount_link=_CAMERA_MOUNT_LINKS[robot_type],
                 lidar_offset=_AERIAL_LIDAR_OFFSETS.get(robot_type, (0.0, 0.0, 0.10)),
