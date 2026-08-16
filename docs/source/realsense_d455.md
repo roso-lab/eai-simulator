@@ -204,6 +204,20 @@ Isaac Sim 5.1 的 simulation manager 只保留 31 个仿真时间插值样本（
 
 若该行未出现，检查 `simulator.py::_silence_simulation_manager_time_log_spam`。
 
+### 问题 5: RGB 正常但深度窗口纯黑
+
+**原因**: 深度话题数据本身有效（`32FC1`，单位米），但部分越界像素以
+`inf`/`NaN` 发布。旧版 `algorithm/ros/tools/vis_sensors.py` 直接用
+`cv2.normalize(..., NORM_MINMAX)` 归一化：最大值变成 `inf` 后整帧被压成 0，
+窗口显示纯黑。
+
+**修复**: 工具已改为对有限值做 1%~99% 百分位裁剪再归一化，越界像素显示为
+黑色（无数据）。用最新工具重新运行即可看到灰度深度图：
+
+```bash
+python3 algorithm/ros/tools/vis_sensors.py --sensor realsense --namespace /mushr_v2_1
+```
+
 ## 参考
 
 - **实现文件**: `source/EAI_assets/EAI_assets/sensor/high_sensor/realsense_d455.py`

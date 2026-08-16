@@ -199,13 +199,34 @@ class SensorVisualizer(Node):
         for topic in topics:
             self._subscribe_image(topic)
 
+    @staticmethod
+    def _scale_to_uint8(image: np.ndarray) -> np.ndarray:
+        """Scale a non-8-bit image to uint8 for display.
+
+        Depth images (32FC1, meters) publish ``inf``/``NaN`` for out-of-range
+        pixels. A plain NORM_MINMAX then divides by an infinite maximum and
+        collapses the whole frame to black. Non-finite pixels render black
+        (no data) and the finite range is clipped to its 1st-99th percentiles
+        so a few extreme pixels do not crush the visible range.
+        """
+        array = np.asarray(image, dtype=np.float64)
+        finite = array[np.isfinite(array)]
+        if finite.size == 0:
+            return np.zeros(array.shape, dtype=np.uint8)
+        lower, upper = np.percentile(finite, (1.0, 99.0))
+        if not np.isfinite(lower) or not np.isfinite(upper) or upper <= lower:
+            lower, upper = float(finite.min()), float(finite.max())
+        array = np.where(np.isfinite(array), array, lower)
+        scaled = np.clip((array - lower) / (upper - lower), 0.0, 1.0)
+        return (scaled * 255.0).astype(np.uint8)
+
     def _message_to_bgr(self, message: Image) -> np.ndarray:
         try:
             return self.bridge.imgmsg_to_cv2(message, desired_encoding="bgr8")
         except Exception:
             image = np.asarray(self.bridge.imgmsg_to_cv2(message, desired_encoding="passthrough"))
             if image.dtype != np.uint8:
-                image = cv2.normalize(image, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+                image = self._scale_to_uint8(image)
             if image.ndim == 2:
                 return cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
             if image.ndim != 3:
