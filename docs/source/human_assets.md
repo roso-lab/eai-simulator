@@ -139,6 +139,27 @@ runtime.close()
 模式；没有 waypoints 时角色使用 external movement mode。动作只影响指定角色的动画和路径暂停
 状态。
 
+`UsdHumanStageRuntime.update(dt, *, context=None, actor_ids=None, animate_while_idle=False)`
+支持分批调度更新：传入 `actor_ids` 时只更新这些角色，未选中的角色不会推进路径、采样动画
+或改变动作时钟，其事件和 pending reground 状态会保留到后续更新，适合大量角色部署时按
+距离、交互状态或预算分帧轮转。`actor_ids` 中的 ID 必须已注册，重复 ID 不会自动去重，调用
+方应自行保证唯一。
+
+```python
+# 只更新附近或正在交互的角色。
+runtime.update(dt, actor_ids=("human-1", "human-5"))
+
+# 空闲角色策略：默认 False，路径暂停/结束且没有动作的角色不重采样动画；
+# 需要旧版“始终动画”行为（例如角色原地播放 locomotion）时显式打开。
+runtime.update(dt, animate_while_idle=True)
+```
+
+默认 `animate_while_idle=False` 是刻意设置的省 CPU 行为：统一 demo 在启动时暂停所有路径，
+因此空闲角色保持静止站姿，只有播放动作或恢复路径移动后才会采样动画。不要把这种静止误判
+为动画能力缺失。`HumanMotionController.update(dt, *, actor_ids=None,
+locomotion_actor_ids=None)` 提供同样语义：`actor_ids` 限制状态机推进范围，
+`locomotion_actor_ids` 只冻结被排除角色的空闲 locomotion 时钟；进行中的动作仍会正常推进。
+
 ## 添加角色或动作
 
 添加角色时：

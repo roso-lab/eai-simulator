@@ -158,6 +158,32 @@ two waypoints enable path mode; an actor without waypoints uses external
 movement mode. An action affects only the selected actor's animation and path
 pause state.
 
+`UsdHumanStageRuntime.update(dt, *, context=None, actor_ids=None, animate_while_idle=False)`
+supports batched scheduled updates: passing `actor_ids` updates only those actors.
+Unselected actors do not advance their paths, resample animation, or change their
+action clocks; their events and pending reground state are preserved for later
+updates, which suits rotating actors by distance, interaction state, or a per-tick
+budget in large deployments. Every id in `actor_ids` must be registered, duplicates
+are not deduplicated automatically, and callers should keep the sequence unique.
+
+```python
+# Update only nearby or currently interacting actors.
+runtime.update(dt, actor_ids=("human-1", "human-5"))
+
+# Idle policy: the default False stops resampling animation for actors whose path
+# is paused or finished and that have no active action. Pass True to restore the
+# previous always-animate behavior, for example in-place locomotion.
+runtime.update(dt, animate_while_idle=True)
+```
+
+The default `animate_while_idle=False` is an intentional CPU-saving policy. The
+unified demo pauses every path after spawn, so idle actors stand still and only
+resample animation after an action starts or their path resumes; this stillness is
+not a missing animation capability. `HumanMotionController.update(dt, *,
+actor_ids=None, locomotion_actor_ids=None)` has the same semantics: `actor_ids`
+limits which actor state machines advance, and `locomotion_actor_ids` only freezes
+the idle locomotion clocks of excluded actors; active actions still advance.
+
 ## Adding actors or actions
 
 To add an actor:
