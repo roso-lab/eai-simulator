@@ -43,6 +43,13 @@ ROS2 Humble is optional for the core simulator and required only for ROS2 or Nav
 
 Selections containing animated humans force CPU PhysX. Isaac Sim 5.1 cannot safely perform the required animated pose writes with GPU PhysX, so a requested CUDA physics device is replaced with CPU for those selections.
 
+Human rendering remains on the CUDA GPU, but the `UsdHumanStageRuntime` pose/retarget path is CPU work. Schedule it deliberately for large deployments:
+
+- `UsdHumanStageRuntime.update(dt, *, context=None, actor_ids=None, animate_while_idle=False)` updates only the ids passed in `actor_ids`; unselected actors keep their clocks and pending events for later ticks.
+- The default `animate_while_idle=False` freezes idle locomotion sampling for actors with no active action and a paused/finished path. This is intentional CPU saving, not a missing capability; pass `animate_while_idle=True` only where always-animate behavior is required.
+- `HumanMotionController.update(dt, *, actor_ids=None, locomotion_actor_ids=None)` exposes the same controls at the controller layer; active actions still advance for processed actors.
+- Do not regress the hot path by re-adding per-tick validation or recomputing plan-derived indices inside `retarget_pose`; runtime samples are validated at plan/cache build time and the cached hot-path helpers exist precisely for this cost profile.
+
 ### External Assets
 
 The default gated Hugging Face dataset is `HuangQIjun/eai-simulator-assets`; large assets and model files from that dataset are not all stored in Git. Relevant workflows can require approved dataset access, Hugging Face authentication, network access, local disk capacity, and acceptance of the upstream asset or model terms. Asset resolution uses this dataset by default and reads `EAI_ASSETS_HF_REPO` only as an optional repository-ID override.
@@ -211,7 +218,7 @@ The extension reuses the core catalog and selection parser, then returns a seria
 
 ### Stable Algorithms
 
-Tracked reusable algorithm entry points are `algorithm/emos/` for scenario-driven multi-agent discussion/task allocation, `algorithm/global_planner/` for independent 2D planning and tracking, `algorithm/keyboard/keyboard.py` for ROS Twist input, and `algorithm/ros/` for ROS2/Nav2 launch, bridge, and diagnostic tooling. `EMOSDiscussionManager` receives a caller-supplied scenario and Isaac Lab-compatible `base_env`; `build_from_agent_specs()` installs a position callback backed by `_get_robot_pos()`, which reads articulation or rigid-object state from that environment's scene. EMOS does not construct the simulator scene. The global planner is independent of Isaac Sim, EMOS, Torch, and ROS; adapters such as the Fire Rescue adapter convert poses and command tensors at the integration edge. Keyboard and Nav2 publish the same cmd_vel interface consumed by `EAI.hmrs_ros`.
+Tracked reusable algorithm entry points are `algorithm/emos/` for scenario-driven multi-agent discussion/task allocation, `algorithm/global_planner/` for independent 2D planning and tracking, `algorithm/keyboard/keyboard.py` for ROS Twist input, and `algorithm/ros/` for ROS2/Nav2 launch, bridge, and diagnostic tooling. `algorithm/ros/tools/vis_sensors.py` visualizes ROS2 camera, depth, and point-cloud topics; non-8-bit images (for example RealSense depth `32FC1`, meters) can contain `inf`/`NaN` out-of-range pixels, so they are scaled for display by `SensorVisualizer._scale_to_uint8` (1st-99th percentile clip of finite values; non-finite pixels render black). `EMOSDiscussionManager` receives a caller-supplied scenario and Isaac Lab-compatible `base_env`; `build_from_agent_specs()` installs a position callback backed by `_get_robot_pos()`, which reads articulation or rigid-object state from that environment's scene. EMOS does not construct the simulator scene. The global planner is independent of Isaac Sim, EMOS, Torch, and ROS; adapters such as the Fire Rescue adapter convert poses and command tensors at the integration edge. Keyboard and Nav2 publish the same cmd_vel interface consumed by `EAI.hmrs_ros`.
 
 ### Demo Boundary
 
@@ -716,7 +723,7 @@ Synchronize the catalog entry, host list, category, asset cfg name, `_PAYLOAD_PA
 3. Add the provider entry paths to `_PAYLOAD_PATHS`, add per-host mount link, position, rotation, or specialized flags to `RobotOption`, and complete the provider-backed asset handoff at the start of this section.
 4. Build the formal scene attributes and implement equivalent preview-stage behavior.
 5. Add the terminal, 3D UI, HTML duplicate, and `usd/picture/processed/sensor/` image.
-6. Add or update interface YAML only for real topics/methods and ensure the responsible runtime enables required extensions and publishers. Orsus uses independent gates: `orsus` plus `camera` enables its left/right image graphs through `OrsusCfg(enable_camera_publish=True)`, while `orsus` plus `ros` enables its point-cloud/odometry graph through `OrsusCfg(enable_ros_publish=True)` and declares the downstream scan capability. Iris, Pegasus, and CF2X always carry the built-in monocular camera, `Example_Rotary` RTX LiDAR, and base IMU/GPS/magnetometer/barometer models; `camera` enables only the image publishers, while `ros` enables only the LiDAR and base-sensor publishers. `keyboard` only enables cmd_vel bridge consideration.
+6. Add or update interface YAML only for real topics/methods and ensure the responsible runtime enables required extensions and publishers. Orsus uses independent gates: `orsus` plus `camera` enables its left/right image graphs through `OrsusCfg(enable_camera_publish=True)`, while `orsus` plus `ros` enables its point-cloud/odometry graph through `OrsusCfg(enable_ros_publish=True)` and declares the downstream scan capability. Iris, Pegasus, and CF2X always carry the built-in monocular camera, `Example_Rotary` RTX LiDAR, and base IMU/GPS/magnetometer/barometer models; `camera` enables only the image publishers, while `ros` enables only the LiDAR and base-sensor publishers. `keyboard` only enables cmd_vel bridge consideration. RealSense D455 uses the same independent gates: `realsense_d455` plus `camera` enables its RGB/depth/camera-info graphs through `RealSenseD455Cfg(enable_camera_publish=True)`, while `realsense_d455` plus `ros` enables only its IMU graph through `RealSenseD455Cfg(enable_imu_publish=True)`; the IMU payload is synthesized each env step by `EAI.hmrs_ros.realsense_d455_imu.RealSenseD455ImuManager` from robot root state rather than read from a physical IMU, and a MuSHR v2 carrying `realsense_d455` does not spawn the built-in monocular camera.
 
 #### Minimum verification
 
@@ -760,7 +767,7 @@ Add exact rejected-host and duplicate-normalization cases to the focused tests c
 
 #### Full integration verification
 
-In Isaac, attach the sensor to every declared host family, inspect mount transforms and prim validity, and start its real publisher. For Orsus, verify the independent gate matrix: `orsus` plus `camera` publishes only the left/right images; `orsus` plus `ros` publishes point cloud and odometry but no images; selecting all three publishes both groups, with `scan` still requiring the external conversion pipeline. For Iris, Pegasus, and CF2X, verify `camera`-only, `ros`-only, and combined selections: camera topics require `camera`, while LiDAR and base sensor topics require `ros`. Then inspect the runtime snapshot and run `python simulator.py interfaces status --probe` plus appropriate read-only probes in a configured ROS2 environment. A `orsus` plus `keyboard` selection leaves cmd_vel available but enables neither Orsus publisher group.
+In Isaac, attach the sensor to every declared host family, inspect mount transforms and prim validity, and start its real publisher. For Orsus, verify the independent gate matrix: `orsus` plus `camera` publishes only the left/right images; `orsus` plus `ros` publishes point cloud and odometry but no images; selecting all three publishes both groups, with `scan` still requiring the external conversion pipeline. For Iris, Pegasus, and CF2X, verify `camera`-only, `ros`-only, and combined selections: camera topics require `camera`, while LiDAR and base sensor topics require `ros`. Then inspect the runtime snapshot and run `python simulator.py interfaces status --probe` plus appropriate read-only probes in a configured ROS2 environment. A `orsus` plus `keyboard` selection leaves cmd_vel available but enables neither Orsus publisher group. For RealSense D455, verify the same camera/ros matrix: `camera` alone publishes rgb/depth/camera_info, `ros` alone publishes only the IMU topic (about 23 Hz in GUI mode), and no built-in monocular camera is spawned on MuSHR v2 hosts.
 
 #### Common omissions
 
@@ -988,6 +995,8 @@ Registry-driven behavior lives in `source/EAI_assets/EAI_assets/humans/`; mainta
 
 Large character, activity, motion, texture, cache, action, and custom-action files are provider-managed or ignored, but every runtime payload is installed below the active `usd/human/` root and every manifest runtime path remains relative to that root. Use `HumanAssetRegistry`, `HumanActionPublisher`, conversion/migration tools, validation, and cache builders rather than hand-editing generated registries. `tools/human_assets/migrate_assets.py` writes `manifest.json` and `audit-summary.json`; `tools/human_assets/convert_gltf_assets.py` writes conversion diagnostics. No tracked tool regenerates `usd/human/pack-checksums.json`, so checksum publication remains an external maintainer/provider release step. Animated human stage workflows use CPU PhysX on Isaac Sim 5.1 when pose writes require it.
 
+For live runtime scheduling, `UsdHumanStageRuntime.update` and `HumanMotionController.update` accept `actor_ids` / `locomotion_actor_ids`, and `UsdHumanStageRuntime.update` defaults to `animate_while_idle=False`. Unselected actors keep their clocks and queued events for later ticks, and idle actors skip locomotion resampling; do not treat the unified demo's initially static idle humans as an animation regression, and pass `animate_while_idle=True` explicitly when old always-animate behavior is required. The retarget hot path relies on `_vector3_fast` and the cached plan-derived helpers (`_parent_indices_cached`, `_semantic_indices_cached`, `_unit_scales_cached`, `_rest_global_quats_cached`): keep all finite/hierarchy validation in plan and cache build/load paths, never in the per-tick sampling path, and preserve the non-mutating read invariant for cached `Gf.Quatd` objects.
+
 #### Implementation steps
 
 1. Decide whether the change affects registry assets, canonical motions, custom actions, retarget caches, path following, or stage runtime.
@@ -1019,7 +1028,7 @@ The headless command above verifies 39 x 12 skeletal actions, four rigid outboun
 
 #### Common omissions
 
-Hand-editing generated manifest records, committing large packs/caches, adding absolute runtime paths, claiming the conversion/migration tools generate pack checksums, changing provider assets without matching external checksum publication, ignoring license fields or skeleton signatures, relying on bounds that ignore the current skinned pose, expecting GPU PhysX for animated humans, or registering human actors as Env DIY robots/controllers.
+Hand-editing generated manifest records, committing large packs/caches, adding absolute runtime paths, claiming the conversion/migration tools generate pack checksums, changing provider assets without matching external checksum publication, ignoring license fields or skeleton signatures, relying on bounds that ignore the current skinned pose, expecting GPU PhysX for animated humans, registering human actors as Env DIY robots/controllers, re-adding per-tick finite validation or per-call plan index computation in the retarget hot path, unconditionally resampling idle human actors, dropping deferred events or pending reground state for unselected `actor_ids`, or treating the default idle static pose as an animation regression.
 
 ### Add or Modify an Algorithm
 
@@ -1176,6 +1185,46 @@ Launch the relevant environment and bridge, then run `python simulator.py interf
 #### Common omissions
 
 Adding YAML without runtime setup, omitting package data, probing a write interface, reporting a failed bridge as active, or assuming aliases change builder registration. `resolve_scene_interfaces()` currently falls back to `<type>_<global-index>` while the builder uses per-type occurrence; mixed-type saved selections can therefore resolve wrong instance names until this is corrected.
+
+### Add or Update a User Documentation Page
+
+#### Goal
+
+Add or update an external-facing user documentation page under `docs/source/` and make it reachable from the hosted docs navigation.
+
+#### Authoritative files
+
+`docs/source/*.md` pages (Sphinx with `myst_parser` and the Furo theme, Chinese by default; English mirrors use `*_en.md`), `docs/source/index.rst` / `docs/source/index_en.rst` toctrees, `docs/source/_templates/sidebar/navigation.html` / `navigation_en.html`, `docs/source/conf.py`, and media under `docs/source/assets/media/`.
+
+#### Related registration/compatibility points
+
+The left sidebar navigation is NOT driven by the `index.rst` toctree: `_templates/sidebar/navigation.html` (Chinese) and `navigation_en.html` (English) hardcode every entry through the `nav_item(target, label)` macro, and each page is separately registered in the matching `index.rst` toctree. Updating only the toctree leaves the page unreachable from the sidebar, and updating only the template leaves the page missing from the document structure. Media is referenced as `assets/media/<file>.png` and Sphinx copies it into `_images/` at build time. The RealSense D455 topic is currently a single external-facing page at `docs/source/realsense_tutorial.md` (title `RealSense D455`), registered in the 开发与扩展 toctree and sidebar; its former orphan page `realsense_d455.md` was merged into it and removed.
+
+#### Implementation steps
+
+1. Write or update the page under `docs/source/` as a single user-facing page per topic; do not keep orphan pages (`orphan: true`) for topics that should be navigable.
+2. Register the page in the matching toctree in `index.rst` (and `index_en.rst` when an English mirror exists) and add the matching `nav_item(...)` entry to `_templates/sidebar/navigation.html` (and `navigation_en.html`).
+3. Commit any referenced images under `docs/source/assets/media/` as maintained fixtures with the page.
+4. Keep the page external-facing: describe behavior and workflows for users, not internal fix history, refactors, or development summaries.
+
+#### Minimum verification
+
+Build the docs with the `env_isaaclab` environment (it provides Sphinx 9 and `myst_parser`), expect zero warnings, and confirm the page and its sidebar link exist in the output:
+
+```bash
+conda activate env_isaaclab
+make -C docs clean && make -C docs html
+grep -cE 'WARNING|ERROR' <(make -C docs html 2>&1) || true
+grep -o 'href="<page>.html"' docs/build/html/index.html
+```
+
+#### Full integration verification
+
+Serve `docs/build/html` (git-ignored build output) and open the page plus its sidebar link in a browser; verify images load and links between pages resolve.
+
+#### Common omissions
+
+Updating only `index.rst`, forgetting the hardcoded sidebar template, referencing images outside `assets/media/`, deleting an orphan page that other pages still link to, committing built output under `docs/build/`, or letting internal fix history leak into user-facing pages.
 
 ## 9. Environment JSON Contract
 
@@ -2460,6 +2509,18 @@ For `carter_1`, `nav2_setup.py` reuses the predictable system path `/tmp/eai_nav
 
 Do not substitute `algorithm/ros/nav2/run_nav2.sh` on a clean checkout: its implicit map is untracked. Do not use `algorithm/ros/tools/quick_test_nav2.sh`: it calls an absent test program. See section 12 for generation, command-stop, TF, lifecycle, and goal-result checks.
 
+### User Documentation
+
+Build the hosted user documentation (Sphinx + `myst_parser` + Furo, Chinese by default) with the `env_isaaclab` environment, which provides `sphinx-build`; the output directory is git-ignored:
+
+```bash
+conda activate env_isaaclab
+make -C docs clean && make -C docs html
+python3 -m http.server 8090 --directory docs/build/html
+```
+
+See `Add or Update a User Documentation Page` in section 8 for the sidebar-template and toctree registration rules.
+
 ### Run Fire Rescue
 
 The help path is lightweight, uses the supported module entry point, and does not open an Isaac session or make an LLM request:
@@ -2501,6 +2562,8 @@ Directories in this table mean the tracked source inventory below that directory
 | Interface catalog | `source/EAI/EAI/interface_catalog/interfaces/`; `source/EAI/EAI/interface_catalog/`; `source/EAI/EAI/hmrs_ros/`; `source/EAI/setup.py`; `simulator.py` | Sections 5, 6, 7, 8, 10, and 12; synchronize declarations, package data, real bridge/graph setup, and filtering; generated `tmp/runtime_interfaces.json` is runtime state, not authority. |
 | Algorithm | `algorithm/emos/`; `algorithm/global_planner/`; `algorithm/city_traffic/human_bridge.py`; `algorithm/keyboard/keyboard.py`; `algorithm/ros/` | Sections 5, 7, 8, and 12; keep pure algorithm contracts separate from simulator and external-service adapters; city traffic has only the tracked human bridge, not a package API. |
 | Fire Rescue demo | `demo/fire_rescue/main.py`; `demo/fire_rescue/config.py`; `demo/fire_rescue/scenario.py`; `demo/fire_rescue/experiment.py`; `demo/fire_rescue/runtime/`; `demo/fire_rescue/dashboard/`; `demo/fire_rescue/assets/`; `simulator.py` | Sections 5, 6, 7, 8, 13, and 14; enter through the reusable session and synchronize CLI/config/scenario/hooks/adapters/dashboard/assets while auditing external services. |
+| RealSense D455 | `source/EAI_assets/EAI_assets/sensor/high_sensor/realsense_d455.py`; `source/EAI/EAI/hmrs_ros/realsense_d455_imu.py`; `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI/EAI/interface_catalog/interfaces/sensors/realsense_d455.yaml`; `source/EAI_hmrs/EAI_hmrs/envs/mushr_realsense.json`; `algorithm/ros/tools/vis_sensors.py` | Sections 7, 8, 10, 11, and 12; synchronize the payload cfg and its publish graphs, the synthesized IMU manager, catalog/builder gates (`camera` vs `ros`), requirements/provider resolution, declarations, and the visualization tool's depth display. |
+| User documentation | `docs/source/` pages; `docs/source/index.rst`; `docs/source/index_en.rst`; `docs/source/conf.py`; `docs/source/_templates/sidebar/navigation.html`; `docs/source/_templates/sidebar/navigation_en.html`; `docs/source/assets/media/` | Sections 8, 16, and 20; keep page content external-facing, keep the toctree and hardcoded sidebar entries synchronized across both languages, and commit media with the page; `docs/build/` is generated output, not authority. |
 | Tests | `source/EAI/test/`; `source/EAI_assets/test/`; paths selected from `git ls-files -z` whose basenames match `test_*.py` or `*_test.py`; `tools/check_env_diy_runtime.mjs`; `tools/github_oauth_worker/oauth_worker_test.mjs` | Sections 7, 13, and 17; the tracked inventory and environment-dependent pass/skip counts are dynamic. |
 
 ## 20. Maintaining This AGENTS.md
@@ -2522,4 +2585,5 @@ Maintain this file by hand in the same focused change as the behavior, configura
 | EMOS, global planner, city-traffic bridge, keyboard/ROS client, or another algorithm contract/integration | 5, 7, 8, 12, 13, 14, 15, 17, 18, and 19 |
 | Demo or Fire Rescue CLI, config, scenario, runtime adapter/loop, dashboard, asset, simulator session, LLM, or external service | 5, 6, 7, 8, 11, 12, 13, 14, 15, 17, 18, and 19 |
 | Test command, pytest isolation, tracked test inventory, Node check, skip gate, or verification tier | 2, 8, 13, 17, 18, and 19 |
+| User documentation page, sidebar navigation template, media asset, or docs build | 7, 8, 16, 17, 18, 19, and 20 |
 | Repository layout, generated/runtime path, ignore rule, tracked exception, Git LFS rule, hook, branch, or commit policy | 2, 4, 5, 7, 11, 15, 16, 17, 18, and 19 |
