@@ -164,6 +164,20 @@ class SpawnedHuman:
         return True
 
     @property
+    def path_active(self) -> bool:
+        """True only while a path follower is actively allowed to move.
+
+        Path mode with a follower that is not paused or finished counts as
+        active.  External mode has no path follower and stays inactive, so
+        animation there remains driven by the caller/action policy.
+        """
+        return (
+            self._follower is not None
+            and self.movement_allowed
+            and not self._follower.finished
+        )
+
+    @property
     def pending_pose(self) -> PathFollowerOutput | None:
         return self._pending_pose
 
