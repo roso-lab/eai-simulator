@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import math
@@ -315,6 +316,21 @@ def _vector3(value: Sequence[float], *, label: str) -> tuple[float, float, float
     return result  # type: ignore[return-value]
 
 
+def _vector3_fast(
+    value: Sequence[float], *, label: str | None = None
+) -> tuple[float, float, float]:
+    """Convert a 3-component USD sample to floats without validation.
+
+    Hot-path helper for ``retarget_pose``: skips the length check and the
+    ``math.isfinite`` scan of ``_vector3``.  Only safe for already-validated
+    runtime USD samples (retarget plans and caches are validated at build/load
+    time, and USD animation attributes are finite by construction).  The
+    ``label`` argument is accepted for signature parity with ``_vector3`` but
+    is not used.
+    """
+    return (float(value[0]), float(value[1]), float(value[2]))
+
+
 def _quaternion4(
     value: Sequence[float], *, label: str
 ) -> tuple[float, float, float, float]:
@@ -441,6 +457,102 @@ def build_retarget_plan(
     )
 
 
+@functools.lru_cache(maxsize=512)
+def _parent_indices_cached(joints: tuple[str, ...]) -> tuple[int, ...]:
+    """Parent index per joint, cached across retarget_pose hot-path calls.
+
+    Mirrors the previous per-call ``parent_indices`` helper inside
+    ``retarget_pose``: raises ``HumanMotionRetargetError`` when the hierarchy
+    is not parent-first.  Inputs are plan tuples, so the cache is safe and
+    bounded by the number of distinct skeletons.
+    """
+    index_by_name = {name: index for index, name in enumerate(joints)}
+    result = []
+    for index, name in enumerate(joints):
+        parent_name = name.rsplit("/", 1)[0] if "/" in name else None
+        parent = -1 if parent_name is None else index_by_name.get(parent_name, -1)
+        if parent_name is not None and (parent < 0 or parent >= index):
+            raise HumanMotionRetargetError(
+                f"joint hierarchy is not parent-first at {name!r}"
+            )
+        result.append(parent)
+    return tuple(result)
+
+
+@functools.lru_cache(maxsize=512)
+def _semantic_indices_cached(
+    joints: tuple[str, ...], root_index: int
+) -> dict[str, int] | None:
+    """Semantic joint indices (root/head/shoulders/elbows/wrists), cached.
+
+    Mirrors the previous per-call ``semantic_indices`` helper inside
+    ``retarget_pose``; returns ``None`` when the skeleton lacks a required
+    leaf joint.  Returns a fresh shallow copy per call so callers may treat
+    the result as a private dictionary.
+    """
+    by_leaf = {
+        name.rsplit("/", 1)[-1]: index
+        for index, name in enumerate(joints)
+    }
+    alternatives = {
+        "root": (),
+        "head": ("head",),
+        "left_shoulder": ("left_shoulder", "upperarm_l"),
+        "left_elbow": ("left_elbow", "lowerarm_l"),
+        "left_wrist": ("left_wrist", "hand_l"),
+        "right_shoulder": ("right_shoulder", "upperarm_r"),
+        "right_elbow": ("right_elbow", "lowerarm_r"),
+        "right_wrist": ("right_wrist", "hand_r"),
+    }
+    result = {"root": root_index}
+    for role, leaves in alternatives.items():
+        if role == "root":
+            continue
+        match = next(
+            (by_leaf[leaf] for leaf in leaves if leaf in by_leaf),
+            None,
+        )
+        if match is None:
+            return None
+        result[role] = match
+    return dict(result)
+
+
+@functools.lru_cache(maxsize=512)
+def _unit_scales_cached(width: int) -> tuple[tuple[float, float, float], ...]:
+    """Cached all-ones scale tuples, replacing per-tick rebuilding."""
+    return tuple(_UNIT_SCALE for _ in range(width))
+
+
+@functools.lru_cache(maxsize=512)
+def _rest_global_quats_cached(
+    rotations: tuple[tuple[float, float, float, float], ...],
+    parents: tuple[int, ...],
+) -> tuple[Any, ...]:
+    """Cached global rest quaternions (pxr Gf.Quatd), plan-derived only.
+
+    The rest hierarchy is fixed per plan, so the global rest quaternions are
+    recomputed every tick today.  Caching them is purely a runtime
+    optimization: the quaternion math is unchanged.  Only called from the
+    pxr-backed quaternion path, so the pxr import stays lazy.
+    """
+    from pxr import Gf
+
+    rest_global: list[Any] = []
+    for index, rest in enumerate(rotations):
+        rest_local = Gf.Quatd(rest[0], Gf.Vec3d(*rest[1:])).GetNormalized()
+        parent = parents[index]
+        rest_global.append(
+            rest_local
+            if parent < 0
+            else rest_global[parent] * rest_local
+        )
+    return tuple(rest_global)
+
+
+_UNIT_SCALE = (1.0, 1.0, 1.0)
+
+
 def retarget_pose(
     plan: RetargetPlan,
     *,
@@ -466,9 +578,7 @@ def retarget_pose(
 
     translations = list(plan.target_rest_translations)
     if source_translations:
-        source_root = _vector3(
-            source_translations[plan.source_root_index], label="source root translation"
-        )
+        source_root = _vector3_fast(source_translations[plan.source_root_index])
         target_root = plan.target_rest_translations[plan.target_root_index]
         unit_scale = plan.source_meters_per_unit / plan.target_meters_per_unit
         root_delta = tuple(
@@ -494,11 +604,11 @@ def retarget_pose(
 
     if source_scales:
         scales = tuple(
-            _vector3(source_scales[index], label="source scale")
+            _vector3_fast(source_scales[index])
             for index in plan.joint_indices
         )
     else:
-        scales = tuple((1.0, 1.0, 1.0) for _ in plan.target_joints)
+        scales = _unit_scales_cached(len(plan.target_joints))
 
     if (
         plan.source_rest_rotations is not None
@@ -510,55 +620,30 @@ def retarget_pose(
     ):
         from pxr import Gf
 
-        def parent_indices(joints: Sequence[str]) -> tuple[int, ...]:
-            index_by_name = {name: index for index, name in enumerate(joints)}
-            result = []
-            for index, name in enumerate(joints):
-                parent_name = name.rsplit("/", 1)[0] if "/" in name else None
-                parent = -1 if parent_name is None else index_by_name.get(parent_name, -1)
-                if parent_name is not None and (parent < 0 or parent >= index):
-                    raise HumanMotionRetargetError(
-                        f"joint hierarchy is not parent-first at {name!r}"
-                    )
-                result.append(parent)
-            return tuple(result)
-
-        source_parents = parent_indices(plan.source_joints)
-        target_parents = parent_indices(plan.target_joints)
-        source_rest_global = []
+        source_parents = _parent_indices_cached(plan.source_joints)
+        target_parents = _parent_indices_cached(plan.target_joints)
+        source_rest_global = _rest_global_quats_cached(
+            plan.source_rest_rotations, source_parents
+        )
         source_pose_global = []
-        for index, (rest, sample) in enumerate(
-            zip(plan.source_rest_rotations, source_rotations)
-        ):
-            rest_local = Gf.Quatd(rest[0], Gf.Vec3d(*rest[1:])).GetNormalized()
+        for index, sample in enumerate(source_rotations):
             pose_local = Gf.Quatd(sample).GetNormalized()
             parent = source_parents[index]
-            source_rest_global.append(
-                rest_local
-                if parent < 0
-                else source_rest_global[parent] * rest_local
-            )
             source_pose_global.append(
                 pose_local
                 if parent < 0
                 else source_pose_global[parent] * pose_local
             )
 
-        target_rest_global = []
+        target_rest_global = _rest_global_quats_cached(
+            plan.target_rest_rotations, target_parents
+        )
         target_pose_global = []
         rotations = []
-        for index, (source_index, target_rest) in enumerate(
-            zip(plan.joint_indices, plan.target_rest_rotations)
+        for index, (source_index, rest_global) in enumerate(
+            zip(plan.joint_indices, target_rest_global)
         ):
-            target_rest_local = Gf.Quatd(
-                target_rest[0], Gf.Vec3d(*target_rest[1:])
-            ).GetNormalized()
             parent = target_parents[index]
-            rest_global = (
-                target_rest_local
-                if parent < 0
-                else target_rest_global[parent] * target_rest_local
-            )
             # UsdSkelAnimation rotations are absolute local transforms. Keep
             # the source skeleton-space rest-relative pose, then decompose it
             # back into the target hierarchy's local rotations.
@@ -572,7 +657,6 @@ def retarget_pose(
                 if parent < 0
                 else target_pose_global[parent].GetInverse() * pose_global
             )
-            target_rest_global.append(rest_global)
             target_pose_global.append(pose_global)
             rotations.append(Gf.Quatf(pose_local.GetNormalized()))
 
@@ -580,9 +664,7 @@ def retarget_pose(
             def joint_positions(parents, local_translations, global_rotations):
                 positions = []
                 for index, translation in enumerate(local_translations):
-                    local = Gf.Vec3d(
-                        *_vector3(translation, label="joint translation")
-                    )
+                    local = Gf.Vec3d(*_vector3_fast(translation))
                     parent = parents[index]
                     positions.append(
                         local
@@ -591,34 +673,6 @@ def retarget_pose(
                         + Gf.Rotation(global_rotations[parent]).TransformDir(local)
                     )
                 return positions
-
-            def semantic_indices(joints, root_index):
-                by_leaf = {
-                    name.rsplit("/", 1)[-1]: index
-                    for index, name in enumerate(joints)
-                }
-                alternatives = {
-                    "root": (),
-                    "head": ("head",),
-                    "left_shoulder": ("left_shoulder", "upperarm_l"),
-                    "left_elbow": ("left_elbow", "lowerarm_l"),
-                    "left_wrist": ("left_wrist", "hand_l"),
-                    "right_shoulder": ("right_shoulder", "upperarm_r"),
-                    "right_elbow": ("right_elbow", "lowerarm_r"),
-                    "right_wrist": ("right_wrist", "hand_r"),
-                }
-                result = {"root": root_index}
-                for role, leaves in alternatives.items():
-                    if role == "root":
-                        continue
-                    match = next(
-                        (by_leaf[leaf] for leaf in leaves if leaf in by_leaf),
-                        None,
-                    )
-                    if match is None:
-                        return None
-                    result[role] = match
-                return result
 
             def body_frame(positions, indices):
                 origin = positions[indices["root"]]
@@ -700,10 +754,10 @@ def retarget_pose(
             target_positions = joint_positions(
                 target_parents, translations, target_pose_global
             )
-            source_indices = semantic_indices(
+            source_indices = _semantic_indices_cached(
                 plan.source_joints, plan.source_root_index
             )
-            target_indices = semantic_indices(
+            target_indices = _semantic_indices_cached(
                 plan.target_joints, plan.target_root_index
             )
             if source_indices is not None and target_indices is not None:
@@ -930,16 +984,54 @@ class HumanMotionController:
             raise ValueError(f"motion '{motion.id}' must have a positive duration")
         return (local_time + dt) % motion.duration
 
-    def update(self, dt: float) -> MotionUpdate:
+    def update(
+        self,
+        dt: float,
+        *,
+        actor_ids: Sequence[str] | None = None,
+        locomotion_actor_ids: Sequence[str] | None = None,
+    ) -> MotionUpdate:
+        """Advance motion clocks and collect sample requests for one tick.
+
+        ``actor_ids`` restricts processing to the given registered actors;
+        state clocks, events, and requests of other actors are left
+        untouched.  When ``None``, every registered actor is processed.
+        ``locomotion_actor_ids`` further restricts which *processed* actors
+        advance/emit their idle locomotion; actions are always advanced and
+        emitted for processed actors regardless of that set.  Omitted idle
+        locomotion clocks are frozen so resuming does not time-jump.
+        """
         dt = float(dt)
         if not math.isfinite(dt) or dt < 0.0:
             raise ValueError("dt must be non-negative and finite")
 
+        if actor_ids is None:
+            processed_ids: Sequence[str] = sorted(self._actors)
+            drain_all_events = True
+        else:
+            processed_ids = tuple(
+                sorted(str(actor_id) for actor_id in actor_ids)
+            )
+            for actor_id in processed_ids:
+                self._actor(actor_id)  # raises KeyError for unknown actors
+            drain_all_events = False
+
+        if locomotion_actor_ids is None:
+            locomotion_set: set[str] | None = None
+        else:
+            locomotion_set = {
+                str(actor_id) for actor_id in locomotion_actor_ids
+            }
+
         requests: list[MotionSampleRequest] = []
-        for actor_id in sorted(self._actors):
+        for actor_id in processed_ids:
             state = self._actors[actor_id]
             locomotion: HumanMotionSpec | None = None
-            if state.locomotion_motion_id is not None and state.action_motion_id is None:
+            if (
+                (locomotion_set is None or actor_id in locomotion_set)
+                and state.locomotion_motion_id is not None
+                and state.action_motion_id is None
+            ):
                 locomotion = self.registry.motion(state.locomotion_motion_id)
                 state.locomotion_time = self._advance_loop(
                     state.locomotion_time, dt, locomotion
@@ -986,8 +1078,21 @@ class HumanMotionController:
                     )
                 )
 
-        events = tuple(self._events)
-        self._events.clear()
+        if drain_all_events:
+            events = tuple(self._events)
+            self._events.clear()
+        else:
+            processed_set = set(processed_ids)
+            events = tuple(
+                event
+                for event in self._events
+                if event.actor_id in processed_set
+            )
+            self._events = [
+                event
+                for event in self._events
+                if event.actor_id not in processed_set
+            ]
         return MotionUpdate(requests=tuple(requests), events=events)
 
 

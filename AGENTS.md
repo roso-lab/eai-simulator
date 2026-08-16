@@ -43,6 +43,13 @@ ROS2 Humble is optional for the core simulator and required only for ROS2 or Nav
 
 Selections containing animated humans force CPU PhysX. Isaac Sim 5.1 cannot safely perform the required animated pose writes with GPU PhysX, so a requested CUDA physics device is replaced with CPU for those selections.
 
+Human rendering remains on the CUDA GPU, but the `UsdHumanStageRuntime` pose/retarget path is CPU work. Schedule it deliberately for large deployments:
+
+- `UsdHumanStageRuntime.update(dt, *, context=None, actor_ids=None, animate_while_idle=False)` updates only the ids passed in `actor_ids`; unselected actors keep their clocks and pending events for later ticks.
+- The default `animate_while_idle=False` freezes idle locomotion sampling for actors with no active action and a paused/finished path. This is intentional CPU saving, not a missing capability; pass `animate_while_idle=True` only where always-animate behavior is required.
+- `HumanMotionController.update(dt, *, actor_ids=None, locomotion_actor_ids=None)` exposes the same controls at the controller layer; active actions still advance for processed actors.
+- Do not regress the hot path by re-adding per-tick validation or recomputing plan-derived indices inside `retarget_pose`; runtime samples are validated at plan/cache build time and the cached hot-path helpers exist precisely for this cost profile.
+
 ### External Assets
 
 The default gated Hugging Face dataset is `HuangQIjun/eai-simulator-assets`; large assets and model files from that dataset are not all stored in Git. Relevant workflows can require approved dataset access, Hugging Face authentication, network access, local disk capacity, and acceptance of the upstream asset or model terms. Asset resolution uses this dataset by default and reads `EAI_ASSETS_HF_REPO` only as an optional repository-ID override.
@@ -988,6 +995,8 @@ Registry-driven behavior lives in `source/EAI_assets/EAI_assets/humans/`; mainta
 
 Large character, activity, motion, texture, cache, action, and custom-action files are provider-managed or ignored, but every runtime payload is installed below the active `usd/human/` root and every manifest runtime path remains relative to that root. Use `HumanAssetRegistry`, `HumanActionPublisher`, conversion/migration tools, validation, and cache builders rather than hand-editing generated registries. `tools/human_assets/migrate_assets.py` writes `manifest.json` and `audit-summary.json`; `tools/human_assets/convert_gltf_assets.py` writes conversion diagnostics. No tracked tool regenerates `usd/human/pack-checksums.json`, so checksum publication remains an external maintainer/provider release step. Animated human stage workflows use CPU PhysX on Isaac Sim 5.1 when pose writes require it.
 
+For live runtime scheduling, `UsdHumanStageRuntime.update` and `HumanMotionController.update` accept `actor_ids` / `locomotion_actor_ids`, and `UsdHumanStageRuntime.update` defaults to `animate_while_idle=False`. Unselected actors keep their clocks and queued events for later ticks, and idle actors skip locomotion resampling; do not treat the unified demo's initially static idle humans as an animation regression, and pass `animate_while_idle=True` explicitly when old always-animate behavior is required. The retarget hot path relies on `_vector3_fast` and the cached plan-derived helpers (`_parent_indices_cached`, `_semantic_indices_cached`, `_unit_scales_cached`, `_rest_global_quats_cached`): keep all finite/hierarchy validation in plan and cache build/load paths, never in the per-tick sampling path, and preserve the non-mutating read invariant for cached `Gf.Quatd` objects.
+
 #### Implementation steps
 
 1. Decide whether the change affects registry assets, canonical motions, custom actions, retarget caches, path following, or stage runtime.
@@ -1019,7 +1028,7 @@ The headless command above verifies 39 x 12 skeletal actions, four rigid outboun
 
 #### Common omissions
 
-Hand-editing generated manifest records, committing large packs/caches, adding absolute runtime paths, claiming the conversion/migration tools generate pack checksums, changing provider assets without matching external checksum publication, ignoring license fields or skeleton signatures, relying on bounds that ignore the current skinned pose, expecting GPU PhysX for animated humans, or registering human actors as Env DIY robots/controllers.
+Hand-editing generated manifest records, committing large packs/caches, adding absolute runtime paths, claiming the conversion/migration tools generate pack checksums, changing provider assets without matching external checksum publication, ignoring license fields or skeleton signatures, relying on bounds that ignore the current skinned pose, expecting GPU PhysX for animated humans, registering human actors as Env DIY robots/controllers, re-adding per-tick finite validation or per-call plan index computation in the retarget hot path, unconditionally resampling idle human actors, dropping deferred events or pending reground state for unselected `actor_ids`, or treating the default idle static pose as an animation regression.
 
 ### Add or Modify an Algorithm
 
