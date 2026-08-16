@@ -139,6 +139,7 @@ EAI Simulator 文档
    controller_guide
    human_assets
    pegasus_drones
+   realsense_tutorial
 
 .. toctree::
    :hidden:
