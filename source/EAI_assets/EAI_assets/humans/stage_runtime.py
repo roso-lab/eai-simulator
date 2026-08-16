@@ -8,7 +8,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 from .animation_runtime import (
     HumanMotionController,
@@ -317,9 +317,42 @@ class UsdHumanStageRuntime:
         if lease is not None:
             lease.release()
 
-    def update(self, dt: float, *, context: Any = None) -> HumanStageUpdate:
+    def update(
+        self,
+        dt: float,
+        *,
+        context: Any = None,
+        actor_ids: Sequence[str] | None = None,
+        animate_while_idle: bool = False,
+    ) -> HumanStageUpdate:
         self._require_open()
-        motion_update = self._controller.update(dt)
+        if actor_ids is None:
+            processed_ids: tuple[str, ...] | None = None
+        else:
+            processed_ids = tuple(
+                sorted(str(actor_id) for actor_id in actor_ids)
+            )
+            for actor_id in processed_ids:
+                self._actor(actor_id)  # raises KeyError for unknown actors
+
+        if animate_while_idle:
+            locomotion_actor_ids: tuple[str, ...] | None = None
+        else:
+            if processed_ids is None:
+                candidate_ids = self.actor_ids
+            else:
+                candidate_ids = processed_ids
+            locomotion_actor_ids = tuple(
+                actor_id
+                for actor_id in candidate_ids
+                if self._actors[actor_id].path_active
+            )
+
+        motion_update = self._controller.update(
+            dt,
+            actor_ids=processed_ids,
+            locomotion_actor_ids=locomotion_actor_ids,
+        )
         self._adapter.apply_all(motion_update.requests)
         restarted = {
             event.actor_id
@@ -338,7 +371,9 @@ class UsdHumanStageRuntime:
             self._sampled_motion_ids[request.actor_id] = request.motion_id
 
         poses: list[tuple[str, PathFollowerOutput]] = []
-        for actor_id in self.actor_ids:
+        for actor_id in (
+            processed_ids if processed_ids is not None else self.actor_ids
+        ):
             pose = self._actors[actor_id].advance_path(dt, context=context)
             if pose is None:
                 continue
