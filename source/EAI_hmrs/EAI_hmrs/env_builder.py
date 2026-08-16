@@ -36,7 +36,7 @@ from EAI_assets.robots.z1_mount import (
     Z1MountProfile,
     build_mounted_z1_asset_cfg,
 )
-from EAI_assets.sensor.high_sensor import OrsusCfg
+from EAI_assets.sensor.high_sensor import OrsusCfg, RealSenseD455Cfg
 from EAI_hmrs.controller_loader import load_controller_attr
 from EAI.hmrs_env.env_diy.flow import (
     AttachmentSelection,
@@ -74,6 +74,12 @@ class RobotOption:
     z1_mount_profile: Z1MountProfile | None = None
     orsus_offset: tuple[float, float, float] = (0.026, 0.0, 0.0)
     lidar_mount_link: str | None = None
+    # RealSense D455 挂载点（可解耦装载）。D455 彩色相机在资产本地坐标系中
+    # 朝向 -Y；默认外参绕 Z 轴 +90°（quat w=0.7071, z=0.7071）使其朝宿主
+    # 前进方向 +X。
+    realsense_mount_link: str | None = None
+    realsense_offset: tuple[float, float, float] = (0.0, 0.0, 0.12)
+    realsense_rot: tuple[float, float, float, float] = (0.70710678, 0.0, 0.0, 0.70710678)
     # The HESAI XT32 mounting flange is 47.7 mm below its sensor origin. The
     # cable reaches 88.7 mm below the origin and must not be used as the mount plane.
     lidar_offset: tuple[float, float, float] = (0.0, 0.0, 0.0)
@@ -148,8 +154,20 @@ ROBOT_OPTIONS = [
         orsus_offset=(0.026, 0.0, 0.418),
         lidar_mount_link="Carter/Orsus_chassis_link",
         lidar_offset=(0.026, 0.0, 0.444862),
+        # D455 初始外参（待按实车标定）
+        realsense_mount_link="Carter/Orsus_chassis_link",
+        realsense_offset=(0.026, 0.0, 0.418),
     ),
-    RobotOption("pepper", "Pepper holonomic base", PEPPER_CFG, "PEPPER_HOLONOMIC_CFG", 0.0),
+    RobotOption(
+        "pepper",
+        "Pepper holonomic base",
+        PEPPER_CFG,
+        "PEPPER_HOLONOMIC_CFG",
+        0.0,
+        # RealSense D455 头顶装载（可解耦验证宿主）
+        realsense_mount_link="Head",
+        realsense_offset=(0.0, 0.0, 0.14),
+    ),
     RobotOption(
         "go2",
         "Unitree Go2",
@@ -162,6 +180,8 @@ ROBOT_OPTIONS = [
         lidar_mount_link="base",
         lidar_offset=(0.22631, -0.003, 0.136534),
         lidar_rot=(1.0, 0.0, 0.0, 0.0),
+        realsense_mount_link="base",
+        realsense_offset=(0.35, 0.0, 0.30),
     ),
     RobotOption(
         "b2",
@@ -175,6 +195,8 @@ ROBOT_OPTIONS = [
         orsus_offset=(0.36723, 0.0, 0.223494),
         lidar_mount_link="base_link",
         lidar_offset=(0.36723, 0.0, 0.2902),
+        realsense_mount_link="base_link",
+        realsense_offset=(0.36723, 0.0, 0.34),
     ),
     RobotOption(
         "m20",
@@ -188,6 +210,8 @@ ROBOT_OPTIONS = [
         orsus_offset=(0.29718, 0.0, 0.07994),
         lidar_mount_link="base_link",
         lidar_offset=(0.29718, 0.0, 0.121437),
+        realsense_mount_link="base_link",
+        realsense_offset=(0.29718, 0.0, 0.20),
     ),
     RobotOption(
         "scout",
@@ -201,6 +225,8 @@ ROBOT_OPTIONS = [
         orsus_offset=(0.24749, 0.0, 0.11309),
         lidar_mount_link="base_link",
         lidar_offset=(0.24749, 0.0, 0.160402),
+        realsense_mount_link="base_link",
+        realsense_offset=(0.24749, 0.0, 0.24),
     ),
     RobotOption(
         "mushr_v2",
@@ -210,12 +236,17 @@ ROBOT_OPTIONS = [
         0.0,
         lidar_mount_link="mushr_nano/base_link",
         lidar_offset=(-0.035325, 0.0, 0.18495),
-        camera_mount_link="mushr_nano/camera_link",
+        camera_mount_link="mushr_nano/camera_bottom_screw_frame",
         # The USD housing is a 9 cm wide bar (left-right). Its forward extent is
         # 4.3 mm from the camera_link origin and its center lies 17.5 mm to -Y.
         # Keep the pinhole 0.7 mm clear of that face, on the car's centerline.
         camera_offset=(0.005, -0.0175, 0.0),
         camera_rot=(0.5, 0.5, -0.5, -0.5),
+        # RealSense D455 替代内置相机（用户已从 USD 中删除相机与 camera_link，
+        # 幸存的挂架为 camera_bottom_screw_frame；外参按用户标定值）
+        realsense_mount_link="mushr_nano/camera_bottom_screw_frame",
+        realsense_offset=(0.03345, -0.00097, 0.01424),
+        realsense_rot=(1.0, 0.0, 0.0, 0.0),
     ),
     RobotOption(
         "coco",
@@ -229,6 +260,8 @@ ROBOT_OPTIONS = [
         lidar_mount_link="base_link",
         lidar_offset=(0.0, 0.0, 0.478662),
         orsus_disable_physics=True,
+        realsense_mount_link="base_link",
+        realsense_offset=(0.0, 0.0, 0.43),
     ),
     RobotOption("g1", "Unitree G1", G1_CFG, "G1_SKRL_CFG", 0.74),
     RobotOption(
@@ -279,6 +312,8 @@ ROBOT_OPTIONS = [
         orsus_offset=(0.16669, 0.0, 0.06773),
         lidar_mount_link="TORSO",
         lidar_offset=(0.16669, 0.0, 0.114523),
+        realsense_mount_link="TORSO",
+        realsense_offset=(0.16669, 0.0, 0.22),
     ),
 ]
 
@@ -311,6 +346,8 @@ def interactive_selection_from_dict(data: dict[str, Any]) -> InteractiveSelectio
             attachments: list[AttachmentSelection] = []
             if bool(data.get("use_orsus")) and attachment_supported(str(key), "orsus"):
                 attachments.append(AttachmentSelection("orsus", None))
+            if bool(data.get("use_realsense")) and attachment_supported(str(key), "realsense_d455"):
+                attachments.append(AttachmentSelection("realsense_d455", None))
             if bool(data.get("use_ur5")) and attachment_supported(str(key), "ur5"):
                 attachments.append(AttachmentSelection("ur5", ControllerChoice("default", "UR5_IK_CFG")))
             if bool(data.get("use_lidar")) and attachment_supported(str(key), "lidar"):
@@ -468,6 +505,9 @@ def build_interactive_env_cfg(
 
         # Orsus spawn：检查是否有 orsus 硬件 + 是否开启 ROS 通道
         has_orsus = any(attachment.type == "orsus" for attachment in selection.attachments)
+        has_realsense = any(
+            attachment.type == "realsense_d455" for attachment in selection.attachments
+        )
         ros_enabled = any(attachment.type == "ros" for attachment in selection.attachments)
         camera_enabled = any(attachment.type == "camera" for attachment in selection.attachments)
         cmd_vel_enabled = any(attachment.type in {"ros", "keyboard"} for attachment in selection.attachments)
@@ -503,6 +543,25 @@ def build_interactive_env_cfg(
                 _orsus_camera_publish_config[path_variant] = camera_enabled
                 _orsus_disable_physics_config[path_variant] = robot.orsus_disable_physics
 
+        # RealSense D455 spawn：与 Orsus 相同的独立双开关门控。
+        # camera tool -> rgb/depth/camera_info 图；ros tool -> IMU 图。
+        if has_realsense and robot.realsense_mount_link:
+            realsense_prim_path = (
+                f"{{ENV_REGEX_NS}}/{name}/{robot.realsense_mount_link}/RealsenseD455"
+            )
+            attrs["__annotations__"][f"realsense_{name}"] = AssetBaseCfg
+            attrs[f"realsense_{name}"] = RealSenseD455Cfg(
+                prim_path=realsense_prim_path,
+                init_state=AssetBaseCfg.InitialStateCfg(
+                    pos=robot.realsense_offset,
+                    rot=robot.realsense_rot,
+                ),
+                ros_namespace=f"/{name}",
+                enable_camera_publish=camera_enabled,
+                enable_imu_publish=ros_enabled,
+                disable_physics=True,
+            )
+
         is_aerial_sensor_robot = robot.key in {"cf2x", "iris", "pegasus"}
         is_builtin_camera_robot = robot.key in {
             "cf2x", "iris", "pegasus", "mushr_v2",
@@ -528,6 +587,8 @@ def build_interactive_env_cfg(
             is_builtin_camera_robot
             and robot.camera_mount_link
             and (is_aerial_sensor_robot or camera_enabled)
+            # MuSHR 已改装为 RealSense D455 时不再 spawn 内置单目相机
+            and not (robot.key == "mushr_v2" and has_realsense)
         ):
             attrs["__annotations__"][f"camera_{name}"] = AssetBaseCfg
             attrs[f"camera_{name}"] = AssetBaseCfg(

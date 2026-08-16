@@ -185,7 +185,9 @@ class MultiRobotDirectEnv(DirectMARLEnv):
         aerial_sensor_manager = getattr(self, "_aerial_sensor_manager", None)
         if aerial_sensor_manager is not None:
             aerial_sensor_manager.update(self.step_dt)
-
+        realsense_imu_manager = getattr(self, "_realsense_imu_manager", None)
+        if realsense_imu_manager is not None:
+            realsense_imu_manager.update(self.step_dt)
         observations = {}
         for robot_name in self.cfg.possible_agents:
             controller_cfg = self._controller_configs[robot_name]
@@ -390,6 +392,9 @@ class MultiRobotDirectEnv(DirectMARLEnv):
         aerial_sensor_manager = getattr(self, "_aerial_sensor_manager", None)
         if aerial_sensor_manager is not None:
             aerial_sensor_manager.reset(env_ids)
+        realsense_imu_manager = getattr(self, "_realsense_imu_manager", None)
+        if realsense_imu_manager is not None:
+            realsense_imu_manager.reset(env_ids)
         # Controllers can override this if they need to reset their state
         hook = getattr(self.cfg, "after_reset_idx_hook", None)
         if hook is not None and callable(hook):

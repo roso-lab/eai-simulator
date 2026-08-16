@@ -415,7 +415,17 @@ class AerialSensorSuiteManager:
                     camera_prim_path = (
                         f"/World/envs/env_0/{robot_name}/{spec.camera_mount_link}/Camera"
                     )
-                    self._runtime.create_camera_graph(robot_name, camera_prim_path)
+                    import omni.usd
+
+                    stage = omni.usd.get_context().get_stage()
+                    camera_prim = stage.GetPrimAtPath(camera_prim_path)
+                    if camera_prim is not None and camera_prim.IsValid():
+                        self._runtime.create_camera_graph(robot_name, camera_prim_path)
+                    else:
+                        print(
+                            f"[AerialSensors] ⚠️ Built-in camera prim missing for "
+                            f"{robot_name} ({camera_prim_path}); skipping camera graph."
+                        )
                 # Only aerial robots carry the native RTX LiDAR; MuSHR uses the
                 # optional RosLidarCfg payload instead.
                 if spec.robot_type in AERIAL_SENSOR_TYPES:
