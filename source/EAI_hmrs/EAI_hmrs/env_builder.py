@@ -156,7 +156,8 @@ ROBOT_OPTIONS = [
         lidar_offset=(0.026, 0.0, 0.444862),
         # D455 初始外参（待按实车标定）
         realsense_mount_link="Carter/Orsus_chassis_link",
-        realsense_offset=(0.026, 0.0, 0.418),
+        realsense_offset=(0.11865, 0.0, 0.34329),
+        realsense_rot=(1.0, 0.0, 0.0, 0.0),
     ),
     RobotOption(
         "pepper",
@@ -166,7 +167,8 @@ ROBOT_OPTIONS = [
         0.0,
         # RealSense D455 头顶装载（可解耦验证宿主）
         realsense_mount_link="Head",
-        realsense_offset=(0.0, 0.0, 0.14),
+        realsense_offset=(0.10796, 0.0, 0.18612),
+        realsense_rot=(1.0, 0.0, 0.0, 0.0),
     ),
     RobotOption(
         "go2",
@@ -181,7 +183,8 @@ ROBOT_OPTIONS = [
         lidar_offset=(0.22631, -0.003, 0.136534),
         lidar_rot=(1.0, 0.0, 0.0, 0.0),
         realsense_mount_link="base",
-        realsense_offset=(0.35, 0.0, 0.30),
+        realsense_offset=(0.26545, 0.0, 0.09203),
+        realsense_rot=(1.0, 0.0, 0.0, 0.0),
     ),
     RobotOption(
         "b2",
@@ -196,7 +199,8 @@ ROBOT_OPTIONS = [
         lidar_mount_link="base_link",
         lidar_offset=(0.36723, 0.0, 0.2902),
         realsense_mount_link="base_link",
-        realsense_offset=(0.36723, 0.0, 0.34),
+        realsense_offset=(0.4418, 0.0, 0.05916),
+        realsense_rot=(1.0, 0.0, 0.0, 0.0),
     ),
     RobotOption(
         "m20",
@@ -211,7 +215,8 @@ ROBOT_OPTIONS = [
         lidar_mount_link="base_link",
         lidar_offset=(0.29718, 0.0, 0.121437),
         realsense_mount_link="base_link",
-        realsense_offset=(0.29718, 0.0, 0.20),
+        realsense_offset=(0.35282, 0.0, 0.08384),
+        realsense_rot=(1.0, 0.0, 0.0, 0.0),
     ),
     RobotOption(
         "scout",
@@ -226,7 +231,8 @@ ROBOT_OPTIONS = [
         lidar_mount_link="base_link",
         lidar_offset=(0.24749, 0.0, 0.160402),
         realsense_mount_link="base_link",
-        realsense_offset=(0.24749, 0.0, 0.24),
+        realsense_offset=(0.4, 0.0, 0.11224),
+        realsense_rot=(1.0, 0.0, 0.0, 0.0),
     ),
     RobotOption(
         "mushr_v2",
@@ -261,7 +267,8 @@ ROBOT_OPTIONS = [
         lidar_offset=(0.0, 0.0, 0.478662),
         orsus_disable_physics=True,
         realsense_mount_link="base_link",
-        realsense_offset=(0.0, 0.0, 0.43),
+        realsense_offset=(0.38434, 0.00858, 0.44309),
+        realsense_rot=(1.0, 0.0, 0.0, 0.0),
     ),
     RobotOption("g1", "Unitree G1", G1_CFG, "G1_SKRL_CFG", 0.74),
     RobotOption(
@@ -313,7 +320,8 @@ ROBOT_OPTIONS = [
         lidar_mount_link="TORSO",
         lidar_offset=(0.16669, 0.0, 0.114523),
         realsense_mount_link="TORSO",
-        realsense_offset=(0.16669, 0.0, 0.22),
+        realsense_offset=(0.20559, 0.0, 0.08015),
+        realsense_rot=(1.0, 0.0, 0.0, 0.0),
     ),
 ]
 
