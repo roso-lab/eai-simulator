@@ -7,7 +7,7 @@ Env DIY 将安装到宿主机器人上的设备保存在 `robots[].attachments[]
 | 位置 | 职责 |
 |---|---|
 | `source/EAI/EAI/hmrs_env/env_diy/catalog.py` | 定义载荷类型、默认 controller cfg 和支持的宿主机器人，是三个 Env DIY 前端共用的目录真源 |
-| `source/EAI/EAI/hmrs_env/env_diy/flow.py` | 将界面选择转换为 `AttachmentSelection`，检查重复项、宿主兼容性以及 UR5/Z1 互斥规则 |
+| `source/EAI/EAI/hmrs_env/env_diy/flow.py` | 将界面选择转换为 `AttachmentSelection`，检查重复项、宿主兼容性以及 UR5/Z1、Orsus/LiDAR 互斥规则 |
 | `source/EAI/EAI/hmrs_env/env_diy/storage.py` | 将载荷写入环境 JSON，并在读取时规范化 `robots[].attachments[]` |
 | `source/EAI_hmrs/EAI_hmrs/env_builder.py` | 根据环境选择创建传感器、机械臂 articulation、FixedJoint 和对应控制器 |
 | `source/EAI_assets/EAI_assets/sensor/` | 提供 Orsus 与 LiDAR 的资产配置和 ROS2 发布实现 |
@@ -61,7 +61,7 @@ Orsus 的左右相机图像只由同一宿主上的 `camera` tool 控制，点�
 | UR5 | Manipulator | Go2、B2、M20、Scout、Lite3 | `UR5_IK_CFG` |
 | Z1 | Manipulator | Carter、Go2、B2、M20、Scout、Lite3 | `Z1_IK_CFG` |
 
-同一宿主可以同时安装兼容的传感器和一种机械臂，但不能同时安装 UR5 与 Z1。每个实例的 ROS2 namespace 使用 Builder 生成的机器人名称，例如 `go2_1`、`m20_1`；多机器人之间的传感器数据和机械臂命令相互隔离。
+同一宿主可以安装兼容的传感器和一种机械臂，但不能同时安装 Orsus 与 LiDAR，也不能同时安装 UR5 与 Z1。互斥只作用于同一机器人；不同机器人可分别使用 Orsus 或 LiDAR。每个实例的 ROS2 namespace 使用 Builder 生成的机器人名称，例如 `go2_1`、`m20_1`；多机器人之间的传感器数据和机械臂命令相互隔离。
 
 ## 分类文档
 

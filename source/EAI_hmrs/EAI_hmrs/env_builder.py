@@ -468,6 +468,10 @@ def build_interactive_env_cfg(
         has_z1 = any(attachment.type == "z1" for attachment in selection.attachments)
         if has_ur5 and has_z1:
             raise ValueError(f"DIY robot '{name}' cannot attach both UR5 and Z1.")
+        has_orsus = any(attachment.type == "orsus" for attachment in selection.attachments)
+        has_lidar = any(attachment.type == "lidar" for attachment in selection.attachments)
+        if has_orsus and has_lidar:
+            raise ValueError(f"DIY robot '{name}' cannot attach both Orsus and LiDAR.")
         uses_manipulator = uses_manipulator or has_ur5 or has_z1
         if robot.cfg is None:
             raise ValueError(f"DIY robot '{robot.key}' does not have an articulation cfg.")

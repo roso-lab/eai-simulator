@@ -1544,6 +1544,7 @@
       const payloadEntry = key => catalog.manipulators[key] || catalog.sensors[key] || null;
       const attachmentEntry = key => payloadEntry(key) || catalog.tools[key] || null;
       const payloadSubtype = key => catalog.manipulators[key] ? "manipulator" : "sensor";
+      const conflictingSensorKey = key => key === "orsus" ? "lidar" : key === "lidar" ? "orsus" : null;
       const activeRobot = () => state.robots.find(robot => robot.id === state.activeRobotId) || null;
       const selectedRobot = () => state.robots.find(robot => robot.id === state.selection.robotId) || null;
       const hasWork = () => Boolean(state.sceneKey || state.robots.length || state.taskName !== "my_env");
@@ -1733,6 +1734,10 @@
         if (!state.sceneKey) errors.push("请选择一个 Scene");
         if (!state.robots.length) errors.push("请至少添加一个 Robot");
         state.robots.forEach(robot => {
+          const payloadTypes = new Set(robot.payloads.map(item => item.type));
+          if (payloadTypes.has("orsus") && payloadTypes.has("lidar")) {
+            errors.push(robotLabelWithIndex(robot) + " 不能同时挂载 Orsus 与 LiDAR");
+          }
           const hasBuiltinCamera = ["cf2x", "iris", "pegasus", "mushr_v2"].includes(robot.type);
           const hasCameraPayload = robot.payloads.some(item => item.type === "orsus" || item.type === "realsense_d455");
           if (robot.tools.includes("camera") && !hasBuiltinCamera && !hasCameraPayload) {
@@ -1932,6 +1937,10 @@
         if (!robot) return "请先选择一个 Robot 分支";
         const incompatible = compatibilityReason(robot.type, key);
         if (incompatible) return incompatible;
+        const conflictingKey = conflictingSensorKey(key);
+        if (conflictingKey && robot.payloads.some(item =>
+          item.type === conflictingKey && (!replacing || item.type !== state.selection.key)
+        )) return "Orsus 与 LiDAR 不能同时挂载";
         if (
           replacing
           && ["orsus", "realsense_d455"].includes(state.selection.key)
@@ -2032,7 +2041,7 @@
         catalogTarget.textContent = robot ? "目标：" + robotLabelWithIndex(robot) : "目标：尚未选择 Robot";
         catalogContext.textContent = replacing
           ? "仅显示与所选 Payload 同类的替换项。"
-          : "一个分支可添加一个机械臂和多个不同传感器。";
+          : "一个分支可添加一个机械臂和多个兼容传感器；Orsus 与 LiDAR 互斥。";
       };
 
       const renderToolCatalog = () => {
