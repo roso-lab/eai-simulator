@@ -1588,6 +1588,7 @@
       const payloadEntry = key => catalog.manipulators[key] || catalog.sensors[key] || null;
       const attachmentEntry = key => payloadEntry(key) || catalog.tools[key] || null;
       const payloadSubtype = key => catalog.manipulators[key] ? "manipulator" : "sensor";
+      const conflictingSensorKey = key => key === "orsus" ? "lidar" : key === "lidar" ? "orsus" : null;
       const activeRobot = () => state.robots.find(robot => robot.id === state.activeRobotId) || null;
       const selectedRobot = () => state.robots.find(robot => robot.id === state.selection.robotId) || null;
       const hasWork = () => Boolean(state.sceneKey || state.robots.length || state.taskName !== "my_env");
@@ -1760,6 +1761,12 @@
         if (!state.taskName.trim()) errors.push("请输入环境名称");
         if (!state.sceneKey) errors.push("请选择一个 Scene");
         if (!state.robots.length) errors.push("请至少添加一个 Robot");
+        state.robots.forEach(robot => {
+          const payloadTypes = new Set(robot.payloads.map(item => item.type));
+          if (payloadTypes.has("orsus") && payloadTypes.has("lidar")) {
+            errors.push(robotLabelWithIndex(robot) + " 不能同时挂载 Orsus 与 LiDAR");
+          }
+        });
         return errors;
       };
 
@@ -1946,6 +1953,10 @@
         if (!robot) return "请先选择一个 Robot 分支";
         const incompatible = compatibilityReason(robot.type, key);
         if (incompatible) return incompatible;
+        const conflictingKey = conflictingSensorKey(key);
+        if (conflictingKey && robot.payloads.some(item =>
+          item.type === conflictingKey && (!replacing || item.type !== state.selection.key)
+        )) return "Orsus 与 LiDAR 不能同时挂载";
         if (replacing) {
           if (state.selection.key === key) return "当前 Payload";
           if (robot.payloads.some(item => item.type === key && item.type !== state.selection.key)) {
@@ -2034,7 +2045,7 @@
         catalogTarget.textContent = robot ? "目标：" + robotLabelWithIndex(robot) : "目标：尚未选择 Robot";
         catalogContext.textContent = replacing
           ? "仅显示与所选 Payload 同类的替换项。"
-          : "一个分支可添加一个机械臂和多个不同传感器。";
+          : "一个分支可添加一个机械臂和多个兼容传感器；Orsus 与 LiDAR 互斥。";
       };
 
       const renderToolCatalog = () => {
@@ -2467,7 +2478,7 @@
         },
         {
           title: "为当前 Robot 添加 Payload",
-          copy: "先点击 Payload 列，再点击左侧目标 Robot；两个蓝框共同表示正在配置该 Robot 的 Payload。一个 Robot 可拥有一个 UR5 或 Z1，并同时添加多个不同传感器。",
+          copy: "先点击 Payload 列，再点击左侧目标 Robot；两个蓝框共同表示正在配置该 Robot 的 Payload。一个 Robot 可拥有一个 UR5 或 Z1，并添加多个兼容传感器，但 Orsus 与 LiDAR 不能同时挂载。",
           target: '[data-lineage-column="payload"]',
           category: "payload"
         },

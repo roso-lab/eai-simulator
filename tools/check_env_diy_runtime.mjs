@@ -36,7 +36,9 @@ const runtimeMarkup = [
   "data-download-json",
   "data-completion-download",
   'id="confirmation-dialog"',
-  "DRAFT_KEY"
+  "DRAFT_KEY",
+  "const conflictingSensorKey",
+  "Orsus 与 LiDAR 不能同时挂载"
 ];
 
 const retiredMarkup = [

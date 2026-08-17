@@ -412,6 +412,13 @@ def _choose_attachments(
             attachment_type in {"ur5", "z1"}
             and any(item.type in {"ur5", "z1"} for item in robot.attachments)
         )
+        and not (
+            attachment_type in {"orsus", "lidar"}
+            and any(
+                item.type in {"orsus", "lidar"} and item.type != attachment_type
+                for item in robot.attachments
+            )
+        )
     ]
     _print_terminal_subsection(print_func, label)
     if not candidates:
