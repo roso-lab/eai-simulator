@@ -287,6 +287,8 @@ def validate_attachment_types(robot_type: str, attachment_types: list[str] | tup
             manipulator = attachment_type
         if attachment_type not in normalized:
             normalized.append(attachment_type)
+    if "orsus" in normalized and "lidar" in normalized:
+        raise ValueError(f"Robot '{host}' cannot attach both Orsus and LiDAR.")
     if "camera" in normalized and host not in BUILTIN_CAMERA_ROBOTS and not (
         "orsus" in normalized or "realsense_d455" in normalized
     ):

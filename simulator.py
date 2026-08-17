@@ -202,6 +202,24 @@ def _selection_has_attachment(
     )
 
 
+def _validate_orsus_lidar_exclusivity(selection_data: dict[str, Any] | None) -> None:
+    if not selection_data:
+        return
+    for index, robot in enumerate(selection_data.get("robots", ()), start=1):
+        if not isinstance(robot, dict):
+            continue
+        attachments = {
+            str(attachment.get("type", "")).strip().lower()
+            for attachment in robot.get("attachments", ())
+            if isinstance(attachment, dict)
+        }
+        if {"orsus", "lidar"} <= attachments:
+            robot_type = str(robot.get("type", "")).strip().lower() or "unknown"
+            raise ValueError(
+                f"Robot {index} ('{robot_type}') cannot attach both Orsus and LiDAR."
+            )
+
+
 def _sensor_scene_single_env_reasons(selection_data: dict[str, Any] | None) -> tuple[str, ...]:
     if not selection_data:
         return ()
@@ -1015,6 +1033,7 @@ def _collect_asset_payload_after_app(args: argparse.Namespace, task_request: Tas
     else:
         raise RuntimeError("No task or DIY selection was resolved.")
 
+    _validate_orsus_lidar_exclusivity(selection_data)
     _validate_sensor_scene_num_envs(selection_data, args.num_envs)
     _enable_required_selection_extensions(selection_data)
     from EAI_hmrs.env_builder import build_interactive_env_cfg_from_selection
@@ -1675,6 +1694,7 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         selection_data = config.selection_data
     else:
         env_name, selection_data = _run_asset_preflight(_session_preflight_args(config))
+    _validate_orsus_lidar_exclusivity(selection_data)
     _validate_sensor_scene_num_envs(selection_data, config.num_envs)
     runtime_device = _runtime_device_for_env(env_name, selection_data, config.device)
     if runtime_device != config.device:
