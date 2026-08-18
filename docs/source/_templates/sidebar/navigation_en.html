@@ -35,12 +35,11 @@
   {{ nav_item('controller_guide_en', 'Controller Development') }}
 
   <p class="caption" role="heading"><span class="caption-text">Develop and Extend</span></p>
-  {{ nav_item('orsus_sensor_en', 'Orsus Sensor') }}
-  {{ nav_item('realsense_tutorial_en', 'RealSense D455') }}
-  {{ nav_item('ur5_control_en', 'Manipulator Control') }}
+  {{ nav_group('Sensors', [('orsus_sensor_en', 'Orsus'), ('realsense_tutorial_en', 'RealSense D455')]) }}
+  {{ nav_group('Manipulators', [('ur5_control_en', 'Manipulator Control')]) }}
   {{ nav_item('pegasus_drones_en', 'Drones and Sensors') }}
   {{ nav_item('human_assets_en', 'Human Asset Development') }}
-  {{ nav_group('Multi-Agent Algorithms', [('emos_en', 'EMOS'), ('teamweaver_en', 'TeamWeaver')]) }}
+  {{ nav_group('Multi-Agent Algorithms', [('teamweaver_en', 'TeamWeaver'), ('emos_en', 'EMOS')]) }}
 
   <p class="caption" role="heading"><span class="caption-text">Project Updates</span></p>
   {{ nav_item('roadmap_en', 'Next-Stage Feature Roadmap') }}
