@@ -1,7 +1,3 @@
----
-orphan: true
----
-
 # Next-Stage Feature Roadmap
 
 > **Planning status**: The capabilities described on this page are currently planned or under development and are not included in the current release. Final scope and release dates are subject to official release announcements.

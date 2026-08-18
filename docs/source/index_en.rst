@@ -129,8 +129,7 @@ Continue Exploring
    :caption: Connect and Control
 
    interface_catalog_en
-   orsus_sensor_en
-   ur5_control_en
+   controller_guide_en
 
 .. toctree::
    :hidden:
@@ -138,9 +137,11 @@ Continue Exploring
    :titlesonly:
    :caption: Develop and Extend
 
-   controller_guide_en
-   human_assets_en
+   orsus_sensor_en
+   realsense_tutorial_en
+   ur5_control_en
    pegasus_drones_en
+   human_assets_en
 
 .. toctree::
    :hidden:

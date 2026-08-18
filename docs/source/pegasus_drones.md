@@ -1,10 +1,6 @@
 # Pegasus 无人机
 
-EAI 已内置从 [Pegasus Simulator](https://github.com/PegasusSimulator/PegasusSimulator)
-迁移并适配的 3DR Iris 与 Pegasus research quadrotor。动力学、运行时适配和许可证随
-源码仓库提供；USD 与 provider 控制器由 EAI 资产解析器从 Hugging Face 数据集的
-`main` revision 按需下载，不需要安装 Pegasus extension。来源与许可证见
-`third_party/pegasus_simulator/`。
+EAI 内置 3DR Iris、Pegasus research quadrotor 与 CF2X 三种无人机，支持键盘/ROS2 目标控制，默认搭载前视单目相机、`Example_Rotary` 128 线 LiDAR 与 IMU/GPS 等基础传感器。机体 USD 与控制器由 EAI 资产解析器从 Hugging Face 数据集按需下载，无需安装额外扩展。
 
 ## 快速运行
 
@@ -71,3 +67,7 @@ env.step({"iris_1": rotor_speed})
 转子直控 cfg 的输入顺序是 `[rotor0, rotor1, rotor2, rotor3]`，单位为 rad/s，
 范围被限制到 `[0, 1100]`。它适合接 PX4/ArduPilot 或自定义飞控，但 EAI 当前
 没有把 Pegasus 的 MAVLink 后端一起嵌入；外部飞控需自行把输出转换为该张量接口。
+
+## 来源与许可证
+
+动力学与机体资产源自 [Pegasus Simulator](https://github.com/PegasusSimulator/PegasusSimulator)（BSD-3-Clause）；3DR Iris 模型来自 [PX4](https://github.com/PX4/PX4-SITL_gazebo-classic/)。许可证文件见 `third_party/pegasus_simulator/`。

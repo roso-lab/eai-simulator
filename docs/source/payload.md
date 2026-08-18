@@ -1,6 +1,6 @@
 # 载荷组件
 
-Env DIY 将安装到宿主机器人上的设备保存在 `robots[].attachments[]`。当前分为 Sensors（Orsus、LiDAR）和 Manipulators（UR5、Z1）；可视化窗口、终端快速模式和 Isaac Sim 3D 编辑器共用同一份目录与兼容性规则。
+Env DIY 将安装到宿主机器人上的设备保存在 `robots[].attachments[]`。当前分为 Sensors（Orsus、LiDAR、RealSense D455）和 Manipulators（UR5、Z1）；可视化窗口、终端快速模式和 Isaac Sim 3D 编辑器共用同一份目录与兼容性规则。
 
 ## 工程结构
 
@@ -58,6 +58,7 @@ Orsus 的左右相机图像只由同一宿主上的 `camera` tool 控制，点�
 |---|---|---|---|
 | Orsus | Sensor | Carter、Go2、B2、M20、Scout、Coco、Lite3 | 无 |
 | LiDAR | Sensor | Carter、Go2、B2、M20、Scout、MuSHR v2、Coco、Lite3 | 无 |
+| RealSense D455 | Sensor | Pepper、MuSHR v2、Carter、Go2、B2、M20、Scout、Coco、Lite3 | 无 |
 | UR5 | Manipulator | Go2、B2、M20、Scout、Lite3 | `UR5_IK_CFG` |
 | Z1 | Manipulator | Carter、Go2、B2、M20、Scout、Lite3 | `Z1_IK_CFG` |
 
@@ -66,4 +67,5 @@ Orsus 的左右相机图像只由同一宿主上的 `camera` tool 控制，点�
 ## 分类文档
 
 - [Orsus 传感器](orsus_sensor.md)
+- [RealSense D455](realsense_tutorial.md)
 - [机械臂](ur5_control.md)

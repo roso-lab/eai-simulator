@@ -1,7 +1,3 @@
----
-orphan: true
----
-
 # Orsus Sensor
 
 Orsus is an integrated stereo-camera, RTX LiDAR, and odometry sensor module for ROS2 navigation stack integration.

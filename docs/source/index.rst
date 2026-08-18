@@ -127,8 +127,7 @@ EAI Simulator 文档
    :caption: 连接与控制
 
    interface_catalog
-   orsus_sensor
-   ur5_control
+   controller_guide
 
 .. toctree::
    :hidden:
@@ -136,10 +135,11 @@ EAI Simulator 文档
    :titlesonly:
    :caption: 开发与扩展
 
-   controller_guide
-   human_assets
-   pegasus_drones
+   orsus_sensor
    realsense_tutorial
+   ur5_control
+   pegasus_drones
+   human_assets
 
 .. toctree::
    :hidden:

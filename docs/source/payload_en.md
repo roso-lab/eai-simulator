@@ -1,6 +1,6 @@
 # Payloads
 
-Env DIY saves devices installed on the host robot in `robots[].attachments[]`. Currently divided into Sensors (Orsus, LiDAR) and Manipulators (UR5, Z1); the visualization window, terminal quick mode and Isaac Sim 3D editor share the same directory and compatibility rules.
+Env DIY saves devices installed on the host robot in `robots[].attachments[]`. Currently divided into Sensors (Orsus, LiDAR, RealSense D455) and Manipulators (UR5, Z1); the visualization window, terminal quick mode and Isaac Sim 3D editor share the same directory and compatibility rules.
 
 ## Project structure
 
@@ -58,6 +58,7 @@ The `camera` tool exclusively controls Orsus left/right image publishing, while 
 |---|---|---|---|
 | Orsus | Sensor | Carter, Go2, B2, M20, Scout, Coco, Lite3 | None |
 | LiDAR | Sensor | Carter, Go2, B2, M20, Scout, MuSHR v2, Coco, Lite3 | None |
+| RealSense D455 | Sensor | Pepper, MuSHR v2, Carter, Go2, B2, M20, Scout, Coco, Lite3 | None |
 | UR5 | Manipulator | Go2, B2, M20, Scout, Lite3 | `UR5_IK_CFG` |
 | Z1 | Manipulator | Carter, Go2, B2, M20, Scout, Lite3 | `Z1_IK_CFG` |
 
@@ -66,4 +67,5 @@ A host can carry compatible sensors and one type of manipulator, but it cannot c
 ## Related Guides
 
 - [Orsus Sensor](orsus_sensor_en.md)
+- [RealSense D455](realsense_tutorial_en.md)
 - [Robotic arm](ur5_control_en.md)
