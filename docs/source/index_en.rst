@@ -142,6 +142,8 @@ Continue Exploring
    ur5_control_en
    pegasus_drones_en
    human_assets_en
+   emos_en
+   teamweaver_en
 
 .. toctree::
    :hidden:

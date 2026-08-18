@@ -4,6 +4,20 @@
   </ul>
 {%- endmacro %}
 
+{% macro nav_group(label, items) -%}
+  <details class="eai-nav-group"{% if pagename in items | map('first') | list %} open{% endif %}>
+    <summary class="eai-nav-group__summary">
+      <span class="eai-nav-group__label">{{ label }}</span>
+      <span class="eai-nav-group__chevron" aria-hidden="true"></span>
+    </summary>
+    <ul class="eai-nav-group__items">
+      {%- for target, item_label in items %}
+      <li class="toctree-l1{% if pagename == target %} current current-page{% endif %}"><a class="{% if pagename == target %}current {% endif %}reference internal" href="{{ pathto(target) }}">{{ item_label }}</a></li>
+      {%- endfor %}
+    </ul>
+  </details>
+{%- endmacro %}
+
 <div class="sidebar-tree">
   <p class="caption" role="heading"><span class="caption-text">About EAI</span></p>
   {{ nav_item('project_overview_en', 'Project Overview') }}
@@ -26,6 +40,7 @@
   {{ nav_item('ur5_control_en', 'Manipulator Control') }}
   {{ nav_item('pegasus_drones_en', 'Drones and Sensors') }}
   {{ nav_item('human_assets_en', 'Human Asset Development') }}
+  {{ nav_group('Multi-Agent Algorithms', [('emos_en', 'EMOS'), ('teamweaver_en', 'TeamWeaver')]) }}
 
   <p class="caption" role="heading"><span class="caption-text">Project Updates</span></p>
   {{ nav_item('roadmap_en', 'Next-Stage Feature Roadmap') }}

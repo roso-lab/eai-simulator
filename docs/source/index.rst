@@ -140,6 +140,8 @@ EAI Simulator 文档
    ur5_control
    pegasus_drones
    human_assets
+   emos
+   teamweaver
 
 .. toctree::
    :hidden:

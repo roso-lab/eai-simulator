@@ -4,6 +4,20 @@
   </ul>
 {%- endmacro %}
 
+{% macro nav_group(label, items) -%}
+  <details class="eai-nav-group"{% if pagename in items | map('first') | list %} open{% endif %}>
+    <summary class="eai-nav-group__summary">
+      <span class="eai-nav-group__label">{{ label }}</span>
+      <span class="eai-nav-group__chevron" aria-hidden="true"></span>
+    </summary>
+    <ul class="eai-nav-group__items">
+      {%- for target, item_label in items %}
+      <li class="toctree-l1{% if pagename == target %} current current-page{% endif %}"><a class="{% if pagename == target %}current {% endif %}reference internal" href="{{ pathto(target) }}">{{ item_label }}</a></li>
+      {%- endfor %}
+    </ul>
+  </details>
+{%- endmacro %}
+
 <div class="sidebar-tree">
   <p class="caption" role="heading"><span class="caption-text">了解 EAI</span></p>
   {{ nav_item('project_overview', '项目概览') }}
@@ -26,6 +40,7 @@
   {{ nav_item('ur5_control', '机械臂') }}
   {{ nav_item('pegasus_drones', '无人机与传感器') }}
   {{ nav_item('human_assets', '人类资产开发') }}
+  {{ nav_group('多机协作算法', [('emos', 'EMOS'), ('teamweaver', 'TeamWeaver')]) }}
 
   <p class="caption" role="heading"><span class="caption-text">项目动态</span></p>
   {{ nav_item('roadmap', '下一阶段路线图') }}
