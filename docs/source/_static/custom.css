@@ -2282,6 +2282,54 @@ body[data-theme="dark"] .eai-forum-auth__status[data-state="error"] {
   }
 }
 
+/* Collapsible sidebar navigation group (e.g. multi-agent algorithms) */
+.eai-nav-group {
+  margin: 1px 0;
+}
+
+.eai-nav-group__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 36px;
+  margin: 1px 8px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  color: var(--eai-ink);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.eai-nav-group__summary::-webkit-details-marker {
+  display: none;
+}
+
+.eai-nav-group__summary:hover {
+  background: var(--eai-surface);
+}
+
+.eai-nav-group__chevron {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--eai-muted);
+  border-bottom: 2px solid var(--eai-muted);
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+
+.eai-nav-group[open] > .eai-nav-group__summary .eai-nav-group__chevron {
+  transform: rotate(45deg);
+}
+
+.eai-nav-group__items {
+  margin: 0;
+  padding: 0 0 0 12px;
+  list-style: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

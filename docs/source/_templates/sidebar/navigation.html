@@ -4,6 +4,20 @@
   </ul>
 {%- endmacro %}
 
+{% macro nav_group(label, items) -%}
+  <details class="eai-nav-group"{% if pagename in items | map('first') | list %} open{% endif %}>
+    <summary class="eai-nav-group__summary">
+      <span class="eai-nav-group__label">{{ label }}</span>
+      <span class="eai-nav-group__chevron" aria-hidden="true"></span>
+    </summary>
+    <ul class="eai-nav-group__items">
+      {%- for target, item_label in items %}
+      <li class="toctree-l1{% if pagename == target %} current current-page{% endif %}"><a class="{% if pagename == target %}current {% endif %}reference internal" href="{{ pathto(target) }}">{{ item_label }}</a></li>
+      {%- endfor %}
+    </ul>
+  </details>
+{%- endmacro %}
+
 <div class="sidebar-tree">
   <p class="caption" role="heading"><span class="caption-text">了解 EAI</span></p>
   {{ nav_item('project_overview', '项目概览') }}
@@ -14,18 +28,18 @@
 
   <p class="caption" role="heading"><span class="caption-text">构建环境</span></p>
   {{ nav_item('environments', '环境指南') }}
-  {{ nav_item('payload', 'Payload 资产') }}
+  {{ nav_item('payload', '载荷组件') }}
 
   <p class="caption" role="heading"><span class="caption-text">连接与控制</span></p>
   {{ nav_item('interface_catalog', '接口目录') }}
-  {{ nav_item('orsus_sensor', 'Orsus 传感器') }}
-  {{ nav_item('ur5_control', '机械臂控制') }}
+  {{ nav_item('controller_guide', '控制器开发') }}
 
   <p class="caption" role="heading"><span class="caption-text">开发与扩展</span></p>
-  {{ nav_item('controller_guide', '控制器开发') }}
-  {{ nav_item('human_assets', '人类资产开发') }}
+  {{ nav_group('传感器', [('orsus_sensor', 'Orsus'), ('realsense_tutorial', 'RealSense D455')]) }}
+  {{ nav_group('机械臂', [('ur5_control', 'UR5/Z1')]) }}
   {{ nav_item('pegasus_drones', '无人机与传感器') }}
-  {{ nav_item('realsense_tutorial', 'RealSense D455') }}
+  {{ nav_item('human_assets', '人类资产开发') }}
+  {{ nav_group('多机协作算法', [('teamweaver', 'TeamWeaver'), ('emos', 'EMOS')]) }}
 
   <p class="caption" role="heading"><span class="caption-text">项目动态</span></p>
   {{ nav_item('roadmap', '下一阶段路线图') }}

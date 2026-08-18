@@ -1,12 +1,6 @@
 # Pegasus Drones
 
-EAI includes the 3DR Iris and Pegasus research quadrotor integration adapted
-from [Pegasus Simulator](https://github.com/PegasusSimulator/PegasusSimulator).
-The dynamics, runtime adapters, and license records ship with the source
-repository. The USD and provider controller bundles are downloaded on demand
-from the Hugging Face dataset's `main` revision, so the Pegasus extension is
-not required. See `third_party/pegasus_simulator/` for license and attribution
-details.
+EAI ships three drone platforms — the 3DR Iris, the Pegasus research quadrotor, and CF2X — with keyboard/ROS2 goal control and a default sensor suite of a forward monocular camera, an `Example_Rotary` 128-line LiDAR, and base sensors such as IMU/GPS. Airframe USD assets and controllers are downloaded on demand from the Hugging Face dataset by the EAI asset resolver; no extra extension is required.
 
 ## Quick start
 
@@ -84,3 +78,7 @@ value is limited to `[0, 1100]`. This interface can be connected to PX4,
 ArduPilot, or custom flight software. The Pegasus MAVLink backends themselves
 are not embedded in EAI, so an external backend must translate its outputs to
 this tensor interface.
+
+## Sources and Licenses
+
+Dynamics and airframe assets are derived from [Pegasus Simulator](https://github.com/PegasusSimulator/PegasusSimulator) (BSD-3-Clause); the 3DR Iris model comes from [PX4](https://github.com/PX4/PX4-SITL_gazebo-classic/). License files are vendored under `third_party/pegasus_simulator/`.

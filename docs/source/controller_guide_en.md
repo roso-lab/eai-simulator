@@ -88,6 +88,8 @@ The lightweight window, terminal quick setup, and Isaac Sim 3D extension share t
 | M20 | `M20_ROUGH_RSL_CFG` | RSL-RL rough terrain strategy |
 | Lite3 | `LITE3_VELOCITY_RSL_CFG` | RSL-RL speed policy |
 | Scout | `SCOUT_DIFF_CFG` | Differential drive |
+| MuSHR v2 | `MUSHR_ACKERMANN_CFG` | Ackermann steering |
+| Coco | `COCO_ACKERMANN_CFG` | Ackermann steering |
 | G1 | `G1_SKRL_CFG` | SKRL PPO |
 | CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | SKRL target position |
 | 3DR Iris | `PEGASUS_IRIS_POSITION_CFG` | Pegasus geometric position/yaw control |
@@ -126,7 +128,24 @@ CARTER_DIFF_CFG = DifferentialDriveControllerCfg(
 )
 ```
 
-### 2. SKRLControllerCfg (SKRL reinforcement learning controller)
+### 2. AckermannControllerCfg (Ackermann steering controller)
+
+**File location**: `source/EAI/EAI/controllers/ackermann_controller.py`
+
+**Use**: Traditional controller for front-steered Ackermann bases (such as MuSHR v2 and Coco). Commands are `[vx, vy, wz]` or `[vx, wz]`; the controller converts them into steering-joint position targets and drive-wheel velocities.
+
+**Main parameters**:
+
+- `wheel_base` / `track_width` / `wheel_radius`: wheel base, track width, and wheel radius used by the Ackermann kinematics
+- `steering_joint_names` / `drive_joint_names`: steering-joint and drive-wheel joint names
+- `drive_mode`: drive layout, either `rwd` (rear-wheel drive) or `4wd` (four-wheel drive)
+- `max_linear_speed` / `max_steering_angle` / `min_forward_speed`: linear-speed and steering-angle limits plus the low-speed steering guard
+
+**Implemented robots**:
+- **MuSHR v2**: `MUSHR_ACKERMANN_CFG` (`4wd`) and `MUSHR_RWD_ACKERMANN_CFG` (`rwd`) in `source/EAI_assets/EAI_assets/controller/traditional/mushr_ackermann/`
+- **Coco**: `COCO_ACKERMANN_CFG` (`4wd`) in `source/EAI_assets/EAI_assets/controller/traditional/coco_ackermann/`
+
+### 3. SKRLControllerCfg (SKRL reinforcement learning controller)
 
 **File location**: `source/EAI/EAI/controllers/skrl_controller.py`
 
@@ -158,7 +177,7 @@ When running, directly use the controller configuration provided by the warehous
   - Observation: 12 dimensions (speed, attitude, relative coordinates of target position)
   - Action: 4 dimensions (thrust, torque)
 
-### 3. RSLControllerCfg (RSL-RL ONNX controller)
+### 4. RSLControllerCfg (RSL-RL ONNX controller)
 
 **File location**: `source/EAI/EAI/controllers/rsl_controller.py`
 
@@ -196,7 +215,7 @@ GO2_VELOCITY_RSL_CFG = Go2VelocityRSLControllerCfg(
   - Observation: 48 dimensions (including speed, attitude, 16 joint states, etc.)
   - Action: 16 dimensions (12 leg joint positions + 4 wheel speeds)
 
-### 4. ManipulatorIkControllerCfg (UR5/Z1)
+### 5. ManipulatorIkControllerCfg (UR5/Z1)
 
 **Basic implementation**: `source/EAI_assets/EAI_assets/controller/traditional/manipulator_ik/manipulator_ik.py`
 

@@ -226,3 +226,7 @@ Provider 发布由维护者在资产验收后单独执行。发布内容必须�
 Face 后创建 immutable tag，同步更新 `usd/human/pack-checksums.json`，再从干净仓库根目录使用
 该固定 revision 运行统一 headless 验证。源码映射、Provider 文件、tag 和校验元数据必须属于
 同一发布版本。
+
+## 来源与致谢
+
+角色与动作资产源自 [Urban-Sim](https://github.com/metadriverse/urban-sim)（Apache-2.0）与 [SynBody](https://synbody.github.io/)（CC BY-NC-SA 4.0），逐资产来源与许可记录见 `usd/human/manifest.json`。

@@ -1,7 +1,3 @@
----
-orphan: true
----
-
 # Project Overview
 
 This document is for researchers and developers who need to evaluate, use, or extend EAI Simulator. It describes the platform scope, repository structure, entity catalog, control interfaces, and primary workflows.

@@ -1,7 +1,3 @@
----
-orphan: true
----
-
 # Manipulator Control
 
 Both UR5 and Z1 communicate through the **ROS2 Bridge + OmniGraph** inside Isaac Sim. ROS2 messages enter the simulator directly without passing through files under `tmp/`, and no additional manipulator bridge process is required.

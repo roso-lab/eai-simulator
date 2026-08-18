@@ -88,6 +88,8 @@ class ControllerCfg:
 | M20 | `M20_ROUGH_RSL_CFG` | RSL-RL 粗糙地形策略 |
 | Lite3 | `LITE3_VELOCITY_RSL_CFG` | RSL-RL 速度策略 |
 | Scout | `SCOUT_DIFF_CFG` | 差速驱动 |
+| MuSHR v2 | `MUSHR_ACKERMANN_CFG` | 阿克曼转向 |
+| Coco | `COCO_ACKERMANN_CFG` | 阿克曼转向 |
 | G1 | `G1_SKRL_CFG` | SKRL PPO |
 | CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | SKRL 目标位置 |
 | 3DR Iris | `PEGASUS_IRIS_POSITION_CFG` | Pegasus 几何位置/航向控制 |
@@ -126,7 +128,24 @@ CARTER_DIFF_CFG = DifferentialDriveControllerCfg(
 )
 ```
 
-### 2. SKRLControllerCfg（SKRL 强化学习控制器）
+### 2. AckermannControllerCfg（阿克曼转向控制器）
+
+**文件位置**: `source/EAI/EAI/controllers/ackermann_controller.py`
+
+**用途**: 传统控制器，用于前轮转向的阿克曼底盘（如 MuSHR v2、Coco）。命令为 `[vx, vy, wz]` 或 `[vx, wz]`，控制器将其换算为转向关节位置目标与驱动轮速度。
+
+**主要参数**:
+
+- `wheel_base` / `track_width` / `wheel_radius`: 轴距、轮距与车轮半径，用于阿克曼运动学换算
+- `steering_joint_names` / `drive_joint_names`: 转向关节与驱动轮关节名
+- `drive_mode`: 驱动布局，支持 `rwd`（后轮驱动）与 `4wd`（四轮驱动）
+- `max_linear_speed` / `max_steering_angle` / `min_forward_speed`: 线速度、转向角限幅与低速转向保护
+
+**已实现的机器人**:
+- **MuSHR v2**: `MUSHR_ACKERMANN_CFG`（`4wd`）与 `MUSHR_RWD_ACKERMANN_CFG`（`rwd`），位于 `source/EAI_assets/EAI_assets/controller/traditional/mushr_ackermann/`
+- **Coco**: `COCO_ACKERMANN_CFG`（`4wd`），位于 `source/EAI_assets/EAI_assets/controller/traditional/coco_ackermann/`
+
+### 3. SKRLControllerCfg（SKRL 强化学习控制器）
 
 **文件位置**: `source/EAI/EAI/controllers/skrl_controller.py`
 
@@ -158,7 +177,7 @@ CARTER_DIFF_CFG = DifferentialDriveControllerCfg(
   - 观测: 12维（速度、姿态、目标位置相对坐标）
   - 动作: 4维（推力、力矩）
 
-### 3. RSLControllerCfg（RSL-RL ONNX 控制器）
+### 4. RSLControllerCfg（RSL-RL ONNX 控制器）
 
 **文件位置**: `source/EAI/EAI/controllers/rsl_controller.py`
 
@@ -196,7 +215,7 @@ GO2_VELOCITY_RSL_CFG = Go2VelocityRSLControllerCfg(
   - 观测: 48维（包含速度、姿态、16个关节状态等）
   - 动作: 16维（12个腿关节位置 + 4个轮子速度）
 
-### 4. ManipulatorIkControllerCfg（UR5/Z1）
+### 5. ManipulatorIkControllerCfg（UR5/Z1）
 
 **基础实现**：`source/EAI_assets/EAI_assets/controller/traditional/manipulator_ik/manipulator_ik.py`
 

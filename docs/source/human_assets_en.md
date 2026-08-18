@@ -257,3 +257,7 @@ uploading to Hugging Face, create an immutable tag, update
 `usd/human/pack-checksums.json`, and run the unified headless validation from a
 clean repository root against that fixed revision. Source mappings, provider
 files, the tag, and checksum metadata must belong to the same release.
+
+## Sources and Acknowledgments
+
+Actor and motion assets are derived from [Urban-Sim](https://github.com/metadriverse/urban-sim) (Apache-2.0) and [SynBody](https://synbody.github.io/) (CC BY-NC-SA 4.0); per-asset provenance and license records live in `usd/human/manifest.json`.

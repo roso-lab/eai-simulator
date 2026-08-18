@@ -1,7 +1,3 @@
----
-orphan: true
----
-
 # Orsus 传感器
 
 Orsus 是一个集成双目相机、RTX 激光雷达（LiDAR）和里程计（Odometry）的传感器模块，用于 ROS2 导航栈集成。
