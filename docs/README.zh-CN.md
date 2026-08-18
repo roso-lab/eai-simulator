@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://releases.ubuntu.com/22.04/"><img src="https://img.shields.io/badge/platform-linux--64-orange.svg" alt="平台：Linux x86-64"></a>
   <a href="https://docs.isaacsim.omniverse.nvidia.com/5.1.0/index.html"><img src="https://img.shields.io/badge/Isaac%20Sim-5.1-76B900.svg" alt="Isaac Sim 5.1"></a>
-  <a href="https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0"><img src="https://img.shields.io/badge/release-v0.1.0-007ec6.svg" alt="发布版本：v0.1.0"></a>
+  <a href="https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0-beta.1"><img src="https://img.shields.io/badge/release-v0.1.0--beta.1-007ec6.svg" alt="发布版本：v0.1.0-beta.1"></a>
   <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow.svg" alt="许可证：MIT"></a>
 </p>
 
@@ -35,8 +35,8 @@
 <table>
 <tr>
 <td width="43%" valign="middle">
-  <h3>世界、智能体、控制器——独立定义，自由组合</h3>
-  <p>仿真世界定义、异构智能体配置、控制与感知接口——三者独立设计、独立组合。预置丰富的机器人、传感器和控制器，同时每个层面暴露标准接口，让外部算法和自定义 payload 解耦接入，不修改核心即可扩展。环境构建支持可视化编辑器、仿真内三维插件和引导式终端三种 Env DIY 工作流，均生成统一、可复用的 JSON 格式。</p>
+  <h3>分钟级搭建任意仿真环境</h3>
+  <p>选一个场景、放置机器人、挂载负载与工具——LiDAR、机械臂、相机——接入外部控制器即可运行。可视化编辑器、仿真内三维插件、引导式终端三种工作流生成统一可复用的 JSON，环境可以像代码一样共享、版本化与复现。</p>
   <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html">环境指南 →</a></p>
 </td>
 <td width="57%">
@@ -45,8 +45,18 @@
 </tr>
 <tr>
 <td width="43%" valign="middle">
+  <h3>开箱即用的资产库</h3>
+  <p>13 种异构机器人（轮式、足式、无人机、人形）、7 个从平地到工厂与医院的场景、5 种可挂载负载、18 个控制器配置、44 个带 12 组动作的人类角色——全部通过同一个 gated 资产数据集发布。</p>
+  <p><a href="https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets">申请资产访问 →</a></p>
+</td>
+<td width="57%">
+  <a href="https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets"><img src="source/assets/media/human-assets-demo.png" alt="EAI Simulator 资产库预览：异构机器人与人类角色" width="100%"></a>
+</td>
+</tr>
+<tr>
+<td width="43%" valign="middle">
   <h3>连接感知与控制</h3>
-  <p>挂载 Orsus 或 LiDAR，并连接键盘控制、ROS2 速度命令、Nav2、UR5/Z1 机械臂或外部策略，无需重新实现环境。</p>
+  <p>挂载 Orsus、RealSense D455 或 LiDAR 传感与 UR5/Z1 机械臂，再通过外部控制器——ROS2 速度命令、Nav2 或 RL 策略——统一驱动，无需重建环境。</p>
   <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/interface_catalog.html">查看接口 →</a></p>
 </td>
 <td width="57%">
@@ -56,7 +66,7 @@
 <tr>
 <td width="43%" valign="middle">
   <h3>运行多智能体协作实验</h3>
-  <p>从导航和操作扩展到多智能体讨论、基于能力的任务分配，以及 Fire Rescue 等协同实验。</p>
+  <p>内置 5 种示例算法——多智能体讨论与任务分配、2D 全局规划与 Nav2 导航、外部控制接入——以及 Fire Rescue 工厂火灾巡检异构协同实验。</p>
   <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html#fire-rescue-demo">运行实验 →</a></p>
 </td>
 <td width="57%">
@@ -69,7 +79,7 @@
 
 | 异构实体 | 可组合世界 | 感知与控制 |
 | --- | --- | --- |
-| Human、Carter、Pepper、MuSHR、Scout、Go2、B2、M20、Lite3、G1 和 CF2X | Plane、Warehouse、Factory、AIRS、Garden、Desert、Hospital 和可复用 JSON 环境 | 传统与 RL 控制器、ROS2、Nav2、Orsus、LiDAR、UR5、Z1 和外部策略 |
+| Human、Carter、Pepper、MuSHR、Coco、Scout、Go2、B2、M20、Lite3、G1、CF2X、Iris 和 Pegasus | Plane、Warehouse、Factory、AIRS、Garden、Desert、Hospital 和可复用 JSON 环境 | 传统与 RL 控制器、ROS2、Nav2、Orsus、RealSense D455、LiDAR、UR5、Z1 和外部策略 |
 
 README 只概括支持范围，详细能力以专题文档为准：
 
@@ -81,7 +91,7 @@ README 只概括支持范围，详细能力以专题文档为准：
 
 ## 版本发布与功能规划
 
-- **[v0.1.0 发布说明](https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0)：** 查看当前已发布版本包含的能力、运行要求和已知注意事项。
+- **[v0.1.0-beta.1 发布说明](https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0-beta.1)：** 查看当前 beta 版本包含的能力、运行要求和已知注意事项。
 - **[功能规划](https://www.rosolab.com/roso-lab/eai-simulator/docs/roadmap.html)：** 了解仍在开发、尚未包含在当前发布版本中的下一阶段能力。
 
 ## 快速开始

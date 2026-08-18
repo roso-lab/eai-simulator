@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://releases.ubuntu.com/22.04/"><img src="https://img.shields.io/badge/platform-linux--64-orange.svg" alt="Platform: Linux x86-64"></a>
   <a href="https://docs.isaacsim.omniverse.nvidia.com/5.1.0/index.html"><img src="https://img.shields.io/badge/Isaac%20Sim-5.1-76B900.svg" alt="Isaac Sim 5.1"></a>
-  <a href="https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0"><img src="https://img.shields.io/badge/release-v0.1.0-007ec6.svg" alt="Release: v0.1.0"></a>
+  <a href="https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0-beta.1"><img src="https://img.shields.io/badge/release-v0.1.0--beta.1-007ec6.svg" alt="Release: v0.1.0-beta.1"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
 
@@ -35,8 +35,8 @@
 <table>
 <tr>
 <td width="43%" valign="middle">
-  <h3>World, agent, controller — independently composed</h3>
-  <p>Define simulation worlds, configure heterogeneous agents, and connect perception and control — three independent layers that compose freely. Pre-configured robots, sensors, and controllers are ready out of the box, while standard interfaces at every layer allow external algorithms and custom payloads to plug in without modifying the core. Build environments through a visual editor, an in-simulator 3D plugin, or a guided terminal workflow—all producing the same reusable JSON format.</p>
+  <h3>Assemble any environment in minutes</h3>
+  <p>Pick a scene, place robots, attach payloads and tools — LiDAR, manipulators, cameras — then plug in external controllers and run. Three guided workflows (visual editor, in-simulator 3D plugin, terminal) all emit the same reusable JSON, so environments are shared, versioned, and re-run like code.</p>
   <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html">Environment guide →</a></p>
 </td>
 <td width="57%">
@@ -45,8 +45,18 @@
 </tr>
 <tr>
 <td width="43%" valign="middle">
+  <h3>A ready-made asset library</h3>
+  <p>Thirteen heterogeneous robots (wheeled, legged, aerial, humanoid), seven scenes from flat ground to factory and hospital, five mountable payloads, eighteen controller configurations, and forty-four human actors with twelve action groups — all shipped through one gated asset release.</p>
+  <p><a href="https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets">Request asset access →</a></p>
+</td>
+<td width="57%">
+  <a href="https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets"><img src="docs/source/assets/media/human-assets-demo.png" alt="EAI Simulator asset library preview with heterogeneous robots and human actors" width="100%"></a>
+</td>
+</tr>
+<tr>
+<td width="43%" valign="middle">
   <h3>Connect perception and control</h3>
-  <p>Attach Orsus or LiDAR sensing and connect keyboard control, ROS2 velocity commands, Nav2, UR5/Z1 manipulators, or external policies without rebuilding the environment.</p>
+  <p>Attach Orsus, RealSense D455, or LiDAR sensing and UR5/Z1 manipulators, then drive everything through external controllers — ROS2 velocity commands, Nav2, or trained RL policies — without rebuilding the environment.</p>
   <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/interface_catalog.html">Browse interfaces →</a></p>
 </td>
 <td width="57%">
@@ -56,7 +66,7 @@
 <tr>
 <td width="43%" valign="middle">
   <h3>Run collaborative experiments</h3>
-  <p>Move from navigation and manipulation to multi-agent discussion, capability-aware task allocation, and coordinated experiments such as Fire Rescue.</p>
+  <p>Five example algorithms ship with the simulator — multi-agent discussion and task allocation, 2D global planning and Nav2 navigation, and external control — alongside Fire Rescue, a heterogeneous factory fire-inspection experiment.</p>
   <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html#fire-rescue-demo">Run an experiment →</a></p>
 </td>
 <td width="57%">
@@ -69,7 +79,7 @@
 
 | Heterogeneous entities | Composable worlds | Perception and control |
 | --- | --- | --- |
-| Humans, Carter, Pepper, MuSHR, Scout, Go2, B2, M20, Lite3, G1, and CF2X | Plane, warehouse, factory, AIRS, garden, desert, hospital, and reusable JSON environments | Traditional and RL controllers, ROS2, Nav2, Orsus, LiDAR, UR5, Z1, and external policies |
+| Humans, Carter, Pepper, MuSHR, Coco, Scout, Go2, B2, M20, Lite3, G1, CF2X, Iris, and Pegasus | Plane, warehouse, factory, AIRS, garden, desert, hospital, and reusable JSON environments | Traditional and RL controllers, ROS2, Nav2, Orsus, RealSense D455, LiDAR, UR5, Z1, and external policies |
 
 The README summarizes the supported surface. Use the detailed guides as the source of truth:
 
@@ -81,7 +91,7 @@ The README summarizes the supported surface. Use the detailed guides as the sour
 
 ## Releases & Roadmap
 
-- **[v0.1.0 Release Notes](https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0):** review the capabilities, runtime requirements, and known caveats included in the currently released version.
+- **[v0.1.0-beta.1 Release Notes](https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0-beta.1):** review the capabilities, runtime requirements, and known caveats included in the current beta.
 - **[Roadmap](https://www.rosolab.com/roso-lab/eai-simulator/docs/roadmap.html):** discover the next-stage capabilities still under development and not yet included in the current release.
 
 ## Quick Start
