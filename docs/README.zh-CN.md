@@ -50,7 +50,7 @@
   <p><a href="https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets">申请资产访问 →</a></p>
 </td>
 <td width="57%">
-  <a href="https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets"><img src="source/assets/media/human-assets-demo.png" alt="EAI Simulator 资产库预览：异构机器人与人类角色" width="100%"></a>
+  <a href="https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets"><img src="source/assets/media/feature-asset-library.gif" alt="EAI Simulator 资产库预览：异构机器人与人类角色" width="100%"></a>
 </td>
 </tr>
 <tr>
