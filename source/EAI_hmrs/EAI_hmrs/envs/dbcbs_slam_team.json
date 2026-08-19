@@ -1,0 +1,70 @@
+{
+  "robots": [
+    {
+      "attachments": [
+        {
+          "controller": null,
+          "type": "ros"
+        }
+      ],
+      "controller": {
+        "cfg": "CARTER_DIFF_CFG",
+        "mode": "default"
+      },
+      "spawn_pose": {
+        "position": [-3.0, 3.0, 0.2],
+        "rotation": [1.0, 0.0, 0.0, 0.0]
+      },
+      "type": "carter",
+      "visual": {
+        "x": 0.18,
+        "y": 0.38
+      }
+    },
+    {
+      "attachments": [
+        {
+          "controller": null,
+          "type": "ros"
+        }
+      ],
+      "controller": {
+        "cfg": "SCOUT_DIFF_CFG",
+        "mode": "default"
+      },
+      "spawn_pose": {
+        "position": [3.0, 3.0, 0.2],
+        "rotation": [1.0, 0.0, 0.0, 0.0]
+      },
+      "type": "scout",
+      "visual": {
+        "x": 0.68,
+        "y": 0.38
+      }
+    },
+    {
+      "attachments": [
+        {
+          "controller": null,
+          "type": "ros"
+        }
+      ],
+      "controller": {
+        "cfg": "GO2_VELOCITY_RSL_CFG",
+        "mode": "default"
+      },
+      "spawn_pose": {
+        "position": [0.0, 6.0, 0.45],
+        "rotation": [1.0, 0.0, 0.0, 0.0]
+      },
+      "type": "go2",
+      "visual": {
+        "x": 0.42,
+        "y": 0.68
+      }
+    }
+  ],
+  "scene_key": "factory",
+  "task_name": "dbcbs_slam_team",
+  "version": 1
+}
