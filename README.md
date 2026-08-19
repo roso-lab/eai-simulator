@@ -50,7 +50,7 @@
   <p><a href="https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets">Request asset access →</a></p>
 </td>
 <td width="57%">
-  <a href="https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets"><img src="docs/source/assets/media/human-assets-demo.png" alt="EAI Simulator asset library preview with heterogeneous robots and human actors" width="100%"></a>
+  <a href="https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets"><img src="docs/source/assets/media/feature-asset-library.gif" alt="EAI Simulator asset library preview with heterogeneous robots and human actors" width="100%"></a>
 </td>
 </tr>
 <tr>

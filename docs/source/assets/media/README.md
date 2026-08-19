@@ -15,6 +15,7 @@ This directory owns the product demonstrations used by the English README, Chine
 | `eai-keyboard.gif` | Heterogeneous agents | Project overview |
 | `orsus_demo.gif` | Perception and control | Orsus guide |
 | `eai-nav.gif` | Collaborative experiment fallback | Getting started / Nav2 |
+| `feature-asset-library.gif` | Asset library feature | - |
 | `human-assets-demo.png` | - | Human Asset Development |
 
 ## Recording Contract
