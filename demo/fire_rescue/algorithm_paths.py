@@ -11,6 +11,7 @@ def resolve_fire_rescue_algorithm_root() -> Path:
     required_modules = (
         root / "algorithm" / "emos" / "engine.py",
         root / "algorithm" / "global_planner" / "session.py",
+        root / "algorithm" / "multi_robot_navigation" / "eai_plugin.py",
     )
     missing = [path for path in required_modules if not path.is_file()]
     if missing:
