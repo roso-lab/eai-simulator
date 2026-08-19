@@ -142,8 +142,8 @@ Continue Exploring
    ur5_control_en
    pegasus_drones_en
    human_assets_en
-   multi_robot_navigation_en
    teamweaver_en
+   multi_robot_navigation_en
    emos_en
 
 .. toctree::

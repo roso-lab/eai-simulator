@@ -1,15 +1,16 @@
 # Multi-Robot Navigation (db-CBS)
 
-EAI's multi-robot navigation component generates conflict-aware trajectories for ground robots in one scene and tracks them inside a single `SimulatorSession`. The default planner is the db-CBS implementation bundled with this repository; the caller continues to own the Isaac Sim application, environment, and frame loop.
+EAI's multi-robot navigation component generates conflict-aware trajectories for ground robots in one scene and tracks them inside a single `SimulatorSession`. It uses db-CBS by default and lets you assign goals to multiple robots through either a visual panel or the command line.
 
-The component does not launch ROS, Nav2, or a second simulator process. ROS/Nav2 remains an independent navigation option, but it is not a dependency of this workflow.
+The component does not require ROS or Nav2. Existing ROS/Nav2 workflows remain available as an independent navigation option.
 
-## Boundaries
+## Feature Overview
 
-- `algorithm/dbcbs/` owns db-CBS, the customized OMPL tree, dynoplan/dynobench, motion-primitive download and integrity metadata, the native build, and synchronized trajectory playback.
-- `algorithm/multi_robot_navigation/` discovers EAI robots, selects an occupancy map, submits plans, produces controller commands, and provides the optional viewport UI.
-- `algorithm/multi_robot_navigation/test/main.py` opens one EAI session and provides interactive, explicit-goal, and exchange integration tests.
-- `source/EAI_hmrs/EAI_hmrs/envs/dbcbs_slam_team.json` is the maintained Factory example with Carter, Scout, and Go2.
+- Plan mutually conflict-free trajectories for multiple ground robots in one batch.
+- Select robots and goals directly in the Isaac Sim viewport.
+- Assign goals to part of the team from the command line, or cycle the full team through their initial positions.
+- Monitor robot clearance during execution, hold the team when robots get too close, and replan from current positions.
+- Start with a built-in three-robot Factory example containing Carter, Scout, and Go2.
 
 The component currently requires `num_envs=1`. It excludes aerial types such as CF2X, Iris, and Pegasus by default and manages ground articulations only.
 
@@ -44,13 +45,11 @@ python -m pip install --no-deps crocoddyl==2.0.2
 EAI_DBCBS_BUILD_JOBS=8 algorithm/dbcbs/build_native.sh
 ```
 
-The generated binary is `algorithm/dbcbs/native/build/db_cbs`. The complete `native/build/` directory is reproducible local output and must not be committed.
+After a successful build, the script automatically prepares the motion primitives required by db-CBS. If they are not installed locally, it downloads them from the location provided by upstream db-CBS and verifies both file size and SHA-256. Existing files are verified and reused.
 
-The build script verifies the local `double_integrator_0_sorted.msgpack`. When the file is missing, it downloads only that file from the TUB Cloud share linked by the upstream db-CBS README and installs it only after both the size and SHA-256 match. An existing file is checked offline. This payload is local runtime data and is not tracked by Git or Git LFS.
+## Interactive Navigation
 
-## Interactive Integration Test
-
-Launch the maintained three-robot Factory scene:
+Launch the three-robot Factory scene:
 
 ```bash
 python -m algorithm.multi_robot_navigation.test.main \
@@ -91,7 +90,7 @@ Non-interactive missions can use `--headless`. `--max-seconds` controls the miss
 
 ## Maps
 
-`from_session()` selects a map under `algorithm/multi_robot_navigation/maps/` from the environment JSON's `scene_key`. The maintained keys are:
+`from_session()` selects a map under `algorithm/multi_robot_navigation/maps/` from the environment JSON's `scene_key`. The built-in scene keys are:
 
 ```text
 airs, desert, factory, garden, hospital, plane, warehouse
@@ -159,7 +158,7 @@ with open_simulator_session(config) as simulator:
 
 | Parameter | Default | Purpose |
 | --- | ---: | --- |
-| `planner_backend` | `"dbcbs"` | Use bundled db-CBS; `"global"` is retained only for the legacy compatibility path. |
+| `planner_backend` | `"dbcbs"` | Use the default db-CBS backend; `"global"` is retained only for the legacy compatibility path. |
 | `dbcbs_planning_timeout` | `60.0` | Maximum seconds for one native plan or replan. |
 | `dbcbs_robot_radii` | `None` | Override planar radii by robot type or instance name. |
 | `dbcbs_safety_margin` | `0.10` | Safety margin added to each robot radius, in metres. |
@@ -174,14 +173,6 @@ with open_simulator_session(config) as simulator:
 - The occupancy map is static. The component reacts to robot-to-robot proximity but does not update obstacle cells from sensors.
 - A custom scene needs a map aligned with its world coordinates and geometry.
 - Only one parallel environment is supported; `num_envs > 1` is rejected.
-
-The lightweight test does not start Isaac Sim:
-
-```bash
-PYTHONPATH="$PWD" PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
-  python -m pytest --rootdir="$PWD" -q \
-  algorithm/multi_robot_navigation/test_plugin.py
-```
 
 ## Sources and Acknowledgments
 

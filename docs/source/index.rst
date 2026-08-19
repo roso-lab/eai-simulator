@@ -140,8 +140,8 @@ EAI Simulator 文档
    ur5_control
    pegasus_drones
    human_assets
-   multi_robot_navigation
    teamweaver
+   multi_robot_navigation
    emos
 
 .. toctree::
