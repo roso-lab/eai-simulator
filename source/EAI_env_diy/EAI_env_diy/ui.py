@@ -356,9 +356,12 @@ class EnvDiyWindow:
             with ui.VStack(spacing=4):
                 for key in ("ros", "camera", "keyboard"):
                     with ui.HStack(spacing=6, height=40):
-                        self._asset_image("sensor" if key == "camera" else "tool", key)
+                        self._asset_image(
+                            "sensor" if key == "camera" else "tool",
+                            catalog.tool_asset_name(key),
+                        )
                         ui.Button(
-                            key.upper(),
+                            catalog.tool_label(key),
                             width=210,
                             height=34,
                             clicked_fn=lambda tool=key: self._attach(tool),
@@ -411,7 +414,12 @@ class EnvDiyWindow:
                 ui.Label("Attached")
             for attachment in robot.attachments:
                 with ui.HStack(spacing=4):
-                    ui.Label(attachment.type, width=90)
+                    label = (
+                        catalog.tool_label(attachment.type)
+                        if catalog.attachment_entry(attachment.type).category == "tool"
+                        else attachment.type
+                    )
+                    ui.Label(label, width=110)
                     if attachment.controller is not None:
                         self._build_attachment_controller_combo(robot.id, attachment)
                     ui.Button(
@@ -631,7 +639,12 @@ class EnvDiyWindow:
 
     @staticmethod
     def _drag_payload(kind: str, key: str) -> str:
-        ui.Label(key.upper())
+        label = (
+            catalog.tool_label(key)
+            if catalog.attachment_entry(key).category == "tool"
+            else key.upper()
+        )
+        ui.Label(label)
         return f"{DRAG_PREFIX}{kind}/{key}"
 
     def _on_viewport_drop(self, payload, target, world_position, _context_name):

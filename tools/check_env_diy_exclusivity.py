@@ -17,7 +17,10 @@ for source_root in (Path(), Path("source/EAI"), Path("source/EAI_env_diy")):
 
 import simulator
 from EAI.hmrs_env.env_diy import catalog, storage
-from EAI.hmrs_env.env_diy.flow import interactive_selection_from_dict
+from EAI.hmrs_env.env_diy.flow import (
+    interactive_selection_from_dict,
+    interactive_selection_to_dict,
+)
 from EAI_env_diy.model import AuthoringModel
 
 
@@ -42,6 +45,11 @@ def _expect_conflict(operation) -> None:
 
 
 def _check_shared_selection_validation() -> None:
+    if catalog.tool_label("ros") != "Navigation I/O":
+        raise AssertionError("The ros tool must be displayed as Navigation I/O.")
+    if catalog.tool_asset_name("ros") != "navigation_io":
+        raise AssertionError("The ros tool must use the navigation_io image asset.")
+
     for attachments in (("orsus", "lidar"), ("LIDAR", "ORSUS")):
         _expect_conflict(
             lambda attachments=attachments: catalog.validate_attachment_types(
@@ -61,6 +69,15 @@ def _check_shared_selection_validation() -> None:
     actual = [tuple(item.type for item in robot.attachments) for robot in selection.robots]
     if actual != [("orsus",), ("lidar",)]:
         raise AssertionError(f"Separate robot payloads changed unexpectedly: {actual}")
+
+    navigation_selection = interactive_selection_from_dict(
+        {"scene_key": "plane", "robots": [_robot("carter", "ros")]}
+    )
+    serialized_type = interactive_selection_to_dict(navigation_selection)["robots"][0][
+        "attachments"
+    ][0]["type"]
+    if serialized_type != "ros":
+        raise AssertionError("Navigation I/O must retain the serialized ros key.")
 
     with tempfile.TemporaryDirectory() as temporary_directory:
         _expect_conflict(

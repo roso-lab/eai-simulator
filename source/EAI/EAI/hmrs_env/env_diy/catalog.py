@@ -54,6 +54,18 @@ ROBOT_LABELS = {
     "lite3": "DeepRobotics Lite3",
 }
 
+TOOL_LABELS = {
+    "camera": "Camera",
+    "ros": "Navigation I/O",
+    "keyboard": "Keyboard",
+}
+
+TOOL_ASSET_NAMES = {
+    "camera": "camera",
+    "ros": "navigation_io",
+    "keyboard": "keyboard",
+}
+
 # Robots that carry a built-in monocular camera, so the Camera tool does not
 # require a Orsus stereo payload. Aerial robots publish through the aerial
 # sensor suite; MuSHR publishes through its own front-facing camera.
@@ -141,6 +153,16 @@ def robot_keys() -> tuple[str, ...]:
 
 def robot_label(robot_type: str) -> str:
     return ROBOT_LABELS.get(canonical_robot_type(robot_type), str(robot_type))
+
+
+def tool_label(tool_type: str) -> str:
+    key = str(tool_type).strip().lower()
+    return TOOL_LABELS.get(key, str(tool_type))
+
+
+def tool_asset_name(tool_type: str) -> str:
+    key = str(tool_type).strip().lower()
+    return TOOL_ASSET_NAMES.get(key, str(tool_type))
 
 
 def robot_catalog() -> dict[str, RobotCatalogEntry]:
