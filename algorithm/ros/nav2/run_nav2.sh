@@ -14,6 +14,15 @@
 
 set -u
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+# shellcheck source=tools/ros_distro.sh
+source "${REPO_ROOT}/tools/ros_distro.sh"
+ROS_DISTRO_NAME="$(eai_resolve_ros_distro)" || exit $?
+ROS_ROOT="/opt/ros/${ROS_DISTRO_NAME}"
+if [[ ! -f "${ROS_ROOT}/setup.bash" ]]; then
+    echo "❌ 未安装系统 ROS2 ${ROS_DISTRO_NAME}: ${ROS_ROOT}/setup.bash" >&2
+    echo "   重新安装配置可运行: ./tools/install_packages.sh --ros-distro humble|jazzy" >&2
+    exit 1
+fi
 SIM_LOG=/tmp/eai_nav2_sim.log
 NAV2_LOG=/tmp/eai_nav2_stack.log
 CONDA_SH="${CONDA_SH:-$HOME/miniconda3/etc/profile.d/conda.sh}"
@@ -96,12 +105,12 @@ if [ "$SIM_READY" != true ]; then
 fi
 
 # 3. 启动 Nav2
-echo "▶ 启动 Nav2 栈（干净的系统 ROS2 Humble + CycloneDDS）..."
+echo "▶ 启动 Nav2 栈（干净的系统 ROS2 ${ROS_DISTRO_NAME} + CycloneDDS）..."
 setsid env -i \
     HOME="$SYSTEM_ROS_HOME" \
     USER="$SYSTEM_ROS_USER" \
     LOGNAME="$SYSTEM_ROS_USER" \
-    PATH=/usr/bin:/bin:/opt/ros/humble/bin \
+    PATH="/usr/bin:/bin:${ROS_ROOT}/bin" \
     LANG=C.UTF-8 \
     RMW_IMPLEMENTATION=rmw_cyclonedds_cpp \
     DISPLAY="$SYSTEM_ROS_DISPLAY" \
@@ -109,11 +118,11 @@ setsid env -i \
     XDG_RUNTIME_DIR="$SYSTEM_ROS_XDG_RUNTIME_DIR" \
     DBUS_SESSION_BUS_ADDRESS="$SYSTEM_ROS_DBUS" \
     /bin/bash --noprofile --norc -c '
-        source /opt/ros/humble/setup.bash
-        cd "$1"
+        source "$1/setup.bash"
+        cd "$2"
         exec ros2 launch algorithm/ros/nav2/nav2.launch.py \
-            robot_name:=carter_1 robot_type:=Carter scene:=factory "$2"
-    ' _ "$REPO_ROOT" "$RVIZ_ARG" > "$NAV2_LOG" 2>&1 &
+            robot_name:=carter_1 robot_type:=Carter scene:=factory "$3"
+    ' _ "$ROS_ROOT" "$REPO_ROOT" "$RVIZ_ARG" > "$NAV2_LOG" 2>&1 &
 NAV2_PID=$!
 
 echo "⏳ 等待 Nav2 激活..."

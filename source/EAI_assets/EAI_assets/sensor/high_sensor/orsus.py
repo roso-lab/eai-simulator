@@ -1,45 +1,17 @@
 import hashlib
 import os
 import re
-import site
 import sys
 from pathlib import Path
 
+from EAI_assets.ros_config import (
+    configure_ros_env as _configure_shared_ros_env,
+    find_isaac_ros_bridge_path as _find_shared_isaac_ros_bridge_path,
+)
 
-def _find_isaac_ros_bridge_path(ros_distro: str = "humble"):
-    existing = os.environ.get("ISAAC_ROS_PATH")
-    if existing and os.path.exists(existing):
-        return existing
 
-    relative = os.path.join("exts", "isaacsim.ros2.bridge", ros_distro)
-    roots = []
-    env_root = os.environ.get("EAI_ISAACSIM_ROOT") or os.environ.get("ISAACSIM_ROOT")
-    if env_root:
-        roots.append(env_root)
-    roots.extend(
-        [
-            os.path.expanduser("~/isaacsim"),
-            os.path.expanduser("~/IsaacSim"),
-            os.path.expanduser("~/isaac-sim"),
-            os.path.expanduser("~/isaacsim-6.0.1"),
-        ]
-    )
-    for root in roots:
-        for candidate in (
-            os.path.join(root, "_build", "linux-x86_64", "release", relative),
-            os.path.join(root, relative),
-        ):
-            if os.path.exists(candidate):
-                return candidate
-
-    target_suffix = os.path.join("isaacsim", "exts", "isaacsim.ros2.bridge", ros_distro)
-    search_paths = site.getsitepackages() + [site.getusersitepackages()]
-    for path in search_paths:
-        candidate = os.path.join(path, target_suffix)
-        if os.path.exists(candidate):
-            return candidate
-
-    return None
+def _find_isaac_ros_bridge_path(ros_distro: str | None = None):
+    return _find_shared_isaac_ros_bridge_path(ros_distro)
 
 
 # ==============================================================================
@@ -53,34 +25,13 @@ def configure_ros_env():
     if os.environ.get("EAI_DISABLE_ORSUS_ROS_ENV", "").strip().casefold() in {"1", "true", "yes", "on"}:
         return None
 
-    # 1. 设置基础变量
-    os.environ["ROS_DISTRO"] = "humble"
-    os.environ["RMW_IMPLEMENTATION"] = "rmw_fastrtps_cpp"
-
-    # 2. 动态搜索路径 (复用之前的逻辑)
-    isaac_ros_path = _find_isaac_ros_bridge_path(os.environ["ROS_DISTRO"])
+    isaac_ros_path = _configure_shared_ros_env()
 
     if not isaac_ros_path:
         print("[EnvSetup] ⚠️ Warning: Could not find Isaac ROS Bridge path automatically.")
         return
 
     print(f"[EnvSetup] ✅ Found Isaac ROS Path: {isaac_ros_path}")
-
-    # 3. 设置 ISAAC_ROS_PATH
-    os.environ["ISAAC_ROS_PATH"] = isaac_ros_path
-
-    # 4. 更新 LD_LIBRARY_PATH
-    # 注意：在 Python 内部修改 LD_LIBRARY_PATH 对当前进程已加载的库无效，
-    # 但 Isaac Sim 的扩展加载器通常会读取 os.environ，所以这步依然有用。
-    lib_path = os.path.join(isaac_ros_path, "lib")
-    current_ld = os.environ.get("LD_LIBRARY_PATH", "")
-    if lib_path not in current_ld:
-        os.environ["LD_LIBRARY_PATH"] = f"{current_ld}:{lib_path}" if current_ld else lib_path
-
-    # 5. 更新 AMENT_PREFIX_PATH
-    current_ament = os.environ.get("AMENT_PREFIX_PATH", "")
-    if isaac_ros_path not in current_ament:
-        os.environ["AMENT_PREFIX_PATH"] = f"{current_ament}:{isaac_ros_path}" if current_ament else isaac_ros_path
 
 
 _ORSUS_ROS_NAMESPACE_NODE_SUFFIXES = (

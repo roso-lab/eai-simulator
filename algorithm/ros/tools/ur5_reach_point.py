@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import os
 import sys
 import time
 from types import SimpleNamespace
@@ -90,8 +91,9 @@ def load_ros2_modules() -> SimpleNamespace:
         from rclpy.node import Node
         from sensor_msgs.msg import JointState
     except ImportError as exc:
+        ros_distro = os.environ.get("ROS_DISTRO", "humble")
         print(f"[error] ROS2 Python modules are unavailable: {exc}", file=sys.stderr)
-        print("Run: source /opt/ros/humble/setup.bash", file=sys.stderr)
+        print(f"Run: source /opt/ros/{ros_distro}/setup.bash", file=sys.stderr)
         raise SystemExit(1) from exc
     return SimpleNamespace(rclpy=rclpy, Node=Node, PoseStamped=PoseStamped, JointState=JointState)
 
