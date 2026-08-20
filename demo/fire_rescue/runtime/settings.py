@@ -27,6 +27,15 @@ FIRE_FIXED_PROXIMITY_TARGETS = {
 # 按机器人区分专属集结点，避免多机争抢同一点或
 # 同向 anchor_offset 集体落入墙体内。命中此表时优先于 FIRE_FIXED_PROXIMITY_TARGETS。
 FIRE_FIXED_PROXIMITY_TARGETS_BY_ROBOT = {
+    1: {
+        "m20_1": (-3.5, -5.0),
+        "m20_2": (-7.15, -3.5),
+        "carter_1": (-8.0, -5.2),
+        # Keep Scout south of the east-west aisle used by m20_2 while carrying
+        # the extinguisher.  Parking farther north makes the collision guard
+        # hard-stop m20_2 before it can pass the stationary Scout.
+        "scout_1": (-4.55, -2.95),
+    },
     3: {
         "m20_1": (-1.84, 9.0),
         "m20_2": (0.93, 7.84),
@@ -175,8 +184,24 @@ STUCK_THRESHOLD_DIST = 0.08
 STUCK_TIMEOUT_S = 12.0
 STUCK_REPLAN_CD_S = 20.0
 
+# Effective ground-plane footprints include the mounted UR5 geometry.  They are
+# intentionally larger than the bare chassis radii used by the generic plugin.
+INTER_ROBOT_RADII = {
+    "carter": 0.45,
+    "m20": 0.80,
+    "scout": 0.85,
+}
+INTER_ROBOT_SAFETY_MARGIN = 0.35
+INTER_ROBOT_HARD_STOP_MARGIN = 0.12
+INTER_ROBOT_LOOKAHEAD_S = 2.0
+INTER_ROBOT_RELEASE_HYSTERESIS = 0.25
+INTER_ROBOT_REPLAN_COOLDOWN_S = 5.0
+
 FIRE_EXTINGUISHER_NAV_TARGET = (1.77, -8.98, 2.0)
 FIRE_EXTINGUISHER_ARM_TARGET = (1.85, -9.7, 0.5)
+# 抓取点位于狭窄货架区域。携带灭火器后先沿中间通道直线向北退出，
+# 再交给全局规划器前往火源，避免大体积 M20+UR5 斜切货架边缘。
+FIRE_EXTINGUISHER_EGRESS_TARGET = (1.80, -7.50, 2.0)
 
 DEBUG_EXTINGUISHER_GRAB = False
 DEBUG_EXTINGUISHER_GRAB_ROBOT = "m20_1"

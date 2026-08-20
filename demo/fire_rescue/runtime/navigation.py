@@ -33,6 +33,9 @@ from .settings import (
     PATROL_FALLBACK_OFFSET,
     CARTER_STEP_ZONES,
     HAZARD_POSITIONS, FIRE_FIXED_PROXIMITY_TARGETS, FIRE_FIXED_PROXIMITY_TARGETS_BY_ROBOT,
+    INTER_ROBOT_RADII, INTER_ROBOT_SAFETY_MARGIN,
+    INTER_ROBOT_HARD_STOP_MARGIN, INTER_ROBOT_LOOKAHEAD_S,
+    INTER_ROBOT_RELEASE_HYSTERESIS, INTER_ROBOT_REPLAN_COOLDOWN_S,
 )
 from .sim_helpers import get_yaw_from_quat, normalize_angle, get_robot_pos, get_robot_pose_tensors
 
@@ -50,12 +53,17 @@ TASK_NEARBY_FALLBACK_RADIUS_M = 3.0
 # 火源 3m 邻域：需尝试多候选 + 吸附到可通行格；原 0.45s 仅够 1 次慢规划，易误判为无解。
 FALLBACK_SEARCH_TIME_BUDGET_S = 18.0
 FALLBACK_SEARCH_MAX_CANDIDATES = 56
-# 关闭多机器人 conflict-aware 规划，统一改为每机器人独立规划以降低负担。
-USE_CONFLICT_AWARE_PLANNING = False
 
 
 def _env_truthy(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+# Default to coordinated planning.  The opt-out is retained only for planner
+# profiling and must not be used for normal Fire Rescue runs.
+USE_CONFLICT_AWARE_PLANNING = not _env_truthy(
+    "EAI_FIRE_DISABLE_CONFLICT_AWARE_PLANNING"
+)
 
 
 # 默认对规划路径做占据栅格逐段校验，避免 RRT/平滑后路点共线但穿墙；性能调试可设 EAI_DISABLE_PATH_VALIDATION=1。
@@ -64,6 +72,103 @@ DISABLE_PATH_VALIDATION = _env_truthy("EAI_DISABLE_PATH_VALIDATION")
 
 # EAI_FIRE_PATH_DEBUG=1：对所有机器人打印火源邻域规划调试；否则仅对 m20_2 自动打印（便于对照实验）。
 FIRE_PATH_DEBUG_ALL = _env_truthy("EAI_FIRE_PATH_DEBUG")
+
+
+@dataclass(frozen=True)
+class InterRobotCollisionRisk:
+    first: str
+    second: str
+    current_distance: float
+    predicted_distance: float
+    time_to_closest: float
+    hard_stop: bool
+
+
+def _inter_robot_radius(robot_name: str) -> float:
+    name = str(robot_name).casefold()
+    for prefix, radius in INTER_ROBOT_RADII.items():
+        if name.startswith(prefix):
+            return float(radius)
+    return 0.60
+
+
+def detect_inter_robot_collision_risks(
+    positions: Dict[str, Tuple[float, float]],
+    velocities: Dict[str, Tuple[float, float]],
+    active_agents: set[str],
+    *,
+    safety_margin: float = INTER_ROBOT_SAFETY_MARGIN,
+) -> List[InterRobotCollisionRisk]:
+    """Predict pairwise ground-robot separation over a short control horizon."""
+    risks: List[InterRobotCollisionRisk] = []
+    names = sorted(set(positions) & set(velocities))
+    for index, first in enumerate(names):
+        for second in names[index + 1:]:
+            if first not in active_agents and second not in active_agents:
+                continue
+            ax, ay = positions[first]
+            bx, by = positions[second]
+            avx, avy = velocities[first]
+            bvx, bvy = velocities[second]
+            rx, ry = bx - ax, by - ay
+            rvx, rvy = bvx - avx, bvy - avy
+            current_distance = math.hypot(rx, ry)
+            radius_sum = _inter_robot_radius(first) + _inter_robot_radius(second)
+            hard_distance = radius_sum + INTER_ROBOT_HARD_STOP_MARGIN
+            safety_distance = radius_sum + float(safety_margin)
+
+            relative_speed_sq = rvx * rvx + rvy * rvy
+            time_to_closest = 0.0
+            predicted_distance = current_distance
+            closing = (rx * rvx + ry * rvy) < 0.0
+            if relative_speed_sq > 1e-8 and closing:
+                time_to_closest = max(
+                    0.0,
+                    min(
+                        float(INTER_ROBOT_LOOKAHEAD_S),
+                        -(rx * rvx + ry * rvy) / relative_speed_sq,
+                    ),
+                )
+                predicted_distance = math.hypot(
+                    rx + rvx * time_to_closest,
+                    ry + rvy * time_to_closest,
+                )
+
+            hard_stop = current_distance <= hard_distance
+            predictive_stop = closing and predicted_distance <= safety_distance
+            if hard_stop or predictive_stop:
+                risks.append(
+                    InterRobotCollisionRisk(
+                        first=first,
+                        second=second,
+                        current_distance=current_distance,
+                        predicted_distance=predicted_distance,
+                        time_to_closest=time_to_closest,
+                        hard_stop=hard_stop,
+                    )
+                )
+    return risks
+
+
+def collision_guard_stop_agents(
+    risks: List[InterRobotCollisionRisk],
+    priorities: Dict[str, int],
+) -> set[str]:
+    """Choose deterministic yielding robots; hard-stop both when already close."""
+    stopped: set[str] = set()
+    for risk in risks:
+        if risk.hard_stop:
+            stopped.update((risk.first, risk.second))
+            continue
+        first_priority = int(priorities.get(risk.first, 0))
+        second_priority = int(priorities.get(risk.second, 0))
+        if first_priority > second_priority:
+            stopped.add(risk.second)
+        elif second_priority > first_priority:
+            stopped.add(risk.first)
+        else:
+            stopped.add(max(risk.first, risk.second))
+    return stopped
 
 
 # ── 任务数据结构 ────────────────────────────────────────────────────────────────
@@ -234,11 +339,29 @@ class RobotNavController:
         self._async_plan_backlog: Dict[str, RobotTask] = {}
         self._async_plan_last_req_ts: Dict[str, float] = {}
 
+        # Runtime safety net for controller drift relative to space-time plans.
+        self._collision_guard_agents: set[str] = set()
+        self._collision_guard_pairs: set[Tuple[str, str]] = set()
+        self._collision_guard_replan_ts: Dict[Tuple[str, str], float] = {}
+        self._collision_guard_probe_velocities: Dict[str, Tuple[float, float]] = {}
+
         self._plan_result_queue: _TQueue = _TQueue(maxsize=4)
+
+    def _brake_agent_motion(self, agent: str) -> None:
+        """Remove residual base momentum while an agent is explicitly held."""
+        try:
+            robot = self.base_env.scene.articulations[agent]
+            root_velocity = getattr(robot.data, "root_vel_w", None)
+            if root_velocity is None:
+                root_velocity = robot.data.root_state_w[:, 7:]
+            robot.write_root_velocity_to_sim(torch.zeros_like(root_velocity))
+        except (AttributeError, KeyError, RuntimeError):
+            return
 
     def _set_hold_position(self, agent: str, reason: str) -> None:
         was_held = agent in self.hold_position
         self.hold_position.add(agent)
+        self._brake_agent_motion(agent)
         if not was_held:
             print(f"[Hold] {agent} -> ON ({reason})")
 
@@ -744,10 +867,29 @@ class RobotNavController:
     def _is_fire_proximity_task(task: Optional["RobotTask"]) -> bool:
         if task is None:
             return False
+        subtask_colour = str(getattr(task, "subtask_colour", "") or "")
+        # Grey is a presentation colour used by several transition tasks (for
+        # example the alarm-button retreat), so it must not imply fire routing.
+        # Blue/red are vicinity tasks; explicit fire/rally task ids and names are
+        # handled by the same predicate used for fixed fire anchors.
+        return (
+            subtask_colour in ("blue", "red")
+            or RobotNavController._uses_fixed_fire_anchor(task)
+        )
+
+    @staticmethod
+    def _uses_fixed_fire_anchor(task: Optional["RobotTask"]) -> bool:
+        if task is None:
+            return False
+        task_id = str(getattr(task, "task_id", "") or "")
         subtask_name = str(getattr(task, "subtask_name", "") or "")
         subtask_colour = str(getattr(task, "subtask_colour", "") or "")
-        # 灰色集结/最终火源区任务，以及名称显式包含“火源”的任务都允许 3m 宽松目标。
-        return subtask_colour == "grey" or ("火源" in subtask_name)
+        return (
+            subtask_colour in ("blue", "red")
+            or "fire" in task_id
+            or "rally" in task_id
+            or "火源" in subtask_name
+        )
 
     @staticmethod
     def _is_nearby_fallback_task(task: Optional["RobotTask"]) -> bool:
@@ -1545,7 +1687,16 @@ class RobotNavController:
             if rn in self.manual_override_agents and not self._is_manual_task(task):
                 self._enqueue_deferred_system_task(rn, task, reason="async_batch_dispatch")
                 continue
-            targets[rn] = task.target_xy
+            target_xy = task.target_xy
+            if self._uses_fixed_fire_anchor(task):
+                fixed_xy = self._fixed_fire_proximity_target(target_xy, agent=rn)
+                if fixed_xy is not None:
+                    target_xy = fixed_xy
+                    print(
+                        f"[批量规划] {rn} 使用专属火源停靠点 "
+                        f"({target_xy[0]:.2f}, {target_xy[1]:.2f})"
+                    )
+            targets[rn] = target_xy
             valid_tasks[rn] = task
 
         if not targets:
@@ -1571,7 +1722,10 @@ class RobotNavController:
             requests.append((rn, start_xy, goal_xy))
             start_by_robot[rn] = start_xy
 
-        prio = priorities or {}
+        prio = priorities if priorities is not None else {
+            rn: -int(getattr(task, "priority", 0))
+            for rn, task in valid_tasks.items()
+        }
         batch_id = self._next_plan_batch_id
         self._next_plan_batch_id += 1
         if USE_CONFLICT_AWARE_PLANNING and self._nav_session is not None:
@@ -1885,22 +2039,23 @@ class RobotNavController:
             curr_pos, curr_quat = get_robot_pose_tensors(self.base_env, agent)
             curr_yaw = get_yaw_from_quat(curr_quat)
 
+            if agent in self.hold_position:
+                self._brake_agent_motion(agent)
+                if agent in self.goal_controlled_robots and hasattr(self.base_env, "set_command"):
+                    self.base_env.set_command(agent, "goal_position", curr_pos.unsqueeze(0))
+                    actions[agent] = torch.zeros((self.num_envs, 3), device=self.device)
+                else:
+                    self.last_cmd_vel[agent][:] = 0
+                    self.robot_commands[agent][:] = 0
+                    actions[agent] = self.robot_commands[agent]
+                continue
+
             # 到达后：检查 TaskQueue，有任务则执行下一个，否则恢复巡逻
             if (
                 self.waiting_for_task.get(agent, False)
                 and not self.key5_active
                 and not self.navigator.is_active(agent)
             ):
-                if agent in self.hold_position:
-                    if agent in self.goal_controlled_robots and hasattr(self.base_env, "set_command"):
-                        robot = self.base_env.scene.articulations[agent]
-                        self.base_env.set_command(agent, "goal_position", robot.data.root_pos_w[0].unsqueeze(0))
-                        actions[agent] = torch.zeros((self.num_envs, 3), device=self.device)
-                    else:
-                        self.last_cmd_vel[agent][:] = 0
-                        self.robot_commands[agent][:] = 0
-                        actions[agent] = self.robot_commands[agent]
-                    continue
                 # 弹出已完成任务，检查队列
                 queue = self.task_queues.get(agent)
                 if queue and not queue.is_empty():
@@ -2033,6 +2188,187 @@ class RobotNavController:
                 if act is not None:
                     actions[agent] = act
 
+        return actions
+
+    def _collision_priority(self, agent: str) -> int:
+        queue = self.task_queues.get(agent)
+        task = queue.peek() if queue is not None and not queue.is_empty() else None
+        return int(getattr(task, "priority", 0)) if task is not None else 0
+
+    @staticmethod
+    def _world_velocity_from_action(
+        action: Optional[torch.Tensor], yaw: float
+    ) -> Tuple[float, float]:
+        if action is None or action.numel() < 2:
+            return (0.0, 0.0)
+        local_x = float(action[0, 0].item())
+        local_y = float(action[0, 1].item())
+        cos_yaw = math.cos(yaw)
+        sin_yaw = math.sin(yaw)
+        return (
+            local_x * cos_yaw - local_y * sin_yaw,
+            local_x * sin_yaw + local_y * cos_yaw,
+        )
+
+    def _stop_collision_guard_agent(
+        self,
+        agent: str,
+        actions: Dict[str, torch.Tensor],
+        current_pos: torch.Tensor,
+    ) -> None:
+        self._brake_agent_motion(agent)
+        action = actions.get(agent)
+        if action is not None:
+            action.zero_()
+        if agent in self.last_cmd_vel:
+            self.last_cmd_vel[agent][:] = 0
+        if agent in self.robot_commands:
+            self.robot_commands[agent][:] = 0
+            actions[agent] = self.robot_commands[agent]
+        if agent in self.goal_controlled_robots and hasattr(self.base_env, "set_command"):
+            hold = current_pos.unsqueeze(0)
+            self.robot_goal_positions[agent] = hold
+            self.base_env.set_command(agent, "goal_position", hold)
+
+    def _queue_collision_replan(
+        self,
+        risk: InterRobotCollisionRisk,
+        now: float,
+    ) -> None:
+        pair = (risk.first, risk.second)
+        if now - self._collision_guard_replan_ts.get(pair, 0.0) < INTER_ROBOT_REPLAN_COOLDOWN_S:
+            return
+        active_tasks: Dict[str, RobotTask] = {}
+        for agent in pair:
+            if not self.navigator.is_active(agent):
+                continue
+            queue = self.task_queues.get(agent)
+            task = queue.peek() if queue is not None and not queue.is_empty() else None
+            if task is not None:
+                active_tasks[agent] = task
+
+        # A one-robot batch has no representation of the parked robot and can
+        # replace a safe path with one that crosses its footprint.  Replan only
+        # when both members can be submitted to the conflict-aware planner.
+        if len(active_tasks) != len(pair):
+            return
+
+        queued = False
+        for agent, task in active_tasks.items():
+            queued = self._queue_async_plan_request(
+                agent,
+                task,
+                reason=f"collision_guard:{risk.first}<->{risk.second}",
+                min_interval_s=INTER_ROBOT_REPLAN_COOLDOWN_S,
+            ) or queued
+        if queued:
+            self._collision_guard_replan_ts[pair] = now
+
+    def apply_inter_robot_collision_guard(
+        self,
+        actions: Dict[str, torch.Tensor],
+    ) -> Dict[str, torch.Tensor]:
+        positions: Dict[str, Tuple[float, float]] = {}
+        velocities: Dict[str, Tuple[float, float]] = {}
+        pose_tensors: Dict[str, torch.Tensor] = {}
+        active_agents: set[str] = set()
+
+        for agent in self.possible_agents:
+            if agent not in self.base_env.scene.articulations:
+                continue
+            try:
+                current_pos, current_quat = get_robot_pose_tensors(self.base_env, agent)
+                x = float(current_pos[0].item())
+                y = float(current_pos[1].item())
+                yaw = get_yaw_from_quat(current_quat)
+            except Exception:
+                continue
+            positions[agent] = (x, y)
+            pose_tensors[agent] = current_pos
+            velocities[agent] = self._world_velocity_from_action(actions.get(agent), yaw)
+            if (
+                self.navigator.is_active(agent)
+                or self.is_patrolling.get(agent, False)
+                or math.hypot(*velocities[agent]) > 0.01
+            ):
+                active_agents.add(agent)
+
+        risks = detect_inter_robot_collision_risks(
+            positions,
+            velocities,
+            active_agents,
+        )
+        if self._collision_guard_pairs:
+            release_velocities = dict(velocities)
+            for agent, remembered in self._collision_guard_probe_velocities.items():
+                if agent not in active_agents:
+                    continue
+                vx, vy = release_velocities.get(agent, (0.0, 0.0))
+                current_speed = math.hypot(vx, vy)
+                remembered_speed = math.hypot(*remembered)
+                if current_speed > 0.01:
+                    scale = max(1.0, remembered_speed / current_speed)
+                    release_velocities[agent] = (vx * scale, vy * scale)
+                else:
+                    release_velocities[agent] = remembered
+            release_risks = detect_inter_robot_collision_risks(
+                positions,
+                release_velocities,
+                active_agents,
+                safety_margin=(
+                    INTER_ROBOT_SAFETY_MARGIN + INTER_ROBOT_RELEASE_HYSTERESIS
+                ),
+            )
+            risk_by_pair = {(risk.first, risk.second): risk for risk in risks}
+            for risk in release_risks:
+                pair = (risk.first, risk.second)
+                if pair in self._collision_guard_pairs:
+                    risk_by_pair.setdefault(pair, risk)
+            risks = list(risk_by_pair.values())
+        priorities = {agent: self._collision_priority(agent) for agent in positions}
+        stopped_agents = collision_guard_stop_agents(risks, priorities)
+        current_pairs = {(risk.first, risk.second) for risk in risks}
+        now = time.time()
+
+        for agent in stopped_agents:
+            velocity = velocities.get(agent, (0.0, 0.0))
+            current_speed = math.hypot(*velocity)
+            if current_speed > 0.01:
+                remembered_speed = math.hypot(
+                    *self._collision_guard_probe_velocities.get(agent, (0.0, 0.0))
+                )
+                probe_speed = max(current_speed, remembered_speed)
+                self._collision_guard_probe_velocities[agent] = (
+                    velocity[0] * probe_speed / current_speed,
+                    velocity[1] * probe_speed / current_speed,
+                )
+
+        for risk in risks:
+            pair = (risk.first, risk.second)
+            is_new_pair = pair not in self._collision_guard_pairs
+            if is_new_pair:
+                mode = "hard stop" if risk.hard_stop else "predictive yield"
+                print(
+                    f"[CollisionGuard] {mode}: {risk.first}<->{risk.second} "
+                    f"distance={risk.current_distance:.2f}m "
+                    f"closest={risk.predicted_distance:.2f}m/{risk.time_to_closest:.2f}s"
+                )
+                self._queue_collision_replan(risk, now)
+
+        for pair in sorted(self._collision_guard_pairs - current_pairs):
+            print(f"[CollisionGuard] clear: {pair[0]}<->{pair[1]}")
+
+        self._collision_guard_pairs = current_pairs
+        self._collision_guard_agents = stopped_agents
+        self._collision_guard_probe_velocities = {
+            agent: velocity
+            for agent, velocity in self._collision_guard_probe_velocities.items()
+            if agent in stopped_agents
+        }
+        for agent in stopped_agents:
+            current_pos = pose_tensors.get(agent)
+            if current_pos is not None:
+                self._stop_collision_guard_agent(agent, actions, current_pos)
         return actions
 
     # ── Goal 控制（M20）─────────────────────────────────────────────────────────
@@ -2334,6 +2670,7 @@ class RobotNavController:
         for agent in self.possible_agents:
             if agent not in self.base_env.scene.articulations:
                 continue
+            self._brake_agent_motion(agent)
             self.last_cmd_vel[agent][:] = 0
             self.robot_commands[agent][:] = 0
             actions[agent] = self.robot_commands[agent]
@@ -2518,6 +2855,13 @@ class RobotNavController:
             _top_stuck = _tq_stuck.peek() if _tq_stuck and not _tq_stuck.is_empty() else None
             _is_rescue_task = (_top_stuck is not None and getattr(_top_stuck, "task_type", "") == "rescue")
             _is_fire_task = self._is_fire_proximity_task(_top_stuck)
+
+            if sn in self._collision_guard_agents:
+                self._stuck_last_pos.pop(sn, None)
+                self._stuck_last_time.pop(sn, None)
+                self._stuck_goal_dist.pop(sn, None)
+                self._stuck_goal_dist_time.pop(sn, None)
+                continue
 
             if sn in self.hold_position:
                 self._stuck_last_pos.pop(sn, None)
@@ -2768,6 +3112,10 @@ class RobotNavController:
         self.key5_segment_indices.clear()
         self.all_stopped = False
         self.events.clear()
+        self._collision_guard_agents.clear()
+        self._collision_guard_pairs.clear()
+        self._collision_guard_replan_ts.clear()
+        self._collision_guard_probe_velocities.clear()
         self.hold_position.clear()
         self.suppress_patrol_after_emos = False
         self.suppress_patrol_agents.clear()

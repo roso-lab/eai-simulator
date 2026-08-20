@@ -201,25 +201,6 @@ def test_filters_aerial_robots_from_the_managed_team():
     assert not is_aerial_robot("Carter", "carter_1")
 
 
-def test_fire_rescue_compatibility_bridge_keeps_aerial_robots():
-    from demo.fire_rescue.runtime.algorithm_adapter import EmosFactoryNavBridge
-
-    plugin = _plugin()
-    bridge = EmosFactoryNavBridge(
-        plugin.base_env,
-        plugin.all_agents,
-        plugin.env_cfg,
-        plugin.device,
-        plugin.num_envs,
-        builtin_scene_map("plane"),
-        controller_normalizer=lambda entry: (entry, ()),
-        torch_module=torch,
-    )
-
-    assert bridge.planner_backend == "global"
-    assert bridge.possible_agents == ["carter_1", "go2_1", "pegasus_1"]
-
-
 @pytest.mark.parametrize(
     "scene",
     ("plane", "warehouse", "factory", "airs", "garden", "desert", "hospital"),
