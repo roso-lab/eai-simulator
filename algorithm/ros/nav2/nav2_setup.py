@@ -35,7 +35,8 @@ import time
 try:
     import yaml
 except ImportError:
-    sys.stderr.write("需要 pyyaml（在系统 ROS2 环境运行：source /opt/ros/humble/setup.bash）\n")
+    ros_distro = os.environ.get("ROS_DISTRO", "humble")
+    sys.stderr.write(f"需要 pyyaml（在系统 ROS2 环境运行：source /opt/ros/{ros_distro}/setup.bash）\n")
     raise
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))

@@ -13,6 +13,7 @@
 #   ./tools/install_packages.sh -v         # 安装所有包（详细输出）
 #   ./tools/install_packages.sh -u         # 卸载所有包
 #   ./tools/install_packages.sh -u -v      # 卸载所有包（详细输出）
+#   ./tools/install_packages.sh --ros-distro jazzy
 #   ./tools/install_packages.sh --help     # 显示帮助信息
 
 # 不设置 set -e，允许继续安装其他包即使某个包失败
@@ -77,14 +78,36 @@ install_system_dependencies() {
 # 解析命令行参数
 VERBOSE=false
 UNINSTALL=false
+ROS_DISTRO_ARG=""
 
-for arg in "$@"; do
-    case "$arg" in
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+SOURCE_DIR="${PROJECT_ROOT}/source"
+
+# shellcheck source=tools/ros_distro.sh
+source "${SCRIPT_DIR}/ros_distro.sh"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
         -v|--verbose)
             VERBOSE=true
+            shift
             ;;
         -u|--uninstall)
             UNINSTALL=true
+            shift
+            ;;
+        --ros-distro)
+            if [[ $# -lt 2 ]]; then
+                print_error "--ros-distro 需要参数: humble 或 jazzy"
+                exit 2
+            fi
+            ROS_DISTRO_ARG="$2"
+            shift 2
+            ;;
+        --ros-distro=*)
+            ROS_DISTRO_ARG="${1#*=}"
+            shift
             ;;
         -h|--help)
             echo "EAI Simulator 包安装/卸载脚本"
@@ -94,6 +117,7 @@ for arg in "$@"; do
             echo "  ./tools/install_packages.sh -v         # 安装所有包（详细输出）"
             echo "  ./tools/install_packages.sh -u         # 卸载所有包"
             echo "  ./tools/install_packages.sh -u -v      # 卸载所有包（详细输出）"
+            echo "  ./tools/install_packages.sh --ros-distro humble|jazzy"
             echo "  ./tools/install_packages.sh --help     # 显示帮助信息"
             echo ""
             echo "此脚本会按顺序处理以下包:"
@@ -103,18 +127,14 @@ for arg in "$@"; do
             echo ""
             echo "安装模式还会检查系统依赖:"
             echo "  - libxcb-cursor0"
+            echo ""
+            echo "--ros-distro 会为当前 Python/Conda 环境保存 ROS 2 发行版选择。"
+            echo "它不会安装 ROS 2，也不会修改项目源码或 ~/.bashrc。"
             exit 0
             ;;
-    esac
-done
-
-# 仅提示未知参数，不影响执行
-for arg in "$@"; do
-    case "$arg" in
-        -v|--verbose|-u|--uninstall|-h|--help)
-            ;;
         *)
-            print_warn "忽略未知参数: ${arg}"
+            print_warn "忽略未知参数: $1"
+            shift
             ;;
     esac
 done
@@ -123,32 +143,10 @@ if [[ "$UNINSTALL" == true ]]; then
     ACTION="卸载"
 else
     ACTION="安装"
+    if ! SELECTED_ROS_DISTRO="$(eai_resolve_ros_distro "${ROS_DISTRO_ARG}")"; then
+        exit 2
+    fi
 fi
-
-if [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
-    echo "EAI Simulator 包安装脚本"
-    echo ""
-    echo "用法:"
-    echo "  ./tools/install_packages.sh            # 安装所有包（静默模式）"
-    echo "  ./tools/install_packages.sh -v         # 安装所有包（详细输出）"
-    echo "  ./tools/install_packages.sh -u         # 卸载所有包"
-    echo "  ./tools/install_packages.sh -u -v      # 卸载所有包（详细输出）"
-    echo "  ./tools/install_packages.sh --help     # 显示帮助信息"
-    echo ""
-    echo "此脚本会按顺序处理以下包:"
-    echo "  - EAI"
-    echo "  - EAI_assets"
-    echo "  - EAI_hmrs"
-    echo ""
-    echo "安装模式还会检查系统依赖:"
-    echo "  - libxcb-cursor0"
-    exit 0
-fi
-
-# 获取脚本所在目录与项目根目录
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-SOURCE_DIR="${PROJECT_ROOT}/source"
 
 # 检查 source 目录是否存在
 if [ ! -d "${SOURCE_DIR}" ]; then
@@ -157,6 +155,10 @@ if [ ! -d "${SOURCE_DIR}" ]; then
 fi
 
 if [ "${UNINSTALL}" = false ]; then
+    print_info "ROS 2 发行版: ${SELECTED_ROS_DISTRO}"
+    if [[ ! -f "/opt/ros/${SELECTED_ROS_DISTRO}/setup.bash" ]]; then
+        print_warn "未检测到 /opt/ros/${SELECTED_ROS_DISTRO}/setup.bash；仅配置 Isaac Sim 内置 bridge"
+    fi
     if ! install_system_dependencies; then
         print_error "系统依赖安装未完成，终止安装"
         exit 1
@@ -236,6 +238,19 @@ for package in "${PACKAGES[@]}"; do
     fi
     echo ""
 done
+
+if [[ "${UNINSTALL}" = false && ${FAIL_COUNT} -eq 0 ]]; then
+    PYTHON_PREFIX="$(python -c 'import sys; print(sys.prefix)')"
+    if ROS_CONFIG_PATH="$(eai_write_ros_distro_config "${SELECTED_ROS_DISTRO}" "${PYTHON_PREFIX}")"; then
+        print_info "已保存 ROS 2 发行版配置: ${ROS_CONFIG_PATH}"
+        if [[ -n "${ROS_DISTRO:-}" && "${ROS_DISTRO,,}" != "${SELECTED_ROS_DISTRO}" ]]; then
+            print_warn "当前 shell 的 ROS_DISTRO=${ROS_DISTRO} 会覆盖该配置；运行前请 unset ROS_DISTRO 或改为 ${SELECTED_ROS_DISTRO}"
+        fi
+    else
+        print_error "无法保存 ROS 2 发行版配置"
+        ((FAIL_COUNT++))
+    fi
+fi
 
 # 总结
 echo "=========================================="

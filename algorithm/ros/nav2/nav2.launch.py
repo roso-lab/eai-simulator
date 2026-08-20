@@ -12,7 +12,7 @@ nav2_setup.py to generate concrete params/pc2scan/rviz files, then starts:
   6. rviz, optionally
 
 Usage:
-    source /opt/ros/humble/setup.bash
+    source /opt/ros/$ROS_DISTRO/setup.bash
     ros2 launch algorithm/ros/nav2/nav2.launch.py robot_name:=carter_1 robot_type:=Carter sensor:=auto scene:=factory
     ros2 launch algorithm/ros/nav2/nav2.launch.py robot_name:=go2_1 robot_type:=Go2 sensor:=lidar scene:=plane rviz:=true
 """
