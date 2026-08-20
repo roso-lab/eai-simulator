@@ -291,34 +291,47 @@ class _IsaacManipulatorGraphRuntime:
     ) -> None:
         import omni.graph.core as og
 
-        keys = og.Controller.Keys
-        node_names = spec.node_names
-        dynamic_nodes = tuple(node_names)
-        subscribers = ["pose_subscriber", "joint_subscriber"]
-        publishers = ["joint_publisher", "pose_publisher"]
-        if "gripper_subscriber" in node_names:
-            subscribers.append("gripper_subscriber")
-            publishers.append("gripper_publisher")
-        graph_result = self._controller.edit(
-            {"graph_path": spec.graph_path, "evaluator_name": "execution"},
-            {
-                keys.CREATE_NODES: [(node_names[name], spec.node_types[name]) for name in dynamic_nodes],
-                keys.CONNECT: [
-                    (f"{node_names['tick']}.outputs:tick", f"{node_names[name]}.inputs:execIn")
-                    for name in subscribers + publishers
-                ]
-                + [
-                    (f"{node_names['context']}.outputs:context", f"{node_names[name]}.inputs:context")
-                    for name in subscribers + publishers
-                ],
-                keys.SET_VALUES: self._graph_values(spec),
-            },
-        )
-        self._specs[key] = spec
-        graph = graph_result[0] if isinstance(graph_result, tuple) else graph_result
-        self._graphs[key] = graph
-        for _ in range(2):
-            og.Controller.evaluate_sync(graph)
+        try:
+            keys = og.Controller.Keys
+            node_names = spec.node_names
+            dynamic_nodes = tuple(node_names)
+            subscribers = ["pose_subscriber", "joint_subscriber"]
+            publishers = ["joint_publisher", "pose_publisher"]
+            if "gripper_subscriber" in node_names:
+                subscribers.append("gripper_subscriber")
+                publishers.append("gripper_publisher")
+            graph_result = self._controller.edit(
+                {"graph_path": spec.graph_path, "evaluator_name": "execution"},
+                {
+                    keys.CREATE_NODES: [(node_names[name], spec.node_types[name]) for name in dynamic_nodes],
+                    keys.CONNECT: [
+                        (f"{node_names['tick']}.outputs:tick", f"{node_names[name]}.inputs:execIn")
+                        for name in subscribers + publishers
+                    ]
+                    + [
+                        (f"{node_names['context']}.outputs:context", f"{node_names[name]}.inputs:context")
+                        for name in subscribers + publishers
+                    ],
+                    keys.SET_VALUES: self._graph_values(spec),
+                },
+            )
+            self._specs[key] = spec
+            graph = graph_result[0] if isinstance(graph_result, tuple) else graph_result
+            self._graphs[key] = graph
+            for _ in range(2):
+                og.Controller.evaluate_sync(graph)
+        except Exception:
+            self._specs.pop(key, None)
+            self._graphs.pop(key, None)
+            try:
+                import omni.usd
+
+                stage = omni.usd.get_context().get_stage()
+                if stage.GetPrimAtPath(spec.graph_path).IsValid():
+                    stage.RemovePrim(spec.graph_path)
+            except Exception:
+                pass
+            raise
 
     @staticmethod
     def _graph_values(spec: ManipulatorGraphSpec) -> list[tuple[str, Any]]:
@@ -396,6 +409,7 @@ class ManipulatorOmniGraphManager:
         self._runtime = runtime
         self._models: dict[tuple[str, str], ManipulatorModelSpec] = {}
         self._states: dict[tuple[str, str], ManipulatorCommandState] = {}
+        self._failed_instances: set[tuple[str, str]] = set()
         self._signatures: dict[tuple[tuple[str, str], str], tuple[Any, ...]] = {}
         self._sequence = 0
 
@@ -405,13 +419,19 @@ class ManipulatorOmniGraphManager:
 
     def setup_robot(self, robot_name: str, model: ManipulatorModelSpec) -> bool:
         key = (str(robot_name), model.model)
+        if key in self._states:
+            return True
+        if key in self._failed_instances:
+            return False
         try:
             if self._runtime is None:
                 self._runtime = _IsaacManipulatorGraphRuntime()
             self._runtime.create_or_reuse_graph(key, build_manipulator_graph_spec(robot_name, model))
         except Exception as exc:
+            self._failed_instances.add(key)
             print(f"[ManipulatorROS2] Failed to create graph for {robot_name}/{model.model}: {exc}")
             return False
+        self._failed_instances.discard(key)
         self._models[key] = model
         self._states.setdefault(key, ManipulatorCommandState())
         print(f"[ManipulatorROS2] Enabled: /{sanitize_ros_name_component(robot_name)}/{model.model}/*")
@@ -601,6 +621,7 @@ class ManipulatorOmniGraphManager:
     def close(self) -> None:
         self._models.clear()
         self._states.clear()
+        self._failed_instances.clear()
         self._signatures.clear()
         if self._runtime is not None:
             self._runtime.close()
