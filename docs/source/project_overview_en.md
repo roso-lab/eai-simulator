@@ -114,21 +114,21 @@ eai-simulator/
 
 Robot choices are defined by `source/EAI/EAI/hmrs_env/env_diy/catalog.py::ROBOT_KEYS` and `source/EAI_hmrs/EAI_hmrs/env_builder.py::ROBOT_OPTIONS`. The following 13 types are currently available:
 
-| Env DIY key | Robot / object | Default controller | Optional payloads | Common entry point |
-| ----------- | -------------- | ------------------ | ----------------- | ------------------ |
-| `carter` | Carter differential base | `CARTER_DIFF_CFG` | Orsus, LiDAR, Z1 | JSON / Env DIY |
-| `pepper` | Pepper holonomic base | `PEPPER_HOLONOMIC_CFG` | - | JSON / Env DIY |
-| `go2` | Unitree Go2 | `GO2_VELOCITY_RSL_CFG` | Orsus, LiDAR, UR5, Z1 | JSON / Env DIY |
-| `b2` | Unitree B2 | `B2_VELOCITY_RSL_CFG` | Orsus, LiDAR, UR5, Z1 | JSON / Env DIY |
-| `m20` | DeepRobotics M20 | `M20_ROUGH_RSL_CFG` | Orsus, LiDAR, UR5, Z1 | JSON / Env DIY |
-| `scout` | Scout mobile base | `SCOUT_DIFF_CFG` | Orsus, LiDAR, UR5, Z1 | JSON / Env DIY |
-| `g1` | Unitree G1 | `G1_SKRL_CFG` | - | JSON / Env DIY |
-| `cf2x` | Crazyflie CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | Built-in camera, keyboard, ROS | JSON / Env DIY |
-| `iris` | Pegasus 3DR Iris | `PEGASUS_IRIS_POSITION_CFG` | Built-in camera, keyboard, ROS | JSON / Env DIY |
-| `pegasus` | Pegasus research quadrotor | `PEGASUS_X4_POSITION_CFG` | Built-in camera, keyboard, ROS | JSON / Env DIY |
-| `lite3` | DeepRobotics Lite3 | `LITE3_VELOCITY_RSL_CFG` | Orsus, LiDAR, UR5, Z1 | JSON / Env DIY |
-| `mushr_v2` | MuSHR Nano v2 Ackermann base | `MUSHR_ACKERMANN_CFG` | Built-in camera, LiDAR, keyboard, ROS | JSON / Env DIY |
-| `coco` | Coco AIRS Ackermann base | `COCO_ACKERMANN_CFG` | Orsus, LiDAR, keyboard, ROS | JSON / Env DIY |
+| Env DIY key | Robot / object | Default controller | Optional payloads |
+| ----------- | -------------- | ------------------ | ----------------- |
+| `carter` | Carter differential base | `CARTER_DIFF_CFG` | Orsus, RealSense D455, LiDAR, Z1 |
+| `pepper` | Pepper holonomic base | `PEPPER_HOLONOMIC_CFG` | RealSense D455 |
+| `go2` | Unitree Go2 | `GO2_VELOCITY_RSL_CFG` | Orsus, RealSense D455, LiDAR, UR5, Z1 |
+| `b2` | Unitree B2 | `B2_VELOCITY_RSL_CFG` | Orsus, RealSense D455, LiDAR, UR5, Z1 |
+| `m20` | DeepRobotics M20 | `M20_ROUGH_RSL_CFG` | Orsus, RealSense D455, LiDAR, UR5, Z1 |
+| `scout` | Scout mobile base | `SCOUT_DIFF_CFG` | Orsus, RealSense D455, LiDAR, UR5, Z1 |
+| `g1` | Unitree G1 | `G1_SKRL_CFG` | - |
+| `cf2x` | Crazyflie CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | Built-in camera, keyboard, ROS |
+| `iris` | Pegasus 3DR Iris | `PEGASUS_IRIS_POSITION_CFG` | Built-in camera, keyboard, ROS |
+| `pegasus` | Pegasus research quadrotor | `PEGASUS_X4_POSITION_CFG` | Built-in camera, keyboard, ROS |
+| `lite3` | DeepRobotics Lite3 | `LITE3_VELOCITY_RSL_CFG` | Orsus, RealSense D455, LiDAR, UR5, Z1 |
+| `mushr_v2` | MuSHR Nano v2 Ackermann base | `MUSHR_ACKERMANN_CFG` | Built-in camera, RealSense D455, LiDAR, keyboard, ROS |
+| `coco` | Coco AIRS Ackermann base | `COCO_ACKERMANN_CFG` | Orsus, RealSense D455, LiDAR, keyboard, ROS |
 
 > Controller configurations are stored in `source/EAI_assets/EAI_assets/controller/`, under `rl/` and `traditional/`. `UR5_IK_CFG` and `Z1_IK_CFG` provide manipulator attachments for the compatible hosts listed above.
 
@@ -147,7 +147,7 @@ Robot choices are defined by `source/EAI/EAI/hmrs_env/env_diy/catalog.py::ROBOT_
    python simulator.py --num_envs=1 --device=cuda:0
    ```
    The prompt offers three environment-authoring methods:
-   - `1. Visual window`: Use the Env DIY window to select `Scenes -> Robots -> Payloads -> Tools`. Payloads are grouped into Manipulators (UR5/Z1) and Sensors (Orsus/LiDAR), while Tools provides Camera, Keyboard, and Navigation I/O. The Camera Tool independently controls ROS image publication for the built-in monocular cameras on Iris, Pegasus, CF2X, and MuSHR, plus Orsus cameras on compatible hosts. Navigation I/O controls LiDAR, IMU, GPS, magnetometer, and barometer publication for all three aerial robots, plus Orsus LiDAR point-cloud, odometry, and scan publication. For compatibility with existing environments, Navigation I/O is still serialized with the `ros` key. The result can be saved as `source/EAI_hmrs/EAI_hmrs/envs/<env_name>.json`.
+   - `1. Visual window`: Use the Env DIY window to select `Scenes -> Robots -> Payloads -> Tools`. Payloads are grouped into Manipulators (UR5/Z1) and Sensors (Orsus/RealSense D455/LiDAR), while Tools provides Camera, Keyboard, and Navigation I/O. The Camera Tool independently controls ROS image publication for the built-in monocular cameras on Iris, Pegasus, CF2X, and MuSHR, plus Orsus and RealSense D455 cameras on compatible hosts. Navigation I/O controls LiDAR, IMU, GPS, magnetometer, and barometer publication for all three aerial robots, Orsus LiDAR point-cloud, odometry, and scan publication, and RealSense D455 IMU publication. For compatibility with existing environments, Navigation I/O is still serialized with the `ros` key. The result can be saved as `source/EAI_hmrs/EAI_hmrs/envs/<env_name>.json`.
    - `2. Terminal quick setup`: Select a scene, host robot, manipulator, sensor, tool, and controller in the same order as the visual window, then choose whether to save and run the environment immediately.
    - `3. Isaac Sim 3D editor`: Edit the robots' physical `spawn_pose` values directly in the Isaac Sim Viewport. You can also run `python simulator.py --diy-3d --device=cuda:0` to enter it directly.
 
