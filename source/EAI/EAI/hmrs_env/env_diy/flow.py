@@ -69,7 +69,12 @@ def _print_selection_summary(
     print_func(f"  Scene    {scene_label} ({scene_key})")
     print_func(f"  Robots   {len(robots)}")
     for index, robot in enumerate(robots, start=1):
-        payloads = ", ".join(item.type for item in robot.attachments) or "none"
+        payloads = ", ".join(
+            catalog.tool_label(item.type)
+            if catalog.attachment_entry(item.type).category == "tool"
+            else item.type
+            for item in robot.attachments
+        ) or "none"
         print_func(f"    {index:>2}. {robot.type}_{index}")
         print_func(f"        Payloads    {payloads}")
         print_func(f"        Controller  {robot.controller.cfg or 'none'}")
@@ -279,7 +284,7 @@ def choose_terminal_interactive_selection(
                 "为选中的机器人启用外部控制工具",
             )
             updated = _choose_attachments(
-                "ROS tool",
+                catalog.tool_label("ros"),
                 "ros",
                 robots,
                 input_func=input_func,
