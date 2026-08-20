@@ -532,9 +532,14 @@ def build_interactive_env_cfg(
         has_realsense = any(
             attachment.type == "realsense_d455" for attachment in selection.attachments
         )
-        ros_enabled = any(attachment.type == "ros" for attachment in selection.attachments)
+        navigation_io_enabled = any(
+            attachment.type == "navigation_io" for attachment in selection.attachments
+        )
         camera_enabled = any(attachment.type == "camera" for attachment in selection.attachments)
-        cmd_vel_enabled = any(attachment.type in {"ros", "keyboard"} for attachment in selection.attachments)
+        cmd_vel_enabled = any(
+            attachment.type in {"navigation_io", "keyboard"}
+            for attachment in selection.attachments
+        )
 
         if has_orsus and robot.orsus_mount_link:
             orsus_prim_path = f"{{ENV_REGEX_NS}}/{name}/{robot.orsus_mount_link}/Orsus"
@@ -546,7 +551,7 @@ def build_interactive_env_cfg(
                 init_state=AssetBaseCfg.InitialStateCfg(pos=robot.orsus_offset),
                 ros_namespace=f"/{name}",
                 # Retain the legacy global path map below for older spawn callers.
-                enable_ros_publish=ros_enabled,
+                enable_ros_publish=navigation_io_enabled,
                 enable_camera_publish=camera_enabled,
                 disable_physics=robot.orsus_disable_physics,
             )
@@ -563,12 +568,12 @@ def build_interactive_env_cfg(
                 f"/World/envs/env_0/{name}/{robot.orsus_mount_link}/Orsus",
                 f"/World/envs/env_./{name}/{robot.orsus_mount_link}/Orsus",
             ]:
-                _orsus_ros_publish_config[path_variant] = ros_enabled
+                _orsus_ros_publish_config[path_variant] = navigation_io_enabled
                 _orsus_camera_publish_config[path_variant] = camera_enabled
                 _orsus_disable_physics_config[path_variant] = robot.orsus_disable_physics
 
         # RealSense D455 spawn：与 Orsus 相同的独立双开关门控。
-        # camera tool -> rgb/depth/camera_info 图；ros tool -> IMU 图。
+        # Camera controls RGB/depth/camera_info; Navigation I/O controls IMU.
         if has_realsense and robot.realsense_mount_link:
             realsense_prim_path = (
                 f"{{ENV_REGEX_NS}}/{name}/{robot.realsense_mount_link}/RealsenseD455"
@@ -582,7 +587,7 @@ def build_interactive_env_cfg(
                 ),
                 ros_namespace=f"/{name}",
                 enable_camera_publish=camera_enabled,
-                enable_imu_publish=ros_enabled,
+                enable_imu_publish=navigation_io_enabled,
                 disable_physics=True,
             )
 

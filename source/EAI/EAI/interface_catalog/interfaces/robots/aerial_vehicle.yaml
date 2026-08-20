@@ -38,7 +38,7 @@ interfaces:
     data_type: sensor_msgs/msg/PointCloud2
     description: Point cloud from the Pegasus Simulator Example_Rotary RTX LiDAR.
     example: ros2 topic echo --once /{robot}/lidar/pointcloud
-    requires_attachment: ros
+    requires_attachment: navigation_io
     read_only_test: {type: ros_topic}
   - id: ros.aerial_cmd_vel
     name: Aerial goal increment
@@ -49,7 +49,7 @@ interfaces:
     data_type: geometry_msgs/msg/Twist
     description: Moves the active position and yaw goal using linear xyz and angular z.
     example: 'ros2 topic pub --once /{robot}/cmd_vel geometry_msgs/msg/Twist "{linear: {z: 0.2}, angular: {z: 0.0}}"'
-    requires_attachment: ros
+    requires_attachment: navigation_io
   - id: python.aerial_env_step
     name: Simulator step action
     protocol: python

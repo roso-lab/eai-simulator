@@ -61,7 +61,7 @@ EAI.hmrs_env.MultiRobotDirectEnv
 
 - 只有 `carter_1` 挂载 Orsus；
 - `m20_1`、`m20_2` 和 `scout_1` 只挂载任务所需的 UR5；
-- Fire Rescue 不使用 Nav2，JSON 中不挂载 `ros`，启动时也不加载 Isaac ROS Bridge。
+- Fire Rescue 不使用 Nav2，JSON 中不挂载 `navigation_io`，启动时也不加载 Isaac ROS Bridge。
 
 机器人实例名由 EAI builder 按类型和出现顺序生成。Fire Rescue 不修改通用 JSON 命名规则，直接适配 EAI 默认生成的 `scout_1`。
 

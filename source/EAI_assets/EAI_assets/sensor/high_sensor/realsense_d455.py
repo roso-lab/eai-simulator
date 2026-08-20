@@ -4,12 +4,12 @@
 集成方式：
 
 - USD 资产内置 OmniGraph 发布图（GS_Hub/Orsus 同款模板）：
-    ``Graphs/ROS2_publish_RGB``         -> /<robot>/RealsenseD455_rgb        (camera tool)
-    ``Graphs/ROS2_publish_Depth``       -> /<robot>/RealsenseD455_depth      (camera tool)
-    ``Graphs/ROS2_publish_CameraInfo``  -> /<robot>/RealsenseD455_camera_info (camera tool)
-    ``Graphs/ROS2_publish_IMU``         -> /<robot>/RealsenseD455_imu        (ros tool)
-- camera tool 与 ros tool 两个开关相互独立：camera 只开关图像图，
-  ros 只开关 IMU 图（spawn 时用 prim.SetActive 门控，Orsus 同款做法）。
+    ``Graphs/ROS2_publish_RGB``         -> /<robot>/RealsenseD455_rgb        (Camera)
+    ``Graphs/ROS2_publish_Depth``       -> /<robot>/RealsenseD455_depth      (Camera)
+    ``Graphs/ROS2_publish_CameraInfo``  -> /<robot>/RealsenseD455_camera_info (Camera)
+    ``Graphs/ROS2_publish_IMU``         -> /<robot>/RealsenseD455_imu        (Navigation I/O)
+- Camera 与 Navigation I/O 两个开关相互独立：Camera 只开关图像图，
+  Navigation I/O 只开关 IMU 图（spawn 时用 prim.SetActive 门控，Orsus 同款做法）。
 - 每个机器人实例的 ROS namespace 由 spawn 时覆写各发布节点的
   ``inputs:nodeNamespace`` 得到（与 Orsus 的 ``_apply_orsus_ros_namespace`` 一致）。
 - 载荷为纯传感器载荷：资产本身不再自带刚体（spawn 兜底清理旧版资产可能残留的
@@ -49,13 +49,13 @@ from EAI_assets.asset_resolver import asset_path  # noqa: E402
 # ==============================================================================
 _REALSENSE_SOURCE_ASSET_PATH = asset_path("payloads/sensors/realsense_d455/rsd455_d455.usd")
 
-# 相机发布图（camera tool 门控）
+# 相机发布图（Camera 门控）
 _REALSENSE_CAMERA_GRAPH_PATHS = (
     "Graphs/ROS2_publish_RGB",
     "Graphs/ROS2_publish_Depth",
     "Graphs/ROS2_publish_CameraInfo",
 )
-# IMU 发布图（ros tool 门控）
+# IMU 发布图（Navigation I/O 门控）
 _REALSENSE_IMU_GRAPH_PATHS = (
     "Graphs/ROS2_publish_IMU",
 )
@@ -292,8 +292,8 @@ def spawn_realsense_d455(prim_path, cfg, translation, orientation):
 @configclass
 class RealSenseD455SpawnCfg(sim_utils.UsdFileCfg):
     ros_namespace: str | None = None
-    enable_camera_publish: bool = True   # camera tool 门控：rgb/depth/camera_info
-    enable_imu_publish: bool = True      # ros tool 门控：imu
+    enable_camera_publish: bool = True   # Camera 门控：rgb/depth/camera_info
+    enable_imu_publish: bool = True      # Navigation I/O 门控：imu
     disable_physics: bool = True
 
 

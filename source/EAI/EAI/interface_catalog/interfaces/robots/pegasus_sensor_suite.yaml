@@ -16,7 +16,7 @@ interfaces:
     data_type: sensor_msgs/msg/Imu
     description: Noisy accelerometer and gyroscope data with turn-on bias and first-order random-walk drift.
     example: ros2 topic echo --once /{robot}/sensors/imu
-    requires_attachment: ros
+    requires_attachment: navigation_io
     read_only_test: {type: ros_topic}
   - id: ros.aerial_gps
     name: GPS fix
@@ -27,7 +27,7 @@ interfaces:
     data_type: sensor_msgs/msg/NavSatFix
     description: Noisy geodetic position derived from the simulated ENU world position.
     example: ros2 topic echo --once /{robot}/sensors/gps
-    requires_attachment: ros
+    requires_attachment: navigation_io
     read_only_test: {type: ros_topic}
   - id: ros.aerial_magnetometer
     name: Magnetometer
@@ -38,7 +38,7 @@ interfaces:
     data_type: sensor_msgs/msg/MagneticField
     description: Body-frame magnetic field with white noise and first-order random-walk bias.
     example: ros2 topic echo --once /{robot}/sensors/mag
-    requires_attachment: ros
+    requires_attachment: navigation_io
     read_only_test: {type: ros_topic}
   - id: ros.aerial_barometer
     name: Barometer
@@ -49,5 +49,5 @@ interfaces:
     data_type: sensor_msgs/msg/FluidPressure
     description: International-standard-atmosphere pressure with configurable noise and drift.
     example: ros2 topic echo --once /{robot}/sensors/barometer
-    requires_attachment: ros
+    requires_attachment: navigation_io
     read_only_test: {type: ros_topic}
