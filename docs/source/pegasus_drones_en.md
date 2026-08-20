@@ -82,4 +82,12 @@ this tensor interface.
 
 ## Sources and Licenses
 
-Dynamics and airframe assets are derived from [Pegasus Simulator](https://github.com/PegasusSimulator/PegasusSimulator) (BSD-3-Clause); the 3DR Iris model comes from [PX4](https://github.com/PX4/PX4-SITL_gazebo-classic/). License files are vendored under `third_party/pegasus_simulator/`.
+Dynamics and airframe assets are derived from
+[Pegasus Simulator](https://github.com/PegasusSimulator/PegasusSimulator)
+(BSD-3-Clause); the 3DR Iris model comes from
+[PX4](https://github.com/PX4/PX4-SITL_gazebo-classic/) (BSD-3-Clause).
+Full attribution and license texts are available here:
+
+- {download}`Pegasus Simulator attribution <_static/licenses/pegasus_simulator/README.md>`
+- {download}`Pegasus Simulator BSD 3-Clause license <_static/licenses/pegasus_simulator/LICENSE>`
+- {download}`3DR Iris / PX4 BSD 3-Clause license <_static/licenses/pegasus_simulator/IRIS_LICENSE.rst>`

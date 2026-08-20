@@ -229,4 +229,14 @@ Face 后创建 immutable tag，同步更新 `usd/human/pack-checksums.json`，�
 
 ## 来源与致谢
 
-角色与动作资产源自 [Urban-Sim](https://github.com/metadriverse/urban-sim)（Apache-2.0）与 [SynBody](https://synbody.github.io/)（CC BY-NC-SA 4.0），逐资产来源与许可记录见 `usd/human/manifest.json`。
+角色与动作资产源自 [Urban-Sim](https://github.com/metadriverse/urban-sim)（Apache-2.0）与
+[SynBody](https://synbody.github.io/)（CC BY-NC-SA 4.0），逐资产来源与许可记录见
+`usd/human/manifest.json`。完整归属说明与许可证文本见：
+
+- {download}`Human 资产来源与许可证说明 <_static/licenses/human/README.md>`
+- {download}`Urban-Sim Apache-2.0 许可证 <_static/licenses/human/URBAN_SIM_APACHE-2.0.txt>`
+- {download}`SynBody CC BY-NC-SA 4.0 许可证 <_static/licenses/human/SYNBODY_CC-BY-NC-SA-4.0.txt>`
+
+SynBody 内容按 CC BY-NC-SA 4.0 提供，不授权商业使用。SynBody 项目页还说明，SMPL-X
+模型的商业许可需联系 Meshcapade（`sales@meshcapade.com`）；使用者需同时遵守适用的上游
+资产与模型条款。
