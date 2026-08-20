@@ -214,6 +214,26 @@ source "/opt/ros/${ROS_DISTRO}/setup.bash"
 - 查看 Isaac Sim 日志
 - 参考 [Isaac Sim 故障排除指南](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/troubleshooting.html)
 
+### Q6: Hugging Face 资产下载失败后仿真器退出
+
+资产预检会在 Isaac Sim 正式启动前下载缺失文件。连接超时、DNS、代理或防火墙问题会在终端显示
+`Asset preparation failed / 资产准备失败`、错误类型、所需资产包和原始网络错误，并以状态码 1
+退出。修复网络后重新执行原命令即可；事务式下载不会把未完成的暂存目录安装成正式资产。
+
+检查当前代理配置时不要在公共日志中粘贴包含凭据的代理 URL：
+
+```bash
+env | grep -i proxy
+curl -I https://huggingface.co
+hf auth whoami
+```
+
+不使用代理时，应同时清除大小写形式的代理变量：
+
+```bash
+unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
+```
+
 ## 卸载
 
 卸载所有 EAI 包：
