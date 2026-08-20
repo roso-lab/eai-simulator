@@ -70,4 +70,10 @@ env.step({"iris_1": rotor_speed})
 
 ## 来源与许可证
 
-动力学与机体资产源自 [Pegasus Simulator](https://github.com/PegasusSimulator/PegasusSimulator)（BSD-3-Clause）；3DR Iris 模型来自 [PX4](https://github.com/PX4/PX4-SITL_gazebo-classic/)。许可证文件见 `third_party/pegasus_simulator/`。
+动力学与机体资产源自 [Pegasus Simulator](https://github.com/PegasusSimulator/PegasusSimulator)
+（BSD-3-Clause）；3DR Iris 模型来自
+[PX4](https://github.com/PX4/PX4-SITL_gazebo-classic/)（BSD-3-Clause）。完整署名与许可证文本见：
+
+- {download}`Pegasus Simulator 来源说明 <_static/licenses/pegasus_simulator/README.md>`
+- {download}`Pegasus Simulator BSD-3-Clause 许可证 <_static/licenses/pegasus_simulator/LICENSE>`
+- {download}`3DR Iris / PX4 BSD-3-Clause 许可证 <_static/licenses/pegasus_simulator/IRIS_LICENSE.rst>`

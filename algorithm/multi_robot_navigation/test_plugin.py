@@ -11,14 +11,17 @@ import pytest
 import torch
 import yaml
 
-from algorithm.dbcbs.map_environment import Environment
-from algorithm.dbcbs.fetch_motion_primitives import (
+from algorithm.multi_robot_navigation.map_environment import Environment
+from algorithm.multi_robot_navigation.fetch_motion_primitives import (
     MotionPrimitiveError,
     fetch_motion_primitives,
 )
-from algorithm.dbcbs.planner import DbcbsPlan, PlanSample
-from algorithm.dbcbs.planner import _validate_pairwise_clearance
-from algorithm.dbcbs.session import DbcbsNavigationSession, PreparedDbcbsMission
+from algorithm.multi_robot_navigation.planner import DbcbsPlan, PlanSample
+from algorithm.multi_robot_navigation.planner import _validate_pairwise_clearance
+from algorithm.multi_robot_navigation.session import (
+    DbcbsNavigationSession,
+    PreparedDbcbsMission,
+)
 from algorithm.multi_robot_navigation.eai_plugin import (
     EaiMultiRobotNavigationPlugin,
     builtin_scene_map,

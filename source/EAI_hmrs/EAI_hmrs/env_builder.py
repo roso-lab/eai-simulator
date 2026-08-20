@@ -165,6 +165,10 @@ ROBOT_OPTIONS = [
         PEPPER_CFG,
         "PEPPER_HOLONOMIC_CFG",
         0.0,
+        # Keep the navigation LiDAR fixed to the mobile base rather than the
+        # articulated head so its planar TF remains stable while looking.
+        lidar_mount_link="base_link",
+        lidar_offset=(0.0, 0.0, 1.45),
         # RealSense D455 头顶装载（可解耦验证宿主）
         realsense_mount_link="Head",
         realsense_offset=(0.10796, 0.0, 0.18612),
@@ -270,7 +274,15 @@ ROBOT_OPTIONS = [
         realsense_offset=(0.38434, 0.00858, 0.44309),
         realsense_rot=(1.0, 0.0, 0.0, 0.0),
     ),
-    RobotOption("g1", "Unitree G1", G1_CFG, "G1_SKRL_CFG", 0.74),
+    RobotOption(
+        "g1",
+        "Unitree G1",
+        G1_CFG,
+        "G1_SKRL_CFG",
+        0.74,
+        lidar_mount_link="pelvis",
+        lidar_offset=(0.0, 0.0, 0.72),
+    ),
     RobotOption(
         "cf2x",
         "Crazyflie CF2X",

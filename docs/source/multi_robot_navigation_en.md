@@ -42,7 +42,7 @@ Prepare Isaac Lab's `env_isaaclab` environment as described in the [Installation
 cd /home/airs/eai-simulator
 conda activate env_isaaclab
 python -m pip install --no-deps crocoddyl==2.0.2
-EAI_DBCBS_BUILD_JOBS=8 algorithm/dbcbs/build_native.sh
+EAI_DBCBS_BUILD_JOBS=8 algorithm/multi_robot_navigation/build_native.sh
 ```
 
 After a successful build, the script automatically prepares the motion primitives required by db-CBS. If they are not installed locally, it downloads them from the location provided by upstream db-CBS and verifies both file size and SHA-256. Existing files are verified and reused.

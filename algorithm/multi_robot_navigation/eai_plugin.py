@@ -2,7 +2,7 @@
 
 The plugin is called from an EAI simulation loop. It does not create an Isaac
 application, ROS process, or launch process. Its default planner is the native
-db-CBS implementation vendored under :mod:`algorithm.dbcbs`.
+db-CBS implementation included in this package.
 """
 
 from __future__ import annotations
@@ -240,7 +240,7 @@ class EaiMultiRobotNavigationPlugin:
             self.robot_radii[name] = radius
         backend = str(planner_backend).strip().casefold()
         if backend == "dbcbs":
-            from algorithm.dbcbs.session import DbcbsNavigationSession
+            from .session import DbcbsNavigationSession
 
             self.session = DbcbsNavigationSession(
                 map_yaml,

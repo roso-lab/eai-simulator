@@ -49,6 +49,25 @@ robot_profiles:
     scan_z_max: 1.50
     scan_range_min: 0.45
 
+  Pepper:
+    motion_model: omni
+    robot_radius: 0.35
+    sensor_mounts:
+      lidar: {xyz: [0.0, 0.0, 1.45], rpy: [0.0, 0.0, 0.0]}
+    max_vel_x: 0.4
+    max_vel_theta: 0.8
+    acc_lim_x: 1.0
+    acc_lim_theta: 1.5
+    min_vel_x: -0.3
+    min_speed_xy: 0.0
+    xy_goal_tolerance: 0.4
+    yaw_goal_tolerance: 0.8
+    progress_required_movement_radius: 0.05
+    progress_movement_time_allowance: 30.0
+    scan_z_min: -0.10
+    scan_z_max: 0.50
+    scan_range_min: 0.35
+
   Go2:
     motion_model: omni
     robot_radius: 0.30
@@ -164,6 +183,26 @@ robot_profiles:
     scan_z_min: 0.05
     scan_z_max: 1.50
     scan_range_min: 0.50
+
+  G1:
+    motion_model: omni
+    # Include normal arm swing around the humanoid body in the 2D footprint.
+    robot_radius: 0.40
+    sensor_mounts:
+      lidar: {xyz: [0.0, 0.0, 0.72], rpy: [0.0, 0.0, 0.0]}
+    max_vel_x: 0.4
+    max_vel_theta: 0.8
+    acc_lim_x: 1.0
+    acc_lim_theta: 1.5
+    min_vel_x: -0.2
+    min_speed_xy: 0.0
+    xy_goal_tolerance: 0.6
+    yaw_goal_tolerance: 3.14
+    progress_required_movement_radius: 0.05
+    progress_movement_time_allowance: 30.0
+    scan_z_min: -0.10
+    scan_z_max: 0.60
+    scan_range_min: 0.40
 
   MuSHR Nano v2:
     motion_model: differential

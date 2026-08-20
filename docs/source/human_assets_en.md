@@ -260,4 +260,17 @@ files, the tag, and checksum metadata must belong to the same release.
 
 ## Sources and Acknowledgments
 
-Actor and motion assets are derived from [Urban-Sim](https://github.com/metadriverse/urban-sim) (Apache-2.0) and [SynBody](https://synbody.github.io/) (CC BY-NC-SA 4.0); per-asset provenance and license records live in `usd/human/manifest.json`.
+Actor and motion assets are derived from
+[Urban-Sim](https://github.com/metadriverse/urban-sim) (Apache-2.0) and
+[SynBody](https://synbody.github.io/) (CC BY-NC-SA 4.0). Per-asset provenance
+and license records live in `usd/human/manifest.json`. Full attribution and
+license texts are available here:
+
+- {download}`Human asset attribution and license notes <_static/licenses/human/README.md>`
+- {download}`Urban-Sim Apache License 2.0 <_static/licenses/human/URBAN_SIM_APACHE-2.0.txt>`
+- {download}`SynBody CC BY-NC-SA 4.0 license <_static/licenses/human/SYNBODY_CC-BY-NC-SA-4.0.txt>`
+
+SynBody content is offered under CC BY-NC-SA 4.0, which does not permit
+commercial use. The SynBody project page also directs users seeking commercial
+SMPL-X licensing to Meshcapade at `sales@meshcapade.com`; users must comply
+with all applicable upstream asset and model terms.

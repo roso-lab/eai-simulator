@@ -104,11 +104,11 @@ ros2_cmd_vel.json
 *.0
 
 /test_results/
-/algorithm/dbcbs/native/build/
-/algorithm/dbcbs/native/motions/double_integrator_0_sorted.msgpack
+/algorithm/multi_robot_navigation/native/build/
+/algorithm/multi_robot_navigation/native/motions/double_integrator_0_sorted.msgpack
 # This is vendored nlohmann/json source, not generated application output.
-!/algorithm/dbcbs/native/dynoplan/dynobench/deps/json/include/nlohmann/detail/output/
-!/algorithm/dbcbs/native/dynoplan/dynobench/deps/json/include/nlohmann/detail/output/*.hpp
+!/algorithm/multi_robot_navigation/native/dynoplan/dynobench/deps/json/include/nlohmann/detail/output/
+!/algorithm/multi_robot_navigation/native/dynoplan/dynobench/deps/json/include/nlohmann/detail/output/*.hpp
 
 # MuSHR Nano v2 EAI integration bundle
 # Keep the general downloaded-asset ignores above, but include this robot's

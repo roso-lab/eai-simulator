@@ -191,7 +191,10 @@ def _attachment_entries() -> tuple[AttachmentCatalogEntry, ...]:
     orsus_hosts = (
         "carter", "go2", "b2", "m20", "scout", "coco", "lite3",
     )
-    lidar_hosts = ("carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3")
+    lidar_hosts = (
+        "carter", "pepper", "go2", "b2", "m20", "scout", "mushr_v2",
+        "coco", "g1", "lite3",
+    )
     ur5_hosts = ("go2", "b2", "m20", "scout", "lite3")
     z1_hosts = ("carter", "go2", "b2", "m20", "scout", "lite3")
     # RealSense D455 与 Orsus 一样是可解耦装载的传感器载荷；
