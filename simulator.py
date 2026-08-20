@@ -569,12 +569,63 @@ def _run_preflight_subprocess(cmd: list[str], env: dict[str, str], *, run=subpro
     try:
         run(cmd, check=True, env=env)
     except subprocess.CalledProcessError as exc:
+        print(
+            "[EAI Simulator] Asset preflight process failed before returning a diagnostic. "
+            "Review the child-process output above.",
+            file=sys.stderr,
+        )
         raise SystemExit(exc.returncode) from None
+
+
+def _is_asset_preflight_failure(exc: BaseException) -> bool:
+    if isinstance(exc, FileNotFoundError):
+        return True
+    class_names = {candidate.__name__ for candidate in type(exc).__mro__}
+    return bool(class_names & {"AssetDownloadError", "AssetIntegrityError"})
+
+
+def _asset_preflight_failure(exc: BaseException) -> dict[str, str]:
+    kind = "missing"
+    class_names = {candidate.__name__ for candidate in type(exc).__mro__}
+    for candidate_kind, class_name in (
+        ("access", "AssetDownloadAccessError"),
+        ("network", "AssetDownloadNetworkError"),
+        ("integrity", "AssetIntegrityError"),
+        ("download", "AssetDownloadError"),
+    ):
+        if class_name in class_names:
+            kind = candidate_kind
+            break
+    return {
+        "kind": kind,
+        "exception_type": type(exc).__name__,
+        "message": str(exc).strip() or repr(exc),
+    }
+
+
+def _report_asset_preflight_failure(failure: dict[str, Any], *, stream=None) -> None:
+    output = stream or sys.stderr
+    kind = str(failure.get("kind") or "unknown")
+    message = str(failure.get("message") or "No diagnostic message was returned.")
+    print("", file=output)
+    print("[EAI Simulator] Asset preparation failed / 资产准备失败", file=output)
+    print(f"[EAI Simulator] Failure type / 错误类型: {kind}", file=output)
+    print(message, file=output)
+    print(
+        "\n[EAI Simulator] The simulator was not started. Fix the issue above and run the same command again.\n"
+        "[EAI Simulator] 仿真器尚未启动。请修复上述问题后重新执行同一命令。",
+        file=output,
+    )
 
 
 def _read_preflight_payload(output_path: Path) -> dict[str, Any]:
     if not output_path.exists():
-        raise SystemExit(0)
+        print(
+            "[EAI Simulator] Asset preflight ended without returning a result. "
+            "The simulator was not started.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
     return json.loads(output_path.read_text(encoding="utf-8"))
 
 
@@ -584,6 +635,10 @@ def _handle_preflight_payload(
     ensure_usd_assets=None,
     ensure_controller_assets=None,
 ) -> tuple[str, dict[str, Any] | None]:
+    failure = payload.get("asset_error")
+    if isinstance(failure, dict):
+        _report_asset_preflight_failure(failure)
+        raise SystemExit(1)
     if payload.get("startup_mode") == "diy-3d":
         raise Diy3dRequested
     if not payload.get("should_run", True):
@@ -594,9 +649,11 @@ def _handle_preflight_payload(
     try:
         ensure_usd_assets(payload.get("usd_paths", []))
         ensure_controller_assets(payload.get("controller_paths", []))
-    except (asset_resolver.AssetDownloadAccessError, FileNotFoundError) as exc:
-        print(str(exc))
-        raise SystemExit(1) from exc
+    except Exception as exc:
+        if not _is_asset_preflight_failure(exc):
+            raise
+        _report_asset_preflight_failure(_asset_preflight_failure(exc))
+        raise SystemExit(1) from None
     return payload["task_name"], payload.get("selection")
 
 
@@ -946,12 +1003,7 @@ def _clear_modules_for_controller_retry(*, clear_controller_cache=None) -> None:
 
 def _ensure_controller_module_available_for_retry(module_name: str, *, load_asset_resolver=None) -> None:
     resolver = (load_asset_resolver or _load_asset_resolver)()
-
-    try:
-        resolver.ensure_controller_module_available(module_name)
-    except (resolver.AssetDownloadAccessError, FileNotFoundError) as exc:
-        print(str(exc))
-        raise SystemExit(1) from exc
+    resolver.ensure_controller_module_available(module_name)
 
 
 def _run_with_controller_package_retry(
@@ -1066,9 +1118,12 @@ def _run_asset_preflight_worker(args: argparse.Namespace) -> None:
             payload = _run_with_controller_package_retry(
                 lambda: _collect_asset_payload_after_app(args, task_request, asset_resolver),
             )
-        except (asset_resolver.AssetDownloadAccessError, FileNotFoundError) as exc:
-            print(str(exc))
-            raise SystemExit(1) from exc
+        except Exception as exc:
+            if not _is_asset_preflight_failure(exc):
+                raise
+            payload = {
+                "asset_error": _asset_preflight_failure(exc),
+            }
         Path(args.preflight_output).write_text(json.dumps(payload), encoding="utf-8")
     finally:
         simulation_app.close()
