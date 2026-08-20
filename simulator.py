@@ -1367,6 +1367,30 @@ def _setup_ur5_graph_manager(
     return manager
 
 
+def _is_manipulator_ros2_auxiliary(controller: Any) -> bool:
+    model = getattr(controller, "model_spec", None)
+    return callable(controller) and model is not None and all(
+        hasattr(model, field) for field in ("model", "joint_names", "ee_body_names")
+    )
+
+
+def _disable_manipulator_ros2_auxiliaries(env_cfg: Any) -> int:
+    """Remove ROS-driven arm auxiliaries when the ROS2 Bridge is disabled."""
+    controllers = getattr(env_cfg, "controllers", None)
+    if not isinstance(controllers, dict):
+        return 0
+    removed = 0
+    for robot_name, entry in tuple(controllers.items()):
+        if not isinstance(entry, (tuple, list)) or len(entry) < 2:
+            continue
+        primary, *auxiliaries = entry
+        kept = [aux for aux in auxiliaries if not _is_manipulator_ros2_auxiliary(aux)]
+        removed += len(auxiliaries) - len(kept)
+        if len(kept) != len(auxiliaries):
+            controllers[robot_name] = (primary, *kept) if kept else primary
+    return removed
+
+
 def _setup_aerial_sensor_manager(
     *,
     base_env: Any,
@@ -1733,6 +1757,13 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         env_cfg = _load_env_cfg(env_name, selection_data)
         _initialize_env_cfg(env_cfg, _session_env_init_args(config))
         _apply_env_cfg_hook(env_cfg, config)
+        if not config.enable_ros_bridge_extension:
+            disabled_manipulators = _disable_manipulator_ros2_auxiliaries(env_cfg)
+            if disabled_manipulators:
+                print(
+                    "[EAI Simulator] ROS2 Bridge disabled; skipped "
+                    f"{disabled_manipulators} manipulator ROS2 controller(s)."
+                )
         env = _create_env(env_name, env_cfg)
         base_env = env.unwrapped if hasattr(env, "unwrapped") else env
         possible_agents = list(base_env.possible_agents)
@@ -1753,14 +1784,15 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
                 f"[EAI Simulator] Created {orsus_graph_count} instance-safe "
                 "Orsus RTX LiDAR/odometry publisher set(s)."
             )
-        ur5_manager = getattr(base_env, "_ur5_ros2_manager", None)
-        if ur5_manager is None:
-            ur5_manager = _setup_ur5_graph_manager(
-                base_env=base_env,
-                selection_data=selection_data,
-                possible_agents=possible_agents,
-                env_cfg=env_cfg,
-            )
+        if config.enable_ros_bridge_extension:
+            ur5_manager = getattr(base_env, "_ur5_ros2_manager", None)
+            if ur5_manager is None:
+                ur5_manager = _setup_ur5_graph_manager(
+                    base_env=base_env,
+                    selection_data=selection_data,
+                    possible_agents=possible_agents,
+                    env_cfg=env_cfg,
+                )
         aerial_sensor_manager = _setup_aerial_sensor_manager(
             base_env=base_env,
             selection_data=selection_data,
