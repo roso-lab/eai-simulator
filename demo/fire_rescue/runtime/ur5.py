@@ -72,11 +72,25 @@ CUBE_PRIM_PATH = "/World/Cube"
 GRASP_DISTANCE_THRESHOLD = 0.08  # 末端与方块中心距离小于此值则执行抓取（FixedJoint）
 
 
+def resolve_ur5_articulation(articulations, robot_name: str):
+    """Resolve the mounted arm, with compatibility for legacy merged assets."""
+    if not articulations:
+        return None
+    arm_name = f"{robot_name}_arm"
+    if arm_name in articulations:
+        return articulations[arm_name]
+    if robot_name in articulations:
+        return articulations[robot_name]
+    return None
+
+
 # 关键帧关节角（弧度），针对固定方块位置 (0.6, 0, 0.45) 调参；无 IK 时用 j0=朝向目标
 POSE_HOME = [0.0, -1.57, 1.57, -1.57, -1.57, 0.0]
 POSE_ABOVE_CUBE = [0.5, -0.7, 1.2, -2.0, -1.57, 0.0]
 POSE_AT_CUBE = [0.55, -0.35, 0.7, -2.2, -1.57, 0.0]
-POSE_LIFT = [0.5, -0.8, 1.0, -1.9, -1.57, 0.0]
+# M20 的 UR5 安装方向下，资产默认姿态会让末端降到接近地面。
+# 肩部竖起、肘部收拢后，末端位于底盘上方且水平包络较小；j0 仍保留抓取朝向。
+POSE_CARRY = [0.0, -1.57, 0.0, -1.57, -1.57, 0.0]
 J0_LIMIT = 3.14  # shoulder_pan 限位约 ±π，无 IK 时用 j0 朝向方块
 
 # 墙面按钮按压专用关键帧：手臂水平伸展（加长伸展距离以适配停靠较远时的触及需求）
@@ -225,6 +239,7 @@ class UR5AutoPickController:
         self._ik_pose_at = None     # IK 解：贴近目标
         self._phase_steps = list(PHASE_STEPS)
         self._button_press_mode = False
+        self.carry_pose: Optional[List[float]] = None
 
     def start_pick(
         self,
@@ -240,6 +255,7 @@ class UR5AutoPickController:
             self.grabbed = False
             self._ik_pose_above = None
             self._ik_pose_at = None
+            self.carry_pose = None
             self._button_press_mode = bool(button_press_mode)
             self._phase_steps = (
                 list(BUTTON_PRESS_PHASE_STEPS) if button_press_mode else list(PHASE_STEPS)
@@ -274,9 +290,9 @@ class UR5AutoPickController:
         should_grasp = False
         scene = getattr(env, "scene", None) or (getattr(env, "unwrapped", None) and getattr(env.unwrapped, "scene", None))
         articulations = getattr(scene, "articulations", None) if scene else None
-        if not articulations or self.robot_name not in articulations:
+        robot = resolve_ur5_articulation(articulations, self.robot_name)
+        if robot is None:
             return None, False
-        robot = articulations[self.robot_name]
         # 至少需要找到 6 个 UR5 关节（兼容不同机器人的合并关节命名）
         if getattr(robot, "num_joints", 0) < 6:
             return None, False
@@ -407,7 +423,8 @@ class UR5AutoPickController:
             if self._button_press_mode:
                 p1_lift = [p1_at[0]] + list(POSE_BUTTON_RETRACT[1:]) if len(p1_at) >= 1 else POSE_BUTTON_RETRACT
             else:
-                p1_lift = [p1_at[0]] + list(POSE_LIFT[1:]) if len(p1_at) >= 1 else POSE_LIFT
+                p1_lift = [p1_at[0]] + list(POSE_CARRY[1:]) if len(p1_at) >= 1 else POSE_CARRY
+                self.carry_pose = _clamp_ur5_pose(p1_lift)
             p0, p1 = p1_at, p1_lift
 
         pose = _interp(min(1.0, alpha), p0, p1)
@@ -477,6 +494,8 @@ class UR5Manager:
         self._ext_target_pos: Optional[Tuple[float, float, float]] = None
         self._ext_prealign_pending: bool = False
         self._ext_follow_mode: bool = False
+        self._ext_debug_counter: int = 0
+        self._ext_carry_hold_logged: bool = False
 
         # ── 灭火器搬运中断与恢复状态 ────────────────────────────────────────
         self.is_carrying_extinguisher: bool = False          # 已抓取且正在搬运
@@ -523,26 +542,19 @@ class UR5Manager:
         if self.is_button_press_active(robot_name):
             return
         articulations = getattr(self._env.scene, "articulations", None)
-        if not articulations or robot_name not in articulations:
+        robot = resolve_ur5_articulation(articulations, robot_name)
+        if robot is None:
             return
-        robot = articulations[robot_name]
         jt, _ = self._obstacle_rescue_reach_pick.step(self._env, stage)
         if jt is None:
             return
-        if robot_name == "scout_1" or (robot_name.startswith("carter")):
+        arm_ids = self._get_arm_ids(robot, robot_name)
+        if arm_ids:
             try:
-                num_joints = robot.num_joints
-                arm_ids = list(range(3, min(9, num_joints)))
-                if len(arm_ids) >= 6:
-                    robot.set_joint_position_target(jt, joint_ids=arm_ids[:6])
-                    robot.write_data_to_sim()
-            except Exception:
-                pass
-        else:
-            arm_ids = self._get_arm_ids(robot, robot_name)
-            if arm_ids:
                 robot.set_joint_position_target(jt, joint_ids=arm_ids)
                 robot.write_data_to_sim()
+            except Exception:
+                pass
 
     def end_obstacle_rescue_reach(self) -> None:
         self._obstacle_rescue_reach_pick = None
@@ -570,9 +582,9 @@ class UR5Manager:
             return
         robot_name = self._button_press_robot
         articulations = getattr(self._env.scene, "articulations", None)
-        if not articulations or robot_name not in articulations:
+        robot = resolve_ur5_articulation(articulations, robot_name)
+        if robot is None:
             return
-        robot = articulations[robot_name]
         jt, _ = self._button_press_pick.step(self._env, stage)
         if jt is None:
             return
@@ -640,9 +652,11 @@ class UR5Manager:
 
     def apply_joint_pose(self, robot_name: str, pose) -> bool:
         articulations = getattr(self._env.scene, "articulations", None)
-        if not articulations or robot_name not in articulations or len(pose) < 6:
+        if len(pose) < 6:
             return False
-        robot = articulations[robot_name]
+        robot = resolve_ur5_articulation(articulations, robot_name)
+        if robot is None:
+            return False
         arm_ids = self._get_arm_ids(robot, robot_name)
         if not arm_ids:
             return False
@@ -695,6 +709,7 @@ class UR5Manager:
         self._ext_target_prim = None
         self._ext_target_pos = (float(target[0]), float(target[1]), float(target[2]))
         self._ext_prealign_pending = False
+        self._ext_carry_hold_logged = False
         self._ext_pick = UR5AutoPickController(robot_name=robot_name, ik_function=None)
         self._ext_pick.start_pick(stage=None, target_pos=self._ext_target_pos)
         print(f"[灭火器] 🔥 {robot_name} UR5 机械臂开始抓取灭火器，目标: {self._ext_target_pos}")
@@ -717,32 +732,8 @@ class UR5Manager:
 
         robot_name = self._ext_robot_name
         articulations = getattr(self._env.scene, "articulations", None)
-        if not articulations or robot_name not in articulations:
-            return
-        robot = articulations[robot_name]
-
-        if self._ext_grabbed:
-            self._ext_debug_counter = getattr(self, "_ext_debug_counter", 0) + 1
-            if (
-                self.enable_extinguisher_visual_follow
-                and self._ext_follow_mode
-                and self._ext_target_prim
-            ):
-                ee_pos = self._get_ee_pos_cached(robot, robot_name)
-                if ee_pos is not None:
-                    ok_xform = self._set_prim_world_translate(stage, self._ext_target_prim, ee_pos)
-                    if self._ext_debug_counter % 300 == 0:
-                        actual = self._get_prim_pos(stage, self._ext_target_prim)
-                        msg = (
-                            f"[灭火器代理跟随] "
-                            f"ee=({ee_pos[0]:.3f},{ee_pos[1]:.3f},{ee_pos[2]:.3f}) "
-                            f"proxy=({actual[0]:.3f},{actual[1]:.3f},{actual[2]:.3f}) "
-                            f"ok={ok_xform} cnt={self._ext_debug_counter}"
-                        ) if actual else (
-                            f"[灭火器代理跟随] ee=({ee_pos[0]:.3f},{ee_pos[1]:.3f},{ee_pos[2]:.3f}) "
-                            f"proxy=None ok={ok_xform}"
-                        )
-                        print(msg, flush=True)
+        robot = resolve_ur5_articulation(articulations, robot_name)
+        if robot is None:
             return
 
         if self._ext_pick and self._ext_pick.active:
@@ -752,12 +743,66 @@ class UR5Manager:
                 if arm_ids:
                     robot.set_joint_position_target(jt, joint_ids=arm_ids)
                     robot.write_data_to_sim()
+        elif self._ext_grabbed and self._ext_pick and self._ext_pick.carry_pose:
+            arm_ids = self._get_arm_ids(robot, robot_name)
+            if arm_ids:
+                carry_target = torch.tensor(
+                    [self._ext_pick.carry_pose],
+                    device=robot.device,
+                    dtype=torch.float32,
+                )
+                robot.set_joint_position_target(carry_target, joint_ids=arm_ids)
+                robot.write_data_to_sim()
+                if not self._ext_carry_hold_logged:
+                    self._ext_carry_hold_logged = True
+                    print(
+                        f"[灭火器] ⬆️ {robot_name} 已进入高位携带姿态，运输期间持续保持",
+                        flush=True,
+                    )
 
         self._ext_debug_counter = getattr(self, "_ext_debug_counter", 0) + 1
-        self._check_extinguisher_contact(robot, robot_name, stage)
+        if not self._ext_grabbed:
+            self._check_extinguisher_contact(robot, robot_name, stage)
+
+    def update_extinguisher_visual_follow(self, stage) -> None:
+        """在物理步后同步视觉代理，不推进机械臂抓取状态机。"""
+
+        if (
+            not self._ext_grabbed
+            or not self.enable_extinguisher_visual_follow
+            or not self._ext_follow_mode
+            or not self._ext_target_prim
+        ):
+            return
+        robot_name = self._ext_robot_name
+        articulations = getattr(self._env.scene, "articulations", None)
+        robot = resolve_ur5_articulation(articulations, robot_name)
+        if robot is None:
+            return
+        ee_pos = self._get_ee_pos_cached(robot, robot_name)
+        if ee_pos is None:
+            return
+        ok_xform = self._set_prim_world_translate(stage, self._ext_target_prim, ee_pos)
+        if self._ext_debug_counter % 300 == 0:
+            actual = self._get_prim_pos(stage, self._ext_target_prim)
+            msg = (
+                f"[灭火器代理跟随] "
+                f"ee=({ee_pos[0]:.3f},{ee_pos[1]:.3f},{ee_pos[2]:.3f}) "
+                f"proxy=({actual[0]:.3f},{actual[1]:.3f},{actual[2]:.3f}) "
+                f"ok={ok_xform} cnt={self._ext_debug_counter}"
+            ) if actual else (
+                f"[灭火器代理跟随] ee=({ee_pos[0]:.3f},{ee_pos[1]:.3f},{ee_pos[2]:.3f}) "
+                f"proxy=None ok={ok_xform}"
+            )
+            print(msg, flush=True)
 
     def _check_extinguisher_contact(self, robot, robot_name, stage):
         """检测 UR5 末端与灭火器碰触，创建 FixedJoint 粘连。"""
+
+        # REACH_ABOVE/LOWER 阶段末端可能仍离目标一米以上。此时吸附会让
+        # 灭火器瞬移并跳过完整伸臂动作；进入 GRASP 后才允许建立粘连。
+        if self._ext_pick is None or not self._ext_pick.active or self._ext_pick.phase < 2:
+            return
 
         ee_pos = self._get_ee_pos_cached(robot, robot_name)
         if ee_pos is None:
@@ -929,9 +974,9 @@ class UR5Manager:
             target_robot = get_arm_teleop_robot() or "scout_1"
 
             articulations = getattr(self._env.scene, "articulations", None)
-            if not articulations or target_robot not in articulations:
+            robot = resolve_ur5_articulation(articulations, target_robot)
+            if robot is None:
                 return
-            robot = articulations[target_robot]
             ee_pos = self._get_ee_pos_cached(robot, target_robot)
             if ee_pos is None:
                 return
@@ -1078,6 +1123,12 @@ class UR5Manager:
     @property
     def is_extinguisher_pick_running(self) -> bool:
         return self._ext_pick is not None and self._ext_pick.active
+
+    @property
+    def is_extinguisher_pick_complete(self) -> bool:
+        """灭火器已粘连，且机械臂已完成抬升动作。"""
+
+        return self._ext_grabbed and not self.is_extinguisher_pick_running
 
     # ── 灭火器辅助函数 ───────────────────────────────────────────────────────
 
@@ -1509,14 +1560,9 @@ class UR5Manager:
                 except Exception as e:
                     print(f"[灭火器] ⚠️ 几何代理创建失败: {e}", flush=True)
 
-            # ④ 禁用代理上的所有物理（session 层意见优先于引用）
-            for api_cls in [UsdPhysics.RigidBodyAPI, UsdPhysics.CollisionAPI,
-                            UsdPhysics.MeshCollisionAPI, UsdPhysics.MassAPI]:
-                try:
-                    if proxy_prim.HasAPI(api_cls):
-                        proxy_prim.RemoveAPI(api_cls)
-                except Exception:
-                    pass
+            # ④ 引用资产的物理 API 通常位于子 prim。必须递归移除，否则这个
+            # 由 xform 驱动的“视觉代理”仍会参与碰撞并把携带它的底盘卡在货架旁。
+            UR5Manager._strip_physics_recursive(proxy_prim)
             try:
                 rb = UsdPhysics.RigidBodyAPI.Apply(proxy_prim)
                 rb.CreateRigidBodyEnabledAttr().Set(False)
@@ -1621,11 +1667,12 @@ class UR5Manager:
             elif self.m20_1_pick.active:
                 jt, _ = self.m20_1_pick.step(self._env, stage)
                 if jt is not None:
-                    robot = articulations["m20_1"]
-                    arm_ids = self._get_arm_ids(robot, "m20_1")
-                    if arm_ids:
-                        robot.set_joint_position_target(jt, joint_ids=arm_ids)
-                        robot.write_data_to_sim()
+                    robot = resolve_ur5_articulation(articulations, "m20_1")
+                    if robot is not None:
+                        arm_ids = self._get_arm_ids(robot, "m20_1")
+                        if arm_ids:
+                            robot.set_joint_position_target(jt, joint_ids=arm_ids)
+                            robot.write_data_to_sim()
         # Scout_1（Scout + UR5）
         # 障碍物救援 reach 与 scout_1_pick 共用一车时：仅当未在跑绿色救援通道序列时才让 rr 独占
         if "scout_1" in articulations:
@@ -1642,14 +1689,15 @@ class UR5Manager:
                 jt, _ = self.scout_1_pick.step(self._env, stage)
                 setattr(self._env, "_scout1_ur5_override", self.scout_1_pick.active)
                 if jt is not None:
-                    robot = articulations["scout_1"]
-                    arm_ids = self._get_arm_ids(robot, "scout_1")
-                    if arm_ids:
-                        try:
-                            robot.set_joint_position_target(jt, joint_ids=arm_ids)
-                            robot.write_data_to_sim()
-                        except Exception:
-                            pass
+                    robot = resolve_ur5_articulation(articulations, "scout_1")
+                    if robot is not None:
+                        arm_ids = self._get_arm_ids(robot, "scout_1")
+                        if arm_ids:
+                            try:
+                                robot.set_joint_position_target(jt, joint_ids=arm_ids)
+                                robot.write_data_to_sim()
+                            except Exception:
+                                pass
 
     # ── 重置 ──────────────────────────────────────────────────────────────────
 
@@ -1667,6 +1715,7 @@ class UR5Manager:
         self._ext_target_pos = None
         self._ext_prealign_pending = False
         self._ext_follow_mode = False
+        self._ext_carry_hold_logged = False
 
     @staticmethod
     def _try_get_current_stage():

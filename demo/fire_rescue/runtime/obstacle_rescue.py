@@ -411,7 +411,7 @@ class ObstacleRescueManager:
 
     def on_rescue_complete_check_ext_return(self, robot_name: str, nav, ur5) -> None:
         """救援完成后检查是否需要追加「取回灭火器」任务。"""
-        from robot_nav import RobotTask as NavRobotTask
+        from .navigation import RobotTask as NavRobotTask
         drop_pos = ur5.get_ext_drop_position(robot_name)
         if drop_pos is None:
             return
@@ -865,7 +865,7 @@ class ObstacleRescueManager:
         self._rescue_nav_goal_xy = target_xy
 
         try:
-            from robot_nav import RobotTask
+            from .navigation import RobotTask
             rescue_task = RobotTask(
                 task_id=f"rescue_{robot}",
                 task_type="rescue",
@@ -930,7 +930,7 @@ class ObstacleRescueManager:
                 goal = self._rescue_nav_goal_xy
                 if goal is not None:
                     _log(f"⚠️ {robot} 救援任务在队列中丢失（队头={getattr(cur_task, 'task_type', None)}），重新注入")
-                    from robot_nav import RobotTask as _NRT
+                    from .navigation import RobotTask as _NRT
                     _reinject = _NRT(
                         task_id=f"rescue_{robot}_reinject",
                         task_type="rescue",

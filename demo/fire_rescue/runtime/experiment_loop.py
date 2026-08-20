@@ -835,7 +835,7 @@ def run_robot_factory_platform(
         # ── 灭火器逻辑 ──
         if (
             extinguisher_robot
-            and (ur5.is_extinguisher_grabbed or getattr(ur5, "_ext_grabbed", False))
+            and ur5.is_extinguisher_pick_complete
             and not _extinguisher_task1_completed
         ):
             emos_mgr.register_extinguisher_completed(extinguisher_robot)
@@ -873,15 +873,15 @@ def run_robot_factory_platform(
             )
             # 仅在黄色抓取阶段自动解 hold，避免误清 fire_plan_failed 等后续任务 hold。
             if _is_yellow_pick_phase:
-                if ur5.is_extinguisher_grabbed:
+                if ur5.is_extinguisher_pick_complete:
                     nav.hold_position.discard(extinguisher_robot)
                 elif not ur5.is_extinguisher_active:
                     nav.hold_position.discard(extinguisher_robot)
 
-        # 子任务1改为“拿到灭火器即完成”，但仍需执行最终任务：前往火源区（3m内）。
+        # 抓取并抬升灭火器后完成子任务1，随后执行最终任务：前往火源区（3m内）。
         if (
             extinguisher_robot
-            and ur5.is_extinguisher_grabbed
+            and ur5.is_extinguisher_pick_complete
             and not _extinguisher_fire_nav_dispatched
             and emos_mgr._hazard_id
         ):
@@ -890,6 +890,16 @@ def run_robot_factory_platform(
             ox, oy = cfg.FIRE_EXTINGUISHER_DELIVERY_OFFSET_XY
             tx, ty = hx + ox, hy + oy
             _extinguisher_fire_nav_dispatched = True
+            ex, ey = cfg.FIRE_EXTINGUISHER_EGRESS_TARGET[:2]
+            _pickup_egress = RobotTask(
+                task_id="extinguisher_pickup_egress",
+                task_type="emos",
+                subtask_name="灭火器取件区脱离",
+                subtask_colour="grey",
+                target_xy=(float(ex), float(ey)),
+                waypoints=[],
+                priority=1,
+            )
             _final_fire = RobotTask(
                 task_id="emos_extinguisher_final_fire_zone",
                 task_type="emos",
@@ -897,10 +907,17 @@ def run_robot_factory_platform(
                 subtask_colour="grey",
                 target_xy=(tx, ty),
                 waypoints=[],
-                priority=0,
+                priority=1,
             )
-            nav.interrupt_patrol_with_task(extinguisher_robot, _final_fire, priority=False)
-            _dsrv.push_chat("emos", "EMOS 系统", f"🔥 {extinguisher_robot} 前往火源区 ({tx:.1f}, {ty:.1f})")
+            nav.interrupt_patrol_with_task(extinguisher_robot, _pickup_egress, priority=False)
+            _ext_queue = nav.task_queues.get(extinguisher_robot)
+            if _ext_queue is not None:
+                _ext_queue.push_back(_final_fire)
+            _dsrv.push_chat(
+                "emos",
+                "EMOS 系统",
+                f"🔥 {extinguisher_robot} 先退出取件区，再前往火源区 ({tx:.1f}, {ty:.1f})",
+            )
 
         # ── 救援通道按钮 ──
         _rc_arm_plane_dist_m = 4.0
@@ -924,13 +941,13 @@ def run_robot_factory_platform(
                         ur5.scout_1_pick.start_pick(stage=None, target_pos=cfg.RESCUE_CHANNEL_BUTTON_POS, button_press_mode=True)
                         if _press_button_exec_sim_s is None and _fire_start_ts is not None:
                             _press_button_exec_sim_s = float(_sim_time_since_fire_s)
-                        nav.hold_position.add(rescue_channel_robot)
+                        nav._set_hold_position(rescue_channel_robot, "button_press_start")
                         _rc_press_started = True
                         _rc_final_approach = False
                     elif not _rc_final_approach:
                         _rc_final_approach = True
                         _rc_final_approach_start = time.time()
-                        nav.hold_position.add(rescue_channel_robot)
+                        nav._set_hold_position(rescue_channel_robot, "button_final_approach")
                     else:
                         if time.time() - _rc_final_approach_start > _rc_final_approach_timeout_s:
                             ur5.scout_1_pick.start_pick(stage=None, target_pos=cfg.RESCUE_CHANNEL_BUTTON_POS, button_press_mode=True)
@@ -957,9 +974,12 @@ def run_robot_factory_platform(
             except Exception:
                 pass
 
-        if _rc_press_started and rescue_channel_robot in nav.hold_position:
-            if not ur5.scout_1_pick.active:
-                nav.hold_position.discard(rescue_channel_robot)
+        if _rc_press_started and rescue_channel_robot:
+            if ur5.scout_1_pick.active:
+                # 异步规划结果可能在动作期间清掉 hold；按压未完成前每帧恢复保持。
+                nav._set_hold_position(rescue_channel_robot, "button_press_active")
+            else:
+                nav._clear_hold_position(rescue_channel_robot, "button_press_complete")
                 _rc_press_started = False
                 _rc_channel_arm_done = True
                 light.trigger_rescue_channel()
@@ -967,23 +987,17 @@ def run_robot_factory_platform(
                 if emos_mgr._hazard_pos and (abs(emos_mgr._hazard_pos[0]) + abs(emos_mgr._hazard_pos[1])) > 0.05:
                     _hx_rc = float(emos_mgr._hazard_pos[0])
                     _hy_rc = float(emos_mgr._hazard_pos[1])
-                    _retreat_x, _retreat_y = 8.0, 1.0
                     _rc_rally_x, _rc_rally_y = _hx_rc + 2.0, _hy_rc - 1.0
-                    _retreat_th = math.atan2(_rc_rally_y - _retreat_y, _rc_rally_x - _retreat_x)
-                    _rc_retreat_task = RobotTask(
-                        task_id=f"emos_green_retreat_{rescue_channel_robot}", task_type="emos",
-                        subtask_name="按钮后退→转向", subtask_colour="grey",
-                        target_xy=(_retreat_x, _retreat_y), waypoints=[(_retreat_x, _retreat_y, _retreat_th)], priority=0,
-                    )
                     _rc_rally_task = RobotTask(
                         task_id=f"emos_green_done_rally_{rescue_channel_robot}", task_type="emos",
-                        subtask_name="绿色完成→火源集结", subtask_colour="grey",
+                        subtask_name="按钮完成→火源集结", subtask_colour="grey",
                         target_xy=(_rc_rally_x, _rc_rally_y), waypoints=[], priority=0,
                     )
-                    nav.interrupt_patrol_with_task(rescue_channel_robot, _rc_retreat_task, priority=False)
-                    tq_rc = nav.task_queues.get(rescue_channel_robot)
-                    if tq_rc:
-                        tq_rc.push_back(_rc_rally_task)
+                    # 从按钮位一次规划到专属火源停靠点。规划路径首段会沿通道离开
+                    # 按钮区，避免在固定后退点停下后再次切队列、同步重规划。
+                    nav.interrupt_patrol_with_task(
+                        rescue_channel_robot, _rc_rally_task, priority=False
+                    )
 
         _skip_c2_key5_for_green = False
         if rescue_channel_robot == "scout_1" and not _rc_channel_arm_done:
@@ -1015,6 +1029,7 @@ def run_robot_factory_platform(
                     continue
                 _robot_standby_this_frame[rn] = _is_waiting_idle(rn) and (not _is_robot_arm_busy(rn))
 
+        actions = nav.apply_inter_robot_collision_guard(actions)
         if actions:
             env.step(actions)
         else:
@@ -1022,7 +1037,7 @@ def run_robot_factory_platform(
 
         if getattr(ur5, "_ext_grabbed", False):
             try:
-                ur5.update_extinguisher_grab(stage)
+                ur5.update_extinguisher_visual_follow(stage)
             except Exception:
                 pass
 
