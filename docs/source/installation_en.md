@@ -217,6 +217,28 @@ source "/opt/ros/${ROS_DISTRO}/setup.bash"
 - View Isaac Sim log
 - Refer to [Isaac Sim Troubleshooting Guide](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/troubleshooting.html)
 
+### Q6: The simulator exits after a Hugging Face asset download failure
+
+Asset preflight downloads missing files before the formal Isaac Sim launch. Connection timeouts, DNS,
+proxy, or firewall failures are reported in the terminal as `Asset preparation failed / 资产准备失败`
+with the failure type, required bundles, and original network error, followed by exit status 1. Restore
+network access and rerun the same command; transactional downloads do not install an incomplete staging
+directory as production assets.
+
+When checking proxy configuration, do not paste proxy URLs containing credentials into public logs:
+
+```bash
+env | grep -i proxy
+curl -I https://huggingface.co
+hf auth whoami
+```
+
+To run without a proxy, clear both uppercase and lowercase proxy variables:
+
+```bash
+unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
+```
+
 ## Uninstall
 
 Uninstall all EAI packages:
