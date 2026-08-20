@@ -168,7 +168,10 @@ def _runtime_device_for_env(
 def _selection_requires_omnigraph(selection_data: dict[str, Any] | None) -> bool:
     if not selection_data:
         return False
-    graph_attachments = {"orsus", "realsense_d455", "lidar", "camera", "ur5", "z1", "ros"}
+    graph_attachments = {
+        "orsus", "realsense_d455", "lidar", "camera", "ur5", "z1",
+        "navigation_io",
+    }
     aerial_types = {"cf2x", "iris", "pegasus"}
     return any(
         isinstance(robot, dict)
@@ -225,7 +228,7 @@ def _sensor_scene_single_env_reasons(selection_data: dict[str, Any] | None) -> t
         return ()
     reasons = []
     aerial_types = {"cf2x", "iris", "pegasus"}
-    sensor_tools = {"camera", "ros"}
+    sensor_tools = {"camera", "navigation_io"}
     for index, robot in enumerate(selection_data.get("robots", ()), start=1):
         if not isinstance(robot, dict):
             continue
@@ -1313,7 +1316,7 @@ def cmd_vel_bridge_robot_names(
         default_name = f"{robot_type}_{type_counts[robot_type]}"
         agent_name = default_name if default_name in agent_set else possible_agents[index] if index < len(possible_agents) else default_name
         attachment_types = {str(item.get("type")) for item in robot.get("attachments", [])}
-        if attachment_types & {"ros", "keyboard"}:
+        if attachment_types & {"navigation_io", "keyboard"}:
             enabled.append(agent_name)
     return tuple(enabled)
 

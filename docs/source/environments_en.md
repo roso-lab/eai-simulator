@@ -69,7 +69,7 @@ Minimal configuration example:
       },
       "attachments": [
         {"type": "orsus", "controller": null},
-        {"type": "ros", "controller": null}
+        {"type": "navigation_io", "controller": null}
       ]
     }
   ]
@@ -156,7 +156,7 @@ For example, when Go2, B2 and two M20s are all mounted with UR5, the interfaces 
 
 The general physical mount primitive is defined in `source/EAI_assets/EAI_assets/robots/manipulator_mount.py`, and the host profiles of UR5/Z1 are located in `ur5_mount.py` and `z1_mount.py` respectively. Different hosts only configure the installation rigid body, local installation pose, mass/inertia ratio and self-collision; when expanding a new host, you should add a new profile and do not copy the entire set of spawn functions.
 
-In the main session, a `ur5` attachment enables its manipulator topics. A `z1` attachment only declares interfaces under the same convention; those topics become active only after another integration entry point registers the graph. Neither manipulator interface depends on Navigation I/O. Navigation I/O retains the `ros` attachment key in JSON and is mainly used to enable the chassis `/<robot>/cmd_vel` subscriber.
+In the main session, a `ur5` attachment enables its manipulator topics. A `z1` attachment only declares interfaces under the same convention; those topics become active only after another integration entry point registers the graph. Neither manipulator interface depends on Navigation I/O. Navigation I/O uses the `navigation_io` attachment key in JSON and is mainly used to enable the chassis `/<robot>/cmd_vel` subscriber.
 
 For the complete message format, control command and status reading method, please refer to [Robotic Arm](ur5_control_en.md).
 

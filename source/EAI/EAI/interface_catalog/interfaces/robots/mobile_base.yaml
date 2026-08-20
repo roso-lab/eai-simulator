@@ -13,7 +13,7 @@ interfaces:
     data_type: geometry_msgs/msg/Twist
     description: Sends linear and angular velocity commands through the optional ROS bridge.
     example: 'ros2 topic pub --once /{robot}/cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.2}, angular: {z: 0.0}}"'
-    requires_attachment: ros
+    requires_attachment: navigation_io
   - id: python.env_step
     name: Simulator step action
     protocol: python

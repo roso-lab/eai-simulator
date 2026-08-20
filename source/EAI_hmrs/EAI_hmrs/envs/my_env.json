@@ -12,7 +12,7 @@
         },
         {
           "controller": null,
-          "type": "ros"
+          "type": "navigation_io"
         }
       ],
       "controller": {

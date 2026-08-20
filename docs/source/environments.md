@@ -69,7 +69,7 @@ source/EAI_hmrs/EAI_hmrs/envs/robo.json
       },
       "attachments": [
         {"type": "orsus", "controller": null},
-        {"type": "ros", "controller": null}
+        {"type": "navigation_io", "controller": null}
       ]
     }
   ]
@@ -156,7 +156,7 @@ Z1 另外提供独立夹爪接口：
 
 通用物理挂载原语定义在 `source/EAI_assets/EAI_assets/robots/manipulator_mount.py`，UR5/Z1 的宿主 profile 分别位于 `ur5_mount.py` 和 `z1_mount.py`。不同宿主只配置安装刚体、局部安装位姿、质量/惯量比例和 self-collision；扩展新宿主时应新增 profile，不要复制整套 spawn 函数。
 
-主会话中的 `ur5` 附件会启用机械臂 topic；`z1` 附件只声明相同规范下的接口，必须由其他集成入口注册 graph 后 topic 才会激活。两种机械臂接口都不依赖导航接口（Navigation I/O）；导航接口在 JSON 中仍使用 `ros` 附件键，主要用于启用底盘的 `/<robot>/cmd_vel`。
+主会话中的 `ur5` 附件会启用机械臂 topic；`z1` 附件只声明相同规范下的接口，必须由其他集成入口注册 graph 后 topic 才会激活。两种机械臂接口都不依赖导航接口（Navigation I/O）；导航接口在 JSON 中使用 `navigation_io` 附件键，主要用于启用底盘的 `/<robot>/cmd_vel`。
 
 完整消息格式、控制命令和状态读取方式参见[机械臂](ur5_control.md)。
 

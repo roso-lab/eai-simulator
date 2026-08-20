@@ -50,7 +50,7 @@ Iris、Pegasus 和 CF2X 的内置前视单目相机使用相同的 ROS2 接口�
 | `ros.aerial_camera_image` | `/{robot}/camera/image_raw` | `sensor_msgs/msg/Image` |
 | `ros.aerial_camera_info` | `/{robot}/camera/camera_info` | `sensor_msgs/msg/CameraInfo` |
 
-传感器默认安装在无人机上；只有在 Env DIY 的 Tools 中选择 Camera 后，才会发布上述图像和标定 topic。Camera Tool 独立于导航接口（Navigation I/O），可以只选择 Camera。导航接口在环境 JSON 中仍使用内部键 `ros`。`{robot}` 替换为场景中的实例名，例如 `iris_1`、`pegasus_1` 或 `cf2x_1`。
+传感器默认安装在无人机上；只有在 Env DIY 的 Tools 中选择 Camera 后，才会发布上述图像和标定 topic。Camera Tool 独立于导航接口（Navigation I/O），可以只选择 Camera。导航接口在环境 JSON 中使用 `navigation_io` 键。`{robot}` 替换为场景中的实例名，例如 `iris_1`、`pegasus_1` 或 `cf2x_1`。
 
 MuSHR Nano v2 的内置前视单目相机使用独立的接口声明：
 

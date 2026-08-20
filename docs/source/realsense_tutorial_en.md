@@ -15,7 +15,7 @@ Once mounted, the sensor provides four topics:
 | `/<robot>/RealsenseD455_camera_info` | sensor_msgs/CameraInfo | camera intrinsics | `camera` tool |
 | `/<robot>/RealsenseD455_imu` | sensor_msgs/Imu | quaternion / angular velocity / linear acceleration (gravity included) | Navigation I/O |
 
-The image and IMU publisher graphs are independent: the Camera Tool only toggles images, while Navigation I/O only toggles the IMU (the same gating scheme as Orsus). For compatibility with existing environments, Navigation I/O retains the `ros` key in JSON.
+The image and IMU publisher graphs are independent: the Camera Tool only toggles images, while Navigation I/O only toggles the IMU (the same gating scheme as Orsus). Navigation I/O uses the `navigation_io` key in JSON.
 
 ### 1.1 Mounting via Env DIY
 
@@ -27,7 +27,7 @@ Select **RealSense D455** in the Payloads step of Env DIY (and select Camera and
 
 ### 1.2 Mounting via a JSON environment file
 
-Add the `realsense_d455` payload and the internal `camera`/`ros` tool keys to a robot in `source/EAI_hmrs/EAI_hmrs/envs/<name>.json` (see the tracked `mushr_realsense.json` for an example):
+Add the `realsense_d455` payload and the internal `camera`/`navigation_io` tool keys to a robot in `source/EAI_hmrs/EAI_hmrs/envs/<name>.json` (see the tracked `mushr_realsense.json` for an example):
 
 ```json
 {
@@ -40,7 +40,7 @@ Add the `realsense_d455` payload and the internal `camera`/`ros` tool keys to a 
       "attachments": [
         {"type": "realsense_d455"},
         {"type": "camera"},
-        {"type": "ros"}
+        {"type": "navigation_io"}
       ]
     }
   ]

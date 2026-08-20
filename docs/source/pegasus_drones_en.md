@@ -22,7 +22,7 @@ tools. Adding Camera to an aerial robot branch publishes
 I/O publishes `/<robot>/lidar/pointcloud` (`sensor_msgs/msg/PointCloud2`). A
 Camera-only branch does not publish the LiDAR topic, a Navigation-I/O-only branch
 does not publish camera topics, and selecting both tools publishes both streams.
-Navigation I/O retains the internal `ros` key in environment JSON.
+Navigation I/O uses the internal `navigation_io` key in environment JSON.
 
 After starting the simulator, run the unified sensor visualizer from a ROS 2
 Humble terminal. The visualizer requires system ROS Python with `rclpy`,

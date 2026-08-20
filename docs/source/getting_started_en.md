@@ -209,7 +209,7 @@ Keep `--num_envs=1` to close other GPU-hogging processes.
 
 ### ROS2 topic is not published
 
-Confirm that the robot contains a `ros` or `keyboard` attachment in the JSON, and check the Isaac Sim ROS2 Bridge and ROS Humble environment variables.
+Confirm that the robot contains a `navigation_io` or `keyboard` attachment in the JSON, and check the Isaac Sim ROS2 Bridge and ROS Humble environment variables.
 
 ## Next Steps
 

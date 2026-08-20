@@ -169,7 +169,8 @@ def main(args=None) -> None:
         rclpy.shutdown()
         raise SystemExit(
             "[EAI Keyboard] No /<robot>/cmd_vel topics found. "
-            "Start simulator.py with keyboard/ros tool first, or pass --robots go2_1,lite3_1."
+            "Start simulator.py with Keyboard or Navigation I/O first, or pass "
+            "--robots go2_1,lite3_1."
         )
 
     publishers = {topic: node.create_publisher(Twist, topic, 10) for topic in topics}
