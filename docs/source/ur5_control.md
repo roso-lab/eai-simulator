@@ -13,7 +13,7 @@ UR5/Z1 不是独立机器人，而是 `Payloads → Manipulators` 下的宿主�
 | UR5 | `UR5_IK_CFG` | `ManipulatorIkControllerCfg` + DLS Differential IK | 无 |
 | Z1 | `Z1_IK_CFG` | `ManipulatorIkControllerCfg` + DLS Differential IK | `gripper_command` / `gripper_state` |
 
-两者都创建独立的 `<robot>_arm` articulation，并通过 FixedJoint 连接宿主。宿主的底盘/腿部 controller 与机械臂 controller 分开运行；同一个宿主不能同时挂载 UR5 和 Z1。机械臂附件自身会开启 ROS2 OmniGraph，因此只有在需要宿主 `cmd_vel` 时才额外添加 `ros` 或 `keyboard` tool。
+两者都创建独立的 `<robot>_arm` articulation，并通过 FixedJoint 连接宿主。宿主的底盘/腿部 controller 与机械臂 controller 分开运行；同一个宿主不能同时挂载 UR5 和 Z1。机械臂附件自身会开启 ROS2 OmniGraph，因此只有在需要宿主 `cmd_vel` 时才额外添加导航接口（Navigation I/O，内部键 `ros`）或 Keyboard Tool。
 
 ### 从 Env DIY 到 ROS2 控制
 

@@ -127,7 +127,7 @@ Robots #host robot
 Payloads
   ├── Manipulators              # UR5, Z1
   └── Sensors                   # Orsus, LiDAR
-Tools                           # ROS, Keyboard
+Tools                           # Navigation I/O, Keyboard
 ```
 
 The UR5 and Z1 are robotic arms that must be mounted on a host robot; they are not sensors or robots that can be spawned independently. In Env DIY, Go2, B2, M20, Scout and Lite3 support the `ur5` payload, while Carter, Go2, B2, M20, Scout and Lite3 support the `z1` payload. UR5 and Z1 cannot be mounted at the same time on the same robot; UI, JSON parsing, storage loading and Builder all check this mutual exclusion rule.
@@ -156,7 +156,7 @@ For example, when Go2, B2 and two M20s are all mounted with UR5, the interfaces 
 
 The general physical mount primitive is defined in `source/EAI_assets/EAI_assets/robots/manipulator_mount.py`, and the host profiles of UR5/Z1 are located in `ur5_mount.py` and `z1_mount.py` respectively. Different hosts only configure the installation rigid body, local installation pose, mass/inertia ratio and self-collision; when expanding a new host, you should add a new profile and do not copy the entire set of spawn functions.
 
-The `ur5` or `z1` attachment itself can enable the robot topic, and there is no need to add an additional `ros` attachment. The `ros` attachment is mainly used to enable the chassis' `/<robot>/cmd_vel`.
+The `ur5` or `z1` attachment itself can enable the manipulator topics, so Navigation I/O is not required for the arm. Navigation I/O retains the `ros` attachment key in JSON and is mainly used to enable the chassis `/<robot>/cmd_vel` subscriber.
 
 For the complete message format, control command and status reading method, please refer to [Robotic Arm](ur5_control_en.md).
 

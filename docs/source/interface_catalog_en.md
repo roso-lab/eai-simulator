@@ -50,7 +50,7 @@ The built-in forward-facing monocular cameras on Iris, Pegasus, and CF2X use the
 | `ros.aerial_camera_image` | `/{robot}/camera/image_raw` | `sensor_msgs/msg/Image` |
 | `ros.aerial_camera_info` | `/{robot}/camera/camera_info` | `sensor_msgs/msg/CameraInfo` |
 
-The sensors are installed on the aerial robots by default; image and calibration topics are published only when `camera` is selected under Tools in Env DIY. The Camera Tool is independent of the ROS Tool, so Camera can be selected without ROS. `{robot}` is replaced by the scene instance name, such as `iris_1`, `pegasus_1`, or `cf2x_1`.
+The sensors are installed on the aerial robots by default; image and calibration topics are published only when Camera is selected under Tools in Env DIY. The Camera Tool is independent of Navigation I/O, so Camera can be selected on its own. Navigation I/O retains the internal `ros` key in environment JSON. `{robot}` is replaced by the scene instance name, such as `iris_1`, `pegasus_1`, or `cf2x_1`.
 
 The built-in forward-facing monocular camera on MuSHR Nano v2 has separate interface declarations:
 
@@ -61,7 +61,7 @@ The built-in forward-facing monocular camera on MuSHR Nano v2 has separate inter
 
 The MuSHR camera prim and publishers are created only when the `camera` tool is selected. This built-in camera uses the `/camera/*` topics and does not depend on Orsus; MuSHR does not support mounting Orsus. Sensor scenes containing the MuSHR built-in camera or Orsus must use `--num_envs 1`.
 
-Orsus exposes the stereo image interfaces `ros.orsus.left_image` (`/{robot}/Orsus_L_cam`) and `ros.orsus.right_image` (`/{robot}/Orsus_R_cam`). Both use `sensor_msgs/msg/Image` and are also controlled by the Camera Tool. Orsus point-cloud, odometry, and scan output remain controlled by the ROS Tool.
+Orsus exposes the stereo image interfaces `ros.orsus.left_image` (`/{robot}/Orsus_L_cam`) and `ros.orsus.right_image` (`/{robot}/Orsus_R_cam`). Both use `sensor_msgs/msg/Image` and are also controlled by the Camera Tool. Orsus point-cloud, odometry, and scan output remain controlled by Navigation I/O.
 
 Use the unified viewer to display every camera topic that exists now or starts later:
 
@@ -78,7 +78,7 @@ python3 algorithm/ros/tools/vis_sensors.py --sensor camera --namespace /iris_1
 
 ## Keyboard motion interface
 
-Either the Keyboard Tool or the ROS Tool enables the `/<robot>/cmd_vel` subscriber. Aerial robots use the `ros.aerial_cmd_vel` interface with `geometry_msgs/msg/Twist`; the keyboard publisher maps keys as follows:
+Either the Keyboard Tool or Navigation I/O enables the `/<robot>/cmd_vel` subscriber. Aerial robots use the `ros.aerial_cmd_vel` interface with `geometry_msgs/msg/Twist`; the keyboard publisher maps keys as follows:
 
 | Keys | Twist Field | Motion |
 |---|---|---|
