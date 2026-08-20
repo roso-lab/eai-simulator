@@ -42,7 +42,7 @@ dynoplan 优化 → 同步的双积分器轨迹
 cd /home/airs/eai-simulator
 conda activate env_isaaclab
 python -m pip install --no-deps crocoddyl==2.0.2
-EAI_DBCBS_BUILD_JOBS=8 algorithm/dbcbs/build_native.sh
+EAI_DBCBS_BUILD_JOBS=8 algorithm/multi_robot_navigation/build_native.sh
 ```
 
 构建成功后，脚本会自动准备 db-CBS 需要的运动基元文件。如果本地尚未安装，脚本会从上游 db-CBS 提供的地址下载，并校验文件大小与 SHA-256；已安装的文件会直接校验并复用。

@@ -33,7 +33,7 @@ The maintained payload is 1,192,789 bytes. Its SHA-256 is:
 
 The upstream repository ignores the downloaded motion archive and does not
 state a separate data license for it. EAI therefore does not redistribute the
-payload through Git or Git LFS. `algorithm/dbcbs/fetch_motion_primitives.py`
+payload through Git or Git LFS. `algorithm/multi_robot_navigation/fetch_motion_primitives.py`
 downloads the single file directly from the upstream TUB Cloud WebDAV share
 and verifies the size and SHA-256 before installation. The source repository
 maintains the downloader, upstream revisions, license texts, and integrity
