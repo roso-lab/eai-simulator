@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import os
 import re
 import shutil
+import socket
 import stat
 import subprocess
 import tempfile
@@ -63,6 +65,14 @@ _HF_CREDENTIAL_CONTEXT_RE = re.compile(
     r"\b(?:(?:invalid|expired|missing|required)(?:\s+\w+)?\s+token|"
     r"token(?:\s+(?:is|was|has))?\s+(?:invalid|expired|missing|required)|"
     r"login(?:\s+is)?\s+required|not\s+logged\s+in|please\s+log\s+in|auth\s+login)\b",
+    re.IGNORECASE,
+)
+_HF_NETWORK_CONTEXT_RE = re.compile(
+    r"\b(?:connection(?:\s+(?:refused|reset|aborted|failed))?|"
+    r"connect(?:ion)?\s+timeout|read\s+timeout|timed\s+out|"
+    r"temporary\s+failure\s+in\s+name\s+resolution|name\s+or\s+service\s+not\s+known|"
+    r"network\s+is\s+unreachable|no\s+route\s+to\s+host|proxy\s+error|"
+    r"dns\s+(?:error|failure)|max\s+retries\s+exceeded)\b",
     re.IGNORECASE,
 )
 
@@ -128,6 +138,10 @@ class AssetDownloadError(RuntimeError):
 
 class AssetDownloadAccessError(AssetDownloadError):
     """Raised when the gated Hugging Face asset repo cannot be accessed."""
+
+
+class AssetDownloadNetworkError(AssetDownloadError):
+    """Raised when Hugging Face cannot be reached through the current network."""
 
 
 class AssetIntegrityError(RuntimeError):
@@ -1249,6 +1263,47 @@ def _is_hf_access_error(exc: Exception) -> bool:
     return _has_hf_context(exc, _HF_ACCESS_CONTEXT_RE) or _has_hf_credential_context(exc)
 
 
+def _exception_chain(exc: BaseException) -> Iterable[BaseException]:
+    pending = [exc]
+    seen: set[int] = set()
+    while pending:
+        current = pending.pop()
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        yield current
+        for linked in (current.__cause__, current.__context__):
+            if linked is not None:
+                pending.append(linked)
+
+
+def _is_hf_network_error(exc: Exception) -> bool:
+    network_errnos = {
+        errno.ECONNABORTED,
+        errno.ECONNREFUSED,
+        errno.ECONNRESET,
+        errno.EHOSTUNREACH,
+        errno.ENETDOWN,
+        errno.ENETUNREACH,
+        errno.ETIMEDOUT,
+    }
+    network_class_tokens = ("connect", "network", "proxy", "timeout")
+    diagnostics: list[str] = []
+    for current in _exception_chain(exc):
+        if isinstance(current, (ConnectionError, TimeoutError, socket.gaierror)):
+            return True
+        if isinstance(current, OSError) and current.errno in network_errnos:
+            return True
+        module_root = type(current).__module__.split(".", 1)[0]
+        class_name = type(current).__name__.lower()
+        if module_root in {"httpcore", "httpx", "requests", "urllib3"} and any(
+            token in class_name for token in network_class_tokens
+        ):
+            return True
+        diagnostics.append(str(current))
+    return _HF_NETWORK_CONTEXT_RE.search("\n".join(diagnostics)) is not None
+
+
 def _normalize_hf_download_error(
     repo_id: str,
     allow_patterns: list[str],
@@ -1258,6 +1313,8 @@ def _normalize_hf_download_error(
         return exc
     if _is_hf_access_error(exc):
         return AssetDownloadAccessError(_hf_access_error_message(repo_id, allow_patterns, exc))
+    if _is_hf_network_error(exc):
+        return AssetDownloadNetworkError(_hf_network_error_message(repo_id, allow_patterns, exc))
     return AssetDownloadError(_hf_download_error_message(repo_id, allow_patterns, exc))
 
 
@@ -1355,6 +1412,31 @@ def _hf_download_error_message(repo_id: str, allow_patterns: list[str], exc: Exc
     patterns = "\n".join(f"  - {pattern}" for pattern in allow_patterns)
     return (
         "[EAI Assets] Failed to download required assets from Hugging Face.\n\n"
+        f"Repository: {_hf_repo_url(repo_id)}\n"
+        f"Revision: {_hf_revision()}\n"
+        "Required asset bundles:\n"
+        f"{patterns}\n\n"
+        f"Original error: {_format_exception_for_message(exc)}"
+    )
+
+
+def _hf_network_error_message(repo_id: str, allow_patterns: list[str], exc: Exception) -> str:
+    patterns = "\n".join(f"  - {pattern}" for pattern in allow_patterns)
+    proxy_variables = (
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "ALL_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "all_proxy",
+    )
+    proxy_state = (
+        "configured" if any(os.environ.get(name) for name in proxy_variables) else "not configured"
+    )
+    return (
+        "[EAI Assets] Unable to reach Hugging Face while downloading required assets.\n\n"
+        "Check the network connection, DNS, firewall, and proxy settings, then run the same command again.\n"
+        f"Proxy environment variables: {proxy_state}\n\n"
         f"Repository: {_hf_repo_url(repo_id)}\n"
         f"Revision: {_hf_revision()}\n"
         "Required asset bundles:\n"
