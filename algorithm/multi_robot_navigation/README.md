@@ -1,14 +1,21 @@
-# EAI Multi-Robot Navigation Plugin
+# EAI Multi-Robot Navigation
 
-This directory exposes multi-robot map navigation as a Python component for
-EAI Simulator. It follows the same integration boundary used by Fire Rescue:
-the algorithm is imported from `algorithm/`, while the caller owns the Isaac
-application and simulation loop.
+This directory contains the complete multi-robot navigation implementation for
+EAI Simulator: the native db-CBS planner, synchronized trajectory runtime,
+occupancy-map conversion, EAI session adapter, and optional viewport UI. The
+caller continues to own the Isaac application and simulation loop.
 
 It does not use a ROS launch file and does not create a second simulator.
 
 ## Contents
 
+- `native/`: db-CBS, the customized OMPL revision, dynoplan/dynobench, robot
+  models, motion primitives, licenses, and third-party provenance.
+- `planner.py`: typed db-CBS problem/result conversion and native execution.
+- `map_environment.py`: occupancy-map conversion for db-CBS.
+- `session.py` and `trajectory.py`: mission state and synchronized playback.
+- `build_native.sh` and `fetch_motion_primitives.py`: native build and verified
+  motion-primitive setup.
 - `eai_plugin.py`: simulator-session adapter, planner worker, mission state,
   safety checks, and action generation.
 - `interaction.py`: pure USD prim-path selection helpers.
@@ -78,12 +85,9 @@ Call `close()` when the host shuts down to cancel queued work and release the
 planner worker. A running native planner remains bounded by
 `dbcbs_planning_timeout` and never runs on the Isaac simulation thread.
 
-The default backend is the repository-bundled db-CBS integration under
-`algorithm/dbcbs`. Its C++ source, customized OMPL source, dynoplan/dynobench
-source, motion primitives, Python session, and build interface all live in the
-EAI repository. It never resolves or imports a separate db-CBS checkout. Pass
-`planner_backend="global"` only when the older occupancy-grid planner is
-specifically required.
+The default backend is the db-CBS implementation in this directory. It does not
+resolve or import a separate db-CBS checkout. Pass `planner_backend="global"`
+only when the older occupancy-grid planner is specifically required.
 
 Build the native EAI core once in `env_isaaclab` before the first db-CBS run:
 
@@ -91,8 +95,12 @@ Build the native EAI core once in `env_isaaclab` before the first db-CBS run:
 cd /home/airs/eai-simulator
 conda activate env_isaaclab
 python -m pip install --no-deps crocoddyl==2.0.2
-algorithm/dbcbs/build_native.sh
+algorithm/multi_robot_navigation/build_native.sh
 ```
+
+The native target also requires CMake, a C++17 compiler, Boost, Eigen, FCL,
+yaml-cpp, and Crocoddyl. Base revisions, license paths, and motion-primitive
+provenance are recorded in `native/THIRD_PARTY.md`.
 
 Run the lightweight navigation tests without ambient pytest plugins:
 

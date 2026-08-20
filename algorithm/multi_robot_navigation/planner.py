@@ -138,7 +138,8 @@ def discover_dbcbs_root() -> Path:
         raise FileNotFoundError(
             "EAI db-CBS is not built; missing: "
             + ", ".join(missing)
-            + ". Run algorithm/dbcbs/build_native.sh in env_isaaclab."
+            + ". Run algorithm/multi_robot_navigation/build_native.sh "
+            "in env_isaaclab."
         )
     return root
 
