@@ -3,6 +3,11 @@ set -euo pipefail
 
 Z1_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 Z1_PROJECT_ROOT="$(cd "${Z1_SCRIPT_DIR}/../../.." && pwd)"
+# shellcheck source=tools/ros_distro.sh
+source "${Z1_PROJECT_ROOT}/tools/ros_distro.sh"
+EAI_ROS_DISTRO="$(eai_resolve_ros_distro)" || exit $?
+EAI_SYSTEM_ROS_ROOT="/opt/ros/${EAI_ROS_DISTRO}"
+export EAI_ROS_DISTRO EAI_SYSTEM_ROS_ROOT
 
 ISAACSIM_ROOT="${ISAACSIM_ROOT:-${HOME}/isaacsim/_build/linux-x86_64/release}"
 ISAACSIM_CONDA_ENV="${ISAACSIM_CONDA_ENV:-}"
@@ -37,11 +42,15 @@ filter_colon_var() {
 export -f filter_colon_var
 
 source_ros_env() {
-    if [[ "${Z1_SOURCE_SYSTEM_ROS}" == "1" && -f /opt/ros/humble/setup.bash ]]; then
+    if [[ "${Z1_SOURCE_SYSTEM_ROS}" == "1" ]]; then
+        if [[ ! -f "${EAI_SYSTEM_ROS_ROOT}/setup.bash" ]]; then
+            echo "System ROS2 ${EAI_ROS_DISTRO} not found: ${EAI_SYSTEM_ROS_ROOT}/setup.bash" >&2
+            return 1
+        fi
         # ROS setup scripts use unset variables internally on some installs.
         set +u
         # shellcheck disable=SC1091
-        source /opt/ros/humble/setup.bash
+        source "${EAI_SYSTEM_ROS_ROOT}/setup.bash"
         set -u
     else
         unset ROS_DISTRO
@@ -52,6 +61,7 @@ source_ros_env() {
         unset OLD_PYTHONPATH
         filter_colon_var LD_LIBRARY_PATH
         filter_colon_var PYTHONPATH
+        export ROS_DISTRO="${EAI_ROS_DISTRO}"
     fi
 
     if [[ -f "${ISAACSIM_ROOT}/setup_ros_env.sh" ]]; then
@@ -127,8 +137,12 @@ run_with_conda_env() {
         shift 3
         set +u
         source "${ISAACSIM_ROOT}/setup_conda_env.sh"
-        if [[ "${Z1_SOURCE_SYSTEM_ROS:-0}" == "1" && -f /opt/ros/humble/setup.bash ]]; then
-            source /opt/ros/humble/setup.bash
+        if [[ "${Z1_SOURCE_SYSTEM_ROS:-0}" == "1" ]]; then
+            if [[ ! -f "${EAI_SYSTEM_ROS_ROOT}/setup.bash" ]]; then
+                echo "System ROS2 ${EAI_ROS_DISTRO} not found: ${EAI_SYSTEM_ROS_ROOT}/setup.bash" >&2
+                exit 1
+            fi
+            source "${EAI_SYSTEM_ROS_ROOT}/setup.bash"
         else
             unset ROS_DISTRO
             unset ROS_VERSION
@@ -138,6 +152,7 @@ run_with_conda_env() {
             unset OLD_PYTHONPATH
             filter_colon_var LD_LIBRARY_PATH
             filter_colon_var PYTHONPATH
+            export ROS_DISTRO="${EAI_ROS_DISTRO}"
         fi
         source "${ISAACSIM_ROOT}/setup_ros_env.sh"
         set -u

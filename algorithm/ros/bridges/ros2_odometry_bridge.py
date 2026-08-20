@@ -45,13 +45,14 @@ try:
     from nav_msgs.msg import Odometry
 except ImportError as e:
     error_msg = str(e)
+    ros_distro = os.environ.get("ROS_DISTRO", "humble")
     print(f"❌ 错误: 无法导入 rclpy 或 nav_msgs")
     print(f"   错误详情: {error_msg}")
     print(f"\n   解决方案:")
     print(f"   1. 确保已退出 conda 环境:")
     print(f"      conda deactivate")
     print(f"   2. 确保已 source ROS2 setup.bash:")
-    print(f"      source /opt/ros/humble/setup.bash")
+    print(f"      source /opt/ros/{ros_distro}/setup.bash")
     print(f"   3. 然后重新运行此脚本")
     print(f"\n   当前 Python 版本: {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")
     sys.exit(1)
@@ -225,4 +226,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -96,7 +96,7 @@ The README summarizes the supported surface. Use the detailed guides as the sour
 
 ## Quick Start
 
-Before starting, install **Ubuntu 22.04**, **Isaac Sim 5.1**, and **Isaac Lab 2.x** with its `env_isaaclab` conda environment. ROS2 Humble is optional unless you use ROS2 or Nav2 workflows.
+Before starting, install **Ubuntu 22.04**, **Isaac Sim 5.1**, and **Isaac Lab 2.x** with its `env_isaaclab` conda environment. ROS2 is optional unless you use ROS2 or Nav2 workflows; Humble remains the validated system-ROS baseline.
 
 Request access to the gated [EAI Simulator assets dataset](https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets), then run:
 
@@ -105,6 +105,8 @@ git clone https://github.com/roso-lab/eai-simulator.git
 cd eai-simulator
 conda activate env_isaaclab
 ./tools/install_packages.sh
+# Or select the Jazzy bridge backend for an already prepared Jazzy environment:
+# ./tools/install_packages.sh --ros-distro jazzy
 hf auth login
 python simulator.py --env robo
 ```

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import termios
 import time
@@ -121,13 +122,12 @@ def _import_ros_modules():
 
 def _raise_ros_import_error(exc: ModuleNotFoundError) -> None:
     message = str(exc)
-    if "_rclpy_pybind11" in message or sys.version_info[:2] != (3, 10):
-        # ROS Humble's rclpy binary in this workspace targets system Python 3.10;
-        # the Isaac Lab conda environment is Python 3.11.
+    if "_rclpy_pybind11" in message or sys.prefix != sys.base_prefix:
+        ros_distro = os.environ.get("ROS_DISTRO", "humble")
         python3 = "/usr/bin/python3"
-        hint_command = f"source /opt/ros/humble/setup.bash && {python3} algorithm/keyboard/keyboard.py"
+        hint_command = f"source /opt/ros/{ros_distro}/setup.bash && {python3} algorithm/keyboard/keyboard.py"
         raise SystemExit(
-            "[EAI Keyboard] ROS Humble rclpy requires Python 3.10. "
+            f"[EAI Keyboard] ROS2 {ros_distro} rclpy is unavailable in the current Python. "
             f"Current Python is {sys.version.split()[0]} ({sys.executable}).\n"
             f"Run with ROS Python instead:\n  {hint_command}"
         ) from exc

@@ -37,7 +37,7 @@ All repository paths in this guide are relative to the repository root. All comm
 
 ### ROS2 and Python Boundaries
 
-ROS2 Humble is optional for the core simulator and required only for ROS2 or Nav2 workflows. ROS2 command-line tools and Python programs that import `rclpy` often need the system Python 3.10 supplied with ROS2 Humble rather than the Python interpreter in `env_isaaclab`. Keep the simulator and system ROS Python environments distinct unless a workflow explicitly integrates them.
+ROS2 is optional for the core simulator and required only for ROS2 or Nav2 workflows. Humble on Ubuntu 22.04 remains the validated system-ROS baseline. The installer and runtime can select the Isaac Sim Humble or Jazzy bridge through `--ros-distro`/`ROS_DISTRO`, but this selection does not install system ROS or establish a validated Ubuntu 24.04/Jazzy Nav2 baseline. ROS2 command-line tools and Python programs that import `rclpy` must use the Python supplied by the selected system ROS rather than the Python interpreter in `env_isaaclab`. Keep the simulator and system ROS Python environments distinct unless a workflow explicitly integrates them.
 
 ### Animated Humans and PhysX
 
@@ -109,9 +109,11 @@ The standard installer installs the three repository packages in editable mode:
 
 ```bash
 ./tools/install_packages.sh
+# Or select the bridge backend for an already prepared Jazzy environment:
+./tools/install_packages.sh --ros-distro jazzy
 ```
 
-The current script also checks for the Ubuntu package `libxcb-cursor0`. If it is missing, the script runs `apt-get update` and `apt-get install -y libxcb-cursor0`, using `sudo` when the current user is not root. Review this system-level change before running the script in a controlled or shared environment.
+The installer accepts only `humble` or `jazzy`, resolving an explicit option before an existing `ROS_DISTRO`, an installed selection, and finally the Humble default. It stores the selection below the current Python prefix at `share/eai-simulator/ros_distro`; it does not install ROS2, modify repository source, or edit shell startup files. The current script also checks for the Ubuntu package `libxcb-cursor0`. If it is missing, the script runs `apt-get update` and `apt-get install -y libxcb-cursor0`, using `sudo` when the current user is not root. Review this system-level change before running the script in a controlled or shared environment.
 
 When system packages are managed separately, or when bare `pip` cannot be verified as belonging to `env_isaaclab`, use these controlled editable installs instead:
 
@@ -140,6 +142,7 @@ These checks do not start Isaac Sim, use a GPU, load ROS2, or download assets:
 ```bash
 git config --get core.hooksPath
 bash -n tools/setup-git-hooks.sh tools/install_packages.sh
+python tools/check_ros_distro_config.py
 python -m pip show EAI EAI_assets EAI_hmrs
 git status --short
 ```
@@ -1494,11 +1497,11 @@ Do not turn a local human-pack checksum mismatch, missing ignored payload, or di
 
 ### Simulator and System ROS Process Boundaries
 
-Run `simulator.py` in `env_isaaclab`. Run external programs that import ROS Humble `rclpy`, Nav2 nodes, RViz2, and ROS CLI tools in a separate shell using the system ROS Python 3.10 after sourcing the system path `/opt/ros/humble/setup.bash`. Sourcing ROS into the Isaac Conda shell does not change the ABI of its Python interpreter and can mix incompatible Python and shared libraries.
+Run `simulator.py` in `env_isaaclab`. Run external programs that import `rclpy`, Nav2 nodes, RViz2, and ROS CLI tools in a separate shell using the selected system ROS Python after sourcing `/opt/ros/$ROS_DISTRO/setup.bash`. Sourcing ROS into the Isaac Conda shell does not change the ABI of its Python interpreter and can mix incompatible Python and shared libraries. Humble/system Python 3.10 remains the tracked live-test baseline.
 
-`algorithm/keyboard/keyboard.py` detects the common `_rclpy_pybind11`/Python-version mismatch and tells the operator to use `/usr/bin/python3`; it does not re-exec automatically. `algorithm/ros/nav2/tf_bridge.py` does re-exec to `EAI_NAV2_ROS_PYTHON` or `/usr/bin/python3` when it detects Conda or a non-3.10 ABI, unless `EAI_NAV2_NO_REEXEC=1`. The unified Nav2 launch also uses `EAI_NAV2_ROS_PYTHON` for that bridge. Treat these as process boundaries, not permission to merge the simulator and system ROS environments.
+`algorithm/keyboard/keyboard.py` detects the common `_rclpy_pybind11`/Conda mismatch and tells the operator to use `/usr/bin/python3`; it does not re-exec automatically. `algorithm/ros/nav2/tf_bridge.py` re-execs to `EAI_NAV2_ROS_PYTHON` or `/usr/bin/python3` when it detects Conda, unless `EAI_NAV2_NO_REEXEC=1`. The unified Nav2 launch also uses `EAI_NAV2_ROS_PYTHON` for that bridge. Treat these as process boundaries, not permission to merge the simulator and system ROS environments.
 
-Before application launch, `simulator.py` looks for the Isaac ROS2 bridge under `ISAAC_ROS_PATH`, then `EAI_ISAACSIM_ROOT` or `ISAACSIM_ROOT`, followed by conventional user install locations. When found, it sets `ISAAC_ROS_PATH` and prepends the bridge `lib` and prefix paths. The launcher itself uses `setdefault()` for `ROS_DISTRO=humble` and `RMW_IMPLEMENTATION=rmw_fastrtps_cpp`, but importing the current Orsus or LiDAR modules normally assigns those values directly and can overwrite caller choices with Fast DDS unless their sensor ROS-environment setup is disabled. Diagnose the process's final environment rather than assuming an explicit earlier RMW value survived sensor imports.
+Before application launch, `simulator.py` resolves the distro from an explicit value, `ROS_DISTRO`, the installer-managed file, or the Humble default. It looks for the matching Isaac ROS2 bridge under a compatible `ISAAC_ROS_PATH`, then `EAI_ISAACSIM_ROOT` or `ISAACSIM_ROOT`, conventional user install locations, and Python site-packages. When found, it sets `ISAAC_ROS_PATH` and prepends the bridge `lib` and prefix paths. Orsus, RealSense, and LiDAR reuse this resolver and no longer overwrite a caller's selected distro. `RMW_IMPLEMENTATION` defaults to Fast DDS only when unset.
 
 `algorithm/ros/nav2/run_nav2.sh` launches system Nav2 under `env -i` with CycloneDDS but does not forward `ROS_DOMAIN_ID` or other discovery variables. Its Nav2 side therefore uses domain 0, while its simulator child can inherit a caller's nonzero domain; the script currently requires the simulator/default domain to remain 0. A manual launch can inherit an explicitly matched `ROS_DOMAIN_ID` and relevant discovery/network settings in both prepared process environments. Confirm the actual domain, RMW, and discovery configuration on each side.
 

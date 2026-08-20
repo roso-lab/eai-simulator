@@ -449,49 +449,20 @@ def _load_asset_resolver():
     return module
 
 
-def find_isaac_ros_bridge_path(ros_distro: str = "humble") -> str | None:
-    existing = os.environ.get("ISAAC_ROS_PATH")
-    if existing and Path(existing).exists():
-        return existing
+def find_isaac_ros_bridge_path(ros_distro: str | None = None) -> str | None:
+    _ensure_repo_sources_on_path()
+    from EAI_assets.ros_config import find_isaac_ros_bridge_path as find_bridge
 
-    relative = Path("exts") / "isaacsim.ros2.bridge" / ros_distro
-    roots = []
-    env_root = os.environ.get("EAI_ISAACSIM_ROOT") or os.environ.get("ISAACSIM_ROOT")
-    if env_root:
-        roots.append(Path(env_root).expanduser())
-    roots.extend(
-        Path(candidate).expanduser()
-        for candidate in ("~/isaacsim", "~/IsaacSim", "~/isaac-sim", "~/isaacsim-6.0.1")
-    )
-    for root in roots:
-        for candidate in (
-            root / "_build" / "linux-x86_64" / "release" / relative,
-            root / relative,
-        ):
-            if candidate.exists():
-                return str(candidate)
-    return None
+    return find_bridge(ros_distro)
 
 
-def _prepend_env_path(name: str, path: str) -> None:
-    current = os.environ.get(name, "")
-    parts = [part for part in current.split(":") if part]
-    if path not in parts:
-        os.environ[name] = ":".join([path, *parts])
+def configure_isaac_ros_bridge_env(ros_distro: str | None = None) -> str | None:
+    _ensure_repo_sources_on_path()
+    from EAI_assets.ros_config import configure_ros_env
 
-
-def configure_isaac_ros_bridge_env(ros_distro: str = "humble") -> str | None:
-    os.environ.setdefault("ROS_DISTRO", ros_distro)
-    os.environ.setdefault("RMW_IMPLEMENTATION", "rmw_fastrtps_cpp")
-    bridge_path = find_isaac_ros_bridge_path(ros_distro)
+    bridge_path = configure_ros_env(ros_distro)
     if bridge_path is None:
         print("[EAI Simulator] Warning: Could not find Isaac ROS Bridge path before launch.")
-        return None
-
-    os.environ["ISAAC_ROS_PATH"] = bridge_path
-    lib_path = str(Path(bridge_path) / "lib")
-    _prepend_env_path("LD_LIBRARY_PATH", lib_path)
-    _prepend_env_path("AMENT_PREFIX_PATH", bridge_path)
     return bridge_path
 
 

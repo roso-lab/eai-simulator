@@ -5,7 +5,7 @@
 会先用 nav2_setup.py 生成对应机器人的 view.rviz（scan 话题带正确命名空间），再启动 RViz。
 
 用法（系统 ROS2 环境）：
-    source /opt/ros/humble/setup.bash
+    source /opt/ros/$ROS_DISTRO/setup.bash
     ros2 launch algorithm/ros/nav2/rviz.launch.py                 # 默认 carter_1
     ros2 launch algorithm/ros/nav2/rviz.launch.py robot_name:=go2_1 robot_type:=Go2
 """

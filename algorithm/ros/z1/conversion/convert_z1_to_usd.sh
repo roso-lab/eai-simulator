@@ -3,6 +3,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 EAI_SIM_ROOT="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
+# shellcheck source=tools/ros_distro.sh
+source "${EAI_SIM_ROOT}/tools/ros_distro.sh"
+ROS_DISTRO_NAME="$(eai_resolve_ros_distro)" || exit $?
+ROS_SETUP="/opt/ros/${ROS_DISTRO_NAME}/setup.bash"
 
 ISAACSIM_ROOT="${ISAACSIM_ROOT:-${HOME}/isaacsim/_build/linux-x86_64/release}"
 ISAACSIM_CONDA_ENV="${ISAACSIM_CONDA_ENV:-}"
@@ -22,10 +26,10 @@ fi
 
 mkdir -p "$(dirname "${XACRO_TMP}")" "$(dirname "${URDF_OUT}")" "${USD_OUT_DIR}"
 
-if [[ -f /opt/ros/humble/setup.bash ]]; then
+if [[ -f "${ROS_SETUP}" ]]; then
     set +u
-    # shellcheck disable=SC1091
-    source /opt/ros/humble/setup.bash
+    # shellcheck disable=SC1090
+    source "${ROS_SETUP}"
     set -u
 fi
 
