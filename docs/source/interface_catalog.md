@@ -50,7 +50,7 @@ Iris、Pegasus 和 CF2X 的内置前视单目相机使用相同的 ROS2 接口�
 | `ros.aerial_camera_image` | `/{robot}/camera/image_raw` | `sensor_msgs/msg/Image` |
 | `ros.aerial_camera_info` | `/{robot}/camera/camera_info` | `sensor_msgs/msg/CameraInfo` |
 
-传感器默认安装在无人机上；只有在 Env DIY 的 Tools 中选择 `camera` 后，才会发布上述图像和标定 topic。Camera Tool 独立于 `ros` Tool，可以只选择 Camera 而不选择 ROS。`{robot}` 替换为场景中的实例名，例如 `iris_1`、`pegasus_1` 或 `cf2x_1`。
+传感器默认安装在无人机上；只有在 Env DIY 的 Tools 中选择 Camera 后，才会发布上述图像和标定 topic。Camera Tool 独立于导航接口（Navigation I/O），可以只选择 Camera。导航接口在环境 JSON 中仍使用内部键 `ros`。`{robot}` 替换为场景中的实例名，例如 `iris_1`、`pegasus_1` 或 `cf2x_1`。
 
 MuSHR Nano v2 的内置前视单目相机使用独立的接口声明：
 
@@ -61,7 +61,7 @@ MuSHR Nano v2 的内置前视单目相机使用独立的接口声明：
 
 选择 `camera` tool 后才会创建 MuSHR 的相机 prim 和发布接口。该内置相机使用 `/camera/*`，不依赖 Orsus；MuSHR 不支持挂载 Orsus。包含 MuSHR 内置相机或 Orsus 的传感器场景必须使用 `--num_envs 1`。
 
-Orsus 的双目图像接口为 `ros.orsus.left_image`（`/{robot}/Orsus_L_cam`）和 `ros.orsus.right_image`（`/{robot}/Orsus_R_cam`），消息类型同为 `sensor_msgs/msg/Image`，也由 Camera Tool 控制。Orsus 点云、里程计和 scan 仍由 ROS Tool 控制。
+Orsus 的双目图像接口为 `ros.orsus.left_image`（`/{robot}/Orsus_L_cam`）和 `ros.orsus.right_image`（`/{robot}/Orsus_R_cam`），消息类型同为 `sensor_msgs/msg/Image`，也由 Camera Tool 控制。Orsus 点云、里程计和 scan 仍由导航接口控制。
 
 统一查看当前及稍后启动的全部相机图像：
 
@@ -78,7 +78,7 @@ python3 algorithm/ros/tools/vis_sensors.py --sensor camera --namespace /iris_1
 
 ## 键盘运动接口
 
-Keyboard Tool 与 ROS Tool 都可以为机器人启用 `/<robot>/cmd_vel` 订阅。无人机使用 `ros.aerial_cmd_vel` 接口和 `geometry_msgs/msg/Twist` 消息；键盘发布器的按键映射如下：
+Keyboard Tool 与导航接口都可以为机器人启用 `/<robot>/cmd_vel` 订阅。无人机使用 `ros.aerial_cmd_vel` 接口和 `geometry_msgs/msg/Twist` 消息；键盘发布器的按键映射如下：
 
 | 按键 | Twist 字段 | 动作 |
 |---|---|---|

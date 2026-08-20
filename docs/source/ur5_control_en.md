@@ -13,7 +13,7 @@ UR5/Z1 is not a standalone robot, but a host attachment under `Payloads → Mani
 | UR5 | `UR5_IK_CFG` | `ManipulatorIkControllerCfg` + DLS Differential IK | None |
 | Z1 | `Z1_IK_CFG` | `ManipulatorIkControllerCfg` + DLS Differential IK | `gripper_command` / `gripper_state` |
 
-Both create independent `<robot>_arm` articulation and connect to the host through FixedJoint. The host's chassis/leg controller runs separately from the robotic arm controller; the same host cannot mount UR5 and Z1 at the same time. The robot attachment itself will enable ROS2 OmniGraph, so additional `ros` or `keyboard` tools are only required if hosting `cmd_vel` is required.
+Both create independent `<robot>_arm` articulation and connect to the host through FixedJoint. The host's chassis/leg controller runs separately from the robotic arm controller; the same host cannot mount UR5 and Z1 at the same time. The robot attachment itself enables ROS2 OmniGraph, so Navigation I/O (internal key `ros`) or the Keyboard Tool is only required when the host needs `cmd_vel`.
 
 ### From Env DIY to ROS2 control
 

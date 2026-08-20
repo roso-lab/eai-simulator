@@ -50,7 +50,7 @@ Environment JSON
   → MultiRobotDirectEnv starts the formal environment
 ```
 
-The `camera` tool exclusively controls Orsus left/right image publishing, while the `ros` tool exclusively controls point-cloud and odometry publishing. Iris, Pegasus, and CF2X carry a camera, `Example_Rotary` LiDAR, and base sensors by default; Camera/ROS Tools only gate the corresponding topic publishers. A ground robot can select Camera Tool only after mounting Orsus. UR5/Z1 automatically creates its OmniGraph with the arm attachment and does not require an additional `ros` tool.
+The Camera Tool exclusively controls Orsus left/right image publishing, while Navigation I/O exclusively controls point-cloud and odometry publishing. Navigation I/O retains the internal `ros` key in environment JSON. Iris, Pegasus, and CF2X carry a camera, `Example_Rotary` LiDAR, and base sensors by default; Camera and Navigation I/O only gate the corresponding topic publishers. A ground robot can select Camera only after mounting Orsus. UR5/Z1 automatically creates its OmniGraph with the arm attachment and does not require Navigation I/O.
 
 ## Compatibility
 

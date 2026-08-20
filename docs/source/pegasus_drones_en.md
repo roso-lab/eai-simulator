@@ -16,12 +16,13 @@ ROS. Keyboard or ROS `Twist` `linear.x/y/z` updates the 3D position goal;
 `iris`, `pegasus`, and `cf2x` include a forward-facing monocular camera and an
 aerial LiDAR by default. The sensor resources remain in the scene even when no
 tool is selected. Their ROS 2 publishers are controlled by two independent Env DIY
-tools. Adding the `camera` tool to an aerial robot branch publishes
+tools. Adding Camera to an aerial robot branch publishes
 `/<robot>/camera/image_raw` (`sensor_msgs/msg/Image`) and
-`/<robot>/camera/camera_info` (`sensor_msgs/msg/CameraInfo`). Adding the `ros`
-tool publishes `/<robot>/lidar/pointcloud` (`sensor_msgs/msg/PointCloud2`). A
-camera-only branch does not publish the LiDAR topic, a ROS-only branch does not
-publish camera topics, and selecting both tools publishes both streams.
+`/<robot>/camera/camera_info` (`sensor_msgs/msg/CameraInfo`). Adding Navigation
+I/O publishes `/<robot>/lidar/pointcloud` (`sensor_msgs/msg/PointCloud2`). A
+Camera-only branch does not publish the LiDAR topic, a Navigation-I/O-only branch
+does not publish camera topics, and selecting both tools publishes both streams.
+Navigation I/O retains the internal `ros` key in environment JSON.
 
 After starting the simulator, run the unified sensor visualizer from a ROS 2
 Humble terminal. With no arguments it dynamically discovers every
@@ -43,7 +44,7 @@ python3 algorithm/ros/tools/vis_sensors.py --sensor camera --namespace /iris_1
 
 `iris`, `pegasus`, and `cf2x` also include an accelerometer and gyroscope with
 white noise, random walk, turn-on bias, and first-order time-varying bias, plus
-GPS, magnetometer, and barometer. These models exist by default; the `ros` tool
+GPS, magnetometer, and barometer. These models exist by default; Navigation I/O
 on the same aerial robot branch only controls their ROS topic publication.
 
 The LiDAR on all three aerial robots uses Pegasus Simulator's original

@@ -14,11 +14,11 @@ python simulator.py --env=pegasus_drones --device=cuda:0
 控制 topic 是 `/iris_1/cmd_vel`。
 
 `iris`、`pegasus` 和 `cf2x` 默认均带有前视单目相机与无人机 LiDAR；未选择 Tool 时，
-传感器实体仍存在于场景中。ROS 2 发布使用两个相互独立的 Env DIY tool：同一无人机分支添加 `camera` tool 后，
+传感器实体仍存在于场景中。ROS 2 发布使用两个相互独立的 Env DIY tool：同一无人机分支添加 Camera 后，
 发布 `/<robot>/camera/image_raw`（`sensor_msgs/msg/Image`）和
-`/<robot>/camera/camera_info`（`sensor_msgs/msg/CameraInfo`）；添加 `ros` tool 后，
+`/<robot>/camera/camera_info`（`sensor_msgs/msg/CameraInfo`）；添加导航接口（Navigation I/O）后，
 发布 `/<robot>/lidar/pointcloud`（`sensor_msgs/msg/PointCloud2`）。因此只选择
-`camera` 不会发布 LiDAR topic，只选择 `ros` 也不会发布相机 topic，两者都选择时才同时发布。
+Camera 不会发布 LiDAR topic，只选择导航接口也不会发布相机 topic，两者都选择时才同时发布。导航接口在环境 JSON 中仍使用内部键 `ros`。
 
 启动仿真后，可在 ROS 2 Humble 终端直接运行统一传感器查看器。无参数模式会动态发现
 当前 ROS graph 中的所有 `sensor_msgs/msg/Image` topic，因此同时支持 Iris、Pegasus、
@@ -37,7 +37,7 @@ python3 algorithm/ros/tools/vis_sensors.py --sensor camera --namespace /iris_1
 
 `iris`、`pegasus` 和 `cf2x` 均包含带白噪声、随机游走、启动偏置和一阶时变偏置的
 加速度计与陀螺仪，以及 GPS、磁力计和气压计。这些模型默认存在；同一无人机分支上的
-`ros` tool 只控制对应 ROS topic 的发布。
+导航接口只控制对应 ROS topic 的发布。
 
 三种无人机的 LiDAR 使用 Pegasus Simulator 原实现的
 `IsaacSensorCreateRtxLidar` 与 `Example_Rotary` 配置，不复用地面机器人的

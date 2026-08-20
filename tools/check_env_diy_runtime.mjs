@@ -36,12 +36,16 @@ const runtimeMarkup = [
   "data-download-json",
   "data-completion-download",
   'id="confirmation-dialog"',
+  'ros: { label: "Navigation I/O"',
+  "processed/tool/navigation_io.png",
   "DRAFT_KEY",
   "const conflictingSensorKey",
   "Orsus 与 LiDAR 不能同时挂载"
 ];
 
 const retiredMarkup = [
+  'ros: { label: "ROS"',
+  "processed/tool/ros.png",
   'data-testid="scene-canvas"',
   "Browser 2D",
   "palettePointerDrag",

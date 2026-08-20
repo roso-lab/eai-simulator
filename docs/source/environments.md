@@ -127,7 +127,7 @@ Robots                         # 宿主机器人
 Payloads
   ├── Manipulators              # UR5、Z1
   └── Sensors                   # Orsus、LiDAR
-Tools                          # ROS、Keyboard
+Tools                          # Navigation I/O、Keyboard
 ```
 
 UR5 和 Z1 是必须安装在宿主机器人上的机械臂，不是传感器，也不是可以独立生成的机器人。在 Env DIY 中，Go2、B2、M20、Scout 和 Lite3 支持 `ur5` payload；Carter、Go2、B2、M20、Scout 和 Lite3 支持 `z1` payload。同一机器人上 UR5 和 Z1 不能同时挂载；UI、JSON 解析、存储加载和 Builder 都会检查这一互斥规则。
@@ -156,7 +156,7 @@ Z1 另外提供独立夹爪接口：
 
 通用物理挂载原语定义在 `source/EAI_assets/EAI_assets/robots/manipulator_mount.py`，UR5/Z1 的宿主 profile 分别位于 `ur5_mount.py` 和 `z1_mount.py`。不同宿主只配置安装刚体、局部安装位姿、质量/惯量比例和 self-collision；扩展新宿主时应新增 profile，不要复制整套 spawn 函数。
 
-`ur5` 或 `z1` 附件本身即可启用机械臂 topic，不需要额外添加 `ros` 附件。`ros` 附件主要用于启用底盘的 `/<robot>/cmd_vel`。
+`ur5` 或 `z1` 附件本身即可启用机械臂 topic，不需要额外添加导航接口（Navigation I/O）。导航接口在 JSON 中仍使用 `ros` 附件键，主要用于启用底盘的 `/<robot>/cmd_vel`。
 
 完整消息格式、控制命令和状态读取方式参见[机械臂](ur5_control.md)。
 

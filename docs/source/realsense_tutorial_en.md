@@ -13,13 +13,13 @@ Once mounted, the sensor provides four topics:
 | `/<robot>/RealsenseD455_rgb` | sensor_msgs/Image | 1280x720, rgb8 | `camera` tool |
 | `/<robot>/RealsenseD455_depth` | sensor_msgs/Image | 1280x720, 32FC1, in meters | `camera` tool |
 | `/<robot>/RealsenseD455_camera_info` | sensor_msgs/CameraInfo | camera intrinsics | `camera` tool |
-| `/<robot>/RealsenseD455_imu` | sensor_msgs/Imu | quaternion / angular velocity / linear acceleration (gravity included) | `ros` tool |
+| `/<robot>/RealsenseD455_imu` | sensor_msgs/Imu | quaternion / angular velocity / linear acceleration (gravity included) | Navigation I/O |
 
-The image and IMU publisher graphs are independent: the `camera` tool only toggles images, while the `ros` tool only toggles the IMU (the same gating scheme as Orsus).
+The image and IMU publisher graphs are independent: the Camera Tool only toggles images, while Navigation I/O only toggles the IMU (the same gating scheme as Orsus). For compatibility with existing environments, Navigation I/O retains the `ros` key in JSON.
 
 ### 1.1 Mounting via Env DIY
 
-Select **RealSense D455** in the Payloads step of Env DIY (and select the `camera` and `ros` tools as needed). The three entry points are:
+Select **RealSense D455** in the Payloads step of Env DIY (and select Camera and Navigation I/O as needed). The three entry points are:
 
 - Terminal wizard: `python simulator.py`
 - Web editor: `python simulator.py --diy`
@@ -27,7 +27,7 @@ Select **RealSense D455** in the Payloads step of Env DIY (and select the `camer
 
 ### 1.2 Mounting via a JSON environment file
 
-Add the `realsense_d455` payload and the `camera`/`ros` tools to a robot in `source/EAI_hmrs/EAI_hmrs/envs/<name>.json` (see the tracked `mushr_realsense.json` for an example):
+Add the `realsense_d455` payload and the internal `camera`/`ros` tool keys to a robot in `source/EAI_hmrs/EAI_hmrs/envs/<name>.json` (see the tracked `mushr_realsense.json` for an example):
 
 ```json
 {
@@ -108,7 +108,7 @@ The IMU topic is `sensor_msgs/msg/Imu` and carries quaternion orientation, angul
 | Symptom | Check |
 |---|---|
 | Image topics not published | Confirm both the `realsense_d455` attachment and the `camera` tool are selected; the simulation log should show `[RealsenseD455] ... camera=on` |
-| IMU topic not published | Confirm the `ros` tool is selected; the log should show `imu=on`; in headless mode the topic may not register, which is expected |
+| IMU topic not published | Confirm Navigation I/O is selected; the log should show `imu=on`; in headless mode the topic may not register, which is expected |
 
 ## References
 
