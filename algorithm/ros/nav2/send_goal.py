@@ -3,7 +3,7 @@
 发送 Nav2 导航目标（NavigateToPose action）到仿真中的 Carter。
 
 用法（系统 ROS2 环境）：
-    source /opt/ros/humble/setup.bash
+    source /opt/ros/$ROS_DISTRO/setup.bash
     /usr/bin/python3 algorithm/ros/nav2/send_goal.py --x 0.0 --y 0.0
     /usr/bin/python3 algorithm/ros/nav2/send_goal.py --x 2.0 --y -3.0 --yaw 1.57
 """

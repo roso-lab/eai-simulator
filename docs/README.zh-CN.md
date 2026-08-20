@@ -96,7 +96,7 @@ README 只概括支持范围，详细能力以专题文档为准：
 
 ## 快速开始
 
-开始前需要安装 **Ubuntu 22.04**、**Isaac Sim 5.1**、**Isaac Lab 2.x**，并准备 Isaac Lab 的 `env_isaaclab` conda 环境。只有 ROS2 或 Nav2 工作流需要 ROS2 Humble。
+开始前需要安装 **Ubuntu 22.04**、**Isaac Sim 5.1**、**Isaac Lab 2.x**，并准备 Isaac Lab 的 `env_isaaclab` conda 环境。只有 ROS2 或 Nav2 工作流需要 ROS2；Humble 仍是经过验证的系统 ROS 基线。
 
 先申请 gated [EAI Simulator 资产数据集](https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets)的访问权限，然后运行：
 
@@ -105,6 +105,8 @@ git clone https://github.com/roso-lab/eai-simulator.git
 cd eai-simulator
 conda activate env_isaaclab
 ./tools/install_packages.sh
+# 已准备 Jazzy 环境时可选择 Jazzy bridge：
+# ./tools/install_packages.sh --ros-distro jazzy
 hf auth login
 python simulator.py --env robo
 ```

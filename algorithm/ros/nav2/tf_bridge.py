@@ -15,7 +15,7 @@ Nav2 遵循 REP-105，需要完整 TF 链：map → odom → base_link → <sens
   4. map → odom 由 AMCL 提供（本节点不发），避免与 AMCL 冲突。
 
 用法：
-    source /opt/ros/humble/setup.bash
+    source /opt/ros/$ROS_DISTRO/setup.bash
     /usr/bin/python3 algorithm/ros/nav2/tf_bridge.py --ros-args -p robot:=carter_1
     /usr/bin/python3 algorithm/ros/nav2/tf_bridge.py --robot carter_1 --lidar-xyz 0.026,0.0,0.418 --lidar-rpy 0.0,0.339,0.0
 """
@@ -167,8 +167,7 @@ def _should_reexec_system_python() -> bool:
     if not os.path.exists(target) or _same_executable(sys.executable, target):
         return False
     in_conda = bool(os.environ.get("CONDA_PREFIX")) or "conda" in sys.executable
-    wrong_ros_abi = sys.version_info[:2] != (3, 10)
-    return in_conda or wrong_ros_abi
+    return in_conda
 
 
 def _reexec_system_python_if_needed() -> None:
@@ -190,10 +189,11 @@ def _load_ros_symbols():
         from sensor_msgs.msg import PointCloud2
         from tf2_ros import StaticTransformBroadcaster, TransformBroadcaster
     except Exception as exc:
+        ros_distro = os.environ.get("ROS_DISTRO", "humble")
         raise SystemExit(
             "无法导入 ROS2 rclpy。请先执行：\n"
             "  conda deactivate\n"
-            "  source /opt/ros/humble/setup.bash\n"
+            f"  source /opt/ros/{ros_distro}/setup.bash\n"
             "  /usr/bin/python3 algorithm/ros/nav2/tf_bridge.py "
             "--robot carter_1 --lidar-xyz 0.026,0.0,0.418\n"
             f"原始错误: {exc}"

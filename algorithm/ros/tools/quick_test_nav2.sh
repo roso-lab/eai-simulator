@@ -24,9 +24,10 @@ fi
 
 # 检查 ROS2
 if ! command -v ros2 &> /dev/null; then
+    ROS_DISTRO_NAME="${ROS_DISTRO:-humble}"
     echo "⚠️  警告: ROS2 未找到"
     echo "   ROS2 功能将不可用"
-    echo "   请确保已安装 ROS2 Humble 并 source setup.bash"
+    echo "   请确保已安装 ROS2 ${ROS_DISTRO_NAME} 并 source setup.bash"
     echo ""
 fi
 

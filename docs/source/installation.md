@@ -24,7 +24,8 @@
 
 ### 可选项
 
-- **ROS2 Humble**: 如果需要使用 Orsus 传感器和 ROS2 导航
+- **ROS2 Humble**: Orsus 和 ROS2/Nav2 工作流当前经过验证的系统 ROS 基线
+- **ROS2 Jazzy**: 可选择对应的 Isaac Sim bridge；系统 ROS 和 Nav2 依赖需另行准备与验证
 - **Git**: 用于克隆仓库
 
 ## 安装步骤
@@ -54,6 +55,9 @@ conda activate env_isaaclab
 # 安装所有包
 ./tools/install_packages.sh
 
+# 为当前 Python/Conda 环境选择 Jazzy bridge（默认 Humble）
+./tools/install_packages.sh --ros-distro jazzy
+
 # 查看帮助
 ./tools/install_packages.sh -h
 
@@ -63,6 +67,10 @@ conda activate env_isaaclab
 # 卸载所有包
 ./tools/install_packages.sh -u
 ```
+
+`--ros-distro` 接受 `humble` 或 `jazzy`，并将选择保存到当前 Python 环境的
+`share/eai-simulator/ros_distro`。已有的 `ROS_DISTRO` 环境变量优先级更高。
+该选项不会安装系统 ROS2、修改项目源码或修改 `~/.bashrc`。
 
 或者手动安装：
 
@@ -113,6 +121,10 @@ python simulator.py --env robo
 ```
 
 ## ROS2 配置（可选）
+
+Humble 是 Ubuntu 22.04 上经过验证的完整工作流。选择 Jazzy 时，EAI 会使用 Isaac Sim
+随附的 Jazzy bridge，但系统 ROS、对应 Python 和 Nav2 包仍需在兼容环境中单独安装。
+不要在同一进程中混用 Humble 的 `/opt/ros` 路径和 Jazzy bridge。
 
 ### 安装 ROS2 Humble
 
@@ -176,11 +188,11 @@ pip install -e source/EAI_hmrs
 **解决**:
 ```bash
 # 检查 ROS2 环境
-echo $ROS_DISTRO  # 应该输出 "humble"
+echo $ROS_DISTRO  # 应与安装时选择一致，例如 humble 或 jazzy
 
 # 如果未设置，手动设置
-source /opt/ros/humble/setup.bash
-export ROS_DISTRO=humble
+export ROS_DISTRO=humble  # 或 jazzy
+source "/opt/ros/${ROS_DISTRO}/setup.bash"
 ```
 
 ### Q4: 模型文件未找到

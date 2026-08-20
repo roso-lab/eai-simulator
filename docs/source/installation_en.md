@@ -24,7 +24,8 @@ This document details how to install and configure the EAI platform.
 
 ### Optional
 
-- **ROS2 Humble**: If you need to use Orsus sensor and ROS2 navigation
+- **ROS2 Humble**: The currently validated system ROS baseline for Orsus and ROS2/Nav2 workflows
+- **ROS2 Jazzy**: Its Isaac Sim bridge can be selected; system ROS and Nav2 dependencies require separate provisioning and validation
 - **Git**: used to clone the repository
 
 ## Installation steps
@@ -55,6 +56,9 @@ an administrator password.
 # Install all packages
 ./tools/install_packages.sh
 
+# Select the Jazzy bridge for the current Python/Conda environment (default: Humble)
+./tools/install_packages.sh --ros-distro jazzy
+
 # View help
 ./tools/install_packages.sh -h
 
@@ -64,6 +68,11 @@ an administrator password.
 # Uninstall all packages
 ./tools/install_packages.sh -u
 ```
+
+`--ros-distro` accepts `humble` or `jazzy` and stores the selection under
+`share/eai-simulator/ros_distro` in the current Python environment. An existing
+`ROS_DISTRO` environment variable takes precedence. This option does not install
+system ROS2, modify project source, or edit `~/.bashrc`.
 
 Or install manually:
 
@@ -114,6 +123,11 @@ python simulator.py --env robo
 ```
 
 ## ROS2 configuration (optional)
+
+Humble is the validated full workflow on Ubuntu 22.04. When Jazzy is selected,
+EAI uses the Jazzy bridge bundled with Isaac Sim, but system ROS, its matching
+Python, and Nav2 packages must still be installed in a compatible environment.
+Do not mix Humble `/opt/ros` paths with the Jazzy bridge in one process.
 
 ### Install ROS2 Humble
 
@@ -177,11 +191,11 @@ pip install -e source/EAI_hmrs
 **solve**:
 ```bash
 # Check ROS2 environment
-echo $ROS_DISTRO # should output "humble"
+echo $ROS_DISTRO # should match the install selection, such as humble or jazzy
 
 # If not set, set it manually
-source /opt/ros/humble/setup.bash
-export ROS_DISTRO=humble
+export ROS_DISTRO=humble # or jazzy
+source "/opt/ros/${ROS_DISTRO}/setup.bash"
 ```
 
 ### Q4: Model file not found

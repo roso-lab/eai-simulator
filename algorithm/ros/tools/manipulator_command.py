@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import os
 import time
 from dataclasses import dataclass
 from typing import Any, Sequence
@@ -50,7 +51,8 @@ def _load_ros():
         from rclpy.node import Node
         from sensor_msgs.msg import JointState
     except (ImportError, ModuleNotFoundError) as exc:
-        raise SystemExit("Run with ROS Humble Python 3.10 after sourcing /opt/ros/humble/setup.bash") from exc
+        ros_distro = os.environ.get("ROS_DISTRO", "humble")
+        raise SystemExit(f"Run with ROS2 {ros_distro} Python after sourcing /opt/ros/{ros_distro}/setup.bash") from exc
     return rclpy, Node, PoseStamped, JointState
 
 
