@@ -4,7 +4,7 @@
       "attachments": [
         {
           "controller": null,
-          "type": "ros"
+          "type": "navigation_io"
         }
       ],
       "controller": {
@@ -25,7 +25,7 @@
       "attachments": [
         {
           "controller": null,
-          "type": "ros"
+          "type": "navigation_io"
         }
       ],
       "controller": {
@@ -46,7 +46,7 @@
       "attachments": [
         {
           "controller": null,
-          "type": "ros"
+          "type": "navigation_io"
         }
       ],
       "controller": {

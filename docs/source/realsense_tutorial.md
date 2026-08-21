@@ -15,7 +15,7 @@ RealSense D455 是集成 **RGB 彩色相机、深度相机与 6 轴 IMU** 的传
 | `/<robot>/RealsenseD455_camera_info` | sensor_msgs/CameraInfo | 相机内参 | `camera` tool |
 | `/<robot>/RealsenseD455_imu` | sensor_msgs/Imu | 四元数 / 角速度 / 线加速度（含重力） | Navigation I/O |
 
-图像与 IMU 两组发布图相互独立：Camera Tool 只开关图像，导航接口（Navigation I/O）只开关 IMU（与 Orsus 的门控方式一致）。为兼容现有环境，导航接口在 JSON 中仍使用 `ros` 键。
+图像与 IMU 两组发布图相互独立：Camera Tool 只开关图像，导航接口（Navigation I/O）只开关 IMU（与 Orsus 的门控方式一致）。导航接口在 JSON 中使用 `navigation_io` 键。
 
 ### 1.1 通过 Env DIY 装载
 
@@ -27,7 +27,7 @@ RealSense D455 是集成 **RGB 彩色相机、深度相机与 6 轴 IMU** 的传
 
 ### 1.2 通过 JSON 环境文件装载
 
-在 `source/EAI_hmrs/EAI_hmrs/envs/<name>.json` 中给机器人添加 `realsense_d455` 载荷与内部 `camera`/`ros` 工具键（示例见仓库中的 `mushr_realsense.json`）：
+在 `source/EAI_hmrs/EAI_hmrs/envs/<name>.json` 中给机器人添加 `realsense_d455` 载荷与内部 `camera`/`navigation_io` 工具键（示例见仓库中的 `mushr_realsense.json`）：
 
 ```json
 {
@@ -40,7 +40,7 @@ RealSense D455 是集成 **RGB 彩色相机、深度相机与 6 轴 IMU** 的传
       "attachments": [
         {"type": "realsense_d455"},
         {"type": "camera"},
-        {"type": "ros"}
+        {"type": "navigation_io"}
       ]
     }
   ]

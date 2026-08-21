@@ -2,7 +2,7 @@ id: sensor.realsense_d455
 name: RealSense D455
 category: sensor
 models: [realsense_d455]
-description: RGB image, depth image, camera info, and IMU interfaces published by the Intel RealSense D455 payload. Images are gated by the camera tool; the IMU is gated by the ros tool.
+description: RGB image, depth image, camera info, and IMU interfaces published by the Intel RealSense D455 payload. Images are gated by Camera; the IMU is gated by Navigation I/O.
 interfaces:
   - id: ros.realsense_d455.rgb_image
     name: RGB camera image
@@ -46,5 +46,5 @@ interfaces:
     data_type: sensor_msgs/msg/Imu
     description: D455 6-axis IMU (linear acceleration with gravity, angular velocity, orientation).
     example: ros2 topic echo --once /{robot}/RealsenseD455_imu
-    requires_attachment: ros
+    requires_attachment: navigation_io
     read_only_test: {type: ros_topic}

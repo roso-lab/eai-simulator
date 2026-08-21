@@ -50,7 +50,7 @@ The built-in forward-facing monocular cameras on Iris, Pegasus, and CF2X use the
 | `ros.aerial_camera_image` | `/{robot}/camera/image_raw` | `sensor_msgs/msg/Image` |
 | `ros.aerial_camera_info` | `/{robot}/camera/camera_info` | `sensor_msgs/msg/CameraInfo` |
 
-The sensors are installed on the aerial robots by default; image and calibration topics are published only when Camera is selected under Tools in Env DIY. The Camera Tool is independent of Navigation I/O, so Camera can be selected on its own. Navigation I/O retains the internal `ros` key in environment JSON. `{robot}` is replaced by the scene instance name, such as `iris_1`, `pegasus_1`, or `cf2x_1`.
+The sensors are installed on the aerial robots by default; image and calibration topics are published only when Camera is selected under Tools in Env DIY. The Camera Tool is independent of Navigation I/O, so Camera can be selected on its own. Navigation I/O uses the `navigation_io` key in environment JSON. `{robot}` is replaced by the scene instance name, such as `iris_1`, `pegasus_1`, or `cf2x_1`.
 
 The built-in forward-facing monocular camera on MuSHR Nano v2 has separate interface declarations:
 

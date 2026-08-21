@@ -15,7 +15,7 @@
         },
         {
           "controller": null,
-          "type": "ros"
+          "type": "navigation_io"
         }
       ],
       "controller": {
@@ -30,6 +30,6 @@
     }
   ],
   "scene_key": "plane",
-  "task_name": "m20_ur5_kb_ros",
+  "task_name": "m20_ur5_kb_navigation_io",
   "version": 1
 }

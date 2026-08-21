@@ -56,13 +56,13 @@ ROBOT_LABELS = {
 
 TOOL_LABELS = {
     "camera": "Camera",
-    "ros": "Navigation I/O",
+    "navigation_io": "Navigation I/O",
     "keyboard": "Keyboard",
 }
 
 TOOL_ASSET_NAMES = {
     "camera": "camera",
-    "ros": "navigation_io",
+    "navigation_io": "navigation_io",
     "keyboard": "keyboard",
 }
 
@@ -255,8 +255,8 @@ def tool_catalog() -> dict[str, AttachmentCatalogEntry]:
             ),
             category="tool",
         ),
-        "ros": AttachmentCatalogEntry(
-            name="ros",
+        "navigation_io": AttachmentCatalogEntry(
+            name="navigation_io",
             asset_cfg=None,
             controller_cfg=None,
             supported_robots=(

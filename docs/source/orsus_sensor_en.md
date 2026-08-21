@@ -2,7 +2,7 @@
 
 Orsus is an integrated stereo-camera, RTX LiDAR, and odometry sensor module for ROS2 navigation stack integration.
 
-Orsus can be mounted to Carter, Go2, B2, M20, Scout, Coco, and Lite3. Use `tools/ros2/vis_sensors.py` to view the stereo images and point-cloud top view together. Camera exclusively controls the image graphs, while Navigation I/O exclusively controls point-cloud and odometry publishing. Environment JSON retains the internal keys `camera` and `ros`, respectively.
+Orsus can be mounted to Carter, Go2, B2, M20, Scout, Coco, and Lite3. Use `tools/ros2/vis_sensors.py` to view the stereo images and point-cloud top view together. Camera exclusively controls the image graphs, while Navigation I/O exclusively controls point-cloud and odometry publishing. Environment JSON uses the internal keys `camera` and `navigation_io`, respectively.
 
 Scenes containing Orsus currently support one environment only and must be launched with `--num_envs 1`.
 

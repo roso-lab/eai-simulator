@@ -125,12 +125,12 @@ eai-simulator/
 | `m20` | DeepRobotics M20 | `M20_ROUGH_RSL_CFG` | Orsus, RealSense D455, LiDAR, UR5, Z1 |
 | `scout` | Scout mobile base | `SCOUT_DIFF_CFG` | Orsus, RealSense D455, LiDAR, UR5, Z1 |
 | `g1` | Unitree G1 | `G1_SKRL_CFG` | - |
-| `cf2x` | Crazyflie CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | 内置相机、keyboard、ROS |
-| `iris` | Pegasus 3DR Iris | `PEGASUS_IRIS_POSITION_CFG` | 内置相机、keyboard、ROS |
-| `pegasus` | Pegasus research quadrotor | `PEGASUS_X4_POSITION_CFG` | 内置相机、keyboard、ROS |
+| `cf2x` | Crazyflie CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | 内置相机、keyboard、Navigation I/O |
+| `iris` | Pegasus 3DR Iris | `PEGASUS_IRIS_POSITION_CFG` | 内置相机、keyboard、Navigation I/O |
+| `pegasus` | Pegasus research quadrotor | `PEGASUS_X4_POSITION_CFG` | 内置相机、keyboard、Navigation I/O |
 | `lite3` | DeepRobotics Lite3 | `LITE3_VELOCITY_RSL_CFG` | Orsus, RealSense D455, LiDAR, UR5, Z1 |
-| `mushr_v2` | MuSHR Nano v2 Ackermann base | `MUSHR_ACKERMANN_CFG` | 内置相机、RealSense D455、LiDAR、keyboard、ROS |
-| `coco` | Coco AIRS Ackermann base | `COCO_ACKERMANN_CFG` | Orsus, RealSense D455, LiDAR, keyboard, ROS |
+| `mushr_v2` | MuSHR Nano v2 Ackermann base | `MUSHR_ACKERMANN_CFG` | 内置相机、RealSense D455、LiDAR、keyboard、Navigation I/O |
+| `coco` | Coco AIRS Ackermann base | `COCO_ACKERMANN_CFG` | Orsus, RealSense D455, LiDAR, keyboard, Navigation I/O |
 
 
 > 控制器配置位置：`source/EAI_assets/EAI_assets/controller/`（`rl/` 与 `traditional/`）。`UR5_IK_CFG` 和 `Z1_IK_CFG` 用于上表所列兼容宿主的机械臂附件。
@@ -150,7 +150,7 @@ eai-simulator/
   python simulator.py --num_envs=1 --device=cuda:0
   ```
   启动后会提示选择 env 制定方式：
-  - `1. 可视化窗口`：通过 Env DIY 窗口按 `Scenes → Robots → Payloads → Tools` 选择环境；Payloads 下分为 Manipulators（UR5/Z1）和 Sensors（Orsus/RealSense D455/LiDAR），Tools 提供 Camera、Keyboard 和导航接口（Navigation I/O）。Camera Tool 独立控制 Iris、Pegasus、CF2X、MuSHR 的内置单目相机，以及兼容宿主上的 Orsus 和 RealSense D455 相机 ROS 图像发布；导航接口控制三种无人机的 LiDAR、IMU、GPS、磁力计和气压计、Orsus 的 LiDAR 点云、里程计和 scan 发布，以及 RealSense D455 的 IMU 发布。为兼容现有环境，导航接口在保存的 JSON 中仍使用 `ros` 键。配置可保存为 `source/EAI_hmrs/EAI_hmrs/envs/<env_name>.json`。
+  - `1. 可视化窗口`：通过 Env DIY 窗口按 `Scenes → Robots → Payloads → Tools` 选择环境；Payloads 下分为 Manipulators（UR5/Z1）和 Sensors（Orsus/RealSense D455/LiDAR），Tools 提供 Camera、Keyboard 和导航接口（Navigation I/O）。Camera Tool 独立控制 Iris、Pegasus、CF2X、MuSHR 的内置单目相机，以及兼容宿主上的 Orsus 和 RealSense D455 相机 ROS 图像发布；导航接口控制三种无人机的 LiDAR、IMU、GPS、磁力计和气压计、Orsus 的 LiDAR 点云、里程计和 scan 发布，以及 RealSense D455 的 IMU 发布。导航接口在保存的 JSON 中使用 `navigation_io` 键。配置可保存为 `source/EAI_hmrs/EAI_hmrs/envs/<env_name>.json`。
   - `2. 终端快速`：按与可视化窗口相同的顺序选择场景、宿主机器人、机械臂、传感器和工具，再选择控制器，并可选择是否保存和立即运行。
   - `3. Isaac Sim 3D 编辑器`：在 Isaac Sim Viewport 中编辑机器人真实 `spawn_pose`；也可运行 `python simulator.py --diy-3d --device=cuda:0` 直接进入。
 

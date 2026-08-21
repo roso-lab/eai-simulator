@@ -35,7 +35,7 @@ interfaces:
     data_type: sensor_msgs/msg/PointCloud2
     description: Registered Orsus point cloud output.
     example: ros2 topic echo --once /{robot}/cloud
-    requires_attachment: ros
+    requires_attachment: navigation_io
     read_only_test: {type: ros_topic}
   - id: ros.orsus.odometry
     name: Odometry
@@ -46,7 +46,7 @@ interfaces:
     data_type: nav_msgs/msg/Odometry
     description: Orsus odometry output.
     example: ros2 topic echo --once /{robot}/odometry
-    requires_attachment: ros
+    requires_attachment: navigation_io
     read_only_test: {type: ros_topic}
   - id: ros.orsus.scan
     name: Derived laser scan
@@ -57,5 +57,5 @@ interfaces:
     data_type: sensor_msgs/msg/LaserScan
     description: LaserScan derived by the navigation pipeline from the point cloud.
     example: ros2 topic echo --once /{robot}/scan
-    requires_attachment: ros
+    requires_attachment: navigation_io
     read_only_test: {type: ros_topic}

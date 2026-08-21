@@ -8,7 +8,9 @@ from . import catalog
 ROBOT_KEYS = catalog.ROBOT_KEYS
 ORSUS_SUPPORTED_ROBOTS = frozenset(catalog.attachment_entry("orsus").supported_robots)
 REALSENSE_D455_SUPPORTED_ROBOTS = frozenset(catalog.attachment_entry("realsense_d455").supported_robots)
-ROS_TOOL_SUPPORTED_ROBOTS = frozenset(catalog.tool_catalog()["ros"].supported_robots)
+NAVIGATION_IO_SUPPORTED_ROBOTS = frozenset(
+    catalog.tool_catalog()["navigation_io"].supported_robots
+)
 KEYBOARD_SUPPORTED_ROBOTS = frozenset(catalog.tool_catalog()["keyboard"].supported_robots)
 UR5_SUPPORTED_ROBOTS = frozenset(catalog.attachment_entry("ur5").supported_robots)
 Z1_SUPPORTED_ROBOTS = frozenset(catalog.attachment_entry("z1").supported_robots)
@@ -284,8 +286,8 @@ def choose_terminal_interactive_selection(
                 "为选中的机器人启用外部控制工具",
             )
             updated = _choose_attachments(
-                catalog.tool_label("ros"),
-                "ros",
+                catalog.tool_label("navigation_io"),
+                "navigation_io",
                 robots,
                 input_func=input_func,
                 print_func=print_func,

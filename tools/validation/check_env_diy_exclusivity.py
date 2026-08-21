@@ -21,6 +21,7 @@ from EAI.hmrs_env.env_diy.flow import (
     interactive_selection_from_dict,
     interactive_selection_to_dict,
 )
+from EAI.physics.aerial_sensors import aerial_sensor_specs_from_selection
 from EAI_env_diy.model import AuthoringModel
 
 
@@ -45,10 +46,18 @@ def _expect_conflict(operation) -> None:
 
 
 def _check_shared_selection_validation() -> None:
-    if catalog.tool_label("ros") != "Navigation I/O":
-        raise AssertionError("The ros tool must be displayed as Navigation I/O.")
-    if catalog.tool_asset_name("ros") != "navigation_io":
-        raise AssertionError("The ros tool must use the navigation_io image asset.")
+    if catalog.tool_label("navigation_io") != "Navigation I/O":
+        raise AssertionError("The navigation_io tool must display as Navigation I/O.")
+    if catalog.tool_asset_name("navigation_io") != "navigation_io":
+        raise AssertionError("The navigation_io tool must use its matching image asset.")
+    if catalog.attachment_supported("carter", "ros"):
+        raise AssertionError("The retired ros tool key must not be accepted.")
+    try:
+        catalog.validate_attachment_types("carter", ["ros"])
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("The retired ros tool key must fail validation.")
 
     for attachments in (("orsus", "lidar"), ("LIDAR", "ORSUS")):
         _expect_conflict(
@@ -71,13 +80,13 @@ def _check_shared_selection_validation() -> None:
         raise AssertionError(f"Separate robot payloads changed unexpectedly: {actual}")
 
     navigation_selection = interactive_selection_from_dict(
-        {"scene_key": "plane", "robots": [_robot("carter", "ros")]}
+        {"scene_key": "plane", "robots": [_robot("carter", "navigation_io")]}
     )
     serialized_type = interactive_selection_to_dict(navigation_selection)["robots"][0][
         "attachments"
     ][0]["type"]
-    if serialized_type != "ros":
-        raise AssertionError("Navigation I/O must retain the serialized ros key.")
+    if serialized_type != "navigation_io":
+        raise AssertionError("Navigation I/O must serialize as navigation_io.")
 
     with tempfile.TemporaryDirectory() as temporary_directory:
         _expect_conflict(
@@ -127,6 +136,51 @@ def _check_simulator_validation() -> None:
     create_env.assert_not_called()
 
 
+def _check_navigation_io_runtime_gates() -> None:
+    navigation_selection = {
+        "robots": [_robot("carter", "orsus", "navigation_io")]
+    }
+    retired_selection = {"robots": [_robot("carter", "ros")]}
+
+    if not simulator._selection_requires_omnigraph(navigation_selection):
+        raise AssertionError("Navigation I/O must request OmniGraph support.")
+    if simulator._selection_requires_omnigraph(retired_selection):
+        raise AssertionError("The retired ros key must not request OmniGraph support.")
+    if simulator.cmd_vel_bridge_robot_names(
+        navigation_selection,
+        possible_agents=("carter_1",),
+    ) != ("carter_1",):
+        raise AssertionError("Navigation I/O must enable cmd_vel bridge consideration.")
+    if simulator.cmd_vel_bridge_robot_names(
+        retired_selection,
+        possible_agents=("carter_1",),
+    ):
+        raise AssertionError("The retired ros key must not enable cmd_vel consideration.")
+
+    reasons = simulator._sensor_scene_single_env_reasons(navigation_selection)
+    if not reasons or "navigation_io" not in reasons[0]:
+        raise AssertionError("Navigation I/O sensor publishing must require one environment.")
+
+    aerial_selection = {
+        "robots": [_robot("iris", "camera", "navigation_io")]
+    }
+    (aerial_spec,) = aerial_sensor_specs_from_selection(
+        aerial_selection,
+        possible_agents=("iris_1",),
+    )
+    if not (aerial_spec.camera and aerial_spec.lidar and aerial_spec.base_sensors):
+        raise AssertionError("Navigation I/O must enable aerial navigation sensors.")
+
+    (retired_aerial_spec,) = aerial_sensor_specs_from_selection(
+        {"robots": [_robot("iris", "camera", "ros")]},
+        possible_agents=("iris_1",),
+    )
+    if not retired_aerial_spec.camera:
+        raise AssertionError("Camera gating must remain independent of Navigation I/O.")
+    if retired_aerial_spec.lidar or retired_aerial_spec.base_sensors:
+        raise AssertionError("The retired ros key must not enable aerial navigation sensors.")
+
+
 def _enter_session(config: simulator.SimulatorLaunchConfig) -> None:
     with simulator.open_simulator_session(config):
         pass
@@ -136,7 +190,8 @@ def main() -> None:
     _check_shared_selection_validation()
     _check_authoring_model_validation()
     _check_simulator_validation()
-    print("PASS: Env DIY Orsus/LiDAR exclusivity")
+    _check_navigation_io_runtime_gates()
+    print("PASS: Env DIY compatibility and Navigation I/O runtime gates")
 
 
 if __name__ == "__main__":

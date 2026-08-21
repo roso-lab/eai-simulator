@@ -209,7 +209,7 @@ ls source/EAI_hmrs/EAI_hmrs/envs/EAI-Factory-v0.json
 
 ### ROS2 话题未发布
 
-确认 JSON 中机器人包含 `ros` 或 `keyboard` 附件，并检查 Isaac Sim ROS2 Bridge 与 ROS Humble 环境变量。
+确认 JSON 中机器人包含 `navigation_io` 或 `keyboard` 附件，并检查 Isaac Sim ROS2 Bridge 与 ROS Humble 环境变量。
 
 ## 下一步
 

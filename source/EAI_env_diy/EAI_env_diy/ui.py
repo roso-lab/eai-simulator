@@ -354,7 +354,7 @@ class EnvDiyWindow:
     def _build_tools(self) -> None:
         with ui.CollapsableFrame("Tools", collapsed=True):
             with ui.VStack(spacing=4):
-                for key in ("ros", "camera", "keyboard"):
+                for key in ("navigation_io", "camera", "keyboard"):
                     with ui.HStack(spacing=6, height=40):
                         self._asset_image(
                             "sensor" if key == "camera" else "tool",

@@ -2,7 +2,7 @@
 
 Orsus 是一个集成双目相机、RTX 激光雷达（LiDAR）和里程计（Odometry）的传感器模块，用于 ROS2 导航栈集成。
 
-Orsus 可挂载到 Carter、Go2、B2、M20、Scout、Coco 和 Lite3。可使用仓库中的 `tools/ros2/vis_sensors.py` 同时查看双目图像和点云俯视图。左右图像只受同一宿主上的 Camera 控制；点云和里程计只受 Navigation I/O 控制，两个开关彼此独立。环境 JSON 中仍分别使用内部键 `camera` 和 `ros`。
+Orsus 可挂载到 Carter、Go2、B2、M20、Scout、Coco 和 Lite3。可使用仓库中的 `tools/ros2/vis_sensors.py` 同时查看双目图像和点云俯视图。左右图像只受同一宿主上的 Camera 控制；点云和里程计只受 Navigation I/O 控制，两个开关彼此独立。环境 JSON 中分别使用内部键 `camera` 和 `navigation_io`。
 
 包含 Orsus 的场景当前只支持单环境，启动时必须传入 `--num_envs 1`。
 
