@@ -518,7 +518,7 @@ def check_canonical_asset(
 
 
 def canonical_asset_paths(repo_root: str | Path | None = None) -> dict[str, tuple[Path, Path]]:
-    root = Path(repo_root or Path(__file__).resolve().parents[1]).resolve()
+    root = Path(repo_root or Path(__file__).resolve().parents[2]).resolve()
     return {
         "b2": (root / "usd/robot/b2/b2.usd", root / "usd/robot/b2/b2_canonical.usdc"),
         "lite3": (root / "usd/robot/lite3/Lite3.usd", root / "usd/robot/lite3/Lite3_canonical.usdc"),

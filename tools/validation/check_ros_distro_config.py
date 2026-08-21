@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 EAI_ASSETS_SOURCE = REPO_ROOT / "source" / "EAI_assets"
 sys.path.insert(0, str(EAI_ASSETS_SOURCE))
 
