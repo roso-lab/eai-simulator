@@ -50,7 +50,7 @@ python simulator.py --env=<env_name> --num_envs=1 --device=cuda:0
   → MultiRobotDirectEnv 启动正式环境
 ```
 
-Orsus 的左右相机图像只由 Camera Tool 控制，点云和里程计只由导航接口（Navigation I/O）控制。导航接口在环境 JSON 中仍使用内部键 `ros`。Iris、Pegasus、CF2X 默认带有相机、`Example_Rotary` LiDAR 和基础传感器；Camera 与导航接口只控制相应 topic 发布。地面机器人只有先挂载 Orsus 才能选择 Camera Tool。UR5/Z1 会随机械臂附件自动创建对应 OmniGraph，不需要额外的导航接口就能使用机械臂 topic。
+Orsus 的左右相机图像只由 Camera Tool 控制，点云和里程计只由导航接口（Navigation I/O）控制。导航接口在环境 JSON 中仍使用内部键 `ros`。Iris、Pegasus、CF2X 默认带有相机、`Example_Rotary` LiDAR 和基础传感器；Camera 与导航接口只控制相应 topic 发布。地面机器人只有先挂载 Orsus 才能选择 Camera Tool。当前 `simulator.py` 会为 UR5 附件注册机械臂 OmniGraph，且不依赖 Navigation I/O；Z1 的 topic 规范仍然保留，但主会话不会仅因挂载 Z1 而注册对应 graph，发送命令前必须确认其他集成入口已经激活它。
 
 ## 适配性
 

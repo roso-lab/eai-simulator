@@ -274,14 +274,16 @@ In terminal 2, launch Nav2 and RViz:
 
 ```bash
 source /opt/ros/humble/setup.bash
-ros2 launch algorithm/ros/nav2/nav2.launch.py robot_name:=carter_1 robot_type:=Carter scene:=factory rviz:=true
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+ros2 launch algorithm/nav2/nav2.launch.py robot_name:=carter_1 robot_type:=Carter scene:=factory rviz:=true
 ```
 
 In terminal 3, send a navigation goal. Choose a point in the free space of the Factory map:
 
 ```bash
 source /opt/ros/humble/setup.bash
-/usr/bin/python3 algorithm/ros/nav2/send_goal.py --x -5.0 --y -8.0
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+/usr/bin/python3 algorithm/nav2/send_goal.py --x -5.0 --y -8.0
 ```
 
 After the map, sensors, and ROS channels are configured, Nav2 plans and executes a path through the Factory scene. The following demo appears after the complete command sequence so that its result can be compared directly with the terminal steps.

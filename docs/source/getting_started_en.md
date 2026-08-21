@@ -138,15 +138,19 @@ python simulator.py --env=nav2 --device=cuda:0
 ```bash
 # Terminal 2: Nav2 and RViz
 source /opt/ros/humble/setup.bash
-ros2 launch algorithm/ros/nav2/nav2.launch.py \
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+ros2 launch algorithm/nav2/nav2.launch.py \
   robot_name:=carter_1 robot_type:=Carter scene:=factory rviz:=true
 ```
 
 ```bash
 # Terminal 3: Send target
 source /opt/ros/humble/setup.bash
-/usr/bin/python3 algorithm/ros/nav2/send_goal.py --x -5.0 --y -8.0
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+/usr/bin/python3 algorithm/nav2/send_goal.py --x -5.0 --y -8.0
 ```
+
+This command exits with status 0 only when Nav2 returns `STATUS_SUCCEEDED`; an unavailable server, rejected goal, canceled goal, aborted goal, or timeout returns a nonzero status. Ctrl+C in the `send_goal.py` terminal stops only the goal client. To stop Nav2 and Isaac Sim started by the one-command launcher, press Ctrl+C in the `run_nav2.sh` terminal and let cleanup finish.
 
 ## Fire Rescue Demo
 

@@ -278,14 +278,16 @@ python simulator.py --env=nav2 --num_envs=1 --device=cuda:0
 
 ```bash
 source /opt/ros/humble/setup.bash
-ros2 launch algorithm/ros/nav2/nav2.launch.py robot_name:=carter_1 robot_type:=Carter scene:=factory rviz:=true
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+ros2 launch algorithm/nav2/nav2.launch.py robot_name:=carter_1 robot_type:=Carter scene:=factory rviz:=true
 ```
 
 终端 3 发送导航目标。目标点需要选在 Factory 地图自由空间内：
 
 ```bash
 source /opt/ros/humble/setup.bash
-/usr/bin/python3 algorithm/ros/nav2/send_goal.py --x -5.0 --y -8.0
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+/usr/bin/python3 algorithm/nav2/send_goal.py --x -5.0 --y -8.0
 ```
 
 完成地图、传感器和 ROS 通道配置后，Nav2 会在 Factory 场景中规划并执行移动路径。下图放在完整命令之后，便于对照终端步骤观察最终导航效果。

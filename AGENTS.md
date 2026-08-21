@@ -221,7 +221,9 @@ The extension reuses the core catalog and selection parser, then returns a seria
 
 ### Stable Algorithms
 
-Tracked reusable algorithm entry points are `algorithm/emos/` for scenario-driven multi-agent discussion/task allocation, `algorithm/TeamWeaver/` for LLM+MIQP task decomposition/allocation/replanning, `algorithm/global_planner/` for independent 2D planning and tracking, `algorithm/multi_robot_navigation/` for the vendored native db-CBS planner, externally fetched checksum-verified motion primitives, synchronized trajectory playback, and in-session conflict-aware multi-robot navigation, `algorithm/keyboard/keyboard.py` for ROS Twist input, and `algorithm/ros/` for ROS2/Nav2 launch, bridge, and diagnostic tooling. `algorithm/ros/tools/vis_sensors.py` visualizes ROS2 camera, depth, and point-cloud topics; non-8-bit images (for example RealSense depth `32FC1`, meters) can contain `inf`/`NaN` out-of-range pixels, so they are scaled for display by `SensorVisualizer._scale_to_uint8` (1st-99th percentile clip of finite values; non-finite pixels render black). `EMOSDiscussionManager` receives a caller-supplied scenario and Isaac Lab-compatible `base_env`; `build_from_agent_specs()` installs a position callback backed by `_get_robot_pos()`, which reads articulation or rigid-object state from that environment's scene. EMOS does not construct the simulator scene. TeamWeaver is an external planner: its `eai_adapter` integration layer consumes task instructions plus symbolic world state and emits task DAGs and robot allocations, and it neither builds the simulator scene nor drives robots directly. The global planner is independent of Isaac Sim, EMOS, Torch, and ROS. The multi-robot navigation plugin reuses that planner only in explicit compatibility mode; its default db-CBS backend runs planning on a bounded background worker while the caller owns the simulator loop. Keyboard and Nav2 publish the same cmd_vel interface consumed by `EAI.hmrs_ros`.
+Tracked reusable algorithm entry points are `algorithm/emos/` for scenario-driven multi-agent discussion/task allocation, `algorithm/TeamWeaver/` for LLM+MIQP task decomposition/allocation/replanning, `algorithm/global_planner/` for independent 2D planning and tracking, `algorithm/multi_robot_navigation/` for the vendored native db-CBS planner, externally fetched checksum-verified motion primitives, synchronized trajectory playback, and in-session conflict-aware multi-robot navigation, `algorithm/keyboard/keyboard.py` for ROS Twist input, and `algorithm/nav2/` for external ROS2/Nav2 generation, launch, TF, and goal tooling. General ROS operational clients live at `tools/vis_sensors.py`, `tools/send_cmd_vel.py`, and `tools/send_manipulator_command.py`; they are tools rather than control algorithms.
+
+`tools/vis_sensors.py` visualizes ROS2 camera, depth, and point-cloud topics; non-8-bit images (for example RealSense depth `32FC1`, meters) can contain `inf`/`NaN` out-of-range pixels, so they are scaled for display by `SensorVisualizer._scale_to_uint8` (1st-99th percentile clip of finite values; non-finite pixels render black). `EMOSDiscussionManager` receives a caller-supplied scenario and Isaac Lab-compatible `base_env`; `build_from_agent_specs()` installs a position callback backed by `_get_robot_pos()`, which reads articulation or rigid-object state from that environment's scene. EMOS does not construct the simulator scene. TeamWeaver is an external planner: its `eai_adapter` integration layer consumes task instructions plus symbolic world state and emits task DAGs and robot allocations, and it neither builds the simulator scene nor drives robots directly. The global planner is independent of Isaac Sim, EMOS, Torch, and ROS. The multi-robot navigation plugin reuses that planner only in explicit compatibility mode; its default db-CBS backend runs planning on a bounded background worker while the caller owns the simulator loop. Keyboard and Nav2 publish the same cmd_vel interface consumed by `EAI.hmrs_ros`.
 
 ### Demo And Integration Boundaries
 
@@ -231,7 +233,7 @@ Tracked reusable algorithm entry points are `algorithm/emos/` for scenario-drive
 
 ### Tools
 
-`tools/` owns operational entry points for package installation, hook setup, Env DIY checks, OAuth worker tests, human asset authoring/import/validation, and USD repair. Each tracked script is the public command boundary for its own arguments, prerequisites, and side effects; inspect that script before invoking it rather than treating the directory as one uniform API. These tools depend on the relevant shell, Python, or Node.js runtime and, depending on the command, repository packages, system package managers, Git LFS, provider access, or external source assets.
+`tools/` owns operational entry points for package installation, hook setup, Env DIY checks, OAuth worker tests, human asset authoring/import/validation, USD repair, and the general ROS clients `vis_sensors.py`, `send_cmd_vel.py`, and `send_manipulator_command.py`. Each tracked script is the public command boundary for its own arguments, prerequisites, and side effects; inspect that script before invoking it rather than treating the directory as one uniform API. These tools depend on the relevant shell, Python, or Node.js runtime and, depending on the command, repository packages, system ROS Python, `rclpy`, visualization dependencies and a display, system package managers, Git LFS, provider access, or external source assets. Location below `tools/` does not make ROS Python dependencies available in `env_isaaclab`.
 
 ### USD Assets
 
@@ -324,10 +326,10 @@ After the final scene starts, the launcher resolves declared interfaces for the 
 | ROS cmd_vel and manipulator bridges | `source/EAI/EAI/hmrs_ros/`; `simulator.py` | Core package owns the shared and UR5-specific bridge/OmniGraph implementations plus UR5/Z1 model helpers. The launcher owns selection-driven cmd_vel setup and the current shared-manager UR5 graph registration/cleanup; it does not register `Z1_MODEL_SPEC`. Keep ROS-specific dependencies outside the core selection model. |
 | Interface declarations, query, and runtime snapshots | `source/EAI/EAI/interface_catalog/interfaces/`; `source/EAI/EAI/interface_catalog/`; `tmp/runtime_interfaces.json` | YAML declares interfaces; catalog modules validate/query/resolve them; the JSON file is a transient runtime snapshot, not a source declaration. |
 | Env DIY lightweight UI and 3D extension | `source/EAI/EAI/hmrs_env/env_diy/`; `source/EAI_env_diy/EAI_env_diy/`; `source/EAI_env_diy/config/extension.toml` | Core Env DIY modules own portable selection behavior; the extension owns Kit UI, preview, downloads, result protocol, and lifecycle declaration. |
-| Stable algorithm entry points | `algorithm/emos/`; `algorithm/TeamWeaver/`; `algorithm/global_planner/`; `algorithm/multi_robot_navigation/`; `algorithm/keyboard/keyboard.py`; `algorithm/ros/` | EMOS, TeamWeaver, db-CBS multi-robot navigation, 2D planning, keyboard Twist publishing, and ROS/Nav2 tooling are optional clients/integrations. Keep the core planners, EMOS, and TeamWeaver independent of simulator construction; keep the db-CBS core and EAI adapter together in `multi_robot_navigation/`. db-CBS motion primitives are ignored provider payloads installed only after size and SHA-256 verification. |
+| Stable algorithm entry points | `algorithm/emos/`; `algorithm/TeamWeaver/`; `algorithm/global_planner/`; `algorithm/multi_robot_navigation/`; `algorithm/keyboard/keyboard.py`; `algorithm/nav2/`; `tools/vis_sensors.py`; `tools/send_cmd_vel.py`; `tools/send_manipulator_command.py` | EMOS, TeamWeaver, db-CBS multi-robot navigation, 2D planning, keyboard Twist publishing, and external Nav2 integration are optional clients/integrations. The root ROS clients are operational tools, not control algorithms. Keep the core planners, EMOS, and TeamWeaver independent of simulator construction; keep the db-CBS core and EAI adapter together in `multi_robot_navigation/`. db-CBS motion primitives are ignored provider payloads installed only after size and SHA-256 verification. |
 | Fire Rescue demo | `demo/fire_rescue/main.py`; `demo/fire_rescue/experiment.py`; `demo/fire_rescue/runtime/` | Uses the reusable session API and adapts simulator state to demo algorithms. Do not turn its scenario-specific behavior into a core launcher default. |
 | Multi-robot navigation integration | `algorithm/multi_robot_navigation/test/main.py`; `source/EAI_hmrs/EAI_hmrs/envs/dbcbs_slam_team.json` | Exercises the reusable multi-robot navigation component in one simulator session. The test entry point owns CLI and mission choices; the algorithm package owns planning and action generation. |
-| Setup, conversion, validation, and repair tools | `tools/` | Scripts are their own operational authority. Inspect current arguments and side effects before documenting or invoking one. |
+| Setup, ROS clients, conversion, validation, and repair tools | `tools/`; `tools/vis_sensors.py`; `tools/send_cmd_vel.py`; `tools/send_manipulator_command.py` | Scripts are their own operational authority. The three ROS clients run outside the simulator in the selected system ROS Python; inspect current arguments, prerequisites, and side effects before documenting or invoking one. |
 | Maintained USD metadata and runtime/generated data | `usd/`; `tmp/`; `source/EAI_assets/EAI_assets/asset_resolver.py` | `usd/` keeps tracked manifests/thumbnails; resolver-managed production assets and `tmp/` output are runtime data. Do not commit resolver downloads or transient output by default. |
 | Tests | `source/EAI/test/`; `source/EAI_assets/test/`; package-local test files discovered by `git ls-files` | Tests are authoritative behavioral evidence for their covered paths. Keep tests lightweight unless an Isaac/ROS integration boundary specifically requires otherwise. |
 
@@ -846,7 +848,7 @@ In Isaac, inspect each passive payload's mounted prim, transform, physics, and c
 
 Requiring arm behavior from a passive payload, allowing UR5 and Z1 together, defining only a visual mount, forgetting controlled-manipulator host articulation changes, losing the attachment controller during parsing, using a single controller instead of a base/auxiliary tuple, or mistaking inactive Z1 declarations for a live graph.
 
-### Add a Camera, Keyboard, or ROS2 Tool
+### Add a Camera, Keyboard, or Navigation I/O Tool
 
 #### Goal
 
@@ -1044,11 +1046,11 @@ Develop a reusable algorithm behind a pure contract and keep simulator, ROS, cre
 
 #### Authoritative files
 
-Stable tracked algorithm areas are `algorithm/emos/`, `algorithm/TeamWeaver/`, `algorithm/global_planner/`, `algorithm/multi_robot_navigation/`, `algorithm/keyboard/keyboard.py`, and `algorithm/ros/`. Their code and tracked module READMEs own their local contracts. User-facing intro pages for the collaboration algorithms live at `docs/source/emos.md` / `emos_en.md` and `docs/source/teamweaver.md` / `teamweaver_en.md` under the collapsible 多机协作算法 navigation group; keep them synchronized when the adapter APIs change. The only tracked city-traffic implementation is `algorithm/city_traffic/human_bridge.py`, with its focused test at `source/EAI/test/test_city_traffic_human_bridge.py`; there is no tracked `algorithm.city_traffic` package API.
+Stable tracked algorithm areas are `algorithm/emos/`, `algorithm/TeamWeaver/`, `algorithm/global_planner/`, `algorithm/multi_robot_navigation/`, `algorithm/keyboard/keyboard.py`, and `algorithm/nav2/`. General external ROS clients are the root tools `tools/vis_sensors.py`, `tools/send_cmd_vel.py`, and `tools/send_manipulator_command.py`; do not classify them as manipulator or motion-control algorithms. The algorithm code and tracked module READMEs own their local contracts. User-facing intro pages for the collaboration algorithms live at `docs/source/emos.md` / `emos_en.md` and `docs/source/teamweaver.md` / `teamweaver_en.md` under the collapsible 多机协作算法 navigation group; keep them synchronized when the adapter APIs change. The only tracked city-traffic implementation is `algorithm/city_traffic/human_bridge.py`, with its focused test at `source/EAI/test/test_city_traffic_human_bridge.py`; there is no tracked `algorithm.city_traffic` package API.
 
 #### Related registration/compatibility points
 
-EMOS accepts a caller-supplied scenario and compatible `base_env`; it does not build the simulator. The global planner is pure Python with an optional generated C++ extension and should remain independent of Isaac, Torch, ROS, and EMOS. `algorithm/multi_robot_navigation/` owns the vendored db-CBS native source, license texts, ignored build tree, Python problem/result conversion, synchronized playback, motion-primitive downloader and integrity metadata, EAI session adapter, and optional Kit UI. It must not create another application or block the simulator thread during native planning. Adapters own pose/command conversion. Keep requirements, LLM credentials, ROS environment boundaries, third-party provenance, external payload boundaries, and ignored generated binaries/reports explicit. No dedicated tracked EMOS/global-planner/keyboard/ROS unit suites currently exist.
+EMOS accepts a caller-supplied scenario and compatible `base_env`; it does not build the simulator. The global planner is pure Python with an optional generated C++ extension and should remain independent of Isaac, Torch, ROS, and EMOS. `algorithm/multi_robot_navigation/` owns the vendored db-CBS native source, license texts, ignored build tree, Python problem/result conversion, synchronized playback, motion-primitive downloader and integrity metadata, EAI session adapter, and optional Kit UI. It must not create another application or block the simulator thread during native planning. Adapters own pose/command conversion. Keep requirements, LLM credentials, ROS environment boundaries, third-party provenance, external payload boundaries, and ignored generated binaries/reports explicit. The three root ROS clients have focused lightweight tests; `algorithm/nav2/tests/test_nav2_layout.py` owns the promoted Nav2 layout/path and launcher contracts, while `algorithm/nav2/tests/test_send_goal.py` owns action-result and client-lifecycle behavior. These tests do not replace live ROS/Isaac validation. No dedicated tracked EMOS/global-planner/keyboard unit suites currently exist.
 
 #### Implementation steps
 
@@ -1499,11 +1501,11 @@ Do not turn a local human-pack checksum mismatch, missing ignored payload, or di
 
 Run `simulator.py` in `env_isaaclab`. Run external programs that import `rclpy`, Nav2 nodes, RViz2, and ROS CLI tools in a separate shell using the selected system ROS Python after sourcing `/opt/ros/$ROS_DISTRO/setup.bash`. Sourcing ROS into the Isaac Conda shell does not change the ABI of its Python interpreter and can mix incompatible Python and shared libraries. Humble/system Python 3.10 remains the tracked live-test baseline.
 
-`algorithm/keyboard/keyboard.py` detects the common `_rclpy_pybind11`/Conda mismatch and tells the operator to use `/usr/bin/python3`; it does not re-exec automatically. `algorithm/ros/nav2/tf_bridge.py` re-execs to `EAI_NAV2_ROS_PYTHON` or `/usr/bin/python3` when it detects Conda, unless `EAI_NAV2_NO_REEXEC=1`. The unified Nav2 launch also uses `EAI_NAV2_ROS_PYTHON` for that bridge. Treat these as process boundaries, not permission to merge the simulator and system ROS environments.
+`algorithm/keyboard/keyboard.py` detects the common `_rclpy_pybind11`/Conda mismatch and tells the operator to use `/usr/bin/python3`; it does not re-exec automatically. `algorithm/nav2/tf_bridge.py` re-execs to `EAI_NAV2_ROS_PYTHON` or `/usr/bin/python3` when it detects Conda, unless `EAI_NAV2_NO_REEXEC=1`. The unified Nav2 launch also uses `EAI_NAV2_ROS_PYTHON` for that bridge. `tools/vis_sensors.py`, `tools/send_cmd_vel.py`, and `tools/send_manipulator_command.py` are external system-ROS clients; moving them to root `tools/` does not make `rclpy`, `cv_bridge`, OpenCV, display access, or other ROS dependencies available in `env_isaaclab`. Treat these as process boundaries, not permission to merge the simulator and system ROS environments.
 
 Before application launch, `simulator.py` resolves the distro from an explicit value, `ROS_DISTRO`, the installer-managed file, or the Humble default. It looks for the matching Isaac ROS2 bridge under a compatible `ISAAC_ROS_PATH`, then `EAI_ISAACSIM_ROOT` or `ISAACSIM_ROOT`, conventional user install locations, and Python site-packages. When found, it sets `ISAAC_ROS_PATH` and prepends the bridge `lib` and prefix paths. Orsus, RealSense, and LiDAR reuse this resolver and no longer overwrite a caller's selected distro. `RMW_IMPLEMENTATION` defaults to Fast DDS only when unset.
 
-`algorithm/ros/nav2/run_nav2.sh` launches system Nav2 under `env -i` with CycloneDDS but does not forward `ROS_DOMAIN_ID` or other discovery variables. Its Nav2 side therefore uses domain 0, while its simulator child can inherit a caller's nonzero domain; the script currently requires the simulator/default domain to remain 0. A manual launch can inherit an explicitly matched `ROS_DOMAIN_ID` and relevant discovery/network settings in both prepared process environments. Confirm the actual domain, RMW, and discovery configuration on each side.
+`algorithm/nav2/run_nav2.sh` launches system Nav2 under `env -i` with CycloneDDS and forwards only an explicit ROS discovery allowlist from the caller: `ROS_DOMAIN_ID`, `ROS_LOCALHOST_ONLY`, `ROS_AUTOMATIC_DISCOVERY_RANGE`, `ROS_STATIC_PEERS`, and `CYCLONEDDS_URI`. The simulator child inherits the caller environment, so these forwarded values keep both sides aligned without importing the Isaac Conda environment into Nav2. The script monitors both process groups after readiness; either core process exiting ends the launcher and its EXIT trap cleans up the other group. A manual launch must prepare matching discovery/network settings independently. Confirm the actual domain, RMW, and discovery configuration on each side.
 
 ### Cmd_vel Activation and Command Flow
 
@@ -1522,11 +1524,11 @@ The Env DIY UI displays the serialized `ros` tool as Navigation I/O. A selected 
 
 Robot instance topics use per-type occurrence names from the builder, for example `/carter_1/cmd_vel`, `/go2_1/cmd_vel`, and `/carter_2/cmd_vel`. On the direct action-tensor path, the current bridge reads `linear.x` and `angular.z` and sets `linear.y` to zero. Scout angular velocity is additionally multiplied by `SCOUT_CMD_VEL_ANGULAR_SCALE`. Do not promise lateral A/D motion for ordinary holonomic bases: although the keyboard message contains `linear.y`, that component is dropped by the direct path. Goal-controlled robots use the full Twist and integrate linear components into `goal_position`; quadcopter goal updates use a fixed keyboard step scale rather than frame `dt`, and supported yaw goals are integrated separately.
 
-The keyboard publisher emits one Twist per key event and sends zero when switching or exiting; its `--rate` argument is currently parsed but does not create periodic publication. `algorithm/ros/tools/ros2_send_cmd_vel.py` is the separate rate-based test publisher when `--rate` is positive, but its Ctrl+C cleanup does not publish zero. Because the bridge has no watchdog, stop a continuous motion test by running a sustained zero publisher in another sourced ROS Humble terminal, wait until repeated zeros have reached the existing subscriber, and then stop that zero publisher. Do not use the tool's one-shot mode as a safety stop. The keyboard publisher's connected cleanup path is another option.
+The keyboard publisher emits one Twist per key event and sends zero when switching or exiting; its `--rate` argument is currently parsed but does not create periodic publication. `tools/send_cmd_vel.py` is the separate rate-based publisher when `--rate` is positive. On continuous-mode normal completion or Ctrl+C cleanup, it cancels or destroys its timer, keeps the `rclpy` context active while publishing three repeated zero Twists, spins briefly after each message, and only then destroys the node and shuts ROS down. This cleanup improves the chance of delivery but does not prove that a subscriber received zero or that the robot stopped. Because the bridge has no watchdog, live acceptance must confirm actual zero delivery and observe the robot stop. One-shot mode does not run the repeated-zero cleanup and is not a safety stop.
 
 ```bash
 source /opt/ros/humble/setup.bash
-/usr/bin/python3 algorithm/ros/tools/ros2_send_cmd_vel.py \
+python3 tools/send_cmd_vel.py \
   --robot carter_1 --linear 0 --angular 0 --rate 10
 ```
 
@@ -1546,13 +1548,11 @@ Publisher presence is weaker than data flow. RTX/render-dependent graphs can reg
 
 The shared formal topic family is `/<instance>/<model>/...`. UR5 declares `target_pose`, `joint_command`, `joint_states`, and `ee_pose` below `/<instance>/ur5/`. Z1 declares the same endpoints below `/<instance>/z1/` plus `gripper_command` and `gripper_state`. Pose commands accept the formal `world` or `base_link` frames; joint commands use each model's canonical joint order/names.
 
-The main simulator session currently calls `ManipulatorOmniGraphManager.setup_robot(...)` only for selected UR5 attachments and closes that shared manager during cleanup. `Z1_MODEL_SPEC`, `z1_topic_names()`, aliases, YAML declarations, and a selected Z1 attachment do not activate an equivalent graph. `algorithm/ros/tools/manipulator_command.py` is an external rclpy client for the formal topic families; it cannot create a missing simulator graph.
-
-`algorithm/ros/tools/diagnose_ur5_multi_scene.py` is stale against the shared manager: it inspects `_ur5_ros2_manager`, while current setup attaches `_manipulator_ros2_manager`. It is also an Isaac integration diagnostic with defaults and file-output coordination, not a general lightweight ROS check. The standalone `algorithm/ros/z1/run_z1_ros2_bridge.py` workflow loads a separate converted Z1 stage and exposes legacy `/z1/joint_commands` and `/z1/joint_states` topics in another process; success there is not evidence that a Z1 attached in the main multi-robot session exposes the formal endpoints.
+The main simulator session currently calls `ManipulatorOmniGraphManager.setup_robot(...)` only for selected UR5 attachments and closes that shared manager during cleanup. `Z1_MODEL_SPEC`, `z1_topic_names()`, aliases, YAML declarations, and a selected Z1 attachment do not activate an equivalent graph. `tools/send_manipulator_command.py` is an external system-`rclpy` publisher/waiter for the formal UR5/Z1 joint, pose, and gripper topic families. Before publishing it allows up to three seconds for subscriber discovery; `--timeout` starts after that phase and bounds feedback waiting only when `--wait` is selected. It rejects `--frame-id base_link` together with pose `--wait`, because the published `ee_pose` feedback is always in world coordinates and cannot be compared directly with a base-relative target. The tool does not perform IK, create OmniGraph, register a manipulator, start Isaac, or prove graph activation.
 
 ### Nav2 Profiles, Generation, and Launch
 
-`algorithm/ros/nav2/nav2_profiles.yaml` maps controller-facing robot types to motion models, footprint/radius, velocity and acceleration limits, sensor mounts, scan filters, and optional planner/controller plugins. It also maps scenes to occupancy maps. `nav2_setup.py` combines a profile, sensor choice, scene or explicit map, and explicit or live initial pose to generate `nav2_params.yaml`, `pointcloud_to_laserscan.yaml`, `view.rviz`, and `meta.txt`. With `sensor=auto` or no explicit pose it requires a fresh `tmp/runtime_interfaces.json`, a live owning simulator PID, a matching scene, and the named robot.
+`algorithm/nav2/nav2_profiles.yaml` maps controller-facing robot types to motion models, footprint/radius, velocity and acceleration limits, sensor mounts, scan filters, and optional planner/controller plugins. It also maps scenes to occupancy maps. `nav2_setup.py` combines a profile, sensor choice, scene or explicit map, and explicit or live initial pose to generate `nav2_params.yaml`, `pointcloud_to_laserscan.yaml`, `view.rviz`, and `meta.txt`. With `sensor=auto` or no explicit pose it requires a fresh `tmp/runtime_interfaces.json`, a live owning simulator PID, a matching scene, and the named robot.
 
 This static generation check uses an explicit tracked map, explicit pose and sensor, and a unique system temporary directory that is removed on exit. It needs Python plus PyYAML but does not start ROS, Nav2, Isaac, or a network request:
 
@@ -1576,7 +1576,7 @@ This static generation check uses an explicit tracked map, explicit pose and sen
   trap 'exit 129' HUP
   trap 'exit 143' TERM
 
-  python algorithm/ros/nav2/nav2_setup.py \
+  python algorithm/nav2/nav2_setup.py \
     --robot carter_1 \
     --robot-type Carter \
     --sensor orsus \
@@ -1589,7 +1589,7 @@ This static generation check uses an explicit tracked map, explicit pose and sen
 
 The unified `nav2.launch.py` runs that generator, starts the TF bridge, converts `/<instance>/scan_cloud` to `/<instance>/scan`, starts map server and AMCL, then controller, smoother, planner, behavior, BT navigator, waypoint follower, velocity smoother, lifecycle manager, and optional RViz. `tf_bridge.py` publishes dynamic `odom -> base_link` and static `base_link -> lidar_link`; the selected robot/sensor profile supplies the base offset and LiDAR mount values passed to that node. AMCL supplies `map -> odom`. Controller/behavior output is remapped to `cmd_vel_nav`; the velocity smoother publishes the final `/<instance>/cmd_vel`. The ROS package `pointcloud_to_laserscan` is therefore a runtime dependency, not an optional visualization tool.
 
-The profile's implicit Factory map is `usd/scene/factory/factory_map.yaml`, which is not tracked and is not reliable in a clean checkout. `run_nav2.sh` has no map argument and relies on that absent implicit file, so it is not a clean-checkout-capable launcher. Use the manual launch path with an explicit valid map. This example assumes a running simulator selection with `carter_1`, exactly one Orsus point-cloud/odometry graph enabled through `orsus` plus `ros`, independently enabled Orsus images through `camera`, matching ROS discovery settings, and a fresh runtime snapshot:
+The Factory profile uses the tracked `demo/fire_rescue/assets/factory_map.yaml`, so both the profile default and an explicit map argument resolve from a clean source checkout. `run_nav2.sh` can therefore resolve its map without local USD content, but it still assumes the tracked `nav2` environment, a GUI-capable Isaac/ROS installation, and all selected gated assets. Its isolated Nav2 process receives the caller's explicitly set discovery allowlist; unset values retain their middleware defaults. This example assumes a running simulator selection with `carter_1`, exactly one Orsus point-cloud/odometry graph enabled through `orsus` plus Navigation I/O (internal key `ros`), independently enabled Orsus images through Camera (internal key `camera`), matching ROS discovery settings, and a fresh runtime snapshot:
 
 Before launching, run this non-mutating preflight for the exact predictable output directory:
 
@@ -1617,8 +1617,9 @@ fi
 
 ```bash
 source /opt/ros/humble/setup.bash
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 EAI_NAV2_MAP="$(pwd)/demo/fire_rescue/assets/factory_map.yaml"
-ros2 launch algorithm/ros/nav2/nav2.launch.py \
+ros2 launch algorithm/nav2/nav2.launch.py \
   robot_name:=carter_1 \
   robot_type:=Carter \
   sensor:=orsus \
@@ -1629,7 +1630,13 @@ ros2 launch algorithm/ros/nav2/nav2.launch.py \
 
 The launch uses global node names, `map`/`odom`/`base_link`/`lidar_link` frames, `cmd_vel_nav`, and an un-namespaced `navigate_to_pose` action. It is a single-stack workflow, not a namespaced multi-robot Nav2 launcher; starting a second stack in the same ROS graph causes name/TF/remap collisions. `nav2_setup.py` also defaults to `/tmp/eai_nav2_<robot>`, so concurrent launches for the same robot overwrite the same generated files.
 
-`send_goal.py` targets that global action. It waits up to ten seconds for the server, but after a goal is accepted it has no result timeout or cancellation path and can wait indefinitely. It logs the returned action status but treats any accepted result as success, and `main()` does not propagate its boolean return. A zero process exit code therefore does not prove that Nav2 reached the pose; inspect the terminal action status, feedback, final pose, and server logs.
+`send_goal.py` targets that global action and must use the same CycloneDDS RMW as the maintained Nav2 launcher. It selects `rmw_cyclonedds_cpp` when `RMW_IMPLEMENTATION` is unset and returns 2 before ROS initialization when an explicit incompatible RMW is present. The client waits up to ten seconds for the server and goal response, then waits 300 seconds by default for the result; `--goal-response-timeout` and `--result-timeout` override the latter two positive finite bounds. A result timeout requests cancellation and returns nonzero. A goal-response timeout cannot establish whether the server accepted the request, so inspect the Nav2 log before retrying. It returns zero only for `GoalStatus.STATUS_SUCCEEDED`; an unavailable server, rejected goal, canceled result, aborted result, or timeout returns nonzero, and an interrupted wait returns 130. Ctrl+C in the goal-client terminal does not own or stop Nav2 or Isaac Sim; stop a one-command workflow from the `run_nav2.sh` terminal. The launcher ignores additional INT/TERM signals while its bounded TERM-to-KILL cleanup is running so repeated Ctrl+C cannot leave one managed process group behind. A zero process exit code is useful automation evidence but still does not prove that the physical/simulated pose is plausible; inspect feedback, final pose, and server logs during live acceptance.
+
+```bash
+source /opt/ros/humble/setup.bash
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+/usr/bin/python3 algorithm/nav2/send_goal.py --x -5.0 --y -8.0
+```
 
 ### Interface Catalog and Probe Limits
 
@@ -1655,41 +1662,24 @@ Declarations are capability metadata, not activation records. Static scene resol
 
 Presence probes only show that a topic name and type are discoverable. Sample and frequency probes provide stronger read-only evidence but can still miss semantic errors in frames, values, timing, or command application. Input declarations such as cmd_vel and manipulator commands intentionally have no `read_only_test`; the CLI blocks probing them so diagnosis cannot publish commands accidentally.
 
-### Stale and Unsupported ROS Artifacts
-
-Some tracked ROS notes and helpers describe older workflows. `algorithm/ros/tools/ros2_nav2_test.py` is absent, so the tracked `quick_test_nav2.sh` that invokes it is not a valid test entry point. Older summaries and quick references use `/<robot>/odom`; current sensor and Nav2 code uses `/<robot>/odometry`. `algorithm/ros/bridges/ros2_odometry_bridge.py` is a tracked file-IPC subscriber, but neither the current simulator nor unified Nav2 launch consumes its JSON output. Current cmd_vel, odometry, and sensor paths use ROS/OmniGraph directly.
-
-Treat README claims as secondary when they conflict with launch files and source. In particular, do not copy broad `pkill`, forced-kill, or process-name cleanup commands from stale notes. Stop only processes you started, using their owning terminal or recorded PID, and let the simulator/session cleanup close graphs, bridges, and snapshots.
-
 ### ROS and Nav2 Verification Tiers
 
 The lightweight tier parses maintained shell, Python, and YAML sources and exercises static interface/configuration paths. It does not require ROS discovery, Isaac, a GPU, sensor assets, or provider access:
 
 ```bash
-bash -n \
-  algorithm/ros/nav2/run_nav2.sh \
-  algorithm/ros/tools/quick_test_nav2.sh \
-  algorithm/ros/z1/run_z1_ros2_bridge.sh \
-  algorithm/ros/z1/send_z1_joint_command.sh
-python - <<'PY'
-import ast
-from pathlib import Path
-
-for path in (
-    Path("simulator.py"),
-    Path("algorithm/keyboard/keyboard.py"),
-    Path("algorithm/ros/nav2/nav2_setup.py"),
-    Path("algorithm/ros/nav2/nav2.launch.py"),
-    Path("algorithm/ros/nav2/tf_bridge.py"),
-    Path("algorithm/ros/nav2/send_goal.py"),
-):
-    ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-PY
+bash -n algorithm/nav2/run_nav2.sh
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONDONTWRITEBYTECODE=1 \
+  python -m pytest -q -p no:cacheprovider \
+  tools/test_vis_sensors.py \
+  tools/test_send_cmd_vel.py \
+  tools/test_send_manipulator_command.py \
+  algorithm/nav2/tests/test_nav2_layout.py \
+  algorithm/nav2/tests/test_send_goal.py
 python - <<'PY'
 from pathlib import Path
 import yaml
 
-paths = [Path("algorithm/ros/nav2/nav2_profiles.yaml")]
+paths = [Path("algorithm/nav2/nav2_profiles.yaml")]
 paths += sorted(Path("source/EAI/EAI/interface_catalog/interfaces").rglob("*.yaml"))
 for path in paths:
     yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -1699,13 +1689,13 @@ python simulator.py interfaces list --json >/dev/null
 python simulator.py interfaces scene --env keyboard --json >/dev/null
 ```
 
-The live tier requires Ubuntu ROS2 Humble, separately prepared Isaac/Isaac Lab and system ROS environments, the ROS bridge, matching discovery settings, a GPU/display mode appropriate to the selected sensors, and any gated assets already available or downloadable. Verify topic type and actual samples/rates for `/clock`, `/<instance>/odometry`, `/<instance>/cloud`, and `/<instance>/scan`; verify TF continuity and timestamps; send cmd_vel and observe command application plus a later zero stop; for UR5, verify command subscribers and changing `joint_states`/`ee_pose`; and for Nav2, verify lifecycle states, action acceptance, feedback, terminal action status, and final pose. Z1 main-session topics remain a known activation gap and cannot pass equivalent formal live verification until the launcher registers them.
+The live tier requires Ubuntu ROS2 Humble, separately prepared Isaac/Isaac Lab and system ROS environments, the ROS bridge, matching discovery settings, a GPU/display mode appropriate to the selected sensors, and any gated assets already available or downloadable. Verify topic type and actual samples/rates for `/clock`, `/<instance>/odometry`, `/<instance>/cloud`, and `/<instance>/scan`; verify TF continuity and timestamps; send cmd_vel, confirm delivery and command application, then confirm a later zero is delivered and the robot stops rather than inferring safety from publisher exit; for UR5, verify command subscribers and changing `joint_states`/`ee_pose`; and for Nav2, verify lifecycle states, action acceptance, feedback, terminal action status, and final pose. Z1 main-session topics remain a known activation gap and cannot pass equivalent formal live verification until the launcher registers them.
 
 ## 13. Testing Strategy
 
 ### Tests That Do Not Require Isaac Sim
 
-The maintained Python test inventory is the Git index, not filesystem discovery. On 2026-08-11 at commit `adff272b`, `git ls-files` reported 16 tracked Python test modules: one below `source/EAI/test/` and 15 below `source/EAI_assets/test/`. It reported no tracked Python tests below `source/EAI_env_diy/`, `demo/`, or `algorithm/`. These locations and the count are observations, not a selection contract. Two additional tracked Node.js checks are `tools/check_env_diy_runtime.mjs` and `tools/github_oauth_worker/oauth_worker_test.mjs`.
+The maintained Python test inventory is the Git index, not filesystem discovery, and its count is intentionally dynamic. Focused lightweight coverage includes the root ROS-client tests `tools/test_vis_sensors.py`, `tools/test_send_cmd_vel.py`, and `tools/test_send_manipulator_command.py`, plus `algorithm/nav2/tests/test_nav2_layout.py` and `algorithm/nav2/tests/test_send_goal.py`. Two tracked Node.js checks are `tools/check_env_diy_runtime.mjs` and `tools/github_oauth_worker/oauth_worker_test.mjs`.
 
 Do not run pytest against an entire test directory or the repository root. `.gitignore` hides broad classes such as `test_*.py`, `*_test.py`, `tests/`, and most of `source/EAI_assets/test/`; a developer's ignored local tests can still be collected by directory discovery and silently change the result. Build the canonical argument list from every path in the index, accepting both maintained basename forms. The NUL-delimited loop preserves spaces and other ordinary shell-special characters in paths:
 
@@ -2149,7 +2139,7 @@ ros2 lifecycle nodes
 | Cmd_vel is discoverable but robot does not move | Wrong instance, bridge inactive, command timeout/shape, or controller application | Confirm `/<instance>/cmd_vel` type/count and selected `ros`/`keyboard` tool or launcher flag | Send a bounded command, observe motion, then send zero and confirm stop. Do not publish during read-only diagnosis. |
 | Odometry exists but TF/Nav2 fails | Missing/stale `odom -> base_link`, incorrect timestamps/frames, absent `map -> odom`, or duplicate sensor publishers | Inspect one odometry sample, `/clock`, `/tf`, `/tf_static`, and configured robot/sensor profile | Run `ros2 run tf2_ros tf2_echo odom base_link` and `map base_link`; validate continuity and timestamps. Current topic is `/<instance>/odometry`, not `/<instance>/odom`. |
 | `/<instance>/scan` is absent while cloud exists | Orsus declaration describes derived output but pointcloud-to-laserscan pipeline is not running | Inspect `/<instance>/cloud`, Nav2 launch, and `pointcloud_to_laserscan` node | Verify `scan_cloud` and `scan` rates/frames after starting the supported single-stack pipeline. |
-| Nav2 nodes exist but goals stall or fail | Lifecycle, map/localization, TF, scan, odometry, planner/controller, or final cmd_vel chain | Inspect lifecycle nodes, action list, generated config, map path, and topic counts | Require active lifecycle, accepted goal, progressing feedback, terminal status, and plausible final pose. A zero `send_goal.py` exit code alone is insufficient. |
+| Nav2 nodes exist but goals stall or fail | Lifecycle, map/localization, TF, scan, odometry, planner/controller, or final cmd_vel chain | Inspect lifecycle nodes, action list, generated config, map path, and topic counts | Require active lifecycle, accepted goal, progressing feedback, a zero `send_goal.py` status for `STATUS_SUCCEEDED`, and a plausible final pose. Process status is useful but does not replace live pose validation. |
 
 ROS2 Humble tools and `rclpy` programs normally use system Python 3.10, while the simulator remains in `env_isaaclab`. Do not fix one side by contaminating the other interpreter. The tracked suite provides no live ROS automation.
 
@@ -2178,7 +2168,7 @@ Tracked exceptions are intentional and must be established with the index, not i
 - Saved environments below `source/EAI_hmrs/EAI_hmrs/envs/*.json` may be maintained fixtures, but `test*.json` and `n.json` are ignored. Filenames still follow the section 9 contract.
 - `usd/picture/**` contains maintained UI images.
 - `usd/human/manifest.json`, `usd/human/manifest.schema.json`, `usd/human/audit-summary.json`, and `usd/human/pack-checksums.json` are maintained metadata exceptions.
-- The tracked source and 16 tracked Python test modules remain tracked even when a later ignore pattern would match them. Ignore rules affect admission of untracked files, not files already in the index.
+- Tracked source and test modules remain tracked even when a later ignore pattern would match them. Ignore rules affect admission of untracked files, not files already in the index; new focused tests still need a narrow final negation when a broad rule would otherwise prevent admission.
 
 The earlier MuSHR exception comments and negations are nullified by later `/usd/*`, controller-root, and test-root ignore rules. They do not make MuSHR production USD, controller code, or tests eligible automatically. Likewise, the generic final `test_*.py` and `*_test.py` rules hide new tests almost anywhere unless a later narrow negation applies. Always inspect the last matching rule.
 
@@ -2441,13 +2431,16 @@ import yaml
 for path in (
     Path("simulator.py"),
     Path("algorithm/keyboard/keyboard.py"),
-    Path("algorithm/ros/nav2/nav2_setup.py"),
-    Path("algorithm/ros/nav2/nav2.launch.py"),
+    Path("algorithm/nav2/nav2_setup.py"),
+    Path("algorithm/nav2/nav2.launch.py"),
+    Path("tools/vis_sensors.py"),
+    Path("tools/send_cmd_vel.py"),
+    Path("tools/send_manipulator_command.py"),
     Path("demo/fire_rescue/main.py"),
 ):
     ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 
-yaml_paths = [Path("algorithm/ros/nav2/nav2_profiles.yaml")]
+yaml_paths = [Path("algorithm/nav2/nav2_profiles.yaml")]
 yaml_paths += sorted(Path("source/EAI/EAI/interface_catalog/interfaces").rglob("*.yaml"))
 yaml_paths.append(Path("demo/fire_rescue/assets/factory_map.yaml"))
 for path in yaml_paths:
@@ -2490,7 +2483,7 @@ source /opt/ros/humble/setup.bash
 /usr/bin/python3 algorithm/keyboard/keyboard.py --robot carter_1
 ```
 
-**Heavy Isaac/GPU/provider plus live ROS bridge prerequisite for Nav2.** In `env_isaaclab`, start the tracked `nav2` selection before the separate system ROS2 launch. It selects Factory, `carter_1`, one Orsus, and both the `camera` and `ros` tools: `camera` enables the Orsus image graphs, while `ros` enables its point-cloud/odometry graph and cmd_vel bridge consideration. The launch requires the selected gated assets plus matching ROS discovery settings:
+**Heavy Isaac/GPU/provider plus live ROS bridge prerequisite for Nav2.** In `env_isaaclab`, start the tracked `nav2` selection before the separate system ROS2 launch. It selects Factory, `carter_1`, one Orsus, Camera (internal key `camera`), and Navigation I/O (internal key `ros`): Camera enables the Orsus image graphs, while Navigation I/O enables its point-cloud/odometry graph and cmd_vel bridge consideration. The launch requires the selected gated assets plus matching ROS discovery settings:
 
 ```bash
 python simulator.py --env nav2
@@ -2502,7 +2495,8 @@ Run the exact `/tmp/eai_nav2_carter_1` ownership and symlink preflight from sect
 
 ```bash
 source /opt/ros/humble/setup.bash
-ros2 launch algorithm/ros/nav2/nav2.launch.py \
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+ros2 launch algorithm/nav2/nav2.launch.py \
   robot_name:=carter_1 \
   robot_type:=Carter \
   sensor:=orsus \
@@ -2513,7 +2507,7 @@ ros2 launch algorithm/ros/nav2/nav2.launch.py \
 
 For `carter_1`, `nav2_setup.py` reuses the predictable system path `/tmp/eai_nav2_carter_1` and overwrites `nav2_params.yaml`, `pointcloud_to_laserscan.yaml`, `view.rviz`, and `meta.txt` there. Do not store unrelated or user data in that directory.
 
-Do not substitute `algorithm/ros/nav2/run_nav2.sh` on a clean checkout: its implicit map is untracked. Do not use `algorithm/ros/tools/quick_test_nav2.sh`: it calls an absent test program. See section 12 for generation, command-stop, TF, lifecycle, and goal-result checks.
+`algorithm/nav2/run_nav2.sh` can resolve the tracked Factory profile map from a clean source checkout. It remains an environment-dependent launcher: it starts the default `nav2` selection, forwards only the explicit ROS discovery allowlist into its otherwise isolated Nav2 process, monitors both core process groups, requires GUI/ROS/provider assets, and does not replace the section 12 generation, command-stop, TF, lifecycle, and goal-result checks.
 
 ### User Documentation
 
@@ -2557,18 +2551,18 @@ Directories in this table mean the tracked source inventory below that directory
 | Traditional controller | `source/EAI/EAI/controllers/base.py`; `source/EAI/EAI/controllers/differential_drive_controller.py`; `source/EAI/EAI/controllers/ackermann_controller.py`; `source/EAI/EAI/controllers/ik_controller.py`; `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_hmrs/EAI_hmrs/controller_loader.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/ui.py` | Sections 5, 8, 10, and 11; synchronize the callback/adapter contract, selectable name, lazy mapping, requirement seed, provider bundle, and exposed UI names. |
 | RL controller | `source/EAI/EAI/controllers/__init__.py`; `source/EAI/EAI/controllers/base.py`; `source/EAI/EAI/controllers/utils.py`; `source/EAI/EAI/controllers/rsl_controller.py`; `source/EAI/EAI/controllers/skrl_controller.py`; `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_hmrs/EAI_hmrs/controller_loader.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/ui.py` | Sections 5, 8, 10, and 11; keep public exports, shared helpers, adapter semantics, selectable/import/requirement mappings, framework configuration, provider weights, and UI names compatible. |
 | Sensor | `source/EAI_assets/EAI_assets/sensor/`; `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `source/EAI_env_diy/EAI_env_diy/preview_stage.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/ui.py`; `usd/picture/processed/sensor/`; `source/EAI/EAI/interface_catalog/interfaces/` | Sections 7, 8, 10, 11, and 12; synchronize cfg, compatibility, formal/preview mounts, requirements/provider resolution, both UIs, image, declaration, and actual publisher activation. |
-| UR5 | `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `source/EAI_assets/EAI_assets/robots/manipulator_mount.py`; `source/EAI_assets/EAI_assets/robots/ur5_mount.py`; `source/EAI_env_diy/EAI_env_diy/preview_stage.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/ui.py`; `usd/picture/processed/manipulator/ur5.png`; `source/EAI/EAI/interface_catalog/interfaces/sensors/ur5.yaml`; `source/EAI/EAI/hmrs_ros/manipulator_omnigraph.py`; `source/EAI/EAI/hmrs_ros/ur5_omnigraph.py`; `simulator.py` | Sections 6, 8, 10, 11, and 12; synchronize compatibility, mount/preview assembly, controller requirements/provider resolution, UI/image, declarations, graph, and current main-session activation. |
-| Z1 | `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `source/EAI_assets/EAI_assets/robots/z1.py`; `source/EAI_assets/EAI_assets/robots/manipulator_mount.py`; `source/EAI_assets/EAI_assets/robots/z1_mount.py`; `source/EAI_env_diy/EAI_env_diy/preview_stage.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/ui.py`; `usd/picture/processed/manipulator/z1.png`; `source/EAI/EAI/interface_catalog/interfaces/sensors/z1.yaml`; `source/EAI/EAI/hmrs_ros/manipulator_omnigraph.py`; `source/EAI/EAI/hmrs_ros/z1_omnigraph.py`; `simulator.py` | Sections 6, 8, 10, 11, and 12; synchronize the direct arm asset/actuator cfg, compatibility, mount/preview assembly, controller requirements/provider resolution, UI/image, declarations, and graph helpers; main-session activation remains absent. |
+| UR5 | `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `source/EAI_assets/EAI_assets/robots/manipulator_mount.py`; `source/EAI_assets/EAI_assets/robots/ur5_mount.py`; `source/EAI_env_diy/EAI_env_diy/preview_stage.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/ui.py`; `usd/picture/processed/manipulator/ur5.png`; `source/EAI/EAI/interface_catalog/interfaces/sensors/ur5.yaml`; `source/EAI/EAI/hmrs_ros/manipulator_omnigraph.py`; `source/EAI/EAI/hmrs_ros/ur5_omnigraph.py`; `tools/send_manipulator_command.py`; `simulator.py` | Sections 6, 8, 10, 11, and 12; synchronize compatibility, mount/preview assembly, controller requirements/provider resolution, UI/image, declarations, graph, external command client, and current main-session activation. |
+| Z1 | `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `source/EAI_assets/EAI_assets/robots/z1.py`; `source/EAI_assets/EAI_assets/robots/manipulator_mount.py`; `source/EAI_assets/EAI_assets/robots/z1_mount.py`; `source/EAI_env_diy/EAI_env_diy/preview_stage.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/ui.py`; `usd/picture/processed/manipulator/z1.png`; `source/EAI/EAI/interface_catalog/interfaces/sensors/z1.yaml`; `source/EAI/EAI/hmrs_ros/manipulator_omnigraph.py`; `source/EAI/EAI/hmrs_ros/z1_omnigraph.py`; `tools/send_manipulator_command.py`; `simulator.py` | Sections 6, 8, 10, 11, and 12; synchronize the direct arm asset/actuator cfg, compatibility, mount/preview assembly, controller requirements/provider resolution, UI/image, declarations, graph helpers, and external command client; main-session activation remains absent. |
 | Human animation | `source/EAI_assets/EAI_assets/humans/`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `usd/human/README.md`; `usd/human/manifest.json`; `usd/human/manifest.schema.json`; `usd/human/pack-checksums.json`; `usd/human/audit-summary.json`; `tools/human_assets/` | Sections 3, 6, 8, 10, 11, and 13; keep registry/runtime, path and action contracts, maintained metadata, conversion/validation/authoring tools, external payloads, integrity, and publication rights synchronized. |
 | Asset download | `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py` | Sections 6, 7, 8, and 11; requirement seeds, transitive discovery, provider revision, installation, and human integrity are distinct boundaries. |
 | Env DIY lightweight UI | `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI/EAI/hmrs_env/env_diy/flow.py`; `source/EAI/EAI/hmrs_env/env_diy/storage.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI/EAI/hmrs_env/env_diy/webview_app.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI/setup.py`; `usd/picture/` | Sections 5, 6, 8, 9, and 10; keep selection, persistence, embedded vocabulary, bridge payload, builder/requirements, package data, and images synchronized. |
 | Env DIY 3D | `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI/EAI/hmrs_env/env_diy/flow.py`; `source/EAI/EAI/hmrs_env/env_diy/storage.py`; `source/EAI_env_diy/EAI_env_diy/`; `source/EAI_env_diy/config/extension.toml`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI/setup.py`; `usd/picture/`; `simulator.py` | Sections 5, 6, 8, 9, and 10; synchronize the portable contract, Kit authoring/preview/download/result lifecycle, builder/requirements, package data, images, and stage transition. |
-| ROS2 cmd_vel | `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI/EAI/hmrs_env/env_diy/flow.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `usd/picture/processed/tool/`; `source/EAI/EAI/interface_catalog/interfaces/robots/mobile_base.yaml`; `source/EAI/EAI/hmrs_ros/cmd_vel_bridge.py`; `source/EAI/EAI/hmrs_ros/twist_subscriber.py`; `algorithm/keyboard/keyboard.py`; `simulator.py` | Sections 6, 8, 10, and 12; synchronize tool compatibility/exposure, builder/requirements, interface declaration, external Twist publication, bridge activation, command application, snapshot filtering, and a later zero stop. |
-| Nav2 | `source/EAI_hmrs/EAI_hmrs/envs/nav2.json`; `algorithm/ros/nav2/nav2.launch.py`; `algorithm/ros/nav2/nav2_setup.py`; `algorithm/ros/nav2/nav2_profiles.yaml`; `algorithm/ros/nav2/tf_bridge.py`; `demo/fire_rescue/assets/factory_map.yaml`; `source/EAI/EAI/hmrs_ros/`; `simulator.py` | Sections 6, 12, 13, and 14; use the tracked matching selection and explicit map, and treat the current launcher as one global stack. |
+| ROS2 cmd_vel | `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI/EAI/hmrs_env/env_diy/flow.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `usd/picture/processed/tool/`; `source/EAI/EAI/interface_catalog/interfaces/robots/mobile_base.yaml`; `source/EAI/EAI/hmrs_ros/cmd_vel_bridge.py`; `source/EAI/EAI/hmrs_ros/twist_subscriber.py`; `algorithm/keyboard/keyboard.py`; `tools/send_cmd_vel.py`; `simulator.py` | Sections 6, 8, 10, and 12; synchronize tool compatibility/exposure, builder/requirements, interface declaration, external Twist publication, bridge activation, command application, snapshot filtering, repeated-zero cleanup, and observed delivery/stop behavior. |
+| Nav2 | `source/EAI_hmrs/EAI_hmrs/envs/nav2.json`; `algorithm/nav2/nav2.launch.py`; `algorithm/nav2/nav2_setup.py`; `algorithm/nav2/nav2_profiles.yaml`; `algorithm/nav2/tf_bridge.py`; `algorithm/nav2/send_goal.py`; `demo/fire_rescue/assets/factory_map.yaml`; `source/EAI/EAI/hmrs_ros/`; `simulator.py` | Sections 6, 12, 13, and 14; use the tracked matching selection with its tracked profile map or an explicit map, and treat the current launcher as one global stack. |
 | Interface catalog | `source/EAI/EAI/interface_catalog/interfaces/`; `source/EAI/EAI/interface_catalog/`; `source/EAI/EAI/hmrs_ros/`; `source/EAI/setup.py`; `simulator.py` | Sections 5, 6, 7, 8, 10, and 12; synchronize declarations, package data, real bridge/graph setup, and filtering; generated `tmp/runtime_interfaces.json` is runtime state, not authority. |
-| Algorithm | `algorithm/emos/`; `algorithm/TeamWeaver/`; `algorithm/global_planner/`; `algorithm/city_traffic/human_bridge.py`; `algorithm/keyboard/keyboard.py`; `algorithm/ros/` | Sections 5, 7, 8, and 12; keep pure algorithm contracts separate from simulator and external-service adapters; city traffic has only the tracked human bridge, not a package API. |
+| Algorithm | `algorithm/emos/`; `algorithm/TeamWeaver/`; `algorithm/global_planner/`; `algorithm/multi_robot_navigation/`; `algorithm/city_traffic/human_bridge.py`; `algorithm/keyboard/keyboard.py`; `algorithm/nav2/`; `tools/vis_sensors.py`; `tools/send_cmd_vel.py`; `tools/send_manipulator_command.py` | Sections 5, 7, 8, and 12; keep pure algorithm contracts separate from simulator and external-service adapters, and treat the root ROS clients as operational tools rather than algorithms; city traffic has only the tracked human bridge, not a package API. |
 | Fire Rescue demo | `demo/fire_rescue/main.py`; `demo/fire_rescue/config.py`; `demo/fire_rescue/scenario.py`; `demo/fire_rescue/experiment.py`; `demo/fire_rescue/runtime/`; `demo/fire_rescue/dashboard/`; `demo/fire_rescue/assets/`; `simulator.py` | Sections 5, 6, 7, 8, 13, and 14; enter through the reusable session and synchronize CLI/config/scenario/hooks/adapters/dashboard/assets while auditing external services. |
-| RealSense D455 | `source/EAI_assets/EAI_assets/sensor/high_sensor/realsense_d455.py`; `source/EAI/EAI/hmrs_ros/realsense_d455_imu.py`; `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI/EAI/interface_catalog/interfaces/sensors/realsense_d455.yaml`; `source/EAI_hmrs/EAI_hmrs/envs/mushr_realsense.json`; `algorithm/ros/tools/vis_sensors.py` | Sections 7, 8, 10, 11, and 12; synchronize the payload cfg and its publish graphs, the synthesized IMU manager, catalog/builder gates (`camera` vs `ros`), requirements/provider resolution, declarations, and the visualization tool's depth display. |
+| RealSense D455 | `source/EAI_assets/EAI_assets/sensor/high_sensor/realsense_d455.py`; `source/EAI/EAI/hmrs_ros/realsense_d455_imu.py`; `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI/EAI/interface_catalog/interfaces/sensors/realsense_d455.yaml`; `source/EAI_hmrs/EAI_hmrs/envs/mushr_realsense.json`; `tools/vis_sensors.py` | Sections 7, 8, 10, 11, and 12; synchronize the payload cfg and its publish graphs, the synthesized IMU manager, catalog/builder gates (`camera` vs `ros`), requirements/provider resolution, declarations, and the visualization tool's depth display. |
 | User documentation | `docs/source/` pages; `docs/source/index.rst`; `docs/source/index_en.rst`; `docs/source/conf.py`; `docs/source/_templates/sidebar/navigation.html`; `docs/source/_templates/sidebar/navigation_en.html`; `docs/source/assets/media/` | Sections 8, 16, and 20; keep page content external-facing, keep the toctree and hardcoded sidebar entries synchronized across both languages, and commit media with the page; `docs/build/` is generated output, not authority. |
 | Tests | `source/EAI/test/`; `source/EAI_assets/test/`; paths selected from `git ls-files -z` whose basenames match `test_*.py` or `*_test.py`; `tools/check_env_diy_runtime.mjs`; `tools/github_oauth_worker/oauth_worker_test.mjs` | Sections 7, 13, and 17; the tracked inventory and environment-dependent pass/skip counts are dynamic. |
 

@@ -70,14 +70,14 @@ ros2 topic list | grep RealsenseD455
 
 ## 3. 可视化 RGB 与深度图像
 
-使用仓库自带的 `algorithm/ros/tools/vis_sensors.py`：
+使用仓库自带的 `tools/vis_sensors.py`。请在带图形显示的系统 ROS Python 环境中运行；它需要 `rclpy`、`sensor_msgs`、`cv_bridge`、OpenCV 和 NumPy，这些依赖不会因脚本移动到根目录而自动出现在 `env_isaaclab` 中：
 
 ```bash
 # 自动发现所有 Image 话题（含 RGB 与深度）
-python3 algorithm/ros/tools/vis_sensors.py
+python3 tools/vis_sensors.py
 
 # 或显式指定 RealSense 模式与命名空间
-python3 algorithm/ros/tools/vis_sensors.py --sensor realsense --namespace /mushr_v2_1
+python3 tools/vis_sensors.py --sensor realsense --namespace /mushr_v2_1
 ```
 
 会弹出两个窗口：`RealSense RGB` 与 `RealSense Depth`（灰度深度图）。以下两张图为同一时刻截取（时间戳对齐，dt = 0 ms），展示 RealSense D455 装载于 MuSHR v2 机器人（Factory 场景）时的输出：
