@@ -14,7 +14,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 for source_root in (REPO_ROOT, REPO_ROOT / "source" / "EAI_assets"):
     source_path = str(source_root)
     if source_path not in sys.path:

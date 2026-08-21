@@ -9,7 +9,7 @@ import tempfile
 from unittest.mock import patch
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 for source_root in (Path(), Path("source/EAI"), Path("source/EAI_env_diy")):
     path = str(REPO_ROOT / source_root)
     if path not in sys.path:
