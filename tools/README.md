@@ -109,9 +109,9 @@ npx wrangler secret put STATE_SECRET --config tools/github_oauth_worker/wrangler
 npx wrangler deploy --config tools/github_oauth_worker/wrangler.toml
 ```
 
-Secret provisioning and deployment change external Cloudflare and GitHub
-state. See the [OAuth worker guide](github_oauth_worker/README.md) for secret,
-callback, origin, and deployment requirements.
+These Wrangler commands change external Cloudflare state. GitHub OAuth App,
+callback, and repository-variable configuration are separate manual steps; see
+the [OAuth worker guide](github_oauth_worker/README.md) for the full workflow.
 
 ## Side Effects and Risk
 
@@ -128,8 +128,9 @@ callback, origin, and deployment requirements.
   and manifests.
 - Commands under `human_assets/` can write authored, converted, migrated, or
   cached assets; review their inputs and outputs in the linked guide.
-- Deploying the OAuth worker changes external Cloudflare and GitHub state;
-  its local Node.js test does not deploy anything.
+- Provisioning secrets or deploying the OAuth worker changes external
+  Cloudflare state; its local Node.js test does not deploy anything. GitHub
+  configuration remains a separate manual step.
 
 ## Safe Validation
 
