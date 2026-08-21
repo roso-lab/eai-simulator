@@ -14,13 +14,13 @@
 
 set -u
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-# shellcheck source=tools/ros_distro.sh
-source "${REPO_ROOT}/tools/ros_distro.sh"
+# shellcheck source=tools/setup/ros_distro.sh
+source "${REPO_ROOT}/tools/setup/ros_distro.sh"
 ROS_DISTRO_NAME="$(eai_resolve_ros_distro)" || exit $?
 ROS_ROOT="/opt/ros/${ROS_DISTRO_NAME}"
 if [[ ! -f "${ROS_ROOT}/setup.bash" ]]; then
     echo "❌ 未安装系统 ROS2 ${ROS_DISTRO_NAME}: ${ROS_ROOT}/setup.bash" >&2
-    echo "   重新安装配置可运行: ./tools/install_packages.sh --ros-distro humble|jazzy" >&2
+    echo "   重新安装配置可运行: ./tools/setup/install_packages.sh --ros-distro humble|jazzy" >&2
     exit 1
 fi
 SIM_LOG=/tmp/eai_nav2_sim.log

@@ -8,7 +8,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
-const repositoryRoot = path.resolve(scriptDirectory, "..");
+const repositoryRoot = path.resolve(scriptDirectory, "../..");
 const runtimePath = path.join(
   repositoryRoot,
   "source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html"
@@ -136,7 +136,7 @@ const checkInlineScripts = html => {
 
 const mode = process.argv[2] || "all";
 if (mode !== "all") {
-  console.error("Usage: node tools/check_env_diy_runtime.mjs all");
+  console.error("Usage: node tools/validation/check_env_diy_runtime.mjs all");
   process.exit(2);
 }
 

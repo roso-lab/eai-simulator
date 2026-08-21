@@ -1,4 +1,0 @@
-GitHub to GitLab synchronization test
-version=2
-id=20260811103807
-update=verified
