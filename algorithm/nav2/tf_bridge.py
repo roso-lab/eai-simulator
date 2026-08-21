@@ -16,8 +16,8 @@ Nav2 遵循 REP-105，需要完整 TF 链：map → odom → base_link → <sens
 
 用法：
     source /opt/ros/$ROS_DISTRO/setup.bash
-    /usr/bin/python3 algorithm/ros/nav2/tf_bridge.py --ros-args -p robot:=carter_1
-    /usr/bin/python3 algorithm/ros/nav2/tf_bridge.py --robot carter_1 --lidar-xyz 0.026,0.0,0.418 --lidar-rpy 0.0,0.339,0.0
+    /usr/bin/python3 algorithm/nav2/tf_bridge.py --ros-args -p robot:=carter_1
+    /usr/bin/python3 algorithm/nav2/tf_bridge.py --robot carter_1 --lidar-xyz 0.026,0.0,0.418 --lidar-rpy 0.0,0.339,0.0
 """
 
 from __future__ import annotations
@@ -194,7 +194,7 @@ def _load_ros_symbols():
             "无法导入 ROS2 rclpy。请先执行：\n"
             "  conda deactivate\n"
             f"  source /opt/ros/{ros_distro}/setup.bash\n"
-            "  /usr/bin/python3 algorithm/ros/nav2/tf_bridge.py "
+            "  /usr/bin/python3 algorithm/nav2/tf_bridge.py "
             "--robot carter_1 --lidar-xyz 0.026,0.0,0.418\n"
             f"原始错误: {exc}"
         ) from exc
