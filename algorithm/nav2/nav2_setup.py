@@ -23,14 +23,22 @@ nav2_setup.py —— 按"机器人类型 + 场景"生成 Nav2 配置文件（par
 
 输出：<out>/{nav2_params.yaml, pointcloud_to_laserscan.yaml, view.rviz, meta.txt}
 并把地图绝对路径打印到 stdout 最后一行（launch 用它传给 map_server）。
+
+插件名适配：模板统一使用 Jazzy+ 的 "pkg::Name" 规范写法；生成时读取本机已安装
+nav2 包的插件声明 XML（<class name> 优先，无则用 <class type>），自动改写为
+pluginlib 实际声明的查找名——Humble 声明 "pkg/Name" 斜杠名，Jazzy+ 为双冒号名，
+传错名字会让对应 Nav2 节点在 configure 阶段 FATAL。
 """
 
 import argparse
+import glob
 import json
 import math
 import os
+import re
 import sys
 import time
+import xml.etree.ElementTree as ET
 
 try:
     import yaml
@@ -338,6 +346,99 @@ def render(template_path, subs):
     return s
 
 
+PLUGIN_NAME_VALUE_RE = re.compile(
+    r'(?P<prefix>\b(?:plugin|primary_controller):[ \t]*)(?P<q>["\']?)'
+    r'(?P<name>[A-Za-z0-9_]+(?:::|/)[A-Za-z0-9_]+)(?P=q)'
+)
+
+
+def ros_prefixes():
+    """本机 ROS2 安装前缀：AMENT_PREFIX_PATH → /opt/ros/$ROS_DISTRO → /opt/ros/*。"""
+    prefixes = [
+        prefix for prefix in os.environ.get("AMENT_PREFIX_PATH", "").split(os.pathsep) if prefix
+    ]
+    distro = os.environ.get("ROS_DISTRO", "").strip()
+    if distro:
+        prefixes.append(f"/opt/ros/{distro}")
+    prefixes.extend(candidate for candidate in sorted(glob.glob("/opt/ros/*")) if os.path.isdir(candidate))
+    ordered, seen = [], set()
+    for prefix in prefixes:
+        real = os.path.realpath(prefix)
+        if real not in seen:
+            seen.add(real)
+            ordered.append(prefix)
+    return ordered
+
+
+def declared_plugin_names(package, prefixes):
+    """读取已安装 ROS2 包的插件声明 XML，返回 pluginlib 查找名集合。
+
+    pluginlib 查找名规则：<class name="..."> 优先，未声明 name 属性时用 type 属性。
+    Humble 的 nav2 声明 "pkg/Name"（斜杠），Jazzy 起为 "pkg::Name"（双冒号）；
+    传入与声明不一致的名字会在节点 configure 阶段 FATAL。
+    """
+    names = set()
+    for prefix in prefixes:
+        pkg_share = os.path.join(prefix, "share", package)
+        package_xml = os.path.join(pkg_share, "package.xml")
+        if not os.path.isfile(package_xml):
+            continue
+        try:
+            export = ET.parse(package_xml).find("export")
+        except ET.ParseError:
+            continue
+        if export is None:
+            continue
+        for tag in export:
+            relative = tag.attrib.get("plugin")
+            if not relative:
+                continue
+            plugin_xml = relative.replace("${prefix}", pkg_share)
+            if not os.path.isfile(plugin_xml):
+                continue
+            try:
+                plugin_tree = ET.parse(plugin_xml)
+            except ET.ParseError:
+                continue
+            for cls in plugin_tree.iter("class"):
+                name = cls.attrib.get("name") or cls.attrib.get("type")
+                if name:
+                    names.add(name)
+    return names
+
+
+def adapt_plugin_names(params_text, prefixes=None):
+    """按本机已安装的插件声明改写参数中的插件查找名。
+
+    模板统一使用 Jazzy+ 的 "pkg::Name" 规范写法；在声明斜杠查找名的旧发行版
+    （如 Humble）上自动改写为声明的名字。查不到声明（包未安装/XML 解析失败）
+    时保持原样。返回 (改写后的文本, {模板名: 声明名})。
+    """
+    if prefixes is None:
+        prefixes = ros_prefixes()
+    declared_cache = {}
+    overrides = {}
+
+    def rewrite(match):
+        token = match.group("name")
+        package = re.split(r"::|/", token, 1)[0]
+        if package not in declared_cache:
+            declared_cache[package] = declared_plugin_names(package, prefixes)
+        for declared in declared_cache[package]:
+            if declared.replace("::", "/") == token.replace("::", "/"):
+                if declared != token:
+                    overrides[token] = declared
+                return (
+                    match.group("prefix")
+                    + match.group("q")
+                    + declared
+                    + match.group("q")
+                )
+        return match.group(0)
+
+    return PLUGIN_NAME_VALUE_RE.sub(rewrite, params_text), overrides
+
+
 def apply_navigation_plugin_profile(params, profile):
     """Replace the default NavFn/DWB pair for constrained drive kinematics."""
     controller_plugin = profile.get("controller_plugin", "dwb")
@@ -405,7 +506,7 @@ def apply_navigation_plugin_profile(params, profile):
 
     planner = params["planner_server"]["ros__parameters"]
     planner["GridBased"] = {
-        "plugin": "nav2_smac_planner/SmacPlannerHybrid",
+        "plugin": "nav2_smac_planner::SmacPlannerHybrid",
         "tolerance": float(profile.get("xy_goal_tolerance", 0.5)),
         "downsample_costmap": False,
         "allow_unknown": True,
@@ -550,6 +651,7 @@ def main():
     if pose.get("yaw", 0.0) != 0.0:
         params = params.replace("      yaw: 0.0\n", f"      yaw: {pose['yaw']}\n", 1)
     params = render_navigation_plugin_profile(params, prof)
+    params, plugin_overrides = adapt_plugin_names(params)
 
     pc2scan = render(PC2SCAN_TPL, {
         "@@SCAN_Z_MIN@@": prof["scan_z_min"],
@@ -585,6 +687,7 @@ def main():
         f.write(f"inflation_radius={params_subs['@@INFLATION_RADIUS@@']}\n")
         f.write(f"controller_plugin={prof.get('controller_plugin', 'dwb')}\n")
         f.write(f"planner_plugin={prof.get('planner_plugin', 'navfn')}\n")
+        f.write(f"plugin_name_overrides={plugin_overrides}\n")
 
     print(f"[nav2_setup] ✅ 已生成 Nav2 配置到 {out_dir}")
     print(f"  机器人={args.robot} 类型={robot_type} 场景={args.scene} 传感器={sensor}")
@@ -592,6 +695,9 @@ def main():
           f"雷达偏移={lidar_xyz} 雷达姿态={lidar_rpy}")
     print(f"  地图={map_path or '（无，需 --map 或先建图）'}")
     print(f"  初始位姿={pose}")
+    if plugin_overrides:
+        joined = ", ".join(f"{old} → {new}" for old, new in plugin_overrides.items())
+        print(f"[nav2_setup] 🔁 插件名按本机 ROS2 安装适配: {joined}")
     # 把关键值输出成 KEY=VALUE 供 launch/脚本解析（最后几行固定格式）
     print(f"PARAMS={params_out}")
     print(f"PC2SCAN={pc2scan_out}")
