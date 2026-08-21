@@ -20,19 +20,19 @@ python simulator.py --env=pegasus_drones --device=cuda:0
 发布 `/<robot>/lidar/pointcloud`（`sensor_msgs/msg/PointCloud2`）。因此只选择
 Camera 不会发布 LiDAR topic，只选择导航接口也不会发布相机 topic，两者都选择时才同时发布。导航接口在环境 JSON 中仍使用内部键 `ros`。
 
-启动仿真后，可在 ROS 2 Humble 终端直接运行统一传感器查看器。查看器需要系统 ROS Python 提供 `rclpy`、`sensor_msgs`、`cv_bridge`、OpenCV 和 NumPy，并需要可用的图形显示；这些依赖不会因脚本位于根目录 `tools/` 而出现在 `env_isaaclab` 中。无参数模式会动态发现
+启动仿真后，可在 ROS 2 Humble 终端直接运行统一传感器查看器。查看器需要系统 ROS Python 提供 `rclpy`、`sensor_msgs`、`cv_bridge`、OpenCV 和 NumPy，并需要可用的图形显示；这些依赖不会因脚本位于 `tools/ros2/` 而出现在 `env_isaaclab` 中。无参数模式会动态发现
 当前 ROS graph 中的所有 `sensor_msgs/msg/Image` topic，因此同时支持 Iris、Pegasus、
 CF2X 单目相机和 Orsus 左右相机；即使相机晚于查看器启动，也会自动订阅：
 
 ```bash
 source /opt/ros/humble/setup.bash
-python3 tools/vis_sensors.py
+python3 tools/ros2/vis_sensors.py
 ```
 
 只查看一台无人机时，通过 namespace 过滤。例如内置示例的实例名为 `iris_1`：
 
 ```bash
-python3 tools/vis_sensors.py --sensor camera --namespace /iris_1
+python3 tools/ros2/vis_sensors.py --sensor camera --namespace /iris_1
 ```
 
 `iris`、`pegasus` 和 `cf2x` 均包含带白噪声、随机游走、启动偏置和一阶时变偏置的

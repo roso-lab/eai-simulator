@@ -67,13 +67,13 @@ Use the unified viewer to display every camera topic that exists now or starts l
 
 ```bash
 source /opt/ros/humble/setup.bash
-python3 tools/vis_sensors.py
+python3 tools/ros2/vis_sensors.py
 ```
 
 To display only the camera below one aerial robot namespace:
 
 ```bash
-python3 tools/vis_sensors.py --sensor camera --namespace /iris_1
+python3 tools/ros2/vis_sensors.py --sensor camera --namespace /iris_1
 ```
 
 ## Keyboard motion interface

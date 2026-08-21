@@ -310,9 +310,9 @@ Nav2 navigation with Factory, Carter, and Orsus
   ```
 - Install or uninstall all packages from the repository root:
   ```bash
-  ./tools/install_packages.sh       # Install
-  ./tools/install_packages.sh -u    # Uninstall
-  ./tools/install_packages.sh -v    # Verbose output
+  ./tools/setup/install_packages.sh       # Install
+  ./tools/setup/install_packages.sh -u    # Uninstall
+  ./tools/setup/install_packages.sh -v    # Verbose output
   ```
 - Update Env DIY image assets from the repository root:
   ```bash

@@ -27,7 +27,7 @@ Navigation I/O retains the internal `ros` key in environment JSON.
 After starting the simulator, run the unified sensor visualizer from a ROS 2
 Humble terminal. The visualizer requires system ROS Python with `rclpy`,
 `sensor_msgs`, `cv_bridge`, OpenCV, and NumPy, plus a working graphical display;
-placing it under the root `tools/` directory does not provide those dependencies
+placing it under `tools/ros2/` does not provide those dependencies
 inside `env_isaaclab`. With no arguments it dynamically discovers every
 `sensor_msgs/msg/Image` topic on the current ROS graph, covering the Iris,
 Pegasus, and CF2X monocular cameras as well as both Orsus cameras. Cameras that
@@ -35,14 +35,14 @@ appear after the visualizer starts are subscribed automatically:
 
 ```bash
 source /opt/ros/humble/setup.bash
-python3 tools/vis_sensors.py
+python3 tools/ros2/vis_sensors.py
 ```
 
 Use a namespace filter to show only one aerial robot. The built-in example uses
 the `iris_1` instance:
 
 ```bash
-python3 tools/vis_sensors.py --sensor camera --namespace /iris_1
+python3 tools/ros2/vis_sensors.py --sensor camera --namespace /iris_1
 ```
 
 `iris`, `pegasus`, and `cf2x` also include an accelerometer and gyroscope with

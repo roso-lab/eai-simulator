@@ -67,13 +67,13 @@ Orsus 的双目图像接口为 `ros.orsus.left_image`（`/{robot}/Orsus_L_cam`�
 
 ```bash
 source /opt/ros/humble/setup.bash
-python3 tools/vis_sensors.py
+python3 tools/ros2/vis_sensors.py
 ```
 
 也可以只查看一个无人机 namespace 下的相机：
 
 ```bash
-python3 tools/vis_sensors.py --sensor camera --namespace /iris_1
+python3 tools/ros2/vis_sensors.py --sensor camera --namespace /iris_1
 ```
 
 ## 键盘运动接口

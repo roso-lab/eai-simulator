@@ -73,7 +73,7 @@ Shortest Path to a Successful Run
    .. code-block:: bash
 
       conda activate env_isaaclab
-      ./tools/install_packages.sh
+      ./tools/setup/install_packages.sh
       hf auth login
       python simulator.py --env robo
 

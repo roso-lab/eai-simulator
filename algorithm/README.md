@@ -11,8 +11,8 @@
 | `nav2/` | 独立于 Isaac Python 环境运行的外部 ROS2/Nav2 配置、launch 与目标客户端 |
 | `keyboard/keyboard.py` | 向 EAI `cmd_vel` 接口发布 ROS2 Twist 的交互式键盘客户端 |
 
-通用 ROS 运维客户端位于根目录 `tools/vis_sensors.py`、`tools/send_cmd_vel.py` 和
-`tools/send_manipulator_command.py`。它们分别负责传感器查看、测试速度发布以及向
+通用 ROS 运维客户端位于 `tools/ros2/vis_sensors.py`、`tools/ros2/send_cmd_vel.py` 和
+`tools/ros2/send_manipulator_command.py`。它们分别负责传感器查看、测试速度发布以及向
 UR5/Z1 正式 topic 发布命令并可选等待状态；它们是系统 ROS Python 工具，不是机械臂
 控制算法，也不会执行 IK、创建 OmniGraph 或激活机械臂 graph。
 

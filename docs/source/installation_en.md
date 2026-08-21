@@ -54,19 +54,19 @@ an administrator password.
 
 ```bash
 # Install all packages
-./tools/install_packages.sh
+./tools/setup/install_packages.sh
 
 # Select the Jazzy bridge for the current Python/Conda environment (default: Humble)
-./tools/install_packages.sh --ros-distro jazzy
+./tools/setup/install_packages.sh --ros-distro jazzy
 
 # View help
-./tools/install_packages.sh -h
+./tools/setup/install_packages.sh -h
 
 # Verbose output
-./tools/install_packages.sh -v
+./tools/setup/install_packages.sh -v
 
 # Uninstall all packages
-./tools/install_packages.sh -u
+./tools/setup/install_packages.sh -u
 ```
 
 `--ros-distro` accepts `humble` or `jazzy` and stores the selection under
@@ -244,7 +244,7 @@ unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
 Uninstall all EAI packages:
 
 ```bash
-./tools/install_packages.sh -u
+./tools/setup/install_packages.sh -u
 ```
 
 Or uninstall manually:

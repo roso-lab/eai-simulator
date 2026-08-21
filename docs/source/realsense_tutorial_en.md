@@ -70,14 +70,14 @@ Topic namespaces follow the robot instance name (the first `mushr_v2` instance i
 
 ## 3. Visualizing RGB and depth images
 
-Use the tracked `tools/vis_sensors.py` from a system ROS Python environment with a graphical display. It requires `rclpy`, `sensor_msgs`, `cv_bridge`, OpenCV, and NumPy; moving the script to the root directory does not make those dependencies available in `env_isaaclab`:
+Use the tracked `tools/ros2/vis_sensors.py` from a system ROS Python environment with a graphical display. It requires `rclpy`, `sensor_msgs`, `cv_bridge`, OpenCV, and NumPy; its `tools/ros2/` location does not make those dependencies available in `env_isaaclab`:
 
 ```bash
 # Auto-discover all Image topics (RGB and depth included)
-python3 tools/vis_sensors.py
+python3 tools/ros2/vis_sensors.py
 
 # Or explicitly select the RealSense mode and namespace
-python3 tools/vis_sensors.py --sensor realsense --namespace /mushr_v2_1
+python3 tools/ros2/vis_sensors.py --sensor realsense --namespace /mushr_v2_1
 ```
 
 Two windows open: `RealSense RGB` and `RealSense Depth` (grayscale depth). The two images below were captured at the same moment (timestamp-aligned, dt = 0 ms) and show the output with a RealSense D455 mounted on a MuSHR v2 robot in the Factory scene:

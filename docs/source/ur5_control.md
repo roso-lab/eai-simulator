@@ -25,16 +25,16 @@ python simulator.py --diy-3d --device=cuda:0
 
 source /opt/ros/humble/setup.bash
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-python3 tools/send_manipulator_command.py \
+python3 tools/ros2/send_manipulator_command.py \
   --robot go2_1 --model z1 \
   --joint 0.0 0.8 -1.2 0.0 0.0 0.0 --wait
-python3 tools/send_manipulator_command.py \
+python3 tools/ros2/send_manipulator_command.py \
   --robot go2_1 --model z1 --gripper -0.20 --wait
 ```
 
 点击 Run 后不会重新启动 Isaac Sim；预览资源会在同一个 Kit 进程内释放并创建正式环境。
 
-`tools/send_manipulator_command.py` 是在系统 ROS Python 中运行的外部 `rclpy` 发布/等待客户端，覆盖 UR5/Z1 的关节、位姿和夹爪正式 topic。发布前最多允许 3 秒发现订阅者；`--timeout` 从该阶段之后开始，只在使用 `--wait` 时限制状态回读等待。它不执行 IK，不创建 OmniGraph，不注册机械臂，不启动 Isaac Sim，也不能证明 graph 已激活。不要把脚本位于根目录 `tools/` 误解为 `env_isaaclab` 已提供 `rclpy`；应在另一个已 source 所选 ROS 发行版的系统 Python 终端运行。
+`tools/ros2/send_manipulator_command.py` 是在系统 ROS Python 中运行的外部 `rclpy` 发布/等待客户端，覆盖 UR5/Z1 的关节、位姿和夹爪正式 topic。发布前最多允许 3 秒发现订阅者；`--timeout` 从该阶段之后开始，只在使用 `--wait` 时限制状态回读等待。它不执行 IK，不创建 OmniGraph，不注册机械臂，不启动 Isaac Sim，也不能证明 graph 已激活。不要把脚本位于 `tools/ros2/` 误解为 `env_isaaclab` 已提供 `rclpy`；应在另一个已 source 所选 ROS 发行版的系统 Python 终端运行。
 
 ## 快速开始
 
@@ -125,7 +125,7 @@ ros2 topic list | grep -E '/(ur5|z1)/'
 统一外部客户端可向 UR5 和 Z1 的正式 topic 发布命令；示例仍要求运行时已经激活对应 graph：
 
 ```bash
-python3 tools/send_manipulator_command.py \
+python3 tools/ros2/send_manipulator_command.py \
   --robot go2_1 \
   --model z1 \
   --joint 0.0 0.8 -1.2 0.0 0.0 0.0 \
@@ -169,7 +169,7 @@ ros2 topic echo --once /go2_1/z1/joint_states
 挂载机械臂时推荐：
 
 ```bash
-python3 tools/send_manipulator_command.py \
+python3 tools/ros2/send_manipulator_command.py \
   --robot go2_1 \
   --model z1 \
   --xyz 0.45 0.00 0.65 \
@@ -180,7 +180,7 @@ python3 tools/send_manipulator_command.py \
 显式姿态使用 ROS 标准 `x y z w` 顺序：
 
 ```bash
-python3 tools/send_manipulator_command.py \
+python3 tools/ros2/send_manipulator_command.py \
   --robot go2_1 \
   --model z1 \
   --xyz 0.45 0.00 0.65 \
@@ -195,7 +195,7 @@ python3 tools/send_manipulator_command.py \
 夹爪使用独立 topic，不会覆盖六轴机械臂命令：
 
 ```bash
-python3 tools/send_manipulator_command.py \
+python3 tools/ros2/send_manipulator_command.py \
   --robot go2_1 \
   --model z1 \
   --gripper -0.20 \
