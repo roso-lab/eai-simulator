@@ -70,7 +70,7 @@ cd eai-simulator
 **Repository mutation and partial-failure risk.** Review section 16 before running this helper:
 
 ```bash
-./tools/setup-git-hooks.sh
+./tools/setup/setup-git-hooks.sh
 ```
 
 The script changes repository configuration by setting `core.hooksPath` to `.githooks`, makes the repository hooks executable, and thereby activates the current `post-checkout` warning. That warning prints destructive delete/recreate advice for nonconforming branch names; never copy that advice.
@@ -108,9 +108,9 @@ python -m pip --version
 The standard installer installs the three repository packages in editable mode:
 
 ```bash
-./tools/install_packages.sh
+./tools/setup/install_packages.sh
 # Or select the bridge backend for an already prepared Jazzy environment:
-./tools/install_packages.sh --ros-distro jazzy
+./tools/setup/install_packages.sh --ros-distro jazzy
 ```
 
 The installer accepts only `humble` or `jazzy`, resolving an explicit option before an existing `ROS_DISTRO`, an installed selection, and finally the Humble default. It stores the selection below the current Python prefix at `share/eai-simulator/ros_distro`; it does not install ROS2, modify repository source, or edit shell startup files. The current script also checks for the Ubuntu package `libxcb-cursor0`. If it is missing, the script runs `apt-get update` and `apt-get install -y libxcb-cursor0`, using `sudo` when the current user is not root. Review this system-level change before running the script in a controlled or shared environment.
@@ -141,8 +141,8 @@ These checks do not start Isaac Sim, use a GPU, load ROS2, or download assets:
 
 ```bash
 git config --get core.hooksPath
-bash -n tools/setup-git-hooks.sh tools/install_packages.sh
-python tools/check_ros_distro_config.py
+bash -n tools/setup/setup-git-hooks.sh tools/setup/install_packages.sh
+python tools/validation/check_ros_distro_config.py
 python -m pip show EAI EAI_assets EAI_hmrs
 git status --short
 ```
@@ -170,7 +170,13 @@ source/
   EAI_env_diy/EAI_env_diy/            Isaac Kit Env DIY 3D extension
 algorithm/                            optional EMOS, planning, keyboard, ROS/Nav2 programs
 demo/fire_rescue/                     Fire Rescue integration demo
-tools/                                setup, validation, conversion, and repair entry points
+tools/
+  setup/                             installation and host/repository setup
+  validation/                        lightweight Python and Node.js checks
+  ros2/                              external system-ROS clients and tests
+  assets/                            Isaac/OpenUSD maintenance and repair
+  human_assets/                      human asset authoring and validation
+  github_oauth_worker/               Node.js worker tests and deployment config
 usd/                                  tracked manifests and UI thumbnails; downloaded USD is runtime data
 tmp/                                  transient preflight, Env DIY, and interface-snapshot output
 ```
@@ -221,9 +227,9 @@ The extension reuses the core catalog and selection parser, then returns a seria
 
 ### Stable Algorithms
 
-Tracked reusable algorithm entry points are `algorithm/emos/` for scenario-driven multi-agent discussion/task allocation, `algorithm/TeamWeaver/` for LLM+MIQP task decomposition/allocation/replanning, `algorithm/global_planner/` for independent 2D planning and tracking, `algorithm/multi_robot_navigation/` for the vendored native db-CBS planner, externally fetched checksum-verified motion primitives, synchronized trajectory playback, and in-session conflict-aware multi-robot navigation, `algorithm/keyboard/keyboard.py` for ROS Twist input, and `algorithm/nav2/` for external ROS2/Nav2 generation, launch, TF, and goal tooling. General ROS operational clients live at `tools/vis_sensors.py`, `tools/send_cmd_vel.py`, and `tools/send_manipulator_command.py`; they are tools rather than control algorithms.
+Tracked reusable algorithm entry points are `algorithm/emos/` for scenario-driven multi-agent discussion/task allocation, `algorithm/TeamWeaver/` for LLM+MIQP task decomposition/allocation/replanning, `algorithm/global_planner/` for independent 2D planning and tracking, `algorithm/multi_robot_navigation/` for the vendored native db-CBS planner, externally fetched checksum-verified motion primitives, synchronized trajectory playback, and in-session conflict-aware multi-robot navigation, `algorithm/keyboard/keyboard.py` for ROS Twist input, and `algorithm/nav2/` for external ROS2/Nav2 generation, launch, TF, and goal tooling. General ROS operational clients live at `tools/ros2/vis_sensors.py`, `tools/ros2/send_cmd_vel.py`, and `tools/ros2/send_manipulator_command.py`; they are tools rather than control algorithms.
 
-`tools/vis_sensors.py` visualizes ROS2 camera, depth, and point-cloud topics; non-8-bit images (for example RealSense depth `32FC1`, meters) can contain `inf`/`NaN` out-of-range pixels, so they are scaled for display by `SensorVisualizer._scale_to_uint8` (1st-99th percentile clip of finite values; non-finite pixels render black). `EMOSDiscussionManager` receives a caller-supplied scenario and Isaac Lab-compatible `base_env`; `build_from_agent_specs()` installs a position callback backed by `_get_robot_pos()`, which reads articulation or rigid-object state from that environment's scene. EMOS does not construct the simulator scene. TeamWeaver is an external planner: its `eai_adapter` integration layer consumes task instructions plus symbolic world state and emits task DAGs and robot allocations, and it neither builds the simulator scene nor drives robots directly. The global planner is independent of Isaac Sim, EMOS, Torch, and ROS. The multi-robot navigation plugin reuses that planner only in explicit compatibility mode; its default db-CBS backend runs planning on a bounded background worker while the caller owns the simulator loop. Keyboard and Nav2 publish the same cmd_vel interface consumed by `EAI.hmrs_ros`.
+`tools/ros2/vis_sensors.py` visualizes ROS2 camera, depth, and point-cloud topics; non-8-bit images (for example RealSense depth `32FC1`, meters) can contain `inf`/`NaN` out-of-range pixels, so they are scaled for display by `SensorVisualizer._scale_to_uint8` (1st-99th percentile clip of finite values; non-finite pixels render black). `EMOSDiscussionManager` receives a caller-supplied scenario and Isaac Lab-compatible `base_env`; `build_from_agent_specs()` installs a position callback backed by `_get_robot_pos()`, which reads articulation or rigid-object state from that environment's scene. EMOS does not construct the simulator scene. TeamWeaver is an external planner: its `eai_adapter` integration layer consumes task instructions plus symbolic world state and emits task DAGs and robot allocations, and it neither builds the simulator scene nor drives robots directly. The global planner is independent of Isaac Sim, EMOS, Torch, and ROS. The multi-robot navigation plugin reuses that planner only in explicit compatibility mode; its default db-CBS backend runs planning on a bounded background worker while the caller owns the simulator loop. Keyboard and Nav2 publish the same cmd_vel interface consumed by `EAI.hmrs_ros`.
 
 ### Demo And Integration Boundaries
 
@@ -233,7 +239,7 @@ Tracked reusable algorithm entry points are `algorithm/emos/` for scenario-drive
 
 ### Tools
 
-`tools/` owns operational entry points for package installation, hook setup, Env DIY checks, OAuth worker tests, human asset authoring/import/validation, USD repair, and the general ROS clients `vis_sensors.py`, `send_cmd_vel.py`, and `send_manipulator_command.py`. Each tracked script is the public command boundary for its own arguments, prerequisites, and side effects; inspect that script before invoking it rather than treating the directory as one uniform API. These tools depend on the relevant shell, Python, or Node.js runtime and, depending on the command, repository packages, system ROS Python, `rclpy`, visualization dependencies and a display, system package managers, Git LFS, provider access, or external source assets. Location below `tools/` does not make ROS Python dependencies available in `env_isaaclab`.
+`tools/` is the operational, validation, and asset-authoring boundary described in `tools/README.md`; it is not a uniform Python API. `setup/` owns installation and host/repository setup, `validation/` owns lightweight Python and Node.js checks, `ros2/` owns the three external system-ROS clients and their focused tests, `assets/` owns Isaac/OpenUSD repair, `human_assets/` owns human authoring/import/validation, and `github_oauth_worker/` owns the Node.js worker workflow. Each tracked script is the public command boundary for its own arguments, prerequisites, and side effects. Location below `tools/` does not make ROS Python dependencies available in `env_isaaclab`, make OpenUSD available to asset repair, or make a Node.js validation result equivalent to deploying the OAuth worker.
 
 ### USD Assets
 
@@ -326,10 +332,10 @@ After the final scene starts, the launcher resolves declared interfaces for the 
 | ROS cmd_vel and manipulator bridges | `source/EAI/EAI/hmrs_ros/`; `simulator.py` | Core package owns the shared and UR5-specific bridge/OmniGraph implementations plus UR5/Z1 model helpers. The launcher owns selection-driven cmd_vel setup and the current shared-manager UR5 graph registration/cleanup; it does not register `Z1_MODEL_SPEC`. Keep ROS-specific dependencies outside the core selection model. |
 | Interface declarations, query, and runtime snapshots | `source/EAI/EAI/interface_catalog/interfaces/`; `source/EAI/EAI/interface_catalog/`; `tmp/runtime_interfaces.json` | YAML declares interfaces; catalog modules validate/query/resolve them; the JSON file is a transient runtime snapshot, not a source declaration. |
 | Env DIY lightweight UI and 3D extension | `source/EAI/EAI/hmrs_env/env_diy/`; `source/EAI_env_diy/EAI_env_diy/`; `source/EAI_env_diy/config/extension.toml` | Core Env DIY modules own portable selection behavior; the extension owns Kit UI, preview, downloads, result protocol, and lifecycle declaration. |
-| Stable algorithm entry points | `algorithm/emos/`; `algorithm/TeamWeaver/`; `algorithm/global_planner/`; `algorithm/multi_robot_navigation/`; `algorithm/keyboard/keyboard.py`; `algorithm/nav2/`; `tools/vis_sensors.py`; `tools/send_cmd_vel.py`; `tools/send_manipulator_command.py` | EMOS, TeamWeaver, db-CBS multi-robot navigation, 2D planning, keyboard Twist publishing, and external Nav2 integration are optional clients/integrations. The root ROS clients are operational tools, not control algorithms. Keep the core planners, EMOS, and TeamWeaver independent of simulator construction; keep the db-CBS core and EAI adapter together in `multi_robot_navigation/`. db-CBS motion primitives are ignored provider payloads installed only after size and SHA-256 verification. |
+| Stable algorithm entry points | `algorithm/emos/`; `algorithm/TeamWeaver/`; `algorithm/global_planner/`; `algorithm/multi_robot_navigation/`; `algorithm/keyboard/keyboard.py`; `algorithm/nav2/`; `tools/ros2/vis_sensors.py`; `tools/ros2/send_cmd_vel.py`; `tools/ros2/send_manipulator_command.py` | EMOS, TeamWeaver, db-CBS multi-robot navigation, 2D planning, keyboard Twist publishing, and external Nav2 integration are optional clients/integrations. The `tools/ros2/` clients are operational tools, not control algorithms. Keep the core planners, EMOS, and TeamWeaver independent of simulator construction; keep the db-CBS core and EAI adapter together in `multi_robot_navigation/`. db-CBS motion primitives are ignored provider payloads installed only after size and SHA-256 verification. |
 | Fire Rescue demo | `demo/fire_rescue/main.py`; `demo/fire_rescue/experiment.py`; `demo/fire_rescue/runtime/` | Uses the reusable session API and adapts simulator state to demo algorithms. Do not turn its scenario-specific behavior into a core launcher default. |
 | Multi-robot navigation integration | `algorithm/multi_robot_navigation/test/main.py`; `source/EAI_hmrs/EAI_hmrs/envs/dbcbs_slam_team.json` | Exercises the reusable multi-robot navigation component in one simulator session. The test entry point owns CLI and mission choices; the algorithm package owns planning and action generation. |
-| Setup, ROS clients, conversion, validation, and repair tools | `tools/`; `tools/vis_sensors.py`; `tools/send_cmd_vel.py`; `tools/send_manipulator_command.py` | Scripts are their own operational authority. The three ROS clients run outside the simulator in the selected system ROS Python; inspect current arguments, prerequisites, and side effects before documenting or invoking one. |
+| Setup, ROS clients, conversion, validation, and repair tools | `tools/README.md`; `tools/setup/`; `tools/validation/`; `tools/ros2/`; `tools/assets/`; `tools/human_assets/`; `tools/github_oauth_worker/` | Scripts are their own operational authority, not one Python API. The three ROS clients run outside the simulator in the selected system ROS Python; USD repair requires Isaac/OpenUSD; inspect current arguments, prerequisites, and side effects before documenting or invoking one. |
 | Maintained USD metadata and runtime/generated data | `usd/`; `tmp/`; `source/EAI_assets/EAI_assets/asset_resolver.py` | `usd/` keeps tracked manifests/thumbnails; resolver-managed production assets and `tmp/` output are runtime data. Do not commit resolver downloads or transient output by default. |
 | Tests | `source/EAI/test/`; `source/EAI_assets/test/`; package-local test files discovered by `git ls-files` | Tests are authoritative behavioral evidence for their covered paths. Keep tests lightweight unless an Isaac/ROS integration boundary specifically requires otherwise. |
 
@@ -494,7 +500,7 @@ print(key, catalog.default_controller_cfg(key), _ROBOT_PATHS[key])
 PY
 rg -n -U 'RobotOption\([[:space:]]*"'"$ROBOT_KEY"'"' source/EAI_hmrs/EAI_hmrs/env_builder.py
 test -e "usd/picture/processed/robot/$ROBOT_IMAGE_STEM.png"
-node tools/check_env_diy_runtime.mjs all
+node tools/validation/check_env_diy_runtime.mjs all
 ```
 
 The `rg` result is navigation/static-presence evidence only; it does not prove that `ROBOT_OPTIONS` builds or behaves correctly. Run any new pure registration tests by their exact path, and use the full builder integration check below for behavioral proof. Static checks must not import Isaac-dependent builder modules outside the intended environment.
@@ -547,7 +553,7 @@ print(key, _SCENE_PATHS[key])
 PY
 rg -n -U 'SceneOption\([[:space:]]*"'"$SCENE_KEY"'"' source/EAI_hmrs/EAI_hmrs/env_builder.py
 test -e "usd/picture/scene/$SCENE_KEY.png"
-node tools/check_env_diy_runtime.mjs all
+node tools/validation/check_env_diy_runtime.mjs all
 ```
 
 The `rg` result is navigation/static-presence evidence only; it does not prove scene construction or transforms. Parse changed JSON or YAML metadata with `python -m json.tool <path>` or the owning YAML loader, run newly added focused tests by their exact path, and use the full builder integration check below for behavioral proof.
@@ -768,7 +774,7 @@ load_catalog().interface("ros.orsus.left_image")
 print(*(item.id for item in graph.requirements), sep="\n")
 PY
 test -e "usd/picture/processed/sensor/$ATTACHMENT.png"
-node tools/check_env_diy_runtime.mjs all
+node tools/validation/check_env_diy_runtime.mjs all
 ```
 
 Add exact rejected-host and duplicate-normalization cases to the focused tests changed by the feature.
@@ -835,7 +841,7 @@ assert f"controller:{entry.controller_cfg}" in ids
 load_catalog().interface("ros.ur5.joint_states")
 print(*sorted(ids), sep="\n")
 PY
-node tools/check_env_diy_runtime.mjs all
+node tools/validation/check_env_diy_runtime.mjs all
 ```
 
 Add exact supported-host, rejected-host, deduplication, round-trip, mount-profile, and builder cases to the focused tests changed by the feature. For a passive payload, run the same catalog/requirement/UI checks but do not assert an arm controller or graph interface.
@@ -899,7 +905,7 @@ path = Path(sys.argv[1])
 ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 PY
 python simulator.py interfaces scene --env keyboard --json >/dev/null
-node tools/check_env_diy_runtime.mjs all
+node tools/validation/check_env_diy_runtime.mjs all
 ```
 
 #### Full integration verification
@@ -922,7 +928,7 @@ Start with shared `catalog.py`, `flow.py`, and `storage.py` under `source/EAI/EA
 
 #### Related registration/compatibility points
 
-The HTML embeds duplicate scene/robot/payload/tool/controller data. Terminal steps and 3D UI cards/categories are also partly hardcoded. Keep builder wiring, asset requirements, images, package data, download status handling, in-process result semantics, and cleanup synchronized. `node tools/check_env_diy_runtime.mjs all` checks required/retired markup, duplicate IDs, local images, and inline JavaScript syntax; it does not compare embedded HTML catalog data with the Python catalog. There is no maintained structured-equality test at present.
+The HTML embeds duplicate scene/robot/payload/tool/controller data. Terminal steps and 3D UI cards/categories are also partly hardcoded. Keep builder wiring, asset requirements, images, package data, download status handling, in-process result semantics, and cleanup synchronized. `node tools/validation/check_env_diy_runtime.mjs all` checks required/retired markup, duplicate IDs, local images, and inline JavaScript syntax; it does not compare embedded HTML catalog data with the Python catalog. There is no maintained structured-equality test at present.
 
 #### Implementation steps
 
@@ -937,7 +943,7 @@ The HTML embeds duplicate scene/robot/payload/tool/controller data. Terminal ste
 Run the maintained HTML checks, parse the portable Python modules, and round-trip a tracked selection without importing Isaac:
 
 ```bash
-node tools/check_env_diy_runtime.mjs all
+node tools/validation/check_env_diy_runtime.mjs all
 PYTHONDONTWRITEBYTECODE=1 python - \
   source/EAI/EAI/hmrs_env/env_diy \
   source/EAI_env_diy/EAI_env_diy <<'PY'
@@ -1046,11 +1052,11 @@ Develop a reusable algorithm behind a pure contract and keep simulator, ROS, cre
 
 #### Authoritative files
 
-Stable tracked algorithm areas are `algorithm/emos/`, `algorithm/TeamWeaver/`, `algorithm/global_planner/`, `algorithm/multi_robot_navigation/`, `algorithm/keyboard/keyboard.py`, and `algorithm/nav2/`. General external ROS clients are the root tools `tools/vis_sensors.py`, `tools/send_cmd_vel.py`, and `tools/send_manipulator_command.py`; do not classify them as manipulator or motion-control algorithms. The algorithm code and tracked module READMEs own their local contracts. User-facing intro pages for the collaboration algorithms live at `docs/source/emos.md` / `emos_en.md` and `docs/source/teamweaver.md` / `teamweaver_en.md` under the collapsible 多机协作算法 navigation group; keep them synchronized when the adapter APIs change. The only tracked city-traffic implementation is `algorithm/city_traffic/human_bridge.py`, with its focused test at `source/EAI/test/test_city_traffic_human_bridge.py`; there is no tracked `algorithm.city_traffic` package API.
+Stable tracked algorithm areas are `algorithm/emos/`, `algorithm/TeamWeaver/`, `algorithm/global_planner/`, `algorithm/multi_robot_navigation/`, `algorithm/keyboard/keyboard.py`, and `algorithm/nav2/`. General external ROS clients live under `tools/ros2/` at `vis_sensors.py`, `send_cmd_vel.py`, and `send_manipulator_command.py`; do not classify them as manipulator or motion-control algorithms. The algorithm code and tracked module READMEs own their local contracts. User-facing intro pages for the collaboration algorithms live at `docs/source/emos.md` / `emos_en.md` and `docs/source/teamweaver.md` / `teamweaver_en.md` under the collapsible 多机协作算法 navigation group; keep them synchronized when the adapter APIs change. The only tracked city-traffic implementation is `algorithm/city_traffic/human_bridge.py`, with its focused test at `source/EAI/test/test_city_traffic_human_bridge.py`; there is no tracked `algorithm.city_traffic` package API.
 
 #### Related registration/compatibility points
 
-EMOS accepts a caller-supplied scenario and compatible `base_env`; it does not build the simulator. The global planner is pure Python with an optional generated C++ extension and should remain independent of Isaac, Torch, ROS, and EMOS. `algorithm/multi_robot_navigation/` owns the vendored db-CBS native source, license texts, ignored build tree, Python problem/result conversion, synchronized playback, motion-primitive downloader and integrity metadata, EAI session adapter, and optional Kit UI. It must not create another application or block the simulator thread during native planning. Adapters own pose/command conversion. Keep requirements, LLM credentials, ROS environment boundaries, third-party provenance, external payload boundaries, and ignored generated binaries/reports explicit. The three root ROS clients have focused lightweight tests; `algorithm/nav2/tests/test_nav2_layout.py` owns the promoted Nav2 layout/path and launcher contracts, while `algorithm/nav2/tests/test_send_goal.py` owns action-result and client-lifecycle behavior. These tests do not replace live ROS/Isaac validation. No dedicated tracked EMOS/global-planner/keyboard unit suites currently exist.
+EMOS accepts a caller-supplied scenario and compatible `base_env`; it does not build the simulator. The global planner is pure Python with an optional generated C++ extension and should remain independent of Isaac, Torch, ROS, and EMOS. `algorithm/multi_robot_navigation/` owns the vendored db-CBS native source, license texts, ignored build tree, Python problem/result conversion, synchronized playback, motion-primitive downloader and integrity metadata, EAI session adapter, and optional Kit UI. It must not create another application or block the simulator thread during native planning. Adapters own pose/command conversion. Keep requirements, LLM credentials, ROS environment boundaries, third-party provenance, external payload boundaries, and ignored generated binaries/reports explicit. The three `tools/ros2/` clients have focused lightweight tests under `tools/ros2/tests/`; `algorithm/nav2/tests/test_nav2_layout.py` owns the promoted Nav2 layout/path and launcher contracts, while `algorithm/nav2/tests/test_send_goal.py` owns action-result and client-lifecycle behavior. These tests do not replace live ROS/Isaac validation. No dedicated tracked EMOS/global-planner/keyboard unit suites currently exist.
 
 #### Implementation steps
 
@@ -1358,7 +1364,7 @@ Therefore, `asset present != selectable != runnable != runtime activated`. Verif
 
 ### User Interface and Image Synchronization
 
-The terminal flow hardcodes its payload/tool steps, the 3D UI hardcodes card/category presentation, and `env_diy_app.html` duplicates the complete vocabulary and host lists in JavaScript. Update all affected front ends even when the pure catalog is correct. The lightweight HTML uses tracked images below `usd/picture/scene/` and `usd/picture/processed/{robot,manipulator,sensor,tool}/`; preserve the exact referenced spelling, including existing case-sensitive filenames. `node tools/check_env_diy_runtime.mjs all` validates markup, IDs, local images, and inline JavaScript syntax, but not equality with the Python catalog. The equality suite is not part of the current baseline: an affected change must add and unignore `source/EAI/test/test_env_diy_catalog_sync.py` following the `Modify Env DIY` workflow before running its pytest command.
+The terminal flow hardcodes its payload/tool steps, the 3D UI hardcodes card/category presentation, and `env_diy_app.html` duplicates the complete vocabulary and host lists in JavaScript. Update all affected front ends even when the pure catalog is correct. The lightweight HTML uses tracked images below `usd/picture/scene/` and `usd/picture/processed/{robot,manipulator,sensor,tool}/`; preserve the exact referenced spelling, including existing case-sensitive filenames. `node tools/validation/check_env_diy_runtime.mjs all` validates markup, IDs, local images, and inline JavaScript syntax, but not equality with the Python catalog. The equality suite is not part of the current baseline: an affected change must add and unignore `source/EAI/test/test_env_diy_catalog_sync.py` following the `Modify Env DIY` workflow before running its pytest command.
 
 ### Instance and Interface Naming Limitations
 
@@ -1490,7 +1496,7 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONDONTWRITEBYTECODE=1 \
   source/EAI_assets/test/test_human_asset_distribution.py::test_human_paths_map_to_stable_pack_patterns_in_first_seen_order \
   source/EAI_assets/test/test_human_asset_distribution.py::test_non_human_pattern_resolution_is_unchanged \
   source/EAI_assets/test/test_human_asset_registry.py::test_repository_default_catalog_is_strict_v2_metadata
-node tools/check_env_diy_runtime.mjs all
+node tools/validation/check_env_diy_runtime.mjs all
 ```
 
 Do not turn a local human-pack checksum mismatch, missing ignored payload, or dirty cache into a repository contract. First distinguish tracked metadata, the selected provider revision, and the current machine's ignored asset roots; report local drift as local drift.
@@ -1501,7 +1507,7 @@ Do not turn a local human-pack checksum mismatch, missing ignored payload, or di
 
 Run `simulator.py` in `env_isaaclab`. Run external programs that import `rclpy`, Nav2 nodes, RViz2, and ROS CLI tools in a separate shell using the selected system ROS Python after sourcing `/opt/ros/$ROS_DISTRO/setup.bash`. Sourcing ROS into the Isaac Conda shell does not change the ABI of its Python interpreter and can mix incompatible Python and shared libraries. Humble/system Python 3.10 remains the tracked live-test baseline.
 
-`algorithm/keyboard/keyboard.py` detects the common `_rclpy_pybind11`/Conda mismatch and tells the operator to use `/usr/bin/python3`; it does not re-exec automatically. `algorithm/nav2/tf_bridge.py` re-execs to `EAI_NAV2_ROS_PYTHON` or `/usr/bin/python3` when it detects Conda, unless `EAI_NAV2_NO_REEXEC=1`. The unified Nav2 launch also uses `EAI_NAV2_ROS_PYTHON` for that bridge. `tools/vis_sensors.py`, `tools/send_cmd_vel.py`, and `tools/send_manipulator_command.py` are external system-ROS clients; moving them to root `tools/` does not make `rclpy`, `cv_bridge`, OpenCV, display access, or other ROS dependencies available in `env_isaaclab`. Treat these as process boundaries, not permission to merge the simulator and system ROS environments.
+`algorithm/keyboard/keyboard.py` detects the common `_rclpy_pybind11`/Conda mismatch and tells the operator to use `/usr/bin/python3`; it does not re-exec automatically. `algorithm/nav2/tf_bridge.py` re-execs to `EAI_NAV2_ROS_PYTHON` or `/usr/bin/python3` when it detects Conda, unless `EAI_NAV2_NO_REEXEC=1`. The unified Nav2 launch also uses `EAI_NAV2_ROS_PYTHON` for that bridge. `tools/ros2/vis_sensors.py`, `tools/ros2/send_cmd_vel.py`, and `tools/ros2/send_manipulator_command.py` are external system-ROS clients; their `tools/ros2/` location does not make `rclpy`, `cv_bridge`, OpenCV, display access, or other ROS dependencies available in `env_isaaclab`. Treat these as process boundaries, not permission to merge the simulator and system ROS environments.
 
 Before application launch, `simulator.py` resolves the distro from an explicit value, `ROS_DISTRO`, the installer-managed file, or the Humble default. It looks for the matching Isaac ROS2 bridge under a compatible `ISAAC_ROS_PATH`, then `EAI_ISAACSIM_ROOT` or `ISAACSIM_ROOT`, conventional user install locations, and Python site-packages. When found, it sets `ISAAC_ROS_PATH` and prepends the bridge `lib` and prefix paths. Orsus, RealSense, and LiDAR reuse this resolver and no longer overwrite a caller's selected distro. `RMW_IMPLEMENTATION` defaults to Fast DDS only when unset.
 
@@ -1524,11 +1530,11 @@ The Env DIY UI displays the serialized `ros` tool as Navigation I/O. A selected 
 
 Robot instance topics use per-type occurrence names from the builder, for example `/carter_1/cmd_vel`, `/go2_1/cmd_vel`, and `/carter_2/cmd_vel`. On the direct action-tensor path, the current bridge reads `linear.x` and `angular.z` and sets `linear.y` to zero. Scout angular velocity is additionally multiplied by `SCOUT_CMD_VEL_ANGULAR_SCALE`. Do not promise lateral A/D motion for ordinary holonomic bases: although the keyboard message contains `linear.y`, that component is dropped by the direct path. Goal-controlled robots use the full Twist and integrate linear components into `goal_position`; quadcopter goal updates use a fixed keyboard step scale rather than frame `dt`, and supported yaw goals are integrated separately.
 
-The keyboard publisher emits one Twist per key event and sends zero when switching or exiting; its `--rate` argument is currently parsed but does not create periodic publication. `tools/send_cmd_vel.py` is the separate rate-based publisher when `--rate` is positive. On continuous-mode normal completion or Ctrl+C cleanup, it cancels or destroys its timer, keeps the `rclpy` context active while publishing three repeated zero Twists, spins briefly after each message, and only then destroys the node and shuts ROS down. This cleanup improves the chance of delivery but does not prove that a subscriber received zero or that the robot stopped. Because the bridge has no watchdog, live acceptance must confirm actual zero delivery and observe the robot stop. One-shot mode does not run the repeated-zero cleanup and is not a safety stop.
+The keyboard publisher emits one Twist per key event and sends zero when switching or exiting; its `--rate` argument is currently parsed but does not create periodic publication. `tools/ros2/send_cmd_vel.py` is the separate rate-based publisher when `--rate` is positive. On continuous-mode normal completion or Ctrl+C cleanup, it cancels or destroys its timer, keeps the `rclpy` context active while publishing three repeated zero Twists, spins briefly after each message, and only then destroys the node and shuts ROS down. This cleanup improves the chance of delivery but does not prove that a subscriber received zero or that the robot stopped. Because the bridge has no watchdog, live acceptance must confirm actual zero delivery and observe the robot stop. One-shot mode does not run the repeated-zero cleanup and is not a safety stop.
 
 ```bash
 source /opt/ros/humble/setup.bash
-python3 tools/send_cmd_vel.py \
+python3 tools/ros2/send_cmd_vel.py \
   --robot carter_1 --linear 0 --angular 0 --rate 10
 ```
 
@@ -1548,7 +1554,7 @@ Publisher presence is weaker than data flow. RTX/render-dependent graphs can reg
 
 The shared formal topic family is `/<instance>/<model>/...`. UR5 declares `target_pose`, `joint_command`, `joint_states`, and `ee_pose` below `/<instance>/ur5/`. Z1 declares the same endpoints below `/<instance>/z1/` plus `gripper_command` and `gripper_state`. Pose commands accept the formal `world` or `base_link` frames; joint commands use each model's canonical joint order/names.
 
-The main simulator session currently calls `ManipulatorOmniGraphManager.setup_robot(...)` only for selected UR5 attachments and closes that shared manager during cleanup. `Z1_MODEL_SPEC`, `z1_topic_names()`, aliases, YAML declarations, and a selected Z1 attachment do not activate an equivalent graph. `tools/send_manipulator_command.py` is an external system-`rclpy` publisher/waiter for the formal UR5/Z1 joint, pose, and gripper topic families. Before publishing it allows up to three seconds for subscriber discovery; `--timeout` starts after that phase and bounds feedback waiting only when `--wait` is selected. It rejects `--frame-id base_link` together with pose `--wait`, because the published `ee_pose` feedback is always in world coordinates and cannot be compared directly with a base-relative target. The tool does not perform IK, create OmniGraph, register a manipulator, start Isaac, or prove graph activation.
+The main simulator session currently calls `ManipulatorOmniGraphManager.setup_robot(...)` only for selected UR5 attachments and closes that shared manager during cleanup. `Z1_MODEL_SPEC`, `z1_topic_names()`, aliases, YAML declarations, and a selected Z1 attachment do not activate an equivalent graph. `tools/ros2/send_manipulator_command.py` is an external system-`rclpy` publisher/waiter for the formal UR5/Z1 joint, pose, and gripper topic families. Before publishing it allows up to three seconds for subscriber discovery; `--timeout` starts after that phase and bounds feedback waiting only when `--wait` is selected. It rejects `--frame-id base_link` together with pose `--wait`, because the published `ee_pose` feedback is always in world coordinates and cannot be compared directly with a base-relative target. The tool does not perform IK, create OmniGraph, register a manipulator, start Isaac, or prove graph activation.
 
 ### Nav2 Profiles, Generation, and Launch
 
@@ -1670,9 +1676,9 @@ The lightweight tier parses maintained shell, Python, and YAML sources and exerc
 bash -n algorithm/nav2/run_nav2.sh
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONDONTWRITEBYTECODE=1 \
   python -m pytest -q -p no:cacheprovider \
-  tools/test_vis_sensors.py \
-  tools/test_send_cmd_vel.py \
-  tools/test_send_manipulator_command.py \
+  tools/ros2/tests/test_vis_sensors.py \
+  tools/ros2/tests/test_send_cmd_vel.py \
+  tools/ros2/tests/test_send_manipulator_command.py \
   algorithm/nav2/tests/test_nav2_layout.py \
   algorithm/nav2/tests/test_send_goal.py
 python - <<'PY'
@@ -1695,7 +1701,7 @@ The live tier requires Ubuntu ROS2 Humble, separately prepared Isaac/Isaac Lab a
 
 ### Tests That Do Not Require Isaac Sim
 
-The maintained Python test inventory is the Git index, not filesystem discovery, and its count is intentionally dynamic. Focused lightweight coverage includes the root ROS-client tests `tools/test_vis_sensors.py`, `tools/test_send_cmd_vel.py`, and `tools/test_send_manipulator_command.py`, plus `algorithm/nav2/tests/test_nav2_layout.py` and `algorithm/nav2/tests/test_send_goal.py`. Two tracked Node.js checks are `tools/check_env_diy_runtime.mjs` and `tools/github_oauth_worker/oauth_worker_test.mjs`.
+The maintained Python test inventory is the Git index, not filesystem discovery, and its count is intentionally dynamic. Focused lightweight coverage includes the ROS-client tests `tools/ros2/tests/test_vis_sensors.py`, `tools/ros2/tests/test_send_cmd_vel.py`, and `tools/ros2/tests/test_send_manipulator_command.py`, plus `algorithm/nav2/tests/test_nav2_layout.py` and `algorithm/nav2/tests/test_send_goal.py`. Two tracked Node.js checks are `tools/validation/check_env_diy_runtime.mjs` and `tools/github_oauth_worker/oauth_worker_test.mjs`.
 
 Do not run pytest against an entire test directory or the repository root. `.gitignore` hides broad classes such as `test_*.py`, `*_test.py`, `tests/`, and most of `source/EAI_assets/test/`; a developer's ignored local tests can still be collected by directory discovery and silently change the result. Build the canonical argument list from every path in the index, accepting both maintained basename forms. The NUL-delimited loop preserves spaces and other ordinary shell-special characters in paths:
 
@@ -1709,7 +1715,7 @@ done < <(git ls-files -z)
 test "${#EAI_TRACKED_TESTS[@]}" -gt 0
 ```
 
-Use two distinct suites. The green lightweight baseline deliberately excludes two committed defect modules and the three installed-pack checksum parameters. Derive its module list from the canonical inventory rather than maintaining a second fixed inventory:
+Use two distinct suites. The repository-wide tracked suite must run after activating `env_isaaclab`, because the current indexed multi-robot navigation coverage imports Torch during collection; ordinary focused pure tests may still use a lighter interpreter when their own dependency boundary permits it. The green lightweight baseline deliberately excludes two committed defect modules and the three installed-pack checksum parameters. Derive its module list from the canonical inventory rather than maintaining a second fixed inventory:
 
 ```bash
 EAI_TRACKED_TESTS=()
@@ -1728,7 +1734,8 @@ for EAI_TEST in "${EAI_TRACKED_TESTS[@]}"; do
   EAI_BASELINE_TESTS+=("$EAI_TEST")
 done
 test "${#EAI_BASELINE_TESTS[@]}" -gt 0
-PYTHONPATH="$PWD:$PWD/source/EAI:$PWD/source/EAI_assets:$PWD/source/EAI_hmrs${PYTHONPATH:+:$PYTHONPATH}" \
+PYTHONDONTWRITEBYTECODE=1 \
+PYTHONPATH="$PWD:$PWD/algorithm:$PWD/source/EAI:$PWD/source/EAI_assets:$PWD/source/EAI_hmrs${PYTHONPATH:+:$PYTHONPATH}" \
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
   python -m pytest --rootdir="$PWD" -q "${EAI_BASELINE_TESTS[@]}" \
     --deselect='source/EAI_assets/test/test_human_asset_distribution.py::test_tracked_checksum_manifest_matches_local_human_pack[characters]' \
@@ -1747,7 +1754,8 @@ while IFS= read -r -d '' EAI_TEST; do
 done < <(git ls-files -z)
 test "${#EAI_TRACKED_TESTS[@]}" -gt 0
 
-PYTHONPATH="$PWD:$PWD/source/EAI:$PWD/source/EAI_assets:$PWD/source/EAI_hmrs${PYTHONPATH:+:$PYTHONPATH}" \
+PYTHONDONTWRITEBYTECODE=1 \
+PYTHONPATH="$PWD:$PWD/algorithm:$PWD/source/EAI:$PWD/source/EAI_assets:$PWD/source/EAI_hmrs${PYTHONPATH:+:$PYTHONPATH}" \
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
   python -m pytest --rootdir="$PWD" -q "${EAI_TRACKED_TESTS[@]}"
 ```
@@ -1908,7 +1916,7 @@ Node.js 20 LTS or a newer LTS release is required, with ECMAScript-module suppor
 ```bash
 node --version
 node -e 'const major = Number(process.versions.node.split(".")[0]); if (major < 20 || !process.release.lts) throw new Error("Node.js 20+ LTS is required"); for (const name of ["crypto", "Request", "Response", "fetch"]) if (!(name in globalThis)) throw new Error(`Missing global: ${name}`); if (!crypto.subtle) throw new Error("Missing Web Crypto subtle API");'
-node tools/check_env_diy_runtime.mjs all
+node tools/validation/check_env_diy_runtime.mjs all
 node tools/github_oauth_worker/oauth_worker_test.mjs
 ```
 
@@ -1928,9 +1936,9 @@ There is no tracked browser automation and no tracked Kit UI automation. Manuall
 | Human pack-checksum metadata | Run all parameters of the owning node: `PYTHONPATH="$PWD:$PWD/source/EAI:$PWD/source/EAI_assets" PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest --rootdir="$PWD" -q source/EAI_assets/test/test_human_asset_distribution.py::test_tracked_checksum_manifest_matches_local_human_pack`; then run `python -m json.tool usd/human/pack-checksums.json >/dev/null`. | Every parameter asserts checksum-metadata structure before checking its installed payload. An absent pack skips only the later payload comparison; an installed matching pack passes; an installed mismatch fails and must be investigated. JSON parsing alone covers syntax, not these semantics. |
 | Human action authoring | Run `PYTHONPATH="$PWD:$PWD/source/EAI:$PWD/source/EAI_assets" PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest --rootdir="$PWD" -q source/EAI_assets/test/test_human_action_authoring.py`. | Run the affected `pxr` cases and source/conversion integration only with reviewed external inputs. |
 | Human animation runtime | Run `PYTHONPATH="$PWD:$PWD/source/EAI:$PWD/source/EAI_assets" PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest --rootdir="$PWD" -q source/EAI_assets/test/test_human_animation_runtime.py source/EAI_assets/test/test_human_path_follower.py source/EAI_assets/test/test_human_spawner.py source/EAI_assets/test/test_human_stage_runtime.py`. | Run the affected `pxr` adapter/stage cases when compatible OpenUSD bindings are available. |
-| Env DIY HTML or OAuth worker | Run `node tools/check_env_diy_runtime.mjs all` and `node tools/github_oauth_worker/oauth_worker_test.mjs`. | Manual pywebview or Kit verification according to the changed frontend. |
+| Env DIY HTML or OAuth worker | Run `node tools/validation/check_env_diy_runtime.mjs all` and `node tools/github_oauth_worker/oauth_worker_test.mjs`. | Manual pywebview or Kit verification according to the changed frontend. |
 | Launcher, controller, robot, scene, or attachment | No general tracked pytest exists; a new tracked module using the maintained basename contract is required for changed behavior. Run the read-only parse `python -c 'import ast; from pathlib import Path; files=("simulator.py", "source/EAI/EAI/controllers/base.py", "source/EAI/EAI/hmrs_env/multi_robot_direct_env.py", "source/EAI_hmrs/EAI_hmrs/env_builder.py"); [ast.parse(Path(p).read_text(encoding="utf-8"), filename=p) for p in files]'`. | Targeted Isaac launch through first reset, representative steps, and clean shutdown. |
-| ROS2, interface, or Nav2 | No tracked pytest exists; a new tracked module using the maintained basename contract is required for changed behavior. Run the exact section 12 static commands, `python simulator.py --help >/dev/null`, `python simulator.py interfaces --help >/dev/null`, `python simulator.py interfaces list --json >/dev/null`, and `python simulator.py interfaces scene --env keyboard --json >/dev/null`. | Run the applicable discovery, cmd_vel, sensor/odometry, TF, Nav2, or manipulator rows from the live matrix above. |
+| ROS2, interface, or Nav2 | Run the five exact focused tests from section 12: `tools/ros2/tests/test_vis_sensors.py`, `tools/ros2/tests/test_send_cmd_vel.py`, `tools/ros2/tests/test_send_manipulator_command.py`, `algorithm/nav2/tests/test_nav2_layout.py`, and `algorithm/nav2/tests/test_send_goal.py`. They cover only static or pure-client layout and lifecycle behavior, not live ROS or Isaac integration. Also run the exact section 12 static commands, `python simulator.py --help >/dev/null`, `python simulator.py interfaces --help >/dev/null`, `python simulator.py interfaces list --json >/dev/null`, and `python simulator.py interfaces scene --env keyboard --json >/dev/null`. | Append the applicable discovery, cmd_vel, sensor/odometry, TF, Nav2, or manipulator rows from the live matrix above as live evidence. |
 | City Traffic human bridge | Run `PYTHONPATH="$PWD:$PWD/source/EAI:$PWD/source/EAI_assets:$PWD/source/EAI_hmrs" PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest --rootdir="$PWD" -q source/EAI/test/test_city_traffic_human_bridge.py`. | Run a targeted City Traffic integration only when its simulator/runtime prerequisites are available. |
 | Other algorithm or demo | Multi-robot navigation changes run `PYTHONPATH="$PWD" PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest --rootdir="$PWD" -q algorithm/multi_robot_navigation/test_plugin.py`. Other uncovered algorithm behavior requires a new tracked module using the maintained basename contract. Run `python -m demo.fire_rescue.main --help >/dev/null` for Fire Rescue CLI changes and parse the exact changed Python entry points without importing Isaac. | Run the affected native planner or targeted heavy demo/integration. Review ports 8766/8767 only for dashboard-enabled, non-headless Fire Rescue launches; follow the LLM prerequisites above for every real run. |
 
@@ -2051,7 +2059,7 @@ printf 'lfs_pointer=%s\n' "$EAI_LFS_POINTER"
 | --- | --- | --- | --- |
 | CUDA out of memory or allocation failure | Selected scene/robots/controllers/rendering exceed available GPU memory, or another process owns memory | Run `nvidia-smi` and `nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv`; identify ownership before acting | Reduce `--num_envs`, selection size, sensors, or rendering in a process you started. Stop only your own process through its terminal or recorded PID; never kill unrelated GPU processes. |
 | Log says animated humans use CPU PhysX despite `--device cuda` | Expected Isaac Sim 5.1 safety fallback | Inspect the saved JSON for a `Human` selection and retain the launcher warning in the report | Verify the human case with CPU physics while monitoring remaining GPU rendering/controller load. Do not force GPU PhysX for animated pose writes. |
-| inotify warning or file-watcher exhaustion | Host kernel limits below launcher thresholds | Read `/proc/sys/fs/inotify/max_user_watches`, `max_user_instances`, and `max_queued_events`; run `tools/configure_inotify_limits.sh --dry-run` | An administrator may review and run `sudo tools/configure_inotify_limits.sh`; it writes `/etc/sysctl.d/90-eai-isaac-sim-inotify.conf` and changes live sysctls. This is a deliberate system change, not a routine test command. |
+| inotify warning or file-watcher exhaustion | Host kernel limits below launcher thresholds | Read `/proc/sys/fs/inotify/max_user_watches`, `max_user_instances`, and `max_queued_events`; run `tools/setup/configure_inotify_limits.sh --dry-run` | An administrator may review and run `sudo tools/setup/configure_inotify_limits.sh`; it writes `/etc/sysctl.d/90-eai-isaac-sim-inotify.conf` and changes live sysctls. This is a deliberate system change, not a routine test command. |
 
 The launcher thresholds are 524288 watches, 1024 instances, and 32768 queued events. A warning is preflight guidance, not evidence that the later crash has the same cause.
 
@@ -2069,7 +2077,7 @@ for name in ("webview", "PyQt6"):
     print(name, None if spec is None else spec.origin)
 PY
 dpkg-query -W -f='${Status}\n' libxcb-cursor0 2>/dev/null || true
-node tools/check_env_diy_runtime.mjs all
+node tools/validation/check_env_diy_runtime.mjs all
 ```
 
 | Symptom | Likely boundary | Lightweight diagnosis | Heavy confirmation |
@@ -2201,7 +2209,7 @@ Every regular commit message must start with the related issue identifier:
 
 Maintainers use the internal GitLab IID after promotion; public contributors may use the GitHub issue number. Merge, Revert, `fixup!`, `squash!`, and `amend!` commits are exempt. Conventional prefixes such as `feat:`, `fix:`, or `docs:` are not regular-message exemptions by themselves. `CONTRIBUTING.md` is the normative policy. The current `.githooks/commit-msg` implementation is only a prefix heuristic: it accepts any subject beginning with `Merge`, `Revert`, `fixup!`, `squash!`, or `amend!`, even when the commit is not genuinely Git-generated or a valid fixup. Passing that hook does not prove policy compliance.
 
-`tools/setup-git-hooks.sh` sets `core.hooksPath` to `.githooks` and makes the repository hooks executable. Diagnose the resulting state directly:
+`tools/setup/setup-git-hooks.sh` sets `core.hooksPath` to `.githooks` and makes the repository hooks executable. Diagnose the resulting state directly:
 
 ```bash
 git config --get core.hooksPath
@@ -2296,7 +2304,7 @@ python -m pip --version
 **Network and system mutation; prerequisite: review section 4 first.** The helper performs editable package installs and can run `apt-get` through `sudo` to install `libxcb-cursor0`:
 
 ```bash
-./tools/install_packages.sh
+./tools/setup/install_packages.sh
 ```
 
 **Conda environment mutation and possible package-index network; prerequisites: activate the intended environment and verify that `python -m pip` resolves to it.** When system packages are managed separately, use the controlled editable installs from section 4:
@@ -2416,7 +2424,7 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
 Run the two tracked Node.js checks:
 
 ```bash
-node tools/check_env_diy_runtime.mjs all
+node tools/validation/check_env_diy_runtime.mjs all
 node --test tools/github_oauth_worker/oauth_worker_test.mjs
 ```
 
@@ -2433,9 +2441,9 @@ for path in (
     Path("algorithm/keyboard/keyboard.py"),
     Path("algorithm/nav2/nav2_setup.py"),
     Path("algorithm/nav2/nav2.launch.py"),
-    Path("tools/vis_sensors.py"),
-    Path("tools/send_cmd_vel.py"),
-    Path("tools/send_manipulator_command.py"),
+    Path("tools/ros2/vis_sensors.py"),
+    Path("tools/ros2/send_cmd_vel.py"),
+    Path("tools/ros2/send_manipulator_command.py"),
     Path("demo/fire_rescue/main.py"),
 ):
     ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -2551,20 +2559,20 @@ Directories in this table mean the tracked source inventory below that directory
 | Traditional controller | `source/EAI/EAI/controllers/base.py`; `source/EAI/EAI/controllers/differential_drive_controller.py`; `source/EAI/EAI/controllers/ackermann_controller.py`; `source/EAI/EAI/controllers/ik_controller.py`; `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_hmrs/EAI_hmrs/controller_loader.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/ui.py` | Sections 5, 8, 10, and 11; synchronize the callback/adapter contract, selectable name, lazy mapping, requirement seed, provider bundle, and exposed UI names. |
 | RL controller | `source/EAI/EAI/controllers/__init__.py`; `source/EAI/EAI/controllers/base.py`; `source/EAI/EAI/controllers/utils.py`; `source/EAI/EAI/controllers/rsl_controller.py`; `source/EAI/EAI/controllers/skrl_controller.py`; `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_hmrs/EAI_hmrs/controller_loader.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/ui.py` | Sections 5, 8, 10, and 11; keep public exports, shared helpers, adapter semantics, selectable/import/requirement mappings, framework configuration, provider weights, and UI names compatible. |
 | Sensor | `source/EAI_assets/EAI_assets/sensor/`; `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `source/EAI_env_diy/EAI_env_diy/preview_stage.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/ui.py`; `usd/picture/processed/sensor/`; `source/EAI/EAI/interface_catalog/interfaces/` | Sections 7, 8, 10, 11, and 12; synchronize cfg, compatibility, formal/preview mounts, requirements/provider resolution, both UIs, image, declaration, and actual publisher activation. |
-| UR5 | `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `source/EAI_assets/EAI_assets/robots/manipulator_mount.py`; `source/EAI_assets/EAI_assets/robots/ur5_mount.py`; `source/EAI_env_diy/EAI_env_diy/preview_stage.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/ui.py`; `usd/picture/processed/manipulator/ur5.png`; `source/EAI/EAI/interface_catalog/interfaces/sensors/ur5.yaml`; `source/EAI/EAI/hmrs_ros/manipulator_omnigraph.py`; `source/EAI/EAI/hmrs_ros/ur5_omnigraph.py`; `tools/send_manipulator_command.py`; `simulator.py` | Sections 6, 8, 10, 11, and 12; synchronize compatibility, mount/preview assembly, controller requirements/provider resolution, UI/image, declarations, graph, external command client, and current main-session activation. |
-| Z1 | `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `source/EAI_assets/EAI_assets/robots/z1.py`; `source/EAI_assets/EAI_assets/robots/manipulator_mount.py`; `source/EAI_assets/EAI_assets/robots/z1_mount.py`; `source/EAI_env_diy/EAI_env_diy/preview_stage.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/ui.py`; `usd/picture/processed/manipulator/z1.png`; `source/EAI/EAI/interface_catalog/interfaces/sensors/z1.yaml`; `source/EAI/EAI/hmrs_ros/manipulator_omnigraph.py`; `source/EAI/EAI/hmrs_ros/z1_omnigraph.py`; `tools/send_manipulator_command.py`; `simulator.py` | Sections 6, 8, 10, 11, and 12; synchronize the direct arm asset/actuator cfg, compatibility, mount/preview assembly, controller requirements/provider resolution, UI/image, declarations, graph helpers, and external command client; main-session activation remains absent. |
+| UR5 | `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `source/EAI_assets/EAI_assets/robots/manipulator_mount.py`; `source/EAI_assets/EAI_assets/robots/ur5_mount.py`; `source/EAI_env_diy/EAI_env_diy/preview_stage.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/ui.py`; `usd/picture/processed/manipulator/ur5.png`; `source/EAI/EAI/interface_catalog/interfaces/sensors/ur5.yaml`; `source/EAI/EAI/hmrs_ros/manipulator_omnigraph.py`; `source/EAI/EAI/hmrs_ros/ur5_omnigraph.py`; `tools/ros2/send_manipulator_command.py`; `simulator.py` | Sections 6, 8, 10, 11, and 12; synchronize compatibility, mount/preview assembly, controller requirements/provider resolution, UI/image, declarations, graph, external command client, and current main-session activation. |
+| Z1 | `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `source/EAI_assets/EAI_assets/robots/z1.py`; `source/EAI_assets/EAI_assets/robots/manipulator_mount.py`; `source/EAI_assets/EAI_assets/robots/z1_mount.py`; `source/EAI_env_diy/EAI_env_diy/preview_stage.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/ui.py`; `usd/picture/processed/manipulator/z1.png`; `source/EAI/EAI/interface_catalog/interfaces/sensors/z1.yaml`; `source/EAI/EAI/hmrs_ros/manipulator_omnigraph.py`; `source/EAI/EAI/hmrs_ros/z1_omnigraph.py`; `tools/ros2/send_manipulator_command.py`; `simulator.py` | Sections 6, 8, 10, 11, and 12; synchronize the direct arm asset/actuator cfg, compatibility, mount/preview assembly, controller requirements/provider resolution, UI/image, declarations, graph helpers, and external command client; main-session activation remains absent. |
 | Human animation | `source/EAI_assets/EAI_assets/humans/`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `usd/human/README.md`; `usd/human/manifest.json`; `usd/human/manifest.schema.json`; `usd/human/pack-checksums.json`; `usd/human/audit-summary.json`; `tools/human_assets/` | Sections 3, 6, 8, 10, 11, and 13; keep registry/runtime, path and action contracts, maintained metadata, conversion/validation/authoring tools, external payloads, integrity, and publication rights synchronized. |
 | Asset download | `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py` | Sections 6, 7, 8, and 11; requirement seeds, transitive discovery, provider revision, installation, and human integrity are distinct boundaries. |
 | Env DIY lightweight UI | `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI/EAI/hmrs_env/env_diy/flow.py`; `source/EAI/EAI/hmrs_env/env_diy/storage.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI/EAI/hmrs_env/env_diy/webview_app.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI/setup.py`; `usd/picture/` | Sections 5, 6, 8, 9, and 10; keep selection, persistence, embedded vocabulary, bridge payload, builder/requirements, package data, and images synchronized. |
 | Env DIY 3D | `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI/EAI/hmrs_env/env_diy/flow.py`; `source/EAI/EAI/hmrs_env/env_diy/storage.py`; `source/EAI_env_diy/EAI_env_diy/`; `source/EAI_env_diy/config/extension.toml`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI/setup.py`; `usd/picture/`; `simulator.py` | Sections 5, 6, 8, 9, and 10; synchronize the portable contract, Kit authoring/preview/download/result lifecycle, builder/requirements, package data, images, and stage transition. |
-| ROS2 cmd_vel | `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI/EAI/hmrs_env/env_diy/flow.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `usd/picture/processed/tool/`; `source/EAI/EAI/interface_catalog/interfaces/robots/mobile_base.yaml`; `source/EAI/EAI/hmrs_ros/cmd_vel_bridge.py`; `source/EAI/EAI/hmrs_ros/twist_subscriber.py`; `algorithm/keyboard/keyboard.py`; `tools/send_cmd_vel.py`; `simulator.py` | Sections 6, 8, 10, and 12; synchronize tool compatibility/exposure, builder/requirements, interface declaration, external Twist publication, bridge activation, command application, snapshot filtering, repeated-zero cleanup, and observed delivery/stop behavior. |
+| ROS2 cmd_vel | `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI/EAI/hmrs_env/env_diy/flow.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `usd/picture/processed/tool/`; `source/EAI/EAI/interface_catalog/interfaces/robots/mobile_base.yaml`; `source/EAI/EAI/hmrs_ros/cmd_vel_bridge.py`; `source/EAI/EAI/hmrs_ros/twist_subscriber.py`; `algorithm/keyboard/keyboard.py`; `tools/ros2/send_cmd_vel.py`; `simulator.py` | Sections 6, 8, 10, and 12; synchronize tool compatibility/exposure, builder/requirements, interface declaration, external Twist publication, bridge activation, command application, snapshot filtering, repeated-zero cleanup, and observed delivery/stop behavior. |
 | Nav2 | `source/EAI_hmrs/EAI_hmrs/envs/nav2.json`; `algorithm/nav2/nav2.launch.py`; `algorithm/nav2/nav2_setup.py`; `algorithm/nav2/nav2_profiles.yaml`; `algorithm/nav2/tf_bridge.py`; `algorithm/nav2/send_goal.py`; `demo/fire_rescue/assets/factory_map.yaml`; `source/EAI/EAI/hmrs_ros/`; `simulator.py` | Sections 6, 12, 13, and 14; use the tracked matching selection with its tracked profile map or an explicit map, and treat the current launcher as one global stack. |
 | Interface catalog | `source/EAI/EAI/interface_catalog/interfaces/`; `source/EAI/EAI/interface_catalog/`; `source/EAI/EAI/hmrs_ros/`; `source/EAI/setup.py`; `simulator.py` | Sections 5, 6, 7, 8, 10, and 12; synchronize declarations, package data, real bridge/graph setup, and filtering; generated `tmp/runtime_interfaces.json` is runtime state, not authority. |
-| Algorithm | `algorithm/emos/`; `algorithm/TeamWeaver/`; `algorithm/global_planner/`; `algorithm/multi_robot_navigation/`; `algorithm/city_traffic/human_bridge.py`; `algorithm/keyboard/keyboard.py`; `algorithm/nav2/`; `tools/vis_sensors.py`; `tools/send_cmd_vel.py`; `tools/send_manipulator_command.py` | Sections 5, 7, 8, and 12; keep pure algorithm contracts separate from simulator and external-service adapters, and treat the root ROS clients as operational tools rather than algorithms; city traffic has only the tracked human bridge, not a package API. |
+| Algorithm | `algorithm/emos/`; `algorithm/TeamWeaver/`; `algorithm/global_planner/`; `algorithm/multi_robot_navigation/`; `algorithm/city_traffic/human_bridge.py`; `algorithm/keyboard/keyboard.py`; `algorithm/nav2/`; `tools/ros2/vis_sensors.py`; `tools/ros2/send_cmd_vel.py`; `tools/ros2/send_manipulator_command.py` | Sections 5, 7, 8, and 12; keep pure algorithm contracts separate from simulator and external-service adapters, and treat the `tools/ros2/` clients as operational tools rather than algorithms; city traffic has only the tracked human bridge, not a package API. |
 | Fire Rescue demo | `demo/fire_rescue/main.py`; `demo/fire_rescue/config.py`; `demo/fire_rescue/scenario.py`; `demo/fire_rescue/experiment.py`; `demo/fire_rescue/runtime/`; `demo/fire_rescue/dashboard/`; `demo/fire_rescue/assets/`; `simulator.py` | Sections 5, 6, 7, 8, 13, and 14; enter through the reusable session and synchronize CLI/config/scenario/hooks/adapters/dashboard/assets while auditing external services. |
-| RealSense D455 | `source/EAI_assets/EAI_assets/sensor/high_sensor/realsense_d455.py`; `source/EAI/EAI/hmrs_ros/realsense_d455_imu.py`; `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI/EAI/interface_catalog/interfaces/sensors/realsense_d455.yaml`; `source/EAI_hmrs/EAI_hmrs/envs/mushr_realsense.json`; `tools/vis_sensors.py` | Sections 7, 8, 10, 11, and 12; synchronize the payload cfg and its publish graphs, the synthesized IMU manager, catalog/builder gates (`camera` vs `ros`), requirements/provider resolution, declarations, and the visualization tool's depth display. |
+| RealSense D455 | `source/EAI_assets/EAI_assets/sensor/high_sensor/realsense_d455.py`; `source/EAI/EAI/hmrs_ros/realsense_d455_imu.py`; `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI/EAI/interface_catalog/interfaces/sensors/realsense_d455.yaml`; `source/EAI_hmrs/EAI_hmrs/envs/mushr_realsense.json`; `tools/ros2/vis_sensors.py` | Sections 7, 8, 10, 11, and 12; synchronize the payload cfg and its publish graphs, the synthesized IMU manager, catalog/builder gates (`camera` vs `ros`), requirements/provider resolution, declarations, and the visualization tool's depth display. |
 | User documentation | `docs/source/` pages; `docs/source/index.rst`; `docs/source/index_en.rst`; `docs/source/conf.py`; `docs/source/_templates/sidebar/navigation.html`; `docs/source/_templates/sidebar/navigation_en.html`; `docs/source/assets/media/` | Sections 8, 16, and 20; keep page content external-facing, keep the toctree and hardcoded sidebar entries synchronized across both languages, and commit media with the page; `docs/build/` is generated output, not authority. |
-| Tests | `source/EAI/test/`; `source/EAI_assets/test/`; paths selected from `git ls-files -z` whose basenames match `test_*.py` or `*_test.py`; `tools/check_env_diy_runtime.mjs`; `tools/github_oauth_worker/oauth_worker_test.mjs` | Sections 7, 13, and 17; the tracked inventory and environment-dependent pass/skip counts are dynamic. |
+| Tests | `source/EAI/test/`; `source/EAI_assets/test/`; `tools/ros2/tests/`; paths selected from `git ls-files -z` whose basenames match `test_*.py` or `*_test.py`; `tools/validation/check_env_diy_runtime.mjs`; `tools/github_oauth_worker/oauth_worker_test.mjs` | Sections 7, 13, and 17; the tracked inventory and environment-dependent pass/skip counts are dynamic. |
 
 ## 20. Maintaining This AGENTS.md
 
