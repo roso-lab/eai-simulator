@@ -73,10 +73,53 @@ python tools/assets/repair_env_diy_usd.py --check b2 lite3
 Without `--check`, the command writes canonical USD files and repair
 manifests.
 
+### Human Asset Authoring
+
+| Entry point | Responsibility |
+| --- | --- |
+| `tools/human_assets/run_demo.py` | Run the GUI or headless human-runtime validation matrix. |
+| `tools/human_assets/edit_action.py` | Create and edit JSON keyframe action drafts. |
+| `tools/human_assets/import_action.py` | Import an animated GLTF/GLB clip as a custom action USD and overlay manifest. |
+| `tools/human_assets/convert_gltf_assets.py` | Plan or convert an approved source tree into USD assets and a conversion report. |
+| `tools/human_assets/migrate_assets.py` | Migrate validated converted assets into the human manifest and audit metadata. |
+| `tools/human_assets/build_motion_cache.py` | Build retarget motion caches and reports from installed USD assets. |
+| `tools/human_assets/validate_assets.py` | Validate the manifest and installed files into a deterministic JSON report. |
+
+`scene.py` and `motion_controls.py` are internal modules, not standalone
+CLIs. Some public entry points require Isaac Sim or `pxr`, and authoring,
+conversion, migration, and cache commands can write assets or metadata. Review
+the [human asset guide](human_assets/README.md) for exact arguments,
+environments, inputs, outputs, and write behavior.
+
+### GitHub OAuth Worker
+
+Run the local test without deploying:
+
+```bash
+node --test tools/github_oauth_worker/oauth_worker_test.mjs
+```
+
+Provision the three required secrets and deploy only after reviewing the
+target account and allowed origins:
+
+```bash
+npx wrangler secret put GITHUB_CLIENT_ID --config tools/github_oauth_worker/wrangler.toml
+npx wrangler secret put GITHUB_CLIENT_SECRET --config tools/github_oauth_worker/wrangler.toml
+npx wrangler secret put STATE_SECRET --config tools/github_oauth_worker/wrangler.toml
+npx wrangler deploy --config tools/github_oauth_worker/wrangler.toml
+```
+
+Secret provisioning and deployment change external Cloudflare and GitHub
+state. See the [OAuth worker guide](github_oauth_worker/README.md) for secret,
+callback, origin, and deployment requirements.
+
 ## Side Effects and Risk
 
 - `setup/install_packages.sh` can run `apt` through `sudo` and installs or
-  uninstalls editable Python packages with `pip`.
+  uninstalls editable Python packages with `pip`. A successful install also
+  writes the selected distribution below the current Python prefix at
+  `share/eai-simulator/ros_distro`, which affects later ROS distribution
+  resolution.
 - `setup/setup-git-hooks.sh` changes the repository Git configuration and
   hook file modes.
 - `setup/configure_inotify_limits.sh` without `--dry-run` writes
@@ -108,7 +151,6 @@ python tools/validation/check_asset_download_errors.py
 python tools/validation/check_env_diy_exclusivity.py
 python tools/validation/check_ros_distro_config.py
 node tools/validation/check_env_diy_runtime.mjs all
-node tools/github_oauth_worker/oauth_worker_test.mjs
 ```
 
 Generated assets, caches, downloads, logs, runtime snapshots, documentation
