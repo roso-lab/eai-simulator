@@ -48,7 +48,7 @@ target_instances="$(max_value "${current_instances}" "${INSTANCES_MIN}")"
 target_queued="$(max_value "${current_queued}" "${QUEUED_MIN}")"
 
 render_config() {
-    echo "# Managed by eai-simulator tools/configure_inotify_limits.sh"
+    echo "# Managed by eai-simulator tools/setup/configure_inotify_limits.sh"
     echo "fs.inotify.max_user_watches=${target_watches}"
     echo "fs.inotify.max_user_instances=${target_instances}"
     echo "fs.inotify.max_queued_events=${target_queued}"

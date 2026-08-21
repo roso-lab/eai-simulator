@@ -293,7 +293,7 @@ def _inotify_limit_warning(limits: dict[str, int]) -> str | None:
     return (
         "[EAI Simulator] Warning: inotify limits are below the supported Isaac Sim minimums: "
         + ", ".join(low)
-        + ". Run sudo tools/configure_inotify_limits.sh once."
+        + ". Run sudo tools/setup/configure_inotify_limits.sh once."
     )
 
 

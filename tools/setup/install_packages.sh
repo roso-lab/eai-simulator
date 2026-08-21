@@ -9,12 +9,12 @@
 # 此脚本会安装 Qt 系统依赖和 source 目录下的所有 Python 包
 #
 # 用法:
-#   ./tools/install_packages.sh            # 安装所有包（静默模式）
-#   ./tools/install_packages.sh -v         # 安装所有包（详细输出）
-#   ./tools/install_packages.sh -u         # 卸载所有包
-#   ./tools/install_packages.sh -u -v      # 卸载所有包（详细输出）
-#   ./tools/install_packages.sh --ros-distro jazzy
-#   ./tools/install_packages.sh --help     # 显示帮助信息
+#   ./tools/setup/install_packages.sh            # 安装所有包（静默模式）
+#   ./tools/setup/install_packages.sh -v         # 安装所有包（详细输出）
+#   ./tools/setup/install_packages.sh -u         # 卸载所有包
+#   ./tools/setup/install_packages.sh -u -v      # 卸载所有包（详细输出）
+#   ./tools/setup/install_packages.sh --ros-distro jazzy
+#   ./tools/setup/install_packages.sh --help     # 显示帮助信息
 
 # 不设置 set -e，允许继续安装其他包即使某个包失败
 
@@ -81,10 +81,10 @@ UNINSTALL=false
 ROS_DISTRO_ARG=""
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 SOURCE_DIR="${PROJECT_ROOT}/source"
 
-# shellcheck source=tools/ros_distro.sh
+# shellcheck source=tools/setup/ros_distro.sh
 source "${SCRIPT_DIR}/ros_distro.sh"
 
 while [[ $# -gt 0 ]]; do
@@ -113,12 +113,12 @@ while [[ $# -gt 0 ]]; do
             echo "EAI Simulator 包安装/卸载脚本"
             echo ""
             echo "用法:"
-            echo "  ./tools/install_packages.sh            # 安装所有包（静默模式）"
-            echo "  ./tools/install_packages.sh -v         # 安装所有包（详细输出）"
-            echo "  ./tools/install_packages.sh -u         # 卸载所有包"
-            echo "  ./tools/install_packages.sh -u -v      # 卸载所有包（详细输出）"
-            echo "  ./tools/install_packages.sh --ros-distro humble|jazzy"
-            echo "  ./tools/install_packages.sh --help     # 显示帮助信息"
+            echo "  ./tools/setup/install_packages.sh            # 安装所有包（静默模式）"
+            echo "  ./tools/setup/install_packages.sh -v         # 安装所有包（详细输出）"
+            echo "  ./tools/setup/install_packages.sh -u         # 卸载所有包"
+            echo "  ./tools/setup/install_packages.sh -u -v      # 卸载所有包（详细输出）"
+            echo "  ./tools/setup/install_packages.sh --ros-distro humble|jazzy"
+            echo "  ./tools/setup/install_packages.sh --help     # 显示帮助信息"
             echo ""
             echo "此脚本会按顺序处理以下包:"
             echo "  - EAI"
@@ -222,7 +222,7 @@ for package in "${PACKAGES[@]}"; do
                 ((SUCCESS_COUNT++))
             else
                 print_error "✗ ${package} 卸载失败"
-                print_warn "运行 './tools/install_packages.sh -u -v' 查看详细错误信息"
+                print_warn "运行 './tools/setup/install_packages.sh -u -v' 查看详细错误信息"
                 ((FAIL_COUNT++))
             fi
         else
@@ -231,7 +231,7 @@ for package in "${PACKAGES[@]}"; do
                 ((SUCCESS_COUNT++))
             else
                 print_error "✗ ${package} 安装失败"
-                print_warn "运行 './tools/install_packages.sh -v' 查看详细错误信息"
+                print_warn "运行 './tools/setup/install_packages.sh -v' 查看详细错误信息"
                 ((FAIL_COUNT++))
             fi
         fi
