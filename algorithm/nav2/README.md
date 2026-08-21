@@ -17,7 +17,7 @@ programs with the Conda Python or activate `env_isaaclab` in their shell.
 
 The tracked environment `source/EAI_hmrs/EAI_hmrs/envs/nav2.json` selects the
 Factory scene, a Carter instance named `carter_1`, Orsus, and Navigation I/O
-(stored under the internal key `ros`).
+(stored under the internal key `navigation_io`).
 Orsus and RTX LiDAR publishing require the simulator's GUI rendering path, so
 this workflow is not a headless smoke test.
 

@@ -318,7 +318,7 @@ def aerial_sensor_specs_from_selection(
             for item in robot.get("attachments", ())
             if isinstance(item, Mapping)
         }
-        ros_enabled = "ros" in attachments
+        navigation_io_enabled = "navigation_io" in attachments
         camera_enabled = "camera" in attachments
         # MuSHR 改装 RealSense D455 后，D455 即机器人的相机：内置单目相机
         # 不再由 env_builder 合成（见 env_builder 的 has_realsense 分支），
@@ -339,9 +339,9 @@ def aerial_sensor_specs_from_selection(
             AerialSensorRobotSpec(
                 robot_name=robot_name,
                 robot_type=robot_type,
-                base_sensors=ros_enabled and robot_type in _BASE_SENSOR_TYPES,
+                base_sensors=navigation_io_enabled and robot_type in _BASE_SENSOR_TYPES,
                 camera=spec_camera,
-                lidar=ros_enabled and robot_type in AERIAL_SENSOR_TYPES,
+                lidar=navigation_io_enabled and robot_type in AERIAL_SENSOR_TYPES,
                 camera_mount_link=_CAMERA_MOUNT_LINKS[robot_type],
                 lidar_offset=_AERIAL_LIDAR_OFFSETS.get(robot_type, (0.0, 0.0, 0.10)),
             )
