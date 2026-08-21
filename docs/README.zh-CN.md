@@ -104,9 +104,9 @@ README 只概括支持范围，详细能力以专题文档为准：
 git clone https://github.com/roso-lab/eai-simulator.git
 cd eai-simulator
 conda activate env_isaaclab
-./tools/install_packages.sh
+./tools/setup/install_packages.sh
 # 已准备 Jazzy 环境时可选择 Jazzy bridge：
-# ./tools/install_packages.sh --ros-distro jazzy
+# ./tools/setup/install_packages.sh --ros-distro jazzy
 hf auth login
 python simulator.py --env robo
 ```

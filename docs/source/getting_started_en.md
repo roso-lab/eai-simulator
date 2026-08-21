@@ -24,7 +24,7 @@ pip install -e source/EAI_hmrs
 Also available:
 
 ```bash
-./tools/install_packages.sh
+./tools/setup/install_packages.sh
 ```
 
 ## Environment files

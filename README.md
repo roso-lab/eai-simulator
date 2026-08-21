@@ -104,9 +104,9 @@ Request access to the gated [EAI Simulator assets dataset](https://huggingface.c
 git clone https://github.com/roso-lab/eai-simulator.git
 cd eai-simulator
 conda activate env_isaaclab
-./tools/install_packages.sh
+./tools/setup/install_packages.sh
 # Or select the Jazzy bridge backend for an already prepared Jazzy environment:
-# ./tools/install_packages.sh --ros-distro jazzy
+# ./tools/setup/install_packages.sh --ros-distro jazzy
 hf auth login
 python simulator.py --env robo
 ```

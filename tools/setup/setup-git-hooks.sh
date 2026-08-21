@@ -17,7 +17,7 @@ echo "========================================="
 echo ""
 
 # Move to repository root before touching git config or hooks.
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 cd "$PROJECT_ROOT"
 
 # Configure git to use .githooks directory

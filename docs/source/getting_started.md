@@ -24,7 +24,7 @@ pip install -e source/EAI_hmrs
 也可使用：
 
 ```bash
-./tools/install_packages.sh
+./tools/setup/install_packages.sh
 ```
 
 ## 环境文件

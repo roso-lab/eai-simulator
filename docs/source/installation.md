@@ -53,19 +53,19 @@ conda activate env_isaaclab
 
 ```bash
 # 安装所有包
-./tools/install_packages.sh
+./tools/setup/install_packages.sh
 
 # 为当前 Python/Conda 环境选择 Jazzy bridge（默认 Humble）
-./tools/install_packages.sh --ros-distro jazzy
+./tools/setup/install_packages.sh --ros-distro jazzy
 
 # 查看帮助
-./tools/install_packages.sh -h
+./tools/setup/install_packages.sh -h
 
 # 详细输出
-./tools/install_packages.sh -v
+./tools/setup/install_packages.sh -v
 
 # 卸载所有包
-./tools/install_packages.sh -u
+./tools/setup/install_packages.sh -u
 ```
 
 `--ros-distro` 接受 `humble` 或 `jazzy`，并将选择保存到当前 Python 环境的
@@ -239,7 +239,7 @@ unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
 卸载所有 EAI 包：
 
 ```bash
-./tools/install_packages.sh -u
+./tools/setup/install_packages.sh -u
 ```
 
 或手动卸载：

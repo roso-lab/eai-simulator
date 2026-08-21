@@ -5,8 +5,8 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 native_dir="$script_dir/native"
 build_dir="$native_dir/build"
 repo_root="$(cd "${script_dir}/../.." && pwd)"
-# shellcheck source=tools/ros_distro.sh
-source "${repo_root}/tools/ros_distro.sh"
+# shellcheck source=tools/setup/ros_distro.sh
+source "${repo_root}/tools/setup/ros_distro.sh"
 ros_distro_name="$(eai_resolve_ros_distro)" || exit $?
 
 if [[ -z "${CONDA_PREFIX:-}" ]]; then

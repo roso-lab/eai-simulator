@@ -314,9 +314,9 @@ Factory + Carter + Orsus 的 Nav2 导航效果
   ```
 - 快速安装/卸载全部包（根目录）：
   ```bash
-  ./tools/install_packages.sh       # 安装
-  ./tools/install_packages.sh -u    # 卸载
-  ./tools/install_packages.sh -v    # 详细输出
+  ./tools/setup/install_packages.sh       # 安装
+  ./tools/setup/install_packages.sh -u    # 卸载
+  ./tools/setup/install_packages.sh -v    # 详细输出
   ```
 - 更新 Env DIY 图片素材（根目录）：
   ```bash

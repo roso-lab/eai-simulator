@@ -146,9 +146,11 @@ test_*.py
 
 # Tracked lightweight tests for the asset-library showcase tool.
 !/tools/test_asset_library_showcase.py
-!/tools/test_vis_sensors.py
-!/tools/test_send_manipulator_command.py
-!/tools/test_send_cmd_vel.py
+!/tools/ros2/
+!/tools/ros2/tests/
+!/tools/ros2/tests/test_vis_sensors.py
+!/tools/ros2/tests/test_send_manipulator_command.py
+!/tools/ros2/tests/test_send_cmd_vel.py
 
 # Tracked city-traffic bridge test.
 !/source/EAI/test/test_city_traffic_human_bridge.py

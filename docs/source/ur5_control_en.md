@@ -25,16 +25,16 @@ python simulator.py --diy-3d --device=cuda:0
 
 source /opt/ros/humble/setup.bash
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-python3 tools/send_manipulator_command.py \
+python3 tools/ros2/send_manipulator_command.py \
   --robot go2_1 --model z1 \
   --joint 0.0 0.8 -1.2 0.0 0.0 0.0 --wait
-python3 tools/send_manipulator_command.py \
+python3 tools/ros2/send_manipulator_command.py \
   --robot go2_1 --model z1 --gripper -0.20 --wait
 ```
 
 Isaac Sim will not be restarted after clicking Run; the preview resources will be released and the production environment will be created in the same Kit process.
 
-`tools/send_manipulator_command.py` is an external system-ROS `rclpy` publisher/waiter for the formal UR5/Z1 joint, pose, and gripper topics. It allows up to three seconds for subscriber discovery before publishing; `--timeout` starts after that phase and bounds feedback waiting only with `--wait`. It does not perform IK, create OmniGraph, register a manipulator, start Isaac Sim, or prove graph activation. Its root `tools/` location does not provide `rclpy` inside `env_isaaclab`; run it in a separate system Python shell after sourcing the selected ROS distribution.
+`tools/ros2/send_manipulator_command.py` is an external system-ROS `rclpy` publisher/waiter for the formal UR5/Z1 joint, pose, and gripper topics. It allows up to three seconds for subscriber discovery before publishing; `--timeout` starts after that phase and bounds feedback waiting only with `--wait`. It does not perform IK, create OmniGraph, register a manipulator, start Isaac Sim, or prove graph activation. Its `tools/ros2/` location does not provide `rclpy` inside `env_isaaclab`; run it in a separate system Python shell after sourcing the selected ROS distribution.
 
 ## Quick Start
 
@@ -125,7 +125,7 @@ ros2 topic list | grep -E '/(ur5|z1)/'
 The unified external client can publish to the formal UR5 and Z1 topics; the corresponding runtime graph must already be active:
 
 ```bash
-python3 tools/send_manipulator_command.py \
+python3 tools/ros2/send_manipulator_command.py \
   --robot go2_1 \
   --model z1 \
   --joint 0.0 0.8 -1.2 0.0 0.0 0.0 \
@@ -169,7 +169,7 @@ Quaternions use ROS `x y z w` order; the unit orientation is `0 0 0 1`. An all-z
 Recommended when mounting the robotic arm:
 
 ```bash
-python3 tools/send_manipulator_command.py \
+python3 tools/ros2/send_manipulator_command.py \
   --robot go2_1 \
   --model z1 \
   --xyz 0.45 0.00 0.65 \
@@ -180,7 +180,7 @@ python3 tools/send_manipulator_command.py \
 Explicit poses use the ROS standard `x y z w` order:
 
 ```bash
-python3 tools/send_manipulator_command.py \
+python3 tools/ros2/send_manipulator_command.py \
   --robot go2_1 \
   --model z1 \
   --xyz 0.45 0.00 0.65 \
@@ -195,7 +195,7 @@ For poses, `--wait` compares the target with `ee_pose` in world coordinates, so 
 The gripper uses an independent topic and does not cover the six-axis robot arm commands:
 
 ```bash
-python3 tools/send_manipulator_command.py \
+python3 tools/ros2/send_manipulator_command.py \
   --robot go2_1 \
   --model z1 \
   --gripper -0.20 \

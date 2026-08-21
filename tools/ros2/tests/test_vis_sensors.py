@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 
-SCRIPT_PATH = Path(__file__).with_name("vis_sensors.py")
+SCRIPT_PATH = Path(__file__).resolve().parents[1] / "vis_sensors.py"
 
 
 def _load_script(module_name: str = "eai_public_vis_sensors"):

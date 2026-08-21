@@ -2,7 +2,7 @@
 
 Orsus is an integrated stereo-camera, RTX LiDAR, and odometry sensor module for ROS2 navigation stack integration.
 
-Orsus can be mounted to Carter, Go2, B2, M20, Scout, Coco, and Lite3. Use `tools/vis_sensors.py` to view the stereo images and point-cloud top view together. Camera exclusively controls the image graphs, while Navigation I/O exclusively controls point-cloud and odometry publishing. Environment JSON retains the internal keys `camera` and `ros`, respectively.
+Orsus can be mounted to Carter, Go2, B2, M20, Scout, Coco, and Lite3. Use `tools/ros2/vis_sensors.py` to view the stereo images and point-cloud top view together. Camera exclusively controls the image graphs, while Navigation I/O exclusively controls point-cloud and odometry publishing. Environment JSON retains the internal keys `camera` and `ros`, respectively.
 
 Scenes containing Orsus currently support one environment only and must be launched with `--num_envs 1`.
 
@@ -187,7 +187,7 @@ After waiting for Isaac Sim to finish loading, run the visual script in another 
 
 ```bash
 source /opt/ros/humble/setup.bash
-python3 tools/vis_sensors.py \
+python3 tools/ros2/vis_sensors.py \
   --sensor orsus \
   --namespace /carter_1
 ```
@@ -207,21 +207,21 @@ later:
 
 ```bash
 source /opt/ros/humble/setup.bash
-python3 tools/vis_sensors.py
+python3 tools/ros2/vis_sensors.py
 ```
 
 Other bots simply replace the namespace. For example, check out the Orsus of the first Go2:
 
 ```bash
 source /opt/ros/humble/setup.bash
-python3 tools/vis_sensors.py --sensor orsus --namespace /go2_1
+python3 tools/ros2/vis_sensors.py --sensor orsus --namespace /go2_1
 ```
 
 For an old Orsus scene without per-robot namespaces, explicit Orsus mode defaults to the `/isaac` namespace:
 
 ```bash
 source /opt/ros/humble/setup.bash
-python3 tools/vis_sensors.py --sensor orsus
+python3 tools/ros2/vis_sensors.py --sensor orsus
 ```
 
 Before running, the system Python environment needs to provide `rclpy`, `sensor_msgs`, `cv_bridge`, OpenCV and NumPy. If there is no image in the window, first check whether the corresponding topic exists and continue to publish:

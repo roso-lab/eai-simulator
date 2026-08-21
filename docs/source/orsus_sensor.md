@@ -2,7 +2,7 @@
 
 Orsus 是一个集成双目相机、RTX 激光雷达（LiDAR）和里程计（Odometry）的传感器模块，用于 ROS2 导航栈集成。
 
-Orsus 可挂载到 Carter、Go2、B2、M20、Scout、Coco 和 Lite3。可使用仓库中的 `tools/vis_sensors.py` 同时查看双目图像和点云俯视图。左右图像只受同一宿主上的 Camera 控制；点云和里程计只受 Navigation I/O 控制，两个开关彼此独立。环境 JSON 中仍分别使用内部键 `camera` 和 `ros`。
+Orsus 可挂载到 Carter、Go2、B2、M20、Scout、Coco 和 Lite3。可使用仓库中的 `tools/ros2/vis_sensors.py` 同时查看双目图像和点云俯视图。左右图像只受同一宿主上的 Camera 控制；点云和里程计只受 Navigation I/O 控制，两个开关彼此独立。环境 JSON 中仍分别使用内部键 `camera` 和 `ros`。
 
 包含 Orsus 的场景当前只支持单环境，启动时必须传入 `--num_envs 1`。
 
@@ -187,7 +187,7 @@ python simulator.py --env=nav2 --num_envs=1 --device=cuda:0
 
 ```bash
 source /opt/ros/humble/setup.bash
-python3 tools/vis_sensors.py \
+python3 tools/ros2/vis_sensors.py \
   --sensor orsus \
   --namespace /carter_1
 ```
@@ -205,21 +205,21 @@ python3 tools/vis_sensors.py \
 
 ```bash
 source /opt/ros/humble/setup.bash
-python3 tools/vis_sensors.py
+python3 tools/ros2/vis_sensors.py
 ```
 
 其他机器人只需替换 namespace。例如查看第一台 Go2 的 Orsus：
 
 ```bash
 source /opt/ros/humble/setup.bash
-python3 tools/vis_sensors.py --sensor orsus --namespace /go2_1
+python3 tools/ros2/vis_sensors.py --sensor orsus --namespace /go2_1
 ```
 
 如果使用旧的、没有按机器人实例划分 namespace 的 Orsus 场景，显式 Orsus 模式默认 namespace 是 `/isaac`：
 
 ```bash
 source /opt/ros/humble/setup.bash
-python3 tools/vis_sensors.py --sensor orsus
+python3 tools/ros2/vis_sensors.py --sensor orsus
 ```
 
 运行前需要系统 Python 环境提供 `rclpy`、`sensor_msgs`、`cv_bridge`、OpenCV 和 NumPy。若窗口没有图像，先检查对应话题是否存在并持续发布：
