@@ -277,7 +277,7 @@ default_profile:
 # 目前只有 factory 有现成占用图。其他场景暂未提供地图；
 # 未来可用 slam_toolbox 边走边建，或离线生成占用图后登记到这里。
 scene_maps:
-  factory: usd/scene/factory/factory_map.yaml
+  factory: demo/fire_rescue/assets/factory_map.yaml
   # plane 由 nav2_setup.py 按输出目录生成空白占用图。
 
 # 场景无地图时的默认（None 表示需要用户显式 --map 或先建图）
