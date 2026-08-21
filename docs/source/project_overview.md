@@ -125,12 +125,12 @@ eai-simulator/
 | `m20` | DeepRobotics M20 | `M20_ROUGH_RSL_CFG` | Orsus, RealSense D455, LiDAR, UR5, Z1 |
 | `scout` | Scout mobile base | `SCOUT_DIFF_CFG` | Orsus, RealSense D455, LiDAR, UR5, Z1 |
 | `g1` | Unitree G1 | `G1_SKRL_CFG` | - |
-| `cf2x` | Crazyflie CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | 内置相机、keyboard、ROS |
-| `iris` | Pegasus 3DR Iris | `PEGASUS_IRIS_POSITION_CFG` | 内置相机、keyboard、ROS |
-| `pegasus` | Pegasus research quadrotor | `PEGASUS_X4_POSITION_CFG` | 内置相机、keyboard、ROS |
+| `cf2x` | Crazyflie CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | 内置相机、keyboard、Navigation I/O |
+| `iris` | Pegasus 3DR Iris | `PEGASUS_IRIS_POSITION_CFG` | 内置相机、keyboard、Navigation I/O |
+| `pegasus` | Pegasus research quadrotor | `PEGASUS_X4_POSITION_CFG` | 内置相机、keyboard、Navigation I/O |
 | `lite3` | DeepRobotics Lite3 | `LITE3_VELOCITY_RSL_CFG` | Orsus, RealSense D455, LiDAR, UR5, Z1 |
-| `mushr_v2` | MuSHR Nano v2 Ackermann base | `MUSHR_ACKERMANN_CFG` | 内置相机、RealSense D455、LiDAR、keyboard、ROS |
-| `coco` | Coco AIRS Ackermann base | `COCO_ACKERMANN_CFG` | Orsus, RealSense D455, LiDAR, keyboard, ROS |
+| `mushr_v2` | MuSHR Nano v2 Ackermann base | `MUSHR_ACKERMANN_CFG` | 内置相机、RealSense D455、LiDAR、keyboard、Navigation I/O |
+| `coco` | Coco AIRS Ackermann base | `COCO_ACKERMANN_CFG` | Orsus, RealSense D455, LiDAR, keyboard, Navigation I/O |
 
 
 > 控制器配置位置：`source/EAI_assets/EAI_assets/controller/`（`rl/` 与 `traditional/`）。`UR5_IK_CFG` 和 `Z1_IK_CFG` 用于上表所列兼容宿主的机械臂附件。

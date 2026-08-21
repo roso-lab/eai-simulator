@@ -123,12 +123,12 @@ Robot choices are defined by `source/EAI/EAI/hmrs_env/env_diy/catalog.py::ROBOT_
 | `m20` | DeepRobotics M20 | `M20_ROUGH_RSL_CFG` | Orsus, RealSense D455, LiDAR, UR5, Z1 |
 | `scout` | Scout mobile base | `SCOUT_DIFF_CFG` | Orsus, RealSense D455, LiDAR, UR5, Z1 |
 | `g1` | Unitree G1 | `G1_SKRL_CFG` | - |
-| `cf2x` | Crazyflie CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | Built-in camera, keyboard, ROS |
-| `iris` | Pegasus 3DR Iris | `PEGASUS_IRIS_POSITION_CFG` | Built-in camera, keyboard, ROS |
-| `pegasus` | Pegasus research quadrotor | `PEGASUS_X4_POSITION_CFG` | Built-in camera, keyboard, ROS |
+| `cf2x` | Crazyflie CF2X | `QUADCOPTER_GOAL_SKRL_CFG` | Built-in camera, keyboard, Navigation I/O |
+| `iris` | Pegasus 3DR Iris | `PEGASUS_IRIS_POSITION_CFG` | Built-in camera, keyboard, Navigation I/O |
+| `pegasus` | Pegasus research quadrotor | `PEGASUS_X4_POSITION_CFG` | Built-in camera, keyboard, Navigation I/O |
 | `lite3` | DeepRobotics Lite3 | `LITE3_VELOCITY_RSL_CFG` | Orsus, RealSense D455, LiDAR, UR5, Z1 |
-| `mushr_v2` | MuSHR Nano v2 Ackermann base | `MUSHR_ACKERMANN_CFG` | Built-in camera, RealSense D455, LiDAR, keyboard, ROS |
-| `coco` | Coco AIRS Ackermann base | `COCO_ACKERMANN_CFG` | Orsus, RealSense D455, LiDAR, keyboard, ROS |
+| `mushr_v2` | MuSHR Nano v2 Ackermann base | `MUSHR_ACKERMANN_CFG` | Built-in camera, RealSense D455, LiDAR, keyboard, Navigation I/O |
+| `coco` | Coco AIRS Ackermann base | `COCO_ACKERMANN_CFG` | Orsus, RealSense D455, LiDAR, keyboard, Navigation I/O |
 
 > Controller configurations are stored in `source/EAI_assets/EAI_assets/controller/`, under `rl/` and `traditional/`. `UR5_IK_CFG` and `Z1_IK_CFG` provide manipulator attachments for the compatible hosts listed above.
 
