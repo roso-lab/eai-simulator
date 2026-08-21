@@ -1,6 +1,6 @@
 # 机械臂
 
-UR5 和 Z1 都通过 Isaac Sim 内部的 **ROS2 Bridge + OmniGraph** 通信。ROS2 消息直接进入仿真器，不经过 `tmp/` 文件，也不需要额外启动机械臂 bridge 进程。
+UR5 和 Z1 共享正式的 **ROS2 Bridge + OmniGraph** topic 规范。当前 `simulator.py` 只为选中的 UR5 附件显式注册 graph；Z1 的模型 spec、接口声明和控制器仍然保留，但仅选择 Z1 不会执行等价的 `setup_robot(...)`。对于已经激活的 graph，ROS2 消息直接进入仿真器，不经过 `tmp/` 文件，也不需要额外启动机械臂 bridge 进程。
 
 机械臂控制器属于可替换的外部算法；仿真器负责准确接收 ROS2 命令、把目标写入对应 articulation，并发布实际关节与末端状态。
 
@@ -13,11 +13,11 @@ UR5/Z1 不是独立机器人，而是 `Payloads → Manipulators` 下的宿主�
 | UR5 | `UR5_IK_CFG` | `ManipulatorIkControllerCfg` + DLS Differential IK | 无 |
 | Z1 | `Z1_IK_CFG` | `ManipulatorIkControllerCfg` + DLS Differential IK | `gripper_command` / `gripper_state` |
 
-两者都创建独立的 `<robot>_arm` articulation，并通过 FixedJoint 连接宿主。宿主的底盘/腿部 controller 与机械臂 controller 分开运行；同一个宿主不能同时挂载 UR5 和 Z1。机械臂附件自身会开启 ROS2 OmniGraph，因此只有在需要宿主 `cmd_vel` 时才额外添加导航接口（Navigation I/O，内部键 `ros`）或 Keyboard Tool。
+两者都创建独立的 `<robot>_arm` articulation，并通过 FixedJoint 连接宿主。宿主的底盘/腿部 controller 与机械臂 controller 分开运行；同一个宿主不能同时挂载 UR5 和 Z1。主启动器当前只为 UR5 附件建立 ROS2 OmniGraph；Navigation I/O（内部键 `ros`）或 Keyboard（内部键 `keyboard`）只影响宿主 `cmd_vel`，不会补充 Z1 graph 注册。
 
 ### 从 Env DIY 到 ROS2 控制
 
-运行前编辑时，在三维插件中选择 `Plane`，添加 `Go2`，再从 `Payloads → Manipulators` 将 `Z1` 挂载到 Go2。确认宿主使用 `GO2_VELOCITY_RSL_CFG`、附件使用 `Z1_IK_CFG`，点击 `Run` 后再从 ROS2 终端发送命令：
+运行前编辑时，在三维插件中选择 `Plane`，添加 `Go2`，再从 `Payloads → Manipulators` 将 `Z1` 挂载到 Go2。确认宿主使用 `GO2_VELOCITY_RSL_CFG`、附件使用 `Z1_IK_CFG`。下面展示正式 Z1 topic 的客户端语法；当前主启动器没有激活对应 graph，因此发送前必须先通过 `ros2 topic list` 确认某个集成入口已经完成 Z1 注册：
 
 ```bash
 python simulator.py --diy-3d --device=cuda:0
@@ -25,14 +25,16 @@ python simulator.py --diy-3d --device=cuda:0
 
 source /opt/ros/humble/setup.bash
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-python3 algorithm/ros/tools/manipulator_command.py \
+python3 tools/send_manipulator_command.py \
   --robot go2_1 --model z1 \
   --joint 0.0 0.8 -1.2 0.0 0.0 0.0 --wait
-python3 algorithm/ros/tools/manipulator_command.py \
+python3 tools/send_manipulator_command.py \
   --robot go2_1 --model z1 --gripper -0.20 --wait
 ```
 
 点击 Run 后不会重新启动 Isaac Sim；预览资源会在同一个 Kit 进程内释放并创建正式环境。
+
+`tools/send_manipulator_command.py` 是在系统 ROS Python 中运行的外部 `rclpy` 发布/等待客户端，覆盖 UR5/Z1 的关节、位姿和夹爪正式 topic。发布前最多允许 3 秒发现订阅者；`--timeout` 从该阶段之后开始，只在使用 `--wait` 时限制状态回读等待。它不执行 IK，不创建 OmniGraph，不注册机械臂，不启动 Isaac Sim，也不能证明 graph 已激活。不要把脚本位于根目录 `tools/` 误解为 `env_isaaclab` 已提供 `rclpy`；应在另一个已 source 所选 ROS 发行版的系统 Python 终端运行。
 
 ## 快速开始
 
@@ -106,7 +108,7 @@ Env DIY 配置示例：
 /m20_1/ur5/ee_pose
 ```
 
-查询环境会创建的接口，不启动 Isaac Sim：
+查询环境声明的接口，不启动 Isaac Sim。静态结果不证明对应 graph 会在运行时创建：
 
 ```bash
 python simulator.py interfaces scene --env <env_name>
@@ -120,10 +122,10 @@ ros2 topic list | grep -E '/(ur5|z1)/'
 
 ## 关节控制
 
-统一工具支持 UR5 和 Z1：
+统一外部客户端可向 UR5 和 Z1 的正式 topic 发布命令；示例仍要求运行时已经激活对应 graph：
 
 ```bash
-python3 algorithm/ros/tools/manipulator_command.py \
+python3 tools/send_manipulator_command.py \
   --robot go2_1 \
   --model z1 \
   --joint 0.0 0.8 -1.2 0.0 0.0 0.0 \
@@ -162,12 +164,12 @@ ros2 topic echo --once /go2_1/z1/joint_states
 - `base_link`：推荐用于挂载机械臂，目标相对于宿主机器人；
 - `world`：场景绝对坐标，必须先读取当前 `ee_pose` 再选择附近目标。
 
-当前 ROS2 输入必须携带非零四元数；单位姿态使用 `x y z w = 0 0 0 1`。全零四元数会被命令校验拒绝，不表示“保持当前姿态”。
+四元数使用 ROS 标准 `x y z w` 顺序；单位姿态为 `0 0 0 1`。全零四元数不会被拒绝，而是表示只更新目标位置并保持当前末端姿态；非零四元数会先归一化。
 
 挂载机械臂时推荐：
 
 ```bash
-python3 algorithm/ros/tools/manipulator_command.py \
+python3 tools/send_manipulator_command.py \
   --robot go2_1 \
   --model z1 \
   --xyz 0.45 0.00 0.65 \
@@ -178,7 +180,7 @@ python3 algorithm/ros/tools/manipulator_command.py \
 显式姿态使用 ROS 标准 `x y z w` 顺序：
 
 ```bash
-python3 algorithm/ros/tools/manipulator_command.py \
+python3 tools/send_manipulator_command.py \
   --robot go2_1 \
   --model z1 \
   --xyz 0.45 0.00 0.65 \
@@ -186,14 +188,14 @@ python3 algorithm/ros/tools/manipulator_command.py \
   --frame-id base_link
 ```
 
-`--wait` 的位姿回读当前按 `ee_pose` 的 world 坐标比较；使用 `--frame-id base_link` 时不要同时使用 `--wait`，可改用 `ros2 topic echo --once /<robot>/z1/ee_pose` 观察结果。IK 是可替换算法，当前公共控制器使用 Isaac Lab Differential IK 的 DLS（阻尼最小二乘）方法，并把单次关节变化限制在 `0.10 rad` 内；如果目标超出机械臂工作空间，外部算法应重新选择目标，而不是持续把关节推向软限位。
+`--wait` 的位姿回读按 `ee_pose` 的 world 坐标比较，因此客户端会拒绝 `--frame-id base_link` 与 `--wait` 的组合；可改用 `ros2 topic echo --once /<robot>/z1/ee_pose` 观察结果。IK 由仿真器内的可替换控制器执行，不由 `send_manipulator_command.py` 执行。当前公共控制器使用 Isaac Lab Differential IK 的 DLS（阻尼最小二乘）方法，并把单次关节变化限制在 `0.10 rad` 内；如果目标超出机械臂工作空间，外部算法应重新选择目标，而不是持续把关节推向软限位。
 
 ## Z1 夹爪
 
 夹爪使用独立 topic，不会覆盖六轴机械臂命令：
 
 ```bash
-python3 algorithm/ros/tools/manipulator_command.py \
+python3 tools/send_manipulator_command.py \
   --robot go2_1 \
   --model z1 \
   --gripper -0.20 \
@@ -217,7 +219,7 @@ python3 algorithm/keyboard/keyboard.py --robot go2_1
 
 ## 重置与故障排查
 
-环境 reset 会清理机械臂命令状态，避免旧目标在 reset 后继续执行。若 topic 列表为空，先确认：
+环境 reset 会清理机械臂命令状态，避免旧目标在 reset 后继续执行。若 topic 列表为空，先确认运行时 graph 是否实际注册；当前主启动器的 Z1 缺少这一步。再检查：
 
 ```bash
 python simulator.py interfaces scene --env <env_name> | grep -E '/(ur5|z1)/'

@@ -67,13 +67,13 @@ Orsus 的双目图像接口为 `ros.orsus.left_image`（`/{robot}/Orsus_L_cam`�
 
 ```bash
 source /opt/ros/humble/setup.bash
-python3 algorithm/ros/tools/vis_sensors.py
+python3 tools/vis_sensors.py
 ```
 
 也可以只查看一个无人机 namespace 下的相机：
 
 ```bash
-python3 algorithm/ros/tools/vis_sensors.py --sensor camera --namespace /iris_1
+python3 tools/vis_sensors.py --sensor camera --namespace /iris_1
 ```
 
 ## 键盘运动接口
@@ -98,7 +98,7 @@ python3 algorithm/keyboard/keyboard.py \
 
 ## 机械臂接口
 
-UR5 和 Z1 使用相同的 ROS2 namespace 规范与原生 OmniGraph 链路。完整启动、控制和故障排查说明集中在[机械臂](ur5_control.md)；本页只保留接口目录和查询命令。
+UR5 和 Z1 使用相同的正式 ROS2 namespace 规范，但静态接口声明不代表运行时 graph 已激活。当前主启动器只为选中的 UR5 附件注册 graph，没有为 Z1 执行等价的 `setup_robot(...)`。完整启动、控制和故障排查说明集中在[机械臂](ur5_control.md)；本页只保留接口目录和查询命令。
 
 ### UR5 机械臂接口
 

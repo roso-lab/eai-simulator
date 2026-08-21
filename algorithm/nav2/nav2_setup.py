@@ -40,7 +40,7 @@ except ImportError:
     raise
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT = os.path.abspath(os.path.join(THIS_DIR, "..", "..", ".."))
+REPO_ROOT = os.path.abspath(os.path.join(THIS_DIR, "..", ".."))
 DEFAULT_RUNTIME_SNAPSHOT = os.path.join(REPO_ROOT, "tmp", "runtime_interfaces.json")
 MAX_RUNTIME_SNAPSHOT_AGE_SECONDS = 5.0
 

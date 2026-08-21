@@ -13,8 +13,8 @@ nav2_setup.py to generate concrete params/pc2scan/rviz files, then starts:
 
 Usage:
     source /opt/ros/$ROS_DISTRO/setup.bash
-    ros2 launch algorithm/ros/nav2/nav2.launch.py robot_name:=carter_1 robot_type:=Carter sensor:=auto scene:=factory
-    ros2 launch algorithm/ros/nav2/nav2.launch.py robot_name:=go2_1 robot_type:=Go2 sensor:=lidar scene:=plane rviz:=true
+    ros2 launch algorithm/nav2/nav2.launch.py robot_name:=carter_1 robot_type:=Carter sensor:=auto scene:=factory
+    ros2 launch algorithm/nav2/nav2.launch.py robot_name:=go2_1 robot_type:=Go2 sensor:=lidar scene:=plane rviz:=true
 """
 
 import os
@@ -28,7 +28,7 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT = os.path.abspath(os.path.join(THIS_DIR, "..", "..", ".."))
+REPO_ROOT = os.path.abspath(os.path.join(THIS_DIR, "..", ".."))
 NAV2_SETUP = os.path.join(THIS_DIR, "nav2_setup.py")
 TF_BRIDGE = os.path.join(THIS_DIR, "tf_bridge.py")
 DEFAULT_RUNTIME_SNAPSHOT = os.path.join(REPO_ROOT, "tmp", "runtime_interfaces.json")

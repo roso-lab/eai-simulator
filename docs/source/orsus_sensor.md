@@ -2,7 +2,7 @@
 
 Orsus 是一个集成双目相机、RTX 激光雷达（LiDAR）和里程计（Odometry）的传感器模块，用于 ROS2 导航栈集成。
 
-Orsus 可挂载到 Carter、Go2、B2、M20、Scout、Coco 和 Lite3。可使用仓库中的 `algorithm/ros/tools/vis_sensors.py` 同时查看双目图像和点云俯视图。左右图像只受同一宿主上的 Camera Tool 控制；点云和里程计只受导航接口（Navigation I/O）控制，两个开关彼此独立。导航接口在环境 JSON 中仍使用内部键 `ros`。
+Orsus 可挂载到 Carter、Go2、B2、M20、Scout、Coco 和 Lite3。可使用仓库中的 `tools/vis_sensors.py` 同时查看双目图像和点云俯视图。左右图像只受同一宿主上的 Camera 控制；点云和里程计只受 Navigation I/O 控制，两个开关彼此独立。环境 JSON 中仍分别使用内部键 `camera` 和 `ros`。
 
 包含 Orsus 的场景当前只支持单环境，启动时必须传入 `--num_envs 1`。
 
@@ -133,11 +133,11 @@ Orsus 会根据机器人实例名设置 ROS namespace。例如 `carter_1` 机器
 
 **内容**:
 - 3D 点云数据，原始 frame 语义由 Orsus USD 图给出
-- Nav2 使用前应通过 `algorithm/ros/nav2/tf_bridge.py` 和 `pointcloud_to_laserscan` 处理
+- Nav2 使用前应通过 `algorithm/nav2/tf_bridge.py` 和 `pointcloud_to_laserscan` 处理
 
 ### `/<robot>/scan` (sensor_msgs/LaserScan)
 
-`/<robot>/scan` 不是 Orsus 直接发布的话题，而是 `algorithm/ros/nav2` 将 `/<robot>/cloud` 处理后生成的 Nav2 输入话题。
+`/<robot>/scan` 不是 Orsus 直接发布的话题，而是 `algorithm/nav2/` 将 `/<robot>/cloud` 处理后生成的 Nav2 输入话题。
 
 ## 使用示例
 
@@ -170,7 +170,7 @@ ros2 topic echo /carter_1/odometry
 # 查看原始点云
 ros2 topic echo /carter_1/cloud
 
-# 查看 Nav2 使用的 LaserScan（启动 algorithm/ros/nav2 后）
+# 查看 Nav2 使用的 LaserScan（启动 algorithm/nav2 后）
 ros2 topic echo /carter_1/scan
 ```
 
@@ -187,7 +187,7 @@ python simulator.py --env=nav2 --num_envs=1 --device=cuda:0
 
 ```bash
 source /opt/ros/humble/setup.bash
-python3 algorithm/ros/tools/vis_sensors.py \
+python3 tools/vis_sensors.py \
   --sensor orsus \
   --namespace /carter_1
 ```
@@ -205,21 +205,21 @@ python3 algorithm/ros/tools/vis_sensors.py \
 
 ```bash
 source /opt/ros/humble/setup.bash
-python3 algorithm/ros/tools/vis_sensors.py
+python3 tools/vis_sensors.py
 ```
 
 其他机器人只需替换 namespace。例如查看第一台 Go2 的 Orsus：
 
 ```bash
 source /opt/ros/humble/setup.bash
-python3 algorithm/ros/tools/vis_sensors.py --sensor orsus --namespace /go2_1
+python3 tools/vis_sensors.py --sensor orsus --namespace /go2_1
 ```
 
 如果使用旧的、没有按机器人实例划分 namespace 的 Orsus 场景，显式 Orsus 模式默认 namespace 是 `/isaac`：
 
 ```bash
 source /opt/ros/humble/setup.bash
-python3 algorithm/ros/tools/vis_sensors.py --sensor orsus
+python3 tools/vis_sensors.py --sensor orsus
 ```
 
 运行前需要系统 Python 环境提供 `rclpy`、`sensor_msgs`、`cv_bridge`、OpenCV 和 NumPy。若窗口没有图像，先检查对应话题是否存在并持续发布：
@@ -243,13 +243,18 @@ ros2 topic hz /carter_1/Orsus_R_cam
 启动当前仓库维护的 Navigation2 导航栈：
 
 ```bash
-bash algorithm/ros/nav2/run_nav2.sh --rviz
+source /opt/ros/humble/setup.bash
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+ros2 launch algorithm/nav2/nav2.launch.py \
+  robot_name:=carter_1 robot_type:=Carter sensor:=orsus scene:=factory \
+  map:="$(pwd)/demo/fire_rescue/assets/factory_map.yaml" rviz:=true
 ```
 
 发送导航目标：
 
 ```bash
-/usr/bin/python3 algorithm/ros/nav2/send_goal.py --x -7.97 --y -6.53
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+/usr/bin/python3 algorithm/nav2/send_goal.py --x -7.97 --y -6.53
 ```
 
 ## 工作流程

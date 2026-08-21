@@ -1,6 +1,6 @@
 # Manipulator Control
 
-Both UR5 and Z1 communicate through the **ROS2 Bridge + OmniGraph** inside Isaac Sim. ROS2 messages enter the simulator directly without passing through files under `tmp/`, and no additional manipulator bridge process is required.
+UR5 and Z1 share a formal **ROS2 Bridge + OmniGraph** topic convention. The current `simulator.py` explicitly registers graphs for selected UR5 attachments only. The Z1 model spec, interface declarations, and controller remain supported, but selecting Z1 does not call the equivalent `setup_robot(...)`. For a graph that is active, ROS2 messages enter the simulator directly without files under `tmp/` or a separate manipulator bridge process.
 
 The manipulator controller is a replaceable external algorithm; the simulator is responsible for accurately receiving ROS2 commands, writing the target into the corresponding articulation, and publishing the actual joint and end states.
 
@@ -13,11 +13,11 @@ UR5/Z1 is not a standalone robot, but a host attachment under `Payloads → Mani
 | UR5 | `UR5_IK_CFG` | `ManipulatorIkControllerCfg` + DLS Differential IK | None |
 | Z1 | `Z1_IK_CFG` | `ManipulatorIkControllerCfg` + DLS Differential IK | `gripper_command` / `gripper_state` |
 
-Both create independent `<robot>_arm` articulation and connect to the host through FixedJoint. The host's chassis/leg controller runs separately from the robotic arm controller; the same host cannot mount UR5 and Z1 at the same time. The robot attachment itself enables ROS2 OmniGraph, so Navigation I/O (internal key `ros`) or the Keyboard Tool is only required when the host needs `cmd_vel`.
+Both create an independent `<robot>_arm` articulation connected to the host through a FixedJoint. The host chassis/leg controller runs separately from the manipulator controller, and one host cannot mount UR5 and Z1 simultaneously. The main launcher currently creates a ROS2 OmniGraph for UR5 attachments only; Navigation I/O (internal key `ros`) and Keyboard (internal key `keyboard`) affect host `cmd_vel` and do not supply Z1 graph registration.
 
 ### From Env DIY to ROS2 control
 
-When editing before running, select `Plane` in the 3D plug-in, add `Go2`, and then mount `Z1` to Go2 from `Payloads → Manipulators`. Confirm that the host uses `GO2_VELOCITY_RSL_CFG` and the attachment uses `Z1_IK_CFG`. Click `Run` and then send the command from the ROS2 terminal:
+When editing before running, select `Plane` in the 3D plug-in, add `Go2`, and mount `Z1` from `Payloads → Manipulators`. Confirm that the host uses `GO2_VELOCITY_RSL_CFG` and the attachment uses `Z1_IK_CFG`. The commands below demonstrate the formal Z1 topic syntax. Because the main launcher does not activate that graph, first use `ros2 topic list` to confirm that an integration entry point has registered Z1:
 
 ```bash
 python simulator.py --diy-3d --device=cuda:0
@@ -25,14 +25,16 @@ python simulator.py --diy-3d --device=cuda:0
 
 source /opt/ros/humble/setup.bash
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-python3 algorithm/ros/tools/manipulator_command.py \
+python3 tools/send_manipulator_command.py \
   --robot go2_1 --model z1 \
   --joint 0.0 0.8 -1.2 0.0 0.0 0.0 --wait
-python3 algorithm/ros/tools/manipulator_command.py \
+python3 tools/send_manipulator_command.py \
   --robot go2_1 --model z1 --gripper -0.20 --wait
 ```
 
 Isaac Sim will not be restarted after clicking Run; the preview resources will be released and the production environment will be created in the same Kit process.
+
+`tools/send_manipulator_command.py` is an external system-ROS `rclpy` publisher/waiter for the formal UR5/Z1 joint, pose, and gripper topics. It allows up to three seconds for subscriber discovery before publishing; `--timeout` starts after that phase and bounds feedback waiting only with `--wait`. It does not perform IK, create OmniGraph, register a manipulator, start Isaac Sim, or prove graph activation. Its root `tools/` location does not provide `rclpy` inside `env_isaaclab`; run it in a separate system Python shell after sourcing the selected ROS distribution.
 
 ## Quick Start
 
@@ -106,7 +108,7 @@ Taking UR5 of `m20_1` as an example, the actual topic is:
 /m20_1/ur5/ee_pose
 ```
 
-Query the interface created by the environment without starting Isaac Sim:
+Query the interfaces declared for an environment without starting Isaac Sim. Static output does not prove that a corresponding runtime graph will be created:
 
 ```bash
 python simulator.py interfaces scene --env <env_name>
@@ -120,10 +122,10 @@ ros2 topic list | grep -E '/(ur5|z1)/'
 
 ## Joint Control
 
-Unified tools support UR5 and Z1:
+The unified external client can publish to the formal UR5 and Z1 topics; the corresponding runtime graph must already be active:
 
 ```bash
-python3 algorithm/ros/tools/manipulator_command.py \
+python3 tools/send_manipulator_command.py \
   --robot go2_1 \
   --model z1 \
   --joint 0.0 0.8 -1.2 0.0 0.0 0.0 \
@@ -162,12 +164,12 @@ ros2 topic echo --once /go2_1/z1/joint_states
 - `base_link`: recommended for mounting robotic arms, the target is relative to the host robot;
 - `world`: absolute coordinates of the scene, you must first read the current `ee_pose` and then select nearby targets.
 
-Current ROS2 inputs must carry non-zero quaternions; unit attitude uses `x y z w = 0 0 0 1`. All-zero quaternions will be rejected by command verification and do not mean "keep current attitude".
+Quaternions use ROS `x y z w` order; the unit orientation is `0 0 0 1`. An all-zero quaternion is not rejected: it updates the target position while retaining the current end-effector orientation. Non-zero quaternions are normalized.
 
 Recommended when mounting the robotic arm:
 
 ```bash
-python3 algorithm/ros/tools/manipulator_command.py \
+python3 tools/send_manipulator_command.py \
   --robot go2_1 \
   --model z1 \
   --xyz 0.45 0.00 0.65 \
@@ -178,7 +180,7 @@ python3 algorithm/ros/tools/manipulator_command.py \
 Explicit poses use the ROS standard `x y z w` order:
 
 ```bash
-python3 algorithm/ros/tools/manipulator_command.py \
+python3 tools/send_manipulator_command.py \
   --robot go2_1 \
   --model z1 \
   --xyz 0.45 0.00 0.65 \
@@ -186,14 +188,14 @@ python3 algorithm/ros/tools/manipulator_command.py \
   --frame-id base_link
 ```
 
-The pose of `--wait` reads back the current world coordinate comparison of `ee_pose`; when using `--frame-id base_link`, do not use `--wait` at the same time. You can use `ros2 topic echo --once /<robot>/z1/ee_pose` to observe the results instead. IK is an alternative algorithm. The current public controller uses the DLS (damped least squares) method of Isaac Lab Differential IK and limits a single joint change to `0.10 rad`; if the target exceeds the manipulator working space, the external algorithm should reselect the target instead of continuing to push the joint to the soft limit.
+For poses, `--wait` compares the target with `ee_pose` in world coordinates, so the client rejects the combination of `--frame-id base_link` and `--wait`; use `ros2 topic echo --once /<robot>/z1/ee_pose` to observe the result instead. IK runs in the simulator's replaceable controller, not in `send_manipulator_command.py`. The current public controller uses Isaac Lab Differential IK with DLS (damped least squares) and limits each joint change to `0.10 rad`. If a target is outside the workspace, the external algorithm should choose another target instead of continually pushing joints toward their soft limits.
 
 ## Z1 Gripper
 
 The gripper uses an independent topic and does not cover the six-axis robot arm commands:
 
 ```bash
-python3 algorithm/ros/tools/manipulator_command.py \
+python3 tools/send_manipulator_command.py \
   --robot go2_1 \
   --model z1 \
   --gripper -0.20 \
@@ -217,7 +219,7 @@ Robotic arm joint or gripper commands can be sent simultaneously while the keybo
 
 ## Reset and Troubleshooting
 
-An environment reset will clean up the robotic arm command status to prevent old targets from continuing to execute after the reset. If the topic list is empty, confirm first:
+An environment reset clears manipulator command state so old targets do not continue after reset. If the topic list is empty, first confirm that a runtime graph was actually registered; the current main launcher omits that step for Z1. Then check:
 
 ```bash
 python simulator.py interfaces scene --env <env_name> | grep -E '/(ur5|z1)/'

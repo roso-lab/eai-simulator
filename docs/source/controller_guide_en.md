@@ -226,9 +226,9 @@ GO2_VELOCITY_RSL_CFG = Go2VelocityRSLControllerCfg(
 
 `target_pose` uses DLS Differential IK (`lambda_val=0.02`). The target can be represented by `world` or `base_link`; `base_link` will first be converted to world through the host root pose. The joint command does not go through IK, but is directly rearranged according to the model joint name and written to the target. A maximum of `0.10 rad` joint changes are applied per control loop to avoid sudden jumps caused by external pose targets.
 
-ROS2 OmniGraph is only created when the corresponding attachment exists in the selection. After the message enters `ManipulatorOmniGraphManager`, it is isolated according to the robot instance name and robot arm model. The command of `m20_1` will not be consumed by `m20_2`. The command, IK smoothing state and gripper state will be cleaned up when reset.
+The main launcher currently creates ROS2 OmniGraph only for UR5 attachments in the selection. The formal Z1 model spec and interface declarations remain, but selecting Z1 does not call the equivalent `setup_robot(...)`. Once a graph is active, `ManipulatorOmniGraphManager` isolates messages by robot instance and manipulator model, so `m20_1` commands are not consumed by `m20_2`. Reset clears command, IK smoothing, and gripper state.
 
-For detailed topics, message types, Z1 gripper commands, and `manipulator_command.py` examples, see [Manipulator Control](ur5_control_en.md).
+For detailed topics, message types, Z1 gripper commands, and `send_manipulator_command.py` examples, see [Manipulator Control](ur5_control_en.md). The script is only a system-`rclpy` publisher/waiter; it neither performs IK nor creates or activates a graph.
 
 
 ## How to define a new controller

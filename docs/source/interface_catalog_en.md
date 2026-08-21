@@ -67,13 +67,13 @@ Use the unified viewer to display every camera topic that exists now or starts l
 
 ```bash
 source /opt/ros/humble/setup.bash
-python3 algorithm/ros/tools/vis_sensors.py
+python3 tools/vis_sensors.py
 ```
 
 To display only the camera below one aerial robot namespace:
 
 ```bash
-python3 algorithm/ros/tools/vis_sensors.py --sensor camera --namespace /iris_1
+python3 tools/vis_sensors.py --sensor camera --namespace /iris_1
 ```
 
 ## Keyboard motion interface
@@ -98,7 +98,7 @@ python3 algorithm/keyboard/keyboard.py \
 
 ## Robotic arm interface
 
-UR5 and Z1 use the same ROS2 namespace specification with native OmniGraph links. Complete startup, control and troubleshooting instructions are concentrated in [Robotic Arm](ur5_control_en.md); this page only retains the interface directory and query commands.
+UR5 and Z1 share the same formal ROS2 namespace convention, but a static interface declaration does not mean that its runtime graph is active. The main launcher currently registers graphs for selected UR5 attachments only; it does not call the equivalent `setup_robot(...)` for Z1. Complete startup, control, and troubleshooting guidance is in [Manipulator Control](ur5_control_en.md); this page only retains the interface catalog and query commands.
 
 ### UR5 Robotic Arm Interface
 

@@ -6,8 +6,8 @@
 
 用法（系统 ROS2 环境）：
     source /opt/ros/$ROS_DISTRO/setup.bash
-    ros2 launch algorithm/ros/nav2/rviz.launch.py                 # 默认 carter_1
-    ros2 launch algorithm/ros/nav2/rviz.launch.py robot_name:=go2_1 robot_type:=Go2
+    ros2 launch algorithm/nav2/rviz.launch.py                 # 默认 carter_1
+    ros2 launch algorithm/nav2/rviz.launch.py robot_name:=go2_1 robot_type:=Go2
 """
 
 import os

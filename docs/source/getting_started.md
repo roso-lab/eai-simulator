@@ -138,15 +138,19 @@ python simulator.py --env=nav2 --device=cuda:0
 ```bash
 # 终端 2：Nav2 与 RViz
 source /opt/ros/humble/setup.bash
-ros2 launch algorithm/ros/nav2/nav2.launch.py \
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+ros2 launch algorithm/nav2/nav2.launch.py \
   robot_name:=carter_1 robot_type:=Carter scene:=factory rviz:=true
 ```
 
 ```bash
 # 终端 3：发送目标
 source /opt/ros/humble/setup.bash
-/usr/bin/python3 algorithm/ros/nav2/send_goal.py --x -5.0 --y -8.0
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+/usr/bin/python3 algorithm/nav2/send_goal.py --x -5.0 --y -8.0
 ```
+
+该命令仅在 Nav2 返回 `STATUS_SUCCEEDED` 时以状态码 0 退出；服务未就绪、目标被拒绝、取消、中止或超时时会返回非零状态码。`send_goal.py` 终端中的 Ctrl+C 只停止目标客户端；要关闭一键启动的 Nav2 和 Isaac Sim，请在 `run_nav2.sh` 所在终端按 Ctrl+C，并等待清理完成。
 
 ## Fire Rescue Demo
 
