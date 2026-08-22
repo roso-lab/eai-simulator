@@ -39,7 +39,7 @@ dynoplan 优化 → 同步的双积分器轨迹
 先按[安装指南](installation.md)准备 Isaac Lab 的 `env_isaaclab` 环境。db-CBS 原生目标还需要 CMake、C++17、Boost、Eigen、FCL、yaml-cpp 和 Crocoddyl。构建脚本只从当前 Conda 环境、`/opt/openrobots`、`/opt/ros/humble` 及已有加载路径解析这些库，不会安装系统软件包。
 
 ```bash
-cd /home/airs/eai-simulator
+cd /path/to/eai-simulator
 conda activate env_isaaclab
 python -m pip install --no-deps crocoddyl==2.0.2
 EAI_DBCBS_BUILD_JOBS=8 algorithm/multi_robot_navigation/build_native.sh
