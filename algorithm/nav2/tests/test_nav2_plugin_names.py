@@ -8,14 +8,14 @@
   - 包未安装/声明缺失 → 保持模板原样
   - 非插件参数（如 amcl 运动模型）不受影响
 
-运行：python3 -m pytest algorithm/ros/nav2/test_nav2_plugin_names.py
+运行：python3 -m pytest algorithm/nav2/tests/test_nav2_plugin_names.py
 """
 
 import os
 import sys
 
-THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, THIS_DIR)
+NAV2_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, NAV2_DIR)
 
 import nav2_setup  # noqa: E402
 
