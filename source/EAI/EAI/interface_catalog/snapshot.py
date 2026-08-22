@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import json
 import os
 import tempfile
@@ -80,6 +81,24 @@ def refresh_snapshot(
     return updated
 
 
+def _process_is_running(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError as exc:
+        if exc.errno == errno.ESRCH:
+            return False
+        if exc.errno == errno.EPERM:
+            return True
+        raise
+    return True
+
+
 def remove_snapshot(path: Path | str, *, pid: int | None = None) -> bool:
     target = Path(path)
     if not target.exists():
@@ -90,6 +109,21 @@ def remove_snapshot(path: Path | str, *, pid: int | None = None) -> bool:
     except ValueError:
         return False
     if int(snapshot.get("pid", -1)) != owner:
+        return False
+    target.unlink()
+    return True
+
+
+def remove_stale_snapshot(path: Path | str) -> bool:
+    target = Path(path)
+    if not target.exists():
+        return False
+    try:
+        snapshot = read_snapshot(target)
+        owner = int(snapshot.get("pid", -1))
+    except (TypeError, ValueError):
+        return False
+    if _process_is_running(owner):
         return False
     target.unlink()
     return True
