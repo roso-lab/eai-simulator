@@ -27,7 +27,7 @@ pip install openai
 
 To use the Deepseek Model, create a .env file in the project root and add your Deepseek API key:
 
-DEESEEK_API_KEY=your_api_key_here
+DEEPSEEK_API_KEY=your_api_key_here
 
 
 
