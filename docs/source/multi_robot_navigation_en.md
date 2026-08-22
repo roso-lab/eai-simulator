@@ -39,7 +39,7 @@ Initial planning and runtime replanning run on one background worker. While a pl
 Prepare Isaac Lab's `env_isaaclab` environment as described in the [Installation Guide](installation_en.md). The native db-CBS target also needs CMake, C++17, Boost, Eigen, FCL, yaml-cpp, and Crocoddyl. The build script resolves these libraries only from the active Conda environment, `/opt/openrobots`, `/opt/ros/humble`, and existing loader paths; it does not install system packages.
 
 ```bash
-cd /home/airs/eai-simulator
+cd /path/to/eai-simulator
 conda activate env_isaaclab
 python -m pip install --no-deps crocoddyl==2.0.2
 EAI_DBCBS_BUILD_JOBS=8 algorithm/multi_robot_navigation/build_native.sh
