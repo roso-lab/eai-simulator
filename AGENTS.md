@@ -408,7 +408,7 @@ Create or update a saved selection that can be loaded with `python simulator.py 
 
 #### Related registration/compatibility points
 
-Use only scene, robot, attachment, tool, and controller names connected through the catalog, builder, and requirement maps. Saved JSON is not a Gym registration key. Runtime instances are named `<robot-type>_<occurrence-of-that-type>`, not by global list index. Do not copy `source/EAI_hmrs/EAI_hmrs/envs/123.json`: it currently contains attachment combinations rejected by shared compatibility validation.
+Use only scene, robot, attachment, tool, and controller names connected through the catalog, builder, and requirement maps. Saved JSON is not a Gym registration key. Runtime instances are named `<robot-type>_<occurrence-of-that-type>`, not by global list index. Do not treat temporary saved-environment files as maintained examples.
 
 #### Implementation steps
 
