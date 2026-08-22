@@ -206,7 +206,7 @@ for package in "${PACKAGES[@]}"; do
                 ((FAIL_COUNT++))
             fi
         else
-            if pip install -e "${package_dir}"; then
+            if python -m pip install --no-deps -e "${package_dir}"; then
                 print_info "✓ ${package} 安装成功"
                 ((SUCCESS_COUNT++))
             else
@@ -226,7 +226,7 @@ for package in "${PACKAGES[@]}"; do
                 ((FAIL_COUNT++))
             fi
         else
-            if pip install -e "${package_dir}" > /dev/null 2>&1; then
+            if python -m pip install --no-deps -e "${package_dir}" > /dev/null 2>&1; then
                 print_info "✓ ${package} 安装成功"
                 ((SUCCESS_COUNT++))
             else

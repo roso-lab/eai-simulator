@@ -78,9 +78,9 @@ Or install manually:
 
 ```bash
 # Make sure you are in Isaac Lab's Python environment
-pip install -e source/EAI
-pip install -e source/EAI_assets
-pip install -e source/EAI_hmrs
+python -m pip install --no-deps -e source/EAI
+python -m pip install --no-deps -e source/EAI_assets
+python -m pip install --no-deps -e source/EAI_hmrs
 ```
 
 ### 4. Apply for Hugging Face asset permissions
@@ -170,9 +170,9 @@ Isaac Sim ROS2 Bridge is usually installed with Isaac Sim. If not installed:
 
 **solve**:
 ```bash
-pip install -e source/EAI
-pip install -e source/EAI_assets
-pip install -e source/EAI_hmrs
+python -m pip install --no-deps -e source/EAI
+python -m pip install --no-deps -e source/EAI_assets
+python -m pip install --no-deps -e source/EAI_hmrs
 ```
 
 ### Q2: `CUDA out of memory`
@@ -258,9 +258,9 @@ pip uninstall EAI EAI-assets EAI-hmrs
 If you need to modify the source code, use an editable installation (included in the installation script):
 
 ```bash
-pip install -e source/EAI
-pip install -e source/EAI_assets
-pip install -e source/EAI_hmrs
+python -m pip install --no-deps -e source/EAI
+python -m pip install --no-deps -e source/EAI_assets
+python -m pip install --no-deps -e source/EAI_hmrs
 ```
 
 There is no need to reinstall after modifying the source code in this way.
