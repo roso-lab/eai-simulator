@@ -92,7 +92,7 @@ only when the older occupancy-grid planner is specifically required.
 Build the native EAI core once in `env_isaaclab` before the first db-CBS run:
 
 ```bash
-cd /home/airs/eai-simulator
+cd /path/to/eai-simulator
 conda activate env_isaaclab
 python -m pip install --no-deps crocoddyl==2.0.2
 algorithm/multi_robot_navigation/build_native.sh
@@ -122,7 +122,7 @@ directly.
 Open the interactive viewport component:
 
 ```bash
-cd /home/airs/eai-simulator
+cd /path/to/eai-simulator
 conda activate env_isaaclab
 python -m algorithm.multi_robot_navigation.test.main \
   --env dbcbs_slam_team --real-time
@@ -136,7 +136,7 @@ goals and paths, and the selection ring is removed after planning starts.
 Run a non-interactive exchange mission:
 
 ```bash
-cd /home/airs/eai-simulator
+cd /path/to/eai-simulator
 conda activate env_isaaclab
 python -m algorithm.multi_robot_navigation.test.main \
   --env dbcbs_slam_team --exchange --real-time
