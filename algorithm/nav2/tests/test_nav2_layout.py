@@ -54,6 +54,7 @@ GENERATED_FILES = {
 }
 EXPECTED_LAYOUT = PROMOTED_FILES | {
     "tests/test_nav2_layout.py",
+    "tests/test_nav2_plugin_names.py",
     "tests/test_send_goal.py",
 }
 GOAL_COMMAND_DOCS = {
