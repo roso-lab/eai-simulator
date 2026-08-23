@@ -520,8 +520,15 @@ def spawn_and_fix_ros_lidar(prim_path, cfg, translation, orientation):
     stage = omni.usd.get_context().get_stage()
     for specific_path in resolved_paths:
         graph_path = f"{specific_path}/Lidar/Graphs/ROS2_publish_Lidar_Odom"
-        if not stage.GetPrimAtPath(graph_path).IsValid():
+        graph_prim = stage.GetPrimAtPath(graph_path)
+        if not graph_prim.IsValid():
             print(f"[RosLidar] Warning: Graph not found at {specific_path}, skipping fix.")
+            continue
+
+        enable_ros_publish = bool(getattr(cfg, "enable_ros_publish", True))
+        graph_prim.SetActive(enable_ros_publish)
+        if not enable_ros_publish:
+            print(f"[RosLidar] Publisher graph: off ({specific_path})")
             continue
 
         namespace = _ros_lidar_namespace_for_instance(cfg, specific_path)
@@ -546,10 +553,23 @@ def spawn_and_fix_ros_lidar(prim_path, cfg, translation, orientation):
 
 
 @configclass
+class RosLidarSpawnCfg(sim_utils.UsdFileCfg):
+    ros_namespace: str | None = None
+    enable_ros_publish: bool = True
+
+
+@configclass
 class RosLidarCfg(AssetBaseCfg):
     ros_namespace: str | None = None
-    spawn = sim_utils.UsdFileCfg(
+    enable_ros_publish: bool = True
+    spawn = RosLidarSpawnCfg(
         usd_path=ros_lidar_path,
         func=spawn_and_fix_ros_lidar,
     )
     asset_dependencies = (ros_lidar_path,)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.spawn, RosLidarSpawnCfg):
+            return
+        self.spawn.ros_namespace = self.ros_namespace
+        self.spawn.enable_ros_publish = self.enable_ros_publish
