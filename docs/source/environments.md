@@ -132,7 +132,7 @@ Tools                          # Navigation I/O、Keyboard
 
 UR5 和 Z1 是必须安装在宿主机器人上的机械臂，不是传感器，也不是可以独立生成的机器人。在 Env DIY 中，Go2、B2、M20、Scout 和 Lite3 支持 `ur5` payload；Carter、Go2、B2、M20、Scout 和 Lite3 支持 `z1` payload。同一机器人上 UR5 和 Z1 不能同时挂载；UI、JSON 解析、存储加载和 Builder 都会检查这一互斥规则。
 
-Builder 根据机器人类型选择 mount profile，把机械臂创建为独立 `<robot>_arm` articulation，再通过通用 FixedJoint 固定到宿主，并自动加载 `UR5_IK_CFG` 或 `Z1_IK_CFG`。当前 `simulator.py` 只为实际挂载的 UR5 注册 ROS2 OmniGraph；Z1 的 topic 规范、模型配置和控制器仍然保留，但挂载 Z1 本身不会激活对应 graph。UR5 提供：
+Builder 根据机器人类型选择 mount profile，把机械臂创建为独立 `<robot>_arm` articulation，再通过通用 FixedJoint 固定到宿主，并自动加载 `UR5_IK_CFG` 或 `Z1_IK_CFG`。当前 `simulator.py` 会为 selection 中实际挂载的 UR5 和 Z1 使用对应 model spec 调用 `setup_robot(...)`。静态接口声明不代表 setup 成功；UR5 提供：
 
 ```text
 /<robot>/ur5/target_pose
@@ -156,7 +156,7 @@ Z1 另外提供独立夹爪接口：
 
 通用物理挂载原语定义在 `source/EAI_assets/EAI_assets/robots/manipulator_mount.py`，UR5/Z1 的宿主 profile 分别位于 `ur5_mount.py` 和 `z1_mount.py`。不同宿主只配置安装刚体、局部安装位姿、质量/惯量比例和 self-collision；扩展新宿主时应新增 profile，不要复制整套 spawn 函数。
 
-主会话中的 `ur5` 附件会启用机械臂 topic；`z1` 附件只声明相同规范下的接口，必须由其他集成入口注册 graph 后 topic 才会激活。两种机械臂接口都不依赖导航接口（Navigation I/O）；导航接口在 JSON 中使用 `navigation_io` 附件键，主要用于启用底盘的 `/<robot>/cmd_vel`。
+主会话会为 `ur5` 和 `z1` 附件尝试注册机械臂 graph；只有本次 `setup_robot(...)` 成功后对应 topic 才会激活。两种机械臂接口都不依赖导航接口（Navigation I/O）；导航接口在 JSON 中使用 `navigation_io` 附件键，主要用于启用底盘的 `/<robot>/cmd_vel`。
 
 完整消息格式、控制命令和状态读取方式参见[机械臂](ur5_control.md)。
 

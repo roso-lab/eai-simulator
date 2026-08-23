@@ -159,6 +159,7 @@ test_*.py
 !/source/EAI/test/test_city_traffic_human_bridge.py
 !/source/EAI/test/test_runtime_snapshot_cleanup.py
 !/source/EAI/test/test_orsus_odometry_relationship.py
+!/source/EAI/test/test_manipulator_runtime_registration.py
 !/source/EAI/test/test_simulator_runtime_snapshot_lifecycle.py
 !/algorithm/nav2/tests/
 !/algorithm/nav2/tests/test_nav2_layout.py

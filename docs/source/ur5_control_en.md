@@ -1,6 +1,6 @@
 # Manipulator Control
 
-UR5 and Z1 share a formal **ROS2 Bridge + OmniGraph** topic convention. The current `simulator.py` explicitly registers graphs for selected UR5 attachments only. The Z1 model spec, interface declarations, and controller remain supported, but selecting Z1 does not call the equivalent `setup_robot(...)`. For a graph that is active, ROS2 messages enter the simulator directly without files under `tmp/` or a separate manipulator bridge process.
+UR5 and Z1 share a formal **ROS2 Bridge + OmniGraph** topic convention. The current `simulator.py` calls `setup_robot(...)` with the corresponding model spec for UR5 and Z1 attachments actually present in the selection. Static declarations do not prove setup succeeded. For a graph that is active, ROS2 messages enter the simulator directly without files under `tmp/` or a separate manipulator bridge process.
 
 The manipulator controller is a replaceable external algorithm; the simulator is responsible for accurately receiving ROS2 commands, writing the target into the corresponding articulation, and publishing the actual joint and end states.
 
@@ -13,11 +13,11 @@ UR5/Z1 is not a standalone robot, but a host attachment under `Payloads → Mani
 | UR5 | `UR5_IK_CFG` | `ManipulatorIkControllerCfg` + DLS Differential IK | None |
 | Z1 | `Z1_IK_CFG` | `ManipulatorIkControllerCfg` + DLS Differential IK | `gripper_command` / `gripper_state` |
 
-Both create an independent `<robot>_arm` articulation connected to the host through a FixedJoint. The host chassis/leg controller runs separately from the manipulator controller, and one host cannot mount UR5 and Z1 simultaneously. The main launcher currently creates a ROS2 OmniGraph for UR5 attachments only; Navigation I/O (internal key `navigation_io`) and Keyboard (internal key `keyboard`) affect host `cmd_vel` and do not supply Z1 graph registration.
+Both create an independent `<robot>_arm` articulation connected to the host through a FixedJoint. The host chassis/leg controller runs separately from the manipulator controller, and one host cannot mount UR5 and Z1 simultaneously. The main launcher creates a ROS2 OmniGraph for both UR5 and Z1 attachments; Navigation I/O (internal key `navigation_io`) and Keyboard (internal key `keyboard`) affect host `cmd_vel` and do not participate in manipulator graph registration.
 
 ### From Env DIY to ROS2 control
 
-When editing before running, select `Plane` in the 3D plug-in, add `Go2`, and mount `Z1` from `Payloads → Manipulators`. Confirm that the host uses `GO2_VELOCITY_RSL_CFG` and the attachment uses `Z1_IK_CFG`. The commands below demonstrate the formal Z1 topic syntax. Because the main launcher does not activate that graph, first use `ros2 topic list` to confirm that an integration entry point has registered Z1:
+When editing before running, select `Plane` in the 3D plug-in, add `Go2`, and mount `Z1` from `Payloads → Manipulators`. Confirm that the host uses `GO2_VELOCITY_RSL_CFG` and the attachment uses `Z1_IK_CFG`. The commands below demonstrate the formal Z1 topic syntax. The main launcher attempts to register the selected Z1; before publishing, use `ros2 topic list` to confirm that this run's `setup_robot(...)` succeeded:
 
 ```bash
 python simulator.py --diy-3d --device=cuda:0
@@ -219,7 +219,7 @@ Robotic arm joint or gripper commands can be sent simultaneously while the keybo
 
 ## Reset and Troubleshooting
 
-An environment reset clears manipulator command state so old targets do not continue after reset. If the topic list is empty, first confirm that a runtime graph was actually registered; the current main launcher omits that step for Z1. Then check:
+An environment reset clears manipulator command state so old targets do not continue after reset. If the topic list is empty, first confirm that the selection actually mounts UR5/Z1 and that this run's `setup_robot(...)` succeeded. Then check:
 
 ```bash
 python simulator.py interfaces scene --env <env_name> | grep -E '/(ur5|z1)/'
