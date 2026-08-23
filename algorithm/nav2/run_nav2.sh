@@ -26,6 +26,21 @@ fi
 SIM_LOG=/tmp/eai_nav2_sim.log
 NAV2_LOG=/tmp/eai_nav2_stack.log
 CONDA_SH="${CONDA_SH:-$HOME/miniconda3/etc/profile.d/conda.sh}"
+EAI_NAV2_SIM_READY_TIMEOUT="${EAI_NAV2_SIM_READY_TIMEOUT:-90}"
+EAI_NAV2_STACK_READY_TIMEOUT="${EAI_NAV2_STACK_READY_TIMEOUT:-45}"
+
+validate_positive_integer() {
+    local name="$1"
+    local value="$2"
+    if [[ ! "$value" =~ ^[1-9][0-9]*$ ]]; then
+        echo "❌ $name 必须是正整数秒数，当前值: $value" >&2
+        exit 1
+    fi
+}
+
+validate_positive_integer EAI_NAV2_SIM_READY_TIMEOUT "$EAI_NAV2_SIM_READY_TIMEOUT"
+validate_positive_integer EAI_NAV2_STACK_READY_TIMEOUT "$EAI_NAV2_STACK_READY_TIMEOUT"
+
 RVIZ_ARG="rviz:=false"
 [ "${1:-}" = "--rviz" ] && RVIZ_ARG="rviz:=true"
 SYSTEM_ROS_HOME="$HOME"
@@ -174,9 +189,9 @@ setsid /bin/bash --noprofile --norc -c '
 complete_process_group_launch SIM_PID "$!"
 
 # 2. 等待仿真就绪
-echo "⏳ 等待仿真就绪（约 30-40 秒）..."
+echo "⏳ 等待仿真就绪（最多 ${EAI_NAV2_SIM_READY_TIMEOUT} 秒，可用 EAI_NAV2_SIM_READY_TIMEOUT 覆盖）..."
 SIM_READY=false
-for i in $(seq 1 90); do
+for i in $(seq 1 "$EAI_NAV2_SIM_READY_TIMEOUT"); do
     if grep -Fq "[EAI Simulator] cmd_vel enabled: /carter_1/cmd_vel" "$SIM_LOG" 2>/dev/null; then
         echo "✅ 仿真就绪"
         SIM_READY=true
@@ -203,9 +218,9 @@ setsid env -i "${SYSTEM_ROS_ENV[@]}" \
     ' _ "$ROS_ROOT" "$REPO_ROOT" "$RVIZ_ARG" > "$NAV2_LOG" 2>&1 &
 complete_process_group_launch NAV2_PID "$!"
 
-echo "⏳ 等待 Nav2 激活..."
+echo "⏳ 等待 Nav2 激活（最多 ${EAI_NAV2_STACK_READY_TIMEOUT} 秒，可用 EAI_NAV2_STACK_READY_TIMEOUT 覆盖）..."
 NAV2_READY=false
-for i in $(seq 1 45); do
+for i in $(seq 1 "$EAI_NAV2_STACK_READY_TIMEOUT"); do
     if ! kill -0 "$NAV2_PID" 2>/dev/null; then
         echo "❌ Nav2 进程退出，查看 $NAV2_LOG"; exit 1
     fi
