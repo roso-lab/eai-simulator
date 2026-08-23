@@ -38,3 +38,46 @@ def test_orsus_ros_setup_is_nested_under_bridge_gate() -> None:
     assert "OrsusOdometryManager" in gated_calls
     assert "setup_pending_orsus_ros_graphs" in gated_calls
     assert "attach_orsus_odometry_manager" in gated_calls
+
+
+def test_bridge_disabled_sets_import_time_orsus_ros_guard_before_env_load() -> None:
+    tree = ast.parse(SIMULATOR_SOURCE.read_text(encoding="utf-8"))
+    session = next(
+        node
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name == "open_simulator_session"
+    )
+    guard = next(
+        node
+        for node in session.body
+        if isinstance(node, ast.If)
+        and any(
+            isinstance(child, ast.Assign)
+            and any(
+                isinstance(target, ast.Subscript)
+                and isinstance(target.value, ast.Attribute)
+                and isinstance(target.value.value, ast.Name)
+                and target.value.value.id == "os"
+                and target.value.attr == "environ"
+                and isinstance(target.slice, ast.Constant)
+                and target.slice.value == "EAI_DISABLE_ORSUS_ROS_ENV"
+                for target in child.targets
+            )
+            for child in node.body
+        )
+    )
+    assert ast.unparse(guard.test) == (
+        "config.disable_orsus_ros_env or not config.enable_ros_bridge_extension"
+    )
+    load_index = next(
+        index
+        for index, node in enumerate(session.body)
+        if any(
+            isinstance(child, ast.Call)
+            and isinstance(child.func, ast.Name)
+            and child.func.id == "_load_env_cfg"
+            for child in ast.walk(node)
+        )
+    )
+    assert session.body.index(guard) < load_index
