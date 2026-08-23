@@ -48,9 +48,7 @@ forwards caller-defined `ROS_DOMAIN_ID`, `ROS_LOCALHOST_ONLY`,
 that Nav2 uses the same explicit discovery configuration as the simulator. It
 still selects `rmw_cyclonedds_cpp` for the Nav2 child.
 
-Logs are written to `/tmp/eai_nav2_sim.log` and
-`/tmp/eai_nav2_stack.log`. Generated configuration remains under
-`/tmp/eai_nav2_<robot>/`.
+Logs and generated configuration are written under a fresh per-run directory created with `mktemp -d` and mode `0700` (for example `${TMPDIR:-/tmp}/eai-nav2-run.XXXXXX`). The one-command launcher prints the exact simulator log, Nav2 log, and generated-config paths for that run.
 
 ## Manual Launch
 
@@ -110,7 +108,7 @@ its normal shutdown before closing the simulator.
 `nav2_profiles.yaml` maps `factory` to the tracked occupancy map
 `demo/fire_rescue/assets/factory_map.yaml`; its referenced
 `factory_map.png` is tracked beside it. The `plane` scene generates a blank map
-inside the selected `/tmp/eai_nav2_<robot>/` output directory. For another
+inside the selected owner-private output directory. For another
 scene, pass `map:=/absolute/path/to/map.yaml` or add a maintained map to the
 profile.
 
@@ -168,6 +166,10 @@ the unfiltered source cloud as a Nav2 obstacle view.
 - `rviz`: start RViz when `true`.
 
 `nav2_setup.py` writes `nav2_params.yaml`,
-`pointcloud_to_laserscan.yaml`, `view.rviz`, and `meta.txt` to
-`/tmp/eai_nav2_<robot>/`. The launch files consume those generated files; they
-are runtime output and must not be committed.
+`pointcloud_to_laserscan.yaml`, `view.rviz`, and `meta.txt` to an
+owner-private directory. Without `--out`/`out_dir:=...` it creates a unique
+`0700` directory in the system temp area; explicit output directories are
+accepted only when they are directories owned by the current user and
+inaccessible to group/other. Generated-file writes refuse symlink targets. The
+launch files consume those generated files; they are runtime output and must not
+be committed.

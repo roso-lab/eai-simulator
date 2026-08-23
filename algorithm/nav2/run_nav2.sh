@@ -23,11 +23,19 @@ if [[ ! -f "${ROS_ROOT}/setup.bash" ]]; then
     echo "   重新安装配置可运行: ./tools/setup/install_packages.sh --ros-distro humble|jazzy" >&2
     exit 1
 fi
-SIM_LOG=/tmp/eai_nav2_sim.log
-NAV2_LOG=/tmp/eai_nav2_stack.log
 CONDA_SH="${CONDA_SH:-$HOME/miniconda3/etc/profile.d/conda.sh}"
 EAI_NAV2_SIM_READY_TIMEOUT="${EAI_NAV2_SIM_READY_TIMEOUT:-90}"
 EAI_NAV2_STACK_READY_TIMEOUT="${EAI_NAV2_STACK_READY_TIMEOUT:-45}"
+EAI_NAV2_RUN_DIR="$(mktemp -d "${TMPDIR:-/tmp}/eai-nav2-run.XXXXXX")"
+case "$EAI_NAV2_RUN_DIR" in
+    "${TMPDIR:-/tmp}"/eai-nav2-run.*) ;;
+    *) echo "❌ 非预期 Nav2 临时目录: $EAI_NAV2_RUN_DIR" >&2; exit 1 ;;
+esac
+chmod 700 "$EAI_NAV2_RUN_DIR"
+SIM_LOG="$EAI_NAV2_RUN_DIR/logs/simulator.log"
+NAV2_LOG="$EAI_NAV2_RUN_DIR/logs/nav2.log"
+NAV2_OUT_DIR="$EAI_NAV2_RUN_DIR/generated"
+mkdir -m 700 "$EAI_NAV2_RUN_DIR/logs" "$NAV2_OUT_DIR"
 
 validate_positive_integer() {
     local name="$1"
@@ -126,6 +134,7 @@ PY
         fi
     fi
     echo "✅ 清理完成。GPU 空闲: $(nvidia-smi --query-gpu=memory.free --format=csv,noheader 2>/dev/null)"
+    echo "📁 本次 Nav2 日志和生成配置保留在: $EAI_NAV2_RUN_DIR"
 }
 
 handle_signal() {
@@ -184,6 +193,7 @@ trap 'handle_signal 143' TERM
 echo "========================================================"
 RVIZ_NOTE=""; [ "$RVIZ_ARG" = "rviz:=true" ] && RVIZ_NOTE="（含 RViz）"
 echo "EAI 仿真器 + Nav2 一键启动 ${RVIZ_NOTE}"
+echo "运行目录: $EAI_NAV2_RUN_DIR"
 echo "========================================================"
 
 # 1. 启动仿真
@@ -228,8 +238,8 @@ setsid env -i "${SYSTEM_ROS_ENV[@]}" \
         source "$1/setup.bash"
         cd "$2"
         exec ros2 launch algorithm/nav2/nav2.launch.py \
-            robot_name:=carter_1 robot_type:=Carter scene:=factory "$3"
-    ' _ "$ROS_ROOT" "$REPO_ROOT" "$RVIZ_ARG" > "$NAV2_LOG" 2>&1 &
+            robot_name:=carter_1 robot_type:=Carter scene:=factory out_dir:="$3" "$4"
+    ' _ "$ROS_ROOT" "$REPO_ROOT" "$NAV2_OUT_DIR" "$RVIZ_ARG" > "$NAV2_LOG" 2>&1 &
 complete_process_group_launch NAV2_PID "$!"
 
 echo "⏳ 等待 Nav2 激活（最多 ${EAI_NAV2_STACK_READY_TIMEOUT} 秒，可用 EAI_NAV2_STACK_READY_TIMEOUT 覆盖）..."
@@ -257,6 +267,7 @@ echo "   export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp"
 echo "   /usr/bin/python3 algorithm/nav2/send_goal.py --x -5.0 --y -8.0"
 echo ""
 echo "日志: 仿真=$SIM_LOG  Nav2=$NAV2_LOG"
+echo "生成配置: $NAV2_OUT_DIR"
 echo "按 Ctrl+C 停止全部并清理内存"
 echo "========================================================"
 

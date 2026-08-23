@@ -51,6 +51,7 @@ def _run_setup(context):
     scene = LaunchConfiguration("scene").perform(context)
     map_arg = LaunchConfiguration("map").perform(context)
     pose_arg = LaunchConfiguration("pose").perform(context)
+    out_dir_arg = LaunchConfiguration("out_dir").perform(context)
     runtime_snapshot_arg = LaunchConfiguration("runtime_snapshot").perform(context)
     use_rviz = LaunchConfiguration("rviz")
 
@@ -74,6 +75,8 @@ def _run_setup(context):
         # Keep a leading negative x coordinate attached to the option name;
         # argparse otherwise treats values such as -3,0,0 as another option.
         cmd += [f"--pose={pose_arg}"]
+    if out_dir_arg:
+        cmd += ["--out", out_dir_arg]
 
     result = subprocess.run(cmd, capture_output=True, text=True)
     sys.stdout.write(result.stdout)
@@ -217,6 +220,8 @@ def generate_launch_description():
                               description="Explicit map yaml, overriding scene lookup"),
         DeclareLaunchArgument("pose", default_value="",
                               description="Explicit initial pose x,y,yaw"),
+        DeclareLaunchArgument("out_dir", default_value="",
+                              description="Owner-private directory for generated Nav2 files"),
         DeclareLaunchArgument("runtime_snapshot", default_value=DEFAULT_RUNTIME_SNAPSHOT,
                               description="Active simulator snapshot used for AMCL initial pose"),
         DeclareLaunchArgument("rviz", default_value="false",
