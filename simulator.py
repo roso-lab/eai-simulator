@@ -302,10 +302,6 @@ def _sensor_scene_single_env_reasons(selection_data: dict[str, Any] | None) -> t
         if robot_type in aerial_types:
             tools = ", ".join(sorted(enabled_tools)) or "default sensors"
             reasons.append(f"robot {index} ({robot_type}: {tools})")
-        elif robot_type == "mushr_v2" and "camera" in attachments:
-            # MuSHR's built-in front camera uses the aerial sensor suite's
-            # single-environment render product, unlike the Orsus stereo path.
-            reasons.append(f"robot {index} (mushr_v2: camera)")
         elif "orsus" in attachments and enabled_tools:
             tools = ", ".join(sorted(enabled_tools))
             reasons.append(f"robot {index} ({robot_type or 'unknown'}: {tools})")

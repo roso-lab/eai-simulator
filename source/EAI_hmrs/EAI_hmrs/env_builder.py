@@ -246,14 +246,8 @@ ROBOT_OPTIONS = [
         0.0,
         lidar_mount_link="mushr_nano/base_link",
         lidar_offset=(-0.035325, 0.0, 0.18495),
-        camera_mount_link="mushr_nano/camera_bottom_screw_frame",
-        # The USD housing is a 9 cm wide bar (left-right). Its forward extent is
-        # 4.3 mm from the camera_link origin and its center lies 17.5 mm to -Y.
-        # Keep the pinhole 0.7 mm clear of that face, on the car's centerline.
-        camera_offset=(0.005, -0.0175, 0.0),
-        camera_rot=(0.5, 0.5, -0.5, -0.5),
-        # RealSense D455 替代内置相机（用户已从 USD 中删除相机与 camera_link，
-        # 幸存的挂架为 camera_bottom_screw_frame；外参按用户标定值）
+        # MuSHR has no built-in camera path. RealSense is mounted to the
+        # surviving camera_bottom_screw_frame using the calibrated extrinsics.
         realsense_mount_link="mushr_nano/camera_bottom_screw_frame",
         realsense_offset=(0.03345, -0.00097, 0.01424),
         realsense_rot=(1.0, 0.0, 0.0, 0.0),
@@ -592,9 +586,7 @@ def build_interactive_env_cfg(
             )
 
         is_aerial_sensor_robot = robot.key in {"cf2x", "iris", "pegasus"}
-        is_builtin_camera_robot = robot.key in {
-            "cf2x", "iris", "pegasus", "mushr_v2",
-        }
+        is_builtin_camera_robot = robot.key in {"cf2x", "iris", "pegasus"}
         has_selected_lidar = any(
             attachment.type == "lidar" for attachment in selection.attachments
         )
@@ -608,16 +600,13 @@ def build_interactive_env_cfg(
                 ros_namespace=f"/{name}",
             )
 
-        # Robots with a built-in monocular camera (aerial robots and MuSHR)
-        # always carry the physical camera. For aerial robots the Camera Tool
-        # only gates the ROS publishers; for MuSHR it gates the camera prim
-        # itself, since the USD merely provides the empty housing.
+        # Aerial robots always carry their built-in monocular camera; the Camera
+        # Tool only gates its ROS publishers. MuSHR image capture is provided
+        # exclusively by an explicitly attached RealSense D455.
         if (
             is_builtin_camera_robot
             and robot.camera_mount_link
             and (is_aerial_sensor_robot or camera_enabled)
-            # MuSHR 已改装为 RealSense D455 时不再 spawn 内置单目相机
-            and not (robot.key == "mushr_v2" and has_realsense)
         ):
             attrs["__annotations__"][f"camera_{name}"] = AssetBaseCfg
             attrs[f"camera_{name}"] = AssetBaseCfg(

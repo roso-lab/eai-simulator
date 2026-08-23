@@ -25,6 +25,15 @@ def _required(mapping: dict[str, Any], fields: tuple[str, ...], path: Path) -> N
             raise CatalogError(f"{path}: missing required field '{field}'")
 
 
+def _attachment_gate(raw: Any, *, field: str, path: Path) -> tuple[str, ...]:
+    if raw is None:
+        return ()
+    values = [raw] if isinstance(raw, str) else raw
+    if not isinstance(values, list) or not values or not all(isinstance(value, str) and value for value in values):
+        raise CatalogError(f"{path}: {field} must be a string or a non-empty list of strings")
+    return tuple(value.casefold() for value in values)
+
+
 def _load_device(path: Path) -> DeviceSpec:
     try:
         payload = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -43,7 +52,13 @@ def _load_device(path: Path) -> DeviceSpec:
         if not isinstance(raw, dict):
             raise CatalogError(f"{path}: interfaces[{index}] must be a mapping")
         _required(raw, _INTERFACE_FIELDS, path)
-        known = set(_INTERFACE_FIELDS) | {"description", "example", "read_only_test", "requires_attachment"}
+        known = set(_INTERFACE_FIELDS) | {
+            "description",
+            "example",
+            "read_only_test",
+            "requires_attachment",
+            "excludes_attachment",
+        }
         interfaces.append(
             InterfaceSpec(
                 id=str(raw["id"]),
@@ -56,7 +71,12 @@ def _load_device(path: Path) -> DeviceSpec:
                 description=str(raw.get("description", "")),
                 example=str(raw.get("example", "")),
                 read_only_test=raw.get("read_only_test"),
-                requires_attachment=raw.get("requires_attachment"),
+                requires_attachments=_attachment_gate(
+                    raw.get("requires_attachment"), field="requires_attachment", path=path
+                ),
+                excludes_attachments=_attachment_gate(
+                    raw.get("excludes_attachment"), field="excludes_attachment", path=path
+                ),
                 metadata={key: value for key, value in raw.items() if key not in known},
             )
         )
