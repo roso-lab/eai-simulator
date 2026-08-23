@@ -383,6 +383,40 @@ def test_nav2_setup_rejects_symlinked_generated_outputs(tmp_path):
     assert symlink_target.read_text(encoding="utf-8") == "do not overwrite"
 
 
+def test_nav2_setup_rejects_symlinked_plane_map_image(tmp_path):
+    out_dir = tmp_path / "safe"
+    out_dir.mkdir(mode=0o700)
+    symlink_target = tmp_path / "external.pgm"
+    symlink_target.write_bytes(b"external map")
+    (out_dir / "plane_map.pgm").symlink_to(symlink_target)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(NAV2_SETUP),
+            "--robot",
+            "carter_1",
+            "--robot-type",
+            "Carter",
+            "--sensor",
+            "orsus",
+            "--scene",
+            "plane",
+            "--pose=-3,0,0",
+            "--out",
+            str(out_dir),
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "Refusing to write symlinked Nav2 output" in result.stderr
+    assert symlink_target.read_bytes() == b"external map"
+
+
 def test_nav2_setup_rejects_hardlinked_generated_outputs(tmp_path):
     out_dir = tmp_path / "safe"
     out_dir.mkdir(mode=0o700)
