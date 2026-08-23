@@ -81,3 +81,21 @@ def test_bridge_disabled_sets_import_time_orsus_ros_guard_before_env_load() -> N
         )
     )
     assert session.body.index(guard) < load_index
+
+
+def test_bridge_disabled_propagates_orsus_ros_guard_to_preflight() -> None:
+    tree = ast.parse(SIMULATOR_SOURCE.read_text(encoding="utf-8"))
+    helper = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "_session_preflight_args"
+    )
+    returned = next(node.value for node in helper.body if isinstance(node, ast.Return))
+    assert isinstance(returned, ast.Call)
+    keyword = next(
+        item for item in returned.keywords if item.arg == "disable_orsus_ros_env"
+    )
+    assert ast.unparse(keyword.value) == (
+        "config.disable_orsus_ros_env or not config.enable_ros_bridge_extension"
+    )
