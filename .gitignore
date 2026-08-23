@@ -160,6 +160,7 @@ test_*.py
 !/source/EAI/test/test_runtime_snapshot_cleanup.py
 !/source/EAI/test/test_manipulator_runtime_registration.py
 !/source/EAI/test/test_simulator_runtime_snapshot_lifecycle.py
+!/source/EAI/test/test_package_version_consistency.py
 !/algorithm/nav2/tests/
 !/algorithm/nav2/tests/test_nav2_layout.py
 !/algorithm/nav2/tests/test_send_goal.py
