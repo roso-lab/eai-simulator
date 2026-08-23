@@ -143,6 +143,7 @@ def test_setup_failure_rolls_back_graph_lidar_and_keeps_request(monkeypatch):
     requests = {graph_path: (lidar_path, "/Robot", "/robot")}
     resources = {}
     namespace = _load_functions(
+        "_rollback_failed_orsus_ros_graph",
         "setup_pending_orsus_ros_graphs",
         globals_={
             "_orsus_ros_graph_requests": requests,
@@ -161,3 +162,38 @@ def test_setup_failure_rolls_back_graph_lidar_and_keeps_request(monkeypatch):
     assert stage.removed == [graph_path, lidar_path]
     assert graph_path in requests
     assert resources == {}
+
+
+def test_rollback_continues_when_cleanup_steps_raise(monkeypatch):
+    calls = []
+
+    class Writer:
+        def detach(self):
+            calls.append("detach")
+            raise RuntimeError("detach failed")
+
+    class Stage(_Stage):
+        def RemovePrim(self, path):
+            calls.append(path)
+            if path == "/Graph":
+                raise RuntimeError("graph removal failed")
+            return super().RemovePrim(path)
+
+    lidar_module = types.ModuleType("EAI_assets.sensor.low_sensor.ros_lidar")
+
+    def destroy(path):
+        calls.append(path)
+        raise RuntimeError("destroy failed")
+
+    lidar_module._destroy_rtx_lidar_render_product = destroy
+    monkeypatch.setitem(sys.modules, "EAI_assets", types.ModuleType("EAI_assets"))
+    monkeypatch.setitem(sys.modules, "EAI_assets.sensor", types.ModuleType("EAI_assets.sensor"))
+    monkeypatch.setitem(sys.modules, "EAI_assets.sensor.low_sensor", types.ModuleType("EAI_assets.sensor.low_sensor"))
+    monkeypatch.setitem(sys.modules, "EAI_assets.sensor.low_sensor.ros_lidar", lidar_module)
+    stage = Stage({"/Graph": _Prim(), "/Lidar": _Prim()})
+    rollback = _load_functions("_rollback_failed_orsus_ros_graph")["_rollback_failed_orsus_ros_graph"]
+
+    rollback(stage, "/Graph", "/Lidar", "/Render", Writer())
+
+    assert calls == ["detach", "/Render", "/Graph", "/Lidar"]
+    assert "/Lidar" in stage.removed

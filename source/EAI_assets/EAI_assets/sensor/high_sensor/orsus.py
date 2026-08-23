@@ -269,6 +269,36 @@ def _bind_orsus_odometry_chassis(stage, graph_path: str, chassis_prim_path: str)
         )
 
 
+def _rollback_failed_orsus_ros_graph(
+    stage,
+    graph_path: str,
+    lidar_prim_path: str,
+    render_product_path: str,
+    writer,
+) -> None:
+    detach = getattr(writer, "detach", None)
+    if callable(detach):
+        try:
+            detach()
+        except Exception:
+            pass
+    try:
+        from EAI_assets.sensor.low_sensor.ros_lidar import (
+            _destroy_rtx_lidar_render_product,
+        )
+
+        _destroy_rtx_lidar_render_product(render_product_path)
+    except Exception:
+        pass
+    for prim_path in (graph_path, lidar_prim_path):
+        try:
+            prim = stage.GetPrimAtPath(prim_path)
+            if prim and prim.IsValid():
+                stage.RemovePrim(prim_path)
+        except Exception:
+            pass
+
+
 def setup_pending_orsus_ros_graphs() -> int:
     """Create RTX LiDAR publishers and instance-safe odometry graphs."""
     if not _orsus_ros_graph_requests:
@@ -351,18 +381,9 @@ def setup_pending_orsus_ros_graphs() -> int:
             )
             _bind_orsus_odometry_chassis(stage, graph_path, chassis_prim_path)
         except Exception:
-            detach = getattr(writer, "detach", None)
-            if callable(detach):
-                detach()
-            from EAI_assets.sensor.low_sensor.ros_lidar import (
-                _destroy_rtx_lidar_render_product,
+            _rollback_failed_orsus_ros_graph(
+                stage, graph_path, lidar_prim_path, render_product_path, writer
             )
-
-            _destroy_rtx_lidar_render_product(render_product_path)
-            for prim_path in (graph_path, lidar_prim_path):
-                prim = stage.GetPrimAtPath(prim_path)
-                if prim and prim.IsValid():
-                    stage.RemovePrim(prim_path)
             raise
         _orsus_ros_resources[graph_path] = (
             lidar_prim_path,
