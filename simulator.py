@@ -1879,20 +1879,21 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         )
 
         orsus_cleanup = close_orsus_ros_resources
-        from EAI.hmrs_ros.orsus_odometry import (
-            OrsusOdometryManager, attach_orsus_odometry_manager,
-            orsus_odometry_instance_registry,
-        )
-        orsus_odometry_manager = OrsusOdometryManager(
-            base_env, orsus_odometry_instance_registry()
-        )
-        attach_orsus_odometry_manager(base_env, orsus_odometry_manager)
-        orsus_graph_count = setup_pending_orsus_ros_graphs()
-        if orsus_graph_count:
-            print(
-                f"[EAI Simulator] Created {orsus_graph_count} instance-safe "
-                "Orsus RTX LiDAR/odometry publisher set(s)."
+        if config.enable_ros_bridge_extension:
+            from EAI.hmrs_ros.orsus_odometry import (
+                OrsusOdometryManager, attach_orsus_odometry_manager,
+                orsus_odometry_instance_registry,
             )
+            orsus_odometry_manager = OrsusOdometryManager(
+                base_env, orsus_odometry_instance_registry()
+            )
+            attach_orsus_odometry_manager(base_env, orsus_odometry_manager)
+            orsus_graph_count = setup_pending_orsus_ros_graphs()
+            if orsus_graph_count:
+                print(
+                    f"[EAI Simulator] Created {orsus_graph_count} instance-safe "
+                    "Orsus RTX LiDAR/odometry publisher set(s)."
+                )
         if config.enable_ros_bridge_extension:
             from EAI.hmrs_ros.manipulator_omnigraph import get_manipulator_graph_manager
 
