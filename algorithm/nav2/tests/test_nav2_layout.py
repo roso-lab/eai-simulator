@@ -382,6 +382,41 @@ def test_nav2_setup_rejects_symlinked_generated_outputs(tmp_path):
     assert "Refusing to write symlinked Nav2 output" in result.stderr
     assert symlink_target.read_text(encoding="utf-8") == "do not overwrite"
 
+
+def test_nav2_setup_rejects_hardlinked_generated_outputs(tmp_path):
+    out_dir = tmp_path / "safe"
+    out_dir.mkdir(mode=0o700)
+    hardlink_target = tmp_path / "target.yaml"
+    hardlink_target.write_text("do not overwrite", encoding="utf-8")
+    (out_dir / "nav2_params.yaml").hardlink_to(hardlink_target)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(NAV2_SETUP),
+            "--robot",
+            "carter_1",
+            "--robot-type",
+            "Carter",
+            "--sensor",
+            "orsus",
+            "--scene",
+            "factory",
+            "--pose=-3,0,0",
+            "--out",
+            str(out_dir),
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "Refusing to replace hardlinked Nav2 output" in result.stderr
+    assert hardlink_target.read_text(encoding="utf-8") == "do not overwrite"
+
+
 def test_all_promoted_python_entrypoints_parse_without_importing_ros():
     for filename in sorted(PYTHON_ENTRYPOINTS):
         path = NAV2_DIR / filename

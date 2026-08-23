@@ -37,6 +37,8 @@ import json
 import math
 import os
 import re
+import secrets
+import stat
 import sys
 import tempfile
 import time
@@ -147,30 +149,58 @@ def safe_output_path(out_dir, filename):
 
 
 def safe_write_output(out_dir, filename, content, *, binary=False):
+    """Atomically replace one allowlisted output below an anchored private directory."""
     target = safe_output_path(out_dir, filename)
-    directory_stat = os.lstat(out_dir)
-    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    dir_flags = os.O_RDONLY
+    if hasattr(os, "O_DIRECTORY"):
+        dir_flags |= os.O_DIRECTORY
     if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
+        dir_flags |= os.O_NOFOLLOW
     try:
-        fd = os.open(target, flags, 0o600)
+        dir_fd = os.open(out_dir, dir_flags)
     except OSError as exc:
         if exc.errno == errno.ELOOP:
-            raise ValueError(f"Refusing to write symlinked Nav2 output: {target}") from exc
+            raise ValueError(f"Nav2 output directory must not be a symlink: {out_dir}") from exc
         raise
+    temp_name = f".{filename}.tmp.{os.getpid()}.{secrets.token_hex(8)}"
+    temp_fd = None
     try:
-        file_stat = os.fstat(fd)
-        if file_stat.st_uid != directory_stat.st_uid:
-            raise ValueError(f"Nav2 output file is not owned by the directory owner: {target}")
-        if not _is_private_mode(file_stat.st_mode):
-            os.fchmod(fd, 0o600)
+        directory_stat = os.fstat(dir_fd)
+        uid = _current_uid()
+        if uid is not None and directory_stat.st_uid != uid:
+            raise ValueError(f"Nav2 output directory is not owned by the current user: {out_dir}")
+        if not _is_private_mode(directory_stat.st_mode):
+            raise ValueError(f"Nav2 output directory must not be accessible by group/other: {out_dir}")
+
+        try:
+            existing = os.stat(filename, dir_fd=dir_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            existing = None
+        if existing is not None:
+            if stat.S_ISLNK(existing.st_mode):
+                raise ValueError(f"Refusing to write symlinked Nav2 output: {target}")
+            if existing.st_nlink != 1:
+                raise ValueError(f"Refusing to replace hardlinked Nav2 output: {target}")
+
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        temp_fd = os.open(temp_name, flags, 0o600, dir_fd=dir_fd)
         mode = "wb" if binary else "w"
-        with os.fdopen(fd, mode, encoding=None if binary else "utf-8") as stream:
-            fd = None
+        with os.fdopen(temp_fd, mode, encoding=None if binary else "utf-8") as stream:
+            temp_fd = None
             stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temp_name, filename, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)
     finally:
-        if fd is not None:
-            os.close(fd)
+        if temp_fd is not None:
+            os.close(temp_fd)
+        try:
+            os.unlink(temp_name, dir_fd=dir_fd)
+        except FileNotFoundError:
+            pass
+        os.close(dir_fd)
 
 def resolve_profile(profiles, robot_type, robot_name):
     """按 robot_type 查物理参数；查不到猜测；再查不到用 default（告警）。"""
