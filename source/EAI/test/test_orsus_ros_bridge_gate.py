@@ -100,3 +100,47 @@ def test_bridge_disabled_propagates_orsus_ros_guard_to_preflight() -> None:
     assert ast.unparse(keyword.value) == (
         "config.disable_orsus_ros_env or not config.enable_ros_bridge_extension"
     )
+
+
+def test_orsus_cleanup_is_registered_before_environment_creation() -> None:
+    tree = ast.parse(SIMULATOR_SOURCE.read_text(encoding="utf-8"))
+    session = next(
+        node
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name == "open_simulator_session"
+    )
+    try_body = next(node for node in session.body if isinstance(node, ast.Try)).body
+
+    cleanup_assignment_index = next(
+        index
+        for index, node in enumerate(try_body)
+        if isinstance(node, ast.Assign)
+        and any(
+            isinstance(target, ast.Name) and target.id == "orsus_cleanup"
+            for target in node.targets
+        )
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "close_orsus_ros_resources"
+    )
+    create_env_index = next(
+        index
+        for index, node in enumerate(try_body)
+        if any(
+            isinstance(child, ast.Call)
+            and isinstance(child.func, ast.Name)
+            and child.func.id == "_create_env"
+            for child in ast.walk(node)
+        )
+    )
+    reset_index = next(
+        index
+        for index, node in enumerate(try_body)
+        if any(
+            isinstance(child, ast.Call)
+            and isinstance(child.func, ast.Attribute)
+            and child.func.attr == "reset"
+            for child in ast.walk(node)
+        )
+    )
+    assert cleanup_assignment_index < create_env_index < reset_index
