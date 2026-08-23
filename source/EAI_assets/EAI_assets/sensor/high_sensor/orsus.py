@@ -211,6 +211,7 @@ _orsus_ros_publish_config = {}
 _orsus_camera_publish_config = {}
 _orsus_disable_physics_config = {}
 _orsus_ros_graph_requests: dict[str, tuple[str, str, str]] = {}
+_orsus_odometry_instances: dict[str, str] = {}
 _orsus_ros_resources: dict[str, tuple[str, str, object]] = {}
 
 
@@ -345,7 +346,7 @@ def setup_pending_orsus_ros_graphs() -> int:
                     ],
                     keys.SET_VALUES: [
                         ("ros2_publish_odometry.inputs:nodeNamespace", namespace),
-                        ("ros2_publish_odometry.inputs:topicName", "odometry"),
+                        ("ros2_publish_odometry.inputs:topicName", "_unused_odometry_graph"),
                         ("ros2_publish_odometry.inputs:odomFrameId", "mapping_init"),
                     ],
                     keys.CONNECT: [
@@ -550,10 +551,9 @@ def spawn_and_fix_orsus(prim_path, cfg, translation, orientation):
             chassis_prim_path = str(Sdf.Path(specific_path).GetParentPath())
             namespace = _orsus_ros_namespace_for_instance(cfg, specific_path)
             _orsus_ros_graph_requests[graph_path] = (
-                lidar_prim_path,
-                chassis_prim_path,
-                namespace,
+                lidar_prim_path, chassis_prim_path, namespace
             )
+            _orsus_odometry_instances[_robot_name_from_orsus_path(specific_path)] = namespace
             print(f"[Orsus] RTX LiDAR requested: {lidar_prim_path}")
             print(
                 f"[Orsus] Odometry requested: {graph_path}/"
