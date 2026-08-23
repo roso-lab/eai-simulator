@@ -1359,7 +1359,7 @@ Therefore, `asset present != selectable != runnable != runtime activated`. Verif
 
 - Attachment and tool host lists are source-controlled and expected to evolve. Query `attachment_catalog()` and `tool_catalog()` with the command above; do not copy a snapshot of the host lists into new code or documentation.
 - A robot may contain several distinct sensors/tools, but only one manipulator type. Repeated identical attachments are deduplicated; a UR5/Z1 mixture is rejected. Unknown attachments are returned by `attachment_entry()` as visual-only compatibility records, then rejected by validation and requirements.
-- `camera`, `keyboard`, and `navigation_io` are non-physical tools with separate host sets. Camera is available on Iris/Pegasus/CF2X and on Orsus-capable ground robots, where normal validation requires the `orsus` attachment. Normal saved/DIY flows must obey the catalog; registry-driven humans use their independent demo and stage runtime rather than these Env DIY tools.
+- `camera`, `keyboard`, and `navigation_io` are non-physical tools with separate host sets. Camera is available on Iris/Pegasus/CF2X, which have built-in cameras, and on compatible ground robots only when Orsus or RealSense D455 supplies the physical camera. MuSHR does not support Orsus and therefore requires an explicitly attached RealSense D455 for image output. Normal saved/DIY flows must obey the catalog; registry-driven humans use their independent demo and stage runtime rather than these Env DIY tools.
 - Physical compatibility is not established by adding a host name alone. Sensor hosts require valid mount links/offsets; manipulator hosts require a mount profile and formal/preview assembly support.
 
 ### User Interface and Image Synchronization
