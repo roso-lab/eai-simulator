@@ -147,7 +147,7 @@ Robot choices are defined by `source/EAI/EAI/hmrs_env/env_diy/catalog.py::ROBOT_
    python simulator.py --num_envs=1 --device=cuda:0
    ```
    The prompt offers three environment-authoring methods:
-   - `1. Visual window`: Use the Env DIY window to select `Scenes -> Robots -> Payloads -> Tools`. Payloads are grouped into Manipulators (UR5/Z1) and Sensors (Orsus/RealSense D455/LiDAR), while Tools provides Camera, Keyboard, and Navigation I/O. The Camera Tool independently controls ROS image publication for the built-in monocular cameras on Iris, Pegasus, CF2X, and MuSHR, plus Orsus and RealSense D455 cameras on compatible hosts. Navigation I/O controls LiDAR, IMU, GPS, magnetometer, and barometer publication for all three aerial robots, Orsus LiDAR point-cloud, odometry, and scan publication, and RealSense D455 IMU publication. Navigation I/O is serialized with the `navigation_io` key. The result can be saved as `source/EAI_hmrs/EAI_hmrs/envs/<env_name>.json`.
+   - `1. Visual window`: Use the Env DIY window to select `Scenes -> Robots -> Payloads -> Tools`. Payloads are grouped into Manipulators (UR5/Z1) and Sensors (Orsus/RealSense D455/LiDAR), while Tools provides Camera, Keyboard, and Navigation I/O. The Camera Tool independently controls ROS image publication for the built-in monocular cameras on Iris, Pegasus, CF2X, and MuSHR, plus Orsus and RealSense D455 cameras on compatible hosts. Navigation I/O controls LiDAR, IMU, GPS, magnetometer, and barometer publication for all three aerial robots, Orsus LiDAR point-cloud and odometry publication, and RealSense D455 IMU publication. Navigation I/O is serialized with the `navigation_io` key. The result can be saved as `source/EAI_hmrs/EAI_hmrs/envs/<env_name>.json`.
    - `2. Terminal quick setup`: Select a scene, host robot, manipulator, sensor, tool, and controller in the same order as the visual window, then choose whether to save and run the environment immediately.
    - `3. Isaac Sim 3D editor`: Edit the robots' physical `spawn_pose` values directly in the Isaac Sim Viewport. You can also run `python simulator.py --diy-3d --device=cuda:0` to enter it directly.
 
@@ -199,7 +199,7 @@ EAI Simulator scene, robot, and task execution
    ```
 2. Select `1. Visual window` in the prompt.
 3. Drag a scene card onto the canvas, then drag robot cards to their target positions in the scene.
-4. Open `Payloads`. Choose UR5/Z1 under `Manipulators` or Orsus/LiDAR under `Sensors`, then open `Tools` to choose Camera, Keyboard, or Navigation I/O. The Camera Tool independently controls ROS image publication for the built-in monocular cameras on Iris, Pegasus, CF2X, and MuSHR, plus Orsus cameras on compatible hosts. Navigation I/O controls LiDAR, IMU, GPS, magnetometer, and barometer publication for all three aerial robots, plus Orsus LiDAR point-cloud, odometry, and scan publication. After selecting a robot, cards that are incompatible, already attached, or would add a second manipulator are disabled.
+4. Open `Payloads`. Choose UR5/Z1 under `Manipulators` or Orsus/LiDAR under `Sensors`, then open `Tools` to choose Camera, Keyboard, or Navigation I/O. The Camera Tool independently controls ROS image publication for the built-in monocular cameras on Iris, Pegasus, CF2X, and MuSHR, plus Orsus cameras on compatible hosts. Navigation I/O controls LiDAR, IMU, GPS, magnetometer, and barometer publication for all three aerial robots, plus Orsus LiDAR point-cloud and odometry publication. After selecting a robot, cards that are incompatible, already attached, or would add a second manipulator are disabled.
 5. Select `Complete Selection` and save the environment if needed. Saved configurations are written to `source/EAI_hmrs/EAI_hmrs/envs/<env_name>.json`.
 6. Launch a saved environment directly on subsequent runs:
    ```bash
@@ -261,7 +261,7 @@ The Keyboard tool controls a robot through ROS2 `cmd_vel`
 
 **Nav2 navigation example (Factory + Carter + Orsus)**:
 
-The included Nav2 example is `source/EAI_hmrs/EAI_hmrs/envs/nav2.json`. It selects the Factory scene and Carter, then adds Orsus, Camera, and Navigation I/O. The Camera Tool enables Orsus image publication. Navigation I/O enables the `/carter_1/cmd_vel` subscriber and Orsus LiDAR point-cloud, odometry, and scan publication.
+The included Nav2 example is `source/EAI_hmrs/EAI_hmrs/envs/nav2.json`. It selects the Factory scene and Carter, then adds Orsus, Camera, and Navigation I/O. The Camera Tool enables Orsus image publication. Navigation I/O enables the `/carter_1/cmd_vel` subscriber and Orsus LiDAR point-cloud and odometry publication. The external `tf_bridge.py` and `pointcloud_to_laserscan` processes under `algorithm/nav2/` then generate `/carter_1/scan`.
 
 In terminal 1, launch the simulator. Nav2 and Orsus simulations require the Isaac Sim GUI and cannot run headless:
 
