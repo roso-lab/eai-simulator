@@ -102,7 +102,7 @@ The native target also requires CMake, a C++17 compiler, Boost, Eigen, FCL,
 yaml-cpp, and Crocoddyl. Base revisions, license paths, and motion-primitive
 provenance are recorded in `native/THIRD_PARTY.md`.
 
-Run the navigation plugin tests without ambient pytest plugins. The test module imports `torch`, Pillow (`PIL`), PyYAML, and pytest during collection, so run it in `env_isaaclab` (or another Python environment where those packages are installed):
+Run the navigation plugin tests without ambient pytest plugins. The test module and its imported map helpers require `torch`, NumPy, Pillow (`PIL`), PyYAML, and pytest during collection, so run it in `env_isaaclab` (or another Python environment where those packages are installed):
 
 ```bash
 conda activate env_isaaclab
