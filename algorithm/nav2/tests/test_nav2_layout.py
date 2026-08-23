@@ -561,6 +561,19 @@ printf 'continued-after-signal\n'
             pass
 
 
+def test_cleanup_uses_owner_scoped_stale_snapshot_cleanup():
+    run_script = (NAV2_DIR / "run_nav2.sh").read_text(encoding="utf-8")
+    cleanup_start = run_script.index("cleanup() {")
+    cleanup_end = run_script.index("\n}\n\nhandle_signal", cleanup_start)
+    cleanup = run_script[cleanup_start:cleanup_end]
+
+    assert "remove_stale_snapshot" in cleanup
+    assert "pid=int(sys.argv[2])" in cleanup
+    assert cleanup.index("wait \"$pid\"") < cleanup.index("remove_stale_snapshot")
+    assert "rm -f" not in cleanup
+    assert "runtime_interfaces.json" in cleanup
+
+
 def test_simulator_and_nav2_launches_close_the_pid_capture_signal_window():
     run_script = (NAV2_DIR / "run_nav2.sh").read_text(encoding="utf-8")
 
