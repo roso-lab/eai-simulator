@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+import pytest
 import yaml
 
 from EAI.hmrs_env.env_diy import catalog as env_diy_catalog
@@ -185,3 +186,37 @@ def test_attachment_gate_normalizes_scalar_and_list_schema(tmp_path: Path):
     }
     assert resolve_scene_interfaces(catalog, required_selection, env_name="test")
     assert not resolve_scene_interfaces(catalog, excluded_selection, env_name="test")
+
+
+@pytest.mark.parametrize("field", ["requires_attachment", "excludes_attachment"])
+@pytest.mark.parametrize("value", ["   ", ["camera", "   "]])
+def test_attachment_gate_rejects_whitespace_only_values(
+    tmp_path: Path, field: str, value: str | list[str]
+):
+    path = tmp_path / "invalid-gate.yaml"
+    interface = {
+        "id": "test.invalid_gate",
+        "name": "invalid gate",
+        "protocol": "python",
+        "direction": "output",
+        "kind": "method",
+        "endpoint": "invalid_gate",
+        "data_type": "test",
+        field: value,
+    }
+    path.write_text(
+        yaml.safe_dump(
+            {
+                "id": "sensor.test",
+                "name": "Test",
+                "category": "robot",
+                "models": ["mushr_v2"],
+                "interfaces": [interface],
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=field):
+        _load_device(path)
