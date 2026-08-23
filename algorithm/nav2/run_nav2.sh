@@ -111,6 +111,20 @@ cleanup() {
         fi
         [ -n "$pid" ] && wait "$pid" 2>/dev/null || true
     done
+    if [ -n "$SIM_PID" ]; then
+        # 使用系统 Python 运行纯标准库清理，避免加载 Isaac Conda 或 ROS Python 环境。
+        if ! PYTHONPATH="${REPO_ROOT}/source/EAI${PYTHONPATH:+:$PYTHONPATH}" \
+            /usr/bin/python3 - "$REPO_ROOT/tmp/runtime_interfaces.json" "$SIM_PID" <<'PY'
+import sys
+from pathlib import Path
+from EAI.interface_catalog.snapshot import remove_stale_snapshot
+
+remove_stale_snapshot(Path(sys.argv[1]), pid=int(sys.argv[2]))
+PY
+        then
+            echo "⚠️ 无法清理已停止 simulator 的 runtime snapshot，将由下次启动时兜底处理。" >&2
+        fi
+    fi
     echo "✅ 清理完成。GPU 空闲: $(nvidia-smi --query-gpu=memory.free --format=csv,noheader 2>/dev/null)"
 }
 
