@@ -22,15 +22,20 @@ class OrsusOdometryManager:
         import rclpy
         from nav_msgs.msg import Odometry
 
-        if not rclpy.ok():
-            rclpy.init()
-            self._owns_context = True
-        self._node = rclpy.create_node("eai_orsus_odometry")
-        for robot_name, namespace in self._instances.items():
-            topic = f"/{namespace.strip('/')}/odometry"
-            self._publishers[robot_name] = self._node.create_publisher(
-                Odometry, topic, 10
-            )
+        try:
+            # Isaac Sim provides the rclpy build bundled with its ROS2 Bridge.
+            if not rclpy.ok():
+                rclpy.init()
+                self._owns_context = True
+            self._node = rclpy.create_node("eai_orsus_odometry")
+            for robot_name, namespace in self._instances.items():
+                topic = f"/{namespace.strip('/')}/odometry"
+                self._publishers[robot_name] = self._node.create_publisher(
+                    Odometry, topic, 10
+                )
+        except Exception:
+            self.close()
+            raise
 
     @property
     def registered_instances(self) -> tuple[str, ...]:
@@ -64,7 +69,8 @@ class OrsusOdometryManager:
             message.header.stamp.sec = stamp_ns // 1_000_000_000
             message.header.stamp.nanosec = stamp_ns % 1_000_000_000
             message.header.frame_id = "mapping_init"
-            message.child_frame_id = f"{robot_name}/base_link"
+            namespace = self._instances[robot_name].strip("/")
+            message.child_frame_id = f"{namespace}/base_link"
             _set_vector(message.pose.pose.position, position)
             _set_quaternion(message.pose.pose.orientation, quaternion)
             _set_vector(message.twist.twist.linear, linear_velocity)
@@ -72,19 +78,26 @@ class OrsusOdometryManager:
             publisher.publish(message)
 
     def reset(self, _env_ids=None) -> None:
-        self._elapsed = 0.0
+        # ROS timestamps must stay monotonic across partial and full env resets.
+        return None
 
     def close(self) -> None:
         env = self._env
         self._publishers.clear()
-        if self._node is not None:
-            self._node.destroy_node()
-            self._node = None
+        node, self._node = self._node, None
+        if node is not None:
+            try:
+                node.destroy_node()
+            except Exception:
+                pass
         if self._owns_context:
-            import rclpy
+            try:
+                import rclpy
 
-            if rclpy.ok():
-                rclpy.shutdown()
+                if rclpy.ok():
+                    rclpy.shutdown()
+            except Exception:
+                pass
             self._owns_context = False
         if env is not None and getattr(env, "_orsus_odometry_manager", None) is self:
             delattr(env, "_orsus_odometry_manager")
