@@ -304,9 +304,9 @@ Factory + Carter + Orsus 的 Nav2 导航效果
 
 - 可编辑安装（确保 Isaac Lab Python 环境可用）：
   ```bash
-  pip install -e source/EAI
-  pip install -e source/EAI_assets
-  pip install -e source/EAI_hmrs
+  python -m pip install --no-deps -e source/EAI
+  python -m pip install --no-deps -e source/EAI_assets
+  python -m pip install --no-deps -e source/EAI_hmrs
   ```
 - 列出 JSON 环境配置：
   ```bash

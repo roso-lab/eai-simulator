@@ -300,9 +300,9 @@ Nav2 navigation with Factory, Carter, and Orsus
 
 - Editable installation, with the Isaac Lab Python environment available:
   ```bash
-  pip install -e source/EAI
-  pip install -e source/EAI_assets
-  pip install -e source/EAI_hmrs
+  python -m pip install --no-deps -e source/EAI
+  python -m pip install --no-deps -e source/EAI_assets
+  python -m pip install --no-deps -e source/EAI_hmrs
   ```
 - List JSON environment configurations:
   ```bash

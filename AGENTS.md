@@ -118,9 +118,9 @@ The installer accepts only `humble` or `jazzy`, resolving an explicit option bef
 When system packages are managed separately, or when bare `pip` cannot be verified as belonging to `env_isaaclab`, use these controlled editable installs instead:
 
 ```bash
-python -m pip install -e source/EAI
-python -m pip install -e source/EAI_assets
-python -m pip install -e source/EAI_hmrs
+python -m pip install --no-deps -e source/EAI
+python -m pip install --no-deps -e source/EAI_assets
+python -m pip install --no-deps -e source/EAI_hmrs
 ```
 
 This alternative does not install `libxcb-cursor0`; provision or verify that dependency separately when Qt UI workflows need it.
@@ -2310,9 +2310,9 @@ python -m pip --version
 **Conda environment mutation and possible package-index network; prerequisites: activate the intended environment and verify that `python -m pip` resolves to it.** When system packages are managed separately, use the controlled editable installs from section 4:
 
 ```bash
-python -m pip install -e source/EAI
-python -m pip install -e source/EAI_assets
-python -m pip install -e source/EAI_hmrs
+python -m pip install --no-deps -e source/EAI
+python -m pip install --no-deps -e source/EAI_assets
+python -m pip install --no-deps -e source/EAI_hmrs
 ```
 
 ### Discover Saved Environments and Selectable Catalog Entries

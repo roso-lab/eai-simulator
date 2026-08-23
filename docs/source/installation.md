@@ -76,9 +76,9 @@ conda activate env_isaaclab
 
 ```bash
 # 确保在 Isaac Lab 的 Python 环境中
-pip install -e source/EAI
-pip install -e source/EAI_assets
-pip install -e source/EAI_hmrs
+python -m pip install --no-deps -e source/EAI
+python -m pip install --no-deps -e source/EAI_assets
+python -m pip install --no-deps -e source/EAI_hmrs
 ```
 
 ### 4. 申请 Hugging Face 资产权限
@@ -167,9 +167,9 @@ Isaac Sim ROS2 Bridge 通常随 Isaac Sim 一起安装。如果未安装：
 
 **解决**:
 ```bash
-pip install -e source/EAI
-pip install -e source/EAI_assets
-pip install -e source/EAI_hmrs
+python -m pip install --no-deps -e source/EAI
+python -m pip install --no-deps -e source/EAI_assets
+python -m pip install --no-deps -e source/EAI_hmrs
 ```
 
 ### Q2: `CUDA out of memory`
@@ -253,9 +253,9 @@ pip uninstall EAI EAI-assets EAI-hmrs
 如果您需要修改源代码，使用可编辑安装（已包含在安装脚本中）：
 
 ```bash
-pip install -e source/EAI
-pip install -e source/EAI_assets
-pip install -e source/EAI_hmrs
+python -m pip install --no-deps -e source/EAI
+python -m pip install --no-deps -e source/EAI_assets
+python -m pip install --no-deps -e source/EAI_hmrs
 ```
 
 这样修改源代码后无需重新安装。

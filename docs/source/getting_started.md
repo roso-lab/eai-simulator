@@ -16,9 +16,9 @@
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate env_isaaclab
 
-pip install -e source/EAI
-pip install -e source/EAI_assets
-pip install -e source/EAI_hmrs
+python -m pip install --no-deps -e source/EAI
+python -m pip install --no-deps -e source/EAI_assets
+python -m pip install --no-deps -e source/EAI_hmrs
 ```
 
 也可使用：
