@@ -263,7 +263,10 @@ def _bind_orsus_odometry_chassis(stage, graph_path: str, chassis_prim_path: str)
     relationship = node_prim.GetRelationship("inputs:chassisPrim")
     if not relationship:
         relationship = node_prim.CreateRelationship("inputs:chassisPrim")
-    relationship.SetTargets([Sdf.Path(chassis_prim_path)])
+    if not relationship.SetTargets([Sdf.Path(chassis_prim_path)]):
+        raise RuntimeError(
+            f"Failed to bind Orsus odometry chassis target: {chassis_prim_path}"
+        )
 
 
 def setup_pending_orsus_ros_graphs() -> int:
@@ -356,9 +359,10 @@ def setup_pending_orsus_ros_graphs() -> int:
             )
 
             _destroy_rtx_lidar_render_product(render_product_path)
-            lidar_prim = stage.GetPrimAtPath(lidar_prim_path)
-            if lidar_prim and lidar_prim.IsValid():
-                stage.RemovePrim(lidar_prim_path)
+            for prim_path in (graph_path, lidar_prim_path):
+                prim = stage.GetPrimAtPath(prim_path)
+                if prim and prim.IsValid():
+                    stage.RemovePrim(prim_path)
             raise
         _orsus_ros_resources[graph_path] = (
             lidar_prim_path,
