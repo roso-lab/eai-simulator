@@ -149,6 +149,8 @@ test_*.py
 !/tools/ros2/
 !/tools/ros2/tests/
 !/algorithm/nav2/tests/test_*.py
+!/algorithm/TeamWeaver/tests/
+!/algorithm/TeamWeaver/tests/*.py
 !/tools/ros2/tests/test_vis_sensors.py
 !/tools/ros2/tests/test_send_manipulator_command.py
 !/tools/ros2/tests/test_send_cmd_vel.py
@@ -157,6 +159,7 @@ test_*.py
 !/source/EAI/test/test_city_traffic_human_bridge.py
 !/source/EAI/test/test_runtime_snapshot_cleanup.py
 !/source/EAI/test/test_manipulator_runtime_registration.py
+!/source/EAI/test/test_simulator_runtime_snapshot_lifecycle.py
 !/algorithm/nav2/tests/
 !/algorithm/nav2/tests/test_nav2_layout.py
 !/algorithm/nav2/tests/test_send_goal.py

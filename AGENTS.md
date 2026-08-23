@@ -73,7 +73,7 @@ cd eai-simulator
 ./tools/setup/setup-git-hooks.sh
 ```
 
-The script changes repository configuration by setting `core.hooksPath` to `.githooks`, makes the repository hooks executable, and thereby activates the current `post-checkout` warning. That warning prints destructive delete/recreate advice for nonconforming branch names; never copy that advice.
+The script changes repository configuration by setting `core.hooksPath` to `.githooks`, makes the repository hooks executable, and thereby activates the `post-checkout` warning. For a nonconforming branch name, that warning prints quoted `git branch -m -- ...` rename examples and does not suggest deleting the branch.
 
 After running the helper, diagnose the resulting configuration without running hooks:
 
@@ -312,7 +312,7 @@ The launcher allocates one command tensor per possible agent. Each frame it opti
 
 ### Runtime Interface Snapshot And Shutdown
 
-After the final scene starts, the launcher resolves declared interfaces for the selection and writes `tmp/runtime_interfaces.json`, filtering cmd_vel entries to bridges that actually started. During the loop it refreshes the heartbeat and robot poses about every two seconds. On loop exit it removes only its own snapshot, closes the shared manipulator manager and cmd_vel bridges, then exits the session context. The session owns environment cleanup; it owns application cleanup only when it created the application.
+After the final scene starts, the launcher resolves declared interfaces for the selection and writes `tmp/runtime_interfaces.json`, filtering cmd_vel entries to bridges that actually started. It then installs an owner-scoped lifecycle guard that removes the snapshot before chaining SIGINT/SIGTERM to Kit and also runs through `atexit`; the existing loop `finally` remains an idempotent fallback. During the loop it refreshes the heartbeat and robot poses about every two seconds. On loop exit it removes only its own snapshot, closes the shared UR5/Z1 manipulator manager and cmd_vel bridges, then exits the session context. The session owns environment cleanup; it owns application cleanup only when it created the application.
 
 ## 7. Source-of-Truth Map
 
@@ -1695,7 +1695,7 @@ python simulator.py interfaces list --json >/dev/null
 python simulator.py interfaces scene --env keyboard --json >/dev/null
 ```
 
-The live tier requires Ubuntu ROS2 Humble, separately prepared Isaac/Isaac Lab and system ROS environments, the ROS bridge, matching discovery settings, a GPU/display mode appropriate to the selected sensors, and any gated assets already available or downloadable. Verify topic type and actual samples/rates for `/clock`, `/<instance>/odometry`, `/<instance>/cloud`, and `/<instance>/scan`; verify TF continuity and timestamps; send cmd_vel, confirm delivery and command application, then confirm a later zero is delivered and the robot stops rather than inferring safety from publisher exit; for UR5, verify command subscribers and changing `joint_states`/`ee_pose`; and for Nav2, verify lifecycle states, action acceptance, feedback, terminal action status, and final pose. Z1 main-session topics remain a known activation gap and cannot pass equivalent formal live verification until the launcher registers them.
+The live tier requires Ubuntu ROS2 Humble, separately prepared Isaac/Isaac Lab and system ROS environments, the ROS bridge, matching discovery settings, a GPU/display mode appropriate to the selected sensors, and any gated assets already available or downloadable. Verify topic type and actual samples/rates for `/clock`, `/<instance>/odometry`, `/<instance>/cloud`, and `/<instance>/scan`; verify TF continuity and timestamps; send cmd_vel, confirm delivery and command application, then confirm a later zero is delivered and the robot stops rather than inferring safety from publisher exit; for UR5 and Z1, verify command subscribers and changing `joint_states`/`ee_pose`, including Z1 gripper command/state feedback; and for Nav2, verify lifecycle states, action acceptance, feedback, terminal action status, and final pose.
 
 ## 13. Testing Strategy
 
@@ -1905,7 +1905,7 @@ Live verification uses system Python/ROS2 Humble and a separately running Isaac 
 | Sensor and odometry | For Orsus, fresh image samples under `camera` and fresh `/<instance>/cloud` plus `/<instance>/odometry` samples under `navigation_io`; scan additionally requires the external conversion pipeline. For aerial robots, fresh camera samples under `camera` and LiDAR plus applicable base-sensor samples under `navigation_io`. |
 | TF | Timestamped `odom -> base_link` plus static `base_link -> lidar_link`, and Nav2's `map -> odom` when localization is active. |
 | Nav2 | Nodes reach active lifecycle state, `navigate_to_pose` accepts the goal, feedback advances, terminal status is successful, and final pose is plausible. |
-| Manipulator | UR5 command subscribers and changing `joint_states`/`ee_pose`; Z1 remains a known main-session activation gap. |
+| Manipulator | UR5/Z1 command subscribers and changing `joint_states`/`ee_pose`; for Z1 also verify legal-range gripper command/state feedback. |
 
 Catalog declarations and `tmp/runtime_interfaces.json` describe capability/runtime intent; except for filtered cmd_vel entries, they do not prove that a publisher, graph, TF chain, or Nav2 action is live.
 
@@ -2278,7 +2278,7 @@ Use this checklist for every change; omit an item only when it is demonstrably o
 - [ ] Ambient pytest plugin autoload was controlled where appropriate; skips and installed-asset-dependent failures were investigated rather than hidden.
 - [ ] Optional Isaac, GPU, ROS2, Nav2, browser, Kit, network, or system-level checks were run only with their prerequisites and authorization. Exact versions, selection, device, asset state, and results were recorded; every unrun check and resulting limitation is explicit.
 - [ ] A simulator change was verified through configuration construction, first reset/controller load, representative behavior, and clean shutdown when heavy integration was available. A `pxr` test or opened window was not substituted for this evidence.
-- [ ] ROS/interface changes distinguish catalog declaration, snapshot presence, discovery, samples/rates, TF, command application, lifecycle/action status, and final behavior. Z1 and other known activation gaps are not reported as working.
+- [ ] ROS/interface changes distinguish catalog declaration, snapshot presence, discovery, samples/rates, TF, command application, lifecycle/action status, and final behavior. Any known activation gap is not reported as working; UR5/Z1 claims require successful runtime graph setup and command-feedback evidence.
 - [ ] Provider-backed files have maintainer publication evidence: repository ID, immutable tag/commit, exact paths, sizes and hashes, provenance and license, synchronized source maps/checksum metadata/default revision, and verification from clean asset roots. A local file or moving `main` dry-run is not sufficient.
 - [ ] Human-pack integrity metadata matches the selected provider payload and revision. For reproducible validation, pin an immutable provider tag or commit and verify that `pack-checksums.json` checksums match it before claiming standard asset-backed first-launch support.
 - [ ] `git status --short` and every exact scoped worktree diff were reviewed. When staging/commit was authorized, `git diff --cached --name-status` contains exactly the intended paths, `git diff --cached -- <each exact path>` was inspected, `git diff --cached --check` passed, secret findings were reported only as redacted file/line locations and investigated, and the maintained scanner result or heuristic limitation was recorded. When staging was not authorized, the index was preserved and these cached checks were reported as not applicable. Ignore diagnostics and tracked-file inventory show no `.env`, private/internal notes, downloaded assets, weights, caches, runtime snapshots, generated output, or unrelated staged files.

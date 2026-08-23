@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import argparse
+import atexit
 import importlib
 import importlib.util
 import json
 import math
 import os
+import signal
 import subprocess
 import sys
 import tempfile
@@ -45,6 +47,58 @@ def _dispatch_interface_cli(argv: list[str]) -> int | None:
 
 def _runtime_interface_snapshot_path() -> Path:
     return _repo_root() / "tmp" / "runtime_interfaces.json"
+
+
+@contextmanager
+def _runtime_snapshot_lifecycle(
+    path: Path,
+    *,
+    pid: int | None = None,
+    atexit_module=atexit,
+    signal_module=signal,
+    remove_snapshot_func=None,
+) -> Iterator[None]:
+    """Remove this process's runtime snapshot before Kit handles shutdown signals."""
+    if remove_snapshot_func is None:
+        _ensure_repo_sources_on_path()
+        from EAI.interface_catalog.snapshot import remove_snapshot as remove_snapshot_func
+
+    owner = os.getpid() if pid is None else int(pid)
+    cleaned = False
+
+    def cleanup_once() -> None:
+        nonlocal cleaned
+        if cleaned:
+            return
+        cleaned = True
+        remove_snapshot_func(path, pid=owner)
+
+    previous_handlers = {}
+
+    def handle_signal(signum, frame) -> None:
+        cleanup_once()
+        previous = previous_handlers.get(signum, signal_module.SIG_DFL)
+        if callable(previous):
+            previous(signum, frame)
+        elif previous == signal_module.SIG_IGN:
+            return
+        elif signum == signal_module.SIGINT:
+            raise KeyboardInterrupt
+        else:
+            raise SystemExit(128 + int(signum))
+
+    atexit_module.register(cleanup_once)
+    try:
+        for signum in (signal_module.SIGINT, signal_module.SIGTERM):
+            previous_handlers[signum] = signal_module.getsignal(signum)
+            signal_module.signal(signum, handle_signal)
+        yield
+    finally:
+        cleanup_once()
+        for signum, previous in previous_handlers.items():
+            if signal_module.getsignal(signum) is handle_signal:
+                signal_module.signal(signum, previous)
+        atexit_module.unregister(cleanup_once)
 
 
 def _tensor_vector(value: Any) -> list[float]:
@@ -2080,16 +2134,18 @@ def main() -> None:
             cmd_vel_agents=set(bridges),
             base_env=base_env,
         )
-        if getattr(args_cli, "interfaces_menu", False):
-            interface_cli = _load_interface_cli()
-            threading.Thread(
-                target=interface_cli,
-                args=(["--repo-root", str(_repo_root()), "menu"],),
-                name="eai-interface-menu",
-                daemon=True,
-            ).start()
-        last_snapshot_heartbeat = 0.0
+        snapshot_lifecycle = _runtime_snapshot_lifecycle(snapshot_path)
+        snapshot_lifecycle.__enter__()
         try:
+            if getattr(args_cli, "interfaces_menu", False):
+                interface_cli = _load_interface_cli()
+                threading.Thread(
+                    target=interface_cli,
+                    args=(["--repo-root", str(_repo_root()), "menu"],),
+                    name="eai-interface-menu",
+                    daemon=True,
+                ).start()
+            last_snapshot_heartbeat = 0.0
             while session.simulation_app.is_running():
                 import time
 
@@ -2134,6 +2190,7 @@ def main() -> None:
             from EAI.interface_catalog.snapshot import remove_snapshot
 
             remove_snapshot(snapshot_path)
+            snapshot_lifecycle.__exit__(*sys.exc_info())
             if manipulator_manager is not None:
                 manipulator_manager.close()
             for bridge in bridges.values():
