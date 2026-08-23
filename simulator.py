@@ -1829,7 +1829,9 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         app_launcher_args = dict(config.app_launcher_args)
         app_launcher_args["device"] = runtime_device
         config = replace(config, device=runtime_device, app_launcher_args=app_launcher_args)
-    if config.disable_orsus_ros_env:
+    if config.disable_orsus_ros_env or not config.enable_ros_bridge_extension:
+        # Set this before env_builder imports OrsusCfg: the legacy asset module
+        # configures ROS paths at import time unless this guard is present.
         os.environ["EAI_DISABLE_ORSUS_ROS_ENV"] = "1"
     if config.enable_ros_bridge_extension:
         configure_isaac_ros_bridge_env()
