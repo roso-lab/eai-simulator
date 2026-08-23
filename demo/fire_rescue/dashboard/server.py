@@ -893,7 +893,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 pid = preset if preset in EMOS_LLM_PRESETS else DEFAULT_EMOS_LLM_PRESET
                 meta = EMOS_LLM_PRESETS[pid]
                 key_env = meta["api_key_env"]
-                if not os.environ.get(key_env) and not meta.get("api_key_default"):
+                if not os.environ.get(key_env):
                     self._json(
                         {
                             "ok": False,
