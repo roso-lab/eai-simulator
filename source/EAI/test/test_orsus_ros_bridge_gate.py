@@ -35,9 +35,10 @@ def test_orsus_ros_setup_is_nested_under_bridge_gate() -> None:
                     elif isinstance(descendant.func, ast.Attribute):
                         gated_calls.add(descendant.func.attr)
 
-    assert "OrsusOdometryManager" in gated_calls
     assert "setup_pending_orsus_ros_graphs" in gated_calls
-    assert "attach_orsus_odometry_manager" in gated_calls
+    simulator_text = SIMULATOR_SOURCE.read_text(encoding="utf-8")
+    assert "OrsusOdometryManager" not in simulator_text
+    assert "attach_orsus_odometry_manager" not in simulator_text
 
 
 def test_bridge_disabled_sets_import_time_orsus_ros_guard_before_env_load() -> None:

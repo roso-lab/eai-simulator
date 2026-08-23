@@ -97,16 +97,16 @@ def test_bind_rejects_missing_node_and_failed_target_write():
         _bind(stage)
 
 
-def test_setup_creates_lidar_without_odometry_graph(monkeypatch):
+def test_setup_creates_lidar_and_binds_odometry_graph(monkeypatch):
     graph_path = "/Graph"
     lidar_path = "/Robot/Lidar"
     stage = _Stage({graph_path: _Prim(), lidar_path: _Prim()})
-    detached = []
-    destroyed = []
+    edits = []
+    bindings = []
 
     class Writer:
         def detach(self):
-            detached.append(True)
+            raise AssertionError("successful setup must retain writer")
 
     class Controller:
         class Keys:
@@ -115,30 +115,21 @@ def test_setup_creates_lidar_without_odometry_graph(monkeypatch):
             CONNECT = "connect"
 
         @staticmethod
-        def edit(*_args):
-            return None
+        def edit(*args):
+            edits.append(args)
 
-    og = types.SimpleNamespace(
-        Controller=Controller,
-        GraphPipelineStage=types.SimpleNamespace(GRAPH_PIPELINE_STAGE_SIMULATION=1),
-    )
-    graph_module = types.ModuleType("omni.graph")
     core_module = types.ModuleType("omni.graph.core")
     core_module.Controller = Controller
-    core_module.GraphPipelineStage = og.GraphPipelineStage
+    core_module.GraphPipelineStage = types.SimpleNamespace(
+        GRAPH_PIPELINE_STAGE_SIMULATION=1
+    )
+    graph_module = types.ModuleType("omni.graph")
+    graph_module.core = core_module
     omni_module = types.ModuleType("omni")
     omni_module.graph = graph_module
-    graph_module.core = core_module
     monkeypatch.setitem(sys.modules, "omni", omni_module)
     monkeypatch.setitem(sys.modules, "omni.graph", graph_module)
     monkeypatch.setitem(sys.modules, "omni.graph.core", core_module)
-
-    lidar_module = types.ModuleType("EAI_assets.sensor.low_sensor.ros_lidar")
-    lidar_module._destroy_rtx_lidar_render_product = destroyed.append
-    monkeypatch.setitem(sys.modules, "EAI_assets", types.ModuleType("EAI_assets"))
-    monkeypatch.setitem(sys.modules, "EAI_assets.sensor", types.ModuleType("EAI_assets.sensor"))
-    monkeypatch.setitem(sys.modules, "EAI_assets.sensor.low_sensor", types.ModuleType("EAI_assets.sensor.low_sensor"))
-    monkeypatch.setitem(sys.modules, "EAI_assets.sensor.low_sensor.ros_lidar", lidar_module)
 
     requests = {graph_path: (lidar_path, "/Robot", "/robot")}
     resources = {}
@@ -149,23 +140,25 @@ def test_setup_creates_lidar_without_odometry_graph(monkeypatch):
             "_orsus_ros_graph_requests": requests,
             "_orsus_ros_resources": resources,
             "_create_orsus_rtx_lidar_publisher": lambda *_args: ("/Render", Writer()),
-            "_bind_orsus_odometry_chassis": lambda *_args: (_ for _ in ()).throw(RuntimeError("bind failed")),
-            "omni": types.SimpleNamespace(usd=types.SimpleNamespace(get_context=lambda: types.SimpleNamespace(get_stage=lambda: stage))),
+            "_bind_orsus_odometry_chassis": lambda *args: bindings.append(args),
+            "omni": types.SimpleNamespace(
+                usd=types.SimpleNamespace(
+                    get_context=lambda: types.SimpleNamespace(get_stage=lambda: stage)
+                )
+            ),
         },
     )
 
     assert namespace["setup_pending_orsus_ros_graphs"]() == 1
-
-    assert detached == []
-    assert destroyed == []
-    assert stage.removed == []
+    assert len(edits) == 1
+    assert bindings == [(stage, graph_path, "/Robot")]
     assert requests == {}
     assert resources == {graph_path: (lidar_path, "/Render", resources[graph_path][2])}
-    edit_payload = ORSUS_SOURCE.read_text(encoding="utf-8")
-    setup_source = edit_payload.split("def setup_pending_orsus_ros_graphs", 1)[1].split(
-        "def close_orsus_ros_resources", 1
-    )[0]
-    assert "ROS2PublishOdometry" not in setup_source
+    setup_source = ORSUS_SOURCE.read_text(encoding="utf-8").split(
+        "def setup_pending_orsus_ros_graphs", 1
+    )[1].split("def close_orsus_ros_resources", 1)[0]
+    assert "ROS2PublishOdometry" in setup_source
+
 
 
 def test_rollback_continues_when_cleanup_steps_raise(monkeypatch):
