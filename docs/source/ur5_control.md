@@ -1,6 +1,6 @@
 # 机械臂
 
-UR5 和 Z1 共享正式的 **ROS2 Bridge + OmniGraph** topic 规范。当前 `simulator.py` 只为选中的 UR5 附件显式注册 graph；Z1 的模型 spec、接口声明和控制器仍然保留，但仅选择 Z1 不会执行等价的 `setup_robot(...)`。对于已经激活的 graph，ROS2 消息直接进入仿真器，不经过 `tmp/` 文件，也不需要额外启动机械臂 bridge 进程。
+UR5 和 Z1 共享正式的 **ROS2 Bridge + OmniGraph** topic 规范。当前 `simulator.py` 会为 selection 中实际挂载的 UR5 和 Z1 使用对应 model spec 调用 `setup_robot(...)`。静态接口声明不代表 setup 成功；对于已经激活的 graph，ROS2 消息直接进入仿真器，不经过 `tmp/` 文件，也不需要额外启动机械臂 bridge 进程。
 
 机械臂控制器属于可替换的外部算法；仿真器负责准确接收 ROS2 命令、把目标写入对应 articulation，并发布实际关节与末端状态。
 
@@ -13,11 +13,11 @@ UR5/Z1 不是独立机器人，而是 `Payloads → Manipulators` 下的宿主�
 | UR5 | `UR5_IK_CFG` | `ManipulatorIkControllerCfg` + DLS Differential IK | 无 |
 | Z1 | `Z1_IK_CFG` | `ManipulatorIkControllerCfg` + DLS Differential IK | `gripper_command` / `gripper_state` |
 
-两者都创建独立的 `<robot>_arm` articulation，并通过 FixedJoint 连接宿主。宿主的底盘/腿部 controller 与机械臂 controller 分开运行；同一个宿主不能同时挂载 UR5 和 Z1。主启动器当前只为 UR5 附件建立 ROS2 OmniGraph；Navigation I/O（内部键 `navigation_io`）或 Keyboard（内部键 `keyboard`）只影响宿主 `cmd_vel`，不会补充 Z1 graph 注册。
+两者都创建独立的 `<robot>_arm` articulation，并通过 FixedJoint 连接宿主。宿主的底盘/腿部 controller 与机械臂 controller 分开运行；同一个宿主不能同时挂载 UR5 和 Z1。主启动器会为 UR5 和 Z1 附件建立 ROS2 OmniGraph；Navigation I/O（内部键 `navigation_io`）或 Keyboard（内部键 `keyboard`）只影响宿主 `cmd_vel`，不参与机械臂 graph 注册。
 
 ### 从 Env DIY 到 ROS2 控制
 
-运行前编辑时，在三维插件中选择 `Plane`，添加 `Go2`，再从 `Payloads → Manipulators` 将 `Z1` 挂载到 Go2。确认宿主使用 `GO2_VELOCITY_RSL_CFG`、附件使用 `Z1_IK_CFG`。下面展示正式 Z1 topic 的客户端语法；当前主启动器没有激活对应 graph，因此发送前必须先通过 `ros2 topic list` 确认某个集成入口已经完成 Z1 注册：
+运行前编辑时，在三维插件中选择 `Plane`，添加 `Go2`，再从 `Payloads → Manipulators` 将 `Z1` 挂载到 Go2。确认宿主使用 `GO2_VELOCITY_RSL_CFG`、附件使用 `Z1_IK_CFG`。下面展示正式 Z1 topic 的客户端语法。主启动器会尝试注册选中的 Z1；发送前仍应通过 `ros2 topic list` 确认本次 `setup_robot(...)` 已成功：
 
 ```bash
 python simulator.py --diy-3d --device=cuda:0
@@ -219,7 +219,7 @@ python3 algorithm/keyboard/keyboard.py --robot go2_1
 
 ## 重置与故障排查
 
-环境 reset 会清理机械臂命令状态，避免旧目标在 reset 后继续执行。若 topic 列表为空，先确认运行时 graph 是否实际注册；当前主启动器的 Z1 缺少这一步。再检查：
+环境 reset 会清理机械臂命令状态，避免旧目标在 reset 后继续执行。若 topic 列表为空，先确认 selection 确实挂载了 UR5/Z1，并检查本次 `setup_robot(...)` 是否成功。再检查：
 
 ```bash
 python simulator.py interfaces scene --env <env_name> | grep -E '/(ur5|z1)/'

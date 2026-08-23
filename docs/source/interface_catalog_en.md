@@ -98,7 +98,7 @@ python3 algorithm/keyboard/keyboard.py \
 
 ## Robotic arm interface
 
-UR5 and Z1 share the same formal ROS2 namespace convention, but a static interface declaration does not mean that its runtime graph is active. The main launcher currently registers graphs for selected UR5 attachments only; it does not call the equivalent `setup_robot(...)` for Z1. Complete startup, control, and troubleshooting guidance is in [Manipulator Control](ur5_control_en.md); this page only retains the interface catalog and query commands.
+UR5 and Z1 share the same formal ROS2 namespace convention. The main launcher calls the shared manager's `setup_robot(...)` for UR5 and Z1 attachments that are actually selected; however, a static interface declaration still does not prove that graph setup succeeded. Complete startup, control, and troubleshooting guidance is in [Manipulator Control](ur5_control_en.md); this page only retains the interface catalog and query commands.
 
 ### UR5 Robotic Arm Interface
 
