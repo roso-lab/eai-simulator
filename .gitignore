@@ -155,6 +155,7 @@ test_*.py
 
 # Tracked city-traffic bridge test.
 !/source/EAI/test/test_city_traffic_human_bridge.py
+!/source/EAI/test/test_runtime_snapshot_cleanup.py
 !/algorithm/nav2/tests/
 !/algorithm/nav2/tests/test_nav2_layout.py
 !/algorithm/nav2/tests/test_send_goal.py

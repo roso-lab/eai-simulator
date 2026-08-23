@@ -122,7 +122,13 @@ def _publish_runtime_interface_snapshot(
     _ensure_repo_sources_on_path()
     from EAI.interface_catalog.loader import load_catalog
     from EAI.interface_catalog.query import resolve_scene_interfaces
-    from EAI.interface_catalog.snapshot import build_snapshot, write_snapshot
+    from EAI.interface_catalog.snapshot import (
+        build_snapshot,
+        remove_stale_snapshot,
+        write_snapshot,
+    )
+
+    remove_stale_snapshot(_runtime_interface_snapshot_path())
 
     catalog = load_catalog()
     resolved = resolve_scene_interfaces(
