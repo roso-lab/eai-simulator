@@ -1,15 +1,29 @@
 from __future__ import annotations
 
 import errno
+import fcntl
 import json
 import os
 import tempfile
 import time
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 
 SNAPSHOT_SCHEMA_VERSION = 1
+
+
+@contextmanager
+def _snapshot_lock(target: Path) -> Iterator[None]:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    descriptor = os.open(target.parent, os.O_RDONLY)
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        yield
+    finally:
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
+        os.close(descriptor)
 
 
 def build_snapshot(
@@ -38,16 +52,16 @@ def build_snapshot(
 
 def write_snapshot(path: Path | str, snapshot: dict[str, Any]) -> None:
     target = Path(path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=target.parent)
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
-            json.dump(snapshot, stream, indent=2, sort_keys=True)
-            stream.write("\n")
-        os.replace(temporary, target)
-    finally:
-        if os.path.exists(temporary):
-            os.unlink(temporary)
+    with _snapshot_lock(target):
+        descriptor, temporary = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=target.parent)
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+                json.dump(snapshot, stream, indent=2, sort_keys=True)
+                stream.write("\n")
+            os.replace(temporary, target)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
 
 
 def read_snapshot(path: Path | str) -> dict[str, Any]:
@@ -101,29 +115,29 @@ def _process_is_running(pid: int) -> bool:
 
 def remove_snapshot(path: Path | str, *, pid: int | None = None) -> bool:
     target = Path(path)
-    if not target.exists():
-        return False
     owner = os.getpid() if pid is None else pid
-    try:
-        snapshot = read_snapshot(target)
-    except ValueError:
-        return False
-    if int(snapshot.get("pid", -1)) != owner:
-        return False
-    target.unlink()
-    return True
+    with _snapshot_lock(target):
+        try:
+            snapshot = read_snapshot(target)
+        except ValueError:
+            return False
+        if int(snapshot.get("pid", -1)) != owner:
+            return False
+        target.unlink()
+        return True
 
 
-def remove_stale_snapshot(path: Path | str) -> bool:
+def remove_stale_snapshot(path: Path | str, *, pid: int | None = None) -> bool:
     target = Path(path)
-    if not target.exists():
-        return False
-    try:
-        snapshot = read_snapshot(target)
-        owner = int(snapshot.get("pid", -1))
-    except (TypeError, ValueError):
-        return False
-    if _process_is_running(owner):
-        return False
-    target.unlink()
-    return True
+    with _snapshot_lock(target):
+        try:
+            snapshot = read_snapshot(target)
+            owner = int(snapshot.get("pid", -1))
+        except (TypeError, ValueError):
+            return False
+        if pid is not None and owner != pid:
+            return False
+        if _process_is_running(owner):
+            return False
+        target.unlink()
+        return True
