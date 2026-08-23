@@ -1854,6 +1854,14 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
     realsense_imu_manager = None
     orsus_cleanup = None
     try:
+        from EAI_assets.sensor.high_sensor.orsus import (
+            close_orsus_ros_resources,
+            setup_pending_orsus_ros_graphs,
+        )
+
+        # Register cleanup before env construction: Orsus spawn can enqueue
+        # process-global graph requests before env.reset() succeeds.
+        orsus_cleanup = close_orsus_ros_resources
         _enable_required_selection_extensions(selection_data)
         if config.enable_ros_bridge_extension:
             _enable_isaac_extension("isaacsim.ros2.bridge")
@@ -1876,12 +1884,6 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         # (re-)register their carb logging source while the stage loads,
         # which resets per-source thresholds.
         _silence_simulation_manager_time_log_spam()
-        from EAI_assets.sensor.high_sensor.orsus import (
-            close_orsus_ros_resources,
-            setup_pending_orsus_ros_graphs,
-        )
-
-        orsus_cleanup = close_orsus_ros_resources
         if config.enable_ros_bridge_extension:
             orsus_graph_count = setup_pending_orsus_ros_graphs()
             if orsus_graph_count:
