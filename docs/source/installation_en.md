@@ -86,7 +86,7 @@ python -m pip install --no-deps -e source/EAI_hmrs
 ### 4. Apply for Hugging Face asset permissions
 
 The large-volume USD assets and RL model weights required for simulation running are not placed directly in the Git repository, but are stored in the gated Hugging Face data set:
-[HuangQIjun/eai-simulator-assets](https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets)ĄŁ
+[HuangQIjun/eai-simulator-assets](https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets)
 
 Before running it for the first time, please open the link above to submit an access request. After the account is passed, log in to Hugging Face on the terminal:
 
