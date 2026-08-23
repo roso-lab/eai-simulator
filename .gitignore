@@ -181,5 +181,3 @@ test_*.py
 !/tools/human_assets/**
 /tools/human_assets/**/__pycache__/
 !/algorithm/multi_robot_navigation/test_plugin.py
-
-!/source/EAI/test/test_orsus_odometry_manager.py

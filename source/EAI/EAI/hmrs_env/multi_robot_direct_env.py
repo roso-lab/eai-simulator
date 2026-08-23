@@ -188,9 +188,6 @@ class MultiRobotDirectEnv(DirectMARLEnv):
         realsense_imu_manager = getattr(self, "_realsense_imu_manager", None)
         if realsense_imu_manager is not None:
             realsense_imu_manager.update(self.step_dt)
-        orsus_odometry_manager = getattr(self, "_orsus_odometry_manager", None)
-        if orsus_odometry_manager is not None:
-            orsus_odometry_manager.update(self.step_dt)
         observations = {}
         for robot_name in self.cfg.possible_agents:
             controller_cfg = self._controller_configs[robot_name]
@@ -398,9 +395,6 @@ class MultiRobotDirectEnv(DirectMARLEnv):
         realsense_imu_manager = getattr(self, "_realsense_imu_manager", None)
         if realsense_imu_manager is not None:
             realsense_imu_manager.reset(env_ids)
-        orsus_odometry_manager = getattr(self, "_orsus_odometry_manager", None)
-        if orsus_odometry_manager is not None:
-            orsus_odometry_manager.reset(env_ids)
         # Controllers can override this if they need to reset their state
         hook = getattr(self.cfg, "after_reset_idx_hook", None)
         if hook is not None and callable(hook):
