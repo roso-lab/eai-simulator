@@ -226,7 +226,7 @@ GO2_VELOCITY_RSL_CFG = Go2VelocityRSLControllerCfg(
 
 `target_pose` 使用 DLS Differential IK（`lambda_val=0.02`），目标可以用 `world` 或 `base_link` 表示；`base_link` 会先通过宿主根位姿转换到 world。关节命令不经过 IK，直接按模型关节名重排并写入目标。每次控制循环最多施加 `0.10 rad` 的关节变化，避免外部位姿目标导致突跳。
 
-当前主启动器只为 selection 中的 UR5 附件建立 ROS2 OmniGraph；Z1 的正式 model spec 与接口声明仍然保留，但选中 Z1 不会执行等价的 `setup_robot(...)`。graph 激活后，`ManipulatorOmniGraphManager` 按机器人实例名和机械臂型号隔离消息，`m20_1` 的命令不会被 `m20_2` 消费。reset 时会清理命令、IK 平滑状态和夹爪状态。
+主启动器会为 selection 中的 UR5 和 Z1 附件使用对应 model spec 执行 `setup_robot(...)`。只有 setup 成功时 graph 才是 active；静态接口声明不能代替运行时确认。graph 激活后，`ManipulatorOmniGraphManager` 按机器人实例名和机械臂型号隔离消息，`m20_1` 的命令不会被 `m20_2` 消费。reset 时会清理命令、IK 平滑状态和夹爪状态。
 
 详细 topic、消息类型、Z1 夹爪命令和 `send_manipulator_command.py` 示例见 :doc:`机械臂 <ur5_control>`。该脚本只是系统 `rclpy` 发布/等待客户端，不执行 IK，也不创建或激活 graph。
 

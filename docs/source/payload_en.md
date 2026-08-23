@@ -50,7 +50,7 @@ Environment JSON
   → MultiRobotDirectEnv starts the formal environment
 ```
 
-The Camera Tool exclusively controls Orsus left/right image publishing, while Navigation I/O exclusively controls point-cloud and odometry publishing. Navigation I/O uses the internal `navigation_io` key in environment JSON. Iris, Pegasus, and CF2X carry a camera, `Example_Rotary` LiDAR, and base sensors by default; Camera and Navigation I/O only gate the corresponding topic publishers. A ground robot can select Camera only after mounting Orsus. The current `simulator.py` registers a manipulator OmniGraph for UR5 attachments without requiring Navigation I/O. Z1 topic conventions remain available, but the main session does not register that graph merely because Z1 is mounted; confirm that another integration entry point activated it before publishing commands.
+The Camera Tool exclusively controls Orsus left/right image publishing, while Navigation I/O exclusively controls point-cloud and odometry publishing. Navigation I/O uses the internal `navigation_io` key in environment JSON. Iris, Pegasus, and CF2X carry a camera, `Example_Rotary` LiDAR, and base sensors by default; Camera and Navigation I/O only gate the corresponding topic publishers. A ground robot can select Camera only after mounting Orsus. The current `simulator.py` registers a manipulator OmniGraph for UR5 and Z1 attachments actually mounted in the selection, without requiring Navigation I/O. Before publishing commands, still confirm through runtime topics that `setup_robot(...)` succeeded rather than relying only on static interface declarations.
 
 ## Compatibility
 

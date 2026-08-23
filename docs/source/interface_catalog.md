@@ -98,7 +98,7 @@ python3 algorithm/keyboard/keyboard.py \
 
 ## 机械臂接口
 
-UR5 和 Z1 使用相同的正式 ROS2 namespace 规范，但静态接口声明不代表运行时 graph 已激活。当前主启动器只为选中的 UR5 附件注册 graph，没有为 Z1 执行等价的 `setup_robot(...)`。完整启动、控制和故障排查说明集中在[机械臂](ur5_control.md)；本页只保留接口目录和查询命令。
+UR5 和 Z1 使用相同的正式 ROS2 namespace 规范。主启动器会为 selection 中实际挂载的 UR5 和 Z1 调用共享 manager 的 `setup_robot(...)`；但静态接口声明仍不代表 graph 已成功激活。完整启动、控制和故障排查说明集中在[机械臂](ur5_control.md)；本页只保留接口目录和查询命令。
 
 ### UR5 机械臂接口
 
