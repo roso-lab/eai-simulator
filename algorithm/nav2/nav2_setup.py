@@ -228,13 +228,12 @@ def ensure_plane_map(out_dir):
     map_image = safe_output_path(out_dir, "plane_map.pgm")
     cells = int(PLANE_MAP_SIZE_M / PLANE_MAP_RESOLUTION)
 
-    if not os.path.exists(map_image):
-        safe_write_output(
-            out_dir,
-            "plane_map.pgm",
-            f"P5\n{cells} {cells}\n255\n".encode("ascii") + bytes([254]) * cells * cells,
-            binary=True,
-        )
+    safe_write_output(
+        out_dir,
+        "plane_map.pgm",
+        f"P5\n{cells} {cells}\n255\n".encode("ascii") + bytes([254]) * cells * cells,
+        binary=True,
+    )
 
     safe_write_output(
         out_dir,
