@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+import subprocess
+import sys
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -40,11 +42,17 @@ def test_eai_setup_version_matches_package_version() -> None:
     )
 
 
-def test_eai_hmrs_setup_uses_package_version_source() -> None:
+def test_eai_hmrs_setup_reports_package_version() -> None:
     package_root = REPO_ROOT / "source" / "EAI_hmrs"
-    setup_text = (package_root / "setup.py").read_text(encoding="utf-8")
+    package_version = _init_version(package_root / "EAI_hmrs" / "__init__.py")
 
-    assert 'EAI_hmrs" / "__init__.py"' in setup_text
-    assert 'version=_VERSION_NS["__version__"]' in setup_text
+    result = subprocess.run(
+        [sys.executable, "setup.py", "--version"],
+        cwd=package_root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.stdout.strip() == package_version
     assert _literal_setup_version(package_root / "setup.py") is None
-    assert _init_version(package_root / "EAI_hmrs" / "__init__.py") == "1.0.0"
