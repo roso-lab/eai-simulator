@@ -301,96 +301,18 @@ def _rollback_failed_orsus_ros_graph(
 
 
 def setup_pending_orsus_ros_graphs() -> int:
-    """Create RTX LiDAR publishers and instance-safe odometry graphs."""
+    """Create instance-safe RTX LiDAR publishers for pending Orsus instances."""
     if not _orsus_ros_graph_requests:
         return 0
 
-    import omni.graph.core as og
-
-    keys = og.Controller.Keys
     created = 0
     stage = omni.usd.get_context().get_stage()
-    for graph_path, (lidar_prim_path, chassis_prim_path, namespace) in tuple(
+    for graph_path, (lidar_prim_path, _chassis_prim_path, namespace) in tuple(
         _orsus_ros_graph_requests.items()
     ):
         render_product_path, writer = _create_orsus_rtx_lidar_publisher(
-            stage,
-            lidar_prim_path,
-            namespace,
+            stage, lidar_prim_path, namespace
         )
-        try:
-            og.Controller.edit(
-                {
-                    "graph_path": graph_path,
-                    "evaluator_name": "execution",
-                    "pipeline_stage": (
-                        og.GraphPipelineStage.GRAPH_PIPELINE_STAGE_SIMULATION
-                    ),
-                },
-                {
-                    keys.CREATE_NODES: [
-                        ("on_playback_tick", "omni.graph.action.OnPlaybackTick"),
-                        (
-                            "isaac_read_simulation_time",
-                            "isaacsim.core.nodes.IsaacReadSimulationTime",
-                        ),
-                        (
-                            "isaac_compute_odometry_node",
-                            "isaacsim.core.nodes.IsaacComputeOdometry",
-                        ),
-                        ("ros2_context", "isaacsim.ros2.bridge.ROS2Context"),
-                        (
-                            "ros2_publish_odometry",
-                            "isaacsim.ros2.bridge.ROS2PublishOdometry",
-                        ),
-                    ],
-                    keys.SET_VALUES: [
-                        ("ros2_publish_odometry.inputs:nodeNamespace", namespace),
-                        ("ros2_publish_odometry.inputs:topicName", "_unused_odometry_graph"),
-                        ("ros2_publish_odometry.inputs:odomFrameId", "mapping_init"),
-                    ],
-                    keys.CONNECT: [
-                        (
-                            "on_playback_tick.outputs:tick",
-                            "isaac_compute_odometry_node.inputs:execIn",
-                        ),
-                        (
-                            "isaac_compute_odometry_node.outputs:execOut",
-                            "ros2_publish_odometry.inputs:execIn",
-                        ),
-                        (
-                            "ros2_context.outputs:context",
-                            "ros2_publish_odometry.inputs:context",
-                        ),
-                        (
-                            "isaac_compute_odometry_node.outputs:position",
-                            "ros2_publish_odometry.inputs:position",
-                        ),
-                        (
-                            "isaac_compute_odometry_node.outputs:orientation",
-                            "ros2_publish_odometry.inputs:orientation",
-                        ),
-                        (
-                            "isaac_compute_odometry_node.outputs:linearVelocity",
-                            "ros2_publish_odometry.inputs:linearVelocity",
-                        ),
-                        (
-                            "isaac_compute_odometry_node.outputs:angularVelocity",
-                            "ros2_publish_odometry.inputs:angularVelocity",
-                        ),
-                        (
-                            "isaac_read_simulation_time.outputs:simulationTime",
-                            "ros2_publish_odometry.inputs:timeStamp",
-                        ),
-                    ],
-                },
-            )
-            _bind_orsus_odometry_chassis(stage, graph_path, chassis_prim_path)
-        except Exception:
-            _rollback_failed_orsus_ros_graph(
-                stage, graph_path, lidar_prim_path, render_product_path, writer
-            )
-            raise
         _orsus_ros_resources[graph_path] = (
             lidar_prim_path,
             render_product_path,
@@ -406,6 +328,7 @@ def close_orsus_ros_resources() -> None:
     resources = tuple(_orsus_ros_resources.items())
     _orsus_ros_resources.clear()
     _orsus_ros_graph_requests.clear()
+    _orsus_odometry_instances.clear()
     if not resources:
         return
 

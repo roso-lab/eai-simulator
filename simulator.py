@@ -1929,18 +1929,21 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         )
     finally:
         try:
-            if orsus_odometry_manager is not None:
-                orsus_odometry_manager.close()
-            if orsus_cleanup is not None:
-                orsus_cleanup()
-            if aerial_sensor_manager is not None:
-                aerial_sensor_manager.close()
-            if realsense_imu_manager is not None:
-                realsense_imu_manager.close()
-            if manipulator_manager is not None:
-                manipulator_manager.close()
-            if env is not None:
-                env.close()
+            cleanup_callbacks = (
+                getattr(orsus_odometry_manager, "close", None),
+                orsus_cleanup,
+                getattr(aerial_sensor_manager, "close", None),
+                getattr(realsense_imu_manager, "close", None),
+                getattr(manipulator_manager, "close", None),
+                getattr(env, "close", None),
+            )
+            for cleanup_callback in cleanup_callbacks:
+                if cleanup_callback is None:
+                    continue
+                try:
+                    cleanup_callback()
+                except Exception as exc:
+                    print(f"[EAI Simulator] Cleanup warning: {exc}")
         finally:
             if owns_simulation_app:
                 _prepare_replicator_for_app_close()

@@ -97,7 +97,7 @@ def test_bind_rejects_missing_node_and_failed_target_write():
         _bind(stage)
 
 
-def test_setup_failure_rolls_back_graph_lidar_and_keeps_request(monkeypatch):
+def test_setup_creates_lidar_without_odometry_graph(monkeypatch):
     graph_path = "/Graph"
     lidar_path = "/Robot/Lidar"
     stage = _Stage({graph_path: _Prim(), lidar_path: _Prim()})
@@ -154,18 +154,18 @@ def test_setup_failure_rolls_back_graph_lidar_and_keeps_request(monkeypatch):
         },
     )
 
-    with pytest.raises(RuntimeError, match="bind failed"):
-        namespace["setup_pending_orsus_ros_graphs"]()
+    assert namespace["setup_pending_orsus_ros_graphs"]() == 1
 
-    assert detached == [True]
-    assert destroyed == ["/Render"]
-    assert stage.removed == [graph_path, lidar_path]
-    assert graph_path in requests
-    assert resources == {}
+    assert detached == []
+    assert destroyed == []
+    assert stage.removed == []
+    assert requests == {}
+    assert resources == {graph_path: (lidar_path, "/Render", resources[graph_path][2])}
     edit_payload = ORSUS_SOURCE.read_text(encoding="utf-8")
-    assert '("ros2_context", "isaacsim.ros2.bridge.ROS2Context")' in edit_payload
-    compact_payload = " ".join(edit_payload.split())
-    assert '"ros2_context.outputs:context", "ros2_publish_odometry.inputs:context"' in compact_payload
+    setup_source = edit_payload.split("def setup_pending_orsus_ros_graphs", 1)[1].split(
+        "def close_orsus_ros_resources", 1
+    )[0]
+    assert "ROS2PublishOdometry" not in setup_source
 
 
 def test_rollback_continues_when_cleanup_steps_raise(monkeypatch):

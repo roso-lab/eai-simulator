@@ -45,7 +45,7 @@ def test_manager_publishes_root_pose_velocity_and_closes(monkeypatch):
  data=SimpleNamespace(root_pos_w=Tensor([1,2,3]),root_quat_w=Tensor([1,0,0,0]),root_lin_vel_b=Tensor([.5,.2,0]),root_ang_vel_b=Tensor([0,0,.1]))
  env=SimpleNamespace(scene=SimpleNamespace(articulations={'carter_1':SimpleNamespace(data=data)}),step_dt=.02)
  manager=OrsusOdometryManager(env,{'carter_1':'/carter_1'});env._orsus_odometry_manager=manager
- manager.update(.02);manager.update(.02)
+ manager.update(.02);manager.reset([0]);manager.update(.02)
  assert len(node.publisher.messages)==2
  msg=node.publisher.messages[-1];assert (msg.header.stamp.sec,msg.header.stamp.nanosec)==(0,40_000_000)
  assert msg.header.frame_id=='mapping_init';assert msg.child_frame_id=='carter_1/base_link';assert msg.pose.pose.position.x==1.;assert msg.twist.twist.linear.x==.5
@@ -53,3 +53,15 @@ def test_manager_publishes_root_pose_velocity_and_closes(monkeypatch):
 
 def test_manager_without_instances_does_not_import_ros():
  manager=OrsusOdometryManager(SimpleNamespace(),{});manager.update(.1);assert manager.registered_instances==();manager.close()
+
+def test_constructor_failure_rolls_back_owned_context(monkeypatch):
+ node,state=install_ros(monkeypatch)
+ def fail(*_): raise RuntimeError('publisher failed')
+ node.create_publisher=fail
+ env=SimpleNamespace()
+ try:
+  OrsusOdometryManager(env,{'carter_1':'/custom'})
+ except RuntimeError as exc:
+  assert str(exc)=='publisher failed'
+ else: raise AssertionError('constructor should fail')
+ assert node.destroyed;assert state['shutdown']==1;assert not state['ok']
