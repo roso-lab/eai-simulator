@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from demo.fire_rescue.runtime import llm_presets
+import pytest
+
+from demo.fire_rescue.runtime import llm_presets, rescue_llm
 
 
 def test_presets_reference_api_keys_only_by_environment_variable() -> None:
@@ -24,3 +26,15 @@ def test_preset_mapping_never_returns_literal_api_key() -> None:
 
     assert kwargs["llm_api_key_env"] == original["api_key_env"]
     assert "llm_api_key_default" not in kwargs
+
+
+def test_rescue_llm_rejects_literal_default_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("EAI_TEST_RESCUE_KEY", raising=False)
+    with pytest.raises(RuntimeError, match="EAI_TEST_RESCUE_KEY"):
+        rescue_llm._chat_completion_text(
+            "test",
+            {
+                "llm_api_key_env": "EAI_TEST_RESCUE_KEY",
+                "llm_api_key_default": "must-not-be-used",
+            },
+        )
