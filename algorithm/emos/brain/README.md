@@ -31,10 +31,16 @@ DEEPSEEK_API_KEY=your_api_key_here
 
 
 
-## Testing
+## Lightweight verification
 
-To verify the installation, run the following test scripts:
+From the repository root, check the maintained EMOS brain sources without making an API request:
 
-python test_base.py
-python test_model.py
-python test_discussion.py
+```bash
+python -m py_compile \
+  algorithm/emos/brain/*.py \
+  algorithm/emos/brain/API/*.py \
+  algorithm/emos/brain/actions/*.py \
+  algorithm/emos/brain/skills/*.py
+```
+
+This verifies Python syntax only. It does not validate provider credentials, paid API access, model responses, or simulator integration.

@@ -73,7 +73,7 @@ cd eai-simulator
 ./tools/setup/setup-git-hooks.sh
 ```
 
-The script changes repository configuration by setting `core.hooksPath` to `.githooks`, makes the repository hooks executable, and thereby activates the current `post-checkout` warning. That warning prints destructive delete/recreate advice for nonconforming branch names; never copy that advice.
+The script changes repository configuration by setting `core.hooksPath` to `.githooks`, makes the repository hooks executable, and thereby activates the `post-checkout` warning. For a nonconforming branch name, that warning prints quoted `git branch -m -- ...` rename examples and does not suggest deleting the branch.
 
 After running the helper, diagnose the resulting configuration without running hooks:
 
@@ -312,7 +312,7 @@ The launcher allocates one command tensor per possible agent. Each frame it opti
 
 ### Runtime Interface Snapshot And Shutdown
 
-After the final scene starts, the launcher resolves declared interfaces for the selection and writes `tmp/runtime_interfaces.json`, filtering cmd_vel entries to bridges that actually started. During the loop it refreshes the heartbeat and robot poses about every two seconds. On loop exit it removes only its own snapshot, closes the UR5-configured shared manipulator manager and cmd_vel bridges, then exits the session context. The session owns environment cleanup; it owns application cleanup only when it created the application.
+After the final scene starts, the launcher resolves declared interfaces for the selection and writes `tmp/runtime_interfaces.json`, filtering cmd_vel entries to bridges that actually started. It then installs an owner-scoped lifecycle guard that removes the snapshot before chaining SIGINT/SIGTERM to Kit and also runs through `atexit`; the existing loop `finally` remains an idempotent fallback. During the loop it refreshes the heartbeat and robot poses about every two seconds. On loop exit it removes only its own snapshot, closes the UR5-configured shared manipulator manager and cmd_vel bridges, then exits the session context. The session owns environment cleanup; it owns application cleanup only when it created the application.
 
 ## 7. Source-of-Truth Map
 
