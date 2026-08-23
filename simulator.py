@@ -1760,7 +1760,9 @@ def _session_preflight_args(config: SimulatorLaunchConfig) -> SimpleNamespace:
         device=config.device,
         preflight_output=None,
         enable_cmd_vel_bridge=config.enable_cmd_vel_bridge,
-        disable_orsus_ros_env=config.disable_orsus_ros_env,
+        disable_orsus_ros_env=(
+            config.disable_orsus_ros_env or not config.enable_ros_bridge_extension
+        ),
         ml_framework=config.ml_framework,
         seed=config.seed,
     )
