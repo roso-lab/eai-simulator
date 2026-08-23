@@ -1,3 +1,0 @@
-GitHub to GitLab administrator review test.
-Created on 2026-08-11.
-This change should enter GitHub main only after the GitLab MR is approved.
