@@ -29,9 +29,11 @@ def _attachment_gate(raw: Any, *, field: str, path: Path) -> tuple[str, ...]:
     if raw is None:
         return ()
     values = [raw] if isinstance(raw, str) else raw
-    if not isinstance(values, list) or not values or not all(isinstance(value, str) and value for value in values):
+    if not isinstance(values, list) or not values or not all(
+        isinstance(value, str) and value.strip() for value in values
+    ):
         raise CatalogError(f"{path}: {field} must be a string or a non-empty list of strings")
-    return tuple(value.casefold() for value in values)
+    return tuple(value.strip().casefold() for value in values)
 
 
 def _load_device(path: Path) -> DeviceSpec:
