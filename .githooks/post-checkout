@@ -40,15 +40,10 @@ echo ""
 echo "Branch '$BRANCH_NAME' does not follow naming conventions."
 echo "You will NOT be able to push this branch."
 echo ""
-echo "Please rename it now:"
-echo "  git branch -m $BRANCH_NAME feature/<name>"
-echo "  git branch -m $BRANCH_NAME bugfix/<name>"
-echo "  git branch -m $BRANCH_NAME chore/<name>"
-echo ""
-echo "Or delete and recreate:"
-echo "  git checkout develop"
-echo "  git branch -D $BRANCH_NAME"
-echo "  git checkout -b feature/<proper-name>"
+echo "Please rename it without deleting the branch:"
+printf '  git branch -m -- %q %q\n' "$BRANCH_NAME" 'feature/<name>'
+printf '  git branch -m -- %q %q\n' "$BRANCH_NAME" 'bugfix/<name>'
+printf '  git branch -m -- %q %q\n' "$BRANCH_NAME" 'chore/<name>'
 echo ""
 echo "========================================="
 
