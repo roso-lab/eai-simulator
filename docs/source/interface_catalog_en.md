@@ -61,7 +61,7 @@ The built-in forward-facing monocular camera on MuSHR Nano v2 has separate inter
 
 The MuSHR camera prim and publishers are created only when the `camera` tool is selected. This built-in camera uses the `/camera/*` topics and does not depend on Orsus; MuSHR does not support mounting Orsus. Sensor scenes containing the MuSHR built-in camera or Orsus must use `--num_envs 1`.
 
-Orsus exposes the stereo image interfaces `ros.orsus.left_image` (`/{robot}/Orsus_L_cam`) and `ros.orsus.right_image` (`/{robot}/Orsus_R_cam`). Both use `sensor_msgs/msg/Image` and are also controlled by the Camera Tool. Orsus point-cloud, odometry, and scan output remain controlled by Navigation I/O.
+Orsus exposes the stereo image interfaces `ros.orsus.left_image` (`/{robot}/Orsus_L_cam`) and `ros.orsus.right_image` (`/{robot}/Orsus_R_cam`). Both use `sensor_msgs/msg/Image` and are also controlled by the Camera Tool. Orsus point-cloud, odometry, and scan output remain controlled by Navigation I/O. A standalone LiDAR payload declares and publishes `/cloud` and `/odometry` only when Navigation I/O is also selected.
 
 Use the unified viewer to display every camera topic that exists now or starts later:
 
