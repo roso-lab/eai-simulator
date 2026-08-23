@@ -255,6 +255,17 @@ def _create_orsus_rtx_lidar_publisher(
     return render_product_path, writer
 
 
+def _bind_orsus_odometry_chassis(stage, graph_path: str, chassis_prim_path: str) -> None:
+    node_path = f"{graph_path}/isaac_compute_odometry_node"
+    node_prim = stage.GetPrimAtPath(node_path)
+    if not node_prim or not node_prim.IsValid():
+        raise RuntimeError(f"Orsus odometry node is missing: {node_path}")
+    relationship = node_prim.GetRelationship("inputs:chassisPrim")
+    if not relationship:
+        relationship = node_prim.CreateRelationship("inputs:chassisPrim")
+    relationship.SetTargets([Sdf.Path(chassis_prim_path)])
+
+
 def setup_pending_orsus_ros_graphs() -> int:
     """Create RTX LiDAR publishers and instance-safe odometry graphs."""
     if not _orsus_ros_graph_requests:
@@ -299,10 +310,6 @@ def setup_pending_orsus_ros_graphs() -> int:
                         ),
                     ],
                     keys.SET_VALUES: [
-                        (
-                            "isaac_compute_odometry_node.inputs:chassisPrim",
-                            [Sdf.Path(chassis_prim_path)],
-                        ),
                         ("ros2_publish_odometry.inputs:nodeNamespace", namespace),
                         ("ros2_publish_odometry.inputs:topicName", "odometry"),
                         ("ros2_publish_odometry.inputs:odomFrameId", "mapping_init"),
@@ -339,6 +346,7 @@ def setup_pending_orsus_ros_graphs() -> int:
                     ],
                 },
             )
+            _bind_orsus_odometry_chassis(stage, graph_path, chassis_prim_path)
         except Exception:
             detach = getattr(writer, "detach", None)
             if callable(detach):
