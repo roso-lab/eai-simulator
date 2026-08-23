@@ -73,7 +73,7 @@ cd eai-simulator
 ./tools/setup/setup-git-hooks.sh
 ```
 
-The script changes repository configuration by setting `core.hooksPath` to `.githooks`, makes the repository hooks executable, and thereby activates the current `post-checkout` warning. That warning prints destructive delete/recreate advice for nonconforming branch names; never copy that advice.
+The script changes repository configuration by setting `core.hooksPath` to `.githooks`, makes the repository hooks executable, and thereby activates the `post-checkout` warning. For a nonconforming branch name, that warning prints quoted `git branch -m -- ...` rename examples and does not suggest deleting the branch.
 
 After running the helper, diagnose the resulting configuration without running hooks:
 
