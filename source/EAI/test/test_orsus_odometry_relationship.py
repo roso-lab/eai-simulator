@@ -162,6 +162,10 @@ def test_setup_failure_rolls_back_graph_lidar_and_keeps_request(monkeypatch):
     assert stage.removed == [graph_path, lidar_path]
     assert graph_path in requests
     assert resources == {}
+    edit_payload = ORSUS_SOURCE.read_text(encoding="utf-8")
+    assert '("ros2_context", "isaacsim.ros2.bridge.ROS2Context")' in edit_payload
+    compact_payload = " ".join(edit_payload.split())
+    assert '"ros2_context.outputs:context", "ros2_publish_odometry.inputs:context"' in compact_payload
 
 
 def test_rollback_continues_when_cleanup_steps_raise(monkeypatch):

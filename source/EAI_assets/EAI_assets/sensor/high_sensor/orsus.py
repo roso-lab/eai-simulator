@@ -337,6 +337,7 @@ def setup_pending_orsus_ros_graphs() -> int:
                             "isaac_compute_odometry_node",
                             "isaacsim.core.nodes.IsaacComputeOdometry",
                         ),
+                        ("ros2_context", "isaacsim.ros2.bridge.ROS2Context"),
                         (
                             "ros2_publish_odometry",
                             "isaacsim.ros2.bridge.ROS2PublishOdometry",
@@ -355,6 +356,10 @@ def setup_pending_orsus_ros_graphs() -> int:
                         (
                             "isaac_compute_odometry_node.outputs:execOut",
                             "ros2_publish_odometry.inputs:execIn",
+                        ),
+                        (
+                            "ros2_context.outputs:context",
+                            "ros2_publish_odometry.inputs:context",
                         ),
                         (
                             "isaac_compute_odometry_node.outputs:position",
