@@ -1738,7 +1738,7 @@
           if (payloadTypes.has("orsus") && payloadTypes.has("lidar")) {
             errors.push(robotLabelWithIndex(robot) + " 不能同时挂载 Orsus 与 LiDAR");
           }
-          const hasBuiltinCamera = ["cf2x", "iris", "pegasus", "mushr_v2"].includes(robot.type);
+          const hasBuiltinCamera = ["cf2x", "iris", "pegasus"].includes(robot.type);
           const hasCameraPayload = robot.payloads.some(item => item.type === "orsus" || item.type === "realsense_d455");
           if (robot.tools.includes("camera") && !hasBuiltinCamera && !hasCameraPayload) {
             errors.push(robotLabelWithIndex(robot) + " 的 Camera Tool 需要先挂载 Orsus 或 RealSense D455");
@@ -1897,7 +1897,7 @@
         ].filter(key => compatibilityReason(candidateType, key));
         if (
           robot.tools.includes("camera")
-          && !["cf2x", "iris", "pegasus", "mushr_v2"].includes(candidateType)
+          && !["cf2x", "iris", "pegasus"].includes(candidateType)
           && !robot.payloads.some(item => item.type === "orsus" || item.type === "realsense_d455")
         ) {
           return "Camera Tool 在该 Robot 上需要 Orsus 或 RealSense D455";
@@ -1946,7 +1946,7 @@
           && ["orsus", "realsense_d455"].includes(state.selection.key)
           && !["orsus", "realsense_d455"].includes(key)
           && robot.tools.includes("camera")
-          && !["cf2x", "iris", "pegasus", "mushr_v2"].includes(robot.type)
+          && !["cf2x", "iris", "pegasus"].includes(robot.type)
         ) return "Camera Tool 依赖当前相机载荷";
         if (replacing) {
           if (state.selection.key === key) return "当前 Payload";
@@ -1974,7 +1974,7 @@
         if (incompatible) return incompatible;
         if (
           key === "camera"
-          && !["cf2x", "iris", "pegasus", "mushr_v2"].includes(robot.type)
+          && !["cf2x", "iris", "pegasus"].includes(robot.type)
           && !robot.payloads.some(item => item.type === "orsus" || item.type === "realsense_d455")
         ) return "需先挂载 Orsus 或 RealSense D455";
         if (state.selection.key === key && replacing) return "当前 Tool";
@@ -2350,7 +2350,7 @@
           if (
             ["orsus", "realsense_d455"].includes(selection.key)
             && robot.tools.includes("camera")
-            && !["cf2x", "iris", "pegasus", "mushr_v2"].includes(robot.type)
+            && !["cf2x", "iris", "pegasus"].includes(robot.type)
           ) {
             const label = selection.key === "orsus" ? "Orsus" : "RealSense D455";
             const confirmed = await askConfirmation({

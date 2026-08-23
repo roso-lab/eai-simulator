@@ -2,30 +2,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 id: robot.mushr
-name: MuSHR Front Camera
+name: MuSHR
 category: robot
 models: [mushr_v2]
-description: Built-in front-facing monocular camera for the MuSHR Nano v2.
-interfaces:
-  - id: ros.mushr_camera_image
-    name: Front camera image
-    protocol: ros2
-    direction: output
-    kind: topic
-    endpoint: /{robot}/camera/image_raw
-    data_type: sensor_msgs/msg/Image
-    description: RGB image from the MuSHR built-in front-facing monocular camera.
-    example: ros2 topic echo --once /{robot}/camera/image_raw
-    requires_attachment: camera
-    read_only_test: {type: ros_topic}
-  - id: ros.mushr_camera_info
-    name: Front camera calibration
-    protocol: ros2
-    direction: output
-    kind: topic
-    endpoint: /{robot}/camera/camera_info
-    data_type: sensor_msgs/msg/CameraInfo
-    description: Intrinsic calibration for the MuSHR built-in monocular camera.
-    example: ros2 topic echo --once /{robot}/camera/camera_info
-    requires_attachment: camera
-    read_only_test: {type: ros_topic}
+description: MuSHR Nano v2 robot interfaces; camera output requires an attached RealSense D455.
+interfaces: []
