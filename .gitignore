@@ -149,6 +149,8 @@ test_*.py
 !/tools/ros2/
 !/tools/ros2/tests/
 !/algorithm/nav2/tests/test_*.py
+!/algorithm/TeamWeaver/tests/
+!/algorithm/TeamWeaver/tests/*.py
 !/tools/ros2/tests/test_vis_sensors.py
 !/tools/ros2/tests/test_send_manipulator_command.py
 !/tools/ros2/tests/test_send_cmd_vel.py
