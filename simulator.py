@@ -1838,6 +1838,7 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
     aerial_sensor_manager = None
     realsense_imu_manager = None
     orsus_cleanup = None
+    orsus_odometry_manager = None
     try:
         _enable_required_selection_extensions(selection_data)
         if config.enable_ros_bridge_extension:
@@ -1867,6 +1868,14 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         )
 
         orsus_cleanup = close_orsus_ros_resources
+        from EAI.hmrs_ros.orsus_odometry import (
+            OrsusOdometryManager, attach_orsus_odometry_manager,
+            orsus_odometry_instance_registry,
+        )
+        orsus_odometry_manager = OrsusOdometryManager(
+            base_env, orsus_odometry_instance_registry()
+        )
+        attach_orsus_odometry_manager(base_env, orsus_odometry_manager)
         orsus_graph_count = setup_pending_orsus_ros_graphs()
         if orsus_graph_count:
             print(
@@ -1907,6 +1916,8 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         )
     finally:
         try:
+            if orsus_odometry_manager is not None:
+                orsus_odometry_manager.close()
             if orsus_cleanup is not None:
                 orsus_cleanup()
             if aerial_sensor_manager is not None:
