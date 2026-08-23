@@ -1381,13 +1381,13 @@ def cmd_vel_bridge_robot_names(
     return tuple(enabled)
 
 
-def ur5_attachment_robot_names(
+def manipulator_attachment_robot_models(
     selection_data: dict[str, Any] | None,
     *,
     possible_agents: list[str] | tuple[str, ...],
     env_cfg: Any | None = None,
-) -> tuple[str, ...]:
-    enabled: set[str] = set()
+) -> tuple[tuple[str, str], ...]:
+    enabled: set[tuple[str, str]] = set()
     agent_set = set(possible_agents)
     if selection_data:
         type_counts: dict[str, int] = {}
@@ -1402,31 +1402,39 @@ def ur5_attachment_robot_names(
                 if index < len(possible_agents)
                 else default_name
             )
-            attachment_types = {str(item.get("type", "")).lower() for item in robot.get("attachments", [])}
-            if "ur5" in attachment_types:
-                enabled.add(agent_name)
+            attachment_types = {
+                str(item.get("type", "")).lower() for item in robot.get("attachments", [])
+            }
+            enabled.update((agent_name, model) for model in ("ur5", "z1") if model in attachment_types)
 
     controllers = getattr(env_cfg, "controllers", {}) if env_cfg is not None else {}
     for agent_name, entry in controllers.items():
         configs = entry if isinstance(entry, (tuple, list)) else (entry,)
-        if any("ur5" in f"{type(config).__module__}.{type(config).__name__}".lower() for config in configs):
-            enabled.add(agent_name)
-    return tuple(agent for agent in possible_agents if agent in enabled)
+        identities = tuple(f"{type(config).__module__}.{type(config).__name__}".lower() for config in configs)
+        for model in ("ur5", "z1"):
+            if any(model in identity for identity in identities):
+                enabled.add((agent_name, model))
+    return tuple(
+        (agent_name, model)
+        for agent_name in possible_agents
+        for model in ("ur5", "z1")
+        if (agent_name, model) in enabled
+    )
 
 
-def _setup_ur5_graph_manager(
+def _setup_manipulator_graph_manager(
     *,
     base_env: Any,
     selection_data: dict[str, Any] | None,
     possible_agents: list[str],
     env_cfg: Any,
 ):
-    robot_names = ur5_attachment_robot_names(
+    selected = manipulator_attachment_robot_models(
         selection_data,
         possible_agents=possible_agents,
         env_cfg=env_cfg,
     )
-    if not robot_names:
+    if not selected:
         return None
     from EAI.hmrs_ros.manipulator_omnigraph import (
         ManipulatorOmniGraphManager,
@@ -1434,17 +1442,20 @@ def _setup_ur5_graph_manager(
         get_manipulator_graph_manager,
     )
     from EAI.hmrs_ros.ur5_omnigraph import UR5_MODEL_SPEC
+    from EAI.hmrs_ros.z1_omnigraph import Z1_MODEL_SPEC
 
+    model_specs = {"ur5": UR5_MODEL_SPEC, "z1": Z1_MODEL_SPEC}
     manager = get_manipulator_graph_manager(base_env)
     created_manager = manager is None
     if manager is None:
         manager = ManipulatorOmniGraphManager()
     registered = set(getattr(manager, "registered_instances", ()))
-    active = []
-    for robot_name in robot_names:
-        key = (robot_name, UR5_MODEL_SPEC.model)
-        if key in registered or manager.setup_robot(robot_name, UR5_MODEL_SPEC):
-            active.append(robot_name)
+    active: list[tuple[str, str]] = []
+    for robot_name, model_name in selected:
+        model_spec = model_specs[model_name]
+        key = (robot_name, model_spec.model)
+        if key in registered or manager.setup_robot(robot_name, model_spec):
+            active.append(key)
     if not active:
         if created_manager:
             manager.close()
@@ -1452,7 +1463,7 @@ def _setup_ur5_graph_manager(
     attach_manipulator_graph_manager(base_env, manager)
     setup = getattr(base_env, "_manipulator_setup_instances", set())
     base_env._manipulator_setup_instances = setup
-    setup.update((robot_name, UR5_MODEL_SPEC.model) for robot_name in active)
+    setup.update(active)
     return manager
 
 
@@ -1834,7 +1845,7 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         simulation_app = config.existing_simulation_app
     _silence_simulation_manager_time_log_spam()
     env = None
-    ur5_manager = None
+    manipulator_manager = None
     aerial_sensor_manager = None
     realsense_imu_manager = None
     orsus_cleanup = None
@@ -1874,9 +1885,11 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
                 "Orsus RTX LiDAR/odometry publisher set(s)."
             )
         if config.enable_ros_bridge_extension:
-            ur5_manager = getattr(base_env, "_ur5_ros2_manager", None)
-            if ur5_manager is None:
-                ur5_manager = _setup_ur5_graph_manager(
+            from EAI.hmrs_ros.manipulator_omnigraph import get_manipulator_graph_manager
+
+            manipulator_manager = get_manipulator_graph_manager(base_env)
+            if manipulator_manager is None:
+                manipulator_manager = _setup_manipulator_graph_manager(
                     base_env=base_env,
                     selection_data=selection_data,
                     possible_agents=possible_agents,
@@ -1913,8 +1926,8 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
                 aerial_sensor_manager.close()
             if realsense_imu_manager is not None:
                 realsense_imu_manager.close()
-            if ur5_manager is not None:
-                ur5_manager.close()
+            if manipulator_manager is not None:
+                manipulator_manager.close()
             if env is not None:
                 env.close()
         finally:
@@ -2077,9 +2090,11 @@ def main() -> None:
                         yaw_tensor.unsqueeze(0),
                     )
 
-        ur5_manager = getattr(base_env, "_ur5_ros2_manager", None)
-        if ur5_manager is None:
-            ur5_manager = _setup_ur5_graph_manager(
+        from EAI.hmrs_ros.manipulator_omnigraph import get_manipulator_graph_manager
+
+        manipulator_manager = get_manipulator_graph_manager(base_env)
+        if manipulator_manager is None:
+            manipulator_manager = _setup_manipulator_graph_manager(
                 base_env=base_env,
                 selection_data=selection_data,
                 possible_agents=possible_agents,
@@ -2176,8 +2191,8 @@ def main() -> None:
 
             remove_snapshot(snapshot_path)
             snapshot_lifecycle.__exit__(*sys.exc_info())
-            if ur5_manager is not None:
-                ur5_manager.close()
+            if manipulator_manager is not None:
+                manipulator_manager.close()
             for bridge in bridges.values():
                 bridge.cleanup()
     finally:
