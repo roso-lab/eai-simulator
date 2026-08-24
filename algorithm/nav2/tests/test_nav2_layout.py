@@ -3,7 +3,9 @@ import importlib.util
 import os
 import re
 import shlex
+import shutil
 import signal
+import stat
 import subprocess
 import sys
 import time
@@ -52,6 +54,7 @@ GENERATED_FILES = {
     "pointcloud_to_laserscan.yaml",
     "view.rviz",
 }
+PLANE_GENERATED_FILES = GENERATED_FILES | {"plane_map.yaml", "plane_map.pgm"}
 EXPECTED_LAYOUT = PROMOTED_FILES | {
     "tests/test_nav2_layout.py",
     "tests/test_nav2_plugin_names.py",
@@ -238,6 +241,7 @@ def test_nav2_setup_generates_exact_offline_configuration_set(tmp_path):
     )
     assert result.returncode == 0, result.stderr
 
+    assert stat.S_IMODE(out_dir.stat().st_mode) == 0o700
     assert {path.name for path in out_dir.iterdir()} == GENERATED_FILES
     assert isinstance(
         yaml.safe_load((out_dir / "nav2_params.yaml").read_text(encoding="utf-8")),
@@ -266,6 +270,185 @@ def test_nav2_setup_generates_exact_offline_configuration_set(tmp_path):
         ),
     }
     assert_tracked(Path(values["MAP"]))
+
+
+
+def test_nav2_setup_default_output_uses_unique_owner_private_directory():
+    common_args = [
+        sys.executable,
+        str(NAV2_SETUP),
+        "--robot",
+        "carter_1",
+        "--robot-type",
+        "Carter",
+        "--sensor",
+        "orsus",
+        "--scene",
+        "factory",
+        "--pose=-3,0,0",
+    ]
+    results = [
+        subprocess.run(
+            common_args,
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        for _ in range(2)
+    ]
+
+    output_dirs = []
+    for result in results:
+        assert result.returncode == 0, result.stderr
+        values = {}
+        for line in result.stdout.splitlines():
+            key, separator, value = line.partition("=")
+            if separator and key in {"PARAMS", "PC2SCAN", "RVIZ"}:
+                values[key] = Path(value)
+        assert set(values) == {"PARAMS", "PC2SCAN", "RVIZ"}
+        out_dir = values["PARAMS"].parent
+        output_dirs.append(out_dir)
+        assert stat.S_IMODE(out_dir.stat().st_mode) == 0o700
+        assert {path.name for path in out_dir.iterdir()} == GENERATED_FILES
+        assert values["PC2SCAN"].parent == out_dir
+        assert values["RVIZ"].parent == out_dir
+        assert out_dir.name.startswith("eai_nav2_carter_1.")
+
+    assert output_dirs[0] != output_dirs[1]
+    for out_dir in output_dirs:
+        shutil.rmtree(out_dir)
+
+
+def test_nav2_setup_rejects_unsafe_explicit_output_paths(tmp_path):
+    unsafe_dir = tmp_path / "unsafe"
+    unsafe_dir.mkdir()
+    unsafe_dir.chmod(0o755)
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(NAV2_SETUP),
+            "--robot",
+            "carter_1",
+            "--robot-type",
+            "Carter",
+            "--sensor",
+            "orsus",
+            "--scene",
+            "factory",
+            "--pose=-3,0,0",
+            "--out",
+            str(unsafe_dir),
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "must not be accessible by group/other" in result.stderr
+
+
+def test_nav2_setup_rejects_symlinked_generated_outputs(tmp_path):
+    out_dir = tmp_path / "safe"
+    out_dir.mkdir(mode=0o700)
+    symlink_target = tmp_path / "target.yaml"
+    symlink_target.write_text("do not overwrite", encoding="utf-8")
+    (out_dir / "nav2_params.yaml").symlink_to(symlink_target)
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(NAV2_SETUP),
+            "--robot",
+            "carter_1",
+            "--robot-type",
+            "Carter",
+            "--sensor",
+            "orsus",
+            "--scene",
+            "factory",
+            "--pose=-3,0,0",
+            "--out",
+            str(out_dir),
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "Refusing to write symlinked Nav2 output" in result.stderr
+    assert symlink_target.read_text(encoding="utf-8") == "do not overwrite"
+
+
+def test_nav2_setup_rejects_symlinked_plane_map_image(tmp_path):
+    out_dir = tmp_path / "safe"
+    out_dir.mkdir(mode=0o700)
+    symlink_target = tmp_path / "external.pgm"
+    symlink_target.write_bytes(b"external map")
+    (out_dir / "plane_map.pgm").symlink_to(symlink_target)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(NAV2_SETUP),
+            "--robot",
+            "carter_1",
+            "--robot-type",
+            "Carter",
+            "--sensor",
+            "orsus",
+            "--scene",
+            "plane",
+            "--pose=-3,0,0",
+            "--out",
+            str(out_dir),
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "Refusing to write symlinked Nav2 output" in result.stderr
+    assert symlink_target.read_bytes() == b"external map"
+
+
+def test_nav2_setup_rejects_hardlinked_generated_outputs(tmp_path):
+    out_dir = tmp_path / "safe"
+    out_dir.mkdir(mode=0o700)
+    hardlink_target = tmp_path / "target.yaml"
+    hardlink_target.write_text("do not overwrite", encoding="utf-8")
+    (out_dir / "nav2_params.yaml").hardlink_to(hardlink_target)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(NAV2_SETUP),
+            "--robot",
+            "carter_1",
+            "--robot-type",
+            "Carter",
+            "--sensor",
+            "orsus",
+            "--scene",
+            "factory",
+            "--pose=-3,0,0",
+            "--out",
+            str(out_dir),
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "Refusing to replace hardlinked Nav2 output" in result.stderr
+    assert hardlink_target.read_text(encoding="utf-8") == "do not overwrite"
 
 
 def test_all_promoted_python_entrypoints_parse_without_importing_ros():
@@ -578,6 +761,8 @@ def test_simulator_and_nav2_launches_close_the_pid_capture_signal_window():
     run_script = (NAV2_DIR / "run_nav2.sh").read_text(encoding="utf-8")
 
     assert run_script.count("begin_process_group_launch") == 3
+    assert "mktemp -d" in run_script
+    assert 'out_dir:="$3"' in run_script
     assert run_script.count('complete_process_group_launch SIM_PID "$!"') == 1
     assert run_script.count('complete_process_group_launch NAV2_PID "$!"') == 1
 
