@@ -65,6 +65,7 @@ def resolve_scene_interfaces(
             or f"{robot_type}_{type_counts[normalized_type]}"
         )
         attachments = [str(item.get("type")) for item in robot.get("attachments", [])]
+        normalized_attachments = {attachment.casefold() for attachment in attachments}
         targets = [(device, None) for device in catalog.devices if device.category == "robot" and device.matches_model(robot_type)]
         targets.extend(
             (device, attachment)
@@ -81,7 +82,11 @@ def resolve_scene_interfaces(
                 "index": index,
             }
             for interface in device.interfaces:
-                if interface.requires_attachment and interface.requires_attachment not in attachments:
+                if interface.requires_attachments and not all(
+                    attachment in normalized_attachments for attachment in interface.requires_attachments
+                ):
+                    continue
+                if any(attachment in normalized_attachments for attachment in interface.excludes_attachments):
                     continue
                 resolved.append(
                     ResolvedInterface(

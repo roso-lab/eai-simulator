@@ -67,9 +67,8 @@ TOOL_ASSET_NAMES = {
 }
 
 # Robots that carry a built-in monocular camera, so the Camera tool does not
-# require a Orsus stereo payload. Aerial robots publish through the aerial
-# sensor suite; MuSHR publishes through its own front-facing camera.
-BUILTIN_CAMERA_ROBOTS = frozenset({"cf2x", "iris", "pegasus", "mushr_v2"})
+# require an Orsus or RealSense D455 payload.
+BUILTIN_CAMERA_ROBOTS = frozenset({"cf2x", "iris", "pegasus"})
 
 _DEFAULT_CONTROLLER_CFG = {
     "carter": "CARTER_DIFF_CFG",
@@ -191,9 +190,9 @@ def _attachment_entries() -> tuple[AttachmentCatalogEntry, ...]:
     orsus_hosts = (
         "carter", "go2", "b2", "m20", "scout", "coco", "lite3",
     )
+    # Keep terminal and 3D authoring aligned with the option 1 visual catalog.
     lidar_hosts = (
-        "carter", "pepper", "go2", "b2", "m20", "scout", "mushr_v2",
-        "coco", "g1", "lite3",
+        "carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3",
     )
     ur5_hosts = ("go2", "b2", "m20", "scout", "lite3")
     z1_hosts = ("carter", "go2", "b2", "m20", "scout", "lite3")
