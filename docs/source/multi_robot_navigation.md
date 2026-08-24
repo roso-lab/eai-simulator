@@ -52,7 +52,7 @@ EAI_DBCBS_BUILD_JOBS=8 algorithm/multi_robot_navigation/build_native.sh
 启动三机器人 Factory 场景：
 
 ```bash
-python -m algorithm.multi_robot_navigation.test.main \
+python -m algorithm.multi_robot_navigation.integration \
   --env dbcbs_slam_team --real-time
 ```
 
@@ -72,7 +72,7 @@ python -m algorithm.multi_robot_navigation.test.main \
 使用 `--goal ROBOT:X,Y` 可以重复指定部分机器人：
 
 ```bash
-python -m algorithm.multi_robot_navigation.test.main \
+python -m algorithm.multi_robot_navigation.integration \
   --env dbcbs_slam_team \
   --goal carter_1:3.0,3.0 \
   --goal go2_1:-2.0,1.0 \
@@ -82,7 +82,7 @@ python -m algorithm.multi_robot_navigation.test.main \
 让所有地面机器人循环交换初始位置：
 
 ```bash
-python -m algorithm.multi_robot_navigation.test.main \
+python -m algorithm.multi_robot_navigation.integration \
   --env dbcbs_slam_team --exchange --real-time
 ```
 
@@ -99,7 +99,7 @@ airs, desert, factory, garden, hospital, plane, warehouse
 场景几何发生变化或使用自定义场景时，应显式传入匹配的地图：
 
 ```bash
-python -m algorithm.multi_robot_navigation.test.main \
+python -m algorithm.multi_robot_navigation.integration \
   --env my_env \
   --map-yaml /absolute/path/to/map.yaml \
   --goal carter_1:2.0,-1.0 \

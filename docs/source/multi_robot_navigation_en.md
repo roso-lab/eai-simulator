@@ -52,7 +52,7 @@ After a successful build, the script automatically prepares the motion primitive
 Launch the three-robot Factory scene:
 
 ```bash
-python -m algorithm.multi_robot_navigation.test.main \
+python -m algorithm.multi_robot_navigation.integration \
   --env dbcbs_slam_team --real-time
 ```
 
@@ -72,7 +72,7 @@ Interactive mode needs a visible viewport and cannot be combined with `--headles
 Repeat `--goal ROBOT:X,Y` to assign only part of the team:
 
 ```bash
-python -m algorithm.multi_robot_navigation.test.main \
+python -m algorithm.multi_robot_navigation.integration \
   --env dbcbs_slam_team \
   --goal carter_1:3.0,3.0 \
   --goal go2_1:-2.0,1.0 \
@@ -82,7 +82,7 @@ python -m algorithm.multi_robot_navigation.test.main \
 Cycle every ground robot to the next robot's initial position:
 
 ```bash
-python -m algorithm.multi_robot_navigation.test.main \
+python -m algorithm.multi_robot_navigation.integration \
   --env dbcbs_slam_team --exchange --real-time
 ```
 
@@ -99,7 +99,7 @@ airs, desert, factory, garden, hospital, plane, warehouse
 Pass a matching map explicitly when scene geometry changes or when using a custom scene:
 
 ```bash
-python -m algorithm.multi_robot_navigation.test.main \
+python -m algorithm.multi_robot_navigation.integration \
   --env my_env \
   --map-yaml /absolute/path/to/map.yaml \
   --goal carter_1:2.0,-1.0 \
