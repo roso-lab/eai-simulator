@@ -20,7 +20,7 @@ from typing import Any, Callable, Iterator
 
 
 KEYBOARD_CMD_VEL_GOAL_STEP_SCALE = 0.2
-_ORSUS_RTX_PRELOAD_KIT_ARGS = (
+_RTX_LIDAR_PRELOAD_KIT_ARGS = (
     "--enable omni.usd.schema.omni_sensors --enable isaacsim.sensors.rtx"
 )
 
@@ -369,7 +369,10 @@ def _warn_if_inotify_limits_are_low() -> None:
 def _enable_required_selection_extensions(selection_data: dict[str, Any] | None) -> None:
     if _selection_requires_omnigraph(selection_data):
         _enable_isaac_extension("omni.graph")
-    if _selection_has_attachment(selection_data, "orsus"):
+    if any(
+        _selection_has_attachment(selection_data, attachment)
+        for attachment in ("orsus", "lidar")
+    ):
         _enable_isaac_extension("isaacsim.sensors.rtx")
 
 
@@ -1236,7 +1239,7 @@ def _run_diy_3d_authoring_in_process(
         launcher_options["enable_cameras"] = True
         existing_kit_args = str(launcher_options.get("kit_args", "")).strip()
         launcher_options["kit_args"] = " ".join(
-            item for item in (existing_kit_args, _ORSUS_RTX_PRELOAD_KIT_ARGS) if item
+            item for item in (existing_kit_args, _RTX_LIDAR_PRELOAD_KIT_ARGS) if item
         )
         app_launcher = AppLauncher(launcher_options)
         simulation_app = app_launcher.app
@@ -1787,7 +1790,10 @@ def _app_launcher_args(
 
         if selection_requires_aerial_camera(effective_selection):
             args["enable_cameras"] = True
-        if _selection_has_attachment(effective_selection, "orsus"):
+        has_orsus = _selection_has_attachment(effective_selection, "orsus")
+        has_standalone_lidar = _selection_has_attachment(effective_selection, "lidar")
+        if has_orsus or has_standalone_lidar:
+            args["enable_cameras"] = True
             motion_bvh_args = (
                 "--/renderer/raytracingMotion/enabled=true "
                 "--/renderer/raytracingMotion/enableHydraEngineMasking=true "
@@ -1798,7 +1804,7 @@ def _app_launcher_args(
                 item
                 for item in (
                     existing_kit_args,
-                    _ORSUS_RTX_PRELOAD_KIT_ARGS,
+                    _RTX_LIDAR_PRELOAD_KIT_ARGS,
                     motion_bvh_args,
                 )
                 if item

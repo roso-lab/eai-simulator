@@ -54,7 +54,7 @@ The sensors are installed on the aerial robots by default; image and calibration
 
 MuSHR Nano v2 has no supported built-in camera path. Selecting the Camera Tool by itself does not create a camera prim or declare/publish camera topics for MuSHR. To obtain MuSHR images, explicitly attach RealSense D455 and select Camera; the resulting RGB, depth, and camera-info topics use the RealSense interface declarations. Navigation I/O independently enables the D455 IMU.
 
-Orsus exposes the stereo image interfaces `ros.orsus.left_image` (`/{robot}/Orsus_L_cam`) and `ros.orsus.right_image` (`/{robot}/Orsus_R_cam`). Both use `sensor_msgs/msg/Image` and are also controlled by the Camera Tool. Orsus point-cloud, odometry, and scan output remain controlled by Navigation I/O.
+Orsus exposes the stereo image interfaces `ros.orsus.left_image` (`/{robot}/Orsus_L_cam`) and `ros.orsus.right_image` (`/{robot}/Orsus_R_cam`). Both use `sensor_msgs/msg/Image` and are also controlled by the Camera Tool. Orsus point-cloud, odometry, and scan output remain controlled by Navigation I/O. A standalone LiDAR payload declares and publishes `/cloud` and `/odometry` only when Navigation I/O is also selected.
 
 Use the unified viewer to display every camera topic that exists now or starts later:
 
