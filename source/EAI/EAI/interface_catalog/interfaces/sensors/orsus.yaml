@@ -2,7 +2,7 @@ id: sensor.orsus
 name: Orsus
 category: sensor
 models: [orsus]
-description: Stereo camera, point cloud, odometry, and scan interfaces published by Orsus.
+description: Stereo camera, point cloud, and odometry interfaces published directly by Orsus.
 interfaces:
   - id: ros.orsus.left_image
     name: Left camera image
@@ -46,16 +46,5 @@ interfaces:
     data_type: nav_msgs/msg/Odometry
     description: Orsus odometry output.
     example: ros2 topic echo --once /{robot}/odometry
-    requires_attachment: navigation_io
-    read_only_test: {type: ros_topic}
-  - id: ros.orsus.scan
-    name: Derived laser scan
-    protocol: ros2
-    direction: output
-    kind: topic
-    endpoint: /{robot}/scan
-    data_type: sensor_msgs/msg/LaserScan
-    description: LaserScan derived by the navigation pipeline from the point cloud.
-    example: ros2 topic echo --once /{robot}/scan
     requires_attachment: navigation_io
     read_only_test: {type: ros_topic}
