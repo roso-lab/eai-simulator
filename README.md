@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://releases.ubuntu.com/22.04/"><img src="https://img.shields.io/badge/platform-linux--64-orange.svg" alt="Platform: Linux x86-64"></a>
   <a href="https://docs.isaacsim.omniverse.nvidia.com/5.1.0/index.html"><img src="https://img.shields.io/badge/Isaac%20Sim-5.1-76B900.svg" alt="Isaac Sim 5.1"></a>
-  <a href="https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0-beta.1"><img src="https://img.shields.io/badge/release-v0.1.0--beta.1-007ec6.svg" alt="Release: v0.1.0-beta.1"></a>
+  <a href="https://rosolab.com/roso-lab/eai-simulator/-/tags/v0.1.0-beta.1"><img src="https://img.shields.io/badge/release-v0.1.0--beta.1-007ec6.svg" alt="Release: v0.1.0-beta.1"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
 
@@ -91,7 +91,7 @@ The README summarizes the supported surface. Use the detailed guides as the sour
 
 ## Releases & Roadmap
 
-- **[v0.1.0-beta.1 Release Notes](https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0-beta.1):** review the capabilities, runtime requirements, and known caveats included in the current beta.
+- **[v0.1.0-beta.1 Source Tag](https://rosolab.com/roso-lab/eai-simulator/-/tags/v0.1.0-beta.1):** review the source snapshot for the current beta; release notes will be published from the same tag.
 - **[Roadmap](https://www.rosolab.com/roso-lab/eai-simulator/docs/roadmap.html):** discover the next-stage capabilities still under development and not yet included in the current release.
 
 ## Quick Start
