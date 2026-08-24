@@ -357,8 +357,9 @@ def _create_rtx_lidar_render_product(
     *,
     sensor_asset_path: str | None = None,
     allow_official_asset_fallback: bool = True,
+    create_render_product: bool = True,
 ) -> str | None:
-    """Create an RTX render product from a caller asset or the default HESAI sensor."""
+    """Ensure the RTX sensor exists and optionally create its render product."""
     try:
         from isaacsim.core.experimental.utils.app import enable_extension
         modern = True
@@ -429,6 +430,8 @@ def _create_rtx_lidar_render_product(
         return None
     if not _ensure_rtx_lidar_schema(stage, sensor_path):
         return None
+    if not create_render_product:
+        return sensor_path
 
     omni.kit.app.get_app().update()
     render_product_name = "RosLidar_" + _sanitize_ros_name_component(sensor_path)
@@ -473,6 +476,30 @@ def _apply_ros_lidar_helper_render_product(stage, specific_path: str, render_pro
     if _set_node_attr(stage, helper_node, "inputs:enabled", True):
         updated += 1
     return updated
+
+
+def _repair_ros_lidar_odometry_graph(stage, specific_path: str) -> int:
+    """Repair legacy provider graph connections before OmniGraph evaluates them."""
+    graph_root = f"{specific_path}/Lidar/Graphs/ROS2_publish_Lidar_Odom"
+    compute_node = f"{graph_root}/isaac_compute_odometry_node"
+    publish_node = f"{graph_root}/ros2_publish_odometry"
+    context_node = f"{graph_root}/ros2_context"
+    repaired = 0
+
+    connection_targets = {
+        f"{publish_node}.inputs:execIn": f"{compute_node}.outputs:execOut",
+        f"{publish_node}.inputs:context": f"{context_node}.outputs:context",
+    }
+    for destination, source in connection_targets.items():
+        attribute = stage.GetAttributeAtPath(destination)
+        if not attribute.IsValid():
+            continue
+        current = [str(item) for item in attribute.GetConnections()]
+        if current == [source]:
+            continue
+        attribute.SetConnections([source])
+        repaired += 1
+    return repaired
 
 
 def _fix_ros_lidar_relationships(stage, specific_path: str) -> int:
@@ -527,12 +554,25 @@ def spawn_and_fix_ros_lidar(prim_path, cfg, translation, orientation):
 
         enable_ros_publish = bool(getattr(cfg, "enable_ros_publish", True))
         graph_prim.SetActive(enable_ros_publish)
+        lidar_prim_path = f"{specific_path}/{_ROS_LIDAR_SENSOR_SUFFIX}"
         if not enable_ros_publish:
+            sensor_path = _create_rtx_lidar_render_product(
+                stage,
+                lidar_prim_path,
+                create_render_product=False,
+            )
+            if sensor_path:
+                print(f"[RosLidar] Physical RTX LiDAR: {sensor_path}")
+            else:
+                print(f"[RosLidar] Warning: Failed to create physical RTX LiDAR at {lidar_prim_path}")
             print(f"[RosLidar] Publisher graph: off ({specific_path})")
             continue
 
         namespace = _ros_lidar_namespace_for_instance(cfg, specific_path)
         fixed_count = _fix_ros_lidar_relationships(stage, specific_path)
+        repaired_count = _repair_ros_lidar_odometry_graph(stage, specific_path)
+        if repaired_count:
+            print(f"[RosLidar] Repaired odometry graph for {specific_path} ({repaired_count})")
         if fixed_count:
             print(f"[RosLidar] Fixed graph relationships for {specific_path} ({fixed_count})")
         else:
@@ -544,9 +584,8 @@ def spawn_and_fix_ros_lidar(prim_path, cfg, translation, orientation):
         elif namespace:
             print(f"[RosLidar] Warning: ROS namespace not applied for {specific_path}: {namespace}")
 
-        lidar_prim_path = f"{specific_path}/{_ROS_LIDAR_SENSOR_SUFFIX}"
         render_product_path = _create_rtx_lidar_render_product(stage, lidar_prim_path)
-        if render_product_path and _apply_ros_lidar_helper_render_product(stage, specific_path, render_product_path):
+        if render_product_path and _apply_ros_lidar_helper_render_product(stage, specific_path, render_product_path) == 2:
             print(f"[RosLidar] RTX LiDAR helper: {namespace}/cloud ({render_product_path})")
         else:
             print(f"[RosLidar] Warning: Failed to configure RTX LiDAR helper for {lidar_prim_path}")
