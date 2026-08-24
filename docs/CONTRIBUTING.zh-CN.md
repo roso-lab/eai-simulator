@@ -19,7 +19,6 @@
 ```bash
 git clone https://github.com/roso-lab/eai-simulator.git
 cd eai-simulator
-./tools/setup/setup-git-hooks.sh
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate env_isaaclab
 ./tools/setup/install_packages.sh

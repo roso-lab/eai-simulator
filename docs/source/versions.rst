@@ -19,8 +19,8 @@
 ``0.1.0b1``；``EAI_hmrs`` 的包版本由 ``source/EAI_hmrs/EAI_hmrs/__init__.py``
 中的 ``__version__`` 提供，并由 ``source/EAI_hmrs/setup.py`` 复用同一值。
 
-资源解析默认使用 ``HuangQIjun/eai-simulator-assets`` 的移动 ``main`` 修订。
-发布或可复现运行需要固定 ``EAI_ASSETS_HF_REVISION`` 到明确的不可变标签或提交；
-该资源提供方修订表示外部资源集合的来源，不表示必须与源码标签或任一组件包版本同名。
+资源解析默认使用 ``HuangQIjun/eai-simulator-assets`` 的发布修订 ``v0.1.0-beta.1``。
+发布或可复现运行应使用这个明确的资源标签，只有在维护者显式选择其他可信标签或提交时
+才覆盖 ``EAI_ASSETS_HF_REVISION``；该资源提供方修订表示外部资源集合的来源，不表示必须与任一组件包版本同名。
 
 后续发布历史版本时，本页将提供对应的版本入口。这里不会列出尚未发布的版本或失效链接。

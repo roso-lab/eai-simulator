@@ -25,7 +25,7 @@ from EAI_assets.asset_requirements import (
 
 DEFAULT_HF_REPO = "HuangQIjun/eai-simulator-assets"
 DEFAULT_REPO_TYPE = "dataset"
-DEFAULT_HF_REVISION = "main"
+DEFAULT_HF_REVISION = "v0.1.0-beta.1"
 HF_BASE_URL = "https://huggingface.co"
 
 _HUMAN_CHECKSUM_ALGORITHM = "sha256-path-content-v1"
