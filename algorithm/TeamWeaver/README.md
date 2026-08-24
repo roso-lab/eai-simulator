@@ -174,7 +174,7 @@ for assignment in plan.allocation.assignments:
 PY
 ```
 
-> 注意：`SymbolicWorldState` 是 frozen dataclass，字段较多且都带校验；实际接入时请用 EAI 侧的世界状态采样代码（如 `demo/demo2/world_state.py`）构造，而不是手写空对象。
+> 注意：`SymbolicWorldState` 是 frozen dataclass，字段较多且都带校验；该类型由 `algorithm/TeamWeaver/eai_adapter/task_models.py` 定义并从 `eai_adapter` 导出。实际接入时，调用方应使用自己的 EAI 世界状态采样器构造该对象，而不是手写空对象。
 
 ---
 
