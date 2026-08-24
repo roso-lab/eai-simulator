@@ -190,9 +190,9 @@ def _attachment_entries() -> tuple[AttachmentCatalogEntry, ...]:
     orsus_hosts = (
         "carter", "go2", "b2", "m20", "scout", "coco", "lite3",
     )
+    # Keep terminal and 3D authoring aligned with the option 1 visual catalog.
     lidar_hosts = (
-        "carter", "pepper", "go2", "b2", "m20", "scout", "mushr_v2",
-        "coco", "g1", "lite3",
+        "carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3",
     )
     ur5_hosts = ("go2", "b2", "m20", "scout", "lite3")
     z1_hosts = ("carter", "go2", "b2", "m20", "scout", "lite3")
