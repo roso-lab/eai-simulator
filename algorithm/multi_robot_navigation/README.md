@@ -23,7 +23,7 @@ It does not use a ROS launch file and does not create a second simulator.
 - `maps/`: maintained occupancy maps for built-in EAI scenes.
 - `test_plugin.py`: pure tests that use simulator doubles and do not start
   Isaac Sim.
-- `test/main.py`: runnable Isaac Sim integration entry point for interactive,
+- `integration.py`: runnable Isaac Sim integration entry point for interactive,
   explicit-goal, and exchange missions.
 
 ## Use in any EAI scene
@@ -125,7 +125,7 @@ Open the interactive viewport component:
 ```bash
 cd /path/to/eai-simulator
 conda activate env_isaaclab
-python -m algorithm.multi_robot_navigation.test.main \
+python -m algorithm.multi_robot_navigation.integration \
   --env dbcbs_slam_team --real-time
 ```
 
@@ -139,6 +139,6 @@ Run a non-interactive exchange mission:
 ```bash
 cd /path/to/eai-simulator
 conda activate env_isaaclab
-python -m algorithm.multi_robot_navigation.test.main \
+python -m algorithm.multi_robot_navigation.integration \
   --env dbcbs_slam_team --exchange --real-time
 ```
