@@ -17,6 +17,37 @@
 **/*.pyc
 **/*.pb
 
+# Local secrets and credentials
+.env
+.env.*
+*.env
+*.env.*
+.dev.vars
+.dev.vars.*
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+credentials.json
+token.json
+!.env.example
+!.env.sample
+!.env.template
+!*.env.example
+!*.env.sample
+!*.env.template
+!*.example.env
+!*.sample.env
+!*.template.env
+!*.example.pem
+!*.sample.pem
+!*.example.key
+!*.sample.key
+
 # Docker/Singularity
 **/*.sif
 docker/cluster/exports/
@@ -90,15 +121,9 @@ _build
 # Teleop Recorded Dataset
 /datasets/
 
-# Tests
-tests/
-/source/EAI_assets/test/
-
 # Docker history
 .isaac-lab-docker-history
 ros2_cmd_vel.json
-*.json
-!/source/EAI_hmrs/EAI_hmrs/envs/*.json
 /source/EAI_hmrs/EAI_hmrs/envs/test*.json
 /source/EAI_hmrs/EAI_hmrs/envs/n.json
 *.0
@@ -130,7 +155,6 @@ ros2_cmd_vel.json
 !/source/EAI_assets/EAI_assets/controller/traditional/mushr_ackermann/kinematics.py
 !/source/EAI_assets/EAI_assets/controller/traditional/mushr_ackermann/mushr_ackermann.py
 !/source/EAI_assets/test/
-/source/EAI_assets/test/*
 !/source/EAI_assets/test/test_mushr_ackermann_controller.py
 !/source/EAI_assets/test/test_mushr_v2_registration.py
 
@@ -139,10 +163,7 @@ ros2_cmd_vel.json
 !/usd/picture/
 !/usd/picture/**
 /source/EAI_assets/EAI_assets/controller/
-/source/EAI_assets/test/
 /docs/test-reports/
-test_*.py
-*_test.py
 
 # Tracked lightweight tests for the asset-library showcase tool.
 !/tools/test_asset_library_showcase.py
