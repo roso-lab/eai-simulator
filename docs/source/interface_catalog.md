@@ -54,7 +54,7 @@ Iris、Pegasus 和 CF2X 的内置前视单目相机使用相同的 ROS2 接口�
 
 MuSHR Nano v2 没有受支持的内置相机路径。只选择 Camera Tool 不会为 MuSHR 创建相机 prim，也不会声明或发布相机 topic。若需要 MuSHR 图像，必须显式挂载 RealSense D455 并选择 Camera，此时 RGB、深度和 camera-info topic 使用 RealSense 接口声明；Navigation I/O 独立控制 D455 IMU。
 
-Orsus 的双目图像接口为 `ros.orsus.left_image`（`/{robot}/Orsus_L_cam`）和 `ros.orsus.right_image`（`/{robot}/Orsus_R_cam`），消息类型同为 `sensor_msgs/msg/Image`，也由 Camera Tool 控制。Orsus 点云、里程计和 scan 仍由导航接口控制。独立 LiDAR payload 的 `/cloud` 与 `/odometry` 也只在同时选择 Navigation I/O 后声明和发布。
+Orsus 的双目图像接口为 `ros.orsus.left_image`（`/{robot}/Orsus_L_cam`）和 `ros.orsus.right_image`（`/{robot}/Orsus_R_cam`），消息类型同为 `sensor_msgs/msg/Image`，也由 Camera Tool 控制。Orsus 直接发布的点云和里程计由导航接口控制。`/<robot>/scan` 不属于仿真器接口目录；它只在外部 `algorithm/nav2/` 启动 `tf_bridge.py` 与 `pointcloud_to_laserscan` 后生成。独立 LiDAR payload 的 `/cloud` 与 `/odometry` 也只在同时选择 Navigation I/O 后声明和发布。
 
 统一查看当前及稍后启动的全部相机图像：
 
