@@ -1597,29 +1597,7 @@ The unified `nav2.launch.py` runs that generator, starts the TF bridge, converts
 
 The Factory profile uses the tracked `demo/fire_rescue/assets/factory_map.yaml`, so both the profile default and an explicit map argument resolve from a clean source checkout. `run_nav2.sh` can therefore resolve its map without local USD content, but it still assumes the tracked `nav2` environment, a GUI-capable Isaac/ROS installation, and all selected gated assets. Its isolated Nav2 process receives the caller's explicitly set discovery allowlist; unset values retain their middleware defaults. This example assumes a running simulator selection with `carter_1`, exactly one Orsus point-cloud/odometry graph enabled through `orsus` plus Navigation I/O (internal key `navigation_io`), independently enabled Orsus images through Camera (internal key `camera`), matching ROS discovery settings, and a fresh runtime snapshot:
 
-Before launching, run this non-mutating preflight for the exact predictable output directory:
-
-```bash
-EAI_NAV2_OUT=/tmp/eai_nav2_carter_1
-if [[ -e "$EAI_NAV2_OUT" || -L "$EAI_NAV2_OUT" ]]; then
-  if [[ -L "$EAI_NAV2_OUT" || ! -d "$EAI_NAV2_OUT" ]]; then
-    printf 'Refusing unsafe Nav2 output path: %s\n' "$EAI_NAV2_OUT" >&2
-    exit 1
-  fi
-  if [[ "$(stat -c '%u' -- "$EAI_NAV2_OUT")" != "$(id -u)" ]]; then
-    printf 'Nav2 output directory is not owned by the current user: %s\n' "$EAI_NAV2_OUT" >&2
-    exit 1
-  fi
-  for EAI_NAV2_FILE in nav2_params.yaml pointcloud_to_laserscan.yaml view.rviz meta.txt; do
-    if [[ -L "$EAI_NAV2_OUT/$EAI_NAV2_FILE" ]]; then
-      printf 'Refusing symlinked Nav2 output: %s\n' "$EAI_NAV2_OUT/$EAI_NAV2_FILE" >&2
-      exit 1
-    fi
-  done
-fi
-```
-
-`nav2_setup.py` does not enforce ownership or symlink safety before creating and overwriting these outputs. The preflight is subject to a time-of-check/time-of-use race; on an untrusted or shared host, do not launch this workflow and use an isolated session or host instead. Do not delete or replace an existing path merely to make the check pass.
+The default generator path now creates a unique owner-private system temporary directory. If you pass an explicit `out_dir:=...`/`--out`, it must be a directory owned by the current user with no group/other access; generated-file writes also refuse symlink targets. Do not delete or replace an existing path merely to make an explicit output path pass these checks.
 
 ```bash
 source /opt/ros/humble/setup.bash
@@ -1634,7 +1612,7 @@ ros2 launch algorithm/nav2/nav2.launch.py \
   rviz:=true
 ```
 
-The launch uses global node names, `map`/`odom`/`base_link`/`lidar_link` frames, `cmd_vel_nav`, and an un-namespaced `navigate_to_pose` action. It is a single-stack workflow, not a namespaced multi-robot Nav2 launcher; starting a second stack in the same ROS graph causes name/TF/remap collisions. `nav2_setup.py` also defaults to `/tmp/eai_nav2_<robot>`, so concurrent launches for the same robot overwrite the same generated files.
+The launch uses global node names, `map`/`odom`/`base_link`/`lidar_link` frames, `cmd_vel_nav`, and an un-namespaced `navigate_to_pose` action. It is a single-stack workflow, not a namespaced multi-robot Nav2 launcher; starting a second stack in the same ROS graph causes name/TF/remap collisions. `nav2_setup.py` now creates a unique private output directory by default, so concurrent generation for the same robot no longer overwrites the same generated files.
 
 `send_goal.py` targets that global action and must use the same CycloneDDS RMW as the maintained Nav2 launcher. It selects `rmw_cyclonedds_cpp` when `RMW_IMPLEMENTATION` is unset and returns 2 before ROS initialization when an explicit incompatible RMW is present. The client waits up to ten seconds for the server and goal response, then waits 300 seconds by default for the result; `--goal-response-timeout` and `--result-timeout` override the latter two positive finite bounds. A result timeout requests cancellation and returns nonzero. A goal-response timeout cannot establish whether the server accepted the request, so inspect the Nav2 log before retrying. It returns zero only for `GoalStatus.STATUS_SUCCEEDED`; an unavailable server, rejected goal, canceled result, aborted result, or timeout returns nonzero, and an interrupted wait returns 130. Ctrl+C in the goal-client terminal does not own or stop Nav2 or Isaac Sim; stop a one-command workflow from the `run_nav2.sh` terminal. The launcher ignores additional INT/TERM signals while its bounded TERM-to-KILL cleanup is running so repeated Ctrl+C cannot leave one managed process group behind. A zero process exit code is useful automation evidence but still does not prove that the physical/simulated pose is plausible; inspect feedback, final pose, and server logs during live acceptance.
 
@@ -2169,7 +2147,7 @@ A clean committed checkout does not ignore `.internal/`. It is still private/int
 
 Runtime-specific repository output includes `tmp/runtime_interfaces.json`, Env DIY result JSON such as `tmp/task_diy_window_result.json`, preflight payloads when directed below `tmp/`, `ros2_cmd_vel.json`, `*.tmp`, local experiment output, downloaded controllers, external human packs, retarget caches, and custom actions. They are state or materialized dependencies, not source declarations.
 
-System temporary output is outside the repository and has a different lifecycle. Nav2 generation uses paths matching `/tmp/eai_nav2_*`, and `run_nav2.sh` uses `/tmp/eai_nav2_sim.log` and `/tmp/eai_nav2_stack.log`. Other tools use uniquely created system temporary directories for staging. Do not confuse these with repository-relative `tmp/`, and do not remove broad `/tmp` content. A tool that owns a uniquely created path should clean only that validated path.
+System temporary output is outside the repository and has a different lifecycle. Nav2 generation uses owner-private per-run temporary directories; `run_nav2.sh` creates one validated `${TMPDIR:-/tmp}/eai-nav2-run.XXXXXX` directory and places logs plus generated configuration below it. Other tools use uniquely created system temporary directories for staging. Do not confuse these with repository-relative `tmp/`, and do not remove broad `/tmp` content. A tool that owns a uniquely created path should clean only that validated path.
 
 Tracked exceptions are intentional and must be established with the index, not inferred from ignore comments:
 
@@ -2497,9 +2475,9 @@ source /opt/ros/humble/setup.bash
 python simulator.py --env nav2
 ```
 
-**Live Nav2/ROS2 system command.** In a separate shell after the simulator above is running, source ROS2 Humble and require Nav2 including `pointcloud_to_laserscan`, the simulator's fresh `tmp/runtime_interfaces.json`, matching ROS discovery settings, and the tracked Factory map below. It starts a single global Nav2 stack and writes generated configuration below the system temporary directory:
+**Live Nav2/ROS2 system command.** In a separate shell after the simulator above is running, source ROS2 Humble and require Nav2 including `pointcloud_to_laserscan`, the simulator's fresh `tmp/runtime_interfaces.json`, matching ROS discovery settings, and the tracked Factory map below. It starts a single global Nav2 stack and writes generated configuration below a per-run owner-private system temporary directory:
 
-Run the exact `/tmp/eai_nav2_carter_1` ownership and symlink preflight from section 12 immediately before this launch. If the host is shared or untrusted, use an isolated session or host instead.
+No predictable `/tmp/eai_nav2_carter_1` preflight is required for the default path; the generator creates a unique private directory and refuses unsafe explicit output directories or symlinked generated files.
 
 ```bash
 source /opt/ros/humble/setup.bash
@@ -2513,7 +2491,7 @@ ros2 launch algorithm/nav2/nav2.launch.py \
   rviz:=false
 ```
 
-For `carter_1`, `nav2_setup.py` reuses the predictable system path `/tmp/eai_nav2_carter_1` and overwrites `nav2_params.yaml`, `pointcloud_to_laserscan.yaml`, `view.rviz`, and `meta.txt` there. Do not store unrelated or user data in that directory.
+For `carter_1`, `nav2_setup.py` no longer reuses a predictable `/tmp/eai_nav2_carter_1` path by default. It creates a unique owner-private directory, or uses an explicit `out_dir:=...`/`--out` only after owner, permission, directory, and symlink-output checks. Do not store unrelated or user data in generated runtime directories.
 
 `algorithm/nav2/run_nav2.sh` can resolve the tracked Factory profile map from a clean source checkout. It remains an environment-dependent launcher: it starts the default `nav2` selection, forwards only the explicit ROS discovery allowlist into its otherwise isolated Nav2 process, monitors both core process groups, requires GUI/ROS/provider assets, and does not replace the section 12 generation, command-stop, TF, lifecycle, and goal-result checks.
 

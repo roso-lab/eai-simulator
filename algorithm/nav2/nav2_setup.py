@@ -4,11 +4,11 @@ nav2_setup.py —— 按"机器人类型 + 场景"生成 Nav2 配置文件（par
 
 让 Nav2 导航能适配 EAI 多机仿真器不同的机器人/场景，而不是写死 carter+factory。
 读取 nav2_profiles.yaml（物理参数表 + 场景地图表）和 *.template.* 模板，
-把占位符替换成具体值，输出到 --out 目录（默认 /tmp/eai_nav2_<robot>）。
+把占位符替换成具体值，输出到 --out 目录（未指定时创建本用户私有临时目录）。
 
 典型用法（由 nav2.launch.py 自动调用，一般不用手动跑）：
     python3 nav2_setup.py --robot carter_1 --robot-type Carter --sensor auto --scene factory \\
-        --out /tmp/eai_nav2_carter_1
+        --out "$EAI_NAV2_OUT"
 
 参数：
     --robot       机器人实例名（ROS 话题命名空间，如 carter_1 / go2_1）。必填。
@@ -19,7 +19,7 @@ nav2_setup.py —— 按"机器人类型 + 场景"生成 Nav2 配置文件（par
     --map         显式指定地图 yaml（覆盖 scene 查表）。
     --pose        显式初始位姿 "x,y,yaw"（覆盖活动仿真位姿）。
     --runtime-snapshot  活动仿真运行时快照；自动初始位姿的数据源。
-    --out         输出目录。默认 /tmp/eai_nav2_<robot>。
+    --out         输出目录。未指定时创建 0700 权限的临时目录；显式目录必须由当前用户私有拥有。
 
 输出：<out>/{nav2_params.yaml, pointcloud_to_laserscan.yaml, view.rviz, meta.txt}
 并把地图绝对路径打印到 stdout 最后一行（launch 用它传给 map_server）。
@@ -31,12 +31,16 @@ pluginlib 实际声明的查找名——Humble 声明 "pkg/Name" 斜杠名，Jaz
 """
 
 import argparse
+import errno
 import glob
 import json
 import math
 import os
 import re
+import secrets
+import stat
 import sys
+import tempfile
 import time
 import xml.etree.ElementTree as ET
 
@@ -65,6 +69,14 @@ DEFAULT_PROGRESS_REQUIRED_MOVEMENT_RADIUS = 0.5
 DEFAULT_PROGRESS_MOVEMENT_TIME_ALLOWANCE = 10.0
 DEFAULT_INFLATION_RADIUS = 0.55
 SENSOR_TYPES = ("orsus", "lidar")
+GENERATED_OUTPUT_FILES = (
+    "nav2_params.yaml",
+    "pointcloud_to_laserscan.yaml",
+    "view.rviz",
+    "meta.txt",
+    "plane_map.yaml",
+    "plane_map.pgm",
+)
 ROBOT_TYPE_ALIASES = {
     "mushr_v2": "MuSHR Nano v2",
     "mushr nano v2": "MuSHR Nano v2",
@@ -77,6 +89,118 @@ def load_profiles():
     with open(PROFILES, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
+
+
+
+def _current_uid():
+    return os.getuid() if hasattr(os, "getuid") else None
+
+
+def _is_private_mode(mode):
+    return mode & 0o077 == 0
+
+
+def _validate_owner_private_directory(path):
+    try:
+        stat_result = os.lstat(path)
+    except FileNotFoundError:
+        return False
+    if os.path.islink(path):
+        raise ValueError(f"Nav2 output directory must not be a symlink: {path}")
+    if not os.path.isdir(path):
+        raise ValueError(f"Nav2 output path exists but is not a directory: {path}")
+    uid = _current_uid()
+    if uid is not None and stat_result.st_uid != uid:
+        raise ValueError(f"Nav2 output directory is not owned by the current user: {path}")
+    if not _is_private_mode(stat_result.st_mode):
+        raise ValueError(f"Nav2 output directory must not be accessible by group/other: {path}")
+    return True
+
+
+def _create_private_directory(path):
+    old_umask = os.umask(0o077)
+    try:
+        os.makedirs(path, mode=0o700, exist_ok=False)
+    finally:
+        os.umask(old_umask)
+    os.chmod(path, 0o700)
+
+
+def prepare_output_directory(robot_name, explicit_out=None):
+    """Return an owner-private output directory for generated Nav2 runtime files."""
+    if explicit_out:
+        out_dir = os.path.abspath(explicit_out)
+        if _validate_owner_private_directory(out_dir):
+            return out_dir, "explicit"
+        _create_private_directory(out_dir)
+        _validate_owner_private_directory(out_dir)
+        return out_dir, "explicit"
+    safe_robot = re.sub(r"[^A-Za-z0-9_.-]+", "_", robot_name).strip("._-") or "robot"
+    out_dir = tempfile.mkdtemp(prefix=f"eai_nav2_{safe_robot}.")
+    os.chmod(out_dir, 0o700)
+    _validate_owner_private_directory(out_dir)
+    return out_dir, "private_temp"
+
+
+def safe_output_path(out_dir, filename):
+    if filename not in GENERATED_OUTPUT_FILES:
+        raise ValueError(f"unexpected Nav2 output filename: {filename}")
+    return os.path.join(out_dir, filename)
+
+
+def safe_write_output(out_dir, filename, content, *, binary=False):
+    """Atomically replace one allowlisted output below an anchored private directory."""
+    target = safe_output_path(out_dir, filename)
+    dir_flags = os.O_RDONLY
+    if hasattr(os, "O_DIRECTORY"):
+        dir_flags |= os.O_DIRECTORY
+    if hasattr(os, "O_NOFOLLOW"):
+        dir_flags |= os.O_NOFOLLOW
+    try:
+        dir_fd = os.open(out_dir, dir_flags)
+    except OSError as exc:
+        if exc.errno == errno.ELOOP:
+            raise ValueError(f"Nav2 output directory must not be a symlink: {out_dir}") from exc
+        raise
+    temp_name = f".{filename}.tmp.{os.getpid()}.{secrets.token_hex(8)}"
+    temp_fd = None
+    try:
+        directory_stat = os.fstat(dir_fd)
+        uid = _current_uid()
+        if uid is not None and directory_stat.st_uid != uid:
+            raise ValueError(f"Nav2 output directory is not owned by the current user: {out_dir}")
+        if not _is_private_mode(directory_stat.st_mode):
+            raise ValueError(f"Nav2 output directory must not be accessible by group/other: {out_dir}")
+
+        try:
+            existing = os.stat(filename, dir_fd=dir_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            existing = None
+        if existing is not None:
+            if stat.S_ISLNK(existing.st_mode):
+                raise ValueError(f"Refusing to write symlinked Nav2 output: {target}")
+            if existing.st_nlink != 1:
+                raise ValueError(f"Refusing to replace hardlinked Nav2 output: {target}")
+
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        temp_fd = os.open(temp_name, flags, 0o600, dir_fd=dir_fd)
+        mode = "wb" if binary else "w"
+        with os.fdopen(temp_fd, mode, encoding=None if binary else "utf-8") as stream:
+            temp_fd = None
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temp_name, filename, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)
+    finally:
+        if temp_fd is not None:
+            os.close(temp_fd)
+        try:
+            os.unlink(temp_name, dir_fd=dir_fd)
+        except FileNotFoundError:
+            pass
+        os.close(dir_fd)
 
 def resolve_profile(profiles, robot_type, robot_name):
     """按 robot_type 查物理参数；查不到猜测；再查不到用 default（告警）。"""
@@ -100,22 +224,27 @@ def resolve_profile(profiles, robot_type, robot_name):
 
 def ensure_plane_map(out_dir):
     """Generate a blank occupancy map for the flat plane scene."""
-    map_yaml = os.path.join(out_dir, "plane_map.yaml")
-    map_image = os.path.join(out_dir, "plane_map.pgm")
+    map_yaml = safe_output_path(out_dir, "plane_map.yaml")
+    map_image = safe_output_path(out_dir, "plane_map.pgm")
     cells = int(PLANE_MAP_SIZE_M / PLANE_MAP_RESOLUTION)
 
-    if not os.path.exists(map_image):
-        with open(map_image, "wb") as f:
-            f.write(f"P5\n{cells} {cells}\n255\n".encode("ascii"))
-            f.write(bytes([254]) * cells * cells)
+    safe_write_output(
+        out_dir,
+        "plane_map.pgm",
+        f"P5\n{cells} {cells}\n255\n".encode("ascii") + bytes([254]) * cells * cells,
+        binary=True,
+    )
 
-    with open(map_yaml, "w") as f:
-        f.write("image: plane_map.pgm\n")
-        f.write(f"resolution: {PLANE_MAP_RESOLUTION}\n")
-        f.write(f"origin: {PLANE_MAP_ORIGIN}\n")
-        f.write("negate: 0\n")
-        f.write("occupied_thresh: 0.65\n")
-        f.write("free_thresh: 0.196\n")
+    safe_write_output(
+        out_dir,
+        "plane_map.yaml",
+        "image: plane_map.pgm\n"
+        f"resolution: {PLANE_MAP_RESOLUTION}\n"
+        f"origin: {PLANE_MAP_ORIGIN}\n"
+        "negate: 0\n"
+        "occupied_thresh: 0.65\n"
+        "free_thresh: 0.196\n",
+    )
 
     return map_yaml
 
@@ -583,13 +712,15 @@ def main():
         default=DEFAULT_RUNTIME_SNAPSHOT,
         help="活动仿真运行时快照，用于自动获取 AMCL 初始位姿",
     )
-    ap.add_argument("--out", default=None, help="输出目录")
+    ap.add_argument("--out", default=None, help="输出目录；必须是当前用户私有目录")
     args = ap.parse_args()
 
     profiles = load_profiles()
     robot_type, prof = resolve_profile(profiles, args.robot_type, args.robot)
-    out_dir = args.out or f"/tmp/eai_nav2_{args.robot}"
-    os.makedirs(out_dir, exist_ok=True)
+    try:
+        out_dir, out_source = prepare_output_directory(args.robot, args.out)
+    except (OSError, ValueError) as exc:
+        ap.error(str(exc))
     map_path = resolve_map(profiles, args.scene, args.map, out_dir)
     try:
         base_offset_xyz = resolve_nav_base_offset(prof)
@@ -660,34 +791,36 @@ def main():
     })
     rviz = render(RVIZ_TPL, {"@@ROBOT@@": args.robot})
 
-    params_out = os.path.join(out_dir, "nav2_params.yaml")
-    pc2scan_out = os.path.join(out_dir, "pointcloud_to_laserscan.yaml")
-    rviz_out = os.path.join(out_dir, "view.rviz")
-    for path, content in (
-        (params_out, params),
-        (pc2scan_out, pc2scan),
-        (rviz_out, rviz),
+    params_out = safe_output_path(out_dir, "nav2_params.yaml")
+    pc2scan_out = safe_output_path(out_dir, "pointcloud_to_laserscan.yaml")
+    rviz_out = safe_output_path(out_dir, "view.rviz")
+    for filename, content in (
+        ("nav2_params.yaml", params),
+        ("pointcloud_to_laserscan.yaml", pc2scan),
+        ("view.rviz", rviz),
     ):
-        with open(path, "w", encoding="utf-8") as stream:
-            stream.write(content)
+        safe_write_output(out_dir, filename, content)
 
-    with open(os.path.join(out_dir, "meta.txt"), "w", encoding="utf-8") as f:
-        f.write(f"robot={args.robot}\nrobot_type={robot_type}\nscene={args.scene}\n")
-        f.write(f"sensor={sensor}\nsensor_source={sensor_source}\n")
-        f.write(
-            f"map={map_path}\npose={pose}\npose_source={pose_source}\n"
-            f"motion_model={motion}\n"
-        )
-        f.write(f"lidar_xyz={lidar_xyz}\n")
-        f.write(f"lidar_rpy={lidar_rpy}\n")
-        f.write(f"physical_lidar_xyz={physical_lidar_xyz}\n")
-        f.write(f"nav_base_offset_xyz={base_offset_xyz}\n")
-        f.write(f"xy_goal_tolerance={params_subs['@@XY_GOAL_TOLERANCE@@']}\n")
-        f.write(f"yaw_goal_tolerance={params_subs['@@YAW_GOAL_TOLERANCE@@']}\n")
-        f.write(f"inflation_radius={params_subs['@@INFLATION_RADIUS@@']}\n")
-        f.write(f"controller_plugin={prof.get('controller_plugin', 'dwb')}\n")
-        f.write(f"planner_plugin={prof.get('planner_plugin', 'navfn')}\n")
-        f.write(f"plugin_name_overrides={plugin_overrides}\n")
+    meta = []
+    f = meta
+    f.append(f"robot={args.robot}\nrobot_type={robot_type}\nscene={args.scene}\n")
+    f.append(f"out_source={out_source}\n")
+    f.append(f"sensor={sensor}\nsensor_source={sensor_source}\n")
+    f.append(
+        f"map={map_path}\npose={pose}\npose_source={pose_source}\n"
+        f"motion_model={motion}\n"
+    )
+    f.append(f"lidar_xyz={lidar_xyz}\n")
+    f.append(f"lidar_rpy={lidar_rpy}\n")
+    f.append(f"physical_lidar_xyz={physical_lidar_xyz}\n")
+    f.append(f"nav_base_offset_xyz={base_offset_xyz}\n")
+    f.append(f"xy_goal_tolerance={params_subs['@@XY_GOAL_TOLERANCE@@']}\n")
+    f.append(f"yaw_goal_tolerance={params_subs['@@YAW_GOAL_TOLERANCE@@']}\n")
+    f.append(f"inflation_radius={params_subs['@@INFLATION_RADIUS@@']}\n")
+    f.append(f"controller_plugin={prof.get('controller_plugin', 'dwb')}\n")
+    f.append(f"planner_plugin={prof.get('planner_plugin', 'navfn')}\n")
+    f.append(f"plugin_name_overrides={plugin_overrides}\n")
+    safe_write_output(out_dir, "meta.txt", "".join(meta))
 
     print(f"[nav2_setup] ✅ 已生成 Nav2 配置到 {out_dir}")
     print(f"  机器人={args.robot} 类型={robot_type} 场景={args.scene} 传感器={sensor}")
