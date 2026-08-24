@@ -213,7 +213,7 @@ Tracked reusable algorithm entry points are `algorithm/emos/` for scenario-drive
 
 `demo/fire_rescue/` is the tracked Fire Rescue integration demo. `main.py` builds a `SimulatorLaunchConfig` and calls `open_simulator_session(...)`; `experiment.py` applies its demo-specific environment hook; `runtime/algorithm_adapter.py` bridges EAI state/commands to the global planner. The demo depends on the reusable launcher session API, its own map/configuration, and optional EMOS/planner dependencies. It does not create a Gym environment or its own Isaac application.
 
-`algorithm/multi_robot_navigation/test/main.py` is the direct db-CBS integration entry point. It opens one reusable simulator session, constructs `EaiMultiRobotNavigationPlugin`, and supports viewport goal selection, explicit goals, or an exchange mission. It does not launch ROS or create a second simulator application.
+`algorithm/multi_robot_navigation/integration.py` is the direct db-CBS integration entry point. It opens one reusable simulator session, constructs `EaiMultiRobotNavigationPlugin`, and supports viewport goal selection, explicit goals, or an exchange mission. It does not launch ROS or create a second simulator application.
 
 ### Tools
 
@@ -312,7 +312,7 @@ After the final scene starts, the launcher resolves declared interfaces for the 
 | Env DIY lightweight UI and 3D extension | `source/EAI/EAI/hmrs_env/env_diy/`; `source/EAI_env_diy/EAI_env_diy/`; `source/EAI_env_diy/config/extension.toml` | Core Env DIY modules own portable selection behavior; the extension owns Kit UI, preview, downloads, result protocol, and lifecycle declaration. |
 | Stable algorithm entry points | `algorithm/emos/`; `algorithm/TeamWeaver/`; `algorithm/global_planner/`; `algorithm/multi_robot_navigation/`; `algorithm/keyboard/keyboard.py`; `algorithm/nav2/`; `tools/ros2/vis_sensors.py`; `tools/ros2/send_cmd_vel.py`; `tools/ros2/send_manipulator_command.py` | EMOS, TeamWeaver, db-CBS multi-robot navigation, 2D planning, keyboard Twist publishing, and external Nav2 integration are optional clients/integrations. The `tools/ros2/` clients are operational tools, not control algorithms. Keep the core planners, EMOS, and TeamWeaver independent of simulator construction; keep the db-CBS core and EAI adapter together in `multi_robot_navigation/`. db-CBS motion primitives are ignored provider payloads installed only after size and SHA-256 verification. |
 | Fire Rescue demo | `demo/fire_rescue/main.py`; `demo/fire_rescue/experiment.py`; `demo/fire_rescue/runtime/` | Uses the reusable session API and adapts simulator state to demo algorithms. Do not turn its scenario-specific behavior into a core launcher default. |
-| Multi-robot navigation integration | `algorithm/multi_robot_navigation/test/main.py`; `source/EAI_hmrs/EAI_hmrs/envs/dbcbs_slam_team.json` | Exercises the reusable multi-robot navigation component in one simulator session. The test entry point owns CLI and mission choices; the algorithm package owns planning and action generation. |
+| Multi-robot navigation integration | `algorithm/multi_robot_navigation/integration.py`; `source/EAI_hmrs/EAI_hmrs/envs/dbcbs_slam_team.json` | Exercises the reusable multi-robot navigation component in one simulator session. The integration entry point owns CLI and mission choices; the algorithm package owns planning and action generation. |
 | Maintained USD metadata and runtime/generated data | `usd/`; `tmp/`; `source/EAI_assets/EAI_assets/asset_resolver.py` | `usd/` keeps tracked manifests/thumbnails; resolver-managed production assets and `tmp/` output are runtime data. Do not commit resolver downloads or transient output by default. |
 | Tests | `source/EAI/test/`; `source/EAI_assets/test/`; package-local test files discovered by `git ls-files` | Tests are authoritative behavioral evidence for their covered paths. Keep tests lightweight unless an Isaac/ROS integration boundary specifically requires otherwise. |
 
@@ -1062,7 +1062,7 @@ The focused tracked city-traffic test is `source/EAI/test/test_city_traffic_huma
 
 #### Full integration verification
 
-Run through the owning integration with configured dependencies: an EAI `base_env` for EMOS, `algorithm/multi_robot_navigation/test/main.py` plus the built native target for db-CBS, a demo adapter for other planning, system ROS2/Nav2 for ROS programs, and real LLM calls only with approved credentials and cost/network expectations.
+Run through the owning integration with configured dependencies: an EAI `base_env` for EMOS, `algorithm/multi_robot_navigation/integration.py` plus the built native target for db-CBS, a demo adapter for other planning, system ROS2/Nav2 for ROS programs, and real LLM calls only with approved credentials and cost/network expectations.
 
 #### Common omissions
 
@@ -1076,7 +1076,7 @@ Build a tracked end-to-end example that composes the reusable simulator session 
 
 #### Authoritative files
 
-The stable tracked demo is `demo/fire_rescue/`. Its `main.py` owns CLI/session entry, `config.py` configuration, `scenario.py` EMOS scenario construction, `experiment.py` environment hooks and run setup, `runtime/` adapters and loop behavior, `dashboard/` presentation/server code, and `assets/` maintained map inputs. Multi-robot navigation instead keeps its integration runner at `algorithm/multi_robot_navigation/test/main.py`, next to the reusable component and built-in maps.
+The stable tracked demo is `demo/fire_rescue/`. Its `main.py` owns CLI/session entry, `config.py` configuration, `scenario.py` EMOS scenario construction, `experiment.py` environment hooks and run setup, `runtime/` adapters and loop behavior, `dashboard/` presentation/server code, and `assets/` maintained map inputs. Multi-robot navigation instead keeps its integration runner at `algorithm/multi_robot_navigation/integration.py`, next to the reusable component and built-in maps.
 
 #### Related registration/compatibility points
 
