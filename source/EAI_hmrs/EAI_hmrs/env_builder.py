@@ -598,6 +598,7 @@ def build_interactive_env_cfg(
                 prim_path=f"{{ENV_REGEX_NS}}/{name}/{robot.lidar_mount_link}/Lidar",
                 init_state=AssetBaseCfg.InitialStateCfg(pos=robot.lidar_offset, rot=robot.lidar_rot),
                 ros_namespace=f"/{name}",
+                enable_ros_publish=navigation_io_enabled,
             )
 
         # Aerial robots always carry their built-in monocular camera; the Camera

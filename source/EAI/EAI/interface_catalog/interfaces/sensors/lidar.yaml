@@ -13,6 +13,7 @@ interfaces:
     data_type: sensor_msgs/msg/PointCloud2
     description: Raw LiDAR point cloud.
     example: ros2 topic echo --once /{robot}/cloud
+    requires_attachment: navigation_io
     read_only_test: {type: ros_topic}
   - id: ros.lidar.odometry
     name: LiDAR odometry
@@ -23,4 +24,5 @@ interfaces:
     data_type: nav_msgs/msg/Odometry
     description: Odometry output from the LiDAR attachment graph.
     example: ros2 topic echo --once /{robot}/odometry
+    requires_attachment: navigation_io
     read_only_test: {type: ros_topic}
