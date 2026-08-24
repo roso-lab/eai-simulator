@@ -1,36 +1,78 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 from pathlib import Path
 import threading
 import time
 from types import SimpleNamespace
 
-from PIL import Image
 import pytest
-import torch
-import yaml
 
-from algorithm.multi_robot_navigation.map_environment import Environment
-from algorithm.multi_robot_navigation.fetch_motion_primitives import (
-    MotionPrimitiveError,
-    fetch_motion_primitives,
+
+def _missing_optional_dependencies() -> tuple[str, ...]:
+    missing = []
+    for name in ("PIL.Image", "numpy", "torch", "yaml"):
+        try:
+            spec = importlib.util.find_spec(name)
+        except (ImportError, ValueError):
+            spec = None
+        if spec is None:
+            missing.append(name)
+    return tuple(missing)
+
+
+_MISSING_OPTIONAL_DEPENDENCIES = _missing_optional_dependencies()
+pytestmark = pytest.mark.skipif(
+    bool(_MISSING_OPTIONAL_DEPENDENCIES),
+    reason=(
+        "requires optional multi-robot navigation test dependencies: "
+        + ", ".join(_MISSING_OPTIONAL_DEPENDENCIES)
+    ),
 )
-from algorithm.multi_robot_navigation.planner import DbcbsPlan, PlanSample
-from algorithm.multi_robot_navigation.planner import _validate_pairwise_clearance
-from algorithm.multi_robot_navigation.session import (
-    DbcbsNavigationSession,
-    PreparedDbcbsMission,
-)
-from algorithm.multi_robot_navigation.eai_plugin import (
-    EaiMultiRobotNavigationPlugin,
-    builtin_scene_map,
-    is_aerial_robot,
-)
-from algorithm.multi_robot_navigation.interaction import (
-    discover_robot_prim_paths,
-    resolve_robot_from_prim_path,
-)
+
+if not _MISSING_OPTIONAL_DEPENDENCIES:
+    from PIL import Image
+    import torch
+    import yaml
+
+    from algorithm.multi_robot_navigation.map_environment import Environment
+    from algorithm.multi_robot_navigation.fetch_motion_primitives import (
+        MotionPrimitiveError,
+        fetch_motion_primitives,
+    )
+    from algorithm.multi_robot_navigation.planner import DbcbsPlan, PlanSample
+    from algorithm.multi_robot_navigation.planner import _validate_pairwise_clearance
+    from algorithm.multi_robot_navigation.session import (
+        DbcbsNavigationSession,
+        PreparedDbcbsMission,
+    )
+    from algorithm.multi_robot_navigation.eai_plugin import (
+        EaiMultiRobotNavigationPlugin,
+        builtin_scene_map,
+        is_aerial_robot,
+    )
+    from algorithm.multi_robot_navigation.interaction import (
+        discover_robot_prim_paths,
+        resolve_robot_from_prim_path,
+    )
+else:
+    Image = None
+    torch = None
+    yaml = None
+    Environment = None
+    MotionPrimitiveError = None
+    fetch_motion_primitives = None
+    DbcbsPlan = None
+    PlanSample = None
+    _validate_pairwise_clearance = None
+    DbcbsNavigationSession = None
+    PreparedDbcbsMission = None
+    EaiMultiRobotNavigationPlugin = None
+    builtin_scene_map = None
+    is_aerial_robot = None
+    discover_robot_prim_paths = None
+    resolve_robot_from_prim_path = None
 
 
 class _FakeRobot:

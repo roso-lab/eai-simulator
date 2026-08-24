@@ -21,9 +21,9 @@ It does not use a ROS launch file and does not create a second simulator.
 - `interaction.py`: pure USD prim-path selection helpers.
 - `ui.py`: optional Isaac viewport controls and route visualization.
 - `maps/`: maintained occupancy maps for built-in EAI scenes.
-- `test_plugin.py`: pure tests that use simulator doubles and do not start
-  Isaac Sim.
-- `test/main.py`: runnable Isaac Sim integration entry point for interactive,
+- `test_plugin.py`: optional torch-backed tests that use simulator doubles
+  and do not start Isaac Sim; they skip cleanly when torch is unavailable.
+- `integration.py`: runnable Isaac Sim integration entry point for interactive,
   explicit-goal, and exchange missions.
 
 ## Use in any EAI scene
@@ -102,7 +102,7 @@ The native target also requires CMake, a C++17 compiler, Boost, Eigen, FCL,
 yaml-cpp, and Crocoddyl. Base revisions, license paths, and motion-primitive
 provenance are recorded in `native/THIRD_PARTY.md`.
 
-Run the navigation plugin tests without ambient pytest plugins. The test module and its imported map helpers require `torch`, NumPy, Pillow (`PIL`), PyYAML, and pytest during collection, so run it in `env_isaaclab` (or another Python environment where those packages are installed):
+Run the navigation plugin tests without ambient pytest plugins. The module uses simulator doubles and skips cleanly when `torch` is unavailable; to execute the full suite, run it in `env_isaaclab` or another Python environment with `torch`, NumPy, Pillow (`PIL`), PyYAML, and pytest installed:
 
 ```bash
 conda activate env_isaaclab
@@ -125,7 +125,7 @@ Open the interactive viewport component:
 ```bash
 cd /path/to/eai-simulator
 conda activate env_isaaclab
-python -m algorithm.multi_robot_navigation.test.main \
+python -m algorithm.multi_robot_navigation.integration \
   --env dbcbs_slam_team --real-time
 ```
 
@@ -139,6 +139,6 @@ Run a non-interactive exchange mission:
 ```bash
 cd /path/to/eai-simulator
 conda activate env_isaaclab
-python -m algorithm.multi_robot_navigation.test.main \
+python -m algorithm.multi_robot_navigation.integration \
   --env dbcbs_slam_team --exchange --real-time
 ```
