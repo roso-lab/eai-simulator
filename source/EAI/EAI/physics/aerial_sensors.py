@@ -15,8 +15,7 @@ import numpy as np
 
 AERIAL_SENSOR_TYPES = frozenset({"cf2x", "iris", "pegasus"})
 # Robots that carry a built-in monocular camera published by the sensor suite.
-# This is aerial robots plus MuSHR (whose USD already contains the camera housing).
-BUILTIN_CAMERA_TYPES = frozenset({"cf2x", "iris", "pegasus", "mushr_v2"})
+BUILTIN_CAMERA_TYPES = AERIAL_SENSOR_TYPES
 # Public compatibility name retained for callers introduced with the Pegasus
 # sensor suite. It now covers every aerial robot supported by that runtime.
 PEGASUS_AERIAL_TYPES = AERIAL_SENSOR_TYPES
@@ -30,9 +29,6 @@ _CAMERA_MOUNT_LINKS = {
     "cf2x": "body",
     "iris": "body",
     "pegasus": "body",
-    # MuSHR USD 中相机与 camera_link 已被删除，幸存的挂架为
-    # camera_bottom_screw_frame（含 camera_link_joint 固定关节）。
-    "mushr_v2": "mushr_nano/camera_bottom_screw_frame",
 }
 
 
@@ -102,9 +98,8 @@ class AerialSensorRobotSpec:
     """Sensor resources and their independently gated ROS publishers.
 
     Aerial robots own the complete physical/model suite, so their booleans
-    describe ROS publication only. For MuSHR, ``camera`` also identifies its
-    optional built-in camera prim and publisher; aerial-only resources remain
-    disabled.
+    describe ROS publication only. Ground-robot camera providers are handled by
+    their explicit Orsus or RealSense D455 payload runtimes.
     """
 
     robot_name: str
@@ -320,13 +315,6 @@ def aerial_sensor_specs_from_selection(
         }
         navigation_io_enabled = "navigation_io" in attachments
         camera_enabled = "camera" in attachments
-        # MuSHR 改装 RealSense D455 后，D455 即机器人的相机：内置单目相机
-        # 不再由 env_builder 合成（见 env_builder 的 has_realsense 分支），
-        # 因此 aerial 套件也不应为其建图，图像发布完全由 D455 载荷负责。
-        d455_replaces_mushr_camera = (
-            robot_type == "mushr_v2" and "realsense_d455" in attachments
-        )
-        spec_camera = camera_enabled and not d455_replaces_mushr_camera
         default_name = f"{robot_type}_{type_counts[robot_type]}"
         robot_name = (
             default_name
@@ -340,7 +328,7 @@ def aerial_sensor_specs_from_selection(
                 robot_name=robot_name,
                 robot_type=robot_type,
                 base_sensors=navigation_io_enabled and robot_type in _BASE_SENSOR_TYPES,
-                camera=spec_camera,
+                camera=camera_enabled,
                 lidar=navigation_io_enabled and robot_type in AERIAL_SENSOR_TYPES,
                 camera_mount_link=_CAMERA_MOUNT_LINKS[robot_type],
                 lidar_offset=_AERIAL_LIDAR_OFFSETS.get(robot_type, (0.0, 0.0, 0.10)),
@@ -352,9 +340,9 @@ def aerial_sensor_specs_from_selection(
 def selection_requires_aerial_camera(selection_data: Mapping[str, Any] | None) -> bool:
     """Return whether the selection needs sensor rendering at app launch.
 
-    Aerial robots always carry their camera and RTX LiDAR resources.  Ground
-    robots need this launcher flag when a built-in camera (MuSHR) or the Orsus
-    camera publisher is selected.
+    Aerial robots always carry their camera and RTX LiDAR resources. Ground
+    robots need this launcher flag only when an explicitly selected camera
+    provider (Orsus or RealSense D455) is enabled by the camera tool.
     """
     if not selection_data:
         return False
@@ -362,10 +350,19 @@ def selection_requires_aerial_camera(selection_data: Mapping[str, Any] | None) -
         isinstance(robot, Mapping)
         and (
             str(robot.get("type", "")).strip().lower() in AERIAL_SENSOR_TYPES
-            or any(
-                isinstance(item, Mapping)
-                and str(item.get("type", "")).strip().lower() == "camera"
-                for item in robot.get("attachments", ())
+            or {"camera", "orsus"}.issubset(
+                {
+                    str(item.get("type", "")).strip().lower()
+                    for item in robot.get("attachments", ())
+                    if isinstance(item, Mapping)
+                }
+            )
+            or {"camera", "realsense_d455"}.issubset(
+                {
+                    str(item.get("type", "")).strip().lower()
+                    for item in robot.get("attachments", ())
+                    if isinstance(item, Mapping)
+                }
             )
         )
         for robot in selection_data.get("robots", ())
