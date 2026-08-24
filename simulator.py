@@ -302,10 +302,6 @@ def _sensor_scene_single_env_reasons(selection_data: dict[str, Any] | None) -> t
         if robot_type in aerial_types:
             tools = ", ".join(sorted(enabled_tools)) or "default sensors"
             reasons.append(f"robot {index} ({robot_type}: {tools})")
-        elif robot_type == "mushr_v2" and "camera" in attachments:
-            # MuSHR's built-in front camera uses the aerial sensor suite's
-            # single-environment render product, unlike the Orsus stereo path.
-            reasons.append(f"robot {index} (mushr_v2: camera)")
         elif "orsus" in attachments and enabled_tools:
             tools = ", ".join(sorted(enabled_tools))
             reasons.append(f"robot {index} ({robot_type or 'unknown'}: {tools})")
@@ -1763,7 +1759,9 @@ def _session_preflight_args(config: SimulatorLaunchConfig) -> SimpleNamespace:
         device=config.device,
         preflight_output=None,
         enable_cmd_vel_bridge=config.enable_cmd_vel_bridge,
-        disable_orsus_ros_env=config.disable_orsus_ros_env,
+        disable_orsus_ros_env=(
+            config.disable_orsus_ros_env or not config.enable_ros_bridge_extension
+        ),
         ml_framework=config.ml_framework,
         seed=config.seed,
     )
@@ -1835,7 +1833,9 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         app_launcher_args = dict(config.app_launcher_args)
         app_launcher_args["device"] = runtime_device
         config = replace(config, device=runtime_device, app_launcher_args=app_launcher_args)
-    if config.disable_orsus_ros_env:
+    if config.disable_orsus_ros_env or not config.enable_ros_bridge_extension:
+        # Set this before env_builder imports OrsusCfg: the legacy asset module
+        # configures ROS paths at import time unless this guard is present.
         os.environ["EAI_DISABLE_ORSUS_ROS_ENV"] = "1"
     if config.enable_ros_bridge_extension:
         configure_isaac_ros_bridge_env()
@@ -1856,6 +1856,14 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
     realsense_imu_manager = None
     orsus_cleanup = None
     try:
+        from EAI_assets.sensor.high_sensor.orsus import (
+            close_orsus_ros_resources,
+            setup_pending_orsus_ros_graphs,
+        )
+
+        # Register cleanup before env construction: Orsus spawn can enqueue
+        # process-global graph requests before env.reset() succeeds.
+        orsus_cleanup = close_orsus_ros_resources
         _enable_required_selection_extensions(selection_data)
         if config.enable_ros_bridge_extension:
             _enable_isaac_extension("isaacsim.ros2.bridge")
@@ -1878,18 +1886,13 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         # (re-)register their carb logging source while the stage loads,
         # which resets per-source thresholds.
         _silence_simulation_manager_time_log_spam()
-        from EAI_assets.sensor.high_sensor.orsus import (
-            close_orsus_ros_resources,
-            setup_pending_orsus_ros_graphs,
-        )
-
-        orsus_cleanup = close_orsus_ros_resources
-        orsus_graph_count = setup_pending_orsus_ros_graphs()
-        if orsus_graph_count:
-            print(
-                f"[EAI Simulator] Created {orsus_graph_count} instance-safe "
-                "Orsus RTX LiDAR/odometry publisher set(s)."
-            )
+        if config.enable_ros_bridge_extension:
+            orsus_graph_count = setup_pending_orsus_ros_graphs()
+            if orsus_graph_count:
+                print(
+                    f"[EAI Simulator] Created {orsus_graph_count} instance-safe "
+                    "Orsus RTX LiDAR/odometry publisher set(s)."
+                )
         if config.enable_ros_bridge_extension:
             from EAI.hmrs_ros.manipulator_omnigraph import get_manipulator_graph_manager
 
@@ -1926,16 +1929,20 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         )
     finally:
         try:
-            if orsus_cleanup is not None:
-                orsus_cleanup()
-            if aerial_sensor_manager is not None:
-                aerial_sensor_manager.close()
-            if realsense_imu_manager is not None:
-                realsense_imu_manager.close()
-            if manipulator_manager is not None:
-                manipulator_manager.close()
-            if env is not None:
-                env.close()
+            cleanup_callbacks = (
+                orsus_cleanup,
+                getattr(aerial_sensor_manager, "close", None),
+                getattr(realsense_imu_manager, "close", None),
+                getattr(manipulator_manager, "close", None),
+                getattr(env, "close", None),
+            )
+            for cleanup_callback in cleanup_callbacks:
+                if cleanup_callback is None:
+                    continue
+                try:
+                    cleanup_callback()
+                except Exception as exc:
+                    print(f"[EAI Simulator] Cleanup warning: {exc}")
         finally:
             if owns_simulation_app:
                 _prepare_replicator_for_app_close()

@@ -16,7 +16,8 @@ class InterfaceSpec:
     description: str = ""
     example: str = ""
     read_only_test: dict[str, Any] | None = None
-    requires_attachment: str | None = None
+    requires_attachments: tuple[str, ...] = ()
+    excludes_attachments: tuple[str, ...] = ()
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property

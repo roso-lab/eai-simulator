@@ -52,14 +52,7 @@ The built-in forward-facing monocular cameras on Iris, Pegasus, and CF2X use the
 
 The sensors are installed on the aerial robots by default; image and calibration topics are published only when Camera is selected under Tools in Env DIY. The Camera Tool is independent of Navigation I/O, so Camera can be selected on its own. Navigation I/O uses the `navigation_io` key in environment JSON. `{robot}` is replaced by the scene instance name, such as `iris_1`, `pegasus_1`, or `cf2x_1`.
 
-The built-in forward-facing monocular camera on MuSHR Nano v2 has separate interface declarations:
-
-| Interface ID | Endpoint Template | Message Type |
-|---|---|---|
-| `ros.mushr_camera_image` | `/{robot}/camera/image_raw` | `sensor_msgs/msg/Image` |
-| `ros.mushr_camera_info` | `/{robot}/camera/camera_info` | `sensor_msgs/msg/CameraInfo` |
-
-The MuSHR camera prim and publishers are created only when the `camera` tool is selected. This built-in camera uses the `/camera/*` topics and does not depend on Orsus; MuSHR does not support mounting Orsus. Sensor scenes containing the MuSHR built-in camera or Orsus must use `--num_envs 1`.
+MuSHR Nano v2 has no supported built-in camera path. Selecting the Camera Tool by itself does not create a camera prim or declare/publish camera topics for MuSHR. To obtain MuSHR images, explicitly attach RealSense D455 and select Camera; the resulting RGB, depth, and camera-info topics use the RealSense interface declarations. Navigation I/O independently enables the D455 IMU.
 
 Orsus exposes the stereo image interfaces `ros.orsus.left_image` (`/{robot}/Orsus_L_cam`) and `ros.orsus.right_image` (`/{robot}/Orsus_R_cam`). Both use `sensor_msgs/msg/Image` and are also controlled by the Camera Tool. Orsus point-cloud, odometry, and scan output remain controlled by Navigation I/O. A standalone LiDAR payload declares and publishes `/cloud` and `/odometry` only when Navigation I/O is also selected.
 
