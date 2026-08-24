@@ -1,0 +1,314 @@
+name: Synchronize GitLab and GitHub
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  repository_dispatch:
+    types:
+      - gitlab_merge_request
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+  workflow_dispatch:
+    inputs:
+      direction:
+        description: Synchronization direction
+        required: true
+        default: pull
+        type: choice
+        options:
+          - pull
+          - pr
+          - status
+      pr_number:
+        description: GitHub PR number (required for PR synchronization)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: >-
+    gitlab-github-sync-${{
+      github.event.pull_request.number || inputs.pr_number || 'repository'
+    }}
+  cancel-in-progress: false
+
+jobs:
+  pull-from-gitlab:
+    if: >-
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.direction == 'pull') ||
+      (github.event_name == 'repository_dispatch' &&
+        github.event.client_payload.project_id == '1' &&
+        github.event.client_payload.action == 'merge' &&
+        github.event.client_payload.target_branch == 'develop')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      GIT_LFS_SKIP_SMUDGE: "1"
+      GITLAB_REPOSITORY_TOKEN: ${{ secrets.GITLAB_REPOSITORY_TOKEN }}
+
+    steps:
+      - name: Pull GitLab develop and update GitHub main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test -n "$GITLAB_REPOSITORY_TOKEN"
+          mkdir repository
+          cd repository
+
+          git init --initial-branch=main
+          git remote add github \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch github main
+          git checkout --detach FETCH_HEAD
+          github_sha=$(git rev-parse HEAD)
+
+          git remote add gitlab \
+            "https://oauth2:${GITLAB_REPOSITORY_TOKEN}@rosolab.com/roso-lab/eai-simulator.git"
+          git fetch gitlab \
+            develop:refs/remotes/gitlab/develop
+
+          merge_base=$(git merge-base HEAD refs/remotes/gitlab/develop)
+          if ! git diff --quiet "$merge_base" HEAD -- \
+            . \
+            ':(exclude).github/workflows/sync-gitlab.yml' \
+            ':(exclude).github/workflows/sync-failure-recovery.yml'; then
+            echo "::warning::GitHub main has changes awaiting a GitLab merge request; pull skipped."
+            exit 0
+          fi
+
+          if git diff --quiet HEAD refs/remotes/gitlab/develop -- \
+            . \
+            ':(exclude).github/workflows/sync-gitlab.yml' \
+            ':(exclude).github/workflows/sync-failure-recovery.yml' && \
+            git merge-base --is-ancestor refs/remotes/gitlab/develop HEAD; then
+            exit 0
+          fi
+
+          while read -r commit; do
+            git lfs fetch gitlab "$commit"
+          done < <(git rev-list \
+            "${github_sha}..refs/remotes/gitlab/develop")
+          cp .github/workflows/sync-gitlab.yml \
+            "$RUNNER_TEMP/sync-gitlab.yml"
+          cp .github/workflows/sync-failure-recovery.yml \
+            "$RUNNER_TEMP/sync-failure-recovery.yml"
+          git reset --hard refs/remotes/gitlab/develop
+          install -m 755 -d .github/workflows
+          cp "$RUNNER_TEMP/sync-gitlab.yml" \
+            .github/workflows/sync-gitlab.yml
+          cp "$RUNNER_TEMP/sync-failure-recovery.yml" \
+            .github/workflows/sync-failure-recovery.yml
+
+          git add \
+            .github/workflows/sync-gitlab.yml \
+            .github/workflows/sync-failure-recovery.yml
+          git config user.name github-actions\[bot\]
+          git config user.email \
+            41898282+github-actions\[bot\]@users.noreply.github.com
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: preserve GitHub sync workflow"
+          fi
+
+          git push \
+            --force-with-lease="refs/heads/main:${github_sha}" \
+            github HEAD:refs/heads/main
+
+  sync-review-state-from-gitlab:
+    if: >-
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' &&
+        (inputs.direction == 'pull' || inputs.direction == 'status')) ||
+      (github.event_name == 'repository_dispatch' &&
+        github.event.client_payload.project_id == '1' &&
+        startsWith(github.event.client_payload.source_branch, 'github-pr/') &&
+        (github.event.client_payload.action == 'close' ||
+          github.event.client_payload.action == 'reopen'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Synchronize GitLab merge request review states
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITLAB_API_TOKEN: ${{ secrets.GITLAB_API_TOKEN }}
+        run: |
+          test -n "$GITLAB_API_TOKEN"
+
+          declare -A seen_pull_requests
+          page=1
+          while :; do
+            response=$(curl --fail-with-body --silent --show-error \
+              --header "PRIVATE-TOKEN: ${GITLAB_API_TOKEN}" \
+              --get \
+              --data-urlencode scope=all \
+              --data-urlencode state=all \
+              --data-urlencode per_page=100 \
+              --data-urlencode order_by=updated_at \
+              --data-urlencode sort=desc \
+              --data-urlencode "page=${page}" \
+              'https://rosolab.com/api/v4/projects/1/merge_requests')
+            result_count=$(jq 'length' <<<"$response")
+            if [ "$result_count" -eq 0 ]; then
+              break
+            fi
+
+            while IFS=$'\t' read -r source_branch mr_state mr_iid mr_url; do
+              case "$source_branch" in
+                github-pr/*)
+                  pr_number=${source_branch#github-pr/}
+                  ;;
+                *)
+                  continue
+                  ;;
+              esac
+              case "$pr_number" in
+                ''|*[!0-9]*)
+                  continue
+                  ;;
+              esac
+              if [ -n "${seen_pull_requests[$pr_number]:-}" ]; then
+                continue
+              fi
+              seen_pull_requests[$pr_number]=1
+
+              if ! pull_request=$(gh api \
+                "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}"); then
+                echo "::warning::GitHub PR #${pr_number} was not found."
+                continue
+              fi
+              github_state=$(jq -r .state <<<"$pull_request")
+              merged_at=$(jq -r '.merged_at // empty' <<<"$pull_request")
+              if [ -n "$merged_at" ]; then
+                continue
+              fi
+
+              case "${mr_state}:${github_state}" in
+                closed:open)
+                  gh pr close "$pr_number" \
+                    --repo "$GITHUB_REPOSITORY" \
+                    --comment "GitLab MR !${mr_iid} was closed without merging: ${mr_url}. This pull request was closed automatically."
+                  ;;
+                opened:closed)
+                  gh pr reopen "$pr_number" \
+                    --repo "$GITHUB_REPOSITORY"
+                  gh pr comment "$pr_number" \
+                    --repo "$GITHUB_REPOSITORY" \
+                    --body "GitLab MR !${mr_iid} was reopened: ${mr_url}. This pull request was reopened automatically."
+                  ;;
+              esac
+            done < <(jq -r '.[] | [
+              .source_branch,
+              .state,
+              (.iid | tostring),
+              .web_url
+            ] | @tsv' <<<"$response")
+
+            if [ "$result_count" -lt 100 ]; then
+              break
+            fi
+            page=$((page + 1))
+          done
+
+  mirror-github-pr-to-gitlab:
+    if: >-
+      (github.event_name == 'pull_request_target' &&
+        github.event.pull_request.draft == false) ||
+      (github.event_name == 'workflow_dispatch' && inputs.direction == 'pr')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      GIT_LFS_SKIP_SMUDGE: "1"
+      GITLAB_REPOSITORY_TOKEN: ${{ secrets.GITLAB_REPOSITORY_TOKEN }}
+      PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+
+    steps:
+      - name: Mirror GitHub PR to a GitLab merge request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test -n "$GITLAB_REPOSITORY_TOKEN"
+          case "$PR_NUMBER" in
+            ''|*[!0-9]*)
+              echo "::error::A numeric GitHub PR number is required."
+              exit 1
+              ;;
+          esac
+
+          pr_title=$(gh api \
+            "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq .title)
+          pr_url="https://github.com/${GITHUB_REPOSITORY}/pull/${PR_NUMBER}"
+
+          mkdir repository
+          cd repository
+
+          git init --initial-branch=main
+          git remote add github \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git config remote.github.lfsurl \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git/info/lfs"
+          git fetch github \
+            "+refs/pull/${PR_NUMBER}/head:refs/remotes/github/pr/${PR_NUMBER}"
+
+          git remote add gitlab \
+            "https://oauth2:${GITLAB_REPOSITORY_TOKEN}@rosolab.com/roso-lab/eai-simulator.git"
+          git fetch gitlab \
+            develop:refs/remotes/gitlab/develop
+
+          pr_ref="refs/remotes/github/pr/${PR_NUMBER}"
+          if git diff --quiet "$pr_ref" refs/remotes/gitlab/develop -- \
+            . \
+            ':(exclude).github/workflows/sync-gitlab.yml' \
+            ':(exclude).github/workflows/sync-failure-recovery.yml'; then
+            echo "::notice::The pull request has no changes to mirror to GitLab."
+            exit 0
+          fi
+
+          git lfs fetch github "$pr_ref"
+          git checkout -b gitlab-review refs/remotes/gitlab/develop
+          git config user.name github-actions\[bot\]
+          git config user.email \
+            41898282+github-actions\[bot\]@users.noreply.github.com
+          if ! git merge --no-ff --no-commit "$pr_ref"; then
+            git merge --abort
+            echo "::error::The GitHub PR conflicts with GitLab develop. Update the GitHub PR and try again."
+            exit 1
+          fi
+
+          git rm -f --ignore-unmatch \
+            .github/workflows/sync-gitlab.yml \
+            .github/workflows/sync-failure-recovery.yml
+          git commit -m "chore: stage GitHub PR #${PR_NUMBER} for GitLab review"
+
+          gitlab_branch="github-pr/${PR_NUMBER}"
+          sync_sha=$(git ls-remote --heads gitlab \
+            "refs/heads/${gitlab_branch}" | cut -f1)
+          if [ -n "$sync_sha" ]; then
+            lease="--force-with-lease=refs/heads/${gitlab_branch}:${sync_sha}"
+          else
+            lease="--force-with-lease=refs/heads/${gitlab_branch}:"
+          fi
+
+          mr_title="GitHub PR #${PR_NUMBER}: ${pr_title:0:200}"
+          git push "$lease" \
+            -o merge_request.create \
+            -o merge_request.target=develop \
+            -o merge_request.remove_source_branch \
+            -o "merge_request.title=${mr_title}" \
+            -o "merge_request.description=Mirrors ${pr_url}. This branch is managed by GitHub Actions; review and merge this MR without squashing to merge the GitHub PR." \
+            gitlab "HEAD:refs/heads/${gitlab_branch}"
