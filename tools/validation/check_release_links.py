@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate release links and version-domain wording in public README files."""
+"""Validate public release links in README files."""
 
 from __future__ import annotations
 
@@ -9,8 +9,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 RELEASE_NAME = "v0.1.0-beta.1"
-SOURCE_TAG_URL = f"https://rosolab.com/roso-lab/eai-simulator/-/tags/{RELEASE_NAME}"
-MIRROR_RELEASE_URL = f"https://github.com/roso-lab/eai-simulator/releases/tag/{RELEASE_NAME}"
+PUBLIC_RELEASE_URL = f"https://github.com/roso-lab/eai-simulator/releases/tag/{RELEASE_NAME}"
+INTERNAL_SOURCE_TAG_URL = f"https://rosolab.com/roso-lab/eai-simulator/-/tags/{RELEASE_NAME}"
+BADGE_RELEASE_NAME = re.escape(RELEASE_NAME).replace(r"\-", "--")
 README_FILES = [ROOT / "README.md", ROOT / "docs" / "README.zh-CN.md"]
 
 
@@ -27,13 +28,13 @@ def main() -> int:
     for path in README_FILES:
         text = _read(path)
         rel = path.relative_to(ROOT)
-        if MIRROR_RELEASE_URL in text:
-            return _fail(f"{rel} links to the external mirror release page instead of the GitLab source tag")
-        if SOURCE_TAG_URL not in text:
-            return _fail(f"{rel} does not link to the {RELEASE_NAME} source tag")
-        if not re.search(rf"release-{re.escape(RELEASE_NAME).replace('\\-', '--')}", text):
+        if INTERNAL_SOURCE_TAG_URL in text:
+            return _fail(f"{rel} links to the internal GitLab source tag instead of the public GitHub release")
+        if PUBLIC_RELEASE_URL not in text:
+            return _fail(f"{rel} does not link to the {RELEASE_NAME} public GitHub release")
+        if not re.search(rf"release-{BADGE_RELEASE_NAME}", text):
             return _fail(f"{rel} is missing the {RELEASE_NAME} release badge")
-    print(f"PASS: README release links point to the {RELEASE_NAME} GitLab source tag")
+    print(f"PASS: README release links point to the {RELEASE_NAME} public GitHub release")
     return 0
 
 
