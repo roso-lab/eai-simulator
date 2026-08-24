@@ -162,6 +162,7 @@ test_*.py
 !/source/EAI/test/test_orsus_ros_bridge_gate.py
 !/source/EAI/test/test_manipulator_runtime_registration.py
 !/source/EAI/test/test_simulator_runtime_snapshot_lifecycle.py
+!/source/EAI/test/test_orsus_external_scan_boundary.py
 !/source/EAI/test/test_lidar_navigation_io_gate.py
 !/source/EAI/test/test_interface_attachment_exclusion.py
 !/source/EAI/test/test_env_diy_camera_provider_detach.py
