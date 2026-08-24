@@ -33,7 +33,7 @@ All repository paths in this guide are relative to the repository root. All comm
 
 ### Development Tooling
 
-- Node.js 20 LTS or a newer LTS release is required for the tracked Env DIY and OAuth worker checks.
+- Node.js 20 LTS or a newer LTS release is required for the tracked Env DIY runtime check.
 
 ### ROS2 and Python Boundaries
 
@@ -54,7 +54,7 @@ Human rendering remains on the CUDA GPU, but the `UsdHumanStageRuntime` pose/ret
 
 The default gated Hugging Face dataset is `HuangQIjun/eai-simulator-assets`; large assets and model files from that dataset are not all stored in Git. Relevant workflows can require approved dataset access, Hugging Face authentication, network access, local disk capacity, and acceptance of the upstream asset or model terms. Asset resolution uses this dataset by default and reads `EAI_ASSETS_HF_REPO` only as an optional repository-ID override.
 
-The runtime resolver defaults `EAI_ASSETS_HF_REVISION` to the provider's moving `main` revision on `HuangQIjun/eai-simulator-assets`, so provider-backed asset resolution uses the latest published assets by default. Reproducible or release workflows should explicitly set `EAI_ASSETS_HF_REVISION` to an immutable tag or commit.
+The runtime resolver defaults `EAI_ASSETS_HF_REVISION` to the release asset revision `v0.1.0-beta.1` on `HuangQIjun/eai-simulator-assets`. Override it only when intentionally testing another trusted provider revision.
 
 ## 4. First-Time Repository Setup
 
@@ -63,24 +63,6 @@ The runtime resolver defaults `EAI_ASSETS_HF_REVISION` to the provider's moving 
 ```bash
 git clone https://github.com/roso-lab/eai-simulator.git
 cd eai-simulator
-```
-
-### Configure Repository Hooks
-
-**Repository mutation and partial-failure risk.** Review section 16 before running this helper:
-
-```bash
-./tools/setup/setup-git-hooks.sh
-```
-
-The script changes repository configuration by setting `core.hooksPath` to `.githooks`, makes the repository hooks executable, and thereby activates the `post-checkout` warning. For a nonconforming branch name, that warning prints quoted `git branch -m -- ...` rename examples and does not suggest deleting the branch.
-
-After running the helper, diagnose the resulting configuration without running hooks:
-
-```bash
-git config --get core.hooksPath
-find .githooks -maxdepth 1 -type f -perm -u+x -print | sort
-git lfs version
 ```
 
 ### Initialize and Activate Conda
@@ -140,14 +122,11 @@ Authentication does not download every asset in advance. Asset resolvers can fet
 These checks do not start Isaac Sim, use a GPU, load ROS2, or download assets:
 
 ```bash
-git config --get core.hooksPath
-bash -n tools/setup/setup-git-hooks.sh tools/setup/install_packages.sh
 python tools/validation/check_ros_distro_config.py
 python -m pip show EAI EAI_assets EAI_hmrs
 git status --short
 ```
 
-The hook path should be `.githooks`, the shell syntax check should exit successfully, and `pip show` should report all three editable packages. Review `git status --short` rather than assuming setup left the worktree unchanged.
 
 ### Launch the First Simulator Environment
 
@@ -155,7 +134,7 @@ The hook path should be `.githooks`, the shell syntax check should exit successf
 python simulator.py --env robo
 ```
 
-`robo` is the required first full launch. It follows the moving provider `main` revision unless `EAI_ASSETS_HF_REVISION` explicitly pins an immutable tag or commit.
+`robo` is the required first full launch. It follows the release provider revision `v0.1.0-beta.1` unless `EAI_ASSETS_HF_REVISION` explicitly pins an immutable tag or commit.
 
 Remember that `robo` is not a minimal smoke test. Its environment selects ten robots and their controllers, making it a broad, resource-intensive Isaac Sim integration launch. The selection includes an animated human, so a requested CUDA physics device falls back to CPU PhysX; rendering and controller workloads can still require the configured CUDA GPU. The launch can also require network access for gated assets that are not already cached. Run it only after the simulator environment, package installs, Hugging Face access, display or headless configuration, and asset storage are ready.
 
@@ -176,7 +155,6 @@ tools/
   ros2/                              external system-ROS clients and tests
   assets/                            Isaac/OpenUSD maintenance and repair
   human_assets/                      human asset authoring and validation
-  github_oauth_worker/               Node.js worker tests and deployment config
 usd/                                  tracked manifests and UI thumbnails; downloaded USD is runtime data
 tmp/                                  transient preflight, Env DIY, and interface-snapshot output
 ```
@@ -239,7 +217,7 @@ Tracked reusable algorithm entry points are `algorithm/emos/` for scenario-drive
 
 ### Tools
 
-`tools/` is the operational, validation, and asset-authoring boundary described in `tools/README.md`; it is not a uniform Python API. `setup/` owns installation and host/repository setup, `validation/` owns lightweight Python and Node.js checks, `ros2/` owns the three external system-ROS clients and their focused tests, `assets/` owns Isaac/OpenUSD repair, `human_assets/` owns human authoring/import/validation, and `github_oauth_worker/` owns the Node.js worker workflow. Each tracked script is the public command boundary for its own arguments, prerequisites, and side effects. Location below `tools/` does not make ROS Python dependencies available in `env_isaaclab`, make OpenUSD available to asset repair, or make a Node.js validation result equivalent to deploying the OAuth worker.
+`tools/` is the operational, validation, and asset-authoring boundary described in `tools/README.md`; it is not a uniform Python API. `setup/` owns installation and host setup, `validation/` owns lightweight Python and Node.js checks, `ros2/` owns the three external system-ROS clients and their focused tests, `assets/` owns Isaac/OpenUSD repair, and `human_assets/` owns human authoring/import/validation. Each tracked script is the public command boundary for its own arguments, prerequisites, and side effects. Location below `tools/` does not make ROS Python dependencies available in `env_isaaclab` or make OpenUSD available to asset repair.
 
 ### USD Assets
 
@@ -335,7 +313,6 @@ After the final scene starts, the launcher resolves declared interfaces for the 
 | Stable algorithm entry points | `algorithm/emos/`; `algorithm/TeamWeaver/`; `algorithm/global_planner/`; `algorithm/multi_robot_navigation/`; `algorithm/keyboard/keyboard.py`; `algorithm/nav2/`; `tools/ros2/vis_sensors.py`; `tools/ros2/send_cmd_vel.py`; `tools/ros2/send_manipulator_command.py` | EMOS, TeamWeaver, db-CBS multi-robot navigation, 2D planning, keyboard Twist publishing, and external Nav2 integration are optional clients/integrations. The `tools/ros2/` clients are operational tools, not control algorithms. Keep the core planners, EMOS, and TeamWeaver independent of simulator construction; keep the db-CBS core and EAI adapter together in `multi_robot_navigation/`. db-CBS motion primitives are ignored provider payloads installed only after size and SHA-256 verification. |
 | Fire Rescue demo | `demo/fire_rescue/main.py`; `demo/fire_rescue/experiment.py`; `demo/fire_rescue/runtime/` | Uses the reusable session API and adapts simulator state to demo algorithms. Do not turn its scenario-specific behavior into a core launcher default. |
 | Multi-robot navigation integration | `algorithm/multi_robot_navigation/test/main.py`; `source/EAI_hmrs/EAI_hmrs/envs/dbcbs_slam_team.json` | Exercises the reusable multi-robot navigation component in one simulator session. The test entry point owns CLI and mission choices; the algorithm package owns planning and action generation. |
-| Setup, ROS clients, conversion, validation, and repair tools | `tools/README.md`; `tools/setup/`; `tools/validation/`; `tools/ros2/`; `tools/assets/`; `tools/human_assets/`; `tools/github_oauth_worker/` | Scripts are their own operational authority, not one Python API. The three ROS clients run outside the simulator in the selected system ROS Python; USD repair requires Isaac/OpenUSD; inspect current arguments, prerequisites, and side effects before documenting or invoking one. |
 | Maintained USD metadata and runtime/generated data | `usd/`; `tmp/`; `source/EAI_assets/EAI_assets/asset_resolver.py` | `usd/` keeps tracked manifests/thumbnails; resolver-managed production assets and `tmp/` output are runtime data. Do not commit resolver downloads or transient output by default. |
 | Tests | `source/EAI/test/`; `source/EAI_assets/test/`; package-local test files discovered by `git ls-files` | Tests are authoritative behavioral evidence for their covered paths. Keep tests lightweight unless an Isaac/ROS integration boundary specifically requires otherwise. |
 
@@ -345,14 +322,14 @@ After the final scene starts, the launcher resolves declared interfaces for the 
 
 Changes that add or replace resolver-managed USD, controller code, configuration, or weights are incomplete until those files are published to an asset-provider revision. Provider publication is maintainer-owned: the repository has no tracked upload command, and publication requires dataset write access. The handoff must name the repository ID, an immutable tag/revision, exact remote paths below `usd/` or `controller/`, file sizes and hashes, license/provenance, and the matching catalog, builder, requirement, or controller mappings. Publish or tag the intended immutable revision, update the runtime default when appropriate, and verify that exact revision from a clean checkout before declaring an asset-backed feature complete. Follow the provider publication and clean-root verification procedure in section 11; do not merge or release a source mapping that points only to a maintainer's local files.
 
-`asset_resolver.py` defaults `EAI_ASSETS_HF_REVISION` to the moving `main` revision on `HuangQIjun/eai-simulator-assets`. Reading the guide and running checks explicitly described as lightweight or offline do not require provider/network access; asset-backed implementation and integration workflows can require it. The following checks are provider/network-dependent and use the latest provider revision by default. Reproducible checks and releases should explicitly select an immutable tag or commit.
+`asset_resolver.py` defaults `EAI_ASSETS_HF_REVISION` to the release revision `v0.1.0-beta.1` on `HuangQIjun/eai-simulator-assets`. Reading the guide and running checks explicitly described as lightweight or offline do not require provider/network access; asset-backed implementation and integration workflows can require it. Provider-dependent release checks should use that exact revision unless the release owner explicitly selects another trusted tag or commit.
 
-First perform a non-mutating provider path check. Then, when an actual isolated download is appropriate, explicitly set `EAI_ASSETS_HF_REVISION=main` for clarity and use temporary roots so existing user assets are not overwritten. This matches the source default:
+First perform a non-mutating provider path check. Then, when an actual isolated download is appropriate, explicitly set `EAI_ASSETS_HF_REVISION=v0.1.0-beta.1` for clarity and use temporary roots so existing user assets are not overwritten. This matches the source default:
 
 ```bash
 (
   set -eu
-  EAI_ASSET_CANDIDATE_REVISION=main
+  EAI_ASSET_CANDIDATE_REVISION=v0.1.0-beta.1
   hf download HuangQIjun/eai-simulator-assets \
     --type dataset \
     --revision "$EAI_ASSET_CANDIDATE_REVISION" \
@@ -1440,7 +1417,7 @@ Keep these failures distinct:
 - `AssetIntegrityError` means trusted human checksum metadata, staged contents, or path-safety checks failed. Do not bypass it by disabling validation or merging staged files manually.
 - Other download, network, CLI, or provider errors remain `FAILED` and retain their diagnostic output.
 
-The following provider command is read-only but requires network access, the `hf` CLI, and approved gated-dataset credentials. It verifies that the moving default `main` revision resolves. For reproducible validation, replace `main` with an immutable tag or commit:
+The following provider command is read-only but requires network access, the `hf` CLI, and approved gated-dataset credentials. It verifies that the release default `v0.1.0-beta.1` revision resolves. For reproducible validation, replace `main` with an immutable tag or commit:
 
 ```bash
 EAI_ASSET_DEFAULT_REVISION=main
@@ -1679,7 +1656,7 @@ The live tier requires Ubuntu ROS2 Humble, separately prepared Isaac/Isaac Lab a
 
 ### Tests That Do Not Require Isaac Sim
 
-The maintained Python test inventory is the Git index, not filesystem discovery, and its count is intentionally dynamic. Focused lightweight coverage includes the ROS-client tests `tools/ros2/tests/test_vis_sensors.py`, `tools/ros2/tests/test_send_cmd_vel.py`, and `tools/ros2/tests/test_send_manipulator_command.py`, plus `algorithm/nav2/tests/test_nav2_layout.py` and `algorithm/nav2/tests/test_send_goal.py`. Two tracked Node.js checks are `tools/validation/check_env_diy_runtime.mjs` and `tools/github_oauth_worker/oauth_worker_test.mjs`.
+The maintained Python test inventory is the Git index, not filesystem discovery, and its count is intentionally dynamic. Focused lightweight coverage includes the ROS-client tests `tools/ros2/tests/test_vis_sensors.py`, `tools/ros2/tests/test_send_cmd_vel.py`, and `tools/ros2/tests/test_send_manipulator_command.py`, plus `algorithm/nav2/tests/test_nav2_layout.py` and `algorithm/nav2/tests/test_send_goal.py`. The tracked Node.js check is `tools/validation/check_env_diy_runtime.mjs`.
 
 Do not run pytest against an entire test directory or the repository root. `.gitignore` hides broad classes such as `test_*.py`, `*_test.py`, `tests/`, and most of `source/EAI_assets/test/`; a developer's ignored local tests can still be collected by directory discovery and silently change the result. Build the canonical argument list from every path in the index, accepting both maintained basename forms. The NUL-delimited loop preserves spaces and other ordinary shell-special characters in paths:
 
@@ -1889,16 +1866,15 @@ Catalog declarations and `tmp/runtime_interfaces.json` describe capability/runti
 
 ### UI and Env DIY Verification
 
-Node.js 20 LTS or a newer LTS release is required, with ECMAScript-module support and unqualified Web Crypto plus the built-in `Request`, `Response`, and `fetch` globals. Node 18's global Web Crypto availability was not reliable across its releases, so Node 18 is not a supported baseline for the OAuth worker check. Neither check requires `npm install` or network access:
+Node.js 20 LTS or a newer LTS release is required for the Env DIY runtime check. It does not require `npm install` or network access:
 
 ```bash
 node --version
 node -e 'const major = Number(process.versions.node.split(".")[0]); if (major < 20 || !process.release.lts) throw new Error("Node.js 20+ LTS is required"); for (const name of ["crypto", "Request", "Response", "fetch"]) if (!(name in globalThis)) throw new Error(`Missing global: ${name}`); if (!crypto.subtle) throw new Error("Missing Web Crypto subtle API");'
 node tools/validation/check_env_diy_runtime.mjs all
-node tools/github_oauth_worker/oauth_worker_test.mjs
 ```
 
-The first checker validates required/retired HTML markers, unique IDs, referenced local images, and inline JavaScript syntax. The OAuth worker test uses a fake fetch implementation to validate signed state, origin restrictions, redirects, response escaping, and token non-disclosure. On 2026-08-11, the observed guide-writing run used Node `v22.22.2` and printed `PASS: Env DIY runtime HTML contract` and `GitHub OAuth Worker tests passed`; that is dated environment evidence, not a guarantee for another Node installation.
+The checker validates required/retired HTML markers, unique IDs, referenced local images, and inline JavaScript syntax. On 2026-08-11, the observed guide-writing run used Node `v22.22.2` and printed `PASS: Env DIY runtime HTML contract`; that is dated environment evidence, not a guarantee for another Node installation.
 
 There is no tracked browser automation and no tracked Kit UI automation. Manually verify pywebview layout, selection/save/run behavior, keyboard and mouse interaction, display scaling, and error presentation for lightweight UI changes. For 3D extension changes, verify extension startup, preview creation/replacement, placement, save/cancel, transition to the formal stage, and cleanup inside the supported Kit runtime. Ignored local UI tests are not maintained evidence and must not be cited as repository coverage.
 
@@ -1914,7 +1890,7 @@ There is no tracked browser automation and no tracked Kit UI automation. Manuall
 | Human pack-checksum metadata | Run all parameters of the owning node: `PYTHONPATH="$PWD:$PWD/source/EAI:$PWD/source/EAI_assets" PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest --rootdir="$PWD" -q source/EAI_assets/test/test_human_asset_distribution.py::test_tracked_checksum_manifest_matches_local_human_pack`; then run `python -m json.tool usd/human/pack-checksums.json >/dev/null`. | Every parameter asserts checksum-metadata structure before checking its installed payload. An absent pack skips only the later payload comparison; an installed matching pack passes; an installed mismatch fails and must be investigated. JSON parsing alone covers syntax, not these semantics. |
 | Human action authoring | Run `PYTHONPATH="$PWD:$PWD/source/EAI:$PWD/source/EAI_assets" PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest --rootdir="$PWD" -q source/EAI_assets/test/test_human_action_authoring.py`. | Run the affected `pxr` cases and source/conversion integration only with reviewed external inputs. |
 | Human animation runtime | Run `PYTHONPATH="$PWD:$PWD/source/EAI:$PWD/source/EAI_assets" PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest --rootdir="$PWD" -q source/EAI_assets/test/test_human_animation_runtime.py source/EAI_assets/test/test_human_path_follower.py source/EAI_assets/test/test_human_spawner.py source/EAI_assets/test/test_human_stage_runtime.py`. | Run the affected `pxr` adapter/stage cases when compatible OpenUSD bindings are available. |
-| Env DIY HTML or OAuth worker | Run `node tools/validation/check_env_diy_runtime.mjs all` and `node tools/github_oauth_worker/oauth_worker_test.mjs`. | Manual pywebview or Kit verification according to the changed frontend. |
+| Env DIY HTML | Run `node tools/validation/check_env_diy_runtime.mjs all`. | Manual pywebview or Kit verification according to the changed frontend. |
 | Launcher, controller, robot, scene, or attachment | No general tracked pytest exists; a new tracked module using the maintained basename contract is required for changed behavior. Run the read-only parse `python -c 'import ast; from pathlib import Path; files=("simulator.py", "source/EAI/EAI/controllers/base.py", "source/EAI/EAI/hmrs_env/multi_robot_direct_env.py", "source/EAI_hmrs/EAI_hmrs/env_builder.py"); [ast.parse(Path(p).read_text(encoding="utf-8"), filename=p) for p in files]'`. | Targeted Isaac launch through first reset, representative steps, and clean shutdown. |
 | ROS2, interface, or Nav2 | Run the five exact focused tests from section 12: `tools/ros2/tests/test_vis_sensors.py`, `tools/ros2/tests/test_send_cmd_vel.py`, `tools/ros2/tests/test_send_manipulator_command.py`, `algorithm/nav2/tests/test_nav2_layout.py`, and `algorithm/nav2/tests/test_send_goal.py`. They cover only static or pure-client layout and lifecycle behavior, not live ROS or Isaac integration. Also run the exact section 12 static commands, `python simulator.py --help >/dev/null`, `python simulator.py interfaces --help >/dev/null`, `python simulator.py interfaces list --json >/dev/null`, and `python simulator.py interfaces scene --env keyboard --json >/dev/null`. | Append the applicable discovery, cmd_vel, sensor/odometry, TF, Nav2, or manipulator rows from the live matrix above as live evidence. |
 | City Traffic human bridge | Run `PYTHONPATH="$PWD:$PWD/source/EAI:$PWD/source/EAI_assets:$PWD/source/EAI_hmrs" PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest --rootdir="$PWD" -q source/EAI/test/test_city_traffic_human_bridge.py`. | Run a targeted City Traffic integration only when its simulator/runtime prerequisites are available. |
@@ -2185,19 +2161,13 @@ Every regular commit message must start with the related issue identifier:
 #123 concise description
 ```
 
-Maintainers use the internal GitLab IID after promotion; public contributors may use the GitHub issue number. Merge, Revert, `fixup!`, `squash!`, and `amend!` commits are exempt. Conventional prefixes such as `feat:`, `fix:`, or `docs:` are not regular-message exemptions by themselves. `CONTRIBUTING.md` is the normative policy. The current `.githooks/commit-msg` implementation is only a prefix heuristic: it accepts any subject beginning with `Merge`, `Revert`, `fixup!`, `squash!`, or `amend!`, even when the commit is not genuinely Git-generated or a valid fixup. Passing that hook does not prove policy compliance.
 
-`tools/setup/setup-git-hooks.sh` sets `core.hooksPath` to `.githooks` and makes the repository hooks executable. Diagnose the resulting state directly:
 
 ```bash
-git config --get core.hooksPath
-find .githooks -maxdepth 1 -type f -perm -u+x -print | sort
 git lfs version
 ```
 
-These commands diagnose configuration only. Do not infer that repository hooks are inactive from the setup helper's status alone, and do not overwrite `.githooks` with a second hook manager without maintainer agreement. If Git LFS is missing, `.githooks/post-commit` can print an error after the commit has already been created; inspect `git log -1 --oneline` and `git status --short` before retrying so that the same change is not committed twice.
 
-Activating `.githooks` also activates the current `post-checkout` warning. For a nonconforming branch it prints destructive delete/recreate advice and interpolates the branch name into copyable commands without shell quoting. Never copy that advice. After manually reviewing both names, use a quoted rename only:
 
 ```bash
 EAI_CURRENT_BRANCH=$(git branch --show-current)
@@ -2257,7 +2227,7 @@ Use this checklist for every change; omit an item only when it is demonstrably o
 - [ ] Optional Isaac, GPU, ROS2, Nav2, browser, Kit, network, or system-level checks were run only with their prerequisites and authorization. Exact versions, selection, device, asset state, and results were recorded; every unrun check and resulting limitation is explicit.
 - [ ] A simulator change was verified through configuration construction, first reset/controller load, representative behavior, and clean shutdown when heavy integration was available. A `pxr` test or opened window was not substituted for this evidence.
 - [ ] ROS/interface changes distinguish catalog declaration, snapshot presence, discovery, samples/rates, TF, command application, lifecycle/action status, and final behavior. Any known activation gap is not reported as working; UR5/Z1 claims require successful runtime graph setup and command-feedback evidence.
-- [ ] Provider-backed files have maintainer publication evidence: repository ID, immutable tag/commit, exact paths, sizes and hashes, provenance and license, synchronized source maps/checksum metadata/default revision, and verification from clean asset roots. A local file or moving `main` dry-run is not sufficient.
+- [ ] Provider-backed files have maintainer publication evidence: repository ID, immutable tag/commit, exact paths, sizes and hashes, provenance and license, synchronized source maps/checksum metadata/default revision, and verification from clean asset roots. A local file or non-release dry-run is not sufficient.
 - [ ] Human-pack integrity metadata matches the selected provider payload and revision. For reproducible validation, pin an immutable provider tag or commit and verify that `pack-checksums.json` checksums match it before claiming standard asset-backed first-launch support.
 - [ ] `git status --short` and every exact scoped worktree diff were reviewed. When staging/commit was authorized, `git diff --cached --name-status` contains exactly the intended paths, `git diff --cached -- <each exact path>` was inspected, `git diff --cached --check` passed, secret findings were reported only as redacted file/line locations and investigated, and the maintained scanner result or heuristic limitation was recorded. When staging was not authorized, the index was preserved and these cached checks were reported as not applicable. Ignore diagnostics and tracked-file inventory show no `.env`, private/internal notes, downloaded assets, weights, caches, runtime snapshots, generated output, or unrelated staged files.
 - [ ] The final report states the exact files changed, behavioral/documentation outcome, commands and results, commit SHA when applicable, remaining work, and all validation limitations without converting observed local baseline counts into project guarantees.
@@ -2399,11 +2369,10 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
     -p no:cacheprovider
 ```
 
-Run the two tracked Node.js checks:
+Run the tracked Node.js check:
 
 ```bash
 node tools/validation/check_env_diy_runtime.mjs all
-node --test tools/github_oauth_worker/oauth_worker_test.mjs
 ```
 
 Parse representative Python and maintained YAML without generating repository bytecode caches:
@@ -2550,7 +2519,6 @@ Directories in this table mean the tracked source inventory below that directory
 | Fire Rescue demo | `demo/fire_rescue/main.py`; `demo/fire_rescue/config.py`; `demo/fire_rescue/scenario.py`; `demo/fire_rescue/experiment.py`; `demo/fire_rescue/runtime/`; `demo/fire_rescue/dashboard/`; `demo/fire_rescue/assets/`; `simulator.py` | Sections 5, 6, 7, 8, 13, and 14; enter through the reusable session and synchronize CLI/config/scenario/hooks/adapters/dashboard/assets while auditing external services. |
 | RealSense D455 | `source/EAI_assets/EAI_assets/sensor/high_sensor/realsense_d455.py`; `source/EAI/EAI/hmrs_ros/realsense_d455_imu.py`; `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI/EAI/interface_catalog/interfaces/sensors/realsense_d455.yaml`; `source/EAI_hmrs/EAI_hmrs/envs/mushr_realsense.json`; `tools/ros2/vis_sensors.py` | Sections 7, 8, 10, 11, and 12; synchronize the payload cfg and its publish graphs, the synthesized IMU manager, catalog/builder gates (`camera` vs `navigation_io`), requirements/provider resolution, declarations, and the visualization tool's depth display. |
 | User documentation | `docs/source/` pages; `docs/source/index.rst`; `docs/source/index_en.rst`; `docs/source/conf.py`; `docs/source/_templates/sidebar/navigation.html`; `docs/source/_templates/sidebar/navigation_en.html`; `docs/source/assets/media/` | Sections 8, 16, and 20; keep page content external-facing, keep the toctree and hardcoded sidebar entries synchronized across both languages, and commit media with the page; `docs/build/` is generated output, not authority. |
-| Tests | `source/EAI/test/`; `source/EAI_assets/test/`; `tools/ros2/tests/`; paths selected from `git ls-files -z` whose basenames match `test_*.py` or `*_test.py`; `tools/validation/check_env_diy_runtime.mjs`; `tools/github_oauth_worker/oauth_worker_test.mjs` | Sections 7, 13, and 17; the tracked inventory and environment-dependent pass/skip counts are dynamic. |
 
 ## 20. Maintaining This AGENTS.md
 
