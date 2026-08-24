@@ -77,8 +77,6 @@ def preset_to_group_discussion_kwargs(preset_id: str) -> Dict[str, Any]:
         # 供 EMOS 聊天/日志展示（不传给 group_discussion）
         "llm_display_label": p["label"],
     }
-    if "api_key_default" in p:
-        kwargs["llm_api_key_default"] = p["api_key_default"]
     if "stream" in p:
         kwargs["llm_stream"] = _env_bool(str(p.get("stream_env", "")), bool(p["stream"]))
     if "temperature" in p:

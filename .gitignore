@@ -185,3 +185,5 @@ test_*.py
 !/tools/human_assets/**
 /tools/human_assets/**/__pycache__/
 !/algorithm/multi_robot_navigation/test_plugin.py
+!/demo/fire_rescue/tests/
+!/demo/fire_rescue/tests/test_llm_preset_privacy.py
