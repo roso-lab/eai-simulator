@@ -255,6 +255,50 @@ def _create_orsus_rtx_lidar_publisher(
     return render_product_path, writer
 
 
+def _bind_orsus_odometry_chassis(stage, graph_path: str, chassis_prim_path: str) -> None:
+    node_path = f"{graph_path}/isaac_compute_odometry_node"
+    node_prim = stage.GetPrimAtPath(node_path)
+    if not node_prim or not node_prim.IsValid():
+        raise RuntimeError(f"Orsus odometry node is missing: {node_path}")
+    relationship = node_prim.GetRelationship("inputs:chassisPrim")
+    if not relationship:
+        relationship = node_prim.CreateRelationship("inputs:chassisPrim")
+    if not relationship.SetTargets([Sdf.Path(chassis_prim_path)]):
+        raise RuntimeError(
+            f"Failed to bind Orsus odometry chassis target: {chassis_prim_path}"
+        )
+
+
+def _rollback_failed_orsus_ros_graph(
+    stage,
+    graph_path: str,
+    lidar_prim_path: str,
+    render_product_path: str,
+    writer,
+) -> None:
+    detach = getattr(writer, "detach", None)
+    if callable(detach):
+        try:
+            detach()
+        except Exception:
+            pass
+    try:
+        from EAI_assets.sensor.low_sensor.ros_lidar import (
+            _destroy_rtx_lidar_render_product,
+        )
+
+        _destroy_rtx_lidar_render_product(render_product_path)
+    except Exception:
+        pass
+    for prim_path in (graph_path, lidar_prim_path):
+        try:
+            prim = stage.GetPrimAtPath(prim_path)
+            if prim and prim.IsValid():
+                stage.RemovePrim(prim_path)
+        except Exception:
+            pass
+
+
 def setup_pending_orsus_ros_graphs() -> int:
     """Create RTX LiDAR publishers and instance-safe odometry graphs."""
     if not _orsus_ros_graph_requests:
@@ -269,88 +313,43 @@ def setup_pending_orsus_ros_graphs() -> int:
         _orsus_ros_graph_requests.items()
     ):
         render_product_path, writer = _create_orsus_rtx_lidar_publisher(
-            stage,
-            lidar_prim_path,
-            namespace,
+            stage, lidar_prim_path, namespace
         )
         try:
             og.Controller.edit(
                 {
                     "graph_path": graph_path,
                     "evaluator_name": "execution",
-                    "pipeline_stage": (
-                        og.GraphPipelineStage.GRAPH_PIPELINE_STAGE_SIMULATION
-                    ),
+                    "pipeline_stage": og.GraphPipelineStage.GRAPH_PIPELINE_STAGE_SIMULATION,
                 },
                 {
                     keys.CREATE_NODES: [
                         ("on_playback_tick", "omni.graph.action.OnPlaybackTick"),
-                        (
-                            "isaac_read_simulation_time",
-                            "isaacsim.core.nodes.IsaacReadSimulationTime",
-                        ),
-                        (
-                            "isaac_compute_odometry_node",
-                            "isaacsim.core.nodes.IsaacComputeOdometry",
-                        ),
-                        (
-                            "ros2_publish_odometry",
-                            "isaacsim.ros2.bridge.ROS2PublishOdometry",
-                        ),
+                        ("isaac_read_simulation_time", "isaacsim.core.nodes.IsaacReadSimulationTime"),
+                        ("isaac_compute_odometry_node", "isaacsim.core.nodes.IsaacComputeOdometry"),
+                        ("ros2_publish_odometry", "isaacsim.ros2.bridge.ROS2PublishOdometry"),
                     ],
                     keys.SET_VALUES: [
-                        (
-                            "isaac_compute_odometry_node.inputs:chassisPrim",
-                            [Sdf.Path(chassis_prim_path)],
-                        ),
                         ("ros2_publish_odometry.inputs:nodeNamespace", namespace),
                         ("ros2_publish_odometry.inputs:topicName", "odometry"),
                         ("ros2_publish_odometry.inputs:odomFrameId", "mapping_init"),
                     ],
                     keys.CONNECT: [
-                        (
-                            "on_playback_tick.outputs:tick",
-                            "isaac_compute_odometry_node.inputs:execIn",
-                        ),
-                        (
-                            "isaac_compute_odometry_node.outputs:execOut",
-                            "ros2_publish_odometry.inputs:execIn",
-                        ),
-                        (
-                            "isaac_compute_odometry_node.outputs:position",
-                            "ros2_publish_odometry.inputs:position",
-                        ),
-                        (
-                            "isaac_compute_odometry_node.outputs:orientation",
-                            "ros2_publish_odometry.inputs:orientation",
-                        ),
-                        (
-                            "isaac_compute_odometry_node.outputs:linearVelocity",
-                            "ros2_publish_odometry.inputs:linearVelocity",
-                        ),
-                        (
-                            "isaac_compute_odometry_node.outputs:angularVelocity",
-                            "ros2_publish_odometry.inputs:angularVelocity",
-                        ),
-                        (
-                            "isaac_read_simulation_time.outputs:simulationTime",
-                            "ros2_publish_odometry.inputs:timeStamp",
-                        ),
+                        ("on_playback_tick.outputs:tick", "isaac_compute_odometry_node.inputs:execIn"),
+                        ("isaac_compute_odometry_node.outputs:execOut", "ros2_publish_odometry.inputs:execIn"),
+                        ("isaac_compute_odometry_node.outputs:position", "ros2_publish_odometry.inputs:position"),
+                        ("isaac_compute_odometry_node.outputs:orientation", "ros2_publish_odometry.inputs:orientation"),
+                        ("isaac_compute_odometry_node.outputs:linearVelocity", "ros2_publish_odometry.inputs:linearVelocity"),
+                        ("isaac_compute_odometry_node.outputs:angularVelocity", "ros2_publish_odometry.inputs:angularVelocity"),
+                        ("isaac_read_simulation_time.outputs:simulationTime", "ros2_publish_odometry.inputs:timeStamp"),
                     ],
                 },
             )
+            _bind_orsus_odometry_chassis(stage, graph_path, chassis_prim_path)
         except Exception:
-            detach = getattr(writer, "detach", None)
-            if callable(detach):
-                detach()
-            from EAI_assets.sensor.low_sensor.ros_lidar import (
-                _destroy_rtx_lidar_render_product,
+            _rollback_failed_orsus_ros_graph(
+                stage, graph_path, lidar_prim_path, render_product_path, writer
             )
-
-            _destroy_rtx_lidar_render_product(render_product_path)
-            lidar_prim = stage.GetPrimAtPath(lidar_prim_path)
-            if lidar_prim and lidar_prim.IsValid():
-                stage.RemovePrim(lidar_prim_path)
             raise
         _orsus_ros_resources[graph_path] = (
             lidar_prim_path,
@@ -512,9 +511,7 @@ def spawn_and_fix_orsus(prim_path, cfg, translation, orientation):
             chassis_prim_path = str(Sdf.Path(specific_path).GetParentPath())
             namespace = _orsus_ros_namespace_for_instance(cfg, specific_path)
             _orsus_ros_graph_requests[graph_path] = (
-                lidar_prim_path,
-                chassis_prim_path,
-                namespace,
+                lidar_prim_path, chassis_prim_path, namespace
             )
             print(f"[Orsus] RTX LiDAR requested: {lidar_prim_path}")
             print(
