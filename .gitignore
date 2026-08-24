@@ -17,6 +17,37 @@
 **/*.pyc
 **/*.pb
 
+# Local secrets and credentials
+.env
+.env.*
+*.env
+*.env.*
+.dev.vars
+.dev.vars.*
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+credentials.json
+token.json
+!.env.example
+!.env.sample
+!.env.template
+!*.env.example
+!*.env.sample
+!*.env.template
+!*.example.env
+!*.sample.env
+!*.template.env
+!*.example.pem
+!*.sample.pem
+!*.example.key
+!*.sample.key
+
 # Docker/Singularity
 **/*.sif
 docker/cluster/exports/
