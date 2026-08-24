@@ -67,9 +67,8 @@ TOOL_ASSET_NAMES = {
 }
 
 # Robots that carry a built-in monocular camera, so the Camera tool does not
-# require a Orsus stereo payload. Aerial robots publish through the aerial
-# sensor suite; MuSHR publishes through its own front-facing camera.
-BUILTIN_CAMERA_ROBOTS = frozenset({"cf2x", "iris", "pegasus", "mushr_v2"})
+# require an Orsus or RealSense D455 payload.
+BUILTIN_CAMERA_ROBOTS = frozenset({"cf2x", "iris", "pegasus"})
 
 _DEFAULT_CONTROLLER_CFG = {
     "carter": "CARTER_DIFF_CFG",
