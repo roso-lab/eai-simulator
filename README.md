@@ -91,7 +91,7 @@ The README summarizes the supported surface. Use the detailed guides as the sour
 
 ## Releases & Roadmap
 
-- **[v0.1.0-beta.1 Release Notes](https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0-beta.1):** review the capabilities, runtime requirements, and known caveats included in the current beta.
+- **[v0.1.0-beta.1 Release Notes](https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0-beta.1):** view the public release notes and downloads for the current beta.
 - **[Roadmap](https://www.rosolab.com/roso-lab/eai-simulator/docs/roadmap.html):** discover the next-stage capabilities still under development and not yet included in the current release.
 
 ## Quick Start
