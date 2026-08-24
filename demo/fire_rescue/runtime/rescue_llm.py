@@ -98,7 +98,7 @@ def _chat_completion_text(prompt: str, llm_kwargs: Dict[str, Any]) -> str:
         raise RuntimeError("缺少 openai 依赖，无法调用救援 LLM") from exc
 
     api_key_env = str(llm_kwargs.get("llm_api_key_env") or "DEEPSEEK_API_KEY")
-    api_key = os.environ.get(api_key_env, "").strip() or str(llm_kwargs.get("llm_api_key_default", "")).strip()
+    api_key = os.environ.get(api_key_env, "").strip()
     if not api_key:
         raise RuntimeError(f"缺少环境变量 {api_key_env}")
 
