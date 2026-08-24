@@ -91,7 +91,7 @@ README 只概括支持范围，详细能力以专题文档为准：
 
 ## 版本发布与功能规划
 
-- **[v0.1.0-beta.1 发布说明](https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0-beta.1)：** 查看当前 beta 版本包含的能力、运行要求和已知注意事项。
+- **[v0.1.0-beta.1 发布说明](https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0-beta.1)：** 查看当前 beta 的公开发布说明和下载入口。
 - **[功能规划](https://www.rosolab.com/roso-lab/eai-simulator/docs/roadmap.html)：** 了解仍在开发、尚未包含在当前发布版本中的下一阶段能力。
 
 ## 快速开始
