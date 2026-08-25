@@ -1379,14 +1379,14 @@ Selection resolution validates scene and robot keys through its seed maps, uses 
 The resolver recognizes these environment variables:
 
 - `EAI_ASSETS_HF_REPO` overrides the dataset repository ID; the default is `rosolab/eai-simulator-assets`.
-- `EAI_ASSETS_HF_REVISION` selects the branch, tag, or commit. Missing or whitespace-only values fall back to `main`.
+- `EAI_ASSETS_HF_REVISION` selects the branch, tag, or commit. Missing or whitespace-only values fall back to the release revision `v0.1.0-beta.1`.
 - `EAI_ASSETS_AUTO_DOWNLOAD` defaults to enabled. The case-insensitive values `0`, `false`, `no`, and `off` disable automatic downloads; other values enable them.
 - `EAI_USD_ROOT` and `EAI_CONTROLLER_ROOT` replace the local USD and controller roots. Relative configured values are expanded and resolved by the current process, so use intentional locations and inspect them before launch. Human downloads read checksum metadata from `<active USD root>/human/pack-checksums.json`; a fresh custom `EAI_USD_ROOT` must be provisioned with metadata matching the selected revision before requesting a human pack.
 - `HF_TOKEN` and `HUGGING_FACE_HUB_TOKEN` are recognized credential inputs. Otherwise the resolver looks under `HF_HOME`, defaulting to the Hugging Face user cache, for `token` or `stored_tokens`. `HF_HOME` is a Hugging Face credential/cache boundary; it does not replace either EAI asset root.
 
 Dataset access approval and CLI authentication are separate. Request access to the gated dataset, wait for approval, and then run `hf auth login` in the same user environment that launches the simulator. Never print, echo, commit, or paste a token into a command line or diagnostic report, and do not use token-display commands as a health check.
 
-The runtime default `main` follows the latest provider commit. Pin an immutable provider tag or commit when reproducibility is required.
+The runtime default is the immutable release revision `v0.1.0-beta.1`. Override it only when intentionally validating another trusted tag or commit.
 
 ### Download, Installation, and Integrity Semantics
 
@@ -1424,10 +1424,10 @@ Keep these failures distinct:
 - `AssetIntegrityError` means trusted human checksum metadata, staged contents, or path-safety checks failed. Do not bypass it by disabling validation or merging staged files manually.
 - Other download, network, CLI, or provider errors remain `FAILED` and retain their diagnostic output.
 
-The following provider command is read-only but requires network access, the `hf` CLI, and approved gated-dataset credentials. It verifies that the release default `v0.1.0-beta.1` revision resolves. For reproducible validation, replace `main` with an immutable tag or commit:
+The following provider command is read-only but requires network access, the `hf` CLI, and approved gated-dataset credentials. It verifies that the release default `v0.1.0-beta.1` revision resolves. Override the variable only when the release owner selects another trusted immutable tag or commit:
 
 ```bash
-EAI_ASSET_DEFAULT_REVISION=main
+EAI_ASSET_DEFAULT_REVISION=v0.1.0-beta.1
 hf download rosolab/eai-simulator-assets \
   --type dataset \
   --revision "$EAI_ASSET_DEFAULT_REVISION" \
@@ -1850,7 +1850,7 @@ Run only the entry point relevant to the change. Prerequisites include Ubuntu 22
 
 Fire Rescue adds optional EMOS/global-planner dependencies such as the OpenAI-compatible Python client, PyYAML, and Pillow. Its default `zhipu-glm4-flash` preset requires `ZHIPU_API_KEY` and can make real network API calls that incur provider cost. Other presets require their named key, such as `OPENAI_API_KEY` or `DEEPSEEK_API_KEY`. Review the selected endpoint, credential environment, budget, and network policy before launch. Individual OpenAI-compatible client calls use a 60-second timeout and the experiment can wait up to 160 seconds before dispatching its local fallback, so a fallback does not make the launch offline or cost-free. Pytest must mock the client and fallback timing; never use a real LLM credential or request in automated tests.
 
-These commands were not run while validating this guide. The default resolver revision `main` follows the latest provider commit and is not immutable release evidence; pin a tag or commit for reproducible validation.
+These commands were not run while validating this guide. The default resolver revision `v0.1.0-beta.1` is immutable release evidence; record its resolved provider commit and any intentional override during reproducible validation.
 
 When heavy verification is available, record the exact command, environment versions, selected JSON, asset repository and immutable revision, GPU, display/headless mode, startup/reset result, controller load, representative steps, and clean shutdown. A window opening is not enough: first reset and at least one behavior-relevant step must succeed.
 
@@ -1977,7 +1977,7 @@ Keep credentials, gated approval, revision existence, ordinary-file completeness
 
 ```bash
 EAI_HF_REPO="${EAI_ASSETS_HF_REPO:-rosolab/eai-simulator-assets}"
-EAI_HF_REVISION="${EAI_ASSETS_HF_REVISION:-main}"
+EAI_HF_REVISION="${EAI_ASSETS_HF_REVISION:-v0.1.0-beta.1}"
 hf auth whoami
 hf datasets info "$EAI_HF_REPO" --revision "$EAI_HF_REVISION"
 hf download "$EAI_HF_REPO" \
@@ -1991,7 +1991,7 @@ hf download "$EAI_HF_REPO" \
 | --- | --- | --- | --- |
 | 401, invalid/expired token, or `AUTH_REQUIRED` | Authentication | `hf auth whoami`; inspect only whether `HF_TOKEN`, `HUGGING_FACE_HUB_TOKEN`, or the intended `HF_HOME` is configured, never its value | Reauthenticate with `hf auth login` in the simulator user's environment, then repeat the dry-run. |
 | 403, gated denial, or `ACCESS_PENDING` | Dataset access approval | Confirm the authenticated account and repository ID | Check approval with the provider owner; a valid token does not grant gated access. |
-| `Revision Not Found` | Requested branch/tag/commit is absent | Print only `EAI_HF_REPO` and `EAI_HF_REVISION`; run `hf datasets info` | Use the default `main` branch or select an existing immutable tag/commit. |
+| `Revision Not Found` | Requested branch/tag/commit is absent | Print only `EAI_HF_REPO` and `EAI_HF_REVISION`; run `hf datasets info` | Recheck the release default `v0.1.0-beta.1` or select another release-owner-approved immutable tag/commit. |
 | Requested ordinary USD/controller file is still missing after a download | Requirement seed, provider path, allow pattern, or partial ordinary merge | Inspect the exact local path, requirement mapping, collected configuration paths, and provider dry-run | Retry from a deliberately isolated asset root and verify every selected/transitive path. Ordinary bundles have requested-file postchecks but no whole-bundle checksum or rollback guarantee. |
 | `AssetIntegrityError`, revision/checksum mismatch, unsafe path, or failed human replacement | Human checksum metadata and staged-pack transaction | Parse `usd/human/pack-checksums.json`, compare its revision with `EAI_HF_REVISION`, and run the resolver subset in section 13 | Install the exact released human packs in an isolated root and run the specific checksum cases. Never bypass validation or hand-merge failed staging output. |
 
@@ -2158,7 +2158,7 @@ For every proposed source, fixture, or test, run `git check-ignore -v --no-index
 
 ## 16. Git, Branch, Commit, and Documentation Rules
 
-GitHub is the public community and review entry point; maintainers perform canonical development in the internal GitLab repository and may port accepted GitHub pull requests into GitLab merge requests before mirroring results back. Follow `.github/CONTRIBUTING.md` and the linked community workflow rather than assuming the two repositories are independent release authorities.
+GitHub is the public community and review entry point; GitLab `develop` is the canonical maintenance branch. The server-side bridge projects an accepted GitHub pull request onto a managed `github-pr/N` GitLab branch and merge request, then publishes the reviewed result back to GitHub. Do not manually port accepted pull requests or push managed bridge branches. Follow `.github/CONTRIBUTING.md` and `.github/SYNCING.md` rather than treating the two repositories as independent release authorities.
 
 Allowed primary branches are `main`, `master`, `develop`, and `development`. Topic branches use one of these patterns with a nonempty name: `feature/`, `bugfix/`, `fix/`, `hotfix/`, `release/`, `chore/`, `build/`, `docs/`, `refactor/`, `style/`, `test/`, `ci/`, or `perf/`.
 

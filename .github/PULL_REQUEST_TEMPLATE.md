@@ -4,7 +4,7 @@ Describe the change and the user-visible behavior it affects.
 
 ## Related Issue
 
-Link the GitHub issue or discussion. Maintainers may create a matching internal GitLab issue during triage.
+Link the GitHub issue or discussion. Maintainers may create private GitLab tracking during triage; do not post private GitLab links here.
 
 ## Verification
 
@@ -23,4 +23,4 @@ Mention migrations, asset changes, dependency changes, or behavior changes.
 - [ ] I kept the change focused on one issue or discussion.
 - [ ] I updated documentation for public behavior changes.
 - [ ] I did not commit private assets, credentials, local cache, experiment outputs, or personal memory files.
-- [ ] I understand GitLab remains the canonical maintenance repository; accepted GitHub PRs may be ported internally and mirrored back to GitHub.
+- [ ] I understand GitLab `develop` is canonical; the server-side bridge owns `github-pr/*` and publishes reviewed changes back to GitHub.

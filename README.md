@@ -66,7 +66,7 @@
 <tr>
 <td width="43%" valign="middle">
   <h3>Run collaborative experiments</h3>
-  <p>Five example algorithms ship with the simulator — multi-agent discussion and task allocation, 2D global planning and Nav2 navigation, and external control — alongside Fire Rescue, a heterogeneous factory fire-inspection experiment.</p>
+  <p>Six reusable algorithm packages ship with the simulator — EMOS, TeamWeaver, 2D global planning, db-CBS multi-robot navigation, Nav2 integration, and keyboard control — alongside Fire Rescue, a heterogeneous factory fire-inspection experiment.</p>
   <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html#fire-rescue-demo">Run an experiment →</a></p>
 </td>
 <td width="57%">

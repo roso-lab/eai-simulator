@@ -66,7 +66,7 @@
 <tr>
 <td width="43%" valign="middle">
   <h3>运行多智能体协作实验</h3>
-  <p>内置多智能体讨论与任务分配、2D 全局规划、Nav2 导航和外部控制接入等示例算法，以及 Fire Rescue 工厂火灾巡检异构协同实验。</p>
+  <p>内置 EMOS、TeamWeaver、2D 全局规划、db-CBS 多机器人导航、Nav2 集成和键盘控制 6 个可复用算法包，以及 Fire Rescue 工厂火灾巡检异构协同实验。</p>
   <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html#fire-rescue-demo">运行实验 →</a></p>
 </td>
 <td width="57%">
