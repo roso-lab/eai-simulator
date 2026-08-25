@@ -7,5 +7,5 @@ contact_links:
     url: https://github.com/roso-lab/eai-simulator/security/advisories/new
     about: Report suspected vulnerabilities privately. Do not create a public issue for security reports.
   - name: Community workflow
-    url: https://github.com/roso-lab/eai-simulator/blob/main/docs/community_workflow.md
+    url: https://github.com/roso-lab/eai-simulator/blob/main/.github/SYNCING.md
     about: Read how the public GitHub community and internal GitLab maintenance flow work together.

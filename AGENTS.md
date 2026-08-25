@@ -8,6 +8,13 @@ All repository paths in this guide are relative to the repository root. All comm
 
 "Offline guide" means that the development instructions live in the repository. It does not mean installation or asset use is network-free: dependency installation, gated assets, and large models can still require network access and external services.
 
+The internal GitLab view also contains the hosted website source under `docs/`.
+That tree is intentionally absent from the public GitHub export. When `docs/`
+is absent, do not recreate it in a public pull request and skip the website-only
+commands later in this guide; use the published documentation and the GitHub
+documentation issue template instead. Repository guides outside `docs/` remain
+part of the public contribution surface.
+
 ## 2. Non-Negotiable Development Rules
 
 - Run `git status --short` before editing. Preserve unrelated tracked and untracked work, including changes that overlap files you need to inspect.

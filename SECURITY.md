@@ -1,4 +1,4 @@
-[English](SECURITY.md) | [中文](docs/SECURITY.zh-CN.md)
+[English](SECURITY.md) | [中文](SECURITY.zh-CN.md)
 
 # Security Policy
 
