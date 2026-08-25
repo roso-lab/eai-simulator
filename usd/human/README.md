@@ -47,12 +47,12 @@ skateboarder、static biker 和 wheelchair。是否可播放动作由每个资�
 ## 下载完整资产
 
 Human 大型资产由 gated Hugging Face dataset
-[`HuangQIjun/eai-simulator-assets`](https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets)
+[`rosolab/eai-simulator-asset`](https://huggingface.co/datasets/rosolab/eai-simulator-asset)
 提供。先申请访问权限并等待批准，然后从 Git 仓库根目录执行：
 
 ```bash
 hf auth login
-hf download HuangQIjun/eai-simulator-assets \
+hf download rosolab/eai-simulator-asset \
   --type dataset \
   --revision v0.1.0-beta.1 \
   --include "usd/human/**" \

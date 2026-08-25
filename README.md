@@ -47,10 +47,10 @@
 <td width="43%" valign="middle">
   <h3>A ready-made asset library</h3>
   <p>Thirteen heterogeneous robots (wheeled, legged, aerial, humanoid), seven scenes from flat ground to factory and hospital, five mountable payloads, eighteen controller configurations, and forty-four human actors with twelve action groups — all shipped through one gated asset release.</p>
-  <p><a href="https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets">Request asset access →</a></p>
+  <p><a href="https://huggingface.co/datasets/rosolab/eai-simulator-asset">Request asset access →</a></p>
 </td>
 <td width="57%">
-  <a href="https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets"><img src="docs/source/assets/media/feature-asset-library.gif" alt="EAI Simulator asset library preview with heterogeneous robots and human actors" width="100%"></a>
+  <a href="https://huggingface.co/datasets/rosolab/eai-simulator-asset"><img src="docs/source/assets/media/feature-asset-library.gif" alt="EAI Simulator asset library preview with heterogeneous robots and human actors" width="100%"></a>
 </td>
 </tr>
 <tr>
@@ -98,7 +98,7 @@ The README summarizes the supported surface. Use the detailed guides as the sour
 
 Before starting, install **Ubuntu 22.04**, **Isaac Sim 5.1**, and **Isaac Lab 2.x** with its `env_isaaclab` conda environment. ROS2 is optional unless you use ROS2 or Nav2 workflows; Humble remains the validated system-ROS baseline.
 
-Request access to the gated [EAI Simulator assets dataset](https://huggingface.co/datasets/HuangQIjun/eai-simulator-assets), then run:
+Request access to the gated [EAI Simulator assets dataset](https://huggingface.co/datasets/rosolab/eai-simulator-asset), then run:
 
 ```bash
 git clone https://github.com/roso-lab/eai-simulator.git
