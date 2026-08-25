@@ -1,4 +1,4 @@
-[English](SUPPORT.md) | [中文](docs/SUPPORT.zh-CN.md)
+[English](SUPPORT.md) | [中文](SUPPORT.zh-CN.md)
 
 # Support
 
@@ -16,4 +16,4 @@ Security reports must follow [SECURITY.md](SECURITY.md). Do not post vulnerabili
 public channels.
 
 Maintainers triage public GitHub threads and promote accepted work to the internal GitLab workflow.
-See [docs/community_workflow.md](docs/community_workflow.md) for details.
+See [.github/SYNCING.md](.github/SYNCING.md) for details.

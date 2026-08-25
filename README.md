@@ -1,9 +1,9 @@
 <p align="center">
-  <a href="README.md">English</a> · <a href="docs/README.zh-CN.md">中文</a>
+  <a href="README.md">English</a> · <a href="README.zh-CN.md">中文</a>
 </p>
 
 <p align="center">
-  <img src="docs/source/_static/img/logo.png" alt="EAI Simulator logo" width="520">
+  <img src=".github/assets/logo.png" alt="EAI Simulator logo" width="520">
 </p>
 
 <h1 align="center">EAI Simulator</h1>
@@ -27,7 +27,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/source/assets/media/demo.gif" alt="EAI Simulator running heterogeneous robots and tasks" width="960">
+  <img src=".github/assets/demo.gif" alt="EAI Simulator running heterogeneous robots and tasks" width="960">
 </p>
 
 ## Features
@@ -40,7 +40,7 @@
   <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html">Environment guide →</a></p>
 </td>
 <td width="57%">
-  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html"><img src="docs/source/assets/media/feature-可视化diy.gif" alt="Composing an environment in the Env DIY visual editor" width="100%"></a>
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html"><img src=".github/assets/env-diy.gif" alt="Composing an environment in the Env DIY visual editor" width="100%"></a>
 </td>
 </tr>
 <tr>
@@ -50,7 +50,7 @@
   <p><a href="https://huggingface.co/datasets/rosolab/eai-simulator-assets">Request asset access →</a></p>
 </td>
 <td width="57%">
-  <a href="https://huggingface.co/datasets/rosolab/eai-simulator-assets"><img src="docs/source/assets/media/feature-asset-library.gif" alt="EAI Simulator asset library preview with heterogeneous robots and human actors" width="100%"></a>
+  <a href="https://huggingface.co/datasets/rosolab/eai-simulator-assets"><img src=".github/assets/asset-library.gif" alt="EAI Simulator asset library preview with heterogeneous robots and human actors" width="100%"></a>
 </td>
 </tr>
 <tr>
@@ -60,7 +60,7 @@
   <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/interface_catalog.html">Browse interfaces →</a></p>
 </td>
 <td width="57%">
-  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/orsus_sensor.html"><img src="docs/source/assets/media/orsus_demo.gif" alt="Orsus multimodal sensor output in EAI Simulator" width="100%"></a>
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/orsus_sensor.html"><img src=".github/assets/orsus-demo.gif" alt="Orsus multimodal sensor output in EAI Simulator" width="100%"></a>
 </td>
 </tr>
 <tr>
@@ -70,7 +70,7 @@
   <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html#fire-rescue-demo">Run an experiment →</a></p>
 </td>
 <td width="57%">
-  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html#fire-rescue-demo"><img src="docs/source/assets/media/demo.gif" alt="EAI Simulator running heterogeneous robots and tasks" width="100%"></a>
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html#fire-rescue-demo"><img src=".github/assets/demo.gif" alt="EAI Simulator running heterogeneous robots and tasks" width="100%"></a>
 </td>
 </tr>
 </table>

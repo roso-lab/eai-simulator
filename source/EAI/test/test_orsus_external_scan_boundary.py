@@ -37,12 +37,18 @@ def test_scan_is_owned_by_external_nav2_pipeline() -> None:
 
 
 def test_public_docs_do_not_attribute_scan_to_orsus_runtime() -> None:
-    for relative in (
-        "docs/source/interface_catalog.md",
-        "docs/source/interface_catalog_en.md",
-        "docs/source/project_overview.md",
-        "docs/source/project_overview_en.md",
-    ):
-        text = (ROOT / relative).read_text(encoding="utf-8")
+    documentation = tuple(
+        ROOT / relative
+        for relative in (
+            "docs/source/interface_catalog.md",
+            "docs/source/interface_catalog_en.md",
+            "docs/source/project_overview.md",
+            "docs/source/project_overview_en.md",
+        )
+    )
+    if not all(path.is_file() for path in documentation):
+        return
+    for path in documentation:
+        text = path.read_text(encoding="utf-8")
         assert "ros.orsus.scan" not in text
         assert "pointcloud_to_laserscan" in text

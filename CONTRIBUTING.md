@@ -1,10 +1,10 @@
-[English](CONTRIBUTING.md) | [中文](docs/CONTRIBUTING.zh-CN.md)
+[English](CONTRIBUTING.md) | [中文](CONTRIBUTING.zh-CN.md)
 
 # Contributing to EAI Simulator
 
 Thank you for helping improve EAI Simulator. GitHub is the public community entry point, while
 maintainers continue canonical development in the internal GitLab repository. See
-[docs/community_workflow.md](docs/community_workflow.md) for the full mirror and triage process.
+[.github/SYNCING.md](.github/SYNCING.md) for the full mirror and triage process.
 
 ## Before You Start
 
@@ -70,18 +70,17 @@ Merge, Revert, `fixup!`, `squash!`, and `amend!` commits are exempt from this va
 Run the tests closest to the changed behavior. If you change public behavior, update its
 documentation in the same pull request or merge request.
 
-For documentation changes, build the Sphinx site locally:
-
-```bash
-python -m pip install -r docs/requirements.txt
-make -C docs clean html
-```
+The hosted website source is maintained in the internal GitLab view and is not
+part of the public GitHub export. Public contributors can update repository
+guides such as this file or report website documentation changes with the
+documentation issue template. Do not recreate the private `docs/` tree in a
+public pull request.
 
 ## Pull Requests and Merge Requests
 
 GitHub pull requests are welcome for public review, but GitLab remains the canonical maintenance
-repository. If a GitHub pull request is accepted, maintainers may port the patch into a GitLab
-merge request and mirror the final result back to GitHub.
+repository. The synchronization bridge projects the public patch onto a managed
+GitLab merge request and publishes the reviewed result back to GitHub.
 
 Every pull request or merge request should:
 
