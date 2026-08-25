@@ -1,41 +1,17 @@
 # EAI Keyboard Cmd Vel Client
 
-`keyboard.py` is the interactive ROS2 keyboard client for EAI simulator
-`/<robot>/cmd_vel` interfaces. It does not start Isaac Sim, build scenes, or
-own robot controllers; the simulator must already be running with Keyboard or
-Navigation I/O enabled so that `geometry_msgs/msg/Twist` subscribers exist.
+keyboard.py is an interactive ROS2 client that publishes geometry_msgs/msg/Twist to the EAI /<robot>/cmd_vel interfaces. It does not start Isaac Sim, build scenes, or own robot controllers. The simulator must already be running with Keyboard or Navigation I/O enabled so that the subscribers exist.
 
-Run it with the Python from the selected system ROS installation, not the
-`env_isaaclab` Conda Python:
+Run it with the Python from the selected system ROS installation, not env_isaaclab:
 
-```bash
+~~~bash
 source /opt/ros/humble/setup.bash
 /usr/bin/python3 algorithm/keyboard/keyboard.py --robot carter_1
-```
-
-For multiple robots, pass a comma-separated list and press `Q` to switch the
-active topic:
-
-```bash
-source /opt/ros/humble/setup.bash
 /usr/bin/python3 algorithm/keyboard/keyboard.py --robots carter_1,go2_1,lite3_1
-```
+~~~
 
-If no `--robot`, `--robots`, or `--topic` is supplied, the client waits briefly
-and discovers published `/<robot>/cmd_vel` topics. Use `--topic` only when a
-custom topic is required.
+Press Q to rotate through configured robots. Use --topic for a custom topic. With no --robot, --robots, or --topic, the client briefly discovers published /<robot>/cmd_vel topics.
 
-Key bindings:
+## Key bindings
 
-| Key | Command |
-| --- | --- |
-| `W` / `S` | forward / backward |
-| `A` / `D` | lateral left / right for holonomic bases |
-| `R` / `F` | ascend / descend for aerial robots |
-| `C` / `V` | yaw left / right |
-| `K` or Space | stop |
-| `Q` | switch to the next configured robot |
-| Esc or Ctrl+C | stop and exit |
-
-On exit, the client publishes one zero-velocity command to every configured
-topic before shutting down the ROS node.
+W/S moves forward or backward; A/D strafes holonomic bases; R/F moves aerial robots up or down; C/V rotates left or right; K or Space stops; Q selects the next robot; Esc or Ctrl+C exits. On exit, one zero-velocity command is published to every configured topic.
