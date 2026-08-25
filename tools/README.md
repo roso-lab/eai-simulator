@@ -1,22 +1,26 @@
 # Repository Tools
 
-Run commands in this directory from the repository root. These scripts are
-operational, validation, and asset-authoring entry points; `tools/` is not a
-single Python package or a uniform API. Inspect an entry point before running
-it because its runtime, prerequisites, and side effects are specific to that
-script.
+[Chinese](README.zh-CN.md)
 
-## Directory Guide
+Run commands in this tree from the repository root. `tools/` groups independent operational, validation, ROS2, and human-asset-authoring entry points; it is not one Python package or a uniform API. Read the owning directory guide and the command help before running a tool.
+
+## Directory guide
 
 | Directory | Responsibility | Runtime boundary |
 | --- | --- | --- |
-| [`setup/`](setup/) | Package installation, ROS distribution selection, and inotify limits | Bash and host-system tooling |
-| [`validation/`](validation/) | Lightweight repository checks | Python or Node.js |
-| [`ros2/`](ros2/) | External sensor, mobile-base, and manipulator clients | Selected system ROS2 Python |
-| [`assets/`](assets/) | USD maintenance and repair | Isaac Sim/OpenUSD Python |
-| [`human_assets/`](human_assets/) | Human-asset conversion, authoring, caching, and validation | See the [human asset guide](human_assets/README.md) |
+| [`setup/`](setup/README.md) | Editable package installation, ROS distribution selection, and host inotify limits | Bash, `pip`, and optional host administration |
+| [`validation/`](validation/README.md) | Lightweight repository consistency and regression checks | Repository Python or Node.js |
+| [`ros2/`](ros2/README.md) | External sensor, mobile-base, and manipulator clients plus focused tests | Selected system ROS2 Python |
+| [`human_assets/`](human_assets/README.md) | Human conversion, authoring, migration, cache generation, validation, and demo workflows | Pure Python or Isaac Sim/OpenUSD, depending on the command |
 
-## Public Entry Points
+## Runtime boundaries
+
+- `setup/` can install system packages, editable Python packages, and persistent host configuration. Review its side effects first.
+- Python checks under `validation/` are lightweight, but Node.js 20 LTS or newer is required by the Env DIY runtime check.
+- Programs under `ros2/` that import `rclpy` must use the selected system ROS2 Python, not the interpreter in `env_isaaclab`.
+- Human-asset commands have mixed requirements. Planning, JSON authoring, migration, and structural validation can be pure Python; conversion, import, cache generation, and the runtime demo can require Isaac Sim or `pxr`.
+
+## Quick entry points
 
 ### Setup
 
@@ -25,9 +29,6 @@ script.
 ./tools/setup/configure_inotify_limits.sh --dry-run
 source tools/setup/ros_distro.sh
 ```
-
-`ros_distro.sh` defines shared shell functions and is normally sourced by
-another script. It is not a standalone installer.
 
 ### Validation
 
@@ -40,14 +41,9 @@ python tools/validation/check_release_links.py
 python tools/validation/check_ros_distro_config.py
 ```
 
-Node.js 20 LTS or a newer LTS release is required for the Env DIY validator.
-The Python validators do not establish that an Isaac-dependent workflow is usable.
+### ROS2 clients
 
-### ROS2 Clients
-
-Use these clients in a separate shell with the selected system ROS2
-distribution sourced. Programs that import `rclpy` must use the system ROS
-Python, not the Python interpreter in `env_isaaclab`.
+Use a separate shell with the selected system ROS2 environment sourced:
 
 ```bash
 source /opt/ros/humble/setup.bash
@@ -56,63 +52,31 @@ source /opt/ros/humble/setup.bash
 /usr/bin/python3 tools/ros2/send_manipulator_command.py --help
 ```
 
-Do not treat the scripts' repository location as permission to combine
-`env_isaaclab` with `rclpy` or other system ROS Python packages.
-
-### USD Repair
-
-The repair tool requires Isaac Sim/OpenUSD Python so that `pxr` is available.
-Inspect its options first, and use `--check` for read-only validation:
+### Human assets
 
 ```bash
-python tools/assets/repair_env_diy_usd.py --help
-python tools/assets/repair_env_diy_usd.py --check b2 lite3
+python tools/human_assets/validate_assets.py --help
+python tools/human_assets/edit_action.py --help
+python tools/human_assets/convert_gltf_assets.py --help
+python tools/human_assets/migrate_assets.py --help
 ```
 
-Without `--check`, the command writes canonical USD files and repair
-manifests.
+`scene.py` and `motion_controls.py` are imported support modules, not standalone commands. See the human-asset guide before running a command that writes USD, manifests, caches, or reports.
 
-### Human Asset Authoring
+## Side effects
 
-| Entry point | Responsibility |
-| --- | --- |
-| `tools/human_assets/run_demo.py` | Run the GUI or headless human-runtime validation matrix. |
-| `tools/human_assets/edit_action.py` | Create and edit JSON keyframe action drafts. |
-| `tools/human_assets/import_action.py` | Import an animated GLTF/GLB clip as a custom action USD and overlay manifest. |
-| `tools/human_assets/convert_gltf_assets.py` | Plan or convert an approved source tree into USD assets and a conversion report. |
-| `tools/human_assets/migrate_assets.py` | Migrate validated converted assets into the human manifest and audit metadata. |
-| `tools/human_assets/build_motion_cache.py` | Build retarget motion caches and reports from installed USD assets. |
-| `tools/human_assets/validate_assets.py` | Validate the manifest and installed files into a deterministic JSON report. |
+- `setup/install_packages.sh` can call `apt-get` through `sudo`, install or uninstall editable packages, and write the selected ROS distribution below the active Python prefix.
+- `setup/configure_inotify_limits.sh` without `--dry-run` writes `/etc/sysctl.d/90-eai-isaac-sim-inotify.conf` and reloads live kernel limits.
+- `ros2/send_cmd_vel.py` publishes commands to a live robot. It attempts to publish zero velocity during teardown, but the simulator bridge has no stale-command watchdog; observe the robot and verify that it stopped.
+- `ros2/send_manipulator_command.py` publishes live manipulator commands. Confirm the robot instance, model, target, and surrounding clearance first.
+- Commands under `human_assets/` can write authored, converted, migrated, or cached assets and metadata. Use their planning or dry-run mode where available.
 
-`scene.py` and `motion_controls.py` are internal modules, not standalone
-CLIs. Some public entry points require Isaac Sim or `pxr`, and authoring,
-conversion, migration, and cache commands can write assets or metadata. Review
-the [human asset guide](human_assets/README.md) for exact arguments,
-environments, inputs, outputs, and write behavior.
+## Lightweight verification
 
-## Side Effects and Risk
-
-- `setup/install_packages.sh` can run `apt` through `sudo` and installs or
-  uninstalls editable Python packages with `pip`. A successful install also
-  writes the selected distribution below the current Python prefix at
-  `share/eai-simulator/ros_distro`, which affects later ROS distribution
-  resolution.
-- `setup/configure_inotify_limits.sh` without `--dry-run` writes
-  `/etc/sysctl.d/90-eai-isaac-sim-inotify.conf` and reloads live kernel limits.
-- `assets/repair_env_diy_usd.py` without `--check` writes canonical USD files
-  and manifests.
-- Commands under `human_assets/` can write authored, converted, migrated, or
-  cached assets; review their inputs and outputs in the linked guide.
-
-## Safe Validation
-
-The following checks do not launch Isaac Sim, use a live ROS graph, or intentionally modify repository source:
+These checks do not intentionally start Isaac Sim, connect to a live ROS graph, or modify repository source:
 
 ```bash
-bash -n \
-  tools/setup/install_packages.sh \
-  tools/setup/configure_inotify_limits.sh \
-  tools/setup/ros_distro.sh
+bash -n tools/setup/install_packages.sh tools/setup/configure_inotify_limits.sh tools/setup/ros_distro.sh
 PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
   python -m pytest --rootdir="$PWD" -q -p no:cacheprovider \
   tools/ros2/tests/test_vis_sensors.py \
@@ -126,6 +90,4 @@ python tools/validation/check_ros_distro_config.py
 node tools/validation/check_env_diy_runtime.mjs all
 ```
 
-Generated assets, caches, downloads, logs, runtime snapshots, documentation
-builds, and test output are not tracked source unless a repository workflow
-explicitly designates them as maintained fixtures.
+The ROS2 tests use mocks for client lifecycle and pure helper behavior; they do not replace live ROS2 and simulator validation.

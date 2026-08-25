@@ -160,7 +160,6 @@ tools/
   setup/                             installation and host/repository setup
   validation/                        lightweight Python and Node.js checks
   ros2/                              external system-ROS clients and tests
-  assets/                            Isaac/OpenUSD maintenance and repair
   human_assets/                      human asset authoring and validation
 usd/                                  tracked manifests and UI thumbnails; downloaded USD is runtime data
 tmp/                                  transient preflight, Env DIY, and interface-snapshot output
@@ -224,7 +223,7 @@ Tracked reusable algorithm entry points are `algorithm/emos/` for scenario-drive
 
 ### Tools
 
-`tools/` is the operational, validation, and asset-authoring boundary described in `tools/README.md`; it is not a uniform Python API. `setup/` owns installation and host setup, `validation/` owns lightweight Python and Node.js checks, `ros2/` owns the three external system-ROS clients and their focused tests, `assets/` owns Isaac/OpenUSD repair, and `human_assets/` owns human authoring/import/validation. Each tracked script is the public command boundary for its own arguments, prerequisites, and side effects. Location below `tools/` does not make ROS Python dependencies available in `env_isaaclab` or make OpenUSD available to asset repair.
+`tools/` is the operational, validation, and human-asset-authoring boundary described in `tools/README.md`; it is not a uniform Python API. `setup/` owns installation and host setup, `validation/` owns lightweight Python and Node.js checks, `ros2/` owns the three external system-ROS clients and their focused tests, and `human_assets/` owns human authoring/import/validation. Each tracked script is the public command boundary for its own arguments, prerequisites, and side effects. Location below `tools/` does not make ROS Python dependencies available in `env_isaaclab` or make Isaac/OpenUSD available to human-asset commands.
 
 ### USD Assets
 
