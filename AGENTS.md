@@ -52,9 +52,9 @@ Human rendering remains on the CUDA GPU, but the `UsdHumanStageRuntime` pose/ret
 
 ### External Assets
 
-The default gated Hugging Face dataset is `rosolab/eai-simulator-asset`; large assets and model files from that dataset are not all stored in Git. Relevant workflows can require approved dataset access, Hugging Face authentication, network access, local disk capacity, and acceptance of the upstream asset or model terms. Asset resolution uses this dataset by default and reads `EAI_ASSETS_HF_REPO` only as an optional repository-ID override.
+The default gated Hugging Face dataset is `rosolab/eai-simulator-assets`; large assets and model files from that dataset are not all stored in Git. Relevant workflows can require approved dataset access, Hugging Face authentication, network access, local disk capacity, and acceptance of the upstream asset or model terms. Asset resolution uses this dataset by default and reads `EAI_ASSETS_HF_REPO` only as an optional repository-ID override.
 
-The runtime resolver defaults `EAI_ASSETS_HF_REVISION` to the release asset revision `v0.1.0-beta.1` on `rosolab/eai-simulator-asset`. Override it only when intentionally testing another trusted provider revision.
+The runtime resolver defaults `EAI_ASSETS_HF_REVISION` to the release asset revision `v0.1.0-beta.1` on `rosolab/eai-simulator-assets`. Override it only when intentionally testing another trusted provider revision.
 
 ## 4. First-Time Repository Setup
 
@@ -109,7 +109,7 @@ This alternative does not install `libxcb-cursor0`; provision or verify that dep
 
 ### Authenticate for Gated Assets
 
-Request access to the gated `rosolab/eai-simulator-asset` dataset before launching a workflow that needs it. Authenticate the Hugging Face CLI in the same user environment that will run the simulator:
+Request access to the gated `rosolab/eai-simulator-assets` dataset before launching a workflow that needs it. Authenticate the Hugging Face CLI in the same user environment that will run the simulator:
 
 ```bash
 hf auth login
@@ -322,7 +322,7 @@ After the final scene starts, the launcher resolves declared interfaces for the 
 
 Changes that add or replace resolver-managed USD, controller code, configuration, or weights are incomplete until those files are published to an asset-provider revision. Provider publication is maintainer-owned: the repository has no tracked upload command, and publication requires dataset write access. The handoff must name the repository ID, an immutable tag/revision, exact remote paths below `usd/` or `controller/`, file sizes and hashes, license/provenance, and the matching catalog, builder, requirement, or controller mappings. Publish or tag the intended immutable revision, update the runtime default when appropriate, and verify that exact revision from a clean checkout before declaring an asset-backed feature complete. Follow the provider publication and clean-root verification procedure in section 11; do not merge or release a source mapping that points only to a maintainer's local files.
 
-`asset_resolver.py` defaults `EAI_ASSETS_HF_REVISION` to the release revision `v0.1.0-beta.1` on `rosolab/eai-simulator-asset`. Reading the guide and running checks explicitly described as lightweight or offline do not require provider/network access; asset-backed implementation and integration workflows can require it. Provider-dependent release checks should use that exact revision unless the release owner explicitly selects another trusted tag or commit.
+`asset_resolver.py` defaults `EAI_ASSETS_HF_REVISION` to the release revision `v0.1.0-beta.1` on `rosolab/eai-simulator-assets`. Reading the guide and running checks explicitly described as lightweight or offline do not require provider/network access; asset-backed implementation and integration workflows can require it. Provider-dependent release checks should use that exact revision unless the release owner explicitly selects another trusted tag or commit.
 
 First perform a non-mutating provider path check. Then, when an actual isolated download is appropriate, explicitly set `EAI_ASSETS_HF_REVISION=v0.1.0-beta.1` for clarity and use temporary roots so existing user assets are not overwritten. This matches the source default:
 
@@ -330,7 +330,7 @@ First perform a non-mutating provider path check. Then, when an actual isolated 
 (
   set -eu
   EAI_ASSET_CANDIDATE_REVISION=v0.1.0-beta.1
-  hf download rosolab/eai-simulator-asset \
+  hf download rosolab/eai-simulator-assets \
     --type dataset \
     --revision "$EAI_ASSET_CANDIDATE_REVISION" \
     --include usd/robot/carter/carter.usd \
@@ -354,7 +354,7 @@ First perform a non-mutating provider path check. Then, when an actual isolated 
   trap 'exit 129' HUP
   trap 'exit 143' TERM
 
-  export EAI_ASSETS_HF_REPO=rosolab/eai-simulator-asset
+  export EAI_ASSETS_HF_REPO=rosolab/eai-simulator-assets
   export EAI_ASSETS_HF_REVISION="$EAI_ASSET_CANDIDATE_REVISION"
   export EAI_ASSETS_AUTO_DOWNLOAD=1
   export EAI_USD_ROOT="$EAI_ASSET_CHECK_ROOT/usd"
@@ -1355,7 +1355,7 @@ Interface YAML `models` values are search aliases, not selection registrations. 
 
 `.gitattributes` assigns Git LFS filters to many binary extensions, including images, archives, model weights, and USD formats. Those rules apply only to files that Git actually tracks. They do not override `.gitignore`, make an ignored file eligible for a commit, or cause resolver-managed files to appear in a checkout. Use `git lfs ls-files` to inspect the current tracked LFS inventory rather than inferring it from filename extensions.
 
-Production robot, scene, payload, human, and controller bundles are normally outside Git. The resolver's default gated dataset is `rosolab/eai-simulator-asset`, with provider roots `usd/` and `controller/`. Their default local roots are `usd/` and `source/EAI_assets/EAI_assets/controller/`. The tracked `usd/` inventory is principally UI images and human metadata; do not describe production robot USD or controller bundles as LFS-tracked unless `git ls-files` and `git lfs ls-files` both prove that exact file is in the index. In particular, later `.gitignore` rules currently override the earlier MuSHR negations, so the old exception comments do not establish tracked MuSHR USD or controller source.
+Production robot, scene, payload, human, and controller bundles are normally outside Git. The resolver's default gated dataset is `rosolab/eai-simulator-assets`, with provider roots `usd/` and `controller/`. Their default local roots are `usd/` and `source/EAI_assets/EAI_assets/controller/`. The tracked `usd/` inventory is principally UI images and human metadata; do not describe production robot USD or controller bundles as LFS-tracked unless `git ls-files` and `git lfs ls-files` both prove that exact file is in the index. In particular, later `.gitignore` rules currently override the earlier MuSHR negations, so the old exception comments do not establish tracked MuSHR USD or controller source.
 
 ### Requirement Graph and Semantic IDs
 
@@ -1371,7 +1371,7 @@ Selection resolution validates scene and robot keys through its seed maps, uses 
 
 The resolver recognizes these environment variables:
 
-- `EAI_ASSETS_HF_REPO` overrides the dataset repository ID; the default is `rosolab/eai-simulator-asset`.
+- `EAI_ASSETS_HF_REPO` overrides the dataset repository ID; the default is `rosolab/eai-simulator-assets`.
 - `EAI_ASSETS_HF_REVISION` selects the branch, tag, or commit. Missing or whitespace-only values fall back to `main`.
 - `EAI_ASSETS_AUTO_DOWNLOAD` defaults to enabled. The case-insensitive values `0`, `false`, `no`, and `off` disable automatic downloads; other values enable them.
 - `EAI_USD_ROOT` and `EAI_CONTROLLER_ROOT` replace the local USD and controller roots. Relative configured values are expanded and resolved by the current process, so use intentional locations and inspect them before launch. Human downloads read checksum metadata from `<active USD root>/human/pack-checksums.json`; a fresh custom `EAI_USD_ROOT` must be provisioned with metadata matching the selected revision before requesting a human pack.
@@ -1421,7 +1421,7 @@ The following provider command is read-only but requires network access, the `hf
 
 ```bash
 EAI_ASSET_DEFAULT_REVISION=main
-hf download rosolab/eai-simulator-asset \
+hf download rosolab/eai-simulator-assets \
   --type dataset \
   --revision "$EAI_ASSET_DEFAULT_REVISION" \
   --include usd/robot/carter/carter.usd \
@@ -1969,7 +1969,7 @@ Do not solve an import mismatch by installing packages into multiple interpreter
 Keep credentials, gated approval, revision existence, ordinary-file completeness, and human-pack integrity as separate questions. These provider checks are read-only but network-dependent; never print the active token:
 
 ```bash
-EAI_HF_REPO="${EAI_ASSETS_HF_REPO:-rosolab/eai-simulator-asset}"
+EAI_HF_REPO="${EAI_ASSETS_HF_REPO:-rosolab/eai-simulator-assets}"
 EAI_HF_REVISION="${EAI_ASSETS_HF_REVISION:-main}"
 hf auth whoami
 hf datasets info "$EAI_HF_REPO" --revision "$EAI_HF_REVISION"

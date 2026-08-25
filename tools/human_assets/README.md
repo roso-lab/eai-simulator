@@ -11,12 +11,12 @@ human root 的路径。转换或迁移命令可以读取经过批准的外部输
 ## 安装完整运行时资产
 
 先取得 gated dataset
-[`rosolab/eai-simulator-asset`](https://huggingface.co/datasets/rosolab/eai-simulator-asset)
+[`rosolab/eai-simulator-assets`](https://huggingface.co/datasets/rosolab/eai-simulator-assets)
 的访问权限，再从 Git 仓库根目录一次性下载全部 Human 资产：
 
 ```bash
 hf auth login
-hf download rosolab/eai-simulator-asset \
+hf download rosolab/eai-simulator-assets \
   --type dataset \
   --revision v0.1.0-beta.1 \
   --include "usd/human/**" \
