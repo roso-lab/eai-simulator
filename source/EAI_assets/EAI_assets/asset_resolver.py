@@ -23,7 +23,7 @@ from EAI_assets.asset_requirements import (
     resolve_selection,
 )
 
-DEFAULT_HF_REPO = "rosolab/eai-simulator-asset"
+DEFAULT_HF_REPO = "rosolab/eai-simulator-assets"
 DEFAULT_REPO_TYPE = "dataset"
 DEFAULT_HF_REVISION = "v0.1.0-beta.1"
 HF_BASE_URL = "https://huggingface.co"
