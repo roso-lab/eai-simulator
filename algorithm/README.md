@@ -1,51 +1,48 @@
-# Algorithm
+# Algorithm Modules
 
-`algorithm/` 放置可由 Simulator 和外部 demo 独立调用的算法模块。
+This directory contains reusable planners and ROS integration clients that can be called by the simulator or external demos. Modules have separate runtime boundaries; see each module README for its dependencies and startup procedure.
 
-| 路径 | 说明 |
+## Catalog
+
+| Path | Purpose |
 |---|---|
-| `emos/` | 多智能体 LLM 讨论、任务解析与分配 |
-| `TeamWeaver/` | LLM + MIQP 任务分解、分配与重规划 |
-| `global_planner/` | 2D 占据栅格规划、路径跟踪与 `GlobalNavSession` |
-| `multi_robot_navigation/` | db-CBS 原生规划内核、同步轨迹运行时与 EAI `SimulatorSession` 多机导航组件（无需 launch） |
-| `nav2/` | 独立于 Isaac Python 环境运行的外部 ROS2/Nav2 配置、launch 与目标客户端 |
-| `keyboard/keyboard.py` | 向 EAI `cmd_vel` 接口发布 ROS2 Twist 的交互式键盘客户端 |
+| algorithm/emos/ | Scenario-driven multi-agent LLM discussion and subtask allocation. |
+| algorithm/TeamWeaver/ | LLM task decomposition, MIQP/Hungarian allocation, phase scheduling, and replanning. |
+| algorithm/global_planner/ | Standalone 2D occupancy-grid planning, path tracking, and velocity commands. |
+| algorithm/multi_robot_navigation/ | Native db-CBS, synchronized trajectories, and the EAI Simulator session adapter. |
+| algorithm/nav2/ | External ROS2/Nav2 configuration, TF completion, point-cloud conversion, and goal client. |
+| algorithm/keyboard/ | Interactive ROS2 keyboard client for the EAI cmd_vel interface. |
 
-通用 ROS 运维客户端位于 `tools/ros2/vis_sensors.py`、`tools/ros2/send_cmd_vel.py` 和
-`tools/ros2/send_manipulator_command.py`。它们分别负责传感器查看、测试速度发布以及向
-UR5/Z1 正式 topic 发布命令并可选等待状态；它们是系统 ROS Python 工具，不是机械臂
-控制算法，也不会执行 IK、创建 OmniGraph 或激活机械臂 graph。
+## Import boundary
 
-## 独立导入
+From the repository root, the namespace-package modules can be imported directly. Multi-robot navigation exposes its public sessions from __init__.py; its EAI adapter is in eai_plugin.py.
 
-`algorithm/`、`algorithm/emos/` 和 `algorithm/global_planner/` 使用 Python
-namespace package。`algorithm/multi_robot_navigation/` 通过 `__init__.py` 导出
-db-CBS 规划内核，EAI 适配器由 `eai_plugin.py` 导出。调用方可按下面方式导入：
-
-```python
+~~~python
 from algorithm.emos.engine import EMOSDiscussionManager
 from algorithm.emos.types import scenario_from_dict
 from algorithm.global_planner.session import GlobalNavSession
 from algorithm.multi_robot_navigation import DbcbsNavigationSession
 from algorithm.multi_robot_navigation.eai_plugin import EaiMultiRobotNavigationPlugin
-```
+~~~
 
-从仓库根目录启动时无需额外软链接：
+A repository-root demo can be started without a second checkout:
 
-```bash
+~~~bash
 cd eai-simulator
 python -m demo.fire_rescue.main --env=EAI-Factory-v0 --device=cuda:0
-```
+~~~
 
-Fire Rescue 通过 `demo/fire_rescue/algorithm_paths.py` 保证优先使用本仓库的 `algorithm/`，避免加载
-外部 checkout 中的另一份实现。
+Fire Rescue selects this repository's algorithm directory through demo/fire_rescue/algorithm_paths.py. The adapter connects simulator state to the planner and does not replace the planner implementation.
 
-## 依赖边界
+## Runtime boundaries
 
-- `emos/` 不依赖 Isaac Sim 场景实现，仿真信息通过场景规格和机器人状态传入。
-- `global_planner/` 不依赖 EMOS；它只处理地图、规划、跟踪和速度命令。
-- `multi_robot_navigation/` 内含 db-CBS、定制 OMPL、dynoplan/dynobench、运动基元和 EAI 适配层，并保留显式 `planner_backend="global"` 兼容模式。
-- `TeamWeaver/` 是外部任务规划器，不构造仿真场景，也不直接驱动机器人。
-- `nav2/` 与 `keyboard/keyboard.py` 是外部 ROS 集成边界；导入 `rclpy` 的进程使用所选系统 ROS Python，不与 `env_isaaclab` 混用。
-- `demo/fire_rescue/runtime/algorithm_adapter.py` 只保留 Fire Rescue 的兼容类名。
-- 各算法的安装和构建说明见各自目录中的 `README.md`；独立 Python 依赖文件仅在需要时提供。
+- EMOS receives a scenario, robot specifications, and optional environment state; it does not build an Isaac scene or execute actions.
+- TeamWeaver receives natural-language tasks and symbolic world state; it returns a task DAG and assignments, not simulator commands.
+- The global planner is independent of Isaac Sim, EMOS, Torch, and ROS.
+- Multi-robot navigation owns its planning worker and action generation; the caller owns the Isaac application, simulation loop, and cleanup.
+- Nav2 and keyboard run in the selected system-ROS Python, not in env_isaaclab. Do not mix rclpy processes with the Isaac Lab Conda interpreter.
+- tools/ros2/ contains operational ROS clients, not additional control algorithms or manipulator graph owners.
+
+## Documentation
+
+Each module README documents its import path, dependencies, startup commands, and limitations. Provider-owned assets, model weights, ROS installations, and Isaac Sim are runtime prerequisites and are not downloaded by these examples.
