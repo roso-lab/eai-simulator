@@ -16,4 +16,4 @@ Security reports must follow [SECURITY.md](SECURITY.md). Do not post vulnerabili
 public channels.
 
 Maintainers triage public GitHub threads and promote accepted work to the internal GitLab workflow.
-See [.github/SYNCING.md](.github/SYNCING.md) for details.
+See [SYNCING.md](SYNCING.md) for details.

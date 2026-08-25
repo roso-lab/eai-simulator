@@ -2,7 +2,7 @@
 
 # 为 EAI Simulator 做贡献
 
-感谢你帮助改进 EAI Simulator。GitHub 是公开社区入口，维护者继续在内部 GitLab 仓库中进行主线开发。完整同步与 triage 流程见 [.github/SYNCING.zh-CN.md](.github/SYNCING.zh-CN.md)。
+感谢你帮助改进 EAI Simulator。GitHub 是公开社区入口，维护者继续在内部 GitLab 仓库中进行主线开发。完整同步与 triage 流程见 [SYNCING.zh-CN.md](SYNCING.zh-CN.md)。
 
 ## 开始之前
 

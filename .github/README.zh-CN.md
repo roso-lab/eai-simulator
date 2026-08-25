@@ -1,9 +1,9 @@
 <p align="center">
-  <a href="README.md">English</a> · <a href="README.zh-CN.md">中文</a>
+  <a href="../README.md">English</a> · <a href="README.zh-CN.md">中文</a>
 </p>
 
 <p align="center">
-  <img src=".github/assets/logo.png" alt="EAI Simulator 标志" width="520">
+  <img src="assets/logo.png" alt="EAI Simulator 标志" width="520">
 </p>
 
 <h1 align="center">EAI Simulator</h1>
@@ -12,7 +12,7 @@
   <a href="https://releases.ubuntu.com/22.04/"><img src="https://img.shields.io/badge/platform-linux--64-orange.svg" alt="平台：Linux x86-64"></a>
   <a href="https://docs.isaacsim.omniverse.nvidia.com/5.1.0/index.html"><img src="https://img.shields.io/badge/Isaac%20Sim-5.1-76B900.svg" alt="Isaac Sim 5.1"></a>
   <a href="https://github.com/roso-lab/eai-simulator/releases/tag/v0.1.0-beta.1"><img src="https://img.shields.io/badge/release-v0.1.0--beta.1-007ec6.svg" alt="发布版本：v0.1.0-beta.1"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow.svg" alt="许可证：MIT"></a>
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow.svg" alt="许可证：MIT"></a>
 </p>
 
 <p align="center">
@@ -27,7 +27,7 @@
 </p>
 
 <p align="center">
-  <img src=".github/assets/demo.gif" alt="EAI Simulator 异构机器人与任务运行演示" width="960">
+  <img src="assets/demo.gif" alt="EAI Simulator 异构机器人与任务运行演示" width="960">
 </p>
 
 ## 功能特性
@@ -40,7 +40,7 @@
   <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html">环境指南 →</a></p>
 </td>
 <td width="57%">
-  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html"><img src=".github/assets/env-diy.gif" alt="使用 EAI Env DIY 可视化编辑器组合并运行环境" width="100%"></a>
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/environments.html"><img src="assets/env-diy.gif" alt="使用 EAI Env DIY 可视化编辑器组合并运行环境" width="100%"></a>
 </td>
 </tr>
 <tr>
@@ -50,7 +50,7 @@
   <p><a href="https://huggingface.co/datasets/rosolab/eai-simulator-assets">申请资产访问 →</a></p>
 </td>
 <td width="57%">
-  <a href="https://huggingface.co/datasets/rosolab/eai-simulator-assets"><img src=".github/assets/asset-library.gif" alt="EAI Simulator 资产库预览" width="100%"></a>
+  <a href="https://huggingface.co/datasets/rosolab/eai-simulator-assets"><img src="assets/asset-library.gif" alt="EAI Simulator 资产库预览" width="100%"></a>
 </td>
 </tr>
 <tr>
@@ -60,7 +60,7 @@
   <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/interface_catalog.html">查看接口 →</a></p>
 </td>
 <td width="57%">
-  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/orsus_sensor.html"><img src=".github/assets/orsus-demo.gif" alt="EAI Simulator 中的 Orsus 多模态传感输出" width="100%"></a>
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/orsus_sensor.html"><img src="assets/orsus-demo.gif" alt="EAI Simulator 中的 Orsus 多模态传感输出" width="100%"></a>
 </td>
 </tr>
 <tr>
@@ -70,7 +70,7 @@
   <p><a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html#fire-rescue-demo">运行实验 →</a></p>
 </td>
 <td width="57%">
-  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html#fire-rescue-demo"><img src=".github/assets/demo.gif" alt="EAI Simulator 异构机器人与任务运行演示" width="100%"></a>
+  <a href="https://www.rosolab.com/roso-lab/eai-simulator/docs/getting_started.html#fire-rescue-demo"><img src="assets/demo.gif" alt="EAI Simulator 异构机器人与任务运行演示" width="100%"></a>
 </td>
 </tr>
 </table>
@@ -125,4 +125,4 @@ GitHub 是公开社区入口。维护者继续在内部 GitLab 仓库中进行�
 
 ## 许可证
 
-本仓库源代码采用 [MIT License](LICENSE)。Isaac Sim、Isaac Lab、Omniverse 组件、第三方依赖和下载资产仍分别受其各自许可证约束。
+本仓库源代码采用 [MIT License](../LICENSE)。Isaac Sim、Isaac Lab、Omniverse 组件、第三方依赖和下载资产仍分别受其各自许可证约束。

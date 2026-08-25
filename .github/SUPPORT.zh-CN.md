@@ -11,4 +11,4 @@
 
 安全问题必须遵循 [SECURITY.zh-CN.md](SECURITY.zh-CN.md)。不要在公开渠道发布漏洞细节。
 
-维护者会 triage GitHub 的公开 thread，并把接受的工作提升到内部 GitLab 流程。详情见 [.github/SYNCING.zh-CN.md](.github/SYNCING.zh-CN.md)。
+维护者会 triage GitHub 的公开 thread，并把接受的工作提升到内部 GitLab 流程。详情见 [SYNCING.zh-CN.md](SYNCING.zh-CN.md)。
