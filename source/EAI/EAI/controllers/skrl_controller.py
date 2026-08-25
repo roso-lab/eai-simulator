@@ -15,6 +15,36 @@ from .base import ControllerCfg
 from .utils import get_model_dims, find_checkpoint, load_yaml_config
 
 
+_CHECKPOINT_MODULE_NAMES = {
+    "state_preprocessor": "observation_preprocessor",
+}
+
+
+def _load_agent_checkpoint(agent: Any, path: str) -> None:
+    """Load a checkpoint and restore modules registered by the SKRL agent."""
+    try:
+        modules = torch.load(path, map_location=agent.device, weights_only=False)
+    except TypeError:  # torch < 1.13 has no weights_only kwarg
+        modules = torch.load(path, map_location=agent.device)
+
+    if not isinstance(modules, dict):
+        agent.load(path)
+        return
+
+    installed = dict(getattr(agent, "checkpoint_modules", {}) or {})
+    for stored_name, state_dict in modules.items():
+        module_name = _CHECKPOINT_MODULE_NAMES.get(stored_name, stored_name)
+        module = installed.get(module_name)
+        if module is None:
+            print(f"[SKRL] Skipping unregistered checkpoint module '{stored_name}'")
+            continue
+        if not hasattr(module, "load_state_dict"):
+            raise NotImplementedError(f"Cannot load module '{stored_name}' without load_state_dict")
+        module.load_state_dict(state_dict)
+        if hasattr(module, "eval"):
+            module.eval()
+
+
 @configclass
 class SKRLControllerCfg(ControllerCfg):
     """Base configuration class for SKRL Controllers.
@@ -98,7 +128,7 @@ class SKRLControllerCfg(ControllerCfg):
         
         # Forward through policy
         with torch.inference_mode():
-            action = policy.act({"states": observations}, role="policy")[0]
+            action = policy.act({"observations": observations}, role="policy")[0]
         
         # Ensure tensor format
         if not isinstance(action, torch.Tensor):
@@ -238,10 +268,12 @@ class SKRLControllerCfg(ControllerCfg):
         # Create minimal env and load model
         minimal_env = MinimalEnv(observation_space, action_space, device)
         runner = Runner(minimal_env, cfg)
-        runner.agent.load(model_path)
-        runner.agent.set_running_mode("eval")
-        
-        preprocessor = getattr(runner.agent, 'state_preprocessor', None) or getattr(runner.agent, '_state_preprocessor', None)
+        _load_agent_checkpoint(runner.agent, model_path)
+        runner.agent.enable_training_mode(False)
+
+        preprocessor = getattr(runner.agent, "observation_preprocessor", None)
+        if preprocessor is None:
+            preprocessor = getattr(runner.agent, "_observation_preprocessor", None)
         return runner.agent.policy, preprocessor
     
     def _get_action_dim(self, robot_name: str, base_env: Any) -> Optional[int]:

@@ -24,7 +24,7 @@ setup(
     python_requires=">=3.10",
     install_requires=[
         "isaaclab",
-        "skrl",
+        "skrl>=2.1.0",
         "torch",
         "pyyaml",
         "pywebview[qt]; platform_system == 'Linux'",
