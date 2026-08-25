@@ -130,7 +130,7 @@ LLM 分解得到的最小可执行任务：
 
 ```bash
 # 1) 依赖（见 requirements-eai.txt）
-pip install -r requirements-eai.txt          # numpy scipy openai httpx pytest
+pip install -r algorithm/TeamWeaver/requirements-eai.txt  # from the repository root
 # pip install gurobipy                        # 可选：启用真正 MIQP，否则自动回退匈牙利算法
 
 # 2) 环境变量（DeepSeek 语义分解必需）
