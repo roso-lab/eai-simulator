@@ -4,7 +4,7 @@
 
 Thank you for helping improve EAI Simulator. GitHub is the public community entry point, while
 maintainers continue canonical development in the internal GitLab repository. See
-[.github/SYNCING.md](.github/SYNCING.md) for the full mirror and triage process.
+[SYNCING.md](SYNCING.md) for the full mirror and triage process.
 
 ## Before You Start
 

@@ -12,7 +12,11 @@ RELEASE_NAME = "v0.1.0-beta.1"
 PUBLIC_RELEASE_URL = f"https://github.com/roso-lab/eai-simulator/releases/tag/{RELEASE_NAME}"
 INTERNAL_SOURCE_TAG_URL = f"https://rosolab.com/roso-lab/eai-simulator/-/tags/{RELEASE_NAME}"
 BADGE_RELEASE_NAME = re.escape(RELEASE_NAME).replace(r"\-", "--")
-README_FILES = [ROOT / "README.md", ROOT / "docs" / "README.zh-CN.md"]
+README_FILES = [
+    ROOT / "README.md",
+    ROOT / ".github" / "README.zh-CN.md",
+    ROOT / "docs" / "README.zh-CN.md",
+]
 
 
 def _read(path: Path) -> str:

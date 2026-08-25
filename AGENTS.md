@@ -2,7 +2,7 @@
 
 ## 1. Purpose and Scope
 
-This guide is the offline development entry point for first-time EAI Simulator developers and coding agents. Hosted documentation is optional supporting material, not a prerequisite for using this guide. `README.md` provides project and user orientation, while `CONTRIBUTING.md` owns contribution policy. When documentation and implementation disagree, source code, configuration, and tests are authoritative.
+This guide is the offline development entry point for first-time EAI Simulator developers and coding agents. Hosted documentation is optional supporting material, not a prerequisite for using this guide. `README.md` provides project and user orientation, while `.github/CONTRIBUTING.md` owns contribution policy. When documentation and implementation disagree, source code, configuration, and tests are authoritative.
 
 All repository paths in this guide are relative to the repository root. All commands assume the repository root as the working directory unless a section explicitly says otherwise.
 
@@ -2158,7 +2158,7 @@ For every proposed source, fixture, or test, run `git check-ignore -v --no-index
 
 ## 16. Git, Branch, Commit, and Documentation Rules
 
-GitHub is the public community and review entry point; maintainers perform canonical development in the internal GitLab repository and may port accepted GitHub pull requests into GitLab merge requests before mirroring results back. Follow `CONTRIBUTING.md` and the linked community workflow rather than assuming the two repositories are independent release authorities.
+GitHub is the public community and review entry point; maintainers perform canonical development in the internal GitLab repository and may port accepted GitHub pull requests into GitLab merge requests before mirroring results back. Follow `.github/CONTRIBUTING.md` and the linked community workflow rather than assuming the two repositories are independent release authorities.
 
 Allowed primary branches are `main`, `master`, `develop`, and `development`. Topic branches use one of these patterns with a nonempty name: `feature/`, `bugfix/`, `fix/`, `hotfix/`, `release/`, `chore/`, `build/`, `docs/`, `refactor/`, `style/`, `test/`, `ci/`, or `perf/`.
 
@@ -2217,7 +2217,7 @@ fi
 
 The case-insensitive heuristic covers common bare assignments plus quoted JSON and Python-dictionary keys, and emits only staged file and line locations, never the matched value. It still misses encoded, split, indirect, non-keyed, and high-entropy secrets and does not inspect binary content. Zero heuristic findings are not proof that the staged content is secret-free. Investigate every finding, manually review the complete cached patch, and run an approved maintained scanner when the project or host provides one. If no such scanner is available, report that fact and these heuristic limitations instead of claiming clearance. `git diff --cached --check` detects whitespace errors only; it is not a content, scope, or secret audit. For any other task, use the same sequence with the reviewed explicit paths and require `git diff --cached --name-status` to contain exactly those paths before commit.
 
-Keep commits focused on one issue and behavior. Update `README.md`, `CONTRIBUTING.md`, `AGENTS.md`, user documentation, examples, and migration notes in the same change when their owned public behavior, configuration, compatibility, or workflow changes; do not edit generated documentation output as a substitute for its source.
+Keep commits focused on one issue and behavior. Update `README.md`, `.github/CONTRIBUTING.md`, `AGENTS.md`, user documentation, examples, and migration notes in the same change when their owned public behavior, configuration, compatibility, or workflow changes; do not edit generated documentation output as a substitute for its source.
 
 A pull request or merge request must link the issue/discussion, explain user-visible behavior, list exact commands and observed results, identify unrun heavy/network/system checks, call out compatibility and migration concerns, and include screenshots for UI changes. Asset-backed changes additionally name the dataset repository, immutable revision, exact remote paths, hashes/sizes, provenance/license, and clean-root verification. Never claim that an unrun check passed.
 

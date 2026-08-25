@@ -8,7 +8,7 @@ body:
     id: page
     attributes:
       label: Documentation page or file
-      placeholder: "README.md, CONTRIBUTING.md, or a published docs URL"
+      placeholder: "README.md, .github/CONTRIBUTING.md, or a published docs URL"
     validations:
       required: true
   - type: textarea

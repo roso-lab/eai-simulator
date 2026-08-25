@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="README.md">English</a> · <a href="README.zh-CN.md">中文</a>
+  <a href="README.md">English</a> · <a href=".github/README.zh-CN.md">中文</a>
 </p>
 
 <p align="center">
@@ -117,9 +117,9 @@ See the [installation guide](https://www.rosolab.com/roso-lab/eai-simulator/docs
 
 - **[GitHub Discussions](https://github.com/roso-lab/eai-simulator/discussions):** questions, research scenarios, early ideas, and community proposals.
 - **[GitHub Issues](https://github.com/roso-lab/eai-simulator/issues):** reproducible bugs, scoped feature requests, and documentation problems.
-- **[Contributing](CONTRIBUTING.md):** development setup, testing expectations, pull requests, and the GitHub/GitLab maintenance workflow.
-- **[Support](SUPPORT.md):** channel selection and support boundaries.
-- **[Security](SECURITY.md):** private vulnerability reporting. Do not report security issues publicly.
+- **[Contributing](.github/CONTRIBUTING.md):** development setup, testing expectations, pull requests, and the GitHub/GitLab maintenance workflow.
+- **[Support](.github/SUPPORT.md):** channel selection and support boundaries.
+- **[Security](.github/SECURITY.md):** private vulnerability reporting. Do not report security issues publicly.
 
 GitHub is the public community entry point. Maintainers continue canonical development in the internal GitLab repository and mirror public updates back to GitHub.
 
