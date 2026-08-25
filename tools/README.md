@@ -33,6 +33,7 @@ another script. It is not a standalone installer.
 
 ```bash
 python tools/validation/check_asset_download_errors.py
+python tools/validation/check_documentation_consistency.py
 python tools/validation/check_env_diy_exclusivity.py
 node tools/validation/check_env_diy_runtime.mjs all
 python tools/validation/check_release_links.py
@@ -118,6 +119,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
   tools/ros2/tests/test_send_cmd_vel.py \
   tools/ros2/tests/test_send_manipulator_command.py
 python tools/validation/check_asset_download_errors.py
+python tools/validation/check_documentation_consistency.py
 python tools/validation/check_env_diy_exclusivity.py
 python tools/validation/check_release_links.py
 python tools/validation/check_ros_distro_config.py
