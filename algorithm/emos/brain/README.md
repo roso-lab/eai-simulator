@@ -1,37 +1,30 @@
-# Python Project
+# EMOS Brain Modules
 
-This Python project depends on several packages and uses the Deepseek Model.
-
-## Features
-
-- Command-line interface for easy execution.
-- Integration with Deepseek Model for AI-powered functionality.
-- Structured configuration and type validation with `pydantic`.
-- Colorful terminal outputs using `colorama`.
-- Automated docstring parsing with `docstring_parser`.
+This package contains the DeepSeek-compatible discussion, robot-resume, skill, and model-client modules used by the scenario-driven EMOS integration. It is a Python library surface consumed by `algorithm.emos`; it does not provide a standalone command-line entry point and it does not load `.env` files.
 
 ## Installation
 
-Install the required dependencies:
+Install the maintained manifest from the repository root in the environment that runs EMOS:
 
 ```bash
-pip install pydantic
-pip install docstring_parser
-pip install colorama
-pip install openai
+python -m pip install -r algorithm/emos/requirements.txt
 ```
 
+The manifest includes `numpy`, which is imported by `brain/robot_resume.py`, as well as the OpenAI-compatible client, Pydantic, terminal formatting, and docstring parsing dependencies.
 
+## Provider Configuration
 
-## Configuration
+Set the provider credential in the process environment before calling the EMOS discussion path:
 
-To use the Deepseek Model, create a .env file in the project root and add your Deepseek API key:
+```bash
+export DEEPSEEK_API_KEY="..."
+```
 
-DEEPSEEK_API_KEY=your_api_key_here
+`brain/API/Model_API.py` reads `DEEPSEEK_API_KEY` with `os.getenv`. It does not call `python-dotenv`; a local `.env` file has no effect unless the caller explicitly loads it. Do not commit credentials or print them in validation logs.
 
+The public integration boundary is `EMOSDiscussionManager` in `algorithm/emos/engine.py`. Callers provide a scenario and an existing EAI/Isaac Lab-compatible environment; these brain modules do not construct or launch the simulator.
 
-
-## Lightweight verification
+## Lightweight Verification
 
 From the repository root, check the maintained EMOS brain sources without making an API request:
 
@@ -43,4 +36,4 @@ python -m py_compile \
   algorithm/emos/brain/skills/*.py
 ```
 
-This verifies Python syntax only. It does not validate provider credentials, paid API access, model responses, or simulator integration.
+This verifies syntax only. It does not validate provider credentials, paid API access, model responses, or simulator integration.

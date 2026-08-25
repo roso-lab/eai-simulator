@@ -42,7 +42,6 @@ def parse_args(args=None) -> argparse.Namespace:
         help="Vertical speed for aerial robots using R/F.",
     )
     parser.add_argument("--angular-speed", type=float, default=0.8, help="Angular speed for C/V keys.")
-    parser.add_argument("--rate", type=float, default=20.0, help="Publish rate in Hz.")
     parser.add_argument("--discover-timeout", type=float, default=5.0, help="Seconds to wait for /<robot>/cmd_vel topics.")
     parsed = parser.parse_args(args)
     parsed.robots = parse_robot_names(parsed.robots)

@@ -1,7 +1,7 @@
 # TeamWeaver EAI adapter dependencies
 #
 # Scope: the pure-Python EAI integration layer under
-#   algorithm/TeamWeaver/TeamWeaver/eai_adapter
+#   algorithm/TeamWeaver/eai_adapter
 #
 # The upstream paper core (agent/ llm/ planner/ world_model/ tools/ ...) needs
 # Habitat-Sim / PARTNR / PyTorch / Hydra and is NOT covered by this file.

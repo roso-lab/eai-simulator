@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 from pathlib import Path
 import time
 
@@ -20,11 +21,22 @@ def _goal(value: str) -> tuple[str, tuple[float, float]]:
         robot_name = robot_name.strip()
         if not robot_name:
             raise ValueError
-        return robot_name, (float(x_text), float(y_text))
+        coordinates = (float(x_text), float(y_text))
+        if not all(math.isfinite(value) for value in coordinates):
+            raise ValueError
+        return robot_name, coordinates
     except ValueError as exc:
         raise argparse.ArgumentTypeError(
             "goal must use ROBOT:X,Y, for example carter_1:3.0,-2.0"
         ) from exc
+
+
+def _validate_duration(value: float, *, name: str, allow_zero: bool) -> float:
+    value = float(value)
+    if not math.isfinite(value) or (value < 0.0 if allow_zero else value <= 0.0):
+        qualifier = "finite and non-negative" if allow_zero else "finite and positive"
+        raise argparse.ArgumentTypeError(f"{name} must be {qualifier}")
+    return value
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -58,8 +70,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--headless", action="store_true")
     parser.add_argument("--real-time", action="store_true")
-    parser.add_argument("--max-seconds", type=float, default=180.0)
-    parser.add_argument("--hold-seconds", type=float, default=3.0)
+    parser.add_argument(
+        "--max-seconds",
+        type=lambda value: _validate_duration(
+            value, name="--max-seconds", allow_zero=False
+        ),
+        default=180.0,
+    )
+    parser.add_argument(
+        "--hold-seconds",
+        type=lambda value: _validate_duration(
+            value, name="--hold-seconds", allow_zero=True
+        ),
+        default=3.0,
+    )
     return parser
 
 
@@ -80,10 +104,10 @@ def _exchange_goals(
 
 
 def _run(args: argparse.Namespace) -> None:
-    if args.max_seconds <= 0.0:
-        raise SystemExit("--max-seconds must be positive")
-    if args.hold_seconds < 0.0:
-        raise SystemExit("--hold-seconds cannot be negative")
+    if not math.isfinite(args.max_seconds) or args.max_seconds <= 0.0:
+        raise SystemExit("--max-seconds must be finite and positive")
+    if not math.isfinite(args.hold_seconds) or args.hold_seconds < 0.0:
+        raise SystemExit("--hold-seconds must be finite and non-negative")
     interactive = bool(args.interactive or (not args.goal and not args.exchange))
     if interactive and args.headless:
         raise SystemExit("Interactive navigation requires a visible Isaac Sim viewport")
