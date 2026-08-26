@@ -40,7 +40,15 @@ const runtimeMarkup = [
   "processed/tool/navigation_io.png",
   "DRAFT_KEY",
   "const conflictingSensorKey",
-  "Orsus 与 LiDAR 不能同时挂载"
+  "Orsus 与 LiDAR 不能同时挂载",
+  "const payloadMountConflicts",
+  'carter: [["z1", "orsus"], ["z1", "lidar"]]',
+  'go2: [["ur5", "orsus"], ["z1", "orsus"]]',
+  "冲突组合会自动禁用",
+  "const builtinSensorReasons",
+  'orsus: "已内置相机与 LiDAR"',
+  'realsense_d455: "已内置相机"',
+  'lidar: "已内置 LiDAR"'
 ];
 
 const retiredMarkup = [

@@ -1545,6 +1545,18 @@
       const attachmentEntry = key => payloadEntry(key) || catalog.tools[key] || null;
       const payloadSubtype = key => catalog.manipulators[key] ? "manipulator" : "sensor";
       const conflictingSensorKey = key => key === "orsus" ? "lidar" : key === "lidar" ? "orsus" : null;
+      const payloadMountConflicts = {
+        carter: [["z1", "orsus"], ["z1", "lidar"]],
+        go2: [["ur5", "orsus"], ["z1", "orsus"]]
+      };
+      const payloadMountConflictReason = (robotType, payloadTypes) => {
+        const conflict = (payloadMountConflicts[robotType] || []).find(pair =>
+          pair.every(key => payloadTypes.has(key))
+        );
+        return conflict
+          ? conflict.map(key => payloadEntry(key).label).join(" 与 ") + " 不能同时挂载"
+          : "";
+      };
       const activeRobot = () => state.robots.find(robot => robot.id === state.activeRobotId) || null;
       const selectedRobot = () => state.robots.find(robot => robot.id === state.selection.robotId) || null;
       const hasWork = () => Boolean(state.sceneKey || state.robots.length || state.taskName !== "my_env");
@@ -1738,6 +1750,10 @@
           if (payloadTypes.has("orsus") && payloadTypes.has("lidar")) {
             errors.push(robotLabelWithIndex(robot) + " 不能同时挂载 Orsus 与 LiDAR");
           }
+          const mountConflict = payloadMountConflictReason(robot.type, payloadTypes);
+          if (mountConflict) {
+            errors.push(robotLabelWithIndex(robot) + " " + mountConflict);
+          }
           const hasBuiltinCamera = ["cf2x", "iris", "pegasus"].includes(robot.type);
           const hasCameraPayload = robot.payloads.some(item => item.type === "orsus" || item.type === "realsense_d455");
           if (robot.tools.includes("camera") && !hasBuiltinCamera && !hasCameraPayload) {
@@ -1884,9 +1900,19 @@
         workspaceStatus.textContent = "已选择 " + categoryLabels[selection.category] + " 节点 · 右侧可替换";
       };
 
+      const builtinSensorReasons = Object.freeze({
+        orsus: "已内置相机与 LiDAR",
+        realsense_d455: "已内置相机",
+        lidar: "已内置 LiDAR"
+      });
+
       const compatibilityReason = (robotType, key) => {
         const entry = attachmentEntry(key);
-        return entry && entry.supported.includes(robotType) ? "" : "与当前 Robot 不兼容";
+        if (entry && entry.supported.includes(robotType)) return "";
+        if (["cf2x", "iris", "pegasus"].includes(robotType) && builtinSensorReasons[key]) {
+          return builtinSensorReasons[key];
+        }
+        return "与当前 Robot 不兼容";
       };
 
       const robotReplacementReason = (robot, candidateType) => {
@@ -1902,6 +1928,11 @@
         ) {
           return "Camera Tool 在该 Robot 上需要 Orsus 或 RealSense D455";
         }
+        const mountConflict = payloadMountConflictReason(
+          candidateType,
+          new Set(robot.payloads.map(item => item.type))
+        );
+        if (mountConflict) return mountConflict;
         if (!incompatible.length) return "";
         const labels = incompatible.map(key => attachmentEntry(key).label).join("、");
         return "现有 " + labels + " 不兼容";
@@ -1941,6 +1972,12 @@
         if (conflictingKey && robot.payloads.some(item =>
           item.type === conflictingKey && (!replacing || item.type !== state.selection.key)
         )) return "Orsus 与 LiDAR 不能同时挂载";
+        const nextPayloadTypes = new Set(robot.payloads
+          .filter(item => !replacing || item.type !== state.selection.key)
+          .map(item => item.type));
+        nextPayloadTypes.add(key);
+        const mountConflict = payloadMountConflictReason(robot.type, nextPayloadTypes);
+        if (mountConflict) return mountConflict;
         if (
           replacing
           && ["orsus", "realsense_d455"].includes(state.selection.key)
@@ -2041,7 +2078,7 @@
         catalogTarget.textContent = robot ? "目标：" + robotLabelWithIndex(robot) : "目标：尚未选择 Robot";
         catalogContext.textContent = replacing
           ? "仅显示与所选 Payload 同类的替换项。"
-          : "一个分支可添加一个机械臂和多个兼容传感器；Orsus 与 LiDAR 互斥。";
+          : "一个分支可添加一个机械臂和多个兼容传感器；冲突组合会自动禁用。";
       };
 
       const renderToolCatalog = () => {
