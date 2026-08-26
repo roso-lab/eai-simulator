@@ -276,6 +276,17 @@
       min-width: var(--lineage-track-width);
     }
 
+    .lineage-scroll.is-user-view {
+      overflow: auto;
+      overscroll-behavior: contain;
+      scrollbar-gutter: stable;
+    }
+
+    .lineage-scroll.is-panning {
+      cursor: grabbing;
+      user-select: none;
+    }
+
     .lineage-headings {
       display: grid;
       grid-template-columns: repeat(5, var(--lineage-column-width));
@@ -1292,10 +1303,11 @@
           <div class="lineage-toolbar">
             <div class="lineage-title">
               <h2 id="lineage-title">环境谱系</h2>
-              <p>物理位置不在谱系中表示；真实 <code>spawn_pose</code> 请使用 <code>--diy-3d</code>。</p>
+              <p>物理位置不在谱系中表示；真实 <code>spawn_pose</code> 请使用 <code>--diy-3d</code>。Ctrl+滚轮缩放，滚轮上下滚动，右键拖动平移。</p>
             </div>
             <div class="workspace-status" id="workspace-status" role="status">从 Scene 开始选择</div>
             <button class="button button-danger" type="button" data-delete-selected disabled>删除所选</button>
+            <button class="button" type="button" data-fit-view>适应视图</button>
             <button class="button" type="button" data-reset>重置</button>
           </div>
 
@@ -1490,6 +1502,9 @@
       let draftTimer = 0;
       let toastTimer = 0;
       let lineageFitFrame = 0;
+      let lineageViewZoom = 1;
+      let lineageViewUserAdjusted = false;
+      let lineagePanState = null;
 
       const updateLineageConnectorLayout = () => {
         const branches = lineageTree.querySelector(".branches.has-many");
@@ -1504,28 +1519,81 @@
         branches.style.setProperty("--branch-trunk-bottom", Math.max(0, branches.scrollHeight - lastCenter) + "px");
       };
 
-      const fitLineageToViewport = () => {
+      const LINEAGE_MIN_ZOOM = 0.1;
+      const LINEAGE_MAX_ZOOM = 4;
+
+      // 连接线 CSS 变量在未缩放坐标系中测量，任何几何测量都要先恢复 zoom:1。
+      const withNaturalLineageZoom = action => {
+        const previousZoom = lineageViewZoom;
         lineageTrack.style.zoom = "1";
-        updateLineageConnectorLayout();
-        const styles = window.getComputedStyle(lineageScroll);
-        const verticalPadding = parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom);
-        const horizontalPadding = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
-        const availableHeight = Math.max(1, lineageScroll.clientHeight - verticalPadding - 2);
-        const availableWidth = Math.max(1, lineageScroll.clientWidth - horizontalPadding - 2);
-        const naturalHeight = lineageTrack.scrollHeight;
-        const naturalWidth = lineageTrack.scrollWidth;
-        const scale = Math.min(1, availableHeight / naturalHeight, availableWidth / naturalWidth);
+        const result = action();
+        lineageTrack.style.zoom = String(previousZoom);
+        return result;
+      };
+
+      const fitLineageToViewport = () => {
+        const scale = withNaturalLineageZoom(() => {
+          updateLineageConnectorLayout();
+          const styles = window.getComputedStyle(lineageScroll);
+          const verticalPadding = parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom);
+          const horizontalPadding = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
+          const availableHeight = Math.max(1, lineageScroll.clientHeight - verticalPadding - 2);
+          const availableWidth = Math.max(1, lineageScroll.clientWidth - horizontalPadding - 2);
+          return Math.min(
+            1,
+            availableHeight / lineageTrack.scrollHeight,
+            availableWidth / lineageTrack.scrollWidth
+          );
+        });
+        lineageViewZoom = scale;
         lineageTrack.style.zoom = String(scale);
         lineageScroll.scrollTop = 0;
         lineageScroll.scrollLeft = 0;
+      };
+
+      const refreshLineageView = () => {
+        if (!lineageViewUserAdjusted) {
+          fitLineageToViewport();
+          return;
+        }
+        withNaturalLineageZoom(updateLineageConnectorLayout);
       };
 
       const scheduleLineageFit = () => {
         if (lineageFitFrame) return;
         lineageFitFrame = window.requestAnimationFrame(() => {
           lineageFitFrame = 0;
-          fitLineageToViewport();
+          refreshLineageView();
         });
+      };
+
+      const markLineageViewUserAdjusted = () => {
+        if (lineageViewUserAdjusted) return;
+        lineageViewUserAdjusted = true;
+        lineageScroll.classList.add("is-user-view");
+      };
+
+      const resetLineageView = () => {
+        lineageViewUserAdjusted = false;
+        lineageScroll.classList.remove("is-user-view", "is-panning");
+        fitLineageToViewport();
+        workspaceStatus.textContent = "视图已恢复自动适应";
+      };
+
+      const zoomLineageAtPoint = (factor, clientX, clientY) => {
+        const nextZoom = Math.min(LINEAGE_MAX_ZOOM, Math.max(LINEAGE_MIN_ZOOM, lineageViewZoom * factor));
+        if (nextZoom === lineageViewZoom) return;
+        markLineageViewUserAdjusted();
+        const rect = lineageTrack.getBoundingClientRect();
+        const previousScrollLeft = lineageScroll.scrollLeft;
+        const previousScrollTop = lineageScroll.scrollTop;
+        // 指针指向的内容点（未缩放坐标）在缩放前后保持不动。
+        const contentX = (clientX - rect.left) / lineageViewZoom;
+        const contentY = (clientY - rect.top) / lineageViewZoom;
+        lineageViewZoom = nextZoom;
+        lineageTrack.style.zoom = String(nextZoom);
+        lineageScroll.scrollLeft = previousScrollLeft + rect.left + contentX * nextZoom - clientX;
+        lineageScroll.scrollTop = previousScrollTop + rect.top + contentY * nextZoom - clientY;
       };
 
       const cloneValue = value => typeof window.structuredClone === "function"
@@ -2596,6 +2664,7 @@
         deleteSelection({ ...state.selection });
       });
       document.querySelector("[data-reset]").addEventListener("click", resetState);
+      document.querySelector("[data-fit-view]").addEventListener("click", resetLineageView);
       document.querySelector("[data-complete-selection]").addEventListener("click", prepareCompletion);
       document.querySelector("[data-copy-json]").addEventListener("click", () => {
         copyText(JSON.stringify(exportPayload(), null, 2));
@@ -2610,6 +2679,56 @@
       updateWebviewActions();
 
       window.addEventListener("resize", scheduleLineageFit);
+
+      // Ctrl+滚轮缩放；普通滚轮不拦截，交给容器原生上下滚动。
+      lineageScroll.addEventListener("wheel", event => {
+        if (!event.ctrlKey && !event.metaKey) return;
+        if (!event.deltaY) return;
+        event.preventDefault();
+        const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 400 : 1;
+        zoomLineageAtPoint(Math.exp(-event.deltaY * unit * 0.0015), event.clientX, event.clientY);
+      }, { passive: false });
+
+      lineageScroll.addEventListener("contextmenu", event => event.preventDefault());
+
+      lineageScroll.addEventListener("pointerdown", event => {
+        if (event.button !== 2) return;
+        event.preventDefault();
+        lineagePanState = {
+          pointerId: event.pointerId,
+          clientX: event.clientX,
+          clientY: event.clientY,
+          scrollLeft: lineageScroll.scrollLeft,
+          scrollTop: lineageScroll.scrollTop
+        };
+        lineageScroll.classList.add("is-panning");
+        try {
+          lineageScroll.setPointerCapture(event.pointerId);
+        } catch (_error) {
+          // 个别 WebView 不支持指针捕获；松开时的兜底监听仍会结束平移。
+        }
+      });
+
+      lineageScroll.addEventListener("pointermove", event => {
+        if (!lineagePanState) return;
+        lineageScroll.scrollLeft = lineagePanState.scrollLeft - (event.clientX - lineagePanState.clientX);
+        lineageScroll.scrollTop = lineagePanState.scrollTop - (event.clientY - lineagePanState.clientY);
+      });
+
+      const finishLineagePan = () => {
+        if (!lineagePanState) return;
+        try {
+          lineageScroll.releasePointerCapture(lineagePanState.pointerId);
+        } catch (_error) {
+          // 指针可能已自动释放。
+        }
+        lineagePanState = null;
+        lineageScroll.classList.remove("is-panning");
+      };
+
+      lineageScroll.addEventListener("pointerup", finishLineagePan);
+      lineageScroll.addEventListener("pointercancel", finishLineagePan);
+      window.addEventListener("blur", finishLineagePan);
 
       document.getElementById("known-cfg-values").replaceChildren(
         ...Object.values(catalog.robots).map(entry => entry.cfg)
