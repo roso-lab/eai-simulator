@@ -322,34 +322,71 @@ class EnvDiyWindow:
                     ui.Label(detail, word_wrap=True, style={"color": 0xFFCC7777})
 
     def _build_payloads(self) -> None:
-        with ui.CollapsableFrame("Payloads", collapsed=False):
-            with ui.VStack(spacing=4):
-                ui.Label("Manipulators")
-                for key in ("ur5", "z1"):
-                    with ui.HStack(spacing=6, height=40):
-                        self._asset_image("manipulator", key)
-                        ui.Button(
-                            key.upper(),
-                            width=125,
-                            height=34,
-                            clicked_fn=lambda payload=key: self._attach(payload),
-                            drag_fn=lambda payload=key: self._drag_payload("attachment", payload),
-                            tooltip="Attach to the selected host at its fixed mount.",
-                        )
-                        self._payload_card_state(key)
-                ui.Label("Sensors")
-                for key in ("orsus", "realsense_d455", "lidar"):
-                    with ui.HStack(spacing=6, height=40):
-                        self._asset_image("sensor", key)
-                        ui.Button(
-                            key.upper(),
-                            width=125,
-                            height=34,
-                            clicked_fn=lambda payload=key: self._attach(payload),
-                            drag_fn=lambda payload=key: self._drag_payload("attachment", payload),
-                            tooltip="Attach to the selected compatible host.",
-                        )
-                        self._payload_card_state(key)
+        self._payloads_frame = ui.CollapsableFrame("Payloads", collapsed=False)
+        self._payloads_frame.set_build_fn(self._rebuild_payloads)
+
+    def _rebuild_payloads(self) -> None:
+        with ui.VStack(spacing=4):
+            ui.Label("Manipulators")
+            for key in ("ur5", "z1"):
+                availability = self._payload_availability(key)
+                with ui.HStack(spacing=6, height=40):
+                    self._asset_image("manipulator", key)
+                    ui.Button(
+                        key.upper(),
+                        width=125,
+                        height=34,
+                        enabled=availability is None,
+                        clicked_fn=lambda payload=key: self._attach(payload),
+                        drag_fn=lambda payload=key: self._drag_payload("attachment", payload),
+                        tooltip=(
+                            availability
+                            or "Attach to the selected host at its fixed mount."
+                        ),
+                    )
+                    self._payload_card_state(key)
+            ui.Label("Sensors")
+            for key in ("orsus", "realsense_d455", "lidar"):
+                availability = self._payload_availability(key)
+                with ui.HStack(spacing=6, height=40):
+                    self._asset_image("sensor", key)
+                    ui.Button(
+                        key.upper(),
+                        width=125,
+                        height=34,
+                        enabled=availability is None,
+                        clicked_fn=lambda payload=key: self._attach(payload),
+                        drag_fn=lambda payload=key: self._drag_payload("attachment", payload),
+                        tooltip=(availability or "Attach to the selected compatible host."),
+                    )
+                    self._payload_card_state(key)
+
+    def _payload_availability(self, attachment_type: str) -> str | None:
+        if self.selected_robot_id is None:
+            return "Select a host robot first."
+        try:
+            robot = self.model.robot(self.selected_robot_id)
+        except KeyError:
+            return "Select a host robot first."
+        if any(item.type == attachment_type for item in robot.attachments):
+            return f"{attachment_type.upper()} is already attached."
+        builtin_capabilities = catalog.builtin_sensor_capabilities(
+            robot.type,
+            attachment_type,
+        )
+        if builtin_capabilities:
+            labels = {"camera": "camera", "lidar": "LiDAR"}
+            return "Built in: " + " and ".join(
+                labels[item] for item in builtin_capabilities
+            )
+        try:
+            catalog.validate_attachment_types(
+                robot.type,
+                [item.type for item in robot.attachments] + [attachment_type],
+            )
+        except ValueError as exc:
+            return str(exc)
+        return None
 
     def _build_tools(self) -> None:
         with ui.CollapsableFrame("Tools", collapsed=True):
@@ -565,6 +602,7 @@ class EnvDiyWindow:
             return
         self.selected_robot_id = robot_id
         self.preview.select_robot(robot_id)
+        self._payloads_frame.rebuild()
         self._selection_frame.rebuild()
 
     def _retry_robot(self, robot_id: str) -> None:
@@ -632,6 +670,7 @@ class EnvDiyWindow:
             *placement_diagnostics(self.model, missing_robot_ids=missing),
         ]
         self._robot_list_frame.rebuild()
+        self._payloads_frame.rebuild()
         self._selection_frame.rebuild()
         if self.selected_robot_id:
             self.preview.select_robot(self.selected_robot_id)
@@ -831,6 +870,7 @@ class EnvDiyWindow:
                 self._canonicalizing_selection = False
         if robot_id is not None and robot_id != self.selected_robot_id:
             self.selected_robot_id = robot_id
+            self._payloads_frame.rebuild()
             self._selection_frame.rebuild()
 
     def _set_status(self, message: str) -> None:

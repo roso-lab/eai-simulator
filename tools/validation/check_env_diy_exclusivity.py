@@ -18,6 +18,10 @@ for source_root in (Path(), Path("source/EAI"), Path("source/EAI_env_diy")):
 import simulator
 from EAI.hmrs_env.env_diy import catalog, storage
 from EAI.hmrs_env.env_diy.flow import (
+    AttachmentSelection,
+    ControllerChoice,
+    RobotSelection,
+    _attachment_combination_supported,
     interactive_selection_from_dict,
     interactive_selection_to_dict,
 )
@@ -35,17 +39,33 @@ def _robot(robot_type: str, *attachments: str) -> dict:
     }
 
 
-def _expect_conflict(operation) -> None:
+def _expect_conflict(operation, error_fragment: str = ERROR_FRAGMENT) -> None:
     try:
         operation()
     except ValueError as exc:
-        if ERROR_FRAGMENT not in str(exc):
+        if error_fragment not in str(exc):
             raise AssertionError(f"Unexpected validation error: {exc}") from exc
         return
-    raise AssertionError("Expected the Orsus/LiDAR exclusivity check to fail.")
+    raise AssertionError(f"Expected compatibility check to fail with: {error_fragment}")
 
 
 def _check_shared_selection_validation() -> None:
+    expected_builtin_capabilities = {
+        "orsus": ("camera", "lidar"),
+        "realsense_d455": ("camera",),
+        "lidar": ("lidar",),
+    }
+    for robot_type in ("cf2x", "iris", "pegasus"):
+        for attachment_type, expected in expected_builtin_capabilities.items():
+            actual = catalog.builtin_sensor_capabilities(robot_type, attachment_type)
+            if actual != expected:
+                raise AssertionError(
+                    f"Unexpected built-in capabilities for {robot_type}/{attachment_type}: "
+                    f"{actual}"
+                )
+    if catalog.builtin_sensor_capabilities("b2", "orsus"):
+        raise AssertionError("Ground robots must not report aerial built-in sensors.")
+
     if catalog.tool_label("navigation_io") != "Navigation I/O":
         raise AssertionError("The navigation_io tool must display as Navigation I/O.")
     if catalog.tool_asset_name("navigation_io") != "navigation_io":
@@ -65,6 +85,55 @@ def _check_shared_selection_validation() -> None:
                 "carter", attachments
             )
         )
+
+    incompatible_mounts = (
+        ("carter", "z1", "orsus", "Z1 and Orsus"),
+        ("carter", "z1", "lidar", "Z1 and LiDAR"),
+        ("go2", "ur5", "orsus", "UR5 and Orsus"),
+        ("go2", "z1", "orsus", "Z1 and Orsus"),
+    )
+    for robot_type, manipulator, sensor, error_fragment in incompatible_mounts:
+        for attachments in ((manipulator, sensor), (sensor.upper(), manipulator.upper())):
+            _expect_conflict(
+                lambda robot_type=robot_type, attachments=attachments: (
+                    catalog.validate_attachment_types(robot_type.upper(), attachments)
+                ),
+                error_fragment,
+            )
+            _expect_conflict(
+                lambda robot_type=robot_type, attachments=attachments: (
+                    interactive_selection_from_dict(
+                        {
+                            "scene_key": "plane",
+                            "robots": [_robot(robot_type, *attachments)],
+                        }
+                    )
+                ),
+                error_fragment,
+            )
+        terminal_robot = RobotSelection(
+            robot_type,
+            ControllerChoice("default", catalog.default_controller_cfg(robot_type)),
+            {},
+            (AttachmentSelection(manipulator, None),),
+        )
+        if _attachment_combination_supported(terminal_robot, sensor):
+            raise AssertionError(
+                f"Terminal UI must hide {robot_type} {manipulator}+{sensor}."
+            )
+
+    for robot_type, manipulator, sensor in (
+        ("b2", "ur5", "orsus"),
+        ("b2", "z1", "orsus"),
+        ("b2", "ur5", "lidar"),
+        ("b2", "z1", "lidar"),
+        ("go2", "ur5", "lidar"),
+        ("go2", "z1", "lidar"),
+        ("m20", "z1", "orsus"),
+        ("scout", "z1", "orsus"),
+        ("lite3", "z1", "orsus"),
+    ):
+        catalog.validate_attachment_types(robot_type, (manipulator, sensor))
 
     selection = interactive_selection_from_dict(
         {
@@ -99,6 +168,17 @@ def _check_shared_selection_validation() -> None:
                 repo_root=Path(temporary_directory),
             )
         )
+        _expect_conflict(
+            lambda: storage.save_task(
+                "invalid_carter_mount_case",
+                {
+                    "scene_key": "plane",
+                    "robots": [_robot("carter", "z1", "lidar")],
+                },
+                repo_root=Path(temporary_directory),
+            ),
+            "Z1 and LiDAR",
+        )
 
 
 def _check_authoring_model_validation() -> None:
@@ -107,6 +187,23 @@ def _check_authoring_model_validation() -> None:
         robot_id = model.add_robot("carter")
         model.attach(robot_id, first)
         _expect_conflict(lambda: model.attach(robot_id, second))
+
+    for robot_type, manipulator, sensor, error_fragment in (
+        ("carter", "z1", "orsus", "Z1 and Orsus"),
+        ("carter", "z1", "lidar", "Z1 and LiDAR"),
+        ("go2", "ur5", "orsus", "UR5 and Orsus"),
+        ("go2", "z1", "orsus", "Z1 and Orsus"),
+    ):
+        for first, second in ((manipulator, sensor), (sensor, manipulator)):
+            model = AuthoringModel("plane")
+            robot_id = model.add_robot(robot_type)
+            model.attach(robot_id, first)
+            _expect_conflict(
+                lambda model=model, robot_id=robot_id, second=second: model.attach(
+                    robot_id, second
+                ),
+                error_fragment,
+            )
 
 
 def _check_simulator_validation() -> None:
@@ -121,17 +218,48 @@ def _check_simulator_validation() -> None:
         }
     )
 
+    incompatible_mounts = (
+        ("carter", "z1", "orsus", "Z1 and Orsus"),
+        ("carter", "z1", "lidar", "Z1 and LiDAR"),
+        ("go2", "ur5", "orsus", "UR5 and Orsus"),
+        ("go2", "z1", "orsus", "Z1 and Orsus"),
+    )
+    for robot_type, manipulator, sensor, error_fragment in incompatible_mounts:
+        for attachments in ((manipulator, sensor), (sensor.upper(), manipulator.upper())):
+            selection = {"robots": [_robot(robot_type.upper(), *attachments)]}
+            _expect_conflict(
+                lambda selection=selection: simulator._validate_payload_mount_compatibility(
+                    selection
+                ),
+                error_fragment,
+            )
+
+    for robot_type, manipulator, sensor in (
+        ("b2", "ur5", "orsus"),
+        ("b2", "z1", "orsus"),
+        ("b2", "ur5", "lidar"),
+        ("b2", "z1", "lidar"),
+        ("go2", "ur5", "lidar"),
+        ("go2", "z1", "lidar"),
+        ("m20", "z1", "orsus"),
+        ("scout", "z1", "orsus"),
+        ("lite3", "z1", "orsus"),
+    ):
+        simulator._validate_payload_mount_compatibility(
+            {"robots": [_robot(robot_type, manipulator, sensor)]}
+        )
+
     config = simulator.SimulatorLaunchConfig(
-        env="conflicting_sensor_scene",
-        resolved_env_name="conflicting_sensor_scene",
-        selection_data=conflicting,
+        env="conflicting_payload_scene",
+        resolved_env_name="conflicting_payload_scene",
+        selection_data={"robots": [_robot("carter", "z1", "lidar")]},
         existing_simulation_app=object(),
     )
     with (
         patch.object(simulator, "_load_env_cfg") as load_env_cfg,
         patch.object(simulator, "_create_env") as create_env,
     ):
-        _expect_conflict(lambda: _enter_session(config))
+        _expect_conflict(lambda: _enter_session(config), "Z1 and LiDAR")
     load_env_cfg.assert_not_called()
     create_env.assert_not_called()
 

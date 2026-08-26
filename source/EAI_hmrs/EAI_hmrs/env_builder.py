@@ -11,6 +11,7 @@ from isaaclab.terrains import TerrainImporterCfg
 from isaaclab.utils import configclass
 
 from EAI.hmrs_env import MultiRobotDirectEnvCfg
+from EAI.hmrs_env.env_diy import catalog as env_diy_catalog
 from EAI_assets.robots.b2 import B2_CFG
 from EAI_assets.robots.carter import CARTER_CFG
 from EAI_assets.robots.coco import COCO_CFG
@@ -478,6 +479,22 @@ def build_interactive_env_cfg(
         has_lidar = any(attachment.type == "lidar" for attachment in selection.attachments)
         if has_orsus and has_lidar:
             raise ValueError(f"DIY robot '{name}' cannot attach both Orsus and LiDAR.")
+        mount_conflict = env_diy_catalog.payload_mount_conflict(
+            robot.key,
+            [attachment.type for attachment in selection.attachments],
+        )
+        if mount_conflict is not None:
+            manipulator, sensor = mount_conflict
+            display_names = {
+                "ur5": "UR5",
+                "z1": "Z1",
+                "orsus": "Orsus",
+                "lidar": "LiDAR",
+            }
+            raise ValueError(
+                f"DIY robot '{name}' cannot attach both "
+                f"{display_names[manipulator]} and {display_names[sensor]}."
+            )
         uses_manipulator = uses_manipulator or has_ur5 or has_z1
         if robot.cfg is None:
             raise ValueError(f"DIY robot '{robot.key}' does not have an articulation cfg.")

@@ -405,10 +405,16 @@ def _choose_attachments(
     input_func,
     print_func,
 ) -> list[RobotSelection] | None:
+    builtin_sensor_notes = [
+        (index, robot, _builtin_sensor_note(robot.type, attachment_type))
+        for index, robot in enumerate(robots, start=1)
+        if catalog.builtin_sensor_capabilities(robot.type, attachment_type)
+    ]
     candidates = [
         (index, robot)
         for index, robot in enumerate(robots, start=1)
         if attachment_supported(robot.type, attachment_type)
+        and _attachment_combination_supported(robot, attachment_type)
         and not (robot.type in {"iris", "pegasus"} and attachment_type == "lidar")
         and not (
             attachment_type == "camera"
@@ -428,8 +434,15 @@ def _choose_attachments(
         )
     ]
     _print_terminal_subsection(print_func, label)
+    for index, robot, note in builtin_sensor_notes:
+        robot_name = f"{robot.type}_{index}"
+        robot_label = ROBOT_LABELS.get(robot.type, robot.type)
+        print_func(f"    [--] {robot_name:<18} {robot_label} · {note}")
     if not candidates:
-        print_func("    无兼容机器人，已跳过。")
+        if builtin_sensor_notes:
+            print_func("    所选无人机已具备对应能力，无需重复挂载。")
+        else:
+            print_func("    无兼容机器人，已跳过。")
         return robots
     for index, robot in candidates:
         robot_name = f"{robot.type}_{index}"
@@ -467,6 +480,26 @@ def _choose_attachments(
         ]
         print_func(f"    已选择: {', '.join(selected_names)}")
         return updated
+
+
+def _builtin_sensor_note(robot_type: str, attachment_type: str) -> str:
+    labels = {"camera": "相机", "lidar": "LiDAR"}
+    capabilities = catalog.builtin_sensor_capabilities(robot_type, attachment_type)
+    return "已内置" + "与".join(labels[item] for item in capabilities)
+
+
+def _attachment_combination_supported(
+    robot: RobotSelection,
+    attachment_type: str,
+) -> bool:
+    try:
+        catalog.validate_attachment_types(
+            robot.type,
+            [item.type for item in robot.attachments] + [attachment_type],
+        )
+    except ValueError:
+        return False
+    return True
 
 
 def _maybe_override_controllers(

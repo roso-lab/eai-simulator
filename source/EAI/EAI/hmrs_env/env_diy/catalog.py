@@ -70,6 +70,23 @@ TOOL_ASSET_NAMES = {
 # require an Orsus or RealSense D455 payload.
 BUILTIN_CAMERA_ROBOTS = frozenset({"cf2x", "iris", "pegasus"})
 
+# Aerial robots provide these sensor capabilities through their built-in
+# sensor suite, so separate ground-robot payloads stay unavailable in DIY UIs.
+BUILTIN_SENSOR_CAPABILITIES = {
+    "orsus": ("camera", "lidar"),
+    "realsense_d455": ("camera",),
+    "lidar": ("lidar",),
+}
+
+# PhysX launch tests show that these otherwise host-compatible payload pairs
+# overlap or destabilize the host articulation when mounted together.
+PAYLOAD_MOUNT_CONFLICTS = (
+    ("carter", "z1", "orsus"),
+    ("carter", "z1", "lidar"),
+    ("go2", "ur5", "orsus"),
+    ("go2", "z1", "orsus"),
+)
+
 _DEFAULT_CONTROLLER_CFG = {
     "carter": "CARTER_DIFF_CFG",
     "pepper": "PEPPER_HOLONOMIC_CFG",
@@ -293,6 +310,33 @@ def attachment_supported(robot_type: str, attachment_type: str) -> bool:
     return attachment_entry(attachment_type).supports(robot_type) and not attachment_entry(attachment_type).visual_only
 
 
+def builtin_sensor_capabilities(
+    robot_type: str,
+    attachment_type: str,
+) -> tuple[str, ...]:
+    """Describe built-in aerial capabilities replacing an unavailable payload."""
+    host = canonical_robot_type(robot_type)
+    if host not in BUILTIN_CAMERA_ROBOTS:
+        return ()
+    return BUILTIN_SENSOR_CAPABILITIES.get(
+        str(attachment_type).strip().lower(),
+        (),
+    )
+
+
+def payload_mount_conflict(
+    robot_type: str,
+    attachment_types: list[str] | tuple[str, ...] | set[str],
+) -> tuple[str, str] | None:
+    """Return the first physics-incompatible manipulator/sensor pair, if any."""
+    host = canonical_robot_type(robot_type)
+    normalized = {str(item).strip().lower() for item in attachment_types}
+    for conflict_host, manipulator, sensor in PAYLOAD_MOUNT_CONFLICTS:
+        if host == conflict_host and {manipulator, sensor} <= normalized:
+            return manipulator, sensor
+    return None
+
+
 def validate_attachment_types(robot_type: str, attachment_types: list[str] | tuple[str, ...]) -> tuple[str, ...]:
     """Normalize and validate payload/tool names for one host robot."""
     host = canonical_robot_type(robot_type)
@@ -313,6 +357,19 @@ def validate_attachment_types(robot_type: str, attachment_types: list[str] | tup
             normalized.append(attachment_type)
     if "orsus" in normalized and "lidar" in normalized:
         raise ValueError(f"Robot '{host}' cannot attach both Orsus and LiDAR.")
+    mount_conflict = payload_mount_conflict(host, normalized)
+    if mount_conflict is not None:
+        manipulator, sensor = mount_conflict
+        display_names = {
+            "ur5": "UR5",
+            "z1": "Z1",
+            "orsus": "Orsus",
+            "lidar": "LiDAR",
+        }
+        raise ValueError(
+            f"Robot '{host}' cannot attach both "
+            f"{display_names[manipulator]} and {display_names[sensor]}."
+        )
     if "camera" in normalized and host not in BUILTIN_CAMERA_ROBOTS and not (
         "orsus" in normalized or "realsense_d455" in normalized
     ):
