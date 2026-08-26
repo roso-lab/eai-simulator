@@ -14,10 +14,14 @@ algorithm/global_planner/ 是独立的二维占据栅格规划包，负责地图
 ## 导入和最小示例
 
 ~~~python
+import os
+from pathlib import Path
+
 from algorithm.global_planner.session import GlobalNavSession
 
+usd_root = Path(os.environ.get("EAI_USD_ROOT", "usd"))
 session = GlobalNavSession(
-    map_yaml='demo/fire_rescue/assets/factory_map.yaml',
+    map_yaml=usd_root / "scene/factory/factory_map.yaml",
 )
 session.register_agent('m20_1', use_goal_position=False)
 planned = session.plan_to_goal(
@@ -27,6 +31,8 @@ planned = session.plan_to_goal(
 )
 assert planned
 ~~~
+
+规划器本身不下载或携带生产地图。调用方应先通过所选场景的资产预检填充 `EAI_USD_ROOT`，再传入上面的 provider 路径；测试应使用临时地图 fixture。
 
 Fire Rescue 通过 demo/fire_rescue/runtime/algorithm_adapter.py 连接位姿和控制张量。目标位于障碍物内部时，应使用规划器的目标邻域搜索，不要强制规划到障碍物中心；Fire Rescue 当前使用火源约 3 m 邻域。
 

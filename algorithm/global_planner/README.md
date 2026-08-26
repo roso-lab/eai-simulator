@@ -14,10 +14,14 @@ algorithm/global_planner/ is a standalone 2D occupancy-grid package for map load
 ## Import and minimal example
 
 ~~~python
+import os
+from pathlib import Path
+
 from algorithm.global_planner.session import GlobalNavSession
 
+usd_root = Path(os.environ.get("EAI_USD_ROOT", "usd"))
 session = GlobalNavSession(
-    map_yaml='demo/fire_rescue/assets/factory_map.yaml',
+    map_yaml=usd_root / "scene/factory/factory_map.yaml",
 )
 session.register_agent('m20_1', use_goal_position=False)
 planned = session.plan_to_goal(
@@ -27,6 +31,8 @@ planned = session.plan_to_goal(
 )
 assert planned
 ~~~
+
+The planner does not download or bundle production maps. The provider path above is supplied by the caller after the selected scene asset preflight has populated `EAI_USD_ROOT`; tests should use temporary map fixtures.
 
 Fire Rescue connects poses and action tensors through demo/fire_rescue/runtime/algorithm_adapter.py. When a goal lies inside an obstacle, use the planner's goal-neighborhood search instead of forcing the obstacle center; Fire Rescue uses an approximately 3 m fire-source neighborhood.
 

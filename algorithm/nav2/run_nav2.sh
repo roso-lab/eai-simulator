@@ -91,6 +91,9 @@ SYSTEM_ROS_ENV=(
     "DBUS_SESSION_BUS_ADDRESS=$SYSTEM_ROS_DBUS"
 )
 append_ros_discovery_environment SYSTEM_ROS_ENV
+if [[ -n "${EAI_USD_ROOT:-}" ]]; then
+    SYSTEM_ROS_ENV+=("EAI_USD_ROOT=$EAI_USD_ROOT")
+fi
 
 cleanup() {
     # A second Ctrl+C must not interrupt TERM -> KILL escalation.

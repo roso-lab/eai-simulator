@@ -108,22 +108,30 @@ def get_robot_pose_tensors(base_env: Any, name: str) -> tuple[Any, Any]:
     return robot.data.root_pos_w[0], robot.data.root_quat_w[0]
 
 
-def builtin_scene_map(scene_key: str, *, repo_root: str | Path | None = None) -> Path:
-    """Resolve one of the occupancy maps shipped with EAI Simulator."""
+def builtin_scene_map(
+    scene_key: str,
+    *,
+    asset_resolver: Any | None = None,
+) -> Path:
+    """Resolve and ensure an EAI scene's external occupancy-map pair."""
 
-    root = (
-        Path(repo_root).expanduser().resolve()
-        if repo_root is not None
-        else Path(__file__).resolve().parents[2]
-    )
+    if asset_resolver is None:
+        from EAI_assets import asset_resolver
+
+    from EAI_assets.scene_maps import scene_map_relative_paths
+
     scene = str(scene_key).strip().casefold()
-    path = root / "algorithm/multi_robot_navigation/maps" / f"{scene}_map.yaml"
-    if not path.is_file():
+    yaml_relative, png_relative = scene_map_relative_paths(scene)
+    yaml_path = asset_resolver.usd_root() / yaml_relative
+    png_path = asset_resolver.usd_root() / png_relative
+    map_dir = yaml_path.parent
+    asset_resolver.ensure_usd_assets_for_paths([str(yaml_path), str(png_path)])
+    if not yaml_path.is_file() or not png_path.is_file():
         raise FileNotFoundError(
-            f"EAI scene {scene_key!r} has no registered occupancy map at {path}. "
+            f"EAI scene {scene_key!r} has no complete occupancy map at {map_dir}. "
             "Pass map_yaml explicitly for a custom scene."
         )
-    return path
+    return yaml_path
 
 
 @dataclass(frozen=True)

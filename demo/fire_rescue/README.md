@@ -50,6 +50,8 @@ EAI.hmrs_env.MultiRobotDirectEnv
 
 `simulator.py` no longer checks for a registered Gym environment and does not call `load_cfg_from_registry()` or `gym.make()`.
 
+The Factory occupancy map is a scene-provider asset at `EAI_USD_ROOT/scene/factory/factory_map.yaml` with its sibling PNG. `default_factory_map_yaml()` ensures that external pair through `EAI_assets.asset_resolver`; the Demo does not own or fall back to files under `demo/fire_rescue/assets/`.
+
 ## Factory JSON requirements
 
 `source/EAI_hmrs/EAI_hmrs/envs/EAI-Factory-v0.json` declares the Factory scene and four robots:
@@ -156,12 +158,8 @@ demo/fire_rescue/
 |-- experiment.py             # trial orchestration and env_cfg hook
 |-- config.py                 # demo settings, targets, and spawn positions
 |-- scenario.py               # EMOS scenario, capabilities, and task interpretation
-|-- algorithm_paths.py        # ensures repository-local algorithm imports
+|-- algorithm_paths.py        # local algorithm imports and provider Factory map
 |-- llm_compat.py             # OpenAI compatibility repair
-|
-|-- assets/
-|   |-- factory_map.yaml      # path-planning map metadata
-|   `-- factory_map.png       # occupancy-grid map
 |
 |-- dashboard/
 |   |-- index.html            # robot-only monitoring page

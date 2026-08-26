@@ -19,9 +19,44 @@ NAV2_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
 NAV2_SETUP = NAV2_DIR / "nav2_setup.py"
 OLD_NAV2_DIR = REPO_ROOT / "algorithm" / "ros" / "nav2"
+SCENE_MAP_KEYS = ("plane", "warehouse", "factory", "airs", "garden", "desert", "hospital")
+
+
+def _write_provider_map(usd_root: Path, scene: str) -> Path:
+    map_dir = usd_root / "scene" / scene
+    map_dir.mkdir(parents=True, exist_ok=True)
+    image_path = map_dir / f"{scene}_map.png"
+    image_path.write_bytes(b"test occupancy map")
+    yaml_path = map_dir / f"{scene}_map.yaml"
+    yaml_path.write_text(
+        yaml.safe_dump(
+            {
+                "image": image_path.name,
+                "resolution": 0.05,
+                "origin": [0.0, 0.0, 0.0],
+                "negate": 0,
+                "occupied_thresh": 0.65,
+                "free_thresh": 0.196,
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    return yaml_path
+
+
+@pytest.fixture(autouse=True)
+def provider_usd_root(tmp_path, monkeypatch):
+    usd_root = tmp_path / "provider-usd"
+    for scene in SCENE_MAP_KEYS:
+        _write_provider_map(usd_root, scene)
+    monkeypatch.setenv("EAI_USD_ROOT", str(usd_root))
+    return usd_root
+
 
 PROMOTED_FILES = {
     "README.md",
+    "README.zh-CN.md",
     "nav2.launch.py",
     "nav2_params.template.yaml",
     "nav2_profiles.yaml",
@@ -54,7 +89,6 @@ GENERATED_FILES = {
     "pointcloud_to_laserscan.yaml",
     "view.rviz",
 }
-PLANE_GENERATED_FILES = GENERATED_FILES | {"plane_map.yaml", "plane_map.pgm"}
 EXPECTED_LAYOUT = PROMOTED_FILES | {
     "tests/test_nav2_layout.py",
     "tests/test_nav2_plugin_names.py",
@@ -147,26 +181,18 @@ def test_promoted_launchers_use_the_promoted_directory_depth():
     assert root_line == 'REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"'
 
 
-def test_factory_profile_resolves_to_tracked_map_and_image(tmp_path):
+def test_scene_profiles_resolve_provider_maps_and_images(provider_usd_root, tmp_path):
     nav2_setup = load_nav2_setup()
     profiles_path = NAV2_DIR / "nav2_profiles.yaml"
     profiles = yaml.safe_load(profiles_path.read_text(encoding="utf-8"))
 
-    assert profiles["scene_maps"]["factory"] == (
-        "demo/fire_rescue/assets/factory_map.yaml"
-    )
-    map_path = Path(
-        nav2_setup.resolve_map(profiles, "factory", None, str(tmp_path))
-    )
-    expected_map = REPO_ROOT / "demo" / "fire_rescue" / "assets" / "factory_map.yaml"
-    assert map_path == expected_map
-    assert map_path.is_file()
-
-    map_config = yaml.safe_load(map_path.read_text(encoding="utf-8"))
-    image_path = map_path.parent / map_config["image"]
-    assert image_path.is_file()
-    assert_tracked(map_path)
-    assert_tracked(image_path)
+    assert tuple(profiles["scene_maps"]) == SCENE_MAP_KEYS
+    for scene in SCENE_MAP_KEYS:
+        assert profiles["scene_maps"][scene] == f"scene/{scene}/{scene}_map.yaml"
+        map_path = Path(nav2_setup.resolve_map(profiles, scene, None, str(tmp_path)))
+        assert map_path == provider_usd_root / "scene" / scene / f"{scene}_map.yaml"
+        map_config = yaml.safe_load(map_path.read_text(encoding="utf-8"))
+        assert (map_path.parent / map_config["image"]).is_file()
 
 
 def test_promoted_profiles_retain_latest_develop_robot_support():
@@ -216,7 +242,7 @@ def test_promoted_profiles_retain_latest_develop_robot_support():
     }
 
 
-def test_nav2_setup_generates_exact_offline_configuration_set(tmp_path):
+def test_nav2_setup_generates_exact_offline_configuration_set(tmp_path, provider_usd_root):
     out_dir = tmp_path / "generated"
     result = subprocess.run(
         [
@@ -265,11 +291,8 @@ def test_nav2_setup_generates_exact_offline_configuration_set(tmp_path):
         "PARAMS": str(out_dir / "nav2_params.yaml"),
         "PC2SCAN": str(out_dir / "pointcloud_to_laserscan.yaml"),
         "RVIZ": str(out_dir / "view.rviz"),
-        "MAP": str(
-            REPO_ROOT / "demo" / "fire_rescue" / "assets" / "factory_map.yaml"
-        ),
+        "MAP": str(provider_usd_root / "scene" / "factory" / "factory_map.yaml"),
     }
-    assert_tracked(Path(values["MAP"]))
 
 
 
@@ -383,38 +406,14 @@ def test_nav2_setup_rejects_symlinked_generated_outputs(tmp_path):
     assert symlink_target.read_text(encoding="utf-8") == "do not overwrite"
 
 
-def test_nav2_setup_rejects_symlinked_plane_map_image(tmp_path):
-    out_dir = tmp_path / "safe"
-    out_dir.mkdir(mode=0o700)
-    symlink_target = tmp_path / "external.pgm"
-    symlink_target.write_bytes(b"external map")
-    (out_dir / "plane_map.pgm").symlink_to(symlink_target)
+def test_nav2_setup_rejects_incomplete_provider_map(provider_usd_root, tmp_path):
+    image_path = provider_usd_root / "scene" / "plane" / "plane_map.png"
+    image_path.unlink()
+    nav2_setup = load_nav2_setup()
+    profiles = yaml.safe_load((NAV2_DIR / "nav2_profiles.yaml").read_text(encoding="utf-8"))
 
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(NAV2_SETUP),
-            "--robot",
-            "carter_1",
-            "--robot-type",
-            "Carter",
-            "--sensor",
-            "orsus",
-            "--scene",
-            "plane",
-            "--pose=-3,0,0",
-            "--out",
-            str(out_dir),
-        ],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    assert result.returncode != 0
-    assert "Refusing to write symlinked Nav2 output" in result.stderr
-    assert symlink_target.read_bytes() == b"external map"
+    with pytest.raises(ValueError, match="Install the provider scene-map payload"):
+        nav2_setup.resolve_map(profiles, "plane", None, str(tmp_path))
 
 
 def test_nav2_setup_rejects_hardlinked_generated_outputs(tmp_path):

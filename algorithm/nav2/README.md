@@ -6,37 +6,45 @@ Run commands from the repository root. Isaac Sim uses env_isaaclab; Nav2, RViz, 
 
 ## One-command launch
 
-~~~bash
+```bash
 bash algorithm/nav2/run_nav2.sh
 bash algorithm/nav2/run_nav2.sh --rviz
-~~~
+```
 
-The launcher starts simulator.py --env=nav2, waits for the cmd_vel bridge, and starts Nav2 in the selected ROS distribution. Its bounded cleanup only signals process groups created by the launcher; do not use broad pkill commands. Logs and generated configuration are written to a fresh 0700 temporary directory.
+The launcher starts simulator.py --env=nav2, waits for the cmd_vel bridge, and starts Nav2 in the selected ROS distribution. Ctrl+C in the `run_nav2.sh` terminal stops the simulator, Nav2, and any RViz process groups created by that launcher. Its bounded cleanup does not use broad `pkill` commands. Logs and generated configuration are written to a fresh 0700 temporary directory.
 
 ## Manual launch
 
 Start Isaac Sim with the Conda interpreter:
 
-~~~bash
+```bash
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate env_isaaclab
 python simulator.py --env=nav2
-~~~
+```
 
 In a separate system-ROS terminal:
 
-~~~bash
+```bash
 source /opt/ros/humble/setup.bash
 export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 ros2 launch algorithm/nav2/nav2.launch.py \\
   robot_name:=carter_1 robot_type:=Carter sensor:=auto scene:=factory rviz:=true
-~~~
+```
 
-Send a goal with /usr/bin/python3 algorithm/nav2/send_goal.py --x -5.0 --y -8.0. The client returns zero only for STATUS_SUCCEEDED and nonzero for unavailable, rejected, canceled, aborted, or timed-out goals. The default response/result bounds are 10/300 seconds and can be overridden.
+Send a goal from a third system-ROS terminal:
+
+```bash
+source /opt/ros/humble/setup.bash
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+/usr/bin/python3 algorithm/nav2/send_goal.py --x -5.0 --y -8.0
+```
+
+The client returns zero only for STATUS_SUCCEEDED and nonzero for unavailable, rejected, canceled, aborted, or timed-out goals. The default response/result bounds are 10/300 seconds and can be overridden. Ctrl+C in the `send_goal.py` terminal stops only the goal client; stop the Nav2 launch terminal separately, or stop `run_nav2.sh` when it owns the full workflow.
 
 ## Map, sensor, and pose selection
 
-nav2_profiles.yaml maps factory to demo/fire_rescue/assets/factory_map.yaml. plane creates a blank map; use map:=/absolute/path/to/map.yaml for another scene. sensor:=auto reads the unique Orsus or lidar attachment for robot_name from tmp/runtime_interfaces.json. Without pose, the same live snapshot supplies the AMCL pose. The snapshot must be version 1, have a live PID, be no older than five seconds, and match the scene and robot. Explicit sensor:=orsus or lidar and pose:=x,y,yaw bypass those checks. Do not enable Orsus and LiDAR publishers simultaneously for one robot because both use cloud and odometry topics.
+`nav2_profiles.yaml` maps all seven selectable scenes to provider-owned `scene/<scene>/<scene>_map.yaml` files below `EAI_USD_ROOT` (default: `<repo>/usd`). Run the simulator/Env DIY asset preflight first; Nav2 validates that both YAML and its referenced image exist and does not synthesize a Plane map. Use `map:=/absolute/path/to/map.yaml` to override the configured map. `sensor:=auto` reads the unique Orsus or lidar attachment for `robot_name` from `tmp/runtime_interfaces.json`. Without `pose`, the same live snapshot supplies the AMCL pose. The snapshot must be version 1, have a live PID, be no older than five seconds, and match the scene and robot. Explicit `sensor:=orsus` or `lidar` and `pose:=x,y,yaw` bypass those checks. Do not enable Orsus and LiDAR publishers simultaneously for one robot because both use `cloud` and `odometry` topics.
 
 ## TF and point-cloud handling
 

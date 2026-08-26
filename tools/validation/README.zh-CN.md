@@ -14,6 +14,7 @@
 | `node tools/validation/check_env_diy_runtime.mjs all` | Env DIY HTML 结构、元素 ID 唯一性、本地资源引用、内联 JavaScript 语法和相关 runtime 契约 | Node.js 20 LTS 或更新 LTS |
 | `python tools/validation/check_release_links.py` | 公开 Release/下载链接和 release revision 一致性 | Python；只读取本地文件 |
 | `python tools/validation/check_ros_distro_config.py` | Humble/Jazzy 验证、解析优先级、保存选择和非法值行为 | Python 和 Bash；不导入 Isaac 或 ROS2 |
+| `python tools/validation/check_scene_map_assets.py` | 7 组规范场景地图、requirement 展开、普通 preflight 路径合并，以及算法/Demo 地图副本清理 | Python；只读取本地文件和纯模块 |
 
 ## 建议执行顺序
 
@@ -23,6 +24,7 @@ python tools/validation/check_documentation_consistency.py
 python tools/validation/check_env_diy_exclusivity.py
 python tools/validation/check_release_links.py
 python tools/validation/check_ros_distro_config.py
+python tools/validation/check_scene_map_assets.py
 node tools/validation/check_env_diy_runtime.mjs all
 ```
 
@@ -33,6 +35,7 @@ node tools/validation/check_env_diy_runtime.mjs all
 - 修改 README、Release 引用、算法文档或公开图片链接后，运行文档和 Release 链接检查。
 - 修改 Env DIY catalog、selection 格式、兼容规则、HTML 应用、authoring model 或 launcher gate 后，运行两个 Env DIY 检查。
 - 修改 preflight worker、provider 错误转换或父子进程报告后，运行资产下载错误检查。
+- 修改可选场景、场景 requirement、preflight 路径收集或占据地图所有权后，运行场景地图检查。
 - 修改 setup 脚本、ROS 发行版优先级或持久配置后，运行 ROS 发行版检查。
 
 ## 限制

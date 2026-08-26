@@ -94,8 +94,30 @@ class _FakeRobot:
         return [], []
 
 
+def _write_scene_map(root: Path, scene: str = "plane") -> Path:
+    map_dir = root / "scene" / scene
+    map_dir.mkdir(parents=True)
+    image_path = map_dir / f"{scene}_map.png"
+    Image.new("L", (160, 160), color=255).save(image_path)
+    yaml_path = map_dir / f"{scene}_map.yaml"
+    yaml_path.write_text(
+        yaml.safe_dump(
+            {
+                "image": image_path.name,
+                "resolution": 0.05,
+                "origin": [-4.0, -4.0, 0.0],
+                "negate": 0,
+                "occupied_thresh": 0.65,
+                "free_thresh": 0.196,
+            }
+        ),
+        encoding="utf-8",
+    )
+    return yaml_path
+
+
 def _plugin(
-    *, planner_backend: str = "global", **plugin_kwargs
+    tmp_path: Path, *, planner_backend: str = "global", **plugin_kwargs
 ) -> EaiMultiRobotNavigationPlugin:
     robots = {
         "carter_1": _FakeRobot((-3.0, 0.0, 0.2)),
@@ -124,7 +146,7 @@ def _plugin(
         env_cfg,
         "cpu",
         1,
-        builtin_scene_map("plane"),
+        _write_scene_map(tmp_path),
         planner_backend=planner_backend,
         controller_normalizer=lambda entry: (entry, ()),
         **plugin_kwargs,
@@ -236,8 +258,8 @@ def test_motion_primitive_fetch_leaves_invalid_cached_file_untouched(tmp_path: P
     assert target.read_bytes() == b"invalid cached payload"
 
 
-def test_filters_aerial_robots_from_the_managed_team():
-    plugin = _plugin()
+def test_filters_aerial_robots_from_the_managed_team(tmp_path: Path):
+    plugin = _plugin(tmp_path)
 
     assert plugin.possible_agents == ["carter_1", "go2_1"]
     assert plugin.excluded_agents == ["pegasus_1"]
@@ -246,27 +268,46 @@ def test_filters_aerial_robots_from_the_managed_team():
     assert not is_aerial_robot("Carter", "carter_1")
 
 
-@pytest.mark.parametrize(
-    "scene",
-    ("plane", "warehouse", "factory", "airs", "garden", "desert", "hospital"),
-)
-def test_builtin_scene_maps_are_owned_by_the_navigation_plugin(scene):
-    path = builtin_scene_map(scene)
-    metadata = yaml.safe_load(path.read_text(encoding="utf-8"))
-    image_path = path.parent / metadata["image"]
+def test_builtin_scene_map_uses_external_usd_root_and_ensures_pair(tmp_path: Path):
+    expected = _write_scene_map(tmp_path, "factory")
+    ensured = []
+    resolver = SimpleNamespace(
+        usd_root=lambda: tmp_path,
+        ensure_usd_assets_for_paths=lambda paths: ensured.extend(paths),
+    )
 
-    assert path.parent.name == "maps"
-    assert path.parent.parent.name == "multi_robot_navigation"
-    assert path.is_file()
-    assert image_path.is_file()
-    assert float(metadata["resolution"]) > 0.0
-    assert len(metadata["origin"]) == 3
-    with Image.open(image_path) as image:
-        image.verify()
+    path = builtin_scene_map("Factory", asset_resolver=resolver)
+
+    assert path == expected
+    assert ensured == [str(expected), str(expected.with_suffix(".png"))]
 
 
-def test_partial_mission_reserves_holder_and_clears_selection_after_start():
-    plugin = _plugin()
+def test_builtin_scene_map_rejects_unregistered_scene(tmp_path: Path):
+    resolver = SimpleNamespace(
+        usd_root=lambda: tmp_path,
+        ensure_usd_assets_for_paths=lambda _paths: None,
+    )
+
+    with pytest.raises(ValueError, match="Unknown scene map key"):
+        builtin_scene_map("../factory", asset_resolver=resolver)
+
+
+def test_builtin_scene_map_requires_complete_pair(tmp_path: Path):
+    map_dir = tmp_path / "scene" / "plane"
+    map_dir.mkdir(parents=True)
+    yaml_path = map_dir / "plane_map.yaml"
+    yaml_path.write_text("image: plane_map.png\n", encoding="utf-8")
+    resolver = SimpleNamespace(
+        usd_root=lambda: tmp_path,
+        ensure_usd_assets_for_paths=lambda _paths: None,
+    )
+
+    with pytest.raises(FileNotFoundError, match="complete occupancy map"):
+        builtin_scene_map("plane", asset_resolver=resolver)
+
+
+def test_partial_mission_reserves_holder_and_clears_selection_after_start(tmp_path: Path):
+    plugin = _plugin(tmp_path)
     plugin.select_robot("carter_1")
     plugin.set_selected_goal((0.0, 2.0))
 
@@ -280,8 +321,8 @@ def test_partial_mission_reserves_holder_and_clears_selection_after_start():
     assert torch.count_nonzero(actions["go2_1"]) == 0
 
 
-def test_requires_a_selection_and_at_least_one_goal():
-    plugin = _plugin()
+def test_requires_a_selection_and_at_least_one_goal(tmp_path: Path):
+    plugin = _plugin(tmp_path)
 
     with pytest.raises(RuntimeError, match="Select a robot"):
         plugin.set_selected_goal((1.0, 1.0))
@@ -289,8 +330,8 @@ def test_requires_a_selection_and_at_least_one_goal():
         plugin.start_navigation()
 
 
-def test_visualization_exposes_positions_and_remaining_paths():
-    plugin = _plugin()
+def test_visualization_exposes_positions_and_remaining_paths(tmp_path: Path):
+    plugin = _plugin(tmp_path)
     plugin.set_goal("carter_1", (0.0, 2.0))
     assert plugin.start_navigation() == {"carter_1": True}
 
@@ -327,8 +368,8 @@ def test_viewport_hit_resolves_any_robot_descendant():
     assert resolve_robot_from_prim_path("/World/Factory/Floor", paths) is None
 
 
-def test_partial_planning_failure_does_not_start_any_robot(monkeypatch):
-    plugin = _plugin()
+def test_partial_planning_failure_does_not_start_any_robot(monkeypatch, tmp_path: Path):
+    plugin = _plugin(tmp_path)
     plugin.set_goal("carter_1", (0.0, 2.0))
     plugin.set_goal("go2_1", (0.0, -2.0))
 
@@ -442,8 +483,9 @@ def test_failed_dbcbs_replan_restores_the_active_plan():
     assert session.is_navigating("carter_1")
 
 
-def test_dbcbs_initial_planning_does_not_block_the_simulation_loop(monkeypatch):
+def test_dbcbs_initial_planning_does_not_block_the_simulation_loop(monkeypatch, tmp_path: Path):
     plugin = _plugin(
+        tmp_path,
         planner_backend="dbcbs",
         dbcbs_replan_clearance=0.25,
         dbcbs_replan_retry_interval=0.0,
@@ -484,8 +526,8 @@ def test_dbcbs_initial_planning_does_not_block_the_simulation_loop(monkeypatch):
         plugin.close()
 
 
-def test_failed_async_initial_plan_restores_pending_goals(monkeypatch):
-    plugin = _plugin(planner_backend="dbcbs")
+def test_failed_async_initial_plan_restores_pending_goals(monkeypatch, tmp_path: Path):
+    plugin = _plugin(tmp_path, planner_backend="dbcbs")
 
     def prepare(_starts, _goals):
         raise RuntimeError("planner unavailable")
@@ -507,8 +549,9 @@ def test_failed_async_initial_plan_restores_pending_goals(monkeypatch):
         plugin.close()
 
 
-def test_clearance_replanning_is_async_and_keeps_the_mission(monkeypatch):
+def test_clearance_replanning_is_async_and_keeps_the_mission(monkeypatch, tmp_path: Path):
     plugin = _plugin(
+        tmp_path,
         planner_backend="dbcbs",
         dbcbs_replan_clearance=0.25,
         dbcbs_replan_retry_interval=0.0,
@@ -565,8 +608,9 @@ def test_clearance_replanning_is_async_and_keeps_the_mission(monkeypatch):
         plugin.close()
 
 
-def test_failed_async_replan_keeps_the_goal_and_retries(monkeypatch):
+def test_failed_async_replan_keeps_the_goal_and_retries(monkeypatch, tmp_path: Path):
     plugin = _plugin(
+        tmp_path,
         planner_backend="dbcbs",
         dbcbs_replan_clearance=0.25,
         dbcbs_replan_retry_interval=0.0,

@@ -272,13 +272,17 @@ default_profile:
   scan_range_min: 0.40
 
 # ─────────────────────────────────────────────────────────────
-# 场景 → 2D 占用地图 yaml（相对仓库根目录）
-# ─────────────────────────────────────────────────────────────
-# 目前只有 factory 有现成占用图。其他场景暂未提供地图；
-# 未来可用 slam_toolbox 边走边建，或离线生成占用图后登记到这里。
+# 场景 → provider usd 根目录下的 2D 占用地图 yaml。
+# 根目录优先使用 EAI_USD_ROOT，否则使用 <repo>/usd。
+# 每个场景地图由 provider 安装到 scene/<key>/，不属于算法或 demo 源码。
 scene_maps:
-  factory: demo/fire_rescue/assets/factory_map.yaml
-  # plane 由 nav2_setup.py 按输出目录生成空白占用图。
+  plane: scene/plane/plane_map.yaml
+  warehouse: scene/warehouse/warehouse_map.yaml
+  factory: scene/factory/factory_map.yaml
+  airs: scene/airs/airs_map.yaml
+  garden: scene/garden/garden_map.yaml
+  desert: scene/desert/desert_map.yaml
+  hospital: scene/hospital/hospital_map.yaml
 
 # 场景无地图时的默认（None 表示需要用户显式 --map 或先建图）
 scene_map_default: null

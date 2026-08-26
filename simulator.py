@@ -1060,6 +1060,19 @@ def _initialize_preflight_env_cfg(env_cfg: Any, *, num_envs: int, device: str) -
     env_cfg.sim.device = device
 
 
+def _collect_selection_usd_asset_paths(selection_data: object | None) -> list[str]:
+    if not isinstance(selection_data, dict):
+        return []
+    asset_resolver = _load_asset_resolver()
+    graph = asset_resolver.resolve_selection(selection_data)
+    return [
+        str(path)
+        for requirement in graph.requirements
+        if requirement.kind is not asset_resolver.RequirementKind.CONTROLLER
+        for path in asset_resolver.requirement_local_paths(requirement)
+    ]
+
+
 def _build_asset_payload(
     *,
     task_name: str | None,
@@ -1069,13 +1082,24 @@ def _build_asset_payload(
     env_cfg: Any,
     collect_usd_asset_paths,
     collect_controller_asset_paths,
+    collect_selection_usd_asset_paths=None,
 ) -> dict[str, Any]:
+    selection_collector = collect_selection_usd_asset_paths or _collect_selection_usd_asset_paths
+    usd_paths = list(
+        dict.fromkeys(
+            str(path)
+            for path in (
+                *collect_usd_asset_paths(env_cfg),
+                *selection_collector(selection_data),
+            )
+        )
+    )
     return {
         "task_name": task_name,
         "selection": selection_data,
         "saved_task": saved_task_data,
         "should_run": should_run,
-        "usd_paths": collect_usd_asset_paths(env_cfg),
+        "usd_paths": usd_paths,
         "controller_paths": collect_controller_asset_paths(env_cfg),
     }
 

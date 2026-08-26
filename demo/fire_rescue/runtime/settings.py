@@ -6,9 +6,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-# Default map assets bundled with this demo.
-_DEFAULT_MAP_DIR = Path(__file__).resolve().parents[1] / "assets"
-
 # ── 危险柱预设位置 (X, Y, Z) ────────────────────────────────────────────────────
 HAZARD_POSITIONS = {
     1: (-6.0, -4.0, 0.0),
@@ -278,9 +275,6 @@ def resolve_factory_map_png_path(
     map_yaml_file: str | Path,
     map_yaml_dict: Optional[Dict[str, Any]],
 ) -> Path:
-    """Resolve the dashboard map beside YAML, falling back to the demo asset."""
-    if map_yaml_dict:
-        img = map_yaml_dict.get("image")
-        if img:
-            return Path(map_yaml_file).resolve().parent / str(img)
-    return _DEFAULT_MAP_DIR / "factory_map.png"
+    """Resolve the dashboard image from the selected YAML's sibling directory."""
+    image_name = (map_yaml_dict or {}).get("image") or Path(map_yaml_file).with_suffix(".png").name
+    return Path(map_yaml_file).expanduser().resolve().parent / str(image_name)
