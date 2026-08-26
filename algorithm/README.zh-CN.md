@@ -43,6 +43,17 @@ Fire Rescue 通过 demo/fire_rescue/algorithm_paths.py 选择本仓库的 algori
 - Nav2 与 keyboard 使用所选系统 ROS 的 Python，不使用 env_isaaclab 的 Python。不要混用导入 rclpy 的进程和 Isaac Lab Conda 解释器。
 - tools/ros2/ 存放 ROS 运维客户端，不是额外的控制算法，也不负责机械臂 graph。
 
+## 场景资源
+
+EAI 场景的 provider 伴随资源统一声明在 `EAI_assets.scene_resources`。已运行在 EAI package 环境内的代码可以调用 `ensure_scene_resource(scene, resource)`；不能导入 Isaac Lab 环境的 system-ROS 等外部算法使用仓库快速路径：
+
+~~~bash
+python simulator.py assets list --format json
+python simulator.py assets ensure --scene warehouse --resource occupancy_map --format json
+~~~
+
+两种方式都委托同一个 EAI asset resolver，并遵循 `EAI_USD_ROOT`、`EAI_ASSETS_HF_REPO`、`EAI_ASSETS_HF_REVISION` 和 `EAI_ASSETS_AUTO_DOWNLOAD`。算法不得自行拼接 Hugging Face 路径或实现下载器；用户显式传入的自定义地图不属于 provider 合同。
+
 ## 文档
 
-每个模块 README 都说明导入路径、依赖、启动命令和限制。提供方资产、模型权重、ROS 安装和 Isaac Sim 都属于运行时前置条件，README 示例不会自动下载它们。
+每个模块 README 都说明导入路径、依赖、启动命令和限制。Provider 资产和模型权重可以通过统一 resolver 按需下载；ROS 安装和 Isaac Sim 仍属于运行时前置条件。

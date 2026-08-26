@@ -273,7 +273,7 @@ def test_builtin_scene_map_uses_external_usd_root_and_ensures_pair(tmp_path: Pat
     ensured = []
     resolver = SimpleNamespace(
         usd_root=lambda: tmp_path,
-        ensure_usd_assets_for_paths=lambda paths: ensured.extend(paths),
+        ensure_usd_files_for_paths=lambda paths: ensured.extend(paths),
     )
 
     path = builtin_scene_map("Factory", asset_resolver=resolver)
@@ -285,10 +285,10 @@ def test_builtin_scene_map_uses_external_usd_root_and_ensures_pair(tmp_path: Pat
 def test_builtin_scene_map_rejects_unregistered_scene(tmp_path: Path):
     resolver = SimpleNamespace(
         usd_root=lambda: tmp_path,
-        ensure_usd_assets_for_paths=lambda _paths: None,
+        ensure_usd_files_for_paths=lambda _paths: None,
     )
 
-    with pytest.raises(ValueError, match="Unknown scene map key"):
+    with pytest.raises(ValueError, match="Unknown EAI scene key"):
         builtin_scene_map("../factory", asset_resolver=resolver)
 
 
@@ -299,10 +299,10 @@ def test_builtin_scene_map_requires_complete_pair(tmp_path: Path):
     yaml_path.write_text("image: plane_map.png\n", encoding="utf-8")
     resolver = SimpleNamespace(
         usd_root=lambda: tmp_path,
-        ensure_usd_assets_for_paths=lambda _paths: None,
+        ensure_usd_files_for_paths=lambda _paths: None,
     )
 
-    with pytest.raises(FileNotFoundError, match="complete occupancy map"):
+    with pytest.raises(FileNotFoundError, match="incomplete after resolution"):
         builtin_scene_map("plane", asset_resolver=resolver)
 
 

@@ -1,5 +1,6 @@
 import ast
 import importlib.util
+import json
 import os
 import re
 import shlex
@@ -406,14 +407,103 @@ def test_nav2_setup_rejects_symlinked_generated_outputs(tmp_path):
     assert symlink_target.read_text(encoding="utf-8") == "do not overwrite"
 
 
-def test_nav2_setup_rejects_incomplete_provider_map(provider_usd_root, tmp_path):
+def test_nav2_setup_requests_incomplete_provider_map(provider_usd_root, tmp_path):
     image_path = provider_usd_root / "scene" / "plane" / "plane_map.png"
     image_path.unlink()
     nav2_setup = load_nav2_setup()
     profiles = yaml.safe_load((NAV2_DIR / "nav2_profiles.yaml").read_text(encoding="utf-8"))
+    requests = []
 
-    with pytest.raises(ValueError, match="Install the provider scene-map payload"):
-        nav2_setup.resolve_map(profiles, "plane", None, str(tmp_path))
+    def request(scene, resource):
+        requests.append((scene, resource))
+        return _write_provider_map(provider_usd_root, scene)
+
+    resolved = nav2_setup.resolve_map(
+        profiles,
+        "plane",
+        None,
+        str(tmp_path),
+        resource_requester=request,
+    )
+
+    assert Path(resolved) == provider_usd_root / "scene" / "plane" / "plane_map.yaml"
+    assert requests == [("plane", "occupancy_map")]
+
+
+def test_nav2_setup_reports_scene_resource_request_failure(provider_usd_root, tmp_path):
+    (provider_usd_root / "scene" / "warehouse" / "warehouse_map.yaml").unlink()
+    nav2_setup = load_nav2_setup()
+    profiles = yaml.safe_load((NAV2_DIR / "nav2_profiles.yaml").read_text(encoding="utf-8"))
+
+    def fail_request(_scene, _resource):
+        raise RuntimeError("provider unavailable")
+
+    with pytest.raises(ValueError, match="Automatic EAI scene resource request failed"):
+        nav2_setup.resolve_map(
+            profiles,
+            "warehouse",
+            None,
+            str(tmp_path),
+            resource_requester=fail_request,
+        )
+
+
+def test_explicit_map_does_not_request_scene_resource(tmp_path):
+    nav2_setup = load_nav2_setup()
+    explicit_map = _write_provider_map(tmp_path, "custom")
+    profiles = {"scene_maps": {"warehouse": "scene/warehouse/warehouse_map.yaml"}}
+
+    def unexpected_request(_scene, _resource):
+        raise AssertionError("explicit map must bypass provider resources")
+
+    resolved = nav2_setup.resolve_map(
+        profiles,
+        "warehouse",
+        str(explicit_map),
+        str(tmp_path),
+        resource_requester=unexpected_request,
+    )
+
+    assert Path(resolved) == explicit_map
+
+
+def test_scene_resource_request_uses_simulator_asset_cli(tmp_path):
+    nav2_setup = load_nav2_setup()
+    expected = tmp_path / "warehouse_map.yaml"
+    completed = subprocess.CompletedProcess(
+        args=[],
+        returncode=0,
+        stdout=json.dumps({"primary_path": str(expected)}),
+        stderr="",
+    )
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append((command, kwargs))
+        return completed
+
+    resolved = nav2_setup.request_scene_resource("warehouse", "occupancy_map", runner=runner)
+
+    assert Path(resolved) == expected
+    command, kwargs = calls[0]
+    assert command == [
+        sys.executable,
+        str(REPO_ROOT / "simulator.py"),
+        "assets",
+        "ensure",
+        "--scene",
+        "warehouse",
+        "--resource",
+        "occupancy_map",
+        "--format",
+        "json",
+    ]
+    assert kwargs == {
+        "cwd": str(REPO_ROOT),
+        "capture_output": True,
+        "text": True,
+        "check": False,
+    }
 
 
 def test_nav2_setup_rejects_hardlinked_generated_outputs(tmp_path):

@@ -44,7 +44,7 @@ send_goal.py 只有在 Nav2 返回 STATUS_SUCCEEDED 时返回 0；server 不可�
 
 ## 地图、传感器和位姿
 
-`nav2_profiles.yaml` 将全部 7 个可选场景映射到 `EAI_USD_ROOT`（默认 `<repo>/usd`）下由 provider 管理的 `scene/<scene>/<scene>_map.yaml`。应先通过 Simulator/Env DIY 资产预检下载场景；Nav2 会检查 YAML 及其引用图片，不再自行生成 Plane 地图。需要自定义地图时可传 `map:=/absolute/path/to/map.yaml`。`sensor:=auto` 从 `tmp/runtime_interfaces.json` 读取 `robot_name` 对应的唯一 Orsus 或 lidar attachment；不传 `pose` 时，同一 snapshot 提供 AMCL 初始位姿。snapshot 必须是版本 1、PID 存活、时间不超过 5 秒且 scene/robot 匹配。也可以明确传 `sensor:=orsus` 或 `lidar`，以及 `pose:=x,y,yaw` 来绕过自动检查。不要为同一机器人同时开启 Orsus 和 LiDAR publisher，因为两者都使用 `cloud` 和 `odometry` topic。
+`nav2_profiles.yaml` 将全部 7 个可选场景映射到 `EAI_USD_ROOT`（默认 `<repo>/usd`）下由 provider 管理的 `scene/<scene>/<scene>_map.yaml`。注册的 YAML/PNG 缺失时，Nav2 会通过 `python simulator.py assets ensure` 请求该场景的 `occupancy_map`；这个核心接口统一委托 EAI asset resolver，并且只下载声明的地图对。随后 Nav2 校验 YAML 及其引用图片，不会自行生成 Plane 地图。传入 `map:=/absolute/path/to/map.yaml` 会绕过 provider 请求并使用自定义地图。`sensor:=auto` 从 `tmp/runtime_interfaces.json` 读取 `robot_name` 对应的唯一 Orsus 或 lidar attachment；不传 `pose` 时，同一 snapshot 提供 AMCL 初始位姿。snapshot 必须是版本 1、PID 存活、时间不超过 5 秒且 scene/robot 匹配。也可以明确传 `sensor:=orsus` 或 `lidar`，以及 `pose:=x,y,yaw` 来绕过自动检查。不要为同一机器人同时开启 Orsus 和 LiDAR publisher，因为两者都使用 `cloud` 和 `odometry` topic。
 
 ## TF 和点云
 

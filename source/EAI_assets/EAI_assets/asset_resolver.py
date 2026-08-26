@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import errno
+import fcntl
 import hashlib
 import json
 import os
@@ -10,6 +11,7 @@ import socket
 import stat
 import subprocess
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
@@ -22,6 +24,7 @@ from EAI_assets.asset_requirements import (
     resolve_card_requirement,
     resolve_selection,
 )
+from EAI_assets.scene_resources import SCENE_RESOURCE_REMOTE_PATHS
 
 DEFAULT_HF_REPO = "rosolab/eai-simulator-assets"
 DEFAULT_REPO_TYPE = "dataset"
@@ -288,20 +291,32 @@ def download_requirement(
     *,
     downloader: Callable[..., Any] | None = None,
     progress: Callable[[str], None] | None = None,
+    _lock_held: bool = False,
 ) -> AssetStatus:
     """Download one requirement without prompting or reading a token from UI."""
 
     current = inspect_requirement(requirement)
     if current.state is RequirementState.READY:
         return current
-    if progress is not None:
-        progress(requirement.id)
     missing_paths = tuple(str(path) for path in requirement_local_paths(requirement))
     if not missing_paths:
         return AssetStatus(requirement, RequirementState.READY)
     remote_root = "controller" if requirement.kind is RequirementKind.CONTROLLER else "usd"
     local_root = controller_root() if remote_root == "controller" else usd_root()
     patterns = _allow_patterns_for_paths(missing_paths)
+    transactional = _patterns_cover_scene_resources(patterns)
+    if transactional:
+        patterns = _coalesce_transaction_patterns(patterns)
+    if transactional and not _lock_held:
+        with _asset_root_lock(local_root):
+            return download_requirement(
+                requirement,
+                downloader=downloader,
+                progress=progress,
+                _lock_held=True,
+            )
+    if progress is not None:
+        progress(requirement.id)
     repo_id = os.environ.get("EAI_ASSETS_HF_REPO", DEFAULT_HF_REPO)
     download = downloader or _download_from_hf
     try:
@@ -317,6 +332,7 @@ def download_requirement(
             remote_root=remote_root,
             local_root=local_root,
             required_paths=missing_paths,
+            transactional=transactional,
         )
     except AssetIntegrityError:
         raise
@@ -336,6 +352,7 @@ def download_requirement(
                 remote_root=remote_root,
                 local_root=local_root,
                 required_paths=missing_paths,
+                transactional=transactional,
             )
         except AssetIntegrityError:
             raise
@@ -562,6 +579,22 @@ def ensure_usd_assets_for_paths(
     )
 
 
+def ensure_usd_files_for_paths(
+    paths: Iterable[str],
+    *,
+    downloader: Callable[..., Any] | None = None,
+) -> list[str]:
+    """Ensure exact provider files without expanding them to asset bundles."""
+    return _ensure_asset_paths(
+        paths,
+        asset_label="USD files",
+        remote_root="usd",
+        local_root=usd_root(),
+        downloader=downloader,
+        exact_files=True,
+    )
+
+
 def ensure_controller_package_available(
     *,
     downloader: Callable[..., Any] | None = None,
@@ -759,6 +792,7 @@ def _download_and_install_assets(
     remote_root: str,
     local_root: Path,
     required_paths: Iterable[str],
+    transactional: bool = False,
 ) -> None:
     local_required_paths = _local_required_paths(
         required_paths,
@@ -766,13 +800,42 @@ def _download_and_install_assets(
         local_root=local_root,
     )
     human_patterns = _requested_human_pack_patterns(patterns)
-    if not human_patterns:
+    if not human_patterns and not transactional:
         with _download_target_dir(local_root=local_root, remote_root=remote_root) as local_dir:
             download_action(local_dir)
             _sync_external_asset_root(local_dir, remote_root=remote_root, local_root=local_root)
         return
 
     transaction_roots = _transaction_roots_for_patterns(patterns, remote_root=remote_root)
+    if transactional:
+        # Publish data files before YAML manifests so readers never observe a new
+        # occupancy-map manifest without its companion image.
+        transaction_roots.sort(key=lambda path: path.suffix.lower() in {".yaml", ".yml"})
+        with _transactional_download_target_dir(
+            local_root=local_root,
+            remote_root=remote_root,
+        ) as local_dir:
+            download_action(local_dir)
+            if human_patterns:
+                checksum_path = local_root / _HUMAN_CHECKSUM_RELATIVE_PATH
+                checksum_manifest = _load_human_checksum_manifest(checksum_path)
+                verify_human_asset_packs(local_dir, human_patterns, checksum_manifest)
+            _validate_staged_required_files(
+                local_dir,
+                local_required_paths,
+                remote_root=remote_root,
+                local_root=local_root,
+                transaction_roots=transaction_roots,
+            )
+            _install_staged_asset_roots(
+                local_dir,
+                transaction_roots,
+                remote_root=remote_root,
+                local_root=local_root,
+                required_paths=local_required_paths,
+            )
+        return
+
     checksum_path = local_root / _HUMAN_CHECKSUM_RELATIVE_PATH
     checksum_manifest = _load_human_checksum_manifest(checksum_path)
     with _human_download_target_dir(local_root=local_root) as local_dir:
@@ -1099,6 +1162,8 @@ def _ensure_asset_paths(
     remote_root: str,
     local_root: Path,
     downloader: Callable[..., Any] | None = None,
+    exact_files: bool = False,
+    _lock_held: bool = False,
 ) -> list[str]:
     requested_paths = _local_required_paths(
         paths,
@@ -1109,7 +1174,26 @@ def _ensure_asset_paths(
     if not missing:
         return []
 
-    patterns = _allow_patterns_for_paths(missing)
+    patterns = (
+        _exact_allow_patterns_for_paths(missing)
+        if exact_files
+        else _allow_patterns_for_paths(missing)
+    )
+    transactional = exact_files or _patterns_cover_scene_resources(patterns)
+    if transactional:
+        patterns = _coalesce_transaction_patterns(patterns)
+    if transactional and not _lock_held:
+        with _asset_root_lock(local_root):
+            return _ensure_asset_paths(
+                requested_paths,
+                asset_label=asset_label,
+                remote_root=remote_root,
+                local_root=local_root,
+                downloader=downloader,
+                exact_files=exact_files,
+                _lock_held=True,
+            )
+
     if not _auto_download_enabled():
         missing_text = "\n".join(f"  - {path}" for path in missing)
         raise FileNotFoundError(
@@ -1121,7 +1205,7 @@ def _ensure_asset_paths(
     repo_id = os.environ.get("EAI_ASSETS_HF_REPO", DEFAULT_HF_REPO)
     download = downloader or _download_from_hf
     print(
-        f"[EAI Assets] Missing {asset_label} detected. Downloading only required bundles: "
+        f"[EAI Assets] Missing {asset_label} detected. Downloading only required provider paths: "
         + ", ".join(patterns)
     )
 
@@ -1146,6 +1230,7 @@ def _ensure_asset_paths(
         remote_root=remote_root,
         local_root=local_root,
         required_paths=requested_paths,
+        transactional=transactional,
     )
 
     still_missing = [path for path in requested_paths if not Path(path).exists()]
@@ -1156,11 +1241,52 @@ def _ensure_asset_paths(
                 repo_id,
                 patterns,
                 RuntimeError(
-                    f"HF asset download completed but these {asset_label} files are still missing:\n"
+                    f"HF asset download completed but these required {asset_label} are still missing:\n"
                     f"{missing_text}"
                 ),
             )
         )
+    return patterns
+
+
+def _pattern_root(pattern: str) -> Path:
+    if pattern.endswith("/**"):
+        return Path(pattern[:-3])
+    return Path(pattern)
+
+
+def _patterns_cover_scene_resources(patterns: Iterable[str]) -> bool:
+    resource_paths = tuple(Path(path) for path in SCENE_RESOURCE_REMOTE_PATHS)
+    for pattern in patterns:
+        root = _pattern_root(pattern)
+        if any(root == resource or root in resource.parents for resource in resource_paths):
+            return True
+    return False
+
+
+def _coalesce_transaction_patterns(patterns: Iterable[str]) -> list[str]:
+    retained: list[tuple[str, Path]] = []
+    for pattern in patterns:
+        root = _pattern_root(pattern)
+        if any(existing == root or existing in root.parents for _text, existing in retained):
+            continue
+        retained = [
+            (text, existing)
+            for text, existing in retained
+            if root not in existing.parents
+        ]
+        retained.append((pattern, root))
+    return [pattern for pattern, _root in retained]
+
+
+def _exact_allow_patterns_for_paths(paths: Iterable[str]) -> list[str]:
+    patterns: list[str] = []
+    seen: set[str] = set()
+    for path in paths:
+        pattern = _remote_path_for_local(path).as_posix()
+        if pattern not in seen:
+            seen.add(pattern)
+            patterns.append(pattern)
     return patterns
 
 
@@ -1171,7 +1297,9 @@ def _allow_patterns_for_paths(paths: Iterable[str]) -> list[str]:
         remote = _remote_path_for_local(path)
         parts = remote.parts
         remote_text = remote.as_posix()
-        if remote_text in _HUMAN_ROOT_METADATA:
+        if remote_text in SCENE_RESOURCE_REMOTE_PATHS:
+            pattern = remote_text
+        elif remote_text in _HUMAN_ROOT_METADATA:
             pattern = remote_text
         elif (
             len(parts) >= 3
@@ -1518,6 +1646,60 @@ def _subprocess_diagnostic_text(exc: Exception) -> str:
         if diagnostic and diagnostic not in diagnostics:
             diagnostics.append(diagnostic)
     return "\n".join(diagnostics)
+
+
+@contextmanager
+def _asset_root_lock(local_root: Path):
+    configured_runtime = os.environ.get("XDG_RUNTIME_DIR")
+    if configured_runtime:
+        lock_root = Path(configured_runtime) / "eai-simulator"
+    else:
+        lock_root = Path(tempfile.gettempdir()) / f"eai-simulator-{os.getuid()}"
+    lock_root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    lock_status = lock_root.lstat()
+    if not stat.S_ISDIR(lock_status.st_mode) or lock_status.st_uid != os.getuid():
+        raise AssetIntegrityError(f"Unsafe asset lock directory: {lock_root}")
+    os.chmod(lock_root, 0o700)
+    lock_dir = lock_root / "asset-locks"
+    lock_dir.mkdir(mode=0o700, exist_ok=True)
+    lock_dir_status = lock_dir.lstat()
+    if not stat.S_ISDIR(lock_dir_status.st_mode) or lock_dir_status.st_uid != os.getuid():
+        raise AssetIntegrityError(f"Unsafe asset lock directory: {lock_dir}")
+    os.chmod(lock_dir, 0o700)
+    lock_key = hashlib.sha256(str(local_root.resolve()).encode("utf-8")).hexdigest()
+    lock_path = lock_dir / f"{lock_key}.lock"
+    flags = os.O_CREAT | os.O_RDWR
+    flags |= getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(lock_path, flags, 0o600)
+    try:
+        descriptor_status = os.fstat(descriptor)
+        if not stat.S_ISREG(descriptor_status.st_mode) or descriptor_status.st_uid != os.getuid():
+            raise AssetIntegrityError(f"Unsafe asset lock file: {lock_path}")
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        yield
+    finally:
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
+        os.close(descriptor)
+
+
+class _transactional_download_target_dir:
+    def __init__(self, *, local_root: Path, remote_root: str) -> None:
+        self._local_root = local_root
+        self._remote_root = remote_root
+        self._temp_dir: tempfile.TemporaryDirectory[str] | None = None
+
+    def __enter__(self) -> Path:
+        parent = self._local_root.parent
+        parent.mkdir(parents=True, exist_ok=True)
+        self._temp_dir = tempfile.TemporaryDirectory(
+            prefix=f".{self._remote_root}-assets-stage-",
+            dir=parent,
+        )
+        return Path(self._temp_dir.name)
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        if self._temp_dir is not None:
+            self._temp_dir.cleanup()
 
 
 class _download_target_dir:

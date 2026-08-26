@@ -115,22 +115,13 @@ def builtin_scene_map(
 ) -> Path:
     """Resolve and ensure an EAI scene's external occupancy-map pair."""
 
-    if asset_resolver is None:
-        from EAI_assets import asset_resolver
+    from EAI_assets.scene_resources import OCCUPANCY_MAP, ensure_scene_resource
 
-    from EAI_assets.scene_maps import scene_map_relative_paths
-
-    scene = str(scene_key).strip().casefold()
-    yaml_relative, png_relative = scene_map_relative_paths(scene)
-    yaml_path = asset_resolver.usd_root() / yaml_relative
-    png_path = asset_resolver.usd_root() / png_relative
-    map_dir = yaml_path.parent
-    asset_resolver.ensure_usd_assets_for_paths([str(yaml_path), str(png_path)])
-    if not yaml_path.is_file() or not png_path.is_file():
-        raise FileNotFoundError(
-            f"EAI scene {scene_key!r} has no complete occupancy map at {map_dir}. "
-            "Pass map_yaml explicitly for a custom scene."
-        )
+    yaml_path, _png_path = ensure_scene_resource(
+        scene_key,
+        OCCUPANCY_MAP,
+        asset_resolver=asset_resolver,
+    )
     return yaml_path
 
 
