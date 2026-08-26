@@ -108,8 +108,19 @@ def ensure_fire_rescue_algorithm_paths() -> Path:
     return root
 
 
-def default_factory_map_yaml() -> Path:
-    local_map = Path(__file__).resolve().parent / "assets" / "factory_map.yaml"
-    if local_map.is_file():
-        return local_map
-    return Path(__file__).resolve().parents[2] / "usd" / "scene" / "factory" / "factory_map.yaml"
+def default_factory_map_yaml(*, asset_resolver: object | None = None) -> Path:
+    """Resolve and ensure the canonical external Factory occupancy map."""
+
+    if asset_resolver is None:
+        from EAI_assets import asset_resolver
+
+    from EAI_assets.scene_maps import scene_map_relative_paths
+
+    yaml_relative, png_relative = scene_map_relative_paths("factory")
+    yaml_path = asset_resolver.usd_root() / yaml_relative
+    png_path = asset_resolver.usd_root() / png_relative
+    map_dir = yaml_path.parent
+    asset_resolver.ensure_usd_assets_for_paths([str(yaml_path), str(png_path)])
+    if not yaml_path.is_file() or not png_path.is_file():
+        raise FileNotFoundError(f"Factory occupancy map is incomplete at {map_dir}")
+    return yaml_path

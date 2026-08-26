@@ -60,9 +60,6 @@ PROFILES = os.path.join(THIS_DIR, "nav2_profiles.yaml")
 PARAMS_TPL = os.path.join(THIS_DIR, "nav2_params.template.yaml")
 PC2SCAN_TPL = os.path.join(THIS_DIR, "pointcloud_to_laserscan.template.yaml")
 RVIZ_TPL = os.path.join(THIS_DIR, "nav2_view.template.rviz")
-PLANE_MAP_SIZE_M = 20.0
-PLANE_MAP_RESOLUTION = 0.05
-PLANE_MAP_ORIGIN = [-10.0, -10.0, 0.0]
 DEFAULT_XY_GOAL_TOLERANCE = 0.25
 DEFAULT_YAW_GOAL_TOLERANCE = 0.25
 DEFAULT_PROGRESS_REQUIRED_MOVEMENT_RADIUS = 0.5
@@ -74,8 +71,6 @@ GENERATED_OUTPUT_FILES = (
     "pointcloud_to_laserscan.yaml",
     "view.rviz",
     "meta.txt",
-    "plane_map.yaml",
-    "plane_map.pgm",
 )
 ROBOT_TYPE_ALIASES = {
     "mushr_v2": "MuSHR Nano v2",
@@ -222,42 +217,48 @@ def resolve_profile(profiles, robot_type, robot_name):
     return "default", dict(profiles["default_profile"])
 
 
-def ensure_plane_map(out_dir):
-    """Generate a blank occupancy map for the flat plane scene."""
-    map_yaml = safe_output_path(out_dir, "plane_map.yaml")
-    map_image = safe_output_path(out_dir, "plane_map.pgm")
-    cells = int(PLANE_MAP_SIZE_M / PLANE_MAP_RESOLUTION)
-
-    safe_write_output(
-        out_dir,
-        "plane_map.pgm",
-        f"P5\n{cells} {cells}\n255\n".encode("ascii") + bytes([254]) * cells * cells,
-        binary=True,
-    )
-
-    safe_write_output(
-        out_dir,
-        "plane_map.yaml",
-        "image: plane_map.pgm\n"
-        f"resolution: {PLANE_MAP_RESOLUTION}\n"
-        f"origin: {PLANE_MAP_ORIGIN}\n"
-        "negate: 0\n"
-        "occupied_thresh: 0.65\n"
-        "free_thresh: 0.196\n",
-    )
-
-    return map_yaml
+def _validate_map_files(map_path, *, source):
+    if not os.path.isfile(map_path):
+        raise ValueError(f"{source} map YAML is missing: {map_path}")
+    try:
+        with open(map_path, encoding="utf-8") as stream:
+            map_config = yaml.safe_load(stream)
+    except (OSError, yaml.YAMLError) as exc:
+        raise ValueError(f"Cannot read {source} map YAML {map_path}: {exc}") from exc
+    image = map_config.get("image") if isinstance(map_config, dict) else None
+    if not isinstance(image, str) or not image.strip():
+        raise ValueError(f"{source} map YAML has no usable 'image' field: {map_path}")
+    image_path = image if os.path.isabs(image) else os.path.join(os.path.dirname(map_path), image)
+    image_path = os.path.abspath(image_path)
+    if not os.path.isfile(image_path):
+        raise ValueError(
+            f"{source} map image is missing: {image_path} "
+            f"(referenced by {map_path})"
+        )
+    return map_path
 
 
-def resolve_map(profiles, scene, explicit_map, out_dir):
+def resolve_map(profiles, scene, explicit_map, out_dir=None):
     if explicit_map:
-        return os.path.abspath(explicit_map)
-    if scene == "plane":
-        return ensure_plane_map(out_dir)
-    m = profiles.get("scene_maps", {}).get(scene)
-    if m is None:
+        map_path = os.path.abspath(os.path.expanduser(explicit_map))
+        return _validate_map_files(map_path, source="Explicit --map")
+
+    relative_path = profiles.get("scene_maps", {}).get(scene)
+    if relative_path is None:
         return None
-    return os.path.join(REPO_ROOT, m)
+    usd_root = os.path.abspath(
+        os.path.expanduser(os.environ.get("EAI_USD_ROOT") or os.path.join(REPO_ROOT, "usd"))
+    )
+    map_path = os.path.abspath(os.path.join(usd_root, relative_path))
+    try:
+        return _validate_map_files(map_path, source=f"Configured scene '{scene}'")
+    except ValueError as exc:
+        raise ValueError(
+            f"{exc}. Install the provider scene-map payload at "
+            f"{os.path.join('scene', scene)} below EAI_USD_ROOT, or set "
+            "EAI_USD_ROOT to the populated usd directory. To use a custom map, "
+            "pass --map /absolute/path/to/map.yaml."
+        ) from exc
 
 
 def pid_is_alive(pid):
@@ -721,8 +722,8 @@ def main():
         out_dir, out_source = prepare_output_directory(args.robot, args.out)
     except (OSError, ValueError) as exc:
         ap.error(str(exc))
-    map_path = resolve_map(profiles, args.scene, args.map, out_dir)
     try:
+        map_path = resolve_map(profiles, args.scene, args.map, out_dir)
         base_offset_xyz = resolve_nav_base_offset(prof)
         sensor, sensor_source = resolve_sensor(
             args.sensor,

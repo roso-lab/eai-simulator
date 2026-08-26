@@ -1098,7 +1098,7 @@ Use `SimulatorLaunchConfig` and `open_simulator_session(...)` for application/en
 
 #### Minimum verification
 
-Check the CLI boundary, parse the demo, and parse its map metadata without starting Isaac or making LLM calls:
+Check the CLI boundary, parse the demo, and verify its provider map registration without starting Isaac, downloading assets, or making LLM calls:
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 python -m demo.fire_rescue.main --help >/dev/null
@@ -1113,12 +1113,13 @@ assert files, f"No Python files found under {root}"
 for path in files:
     ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 PY
-python - <<'PY'
-from pathlib import Path
-import yaml
+PYTHONPATH=source/EAI_assets python - <<'PY'
+from EAI_assets.asset_requirements import _SCENE_PATHS
+from EAI_assets.scene_maps import SCENE_MAP_PATHS
 
-payload = yaml.safe_load(Path("demo/fire_rescue/assets/factory_map.yaml").read_text(encoding="utf-8"))
-assert isinstance(payload, dict) and "image" in payload and "resolution" in payload
+expected = ("scene/factory/factory_map.yaml", "scene/factory/factory_map.png")
+assert SCENE_MAP_PATHS["factory"] == expected
+assert _SCENE_PATHS["factory"][-2:] == expected
 PY
 ```
 
@@ -1543,7 +1544,7 @@ The main simulator session calls `ManipulatorOmniGraphManager.setup_robot(...)` 
 
 `algorithm/nav2/nav2_profiles.yaml` maps controller-facing robot types to motion models, footprint/radius, velocity and acceleration limits, sensor mounts, scan filters, and optional planner/controller plugins. It also maps scenes to occupancy maps. `nav2_setup.py` combines a profile, sensor choice, scene or explicit map, and explicit or live initial pose to generate `nav2_params.yaml`, `pointcloud_to_laserscan.yaml`, `view.rviz`, and `meta.txt`. With `sensor=auto` or no explicit pose it requires a fresh `tmp/runtime_interfaces.json`, a live owning simulator PID, a matching scene, and the named robot.
 
-This static generation check uses an explicit tracked map, explicit pose and sensor, and a unique system temporary directory that is removed on exit. It needs Python plus PyYAML but does not start ROS, Nav2, Isaac, or a network request:
+This static generation check creates an explicit temporary map fixture, uses an explicit pose and sensor, and removes its unique system temporary directory on exit. It needs Python plus PyYAML but does not start ROS, Nav2, Isaac, or a network request:
 
 ```bash
 (
@@ -1565,12 +1566,21 @@ This static generation check uses an explicit tracked map, explicit pose and sen
   trap 'exit 129' HUP
   trap 'exit 143' TERM
 
+  printf 'P2\n1 1\n255\n254\n' > "$EAI_NAV2_CHECK_OUT/map.pgm"
+  printf '%s\n' \
+    'image: map.pgm' \
+    'resolution: 0.05' \
+    'origin: [0.0, 0.0, 0.0]' \
+    'negate: 0' \
+    'occupied_thresh: 0.65' \
+    'free_thresh: 0.196' > "$EAI_NAV2_CHECK_OUT/map.yaml"
+
   python algorithm/nav2/nav2_setup.py \
     --robot carter_1 \
     --robot-type Carter \
     --sensor orsus \
     --scene factory \
-    --map demo/fire_rescue/assets/factory_map.yaml \
+    --map "$EAI_NAV2_CHECK_OUT/map.yaml" \
     --pose 0,0,0 \
     --out "$EAI_NAV2_CHECK_OUT"
 )
@@ -1578,14 +1588,14 @@ This static generation check uses an explicit tracked map, explicit pose and sen
 
 The unified `nav2.launch.py` runs that generator, starts the TF bridge, converts `/<instance>/scan_cloud` to `/<instance>/scan`, starts map server and AMCL, then controller, smoother, planner, behavior, BT navigator, waypoint follower, velocity smoother, lifecycle manager, and optional RViz. `tf_bridge.py` publishes dynamic `odom -> base_link` and static `base_link -> lidar_link`; the selected robot/sensor profile supplies the base offset and LiDAR mount values passed to that node. AMCL supplies `map -> odom`. Controller/behavior output is remapped to `cmd_vel_nav`; the velocity smoother publishes the final `/<instance>/cmd_vel`. The ROS package `pointcloud_to_laserscan` is therefore a runtime dependency, not an optional visualization tool.
 
-The Factory profile uses the tracked `demo/fire_rescue/assets/factory_map.yaml`, so both the profile default and an explicit map argument resolve from a clean source checkout. `run_nav2.sh` can therefore resolve its map without local USD content, but it still assumes the tracked `nav2` environment, a GUI-capable Isaac/ROS installation, and all selected gated assets. Its isolated Nav2 process receives the caller's explicitly set discovery allowlist; unset values retain their middleware defaults. This example assumes a running simulator selection with `carter_1`, exactly one Orsus point-cloud/odometry graph enabled through `orsus` plus Navigation I/O (internal key `navigation_io`), independently enabled Orsus images through Camera (internal key `camera`), matching ROS discovery settings, and a fresh runtime snapshot:
+The Factory profile uses the provider-managed `scene/factory/factory_map.yaml` below `EAI_USD_ROOT`; all seven selectable scene profiles follow the same `scene/<scene>/<scene>_map.yaml` convention. Simulator/Env DIY selection preflight installs the YAML/PNG pair with the selected scene. `run_nav2.sh` therefore requires the matching provider payload and forwards an explicitly set `EAI_USD_ROOT`; it also assumes the tracked `nav2` environment, a GUI-capable Isaac/ROS installation, and all selected gated assets. Its isolated Nav2 process receives the caller's explicitly set discovery allowlist; unset values retain their middleware defaults. This example assumes a running simulator selection with `carter_1`, exactly one Orsus point-cloud/odometry graph enabled through `orsus` plus Navigation I/O (internal key `navigation_io`), independently enabled Orsus images through Camera (internal key `camera`), matching ROS discovery settings, and a fresh runtime snapshot:
 
 The default generator path now creates a unique owner-private system temporary directory. If you pass an explicit `out_dir:=...`/`--out`, it must be a directory owned by the current user with no group/other access; generated-file writes also refuse symlink targets. Do not delete or replace an existing path merely to make an explicit output path pass these checks.
 
 ```bash
 source /opt/ros/humble/setup.bash
 export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-EAI_NAV2_MAP="$(pwd)/demo/fire_rescue/assets/factory_map.yaml"
+EAI_NAV2_MAP="$(pwd)/usd/scene/factory/factory_map.yaml"
 ros2 launch algorithm/nav2/nav2.launch.py \
   robot_name:=carter_1 \
   robot_type:=Carter \
@@ -2403,7 +2413,6 @@ for path in (
 
 yaml_paths = [Path("algorithm/nav2/nav2_profiles.yaml")]
 yaml_paths += sorted(Path("source/EAI/EAI/interface_catalog/interfaces").rglob("*.yaml"))
-yaml_paths.append(Path("demo/fire_rescue/assets/factory_map.yaml"))
 for path in yaml_paths:
     yaml.safe_load(path.read_text(encoding="utf-8"))
 PY
@@ -2462,13 +2471,13 @@ ros2 launch algorithm/nav2/nav2.launch.py \
   robot_type:=Carter \
   sensor:=orsus \
   scene:=factory \
-  map:="$(pwd)/demo/fire_rescue/assets/factory_map.yaml" \
+  map:="$(pwd)/usd/scene/factory/factory_map.yaml" \
   rviz:=false
 ```
 
 For `carter_1`, `nav2_setup.py` no longer reuses a predictable `/tmp/eai_nav2_carter_1` path by default. It creates a unique owner-private directory, or uses an explicit `out_dir:=...`/`--out` only after owner, permission, directory, and symlink-output checks. Do not store unrelated or user data in generated runtime directories.
 
-`algorithm/nav2/run_nav2.sh` can resolve the tracked Factory profile map from a clean source checkout. It remains an environment-dependent launcher: it starts the default `nav2` selection, forwards only the explicit ROS discovery allowlist into its otherwise isolated Nav2 process, monitors both core process groups, requires GUI/ROS/provider assets, and does not replace the section 12 generation, command-stop, TF, lifecycle, and goal-result checks.
+`algorithm/nav2/run_nav2.sh` resolves the provider-managed Factory profile map after the selected scene asset preflight has populated `EAI_USD_ROOT`. It remains an environment-dependent launcher: it starts the default `nav2` selection, forwards only the explicit ROS discovery allowlist into its otherwise isolated Nav2 process, monitors both core process groups, requires GUI/ROS/provider assets, and does not replace the section 12 generation, command-stop, TF, lifecycle, and goal-result checks.
 
 ### User Documentation
 
@@ -2507,7 +2516,7 @@ Directories in this table mean the tracked source inventory below that directory
 | Startup / CLI | `simulator.py` | Sections 5, 6, 7, 8, and 13; owns argument dispatch, application/session lifecycle, preflight, loop, and shutdown. |
 | Environment JSON | `source/EAI/EAI/hmrs_env/env_diy/storage.py`; `source/EAI/EAI/hmrs_env/env_diy/flow.py`; `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_hmrs/EAI_hmrs/envs/` | Sections 6, 8, 9, and 10; filenames are stems, JSON is normalized selection data, not Gym registration. |
 | Robot | `source/EAI_assets/EAI_assets/robots/`; `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/ui.py`; `source/EAI_env_diy/EAI_env_diy/preview_stage.py`; `usd/picture/processed/robot/`; `source/EAI/EAI/interface_catalog/interfaces/robots/mobile_base.yaml` | Sections 7, 8, 10, and 11; synchronize assets, selection/runtime/requirements, provider resolution, both UIs, preview, image, and interface aliases. |
-| Scene | `source/EAI_assets/EAI_assets/scene/`; `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/ui.py`; `source/EAI_env_diy/EAI_env_diy/preview_stage.py`; `usd/picture/scene/` | Sections 7, 8, 10, and 11; synchronize assets, selection/runtime/requirements, provider resolution, both UIs, 3D preview, and image. |
+| Scene | `source/EAI_assets/EAI_assets/scene/`; `source/EAI_assets/EAI_assets/scene_maps.py`; `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/ui.py`; `source/EAI_env_diy/EAI_env_diy/preview_stage.py`; `usd/picture/scene/` | Sections 7, 8, 10, and 11; synchronize assets, selection/runtime/requirements, provider resolution, both UIs, 3D preview, and image. |
 | Controller base | `source/EAI/EAI/controllers/base.py`; `source/EAI/EAI/hmrs_env/multi_robot_direct_env.py`; `source/EAI/EAI/hmrs_env/multi_robot_direct_env_cfg.py` | Sections 5, 7, and 8; owns resource loading, command-to-action callbacks, application, and spaces. |
 | Traditional controller | `source/EAI/EAI/controllers/base.py`; `source/EAI/EAI/controllers/differential_drive_controller.py`; `source/EAI/EAI/controllers/ackermann_controller.py`; `source/EAI/EAI/controllers/ik_controller.py`; `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_hmrs/EAI_hmrs/controller_loader.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/ui.py` | Sections 5, 8, 10, and 11; synchronize the callback/adapter contract, selectable name, lazy mapping, requirement seed, provider bundle, and exposed UI names. |
 | RL controller | `source/EAI/EAI/controllers/__init__.py`; `source/EAI/EAI/controllers/base.py`; `source/EAI/EAI/controllers/utils.py`; `source/EAI/EAI/controllers/rsl_controller.py`; `source/EAI/EAI/controllers/skrl_controller.py`; `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_hmrs/EAI_hmrs/controller_loader.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/ui.py` | Sections 5, 8, 10, and 11; keep public exports, shared helpers, adapter semantics, selectable/import/requirement mappings, framework configuration, provider weights, and UI names compatible. |
@@ -2515,14 +2524,14 @@ Directories in this table mean the tracked source inventory below that directory
 | UR5 | `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `source/EAI_assets/EAI_assets/robots/manipulator_mount.py`; `source/EAI_assets/EAI_assets/robots/ur5_mount.py`; `source/EAI_env_diy/EAI_env_diy/preview_stage.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/ui.py`; `usd/picture/processed/manipulator/ur5.png`; `source/EAI/EAI/interface_catalog/interfaces/sensors/ur5.yaml`; `source/EAI/EAI/hmrs_ros/manipulator_omnigraph.py`; `source/EAI/EAI/hmrs_ros/ur5_omnigraph.py`; `tools/ros2/send_manipulator_command.py`; `simulator.py` | Sections 6, 8, 10, 11, and 12; synchronize compatibility, mount/preview assembly, controller requirements/provider resolution, UI/image, declarations, graph, external command client, and current main-session activation. |
 | Z1 | `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `source/EAI_assets/EAI_assets/robots/z1.py`; `source/EAI_assets/EAI_assets/robots/manipulator_mount.py`; `source/EAI_assets/EAI_assets/robots/z1_mount.py`; `source/EAI_env_diy/EAI_env_diy/preview_stage.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/ui.py`; `usd/picture/processed/manipulator/z1.png`; `source/EAI/EAI/interface_catalog/interfaces/sensors/z1.yaml`; `source/EAI/EAI/hmrs_ros/manipulator_omnigraph.py`; `source/EAI/EAI/hmrs_ros/z1_omnigraph.py`; `tools/ros2/send_manipulator_command.py`; `simulator.py` | Sections 6, 8, 10, 11, and 12; synchronize the direct arm asset/actuator cfg, compatibility, mount/preview assembly, controller requirements/provider resolution, UI/image, declarations, graph helpers, and external command client plus current main-session activation. |
 | Human animation | `source/EAI_assets/EAI_assets/humans/`; `source/EAI_assets/EAI_assets/asset_resolver.py`; `usd/human/README.md`; `usd/human/manifest.json`; `usd/human/manifest.schema.json`; `usd/human/pack-checksums.json`; `usd/human/audit-summary.json`; `tools/human_assets/` | Sections 3, 6, 8, 10, 11, and 13; keep registry/runtime, path and action contracts, maintained metadata, conversion/validation/authoring tools, external payloads, integrity, and publication rights synchronized. |
-| Asset download | `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py` | Sections 6, 7, 8, and 11; requirement seeds, transitive discovery, provider revision, installation, and human integrity are distinct boundaries. |
+| Asset download | `source/EAI_assets/EAI_assets/scene_maps.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI_assets/EAI_assets/asset_resolver.py` | Sections 6, 7, 8, and 11; requirement seeds, transitive discovery, provider revision, installation, and human integrity are distinct boundaries. |
 | Env DIY lightweight UI | `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI/EAI/hmrs_env/env_diy/flow.py`; `source/EAI/EAI/hmrs_env/env_diy/storage.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI/EAI/hmrs_env/env_diy/webview_app.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI/setup.py`; `usd/picture/` | Sections 5, 6, 8, 9, and 10; keep selection, persistence, embedded vocabulary, bridge payload, builder/requirements, package data, and images synchronized. |
 | Env DIY 3D | `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI/EAI/hmrs_env/env_diy/flow.py`; `source/EAI/EAI/hmrs_env/env_diy/storage.py`; `source/EAI_env_diy/EAI_env_diy/`; `source/EAI_env_diy/config/extension.toml`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI/setup.py`; `usd/picture/`; `simulator.py` | Sections 5, 6, 8, 9, and 10; synchronize the portable contract, Kit authoring/preview/download/result lifecycle, builder/requirements, package data, images, and stage transition. |
 | ROS2 cmd_vel | `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI/EAI/hmrs_env/env_diy/flow.py`; `source/EAI/EAI/hmrs_env/env_diy/env_diy_app.html`; `source/EAI_env_diy/EAI_env_diy/`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `usd/picture/processed/tool/`; `source/EAI/EAI/interface_catalog/interfaces/robots/mobile_base.yaml`; `source/EAI/EAI/hmrs_ros/cmd_vel_bridge.py`; `source/EAI/EAI/hmrs_ros/twist_subscriber.py`; `algorithm/keyboard/keyboard.py`; `tools/ros2/send_cmd_vel.py`; `simulator.py` | Sections 6, 8, 10, and 12; synchronize tool compatibility/exposure, builder/requirements, interface declaration, external Twist publication, bridge activation, command application, snapshot filtering, repeated-zero cleanup, and observed delivery/stop behavior. |
-| Nav2 | `source/EAI_hmrs/EAI_hmrs/envs/nav2.json`; `algorithm/nav2/nav2.launch.py`; `algorithm/nav2/nav2_setup.py`; `algorithm/nav2/nav2_profiles.yaml`; `algorithm/nav2/tf_bridge.py`; `algorithm/nav2/send_goal.py`; `demo/fire_rescue/assets/factory_map.yaml`; `source/EAI/EAI/hmrs_ros/`; `simulator.py` | Sections 6, 12, 13, and 14; use the tracked matching selection with its tracked profile map or an explicit map, and treat the current launcher as one global stack. |
+| Nav2 | `source/EAI_hmrs/EAI_hmrs/envs/nav2.json`; `algorithm/nav2/nav2.launch.py`; `algorithm/nav2/nav2_setup.py`; `algorithm/nav2/nav2_profiles.yaml`; `algorithm/nav2/tf_bridge.py`; `algorithm/nav2/send_goal.py`; `source/EAI_assets/EAI_assets/scene_maps.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI/EAI/hmrs_ros/`; `simulator.py` | Sections 6, 11, 12, 13, and 14; use the matching provider-owned scene map or an explicit custom map, and treat the current launcher as one global stack. |
 | Interface catalog | `source/EAI/EAI/interface_catalog/interfaces/`; `source/EAI/EAI/interface_catalog/`; `source/EAI/EAI/hmrs_ros/`; `source/EAI/setup.py`; `simulator.py` | Sections 5, 6, 7, 8, 10, and 12; synchronize declarations, package data, real bridge/graph setup, and filtering; generated `tmp/runtime_interfaces.json` is runtime state, not authority. |
 | Algorithm | `algorithm/emos/`; `algorithm/TeamWeaver/`; `algorithm/global_planner/`; `algorithm/multi_robot_navigation/`; `algorithm/city_traffic/human_bridge.py`; `algorithm/keyboard/keyboard.py`; `algorithm/nav2/`; `tools/ros2/vis_sensors.py`; `tools/ros2/send_cmd_vel.py`; `tools/ros2/send_manipulator_command.py` | Sections 5, 7, 8, and 12; keep pure algorithm contracts separate from simulator and external-service adapters, and treat the `tools/ros2/` clients as operational tools rather than algorithms; city traffic has only the tracked human bridge, not a package API. |
-| Fire Rescue demo | `demo/fire_rescue/main.py`; `demo/fire_rescue/config.py`; `demo/fire_rescue/scenario.py`; `demo/fire_rescue/experiment.py`; `demo/fire_rescue/runtime/`; `demo/fire_rescue/dashboard/`; `demo/fire_rescue/assets/`; `simulator.py` | Sections 5, 6, 7, 8, 13, and 14; enter through the reusable session and synchronize CLI/config/scenario/hooks/adapters/dashboard/assets while auditing external services. |
+| Fire Rescue demo | `demo/fire_rescue/main.py`; `demo/fire_rescue/config.py`; `demo/fire_rescue/scenario.py`; `demo/fire_rescue/experiment.py`; `demo/fire_rescue/algorithm_paths.py`; `demo/fire_rescue/runtime/`; `demo/fire_rescue/dashboard/`; `source/EAI_assets/EAI_assets/scene_maps.py`; `simulator.py` | Sections 5, 6, 7, 8, 11, 13, and 14; enter through the reusable session, consume the provider Factory map, and synchronize CLI/config/scenario/hooks/adapters/dashboard while auditing external services. |
 | RealSense D455 | `source/EAI_assets/EAI_assets/sensor/high_sensor/realsense_d455.py`; `source/EAI/EAI/hmrs_ros/realsense_d455_imu.py`; `source/EAI/EAI/hmrs_env/env_diy/catalog.py`; `source/EAI_hmrs/EAI_hmrs/env_builder.py`; `source/EAI_assets/EAI_assets/asset_requirements.py`; `source/EAI/EAI/interface_catalog/interfaces/sensors/realsense_d455.yaml`; `source/EAI_hmrs/EAI_hmrs/envs/mushr_realsense.json`; `tools/ros2/vis_sensors.py` | Sections 7, 8, 10, 11, and 12; synchronize the payload cfg and its publish graphs, the synthesized IMU manager, catalog/builder gates (`camera` vs `navigation_io`), requirements/provider resolution, declarations, and the visualization tool's depth display. |
 | User documentation | `docs/source/` pages; `docs/source/index.rst`; `docs/source/index_en.rst`; `docs/source/conf.py`; `docs/source/_templates/sidebar/navigation.html`; `docs/source/_templates/sidebar/navigation_en.html`; `docs/source/assets/media/` | Sections 8, 16, and 20; keep page content external-facing, keep the toctree and hardcoded sidebar entries synchronized across both languages, and commit media with the page; `docs/build/` is generated output, not authority. |
 

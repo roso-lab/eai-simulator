@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Iterable, Mapping
 
+from EAI_assets.scene_maps import SCENE_MAP_PATHS
+
 
 class RequirementState(str, Enum):
     READY = "READY"
@@ -50,15 +52,16 @@ class RequirementGraph:
 
 
 _SCENE_PATHS = {
-    "plane": (),
-    "warehouse": ("scene/warehouse/warehouse.usd",),
-    "factory": ("scene/factory/factory.usd",),
-    "airs": ("scene/airs/airs.usd",),
-    "garden": ("scene/garden/garden.usd",),
-    "desert": ("scene/desert/real_dust_scene_tiny.usda",),
+    "plane": SCENE_MAP_PATHS["plane"],
+    "warehouse": ("scene/warehouse/warehouse.usd", *SCENE_MAP_PATHS["warehouse"]),
+    "factory": ("scene/factory/factory.usd", *SCENE_MAP_PATHS["factory"]),
+    "airs": ("scene/airs/airs.usd", *SCENE_MAP_PATHS["airs"]),
+    "garden": ("scene/garden/garden.usd", *SCENE_MAP_PATHS["garden"]),
+    "desert": ("scene/desert/real_dust_scene_tiny.usda", *SCENE_MAP_PATHS["desert"]),
     "hospital": (
         "scene/hospital/hospital_local.usda",
         "scene/hospital/Bed_local.usda",
+        *SCENE_MAP_PATHS["hospital"],
     ),
 }
 

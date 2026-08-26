@@ -1,6 +1,0 @@
-image: airs_map.png
-resolution: 0.050000
-origin: [-14.300000, -10.100000, 0.0]
-negate: 0
-occupied_thresh: 0.65
-free_thresh: 0.196

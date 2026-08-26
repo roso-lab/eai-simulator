@@ -50,6 +50,8 @@ EAI.hmrs_env.MultiRobotDirectEnv
 
 `simulator.py` 不再检查注册 Gym 环境，也不再调用 `load_cfg_from_registry()` 或 `gym.make()`。
 
+Factory 占据地图是场景 provider 资产，路径为 `EAI_USD_ROOT/scene/factory/factory_map.yaml` 及同目录 PNG。`default_factory_map_yaml()` 通过 `EAI_assets.asset_resolver` 确保该外部文件对；Demo 不再在 `demo/fire_rescue/assets/` 中保存或回退到地图副本。
+
 ## Factory JSON 要求
 
 `source/EAI_hmrs/EAI_hmrs/envs/EAI-Factory-v0.json` 声明 Factory 场景和四台机器人：
@@ -156,12 +158,8 @@ demo/fire_rescue/
 ├── experiment.py             # 多轮实验编排和 env_cfg hook
 ├── config.py                 # Demo 参数、任务目标和实验出生位置
 ├── scenario.py               # EMOS 场景、机器人能力和任务解释
-├── algorithm_paths.py        # 保证使用仓库内 algorithm 包
+├── algorithm_paths.py        # 仓库内 algorithm 导入与 provider Factory 地图
 ├── llm_compat.py             # OpenAI 兼容修复
-│
-├── assets/
-│   ├── factory_map.yaml      # 路径规划地图元数据
-│   └── factory_map.png       # 占据栅格地图
 │
 ├── dashboard/
 │   ├── index.html            # 纯机器人监控页面
