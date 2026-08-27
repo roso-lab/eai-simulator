@@ -43,6 +43,17 @@ Fire Rescue selects this repository's algorithm directory through demo/fire_resc
 - Nav2 and keyboard run in the selected system-ROS Python, not in env_isaaclab. Do not mix rclpy processes with the Isaac Lab Conda interpreter.
 - tools/ros2/ contains operational ROS clients, not additional control algorithms or manipulator graph owners.
 
+## Scene resources
+
+Provider-owned resources that accompany an EAI scene are declared in `EAI_assets.scene_resources`. Code already running with the EAI packages can call `ensure_scene_resource(scene, resource)`. External algorithms, including system-ROS processes that must not import the Isaac Lab environment, use the repository fast path:
+
+~~~bash
+python simulator.py assets list --format json
+python simulator.py assets ensure --scene warehouse --resource occupancy_map --format json
+~~~
+
+Both forms delegate to the shared EAI asset resolver and honor `EAI_USD_ROOT`, `EAI_ASSETS_HF_REPO`, `EAI_ASSETS_HF_REVISION`, and `EAI_ASSETS_AUTO_DOWNLOAD`. Algorithms must not construct Hugging Face paths or implement their own downloader. Explicit user-supplied maps remain outside this provider contract.
+
 ## Documentation
 
-Each module README documents its import path, dependencies, startup commands, and limitations. Provider-owned assets, model weights, ROS installations, and Isaac Sim are runtime prerequisites and are not downloaded by these examples.
+Each module README documents its import path, dependencies, startup commands, and limitations. Provider-owned assets and model weights may be downloaded on demand through the shared resolver; ROS installations and Isaac Sim remain runtime prerequisites.

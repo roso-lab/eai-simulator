@@ -45,6 +45,15 @@ def _dispatch_interface_cli(argv: list[str]) -> int | None:
     return _load_interface_cli()(argv[1:])
 
 
+def _dispatch_asset_cli(argv: list[str]) -> int | None:
+    if not argv or argv[0] != "assets":
+        return None
+    _ensure_repo_sources_on_path()
+    from EAI_assets.scene_resources import main as scene_resource_main
+
+    return scene_resource_main(argv[1:])
+
+
 def _runtime_interface_snapshot_path() -> Path:
     return _repo_root() / "tmp" / "runtime_interfaces.json"
 
@@ -2011,6 +2020,9 @@ def main() -> None:
     interface_exit_code = _dispatch_interface_cli(sys.argv[1:])
     if interface_exit_code is not None:
         raise SystemExit(interface_exit_code)
+    asset_exit_code = _dispatch_asset_cli(sys.argv[1:])
+    if asset_exit_code is not None:
+        raise SystemExit(asset_exit_code)
     _warn_if_inotify_limits_are_low()
     _ensure_repo_sources_on_path()
     preflight_parser = _base_parser()

@@ -39,6 +39,7 @@ import os
 import re
 import secrets
 import stat
+import subprocess
 import sys
 import tempfile
 import time
@@ -54,6 +55,7 @@ except ImportError:
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(THIS_DIR, "..", ".."))
 DEFAULT_RUNTIME_SNAPSHOT = os.path.join(REPO_ROOT, "tmp", "runtime_interfaces.json")
+SCENE_RESOURCE_CLI = os.path.join(REPO_ROOT, "simulator.py")
 MAX_RUNTIME_SNAPSHOT_AGE_SECONDS = 5.0
 
 PROFILES = os.path.join(THIS_DIR, "nav2_profiles.yaml")
@@ -238,7 +240,48 @@ def _validate_map_files(map_path, *, source):
     return map_path
 
 
-def resolve_map(profiles, scene, explicit_map, out_dir=None):
+def request_scene_resource(scene, resource, *, runner=subprocess.run):
+    """Request one provider-backed scene resource through the EAI core CLI."""
+    command = [
+        sys.executable,
+        SCENE_RESOURCE_CLI,
+        "assets",
+        "ensure",
+        "--scene",
+        scene,
+        "--resource",
+        resource,
+        "--format",
+        "json",
+    ]
+    result = runner(
+        command,
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        diagnostic = (result.stderr or result.stdout).strip() or "unknown asset resolver failure"
+        raise RuntimeError(diagnostic)
+    try:
+        payload = json.loads(result.stdout)
+        primary_path = payload["primary_path"]
+    except (json.JSONDecodeError, KeyError, TypeError) as exc:
+        raise RuntimeError("EAI scene resource CLI returned an invalid response") from exc
+    if not isinstance(primary_path, str) or not primary_path:
+        raise RuntimeError("EAI scene resource CLI returned no primary path")
+    return os.path.abspath(primary_path)
+
+
+def resolve_map(
+    profiles,
+    scene,
+    explicit_map,
+    out_dir=None,
+    *,
+    resource_requester=None,
+):
     if explicit_map:
         map_path = os.path.abspath(os.path.expanduser(explicit_map))
         return _validate_map_files(map_path, source="Explicit --map")
@@ -252,13 +295,22 @@ def resolve_map(profiles, scene, explicit_map, out_dir=None):
     map_path = os.path.abspath(os.path.join(usd_root, relative_path))
     try:
         return _validate_map_files(map_path, source=f"Configured scene '{scene}'")
-    except ValueError as exc:
-        raise ValueError(
-            f"{exc}. Install the provider scene-map payload at "
-            f"{os.path.join('scene', scene)} below EAI_USD_ROOT, or set "
-            "EAI_USD_ROOT to the populated usd directory. To use a custom map, "
-            "pass --map /absolute/path/to/map.yaml."
-        ) from exc
+    except ValueError as initial_error:
+        requester = resource_requester or request_scene_resource
+        try:
+            ensured_path = requester(scene, "occupancy_map")
+        except (OSError, RuntimeError, ValueError) as exc:
+            raise ValueError(
+                f"{initial_error}. Automatic EAI scene resource request failed: {exc}. "
+                "Authenticate with hf auth login, verify EAI_USD_ROOT, or pass "
+                "--map /absolute/path/to/map.yaml for a custom map."
+            ) from exc
+        if os.path.abspath(os.fspath(ensured_path)) != map_path:
+            raise ValueError(
+                "EAI scene resource request returned an unexpected map path: "
+                f"{ensured_path} (expected {map_path})"
+            )
+        return _validate_map_files(map_path, source=f"Configured scene '{scene}'")
 
 
 def pid_is_alive(pid):

@@ -9,7 +9,8 @@ import os
 try:
     import tomllib
 except ModuleNotFoundError:  # pragma: no cover - Python < 3.11 fallback
-    import toml as tomllib
+    tomllib = None
+    import toml
 
 # Conveniences to other module directories via relative paths
 # 修改点 1: 变量名从 ISAACLAB_ASSETS_EXT_DIR 改为 EAI_ASSETS_EXT_DIR
@@ -21,8 +22,12 @@ EAI_ASSETS_DATA_DIR = os.path.join(EAI_ASSETS_EXT_DIR, "data")
 """Path to the extension data directory."""
 
 # 修改点 3: 变量名同步修改
-with open(os.path.join(EAI_ASSETS_EXT_DIR, "config", "extension.toml"), "rb") as _metadata_file:
-    EAI_ASSETS_METADATA = tomllib.load(_metadata_file)
+_metadata_path = os.path.join(EAI_ASSETS_EXT_DIR, "config", "extension.toml")
+if tomllib is not None:
+    with open(_metadata_path, "rb") as _metadata_file:
+        EAI_ASSETS_METADATA = tomllib.load(_metadata_file)
+else:  # Python 3.10 uses the text-mode third-party toml parser.
+    EAI_ASSETS_METADATA = toml.load(_metadata_path)
 """Extension metadata dictionary parsed from the extension.toml file."""
 
 # Configure the module-level variables

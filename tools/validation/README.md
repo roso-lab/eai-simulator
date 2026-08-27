@@ -35,7 +35,7 @@ Each command exits nonzero when a check fails and prints the failed assertion or
 - Run the documentation and release-link checks after changing README files, release references, algorithm documentation, or public image links.
 - Run the Env DIY checks after changing its catalog, selection format, compatibility rules, HTML application, authoring model, or launcher gates.
 - Run the asset-download error check after changing preflight workers, provider error translation, or parent/child reports.
-- Run the scene-map check after changing selectable scenes, scene requirements, preflight path collection, or occupancy-map ownership.
+- Run the scene-resource check after changing selectable scenes, resource declarations, external asset requests, preflight path collection, or occupancy-map ownership.
 - Run the ROS distribution check after changing setup scripts, distribution precedence, or persisted configuration.
 
 ## Limitations

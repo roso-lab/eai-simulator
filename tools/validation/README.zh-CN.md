@@ -35,7 +35,7 @@ node tools/validation/check_env_diy_runtime.mjs all
 - 修改 README、Release 引用、算法文档或公开图片链接后，运行文档和 Release 链接检查。
 - 修改 Env DIY catalog、selection 格式、兼容规则、HTML 应用、authoring model 或 launcher gate 后，运行两个 Env DIY 检查。
 - 修改 preflight worker、provider 错误转换或父子进程报告后，运行资产下载错误检查。
-- 修改可选场景、场景 requirement、preflight 路径收集或占据地图所有权后，运行场景地图检查。
+- 修改可选场景、资源声明、外部资产请求、preflight 路径收集或占据地图所有权后，运行场景资源检查。
 - 修改 setup 脚本、ROS 发行版优先级或持久配置后，运行 ROS 发行版检查。
 
 ## 限制

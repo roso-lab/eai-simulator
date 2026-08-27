@@ -1,28 +1,21 @@
-"""Scene-owned occupancy map paths shared by asset consumers."""
+"""Compatibility helpers for scene-owned occupancy maps."""
 
 from __future__ import annotations
 
+from EAI_assets.scene_resources import (
+    OCCUPANCY_MAP,
+    SCENE_RESOURCE_PATHS,
+    scene_resource_relative_paths,
+)
+
 
 SCENE_MAP_PATHS = {
-    scene_key: (
-        f"scene/{scene_key}/{scene_key}_map.yaml",
-        f"scene/{scene_key}/{scene_key}_map.png",
-    )
-    for scene_key in (
-        "plane",
-        "warehouse",
-        "factory",
-        "airs",
-        "garden",
-        "desert",
-        "hospital",
-    )
+    scene_key: resources[OCCUPANCY_MAP]
+    for scene_key, resources in SCENE_RESOURCE_PATHS.items()
 }
 
 
 def scene_map_relative_paths(scene_key: str) -> tuple[str, str]:
     """Return the provider-relative YAML and PNG paths for a selectable scene."""
-    try:
-        return SCENE_MAP_PATHS[scene_key]
-    except KeyError as exc:
-        raise ValueError(f"Unknown scene map key: {scene_key!r}") from exc
+    yaml_path, png_path = scene_resource_relative_paths(scene_key, OCCUPANCY_MAP)
+    return yaml_path, png_path
