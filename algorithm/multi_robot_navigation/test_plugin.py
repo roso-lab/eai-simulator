@@ -554,6 +554,7 @@ def test_clearance_replanning_is_async_and_keeps_the_mission(monkeypatch, tmp_pa
         tmp_path,
         planner_backend="dbcbs",
         dbcbs_replan_clearance=0.25,
+        dbcbs_replan_confirmation_time=0.0,
         dbcbs_replan_retry_interval=0.0,
     )
     calls = []
@@ -608,11 +609,92 @@ def test_clearance_replanning_is_async_and_keeps_the_mission(monkeypatch, tmp_pa
         plugin.close()
 
 
+def test_clearance_replanning_requires_sustained_proximity(monkeypatch, tmp_path: Path):
+    plugin = _plugin(
+        tmp_path,
+        planner_backend="dbcbs",
+        dbcbs_replan_clearance=0.25,
+        dbcbs_replan_confirmation_time=0.05,
+        dbcbs_replan_retry_interval=0.0,
+    )
+    calls = []
+
+    def prepare(starts, goals):
+        calls.append((dict(starts), dict(goals)))
+        return _prepared_mission(starts, goals)
+
+    monkeypatch.setattr(plugin.session, "prepare_mission", prepare)
+    try:
+        plugin.set_goal("carter_1", (2.0, 2.0))
+        assert plugin.start_navigation() == {"carter_1": True}
+        _wait_for_planner(plugin)
+        plugin.compute_actions()
+
+        robots = plugin.base_env.scene.articulations
+        robots["carter_1"].data.root_pos_w[0, :2] = torch.tensor([-0.5, 0.0])
+        robots["go2_1"].data.root_pos_w[0, :2] = torch.tensor([0.5, 0.0])
+        has_motion_command = False
+        for _ in range(3):
+            actions = plugin.compute_actions()
+            has_motion_command = has_motion_command or bool(
+                torch.count_nonzero(actions["carter_1"])
+            )
+
+        assert len(calls) == 1
+        assert not plugin.state().replanning
+        assert has_motion_command
+
+        robots["carter_1"].data.root_pos_w[0, :2] = torch.tensor([-3.0, 0.0])
+        robots["go2_1"].data.root_pos_w[0, :2] = torch.tensor([3.0, 0.0])
+        plugin.compute_actions()
+
+        robots["carter_1"].data.root_pos_w[0, :2] = torch.tensor([-0.5, 0.0])
+        robots["go2_1"].data.root_pos_w[0, :2] = torch.tensor([0.5, 0.0])
+        for _ in range(4):
+            plugin.compute_actions()
+
+        _wait_for_planner(plugin)
+        assert len(calls) == 2
+        assert plugin.state().replanning
+        assert plugin.state().replan_attempts == 1
+    finally:
+        plugin.close()
+
+
+def test_hard_clearance_replanning_does_not_wait_for_confirmation(
+    monkeypatch, tmp_path: Path
+):
+    plugin = _plugin(
+        tmp_path,
+        planner_backend="dbcbs",
+        dbcbs_replan_confirmation_time=60.0,
+    )
+
+    monkeypatch.setattr(plugin.session, "prepare_mission", _prepared_mission)
+    try:
+        plugin.set_goal("carter_1", (2.0, 2.0))
+        assert plugin.start_navigation() == {"carter_1": True}
+        _wait_for_planner(plugin)
+        plugin.compute_actions()
+
+        robots = plugin.base_env.scene.articulations
+        robots["carter_1"].data.root_pos_w[0, :2] = torch.tensor([-0.25, 0.0])
+        robots["go2_1"].data.root_pos_w[0, :2] = torch.tensor([0.25, 0.0])
+        actions = plugin.compute_actions()
+
+        assert plugin.state().replanning
+        assert plugin.state().replan_attempts == 1
+        assert all(torch.count_nonzero(action) == 0 for action in actions.values())
+    finally:
+        plugin.close()
+
+
 def test_failed_async_replan_keeps_the_goal_and_retries(monkeypatch, tmp_path: Path):
     plugin = _plugin(
         tmp_path,
         planner_backend="dbcbs",
         dbcbs_replan_clearance=0.25,
+        dbcbs_replan_confirmation_time=0.0,
         dbcbs_replan_retry_interval=0.0,
     )
     attempts = 0

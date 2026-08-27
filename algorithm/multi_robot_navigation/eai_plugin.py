@@ -171,7 +171,8 @@ class EaiMultiRobotNavigationPlugin:
         dbcbs_robot_radii: Mapping[str, float] | None = None,
         dbcbs_safety_margin: float = 0.10,
         dbcbs_coarsen_factor: int = 4,
-        dbcbs_replan_clearance: float = 0.25,
+        dbcbs_replan_clearance: float = 0.10,
+        dbcbs_replan_confirmation_time: float = 0.50,
         dbcbs_replan_retry_interval: float = 0.50,
         exclude_aerial: bool = True,
         controller_normalizer: Callable[[Any], tuple[Any, Sequence[Any]]] | None = None,
@@ -182,6 +183,8 @@ class EaiMultiRobotNavigationPlugin:
         if (
             not math.isfinite(dbcbs_replan_clearance)
             or dbcbs_replan_clearance < 0.0
+            or not math.isfinite(dbcbs_replan_confirmation_time)
+            or dbcbs_replan_confirmation_time < 0.0
             or not math.isfinite(dbcbs_replan_retry_interval)
             or dbcbs_replan_retry_interval < 0.0
         ):
@@ -297,10 +300,13 @@ class EaiMultiRobotNavigationPlugin:
             name: (0.0, 0.0, 0.0) for name in self.velocity_agents
         }
         self._replan_clearance = float(dbcbs_replan_clearance)
+        self._replan_confirmation_time = float(dbcbs_replan_confirmation_time)
         self._replan_retry_interval = float(dbcbs_replan_retry_interval)
         self._control_elapsed = 0.0
         self._replan_not_before = 0.0
         self._replan_armed = True
+        self._replan_candidate_pair: tuple[str, str] | None = None
+        self._replan_candidate_since: float | None = None
         self._replan_pending = False
         self._last_replan_event: tuple[str, str, float, float] | None = None
         self._replan_attempts = 0
@@ -378,6 +384,8 @@ class EaiMultiRobotNavigationPlugin:
         self._replan_error = None
         self._replan_not_before = self._control_elapsed
         self._replan_armed = True
+        self._replan_candidate_pair = None
+        self._replan_candidate_since = None
 
     def _reset_dbcbs_velocities(self) -> None:
         for name in self._last_dbcbs_velocity:
@@ -739,6 +747,30 @@ class EaiMultiRobotNavigationPlugin:
         self._reset_replanning()
         self.last_safety_stop = None
 
+    def _confirmed_nearby_conflict(
+        self,
+        nearby: Sequence[tuple[str, str, float, float]],
+    ) -> tuple[str, str, float, float] | None:
+        if not nearby or not self._replan_armed:
+            self._replan_candidate_pair = None
+            self._replan_candidate_since = None
+            return None
+
+        candidate = nearby[0]
+        pair = candidate[0], candidate[1]
+        if pair != self._replan_candidate_pair:
+            self._replan_candidate_pair = pair
+            self._replan_candidate_since = self._control_elapsed
+
+        since = self._replan_candidate_since
+        if (
+            self._replan_confirmation_time > 0.0
+            and since is not None
+            and self._control_elapsed - since < self._replan_confirmation_time
+        ):
+            return None
+        return candidate
+
     def compute_actions(self) -> dict[str, Any]:
         """Return command tensors for managed ground robots only."""
 
@@ -800,15 +832,19 @@ class EaiMultiRobotNavigationPlugin:
             )
             if not nearby and not self._replan_pending:
                 self._replan_armed = True
+                self._replan_candidate_pair = None
+                self._replan_candidate_since = None
                 self._last_replan_event = None
                 self._replan_error = None
 
             conflict = (
                 unsafe[0]
                 if unsafe
-                else (nearby[0] if nearby and self._replan_armed else None)
+                else self._confirmed_nearby_conflict(nearby)
             )
             if conflict is not None:
+                self._replan_candidate_pair = None
+                self._replan_candidate_since = None
                 self._last_replan_event = conflict
                 self._replan_pending = True
             if self._replan_pending:

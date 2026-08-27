@@ -41,7 +41,7 @@ from_session() 根据 EAI selection data 从 maps/ 选择维护的地图；自�
 - 初次规划和冲突触发的重规划在有界 worker 中执行，不阻塞 Isaac 线程。
 - start_navigation() 接受目标；最终结果通过 state().planning_error 观察。
 - 规划等待期间 compute_actions() 不阻塞，并返回 hold command。
-- 连续距离检查可能保持一帧并从当前位姿重规划；失败的重规划保留任务并重试。
+- 硬净空冲突会立即保持并重规划；提前预警默认需持续 0.5 秒，短暂接近不会让机器人停机。失败的重规划保留任务并重试。
 - host 关闭时必须调用 close()，以取消排队工作并释放 worker。
 
 ## 原生构建
