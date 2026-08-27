@@ -52,6 +52,8 @@ algorithm/emos/brain/ 提供 EMOS 使用的 LLM 讨论、请求门控、解析�
 
 模型 API 读取 DEEPSEEK_API_KEY，或读取调用方显式传入的 API key。本包不自动读取 .env 文件，也不保存凭据。MultiLLM_discussion.py 和 llm_agent.py 负责讨论流程；brain/API/ 负责模型请求、请求门控和 Python 工具；brain/actions/ 与 brain/skills/ 提供数据结构。实际执行由集成层负责。
 
+请求门控用于串行化对单实例本地 LLM 服务的调用。默认端口上的回环地址始终会被门控；如需门控其他私有端点，请设置逗号分隔的 EMOS_LOCAL_LLM_HOSTS 环境变量（host:port 条目）。本包不硬编码任何端点地址。
+
 ~~~bash
 pip install -r algorithm/emos/requirements.txt
 export DEEPSEEK_API_KEY=your_api_key_here
