@@ -46,7 +46,7 @@
 <tr>
 <td width="43%" valign="middle">
   <h3>开箱即用的资产库</h3>
-  <p>13 种异构机器人、7 个场景、5 种可挂载负载、18 个控制器配置和 44 个带 12 组动作的人类角色，全部通过同一个 gated 资产数据集发布。</p>
+  <p>13 种异构机器人、6 个场景、5 种可挂载负载、18 个控制器配置和 44 个带 12 组动作的人类角色，全部通过同一个 gated 资产数据集发布。</p>
   <p><a href="https://huggingface.co/datasets/rosolab/eai-simulator-assets">申请资产访问 →</a></p>
 </td>
 <td width="57%">

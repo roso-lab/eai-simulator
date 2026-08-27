@@ -46,7 +46,7 @@
 <tr>
 <td width="43%" valign="middle">
   <h3>A ready-made asset library</h3>
-  <p>Thirteen heterogeneous robots (wheeled, legged, aerial, humanoid), seven scenes from flat ground to factory and hospital, five mountable payloads, eighteen controller configurations, and forty-four human actors with twelve action groups — all shipped through one gated asset release.</p>
+  <p>Thirteen heterogeneous robots (wheeled, legged, aerial, humanoid), six scenes from flat ground to factory and hospital, five mountable payloads, eighteen controller configurations, and forty-four human actors with twelve action groups — all shipped through one gated asset release.</p>
   <p><a href="https://huggingface.co/datasets/rosolab/eai-simulator-assets">Request asset access →</a></p>
 </td>
 <td width="57%">
