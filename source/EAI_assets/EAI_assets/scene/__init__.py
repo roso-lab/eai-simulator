@@ -6,7 +6,6 @@ from typing import Any
 
 _EXPORTS = {
     "WAREHOUSE_CFG": ("EAI_assets.scene.warehouse", "WAREHOUSE_CFG"),
-    "GARDEN_CFG": ("EAI_assets.scene.garden", "GARDEN_CFG"),
     "AIRS_CFG": ("EAI_assets.scene.airs", "AIRS_CFG"),
     "FACTORY_CFG": ("EAI_assets.scene.factory", "FACTORY_CFG"),
     "DESERT_CFG": ("EAI_assets.scene.desert", "DESERT_CFG"),

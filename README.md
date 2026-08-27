@@ -79,7 +79,7 @@
 
 | Heterogeneous entities | Composable worlds | Perception and control |
 | --- | --- | --- |
-| Humans, Carter, Pepper, MuSHR, Coco, Scout, Go2, B2, M20, Lite3, G1, CF2X, Iris, and Pegasus | Plane, warehouse, factory, AIRS, garden, desert, hospital, and reusable JSON environments | Traditional and RL controllers, ROS2, Nav2, Orsus, RealSense D455, LiDAR, UR5, Z1, and external policies |
+| Humans, Carter, Pepper, MuSHR, Coco, Scout, Go2, B2, M20, Lite3, G1, CF2X, Iris, and Pegasus | Plane, warehouse, factory, AIRS, desert, hospital, and reusable JSON environments | Traditional and RL controllers, ROS2, Nav2, Orsus, RealSense D455, LiDAR, UR5, Z1, and external policies |
 
 The README summarizes the supported surface. Use the detailed guides as the source of truth:
 

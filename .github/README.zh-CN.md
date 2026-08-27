@@ -79,7 +79,7 @@
 
 | 异构实体 | 可组合世界 | 感知与控制 |
 | --- | --- | --- |
-| Human、Carter、Pepper、MuSHR、Coco、Scout、Go2、B2、M20、Lite3、G1、CF2X、Iris 和 Pegasus | Plane、Warehouse、Factory、AIRS、Garden、Desert、Hospital 和可复用 JSON 环境 | 传统与 RL 控制器、ROS2、Nav2、Orsus、RealSense D455、LiDAR、UR5、Z1 和外部策略 |
+| Human、Carter、Pepper、MuSHR、Coco、Scout、Go2、B2、M20、Lite3、G1、CF2X、Iris 和 Pegasus | Plane、Warehouse、Factory、AIRS、Desert、Hospital 和可复用 JSON 环境 | 传统与 RL 控制器、ROS2、Nav2、Orsus、RealSense D455、LiDAR、UR5、Z1 和外部策略 |
 
 详细能力以专题文档为准：
 

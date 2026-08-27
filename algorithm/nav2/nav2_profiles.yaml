@@ -280,7 +280,6 @@ scene_maps:
   warehouse: scene/warehouse/warehouse_map.yaml
   factory: scene/factory/factory_map.yaml
   airs: scene/airs/airs_map.yaml
-  garden: scene/garden/garden_map.yaml
   desert: scene/desert/desert_map.yaml
   hospital: scene/hospital/hospital_map.yaml
 

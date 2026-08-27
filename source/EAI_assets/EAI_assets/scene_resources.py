@@ -24,7 +24,6 @@ SCENE_RESOURCE_PATHS: Mapping[str, Mapping[str, tuple[str, ...]]] = {
         "warehouse",
         "factory",
         "airs",
-        "garden",
         "desert",
         "hospital",
     )
