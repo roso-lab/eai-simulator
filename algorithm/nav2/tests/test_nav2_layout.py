@@ -20,7 +20,7 @@ NAV2_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
 NAV2_SETUP = NAV2_DIR / "nav2_setup.py"
 OLD_NAV2_DIR = REPO_ROOT / "algorithm" / "ros" / "nav2"
-SCENE_MAP_KEYS = ("plane", "warehouse", "factory", "airs", "garden", "desert", "hospital")
+SCENE_MAP_KEYS = ("plane", "warehouse", "factory", "airs", "desert", "hospital")
 
 
 def _write_provider_map(usd_root: Path, scene: str) -> Path:

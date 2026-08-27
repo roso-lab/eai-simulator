@@ -56,7 +56,6 @@ _SCENE_PATHS = {
     "warehouse": ("scene/warehouse/warehouse.usd", *SCENE_MAP_PATHS["warehouse"]),
     "factory": ("scene/factory/factory.usd", *SCENE_MAP_PATHS["factory"]),
     "airs": ("scene/airs/airs.usd", *SCENE_MAP_PATHS["airs"]),
-    "garden": ("scene/garden/garden.usd", *SCENE_MAP_PATHS["garden"]),
     "desert": ("scene/desert/real_dust_scene_tiny.usda", *SCENE_MAP_PATHS["desert"]),
     "hospital": (
         "scene/hospital/hospital_local.usda",

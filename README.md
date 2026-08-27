@@ -46,7 +46,7 @@
 <tr>
 <td width="43%" valign="middle">
   <h3>A ready-made asset library</h3>
-  <p>Thirteen heterogeneous robots (wheeled, legged, aerial, humanoid), seven scenes from flat ground to factory and hospital, five mountable payloads, eighteen controller configurations, and forty-four human actors with twelve action groups — all shipped through one gated asset release.</p>
+  <p>Thirteen heterogeneous robots (wheeled, legged, aerial, humanoid), six scenes from flat ground to factory and hospital, five mountable payloads, eighteen controller configurations, and forty-four human actors with twelve action groups — all shipped through one gated asset release.</p>
   <p><a href="https://huggingface.co/datasets/rosolab/eai-simulator-assets">Request asset access →</a></p>
 </td>
 <td width="57%">
@@ -79,7 +79,7 @@
 
 | Heterogeneous entities | Composable worlds | Perception and control |
 | --- | --- | --- |
-| Humans, Carter, Pepper, MuSHR, Coco, Scout, Go2, B2, M20, Lite3, G1, CF2X, Iris, and Pegasus | Plane, warehouse, factory, AIRS, garden, desert, hospital, and reusable JSON environments | Traditional and RL controllers, ROS2, Nav2, Orsus, RealSense D455, LiDAR, UR5, Z1, and external policies |
+| Humans, Carter, Pepper, MuSHR, Coco, Scout, Go2, B2, M20, Lite3, G1, CF2X, Iris, and Pegasus | Plane, warehouse, factory, AIRS, desert, hospital, and reusable JSON environments | Traditional and RL controllers, ROS2, Nav2, Orsus, RealSense D455, LiDAR, UR5, Z1, and external policies |
 
 The README summarizes the supported surface. Use the detailed guides as the source of truth:
 

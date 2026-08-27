@@ -46,7 +46,7 @@
 <tr>
 <td width="43%" valign="middle">
   <h3>开箱即用的资产库</h3>
-  <p>13 种异构机器人、7 个场景、5 种可挂载负载、18 个控制器配置和 44 个带 12 组动作的人类角色，全部通过同一个 gated 资产数据集发布。</p>
+  <p>13 种异构机器人、6 个场景、5 种可挂载负载、18 个控制器配置和 44 个带 12 组动作的人类角色，全部通过同一个 gated 资产数据集发布。</p>
   <p><a href="https://huggingface.co/datasets/rosolab/eai-simulator-assets">申请资产访问 →</a></p>
 </td>
 <td width="57%">
@@ -79,7 +79,7 @@
 
 | 异构实体 | 可组合世界 | 感知与控制 |
 | --- | --- | --- |
-| Human、Carter、Pepper、MuSHR、Coco、Scout、Go2、B2、M20、Lite3、G1、CF2X、Iris 和 Pegasus | Plane、Warehouse、Factory、AIRS、Garden、Desert、Hospital 和可复用 JSON 环境 | 传统与 RL 控制器、ROS2、Nav2、Orsus、RealSense D455、LiDAR、UR5、Z1 和外部策略 |
+| Human、Carter、Pepper、MuSHR、Coco、Scout、Go2、B2、M20、Lite3、G1、CF2X、Iris 和 Pegasus | Plane、Warehouse、Factory、AIRS、Desert、Hospital 和可复用 JSON 环境 | 传统与 RL 控制器、ROS2、Nav2、Orsus、RealSense D455、LiDAR、UR5、Z1 和外部策略 |
 
 详细能力以专题文档为准：
 

@@ -17,7 +17,6 @@ SCENE_CHOICES = (
     ("warehouse", "Warehouse"),
     ("factory", "Factory"),
     ("airs", "AIRS scene"),
-    ("garden", "Garden"),
     ("desert", "Desert"),
     ("hospital", "Hospital"),
 )
