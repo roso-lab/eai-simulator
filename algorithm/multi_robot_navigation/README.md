@@ -41,7 +41,7 @@ from_session() selects a maintained map from maps/ using EAI selection data; pas
 - Initial and conflict-triggered replanning run on a bounded worker instead of the Isaac thread.
 - start_navigation() accepts goals; state().planning_error reports the final planning result.
 - compute_actions() remains non-blocking and emits hold commands while planning is pending.
-- Continuous-clearance checks can hold one frame and replan from current poses; failed replans retain the mission and retry.
+- Hard-clearance conflicts hold and replan immediately. Early warnings must persist for 0.5 seconds by default, so transient proximity does not stop the robots. Failed replans retain the mission and retry.
 - close() cancels queued work and releases the worker.
 
 ## Native build
