@@ -52,6 +52,8 @@ algorithm/emos/brain/ contains the LLM discussion, request-gating, parsing, and 
 
 The model API reads DEEPSEEK_API_KEY, or an API key explicitly supplied by the caller. This package does not load .env files or store credentials. MultiLLM_discussion.py and llm_agent.py orchestrate discussion; brain/API owns model requests, request gates, and Python tools; brain/actions and brain/skills define data structures. The integration layer owns actual execution.
 
+The request gate serializes calls to single-instance local LLM servers. It always covers the loopback endpoints on the default port; set the comma-separated EMOS_LOCAL_LLM_HOSTS environment variable (host:port entries) to gate additional private endpoints. No endpoint address is hardcoded in this package.
+
 ~~~bash
 pip install -r algorithm/emos/requirements.txt
 export DEEPSEEK_API_KEY=your_api_key_here
