@@ -122,26 +122,37 @@ def check_public_images() -> None:
     _check_image_references(".github/README.zh-CN.md")
 
 
-def check_bilingual_community_files() -> None:
+def check_community_language_navigation() -> None:
     files = (
         (
             ".github/CONTRIBUTING.md",
             ".github/CONTRIBUTING.zh-CN.md",
-            "[English](#contributing-to-eai-simulator) | [中文](#为-eai-simulator-做贡献)",
+            '<p align="center">\n'
+            '  <a href="CONTRIBUTING.md">English</a> · '
+            '<a href="CONTRIBUTING.zh-CN.md">中文</a>\n'
+            "</p>",
+            "# Contributing to EAI Simulator",
+            "# 为 EAI Simulator 做贡献",
         ),
         (
             ".github/CODE_OF_CONDUCT.md",
             ".github/CODE_OF_CONDUCT.zh-CN.md",
-            "[English](#code-of-conduct) | [中文](#行为准则)",
+            '<p align="center">\n'
+            '  <a href="CODE_OF_CONDUCT.md">English</a> · '
+            '<a href="CODE_OF_CONDUCT.zh-CN.md">中文</a>\n'
+            "</p>",
+            "# Code of Conduct",
+            "# 行为准则",
         ),
     )
-    for canonical, chinese, navigation in files:
-        canonical_body = _read(canonical)
-        chinese_body = _read(chinese).split("\n\n", 1)[-1]
-        if not canonical_body.startswith(navigation):
-            raise AssertionError(f"{canonical} does not use bilingual in-page navigation")
-        if chinese_body not in canonical_body:
-            raise AssertionError(f"{canonical} does not embed the complete {chinese} content")
+    for english, chinese, navigation, english_heading, chinese_heading in files:
+        english_body = _read(english)
+        chinese_body = _read(chinese)
+        for relative, body in ((english, english_body), (chinese, chinese_body)):
+            if not body.startswith(navigation):
+                raise AssertionError(f"{relative} does not link both language pages")
+        if chinese_heading in english_body or english_heading in chinese_body:
+            raise AssertionError(f"{english} and {chinese} must remain separate language pages")
 
 
 def check_hosted_docs() -> None:
@@ -238,7 +249,7 @@ def main() -> int:
         ("release revision", check_release_revision),
         ("algorithm inventory", check_algorithm_inventory),
         ("public README images", check_public_images),
-        ("bilingual community files", check_bilingual_community_files),
+        ("community language navigation", check_community_language_navigation),
         ("hosted documentation", check_hosted_docs),
     )
     for label, check in checks:
