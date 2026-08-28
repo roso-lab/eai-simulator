@@ -128,8 +128,10 @@ def check_community_language_navigation() -> None:
             ".github/CONTRIBUTING.md",
             ".github/CONTRIBUTING.zh-CN.md",
             '<p align="center">\n'
-            '  <a href="CONTRIBUTING.md">English</a> · '
-            '<a href="CONTRIBUTING.zh-CN.md">中文</a>\n'
+            '  <a href="https://github.com/roso-lab/eai-simulator/blob/main/'
+            '.github/CONTRIBUTING.md">English</a> · '
+            '<a href="https://github.com/roso-lab/eai-simulator/blob/main/'
+            '.github/CONTRIBUTING.zh-CN.md">中文</a>\n'
             "</p>",
             "# Contributing to EAI Simulator",
             "# 为 EAI Simulator 做贡献",
@@ -138,8 +140,10 @@ def check_community_language_navigation() -> None:
             ".github/CODE_OF_CONDUCT.md",
             ".github/CODE_OF_CONDUCT.zh-CN.md",
             '<p align="center">\n'
-            '  <a href="CODE_OF_CONDUCT.md">English</a> · '
-            '<a href="CODE_OF_CONDUCT.zh-CN.md">中文</a>\n'
+            '  <a href="https://github.com/roso-lab/eai-simulator/blob/main/'
+            '.github/CODE_OF_CONDUCT.md">English</a> · '
+            '<a href="https://github.com/roso-lab/eai-simulator/blob/main/'
+            '.github/CODE_OF_CONDUCT.zh-CN.md">中文</a>\n'
             "</p>",
             "# Code of Conduct",
             "# 行为准则",

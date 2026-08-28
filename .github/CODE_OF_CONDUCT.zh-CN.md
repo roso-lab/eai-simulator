@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="CODE_OF_CONDUCT.md">English</a> · <a href="CODE_OF_CONDUCT.zh-CN.md">中文</a>
+  <a href="https://github.com/roso-lab/eai-simulator/blob/main/.github/CODE_OF_CONDUCT.md">English</a> · <a href="https://github.com/roso-lab/eai-simulator/blob/main/.github/CODE_OF_CONDUCT.zh-CN.md">中文</a>
 </p>
 
 # 行为准则
