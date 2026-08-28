@@ -122,6 +122,28 @@ def check_public_images() -> None:
     _check_image_references(".github/README.zh-CN.md")
 
 
+def check_bilingual_community_files() -> None:
+    files = (
+        (
+            ".github/CONTRIBUTING.md",
+            ".github/CONTRIBUTING.zh-CN.md",
+            "[English](#contributing-to-eai-simulator) | [中文](#为-eai-simulator-做贡献)",
+        ),
+        (
+            ".github/CODE_OF_CONDUCT.md",
+            ".github/CODE_OF_CONDUCT.zh-CN.md",
+            "[English](#code-of-conduct) | [中文](#行为准则)",
+        ),
+    )
+    for canonical, chinese, navigation in files:
+        canonical_body = _read(canonical)
+        chinese_body = _read(chinese).split("\n\n", 1)[-1]
+        if not canonical_body.startswith(navigation):
+            raise AssertionError(f"{canonical} does not use bilingual in-page navigation")
+        if chinese_body not in canonical_body:
+            raise AssertionError(f"{canonical} does not embed the complete {chinese} content")
+
+
 def check_hosted_docs() -> None:
     docs = ROOT / "docs"
     if not docs.is_dir():
@@ -216,6 +238,7 @@ def main() -> int:
         ("release revision", check_release_revision),
         ("algorithm inventory", check_algorithm_inventory),
         ("public README images", check_public_images),
+        ("bilingual community files", check_bilingual_community_files),
         ("hosted documentation", check_hosted_docs),
     )
     for label, check in checks:
