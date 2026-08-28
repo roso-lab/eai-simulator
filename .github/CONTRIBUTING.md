@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="CONTRIBUTING.md">English</a> · <a href="CONTRIBUTING.zh-CN.md">中文</a>
+  <a href="https://github.com/roso-lab/eai-simulator/blob/main/.github/CONTRIBUTING.md">English</a> · <a href="https://github.com/roso-lab/eai-simulator/blob/main/.github/CONTRIBUTING.zh-CN.md">中文</a>
 </p>
 
 # Contributing to EAI Simulator
