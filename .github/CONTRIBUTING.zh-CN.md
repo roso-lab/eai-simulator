@@ -1,4 +1,6 @@
-[English](CONTRIBUTING.md) | [中文](CONTRIBUTING.zh-CN.md)
+<p align="center">
+  <a href="CONTRIBUTING.md">English</a> · <a href="CONTRIBUTING.zh-CN.md">中文</a>
+</p>
 
 # 为 EAI Simulator 做贡献
 
