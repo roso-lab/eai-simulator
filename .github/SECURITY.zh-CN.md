@@ -1,4 +1,6 @@
-[English](SECURITY.md) | [中文](SECURITY.zh-CN.md)
+<p align="center">
+  <a href="https://github.com/roso-lab/eai-simulator/blob/main/.github/SECURITY.md">English</a> · <a href="https://github.com/roso-lab/eai-simulator/blob/main/.github/SECURITY.zh-CN.md">中文</a>
+</p>
 
 # 安全策略
 
