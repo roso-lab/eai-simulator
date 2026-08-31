@@ -148,6 +148,18 @@ def check_community_language_navigation() -> None:
             "# Code of Conduct",
             "# 行为准则",
         ),
+        (
+            ".github/SECURITY.md",
+            ".github/SECURITY.zh-CN.md",
+            '<p align="center">\n'
+            '  <a href="https://github.com/roso-lab/eai-simulator/blob/main/'
+            '.github/SECURITY.md">English</a> · '
+            '<a href="https://github.com/roso-lab/eai-simulator/blob/main/'
+            '.github/SECURITY.zh-CN.md">中文</a>\n'
+            "</p>",
+            "# Security Policy",
+            "# 安全策略",
+        ),
     )
     for english, chinese, navigation, english_heading, chinese_heading in files:
         english_body = _read(english)
