@@ -8,7 +8,7 @@
 
 | 脚本 | 用途 | 重要副作用 |
 | --- | --- | --- |
-| `install_packages.sh` | 安装或卸载三个仓库 Python package，并选择 Humble 或 Jazzy | 可能通过 `apt-get` 安装 `libxcb-cursor0`；调用裸 `pip`；在当前 Python prefix 下写入 `share/eai-simulator/ros_distro` |
+| `install_packages.sh` | 安装或卸载三个仓库 Python package，并选择 Humble 或 Jazzy | 使用当前 Python 安装 `pywebview[qt]`；可能通过 `apt-get` 安装 `libxcb-cursor0`；卸载时调用裸 `pip`；在当前 Python prefix 下写入 `share/eai-simulator/ros_distro` |
 | `configure_inotify_limits.sh` | 提高 Isaac Sim 和大型 workspace 所需的 Linux inotify 限制 | 不带 `--dry-run` 时写入 `/etc/sysctl.d/90-eai-isaac-sim-inotify.conf` 并调用 `sysctl --system` |
 | `ros_distro.sh` | 提供验证、解析、读取和写入 ROS 发行版选择的共享函数 | 应由其他 Shell 脚本 source，不是独立安装器 |
 
@@ -25,7 +25,7 @@ python -m pip --version
 ./tools/setup/install_packages.sh --ros-distro humble
 ```
 
-只有在 Jazzy bridge/runtime 环境已经准备好时才使用 `--ros-distro jazzy`。该选项只选择 bridge backend，不安装系统 ROS2。`-u` 卸载仓库 package，`-v` 输出详细 package 日志。某个 package 操作失败后脚本会继续处理其他 package，最后只要有任一操作失败就返回失败状态。
+只有在 Jazzy bridge/runtime 环境已经准备好时才使用 `--ros-distro jazzy`。该选项只选择 bridge backend，不安装系统 ROS2。安装时会先安装并验证 Env DIY 可视化选择器所需的 `pywebview[qt]`，再使用 `--no-deps` 安装仓库 package。`-u` 卸载仓库 package，`-v` 输出详细 package 日志。某个仓库 package 操作失败后脚本会继续处理其他 package，最后只要有任一操作失败就返回失败状态。
 
 ## Inotify 限制
 

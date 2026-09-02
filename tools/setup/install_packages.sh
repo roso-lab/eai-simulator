@@ -75,6 +75,31 @@ install_system_dependencies() {
     print_info "系统依赖 ${package} 安装成功"
 }
 
+# 仓库 package 使用 --no-deps 安装，需单独安装 Env DIY 的运行时依赖。
+install_python_dependencies() {
+    local requirement="pywebview[qt]"
+
+    print_info "正在安装 Python 依赖 ${requirement}..."
+    if [ "$VERBOSE" = true ]; then
+        if ! python -m pip install "${requirement}"; then
+            print_error "Python 依赖 ${requirement} 安装失败"
+            return 1
+        fi
+    else
+        if ! python -m pip install "${requirement}" > /dev/null 2>&1; then
+            print_error "Python 依赖 ${requirement} 安装失败"
+            print_warn "运行 './tools/setup/install_packages.sh -v' 查看详细错误信息"
+            return 1
+        fi
+    fi
+
+    if ! python -c 'import webview' > /dev/null 2>&1; then
+        print_error "已安装 ${requirement}，但当前 Python 仍无法导入 webview"
+        return 1
+    fi
+    print_info "Python 依赖 ${requirement} 安装成功"
+}
+
 # 解析命令行参数
 VERBOSE=false
 UNINSTALL=false
@@ -128,6 +153,9 @@ while [[ $# -gt 0 ]]; do
             echo "安装模式还会检查系统依赖:"
             echo "  - libxcb-cursor0"
             echo ""
+            echo "安装模式还会安装 Python 依赖:"
+            echo "  - pywebview[qt]"
+            echo ""
             echo "--ros-distro 会为当前 Python/Conda 环境保存 ROS 2 发行版选择。"
             echo "它不会安装 ROS 2，也不会修改项目源码或 ~/.bashrc。"
             exit 0
@@ -161,6 +189,10 @@ if [ "${UNINSTALL}" = false ]; then
     fi
     if ! install_system_dependencies; then
         print_error "系统依赖安装未完成，终止安装"
+        exit 1
+    fi
+    if ! install_python_dependencies; then
+        print_error "Python 依赖安装未完成，终止安装"
         exit 1
     fi
     echo ""

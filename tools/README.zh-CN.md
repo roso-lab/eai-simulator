@@ -65,7 +65,7 @@ python tools/human_assets/migrate_assets.py --help
 
 ## 副作用
 
-- `setup/install_packages.sh` 可能通过 `sudo` 调用 `apt-get`，安装或卸载 editable package，并在当前 Python prefix 下保存 ROS 发行版。
+- `setup/install_packages.sh` 会安装 `pywebview[qt]`、可能通过 `sudo` 调用 `apt-get`、安装或卸载 editable package，并在当前 Python prefix 下保存 ROS 发行版。
 - `setup/configure_inotify_limits.sh` 不带 `--dry-run` 时会写入 `/etc/sysctl.d/90-eai-isaac-sim-inotify.conf` 并重新加载实时内核限制。
 - `ros2/send_cmd_vel.py` 会向真实运行中的机器人发布指令。退出时会尝试发送零速度，但 simulator bridge 没有过期指令 watchdog；必须观察机器人并确认已经停止。
 - `ros2/send_manipulator_command.py` 会发布真实机械臂命令，运行前应确认机器人实例、模型、目标和周边空间。
