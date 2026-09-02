@@ -8,7 +8,7 @@ Run these scripts from the repository root. They install repository packages, pe
 
 | Script | Purpose | Important effects |
 | --- | --- | --- |
-| `install_packages.sh` | Install or uninstall the three repository Python packages and select Humble or Jazzy | Can install `libxcb-cursor0` with `apt-get`; invokes bare `pip`; writes `share/eai-simulator/ros_distro` below the active Python prefix |
+| `install_packages.sh` | Install or uninstall the three repository Python packages and select Humble or Jazzy | Installs `pywebview[qt]` with the active Python; can install `libxcb-cursor0` with `apt-get`; invokes bare `pip` for uninstall; writes `share/eai-simulator/ros_distro` below the active Python prefix |
 | `configure_inotify_limits.sh` | Raise Linux inotify limits for Isaac Sim and large workspaces | Without `--dry-run`, writes `/etc/sysctl.d/90-eai-isaac-sim-inotify.conf` and calls `sysctl --system` |
 | `ros_distro.sh` | Shared functions for validating, resolving, reading, and writing the selected ROS distribution | Must be sourced by another shell script; it is not an installer |
 
@@ -25,7 +25,7 @@ python -m pip --version
 ./tools/setup/install_packages.sh --ros-distro humble
 ```
 
-Use `--ros-distro jazzy` only when that bridge/runtime environment is already prepared. The option selects the bridge backend; it does not install system ROS2. `-u` uninstalls the repository packages and `-v` enables verbose package output. The script continues to the remaining packages when one package operation fails, then returns a failure status if any operation failed.
+Use `--ros-distro jazzy` only when that bridge/runtime environment is already prepared. The option selects the bridge backend; it does not install system ROS2. Installation first installs and verifies `pywebview[qt]` for the Env DIY visual chooser, then installs the repository packages with `--no-deps`. `-u` uninstalls the repository packages and `-v` enables verbose package output. The script continues to the remaining repository packages when one package operation fails, then returns a failure status if any operation failed.
 
 ## Inotify limits
 

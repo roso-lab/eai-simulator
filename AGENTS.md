@@ -94,7 +94,7 @@ python -m pip --version
 
 ### Install Repository Packages
 
-The standard installer installs the three repository packages in editable mode:
+The standard installer installs the Env DIY `pywebview[qt]` runtime dependency and the three repository packages in editable mode:
 
 ```bash
 ./tools/setup/install_packages.sh
@@ -102,11 +102,12 @@ The standard installer installs the three repository packages in editable mode:
 ./tools/setup/install_packages.sh --ros-distro jazzy
 ```
 
-The installer accepts only `humble` or `jazzy`, resolving an explicit option before an existing `ROS_DISTRO`, an installed selection, and finally the Humble default. It stores the selection below the current Python prefix at `share/eai-simulator/ros_distro`; it does not install ROS2, modify repository source, or edit shell startup files. The current script also checks for the Ubuntu package `libxcb-cursor0`. If it is missing, the script runs `apt-get update` and `apt-get install -y libxcb-cursor0`, using `sudo` when the current user is not root. Review this system-level change before running the script in a controlled or shared environment.
+The installer accepts only `humble` or `jazzy`, resolving an explicit option before an existing `ROS_DISTRO`, an installed selection, and finally the Humble default. It stores the selection below the current Python prefix at `share/eai-simulator/ros_distro`; it does not install ROS2, modify repository source, or edit shell startup files. It installs `pywebview[qt]` with the active Python so the lightweight visual chooser is available on first launch. The current script also checks for the Ubuntu package `libxcb-cursor0`. If it is missing, the script runs `apt-get update` and `apt-get install -y libxcb-cursor0`, using `sudo` when the current user is not root. Review these environment and system changes before running the script in a controlled or shared environment.
 
 When system packages are managed separately, or when bare `pip` cannot be verified as belonging to `env_isaaclab`, use these controlled editable installs instead:
 
 ```bash
+python -m pip install 'pywebview[qt]'
 python -m pip install --no-deps -e source/EAI
 python -m pip install --no-deps -e source/EAI_assets
 python -m pip install --no-deps -e source/EAI_hmrs
@@ -2280,7 +2281,7 @@ pip --version
 python -m pip --version
 ```
 
-**Network and system mutation; prerequisite: review section 4 first.** The helper performs editable package installs and can run `apt-get` through `sudo` to install `libxcb-cursor0`:
+**Network and system mutation; prerequisite: review section 4 first.** The helper installs `pywebview[qt]`, performs editable package installs, and can run `apt-get` through `sudo` to install `libxcb-cursor0`:
 
 ```bash
 ./tools/setup/install_packages.sh
@@ -2289,6 +2290,7 @@ python -m pip --version
 **Conda environment mutation and possible package-index network; prerequisites: activate the intended environment and verify that `python -m pip` resolves to it.** When system packages are managed separately, use the controlled editable installs from section 4:
 
 ```bash
+python -m pip install 'pywebview[qt]'
 python -m pip install --no-deps -e source/EAI
 python -m pip install --no-deps -e source/EAI_assets
 python -m pip install --no-deps -e source/EAI_hmrs

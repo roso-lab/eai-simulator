@@ -65,7 +65,7 @@ python tools/human_assets/migrate_assets.py --help
 
 ## Side effects
 
-- `setup/install_packages.sh` can call `apt-get` through `sudo`, install or uninstall editable packages, and write the selected ROS distribution below the active Python prefix.
+- `setup/install_packages.sh` installs `pywebview[qt]`, can call `apt-get` through `sudo`, installs or uninstalls editable packages, and writes the selected ROS distribution below the active Python prefix.
 - `setup/configure_inotify_limits.sh` without `--dry-run` writes `/etc/sysctl.d/90-eai-isaac-sim-inotify.conf` and reloads live kernel limits.
 - `ros2/send_cmd_vel.py` publishes commands to a live robot. It attempts to publish zero velocity during teardown, but the simulator bridge has no stale-command watchdog; observe the robot and verify that it stopped.
 - `ros2/send_manipulator_command.py` publishes live manipulator commands. Confirm the robot instance, model, target, and surrounding clearance first.
