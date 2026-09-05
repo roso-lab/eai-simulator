@@ -93,6 +93,14 @@ _state: Dict[str, Any] = {
         "history": [],
         "updated_at": 0.0,
     },
+    # Replay branch control state.  Commands are consumed by the experiment
+    # loop through the queues below; this state is only the dashboard view.
+    "replay": {
+        "phase": "idle",
+        "assignments": {},
+        "checkpoint_id": None,
+        "updated_at": 0.0,
+    },
     # 最后更新时间
     "updated_at": 0.0,
 }
@@ -182,6 +190,10 @@ _manual_action_queue: queue.Queue = queue.Queue(maxsize=32)
 _manual_hazard_queue: queue.Queue = queue.Queue(maxsize=16)
 _manual_top_camera_queue: queue.Queue = queue.Queue(maxsize=16)
 _manual_task_end_queue: queue.Queue = queue.Queue(maxsize=16)
+
+# Replay branch commands (dashboard -> experiment loop).
+_branch_assignment_queue: queue.Queue = queue.Queue(maxsize=16)
+_branch_start_queue: queue.Queue = queue.Queue(maxsize=16)
 
 # ── 机械臂遥操作状态（由前端 HTML 设置，主循环读取）────────────────────────────
 _arm_teleop_enabled: bool = False
@@ -504,6 +516,45 @@ def get_pending_manual_task_end_commands() -> list:
     return cmds
 
 
+def get_pending_branch_assignment_edits() -> list:
+    """Drain pending replay-branch assignment edits."""
+    cmds = []
+    while True:
+        try:
+            cmds.append(_branch_assignment_queue.get_nowait())
+        except queue.Empty:
+            break
+    return cmds
+
+
+def get_pending_branch_starts() -> list:
+    """Drain pending replay-branch start commands."""
+    cmds = []
+    while True:
+        try:
+            cmds.append(_branch_start_queue.get_nowait())
+        except queue.Empty:
+            break
+    return cmds
+
+
+def reset_branch_commands() -> None:
+    """Clear queued branch commands and reset the dashboard branch state."""
+    for pending in (_branch_assignment_queue, _branch_start_queue):
+        while True:
+            try:
+                pending.get_nowait()
+            except queue.Empty:
+                break
+    with _state_lock:
+        _state["replay"] = {
+            "phase": "idle",
+            "assignments": {},
+            "checkpoint_id": None,
+            "updated_at": time.time(),
+        }
+
+
 def set_arm_teleop_enabled(enabled: bool) -> None:
     """由前端 HTML 控制是否启用 UR5 遥操作模式。"""
     global _arm_teleop_enabled
@@ -703,6 +754,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         elif path == "/api/emos":
             with _state_lock:
                 self._json(dict(_state["emos"]))
+        elif path == "/api/replay":
+            with _state_lock:
+                self._json(dict(_state["replay"]))
         elif path == "/api/map":
             if _map_png_path and os.path.isfile(_map_png_path):
                 self._png(_map_png_path)
@@ -741,6 +795,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 chat = list(_state["chat_messages"])
                 rescue = _state.get("rescue")
                 voice_command = dict(_state.get("voice_command") or {})
+                replay = dict(_state.get("replay") or {})
             result = {
                 "status": cached_st,
                 "robots": robots,
@@ -749,6 +804,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 "emos": emos,
                 "chat": chat,
                 "voice_command": voice_command,
+                "replay": replay,
             }
             if rescue is not None:
                 result["rescue"] = rescue
@@ -825,6 +881,57 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._json({"ok": True})
             except Exception as e:
                 self._json({"error": str(e)}, 400)
+        elif len(parts) == 3 and parts[0] == "api" and parts[1] == "replay" and parts[2] == "assignment":
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(length)
+                payload = json.loads(body or "{}")
+                assignments = payload.get("assignments")
+                if not isinstance(assignments, dict) or not assignments:
+                    raise ValueError("assignments must be a non-empty object")
+                command = {
+                    "assignments": assignments,
+                    "ts": time.time(),
+                }
+                _branch_assignment_queue.put_nowait(command)
+                with _state_lock:
+                    _state["replay"].update({
+                        "phase": "assignment_edit_pending",
+                        "assignments": dict(assignments),
+                        "updated_at": command["ts"],
+                    })
+                self._json({"ok": True, "accepted": len(assignments)})
+            except Exception as e:
+                self._json({"ok": False, "error": str(e)}, 400)
+        elif len(parts) == 3 and parts[0] == "api" and parts[1] == "replay" and parts[2] == "start":
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(length)
+                payload = json.loads(body or "{}")
+                if not isinstance(payload, dict):
+                    raise ValueError("request body must be a JSON object")
+                checkpoint_id = payload.get("checkpoint_id")
+                if checkpoint_id is not None and (
+                    not isinstance(checkpoint_id, str) or not checkpoint_id.strip()
+                ):
+                    raise ValueError("checkpoint_id must be a non-empty string")
+                command = {
+                    "checkpoint_id": checkpoint_id,
+                    "ts": time.time(),
+                }
+                _branch_start_queue.put_nowait(command)
+                with _state_lock:
+                    _state["replay"].update({
+                        "phase": "branch_start_pending",
+                        "checkpoint_id": checkpoint_id,
+                        "updated_at": command["ts"],
+                    })
+                response = {"ok": True}
+                if checkpoint_id is not None:
+                    response["checkpoint_id"] = checkpoint_id
+                self._json(response)
+            except Exception as e:
+                self._json({"ok": False, "error": str(e)}, 400)
         elif len(parts) == 3 and parts[0] == "api" and parts[1] == "openclaw" and parts[2] == "assignments":
             if not _openclaw_api_enabled():
                 self._json({"ok": False, "error": "openclaw api is only available in OpenClaw mode"}, 409)
