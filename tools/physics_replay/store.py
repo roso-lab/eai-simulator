@@ -88,6 +88,9 @@ class EpisodeWriter:
             self.manifest.metadata["command_keys"] = list(command_keys)
             self.manifest.metadata["noise_keys"] = list(noise_keys)
             self.manifest.metadata["applied_action_keys"] = list(applied_action_keys)
+            self.manifest.metadata["has_applied_action_tape"] = bool(
+                frame.applied_actions_recorded
+            )
             for prefix, values in (
                 ("before", frame.state_before),
                 ("after", frame.state_after),
@@ -114,6 +117,10 @@ class EpisodeWriter:
             or applied_action_keys != self._applied_action_keys
         ):
             raise ValueError("frame fields must remain fixed throughout an episode")
+        elif bool(frame.applied_actions_recorded) != bool(
+            self.manifest.metadata.get("has_applied_action_tape", False)
+        ):
+            raise ValueError("applied action tape presence changed within an episode")
 
         self._validate_frame_arrays(frame)
         self._buffer.append(frame)

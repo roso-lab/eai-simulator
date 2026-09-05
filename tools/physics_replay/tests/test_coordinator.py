@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 from tools.physics_replay.coordinator import ReplayCoordinator
 from tools.physics_replay.tape import ReplayStep
@@ -55,3 +56,49 @@ def test_coordinator_does_not_restore_components_after_physical_failure():
 
     assert not report.ok
     assert events == []
+
+
+def test_coordinator_rejects_unconsumed_noise_tape():
+    tape = SimpleNamespace(
+        step=lambda index: ReplayStep(
+            index,
+            {"robot": np.array([1.0])},
+            {},
+            {"wind#0": np.array([0.25])},
+            (),
+            {},
+        )
+    )
+    coordinator = ReplayCoordinator.for_test(
+        physical_restore=lambda step: RestoreReport("physical_state_only", step),
+        component_restore=lambda step: None,
+        command_apply=lambda commands: None,
+        env_step=lambda actions: None,
+        tape=tape,
+    )
+    with pytest.raises(RuntimeError, match="noise"):
+        coordinator.replay_step(0)
+
+
+def test_coordinator_bypasses_controller_for_empty_applied_action_tape():
+    events = []
+    tape = SimpleNamespace(
+        step=lambda index: ReplayStep(
+            index,
+            {"robot": np.array([1.0])},
+            {},
+            {},
+            (),
+            {},
+            applied_actions_recorded=True,
+        )
+    )
+    coordinator = ReplayCoordinator.for_test(
+        physical_restore=lambda step: RestoreReport("physical_state_only", step),
+        component_restore=lambda step: None,
+        command_apply=lambda commands: None,
+        env_step=lambda actions: events.append(actions),
+        tape=tape,
+    )
+    coordinator.replay_step(0)
+    assert events == [{}]

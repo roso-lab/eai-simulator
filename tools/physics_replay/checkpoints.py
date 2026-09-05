@@ -13,7 +13,7 @@ import numpy as np
 from .components import ComponentSnapshot
 
 
-CHECKPOINT_FORMAT_VERSION = 1
+CHECKPOINT_FORMAT_VERSION = 2
 
 
 def _sha256(path: Path) -> str:
@@ -85,6 +85,9 @@ class CheckpointStore:
         stem = f"{int(step_index):08d}"
         return self.root / f"{stem}.json", self.root / f"{stem}.npz"
 
+    def _json_checksum_path(self, step_index: int) -> Path:
+        return self.root / f"{int(step_index):08d}.json.sha256"
+
     def write(
         self, step_index: int, snapshots: Mapping[str, ComponentSnapshot]
     ) -> Path:
@@ -124,6 +127,10 @@ class CheckpointStore:
             encoding="utf-8",
         )
         json_temp.replace(json_path)
+        json_checksum = self._json_checksum_path(step_index)
+        checksum_temp = json_checksum.with_name(f".{json_checksum.name}.tmp")
+        checksum_temp.write_text(_sha256(json_path) + "\n", encoding="ascii")
+        checksum_temp.replace(json_checksum)
         return json_path
 
     def read(self, step_index: int) -> dict[str, ComponentSnapshot]:
@@ -134,6 +141,13 @@ class CheckpointStore:
             raise ValueError(f"cannot read checkpoint metadata: {json_path}") from exc
         except json.JSONDecodeError as exc:
             raise ValueError(f"invalid checkpoint JSON: {json_path}") from exc
+        checksum_path = self._json_checksum_path(step_index)
+        try:
+            expected_json_hash = checksum_path.read_text(encoding="ascii").strip()
+        except OSError as exc:
+            raise ValueError("checkpoint JSON checksum is missing") from exc
+        if _sha256(json_path) != expected_json_hash:
+            raise ValueError("checkpoint JSON checksum mismatch")
         if int(payload.get("format_version", 0)) != CHECKPOINT_FORMAT_VERSION:
             raise ValueError("unsupported checkpoint format version")
         if int(payload.get("step_index", -1)) != int(step_index):
@@ -165,3 +179,9 @@ class CheckpointStore:
         return tuple(
             sorted(int(path.stem) for path in self.root.glob("*.json") if path.stem.isdigit())
         )
+
+    def verify_all(self) -> tuple[int, ...]:
+        steps = self.list_steps()
+        for step in steps:
+            self.read(step)
+        return steps

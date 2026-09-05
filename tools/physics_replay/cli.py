@@ -14,6 +14,7 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from tools.physics_replay.replayer import PhysicsReplayer
+from tools.physics_replay.checkpoints import CheckpointStore
 from tools.physics_replay.store import EpisodeReader
 from tools.physics_replay.types import TargetSpec
 
@@ -50,6 +51,13 @@ def _target_specs(reader: EpisodeReader) -> tuple[TargetSpec, ...]:
 def _inspect(args: argparse.Namespace) -> int:
     try:
         payload = EpisodeReader(args.episode).summary()
+        checkpoint_root = args.episode / "checkpoints"
+        checkpoint_steps = (
+            CheckpointStore(args.episode).verify_all()
+            if checkpoint_root.is_dir()
+            else ()
+        )
+        payload["checkpoint_steps"] = list(checkpoint_steps)
     except (OSError, ValueError) as exc:
         print(f"replay: {exc}", file=sys.stderr)
         return 2

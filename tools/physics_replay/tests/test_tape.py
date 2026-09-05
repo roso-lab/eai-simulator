@@ -94,6 +94,25 @@ def test_execution_tape_requires_exact_step_range(tmp_path):
     tape = ExecutionTape(EpisodeReader(tmp_path / "episode"))
 
     assert tape.step(1).step_index == 1
+    assert tape.step(1).applied_actions_recorded is True
     assert len(tape.require_range(0, 2)) == 2
     with pytest.raises(ValueError, match="step 2"):
         tape.require_range(1, 2)
+
+
+def test_execution_tape_marks_omitted_applied_actions_as_absent(tmp_path):
+    writer = EpisodeWriter(
+        tmp_path / "episode",
+        Manifest(environment={"env_name": "x", "num_envs": 1}, targets=[]),
+    )
+    writer.append(
+        FrameRecord(
+            0,
+            0.0,
+            {},
+            {},
+            {"robot": np.array([0.0], dtype=np.float32)},
+        )
+    )
+    writer.close()
+    assert ExecutionTape(EpisodeReader(tmp_path / "episode")).step(0).applied_actions_recorded is False

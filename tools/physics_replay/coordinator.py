@@ -90,6 +90,7 @@ class ReplayCoordinator:
         )
         self._checkpoint_steps: set[int] = set()
         self.precomputed_action_steps: list[int] = []
+        self.noise_consumer: Callable[[Any], None] | None = None
 
     @classmethod
     def for_test(
@@ -108,6 +109,7 @@ class ReplayCoordinator:
         instance._test_command_apply = command_apply
         instance._test_env_step = env_step
         instance.tape = tape
+        instance.noise_consumer = None
         return instance
 
     def capture_checkpoint(self, step_index: int) -> Path:
@@ -185,16 +187,27 @@ class ReplayCoordinator:
         if self.tape is None:
             raise RuntimeError("execution tape is unavailable")
         replay_step = self.tape.step(int(step_index))
+        if replay_step.noise:
+            if self.noise_consumer is None:
+                raise RuntimeError(
+                    "replay step contains noise samples but no noise consumer is configured"
+                )
+            self.noise_consumer(replay_step)
         if self._test_mode:
             self._test_command_apply(replay_step.commands)
-            return self._test_env_step(replay_step.actions)
+            actions = (
+                replay_step.applied_actions
+                if replay_step.applied_actions_recorded
+                else replay_step.actions
+            )
+            return self._test_env_step(actions)
 
         apply_commands(
             self.session.base_env,
             replay_step.commands,
             device=self.session.device,
         )
-        if replay_step.applied_actions:
+        if replay_step.applied_actions_recorded:
             self.session.env._replay_precomputed_actions = actions_to_backend(
                 replay_step.applied_actions,
                 device=self.session.device,

@@ -208,6 +208,7 @@ class ReplayRecorder:
                     commands=pending.commands,
                     noise=pending.noise,
                     applied_actions=_copy_actions(applied_actions),
+                    applied_actions_recorded=applied_actions is not None,
                 )
             )
         self._pending = None

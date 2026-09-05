@@ -44,6 +44,7 @@ class ReplayStep:
     noise: dict[str, np.ndarray]
     events: tuple[dict[str, Any], ...]
     applied_actions: dict[str, np.ndarray] | None = None
+    applied_actions_recorded: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "step_index", int(self.step_index))
@@ -87,6 +88,12 @@ class ExecutionTape:
             noise=frame.noise,
             events=tuple(frame.events),
             applied_actions=frame.applied_actions,
+            applied_actions_recorded=bool(
+                self.reader.manifest.metadata.get(
+                    "has_applied_action_tape",
+                    bool(self.reader.manifest.metadata.get("applied_action_keys")),
+                )
+            ),
         )
 
     def require_range(self, start_step: int, count: int) -> tuple[ReplayStep, ...]:

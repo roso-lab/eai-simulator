@@ -195,6 +195,7 @@ class FrameRecord:
     commands: Mapping[str, Any] = field(default_factory=dict)
     noise: Mapping[str, Any] = field(default_factory=dict)
     applied_actions: Mapping[str, Any] = field(default_factory=dict)
+    applied_actions_recorded: bool | None = None
 
     def __post_init__(self) -> None:
         if int(self.step_index) < 0:
@@ -222,6 +223,10 @@ class FrameRecord:
             str(key): _array_copy(value)
             for key, value in self.applied_actions.items()
         }
+        if self.applied_actions_recorded is None:
+            self.applied_actions_recorded = bool(self.applied_actions)
+        else:
+            self.applied_actions_recorded = bool(self.applied_actions_recorded)
         self.phase = None if self.phase is None else str(self.phase)
         self.events = tuple(_jsonable(dict(event)) for event in self.events)
 

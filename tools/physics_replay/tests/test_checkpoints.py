@@ -42,3 +42,14 @@ def test_checkpoint_store_rejects_unsupported_state_value(tmp_path):
             1,
             {"component": ComponentSnapshot("component", 1, {"handle": object()})},
         )
+
+
+def test_checkpoint_store_detects_tampered_json(tmp_path):
+    store = CheckpointStore(tmp_path / "episode")
+    store.write(1, {"component": ComponentSnapshot("component", 1, {"x": np.arange(2)})})
+    path = tmp_path / "episode" / "checkpoints" / "00000001.json"
+    payload = json.loads(path.read_text())
+    payload["components"]["component"]["version"] = 99
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="checksum"):
+        store.read(1)

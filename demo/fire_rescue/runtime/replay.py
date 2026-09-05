@@ -430,13 +430,10 @@ class FireRescueReplayVerifier:
                 for step in range(self.verify_steps)
             }
             replay_noise = NoiseTape.replaying(replay_values, seed=self.noise_seed)
+            self.coordinator.noise_consumer = lambda replay_step: self._consume_noise(
+                replay_noise, replay_step
+            )
             for step in range(self.verify_steps):
-                replay_noise.sample(
-                    "fire_rescue/verification",
-                    step,
-                    lambda rng: rng.random(1),
-                )
-                replay_noise.assert_step_consumed(step)
                 self.coordinator.replay_step(step)
                 replayed_steps += 1
             noise_ok = True
@@ -448,12 +445,33 @@ class FireRescueReplayVerifier:
             float(values.get("max_abs", float("inf"))) <= threshold
             for values in drift.values()
         )
+        recorded_steps = (
+            self.coordinator.tape.require_range(0, self.verify_steps)
+            if self.coordinator.tape is not None
+            else ()
+        )
+        precomputed_required = any(
+            bool(step.applied_actions_recorded) for step in recorded_steps
+        )
+        precomputed_steps = set(
+            getattr(self.coordinator, "precomputed_action_steps", ())
+        )
+        precomputed_complete = (
+            not precomputed_required
+            or precomputed_steps == set(range(self.verify_steps))
+        )
         self.result = {
             "verify_steps": self.verify_steps,
             "tape_coverage": self._recorded_steps / self.verify_steps,
             "replayed_steps": replayed_steps,
             "precomputed_action_steps": list(
                 getattr(self.coordinator, "precomputed_action_steps", ())
+            ),
+            "precomputed_action_required": precomputed_required,
+            "precomputed_action_coverage": (
+                len(precomputed_steps) / self.verify_steps
+                if precomputed_required
+                else 1.0
             ),
             "noise_coverage": 1.0 if noise_ok else 0.0,
             "factual_success": factual_success,
@@ -467,6 +485,7 @@ class FireRescueReplayVerifier:
                 and noise_ok
                 and factual_success == replay_success
                 and drift_ok
+                and precomputed_complete
             ),
             "assignments": deepcopy(dict(self._assignments)),
         }
@@ -480,3 +499,16 @@ class FireRescueReplayVerifier:
         self._active = False
         self.complete = True
         return deepcopy(self.result)
+
+    @staticmethod
+    def _consume_noise(noise_tape: NoiseTape, replay_step: Any) -> None:
+        for key in sorted(replay_step.noise):
+            if "#" not in key:
+                raise ValueError(f"invalid noise key: {key}")
+            channel, _ = key.rsplit("#", 1)
+            noise_tape.sample(
+                channel,
+                replay_step.step_index,
+                lambda rng: np.zeros_like(replay_step.noise[key]),
+            )
+        noise_tape.assert_step_consumed(replay_step.step_index)
