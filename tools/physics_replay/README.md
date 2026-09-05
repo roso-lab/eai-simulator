@@ -42,6 +42,10 @@ The verification report separates successful state write-back from post-restore
 drift. PhysX solver caches and actuator internals are not serialized, so a
 `restore.ok` report can still contain `passed: false` with non-zero drift.
 
+Interactive assignment branching uses the same checkpoint store through
+`demo.fire_rescue.main --branch-interactive`. It requires the non-headless
+Dashboard; see `demo/fire_rescue/README.md` for the edit/start workflow.
+
 The first version reports physical-state restore and action replay separately.
 PhysX solver caches, controller/planner hidden state, live ROS input, and
 unified noise tapes are not restored automatically, so causal replay requires

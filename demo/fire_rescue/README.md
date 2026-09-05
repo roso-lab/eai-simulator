@@ -27,6 +27,28 @@ http://127.0.0.1:8767/
 
 The Dashboard data service uses port `8767`; the Isaac Sim live-image WebSocket uses port `8766`.
 
+## Interactive assignment branches
+
+Use the non-headless Dashboard mode to run the fact episode to completion, edit the
+first EMOS assignment, and continue from the same in-process physical checkpoint:
+
+```bash
+python -m demo.fire_rescue.main \
+  --env=EAI-Factory-v0 --device=cpu --trials=1 --auto-fire-delay=0 \
+  --branch-interactive \
+  --branch-checkpoint-dir=tmp/replay/fire_rescue_branch
+```
+
+After the fact run succeeds, fails, or times out, edit the assignment JSON in the
+EMOS panel, click **提交修改**, and then **开始分支**. The branch restores robot pose,
+velocity, joint state and targets, navigation queues, supported obstacle state, and
+RNG state in the same simulator process before dispatching the edited assignment.
+
+`--branch-interactive --headless` is rejected because no Dashboard queue can receive
+the edit. For the Factory smoke path, add `--replay-local-fallback` to avoid LLM
+network latency. If an assignment arrives while an unsupported UR5 drag phase is
+active, the tool reports `checkpoint_pending` and waits for the next safe checkpoint.
+
 ## Environment loading
 
 External callers still use `--env=<name>`, but the name identifies a JSON file rather than a Gym registry entry:

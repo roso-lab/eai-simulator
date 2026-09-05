@@ -20,6 +20,8 @@ class FireRescueConfig:
     replay_verify_dir: Path | None = None
     replay_verify_steps: int = 50
     replay_local_fallback: bool = False
+    branch_interactive: bool = False
+    branch_checkpoint_dir: Path | None = None
 
 RESCUE_CHANNEL_BUTTON_XY = (10.58, 1.0)
 EXTINGUISHER_PICKUP_XY = (1.77, -9.38)

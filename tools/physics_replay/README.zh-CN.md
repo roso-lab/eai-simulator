@@ -77,6 +77,10 @@ read-back 通过；如果 `passed=false`，应查看 drift 字段。Factory 的�
 挂载 articulation 仍可能受 PhysX solver cache、actuator 内部 target 或 GPU/CPU
 数值顺序影响，工具会保留这个失败结果，而不是把它降级成成功。
 
+交互式 assignment 分支使用同一套 checkpoint 存储，但由
+`demo/fire_rescue.main --branch-interactive` 驱动；它要求非 headless Dashboard，
+操作步骤和分支状态见 `demo/fire_rescue/README.zh-CN.md`。
+
 ## 文件与限制
 
 episode 目录包含版本化 `manifest.json`、`index.json` 和固定帧数的

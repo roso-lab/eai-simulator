@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import copy
 import math
+import queue
 import random
 import time
 from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
@@ -33,6 +34,31 @@ class _DashStub:
     def get_pending_rescue_approvals(self): return []
     def get_pending_replan_requests(self): return False
     def get_pending_manual_task_end_commands(self): return []
+    def get_pending_branch_assignment_edits(self): return []
+    def get_pending_branch_starts(self): return []
+    def update_replay_state(self, *a, **k): pass
+
+
+def _discard_stale_emos_results(emos_mgr: Any) -> None:
+    """Prevent a fact-run LLM result from overwriting a branch edit."""
+
+    result_queue = getattr(emos_mgr, "_result_queue", None)
+    if result_queue is not None:
+        while True:
+            try:
+                result_queue.get_nowait()
+            except queue.Empty:
+                break
+    if hasattr(emos_mgr, "_last_result"):
+        emos_mgr._last_result = None
+    lock = getattr(emos_mgr, "_lock", None)
+    if lock is None:
+        if hasattr(emos_mgr, "_fallback_dispatched_for_round"):
+            emos_mgr._fallback_dispatched_for_round = True
+        return
+    with lock:
+        if hasattr(emos_mgr, "_fallback_dispatched_for_round"):
+            emos_mgr._fallback_dispatched_for_round = True
 
 
 def run_robot_factory_platform(
@@ -57,6 +83,11 @@ def run_robot_factory_platform(
     skip_http_init: bool = False,
     simulator_session: Any | None = None,
 ) -> int:
+    if bool(getattr(args_cli, "branch_interactive", False)) and bool(
+        getattr(args_cli, "headless", False)
+    ):
+        raise ValueError("interactive branch requires a dashboard; remove --headless")
+
     from pathlib import Path
     import omni.kit.app
     import omni.timeline
@@ -74,8 +105,11 @@ def run_robot_factory_platform(
         ObstacleReplayComponent,
         Ur5IdleReplayComponent,
         build_fire_rescue_target_specs,
+        initialize_fire_rescue_assignment_branch,
+        normalize_fire_rescue_replay_actions,
         validate_fire_rescue_checkpoint,
     )
+    from .branch_control import BranchController, BranchPhase
     from .sim_helpers import LightFlashController, get_robot_pos, get_robot_pose_tensors
     from .ur5 import UR5Manager
     from tools.physics_replay.components import CallbackComponent
@@ -291,6 +325,126 @@ def run_robot_factory_platform(
     _last_replay_assignments: Dict[str, Any] = {}
     replay_verifier: Optional[FireRescueReplayVerifier] = None
     replay_episode_dir = None
+    branch_controller: Optional[BranchController] = None
+    branch_coordinator = None
+    branch_running = False
+    branch_action_templates: Dict[str, Any] = dict(getattr(nav, "robot_commands", {}) or {})
+    branch_checkpoint_blocked_reason: Optional[str] = None
+    branch_mode = bool(getattr(args_cli, "branch_interactive", False))
+
+    def _wait_for_assignment_branch() -> bool:
+        """Pause after the fact run until a valid assignment edit is started."""
+
+        nonlocal branch_running, _should_stop_sim, _sim_result, _sim_fail_reason
+        nonlocal emos_auto_dispatched, _pending_emos_assignments
+        nonlocal _pending_emos_dispatch_at_sim_s
+        nonlocal extinguisher_robot, _extinguisher_fire_nav_dispatched
+        nonlocal _extinguisher_task1_completed, _last_replay_assignments
+        nonlocal _pending_emos_for_rescue
+        if not branch_mode or branch_controller is None or branch_coordinator is None:
+            return False
+        if branch_controller.phase is BranchPhase.FACT_RUNNING:
+            branch_controller.finish(
+                {"success": _sim_result == "success", "fail_reason": _sim_fail_reason}
+            )
+        if branch_coordinator.reader is None:
+            branch_coordinator.close_recording()
+        _dsrv.update_replay_state(
+            "waiting_assignment_edit",
+            checkpoint_id=branch_controller.checkpoint_id,
+            assignments=branch_controller.assignment_checkpoint,
+        )
+        pending_start = None
+        while simulation_app.is_running() and branch_controller.phase in (
+            BranchPhase.WAITING_ASSIGNMENT_EDIT,
+            BranchPhase.BRANCH_READY,
+        ):
+            for command in _dsrv.get_pending_branch_assignment_edits():
+                try:
+                    edit = branch_controller.submit_assignment_edit(command.get("assignments", {}))
+                    _dsrv.update_replay_state(
+                        "branch_ready",
+                        checkpoint_id=branch_controller.checkpoint_id,
+                        assignments=edit.assignments,
+                    )
+                except (TypeError, ValueError, RuntimeError) as exc:
+                    _dsrv.push_chat("emos", "Replay 分支", f"❌ 任务分配编辑无效：{exc}")
+            starts = _dsrv.get_pending_branch_starts()
+            if starts:
+                pending_start = starts[-1]
+            if pending_start is not None and branch_controller.phase is BranchPhase.BRANCH_READY:
+                requested_checkpoint = pending_start.get("checkpoint_id")
+                if requested_checkpoint not in (None, branch_controller.checkpoint_id):
+                    _dsrv.push_chat(
+                        "emos",
+                        "Replay 分支",
+                        f"❌ checkpoint 不匹配：收到 {requested_checkpoint!r}，当前为 {branch_controller.checkpoint_id!r}。",
+                    )
+                    pending_start = None
+                    simulation_app.update()
+                    time.sleep(0.05)
+                    continue
+                branch_controller.start_branch()
+                report = branch_coordinator.restore(0)
+                if not report.ok:
+                    _dsrv.push_chat("emos", "Replay 分支", f"❌ checkpoint 恢复失败：{report.physical.summary}")
+                    branch_controller.finish({"success": False, "restore": report.to_dict()})
+                    return False
+                edit = branch_controller.assignment_edit
+                assert edit is not None
+                # The restored navigation snapshot still contains the original
+                # assignment.  Clear branch-local planning residue and reset
+                # EMOS completion history before replacing it with the edit.
+                try:
+                    emos_mgr.clear_session_task_history()
+                except Exception:
+                    pass
+                try:
+                    emos_mgr.reset_replan_flag()
+                except Exception:
+                    pass
+                _discard_stale_emos_results(emos_mgr)
+                _pending_emos_for_rescue.clear()
+                backlog = getattr(nav, "_async_plan_backlog", None)
+                if hasattr(backlog, "clear"):
+                    backlog.clear()
+                nav.suppress_patrol_after_emos = False
+                nav.suppress_patrol_exempt.clear()
+                nav.hold_position.clear()
+                nav.manual_override_agents.clear()
+                edited_extinguisher = next(
+                    (robot for robot, value in edit.assignments.items()
+                     if str(value.get("colour", "")).lower() == "yellow"),
+                    None,
+                )
+                extinguisher_robot = edited_extinguisher
+                obstacle_mgr.extinguisher_robot = edited_extinguisher
+                _extinguisher_fire_nav_dispatched = False
+                _extinguisher_task1_completed = False
+                edited_green = next(
+                    (robot for robot, value in edit.assignments.items()
+                     if str(value.get("colour", "")).lower() == "green"),
+                    None,
+                )
+                _reconcile_rescue_channel_assignee(edited_green)
+                _last_replay_assignments = copy.deepcopy(edit.assignments)
+                _pending_emos_assignments = edit.assignments
+                _pending_emos_dispatch_at_sim_s = _current_virtual_time_s()
+                emos_auto_dispatched = False
+                branch_running = True
+                _should_stop_sim = False
+                _sim_result = "running"
+                _sim_fail_reason = None
+                _dsrv.update_replay_state(
+                    "branch_running",
+                    checkpoint_id=branch_controller.checkpoint_id,
+                    assignments=edit.assignments,
+                )
+                _dsrv.push_chat("emos", "Replay 分支", "▶️ 已恢复 assignment checkpoint，开始执行修改后的任务分配。")
+                return True
+            simulation_app.update()
+            time.sleep(0.05)
+        return False
 
     max_steps = max(0, int(getattr(args_cli, "max_steps", 0)))
     step_dt = float(base_env.step_dt)
@@ -711,12 +865,15 @@ def run_robot_factory_platform(
                     _dsrv.update_emos("running", hazard_id=hid)
                     _dsrv.update_hazard(hid, pos, active=True)
                     if not _emos_triggered:
-                        if bool(getattr(args_cli, "replay_local_fallback", False)) and str(
-                            getattr(args_cli, "replay_verify_dir", "")
-                        ).strip():
+                        if bool(getattr(args_cli, "replay_local_fallback", False)) and (
+                            str(getattr(args_cli, "replay_verify_dir", "")).strip()
+                            or branch_mode
+                        ):
                             emos_mgr._hazard_id = hid
                             emos_mgr._hazard_pos = pos
-                            emos_mgr.trigger_local_fallback(reason="replay verification")
+                            emos_mgr.trigger_local_fallback(
+                                reason="replay verification" if not branch_mode else "interactive branch"
+                            )
                         else:
                             emos_mgr.trigger(hazard_id=hid, hazard_pos=pos)
                         _emos_triggered = True
@@ -768,7 +925,9 @@ def run_robot_factory_platform(
                 except Exception:
                     pass
                 _pending_emos_assignments = ass
-                _pending_emos_dispatch_at_sim_s = _current_virtual_time_s() + 3.0
+                _pending_emos_dispatch_at_sim_s = _current_virtual_time_s() + (
+                    0.0 if branch_mode else 3.0
+                )
 
         if (not emos_auto_dispatched) and (_pending_emos_assignments is not None):
             if _pending_emos_dispatch_at_sim_s is not None and _current_virtual_time_s() >= _pending_emos_dispatch_at_sim_s:
@@ -928,9 +1087,12 @@ def run_robot_factory_platform(
                         f"⚠️ 路径不可达: {', '.join(_fail_agents)}。已转入巡逻重试，避免误待命。",
                     )
         replay_dir_text = str(getattr(args_cli, "replay_verify_dir", "")).strip()
+        branch_dir_text = str(getattr(args_cli, "branch_checkpoint_dir", "")).strip()
+        branch_mode = bool(getattr(args_cli, "branch_interactive", False))
+        checkpoint_dir_text = branch_dir_text if branch_mode else replay_dir_text
         if (
-            replay_dir_text
-            and replay_verifier is None
+            checkpoint_dir_text
+            and branch_coordinator is None
             and bool(emos_auto_dispatched)
             and _pending_emos_assignments is None
             and getattr(nav, "_pending_plan", None) is None
@@ -940,8 +1102,26 @@ def run_robot_factory_platform(
                 raise RuntimeError(
                     "replay verification requires the SimulatorSession passed by experiment.py"
                 )
-            validate_fire_rescue_checkpoint(nav, obstacle_mgr, ur5)
-            replay_episode_dir = Path(replay_dir_text) / f"trial_{int(trial_index):02d}"
+            try:
+                validate_fire_rescue_checkpoint(nav, obstacle_mgr, ur5)
+                branch_checkpoint_blocked_reason = None
+            except ValueError as checkpoint_error:
+                if not branch_mode:
+                    raise
+                checkpoint_reason = str(checkpoint_error)
+                if checkpoint_reason != branch_checkpoint_blocked_reason:
+                    branch_checkpoint_blocked_reason = checkpoint_reason
+                    _dsrv.update_replay_state(
+                        "checkpoint_pending",
+                        assignments=_last_replay_assignments,
+                    )
+                    _dsrv.push_chat(
+                        "emos",
+                        "Replay 分支",
+                        f"⏳ assignment 已收到，等待可恢复 checkpoint：{checkpoint_reason}",
+                    )
+                continue
+            replay_episode_dir = Path(checkpoint_dir_text) / f"trial_{int(trial_index):02d}"
             replay_components = [
                 CallbackComponent(
                     "fire_rescue.runtime",
@@ -961,16 +1141,31 @@ def run_robot_factory_platform(
                 components=replay_components,
                 include_rng=True,
             )
-            replay_verifier = FireRescueReplayVerifier(
-                replay_coordinator,
-                output_dir=replay_episode_dir,
-                verify_steps=max(1, int(getattr(args_cli, "replay_verify_steps", 50))),
-                success_predicate=_replay_success_predicate,
-                noise_seed=int(
-                    getattr(getattr(simulator_session, "env_cfg", None), "seed", 0)
-                ),
-            )
-            replay_verifier.start(assignments=_last_replay_assignments)
+            branch_coordinator = replay_coordinator if branch_mode else None
+            if branch_mode:
+                branch_controller = BranchController()
+                initialize_fire_rescue_assignment_branch(
+                    branch_coordinator,
+                    branch_controller,
+                    _last_replay_assignments,
+                    checkpoint_id="assignment-0000",
+                )
+                _dsrv.update_replay_state(
+                    "fact_running",
+                    checkpoint_id="assignment-0000",
+                    assignments=_last_replay_assignments,
+                )
+            else:
+                replay_verifier = FireRescueReplayVerifier(
+                    replay_coordinator,
+                    output_dir=replay_episode_dir,
+                    verify_steps=max(1, int(getattr(args_cli, "replay_verify_steps", 50))),
+                    success_predicate=_replay_success_predicate,
+                    noise_seed=int(
+                        getattr(getattr(simulator_session, "env_cfg", None), "seed", 0)
+                    ),
+                )
+                replay_verifier.start(assignments=_last_replay_assignments)
         # 保护 extinguisher_robot：yellow 任务到达目标后等待 UR5 抓取，禁止被火源集结覆盖
         if (
             extinguisher_robot
@@ -1207,6 +1402,19 @@ def run_robot_factory_platform(
         actions = nav.apply_inter_robot_collision_guard(actions)
         if replay_verifier is not None and replay_verifier.active:
             replay_verifier.before_step(actions)
+        elif (
+            branch_coordinator is not None
+            and branch_controller is not None
+            and branch_controller.phase is BranchPhase.FACT_RUNNING
+        ):
+            branch_coordinator.record_before_step(
+                normalize_fire_rescue_replay_actions(
+                    actions,
+                    tuple(emos_agents),
+                    branch_action_templates,
+                ),
+                commands={},
+            )
         if actions:
             env.step(actions)
         else:
@@ -1224,6 +1432,15 @@ def run_robot_factory_platform(
                     else "deterministic replay verification failed"
                 )
                 _should_stop_sim = True
+        elif (
+            branch_coordinator is not None
+            and branch_controller is not None
+            and branch_controller.phase is BranchPhase.FACT_RUNNING
+        ):
+            branch_coordinator.record_after_step(
+                applied_actions=None,
+                phase=_phase_name,
+            )
 
         if getattr(ur5, "_ext_grabbed", False):
             try:
@@ -1319,7 +1536,8 @@ def run_robot_factory_platform(
             if _ok:
                 _sim_result = "success"
                 _sim_fail_reason = None
-                _clear_active_fire_hazards()
+                if not branch_mode or branch_running:
+                    _clear_active_fire_hazards()
                 _should_stop_sim = True
                 _dsrv.push_chat(
                     "emos",
@@ -1333,6 +1551,15 @@ def run_robot_factory_platform(
                 _dsrv.push_chat("emos", "EMOS 统计", f"❌ 任务超时：{sim_timeout_s:.0f}s内未达成目标。")
 
         if _should_stop_sim:
+            if branch_mode and branch_controller is not None:
+                if branch_running:
+                    branch_controller.finish(
+                        {"success": _sim_result == "success", "fail_reason": _sim_fail_reason}
+                    )
+                    _dsrv.update_replay_state("finished", assignments=branch_controller.assignment_edit.assignments if branch_controller.assignment_edit else None)
+                    break
+                if _wait_for_assignment_branch():
+                    continue
             break
 
         if do_real_time:

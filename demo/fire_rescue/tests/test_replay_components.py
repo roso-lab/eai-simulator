@@ -10,8 +10,11 @@ from demo.fire_rescue.runtime.replay import (
     NavigationReplayComponent,
     ObstacleReplayComponent,
     Ur5IdleReplayComponent,
+    initialize_fire_rescue_assignment_branch,
+    normalize_fire_rescue_replay_actions,
     validate_fire_rescue_checkpoint,
 )
+from demo.fire_rescue.runtime.branch_control import BranchController, DEFAULT_ROBOT_KEYS
 from tools.physics_replay.coordinator import CoordinatorReport
 from tools.physics_replay.tape import ReplayStep
 from tools.physics_replay.types import RestoreReport
@@ -49,6 +52,7 @@ class FakeQueue:
 class FakePhase(Enum):
     MONITORING = auto()
     DRAGGING = auto()
+    RESCUE_DISPATCHED = auto()
 
 
 def _fake_nav():
@@ -121,6 +125,52 @@ def test_safe_checkpoint_rejects_dynamic_obstacle_phase():
     obstacle = SimpleNamespace(state=SimpleNamespace(phase=FakePhase.DRAGGING))
     with pytest.raises(ValueError, match="obstacle"):
         validate_fire_rescue_checkpoint(_fake_nav(), obstacle, _fake_ur5())
+
+
+def test_rescue_dispatch_checkpoint_preserves_navigation_goal():
+    obstacle = SimpleNamespace(
+        state=SimpleNamespace(
+            phase=FakePhase.RESCUE_DISPATCHED,
+            obstacle_spawned=True,
+            rescue_robot="m20_1",
+            obstacle_position=(-7.7, -1.1, 0.0),
+            approval_wait_start=90.0,
+        ),
+        rescue_candidates=[],
+        _rescue_completed_robots=set(),
+        _extinguisher_dropped_robots=set(),
+        _rescue_nav_goal_xy=(1.5, -0.5),
+        _rescue_return_emos_resume=False,
+    )
+    component = ObstacleReplayComponent(obstacle)
+    state = component.capture_state()
+    obstacle._rescue_nav_goal_xy = None
+
+    component.restore_state(state)
+
+    assert obstacle._rescue_nav_goal_xy == (1.5, -0.5)
+
+
+def test_branch_replay_actions_keep_a_fixed_robot_key_set():
+    templates = {
+        "m20_1": np.array([[1.0, 2.0]], dtype=np.float32),
+        "m20_2": np.array([[0.0, 0.0]], dtype=np.float32),
+    }
+
+    first = normalize_fire_rescue_replay_actions(
+        {"m20_1": np.array([[3.0, 4.0]], dtype=np.float32)},
+        ("m20_1", "m20_2"),
+        templates,
+    )
+    second = normalize_fire_rescue_replay_actions(
+        {"m20_2": np.array([[5.0, 6.0]], dtype=np.float32)},
+        ("m20_1", "m20_2"),
+        templates,
+    )
+
+    assert tuple(first) == ("m20_1", "m20_2")
+    assert tuple(second) == ("m20_1", "m20_2")
+    np.testing.assert_array_equal(second["m20_1"], np.zeros((1, 2), dtype=np.float32))
 
 
 def test_obstacle_component_rebases_wall_clock_state(monkeypatch):
@@ -227,3 +277,36 @@ def test_fire_rescue_verifier_records_restores_and_replays(tmp_path):
         "replay",
     ]
     assert (tmp_path / "verification.json").is_file()
+
+
+def test_assignment_branch_initialization_persists_checkpoint_before_fact_continues():
+    assignments = {
+        robot: {
+            "subtask": f"task-{robot}",
+            "colour": "blue",
+            "target_xy": [1.0, 2.0],
+        }
+        for robot in DEFAULT_ROBOT_KEYS
+    }
+
+    class FakeCoordinator:
+        def __init__(self):
+            self.calls = []
+
+        def capture_checkpoint(self, step_index):
+            self.calls.append(("capture_checkpoint", step_index))
+            return "checkpoint-path"
+
+    coordinator = FakeCoordinator()
+    controller = BranchController()
+
+    path = initialize_fire_rescue_assignment_branch(
+        coordinator,
+        controller,
+        assignments,
+        checkpoint_id="assignment-0000",
+    )
+
+    assert path == "checkpoint-path"
+    assert coordinator.calls == [("capture_checkpoint", 0)]
+    assert controller.checkpoint_id == "assignment-0000"

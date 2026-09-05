@@ -134,6 +134,12 @@
     .ep-btn{padding:6px 18px;border-radius:var(--r-sm);font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:var(--font-u);transition:var(--tr)}
     .ep-btn.close{background:rgba(244,63,94,.1);color:var(--rose);border:1px solid rgba(244,63,94,.2)}
     .ep-btn.close:hover{background:rgba(244,63,94,.2)}
+    .replay-branch-controls{display:none;flex:1 1 100%;padding:8px 10px;border:1px solid rgba(93,111,212,.28);background:rgba(93,111,212,.08);border-radius:var(--r-sm)}
+    .replay-branch-controls.open{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .replay-branch-controls textarea{flex:1 1 420px;min-height:58px;max-height:110px;background:var(--bg-card);color:var(--text-1);border:1px solid var(--glass-border);border-radius:var(--r-sm);padding:6px;font:10px var(--font-m);resize:vertical}
+    .replay-branch-controls button{padding:5px 10px;border-radius:var(--r-sm);border:1px solid rgba(93,111,212,.4);background:rgba(93,111,212,.16);color:var(--text-1);font:11px var(--font-u);cursor:pointer}
+    .replay-branch-controls button:hover{background:rgba(93,111,212,.28)}
+    .replay-branch-status{flex:1 1 100%;font-size:10px;color:var(--text-2)}
     .emos-mini{display:none;position:fixed;top:62px;right:14px;z-index:40;padding:5px 12px;border-radius:var(--r-md);background:linear-gradient(135deg,rgba(251,191,36,.15),rgba(251,146,36,.08));border:1px solid rgba(251,191,36,.3);cursor:pointer;font-size:11px;color:var(--amber);font-weight:500;box-shadow:0 4px 14px rgba(0,0,0,.3);transition:var(--tr)}
     .emos-mini:hover{background:linear-gradient(135deg,rgba(251,191,36,.25),rgba(251,146,36,.15));transform:translateY(-1px)}
     .emos-mini.show{display:flex;align-items:center;gap:6px}
@@ -326,6 +332,12 @@
       </div>
       <div class="ep-footer">
         <span class="ep-ro-hint" id="assignment-popup-hint">纯机器人模式：分配已由系统自动执行，无需网页确认。</span>
+        <div class="replay-branch-controls" id="replay-branch-controls">
+          <textarea id="replay-assignment-editor" spellcheck="false" aria-label="分支任务分配 JSON"></textarea>
+          <button type="button" onclick="submitReplayAssignment()">提交修改</button>
+          <button type="button" onclick="startReplayBranch()">开始分支</button>
+          <span class="replay-branch-status" id="replay-branch-status"></span>
+        </div>
         <button type="button" class="ep-btn close" onclick="closeEmosPopup()">关闭</button>
       </div>
     </div>
@@ -598,6 +610,37 @@ function closeEmosPopup(){
     document.getElementById('emos-mini-text').textContent=(isOpenClawMode(sim)?'OpenClaw 任务':'EMOS 任务')+' ('+cnt+')';
   }
 }
+function syncReplayState(replay){
+  var controls=document.getElementById('replay-branch-controls');
+  var editor=document.getElementById('replay-assignment-editor');
+  var status=document.getElementById('replay-branch-status');
+  if(!controls||!editor||!status)return;
+  var phase=String((replay&&replay.phase)||'idle');
+  var active=['checkpoint_pending','waiting_assignment_edit','assignment_edit_pending','branch_ready','branch_start_pending','branch_running','finished'].indexOf(phase)>=0;
+  controls.classList.toggle('open',active);
+  if(replay&&replay.assignments&&Object.keys(replay.assignments).length>0&&document.activeElement!==editor){
+    editor.value=JSON.stringify(replay.assignments,null,2);
+  }
+  status.textContent=active?'Replay 分支状态：'+phase:' ';
+}
+function submitReplayAssignment(){
+  var editor=document.getElementById('replay-assignment-editor');
+  var status=document.getElementById('replay-branch-status');
+  if(!editor||!status)return;
+  var parsed;
+  try{parsed=JSON.parse(editor.value||'{}')}catch(e){status.textContent='❌ JSON 格式错误';return}
+  fetch(API_BASE+'/api/replay/assignment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({assignments:parsed})})
+    .then(function(r){return r.json().then(function(body){return {ok:r.ok,body:body}})})
+    .then(function(result){status.textContent=result.ok?'✅ 已提交任务分配修改':('❌ '+(result.body.error||'提交失败'))})
+    .catch(function(e){status.textContent='❌ '+e});
+}
+function startReplayBranch(){
+  var status=document.getElementById('replay-branch-status');
+  fetch(API_BASE+'/api/replay/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})})
+    .then(function(r){return r.json().then(function(body){return {ok:r.ok,body:body}})})
+    .then(function(result){if(status)status.textContent=result.ok?'▶️ 已请求开始分支':('❌ '+(result.body.error||'启动失败'))})
+    .catch(function(e){if(status)status.textContent='❌ '+e});
+}
 function renderEmosPopupReadonly(){
   var rc=document.getElementById('ep-robots'),tc=document.getElementById('ep-tasks'),ph=document.getElementById('ep-phase');
   if(ph)ph.textContent='阶段：'+(emosPopupData&&emosPopupData.phase?emosPopupData.phase:'—');
@@ -786,6 +829,7 @@ function fetchAll(){
       }
       if(d.emos.phase==='running'&&prevPhase==='done'){addLog('EMOS','⚡ 动态重规划已触发，正在重新分配任务…')}
     }
+    syncReplayState(d.replay||{});
     if(d.chat&&Array.isArray(d.chat))syncChat(d.chat);
   }).catch(function(){document.getElementById('api-dot').className='dot';document.getElementById('api-status').textContent='未连接'});
 }

@@ -54,6 +54,8 @@ def build_robot_baseline_args(sim: SimulatorSession, config: FireRescueConfig) -
         replay_verify_dir=str(config.replay_verify_dir or ""),
         replay_verify_steps=max(1, int(config.replay_verify_steps)),
         replay_local_fallback=bool(config.replay_local_fallback),
+        branch_interactive=bool(config.branch_interactive),
+        branch_checkpoint_dir=str(config.branch_checkpoint_dir or ""),
     )
 
 
@@ -119,7 +121,10 @@ def run_robot_baseline_experiment(
             "total_trials": len(hazard_ids),
             "skip_http_init": (index > 0),
         }
-        if str(getattr(args_cli, "replay_verify_dir", "")).strip():
+        if (
+            str(getattr(args_cli, "replay_verify_dir", "")).strip()
+            or bool(getattr(args_cli, "branch_interactive", False))
+        ):
             platform_kwargs["simulator_session"] = sim
         total_steps += int(run_platform(**platform_kwargs))
     return total_steps

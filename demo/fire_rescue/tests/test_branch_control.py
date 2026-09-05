@@ -1,4 +1,5 @@
 import pytest
+import queue
 
 from demo.fire_rescue.runtime.branch_control import (
     AssignmentEdit,
@@ -7,6 +8,12 @@ from demo.fire_rescue.runtime.branch_control import (
     DEFAULT_ROBOT_KEYS,
     normalize_assignments,
 )
+from demo.fire_rescue.runtime.experiment_loop import (
+    _DashStub,
+    _discard_stale_emos_results,
+    run_robot_factory_platform,
+)
+from demo.fire_rescue.main import validate_fire_rescue_cli_args
 
 
 def assignments():
@@ -73,3 +80,61 @@ def test_snapshot_restore_round_trip_is_json_safe():
     assert restored.snapshot() == snapshot
     assert restored.phase is BranchPhase.BRANCH_READY
 
+
+def test_assignment_checkpoint_can_be_saved_while_fact_run_continues():
+    controller = BranchController()
+    controller.save_assignment_checkpoint(
+        assignments(), "assignment-0", await_edit=False
+    )
+    assert controller.phase is BranchPhase.FACT_RUNNING
+    controller.finish({"success": True})
+    assert controller.phase is BranchPhase.WAITING_ASSIGNMENT_EDIT
+
+
+def test_headless_dashboard_stub_exposes_replay_branch_contract():
+    dashboard = _DashStub()
+    assert dashboard.get_pending_branch_assignment_edits() == []
+    assert dashboard.get_pending_branch_starts() == []
+    dashboard.update_replay_state("waiting_assignment_edit")
+
+
+def test_interactive_branch_rejects_headless_cli():
+    with pytest.raises(ValueError, match="requires a dashboard"):
+        validate_fire_rescue_cli_args(
+            type("Args", (), {"branch_interactive": True, "headless": True})()
+        )
+
+
+def test_interactive_branch_rejects_headless_programmatic_entrypoint():
+    with pytest.raises(ValueError, match="requires a dashboard"):
+        run_robot_factory_platform(
+            simulation_app=None,
+            env=None,
+            base_env=None,
+            env_cfg=None,
+            args_cli=type("Args", (), {"branch_interactive": True, "headless": True})(),
+            emos_mgr=None,
+            scenario=None,
+            map_yaml="",
+            repo_root=None,
+            device="cpu",
+            num_envs=1,
+            possible_agents=[],
+            auto_fire_delay_s=0.0,
+            interpret_factory_tasks_fn=lambda *_: [],
+        )
+
+
+def test_branch_restore_discards_stale_emos_results():
+    manager = type("Manager", (), {})()
+    manager._result_queue = queue.Queue()
+    manager._result_queue.put({"stale": True})
+    manager._last_result = {"stale": True}
+    manager._fallback_dispatched_for_round = False
+    manager._lock = __import__("threading").Lock()
+
+    _discard_stale_emos_results(manager)
+
+    assert manager._result_queue.empty()
+    assert manager._last_result is None
+    assert manager._fallback_dispatched_for_round is True

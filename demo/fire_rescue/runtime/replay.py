@@ -57,7 +57,6 @@ _OBSTACLE_TIMER_FIELDS = (
     "drag_start_time",
 )
 _DYNAMIC_OBSTACLE_PHASES = {
-    "RESCUE_DISPATCHED",
     "REMOVING_OBSTACLE",
     "DRAGGING",
     "CARTER_RESUMING",
@@ -120,6 +119,65 @@ def validate_fire_rescue_checkpoint(nav: Any, obstacle: Any, ur5: Any) -> None:
         raise ValueError(f"cannot checkpoint dynamic obstacle phase {phase_name}")
     if _ur5_is_active(ur5):
         raise ValueError("cannot checkpoint while a UR5 controller is active")
+
+
+def initialize_fire_rescue_assignment_branch(
+    coordinator: Any,
+    branch_controller: Any,
+    assignments: Mapping[str, Any],
+    *,
+    checkpoint_id: str,
+) -> Any:
+    """Persist the assignment-point checkpoint before the fact run continues.
+
+    The physical/component snapshot and the assignment metadata must be created
+    as one operation.  Capturing the metadata alone leaves the later branch
+    restore without a corresponding checkpoint file.
+    """
+
+    checkpoint_path = coordinator.capture_checkpoint(0)
+    branch_controller.save_assignment_checkpoint(
+        assignments,
+        checkpoint_id,
+        await_edit=False,
+    )
+    return checkpoint_path
+
+
+def normalize_fire_rescue_replay_actions(
+    actions: Mapping[str, Any],
+    robot_names: tuple[str, ...] | list[str],
+    templates: dict[str, Any],
+) -> dict[str, Any]:
+    """Keep Factory branch action fields stable when a robot emits no action.
+
+    Navigation can temporarily omit a robot whose controller returns ``None``.
+    The episode store requires a fixed key set, so omitted entries are encoded
+    as zero actions using that robot's last known tensor/array shape.
+    """
+
+    def clone(value: Any) -> Any:
+        if hasattr(value, "detach") and hasattr(value, "clone"):
+            return value.detach().clone()
+        if hasattr(value, "copy"):
+            return value.copy()
+        return deepcopy(value)
+
+    def zeros_like(value: Any) -> Any:
+        if hasattr(value, "new_zeros"):
+            return value.new_zeros(value.shape)
+        return np.zeros_like(np.asarray(value))
+
+    names = tuple(str(name) for name in robot_names)
+    for name in names:
+        if name in actions:
+            templates[name] = clone(actions[name])
+        elif name not in templates:
+            raise ValueError(f"missing action template for robot {name!r}")
+    return {
+        name: clone(actions[name]) if name in actions else zeros_like(templates[name])
+        for name in names
+    }
 
 
 class NavigationReplayComponent:
@@ -232,6 +290,14 @@ class ObstacleReplayComponent:
             "dropped_robots": sorted(
                 getattr(self.obstacle, "_extinguisher_dropped_robots", set())
             ),
+            "rescue_nav_goal_xy": (
+                list(self.obstacle._rescue_nav_goal_xy)
+                if getattr(self.obstacle, "_rescue_nav_goal_xy", None) is not None
+                else None
+            ),
+            "rescue_return_emos_resume": bool(
+                getattr(self.obstacle, "_rescue_return_emos_resume", False)
+            ),
         }
 
     def validate_state(self, state: Mapping[str, Any]) -> None:
@@ -255,6 +321,15 @@ class ObstacleReplayComponent:
         self.obstacle.rescue_candidates = deepcopy(state.get("rescue_candidates", []))
         self.obstacle._rescue_completed_robots = set(state.get("completed_robots", []))
         self.obstacle._extinguisher_dropped_robots = set(state.get("dropped_robots", []))
+        raw_goal = state.get("rescue_nav_goal_xy")
+        self.obstacle._rescue_nav_goal_xy = (
+            tuple(float(value) for value in raw_goal)
+            if raw_goal is not None
+            else None
+        )
+        self.obstacle._rescue_return_emos_resume = bool(
+            state.get("rescue_return_emos_resume", False)
+        )
 
 
 class Ur5IdleReplayComponent:

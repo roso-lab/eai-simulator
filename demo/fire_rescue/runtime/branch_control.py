@@ -136,14 +136,21 @@ class BranchController:
         self.branch_result = None
         self.assignment_edit = None
 
-    def save_assignment_checkpoint(self, assignments: Mapping[str, Any] | Iterable[tuple[str, Any]], checkpoint_id: str) -> None:
+    def save_assignment_checkpoint(
+        self,
+        assignments: Mapping[str, Any] | Iterable[tuple[str, Any]],
+        checkpoint_id: str,
+        *,
+        await_edit: bool = True,
+    ) -> None:
         if self.phase is not BranchPhase.FACT_RUNNING:
             raise RuntimeError("assignment checkpoint requires fact running phase")
         if not isinstance(checkpoint_id, str) or not checkpoint_id.strip():
             raise ValueError("checkpoint_id must be a non-empty string")
         self.assignment_checkpoint = normalize_assignments(assignments, robot_keys=self.robot_keys)
         self.checkpoint_id = checkpoint_id
-        self.phase = BranchPhase.WAITING_ASSIGNMENT_EDIT
+        if await_edit:
+            self.phase = BranchPhase.WAITING_ASSIGNMENT_EDIT
 
     def submit_assignment_edit(self, assignments: Mapping[str, Any] | Iterable[tuple[str, Any]]) -> AssignmentEdit:
         if self.phase is not BranchPhase.WAITING_ASSIGNMENT_EDIT:
@@ -205,4 +212,3 @@ class BranchController:
         controller.fact_result = snapshot.get("fact_result")
         controller.branch_result = snapshot.get("branch_result")
         return controller
-

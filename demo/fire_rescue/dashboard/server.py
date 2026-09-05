@@ -555,6 +555,23 @@ def reset_branch_commands() -> None:
         }
 
 
+def update_replay_state(
+    phase: str,
+    *,
+    checkpoint_id: str | None = None,
+    assignments: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Publish replay branch lifecycle state for the dashboard."""
+
+    with _state_lock:
+        payload = {"phase": str(phase), "updated_at": time.time()}
+        if checkpoint_id is not None:
+            payload["checkpoint_id"] = str(checkpoint_id)
+        if assignments is not None:
+            payload["assignments"] = dict(assignments)
+        _state["replay"].update(payload)
+
+
 def set_arm_teleop_enabled(enabled: bool) -> None:
     """由前端 HTML 控制是否启用 UR5 遥操作模式。"""
     global _arm_teleop_enabled

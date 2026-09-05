@@ -79,6 +79,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Use deterministic local EMOS assignment during replay verification.",
     )
+    parser.add_argument(
+        "--branch-interactive",
+        action="store_true",
+        help="Keep the Factory session open after the fact run for assignment branching.",
+    )
+    parser.add_argument(
+        "--branch-checkpoint-dir",
+        default="tmp/replay/fire_rescue_branch",
+        help="Directory for the interactive assignment checkpoint.",
+    )
     return parser
 
 
@@ -89,8 +99,21 @@ def resolve_default_map_yaml() -> Path:
     return FireRescueConfig().map_yaml
 
 
+def validate_fire_rescue_cli_args(args: argparse.Namespace) -> None:
+    """Reject interactive workflows that cannot receive dashboard commands."""
+
+    if bool(getattr(args, "branch_interactive", False)) and bool(
+        getattr(args, "headless", False)
+    ):
+        raise ValueError("interactive branch requires a dashboard; remove --headless")
+
+
 def main() -> None:
     args = build_parser().parse_args()
+    try:
+        validate_fire_rescue_cli_args(args)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
     real_time = bool(args.real_time) if args.real_time is not None else False
     demo_config = FireRescueConfig(
         map_yaml=Path(args.map_yaml) if args.map_yaml else resolve_default_map_yaml(),
@@ -103,6 +126,8 @@ def main() -> None:
         replay_verify_dir=Path(args.replay_verify_dir) if args.replay_verify_dir else None,
         replay_verify_steps=max(1, int(args.replay_verify_steps)),
         replay_local_fallback=bool(args.replay_local_fallback),
+        branch_interactive=bool(args.branch_interactive),
+        branch_checkpoint_dir=Path(args.branch_checkpoint_dir) if args.branch_interactive else None,
     )
     launch_config = SimulatorLaunchConfig(
         env=args.env,

@@ -27,6 +27,29 @@ http://127.0.0.1:8767/
 
 Dashboard 数据接口使用端口 `8767`，Isaac Sim 实时图像 WebSocket 使用端口 `8766`。
 
+## 交互式任务分支
+
+要在事实运行结束后回到 EMOS 首次任务分配附近，修改 assignment，再从同一个
+物理 checkpoint 启动分支，必须使用带 Dashboard 的非 headless 模式：
+
+```bash
+python -m demo.fire_rescue.main \
+  --env=EAI-Factory-v0 --device=cpu --trials=1 --auto-fire-delay=0 \
+  --branch-interactive \
+  --branch-checkpoint-dir=tmp/replay/fire_rescue_branch
+```
+
+事实分支会继续运行到成功、失败或超时；完成后 Dashboard 的 EMOS 面板会显示
+assignment JSON 编辑框。点击“提交修改”，再点击“开始分支”。启动时工具会恢复
+同一进程中的机器人位姿、速度、关节状态、控制目标、导航队列、动态障碍状态和
+随机数状态，然后用编辑后的 assignment 替换原任务并继续仿真。
+
+`--branch-interactive --headless` 会被入口拒绝，因为 headless 模式没有可消费的
+Dashboard 命令。使用 `--replay-local-fallback` 可以让 Factory 示例跳过 LLM 网络
+延迟，更快到达 checkpoint；不使用该选项时，若 assignment 到达时 UR5 正在执行
+不可恢复的拖拽阶段，工具会把状态标记为 `checkpoint_pending`，等待下一个安全
+checkpoint，而不会损坏事实运行。
+
 ## 环境加载流程
 
 外部调用仍使用 `--env=<名称>`，但名称只对应 JSON 文件，不再对应 Gym registry：
