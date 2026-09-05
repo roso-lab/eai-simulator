@@ -452,6 +452,9 @@ class FireRescueReplayVerifier:
             "verify_steps": self.verify_steps,
             "tape_coverage": self._recorded_steps / self.verify_steps,
             "replayed_steps": replayed_steps,
+            "precomputed_action_steps": list(
+                getattr(self.coordinator, "precomputed_action_steps", ())
+            ),
             "noise_coverage": 1.0 if noise_ok else 0.0,
             "factual_success": factual_success,
             "replay_success": replay_success,

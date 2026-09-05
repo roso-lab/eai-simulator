@@ -34,6 +34,7 @@ class MultiRobotDirectEnv(DirectMARLEnv):
         self.actions_dict: Dict[str, torch.Tensor] = {}
         # Optional replay hook: precomputed actuator actions bypass controller inference.
         self._replay_precomputed_actions: Dict[str, torch.Tensor] | None = None
+        self._replay_precomputed_used = False
         self._last_computed_actions: Dict[str, torch.Tensor] = {}
 
         # Primary controller per robot; optional auxiliary controllers (e.g. UR5 IK) after apply_action.
@@ -284,6 +285,7 @@ class MultiRobotDirectEnv(DirectMARLEnv):
             self.actions_dict = dict(precomputed_actions)
             self._last_computed_actions = dict(precomputed_actions)
             self._replay_precomputed_actions = None
+            self._replay_precomputed_used = True
             return
 
         # Store previous actions_dict for last_action computation in observations
@@ -317,6 +319,7 @@ class MultiRobotDirectEnv(DirectMARLEnv):
         # Store computed actions for application and next step's last_action
         self.actions_dict = computed_actions
         self._last_computed_actions = dict(computed_actions)
+        self._replay_precomputed_used = False
     
     def _apply_action(self) -> None:
         """Apply actions to all robots.

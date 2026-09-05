@@ -89,6 +89,7 @@ class ReplayCoordinator:
             targets=self.recorder.targets,
         )
         self._checkpoint_steps: set[int] = set()
+        self.precomputed_action_steps: list[int] = []
 
     @classmethod
     def for_test(
@@ -200,7 +201,10 @@ class ReplayCoordinator:
             )
             target_env = getattr(self.session.env, "unwrapped", self.session.env)
             target_env._replay_precomputed_actions = self.session.env._replay_precomputed_actions
-            return self.session.env.step({})
+            result = self.session.env.step({})
+            if bool(getattr(target_env, "_replay_precomputed_used", False)):
+                self.precomputed_action_steps.append(int(step_index))
+            return result
         templates = dict(getattr(self.session.base_env, "actions_dict", {}) or {})
         actions = actions_to_backend(
             replay_step.actions,
