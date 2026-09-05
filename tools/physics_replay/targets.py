@@ -261,6 +261,8 @@ class TargetResolver:
             channels.append("velocity")
         if kind == "articulation" and _has_attrs(data, "joint_pos", "joint_vel"):
             channels.append("joint_state")
+        if kind == "articulation" and _has_attrs(data, "joint_pos_target", "joint_vel_target"):
+            channels.append("joint_target")
         if hasattr(data, "net_contact_forces_w"):
             channels.append("contact_force")
         if kind == "articulation" and _effort_attr(data):
@@ -287,4 +289,11 @@ class TargetResolver:
             and callable(getattr(obj, "write_joint_state_to_sim", None))
         ):
             channels.append("joint_state")
+        if (
+            kind == "articulation"
+            and _has_attrs(data, "joint_pos_target", "joint_vel_target")
+            and callable(getattr(obj, "set_joint_position_target", None))
+            and callable(getattr(obj, "set_joint_velocity_target", None))
+        ):
+            channels.append("joint_target")
         return tuple(channels)

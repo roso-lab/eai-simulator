@@ -12,7 +12,7 @@ Run commands in this tree from the repository root. `tools/` groups independent 
 | [`validation/`](validation/README.md) | Lightweight repository consistency and regression checks | Repository Python or Node.js |
 | [`ros2/`](ros2/README.md) | External sensor, mobile-base, and manipulator clients plus focused tests | Selected system ROS2 Python |
 | [`human_assets/`](human_assets/README.md) | Human conversion, authoring, migration, cache generation, validation, and demo workflows | Pure Python or Isaac Sim/OpenUSD, depending on the command |
-| [`physics_replay/`](physics_replay/README.md) | Isaac Sim physics recording, checkpoint restore, and episode inspection | Pure Python inspection; restore validation requires `env_isaaclab` |
+| [`physics_replay/`](physics_replay/README.md) | Isaac Sim physics, command/action/noise tapes, checkpoint restore, and episode inspection | Pure Python inspection; Factory validation requires `env_isaaclab` |
 
 ## Runtime boundaries
 

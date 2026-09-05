@@ -17,6 +17,9 @@ class FireRescueConfig:
     auto_fire_delay: float = 5.0
     headless: bool = False
     real_time: bool = False
+    replay_verify_dir: Path | None = None
+    replay_verify_steps: int = 50
+    replay_local_fallback: bool = False
 
 RESCUE_CHANNEL_BUTTON_XY = (10.58, 1.0)
 EXTINGUISHER_PICKUP_XY = (1.77, -9.38)

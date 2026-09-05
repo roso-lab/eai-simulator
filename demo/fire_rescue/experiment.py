@@ -51,6 +51,9 @@ def build_robot_baseline_args(sim: SimulatorSession, config: FireRescueConfig) -
         emos_llm_preset=str(config.emos_llm_preset),
         trials=max(1, int(config.trials)),
         trial_hazard_ids=str(config.trial_hazard_ids),
+        replay_verify_dir=str(config.replay_verify_dir or ""),
+        replay_verify_steps=max(1, int(config.replay_verify_steps)),
+        replay_local_fallback=bool(config.replay_local_fallback),
     )
 
 
@@ -96,26 +99,27 @@ def run_robot_baseline_experiment(
             sim.base_env,
             get_group_discussion_llm_kwargs=lambda preset_id=preset_id: preset_to_group_discussion_kwargs(preset_id),
         )
-        total_steps += int(
-            run_platform(
-                simulation_app=sim.simulation_app,
-                env=sim.env,
-                base_env=sim.base_env,
-                env_cfg=sim.env_cfg,
-                args_cli=args_cli,
-                emos_mgr=emos_mgr,
-                scenario=scenario,
-                map_yaml=args_cli.factory_map_yaml,
-                repo_root=_repo_root(),
-                device=sim.device,
-                num_envs=sim.num_envs,
-                possible_agents=sim.possible_agents,
-                auto_fire_delay_s=float(args_cli.auto_fire_delay),
-                interpret_factory_tasks_fn=interpret_factory_tasks_fn,
-                fixed_auto_hazard_id=int(hazard_id),
-                trial_index=index + 1,
-                total_trials=len(hazard_ids),
-                skip_http_init=(index > 0),
-            )
-        )
+        platform_kwargs = {
+            "simulation_app": sim.simulation_app,
+            "env": sim.env,
+            "base_env": sim.base_env,
+            "env_cfg": sim.env_cfg,
+            "args_cli": args_cli,
+            "emos_mgr": emos_mgr,
+            "scenario": scenario,
+            "map_yaml": args_cli.factory_map_yaml,
+            "repo_root": _repo_root(),
+            "device": sim.device,
+            "num_envs": sim.num_envs,
+            "possible_agents": sim.possible_agents,
+            "auto_fire_delay_s": float(args_cli.auto_fire_delay),
+            "interpret_factory_tasks_fn": interpret_factory_tasks_fn,
+            "fixed_auto_hazard_id": int(hazard_id),
+            "trial_index": index + 1,
+            "total_trials": len(hazard_ids),
+            "skip_http_init": (index > 0),
+        }
+        if str(getattr(args_cli, "replay_verify_dir", "")).strip():
+            platform_kwargs["simulator_session"] = sim
+        total_steps += int(run_platform(**platform_kwargs))
     return total_steps

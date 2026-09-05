@@ -12,7 +12,7 @@
 | [`validation/`](validation/README.zh-CN.md) | 轻量仓库一致性与回归检查 | 仓库 Python 或 Node.js |
 | [`ros2/`](ros2/README.zh-CN.md) | 外部传感器、移动底盘和机械臂客户端及其聚焦测试 | 选定的系统 ROS2 Python |
 | [`human_assets/`](human_assets/README.zh-CN.md) | Human 转换、创作、迁移、cache 生成、验证和演示 | 依命令使用纯 Python 或 Isaac Sim/OpenUSD |
-| [`physics_replay/`](physics_replay/README.zh-CN.md) | Isaac Sim 物理状态录制、checkpoint 恢复和 episode 检查 | 纯 Python 检查；恢复验证需要 `env_isaaclab` |
+| [`physics_replay/`](physics_replay/README.zh-CN.md) | Isaac Sim 物理状态、command/action/noise tape、checkpoint 恢复和 episode 检查 | 纯 Python 检查；Factory 验证需要 `env_isaaclab` |
 
 ## 运行环境边界
 

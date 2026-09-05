@@ -14,7 +14,7 @@ import copy
 import math
 import random
 import time
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 from algorithm.emos.types import compute_subtask_positions
 
@@ -55,6 +55,7 @@ def run_robot_factory_platform(
     trial_index: int = 1,
     total_trials: int = 1,
     skip_http_init: bool = False,
+    simulator_session: Any | None = None,
 ) -> int:
     from pathlib import Path
     import omni.kit.app
@@ -67,8 +68,18 @@ def run_robot_factory_platform(
     from .mission_success import unified_mission_success
     from .navigation import RobotNavController, RobotTask
     from .obstacle_rescue import ObstacleRescueManager, RescuePhase
+    from .replay import (
+        FireRescueReplayVerifier,
+        NavigationReplayComponent,
+        ObstacleReplayComponent,
+        Ur5IdleReplayComponent,
+        build_fire_rescue_target_specs,
+        validate_fire_rescue_checkpoint,
+    )
     from .sim_helpers import LightFlashController, get_robot_pos, get_robot_pose_tensors
     from .ur5 import UR5Manager
+    from tools.physics_replay.components import CallbackComponent
+    from tools.physics_replay.coordinator import ReplayCoordinator
     import queue
 
     # Dashboard：只读观察模式
@@ -277,6 +288,9 @@ def run_robot_factory_platform(
     _pending_emos_assignments: Optional[Dict[str, Any]] = None
     _pending_emos_dispatch_at_sim_s: Optional[float] = None
     _pending_rescue_approval: Optional[Dict[str, Any]] = None
+    _last_replay_assignments: Dict[str, Any] = {}
+    replay_verifier: Optional[FireRescueReplayVerifier] = None
+    replay_episode_dir = None
 
     max_steps = max(0, int(getattr(args_cli, "max_steps", 0)))
     step_dt = float(base_env.step_dt)
@@ -285,6 +299,115 @@ def run_robot_factory_platform(
     # LLM 首轮讨论超时熔断：超过该秒数仍未拿到 LLM 结果，立即用本地规则引擎派遣，
     # LLM 结果迟到后会被 EMOSDiscussionManager._worker 自行丢弃，避免覆盖派遣。
     LLM_FALLBACK_TIMEOUT_S = 160.0
+
+    def _capture_replay_runtime_state() -> Dict[str, Any]:
+        now = time.time()
+
+        def elapsed(timestamp: Optional[float]) -> Optional[float]:
+            return None if timestamp is None else max(0.0, now - float(timestamp))
+
+        return {
+            "step_counter": int(step_counter),
+            "auto_fire_done": bool(auto_fire_done),
+            "record_hazard_id": int(_record_hazard_id),
+            "fire_pos": list(_fire_pos) if _fire_pos is not None else None,
+            "fire_elapsed": elapsed(_fire_start_ts),
+            "patrol_elapsed": elapsed(patrol_started_at),
+            "emos_auto_dispatched": bool(emos_auto_dispatched),
+            "emos_triggered": bool(_emos_triggered),
+            "extinguisher_robot": extinguisher_robot,
+            "rescue_channel_robot": rescue_channel_robot,
+            "rc_press_started": bool(_rc_press_started),
+            "rc_channel_arm_done": bool(_rc_channel_arm_done),
+            "rc_final_approach": bool(_rc_final_approach),
+            "extinguisher_fire_nav_dispatched": bool(_extinguisher_fire_nav_dispatched),
+            "extinguisher_task1_completed": bool(_extinguisher_task1_completed),
+            "last_rescue_robot": _last_rescue_robot,
+            "rally_dispatched": bool(_rally_dispatched),
+            "active_hazards": {
+                str(path): list(pos) for path, pos in active_hazards.items()
+            },
+            "pending_emos_assignments": copy.deepcopy(_pending_emos_assignments),
+            "pending_emos_dispatch_at_sim_s": _pending_emos_dispatch_at_sim_s,
+            "pending_rescue_approval": copy.deepcopy(_pending_rescue_approval),
+            "last_replay_assignments": copy.deepcopy(_last_replay_assignments),
+        }
+
+    def _restore_replay_runtime_state(state: Mapping[str, Any]) -> None:
+        nonlocal step_counter, auto_fire_done, _record_hazard_id, _fire_pos, _fire_start_ts
+        nonlocal patrol_started_at, emos_auto_dispatched, _emos_triggered
+        nonlocal extinguisher_robot, rescue_channel_robot, _rc_press_started
+        nonlocal _rc_channel_arm_done, _rc_final_approach, _extinguisher_fire_nav_dispatched
+        nonlocal _extinguisher_task1_completed, _last_rescue_robot, _rally_dispatched
+        nonlocal _pending_emos_assignments, _pending_emos_dispatch_at_sim_s
+        nonlocal _pending_rescue_approval, _last_replay_assignments
+        now = time.time()
+
+        def rebase(value: Any) -> Optional[float]:
+            return None if value is None else now - float(value)
+
+        step_counter = int(state.get("step_counter", step_counter))
+        auto_fire_done = bool(state.get("auto_fire_done", auto_fire_done))
+        _record_hazard_id = int(state.get("record_hazard_id", _record_hazard_id))
+        raw_fire = state.get("fire_pos")
+        _fire_pos = tuple(float(value) for value in raw_fire) if raw_fire else None
+        fire_elapsed = state.get("fire_elapsed")
+        _fire_start_ts = rebase(fire_elapsed)
+        patrol_elapsed = state.get("patrol_elapsed")
+        patrol_started_at = rebase(patrol_elapsed) or now
+        emos_auto_dispatched = bool(state.get("emos_auto_dispatched", emos_auto_dispatched))
+        _emos_triggered = bool(state.get("emos_triggered", _emos_triggered))
+        extinguisher_robot = state.get("extinguisher_robot")
+        rescue_channel_robot = state.get("rescue_channel_robot")
+        _rc_press_started = bool(state.get("rc_press_started", _rc_press_started))
+        _rc_channel_arm_done = bool(state.get("rc_channel_arm_done", _rc_channel_arm_done))
+        _rc_final_approach = bool(state.get("rc_final_approach", _rc_final_approach))
+        _extinguisher_fire_nav_dispatched = bool(
+            state.get("extinguisher_fire_nav_dispatched", _extinguisher_fire_nav_dispatched)
+        )
+        _extinguisher_task1_completed = bool(
+            state.get("extinguisher_task1_completed", _extinguisher_task1_completed)
+        )
+        _last_rescue_robot = state.get("last_rescue_robot")
+        _rally_dispatched = bool(state.get("rally_dispatched", _rally_dispatched))
+        active_hazards.clear()
+        active_hazards.update(
+            {
+                str(path): tuple(float(value) for value in pos)
+                for path, pos in state.get("active_hazards", {}).items()
+            }
+        )
+        _pending_emos_assignments = copy.deepcopy(state.get("pending_emos_assignments"))
+        _pending_emos_dispatch_at_sim_s = state.get("pending_emos_dispatch_at_sim_s")
+        _pending_rescue_approval = copy.deepcopy(state.get("pending_rescue_approval"))
+        _last_replay_assignments = copy.deepcopy(state.get("last_replay_assignments", {}))
+
+    def _replay_success_predicate() -> bool:
+        fire_xy = (
+            (float(_fire_pos[0]), float(_fire_pos[1]))
+            if _fire_pos is not None
+            else None
+        )
+        rescue_state = obstacle_mgr.state if obstacle_mgr is not None else None
+        return bool(
+            unified_mission_success(
+                base_env=base_env,
+                emos_agents=emos_agents,
+                fire_xy=fire_xy,
+                extinguisher_robot=extinguisher_robot,
+                extinguisher_task1_complete=bool(
+                    extinguisher_robot and _extinguisher_task1_completed
+                ),
+                rescue_channel_complete=bool(_rc_channel_arm_done),
+                emergency_task_required=bool(
+                    _obstacle_spawn_sim_s is not None
+                    or getattr(rescue_state, "obstacle_spawned", False)
+                ),
+                emergency_task_complete=bool(
+                    getattr(rescue_state, "obstacle_removed", False)
+                ),
+            )
+        )
 
     # ── 实验统计状态（纯机器人）───────────────────────────────────────────────
     _fire_start_ts: Optional[float] = None
@@ -588,7 +711,14 @@ def run_robot_factory_platform(
                     _dsrv.update_emos("running", hazard_id=hid)
                     _dsrv.update_hazard(hid, pos, active=True)
                     if not _emos_triggered:
-                        emos_mgr.trigger(hazard_id=hid, hazard_pos=pos)
+                        if bool(getattr(args_cli, "replay_local_fallback", False)) and str(
+                            getattr(args_cli, "replay_verify_dir", "")
+                        ).strip():
+                            emos_mgr._hazard_id = hid
+                            emos_mgr._hazard_pos = pos
+                            emos_mgr.trigger_local_fallback(reason="replay verification")
+                        else:
+                            emos_mgr.trigger(hazard_id=hid, hazard_pos=pos)
                         _emos_triggered = True
                 except Exception as e:
                     print(f"[自动火源] 失败: {e}")
@@ -629,6 +759,7 @@ def run_robot_factory_platform(
                 new_green = next((rn for rn, rt in emos_result_fixed.items() if rt.subtask_colour == "green"), None)
                 _reconcile_rescue_channel_assignee(new_green)
                 ass = _assignments_dict_from_fixed(emos_result_fixed)
+                _last_replay_assignments = copy.deepcopy(ass)
                 _dsrv.update_emos("done", hazard_id=emos_mgr._hazard_id, assignments=ass)
                 _dsrv.push_chat("emos", "EMOS 系统", "📋 讨论完成，纯机器人模式自动执行。")
                 try:
@@ -796,6 +927,50 @@ def run_robot_factory_platform(
                         "EMOS 导航派遣",
                         f"⚠️ 路径不可达: {', '.join(_fail_agents)}。已转入巡逻重试，避免误待命。",
                     )
+        replay_dir_text = str(getattr(args_cli, "replay_verify_dir", "")).strip()
+        if (
+            replay_dir_text
+            and replay_verifier is None
+            and bool(emos_auto_dispatched)
+            and _pending_emos_assignments is None
+            and getattr(nav, "_pending_plan", None) is None
+            and bool(_last_replay_assignments)
+        ):
+            if simulator_session is None:
+                raise RuntimeError(
+                    "replay verification requires the SimulatorSession passed by experiment.py"
+                )
+            validate_fire_rescue_checkpoint(nav, obstacle_mgr, ur5)
+            replay_episode_dir = Path(replay_dir_text) / f"trial_{int(trial_index):02d}"
+            replay_components = [
+                CallbackComponent(
+                    "fire_rescue.runtime",
+                    1,
+                    _capture_replay_runtime_state,
+                    _restore_replay_runtime_state,
+                    priority=30,
+                ),
+                NavigationReplayComponent(nav),
+                ObstacleReplayComponent(obstacle_mgr),
+                Ur5IdleReplayComponent(ur5),
+            ]
+            replay_coordinator = ReplayCoordinator(
+                simulator_session,
+                build_fire_rescue_target_specs(base_env, emos_agents),
+                replay_episode_dir,
+                components=replay_components,
+                include_rng=True,
+            )
+            replay_verifier = FireRescueReplayVerifier(
+                replay_coordinator,
+                output_dir=replay_episode_dir,
+                verify_steps=max(1, int(getattr(args_cli, "replay_verify_steps", 50))),
+                success_predicate=_replay_success_predicate,
+                noise_seed=int(
+                    getattr(getattr(simulator_session, "env_cfg", None), "seed", 0)
+                ),
+            )
+            replay_verifier.start(assignments=_last_replay_assignments)
         # 保护 extinguisher_robot：yellow 任务到达目标后等待 UR5 抓取，禁止被火源集结覆盖
         if (
             extinguisher_robot
@@ -1030,10 +1205,25 @@ def run_robot_factory_platform(
                 _robot_standby_this_frame[rn] = _is_waiting_idle(rn) and (not _is_robot_arm_busy(rn))
 
         actions = nav.apply_inter_robot_collision_guard(actions)
+        if replay_verifier is not None and replay_verifier.active:
+            replay_verifier.before_step(actions)
         if actions:
             env.step(actions)
         else:
             env.step({})
+        if replay_verifier is not None and replay_verifier.active:
+            replay_result = replay_verifier.after_step(
+                applied_actions=getattr(env, "_last_computed_actions", {}),
+                phase=_phase_name,
+            )
+            if replay_result is not None:
+                _sim_result = "success" if replay_result["passed"] else "fail"
+                _sim_fail_reason = (
+                    None
+                    if replay_result["passed"]
+                    else "deterministic replay verification failed"
+                )
+                _should_stop_sim = True
 
         if getattr(ur5, "_ext_grabbed", False):
             try:

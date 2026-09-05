@@ -105,6 +105,15 @@ class IsaacLabStateAdapter:
             velocity = velocity[indices]
         return np.concatenate((position, velocity))
 
+    def _joint_targets(self, obj: Any, target: Any) -> np.ndarray:
+        position = _to_numpy(self._data_value(obj, "joint_pos_target")[target.spec.env_id]).reshape(-1)
+        velocity = _to_numpy(self._data_value(obj, "joint_vel_target")[target.spec.env_id]).reshape(-1)
+        if target.joint_indices:
+            indices = list(target.joint_indices)
+            position = position[indices]
+            velocity = velocity[indices]
+        return np.concatenate((position, velocity))
+
     def _contact_force(self, obj: Any, target: Any) -> np.ndarray:
         force = self._data_value(obj, "net_contact_forces_w")
         if getattr(force, "ndim", 0) == 2:
@@ -135,6 +144,8 @@ class IsaacLabStateAdapter:
                 value = self._velocity(obj, target)
             elif channel == "joint_state":
                 value = self._joint_values(obj, target)
+            elif channel == "joint_target":
+                value = self._joint_targets(obj, target)
             elif channel == "contact_force":
                 value = self._contact_force(obj, target)
             elif channel == "joint_effort":
@@ -190,6 +201,45 @@ class IsaacLabStateAdapter:
             env_ids,
         )
 
+    def _write_joint_targets(self, obj: Any, target: Any, values: Mapping[str, np.ndarray]) -> None:
+        key = f"{target.target_id}/joint_target"
+        if key not in values:
+            return
+        if target.kind != "articulation":
+            raise ValueError(f"target {target.target_id} is not an articulation root")
+        position_ref = self._data_value(obj, "joint_pos_target")
+        velocity_ref = self._data_value(obj, "joint_vel_target")
+        position = _to_numpy(position_ref[target.spec.env_id]).reshape(-1)
+        velocity = _to_numpy(velocity_ref[target.spec.env_id]).reshape(-1)
+        incoming = np.asarray(values[key]).reshape(-1)
+        count = len(target.joint_indices) or position.size
+        if incoming.size != count * 2:
+            raise ValueError(
+                f"joint_target for {target.target_id} has {incoming.size} values; expected {count * 2}"
+            )
+        indices = list(target.joint_indices) if target.joint_indices else list(range(position.size))
+        position[indices] = incoming[:count]
+        velocity[indices] = incoming[count:]
+        env_ids = _env_ids(int(target.spec.env_id), position_ref)
+        obj.set_joint_position_target(
+            _backend_array(position, position_ref), joint_ids=None, env_ids=env_ids
+        )
+        obj.set_joint_velocity_target(
+            _backend_array(velocity, velocity_ref), joint_ids=None, env_ids=env_ids
+        )
+
     def write(self, target: Any, values: Mapping[str, np.ndarray]) -> None:
-        self._write_root(self._object(target), target, values)
-        self._write_joints(self._object(target), target, values)
+        obj = self._object(target)
+        self._write_root(obj, target, values)
+        self._write_joints(obj, target, values)
+        self._write_joint_targets(obj, target, values)
+
+    def refresh(self) -> None:
+        """Refresh Isaac Lab entity caches after direct PhysX tensor writes."""
+
+        scene = getattr(self.base_env, "scene", None)
+        updater = getattr(scene, "update", None)
+        if not callable(updater):
+            return
+        dt = float(getattr(self.base_env, "physics_dt", 0.0))
+        updater(dt=dt)

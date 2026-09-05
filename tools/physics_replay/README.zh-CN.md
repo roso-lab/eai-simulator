@@ -58,7 +58,24 @@ with open_simulator_session(config) as session:
 
 `frame[t]` 是 `env.step(action[t])` 之前的状态；恢复到 `t` 后可以替换
 `action[t]` 并继续调用 `env.step()`。根位姿、根速度和关节状态属于可写状态。
-接触力和关节驱动力是派生观测，首版只记录并在恢复后的下一步重新采样。
+`joint_target` 记录 articulation 的 `joint_pos_target`/`joint_vel_target`，用于避免
+未控关节沿用事实分支的 actuator target。接触力和关节驱动力是派生观测，首版只
+记录并在恢复后的下一步重新采样。
+
+要在 Factory Fire Rescue 中验证 command/action/noise tape，可运行：
+
+```bash
+EAI_RUN_FIRE_RESCUE_REPLAY=1 conda run --no-capture-output -n env_isaaclab \
+  python -m demo.fire_rescue.main \
+  --env EAI-Factory-v0 --headless --trials 1 --auto-fire-delay 0 \
+  --replay-verify-dir tmp/replay/fire_rescue \
+  --replay-verify-steps 50 --replay-local-fallback --device cpu
+```
+
+验证会生成 `trial_01/verification.json`。`restore.ok=true` 只表示状态写回和
+read-back 通过；如果 `passed=false`，应查看 drift 字段。Factory 的移动底盘和
+挂载 articulation 仍可能受 PhysX solver cache、actuator 内部 target 或 GPU/CPU
+数值顺序影响，工具会保留这个失败结果，而不是把它降级成成功。
 
 ## 文件与限制
 

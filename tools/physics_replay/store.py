@@ -57,6 +57,9 @@ class EpisodeWriter:
         self._segments: list[dict[str, Any]] = []
         self._state_keys: tuple[str, ...] | None = None
         self._action_keys: tuple[str, ...] | None = None
+        self._command_keys: tuple[str, ...] | None = None
+        self._noise_keys: tuple[str, ...] | None = None
+        self._applied_action_keys: tuple[str, ...] | None = None
         self._last_step: int | None = None
         self._closed = False
         self._write_manifest()
@@ -71,11 +74,20 @@ class EpisodeWriter:
 
         state_keys = tuple(sorted(frame.state_before))
         action_keys = tuple(sorted(frame.actions))
+        command_keys = tuple(sorted(frame.commands))
+        noise_keys = tuple(sorted(frame.noise))
+        applied_action_keys = tuple(sorted(frame.applied_actions))
         if self._state_keys is None:
             self._state_keys = state_keys
             self._action_keys = action_keys
+            self._command_keys = command_keys
+            self._noise_keys = noise_keys
+            self._applied_action_keys = applied_action_keys
             self.manifest.metadata["state_keys"] = list(state_keys)
             self.manifest.metadata["action_keys"] = list(action_keys)
+            self.manifest.metadata["command_keys"] = list(command_keys)
+            self.manifest.metadata["noise_keys"] = list(noise_keys)
+            self.manifest.metadata["applied_action_keys"] = list(applied_action_keys)
             for prefix, values in (
                 ("before", frame.state_before),
                 ("after", frame.state_after),
@@ -86,7 +98,21 @@ class EpisodeWriter:
                     )
             for key in action_keys:
                 self.manifest.actions[key] = _field_schema(_copy_array(frame.actions[key]))
-        elif state_keys != self._state_keys or action_keys != self._action_keys:
+            for key in command_keys:
+                self.manifest.commands[key] = _field_schema(_copy_array(frame.commands[key]))
+            for key in noise_keys:
+                self.manifest.noise[key] = _field_schema(_copy_array(frame.noise[key]))
+            for key in applied_action_keys:
+                self.manifest.applied_actions[key] = _field_schema(
+                    _copy_array(frame.applied_actions[key])
+                )
+        elif (
+            state_keys != self._state_keys
+            or action_keys != self._action_keys
+            or command_keys != self._command_keys
+            or noise_keys != self._noise_keys
+            or applied_action_keys != self._applied_action_keys
+        ):
             raise ValueError("frame fields must remain fixed throughout an episode")
 
         self._validate_frame_arrays(frame)
@@ -98,6 +124,9 @@ class EpisodeWriter:
     def _validate_frame_arrays(self, frame: FrameRecord) -> None:
         assert self._state_keys is not None
         assert self._action_keys is not None
+        assert self._command_keys is not None
+        assert self._noise_keys is not None
+        assert self._applied_action_keys is not None
         for prefix, values in (
             ("before", frame.state_before),
             ("after", frame.state_after),
@@ -112,12 +141,30 @@ class EpisodeWriter:
             schema = self.manifest.actions[key]
             if list(array.shape) != list(schema["shape"]) or str(array.dtype) != schema["dtype"]:
                 raise ValueError(f"action {key!r} shape or dtype changed")
+        for label, keys, values, schemas in (
+            ("command", self._command_keys, frame.commands, self.manifest.commands),
+            ("noise", self._noise_keys, frame.noise, self.manifest.noise),
+            (
+                "applied_action",
+                self._applied_action_keys,
+                frame.applied_actions,
+                self.manifest.applied_actions,
+            ),
+        ):
+            for key in keys:
+                array = _copy_array(values[key])
+                schema = schemas[key]
+                if list(array.shape) != list(schema["shape"]) or str(array.dtype) != schema["dtype"]:
+                    raise ValueError(f"{label} {key!r} shape or dtype changed")
 
     def _flush_segment(self) -> None:
         if not self._buffer:
             return
         assert self._state_keys is not None
         assert self._action_keys is not None
+        assert self._command_keys is not None
+        assert self._noise_keys is not None
+        assert self._applied_action_keys is not None
         arrays: dict[str, np.ndarray] = {
             "step_index": np.asarray([frame.step_index for frame in self._buffer], dtype=np.int64),
             "sim_time": np.asarray([frame.sim_time for frame in self._buffer], dtype=np.float64),
@@ -141,6 +188,15 @@ class EpisodeWriter:
             arrays[f"action_{index}"] = np.stack(
                 [_copy_array(frame.actions[key]) for frame in self._buffer]
             )
+        for label, keys, attribute in (
+            ("command", self._command_keys, "commands"),
+            ("noise", self._noise_keys, "noise"),
+            ("applied_action", self._applied_action_keys, "applied_actions"),
+        ):
+            for index, key in enumerate(keys):
+                arrays[f"{label}_{index}"] = np.stack(
+                    [_copy_array(getattr(frame, attribute)[key]) for frame in self._buffer]
+                )
 
         segment_name = f"{len(self._segments):06d}.npz"
         final_path = self.segments_dir / segment_name
@@ -220,6 +276,18 @@ class EpisodeReader:
     def action_keys(self) -> tuple[str, ...]:
         return tuple(self.manifest.metadata.get("action_keys", ()))
 
+    @property
+    def command_keys(self) -> tuple[str, ...]:
+        return tuple(self.manifest.metadata.get("command_keys", ()))
+
+    @property
+    def noise_keys(self) -> tuple[str, ...]:
+        return tuple(self.manifest.metadata.get("noise_keys", ()))
+
+    @property
+    def applied_action_keys(self) -> tuple[str, ...]:
+        return tuple(self.manifest.metadata.get("applied_action_keys", ()))
+
     def _load_segment(self, segment: dict[str, Any]) -> dict[str, np.ndarray]:
         filename = str(segment["file"])
         if filename in self._segment_cache:
@@ -283,6 +351,27 @@ class EpisodeReader:
                 raise ValueError(f"replay segment {segment.get('file')} has an invalid {array_name} shape")
             if str(arrays[array_name].dtype) != str(schema.get("dtype")):
                 raise ValueError(f"replay segment {segment.get('file')} has an invalid {array_name} dtype")
+        for label, keys, schemas in (
+            ("command", self.command_keys, self.manifest.commands),
+            ("noise", self.noise_keys, self.manifest.noise),
+            (
+                "applied_action",
+                self.applied_action_keys,
+                self.manifest.applied_actions,
+            ),
+        ):
+            for index, key in enumerate(keys):
+                array_name = f"{label}_{index}"
+                if array_name not in arrays:
+                    raise ValueError(f"replay segment {segment.get('file')} is missing {array_name}")
+                schema = schemas.get(key)
+                if schema is None:
+                    raise ValueError(f"manifest is missing schema for {label} {key}")
+                expected_shape = (frame_count, *tuple(schema.get("shape", ())))
+                if tuple(arrays[array_name].shape) != expected_shape:
+                    raise ValueError(f"replay segment {segment.get('file')} has an invalid {array_name} shape")
+                if str(arrays[array_name].dtype) != str(schema.get("dtype")):
+                    raise ValueError(f"replay segment {segment.get('file')} has an invalid {array_name} dtype")
 
     def validate_integrity(self) -> None:
         """Verify every indexed segment, checksum, shape, and manifest count."""
@@ -339,6 +428,18 @@ class EpisodeReader:
             key: arrays[f"action_{index}"][row].copy()
             for index, key in enumerate(self.action_keys)
         }
+        commands = {
+            key: arrays[f"command_{index}"][row].copy()
+            for index, key in enumerate(self.command_keys)
+        }
+        noise = {
+            key: arrays[f"noise_{index}"][row].copy()
+            for index, key in enumerate(self.noise_keys)
+        }
+        applied_actions = {
+            key: arrays[f"applied_action_{index}"][row].copy()
+            for index, key in enumerate(self.applied_action_keys)
+        }
         phase = str(arrays["phase"][row]) or None
         try:
             events = tuple(json.loads(str(arrays["events_json"][row])))
@@ -349,9 +450,23 @@ class EpisodeReader:
         if terminal:
             sim_time += float(self.manifest.environment.get("physics_dt", 0.0))
             actions = {}
+            commands = {}
+            noise = {}
+            applied_actions = {}
             phase = None
             events = ()
-        return FrameRecord(step, sim_time, state_before, state_after, actions, phase, events)
+        return FrameRecord(
+            step,
+            sim_time,
+            state_before,
+            state_after,
+            actions,
+            phase,
+            events,
+            commands=commands,
+            noise=noise,
+            applied_actions=applied_actions,
+        )
 
     def read_frame(self, step_index: int) -> FrameRecord:
         arrays, row, terminal = self._find_row(step_index)

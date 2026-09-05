@@ -4,7 +4,11 @@ import argparse
 import traceback
 from pathlib import Path
 
-from simulator import SimulatorLaunchConfig, open_simulator_session
+from simulator import (
+    SimulatorLaunchConfig,
+    _ensure_repo_sources_on_path,
+    open_simulator_session,
+)
 
 from .algorithm_paths import ensure_fire_rescue_algorithm_paths
 from .config import FireRescueConfig
@@ -15,7 +19,7 @@ def build_parser() -> argparse.ArgumentParser:
     ensure_fire_rescue_algorithm_paths()
     from .runtime.llm_presets import DEFAULT_EMOS_LLM_PRESET, EMOS_LLM_PRESETS
 
-    defaults = FireRescueConfig()
+    defaults = FireRescueConfig.__dataclass_fields__
     parser = argparse.ArgumentParser(
         description="Fire Rescue robot-only demo. Opens the EAI simulator through simulator.py.",
     )
@@ -35,16 +39,21 @@ def build_parser() -> argparse.ArgumentParser:
         choices=list(EMOS_LLM_PRESETS.keys()),
         help="EMOS discussion LLM preset.",
     )
-    parser.add_argument("--trials", type=int, default=defaults.trials, help="Number of robot-only trials.")
+    parser.add_argument(
+        "--trials",
+        type=int,
+        default=defaults["trials"].default,
+        help="Number of robot-only trials.",
+    )
     parser.add_argument(
         "--trial-hazard-ids",
-        default=defaults.trial_hazard_ids,
+        default=defaults["trial_hazard_ids"].default,
         help="Comma-separated hazard ids for robot-only trials.",
     )
     parser.add_argument(
         "--auto-fire-delay",
         type=float,
-        default=defaults.auto_fire_delay,
+        default=defaults["auto_fire_delay"].default,
         help="Seconds before the robot-only experiment auto-spawns the fire.",
     )
     parser.add_argument(
@@ -54,20 +63,46 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Throttle the robot-only loop to env.step_dt.",
     )
+    parser.add_argument(
+        "--replay-verify-dir",
+        default="",
+        help="Enable deterministic replay verification and write the episode here.",
+    )
+    parser.add_argument(
+        "--replay-verify-steps",
+        type=int,
+        default=50,
+        help="Number of factual/replay steps in verification mode.",
+    )
+    parser.add_argument(
+        "--replay-local-fallback",
+        action="store_true",
+        help="Use deterministic local EMOS assignment during replay verification.",
+    )
     return parser
+
+
+def resolve_default_map_yaml() -> Path:
+    """Resolve the default Factory map after repository packages are on sys.path."""
+
+    _ensure_repo_sources_on_path()
+    return FireRescueConfig().map_yaml
 
 
 def main() -> None:
     args = build_parser().parse_args()
     real_time = bool(args.real_time) if args.real_time is not None else False
     demo_config = FireRescueConfig(
-        map_yaml=Path(args.map_yaml) if args.map_yaml else FireRescueConfig().map_yaml,
+        map_yaml=Path(args.map_yaml) if args.map_yaml else resolve_default_map_yaml(),
         emos_llm_preset=str(args.emos_llm_preset),
         trials=max(1, int(args.trials)),
         trial_hazard_ids=str(args.trial_hazard_ids),
         auto_fire_delay=float(args.auto_fire_delay),
         headless=bool(args.headless),
         real_time=real_time,
+        replay_verify_dir=Path(args.replay_verify_dir) if args.replay_verify_dir else None,
+        replay_verify_steps=max(1, int(args.replay_verify_steps)),
+        replay_local_fallback=bool(args.replay_local_fallback),
     )
     launch_config = SimulatorLaunchConfig(
         env=args.env,

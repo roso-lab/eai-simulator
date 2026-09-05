@@ -55,6 +55,8 @@ class _PendingFrame:
     captured: bool
     state_before: dict[str, np.ndarray]
     actions: dict[str, np.ndarray]
+    commands: dict[str, np.ndarray]
+    noise: dict[str, np.ndarray]
 
 
 class ReplayRecorder:
@@ -145,7 +147,13 @@ class ReplayRecorder:
             state.update({str(key): _array_copy(value) for key, value in values.items()})
         return state
 
-    def before_step(self, action: Mapping[str, Any] | None) -> None:
+    def before_step(
+        self,
+        action: Mapping[str, Any] | None,
+        *,
+        commands: Mapping[str, Any] | None = None,
+        noise: Mapping[str, Any] | None = None,
+    ) -> None:
         if self._closed:
             raise RuntimeError("recorder is closed")
         if self._pending is not None:
@@ -157,6 +165,8 @@ class ReplayRecorder:
                 False,
                 {},
                 {},
+                {},
+                {},
             )
             return
         self._pending = _PendingFrame(
@@ -165,12 +175,15 @@ class ReplayRecorder:
             True,
             self._read_state(),
             _copy_actions(action),
+            _copy_actions(commands),
+            _copy_actions(noise),
         )
 
     def after_step(
         self,
         action: Mapping[str, Any] | None = None,
         *,
+        applied_actions: Mapping[str, Any] | None = None,
         info: Mapping[str, Any] | None = None,
         phase: str | None = None,
         events: Iterable[Mapping[str, Any]] = (),
@@ -192,6 +205,9 @@ class ReplayRecorder:
                     pending.actions if action is None else _copy_actions(action),
                     phase=phase,
                     events=tuple(event_values),
+                    commands=pending.commands,
+                    noise=pending.noise,
+                    applied_actions=_copy_actions(applied_actions),
                 )
             )
         self._pending = None

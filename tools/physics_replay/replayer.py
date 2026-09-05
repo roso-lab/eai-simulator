@@ -12,7 +12,7 @@ from .targets import TargetResolver
 from .types import RestoreReport, TargetSpec, stable_hash
 
 
-_WRITABLE_CHANNELS = frozenset({"pose", "velocity", "joint_state"})
+_WRITABLE_CHANNELS = frozenset({"pose", "velocity", "joint_state", "joint_target"})
 
 
 def _error(expected: Any, actual: Any, tolerance: float) -> dict[str, float | bool]:
@@ -248,6 +248,30 @@ class PhysicsReplayer:
                     actual[key],
                     self.tolerances.get(channel, 1e-4),
                 )
+        refresh = getattr(self.adapter, "refresh", None)
+        if callable(refresh):
+            refresh()
+        # Re-read after cache refresh. This keeps controller observations on
+        # the restored branch before the next env.step().
+        for target in writable_targets:
+            target_id = str(target.target_id)
+            writable_channels = tuple(getattr(target, "writable_channels", ()))
+            keys = tuple(
+                f"{target_id}/{channel}"
+                for channel in writable_channels
+                if f"{target_id}/{channel}" in frame.state_before
+            )
+            if not keys:
+                continue
+            actual = self.adapter.read(target, keys)
+            for key in keys:
+                if key in actual and key in frame.state_before:
+                    channel = key.rsplit("/", 1)[-1]
+                    channel_errors[key] = _error(
+                        frame.state_before[key],
+                        actual[key],
+                        self.tolerances.get(channel, 1e-4),
+                    )
         self._restore_environment_buffers(int(step_index))
         failed = [key for key, result in channel_errors.items() if not result["within_tolerance"]]
         if failed:

@@ -20,9 +20,16 @@ import numpy as np
 
 FORMAT_VERSION = 1
 SUPPORTED_CHANNELS = frozenset(
-    {"pose", "velocity", "joint_state", "contact_force", "joint_effort"}
+    {
+        "pose",
+        "velocity",
+        "joint_state",
+        "joint_target",
+        "contact_force",
+        "joint_effort",
+    }
 )
-WRITABLE_CHANNELS = frozenset({"pose", "velocity", "joint_state"})
+WRITABLE_CHANNELS = frozenset({"pose", "velocity", "joint_state", "joint_target"})
 REPORT_STATUSES = frozenset(
     {"restored", "physical_state_only", "replay_diverged", "unsupported", "corrupt"}
 )
@@ -62,6 +69,15 @@ def _jsonable(value: Any) -> Any:
     if isinstance(value, Path):
         return str(value)
     return value
+
+
+def _array_copy(value: Any) -> np.ndarray:
+    detached = value.detach() if hasattr(value, "detach") else value
+    moved = detached.cpu() if hasattr(detached, "cpu") else detached
+    array = np.asarray(moved)
+    if array.dtype == object:
+        raise ValueError("replay arrays cannot have object dtype")
+    return array.copy()
 
 
 @dataclass(frozen=True)
@@ -176,6 +192,9 @@ class FrameRecord:
     actions: Mapping[str, Any]
     phase: str | None = None
     events: tuple[Mapping[str, Any], ...] = ()
+    commands: Mapping[str, Any] = field(default_factory=dict)
+    noise: Mapping[str, Any] = field(default_factory=dict)
+    applied_actions: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if int(self.step_index) < 0:
@@ -185,13 +204,23 @@ class FrameRecord:
         self.step_index = int(self.step_index)
         self.sim_time = float(self.sim_time)
         self.state_before = {
-            str(key): np.asarray(value).copy() for key, value in self.state_before.items()
+            str(key): _array_copy(value) for key, value in self.state_before.items()
         }
         self.state_after = {
-            str(key): np.asarray(value).copy() for key, value in self.state_after.items()
+            str(key): _array_copy(value) for key, value in self.state_after.items()
         }
         self.actions = {
-            str(key): np.asarray(value).copy() for key, value in self.actions.items()
+            str(key): _array_copy(value) for key, value in self.actions.items()
+        }
+        self.commands = {
+            str(key): _array_copy(value) for key, value in self.commands.items()
+        }
+        self.noise = {
+            str(key): _array_copy(value) for key, value in self.noise.items()
+        }
+        self.applied_actions = {
+            str(key): _array_copy(value)
+            for key, value in self.applied_actions.items()
         }
         self.phase = None if self.phase is None else str(self.phase)
         self.events = tuple(_jsonable(dict(event)) for event in self.events)
@@ -205,6 +234,9 @@ class Manifest:
     targets: list[dict[str, Any]]
     fields: dict[str, dict[str, Any]] = field(default_factory=dict)
     actions: dict[str, dict[str, Any]] = field(default_factory=dict)
+    commands: dict[str, dict[str, Any]] = field(default_factory=dict)
+    noise: dict[str, dict[str, Any]] = field(default_factory=dict)
+    applied_actions: dict[str, dict[str, Any]] = field(default_factory=dict)
     format_version: int = FORMAT_VERSION
     segment_frames: int = 256
     sample_every: int = 1
@@ -217,6 +249,9 @@ class Manifest:
         self.targets = deepcopy(list(self.targets))
         self.fields = deepcopy(dict(self.fields))
         self.actions = deepcopy(dict(self.actions))
+        self.commands = deepcopy(dict(self.commands))
+        self.noise = deepcopy(dict(self.noise))
+        self.applied_actions = deepcopy(dict(self.applied_actions))
         self.metadata = deepcopy(dict(self.metadata))
         self.format_version = int(self.format_version)
         if self.format_version != FORMAT_VERSION:
@@ -236,6 +271,9 @@ class Manifest:
                 "targets": self.targets,
                 "fields": self.fields,
                 "actions": self.actions,
+                "commands": self.commands,
+                "noise": self.noise,
+                "applied_actions": self.applied_actions,
                 "segment_frames": self.segment_frames,
                 "sample_every": self.sample_every,
                 "replay_fidelity": self.replay_fidelity,
@@ -255,6 +293,9 @@ class Manifest:
             targets=list(payload["targets"]),
             fields=dict(payload.get("fields", {})),
             actions=dict(payload.get("actions", {})),
+            commands=dict(payload.get("commands", {})),
+            noise=dict(payload.get("noise", {})),
+            applied_actions=dict(payload.get("applied_actions", {})),
             format_version=int(payload.get("format_version", 0)),
             segment_frames=int(payload.get("segment_frames", 256)),
             sample_every=int(payload.get("sample_every", 1)),

@@ -23,8 +23,24 @@ python tools/physics_replay/cli.py validate \
 The Python API accepts `TargetSpec` values with absolute USD Prim paths. A
 recorded `frame[t]` is the state immediately before `env.step(action[t])`;
 after restoring `t`, callers can replace that action and continue. Root pose,
-root velocity, and joint state are writable. Contact force and joint effort
-are recorded diagnostics and are recomputed on the next physics step.
+root velocity, joint state, and `joint_target` are writable. Contact force and
+joint effort are recorded diagnostics and are recomputed on the next physics
+step.
+
+Factory Fire Rescue verification is opt-in and uses local EMOS fallback plus a
+fixed action/command/noise tape:
+
+```bash
+EAI_RUN_FIRE_RESCUE_REPLAY=1 conda run --no-capture-output -n env_isaaclab \
+  python -m demo.fire_rescue.main \
+  --env EAI-Factory-v0 --headless --trials 1 --auto-fire-delay 0 \
+  --replay-verify-dir tmp/replay/fire_rescue \
+  --replay-verify-steps 50 --replay-local-fallback --device cpu
+```
+
+The verification report separates successful state write-back from post-restore
+drift. PhysX solver caches and actuator internals are not serialized, so a
+`restore.ok` report can still contain `passed: false` with non-zero drift.
 
 The first version reports physical-state restore and action replay separately.
 PhysX solver caches, controller/planner hidden state, live ROS input, and
