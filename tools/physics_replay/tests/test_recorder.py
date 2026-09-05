@@ -61,7 +61,7 @@ def test_manifest_carries_selection_hash_and_seed(tmp_path):
         device="cpu",
         selection_data={"scene": "plane", "robots": []},
         env_cfg=SimpleNamespace(seed=17),
-        base_env=SimpleNamespace(step_dt=0.1),
+        base_env=SimpleNamespace(step_dt=0.1, physics_dt=0.005),
     )
     recorder = ReplayRecorder(
         adapter=IncrementingFakeAdapter(),
@@ -73,6 +73,8 @@ def test_manifest_carries_selection_hash_and_seed(tmp_path):
     environment = recorder.reader.manifest.environment
     assert environment["seed"] == 17
     assert len(environment["selection_sha256"]) == 64
+    assert environment["physics_dt"] == 0.005
+    assert environment["step_dt"] == 0.1
 
 
 def test_info_events_convert_numpy_values_to_json_safe_data(tmp_path):

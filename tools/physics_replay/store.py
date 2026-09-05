@@ -5,7 +5,8 @@ from __future__ import annotations
 from hashlib import sha256
 import json
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
+import zipfile
 
 import numpy as np
 
@@ -231,10 +232,75 @@ class EpisodeReader:
         try:
             with np.load(path, allow_pickle=False) as loaded:
                 arrays = {name: loaded[name].copy() for name in loaded.files}
-        except (OSError, ValueError) as exc:
+        except (OSError, ValueError, KeyError, zipfile.BadZipFile) as exc:
             raise ValueError(f"cannot load replay segment {path}: {exc}") from exc
+        self._validate_segment_arrays(segment, arrays)
         self._segment_cache[filename] = arrays
         return arrays
+
+    def _validate_segment_arrays(
+        self, segment: dict[str, Any], arrays: dict[str, np.ndarray]
+    ) -> None:
+        required = {"step_index", "sim_time", "phase", "events_json"}
+        missing = sorted(required - set(arrays))
+        if missing:
+            raise ValueError(
+                f"replay segment {segment.get('file', '<unknown>')} is missing fields: {missing}"
+            )
+        frame_count = int(segment.get("frame_count", -1))
+        steps = arrays["step_index"]
+        if steps.ndim != 1 or len(steps) != frame_count:
+            raise ValueError(f"replay segment {segment.get('file')} has an invalid step_index shape")
+        if len(steps) == 0:
+            raise ValueError(f"replay segment {segment.get('file')} is empty")
+        if int(steps[0]) != int(segment["start_step"]) or int(steps[-1]) != int(segment["end_step"]):
+            raise ValueError(f"replay segment {segment.get('file')} has inconsistent step bounds")
+        for name in ("sim_time", "phase", "events_json"):
+            if arrays[name].ndim != 1 or len(arrays[name]) != frame_count:
+                raise ValueError(f"replay segment {segment.get('file')} has an invalid {name} shape")
+        for index, key in enumerate(self.state_keys):
+            for prefix in ("before", "after"):
+                array_name = f"{prefix}_{index}"
+                if array_name not in arrays:
+                    raise ValueError(f"replay segment {segment.get('file')} is missing {array_name}")
+                schema = self.manifest.fields.get(f"{prefix}/{key}")
+                if schema is None:
+                    raise ValueError(f"manifest is missing schema for {prefix}/{key}")
+                expected_shape = (frame_count, *tuple(schema.get("shape", ())))
+                if tuple(arrays[array_name].shape) != expected_shape:
+                    raise ValueError(f"replay segment {segment.get('file')} has an invalid {array_name} shape")
+                if str(arrays[array_name].dtype) != str(schema.get("dtype")):
+                    raise ValueError(f"replay segment {segment.get('file')} has an invalid {array_name} dtype")
+        for index, key in enumerate(self.action_keys):
+            array_name = f"action_{index}"
+            if array_name not in arrays:
+                raise ValueError(f"replay segment {segment.get('file')} is missing {array_name}")
+            schema = self.manifest.actions.get(key)
+            if schema is None:
+                raise ValueError(f"manifest is missing schema for action {key}")
+            expected_shape = (frame_count, *tuple(schema.get("shape", ())))
+            if tuple(arrays[array_name].shape) != expected_shape:
+                raise ValueError(f"replay segment {segment.get('file')} has an invalid {array_name} shape")
+            if str(arrays[array_name].dtype) != str(schema.get("dtype")):
+                raise ValueError(f"replay segment {segment.get('file')} has an invalid {array_name} dtype")
+
+    def validate_integrity(self) -> None:
+        """Verify every indexed segment, checksum, shape, and manifest count."""
+
+        segments = self.index.get("segments", ())
+        if not isinstance(segments, list):
+            raise ValueError("replay index segments must be a list")
+        frame_count = 0
+        for segment in segments:
+            if not isinstance(segment, dict):
+                raise ValueError("replay index contains a malformed segment entry")
+            arrays = self._load_segment(segment)
+            frame_count += len(arrays["step_index"])
+        expected = self.manifest.metadata.get("frame_count")
+        if expected is not None and int(expected) != frame_count:
+            raise ValueError(
+                f"replay manifest frame_count={expected} does not match segments={frame_count}"
+            )
 
     def _find_row(self, step_index: int) -> tuple[dict[str, np.ndarray], int, bool]:
         step_index = int(step_index)
@@ -295,6 +361,7 @@ class EpisodeReader:
         return self.read_frame(step_index).state_before
 
     def summary(self) -> dict[str, Any]:
+        self.validate_integrity()
         return {
             "format_version": self.manifest.format_version,
             "environment": self.manifest.environment,

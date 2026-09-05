@@ -7,7 +7,6 @@ the lightweight repository environment.
 
 from __future__ import annotations
 
-from dataclasses import replace
 import re
 from typing import Any, Iterable
 
@@ -19,6 +18,7 @@ _ENV_PATTERN = re.compile(r"env_\.\*|env_\*")
 
 def _normalize_path(path: object) -> str:
     value = str(path or "").strip()
+    value = value.replace("/World/{ENV_REGEX_NS}", "/World/envs/env_0")
     value = value.replace("{ENV_REGEX_NS}", "/World/envs/env_0")
     value = _ENV_PATTERN.sub("env_0", value)
     while "//" in value:
@@ -39,6 +39,14 @@ def _configured_path(obj: Any) -> str:
 def _physx_paths(obj: Any) -> tuple[str, ...]:
     view = getattr(obj, "root_physx_view", None)
     values = getattr(view, "prim_paths", ()) or ()
+    return tuple(path for path in (_normalize_path(item) for item in values) if path)
+
+
+def _link_paths(obj: Any) -> tuple[str, ...]:
+    view = getattr(obj, "root_physx_view", None)
+    values = getattr(view, "link_paths", ()) or ()
+    if values and isinstance(values[0], (list, tuple)):
+        values = values[0]
     return tuple(path for path in (_normalize_path(item) for item in values) if path)
 
 
@@ -89,6 +97,19 @@ class TargetResolver:
         if scene is None:
             raise ValueError("base_env has no scene")
         self.base_env = base_env
+        self.num_envs = int(
+            getattr(base_env, "num_envs", getattr(scene, "num_envs", 1))
+        )
+        if self.num_envs != 1:
+            raise ValueError("physics replay currently supports num_envs=1 only")
+        self.stage = getattr(base_env, "stage", None)
+        if self.stage is None:
+            try:
+                import omni.usd
+
+                self.stage = omni.usd.get_context().get_stage()
+            except (ImportError, AttributeError, RuntimeError):
+                self.stage = None
         self._articulations = dict(getattr(scene, "articulations", {}) or {})
         self._rigid_objects = dict(getattr(scene, "rigid_objects", {}) or {})
 
@@ -102,6 +123,20 @@ class TargetResolver:
         return self._resolve_one(spec, target_id="target_0")
 
     def _resolve_one(self, spec: TargetSpec, *, target_id: str) -> ResolvedTarget:
+        if spec.env_id >= self.num_envs:
+            raise ValueError(
+                f"env_id={spec.env_id} is outside the available environment range"
+            )
+        if self.stage is not None and hasattr(self.stage, "GetPrimAtPath"):
+            try:
+                prim = self.stage.GetPrimAtPath(spec.prim_path)
+                valid = bool(prim is not None and prim.IsValid())
+            except (AttributeError, RuntimeError, TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"could not inspect USD Prim path {spec.prim_path!r}: {exc}"
+                ) from exc
+            if not valid:
+                raise ValueError(f"Prim path {spec.prim_path!r} does not exist in the USD stage")
         matches: list[ResolvedTarget] = []
         for name, obj in self._articulations.items():
             match = self._resolve_articulation(spec, target_id, str(name), obj)
@@ -135,6 +170,7 @@ class TargetResolver:
         roots = _candidate_roots(obj)
         configured = _configured_path(obj)
         physx_paths = _physx_paths(obj)
+        link_paths = _link_paths(obj)
         is_root = bool(configured and path == configured) or (
             not configured and path in roots
         )
@@ -145,6 +181,8 @@ class TargetResolver:
             descendant_of_root = any(_is_descendant(path, root) for root in roots)
             if not descendant_of_root and path not in physx_paths:
                 return None
+            if link_paths and path not in link_paths:
+                return None
             body_index = _body_index(obj, path)
             if body_index is None:
                 return None
@@ -152,7 +190,11 @@ class TargetResolver:
 
         data = getattr(obj, "data", None)
         supported = self._supported_channels(data, kind)
-        writable = tuple(channel for channel in spec.channels if channel in self._writable_channels(data, kind))
+        writable = tuple(
+            channel
+            for channel in spec.channels
+            if channel in self._writable_channels(obj, data, kind)
+        )
         return ResolvedTarget(
             target_id=target_id,
             spec=spec,
@@ -163,7 +205,11 @@ class TargetResolver:
             supported_channels=supported,
             writable_channels=writable,
             depth=path.count("/"),
-            metadata={"configured_path": configured, "physx_paths": list(physx_paths)},
+            metadata={
+                "configured_path": configured,
+                "physx_paths": list(physx_paths),
+                "link_paths": list(link_paths),
+            },
         )
 
     def _resolve_rigid_object(
@@ -180,7 +226,9 @@ class TargetResolver:
         data = getattr(obj, "data", None)
         supported = self._supported_channels(data, "rigid_object")
         writable = tuple(
-            channel for channel in spec.channels if channel in self._writable_channels(data, "rigid_object")
+            channel
+            for channel in spec.channels
+            if channel in self._writable_channels(obj, data, "rigid_object")
         )
         return ResolvedTarget(
             target_id=target_id,
@@ -220,15 +268,23 @@ class TargetResolver:
         return tuple(channels)
 
     @staticmethod
-    def _writable_channels(data: Any, kind: str) -> tuple[str, ...]:
+    def _writable_channels(obj: Any, data: Any, kind: str) -> tuple[str, ...]:
         if data is None:
             return ()
         channels: list[str] = []
         if kind in {"articulation", "rigid_object"}:
-            if _has_attrs(data, "root_pos_w", "root_quat_w"):
+            if _has_attrs(data, "root_pos_w", "root_quat_w") and callable(
+                getattr(obj, "write_root_pose_to_sim", None)
+            ):
                 channels.append("pose")
-            if _has_attrs(data, "root_lin_vel_w", "root_ang_vel_w"):
+            if _has_attrs(data, "root_lin_vel_w", "root_ang_vel_w") and callable(
+                getattr(obj, "write_root_velocity_to_sim", None)
+            ):
                 channels.append("velocity")
-        if kind == "articulation" and _has_attrs(data, "joint_pos", "joint_vel"):
+        if (
+            kind == "articulation"
+            and _has_attrs(data, "joint_pos", "joint_vel")
+            and callable(getattr(obj, "write_joint_state_to_sim", None))
+        ):
             channels.append("joint_state")
         return tuple(channels)

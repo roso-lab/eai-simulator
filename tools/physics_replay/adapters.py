@@ -17,6 +17,9 @@ def _backend_array(value: Any, reference: Any, *, batch: bool = True) -> Any:
     array = np.asarray(value)
     if batch:
         array = array[None, ...]
+    reference_device = getattr(reference, "device", None)
+    if reference_device is None:
+        return array
     try:
         import torch
     except ModuleNotFoundError:
@@ -24,18 +27,19 @@ def _backend_array(value: Any, reference: Any, *, batch: bool = True) -> Any:
     kwargs: dict[str, Any] = {}
     if getattr(reference, "dtype", None) is not None:
         kwargs["dtype"] = reference.dtype
-    if getattr(reference, "device", None) is not None:
-        kwargs["device"] = reference.device
+    kwargs["device"] = reference_device
     return torch.as_tensor(array, **kwargs)
 
 
 def _env_ids(env_id: int, reference: Any) -> Any:
+    reference_device = getattr(reference, "device", None)
+    if reference_device is None:
+        return np.asarray([env_id], dtype=np.int64)
     try:
         import torch
     except ModuleNotFoundError:
         return np.asarray([env_id], dtype=np.int64)
-    device = getattr(reference, "device", None)
-    return torch.as_tensor([env_id], dtype=torch.long, device=device)
+    return torch.as_tensor([env_id], dtype=torch.long, device=reference_device)
 
 
 def _channel_name(key: str) -> str:
@@ -112,8 +116,9 @@ class IsaacLabStateAdapter:
 
     def _joint_effort(self, obj: Any, target: Any) -> np.ndarray:
         for name in ("applied_torque", "joint_effort", "computed_torque"):
-            if hasattr(getattr(obj, "data", None), name):
-                effort = _to_numpy(getattr(obj.data, name)[target.spec.env_id]).reshape(-1)
+            value = getattr(getattr(obj, "data", None), name, None)
+            if value is not None:
+                effort = _to_numpy(value[target.spec.env_id]).reshape(-1)
                 if target.joint_indices:
                     effort = effort[list(target.joint_indices)]
                 return effort
@@ -143,7 +148,6 @@ class IsaacLabStateAdapter:
     def _write_root(self, obj: Any, target: Any, values: Mapping[str, np.ndarray]) -> None:
         if target.kind == "link":
             raise ValueError(f"link target {target.target_id} has no writable root API")
-        data = getattr(obj, "data", None)
         env_id = int(target.spec.env_id)
         if f"{target.target_id}/pose" in values:
             pose = np.asarray(values[f"{target.target_id}/pose"])

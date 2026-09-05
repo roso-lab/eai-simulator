@@ -80,13 +80,71 @@ class PhysicsReplayer:
     def _validate_reader(self, reader: EpisodeReader) -> None:
         expected_ids = tuple(str(item.target_id) for item in self.targets)
         manifest_ids = tuple(str(item.get("target_id", "")) for item in reader.manifest.targets)
-        if manifest_ids and manifest_ids != expected_ids:
+        if manifest_ids != expected_ids:
             raise ValueError(
                 f"replay target mismatch: artifact={manifest_ids!r}, session={expected_ids!r}"
             )
+        environment = reader.manifest.environment
+        artifact_num_envs = environment.get("num_envs")
+        if artifact_num_envs is not None and int(artifact_num_envs) != 1:
+            raise ValueError("replay artifact must contain exactly one environment")
+        for target in self.targets:
+            artifact = next(
+                (item for item in reader.manifest.targets if str(item.get("target_id")) == str(target.target_id)),
+                None,
+            )
+            if artifact is None:
+                raise ValueError(f"replay target mismatch: missing {target.target_id}")
+            spec = getattr(target, "spec", None)
+            prim_path = getattr(spec, "prim_path", None)
+            recorded_prim_path = artifact.get("prim_path")
+            if prim_path and recorded_prim_path and prim_path != recorded_prim_path:
+                raise ValueError(
+                    f"replay target {target.target_id!r} Prim mismatch: "
+                    f"artifact={recorded_prim_path!r}, session={prim_path!r}"
+                )
+            checks = (
+                ("kind", getattr(target, "kind", None)),
+                ("collection_name", getattr(target, "collection_name", None)),
+                ("root_path", getattr(target, "root_path", None)),
+                ("body_index", getattr(target, "body_index", None)),
+                ("joint_indices", getattr(target, "joint_indices", None)),
+            )
+            for field_name, current in checks:
+                recorded = artifact.get(field_name)
+                if recorded is None or current is None:
+                    continue
+                if field_name == "joint_indices":
+                    recorded = tuple(recorded)
+                    current = tuple(current)
+                if recorded != current:
+                    raise ValueError(
+                        f"replay target {target.target_id!r} {field_name} mismatch: "
+                        f"artifact={recorded!r}, session={current!r}"
+                    )
+            recorded_channels = tuple(artifact.get("channels", ()))
+            current_channels = tuple(getattr(spec, "channels", ()))
+            if recorded_channels and current_channels and recorded_channels != current_channels:
+                raise ValueError(
+                    f"replay target {target.target_id!r} channel mismatch: "
+                    f"artifact={recorded_channels!r}, session={current_channels!r}"
+                )
+            recorded_writable = tuple(artifact.get("writable_channels", ()))
+            current_writable = tuple(getattr(target, "writable_channels", ()))
+            if recorded_writable and current_writable and recorded_writable != current_writable:
+                raise ValueError(
+                    f"replay target {target.target_id!r} writable channel mismatch: "
+                    f"artifact={recorded_writable!r}, session={current_writable!r}"
+                )
+            recorded_env_id = artifact.get("env_id")
+            current_env_id = getattr(spec, "env_id", None)
+            if recorded_env_id is not None and current_env_id is not None and int(recorded_env_id) != int(current_env_id):
+                raise ValueError(
+                    f"replay target {target.target_id!r} env_id mismatch: "
+                    f"artifact={recorded_env_id}, session={current_env_id}"
+                )
         if self.session is None:
             return
-        environment = reader.manifest.environment
         session_name = str(getattr(self.session, "env_name", ""))
         artifact_name = str(environment.get("env_name", ""))
         if artifact_name and session_name and artifact_name != session_name:
@@ -98,17 +156,16 @@ class PhysicsReplayer:
         if artifact_selection and current_selection is not None:
             if str(artifact_selection) != stable_hash(current_selection):
                 raise ValueError("replay selection configuration mismatch")
-        expected_targets = {str(item.get("target_id")): item for item in reader.manifest.targets}
-        for target in self.targets:
-            artifact = expected_targets.get(str(target.target_id))
-            if artifact is None:
-                continue
-            prim_path = getattr(getattr(target, "spec", None), "prim_path", None)
-            if prim_path and artifact.get("prim_path") and prim_path != artifact["prim_path"]:
-                raise ValueError(
-                    f"replay target {target.target_id!r} Prim mismatch: "
-                    f"artifact={artifact['prim_path']!r}, session={prim_path!r}"
-                )
+        session_num_envs = getattr(self.session, "num_envs", None)
+        if session_num_envs is not None and artifact_num_envs is not None:
+            if int(session_num_envs) != int(artifact_num_envs):
+                raise ValueError("replay num_envs mismatch")
+        base_env = getattr(self.session, "base_env", None)
+        artifact_physics_dt = environment.get("physics_dt")
+        session_physics_dt = getattr(base_env, "physics_dt", None)
+        if artifact_physics_dt is not None and session_physics_dt is not None:
+            if not np.isclose(float(artifact_physics_dt), float(session_physics_dt), rtol=0.0, atol=1e-12):
+                raise ValueError("replay physics_dt mismatch")
 
     def _restore_environment_buffers(self, step_index: int) -> None:
         if self.session is None:
@@ -126,8 +183,29 @@ class PhysicsReplayer:
             except (IndexError, TypeError, RuntimeError, ValueError):
                 pass
 
+    def _validate_live_schema(self, reader: EpisodeReader) -> None:
+        for target in self.targets:
+            target_id = str(target.target_id)
+            requested = tuple(getattr(target, "writable_channels", ()))
+            keys = tuple(f"{target_id}/{channel}" for channel in requested)
+            if not keys:
+                continue
+            actual = self.adapter.read(target, keys)
+            for key in keys:
+                schema = reader.manifest.fields.get(f"before/{key}")
+                if schema is None:
+                    raise ValueError(f"replay manifest is missing schema for {key}")
+                if key not in actual:
+                    raise ValueError(f"replay adapter did not return {key}")
+                array = np.asarray(actual[key])
+                if tuple(array.shape) != tuple(schema.get("shape", ())):
+                    raise ValueError(f"replay live schema shape mismatch for {key}")
+                if str(array.dtype) != str(schema.get("dtype")):
+                    raise ValueError(f"replay live schema dtype mismatch for {key}")
+
     def restore_from_reader(self, reader: EpisodeReader, step_index: int) -> RestoreReport:
         self._validate_reader(reader)
+        self._validate_live_schema(reader)
         frame = reader.read_frame(step_index)
         channel_errors: dict[str, dict[str, float | bool]] = {}
         unrestored: list[str] = []
@@ -145,7 +223,7 @@ class PhysicsReplayer:
                 else:
                     unrestored.append(key)
             requested = tuple(getattr(getattr(target, "spec", None), "channels", writable_channels))
-            missing_writable = set(requested) & _WRITABLE_CHANNELS - set(writable_channels)
+            missing_writable = (set(requested) & _WRITABLE_CHANNELS) - set(writable_channels)
             if missing_writable:
                 unsupported.extend(
                     f"{target_id}/{channel}" for channel in sorted(missing_writable)
@@ -192,7 +270,9 @@ class PhysicsReplayer:
         )
 
     def validate_session(self, reader: EpisodeReader) -> dict[str, Any]:
+        reader.validate_integrity()
         self._validate_reader(reader)
+        self._validate_live_schema(reader)
         return {
             "valid": True,
             "environment": reader.manifest.environment,

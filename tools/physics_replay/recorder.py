@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import json
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -81,12 +80,15 @@ class ReplayRecorder:
         self._pending: _PendingFrame | None = None
         self._closed = False
         self._reader: EpisodeReader | None = None
-        step_dt = float(getattr(getattr(session, "base_env", None), "step_dt", 0.0))
+        base_env = getattr(session, "base_env", None)
+        step_dt = float(getattr(base_env, "step_dt", 0.0))
+        physics_dt = float(getattr(base_env, "physics_dt", step_dt))
         environment = {
             "env_name": str(getattr(session, "env_name", "unknown")),
             "num_envs": int(getattr(session, "num_envs", 1)),
             "env_id": 0,
-            "physics_dt": step_dt,
+            "physics_dt": physics_dt,
+            "step_dt": step_dt,
             "device": str(getattr(session, "device", "unknown")),
         }
         if session is not None:

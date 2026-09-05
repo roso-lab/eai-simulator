@@ -84,6 +84,76 @@ def test_restore_rejects_target_mismatch(tmp_path):
         ).restore_from_reader(_reader(tmp_path), 0)
 
 
+def test_restore_rejects_missing_artifact_targets(tmp_path):
+    manifest = Manifest(
+        environment={"env_name": "test", "num_envs": 1}, targets=[]
+    )
+    writer = EpisodeWriter(tmp_path / "episode", manifest)
+    value = np.arange(7, dtype=np.float32)
+    writer.append(
+        FrameRecord(0, 0.0, {"target_0/pose": value}, {"target_0/pose": value}, {})
+    )
+    writer.close()
+    target = SimpleNamespace(
+        target_id="target_0", writable_channels=("pose",), depth=0
+    )
+    with pytest.raises(ValueError, match="target mismatch"):
+        PhysicsReplayer(
+            FakeAdapter(), session=None, targets=[target]
+        ).restore_from_reader(EpisodeReader(tmp_path / "episode"), 0)
+
+
+def test_restore_rejects_target_kind_mismatch(tmp_path):
+    reader = _reader(tmp_path)
+    reader.manifest.targets[0]["kind"] = "link"
+    target = SimpleNamespace(
+        target_id="target_0",
+        writable_channels=("pose",),
+        depth=0,
+        kind="articulation",
+        spec=SimpleNamespace(prim_path="/World/envs/env_0/robot"),
+    )
+    with pytest.raises(ValueError, match="kind"):
+        PhysicsReplayer(
+            FakeAdapter(), session=None, targets=[target]
+        ).restore_from_reader(reader, 0)
+
+
+def test_restore_rejects_target_prim_path_mismatch(tmp_path):
+    reader = _reader(tmp_path)
+    reader.manifest.targets[0]["prim_path"] = "/World/envs/env_0/recorded_robot"
+    target = SimpleNamespace(
+        target_id="target_0",
+        writable_channels=("pose",),
+        depth=0,
+        spec=SimpleNamespace(
+            channels=("pose",), prim_path="/World/envs/env_0/current_robot"
+        ),
+    )
+    with pytest.raises(ValueError, match="Prim mismatch"):
+        PhysicsReplayer(
+            FakeAdapter(), session=None, targets=[target]
+        ).restore_from_reader(reader, 0)
+
+
+def test_restore_rejects_live_schema_mismatch(tmp_path):
+    target = SimpleNamespace(
+        target_id="target_0",
+        writable_channels=("pose",),
+        depth=0,
+        spec=SimpleNamespace(channels=("pose",), prim_path="/World/envs/env_0/robot"),
+    )
+
+    class WrongShapeAdapter(FakeAdapter):
+        def read(self, target, channels):
+            return {key: np.zeros(6, dtype=np.float32) for key in channels}
+
+    with pytest.raises(ValueError, match="schema"):
+        PhysicsReplayer(
+            WrongShapeAdapter(), session=None, targets=[target]
+        ).restore_from_reader(_reader(tmp_path), 0)
+
+
 def test_restore_rejects_selection_configuration_mismatch(tmp_path):
     manifest = Manifest(
         environment={
@@ -94,7 +164,6 @@ def test_restore_rejects_selection_configuration_mismatch(tmp_path):
         targets=[],
     )
     writer = EpisodeWriter(tmp_path / "episode", manifest)
-    value = np.arange(7, dtype=np.float32)
     writer.append(FrameRecord(0, 0.0, {}, {}, {}))
     writer.close()
     reader = EpisodeReader(tmp_path / "episode")
