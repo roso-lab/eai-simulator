@@ -85,13 +85,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Keep the Factory session open after the fact run for assignment branching.",
     )
     parser.add_argument(
-        "--branch-checkpoint-dir",
+        "--branch-checkpoint-dir", "--checkpoint-dir",
         default="tmp/replay/fire_rescue_branch",
-        help="Directory for the interactive assignment checkpoint.",
+        help="Output root for task/native checkpoints or interactive assignment branches.",
     )
     parser.add_argument("--replay-native", action="store_true", help="Native Isaac checkpoint toolbar; no HTTP dashboard.")
+    parser.add_argument("--replay-exact", action="store_true", help="Zero-tolerance physical replay audit; unsupported state or any measured deviation fails, not a zero-error guarantee.")
     parser.add_argument("--replay-restore-tolerance", type=float, default=1e-5, help="Maximum checkpoint read-back error.")
     parser.add_argument("--replay-native-test-steps", type=int, default=0, help="Opt-in native checkpoint round-trip test; exit after the comparison.")
+    parser.add_argument("--task-checkpoints", action="store_true", help="Task-owned automatic checkpoints; supports unattended headless trials.")
+    parser.add_argument("--assignment-policy", default="emos", help="emos, or a trusted module:assign callback for task assignment.")
     return parser
 
 
@@ -107,12 +110,23 @@ def validate_fire_rescue_cli_args(args: argparse.Namespace) -> None:
 
     import math
 
-    if bool(getattr(args, "replay_native", False)):
+    policy = getattr(args, "assignment_policy", "emos")
+    if getattr(args, "replay_exact", False) and not (getattr(args, "replay_native", False) or getattr(args, "task_checkpoints", False)):
+        raise ValueError("--replay-exact requires --replay-native or --task-checkpoints")
+    if getattr(args, "task_checkpoints", False) and getattr(args, "trials", 1) != 1:
+        raise ValueError("task checkpoints require --trials 1; use a fresh simulator process for each trial")
+    if policy != "emos":
+        from algorithm.emos.policy import load_assignment_policy
+
+        load_assignment_policy(policy)
+        if getattr(args, "replay_local_fallback", False):
+            raise ValueError("custom assignment policy cannot be combined with --replay-local-fallback")
+    if bool(getattr(args, "replay_native", False) or getattr(args, "task_checkpoints", False)):
         if getattr(args, "branch_interactive", False) or getattr(args, "replay_verify_dir", ""):
             raise ValueError("--replay-native cannot be combined with legacy branch/verification modes")
         if getattr(args, "device", "cpu") != "cpu" or getattr(args, "num_envs", 1) != 1:
             raise ValueError("native high-precision checkpoints require --device cpu --num-envs 1")
-        if getattr(args, "headless", False) and not getattr(args, "replay_native_test_steps", 0):
+        if getattr(args, "headless", False) and not (getattr(args, "replay_native_test_steps", 0) or getattr(args, "task_checkpoints", False)):
             raise ValueError("native replay requires a visible Isaac window; remove --headless")
     if getattr(args, "replay_native_test_steps", 0) < 0:
         raise ValueError("--replay-native-test-steps must be non-negative")
@@ -147,11 +161,16 @@ def main() -> None:
         replay_verify_steps=max(1, int(args.replay_verify_steps)),
         replay_local_fallback=bool(args.replay_local_fallback),
         branch_interactive=bool(args.branch_interactive),
-        branch_checkpoint_dir=Path(args.branch_checkpoint_dir) if args.branch_interactive or args.replay_native else None,
+        branch_checkpoint_dir=Path(args.branch_checkpoint_dir) if args.branch_interactive or args.replay_native or args.task_checkpoints else None,
         replay_native=bool(args.replay_native),
+        replay_exact=bool(args.replay_exact),
         replay_restore_tolerance=args.replay_restore_tolerance,
         replay_native_test_steps=args.replay_native_test_steps,
+        task_checkpoints=bool(args.task_checkpoints),
+        assignment_policy=str(args.assignment_policy),
     )
+    from functools import partial
+
     launch_config = SimulatorLaunchConfig(
         env=args.env,
         num_envs=args.num_envs,
@@ -159,7 +178,7 @@ def main() -> None:
         headless=bool(args.headless),
         enable_ros_bridge_extension=False,
         disable_orsus_ros_env=True,
-        env_cfg_hook=configure_fire_rescue_env_cfg,
+        env_cfg_hook=partial(configure_fire_rescue_env_cfg, exact=bool(args.replay_exact)),
     )
 
     with open_simulator_session(launch_config) as sim:
@@ -167,6 +186,9 @@ def main() -> None:
             run_robot_baseline_experiment(sim, demo_config)
         except Exception:
             traceback.print_exc()
+            import omni.kit.app
+
+            omni.kit.app.get_app().post_quit(1)
             raise
 
 

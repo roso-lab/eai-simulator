@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+from contextlib import ExitStack
 import time as wall_time
 from typing import Any
 
@@ -46,6 +47,31 @@ class NativeReplayScope:
         self.clock = SimulationClock(step_dt)
         self.window = None
         self._original_clocks = []
+        self._cleanup = ExitStack()
+
+    def own(self, cleanup: Any) -> None:
+        self._cleanup.callback(cleanup)
+
+    def enable_deterministic_algorithms(self) -> None:
+        import torch
+
+        previous = (torch.are_deterministic_algorithms_enabled(), torch.is_deterministic_algorithms_warn_only_enabled(),
+                    torch.backends.cudnn.benchmark, torch.backends.cudnn.deterministic,
+                    torch.backends.cuda.matmul.allow_tf32, torch.backends.cudnn.allow_tf32)
+
+        def restore() -> None:
+            torch.use_deterministic_algorithms(previous[0], warn_only=previous[1])
+            torch.backends.cudnn.benchmark = previous[2]
+            torch.backends.cudnn.deterministic = previous[3]
+            torch.backends.cuda.matmul.allow_tf32 = previous[4]
+            torch.backends.cudnn.allow_tf32 = previous[5]
+
+        self.own(restore)
+        torch.use_deterministic_algorithms(True)
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cuda.matmul.allow_tf32 = False
+        torch.backends.cudnn.allow_tf32 = False
 
     def __enter__(self) -> "NativeReplayScope":
         for name in ("experiment_loop", "navigation", "obstacle_rescue", "ur5", "sim_helpers"):
@@ -63,19 +89,48 @@ class NativeReplayScope:
             if self.window is not None:
                 self.window.close()
         finally:
-            for module, original in self._original_clocks:
-                module.time = original
+            try:
+                self._cleanup.close()
+            finally:
+                for module, original in self._original_clocks:
+                    module.time = original
+
+
+def validate_native_fire_rescue_checkpoint(nav: Any, obstacle: Any, ur5: Any) -> None:
+    from .replay import validate_fire_rescue_checkpoint
+
+    try:
+        validate_fire_rescue_checkpoint(nav, obstacle, ur5, allow_extinguisher_carry=True)
+    except ValueError as exc:
+        raise CheckpointBusy(str(exc)) from exc
+
+
+def build_ur5_replay_component(ur5: Any) -> ObjectStateComponent:
+    from .ur5 import UR5AutoPickController
+
+    return ObjectStateComponent("fire_rescue.ur5_full", ur5, exclude={
+        "_env", "_ext_drop_callback", "_interrupt_rescue_callback",
+    }, priority=60, value_types=(UR5AutoPickController,))
+
+
+def build_emos_replay_component(emos: Any) -> ObjectStateComponent:
+    return ObjectStateComponent("fire_rescue.emos", emos, exclude={
+        "_env", "_get_pos", "_push_chat", "_scenario", "_get_group_discussion_llm_kwargs", "_rescue_constraint_fn",
+        "_active_rescue_manager", "_thread", "_lock", "_result_queue", "_log_dir", "_disc_log_dir",
+        "_assignment_policy",
+    }, priority=65)
 
 
 def build_native_replay(
     session: Any, output_dir: Any, *, scope: NativeReplayScope, nav: Any,
     obstacle: Any, ur5: Any, emos: Any, light: Any, runtime_component: Any,
     tolerance: float = 1e-5, create_window: bool = True,
+    task_checkpoints: Any = None,
+    exact: bool = False,
 ) -> LiveReplayController:
-    from .replay import NavigationReplayComponent, validate_fire_rescue_checkpoint
+    from .replay import NavigationReplayComponent
     from .navigation import RobotTask
     from .settings import OBSTACLE_PRIM_PATH
-    from .ur5 import UR5AutoPickController
     from tools.physics_replay.stage_state import SleepStateComponent, StageStateComponent
 
     def workers_idle() -> None:
@@ -110,17 +165,39 @@ def build_native_replay(
 
     def safe_checkpoint() -> None:
         no_workers()
-        try:
-            validate_fire_rescue_checkpoint(nav, obstacle, ur5)
-        except ValueError as exc:
-            raise CheckpointBusy(str(exc)) from exc
+        validate_native_fire_rescue_checkpoint(nav, obstacle, ur5)
+        if exact:
+            for path in ("/World/ObstacleProxy", "/World/SM_FireExtinguisherProxy"):
+                if stage_component.stage.GetPrimAtPath(path).IsValid():
+                    raise ValueError(f"non-physical visual proxy is not supported by exact replay: {path}")
+            if getattr(ur5, "is_carrying_extinguisher", False) and not getattr(ur5, "_ext_joint_path", None):
+                raise ValueError("exact replay requires a physical attachment, not logical/visual carrying")
+
+    physics_trace = None
+    if exact:
+        from tools.physics_replay.physics_trace import PhysicsStepTrace, PhysxMeasurementReader
+
+        if not session.base_env.cfg.sim.physx.enable_enhanced_determinism:
+            raise ValueError("exact replay requires enhanced determinism configured before scene creation")
+        resources = getattr(session.base_env, "replay_state_resources", {})
+        missing_sensors = [name for name in getattr(session.base_env.scene, "sensors", {})
+                           if f"sensor/{name}" not in resources]
+        if missing_sensors:
+            raise ValueError(f"exact replay needs explicit sensor-history adapters: {missing_sensors}")
+        if getattr(session.base_env.cfg, "events", None) and "event_manager" not in resources:
+            raise ValueError("exact replay needs an event_manager state adapter for configured events")
+        scope.enable_deterministic_algorithms()
+        ur5.physical_replay = True
+        physics_trace = PhysicsStepTrace(session.base_env.sim, PhysxMeasurementReader(session.base_env),
+                                        session.base_env.cfg.decimation)
+        scope.own(physics_trace.close)
 
     runtime_paths = (
         OBSTACLE_PRIM_PATH, "/World/ObstacleProxy", "/World/SM_FireExtinguisherProxy",
         "/World/envs/env_0/extinguisher_grab_joint",
         *(f"/World/Factory_Hazard_{index}" for index in range(1, 6)),
     )
-    stage_component = StageStateComponent(session, runtime_paths=runtime_paths, tolerance=tolerance)
+    stage_component = StageStateComponent(session, runtime_paths=runtime_paths, tolerance=0.0 if exact else tolerance)
     components = [
         stage_component,
         SleepStateComponent(stage_component),
@@ -137,16 +214,13 @@ def build_native_replay(
             "base_env", "nav", "navigator", "push_chat", "update_rescue_state", "stage", "sim_app", "ur5",
             "_rescue_llm_kwargs_getter", "_approval_queue",
         }, priority=50),
-        ObjectStateComponent("fire_rescue.ur5_full", ur5, exclude={
-            "_env", "_ext_drop_callback", "_interrupt_rescue_callback",
-        }, priority=60, value_types=(UR5AutoPickController,)),
-        ObjectStateComponent("fire_rescue.emos", emos, exclude={
-            "_env", "_get_pos", "_push_chat", "_scenario", "_get_group_discussion_llm_kwargs", "_rescue_constraint_fn",
-            "_active_rescue_manager", "_thread", "_lock", "_result_queue", "_log_dir", "_disc_log_dir",
-        }, priority=65),
+        build_ur5_replay_component(ur5),
+        build_emos_replay_component(emos),
         ObjectStateComponent("fire_rescue.light", light, exclude={"_color_attr"}, priority=66),
-        ActuatorStateComponent(session.base_env),
+        ActuatorStateComponent(session.base_env, tolerance=0.0 if exact else tolerance),
     ]
+    if task_checkpoints is not None:
+        components.append(task_checkpoints)
     if nav._nav_session is not None:
         components.extend((
             ObjectStateComponent("fire_rescue.planner_tracking", nav._nav_session, exclude={
@@ -157,6 +231,7 @@ def build_native_replay(
     backend = LiveCheckpointBackend(
         session, output_dir, components=components, tolerance=tolerance,
         safety_check=safe_checkpoint, restore_check=workers_idle,
+        exact=exact, physics_trace=physics_trace,
     )
     controller = LiveReplayController(backend)
     if create_window:

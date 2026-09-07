@@ -57,7 +57,7 @@ class NativeReplayWindow:
                         )
                     )
                 else:
-                    ui.Label("No checkpoint yet. F5 saves at the next safe boundary.", height=26)
+                    ui.Label("Task milestones save automatically. F5 adds a manual checkpoint.", height=26)
                 self._detail = ui.Label("", word_wrap=True, height=54)
                 ui.Button("Verify 20 steps (runs twice, then pauses)", clicked_fn=lambda: self.controller.request("verify", 20), height=26)
                 ui.Label(

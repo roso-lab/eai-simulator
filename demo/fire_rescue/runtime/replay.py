@@ -118,11 +118,42 @@ def _active_pick(value: Any) -> bool:
     return bool(value is not None and getattr(value, "active", False))
 
 
-def _ur5_is_active(ur5: Any) -> bool:
-    return any(
+def _extinguisher_is_stably_carried(ur5: Any) -> bool:
+    pick = getattr(ur5, "_ext_pick", None)
+    robot_name = getattr(ur5, "_ext_robot_name", "")
+    return all(
         (
             bool(getattr(ur5, "_ext_active", False)),
+            bool(getattr(ur5, "_ext_grabbed", False)),
             bool(getattr(ur5, "is_carrying_extinguisher", False)),
+            bool(robot_name),
+            getattr(pick, "robot_name", None) == robot_name,
+            bool(getattr(ur5, "_ext_target_prim", None)),
+            bool(getattr(pick, "grabbed", False)),
+            bool(getattr(pick, "carry_pose", None)),
+            not _active_pick(pick),
+        )
+    )
+
+
+def _ur5_is_active(ur5: Any, *, allow_extinguisher_carry: bool = False) -> bool:
+    extinguisher_active = any(
+        (
+            bool(getattr(ur5, "_ext_active", False)),
+            bool(getattr(ur5, "_ext_grabbed", False)),
+            bool(getattr(ur5, "is_carrying_extinguisher", False)),
+            _active_pick(getattr(ur5, "_ext_pick", None)),
+        )
+    )
+    if allow_extinguisher_carry and _extinguisher_is_stably_carried(ur5):
+        extinguisher_active = False
+    return any(
+        (
+            extinguisher_active,
+            bool(getattr(ur5, "_ext_interrupt_mode", False)),
+            bool(getattr(ur5, "_ext_prealign_pending", False)),
+            bool(getattr(ur5, "_generic_grab_active", False)),
+            getattr(ur5, "scout1_arm_stage", 0) == 1,
             _active_pick(getattr(ur5, "_button_press_pick", None)),
             _active_pick(getattr(ur5, "_obstacle_rescue_reach_pick", None)),
             _active_pick(getattr(ur5, "scout_1_pick", None)),
@@ -131,14 +162,16 @@ def _ur5_is_active(ur5: Any) -> bool:
     )
 
 
-def validate_fire_rescue_checkpoint(nav: Any, obstacle: Any, ur5: Any) -> None:
+def validate_fire_rescue_checkpoint(
+    nav: Any, obstacle: Any, ur5: Any, *, allow_extinguisher_carry: bool = False,
+) -> None:
     if getattr(nav, "_pending_plan", None) is not None:
         raise ValueError("cannot checkpoint Fire Rescue while a pending plan exists")
     phase = getattr(getattr(obstacle, "state", None), "phase", None)
     phase_name = str(getattr(phase, "name", phase or ""))
     if phase_name in _DYNAMIC_OBSTACLE_PHASES:
         raise ValueError(f"cannot checkpoint dynamic obstacle phase {phase_name}")
-    if _ur5_is_active(ur5):
+    if _ur5_is_active(ur5, allow_extinguisher_carry=allow_extinguisher_carry):
         raise ValueError("cannot checkpoint while a UR5 controller is active")
 
 

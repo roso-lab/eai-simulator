@@ -46,6 +46,24 @@ result = manager.poll()
 pip install -r algorithm/emos/requirements.txt
 ~~~
 
+## 不修改任务主循环的算法替换
+
+Fire Rescue 支持 `--assignment-policy emos`（默认）或可信的 `模块:assign` 函数，
+例如 `algorithm.emos.example_policy:assign`。只需实现
+`assign(request: AssignmentRequest) -> dict[str, str]`，返回“机器人名 → 子任务 id”。
+`policy.py` 定义数据请求和输出校验，`example_policy.py` 提供无 LLM 的确定性示例。
+目标坐标、执行、成功条件和逻辑检查点仍由任务定义，无需为新算法改任务 `main`。
+
+请求在仿真线程采集，再把深拷贝交给后台算法线程，不暴露实时 simulator 句柄。
+未知 id、违反能力约束的结果和算法异常会明确报错，不偷偷使用 EMOS 启发式回退；
+救援重规划也使用所选算法。允许部分分配，但未分配任务不会自动补齐。
+程序化接入可在首次触发前调用 `manager.set_assignment_policy(callback, name=...)`。
+
+第一版接口要求无状态函数，拒绝闭包/可调用对象，但无法检测隐藏的模块全局可变状态。
+算法内部历史、模型记忆需要独立的状态适配，外部服务历史也不在该接口范围内。
+原生任务回溯会保存 EMOS 调度状态和请求副本，固定回调作为代码资源保留，不序列化。
+任务自动检查点与无界面单轮命令见 Fire Rescue README。
+
 ## brain 模块
 
 algorithm/emos/brain/ 提供 EMOS 使用的 LLM 讨论、请求门控、解析以及技能和动作辅助模块。它是库代码，不是独立命令行程序；调用方应通过 EMOS manager 使用，不要直接启动本目录下的文件。

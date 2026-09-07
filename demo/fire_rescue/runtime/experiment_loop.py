@@ -186,8 +186,8 @@ def run_robot_factory_platform(
                              nav_session=nav_bridge.session)
     ur5 = UR5Manager(
         base_env,
-        enable_extinguisher_visual_follow=not bool(getattr(args_cli, "headless", False)),
-        enable_extinguisher_stage_attach=not bool(getattr(args_cli, "headless", False)),
+        enable_extinguisher_visual_follow=native_mode or not bool(getattr(args_cli, "headless", False)),
+        enable_extinguisher_stage_attach=native_mode or not bool(getattr(args_cli, "headless", False)),
     )
     remote_key_queue: queue.Queue = queue.Queue()
     inp = InputHandler(remote_key_queue)
@@ -227,7 +227,7 @@ def run_robot_factory_platform(
         navigator=navigator, extinguisher_robot=extinguisher_robot, ur5=ur5,
         planner_mode="robots",
         rescue_llm_kwargs_getter=_rescue_llm_kwargs,
-        obstacle_ur5_reach_enabled=not bool(getattr(args_cli, "headless", False)),
+        obstacle_ur5_reach_enabled=native_mode or not bool(getattr(args_cli, "headless", False)),
         allow_runtime_app_update=bool(dashboard),
     )
     obstacle_mgr.start_monitoring()
@@ -879,10 +879,12 @@ def run_robot_factory_platform(
         return cnt if cnt > 0 else queued_cnt
 
     native_replay = None
+    task_checkpoints = None
     native_test_requested = False
     native_test_started = time.perf_counter()
     native_last_message = None
     if native_mode:
+        from ..task_checkpoints import TaskCheckpointScheduler, checkpoint_signals
         from .native_replay import build_native_replay
         from tools.physics_replay.runtime_state import StateCodec
 
@@ -891,6 +893,9 @@ def run_robot_factory_platform(
             getattr(args_cli, "branch_checkpoint_dir", "") or "tmp/replay/fire_rescue_native",
             trial_index=trial_index,
         )
+        task_checkpoints = TaskCheckpointScheduler(
+            native_output, algorithm=str(getattr(args_cli, "assignment_policy", "emos")),
+        )
         native_replay = build_native_replay(
             simulator_session, native_output, scope=native_scope, nav=nav, obstacle=obstacle_mgr,
             ur5=ur5, emos=emos_mgr, light=light,
@@ -898,7 +903,9 @@ def run_robot_factory_platform(
                 "fire_rescue.runtime", 1, _capture_replay_runtime_state, _restore_replay_runtime_state, priority=30,
             ),
             tolerance=float(getattr(args_cli, "replay_restore_tolerance", 1e-5)),
+            exact=bool(getattr(args_cli, "replay_exact", False)),
             create_window=not bool(getattr(args_cli, "headless", False)),
+            task_checkpoints=task_checkpoints,
         )
         print(f"[Native Replay] checkpoints: {native_output}")
         print("[Native Replay] F5 save | F9 restore | F8 pause/run | F10 single step; no browser required")
@@ -906,14 +913,14 @@ def run_robot_factory_platform(
     # ═══════════════════════ 主循环 ═══════════════════════════════════════════
     while simulation_app.is_running():
         if native_replay is not None:
-            checkpoint_count = len(native_replay.backend.checkpoints)
-            if emos_auto_dispatched and not native_replay.backend.checkpoints and native_replay.save_error is None:
-                native_replay.pending_save = True
             may_step = native_replay.poll()
-            if checkpoint_count == 0 and native_replay.backend.checkpoints:
-                native_replay.paused = True
-                native_replay.message += "; PAUSED. F8 continues, F10 steps."
-                may_step = False
+            task_checkpoints.tick(native_replay, checkpoint_signals(
+                assignment_applied=emos_auto_dispatched and _pending_emos_assignments is None,
+                ur5=ur5, rescue_channel_open=_rc_channel_arm_done,
+                obstacle=obstacle_mgr, result=_sim_result,
+            ))
+            if getattr(args_cli, "headless", False) and _sim_result != "running":
+                break
             test_steps = int(getattr(args_cli, "replay_native_test_steps", 0))
             if native_last_message != native_replay.message:
                 native_last_message = native_replay.message
@@ -1707,6 +1714,9 @@ def run_robot_factory_platform(
         _sim_result = "fail"
         if _sim_fail_reason is None:
             _sim_fail_reason = "任务提前结束（未命中成功条件）"
+
+    if task_checkpoints is not None:
+        task_checkpoints.finish(_sim_result)
 
     _end_wall = time.time()
     try:

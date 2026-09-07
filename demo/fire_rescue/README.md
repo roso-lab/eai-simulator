@@ -2,6 +2,86 @@
 
 [Chinese](README.zh-CN.md)
 
+## Fresh-scene reconstruction acceptance
+
+For a stricter alternative to partial snapshot writes, a new bounded physical
+fixture records an uninterrupted original, starts a **fresh process**, and
+re-executes from the initial scene through a task-owned carrying checkpoint and
+its original continuation. No browser or manual save is needed:
+
+```bash
+conda activate env_isaaclab
+python -m demo.fire_rescue.checks.reconstruct_physics \
+  --output tmp/replay/carry_reconstruction_01
+```
+
+The default is CPU PhysX, headless, seed 0, 160 environment steps / 640 physics
+substeps, with `extinguisher_carried` at completed step 80. Use a new output path
+each time. `--gui` displays the two sequential runs; `--scenario locomotion
+--steps 64 --checkpoint-step 40` selects the smaller non-carrying fixture.
+
+This is a **controlled initially welded real extinguisher**, not autonomous
+reach/grasp or the complete rescue mission. The original payload's mass/damping
+are preserved; there is no visual proxy. Initial fixture placement happens in
+both clean scenes, never as a checkpoint restore. Live PhysX body poses, rather
+than potentially stale USD transforms, define the physical joint anchors.
+
+Every solver substep compares body/joint motion, actuator and reaction forces,
+contacts and friction. Actual ONNX inference inputs/outputs, raw and noisy
+commands, RNG states before/after each environment step, and task boundaries are
+also compared. Real Gaussian action noise remains enabled (std 0.001). A nonzero
+difference, incomplete reference, or runtime/model/source/asset fingerprint
+mismatch fails closed with a nonzero exit. Recorded forces are never injected.
+
+To reconstruct the saved carrying prefix and then run a **different live command**:
+
+```bash
+python -m demo.fire_rescue.checks.reconstruct_physics \
+  --mode reconstruct --reference tmp/replay/carry_reconstruction_01/record/journal \
+  --output tmp/replay/carry_live_01 --release-at-checkpoint --live-speed 0.1
+```
+
+This verifies 80 prefix steps before allowing the new command into the real
+controller; the new branch is intentionally **not** reported as matching the
+original continuation. Settings must match the reference, including `--gui`.
+`comparison.json` reports acceptance and `record/` / `reconstruct/` contain logs
+and artifacts. `--mode record` creates only a new reference.
+
+This new path does **not yet replace** `main.py`/F9 or replay asynchronous EMOS,
+navigation deliveries, arbitrary recurrent policies, sensors or the complete
+mission. Its reusable journal/gate is `tools.physics_replay.reconstruction`.
+The measured finite-window match is not proof of all hidden state or universal
+physical determinism. See `checks/native_replay_validation.md` for actual results.
+
+## Zero-tolerance physical replay audit
+
+```bash
+conda activate env_isaaclab
+python -m demo.fire_rescue.main \
+  --env EAI-Factory-v0 --device cpu --trials 1 --headless --auto-fire-delay 0 \
+  --task-checkpoints --replay-native --replay-exact --replay-native-test-steps 100 \
+  --assignment-policy algorithm.emos.example_policy:assign \
+  --checkpoint-dir tmp/replay/fire_rescue_exact
+```
+
+The task owns checkpoint timing; this bounded audit automatically compares the
+first checkpoint's original continuation against its restored continuation and
+exits. It is not a full-mission success test. `--replay-exact` forces read-back and
+trajectory tolerances to zero, independently of the normal restore-tolerance flag.
+Any difference or unsupported state fails; **zero-error physical rollback is not
+yet established**. An immediate restore failure can stop the audit before a full
+continuation comparison. Inspect `last_restore.json` and `trajectory_verification.json`
+in the printed trial directory. Without `--replay-native-test-steps`, automatic
+milestone saving remains enabled but verification is not automatically run.
+
+This mode records post-solve contact/friction and link reactions at each physics
+substep, uses an ideal physical weld instead of a visual extinguisher proxy, and
+preserves payload mass/damping and the current relative pose. It is not a realistic
+gripper/contact benchmark; existing visual obstacle proxies and unadapted sensor
+histories are unsupported. See `tools/physics_replay/README.md` for the policy/noise/
+external-force adapter contract and `checks/native_replay_validation.md` for actual
+measurements. PhysX solver caches remain outside the snapshot boundary.
+
 This is a robot-only fire-rescue experiment. The demo does not register a Gym environment, start an experiment supervisor, or persist experiment records.
 
 ## Launch
@@ -19,13 +99,67 @@ python -m demo.fire_rescue.main \
   --emos-llm-preset=zhipu-glm4-flash
 ```
 
-After a normal non-headless launch (without `--replay-native`), the terminal prompts you to open:
+After a normal non-headless launch (without `--replay-native` or `--task-checkpoints`), the terminal prompts you to open:
 
 ```text
 http://127.0.0.1:8767/
 ```
 
 The Dashboard data service uses port `8767`; the Isaac Sim live-image WebSocket uses port `8766`.
+
+## Task-owned checkpoints and algorithm integration
+
+`task_checkpoints.py` owns five logical milestones: `assignment_applied`,
+`extinguisher_carried` (pickup/lifting complete and still carrying),
+`rescue_channel_open`, `obstacle_removed`, and `mission_success`. These derive from
+task state, not algorithm-specific code or manual key presses. Native checkpoint
+modes now save automatically without pausing; F5 remains an additional manual save.
+
+```bash
+conda activate env_isaaclab
+python -m demo.fire_rescue.main \
+  --env EAI-Factory-v0 --device cpu --trials 1 --auto-fire-delay 0 \
+  --task-checkpoints --headless \
+  --assignment-policy algorithm.emos.example_policy:assign \
+  --checkpoint-dir tmp/replay/fire_rescue_task
+```
+
+This example uses a stateless local policy, without an LLM request. Remove `--headless`
+for the native Kit controls; neither mode starts the browser. Headless task runs exit
+at termination; visible runs pause for inspection/restoration. The initial task-runner
+version requires CPU PhysX, one environment and one trial per process (`--trials 1`).
+Start fresh processes for additional trials so dynamic USD objects do not leak between
+trials. Native headless checkpoints retain the proxy and manipulation behavior rather
+than switching to logical-only pickup.
+
+Implement a stateless module-level `assign(request)` under `algorithm/` and select it
+with `--assignment-policy module:function`; see `algorithm/emos/example_policy.py`.
+The copied `AssignmentRequest` includes task text, scenario subtasks/capabilities,
+robot/target positions, completed-task sets and rescue constraints. Return robot names
+mapped to subtask IDs, e.g. `{"m20_1": "red", "m20_2": "yellow", "scout_1": "green", "carter_1": "blue"}`.
+Targets, execution, success criteria and checkpoints stay in the task runner; neither
+`main.py` nor checkpoint code needs algorithm-specific edits. This entry replaces high-level
+task assignment, not navigation/manipulator controllers. Invalid IDs and green/yellow
+capability violations fail explicitly. Partial allocations are permitted but omitted
+tasks are not filled automatically. Errors do not silently fall back to another
+algorithm; rescue replanning also uses the selected callback.
+
+The default `--assignment-policy emos` retains EMOS behavior. A custom callback cannot
+be combined with `--replay-local-fallback`. Only load explicitly trusted local modules.
+This first interface is stateless: mutable module globals, closures or hidden model
+memory are not checkpointed. Stateful algorithms need an explicit state adapter;
+external service results are not recorded either.
+
+Milestones wait for existing safe completed-step boundaries, recording trigger and saved
+steps. Simultaneous milestones share a snapshot. A condition that expires before safe
+capture is marked `missed`, not saved as a later unrelated state. Restoring earlier
+checkpoints rearms future milestones without duplicating the restored milestone.
+`task_checkpoints.json` records policy identity, checkpoint IDs/history, pending/missed/
+not-reached milestones and final task result. Use its `result` for mission outcome:
+a clean process exit does not by itself mean mission success. Unsafe pending milestones remain explicit
+at termination; safety guards are not bypassed. Files left after exit are audit artifacts,
+not a cross-process resume format. Automatic restore/retry, fault injection and
+cross-algorithm shared snapshots are not implemented.
 
 ## Native checkpoint controls (experimental)
 
@@ -50,8 +184,8 @@ The **EAI Physics Checkpoints** window provides:
 | Verify 20 steps | Compare two continuations frame by frame, report drift, then pause. |
 
 Focus the Isaac window for shortcuts. Use these controls instead of Kit's built-in
-timeline Stop/Play buttons, which have different reset semantics. The first safe
-checkpoint after assignment is saved automatically and pauses for inspection. A pending save does not skip
+timeline Stop/Play buttons, which have different reset semantics. Task milestones
+save automatically without pausing. A pending save does not skip
 normal physics or robot-arm updates. Restoring waits for active background workers
 to finish, discards their obsolete results, and never automatically resumes.
 
@@ -103,13 +237,28 @@ For a bounded headless accuracy check, add `--headless --replay-native-test-step
 to the launch command. This explicit test mode exits after verification, fails with
 a nonzero exit status if strict limits are exceeded, and times out after 180 seconds
 inside the demo loop. It does not bound application startup or individual blocking calls.
-Normal native use requires a visible window. Output is under the printed per-trial
+Use `--task-checkpoints --headless --trials 1` for unattended task runs without accuracy
+verification; otherwise normal native use requires a visible window. Output is under the printed per-trial
 directory: `last_restore.json`, `trajectory_verification.json`, and checksum-protected
 JSON/NPZ component checkpoints. Repeated launches preserve previous trial directories.
 
+**Saving and restoring while carrying the extinguisher is supported in native mode.**
+After the pickup/lift sequence completes and the arm enters its carrying pose, F5
+saves the transport state without releasing the extinguisher. A save requested during
+pickup/lifting waits and completes automatically at a safe boundary; use F8/F10 to
+advance if paused. F9 restores the carrier, arm joints/targets, full carry-controller
+state and proxy position, keeping the original object hidden and disabled. The robot
+still carries it and the proxy follows the arm on subsequent F8/F10 steps. Checkpoints
+before pickup and during carrying can be restored in either order, including restoring
+a carrying checkpoint after release. Interrupt/drop transitions, other active arm
+operations and unsupported obstacle-drag phases still wait. The legacy browser branch
+mode retains its idle-only UR5 restriction.
+
 Extinguisher pickup disables the original rigid body and uses a visual proxy. Native
-restore treats its enable flag as restorable state, not a deleted body, removes the
-future proxy, restores the original properties, and flushes buffered PhysX changes
+restore treats its enable flag as restorable state, not a deleted body. Restoring before
+pickup removes the future proxy and restores the original properties; restoring a
+carrying checkpoint recreates a missing proxy and keeps the original hidden/disabled.
+Both paths flush buffered PhysX changes
 before accessing the rigid-body view. It does not advance physics to recreate the body.
 Actual additions/removals outside declared runtime objects remain rejected, with
 the affected paths in the error. USD runtime checkpoints use component schema v2;

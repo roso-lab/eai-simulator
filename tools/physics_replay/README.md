@@ -4,6 +4,50 @@
 the same simulator process. It lives under `tools/physics_replay/` and uses an
 existing `open_simulator_session()` instead of creating a second application.
 
+## Fresh-scene reconstruction journal
+
+`reconstruction.py` adds a separate alternative: **re-execute from a clean initial
+scene**, rather than write a partial snapshot at the requested point. The caller
+owns the task and simulator lifecycle. `ReconstructionRecorder.append(channels,
+task_state=..., checkpoint=...)` streams compressed NumPy frames (including
+variable-size contacts), task state and named checkpoint boundaries. `close()`
+seals the uninterrupted original; incomplete recordings are not accepted.
+Artifacts are checksum-checked, pickle-free, and never overwrite an existing run.
+
+In a different process, construct `ReconstructionVerifier(reference,
+fingerprint, checkpoint="extinguisher_carried")`. Rebuild the initial scene,
+execute the task and actual policy normally, and call `compare(...)` after every
+environment step with all substep measurements. No recorded pose, action or
+force is applied by the verifier. `release()` permits live continuation **only at
+the exactly matched target boundary**. Alternatively, continue comparing through
+the original horizon to audit continuation. A new branch after release is not
+certified as the original trajectory. The gate rejects any numerical difference,
+shape/dtype/channel mismatch, changed task timing, corrupt data or fingerprint
+mismatch. Reconstruction costs the full prefix simulation time; it is not an
+instantaneous F9 restore or a serialized solver-cache implementation.
+
+The caller must declare its runtime/config/model/asset fingerprints and include
+all relevant inputs, policy memory, noise generators, task events and observations
+in the compared channels/state. A user-supplied fingerprint alone is not a proof
+of completeness. `complete_physical_state_proven` therefore remains false even
+after an exact finite-horizon match. Fresh-process PID checking also does not
+replace the caller's obligation to construct a clean scene.
+
+The supported bounded Factory acceptance entry point is:
+
+```bash
+python -m demo.fire_rescue.checks.reconstruct_physics --output tmp/replay/carry_reconstruction_01
+```
+
+It creates sequential fresh processes through `open_simulator_session`, preserves
+the real extinguisher's physical properties, and recomputes the actual ONNX policy
+and Gaussian command noise. `PolicyInferenceTrace` observes the calls' real
+inputs/outputs without a second inference or random draw. CPU physics force data
+is sampled post-solve. The command includes a post-carry checkpoint and an
+optional verified-prefix live release; see the Fire Rescue README for commands.
+This is not yet the complete Fire Rescue main/EMOS replay path. It does not
+silently extend native snapshots to recurrent policies or unadapted sensors.
+
 Run an Isaac-free episode check from the repository root:
 
 ```bash
@@ -53,10 +97,101 @@ the later action/communication/noise protocol.
 
 ## Live native checkpoints
 
+### State coverage and zero-tolerance audits
+
+`--replay-exact` is an opt-in **audit**, not a promise of bitwise PhysX rollback.
+It requires the native CPU, single-environment workflow, enables enhanced PhysX
+determinism before scene creation, and uses zero tolerance for read-back and
+continuation. Verification must start at a freshly saved checkpoint: comparing
+two restored runs is rejected. Any measured difference fails and pauses execution.
+`complete_physical_state_restored` and `solver_cache_restored` remain false;
+even a finite-window pass does not certify unmeasured state or arbitrary future runs.
+
+Exact verification measures each real physics substep after the solver returns:
+body transforms/velocities, joint states, applied actuator efforts, link reaction
+wrenches, contact forces/points/normals/separations, friction patches, and actual
+computed controller actions. Missing substeps, non-finite samples and exhausted
+contact buffers fail rather than appearing as zero error. Contact processing is
+enabled explicitly on CPU and its previous setting is restored on scope exit.
+Forces are measured, never overwritten with the original force trace. The report
+includes the first divergent environment step and substep-qualified channels.
+This diagnostic is slower than ordinary checkpointing and does not yet compare
+policy observation/distribution traces or reproduce PhysX's private solver caches.
+
+Native checkpoints no longer silently keep a policy's future memory. Trusted
+policy, noise, or other resource objects implement this in-process contract:
+
+```python
+def capture_replay_state(self):
+    return {"hidden": self.hidden, "observation_history": self.observation_history}
+
+def validate_replay_state(self, state):
+    if set(state) != {"hidden", "observation_history"}:
+        raise ValueError("invalid replay state")
+
+def restore_replay_state(self, state):
+    self.hidden = state["hidden"]
+    self.observation_history = state["observation_history"]
+```
+
+The framework copies supported tensors/arrays and restores the same resource
+object. Validation must be side-effect free. Include recurrent memory, filters,
+normalizers, counters, private sampling state, and optimizer state if training
+continues online. A genuinely stateless resource may explicitly declare
+`replay_stateless = True`; this is a trusted author assertion, not automatic proof.
+Unknown resources fail closed. The built-in EAI ONNX wrapper is supported only
+after graph/identity/configuration checks against a conservative feed-forward
+operator allowlist; random, custom, recurrent-interface or uninspectable graphs
+require an explicit adapter. Standard Isaac Lab constant/uniform/Gaussian noise
+models include mutable parameters, additive bias and first-use expansion state.
+
+Register independent `random.Random`, NumPy `Generator`, and Torch `Generator`
+objects in `base_env.replay_random_streams`, using stable source/agent names.
+Their states are restored in place along with global RNG states. This reproduces
+random realizations under matching sample order; it does not turn noise off or
+discover unregistered generators/module globals/external services automatically.
+Additional stateful resources can use `base_env.replay_state_resources`.
+In exact mode, sensor adapters use keys `sensor/<scene_sensor_name>`, and configured
+events require an `event_manager` adapter; registering a name is a trusted claim
+that its adapter covers all relevant internal state, not an automatic discovery mechanism.
+An ongoing external wrench requires **all** of its generators/timers to be
+declared in `base_env.replay_external_wrench_sources` using the same resource
+contract; the actuator component then restores both source state and the current
+force/torque buffers. Without source adapters, nonzero external wrenches fail.
+
+Exact Fire Rescue mode refuses visual/logical carry checkpoints and uses an ideal
+physical fixed joint for extinguisher pickup, without pre-align teleportation,
+mass reduction, damping inflation or impulse clipping. It preserves the current
+relative orientation when welding. This is a load-bearing ideal weld, **not** a
+validated frictional gripper model. Existing visual obstacle proxies and scenes
+with unadapted sensor histories are unsupported in exact mode. Ordinary native
+mode retains its previous visual-follow demo behavior.
+
 `demo.fire_rescue.main --replay-native --device cpu` provides a native Kit window
 and F5/F9/F8/F10 shortcuts without a browser. See the Fire Rescue English/Chinese
 READMEs for prerequisites, safe checkpoint restrictions, and the runnable command.
 This mode is separate from the legacy tape and assignment-editing workflows.
+
+Fire Rescue now owns automatic logical milestones in `demo/fire_rescue/task_checkpoints.py`.
+Assignment, stable carrying, rescue-channel completion, obstacle removal and mission
+success request safe snapshots without pausing; manual saves remain available. Scheduler
+state is itself checkpointed, so restoring a milestone does not immediately duplicate it
+and restoring earlier rearms later milestones. `task_checkpoints.json` records trigger
+versus save steps, IDs, pending/expired/not-reached milestones and task outcome.
+Use `--task-checkpoints --device cpu --trials 1 --headless` for unattended runs and
+`--assignment-policy module:assign` for a stateless assignment callback without editing
+the task/launcher/checkpoints. These runs do not automatically restore, retry or share
+checkpoints across algorithms/processes; existing precision and state-coverage limits apply.
+
+Native Fire Rescue checkpoints allow stable extinguisher carrying after pickup/lifting
+finishes. F5 requested during the lift waits for completion, without requiring release.
+The full UR5 controller state and runtime USD proxy are restored together; checkpoints
+before pickup and while carrying can be restored in either order, or after release.
+F8/F10 continues carrying after restore. Active pickup/drop/interrupt transitions and
+unsupported concurrent arm/obstacle operations still wait. Legacy idle-only UR5
+adapters do not opt into carrying support. See the opt-in Factory regression in
+`tests/test_native_isaac.py`; this checks carry-state restoration and continued following,
+not long-run trajectory equivalence.
 
 - `live.py`: completed-step command queue, multiple checkpoint persistence, strict
   read-back validation, pause/single-step, and per-frame continuation comparisons.

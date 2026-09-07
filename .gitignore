@@ -219,6 +219,12 @@ test_*.py
 !/algorithm/multi_robot_navigation/test_plugin.py
 !/demo/fire_rescue/tests/
 !/demo/fire_rescue/tests/test_llm_preset_privacy.py
+!/demo/fire_rescue/tests/test_task_checkpoints.py
+!/demo/fire_rescue/tests/test_assignment_policy.py
 !/tools/physics_replay/tests/
 !/tools/physics_replay/tests/test_live.py
 !/tools/physics_replay/tests/test_native_isaac.py
+!/tools/physics_replay/tests/test_runtime_resources.py
+!/tools/physics_replay/tests/test_physics_trace.py
+!/tools/physics_replay/tests/test_reconstruction_isaac.py
+!/tools/physics_replay/tests/test_reconstruction.py

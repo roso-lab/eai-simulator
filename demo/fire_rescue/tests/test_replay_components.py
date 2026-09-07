@@ -141,6 +141,112 @@ def test_safe_checkpoint_rejects_dynamic_obstacle_phase():
         validate_fire_rescue_checkpoint(_fake_nav(), obstacle, _fake_ur5())
 
 
+def _carrying_ur5():
+    ur5 = _fake_ur5()
+    ur5._ext_active = True
+    ur5._ext_grabbed = True
+    ur5.is_carrying_extinguisher = True
+    ur5._ext_robot_name = "m20_1"
+    ur5._ext_target_prim = "/World/SM_FireExtinguisherProxy"
+    ur5._ext_pick = SimpleNamespace(
+        active=False, grabbed=True, robot_name="m20_1", carry_pose=[0.0] * 6,
+    )
+    return ur5
+
+
+def test_only_native_checkpoint_accepts_stable_extinguisher_carry():
+    from demo.fire_rescue.runtime.native_replay import validate_native_fire_rescue_checkpoint
+
+    nav = _fake_nav()
+    obstacle = SimpleNamespace(state=SimpleNamespace(phase=FakePhase.MONITORING))
+    ur5 = _carrying_ur5()
+    validate_native_fire_rescue_checkpoint(nav, obstacle, ur5)
+    with pytest.raises(ValueError, match="UR5"):
+        validate_fire_rescue_checkpoint(nav, obstacle, ur5)
+    with pytest.raises(ValueError, match="UR5"):
+        Ur5IdleReplayComponent(ur5).capture_state()
+
+
+@pytest.mark.parametrize("field,value", [
+    ("_ext_active", False), ("_ext_grabbed", False), ("is_carrying_extinguisher", False),
+    ("_ext_robot_name", ""), ("_ext_target_prim", None), ("_ext_pick", None),
+    ("_ext_interrupt_mode", True), ("_ext_prealign_pending", True),
+    ("_generic_grab_active", True), ("scout1_arm_stage", 1),
+    ("_button_press_pick", SimpleNamespace(active=True)),
+    ("_obstacle_rescue_reach_pick", SimpleNamespace(active=True)),
+    ("scout_1_pick", SimpleNamespace(active=True)), ("m20_1_pick", SimpleNamespace(active=True)),
+])
+def test_native_carry_checkpoint_rejects_incomplete_or_other_arm_operations(field, value):
+    from demo.fire_rescue.runtime.native_replay import validate_native_fire_rescue_checkpoint
+    from tools.physics_replay.live import CheckpointBusy
+
+    ur5 = _carrying_ur5()
+    setattr(ur5, field, value)
+    with pytest.raises(CheckpointBusy, match="UR5"):
+        validate_native_fire_rescue_checkpoint(_fake_nav(), SimpleNamespace(), ur5)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("active", True), ("grabbed", False), ("carry_pose", None), ("robot_name", "scout_1"),
+])
+def test_native_carry_checkpoint_waits_for_completed_matching_pick(field, value):
+    from demo.fire_rescue.runtime.native_replay import validate_native_fire_rescue_checkpoint
+    from tools.physics_replay.live import CheckpointBusy
+
+    ur5 = _carrying_ur5()
+    setattr(ur5._ext_pick, field, value)
+    with pytest.raises(CheckpointBusy, match="UR5"):
+        validate_native_fire_rescue_checkpoint(_fake_nav(), SimpleNamespace(), ur5)
+
+
+@pytest.mark.parametrize("pending_plan,phase,message", [
+    (True, FakePhase.MONITORING, "pending plan"),
+    (False, FakePhase.DRAGGING, "obstacle"),
+])
+def test_native_carry_does_not_bypass_navigation_or_obstacle_guards(pending_plan, phase, message):
+    from demo.fire_rescue.runtime.native_replay import validate_native_fire_rescue_checkpoint
+    from tools.physics_replay.live import CheckpointBusy
+
+    nav = _fake_nav()
+    if pending_plan:
+        nav._pending_plan = object()
+    obstacle = SimpleNamespace(state=SimpleNamespace(phase=phase))
+    with pytest.raises(CheckpointBusy, match=message):
+        validate_native_fire_rescue_checkpoint(nav, obstacle, _carrying_ur5())
+
+
+def test_pending_native_save_finishes_after_lift_without_releasing_extinguisher(tmp_path):
+    from demo.fire_rescue.runtime.native_replay import validate_native_fire_rescue_checkpoint
+    from tools.physics_replay.live import LiveCheckpoint, LiveReplayController
+
+    ur5 = _carrying_ur5()
+    ur5._ext_pick.active = True
+    checkpoints = []
+
+    def capture(step_index):
+        validate_native_fire_rescue_checkpoint(_fake_nav(), SimpleNamespace(), ur5)
+        checkpoint = LiveCheckpoint(len(checkpoints), step_index, "carrying")
+        checkpoints.append(checkpoint)
+        return checkpoint
+
+    backend = SimpleNamespace(
+        output_dir=tmp_path, checkpoints=checkpoints, capture=capture,
+        read_physics=lambda: {},
+    )
+    controller = LiveReplayController(backend)
+    controller.request("save")
+    assert controller.poll()
+    assert controller.pending_save
+    assert not checkpoints
+    ur5._ext_pick.active = False
+    controller.after_step()
+    assert controller.poll()
+    assert not controller.pending_save
+    assert not controller.save_error
+    assert checkpoints[0].step_index == 1
+    assert ur5._ext_active and ur5.is_carrying_extinguisher
+
+
 def test_rescue_dispatch_checkpoint_preserves_navigation_goal():
     obstacle = SimpleNamespace(
         state=SimpleNamespace(

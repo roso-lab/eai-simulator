@@ -21,7 +21,9 @@ def parse_trial_hazard_ids(trials: int, raw: str) -> List[int]:
     return parts[:count]
 
 
-def configure_fire_rescue_env_cfg(env_cfg: Any) -> None:
+def configure_fire_rescue_env_cfg(env_cfg: Any, *, exact: bool = False) -> None:
+    if exact:
+        env_cfg.sim.physx.enable_enhanced_determinism = True
     if hasattr(env_cfg, "people"):
         env_cfg.people = None
     if hasattr(env_cfg, "people_waypoints"):
@@ -36,6 +38,8 @@ def configure_fire_rescue_env_cfg(env_cfg: Any) -> None:
 
 
 def build_robot_baseline_args(sim: SimulatorSession, config: FireRescueConfig) -> SimpleNamespace:
+    if config.task_checkpoints and config.trials != 1:
+        raise ValueError("task checkpoints require one trial per fresh simulator process (--trials 1)")
     return SimpleNamespace(
         task=sim.env_name,
         env=sim.env_name,
@@ -56,9 +60,12 @@ def build_robot_baseline_args(sim: SimulatorSession, config: FireRescueConfig) -
         replay_local_fallback=bool(config.replay_local_fallback),
         branch_interactive=bool(config.branch_interactive),
         branch_checkpoint_dir=str(config.branch_checkpoint_dir or ""),
-        replay_native=bool(config.replay_native),
+        replay_native=bool(config.replay_native or config.task_checkpoints),
+        replay_exact=bool(config.replay_exact),
         replay_restore_tolerance=float(config.replay_restore_tolerance),
         replay_native_test_steps=int(config.replay_native_test_steps),
+        task_checkpoints=bool(config.task_checkpoints),
+        assignment_policy=str(config.assignment_policy),
     )
 
 
@@ -90,6 +97,9 @@ def run_robot_baseline_experiment(
         interpret_factory_tasks_fn = interpret_factory_tasks_fn or interpret_factory_tasks
 
     args_cli = build_robot_baseline_args(sim, config)
+    from algorithm.emos.policy import load_assignment_policy
+
+    assignment_policy = load_assignment_policy(args_cli.assignment_policy)
     scenario = build_scenario()
     hazard_ids = parse_trial_hazard_ids(args_cli.trials, args_cli.trial_hazard_ids)
     print(f"[Fire Rescue] full robot experiment trials={len(hazard_ids)} hazards={hazard_ids}")
@@ -104,6 +114,8 @@ def run_robot_baseline_experiment(
             sim.base_env,
             get_group_discussion_llm_kwargs=lambda preset_id=preset_id: preset_to_group_discussion_kwargs(preset_id),
         )
+        if assignment_policy is not None:
+            emos_mgr.set_assignment_policy(assignment_policy, name=args_cli.assignment_policy)
         platform_kwargs = {
             "simulation_app": sim.simulation_app,
             "env": sim.env,
@@ -130,7 +142,7 @@ def run_robot_baseline_experiment(
             or bool(getattr(args_cli, "replay_native", False))
         ):
             platform_kwargs["simulator_session"] = sim
-        if config.replay_native:
+        if args_cli.replay_native:
             from .runtime.native_replay import NativeReplayScope
 
             with NativeReplayScope(sim.base_env.step_dt) as replay_scope:

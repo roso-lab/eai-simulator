@@ -69,6 +69,8 @@ def state_errors(expected: Mapping[str, Any], actual: Mapping[str, Any]) -> dict
             second = restored[3:7]
             norms = np.linalg.norm(first) * np.linalg.norm(second)
             cosine = abs(float(np.dot(first, second))) / norms if norms > 0 else 0.0
+            if norms > 0 and (np.array_equal(first, second) or np.array_equal(first, -second)):
+                cosine = 1.0
             errors[f"{key}/rotation_rad"] = float(2 * np.arccos(np.clip(cosine, 0, 1)))
         else:
             errors[key] = float(np.max(np.abs(reference - restored))) if reference.size else 0.0
@@ -99,12 +101,18 @@ class LiveCheckpointBackend:
         tolerance: float = 1e-5,
         safety_check: Callable[[], None] | None = None,
         restore_check: Callable[[], None] | None = None,
+        exact: bool = False,
+        physics_trace: Any = None,
     ):
-        if not np.isfinite(tolerance) or tolerance <= 0:
-            raise ValueError("restore tolerance must be finite and positive")
+        if not np.isfinite(tolerance) or tolerance < 0:
+            raise ValueError("restore tolerance must be finite and non-negative")
+        if exact and physics_trace is None:
+            raise ValueError("exact verification requires post-solve physics measurements")
+        self.exact = bool(exact)
+        self.physics_trace = physics_trace
         self.session = session
         self.output_dir = Path(output_dir)
-        self.tolerance = float(tolerance)
+        self.tolerance = 0.0 if exact else float(tolerance)
         self.safety_check = safety_check or (lambda: None)
         self.restore_check = restore_check or (lambda: None)
         self.targets = TargetResolver(session.base_env).resolve_all(scene_target_specs(session.base_env))
@@ -118,7 +126,7 @@ class LiveCheckpointBackend:
         self.registry = ComponentRegistry((
             EnvironmentCommandComponent(session.base_env, device=session.device),
             *components,
-            RngStateComponent(),
+            RngStateComponent(streams=getattr(session.base_env, "replay_random_streams", None)),
         ))
         self.store = CheckpointStore(self.output_dir)
         self.checkpoints: list[LiveCheckpoint] = []
@@ -159,6 +167,12 @@ class LiveCheckpointBackend:
             reader = getattr(component, "read_trajectory_state", None)
             if reader is not None:
                 values.update(reader())
+        return values
+
+    def read_verification_state(self) -> dict[str, np.ndarray]:
+        values = self.read_trajectory_state()
+        if self.physics_trace is not None:
+            values.update(self.physics_trace.take_frame())
         return values
 
     def _write_report(self, result: dict[str, Any]) -> None:
@@ -236,6 +250,7 @@ class LiveReplayController:
     def __init__(self, backend: Any):
         self.backend = backend
         self._read_trajectory = getattr(backend, "read_trajectory_state", backend.read_physics)
+        self._read_verification = getattr(backend, "read_verification_state", self._read_trajectory)
         self.requests: Queue = Queue(maxsize=32)
         self.paused = False
         self.blocked = False
@@ -255,6 +270,19 @@ class LiveReplayController:
             self.requests.put_nowait((command, value))
         except Full:
             self.message = "Replay request queue is full; wait for the next boundary"
+
+    @property
+    def can_capture(self) -> bool:
+        return not self.blocked and self._verification is None and self._pending_restore is None
+
+    def capture_checkpoint(self, label: str = "") -> LiveCheckpoint:
+        if not self.can_capture:
+            raise CheckpointBusy("restore/verification must finish before saving")
+        checkpoint = self.backend.capture(self.step_index, label) if label else self.backend.capture(self.step_index)
+        self.selected = checkpoint.identifier
+        self._fresh_checkpoint = self.selected
+        self.message = f"Saved {checkpoint.label} at step {checkpoint.step_index}"
+        return checkpoint
 
     def _restore_checkpoint(self, identifier: int) -> dict[str, Any]:
         self._fresh_checkpoint = None
@@ -326,6 +354,8 @@ class LiveReplayController:
                     if count <= 0:
                         raise ValueError("verification step count must be positive")
                     original_reference = self._fresh_checkpoint == self.selected
+                    if getattr(self.backend, "exact", False) and not original_reference:
+                        raise ValueError("exact verification requires a fresh checkpoint and an uninterrupted original reference")
                     if not original_reference:
                         self._restore_checkpoint(self.selected)
                     self.blocked = False
@@ -335,9 +365,13 @@ class LiveReplayController:
                     self._verification = {
                         "count": count, "done": 0, "phase": "reference", "checkpoint": self.selected,
                         "frames": [], "errors": {},
+                        "first_divergence": None,
                         "comparison": "original_vs_restored" if original_reference else "two_restored_runs",
                         "start": self._read_trajectory(),
                     }
+                    trace = getattr(self.backend, "physics_trace", None)
+                    if trace is not None:
+                        trace.begin()
                     self.message = f"Verifying {count} steps: reference run"
                 else:
                     raise ValueError(f"unknown replay command: {command}")
@@ -345,11 +379,8 @@ class LiveReplayController:
                 self.message = str(exc)
         if self.pending_save and not self.blocked:
             try:
-                checkpoint = self.backend.capture(self.step_index)
-                self.selected = checkpoint.identifier
-                self._fresh_checkpoint = self.selected
+                self.capture_checkpoint()
                 self.pending_save = False
-                self.message = f"Saved {checkpoint.label} at step {checkpoint.step_index}"
             except CheckpointBusy as exc:
                 self.message = f"Save pending: {exc}. Run/step until safe."
             except (ValueError, RuntimeError, OSError, TypeError, KeyError) as exc:
@@ -367,38 +398,63 @@ class LiveReplayController:
             return
         self.paused = True
         try:
-            current = self._read_trajectory()
+            current = self._read_verification()
             if verification["phase"] == "reference":
                 verification["frames"].append(current)
             else:
                 errors = state_errors(verification["frames"][verification["done"]], current)
+                threshold = 0.0 if getattr(self.backend, "exact", False) else 1e-3
+                different = {key: value for key, value in errors.items() if value > threshold}
+                if different and verification["first_divergence"] is None:
+                    verification["first_divergence"] = {
+                        "environment_step_offset": verification["done"] + 1,
+                        "errors": report_errors(different),
+                    }
                 for key, value in errors.items():
                     verification["errors"][key] = max(verification["errors"].get(key, 0.0), value)
             verification["done"] += 1
             if verification["done"] < verification["count"]:
                 return
             if verification["phase"] == "reference":
+                verification["phase"] = "restore"
                 self._restore_checkpoint(verification["checkpoint"])
                 verification["phase"] = "replay"
                 verification["done"] = 0
                 self.message = f"Verifying {verification['count']} steps: replay run"
                 return
             errors = verification["errors"]
-            threshold = 1e-3
+            threshold = 0.0 if getattr(self.backend, "exact", False) else 1e-3
             passed = bool(errors) and all(value <= threshold for value in errors.values())
             self.verification_report = {
                 "steps": verification["count"], "checkpoint_id": verification["checkpoint"],
                 "passed": passed, "trajectory_errors": report_errors(errors), "threshold": threshold,
                 "comparison": verification["comparison"], "aggregation": "per_frame_maximum",
-                "reference_motion": report_errors(state_errors(verification["start"], verification["frames"][-1])),
+                "reference_motion": report_errors(state_errors(
+                    verification["start"], {key: verification["frames"][-1][key] for key in verification["start"]},
+                )),
                 "solver_cache_restored": False,
+                "measurement_scope": "physics_substeps_and_environment_boundaries" if getattr(self.backend, "physics_trace", None) else "environment_boundaries",
+                "zero_deviation_required": bool(getattr(self.backend, "exact", False)),
+                "complete_physical_state_restored": False,
+                "first_divergence": verification["first_divergence"],
             }
+            reader = getattr(getattr(self.backend, "physics_trace", None), "reader", None)
+            if reader is not None and hasattr(reader, "describe"):
+                self.verification_report["measurement_layout"] = reader.describe()
             self.blocked = not passed
             self.message = f"Trajectory {'PASS' if passed else 'FAIL'}; max error {max(errors.values()):.3g}; PAUSED"
         except (ValueError, RuntimeError, OSError) as exc:
             self.blocked = not isinstance(exc, RestoreRejected)
-            self.verification_report = {"passed": False, "error": str(exc)}
+            self.verification_report = {
+                "passed": False, "error": str(exc), "phase": verification["phase"],
+                "environment_step_offset": verification["done"] + 1,
+                "solver_cache_restored": False, "complete_physical_state_restored": False,
+                "zero_deviation_required": bool(getattr(self.backend, "exact", False)),
+            }
             self.message = str(exc)
         self._verification = None
+        trace = getattr(self.backend, "physics_trace", None)
+        if trace is not None:
+            trace.finish()
         destination = self.backend.output_dir / "trajectory_verification.json"
         destination.write_text(json.dumps(self.verification_report, indent=2, allow_nan=False) + "\n", encoding="utf-8")

@@ -46,6 +46,31 @@ Configure the LLM provider in algorithm/emos/brain and install the package depen
 pip install -r algorithm/emos/requirements.txt
 ~~~
 
+## Replacing assignment without changing the task runner
+
+The Fire Rescue runner accepts `--assignment-policy emos` (default) or a trusted
+`module:assign` function, e.g. `algorithm.emos.example_policy:assign`. Implement
+`assign(request: AssignmentRequest) -> dict[str, str]`, returning robot names mapped
+to scenario subtask IDs. `policy.py` defines the data-only request and output validation;
+`example_policy.py` provides a deterministic local example. The task still owns target
+coordinates, execution, success criteria and logical checkpoint milestones.
+
+The manager snapshots request inputs on the simulator thread, then calls the selected
+algorithm on its worker with a deep copy. No live simulator handle is passed to the
+callback. Unknown IDs/capability violations are rejected and callback errors propagate
+through `poll()` rather than silently using EMOS fallback. Rescue replanning also uses
+the selected policy. Partial mappings are permitted but omitted tasks are not filled.
+Programmatic integrations call `manager.set_assignment_policy(callback, name=...)`
+before the first trigger; no replacement is allowed during a running episode.
+
+This initial callback contract is stateless. It rejects closure functions/callable
+objects but cannot detect hidden module-global mutation: algorithms must not rely on
+unadapted mutable globals or model memory. Such state needs a separate checkpoint
+adapter; external service history is also outside this interface. EMOS orchestration
+state and the copied request are checkpointed by the Fire Rescue native integration;
+the fixed callback itself is retained as a code resource, not serialized. See the
+Fire Rescue READMEs for `--task-checkpoints` and the unattended single-trial command.
+
 ## Brain package
 
 algorithm/emos/brain/ contains the LLM discussion, request-gating, parsing, and skill/action helpers used by EMOS. It is a library boundary, not a standalone command-line application. Callers should use the EMOS manager instead of launching files in that directory directly.

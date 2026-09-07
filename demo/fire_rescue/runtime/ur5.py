@@ -833,7 +833,14 @@ class UR5Manager:
                     print(f"[灭火器] ⚠️ 仍未找到灭火器 prim，搜索半径={FIRE_EXTINGUISHER_SEARCH_RADIUS}m")
                 return
 
-        ext_pos = self._get_prim_pos(stage, self._ext_target_prim)
+        physical_replay = bool(getattr(self, "physical_replay", False))
+        if physical_replay:
+            target_rigid = self._find_rigid_body_ancestor(stage, self._ext_target_prim)
+            if target_rigid is None:
+                raise RuntimeError("physical replay requires an existing extinguisher rigid body")
+            ext_pos = self._grab_body_world_transform(stage, target_rigid, live_physics=True).ExtractTranslation()
+        else:
+            ext_pos = self._get_prim_pos(stage, self._ext_target_prim)
         if ext_pos is None:
             return
 
@@ -848,13 +855,16 @@ class UR5Manager:
                   f"ext=({ext_pos[0]:.3f},{ext_pos[1]:.3f},{ext_pos[2]:.3f}) "
                   f"dist={dist:.3f}m thresh={FIRE_EXTINGUISHER_GRAB_DISTANCE}m {phase_info}")
 
-        if dist < FIRE_EXTINGUISHER_GRAB_DISTANCE:
+        grab_distance = FIRE_EXTINGUISHER_PREALIGN_DIST if physical_replay else FIRE_EXTINGUISHER_GRAB_DISTANCE
+        if dist < grab_distance:
             if not self.enable_extinguisher_stage_attach:
+                if physical_replay:
+                    raise RuntimeError("physical replay cannot use logical extinguisher pickup")
                 self._complete_logical_extinguisher_grab(robot_name, dist)
                 return
 
             # 两阶段吸附：先预对齐，等待下一帧物理更新后再建关节，避免同帧 snap 冲击。
-            if not self._ext_prealign_pending and dist > FIRE_EXTINGUISHER_PREALIGN_DIST:
+            if not physical_replay and not self._ext_prealign_pending and dist > FIRE_EXTINGUISHER_PREALIGN_DIST:
                 if self._set_prim_world_translate(stage, self._ext_target_prim, ee_pos):
                     self._ext_prealign_pending = True
                     print(
@@ -876,7 +886,7 @@ class UR5Manager:
                     print(f"[灭火器] ⚠️ 灭火器 prim 非刚体或无刚体父节点: {self._ext_target_prim}")
                     return
                 print(f"[灭火器] 🧷 准备粘连: ee_rigid={ee_rigid} target_rigid={target_rigid}")
-                attach_mode = str(FIRE_EXTINGUISHER_ATTACH_MODE).lower().strip()
+                attach_mode = "fixed" if physical_replay else str(FIRE_EXTINGUISHER_ATTACH_MODE).lower().strip()
                 if attach_mode == "follow":
                     new_path = self._activate_follow_attach(stage, target_rigid, ee_rigid)
                     if new_path:
@@ -903,7 +913,7 @@ class UR5Manager:
                             print(f"[灭火器] ✅ 视觉代理粘连成功！{robot_name} → {proxy_path} (距离={dist:.3f}m)", flush=True)
                 else:
                     joint_path = self._create_grab_joint(
-                        stage, ee_rigid, target_rigid, ee_pos, ext_pos
+                        stage, ee_rigid, target_rigid, ee_pos, ext_pos, preserve_physics=physical_replay,
                     )
                     if joint_path:
                         self._ext_grabbed = True
@@ -1324,12 +1334,37 @@ class UR5Manager:
         return None
 
     @staticmethod
-    def _create_grab_joint(stage, ee_path, target_path, ee_pos, target_pos):
+    def _grab_body_world_transform(stage, path, *, live_physics=False):
+        from pxr import Gf, UsdGeom
+
+        if live_physics:
+            import omni.usd
+
+            if stage == omni.usd.get_context().get_stage():
+                import numpy as np
+                import omni.physics.tensors
+
+                simulation_view = omni.physics.tensors.create_simulation_view("numpy")
+                body_view = simulation_view.create_rigid_body_view(path)
+                if body_view is None or body_view.count != 1:
+                    raise ValueError(f"physical grab requires one live rigid body: {path}")
+                pose = body_view.get_transforms()[0]
+                if not np.all(np.isfinite(pose)):
+                    raise ValueError(f"physical grab received a non-finite body pose: {path}")
+                transform = Gf.Matrix4d().SetRotate(Gf.Quatd(float(pose[6]), Gf.Vec3d(*map(float, pose[3:6]))))
+                transform.SetTranslateOnly(Gf.Vec3d(*map(float, pose[:3])))
+                return transform
+        return UsdGeom.Xformable(stage.GetPrimAtPath(path)).ComputeLocalToWorldTransform(0)
+
+    @staticmethod
+    def _create_grab_joint(stage, ee_path, target_path, ee_pos, target_pos, *, preserve_physics=False):
         """在 UR5 末端执行器与灭火器之间创建 FixedJoint 粘连。"""
         from pxr import UsdPhysics, Sdf, PhysxSchema, Gf, UsdGeom
 
         joint_path = "/World/envs/env_0/extinguisher_grab_joint"
         try:
+            ee_xf = UR5Manager._grab_body_world_transform(stage, ee_path, live_physics=preserve_physics)
+            target_xf = UR5Manager._grab_body_world_transform(stage, target_path, live_physics=preserve_physics)
             old = stage.GetPrimAtPath(joint_path)
             if old.IsValid():
                 stage.RemovePrim(joint_path)
@@ -1338,23 +1373,26 @@ class UR5Manager:
             fj.CreateBody0Rel().SetTargets([Sdf.Path(ee_path)])
             fj.CreateBody1Rel().SetTargets([Sdf.Path(target_path)])
             fj.CreateCollisionEnabledAttr().Set(False)
+            if preserve_physics:
+                fj.CreateExcludeFromArticulationAttr().Set(True)
 
             # 使用末端当前位置作为连接点，换算到两个刚体局部坐标，提升粘连稳定性。
             ee_prim = stage.GetPrimAtPath(ee_path)
             target_prim = stage.GetPrimAtPath(target_path)
             if ee_prim.IsValid() and target_prim.IsValid():
-                ee_xf = UsdGeom.Xformable(ee_prim).ComputeLocalToWorldTransform(0)
-                target_xf = UsdGeom.Xformable(target_prim).ComputeLocalToWorldTransform(0)
-                p_world = Gf.Vec3d(float(ee_pos[0]), float(ee_pos[1]), float(ee_pos[2]))
+                p_world = ee_xf.ExtractTranslation() if preserve_physics else Gf.Vec3d(*map(float, ee_pos))
                 p_local_ee = ee_xf.GetInverse().Transform(p_world)
                 p_local_target = target_xf.GetInverse().Transform(p_world)
                 fj.CreateLocalPos0Attr().Set(Gf.Vec3f(float(p_local_ee[0]), float(p_local_ee[1]), float(p_local_ee[2])))
                 fj.CreateLocalPos1Attr().Set(
                     Gf.Vec3f(float(p_local_target[0]), float(p_local_target[1]), float(p_local_target[2]))
                 )
+                if preserve_physics:
+                    fj.CreateLocalRot0Attr().Set(Gf.Quatf(ee_xf.ExtractRotationQuat().GetInverse()))
+                    fj.CreateLocalRot1Attr().Set(Gf.Quatf(target_xf.ExtractRotationQuat().GetInverse()))
 
             target_prim = stage.GetPrimAtPath(target_path)
-            if target_prim.IsValid():
+            if target_prim.IsValid() and not preserve_physics:
                 # 这些参数用于提升粘连稳定性；若当前 Isaac/USD API 不支持，降级为 warning，不中断关节创建。
                 try:
                     if target_prim.HasAPI(PhysxSchema.PhysxRigidBodyAPI):

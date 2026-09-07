@@ -168,9 +168,12 @@ class StageStateComponent:
             indices = np.arange(len(paths), dtype=np.uint32)
             view.set_transforms(transforms, indices)
             view.set_velocities(velocities, indices)
-            for expected, actual in ((transforms, view.get_transforms()), (velocities, view.get_velocities())):
+            for channel, expected, actual in (("transforms", transforms, view.get_transforms()),
+                                              ("velocities", velocities, view.get_velocities())):
                 if not np.all(np.isfinite(actual)) or not np.allclose(expected, actual, rtol=0, atol=self.tolerance):
-                    raise RuntimeError("non-scene rigid body restore exceeded tolerance")
+                    difference = np.abs(expected.astype(np.float64) - actual.astype(np.float64))
+                    raise RuntimeError(f"non-scene rigid body restore exceeded tolerance: {channel}, "
+                                       f"max_abs={float(difference.max()):.12g}, tolerance={self.tolerance:.12g}")
 
 
 class SleepStateComponent:

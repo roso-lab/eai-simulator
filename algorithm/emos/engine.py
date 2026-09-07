@@ -152,6 +152,10 @@ class EMOSDiscussionManager:
         self._rescue_constraint_fn = rescue_constraint_fn
         self._write_html_report = write_html_report
         self._get_group_discussion_llm_kwargs = get_group_discussion_llm_kwargs
+        self._assignment_policy = None
+        self._assignment_policy_name = "emos"
+        self._assignment_request = None
+        self._assignment_error = None
 
         self._phase = EMOSPhase.IDLE
         self._lock = threading.Lock()
@@ -252,6 +256,8 @@ class EMOSDiscussionManager:
 
     def _llm_display_name(self) -> str:
         """Human-readable provider name for chat/console (from preset ``llm_display_label``)."""
+        if self._assignment_policy is not None:
+            return self._assignment_policy_name
         if self._get_group_discussion_llm_kwargs is None:
             return "LLM"
         try:
@@ -264,6 +270,8 @@ class EMOSDiscussionManager:
 
     def should_preserve_raw_llm_assignments(self) -> bool:
         """Whether current LLM preset should execute the parsed LLM assignment as-is."""
+        if self._assignment_policy is not None:
+            return True
         if self._get_group_discussion_llm_kwargs is None:
             return False
         try:
@@ -276,6 +284,14 @@ class EMOSDiscussionManager:
     def phase(self) -> EMOSPhase:
         with self._lock:
             return self._phase
+
+    def set_assignment_policy(self, callback: Callable, *, name: str) -> None:
+        from .policy import validate_assignment_policy
+
+        if self._thread is not None or self.phase != EMOSPhase.IDLE:
+            raise RuntimeError("configure the assignment policy before the first task trigger")
+        self._assignment_policy = validate_assignment_policy(callback)
+        self._assignment_policy_name = name
 
     @property
     def is_running(self) -> bool:
@@ -306,6 +322,11 @@ class EMOSDiscussionManager:
             hazard_pos,
             base_overrides=subtask_positions,
         )
+        self._assignment_error = None
+        if self._assignment_policy is not None:
+            from .policy import make_assignment_request
+
+            self._assignment_request = make_assignment_request(self, _task, _positions)
 
         self._thread = threading.Thread(
             target=self._worker,
@@ -324,6 +345,8 @@ class EMOSDiscussionManager:
         )
 
     def poll(self) -> Optional[Dict[str, RobotTask]]:
+        if self._assignment_error is not None:
+            raise RuntimeError(f"assignment policy failed: {self._assignment_error}")
         try:
             result = self._result_queue.get_nowait()
             self._last_result = result
@@ -359,6 +382,11 @@ class EMOSDiscussionManager:
         在锁内置位，谁先占位谁负责 put；后到的一路看到标志直接放弃，避免向 queue 双投。
         返回值：是否真的派发了 fallback 方案（False 表示当前已有结果在路上或入队完成）。
         """
+        if self._assignment_policy is not None:
+            if self.is_running:
+                return False
+            self.trigger(self._hazard_id, self._hazard_pos)
+            return True
         with self._lock:
             if self._fallback_dispatched_for_round:
                 return False
@@ -473,6 +501,11 @@ class EMOSDiscussionManager:
             self._result_queue.put(assignments)
         except Exception as exc:
             _sys(f"{_C.RED}EMOS 讨论异常: {exc}{_C.RST}")
+            if self._assignment_policy is not None:
+                with self._lock:
+                    self._assignment_error = str(exc)
+                    self._phase = EMOSPhase.ERROR
+                return
             import traceback
 
             traceback.print_exc()
@@ -509,6 +542,17 @@ class EMOSDiscussionManager:
     def _run_discussion(
         self, task_desc: str, positions: Dict[str, Tuple[float, float]]
     ) -> Dict[str, RobotTask]:
+        if self._assignment_policy is not None:
+            from .policy import assignment_tasks
+
+            started = time.perf_counter()
+            try:
+                assignments = self._assignment_policy(copy.deepcopy(self._assignment_request))
+                return assignment_tasks(self._assignment_request, assignments)
+            finally:
+                self.last_discussion_elapsed_s = time.perf_counter() - started
+                self.cumulative_discussion_elapsed_s += self.last_discussion_elapsed_s
+                self.discussion_count += 1
         robot_positions: Dict[str, Tuple[float, float]] = {}
         for name in self._agents:
             try:
