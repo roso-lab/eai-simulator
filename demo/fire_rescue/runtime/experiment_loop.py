@@ -83,6 +83,10 @@ def run_robot_factory_platform(
     skip_http_init: bool = False,
     simulator_session: Any | None = None,
 ) -> int:
+    native_mode = bool(getattr(args_cli, "replay_native", False))
+    native_scope = getattr(args_cli, "replay_scope", None)
+    if native_mode and native_scope is None:
+        raise ValueError("native replay requires the experiment-owned replay scope")
     if bool(getattr(args_cli, "branch_interactive", False)) and bool(
         getattr(args_cli, "headless", False)
     ):
@@ -118,7 +122,7 @@ def run_robot_factory_platform(
     import queue
 
     # Dashboard：只读观察模式
-    dashboard = not getattr(args_cli, "headless", False)
+    dashboard = not getattr(args_cli, "headless", False) and not native_mode
     _dsrv: Any
     _stream: Any = None
     if dashboard:
@@ -461,7 +465,7 @@ def run_robot_factory_platform(
         def elapsed(timestamp: Optional[float]) -> Optional[float]:
             return None if timestamp is None else max(0.0, now - float(timestamp))
 
-        return {
+        state = {
             "step_counter": int(step_counter),
             "auto_fire_done": bool(auto_fire_done),
             "record_hazard_id": int(_record_hazard_id),
@@ -487,6 +491,32 @@ def run_robot_factory_platform(
             "pending_rescue_approval": copy.deepcopy(_pending_rescue_approval),
             "last_replay_assignments": copy.deepcopy(_last_replay_assignments),
         }
+        if native_mode:
+            state["native"] = _native_codec.encode({
+                "active_runtime_s": _active_runtime_s,
+                "sim_time_since_fire_s": _sim_time_since_fire_s,
+                "fire_cleared": _fire_cleared,
+                "should_stop_sim": _should_stop_sim,
+                "sim_result": _sim_result,
+                "sim_fail_reason": _sim_fail_reason,
+                "replan_defer_ts": _replan_defer_ts,
+                "suppress_patrol_pending": _suppress_patrol_pending,
+                "pending_emos_for_rescue": _pending_emos_for_rescue,
+                "rc_final_approach_start": _rc_final_approach_start,
+                "obstacle_spawn_sim_s": _obstacle_spawn_sim_s,
+                "move_obstacle_exec_sim_s": _move_obstacle_exec_sim_s,
+                "robot_moving_time_s": _robot_moving_time_s,
+                "robot_standby_time_s": _robot_standby_time_s,
+                "robot_end_ts": _robot_end_ts,
+                "robot_goal_done": _robot_goal_done,
+                "robot_last_task_done": _robot_last_task_done,
+                "robot_in_fire_range": _robot_in_fire_range,
+                "press_button_exec_sim_s": _press_button_exec_sim_s,
+                "carry_ext_exec_sim_s": _carry_ext_exec_sim_s,
+                "prev_frame_real_ts": _prev_frame_real_ts,
+                "prev_loop_real_ts": _prev_loop_real_ts,
+            })
+        return state
 
     def _restore_replay_runtime_state(state: Mapping[str, Any]) -> None:
         nonlocal step_counter, auto_fire_done, _record_hazard_id, _fire_pos, _fire_start_ts
@@ -496,6 +526,14 @@ def run_robot_factory_platform(
         nonlocal _extinguisher_task1_completed, _last_rescue_robot, _rally_dispatched
         nonlocal _pending_emos_assignments, _pending_emos_dispatch_at_sim_s
         nonlocal _pending_rescue_approval, _last_replay_assignments
+        nonlocal _active_runtime_s, _sim_time_since_fire_s, _fire_cleared
+        nonlocal _should_stop_sim, _sim_result, _sim_fail_reason, _replan_defer_ts
+        nonlocal _suppress_patrol_pending, _pending_emos_for_rescue, _rc_final_approach_start
+        nonlocal _obstacle_spawn_sim_s, _move_obstacle_exec_sim_s
+        nonlocal _robot_moving_time_s, _robot_standby_time_s, _robot_end_ts
+        nonlocal _prev_frame_real_ts, _prev_loop_real_ts
+        nonlocal _robot_goal_done, _robot_last_task_done, _robot_in_fire_range
+        nonlocal _press_button_exec_sim_s, _carry_ext_exec_sim_s
         now = time.time()
 
         def rebase(value: Any) -> Optional[float]:
@@ -536,6 +574,30 @@ def run_robot_factory_platform(
         _pending_emos_dispatch_at_sim_s = state.get("pending_emos_dispatch_at_sim_s")
         _pending_rescue_approval = copy.deepcopy(state.get("pending_rescue_approval"))
         _last_replay_assignments = copy.deepcopy(state.get("last_replay_assignments", {}))
+        if native_mode:
+            native = _native_codec.decode(state["native"])
+            _active_runtime_s = native["active_runtime_s"]
+            _sim_time_since_fire_s = native["sim_time_since_fire_s"]
+            _fire_cleared = native["fire_cleared"]
+            _should_stop_sim = native["should_stop_sim"]
+            _sim_result = native["sim_result"]
+            _sim_fail_reason = native["sim_fail_reason"]
+            _replan_defer_ts = native["replan_defer_ts"]
+            _suppress_patrol_pending = native["suppress_patrol_pending"]
+            _pending_emos_for_rescue = native["pending_emos_for_rescue"]
+            _rc_final_approach_start = native["rc_final_approach_start"]
+            _obstacle_spawn_sim_s = native["obstacle_spawn_sim_s"]
+            _move_obstacle_exec_sim_s = native["move_obstacle_exec_sim_s"]
+            _robot_moving_time_s = native["robot_moving_time_s"]
+            _robot_standby_time_s = native["robot_standby_time_s"]
+            _robot_end_ts = native["robot_end_ts"]
+            _robot_goal_done = native["robot_goal_done"]
+            _robot_last_task_done = native["robot_last_task_done"]
+            _robot_in_fire_range = native["robot_in_fire_range"]
+            _press_button_exec_sim_s = native["press_button_exec_sim_s"]
+            _carry_ext_exec_sim_s = native["carry_ext_exec_sim_s"]
+            _prev_frame_real_ts = native["prev_frame_real_ts"]
+            _prev_loop_real_ts = native["prev_loop_real_ts"]
 
     def _replay_success_predicate() -> bool:
         fire_xy = (
@@ -816,8 +878,60 @@ def run_robot_factory_platform(
             nav.suppress_patrol_after_emos = False
         return cnt if cnt > 0 else queued_cnt
 
+    native_replay = None
+    native_test_requested = False
+    native_test_started = time.perf_counter()
+    native_last_message = None
+    if native_mode:
+        from .native_replay import build_native_replay
+        from tools.physics_replay.runtime_state import StateCodec
+
+        _native_codec = StateCodec()
+        native_output = allocate_replay_episode_dir(
+            getattr(args_cli, "branch_checkpoint_dir", "") or "tmp/replay/fire_rescue_native",
+            trial_index=trial_index,
+        )
+        native_replay = build_native_replay(
+            simulator_session, native_output, scope=native_scope, nav=nav, obstacle=obstacle_mgr,
+            ur5=ur5, emos=emos_mgr, light=light,
+            runtime_component=CallbackComponent(
+                "fire_rescue.runtime", 1, _capture_replay_runtime_state, _restore_replay_runtime_state, priority=30,
+            ),
+            tolerance=float(getattr(args_cli, "replay_restore_tolerance", 1e-5)),
+            create_window=not bool(getattr(args_cli, "headless", False)),
+        )
+        print(f"[Native Replay] checkpoints: {native_output}")
+        print("[Native Replay] F5 save | F9 restore | F8 pause/run | F10 single step; no browser required")
+
     # ═══════════════════════ 主循环 ═══════════════════════════════════════════
     while simulation_app.is_running():
+        if native_replay is not None:
+            checkpoint_count = len(native_replay.backend.checkpoints)
+            if emos_auto_dispatched and not native_replay.backend.checkpoints and native_replay.save_error is None:
+                native_replay.pending_save = True
+            may_step = native_replay.poll()
+            if checkpoint_count == 0 and native_replay.backend.checkpoints:
+                native_replay.paused = True
+                native_replay.message += "; PAUSED. F8 continues, F10 steps."
+                may_step = False
+            test_steps = int(getattr(args_cli, "replay_native_test_steps", 0))
+            if native_last_message != native_replay.message:
+                native_last_message = native_replay.message
+                print(f"[Native Replay] {native_last_message}")
+            if test_steps and (native_replay.save_error or native_replay.blocked):
+                raise RuntimeError(f"native replay validation failed: {native_replay.message}")
+            if test_steps and time.perf_counter() - native_test_started > 180:
+                raise RuntimeError(f"native replay validation timed out: {native_replay.message}")
+            if test_steps and native_replay.backend.checkpoints and not native_test_requested:
+                native_replay.request("verify", test_steps)
+                native_test_requested = True
+                may_step = native_replay.poll()
+            if native_scope.window is not None:
+                native_scope.window.refresh()
+            if not may_step:
+                base_env.sim.render()
+                time.sleep(0.02)
+                continue
         if max_steps > 0 and step_counter >= max_steps:
             _sim_result = "fail"
             _sim_fail_reason = f"达到 max_steps={max_steps} 仍未完成"
@@ -868,7 +982,7 @@ def run_robot_factory_platform(
                     if not _emos_triggered:
                         if bool(getattr(args_cli, "replay_local_fallback", False)) and (
                             str(getattr(args_cli, "replay_verify_dir", "")).strip()
-                            or branch_mode
+                            or branch_mode or native_mode
                         ):
                             emos_mgr._hazard_id = hid
                             emos_mgr._hazard_pos = pos
@@ -1093,7 +1207,9 @@ def run_robot_factory_platform(
         checkpoint_dir_text = branch_dir_text if branch_mode else replay_dir_text
         if (
             checkpoint_dir_text
+            and not native_mode
             and branch_coordinator is None
+            and replay_verifier is None
             and bool(emos_auto_dispatched)
             and _pending_emos_assignments is None
             and getattr(nav, "_pending_plan", None) is None
@@ -1424,6 +1540,8 @@ def run_robot_factory_platform(
             env.step(actions)
         else:
             env.step({})
+        if native_replay is not None:
+            native_scope.clock.step_index += 1
         if replay_verifier is not None and replay_verifier.active:
             replay_result = replay_verifier.after_step(
                 applied_actions=getattr(env, "_last_computed_actions", {}),
@@ -1556,6 +1674,10 @@ def run_robot_factory_platform(
                 _dsrv.push_chat("emos", "EMOS 统计", f"❌ 任务超时：{sim_timeout_s:.0f}s内未达成目标。")
 
         if _should_stop_sim:
+            if native_replay is not None:
+                native_replay.paused = True
+                native_replay.message = f"Trial {_sim_result}; F9 restores a checkpoint, F10 steps."
+                _should_stop_sim = False
             if branch_mode and branch_controller is not None:
                 if branch_running:
                     branch_controller.finish(
@@ -1565,7 +1687,16 @@ def run_robot_factory_platform(
                     break
                 if _wait_for_assignment_branch():
                     continue
-            break
+            if native_replay is None:
+                break
+
+        if native_replay is not None:
+            native_replay.after_step()
+            if native_test_requested and native_replay.verification_report is not None:
+                print(f"[Native Replay] verification: {native_replay.verification_report}")
+                if not native_replay.verification_report["passed"]:
+                    raise RuntimeError("native replay trajectory verification exceeded tolerance")
+                return step_counter
 
         if do_real_time:
             sleep_time = step_dt - (time.perf_counter() - loop_t0)

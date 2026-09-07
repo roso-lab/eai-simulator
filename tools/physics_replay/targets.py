@@ -263,6 +263,8 @@ class TargetResolver:
             channels.append("joint_state")
         if kind == "articulation" and _has_attrs(data, "joint_pos_target", "joint_vel_target"):
             channels.append("joint_target")
+        if kind == "articulation" and hasattr(data, "joint_effort_target"):
+            channels.append("joint_effort_target")
         if hasattr(data, "net_contact_forces_w"):
             channels.append("contact_force")
         if kind == "articulation" and _effort_attr(data):
@@ -274,6 +276,12 @@ class TargetResolver:
         if data is None:
             return ()
         channels: list[str] = []
+        if (
+            kind == "articulation"
+            and hasattr(data, "joint_effort_target")
+            and callable(getattr(obj, "set_joint_effort_target", None))
+        ):
+            channels.append("joint_effort_target")
         if kind in {"articulation", "rigid_object"}:
             if _has_attrs(data, "root_pos_w", "root_quat_w") and callable(
                 getattr(obj, "write_root_pose_to_sim", None)

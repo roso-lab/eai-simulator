@@ -138,7 +138,11 @@ class IsaacLabStateAdapter:
         values: dict[str, np.ndarray] = {}
         for key in channels:
             channel = _channel_name(str(key))
-            if channel == "pose":
+            if channel == "joint_effort_target":
+                value = _to_numpy(self._data_value(obj, "joint_effort_target")[target.spec.env_id])
+                if target.joint_indices:
+                    value = value[list(target.joint_indices)]
+            elif channel == "pose":
                 value = self._root_pose(obj, target)
             elif channel == "velocity":
                 value = self._velocity(obj, target)
@@ -233,6 +237,16 @@ class IsaacLabStateAdapter:
         self._write_root(obj, target, values)
         self._write_joints(obj, target, values)
         self._write_joint_targets(obj, target, values)
+        effort_key = f"{target.target_id}/joint_effort_target"
+        if effort_key in values:
+            reference = self._data_value(obj, "joint_effort_target")
+            effort = _to_numpy(reference[target.spec.env_id])
+            indices = list(target.joint_indices) if target.joint_indices else slice(None)
+            effort[indices] = values[effort_key]
+            obj.set_joint_effort_target(
+                _backend_array(effort, reference),
+                env_ids=_env_ids(target.spec.env_id, reference),
+            )
 
     def refresh(self) -> None:
         """Refresh Isaac Lab entity caches after direct PhysX tensor writes."""

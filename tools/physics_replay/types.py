@@ -25,11 +25,12 @@ SUPPORTED_CHANNELS = frozenset(
         "velocity",
         "joint_state",
         "joint_target",
+        "joint_effort_target",
         "contact_force",
         "joint_effort",
     }
 )
-WRITABLE_CHANNELS = frozenset({"pose", "velocity", "joint_state", "joint_target"})
+WRITABLE_CHANNELS = frozenset({"pose", "velocity", "joint_state", "joint_target", "joint_effort_target"})
 REPORT_STATUSES = frozenset(
     {"restored", "physical_state_only", "replay_diverged", "unsupported", "corrupt"}
 )

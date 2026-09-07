@@ -2522,7 +2522,7 @@ PYTHONDONTWRITEBYTECODE=1 python -m demo.fire_rescue.main --help
 python -m demo.fire_rescue.main --headless
 ```
 
-Non-headless Fire Rescue can send `SIGKILL` to existing holders of ports 8766 and 8767 before starting its dashboard. Inspect and coordinate port ownership as described in section 14 rather than using dashboard mode on a shared host.
+Non-headless Fire Rescue can send `SIGKILL` to existing holders of ports 8766 and 8767 before starting its dashboard. Inspect and coordinate port ownership as described in section 14 rather than using dashboard mode on a shared host. The opt-in `--replay-native --device cpu` workflow instead uses an Isaac Kit checkpoint window and starts neither browser service nor port cleanup. It supports one environment and same-process safe checkpoints, including supported runtime and delayed-actuator state, but not PhysX solver caches or arbitrary external input replay. See `demo/fire_rescue/README.md` for F5/F9/F8/F10 controls and separate read-back/trajectory validation; never equate a successful state write with zero-drift physical continuation.
 
 ## 19. Task-to-File Lookup Index
 

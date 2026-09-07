@@ -56,6 +56,9 @@ def build_robot_baseline_args(sim: SimulatorSession, config: FireRescueConfig) -
         replay_local_fallback=bool(config.replay_local_fallback),
         branch_interactive=bool(config.branch_interactive),
         branch_checkpoint_dir=str(config.branch_checkpoint_dir or ""),
+        replay_native=bool(config.replay_native),
+        replay_restore_tolerance=float(config.replay_restore_tolerance),
+        replay_native_test_steps=int(config.replay_native_test_steps),
     )
 
 
@@ -124,7 +127,15 @@ def run_robot_baseline_experiment(
         if (
             str(getattr(args_cli, "replay_verify_dir", "")).strip()
             or bool(getattr(args_cli, "branch_interactive", False))
+            or bool(getattr(args_cli, "replay_native", False))
         ):
             platform_kwargs["simulator_session"] = sim
-        total_steps += int(run_platform(**platform_kwargs))
+        if config.replay_native:
+            from .runtime.native_replay import NativeReplayScope
+
+            with NativeReplayScope(sim.base_env.step_dt) as replay_scope:
+                args_cli.replay_scope = replay_scope
+                total_steps += int(run_platform(**platform_kwargs))
+        else:
+            total_steps += int(run_platform(**platform_kwargs))
     return total_steps

@@ -19,13 +19,101 @@ python -m demo.fire_rescue.main \
   --emos-llm-preset=zhipu-glm4-flash
 ```
 
-After a non-headless launch, the terminal prompts you to open:
+After a normal non-headless launch (without `--replay-native`), the terminal prompts you to open:
 
 ```text
 http://127.0.0.1:8767/
 ```
 
 The Dashboard data service uses port `8767`; the Isaac Sim live-image WebSocket uses port `8766`.
+
+## Native checkpoint controls (experimental)
+
+Use the Isaac Sim window directly, without either browser service:
+
+```bash
+python -m demo.fire_rescue.main \
+  --env EAI-Factory-v0 --device cpu --trials 1 --auto-fire-delay 0 \
+  --replay-native --replay-local-fallback \
+  --branch-checkpoint-dir tmp/replay/fire_rescue_native
+```
+
+The **EAI Physics Checkpoints** window provides:
+
+| Control | Behavior |
+| --- | --- |
+| Save / F5 | Save another checkpoint at the next safe completed environment-step boundary. |
+| Checkpoint dropdown | Select an earlier checkpoint without discarding later checkpoints. |
+| Restore / F9 | Restore the selected checkpoint and remain paused. |
+| Pause/Run / F8 | Pause the demo loop or continue from the current state. |
+| Step / F10 | Execute one complete environment step, including controller/physics decimation, then pause. |
+| Verify 20 steps | Compare two continuations frame by frame, report drift, then pause. |
+
+Focus the Isaac window for shortcuts. Use these controls instead of Kit's built-in
+timeline Stop/Play buttons, which have different reset semantics. The first safe
+checkpoint after assignment is saved automatically and pauses for inspection. A pending save does not skip
+normal physics or robot-arm updates. Restoring waits for active background workers
+to finish, discards their obsolete results, and never automatically resumes.
+
+Native mode requires CPU PhysX and one environment. Rendering still uses the GPU.
+It cannot be combined with `--branch-interactive` or `--replay-verify-dir`.
+`--replay-local-fallback` avoids the initial LLM allocation call; it is not a general
+record/replay protocol for later external services, ROS input, or manual input.
+No assignment JSON editor is included in this first native version.
+
+### State coverage and precision boundary
+
+This is an **observable-state and supported runtime checkpoint**, not a complete
+PhysX solver serialization. It captures registered articulations/rigid objects,
+UR5 joint state, position/velocity/effort targets, actual PhysX drive targets,
+implicit/PD/DC/delayed-PD actuator state (including delay rings and their pointers),
+joint-acceleration history, environment commands/counters, Python/NumPy/Torch RNG,
+navigation queues/tracking/reservations, supported obstacle/UR5/EMOS state, and
+simulation-time task clocks. It also captures physical USD attributes, declared
+runtime objects, light state, and non-scene rigid-body poses/velocities such as the
+extinguisher, including physics sleep flags. Pausing freezes task clocks; restoring rewinds them.
+
+Only safe checkpoints are accepted: no active worker/pending planning result,
+unsupported UR5 grab/drag phase, active external wrench, deformable, or unadapted
+actuator. Unknown Python state fails explicitly rather than being silently omitted.
+Topology changes outside the declared runtime objects are not supported. Checkpoints
+are restricted to the creating process/session, not a cross-process resume format.
+Camera/ROS/OS input history and PhysX contact/solver caches are not restored.
+
+`--replay-restore-tolerance` defaults to `1e-5`. It checks immediate read-back,
+**not future trajectory equivalence**. Failure after restore writes begin, or a failed
+trajectory accuracy check, blocks further steps until a valid checkpoint is restored.
+A rejected pre-write validation leaves the current simulation unchanged and paused;
+F8/F10 can continue it unless an earlier failure already made its state unsafe.
+`last_restore.json` records the failure phase and whether state may have changed,
+instead of leaving a stale successful report. The trajectory checker
+uses a separate strict `1e-3` threshold for every numeric channel: pose position is
+in meters, orientation in radians, other values in their channel's native units.
+Passing position error alone is insufficient if velocity or joint errors fail.
+These are acceptance limits, not achieved-accuracy promises.
+
+The verification report distinguishes `original_vs_restored` (verification starts
+immediately after saving, before another step) from `two_restored_runs` (an older
+checkpoint is restored first). The latter only measures repeatability of restored
+runs and must not be presented as fidelity to the original uninterrupted trajectory.
+All frames are checked, including non-scene rigid bodies; maximum errors and reference
+motion are recorded. Long-run/contact-rich error can grow even when read-back passes.
+
+For a bounded headless accuracy check, add `--headless --replay-native-test-steps 100`
+to the launch command. This explicit test mode exits after verification, fails with
+a nonzero exit status if strict limits are exceeded, and times out after 180 seconds
+inside the demo loop. It does not bound application startup or individual blocking calls.
+Normal native use requires a visible window. Output is under the printed per-trial
+directory: `last_restore.json`, `trajectory_verification.json`, and checksum-protected
+JSON/NPZ component checkpoints. Repeated launches preserve previous trial directories.
+
+Extinguisher pickup disables the original rigid body and uses a visual proxy. Native
+restore treats its enable flag as restorable state, not a deleted body, removes the
+future proxy, restores the original properties, and flushes buffered PhysX changes
+before accessing the rigid-body view. It does not advance physics to recreate the body.
+Actual additions/removals outside declared runtime objects remain rejected, with
+the affected paths in the error. USD runtime checkpoints use component schema v2;
+restart an older running demo to use the fix (old session checkpoints are not portable).
 
 ## Interactive assignment branches
 

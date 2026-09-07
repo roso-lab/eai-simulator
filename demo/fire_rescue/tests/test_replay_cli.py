@@ -45,3 +45,54 @@ def test_default_map_resolution_bootstraps_repository_sources(monkeypatch):
 
     assert main_module.resolve_default_map_yaml() == Path("factory_map.yaml")
     assert events == ["path"]
+
+
+@pytest.mark.parametrize("flags", [
+    ["--replay-native", "--device", "cuda"],
+    ["--replay-native", "--device", "cpu", "--headless"],
+    ["--replay-native", "--device", "cpu", "--branch-interactive"],
+    ["--replay-native-test-steps", "20"],
+    ["--replay-restore-tolerance", "nan"],
+    ["--replay-restore-tolerance", "0"],
+])
+def test_native_replay_rejects_unsupported_configuration(flags):
+    args = build_parser().parse_args(flags)
+    with pytest.raises(ValueError):
+        main_module.validate_fire_rescue_cli_args(args)
+
+
+def test_native_replay_headless_validation_is_opt_in():
+    args = build_parser().parse_args([
+        "--replay-native", "--device", "cpu", "--headless", "--replay-native-test-steps", "20",
+    ])
+    main_module.validate_fire_rescue_cli_args(args)
+
+
+def test_native_clock_freezes_and_restores():
+    from demo.fire_rescue.runtime.native_replay import SimulationClock
+
+    clock = SimulationClock(0.02)
+    saved = clock.capture_state()
+    initial = clock.time()
+    clock.step_index += 50
+    assert clock.time() == pytest.approx(initial + 1)
+    clock.restore_state(saved)
+    assert clock.time() == initial
+
+
+def test_native_scope_restores_clocks_even_when_trial_fails(monkeypatch):
+    import demo.fire_rescue.runtime.native_replay as native_module
+
+    names = ["experiment_loop", "navigation", "obstacle_rescue", "ur5", "sim_helpers"]
+    originals = {f"demo.fire_rescue.runtime.{name}": SimpleNamespace(time=object()) for name in names}
+    originals["algorithm.emos.engine"] = SimpleNamespace(time=object())
+    clocks = {name: module.time for name, module in originals.items()}
+    monkeypatch.setattr(native_module.importlib, "import_module", lambda name: originals[name])
+    closed = []
+    with pytest.raises(RuntimeError, match="trial failed"):
+        with native_module.NativeReplayScope(0.02) as scope:
+            assert all(module.time is scope.clock for module in originals.values())
+            scope.window = SimpleNamespace(close=lambda: closed.append(True))
+            raise RuntimeError("trial failed")
+    assert closed == [True]
+    assert all(module.time is clocks[name] for name, module in originals.items())

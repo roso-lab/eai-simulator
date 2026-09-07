@@ -9,10 +9,10 @@ import numpy as np
 from .adapters import IsaacLabStateAdapter
 from .store import EpisodeReader
 from .targets import TargetResolver
-from .types import RestoreReport, TargetSpec, stable_hash
+from .types import FrameRecord, RestoreReport, TargetSpec, WRITABLE_CHANNELS, stable_hash
 
 
-_WRITABLE_CHANNELS = frozenset({"pose", "velocity", "joint_state", "joint_target"})
+_WRITABLE_CHANNELS = WRITABLE_CHANNELS
 
 
 def _error(expected: Any, actual: Any, tolerance: float) -> dict[str, float | bool]:
@@ -207,6 +207,34 @@ class PhysicsReplayer:
         self._validate_reader(reader)
         self._validate_live_schema(reader)
         frame = reader.read_frame(step_index)
+        return self._restore_frame(frame, step_index, reader.manifest.replay_fidelity)
+
+    def validate_snapshot(self, state: Mapping[str, np.ndarray]) -> None:
+        """Validate the entire physical snapshot before any USD or PhysX mutation."""
+        expected_keys = set()
+        for target in self.targets:
+            keys = tuple(f"{target.target_id}/{channel}" for channel in target.writable_channels)
+            current = self.adapter.read(target, keys)
+            expected_keys.update(keys)
+            for key in keys:
+                if key not in state:
+                    raise ValueError(f"snapshot is missing {key}")
+                incoming = np.asarray(state[key])
+                actual = np.asarray(current[key])
+                if incoming.shape != actual.shape or incoming.dtype != actual.dtype:
+                    raise ValueError(f"snapshot schema mismatch for {key}")
+                if not np.all(np.isfinite(incoming)):
+                    raise ValueError(f"snapshot contains non-finite state: {key}")
+        if set(state) != expected_keys:
+            raise ValueError("snapshot target set does not match the live scene")
+
+    def restore_snapshot(self, state: Mapping[str, np.ndarray], step_index: int) -> RestoreReport:
+        """Restore an in-memory boundary snapshot without closing a recording."""
+        self.validate_snapshot(state)
+        frame = FrameRecord(step_index, 0.0, dict(state), dict(state), {})
+        return self._restore_frame(frame, step_index, "physical_state_only")
+
+    def _restore_frame(self, frame: FrameRecord, step_index: int, fidelity: str) -> RestoreReport:
         channel_errors: dict[str, dict[str, float | bool]] = {}
         unrestored: list[str] = []
         unsupported: list[str] = []
@@ -280,7 +308,7 @@ class PhysicsReplayer:
         elif unsupported:
             diagnostics.append("requested target channels have no writable state API")
             status = "unsupported"
-        elif not self.session or reader.manifest.replay_fidelity != "causal_replay":
+        elif not self.session or fidelity != "causal_replay":
             status = "physical_state_only"
             diagnostics.append("controller, ROS, and noise state were not restored")
         else:

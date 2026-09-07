@@ -89,6 +89,9 @@ def build_parser() -> argparse.ArgumentParser:
         default="tmp/replay/fire_rescue_branch",
         help="Directory for the interactive assignment checkpoint.",
     )
+    parser.add_argument("--replay-native", action="store_true", help="Native Isaac checkpoint toolbar; no HTTP dashboard.")
+    parser.add_argument("--replay-restore-tolerance", type=float, default=1e-5, help="Maximum checkpoint read-back error.")
+    parser.add_argument("--replay-native-test-steps", type=int, default=0, help="Opt-in native checkpoint round-trip test; exit after the comparison.")
     return parser
 
 
@@ -101,6 +104,23 @@ def resolve_default_map_yaml() -> Path:
 
 def validate_fire_rescue_cli_args(args: argparse.Namespace) -> None:
     """Reject interactive workflows that cannot receive dashboard commands."""
+
+    import math
+
+    if bool(getattr(args, "replay_native", False)):
+        if getattr(args, "branch_interactive", False) or getattr(args, "replay_verify_dir", ""):
+            raise ValueError("--replay-native cannot be combined with legacy branch/verification modes")
+        if getattr(args, "device", "cpu") != "cpu" or getattr(args, "num_envs", 1) != 1:
+            raise ValueError("native high-precision checkpoints require --device cpu --num-envs 1")
+        if getattr(args, "headless", False) and not getattr(args, "replay_native_test_steps", 0):
+            raise ValueError("native replay requires a visible Isaac window; remove --headless")
+    if getattr(args, "replay_native_test_steps", 0) < 0:
+        raise ValueError("--replay-native-test-steps must be non-negative")
+    if getattr(args, "replay_native_test_steps", 0) and not getattr(args, "replay_native", False):
+        raise ValueError("--replay-native-test-steps requires --replay-native")
+    tolerance = getattr(args, "replay_restore_tolerance", 1e-5)
+    if not math.isfinite(tolerance) or tolerance <= 0:
+        raise ValueError("--replay-restore-tolerance must be finite and positive")
 
     if bool(getattr(args, "branch_interactive", False)) and bool(
         getattr(args, "headless", False)
@@ -127,7 +147,10 @@ def main() -> None:
         replay_verify_steps=max(1, int(args.replay_verify_steps)),
         replay_local_fallback=bool(args.replay_local_fallback),
         branch_interactive=bool(args.branch_interactive),
-        branch_checkpoint_dir=Path(args.branch_checkpoint_dir) if args.branch_interactive else None,
+        branch_checkpoint_dir=Path(args.branch_checkpoint_dir) if args.branch_interactive or args.replay_native else None,
+        replay_native=bool(args.replay_native),
+        replay_restore_tolerance=args.replay_restore_tolerance,
+        replay_native_test_steps=args.replay_native_test_steps,
     )
     launch_config = SimulatorLaunchConfig(
         env=args.env,
