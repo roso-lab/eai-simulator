@@ -41,8 +41,8 @@ _NAV_SET_FIELDS = (
     "manual_override_agents",
     "suppress_patrol_exempt",
     "_last_plan_failed_agents",
-    "events",
 )
+_NAV_LIST_FIELDS = ("events",)
 _NAV_SCALAR_FIELDS = (
     "suppress_patrol_after_emos",
     "all_stopped",
@@ -232,6 +232,9 @@ class NavigationReplayComponent:
         for field in _NAV_SET_FIELDS:
             if hasattr(self.nav, field):
                 state[field] = sorted(deepcopy(set(getattr(self.nav, field))))
+        for field in _NAV_LIST_FIELDS:
+            if hasattr(self.nav, field):
+                state[field] = deepcopy(list(getattr(self.nav, field)))
         for field in _NAV_SCALAR_FIELDS:
             if hasattr(self.nav, field):
                 state[field] = deepcopy(getattr(self.nav, field))
@@ -266,6 +269,9 @@ class NavigationReplayComponent:
         for field in _NAV_SET_FIELDS:
             if field in state:
                 setattr(self.nav, field, set(deepcopy(state[field])))
+        for field in _NAV_LIST_FIELDS:
+            if field in state:
+                setattr(self.nav, field, list(deepcopy(state[field])))
         for field in _NAV_SCALAR_FIELDS:
             if field in state:
                 setattr(self.nav, field, deepcopy(state[field]))

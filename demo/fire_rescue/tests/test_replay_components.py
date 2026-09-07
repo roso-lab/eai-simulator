@@ -109,6 +109,19 @@ def test_navigation_component_round_trips_task_queues_and_waypoints():
     )
 
 
+def test_navigation_component_restores_appendable_event_list():
+    nav = _fake_nav()
+    nav.events = ["existing"]
+    component = NavigationReplayComponent(nav, task_factory=FakeTask)
+    snapshot = component.capture_state()
+    nav.events = []
+
+    component.restore_state(snapshot)
+    nav.events.append("after_restore")
+
+    assert nav.events == ["existing", "after_restore"]
+
+
 def test_safe_checkpoint_rejects_pending_plan_and_active_ur5():
     nav = _fake_nav()
     obstacle = SimpleNamespace(state=SimpleNamespace(phase=FakePhase.MONITORING))
