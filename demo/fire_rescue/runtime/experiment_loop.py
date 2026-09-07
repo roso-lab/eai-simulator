@@ -107,6 +107,7 @@ def run_robot_factory_platform(
         build_fire_rescue_target_specs,
         initialize_fire_rescue_assignment_branch,
         normalize_fire_rescue_replay_actions,
+        allocate_replay_episode_dir,
         validate_fire_rescue_checkpoint,
     )
     from .branch_control import BranchController, BranchPhase
@@ -1121,7 +1122,11 @@ def run_robot_factory_platform(
                         f"⏳ assignment 已收到，等待可恢复 checkpoint：{checkpoint_reason}",
                     )
                 continue
-            replay_episode_dir = Path(checkpoint_dir_text) / f"trial_{int(trial_index):02d}"
+            replay_episode_dir = allocate_replay_episode_dir(
+                checkpoint_dir_text,
+                trial_index=int(trial_index),
+            )
+            print(f"[Replay] episode output: {replay_episode_dir}")
             replay_components = [
                 CallbackComponent(
                     "fire_rescue.runtime",

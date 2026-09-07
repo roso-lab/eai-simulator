@@ -65,6 +65,27 @@ _DYNAMIC_OBSTACLE_PHASES = {
 }
 
 
+def allocate_replay_episode_dir(base_dir: str | Path, *, trial_index: int) -> Path:
+    """Return an unused episode directory while preserving previous runs.
+
+    Factory commands commonly reuse the same output root across retries.  An
+    existing directory may contain a complete episode or an interrupted
+    recording, so neither case is safe to overwrite or append to.
+    """
+
+    base = Path(base_dir).expanduser()
+    trial_name = f"trial_{int(trial_index):02d}"
+    candidate = base / trial_name
+    if not candidate.exists():
+        return candidate
+    run_index = 2
+    while True:
+        candidate = base / f"{trial_name}_run_{run_index:02d}"
+        if not candidate.exists():
+            return candidate
+        run_index += 1
+
+
 def _to_numpy(value: Any) -> np.ndarray:
     detached = value.detach() if hasattr(value, "detach") else value
     moved = detached.cpu() if hasattr(detached, "cpu") else detached

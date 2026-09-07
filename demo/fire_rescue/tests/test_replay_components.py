@@ -12,6 +12,7 @@ from demo.fire_rescue.runtime.replay import (
     Ur5IdleReplayComponent,
     initialize_fire_rescue_assignment_branch,
     normalize_fire_rescue_replay_actions,
+    allocate_replay_episode_dir,
     validate_fire_rescue_checkpoint,
 )
 from demo.fire_rescue.runtime.branch_control import BranchController, DEFAULT_ROBOT_KEYS
@@ -310,3 +311,16 @@ def test_assignment_branch_initialization_persists_checkpoint_before_fact_contin
     assert path == "checkpoint-path"
     assert coordinator.calls == [("capture_checkpoint", 0)]
     assert controller.checkpoint_id == "assignment-0000"
+
+
+def test_replay_episode_directory_allocates_a_new_run_without_overwriting_old_data(tmp_path):
+    first = allocate_replay_episode_dir(tmp_path, trial_index=1)
+    first.mkdir(parents=True)
+    (first / "manifest.json").write_text("old", encoding="utf-8")
+
+    second = allocate_replay_episode_dir(tmp_path, trial_index=1)
+    second.mkdir(parents=True)
+
+    assert first.name == "trial_01"
+    assert second.name == "trial_01_run_02"
+    assert (first / "manifest.json").read_text(encoding="utf-8") == "old"

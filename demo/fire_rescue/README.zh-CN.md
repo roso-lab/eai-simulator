@@ -48,7 +48,8 @@ assignment JSON 编辑框。点击“提交修改”，再点击“开始分支�
 Dashboard 命令。使用 `--replay-local-fallback` 可以让 Factory 示例跳过 LLM 网络
 延迟，更快到达 checkpoint；不使用该选项时，若 assignment 到达时 UR5 正在执行
 不可恢复的拖拽阶段，工具会把状态标记为 `checkpoint_pending`，等待下一个安全
-checkpoint，而不会损坏事实运行。
+checkpoint，而不会损坏事实运行。重复运行同一个输出目录时，工具会保留旧的
+`trial_01`，自动使用 `trial_01_run_02`、`trial_01_run_03` 等新目录，不会覆盖旧轨迹。
 
 ## 环境加载流程
 

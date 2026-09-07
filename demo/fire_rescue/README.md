@@ -48,6 +48,8 @@ RNG state in the same simulator process before dispatching the edited assignment
 the edit. For the Factory smoke path, add `--replay-local-fallback` to avoid LLM
 network latency. If an assignment arrives while an unsupported UR5 drag phase is
 active, the tool reports `checkpoint_pending` and waits for the next safe checkpoint.
+Reusing the same output root is safe: an existing `trial_01` is preserved and the
+next attempt is written to `trial_01_run_02`, then `trial_01_run_03`, and so on.
 
 ## Environment loading
 
