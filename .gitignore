@@ -221,6 +221,7 @@ test_*.py
 !/demo/fire_rescue/tests/test_llm_preset_privacy.py
 !/demo/fire_rescue/tests/test_task_checkpoints.py
 !/demo/fire_rescue/tests/test_assignment_policy.py
+!/demo/fire_rescue/tests/test_parallel_replay.py
 !/tools/physics_replay/tests/
 !/tools/physics_replay/tests/test_live.py
 !/tools/physics_replay/tests/test_native_isaac.py

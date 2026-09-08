@@ -31,6 +31,68 @@ class MemoryPolicy:
         self.hidden = state["hidden"]
 
 
+def test_onnx_policy_adapts_fixed_batch_one_models_to_multiple_environments():
+    source = Path(__file__).resolve().parents[3] / "source/EAI/EAI/controllers/utils.py"
+    spec = importlib.util.spec_from_file_location("EAI.controllers.utils", source)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    class Session:
+        def get_inputs(self):
+            return [SimpleNamespace(name="obs", shape=[1, 2])]
+
+        def get_outputs(self):
+            return [SimpleNamespace(name="action")]
+
+        def run(self, outputs, feed):
+            values = feed["obs"]
+            assert values.shape == (1, 2)
+            return [values[:, :1] * 2.0]
+
+    policy = module.ONNXPolicy(Session())
+    actions, state = policy.act({"states": np.asarray([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)})
+    np.testing.assert_array_equal(actions, [[2.0], [6.0]])
+    assert state is None
+
+
+@pytest.mark.parametrize("batch", [None, "batch", 2])
+def test_onnx_policy_keeps_supported_batch_inference_single_call(batch):
+    source = Path(__file__).resolve().parents[3] / "source/EAI/EAI/controllers/utils.py"
+    spec = importlib.util.spec_from_file_location("EAI.controllers.utils", source)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    calls = []
+
+    def run(outputs, feed):
+        calls.append(feed["obs"].copy())
+        return [feed["obs"] * 2]
+
+    session = SimpleNamespace(get_inputs=lambda: [SimpleNamespace(name="obs", shape=[batch, 2])],
+                              get_outputs=lambda: [SimpleNamespace(name="action")], run=run)
+    inputs = np.asarray([[1, 2], [3, 4]], dtype=np.float32)
+    actions, unused = module.ONNXPolicy(session).act({"states": inputs})
+    assert len(calls) == 1
+    np.testing.assert_array_equal(actions, inputs * 2)
+
+
+def test_onnx_does_not_split_a_missing_batch_dimension_into_environments():
+    source = Path(__file__).resolve().parents[3] / "source/EAI/EAI/controllers/utils.py"
+    spec = importlib.util.spec_from_file_location("EAI.controllers.utils", source)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    calls = []
+
+    def run(outputs, feed):
+        calls.append(feed["obs"].shape)
+        raise ValueError("invalid rank")
+
+    session = SimpleNamespace(get_inputs=lambda: [SimpleNamespace(name="obs", shape=[1, 2])],
+                              get_outputs=lambda: [SimpleNamespace(name="action")], run=run)
+    with pytest.raises(ValueError, match="invalid rank"):
+        module.ONNXPolicy(session).act({"states": np.ones(2, dtype=np.float32)})
+    assert calls == [(2,)]
+
+
 def test_policy_memory_restored_in_place_and_validation_does_not_change_future():
     policy = MemoryPolicy()
     environment = SimpleNamespace(_controllers_dict={"robot": {"policy": policy}})

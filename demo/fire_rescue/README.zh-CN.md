@@ -2,7 +2,77 @@
 
 [English](README.md)
 
+## 两路并行、多轮无头检查
+
+```bash
+conda activate env_isaaclab
+python -m demo.fire_rescue.checks.parallel_replay --workers 2 --rounds 2
+```
+
+默认使用示例算法；需要换算法时只加 `--algorithm 你的模块:assign`。输出自动分配到
+新的 `tmp/replay/parallel_replay_*/`，查看其中的 `parallel.json`。
+
+每轮同时启动两个**独立的单环境进程**，轮间重新创建场景，不复用动态 USD、物理
+求解器或控制器状态。两个任务进程先等待彼此场景就绪，再开始实际 `env.step()`；
+报告用实际步进时间区间的交集检查是否确实发生了并行，不把先后串行运行报告为并行。
+整个检查始终使用 CPU PhysX 和无头渲染，进程失败、记录缺失或超时均非零退出；超时
+清理所属进程组，包括 Isaac/preflight 子进程，而不只结束 Conda 父进程。
+
+每个作业包含两个**独立验收项**：
+
+- **真实任务逻辑**：运行指定算法400个环境步，确认任务分配已执行、任务自己的
+  `assignment_applied` 检查点自动保存。此项启用物理夹持配置，但400步是逻辑冒烟
+  上限，不代表完成抓取或整场救援；报告另外保留 `mission_success`。
+- **物理重建**：在新的进程中运行既有受控承重夹持测试，比较原始与重新执行的
+  160环境步／640物理子步，包括实际噪声、策略观测/动作、力和运动，容差为零。
+
+两项都通过**不等于指定算法完整任务的物理回溯已验证**，所以报告保留
+`full_task_physical_rewind_verified=false`。重建夹持测试仍是固定命令驱动的独立
+测试，不会将它的成功冒充指定任务算法的回溯成功。
+
+不要用 `main --num-envs 2` 代替这个检查：当前任务导航、目标和状态机只读第0个环境，
+不能把给两个机器人批次广播命令算成两个独立任务。CLI 现在会明确拒绝，包括
+`--rewind --num-envs 2`，不再悄悄改成单环境。共享 ONNX 控制器仍支持固定 batch=1
+模型按环境逐条推理，动态 batch 模型保持一次批量推理；这只解决模型维度限制，不会
+自动把 Fire Rescue 任务向量化。
+
 ## 从初始场景重建的物理验收
+
+如果只是想让自己的算法跑任务，并自动拥有任务检查点和原生恢复，使用下面这一条命令即可：
+
+```bash
+python -m demo.fire_rescue.main \
+  --algorithm algorithm.my_policy:assign \
+  --rewind
+```
+
+`--rewind` 会自动设置 CPU PhysX、单环境、单轮、任务自有检查点和原生恢复，不需要再
+分别填写 `--task-checkpoints`、`--replay-native`、`--trials 1` 或 `--device cpu`。
+默认打开 Isaac Sim 窗口；如果要无界面运行，增加 `--headless`：
+
+```bash
+python -m demo.fire_rescue.main \
+  --algorithm algorithm.my_policy:assign \
+  --rewind --headless
+```
+
+任务会自动在 `assignment_applied`、`extinguisher_carried` 等安全节点保存。窗口中仍可
+使用 `F5` 保存、`F9` 恢复、`F8` 暂停/继续、`F10` 单步。灭火器抬臂完成后的携带状态
+也可以恢复。当前物理保真边界是同一进程原生恢复；它会拒绝不支持状态，但仍不能把
+PhysX 求解器内部缓存宣称为已序列化。
+
+若要额外做严格零容差审计，在同一条命令上增加：
+
+```bash
+python -m demo.fire_rescue.main \
+  --algorithm algorithm.my_policy:assign \
+  --rewind --rewind-check --headless
+```
+
+审计发现任何偏差会失败退出，而不是掩盖偏差。通常开发时先用 `--rewind`，算法验收
+时再用 `--rewind-check`。
+这两个选项仍使用同一个原生快照后端，不会切换到下文的新场景重建后端，也不保证
+恢复零偏差；已有验证中原生快照恢复出现过实测偏差。
 
 新增一条不同于“写回部分快照”的路线：录制未中断的原始运行，再启动**独立新进程**，
 从相同初始场景重新执行到任务检查点，并核对其后续过程。不需要浏览器或手动保存：

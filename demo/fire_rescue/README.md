@@ -2,7 +2,68 @@
 
 [Chinese](README.zh-CN.md)
 
+## Parallel headless checks
+
+```bash
+conda activate env_isaaclab
+python -m demo.fire_rescue.checks.parallel_replay --workers 2 --rounds 2
+```
+
+Use `--algorithm your.module:assign` to select a different high-level allocation
+callback. A unique `tmp/replay/parallel_replay_*/parallel.json` contains the result.
+Each round starts two independent CPU, headless, single-environment tasks; each
+subsequent round creates fresh scenes and processes. A scene-readiness barrier
+and measured environment-step interval overlap distinguish actual concurrent
+task execution from sequential runs. Timeouts terminate owned process groups,
+including Isaac/preflight descendants, not just the Conda parent.
+
+Each job checks two separate capabilities: 400 steps of the real selected
+algorithm/task, including an automatic `assignment_applied` checkpoint; then the
+existing controlled physical-carry reconstruction fixture's 160 environment
+steps / 640 physics substeps at zero tolerance. The first is a bounded logic
+smoke, not a mission-success test; `mission_success` is reported separately.
+The second uses the fixture's fixed command, not the selected task algorithm.
+Even a combined pass retains `full_task_physical_rewind_verified=false` and must
+not be represented as complete task/algorithm physical rewind certification.
+
+The Fire Rescue task reads poses/state for environment zero and is not a
+vectorized independent-mission implementation. `main --num-envs 2`, including
+with `--rewind`, is now rejected rather than broadcasting one task or silently
+forcing one environment. The shared ONNX controller supports batch-one exports
+by inferring each environment row separately; dynamic-batch models still use a
+single call. Model batching alone does not vectorize task state or scene objects.
+
 ## Fresh-scene reconstruction acceptance
+
+For the common case—run your algorithm on the task with task-owned checkpoints
+and native restore—use one command:
+
+```bash
+python -m demo.fire_rescue.main \
+  --algorithm algorithm.my_policy:assign \
+  --rewind
+```
+
+`--rewind` selects CPU PhysX, one environment, one trial, task-owned safe
+checkpoints, and native restore automatically. Add `--headless` for unattended
+runs. The Isaac window keeps `F5` save, `F9` restore, `F8` pause/run, and `F10`
+single-step. Carrying the extinguisher after the lift sequence is a supported
+checkpoint state. The native route is same-process physical restoration; it does
+not serialize private PhysX solver caches.
+
+For a strict zero-tolerance audit, add `--rewind-check`:
+
+```bash
+python -m demo.fire_rescue.main \
+  --algorithm algorithm.my_policy:assign \
+  --rewind --rewind-check --headless
+```
+
+Use `--rewind` during development and `--rewind-check` as an acceptance test.
+The latter fails closed on any measured deviation; it does not hide a mismatch.
+It uses the same native snapshot backend, not the fresh-scene reconstruction
+backend. Neither flag guarantees zero-deviation restoration; native snapshot
+restore has shown measured deviations in the validation runs.
 
 For a stricter alternative to partial snapshot writes, a new bounded physical
 fixture records an uninterrupted original, starts a **fresh process**, and

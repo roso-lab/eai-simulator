@@ -94,7 +94,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--replay-restore-tolerance", type=float, default=1e-5, help="Maximum checkpoint read-back error.")
     parser.add_argument("--replay-native-test-steps", type=int, default=0, help="Opt-in native checkpoint round-trip test; exit after the comparison.")
     parser.add_argument("--task-checkpoints", action="store_true", help="Task-owned automatic checkpoints; supports unattended headless trials.")
-    parser.add_argument("--assignment-policy", default="emos", help="emos, or a trusted module:assign callback for task assignment.")
+    parser.add_argument(
+        "--assignment-policy", "--algorithm", dest="assignment_policy", default="emos",
+        help="emos, or a trusted module:assign callback for task assignment.",
+    )
+    parser.add_argument(
+        "--rewind", action="store_true",
+        help="One-command mode: CPU, one environment, task-owned checkpoints and native restore.",
+    )
+    parser.add_argument(
+        "--rewind-check", action="store_true",
+        help="With --rewind, also run the strict native trajectory audit before exiting.",
+    )
     return parser
 
 
@@ -109,6 +120,26 @@ def validate_fire_rescue_cli_args(args: argparse.Namespace) -> None:
     """Reject interactive workflows that cannot receive dashboard commands."""
 
     import math
+
+    if getattr(args, "num_envs", 1) != 1:
+        raise ValueError(
+            "Fire Rescue task logic currently reads env 0 and cannot run independent vectorized missions; "
+            "use python -m demo.fire_rescue.checks.parallel_replay --workers 2 --rounds 2 for isolated checks"
+        )
+    if getattr(args, "rewind_check", False) and not getattr(args, "rewind", False):
+        raise ValueError("--rewind-check requires --rewind")
+    if getattr(args, "rewind", False):
+        if getattr(args, "device", "cuda:0") not in {"cuda:0", "cpu"}:
+            raise ValueError("--rewind supports CPU PhysX only; omit --device or use --device cpu")
+        args.device = "cpu"
+        args.num_envs = 1
+        args.trials = 1
+        args.task_checkpoints = True
+        args.replay_native = True
+        if getattr(args, "rewind_check", False):
+            args.replay_exact = True
+            if not getattr(args, "replay_native_test_steps", 0):
+                args.replay_native_test_steps = 20
 
     policy = getattr(args, "assignment_policy", "emos")
     if getattr(args, "replay_exact", False) and not (getattr(args, "replay_native", False) or getattr(args, "task_checkpoints", False)):

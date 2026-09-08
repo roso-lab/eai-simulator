@@ -1,4 +1,86 @@
-# Native replay validation — 2026-09-07
+# Native replay validation — 2026-09-07 to 2026-09-08
+
+## Two-worker, two-round headless check — 2026-09-08
+
+The initial direct `--num-envs 2 --trials 2` run failed in actual M20 inference:
+its ONNX export expects batch 1 but received batch 2. The shared `ONNXPolicy`
+now evaluates each row for fixed-batch-one exports, preserving the normal single
+call for supported dynamic/fixed batches and rejecting malformed ranks through
+the model runtime. No model weights or downloaded controller modules were edited.
+
+The retry advanced into trial 2 without the ONNX dimension error, but reached the
+360-second wall limit (exit 124). It was **not a successful two-mission test**:
+the task helpers read environment-zero poses and share one task state, and the
+ordinary headless path even logged logical rather than physical pickup. A PhysX
+scene-stepping warning also appeared. The old shell timeout left an orphaned
+Isaac child; that owned process was explicitly terminated after checking its
+command line. Original diagnostics remain in
+`tmp/replay/isaaclab_parallel_2env_2trial.log` and
+`tmp/replay/isaaclab_parallel_2env_2trial_retry_20260908.log`.
+
+Fire Rescue CLI now rejects vectorized multi-mission claims (including silently
+reducing `--rewind --num-envs 2` to one environment). This is a demo task boundary,
+not a restriction on Isaac Lab's general multi-environment support. The new
+`checks.parallel_replay` check uses fresh independent single-environment
+processes per job/round, isolated outputs, a scene-readiness barrier, and cleanup
+of the entire owned process group on failure/timeout.
+
+Actual command:
+
+```bash
+conda run --no-capture-output -n env_isaaclab \
+  python -m demo.fire_rescue.checks.parallel_replay --workers 2 --rounds 2
+```
+
+Artifact: `tmp/replay/parallel_replay_xxbthcvs/parallel.json`. **Exit 0; four of
+four jobs passed the two separate acceptance items.** CPU PhysX, headless, one
+environment per simulator. Actual task-step interval overlaps were **10.7773 s**
+in round 1 and **73.5425 s** in round 2, so this was not a sequential substitute
+for the requested concurrency. These intervals are not a throughput benchmark;
+hazards and planning workloads differ between rounds.
+
+| Round / worker | Seed | Task PID | Task steps | Automatic node | Separate reconstruction |
+| --- | ---: | ---: | ---: | --- | --- |
+| 1 / 1 | 0 | 1601945 | 400 | `assignment_applied` | 160 environment / 640 physics steps, 201 channels, max error 0.0 |
+| 1 / 2 | 1 | 1601944 | 400 | `assignment_applied` | 160 environment / 640 physics steps, 201 channels, max error 0.0 |
+| 2 / 1 | 2 | 1608448 | 400 | `assignment_applied` | 160 environment / 640 physics steps, 201 channels, max error 0.0 |
+| 2 / 2 | 3 | 1608449 | 400 | `assignment_applied` | 160 environment / 640 physics steps, 201 channels, max error 0.0 |
+
+The real selected algorithm was `algorithm.emos.example_policy:assign`. The task
+checks enable enhanced determinism, physical attachment configuration and task
+checkpoints, but stop at 400 steps; all four `mission_success` values are **false**.
+That limit checks actual allocation, controller stepping and automatic saving,
+not completion of grasping or rescue. No snapshot restore was invoked in this
+task smoke phase. In each job the subsequent carry reconstruction is a **separate
+fixed-command fixture**: actual Gaussian noise, ONNX observations/actions and
+post-solve motion/contact/friction/reaction channels are compared against its own
+uninterrupted original. It is not the selected algorithm's full task trajectory.
+
+Accordingly `full_task_physical_rewind_verified` remains **false** at job and
+suite level. This run validates process-isolated parallel execution, fresh-round
+lifecycle, bounded task checkpoint logic and the independent physical fixture;
+it does not establish end-to-end task rewind or universal physical determinism.
+No test simulator process remained after cleanup.
+
+Lightweight regression command after the parallel run:
+
+```bash
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
+conda run --no-capture-output -n env_isaaclab python -m pytest -q \
+  tools/physics_replay/tests \
+  demo/fire_rescue/tests/test_replay_cli.py \
+  demo/fire_rescue/tests/test_replay_components.py \
+  demo/fire_rescue/tests/test_assignment_policy.py \
+  demo/fire_rescue/tests/test_task_checkpoints.py \
+  demo/fire_rescue/tests/test_parallel_replay.py
+```
+
+Result: **237 passed, 6 skipped**. The skipped opt-in/runtime-dependent checks
+are not counted as passes; the real Isaac evidence is the separate run above.
+Regressions include fixed-batch ONNX inference, rejection of unsupported task
+vectorization, round isolation, actual step-interval overlap, failure/timeout
+reporting, and termination of an owned process group including its child.
+`git diff --check` also passed.
 
 ## Fresh-scene reconstruction: measured carrying acceptance
 

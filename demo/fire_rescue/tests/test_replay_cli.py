@@ -16,6 +16,34 @@ def test_replay_verification_is_disabled_by_default():
     assert args.replay_local_fallback is False
 
 
+def test_algorithm_is_short_alias_for_assignment_policy():
+    args = build_parser().parse_args(["--algorithm", "algorithm.emos.example_policy:assign"])
+    assert args.assignment_policy == "algorithm.emos.example_policy:assign"
+
+
+@pytest.mark.parametrize("flags", [["--num-envs", "2"], ["--rewind", "--num-envs", "2"]])
+def test_task_does_not_misrepresent_env_zero_broadcast_as_independent_tasks(flags):
+    with pytest.raises(ValueError, match="independent vectorized missions"):
+        main_module.validate_fire_rescue_cli_args(build_parser().parse_args(flags))
+
+
+def test_rewind_is_one_command_cpu_native_task_mode():
+    args = build_parser().parse_args(["--algorithm", "algorithm.emos.example_policy:assign", "--rewind"])
+    main_module.validate_fire_rescue_cli_args(args)
+    assert args.assignment_policy == "algorithm.emos.example_policy:assign"
+    assert args.device == "cpu"
+    assert args.num_envs == 1
+    assert args.trials == 1
+    assert args.task_checkpoints and args.replay_native
+    assert not args.replay_exact
+
+
+def test_rewind_check_enables_strict_audit():
+    args = build_parser().parse_args(["--rewind", "--rewind-check"])
+    main_module.validate_fire_rescue_cli_args(args)
+    assert args.replay_exact and args.replay_native_test_steps == 20
+
+
 def test_replay_verification_flags_are_forwarded():
     fake_session = SimpleNamespace(
         env_name="EAI-Factory-v0",
