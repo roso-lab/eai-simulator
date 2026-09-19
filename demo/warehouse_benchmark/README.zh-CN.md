@@ -5,7 +5,7 @@
 > **当前状态（2026-09-19 · 阶段18）**
 >
 > - **可跑**：单机固定点承载/输送/释放与 dock 回执（阶段18 v5，CPU PhysX 复验，升降锚点回程误差 4.76μm）；运动学参考 episode v8（10/10 节点）；原生对象/质量/位姿读回（阶段12+）；`--check-assets` 资产闭包审计。
-> - **被阻断**：双机联合承载 witness——Carter `caster_swivel_right` 源 USD 碰撞体 convex cooking 失败（资产级 blocker，详见[阶段18审核](../benchmark/STAGE18_REVIEW.zh-CN.md)）；实时货架身份 detector、dock 服务、对象位姿 backend 未随源码发布，业务得分保持 `unknown`。
+> - **被阻断**：双机联合承载 witness——Carter 碰撞资产缺陷已于 2026-09-19 修复（三个空 Xform 的无效网格碰撞 API 移除，v10 复跑 cooking 通过，详见[阶段18审核](../benchmark/STAGE18_REVIEW.zh-CN.md)；资产修复待 provider 发布），当前卡点转为**联合队形几何**：M20/Carter 与木箱的实测 collider AABB 在 `settled_before_attachment` 相互接触，队形方案需实测验收；实时货架身份 detector、dock 服务、对象位姿 backend 未随源码发布，业务得分保持 `unknown`。
 > - **发布口径**：`release_status=pending`、`scoreable=false`（fail-closed 设计）。
 
 ## 目录模块

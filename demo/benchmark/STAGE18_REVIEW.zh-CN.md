@@ -35,10 +35,35 @@ Warehouse paired v9：`tmp/warehouse_stage18_paired_native_20260919_v9/` 使用
 representation cooking 返回 `RESULT_ERROR_INVALID_PARSING`，报告为
 `status=blocked`。v9 同时归档了 73 条实际 USD collision inventory；失败 prim 是
 带 `PhysicsMeshCollisionAPI`、`physics:approximation=convexHull` 的 `Xform`，但未
-产生可用 convex representation。probe 在完整 collider inventory 闭合前停止，没
-有执行双机固定点承载、联合路线、成员退出或重新获取；这不是双机承载失败，也不能
+产生可用 convex representation。probe 在完整 collider inventory 闭合前停止，没有
+执行双机固定点承载、联合路线、成员退出或重新获取；这不是双机承载失败，也不能
 用公开尺寸、视觉包络或手工 AABB 代替 cooked PhysX shape。后续必须修复源碰撞资产
 并重新生成、重跑原生 probe。
+
+Warehouse paired v10（2026-09-19 资产修复后）：根因确认为 Carter 源资产中
+`caster_swivel_left/right` 与 `caster_frame_base` 是**完全空的 Xform**（无任何子
+prim/网格），却被施加了 `PhysicsMeshCollisionAPI` + `convexHull`——凸包烹饪无源
+可解析，故 `RESULT_ERROR_INVALID_PARSING`、convex_count=0。修复方式为从这 3 个
+prim 移除 `PhysicsCollisionAPI`、`PhysicsMeshCollisionAPI` 与
+`physics:approximation`（`PhysicsRigidBodyAPI`/`PhysicsMassAPI` 保留，关节链不
+变；轮子碰撞来自独立解析 `Cylinder` prims，不受影响）。没有添加任何代理形状。
+本地修复备份与哈希：原 `ef86dc6dc8e3442e01cbe0549c72bb92ecc54c219ddc98ea3270bd0f5117f0cc` →
+修后 `86de9633ed450fbfbfb17473d161bab4b12d9808cf55a1a24d453c0b0364604f`，原件存
+`usd/robot/carter/carter.usd.bak_pre_caster_fix_20260919`。**该修复尚未发布到
+provider revision，属本地资产修复，需维护者按 provider 流程发布后才能作为发布资产。**
+
+v10 复跑（`tmp/warehouse_stage18_paired_native_20260919_v10/`，`env_isaaclab`、
+headless、CPU PhysX、串行锁，进程 25.8 s 正常结束）：cooking 失败消失，collider
+inventory 由 73 条变为 70 条（恰好移除 3 个缺陷 prim），caster 条目只剩两个带
+`PhysicsCollisionAPI` 的解析轮子 `Cylinder`——**形状闭合门禁通过，v9 的资产
+blocker 解除**。probe 随即推进到下一道独立门禁并 fail-closed：
+`candidate measured collider AABBs collide or touch during
+settled_before_attachment`。当前诊断候选站位为木箱 x=-10.625 两侧 M20（-9.84，
+距箱心 0.785 m，公开 reach 0.8 m）与 Carter（-11.36，距箱心 0.735 m，公开 reach
+0.6 m），静置后按 `actual_enabled_collider_body_local_bounds` 计算的 AABB 相互接
+触。这是 STAGE18 已记录的联合队形几何问题（连接器 reach 与碰撞包络互相挤压，
+不得以扩大通路或缩小机器人解之），不是资产缺陷；旋转/纵列队形方案需实测后另行
+验收。双机承载、联合路线、退出恢复仍保持 pending，`scoreable=false` 不变。
 
 City v8：`tmp/city_benchmark/service_probe_stage18_20260919_v8/` 完成一次真实
 CPU PhysX 服务诊断。`guide_people` 提供约301个逐步人员轨迹样本并读回完整集合区

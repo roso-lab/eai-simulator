@@ -5,12 +5,15 @@
 > **Status (2026-09-19, stage 18)** — Runnable: single-robot fixed-point
 > carry/transport/release with dock receipt (stage-18 v5 PhysX recheck, anchor
 > error 4.76μm); kinematic reference episode v8 (10/10 nodes); native object/
-> mass/pose readback. Blocked: dual-robot joint carry — the Carter
-> `caster_swivel_right` source USD collision body fails PhysX convex cooking
-> (`RESULT_ERROR_INVALID_PARSING`, 73-entry collision inventory archived); live
-> rack-identity detector, dock service and object-pose backends are not shipped,
-> so business scores stay `unknown`. `release_status=pending`,
-> `scoreable=false`.
+> mass/pose readback. The Carter collision asset defect was fixed on
+> 2026-09-19 (invalid mesh-collision APIs removed from three empty caster
+> Xforms; v10 rerun passes cooking, collider inventory 73→70; provider
+> publication pending). The current dual-robot blocker is **formation
+> geometry**: M20/Carter and the crate collider AABBs touch at
+> `settled_before_attachment` (reach contracts 0.8/0.6 m vs collider
+> envelopes). Live rack-identity detector, dock service and object-pose
+> backends are not shipped, so business scores stay `unknown`.
+> `release_status=pending`, `scoreable=false`.
 
 The goal-track native attachment/dock diagnostic is separate from the historical
 fixed-DAG episode below. Run in `env_isaaclab`, with scenes serialized:

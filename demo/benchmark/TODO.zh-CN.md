@@ -11,7 +11,7 @@
 三条源码写集分别交给现有代理，主会话负责接口审查、串行 Isaac 验证和发布审核。
 
 - [x] Warehouse：冻结 body-frame `base_velocity` 接口，记录真实 16D 控制器输出、机器人与物体各自位移，完成单机固定点升降、输送、释放与 dock 收据复验。阶段18 v4：物体位移 1.976m、机器人 2.008m，承载期间物体底面最低 0.0687m；释放后 dock ready。
-- [ ] Warehouse：完成双机固定点承载、退出安全持有和重新获取见证；单机地面输送不代替悬空承载或联合负载验证。阶段18 v9 串行原生 probe 在进入承载动作前被 Carter `caster_swivel_right` 的 deferred convex cooking 阻断：`RESULT_ERROR_INVALID_PARSING`。73 条实际 collision inventory 显示该 prim 是带 `PhysicsMeshCollisionAPI`、`physics:approximation=convexHull` 的 `Xform`，但没有返回可 cooking 的 convex representation；当前不能用机器人 profile、视觉包络或手工 AABB 替代 PhysX shape。
+- [ ] Warehouse：完成双机固定点承载、退出安全持有和重新获取见证；单机地面输送不代替悬空承载或联合负载验证。阶段18 v9 的 Carter `caster_swivel_right` cooking 阻断已在 v10 解除：根因是 `caster_swivel_left/right` 与 `caster_frame_base` 三个**空 Xform** 被施加了 `PhysicsMeshCollisionAPI`+`convexHull`（无网格可烹饪），本地修复为移除这三个 prim 的碰撞 API（刚体/关节保留，轮子解析 Cylinder 碰撞不受影响，未添加代理形状），collider inventory 73→70，形状闭合门禁通过。**新阻断**：v10 推进至 `settled_before_attachment` 时 M20/Carter 与木箱的实测 collider AABB 相互接触（M20 距箱心 0.785 m、公开 reach 0.8 m；Carter 0.735 m、reach 0.6 m），属已记录的联合队形几何问题，旋转/纵列队形需实测验收；修复资产尚未发布 provider，需维护者按 provider 流程发布。
 - [x] House：提供可直接绑定当前 Isaac session 的身份读回和路径后端，复核像素摘要、观测时刻、physics step、对象来源和 occupancy provenance。阶段18 v3 在482/602步均得到两对象身份及有效blocked通路读回；原始帧已保存并重算摘要。
 - [ ] House：保留 before/after 实际快照与连续楼面证据；动态机器人堵路归参与者策略，检查器如实记录。
 - [x] City：阶段18 v8 完成一次 CPU PhysX 服务诊断；`guide_people`、`control_traffic` 的 hold/release/divert、`report_incident` 均有 episode-owned runtime readback。人员轨迹约301个样本，三种交通控制各约256个轨迹/安全样本，事故报告后连续 access 约26个样本；证据状态为 `candidate_witness=evidence_complete`。

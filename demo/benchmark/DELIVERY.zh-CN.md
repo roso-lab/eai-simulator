@@ -172,9 +172,10 @@ conda run -n env_isaaclab env PYTHONPATH=. PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
 
 按「谁能解除」分类。任务生成侧无法凭空替代以下任何一项。
 
-### 5.1 外部资产 blocker（1 项）
+### 5.1 外部资产 blocker（已于 2026-09-19 解除，待 provider 发布）
 
-- **Carter 碰撞源资产**：`caster_swivel_right` 为带 `PhysicsMeshCollisionAPI`、`approximation=convexHull` 的 Xform，PhysX deferred cooking 返回 `RESULT_ERROR_INVALID_PARSING`，无可用 convex representation。已归档 73 条 collision inventory（`tmp/warehouse_stage18_paired_native_20260919_v9/`）。**解除方式：修源 USD 碰撞资产 → 重新生成 probe → 串行重跑**。它阻断的是 Warehouse 双机联合承载 witness，不是业务逻辑。
+- **Carter 碰撞源资产**（已修复）：根因是 `caster_swivel_left/right` 与 `caster_frame_base` 三个**空 Xform** 被施加了 `PhysicsMeshCollisionAPI`+`convexHull`——无网格可烹饪，故 v9 probe 的 deferred cooking 返回 `RESULT_ERROR_INVALID_PARSING`。本地修复：移除这三个 prim 的碰撞 API 与 approximation 属性（刚体/关节链保留，轮子解析 Cylinder 碰撞不受影响，**未添加任何代理形状**）。v10 复跑验证：cooking 失败消失，collider inventory 73→70，形状闭合门禁通过（证据：`tmp/warehouse_stage18_paired_native_20260919_v10/`，细节见 [STAGE18](STAGE18_REVIEW.zh-CN.md)）。
+- **后续交接**：① 修复后的 `carter.usd`（SHA-256 `86de9633…`）目前仅是本地资产修复，需维护者按 provider 流程发布到不可变 revision；② probe 推进到的新卡点是**联合队形几何**——M20/Carter 与木箱静置 AABB 相互接触（reach 公约 0.8/0.6 m 与碰撞包络挤压），属 STAGE18 已记录的队形实测问题，非资产缺陷。
 
 ### 5.2 正式 episode 绑定（2 项，依赖场景/城市团队）
 
