@@ -75,9 +75,15 @@ the coordinator must hold the canonical shared launch lock
 `/home/pupil/eai-simulator/tmp/goal_physical_probe.lock` for its session.
 The helper writes the full report in `finally` before returning from the live
 session, including failures. It exercises both real reference-provider schemas
-using a labelled diagnostic packet and one before observation. It does not
-fabricate closeout, participant decisions, an after episode, or business success.
-An empty ideal-sensor result and a blocked path are valid diagnostic outcomes.
+using a labelled diagnostic packet; `phase="before"` samples the entry-scan
+node, and `phase="after"` samples the condition-scan node only after the
+caller's observed closeout time is injected through the public
+`process_event`/`record_closeout` path (`closeout_time_s`). The injection is a
+trusted scheduler event, not a fabricated measurement; the provider still
+rejects an after frame acquired at or before the closeout, and any occupancy
+digest drift blocks the report. It does not fabricate participant decisions or
+business success. An empty ideal-sensor result and a blocked path are valid
+diagnostic outcomes.
 
 ## Business-provider injection
 

@@ -230,6 +230,11 @@ def _private_tokens(private: dict[str, Any], source: dict[str, Any]) -> set[str]
                 if isinstance(row, dict):
                     tokens.update(row[key] for key in ("id", "person_id", "actor_id", "vehicle_id")
                                   if isinstance(row.get(key), str) and row[key])
+    binding = private.get("episode_binding")
+    if isinstance(binding, dict):
+        for row in binding.get("affected_person_roster", []):
+            if isinstance(row, dict) and isinstance(row.get("person_id"), str) and row["person_id"]:
+                tokens.add(row["person_id"])
     return {token for token in tokens if token}
 
 
@@ -377,6 +382,19 @@ def _service_review(private: dict[str, Any], public: dict[str, Any], manifest: d
     }
 
 
+def _episode_binding_review(private: dict[str, Any], semantic_map: dict[str, Any]) -> dict[str, Any] | None:
+    """Validate a declared episode binding against the packaged map, or None."""
+    binding = private.get("episode_binding")
+    if binding is None:
+        return None
+    from demo.city_benchmark.contracts import review_episode_binding
+
+    try:
+        return review_episode_binding(binding, semantic_map)
+    except ValueError as exc:
+        raise ValueError(f"stale or invalid city episode binding; rerun city prepare: {exc}") from exc
+
+
 def _factor_inputs(public: dict[str, Any], private: dict[str, Any], manifest: dict[str, Any]) -> dict[str, Any]:
     design = _object(private.get("private_factor_design"), "private_factor_design")
     parameters = _strings(private.get("required_episode_parameters"), "required_episode_parameters")
@@ -389,6 +407,7 @@ def _factor_inputs(public: dict[str, Any], private: dict[str, Any], manifest: di
         "source_provenance": private["source_provenance"],
         "incident_template": private.get("incident_template"),
         "response_template": private.get("response_template"),
+        "episode_binding": private.get("episode_binding"),
         "required_episode_parameters": parameters,
     }
     return {
@@ -468,7 +487,10 @@ def load_city_goal_candidate(package_dir: str | Path, *, verify_sources: bool = 
     if private.get("outcome_evidence_requirements") != public["required_outcomes"]:
         raise ValueError("private outcome evidence requirements differ from public outcomes")
     if private.get("full_mission_witnesses") != []:
-        raise ValueError("preparation intake does not accept full mission witnesses or a hidden evaluator")
+        raise ValueError(
+            "preparation drafts do not carry full mission witnesses; author them through the "
+            "registered city goal-bundle builder, which requires at least two declaration-level "
+            "witnesses while execution stays external_pending")
     if (review.get("authoring_status") != "blocked" or review.get("execution_validated") is not False
             or review.get("scoreable") is not False or type(review.get("valid_full_mission_plan_count")) is not int
             or review["valid_full_mission_plan_count"] != 0
@@ -487,6 +509,7 @@ def load_city_goal_candidate(package_dir: str | Path, *, verify_sources: bool = 
             or any(row.get("physical_spawn_validated") is not False for row in starts)):
         raise ValueError("navigation start reviews must exactly cover the candidate pool without physical claims")
     maps = _maps(blobs, public, manifest)
+    episode_binding_review = _episode_binding_review(private, maps["semantic_map"])
     source = _source_binding(private, verify_sources)
     private_tokens = _private_tokens(private, source)
     for label, payload in (("public task", public), ("participant API", api), ("public maps", maps)):
@@ -498,13 +521,15 @@ def load_city_goal_candidate(package_dir: str | Path, *, verify_sources: bool = 
         "package_dir": str(root), "public_task": public, "participant_api": api,
         "public_maps": maps, "authoring_review": review, "private_authoring": private,
         "navigation_handoff": navigation, "manifest": manifest, "source_binding": source,
-        "service_review": services, "factor_candidate_inputs": _factor_inputs(public, private, manifest),
+        "service_review": services, "episode_binding_review": episode_binding_review,
+        "factor_candidate_inputs": _factor_inputs(public, private, manifest),
         "intake_review": {
             "artifact_integrity_validated": True, "shared_contract_validated": True,
             "manifest_file_sha256": hashlib.sha256(blobs["integration_manifest.json"]).hexdigest(),
             "public_task_sha256": public_hash, "artifact_count": len(hashes),
             "authoring_status": "blocked", "execution_status": "external_pending",
             "scoreable": False, "full_goal_bundle": False,
+            "episode_parameters_bound": episode_binding_review is not None,
             "blockers": sorted(set(blockers) | {f"missing_shared_service:{name}" for name in services["missing_service_ids"]}),
         },
     }

@@ -3,14 +3,17 @@
 [中文](README.zh-CN.md) · [Delivery status overview (zh)](../benchmark/DELIVERY.zh-CN.md)
 
 > **Status (2026-09-19, stage 18)** — Runnable: native detector/path backend
-> readback (stage-18 v3, two-snapshot diagnostic with object identities and a
-> blocked access-path measurement); kinematic reference episode v6 (11/11
-> nodes); resident-path and bounded-withdrawal diagnostics; corrected spawn
-> heights (v5, casters on the 0.25 m floor). Blocked: a formal before/after
-> business witness (current snapshots have no furniture intervention) and the
-> outside/threshold/inside region binding for the continuous resident path
-> (M20_2 was pixel-audited on the outside terrace side; spawn re-check
-> pending). `release_status=pending`, `scoreable=false`.
+> readback (stage-18 v4, a two-snapshot diagnostic whose snapshots now bracket
+> an author-side furniture intervention: paired-support armchair carry plus
+> full ground withdrawal, with the closeout event injected through the public
+> provider path before the after snapshot); offline measured region intervals
+> (occupancy rays plus authored bench wall cuboids) with corroborated
+> outside/threshold/inside doorways and spawn-membership checks; kinematic
+> reference episode v6 (11/11 nodes); resident-path and bounded-withdrawal
+> diagnostics; corrected spawn heights (v5, casters on the 0.25 m floor).
+> Blocked: a formal before/after **business** witness — the intervention is an
+> author diagnostic action, not participant-driven task execution.
+> `release_status=pending`, `scoreable=false`.
 
 The scene-owned `HouseNativeSceneDetector` ideal sensor and
 `IsaacResidentPathBackend` now provide concrete session readback adapters.
@@ -154,10 +157,21 @@ python -m demo.modern_house_benchmark.native_probe --output-root tmp/house_nativ
 ```
 
 Use a fresh directory. It archives two real camera frames and scene-bound
-identity/path snapshots separated by physics steps. The ideal sensor excludes
-only the observer's own bodies; other robots still occlude it. Resident paths
-exclude no robots. A blocked path is a valid measurement. This diagnostic does
-not perform household restoration or certify the complete business episode.
+identity/path snapshots separated by an author-side intervention: the two
+carriers approach the deployed armchair, attach it with native paired-support
+fixed joints, carry it toward an occupancy-derived parking cell, detach, and
+then every ground robot withdraws to occupancy-derived cells outside the
+resident corridor. The worker records the intervention timing
+(`report["intervention"]["events"]`), asserts the occupancy-map digest is
+unchanged, and only then steps the after snapshot with the observed closeout
+time injected through `process_event`/`record_closeout`. Parking and
+withdrawal cells come from `intervention_plan.plan_furniture_parking()` /
+`plan_withdrawal_targets()`; when the authored parking preference conflicts
+with scene occupancy, the nearest free cell wins and the report records why.
+The ideal sensor excludes only the observer's own bodies; other robots still
+occlude it. Resident paths exclude no robots. A blocked path is a valid
+measurement. This diagnostic does not perform household restoration or certify
+the complete business episode; `scoreable` stays false.
 
 The scene-owned entry point is
 `demo.modern_house_benchmark.main.build_domain_evidence_provider(public_task, ...)`.

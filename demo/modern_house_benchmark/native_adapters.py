@@ -395,14 +395,26 @@ class IsaacResidentPathBackend(_NativeSessionBackend):
             raise
 
 
+PROBE_PHASES = {
+    "before": {"node_id": "room_entry_scan", "target_ref": "entry_scan_zone"},
+    "after": {"node_id": "room_condition_scan", "target_ref": "room_review_zone"},
+}
+CLOSEOUT_NODE_ID = "hall_release"
+
+
 def probe_native_backends(*, session, stage, deployment, occupancy, sensor_manager,
-                          agent, episode_id, item_codes, max_range_m, points, output_path):
+                          agent, episode_id, item_codes, max_range_m, points, output_path,
+                          phase="before", closeout_time_s=None):
     """One in-session author diagnostic; no stepping, closeout, or solver.
 
     Uses the real reference-provider binding/frame schemas. The small public
     packet labels diagnostic roles only; it is not the released business task.
-    Archive this result inside the session: Kit teardown may exit the process.
-    The report and native snapshots are AUTHOR-ONLY; only filtered claims are
+    ``phase`` selects the designated before/after scan node and region. The
+    after phase additionally fails closed unless the caller supplies the closeout
+    time observed between the two phases; it is injected through the provider's
+    ``process_event``/``record_closeout`` path, never a private flag. Archive
+    this result inside the session: Kit teardown may exit the process. The
+    report and native snapshots are AUTHOR-ONLY; only filtered claims are
     eligible for the participant observation store. This function does not
     publish claims to any participant or decide success.
     """
@@ -412,12 +424,15 @@ def probe_native_backends(*, session, stage, deployment, occupancy, sensor_manag
 
     report = {"schema": "eai.benchmark.house_native_diagnostic.v1", "episode_id": episode_id,
               "status": "pending", "scope": "author_only_native_backend_microdiagnostic",
-              "scoreable": False, "business_outcomes_validated": False, "blockers": []}
+              "phase": phase, "scoreable": False, "business_outcomes_validated": False,
+              "blockers": []}
     detector = path = None
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
     _require(not output.exists(), "diagnostic report already exists; use a fresh path")
     try:
+        _require(phase in PROBE_PHASES, f"unknown probe phase: {phase}")
+        node_id, target_ref = PROBE_PHASES[phase]["node_id"], PROBE_PHASES[phase]["target_ref"]
         host = dict(session=session, stage=stage, occupancy=occupancy, episode_id=episode_id)
         detector = HouseNativeSceneDetector(deployment=deployment, item_codes=item_codes,
                                             max_range_m=max_range_m, **host)
@@ -431,18 +446,30 @@ def probe_native_backends(*, session, stage, deployment, occupancy, sensor_manag
                  "prerequisites": ["hall_release"]}]}
         binding = {"schema": "eai.benchmark.domain_runtime_binding_v1", "scene_key": SCENE_KEY,
                    "base_env": session.base_env, "occupancy": occupancy, "public_task": public}
-        detector_provider = ReferenceFrameDetector(SCENE_KEY, backend=detector, scan_node_ids=["room_entry_scan"])
+        detector_provider = ReferenceFrameDetector(SCENE_KEY, backend=detector, scan_node_ids=[node_id])
         path_provider = ModernHousePathReferenceProvider(path_backend=path)
         detector_provider.bind_runtime(binding)
         path_provider.bind_runtime(binding)
+        if phase == "after":
+            # A closeout completion observed between the two probes is trusted
+            # scheduler input. Without it the provider itself rejects the after
+            # frame; the check here keeps the failure in the archived report.
+            _require(closeout_time_s is not None, "after phase requires an observed closeout time")
+            _require(type(closeout_time_s) in (int, float) and math.isfinite(closeout_time_s)
+                     and closeout_time_s >= 0, "invalid closeout time")
+            path_provider.process_event({"schema": "eai.benchmark.domain_runtime_event_v1",
+                                         "scene_key": SCENE_KEY, "event_type": "node_completed",
+                                         "node_id": CLOSEOUT_NODE_ID, "time_s": float(closeout_time_s)})
+            report["closeout"] = {"node_id": CLOSEOUT_NODE_ID, "time_s": float(closeout_time_s),
+                                  "injection": "domain_runtime_event_v1_node_completed"}
         record, pixels = capture_native_observation(
             session, ObservationStore(), sensor_manager, episode_id=episode_id,
-            observation_id=f"{episode_id}:native-diagnostic:{_clock(session)['physics_step']}",
-            agent=agent, target_ref="entry_scan_zone")
+            observation_id=f"{episode_id}:native-diagnostic:{phase}:{_clock(session)['physics_step']}",
+            agent=agent, target_ref=target_ref)
         report["observation"] = record
         context = {"schema": "eai.benchmark.domain_frame_v1", "scene_key": SCENE_KEY,
                    "observation_id": record["observation_id"], "observation": record,
-                   "frame": pixels, "node_id": "room_entry_scan", "time_s": record["timestamp_s"]}
+                   "frame": pixels, "node_id": node_id, "time_s": record["timestamp_s"]}
         for name, run in (("detector", lambda: detector_provider(context)),
                           ("path", lambda: path_provider.process_frame(context))):
             try:
@@ -465,5 +492,6 @@ def probe_native_backends(*, session, stage, deployment, occupancy, sensor_manag
     return report
 
 
-__all__ = ["HouseNativeSceneDetector", "IsaacResidentPathBackend",
-           "NativeHouseBackendBlocked", "capture_native_observation", "probe_native_backends"]
+__all__ = ["CLOSEOUT_NODE_ID", "PROBE_PHASES", "HouseNativeSceneDetector",
+           "IsaacResidentPathBackend", "NativeHouseBackendBlocked",
+           "capture_native_observation", "probe_native_backends"]

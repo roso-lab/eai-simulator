@@ -4,8 +4,8 @@
 
 > **当前状态（2026-09-19 · 阶段18）**
 >
-> - **可跑**：原生 detector/path backend 读回（阶段18 v3，双快照、两件物体身份 + blocked 通路测量）；运动学参考 episode v6（11/11 节点）；出生高度修正后的四机器人静置诊断（阶段12 v5，脚轮贴地）；住户通路/撤离诊断入口；`--check-assets` 资产闭包审计。
-> - **被阻断**：业务干预后的正式 before/after 见证（现有快照无家具干预，不能证明恢复任务成功）；门外/门槛/门内区域与连续住户路径的真实几何绑定（历史像素审核显示 M20_2 曾位于门外露台侧，出生位需复核后重验）。
+> - **可跑**：原生 detector/path backend 读回（阶段18 v4，双快照之间加入作者侧家具干预：paired-support 搬运扶手椅 + 全部地面机器人撤离，after 相先经公开 `process_event`/`record_closeout` 路径注入 closeout）；离线实测区域区间（占据图射线 + 授权 bench 墙体 cuboid 双绑定，含门外/门槛/门内 corroborated 门洞与出生位一致性校验）；运动学参考 episode v6（11/11 节点）；出生高度修正后的四机器人静置诊断（阶段12 v5，脚轮贴地）；住户通路/撤离诊断入口；`--check-assets` 资产闭包审计。
+> - **被阻断**：正式 before/after **业务**见证——两快照之间的干预是作者侧诊断动作，不是参与者驱动的任务执行，不能证明恢复任务成功。
 > - **发布口径**：`release_status=pending`、`scoreable=false`（fail-closed 设计）。
 
 ## 目录模块
@@ -18,7 +18,7 @@
 | `challenge.py` | 四层题包编译与发布 QA |
 | `manifest.py` | NVD 产物 manifest 构建与校验 |
 | `live_path.py` | 实时住户通路诊断（goal 轨道） |
-| `native_probe.py` | 双快照原生 backend 读回诊断 |
+| `native_probe.py` / `intervention_plan.py` | 双快照原生 backend 读回诊断；两快照之间的作者侧家具干预（占据图推导的停靠/撤离单元格与时序记录） |
 | `native_adapters.py` | `HouseNativeSceneDetector` 理想场景传感器与 `IsaacResidentPathBackend` |
 | `NATIVE_BACKENDS.md` | 原生后端接线细节（观察距离/ray 可见性/provenance） |
 | `domain_adapter.py` | 物品身份 detector 与通路 backend 注入边界 |
@@ -51,7 +51,10 @@ python -m demo.modern_house_benchmark.challenge \
   --scenario tmp/modern_house_task.json --output-dir tmp/modern_house_benchmark/challenge
 ```
 
-原生 backend 双快照诊断（输出目录不可复用；此入口不执行恢复家具或撤离策略）：
+原生 backend 双快照诊断（输出目录不可复用；两快照之间执行作者侧干预：两台载具
+paired-support 固定关节搬运扶手椅到占据图推导的停靠单元格、脱离后全部地面机器人
+撤离走廊，closeout 经公开事件路径注入后才采样 after 相。干预是诊断动作，
+`scoreable` 保持 false，不证明恢复业务成功）：
 
 ```bash
 python -m demo.modern_house_benchmark.native_probe --output-root tmp/house_native_backend

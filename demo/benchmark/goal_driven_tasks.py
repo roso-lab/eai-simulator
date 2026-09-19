@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 import json
+import math
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -25,7 +26,7 @@ from .goal_driven_contract import (
     write_goal_task_bundle,
 )
 from .provenance import canonical_sha256
-from .skill_ontology import SKILL_CATALOG_SCHEMA, SKILL_CATALOG_VERSION
+from .skill_ontology import SKILL_CATALOG_SCHEMA, SKILL_CATALOG_VERSION, required_capabilities
 from .goal_driven_fixtures import (
     SKILL_DURATIONS_S,
     execution_contract,
@@ -53,12 +54,27 @@ _TEAM_TREATMENT_TARGETS = {
     "factory": "factory_ground_1",
     "warehouse_nvd": "warehouse_ground_1",
     "modern_house_nvd": "house_ground_1",
+    "city": "go2_1",
 }
 _AUTHORING_BUSINESS_FAMILIES = {
     "factory": "production_anomaly_confirmation_and_maintenance_dispatch",
     "warehouse_nvd": "order_fulfilment_inventory_and_dock_closeout",
     "modern_house_nvd": "resident_home_recovery_and_access_restoration",
+    "city": "urban_incident_response",
 }
+# Frozen city episode identities used by declaration-level witness plans. They
+# mirror the private roster naming of ``build_response_people`` and the
+# following-vehicle runtime; the real-map assembly binding stays in the city
+# preparation draft's episode_binding, while this authoring abstraction binds
+# each canonical person to one of the two declared assembly candidates.
+_CITY_AFFECTED_PERSON_ASSEMBLY = {
+    "affected_person_00": "city_assembly_north",
+    "affected_person_01": "city_assembly_north",
+    "affected_person_02": "city_assembly_south",
+    "affected_person_03": "city_assembly_south",
+}
+_CITY_FOLLOWING_VEHICLE_IDS = ("following_vehicle_00",)
+_CITY_RESPONSE_SERVICE_ID = "city_dispatch"
 
 
 def _robot(identifier: str, robot_type: str, mobility: str, capabilities: list[str], interfaces: list[str]) -> dict[str, Any]:
@@ -444,6 +460,234 @@ def _house_witness(public: dict[str, Any], suffix: str, picker: str, *,
     }
 
 
+def _city() -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """City goal bundle: the urban incident-response family as a four-layer package.
+
+    The public world is the authoring abstraction of the response theater (not
+    the participant-facing city preparation map): the incident is observed from
+    a declared aerial overview area, ground responders reach the incident
+    vicinity and a declared traffic control point, and two assembly candidates
+    carry the per-person assembly binding. Declaration-level witness plans use
+    the frozen roster/service identities; execution evidence stays pending.
+    """
+    from demo.city_benchmark.contracts import candidate_pool, city_outcome_rows
+    from demo.city_benchmark.task_logic import default_deadline_policy, public_deadline_constraints
+
+    # The bundle pool extends the preparation draft's interface-only pool with
+    # the public skill composition rights the declaration-level witnesses need.
+    # It still certifies nothing about human response, traffic authority or
+    # dispatch receipts; those remain service preconditions and runtime gates.
+    pool = candidate_pool()
+    service_skills = {
+        "go2_1": {"guide_people", "control_following_traffic"},
+        "carter_1": {"guide_people", "control_following_traffic"},
+        "iris_1": {"report_incident"},
+    }
+    for robot in pool:
+        robot["public_capabilities"] = sorted(
+            set(robot["public_capabilities"]) | service_skills.get(robot["id"], set()))
+
+    regions = [
+        _region("road_surface", "road_network", "城市地面道路网络；救援、管制与报告成员的公共通行区域",
+                ["ground_navigation", "aerial_navigation"]),
+        _region("response_staging", "response_staging", "响应团队集结与接收响应服务回执的出发区域",
+                ["ground_navigation", "aerial_navigation"]),
+        _region("city_incident_overview", "aerial_overview", "覆盖事故现场、后续交通与集合候选的空中观察区",
+                ["aerial_navigation"]),
+        _region("incident_vicinity", "incident_area", "事故影响地面区域；人员引导接触与危险边界在此确认",
+                ["ground_navigation"]),
+        _region("traffic_control_point", "traffic_control_zone", "已声明的安全进入控制点；交通管制请求从这里发出",
+                ["ground_navigation"]),
+        _region("city_assembly_north", "assembly_candidate", "北侧候选集合区；容量、可达性与当前危险净空需运行核验",
+                ["ground_navigation"]),
+        _region("city_assembly_south", "assembly_candidate", "南侧候选集合区；容量、可达性与当前危险净空需运行核验",
+                ["ground_navigation"]),
+    ]
+    policy = default_deadline_policy(180.0)
+    public = {
+        "schema": GOAL_TASK_SCHEMA,
+        "version": GOAL_CONTRACT_VERSION,
+        "task_id": "CITY-GOAL-01",
+        "evaluation_track": "goal_driven_team_planning_v1",
+        "mission": {"scene_key": "city",
+                    "goal": "应对城市道路突发事故：查明影响，保护人员和后续交通，保持救援通路。",
+                    "context": "城市街区有背景交通、步行人员和建筑；根据实际到达的告警与观察组织响应。具体事故位置和未来事件不预先公开。"},
+        "required_outcomes": [_outcome(*row) for row in city_outcome_rows()],
+        "candidate_robot_pool": pool,
+        "skill_catalog_version": f"{SKILL_CATALOG_SCHEMA}.v{SKILL_CATALOG_VERSION}",
+        "execution_contract": execution_contract(),
+        "public_world": {
+            "regions": regions,
+            "objects": [],
+            "vertical_links": [],
+            "routes": scene_routes("city"),
+            "public_notes": (
+                "本包是城市事故响应的作者/评价侧目标束，公共世界为响应舞台的声明抽象，不是城市静态地图的替代。"
+                "事故位置、受影响人员与后续车辆身份不公开，须由送达的观察证据绑定；集合区为候选，实时安全与容量须另行核验。"
+                "所有区域、路线、时长和容量均为冻结的 benchmark 实验定义，不是硬件额定性能或 USD 实测结果。"
+                "人员引导、交通管制与事件报告是具备回执语义的业务服务；请求提交不等于业务成功。"
+            ),
+        },
+        "business_constraints": [
+            "事故身份、受影响人员和后续车辆必须由当前送达的观察证据确认；机器人自报或预设动画不能替代证据。",
+            "不得用机器人撞击或机体阻挡事故车；后续交通保护使用具备确认回执的停车或改道服务接口。",
+            "静态空地不能自动判定为安全集合区；需满足人数容量、实测可达性和当前危险净空要求。",
+            "不能仅因导航到人员附近就判定人员已疏散，也不能仅因提交管制请求就判定车辆已停止。",
+            "救援通路验收需要覆盖回执时刻、持续时间大于零的连续净空检查；单点到达或仅提交报告不满足验收。",
+            "成员加入、退出和能力变化只在运行时事件实际送达后进入当前团队状态，未来事件不公开。",
+        ] + public_deadline_constraints(policy),
+        "budgets": {
+            "simulation_s": 180.0,
+            "planning_s": 30.0,
+            "message_bytes": 8192,
+            "model_tokens": 12000,
+            "max_active_agents": 3,
+        },
+        "experiment_factor": {
+            "id": "communication_quality",
+            "level": "immediate",
+            "public_rule": _FACTOR_RULES["communication_quality"],
+            "frozen_inputs": ["scene_layout", "incident_instance", "actor_initial_states",
+                              "candidate_robot_pool", "budgets", "model_budget"],
+        },
+    }
+    return public, [_city_witness(public, "a"), _city_witness(public, "b")]
+
+
+def _city_witness(public: dict[str, Any], suffix: str) -> dict[str, Any]:
+    """Two causally distinct declaration-level response chains.
+
+    Witness A is air-led: the aerial observer establishes the incident, the
+    people and the following traffic first, then one ground responder guides
+    both roster groups and holds the following vehicle before the aerial
+    continuous-access check and the dispatch report. Witness B is
+    traffic-led: the control point is manned and the diversion is applied
+    first, then two ground responders split the guidance work, and the aerial
+    observer only verifies the readback, the access corridor and the report.
+    """
+    aerial, ground_go2, ground_carter = "iris_1", "go2_1", "carter_1"
+    overview = "city_incident_overview"
+    north = sorted(person for person, assembly in _CITY_AFFECTED_PERSON_ASSEMBLY.items()
+                   if assembly == "city_assembly_north")
+    south = sorted(person for person, assembly in _CITY_AFFECTED_PERSON_ASSEMBLY.items()
+                   if assembly == "city_assembly_south")
+    identifier = f"city_witness_{suffix}"
+
+    def row(name, skill, arguments, prerequisites, agents):
+        return _task_row(f"{name}_{suffix}", skill, arguments, prerequisites,
+                         sorted(required_capabilities(skill)), agents)
+
+    def guide(name, persons, scan, prerequisites, agent):
+        return row(name, "guide_people",
+                   {"person_ids": persons, "observation_refs": [f"{scan}_{suffix}"],
+                    "assembly_region_id": _CITY_AFFECTED_PERSON_ASSEMBLY[persons[0]]},
+                   prerequisites, [agent])
+
+    if suffix == "a":
+        rows = [
+            row("aerial_recon", "aerial_navigation",
+                {"region_id": overview, "route_ids": ["city_air_staging_to_overview"]}, [], [aerial]),
+            row("observe_incident", "observe",
+                {"region_id": overview, "subject_ref": "incident_vicinity",
+                 "observation_mode": "incident_overview"}, [f"aerial_recon_{suffix}"], [aerial]),
+            row("observe_people", "observe",
+                {"region_id": overview, "subject_ref": "incident_vicinity",
+                 "observation_mode": "people_survey"}, [f"observe_incident_{suffix}"], [aerial]),
+            row("observe_following", "observe",
+                {"region_id": overview, "subject_ref": "road_surface",
+                 "observation_mode": "following_traffic_survey"}, [f"observe_people_{suffix}"], [aerial]),
+            row("reach_incident", "ground_navigation",
+                {"region_id": "incident_vicinity", "route_ids": ["city_road_to_incident"]},
+                [f"observe_incident_{suffix}"], [ground_go2]),
+            guide("guide_north", north, "observe_people",
+                  [f"reach_incident_{suffix}", f"observe_people_{suffix}"], ground_go2),
+            guide("guide_south", south, "observe_people", [f"guide_north_{suffix}"], ground_go2),
+            row("reach_control", "ground_navigation",
+                {"region_id": "traffic_control_point", "route_ids": ["city_incident_to_control"]},
+                [f"guide_south_{suffix}"], [ground_go2]),
+            row("control_traffic", "control_following_traffic",
+                {"vehicle_ids": list(_CITY_FOLLOWING_VEHICLE_IDS),
+                 "observation_refs": [f"observe_following_{suffix}"], "mode": "hold"},
+                [f"reach_control_{suffix}", f"observe_following_{suffix}"], [ground_go2]),
+            row("verify_traffic", "observe",
+                {"region_id": overview, "subject_ref": "road_surface",
+                 "observation_mode": "controlled_traffic_readback"},
+                [f"control_traffic_{suffix}", f"observe_following_{suffix}"], [aerial]),
+            row("verify_access", "observe",
+                {"region_id": overview, "subject_ref": "road_surface",
+                 "observation_mode": "response_access_clearance"},
+                [f"verify_traffic_{suffix}", f"guide_south_{suffix}"], [aerial]),
+        ]
+        team = [aerial, ground_go2]
+        support = {
+            "incident_assessed": [f"observe_incident_{suffix}"],
+            "exposed_people_accounted_for": [f"guide_north_{suffix}", f"guide_south_{suffix}"],
+            "secondary_traffic_protected": [f"control_traffic_{suffix}", f"verify_traffic_{suffix}"],
+            "response_access_preserved": [f"verify_access_{suffix}", f"report_incident_{suffix}"],
+        }
+        report_refs = [f"observe_incident_{suffix}", f"verify_access_{suffix}"]
+    else:
+        rows = [
+            row("aerial_recon", "aerial_navigation",
+                {"region_id": overview, "route_ids": ["city_air_staging_to_overview"]}, [], [aerial]),
+            row("observe_incident", "observe",
+                {"region_id": overview, "subject_ref": "incident_vicinity",
+                 "observation_mode": "incident_overview"}, [f"aerial_recon_{suffix}"], [aerial]),
+            row("observe_following", "observe",
+                {"region_id": overview, "subject_ref": "road_surface",
+                 "observation_mode": "following_traffic_survey"}, [f"observe_incident_{suffix}"], [aerial]),
+            row("reach_control", "ground_navigation",
+                {"region_id": "traffic_control_point", "route_ids": ["city_road_to_control"]},
+                [f"observe_incident_{suffix}"], [ground_carter]),
+            row("control_traffic", "control_following_traffic",
+                {"vehicle_ids": list(_CITY_FOLLOWING_VEHICLE_IDS),
+                 "observation_refs": [f"observe_following_{suffix}"], "mode": "divert"},
+                [f"reach_control_{suffix}", f"observe_following_{suffix}"], [ground_carter]),
+            row("observe_people", "observe",
+                {"region_id": overview, "subject_ref": "incident_vicinity",
+                 "observation_mode": "people_survey"}, [f"observe_following_{suffix}"], [aerial]),
+            row("reach_incident", "ground_navigation",
+                {"region_id": "incident_vicinity", "route_ids": ["city_road_to_incident"]},
+                [f"observe_people_{suffix}"], [ground_go2]),
+            guide("guide_south", south, "observe_people",
+                  [f"reach_incident_{suffix}", f"observe_people_{suffix}"], ground_go2),
+            row("control_relay", "ground_navigation",
+                {"region_id": "incident_vicinity", "route_ids": ["city_control_to_incident"]},
+                [f"control_traffic_{suffix}"], [ground_carter]),
+            guide("guide_north", north, "observe_people",
+                  [f"control_relay_{suffix}", f"observe_people_{suffix}"], ground_carter),
+            row("verify_traffic", "observe",
+                {"region_id": overview, "subject_ref": "road_surface",
+                 "observation_mode": "controlled_traffic_readback"},
+                [f"control_traffic_{suffix}", f"observe_people_{suffix}"], [aerial]),
+            row("verify_access", "observe",
+                {"region_id": overview, "subject_ref": "road_surface",
+                 "observation_mode": "response_access_clearance"},
+                [f"verify_traffic_{suffix}", f"guide_north_{suffix}", f"guide_south_{suffix}"], [aerial]),
+        ]
+        team = [aerial, ground_carter, ground_go2]
+        support = {
+            "incident_assessed": [f"observe_incident_{suffix}"],
+            "exposed_people_accounted_for": [f"guide_north_{suffix}", f"guide_south_{suffix}"],
+            "secondary_traffic_protected": [f"control_traffic_{suffix}", f"verify_traffic_{suffix}"],
+            "response_access_preserved": [f"verify_access_{suffix}", f"report_incident_{suffix}"],
+        }
+        report_refs = [f"observe_incident_{suffix}", f"verify_access_{suffix}"]
+    # Serial author scheduling: the report's submission time is the sum of the
+    # preceding skill durations, matching the execution window assigned below.
+    report_start = math.fsum(SKILL_DURATIONS_S[task["skill"]] for task in rows)
+    rows.append(row("report_incident", "report_incident",
+                    {"observation_refs": report_refs,
+                     "recipient_service_id": _CITY_RESPONSE_SERVICE_ID,
+                     "time_s": report_start},
+                    [f"verify_access_{suffix}"], [aerial]))
+    return {
+        "id": identifier, "satisfies_outcomes": [row["id"] for row in public["required_outcomes"]],
+        "outcome_support": support,
+        "plan": _plan(identifier, team, rows),
+    }
+
+
 def _apply_factor(public: dict[str, Any], factor_id: str, factor_level: str | None) -> dict[str, Any]:
     if factor_id not in _FACTOR_LEVELS:
         raise ValueError(f"unsupported goal factor: {factor_id}")
@@ -493,7 +737,7 @@ def _team_treatment(public: Mapping[str, Any], level: str) -> list[dict[str, Any
     target_id = _TEAM_TREATMENT_TARGETS[scene_key]
     target = deepcopy(next(
         row for row in public["candidate_robot_pool"] if row["id"] == target_id))
-    critical_capability = "stair_traversal" if scene_key == "factory" else "pick"
+    critical_capability = {"factory": "stair_traversal", "city": "relay"}.get(scene_key, "pick")
     event = {
         "id": f"{scene_key}_{level}_treatment",
         "trigger": "after_first_cross_mobility_observation_before_first_business_commit",
@@ -544,7 +788,8 @@ def _build_hidden_event_schedule(public: Mapping[str, Any]) -> dict[str, Any]:
 
 def build_goal_task_spec(scene_key: str, *, factor_id: str = "communication_quality",
                          factor_level: str | None = None) -> dict[str, Any]:
-    builders = {"factory": _factory, "warehouse_nvd": _warehouse, "modern_house_nvd": _house}
+    builders = {"factory": _factory, "warehouse_nvd": _warehouse, "modern_house_nvd": _house,
+                "city": _city}
     try:
         public, _ = builders[scene_key]()
     except KeyError as exc:
@@ -596,6 +841,8 @@ def review_goal_business_witness(
                           "dock_handoff_confirmed", "warehouse_closeout"},
         "modern_house_nvd": {"furniture_repositioned", "belonging_staged",
                              "resident_path_restored", "team_withdrawn"},
+        "city": {"incident_assessed", "exposed_people_accounted_for",
+                 "secondary_traffic_protected", "response_access_preserved"},
     }
     require(outcome_ids == registered_outcomes.get(public_task["mission"]["scene_key"]),
             "every_outcome_requires_registered_business_review")
@@ -725,6 +972,72 @@ def review_goal_business_witness(
                             for row in returns) for receipt in receipts),
                 "factory:service_receipt_after_field_checks_and_actual_return")
         final_object("maintenance_service_cart", "response_staging")
+    elif scene == "city":
+        surveys = match(skills={"observe"}, mobility="aerial", region_id="city_incident_overview",
+                        observation_mode="incident_overview", outcome="incident_assessed")
+        require(surveys, "city:aerial_incident_observation_with_provenance")
+        people_surveys = match(skills={"observe"}, mobility="aerial",
+                               observation_mode="people_survey")
+        require(people_surveys, "city:people_observation_available")
+        guided: dict[str, Mapping[str, Any]] = {}
+        for guidance in match(skills={"guide_people"}):
+            assembly = guidance["arguments"]["assembly_region_id"]
+            require(assembly in regions and regions[assembly]["kind"] == "assembly_candidate",
+                    "city:guidance_targets_public_assembly_candidate")
+            require(guidance["task_id"] in coverage["exposed_people_accounted_for"],
+                    "city:guidance_inside_outcome_support")
+            references = set(guidance["arguments"]["observation_refs"])
+            require(references and references <= {scan["task_id"] for scan in people_surveys},
+                    "city:guidance_cites_people_observation")
+            require(any(precedes(tasks[reference], guidance) for reference in references),
+                    "city:guidance_after_delivered_people_observation")
+            for person_id in guidance["arguments"]["person_ids"]:
+                require(person_id in _CITY_AFFECTED_PERSON_ASSEMBLY,
+                        "city:guidance_references_frozen_roster")
+                require(_CITY_AFFECTED_PERSON_ASSEMBLY[person_id] == assembly,
+                        "city:person_bound_assembly_respected")
+                require(person_id not in guided, "city:each_person_guided_exactly_once")
+                guided[person_id] = guidance
+        require(set(guided) == set(_CITY_AFFECTED_PERSON_ASSEMBLY), "city:full_roster_guided")
+        traffic_surveys = match(skills={"observe"}, mobility="aerial",
+                                observation_mode="following_traffic_survey")
+        controls = match(skills={"control_following_traffic"})
+        require(controls, "city:traffic_control_present")
+        for control in controls:
+            require(control["task_id"] in coverage["secondary_traffic_protected"],
+                    "city:traffic_control_inside_outcome_support")
+            require(set(control["arguments"]["vehicle_ids"]) == set(_CITY_FOLLOWING_VEHICLE_IDS),
+                    "city:control_covers_frozen_following_traffic")
+            references = set(control["arguments"]["observation_refs"])
+            require(references and references <= {scan["task_id"] for scan in traffic_surveys},
+                    "city:control_cites_traffic_observation")
+            require(any(precedes(tasks[reference], control) for reference in references),
+                    "city:control_after_delivered_traffic_observation")
+        readbacks = match(skills={"observe"}, mobility="aerial",
+                          observation_mode="controlled_traffic_readback",
+                          outcome="secondary_traffic_protected")
+        require(readbacks, "city:measured_traffic_readback_present")
+        require(all(any(precedes(control, readback) for control in controls) for readback in readbacks),
+                "city:readback_after_acknowledged_control")
+        access_checks = match(skills={"observe"}, mobility="aerial",
+                              observation_mode="response_access_clearance",
+                              outcome="response_access_preserved")
+        reports = match(skills={"report_incident"}, outcome="response_access_preserved")
+        require(access_checks and reports, "city:continuous_access_and_report_present")
+        for report in reports:
+            require(report["arguments"]["recipient_service_id"] == _CITY_RESPONSE_SERVICE_ID,
+                    "city:report_uses_frozen_response_service_endpoint")
+            references = set(report["arguments"]["observation_refs"])
+            require(any(check["task_id"] in references for check in access_checks),
+                    "city:report_cites_continuous_access_check")
+            require(any(survey["task_id"] in references for survey in surveys),
+                    "city:report_cites_incident_observation")
+        services = [row for row in tasks.values()
+                    if row["skill"] in {"guide_people", "control_following_traffic"}]
+        require(any(all(precedes(service, check) for service in services) for check in access_checks),
+                "city:access_check_after_all_business_services")
+        require(any(all(precedes(check, report) for check in access_checks) for report in reports),
+                "city:report_after_continuous_access_check")
     else:
         raise ValueError(f"no symbolic business review for scene: {scene}")
     return {
@@ -799,7 +1112,8 @@ def review_goal_task_design(public_task: Mapping[str, Any], witnesses: list[Mapp
 
 def build_goal_task_package(scene_key: str, *, factor_id: str = "communication_quality",
                             factor_level: str | None = None) -> dict[str, dict[str, Any]]:
-    builders = {"factory": _factory, "warehouse_nvd": _warehouse, "modern_house_nvd": _house}
+    builders = {"factory": _factory, "warehouse_nvd": _warehouse, "modern_house_nvd": _house,
+                "city": _city}
     try:
         public, witnesses = builders[scene_key]()
     except KeyError as exc:

@@ -146,13 +146,14 @@ class CityNativeServiceRunner:
             self.agent_id, role, self.region_id,
             start_time_s=start_time_s, end_time_s=end_time_s)
 
-    def guide_people(self, person_ids: tuple[str, ...], *, observation_ref: str | None = None) -> dict[str, Any]:
+    def guide_people(self, person_ids: tuple[str, ...], *, observation_ref: str | None = None,
+                     assembly_region_id: str | None = None) -> dict[str, Any]:
         ref = observation_ref or self._observation_ref
         if ref is None:
             raise CityRuntimeWitnessBlocked("native guidance requires an actual delivered observation")
         request, actions = self.adapter.submit_guidance(
             self.witness, agent_id=self.agent_id, region_id=self.region_id,
-            assembly_region_id=self.assembly_region_id,
+            assembly_region_id=assembly_region_id or self.assembly_region_id,
             person_ids=person_ids, observation_refs=(ref,))
         return {"request": request, "actions": list(actions), "scoreable": False}
 

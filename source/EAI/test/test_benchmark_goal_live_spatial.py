@@ -226,3 +226,54 @@ def test_bad_support_evidence_is_unknown_and_strict_json(stage, deployment, muta
     assert result["spawns"][0]["status"] == "blocked"
     assert result["spawns"][0]["samples"][0]["support"]["status"] == "unknown"
     json.dumps(result, allow_nan=False)
+
+
+def _door_region():
+    return {"id": "hall", "public_region": {"access_modes": ["ground_navigation"]},
+            "candidate_geometry": {"center_m": [0., 0., 0.], "aabb_xy_m": [-.5, -.5, .5, .5],
+                                   "boundary_status": "partially_open",
+                                   "measured_binding": {"doorways": [{
+                                       "status": "wall_corroborated_doorway",
+                                       "outside_xy_m": [-.5, 0.], "threshold_xy_m": [0., 0.],
+                                       "inside_xy_m": [.5, 0.], "width_m": 1.0}]}}}
+
+
+def test_measured_doorway_is_crossed_by_a_continuous_support_sweep(stage):
+    deployment = {"scene_key": "modern_house_nvd", "public_task": {"public_world": {}},
+                  "region_bindings": [_door_region()],
+                  "route_bindings": [], "scene_overlay": {},
+                  "robot_instances": [{"public_id": "agent", "prim_path": "/World/Robot"}]}
+    result = spatial.collect_live_spatial(stage, deployment, query=FloorQuery())
+    region = result["regions"][0]
+    sweep = region["door_sweep_checks"][0]["sweep"]
+    assert region["status"] == "sampled"
+    assert sweep["status"] == "sampled"
+    # 1 m crossing at bounded spacing keeps every intermediate cell sampled.
+    assert 7 <= len(sweep["samples"]) <= spatial.MAX_POINTS
+    assert all(sample["support"]["status"] == "measured" for sample in sweep["samples"])
+    assert all(sample["coordinate_basis"].startswith("2d_search_window_only")
+               for sample in sweep["samples"])
+    json.dumps(result, allow_nan=False)
+
+
+def test_door_sweep_with_unsupported_threshold_blocks_the_region(stage):
+    deployment = {"scene_key": "modern_house_nvd", "public_task": {"public_world": {}},
+                  "region_bindings": [_door_region()],
+                  "route_bindings": [], "scene_overlay": {},
+                  "robot_instances": [{"public_id": "agent", "prim_path": "/World/Robot"}]}
+    floor = FloorQuery()
+
+    def query(origin, direction, distance, callback):
+        if abs(origin[0]) < .2:  # support disappears past the threshold flanks
+            floor.raycast_all(origin, direction, distance, callback)
+
+    result = spatial.collect_live_spatial(stage, deployment, query=query)
+    region = result["regions"][0]
+    assert region["door_sweep_checks"][0]["sweep"]["status"] == "blocked"
+    assert "door_sweep_support_unknown_or_blocked" in region["blockers"]
+    assert region["status"] == "blocked"
+
+
+def test_regions_without_measured_doorways_have_no_sweep_entries(stage, deployment):
+    result = spatial.collect_live_spatial(stage, deployment, query=FloorQuery())
+    assert all("door_sweep_checks" not in row for row in result["regions"])

@@ -13,6 +13,7 @@ from demo.benchmark.goal_city_intake import load_city_goal_candidate, validate_c
 from demo.benchmark.goal_driven_contract import GOAL_CONTRACT_VERSION, build_goal_participant_api
 from demo.benchmark.goal_driven_fixtures import execution_contract, robot_physical_profile
 from demo.benchmark.provenance import canonical_sha256
+from demo.city_benchmark.contracts import build_episode_binding, episode_parameter_names
 
 
 def _write_json(path, value):
@@ -104,12 +105,25 @@ def package(tmp_path):
     for name in ("city_layout.json", "city_scenario.json", "city_static.usd", "building.usd"):
         (sources / name).write_text("local test source: " + name, encoding="utf-8")
     public = _public()
+    assembly_regions = [
+        {"id": "assembly_candidate_001", "kind": "assembly_candidate",
+         "public_description": "候选集合位置", "access_modes": ["ground_navigation"], "resource_capacity": 1},
+        {"id": "assembly_candidate_002", "kind": "assembly_candidate",
+         "public_description": "候选集合位置", "access_modes": ["ground_navigation"], "resource_capacity": 1},
+    ]
+    public["public_world"]["regions"] = public["public_world"]["regions"] + assembly_regions
     semantics = {
         "schema": "eai.city.semantic_map", "version": 1, "coordinate_frame": "city_world",
         "meters_per_unit": 1.0, "up_axis": "Z", "regions": deepcopy(public["public_world"]["regions"]),
-        "bindings": [{"id": "road_surface", "geometry": {"type": "Point", "coordinates": [0.0, 0.0]}}],
-        "static_obstacles": [], "vehicle_routes": [], "pedestrian_routes": [],
-        "surface_heights_m": {"roads": 0.0}, "scope": "static_prior_only",
+        "bindings": [{"id": "road_surface", "geometry": {"type": "Point", "coordinates": [0.0, 0.0]}},
+                     {"id": "assembly_candidate_001", "candidate_radius_m": 0.75,
+                      "geometry": {"type": "Point", "coordinates": [10.0, 6.0]}},
+                     {"id": "assembly_candidate_002", "candidate_radius_m": 0.75,
+                      "geometry": {"type": "Point", "coordinates": [10.0, 7.0]}}],
+        "static_obstacles": [], "vehicle_routes": [],
+        "pedestrian_routes": [{"id": f"p{index}", "points": [[float(index), 6.0], [float(index) + 3.0, 6.0]]}
+                              for index in range(4)],
+        "surface_heights_m": {"sidewalks": 0.3, "ground": 0.22}, "scope": "static_prior_only",
     }
     metadata = {
         "schema": "eai.city.static_map", "version": 1, "coordinate_frame": "city_world",
@@ -141,8 +155,9 @@ def package(tmp_path):
         "response_template": {"people": [{"person_id": "secret_affected_person_1", "start_xyz": [1.0, 2.0, 0.0]}]},
         "outcome_evidence_requirements": deepcopy(public["required_outcomes"]),
         "full_mission_witnesses": [], "required_services": required,
+        "episode_binding": build_episode_binding(semantics),
         "private_factor_design": {"communication": "freeze content, vary delivery", "frozen": ["map", "actor_states"]},
-        "required_episode_parameters": ["affected_person_roster", "assembly_capacity", "response_service_endpoint"],
+        "required_episode_parameters": episode_parameter_names(),
     }
     review = {"schema": "eai.city.authoring_review", "version": 1, "public_contract_validated": True,
               "authoring_status": "blocked", "execution_validated": False, "scoreable": False,
@@ -428,4 +443,68 @@ def test_composed_layer_root_hash_must_agree_with_top_level_source(package):
         layers[root] = "0" * 64
     _mutate(package, "authoring/private.json", change)
     with pytest.raises(ValueError, match="matching composed city_static"):
+        load_city_goal_candidate(package)
+
+
+def test_episode_binding_is_reviewed_against_the_packaged_semantics(package):
+    candidate = load_city_goal_candidate(package)
+    review = candidate["episode_binding_review"]
+    assert review["validated"] is True
+    assert review["bound_person_count"] == 4
+    assert review["runtime_admission_pending"] is True and review["execution_validated"] is False
+    assert candidate["intake_review"]["episode_parameters_bound"] is True
+    binding = candidate["private_authoring"]["episode_binding"]
+    assert sorted(binding["affected_person_roster"][0]["evacuation_route"][-1][:2]) == sorted(
+        next(row for row in _read(package / "release/maps/semantic_map.json")["bindings"]
+             if row["id"] == binding["affected_person_roster"][0]["assembly_region_id"]
+             )["geometry"]["coordinates"])
+
+
+@pytest.mark.parametrize("mutation", [
+    lambda b: b["affected_person_roster"].pop(),
+    lambda b: b["affected_person_roster"][0].update(assembly_region_id="road_surface"),
+    lambda b: b["assembly_capacity"][0].update(capacity_people=len(b["assembly_capacity"][0]["bound_person_ids"]) + 1),
+    lambda b: b["response_service_endpoint"].update(receipt_deadline_s=0),
+    lambda b: b["dynamic_hazard_boundaries"].update(exclusion_half_extents_m=[-4.0, 4.0]),
+])
+def test_tampered_episode_binding_fails_the_intake(package, mutation):
+    def change(private):
+        mutation(private["episode_binding"])
+    _mutate(package, "authoring/private.json", change)
+    with pytest.raises(ValueError, match="stale or invalid city episode binding"):
+        load_city_goal_candidate(package)
+
+
+def test_episode_binding_person_ids_stay_private(package):
+    binding = _read(package / "authoring/private.json")["episode_binding"]
+    token = binding["affected_person_roster"][0]["person_id"]
+    _mutate(package, "release/public_task.json", lambda row: row["public_world"].update(public_notes=token))
+    _rebind_public(package)
+    with pytest.raises(ValueError, match="private path or actor"):
+        load_city_goal_candidate(package)
+
+
+def test_episode_binding_is_a_frozen_factor_input(package):
+    original = load_city_goal_candidate(package)["factor_candidate_inputs"]
+
+    def rotate(private):
+        private["episode_binding"]["seed"] = 8
+    _mutate(package, "authoring/private.json", rotate)
+    changed = load_city_goal_candidate(package)["factor_candidate_inputs"]
+    assert original["frozen_input_sha256"] != changed["frozen_input_sha256"]
+    assert original["episode_parameters_to_bind"] == episode_parameter_names()
+
+
+def test_absent_episode_binding_still_loads_as_an_unbound_draft(package):
+    _mutate(package, "authoring/private.json", lambda row: row.update(episode_binding=None))
+    candidate = load_city_goal_candidate(package)
+    assert candidate["episode_binding_review"] is None
+    assert candidate["intake_review"]["episode_parameters_bound"] is False
+    assert candidate["intake_review"]["authoring_status"] == "blocked"
+
+
+def test_preparation_drafts_still_reject_embedded_witnesses_with_builder_guidance(package):
+    _mutate(package, "authoring/private.json", lambda row: row.update(
+        full_mission_witnesses=[{"id": "forged_witness"}]))
+    with pytest.raises(ValueError, match="declaration-level"):
         load_city_goal_candidate(package)

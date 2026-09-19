@@ -44,6 +44,21 @@ def test_city_registration_does_not_claim_a_full_goal_bundle():
         compile_registered_goal_scene("city", city_package_dir="unused", factor_level="delayed")
 
 
+def test_city_full_bundle_is_builder_admitted_while_the_registration_stays_a_draft():
+    from demo.benchmark.goal_driven_contract import validate_goal_bundle
+    from demo.benchmark.goal_driven_tasks import build_goal_task_package, review_goal_task_design
+
+    bundle = build_goal_task_package("city")
+    assert validate_goal_bundle(bundle)["validated"]
+    review = review_goal_task_design(bundle["public_task"], bundle["hidden_evaluator"]["witness_plans"])
+    assert review["authoring_status"] == "passed"
+    assert review["execution_status"] == "external_pending"
+    assert review["scoreable"] is False
+    # Registration keeps the participant-facing draft boundary: building the
+    # full bundle is an author/evaluator action behind its own release gate.
+    assert goal_scene_registration("city")["package_kind"] == "preparation_draft_not_goal_bundle"
+
+
 def test_registered_goal_scene_uses_existing_full_contract():
     item = compile_registered_goal_scene("factory")
     assert item["bundle"]["public_task"]["mission"]["scene_key"] == "factory"

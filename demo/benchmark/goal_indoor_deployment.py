@@ -33,6 +33,7 @@ _PROPS = REPO_ROOT / "source/EAI_assets/EAI_assets/scenario_props.json"
 _ADAPTER_SOURCE_FILES = (
     REPO_ROOT / "demo/benchmark/goal_indoor_deployment.py",
     REPO_ROOT / "demo/benchmark/goal_scene_binding.py",
+    REPO_ROOT / "demo/benchmark/goal_region_geometry.py",
     REPO_ROOT / "source/EAI/EAI/scenario_spec/geometry.py",
     REPO_ROOT / "source/EAI/EAI/scenario_spec/oracle.py",
 )
@@ -110,6 +111,15 @@ _SPAWN_PROPOSALS = {
         "house_ground_2": ([6.0, 4.1, 0.45], [1.0, 0.0, 0.0, 0.0], None),
         "house_ground_3": ([8.0, 3.7, 0.77], [1.0, 0.0, 0.0, 0.0], None),
     },
+}
+
+# Declared initial region per Modern House ground spawn. The overlay verifies
+# each spawn footprint against that region's measured interval; a spawn outside
+# the interval is a rejected overlay row, never silently re-labeled.
+_HOUSE_SPAWN_REGIONS = {
+    "house_ground_1": "entry_hall",
+    "house_ground_2": "entry_hall",
+    "house_ground_3": "entry_hall",
 }
 
 
@@ -212,10 +222,48 @@ def _region_aabb(scene_key: str, region_id: str) -> list[float]:
     return [center[0] - 0.5, center[1] - 0.5, center[0] + 0.5, center[1] + 0.5]
 
 
+def _measured_region_geometry(scene_key: str, occupancy: Any,
+                              region_ids: Any) -> dict[str, dict[str, Any]]:
+    """Offline double binding for ground regions where the scene supports it.
+
+    Only Modern House currently ships a derivable bench collision layer. The
+    derivation is rebuilt from the provider occupancy map plus the authored
+    layer on every overlay build; it is never a cached or hand-entered
+    measurement.
+    """
+    if scene_key != "modern_house_nvd":
+        return {}
+    from .goal_region_geometry import derive_region_geometry, house_bench_layer_path
+    from .goal_region_geometry import static_wall_cuboids
+    layer = house_bench_layer_path()
+    walls = static_wall_cuboids(layer)
+    result: dict[str, dict[str, Any]] = {}
+    for identifier in region_ids:
+        position = _REGION_PROPOSALS[scene_key][identifier][0]
+        if position[2] > 0.5:
+            continue
+        result[identifier] = derive_region_geometry(occupancy, layer, position[:2], walls=walls)
+    return result
+
+
+def _region_interval_bounds(scene_key: str, region_id: str,
+                            measured: Mapping[str, Any] | None) -> tuple[list[float], str, str]:
+    row = (measured or {}).get(region_id)
+    if row is not None and row.get("status") == "measured":
+        return (list(row["interval_aabb_xy_m"]),
+                "occupancy_interval_plus_usd_static_wall_cuboids",
+                "measured_interval")
+    return (_region_aabb(scene_key, region_id),
+            "author_proposal_geometry_not_physical_scene_measurement",
+            "authored_center_half_meter")
+
+
 def _initial_region_check(scene_key: str, physical: Mapping[str, Any],
-                          position: list[float]) -> dict[str, Any]:
+                          position: list[float],
+                          measured: Mapping[str, Any] | None = None) -> dict[str, Any]:
     region_id = physical["initial_region_id"]
-    low_x, low_y, high_x, high_y = _region_aabb(scene_key, region_id)
+    bounds, basis, source = _region_interval_bounds(scene_key, region_id, measured)
+    low_x, low_y, high_x, high_y = bounds
     half_x, half_y = float(physical["size_m"][0]) / 2, float(physical["size_m"][1]) / 2
     object_bounds = [position[0] - half_x, position[1] - half_y,
                      position[0] + half_x, position[1] + half_y]
@@ -228,12 +276,13 @@ def _initial_region_check(scene_key: str, physical: Mapping[str, Any],
         "region_id": region_id,
         "region_candidate_aabb_xy_m": [low_x, low_y, high_x, high_y],
         "object_candidate_aabb_xy_m": object_bounds,
-        "basis": "author_proposal_geometry_not_physical_scene_measurement",
+        "bounds_source": source,
+        "basis": basis,
     }
 
 
 def _object_bindings(public: Mapping[str, Any], scene_key: str, inventory: Mapping[str, Any],
-                     occupancy: Any) -> list[dict[str, Any]]:
+                     occupancy: Any, measured: Mapping[str, Any] | None = None) -> list[dict[str, Any]]:
     native_props = _native_props()
     old_entities = _scenario_entities(scene_key)
     old_rows = _inventory_rows(inventory, "objects")
@@ -287,8 +336,10 @@ def _object_bindings(public: Mapping[str, Any], scene_key: str, inventory: Mappi
             ])
         map_check = _map_check_rectangle(
             occupancy, position, (float(physical["size_m"][0]), float(physical["size_m"][1])))
-        region_check = _initial_region_check(scene_key, physical, position)
-        gaps = ["physical_spawn_and_collision_not_verified", "initial_region_membership_not_physically_verified"]
+        region_check = _initial_region_check(scene_key, physical, position, measured)
+        gaps = ["physical_spawn_and_collision_not_verified"]
+        if region_check["bounds_source"] != "measured_interval":
+            gaps.append("initial_region_membership_not_physically_verified")
         if asset_key is None:
             gaps.append("native_asset_geometry_missing")
         admitted = map_check["admitted"] and region_check["admitted"]
@@ -321,7 +372,7 @@ def _object_bindings(public: Mapping[str, Any], scene_key: str, inventory: Mappi
 
 
 def _region_bindings(public: Mapping[str, Any], scene_key: str, inventory: Mapping[str, Any],
-                     occupancy: Any) -> list[dict[str, Any]]:
+                     occupancy: Any, measured: Mapping[str, Any] | None = None) -> list[dict[str, Any]]:
     old_rows = _inventory_rows(inventory, "regions")
     result = []
     for item in public["public_world"]["regions"]:
@@ -336,22 +387,41 @@ def _region_bindings(public: Mapping[str, Any], scene_key: str, inventory: Mappi
             "reason": "ground_map_cannot_admit_aerial_or_elevated_region_geometry",
         })
         status = "map_checked" if check["admitted"] else "proposed"
-        result.append({
-            "id": identifier,
-            "status": status,
-            "evidence_status": "author_candidate_from_existing_declarations",
-            "public_region": deepcopy(item),
-            "candidate_geometry": {
+        geometry_row = (measured or {}).get(identifier)
+        if ground and geometry_row is not None and geometry_row.get("status") == "measured":
+            # The interval and its doorways are rebuilt from the provider map
+            # plus the authored bench collision layer on every overlay build.
+            candidate_geometry = {
+                "kind": "measured_occupancy_interval_with_usd_wall_corroboration",
+                "center_m": deepcopy(position),
+                "aabb_xy_m": list(geometry_row["interval_aabb_xy_m"]),
+                "basis": geometry_row["basis"],
+                "boundary_status": geometry_row["boundary_status"],
+                "measured_binding": deepcopy(geometry_row),
+            }
+            evidence_status = "offline_measured_interval_from_provider_map_and_authored_bench_layer"
+            gaps = ["capacity_and_visibility_not_physically_verified",
+                    "region_interval_is_offline_map_and_layer_derivation_not_live_measurement"]
+        else:
+            candidate_geometry = {
                 "kind": "author_proposed_aabb",
                 "center_m": deepcopy(position),
                 "aabb_xy_m": _region_aabb(scene_key, identifier),
                 "basis": basis,
                 "boundary_status": "pending",
-            },
+            }
+            evidence_status = "author_candidate_from_existing_declarations"
+            gaps = ["reviewed_region_boundary_missing", "capacity_and_visibility_not_physically_verified"]
+        result.append({
+            "id": identifier,
+            "status": status,
+            "evidence_status": evidence_status,
+            "public_region": deepcopy(item),
+            "candidate_geometry": candidate_geometry,
             "inventory_leads": [candidate["candidate_id"] for candidate in old_rows[identifier]["candidates"]],
             "map_check": check,
             "physical_verified": False,
-            "gaps": ["reviewed_region_boundary_missing", "capacity_and_visibility_not_physically_verified"],
+            "gaps": gaps,
         })
     return result
 
@@ -436,7 +506,8 @@ def _route_bindings(public: Mapping[str, Any], scene_key: str, occupancy: Any) -
     return result
 
 
-def _robot_spawns(public: Mapping[str, Any], scene_key: str, occupancy: Any) -> list[dict[str, Any]]:
+def _robot_spawns(public: Mapping[str, Any], scene_key: str, occupancy: Any,
+                  measured: Mapping[str, Any] | None = None) -> list[dict[str, Any]]:
     rows = []
     for item in public["candidate_robot_pool"]:
         position, rotation, old_id = _SPAWN_PROPOSALS[scene_key][item["id"]]
@@ -451,7 +522,7 @@ def _robot_spawns(public: Mapping[str, Any], scene_key: str, occupancy: Any) -> 
                      "map_sha256": occupancy.sha256,
                      "reason": "ground_map_cannot_admit_aerial_spawn_volume"}
             status = "proposed"
-        rows.append({
+        row = {
             "id": item["id"],
             "status": status,
             "evidence_status": "distinct_author_instance_proposal",
@@ -470,7 +541,30 @@ def _robot_spawns(public: Mapping[str, Any], scene_key: str, occupancy: Any) -> 
             "physical_verified": False,
             "gaps": ["controller_sensor_tool_assembly_not_physically_verified",
                      "body_envelope_and_payload_configuration_not_measured"],
-        })
+        }
+        region_id = _HOUSE_SPAWN_REGIONS.get(item["id"]) if scene_key == "modern_house_nvd" else None
+        if item["mobility"] == "ground" and region_id is not None:
+            bounds, basis, source = _region_interval_bounds(scene_key, region_id, measured)
+            half_x, half_y = float(profile["body_size_m"][0]) / 2, float(profile["body_size_m"][1]) / 2
+            spawn_bounds = [position[0] - half_x, position[1] - half_y,
+                            position[0] + half_x, position[1] + half_y]
+            admitted = (source == "measured_interval"
+                        and spawn_bounds[0] >= bounds[0] and spawn_bounds[1] >= bounds[1]
+                        and spawn_bounds[2] <= bounds[2] and spawn_bounds[3] <= bounds[3])
+            row["initial_spawn_region_check"] = {
+                "check_kind": "footprint_within_region",
+                "status": "candidate_checked" if admitted else "blocked",
+                "admitted": admitted,
+                "region_id": region_id,
+                "region_candidate_aabb_xy_m": bounds,
+                "spawn_candidate_aabb_xy_m": spawn_bounds,
+                "bounds_source": source,
+                "basis": basis,
+            }
+            if not admitted:
+                row["status"] = "blocked"
+                row["gaps"].append("initial_spawn_region_membership_rejected")
+        rows.append(row)
     return rows
 
 
@@ -510,10 +604,14 @@ def build_indoor_deployment_overlay(
         raise ValueError("public task does not match the current frozen public task")
     sources = _source_files(inventory)
     occupancy = provider_map(scene_key=scene_key)
-    objects = _object_bindings(public, scene_key, inventory, occupancy)
-    regions = _region_bindings(public, scene_key, inventory, occupancy)
+    measured = _measured_region_geometry(
+        scene_key, occupancy,
+        [item["id"] for item in public["public_world"]["regions"]
+         if "ground_navigation" in item["access_modes"]])
+    objects = _object_bindings(public, scene_key, inventory, occupancy, measured)
+    regions = _region_bindings(public, scene_key, inventory, occupancy, measured)
     routes = _route_bindings(public, scene_key, occupancy)
-    spawns = _robot_spawns(public, scene_key, occupancy)
+    spawns = _robot_spawns(public, scene_key, occupancy, measured)
     vertical = _vertical_links(public, inventory)
     blockers = [
         "physical_scene_binding_and_execution_not_verified",
@@ -522,6 +620,8 @@ def build_indoor_deployment_overlay(
     ]
     blockers.extend(f"route:{row['id']}:{row['map_check']['reason']}"
                     for row in routes if row["status"] == "blocked")
+    blockers.extend(f"spawn:{row['id']}:initial_region_membership_rejected"
+                    for row in spawns if row.get("initial_spawn_region_check", {}).get("admitted") is False)
     blockers.extend(f"vertical_link:{row['id']}:physical_binding_pending" for row in vertical)
     pending_actions = [
         {"id": "apply_and_read_back_object_robot_configuration", "status": "pending",

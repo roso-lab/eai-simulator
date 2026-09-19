@@ -195,6 +195,20 @@ _ROUTES = {
         _route("resident_entry_segment", "entry_hall", "resident_path", 2.0, 1.0),
         _route("resident_living_segment", "resident_path", "living_area", 3.0, 1.0),
     ],
+    "city": [
+        _route("city_air_staging_to_overview", "response_staging", "city_incident_overview", 6.0, 1.0,
+               mode="aerial_navigation", height=1.0),
+        _route("city_road_to_incident", "road_surface", "incident_vicinity", 6.0, 1.2,
+               resource="incident_access_lane"),
+        _route("city_incident_to_road", "incident_vicinity", "road_surface", 6.0, 1.2,
+               resource="incident_access_lane"),
+        _route("city_road_to_control", "road_surface", "traffic_control_point", 5.0, 1.2,
+               resource="traffic_control_lane"),
+        _route("city_control_to_road", "traffic_control_point", "road_surface", 5.0, 1.2,
+               resource="traffic_control_lane"),
+        _route("city_incident_to_control", "incident_vicinity", "traffic_control_point", 4.0, 1.2),
+        _route("city_control_to_incident", "traffic_control_point", "incident_vicinity", 4.0, 1.2),
+    ],
 }
 
 

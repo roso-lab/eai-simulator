@@ -22,6 +22,8 @@ MAX_POINTS = 16
 MAX_BINDINGS = 256
 MAX_HITS = 256
 MAX_RAY_M = 10.0
+MAX_DOORWAYS_PER_REGION = 8
+DOOR_SWEEP_SPACING_M = 0.15
 
 
 def _vector(value, size=3):
@@ -186,6 +188,19 @@ def _route_points(binding):
     return []
 
 
+def _door_sweep_points(door):
+    """Dense outside-threshold-inside crossing at bounded spacing, 2-D only."""
+    crossing = [door["outside_xy_m"], door["threshold_xy_m"], door["inside_xy_m"]]
+    points = []
+    for start, end in zip(crossing, crossing[1:]):
+        count = max(1, math.ceil(math.dist(start, end) / DOOR_SWEEP_SPACING_M))
+        for index in range(count):
+            points.append([start[0] + (end[0]-start[0])*index/count,
+                           start[1] + (end[1]-start[1])*index/count])
+    points.append(list(crossing[-1]))
+    return points, "doorway_outside_threshold_inside_crossing_2d"
+
+
 def collect_live_spatial(stage, deployment, *, query=None, robot_roots=()):
     """Collect JSON evidence at deployment proposals in the supplied live stage.
 
@@ -309,8 +324,31 @@ def collect_live_spatial(stage, deployment, *, query=None, robot_roots=()):
             points, basis = _geometry_points(binding)
         except (ValueError, TypeError, KeyError) as exc:
             points, basis = [], f"invalid_region_geometry:{exc}"
-        result["regions"].append(evidence(binding["id"], points, basis=basis,
-            aerial=declaration.get("access_modes") == ["aerial_navigation"]))
+        row = evidence(binding["id"], points, basis=basis,
+            aerial=declaration.get("access_modes") == ["aerial_navigation"])
+        # Cross every measured doorway boundary with one continuous support
+        # sweep; a threshold the rays cannot confirm stays a blocker.
+        measured = (binding.get("candidate_geometry") or {}).get("measured_binding") or {}
+        doorways = [door for door in measured.get("doorways", [])
+                    if isinstance(door, Mapping) and {"outside_xy_m", "threshold_xy_m", "inside_xy_m"} <= set(door)]
+        if declaration.get("access_modes") != ["aerial_navigation"] and doorways:
+            sweeps = []
+            for index, door in enumerate(bounded(doorways, "region_doorways")[:MAX_DOORWAYS_PER_REGION]):
+                try:
+                    sweep_points, sweep_basis = _door_sweep_points(door)
+                except (ValueError, TypeError, KeyError) as exc:
+                    sweeps.append({"doorway": dict(door), "sweep": {"status": "blocked",
+                        "blockers": [f"invalid_doorway_geometry:{exc}"], "samples": []}})
+                    continue
+                sweeps.append({"doorway": dict(door),
+                               "sweep": evidence(f"{binding['id']}:door_sweep:{index}",
+                                                 sweep_points, basis=sweep_basis)})
+            row["door_sweep_checks"] = sweeps
+            if any(entry["sweep"]["status"] != "sampled" for entry in sweeps):
+                row["blockers"].append("door_sweep_support_unknown_or_blocked")
+                row["status"] = "blocked"
+            row["blockers"] = sorted(set(row["blockers"]))
+        result["regions"].append(row)
     for binding in bounded(deployment.get("route_bindings", overlay.get("route_bindings", [])), "routes"):
         declaration = binding.get("public_route", {})
         paths = _route_points(binding)

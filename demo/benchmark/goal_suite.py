@@ -1,8 +1,11 @@
 """Generate, freeze and read back the goal-task authoring matrix.
 
 This author-only command does not launch a simulator, execute a participant or
-score an episode. City preparation drafts remain separate from admitted goal
-bundles. Existing public templates are reserved for further review, not called
+score an episode. City preparation drafts remain separate participant
+artifacts: the suite copies and re-intakes the draft, and additionally audits
+the declaration-level city goal bundle (design review plus one concrete
+communication factor pair) without promoting the draft or claiming scoring.
+Existing public templates are reserved for further review, not called
 secret held-out evaluation data.
 """
 
@@ -169,10 +172,23 @@ def write_goal_suite(output_root, *, scene_keys=None, city_package_dir=None, ver
             _write(staging / "authoring/city_service_proposals.json", public_service_proposals())
             _write(staging / "authoring/city_service_review.json", service_review)
             _write(staging / "authoring/city_intake.json", _city_intake_summary(copied))
+            # The full city goal bundle is audited here, not copied or frozen:
+            # its declaration-level witnesses and concrete treatments must
+            # build and review cleanly, while the participant-facing draft and
+            # formal scoring stay behind their own release gates.
+            city_bundle = build_goal_task_package("city")
+            city_review = review_goal_task_design(city_bundle["public_task"],
+                                                  city_bundle["hidden_evaluator"]["witness_plans"])
+            city_pair = validate_goal_factor_pair(
+                city_bundle, build_goal_task_package("city", factor_level="delayed"),
+                factor_id="communication_quality")
+            _write(staging / "authoring/city_goal_bundle_review.json", city_review)
+            _write(staging / "authoring/city_factor_pair.json", city_pair)
             candidates.append({"scene_key": "city", "path": "candidates/city",
                                "package_kind": "preparation_draft_not_goal_bundle",
                                "authoring_status": "blocked", "execution_status": "external_pending",
-                               "factor_pair_status": "blocked_missing_concrete_treatments_and_full_witnesses",
+                               "full_bundle_authoring_status": city_review["authoring_status"],
+                               "factor_pair_status": "concrete_treatments_and_witnesses_available_execution_pending",
                                "scoreable": False,
                                "blockers": _read(staging / "candidates/city/authoring/review.json")["blockers"]})
         freeze_path = None
@@ -315,7 +331,8 @@ def verify_goal_suite(output_root, *, verify_sources=False):
         if (candidate["scene_key"] != "city" or candidate["path"] != "candidates/city"
                 or candidate["package_kind"] != "preparation_draft_not_goal_bundle"
                 or candidate["authoring_status"] != "blocked" or candidate["scoreable"] is not False):
-            raise ValueError("city draft cannot be promoted by the suite")
+            raise ValueError("city draft cannot be promoted by suite records; only the registered "
+                             "builder and its release gates admit the full bundle")
         from .goal_city_intake import load_city_goal_candidate
         current_intake = load_city_goal_candidate(root / candidate["path"], verify_sources=verify_sources)
         if _read(root / "authoring/city_intake.json") != _city_intake_summary(current_intake):
@@ -335,8 +352,24 @@ def verify_goal_suite(output_root, *, verify_sources=False):
         source_review = _read(root / "candidates/city/authoring/review.json")
         if (candidate["blockers"] != source_review["blockers"]
                 or candidate["execution_status"] != "external_pending"
-                or candidate["factor_pair_status"] != "blocked_missing_concrete_treatments_and_full_witnesses"):
+                or candidate["factor_pair_status"] != "concrete_treatments_and_witnesses_available_execution_pending"):
             raise ValueError("suite city pending conditions differ from source review")
+        # Re-derive the audited full bundle: a stale city builder invalidates
+        # the suite exactly like a stale shared contract.
+        city_bundle = build_goal_task_package("city")
+        expected_review = review_goal_task_design(city_bundle["public_task"],
+                                                  city_bundle["hidden_evaluator"]["witness_plans"])
+        if candidate["full_bundle_authoring_status"] != expected_review["authoring_status"]:
+            raise ValueError("suite city full-bundle authoring status is stale")
+        if _read(root / "authoring/city_goal_bundle_review.json") != expected_review:
+            raise ValueError("suite city goal bundle review is stale")
+        expected_pair = validate_goal_factor_pair(
+            city_bundle, build_goal_task_package("city", factor_level="delayed"),
+            factor_id="communication_quality")
+        if _read(root / "authoring/city_factor_pair.json") != expected_pair:
+            raise ValueError("suite city factor pair review is stale")
+        expected_artifacts.update({"authoring/city_goal_bundle_review.json",
+                                   "authoring/city_factor_pair.json"})
     if expected_artifacts != set(inventory):
         raise ValueError("suite contains artifacts outside the reviewed public/author boundary")
     return {"validated": True, "package_count": len(packages), "candidate_count": len(report["candidates"]),

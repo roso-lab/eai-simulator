@@ -15,8 +15,8 @@
 - [x] House：提供可直接绑定当前 Isaac session 的身份读回和路径后端，复核像素摘要、观测时刻、physics step、对象来源和 occupancy provenance。阶段18 v3 在482/602步均得到两对象身份及有效blocked通路读回；原始帧已保存并重算摘要。
 - [ ] House：保留 before/after 实际快照与连续楼面证据；动态机器人堵路归参与者策略，检查器如实记录。
 - [x] City：阶段18 v8 完成一次 CPU PhysX 服务诊断；`guide_people`、`control_traffic` 的 hold/release/divert、`report_incident` 均有 episode-owned runtime readback。人员轨迹约301个样本，三种交通控制各约256个轨迹/安全样本，事故报告后连续 access 约26个样本；证据状态为 `candidate_witness=evidence_complete`。
-- [ ] City：将上述诊断区域、人员/车辆名单、危险区、集合容量和路线固定为正式 episode 绑定；当前报告仍为 `formal_episode_binding=false`、`full_city_service=pending_formal_episode_geometry`，不能提升为正式城市业务完成。
-- [ ] City：在场景参数固定后完成两份独立业务见证、具体因子 treatment、完整题包和单因子冻结审核。
+- [ ] City：把诊断区域与动态实体固定进**运行时**正式 episode（作者侧声明绑定已完成：prepare 私有记录现携带 `episode_binding`——4 人 roster 逐人绑定集合候选、集合容量、危险区模板、安全进入控制点、交通反应窗口、回执端点，并由 `goal_city_intake` 对照打包语义图机检）；服务探针报告仍为 `formal_episode_binding=false`、`full_city_service=pending_formal_episode_geometry`，须由 Isaac 阶段的实测准入（native region reader / measured clear）补齐后才能提升为正式城市业务完成。
+- [x] City：任务生成侧完成两份语义不同的声明级业务见证（`_city()` builder，空中主导与交通管制主导两条因果链，均过 `review_goal_business_witness` 城市分支与跨形态异质证书）、复用 communication_quality 的具体因子 treatment（immediate vs delayed 单因子对已隔离）、完整四层题包（`build_goal_task_package("city")` 可 build/verify/freeze）与 goal_suite 城市审计（`authoring/city_goal_bundle_review.json` + `city_factor_pair.json`，draft 仍禁止晋升、计分仍受 release gate 限制）。执行与因子效果验证仍为 external_pending。
 - [x] 汇总当前源码下的 focused tests、实际场景报告与独立审查；本轮 `env_isaaclab` 聚焦回归为 `222 passed`，Stage18 evidence gate 读盘结果为 House/Warehouse/City 均 `diagnostic_only`，统一 `release_status=pending`、`scoreable=false`。
 
 阶段18检查点：早期 City 协议回归为 131 项；本轮 v8 服务运行时增强、v9 Warehouse paired shape/probe 和 evidence gate 已重新执行，聚焦回归实际为 `222 passed`，并以归档报告中的 blocked/diagnostic 状态为准。

@@ -8,6 +8,7 @@ import pytest
 from demo.benchmark.goal_driven_contract import (
     build_goal_participant_api,
     build_goal_heterogeneity_certificate,
+    semantic_goal_plan_signature,
     validate_goal_action,
     validate_goal_bundle,
     validate_goal_event,
@@ -20,7 +21,9 @@ from demo.benchmark.goal_driven_contract import (
 from demo.benchmark.goal_driven_tasks import (
     build_goal_authoring_brief,
     build_goal_task_package,
+    build_goal_task_spec,
     generate_goal_task_packages,
+    review_goal_business_witness,
     review_goal_task_design,
     validate_goal_authoring_brief,
     validate_goal_factor_pair,
@@ -300,6 +303,80 @@ def test_author_review_rejects_single_witness_and_keeps_execution_pending():
     assert report["execution_status"] == "external_pending"
     with pytest.raises(ValueError, match="at least two witnesses|only one"):
         review_goal_task_design(public, witnesses[:1])
+
+
+def test_city_goal_bundle_registers_the_urban_incident_response_family():
+    bundle = _bundle("city")
+    public = bundle["public_task"]
+    assert public["mission"]["scene_key"] == "city"
+    assert public["task_id"] == "CITY-GOAL-01"
+    assert {row["id"] for row in public["required_outcomes"]} == {
+        "incident_assessed", "exposed_people_accounted_for",
+        "secondary_traffic_protected", "response_access_preserved"}
+    assert validate_goal_task_spec(public)["validated"]
+    assert validate_goal_task_spec(
+        build_goal_task_spec("city", factor_level="delayed"))["validated"]
+    witnesses = bundle["hidden_evaluator"]["witness_plans"]
+    assert len(witnesses) == 2
+    assert len({semantic_goal_plan_signature(witness["plan"]) for witness in witnesses}) == 2
+    report = review_goal_task_design(public, witnesses)
+    assert report["authoring_status"] == "passed" and report["execution_status"] == "external_pending"
+    assert report["scoreable"] is False
+    certificate = bundle["hidden_evaluator"]["heterogeneity_certificate"]
+    for row in certificate["witnesses"]:
+        assert row["cross_mobility_edges"]
+        assert all(counter["invalidated_outcome_ids"] for counter in row["counterfactuals"])
+    gate = bundle["hidden_evaluator"]["release_gate"]
+    assert gate["benchmark_ready"] is False and gate["scoreable"] is False
+
+
+def test_city_witness_plans_bind_the_full_frozen_episode_roster():
+    bundle = _bundle("city")
+    from demo.benchmark.goal_driven_tasks import (
+        _CITY_AFFECTED_PERSON_ASSEMBLY, _CITY_FOLLOWING_VEHICLE_IDS,
+    )
+    for witness in bundle["hidden_evaluator"]["witness_plans"]:
+        guided = {}
+        for task in witness["plan"]["tasks"]:
+            if task["skill"] != "guide_people":
+                continue
+            for person_id in task["arguments"]["person_ids"]:
+                assert person_id not in guided
+                guided[person_id] = task["arguments"]["assembly_region_id"]
+        assert guided == _CITY_AFFECTED_PERSON_ASSEMBLY
+        controlled = {vehicle for task in witness["plan"]["tasks"]
+                      if task["skill"] == "control_following_traffic"
+                      for vehicle in task["arguments"]["vehicle_ids"]}
+        assert controlled == set(_CITY_FOLLOWING_VEHICLE_IDS)
+        report = next(task for task in witness["plan"]["tasks"]
+                      if task["skill"] == "report_incident")
+        assert report["arguments"]["recipient_service_id"] == "city_dispatch"
+
+
+def test_city_business_review_rejects_partial_roster_and_foreign_outcomes():
+    bundle = _bundle("city")
+    public = bundle["public_task"]
+    intact = deepcopy(bundle["hidden_evaluator"]["witness_plans"][0])
+    # The business rule is checked in isolation: plan/constraint validity of the
+    # intact witness is reused so the removal only tests the roster rule.
+    constraint_review = validate_goal_plan(intact["plan"], task_spec=public)["constraint_review"]
+    witness = deepcopy(intact)
+    plan = witness["plan"]
+    # Drop the final guidance task so the surviving guidance chain keeps its
+    # observation prerequisites and only the roster completeness rule fails.
+    dropped = next(row for row in reversed(plan["tasks"]) if row["skill"] == "guide_people")
+    plan["tasks"] = [row for row in plan["tasks"] if row is not dropped]
+    for row in plan["tasks"]:
+        row["prerequisites"] = [ref for ref in row["prerequisites"] if ref != dropped["task_id"]]
+    for outcome, references in witness["outcome_support"].items():
+        witness["outcome_support"][outcome] = [ref for ref in references if ref != dropped["task_id"]]
+    with pytest.raises(ValueError, match="city:full_roster_guided"):
+        review_goal_business_witness(public, witness, constraint_review=constraint_review)
+
+    foreign = deepcopy(public)
+    foreign["required_outcomes"][0]["id"] = "unrelated_outcome"
+    with pytest.raises(ValueError, match="registered_business_review"):
+        review_goal_business_witness(foreign, deepcopy(bundle["hidden_evaluator"]["witness_plans"][1]))
 
 
 def test_hidden_witness_must_bind_each_business_outcome_to_plan_tasks():

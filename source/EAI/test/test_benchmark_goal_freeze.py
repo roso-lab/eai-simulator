@@ -145,6 +145,19 @@ def test_single_layout_cannot_be_promoted_to_test(bundles):
         _build(bundles, {key: "test" for key in bundles})
 
 
+def test_city_full_bundle_freezes_as_a_reserved_candidate():
+    packages = {"city": build_goal_task_package("city")}
+    manifest = _build(packages)
+    assert validate_goal_freeze_manifest(manifest, packages)["validated"]
+    report = manifest["per_scene"]["city"]
+    assert report["independent_layout_count"] == report["leakage_group_count"] == 1
+    assert report["sufficient_independent_groups"] is False
+    assert report["holdout_status"] == "reserved_candidate"
+    assert manifest["held_out_validated"] is False
+    with pytest.raises(ValueError, match="use reserved"):
+        _build(packages, {key: "test" for key in packages})
+
+
 def test_distinct_declared_groups_still_do_not_validate_heldout_generalization(bundles):
     original = bundles["warehouse_nvd"]
     packages = {"dev": original, "test": _variant(original, new_id=True, new_layout=True)}

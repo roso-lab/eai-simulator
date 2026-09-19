@@ -45,12 +45,25 @@ OBJECT_POSE = {
     "rotation": [math.sqrt(0.5), 0.0, 0.0, math.sqrt(0.5)],
 }
 CARRIER_POSES = {
-    M20_MEMBER: {"position": [-9.840, -11.725, 0.52], "rotation": [1.0, 0.0, 0.0, 0.0]},
-    CARTER_MEMBER: {"position": [-11.360, -11.725, 0.20], "rotation": [1.0, 0.0, 0.0, 0.0]},
+    # v14 站位（v10-v13 四轮实测收敛）。经验规律：Carter（轮式刹车）静置稳定，
+    # v11/v13 两验证 spawn -11.120 → settled -11.114/-11.115（前缘间隙 +0.031，
+    # 到 support_right reach 0.580 ≤ 0.6）。M20（腿式）距箱 ≤0.1 m 时会滑至
+    # 接触为止（v10/-0.020、v11/-0.070、v13/-0.100 三次均停在同一触箱位
+    # -9.860，穿透 ~3 mm），而 v12 远距出生（间隙 0.24）静置 +0.019 稳定——
+    # 近距存在局部滑移，避让窗口不存在。故 M20 取 v12 已验证的远距站位
+    # -9.620：settled ≈-9.60，左缘 -10.05 与箱面间隙 ≈0.25；到 support_left
+    # reach 0.724 ≤ 0.8。代价：实测联合 x 包络 ≈2.55 m 超出公开声明 2.37 m
+    # ——按 fail-closed 如实申报，本 probe 为微诊断且 formal_route_admission
+    # 设计即为 false；紧凑队形（M20 转 90°）需朝向感知运输控制，未在本诊断
+    # 采用。不改冻结的模式包络与通路净空。
+    M20_MEMBER: {"position": [-9.620, -11.725, 0.52], "rotation": [1.0, 0.0, 0.0, 0.0]},
+    CARTER_MEMBER: {"position": [-11.120, -11.725, 0.20], "rotation": [1.0, 0.0, 0.0, 0.0]},
 }
 CARRIERS = {M20_MEMBER: "support_left", CARTER_MEMBER: "support_right"}
 RUNTIME_IDS = {M20_MEMBER: M20_RUNTIME_ID, CARTER_MEMBER: CARTER_RUNTIME_ID}
-PUBLIC_UNION_XY_M = [2.37, 0.90]
+# Y 向联合声明含静置偏航公差：箱本地 y 半宽 0.45 m + 实测静置偏航使联合 y
+# 达 0.903 m，按 0.91 声明；X 向 2.37 m 为冻结上限，v11 实测 ≈2.34 m。
+PUBLIC_UNION_XY_M = [2.37, 0.91]
 LIFT_HEIGHT_M = 0.04
 LIFT_SPEED_MPS = 0.05
 TRANSPORT_DISTANCE_M = 0.65

@@ -8,8 +8,9 @@
 
 > **当前状态（2026-09-19 · 阶段18）**
 >
-> - **可跑**：prepare 产物（地图/语义区域/题面草稿 + 源 hash 绑定）；`goal_city_intake` 接入审核（10 产物 + manifest 校验）；`guide_people`/`control_following_traffic`/`report_incident` 已登记为 participant-facing 公共技能（`registered_runtime_pending`）；v8 候选服务诊断——五项服务真实人员轨迹（~301 样本）、交通控制（~256 样本/类）、事故回执与连续通路读回（`tmp/city_benchmark/service_probe_stage18_20260919_v8/`）。
-> - **被阻断**：正式 episode 绑定——人员/车辆 roster、危险区、集合容量、角色区间、动态实体须由城市维护方固定进正式 episode（当前 `formal_episode_binding=false`）；之后任务生成侧补两份独立业务见证与具体因子 treatment，再执行完整题包和单因子冻结门槛。
+> - **可跑**：prepare 产物（地图/语义区域/题面草稿 + 源 hash 绑定）；`goal_city_intake` 接入审核（10 产物 + manifest 校验）；`guide_people`/`control_following_traffic`/`report_incident` 已登记为 participant-facing 公共技能（`registered_runtime_pending`）；v8 候选服务诊断——五项服务真实人员轨迹（~301 样本）、交通控制（~256 样本/类）、事故回执与连续通路读回（`tmp/city_benchmark/service_probe_stage18_20260919_v8/`）；服务探针 `--episode-binding` 正式绑定模式——prepare 接受绑定文档或 prepare 包 `authoring/private.json`（存在打包语义图时按图机检），execute 用作者固定 roster（`spawn_response_people` 出生/路径）、全体后续车辆、绑定危险区模板/控制点/窗口/回执端点驱动服务，`formal_episode_binding` 仅在「绑定声明 vs 运行时读回逐项一致」（roster、容量、危险区几何、控制点、窗口、端点）时置 true，任何不一致 fail-closed 置 false 并列差异（离线单测覆盖；Isaac 实跑待主会话串行执行）。
+> - **作者侧已完成**：正式 episode 声明绑定——prepare 私有记录携带 `episode_binding`（4 人 roster 逐人绑定集合候选、集合容量、危险区模板、安全进入控制点、交通反应窗口、回执端点），`goal_city_intake` 按打包语义图机检；任务生成侧 `build_goal_task_package("city")` 提供两份声明级业务见证与 communication_quality 具体因子 treatment，goal_suite 城市审计补齐设计复核与单因子对（draft 仍禁止晋升，计分仍受 release gate 限制）。
+> - **被阻断**：正式绑定的 Isaac 实测执行——服务探针正式模式已实现并通过离线契约/置位逻辑测试，但 roster 生成、逐人到达、容量/危险区/控制点实测准入与回执端点仍需城市 Isaac 阶段串行验证后才能把 `full_city_service` 从 pending 提升为 `formal_episode_binding_measured`；见证执行证据与因子效果验证均为 external_pending。
 > - **发布口径**：preparation draft，`scoreable=false`，不纳入三个已审完整业务族或正式计分集。
 
 当前交付：真实 USD 静态地图、语义区域、候选集合点、三机器人可选池和选队配置适配、
@@ -231,6 +232,17 @@ Kit 清理时可能吞掉异常，单独的进程 exit code 不能证明成功�
 车辆停止／放行／改道各256个轨迹与安全样本，事故回执后26个连续访问区样本。
 这是候选服务诊断：区域在运行时选择、角色区为诊断范围、危险区未完成正式动态绑定；
 两份独立业务见证和具体因子 treatment 仍待正式参数冻结。因此继续保持 `scoreable=false`。
+
+正式绑定模式在 prepare 时加 `--episode-binding <path>`（绑定文档或 prepare 包
+`authoring/private.json`；后者存在 `release/maps/semantic_map.json` 时会按图机检）。
+execute 改为作者固定参数：背景行人替换为绑定 roster（`spawn_response_people`
+按出生/路径生成，guide 沿各自绑定路线到集合区并核对逐人到达与容量）、绑定时刻的
+全体后续车辆、frozen incident 位置上的危险区模板、绑定偏移的首个实测净空控制点、
+绑定反应窗口与回执端点。`formal_episode_binding` 由「绑定声明 vs 运行时读回」
+逐项对比置位（roster/容量/危险区几何/控制点/窗口/端点），任何不一致 fail-closed
+置 false 并在 `formal_binding_review.mismatches` 列出差异；全部一致且服务证据完整时
+`full_city_service=formal_episode_binding_measured` 并列出剩余缺口。诊断路径
+（无绑定的默认 prepare/execute）保持 v8 行为不变。
 
 这些是规范建议，不在本阶段偷偷注册为新的城市专用技能；当前题面读取共享技能本体的版本，不能把 relay 等价为
 行人听从指令。公共动态对象引用也要扩展：现有主轨验证只认识初始 public_world 的对象，

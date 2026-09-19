@@ -179,7 +179,7 @@ conda run -n env_isaaclab env PYTHONPATH=. PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
 
 ### 5.2 正式 episode 绑定（2 项，依赖场景/城市团队）
 
-- **City**：v8 仅为候选诊断（`formal_episode_binding=false`）。需要城市维护方把人员/车辆 roster、危险区、集合容量、角色区间、动态实体固定进正式 episode，之后任务生成侧补两份独立业务见证与具体因子 treatment，再执行完整题包和单因子冻结门槛。
+- **City**：v8 仅为候选诊断（`formal_episode_binding=false`）。作者侧声明绑定已补齐：prepare 私有记录携带 `episode_binding`（人员/车辆 roster、危险区模板、集合容量、安全进入控制点、反应窗口、回执端点，由 city intake 机检），任务生成侧经 `_city()` builder 提供两份声明级业务见证与 communication_quality 具体因子 treatment，完整题包可 build/verify/freeze，goal_suite 城市审计已记录设计复核与单因子对。剩余为城市运行时实测准入：把 roster、危险区、集合容量、角色区间和动态实体固定进正式 episode 并取得执行见证。
 - **Modern House**：当前快照无业务干预。需要家具干预后的 before/after 正式见证（`room_entry_scan`/`room_covery_scan` 绑定），加上门外/门槛/门内区域与连续住户路径的真实几何绑定（ZCode 像素审核已确认 M20_2 历史上位于门外露台侧，出生位需复核）。
 
 ### 5.3 运动模型（用户已决策）
