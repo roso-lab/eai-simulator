@@ -21,6 +21,7 @@ import sys
 import time
 
 from demo.benchmark import goal_physical_probe as physical
+from demo.warehouse_benchmark.native_carry import shift_lift_target
 from demo.benchmark.provenance import canonical_sha256, file_sha256
 
 
@@ -39,26 +40,36 @@ INTERVENTION = {
     # 同型（见 STAGE18_REVIEW）。双 M20 reach 0.8、根 z≈0.527，standoff
     # 0.44 m 在 0.75 m 水平预算内；容量 8+8 kg ≥ 扶手椅 14 kg（每侧 7）。
     "carriers": {"house_ground_1": "support_left", "house_ground_3": "support_right"},
-    "parking_preferred_xy_m": [5., 15.],
+    "parking_preferred_xy_m": [7., 13.5],
     "approach_max_steps": 6000,
     "align_max_steps": 1500,
-    "carry_max_steps": 1500,
-    "withdrawal_max_steps": 3000,
+    "carry_max_steps": 9000,
+    "withdrawal_max_steps": 6000,
     "approach_speed_mps": .35,
-    "carry_speed_mps": .15,
+    "lift_height_m": .04,
+    "lift_speed_mps": .02,
+    "carry_speed_mps": .25,
     "withdrawal_speed_mps": .25,
     "stop_radius_m": .15,
     "corridor_width_m": .9,
     "withdrawal_clearance_margin_m": .1,
 }
-# 接近段路径点（住户动线中心线）：南载具沿走廊直上；北载具走廊→客厅
-# 西侧绕开扶手椅（椅 AABB x∈[4.55,5.45]、y∈[13.07,13.93]，绕行列 x=3.95
-# 与椅西缘留 ~0.16 m 间隙）再北上东折。最终 standoff 点由锚点外法向现场
-# 计算后追加。
+# v12 起 M20 RL 策略实测为「仅前向」：纯 yaw 指令仅产生 ~0.057 rad 后失速，
+# 弧线指令同样无法改变航向（v8-v11b 复盘，见 STAGE18 记录）。因此接近段
+# 取消路径点行驶——载具以作者诊断出生位直接生成在实测 standoff 点
+# （DIAGNOSTIC_SPAWN_OVERRIDES，坐标取 v8 实测锚点 standoff），朝向 = 搬运
+# 方向（+x 东，parking 在椅东侧）。出生位覆写沿用 warehouse paired probe
+# 的 author_diagnostic_spawn_pose 先例，完整记录在干预记录中。
 APPROACH_WAYPOINTS = {
-    "house_ground_1": [[3.5, 3.5], [3.5, 9.5], [3.5, 12.3], [4.5, 12.3]],
-    "house_ground_3": [[4.0, 3.5], [3.5, 3.5], [3.5, 9.5], [3.5, 12.3],
-                       [4.3, 12.3], [3.85, 13.5], [3.85, 15.4], [5.0, 15.4]],
+    "house_ground_1": [],
+    "house_ground_3": [],
+}
+DIAGNOSTIC_SPAWN_OVERRIDES = {
+    # z=0.77 为阶段12 v5 校准根高；朝向 +x（搬运方向）。worker 在 before 快照
+    # 前以一次构建期位姿写入把载具放到这些点（等效出生位，全程记录）；不改
+    # selection/deployment 的防篡改绑定。
+    "house_ground_1": {"position": [4.98, 12.66, 0.77], "rotation": [1.0, 0.0, 0.0, 0.0]},
+    "house_ground_3": {"position": [4.98, 14.34, 0.77], "rotation": [1.0, 0.0, 0.0, 0.0]},
 }
 INTERVENTION_SCOPE = "author_side_furniture_intervention_and_full_ground_withdrawal_between_snapshots"
 
@@ -215,10 +226,19 @@ def worker(root):
                         actions[a] = goal.clone()
                     if ground_velocity:
                         for runtime_id, velocity in ground_velocity.items():
-                            actions[runtime_id][0] = torch.tensor(velocity, device=session.device)
+                            # v8-v10 复盘：只写 actions 字典控制器收不到指令，机
+                            # 器人全程不动（仅剩 -x 地板被动滑动）。必须经官方命
+                            # 令通道 set_command(runtime_id, "base_velocity", ...)
+                            # 注册，与 warehouse paired/native probe 注入一致。
+                            command = torch.tensor(velocity, dtype=torch.float32,
+                                                    device=session.device).unsqueeze(0)
+                            session.base_env.set_command(runtime_id, "base_velocity", command)
+                            actions[runtime_id] = command
                     session.env.step(actions)
-                for _ in range(12):
-                    session.base_env.sim.render()
+                # v16 复盘：每控制步 12 次 render 在 CPU 上占主要墙钟（全预算
+                # 34000 物理步超时）；快照时刻由 probe() 内部自行渲染，常规
+                # 步进只需保持 annotator 存活，降到 1 次。
+                session.base_env.sim.render()
 
             def clock():
                 return {"physics_step": int(session.base_env.sim.current_time_step_index),
@@ -274,6 +294,28 @@ def worker(root):
                 return {"status": result["status"], "sha256": file_sha256(root / output_name),
                         "blockers": result["blockers"], "phase": result["phase"]}
 
+            # --- Phase 0: author diagnostic spawn repositioning ------------
+            # 一次构建期位姿写入把载具放到实测 standoff（等效出生位；发生在
+            # before 快照与任何业务测量之前并全程记录）。不改 selection/
+            # deployment 的身份绑定。正式任务出生位仍由 deployment 定义。
+            repositioned = {}
+            for member, spawn in DIAGNOSTIC_SPAWN_OVERRIDES.items():
+                runtime_id = rows[member]["runtime_id"]
+                robot = session.base_env.scene.articulations[runtime_id]
+                pose = torch.tensor([[*spawn["position"], *spawn["rotation"]]],
+                                    dtype=torch.float32, device=session.device)
+                robot.write_root_pose_to_sim(pose, env_ids=torch.arange(
+                    session.num_envs, device=session.device, dtype=torch.long))
+                robot.write_root_velocity_to_sim(torch.zeros(
+                    (session.num_envs, 6), device=session.device))
+                repositioned[member] = list(spawn["position"])
+            report["intervention"]["diagnostic_spawn_repositioning"] = {
+                "overrides": repositioned,
+                "note": "pre-snapshot build-time write, equivalent to a spawn pose; "
+                        "the formal deployment spawn remains authoritative",
+            }
+            save()
+
             # --- Phase 1: undisturbed before snapshot -----------------------
             step(payload["settle_steps"])
             report["before"] = probe("before", "before.json")
@@ -315,7 +357,10 @@ def worker(root):
                 for _ in range(budget):
                     if not session.simulation_app.is_running():
                         raise RuntimeError("application stopped")
-                    commands = {}
+                    # set_command 是粘性通道：已完成链/等待中的成员必须每步显式
+                    # 归零，否则带着最后一条指令继续行驶。
+                    commands = {rows[member]["runtime_id"]: [0., 0., 0.]
+                                for member in remaining}
                     for member, chain in remaining.items():
                         if not chain:
                             continue
@@ -325,9 +370,8 @@ def worker(root):
                             continue
                         commands[rows[member]["runtime_id"]] = _seek_command(
                             state, chain[0], speed, stop)
-                    if commands:
-                        step(1, commands)
-                        live.step = int(session.base_env.sim.current_time_step_index)
+                    step(1, commands)
+                    live.step = int(session.base_env.sim.current_time_step_index)
                     if all(not chain for chain in remaining.values()):
                         return True
                 return all(not chain for chain in remaining.values())
@@ -373,13 +417,16 @@ def worker(root):
             for _ in range(payload["intervention"]["align_max_steps"]):
                 if not session.simulation_app.is_running():
                     raise RuntimeError("application stopped")
-                commands = {}
+                commands = {rows[member]["runtime_id"]: [0., 0., 0.]
+                            for member in carriers}
+                aligned = True
                 for member in carriers:
                     cmd = _align_command(
                         _root_state(session, rows[member]["runtime_id"]), carry_yaw)
                     if cmd is not None:
+                        aligned = False
                         commands[rows[member]["runtime_id"]] = cmd
-                if not commands:
+                if aligned:
                     break
                 step(1, commands)
                 live.step = int(session.base_env.sim.current_time_step_index)
@@ -409,6 +456,36 @@ def worker(root):
             record_event("attachment_committed",
                          joint_paths=[row["prim_path"] for row in receipt["joint_readback"]])
             report["intervention"]["attachment_receipt"] = receipt
+            save()
+
+            # v14 复盘：14 kg 扶手椅在地板摩擦下轮足策略无法拖动（1500 步零
+            # 位移）；先经连接器目标抬升消除地面摩擦（warehouse 单机/双机
+            # probe 已验证的 shift_lift_target 模式），再进行水平搬运。抬升
+            # 证据按报告字段记录（事件契约为封闭十事件表）。
+            pre_lift_z = float(object_state()["position_m"][2])
+            lift_height = payload["intervention"]["lift_height_m"]
+            step_height = min(0.002, payload["intervention"]["lift_speed_mps"]
+                              * float(session.base_env.step_dt))
+            lift_count = math.ceil(lift_height / step_height)
+            lift_increment = lift_height / lift_count
+            zeros = {rows[member]["runtime_id"]: [0., 0., 0.] for member in carriers}
+            for _ in range(lift_count):
+                receipt = shift_lift_target(stage, receipt, delta_z_m=lift_increment,
+                                            pose_provider=live,
+                                            active_member_ids=set(live.bindings["members"]))
+                step(1, zeros)
+                live.step = int(session.base_env.sim.current_time_step_index)
+            for _ in range(30):
+                step(1, zeros)
+            apex = object_state()
+            report["intervention"]["lift_evidence"] = {
+                "status": "measured",
+                "object_apex_position_m": list(apex["position_m"]),
+                "lift_delta_m": round(float(apex["position_m"][2]) - pre_lift_z, 4),
+                "target_offset_m": lift_height,
+                "joint_count": len(receipt["joint_readback"]),
+            }
+            report["intervention"]["apex_attachment_receipt"] = receipt
             save()
 
             parking_xy = parking["position_xy_m"]
@@ -455,7 +532,18 @@ def worker(root):
             report["intervention"]["plan"]["withdrawal"] = withdrawal
             record_event("withdrawal_started")
             targets_by_id = {row["public_id"]: row["position_xy_m"] for row in withdrawal["targets"]}
-            drive_ground({r["public_id"]: targets_by_id[r["public_id"]] for r in ground},
+            # v14 复盘：M20 策略仅前向，规划格目标若需转向则失速（ground_1 滑入
+            # 走廊，净空 -0.157）。M20 载具撤离目标改为当前位置的 +x 东向射线
+            # （距走廊单调增，前向可达）；Carter 差速可转向，保留规划格目标。
+            drive_targets = {}
+            for r in ground:
+                pid = r["public_id"]
+                if pid in carriers:
+                    state = _root_state(session, rows[pid]["runtime_id"])
+                    drive_targets[pid] = [state[0] + 4.0, state[1]]
+                else:
+                    drive_targets[pid] = targets_by_id[pid]
+            drive_ground(drive_targets,
                          payload["intervention"]["withdrawal_speed_mps"],
                          payload["intervention"]["withdrawal_max_steps"])
             required = {row["public_id"]: row["required_corridor_clearance_m"]

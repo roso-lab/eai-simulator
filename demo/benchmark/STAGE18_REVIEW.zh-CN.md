@@ -101,6 +101,56 @@ headless CPU 迭代测量，结论如下（证据：`tmp/warehouse_stage18_paire
 配对契约变更，载荷/容量数值仍满足），或维持现配对并接受"该配对在此支撑高度
 不可行"为最终结论。任务生成侧不擅自改冻结 fixture。
 
+## House 干预 probe 战役（v4–v17，2026-09-19 ZCode 会话）
+
+House before/after 干预 probe（P1 代码 + Isaac 实跑）经 v4–v17 十四轮迭代，
+证据目录 `tmp/house_native_backend_stage18_20260919_v4..v17/`。结论分层如下：
+
+**已成立（v17 完整链证据）**：双 M20 干预链首次端到端完成
+（`status=diagnostic_completed`，十事件契约全记录，occupancy SHA256 前后
+断言通过，hall_release closeout 以原生仿真时刻注入）。关键实测：
+- 载具配对必须双 M20：v5 证明 Carter（reach 0.6、根 z 0）在扶手椅
+  support 锚点（世界 z≈1.0）下竖直距离即超限——与 Warehouse v10–v14 的
+  Carter 结论同型，跨场景一致。
+- **M20 RL 策略仅前向**：纯 yaw 指令只产生 ~0.057 rad 后失速，弧线指令
+  同样无法改变航向；前向指令完全正常（0.3 m/s 指令实测 ~0.15 m/s）。
+  v8–v11b 的转向-再前进/路径点/走廊串行控制全部因此失效。最终设计：
+  载具以作者诊断出生位（构建期一次位姿写入，before 快照前，全程记录）
+  直接生成在实测 standoff（[4.98,12.66]/[4.98,14.34]，z=0.77 阶段12 v5
+  校准根高），朝向 = 搬运方向 +x。
+- **抬升是搬运前置**：v14 证明 14 kg 扶手椅在地板摩擦下轮足策略无法拖动
+  （1500 步零位移）；经连接器目标抬升 0.0371 m（2 关节）后椅子开始移动。
+- **双机搬运实测位移 0.67 m**（[4.974,13.5]→[5.648,13.5]，向东）——
+  House 场景首次双机物体搬运证据。
+
+**剩余 blocker（精确）**：
+1. 椅子在 x≈5.647 精确停住——v15（1500 步@0.15）与 v17（9000 步@0.25）
+   位移分毫不差，为硬阻挡而非速度/预算问题；而 parking 目标 [7,13.5] 被
+   占据图准入。**疑似客厅东侧地图/USD 不一致**（与 Warehouse 地图漏采
+   bug 同类），需对照 USD 实际碰撞体复核该区域。
+2. ground_1 撤离净空 0.841 m < 要求 1.077 m（东向射线亦被同区域阻挡；
+   ground_3 1.940 ✓、Carter 2.21–6.98 ✓）。
+3. `scoreable=false` 不变；干预为作者侧诊断，非业务执行。
+
+**经验记录**：CPU PhysX（Fabric 回退）约 0.3 s/控制步，全预算墙钟受限；
+每步 render 12→1 后无改善，瓶颈在物理求解本身。Kit 关闭会丢弃未 flush
+的 print（诊断脚本须 PYTHONUNBUFFERED=1）。`_pre_physics_step` 消费
+actions 字典即命令通道；set_command 与 actions 写入二者等效。
+
+## City 正式绑定探针首跑（2026-09-19）
+
+`tmp/city_benchmark/service_probe_formal_20260919/`：prepare 以
+`--episode-binding formal_binding_20260919/authoring/private.json` 加载绑定，
+对照打包语义图机检通过（`geometry_scope=author_frozen_episode_binding`，
+4 人 roster/6 后续车/4 集合区含容量与包络推导全部建立）。execute 在首次
+服务提交处 fail-closed：`service_backend._submit → source.admit(...)` 的
+路由/权限/容量谓词未放行（`service route, authority or capacity not
+admitted`，service_backend.py:169）。报告 `formal_episode_binding=false`、
+`full_city_service=formal_binding_execution_incomplete`。**下一步**：在
+`_run_bound_episode` 的 admission 回调处逐谓词定位（bound roster 的实测
+人员路线 vs 绑定声明路线、role 区间、容量计数），属首跑集成校准，
+非契约缺陷。纯代码链（绑定构建/审核/goal bundle/冻结）全部离线通过。
+
 ## 当前复查重点
 
 - Warehouse：绝对提升量从不可变初始锚点重新计算，加入变姿态与双约束回程反例；
