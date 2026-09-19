@@ -48,7 +48,7 @@ ROS2 is optional for the core simulator and required only for ROS2 or Nav2 workf
 
 ### Animated Humans and PhysX
 
-Selections containing animated humans force CPU PhysX. Isaac Sim 5.1 cannot safely perform the required animated pose writes with GPU PhysX, so a requested CUDA physics device is replaced with CPU for those selections.
+Animated humans may run with GPU PhysX. Preserve the user's requested physics device; do not force CPU merely because a scene contains humans. Use `--device cpu` only when explicitly selected or required by a separately documented scene limitation.
 
 Human rendering remains on the CUDA GPU, but the `UsdHumanStageRuntime` pose/retarget path is CPU work. Schedule it deliberately for large deployments:
 
@@ -144,7 +144,7 @@ python simulator.py --env robo
 
 `robo` is the required first full launch. It follows the release provider revision `v0.1.0-beta.1` unless `EAI_ASSETS_HF_REVISION` explicitly pins an immutable tag or commit.
 
-Remember that `robo` is not a minimal smoke test. Its environment selects ten robots and their controllers, making it a broad, resource-intensive Isaac Sim integration launch. The selection includes an animated human, so a requested CUDA physics device falls back to CPU PhysX; rendering and controller workloads can still require the configured CUDA GPU. The launch can also require network access for gated assets that are not already cached. Run it only after the simulator environment, package installs, Hugging Face access, display or headless configuration, and asset storage are ready.
+Remember that `robo` is not a minimal smoke test. Its environment selects ten robots and their controllers, making it a broad, resource-intensive Isaac Sim integration launch. The selection includes an animated human and honors the requested physics device; rendering and controller workloads can still require the configured CUDA GPU. The launch can also require network access for gated assets that are not already cached. Run it only after the simulator environment, package installs, Hugging Face access, display or headless configuration, and asset storage are ready.
 
 ## 5. Repository Architecture
 
@@ -1006,7 +1006,7 @@ Registry-driven behavior lives in `source/EAI_assets/EAI_assets/humans/`; mainta
 
 #### Related registration/compatibility points
 
-Large character, activity, motion, texture, cache, action, and custom-action files are provider-managed or ignored, but every runtime payload is installed below the active `usd/human/` root and every manifest runtime path remains relative to that root. Use `HumanAssetRegistry`, `HumanActionPublisher`, conversion/migration tools, validation, and cache builders rather than hand-editing generated registries. `tools/human_assets/migrate_assets.py` writes `manifest.json` and `audit-summary.json`; `tools/human_assets/convert_gltf_assets.py` writes conversion diagnostics. No tracked tool regenerates `usd/human/pack-checksums.json`, so checksum publication remains an external maintainer/provider release step. Animated human stage workflows use CPU PhysX on Isaac Sim 5.1 when pose writes require it.
+Large character, activity, motion, texture, cache, action, and custom-action files are provider-managed or ignored, but every runtime payload is installed below the active `usd/human/` root and every manifest runtime path remains relative to that root. Use `HumanAssetRegistry`, `HumanActionPublisher`, conversion/migration tools, validation, and cache builders rather than hand-editing generated registries. `tools/human_assets/migrate_assets.py` writes `manifest.json` and `audit-summary.json`; `tools/human_assets/convert_gltf_assets.py` writes conversion diagnostics. No tracked tool regenerates `usd/human/pack-checksums.json`, so checksum publication remains an external maintainer/provider release step. Animated human stage workflows support CPU or GPU PhysX; preserve the requested device.
 
 For live runtime scheduling, `UsdHumanStageRuntime.update` and `HumanMotionController.update` accept `actor_ids` / `locomotion_actor_ids`, and `UsdHumanStageRuntime.update` defaults to `animate_while_idle=False`. Unselected actors keep their clocks and queued events for later ticks, and idle actors skip locomotion resampling; do not treat the unified demo's initially static idle humans as an animation regression, and pass `animate_while_idle=True` explicitly when old always-animate behavior is required. The retarget hot path relies on `_vector3_fast` and the cached plan-derived helpers (`_parent_indices_cached`, `_semantic_indices_cached`, `_unit_scales_cached`, `_rest_global_quats_cached`): keep all finite/hierarchy validation in plan and cache build/load paths, never in the per-tick sampling path, and preserve the non-mutating read invariant for cached `Gf.Quatd` objects.
 
@@ -1871,7 +1871,7 @@ python simulator.py --diy-3d
 python -m demo.fire_rescue.main --headless
 ```
 
-Run only the entry point relevant to the change. Prerequisites include Ubuntu 22.04, Isaac Sim 5.1, Isaac Lab 2.x in `env_isaaclab`, compatible CUDA/GPU and display or headless configuration, editable repository packages, enough memory and disk, and all selected gated assets. ROS-enabled cases add the ROS bridge and ROS2 environment. Animated-human selections intentionally replace requested CUDA physics with CPU PhysX.
+Run only the entry point relevant to the change. Prerequisites include Ubuntu 22.04, Isaac Sim 5.1, Isaac Lab 2.x in `env_isaaclab`, compatible CUDA/GPU and display or headless configuration, editable repository packages, enough memory and disk, and all selected gated assets. ROS-enabled cases add the ROS bridge and ROS2 environment. Animated-human selections honor the requested physics device, including CUDA GPU PhysX.
 
 Fire Rescue adds optional EMOS/global-planner dependencies such as the OpenAI-compatible Python client, PyYAML, and Pillow. Its default `zhipu-glm4-flash` preset requires `ZHIPU_API_KEY` and can make real network API calls that incur provider cost. Other presets require their named key, such as `OPENAI_API_KEY` or `DEEPSEEK_API_KEY`. Review the selected endpoint, credential environment, budget, and network policy before launch. Individual OpenAI-compatible client calls use a 60-second timeout and the experiment can wait up to 160 seconds before dispatching its local fallback, so a fallback does not make the launch offline or cost-free. Pytest must mock the client and fallback timing; never use a real LLM credential or request in automated tests.
 
@@ -2044,7 +2044,7 @@ printf 'lfs_pointer=%s\n' "$EAI_LFS_POINTER"
 | Symptom | Likely boundary | Lightweight diagnosis | Heavy confirmation |
 | --- | --- | --- | --- |
 | CUDA out of memory or allocation failure | Selected scene/robots/controllers/rendering exceed available GPU memory, or another process owns memory | Run `nvidia-smi` and `nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv`; identify ownership before acting | Reduce `--num_envs`, selection size, sensors, or rendering in a process you started. Stop only your own process through its terminal or recorded PID; never kill unrelated GPU processes. |
-| Log says animated humans use CPU PhysX despite `--device cuda` | Expected Isaac Sim 5.1 safety fallback | Inspect the saved JSON for a `Human` selection and retain the launcher warning in the report | Verify the human case with CPU physics while monitoring remaining GPU rendering/controller load. Do not force GPU PhysX for animated pose writes. |
+| Human selection unexpectedly uses CPU PhysX despite `--device cuda` | An explicit scene fallback or stale launcher logic changed the device | Inspect the requested and effective device and any scene-specific warning | Animated humans support GPU PhysX. Remove human-only CPU overrides; retain only independently documented scene fallbacks. |
 | inotify warning or file-watcher exhaustion | Host kernel limits below launcher thresholds | Read `/proc/sys/fs/inotify/max_user_watches`, `max_user_instances`, and `max_queued_events`; run `tools/setup/configure_inotify_limits.sh --dry-run` | An administrator may review and run `sudo tools/setup/configure_inotify_limits.sh`; it writes `/etc/sysctl.d/90-eai-isaac-sim-inotify.conf` and changes live sysctls. This is a deliberate system change, not a routine test command. |
 
 The launcher thresholds are 524288 watches, 1024 instances, and 32768 queued events. A warning is preflight guidance, not evidence that the later crash has the same cause.

@@ -9,7 +9,7 @@
 | 目录 | 职责 | 运行环境边界 |
 | --- | --- | --- |
 | [`setup/`](setup/README.zh-CN.md) | editable package 安装、ROS 发行版选择和主机 inotify 限制 | Bash、`pip` 和可选主机管理权限 |
-| [`validation/`](validation/README.zh-CN.md) | 轻量仓库一致性与回归检查 | 仓库 Python 或 Node.js |
+| [`validation/`](validation/README.zh-CN.md) | 仓库检查及按需执行的抓取物理实验 | Python 或 Node.js；物理实验需要 Isaac Lab |
 | [`ros2/`](ros2/README.zh-CN.md) | 外部传感器、移动底盘和机械臂客户端及其聚焦测试 | 选定的系统 ROS2 Python |
 | [`human_assets/`](human_assets/README.zh-CN.md) | Human 转换、创作、迁移、cache 生成、验证和演示 | 依命令使用纯 Python 或 Isaac Sim/OpenUSD |
 | [`physics_replay/`](physics_replay/README.zh-CN.md) | Isaac Sim 物理状态、command/action/noise tape、checkpoint 恢复和 episode 检查 | 纯 Python 检查；Factory 验证需要 `env_isaaclab` |
@@ -17,7 +17,7 @@
 ## 运行环境边界
 
 - `setup/` 可能安装系统包、editable Python 包和持久主机配置，运行前必须检查副作用。
-- `validation/` 下的 Python 检查是轻量检查；Env DIY runtime 检查需要 Node.js 20 LTS 或更新 LTS。
+- `validation/` 大部分检查为轻量检查；[抓取与移动机械臂实验](validation/manipulation_contact.md)会明确启动 Isaac Sim。Env DIY runtime 检查需要 Node.js 20 LTS 或更新 LTS。
 - `ros2/` 下导入 `rclpy` 的程序必须使用选定的系统 ROS2 Python，不能使用 `env_isaaclab` 解释器。
 - Human 资产命令的要求不同。计划、JSON 动作创作、迁移和结构验证可以使用纯 Python；转换、导入、cache 生成和 runtime demo 可能需要 Isaac Sim 或 `pxr`。
 

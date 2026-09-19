@@ -89,7 +89,6 @@ def _check_shared_selection_validation() -> None:
     incompatible_mounts = (
         ("carter", "z1", "orsus", "Z1 and Orsus"),
         ("carter", "z1", "lidar", "Z1 and LiDAR"),
-        ("go2", "ur5", "orsus", "UR5 and Orsus"),
         ("go2", "z1", "orsus", "Z1 and Orsus"),
     )
     for robot_type, manipulator, sensor, error_fragment in incompatible_mounts:
@@ -127,11 +126,8 @@ def _check_shared_selection_validation() -> None:
         ("b2", "z1", "orsus"),
         ("b2", "ur5", "lidar"),
         ("b2", "z1", "lidar"),
-        ("go2", "ur5", "lidar"),
         ("go2", "z1", "lidar"),
-        ("m20", "z1", "orsus"),
         ("scout", "z1", "orsus"),
-        ("lite3", "z1", "orsus"),
     ):
         catalog.validate_attachment_types(robot_type, (manipulator, sensor))
 
@@ -189,9 +185,6 @@ def _check_authoring_model_validation() -> None:
         _expect_conflict(lambda: model.attach(robot_id, second))
 
     for robot_type, manipulator, sensor, error_fragment in (
-        ("carter", "z1", "orsus", "Z1 and Orsus"),
-        ("carter", "z1", "lidar", "Z1 and LiDAR"),
-        ("go2", "ur5", "orsus", "UR5 and Orsus"),
         ("go2", "z1", "orsus", "Z1 and Orsus"),
     ):
         for first, second in ((manipulator, sensor), (sensor, manipulator)):

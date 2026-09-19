@@ -2,7 +2,9 @@
 
 [Chinese](README.zh-CN.md)
 
-These commands provide focused repository checks that run without a full simulator launch. Run them from the repository root. A passing result covers only the contract named below; it is not evidence that Isaac Sim, a GPU, live ROS2, network access, or downloaded assets work.
+The checks in the inventory run without a full simulator launch. Run them from the repository root. A passing result covers only the contract named below; it is not evidence that Isaac Sim, a GPU, live ROS2, network access, or downloaded assets work.
+
+The separate [UR5 contact grasp and mobile arm fixtures](manipulation_contact.md) intentionally launch Isaac Sim headlessly. They test Robotiq contact grasping and unscaled UR5/Z1 payload mounts; they are opt-in integration experiments, not part of the lightweight sequence below.
 
 ## Check inventory
 

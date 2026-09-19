@@ -11,6 +11,7 @@
 | algorithm/global_planner/ | 独立的二维占据栅格规划、路径跟踪和速度命令生成。 |
 | algorithm/multi_robot_navigation/ | 原生 db-CBS、同步轨迹和 EAI Simulator 会话适配器。 |
 | algorithm/nav2/ | 外部 ROS2/Nav2 配置、TF 补全、点云转换和目标客户端。 |
+| algorithm/nav_product_adapter/ | 在不发布 TF 的前提下，将 EAI 点云和里程计注册到产品 mapping 合同的 system-ROS 适配器。 |
 | algorithm/keyboard/ | 面向 EAI cmd_vel 接口的交互式 ROS2 键盘客户端。 |
 
 ## 导入边界

@@ -9,7 +9,7 @@ Run commands in this tree from the repository root. `tools/` groups independent 
 | Directory | Responsibility | Runtime boundary |
 | --- | --- | --- |
 | [`setup/`](setup/README.md) | Editable package installation, ROS distribution selection, and host inotify limits | Bash, `pip`, and optional host administration |
-| [`validation/`](validation/README.md) | Lightweight repository consistency and regression checks | Repository Python or Node.js |
+| [`validation/`](validation/README.md) | Repository checks and opt-in manipulation physics fixtures | Python or Node.js; physics fixtures require Isaac Lab |
 | [`ros2/`](ros2/README.md) | External sensor, mobile-base, and manipulator clients plus focused tests | Selected system ROS2 Python |
 | [`human_assets/`](human_assets/README.md) | Human conversion, authoring, migration, cache generation, validation, and demo workflows | Pure Python or Isaac Sim/OpenUSD, depending on the command |
 | [`physics_replay/`](physics_replay/README.md) | Isaac Sim physics, command/action/noise tapes, checkpoint restore, and episode inspection | Pure Python inspection; Factory validation requires `env_isaaclab` |
@@ -17,7 +17,7 @@ Run commands in this tree from the repository root. `tools/` groups independent 
 ## Runtime boundaries
 
 - `setup/` can install system packages, editable Python packages, and persistent host configuration. Review its side effects first.
-- Python checks under `validation/` are lightweight, but Node.js 20 LTS or newer is required by the Env DIY runtime check.
+- Most checks under `validation/` are lightweight; the [manipulation fixtures](validation/manipulation_contact.md) explicitly launch Isaac Sim. Node.js 20 LTS or newer is required by the Env DIY runtime check.
 - Programs under `ros2/` that import `rclpy` must use the selected system ROS2 Python, not the interpreter in `env_isaaclab`.
 - Human-asset commands have mixed requirements. Planning, JSON authoring, migration, and structural validation can be pure Python; conversion, import, cache generation, and the runtime demo can require Isaac Sim or `pxr`.
 

@@ -11,6 +11,7 @@ This directory contains reusable planners and ROS integration clients that can b
 | algorithm/global_planner/ | Standalone 2D occupancy-grid planning, path tracking, and velocity commands. |
 | algorithm/multi_robot_navigation/ | Native db-CBS, synchronized trajectories, and the EAI Simulator session adapter. |
 | algorithm/nav2/ | External ROS2/Nav2 configuration, TF completion, point-cloud conversion, and goal client. |
+| algorithm/nav_product_adapter/ | System-ROS adapter that registers EAI cloud/odometry into the product mapping contract without publishing TF. |
 | algorithm/keyboard/ | Interactive ROS2 keyboard client for the EAI cmd_vel interface. |
 
 ## Import boundary
