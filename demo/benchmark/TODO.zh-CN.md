@@ -5,7 +5,33 @@
 
 本清单区分“题目契约已完成”和“完整 benchmark 已部署”。任何阶段只有在其出口证据齐全时才能勾选；静态声明、模型自报成功和节点调度完成不能替代运行证据。
 
-## 当前推进：阶段18，可靠技能接线与原生业务后端
+## 当前推进：阶段19，三大实测卡点收敛与配对决策（2026-09-20 修订）
+
+阶段18 的代码与契约面已完成（City 绑定全链、House 干预时序与区域双绑定、Carter 资产修复）。
+阶段19 聚焦三个实测级卡点与一个契约决策，按优先级分层；每项附方案与验收标准。
+
+### P0 立即可推进（无外部依赖，主会话串行 Isaac）
+
+- [ ] W1【待用户决策后执行】Warehouse 双机配对改双 M20：阶段18 v10–v14 已测明 Carter 在 0.25 m 支撑高度下任一朝向几何不可行（水平预算 0.24 m < 碰撞前伸+锚内缩，窗 8 mm < 抖动 12 mm）。方案：`goal_driven_fixtures` 的 warehouse 配对契约 M20+Carter → M20+M20（容量 8+8 ≥ 12、support 槽位不变）→ paired probe 成员映射/站位按 y 侧翼窗口（M20 水平预算 0.797 m、y 向亚毫米稳定，两侧窗口各 ~30 cm 已实测支撑）重排 → v15+ 重跑到 dock。验收：paired probe `diagnostic_completed` + 双机运输样本 + 释放后 dock ready 回执。
+- [ ] H1 House x≈5.647 阻挡调查（疑地图/USD 不一致）：方案：用 `goal_region_geometry.static_wall_cuboids` 离线枚举客厅东侧 [5.4,6.6]×[12.8,14.2] 的 USD 启用碰撞体，对照占据图同区间 free 判定；确认漏采后走 house 版地图重建（rebuild 工具流程）或 USD 修正；解除后 v18 复跑，椅子应到达 parking [7,13.5]。ground_1 撤离净空 0.841<1.077 很可能随同一阻挡解除达标，一并复验。验收：阻挡物被指认并归档、地图/USD 一致性恢复、v18 `reached_target=true` 且三机净空达标。
+- [ ] C1 City admission 谓词校准：正式探针首跑在首次服务提交处 fail-closed（`service_backend.py:169` 路由/权限/容量）。方案：`_run_bound_episode` 的 admission 回调加逐谓词诊断（route/authority/capacity 各自判定值与输入），跑一次定位具体拒绝项（预计为 bound roster 实测路线 vs 绑定声明路线偏差、role 区间起始时刻、或容量计数映射），修探针侧绑定消费映射。验收：正式探针完整跑通、`formal_episode_binding=true` 且六类绑定-读回一致、`full_city_service=formal_episode_binding_measured`。
+
+### P1 需要决策或外部输入
+
+- [ ] M1 M20 运动模型更换（影响面已扩大）：楼梯 RL 用户已拍板换模型后验；阶段18 又实测 M20 现策略**仅前向**（纯 yaw 失效于 0.057 rad），限制 House 干预撤离与任意路径导航。方案：候选三选一（重训含 yaw 指令的 rough policy / 换通用 locomotion 策略 / M20 改运动学控制器）→ 以最小驱动脚本（/tmp/m20_drive_test.py 模式入库为准入测试）验转向与前向 → 替换后重验 F-VERT 楼梯链与 House 干预。
+- [ ] M2 Carter 修复资产 provider 发布（维护者）：carter.usd 三空 Xform 碰撞 API 修复（SHA256 86de9633…，本地已验）走 provider 流程发布到不可变 revision；建议与既有的 23 个待发布本地资产一并处理。
+
+### P2 后续批次（P0 完成后串行推进）
+
+- [ ] H2 House 正式业务见证升级：H1 达标后，把 before/after 从作者侧诊断升级为正式见证（domain_evaluator access() 全条件：端点 ≤0.1 m、after ≥ max(move/review/exit)、距 episode 末 ≤0.25 s、全地面机器人 ≥0.8 m 通路）。
+- [ ] C2 City 双见证执行与因子实测：C1 达标后，两份独立业务见证的真实执行证据 + communication_quality/team_continuity 具体因子 treatment 的成对运行；team_continuity 因子包经 builder 一般化后需 suite 矩阵演练。
+- [ ] G1 goal_suite 全矩阵重生成：City 升级为完整 bundle 后重新 audit/verify + 单因子冻结门槛复核。
+- [ ] G2 阶段18 前遗留的仓库/家庭场景未勾项：Warehouse 服务车 episode 状态与动态占用、携物 swept envelope；held-out 未曝光数据集。
+- [ ] G3 benchmark-task → develop MR（全部 P0/P1 收口后）。
+
+外部团队职责（不在本清单）：实验回放与分支调度、多机评价模型、实时 detector/dock 权重发布。
+
+## 阶段18：可靠技能接线与原生业务后端（历史记录）
 
 本阶段沿用阶段17的失败证据，不把新增 adapter、服务 ACK 或离线测试当成真实业务完成。
 三条源码写集分别交给现有代理，主会话负责接口审查、串行 Isaac 验证和发布审核。
