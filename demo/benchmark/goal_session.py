@@ -1,0 +1,483 @@
+"""Stateful admission ledger for goal-driven v2, with no execution or scoring.
+
+``GoalSession(task_spec, api=None)`` accepts the existing public contracts.
+Participant access is limited to ``submit_action(action)``. The hosting runtime
+alone calls ``emit(type, time_s, payload)``, ``update_runtime_state(time_s,
+robot_regions, object_states)`` and ``complete_skill(task_id, *, time_s, status,
+receipt)``. These are trust boundaries, not authentication mechanisms; do not
+expose the session object or trusted methods directly to an untrusted agent.
+All calls must be serialized by the host on the simulation loop.
+
+Actions use the existing goal_action envelope. Accepted dispatches are pending
+requests for the external backend, never successful executions. Cancellation
+also stays pending and retains reservations until a backend terminal receipt.
+The receipt is an independently supplied mapping with nonempty ``backend_id``,
+``receipt_ref``, ``evidence_refs`` (a list), and exact ``task_id``, dispatch
+``action_id``, ``status`` and ``completed_at_s``. Missing evidence leaves the
+request pending; mismatched/reused receipts raise ValueError. Reference contents
+and backend authenticity must be verified by the trusted host, not this ledger.
+
+Plan revisions contain a self-contained DAG of remaining, undispatched work.
+Dispatched task IDs cannot be reused, including after failure/cancellation.
+Pending work from previous plans remains reserved and separately cancellable;
+cross-plan prerequisites are not supported by the unchanged v2 contract.
+Selected teams must match submitted plans. Terminal tasks do not infer world
+state: the runtime must supply a fresh snapshot before subsequent spatial work.
+After time zero a snapshot at the current simulation time is mandatory.
+
+``report()`` returns a defensive diagnostic snapshot for the host (including
+backend receipt references). Only its ``events`` are participant event frames.
+It never certifies physical execution or infers business outcomes from skills.
+Validation errors are transactional: they do not consume accepted-action IDs,
+advance clocks, or alter plans. Accepted action IDs are unique for the session.
+"""
+
+from __future__ import annotations
+
+from collections import Counter
+from copy import deepcopy
+import math
+from typing import Any, Mapping
+
+from .goal_driven_contract import (
+    build_goal_participant_api,
+    validate_goal_action,
+    validate_goal_event,
+    validate_goal_participant_api,
+    validate_goal_plan,
+    validate_goal_task_spec,
+)
+from .provenance import canonical_sha256
+
+
+_NAVIGATION = {"ground_navigation", "aerial_navigation", "stair_traversal"}
+_TERMINAL = {"succeeded", "failed", "cancelled"}
+_PENDING = {"pending", "cancel_requested"}
+_DESTINATION = {
+    "pick": "pickup_region_id", "place": "placement_region_id",
+    "handoff": "receiving_region_id", "cooperative_carry": "destination_region_id",
+    "stair_traversal": "exit_region_id",
+}
+
+
+def _number(value: Any, name: str) -> float:
+    if (isinstance(value, bool) or not isinstance(value, (int, float))
+            or not math.isfinite(value) or value < 0):
+        raise ValueError(f"{name} must be a finite nonnegative number")
+    return float(value)
+
+
+def _text(value: Any, name: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{name} must be a nonempty string")
+    return value
+
+
+class GoalSession:
+    """Single-episode, synchronous plan and action ledger; see module API notes."""
+
+    def __init__(self, task_spec: Mapping[str, Any], api: Mapping[str, Any] | None = None):
+        validate_goal_task_spec(task_spec)
+        self._spec = deepcopy(dict(task_spec))
+        self._api = deepcopy(dict(api)) if api is not None else build_goal_participant_api(self._spec)
+        validate_goal_participant_api(self._api, task_spec=self._spec)
+        self._robots = {r["id"]: deepcopy(r) for r in self._spec["candidate_robot_pool"]}
+        self._pool_ids = set(self._robots)
+        self._current = set(self._robots)
+        self._capability_versions = {agent: 0 for agent in self._robots}
+        self._team: list[str] = []
+        self._time = 0.0
+        self._version = 0
+        self._roster_version = 0
+        self._events: list[dict[str, Any]] = []
+        self._message_ids: set[str] = set()
+        self._consumed: set[str] = set()
+        self._actions: dict[str, dict[str, Any]] = {}
+        self._plans: dict[str, dict[str, Any]] = {}
+        self._plan_id: str | None = None
+        self._plan_version = 0
+        self._tasks: dict[str, dict[str, Any]] = {}
+        self._dispatched: set[str] = set()
+        self._receipt_ids: set[tuple[str, str]] = set()
+        self._snapshot: dict[str, Any] | None = None
+        self._snapshot_required = False
+        self._append_event("episode_started", {"public_task_digest": canonical_sha256(self._spec)})
+
+    def _clock(self, time_s: Any) -> float:
+        now = _number(time_s, "time_s")
+        if now < self._time:
+            raise ValueError("trusted clock cannot move backwards")
+        return now
+
+    def _event(self, type: str, now: float, payload: Mapping[str, Any]) -> dict[str, Any]:
+        return validate_goal_event({
+            "schema": "eai.benchmark.goal_event", "version": 1,
+            "sequence": len(self._events), "time_s": now, "type": type,
+            "payload": deepcopy(payload),
+        }, api=self._api, task_spec=self._spec, current_time_s=now)
+
+    def _append_event(self, type: str, payload: Mapping[str, Any]) -> dict[str, Any]:
+        event = self._event(type, self._time, payload)
+        self._events.append(event)
+        return event
+
+    def _pending(self) -> list[dict[str, Any]]:
+        return [r for r in self._tasks.values() if r["status"] in _PENDING]
+
+    def _context(self) -> dict[str, Any]:
+        context = {
+            "current_time_s": self._time, "current_agents": sorted(self._current),
+            "allow_joined_agents": True,
+            "joined_agents": [r for a, r in self._robots.items() if a not in self._pool_ids],
+            "capability_updates": [r for a, r in self._robots.items() if a in self._pool_ids],
+            "visible_events": self._events, "known_plan_ids": list(self._plans),
+            "known_task_ids": [t["task_id"] for t in self._plans[self._plan_id]["plan"]["tasks"]]
+                if self._plan_id else [],
+            "completed_task_ids": [tid for tid, r in self._tasks.items() if r["status"] == "succeeded"],
+            "active_task_ids": [r["task"]["task_id"] for r in self._pending()],
+            "consumed_message_ids": sorted(self._consumed),
+        }
+        if self._snapshot is not None:
+            context.update({k: self._snapshot[k] for k in ("robot_regions", "object_states")})
+        return context
+
+    def _require_snapshot(self, agents: list[str]) -> None:
+        if self._time == 0 and not self._snapshot_required and self._snapshot is None:
+            return  # The v2 contract permits initial location inference at time zero only.
+        if (self._snapshot is None or self._snapshot_required
+                or self._snapshot["time_s"] != self._time
+                or not set(agents) <= set(self._snapshot["robot_regions"])):
+            raise ValueError("a fresh trusted runtime snapshot with selected-robot positions is required")
+
+    def emit(self, type: str, time_s: float, payload: Mapping[str, Any]) -> dict[str, Any]:
+        """Deliver a current event and update roster/capability versions atomically.
+
+        Initial public declarations have capability version zero. Joins and
+        updates must strictly increase the last version; a rejoin preserves
+        identity/mobility. An action_result event alone cannot complete a skill.
+        """
+        now = self._clock(time_s)
+        event = self._event(type, now, payload)
+        data = event["payload"]
+        if type == "episode_started":
+            raise ValueError("episode_started is emitted once by the constructor")
+        if type == "observation" and data["message_id"] in self._message_ids:
+            raise ValueError("observation message id has already been delivered")
+        if type == "action_result" and data["action_id"] not in self._actions:
+            raise ValueError("action_result must reference an accepted action")
+        if type in {"member_join", "member_exit", "capability_change"}:
+            agent = data["agent_id"]
+            if type == "member_join":
+                if agent in self._current:
+                    raise ValueError("member_join cannot repeat an active member")
+            elif agent not in self._current:
+                raise ValueError("lifecycle event requires a current member")
+            if type != "member_exit":
+                declaration = data["capability_declaration"]
+                if data["capability_version"] <= self._capability_versions.get(agent, 0):
+                    raise ValueError("capability_version must strictly increase")
+                if agent in self._robots and any(
+                        declaration[key] != self._robots[agent][key] for key in ("type", "mobility")):
+                    raise ValueError("lifecycle declaration cannot change robot identity or mobility")
+
+        self._time = now
+        if type in {"member_join", "member_exit", "capability_change"}:
+            agent = data["agent_id"]
+            if type == "member_exit":
+                self._current.remove(agent)
+                self._team = [a for a in self._team if a != agent]
+            else:
+                self._robots[agent] = deepcopy(data["capability_declaration"])
+                self._capability_versions[agent] = data["capability_version"]
+                self._current.add(agent)
+            self._roster_version += 1
+            self._snapshot_required = True
+            for row in self._pending():
+                if agent in row["task"]["assigned_agents"]:
+                    row["invalidated_by"].append(event["sequence"])
+        if type == "observation":
+            self._message_ids.add(data["message_id"])
+        self._events.append(event)
+        self._version += 1
+        return deepcopy(event)
+
+    def update_runtime_state(self, time_s: float, robot_regions: Mapping[str, str],
+                             object_states: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
+        """Replace the trusted symbolic snapshot, without claiming task completion.
+
+        Objects must be complete. Robot positions may cover a subset, but every
+        selected/dispatching member needs a current position when admitted.
+        Physically unsafe states (e.g. an exited carrier still holding a load)
+        may be reported; pure plan validation will reject using them as safe.
+        """
+        now = self._clock(time_s)
+        if not isinstance(robot_regions, Mapping) or not isinstance(object_states, Mapping):
+            raise ValueError("runtime positions and object states must be mappings")
+        robots, objects = deepcopy(dict(robot_regions)), deepcopy(dict(object_states))
+        regions = {r["id"]: r for r in self._spec["public_world"]["regions"]}
+        expected = {o["id"]: o for o in self._spec["public_world"]["objects"]}
+        if set(objects) != set(expected):
+            raise ValueError("runtime object_states must be a complete current snapshot")
+        for agent, region in robots.items():
+            _text(agent, "robot id")
+            _text(region, "robot region")
+            if agent not in self._robots or region not in regions:
+                raise ValueError("runtime robot_regions references an unknown robot or region")
+            modes = set(regions[region]["access_modes"])
+            if (self._robots[agent]["mobility"] == "aerial" and "aerial_navigation" not in modes
+                    or self._robots[agent]["mobility"] == "ground"
+                    and not modes.intersection({"ground_navigation", "stair_traversal"})):
+                raise ValueError("runtime robot region does not allow this mobility")
+        carriers: set[str] = set()
+        for oid, state in objects.items():
+            if not isinstance(state, Mapping):
+                raise ValueError("runtime object state must be a mapping")
+            holding = "carrier_bindings" in state or "handling_mode_id" in state
+            if set(state) != ({"region_id", "handling_mode_id", "carrier_bindings"} if holding else {"region_id"}):
+                raise ValueError("runtime object state has unexpected or missing fields")
+            if _text(state["region_id"], "object region") not in regions:
+                raise ValueError("runtime object state references an unknown region")
+            if holding:
+                props = expected[oid]["physical_properties"]
+                mode = next((m for m in props["handling_modes"] if m["id"] == state["handling_mode_id"]), None)
+                bindings = state["carrier_bindings"]
+                if mode is None or not isinstance(bindings, list) or not bindings:
+                    raise ValueError("runtime attachment requires a known mode and carrier bindings")
+                points = set()
+                for binding in bindings:
+                    if not isinstance(binding, Mapping) or set(binding) != {"agent_id", "point_id"}:
+                        raise ValueError("runtime carrier binding requires agent_id and point_id")
+                    agent = _text(binding["agent_id"], "carrier agent")
+                    point = _text(binding["point_id"], "carrier point")
+                    if agent not in self._robots or agent in carriers or point in points:
+                        raise ValueError("runtime attachment has unknown or repeated carriers/points")
+                    if agent in robots and robots[agent] != state["region_id"]:
+                        raise ValueError("runtime carrier and held object positions disagree")
+                    carriers.add(agent)
+                    points.add(point)
+                if points != {slot["point_id"] for slot in mode["slots"]}:
+                    raise ValueError("runtime attachment points must match the handling mode")
+        self._snapshot = {"time_s": now, "robot_regions": robots, "object_states": objects}
+        self._time = now
+        self._snapshot_required = False
+        self._version += 1
+        return deepcopy(self._snapshot)
+
+    def _resources(self, task: Mapping[str, Any]) -> dict[tuple[str, str], int]:
+        args, skill = task["arguments"], task["skill"]
+        resources = {("agent", a): 1 for a in task["assigned_agents"]}
+        world = self._spec["public_world"]
+        routes = {r["id"]: r for r in world["routes"]}
+        for route_id in args.get("route_ids", []):
+            route = routes[route_id]
+            resources[("route", route["resource_id"])] = route["capacity"]
+        regions = set()
+        destination = args.get(_DESTINATION.get(skill, "region_id"))
+        if destination is not None and skill not in _NAVIGATION:
+            regions.add(destination)
+        if "object_id" in args:
+            oid = args["object_id"]
+            resources[("object", oid)] = 1
+            if skill in {"pick", "cooperative_carry"}:
+                if self._snapshot is not None:
+                    regions.add(self._snapshot["object_states"][oid]["region_id"])
+                else:
+                    obj = next(o for o in world["objects"] if o["id"] == oid)
+                    regions.add(obj["physical_properties"]["initial_region_id"])
+        if skill in _NAVIGATION and self._snapshot is not None:
+            for oid, state in self._snapshot["object_states"].items():
+                if any(b["agent_id"] in task["assigned_agents"] for b in state.get("carrier_bindings", [])):
+                    resources[("object", oid)] = 1
+        capacities = {r["id"]: r["resource_capacity"] for r in world["regions"]}
+        for region in regions:
+            resources[("region", region)] = capacities[region]
+        return resources
+
+    def _admit_dispatch(self, action: Mapping[str, Any]) -> dict[tuple[str, str], int]:
+        payload = action["payload"]
+        tid = payload["task_id"]
+        row = self._tasks[tid]
+        task = row["task"]
+        if tid in self._dispatched or row["status"] != "scheduled":
+            raise ValueError("task has already been dispatched or superseded")
+        if row["plan_id"] != self._plan_id:
+            raise ValueError("dispatch requires the current plan version")
+        if not set(task["assigned_agents"]) <= set(self._team):
+            raise ValueError("task agents are outside the currently selected team")
+        if any(self._tasks[d]["status"] != "succeeded" for d in task["prerequisites"]):
+            raise ValueError("dispatch prerequisite has not completed successfully")
+        start = task["execution"]["start_s"]
+        end = start + task["execution"]["duration_s"]
+        if not start <= self._time < end:
+            raise ValueError("dispatch is outside its planned half-open time window")
+        self._require_snapshot(task["assigned_agents"])
+        refs = set(task["evidence_refs"]) | set(payload["evidence_refs"])
+        if not refs <= self._consumed:
+            raise ValueError("dispatch evidence must first be consumed by the participant")
+
+        # Validate only this ready call against CURRENT state. Predicted effects
+        # from an admitted plan must never become trusted positions/ownership.
+        projected = deepcopy(task)
+        projected["prerequisites"] = []
+        projected["evidence_refs"] = sorted(refs)
+        projected["execution"] = {"start_s": self._time, "duration_s": end - self._time}
+        validate_goal_plan({
+            "schema": "eai.benchmark.goal_plan", "version": 2,
+            "plan_id": self._plan_id, "assigned_team": task["assigned_agents"], "tasks": [projected],
+        }, task_spec=self._spec, context=self._context())
+        resources = self._resources(task)
+        occupied = Counter(key for pending in self._pending() for key in pending["reservations"])
+        for key, capacity in resources.items():
+            if occupied[key] >= capacity:
+                raise ValueError(f"pending runtime resource conflict: {key[0]} {key[1]}")
+        return resources
+
+    def submit_action(self, action: Mapping[str, Any]) -> dict[str, Any]:
+        """Validate and commit one existing v2 action; failures raise ValueError."""
+        accepted = validate_goal_action(action, api=self._api, task_spec=self._spec, context=self._context())
+        action_id, type, payload = accepted["action_id"], accepted["type"], accepted["payload"]
+        if action_id in self._actions:
+            raise ValueError("action_id has already been accepted")
+        if type not in {"cancel_skill", "consume_message"} and self._time >= self._spec["budgets"]["simulation_s"]:
+            raise ValueError("episode simulation budget has ended")
+        if type == "select_team":
+            busy = {a for r in self._pending() for a in r["task"]["assigned_agents"]} & self._current
+            if not busy <= set(payload["agent_ids"]):
+                raise ValueError("cannot deselect a pending runtime member before backend termination")
+        elif type in {"submit_plan", "revise_plan"}:
+            plan = payload["plan"]
+            if not self._team or set(plan["assigned_team"]) != set(self._team):
+                raise ValueError("select_team must match the plan assigned_team")
+            self._require_snapshot(plan["assigned_team"])
+            if plan["plan_id"] in self._plans:
+                raise ValueError("plan_id must be new for each submission/revision")
+            if type == "submit_plan" and self._plan_id is not None:
+                raise ValueError("an existing plan must be changed through revise_plan")
+            if type == "revise_plan" and payload["replaced_plan_id"] != self._plan_id:
+                raise ValueError("revision must replace the current plan version")
+            if any(t["task_id"] in self._dispatched for t in plan["tasks"]):
+                raise ValueError("remaining-work plans cannot reuse a dispatched task_id")
+        elif type == "dispatch_skill":
+            reservations = self._admit_dispatch(accepted)
+        elif type == "cancel_skill" and self._tasks[payload["task_id"]]["status"] == "cancel_requested":
+            raise ValueError("cancellation has already been requested")
+
+        self._actions[action_id] = accepted
+        if type == "select_team":
+            self._team = list(payload["agent_ids"])
+        elif type in {"submit_plan", "revise_plan"}:
+            for row in self._tasks.values():
+                if row["status"] == "scheduled":
+                    row["status"] = "superseded"
+            self._plan_version += 1
+            self._plan_id = plan["plan_id"]
+            self._plans[self._plan_id] = {
+                "plan": deepcopy(plan), "version": self._plan_version, "action_id": action_id,
+                "submitted_at_s": self._time, "roster_version": self._roster_version,
+                "visible_event_sequence": len(self._events) - 1,
+            }
+            for task in plan["tasks"]:
+                self._tasks[task["task_id"]] = {
+                    "task": deepcopy(task), "plan_id": self._plan_id, "plan_version": self._plan_version,
+                    "status": "scheduled", "dispatch_action_id": None, "cancel_action_id": None,
+                    "invalidated_by": [], "reservations": [], "receipt": None,
+                }
+        elif type == "dispatch_skill":
+            tid = payload["task_id"]
+            self._dispatched.add(tid)
+            self._tasks[tid].update({
+                "status": "pending", "dispatch_action_id": action_id, "dispatched_at_s": self._time,
+                "reservations": sorted(reservations),
+                "capability_versions": {a: self._capability_versions[a]
+                                        for a in self._tasks[tid]["task"]["assigned_agents"]},
+            })
+        elif type == "cancel_skill":
+            self._tasks[payload["task_id"]].update({"status": "cancel_requested", "cancel_action_id": action_id})
+        elif type == "consume_message":
+            self._consumed.add(payload["message_id"])
+        self._version += 1
+        event = self._append_event("action_result", {
+            "action_id": action_id, "status": "accepted", "reason": "ledger admission; no execution claim",
+        })
+        result = {"accepted": True, "action_id": action_id, "type": type,
+                  "state_version": self._version, "plan_version": self._plan_version,
+                  "event": deepcopy(event), "execution_validated": False}
+        if type in {"dispatch_skill", "cancel_skill"}:
+            result["pending_task"] = deepcopy(self._tasks[payload["task_id"]])
+        return result
+
+    def complete_skill(self, task_id: str, *, time_s: float, status: str,
+                       receipt: Mapping[str, Any] | None) -> dict[str, Any]:
+        """Record a trusted backend terminal result; never execute/infer effects."""
+        now = self._clock(time_s)
+        _text(task_id, "task_id")
+        if task_id not in self._tasks or self._tasks[task_id]["status"] not in _PENDING:
+            raise ValueError("completion requires a pending dispatched task")
+        if status not in _TERMINAL:
+            raise ValueError("backend status must be succeeded, failed or cancelled")
+        row = self._tasks[task_id]
+        if receipt is not None and not isinstance(receipt, Mapping):
+            raise ValueError("backend receipt must be a mapping")
+        data = dict(receipt or {})
+        if any(k in data and data[k] != v for k, v in {
+                "task_id": task_id, "action_id": row["dispatch_action_id"], "status": status,
+                "completed_at_s": now}.items()):
+            raise ValueError("backend receipt does not match pending task/action/status/time")
+        required = {"backend_id", "receipt_ref", "task_id", "action_id", "status", "completed_at_s", "evidence_refs"}
+        if not required <= set(data) or not data.get("backend_id") or not data.get("receipt_ref") or not data.get("evidence_refs"):
+            return {"accepted": False, "task_id": task_id, "status": row["status"],
+                    "reason": "missing backend receipt/evidence; request remains pending"}
+        if set(data) != required:
+            raise ValueError("backend receipt has unexpected fields")
+        key = (_text(data["backend_id"], "backend_id"), _text(data["receipt_ref"], "receipt_ref"))
+        _number(data["completed_at_s"], "completed_at_s")
+        evidence = data["evidence_refs"]
+        if not isinstance(evidence, list) or any(not isinstance(e, str) or not e.strip() for e in evidence):
+            raise ValueError("backend evidence_refs must be nonempty reference strings")
+        if len(evidence) != len(set(evidence)):
+            raise ValueError("backend evidence references must be distinct")
+        if key in self._receipt_ids:
+            raise ValueError("backend receipt reference has already been used")
+        if status == "succeeded":
+            if row["invalidated_by"] or row["status"] == "cancel_requested":
+                raise ValueError("invalidated/cancel-requested task cannot silently succeed")
+            task = row["task"]
+            end = task["execution"]["start_s"] + task["execution"]["duration_s"]
+            # Duration is the admitted budget/reservation, not a minimum
+            # backend latency. A real arrival may precede the nominal duration.
+            if not row["dispatched_at_s"] <= now <= end:
+                raise ValueError("successful backend completion is outside the execution time window")
+        self._time = now
+        self._receipt_ids.add(key)
+        row.update({"status": status, "receipt": deepcopy(data), "completed_at_s": now, "reservations": []})
+        self._snapshot_required = True
+        self._version += 1
+        event = self._append_event("action_result", {
+            "action_id": row["dispatch_action_id"], "status": status,
+            "reason": "trusted backend terminal receipt recorded; business outcomes unassessed",
+        })
+        return {"accepted": True, "task_id": task_id, "status": status,
+                "state_version": self._version, "event": deepcopy(event), "business_outcomes_validated": False}
+
+    def report(self) -> dict[str, Any]:
+        """Return a host diagnostic copy, not a public release or evaluator result."""
+        return deepcopy({
+            "task_id": self._spec["task_id"], "current_time_s": self._time,
+            "state_version": self._version, "roster_version": self._roster_version,
+            "plan_version": self._plan_version, "current_plan_id": self._plan_id,
+            "current_agents": sorted(self._current), "selected_team": self._team,
+            "capability_versions": self._capability_versions,
+            "current_robot_declarations": self._robots, "events": self._events,
+            "consumed_message_ids": sorted(self._consumed), "actions": list(self._actions.values()),
+            "plans": list(self._plans.values()), "tasks": self._tasks,
+            "runtime_state": self._snapshot, "runtime_snapshot_refresh_required": self._snapshot_required,
+            "business_outcomes": [{"id": r["id"], "status": "unassessed"}
+                                  for r in self._spec["required_outcomes"]],
+            "execution_validated": False, "business_outcomes_validated": False, "scoreable": False,
+            "limitations": ["trusted_host_must_authenticate_backend_and_resolve_evidence",
+                            "symbolic_resources_only_no_contact_or_idle_occupancy_model",
+                            "no_executor_no_business_evaluator", "remaining_work_revisions_only"],
+        })
+
+
+__all__ = ["GoalSession"]
