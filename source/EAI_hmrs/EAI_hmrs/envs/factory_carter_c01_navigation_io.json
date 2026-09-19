@@ -1,0 +1,41 @@
+{
+  "robots": [
+    {
+      "attachments": [
+        {
+          "controller": null,
+          "type": "octagon_aio_c01"
+        },
+        {
+          "controller": null,
+          "type": "navigation_io"
+        }
+      ],
+      "controller": {
+        "cfg": "CARTER_DIFF_CFG",
+        "mode": "default"
+      },
+      "spawn_pose": {
+        "position": [
+          0.0,
+          0.0,
+          0.2
+        ],
+        "rotation": [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "type": "carter",
+      "visual": {
+        "x": 0.3798,
+        "y": 0.2798
+      }
+    }
+  ],
+  "scene_key": "factory",
+  "task_name": "factory_carter_c01_navigation_io",
+  "version": 1
+}

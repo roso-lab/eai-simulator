@@ -67,7 +67,9 @@ DEFAULT_YAW_GOAL_TOLERANCE = 0.25
 DEFAULT_PROGRESS_REQUIRED_MOVEMENT_RADIUS = 0.5
 DEFAULT_PROGRESS_MOVEMENT_TIME_ALLOWANCE = 10.0
 DEFAULT_INFLATION_RADIUS = 0.55
-SENSOR_TYPES = ("orsus", "lidar")
+# octagon_aio_c01/mid360：simple_car 的内置传感器套件（非 attachment，
+# resolve_sensor 对 simple_car 机型回退到内置默认 octagon_aio_c01）。
+SENSOR_TYPES = ("orsus", "lidar", "octagon_aio_c01", "mid360")
 GENERATED_OUTPUT_FILES = (
     "nav2_params.yaml",
     "pointcloud_to_laserscan.yaml",
@@ -79,6 +81,10 @@ ROBOT_TYPE_ALIASES = {
     "mushr nano v2": "MuSHR Nano v2",
     "coco": "Coco AIRS",
     "coco airs": "Coco AIRS",
+    # simple_car：env JSON / runtime snapshot 用小写类型键；gshub 为历史名。
+    "simple_car": "SimpleCar",
+    "simplecar": "SimpleCar",
+    "gshub": "SimpleCar",
 }
 
 
@@ -445,9 +451,15 @@ def resolve_sensor(
     if len(sensors) == 1:
         return sensors[0], "runtime_snapshot"
     if not sensors:
+        # simple_car 的 C01/Mid360 是内置传感器套件而非 attachment：默认按
+        # octagon_aio_c01（EAI_SIMPLE_CAR_LIDAR_VARIANT 的默认变体）；
+        # mid360 链路显式传 sensor:=mid360。
+        robot_type = str(robot.get("robot_type", "")).strip().casefold()
+        if robot_type in ("simple_car", "gshub"):
+            return "octagon_aio_c01", "builtin_simple_car_default"
         raise RuntimeError(
-            f"Robot {robot_name!r} has neither Orsus nor LiDAR attached. "
-            "Attach one sensor or pass sensor:=orsus/sensor:=lidar after verifying the simulation."
+            f"Robot {robot_name!r} has no known sensor attached (Orsus/LiDAR/C01/Mid-360). "
+            "Attach one sensor or pass sensor:=orsus|lidar|octagon_aio_c01|mid360 explicitly."
         )
     raise RuntimeError(
         f"Robot {robot_name!r} has both Orsus and LiDAR attached; both publish the same "

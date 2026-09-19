@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  仿真容器专用的 FastDDS 配置：把共享内存踢出数据路径，只走 UDPv4。
+
+  为什么需要它（2026-08-05 云端首验排障结论）：宿主机上的 gazebo 与 deb 容器里的导航栈
+  要互相发现，三个条件缺一不可——两侧 ROS_LOCALHOST_ONLY=0、两侧同一个专用
+  ROS_DOMAIN_ID、容器侧挂这份 UDP-only 配置。FastDDS 默认优先共享内存，而容器有独立的
+  /dev/shm，跨容器的 SHM 数据路径实测不可靠（历次实验残留的
+  sem.fastrtps_port74xx_mutex 僵尸信号量是嫌疑之一），--ipc=host 共享内存段也没能救回来。
+  useBuiltinTransports 置 false 是关键的一位：只置 userTransports 而不关内置传输，
+  FastDDS 仍会把 SHM 加回传输列表，等于没改。
+
+  排障中排除的死路，写在这里免得将来再走一遍：ROS_LOCALHOST_ONLY 取 1 时（无论对侧取
+  0 还是 1）本文件基本不起作用——localhost-only 模式下 FastDDS 走端口扫描式单播发现，
+  且 rmw 层会自建传输配置，外部 XML 大概率被覆盖。
+
+  本文件由 nav_sim.py 复制进本次 run 目录后只读挂进容器，容器内路径见 nav_sim.py 的
+  FASTDDS_PROFILE_MOUNT；容器侧靠 FASTRTPS_DEFAULT_PROFILES_FILE 找到它，该变量走
+  nav_sim.env.template 的 env 通道注入，两处取同一个常量，不各写各的。
+-->
+<dds xmlns="http://www.eprosima.com">
+  <profiles>
+    <transport_descriptors>
+      <transport_descriptor>
+        <transport_id>nav_sim_udp_only</transport_id>
+        <type>UDPv4</type>
+      </transport_descriptor>
+    </transport_descriptors>
+
+    <!-- is_default_profile 置 true：容器内的节点不会挨个指定 profile 名，
+         只有设成默认档，所有参与者才都用这份传输配置。 -->
+    <participant profile_name="nav_sim_udp_only_participant" is_default_profile="true">
+      <rtps>
+        <userTransports>
+          <transport_id>nav_sim_udp_only</transport_id>
+        </userTransports>
+        <!-- false = 不再追加内置的 SHM 与 UDP 传输，数据路径只剩上面声明的 UDPv4。 -->
+        <useBuiltinTransports>false</useBuiltinTransports>
+      </rtps>
+    </participant>
+  </profiles>
+</dds>

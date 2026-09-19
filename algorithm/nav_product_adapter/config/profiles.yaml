@@ -1,0 +1,106 @@
+version: 1
+
+defaults:
+  topics:
+    cloud_input: "/{robot_name}/cloud"
+    odometry_input: "/{robot_name}/odometry"
+    cmd_vel_input: "/{nav_hub_id}/cmd_vel"
+    cloud_output: "/{nav_hub_id}/tower/mapping/cloud"
+    odometry_output: "/{nav_hub_id}/tower/mapping/odometry"
+    cmd_vel_output: "/{robot_name}/cmd_vel"
+  frames:
+    mapping_init: "{nav_hub_id}/mapping_init"
+    lidar: "{nav_hub_id}/lidar_link"
+  input_frames:
+    cloud: "{robot_name}/lidar_link"
+    odometry: "{robot_name}/odom"
+    base_footprint: "{robot_name}/base_footprint"
+  timing:
+    product_odometry_rate_hz: 50.0
+    odom_buffer_sec: 2.0
+    max_interpolation_gap_sec: 0.1
+    backward_jump_threshold_sec: 0.5
+    max_pending_clouds: 8
+  intensity_field: intensity
+  default_intensity: 0.0
+  duplicate_publishers:
+    action: fail
+    # Factory topology pre-advertises product topics from this passive bridge.
+    # This is valid only while no WebSocket listener/server is active on port 9089.
+    passive_product_nodes: [/topic_publisher]
+    guard_period_sec: 2.0
+  clock:
+    owner: external
+    topic: /clock
+    adapter_publishes: false
+
+profiles:
+  mid360:
+    base_to_lidar:
+      # SimpleCar host mount: same optical-centre height as production TF, with the
+      # Mid-360 20 deg forward pitch the docker robot_tf_publisher applies.
+      translation_xyz_m: [0.0, 0.0, 0.61459]
+      rotation_rpy_rad: [0.0, 0.349066, 0.0]
+    timing:
+      expected_cloud_rate_hz: 10.0
+
+  octagon_aio_c01:
+    base_to_lidar:
+      # X follows the 2026-07-31 board decision shared with gazebo-sim
+      # lidar_offset_x (octagon default 0.20) and the basic_components
+      # robot_tf_publisher octagon fragment: trunk centre line, 0.10 m behind
+      # the head front edge (base-frame x = 0.30 - 0.10 = 0.20).
+      translation_xyz_m: [0.2, 0.0, 0.61459]
+      rotation_rpy_rad: [0.0, 0.0, 0.0]
+    timing:
+      expected_cloud_rate_hz: 30.0
+
+  octagon_aio_c01_carter:
+    base_to_lidar:
+      # Carter mounts the C01 exactly on the EAI native lidar payload mount
+      # (lidar_offset, including the 0.026 m forward offset). The Docker
+      # product TF (system_parameters lidar_height) still models mounting
+      # height only, so the product-internal TF keeps x=0 and the 0.026 m
+      # residual is a known product-image deviation.
+      translation_xyz_m: [0.026, 0.0, 0.444862]
+      rotation_rpy_rad: [0.0, 0.0, 0.0]
+    input_frames:
+      base_footprint: "{robot_name}/Orsus_chassis_link"
+    timing:
+      expected_cloud_rate_hz: 30.0
+
+  lidar_carter:
+    base_to_lidar:
+      # Carter mounts the standalone EAI LiDAR payload (RosLidarCfg) on its
+      # native lidar mount: lidar_offset (0.026, 0, 0.444862), zero pitch —
+      # the same placement the octagon_aio_c01 attachment reuses.
+      translation_xyz_m: [0.026, 0.0, 0.444862]
+      rotation_rpy_rad: [0.0, 0.0, 0.0]
+    input_frames:
+      # EAI native sensor graphs publish un-prefixed frames (nav2
+      # tf_bridge.py documents that Orsus and the standalone LiDAR both
+      # write the cloud frame_id as mapping_init); the odometry child keeps
+      # the ROS2PublishOdometry bridge default base_link. The adapter gate
+      # fails fast with expected-vs-received frames if a provider graph
+      # revision deviates.
+      cloud: "mapping_init"
+      odometry: "mapping_init"
+      base_footprint: "base_link"
+    timing:
+      expected_cloud_rate_hz: 10.0
+
+  orsus_carter:
+    base_to_lidar:
+      # Carter Orsus mount: orsus_offset (0.026, 0, 0.418) plus the 0.339 rad
+      # downtilt authored in nav2_profiles.yaml and the Docker TF variant.
+      translation_xyz_m: [0.026, 0.0, 0.418]
+      rotation_rpy_rad: [0.0, 0.339, 0.0]
+    input_frames:
+      # Orsus publishes cloud frameId mapping_init and odometry odomFrameId
+      # mapping_init (EAI_assets OrsusCfg); the odometry child keeps the
+      # bridge default base_link.
+      cloud: "mapping_init"
+      odometry: "mapping_init"
+      base_footprint: "base_link"
+    timing:
+      expected_cloud_rate_hz: 10.0

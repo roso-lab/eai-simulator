@@ -1,0 +1,128 @@
+id: robot.simple_car
+name: SimpleCar native sensor suite
+category: robot
+models: [simple_car]
+description: Gazebo-compatible SimpleCar base with built-in OCTAGON-AIO-C01 and dual SG-VAS-SL-A1 camera simulation.
+interfaces:
+  - id: ros.simple_car.keyboard_cmd_vel
+    name: Keyboard velocity command
+    protocol: ros2
+    direction: input
+    kind: topic
+    endpoint: /{robot}/cmd_vel
+    data_type: geometry_msgs/msg/Twist
+    description: Velocity input exposed by the keyboard tool when Navigation I/O is not also selected.
+    example: 'ros2 topic pub --once /{robot}/cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.2}, angular: {z: 0.0}}"'
+    requires_attachment: keyboard
+    excludes_attachment: navigation_io
+  - id: ros.simple_car.point_cloud
+    name: OCTAGON point cloud
+    protocol: ros2
+    direction: output
+    kind: topic
+    endpoint: /{robot}/cloud
+    data_type: sensor_msgs/msg/PointCloud2
+    description: C01-compatible idealized 40-emitter point cloud; the real scanner uses a non-repeating pattern.
+    example: ros2 topic echo --once /{robot}/cloud
+    requires_attachment: navigation_io
+    nominal_rate_hz: 30
+    frame_id: '{robot}/lidar_link'
+    horizontal_fov_deg: 360
+    vertical_fov_deg: [-15, 45]
+    range_m: [0.05, 50.0]
+    points_per_second: 200000
+    read_only_test: {type: ros_topic}
+  - id: ros.simple_car.velodyne_points
+    name: Gazebo point-cloud compatibility alias
+    protocol: ros2
+    direction: output
+    kind: topic
+    endpoint: /{robot}/velodyne_points
+    data_type: sensor_msgs/msg/PointCloud2
+    description: Compatibility alias for the raw Gazebo SimpleCar topic; data is the same RTX C01 approximation as /cloud.
+    example: ros2 topic echo --once /{robot}/velodyne_points
+    requires_attachment: navigation_io
+    nominal_rate_hz: 30
+    frame_id: '{robot}/lidar_link'
+    read_only_test: {type: ros_topic}
+  - id: ros.simple_car.imu
+    name: OCTAGON IMU
+    protocol: ros2
+    direction: output
+    kind: topic
+    endpoint: /{robot}/sensors/imu
+    data_type: sensor_msgs/msg/Imu
+    description: 200 Hz physics-tick publication of synthesized root kinematics in the documented C01 IMU frame; source materials provide no noise model.
+    example: ros2 topic echo --once /{robot}/sensors/imu
+    requires_attachment: navigation_io
+    nominal_rate_hz: 200
+    frame_id: '{robot}/imu_link'
+    read_only_test: {type: ros_topic}
+  - id: ros.simple_car.odometry
+    name: Simulator odometry
+    protocol: ros2
+    direction: output
+    kind: topic
+    endpoint: /{robot}/odometry
+    data_type: nav_msgs/msg/Odometry
+    description: Simulator ground-truth odometry sampled from the fixed rigid base_footprint body; it is not an OCTAGON sensor output.
+    example: ros2 topic echo --once /{robot}/odometry
+    requires_attachment: navigation_io
+    nominal_rate_hz: 200
+    frame_id: '{robot}/odom'
+    child_frame_id: '{robot}/base_footprint'
+    read_only_test: {type: ros_topic}
+  - id: ros.simple_car.left_image
+    name: Left camera image
+    protocol: ros2
+    direction: output
+    kind: topic
+    endpoint: /{robot}/cameras/left/image_raw
+    data_type: sensor_msgs/msg/Image
+    description: Left SG-VAS-SL-A1 global-shutter RGB approximation at 1920x1080.
+    example: ros2 topic echo --once /{robot}/cameras/left/image_raw
+    requires_attachment: camera
+    nominal_rate_hz: 30
+    frame_id: '{robot}/camera_left_optical_frame'
+    resolution: [1920, 1080]
+    read_only_test: {type: ros_topic}
+  - id: ros.simple_car.left_camera_info
+    name: Left camera calibration
+    protocol: ros2
+    direction: output
+    kind: topic
+    endpoint: /{robot}/cameras/left/camera_info
+    data_type: sensor_msgs/msg/CameraInfo
+    description: Simulation intrinsics preserving the supplied horizontal and vertical FOV; not manufacturer calibration.
+    example: ros2 topic echo --once /{robot}/cameras/left/camera_info
+    requires_attachment: camera
+    nominal_rate_hz: 30
+    frame_id: '{robot}/camera_left_optical_frame'
+    read_only_test: {type: ros_topic}
+  - id: ros.simple_car.right_image
+    name: Right camera image
+    protocol: ros2
+    direction: output
+    kind: topic
+    endpoint: /{robot}/cameras/right/image_raw
+    data_type: sensor_msgs/msg/Image
+    description: Right SG-VAS-SL-A1 global-shutter RGB approximation at 1920x1080.
+    example: ros2 topic echo --once /{robot}/cameras/right/image_raw
+    requires_attachment: camera
+    nominal_rate_hz: 30
+    frame_id: '{robot}/camera_right_optical_frame'
+    resolution: [1920, 1080]
+    read_only_test: {type: ros_topic}
+  - id: ros.simple_car.right_camera_info
+    name: Right camera calibration
+    protocol: ros2
+    direction: output
+    kind: topic
+    endpoint: /{robot}/cameras/right/camera_info
+    data_type: sensor_msgs/msg/CameraInfo
+    description: Simulation intrinsics preserving the supplied horizontal and vertical FOV; not manufacturer calibration.
+    example: ros2 topic echo --once /{robot}/cameras/right/camera_info
+    requires_attachment: camera
+    nominal_rate_hz: 30
+    frame_id: '{robot}/camera_right_optical_frame'
+    read_only_test: {type: ros_topic}

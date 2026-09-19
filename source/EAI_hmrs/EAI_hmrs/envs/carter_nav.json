@@ -1,0 +1,28 @@
+{
+  "robots": [
+    {
+      "attachments": [
+        {
+          "controller": null,
+          "type": "orsus"
+        },
+        {
+          "controller": null,
+          "type": "navigation_io"
+        }
+      ],
+      "controller": {
+        "cfg": "CARTER_DIFF_CFG",
+        "mode": "default"
+      },
+      "type": "carter",
+      "visual": {
+        "x": 0.0,
+        "y": 0.0
+      }
+    }
+  ],
+  "scene_key": "rmuc2024",
+  "task_name": "carter_nav",
+  "version": 1
+}

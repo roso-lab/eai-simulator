@@ -44,7 +44,7 @@ The client returns zero only for STATUS_SUCCEEDED and nonzero for unavailable, r
 
 ## Map, sensor, and pose selection
 
-`nav2_profiles.yaml` maps all seven selectable scenes to provider-owned `scene/<scene>/<scene>_map.yaml` files below `EAI_USD_ROOT` (default: `<repo>/usd`). When the registered YAML/PNG pair is missing, Nav2 requests the scene's `occupancy_map` through `python simulator.py assets ensure`; that core interface delegates to the shared EAI asset resolver and downloads only the declared pair. Nav2 then validates the YAML and referenced image and never synthesizes a Plane map. Use `map:=/absolute/path/to/map.yaml` to bypass provider resolution with a custom map. `sensor:=auto` reads the unique Orsus or lidar attachment for `robot_name` from `tmp/runtime_interfaces.json`. Without `pose`, the same live snapshot supplies the AMCL pose. The snapshot must be version 1, have a live PID, be no older than five seconds, and match the scene and robot. Explicit `sensor:=orsus` or `lidar` and `pose:=x,y,yaw` bypass those checks. Do not enable Orsus and LiDAR publishers simultaneously for one robot because both use `cloud` and `odometry` topics.
+`nav2_profiles.yaml` maps all seven selectable scenes to provider-owned `scene/<scene>/<scene>_map.yaml` files below `EAI_USD_ROOT` (default: `<repo>/usd`). When the registered YAML/PNG pair is missing, Nav2 requests the scene's `occupancy_map` through `python simulator.py assets ensure`; that core interface delegates to the shared EAI asset resolver and downloads only the declared pair. Nav2 then validates the YAML and referenced image and never synthesizes a Plane map. Use `map:=/absolute/path/to/map.yaml` to bypass provider resolution with a custom map. `sensor:=auto` reads the unique sensor attachment (`orsus`/`lidar`/`octagon_aio_c01`/`mid360`) for `robot_name` from `tmp/runtime_interfaces.json`; simple_car robots with no sensor attachment fall back to the built-in `octagon_aio_c01` suite (declare the `mid360` attachment in the env JSON to run the Mid-360 variant). Without `pose`, the same live snapshot supplies the AMCL pose. The snapshot must be version 1, have a live PID, be no older than five seconds, and match the scene and robot. Explicit `sensor:=orsus` or `lidar` and `pose:=x,y,yaw` bypass those checks. Do not enable Orsus and LiDAR publishers simultaneously for one robot because both use `cloud` and `odometry` topics.
 
 ## TF and point-cloud handling
 
@@ -53,3 +53,16 @@ tf_bridge.py republishes odometry as dynamic odom -> base_link, publishes base_l
 ## Arguments and generated files
 
 nav2.launch.py accepts robot_name, robot_type, sensor, scene, map, pose, runtime_snapshot, and rviz. nav2_setup.py writes nav2_params.yaml, pointcloud_to_laserscan.yaml, view.rviz, and meta.txt to an owner-private temporary directory by default. Generated files are runtime output and must not be committed.
+
+## SimpleCar (ideal planar car)
+
+The `simple_car` robot (Isaac-side name of the GSHub ideal planar car) is registered as profile `SimpleCar` in `nav2_profiles.yaml`: differential motion semantics (the EAI cmd_vel bridge reports `linear_y = 0`), 0.65 x 0.32 m chassis footprint, and sensor mounts shared with `EAI/physics/simple_car_sensors.py` (C01 forward offset x=0.20 per the 2026-07-31 board decision, Mid-360 20 deg pitch). Use the saved `rmuc2024_nav2` or `rmuc2024_simple_car_c01_navigation_io` environment:
+
+```bash
+source /opt/ros/humble/setup.bash
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+python simulator.py --env rmuc2024_nav2 --device cuda:0 --headless
+ros2 launch algorithm/nav2/nav2.launch.py robot_name:=simple_car_1 robot_type:=SimpleCar sensor:=auto scene:=rmuc2024
+```
+
+For the Mid-360 variant run `rmuc2024_simple_car_mid360_navigation_io`; its env JSON declares the `mid360` attachment, so `sensor:=auto` resolves `mid360` automatically.

@@ -1,0 +1,41 @@
+{
+  "robots": [
+    {
+      "attachments": [
+        {
+          "controller": null,
+          "type": "lidar"
+        },
+        {
+          "controller": null,
+          "type": "navigation_io"
+        }
+      ],
+      "controller": {
+        "cfg": "CARTER_DIFF_CFG",
+        "mode": "default"
+      },
+      "spawn_pose": {
+        "position": [
+          0.0,
+          0.0,
+          0.2
+        ],
+        "rotation": [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "type": "carter",
+      "visual": {
+        "x": 0.3798,
+        "y": 0.2798
+      }
+    }
+  ],
+  "scene_key": "rmuc2024",
+  "task_name": "rmuc2024_carter_lidar_navigation_io",
+  "version": 1
+}

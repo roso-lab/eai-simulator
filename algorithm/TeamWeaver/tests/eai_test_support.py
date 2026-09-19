@@ -82,7 +82,7 @@ def make_factory_world(*, obstacles=()):
             base_capabilities=profile,
             reliability={capability: 1.0 for capability in capabilities},
             equipment=(
-                frozenset({"gshub"})
+                frozenset({"simple_car"})
                 if name == "carter_1"
                 else frozenset(
                     {

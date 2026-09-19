@@ -1,0 +1,28 @@
+{
+    "robots": [
+        {
+            "attachments": [
+                {
+                    "controller": null,
+                    "type": "octagon_aio_c01"
+                },
+                {
+                    "controller": null,
+                    "type": "navigation_io"
+                }
+            ],
+            "controller": {
+                "cfg": "CARTER_DIFF_CFG",
+                "mode": "default"
+            },
+            "type": "carter",
+            "visual": {
+                "x": 0.5,
+                "y": 0.5
+            }
+        }
+    ],
+    "scene_key": "plane",
+    "task_name": "carter_diff_c01_navigation_io",
+    "version": 1
+}

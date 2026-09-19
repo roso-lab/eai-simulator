@@ -33,6 +33,39 @@ def _ids(attachments: list[str]) -> set[str]:
     }
 
 
+def test_unscaled_ur5_deployment_gate_matches_runtime_matrix():
+    assert env_diy_catalog.manipulator_deployment_status("scout", "ur5")[0] == "conditional"
+    assert env_diy_catalog.manipulator_deployment_status("b2", "ur5")[0] == "conditional"
+    for host in ("go2", "m20", "lite3"):
+        status, reason = env_diy_catalog.manipulator_deployment_status(host, "ur5")
+        assert status == "rejected"
+        assert reason
+        with pytest.raises(ValueError, match="rejected"):
+            env_diy_catalog.validate_attachment_types(host, ["ur5"])
+
+
+def test_ur5_bare_uses_the_same_host_stability_gate():
+    assert env_diy_catalog.manipulator_deployment_status("scout", "ur5_bare")[0] == "conditional"
+    with pytest.raises(ValueError, match="rejected"):
+        env_diy_catalog.validate_attachment_types("go2", ["ur5_bare"])
+
+
+def test_z1_deployment_gate_requires_host_specific_evidence():
+    for host in ("scout", "b2", "go2", "m20", "carter"):
+        assert env_diy_catalog.manipulator_deployment_status(host, "z1")[0] == "conditional"
+    status, reason = env_diy_catalog.manipulator_deployment_status("lite3", "z1")
+    assert status == "rejected"
+    assert reason
+    with pytest.raises(ValueError, match="rejected"):
+        env_diy_catalog.validate_attachment_types("lite3", ["z1"])
+
+
+def test_carter_ur5_rejected_with_documented_mechanism():
+    status, reason = env_diy_catalog.manipulator_deployment_status("carter", "ur5")
+    assert status == "rejected"
+    assert env_diy_catalog.validate_attachment_types("carter", ["z1"]) == ("z1",)
+    with pytest.raises(ValueError, match="rejected"):
+        env_diy_catalog.validate_attachment_types("carter", ["ur5"])
 def test_mushr_never_declares_removed_builtin_camera_interfaces():
     for attachments in ([], ["camera"], ["Camera"]):
         ids = _ids(attachments)
@@ -92,7 +125,9 @@ def test_visual_env_diy_has_no_mushr_camera_exemption():
     )
     html = html_path.read_text(encoding="utf-8")
     assert '["cf2x", "iris", "pegasus", "mushr_v2"]' not in html
-    assert 'const hasBuiltinCamera = ["cf2x", "iris", "pegasus"]' in html
+    assert (
+        'const hasBuiltinCamera = ["cf2x", "iris", "pegasus", "simple_car"]' in html
+    )
 
 
 def test_env_diy_requires_explicit_mushr_camera_provider():

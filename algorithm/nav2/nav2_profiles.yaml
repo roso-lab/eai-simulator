@@ -40,6 +40,10 @@ robot_profiles:
     sensor_mounts:
       orsus: {xyz: [0.026, 0.0, 0.418], rpy: [0.0, 0.339, 0.0]}
       lidar: {xyz: [0.026, 0.0, 0.444862], rpy: [0.0, 0.0, 0.0]}
+      # Carter 挂 C01（octagon_aio_c01 attachment）：与独立雷达载荷同位装载
+      # （builder 复用 lidar_mount_link/lidar_offset，含 0.026 前偏）；
+      # nav_product_adapter 的 octagon_aio_c01_carter profile 同源。
+      octagon_aio_c01: {xyz: [0.026, 0.0, 0.444862], rpy: [0.0, 0.0, 0.0]}
     max_vel_x: 0.8
     max_vel_theta: 1.5
     acc_lim_x: 2.5
@@ -253,6 +257,33 @@ robot_profiles:
     scan_z_max: 1.50
     scan_range_min: 0.50
 
+  SimpleCar:
+    motion_model: differential
+    # 理想平面车（Isaac 侧 simple_car，资产 usd/robot/simple_car/，底盘 0.65 × 0.32 m）。
+    # EAI cmd_vel 桥对平面车按差速语义回传（linear_y 恒 0），与产品 docker 导航一致。
+    # 轮廓 = 底盘外扩 2.5 cm 余量；robot_radius 为其外接圆（模板两者都要求）。
+    footprint: [[-0.35, -0.19], [0.35, -0.19], [0.35, 0.19], [-0.35, 0.19]]
+    robot_radius: 0.40
+    sensor_mounts:
+      # 与 EAI/physics/simple_car_sensors.py 及 nav_product_adapter 的 profile 同源：
+      # C01 前向装位 0.2 m 为 2026-07-31 定板值；mid360 前倾 20°（0.349066 rad）。
+      octagon_aio_c01: {xyz: [0.2, 0.0, 0.61459], rpy: [0.0, 0.0, 0.0]}
+      mid360: {xyz: [0.0, 0.0, 0.61459], rpy: [0.0, 0.349066, 0.0]}
+    max_vel_x: 1.0
+    max_vel_theta: 1.0
+    acc_lim_x: 2.5
+    acc_lim_theta: 3.2
+    min_vel_x: 0.0
+    xy_goal_tolerance: 0.25
+    yaw_goal_tolerance: 0.5
+    progress_required_movement_radius: 0.05
+    progress_movement_time_allowance: 30.0
+    # 切片在 base_link 系（= odometry 的 base_footprint，地面 z≈0）：
+    # 取 0.10–0.80 m 障碍带，避开地面回波；C01 自体回波过滤 ≥ 0.55 m。
+    scan_z_min: 0.10
+    scan_z_max: 0.80
+    scan_range_min: 0.55
+
 # 未登记机器人类型的保守回退（会打印告警）
 default_profile:
   motion_model: differential
@@ -282,6 +313,7 @@ scene_maps:
   airs: scene/airs/airs_map.yaml
   desert: scene/desert/desert_map.yaml
   hospital: scene/hospital/hospital_map.yaml
+  rmuc2024: scene/rmuc2024/rmuc2024_map.yaml
 
 # 场景无地图时的默认（None 表示需要用户显式 --map 或先建图）
 scene_map_default: null
