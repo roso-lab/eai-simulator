@@ -12,7 +12,7 @@
 
 ### P0 立即可推进（无外部依赖，主会话串行 Isaac）
 
-- [ ] W1【待用户决策后执行】Warehouse 双机配对改双 M20：阶段18 v10–v14 已测明 Carter 在 0.25 m 支撑高度下任一朝向几何不可行（水平预算 0.24 m < 碰撞前伸+锚内缩，窗 8 mm < 抖动 12 mm）。方案：`goal_driven_fixtures` 的 warehouse 配对契约 M20+Carter → M20+M20（容量 8+8 ≥ 12、support 槽位不变）→ paired probe 成员映射/站位按 y 侧翼窗口（M20 水平预算 0.797 m、y 向亚毫米稳定，两侧窗口各 ~30 cm 已实测支撑）重排 → v15+ 重跑到 dock。验收：paired probe `diagnostic_completed` + 双机运输样本 + 释放后 dock ready 回执。
+- [ ] W1 双机可靠技能后端验证（配对属被测模型方案空间，无需契约决策）：阶段18 v10–v14 测明 Carter 在 0.25 m 支撑高度下任一朝向几何不可行——这条物理真值的正确去向是**方案准入的数值约束模型**，而非公开契约变更。方案分两步：W1a 作者侧诊断换可行对（双 M20，纯 fixture/witness 维护）跑通 paired probe 的 lift/transport/release/dock 全链，验证可靠技能后端本身；W1b 把「Carter 根位对 0.25 m 支撑锚点不可达」以实测依据写入 `goal_constraints` 的组合枚举/`validate_robot_profile`，使被测模型提出的 Carter 方案在计划准入时被正确拒绝（模型从公开画像与拒绝反馈中学会选对——这是被测能力的一部分）。验收：W1a `diagnostic_completed`+双机运输样本+dock ready；W1b 含 Carter-锚点反例的约束测试通过。
 - [ ] H1 House x≈5.647 阻挡调查（疑地图/USD 不一致）：方案：用 `goal_region_geometry.static_wall_cuboids` 离线枚举客厅东侧 [5.4,6.6]×[12.8,14.2] 的 USD 启用碰撞体，对照占据图同区间 free 判定；确认漏采后走 house 版地图重建（rebuild 工具流程）或 USD 修正；解除后 v18 复跑，椅子应到达 parking [7,13.5]。ground_1 撤离净空 0.841<1.077 很可能随同一阻挡解除达标，一并复验。验收：阻挡物被指认并归档、地图/USD 一致性恢复、v18 `reached_target=true` 且三机净空达标。
 - [ ] C1 City admission 谓词校准：正式探针首跑在首次服务提交处 fail-closed（`service_backend.py:169` 路由/权限/容量）。方案：`_run_bound_episode` 的 admission 回调加逐谓词诊断（route/authority/capacity 各自判定值与输入），跑一次定位具体拒绝项（预计为 bound roster 实测路线 vs 绑定声明路线偏差、role 区间起始时刻、或容量计数映射），修探针侧绑定消费映射。验收：正式探针完整跑通、`formal_episode_binding=true` 且六类绑定-读回一致、`full_city_service=formal_episode_binding_measured`。
 
