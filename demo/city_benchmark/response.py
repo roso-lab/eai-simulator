@@ -1,6 +1,6 @@
 """City response actors and services used by the benchmark preparation layer.
 
-The module is deliberately split from ``demo.city``.  It provides a pure
+The module is deliberately split from ``demo.city_benchmark.scene``.  It provides a pure
 episode model for authoring and a small adapter for the existing USD human
 runtime.  The adapter changes a human actor's visible locomotion to ``jog``
 only after an acknowledged guidance command; it does not turn background
@@ -291,7 +291,7 @@ def spawn_response_people(stage: Any, people: Sequence[ResponsePersonSpec], *, r
     """Spawn affected people on a USD stage for later benchmark integration.
 
     This is intentionally an explicit opt-in deployment helper; the original
-    city demo continues to spawn scenery pedestrians through ``demo.city``.
+    city demo continues to spawn scenery pedestrians through ``demo.city_benchmark.scene``.
     """
     from pxr import Usd, UsdPhysics
     from EAI_assets.humans.asset_placement import grounding_world_range

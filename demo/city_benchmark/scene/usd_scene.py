@@ -11,13 +11,13 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
-from demo.city.scenario import (AccidentPlan, BuildingCandidate, CityScenarioConfig,
+from demo.city_benchmark.scene.scenario import (AccidentPlan, BuildingCandidate, CityScenarioConfig,
                                 Polyline, choose_accident_plan, load_vehicle_lanes)
 
-CITY_ROOT = Path(__file__).resolve().parents[2] / "usd" / "scene" / "city"
+CITY_ROOT = Path(__file__).resolve().parents[3] / "usd" / "scene" / "city"
 CITY_STATIC_USD = CITY_ROOT / "city_static.usd"
 CITY_SCENARIO_JSON = CITY_ROOT / "city_scenario.json"
-VEHICLE_ROOT = Path(__file__).resolve().parents[2] / "usd" / "demo" / "city" / "vehicles"
+VEHICLE_ROOT = Path(__file__).resolve().parents[3] / "usd" / "demo" / "city" / "vehicles"
 SUPPORTED_VEHICLES = (
     ("car_e4087350c4d84d8391de09b405c96488.usd", 4.6),
     # The sports-car export has thousands of normals opposite its face winding;

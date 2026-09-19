@@ -31,9 +31,9 @@ def _jsonable(value: Any) -> Any:
 
 def _hashes() -> dict[str, str]:
     paths = [ROOT / path for path in (
-        "demo/city/runtime.py", "demo/city/people.py", "demo/city/usd_scene.py",
+        "demo/city_benchmark/scene/runtime.py", "demo/city_benchmark/scene/people.py", "demo/city_benchmark/scene/usd_scene.py",
         "demo/city_benchmark/live_witness.py", "demo/city_benchmark/native_runner.py",
-        "demo/city_benchmark/service_probe.py", "demo/city/main.py", "simulator.py",
+        "demo/city_benchmark/service_probe.py", "demo/city_benchmark/scene/main.py", "simulator.py",
         "usd/scene/city/city_static.usd", "usd/scene/city/city_scenario.json",
         "usd/demo/city/vehicles/car_e4087350c4d84d8391de09b405c96488.usd",
         "usd/demo/city/vehicles/car_03a6d639648540e3ad45ed38c9b19d1f.usd",
@@ -217,7 +217,7 @@ def _execute(output_root: Path, prepared: Mapping[str, Any], *, run_id: str,
               "trace": {"geometry": None, "services": {}}}
 
     def configure(env_cfg):
-        from demo.city.main import configure_city_env_cfg
+        from demo.city_benchmark.scene.main import configure_city_env_cfg
 
         configure_city_env_cfg(env_cfg, seed=seed, use_flow=False, people=1)
         env_cfg.sim.enable_scene_query_support = True
@@ -232,9 +232,9 @@ def _execute(output_root: Path, prepared: Mapping[str, Any], *, run_id: str,
     _checkpoint(output_root / "service_probe_start.json", report)
     with open_simulator_session(config) as session, _service_report_guard(report_path, report):
         import omni.physx
-        from demo.city.main import _zero_actions
-        from demo.city.runtime import CityEaiRuntime, CityRuntimeConfig
-        from demo.city.usd_scene import CityNativeRegionReader, world_envelopes
+        from demo.city_benchmark.scene.main import _zero_actions
+        from demo.city_benchmark.scene.runtime import CityEaiRuntime, CityRuntimeConfig
+        from demo.city_benchmark.scene.usd_scene import CityNativeRegionReader, world_envelopes
         from demo.city_benchmark.live_witness import CityIncidentReceiver
         from demo.city_benchmark.native_runner import CityNativeServiceRunner
 

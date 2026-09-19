@@ -187,7 +187,7 @@ def participant_service_coverage() -> dict:
 
 
 def authoring_record(public_task: dict, provenance: dict, obstacles: list[dict], semantic_map: dict | None = None):
-    from demo.city.scenario import AccidentTiming, IMPACT_SPEED_MPS
+    from demo.city_benchmark.scene.scenario import AccidentTiming, IMPACT_SPEED_MPS
     from demo.city_benchmark.response import build_response_people
     from demo.city_benchmark.task_logic import (default_deadline_policy,
                                                 factor_effect_requirements,
@@ -212,7 +212,7 @@ def authoring_record(public_task: dict, provenance: dict, obstacles: list[dict],
         "incident_template": {"timing": asdict(AccidentTiming()), "impact_speed_mps": IMPACT_SPEED_MPS,
                               "impact_time": "derived_from_selected_AccidentPlan_not_a_fixed_6.8_seconds",
                               "incident_seed": "freeze_at_episode_instantiation", "selected_target": None,
-                              "source": "demo.city.scenario.AccidentPlan", "visibility": "author_only"},
+                              "source": "demo.city_benchmark.scene.scenario.AccidentPlan", "visibility": "author_only"},
         "outcome_evidence_requirements": deepcopy(public_task["required_outcomes"]),
         "full_mission_witnesses": [],
         "witness_status": "blocked_by_missing_domain_services_not_fabricated",

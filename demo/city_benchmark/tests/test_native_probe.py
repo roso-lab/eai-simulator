@@ -31,7 +31,7 @@ def test_prepare_is_executable_contract_without_isaac(tmp_path):
         "demo/city_benchmark/native_probe.py",
         "demo/city_benchmark/live_witness.py",
         "demo/city_benchmark/episode_adapter.py",
-        "demo/city/runtime.py", "demo/city/main.py", "simulator.py",
+        "demo/city_benchmark/scene/runtime.py", "demo/city_benchmark/scene/main.py", "simulator.py",
     } <= {path.removeprefix("/home/pupil/eai-simulator/") for path in result["source_hashes"]}
     assert result["people"] == 1 and result["use_flow"] is False
     saved = json.loads((tmp_path / "native_probe_prepare.json").read_text())

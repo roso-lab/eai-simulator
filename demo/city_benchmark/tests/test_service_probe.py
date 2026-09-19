@@ -70,9 +70,9 @@ def test_execute_enters_session_before_importing_city_or_usd(monkeypatch, tmp_pa
     @contextmanager
     def open_session(config):
         assert config.kwargs["selection_data"] == service_probe._selection(17)
-        assert "demo.city.main" not in sys.modules
-        assert "demo.city.runtime" not in sys.modules
-        assert "demo.city.usd_scene" not in sys.modules
+        assert "demo.city_benchmark.scene.main" not in sys.modules
+        assert "demo.city_benchmark.scene.runtime" not in sys.modules
+        assert "demo.city_benchmark.scene.usd_scene" not in sys.modules
         raise StopAfterLifecycleCheck
         yield
 
@@ -80,7 +80,7 @@ def test_execute_enters_session_before_importing_city_or_usd(monkeypatch, tmp_pa
     fake_simulator.SimulatorLaunchConfig = Config
     fake_simulator.open_simulator_session = open_session
     monkeypatch.setitem(sys.modules, "simulator", fake_simulator)
-    for name in ("demo.city.main", "demo.city.runtime", "demo.city.usd_scene"):
+    for name in ("demo.city_benchmark.scene.main", "demo.city_benchmark.scene.runtime", "demo.city_benchmark.scene.usd_scene"):
         monkeypatch.delitem(sys.modules, name, raising=False)
     with pytest.raises(StopAfterLifecycleCheck):
         service_probe._execute(tmp_path, {"seed": 17, "device": "cpu"},

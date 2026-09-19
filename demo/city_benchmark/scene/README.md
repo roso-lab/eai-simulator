@@ -1,4 +1,10 @@
-# EAI City Demo
+# EAI City Demo（城市场景运行时子包）
+
+> 本包原为独立目录 `demo/city/`，2026-09-19 合并为
+> [`demo/city_benchmark/scene/`](../README.md) 子包：它是城市**场景运行时库**
+> （事故序列、车辆/路人、Flow 效果、环境配置钩子），`demo/city_benchmark/`
+> 的任务生成与审核层建立在其上。依赖方向：`demo.benchmark 核心 →
+> demo.city_benchmark → demo.city_benchmark.scene`。本演示仍可独立运行。
 
 Run the city accident through `simulator.py` / `open_simulator_session`, with
 Go2, Carter, and Pegasus Iris using the existing EAI controllers. The registered
@@ -11,7 +17,7 @@ or additional application lifecycle is required.
 From the repository root with the prepared Isaac Lab environment:
 
 ```bash
-DISPLAY=:1 /home/pupil/miniconda3/envs/env_isaaclab/bin/python demo/city/main.py \
+DISPLAY=:1 /home/pupil/miniconda3/envs/env_isaaclab/bin/python demo/city_benchmark/scene/main.py \
   --device cuda:0 --people 4 --seed 7 --frames 0 --loop --start-paused
 ```
 
@@ -32,7 +38,7 @@ the actual GUI viewport and exits after a bounded run.
 For a bounded headless run including Flow:
 
 ```bash
-DISPLAY=:1 /home/pupil/miniconda3/envs/env_isaaclab/bin/python demo/city/main.py \
+DISPLAY=:1 /home/pupil/miniconda3/envs/env_isaaclab/bin/python demo/city_benchmark/scene/main.py \
   --headless --frames 1300 --seed 7 --report tmp/city_eai_demo/scenario_report.json
 ```
 
@@ -151,7 +157,7 @@ for task generation. Traffic motion is scripted; it is not a dynamic crash model
 
 ```bash
 PYTHONPATH=source/EAI:source/EAI_assets:source/EAI_hmrs \
-  /home/pupil/miniconda3/envs/env_isaaclab/bin/python -m pytest -q demo/city/tests
+  /home/pupil/miniconda3/envs/env_isaaclab/bin/python -m pytest -q demo/city_benchmark/scene/tests
 ```
 
 The suite covers planner contacts, USD session edits, source preservation, Flow

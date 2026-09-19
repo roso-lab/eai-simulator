@@ -39,7 +39,7 @@ def _write(path: Path, value: Mapping[str, Any]) -> None:
 
 
 def _source_hashes() -> dict[str, str]:
-    from demo.city.usd_scene import CITY_STATIC_USD, SUPPORTED_VEHICLES, VEHICLE_ROOT
+    from demo.city_benchmark.scene.usd_scene import CITY_STATIC_USD, SUPPORTED_VEHICLES, VEHICLE_ROOT
 
     paths = [
         CITY_STATIC_USD,
@@ -47,9 +47,9 @@ def _source_hashes() -> dict[str, str]:
         ROOT / "demo/city_benchmark/native_probe.py",
         ROOT / "demo/city_benchmark/live_witness.py",
         ROOT / "demo/city_benchmark/episode_adapter.py",
-        ROOT / "demo/city/main.py",
-        ROOT / "demo/city/runtime.py",
-        ROOT / "demo/city/usd_scene.py",
+        ROOT / "demo/city_benchmark/scene/main.py",
+        ROOT / "demo/city_benchmark/scene/runtime.py",
+        ROOT / "demo/city_benchmark/scene/usd_scene.py",
         ROOT / "simulator.py",
     ]
     return {str(path.resolve()): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}
@@ -229,8 +229,8 @@ def _execute_locked(output_root: Path, *, prepared: Mapping[str, Any], run_id: s
                     headless: bool) -> dict[str, Any]:
     from functools import partial
     from simulator import SimulatorLaunchConfig, open_simulator_session
-    from demo.city.main import _zero_actions, build_selection, configure_city_env_cfg
-    from demo.city.runtime import CityEaiRuntime, CityRuntimeConfig
+    from demo.city_benchmark.scene.main import _zero_actions, build_selection, configure_city_env_cfg
+    from demo.city_benchmark.scene.runtime import CityEaiRuntime, CityRuntimeConfig
 
     device = str(prepared["device"])
     seed = int(prepared["seed"])

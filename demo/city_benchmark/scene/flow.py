@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from demo.city.scenario import AccidentState
+from demo.city_benchmark.scene.scenario import AccidentState
 
 CM_TO_M = 0.01
 FLOW_KIT_PRELOAD_ARGS = (
@@ -23,10 +23,10 @@ FLOW_KIT_PRELOAD_ARGS = (
 # NOTE: composite feature flags such as /rtx/translucency/enabled cannot be
 # set here. SimulationContext applies the default "balanced" rendering preset
 # after command-line settings, so restore them through RenderCfg instead
-# (see configure_city_env_cfg in demo/city/main.py).
+# (see configure_city_env_cfg in demo/city_benchmark/scene/main.py).
 FLOW_KIT_ARGS = FLOW_KIT_PRELOAD_ARGS
 # 仓库内 usd/effects/（README.md 记录出处与许可）；EAI_NVD_FLOW_ROOT 可指向 NVD 原始下载目录。
-_DEFAULT_FLOW_ROOT = Path(__file__).resolve().parents[2] / "usd" / "effects"
+_DEFAULT_FLOW_ROOT = Path(__file__).resolve().parents[3] / "usd" / "effects"
 
 
 def _flow_root_from_env() -> Path:

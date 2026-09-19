@@ -1,6 +1,6 @@
 """Fail-closed live service witness entry point for the City benchmark.
 
-The existing ``demo.city`` runtime exposes scene animation and USD pose
+The existing ``demo.city_benchmark.scene`` runtime exposes scene animation and USD pose
 updates, but it does not expose an episode-owned service witness.  This module
 keeps that boundary explicit: a live session can only bind to a runtime that
 publishes a trusted ``city_service_witness`` host.  Reference models and
@@ -159,14 +159,14 @@ class CityIncidentReceiver:
 
 
 class CityDemoRuntimeWitnessAdapter:
-    """Benchmark-owned adapter around the existing ``demo.city`` runtime.
+    """Benchmark-owned adapter around the existing ``demo.city_benchmark.scene`` runtime.
 
     It reads actual poses from the runtime and can drive an actual human
     action when the caller supplies an affected-person binding.  It never
     treats the City's scripted traffic list as a control service: a separate
     vehicle controller callback is required before that capability is marked
     available.  The adapter can therefore be used to produce a concrete
-    readiness report while the scene is running without changing ``demo.city``.
+    readiness report while the scene is running without changing ``demo.city_benchmark.scene``.
     """
 
     def __init__(self, runtime: Any, *, episode_id: str, source_id: str = "isaac.city.runtime",
@@ -317,7 +317,7 @@ class CityDemoRuntimeWitnessAdapter:
         specs = roster if roster is not None else self.affected_people
         if person_id not in specs:
             raise CityRuntimeWitnessBlocked(
-                "affected-person binding is required; demo.city background actors are not service targets")
+                "affected-person binding is required; demo.city_benchmark.scene background actors are not service targets")
         for method in ("play_action", "set_path_speed"):
             if not callable(getattr(people, method, None)):
                 raise CityRuntimeWitnessBlocked(f"human runtime lacks {method} service action")
@@ -567,7 +567,7 @@ class CityDemoRuntimeWitnessAdapter:
     def control_vehicle(self, vehicle_id: str, mode: str) -> Mapping[str, Any]:
         if not callable(self.vehicle_controller):
             raise CityRuntimeWitnessBlocked(
-                "demo.city runtime has scripted vehicle poses but no per-vehicle service controller")
+                "demo.city_benchmark.scene runtime has scripted vehicle poses but no per-vehicle service controller")
         return self.vehicle_controller(_text(vehicle_id, "vehicle id"), _text(mode, "vehicle mode"))
 
     def city_service_witness_source(self) -> dict[str, Any]:

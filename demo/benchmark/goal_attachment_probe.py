@@ -62,7 +62,7 @@ def _sources(deployment):
         path = Path(__file__).with_name(name)
         result[str(path)] = file_sha256(path)
     result.update(deployment.get("compiler_sources", {}))
-    capture_source = ROOT / "demo/city/presentation.py"
+    capture_source = ROOT / "demo/city_benchmark/scene/presentation.py"
     result[str(capture_source)] = file_sha256(capture_source)
     return result
 
@@ -296,7 +296,7 @@ def run_worker(output_root):
             if request["gui"]:
                 # Freeze the repository capture module's transitive imports
                 # before control, rather than first observing them at the end.
-                from demo.city import presentation as _capture_module
+                from demo.city_benchmark.scene import presentation as _capture_module
             stage = omni.usd.get_context().get_stage()
             live = LiveBodies(session.base_env.scene, deployment)
             live.step = int(session.base_env.sim.current_time_step_index)

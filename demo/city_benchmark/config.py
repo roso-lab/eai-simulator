@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import math
 from pathlib import Path
 
-from demo.city.usd_scene import CITY_ROOT
+from demo.city_benchmark.scene.usd_scene import CITY_ROOT
 
 
 @dataclass(frozen=True)
@@ -36,10 +36,10 @@ def integration_manifest() -> dict:
         "public_builder": "demo.city_benchmark.contracts.build_public_task",
         "public_validator": "demo.benchmark.goal_driven_contract.validate_goal_task_spec",
         "api_builder": "demo.benchmark.goal_driven_contract.build_goal_participant_api",
-        "simulation_entrypoint": "demo.city.main",
+        "simulation_entrypoint": "demo.city_benchmark.scene.main",
         "session_owner": "simulator.open_simulator_session",
-        "environment_hook": "demo.city.main.configure_city_env_cfg",
-        "demo_selection_factory": "demo.city.main.build_selection",
+        "environment_hook": "demo.city_benchmark.scene.main.configure_city_env_cfg",
+        "demo_selection_factory": "demo.city_benchmark.scene.main.build_selection",
         "response_people_factory": "demo.city_benchmark.response.build_response_people",
         "response_people_spawner": "demo.city_benchmark.response.spawn_response_people",
         "human_response_binding": "demo.city_benchmark.response.HumanEvacuationBinding",

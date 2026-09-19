@@ -24,7 +24,7 @@ def build_selected_selection(agent_ids: list[str], *, seed: int = 7, max_active_
     pool = candidate_pool()
     if set(agent_ids) - {r["id"] for r in pool}:
         raise ValueError("selected agent is outside the public candidate pool")
-    from demo.city.main import build_selection
+    from demo.city_benchmark.scene.main import build_selection
 
     selection = deepcopy(build_selection(seed))
     robots_by_type = {robot["type"]: robot for robot in selection["robots"]}

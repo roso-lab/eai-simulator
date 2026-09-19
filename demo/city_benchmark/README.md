@@ -1,7 +1,8 @@
 # City benchmark preparation
 
-城市第四场景的**任务生成与审核基础接入层**。复用 `demo/city` 的事故、车辆、路人、
-Flow 和单一 `open_simulator_session` 生命周期；不重命名原演示，不更改三个已有场景
+城市第四场景的**任务生成与审核基础接入层**。场景运行时（事故、车辆、路人、Flow 和单一
+`open_simulator_session` 生命周期）位于本包 [`scene/`](scene/README.md) 子包——原独立目录
+`demo/city/`，2026-09-19 合并至此；不重命名原演示语义，不更改三个已有场景
 或共享 goal-driven 契约。题包场景身份是 `city`，而原演示选择器中的
 `modern_house_nvd` 只是动态 builder 的配置支架，不是城市任务的场景身份。
 
@@ -136,7 +137,7 @@ api = build_goal_participant_api(task)
 selection = build_selected_selection(["go2_1", "iris_1"], seed=7, max_active_agents=2)
 ```
 
-调用者必须使用 `demo.city.main.configure_city_env_cfg` 和现有 session API 组合环境。
+调用者必须使用 `demo.city_benchmark.scene.main.configure_city_env_cfg` 和现有 session API 组合环境。
 此 selection helper 只生成配置；不会激活机器人、代替加入事件、建立导航或实施参与者动作。
 共享 `goal_scene_registry.py` 已注册 city 为 `preparation_draft_not_goal_bundle`，并由
 `goal_city_intake.py` 校验 prepare v1 的 10 个 artifact 加 manifest。完整题包生成器
@@ -198,7 +199,7 @@ participant API。宿主传入当前区域/路线/容量/服务权限审核回�
 `city_service_witness` host；host 必须带稳定的 `episode_id` 并实现 observation、角色、服务
 回执、人员/车辆世界读回和连续通路读回方法。`LiveEvidence` 还要求每条证据绑定 episode、
 source、实体、时间和明确的状态变化，拒绝 `reference`、`backend`、`participant` 或
-`ack` 作为来源。缺少 host 时，当前 `demo.city.runtime` 只暴露脚本事故车、背景交通和
+`ack` 作为来源。缺少 host 时，当前 `demo.city_benchmark.scene.runtime` 只暴露脚本事故车、背景交通和
 循环背景行人，入口具体报告 `service_witness_host_missing`、
 `people_source_is_background_only`、`vehicle_source_is_scene_pose_only` 和
 `incident_receipt_endpoint_missing`；没有服务请求、ACK 或 readback 可以被升级为真实成功。
@@ -241,7 +242,7 @@ Kit 清理时可能吞掉异常，单独的进程 exit code 不能证明成功�
 PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
 PYTHONPATH=source/EAI:source/EAI_assets:source/EAI_hmrs \
 /home/pupil/miniconda3/envs/env_isaaclab/bin/python -m pytest -p no:cacheprovider -q \
-  demo/city_benchmark/tests/test_foundation.py demo/city/tests \
+  demo/city_benchmark/tests/test_foundation.py demo/city_benchmark/scene/tests \
   demo/city_benchmark/tests/test_service_backend.py \
   demo/city_benchmark/tests/test_episode_adapter.py \
   source/EAI/test/test_benchmark_goal_city_intake.py

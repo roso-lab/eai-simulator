@@ -6,7 +6,7 @@ import math
 from copy import deepcopy
 from typing import Any, Mapping
 
-from demo.city.scenario import _distance_to_segment_xy
+from demo.city_benchmark.scene.scenario import _distance_to_segment_xy
 
 ASSET_IDS = ("rp-aaron-rigged-001", "rp-amit-rigged-008-yup-t",
              "synbody-0000001", "synbody-0000020")

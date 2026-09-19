@@ -184,7 +184,7 @@ def read_robot_measurements(session, deployment, stage):
 
 def _camera_capture(session, root, positions, name, *, scene_key=None, eye=None):
     from omni.kit.viewport.utility import get_active_viewport
-    from demo.city.presentation import capture_viewport
+    from demo.city_benchmark.scene.presentation import capture_viewport
     viewport = get_active_viewport()
     if viewport is None:
         raise RuntimeError("GUI requested but no active viewport")
@@ -258,7 +258,7 @@ def run_worker(root):
         from demo.benchmark.goal_native_objects import configure_goal_objects
         try:
             if request["scene_key"] == "city":
-                from demo.city.main import configure_city_env_cfg
+                from demo.city_benchmark.scene.main import configure_city_env_cfg
                 configure_city_env_cfg(env_cfg, use_flow=False, people=0)
             env_cfg.sim.render_interval = max(1, round(.1 / env_cfg.sim.dt))
             # Isaac Lab only enables queries automatically with a GUI. Empty

@@ -10,7 +10,7 @@ import json
 import math
 from pathlib import Path
 
-from demo.city.usd_scene import compose_city, discover_buildings, discover_obstacles
+from demo.city_benchmark.scene.usd_scene import compose_city, discover_buildings, discover_obstacles
 
 
 def file_hash(path: Path) -> str:

@@ -12,15 +12,15 @@ Flow 105.1 预设，逐字节保留原始发布内容（`manifest.json` 记录 s
 
 | 目录           | 文件                              | 说明                     |
 | -------------- | --------------------------------- | ------------------------ |
-| `fire/`        | `Fire.usda`、`WispyFire.usda`      | 火焰（demo/city 车火、楼火用 `Fire`） |
-| `smoke/`       | `DenseSmoke.usda`、`DarkSmoke.usda` | 烟雾（demo/city 用 `DenseSmoke`） |
+| `fire/`        | `Fire.usda`、`WispyFire.usda`      | 火焰（demo/city_benchmark/scene 车火、楼火用 `Fire`） |
+| `smoke/`       | `DenseSmoke.usda`、`DarkSmoke.usda` | 烟雾（demo/city_benchmark/scene 用 `DenseSmoke`） |
 | `dust/`        | `Dust.usda`                       | 扬尘                     |
 | `steam/`       | `Steam.usda`                      | 蒸汽                     |
 | `pointcloud/`  | `PointCloud.usda`                 | 点云样式体积效果           |
 
 ## 引用方式
 
-`demo/city/flow.py` 默认从本目录解析 `fire/Fire.usda` 与
+`demo/city_benchmark/scene/flow.py` 默认从本目录解析 `fire/Fire.usda` 与
 `smoke/DenseSmoke.usda`（`FlowPairAdapter`）。解析顺序：先找本目录的
 仓库布局 `fire/… smoke/…`，再兼容 `EAI_NVD_FLOW_ROOT` 指向的 NVD
 原始下载目录布局（`105.1/presets/…` 等）。

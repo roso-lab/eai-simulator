@@ -10,20 +10,20 @@ from functools import partial
 from pathlib import Path
 
 if __package__ in (None, ""):
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from simulator import SimulatorLaunchConfig, open_simulator_session
-from demo.city.flow import FIRE_USD, SMOKE_USD, FLOW_KIT_PRELOAD_ARGS
-from demo.city.runtime import CityEaiRuntime, CityRuntimeConfig
-from demo.city.usd_scene import CITY_STATIC_USD, compose_city
+from demo.city_benchmark.scene.flow import FIRE_USD, SMOKE_USD, FLOW_KIT_PRELOAD_ARGS
+from demo.city_benchmark.scene.runtime import CityEaiRuntime, CityRuntimeConfig
+from demo.city_benchmark.scene.usd_scene import CITY_STATIC_USD, compose_city
 
 
 def _spawn_city_usd(prim_path, cfg, translation=None, orientation=None, *, seed=7, use_flow=True, target_path=None, people=4, **kwargs):
     from isaaclab.sim.spawners.from_files.from_files import spawn_from_usd
     from isaaclab.sim.utils import get_current_stage
-    from demo.city.prebuilt import publish
-    from demo.city.usd_scene import CitySceneAdapter
-    from demo.city.flow import FlowPairAdapter
+    from demo.city_benchmark.scene.prebuilt import publish
+    from demo.city_benchmark.scene.usd_scene import CitySceneAdapter
+    from demo.city_benchmark.scene.flow import FlowPairAdapter
 
     print(f"[city-demo] prebuild callback invoked at {prim_path}", flush=True)
     try:
@@ -35,8 +35,8 @@ def _spawn_city_usd(prim_path, cfg, translation=None, orientation=None, *, seed=
             validate_obstacles=False,
         )).prepare(target_path)
         scene.spawn_traffic()
-        from demo.city.people import spawn_background_people
-        from demo.city.usd_scene import CITY_SCENARIO_JSON
+        from demo.city_benchmark.scene.people import spawn_background_people
+        from demo.city_benchmark.scene.usd_scene import CITY_SCENARIO_JSON
         routes = json.loads(CITY_SCENARIO_JSON.read_text(encoding="utf-8"))["pedestrian_routes"]
         scene.people_runtime, scene.people = spawn_background_people(stage, scene, routes, people)
         flow = FlowPairAdapter(stage) if use_flow else None
@@ -109,7 +109,7 @@ def _save_report(path, report):
 
 
 def run(args):
-    from demo.city.prebuilt import clear
+    from demo.city_benchmark.scene.prebuilt import clear
     clear()
     frame_limit = args.frames if args.frames is not None else (1000 if args.headless else 0)
     if args.headless and frame_limit <= 0:
@@ -127,7 +127,7 @@ def run(args):
         env_cfg_hook=partial(configure_city_env_cfg, seed=args.seed, use_flow=args.flow, target_path=args.target_path, people=args.people),
     )
     import hashlib
-    from demo.city.usd_scene import VEHICLE_ROOT, SUPPORTED_VEHICLES
+    from demo.city_benchmark.scene.usd_scene import VEHICLE_ROOT, SUPPORTED_VEHICLES
     sources = [CITY_STATIC_USD, *(VEHICLE_ROOT / name for name, _ in SUPPORTED_VEHICLES)]
     if args.flow:
         sources += [FIRE_USD, SMOKE_USD]
@@ -143,7 +143,7 @@ def run(args):
             city = CityEaiRuntime.from_current_stage(config=CityRuntimeConfig(seed=args.seed, use_flow=args.flow))
             print("[city-demo] runtime bound; building commands", flush=True)
             if getattr(city, "flow", None) is not None:
-                from demo.city.flow import verify_live_flow
+                from demo.city_benchmark.scene.flow import verify_live_flow
                 verify_live_flow(city.stage, city.flow.paths)
             actions = _zero_actions(session)
             dt = float(session.base_env.step_dt)
@@ -151,16 +151,16 @@ def run(args):
             viewport = None
             capture_dir = getattr(args, "capture_dir", None)
             if not args.headless:
-                from demo.city.presentation import configure_view, capture_viewport
+                from demo.city_benchmark.scene.presentation import configure_view, capture_viewport
                 viewport = configure_view(city.stage, city.scene.plan)
                 if capture_dir:
-                    from demo.city.presentation import attach_instance_ids
+                    from demo.city_benchmark.scene.presentation import attach_instance_ids
                     instance_ids = attach_instance_ids(viewport)
                 for _ in range(getattr(args, "warmup_frames", 90)):
                     session.env.step(actions)
                 city.reset()
                 viewport = configure_view(city.stage, city.scene.plan)
-                from demo.city.presentation import CityDemoControls
+                from demo.city_benchmark.scene.presentation import CityDemoControls
                 controls = CityDemoControls(city)
                 controls.paused = getattr(args, "start_paused", False)
                 print("[city-demo] GUI ready. Replay / Pause / Focus accident controls are available. Close the window to exit.", flush=True)
@@ -173,7 +173,7 @@ def run(args):
                 physics_subscription = omni.physx.get_physx_interface().subscribe_physics_step_events(count_physics_step)
             flow_clock = None
             if getattr(city, "flow", None) is not None:
-                from demo.city.flow import FlowTimelineClock
+                from demo.city_benchmark.scene.flow import FlowTimelineClock
                 flow_clock = FlowTimelineClock(dt)
             captures = []
             capture_times = [1.0, 3.0, city.scene.plan.impact_time + .4, 14.0] if viewport is not None and capture_dir else []
@@ -210,7 +210,7 @@ def run(args):
                     viewport = configure_view(city.stage, city.scene.plan)
                     for _ in range(8):
                         session.base_env.sim.render()
-                    from demo.city.presentation import viewport_witness, visible_vehicle_pixels
+                    from demo.city_benchmark.scene.presentation import viewport_witness, visible_vehicle_pixels
                     witness = viewport_witness(city.stage, viewport)
                     witness["phase"] = city.phase
                     witness["elapsed"] = city.elapsed
@@ -224,7 +224,7 @@ def run(args):
                 if controls is not None:
                     time.sleep(max(0.0, dt - (time.perf_counter() - tick_start)))
             if captures and session.simulation_app.is_running():
-                from demo.city.presentation import capture_vehicle_views
+                from demo.city_benchmark.scene.presentation import capture_vehicle_views
                 report["vehicle_views"] = capture_vehicle_views(city.stage, viewport, session.simulation_app,
                     session.base_env.sim.render, instance_ids, capture_dir)
                 configure_view(city.stage, city.scene.plan)

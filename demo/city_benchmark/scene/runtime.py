@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from copy import deepcopy
 from typing import Any, Callable, Iterable, Mapping
 
-from demo.city.scenario import CityScenarioConfig, Polyline
+from demo.city_benchmark.scene.scenario import CityScenarioConfig, Polyline
 
 
 @dataclass(frozen=True)
@@ -31,7 +31,7 @@ class CityEpisodeServiceRuntime:
                  hazard_region_id: str, access_region_id: str,
                  region_reader: Any, assignment: Mapping[str, Mapping[str, str]],
                  incident_receiver: Any):
-        from demo.city.people import EpisodeAffectedPeopleController, EpisodeAffectedPersonRoster
+        from demo.city_benchmark.scene.people import EpisodeAffectedPeopleController, EpisodeAffectedPersonRoster
         self.city = city
         self.region_reader = region_reader
         self.assembly_regions = {str(key): dict(value) for key, value in assembly_regions.items()}
@@ -294,7 +294,7 @@ class CityEaiRuntime:
     def __init__(self, stage, *, config: CityRuntimeConfig | None = None):
         self.config = config or CityRuntimeConfig()
         self.stage = stage
-        from demo.city.prebuilt import consume
+        from demo.city_benchmark.scene.prebuilt import consume
         prebuilt = consume()
         if prebuilt is None:
             raise RuntimeError("City spawn callback did not publish a prebuilt scene")

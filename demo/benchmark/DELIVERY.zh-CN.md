@@ -17,7 +17,8 @@ demo/
   warehouse_benchmark/           仓储场景：10 节点订单链 + 原生物理 probe
   modern_house_benchmark/        家居场景：11 节点恢复链 + 原生 detector/path 后端
   city_benchmark/                城市第四场景：接入/episode 适配/服务见证（候选）
-  city/                          城市演示（Flow 体积效果等）
+    scene/                       城市场景运行时子包（原 demo/city，2026-09-19 合并：
+                                 事故序列/车辆/路人/Flow/环境配置钩子，可独立运行）
 tools/
   scenario_generation/           任务生成器与审核 CLI（benchmark_generator、vertical_task 等）
   assets/                        NVD 资产准备、迁移、闭包审计、地图/体素重建
@@ -30,6 +31,10 @@ usd/
   scene/{factory,warehouse_nvd,modern_house_nvd}/   场景 USD 与占据图/体素（运行时资产，不入库）
   effects/                       体积效果预设元数据（Omniverse 许可的 .usda 不入库）
 ```
+
+城市包内部分层（依赖单向：`demo.benchmark 核心 → demo.city_benchmark → demo.city_benchmark.scene`）：
+`city_benchmark/` 根层是任务生成与审核（prepare 产物、intake 审核、episode 适配、服务见证），
+`scene/` 子包是场景运行时库——相当于其他三场景中「EAI_assets 场景配置」的角色。
 
 `demo/benchmark/` 内部按职责分组：
 
@@ -63,7 +68,7 @@ usd/
 | 场景文档 | [factory_benchmark/README.zh-CN.md](../factory_benchmark/README.zh-CN.md) | 现行 | Factory 入口：状态块、F-INS/F-VERT/F-TRAFFIC/F-COV、标签与派车基线 |
 |  | [warehouse_benchmark/README.zh-CN.md](../warehouse_benchmark/README.zh-CN.md) | 现行 | Warehouse 入口：状态块、10 节点订单链、原生承载诊断 |
 |  | [modern_house_benchmark/README.zh-CN.md](../modern_house_benchmark/README.zh-CN.md)、[NATIVE_BACKENDS.md](../modern_house_benchmark/NATIVE_BACKENDS.md) | 现行 | House 入口：状态块、11 节点恢复链、原生 detector/path 后端 |
-|  | [city_benchmark/README.md](../city_benchmark/README.md)、[TODO.zh-CN.md](../city_benchmark/TODO.zh-CN.md)、[VALIDATION.zh-CN.md](../city_benchmark/VALIDATION.zh-CN.md) | 现行 | 城市第四场景：prepare/intake、服务边界、验证记录 |
+|  | [city_benchmark/README.md](../city_benchmark/README.md)、[scene/README.md](../city_benchmark/scene/README.md)、[TODO.zh-CN.md](../city_benchmark/TODO.zh-CN.md)、[VALIDATION.zh-CN.md](../city_benchmark/VALIDATION.zh-CN.md) | 现行（VALIDATION 为日期记录） | 城市第四场景：prepare/intake、服务边界、场景运行时子包、验证记录 |
 |  | `demo/<scene>_benchmark/README.md`（英文镜像） | 现行 | 顶部含英文状态块；中文版为权威 |
 | 历史归档 | [HCS-IRD方案调研报告.zh-CN.md](HCS-IRD方案调研报告.zh-CN.md) | 历史 | 2026-09-15 调研讨论稿 |
 |  | [factory_benchmark/ROADMAP.zh-CN.md](../factory_benchmark/ROADMAP.zh-CN.md) | 历史 | 启动期设计规划（结论已被后续实现吸收） |
@@ -201,4 +206,4 @@ conda run -n env_isaaclab env PYTHONPATH=. PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
 | 物理回放 / probe_tool | `tools/physics_replay/`、simulator.py 集成 | 已提交（本分支既有 commit），locomotion 重建 PASS |
 | 机械臂真实物理准入 | `tools/validation/{kinova,ur5}*.py`、`source/EAI_assets/.../robots/kinova_*.py`、`ur5_robotiq.py` | 审计/冒烟工具就位；部署矩阵 conditional/rejected/unknown，等外部实测证据 |
 | C01/Mid360 传感器与 rmuc2024 场景（nav 适配线） | `sensor/low_sensor/octagon_aio_c01.py`、`robots/simple_car.py`、`scene/rmuc2024.py`、`EAI_hmrs/envs/rmuc2024_*.json`、`algorithm/nav_product_adapter/` | 传感器/场景/环境 JSON 就位；nav 闭环另有会话推进 |
-| 城市演示（Flow 效果） | `demo/city/` | demo 可用；Flow 预设本体按 Omniverse 许可不入库（`usd/effects/` 仅提交元数据） |
+| 城市演示（Flow 效果） | `demo/city_benchmark/scene/`（2026-09-19 自 `demo/city/` 合并） | demo 可独立运行；Flow 预设本体按 Omniverse 许可不入库（`usd/effects/` 仅提交元数据） |
