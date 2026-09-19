@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import torch
 from collections.abc import Sequence
+from copy import deepcopy
 from typing import Any, Dict
 
 from isaaclab.envs import DirectMARLEnv
@@ -52,13 +53,36 @@ class MultiRobotDirectEnv(DirectMARLEnv):
         # Flag to track if controllers are loaded
         self._controllers_loaded = False
 
+        # Benchmark lifecycle state is separate from Isaac's object inventory.
+        # Reserve articulations stay preloaded, while this gate pins inactive
+        # members at their authored parking pose and blocks controller output.
+        self._benchmark_agent_active = {
+            robot_name: True for robot_name in cfg.controllers
+        }
+        self._benchmark_capability_declarations: Dict[str, Dict[str, Any]] = {}
+        self._benchmark_capability_versions = {
+            robot_name: 1 for robot_name in cfg.controllers
+        }
+        self._benchmark_park_poses: Dict[str, torch.Tensor] = {}
+
+    def _setup_scene(self) -> None:
+        from isaaclab.sim import find_matching_prim_paths
+        from EAI.physics.articulation_reset import capture_root_poses
+
+        self._attached_spawn_poses = {}
+        for name, robot in self.scene.articulations.items():
+            if name.endswith("_arm"):
+                root_pattern = robot.cfg.prim_path + (robot.cfg.articulation_root_prim_path or "")
+                paths = find_matching_prim_paths(root_pattern)
+                self._attached_spawn_poses.update(capture_root_poses(self.sim.get_initial_stage(), paths))
+
     def _capture_attached_articulation_defaults(self) -> None:
+        from EAI.physics.articulation_reset import set_spawn_root_defaults
+
         for name, robot in self.scene.articulations.items():
             if not name.endswith("_arm"):
                 continue
-            root_state = robot.data.root_state_w.clone()
-            root_state[:, :3] -= self.scene.env_origins
-            robot.data.default_root_state[:] = root_state
+            set_spawn_root_defaults(robot, self._attached_spawn_poses, self.scene.env_origins)
     
     def reset(self, seed: int | None = None, options: dict[str, Any] | None = None):
         """Reset the environment and load controllers on first reset."""
@@ -90,6 +114,154 @@ class MultiRobotDirectEnv(DirectMARLEnv):
         for controller_dict in self._controllers:
             robot_name = controller_dict['name']
             self._controllers_dict[robot_name] = controller_dict
+
+    def configure_benchmark_lifecycle(
+        self,
+        *,
+        active_agent_ids: set[str] | frozenset[str],
+        capability_declarations: Dict[str, Dict[str, Any]],
+        capability_versions: Dict[str, int] | None = None,
+    ) -> None:
+        """Configure preloaded benchmark membership and controller admission.
+
+        This API never spawns or removes an articulation. Inactive members are
+        held at their current authored pose until a verified join activates
+        them. Capability declarations are consulted on every control step, so
+        disabling ``navigation_interface`` has an immediate physical control
+        effect instead of being metadata-only.
+        """
+        expected = set(self._controller_configs)
+        active = set(active_agent_ids)
+        declarations = dict(capability_declarations)
+        versions = dict(capability_versions or {
+            robot_name: 1 for robot_name in expected
+        })
+        if set(declarations) != expected or set(versions) != expected:
+            raise ValueError(
+                "benchmark lifecycle declarations and versions must exactly "
+                "match configured controller ids")
+        if active - expected:
+            raise ValueError("benchmark active agents must be configured controllers")
+        if any(not isinstance(value, dict) or not value for value in declarations.values()):
+            raise ValueError("benchmark capability declarations must be nonempty objects")
+        if any(type(value) is not int or value < 1 for value in versions.values()):
+            raise ValueError("benchmark capability versions must be positive integers")
+        missing = expected - set(self.scene.articulations)
+        if missing:
+            raise ValueError(
+                "benchmark lifecycle is missing articulations: " + ", ".join(sorted(missing)))
+
+        self._benchmark_capability_declarations = deepcopy(declarations)
+        self._benchmark_capability_versions = versions
+        for robot_name in sorted(expected):
+            robot = self.scene.articulations[robot_name]
+            self._benchmark_park_poses[robot_name] = robot.data.root_state_w[:, :7].clone()
+            self.set_benchmark_agent_active(robot_name, robot_name in active)
+
+    def set_benchmark_agent_active(self, robot_name: str, active: bool) -> None:
+        """Enable or park one already-loaded benchmark articulation."""
+        if robot_name not in self._controller_configs:
+            raise KeyError(f"unknown benchmark controller '{robot_name}'")
+        if type(active) is not bool:
+            raise TypeError("benchmark active state must be boolean")
+        if robot_name not in self.scene.articulations:
+            raise ValueError(f"missing benchmark articulation '{robot_name}'")
+        if not active and robot_name not in self._benchmark_park_poses:
+            robot = self.scene.articulations[robot_name]
+            self._benchmark_park_poses[robot_name] = robot.data.root_state_w[:, :7].clone()
+        self._benchmark_agent_active[robot_name] = active
+        self.actions_dict.pop(robot_name, None)
+        self._last_computed_actions.pop(robot_name, None)
+        if not active:
+            self._hold_benchmark_agent(robot_name)
+
+    def reconfigure_benchmark_controller(
+        self,
+        robot_name: str,
+        capability_declaration: Dict[str, Any],
+        capability_version: int,
+    ) -> None:
+        """Replace the command-admission declaration for one controller.
+
+        ``navigation_interface`` is the executable part of the declaration:
+        false pins the robot and suppresses controller/auxiliary output. The
+        physical attachment, payload and sensor claims cannot change here.
+        The declaration and monotonically increasing version are retained for
+        exact readback by the benchmark transaction boundary.
+        """
+        if robot_name not in self._controller_configs:
+            raise KeyError(f"unknown benchmark controller '{robot_name}'")
+        if not isinstance(capability_declaration, dict) or not capability_declaration:
+            raise ValueError("capability declaration must be a nonempty object")
+        if type(capability_declaration.get("navigation_interface")) is not bool:
+            raise ValueError(
+                "capability declaration requires boolean navigation_interface")
+        current_declaration = self._benchmark_capability_declarations.get(robot_name)
+        if current_declaration is None:
+            raise ValueError("benchmark controller must be configured before reconfiguration")
+        unchanged = dict(current_declaration)
+        unchanged["navigation_interface"] = capability_declaration["navigation_interface"]
+        if capability_declaration != unchanged:
+            raise ValueError(
+                "benchmark controller only supports navigation_interface changes; "
+                "physical attachments, sensors and payload claims require a scene adapter")
+        current = self._benchmark_capability_versions.get(robot_name, 0)
+        if type(capability_version) is not int or capability_version <= current:
+            raise ValueError("capability version must increase monotonically")
+        self._benchmark_capability_declarations[robot_name] = deepcopy(
+            capability_declaration)
+        self._benchmark_capability_versions[robot_name] = capability_version
+        self.actions_dict.pop(robot_name, None)
+        self._last_computed_actions.pop(robot_name, None)
+        if not capability_declaration["navigation_interface"]:
+            self._benchmark_park_poses[robot_name] = (
+                self.scene.articulations[robot_name].data.root_state_w[:, :7].clone())
+            self._hold_benchmark_agent(robot_name)
+
+    def read_benchmark_agent_state(self, robot_name: str) -> Dict[str, Any]:
+        """Return physical inventory and operational activation readback."""
+        robot = self.scene.articulations.get(robot_name)
+        prim_paths = tuple(robot.root_physx_view.prim_paths) if robot is not None else ()
+        return {
+            "present": robot is not None and len(prim_paths) == 1,
+            "articulation": robot is not None,
+            "active": self._benchmark_agent_active.get(robot_name, False),
+            "prim_path": prim_paths[0] if len(prim_paths) == 1 else None,
+        }
+
+    def read_benchmark_controller_state(self, robot_name: str) -> Dict[str, Any]:
+        """Return the controller guard state used by the action hot path."""
+        controller = self._controller_configs.get(robot_name)
+        return {
+            "configured": (
+                controller is not None
+                and robot_name in self._controllers_dict
+                and robot_name in self._benchmark_capability_declarations
+            ),
+            "capability_version": self._benchmark_capability_versions.get(robot_name),
+            "capability_declaration": deepcopy(
+                self._benchmark_capability_declarations.get(robot_name)),
+            "controller_id": (
+                f"{robot_name}:{type(controller).__name__}" if controller is not None else None),
+        }
+
+    def _benchmark_control_enabled(self, robot_name: str) -> bool:
+        declaration = self._benchmark_capability_declarations.get(robot_name)
+        return (self._benchmark_agent_active.get(robot_name, True)
+                and (declaration is None or declaration["navigation_interface"] is True))
+
+    def _hold_benchmark_agent(self, robot_name: str) -> None:
+        robot = self.scene.articulations[robot_name]
+        pose = self._benchmark_park_poses.get(robot_name)
+        if pose is None:
+            pose = robot.data.root_state_w[:, :7].clone()
+            self._benchmark_park_poses[robot_name] = pose
+        env_ids = torch.arange(self.num_envs, device=self.device, dtype=torch.long)
+        velocity = torch.zeros((self.num_envs, 6), device=self.device)
+        robot.write_root_pose_to_sim(pose, env_ids=env_ids)
+        robot.write_root_velocity_to_sim(velocity, env_ids=env_ids)
+        joint_velocity = torch.zeros_like(robot.data.joint_vel)
+        robot.set_joint_velocity_target(joint_velocity, env_ids=env_ids)
     
     def _update_spaces_with_actual_dims(self):
         """Update observation and action spaces with actual computed dimensions."""
@@ -282,8 +454,13 @@ class MultiRobotDirectEnv(DirectMARLEnv):
         
         precomputed_actions = self._replay_precomputed_actions
         if precomputed_actions is not None:
-            self.actions_dict = dict(precomputed_actions)
-            self._last_computed_actions = dict(precomputed_actions)
+            admitted = {
+                robot_name: action
+                for robot_name, action in precomputed_actions.items()
+                if self._benchmark_control_enabled(robot_name)
+            }
+            self.actions_dict = admitted
+            self._last_computed_actions = dict(admitted)
             self._replay_precomputed_actions = None
             self._replay_precomputed_used = True
             return
@@ -297,6 +474,9 @@ class MultiRobotDirectEnv(DirectMARLEnv):
         
         for robot_name in self.cfg.possible_agents:
             if robot_name not in actions:
+                continue
+            if not self._benchmark_control_enabled(robot_name):
+                self._hold_benchmark_agent(robot_name)
                 continue
             
             command = actions[robot_name]
@@ -331,6 +511,9 @@ class MultiRobotDirectEnv(DirectMARLEnv):
         """
         
         for robot_name in self.cfg.possible_agents:
+            if not self._benchmark_control_enabled(robot_name):
+                self._hold_benchmark_agent(robot_name)
+                continue
             if robot_name not in self.actions_dict:
                 continue
             
@@ -353,6 +536,8 @@ class MultiRobotDirectEnv(DirectMARLEnv):
 
         seen_aux_ids: set[int] = set()
         for robot_name in self.cfg.possible_agents:
+            if not self._benchmark_control_enabled(robot_name):
+                continue
             for aux in self._auxiliary_controllers.get(robot_name, ()):
                 aux_id = id(aux)
                 if aux_id not in seen_aux_ids:
@@ -403,6 +588,12 @@ class MultiRobotDirectEnv(DirectMARLEnv):
                 reset(self, robot_name, controller_dict, env_ids)
 
         self.actions_dict = {}
+        for robot_name in self._controller_configs:
+            if not self._benchmark_control_enabled(robot_name):
+                robot = self.scene.articulations[robot_name]
+                self._benchmark_park_poses[robot_name] = (
+                    robot.data.root_state_w[:, :7].clone())
+                self._hold_benchmark_agent(robot_name)
         aerial_sensor_manager = getattr(self, "_aerial_sensor_manager", None)
         if aerial_sensor_manager is not None:
             aerial_sensor_manager.reset(env_ids)

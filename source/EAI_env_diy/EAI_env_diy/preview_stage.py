@@ -272,7 +272,7 @@ class PreviewStage:
         # Mounted arms are validated as one assembly.  This catches a partial
         # spawn before the candidate replaces the previous robot instance.
         manipulator = next(
-            (str(item.type) for item in getattr(robot, "attachments", ()) if str(item.type) in {"ur5", "z1"}),
+            ("ur5" if str(item.type) == "ur5_bare" else str(item.type) for item in getattr(robot, "attachments", ()) if str(item.type) in {"ur5", "ur5_bare", "z1"}),
             None,
         )
         if manipulator is None:
@@ -381,16 +381,18 @@ class PreviewStage:
                 orientation=(1.0, 0.0, 0.0, 0.0),
             )
         manipulator = next(
-            (item.type for item in robot.attachments if item.type in {"ur5", "z1"}),
+            (item.type for item in robot.attachments if item.type in {"ur5", "ur5_bare", "z1"}),
             None,
         )
-        if manipulator == "ur5":
+        if manipulator in {"ur5", "ur5_bare"}:
             if option.ur5_mount_profile is None:
                 raise ValueError("UR5 mount profile is unavailable")
             from EAI_assets.robots.ur5_mount import spawn_mounted_ur5_single_host
 
             arm_path = f"{host_path}_arm"
-            arm_cfg = env_builder.build_mounted_ur5_asset_cfg(
+            arm_builder = (env_builder.build_mounted_ur5_bare_asset_cfg
+                           if manipulator == "ur5_bare" else env_builder.build_mounted_ur5_asset_cfg)
+            arm_cfg = arm_builder(
                 arm_path, option.ur5_mount_profile
             )
             spawn_mounted_ur5_single_host(
@@ -398,6 +400,7 @@ class PreviewStage:
                 arm_path=arm_path,
                 cfg=arm_cfg.spawn,
                 profile=option.ur5_mount_profile,
+                with_gripper=manipulator == "ur5",
             )
         elif manipulator == "z1":
             if option.z1_mount_profile is None:
@@ -451,6 +454,19 @@ class PreviewStage:
                 option.lidar_rot,
                 stage=stage,
             )
+        # OCTAGON-AIO-C01 shares the lidar mount placement; the preview spawns
+        # the materialized payload visual without any runtime OmniLidar graph.
+        if "octagon_aio_c01" in attachment_types and option.lidar_mount_link:
+            octagon_mount_path = f"{host_path}/{option.lidar_mount_link}"
+            if not stage.GetPrimAtPath(octagon_mount_path).IsValid():
+                raise RuntimeError(f"{robot.type}: OCTAGON-AIO-C01 mount link does not exist: {octagon_mount_path}")
+            self._spawn_sensor_reference(
+                f"{octagon_mount_path}/OctagonAioC01",
+                "octagon_aio_c01",
+                option.lidar_offset,
+                option.lidar_rot,
+                stage=stage,
+            )
         self._set_pose_at_path(assembly_path, robot.position, robot.rotation)
 
     @staticmethod
@@ -484,6 +500,10 @@ class PreviewStage:
         elif sensor_type == "realsense_d455":
             from EAI_assets.sensor.high_sensor.realsense_d455 import (
                 _REALSENSE_SOURCE_ASSET_PATH as usd_path,
+            )
+        elif sensor_type == "octagon_aio_c01":
+            from EAI_assets.sensor.low_sensor.octagon_aio_c01 import (
+                OCTAGON_AIO_C01_USD_PATH as usd_path,
             )
         else:
             from EAI_assets.sensor.low_sensor.ros_lidar import (

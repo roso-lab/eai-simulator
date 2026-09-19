@@ -36,7 +36,7 @@ SCOUT_CFG = ArticulationCfg(
             stabilization_threshold=0.001,
         ),
     ),
-    init_state=ArticulationCfg.InitialStateCfg(pos=(0.0, 0.0, 0.2)),
+    init_state=ArticulationCfg.InitialStateCfg(pos=(0.0, 0.0, 0.24)),
     actuators={
         "base_wheels": ImplicitActuatorCfg(
             joint_names_expr=[".*_wheel"],

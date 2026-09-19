@@ -11,9 +11,11 @@ from isaaclab.terrains import TerrainImporterCfg
 from isaaclab.utils import configclass
 
 from EAI.hmrs_env import MultiRobotDirectEnvCfg
+from EAI.scenario_spec.benchmark_physics import benchmark_mount_profile
 from EAI.hmrs_env.env_diy import catalog as env_diy_catalog
 from EAI_assets.robots.b2 import B2_CFG
 from EAI_assets.robots.carter import CARTER_CFG
+from EAI_assets.robots.simple_car import SIMPLE_CAR_CFG
 from EAI_assets.robots.coco import COCO_CFG
 from EAI_assets.robots.deeprobotics import (
     DEEPROBOTICS_LITE3_CFG,
@@ -30,6 +32,7 @@ from EAI_assets.robots.ur5_mount import (
     UR5_MOUNT_PROFILES,
     Ur5MountProfile,
     build_mounted_ur5_asset_cfg,
+    build_mounted_ur5_bare_asset_cfg,
     build_ur5_host_cfg,
 )
 from EAI_assets.robots.z1_mount import (
@@ -38,6 +41,7 @@ from EAI_assets.robots.z1_mount import (
     build_mounted_z1_asset_cfg,
 )
 from EAI_assets.sensor.high_sensor import OrsusCfg, RealSenseD455Cfg
+from EAI_assets.sensor.low_sensor.octagon_aio_c01 import OctagonAioC01Cfg
 from EAI_hmrs.controller_loader import load_controller_attr
 from EAI.hmrs_env.env_diy.flow import (
     AttachmentSelection,
@@ -83,6 +87,7 @@ class RobotOption:
     realsense_rot: tuple[float, float, float, float] = (0.70710678, 0.0, 0.0, 0.70710678)
     # The HESAI XT32 mounting flange is 47.7 mm below its sensor origin. The
     # cable reaches 88.7 mm below the origin and must not be used as the mount plane.
+    # The OCTAGON-AIO-C01 attachment shares this lidar mount placement.
     lidar_offset: tuple[float, float, float] = (0.0, 0.0, 0.0)
     lidar_rot: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
     camera_mount_link: str | None = None
@@ -105,6 +110,18 @@ SCENE_OPTIONS = [
     ),
     SceneOption("airs", "AIRS scene", ("EAI_assets.scene.airs", "AIRS_CFG")),
     SceneOption(
+        "modern_house_nvd",
+        "Modern House NVD benchmark overlay",
+        ("EAI_assets.scene.modern_house_nvd", "MODERN_HOUSE_NVD_CFG"),
+        prim_path="/World/ModernHouseNVD",
+    ),
+    SceneOption(
+        "warehouse_nvd",
+        "Warehouse NVD benchmark overlay",
+        ("EAI_assets.scene.warehouse_nvd", "WAREHOUSE_NVD_CFG"),
+        prim_path="/World/WarehouseNVD",
+    ),
+    SceneOption(
         "desert",
         "Desert",
         ("EAI_assets.scene.desert", "DESERT_CFG"),
@@ -117,11 +134,18 @@ SCENE_OPTIONS = [
         spawn_pos=HOSPITAL_SCENE_OFFSET,
         robot_spawn_origin=HOSPITAL_ROBOT_SPAWN_ORIGIN,
     ),
+    SceneOption(
+        "rmuc2024",
+        "RMUC 2024",
+        ("EAI_assets.scene.rmuc2024", "RMUC2024_CFG"),
+        prim_path="/World/RMUC2024",
+    ),
 ]
 
 
 CONTROLLER_CFG_IMPORTS = {
     "CARTER_DIFF_CFG": ("traditional/carter_diff/carter_diff.py", "CARTER_DIFF_CFG"),
+    "SIMPLE_CAR_PLANAR_CFG": ("traditional/simple_car_planar/simple_car_planar.py", "SIMPLE_CAR_PLANAR_CFG"),
     "PEPPER_HOLONOMIC_CFG": ("traditional/pepper_holonomic/pepper_holonomic.py", "PEPPER_HOLONOMIC_CFG"),
     "GO2_VELOCITY_RSL_CFG": ("rl/go2_rsl_rl/go2_rsl_rl.py", "GO2_VELOCITY_RSL_CFG"),
     "B2_VELOCITY_RSL_CFG": ("rl/b2_rsl_rl/b2_rsl_rl.py", "B2_VELOCITY_RSL_CFG"),
@@ -151,13 +175,23 @@ ROBOT_OPTIONS = [
         0.2,
         "Carter/Orsus_chassis_link",
         z1_mount_profile=Z1_MOUNT_PROFILES["carter"],
+        ur5_mount_profile=UR5_MOUNT_PROFILES["carter"],
         orsus_offset=(0.026, 0.0, 0.418),
         lidar_mount_link="Carter/Orsus_chassis_link",
         lidar_offset=(0.026, 0.0, 0.444862),
+        # C01 复用 Carter 原生雷达挂载（lidar_mount_link/lidar_offset），
+        # 与独立雷达载荷同位装载，无额外衔接结构件。
         # D455 初始外参（待按实车标定）
         realsense_mount_link="Carter/Orsus_chassis_link",
         realsense_offset=(0.11865, 0.0, 0.34329),
         realsense_rot=(1.0, 0.0, 0.0, 0.0),
+    ),
+    RobotOption(
+        "simple_car",
+        "SimpleCar Gazebo planar base",
+        SIMPLE_CAR_CFG,
+        "SIMPLE_CAR_PLANAR_CFG",
+        0.34,
     ),
     RobotOption(
         "pepper",
@@ -227,7 +261,7 @@ ROBOT_OPTIONS = [
         "Scout mobile base",
         SCOUT_CFG,
         "SCOUT_DIFF_CFG",
-        0.2,
+        SCOUT_CFG.init_state.pos[2],
         orsus_mount_link="base_link",
         ur5_mount_profile=UR5_MOUNT_PROFILES["scout"],
         z1_mount_profile=Z1_MOUNT_PROFILES["scout"],
@@ -394,6 +428,7 @@ def build_interactive_env_cfg_from_selection(selection: InteractiveSelection) ->
     return build_interactive_env_cfg(
         scene,
         [(robot_by_key[item.type], item) for item in selection.robots],
+        scenario_data=interactive_selection_to_dict(selection) if selection.scenario_json else None,
     )
 
 
@@ -422,6 +457,8 @@ def _interactive_after_reset_idx_hook(env, env_ids) -> None:
 def build_interactive_env_cfg(
     scene: SceneOption,
     robot_selections: list[tuple[RobotOption, RobotSelection]],
+    *,
+    scenario_data: dict[str, Any] | None = None,
 ) -> MultiRobotDirectEnvCfg:
     attrs: dict[str, Any] = {"__annotations__": {}}
     controllers: dict[str, Any] = {}
@@ -470,14 +507,24 @@ def build_interactive_env_cfg(
             default_rotation=(1.0, 0.0, 0.0, 0.0),
         )
 
-        has_ur5 = any(attachment.type == "ur5" for attachment in selection.attachments)
+        has_ur5 = any(attachment.type in {"ur5", "ur5_bare"} for attachment in selection.attachments)
+        has_ur5_bare = any(attachment.type == "ur5_bare" for attachment in selection.attachments)
         has_z1 = any(attachment.type == "z1" for attachment in selection.attachments)
         if has_ur5 and has_z1:
             raise ValueError(f"DIY robot '{name}' cannot attach both UR5 and Z1.")
         has_orsus = any(attachment.type == "orsus" for attachment in selection.attachments)
         has_lidar = any(attachment.type == "lidar" for attachment in selection.attachments)
+        has_octagon = any(
+            attachment.type == "octagon_aio_c01"
+            for attachment in selection.attachments
+        )
         if has_orsus and has_lidar:
             raise ValueError(f"DIY robot '{name}' cannot attach both Orsus and LiDAR.")
+        if has_octagon and (has_orsus or has_lidar):
+            other = "Orsus" if has_orsus else "LiDAR"
+            raise ValueError(
+                f"DIY robot '{name}' cannot attach both OCTAGON-AIO-C01 and {other}."
+            )
         mount_conflict = env_diy_catalog.payload_mount_conflict(
             robot.key,
             [attachment.type for attachment in selection.attachments],
@@ -489,6 +536,7 @@ def build_interactive_env_cfg(
                 "z1": "Z1",
                 "orsus": "Orsus",
                 "lidar": "LiDAR",
+                "octagon_aio_c01": "OCTAGON-AIO-C01",
             }
             raise ValueError(
                 f"DIY robot '{name}' cannot attach both "
@@ -520,17 +568,21 @@ def build_interactive_env_cfg(
 
         if has_ur5 and robot.ur5_mount_profile is not None:
             attrs["__annotations__"][f"{name}_arm"] = ArticulationCfg
-            attrs[f"{name}_arm"] = build_mounted_ur5_asset_cfg(
+            arm_builder = build_mounted_ur5_bare_asset_cfg if has_ur5_bare else build_mounted_ur5_asset_cfg
+            attrs[f"{name}_arm"] = arm_builder(
                 f"{{ENV_REGEX_NS}}/{name}_arm",
-                robot.ur5_mount_profile,
+                benchmark_mount_profile(robot.ur5_mount_profile) if scenario_data is not None else robot.ur5_mount_profile,
             )
-            ur5_attachment = next(attachment for attachment in selection.attachments if attachment.type == "ur5")
+            ur5_attachment = next(
+                attachment for attachment in selection.attachments
+                if attachment.type in {"ur5", "ur5_bare"}
+            )
             robot_controllers.append(_resolve_controller(ur5_attachment.controller, fallback="UR5_IK_CFG"))
         elif has_z1 and robot.z1_mount_profile is not None:
             attrs["__annotations__"][f"{name}_arm"] = ArticulationCfg
             attrs[f"{name}_arm"] = build_mounted_z1_asset_cfg(
                 f"{{ENV_REGEX_NS}}/{name}_arm",
-                robot.z1_mount_profile,
+                benchmark_mount_profile(robot.z1_mount_profile) if scenario_data is not None else robot.z1_mount_profile,
             )
             z1_attachment = next(attachment for attachment in selection.attachments if attachment.type == "z1")
             robot_controllers.append(_resolve_controller(z1_attachment.controller, fallback="Z1_IK_CFG"))
@@ -601,6 +653,12 @@ def build_interactive_env_cfg(
                 disable_physics=True,
             )
 
+        if has_octagon:
+            if not robot.lidar_mount_link:
+                raise ValueError(
+                    f"DIY robot '{robot.key}' does not define an OCTAGON-AIO-C01 mount."
+                )
+
         is_aerial_sensor_robot = robot.key in {"cf2x", "iris", "pegasus"}
         is_builtin_camera_robot = robot.key in {"cf2x", "iris", "pegasus"}
         has_selected_lidar = any(
@@ -615,6 +673,21 @@ def build_interactive_env_cfg(
                 init_state=AssetBaseCfg.InitialStateCfg(pos=robot.lidar_offset, rot=robot.lidar_rot),
                 ros_namespace=f"/{name}",
                 enable_ros_publish=navigation_io_enabled,
+            )
+
+        # The C01 attachment mounts on the host's native lidar payload mount
+        # (same link, offset, and rotation as the RosLidar payload above);
+        # the sensor suite runtime resolves this spawned prim on the stage.
+        if has_octagon and robot.lidar_mount_link and not is_aerial_sensor_robot:
+            attrs["__annotations__"][f"octagon_aio_c01_{name}"] = AssetBaseCfg
+            attrs[f"octagon_aio_c01_{name}"] = OctagonAioC01Cfg(
+                prim_path=(
+                    f"{{ENV_REGEX_NS}}/{name}/{robot.lidar_mount_link}/OctagonAioC01"
+                ),
+                init_state=AssetBaseCfg.InitialStateCfg(
+                    pos=robot.lidar_offset,
+                    rot=robot.lidar_rot,
+                ),
             )
 
         # Aerial robots always carry their built-in monocular camera; the Camera
@@ -642,6 +715,10 @@ def build_interactive_env_cfg(
                 ),
             )
 
+    if scenario_data is not None:
+        from EAI_hmrs.scenario_builder import add_scenario_entities
+
+        add_scenario_entities(attrs, scenario_data["composition"])
     scene_cls = configclass(type("InteractiveEaiSceneCfg", (InteractiveSceneCfg,), attrs))
     env_attrs = {
         "__annotations__": {"scene": scene_cls},

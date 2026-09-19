@@ -27,6 +27,8 @@ setup(
         "skrl>=2.1.0",
         "torch",
         "pyyaml",
+        "jsonschema>=4.18",
+        "Pillow",
         "pywebview[qt]; platform_system == 'Linux'",
         "pywebview; platform_system != 'Linux'",
     ],

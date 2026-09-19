@@ -1428,10 +1428,12 @@
           { id: "factory", label: "工厂", image: "../../../../../usd/picture/scene/factory.png" },
           { id: "airs", label: "AIRS 实验室", image: "../../../../../usd/picture/scene/airs.png" },
           { id: "desert", label: "沙漠", image: "../../../../../usd/picture/scene/desert.png" },
-          { id: "hospital", label: "医院", image: "../../../../../usd/picture/scene/hospital.png" }
+          { id: "hospital", label: "医院", image: "../../../../../usd/picture/scene/hospital.png" },
+          { id: "rmuc2024", label: "RMUC 2024", image: "../../../../../usd/picture/scene/rmuc2024.png" }
         ]),
         robots: Object.freeze({
           carter: { label: "Carter", image: "../../../../../usd/picture/processed/robot/carter.png", cfg: "CARTER_DIFF_CFG" },
+          simple_car: { label: "SimpleCar", image: "../../../../../usd/picture/processed/robot/simple_car.png", cfg: "SIMPLE_CAR_PLANAR_CFG" },
           pepper: { label: "Pepper", image: "../../../../../usd/picture/processed/robot/pepper.png", cfg: "PEPPER_HOLONOMIC_CFG" },
           go2: { label: "Go2", image: "../../../../../usd/picture/processed/robot/go2.png", cfg: "GO2_VELOCITY_RSL_CFG" },
           b2: { label: "B2", image: "../../../../../usd/picture/processed/robot/b2.png", cfg: "B2_VELOCITY_RSL_CFG" },
@@ -1446,18 +1448,20 @@
           coco: { label: "Coco AIRS", image: "../../../../../usd/picture/processed/robot/coco.png", cfg: "COCO_ACKERMANN_CFG" }
         }),
         manipulators: Object.freeze({
-          ur5: { label: "UR5", image: "../../../../../usd/picture/processed/manipulator/ur5.png", supported: ["go2", "b2", "m20", "scout", "lite3"], cfg: "UR5_IK_CFG" },
+          ur5: { label: "UR5 + Robotiq 2F-85", image: "../../../../../usd/picture/processed/manipulator/ur5.png", supported: ["carter", "go2", "b2", "m20", "scout", "lite3"], cfg: "UR5_IK_CFG" },
+          ur5_bare: { label: "UR5 (bare)", image: "../../../../../usd/picture/processed/manipulator/ur5.png", supported: ["carter", "go2", "b2", "m20", "scout", "lite3"], cfg: "UR5_IK_CFG" },
           z1: { label: "Z1", image: "../../../../../usd/picture/processed/manipulator/z1.png", supported: ["carter", "go2", "b2", "m20", "scout", "lite3"], cfg: "Z1_IK_CFG" }
         }),
         sensors: Object.freeze({
           orsus: { label: "Orsus", image: "../../../../../usd/picture/processed/sensor/orsus.png", supported: ["carter", "go2", "b2", "m20", "scout", "coco", "lite3"] },
           realsense_d455: { label: "RealSense D455", image: "../../../../../usd/picture/processed/sensor/realsense_d455.png", supported: ["pepper", "mushr_v2", "carter", "go2", "b2", "m20", "scout", "coco", "lite3"] },
-          lidar: { label: "LiDAR", image: "../../../../../usd/picture/processed/sensor/lidar.png", supported: ["carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3"] }
+          lidar: { label: "LiDAR", image: "../../../../../usd/picture/processed/sensor/lidar.png", supported: ["carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3"] },
+          octagon_aio_c01: { label: "OCTAGON-AIO-C01", image: "../../../../../usd/picture/processed/sensor/octagon_aio_c01.png", supported: ["carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3"] }
         }),
         tools: Object.freeze({
-          navigation_io: { label: "Navigation I/O", image: "../../../../../usd/picture/processed/tool/navigation_io.png", supported: ["carter", "go2", "b2", "m20", "scout", "lite3", "pepper", "g1", "cf2x", "iris", "pegasus", "mushr_v2", "coco"] },
-          camera: { label: "Camera", image: "../../../../../usd/picture/processed/sensor/camera.png", supported: ["carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3", "cf2x", "iris", "pegasus", "pepper"] },
-          keyboard: { label: "Keyboard", image: "../../../../../usd/picture/processed/tool/keyboard.png", supported: ["carter", "pepper", "go2", "b2", "m20", "scout", "g1", "cf2x", "iris", "pegasus", "lite3", "mushr_v2", "coco"] }
+          navigation_io: { label: "Navigation I/O", image: "../../../../../usd/picture/processed/tool/navigation_io.png", supported: ["carter", "simple_car", "go2", "b2", "m20", "scout", "lite3", "pepper", "g1", "cf2x", "iris", "pegasus", "mushr_v2", "coco"] },
+          camera: { label: "Camera", image: "../../../../../usd/picture/processed/sensor/camera.png", supported: ["carter", "simple_car", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3", "cf2x", "iris", "pegasus", "pepper"] },
+          keyboard: { label: "Keyboard", image: "../../../../../usd/picture/processed/tool/keyboard.png", supported: ["carter", "simple_car", "pepper", "go2", "b2", "m20", "scout", "g1", "cf2x", "iris", "pegasus", "lite3", "mushr_v2", "coco"] }
         })
       });
 
@@ -1611,12 +1615,21 @@
       const payloadEntry = key => catalog.manipulators[key] || catalog.sensors[key] || null;
       const attachmentEntry = key => payloadEntry(key) || catalog.tools[key] || null;
       const payloadSubtype = key => catalog.manipulators[key] ? "manipulator" : "sensor";
-      const conflictingSensorKey = key => key === "orsus" ? "lidar" : key === "lidar" ? "orsus" : null;
+      const sensorConflictSiblings = key => ({
+        orsus: ["lidar", "octagon_aio_c01"],
+        lidar: ["orsus", "octagon_aio_c01"],
+        octagon_aio_c01: ["orsus", "lidar"]
+      }[key] || []);
+      const sensorConflictMessage = key => {
+        const siblings = sensorConflictSiblings(key);
+        return siblings.map(item => payloadEntry(item).label).join(" 与 ") + " 不能与 " + payloadEntry(key).label + " 同时挂载";
+      };
       const payloadMountConflicts = {
-        carter: [["z1", "orsus"], ["z1", "lidar"]],
+        carter: [["z1", "orsus"], ["z1", "lidar"], ["z1", "octagon_aio_c01"], ["ur5", "orsus"], ["ur5", "lidar"], ["ur5", "octagon_aio_c01"]],
         go2: [["ur5", "orsus"], ["z1", "orsus"]]
       };
       const payloadMountConflictReason = (robotType, payloadTypes) => {
+        if (payloadTypes.has("ur5_bare")) payloadTypes = new Set([...payloadTypes, "ur5"]);
         const conflict = (payloadMountConflicts[robotType] || []).find(pair =>
           pair.every(key => payloadTypes.has(key))
         );
@@ -1813,15 +1826,20 @@
         if (!state.sceneKey) errors.push("请选择一个 Scene");
         if (!state.robots.length) errors.push("请至少添加一个 Robot");
         state.robots.forEach(robot => {
+          robot.payloads.forEach(payload => {
+            const reason = deploymentBlockReason(robot.type, payload.type);
+            if (reason) errors.push(robotLabelWithIndex(robot) + " " + reason);
+          });
           const payloadTypes = new Set(robot.payloads.map(item => item.type));
-          if (payloadTypes.has("orsus") && payloadTypes.has("lidar")) {
-            errors.push(robotLabelWithIndex(robot) + " 不能同时挂载 Orsus 与 LiDAR");
+          const presentSensors = ["orsus", "lidar", "octagon_aio_c01"].filter(key => payloadTypes.has(key));
+          if (presentSensors.length > 1) {
+            errors.push(robotLabelWithIndex(robot) + " " + presentSensors.map(key => payloadEntry(key).label).join(" 与 ") + " 不能同时挂载");
           }
           const mountConflict = payloadMountConflictReason(robot.type, payloadTypes);
           if (mountConflict) {
             errors.push(robotLabelWithIndex(robot) + " " + mountConflict);
           }
-          const hasBuiltinCamera = ["cf2x", "iris", "pegasus"].includes(robot.type);
+          const hasBuiltinCamera = ["cf2x", "iris", "pegasus", "simple_car"].includes(robot.type);
           const hasCameraPayload = robot.payloads.some(item => item.type === "orsus" || item.type === "realsense_d455");
           if (robot.tools.includes("camera") && !hasBuiltinCamera && !hasCameraPayload) {
             errors.push(robotLabelWithIndex(robot) + " 的 Camera Tool 需要先挂载 Orsus 或 RealSense D455");
@@ -1975,7 +1993,7 @@
 
       const compatibilityReason = (robotType, key) => {
         const entry = attachmentEntry(key);
-        if (entry && entry.supported.includes(robotType)) return "";
+        if (entry && entry.supported.includes(robotType)) return deploymentBlockReason(robotType, key);
         if (["cf2x", "iris", "pegasus"].includes(robotType) && builtinSensorReasons[key]) {
           return builtinSensorReasons[key];
         }
@@ -1990,7 +2008,7 @@
         ].filter(key => compatibilityReason(candidateType, key));
         if (
           robot.tools.includes("camera")
-          && !["cf2x", "iris", "pegasus"].includes(candidateType)
+          && !["cf2x", "iris", "pegasus", "simple_car"].includes(candidateType)
           && !robot.payloads.some(item => item.type === "orsus" || item.type === "realsense_d455")
         ) {
           return "Camera Tool 在该 Robot 上需要 Orsus 或 RealSense D455";
@@ -2015,7 +2033,7 @@
           group === "robot"
             ? "Default: " + entry.cfg
             : group === "manipulator"
-              ? "Controller: " + entry.cfg
+              ? deploymentDescription(activeRobot()?.type, key)
               : group === "sensor"
                 ? "Sensor payload"
                 : group === "tool"
@@ -2035,10 +2053,10 @@
         if (!robot) return "请先选择一个 Robot 分支";
         const incompatible = compatibilityReason(robot.type, key);
         if (incompatible) return incompatible;
-        const conflictingKey = conflictingSensorKey(key);
-        if (conflictingKey && robot.payloads.some(item =>
-          item.type === conflictingKey && (!replacing || item.type !== state.selection.key)
-        )) return "Orsus 与 LiDAR 不能同时挂载";
+        const conflictingKeys = sensorConflictSiblings(key);
+        if (conflictingKeys.length && robot.payloads.some(item =>
+          conflictingKeys.includes(item.type) && (!replacing || item.type !== state.selection.key)
+        )) return sensorConflictMessage(key);
         const nextPayloadTypes = new Set(robot.payloads
           .filter(item => !replacing || item.type !== state.selection.key)
           .map(item => item.type));
@@ -2050,7 +2068,7 @@
           && ["orsus", "realsense_d455"].includes(state.selection.key)
           && !["orsus", "realsense_d455"].includes(key)
           && robot.tools.includes("camera")
-          && !["cf2x", "iris", "pegasus"].includes(robot.type)
+          && !["cf2x", "iris", "pegasus", "simple_car"].includes(robot.type)
         ) return "Camera Tool 依赖当前相机载荷";
         if (replacing) {
           if (state.selection.key === key) return "当前 Payload";
@@ -2078,7 +2096,7 @@
         if (incompatible) return incompatible;
         if (
           key === "camera"
-          && !["cf2x", "iris", "pegasus"].includes(robot.type)
+          && !["cf2x", "iris", "pegasus", "simple_car"].includes(robot.type)
           && !robot.payloads.some(item => item.type === "orsus" || item.type === "realsense_d455")
         ) return "需先挂载 Orsus 或 RealSense D455";
         if (state.selection.key === key && replacing) return "当前 Tool";
@@ -2454,7 +2472,7 @@
           if (
             ["orsus", "realsense_d455"].includes(selection.key)
             && robot.tools.includes("camera")
-            && !["cf2x", "iris", "pegasus"].includes(robot.type)
+            && !["cf2x", "iris", "pegasus", "simple_car"].includes(robot.type)
           ) {
             const label = selection.key === "orsus" ? "Orsus" : "RealSense D455";
             const confirmed = await askConfirmation({
@@ -2674,7 +2692,42 @@
       });
       document.querySelector("[data-completion-download]").addEventListener("click", downloadJson);
       document.querySelector("[data-completion-close]").addEventListener("click", () => completionDialog.close());
-      window.addEventListener("pywebviewready", updateWebviewActions);
+      let manipulatorDeployment = null;
+      let manipulatorPhysics = null;
+      const deploymentDescription = (robotType, key) => {
+        const evidence = manipulatorDeployment?.[robotType]?.[key];
+        const physics = manipulatorPhysics?.[robotType]?.[key];
+        const deploymentText = evidence ? evidence.status + ": " + evidence.reason : "未读取物理部署证据";
+        const physicsText = physics
+          ? (physics.status === "unsupported"
+            ? physics.reason
+            : "物性：质量=" + physics.mass + "，COM=" + physics.com + "，惯量=" + physics.inertia
+              + "；支撑=" + physics.support + "，聚合=" + physics.aggregate + "，安装=" + physics.installation)
+          : "未读取物性 dossier";
+        return deploymentText + "；" + physicsText;
+      };
+      const deploymentBlockReason = (robotType, key) => {
+        if (!catalog.manipulators[key]) return "";
+        const evidence = manipulatorDeployment?.[robotType]?.[key];
+        return evidence && ["allowed", "conditional"].includes(evidence.status)
+          ? "" : deploymentDescription(robotType, key);
+      };
+      const loadManipulatorDeployment = async () => {
+        const bridge = pywebviewBridge();
+        if (bridge && typeof bridge.manipulator_deployment === "function") {
+          try {
+            manipulatorDeployment = await bridge.manipulator_deployment();
+            if (typeof bridge.manipulator_physics_summary === "function") {
+              manipulatorPhysics = await bridge.manipulator_physics_summary();
+            }
+          } catch {
+            manipulatorDeployment = null;
+          }
+          render();
+        }
+        updateWebviewActions();
+      };
+      window.addEventListener("pywebviewready", loadManipulatorDeployment);
       updateWebviewActions();
 
       window.addEventListener("resize", scheduleLineageFit);

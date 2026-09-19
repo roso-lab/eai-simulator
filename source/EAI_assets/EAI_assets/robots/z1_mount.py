@@ -41,12 +41,12 @@ class Z1MountProfile:
 
 _YAW_PI = (0.0, 0.0, 0.0, 1.0)
 Z1_MOUNT_PROFILES = {
-    "carter": Z1MountProfile("carter", "Carter/Orsus_chassis_link", (0.0, 0.0, 0.414), _YAW_PI, 0.20),
-    "go2": Z1MountProfile("go2", "base", (0.0, 0.0, 0.056), _YAW_PI, 0.03),
-    "b2": Z1MountProfile("b2", "base_link", (0.0, 0.0, 0.085), _YAW_PI, 0.20),
-    "m20": Z1MountProfile("m20", "base_link", (0.0, 0.0, 0.0852), _YAW_PI, 0.10),
-    "scout": Z1MountProfile("scout", "base_link", (0.0, 0.0, 0.1162), _YAW_PI, 0.15),
-    "lite3": Z1MountProfile("lite3", "TORSO", (0.0, 0.0, 0.073), _YAW_PI, 0.03),
+    "carter": Z1MountProfile("carter", "Carter/Orsus_chassis_link", (0.0, 0.0, 0.414), _YAW_PI, 1.0),
+    "go2": Z1MountProfile("go2", "base", (0.0, 0.0, 0.056), _YAW_PI, 1.0),
+    "b2": Z1MountProfile("b2", "base_link", (0.0, 0.0, 0.085), _YAW_PI, 1.0),
+    "m20": Z1MountProfile("m20", "base_link", (0.0, 0.0, 0.0852), _YAW_PI, 1.0),
+    "scout": Z1MountProfile("scout", "base_link", (0.0, 0.0, 0.1162), _YAW_PI, 1.0),
+    "lite3": Z1MountProfile("lite3", "TORSO", (0.0, 0.0, 0.073), _YAW_PI, 1.0),
 }
 
 
@@ -67,6 +67,8 @@ def _spawn_mounted_z1_instance(stage, *, host_path: str, arm_path: str, cfg: sim
         articulation_props=sim_utils.ArticulationRootPropertiesCfg(
             enabled_self_collisions=profile.enable_self_collisions,
             fix_root_link=False,
+            solver_position_iteration_count=64,
+            solver_velocity_iteration_count=4,
         ),
         activate_contact_sensors=False,
     )
@@ -106,6 +108,9 @@ def _spawn_mounted_z1_instance(stage, *, host_path: str, arm_path: str, cfg: sim
         if z1_base_path is None:
             raise RuntimeError(f"{host_path}: Z1 base link does not exist under {arm_path}")
         UsdPhysics.ArticulationRootAPI.Apply(stage.GetPrimAtPath(z1_base_path))
+        sim_utils.modify_articulation_root_properties(
+            z1_base_path, base_cfg.articulation_props, stage=stage
+        )
         host_root = find_articulation_root(stage, host_body_path)
         if host_root is None:
             raise RuntimeError(f"{host_path}: host articulation root not found")

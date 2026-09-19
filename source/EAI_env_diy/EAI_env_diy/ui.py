@@ -328,10 +328,10 @@ class EnvDiyWindow:
     def _rebuild_payloads(self) -> None:
         with ui.VStack(spacing=4):
             ui.Label("Manipulators")
-            for key in ("ur5", "z1"):
+            for key in ("ur5", "ur5_bare", "z1"):
                 availability = self._payload_availability(key)
                 with ui.HStack(spacing=6, height=40):
-                    self._asset_image("manipulator", key)
+                    self._asset_image("manipulator", "ur5" if key == "ur5_bare" else key)
                     ui.Button(
                         key.upper(),
                         width=125,
@@ -346,7 +346,7 @@ class EnvDiyWindow:
                     )
                     self._payload_card_state(key)
             ui.Label("Sensors")
-            for key in ("orsus", "realsense_d455", "lidar"):
+            for key in ("orsus", "realsense_d455", "lidar", "octagon_aio_c01"):
                 availability = self._payload_availability(key)
                 with ui.HStack(spacing=6, height=40):
                     self._asset_image("sensor", key)

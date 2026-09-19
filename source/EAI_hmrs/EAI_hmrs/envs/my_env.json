@@ -1,32 +1,39 @@
 {
-  "robots": [
+ "robots": [
+  {
+   "attachments": [],
+   "controller": {
+    "cfg": "CARTER_DIFF_CFG",
+    "mode": "default"
+   },
+   "type": "carter",
+   "visual": {
+    "x": 0.0,
+    "y": 0.0
+   }
+  },
+  {
+   "attachments": [
     {
-      "attachments": [
-        {
-          "controller": null,
-          "type": "realsense_d455"
-        },
-        {
-          "controller": null,
-          "type": "camera"
-        },
-        {
-          "controller": null,
-          "type": "navigation_io"
-        }
-      ],
-      "controller": {
-        "cfg": "MUSHR_ACKERMANN_CFG",
-        "mode": "default"
-      },
-      "type": "mushr_v2",
-      "visual": {
-        "x": 0.0,
-        "y": 0.0
-      }
+     "controller": {
+      "cfg": "Z1_IK_CFG",
+      "mode": "default"
+     },
+     "type": "z1"
     }
-  ],
-  "scene_key": "factory",
-  "task_name": "my_env",
-  "version": 1
+   ],
+   "controller": {
+    "cfg": "GO2_VELOCITY_RSL_CFG",
+    "mode": "default"
+   },
+   "type": "go2",
+   "visual": {
+    "x": 0.0,
+    "y": 0.0
+   }
+  }
+ ],
+ "scene_key": "plane",
+ "task_name": "my_env",
+ "version": 1
 }

@@ -12,6 +12,7 @@ No longer supports ManagerBased environments.
 
 from .base import ControllerCfg, load_all_controllers, normalize_controller_entry
 from .differential_drive_controller import DifferentialDriveControllerCfg
+from .planar_velocity_controller import PlanarVelocityControllerCfg
 from .ackermann_controller import AckermannControllerCfg
 from .ik_controller import ArmPostApplyPipeline, noop_post_apply
 from .rsl_controller import RSLControllerCfg
@@ -23,6 +24,7 @@ __all__ = [
     "SKRLControllerCfg",
     "RSLControllerCfg",
     "DifferentialDriveControllerCfg",
+    "PlanarVelocityControllerCfg",
     "AckermannControllerCfg",
     "load_all_controllers",
     "normalize_controller_entry",

@@ -524,6 +524,20 @@ class ManipulatorOmniGraphManager:
         self._poll_gripper(key, state)
         return state.latest_gripper
 
+    def apply_gripper_commands(self, base_env: Any) -> int:
+        from .gripper_control import apply_gripper_target
+
+        articulations = getattr(getattr(base_env, "scene", None), "articulations", {})
+        applied = 0
+        for (robot_name, _model), spec in self._models.items():
+            if spec.gripper_joint_name is None:
+                continue
+            command = self.latest_gripper_command(robot_name, spec.model)
+            articulation = articulations.get(robot_name)
+            if command is not None and articulation is not None:
+                applied += int(apply_gripper_target(articulation, spec.gripper_joint_name, command.position))
+        return applied
+
     def publish_state(
         self,
         robot_name: str,

@@ -251,6 +251,11 @@ class AssetStatus:
 def requirement_local_paths(requirement: AssetRequirement) -> tuple[Path, ...]:
     root = controller_root() if requirement.kind is RequirementKind.CONTROLLER else usd_root()
     paths = tuple(root / path for path in requirement.relative_paths)
+    if requirement.kind is RequirementKind.PAYLOAD:
+        from EAI_assets.robots.ur5_robotiq import GRIPPER_ASSET_RELATIVE_PATH, default_robotiq_85_usd
+
+        paths = tuple(Path(default_robotiq_85_usd()) if relative == GRIPPER_ASSET_RELATIVE_PATH else path
+                      for relative, path in zip(requirement.relative_paths, paths))
     if requirement.kind is RequirementKind.CONTROLLER:
         return tuple(Path(path) for path in _expand_controller_asset_paths(paths))
     return paths
@@ -298,6 +303,12 @@ def download_requirement(
     current = inspect_requirement(requirement)
     if current.state is RequirementState.READY:
         return current
+    if requirement.kind is RequirementKind.PAYLOAD and os.environ.get("EAI_ROBOTIQ_2F85_USD"):
+        from EAI_assets.robots.ur5_robotiq import GRIPPER_ASSET_RELATIVE_PATH, default_robotiq_85_usd
+
+        if GRIPPER_ASSET_RELATIVE_PATH in requirement.relative_paths and not Path(default_robotiq_85_usd()).is_file():
+            return AssetStatus(requirement, RequirementState.FAILED, current.missing_paths,
+                               f"EAI_ROBOTIQ_2F85_USD must name an existing local USD: {default_robotiq_85_usd()}")
     missing_paths = tuple(str(path) for path in requirement_local_paths(requirement))
     if not missing_paths:
         return AssetStatus(requirement, RequirementState.READY)

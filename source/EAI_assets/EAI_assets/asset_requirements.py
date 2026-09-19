@@ -30,6 +30,7 @@ class RequirementKind(str, Enum):
     SENSOR = "sensor"
     TOOL = "tool"
     CONTROLLER = "controller"
+    SCENARIO_OBJECT = "scenario_object"
 
 
 @dataclass(frozen=True)
@@ -55,6 +56,10 @@ _SCENE_PATHS = {
     "plane": SCENE_MAP_PATHS["plane"],
     "warehouse": ("scene/warehouse/warehouse.usd", *SCENE_MAP_PATHS["warehouse"]),
     "factory": ("scene/factory/factory.usd", *SCENE_MAP_PATHS["factory"]),
+    # NVD overlay is tracked in-repo (tiny edit layer); requirements are local
+    # files only, so no provider download is declared for it.
+    "warehouse_nvd": ("scene/warehouse_nvd/warehouse_nvd_bench.usd",),
+    "modern_house_nvd": ("scene/modern_house_nvd/modern_house_nvd_bench.usd",),
     "airs": ("scene/airs/airs.usd", *SCENE_MAP_PATHS["airs"]),
     "desert": ("scene/desert/real_dust_scene_tiny.usda", *SCENE_MAP_PATHS["desert"]),
     "hospital": (
@@ -62,10 +67,33 @@ _SCENE_PATHS = {
         "scene/hospital/Bed_local.usda",
         *SCENE_MAP_PATHS["hospital"],
     ),
+    "rmuc2024": (
+        "scene/rmuc2024/rmuc2024.usda",
+        "scene/rmuc2024/rmuc2024_mesh.usd",
+        "scene/rmuc2024/source.json",
+        "scene/rmuc2024/LICENSE.Apache-2.0.txt",
+        *SCENE_MAP_PATHS["rmuc2024"],
+    ),
 }
 
 _ROBOT_PATHS = {
     "carter": ("robot/carter/carter.usd",),
+    "simple_car": (
+        "robot/simple_car/simple_car.usda",
+        "robot/simple_car/gshub_core.usd",
+        "robot/simple_car/configuration/gshub_core_base.usd",
+        "robot/simple_car/configuration/gshub_core_physics.usd",
+        "robot/simple_car/configuration/gshub_core_robot.usd",
+        "robot/simple_car/configuration/gshub_core_sensor.usd",
+        "robot/simple_car/simple_car.urdf",
+        "robot/simple_car/source.json",
+        # The robot layer references the shared C01 payload visual for its
+        # built-in suite; the sensor profiles below cover both lidar variants.
+        "payloads/sensors/octagon_aio_c01/octagon_aio_c01_visual.usda",
+        "payloads/sensors/octagon_aio_c01/octagon_aio_c01.usd",
+        "payloads/sensors/octagon_aio_c01/OCTAGON_AIO_C01.json",
+        "payloads/sensors/mid360/MID360.json",
+    ),
     "pepper": ("robot/pepper/pepper.usd",),
     "go2": ("robot/go2/go2.usd", "robot/go2/Props/instanceable_meshes.usd"),
     "b2": ("robot/b2/b2_canonical.usdc",),
@@ -112,7 +140,11 @@ _ROBOT_PATHS = {
 }
 
 _PAYLOAD_PATHS = {
-    "ur5": ("payloads/manipulators/ur5/ur5-noroot.usd",),
+    "ur5": (
+        "payloads/manipulators/ur5/ur5-noroot.usd",
+        "payloads/grippers/robotiq_2f85/Robotiq_2F_85_edit.usd",
+    ),
+    "ur5_bare": ("payloads/manipulators/ur5/ur5-noroot.usd",),
     "z1": ("payloads/manipulators/z1/z1_description.usda",),
     "orsus": (
         "payloads/sensors/orsus/Orsus_fix_type.usd",
@@ -123,6 +155,12 @@ _PAYLOAD_PATHS = {
         "payloads/sensors/realsense_d455/rsd455.usd",
     ),
     "lidar": ("payloads/sensors/lidar/ros_lidar.usda",),
+    "octagon_aio_c01": (
+        "payloads/sensors/octagon_aio_c01/octagon_aio_c01_visual.usda",
+        "payloads/sensors/octagon_aio_c01/octagon_aio_c01.usd",
+        "payloads/sensors/octagon_aio_c01/OCTAGON_AIO_C01.json",
+        "payloads/sensors/octagon_aio_c01/source.json",
+    ),
 }
 
 _CONTROLLER_PATHS = {
@@ -130,6 +168,10 @@ _CONTROLLER_PATHS = {
     "CARTER_DIFF_CFG": (
         "traditional/carter_diff/__init__.py",
         "traditional/carter_diff/carter_diff.py",
+    ),
+    "SIMPLE_CAR_PLANAR_CFG": (
+        "traditional/simple_car_planar/__init__.py",
+        "traditional/simple_car_planar/simple_car_planar.py",
     ),
     "PEPPER_HOLONOMIC_CFG": (
         "traditional/pepper_holonomic/__init__.py",
@@ -292,6 +334,10 @@ def resolve_selection(selection: Mapping[str, Any], *, catalog_module=None) -> R
 
     if not isinstance(selection, Mapping):
         raise TypeError("selection must be a mapping")
+    if selection.get("version") == 2:
+        from EAI.scenario_spec import validate_scenario
+
+        selection = validate_scenario(selection)
     catalog_module = _catalog_module(catalog_module)
     entries: dict[str, AssetRequirement] = {}
     scene_key = str(selection.get("scene_key") or "").strip().lower()
@@ -306,6 +352,22 @@ def resolve_selection(selection: Mapping[str, Any], *, catalog_module=None) -> R
             relative_paths=_SCENE_PATHS[scene_key],
         ),
     )
+
+    if selection.get("version") == 2:
+        from EAI_assets.scenario_assets import DECLARED_ASSETS, resolve_usd_path
+
+        for entity in selection["composition"]["entities"]:
+            # Validation admits the audited declaration even when the local
+            # provider root is absent.  Keep the requirement visible so the
+            # resolver can fail or fetch it at the normal asset boundary.
+            asset = DECLARED_ASSETS[entity["asset_key"]]
+            if asset.relative_paths and resolve_usd_path(asset.key) is not None:
+                # NVD-backed prop: resolved locally via EAI_NVD_ASSET_ROOT;
+                # nothing to download from the asset provider.
+                continue
+            _add(entries, AssetRequirement(id=f"scenario_object:{asset.key}", label=asset.description,
+                                          kind=RequirementKind.SCENARIO_OBJECT,
+                                          relative_paths=asset.relative_paths))
 
     for robot in selection.get("robots", ()):
         if not isinstance(robot, Mapping):

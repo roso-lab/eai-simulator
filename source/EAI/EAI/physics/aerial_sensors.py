@@ -95,11 +95,10 @@ class AerialSensorReading:
 
 @dataclass(frozen=True)
 class AerialSensorRobotSpec:
-    """Sensor resources and their independently gated ROS publishers.
+    """Independently gated sensor resources and ROS publishers.
 
-    Aerial robots own the complete physical/model suite, so their booleans
-    describe ROS publication only. Ground-robot camera providers are handled by
-    their explicit Orsus or RealSense D455 payload runtimes.
+    Ground-robot camera providers are handled by their explicit Orsus or
+    RealSense D455 payload runtimes.
     """
 
     robot_name: str

@@ -9,3 +9,4 @@
 
 from .velodyne import *
 from .ros_lidar import *
+from .octagon_aio_c01 import *

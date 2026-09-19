@@ -15,6 +15,8 @@ from .manipulator_omnigraph import (
     manipulator_topic_names,
 )
 from .ur5_omnigraph import (
+    UR5_BARE_MODEL_SPEC,
+    UR5_GRIPPER_JOINT_NAME,
     UR5_JOINT_NAMES,
     UR5_MODEL_SPEC,
     Ur5ActiveCommand,
@@ -48,6 +50,13 @@ from .realsense_d455_imu import (
     get_realsense_imu_manager,
     realsense_d455_instance_registry,
 )
+from .simulation_clock import (
+    SIMULATION_CLOCK_GRAPH_PATH,
+    SimulationClockManager,
+    attach_simulation_clock_manager,
+    ensure_simulation_clock_manager,
+    get_simulation_clock_manager,
+)
 
 __all__ = [
     "ROS2CmdVelBridge",
@@ -58,6 +67,8 @@ __all__ = [
     "get_manipulator_graph_manager",
     "manipulator_topic_names",
     "UR5_JOINT_NAMES",
+    "UR5_GRIPPER_JOINT_NAME",
+    "UR5_BARE_MODEL_SPEC",
     "UR5_MODEL_SPEC",
     "Ur5ActiveCommand",
     "Ur5JointCommand",
@@ -83,4 +94,9 @@ __all__ = [
     "attach_realsense_imu_manager",
     "get_realsense_imu_manager",
     "realsense_d455_instance_registry",
+    "SIMULATION_CLOCK_GRAPH_PATH",
+    "SimulationClockManager",
+    "attach_simulation_clock_manager",
+    "ensure_simulation_clock_manager",
+    "get_simulation_clock_manager",
 ]

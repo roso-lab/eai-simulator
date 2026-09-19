@@ -12,7 +12,7 @@ from .paths import REPO_ROOT
 DEFAULT_SOURCE_ROOT = REPO_ROOT / "usd" / "picture"
 DEFAULT_OUTPUT_ROOT = DEFAULT_SOURCE_ROOT / "processed"
 GROUPS = ("robot", "manipulator", "sensor", "tool")
-MANIPULATOR_NAMES = frozenset({"ur5", "z1"})
+MANIPULATOR_NAMES = frozenset({"ur5", "ur5_bare", "z1"})
 OUTLINE_COLOR = (0, 183, 255, 255)
 GLOW_COLOR = (0, 183, 255, 90)
 

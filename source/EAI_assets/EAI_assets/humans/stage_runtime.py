@@ -278,6 +278,11 @@ class UsdHumanStageRuntime:
         self._write_pose(str(actor_id), pose)
         return pose
 
+    def set_path_speed(self, actor_id: str, speed: float) -> None:
+        """Set a spawned path actor's movement speed for a response mode."""
+        actor = self._actor(actor_id)
+        actor.set_path_speed(speed)
+
     def play_action(
         self,
         actor_id: str,

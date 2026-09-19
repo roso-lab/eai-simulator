@@ -134,6 +134,17 @@ class SpawnedHuman:
         self._pending_pose = self._follower.reset()
         return self._pending_pose
 
+    def set_path_speed(self, speed: float) -> None:
+        """Change the speed of the actor's path follower at runtime."""
+        if self._closed:
+            raise RuntimeError(f"SpawnedHuman '{self.actor_id}' is closed")
+        if self._follower is None:
+            raise ValueError(f"SpawnedHuman '{self.actor_id}' has no path follower")
+        speed = float(speed)
+        if not math.isfinite(speed) or speed <= 0.0:
+            raise ValueError("speed must be positive and finite")
+        self._follower.speed = speed
+
     # ------------------------------------------------------------------
     # tick
     # ------------------------------------------------------------------

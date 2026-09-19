@@ -48,6 +48,7 @@ class _IsaacAerialSensorGraphRuntime:
         self._lidar_sensors: dict[str, Any] = {}
         self._lidar_prim_paths: set[str] = set()
         self._lidar_writers: dict[str, Any] = {}
+        self._camera_annotators: dict[str, Any] = {}
 
     @staticmethod
     def _get_stage() -> Any:
@@ -149,6 +150,9 @@ class _IsaacAerialSensorGraphRuntime:
         render_product = rep.create.render_product(camera_prim_path, resolution=(640, 480))
         render_product_path = str(getattr(render_product, "path", render_product))
         self._render_products.append(render_product)
+        rgb_annotator = rep.AnnotatorRegistry.get_annotator("rgb")
+        rgb_annotator.attach([render_product])
+        self._camera_annotators[robot_name] = rgb_annotator
 
         component = sanitize_ros_component(robot_name)
         key = f"{robot_name}:camera"
@@ -192,6 +196,13 @@ class _IsaacAerialSensorGraphRuntime:
         import omni.kit.app
 
         omni.kit.app.get_app().update()
+
+    def capture_camera_frame(self, robot_name: str) -> Any:
+        """Return the latest RGB frame from a configured aerial camera."""
+        annotator = self._camera_annotators.get(robot_name)
+        if annotator is None:
+            return None
+        return annotator.get_data()
 
     def create_aerial_lidar_sensor(
         self,
@@ -327,6 +338,8 @@ class _IsaacAerialSensorGraphRuntime:
         self._lidar_sensors.clear()
         self._lidar_prim_paths.clear()
         self._lidar_writers.clear()
+        camera_annotators = tuple(self._camera_annotators.values())
+        self._camera_annotators.clear()
         self._render_products.clear()
 
         has_resources = bool(graph_paths or lidar_prim_paths or writers or render_products)
@@ -341,6 +354,11 @@ class _IsaacAerialSensorGraphRuntime:
                 detach()
             except Exception as exc:
                 print(f"[AerialSensors] Warning: Failed to detach RTX LiDAR writer: {exc}")
+        for annotator in camera_annotators:
+            try:
+                annotator.detach()
+            except Exception as exc:
+                print(f"[AerialSensors] Warning: Failed to detach camera annotator: {exc}")
 
         for render_product in render_products:
             destroy = getattr(render_product, "destroy", None)
@@ -403,6 +421,13 @@ class AerialSensorSuiteManager:
     def requires_rendering(self) -> bool:
         return bool(self._specs)
 
+    def capture_camera_frame(self, robot_name: str) -> Any:
+        """Return a live RGB frame for benchmark evidence capture."""
+        capture = getattr(self._runtime, "capture_camera_frame", None)
+        if not callable(capture):
+            return None
+        return capture(robot_name)
+
     def _setup(self) -> None:
         active: list[str] = []
         try:
@@ -428,15 +453,14 @@ class AerialSensorSuiteManager:
                         )
                 # Only aerial robots carry the native RTX LiDAR; MuSHR uses the
                 # optional RosLidarCfg payload instead.
-                if spec.robot_type in AERIAL_SENSOR_TYPES:
+                if spec.robot_type in AERIAL_SENSOR_TYPES and spec.lidar:
                     body_prim_path = f"/World/envs/env_0/{robot_name}/body"
                     self._runtime.create_aerial_lidar_sensor(
                         robot_name,
                         body_prim_path,
                         spec.lidar_offset,
                     )
-                    if spec.lidar:
-                        self._runtime.create_aerial_lidar_publisher(robot_name)
+                    self._runtime.create_aerial_lidar_publisher(robot_name)
                 active.append(robot_name)
         except Exception:
             self.close()

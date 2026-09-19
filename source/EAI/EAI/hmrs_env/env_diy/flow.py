@@ -16,7 +16,7 @@ UR5_SUPPORTED_ROBOTS = frozenset(catalog.attachment_entry("ur5").supported_robot
 Z1_SUPPORTED_ROBOTS = frozenset(catalog.attachment_entry("z1").supported_robots)
 LIDAR_SUPPORTED_ROBOTS = frozenset(catalog.attachment_entry("lidar").supported_robots)
 CAMERA_SUPPORTED_ROBOTS = frozenset(catalog.tool_catalog()["camera"].supported_robots)
-TERMINAL_CONTROLLER_STEP = 10
+TERMINAL_CONTROLLER_STEP = 11
 SCENE_CHOICES = catalog.SCENE_CHOICES
 ROBOT_LABELS = catalog.ROBOT_LABELS
 _TERMINAL_RULE = "-" * 72
@@ -108,6 +108,8 @@ class InteractiveSelection:
     scene_key: str
     robots: tuple[RobotSelection, ...]
     task_name: str | None = None
+    # Canonical JSON keeps the new contract intact without exposing mutable state.
+    scenario_json: str | None = None
 
 
 def is_back_token(value: str) -> bool:
@@ -279,6 +281,21 @@ def choose_terminal_interactive_selection(
             continue
 
         if step == 7:
+            updated = _choose_attachments(
+                "OCTAGON-AIO-C01",
+                "octagon_aio_c01",
+                robots,
+                input_func=input_func,
+                print_func=print_func,
+            )
+            if updated is None:
+                step = 6
+                continue
+            robots = updated
+            step = 8
+            continue
+
+        if step == 8:
             _print_terminal_step(
                 print_func,
                 4,
@@ -293,21 +310,6 @@ def choose_terminal_interactive_selection(
                 print_func=print_func,
             )
             if updated is None:
-                step = 6
-                continue
-            robots = updated
-            step = 8
-            continue
-
-        if step == 8:
-            updated = _choose_attachments(
-                "Camera tool",
-                "camera",
-                robots,
-                input_func=input_func,
-                print_func=print_func,
-            )
-            if updated is None:
                 step = 7
                 continue
             robots = updated
@@ -316,6 +318,21 @@ def choose_terminal_interactive_selection(
 
         if step == 9:
             updated = _choose_attachments(
+                "Camera tool",
+                "camera",
+                robots,
+                input_func=input_func,
+                print_func=print_func,
+            )
+            if updated is None:
+                step = 8
+                continue
+            robots = updated
+            step = 10
+            continue
+
+        if step == 10:
+            updated = _choose_attachments(
                 "Keyboard tool",
                 "keyboard",
                 robots,
@@ -323,7 +340,7 @@ def choose_terminal_interactive_selection(
                 print_func=print_func,
             )
             if updated is None:
-                step = 9
+                step = 10
                 continue
             robots = updated
             before_controller_override = list(robots)
@@ -342,7 +359,7 @@ def choose_terminal_interactive_selection(
             print_func=print_func,
         )
         if updated is None:
-            step = 9
+            step = 10
             continue
         if scene_key is None:
             raise RuntimeError("Scene was not selected.")
@@ -422,8 +439,8 @@ def _choose_attachments(
             and not any(item.type in {"orsus", "realsense_d455"} for item in robot.attachments)
         )
         and not (
-            attachment_type in {"ur5", "z1"}
-            and any(item.type in {"ur5", "z1"} for item in robot.attachments)
+            attachment_type in catalog.MANIPULATOR_TYPES
+            and any(item.type in catalog.MANIPULATOR_TYPES for item in robot.attachments)
         )
         and not (
             attachment_type in {"orsus", "lidar"}
@@ -612,7 +629,12 @@ def _ask_yes_no_or_back(prompt: str, *, default: bool, input_func, print_func) -
 
 
 def interactive_selection_to_dict(selection: InteractiveSelection) -> dict[str, Any]:
+    if selection.scenario_json is not None:
+        from EAI.scenario_spec.validation import parse_scenario
+
+        return parse_scenario(selection.scenario_json)
     data = asdict(selection)
+    data.pop("scenario_json", None)
     robots = []
     for robot in data["robots"]:
         normalized = {
@@ -635,6 +657,15 @@ def interactive_selection_to_dict(selection: InteractiveSelection) -> dict[str, 
 
 
 def interactive_selection_from_dict(data: dict[str, Any]) -> InteractiveSelection:
+    scenario_json = None
+    if data.get("version", 1) == 2:
+        import json
+        from EAI.scenario_spec import validate_scenario
+
+        data = validate_scenario(data)
+        scenario_json = json.dumps(data, allow_nan=False, sort_keys=True)
+    elif data.get("version", 1) != 1:
+        raise ValueError("Unsupported environment version")
     scene_key = str(data["scene_key"]).strip().lower()
     if scene_key not in {key for key, _label in SCENE_CHOICES}:
         raise ValueError(f"Unknown scene '{scene_key}'.")
@@ -659,10 +690,10 @@ def interactive_selection_from_dict(data: dict[str, Any]) -> InteractiveSelectio
         for attachment_type in attachment_types:
             attachment = attachment_data_by_type[attachment_type]
             attachment_controller = None
-            if attachment_type in {"ur5", "z1"}:
+            if attachment_type in catalog.MANIPULATOR_TYPES:
                 attachment_controller = _controller_from_dict(
                     attachment.get("controller"),
-                    default_cfg="UR5_IK_CFG" if attachment_type == "ur5" else "Z1_IK_CFG",
+                    default_cfg="UR5_IK_CFG" if attachment_type in {"ur5", "ur5_bare"} else "Z1_IK_CFG",
                 )
             attachments.append(AttachmentSelection(attachment_type, attachment_controller))
         robots.append(
@@ -681,6 +712,7 @@ def interactive_selection_from_dict(data: dict[str, Any]) -> InteractiveSelectio
         scene_key=scene_key,
         robots=tuple(robots),
         task_name=data.get("task_name"),
+        scenario_json=scenario_json,
     )
 
 

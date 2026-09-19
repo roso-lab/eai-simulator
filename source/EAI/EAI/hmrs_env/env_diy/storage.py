@@ -103,6 +103,14 @@ def task_from_visual_state(task_name: str, visual_state: dict[str, Any]) -> dict
 
 
 def _normalize_task_payload(task_name: str, task_data: dict[str, Any]) -> dict[str, Any]:
+    if task_data.get("version", TASK_SCHEMA_VERSION) == 2:
+        from EAI.scenario_spec import validate_scenario
+
+        return validate_scenario({**task_data, "task_name": task_name})
+    if task_data.get("version", TASK_SCHEMA_VERSION) != 1:
+        raise ValueError("Unsupported environment version")
+    if any(key in task_data for key in ("composition", "phase_graph")):
+        raise ValueError("composition and phase_graph require version 2")
     scene_key = task_data.get("scene_key") or task_data.get("scene")
     if not scene_key:
         raise ValueError("Env data must include scene_key.")
@@ -148,7 +156,7 @@ def _deduplicate_attachments(attachments: Any) -> list[dict[str, Any]]:
     manipulator_type: str | None = None
     for attachment in attachments or []:
         attachment_type = str(attachment["type"]).strip().lower()
-        if attachment_type in {"ur5", "z1"}:
+        if attachment_type in {"ur5", "ur5_bare", "z1"}:
             if manipulator_type is not None and manipulator_type != attachment_type:
                 raise ValueError("A robot cannot attach both UR5 and Z1.")
             manipulator_type = attachment_type

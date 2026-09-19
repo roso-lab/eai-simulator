@@ -19,10 +19,14 @@ SCENE_CHOICES = (
     ("airs", "AIRS scene"),
     ("desert", "Desert"),
     ("hospital", "Hospital"),
+    ("rmuc2024", "RMUC 2024"),
+    ("warehouse_nvd", "Warehouse NVD benchmark overlay"),
+    ("modern_house_nvd", "Modern House NVD benchmark overlay"),
 )
 
 ROBOT_KEYS = (
     "carter",
+    "simple_car",
     "pepper",
     "go2",
     "b2",
@@ -39,6 +43,7 @@ ROBOT_KEYS = (
 
 ROBOT_LABELS = {
     "carter": "Carter differential base",
+    "simple_car": "SimpleCar Gazebo planar base",
     "pepper": "Pepper holonomic base",
     "go2": "Unitree Go2",
     "b2": "Unitree B2",
@@ -65,12 +70,13 @@ TOOL_ASSET_NAMES = {
     "keyboard": "keyboard",
 }
 
-# Robots that carry a built-in monocular camera, so the Camera tool does not
-# require an Orsus or RealSense D455 payload.
-BUILTIN_CAMERA_ROBOTS = frozenset({"cf2x", "iris", "pegasus"})
+# Robots carrying a native camera suite. The Camera tool gates publication.
+BUILTIN_CAMERA_ROBOTS = frozenset({"cf2x", "iris", "pegasus", "simple_car"})
 
-# Aerial robots provide these sensor capabilities through their built-in
-# sensor suite, so separate ground-robot payloads stay unavailable in DIY UIs.
+# Only aerial robots use detachable-payload names as aliases for their built-in
+# sensor suite. SimpleCar has its own C01/dual-camera contract and must not silently
+# masquerade as Orsus, RealSense, or a generic LiDAR.
+BUILTIN_SENSOR_ROBOTS = frozenset({"cf2x", "iris", "pegasus"})
 BUILTIN_SENSOR_CAPABILITIES = {
     "orsus": ("camera", "lidar"),
     "realsense_d455": ("camera",),
@@ -82,12 +88,40 @@ BUILTIN_SENSOR_CAPABILITIES = {
 PAYLOAD_MOUNT_CONFLICTS = (
     ("carter", "z1", "orsus"),
     ("carter", "z1", "lidar"),
+    ("carter", "z1", "octagon_aio_c01"),
+    ("carter", "ur5", "orsus"),
+    ("carter", "ur5", "lidar"),
+    ("carter", "ur5", "octagon_aio_c01"),
     ("go2", "ur5", "orsus"),
     ("go2", "z1", "orsus"),
 )
 
+# Attachment types that occupy the single manipulator slot of a host robot.
+MANIPULATOR_TYPES = ("ur5", "ur5_bare", "z1")
+
+# Results from the unscaled UR5 + Robotiq 2F-85 stationary mount matrix.
+# ``conditional`` means the evidence is limited to the stationary fixture.
+UR5_DEPLOYMENT_STATUS = {
+    "carter": ("rejected", "21.9 kg 顶部质量＋0.414 m 挂点力臂在初始沉降瞬态内即把速度阻尼轮小车掀翻弹飞（0.25 s 内跌落 0.19 m、倾至 0.30 rad，漂移 1.8 m）；速度模式车轮无恢复力矩，当前挂载与轮控制组合不可用。"),
+    "scout": ("conditional", "未缩放静止姿态与平均对地反力通过；瞬时接触支撑包络仍有缺失/越界，未验证倾覆裕度或行走操作。"),
+    "b2": ("conditional", "已在静止专用 PD 下通过未缩放摆臂和对地支撑检查；未验证默认行走控制器或行走中操作。"),
+    "go2": ("rejected", "未缩放 UR5 在静止测试中倾覆，当前挂载位置和控制不能稳定。"),
+    "m20": ("rejected", "未缩放 UR5 在静止测试中失稳，当前挂载位置和控制不能稳定。"),
+    "lite3": ("rejected", "裸载对照为稳定的内在倾斜姿态（恒定 18°、反力为体重 82%）；装载 UR5 后完全翻倒（对地反力 0）。差分明确指向 21.9 kg 顶部载荷；裸载基线未达门禁，结论限于当前挂载位置。"),
+}
+
+Z1_DEPLOYMENT_STATUS = {
+    "scout": ("conditional", "仅完成未缩放静止摆臂测试，尚未验证行走中操作。"),
+    "b2": ("conditional", "仅完成未缩放静止摆臂测试，尚未验证行走中操作。"),
+    "go2": ("conditional", "仅完成未缩放静止摆臂测试，尚未验证行走中操作。"),
+    "m20": ("conditional", "未缩放 Z1 静止摆臂、对地反力与漂移门禁通过；未验证行走中操作。"),
+    "carter": ("conditional", "未缩放 Z1 静止摆臂、对地反力与漂移门禁通过；宿主 54 kg 为 USD 声明值且 40 kg 集中在两驱动轮（分布偏乐观），未验证行走中操作。"),
+    "lite3": ("rejected", "裸载对照为稳定的内在倾斜姿态（恒定 18°、前后足受力 2/46 N 严重偏载、反力为体重 82%）；装载 Z1 后同一 fixture 下倾角增加 77°、对地反力降为 0（完全翻倒）。差分明确指向 5.2 kg 顶部载荷；但裸载基线未达门禁，结论限于当前挂载位置。"),
+}
+
 _DEFAULT_CONTROLLER_CFG = {
     "carter": "CARTER_DIFF_CFG",
+    "simple_car": "SIMPLE_CAR_PLANAR_CFG",
     "pepper": "PEPPER_HOLONOMIC_CFG",
     "go2": "GO2_VELOCITY_RSL_CFG",
     "b2": "B2_VELOCITY_RSL_CFG",
@@ -104,6 +138,7 @@ _DEFAULT_CONTROLLER_CFG = {
 
 _CONTROLLER_CFG_NAMES = (
     "CARTER_DIFF_CFG",
+    "SIMPLE_CAR_PLANAR_CFG",
     "PEPPER_HOLONOMIC_CFG",
     "GO2_VELOCITY_RSL_CFG",
     "B2_VELOCITY_RSL_CFG",
@@ -210,7 +245,7 @@ def _attachment_entries() -> tuple[AttachmentCatalogEntry, ...]:
     lidar_hosts = (
         "carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3",
     )
-    ur5_hosts = ("go2", "b2", "m20", "scout", "lite3")
+    ur5_hosts = ("carter", "go2", "b2", "m20", "scout", "lite3")
     z1_hosts = ("carter", "go2", "b2", "m20", "scout", "lite3")
     # RealSense D455 与 Orsus 一样是可解耦装载的传感器载荷；
     # pepper 头顶装载作为首轮验证宿主，其余沿用 Orsus 兼容宿主集合。
@@ -238,8 +273,35 @@ def _attachment_entries() -> tuple[AttachmentCatalogEntry, ...]:
             category="sensor",
         ),
         AttachmentCatalogEntry(
+            # C01 与独立雷达载荷同挂载体系：宿主集合沿用 lidar_hosts，
+            # builder 在 lidar_mount_link/lidar_offset 处 spawn OctagonAioC01。
+            name="octagon_aio_c01",
+            asset_cfg="OctagonAioC01Cfg",
+            controller_cfg=None,
+            supported_robots=lidar_hosts,
+            category="sensor",
+        ),
+        AttachmentCatalogEntry(
+            # simple_car 内置传感器套件的 Mid-360 变体声明：运行时由
+            # simple_car_sensor_suite 直接创建 RTX lidar，无需 spawn 场景资产；
+            # 不声明则默认 octagon_aio_c01。EAI_SIMPLE_CAR_LIDAR_VARIANT
+            # 环境变量仍作兼容回退，但 attachment 声明优先。
+            name="mid360",
+            asset_cfg=None,
+            controller_cfg=None,
+            supported_robots=("simple_car",),
+            category="sensor",
+        ),
+        AttachmentCatalogEntry(
             name="ur5",
             asset_cfg="MountedUr5ArmCfg",
+            controller_cfg="UR5_IK_CFG",
+            supported_robots=ur5_hosts,
+            category="manipulator",
+        ),
+        AttachmentCatalogEntry(
+            name="ur5_bare",
+            asset_cfg="MountedUr5BareArmCfg",
             controller_cfg="UR5_IK_CFG",
             supported_robots=ur5_hosts,
             category="manipulator",
@@ -265,7 +327,7 @@ def tool_catalog() -> dict[str, AttachmentCatalogEntry]:
             asset_cfg=None,
             controller_cfg=None,
             supported_robots=(
-                "carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3",
+                "carter", "simple_car", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3",
                 "cf2x", "iris", "pegasus", "pepper",
             ),
             category="tool",
@@ -275,7 +337,7 @@ def tool_catalog() -> dict[str, AttachmentCatalogEntry]:
             asset_cfg=None,
             controller_cfg=None,
             supported_robots=(
-                "carter", "go2", "b2", "m20", "scout", "mushr_v2",
+                "carter", "simple_car", "go2", "b2", "m20", "scout", "mushr_v2",
                 "coco", "lite3", "pepper", "g1", "cf2x", "iris", "pegasus",
             ),
             category="tool",
@@ -284,7 +346,7 @@ def tool_catalog() -> dict[str, AttachmentCatalogEntry]:
             name="keyboard",
             asset_cfg=None,
             controller_cfg=None,
-            supported_robots=("carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "pepper", "g1", "cf2x", "iris", "pegasus", "lite3"),
+            supported_robots=("carter", "simple_car", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "pepper", "g1", "cf2x", "iris", "pegasus", "lite3"),
             category="tool",
         ),
     }
@@ -309,13 +371,25 @@ def attachment_supported(robot_type: str, attachment_type: str) -> bool:
     return attachment_entry(attachment_type).supports(robot_type) and not attachment_entry(attachment_type).visual_only
 
 
+def manipulator_deployment_status(robot_type: str, attachment_type: str) -> tuple[str, str] | None:
+    """Return the evidence status for a screened selectable or retained candidate mount."""
+    key = str(attachment_type).strip().lower()
+    if key == "z1":
+        return Z1_DEPLOYMENT_STATUS.get(canonical_robot_type(robot_type),
+                                         ("unknown", "缺少该宿主的未缩放质量、重心和动力学验证。"))
+    if key not in {"ur5", "ur5_bare"}:
+        return None
+    return UR5_DEPLOYMENT_STATUS.get(canonical_robot_type(robot_type),
+                                     ("unknown", "缺少该宿主的未缩放质量、重心和动力学验证。"))
+
+
 def builtin_sensor_capabilities(
     robot_type: str,
     attachment_type: str,
 ) -> tuple[str, ...]:
     """Describe built-in aerial capabilities replacing an unavailable payload."""
     host = canonical_robot_type(robot_type)
-    if host not in BUILTIN_CAMERA_ROBOTS:
+    if host not in BUILTIN_SENSOR_ROBOTS:
         return ()
     return BUILTIN_SENSOR_CAPABILITIES.get(
         str(attachment_type).strip().lower(),
@@ -330,6 +404,8 @@ def payload_mount_conflict(
     """Return the first physics-incompatible manipulator/sensor pair, if any."""
     host = canonical_robot_type(robot_type)
     normalized = {str(item).strip().lower() for item in attachment_types}
+    if "ur5_bare" in normalized:
+        normalized.add("ur5")
     for conflict_host, manipulator, sensor in PAYLOAD_MOUNT_CONFLICTS:
         if host == conflict_host and {manipulator, sensor} <= normalized:
             return manipulator, sensor
@@ -348,27 +424,40 @@ def validate_attachment_types(robot_type: str, attachment_types: list[str] | tup
         entry = attachment_entry(attachment_type)
         if entry.visual_only or not entry.supports(host):
             raise ValueError(f"Attachment '{attachment_type}' is not supported by robot '{host}'.")
-        if attachment_type in {"ur5", "z1"}:
+        if attachment_type in MANIPULATOR_TYPES:
             if manipulator is not None and manipulator != attachment_type:
-                raise ValueError(f"Robot '{host}' cannot attach both UR5 and Z1.")
+                raise ValueError(f"Robot '{host}' cannot attach more than one manipulator.")
             manipulator = attachment_type
         if attachment_type not in normalized:
             normalized.append(attachment_type)
     if "orsus" in normalized and "lidar" in normalized:
         raise ValueError(f"Robot '{host}' cannot attach both Orsus and LiDAR.")
-    mount_conflict = payload_mount_conflict(host, normalized)
-    if mount_conflict is not None:
-        manipulator, sensor = mount_conflict
-        display_names = {
-            "ur5": "UR5",
-            "z1": "Z1",
-            "orsus": "Orsus",
-            "lidar": "LiDAR",
-        }
-        raise ValueError(
-            f"Robot '{host}' cannot attach both "
-            f"{display_names[manipulator]} and {display_names[sensor]}."
-        )
+    for other_type, other_label in (("orsus", "Orsus"), ("lidar", "LiDAR")):
+        if "octagon_aio_c01" in normalized and other_type in normalized:
+            raise ValueError(
+                f"Robot '{host}' cannot attach both OCTAGON-AIO-C01 and {other_label}."
+            )
+        mount_conflict = payload_mount_conflict(host, normalized)
+        if mount_conflict is not None:
+            manipulator, sensor = mount_conflict
+            display_names = {
+                "ur5": "UR5",
+                "z1": "Z1",
+                "orsus": "Orsus",
+                "lidar": "LiDAR",
+                "octagon_aio_c01": "OCTAGON-AIO-C01",
+            }
+            raise ValueError(
+                f"Robot '{host}' cannot attach both "
+                f"{display_names[manipulator]} and {display_names[sensor]}."
+            )
+    for manipulator in MANIPULATOR_TYPES:
+        if manipulator in normalized:
+            status = manipulator_deployment_status(host, manipulator)
+            if status is not None and status[0] in {"rejected", "unknown"}:
+                raise ValueError(
+                    f"{manipulator.upper()} on '{host}' is {status[0]} by the physical screen: {status[1]}"
+                )
     if "camera" in normalized and host not in BUILTIN_CAMERA_ROBOTS and not (
         "orsus" in normalized or "realsense_d455" in normalized
     ):

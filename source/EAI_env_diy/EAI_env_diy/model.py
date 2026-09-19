@@ -173,6 +173,8 @@ class AuthoringModel:
 
     @classmethod
     def from_selection_dict(cls, data: dict[str, Any]) -> "AuthoringModel":
+        if data.get("version") == 2:
+            raise ValueError("Factory V2 composition must be edited as scenario JSON; this editor supports V1 only")
         selection = interactive_selection_from_dict(data)
         model = cls(selection.scene_key)
         for selected in selection.robots:

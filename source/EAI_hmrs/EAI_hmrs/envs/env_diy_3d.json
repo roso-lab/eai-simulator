@@ -1,16 +1,25 @@
 {
   "robots": [
     {
-      "attachments": [],
+      "attachments": [
+        {
+          "controller": null,
+          "type": "orsus"
+        },
+        {
+          "controller": null,
+          "type": "navigation_io"
+        }
+      ],
       "controller": {
         "cfg": "CARTER_DIFF_CFG",
         "mode": "default"
       },
       "spawn_pose": {
         "position": [
-          1.8009284,
-          -8.2585649,
-          1.7655662
+          2.0227821,
+          -0.7429503,
+          0.307
         ],
         "rotation": [
           1.0,
@@ -24,34 +33,9 @@
         "x": 0.0,
         "y": 0.0
       }
-    },
-    {
-      "attachments": [],
-      "controller": {
-        "cfg": "GO2_VELOCITY_RSL_CFG",
-        "mode": "default"
-      },
-      "spawn_pose": {
-        "position": [
-          -3.8276105,
-          -0.6698026,
-          0.4
-        ],
-        "rotation": [
-          1.0,
-          0.0,
-          0.0,
-          0.0
-        ]
-      },
-      "type": "go2",
-      "visual": {
-        "x": 0.0,
-        "y": 0.0
-      }
     }
   ],
-  "scene_key": "factory",
+  "scene_key": "rmuc2024",
   "task_name": "env_diy_3d",
   "version": 1
 }
