@@ -1,5 +1,17 @@
 # Modern House NVD benchmark demo
 
+[中文](README.zh-CN.md) · [Delivery status overview (zh)](../benchmark/DELIVERY.zh-CN.md)
+
+> **Status (2026-09-19, stage 18)** — Runnable: native detector/path backend
+> readback (stage-18 v3, two-snapshot diagnostic with object identities and a
+> blocked access-path measurement); kinematic reference episode v6 (11/11
+> nodes); resident-path and bounded-withdrawal diagnostics; corrected spawn
+> heights (v5, casters on the 0.25 m floor). Blocked: a formal before/after
+> business witness (current snapshots have no furniture intervention) and the
+> outside/threshold/inside region binding for the continuous resident path
+> (M20_2 was pixel-audited on the outside terrace side; spawn re-check
+> pending). `release_status=pending`, `scoreable=false`.
+
 The scene-owned `HouseNativeSceneDetector` ideal sensor and
 `IsaacResidentPathBackend` now provide concrete session readback adapters.
 See [native backend integration](NATIVE_BACKENDS.md) for the direct in-session

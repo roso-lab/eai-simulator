@@ -2,6 +2,12 @@
 
 日期：2026-09-15。状态：已获实施授权，执行进度及验收记录见 [TODO.zh-CN.md](TODO.zh-CN.md)。
 
+> **现状标注（2026-09-19）**：本文是三场景 benchmark 启动期的设计规划，其分析结论
+> 已被后续实现吸收。当前任务生成与审核的权威状态见
+> [demo/benchmark/DELIVERY.zh-CN.md](../benchmark/DELIVERY.zh-CN.md) 与
+> [demo/benchmark/TODO.zh-CN.md](../benchmark/TODO.zh-CN.md)（阶段 1–18）；
+> 本文保留为设计依据与历史记录。
+
 本规划的分析依据为用户提供的阶段审查文本、当时工作树和只读 Python 复现。
 分析阶段只新增本规划文档，没有修改生成器、执行器、机器人或机械臂实现，没有启动 Isaac 或调用在线模型。
 上一轮三个 demo 的导航样例通过属于已有证据；不能代替本规划中尚未完成的验证。

@@ -45,20 +45,29 @@ usd/
 
 ## 2. 文档地图
 
-| 类别 | 文档 | 用途 |
-| --- | --- | --- |
-| **交付状态** | 本文（DELIVERY.zh-CN.md） | 总览、三档交付状态、剩余 blocker |
-| 阶段清单 | [TODO.zh-CN.md](TODO.zh-CN.md) | 阶段 1–18 权威勾选记录（fail-closed：证据齐全才勾） |
-| 设计文档 | [BENCHMARK_DESIGN.zh-CN.md](BENCHMARK_DESIGN.zh-CN.md) | 三场景任务意义、四类模型输入、决策权限与隐藏评测边界 |
-|  | [TASK_GENERATION_PROGRESS_REPORT.zh-CN.md](TASK_GENERATION_PROGRESS_REPORT.zh-CN.md) | 任务生成在整体链路中的位置、四步审核法、协作边界 |
-|  | [TASK_DESIGN_REVIEW.zh-CN.md](TASK_DESIGN_REVIEW.zh-CN.md) | 出题侧任务契约与审核规则 |
-| 轨道文档 | [GOAL_DRIVEN_TRACK.zh-CN.md](GOAL_DRIVEN_TRACK.zh-CN.md) | goal-driven 主轨道（业务目标题面 + v2 API） |
-|  | [GOAL_SUITE.zh-CN.md](GOAL_SUITE.zh-CN.md) | 统一生成/审计/读回 CLI 与冻结机制 |
-|  | [GOAL_DEPLOYMENT.zh-CN.md](GOAL_DEPLOYMENT.zh-CN.md)、[GOAL_DEPLOYMENT_CONFIGURATION.zh-CN.md](GOAL_DEPLOYMENT_CONFIGURATION.zh-CN.md) | 部署诊断入口、四场景配置与参考执行 |
-|  | [GOAL_PHYSICAL.zh-CN.md](GOAL_PHYSICAL.zh-CN.md)、[GOAL_SCENE_BINDING.zh-CN.md](GOAL_SCENE_BINDING.zh-CN.md) | 物理诊断边界、场景绑定清单 |
-|  | [VERTICAL_TRAVERSAL.md](VERTICAL_TRAVERSAL.md) | 楼梯垂直探针协议 |
-| 阶段审核 | [STAGE12_REVIEW.zh-CN.md](STAGE12_REVIEW.zh-CN.md) ~ [STAGE18_REVIEW.zh-CN.md](STAGE18_REVIEW.zh-CN.md) | 各阶段真实证据路径、SHA-256 与反思（阶段 12–18） |
-| 场景文档 | `demo/<scene>_benchmark/README*.md`、`demo/city_benchmark/{README,TODO,VALIDATION}*.md` | 各场景入口、场景内待办与验证口径 |
+「状态」列标注文档时效：**现行** = 反映阶段 18 现状；**历史** = 保留为证据/设计依据，条目不再更新。
+
+| 类别 | 文档 | 状态 | 用途 |
+| --- | --- | --- | --- |
+| **交付状态** | 本文（DELIVERY.zh-CN.md） | 现行 | 总览、三档交付状态、剩余 blocker |
+| 阶段清单 | [TODO.zh-CN.md](TODO.zh-CN.md) | 现行 | 阶段 1–18 权威勾选记录（fail-closed：证据齐全才勾） |
+| 设计文档 | [BENCHMARK_DESIGN.zh-CN.md](BENCHMARK_DESIGN.zh-CN.md) | 现行 | 三场景任务意义、四类模型输入、决策权限与隐藏评测边界 |
+|  | [TASK_GENERATION_PROGRESS_REPORT.zh-CN.md](TASK_GENERATION_PROGRESS_REPORT.zh-CN.md) | 现行 | 任务生成在整体链路中的位置、四步审核法、协作边界 |
+|  | [TASK_DESIGN_REVIEW.zh-CN.md](TASK_DESIGN_REVIEW.zh-CN.md) | 现行 | 出题侧任务契约与审核规则 |
+| 轨道文档 | [GOAL_DRIVEN_TRACK.zh-CN.md](GOAL_DRIVEN_TRACK.zh-CN.md) | 现行 | goal-driven 主轨道（业务目标题面 + v2 API） |
+|  | [GOAL_SUITE.zh-CN.md](GOAL_SUITE.zh-CN.md) | 现行 | 统一生成/审计/读回 CLI 与冻结机制 |
+|  | [GOAL_DEPLOYMENT.zh-CN.md](GOAL_DEPLOYMENT.zh-CN.md)、[GOAL_DEPLOYMENT_CONFIGURATION.zh-CN.md](GOAL_DEPLOYMENT_CONFIGURATION.zh-CN.md) | 现行 | 部署诊断入口、四场景配置与参考执行 |
+|  | [GOAL_PHYSICAL.zh-CN.md](GOAL_PHYSICAL.zh-CN.md)、[GOAL_SCENE_BINDING.zh-CN.md](GOAL_SCENE_BINDING.zh-CN.md) | 现行 | 物理诊断边界、场景绑定清单 |
+|  | [VERTICAL_TRAVERSAL.md](VERTICAL_TRAVERSAL.md) | 现行 | 楼梯垂直探针协议 |
+| 阶段审核 | [STAGE12_REVIEW.zh-CN.md](STAGE12_REVIEW.zh-CN.md) ~ [STAGE18_REVIEW.zh-CN.md](STAGE18_REVIEW.zh-CN.md) | 历史（追加式） | 各阶段真实证据路径、SHA-256 与反思（阶段 12–18） |
+| 场景文档 | [factory_benchmark/README.zh-CN.md](../factory_benchmark/README.zh-CN.md) | 现行 | Factory 入口：状态块、F-INS/F-VERT/F-TRAFFIC/F-COV、标签与派车基线 |
+|  | [warehouse_benchmark/README.zh-CN.md](../warehouse_benchmark/README.zh-CN.md) | 现行 | Warehouse 入口：状态块、10 节点订单链、原生承载诊断 |
+|  | [modern_house_benchmark/README.zh-CN.md](../modern_house_benchmark/README.zh-CN.md)、[NATIVE_BACKENDS.md](../modern_house_benchmark/NATIVE_BACKENDS.md) | 现行 | House 入口：状态块、11 节点恢复链、原生 detector/path 后端 |
+|  | [city_benchmark/README.md](../city_benchmark/README.md)、[TODO.zh-CN.md](../city_benchmark/TODO.zh-CN.md)、[VALIDATION.zh-CN.md](../city_benchmark/VALIDATION.zh-CN.md) | 现行 | 城市第四场景：prepare/intake、服务边界、验证记录 |
+|  | `demo/<scene>_benchmark/README.md`（英文镜像） | 现行 | 顶部含英文状态块；中文版为权威 |
+| 历史归档 | [HCS-IRD方案调研报告.zh-CN.md](HCS-IRD方案调研报告.zh-CN.md) | 历史 | 2026-09-15 调研讨论稿 |
+|  | [factory_benchmark/ROADMAP.zh-CN.md](../factory_benchmark/ROADMAP.zh-CN.md) | 历史 | 启动期设计规划（结论已被后续实现吸收） |
+|  | [factory_benchmark/TODO.zh-CN.md](../factory_benchmark/TODO.zh-CN.md) | 历史 | Factory 优先时期 P0–P6 阶段记录（已被主线 TODO 取代） |
 
 ## 3. 已完成（可复核）
 

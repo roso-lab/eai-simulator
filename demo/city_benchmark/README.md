@@ -5,6 +5,12 @@ Flow 和单一 `open_simulator_session` 生命周期；不重命名原演示，�
 或共享 goal-driven 契约。题包场景身份是 `city`，而原演示选择器中的
 `modern_house_nvd` 只是动态 builder 的配置支架，不是城市任务的场景身份。
 
+> **当前状态（2026-09-19 · 阶段18）**
+>
+> - **可跑**：prepare 产物（地图/语义区域/题面草稿 + 源 hash 绑定）；`goal_city_intake` 接入审核（10 产物 + manifest 校验）；`guide_people`/`control_following_traffic`/`report_incident` 已登记为 participant-facing 公共技能（`registered_runtime_pending`）；v8 候选服务诊断——五项服务真实人员轨迹（~301 样本）、交通控制（~256 样本/类）、事故回执与连续通路读回（`tmp/city_benchmark/service_probe_stage18_20260919_v8/`）。
+> - **被阻断**：正式 episode 绑定——人员/车辆 roster、危险区、集合容量、角色区间、动态实体须由城市维护方固定进正式 episode（当前 `formal_episode_binding=false`）；之后任务生成侧补两份独立业务见证与具体因子 treatment，再执行完整题包和单因子冻结门槛。
+> - **发布口径**：preparation draft，`scoreable=false`，不纳入三个已审完整业务族或正式计分集。
+
 当前交付：真实 USD 静态地图、语义区域、候选集合点、三机器人可选池和选队配置适配、
 目标驱动公开题面、共享 participant API、人员响应/跑步动作适配、后续交通控制边界和作者私有接入审核。**这是 preparation draft，
 不能计分，也不是已有 `validate_goal_bundle` 接受的完整正式题包。**

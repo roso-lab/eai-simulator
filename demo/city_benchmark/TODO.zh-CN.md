@@ -1,5 +1,8 @@
 # City 第四场景接入清单
 
+> 总体交付状态见 [demo/benchmark/DELIVERY.zh-CN.md](../benchmark/DELIVERY.zh-CN.md)；
+> 主线阶段清单见 [demo/benchmark/TODO.zh-CN.md](../benchmark/TODO.zh-CN.md)（城市相关项在「后续场景接入：城市」及阶段 13–18）。
+
 范围：场景基础清点、地图配置、目标驱动任务生成与接入审核。保持 `demo/city` 原演示、
 共享三个场景、共享 goal-driven 模块和 USD 不变。运行时服务、实验回放、完整评分由后续所有者接入。
 

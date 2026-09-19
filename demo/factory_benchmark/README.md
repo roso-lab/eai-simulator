@@ -1,6 +1,15 @@
 # Factory benchmark demo
 
-[中文](README.zh-CN.md)
+[中文](README.zh-CN.md) · [Delivery status overview (zh)](../benchmark/DELIVERY.zh-CN.md)
+
+> **Status (2026-09-19, stage 18)** — Runnable: F-INS-01 four-layer challenge
+> package with dispatch matrix and ArUco label engineering baseline; F-TRAFFIC /
+> F-COV comparison tasks; stair measurement binding (`flight_02`, root + 67
+> dependency-layer hashes) and F-VERT-01 candidate compiler entry; 14-type
+> configuration smoke. Blocked: continuous stair traversal — the current RL
+> locomotion models fail at `first/second_tread` (`support_unknown`); a
+> replacement motion model was decided before revalidation, the stair entry
+> stays open. All packages remain `release_status=pending`, `scoreable=false`.
 
 This application owns the factory task blueprint, asset allowlist and experiment profile in `scenario.py`. `config.py` selects its USD and occupancy map. Maintained smoke episodes live in `scenarios/`; generated task pools and reports belong in `tmp/`.
 

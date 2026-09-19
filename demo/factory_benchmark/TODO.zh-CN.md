@@ -1,5 +1,10 @@
 # Benchmark 阶段执行清单
 
+> **历史归档（2026-09-19 标注）**：本清单是 Factory 优先时期（P0–P6）的阶段执行记录。
+> 当前权威的阶段清单与勾选状态是 [demo/benchmark/TODO.zh-CN.md](../benchmark/TODO.zh-CN.md)（阶段 1–18），
+> 交付状态总览见 [demo/benchmark/DELIVERY.zh-CN.md](../benchmark/DELIVERY.zh-CN.md)。
+> 本文件保留为历史证据，条目不再更新。
+
 持续目标：形成 Factory、Warehouse NVD 和 Modern House NVD 的场景化出题、执行与独立验收边界。
 当前边界见 [BENCHMARK_DESIGN.zh-CN.md](../benchmark/BENCHMARK_DESIGN.zh-CN.md)，
 长期设计依据为 [ROADMAP.zh-CN.md](ROADMAP.zh-CN.md)。文档核对日期：2026-09-18。
