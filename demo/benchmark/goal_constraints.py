@@ -271,6 +271,27 @@ def validate_constraint_model(task_spec: Mapping[str, Any]) -> dict[str, Any]:
             "robot_count": len(robots), "object_count": len(objects), "route_count": len(routes)}
 
 
+# 实测锚点不可达注册表：(机器人配置 ID, 锚点 local z 下限)。计划级组合枚举
+# 直接判该 (机器人, 锚点) 组合不可行——被测模型须选择其他成员或组合。
+# 依据 2026-09-19 阶段18 v10-v14 五轮 PhysX 实测（见 STAGE18_REVIEW）：
+# Carter（benchmark_carter_support_connector_no_arm_v1，根 z=0、reach 0.6）对
+# local z>=0.2 的 support 锚点（物体落地后世界 z>=~0.5）任一朝向不可达——
+# 水平预算 sqrt(0.6^2 - z_world^2) <= 0.24 m，小于其朝向碰撞体前伸 0.205 m
+# + 锚点内缩 0.025 m + 静置抖动 0.012 m。2D 计划检查（hypot(x,y)）不含
+# 竖直分量，此注册表补足该缺口；根高较高的构型（如 M20 根 z~0.53）不受影响。
+_MEASURED_ANCHOR_INFEASIBLE: tuple[tuple[str, float], ...] = (
+    ("benchmark_carter_support_connector_no_arm_v1", 0.2),
+)
+
+
+def _anchor_measured_infeasible(profile: Mapping[str, Any], point: Mapping[str, Any]) -> bool:
+    if point.get("interface") != "support_socket_v1":
+        return False
+    point_z = float(point["position_m"][2]) if len(point["position_m"]) > 2 else 0.0
+    return any(configuration_id == profile.get("configuration_id") and point_z >= z_floor
+               for configuration_id, z_floor in _MEASURED_ANCHOR_INFEASIBLE)
+
+
 def _binding_option(obj: Mapping[str, Any], mode: Mapping[str, Any],
                     assigned: tuple[Mapping[str, Any], ...], *,
                     existing_attachment: bool = False) -> dict[str, Any] | None:
@@ -289,6 +310,7 @@ def _binding_option(obj: Mapping[str, Any], mode: Mapping[str, Any],
                 or interface not in robot["interfaces"]
                 or point["interface"] not in profile["grasp_interfaces"]
                 or load > profile["effective_payload_kg"]
+                or _anchor_measured_infeasible(profile, point)
                 or math.hypot(*point["position_m"]) > profile["reach_m"]):
             return None
         bindings.append({"agent_id": robot["id"], "point_id": point["id"]})

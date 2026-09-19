@@ -536,3 +536,38 @@ def test_validation_does_not_mutate_task_plan_or_runtime_context(spec):
     transport_options(spec, "crate")
     validate_plan_constraints(plan, task_spec=spec, context=context)
     assert (spec, plan, context) == original
+
+
+def test_measured_carter_support_anchor_infeasibility_rejects_combination(spec):
+    """W1b：Carter 实测锚点不可达注册表在计划级拒绝其承载组合。
+
+    依据阶段18 v10–v14：Carter（根 z=0、reach 0.6）对 local z>=0.2 的
+    support 锚点（世界 z>=~0.5）任一朝向水平预算 <=0.24 m，小于碰撞体前伸
+    +锚点内缩+抖动。2D 计划检查不含竖直分量，注册表补足该缺口；根高较高
+    的构型（M20 根 z~0.53）不受影响。
+    """
+    from demo.benchmark.goal_constraints import _anchor_measured_infeasible
+
+    def carter(identifier="carter_x"):
+        robot = _robot(identifier, payload=10.0, reach=0.6)
+        robot["physical_profile"]["configuration_id"] = "benchmark_carter_support_connector_no_arm_v1"
+        return robot
+
+    anchor = {"id": "support_right", "position_m": [0.0, 0.3, 0.25], "interface": "support_socket_v1"}
+    m20 = _robot("m20_x", payload=8.0, reach=0.8)
+    m20["physical_profile"]["configuration_id"] = "benchmark_m20_fixed_grasp_and_support_v1"
+
+    # Carter + 高位 support 锚点：实测不可达 → 组合被拒
+    assert _anchor_measured_infeasible(carter()["physical_profile"], anchor) is True
+    # M20 根高 ~0.53：不在注册表 → 不受影响
+    assert _anchor_measured_infeasible(m20["physical_profile"], anchor) is False
+    # 低位锚点（local z < 0.2）不受注册表约束
+    low_anchor = {"id": "low", "position_m": [0.0, 0.3, 0.1], "interface": "support_socket_v1"}
+    assert _anchor_measured_infeasible(carter()["physical_profile"], low_anchor) is False
+    # 非 support 接口（fixed_gripper）不适用
+    gripper = {"id": "g", "position_m": [0.0, 0.3, 0.25], "interface": "fixed_gripper_v1"}
+    assert _anchor_measured_infeasible(carter()["physical_profile"], gripper) is False
+    # 其他配置的机器人不受影响
+    other = _robot("other")
+    other["physical_profile"]["configuration_id"] = "some_other_config_v1"
+    assert _anchor_measured_infeasible(other["physical_profile"], anchor) is False

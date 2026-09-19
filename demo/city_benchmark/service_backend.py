@@ -8,6 +8,7 @@ the source or turn reference animation into physical evidence.
 from __future__ import annotations
 
 from copy import deepcopy
+import json
 import math
 from typing import Any, Callable, Iterable, Mapping, Protocol
 
@@ -166,7 +167,24 @@ class CityServiceBackend:
         if ids and (len(set(ids)) != len(ids) or any(not i for i in ids)):
             raise ValueError("duplicate or empty entity identity")
         if not self.source.admit(service, ids, region_id, target_region_id, mode, now):
-            raise ValueError("service route, authority or capacity not admitted")
+            # C1 诊断：拒绝时携带完整提交上下文（角色/覆盖观察状态 + 谓词输入），
+            # 供正式绑定首跑校准定位具体拒绝项。
+            role_state = None
+            try:
+                role_state = {
+                    "role_active": self.source.role_active(agent_id, self._ROLES[service], region_id, now),
+                    "role": self._ROLES[service],
+                }
+            except Exception:
+                role_state = {"role_probe_error": True}
+            raise ValueError(
+                "service route, authority or capacity not admitted: "
+                + json.dumps({
+                    "service": service, "agent_id": agent_id, "region_id": region_id,
+                    "entity_ids": list(ids), "target_region_id": target_region_id,
+                    "mode": mode, "now_s": now, "role_state": role_state,
+                    "observation_refs": list(observation_refs),
+                }, ensure_ascii=False))
         key = (service, agent_id, region_id, tuple(sorted(ids)), mode, recipient,
                target_region_id, observation_refs)
         if key in self._keys:

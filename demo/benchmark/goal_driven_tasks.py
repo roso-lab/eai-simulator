@@ -286,6 +286,8 @@ def _warehouse() -> tuple[dict[str, Any], list[dict[str, Any]]]:
         "木箱固定起始于 rack_aisle_a，纸箱固定起始于 rack_aisle_b，两者必须经过 consolidation_area 后在 outbound_dock 完成交接。rack_overview 声明覆盖两处取货区、集货区及 dock 的库存和净空观察；最短取货近路可能不容纳携物队形。两件货物均可由 dock 接收后留在其接收占地内，不能占用通道；未来事件时序不公开。",
         "immediate", max_active_agents=3,
     )
+    # 双 M20 承载对（ground_1 + ground_3）；两见证互换 picker/partner 角色
+    # 保持语义差异（取箱顺序 + 分工不同）。
     return public, [_warehouse_witness(public, "a", "warehouse_ground_1", carton_first=False),
                     _warehouse_witness(public, "b", "warehouse_ground_3", carton_first=True)]
 
@@ -293,7 +295,11 @@ def _warehouse() -> tuple[dict[str, Any], list[dict[str, Any]]]:
 def _warehouse_witness(public: dict[str, Any], suffix: str, picker: str, *,
                        carton_first: bool) -> dict[str, Any]:
     """Two orders of work under exactly the same initial object state."""
-    aerial, partner = "warehouse_aerial_1", "warehouse_ground_2"
+    # 双 M20 承载对：ground_2（carter）在 goal_constraints 的实测锚点注册表
+    # 下对高位 support 锚点不可达（阶段18 v10-v14，见 STAGE18_REVIEW）；配对
+    # 选择属被测模型方案空间，见证各取一个可行组合并互换分工。
+    partner = "warehouse_ground_1" if picker == "warehouse_ground_3" else "warehouse_ground_3"
+    aerial = "warehouse_aerial_1"
     survey = "survey_racks" if suffix == "a" else "survey_racks_b"
     position_id = f"position_overview_{suffix}"
     rows = [
@@ -407,7 +413,9 @@ def _house() -> tuple[dict[str, Any], list[dict[str, Any]]]:
 
 def _house_witness(public: dict[str, Any], suffix: str, picker: str, *,
                    books_first: bool) -> dict[str, Any]:
-    aerial, partner = "house_aerial_1", "house_ground_2"
+    # 双 M20 承载对（与仓库同理：Carter 高位锚点实测不可达，注册表拒绝）。
+    partner = "house_ground_1" if picker == "house_ground_3" else "house_ground_3"
+    aerial = "house_aerial_1"
     rows = [_task_row(f"inspect_entry_{suffix}", "observe", {"region_id": "room_overview", "subject_ref": "living_armchair_01", "observation_mode": "home_access"}, [], ["observe"], [aerial])]
 
     def append(name: str, skill: str, arguments: dict[str, Any], agents: list[str]) -> str:

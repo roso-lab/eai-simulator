@@ -34,9 +34,9 @@ from .native_carry import shift_lift_target
 ROOT = Path(__file__).resolve().parents[2]
 OBJECT = "order_crate_01"
 M20_MEMBER = "warehouse_ground_1"
-CARTER_MEMBER = "warehouse_ground_2"
+CARTER_MEMBER = "warehouse_ground_3"
 M20_RUNTIME_ID = "m20_1"
-CARTER_RUNTIME_ID = "carter_1"
+CARTER_RUNTIME_ID = "m20_2"  # 第二载具亦为 M20（v15 双 M20 载具，名字保留以少动调用点）
 COMMAND_NAME = "base_velocity"
 ROUTE_CENTER_M = (-10.625, -11.725, 0.30)
 ROUTE_YAW_RAD = math.pi / 2
@@ -44,6 +44,11 @@ OBJECT_POSE = {
     "position": list(ROUTE_CENTER_M),
     "rotation": [math.sqrt(0.5), 0.0, 0.0, math.sqrt(0.5)],
 }
+# v15：双 M20 载具（ground_1=m20_1 东 / ground_3=m20_2 西）。阶段18 v10–v14
+# 测明 Carter 在 0.25 m 支撑锚点下任一朝向几何不可行（水平预算 0.24 m）；
+# 配对选择属被测模型方案空间，此处仅为可靠技能后端诊断换用可行对。
+# 站位取两侧 reach/间隙窗口中心（东 [-9.84,-9.56] / 西 [-11.73,-11.45]），
+# 腿式静置散布典型 ±0.07 m、罕见 ±0.2 m——罕见越界时按 fail-closed 重跑。
 CARRIER_POSES = {
     # v14 站位（v10-v13 四轮实测收敛）。经验规律：Carter（轮式刹车）静置稳定，
     # v11/v13 两验证 spawn -11.120 → settled -11.114/-11.115（前缘间隙 +0.031，
@@ -56,8 +61,8 @@ CARRIER_POSES = {
     # ——按 fail-closed 如实申报，本 probe 为微诊断且 formal_route_admission
     # 设计即为 false；紧凑队形（M20 转 90°）需朝向感知运输控制，未在本诊断
     # 采用。不改冻结的模式包络与通路净空。
-    M20_MEMBER: {"position": [-9.620, -11.725, 0.52], "rotation": [1.0, 0.0, 0.0, 0.0]},
-    CARTER_MEMBER: {"position": [-11.120, -11.725, 0.20], "rotation": [1.0, 0.0, 0.0, 0.0]},
+    M20_MEMBER: {"position": [-9.700, -11.725, 0.52], "rotation": [1.0, 0.0, 0.0, 0.0]},
+    CARTER_MEMBER: {"position": [-11.500, -11.725, 0.52], "rotation": [1.0, 0.0, 0.0, 0.0]},
 }
 CARRIERS = {M20_MEMBER: "support_left", CARTER_MEMBER: "support_right"}
 RUNTIME_IDS = {M20_MEMBER: M20_RUNTIME_ID, CARTER_MEMBER: CARTER_RUNTIME_ID}
@@ -124,7 +129,7 @@ def _public_pair_contract(deployment):
         raise ValueError("frozen paired-support slots changed")
     expected = {
         M20_MEMBER: ("m20", M20_RUNTIME_ID, 8, 0.8),
-        CARTER_MEMBER: ("carter", CARTER_RUNTIME_ID, 10, 0.6),
+        CARTER_MEMBER: ("m20", CARTER_RUNTIME_ID, 8, 0.8),
     }
     carriers = []
     for public_id, (kind, runtime_id, capacity, reach) in expected.items():
@@ -170,7 +175,7 @@ def _paired_selection(base_request, deployment, base_selection):
             robot["spawn_pose"] = deepcopy(inherited["original_spawn_pose"])
         if public_id not in CARRIER_POSES:
             continue
-        expected_type = "m20" if public_id == M20_MEMBER else "carter"
+        expected_type = "m20"
         if robot["type"] != expected_type or runtime_id != RUNTIME_IDS[public_id]:
             raise ValueError(f"paired carrier selection identity changed: {public_id}")
         original = deepcopy(robot["spawn_pose"])
@@ -311,7 +316,7 @@ def _controller_contracts(session):
         raise ValueError("controller configuration inventory unavailable")
     result = {}
     for runtime_id, expected_dim, kind in (
-            (M20_RUNTIME_ID, 16, "M20_RSL"), (CARTER_RUNTIME_ID, 2, "Carter_differential")):
+            (M20_RUNTIME_ID, 16, "M20_RSL"), (CARTER_RUNTIME_ID, 16, "M20_RSL")):
         if runtime_id not in session.possible_agents or runtime_id not in configs:
             raise ValueError(f"required paired runtime absent: {runtime_id}")
         cfg = configs[runtime_id]
@@ -319,12 +324,8 @@ def _controller_contracts(session):
             raise ValueError(f"controller command conversion unavailable: {runtime_id}")
         if not callable(getattr(cfg, "apply_action_func", None)):
             raise ValueError(f"controller action application unavailable: {runtime_id}")
-        if runtime_id == M20_RUNTIME_ID and getattr(cfg, "command_name", None) != COMMAND_NAME:
-            raise ValueError("M20 paired controller is not base_velocity driven")
-        if runtime_id == CARTER_RUNTIME_ID and not all(
-                hasattr(cfg, key) for key in ("wheel_base", "wheel_radius",
-                                              "left_wheel_joint_name", "right_wheel_joint_name")):
-            raise ValueError("Carter differential-drive parameters unavailable")
+        if getattr(cfg, "command_name", None) != COMMAND_NAME:
+            raise ValueError(f"paired controller is not {COMMAND_NAME} driven: {runtime_id}")
         result[runtime_id] = {
             "controller_kind": kind,
             "external_command": "body_frame_[vx,vy,wz]",

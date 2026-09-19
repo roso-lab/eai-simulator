@@ -40,10 +40,10 @@ INTERVENTION = {
     # 同型（见 STAGE18_REVIEW）。双 M20 reach 0.8、根 z≈0.527，standoff
     # 0.44 m 在 0.75 m 水平预算内；容量 8+8 kg ≥ 扶手椅 14 kg（每侧 7）。
     "carriers": {"house_ground_1": "support_left", "house_ground_3": "support_right"},
-    "parking_preferred_xy_m": [7., 13.5],
+    "parking_preferred_xy_m": [4.98, 15.6],
     "approach_max_steps": 6000,
     "align_max_steps": 1500,
-    "carry_max_steps": 9000,
+    "carry_max_steps": 6000,
     "withdrawal_max_steps": 6000,
     "approach_speed_mps": .35,
     "lift_height_m": .04,
@@ -65,11 +65,16 @@ APPROACH_WAYPOINTS = {
     "house_ground_3": [],
 }
 DIAGNOSTIC_SPAWN_OVERRIDES = {
-    # z=0.77 为阶段12 v5 校准根高；朝向 +x（搬运方向）。worker 在 before 快照
-    # 前以一次构建期位姿写入把载具放到这些点（等效出生位，全程记录）；不改
-    # selection/deployment 的防篡改绑定。
-    "house_ground_1": {"position": [4.98, 12.66, 0.77], "rotation": [1.0, 0.0, 0.0, 0.0]},
-    "house_ground_3": {"position": [4.98, 14.34, 0.77], "rotation": [1.0, 0.0, 0.0, 0.0]},
+    # z=0.77 为阶段12 v5 校准根高；朝向 +y 北（v18 搬运方向）。v17 复盘：
+    # 东向 parking [7,13.5] 被 SceneXR Whitecliff 沙发（Mesh 碰撞 x[6.08,6.97]
+    # y[12.07,14.98]）阻挡——占据图漏采 Mesh 资产，椅 0.67 m 东移即沙发边界。
+    # 北向 lane 经 USD Mesh 级核验：静态 Armchair/lamp 西缘 x≤4.51 与椅西缘
+    # 4.52 留 ~1 cm（双机锁步横向实测亚毫米，可过）；北载具搬运后东撤无阻，
+    # 南载具距走廊 ~2.6 m 天然达标。worker 在 before 快照前以一次构建期位姿
+    # 写入把载具放到这些点（等效出生位，全程记录）；不改 selection/deployment
+    # 的防篡改绑定。
+    "house_ground_1": {"position": [4.98, 12.66, 0.77], "rotation": [0.7071067811865476, 0.0, 0.0, 0.7071067811865476]},
+    "house_ground_3": {"position": [4.98, 14.34, 0.77], "rotation": [0.7071067811865476, 0.0, 0.0, 0.7071067811865476]},
 }
 INTERVENTION_SCOPE = "author_side_furniture_intervention_and_full_ground_withdrawal_between_snapshots"
 
@@ -532,15 +537,16 @@ def worker(root):
             report["intervention"]["plan"]["withdrawal"] = withdrawal
             record_event("withdrawal_started")
             targets_by_id = {row["public_id"]: row["position_xy_m"] for row in withdrawal["targets"]}
-            # v14 复盘：M20 策略仅前向，规划格目标若需转向则失速（ground_1 滑入
-            # 走廊，净空 -0.157）。M20 载具撤离目标改为当前位置的 +x 东向射线
-            # （距走廊单调增，前向可达）；Carter 差速可转向，保留规划格目标。
+            # v14/v18 复盘：M20 策略仅前向且无法转向，撤离目标必须沿载具当前
+            # 朝向（= 搬运方向 +y 北）的射线——北向通道经 USD Mesh 级核验
+            # 畅通且距走廊单调增；东向射线在沙发带（y∈[12.07,14.98]）受阻。
+            # Carter 差速可转向，保留规划格目标。
             drive_targets = {}
             for r in ground:
                 pid = r["public_id"]
                 if pid in carriers:
                     state = _root_state(session, rows[pid]["runtime_id"])
-                    drive_targets[pid] = [state[0] + 4.0, state[1]]
+                    drive_targets[pid] = [state[0], state[1] + 3.0]
                 else:
                     drive_targets[pid] = targets_by_id[pid]
             drive_ground(drive_targets,

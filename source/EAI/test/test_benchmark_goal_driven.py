@@ -188,9 +188,14 @@ def test_coalition_is_validated_as_a_skill_requirement():
     with pytest.raises(ValueError, match="at least 2 agents"):
         validate_goal_plan(carry_plan := plan, task_spec=public)
 
-    carry["assigned_agents"] = ["warehouse_ground_1", "warehouse_ground_2"]
+    # 双 M20 可行对（ground_2=carter 在实测锚点注册表下不可达，见 goal_constraints）
+    carry["assigned_agents"] = ["warehouse_ground_1", "warehouse_ground_3"]
     carry["required_capabilities"] = ["cooperative_carry"]
     assert validate_goal_plan(carry_plan, task_spec=public)["validated"]
+    # Carter 参与高位 support 承载在计划级即被拒（阶段18 v10-v14 实测）
+    carry["assigned_agents"] = ["warehouse_ground_1", "warehouse_ground_2"]
+    with pytest.raises(ValueError, match="assigned agent is outside the selected plan team|infeasible"):
+        validate_goal_plan(carry_plan, task_spec=public)
 
 
 def test_evidence_refs_must_be_visible_and_current():
@@ -402,13 +407,25 @@ def test_candidate_pool_requires_team_selection_and_carter_cannot_pick(scene):
     assert len(public["candidate_robot_pool"]) == 4
     assert public["budgets"]["max_active_agents"] == 3
     witnesses = bundle["hidden_evaluator"]["witness_plans"]
-    assert set(witnesses[0]["plan"]["assigned_team"]) != set(witnesses[1]["plan"]["assigned_team"])
+    # 阶段19 起可行承载对唯一（双 M20），两见证共享队合但分工互换：picker
+    # 角色对调（assigned_team 顺序不同 + pick/承载任务的 assigned_agents 不同）。
+    assert witnesses[0]["plan"]["assigned_team"] != witnesses[1]["plan"]["assigned_team"]
+    pick0 = next(row for row in witnesses[0]["plan"]["tasks"] if row["skill"] == "pick")
+    pick1 = next(row for row in witnesses[1]["plan"]["tasks"] if row["skill"] == "pick")
+    assert pick0["assigned_agents"] != pick1["assigned_agents"]
 
     carter = next(row for row in public["candidate_robot_pool"] if row["type"] == "carter")
     assert not {"pick", "place"} & set(carter["public_capabilities"])
     plan = deepcopy(witnesses[0]["plan"])
     pick = next(row for row in plan["tasks"] if row["skill"] == "pick")
-    pick["assigned_agents"] = [carter["id"]]
+    original_picker = pick["assigned_agents"][0]
+    # 预算 3：队内以 carter 整体替换原 picker 的全部任务分工，验证 pick
+    # 能力缺失在计划级仍被拒（carter 无 pick/place 能力）
+    for row in plan["tasks"]:
+        row["assigned_agents"] = [carter["id"] if agent == original_picker else agent
+                                  for agent in row["assigned_agents"]]
+    plan["assigned_team"] = [carter["id"]] + [
+        member for member in plan["assigned_team"] if member != original_picker]
     with pytest.raises(ValueError, match="does not declare"):
         validate_goal_plan(plan, task_spec=public)
 
