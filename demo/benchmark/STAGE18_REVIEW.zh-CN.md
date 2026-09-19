@@ -151,6 +151,36 @@ admitted`，service_backend.py:169）。报告 `formal_episode_binding=false`、
 人员路线 vs 绑定声明路线、role 区间、容量计数），属首跑集成校准，
 非契约缺陷。纯代码链（绑定构建/审核/goal bundle/冻结）全部离线通过。
 
+## 阶段19 Warehouse 双 M20 承载战役（v2–v6，2026-09-20）
+
+Carter 锚点不可达结论（上文 v10–v14）落地为计划准入注册表（goal_constraints
+`_MEASURED_ANCHOR_INFEASIBLE`，含反例测试）后，paired probe 换双 M20 载具
+（配对属被测模型方案空间；诊断只需可行对）。证据
+`tmp/warehouse_stage19_paired_dual_m20_v2..v6/`：
+
+- **v2/v3**：同种子静置结果逐位一致（东 -9.8604 / 西 -11.6953）——修正早前
+  「±0.2 散布」解读：漂移是**确定性**的；且东侧为「滑至接触为止」（出生
+  间隙 <~0.18 m 即滑到贴箱），间隙 ≥~0.24 m 时不滑（v12/v14 的 +0.019）。
+- **v4**：西侧按确定性漂移精调（spawn -11.45 → settled -11.645，间隙
+  +0.244、reach 0.716 ✓）验证漂移模型；东侧 -9.68 仍滑至接触。
+- **v5（突破）**：东 spawn -9.620（无滑阈值）+ 西 -11.45——**settled 与
+  lift_apex 门禁首次通过**（measured_separated），双关节抬升 + **78 个运输
+  样本 + 40 个抬升样本**实测记录；仅运输末态东载具后轮与箱 1.4 cm 擦碰
+  （拖行中编队内微移）。
+- **v6**：standoff 修改无效果（probe 为出生即位设计，无接近行驶段），
+  末态重叠与 v5 逐位相同——确认为拖行期间编队内**确定性**内移 ~4.6 cm。
+- **v7（完成）**：东载具出生东移 5 cm（-9.620→-9.570，reach 0.696 ≤ 0.797）
+  对冲内移。**全绿**：`status=diagnostic_completed`，四道几何门禁全部
+  `measured_separated`（settled / dual_joint_lift_apex / attached_transport_
+  end / lowered_before_detach），**78 个运输样本 + 80 个抬升样本**，抬升
+  0.0375 m（双关节），释放后新物理步读回与 detach 回执齐全。证据：
+  `tmp/warehouse_stage19_paired_dual_m20_v7/`。这是 Warehouse 首个完整
+  双机固定点承载链（attach→lift→transport→lower→detach→release）。
+
+控制栈：双 M20 均为 base_velocity 前向指令（M20 策略仅前向，见 House 战役），
+运输为两载具同向前向；`_action_readback`/控制器契约/成员映射/测试全部更新
+为双 M20（21 项 probe 测试 + 320 项 goal 套件通过）。
+
 ## 当前复查重点
 
 - Warehouse：绝对提升量从不可变初始锚点重新计算，加入变姿态与双约束回程反例；

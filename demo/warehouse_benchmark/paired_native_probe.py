@@ -61,8 +61,15 @@ CARRIER_POSES = {
     # ——按 fail-closed 如实申报，本 probe 为微诊断且 formal_route_admission
     # 设计即为 false；紧凑队形（M20 转 90°）需朝向感知运输控制，未在本诊断
     # 采用。不改冻结的模式包络与通路净空。
-    M20_MEMBER: {"position": [-9.700, -11.725, 0.52], "rotation": [1.0, 0.0, 0.0, 0.0]},
-    CARTER_MEMBER: {"position": [-11.500, -11.725, 0.52], "rotation": [1.0, 0.0, 0.0, 0.0]},
+    # v2/v3 实测：静置漂移是确定性的（同种子同结果）：东侧 spawn-0.1604、
+    # 西侧 spawn-0.1953（-x 地板滑动至平衡）。据此精调：东 -9.680 → settled
+    # -9.8404，左缘 -10.286 与箱面 -10.302 间隙 +0.016、reach 0.489；西
+    # -11.450 → settled -11.6453，右缘 -11.200 与箱左 -10.956 间隙 +0.244、
+    # reach 0.716。
+    # v5/v6 复盘：运输期间编队内确定性内移 ~4.6 cm，东载具后轮在末态
+    # 入箱 1.4 cm；出生再东移 5 cm 对冲（reach 0.696 ≤ 0.797）。
+    M20_MEMBER: {"position": [-9.570, -11.725, 0.52], "rotation": [1.0, 0.0, 0.0, 0.0]},
+    CARTER_MEMBER: {"position": [-11.450, -11.725, 0.52], "rotation": [1.0, 0.0, 0.0, 0.0]},
 }
 CARRIERS = {M20_MEMBER: "support_left", CARTER_MEMBER: "support_right"}
 RUNTIME_IDS = {M20_MEMBER: M20_RUNTIME_ID, CARTER_MEMBER: CARTER_RUNTIME_ID}
@@ -364,7 +371,7 @@ def _action_readback(session):
     if not isinstance(actions, dict):
         raise ValueError("computed controller actions unavailable")
     result = {}
-    for runtime_id, expected in ((M20_RUNTIME_ID, 16), (CARTER_RUNTIME_ID, 2)):
+    for runtime_id, expected in ((M20_RUNTIME_ID, 16), (CARTER_RUNTIME_ID, 16)):
         action = actions.get(runtime_id)
         shape = tuple(getattr(action, "shape", ()))
         if len(shape) != 2 or shape[0] != session.num_envs or shape[-1] != expected:

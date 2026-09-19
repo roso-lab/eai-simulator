@@ -1042,6 +1042,11 @@ def _run_bound_episode(session, city, actions, report, report_path, prepared, ru
     # One roster-wide observation snapshot serves every per-region request:
     # consecutive observes without a step would collide on the same ref.
     guidance_observation = runner.observe()
+    # C1 诊断：首次提交前记录逐人路线 readback（admission 的 routes_clear 谓词输入）
+    trace["person_routes_before_first_submit"] = {
+        person_id: city._episode_service._person_route(person_id)
+        for person_id in roster_ids}
+    _checkpoint(report_path, report)
     for capacity in binding["assembly_capacity"]:
         region_id, group = capacity["region_id"], tuple(capacity["bound_person_ids"])
         _role(runner, "guidance_contact", session, trace)

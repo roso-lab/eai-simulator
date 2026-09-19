@@ -175,12 +175,12 @@ conda run -n env_isaaclab env PYTHONPATH=. PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
 ### 5.1 外部资产 blocker（已于 2026-09-19 解除，待 provider 发布）
 
 - **Carter 碰撞源资产**（已修复）：根因是 `caster_swivel_left/right` 与 `caster_frame_base` 三个**空 Xform** 被施加了 `PhysicsMeshCollisionAPI`+`convexHull`——无网格可烹饪，故 v9 probe 的 deferred cooking 返回 `RESULT_ERROR_INVALID_PARSING`。本地修复：移除这三个 prim 的碰撞 API 与 approximation 属性（刚体/关节链保留，轮子解析 Cylinder 碰撞不受影响，**未添加任何代理形状**）。v10 复跑验证：cooking 失败消失，collider inventory 73→70，形状闭合门禁通过（证据：`tmp/warehouse_stage18_paired_native_20260919_v10/`，细节见 [STAGE18](STAGE18_REVIEW.zh-CN.md)）。
-- **后续交接**：① 修复后的 `carter.usd`（SHA-256 `86de9633…`）目前仅是本地资产修复，需维护者按 provider 流程发布到不可变 revision；② probe 推进到的新卡点是**联合队形几何**——M20/Carter 与木箱静置 AABB 相互接触（reach 公约 0.8/0.6 m 与碰撞包络挤压），属 STAGE18 已记录的队形实测问题，非资产缺陷。
+- **后续交接**：① 修复后的 `carter.usd`（SHA-256 `86de9633…`）目前仅是本地资产修复，需维护者按 provider 流程发布到不可变 revision；② 队形几何问题已于 2026-09-20 收口——Carter 不可达实测写入计划准入注册表（`goal_constraints._MEASURED_ANCHOR_INFEASIBLE`，配对选择仍属被测模型方案空间），双 M20 诊断走通 settled/lift 门禁并实测 78 运输 + 40 抬升样本（阶段19 战役记录）。
 
 ### 5.2 正式 episode 绑定（2026-09-19 大幅推进，各剩一个实测级卡点）
 
 - **City**：v8 仅为候选诊断（`formal_episode_binding=false`）。**2026-09-19**：作者固化绑定（4 人 roster 逐人绑定集合候选/危险区模板/控制点/反应窗口/回执端点，intake 机检）、`_city()` builder 双语义见证、communication_quality 因子 treatment、完整 goal bundle 的 build/verify/freeze、goal_suite 城市审计与单因子对——全部落地（离线 246+211 项测试）。正式探针首跑：prepare 机检通过（`author_frozen_episode_binding`），execute 在首次服务提交的 admission 谓词（路由/权限/容量）fail-closed，待逐谓词校准（STAGE18 City 首跑记录）。
-- **Modern House**：**2026-09-19**：区域几何双绑定（占据图区间 + USD 静态墙佐证、门外/门槛/门内推导、M20_2 出生一致性门禁）与干预时序（before→家具搬运→撤离→after + closeout 注入 + occupancy 断言）全部实现；干预 probe 经 v4–v17 十四轮实测（STAGE18 归档）**首次端到端完成十事件链**——双 M20 attach + 抬升 0.0371 m + **搬运实测 0.67 m**（House 首个双机搬运证据）。剩余实测卡点：椅在 x≈5.647 硬停（占据图准入 [7,13.5] 但实测受阻，疑客厅东侧地图/USD 不一致）、ground_1 撤离净空 0.841<1.077 m；另实测归档 M20 RL 策略仅前向（纯 yaw 指令失效）。
+- **Modern House**：**2026-09-20 完成**（STAGE18 阶段18/19 战役归档）：区域几何双绑定 + 干预时序全部实现；阻挡物指认为 SceneXR 沙发（占据图漏采 Mesh 资产）；干预几何改北向后 **v20 全绿**——双 M20 attach + 抬升 0.0372 m + **搬运 2.05 m 到达停车格** + 撤离 all_clear + after 快照 measured + closeout + occupancy 断言。剩余场景项：占据图重建纳入 Mesh 资产（地图哈希修订流程）；M20 仅前向的实测结论待运动模型更换（P1/M1）。
 
 ### 5.3 运动模型（用户已决策）
 

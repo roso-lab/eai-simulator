@@ -326,6 +326,57 @@ def spawn_response_people(stage: Any, people: Sequence[ResponsePersonSpec], *, r
                             "height_m": float(bounds.GetMax()[2] - bounds.GetMin()[2])})
     return runtime, HumanEvacuationBinding(runtime, {spec.person_id: spec for spec in people}), records
 
+def _segment_obstruction(points: Sequence[Sequence[float]], obstacles: Sequence[Mapping[str, Any]],
+                         *, half_xy: float, z_window: tuple[float, float]) -> bool:
+    """True when any polyline segment passes within half_xy of a z-overlapping obstacle bbox."""
+    for obstacle in obstacles:
+        lo, hi = obstacle.get("bounds_m") or ((), ())
+        if len(lo) < 3 or len(hi) < 3:
+            continue
+        if hi[2] < z_window[0] or lo[2] > z_window[1]:
+            continue
+        for index in range(len(points) - 1):
+            ax, ay = float(points[index][0]), float(points[index][1])
+            bx, by = float(points[index + 1][0]), float(points[index + 1][1])
+            cx = min(max((ax + bx) * .5, lo[0]), hi[0])
+            cy = min(max((ay + by) * .5, lo[1]), hi[1])
+            # 到线段的最近点（钳位到 bbox 的是近似，保守起见用段中点+端点）
+            for px, py in ((ax, ay), (bx, by), ((ax + bx) * .5, (ay + by) * .5)):
+                qx = min(max(px, lo[0]), hi[0])
+                qy = min(max(py, lo[1]), hi[1])
+                if math.hypot(px - qx, py - qy) < half_xy:
+                    return True
+    return False
+
+
+def _clear_route(points: Sequence[Sequence[float]], obstacles: Sequence[Mapping[str, Any]],
+                 *, half_xy: float, route_z: float) -> tuple[tuple[tuple[float, float, float], ...], bool]:
+    """Lateral-offset search until the swept polyline clears every static obstacle.
+
+    人行道折线通常贴路缘，扫掠人形包络会命中路灯/建筑。对整条折线沿其
+    净法向做确定性横向偏移搜索（先 +后 -，步长 0.25 m 至 2.5 m），返回
+    第一组全段清空的偏移点与成功标志；无解时如实返回 (原线, False)。
+    """
+    original = tuple((float(p[0]), float(p[1]), float(p[2]) if len(p) > 2 else route_z)
+                     for p in points)
+    z_window = (route_z - 1.5, route_z + 1.8)
+    if not _segment_obstruction(original, obstacles, half_xy=half_xy, z_window=z_window):
+        return original, True
+    if len(original) >= 2:
+        ax, ay = original[0][0], original[0][1]
+        bx, by = original[-1][0], original[-1][1]
+        dx, dy = bx - ax, by - ay
+        norm = math.hypot(dx, dy) or 1.0
+        nx, ny = -dy / norm, dx / norm
+        for sign in (1.0, -1.0):
+            for step in range(1, 11):
+                offset = sign * 0.25 * step
+                shifted = tuple((px + offset * nx, py + offset * ny, pz) for px, py, pz in original)
+                if not _segment_obstruction(shifted, obstacles, half_xy=half_xy, z_window=z_window):
+                    return shifted, True
+    return original, False
+
+
 def build_response_people(semantic_map: Mapping[str, Any], *, count: int = 4, seed: int = 7,
                           asset_ids: Sequence[str] = ("rp-aaron-rigged-001", "rp-amit-rigged-008-yup-t",
                                                        "synbody-0000001", "synbody-0000020")) -> list[ResponsePersonSpec]:
@@ -350,9 +401,22 @@ def build_response_people(semantic_map: Mapping[str, Any], *, count: int = 4, se
             raise ValueError(f"assembly candidate '{assembly.get('id')}' is not a point")
         assembly_xy = _point(geometry["coordinates"])
         assembly_point = (assembly_xy[0], assembly_xy[1], route_z)
-        # The final leg is intentionally kept in the private episode template.
-        # It still needs a runtime route/capacity admission before scoring.
-        evacuation_route = points + (assembly_point,)
+        # 阶段19 C1 实测：贴路缘的人行道折线 + 人形半宽扫掠会命中路灯/
+        # 建筑（正式 admission 的 routes_clear 谓词拒绝）。生成时先做横向
+        # 偏移清障；无解时如实保留原线（fail-closed 由审核层拒绝）。
+        static_obstacles = tuple(semantic_map.get("static_obstacles", ()))
+        person_half = 0.3
+        cleared, ok = _clear_route((*points, assembly_point), static_obstacles,
+                                   half_xy=person_half, route_z=route_z)
+        # 集合点必须保持原位：若平移移动了它，还原末端并复检末腿
+        if ok and cleared[-1] != assembly_point:
+            moved_end = cleared[-1]
+            fixed = (*cleared[:-1], assembly_point)
+            leg_ok = not _segment_obstruction((moved_end, assembly_point), static_obstacles,
+                                              half_xy=person_half,
+                                              z_window=(route_z - 1.5, route_z + 1.8))
+            cleared, ok = (fixed, leg_ok) if leg_ok else (points + (assembly_point,), False)
+        evacuation_route = cleared
         people.append(ResponsePersonSpec(
             person_id=f"affected_person_{index:02d}", asset_id=asset_ids[index % len(asset_ids)],
             start_xyz=points[0], evacuation_route=evacuation_route,
