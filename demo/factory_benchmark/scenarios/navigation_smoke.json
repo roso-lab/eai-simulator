@@ -1,0 +1,65 @@
+{
+  "version": 2,
+  "task_name": "factory_navigation_smoke",
+  "scene_key": "factory",
+  "seed": 17,
+  "robots": [
+    {
+      "id": "carter_1",
+      "type": "carter",
+      "controller": {
+        "mode": "default",
+        "cfg": "CARTER_DIFF_CFG"
+      },
+      "attachments": [
+        {
+          "type": "z1",
+          "controller": {
+            "mode": "default",
+            "cfg": "Z1_IK_CFG"
+          }
+        }
+      ],
+      "spawn_pose": {
+        "position": [
+          -3.45,
+          -5.6,
+          0.2
+        ],
+        "rotation": [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      }
+    }
+  ],
+  "composition": {
+    "entities": [],
+    "targets": [
+      {
+        "id": "destination",
+        "position": [
+          -1.85,
+          -5.6,
+          0.0
+        ],
+        "radius_m": 0.5
+      }
+    ]
+  },
+  "phase_graph": {
+    "nodes": [
+      {
+        "id": "approach",
+        "skill_key": "navigate",
+        "preferred_agent": "carter_1",
+        "target_ref": "destination",
+        "object_ref": null,
+        "prerequisites": [],
+        "timeout_s": 60.0
+      }
+    ]
+  }
+}

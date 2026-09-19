@@ -1,0 +1,132 @@
+{
+  "version": 2,
+  "task_name": "factory_f_cov_01",
+  "benchmark_task_id": "F-COV-01",
+  "scene_key": "factory",
+  "seed": 44,
+  "robots": [
+    {
+      "id": "simple_car_1",
+      "type": "simple_car",
+      "controller": {"mode": "default", "cfg": "SIMPLE_CAR_PLANAR_CFG"},
+      "attachments": [
+        {"type": "camera", "controller": null},
+        {"type": "navigation_io", "controller": null}
+      ],
+      "spawn_pose": {
+        "position": [-7.95, -7.1, 0.34],
+        "rotation": [1.0, 0.0, 0.0, 0.0]
+      }
+    },
+    {
+      "id": "simple_car_2",
+      "type": "simple_car",
+      "controller": {"mode": "default", "cfg": "SIMPLE_CAR_PLANAR_CFG"},
+      "attachments": [
+        {"type": "camera", "controller": null},
+        {"type": "navigation_io", "controller": null}
+      ],
+      "spawn_pose": {
+        "position": [5.55, 4.9, 0.34],
+        "rotation": [1.0, 0.0, 0.0, 0.0]
+      }
+    },
+    {
+      "id": "simple_car_3",
+      "type": "simple_car",
+      "controller": {"mode": "default", "cfg": "SIMPLE_CAR_PLANAR_CFG"},
+      "attachments": [
+        {"type": "camera", "controller": null},
+        {"type": "navigation_io", "controller": null}
+      ],
+      "spawn_pose": {
+        "position": [-3.45, 4.9, 0.34],
+        "rotation": [1.0, 0.0, 0.0, 0.0]
+      }
+    }
+  ],
+  "composition": {
+    "entities": [],
+    "targets": [
+      {"id": "storage_site", "position": [-7.95, -8.6, 0.0], "radius_m": 0.5},
+      {"id": "assembly_site", "position": [5.55, 3.4, 0.0], "radius_m": 0.5},
+      {"id": "dock_site", "position": [-1.95, 3.4, 0.0], "radius_m": 0.5}
+    ]
+  },
+  "phase_graph": {
+    "nodes": [
+      {
+        "id": "storage_arrive",
+        "skill_key": "navigate",
+        "preferred_agent": "simple_car_1",
+        "agents": null,
+        "target_ref": "storage_site",
+        "object_ref": null,
+        "prerequisites": [],
+        "timeout_s": 180.0,
+        "duration_s": null,
+        "resources": ["storage_west"]
+      },
+      {
+        "id": "storage_watch",
+        "skill_key": "wait",
+        "preferred_agent": "simple_car_1",
+        "agents": null,
+        "target_ref": "storage_site",
+        "object_ref": null,
+        "prerequisites": ["storage_arrive"],
+        "timeout_s": 60.0,
+        "duration_s": 45.0,
+        "resources": ["storage_west"]
+      },
+      {
+        "id": "assembly_arrive",
+        "skill_key": "navigate",
+        "preferred_agent": "simple_car_2",
+        "agents": null,
+        "target_ref": "assembly_site",
+        "object_ref": null,
+        "prerequisites": [],
+        "timeout_s": 240.0,
+        "duration_s": null,
+        "resources": ["assembly_east"]
+      },
+      {
+        "id": "assembly_watch",
+        "skill_key": "wait",
+        "preferred_agent": "simple_car_2",
+        "agents": null,
+        "target_ref": "assembly_site",
+        "object_ref": null,
+        "prerequisites": ["assembly_arrive"],
+        "timeout_s": 60.0,
+        "duration_s": 45.0,
+        "resources": ["assembly_east"]
+      },
+      {
+        "id": "dock_arrive",
+        "skill_key": "navigate",
+        "preferred_agent": "simple_car_3",
+        "agents": null,
+        "target_ref": "dock_site",
+        "object_ref": null,
+        "prerequisites": [],
+        "timeout_s": 180.0,
+        "duration_s": null,
+        "resources": ["dock_north"]
+      },
+      {
+        "id": "dock_watch",
+        "skill_key": "wait",
+        "preferred_agent": "simple_car_3",
+        "agents": null,
+        "target_ref": "dock_site",
+        "object_ref": null,
+        "prerequisites": ["dock_arrive"],
+        "timeout_s": 60.0,
+        "duration_s": 45.0,
+        "resources": ["dock_north"]
+      }
+    ]
+  }
+}

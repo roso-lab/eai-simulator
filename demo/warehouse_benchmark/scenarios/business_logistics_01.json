@@ -1,0 +1,465 @@
+{
+  "version": 2,
+  "task_name": "warehouse_nvd_coordinated_logistics",
+  "scene_key": "warehouse_nvd",
+  "seed": 17,
+  "robots": [
+    {
+      "id": "iris_1",
+      "type": "iris",
+      "controller": {
+        "mode": "default",
+        "cfg": "PEGASUS_IRIS_POSITION_CFG"
+      },
+      "attachments": [
+        {
+          "type": "camera",
+          "controller": null
+        }
+      ],
+      "spawn_pose": {
+        "position": [
+          -13.5,
+          -11.75,
+          1.0
+        ],
+        "rotation": [
+          1,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "m20_1",
+      "type": "m20",
+      "controller": {
+        "mode": "default",
+        "cfg": "M20_ROUGH_RSL_CFG"
+      },
+      "attachments": [
+        {
+          "type": "z1",
+          "controller": {
+            "mode": "default",
+            "cfg": "Z1_IK_CFG"
+          }
+        }
+      ],
+      "spawn_pose": {
+        "position": [
+          -9.0,
+          -11.75,
+          0.52
+        ],
+        "rotation": [
+          1,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "carter_1",
+      "type": "carter",
+      "controller": {
+        "mode": "default",
+        "cfg": "CARTER_DIFF_CFG"
+      },
+      "attachments": [],
+      "spawn_pose": {
+        "position": [
+          -3.575,
+          -11.75,
+          0.2
+        ],
+        "rotation": [
+          1,
+          0,
+          0,
+          0
+        ]
+      }
+    }
+  ],
+  "composition": {
+    "entities": [
+      {
+        "id": "oversized_crate_proxy",
+        "asset_key": "wooden_crate_a",
+        "size_m": [
+          1.003,
+          1.009,
+          1.017
+        ],
+        "spawn_pose": {
+          "position": [
+            -7.0,
+            -8.75,
+            0.5085
+          ],
+          "rotation": [
+            1,
+            0,
+            0,
+            0
+          ]
+        },
+        "physics": {
+          "mode": "dynamic",
+          "mass_kg": 60.0,
+          "static_friction": 0.8,
+          "dynamic_friction": 0.6,
+          "restitution": 0.0
+        }
+      },
+      {
+        "id": "priority_carton_proxy",
+        "asset_key": "cardbox_c",
+        "size_m": [
+          0.514,
+          0.511,
+          0.26
+        ],
+        "spawn_pose": {
+          "position": [
+            -7.0,
+            -10.05,
+            0.13
+          ],
+          "rotation": [
+            1,
+            0,
+            0,
+            0
+          ]
+        },
+        "physics": {
+          "mode": "dynamic",
+          "mass_kg": 8.0,
+          "static_friction": 0.8,
+          "dynamic_friction": 0.6,
+          "restitution": 0.0
+        }
+      }
+    ],
+    "targets": [
+      {
+        "id": "rack_scan_zone",
+        "position": [
+          -12.5,
+          -11.75,
+          0.0
+        ],
+        "radius_m": 0.5
+      },
+      {
+        "id": "aisle_entry_zone",
+        "position": [
+          -10.6,
+          -11.75,
+          0.0
+        ],
+        "radius_m": 0.5
+      },
+      {
+        "id": "consolidation_zone",
+        "position": [
+          -5.0,
+          -11.75,
+          0.0
+        ],
+        "radius_m": 0.5
+      },
+      {
+        "id": "outbound_dock_zone",
+        "position": [
+          -5.0,
+          -10.75,
+          0.0
+        ],
+        "radius_m": 0.5
+      }
+    ]
+  },
+  "phase_graph": {
+    "nodes": [
+      {
+        "id": "rack_overview_scan",
+        "skill_key": "aerial_scan",
+        "preferred_agent": "iris_1",
+        "agents": null,
+        "target_ref": "rack_scan_zone",
+        "object_ref": null,
+        "prerequisites": [],
+        "timeout_s": 120.0,
+        "duration_s": null,
+        "resources": [
+          "rack_aisle"
+        ],
+        "scan_height_m": 2.5
+      },
+      {
+        "id": "aisle_left_access",
+        "skill_key": "navigate",
+        "preferred_agent": "m20_1",
+        "agents": null,
+        "target_ref": "aisle_entry_zone",
+        "object_ref": null,
+        "prerequisites": [
+          "rack_overview_scan"
+        ],
+        "timeout_s": 180.0,
+        "duration_s": null,
+        "resources": []
+      },
+      {
+        "id": "aisle_right_access",
+        "skill_key": "navigate",
+        "preferred_agent": "carter_1",
+        "agents": null,
+        "target_ref": "outbound_dock_zone",
+        "object_ref": null,
+        "prerequisites": [
+          "rack_overview_scan"
+        ],
+        "timeout_s": 180.0,
+        "duration_s": null,
+        "resources": []
+      },
+      {
+        "id": "oversized_crate_transfer",
+        "skill_key": "joint_transport",
+        "preferred_agent": "m20_1",
+        "agents": [
+          "m20_1",
+          "carter_1"
+        ],
+        "target_ref": "consolidation_zone",
+        "object_ref": "oversized_crate_proxy",
+        "prerequisites": [
+          "aisle_left_access",
+          "aisle_right_access"
+        ],
+        "timeout_s": 300.0,
+        "duration_s": null,
+        "resources": [
+          "transport_lane"
+        ]
+      },
+      {
+        "id": "priority_carton_stage",
+        "skill_key": "transport_object",
+        "preferred_agent": "m20_1",
+        "agents": null,
+        "target_ref": "consolidation_zone",
+        "object_ref": "priority_carton_proxy",
+        "prerequisites": [
+          "oversized_crate_transfer"
+        ],
+        "timeout_s": 240.0,
+        "duration_s": null,
+        "resources": [
+          "transport_lane"
+        ]
+      },
+      {
+        "id": "dock_lane_check",
+        "skill_key": "navigate",
+        "preferred_agent": "carter_1",
+        "agents": null,
+        "target_ref": "outbound_dock_zone",
+        "object_ref": null,
+        "prerequisites": [
+          "priority_carton_stage"
+        ],
+        "timeout_s": 180.0,
+        "duration_s": null,
+        "resources": [
+          "outbound_dock"
+        ]
+      },
+      {
+        "id": "priority_carton_dispatch",
+        "skill_key": "transport_object",
+        "preferred_agent": "m20_1",
+        "agents": null,
+        "target_ref": "outbound_dock_zone",
+        "object_ref": "priority_carton_proxy",
+        "prerequisites": [
+          "dock_lane_check"
+        ],
+        "timeout_s": 240.0,
+        "duration_s": null,
+        "resources": [
+          "outbound_dock"
+        ]
+      },
+      {
+        "id": "outbound_inventory_scan",
+        "skill_key": "aerial_scan",
+        "preferred_agent": "iris_1",
+        "agents": null,
+        "target_ref": "outbound_dock_zone",
+        "object_ref": null,
+        "prerequisites": [
+          "priority_carton_dispatch"
+        ],
+        "timeout_s": 120.0,
+        "duration_s": null,
+        "resources": [
+          "outbound_dock"
+        ],
+        "scan_height_m": 2.5
+      },
+      {
+        "id": "dock_confirmation_hold",
+        "skill_key": "wait",
+        "preferred_agent": "carter_1",
+        "agents": null,
+        "target_ref": "outbound_dock_zone",
+        "object_ref": null,
+        "prerequisites": [
+          "outbound_inventory_scan"
+        ],
+        "timeout_s": 120.0,
+        "duration_s": 3.0,
+        "resources": [
+          "outbound_dock"
+        ]
+      },
+      {
+        "id": "aisle_closeout",
+        "skill_key": "navigate",
+        "preferred_agent": "m20_1",
+        "agents": null,
+        "target_ref": "rack_scan_zone",
+        "object_ref": null,
+        "prerequisites": [
+          "dock_confirmation_hold"
+        ],
+        "timeout_s": 180.0,
+        "duration_s": null,
+        "resources": [
+          "rack_aisle"
+        ]
+      }
+    ]
+  },
+  "semantic_task": {
+    "task_family": "order_fulfilment_and_dock_recovery",
+    "domain": "warehouse_logistics",
+    "mission_brief": {
+      "en": "Fulfil a priority order by reconciling a rack location, moving an oversized carton through the aisle, and verifying the outbound dock before dispatch.",
+      "zh_cn": "完成优先订单：核对货架库位，协同将超尺寸箱体通过通道送往集货区，并在出库前复核 dock。"
+    },
+    "artifacts": [
+      {
+        "id": "rack_carton",
+        "asset_key": "cardbox_c",
+        "meaning": "ordinary inventory carton"
+      },
+      {
+        "id": "oversized_crate",
+        "asset_key": "wooden_crate_a",
+        "meaning": "oversized order crate requiring a two-member carry"
+      },
+      {
+        "id": "dock_pallet",
+        "asset_key": "nvd_pallet_asm",
+        "meaning": "outbound staging pallet"
+      }
+    ],
+    "factors": [
+      {
+        "id": "order_priority",
+        "levels": [
+          "routine",
+          "priority"
+        ],
+        "evidence": "dispatch decision and deadline"
+      },
+      {
+        "id": "aisle_clearance",
+        "levels": [
+          "open",
+          "constrained",
+          "blocked"
+        ],
+        "evidence": "continuous route admission"
+      },
+      {
+        "id": "payload_team_need",
+        "levels": [
+          "single_carton",
+          "joint_oversized_crate"
+        ],
+        "evidence": "ownership and team trace"
+      },
+      {
+        "id": "communication_quality",
+        "levels": [
+          "bandwidth_limited",
+          "delayed",
+          "dropped",
+          "immediate",
+          "stale"
+        ],
+        "evidence": "delivered-message ledger"
+      }
+    ],
+    "objective_semantics": {
+      "purpose": "send the right order through the right operational path and leave the dock ready for handoff",
+      "deliverable": "a reconciled pick, a staged priority order, and a dock verification record",
+      "acceptance_evidence": [
+        "rack observation consumed",
+        "oversized crate has joint pickup and delivery evidence",
+        "dock status confirmed after dispatch"
+      ],
+      "allowed_alternatives": [
+        "choose any eligible carrier team",
+        "wait for a fresh rack or dock message",
+        "recover with a joining replacement after exit"
+      ]
+    },
+    "success_evidence": [
+      "inventory observation provenance",
+      "joint ownership transitions",
+      "outbound dock confirmation"
+    ],
+    "team_lifecycle": {
+      "events": [
+        "member_join",
+        "member_exit",
+        "capability_change"
+      ],
+      "join_policy": "replacement_may_join_only_after_a_runtime_event_and_must_be_eligible",
+      "exit_policy": "carried_objects_are_released_at_measured_carrier_pose_and_must_be_recovered",
+      "future_schedule_visibility": "hidden"
+    },
+    "communication": {
+      "conditions": [
+        "bandwidth_limited",
+        "delayed",
+        "dropped",
+        "immediate",
+        "stale"
+      ],
+      "participant_observes": [
+        "delivered_messages",
+        "message_age",
+        "message_sequence",
+        "current_team_events"
+      ],
+      "evaluator_controls": [
+        "delivery_delay",
+        "drop_decision",
+        "bandwidth_window",
+        "staleness_expiry"
+      ],
+      "future_delivery_schedule_visibility": "hidden"
+    }
+  }
+}

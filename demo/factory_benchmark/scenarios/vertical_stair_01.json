@@ -1,0 +1,207 @@
+{
+  "version": 2,
+  "task_name": "factory_vertical_stair_01",
+  "benchmark_task_id": "F-VERT-01",
+  "scene_key": "factory",
+  "seed": 17,
+  "robots": [
+    {
+      "id": "go2_1",
+      "type": "go2",
+      "controller": {
+        "mode": "default",
+        "cfg": "GO2_VELOCITY_RSL_CFG"
+      },
+      "attachments": [],
+      "spawn_pose": {
+        "position": [
+          1.5,
+          -0.35,
+          0.4
+        ],
+        "rotation": [
+          0.7071067811865476,
+          0,
+          0,
+          -0.7071067811865476
+        ]
+      }
+    }
+  ],
+  "fault_events": [],
+  "composition": {
+    "entities": [],
+    "targets": [
+      {
+        "id": "mezzanine_stair_exit",
+        "position": [
+          1.5,
+          -7.5,
+          1.57
+        ],
+        "radius_m": 0.15
+      }
+    ]
+  },
+  "phase_graph": {
+    "nodes": [
+      {
+        "id": "stair_access_check",
+        "skill_key": "navigate",
+        "preferred_agent": "go2_1",
+        "target_ref": "mezzanine_stair_exit",
+        "object_ref": null,
+        "prerequisites": [],
+        "timeout_s": 150,
+        "resources": [
+          "main_stair"
+        ],
+        "vertical": {
+          "link_id": "main_stair",
+          "kind": "stair",
+          "start_level": "ground",
+          "goal_level": "mezzanine",
+          "approach_waypoints": [
+            [
+              1.5,
+              -0.35
+            ]
+          ],
+          "support_probe": "required"
+        }
+      }
+    ]
+  },
+  "semantic_task": {
+    "task_family": "production_exception_response",
+    "domain": "factory_operations",
+    "mission_brief": {
+      "en": "Assess stair access to the elevated production inspection area before assigning an on-site inspection. This single-robot motion probe does not certify inspection, production recovery, or heterogeneous team performance.",
+      "zh_cn": "在安排上层生产区域的现场检查前，评估楼梯通行能力。本题是单机器人运动探针，不认证巡检、生产恢复或异构团队协作能力。"
+    },
+    "artifacts": [
+      {
+        "id": "main_stair",
+        "asset_key": "factory_native_stair",
+        "meaning": "Existing Factory stair geometry; semantic binding only, not a spawned prop or verified support surface."
+      },
+      {
+        "id": "mezzanine_surface",
+        "asset_key": "factory_native_mezzanine",
+        "meaning": "Existing elevated platform; connectivity from main_stair is unknown."
+      }
+    ],
+    "factors": [
+      {
+        "id": "vertical_access",
+        "levels": [
+          "ground_only",
+          "stair_required"
+        ],
+        "evidence": "Design comparison axis; calibrated support-relative progress is required and has not been collected."
+      },
+      {
+        "id": "team_continuity",
+        "levels": [
+          "stable",
+          "member_exit",
+          "member_join",
+          "capability_change"
+        ],
+        "evidence": "Design vocabulary only; this fixed single-robot probe enables no lifecycle interventions."
+      },
+      {
+        "id": "communication_quality",
+        "levels": [
+          "immediate",
+          "delayed",
+          "dropped",
+          "bandwidth_limited",
+          "stale"
+        ],
+        "evidence": "Design vocabulary only; this probe performs no communication-factor experiment."
+      }
+    ],
+    "objective_semantics": {
+      "purpose": "Assess physical access to an elevated production inspection area.",
+      "deliverable": "A measured support-relative traversal record, or an explicit unknown/failed probe outcome.",
+      "acceptance_evidence": [
+        "calibrated foot/contact evidence",
+        "continuous XYZ/WXYZ trajectory and healthy target dwell"
+      ],
+      "allowed_alternatives": [
+        "defer the route intent with a bounded wait"
+      ],
+      "execution_validated": false,
+      "release_status": "pending",
+      "geometry_declaration": {
+        "coordinate_frame": "factory_world_m",
+        "approach": {
+          "status": "unknown",
+          "candidate_waypoints_xy_m": [
+            [
+              1.5,
+              -0.35
+            ]
+          ],
+          "measured_waypoints_xy_m": null,
+          "source": "tools/scenario_generation/vertical_task.py default ground approach; no hash-bound route clearance measurement supplied"
+        },
+        "start": {
+          "status": "unknown",
+          "candidate_root_xyz_m": [
+            1.5,
+            -0.35,
+            0.4
+          ],
+          "candidate_surface_entry_xy_m": [
+            1.5,
+            -2.25
+          ],
+          "measured_support_xyz_m": null,
+          "source": "Scenario robot spawn and vertical_task.py surface-entry candidate; root height is not support height"
+        },
+        "goal": {
+          "status": "unknown",
+          "candidate_support_xyz_m": [
+            1.5,
+            -7.5,
+            1.57
+          ],
+          "measured_support_xyz_m": null,
+          "source": "Candidate within the template mezzanine XY bounds at its declared 1.57 m level; stair-to-platform connectivity is unverified"
+        },
+        "limitations": [
+          "Numeric scenario poses are candidates required by V2 schema, not surveyed endpoints.",
+          "The main_stair AABB maximum 2.57 m is not a walkable floor height.",
+          "No measured stair width, tread profile, contact calibration, asset hash or reference traversal is bound to this candidate."
+        ]
+      }
+    },
+    "team_lifecycle": {
+      "events": [
+        "member_join",
+        "member_exit",
+        "capability_change"
+      ],
+      "enabled_events": [],
+      "status": "design_vocabulary_only_fixed_single_robot_probe"
+    },
+    "communication": {
+      "conditions": [
+        "immediate",
+        "delayed",
+        "dropped",
+        "bandwidth_limited",
+        "stale"
+      ],
+      "enabled_conditions": [],
+      "status": "design_vocabulary_only_no_message_delivery_experiment"
+    },
+    "success_evidence": [
+      "calibrated support-relative ascent",
+      "healthy continuous dwell on the measured goal support surface",
+      "independent reference physics acceptance; missing evidence remains unknown"
+    ]
+  }
+}

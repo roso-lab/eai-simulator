@@ -1,0 +1,40 @@
+{
+  "schema": "eai.factory_inspection_evaluator_fixture",
+  "version": 1,
+  "benchmark_task_id": "F-INS-01",
+  "source_hashes": {
+    "scenario_sha256": "dd4d863ff15fd5e944bf7099af735cc43e5386b161665deef8a59205482e65e6",
+    "usd_sha256": "783f24fff7e9bf6a3761aaf71957ffe848bd42cab5fc3a6d0cd87c2112026130"
+  },
+  "target": {
+    "binding_id": "inspection_target_box",
+    "prim_path": "/World/warehouse_extras/Extras/BoxSetA/SM_CardBoxC_02",
+    "subject_ref": "inspection_site",
+    "ground_truth_position_m": [
+      -9.640950331,
+      -6.345433853,
+      2.286681526
+    ],
+    "position_tolerance_m": 0.001
+  },
+  "views": [
+    {
+      "id": "aerial_view",
+      "node_id": "aerial_view",
+      "frame_id": "iris_1/camera_optical_frame",
+      "view_kind": "aerial_hover"
+    },
+    {
+      "id": "ground_view",
+      "node_id": "ground_view",
+      "frame_id": "simple_car_1/camera_optical_frame",
+      "view_kind": "ground_camera_window"
+    }
+  ],
+  "ground_truth_source": "usd_visual_reference_evaluator_only",
+  "limitations": [
+    "the bound USD prim is a visual reference and does not prove inventory identity",
+    "the fixture does not inject truth into runtime observations",
+    "detector, occlusion, localization and manipulation evidence remain separate"
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "version": 2,
+  "task_name": "factory_f_traffic_01",
+  "benchmark_task_id": "F-TRAFFIC-01",
+  "scene_key": "factory",
+  "seed": 31,
+  "robots": [
+    {
+      "id": "carter_1",
+      "type": "carter",
+      "controller": {"mode": "default", "cfg": "CARTER_DIFF_CFG"},
+      "attachments": [],
+      "spawn_pose": {
+        "position": [-7.95, -5.6, 0.2],
+        "rotation": [1.0, 0.0, 0.0, 0.0]
+      }
+    },
+    {
+      "id": "simple_car_1",
+      "type": "simple_car",
+      "controller": {"mode": "default", "cfg": "SIMPLE_CAR_PLANAR_CFG"},
+      "attachments": [],
+      "spawn_pose": {
+        "position": [5.55, 3.4, 0.34],
+        "rotation": [1.0, 0.0, 0.0, 0.0]
+      }
+    }
+  ],
+  "composition": {
+    "entities": [],
+    "targets": [
+      {"id": "dock_slot", "position": [-1.95, 6.4, 0.0], "radius_m": 0.5},
+      {"id": "yard_slot", "position": [-1.95, -8.6, 0.0], "radius_m": 0.5}
+    ]
+  },
+  "phase_graph": {
+    "nodes": [
+      {
+        "id": "route_west",
+        "skill_key": "navigate",
+        "preferred_agent": "simple_car_1",
+        "agents": null,
+        "target_ref": "dock_slot",
+        "object_ref": null,
+        "prerequisites": [],
+        "timeout_s": 180.0,
+        "duration_s": null,
+        "resources": ["midband", "dock_north"]
+      },
+      {
+        "id": "route_south",
+        "skill_key": "navigate",
+        "preferred_agent": "carter_1",
+        "agents": null,
+        "target_ref": "yard_slot",
+        "object_ref": null,
+        "prerequisites": [],
+        "timeout_s": 180.0,
+        "duration_s": null,
+        "resources": ["midband", "yard_south"]
+      }
+    ]
+  }
+}
