@@ -340,11 +340,21 @@ def _obstacle_grid(obstacles: Sequence[Mapping[str, Any]], *, half_xy: float,
             continue
         if hi[2] < z_window[0] or lo[2] > z_window[1]:
             continue
-        # 分级膨胀：细障碍（灯杆等 <1.5 m 包络）的 bbox≈实物，膨胀 0.05
-        # 即满足 0.3 人形半宽；一律 0.2 会把沿街人行道封成与主通行域隔离
-        # 的口袋（阶段19 C1 实测：出生点被迫重定位 71 m，路线 188 m）。
+        # 分级处理（阶段19 C1 终版，运行时实测校准）：静态命中只出现在灯杆
+        # Mesh（细障碍 <1.5 m，bbox≈实物，膨胀 0.05 满足 0.3 人形半宽）；
+        # 树冠 bbox 虚肥（真障碍仅树干，从未被运行时命中）——收缩为中心
+        # ±0.45 m 树干代理；建筑/候车亭保持 bbox+0.10。更大的膨胀会把沿街
+        # 人行道封成孤岛（口袋迫使出生点重定位 71 m、路线 188 m）。
         extent = max(hi[0] - lo[0], hi[1] - lo[1])
-        margin = 0.05 if extent < 1.5 else half_xy
+        kind = str(obstacle.get("kind", ""))
+        if kind == "roadside_obstacle" and extent >= 2.0:
+            cx, cy = (lo[0] + hi[0]) * .5, (lo[1] + hi[1]) * .5
+            lo, hi = (cx - .45, cy - .45), (cx + .45, cy + .45)
+            margin = 0.05
+        elif extent < 1.5:
+            margin = 0.05
+        else:
+            margin = 0.10
         x0 = int(math.floor((lo[0] - margin) * 2))
         x1 = int(math.ceil((hi[0] + margin) * 2))
         y0 = int(math.floor((lo[1] - margin) * 2))

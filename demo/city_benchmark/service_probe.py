@@ -626,7 +626,22 @@ def _select_access(reader_factory, candidates, *, episode_id, time_s,
     raise RuntimeError("no measured-clear rescue access region candidate")
 
 
-def _instantiate_evacuation_routes(binding, specs, incident_xyz, obstacles):
+def _along_route(waypoints, distance_m):
+    """沿折线走 distance_m 的世界坐标（越界取末端）。"""
+    acc = 0.0
+    for index in range(len(waypoints) - 1):
+        ax, ay = float(waypoints[index][0]), float(waypoints[index][1])
+        bx, by = float(waypoints[index + 1][0]), float(waypoints[index + 1][1])
+        seg = math.hypot(bx - ax, by - ay)
+        if acc + seg >= distance_m:
+            t = (distance_m - acc) / seg if seg else 0.0
+            return (ax + (bx - ax) * t, ay + (by - ay) * t)
+        acc += seg
+    return (float(waypoints[-1][0]), float(waypoints[-1][1])) if waypoints else None
+
+
+def _instantiate_evacuation_routes(binding, specs, incident_xyz, obstacles,
+                                   *, extra_grid=None, live_origins=None):
     """以实例化事故盘（±11 m 含排队带）为禁区重导出疏散路线。
 
     与 hazard 的 freeze_at_episode_instantiation 同构：事故位需 USD 射线、
@@ -636,18 +651,24 @@ def _instantiate_evacuation_routes(binding, specs, incident_xyz, obstacles):
     from .response import (_astar_leg, _nearest_clear_in_goal_component,
                            _nearest_clear_point, _obstacle_grid)
     cells = set(_obstacle_grid(obstacles, half_xy=0.2, z_window=(-1.2, 2.1)))
+    if extra_grid:
+        cells.update(extra_grid)
     cx, cy = float(incident_xyz[0]), float(incident_xyz[1])
     for ix in range(int((cx - 11.0) * 2), int((cx + 11.0) * 2) + 1):
         for iy in range(int((cy - 11.0) * 2), int((cy + 11.0) * 2) + 1):
             wx, wy = ix * 0.5 + 0.25, iy * 0.5 + 0.25
             if (wx - cx) ** 2 + (wy - cy) ** 2 <= 11.0 ** 2:
                 cells.add((ix, iy))
-    grid = frozenset(cells)
+    grid = cells
     targets = _binding_assembly_targets(binding)
     rows, roster_update = {}, {}
+    rows["_grid_cells_holder"] = cells  # 供二遍重导出增量的未录障碍
     for spec in specs:
         goal = targets[spec.assembly_region_id]
-        origin = (float(spec.start_xyz[0]), float(spec.start_xyz[1]))
+        # 二遍时人员已沿首路线行进：以实时位置为起点（预热/重试期间会走动）
+        live = (live_origins or {}).get(spec.person_id)
+        origin = ((float(live[0]), float(live[1])) if live
+                  else (float(spec.start_xyz[0]), float(spec.start_xyz[1])))
         relocated = None
         if (int(origin[0] * 2), int(origin[1] * 2)) in grid:
             relocated = (_nearest_clear_in_goal_component(grid, origin, (goal[0], goal[1]))
@@ -972,9 +993,12 @@ def _run_bound_episode(session, city, actions, report, report_path, prepared, ru
                          city.scene.plan.sample(city.elapsed).car_position)
     # 实例化路线补全：以事故盘（含排队带）为禁区重导出，绑定副本同步更新
     # （prepare 原件与其哈希不受影响；记录见 trace.route_instantiation）。
+    route_grid_cells: set = set()
     report["trace"]["route_instantiation"] = _instantiate_evacuation_routes(
         binding, specs, incident_xyz,
-        prepared.get("episode_binding_route_obstacles") or [])
+        prepared.get("episode_binding_route_obstacles") or []) or {}
+    if isinstance(report["trace"]["route_instantiation"], dict):
+        route_grid_cells = report["trace"]["route_instantiation"].pop("_grid_cells_holder", set())
     _checkpoint(report_path, report)
     people_runtime, _evacuation_binding, spawn_records = spawn_response_people(city.stage, specs)
     city.people = people_runtime
@@ -1112,10 +1136,82 @@ def _run_bound_episode(session, city, actions, report, report_path, prepared, ru
     _step(session, city, actions, warmup_steps)
     guidance_observation = runner.observe()
     # C1 诊断：首次提交前记录逐人路线 readback（admission 的 routes_clear 谓词输入）
-    trace["person_routes_before_first_submit"] = {
-        person_id: city._episode_service._person_route(person_id)
-        for person_id in roster_ids}
+    first_routes = {person_id: city._episode_service._person_route(person_id)
+                    for person_id in roster_ids}
+    trace["person_routes_before_first_submit"] = first_routes
     _checkpoint(report_path, report)
+    # 二遍重导出：运行时路线扫掠可发现语义图未收录的障碍（阶段19 实测
+    # Lamp_0211 缺录）；把命中位置入格后重 A*、重绑定、重建 runner。此时
+    # 尚无任何服务提交，重建安全。发现的缺录障碍进 trace 作为制图证据。
+    discovered = []
+    _bbox_cache = None
+    for person_id, row in first_routes.items():
+        for hit in row.get("static_hits") or []:
+            # distance 是间距不是沿线里程——真实位置从 stage 的 prim 世界
+            # 包围盒解析（错误地把 distance 当里程会把避障盘放错位置）。
+            pos = None
+            try:
+                from pxr import Usd, UsdGeom
+                prim = city.stage.GetPrimAtPath(str(hit.get("rigid_body") or hit.get("collision")))
+                if prim and prim.IsValid():
+                    if _bbox_cache is None:
+                        _bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
+                                                        [UsdGeom.Tokens.default_], False)
+                    bounds = _bbox_cache.ComputeWorldBound(prim).ComputeAlignedRange()
+                    lo, hi = bounds.GetMin(), bounds.GetMax()
+                    pos = ((lo[0] + hi[0]) * .5, (lo[1] + hi[1]) * .5)
+            except Exception:
+                pos = None
+            if pos:
+                discovered.append({"person_id": person_id,
+                                   "collision": hit.get("collision"),
+                                   "world_xy_m": [round(pos[0], 2), round(pos[1], 2)]})
+    if discovered:
+        trace["map_gap_obstacles_discovered"] = discovered
+        for item in discovered:
+            hx, hy = item["world_xy_m"]
+            # 盘半径 0.6：0.35 时 A* 能绕但灯臂+0.5 m 格粒度下仍擦碰
+            # （位置解析修正后 0.6 不再误封走廊——早前失败源于错误位置）。
+            for ix in range(int((hx - .6) * 2), int((hx + .6) * 2) + 1):
+                for iy in range(int((hy - .6) * 2), int((hy + .6) * 2) + 1):
+                    route_grid_cells.add((ix, iy))
+        second_pass = _instantiate_evacuation_routes(
+            binding, specs, incident_xyz, [],
+            extra_grid=route_grid_cells,
+            live_origins={person_id: tuple(float(v) for v in city.people.position(person_id))
+                          for person_id in roster_ids})
+        second_pass.pop("_grid_cells_holder", None)
+        report["trace"]["route_instantiation_second_pass"] = second_pass
+        _checkpoint(report_path, report)
+        city.bind_city_service_sources(
+            affected_people={spec.person_id: {
+                "speed_mps": float(spec.jog_speed_mps), "motion": "jog",
+                "assembly_region_id": spec.assembly_region_id,
+                "assembly_waypoints": [list(point) for point in spec.evacuation_route[1:]],
+                "body_half_extents_m": list(person_half[spec.person_id]),
+                "body_center_offset_m": list(person_offset[spec.person_id])} for spec in specs},
+            following_vehicle_ids=vehicle_ids,
+            vehicle_divert_routes={vehicle_id: initial_divert[vehicle_id] for vehicle_id in vehicle_ids},
+            vehicle_half_extents_m={vehicle_id: vehicle_half[vehicle_id] for vehicle_id in vehicle_ids},
+            vehicle_center_offsets_m={vehicle_id: vehicle_offset[vehicle_id] for vehicle_id in vehicle_ids},
+            assembly_regions=assembly_regions, hazard_region_id="hazard",
+            access_region_id=access_id, region_reader=reader,
+            assignment=assignments, incident_receiver=receiver)
+        runner = CityNativeServiceRunner(
+            city, episode_id=run_id, agent_id="go2_1", region_id="road_surface",
+            assembly_region_id=anchor_region, recipient_service_id=endpoint["service_id"],
+            role_source_id="isaac.robot_tensor_role", admission_source_id="isaac.native_region_reader",
+            scene_query_support=True, clearance_query_provenance="episode_timestamped_physx_and_usd",
+            physx_readback_suppressed=False)
+        if runner.readiness["status"] != "ready":
+            raise RuntimeError("City native runner is not ready (second pass): "
+                               + ",".join(runner.readiness["blockers"]))
+        _role(runner, "guidance_contact", session, trace)
+        guidance_observation = runner.observe()
+        trace["person_routes_before_first_submit"] = {
+            person_id: city._episode_service._person_route(person_id)
+            for person_id in roster_ids}
+        _checkpoint(report_path, report)
     for capacity in binding["assembly_capacity"]:
         region_id, group = capacity["region_id"], tuple(capacity["bound_person_ids"])
         _role(runner, "guidance_contact", session, trace)

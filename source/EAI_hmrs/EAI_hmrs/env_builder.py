@@ -7,6 +7,7 @@ from typing import Any
 import isaaclab.sim as sim_utils
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg
 from isaaclab.scene import InteractiveSceneCfg
+from isaaclab.sensors import RayCasterCfg, patterns
 from isaaclab.terrains import TerrainImporterCfg
 from isaaclab.utils import configclass
 
@@ -148,6 +149,7 @@ CONTROLLER_CFG_IMPORTS = {
     "SIMPLE_CAR_PLANAR_CFG": ("traditional/simple_car_planar/simple_car_planar.py", "SIMPLE_CAR_PLANAR_CFG"),
     "PEPPER_HOLONOMIC_CFG": ("traditional/pepper_holonomic/pepper_holonomic.py", "PEPPER_HOLONOMIC_CFG"),
     "GO2_VELOCITY_RSL_CFG": ("rl/go2_rsl_rl/go2_rsl_rl.py", "GO2_VELOCITY_RSL_CFG"),
+    "GO2_MIXED_STAIRS_CFG": ("rl/go2_mixed_stairs/go2_mixed_stairs.py", "GO2_MIXED_STAIRS_CFG"),
     "B2_VELOCITY_RSL_CFG": ("rl/b2_rsl_rl/b2_rsl_rl.py", "B2_VELOCITY_RSL_CFG"),
     "M20_ROUGH_RSL_CFG": ("rl/m20_rough_rsl/m20_rough_rsl.py", "M20_ROUGH_RSL_CFG"),
     "LITE3_VELOCITY_RSL_CFG": ("rl/lite3_rsl_rl/lite3_rsl_rl.py", "LITE3_VELOCITY_RSL_CFG"),
@@ -562,6 +564,19 @@ def build_interactive_env_cfg(
         articulation.init_state.rot = rotation
         attrs["__annotations__"][name] = ArticulationCfg
         attrs[name] = articulation
+        if selection.controller.cfg == "GO2_MIXED_STAIRS_CFG":
+            # Height scan matching robot_lab training: 17x11 grid, 0.1 m
+            # resolution, 1.6x1.0 m around the base, yaw-aligned, cast against
+            # the scene meshes.
+            attrs["__annotations__"][f"{name}_height_scanner"] = RayCasterCfg
+            attrs[f"{name}_height_scanner"] = RayCasterCfg(
+                prim_path=f"{{ENV_REGEX_NS}}/{name}/base",
+                offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20.0)),
+                ray_alignment="yaw",
+                pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6, 1.0]),
+                debug_vis=False,
+                mesh_prim_paths=[scene.prim_path],
+            )
 
         base_controller = _resolve_controller(selection.controller, fallback=robot.controller)
         robot_controllers: list[Any] = [base_controller]
