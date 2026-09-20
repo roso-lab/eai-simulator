@@ -340,10 +340,15 @@ def _obstacle_grid(obstacles: Sequence[Mapping[str, Any]], *, half_xy: float,
             continue
         if hi[2] < z_window[0] or lo[2] > z_window[1]:
             continue
-        x0 = int(math.floor((lo[0] - half_xy) * 2))
-        x1 = int(math.ceil((hi[0] + half_xy) * 2))
-        y0 = int(math.floor((lo[1] - half_xy) * 2))
-        y1 = int(math.ceil((hi[1] + half_xy) * 2))
+        # 分级膨胀：细障碍（灯杆等 <1.5 m 包络）的 bbox≈实物，膨胀 0.05
+        # 即满足 0.3 人形半宽；一律 0.2 会把沿街人行道封成与主通行域隔离
+        # 的口袋（阶段19 C1 实测：出生点被迫重定位 71 m，路线 188 m）。
+        extent = max(hi[0] - lo[0], hi[1] - lo[1])
+        margin = 0.05 if extent < 1.5 else half_xy
+        x0 = int(math.floor((lo[0] - margin) * 2))
+        x1 = int(math.ceil((hi[0] + margin) * 2))
+        y0 = int(math.floor((lo[1] - margin) * 2))
+        y1 = int(math.ceil((hi[1] + margin) * 2))
         for ix in range(x0, x1 + 1):
             for iy in range(y0, y1 + 1):
                 cells.add((ix, iy))
@@ -528,13 +533,39 @@ def build_response_people(semantic_map: Mapping[str, Any], *, count: int = 4, se
     rng = random.Random(seed)
     selected_routes = list(routes)
     rng.shuffle(selected_routes)
-    selected_assemblies = list(assemblies)
-    rng.shuffle(selected_assemblies)
+    # 就近配对（小规模全排列最优匹配）：随机 shuffle 会把人员派往 150 m 外
+    # 的集合区（阶段19 C1 实测：长路线任意时刻都会与站等人员/行驶车辆包络
+    # 相交，admission 永久拒绝）；疏散语义本身也是就近集结。人数超过集合
+    # 区数时循环复用（合成测试图；真实图为 4 人对 4 区）。
+    import itertools
     surface_heights = semantic_map.get("surface_heights_m", {})
     route_z = float(surface_heights.get("sidewalks", surface_heights.get("ground", 0.3)))
     people = []
-    for index, (route, assembly) in enumerate(zip(selected_routes[:count], selected_assemblies * count)):
+    origins = []
+    for route in selected_routes[:count]:
         points = tuple((*_point(point)[:2], route_z) for point in route["points"])
+        origins.append(points)
+    def _assembly_xy(row):
+        return _point(row.get("geometry", {}).get("coordinates", (0, 0)))[:2]
+    pool = list(assemblies)
+    reuse = len(pool) < len(origins)
+    if reuse:
+        # 合成图集合区少于人数：逐人取最近并允许复用（不消耗）。
+        pairing = tuple(min(range(len(pool)),
+                            key=lambda j: (math.dist(origins[i][0][:2], _assembly_xy(pool[j])),
+                                           str(pool[j].get("id", ""))))
+                        for i in range(len(origins)))
+    else:
+        best_pairing, best_cost = None, None
+        for indices in itertools.permutations(range(len(pool)), len(origins)):
+            cost = sum(math.dist(origins[i][0][:2], _assembly_xy(pool[j]))
+                       for i, j in enumerate(indices))
+            if best_cost is None or cost < best_cost:
+                best_cost, best_pairing = cost, indices
+        pairing = best_pairing
+    for index, route in enumerate(selected_routes[:count]):
+        points = origins[index]
+        assembly = pool[pairing[index]]
         geometry = assembly.get("geometry", {})
         if geometry.get("type") != "Point":
             raise ValueError(f"assembly candidate '{assembly.get('id')}' is not a point")

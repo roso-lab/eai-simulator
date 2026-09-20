@@ -18,6 +18,7 @@ from contextlib import contextmanager
 from copy import deepcopy
 from functools import partial
 import hashlib
+import dataclasses
 import json
 import math
 from pathlib import Path
@@ -249,11 +250,19 @@ def prepare_probe(output_root: Path, *, device: str = "cpu", seed: int = 17,
 
         loaded = _load_episode_binding(episode_binding)
         binding = loaded["binding"]
+        # 静态障碍表随记录携带：execute 在取得实例化事故位后据此重导出
+        # 疏散路线（与 hazard 的 freeze_at_episode_instantiation 同构）。
+        obstacles: list = []
+        map_path = Path(episode_binding).parent.parent / "release" / "maps" / "semantic_map.json"
+        if map_path.is_file():
+            obstacles = list(json.loads(map_path.read_text(encoding="utf-8"))
+                             .get("static_obstacles", ()))
         report.update(
             formal_episode_binding=True,
             geometry_scope=FORMAL_GEOMETRY_SCOPE,
             episode_binding=binding,
             episode_binding_sha256=canonical_sha256(binding),
+            episode_binding_route_obstacles=obstacles,
             episode_binding_source=loaded["source"],
             episode_binding_source_kind=loaded["source_kind"],
             episode_binding_map_review=loaded["map_review"],
@@ -617,6 +626,55 @@ def _select_access(reader_factory, candidates, *, episode_id, time_s,
     raise RuntimeError("no measured-clear rescue access region candidate")
 
 
+def _instantiate_evacuation_routes(binding, specs, incident_xyz, obstacles):
+    """以实例化事故盘（±11 m 含排队带）为禁区重导出疏散路线。
+
+    与 hazard 的 freeze_at_episode_instantiation 同构：事故位需 USD 射线、
+    不可离线复现，故路线在 episode 实例化时以同款栅格 A* 重导出，并同步
+    更新 worker 内存中的绑定副本（prepare 原件不变）。返回逐人记录。
+    """
+    from .response import (_astar_leg, _nearest_clear_in_goal_component,
+                           _nearest_clear_point, _obstacle_grid)
+    cells = set(_obstacle_grid(obstacles, half_xy=0.2, z_window=(-1.2, 2.1)))
+    cx, cy = float(incident_xyz[0]), float(incident_xyz[1])
+    for ix in range(int((cx - 11.0) * 2), int((cx + 11.0) * 2) + 1):
+        for iy in range(int((cy - 11.0) * 2), int((cy + 11.0) * 2) + 1):
+            wx, wy = ix * 0.5 + 0.25, iy * 0.5 + 0.25
+            if (wx - cx) ** 2 + (wy - cy) ** 2 <= 11.0 ** 2:
+                cells.add((ix, iy))
+    grid = frozenset(cells)
+    targets = _binding_assembly_targets(binding)
+    rows, roster_update = {}, {}
+    for spec in specs:
+        goal = targets[spec.assembly_region_id]
+        origin = (float(spec.start_xyz[0]), float(spec.start_xyz[1]))
+        relocated = None
+        if (int(origin[0] * 2), int(origin[1] * 2)) in grid:
+            relocated = (_nearest_clear_in_goal_component(grid, origin, (goal[0], goal[1]))
+                         or _nearest_clear_point(grid, origin))
+            origin = relocated or origin
+        leg = _astar_leg(grid, origin, (goal[0], goal[1]))
+        if leg:
+            route = ((origin[0], origin[1], float(spec.start_xyz[2])),
+                     *((px, py, float(spec.start_xyz[2])) for px, py in leg[1:-1]),
+                     (float(goal[0]), float(goal[1]), float(goal[2])))
+            rows[spec.person_id] = {"waypoints": len(route), "relocated_start": relocated,
+                                    "keep_out_centre_m": [cx, cy]}
+            roster_update[spec.person_id] = route
+        else:
+            rows[spec.person_id] = {"waypoints": len(spec.evacuation_route), "fallback": True,
+                                    "keep_out_centre_m": [cx, cy]}
+    for index, row in enumerate(binding["affected_person_roster"]):
+        route = roster_update.get(row["person_id"])
+        if route is not None:
+            row["evacuation_route"] = [[float(v) for v in point] for point in route]
+            row["start_xyz"] = [float(v) for v in route[0]]
+            # frozen dataclass：以 replace 生成实例化实例
+            specs[index] = dataclasses.replace(specs[index], start_xyz=route[0],
+                                               evacuation_route=route)
+    return rows
+
+
 def _execute(output_root: Path, prepared: Mapping[str, Any], *, run_id: str,
              headless: bool) -> dict[str, Any]:
     from simulator import SimulatorLaunchConfig, open_simulator_session
@@ -912,6 +970,12 @@ def _run_bound_episode(session, city, actions, report, report_path, prepared, ru
     # after reset) before any simulated step moves the scripted accident car.
     incident_xyz = tuple(float(value) for value in
                          city.scene.plan.sample(city.elapsed).car_position)
+    # 实例化路线补全：以事故盘（含排队带）为禁区重导出，绑定副本同步更新
+    # （prepare 原件与其哈希不受影响；记录见 trace.route_instantiation）。
+    report["trace"]["route_instantiation"] = _instantiate_evacuation_routes(
+        binding, specs, incident_xyz,
+        prepared.get("episode_binding_route_obstacles") or [])
+    _checkpoint(report_path, report)
     people_runtime, _evacuation_binding, spawn_records = spawn_response_people(city.stage, specs)
     city.people = people_runtime
     city.scene.people_runtime = people_runtime
