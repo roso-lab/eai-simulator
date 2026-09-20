@@ -326,55 +326,194 @@ def spawn_response_people(stage: Any, people: Sequence[ResponsePersonSpec], *, r
                             "height_m": float(bounds.GetMax()[2] - bounds.GetMin()[2])})
     return runtime, HumanEvacuationBinding(runtime, {spec.person_id: spec for spec in people}), records
 
-def _segment_obstruction(points: Sequence[Sequence[float]], obstacles: Sequence[Mapping[str, Any]],
-                         *, half_xy: float, z_window: tuple[float, float]) -> bool:
-    """True when any polyline segment passes within half_xy of a z-overlapping obstacle bbox."""
+def _obstacle_grid(obstacles: Sequence[Mapping[str, Any]], *, half_xy: float,
+                   z_window: tuple[float, float]) -> frozenset[tuple[int, int]]:
+    """把静态障碍 bbox 栅格化（0.5 m 格，含 half_xy 膨胀），供段级清障检查。
+
+    z 窗口覆盖行人行走高度带的障碍才入栅。返回被占用格集合（格索引 =
+    (int(x*2), int(y*2))）。
+    """
+    cells: set[tuple[int, int]] = set()
     for obstacle in obstacles:
         lo, hi = obstacle.get("bounds_m") or ((), ())
         if len(lo) < 3 or len(hi) < 3:
             continue
         if hi[2] < z_window[0] or lo[2] > z_window[1]:
             continue
-        for index in range(len(points) - 1):
-            ax, ay = float(points[index][0]), float(points[index][1])
-            bx, by = float(points[index + 1][0]), float(points[index + 1][1])
-            cx = min(max((ax + bx) * .5, lo[0]), hi[0])
-            cy = min(max((ay + by) * .5, lo[1]), hi[1])
-            # 到线段的最近点（钳位到 bbox 的是近似，保守起见用段中点+端点）
-            for px, py in ((ax, ay), (bx, by), ((ax + bx) * .5, (ay + by) * .5)):
-                qx = min(max(px, lo[0]), hi[0])
-                qy = min(max(py, lo[1]), hi[1])
-                if math.hypot(px - qx, py - qy) < half_xy:
-                    return True
+        x0 = int(math.floor((lo[0] - half_xy) * 2))
+        x1 = int(math.ceil((hi[0] + half_xy) * 2))
+        y0 = int(math.floor((lo[1] - half_xy) * 2))
+        y1 = int(math.ceil((hi[1] + half_xy) * 2))
+        for ix in range(x0, x1 + 1):
+            for iy in range(y0, y1 + 1):
+                cells.add((ix, iy))
+    return frozenset(cells)
+
+
+def _segment_obstruction(points: Sequence[Sequence[float]], *, grid,
+                         half_xy: float = 0.0, z_window=None) -> bool:
+    """True when the polyline crosses any occupied grid cell (0.25 m dense sampling)."""
+    if not grid:
+        return False
+    for index in range(len(points) - 1):
+        ax, ay = float(points[index][0]), float(points[index][1])
+        bx, by = float(points[index + 1][0]), float(points[index + 1][1])
+        length = math.hypot(bx - ax, by - ay)
+        steps = max(1, int(length / 0.25))
+        for step in range(steps + 1):
+            t = step / steps
+            px, py = ax + (bx - ax) * t, ay + (by - ay) * t
+            if (int(px * 2), int(py * 2)) in grid:
+                return True
     return False
 
 
-def _clear_route(points: Sequence[Sequence[float]], obstacles: Sequence[Mapping[str, Any]],
-                 *, half_xy: float, route_z: float) -> tuple[tuple[tuple[float, float, float], ...], bool]:
-    """Lateral-offset search until the swept polyline clears every static obstacle.
+def _astar_leg(grid, start_xy, goal_xy, *, max_expand=200000):
+    """在 0.5 m 障碍栅格上从 start 到 goal 的 8 连通 A*，返回世界坐标航点。
 
-    人行道折线通常贴路缘，扫掠人形包络会命中路灯/建筑。对整条折线沿其
-    净法向做确定性横向偏移搜索（先 +后 -，步长 0.25 m 至 2.5 m），返回
-    第一组全段清空的偏移点与成功标志；无解时如实返回 (原线, False)。
+    无解或超限返回 None。航点为栅格中心，够稀疏（折点保留）。
+    """
+    import heapq
+    start = (int(start_xy[0] * 2), int(start_xy[1] * 2))
+    goal = (int(goal_xy[0] * 2), int(goal_xy[1] * 2))
+    if start in grid or goal in grid:
+        return None
+    heap = [(0.0, start)]
+    came: dict[tuple[int, int], tuple[int, int]] = {start: start}
+    cost = {start: 0.0}
+    expanded = 0
+    while heap:
+        _, current = heapq.heappop(heap)
+        if current == goal:
+            break
+        expanded += 1
+        if expanded > max_expand:
+            return None
+        # 4 连通（无对角）：对角步会切角，吃掉膨胀余量 ~0.1 m，实测致灯
+        # Mesh 命中（阶段19 C1 复盘）。
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                nxt = (current[0] + dx, current[1] + dy)
+                if nxt in grid or nxt in came:
+                    continue
+                step = 0.5
+                cost[nxt] = cost[current] + step
+                heuristic = math.hypot(nxt[0] - goal[0], nxt[1] - goal[1]) * 0.5
+                heapq.heappush(heap, (cost[nxt] + heuristic, nxt))
+                came[nxt] = current
+    if goal not in came:
+        return None
+    path, node = [goal], goal
+    while node != start:
+        node = came[node]
+        path.append(node)
+    path.reverse()
+    # 折点简化：只保留方向变化处
+    simplified = [path[0]]
+    for index in range(1, len(path) - 1):
+        d0 = (path[index][0] - path[index - 1][0], path[index][1] - path[index - 1][1])
+        d1 = (path[index + 1][0] - path[index][0], path[index + 1][1] - path[index][1])
+        if d0 != d1:
+            simplified.append(path[index])
+    simplified.append(path[-1])
+    return [(ix * 0.5 + 0.25, iy * 0.5 + 0.25) for ix, iy in simplified]
+
+
+def _nearest_clear_point(grid, xy, *, max_radius_m: float = 15.0):
+    """从 xy 起环形搜索最近的未占用格中心（0.5 m 栅格）。"""
+    import itertools
+    cx, cy = int(xy[0] * 2), int(xy[1] * 2)
+    if (cx, cy) not in grid:
+        return (float(xy[0]), float(xy[1]))
+    for radius in range(1, int(max_radius_m * 2) + 1):
+        best = None
+        for dx in range(-radius, radius + 1):
+            for dy in range(-radius, radius + 1):
+                if max(abs(dx), abs(dy)) != radius:
+                    continue
+                cell = (cx + dx, cy + dy)
+                if cell not in grid:
+                    dist = dx * dx + dy * dy
+                    if best is None or dist < best[0]:
+                        best = (dist, cell)
+        if best:
+            return (best[1][0] * 0.5 + 0.25, best[1][1] * 0.5 + 0.25)
+    return None
+
+
+def _nearest_clear_in_goal_component(grid, xy, goal_xy, *,
+                                     max_radius_m: float = 60.0,
+                                     max_cells: int = 300000):
+    """目标连通域内、离 xy 不超过 max_radius_m 的最近空格（世界坐标）。
+
+    人行道口袋可能被膨胀障碍完全封闭（与主通行域不连通）；此时把出生点
+    重定位到目标连通域内、原点半径内的最近可达格——语义为该员从可通行
+    位置出现。半径界防止在空旷栅格上无界扩张把出生点搬到目标旁。
+    """
+    goal = (int(goal_xy[0] * 2), int(goal_xy[1] * 2))
+    if goal in grid:
+        return None
+    origin = (float(xy[0]), float(xy[1]))
+    best, best_dist = None, None
+    seen = {goal}
+    stack = [goal]
+    limit = max_radius_m * 2
+    while stack:
+        if len(seen) > max_cells:
+            break
+        cx, cy = stack.pop()
+        wx, wy = cx * 0.5 + 0.25, cy * 0.5 + 0.25
+        dist = math.hypot(wx - origin[0], wy - origin[1])
+        if best is None or dist < best_dist:
+            best, best_dist = (wx, wy), dist
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            nxt = (cx + dx, cy + dy)
+            if nxt not in grid and nxt not in seen:
+                seen.add(nxt)
+                stack.append(nxt)
+    return best
+
+
+def _clear_route(points: Sequence[Sequence[float]], *, grid, route_z: float,
+                 assembly_point=None) -> tuple[tuple[tuple[float, float, float], ...], bool]:
+    """清障：环路平移 + 末段 A* 绕障。
+
+    人行道折线贴路缘（扫掠命中路灯），且到集合区的末段可能是横穿全城的
+    直线（必中建筑）。策略（确定性）：先整体横向平移（±0.25..2.5 m）清
+    环路；末段（折线终点→集合点）用 0.5 m 障碍栅格上的 A* 绕障航点替换
+    （集合点保持原位）。全程以栅格密集采样复检；无解如实返回 (原线, False)。
     """
     original = tuple((float(p[0]), float(p[1]), float(p[2]) if len(p) > 2 else route_z)
                      for p in points)
-    z_window = (route_z - 1.5, route_z + 1.8)
-    if not _segment_obstruction(original, obstacles, half_xy=half_xy, z_window=z_window):
-        return original, True
-    if len(original) >= 2:
-        ax, ay = original[0][0], original[0][1]
-        bx, by = original[-1][0], original[-1][1]
-        dx, dy = bx - ax, by - ay
-        norm = math.hypot(dx, dy) or 1.0
-        nx, ny = -dy / norm, dx / norm
-        for sign in (1.0, -1.0):
-            for step in range(1, 11):
-                offset = sign * 0.25 * step
-                shifted = tuple((px + offset * nx, py + offset * ny, pz) for px, py, pz in original)
-                if not _segment_obstruction(shifted, obstacles, half_xy=half_xy, z_window=z_window):
-                    return shifted, True
-    return original, False
+    if _segment_obstruction(original, grid=grid):
+        if len(original) >= 2:
+            ax, ay = original[0][0], original[0][1]
+            bx, by = original[-1][0], original[-1][1]
+            dx, dy = bx - ax, by - ay
+            norm = math.hypot(dx, dy) or 1.0
+            nx, ny = -dy / norm, dx / norm
+            for sign in (1.0, -1.0):
+                for step in range(1, 11):
+                    offset = sign * 0.25 * step
+                    shifted = tuple((px + offset * nx, py + offset * ny, pz)
+                                    for px, py, pz in original)
+                    if not _segment_obstruction(shifted, grid=grid):
+                        original = shifted
+                        break
+                else:
+                    continue
+                break
+    loop_clear = not _segment_obstruction(original, grid=grid)
+    if assembly_point is None:
+        return original, loop_clear
+    leg = _astar_leg(grid, (original[-1][0], original[-1][1]),
+                     (assembly_point[0], assembly_point[1]))
+    if leg is None:
+        return (*original, tuple(assembly_point)), False
+    waypoints = (*original,
+                 *((px, py, route_z) for px, py in leg[:-1]),
+                 tuple(assembly_point))
+    ok = loop_clear and not _segment_obstruction(waypoints, grid=grid)
+    return waypoints, ok
 
 
 def build_response_people(semantic_map: Mapping[str, Any], *, count: int = 4, seed: int = 7,
@@ -401,25 +540,38 @@ def build_response_people(semantic_map: Mapping[str, Any], *, count: int = 4, se
             raise ValueError(f"assembly candidate '{assembly.get('id')}' is not a point")
         assembly_xy = _point(geometry["coordinates"])
         assembly_point = (assembly_xy[0], assembly_xy[1], route_z)
-        # 阶段19 C1 实测：贴路缘的人行道折线 + 人形半宽扫掠会命中路灯/
-        # 建筑（正式 admission 的 routes_clear 谓词拒绝）。生成时先做横向
-        # 偏移清障；无解时如实保留原线（fail-closed 由审核层拒绝）。
+        # 阶段19 C1（终版）：人行道环路贴路缘且被灯杆/建筑 bbox 膨胀栅格
+        # 覆盖——环路的语义只是出生点来源。疏散路线重定义为：出生点取环路
+        # 首点附近最近可通行格，路线 = 0.5 m 障碍栅格上的 A* 绕障航点
+        # （集合点保持原位）；无解时如实保留原线（fail-closed 由审核层拒绝）。
         static_obstacles = tuple(semantic_map.get("static_obstacles", ()))
-        person_half = 0.3
-        cleared, ok = _clear_route((*points, assembly_point), static_obstacles,
-                                   half_xy=person_half, route_z=route_z)
-        # 集合点必须保持原位：若平移移动了它，还原末端并复检末腿
-        if ok and cleared[-1] != assembly_point:
-            moved_end = cleared[-1]
-            fixed = (*cleared[:-1], assembly_point)
-            leg_ok = not _segment_obstruction((moved_end, assembly_point), static_obstacles,
-                                              half_xy=person_half,
-                                              z_window=(route_z - 1.5, route_z + 1.8))
-            cleared, ok = (fixed, leg_ok) if leg_ok else (points + (assembly_point,), False)
-        evacuation_route = cleared
+        # 膨胀 0.2：灯杆 bbox≈杆径，加 0.2 后对真实 Mesh 仍 ≥0.3 人形半宽；
+        # 0.35 会把街道走廊封死（起点落入与主通行域不连通的口袋）。
+        grid = _obstacle_grid(static_obstacles, half_xy=0.2,
+                              z_window=(route_z - 1.5, route_z + 1.8))
+        origin_xy = (points[0][0], points[0][1])
+        if (int(origin_xy[0] * 2), int(origin_xy[1] * 2)) not in grid:
+            start_clear = origin_xy  # 原格空闲：不吸附不搬动
+        else:
+            start_clear = (_nearest_clear_in_goal_component(
+                grid, origin_xy, (assembly_point[0], assembly_point[1]))
+                or _nearest_clear_point(grid, origin_xy))
+        leg = (_astar_leg(grid, start_clear,
+                          (assembly_point[0], assembly_point[1]))
+               if start_clear else None)
+        if leg:
+            spawn_xyz = (start_clear[0], start_clear[1], route_z)
+            evacuation_route = ((spawn_xyz,)
+                                + tuple((px, py, route_z) for px, py in leg[1:-1])
+                                + (tuple(assembly_point),))
+            route_ok = not _segment_obstruction(evacuation_route, grid=grid)
+        else:
+            spawn_xyz = points[0]
+            evacuation_route = points + (tuple(assembly_point),)
+            route_ok = False
         people.append(ResponsePersonSpec(
             person_id=f"affected_person_{index:02d}", asset_id=asset_ids[index % len(asset_ids)],
-            start_xyz=points[0], evacuation_route=evacuation_route,
+            start_xyz=spawn_xyz, evacuation_route=evacuation_route,
             assembly_region_id=str(assembly["id"]), affected=True))
     return people
 

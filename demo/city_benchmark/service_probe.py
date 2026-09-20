@@ -1041,6 +1041,11 @@ def _run_bound_episode(session, city, actions, report, report_path, prepared, ru
     guidance_requests = {}
     # One roster-wide observation snapshot serves every per-region request:
     # consecutive observes without a step would collide on the same ref.
+    # C1 复盘：t=0.02 即提交时，出生车辆包络常压在穿路航点上（dynamic
+    # envelopes 使 routes_clear=false）。先预热 ~10 s 仿真让车流离开出生
+    # 段，再做首次观察/提交（人员静止等待，语义为"观察后开始引导"）。
+    warmup_steps = max(1, math.ceil(10.0 / float(session.base_env.step_dt)))
+    _step(session, city, actions, warmup_steps)
     guidance_observation = runner.observe()
     # C1 诊断：首次提交前记录逐人路线 readback（admission 的 routes_clear 谓词输入）
     trace["person_routes_before_first_submit"] = {
@@ -1050,8 +1055,21 @@ def _run_bound_episode(session, city, actions, report, report_path, prepared, ru
     for capacity in binding["assembly_capacity"]:
         region_id, group = capacity["region_id"], tuple(capacity["bound_person_ids"])
         _role(runner, "guidance_contact", session, trace)
-        guidance = runner.guide_people(group, observation_ref=guidance_observation,
-                                       assembly_region_id=region_id)
+        # C1 复盘：穿路航点可能被行驶车辆包络间歇覆盖——被拒时步进 1 s
+        # 重建观察重试（语义：等待引导时机），20 次后如实失败。
+        guidance = None
+        for attempt in range(20):
+            try:
+                guidance = runner.guide_people(group, observation_ref=guidance_observation,
+                                               assembly_region_id=region_id)
+                break
+            except ValueError as exc:
+                if "not admitted" not in str(exc) or attempt == 19:
+                    raise
+                _step(session, city, actions, max(1, math.ceil(1.0 / float(session.base_env.step_dt))))
+                # 步进会使 role 区间过期：重试前重建现场角色
+                _role(runner, "guidance_contact", session, trace)
+                guidance_observation = runner.observe()
         guidance_requests[region_id] = guidance["request"]
         trace["services"][f"guide_people:{region_id}"] = {
             "status": "command_accepted_pending_readback",

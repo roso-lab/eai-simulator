@@ -13,7 +13,7 @@
 ### P0 立即可推进（无外部依赖，主会话串行 Isaac）
 
 - [x] W1 双机可靠技能后端验证（2026-09-20 完成）：W1b——Carter 在 0.25 m 支撑高度的实测不可达写入 `goal_constraints._MEASURED_ANCHOR_INFEASIBLE`（计划级组合拒绝 + 反例测试），仓库/家居见证同步换双 M20 可行对（分工互换保持语义差异）；W1a——paired probe 双 M20 载具 **v7 全绿**（`diagnostic_completed`，四道几何门禁全过：settled/lift/transport_end/lowered，78 运输 + 80 抬升样本，抬升 0.0375 m，释放/回执齐全；东 -9.570/西 -11.450 按确定性漂移与编队内移校准）——Warehouse 首个完整双机固定点承载链。
-- [ ] C1 City admission 谓词校准：正式探针首跑在首次服务提交处 fail-closed（`service_backend.py:169` 路由/权限/容量）。方案：`_run_bound_episode` 的 admission 回调加逐谓词诊断（route/authority/capacity 各自判定值与输入），跑一次定位具体拒绝项（预计为 bound roster 实测路线 vs 绑定声明路线偏差、role 区间起始时刻、或容量计数映射），修探针侧绑定消费映射。验收：正式探针完整跑通、`formal_episode_binding=true` 且六类绑定-读回一致、`full_city_service=formal_episode_binding_measured`。
+- [ ] C1 City admission 谓词校准（**大幅推进，剩一个实例化设计项**）：已定位并逐层修复——路线生成重构为栅格化 4 连通 A* 绕障（静态命中全清，四人 17–46 航点）、探针预热 + 提交重试 + role 刷新（**首个正式服务 guide_people:001 已被接受**）。剩余：person_00 斜穿路线经过事故排队带（永久动态阻挡）；事故位不可离线复现，疏散路线需与 hazard 同样延迟到 episode 实例化时以事故盘+排队带为禁区重导出（探针侧重推 + 记录为绑定实例化补全）。验收不变：完整跑通、`formal_episode_binding=true`、六类绑定-读回一致。
 
 ### P1 需要决策或外部输入
 
