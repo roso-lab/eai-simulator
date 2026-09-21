@@ -499,6 +499,15 @@ class GoalSession:
             raise ValueError("business outcome evidence_refs must be distinct")
         evaluator_ref = _text(evaluator_ref, "evaluator_ref")
         row = self._business_outcomes[outcome_id]
+        if (row["status"], row["evidence_refs"], row["evaluator_ref"]) == (
+                status, evidence_refs, evaluator_ref):
+            return {"accepted": True, "outcome_id": outcome_id, "status": status,
+                    "state_version": self._version,
+                    "business_outcomes_validated": self._business_outcomes_validated(),
+                    "business_task_success": self._business_task_success(),
+                    "idempotent": True}
+        if row["status"] in {"validated", "failed"}:
+            raise ValueError("terminal business outcome cannot be rewritten")
         row.update({"status": status, "evidence_refs": list(evidence_refs),
                     "evaluator_ref": evaluator_ref})
         self._version += 1

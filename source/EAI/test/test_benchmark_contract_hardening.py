@@ -44,6 +44,14 @@ def test_business_outcome_is_recorded_separately_from_skill_execution():
     assert final["business_outcomes_validated"] is False
     assert final["business_task_success"] is False
     assert final["skill_execution"]["succeeded_task_ids"] == []
+    repeat = session.record_business_outcome(
+        outcome_ids[1], status="failed", evidence_refs=["dock://two"],
+        evaluator_ref="warehouse-evaluator/attempt-1")
+    assert repeat["idempotent"] is True
+    with pytest.raises(ValueError, match="terminal business outcome"):
+        session.record_business_outcome(
+            outcome_ids[1], status="validated", evidence_refs=["dock://revised"],
+            evaluator_ref="warehouse-evaluator/attempt-2")
 
 
 def test_business_success_requires_all_outcomes_and_keeps_execution_separate():
@@ -95,6 +103,18 @@ def test_subprocess_boundary_classifies_timeout_and_rejects_hidden_data():
         manifest={"id": "algo"}, context={}, timeout_s=1)
     assert crashed["status"] == "failed"
     assert crashed["failure_class"] == "algorithm_exception"
+
+    non_finite = run_algorithm_subprocess(
+        [sys.executable, "-c", "print('{\"metric\": NaN}')"],
+        manifest={"id": "algo"}, context={}, timeout_s=1)
+    assert non_finite["status"] == "invalid"
+    assert non_finite["failure_class"] == "algorithm_protocol_invalid"
+
+    invalid_utf8 = run_algorithm_subprocess(
+        [sys.executable, "-c", "import sys; sys.stdout.buffer.write(bytes([255]))"],
+        manifest={"id": "algo"}, context={}, timeout_s=1)
+    assert invalid_utf8["status"] == "invalid"
+    assert invalid_utf8["failure_class"] == "algorithm_protocol_invalid"
 
     with pytest.raises(ValueError, match="hidden evaluator"):
         run_algorithm_subprocess(

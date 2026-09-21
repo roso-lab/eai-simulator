@@ -9,6 +9,7 @@ from jsonschema import Draft202012Validator
 from EAI.scenario_spec import load_scenario
 from EAI.scenario_spec.geometry import ground_surface_exclusions
 from EAI.scenario_spec.schema import scenario_schema
+from EAI.scenario_spec.validation import validate_scenario
 from demo.benchmark.challenge_contract import (
     validate_baseline_manifest, validate_hidden_evaluator, validate_participant_api,
     validate_public_task_spec, write_challenge_bundle,
@@ -82,6 +83,25 @@ def test_candidate_loads_generic_v2_and_opens_explicit_stair_without_proving_geo
     assert {geometry[key]["status"] for key in ("approach", "start", "goal")} == {"unknown"}
     assert geometry["goal"]["measured_support_xyz_m"] is None
     assert geometry["goal"]["candidate_support_xyz_m"][2] == 1.57
+
+
+def test_fvert_accepts_b2_mixed_stairs_controller():
+    """The registered B2 stair base must be admissible on the same probe track."""
+    scenario = load_scenario(DEFAULT_SCENARIO)
+    robot = scenario["robots"][0]
+    robot.update({
+        "id": "b2_1",
+        "type": "b2",
+        "controller": {"mode": "default", "cfg": "B2_MIXED_STAIRS_CFG"},
+        "spawn_pose": {
+            "position": [1.5, -0.35, 0.58],
+            "rotation": [0.7071067811865476, 0, 0, -0.7071067811865476],
+        },
+    })
+    scenario["phase_graph"]["nodes"][0]["preferred_agent"] = "b2_1"
+    scenario["runtime_lifecycle"]["initial_agent_ids"] = ["b2_1"]
+    validated = validate_scenario(scenario)
+    assert validated["robots"][0]["controller"]["cfg"] == "B2_MIXED_STAIRS_CFG"
 
 
 def test_vertical_ground_approach_can_reach_wide_robot_pre_entry_stance():

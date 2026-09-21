@@ -2,7 +2,7 @@
   "schema": "eai.benchmark.diagnostic_scenario_audit",
   "version": 1,
   "scenario_file": "vertical_stair_01.json",
-  "scenario_sha256": "591777acbf778391ef6c8c8c7ec3a62f7b821951b1fbc09175c84c81ef6dc813",
+  "scenario_sha256": "18dd6b6562471466545a186d758ecf4d04bea3b541de92517d3eb3d57d0694fe",
   "track_id": "F-VERT-01",
   "diagnostic_granularity": "platform_locomotion",
   "visibility": "author_only",

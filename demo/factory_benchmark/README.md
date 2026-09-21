@@ -14,8 +14,9 @@ execution evidence remains a separate gate. See the [handoff guide](../benchmark
 > configuration smoke. The default Go2 F-VERT base uses
 > `GO2_MIXED_STAIRS_CFG`, which now carries the continued training weights
 > (checkpoint 3999); the original Stage-A export is retired from registration. M20 remains the existing stair-capable baseline. A fresh
-> continuous climb/platform/descent PhysX record is still required, and B2 remains
-> under motion-model repair. All packages remain `release_status=pending`,
+> continuous climb/platform/descent PhysX records for Go2 and B2 are still required;
+> B2 is now registered through `B2_MIXED_STAIRS_CFG` but remains unpromoted until its
+> independent evidence is archived. All packages remain `release_status=pending`,
 > `scoreable=false`.
 
 This application owns the factory task blueprint, asset allowlist and experiment profile in `scenario.py`. `config.py` selects its USD and occupancy map. Maintained smoke episodes live in `scenarios/`; generated task pools and reports belong in `tmp/`.

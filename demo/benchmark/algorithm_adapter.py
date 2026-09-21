@@ -507,39 +507,53 @@ def run_algorithm_subprocess(
     try:
         process = subprocess.Popen(
             list(command), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE, text=True, cwd=cwd, env=process_env,
+            stderr=subprocess.PIPE, text=False, cwd=cwd, env=process_env,
             shell=False, start_new_session=(os.name == "posix"))
         try:
-            stdout, stderr = process.communicate(payload + "\n", timeout=float(timeout_s))
+            stdout, stderr = process.communicate(
+                (payload + "\n").encode("utf-8"), timeout=float(timeout_s))
         except subprocess.TimeoutExpired as exc:
             if os.name == "posix":
                 os.killpg(process.pid, signal.SIGKILL)
             else:
                 process.kill()
             stdout, stderr = process.communicate()
+            stderr_text = stderr.decode("utf-8", errors="replace") if stderr else ""
             return {"status": "timeout", "failure_class": "algorithm_timeout",
                     "returncode": process.returncode, "output": None,
-                    "stdout": stdout, "stderr": stderr or str(exc)}
+                    "stdout": stdout.decode("utf-8", errors="replace") if stdout else "",
+                    "stderr": stderr_text or str(exc)}
     except OSError as exc:
         return {"status": "failed", "failure_class": "algorithm_exception",
                 "returncode": None, "output": None, "stdout": "", "stderr": str(exc)}
+    try:
+        stdout_text = stdout.decode("utf-8") if stdout else ""
+    except UnicodeDecodeError as exc:
+        return {"status": "invalid", "failure_class": "algorithm_protocol_invalid",
+                "returncode": process.returncode, "output": None, "stdout": "",
+                "stderr": f"stdout is not valid UTF-8: {exc}"}
+    stderr_text = stderr.decode("utf-8", errors="replace") if stderr else ""
     if process.returncode != 0:
         return {"status": "failed", "failure_class": "algorithm_exception",
                 "returncode": process.returncode, "output": None,
-                "stdout": stdout, "stderr": stderr}
+                "stdout": stdout_text, "stderr": stderr_text}
     try:
-        output = json.loads(stdout)
+        output = json.loads(
+            stdout_text,
+            parse_constant=lambda token: (_ for _ in ()).throw(
+                ValueError(f"non-finite JSON constant {token}")),
+        )
     except (TypeError, ValueError) as exc:
         return {"status": "invalid", "failure_class": "algorithm_protocol_invalid",
                 "returncode": process.returncode, "output": None,
-                "stdout": stdout, "stderr": f"invalid JSON stdout: {exc}; {stderr}"}
+                "stdout": stdout_text, "stderr": f"invalid JSON stdout: {exc}; {stderr_text}"}
     if not isinstance(output, Mapping) or _contains_hidden_key(output):
         return {"status": "invalid", "failure_class": "algorithm_protocol_invalid",
                 "returncode": process.returncode, "output": None,
-                "stdout": stdout, "stderr": "stdout must be one public JSON object"}
+                "stdout": stdout_text, "stderr": "stdout must be one public JSON object"}
     return {"status": "completed", "failure_class": None,
             "returncode": process.returncode, "output": deepcopy(dict(output)),
-            "stdout": stdout, "stderr": stderr}
+            "stdout": stdout_text, "stderr": stderr_text}
 
 
 def _percentile(values: Sequence[float], fraction: float) -> float:

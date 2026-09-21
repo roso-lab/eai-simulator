@@ -22,6 +22,7 @@ Factory spawner 会生成单一三角网格 raycast proxy 供高度扫描。`dem
 提供 headless 的维度、有限值、姿态稳定、扫描范围和前进响应检查；`main.py` 提供上行、
 平台和下行演示。它们是运动基座验收工具，不会把结果自动升级为 F-VERT-01 的业务得分。
 
-M20 保留已有楼梯能力作为对照基线。B2 的运动模型仍在修复；接触采样或校准日志不能
-单独宣称 B2 已通过楼梯。Go2 新 policy 仍需连续上行、平台停留、下行和独立支撑证据，
-因此当前 `execution_validated=false`、`scoreable=false` 保持不变。
+M20 保留已有楼梯能力作为对照基线。B2 已注册 `B2_MIXED_STAIRS_CFG` 和对应的
+232 维高度扫描策略；控制器接入或单次接触采样不能单独宣称 B2 已通过楼梯。Go2/B2
+仍需分别完成连续上行、平台停留、下行和独立支撑证据，因此当前
+`execution_validated=false`、`scoreable=false` 保持不变。

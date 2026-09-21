@@ -31,8 +31,9 @@ City v6已得到四人安全疏导与hold/release的完整分项读回；严格�
 - [x] 外部算法接入契约：TeamWeaver/EMOS 只改变多机任务分解、分配、协同、通信和重规划；导航、移动、抓取等低层控制固定为 benchmark 默认理想控制器，额外干扰必须作为显式 factor。
 - [ ] 外部开发团队接入多机运行与跨机器分支调度；该项不回写为任务生成/审核已完成，也不能改变四场景的固定控制变量。
 - [x] Go2 benchmark 楼梯基座接入：F-VERT-01 与 `go2_factory_stairs` 默认使用
-  `GO2_MIXED_STAIRS_CFG`（继续训练权重，checkpoint 3999）；M20 保留既有楼梯基线，B2 继续标记为运动模型修复中。
-  新 Go2 仍需独立连续上行/平台停留/下行证据后才可改变 release gate。
+  `GO2_MIXED_STAIRS_CFG`（继续训练权重，checkpoint 3999）；M20 保留既有楼梯基线，B2
+  已注册 `B2_MIXED_STAIRS_CFG`。Go2/B2 仍需独立连续上行/平台停留/下行证据后才可改变
+  release gate。
 
 阶段18 的代码与契约面已完成（City 绑定全链、House 干预时序与区域双绑定、Carter 资产修复）。
 阶段19 聚焦三个实测级卡点与一个契约决策，按优先级分层；每项附方案与验收标准。

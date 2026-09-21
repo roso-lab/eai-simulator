@@ -139,14 +139,14 @@ def validate_scenario(payload, known_floors=None):
         if robot["id"] != f"{key}_{counts[key]}":
             raise ScenarioError(f"robot id must be {key}_{counts[key]} to match EAI runtime naming")
         controller_cfg = robot["controller"]["cfg"]
-        vertical_go2_policy = (
+        vertical_stair_policy = (
             data.get("benchmark_task_id") == "F-VERT-01"
-            and key == "go2"
-            and controller_cfg in {
-                "GO2_MIXED_STAIRS_CFG",
-            }
+            and (
+                (key == "go2" and controller_cfg == "GO2_MIXED_STAIRS_CFG")
+                or (key == "b2" and controller_cfg == "B2_MIXED_STAIRS_CFG")
+            )
         )
-        if controller_cfg != catalog.default_controller_cfg(key) and not vertical_go2_policy:
+        if controller_cfg != catalog.default_controller_cfg(key) and not vertical_stair_policy:
             raise ScenarioError(f"{robot['id']}: use the registered default controller")
         attachments = [item["type"] for item in robot["attachments"]]
         if len(attachments) != len(set(attachments)):
