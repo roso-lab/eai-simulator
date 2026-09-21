@@ -69,7 +69,7 @@ def _print_selection_summary(
     print_func("\n配置预览")
     print_func(_TERMINAL_RULE)
     print_func(f"  Scene    {scene_label} ({scene_key})")
-    print_func(f"  Robots   {len(robots)}")
+    print_func(f"  Robots   {len(robots)}" + ("" if robots else "（仅运行场景）"))
     for index, robot in enumerate(robots, start=1):
         payloads = ", ".join(
             catalog.tool_label(item.type)
@@ -116,6 +116,9 @@ def is_back_token(value: str) -> bool:
     return value.strip().lower() in {"b", "back"}
 
 
+NO_ROBOT_TOKENS = frozenset({"0", "none", "no-robot", "scene-only"})
+
+
 def parse_robot_digit_selection(raw: str, *, robot_keys: tuple[str, ...] = ROBOT_KEYS) -> tuple[str, ...]:
     text = raw.strip()
     if not text:
@@ -123,6 +126,9 @@ def parse_robot_digit_selection(raw: str, *, robot_keys: tuple[str, ...] = ROBOT
     keys_by_name = {key.lower(): key for key in robot_keys}
     if text.lower() in keys_by_name:
         return (keys_by_name[text.lower()],)
+    if text.lower() in NO_ROBOT_TOKENS:
+        # Explicit scene-only selection: run the scene without any robot.
+        return ()
     selected: list[str] = []
     for token in text.split():
         if not token.isdigit():
@@ -407,7 +413,7 @@ def _choose_robot_digits(*, input_func, print_func) -> tuple[str, ...] | None:
     )
     _print_choice_grid(options, print_func=print_func)
     while True:
-        raw = input_func("\n选择机器人 (例如 1 11，默认 1): ").strip()
+        raw = input_func("\n选择机器人 (例如 1 11，默认 1；输入 0 不添加机器人，仅运行场景): ").strip()
         if not raw:
             raw = "1"
         if is_back_token(raw):

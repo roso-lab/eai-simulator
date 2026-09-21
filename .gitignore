@@ -210,6 +210,7 @@ test_*.py
 !/source/EAI/test/test_scene_challenge_reuse.py
 !/source/EAI/test/test_configuration_microtest.py
 !/source/EAI/test/test_configuration_smoke.py
+!/source/EAI/test/test_env_diy_scene_only.py
 !/source/EAI/test/test_scenario_execution.py
 !/source/EAI/test/test_scenario_benchmark_contract.py
 !/source/EAI/test/test_scenario_evaluation.py

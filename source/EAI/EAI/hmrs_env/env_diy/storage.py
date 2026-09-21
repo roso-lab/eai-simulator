@@ -136,8 +136,8 @@ def _normalize_task_payload(task_name: str, task_data: dict[str, Any]) -> dict[s
         if spawn_pose is not None:
             normalized["spawn_pose"] = spawn_pose
         robots.append(normalized)
-    if not robots:
-        raise ValueError("Env data must include at least one robot.")
+    # An empty robots list is a valid scene-only environment; scene_key above
+    # stays mandatory, so robot-only payloads are still rejected.
     return {
         "version": int(task_data.get("version", TASK_SCHEMA_VERSION)),
         "task_name": task_name,

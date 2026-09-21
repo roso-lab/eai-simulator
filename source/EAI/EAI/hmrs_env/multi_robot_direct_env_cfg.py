@@ -59,12 +59,12 @@ class MultiRobotDirectEnvCfg(DirectMARLEnvCfg):
     
     def __post_init__(self):
         """Post-initialization: generate multi-robot configs and set simulation parameters."""
-        # 1. Validate controllers is defined
-        if not self.controllers:
-            raise ValueError(
-                "At least one controller must be defined in 'controllers' dictionary."
-            )
-        
+        # 1. An empty controllers mapping is a scene-only environment: the env
+        #    runs the scene with zero agents and no controller loading.
+        #    scene_key remains mandatory upstream, so robot-only selections
+        #    are still rejected before reaching this cfg.
+        scene_only = not self.controllers
+
         # 2. Generate possible_agents from controllers keys
         self.possible_agents = list(self.controllers.keys())
         
@@ -94,8 +94,10 @@ class MultiRobotDirectEnvCfg(DirectMARLEnvCfg):
         self.observation_spaces = observation_spaces
         self.action_spaces = action_spaces
         
-        # 4. Set state_space to -1 (auto-concatenate all observations)
-        self.state_space = -1
+        # 4. Set state_space to -1 (auto-concatenate all observations); a
+        #    scene-only environment has no observations to concatenate, and
+        #    Isaac Lab's empty-Tuple flatten would raise, so disable it (0).
+        self.state_space = 0 if scene_only else -1
         
         # 5. Set default simulation parameters (can be overridden in subclasses)
         self.decimation = 4  # Control frequency is 1/4 of simulation frequency

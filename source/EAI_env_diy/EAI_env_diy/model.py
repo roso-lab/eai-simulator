@@ -144,8 +144,8 @@ class AuthoringModel:
     def to_selection(self) -> InteractiveSelection:
         if self.scene_key is None:
             raise ValueError("A scene must be selected before export.")
-        if not self.robots:
-            raise ValueError("At least one robot is required before export.")
+        # An empty robots list exports a scene-only selection; the scene
+        # remains mandatory, so robot-only exports are still rejected.
         selection = InteractiveSelection(
             scene_key=self.scene_key,
             robots=tuple(

@@ -1827,7 +1827,6 @@
         const errors = [];
         if (!state.taskName.trim()) errors.push("请输入环境名称");
         if (!state.sceneKey) errors.push("请选择一个 Scene");
-        if (!state.robots.length) errors.push("请至少添加一个 Robot");
         state.robots.forEach(robot => {
           robot.payloads.forEach(payload => {
             const reason = deploymentBlockReason(robot.type, payload.type);
