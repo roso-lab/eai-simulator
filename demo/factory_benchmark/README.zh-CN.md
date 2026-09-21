@@ -10,7 +10,7 @@
 > **当前状态（2026-09-21 · benchmark 基座更新）**
 >
 > - **可跑**：F-INS-01 证据派遣题包（四层发布 + 派车矩阵 + ArUco 标签工程基线）；F-TRAFFIC 共享通道 / F-COV 覆盖对照任务及分配比较工具；楼梯实测绑定（`flight_02`，根层+67 依赖层 hash）与 F-VERT-01 候选编译入口；14 型配置 smoke 与能力画像导出；`--check-assets` 场景闭包审计。
-> - **运动基座**：F-VERT-01 默认 Go2 已切换到继续训练的 `GO2_MIXED_STAIRS_CONTINUED_CFG`（checkpoint 3999），模型权重由 resolver 从 `controller/rl/go2_mixed_stairs/model/policy.continued3999.onnx` 提供；原 Stage-A `GO2_MIXED_STAIRS_CFG` 仍可显式回退。M20 保留已有楼梯能力基线。
+> - **运动基座**：F-VERT-01 默认 Go2 使用 `GO2_MIXED_STAIRS_CFG`（继续训练权重，checkpoint 3999），模型权重由 resolver 从 `controller/rl/go2_mixed_stairs/model/policy.onnx` 提供；原始 Stage-A 导出已从注册表退役。M20 保留已有楼梯能力基线。
 > - **仍待验收**：Go2 新模型需要重新生成连续上行、平台停留和下行的独立 PhysX 证据，当前题包仍不晋升；B2 运动模型仍在修复，不能写成楼梯通过。楼梯意图 Isaac adapter、PhysX 支撑/连通性校准继续 pending。
 > - **发布口径**：`release_status=pending`、`scoreable=false`（fail-closed 设计）。
 
@@ -147,8 +147,8 @@ waypoint 距离或朝向误差的单调改善；来回振荡不能反复重置�
 - 模型只可提交给定机器人的路线意图或有界等待；格式校验不会启动运动，
   `executed_action_types=[]`。此单机诊断未启用生命周期/通信实验，尚无业务轨道的
   `factor_manifest` 和实时事件输入。
-- 探针基座现状：维护场景和 `go2_factory_stairs` 默认环境均使用继续训练的 Go2
-  `GO2_MIXED_STAIRS_CONTINUED_CFG`；旧 Stage-A 仅作回退对照。M20 是已有楼梯能力基线。
+- 探针基座现状：维护场景和 `go2_factory_stairs` 默认环境均使用 Go2
+  `GO2_MIXED_STAIRS_CFG`（继续训练权重，checkpoint 3999）；原始 Stage-A 导出已退役。M20 是已有楼梯能力基线。
   Go2 新模型的连续上行/平台停留/下行证据尚未入库；B2 仍处于运动模型修复阶段，
   其接触采样记录不等同于楼梯通过。
 

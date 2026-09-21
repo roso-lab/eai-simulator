@@ -11,9 +11,9 @@ execution evidence remains a separate gate. See the [handoff guide](../benchmark
 > package with dispatch matrix and ArUco label engineering baseline; F-TRAFFIC /
 > F-COV comparison tasks; stair measurement binding (`flight_02`, root + 67
 > dependency-layer hashes) and F-VERT-01 candidate compiler entry; 14-type
-> configuration smoke. The default Go2 F-VERT base now uses
-> `GO2_MIXED_STAIRS_CONTINUED_CFG` (checkpoint 3999); the Stage-A policy remains
-> an explicit fallback. M20 remains the existing stair-capable baseline. A fresh
+> configuration smoke. The default Go2 F-VERT base uses
+> `GO2_MIXED_STAIRS_CFG`, which now carries the continued training weights
+> (checkpoint 3999); the original Stage-A export is retired from registration. M20 remains the existing stair-capable baseline. A fresh
 > continuous climb/platform/descent PhysX record is still required, and B2 remains
 > under motion-model repair. All packages remain `release_status=pending`,
 > `scoreable=false`.

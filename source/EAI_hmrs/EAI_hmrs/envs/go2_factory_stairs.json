@@ -7,7 +7,7 @@
             "type": "go2",
             "controller": {
                 "mode": "default",
-                "cfg": "GO2_MIXED_STAIRS_CONTINUED_CFG"
+                "cfg": "GO2_MIXED_STAIRS_CFG"
             },
             "attachments": [
                 {

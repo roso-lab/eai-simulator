@@ -77,6 +77,10 @@ class RobotOption:
     controller: Any
     default_z: float
     orsus_mount_link: str | None = None
+    # Trunk rigid-body prim name below the articulation root. The mixed-stairs
+    # height scanner ray-casts from this body; go2 names it "base" while b2
+    # names it "base_link".
+    trunk_link: str | None = None
     ur5_mount_profile: Ur5MountProfile | None = None
     z1_mount_profile: Z1MountProfile | None = None
     orsus_offset: tuple[float, float, float] = (0.026, 0.0, 0.0)
@@ -151,11 +155,8 @@ CONTROLLER_CFG_IMPORTS = {
     "PEPPER_HOLONOMIC_CFG": ("traditional/pepper_holonomic/pepper_holonomic.py", "PEPPER_HOLONOMIC_CFG"),
     "GO2_VELOCITY_RSL_CFG": ("rl/go2_rsl_rl/go2_rsl_rl.py", "GO2_VELOCITY_RSL_CFG"),
     "GO2_MIXED_STAIRS_CFG": ("rl/go2_mixed_stairs/go2_mixed_stairs.py", "GO2_MIXED_STAIRS_CFG"),
-    "GO2_MIXED_STAIRS_CONTINUED_CFG": (
-        "rl/go2_mixed_stairs/go2_mixed_stairs.py",
-        "GO2_MIXED_STAIRS_CONTINUED_CFG",
-    ),
     "B2_VELOCITY_RSL_CFG": ("rl/b2_rsl_rl/b2_rsl_rl.py", "B2_VELOCITY_RSL_CFG"),
+    "B2_MIXED_STAIRS_CFG": ("rl/b2_rsl_rl/b2_rsl_rl.py", "B2_MIXED_STAIRS_CFG"),
     "M20_ROUGH_RSL_CFG": ("rl/m20_rough_rsl/m20_rough_rsl.py", "M20_ROUGH_RSL_CFG"),
     "LITE3_VELOCITY_RSL_CFG": ("rl/lite3_rsl_rl/lite3_rsl_rl.py", "LITE3_VELOCITY_RSL_CFG"),
     "SCOUT_DIFF_CFG": ("traditional/scout_diff/scout_diff.py", "SCOUT_DIFF_CFG"),
@@ -222,6 +223,7 @@ ROBOT_OPTIONS = [
         "GO2_VELOCITY_RSL_CFG",
         0.4,
         "base",
+        trunk_link="base",
         ur5_mount_profile=UR5_MOUNT_PROFILES["go2"],
         z1_mount_profile=Z1_MOUNT_PROFILES["go2"],
         lidar_mount_link="base",
@@ -238,6 +240,7 @@ ROBOT_OPTIONS = [
         "B2_VELOCITY_RSL_CFG",
         0.58,
         "base_link",
+        trunk_link="base_link",
         ur5_mount_profile=UR5_MOUNT_PROFILES["b2"],
         z1_mount_profile=Z1_MOUNT_PROFILES["b2"],
         orsus_offset=(0.36723, 0.0, 0.223494),
@@ -571,16 +574,21 @@ def build_interactive_env_cfg(
         attrs[name] = articulation
         if selection.controller.cfg in {
             "GO2_MIXED_STAIRS_CFG",
-            "GO2_MIXED_STAIRS_CONTINUED_CFG",
+            "B2_MIXED_STAIRS_CFG",
         }:
             # Height scan matching robot_lab training: 17x11 grid, 0.1 m
             # resolution, 1.6x1.0 m around the base, yaw-aligned. Isaac Lab's
             # RayCaster supports one mesh, so the Factory spawner builds a
             # validated triangle-only proxy from its ground, stair, and landing
             # meshes.
+            if robot.trunk_link is None:
+                raise ValueError(
+                    f"DIY robot '{robot.key}' does not define a trunk link for "
+                    "the mixed-stairs height scanner."
+                )
             attrs["__annotations__"][f"{name}_height_scanner"] = RayCasterCfg
             attrs[f"{name}_height_scanner"] = RayCasterCfg(
-                prim_path=f"{{ENV_REGEX_NS}}/{name}/base",
+                prim_path=f"{{ENV_REGEX_NS}}/{name}/{robot.trunk_link}",
                 offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20.0)),
                 ray_alignment="yaw",
                 pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6, 1.0]),

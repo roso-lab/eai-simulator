@@ -67,7 +67,7 @@ def test_candidate_loads_generic_v2_and_opens_explicit_stair_without_proving_geo
     scenario = load_scenario(DEFAULT_SCENARIO)
     assert scenario["scene_key"] == "factory"
     assert scenario["benchmark_task_id"] == "F-VERT-01"
-    assert scenario["robots"][0]["controller"]["cfg"] == "GO2_MIXED_STAIRS_CONTINUED_CFG"
+    assert scenario["robots"][0]["controller"]["cfg"] == "GO2_MIXED_STAIRS_CFG"
     node = scenario["phase_graph"]["nodes"][0]
     assert node["skill_key"] == "navigate"
     assert node["vertical"]["link_id"] == "main_stair"

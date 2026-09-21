@@ -144,7 +144,6 @@ def validate_scenario(payload, known_floors=None):
             and key == "go2"
             and controller_cfg in {
                 "GO2_MIXED_STAIRS_CFG",
-                "GO2_MIXED_STAIRS_CONTINUED_CFG",
             }
         )
         if controller_cfg != catalog.default_controller_cfg(key) and not vertical_go2_policy:

@@ -549,9 +549,10 @@ def _maybe_override_controllers(
         _print_terminal_subsection(print_func, "可修改的对象")
         display_index = 1
         for robot_index, robot in enumerate(updated):
+            robot_cfgs = controller_cfgs_for_robot(robot.type)
             print_func(
                 f"    [{display_index:>2}] {robot.type}_{robot_index + 1} base "
-                f"({robot.controller.cfg})"
+                f"({robot.controller.cfg})  可用: {', '.join(robot_cfgs)}"
             )
             options.append(("robot", robot_index, None))
             display_index += 1
@@ -579,11 +580,16 @@ def _maybe_override_controllers(
         cfg_name = input_func("输入新的 cfg 名称: ").strip()
         if is_back_token(cfg_name):
             continue
-        if cfg_name not in controller_cfg_names():
-            print_func(f"  ! 未知 cfg: {cfg_name}")
-            continue
         kind, robot_index, attachment_type = options[target - 1]
         robot = updated[robot_index]
+        if kind == "robot":
+            allowed_cfgs = controller_cfgs_for_robot(robot.type)
+        else:
+            attachment = next(item for item in robot.attachments if item.type == attachment_type)
+            allowed_cfgs = (attachment.controller.cfg,) if attachment.controller else ()
+        if cfg_name not in allowed_cfgs:
+            print_func(f"  ! {robot.type} 不支持 cfg: {cfg_name}；可用: {', '.join(allowed_cfgs)}")
+            continue
         if kind == "robot":
             updated[robot_index] = RobotSelection(
                 robot.type,

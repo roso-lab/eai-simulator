@@ -66,6 +66,15 @@ class EnvDiyWebViewBridge:
             for host in catalog.ROBOT_KEYS
         }
 
+    def controller_catalog(self) -> dict[str, list[str]]:
+        """Expose the Python controller vocabulary to the visual DIY editor."""
+        from . import catalog
+
+        return {
+            robot_type: list(catalog.controller_cfgs_for_robot(robot_type))
+            for robot_type in catalog.ROBOT_KEYS
+        }
+
     def manipulator_physics_summary(self) -> dict[str, dict[str, dict[str, Any]]]:
         from . import catalog
         from tools.scenario_generation.robot_dossier import robot_dossier

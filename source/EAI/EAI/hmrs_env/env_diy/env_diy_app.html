@@ -1435,8 +1435,8 @@
           carter: { label: "Carter", image: "../../../../../usd/picture/processed/robot/carter.png", cfg: "CARTER_DIFF_CFG" },
           simple_car: { label: "SimpleCar", image: "../../../../../usd/picture/processed/robot/simple_car.png", cfg: "SIMPLE_CAR_PLANAR_CFG" },
           pepper: { label: "Pepper", image: "../../../../../usd/picture/processed/robot/pepper.png", cfg: "PEPPER_HOLONOMIC_CFG" },
-          go2: { label: "Go2", image: "../../../../../usd/picture/processed/robot/go2.png", cfg: "GO2_VELOCITY_RSL_CFG", controllerCfgs: ["GO2_VELOCITY_RSL_CFG", "GO2_MIXED_STAIRS_CFG", "GO2_MIXED_STAIRS_CONTINUED_CFG"] },
-          b2: { label: "B2", image: "../../../../../usd/picture/processed/robot/b2.png", cfg: "B2_VELOCITY_RSL_CFG" },
+          go2: { label: "Go2", image: "../../../../../usd/picture/processed/robot/go2.png", cfg: "GO2_VELOCITY_RSL_CFG", controllerCfgs: ["GO2_VELOCITY_RSL_CFG", "GO2_MIXED_STAIRS_CFG"] },
+          b2: { label: "B2", image: "../../../../../usd/picture/processed/robot/b2.png", cfg: "B2_VELOCITY_RSL_CFG", controllerCfgs: ["B2_VELOCITY_RSL_CFG", "B2_MIXED_STAIRS_CFG"] },
           m20: { label: "M20", image: "../../../../../usd/picture/processed/robot/M20.png", cfg: "M20_ROUGH_RSL_CFG" },
           scout: { label: "Scout", image: "../../../../../usd/picture/processed/robot/scout.png", cfg: "SCOUT_DIFF_CFG" },
           g1: { label: "G1", image: "../../../../../usd/picture/processed/robot/g1.png", cfg: "G1_SKRL_CFG" },
@@ -1464,6 +1464,9 @@
           keyboard: { label: "Keyboard", image: "../../../../../usd/picture/processed/tool/keyboard.png", supported: ["carter", "simple_car", "pepper", "go2", "b2", "m20", "scout", "g1", "cf2x", "iris", "pegasus", "lite3", "mushr_v2", "coco"] }
         })
       });
+      let controllerCfgsByRobot = Object.fromEntries(
+        Object.entries(catalog.robots).map(([key, entry]) => [key, entry.controllerCfgs || [entry.cfg]])
+      );
 
       const DRAFT_KEY = "eai-env-diy-draft-v1";
       const categoryLabels = Object.freeze({
@@ -2191,7 +2194,7 @@
             label: catalog.robots[robot.type].label,
             controller: robot.controller,
             defaultCfg: catalog.robots[robot.type].cfg,
-            choices: catalog.robots[robot.type].controllerCfgs || [catalog.robots[robot.type].cfg]
+            choices: controllerCfgsByRobot[robot.type] || [catalog.robots[robot.type].cfg]
           },
           ...robot.payloads.filter(payload => payload.controller).map(payload => ({
             key: "payload:" + payload.type,
@@ -2836,6 +2839,23 @@
           removeStorage(DRAFT_KEY);
         }
       }
+
+      window.addEventListener("pywebviewready", async () => {
+        const bridge = pywebviewBridge();
+        if (!bridge || typeof bridge.controller_catalog !== "function") return;
+        try {
+          const synced = await bridge.controller_catalog();
+          if (!synced || typeof synced !== "object") return;
+          controllerCfgsByRobot = Object.fromEntries(
+            Object.entries(synced)
+              .filter(([key, choices]) => catalog.robots[key] && Array.isArray(choices) && choices.length)
+              .map(([key, choices]) => [key, choices.map(String)])
+          );
+          render();
+        } catch (_error) {
+          // Static catalog entries remain usable when the bridge is unavailable.
+        }
+      });
 
       render();
     })();
