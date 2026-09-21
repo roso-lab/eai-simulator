@@ -200,6 +200,20 @@ class GoalAlgorithmHost:
         return self._session.complete_skill(
             task_id, time_s=time_s, status=status, receipt=receipt)
 
+    def record_business_outcome(
+        self,
+        outcome_id: str,
+        *,
+        status: str,
+        evidence_refs: list[str],
+        evaluator_ref: str,
+    ) -> dict[str, Any]:
+        """Record trusted domain evidence without exposing it to the adapter."""
+        self._require_open()
+        return self._session.record_business_outcome(
+            outcome_id, status=status, evidence_refs=evidence_refs,
+            evaluator_ref=evaluator_ref)
+
     def trusted_report(self) -> dict[str, Any]:
         """Return host-only diagnostics; never pass this value to the adapter."""
         return {

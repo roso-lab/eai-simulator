@@ -17,9 +17,13 @@ from __future__ import annotations
 
 from copy import deepcopy
 from concurrent.futures import ThreadPoolExecutor
+import json
 import math
+import os
 import random
 import re
+import signal
+import subprocess
 from statistics import median
 from typing import Any, Callable, Iterable, Mapping, Protocol, Sequence
 
@@ -450,6 +454,94 @@ def run_algorithm_batch(
         return [future.result() for future in futures]
 
 
+def run_algorithm_subprocess(
+    command: Sequence[str],
+    *,
+    manifest: Mapping[str, Any],
+    context: Mapping[str, Any],
+    timeout_s: float,
+    cwd: str | None = None,
+    env: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    """Run one external decision process with a JSON-only stdin/stdout boundary.
+
+    The process receives ``{"manifest": ..., "context": ...}`` on stdin and
+    must emit exactly one JSON object on stdout.  It never receives a session,
+    evaluator artifact or Isaac object; hidden evaluator keys are rejected
+  before launch.  The child inherits only ``PATH`` unless explicit public
+  environment variables are supplied.  This is an episode-level
+  crash/timeout boundary only.  It
+    deliberately does not schedule batches or remote machines.
+    """
+    if (not isinstance(command, Sequence) or isinstance(command, (str, bytes))
+            or not command or any(not isinstance(item, str) or not item for item in command)):
+        raise ValueError("command must be a nonempty argument list")
+    if isinstance(timeout_s, bool) or not isinstance(timeout_s, (int, float)) \
+            or not math.isfinite(float(timeout_s)) or timeout_s <= 0:
+        raise ValueError("timeout_s must be a finite positive number")
+    if not isinstance(manifest, Mapping):
+        raise ValueError("algorithm manifest must be a public JSON object")
+    if _contains_hidden_key(manifest):
+        raise ValueError("algorithm manifest contains hidden evaluator fields")
+    if not isinstance(context, Mapping):
+        raise ValueError("algorithm context must be a public JSON object")
+    if _contains_hidden_key(context):
+        raise ValueError("algorithm context contains hidden evaluator fields")
+    try:
+        payload = json.dumps({"manifest": deepcopy(dict(manifest)),
+                             "context": deepcopy(dict(context))},
+                            sort_keys=True, ensure_ascii=False)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("manifest/context must be JSON serializable") from exc
+    # Do not inherit the host's full environment: deployments may carry
+    # evaluator paths or credentials there.  Callers must opt in to any
+    # additional public variables explicitly.
+    process_env = {"PATH": os.environ.get("PATH", "")}
+    if env is not None:
+        if not isinstance(env, Mapping) or any(
+                not isinstance(key, str) or not isinstance(value, str)
+                for key, value in env.items()):
+            raise ValueError("env must map strings to strings")
+        process_env.update(env)
+    process = None
+    try:
+        process = subprocess.Popen(
+            list(command), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, text=True, cwd=cwd, env=process_env,
+            shell=False, start_new_session=(os.name == "posix"))
+        try:
+            stdout, stderr = process.communicate(payload + "\n", timeout=float(timeout_s))
+        except subprocess.TimeoutExpired as exc:
+            if os.name == "posix":
+                os.killpg(process.pid, signal.SIGKILL)
+            else:
+                process.kill()
+            stdout, stderr = process.communicate()
+            return {"status": "timeout", "failure_class": "algorithm_timeout",
+                    "returncode": process.returncode, "output": None,
+                    "stdout": stdout, "stderr": stderr or str(exc)}
+    except OSError as exc:
+        return {"status": "failed", "failure_class": "algorithm_exception",
+                "returncode": None, "output": None, "stdout": "", "stderr": str(exc)}
+    if process.returncode != 0:
+        return {"status": "failed", "failure_class": "algorithm_exception",
+                "returncode": process.returncode, "output": None,
+                "stdout": stdout, "stderr": stderr}
+    try:
+        output = json.loads(stdout)
+    except (TypeError, ValueError) as exc:
+        return {"status": "invalid", "failure_class": "algorithm_protocol_invalid",
+                "returncode": process.returncode, "output": None,
+                "stdout": stdout, "stderr": f"invalid JSON stdout: {exc}; {stderr}"}
+    if not isinstance(output, Mapping) or _contains_hidden_key(output):
+        return {"status": "invalid", "failure_class": "algorithm_protocol_invalid",
+                "returncode": process.returncode, "output": None,
+                "stdout": stdout, "stderr": "stdout must be one public JSON object"}
+    return {"status": "completed", "failure_class": None,
+            "returncode": process.returncode, "output": deepcopy(dict(output)),
+            "stdout": stdout, "stderr": stderr}
+
+
 def _percentile(values: Sequence[float], fraction: float) -> float:
     ordered = sorted(values)
     if not ordered:
@@ -623,6 +715,7 @@ __all__ = [
     "DEFAULT_CONTROL_STACK",
     "build_algorithm_result", "build_algorithm_run_manifest", "compare_paired_metric",
     "expand_algorithm_cases", "holm_bonferroni", "make_algorithm_adapter",
-    "run_algorithm_batch", "summarize_algorithm_metric", "validate_algorithm_result",
+    "run_algorithm_batch", "run_algorithm_subprocess", "summarize_algorithm_metric",
+    "validate_algorithm_result",
     "validate_algorithm_run_manifest",
 ]

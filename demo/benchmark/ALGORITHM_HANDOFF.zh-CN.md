@@ -48,10 +48,57 @@ def close(self): ...
 初始化收到公开题面/API 的副本；每次 `act` 只收到新投递的公开事件。
 算法不得读取作者见证、未来事件、隐藏评价器或宿主报告。
 
+接入启动时应显式检查 `participant_api` 中声明的 action/plan schema、版本和
+`interface_version`，遇到不支持的版本立即返回 `invalid` 并记录原因；不要把题包的 `version=2`
+传播到 `goal_action` envelope，也不要静默降级到旧字段。固定 DAG 诊断沿用其自己的
+`ParticipantSession` action schema，不能与 goal 主轨的 envelope 混用。
+
 可信 episode 宿主负责 `emit`、`update_runtime_state` 和 `complete_skill`，并以固定后端
 执行已准入技能。请求接受不等于技能成功；只有合法终态 receipt 才能完成账本记录。
 回调或动作格式异常会关闭桥接，保留已接受动作，不自动重放半批动作。宿主按当前时间
-投递事件并串行调用；该 Python 接口是信任边界约定，非不可信代码的进程沙箱。
+投递事件并串行调用。`GoalSession` 是 episode 的唯一权威账本：动作准入、运行时快照、
+技能终态和证据引用必须回写同一个 session；外部后端不得维护第二份可独立宣布完成的账本。
+该 Python 接口是信任边界约定，非不可信代码的进程沙箱。接手者必须把不可信 adapter
+放在独立子进程/调度作业中，不能把它直接加载进持有 `GoalSession` 信任方法的 benchmark
+进程。
+
+### 运行边界与业务结果口径
+
+benchmark 提供题包、公开 participant API、事件/动作 schema、证据引用规则和固定的低层
+导航、移动、抓取技能；被测系统只负责高层选择团队、分解、分配、通信响应和重规划。
+`benchmark_default_ideal` 是固定控制变量，不是物理或业务成功证明，也不是允许 adapter
+替换低层控制器的入口。
+
+每次运行都必须把以下链路绑定到同一个 `episode_id`：
+
+1. participant 提交并被 `GoalSession` 接受的动作；
+2. 固定技能后端的开始/结束、取消和失败 receipt；
+3. 机器人/对象的可信 runtime snapshot；
+4. detector、dock、服务等领域业务证据及其 provenance。
+
+`algorithm_result.status=completed` 只表示 adapter 进程结束并返回了合法结果。运动学或
+符号 transport 完成只能记为 execution evidence；`business_success` 必须由可信领域评价器
+依据独立业务证据产生。缺少后端回执、对象身份/位姿、服务回执或证据 provenance 时，结果
+保持 `external_pending`/`scoreable=false`，不能把 `completed`、`transported` 或机器人自报
+成功提升为业务成功。
+
+### 外部算法进程隔离契约（下游平台必须实现）
+
+该契约属于运行平台，不改变任务生成与审核的输入。每个 episode/attempt 应遵守：
+
+- 调度器以只读 `release/`（`public_task.json`、`participant_api.json` 及已投递事件）启动
+  一个独立子进程或远程作业；不把 `authoring/`、hidden evaluator、宿主报告或未来事件挂载
+  给被测算法。
+- 通过版本化 IPC/文件边界传递公开事件和高层动作；子进程不能调用 `GoalSession` 的可信
+  方法、写入 benchmark 账本或覆盖输入。输出必须经过 `validate_algorithm_result`，并核对
+  `manifest_sha256`、`episode_id` 和独立 `run_root`。
+- 每回合设置 wall-clock timeout，超时先终止整个进程组，再按平台策略强制回收；记录
+  `timeout` 与 `failure_class=algorithm_timeout`，不要把超时伪装成任务失败或 `completed`。
+  非零退出、崩溃、协议非法输出和宿主故障分别记录为 `failed`/`invalid` 的细分原因。
+- stdout/stderr、退出码、超时、信号、输入/输出摘要和调度器版本写入该 attempt 的运行
+  目录。benchmark 只接收结构化结果和证据引用，不信任进程退出码单独证明业务完成。
+- 一个 adapter 进程只服务一个隔离 attempt；并行度、GPU/机器分配和资源清理由调度器拥有，
+  不得在 `run_algorithm_batch` 的线程里创建多个 Isaac application。
 
 以下例子在仓库根目录用 `env_isaaclab` 运行，只验证公开接入和团队选择，不执行业务技能：
 
@@ -156,16 +203,34 @@ factor 和 runtime 配置。固定后端的实现版本、参数和 execution co
 
 ## 交接后必须补齐的工程门禁
 
-这些项目属于接手的运行/实验平台，不应伪装成任务生成已完成：
+这些项目属于接手的运行/实验平台，不应伪装成任务生成已完成。benchmark 负责题包、API、
+证据语义和固定低层技能；以下项目由下游运行/实验工程师实现并在独立分支验证：
+
+- **外部进程隔离与超时**：按上面的进程契约实现子进程/远程作业、进程组回收、日志捕获和
+  `timeout`/`failed`/`invalid` 分类；这不是 `GoalAlgorithmHost` 的 Python 回调可以替代的。
 
 - **运行幂等**：为每个 `episode_id` 建立持久 claim/lock、`attempt_id`、checkpoint 和
   结果唯一约束。`run_algorithm_batch` 只做离线回调 fan-out，不防止跨进程重复运行；重试
   必须生成新 attempt 并绑定原 episode，禁止覆盖旧结果。
+
+- **通信与生命周期真实执行**：把 `communication_quality`、`member_join`、`member_exit`、
+  `capability_change` 的协议 treatment 接入真实 episode 事件源，验证投递/消费/过期、替补
+  成员和所有权迁移；仅有离线 factor matrix 或作者声明不算执行证据。
+
+- **统计注册与泛化分析**：冻结任务/布局 split、任务聚类键、成对 seed、失败处理、指标
+  方向和比较族；当前 bootstrap 只做描述统计。跨任务泛化和多分支并行实验由下游统计工程
+  师负责，不属于任务生成与作者审核的发布结论。
 - **执行证明**：`benchmark_default_ideal` 只是比较策略。完成结果应额外绑定实际控制器、
   技能后端、execution contract、资产/provider revision 和 runtime provenance；没有证明的
   结果只能标为协议/模拟通过，不能写成物理业务成功。
-- **实验注册**：正式统计前冻结 task/layout split、任务聚类键、成对 seed、失败处理、
-  指标方向和比较族。当前 bootstrap 是描述性工具，不能把同一布局的多分支当成独立任务，
-  也不能代替按任务聚类的泛化分析。
 - **环境封装**：接手者应锁定 `env_isaaclab`、Python 依赖、benchmark revision、资产
   revision 和外部调度器版本；预检只验证纯 Python 边界，不能替代 GPU/Isaac/ROS 运行矩阵。
+
+## 运动模型发布状态（2026-09-21）
+
+用户已确认 Go2、B2 的替换运动模型具备上下楼梯能力，目前仍在部署和独立验证阶段。M20
+继续作为已有楼梯能力基线。Go2/B2 的模型或 checkpoint、机器人配置和运行参数必须写入
+`runtime_config` 并绑定 provider/model hash；部署完成前不得把楼梯探针或相关 goal episode
+标为 `execution_validated=true` 或 `scoreable=true`。发布前至少需要每个模型的连续上行、
+平台停留、下行和失败/超时读回，以及与 `F-VERT-01` 题包的场景绑定证据。该状态只影响
+运动执行与发布门禁，不改变任务生成、审核和高层算法接口。

@@ -40,6 +40,10 @@ import math
 from typing import Any, Mapping
 
 from .goal_driven_contract import (
+    GOAL_EVENT_SCHEMA,
+    GOAL_EVENT_VERSION,
+    GOAL_PLAN_SCHEMA,
+    GOAL_PLAN_VERSION,
     build_goal_participant_api,
     validate_goal_action,
     validate_goal_event,
@@ -101,6 +105,11 @@ class GoalSession:
         self._receipt_ids: set[tuple[str, str]] = set()
         self._snapshot: dict[str, Any] | None = None
         self._snapshot_required = False
+        self._business_outcomes = {
+            row["id"]: {"id": row["id"], "status": "unassessed",
+                        "evidence_refs": [], "evaluator_ref": None}
+            for row in self._spec["required_outcomes"]
+        }
         self._append_event("episode_started", {"public_task_digest": canonical_sha256(self._spec)})
 
     def _clock(self, time_s: Any) -> float:
@@ -111,7 +120,7 @@ class GoalSession:
 
     def _event(self, type: str, now: float, payload: Mapping[str, Any]) -> dict[str, Any]:
         return validate_goal_event({
-            "schema": "eai.benchmark.goal_event", "version": 1,
+            "schema": GOAL_EVENT_SCHEMA, "version": GOAL_EVENT_VERSION,
             "sequence": len(self._events), "time_s": now, "type": type,
             "payload": deepcopy(payload),
         }, api=self._api, task_spec=self._spec, current_time_s=now)
@@ -322,7 +331,7 @@ class GoalSession:
         projected["evidence_refs"] = sorted(refs)
         projected["execution"] = {"start_s": self._time, "duration_s": end - self._time}
         validate_goal_plan({
-            "schema": "eai.benchmark.goal_plan", "version": 2,
+            "schema": GOAL_PLAN_SCHEMA, "version": GOAL_PLAN_VERSION,
             "plan_id": self._plan_id, "assigned_team": task["assigned_agents"], "tasks": [projected],
         }, task_spec=self._spec, context=self._context())
         resources = self._resources(task)
@@ -457,10 +466,68 @@ class GoalSession:
             "reason": "trusted backend terminal receipt recorded; business outcomes unassessed",
         })
         return {"accepted": True, "task_id": task_id, "status": status,
-                "state_version": self._version, "event": deepcopy(event), "business_outcomes_validated": False}
+                "state_version": self._version, "event": deepcopy(event),
+                "business_outcomes_validated": self._business_outcomes_validated(),
+                "business_task_success": self._business_task_success()}
+
+    def record_business_outcome(
+        self,
+        outcome_id: str,
+        *,
+        status: str,
+        evidence_refs: list[str],
+        evaluator_ref: str,
+    ) -> dict[str, Any]:
+        """Record an explicit domain-evaluator result in the same episode ledger.
+
+        Skill receipts only describe the trusted skill backend.  They never
+        mutate this business layer.  A domain evaluator must therefore submit
+        an outcome id, its own evidence references and an evaluator reference
+        before the business result can change from ``unassessed``.  This
+        method is trusted-host only and intentionally emits no participant
+        event, so private business evidence cannot leak to the algorithm.
+        """
+        outcome_id = _text(outcome_id, "outcome_id")
+        if outcome_id not in self._business_outcomes:
+            raise ValueError("unknown business outcome id")
+        if status not in {"pending", "validated", "failed"}:
+            raise ValueError("business outcome status must be pending, validated or failed")
+        if (not isinstance(evidence_refs, list) or not evidence_refs
+                or any(not isinstance(ref, str) or not ref.strip() for ref in evidence_refs)):
+            raise ValueError("business outcome evidence_refs must be a nonempty string list")
+        if len(evidence_refs) != len(set(evidence_refs)):
+            raise ValueError("business outcome evidence_refs must be distinct")
+        evaluator_ref = _text(evaluator_ref, "evaluator_ref")
+        row = self._business_outcomes[outcome_id]
+        row.update({"status": status, "evidence_refs": list(evidence_refs),
+                    "evaluator_ref": evaluator_ref})
+        self._version += 1
+        return {"accepted": True, "outcome_id": outcome_id, "status": status,
+                "state_version": self._version,
+                "business_outcomes_validated": self._business_outcomes_validated(),
+                "business_task_success": self._business_task_success()}
+
+    def _business_outcomes_validated(self) -> bool:
+        return bool(self._business_outcomes) and all(
+            row["status"] == "validated" for row in self._business_outcomes.values())
+
+    def _business_task_success(self) -> bool | None:
+        statuses = {row["status"] for row in self._business_outcomes.values()}
+        if "failed" in statuses:
+            return False
+        if statuses and statuses == {"validated"}:
+            return True
+        return None
 
     def report(self) -> dict[str, Any]:
         """Return a host diagnostic copy, not a public release or evaluator result."""
+        skill_statuses = {task_id: row["status"] for task_id, row in self._tasks.items()}
+        skill_succeeded = sorted(task_id for task_id, status in skill_statuses.items()
+                                 if status == "succeeded")
+        skill_terminal = sorted(task_id for task_id, status in skill_statuses.items()
+                                if status in _TERMINAL)
+        business_outcomes_validated = self._business_outcomes_validated()
+        business_task_success = self._business_task_success()
         return deepcopy({
             "task_id": self._spec["task_id"], "current_time_s": self._time,
             "state_version": self._version, "roster_version": self._roster_version,
@@ -471,9 +538,19 @@ class GoalSession:
             "consumed_message_ids": sorted(self._consumed), "actions": list(self._actions.values()),
             "plans": list(self._plans.values()), "tasks": self._tasks,
             "runtime_state": self._snapshot, "runtime_snapshot_refresh_required": self._snapshot_required,
-            "business_outcomes": [{"id": r["id"], "status": "unassessed"}
-                                  for r in self._spec["required_outcomes"]],
-            "execution_validated": False, "business_outcomes_validated": False, "scoreable": False,
+            # Explicitly separate trusted backend completion from domain
+            # evaluation.  A succeeded skill is not a successful business
+            # outcome, and a business evaluator never rewrites skill status.
+            "skill_execution": {
+                "task_statuses": skill_statuses,
+                "terminal_task_ids": skill_terminal,
+                "succeeded_task_ids": skill_succeeded,
+                "validated": False,
+            },
+            "business_outcomes": list(self._business_outcomes.values()),
+            "business_task_success": business_task_success,
+            "execution_validated": False, "business_outcomes_validated": business_outcomes_validated,
+            "scoreable": False,
             "limitations": ["trusted_host_must_authenticate_backend_and_resolve_evidence",
                             "symbolic_resources_only_no_contact_or_idle_occupancy_model",
                             "no_executor_no_business_evaluator", "remaining_work_revisions_only"],

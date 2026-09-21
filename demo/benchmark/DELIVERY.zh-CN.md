@@ -223,6 +223,12 @@ runtime_config。`run_algorithm_batch()` 只是离线回调线程池，不在其
 不会被误写成“物理执行已经完成”。四场景 runtime_boundary 均为 GoalSession，
 另列各自 diagnostic_boundary，不混淆主轨与诊断。
 
+GoalSession 是每个 episode 的唯一权威账本：动作准入、runtime snapshot、技能 receipt 和
+领域业务证据必须绑定同一 `episode_id`。benchmark 提供题包、公开 API、证据语义和固定的
+理想低层技能；外部算法进程隔离、超时/进程组回收、批量幂等与重试、通信/生命周期真实
+事件源以及统计泛化分析由下游运行平台工程师实现，具体契约见
+[ALGORITHM_HANDOFF.zh-CN.md](ALGORITHM_HANDOFF.zh-CN.md)。
+
 ## 4. 现在可用的入口与命令
 
 统一生成与读回（作者侧核心闭环，纯 Python，不启动 Isaac）：
@@ -294,11 +300,12 @@ conda run -n env_isaaclab env PYTHONPATH=. PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
 
 ### 5.3 运动模型（用户已决策）
 
-- **楼梯 RL**：F-VERT-01 默认 Go2 已切换为继续训练的 `GO2_MIXED_STAIRS_CONTINUED_CFG`
-  （checkpoint 3999）；Stage-A `GO2_MIXED_STAIRS_CFG` 仍可显式回退。M20 保留为已有楼梯
-  能力基线。Go2 新模型的连续上行、平台停留和下行仍需独立 PhysX 证据，故题包保持
-  `execution_validated=false`、`scoreable=false`。B2 运动模型仍在修复，接触采样/校准记录
-  不等同于楼梯通过；背景车辆碰撞不属于本轮任务流程门禁。
+- **楼梯运动模型**：用户已确认 Go2、B2 的替换模型具备上下楼梯能力，目前仍在部署和独立
+  验证；M20 保留为已有楼梯能力基线。Go2/B2 的模型或 checkpoint、机器人配置和运行参数
+  必须绑定到 `runtime_config` 及 provider/model hash。每个模型完成连续上行、平台停留、
+  下行和失败/超时读回，并与 `F-VERT-01` 题包完成场景绑定后，才可解除该运动证据门禁。
+  在此之前题包保持 `execution_validated=false`、`scoreable=false`；背景车辆碰撞不属于本轮
+  任务流程门禁。
 
 ### 5.4 跨团队交接门禁（不阻塞任务生成本体）
 

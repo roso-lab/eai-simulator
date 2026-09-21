@@ -26,7 +26,17 @@ GOAL_API_SCHEMA = "eai.benchmark.goal_participant_api"
 GOAL_HIDDEN_EVALUATOR_SCHEMA = "eai.benchmark.goal_hidden_evaluator"
 GOAL_BASELINE_SCHEMA = "eai.benchmark.goal_baseline_manifest"
 GOAL_HETEROGENEITY_SCHEMA = "eai.benchmark.goal_heterogeneity_certificate"
+# The public task/API package is v2, while the two nested participant
+# envelopes intentionally have their own independently frozen versions.  Keep
+# these constants together so adapters cannot infer an envelope version from
+# the package version (a common integration mistake).
 GOAL_CONTRACT_VERSION = 2
+GOAL_ACTION_SCHEMA = "eai.benchmark.goal_action"
+GOAL_ACTION_VERSION = 1
+GOAL_PLAN_SCHEMA = "eai.benchmark.goal_plan"
+GOAL_PLAN_VERSION = 2
+GOAL_EVENT_SCHEMA = "eai.benchmark.goal_event"
+GOAL_EVENT_VERSION = 1
 
 
 _PUBLIC_TASK_FIELDS = {
@@ -297,7 +307,7 @@ def build_goal_participant_api(task_spec: Mapping[str, Any]) -> dict[str, Any]:
         "skill_catalog_version": task_spec["skill_catalog_version"],
         "skill_catalog": public_skill_catalog(),
         "plan_contract": {
-            "schema": "eai.benchmark.goal_plan", "version": GOAL_CONTRACT_VERSION,
+            "schema": GOAL_PLAN_SCHEMA, "version": GOAL_PLAN_VERSION,
             "fields": ["plan_id", "assigned_team", "tasks"],
             "task_fields": ["task_id", "skill", "arguments", "prerequisites",
                             "required_capabilities", "assigned_agents", "evidence_refs", "execution"],
@@ -310,9 +320,9 @@ def build_goal_participant_api(task_spec: Mapping[str, Any]) -> dict[str, Any]:
                 "Participants cannot override these through a plan or action."
             ),
         },
-        "event_envelope": {"schema": "eai.benchmark.goal_event", "version": 1,
+        "event_envelope": {"schema": GOAL_EVENT_SCHEMA, "version": GOAL_EVENT_VERSION,
                            "fields": ["sequence", "time_s", "type", "payload"]},
-        "action_envelope": {"schema": "eai.benchmark.goal_action", "version": 1,
+        "action_envelope": {"schema": GOAL_ACTION_SCHEMA, "version": GOAL_ACTION_VERSION,
                             "fields": ["action_id", "submitted_at_s", "type", "payload"]},
         "event_types": {
             "episode_started": {"payload_fields": sorted(_EVENT_FIELDS["episode_started"])},
@@ -361,8 +371,8 @@ def validate_goal_participant_api(api: Mapping[str, Any], *, task_spec: Mapping[
     plan_contract = _mapping(api["plan_contract"], "plan contract")
     _check_exact(plan_contract, {"schema", "version", "fields", "task_fields", "execution_fields",
                                  "timing", "runtime_state"}, "plan contract")
-    if (plan_contract.get("schema") != "eai.benchmark.goal_plan"
-            or plan_contract.get("version") != GOAL_CONTRACT_VERSION
+    if (plan_contract.get("schema") != GOAL_PLAN_SCHEMA
+            or plan_contract.get("version") != GOAL_PLAN_VERSION
             or set(plan_contract.get("fields", ())) != {"plan_id", "assigned_team", "tasks"}
             or set(plan_contract.get("execution_fields", ())) != {"start_s", "duration_s"}
             or set(plan_contract.get("task_fields", ())) != {
@@ -372,9 +382,9 @@ def validate_goal_participant_api(api: Mapping[str, Any], *, task_spec: Mapping[
     _string(plan_contract["timing"], "plan timing")
     _string(plan_contract["runtime_state"], "plan runtime_state")
     envelopes = {
-        "event_envelope": {"schema": "eai.benchmark.goal_event", "version": 1,
+        "event_envelope": {"schema": GOAL_EVENT_SCHEMA, "version": GOAL_EVENT_VERSION,
                            "fields": ["sequence", "time_s", "type", "payload"]},
-        "action_envelope": {"schema": "eai.benchmark.goal_action", "version": 1,
+        "action_envelope": {"schema": GOAL_ACTION_SCHEMA, "version": GOAL_ACTION_VERSION,
                             "fields": ["action_id", "submitted_at_s", "type", "payload"]},
     }
     for name, expected_envelope in envelopes.items():
@@ -571,7 +581,7 @@ def validate_goal_plan(plan: Mapping[str, Any], *, task_spec: Mapping[str, Any],
     plan = _mapping(plan, "goal plan")
     expected = {"schema", "version", "plan_id", "assigned_team", "tasks"}
     _check_exact(plan, expected, "goal plan")
-    if plan["schema"] != "eai.benchmark.goal_plan" or plan["version"] != GOAL_CONTRACT_VERSION:
+    if plan["schema"] != GOAL_PLAN_SCHEMA or plan["version"] != GOAL_PLAN_VERSION:
         raise ValueError("unsupported goal plan schema")
     _string(plan["plan_id"], "plan id")
     agents = _current_agents(task_spec, context)
@@ -838,7 +848,7 @@ def validate_goal_action(action: Mapping[str, Any], *, api: Mapping[str, Any],
     action = _mapping(action, "goal participant action")
     expected = {"schema", "version", "action_id", "submitted_at_s", "type", "payload"}
     _check_exact(action, expected, "goal participant action")
-    if action["schema"] != "eai.benchmark.goal_action" or action["version"] != 1:
+    if action["schema"] != GOAL_ACTION_SCHEMA or action["version"] != GOAL_ACTION_VERSION:
         raise ValueError("unsupported goal action schema")
     _string(action["action_id"], "goal action id")
     submitted_at = _nonnegative(action["submitted_at_s"], "goal action submission time")
@@ -1191,7 +1201,9 @@ def write_goal_task_bundle(bundle: Mapping[str, Mapping[str, Any]], output_dir: 
 
 
 __all__ = [
-    "GOAL_API_SCHEMA", "GOAL_BASELINE_SCHEMA", "GOAL_CONTRACT_VERSION",
+    "GOAL_ACTION_SCHEMA", "GOAL_ACTION_VERSION", "GOAL_API_SCHEMA",
+    "GOAL_BASELINE_SCHEMA", "GOAL_CONTRACT_VERSION", "GOAL_EVENT_SCHEMA",
+    "GOAL_EVENT_VERSION", "GOAL_PLAN_SCHEMA", "GOAL_PLAN_VERSION",
     "GOAL_HETEROGENEITY_SCHEMA", "GOAL_HIDDEN_EVALUATOR_SCHEMA", "GOAL_TASK_SCHEMA",
     "build_goal_heterogeneity_certificate", "build_goal_participant_api",
     "semantic_goal_plan_signature",
