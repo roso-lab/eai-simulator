@@ -490,15 +490,15 @@ def city_suite(tmp_path_factory):
     package = _city_package(base)
     root = base / "suite"
     summary = write_goal_suite(root, scene_keys=["city"], city_package_dir=package)
-    assert summary["package_count"] == 0 and summary["candidate_count"] == 1
+    assert summary["package_count"] == 9 and summary["candidate_count"] == 1
     return root, package
 
 
 def test_city_suite_audits_the_full_bundle_and_keeps_the_draft_blocked(city_suite):
     root, package = city_suite
     assert verify_goal_suite(root) == {
-        "validated": True, "package_count": 0, "candidate_count": 1,
-        "factor_pair_count": 0, "scoreable": False, "held_out_validated": False}
+        "validated": True, "package_count": 9, "candidate_count": 1,
+        "factor_pair_count": 7, "scoreable": False, "held_out_validated": False}
     report = json.loads((root / "audit_report.json").read_text(encoding="utf-8"))
     candidate = report["candidates"][0]
     assert candidate["package_kind"] == "preparation_draft_not_goal_bundle"
@@ -544,14 +544,14 @@ def test_city_suite_rejects_a_promoted_draft_record(city_suite):
         verify_goal_suite(root)
 
 
-def test_city_registry_still_compiles_only_the_draft_candidate(city_suite):
+def test_city_registry_compiles_bundle_with_optional_separate_draft_candidate(city_suite):
     from demo.benchmark.goal_scene_registry import compile_registered_goal_scene, goal_scene_registration
     _, package = city_suite
-    assert goal_scene_registration("city")["package_kind"] == "preparation_draft_not_goal_bundle"
+    assert goal_scene_registration("city")["package_kind"] == "goal_bundle"
     compiled = compile_registered_goal_scene("city", city_package_dir=package)
-    assert "candidate" in compiled and "bundle" not in compiled
+    assert "candidate" in compiled and "bundle" in compiled
     assert compiled["candidate"]["intake_review"]["episode_parameters_bound"] is True
-    with pytest.raises(ValueError, match="prepared package"):
-        compile_registered_goal_scene("city")
-    with pytest.raises(ValueError, match="hidden treatments"):
-        compile_registered_goal_scene("city", city_package_dir=package, factor_level="delayed")
+    assert "candidate" not in compile_registered_goal_scene("city")
+    variant = compile_registered_goal_scene("city", city_package_dir=package, factor_level="delayed")
+    assert variant["bundle"]["public_task"]["experiment_factor"]["level"] == "delayed"
+    assert variant["candidate"]["kind"] == "preparation_draft_not_goal_bundle"

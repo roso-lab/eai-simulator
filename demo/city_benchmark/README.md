@@ -1,5 +1,10 @@
 # City benchmark preparation
 
+**主轨交接更新（2026-09-20）**：`CITY-GOAL-01` 与其他三场景使用同一生成、作者审核和
+`GoalAlgorithmHost` / `GoalSession` 接口；默认 suite 中包含九条件题包、七对因子对照。
+`prepare` 地图草稿是可选的独立材料，保留自身准入门禁。固定默认技能策略、算法接入及
+完整矩阵复跑步骤见 [交接指南](../benchmark/ALGORITHM_HANDOFF.zh-CN.md)。
+
 城市第四场景的**任务生成与审核基础接入层**。场景运行时（事故、车辆、路人、Flow 和单一
 `open_simulator_session` 生命周期）位于本包 [`scene/`](scene/README.md) 子包——原独立目录
 `demo/city/`，2026-09-19 合并至此；不重命名原演示语义，不更改三个已有场景
@@ -11,13 +16,21 @@
 > - **可跑**：prepare 产物（地图/语义区域/题面草稿 + 源 hash 绑定）；`goal_city_intake` 接入审核（10 产物 + manifest 校验）；`guide_people`/`control_following_traffic`/`report_incident` 已登记为 participant-facing 公共技能（`registered_runtime_pending`）；v8 候选服务诊断——五项服务真实人员轨迹（~301 样本）、交通控制（~256 样本/类）、事故回执与连续通路读回（`tmp/city_benchmark/service_probe_stage18_20260919_v8/`）；服务探针 `--episode-binding` 正式绑定模式——prepare 接受绑定文档或 prepare 包 `authoring/private.json`（存在打包语义图时按图机检），execute 用作者固定 roster（`spawn_response_people` 出生/路径）、全体后续车辆、绑定危险区模板/控制点/窗口/回执端点驱动服务，`formal_episode_binding` 仅在「绑定声明 vs 运行时读回逐项一致」（roster、容量、危险区几何、控制点、窗口、端点）时置 true，任何不一致 fail-closed 置 false 并列差异（离线单测覆盖；Isaac 实跑待主会话串行执行）。
 > - **作者侧已完成**：正式 episode 声明绑定——prepare 私有记录携带 `episode_binding`（4 人 roster 逐人绑定集合候选、集合容量、危险区模板、安全进入控制点、交通反应窗口、回执端点），`goal_city_intake` 按打包语义图机检；任务生成侧 `build_goal_task_package("city")` 提供两份声明级业务见证与 communication_quality 具体因子 treatment，goal_suite 城市审计补齐设计复核与单因子对（draft 仍禁止晋升，计分仍受 release gate 限制）。
 > - **被阻断**：正式绑定的 Isaac 实测执行——服务探针正式模式已实现并通过离线契约/置位逻辑测试，但 roster 生成、逐人到达、容量/危险区/控制点实测准入与回执端点仍需城市 Isaac 阶段串行验证后才能把 `full_city_service` 从 pending 提升为 `formal_episode_binding_measured`；见证执行证据与因子效果验证均为 external_pending。
-> - **发布口径**：preparation draft，`scoreable=false`，不纳入三个已审完整业务族或正式计分集。
+> - **发布口径**：prepare 输出保持 preparation draft；完整 goal 题包现已纳入四场景作者审核矩阵，两者均不自动成为正式计分集。
 
 当前交付：真实 USD 静态地图、语义区域、候选集合点、三机器人可选池和选队配置适配、
-目标驱动公开题面、共享 participant API、人员响应/跑步动作适配、后续交通控制边界和作者私有接入审核。**这是 preparation draft，
-不能计分，也不是已有 `validate_goal_bundle` 接受的完整正式题包。**
+目标驱动公开题面、共享 participant API、人员响应/跑步动作适配、后续交通控制边界和作者私有接入审核。
+**prepare 输出仍是 preparation draft，不能计分；共享生成器另外输出通过 `validate_goal_bundle`
+的完整 goal 题包，执行证据仍为 `external_pending`。**
 
 ## 任务设计
+
+诊断轨道为 `C-SERVICE-01`：**服务诊断即分项测量，不新增固定 DAG 层**。
+规范入口为 `python -m demo.city_benchmark.native_probe_services`，原 `service_probe`
+命令继续兼容。固定测试调用顺序不构成参与者的业务 DAG；与 Factory F-INS 受限控制、
+Warehouse/House DAG 节点内分配的区别见 [交付规范](../benchmark/DELIVERY.zh-CN.md#11-诊断粒度与轨道-id维护规范)。
+背景车辆碰撞按用户本轮要求作为场景诊断记录，不阻断任务流程整改，也不改写历史探针的
+失败结果；业务服务是否完成仍以实际读回为准。
 
 业务目标是“应对道路突发事故，保护受影响人员和后续交通，保持救援通路”。
 公开题面只有四个结果：事故态势被确认、受影响人员去向可核对、后续交通得到保护、
@@ -243,6 +256,22 @@ execute 改为作者固定参数：背景行人替换为绑定 roster（`spawn_r
 置 false 并在 `formal_binding_review.mismatches` 列出差异；全部一致且服务证据完整时
 `full_city_service=formal_episode_binding_measured` 并列出剩余缺口。诊断路径
 （无绑定的默认 prepare/execute）保持 v8 行为不变。
+
+正式探针的人员到达等待使用公共策略的 120 秒窗口，总运行上限为 180 秒；
+不再把诊断模式的 800 步（默认步长下为16秒）用于正式长路线。
+人员在请求获准前保持原位，等待状态切换到引导时使用声明的 walk/jog 动作。
+实例化出生点的连通搜索遵守距离上限；后续重规划只更新执行路线及其起点记录，
+不改写出生时的正式 roster。报告的 `trace.guidance_progress` 每仿真秒保存
+轻量位置/到达状态；完整逐步轨迹仍在最终服务读回中验收。
+
+路线栅格使用 floor 定义半米格，负坐标与正坐标一致。动态净空沿折线逐段连续
+检查人物/车辆包络，路径总包围盒不作为碰撞判据。当前动态包络可用于重规划，
+但不能替代未来逐步碰撞与业务证据。静态命中也不能直接证明语义地图缺录。
+原先归因于缺录的 `Lamp_0211` 中心实际上已落在旧包 `roadside_177` 的边界内。
+
+CPU 原生查询验证可用 `OMP_NUM_THREADS=4` 限制小批量控制计算的线程开销。
+这里选择 CPU 是因为该探针尚未证明 CUDA 下动态 PhysX 查询的同步性，
+与场景是否包含动画人物无关。
 
 这些是规范建议，不在本阶段偷偷注册为新的城市专用技能；当前题面读取共享技能本体的版本，不能把 relay 等价为
 行人听从指令。公共动态对象引用也要扩展：现有主轨验证只认识初始 public_world 的对象，

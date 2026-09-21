@@ -461,5 +461,6 @@
       ],
       "future_delivery_schedule_visibility": "hidden"
     }
-  }
+  },
+  "benchmark_task_id": "W-DAG-01"
 }

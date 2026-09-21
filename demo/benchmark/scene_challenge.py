@@ -210,6 +210,7 @@ def generate_scene_scenario(*, scene_key: str, task_name: str, seed: int,
     semantic_task = semantic_for_scene(scene_key)
     return {
         "version": 2, "task_name": task_name, "scene_key": scene_key, "seed": seed,
+        "benchmark_task_id": {"warehouse_nvd": "W-DAG-01", "modern_house_nvd": "MH-DAG-01"}[scene_key],
         "robots": robots,
         "composition": {"entities": entities, "targets": targets},
         "phase_graph": {"nodes": nodes},

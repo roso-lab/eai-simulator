@@ -18,8 +18,9 @@ _SCENES = {
     },
     "city": {
         "business_family": "urban_incident_response",
-        "package_kind": "preparation_draft_not_goal_bundle",
-        "authoring_entrypoint": "demo.city_benchmark.prepare",
+        "package_kind": "goal_bundle",
+        "authoring_entrypoint": "demo.benchmark.goal_driven_tasks",
+        "scene_preparation_entrypoint": "demo.city_benchmark.prepare",
     },
 }
 
@@ -37,20 +38,18 @@ def goal_scene_registration(scene_key):
 def compile_registered_goal_scene(scene_key, *, city_package_dir=None,
                                   factor_id="communication_quality", factor_level=None,
                                   verify_sources=False):
-    """Compile a reviewed bundle or load a separately labelled blocked draft.
+    """Compile the same reviewed goal contract for every registered scene.
 
     Registration never activates simulator skills, changes a scene selection,
     or makes a city preparation draft into a four-layer goal bundle.
     """
     registration = goal_scene_registration(scene_key)
-    if registration["package_kind"] == "goal_bundle":
-        from .goal_driven_tasks import build_goal_task_package
-        return {"registration": registration, "bundle": build_goal_task_package(
-            scene_key, factor_id=factor_id, factor_level=factor_level)}
-    if city_package_dir is None:
-        raise ValueError("city requires a prepared package directory from demo.city_benchmark.prepare")
-    if factor_id != "communication_quality" or factor_level not in (None, "immediate"):
-        raise ValueError("city factor variants require concrete reviewed hidden treatments before admission")
-    from .goal_city_intake import load_city_goal_candidate
-    return {"registration": registration, "candidate": load_city_goal_candidate(
-        city_package_dir, verify_sources=verify_sources)}
+    from .goal_driven_tasks import build_goal_task_package
+    result = {"registration": registration, "bundle": build_goal_task_package(
+        scene_key, factor_id=factor_id, factor_level=factor_level)}
+    if city_package_dir is not None:
+        if scene_key != "city":
+            raise ValueError("city preparation is only applicable to the city scene")
+        from .goal_city_intake import load_city_goal_candidate
+        result["candidate"] = load_city_goal_candidate(city_package_dir, verify_sources=verify_sources)
+    return result

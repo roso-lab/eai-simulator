@@ -1,10 +1,10 @@
 # Benchmark 任务生成与审核 · 交付状态总览
 
-整理日期：2026-09-19
+整理日期：2026-09-20（诊断粒度、命名与维护审计规范更新）
 工作来源：codex 会话 01a0aa7a（阶段 1–18）及其前置/并行会话，分支 `codex/factory-vertical-challenge`。
 本文是整个 benchmark 工程的交付入口：先讲清工程结构和文档地图，再按「已完成 / 现在可用 / 待开发被阻断」三档给出交付状态。阶段级历史证据见 [TODO.zh-CN.md](TODO.zh-CN.md) 与各 `STAGE*_REVIEW` 记录，本文不重复其细节。
 
-**一句话结论**：四场景（Factory / Warehouse NVD / Modern House NVD / City）的任务生成与审核本体——任务族、骨架、公开题包、隐藏评测边界、因子冻结、统一审核 CLI——已经完成并可复跑；剩余未收口项均不在任务生成侧手中，而是三个外部 blocker（Carter 碰撞源资产、City 正式 episode 绑定、House 业务干预见证）加楼梯 RL 运动模型（已决定替换后再验）。
+四场景（Factory / Warehouse NVD / Modern House NVD / City）的任务生成与审核本体已经可复跑。House 业务干预已有历史完成证据；City 本轮完成四人安全疏导和交通 hold/release 读回，严格原生探针仍停在背景车辆改道碰撞检查。按用户最新范围，背景车辆碰撞不再作为本轮任务流程整改的阻断项，也不据此把旧探针报告改写为通过。后续正式发布仍按 §6 的独立门禁验收。
 
 ---
 
@@ -12,7 +12,7 @@
 
 ```text
 demo/
-  benchmark/                     场景公共层 + 任务生成与审核核心（70 个模块）
+  benchmark/                     场景公共层 + 任务生成与审核核心
   factory_benchmark/             Factory 场景：F-INS-01 证据派遣 + F-VERT-01 楼梯诊断
   warehouse_benchmark/           仓储场景：10 节点订单链 + 原生物理 probe
   modern_house_benchmark/        家居场景：11 节点恢复链 + 原生 detector/path 后端
@@ -36,6 +36,70 @@ usd/
 `city_benchmark/` 根层是任务生成与审核（prepare 产物、intake 审核、episode 适配、服务见证），
 `scene/` 子包是场景运行时库——相当于其他三场景中「EAI_assets 场景配置」的角色。
 
+### 1.1 诊断粒度与轨道 ID（维护规范）
+
+**City 决策：服务诊断即其分项测量，不新增固定 DAG 诊断层。**
+`guide_people`、`control_traffic`（hold/divert/release）、`report_incident` 的请求、
+实际状态、回执和时间窗口由服务探针分项记录。探针的固定调用顺序只是测试程序，
+不成为参与者必须照抄的参考 DAG。背景车辆碰撞属于场景表现诊断，按本轮范围不作为
+任务流程整改门槛；服务响应、人员结果、救援通路等业务证据仍按各自契约核验。
+
+| 层级 / 场景 | 规范 ID | 被测决策及证据粒度 |
+| --- | --- | --- |
+| goal-driven / Factory | `FACTORY-GOAL-01` | 参与者生成业务计划、分解与分配 |
+| goal-driven / Warehouse | `WAREHOUSE-GOAL-01` | 同上 |
+| goal-driven / Modern House | `MODERN_HOUSE-GOAL-01` | 同上；原 `HOUSE-GOAL-01` 是历史产物 ID |
+| goal-driven / City | `CITY-GOAL-01` | 业务计划与服务调度；发布状态单独审核 |
+| 受限控制 / Factory | `F-INS-01` | 前三阶段由 benchmark 管理；仅 `route_confirmation` 允许等待、消费消息、选择目标和导航 |
+| 固定 DAG / Factory | `F-TRAFFIC-01`、`F-COV-01` | 固定图中的分配、改派与恢复诊断 |
+| 固定 DAG / Warehouse | `W-DAG-01` | 10 节点订单链；节点内分配、改派、导航与可见观测消费 |
+| 固定 DAG / Modern House | `MH-DAG-01` | 11 节点恢复链；同上，等待仍由 benchmark 管理 |
+| 服务分项 / City | `C-SERVICE-01` | 三项服务的调用与运行时结果测量，没有固定业务 DAG |
+| 平台能力 / Factory | `F-VERT-01` | 不计分的运动能力探针，不等同于业务协作或规划轨道 |
+
+F-INS 的受限控制与 Warehouse/House 的节点内分配是两种诊断粒度，不能以
+“都有阶段图”混为相同规划自由度。主轨道继续使用完整场景名前缀，诊断沿用
+`F` / `W` / `MH` / `C` 场景缩写与 `类型-序号`；文件名与内部实现版本名不充当轨道 ID。
+Warehouse/House 默认 JSON 和新生成题包写入上述 DAG ID；原 `task_name` 保留为描述名称。
+旧题包、执行报告与冻结摘要保留原样，跨版本比较须重新生成整套题包和 freeze，不能只改
+旧报告中的 ID 或复用原摘要。
+
+### 1.2 原生入口与入库 sidecar（维护规范）
+
+新增或公开推荐的原生诊断入口统一为 `native_probe.py` 或 `native_probe_<用途>.py`。
+实现模块可以保留历史名称，兼容入口只转发同一 `main`，不得复制执行器或更换证据协议。
+
+| 场景 / 用途 | 规范模块入口 | 保留的历史入口 |
+| --- | --- | --- |
+| Warehouse 单机 | `demo.warehouse_benchmark.native_probe` | `native_witness_probe` |
+| Warehouse 双机 | `demo.warehouse_benchmark.native_probe_paired` | `paired_native_probe` |
+| Modern House | `demo.modern_house_benchmark.native_probe` | 同名 |
+| City 场景 / 服务 | `demo.city_benchmark.native_probe` / `native_probe_services` | `service_probe` |
+| Factory 楼梯能力 | `demo.factory_benchmark.native_probe_vertical` | `tools.scenario_generation.vertical_task` |
+
+受维护的诊断输入与同名 `.audit.json` **一起纳入版本控制**。权威清单为
+`demo.benchmark.diagnostic_audit.MAINTAINED_SCENARIOS`：Factory 的 dispatch、traffic、
+coverage（含 dropout）、vertical，以及 Warehouse/House 的默认业务 DAG，共七项。
+历史 `inspection_01.json` 与 `navigation_smoke.json` 属于兼容/冒烟输入，不伪装成已审核诊断题。
+City 无固定 DAG，因此不制造场景 JSON sidecar；其 prepare manifest 与服务报告留在 `tmp/`。
+
+sidecar 为作者 QA，包含原始场景文件 SHA-256、轨道 ID、诊断粒度与实际执行的审核项。
+Factory sidecar 仅证明 schema/任务契约；Warehouse/House 另含本地地图、连通性、飞行净空和
+执行计划审核。所有 sidecar 均明确 `execution_validated=false`、`scoreable=false`，
+不得将作者审核当作物理验证。运行报告、日志、截图及下载资产仍不入库。
+
+在 `env_isaaclab` 中重建或独立验证（室内几何审核需要本地地图产品，不启动 Isaac）：
+
+```bash
+python -m demo.benchmark.diagnostic_audit --write
+python -m demo.benchmark.diagnostic_audit
+# 也可指定单个 scenarios/<name>.json；默认只读核验，内容或输入变化即失败。
+```
+
+修改维护场景后必须重建 sidecar，并检查输入摘要及审核范围。Warehouse/House 的
+`challenge --generate-scenario` 已自动写出同样格式的 sidecar；生成到 `tmp/` 的候选
+只有经过明确评审、选为维护 fixture 后才进入 `scenarios/`。
+
 `demo/benchmark/` 内部按职责分组：
 
 | 分组 | 代表模块 | 职责 |
@@ -44,6 +108,7 @@ usd/
 | goal-driven 主轨道 | `goal_driven_*.py`、`goal_suite.py`、`goal_freeze.py`、`goal_constraints.py` | 业务目标题面 + v2 participant API、语义 witness、数值约束审核、单因子冻结、统一生成/读回 CLI |
 | 部署与诊断 | `goal_deployment*.py`、`goal_physical_*.py`、`goal_navigation_probe.py`、`goal_attachment_*.py`、`goal_native_*.py` | 四场景部署配置、Isaac 原生物理/对象/占用/形状 probe 与独立审核器 |
 | 运行时 | `runtime.py`、`participant_runtime.py`、`participant_episode.py`、`control.py`、`scheduling.py`、`allocation.py` | 参与者回合执行、调度与分配、原子资源预留 |
+| 算法接入与统计 | `goal_algorithm_adapter.py`、`algorithm_adapter.py`、`handoff_manifest.py` | 四场景 goal 主轨统一高层接入；固定 DAG 单独诊断；固定默认控制策略、运行身份、配对描述统计与交接读回 |
 | 证据链 | `provenance.py`、`control_step_evidence.py`、`domain_adapters.py`、`live_domain_collectors.py`、`reference_domain_providers.py`、`transport_evidence.py` | 源码/资产指纹、逐步控制证据、实时领域证据适配、参考 provider |
 | 因子与生命周期 | `factor_matrix.py`、`factor_experiment.py`、`communication.py`、`team_lifecycle.py`、`interventions.py`、`lifecycle_plan.py`、`isaac_lifecycle_callbacks.py` | 通信/成员加入退出/能力变化因子、成对重放、预加载 reserve 回调 |
 | 发布门禁 | `release_manifest.py`、`stage17_evidence_gate.py`、`stage18_evidence_gate.py`、`skill_ontology.py`、`reliable_skill_backend.py` | 统一发布审计、阶段证据汇总门禁、可靠技能契约与参考后端 |
@@ -61,6 +126,7 @@ usd/
 |  | [TASK_DESIGN_REVIEW.zh-CN.md](TASK_DESIGN_REVIEW.zh-CN.md) | 现行 | 出题侧任务契约与审核规则 |
 | 轨道文档 | [GOAL_DRIVEN_TRACK.zh-CN.md](GOAL_DRIVEN_TRACK.zh-CN.md) | 现行 | goal-driven 主轨道（业务目标题面 + v2 API） |
 |  | [GOAL_SUITE.zh-CN.md](GOAL_SUITE.zh-CN.md) | 现行 | 统一生成/审计/读回 CLI 与冻结机制 |
+|  | [ALGORITHM_HANDOFF.zh-CN.md](ALGORITHM_HANDOFF.zh-CN.md) | 现行 | 四场景主轨算法接口、默认控制变量、接手步骤与统计边界 |
 |  | [GOAL_DEPLOYMENT.zh-CN.md](GOAL_DEPLOYMENT.zh-CN.md)、[GOAL_DEPLOYMENT_CONFIGURATION.zh-CN.md](GOAL_DEPLOYMENT_CONFIGURATION.zh-CN.md) | 现行 | 部署诊断入口、四场景配置与参考执行 |
 |  | [GOAL_PHYSICAL.zh-CN.md](GOAL_PHYSICAL.zh-CN.md)、[GOAL_SCENE_BINDING.zh-CN.md](GOAL_SCENE_BINDING.zh-CN.md) | 现行 | 物理诊断边界、场景绑定清单 |
 |  | [VERTICAL_TRAVERSAL.md](VERTICAL_TRAVERSAL.md) | 现行 | 楼梯垂直探针协议 |
@@ -79,6 +145,10 @@ usd/
 以下条目均有代码 + 专项测试或磁盘产物支撑，可直接复跑验证。
 
 ### 3.1 任务族与题面（四场景）
+
+四场景主轨均为 goal-driven，规范 ID 见 §1.1，模型自主选择团队、分解业务目标、分配与
+重规划。默认生成 36 个题包、审核 28 对因子对照。下表保留的是各场景诊断层的任务骨架，
+不应把这些固定节点当作主轨强制参考解。
 
 | 场景 | 任务族 | 被测模型实际决定的事 |
 | --- | --- | --- |
@@ -113,9 +183,45 @@ usd/
 
 ### 3.5 测试基线
 
-- 最新聚焦回归：**222 passed**（`env_isaaclab`，`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`，覆盖 v8 服务运行时、paired shape/probe、Stage18 gate）。
-- 历史峰值：`source/EAI/test` 全量 **1033 passed**；阶段 7 定向 212 项、阶段 8 统一入口 380+16 项、阶段 9 六文件 263 项、阶段 11 十二文件 468 项。
+- 交接相关回归：基线 **398 passed**；加入一键预检和 goal/fixed-DAG manifest fail-fast 后增量 3 项，当前合计 **401 passed**。默认 36 题包/28 对照导出与源码冻结读回、四景公开 adapter 接入、七份 sidecar 均已验证。命令及边界见 [交接验收记录](HANDOFF_ACCEPTANCE.zh-CN.md)。该数字与下述历史批次不累加。
+- 交接前工程化预检已增加：`python -m demo.benchmark.handoff_preflight --output-root <新目录>` 一条命令生成、读回和公开 release 冒烟；部分失败会清理，不会留下可误交付目录。
+
+- 2026-09-20 本轮整改：**125 + 274 = 399 passed**，覆盖命名/审计、防篡改、场景编译、goal题包、Factory准入及City服务回归；七份sidecar重建后独立核验通过，四个规范入口`--help`通过。完整命令和原生实验限制见 [恢复记录](STAGE19_RECOVERY.zh-CN.md)。
+- 阶段18历史聚焦回归：**222 passed**，覆盖 v8 服务运行时、paired shape/probe、Stage18 gate。
+- 历史峰值：`source/EAI/test` 全量 **1033 passed**；历史结果不作为当前工作树的新验收。
 - 运行环境：Isaac Sim 5.1 / Isaac Lab 2.x（`env_isaaclab`）；仓库根目录执行；`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` 防止系统 ROS pytest 插件干扰。
+
+### 3.6 算法接入边界（已具备离线接入，物理闭环仍分级）
+
+四场景主轨统一通过 `demo.benchmark.goal_algorithm_adapter.GoalAlgorithmHost` 接入，
+adapter 实现 `initialize(public_task, participant_api)`、`act(new_public_events)` 和
+`close()`；现有 goal_action 由 `GoalSession` 准入，可信宿主提交状态及技能回执。
+固定 DAG 诊断则使用 `algorithm_adapter.CallableAlgorithmAdapter` / `ParticipantSession`，
+两者的 initialize 签名和动作 schema 不同。室内三个 `main(participant_adapter=...)` 属于
+诊断入口，不能替代 goal 主轨接入。详细例子及验收步骤见 [接入指南](ALGORITHM_HANDOFF.zh-CN.md)。
+
+TeamWeaver/EMOS 是被测多机系统。导航、移动、抓取采用 benchmark 冻结的默认理想技能，
+不能由被测 adapter 替换；额外干扰只能作为显式 factor。共享 execution contract 和符号
+参考后端已存在，但 `benchmark_default_ideal` 是比较策略声明，不证明所有历史 Isaac
+控制器均已满足该契约。各场景实际后端和业务回执仍须单独验收。
+
+比较运行使用 `build_algorithm_run_manifest()` 固定 algorithm/version、benchmark commit、
+题包与场景 hash、provider revision、seed、factor treatment、episode/comparison key、
+branch、独立 `run_root` 以及 `benchmark_default_ideal` 控制栈；固定后端版本与参数记录在
+runtime_config。`run_algorithm_batch()` 只是离线回调线程池，不在其中创建多个 Isaac 应用；
+多进程/机器调度归外部开发者。`build_algorithm_result()` 只接受显式状态、指标、参与者
+流和受控证据。`summarize_algorithm_metric()` 输出状态计数、均值/中位数与 bootstrap CI；
+`compare_paired_metric()` 按相同 task/seed/factor 的 comparison key 做成对差值；多重比较
+使用 `holm_bonferroni()`；成本指标需设置 `higher_is_better=False`。同一布局的分支不是
+独立任务样本，这些描述统计不证明跨任务泛化，也不替代领域回执或业务成功评测。
+
+交接前可运行 `python -m demo.benchmark.handoff_manifest --output-root <新目录>` 导出四场景
+真实题包和交接矩阵，再用 `--verify <目录>` 从磁盘重新审核；默认无参数只打印当前矩阵。
+它要求 Factory、Warehouse、Modern House、City 都具备相同的四层题包形状、公开 API、
+隐藏边界和作者审核结果，并统一声明 `benchmark_default_ideal` 控制栈；四行的
+`execution_status` 保持 `external_pending`、`scoreable=false`，因此“任务生成与审核可交接”
+不会被误写成“物理执行已经完成”。四场景 runtime_boundary 均为 GoalSession，
+另列各自 diagnostic_boundary，不混淆主轨与诊断。
 
 ## 4. 现在可用的入口与命令
 
@@ -126,11 +232,11 @@ conda run --no-capture-output -n env_isaaclab \
   env PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
   python -m demo.benchmark.goal_suite list
 
-# 生成三场景 × 九条件题包并读回（换用尚不存在的新目录）
+# 生成四场景 × 九条件题包并读回（换用尚不存在的新目录）
 conda run --no-capture-output -n env_isaaclab \
   env PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
   python -m demo.benchmark.goal_suite audit \
-  --city-package <城市prepare目录> --verify-sources --output-root tmp/goal_suite_<date>
+  --verify-sources --output-root tmp/goal_suite_<date>
 
 conda run --no-capture-output -n env_isaaclab \
   env PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
@@ -166,7 +272,7 @@ conda run -n env_isaaclab env PYTHONPATH=. PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
   source/EAI/test/test_benchmark_authoring.py --tb=short
 ```
 
-物理诊断类入口（需 Isaac，串行执行）：`demo.benchmark.goal_navigation_probe`、`goal_physical_probe`、`goal_attachment_probe`、`demo.warehouse_benchmark.paired_native_probe` 等，参数与证据口径见 [GOAL_PHYSICAL.zh-CN.md](GOAL_PHYSICAL.zh-CN.md)。
+物理诊断类入口（需 Isaac，串行执行）：场景入口见 §1.2；共享历史入口 `demo.benchmark.goal_navigation_probe`、`goal_physical_probe`、`goal_attachment_probe` 继续兼容，参数与证据口径见 [GOAL_PHYSICAL.zh-CN.md](GOAL_PHYSICAL.zh-CN.md)。
 
 ## 5. 待开发与被阻断项
 
@@ -179,12 +285,20 @@ conda run -n env_isaaclab env PYTHONPATH=. PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
 
 ### 5.2 正式 episode 绑定（2026-09-19 大幅推进，各剩一个实测级卡点）
 
+2026-09-20 更新：City v6四名人员安全疏导、交通hold/release已取得完整分项证据；
+改道原生诊断仍停在背景碰撞检查。用户已明确此项不再作为本轮任务流程整改阻断，
+停止物理排障。以下首跑状态是历史记录，后续以[本轮恢复记录](STAGE19_RECOVERY.zh-CN.md)为准。
+
 - **City**：v8 仅为候选诊断（`formal_episode_binding=false`）。**2026-09-19**：作者固化绑定（4 人 roster 逐人绑定集合候选/危险区模板/控制点/反应窗口/回执端点，intake 机检）、`_city()` builder 双语义见证、communication_quality 因子 treatment、完整 goal bundle 的 build/verify/freeze、goal_suite 城市审计与单因子对——全部落地（离线 246+211 项测试）。正式探针首跑：prepare 机检通过（`author_frozen_episode_binding`），execute 在首次服务提交的 admission 谓词（路由/权限/容量）fail-closed，待逐谓词校准（STAGE18 City 首跑记录）。
 - **Modern House**：**2026-09-20 完成**（STAGE18 阶段18/19 战役归档）：区域几何双绑定 + 干预时序全部实现；阻挡物指认为 SceneXR 沙发（占据图漏采 Mesh 资产）；干预几何改北向后 **v20 全绿**——双 M20 attach + 抬升 0.0372 m + **搬运 2.05 m 到达停车格** + 撤离 all_clear + after 快照 measured + closeout + occupancy 断言。剩余场景项：占据图重建纳入 Mesh 资产（地图哈希修订流程）；M20 仅前向的实测结论待运动模型更换（P1/M1）。
 
 ### 5.3 运动模型（用户已决策）
 
-- **楼梯 RL**：Go2/Lite3/B2 的现有 RL 模型不支撑连续爬楼（首级/第二级 probe 以 `support_unknown`/`support_contact_gap_timeout` fail-closed，详见阶段 15）。用户已拍板：默认可行，**后续更换运动模型再验证**；楼梯题面 `F-VERT-01` 保持开放，B2 二维路线的地图膨胀问题已单独定位（楼梯排除区 + tracking reserve 重复膨胀，垂直接近段改用 0.0m reserve 后校准成功）。
+- **楼梯 RL**：F-VERT-01 默认 Go2 已切换为继续训练的 `GO2_MIXED_STAIRS_CONTINUED_CFG`
+  （checkpoint 3999）；Stage-A `GO2_MIXED_STAIRS_CFG` 仍可显式回退。M20 保留为已有楼梯
+  能力基线。Go2 新模型的连续上行、平台停留和下行仍需独立 PhysX 证据，故题包保持
+  `execution_validated=false`、`scoreable=false`。B2 运动模型仍在修复，接触采样/校准记录
+  不等同于楼梯通过；背景车辆碰撞不属于本轮任务流程门禁。
 
 ### 5.4 跨团队交接门禁（不阻塞任务生成本体）
 

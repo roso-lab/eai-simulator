@@ -23,6 +23,7 @@ from EAI_assets.robots.deeprobotics import (
     DEEPROBOTICS_M20_CFG,
 )
 from EAI_assets.robots.go2 import GO2_CFG
+from EAI_assets.scene.factory_runtime import FACTORY_RAYCAST_PROXY_PRIM_PATH
 from EAI_assets.robots.pepper import PEPPER_CFG
 from EAI_assets.robots.pegasus import PEGASUS_IRIS_CFG, PEGASUS_X4_CFG
 from EAI_assets.robots.quadcopter import CRAZYFLIE_CFG
@@ -150,6 +151,10 @@ CONTROLLER_CFG_IMPORTS = {
     "PEPPER_HOLONOMIC_CFG": ("traditional/pepper_holonomic/pepper_holonomic.py", "PEPPER_HOLONOMIC_CFG"),
     "GO2_VELOCITY_RSL_CFG": ("rl/go2_rsl_rl/go2_rsl_rl.py", "GO2_VELOCITY_RSL_CFG"),
     "GO2_MIXED_STAIRS_CFG": ("rl/go2_mixed_stairs/go2_mixed_stairs.py", "GO2_MIXED_STAIRS_CFG"),
+    "GO2_MIXED_STAIRS_CONTINUED_CFG": (
+        "rl/go2_mixed_stairs/go2_mixed_stairs.py",
+        "GO2_MIXED_STAIRS_CONTINUED_CFG",
+    ),
     "B2_VELOCITY_RSL_CFG": ("rl/b2_rsl_rl/b2_rsl_rl.py", "B2_VELOCITY_RSL_CFG"),
     "M20_ROUGH_RSL_CFG": ("rl/m20_rough_rsl/m20_rough_rsl.py", "M20_ROUGH_RSL_CFG"),
     "LITE3_VELOCITY_RSL_CFG": ("rl/lite3_rsl_rl/lite3_rsl_rl.py", "LITE3_VELOCITY_RSL_CFG"),
@@ -564,10 +569,15 @@ def build_interactive_env_cfg(
         articulation.init_state.rot = rotation
         attrs["__annotations__"][name] = ArticulationCfg
         attrs[name] = articulation
-        if selection.controller.cfg == "GO2_MIXED_STAIRS_CFG":
+        if selection.controller.cfg in {
+            "GO2_MIXED_STAIRS_CFG",
+            "GO2_MIXED_STAIRS_CONTINUED_CFG",
+        }:
             # Height scan matching robot_lab training: 17x11 grid, 0.1 m
-            # resolution, 1.6x1.0 m around the base, yaw-aligned, cast against
-            # the scene meshes.
+            # resolution, 1.6x1.0 m around the base, yaw-aligned. Isaac Lab's
+            # RayCaster supports one mesh, so the Factory spawner builds a
+            # validated triangle-only proxy from its ground, stair, and landing
+            # meshes.
             attrs["__annotations__"][f"{name}_height_scanner"] = RayCasterCfg
             attrs[f"{name}_height_scanner"] = RayCasterCfg(
                 prim_path=f"{{ENV_REGEX_NS}}/{name}/base",
@@ -575,7 +585,7 @@ def build_interactive_env_cfg(
                 ray_alignment="yaw",
                 pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6, 1.0]),
                 debug_vis=False,
-                mesh_prim_paths=[scene.prim_path],
+                mesh_prim_paths=[FACTORY_RAYCAST_PROXY_PRIM_PATH],
             )
 
         base_controller = _resolve_controller(selection.controller, fallback=robot.controller)

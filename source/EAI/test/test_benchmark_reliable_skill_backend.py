@@ -156,18 +156,21 @@ def test_member_exit_invalidates_pending_skill_without_motion(host):
 
 
 def test_cooperative_fixed_points_and_payload_constraints():
-    host = ReliableSkillReferenceHost(build_goal_task_spec("warehouse_nvd"), robot_regions=positions(**{G: "rack_aisle_a"}))
+    # Current task fixtures use two M20 carriers; the Carter connector is not
+    # admitted at this object's support height.
+    host = ReliableSkillReferenceHost(build_goal_task_spec("warehouse_nvd"),
+                                     robot_regions=positions(**{G: "rack_aisle_a", O: "rack_aisle_a"}))
     carry = task("carry", "cooperative_carry", {"object_id": "order_crate_01",
         "destination_region_id": "consolidation_area", "route_ids": ["rack_a_to_consolidation"],
         "handling_mode_id": "paired_support", "carrier_bindings": [
-            {"agent_id": G, "point_id": "support_left"}, {"agent_id": C, "point_id": "support_right"}]},
-        agents=(G, C), duration=16.)
+            {"agent_id": G, "point_id": "support_left"}, {"agent_id": O, "point_id": "support_right"}]},
+        agents=(G, O), duration=16.)
     prepare(host, [carry])
     dispatch(host, "carry")
     occupancy(host)
     assert host.execute_pending("carry", completed_at_s=16.)["accepted"]
     assert host.state()["object_states"]["order_crate_01"] == {"region_id": "consolidation_area"}
-    assert host.state()["robot_regions"][G] == host.state()["robot_regions"][C] == "consolidation_area"
+    assert host.state()["robot_regions"][G] == host.state()["robot_regions"][O] == "consolidation_area"
 
 
 def test_overweight_single_grasp_rejected_before_dispatch(host):

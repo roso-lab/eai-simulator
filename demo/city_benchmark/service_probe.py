@@ -30,6 +30,7 @@ from .native_probe import _serial_lock, _write
 
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = "eai.city.native_service_probe_v1"
+TRACK_ID = "C-SERVICE-01"
 REPORT_VERSION = 2
 MAX_EPISODE_S = 45.0
 DIAGNOSTIC_GEOMETRY_SCOPE = "runtime_selected_candidate_diagnostic"
@@ -237,7 +238,7 @@ def prepare_probe(output_root: Path, *, device: str = "cpu", seed: int = 17,
     if path.exists() and not overwrite:
         raise FileExistsError("City service probe is already prepared; use a fresh directory")
     formal = episode_binding is not None
-    report = {"schema": SCHEMA, "version": REPORT_VERSION, "status": "prepared",
+    report = {"schema": SCHEMA, "version": REPORT_VERSION, "track_id": TRACK_ID, "status": "prepared",
               "device": str(device), "seed": int(seed), "scoreable": False,
               "formal_episode_binding": False,
               "geometry_scope": DIAGNOSTIC_GEOMETRY_SCOPE,
@@ -247,6 +248,7 @@ def prepare_probe(output_root: Path, *, device: str = "cpu", seed: int = 17,
                            "one_city_person", "one_following_vehicle"]}
     if formal:
         from demo.benchmark.provenance import canonical_sha256
+        from .task_logic import default_deadline_policy
 
         loaded = _load_episode_binding(episode_binding)
         binding = loaded["binding"]
@@ -258,6 +260,8 @@ def prepare_probe(output_root: Path, *, device: str = "cpu", seed: int = 17,
             obstacles = list(json.loads(map_path.read_text(encoding="utf-8"))
                              .get("static_obstacles", ()))
         report.update(
+            bounded={"people_assembly_arrival_s": default_deadline_policy()["people_assembly_arrival_s"],
+                     "max_episode_s": default_deadline_policy()["response_budget_s"]},
             formal_episode_binding=True,
             geometry_scope=FORMAL_GEOMETRY_SCOPE,
             episode_binding=binding,
@@ -549,7 +553,8 @@ def _review_formal_binding(binding: Mapping[str, Any], evidence: Mapping[str, An
 def _step(session: Any, city: Any, actions: Mapping[str, Any], count: int = 1) -> None:
     from .native_probe import _robot_tensor_pose
     for _ in range(count):
-        if city.elapsed + float(session.base_env.step_dt) > MAX_EPISODE_S:
+        if city.elapsed + float(session.base_env.step_dt) > getattr(
+                session, "_city_probe_max_episode_s", MAX_EPISODE_S):
             raise RuntimeError("City service probe exceeded its episode deadline")
         before = {"time_s": city.elapsed, "position_m": list(_robot_tensor_pose(session))}
         session.env.step(actions)
@@ -641,21 +646,22 @@ def _along_route(waypoints, distance_m):
 
 
 def _instantiate_evacuation_routes(binding, specs, incident_xyz, obstacles,
-                                   *, extra_grid=None, live_origins=None):
+                                   *, extra_grid=None, live_origins=None,
+                                   person_extra_grids=None):
     """以实例化事故盘（±11 m 含排队带）为禁区重导出疏散路线。
 
     与 hazard 的 freeze_at_episode_instantiation 同构：事故位需 USD 射线、
     不可离线复现，故路线在 episode 实例化时以同款栅格 A* 重导出，并同步
     更新 worker 内存中的绑定副本（prepare 原件不变）。返回逐人记录。
     """
-    from .response import (_astar_leg, _nearest_clear_in_goal_component,
+    from .response import (_astar_leg, _grid_cell, _nearest_clear_in_goal_component,
                            _nearest_clear_point, _obstacle_grid)
     cells = set(_obstacle_grid(obstacles, half_xy=0.2, z_window=(-1.2, 2.1)))
     if extra_grid:
         cells.update(extra_grid)
     cx, cy = float(incident_xyz[0]), float(incident_xyz[1])
-    for ix in range(int((cx - 11.0) * 2), int((cx + 11.0) * 2) + 1):
-        for iy in range(int((cy - 11.0) * 2), int((cy + 11.0) * 2) + 1):
+    for ix in range(math.floor((cx - 11.0) * 2), math.floor((cx + 11.0) * 2) + 1):
+        for iy in range(math.floor((cy - 11.0) * 2), math.floor((cy + 11.0) * 2) + 1):
             wx, wy = ix * 0.5 + 0.25, iy * 0.5 + 0.25
             if (wx - cx) ** 2 + (wy - cy) ** 2 <= 11.0 ** 2:
                 cells.add((ix, iy))
@@ -664,13 +670,16 @@ def _instantiate_evacuation_routes(binding, specs, incident_xyz, obstacles,
     rows, roster_update = {}, {}
     rows["_grid_cells_holder"] = cells  # 供二遍重导出增量的未录障碍
     for spec in specs:
+        grid = cells | set((person_extra_grids or {}).get(spec.person_id, ()))
         goal = targets[spec.assembly_region_id]
         # 二遍时人员已沿首路线行进：以实时位置为起点（预热/重试期间会走动）
         live = (live_origins or {}).get(spec.person_id)
         origin = ((float(live[0]), float(live[1])) if live
                   else (float(spec.start_xyz[0]), float(spec.start_xyz[1])))
         relocated = None
-        if (int(origin[0] * 2), int(origin[1] * 2)) in grid:
+        if _grid_cell(origin) in grid:
+            if live is not None:
+                raise RuntimeError(f"live evacuation origin is occupied: {spec.person_id}")
             relocated = (_nearest_clear_in_goal_component(grid, origin, (goal[0], goal[1]))
                          or _nearest_clear_point(grid, origin))
             origin = relocated or origin
@@ -680,7 +689,9 @@ def _instantiate_evacuation_routes(binding, specs, incident_xyz, obstacles,
                      *((px, py, float(spec.start_xyz[2])) for px, py in leg[1:-1]),
                      (float(goal[0]), float(goal[1]), float(goal[2])))
             rows[spec.person_id] = {"waypoints": len(route), "relocated_start": relocated,
-                                    "keep_out_centre_m": [cx, cy]}
+                                    "keep_out_centre_m": [cx, cy],
+                                    "replan_origin_xyz": list(route[0]) if live is not None else None,
+                                    "execution_route": [list(point) for point in route]}
             roster_update[spec.person_id] = route
         else:
             rows[spec.person_id] = {"waypoints": len(spec.evacuation_route), "fallback": True,
@@ -688,12 +699,31 @@ def _instantiate_evacuation_routes(binding, specs, incident_xyz, obstacles,
     for index, row in enumerate(binding["affected_person_roster"]):
         route = roster_update.get(row["person_id"])
         if route is not None:
-            row["evacuation_route"] = [[float(v) for v in point] for point in route]
-            row["start_xyz"] = [float(v) for v in route[0]]
+            if row["person_id"] not in (live_origins or {}):
+                row["evacuation_route"] = [[float(v) for v in point] for point in route]
+                row["start_xyz"] = [float(v) for v in route[0]]
             # frozen dataclass：以 replace 生成实例化实例
-            specs[index] = dataclasses.replace(specs[index], start_xyz=route[0],
+            specs[index] = dataclasses.replace(specs[index], start_xyz=tuple(row["start_xyz"]),
                                                evacuation_route=route)
     return rows
+
+
+def _dynamic_route_grid(envelopes, person_id, half, offset):
+    """Convert current world envelopes to forbidden actor-root grid cells.
+
+    This is a planning hint at one instant, never future collision evidence.
+    The native admission/trajectory reader still validates the resulting route.
+    """
+    cells = set()
+    for entity_id, bounds in envelopes.items():
+        if entity_id == person_id:
+            continue
+        lo, hi = bounds["min"], bounds["max"]
+        low = [math.floor((lo[i] - half[i] - offset[i]) * 2) for i in range(2)]
+        high = [math.floor((hi[i] + half[i] - offset[i]) * 2) for i in range(2)]
+        cells.update((x, y) for x in range(low[0], high[0] + 1)
+                     for y in range(low[1], high[1] + 1))
+    return cells
 
 
 def _execute(output_root: Path, prepared: Mapping[str, Any], *, run_id: str,
@@ -706,7 +736,7 @@ def _execute(output_root: Path, prepared: Mapping[str, Any], *, run_id: str,
     geometry_scope = (FORMAL_GEOMETRY_SCOPE if formal else DIAGNOSTIC_GEOMETRY_SCOPE)
     pending_label = (FORMAL_BINDING_MISMATCH_LABELS["blocked"] if formal
                      else "pending_formal_episode_geometry")
-    report = {"schema": SCHEMA, "version": REPORT_VERSION, "status": "starting",
+    report = {"schema": SCHEMA, "version": REPORT_VERSION, "track_id": TRACK_ID, "status": "starting",
               "run_id": run_id, "episode_id": run_id, "scoreable": False,
               "execution_validated": False, "device_requested": device,
               "formal_episode_binding": False,
@@ -739,6 +769,8 @@ def _execute(output_root: Path, prepared: Mapping[str, Any], *, run_id: str,
         city = CityEaiRuntime.from_current_stage(
             config=CityRuntimeConfig(seed=seed, use_flow=False, episode_id=run_id))
         city.reset()
+        session._city_probe_max_episode_s = prepared.get("bounded", {}).get(
+            "max_episode_s", MAX_EPISODE_S)
         actions = _zero_actions(session)
         if formal:
             _run_bound_episode(session, city, actions, report, report_path, prepared,
@@ -1003,6 +1035,8 @@ def _run_bound_episode(session, city, actions, report, report_path, prepared, ru
     people_runtime, _evacuation_binding, spawn_records = spawn_response_people(city.stage, specs)
     city.people = people_runtime
     city.scene.people_runtime = people_runtime
+    for person_id in roster_ids:
+        people_runtime.pause(person_id)
     if sorted(str(actor) for actor in people_runtime.actor_ids) != sorted(roster_ids):
         raise RuntimeError("spawned response actors do not match the bound roster")
     spawn_readback = {person_id: tuple(float(value) for value in people_runtime.position(person_id))
@@ -1015,8 +1049,16 @@ def _run_bound_episode(session, city, actions, report, report_path, prepared, ru
     entity_paths.update({key: value["prim_path"] for key, value in city._traffic_state.items()})
     entity_paths["incident_vehicle"] = str(city.incident_vehicle[0].GetAttr().GetPrim().GetPath())
 
+    envelope_tick = None
+    envelope_snapshot = None
+
     def envelopes():
-        return world_envelopes(city.stage, entity_paths)
+        nonlocal envelope_tick, envelope_snapshot
+        tick = (city.elapsed, int(session.base_env.sim.current_time_step_index))
+        if tick != envelope_tick:
+            envelope_snapshot = world_envelopes(city.stage, entity_paths)
+            envelope_tick = tick
+        return envelope_snapshot
 
     query = omni.physx.get_physx_scene_query_interface()
     ignored_paths = tuple(entity_paths.values())
@@ -1140,9 +1182,8 @@ def _run_bound_episode(session, city, actions, report, report_path, prepared, ru
                     for person_id in roster_ids}
     trace["person_routes_before_first_submit"] = first_routes
     _checkpoint(report_path, report)
-    # 二遍重导出：运行时路线扫掠可发现语义图未收录的障碍（阶段19 实测
-    # Lamp_0211 缺录）；把命中位置入格后重 A*、重绑定、重建 runner。此时
-    # 尚无任何服务提交，重建安全。发现的缺录障碍进 trace 作为制图证据。
+    # Replan from measured collisions before submitting any service. A hit is
+    # not proof that the semantic map omitted that obstacle.
     discovered = []
     _bbox_cache = None
     for person_id, row in first_routes.items():
@@ -1166,20 +1207,26 @@ def _run_bound_episode(session, city, actions, report, report_path, prepared, ru
                 discovered.append({"person_id": person_id,
                                    "collision": hit.get("collision"),
                                    "world_xy_m": [round(pos[0], 2), round(pos[1], 2)]})
-    if discovered:
-        trace["map_gap_obstacles_discovered"] = discovered
+    dynamic_snapshot = envelopes()
+    dynamic_blocked = any(row.get("dynamic_envelopes") for row in first_routes.values())
+    if discovered or dynamic_blocked:
+        trace["route_collision_obstacles"] = discovered
+        trace["replan_dynamic_envelopes"] = dynamic_snapshot
         for item in discovered:
             hx, hy = item["world_xy_m"]
             # 盘半径 0.6：0.35 时 A* 能绕但灯臂+0.5 m 格粒度下仍擦碰
             # （位置解析修正后 0.6 不再误封走廊——早前失败源于错误位置）。
-            for ix in range(int((hx - .6) * 2), int((hx + .6) * 2) + 1):
-                for iy in range(int((hy - .6) * 2), int((hy + .6) * 2) + 1):
+            for ix in range(math.floor((hx - .6) * 2), math.floor((hx + .6) * 2) + 1):
+                for iy in range(math.floor((hy - .6) * 2), math.floor((hy + .6) * 2) + 1):
                     route_grid_cells.add((ix, iy))
         second_pass = _instantiate_evacuation_routes(
             binding, specs, incident_xyz, [],
             extra_grid=route_grid_cells,
             live_origins={person_id: tuple(float(v) for v in city.people.position(person_id))
-                          for person_id in roster_ids})
+                          for person_id in roster_ids},
+            person_extra_grids={person_id: _dynamic_route_grid(
+                dynamic_snapshot, person_id, person_half[person_id], person_offset[person_id])
+                for person_id in roster_ids})
         second_pass.pop("_grid_cells_holder", None)
         report["trace"]["route_instantiation_second_pass"] = second_pass
         _checkpoint(report_path, report)
@@ -1212,6 +1259,26 @@ def _run_bound_episode(session, city, actions, report, report_path, prepared, ru
             person_id: city._episode_service._person_route(person_id)
             for person_id in roster_ids}
         _checkpoint(report_path, report)
+    # Stop following traffic through its public service before pedestrians
+    # cross. Keep it held until the complete evacuation trace is recorded.
+    reaction_steps = max(1, math.ceil(
+        (float(window["trajectory_reaction_window_s"]) + 0.1) / dt))
+    _role(runner, "traffic_control_point", session, trace)
+    hold_before = {vehicle_id: city.following_vehicle_pose(vehicle_id) for vehicle_id in vehicle_ids}
+    held = runner.control_following_traffic(vehicle_ids, "hold", observation_ref=guidance_observation)
+    hold_start = city.elapsed
+    _step(session, city, actions, reaction_steps)
+    hold_readbacks = {vehicle_id: runner.record_vehicle_readback(
+        held["request"]["request_id"], vehicle_id,
+        previous_position=hold_before[vehicle_id], status_before="hold") for vehicle_id in vehicle_ids}
+    trace["services"]["traffic_hold"] = {
+        "status": "readback_recorded", "request": held["request"], "readback": hold_readbacks,
+        "position_before": {key: list(value) for key, value in hold_before.items()},
+        "position_after": {key: list(city.following_vehicle_pose(key)) for key in vehicle_ids},
+        "review": runner.review(held["request"]["request_id"])}
+    hold_span = city.elapsed - hold_start
+    _checkpoint(report_path, report)
+    guidance_observation = runner.observe()
     for capacity in binding["assembly_capacity"]:
         region_id, group = capacity["region_id"], tuple(capacity["bound_person_ids"])
         _role(runner, "guidance_contact", session, trace)
@@ -1231,19 +1298,31 @@ def _run_bound_episode(session, city, actions, report, report_path, prepared, ru
                 _role(runner, "guidance_contact", session, trace)
                 guidance_observation = runner.observe()
         guidance_requests[region_id] = guidance["request"]
+        for person_id in group:
+            city.people.resume(person_id)
         trace["services"][f"guide_people:{region_id}"] = {
             "status": "command_accepted_pending_readback",
             "request": guidance["request"],
             "position_before": {person_id: list(person_start[person_id]) for person_id in group},
         }
         _checkpoint(report_path, report)
-    for _ in range(800):
+    arrival_budget_s = float(default_deadline_policy()["people_assembly_arrival_s"])
+    for step in range(math.ceil(arrival_budget_s / dt)):
         _step(session, city, actions)
-        if all(city._episode_service.person_readback(person_id)["arrived"]
+        if step % max(1, math.ceil(1.0 / dt)) == 0:
+            trace["guidance_progress"] = {
+                "time_s": city.elapsed,
+                "people": {person_id: city._episode_service.people_controller.readback(
+                    person_id, city._episode_service.assembly_regions)
+                           for person_id in roster_ids},
+            }
+            _checkpoint(report_path, report)
+        if all(city._episode_service.people_controller.readback(
+                   person_id, city._episode_service.assembly_regions)["arrived"]
                for person_id in roster_ids):
             break
     else:
-        raise RuntimeError("bound roster did not reach assembly within 800 steps")
+        raise RuntimeError(f"bound roster did not reach assembly within {arrival_budget_s:g} seconds")
     person_readbacks = {}
     for capacity in binding["assembly_capacity"]:
         region_id, request = capacity["region_id"], guidance_requests[capacity["region_id"]]
@@ -1262,10 +1341,10 @@ def _run_bound_episode(session, city, actions, report, report_path, prepared, ru
 
     reaction_steps = max(1, math.ceil(
         (float(window["trajectory_reaction_window_s"]) + 0.1) / dt))
-    reaction_span = {}
-    controlled_ids: set[str] = set()
-    executed_modes = []
-    for mode in ("hold", "release", "divert"):
+    reaction_span = {"hold": hold_span}
+    controlled_ids: set[str] = set(vehicle_ids)
+    executed_modes = ["hold"]
+    for mode in ("release", "divert"):
         observation = runner.observe()
         _role(runner, "traffic_control_point", session, trace)
         before = {vehicle_id: city.following_vehicle_pose(vehicle_id) for vehicle_id in vehicle_ids}
@@ -1383,7 +1462,8 @@ def _run_bound_episode(session, city, actions, report, report_path, prepared, ru
                 "arrived": native.get("arrived"),
                 "inside_assembly": native.get("inside_assembly"),
             }
-    binding_review = _review_formal_binding(binding, evidence)
+    # Compare against the frozen preparation, never a worker-mutated roster.
+    binding_review = _review_formal_binding(_prepared_binding(prepared), evidence)
     reviews = [row["review"] for row in trace["services"].values()]
     all_complete = all(row.get("status") == "evidence_complete" for row in reviews)
     if binding_review["formal_episode_binding"]:

@@ -1358,6 +1358,47 @@ def build_plan(data, occupancy, template, *, ground_tracking_reserve_m=None):
     return plan
 
 
+# Diagnostic tracks are part of the task contract, not a generic scene label.
+# Keeping this mapping next to runtime admission prevents an indoor DAG from
+# being accidentally run under another scene's evaluator.
+_NON_FACTORY_DIAGNOSTIC_TRACKS = {
+    "warehouse_nvd": ("W-DAG-01", "warehouse_benchmark"),
+    "modern_house_nvd": ("MH-DAG-01", "modern_house_benchmark"),
+}
+
+
+def _validate_benchmark_task_spec(spec):
+    """Validate a declared diagnostic track before simulator startup.
+
+    Factory keeps its scene-owned validator because its tracks have distinct
+    admission rules. The indoor DAGs share the scene-challenge compiler, so
+    their static profile review is the appropriate runtime gate; geometry and
+    physical evidence remain separate release checks.
+    """
+    task_id = spec.get("benchmark_task_id")
+    if task_id is None:
+        return None
+    scene_key = spec.get("scene_key")
+    if scene_key == "factory":
+        from demo.factory_benchmark.tasks import validate_factory_scenario
+        return validate_factory_scenario(spec, task_id)
+    try:
+        expected_task, package = _NON_FACTORY_DIAGNOSTIC_TRACKS[scene_key]
+    except KeyError as exc:
+        raise ValueError(
+            f"benchmark_task_id {task_id!r} is unsupported for scene_key={scene_key!r}") from exc
+    if task_id != expected_task:
+        raise ValueError(
+            f"scene_key={scene_key!r} requires benchmark_task_id={expected_task!r}, "
+            f"got {task_id!r}")
+    from demo.benchmark.scene_challenge import review_task_design
+    owner = __import__(f"demo.{package}.scenario", fromlist=["scenario"])
+    design = review_task_design(spec, owner.TASK_PROFILE, owner.TASK_BLUEPRINT)
+    if not design["validated"]:
+        raise ValueError(f"{task_id}: task design admission failed: {design['findings']}")
+    return {"task_id": task_id, "validated": True, "design": design}
+
+
 def main(argv=None, *, expected_scene=None, asset_check=None, participant_adapter=None,
          domain_evidence_provider=None, domain_adapter_id=None,
          lifecycle_callbacks=None, communication_contract=None,
@@ -1514,10 +1555,7 @@ def main(argv=None, *, expected_scene=None, asset_check=None, participant_adapte
         inventory_variant = prepare_variant(args.inventory_label_id, args.inventory_label_state)
         common.write_json(str(Path(args.report).with_suffix(".inventory_scene.json")), inventory_variant)
     if spec.get("benchmark_task_id") is not None:
-        if spec.get("scene_key") != "factory":
-            raise ValueError("benchmark_task_id is currently supported only by the Factory demo")
-        from demo.factory_benchmark.tasks import validate_factory_scenario
-        validate_factory_scenario(spec, spec["benchmark_task_id"])
+        _validate_benchmark_task_spec(spec)
     if asset_check is not None:
         assets = asset_check()
         if not assets["validated"]:

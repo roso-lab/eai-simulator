@@ -1,4 +1,13 @@
 {
+  "schema": "eai.benchmark.diagnostic_scenario_audit",
+  "version": 1,
+  "scenario_file": "business_logistics_01.json",
+  "scenario_sha256": "1c651e756a03c8b01864cce492db05ee3b66211f02ed71c8d04cf20a834ca504",
+  "track_id": "W-DAG-01",
+  "diagnostic_granularity": "fixed_dag_allocation",
+  "visibility": "author_only",
+  "execution_validated": false,
+  "scoreable": false,
   "admission": {
     "validated": true,
     "semantic_task": {
@@ -53,7 +62,7 @@
             "status": "clear",
             "admitted": true,
             "model": "continuous_swept_aabb_against_voxel_product",
-            "product_path": "/home/pupil/eai-simulator/usd/scene/warehouse_nvd/drone_voxels_0.25m.npz",
+            "product_path": "usd/scene/warehouse_nvd/drone_voxels_0.25m.npz",
             "product_sha256": "36b9f871db7d70acdccc57ffbba437778ca233054df093b06db90d05c0a6d8a2",
             "proxy_xy_block_size": 5,
             "ground_proxy_height_m": 0.8,
@@ -77,7 +86,7 @@
             "status": "clear",
             "admitted": true,
             "model": "continuous_swept_aabb_against_voxel_product",
-            "product_path": "/home/pupil/eai-simulator/usd/scene/warehouse_nvd/drone_voxels_0.25m.npz",
+            "product_path": "usd/scene/warehouse_nvd/drone_voxels_0.25m.npz",
             "product_sha256": "36b9f871db7d70acdccc57ffbba437778ca233054df093b06db90d05c0a6d8a2",
             "proxy_xy_block_size": 5,
             "ground_proxy_height_m": 0.8,
@@ -96,9 +105,9 @@
         }
       ],
       "input_file_hashes": {
-        "/home/pupil/eai-simulator/usd/scene/warehouse_nvd/drone_voxels_0.25m.npz": "36b9f871db7d70acdccc57ffbba437778ca233054df093b06db90d05c0a6d8a2",
-        "/home/pupil/eai-simulator/usd/scene/warehouse_nvd/ground_map_0.6m.yaml": "6c55e40fde3b8bbed02d7a88829a178fd91f9b58f8da3c0f453c295389001736",
-        "/home/pupil/eai-simulator/usd/scene/warehouse_nvd/ground_map_0.6m.png": "4192202774b628c10f5508f9a4abdfa738e4113b66e0e1db09db17881d4899dc"
+        "usd/scene/warehouse_nvd/drone_voxels_0.25m.npz": "36b9f871db7d70acdccc57ffbba437778ca233054df093b06db90d05c0a6d8a2",
+        "usd/scene/warehouse_nvd/ground_map_0.6m.yaml": "6c55e40fde3b8bbed02d7a88829a178fd91f9b58f8da3c0f453c295389001736",
+        "usd/scene/warehouse_nvd/ground_map_0.6m.png": "4192202774b628c10f5508f9a4abdfa738e4113b66e0e1db09db17881d4899dc"
       },
       "scope": "sequential_declared_object_positions_and_static_voxel_geometry",
       "execution_validated": false,

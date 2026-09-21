@@ -1,15 +1,22 @@
 # Factory benchmark demo
 
-[中文](README.zh-CN.md) · [Delivery status overview (zh)](../benchmark/DELIVERY.zh-CN.md)
+[中文](README.zh-CN.md) · [Delivery status overview (zh)](../benchmark/DELIVERY.zh-CN.md) · [Go2 locomotion base (zh)](../benchmark/GO2_LOCOMOTION_BASE.zh-CN.md)
 
-> **Status (2026-09-19, stage 18)** — Runnable: F-INS-01 four-layer challenge
+**Goal-track handoff (2026-09-20):** `FACTORY-GOAL-01` uses the same
+`GoalAlgorithmHost` / `GoalSession` interface and nine-condition authoring matrix
+as all four scenes. Low-level skills follow a fixed benchmark policy; native
+execution evidence remains a separate gate. See the [handoff guide](../benchmark/ALGORITHM_HANDOFF.zh-CN.md).
+
+> **Status (2026-09-21, benchmark locomotion-base update)** — Runnable: F-INS-01 four-layer challenge
 > package with dispatch matrix and ArUco label engineering baseline; F-TRAFFIC /
 > F-COV comparison tasks; stair measurement binding (`flight_02`, root + 67
 > dependency-layer hashes) and F-VERT-01 candidate compiler entry; 14-type
-> configuration smoke. Blocked: continuous stair traversal — the current RL
-> locomotion models fail at `first/second_tread` (`support_unknown`); a
-> replacement motion model was decided before revalidation, the stair entry
-> stays open. All packages remain `release_status=pending`, `scoreable=false`.
+> configuration smoke. The default Go2 F-VERT base now uses
+> `GO2_MIXED_STAIRS_CONTINUED_CFG` (checkpoint 3999); the Stage-A policy remains
+> an explicit fallback. M20 remains the existing stair-capable baseline. A fresh
+> continuous climb/platform/descent PhysX record is still required, and B2 remains
+> under motion-model repair. All packages remain `release_status=pending`,
+> `scoreable=false`.
 
 This application owns the factory task blueprint, asset allowlist and experiment profile in `scenario.py`. `config.py` selects its USD and occupancy map. Maintained smoke episodes live in `scenarios/`; generated task pools and reports belong in `tmp/`.
 
@@ -225,7 +232,9 @@ measurement with `--stair-measurement`. The current Factory asset exposes two au
 flights; the hidden evaluator selects the ground-to-mezzanine flight and binds the root
 plus all 67 dependency-layer hashes. This remains static geometry evidence. PhysX
 raycast/contact support, endpoint connectivity, controller calibration, and a healthy
-Go2 traversal are still required before the probe becomes executable or scoreable.
+traversal using the continued Go2 base are still required before the probe becomes
+executable or scoreable. M20's existing stair capability is retained as a separate
+baseline; B2 is still pending repair.
 
 Aerial frame/completion timestamps refer to the already completed physics step at
 capture, matching scheduler time. Runtime exceptions are saved to `.failure.json`

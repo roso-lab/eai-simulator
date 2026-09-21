@@ -140,6 +140,10 @@ def controller_cfg_names() -> tuple[str, ...]:
     return catalog.controller_cfg_names()
 
 
+def controller_cfgs_for_robot(robot_type: str) -> tuple[str, ...]:
+    return catalog.controller_cfgs_for_robot(robot_type)
+
+
 def default_controller_cfg(robot_type: str) -> str | None:
     return catalog.default_controller_cfg(robot_type)
 

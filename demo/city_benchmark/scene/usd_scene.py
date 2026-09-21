@@ -433,6 +433,25 @@ def _intersects(a: tuple[tuple[float, float, float], tuple[float, float, float]]
                and float(b["min"][axis]) <= a[1][axis] for axis in range(3))
 
 
+def _swept_box_intersects(start, end, half, envelope):
+    """Exact translating axis-aligned box vs AABB via a Minkowski slab test."""
+    enter, leave = 0.0, 1.0
+    for axis in range(3):
+        low = float(envelope["min"][axis]) - half[axis]
+        high = float(envelope["max"][axis]) + half[axis]
+        delta = end[axis] - start[axis]
+        if abs(delta) <= 1e-12:
+            if start[axis] < low or start[axis] > high:
+                return False
+            continue
+        near, far = sorted(((low - start[axis]) / delta,
+                            (high - start[axis]) / delta))
+        enter, leave = max(enter, near), min(leave, far)
+        if enter > leave:
+            return False
+    return True
+
+
 class CityNativeRegionReader:
     """Current native occupancy for host-supplied service regions."""
 
@@ -618,10 +637,10 @@ class CityNativeRegionReader:
         except Exception as exc:
             return {**base, "status": "unknown",
                     "reason": f"native_query_failed:{type(exc).__name__}:{exc}"}
-        lows = [min(point[axis] for point in points) - half[axis] for axis in range(3)]
-        highs = [max(point[axis] for point in points) + half[axis] for axis in range(3)]
         dynamic = {key: value for key, value in envelopes.items()
-                   if key != moving_entity_id and _intersects((tuple(lows), tuple(highs)), value)}
+                   if key != moving_entity_id and any(
+                       _swept_box_intersects(start, end, half, value)
+                       for start, end in zip(points, points[1:]))}
         return {**base, "status": "measured", "clear": not static_hits and not dynamic,
                 "waypoints_m": [list(point) for point in points],
                 "half_extents_m": list(half), "static_hits": static_hits,

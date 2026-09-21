@@ -92,12 +92,8 @@ def main(argv=None):
     if args.generate_scenario:
         data = generate_scenario()
         write_json(args.generate_scenario, data)
-        audit_path = args.generate_scenario.with_suffix(".audit.json")
-        write_json(audit_path, {
-            "admission": audit_generated_scene_scenario(data),
-            "task_design_review": review_task_design(
-                data, scenario.TASK_PROFILE, scenario.TASK_BLUEPRINT),
-        })
+        from demo.benchmark.diagnostic_audit import write_audit
+        audit_path = write_audit(args.generate_scenario)
         print(f"scenario: {args.generate_scenario}")
         print(f"audit: {audit_path}")
         return 0

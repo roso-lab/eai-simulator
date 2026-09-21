@@ -2,6 +2,11 @@
 
 [English](README.md) · [交付状态总览](../benchmark/DELIVERY.zh-CN.md)
 
+**主轨交接更新（2026-09-20）**：`MODERN_HOUSE-GOAL-01` 与其他三场景使用同一生成、作者审核和
+`GoalAlgorithmHost` / `GoalSession` 接口；默认 suite 中每场景九条件题包、七对因子对照。
+导航、移动和抓取采用统一固定默认技能策略；下面的原生实测记录属于独立诊断证据。
+接入和复跑步骤见 [交接指南](../benchmark/ALGORITHM_HANDOFF.zh-CN.md)，正式执行仍单独验收。
+
 > **当前状态（2026-09-19 · 阶段18）**
 >
 > - **可跑**：原生 detector/path backend 读回（阶段18 v4，双快照之间加入作者侧家具干预：paired-support 搬运扶手椅 + 全部地面机器人撤离，after 相先经公开 `process_event`/`record_closeout` 路径注入 closeout）；离线实测区域区间（占据图射线 + 授权 bench 墙体 cuboid 双绑定，含门外/门槛/门内 corroborated 门洞与出生位一致性校验）；运动学参考 episode v6（11/11 节点）；出生高度修正后的四机器人静置诊断（阶段12 v5，脚轮贴地）；住户通路/撤离诊断入口；`--check-assets` 资产闭包审计。
@@ -13,7 +18,7 @@
 | 文件 | 职责 |
 | --- | --- |
 | `scenario.py` / `config.py` | 任务蓝图、资产白名单、实验配置、场景 USD 与占据地图 |
-| `scenarios/home_recovery_01.json` | 默认业务挑战输入（11 节点恢复链） |
+| `scenarios/home_recovery_01.json` | `MH-DAG-01`：默认固定 DAG 诊断输入（11 节点恢复链，节点内分配） |
 | `scenarios/navigation_smoke.json` | 显式导航冒烟样例（不能作为正式业务包输入） |
 | `challenge.py` | 四层题包编译与发布 QA |
 | `manifest.py` | NVD 产物 manifest 构建与校验 |

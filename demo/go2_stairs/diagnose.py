@@ -2,28 +2,45 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
-"""Headless diagnostic for the Go2 mixed-stairs controller in the factory scene.
-
-Prints joint order, height-scan ray hit statistics, observation slices, and
-action magnitudes while standing, then walks a short forward segment.
-"""
+"""Headless acceptance probe for the Go2 mixed-stairs controller."""
 
 from __future__ import annotations
 
 import argparse
 
 
+MIN_STAND_SECONDS = 3.0
+MIN_WALK_SECONDS = 4.0
+MIN_BASE_HEIGHT_M = 0.25
+MAX_PROJECTED_GRAVITY_Z = -0.90
+MIN_FORWARD_PROGRESS_M = 0.20
+MIN_STAIR_SCAN_RANGE_M = 0.10
+EXPECTED_OBSERVATION_DIM = 232
+EXPECTED_ACTION_DIM = 12
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--device", default="cuda:0", help="Simulation device request.")
-    parser.add_argument("--stand-s", type=float, default=3.0)
-    parser.add_argument("--walk-s", type=float, default=4.0)
+    parser.add_argument("--stand-s", type=float, default=MIN_STAND_SECONDS)
+    parser.add_argument("--walk-s", type=float, default=MIN_WALK_SECONDS)
     parser.add_argument("--speed", type=float, default=0.5)
+    parser.add_argument("--_result-file", help=argparse.SUPPRESS)
     return parser
 
 
 def main() -> None:
     args = build_parser().parse_args()
+    from demo.go2_stairs._worker_status import run_worker_process, write_worker_result
+
+    if args._result_file is None:
+        raise SystemExit(run_worker_process("demo.go2_stairs.diagnose"))
+    if args.stand_s < MIN_STAND_SECONDS:
+        raise SystemExit(f"--stand-s must be at least {MIN_STAND_SECONDS:.1f}")
+    if args.walk_s < MIN_WALK_SECONDS:
+        raise SystemExit(f"--walk-s must be at least {MIN_WALK_SECONDS:.1f}")
+    if args.speed <= 0.2:
+        raise SystemExit("--speed must exceed the policy command threshold of 0.2 m/s")
 
     from simulator import (
         SimulatorLaunchConfig,
@@ -50,6 +67,7 @@ def main() -> None:
         selection_data=interactive_selection_to_dict(selection),
     )
 
+    failures: list[str] = []
     with open_simulator_session(launch_config) as sim:
         import torch
 
@@ -57,67 +75,139 @@ def main() -> None:
         step_env = sim.env
         agent = sim.possible_agents[0]
         robot = base_env.scene.articulations[agent]
+        controller = base_env._controller_configs[agent]
         raycaster = base_env.scene.sensors[f"{agent}_height_scanner"]
         step_dt = float(base_env.step_dt)
 
-        def p(*a):
-            print(*a, flush=True)
+        def p(*values):
+            print(*values, flush=True)
 
-        p("[diag] joint_names =", list(robot.joint_names))
-        p("[diag] root_pos =", robot.data.root_pos_w[0].tolist())
-        p("[diag] base height above 0 =", float(robot.data.root_pos_w[0, 2]))
+        def require_finite(label: str, value) -> None:
+            if not bool(torch.isfinite(value).all()):
+                raise RuntimeError(f"{label} contains non-finite values")
 
-        def scan_stats(tag: str) -> None:
-            hits = raycaster.data.ray_hits_w[0]  # (187, 3)
+        def current_observation():
+            obs = controller.observation_func(base_env, agent)
+            require_finite("observation", obs)
+            if obs.shape[-1] != EXPECTED_OBSERVATION_DIM:
+                raise RuntimeError(
+                    f"observation dim {obs.shape[-1]} != {EXPECTED_OBSERVATION_DIM}"
+                )
+            return obs
+
+        def validate_step_state() -> None:
+            require_finite("root state", robot.data.root_state_w)
+            require_finite("joint position target", robot.data.joint_pos_target)
+            require_finite("height-scan hits", raycaster.data.ray_hits_w)
+            current_observation()
+            action = base_env.actions_dict.get(agent)
+            if action is None:
+                raise RuntimeError("policy action is missing after environment step")
+            require_finite("policy action", action)
+            if action.shape[-1] != EXPECTED_ACTION_DIM:
+                raise RuntimeError(f"action dim {action.shape[-1]} != {EXPECTED_ACTION_DIM}")
+
+        def scan_stats(tag: str) -> float:
+            hits = raycaster.data.ray_hits_w[0]
+            require_finite(f"{tag} height-scan hits", hits)
             base_z = float(robot.data.root_pos_w[0, 2])
-            rel = hits[:, 2] - base_z
+            height_range = float(hits[:, 2].max() - hits[:, 2].min())
             p(
-                f"[diag] {tag}: scan rel z min={float(rel.min()):+.2f} max={float(rel.max()):+.2f} "
-                f"mean={float(rel.mean()):+.2f} | hit z min={float(hits[:, 2].min()):.2f} "
-                f"max={float(hits[:, 2].max()):.2f} | base_z={base_z:.2f} "
-                f"| hit xy spread=({float(hits[:, 0].max() - hits[:, 0].min()):.1f},"
-                f"{float(hits[:, 1].max() - hits[:, 1].min()):.1f})"
+                f"[diag] {tag}: hit_z=[{float(hits[:, 2].min()):.3f},"
+                f" {float(hits[:, 2].max()):.3f}] range={height_range:.3f}m "
+                f"base_z={base_z:.3f}"
             )
+            return height_range
 
-        def obs_stats(tag: str) -> None:
-            obs = base_env._controller_configs[agent].observation_func(base_env, agent)[0]
-            p(
-                f"[diag] {tag}: obs dim={obs.shape[0]} "
-                f"ang_vel={obs[0:3].tolist()} gravity={obs[3:6].tolist()} "
-                f"cmd={obs[6:9].tolist()} jpos=[{obs[9]:.2f},{obs[10]:.2f},{obs[11]:.2f},...] "
-                f"jvel*0.05=[{obs[21]:.2f},{obs[22]:.2f},...] last_act=[{obs[33]:.2f},...] "
-                f"scan mean={float(obs[45:].mean()):+.3f} clipped<=0 frac="
-                f"{float((obs[45:] <= -0.999).float().mean()):.2f} >=0.999 frac={float((obs[45:] >= 0.999).float().mean()):.2f}"
-            )
+        def world_forward_xy():
+            quat = robot.data.root_quat_w[0]
+            w, x, y, z = (quat[index] for index in range(4))
+            forward = torch.stack((1 - 2 * (y * y + z * z), 2 * (x * y + w * z)))
+            return forward / torch.linalg.vector_norm(forward).clamp_min(1.0e-6)
 
-        def run(seconds: float, cmd: tuple[float, float, float], tag: str) -> None:
+        def run(seconds: float, cmd: tuple[float, float, float], tag: str):
             command = torch.tensor([cmd], dtype=torch.float32, device=sim.device)
             steps = max(1, int(seconds / step_dt))
             start_pos = robot.data.root_pos_w[0, :3].clone()
-            for i in range(steps):
+            forward_xy = world_forward_xy()
+            min_base_z = float("inf")
+            max_gravity_z = float("-inf")
+            for index in range(steps):
                 step_env.step({agent: command})
-                if i % 50 == 0:
-                    gz = float(robot.data.projected_gravity_b[0, 2])
+                validate_step_state()
+                base_z = float(robot.data.root_pos_w[0, 2])
+                gravity_z = float(robot.data.projected_gravity_b[0, 2])
+                min_base_z = min(min_base_z, base_z)
+                max_gravity_z = max(max_gravity_z, gravity_z)
+                if index % 50 == 0:
                     p(
-                        f"[diag] {tag} t={i * step_dt:4.1f}s base_z={float(robot.data.root_pos_w[0, 2]):.3f} "
-                        f"gz_z={gz:+.2f} | act rms="
-                        f"{float(base_env.actions_dict[agent].pow(2).mean().sqrt()):.2f}"
+                        f"[diag] {tag} t={index * step_dt:4.1f}s base_z={base_z:.3f} "
+                        f"gravity_z={gravity_z:+.3f} action_rms="
+                        f"{float(base_env.actions_dict[agent].pow(2).mean().sqrt()):.3f}"
                     )
-            end_pos = robot.data.root_pos_w[0, :3]
+            displacement = robot.data.root_pos_w[0, :2] - start_pos[:2]
+            signed_progress = float(torch.dot(displacement, forward_xy))
+            dz = float(robot.data.root_pos_w[0, 2] - start_pos[2])
             p(
-                f"[diag] {tag} final: dz={float(end_pos[2] - start_pos[2]):+.2f} "
-                f"travel={float((end_pos[:2] - start_pos[:2]).norm()):.2f} "
-                f"pos=({float(end_pos[0]):.2f},{float(end_pos[1]):.2f},{float(end_pos[2]):.2f})"
+                f"[diag] {tag} result: signed_forward={signed_progress:+.3f}m "
+                f"dz={dz:+.3f}m min_base_z={min_base_z:.3f} "
+                f"worst_gravity_z={max_gravity_z:+.3f}"
+            )
+            return {
+                "signed_progress": signed_progress,
+                "min_base_z": min_base_z,
+                "max_gravity_z": max_gravity_z,
+            }
+
+        p("[diag] joint_names =", list(robot.joint_names))
+        p("[diag] root_pos =", robot.data.root_pos_w[0].tolist())
+        p(
+            "[diag] acceptance: "
+            f"stand>={MIN_STAND_SECONDS:.1f}s walk>={MIN_WALK_SECONDS:.1f}s "
+            f"min_base_z>={MIN_BASE_HEIGHT_M:.2f}m "
+            f"gravity_z<={MAX_PROJECTED_GRAVITY_Z:.2f} "
+            f"signed_forward>={MIN_FORWARD_PROGRESS_M:.2f}m "
+            f"stair_scan_range>={MIN_STAIR_SCAN_RANGE_M:.2f}m"
+        )
+        for path_key, mesh in (raycaster.meshes or {}).items():
+            p(
+                f"[diag] warp mesh {path_key}: points={getattr(mesh, 'points', ()).shape} "
+                f"indices={getattr(mesh, 'indices', ()).shape}"
             )
 
-        scan_stats("initial scan")
-        obs_stats("initial obs")
-        run(args.stand_s, (0.0, 0.0, 0.0), "stand")
+        initial_scan_range = scan_stats("initial stair scan")
+        current_observation()
+        stand = run(args.stand_s, (0.0, 0.0, 0.0), "stand")
         scan_stats("after stand")
-        obs_stats("after stand")
-        run(args.walk_s, (args.speed, 0.0, 0.0), "walk")
-        scan_stats("after walk")
-        p("[diag] done")
+        walk = run(args.walk_s, (args.speed, 0.0, 0.0), "walk")
+
+        if initial_scan_range < MIN_STAIR_SCAN_RANGE_M:
+            failures.append(
+                f"initial stair scan range {initial_scan_range:.3f}m < {MIN_STAIR_SCAN_RANGE_M:.3f}m"
+            )
+        for phase_name, metrics in (("stand", stand), ("walk", walk)):
+            if metrics["min_base_z"] < MIN_BASE_HEIGHT_M:
+                failures.append(
+                    f"{phase_name} min base height {metrics['min_base_z']:.3f}m < "
+                    f"{MIN_BASE_HEIGHT_M:.3f}m"
+                )
+            if metrics["max_gravity_z"] > MAX_PROJECTED_GRAVITY_Z:
+                failures.append(
+                    f"{phase_name} worst gravity z {metrics['max_gravity_z']:+.3f} > "
+                    f"{MAX_PROJECTED_GRAVITY_Z:+.3f}"
+                )
+        if walk["signed_progress"] < MIN_FORWARD_PROGRESS_M:
+            failures.append(
+                f"signed forward progress {walk['signed_progress']:.3f}m < "
+                f"{MIN_FORWARD_PROGRESS_M:.3f}m"
+            )
+
+        if failures:
+            for failure in failures:
+                p(f"[diag] FAIL: {failure}")
+        else:
+            p("[diag] PASS: flat stability, stair scan, finite tensors, and command response")
+        write_worker_result(args._result_file, ok=not failures, failures=failures)
 
 
 if __name__ == "__main__":

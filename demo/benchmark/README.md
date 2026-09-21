@@ -11,6 +11,13 @@ Each owns `config.py`, `scenario.py` and maintained `scenarios/*.json` files. Th
 `business_logistics_01.json` and `home_recovery_01.json` files are the reviewed
 business challenge inputs; `navigation_smoke.json` remains an explicitly named
 smoke fixture.
+The diagnostic IDs are `W-DAG-01` and `MH-DAG-01`; they measure allocation
+within a fixed DAG. Factory `F-INS-01` instead exposes limited control of one
+decision stage, and City `C-SERVICE-01` measures service components without a
+fixed business DAG. The House goal task is `MODERN_HOUSE-GOAL-01`.
+Maintained diagnostic scenarios include input-bound `.audit.json` sidecars;
+`python -m demo.benchmark.diagnostic_audit` verifies them without launching Isaac.
+Canonical native entrypoints and migration rules are in DELIVERY sections 1.1–1.2.
 The old `tools/scenario_generation/execute_episode.py` command delegates to
 `demo/benchmark/runtime.py`; imports remain compatible. Generation, admission,
 protocol analysis and physical calibration remain reusable tools. Scene task
@@ -34,9 +41,9 @@ observation.
 The author-side task contract and review are in
 [`TASK_DESIGN_REVIEW.zh-CN.md`](TASK_DESIGN_REVIEW.zh-CN.md) and `authoring.py`.
 They define what a task-writing model may regenerate, what is fixed by the
-benchmark, and which claims remain unmeasured. Warehouse and Modern House are
-currently fixed business DAG tracks with allocation and coordination decisions;
-they are not autonomous order or household-item planning evaluations.
+benchmark, and which claims remain unmeasured. The Warehouse and Modern House
+diagnostic fixtures use fixed business DAGs with allocation and coordination
+decisions; autonomous decomposition belongs to the goal-driven main track.
 
 Evidence scope, checked against the implementation on 2026-09-17: Warehouse v8
 and Modern House v6 completed full kinematic Isaac episodes under the same final
@@ -56,14 +63,21 @@ evidence only; execution and scoring remain external release gates.
 
 `python -m demo.benchmark.goal_suite list` lists the four task-generation
 registrations. `goal_suite audit --output-root <new-directory>` generates and
-reads back the three reviewed scene families across all nine factor conditions,
-freezes their contents, and checks 21 control/variant pairs. Supply
-`--city-package <city-prepare-directory> --verify-sources` to include the fourth
-scene as a hash-verified, explicitly blocked preparation candidate. This does
+reads back all four scene families across nine factor conditions (36 bundles),
+freezes their contents, and checks 28 control/variant pairs. Optionally supply
+`--city-package <city-prepare-directory> --verify-sources` to audit an additional
+City preparation candidate separately from its full goal bundles. This does
 not activate simulator scenes or city service skills. `goal_suite verify
 --output-root <directory> --verify-sources` repeats the audit from disk.
 See [the generation and handoff workflow](GOAL_SUITE.zh-CN.md) for source
 verification, reserved splits, city service proposals, and remaining owners.
+
+All four goal scenes use `GoalAlgorithmHost` in `goal_algorithm_adapter.py`:
+`initialize(public_task, participant_api)`, `act(new_public_events)`, `close()`.
+Actions use the existing goal protocol and are admitted by `GoalSession`.
+`CallableAlgorithmAdapter`/`ParticipantSession` serve the separate fixed-DAG
+diagnostic track. See [the algorithm handoff guide](ALGORITHM_HANDOFF.zh-CN.md)
+for executable integration checks, fixed-control policy and exported artifacts.
 
 `goal_session.py` adds a separate stateful admission ledger for the v2 goal API.
 `goal_navigation_probe` connects one author diagnostic dispatch to an actual
@@ -284,6 +298,19 @@ does not provide a complete
 geometry completeness, or establish RL tracking or flight safety. Motion-baseline
 failure must be reported separately from heterogeneous-team decisions. Live Isaac
 flight validation remains required.
+
+The benchmark keeps this low-level control stack fixed for algorithm comparisons.
+Navigation, locomotion and manipulation must use the frozen ideal/default
+execution contract; participant adapters cannot
+replace them with a global planner, db-CBS planner, custom grasp controller or
+raw trajectory executor. TeamWeaver and EMOS are the systems under test, so
+their observable difference is task decomposition, allocation, coordination,
+communication and replanning. Any additional controller or disturbance is a
+separately frozen factor and must not be mixed into the default comparison.
+This is a required comparison policy, not an attestation that every historical
+Isaac diagnostic already implements ideal controls. `ReliableSkillReferenceHost`
+provides deterministic symbolic motion/manipulation; live backend conformance
+and business receipts remain separate execution gates.
 
 Use `python tools/scenario_generation/export_capability_profiles.py --output <report.json>`
 or `--format html` to export the current 14-type coverage view. The export does not rank

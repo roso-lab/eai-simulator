@@ -32,19 +32,18 @@ def suite_copy(one_scene_suite, tmp_path):
     return root
 
 
-def test_city_registration_does_not_claim_a_full_goal_bundle():
+def test_city_registration_uses_same_authoring_bundle_without_execution_claims():
     scenes = {row["scene_key"]: row for row in registered_goal_scenes()}
     assert set(scenes) == {"factory", "warehouse_nvd", "modern_house_nvd", "city"}
-    assert scenes["city"]["package_kind"] == "preparation_draft_not_goal_bundle"
+    assert scenes["city"]["package_kind"] == "goal_bundle"
     scenes["factory"]["package_kind"] = "forged"
     assert goal_scene_registration("factory")["package_kind"] == "goal_bundle"
-    with pytest.raises(ValueError, match="prepared package"):
-        compile_registered_goal_scene("city")
-    with pytest.raises(ValueError, match="hidden treatments"):
-        compile_registered_goal_scene("city", city_package_dir="unused", factor_level="delayed")
+    for level in ("immediate", "delayed"):
+        compiled = compile_registered_goal_scene("city", factor_level=level)
+        assert compiled["bundle"]["hidden_evaluator"]["release_gate"]["scoreable"] is False
 
 
-def test_city_full_bundle_is_builder_admitted_while_the_registration_stays_a_draft():
+def test_city_full_bundle_is_builder_admitted_and_execution_stays_pending():
     from demo.benchmark.goal_driven_contract import validate_goal_bundle
     from demo.benchmark.goal_driven_tasks import build_goal_task_package, review_goal_task_design
 
@@ -54,15 +53,47 @@ def test_city_full_bundle_is_builder_admitted_while_the_registration_stays_a_dra
     assert review["authoring_status"] == "passed"
     assert review["execution_status"] == "external_pending"
     assert review["scoreable"] is False
-    # Registration keeps the participant-facing draft boundary: building the
-    # full bundle is an author/evaluator action behind its own release gate.
-    assert goal_scene_registration("city")["package_kind"] == "preparation_draft_not_goal_bundle"
+    assert goal_scene_registration("city")["package_kind"] == "goal_bundle"
+
+
+def test_default_suite_contains_four_scenes_with_equal_factor_coverage(tmp_path):
+    root = tmp_path / "four-scenes"
+    assert write_goal_suite(root) == {
+        "output_root": str(root),
+        "validated": True, "package_count": 36, "candidate_count": 0,
+        "factor_pair_count": 28, "scoreable": False, "held_out_validated": False,
+    }
+    assert verify_goal_suite(root, verify_sources=True)["package_count"] == 36
+    report = json.loads((root / "audit_report.json").read_text())
+    from collections import Counter
+    assert dict(Counter(r["scene_key"] for r in report["packages"])) == {
+        key: 9 for key in ("factory", "warehouse_nvd", "modern_house_nvd", "city")}
 
 
 def test_registered_goal_scene_uses_existing_full_contract():
     item = compile_registered_goal_scene("factory")
     assert item["bundle"]["public_task"]["mission"]["scene_key"] == "factory"
     assert "candidate" not in item
+
+
+def test_generation_rejects_concurrent_source_changes_without_optional_source_check(tmp_path, monkeypatch):
+    from demo.benchmark import goal_suite
+    source = tmp_path / "author.py"
+    source.write_text("original")
+    def bindings(keys):
+        return {key: {"revision": "test-source", "files": {str(source): file_sha256(source)}}
+                for key in keys}
+    original_build = goal_suite.build_goal_task_package
+    def concurrent_edit(*args, **kwargs):
+        source.write_text("changed during generation")
+        return original_build(*args, **kwargs)
+    monkeypatch.setattr(goal_suite, "_source_bindings", bindings)
+    monkeypatch.setattr(goal_suite, "build_goal_task_package", concurrent_edit)
+    destination = tmp_path / "suite"
+    with pytest.raises(ValueError, match="sources changed during suite generation"):
+        write_goal_suite(destination, scene_keys=["factory"])
+    assert not destination.exists()
+    assert not list(tmp_path.glob(".goal-suite-*"))
 
 
 def test_suite_roundtrip_keeps_existing_templates_reserved(one_scene_suite):

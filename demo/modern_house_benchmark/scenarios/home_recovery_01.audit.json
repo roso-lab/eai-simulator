@@ -1,4 +1,13 @@
 {
+  "schema": "eai.benchmark.diagnostic_scenario_audit",
+  "version": 1,
+  "scenario_file": "home_recovery_01.json",
+  "scenario_sha256": "4853c86aae07f4f306ae3eebba259fa3a4a477a1d7e6435189f48f78da736587",
+  "track_id": "MH-DAG-01",
+  "diagnostic_granularity": "fixed_dag_allocation",
+  "visibility": "author_only",
+  "execution_validated": false,
+  "scoreable": false,
   "admission": {
     "validated": true,
     "semantic_task": {
@@ -32,7 +41,7 @@
     "schema": "validated",
     "geometry": {
       "status": "placement_validated",
-      "map_sha256": "433537237394e3b7c9caaf904623770282dc369dbb12df26d8362a92694ee546",
+      "map_sha256": "bb5d56db76c879a929564adf892bcbfb3c4fca73e94e21e7550ccc63be3a7f94",
       "oracle_validated": false,
       "phase_execution": "not_implemented",
       "limitations": [
@@ -53,8 +62,8 @@
             "status": "clear",
             "admitted": true,
             "model": "continuous_swept_aabb_against_voxel_product",
-            "product_path": "/home/pupil/eai-simulator/usd/scene/modern_house_nvd/drone_voxels_0.25m.npz",
-            "product_sha256": "36a1af063997ff5792e22ba81e4b7ebb13abe03136d9827312d586f05b44a691",
+            "product_path": "usd/scene/modern_house_nvd/drone_voxels_0.25m.npz",
+            "product_sha256": "a3f5d4a0a29d14d71de7b278fba4ecb251248de220668943fd8be1ae2353c65d",
             "proxy_xy_block_size": 5,
             "ground_proxy_height_m": 0.8,
             "half_extents_m": [
@@ -77,8 +86,8 @@
             "status": "clear",
             "admitted": true,
             "model": "continuous_swept_aabb_against_voxel_product",
-            "product_path": "/home/pupil/eai-simulator/usd/scene/modern_house_nvd/drone_voxels_0.25m.npz",
-            "product_sha256": "36a1af063997ff5792e22ba81e4b7ebb13abe03136d9827312d586f05b44a691",
+            "product_path": "usd/scene/modern_house_nvd/drone_voxels_0.25m.npz",
+            "product_sha256": "a3f5d4a0a29d14d71de7b278fba4ecb251248de220668943fd8be1ae2353c65d",
             "proxy_xy_block_size": 5,
             "ground_proxy_height_m": 0.8,
             "half_extents_m": [
@@ -101,8 +110,8 @@
             "status": "clear",
             "admitted": true,
             "model": "continuous_swept_aabb_against_voxel_product",
-            "product_path": "/home/pupil/eai-simulator/usd/scene/modern_house_nvd/drone_voxels_0.25m.npz",
-            "product_sha256": "36a1af063997ff5792e22ba81e4b7ebb13abe03136d9827312d586f05b44a691",
+            "product_path": "usd/scene/modern_house_nvd/drone_voxels_0.25m.npz",
+            "product_sha256": "a3f5d4a0a29d14d71de7b278fba4ecb251248de220668943fd8be1ae2353c65d",
             "proxy_xy_block_size": 5,
             "ground_proxy_height_m": 0.8,
             "half_extents_m": [
@@ -120,9 +129,9 @@
         }
       ],
       "input_file_hashes": {
-        "/home/pupil/eai-simulator/usd/scene/modern_house_nvd/drone_voxels_0.25m.npz": "36a1af063997ff5792e22ba81e4b7ebb13abe03136d9827312d586f05b44a691",
-        "/home/pupil/eai-simulator/usd/scene/modern_house_nvd/ground_map_0.6m.yaml": "f53147775cda3b12937108b5fba3ab63ba5dd95ce5ae68f2416570c8a0d9cb6a",
-        "/home/pupil/eai-simulator/usd/scene/modern_house_nvd/ground_map_0.6m.png": "9a5e702d126984ea7652ce504d2eb49d84be583c288b0091b92f95aa91c7a5a5"
+        "usd/scene/modern_house_nvd/drone_voxels_0.25m.npz": "a3f5d4a0a29d14d71de7b278fba4ecb251248de220668943fd8be1ae2353c65d",
+        "usd/scene/modern_house_nvd/ground_map_0.6m.yaml": "f53147775cda3b12937108b5fba3ab63ba5dd95ce5ae68f2416570c8a0d9cb6a",
+        "usd/scene/modern_house_nvd/ground_map_0.6m.png": "77c9e7676204f52cdce4c17a9e6cde1b021fba9bcec331aa5cf5051e2001b64a"
       },
       "scope": "sequential_declared_object_positions_and_static_voxel_geometry",
       "execution_validated": false,

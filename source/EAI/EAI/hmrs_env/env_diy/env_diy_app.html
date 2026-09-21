@@ -1435,7 +1435,7 @@
           carter: { label: "Carter", image: "../../../../../usd/picture/processed/robot/carter.png", cfg: "CARTER_DIFF_CFG" },
           simple_car: { label: "SimpleCar", image: "../../../../../usd/picture/processed/robot/simple_car.png", cfg: "SIMPLE_CAR_PLANAR_CFG" },
           pepper: { label: "Pepper", image: "../../../../../usd/picture/processed/robot/pepper.png", cfg: "PEPPER_HOLONOMIC_CFG" },
-          go2: { label: "Go2", image: "../../../../../usd/picture/processed/robot/go2.png", cfg: "GO2_VELOCITY_RSL_CFG" },
+          go2: { label: "Go2", image: "../../../../../usd/picture/processed/robot/go2.png", cfg: "GO2_VELOCITY_RSL_CFG", controllerCfgs: ["GO2_VELOCITY_RSL_CFG", "GO2_MIXED_STAIRS_CFG", "GO2_MIXED_STAIRS_CONTINUED_CFG"] },
           b2: { label: "B2", image: "../../../../../usd/picture/processed/robot/b2.png", cfg: "B2_VELOCITY_RSL_CFG" },
           m20: { label: "M20", image: "../../../../../usd/picture/processed/robot/M20.png", cfg: "M20_ROUGH_RSL_CFG" },
           scout: { label: "Scout", image: "../../../../../usd/picture/processed/robot/scout.png", cfg: "SCOUT_DIFF_CFG" },
@@ -2190,7 +2190,8 @@
             key: "robot",
             label: catalog.robots[robot.type].label,
             controller: robot.controller,
-            defaultCfg: catalog.robots[robot.type].cfg
+            defaultCfg: catalog.robots[robot.type].cfg,
+            choices: catalog.robots[robot.type].controllerCfgs || [catalog.robots[robot.type].cfg]
           },
           ...robot.payloads.filter(payload => payload.controller).map(payload => ({
             key: "payload:" + payload.type,
@@ -2214,6 +2215,7 @@
             return '<section class="controller-card' + (focused ? " is-focused" : "") + '">' +
               '<h3>' + escapeHtml(target.label) + '</h3>' +
               '<p>Default: ' + escapeHtml(target.defaultCfg) + '</p>' +
+              '<p>Available: ' + escapeHtml((target.choices || [target.defaultCfg]).join(', ')) + '</p>' +
               '<div class="mode-control" role="group" aria-label="' + escapeHtml(target.label) + ' Controller 模式">' +
                 '<button class="mode-button' + (target.controller.mode === "default" ? " is-active" : "") + '" type="button" data-action="controller-mode" data-target="' + escapeHtml(target.key) + '" data-mode="default">Default</button>' +
                 '<button class="mode-button' + (target.controller.mode === "manual" ? " is-active" : "") + '" type="button" data-action="controller-mode" data-target="' + escapeHtml(target.key) + '" data-mode="manual">Manual</button>' +
@@ -2783,7 +2785,7 @@
       window.addEventListener("blur", finishLineagePan);
 
       document.getElementById("known-cfg-values").replaceChildren(
-        ...Object.values(catalog.robots).map(entry => entry.cfg)
+        ...Object.values(catalog.robots).flatMap(entry => entry.controllerCfgs || [entry.cfg])
           .concat(Object.values(catalog.manipulators).map(entry => entry.cfg))
           .map(cfg => {
             const option = document.createElement("option");

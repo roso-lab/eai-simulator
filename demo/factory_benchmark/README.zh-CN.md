@@ -1,11 +1,17 @@
 # Factory benchmark 应用
 
-[English](README.md) · [交付状态总览](../benchmark/DELIVERY.zh-CN.md)
+[English](README.md) · [交付状态总览](../benchmark/DELIVERY.zh-CN.md) · [Go2 运动基座](../benchmark/GO2_LOCOMOTION_BASE.zh-CN.md)
 
-> **当前状态（2026-09-19 · 阶段18）**
+**主轨交接更新（2026-09-20）**：`FACTORY-GOAL-01` 与其他三场景使用同一生成、作者审核和
+`GoalAlgorithmHost` / `GoalSession` 接口；默认 suite 中每场景九条件题包、七对因子对照。
+导航、移动和抓取采用统一固定默认技能策略；下面的原生实测记录属于独立诊断证据。
+接入和复跑步骤见 [交接指南](../benchmark/ALGORITHM_HANDOFF.zh-CN.md)，正式执行仍单独验收。
+
+> **当前状态（2026-09-21 · benchmark 基座更新）**
 >
 > - **可跑**：F-INS-01 证据派遣题包（四层发布 + 派车矩阵 + ArUco 标签工程基线）；F-TRAFFIC 共享通道 / F-COV 覆盖对照任务及分配比较工具；楼梯实测绑定（`flight_02`，根层+67 依赖层 hash）与 F-VERT-01 候选编译入口；14 型配置 smoke 与能力画像导出；`--check-assets` 场景闭包审计。
-> - **被阻断**：连续爬楼——现有 RL 运动模型不支撑（首级/第二级 probe 以 `support_unknown` fail-closed），已决定**更换运动模型后再验**，楼梯题面保持开放；楼梯意图 Isaac adapter、PhysX 支撑/连通性校准 pending。B2 二维路线的地图膨胀问题已定位（楼梯排除区 + tracking reserve 重复膨胀，垂直接近段 0.0m reserve 后校准成功）。
+> - **运动基座**：F-VERT-01 默认 Go2 已切换到继续训练的 `GO2_MIXED_STAIRS_CONTINUED_CFG`（checkpoint 3999），模型权重由 resolver 从 `controller/rl/go2_mixed_stairs/model/policy.continued3999.onnx` 提供；原 Stage-A `GO2_MIXED_STAIRS_CFG` 仍可显式回退。M20 保留已有楼梯能力基线。
+> - **仍待验收**：Go2 新模型需要重新生成连续上行、平台停留和下行的独立 PhysX 证据，当前题包仍不晋升；B2 运动模型仍在修复，不能写成楼梯通过。楼梯意图 Isaac adapter、PhysX 支撑/连通性校准继续 pending。
 > - **发布口径**：`release_status=pending`、`scoreable=false`（fail-closed 设计）。
 
 ## 目录模块
@@ -141,9 +147,10 @@ waypoint 距离或朝向误差的单调改善；来回振荡不能反复重置�
 - 模型只可提交给定机器人的路线意图或有界等待；格式校验不会启动运动，
   `executed_action_types=[]`。此单机诊断未启用生命周期/通信实验，尚无业务轨道的
   `factor_manifest` 和实时事件输入。
-- 探针实测现状：Go2 `first_tread`/`second_tread` 到达目标后以
-  `support_contact_gap_timeout` fail-closed；低速命令死区已修正（统一 0.55 m/s 公共
-  导航基线）；B2 接触采样和校准成功。连续上行/下行证据待更换运动模型后生成。
+- 探针基座现状：维护场景和 `go2_factory_stairs` 默认环境均使用继续训练的 Go2
+  `GO2_MIXED_STAIRS_CONTINUED_CFG`；旧 Stage-A 仅作回退对照。M20 是已有楼梯能力基线。
+  Go2 新模型的连续上行/平台停留/下行证据尚未入库；B2 仍处于运动模型修复阶段，
+  其接触采样记录不等同于楼梯通过。
 
 ## F-INS 工程基线（标签与派车）
 

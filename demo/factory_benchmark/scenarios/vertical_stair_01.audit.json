@@ -1,0 +1,32 @@
+{
+  "schema": "eai.benchmark.diagnostic_scenario_audit",
+  "version": 1,
+  "scenario_file": "vertical_stair_01.json",
+  "scenario_sha256": "591777acbf778391ef6c8c8c7ec3a62f7b821951b1fbc09175c84c81ef6dc813",
+  "track_id": "F-VERT-01",
+  "diagnostic_granularity": "platform_locomotion",
+  "visibility": "author_only",
+  "execution_validated": false,
+  "scoreable": false,
+  "admission": {
+    "validated": true,
+    "schema": "validated",
+    "scope": "schema_and_factory_task_contract_only"
+  },
+  "task_design_review": {
+    "schema": "eai.factory_task_design_review",
+    "version": 1,
+    "task_id": "F-VERT-01",
+    "track": "factory_vertical_probe_v1",
+    "validated": true,
+    "node_ids": [
+      "stair_access_check"
+    ],
+    "model_decides": [
+      "navigate_goal",
+      "wait"
+    ],
+    "execution_validated": false,
+    "release_ready": false
+  }
+}

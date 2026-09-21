@@ -51,6 +51,33 @@ def _binding():
     return build_episode_binding(_binding_map(), people_count=4, seed=7)
 
 
+def test_live_route_replanning_preserves_instantiated_spawn_evidence():
+    from copy import deepcopy
+    binding = _binding()
+    frozen_binding = deepcopy(binding)
+    specs = service_probe._binding_roster_specs(binding)
+    starts = {row["person_id"]: list(row["start_xyz"])
+              for row in binding["affected_person_roster"]}
+    live = {spec.person_id: (spec.start_xyz[0] + .2, spec.start_xyz[1], spec.start_xyz[2])
+            for spec in specs}
+    service_probe._instantiate_evacuation_routes(
+        binding, specs, (1000., 1000., 0.), [], live_origins=live)
+    assert {row["person_id"]: row["start_xyz"]
+            for row in binding["affected_person_roster"]} == starts
+    assert {spec.person_id: list(spec.start_xyz) for spec in specs} == starts
+    assert binding == frozen_binding
+
+
+def test_dynamic_replan_grid_preserves_self_and_respects_body_offset():
+    grid = service_probe._dynamic_route_grid(
+        {"self": {"min": [-10., -10., 0.], "max": [10., 10., 2.]},
+         "car": {"min": [-2., 1., 0.], "max": [-1., 2., 2.]}},
+        "self", (.4, .3, 1.), (.1, 0., 1.))
+    assert (0, 0) not in grid
+    assert (-5, 1) in grid
+    assert (-2, 4) in grid
+
+
 def _write_json(path: Path, value) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, ensure_ascii=False, allow_nan=False), encoding="utf-8")
@@ -83,6 +110,7 @@ def test_prepare_with_standalone_binding_document_enters_formal_mode(tmp_path):
     assert result["episode_binding_source_kind"] == "binding_document"
     assert result["episode_binding_map_review"] is None
     assert result["scoreable"] is False
+    assert result["bounded"] == {"people_assembly_arrival_s": 120., "max_episode_s": 180.}
     assert result["requires"] == ["scene_query_support", "cpu_current_physx_queries",
                                   "bound_roster_spawn_from_episode_binding",
                                   "all_active_following_vehicles_bound_at_instantiation"]

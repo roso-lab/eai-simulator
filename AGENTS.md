@@ -335,6 +335,9 @@ After the final scene starts, the launcher resolves declared interfaces for the 
 | Stable algorithm entry points | `algorithm/emos/`; `algorithm/TeamWeaver/`; `algorithm/global_planner/`; `algorithm/multi_robot_navigation/`; `algorithm/keyboard/keyboard.py`; `algorithm/nav2/`; `tools/ros2/vis_sensors.py`; `tools/ros2/send_cmd_vel.py`; `tools/ros2/send_manipulator_command.py` | EMOS, TeamWeaver, db-CBS multi-robot navigation, 2D planning, keyboard Twist publishing, and external Nav2 integration are optional clients/integrations. The `tools/ros2/` clients are operational tools, not control algorithms. Keep the core planners, EMOS, and TeamWeaver independent of simulator construction; keep the db-CBS core and EAI adapter together in `multi_robot_navigation/`. db-CBS motion primitives are ignored provider payloads installed only after size and SHA-256 verification. |
 | Fire Rescue demo | `demo/fire_rescue/main.py`; `demo/fire_rescue/experiment.py`; `demo/fire_rescue/runtime/` | Uses the reusable session API and adapts simulator state to demo algorithms. Do not turn its scenario-specific behavior into a core launcher default. |
 | Multi-robot navigation integration | `algorithm/multi_robot_navigation/integration.py`; `source/EAI_hmrs/EAI_hmrs/envs/dbcbs_slam_team.json` | Exercises the reusable multi-robot navigation component in one simulator session. The integration entry point owns CLI and mission choices; the algorithm package owns planning and action generation. |
+| Benchmark algorithm adapter and statistics | `demo/benchmark/goal_algorithm_adapter.py`; `demo/benchmark/algorithm_adapter.py`; `demo/benchmark/participant_runtime.py` | All four goal tracks use GoalAlgorithmHost/GoalSession and an explicit `eai.benchmark.goal_algorithm_adapter` manifest; generic/fixed-DAG manifests fail fast. CallableAlgorithmAdapter/ParticipantSession belong to fixed-DAG diagnostics. TeamWeaver and EMOS are systems under test; only high-level team decisions vary. Fixed ideal navigation/locomotion/manipulation is required policy, not runtime attestation. Run manifests bind frozen task/control/factor inputs; the callback thread pool must not create concurrent Isaac applications. External developers own process/machine scheduling. See ALGORITHM_HANDOFF.zh-CN.md. |
+| Four-scene task handoff matrix | `demo/benchmark/handoff_manifest.py`; `demo/benchmark/goal_suite.py`; `demo/benchmark/goal_driven_tasks.py`; `demo/benchmark/goal_driven_contract.py` | Export/readback re-audits actual four-layer bundles, exact file inventory and content hashes. The default suite has 36 bundles/28 factor pairs across four scenes; optional City preparation remains separate. Reports use v2; regenerate old v1 exports. All main tracks use GoalSession; diagnostic boundaries differ. Isaac execution, held-out validation and scoreability remain independent gates. |
+| Handoff preflight | `demo/benchmark/handoff_preflight.py` | Fresh-directory offline preflight generates and reads back the suite/handoff, checks the exact three-file public release inventory, and runs one public GoalAlgorithmHost turn per scene. It must not start Isaac, ROS, or an external scheduler; it cleans partial output on failure. |
 | Maintained USD metadata and runtime/generated data | `usd/`; `tmp/`; `source/EAI_assets/EAI_assets/asset_resolver.py` | `usd/` keeps tracked manifests/thumbnails; resolver-managed production assets and `tmp/` output are runtime data. Do not commit resolver downloads or transient output by default. |
 | Tests | `source/EAI/test/`; `source/EAI_assets/test/`; package-local test files discovered by `git ls-files` | Tests are authoritative behavioral evidence for their covered paths. Keep tests lightweight unless an Isaac/ROS integration boundary specifically requires otherwise. |
 
@@ -2148,6 +2151,24 @@ ss -ltnp | rg ':(8766|8767)\b' || true
 Current non-headless dashboard startup scans these ports and can send `SIGKILL` to other detected holders before binding. Do not casually start the dashboard-enabled demo on a shared host. If either port belongs to another user, service, or experiment, coordinate with its owner or choose an isolated host/session; do not terminate it. `python -m demo.fire_rescue.main --headless` does not start the dashboard or image stream, but it remains a heavy Isaac/EMOS integration launch, not a generic smoke test.
 
 ## 15. Generated Files, Caches, and Files Not to Commit
+
+### Maintained benchmark diagnostic fixtures
+
+`demo/benchmark/DELIVERY.zh-CN.md` sections 1.1–1.2 define diagnostic granularity,
+canonical track IDs and native entrypoints. City uses service component measurements,
+not a fixed business DAG. F-INS limited control differs from Warehouse/House allocation
+inside a predefined DAG; F-VERT remains an unscored locomotion probe.
+
+New scene diagnostic entrypoints use `native_probe.py` or `native_probe_<purpose>.py`;
+preserve legacy CLI wrappers. The seven inputs listed in
+`demo.benchmark.diagnostic_audit.MAINTAINED_SCENARIOS` and their `.audit.json` sidecars
+are maintained source fixtures and must be versioned together. Regenerate with
+`python -m demo.benchmark.diagnostic_audit --write`, then verify with the same command
+without `--write`. Audits bind input SHA-256 and state their actual validation scope;
+they are author QA, not evidence of runtime execution or scoring eligibility.
+Keep native reports, runtime snapshots, logs, downloaded assets and other `tmp/`
+outputs untracked. Preserve historical bundle IDs/hashes; regenerate a complete bundle
+and freeze when migrating to `MODERN_HOUSE-GOAL-01`, `W-DAG-01` or `MH-DAG-01`.
 
 `.gitignore` is broad and order-sensitive. Repository-relative ignored runtime/cache roots include `/log/`, `/logs/`, `/tmp/`, `/.worktrees/`, `/.superpowers/`, `/docs/superpowers/`, `/.agents/`, `/.agentmemory/`, `/memory/`, `/data/`, `/.pretrained_checkpoints/`, `/datasets/`, `/test_results/`, controller downloads below `/source/EAI_assets/EAI_assets/controller/`, and most of `/usd/`. Recursive ignores also cover `__pycache__/`, `.pytest_cache/`, `.cache/huggingface/`, `node_modules/`, `test-results/`, `playwright-report/`, build directories, logs, outputs, videos, experiment tracking, generated documentation, and package metadata.
 

@@ -67,6 +67,7 @@ def test_candidate_loads_generic_v2_and_opens_explicit_stair_without_proving_geo
     scenario = load_scenario(DEFAULT_SCENARIO)
     assert scenario["scene_key"] == "factory"
     assert scenario["benchmark_task_id"] == "F-VERT-01"
+    assert scenario["robots"][0]["controller"]["cfg"] == "GO2_MIXED_STAIRS_CONTINUED_CFG"
     node = scenario["phase_graph"]["nodes"][0]
     assert node["skill_key"] == "navigate"
     assert node["vertical"]["link_id"] == "main_stair"
@@ -221,6 +222,7 @@ def test_compiler_rejects_misbound_or_promoted_candidates(tmp_path, change, matc
     geometry = declaration["geometry_declaration"]
     if change == "task_id":
         scenario["benchmark_task_id"] = "F-INS-01"
+        scenario["robots"][0]["controller"]["cfg"] = "GO2_VELOCITY_RSL_CFG"
     elif change == "link":
         node["vertical"]["link_id"] = "west_ramp"
     elif change == "support":

@@ -1,10 +1,9 @@
 """Generate, freeze and read back the goal-task authoring matrix.
 
 This author-only command does not launch a simulator, execute a participant or
-score an episode. City preparation drafts remain separate participant
-artifacts: the suite copies and re-intakes the draft, and additionally audits
-the declaration-level city goal bundle (design review plus one concrete
-communication factor pair) without promoting the draft or claiming scoring.
+score an episode. All four scenes produce the same nine-condition goal matrix.
+Optional City preparation drafts are copied and re-intaken separately;
+including a draft never promotes it or claims scoring readiness.
 Existing public templates are reserved for further review, not called
 secret held-out evaluation data.
 """
@@ -99,8 +98,8 @@ def _select_scenes(scene_keys, city_package_dir):
         raise ValueError("scene_keys must be a nonempty list of distinct registered scenes")
     for key in scene_keys:
         goal_scene_registration(key)
-    if "city" in scene_keys and city_package_dir is None:
-        raise ValueError("city requires --city-package from demo.city_benchmark.prepare")
+    if city_package_dir is not None and "city" not in scene_keys:
+        raise ValueError("--city-package requires city in the selected scene matrix")
     return list(scene_keys)
 
 
@@ -120,6 +119,7 @@ def write_goal_suite(output_root, *, scene_keys=None, city_package_dir=None, ver
         if destination.resolve() == city_root or city_root in destination.resolve().parents:
             raise ValueError("suite output must not modify the source city preparation package")
     bundle_keys = [key for key in keys if goal_scene_registration(key)["package_kind"] == "goal_bundle"]
+    source_bindings = _source_bindings(bundle_keys)
     destination.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=".goal-suite-", dir=destination.parent))
     reserved_destination = False
@@ -149,7 +149,7 @@ def write_goal_suite(output_root, *, scene_keys=None, city_package_dir=None, ver
                         packages[f"{factor}/{levels[0]}/{scene}"], packages[f"{factor}/{level}/{scene}"],
                         factor_id=factor))
         candidates = []
-        if "city" in keys:
+        if "city" in keys and city_package_dir is not None:
             from .goal_city_intake import load_city_goal_candidate
             from .goal_service_catalog import public_service_proposals, review_service_requirements
 
@@ -172,10 +172,9 @@ def write_goal_suite(output_root, *, scene_keys=None, city_package_dir=None, ver
             _write(staging / "authoring/city_service_proposals.json", public_service_proposals())
             _write(staging / "authoring/city_service_review.json", service_review)
             _write(staging / "authoring/city_intake.json", _city_intake_summary(copied))
-            # The full city goal bundle is audited here, not copied or frozen:
-            # its declaration-level witnesses and concrete treatments must
-            # build and review cleanly, while the participant-facing draft and
-            # formal scoring stay behind their own release gates.
+            # The goal matrix above already freezes the full City bundles.
+            # Keep the optional preparation intake's compatibility reports
+            # separate from those bundles and from formal execution gates.
             city_bundle = build_goal_task_package("city")
             city_review = review_goal_task_design(city_bundle["public_task"],
                                                   city_bundle["hidden_evaluator"]["witness_plans"])
@@ -195,12 +194,13 @@ def write_goal_suite(output_root, *, scene_keys=None, city_package_dir=None, ver
         if packages:
             freeze = build_goal_freeze_manifest(
                 packages, split_assignments={key: "reserved" for key in packages},
-                source_bindings=_source_bindings(bundle_keys), scope="authoring_candidate")
+                source_bindings=source_bindings, scope="authoring_candidate")
             freeze_path = "authoring/freeze_manifest.json"
             (staging / "authoring").mkdir(exist_ok=True)
             write_goal_freeze_manifest(freeze, staging / freeze_path)
         report = {
-            "schema": "eai.benchmark.goal_suite_audit", "version": 1, "visibility": "author_only",
+            "schema": "eai.benchmark.goal_suite_audit", "version": 2, "visibility": "author_only",
+            "city_preparation_included": bool(candidates),
             "registered_scenes": registered_goal_scenes(), "included_scene_keys": keys,
             "package_count": len(records), "candidate_count": len(candidates),
             "factor_pair_count": len(factor_pairs), "packages": records, "candidates": candidates,
@@ -212,6 +212,8 @@ def write_goal_suite(output_root, *, scene_keys=None, city_package_dir=None, ver
         }
         _write(staging / "audit_report.json", report)
         verified = verify_goal_suite(staging, verify_sources=verify_sources)
+        if _source_bindings(bundle_keys) != source_bindings:
+            raise ValueError("authoring sources changed during suite generation; regenerate from stable inputs")
         # mkdir reserves the destination exclusively. Replacing our own empty
         # directory publishes the staged suite; any pre-existing result fails.
         destination.mkdir()
@@ -237,12 +239,15 @@ def verify_goal_suite(output_root, *, verify_sources=False):
     if type(verify_sources) is not bool:
         raise ValueError("verify_sources must be a boolean")
     report = _read(_relative_file(root, "audit_report.json"))
-    if (report.get("schema") != "eai.benchmark.goal_suite_audit" or report.get("version") != 1
+    if (report.get("schema") != "eai.benchmark.goal_suite_audit" or report.get("version") != 2
             or report.get("visibility") != "author_only"):
         raise ValueError("unsupported goal suite audit report")
     if report.get("registered_scenes") != registered_goal_scenes():
         raise ValueError("suite scene registry is stale")
-    _select_scenes(report.get("included_scene_keys"), root / "candidates/city")
+    if type(report.get("city_preparation_included")) is not bool:
+        raise ValueError("suite must declare whether city preparation is included")
+    _select_scenes(report.get("included_scene_keys"),
+                   root / "candidates/city" if report["city_preparation_included"] else None)
     if any(report.get(key) is not False for key in ("held_out_validated", "execution_validated", "scoreable")):
         raise ValueError("authoring suite cannot claim held-out, execution or scoring validation")
     inventory = report.get("artifact_sha256")
@@ -323,7 +328,7 @@ def verify_goal_suite(output_root, *, verify_sources=False):
         raise ValueError("suite without admitted bundles cannot have a goal freeze manifest")
     if report["candidate_count"] != len(report["candidates"]):
         raise ValueError("suite candidate count mismatch")
-    if bool(report["candidates"]) != ("city" in report["included_scene_keys"]):
+    if bool(report["candidates"]) != report["city_preparation_included"]:
         raise ValueError("suite city registration and candidate coverage differ")
     if len(report["candidates"]) > 1:
         raise ValueError("suite may include only one prepared city candidate")

@@ -142,6 +142,7 @@ _CONTROLLER_CFG_NAMES = (
     "PEPPER_HOLONOMIC_CFG",
     "GO2_VELOCITY_RSL_CFG",
     "GO2_MIXED_STAIRS_CFG",
+    "GO2_MIXED_STAIRS_CONTINUED_CFG",
     "B2_VELOCITY_RSL_CFG",
     "M20_ROUGH_RSL_CFG",
     "SCOUT_DIFF_CFG",
@@ -158,6 +159,12 @@ _CONTROLLER_CFG_NAMES = (
     "UR5_IK_CFG",
     "Z1_IK_CFG",
 )
+
+_CONTROLLER_CFG_ROBOTS = {
+    "GO2_VELOCITY_RSL_CFG": ("go2",),
+    "GO2_MIXED_STAIRS_CFG": ("go2",),
+    "GO2_MIXED_STAIRS_CONTINUED_CFG": ("go2",),
+}
 
 
 @dataclass(frozen=True)
@@ -236,6 +243,18 @@ def default_controller_cfg(robot_type: str) -> str:
 
 def controller_cfg_names() -> tuple[str, ...]:
     return _CONTROLLER_CFG_NAMES
+
+
+def controller_cfgs_for_robot(robot_type: str) -> tuple[str, ...]:
+    """Return the registered motion-controller choices for one robot type."""
+    key = canonical_robot_type(robot_type)
+    default = default_controller_cfg(key)
+    choices = [default]
+    choices.extend(
+        cfg for cfg, supported in _CONTROLLER_CFG_ROBOTS.items()
+        if key in supported and cfg != default
+    )
+    return tuple(choices)
 
 
 def _attachment_entries() -> tuple[AttachmentCatalogEntry, ...]:

@@ -70,7 +70,7 @@ class EpisodeAffectedPeopleController:
         follower = PathFollower(
             actor_id=actor_id, waypoints=(current, *waypoints),
             speed=float(spec["speed_mps"]), loop=False,
-            locomotion=actor.pending_pose.locomotion if actor.pending_pose is not None else "walk",
+            locomotion=str(spec.get("motion", "walk")),
             movement_gate=actor._movement_gate)
         actor._follower = follower
         actor._movement_mode = "path"

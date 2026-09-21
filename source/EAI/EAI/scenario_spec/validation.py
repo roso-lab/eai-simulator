@@ -112,6 +112,10 @@ def validate_scenario(payload, known_floors=None):
     if errors:
         raise ScenarioError("; ".join(f"{'.'.join(map(str, e.absolute_path)) or '$'}: {e.message}" for e in errors[:8]))
     data = deepcopy(payload)
+    diagnostic_scene = {"W-DAG-01": "warehouse_nvd", "MH-DAG-01": "modern_house_nvd"}.get(
+        data.get("benchmark_task_id"))
+    if diagnostic_scene is not None and data["scene_key"] != diagnostic_scene:
+        raise ScenarioError("diagnostic benchmark_task_id does not match scene_key")
     if known_floors is None:
         known_floors = _DEFAULT_FACTORY_FLOORS
     counts = Counter()
@@ -134,7 +138,16 @@ def validate_scenario(payload, known_floors=None):
         counts[key] += 1
         if robot["id"] != f"{key}_{counts[key]}":
             raise ScenarioError(f"robot id must be {key}_{counts[key]} to match EAI runtime naming")
-        if robot["controller"]["cfg"] != catalog.default_controller_cfg(key):
+        controller_cfg = robot["controller"]["cfg"]
+        vertical_go2_policy = (
+            data.get("benchmark_task_id") == "F-VERT-01"
+            and key == "go2"
+            and controller_cfg in {
+                "GO2_MIXED_STAIRS_CFG",
+                "GO2_MIXED_STAIRS_CONTINUED_CFG",
+            }
+        )
+        if controller_cfg != catalog.default_controller_cfg(key) and not vertical_go2_policy:
             raise ScenarioError(f"{robot['id']}: use the registered default controller")
         attachments = [item["type"] for item in robot["attachments"]]
         if len(attachments) != len(set(attachments)):

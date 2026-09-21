@@ -2,6 +2,11 @@
 
 [中文](README.zh-CN.md) · [Delivery status overview (zh)](../benchmark/DELIVERY.zh-CN.md)
 
+**Goal-track handoff (2026-09-20):** `WAREHOUSE-GOAL-01` uses the same
+`GoalAlgorithmHost` / `GoalSession` interface and nine-condition authoring matrix
+as all four scenes. Low-level skills follow a fixed benchmark policy; native
+execution evidence remains a separate gate. See the [handoff guide](../benchmark/ALGORITHM_HANDOFF.zh-CN.md).
+
 > **Status (2026-09-19, stage 18)** — Runnable: single-robot fixed-point
 > carry/transport/release with dock receipt (stage-18 v5 PhysX recheck, anchor
 > error 4.76μm); kinematic reference episode v8 (10/10 nodes); native object/

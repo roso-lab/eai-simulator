@@ -139,7 +139,8 @@ def scenario_schema(*, strict=False):
     })
     root = obj({"version": {"type": "integer", "enum": [2]}, "task_name": identifier,
                 "benchmark_task_id": {"type": "string", "enum": [
-                    "F-INS-01", "F-TRAFFIC-01", "F-COV-01", "F-VERT-01"]},
+                    "F-INS-01", "F-TRAFFIC-01", "F-COV-01", "F-VERT-01",
+                    "W-DAG-01", "MH-DAG-01"]},
                 "scene_key": {"type": "string", "enum": ["factory", "warehouse_nvd", "modern_house_nvd"]},
                 "seed": {"type": "integer", "minimum": 0, "maximum": 2147483647},
                 "robots": array(robot, 1, 8),

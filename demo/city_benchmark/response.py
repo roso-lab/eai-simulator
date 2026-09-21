@@ -326,12 +326,17 @@ def spawn_response_people(stage: Any, people: Sequence[ResponsePersonSpec], *, r
                             "height_m": float(bounds.GetMax()[2] - bounds.GetMin()[2])})
     return runtime, HumanEvacuationBinding(runtime, {spec.person_id: spec for spec in people}), records
 
+def _grid_cell(xy):
+    """Half-metre cells use their lower corner, including west/south of zero."""
+    return (math.floor(float(xy[0]) * 2), math.floor(float(xy[1]) * 2))
+
+
 def _obstacle_grid(obstacles: Sequence[Mapping[str, Any]], *, half_xy: float,
                    z_window: tuple[float, float]) -> frozenset[tuple[int, int]]:
     """把静态障碍 bbox 栅格化（0.5 m 格，含 half_xy 膨胀），供段级清障检查。
 
     z 窗口覆盖行人行走高度带的障碍才入栅。返回被占用格集合（格索引 =
-    (int(x*2), int(y*2))）。
+    (floor(x*2), floor(y*2))）。
     """
     cells: set[tuple[int, int]] = set()
     for obstacle in obstacles:
@@ -378,19 +383,19 @@ def _segment_obstruction(points: Sequence[Sequence[float]], *, grid,
         for step in range(steps + 1):
             t = step / steps
             px, py = ax + (bx - ax) * t, ay + (by - ay) * t
-            if (int(px * 2), int(py * 2)) in grid:
+            if _grid_cell((px, py)) in grid:
                 return True
     return False
 
 
 def _astar_leg(grid, start_xy, goal_xy, *, max_expand=200000):
-    """在 0.5 m 障碍栅格上从 start 到 goal 的 8 连通 A*，返回世界坐标航点。
+    """在 0.5 m 障碍栅格上从 start 到 goal 的 4 连通 A*，返回世界坐标航点。
 
     无解或超限返回 None。航点为栅格中心，够稀疏（折点保留）。
     """
     import heapq
-    start = (int(start_xy[0] * 2), int(start_xy[1] * 2))
-    goal = (int(goal_xy[0] * 2), int(goal_xy[1] * 2))
+    start = _grid_cell(start_xy)
+    goal = _grid_cell(goal_xy)
     if start in grid or goal in grid:
         return None
     heap = [(0.0, start)]
@@ -436,7 +441,7 @@ def _astar_leg(grid, start_xy, goal_xy, *, max_expand=200000):
 def _nearest_clear_point(grid, xy, *, max_radius_m: float = 15.0):
     """从 xy 起环形搜索最近的未占用格中心（0.5 m 栅格）。"""
     import itertools
-    cx, cy = int(xy[0] * 2), int(xy[1] * 2)
+    cx, cy = _grid_cell(xy)
     if (cx, cy) not in grid:
         return (float(xy[0]), float(xy[1]))
     for radius in range(1, int(max_radius_m * 2) + 1):
@@ -464,27 +469,35 @@ def _nearest_clear_in_goal_component(grid, xy, goal_xy, *,
     重定位到目标连通域内、原点半径内的最近可达格——语义为该员从可通行
     位置出现。半径界防止在空旷栅格上无界扩张把出生点搬到目标旁。
     """
-    goal = (int(goal_xy[0] * 2), int(goal_xy[1] * 2))
+    from collections import deque
+
+    goal = _grid_cell(goal_xy)
     if goal in grid:
         return None
     origin = (float(xy[0]), float(xy[1]))
     best, best_dist = None, None
+    origin_cell = _grid_cell(origin)
+    limit = math.ceil(max_radius_m * 2)
+    lower = tuple(min(goal[i], origin_cell[i] - limit) for i in range(2))
+    upper = tuple(max(goal[i], origin_cell[i] + limit) for i in range(2))
     seen = {goal}
-    stack = [goal]
-    limit = max_radius_m * 2
-    while stack:
-        if len(seen) > max_cells:
-            break
-        cx, cy = stack.pop()
+    queue = deque([goal])
+    while queue:
+        cx, cy = queue.popleft()
         wx, wy = cx * 0.5 + 0.25, cy * 0.5 + 0.25
         dist = math.hypot(wx - origin[0], wy - origin[1])
-        if best is None or dist < best_dist:
+        if dist <= max_radius_m and (best is None or dist < best_dist):
             best, best_dist = (wx, wy), dist
+        if (cx, cy) == origin_cell:
+            return best
         for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
             nxt = (cx + dx, cy + dy)
-            if nxt not in grid and nxt not in seen:
+            if (nxt not in grid and nxt not in seen
+                    and all(lower[i] <= nxt[i] <= upper[i] for i in range(2))):
+                if len(seen) >= max_cells:
+                    return best
                 seen.add(nxt)
-                stack.append(nxt)
+                queue.append(nxt)
     return best
 
 
@@ -591,7 +604,7 @@ def build_response_people(semantic_map: Mapping[str, Any], *, count: int = 4, se
         grid = _obstacle_grid(static_obstacles, half_xy=0.2,
                               z_window=(route_z - 1.5, route_z + 1.8))
         origin_xy = (points[0][0], points[0][1])
-        if (int(origin_xy[0] * 2), int(origin_xy[1] * 2)) not in grid:
+        if _grid_cell(origin_xy) not in grid:
             start_clear = origin_xy  # 原格空闲：不吸附不搬动
         else:
             start_clear = (_nearest_clear_in_goal_component(

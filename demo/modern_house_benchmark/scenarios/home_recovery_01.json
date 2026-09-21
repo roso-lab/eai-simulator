@@ -525,5 +525,6 @@
       ],
       "future_delivery_schedule_visibility": "hidden"
     }
-  }
+  },
+  "benchmark_task_id": "MH-DAG-01"
 }

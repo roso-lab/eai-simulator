@@ -388,7 +388,7 @@ def _house() -> tuple[dict[str, Any], list[dict[str, Any]]]:
         _object("resident_bookstack_01", "bookstack", "住户指定的书堆", ["preserve_identity", "stable_placement"]),
     ]
     public = _task(
-        "HOUSE-GOAL-01", "modern_house_nvd",
+        "MODERN_HOUSE-GOAL-01", "modern_house_nvd",
         "在住户回家前恢复家具布置、物品暂存和从入口到生活区的真实通行路径。",
         "房间有扶手椅、书堆和入口动线；允许多个满足净空和摆放约束的合法布置，团队需要在通信变化下保持物品身份和退出状态。",
         [

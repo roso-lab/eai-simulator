@@ -243,6 +243,11 @@ _CONTROLLER_PATHS = {
         "rl/go2_mixed_stairs/go2_mixed_stairs.py",
         "rl/go2_mixed_stairs/model/policy.onnx",
     ),
+    "GO2_MIXED_STAIRS_CONTINUED_CFG": (
+        "rl/go2_mixed_stairs/__init__.py",
+        "rl/go2_mixed_stairs/go2_mixed_stairs.py",
+        "rl/go2_mixed_stairs/model/policy.continued3999.onnx",
+    ),
     "B2_VELOCITY_RSL_CFG": (
         "rl/b2_rsl_rl/__init__.py",
         "rl/b2_rsl_rl/b2_rsl_rl.py",

@@ -3,6 +3,10 @@ from isaaclab.sim.spawners.from_files import from_files as _from_files
 from isaaclab.utils import configclass
 
 from EAI_assets.asset_resolver import asset_path
+from EAI_assets.scene.factory_runtime import (
+    build_factory_raycast_proxy,
+    configure_factory_high_friction,
+)
 
 FACTORY_USD_PATH = asset_path("scene/factory/factory.usd")
 
@@ -85,6 +89,15 @@ def _spawn_factory_without_embedded_physics_scenes(
             f"[FactoryScene] Deactivated {embedded_count} embedded runtime prim(s) "
             "(PhysicsScene / OmniGraph); physics and graphs are owned by the "
             "InteractiveScene."
+        )
+    factory_name = prim_path.rpartition("/")[2]
+    for parent in matched_parents:
+        factory_root = f"{str(parent).rstrip('/')}/{factory_name}"
+        report = build_factory_raycast_proxy(stage, factory_root)
+        configure_factory_high_friction(stage, factory_root)
+        print(
+            f"[FactoryScene] Built raycast proxy {report.prim_path}: "
+            f"{report.point_count} points, {report.triangle_count} triangles."
         )
     return prim
 

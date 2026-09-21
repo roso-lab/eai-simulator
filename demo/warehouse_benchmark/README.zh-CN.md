@@ -2,6 +2,11 @@
 
 [English](README.md) · [交付状态总览](../benchmark/DELIVERY.zh-CN.md)
 
+**主轨交接更新（2026-09-20）**：`WAREHOUSE-GOAL-01` 与其他三场景使用同一生成、作者审核和
+`GoalAlgorithmHost` / `GoalSession` 接口；默认 suite 中每场景九条件题包、七对因子对照。
+导航、移动和抓取采用统一固定默认技能策略；下面的原生实测记录属于独立诊断证据。
+接入和复跑步骤见 [交接指南](../benchmark/ALGORITHM_HANDOFF.zh-CN.md)，正式执行仍单独验收。
+
 > **当前状态（2026-09-19 · 阶段18）**
 >
 > - **可跑**：单机固定点承载/输送/释放与 dock 回执（阶段18 v5，CPU PhysX 复验，升降锚点回程误差 4.76μm）；运动学参考 episode v8（10/10 节点）；原生对象/质量/位姿读回（阶段12+）；`--check-assets` 资产闭包审计。
@@ -13,7 +18,7 @@
 | 文件 | 职责 |
 | --- | --- |
 | `scenario.py` / `config.py` | 任务蓝图、资产白名单、实验配置、场景 USD 与占据地图 |
-| `scenarios/business_logistics_01.json` | 默认业务挑战输入（10 节点订单链） |
+| `scenarios/business_logistics_01.json` | `W-DAG-01`：默认固定 DAG 诊断输入（10 节点订单链，节点内分配） |
 | `scenarios/navigation_smoke.json` | 显式导航冒烟样例（不能作为正式业务包输入） |
 | `challenge.py` | 四层题包编译与发布 QA |
 | `manifest.py` | NVD 产物 manifest 构建与校验 |
