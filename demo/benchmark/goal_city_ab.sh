@@ -11,11 +11,15 @@ cd "$(dirname "$0")/../../"
 BASE="${1:?output base required}"; shift
 N="${1:?instances per algorithm required}"; shift
 POOL="v1"
-while [ "${1:-}" = "--pool" ]; do POOL="$2"; shift 2; done
+ARGS=()
+while [ $# -gt 0 ]; do
+  if [ "$1" = "--pool" ]; then POOL="$2"; shift 2; else ARGS+=("$1"); shift; fi
+done
+set -- "${ARGS[@]}"
 ALGOS=("$@")
 [ ${#ALGOS[@]} -eq 0 ] && ALGOS=(witness teamweaver emos)
 
-PY=/home/pupil/miniconda3/envs/env_isaaclab/bin/python
+PY="${PYTHON_ISAAC:-$HOME/miniconda3/envs/env_isaaclab/bin/python}"
 export PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs
 
 mkdir -p "$BASE"
