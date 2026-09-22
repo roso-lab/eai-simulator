@@ -228,19 +228,34 @@ def house_selection(deployment: Mapping[str, Any]) -> dict[str, Any]:
     return selection
 
 
-def run_house_episode(output_root: str | Path, *, device: str = "cpu",
-                      roster_profile: str = "bound_native_v2") -> dict[str, Any]:
-    """Open one House session and drive the witness plan inside it."""
-    import os
-    import torch
-    from simulator import SimulatorLaunchConfig, open_simulator_session
+def prepare_house_episode(output_root: str | Path, *, device: str = "cpu",
+                          roster_profile: str = "bound_native_v2") -> dict[str, Any]:
+    """Write the launch inputs. Isaac starts only in the worker process."""
     package, deployment = build_house_deployment(roster_profile)
     selection = house_selection(deployment)
-    public = package["public_task"]
-    plan = build_house_episode_plan(package)
     root = Path(output_root)
     root.mkdir(parents=True, exist_ok=False)
-    episode_root = root / "goal_episode"
+    request = {"schema": "eai.benchmark.goal_house_episode_request", "version": 1,
+               "device": device, "roster_profile": roster_profile,
+               "task_id": package["public_task"]["task_id"]}
+    for name, value in (("request.json", request), ("deployment.json", deployment),
+                        ("selection.json", selection), ("package.json", package)):
+        (root / name).write_text(json.dumps(value, ensure_ascii=False) + "\n", encoding="utf-8")
+    return request
+
+
+def _run_house_worker(root: Path) -> dict[str, Any]:
+    """Open Kit in this process. Callers must not have imported pxr already."""
+    import torch
+    if any(name == "pxr" or name.startswith("pxr.") for name in sys.modules):
+        raise RuntimeError("OpenUSD must be loaded by the simulator application, not worker preflight")
+    from simulator import SimulatorLaunchConfig, open_simulator_session
+    request = json.loads((root / "request.json").read_text(encoding="utf-8"))
+    deployment = json.loads((root / "deployment.json").read_text(encoding="utf-8"))
+    selection = json.loads((root / "selection.json").read_text(encoding="utf-8"))
+    package = json.loads((root / "package.json").read_text(encoding="utf-8"))
+    public = package["public_task"]
+    plan = build_house_episode_plan(package)
 
     def configure(env_cfg):
         from demo.benchmark.goal_native_objects import configure_goal_objects
@@ -251,7 +266,7 @@ def run_house_episode(output_root: str | Path, *, device: str = "cpu",
 
     config = SimulatorLaunchConfig(
         env=selection["task_name"], resolved_env_name="EAI-Interactive-v0",
-        selection_data=selection, num_envs=1, device=device, seed=7,
+        selection_data=selection, num_envs=1, device=request["device"], seed=7,
         headless=True, enable_ros_bridge_extension=False, disable_orsus_ros_env=True,
         env_cfg_hook=configure)
     with open_simulator_session(config) as session:
@@ -262,7 +277,7 @@ def run_house_episode(output_root: str | Path, *, device: str = "cpu",
         backend = HouseNativeGoalBackend(public, session=session, deployment=deployment)
         runner = FormalGoalEpisodeRunner(
             public, package["participant_api"], HouseWitnessParticipant(plan), backend,
-            output_root=episode_root)
+            output_root=root / "goal_episode")
         result = runner.run(initial_state=house_runtime_state(public))
     summary = {
         "episode_id": result["episode_id"],
@@ -270,16 +285,30 @@ def run_house_episode(output_root: str | Path, *, device: str = "cpu",
         "turns": result["turns"],
         "skill_receipt_count": result["skill_receipt_count"],
         "task_id": public["task_id"],
-        "roster_profile": roster_profile,
-        "device": device,
+        "roster_profile": request["roster_profile"],
+        "device": request["device"],
         "possible_agents": agents,
         "pending_skills": [row["skill"] for row in backend.evidence if row["status"] != "succeeded"],
         "scoreable": False,
     }
     (root / "house_episode_summary.json").write_text(
         json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    os.sync()
     return summary
+
+
+def run_house_episode(output_root: str | Path, *, device: str = "cpu",
+                      roster_profile: str = "bound_native_v2") -> dict[str, Any]:
+    """Prepare inputs and run the House session in a clean worker process."""
+    import subprocess
+    root = Path(output_root)
+    prepare_house_episode(root, device=device, roster_profile=roster_profile)
+    command = [sys.executable, "-m", "demo.benchmark.goal_house_episode",
+               "--worker", "--output-root", str(root)]
+    completed = subprocess.run(command, cwd=Path(__file__).resolve().parents[2], check=False)
+    summary_path = root / "house_episode_summary.json"
+    if completed.returncode != 0 or not summary_path.is_file():
+        raise RuntimeError(f"house episode worker failed with code {completed.returncode}")
+    return json.loads(summary_path.read_text(encoding="utf-8"))
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -289,7 +318,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--device", choices=("cpu", "cuda:0"), default="cpu")
     parser.add_argument("--offline", action="store_true",
                         help="run the GoalSession contract without Isaac")
+    parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
+    if args.worker:
+        _run_house_worker(args.output_root)
+        return 0
     if args.offline:
         summary = run_house_episode_offline(args.output_root, roster_profile=args.roster)
     else:
