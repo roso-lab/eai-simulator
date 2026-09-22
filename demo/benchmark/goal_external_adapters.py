@@ -451,13 +451,6 @@ class CityTeamWeaverParticipant:
                 values[axis] = max(values.get(axis, 0.0), 1.0)
             return values
 
-        def _busy_snapshot(row):
-            values = _capability_values(row["public_capabilities"])
-            return RobotSnapshot(
-                name=row["id"], position=(0.0, 0.0), base_capabilities=values,
-                reliability={name: 1.0 for name in values}, equipment=frozenset(),
-                busy=True, current_task="<phase_assigned>", current_load=0, safe=True)
-
         def robot_snapshot(row):
             values = _capability_values(row["public_capabilities"])
             return RobotSnapshot(
@@ -554,26 +547,25 @@ class CityTeamWeaverParticipant:
                 except (TypeError, AttributeError):
                     semantic_tasks[index] = replace(semantic, requirements=enriched)
 
+        capability_map = {row["id"]: set(row["public_capabilities"]) for row in pool}
         assignment: dict[str, str] = {}
         remaining = {task["task_id"] for task in plan_tasks}
-        team_budget = int(self._task["budgets"]["max_active_agents"])
         team: set[str] = set()
         for round_index in range(len(plan_tasks)):
             if not remaining:
                 break
-            if len(team) >= team_budget:
-                # The public team budget is a hard allocation constraint:
-                # once the team is full, further rounds may only reuse the
-                # selected members (others are marked busy in the world).
-                world = SymbolicWorldState(
-                    hazard_id=0, hazard_position=(0.0, 0.0, 0.0), hazard_active=False,
-                    targets=targets, robots=tuple(
-                        robot_snapshot(row) if row["id"] in team
-                        else _busy_snapshot(row) for row in pool),
-                    extinguisher_available=False, extinguisher_carrier=None,
-                    extinguisher_delivered=False, rescue_channel_open=True,
-                    completed_task_ids=(), failed_task_ids=(), recent_feedback=(),
-                    observations={})
+            # Interface-only translation (user principle: never make
+            # decisions for the algorithm under test): every round offers the
+            # FULL pool as free robots. Team size and composition are the
+            # algorithm's own choice; coordination cost is a measurement
+            # signal, not something the benchmark restricts.
+            world = SymbolicWorldState(
+                hazard_id=0, hazard_position=(0.0, 0.0, 0.0), hazard_active=False,
+                targets=targets, robots=tuple(robot_snapshot(row) for row in pool),
+                extinguisher_available=False, extinguisher_carrier=None,
+                extinguisher_delivered=False, rescue_channel_open=True,
+                completed_task_ids=(), failed_task_ids=(), recent_feedback=(),
+                observations={})
             if semantic_tasks is not None:
                 batch = tuple(t for t in semantic_tasks if t.target_ref in remaining)
             else:
@@ -601,7 +593,6 @@ class CityTeamWeaverParticipant:
         if remaining:
             raise RuntimeError(f"TeamWeaver left city tasks unassigned: {sorted(remaining)}")
 
-        capability_map = {row["id"]: set(row["public_capabilities"]) for row in pool}
         rewritten = deepcopy(self._base)
         for task in rewritten["tasks"]:
             agent = assignment[task["task_id"]]

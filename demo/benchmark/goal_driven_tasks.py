@@ -132,7 +132,7 @@ _CITY_V2_POOL_NOTE = (
     "validate_city_spawn_points 对照冻结的 recovery_binding_v2 semantic map 校验"
     f"（road_surface 多边形 point-in-polygon + static_obstacles bounds_m 外扩 {CITY_SPAWN_CLEARANCE_M:g} m 避让）："
     + json.dumps(CITY_V2_SPAWN_XY_M, sort_keys=True)
-    + "。max_active_agents 与全部 budgets 维持 bound_native_v1 数值；扩池不改变本见证。"
+    + "。除 max_active_agents（扩池按用户原则放开为池大小，团队规模由被测算法自决）外 budgets 维持 bound_native_v1 数值；扩池不改变本见证。"
 )
 
 
@@ -861,7 +861,12 @@ def _city(roster_profile: str = "abstract_v1") -> tuple[dict[str, Any], list[dic
             "planning_s": 30.0,
             "message_bytes": 8192,
             "model_tokens": 12000,
-            "max_active_agents": 3,
+            # User principle (2026-09-22): team size is the algorithm's own
+            # decision; using more robots raises coordination cost, which is
+            # a measurement signal, not a restriction the benchmark imposes.
+            # The expanded pool therefore declares its full size as the
+            # budget; the frozen v1 profiles keep their historical value.
+            "max_active_agents": (len(pool) if roster_profile == "bound_native_v2" else 3),
         },
         "experiment_factor": {
             "id": "communication_quality",

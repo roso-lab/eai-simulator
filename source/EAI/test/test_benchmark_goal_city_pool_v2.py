@@ -55,7 +55,7 @@ def test_default_and_native_v1_city_hashes_are_frozen():
             == _FROZEN_CITY_SHA256[(profile, "public_task")]
 
 
-def test_v2_package_builds_with_seven_robot_pool_and_unchanged_budgets():
+def test_v2_package_builds_with_seven_robot_pool_and_open_team_budget():
     bundle = build_goal_task_package("city", city_roster_profile="bound_native_v2")
     public = bundle["public_task"]
     assert public["task_id"] == "CITY-GOAL-NATIVE-02"
@@ -63,8 +63,11 @@ def test_v2_package_builds_with_seven_robot_pool_and_unchanged_budgets():
     assert len(ids) == 7 and len(set(ids)) == len(ids)
     assert ids[:3] == list(_V2_CORE_IDS) and sorted(ids[3:]) == sorted(_V2_NEW_IDS)
     v1 = build_goal_task_package("city", city_roster_profile="bound_native_v1")["public_task"]
-    assert public["budgets"] == v1["budgets"]
-    assert public["budgets"]["max_active_agents"] == 3
+    # User principle: the expanded pool opens the team budget to the pool
+    # size; every other budget equals the frozen v1 values.
+    assert {k: v for k, v in public["budgets"].items() if k != "max_active_agents"} \
+        == {k: v for k, v in v1["budgets"].items() if k != "max_active_agents"}
+    assert public["budgets"]["max_active_agents"] == 7
     assert public["skill_catalog_version"] == v1["skill_catalog_version"]
     assert public["execution_contract"] == v1["execution_contract"]
 
