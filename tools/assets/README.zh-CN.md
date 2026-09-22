@@ -26,6 +26,24 @@ Pegasus 优化资产还恢复了源资产中无碰撞的天线视觉网格，修
 源哈希、世界变换与网格外内容一致性校验、原始优化资产备份保存在
 `tmp/factory_benchmark/pegasus_visual_repair/`。
 
+## Restaurant benchmark 产物
+
+`build_restaurant_products.py` 从同一组已组合源三角形生成米制 Restaurant
+wrapper、三态 ROS 占据图和静态碰撞代理。工具要求入口 USD 与
+`demo.restaurant_benchmark.config` 中冻结的有效闭包策略一致，只写入显式指定的
+输出目录，并将 bundle 标记为 `local_candidate`。检查器会绑定当前生成器和源文件
+哈希，并要求 PNG 占据格与 USD 代理清单逐格完全一致。
+
+```bash
+PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
+  python -m tools.assets.build_restaurant_products \
+  --source-usd "$EAI_USD_ROOT/scene/restaurant/Restaurant_Only.usda" \
+  --output-dir tmp/restaurant_benchmark/products-candidate
+```
+
+生成产物仍是 `tmp/` 下的运行证据；原生物理、导航和业务 episode 验证通过前，
+不得提交或发布。
+
 ## NVD benchmark 产品重建
 
 `rebuild_nvd_products.py` 从原生实例包围盒和网格几何重新生成地面占据图、无人机体素和

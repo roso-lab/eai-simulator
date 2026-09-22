@@ -110,3 +110,69 @@ products from the same geometry, calibrate robot spawn and task regions in nativ
 coordinates, validate PhysX raycasts and map connectivity, and run a real
 navigation and business episode. A visual launch or stationary robot window alone
 is not execution evidence.
+
+## Local collision and occupancy candidate
+
+`tools.assets.build_restaurant_products` is the Restaurant-specific product
+builder. It never edits the 4.1 GB source package. It reads composed mesh
+triangles from the policy-pinned entry USD, converts centimetres to metres, and
+writes its candidate bundle to an explicit output directory:
+
+```bash
+PXR_USDC_EMIT_DEPRECATION_WARNINGS=0 \
+PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
+  /home/pupil/miniconda3/envs/env_isaaclab/bin/python \
+  -m tools.assets.build_restaurant_products \
+  --source-usd /home/pupil/eai-simulator/usd/scene/restaurant/Restaurant_Only.usda \
+  --output-dir tmp/restaurant_benchmark/products-candidate
+```
+
+The fixed candidate frame is `[-0.5, -3.0]` to `[36.0, 26.5]` metres at
+`0.05 m/cell`. Floor meshes declared by the builder form the known support
+domain. Non-floor triangles intersecting the `[0.05, 1.00] m` Carter height
+band form both the raw map occupancy and physical collision proxy mask. The
+builder separately inflates that mask by `0.40 m` only for Carter connectivity
+diagnostics, so downstream footprint checks do not double-count clearance. The
+map writes free cells as 254, occupied cells as 0, and unsupported cells as 205
+(unknown). The wrapper disables the two inherited overlapping floor colliders
+and adds one static Z-up ground Plane.
+
+`bench_meta.json` records `publication_status=local_candidate` and no provider
+revision. It binds the frozen source entry SHA, unresolved dependency manifest,
+used-layer manifest, generator version/source hash and all output hashes. The
+builder also reconstructs the raw occupied cells from every authored proxy and
+requires exact equality with the PNG before returning success. These products do
+not change the current authoring scene gates. They remain unregistered runtime
+candidates until static map/proxy correspondence, PhysX raycasts, and native
+Carter navigation have all passed.
+
+Recheck a generated directory against the current source and generator without
+rewriting it:
+
+```bash
+PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
+  /home/pupil/miniconda3/envs/env_isaaclab/bin/python \
+  -m tools.assets.build_restaurant_products \
+  --source-usd /home/pupil/eai-simulator/usd/scene/restaurant/Restaurant_Only.usda \
+  --output-dir tmp/restaurant_benchmark/products-candidate --check
+```
+
+The current source and generator produced the same bytes in two independent
+output directories. Candidates v7 and v8 record 3,638 meshes (34 empty meshes skipped),
+6,766,535 rasterized triangles, 89,051 raw occupied cells and 1,398 collision
+proxies. The `0.40 m` Carter diagnostic leaves 195,364 free cells in eight
+components; the largest contains 86.735% of all free cells. The maintained
+candidate hashes are:
+
+- wrapper: `13d58d212b13f744cbb7f822970ee37fbc9cfff5df894780d9946e9ee1c84521`
+- map PNG: `946b44f46176393c3526953397dc9a3dfb57d7cc5085d8f4198b73743ec63adf`
+- map YAML: `a111666d14597a0b2ede2f67b741c2bd75685d956c55d93769fb6ca4dbcf8e73`
+- metadata: `dc3fe893959a5fd83fa9dc5a4b0861f1ffaf4bf2d776320d66a855a3f53b921a`
+
+These hashes identify untracked local evidence below
+`tmp/restaurant_benchmark/products-candidate-v7/`; they do not publish or register
+the bundle. The isolated worktree does not contain the ignored Warehouse and
+Modern House NVD bundles, so their installed-sidecar test cannot run there without
+copying provider data. The Restaurant product tests and all other focused NVD
+algorithm tests pass; provider-installed NVD validation remains an environment
+check outside this candidate batch.
