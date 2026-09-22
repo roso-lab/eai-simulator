@@ -38,10 +38,19 @@ BENCHMARK_ROBOT_SPAWN_XYZ_M = {
     "iris_2": (26.975, 6.975, 3.0),
 }
 BENCHMARK_MINIMUM_SPAWN_SPACING_M = 3.0
-# Only Carter has passed the current native route/contact probes.  The full
-# eight-anchor map is therefore an authoring deployment declaration, not a
-# formal participant roster.
-BENCHMARK_NATIVE_VALIDATED_ROBOT_IDS = ("carter_1", "carter_2")
+# Carter holds route-level native evidence from the original route/contact
+# probes; go2_1, lite3_1 and both iris anchors hold route-level evidence from
+# demo.restaurant_benchmark.route_admission runs (2026-09-22).  The two M20
+# anchors stay excluded until their controller's zero-command bias is fixed
+# and both the admission and route gates are re-run.
+BENCHMARK_NATIVE_VALIDATED_ROBOT_IDS = (
+    "carter_1",
+    "carter_2",
+    "go2_1",
+    "lite3_1",
+    "iris_1",
+    "iris_2",
+)
 BENCHMARK_ADMISSION_STATUS = "authoring_pending_native_candidate_evidence"
 
 # These gates remain closed until scene-derived products and execution evidence

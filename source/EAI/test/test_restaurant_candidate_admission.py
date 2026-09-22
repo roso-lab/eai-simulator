@@ -228,6 +228,15 @@ def test_aerial_request_rejects_ground_thresholds_or_profile_drift(monkeypatch):
 def test_unadmitted_m20_candidates_do_not_change_release_roster():
     from demo.restaurant_benchmark import config
 
-    assert config.BENCHMARK_NATIVE_VALIDATED_ROBOT_IDS == ("carter_1", "carter_2")
+    # go2_1/lite3_1/iris_1/iris_2 were promoted after their route_admission
+    # runs; the M20 pair stays excluded until its controller bias is fixed.
+    assert config.BENCHMARK_NATIVE_VALIDATED_ROBOT_IDS == (
+        "carter_1",
+        "carter_2",
+        "go2_1",
+        "lite3_1",
+        "iris_1",
+        "iris_2",
+    )
     assert config.EXECUTION_VALIDATED is False
     assert config.SCOREABLE is False

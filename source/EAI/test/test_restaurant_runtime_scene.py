@@ -297,7 +297,9 @@ def test_restaurant_navigation_routes_and_scoped_gates_are_frozen():
     }
     assert config.BENCHMARK_DEPLOYMENT_PROFILE == "bound_native_v2"
     assert config.BENCHMARK_ADMISSION_STATUS == "authoring_pending_native_candidate_evidence"
-    assert config.BENCHMARK_NATIVE_VALIDATED_ROBOT_IDS == ("carter_1", "carter_2")
+    assert config.BENCHMARK_NATIVE_VALIDATED_ROBOT_IDS == (
+        "carter_1", "carter_2", "go2_1", "lite3_1", "iris_1", "iris_2",
+    )
     assert set(config.BENCHMARK_ROBOT_SPAWN_XYZ_M) == {
         "carter_1", "carter_2", "m20_1", "m20_2", "go2_1", "lite3_1", "iris_1", "iris_2",
     }
