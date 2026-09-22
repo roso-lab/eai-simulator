@@ -64,6 +64,7 @@ from .goal_driven_tasks import (
     build_goal_task_package,
 )
 from .goal_episode_runner import FormalGoalEpisodeRunner
+from .goal_external_adapters import CityEmosParticipant, CityTeamWeaverParticipant
 from .provenance import file_sha256
 from demo.city_benchmark.task_logic import (
     default_deadline_policy,
@@ -78,6 +79,13 @@ CITY_NATIVE_OBSERVATION_REF = "city_native_runtime_observation"
 CITY_BACKEND_ID = "isaac.city.runtime"
 CITY_EVALUATOR_REF = "demo.city_benchmark.task_logic.evaluate_city_acceptance"
 CITY_GUIDE_RETRY_LIMIT = 20
+def city_robot_regions(public_task: Mapping[str, Any]) -> dict[str, str]:
+    """Region snapshot for the whole candidate pool (road_surface admits
+    both mobilities), so any team the algorithm selects is coverable."""
+    return {row["id"]: "road_surface"
+            for row in public_task["candidate_robot_pool"]}
+
+
 CITY_ROBOT_REGIONS = {"go2_1": "road_surface", "carter_1": "road_surface",
                       "iris_1": "road_surface"}
 DEFAULT_CITY_EPISODE_BINDING = ROOT / (
@@ -225,9 +233,12 @@ class CityNativeGoalBackend:
     error; no path fabricates a success.
     """
 
-    def __init__(self, ctx: Mapping[str, Any], plan: Mapping[str, Any]):
+    def __init__(self, ctx: Mapping[str, Any], plan: Mapping[str, Any],
+                 public_task: Mapping[str, Any] | None = None):
         self._ctx = dict(ctx)
         self._plan = deepcopy(dict(plan))
+        self._robot_regions = (city_robot_regions(public_task) if public_task is not None
+                               else dict(CITY_ROBOT_REGIONS))
         self.evidence: list[dict[str, Any]] = []
         # No simulation step can run between the host warmup observation and
         # this construction, so the shared clock reading is the observation's
@@ -247,8 +258,52 @@ class CityNativeGoalBackend:
         return ref
 
     # -- shared helpers ---------------------------------------------------
+    _SERVICE_ROLE = {"guide_people": "guidance_contact",
+                     "control_following_traffic": "traffic_control_point",
+                     "report_incident": "incident_observer"}
+
     def _runtime_state(self) -> dict[str, Any]:
-        return {"robot_regions": dict(CITY_ROBOT_REGIONS), "object_states": {}}
+        return {"robot_regions": self._robot_regions, "object_states": {}}
+
+    def _dispatch_agent(self, task: Mapping[str, Any]) -> str:
+        """Member dispatch: the plan's assigned agent executes this service."""
+        return str(task["assigned_agents"][0])
+
+    def _assign_service_agent(self, task: Mapping[str, Any], *, region_id: str = "road_surface") -> str:
+        """Rebind the native services to the task's assigned agent.
+
+        Host-owned rebinding plus a measured field-role interval for the
+        chosen agent (pose-sampled from the trusted articulation state), so
+        the admission gates pass for whichever member the plan dispatched.
+        """
+        ctx = self._ctx
+        agent_id = self._dispatch_agent(task)
+        # The native runner submits each service with its own agent_id (the
+        # request adapter is a separate non-prose API path), so member
+        # dispatch swaps the runner's agent identity per task.
+        ctx["runner"].agent_id = agent_id
+        role = self._SERVICE_ROLE[str(task["skill"])]
+        pose = None
+        try:
+            from demo.city_benchmark.native_probe import _robot_tensor_pose
+            pose = tuple(float(v) for v in _robot_tensor_pose(ctx["session"], agent_id))
+        except (ImportError, AttributeError):
+            # Pose sampling is trace evidence, not an admission input; offline
+            # doubles without articulations still dispatch honestly.
+            pass
+        now = float(ctx["runner"].adapter.now_s())
+        # A strictly positive, already-elapsed interval (the host rejects
+        # start == end): span the most recent physics step.
+        start = max(0.0, now - float(ctx["dt"]))
+        ctx["runner"].host.record_role_occupancy(
+            agent_id, role, region_id, start_time_s=start, end_time_s=now)
+        ctx["trace"].setdefault("member_dispatch", []).append({
+            "task_id": task["task_id"], "skill": task["skill"],
+            "agent_id": agent_id, "role": role, "region_id": region_id,
+            "pose_xyz": (list(pose) if pose is not None else None),
+            "recorded_at_s": now,
+        })
+        return agent_id
 
     def _settle_to_window(self, task: Mapping[str, Any]) -> float:
         """Advance the real simulation to the task's reserved window end."""
@@ -322,7 +377,7 @@ class CityNativeGoalBackend:
         person_ids = list(task["arguments"]["person_ids"])
         region_id = task["arguments"]["assembly_region_id"]
         observation = self._current_observation()
-        ctx["role"](runner, "guidance_contact", ctx["session"], ctx["trace"])
+        self._assign_service_agent(task)
         guidance = None
         for attempt in range(CITY_GUIDE_RETRY_LIMIT):
             try:
@@ -334,7 +389,7 @@ class CityNativeGoalBackend:
                     raise
                 ctx["step"](ctx["session"], city, ctx["actions"],
                             max(1, math.ceil(1.0 / float(ctx["dt"]))))
-                ctx["role"](runner, "guidance_contact", ctx["session"], ctx["trace"])
+                self._assign_service_agent(task)
                 observation = self._current_observation()
         request = dict(guidance["request"])
         for person_id in person_ids:
@@ -369,7 +424,7 @@ class CityNativeGoalBackend:
         vehicle_ids = list(task["arguments"]["vehicle_ids"])
         mode = task["arguments"]["mode"]
         observation = self._current_observation()
-        ctx["role"](runner, "traffic_control_point", ctx["session"], ctx["trace"])
+        self._assign_service_agent(task)
         before = {vehicle_id: tuple(float(value) for value in city.following_vehicle_pose(vehicle_id))
                   for vehicle_id in vehicle_ids}
         held = runner.control_following_traffic(tuple(vehicle_ids), mode,
@@ -404,7 +459,7 @@ class CityNativeGoalBackend:
         ctx = self._ctx
         runner, city = ctx["runner"], ctx["city"]
         observation = self._current_observation()
-        ctx["role"](runner, "incident_observer", ctx["session"], ctx["trace"])
+        self._assign_service_agent(task)
         result = runner.report_incident(observation_ref=observation)
         request = dict(result["request"])
         receipt = dict(result.get("receipt") or {})
@@ -638,7 +693,16 @@ def stamp_arrival_times(ctx: Mapping[str, Any], stamps: dict[str, float]) -> Non
     for person_id in ctx["roster_ids"]:
         if person_id in stamps:
             continue
-        if service.people_controller.readback(person_id, service.assembly_regions)["arrived"]:
+        try:
+            arrived = service.people_controller.readback(
+                person_id, service.assembly_regions)["arrived"]
+        except ValueError as exc:
+            # Assembly assignments exist only after a person's guide request
+            # is admitted; people still waiting for guidance are skipped.
+            if "no assembly assignment" not in str(exc):
+                raise
+            continue
+        if arrived:
             stamps[person_id] = float(city.elapsed)
 
 
@@ -774,18 +838,21 @@ def _plain_evidence(value: Any) -> Any:
 
 
 def run_city_episode(output_root: str | Path, *, device: str = "cpu",
-                     episode_binding: str | Path | None = None) -> dict[str, Any]:
+                     episode_binding: str | Path | None = None,
+                     algorithm: str = "witness",
+                     pool: str = "v1") -> dict[str, Any]:
     """Prepare the formal City probe and run the injected GoalSession episode."""
     from demo.city_benchmark.service_probe import execute_probe, prepare_probe
 
     root = Path(output_root).absolute()
     binding = Path(episode_binding) if episode_binding is not None \
         else DEFAULT_CITY_EPISODE_BINDING
-    prepare_probe(root, device=device, episode_binding=binding)
+    prepare_probe(root, device=device, episode_binding=binding, pool=pool)
 
     def driver(ctx: Mapping[str, Any]) -> None:
         episode_root = Path(ctx["report_path"]).parent / "goal_episode"
-        package = build_goal_task_package("city", city_roster_profile="bound_native_v1")
+        roster_profile = "bound_native_v2" if pool == "v2" else "bound_native_v1"
+        package = build_goal_task_package("city", city_roster_profile=roster_profile)
         public = package["public_task"]
         plan = build_city_episode_plan(public)
         arrival_stamps: dict[str, float] = {}
@@ -796,13 +863,20 @@ def run_city_episode(output_root: str | Path, *, device: str = "cpu",
             stamp_arrival_times(ctx, arrival_stamps)
 
         ctx["step"] = stamped_step
-        backend = CityNativeGoalBackend(ctx, plan)
+        backend = CityNativeGoalBackend(ctx, plan, public_task=public)
+        participant = (CityTeamWeaverParticipant(plan) if algorithm == "teamweaver"
+                       else CityTeamWeaverParticipant(plan, use_llm_decomposition=True)
+                       if algorithm == "teamweaver_llm"
+                       else CityEmosParticipant(plan) if algorithm == "emos"
+                       else CityEmosParticipant(plan, use_llm_discussion=True)
+                       if algorithm == "emos_llm"
+                       else CityWitnessParticipant(plan))
         runner = FormalGoalEpisodeRunner(
-            public, package["participant_api"], CityWitnessParticipant(plan), backend,
+            public, package["participant_api"], participant, backend,
             output_root=episode_root,
             evaluator=city_business_evaluator(backend.evidence, ctx,
                                               arrival_stamps=arrival_stamps))
-        result = runner.run(initial_state={"robot_regions": dict(CITY_ROBOT_REGIONS),
+        result = runner.run(initial_state={"robot_regions": city_robot_regions(public),
                                            "object_states": {}})
         source_sha256 = file_sha256(Path(__file__))
         # Report finalization first: an archival hiccup must never mask a
@@ -812,6 +886,8 @@ def run_city_episode(output_root: str | Path, *, device: str = "cpu",
             "error": result["error"], "turns": result["turns"],
             "skill_receipt_count": result["skill_receipt_count"],
             "backend": type(backend).__name__,
+            "participant": type(participant).__name__,
+            "participant_trace": deepcopy(getattr(participant, "trace", []) or []),
             "participant_plan_id": CITY_EPISODE_PLAN_ID,
             "source_sha256": source_sha256,
         }
@@ -835,19 +911,29 @@ def run_city_episode(output_root: str | Path, *, device: str = "cpu",
             "records": _plain_evidence(deepcopy(backend.evidence)),
         })
 
-    return execute_probe(root, device=device, driver=driver)
+    return execute_probe(root, device=device, driver=driver, pool=pool)
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--device", choices=("cpu", "cuda:0"), default="cpu")
+    parser.add_argument("--algorithm",
+                        choices=("witness", "teamweaver", "teamweaver_llm", "emos", "emos_llm"),
+                        default="witness",
+                        help="participant driving the episode (witness = fixed plan; "
+                             "teamweaver_llm = real dongli LLM decomposition; "
+                             "emos = EMOS discussion manager allocation; "
+                             "emos_llm = EMOS allocation through the dongli LLM discussion)")
+    parser.add_argument("--pool", choices=("v1", "v2"), default="v1",
+                        help="candidate pool profile (v2 = expanded 7-robot bound_native_v2)")
     parser.add_argument("--episode-binding", type=Path, default=None,
                         help="authoring/private.json or standalone binding document "
                              f"(default: {DEFAULT_CITY_EPISODE_BINDING})")
     args = parser.parse_args(argv)
     report = run_city_episode(args.output_root, device=args.device,
-                              episode_binding=args.episode_binding)
+                              episode_binding=args.episode_binding,
+                              algorithm=args.algorithm, pool=args.pool)
     print(json.dumps(report, ensure_ascii=False, sort_keys=True))
     return 0 if report.get("status") == "completed" else 1
 

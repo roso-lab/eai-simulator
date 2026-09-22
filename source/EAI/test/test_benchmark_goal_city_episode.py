@@ -74,12 +74,25 @@ class _FakeCity:
         return (0.0, 0.0, 0.0)
 
 
+class _FakeAssignmentAdapter:
+    def __init__(self, runner):
+        self._runner = runner
+
+    def now_s(self):
+        return float(self._runner.city.elapsed)
+
+
 class _FakeRunner:
     """Minimal native runner double: request rows, acks, readbacks, reviews."""
 
     def __init__(self, city, *, guide_not_admitted_first=0, omit_contact_acks=()):
         self.city = city
         self.calls: list[tuple] = []
+        self.agent_id = "go2_1"
+        self.adapter = _FakeAssignmentAdapter(self)
+        self.host = SimpleNamespace(
+            record_role_occupancy=lambda *a, **k: self.calls.append(
+                ("record_role", a[0], a[1])))
         self._request_count = 0
         self._observation_count = 0
         self._guide_failures = int(guide_not_admitted_first)
@@ -367,8 +380,17 @@ def test_offline_episode_runs_all_native_skills_through_the_session(tmp_path, ci
     assert observations[0][1] == "city_native_observation_initial"
     assert all(call[1] != "city_native_observation_initial" for call in observations[1:])
     # Field roles precede every service family.
-    assert role_calls.count("guidance_contact") >= len(guide_tasks)
-    assert "traffic_control_point" in role_calls and "incident_observer" in role_calls
+    # Member dispatch: every service is rebound to the plan's assigned agent
+    # with a recorded field-role interval instead of the host role helper.
+    dispatch_rows = [row for row in runner.calls if row[0] == "record_role"]
+    assert [row[2] for row in dispatch_rows].count("guidance_contact") >= len(guide_tasks)
+    assert "traffic_control_point" in [row[2] for row in dispatch_rows]
+    assert "incident_observer" in [row[2] for row in dispatch_rows]
+    dispatch_trace = ctx["trace"].get("member_dispatch", [])
+    assert len(dispatch_trace) == len(plan["tasks"])
+    assert all(row["agent_id"] == "go2_1" for row in dispatch_trace[:-1])
+    assert dispatch_trace[-1]["agent_id"] == "iris_1"
+    assert runner.agent_id == "iris_1"
 
     # Runtime state stays the declared shape: robots in the initial regions.
     snapshots = json.loads((episode_root / "runtime_snapshots.json").read_text())
@@ -422,7 +444,8 @@ def test_guide_retries_step_and_renew_role_until_admitted(tmp_path, city_package
         first_guide["execution"]["duration_s"]
     # Three rejections -> three one-second step batches, then the admission.
     assert [count for count in step_calls if count == int(1.0 / DT)] == [int(1.0 / DT)] * 3
-    assert role_calls.count("guidance_contact") == 1 + 3
+    assert [row for row in runner.calls
+            if row[0] == "record_role" and row[2] == "guidance_contact"].__len__() == 1 + 3
     guide_calls = [call for call in runner.calls if call[0] == "guide_people"]
     assert len(guide_calls) == 4
     # Each retry submits a renewed native observation.
@@ -572,3 +595,148 @@ def test_goal_city_episode_cli_entrypoint_executes():
     )
     assert result.returncode == 0
     assert "--output-root" in result.stdout
+
+
+def test_city_teamweaver_participant_allocates_and_sequences(city_package):
+    """Real TeamWeaver allocator drives team selection and per-task agents."""
+    from demo.benchmark.goal_external_adapters import CityTeamWeaverParticipant
+
+    public = city_package["public_task"]
+    plan = build_city_episode_plan(public)
+    participant = CityTeamWeaverParticipant(plan)
+    participant.initialize(public, city_package["participant_api"])
+
+    opening = participant.act([{"type": "episode_started", "time_s": 0.0}])
+    assert [row["type"] for row in opening] == ["select_team", "submit_plan"]
+    # The allocator must pick an eligible agent for every task.
+    capabilities = {row["id"]: set(row["public_capabilities"])
+                    for row in public["candidate_robot_pool"]}
+    allocated = opening[1]["payload"]["plan"]
+    for task in allocated["tasks"]:
+        agent = task["assigned_agents"][0]
+        assert set(task["required_capabilities"]) <= capabilities[agent]
+    # Team is exactly the allocated agents, pool-ordered, within the budget.
+    team = opening[0]["payload"]["agent_ids"]
+    assert set(team) == {task["assigned_agents"][0] for task in allocated["tasks"]}
+    assert len(team) <= public["budgets"]["max_active_agents"]
+    assert participant.trace[0]["planner"] == "TeamWeaverPipeline"
+    assert participant.trace[1]["event"] == "plan_initial"
+    assert participant.trace[1]["solver"] in {"hungarian", "miqp"}
+
+    # Dispatches sequence one per terminal result, witness-mirrored.
+    first = participant.act([{"type": "action_result", "time_s": 20.0,
+                              "payload": {"action_id": "tw_city_plan",
+                                          "status": "accepted"}}])
+    assert [row["type"] for row in first] == ["dispatch_skill"]
+    assert first[0]["payload"]["task_id"] == allocated["tasks"][0]["task_id"]
+    idle = participant.act([{"type": "action_result", "time_s": 20.5,
+                             "payload": {"action_id": "other", "status": "accepted"}}])
+    assert idle == []
+
+
+def test_city_emos_participant_allocates_and_sequences(city_package):
+    """Real EMOS discussion manager drives team selection and per-task agents."""
+    from demo.benchmark.goal_external_adapters import CityEmosParticipant
+
+    public = city_package["public_task"]
+    plan = build_city_episode_plan(public)
+    participant = CityEmosParticipant(plan)
+    participant.initialize(public, city_package["participant_api"])
+    assert participant.manifest()["id"] == "city-native-emos"
+
+    opening = participant.act([{"type": "episode_started", "time_s": 0.0}])
+    assert [row["type"] for row in opening] == ["select_team", "submit_plan"]
+    assert opening[0]["action_id"] == "emos_city_select"
+    assert opening[1]["action_id"] == "emos_city_plan"
+    # Every task is assigned to an agent whose public capabilities cover the
+    # task's declared requirements (hard capability containment).
+    capabilities = {row["id"]: set(row["public_capabilities"])
+                    for row in public["candidate_robot_pool"]}
+    allocated = opening[1]["payload"]["plan"]
+    for task in allocated["tasks"]:
+        agent = task["assigned_agents"][0]
+        assert set(task["required_capabilities"]) <= capabilities[agent]
+    # Team is exactly the allocated agents, pool-ordered, within the budget.
+    team = opening[0]["payload"]["agent_ids"]
+    assert set(team) == {task["assigned_agents"][0] for task in allocated["tasks"]}
+    assert len(team) <= public["budgets"]["max_active_agents"]
+    # The allocation came from the EMOS discussion manager boundary.
+    assert participant.trace[0]["planner"] == "EMOSDiscussionManager"
+    events = [row["event"] for row in participant.trace]
+    assert "emos_assignment" in events and "team_selected" in events
+    rounds = [row for row in participant.trace if row["event"] == "emos_assignment"]
+    assert rounds and all(row["manager"] == "EMOSDiscussionManager" for row in rounds)
+    assert all(agent in capabilities for row in rounds
+               for agent in row["assignment"].values())
+
+    # Dispatches sequence one per terminal result, witness-mirrored.
+    first = participant.act([{"type": "action_result", "time_s": 20.0,
+                              "payload": {"action_id": "emos_city_plan",
+                                          "status": "accepted"}}])
+    assert [row["type"] for row in first] == ["dispatch_skill"]
+    assert first[0]["action_id"] == "emos_city_dispatch_0"
+    assert first[0]["payload"]["task_id"] == allocated["tasks"][0]["task_id"]
+    idle = participant.act([{"type": "action_result", "time_s": 20.5,
+                             "payload": {"action_id": "other", "status": "accepted"}}])
+    assert idle == []
+
+
+def test_city_emos_llm_flag_recorded(city_package, monkeypatch):
+    """use_llm_discussion=True records the dongli wiring without ever tracing the key."""
+    from demo.benchmark.goal_external_adapters import CityEmosParticipant
+
+    public = city_package["public_task"]
+    plan = build_city_episode_plan(public)
+    participant = CityEmosParticipant(plan, use_llm_discussion=True)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "dummy-offline-emos-key")
+    # initialize must record the requested discussion mode without raising
+    # and without any network call.
+    participant.initialize(public, city_package["participant_api"])
+
+    modes = [row for row in participant.trace if row.get("event") == "llm_discussion"]
+    assert len(modes) == 1
+    # The EMOS brain LLM path decides which recording is honest; both are.
+    from emos import engine as emos_engine
+    if emos_engine.LLM_AVAILABLE:
+        assert modes[0]["mode"] == "dongli"
+        assert modes[0]["model"]
+        assert modes[0]["base_url"]
+    else:
+        assert modes[0]["mode"] == "llm_discussion_unavailable"
+    # The dongli key never enters the trace.
+    assert "dummy-offline-emos-key" not in json.dumps(participant.trace)
+
+
+def test_city_episode_cli_algorithm_choices_include_emos(capsys):
+    """--help exposes the emos/emos_llm participant choices."""
+    from demo.benchmark import goal_city_episode as episode
+
+    with pytest.raises(SystemExit) as exc:
+        episode.main(["--help"])
+    assert exc.value.code == 0
+    assert "{witness,teamweaver,teamweaver_llm,emos,emos_llm}" in capsys.readouterr().out
+
+
+def test_team_usage_summary_derives_from_trusted_ledger(city_package):
+    """Every episode archives the facts a 'fewer robots' score would need."""
+    from demo.benchmark.goal_episode_runner import team_usage_summary
+
+    public = city_package["public_task"]
+    report = {"session": {
+        "actions": [
+            {"type": "select_team", "payload": {"agent_ids": ["go2_1", "iris_1"]}},
+            {"type": "dispatch_skill", "payload": {"task_id": "t1"}},
+        ],
+        "plans": {"p1": {"plan": {"tasks": [
+            {"task_id": "t1", "assigned_agents": ["go2_1"]},
+            {"task_id": "t2", "assigned_agents": ["iris_1"]},
+        ]}}},
+    }}
+    usage = team_usage_summary(report, public)
+    assert usage["selected_team"] == ["go2_1", "iris_1"]
+    assert usage["selected_team_size"] == 2
+    assert usage["plan_assigned_agents"] == ["go2_1", "iris_1"]
+    assert usage["active_agents"] == ["go2_1"]
+    assert usage["active_team_size"] == 1
+    assert usage["activation_cost_proxy"] > 0
+    assert usage["scoreable"] is False

@@ -450,6 +450,17 @@ class CityServiceRequestAdapter:
         self.backend = backend
         self._assignment = assignment
 
+    def set_assignment(self, assignment: Callable[[str], Mapping[str, str]]) -> None:
+        """Replace the deployment-owned service-to-agent binding (host API).
+
+        Participant goal dispatches honour the plan's assigned agents; the
+        trusted host rebinds which physical agent executes each service here.
+        The assignment stays host-owned: participants can never set it.
+        """
+        if not callable(assignment):
+            raise ValueError("service assignment must be callable")
+        self._assignment = assignment
+
     def _field(self, service: str) -> tuple[str, str]:
         row = self._assignment(service)
         agent_id, region_id = row.get("agent_id"), row.get("region_id")

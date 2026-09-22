@@ -51,7 +51,8 @@ _PUBLIC_TASK_FIELDS = {
 _MISSION_FIELDS = {"scene_key", "goal", "context"}
 _OUTCOME_FIELDS = {"id", "description", "acceptance", "evidence_expectations"}
 _ROBOT_FIELDS = {"id", "type", "mobility", "public_capabilities", "interfaces", "physical_profile"}
-_WORLD_FIELDS = {"regions", "objects", "vertical_links", "public_notes", "routes"}
+_WORLD_FIELDS = {"regions", "objects", "vertical_links", "public_notes", "routes",
+                  "robot_spawn_positions"}
 _REGION_FIELDS = {"id", "kind", "public_description", "access_modes", "resource_capacity"}
 _OBJECT_FIELDS = {"id", "category", "public_role", "handling_constraints", "physical_properties"}
 _VERTICAL_FIELDS = {"id", "from_region_id", "to_region_id", "traversal_modes", "public_description"}
@@ -182,10 +183,13 @@ def validate_goal_task_spec(spec: Mapping[str, Any]) -> dict[str, Any]:
     catalog_version = spec["skill_catalog_version"]
     default_catalog = f"{SKILL_CATALOG_SCHEMA}.v{SKILL_CATALOG_VERSION}"
     native_catalog = f"{SKILL_CATALOG_SCHEMA}.v{CITY_NATIVE_SKILL_CATALOG_VERSION}"
+    # bound_native_v2 reuses the same frozen native City skill catalog; only
+    # the opt-in candidate-pool roster differs.
+    native_task_ids = ("CITY-GOAL-NATIVE-01", "CITY-GOAL-NATIVE-02")
     if (catalog_version != default_catalog and not (
             catalog_version == native_catalog and mission["scene_key"] == "city"
-            and spec["task_id"] == "CITY-GOAL-NATIVE-01")) or (
-            spec["task_id"] == "CITY-GOAL-NATIVE-01" and catalog_version != native_catalog):
+            and spec["task_id"] in native_task_ids)) or (
+            spec["task_id"] in native_task_ids and catalog_version != native_catalog):
         raise ValueError("goal task uses an unsupported skill catalog")
 
     outcomes = spec["required_outcomes"]
@@ -230,8 +234,25 @@ def validate_goal_task_spec(spec: Mapping[str, Any]) -> dict[str, Any]:
         raise ValueError("candidate robot ids must be unique")
 
     world = _mapping(spec["public_world"], "public world")
-    _check_exact(world, _WORLD_FIELDS, "public world")
+    _WORLD_OPTIONAL = {"robot_spawn_positions"}
+    missing = (_WORLD_FIELDS - _WORLD_OPTIONAL) - set(world)
+    extra = set(world) - _WORLD_FIELDS
+    if missing or extra:
+        raise ValueError(f"public world fields mismatch; missing={sorted(missing)}, extra={sorted(extra)}")
     _string(world["public_notes"], "public world notes")
+    spawns = world.get("robot_spawn_positions")
+    if spawns is not None:
+        # Optional author-frozen spawn map (public data: the participant sees
+        # where every candidate robot starts, so team selection can reason
+        # about distance; only finite 2D/3D coordinates are accepted).
+        if not isinstance(spawns, Mapping) or not spawns:
+            raise ValueError("robot_spawn_positions must be a non-empty object")
+        for agent_id, position in spawns.items():
+            _string(agent_id, "spawn robot id")
+            if (not isinstance(position, (list, tuple)) or len(position) not in (2, 3)
+                    or any(not isinstance(v, (int, float)) or isinstance(v, bool)
+                           or not math.isfinite(v) for v in position)):
+                raise ValueError(f"robot_spawn_positions[{agent_id}] must be finite 2D/3D")
     region_ids: list[str] = []
     for index, raw in enumerate(world["regions"]):
         region = _mapping(raw, f"public region {index}")
