@@ -119,6 +119,26 @@ def _city_spawn_positions(roster_profile: str = "abstract_v1") -> dict[str, tupl
 
 
 _CITY_ROSTER_PROFILES = {"abstract_v1", "bound_native_v1", "bound_native_v2", "bound_native_v3"}
+_INDOOR_SCENES = frozenset({"factory", "warehouse_nvd", "modern_house_nvd"})
+_INDOOR_ROSTER_PROFILES = frozenset({"legacy_v1", "bound_native_v2"})
+_INDOOR_V2_TASK_IDS = {
+    "factory": "FACTORY-GOAL-NATIVE-02",
+    "warehouse_nvd": "WAREHOUSE-GOAL-NATIVE-02",
+    "modern_house_nvd": "MODERN_HOUSE-GOAL-NATIVE-02",
+}
+_INDOOR_V2_PREFIX = {
+    "factory": "factory",
+    "warehouse_nvd": "warehouse",
+    "modern_house_nvd": "house",
+}
+_INDOOR_V2_POOL_NOTE = (
+    "bound_native_v2 为 opt-in 扩池：候选池 7 台，核心仍是原 4 台，本见证只使用核心小团队。"
+    "新增同型空中副本复制空中成员的公开技能与接口；新增 go2 复制一台核心地面成员的公开技能与接口；"
+    "lite3 仅 navigation+observe，是能力诱饵。"
+    "在已声明契约下，不支持的指派不产生服务。"
+    "出生锚点来自 tmp/scene_v2_anchors 冻结集，经 validate_scene_spawn_points 校验后写入 "
+    "public_world.robot_spawn_positions；max_active_agents 放开为池大小，团队规模由被测算法自决。"
+)
 _CITY_RESPONSE_SERVICE_ID = "city_dispatch"
 # Frozen semantic map that gates the opt-in bound_native_v2 spawn anchors: the
 # road_surface polygon supplies the drivable footprint and static_obstacles
@@ -791,6 +811,131 @@ def _city_v2_pool(core: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+def _indoor_v2_pool(core: list[dict[str, Any]], scene_key: str) -> list[dict[str, Any]]:
+    """Extend a legacy indoor pool to the opt-in seven-robot bound_native_v2 roster.
+
+    Keeps the original four members, adds a same-type aerial copy, a go2 that
+    reuses one core ground member's public skills/interfaces, and a lite3 decoy
+    limited to ground_navigation plus observe.  Physical profiles come from
+    ``robot_physical_profile`` for the new types.
+    """
+    prefix = _INDOOR_V2_PREFIX[scene_key]
+    core_by_id = {row["id"]: row for row in core}
+    aerial_id = f"{prefix}_aerial_1"
+    ground_id = f"{prefix}_ground_1"
+    if aerial_id not in core_by_id or ground_id not in core_by_id:
+        raise ValueError(f"indoor v2 pool expects {aerial_id} and {ground_id}")
+
+    def member(identifier: str, robot_type: str, same_as: str,
+               capabilities: list[str] | None = None) -> dict[str, Any]:
+        source = core_by_id[same_as]
+        return {
+            "id": identifier,
+            "type": robot_type,
+            "mobility": source["mobility"],
+            "public_capabilities": list(source["public_capabilities"] if capabilities is None
+                                        else capabilities),
+            "interfaces": list(source["interfaces"]),
+            "physical_profile": robot_physical_profile(robot_type),
+        }
+
+    # Ids stay clear of expanded_v1 (aerial_2, ground_4/5/6) so that
+    # measurement layer can still be applied on top of this deployment pool.
+    return [
+        *core,
+        member(f"{prefix}_iris_2", "iris", same_as=aerial_id),
+        member(f"{prefix}_go2_1", "go2", same_as=ground_id),
+        member(f"{prefix}_lite3_1", "lite3", same_as=ground_id,
+               capabilities=["ground_navigation", "observe"]),
+    ]
+
+
+def _indoor_v2_spawn_z(scene_key: str) -> dict[str, float]:
+    """Reference spawn heights for the indoor v2 roster, including new types."""
+    from .scene_deployment import SPAWN_Z_BY_SCENE_AND_TYPE, canonical_scene_key
+
+    base = dict(SPAWN_Z_BY_SCENE_AND_TYPE[canonical_scene_key(scene_key)])
+    base.update({
+        "go2": base["m20"],
+        "b2": base["m20"],
+        "lite3": 0.35,
+        "cf2x": base["iris"],
+    })
+    return base
+
+
+def _activate_indoor_map_root(scene_key: str) -> tuple[bool, str | None]:
+    """If the active usd root lacks the scene map, point at the frozen map_source.
+
+    Returns ``(changed, previous_value)``.  When ``changed`` is true the caller
+    must restore ``EAI_USD_ROOT`` to ``previous_value`` (deleting the key when
+    ``previous_value`` is ``None``).
+    """
+    import os
+
+    from EAI_assets.asset_resolver import usd_root
+    from .scene_deployment import frozen_anchor_path, provider_scene_key
+
+    provider = provider_scene_key(scene_key)
+    relative = ("scene/factory/factory_map.yaml" if provider == "factory"
+                else f"scene/{provider}/ground_map_0.6m.yaml")
+    if (usd_root() / relative).is_file():
+        return False, None
+    payload = json.loads(frozen_anchor_path(scene_key).read_text(encoding="utf-8"))
+    yaml_path = Path(payload["map_source"]["yaml_path"])
+    if not yaml_path.is_file():
+        raise FileNotFoundError(
+            f"indoor v2 occupancy map missing under {usd_root() / relative} and "
+            f"frozen map_source {yaml_path}")
+    previous = os.environ.get("EAI_USD_ROOT")
+    os.environ["EAI_USD_ROOT"] = str(yaml_path.resolve().parents[2])
+    return True, previous
+
+
+def _restore_indoor_map_root(changed: bool, previous: str | None) -> None:
+    import os
+
+    if not changed:
+        return
+    if previous is None:
+        os.environ.pop("EAI_USD_ROOT", None)
+    else:
+        os.environ["EAI_USD_ROOT"] = previous
+
+
+def _apply_indoor_bound_native_v2(
+        public: dict[str, Any], witnesses: list[dict[str, Any]],
+        scene_key: str) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Opt-in indoor deployment profile: open pool, public spawns, native task id."""
+    from .scene_deployment import (
+        build_robot_spawn_positions,
+        load_frozen_anchors,
+        validate_scene_spawn_points,
+    )
+
+    public = deepcopy(public)
+    witnesses = deepcopy(witnesses)
+    pool = _indoor_v2_pool(list(public["candidate_robot_pool"]), scene_key)
+    public["candidate_robot_pool"] = pool
+    public["task_id"] = _INDOOR_V2_TASK_IDS[scene_key]
+    public["budgets"]["max_active_agents"] = len(pool)
+
+    anchors = load_frozen_anchors(scene_key)
+    points = {row["id"]: row["xy_m"] for row in anchors}
+    changed, previous_root = _activate_indoor_map_root(scene_key)
+    try:
+        validate_scene_spawn_points(scene_key, points)
+    finally:
+        _restore_indoor_map_root(changed, previous_root)
+
+    public["public_world"]["robot_spawn_positions"] = build_robot_spawn_positions(
+        pool, [row["xy_m"] for row in anchors],
+        spawn_z_by_type=_indoor_v2_spawn_z(scene_key))
+    for witness in witnesses:
+        witness["pool_note"] = _INDOOR_V2_POOL_NOTE
+    return public, witnesses
+
+
 def _city(roster_profile: str = "abstract_v1") -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """City goal bundle: the urban incident-response family as a four-layer package.
 
@@ -1219,15 +1364,26 @@ def build_goal_task_spec(scene_key: str, *, factor_id: str = "communication_qual
                          factor_level: str | None = None,
                          mechanism_family: str | None = None,
                          pool_profile: str = "legacy_v1",
-                         city_roster_profile: str = "abstract_v1") -> dict[str, Any]:
+                         city_roster_profile: str = "abstract_v1",
+                         indoor_roster_profile: str = "legacy_v1") -> dict[str, Any]:
     if city_roster_profile != "abstract_v1" and scene_key != "city":
         raise ValueError("City roster profile applies only to the City scene")
+    if indoor_roster_profile not in _INDOOR_ROSTER_PROFILES:
+        raise ValueError(f"unsupported indoor roster profile: {indoor_roster_profile}")
+    if indoor_roster_profile != "legacy_v1":
+        if scene_key == "city":
+            raise ValueError("Indoor roster profile does not apply to the City scene")
+        if scene_key not in _INDOOR_SCENES:
+            raise ValueError(
+                f"Indoor roster profile applies only to indoor scenes, not {scene_key!r}")
     builders = {"factory": _factory, "warehouse_nvd": _warehouse, "modern_house_nvd": _house,
                 "city": lambda: _city(city_roster_profile)}
     try:
-        public, _ = builders[scene_key]()
+        public, witnesses = builders[scene_key]()
     except KeyError as exc:
         raise ValueError(f"unsupported goal-driven scene: {scene_key}") from exc
+    if scene_key in _INDOOR_SCENES and indoor_roster_profile == "bound_native_v2":
+        public, _ = _apply_indoor_bound_native_v2(public, witnesses, scene_key)
     public = apply_pool_profile(public, pool_profile)
     if mechanism_family is not None:
         _apply_mechanism_template(public, build_mechanism_template(scene_key, mechanism_family))
@@ -1558,15 +1714,26 @@ def build_goal_task_package(scene_key: str, *, factor_id: str = "communication_q
                             factor_level: str | None = None,
                             mechanism_family: str | None = None,
                             pool_profile: str = "legacy_v1",
-                            city_roster_profile: str = "abstract_v1") -> dict[str, dict[str, Any]]:
+                            city_roster_profile: str = "abstract_v1",
+                            indoor_roster_profile: str = "legacy_v1") -> dict[str, dict[str, Any]]:
     if city_roster_profile != "abstract_v1" and scene_key != "city":
         raise ValueError("City roster profile applies only to the City scene")
+    if indoor_roster_profile not in _INDOOR_ROSTER_PROFILES:
+        raise ValueError(f"unsupported indoor roster profile: {indoor_roster_profile}")
+    if indoor_roster_profile != "legacy_v1":
+        if scene_key == "city":
+            raise ValueError("Indoor roster profile does not apply to the City scene")
+        if scene_key not in _INDOOR_SCENES:
+            raise ValueError(
+                f"Indoor roster profile applies only to indoor scenes, not {scene_key!r}")
     builders = {"factory": _factory, "warehouse_nvd": _warehouse, "modern_house_nvd": _house,
                 "city": lambda: _city(city_roster_profile)}
     try:
         public, witnesses = builders[scene_key]()
     except KeyError as exc:
         raise ValueError(f"unsupported goal-driven scene: {scene_key}") from exc
+    if scene_key in _INDOOR_SCENES and indoor_roster_profile == "bound_native_v2":
+        public, witnesses = _apply_indoor_bound_native_v2(public, witnesses, scene_key)
     mechanism_template = None
     if mechanism_family is not None:
         mechanism_template = build_mechanism_template(scene_key, mechanism_family)
