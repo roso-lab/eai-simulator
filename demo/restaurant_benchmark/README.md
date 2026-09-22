@@ -130,17 +130,17 @@ use different teams and different kitchen/dining allocation patterns. The
 symbolic business review requires ground arrival before each observation and a
 readiness relay after both observations.
 
-This bundle is deliberately not in `registered_goal_scenes()` yet. Carter has
-native route/contact evidence, while the other candidate controllers and the
-opening-readiness business episode still need native validation. The generated
+This bundle is deliberately not in `registered_goal_scenes()` yet. Carter now
+has route/contact evidence and one scoped opening-readiness business episode;
+the other candidate controllers still need native admission. The generated
 bundle therefore keeps `execution_status=external_pending`,
 `execution_validated=false`, and `scoreable=false`. Do not treat the existing
-navigation probes as a completed Goal business episode; arrival timestamps,
-observation evidence, receipt causality and the participant trace must all come
-from one real stepped episode before registry or release changes.
+business episode as full-roster or benchmark release evidence: it covers one
+Carter witness, while candidate admission, algorithm A/B and portable asset
+release remain open.
 
 `demo.restaurant_benchmark.service_backend` provides the pure episode-owned
-readiness boundary used by the future runner. `relay` publication is recorded
+readiness boundary used by the formal runner. `relay` publication is recorded
 as an event-bus fact only. A business receipt is issued only after both native
 zone observations are bound to the same `episode_id`, have strictly earlier
 simulation steps/timestamps, and are passed to the service endpoint. The
@@ -381,8 +381,8 @@ and file SHA-256
 `8274dfac8c8351a5c0fe20a39af3650efcfc0f8d5387b87889149524901f8d35`.
 It sets `two_route_navigation_validated=true` for candidate v7 and these two
 Carter routes. `navigation_ready` remains false pending a portable released
-asset bundle and formal task admission. No restaurant business episode has run,
-so `business_episode_execution_validated` and `scoreable` remain false.
+asset bundle and formal task admission. The scoped formal episode below does
+not change that release status or `scoreable=false`.
 
 ## Goal deployment v2 preparation
 
@@ -418,5 +418,81 @@ EAI_CONTROLLER_ROOT=/home/pupil/eai-simulator/source/EAI_assets/EAI_assets/contr
 ```
 
 This preparation does not change the release gates. The candidate remains
-machine-local and no formal business episode has completed, so
-`navigation_ready=false`, `execution_validated=false`, and `scoreable=false`.
+machine-local, so `navigation_ready=false`, `execution_validated=false`, and
+`scoreable=false`.
+
+## First formal participant episode
+
+`demo.benchmark.goal_restaurant_episode` runs one fixed participant through
+the shared `FormalGoalEpisodeRunner` and a single persistent Isaac session. The
+participant selects `restaurant_carter_1`, submits a seven-task plan, and drives
+the physical A-to-E, E-to-A, A-to-B and B-to-A loop. The immutable request binds
+the public robot to native `carter_1`, freezes A/E/B as staging/kitchen/dining,
+and stores the source, controller, map, task, plan and route hashes.
+
+The evidence contract has three layers, hardened after two diagnostic runs
+(`goal-episode-20260922-v1/v2`) were invalidated by review because their
+observations hashed only the robot pose:
+
+1. every arrival latches per-route wheel contact health (per-wheel PhysX ground
+   force sampling, median weight-support ratio inside its envelope, no contact
+   buffer overflow) alongside the control-step evidence;
+2. every observation steps the scene first, then samples ground support around
+   the region center with episode-timestamped PhysX raycasts and bounds the
+   robot's region error - it fails closed unless the scene query confirms the
+   service-zone floor;
+3. after the run, `verify_episode_archive()` recomputes the complete chain from
+   disk alone (all recorded hashes, episode identities, evidence-ref
+   preimages, route/region progression, arrival-before-observation-before-
+   relay-before-receipt ordering, an independent replay of the readiness
+   receipt review, and the team-usage record) and writes
+   `archive_verification.json`; `--verify` re-runs this offline at any time.
+
+The accepted CPU run is under
+`tmp/restaurant_benchmark/goal-episode-20260922-v4/`, episode
+`restaurant-goal:b84492d5bbd7496aa59b5cc2b2cf7da8` (75 s wall, 9,500 episode
+control steps at 0.02 s). All four arrivals validated contact health with a
+median weight-support ratio of 0.999-1.0 and every wheel in ground contact for
+100% of route steps. The kitchen observation latched on native step 9,486 with
+a region error of 0.188 m and 3/4 ground-support raycasts; the dining
+observation latched on step 28,286 with 0.215 m and 4/4 raycasts. The relay
+publication and readiness receipt followed on steps 38,086 and 38,090. All
+seven GoalSession skill receipts were accepted, all three business outcomes
+validated, and the archive verifier confirmed the chain from disk.
+`team_usage.json` records one selected/active Carter, nine participant actions
+and activation-cost proxy 1.1. The episode report SHA-256 is
+`90a23f90501d9097409a89ccdce47fdbf292611ea7f4ea90f5afa308cfc376ef`; the
+native evidence log SHA-256 is
+`f9c5a4b53fefe091877e76b3aa04b8e6cd044fbcd94ed9711e3e3df464c63190`; the
+readiness snapshot SHA-256 is
+`eb5b0cb2f9ac11acd5749b2dae2ee356883461452711d218f0f4014758e23696`.
+
+Reproduce it in a new output directory (the worktree relies on the shared
+resolver roots for Carter USD and the controller source):
+
+```bash
+PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
+EAI_USD_ROOT=/home/pupil/eai-simulator/usd \
+EAI_CONTROLLER_ROOT=/home/pupil/eai-simulator/source/EAI_assets/EAI_assets/controller \
+  /home/pupil/miniconda3/envs/env_isaaclab/bin/python \
+  -m demo.benchmark.goal_restaurant_episode \
+  --products-root tmp/restaurant_benchmark/products-candidate-v7 \
+  --source-usd /home/pupil/eai-simulator/usd/scene/restaurant/Restaurant_Only.usda \
+  --output-root tmp/restaurant_benchmark/goal-episode-<new> \
+  --device cpu --timeout-s 1800
+```
+
+Re-verify a finished archive without Isaac:
+
+```bash
+EAI_CONTROLLER_ROOT=/home/pupil/eai-simulator/source/EAI_assets/EAI_assets/controller \
+PYTHONPATH=.:source/EAI:source/EAI_assets \
+  /home/pupil/miniconda3/envs/env_isaaclab/bin/python \
+  -m demo.benchmark.goal_restaurant_episode \
+  --verify --output-root tmp/restaurant_benchmark/goal-episode-20260922-v4
+```
+
+This closes the first-witness business-episode item only. It does not validate
+M20, Go2, Lite3 or Iris, does not provide TeamWeaver/EMOS comparison evidence,
+and does not register Restaurant in the formal suite. The package therefore
+continues to report `execution_validated=false` and `scoreable=false`.
