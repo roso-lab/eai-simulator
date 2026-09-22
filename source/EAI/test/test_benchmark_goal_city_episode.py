@@ -632,3 +632,86 @@ def test_city_teamweaver_participant_allocates_and_sequences(city_package):
     idle = participant.act([{"type": "action_result", "time_s": 20.5,
                              "payload": {"action_id": "other", "status": "accepted"}}])
     assert idle == []
+
+
+def test_city_emos_participant_allocates_and_sequences(city_package):
+    """Real EMOS discussion manager drives team selection and per-task agents."""
+    from demo.benchmark.goal_external_adapters import CityEmosParticipant
+
+    public = city_package["public_task"]
+    plan = build_city_episode_plan(public)
+    participant = CityEmosParticipant(plan)
+    participant.initialize(public, city_package["participant_api"])
+    assert participant.manifest()["id"] == "city-native-emos"
+
+    opening = participant.act([{"type": "episode_started", "time_s": 0.0}])
+    assert [row["type"] for row in opening] == ["select_team", "submit_plan"]
+    assert opening[0]["action_id"] == "emos_city_select"
+    assert opening[1]["action_id"] == "emos_city_plan"
+    # Every task is assigned to an agent whose public capabilities cover the
+    # task's declared requirements (hard capability containment).
+    capabilities = {row["id"]: set(row["public_capabilities"])
+                    for row in public["candidate_robot_pool"]}
+    allocated = opening[1]["payload"]["plan"]
+    for task in allocated["tasks"]:
+        agent = task["assigned_agents"][0]
+        assert set(task["required_capabilities"]) <= capabilities[agent]
+    # Team is exactly the allocated agents, pool-ordered, within the budget.
+    team = opening[0]["payload"]["agent_ids"]
+    assert set(team) == {task["assigned_agents"][0] for task in allocated["tasks"]}
+    assert len(team) <= public["budgets"]["max_active_agents"]
+    # The allocation came from the EMOS discussion manager boundary.
+    assert participant.trace[0]["planner"] == "EMOSDiscussionManager"
+    events = [row["event"] for row in participant.trace]
+    assert "emos_assignment" in events and "team_selected" in events
+    rounds = [row for row in participant.trace if row["event"] == "emos_assignment"]
+    assert rounds and all(row["manager"] == "EMOSDiscussionManager" for row in rounds)
+    assert all(agent in capabilities for row in rounds
+               for agent in row["assignment"].values())
+
+    # Dispatches sequence one per terminal result, witness-mirrored.
+    first = participant.act([{"type": "action_result", "time_s": 20.0,
+                              "payload": {"action_id": "emos_city_plan",
+                                          "status": "accepted"}}])
+    assert [row["type"] for row in first] == ["dispatch_skill"]
+    assert first[0]["action_id"] == "emos_city_dispatch_0"
+    assert first[0]["payload"]["task_id"] == allocated["tasks"][0]["task_id"]
+    idle = participant.act([{"type": "action_result", "time_s": 20.5,
+                             "payload": {"action_id": "other", "status": "accepted"}}])
+    assert idle == []
+
+
+def test_city_emos_llm_flag_recorded(city_package, monkeypatch):
+    """use_llm_discussion=True records the dongli wiring without ever tracing the key."""
+    from demo.benchmark.goal_external_adapters import CityEmosParticipant
+
+    public = city_package["public_task"]
+    plan = build_city_episode_plan(public)
+    participant = CityEmosParticipant(plan, use_llm_discussion=True)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "dummy-offline-emos-key")
+    # initialize must record the requested discussion mode without raising
+    # and without any network call.
+    participant.initialize(public, city_package["participant_api"])
+
+    modes = [row for row in participant.trace if row.get("event") == "llm_discussion"]
+    assert len(modes) == 1
+    # The EMOS brain LLM path decides which recording is honest; both are.
+    from emos import engine as emos_engine
+    if emos_engine.LLM_AVAILABLE:
+        assert modes[0]["mode"] == "dongli"
+        assert modes[0]["model"]
+        assert modes[0]["base_url"]
+    else:
+        assert modes[0]["mode"] == "llm_discussion_unavailable"
+    # The dongli key never enters the trace.
+    assert "dummy-offline-emos-key" not in json.dumps(participant.trace)
+
+
+def test_city_episode_cli_algorithm_choices_include_emos(capsys):
+    """--help exposes the emos/emos_llm participant choices."""
+    from demo.benchmark import goal_city_episode as episode
+
+    with pytest.raises(SystemExit) as exc:
+        episode.main(["--help"])
+    assert exc.value.code == 0
+    assert "{witness,teamweaver,teamweaver_llm,emos,emos_llm}" in capsys.readouterr().out

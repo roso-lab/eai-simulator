@@ -64,7 +64,7 @@ from .goal_driven_tasks import (
     build_goal_task_package,
 )
 from .goal_episode_runner import FormalGoalEpisodeRunner
-from .goal_external_adapters import CityTeamWeaverParticipant
+from .goal_external_adapters import CityEmosParticipant, CityTeamWeaverParticipant
 from .provenance import file_sha256
 from demo.city_benchmark.task_logic import (
     default_deadline_policy,
@@ -855,6 +855,9 @@ def run_city_episode(output_root: str | Path, *, device: str = "cpu",
         participant = (CityTeamWeaverParticipant(plan) if algorithm == "teamweaver"
                        else CityTeamWeaverParticipant(plan, use_llm_decomposition=True)
                        if algorithm == "teamweaver_llm"
+                       else CityEmosParticipant(plan) if algorithm == "emos"
+                       else CityEmosParticipant(plan, use_llm_discussion=True)
+                       if algorithm == "emos_llm"
                        else CityWitnessParticipant(plan))
         runner = FormalGoalEpisodeRunner(
             public, package["participant_api"], participant, backend,
@@ -903,10 +906,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--device", choices=("cpu", "cuda:0"), default="cpu")
-    parser.add_argument("--algorithm", choices=("witness", "teamweaver", "teamweaver_llm"),
+    parser.add_argument("--algorithm",
+                        choices=("witness", "teamweaver", "teamweaver_llm", "emos", "emos_llm"),
                         default="witness",
                         help="participant driving the episode (witness = fixed plan; "
-                             "teamweaver_llm = real dongli LLM decomposition)")
+                             "teamweaver_llm = real dongli LLM decomposition; "
+                             "emos = EMOS discussion manager allocation; "
+                             "emos_llm = EMOS allocation through the dongli LLM discussion)")
     parser.add_argument("--episode-binding", type=Path, default=None,
                         help="authoring/private.json or standalone binding document "
                              f"(default: {DEFAULT_CITY_EPISODE_BINDING})")
