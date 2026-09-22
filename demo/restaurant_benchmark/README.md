@@ -654,6 +654,17 @@ never an algorithm decision. Both participants translate the identical
 mission contract through the same expansion, so algorithm-vs-algorithm
 differences are the allocation mechanism itself.
 
+`demo/benchmark/goal_restaurant_ab.sh` runs the batch (default three
+instances per algorithm, each with inline archive verification). The
+2026-09-23 batch (`tmp/restaurant_benchmark/algo-ab-batch-20260923/`) went
+6/6 validated and archive-verified on CPU (wall 152-195 s per episode) and
+exposed a genuine behavioural difference: TeamWeaver's MIQP allocator chose
+the identical distance-optimal split in all three runs, while EMOS's
+capability-matching policy produced three different allocations across
+three runs (optimal split, single-robot serial, swapped) because its
+first-fit order follows the discussion round's subtask iteration - the
+allocation-stability axis is itself a measured signal, not noise.
+
 `demo.benchmark.goal_restaurant_algorithm_episode --verify` independently
 recomputes an archive from disk: request substrate and leg matrix, the
 allocation-to-plan expansion, agent-bound arrivals with contact
