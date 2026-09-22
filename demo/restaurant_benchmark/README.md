@@ -241,3 +241,45 @@ regenerating the same geometry under a different checkout or output layout
 changes the wrapper SHA and the exact-snapshot resolver rejects it. A provider
 release must replace that layout-dependent reference with a portable packaged
 closure and freeze new release hashes.
+
+## Carter ground-contact evidence
+
+The contact probe builds on the isolated candidate runtime and creates one
+filtered PhysX rigid-contact view for each Carter wheel body. Each view accepts
+contacts only from `/World/RestaurantBenchmark/BenchCollision/zz_ground`; proxy
+or robot self-contact therefore cannot satisfy the ground-contact gate. Run the
+probe in a fresh output directory:
+
+```bash
+PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
+EAI_USD_ROOT=/home/pupil/eai-simulator/usd \
+EAI_CONTROLLER_ROOT=/home/pupil/eai-simulator/source/EAI_assets/EAI_assets/controller \
+  /home/pupil/miniconda3/envs/env_isaaclab/bin/python \
+  -m demo.restaurant_benchmark.contact_probe \
+  --products-root tmp/restaurant_benchmark/products-candidate-v7 \
+  --source-usd /home/pupil/eai-simulator/usd/scene/restaurant/Restaurant_Only.usda \
+  --output-root tmp/restaurant_benchmark/contact-runtime-fresh --device cpu
+```
+
+The accepted `contact-runtime-v2` CPU run sampled 240 post-settle control steps.
+All four exact wheel bodies (`wheel_left`, `wheel_right`,
+`caster_wheel_left`, and `caster_wheel_right`) had ground contact in every
+sample. The combined vertical ground force supported a median `0.9997731` of
+the Carter's `529.759609 N` weight. Maximum horizontal excursion was
+`0.0119324 m`, maximum vertical excursion was `0.000001073 m`, and maximum
+tilt was `0.00157595 rad`. No contact buffer reached its frozen 64-contact
+capacity.
+
+The request, terminal report, and Isaac log SHA-256 values are respectively
+`35b1c2d2982ee3e39cf1b2ab451e65f8e80b4260e92ef6bf189c56d234daf1cd`,
+`8e55faece8d4b3c3b50cf8c51a94323eb14d04077ccd5dd4a7917e3a28170274`,
+and `3782ef8476db5e569a85993f798d91379e4a5d7cef4189a52f7ff8af369859ce`.
+The untracked evidence is stored below
+`tmp/restaurant_benchmark/contact-runtime-v2/`.
+
+This evidence promotes only the scoped
+`spawn_contact_physics_validated=true` field for one Carter at the primary spawn:
+static collision queries, four-wheel ground contact, and bounded zero-command
+stability. The generic `physics_scene_validated` field stays false because the
+probe does not cover the full scene or commanded motion. `navigation_validated`,
+`business_episode_execution_validated`, and `scoreable` also remain false.

@@ -1,6 +1,8 @@
 import hashlib
 import json
+import math
 from pathlib import Path
+import uuid
 
 import pytest
 
@@ -165,3 +167,112 @@ def test_restaurant_native_probe_selection_and_thresholds_are_frozen():
     assert config.BENCHMARK_PRIMARY_SPAWN_XY_M == (21.875, 20.875)
     assert runtime_probe.STATIONARY_DISPLACEMENT_LIMIT_M == 0.05
     assert runtime_probe.STATIONARY_VERTICAL_DRIFT_LIMIT_M == 0.02
+
+
+def test_restaurant_contact_probe_thresholds_and_wheels_are_frozen():
+    from demo.restaurant_benchmark import contact_probe
+
+    assert contact_probe.WHEEL_NAMES == (
+        "wheel_left",
+        "wheel_right",
+        "caster_wheel_left",
+        "caster_wheel_right",
+    )
+    assert contact_probe.GROUND_COLLISION_PATH.endswith("/BenchCollision/zz_ground")
+    assert contact_probe.MINIMUM_CONTACT_SAMPLE_RATIO == 0.80
+    assert contact_probe.MINIMUM_WEIGHT_SUPPORT_RATIO == 0.70
+    assert contact_probe.MAXIMUM_WEIGHT_SUPPORT_RATIO == 1.30
+    assert contact_probe.MAXIMUM_XY_EXCURSION_M == 0.05
+    assert contact_probe.MAXIMUM_Z_EXCURSION_M == 0.02
+    assert contact_probe.MAXIMUM_TILT_RAD == 0.10
+    assert contact_probe.PROBE_SCOPE.endswith("zero_command_stability_only")
+
+
+def _contact_request():
+    from demo.restaurant_benchmark import config, contact_probe, runtime_probe
+
+    return {
+        "schema": "eai.restaurant.native_contact_request",
+        "version": 1,
+        "run_id": uuid.uuid4().hex,
+        "scene_key": config.BENCHMARK_SCENE_KEY,
+        "selection": runtime_probe._selection(),
+        "requested_device": "cpu",
+        "source_sha256": config.SOURCE_SHA256,
+        "product_validation": {"validated": True},
+        "source_files": contact_probe._source_files(),
+        "settle_steps": 120,
+        "sample_steps": 240,
+        "thresholds": contact_probe._expected_thresholds(),
+        "release_gates": {
+            "navigation_ready": False,
+            "execution_validated": False,
+            "scoreable": False,
+        },
+        "scoreable": False,
+    }
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("run_id", "not-a-run-id"),
+        ("settle_steps", 0),
+        ("settle_steps", True),
+        ("sample_steps", 1201),
+        ("thresholds", {}),
+    ],
+)
+def test_restaurant_contact_request_contract_fails_closed(field, value):
+    from demo.restaurant_benchmark import contact_probe
+
+    request = _contact_request()
+    request[field] = value
+    with pytest.raises(ValueError, match="invalid Restaurant native contact request"):
+        contact_probe._validate_request_contract(request)
+
+
+def _contact_buffer(*, count=1, start=0, normal_force=12.0):
+    capacity = 64
+    unused_scalar = [[math.nan] for _ in range(capacity - 1)]
+    unused_vector = [[math.nan] * 3 for _ in range(capacity - 1)]
+    return (
+        [[normal_force], *unused_scalar],
+        [[1.0, 2.0, 0.0], *unused_vector],
+        [[0.0, 0.0, 1.0], *unused_vector],
+        [[-0.001], *unused_scalar],
+        [[count]],
+        [[start]],
+    )
+
+
+def test_restaurant_contact_decoder_preserves_filter_and_range():
+    from demo.restaurant_benchmark import contact_probe
+
+    decoded = contact_probe._decode_contact_data(_contact_buffer())
+    assert decoded["contact_count"] == 1
+    assert decoded["contact_start"] == 0
+    assert decoded["contacts"] == [
+        {
+            "collision_path": contact_probe.GROUND_COLLISION_PATH,
+            "position_world_m": [1.0, 2.0, 0.0],
+            "normal_world": [0.0, 0.0, 1.0],
+            "normal_force_N": 12.0,
+            "separation_m": -0.001,
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        _contact_buffer(count=1, start=64),
+        _contact_buffer(count=-1),
+        _contact_buffer(normal_force=-1.0),
+    ],
+)
+def test_restaurant_contact_decoder_rejects_invalid_buffers(raw):
+    from demo.restaurant_benchmark import contact_probe
+
+    with pytest.raises(RuntimeError, match="invalid Carter wheel contact buffer"):
+        contact_probe._decode_contact_data(raw)
