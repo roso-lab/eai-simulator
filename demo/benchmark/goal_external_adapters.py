@@ -556,9 +556,24 @@ class CityTeamWeaverParticipant:
 
         assignment: dict[str, str] = {}
         remaining = {task["task_id"] for task in plan_tasks}
+        team_budget = int(self._task["budgets"]["max_active_agents"])
+        team: set[str] = set()
         for round_index in range(len(plan_tasks)):
             if not remaining:
                 break
+            if len(team) >= team_budget:
+                # The public team budget is a hard allocation constraint:
+                # once the team is full, further rounds may only reuse the
+                # selected members (others are marked busy in the world).
+                world = SymbolicWorldState(
+                    hazard_id=0, hazard_position=(0.0, 0.0, 0.0), hazard_active=False,
+                    targets=targets, robots=tuple(
+                        robot_snapshot(row) if row["id"] in team
+                        else _busy_snapshot(row) for row in pool),
+                    extinguisher_available=False, extinguisher_carrier=None,
+                    extinguisher_delivered=False, rescue_channel_open=True,
+                    completed_task_ids=(), failed_task_ids=(), recent_feedback=(),
+                    observations={})
             if semantic_tasks is not None:
                 batch = tuple(t for t in semantic_tasks if t.target_ref in remaining)
             else:
@@ -581,6 +596,7 @@ class CityTeamWeaverParticipant:
             if not round_map:
                 break
             assignment.update(round_map)
+            team.update(round_map.values())
             remaining -= set(round_map)
         if remaining:
             raise RuntimeError(f"TeamWeaver left city tasks unassigned: {sorted(remaining)}")
