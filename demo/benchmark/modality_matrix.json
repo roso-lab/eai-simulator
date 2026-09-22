@@ -1,0 +1,484 @@
+{
+  "schema": "eai.benchmark.modality_matrix",
+  "version": 1,
+  "status": "deployment_realism_audit",
+  "claim_boundary": {
+    "allowed": [
+      "declared_contract_phase_modality_coverage",
+      "phase_decomposition_rationale",
+      "authoring_proposal_inventory"
+    ],
+    "forbidden": [
+      "runtime_execution_validation",
+      "physical_causality",
+      "global_optimality",
+      "whole_task_necessity",
+      "machine_type_prohibition"
+    ],
+    "wording_rule": "每行只陈述现行声明契约下该阶段由何种模态履行及其 file:line 证据；不产出机型能力断言，也不声明执行验证。",
+    "unknown_states": ["external_pending", "scene_binding_pending"]
+  },
+  "scene_keys": ["factory", "warehouse_nvd", "modern_house_nvd", "city"],
+  "status_vocabulary": ["declared_realistic", "realistic_missing", "excluded_defensible"],
+  "modality_vocabulary": ["aerial", "ground-legged", "ground-wheeled", "ground-legged+ground-wheeled"],
+  "wording_blacklist": ["不该", "不应该", "错误决策", "不适合"],
+  "scene_modality_audit": {
+    "factory": [
+      {
+        "skill": "observe",
+        "phase": "观察-俯瞰缩小范围",
+        "modality": "aerial",
+        "status": "declared_realistic",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:370",
+          "demo/benchmark/goal_driven_tasks.py:376",
+          "demo/benchmark/goal_driven_tasks.py:413",
+          "demo/benchmark/goal_driven_tasks.py:424",
+          "demo/benchmark/goal_driven_tasks.py:1349-1351"
+        ],
+        "rationale": "空中俯瞰阶段已由候选池声明（factory_aerial_1 具备 aerial_navigation/observe/relay）并在 factory_overview 空中观察区执行；两条见证计划均以 observation_mode=overhead 起步完成异常缩小范围，近距确认阶段随后由地面成员履行，构成四场景声明的两阶段观察范本。"
+      },
+      {
+        "skill": "observe",
+        "phase": "观察-近距身份确认",
+        "modality": "ground-legged+ground-wheeled",
+        "status": "declared_realistic",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:371",
+          "demo/benchmark/goal_driven_tasks.py:372",
+          "demo/benchmark/goal_driven_tasks.py:415",
+          "demo/benchmark/goal_driven_tasks.py:418",
+          "demo/benchmark/goal_driven_tasks.py:426",
+          "demo/benchmark/goal_driven_tasks.py:429",
+          "demo/benchmark/goal_driven_tasks.py:1352-1366"
+        ],
+        "rationale": "下层与夹层的近距身份确认阶段在现行声明契约下由地面成员履行：见证 A 用腿式 M20（close_view_lower/close_view_upper），见证 B 用轮式 Carter 与 M20 分担近距确认；符号业务复核要求俯瞰先于近距且近距绑定实际到达证据。"
+      },
+      {
+        "skill": "stair_traversal",
+        "phase": "垂直抵达",
+        "modality": "ground-legged",
+        "status": "declared_realistic",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:371",
+          "demo/benchmark/goal_driven_tasks.py:379",
+          "demo/benchmark/goal_driven_tasks.py:386-392",
+          "demo/benchmark/goal_driven_tasks.py:417",
+          "demo/benchmark/goal_driven_tasks.py:428",
+          "demo/benchmark/skill_ontology.py:53-68",
+          "demo/benchmark/goal_driven_fixtures.py:61",
+          "demo/benchmark/goal_driven_fixtures.py:195-198"
+        ],
+        "rationale": "主楼梯垂直抵达阶段由具备 stair_traversal 声明的腿式成员履行：净宽 0.85 m、台阶高 0.18 m、空载 0 kg 的链路声明与 M20 冻结剖面 0.22 m 踏步高度一致，两条见证均以楼梯上下行覆盖该阶段并作为上层现场的合法通路。"
+      },
+      {
+        "skill": "stair_traversal",
+        "phase": "垂直抵达",
+        "modality": "ground-wheeled",
+        "status": "excluded_defensible",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:372",
+          "demo/benchmark/goal_driven_fixtures.py:63-70",
+          "demo/benchmark/goal_driven_fixtures.py:195-198",
+          "demo/benchmark/goal_driven_tasks.py:404"
+        ],
+        "rationale": "上层现场的垂直抵达阶段在现行声明契约下由腿式成员履行：轮式成员（factory_ground_2，Carter）的公开能力未含 stair_traversal，其冻结剖面踏步高度 0.03 m 低于主楼梯 0.18 m 台阶；轮式成员在下层到达、近距确认与维护交接阶段履职，业务约束同时要求需要上层现场时合法计划使用可验证的楼梯通行能力。"
+      },
+      {
+        "skill": "observe",
+        "phase": "观察-夹层近距",
+        "modality": "aerial",
+        "status": "excluded_defensible",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:379",
+          "demo/benchmark/goal_driven_tasks.py:386-392",
+          "demo/benchmark/goal_driven_tasks.py:404",
+          "demo/benchmark/goal_driven_tasks.py:418"
+        ],
+        "rationale": "夹层近距观察阶段前置的垂直抵达阶段在现行声明契约下由楼梯通行履行：mezzanine_workcell 仅声明 stair_traversal 通道，主楼梯是容量 1 的共享协调资源，业务约束要求需要上层现场时合法计划必须使用可验证的楼梯通行能力；空中层履行俯瞰缩小范围阶段，两阶段分工是本场景声明的既有范本。"
+      },
+      {
+        "skill": "observe",
+        "phase": "交接-维护回执读取",
+        "modality": "ground-legged+ground-wheeled",
+        "status": "declared_realistic",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:380",
+          "demo/benchmark/goal_driven_tasks.py:406",
+          "demo/benchmark/goal_driven_tasks.py:421",
+          "demo/benchmark/goal_driven_tasks.py:433",
+          "demo/benchmark/goal_driven_tasks.py:1368-1375"
+        ],
+        "rationale": "维护交接回执读取阶段由真实到达 response_staging 的地面响应成员在固定服务车处履行：见证 A 为腿式 M20、见证 B 为轮式 Carter；符号复核要求回执读取晚于下层与上层现场核验且与实际返回段绑定，这是业务记录核验而非搬运服务车。"
+      },
+      {
+        "skill": "ground_navigation",
+        "phase": "退出-返回响应区",
+        "modality": "ground-legged+ground-wheeled",
+        "status": "declared_realistic",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:420",
+          "demo/benchmark/goal_driven_tasks.py:431",
+          "demo/benchmark/goal_driven_tasks.py:432",
+          "demo/benchmark/goal_driven_tasks.py:1367"
+        ],
+        "rationale": "现场作业后的退出阶段由地面成员返回 response_staging 履行（return_to_response 与两条并行返回航段），符号复核将返回段作为维护交接回执的必要前置；空中成员保持在 factory_overview 观察区。"
+      }
+    ],
+    "warehouse_nvd": [
+      {
+        "skill": "observe",
+        "phase": "观察-货架库存复核",
+        "modality": "aerial",
+        "status": "declared_realistic",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:443",
+          "demo/benchmark/goal_driven_tasks.py:449",
+          "demo/benchmark/goal_driven_tasks.py:500",
+          "demo/benchmark/goal_driven_tasks.py:508",
+          "demo/benchmark/goal_driven_tasks.py:1306-1307"
+        ],
+        "rationale": "货架库存复核阶段由空中成员在 rack_overview 声明观察区履行（survey_racks/survey_crate，observation_mode=rack_inventory）；符号业务复核显式要求该证据来自 aerial mobility 成员，观察区声明覆盖两侧取货通道、集货区与 dock 净空。"
+      },
+      {
+        "skill": "observe",
+        "phase": "观察-出库后闭环复核",
+        "modality": "aerial",
+        "status": "declared_realistic",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:470",
+          "demo/benchmark/goal_driven_tasks.py:543-547",
+          "demo/benchmark/goal_driven_tasks.py:1324-1329"
+        ],
+        "rationale": "出库后闭环复核阶段（observation_mode=post_dispatch）由空中成员在全部地面成员撤入待机区且两件货物均取得 dock 回执后履行；warehouse_closeout 结果的证据链以该空中终扫收束并要求作业通道退出记录。"
+      },
+      {
+        "skill": "pick",
+        "phase": "接触-纸箱抓取",
+        "modality": "ground-legged",
+        "status": "declared_realistic",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:444",
+          "demo/benchmark/goal_driven_tasks.py:520",
+          "demo/benchmark/goal_driven_tasks.py:528",
+          "demo/benchmark/skill_ontology.py:85-101",
+          "demo/benchmark/goal_driven_fixtures.py:145-149"
+        ],
+        "rationale": "3 kg 纸箱的抓取阶段由具备 pick 声明与 manipulator 接口的腿式 M20 以 single_grip@center_grip（fixed_gripper_v1）履行；巷道取货与集货后二次拣取两个接触阶段均有见证任务覆盖，身份证据新鲜度是技能前提。"
+      },
+      {
+        "skill": "place",
+        "phase": "搬运-纸箱暂存放置",
+        "modality": "ground-legged",
+        "status": "declared_realistic",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:521",
+          "demo/benchmark/skill_ontology.py:105-117"
+        ],
+        "rationale": "纸箱暂存放置阶段由同一腿式成员在持有态下将纸箱放置到 consolidation_area 履行；放置语义、拥有权释放与放置区准入由 place 技能契约声明，集货状态保持订单身份连续。"
+      },
+      {
+        "skill": "handoff",
+        "phase": "交接-dock接收",
+        "modality": "ground-legged",
+        "status": "declared_realistic",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:475",
+          "demo/benchmark/goal_driven_tasks.py:529",
+          "demo/benchmark/goal_driven_tasks.py:1310-1314",
+          "demo/benchmark/skill_ontology.py:118-134"
+        ],
+        "rationale": "纸箱 dock 交接阶段由持有成员以 handoff 向 dock_receiver 履行（handoff_order），木箱回执则以联合搬运释放后的 dock_receiver_receipt 观察读取；业务约束明确搬运动作与机器人自报均不能替代接收记录。"
+      },
+      {
+        "skill": "cooperative_carry",
+        "phase": "搬运-木箱双机承载",
+        "modality": "ground-legged+ground-wheeled",
+        "status": "declared_realistic",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:444-446",
+          "demo/benchmark/goal_driven_tasks.py:482-485",
+          "demo/benchmark/goal_driven_tasks.py:516",
+          "demo/benchmark/goal_driven_tasks.py:524",
+          "demo/benchmark/goal_driven_fixtures.py:133",
+          "demo/benchmark/goal_driven_fixtures.py:140-143",
+          "demo/benchmark/skill_ontology.py:135-152"
+        ],
+        "rationale": "12 kg 木箱的双机承载运输阶段由 M20 与 Carter 组合按 paired_support（support_left/support_right 各 0.5 份额）履行，两条见证互换 picker/partner 分工保持语义差异；按固定支撑点份额核验各成员载荷与接口是公开业务约束。"
+      },
+      {
+        "skill": "cooperative_carry",
+        "phase": "搬运-木箱双机承载",
+        "modality": "aerial",
+        "status": "excluded_defensible",
+        "evidence": [
+          "demo/benchmark/goal_driven_fixtures.py:133",
+          "demo/benchmark/goal_driven_fixtures.py:142",
+          "demo/benchmark/goal_driven_fixtures.py:47-53",
+          "demo/benchmark/goal_driven_tasks.py:474",
+          "demo/benchmark/goal_constraints.py:306-311",
+          "demo/benchmark/goal_driven_fixtures.py:204",
+          "demo/benchmark/goal_driven_fixtures.py:208",
+          "demo/benchmark/goal_driven_fixtures.py:201-202",
+          "demo/benchmark/goal_driven_fixtures.py:213-214"
+        ],
+        "rationale": "木箱承载的接驳阶段要求成员在 support_left/support_right 提供 support_socket_v1 现场接口并满足 coalition 同步前提：12 kg 按 0.5 份额对任一承载成员仍为 6 kg，而现行唯一空中成员声明载荷 0.0 且无抓取或支撑接口，约束模型对 handling mode 载体要求 ground mobility；运输阶段仅声明 1.85 m 净宽地面航路（crate_aisle/dock_lane），1.65 m 队形宽度的配对队形与巷道净空在现行声明契约下由地面双机履行，空中层履行货架与出库复核观察阶段（唯一空中航路位于 rack_overview 观察层）。"
+      },
+      {
+        "skill": "pick",
+        "phase": "接触|搬运-纸箱空中运输链",
+        "modality": "aerial",
+        "status": "excluded_defensible",
+        "evidence": [
+          "demo/benchmark/goal_driven_fixtures.py:146",
+          "demo/benchmark/goal_driven_fixtures.py:148-149",
+          "demo/benchmark/goal_driven_fixtures.py:47-53",
+          "demo/benchmark/goal_constraints.py:306-311",
+          "demo/benchmark/goal_driven_tasks.py:451",
+          "demo/benchmark/goal_driven_fixtures.py:206-207",
+          "demo/benchmark/goal_driven_fixtures.py:201-202",
+          "demo/benchmark/goal_driven_fixtures.py:213-214"
+        ],
+        "rationale": "3 kg 纸箱处于现实载货级飞行器量级内，但取放阶段需要 fixed_gripper_v1 抓取接口与 1.1 m 揽持包络的声明 handling mode，现行空中成员载荷 0.0 且无抓取接口，约束模型对 handling mode 载体要求 ground mobility；rack_aisle_b 仅声明地面通道，0.95 m 净宽巷道内无空中航路（唯一空中航路位于 rack_overview 观察层），巷道飞行属边缘工况。现行声明契约下纸箱的抓取、运输与 dock 交接阶段整体由地面成员履行；若未来引入载货级空中成员，需同时声明抓取或支撑接口、单机载荷与巷道外换载航路后重开该阶段。"
+      }
+    ],
+    "modern_house_nvd": [
+      {
+        "skill": "observe",
+        "phase": "观察-室内侦察",
+        "modality": "aerial",
+        "status": "declared_realistic",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:563",
+          "demo/benchmark/goal_driven_tasks.py:569",
+          "demo/benchmark/goal_driven_tasks.py:612",
+          "demo/benchmark/goal_driven_tasks.py:619",
+          "demo/benchmark/goal_driven_tasks.py:1335-1336"
+        ],
+        "rationale": "室内侦察阶段由空中成员在 room_overview 声明观察区履行（inspect_entry/inspect_books，observation_mode=home_access），该观察区同时覆盖家具、书堆与入口到生活区的动线；对象身份观察先于搬运是符号复核的必要条件。"
+      },
+      {
+        "skill": "observe",
+        "phase": "观察-通路终局净空复核",
+        "modality": "aerial",
+        "status": "declared_realistic",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:590",
+          "demo/benchmark/goal_driven_tasks.py:650",
+          "demo/benchmark/goal_driven_tasks.py:1343-1347"
+        ],
+        "rationale": "住户通路的终局净空复核阶段（observation_mode=final_clearance）由空中成员在全部地面作业与撤出完成后履行；resident_path_restored 结果要求整条通路的独立路径检查而非仅终点位置。"
+      },
+      {
+        "skill": "observe",
+        "phase": "观察-搬运前通路评估",
+        "modality": "aerial",
+        "status": "realistic_missing",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:600",
+          "demo/benchmark/goal_driven_fixtures.py:218-220",
+          "demo/benchmark/goal_driven_tasks.py:612",
+          "demo/benchmark/goal_driven_tasks.py:650",
+          "demo/benchmark/skill_ontology.py:69-84"
+        ],
+        "rationale": "公开说明要求队形宽度参与路线选择（2.1 m 宽通路与仅容单机的 1.0 m 近路并存），但现行空中观察的 subject_ref 仅绑定对象或区域且终局净空复核安排在撤出之后；抓取前对候选通路的净宽评估阶段尚无声明模式与验收钩子，observe 的 observation_mode 为自由字符串却缺少面向航路的评估目标与业务复核消费点。",
+        "proposal": "新增 pre_carry_corridor_survey 类空中观察声明：在 cooperative_carry 前对候选宽/近通路出具净宽证据并作为路线选择依据，业务复核增加搬运前通路证据必要条件；可与现有 home_access 观察复用同一空中成员。"
+      },
+      {
+        "skill": "cooperative_carry",
+        "phase": "搬运-扶手椅双机承载",
+        "modality": "ground-legged+ground-wheeled",
+        "status": "declared_realistic",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:564-566",
+          "demo/benchmark/goal_driven_tasks.py:609",
+          "demo/benchmark/goal_driven_tasks.py:625-631",
+          "demo/benchmark/goal_driven_fixtures.py:151-162",
+          "demo/benchmark/goal_constraints.py:274-284"
+        ],
+        "rationale": "14 kg 扶手椅的双机搬运阶段由双 M20 承载对按 paired_support 履行；Carter 高位支撑锚点在实测锚点注册表下按 2026-09-19 PhysX 实测判为不可达，配对选择属被测模型方案空间，见证各取一个可行组合并互换分工。"
+      },
+      {
+        "skill": "cooperative_carry",
+        "phase": "搬运-扶手椅双机承载",
+        "modality": "aerial",
+        "status": "excluded_defensible",
+        "evidence": [
+          "demo/benchmark/goal_driven_fixtures.py:152",
+          "demo/benchmark/goal_driven_fixtures.py:161",
+          "demo/benchmark/goal_driven_fixtures.py:47-53",
+          "demo/benchmark/goal_constraints.py:306-311",
+          "demo/benchmark/goal_driven_tasks.py:596",
+          "demo/benchmark/goal_driven_fixtures.py:218-219"
+        ],
+        "rationale": "扶手椅搬运的接驳阶段需要 support_socket_v1 现场接口与 coalition 同步前提，现行唯一空中成员载荷 0.0 且无支撑接口，约束模型对 handling mode 载体要求 ground mobility；住户净高阈值 2.0 m 与 1.9 m 配对队形宽度下，运输阶段在现行声明契约中由 2.1 m 地面宽通路履行（1.0 m 近路仅容单机是路线选择测量点），空中层履行室内侦察与终局净空复核阶段。"
+      },
+      {
+        "skill": "pick",
+        "phase": "接触-书堆抓取",
+        "modality": "ground-legged",
+        "status": "declared_realistic",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:564",
+          "demo/benchmark/goal_driven_tasks.py:636",
+          "demo/benchmark/goal_driven_fixtures.py:164-168",
+          "demo/benchmark/skill_ontology.py:85-101"
+        ],
+        "rationale": "2 kg 书堆的抓取阶段由具备 manipulator 接口的腿式 M20 以 single_grip@center_grip 履行；住户物品身份保持与身份证据新鲜度分别是业务约束与技能前提。"
+      },
+      {
+        "skill": "place",
+        "phase": "搬运-书堆暂存放置",
+        "modality": "ground-legged",
+        "status": "declared_realistic",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:637",
+          "demo/benchmark/goal_driven_fixtures.py:168",
+          "demo/benchmark/skill_ontology.py:105-117"
+        ],
+        "rationale": "书堆暂存放置阶段由同一腿式成员将书堆放置到 keepsake_staging 履行；放置稳定性与暂存区域记录一致是 belonging_staged 结果的证据要求。"
+      },
+      {
+        "skill": "pick",
+        "phase": "接触|搬运-书堆空中链",
+        "modality": "aerial",
+        "status": "excluded_defensible",
+        "evidence": [
+          "demo/benchmark/goal_driven_fixtures.py:164-168",
+          "demo/benchmark/goal_driven_fixtures.py:47-53",
+          "demo/benchmark/goal_constraints.py:306-311",
+          "demo/benchmark/goal_driven_tasks.py:596",
+          "demo/benchmark/goal_driven_fixtures.py:216-232"
+        ],
+        "rationale": "书堆的取放阶段需要 fixed_gripper_v1 抓取接口，现行空中成员载荷 0.0 且无抓取接口，约束模型对 handling mode 载体要求 ground mobility；住户净高阈值 2.0 m 且全屋航路均为地面模式声明，现行声明契约下书堆的抓取、运输与放置阶段由地面成员履行，空中层履行侦察与终局复核阶段。"
+      },
+      {
+        "skill": "ground_navigation",
+        "phase": "退出-待机撤出",
+        "modality": "ground-legged+ground-wheeled",
+        "status": "declared_realistic",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:576-577",
+          "demo/benchmark/goal_driven_tasks.py:645-649",
+          "demo/benchmark/goal_driven_tasks.py:1286-1300"
+        ],
+        "rationale": "团队退出阶段由全部地面成员撤入不占用住户动线的待机区履行，符号复核对每个地面成员要求最终待机区与撤出证据；空中成员保留在 room_overview 履行终局净空复核。"
+      }
+    ],
+    "city": [
+      {
+        "skill": "guide_people",
+        "phase": "接触+伴随",
+        "modality": "ground-legged+ground-wheeled",
+        "status": "declared_realistic",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:795-797",
+          "demo/benchmark/goal_driven_tasks.py:951-953",
+          "demo/benchmark/goal_driven_tasks.py:1001-1007",
+          "demo/benchmark/skill_ontology.py:175-183",
+          "demo/benchmark/skill_ontology.py:196"
+        ],
+        "rationale": "人员引导的接触与伴随阶段由地面成员履行：腿式 go2 与轮式 carter 均挂接 guide_people 服务技能，技能契约要求 ground_navigation 接口可用、送达的人员观察证据与集合区准入；两条见证分别由单地面成员连续引导与双地面成员分担引导。"
+      },
+      {
+        "skill": "guide_people",
+        "phase": "先遣广播",
+        "modality": "aerial",
+        "status": "realistic_missing",
+        "evidence": [
+          "demo/city_benchmark/contracts.py:36-38",
+          "demo/benchmark/goal_driven_tasks.py:939-947",
+          "demo/benchmark/goal_driven_tasks.py:951-953",
+          "demo/benchmark/skill_ontology.py:175-183",
+          "demo/benchmark/skill_ontology.py:20-277"
+        ],
+        "rationale": "空中成员已具备前出侦察所需的 aerial_navigation/observe/relay 声明并先于引导完成人员观察，但 guide_people 契约以 ground_navigation 接口为前提且技能目录无空中广播条目，先遣广播疏导阶段在现行声明中未由任何模态履行。",
+        "proposal": "新增 aerial_broadcast 技能声明（空中前出广播/指路，advisory 语义：广播送达与人员确认回执，人员接触与伴随确认仍由地面成员履行）；主对话 P0 进行中。"
+      },
+      {
+        "skill": "control_following_traffic",
+        "phase": "控制-管制点提交",
+        "modality": "ground-legged+ground-wheeled",
+        "status": "declared_realistic",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:796-797",
+          "demo/benchmark/goal_driven_tasks.py:820-821",
+          "demo/benchmark/goal_driven_tasks.py:954-960",
+          "demo/benchmark/goal_driven_tasks.py:988-994",
+          "demo/benchmark/skill_ontology.py:198-231"
+        ],
+        "rationale": "后续交通的管制提交阶段由地面成员在已声明 traffic_control_point 履行（hold 与 divert 两种模式分别出现在两条见证），技能契约要求交通管制权威可用、安全管制点准入与已送达的受控车辆观察证据引用。"
+      },
+      {
+        "skill": "control_following_traffic",
+        "phase": "观察-车流监视与读回",
+        "modality": "aerial",
+        "status": "declared_realistic",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:816-817",
+          "demo/benchmark/goal_driven_tasks.py:945-947",
+          "demo/benchmark/goal_driven_tasks.py:961-964",
+          "demo/benchmark/goal_driven_tasks.py:1008-1011",
+          "demo/benchmark/goal_driven_tasks.py:1410-1429"
+        ],
+        "rationale": "车流监视（following_traffic_survey）与受控读回（controlled_traffic_readback）阶段由空中成员在 city_incident_overview 履行；符号复核要求管制请求引用已送达的空中车流观察且读回晚于已确认的管制。"
+      },
+      {
+        "skill": "control_following_traffic",
+        "phase": "上报|广播-空中预警",
+        "modality": "aerial",
+        "status": "realistic_missing",
+        "evidence": [
+          "demo/city_benchmark/contracts.py:37",
+          "demo/benchmark/skill_ontology.py:153-167",
+          "demo/benchmark/skill_ontology.py:20-277",
+          "demo/benchmark/goal_driven_tasks.py:873"
+        ],
+        "rationale": "现行 relay 契约只向当前团队发布消息，技能目录没有面向车辆或公众的空中预警广播条目；现实中的空中广播预警（advisory）阶段在现行声明中未由任何模态履行，而业务约束已排除以机体撞击或阻挡作为替代路径。",
+        "proposal": "新增 advisory 语义的空中交通预警广播声明（送达与回执语义弱于 hold/divert 的确认回执），强制生效阶段仍由已声明管制点的地面服务履行。"
+      },
+      {
+        "skill": "control_following_traffic",
+        "phase": "控制-强制生效",
+        "modality": "aerial",
+        "status": "excluded_defensible",
+        "evidence": [
+          "demo/benchmark/skill_ontology.py:207-218",
+          "demo/benchmark/goal_service_catalog.py:142",
+          "demo/benchmark/goal_service_catalog.py:145-151",
+          "demo/benchmark/goal_driven_tasks.py:820-821",
+          "demo/benchmark/goal_driven_tasks.py:873"
+        ],
+        "rationale": "hold/divert 的强制生效阶段以 traffic_control_authority_available 与 safe_control_point_admitted 为前提，服务目录要求 traffic_control_point 现场角色的 control_point_pose_and_interval 证据；该阶段在现行声明契约下由位于已声明地面管制点的成员履行，空中成员履行车流监视、受控读回与（未来）预警广播阶段，且业务约束禁止以机体撞击或阻挡实现强制。"
+      },
+      {
+        "skill": "report_incident",
+        "phase": "上报",
+        "modality": "aerial",
+        "status": "declared_realistic",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:798",
+          "demo/benchmark/goal_driven_tasks.py:1027-1032",
+          "demo/benchmark/skill_ontology.py:239-248",
+          "demo/benchmark/skill_ontology.py:260",
+          "demo/benchmark/goal_driven_tasks.py:1433-1448"
+        ],
+        "rationale": "事件上报阶段由空中成员履行：iris_1 挂接 report_incident，技能契约仅要求 observe+relay（对 mobility 无约束），上报引用连续净空检查与事故观察证据并使用冻结的 city_dispatch 服务端点；这是四场景中空中模态参与业务服务的多模态正例。"
+      },
+      {
+        "skill": "report_incident",
+        "phase": "上报",
+        "modality": "ground-legged+ground-wheeled",
+        "status": "realistic_missing",
+        "evidence": [
+          "demo/city_benchmark/contracts.py:24-35",
+          "demo/benchmark/goal_driven_tasks.py:769-770",
+          "demo/benchmark/goal_driven_tasks.py:144-145",
+          "demo/benchmark/skill_ontology.py:246-248"
+        ],
+        "rationale": "现行城市候选池的地面成员（go2_1/carter_1）未声明 observe 且无相机接口，bound_native_v2 扩池中具备 ground observe 的 lite3_1 未挂接 relay 与城市服务技能（作者标注的能力诱饵），而上报成员须同时具备 observe+relay；地面现场上报阶段在现行声明中未由任何成员履行，而现实中地面响应成员的现场上报是常规模态。",
+        "proposal": "为城市地面响应成员声明相机/observe 接口或引入 relay 型上报通道，使通信受限条件下地面成员具备现场上报模态；可与 bound_native 扩池议题合并评估。"
+      }
+    ]
+  }
+}

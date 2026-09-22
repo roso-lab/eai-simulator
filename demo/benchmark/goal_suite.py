@@ -75,7 +75,7 @@ def _source_bindings(scene_keys):
                "goal_freeze.py", "goal_suite.py", "goal_scene_registry.py", "goal_city_intake.py",
                "goal_service_catalog.py", "release_manifest.py", "provenance.py",
                "measurement_contract.py", "mechanism_templates.py", "task_coverage.py",
-               "task_coverage_matrix.json")
+               "task_coverage_matrix.json", "modality_matrix.json")
     files = {str(Path(__file__).with_name(name).resolve()): file_sha256(Path(__file__).with_name(name))
              for name in sources}
     return {scene: {"revision": "local-authoring-" + canonical_sha256(files), "files": dict(files)}

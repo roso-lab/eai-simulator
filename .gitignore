@@ -130,6 +130,7 @@ tests/
 ros2_cmd_vel.json
 *.json
 !/demo/benchmark/task_coverage_matrix.json
+!/demo/benchmark/modality_matrix.json
 !/demo/benchmark/tests/
 !/source/EAI_hmrs/EAI_hmrs/envs/*.json
 /source/EAI_hmrs/EAI_hmrs/envs/test*.json
