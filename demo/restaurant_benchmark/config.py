@@ -1,6 +1,7 @@
-"""Repository configuration for the restaurant authoring scene."""
+"""Repository configuration for Restaurant authoring and benchmark scenes."""
 
 SCENE_KEY = "restaurant"
+BENCHMARK_SCENE_KEY = "restaurant_benchmark"
 USD_RELATIVE_PATH = "scene/restaurant/Restaurant_Only.usda"
 SOURCE_SHA256 = "618470672c40d18b93adbbcdecf69aea98931ebc4d5e1f8d13e7a77ee67e653b"
 UNRESOLVED_MANIFEST_SHA256 = (
@@ -11,6 +12,12 @@ USED_LAYER_MANIFEST_SHA256 = (
 )
 SOURCE_METERS_PER_UNIT = 0.01
 RUNTIME_SCALE = (0.01, 0.01, 0.01)
+
+# The first robot receives the builder's -3 m X formation offset. These values
+# therefore place Carter at (21.875, 20.875), a high-clearance cell in the
+# largest component of the 0.40 m inflated candidate map.
+BENCHMARK_ROBOT_SPAWN_ORIGIN = (24.875, 20.875)
+BENCHMARK_PRIMARY_SPAWN_XY_M = (21.875, 20.875)
 
 # These gates remain closed until scene-derived products and execution evidence
 # exist. Keeping them explicit prevents a successful visual load from being

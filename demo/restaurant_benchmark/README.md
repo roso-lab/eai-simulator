@@ -176,3 +176,68 @@ Modern House NVD bundles, so their installed-sidecar test cannot run there witho
 copying provider data. The Restaurant product tests and all other focused NVD
 algorithm tests pass; provider-installed NVD validation remains an environment
 check outside this candidate batch.
+
+## Isolated candidate runtime
+
+The raw authoring key remains `restaurant`. The separate
+`restaurant_benchmark` key loads only a hash-checked local candidate selected by
+`EAI_RESTAURANT_BENCHMARK_ROOT`; the candidate is not added to the provider asset
+registry. Keep `EAI_USD_ROOT` pointed at the shared read-only asset checkout so
+robot assets remain available, and point the Restaurant variable at the
+generated directory in this worktree:
+
+```bash
+export EAI_USD_ROOT=/home/pupil/eai-simulator/usd
+export EAI_CONTROLLER_ROOT=/home/pupil/eai-simulator/source/EAI_assets/EAI_assets/controller
+export EAI_RESTAURANT_BENCHMARK_ROOT=$PWD/tmp/restaurant_benchmark/products-candidate-v7
+python simulator.py --env restaurant_benchmark_scene
+```
+
+The product resolver rejects an unset directory, changed product bytes, open
+release gates, a provider revision, or any snapshot whose metadata, product, or
+bundle hash differs from candidate v7. This keeps runtime experiments away from
+the original 4.1 GB source package and prevents a local candidate from being
+mistaken for a released benchmark. The initial formation origin places the first
+Carter at `(21.875, 20.875)` m, inside the largest component of the candidate's
+`0.40 m` inflated connectivity diagnostic.
+
+Run that bounded probe in a fresh output directory:
+
+```bash
+PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
+EAI_USD_ROOT=/home/pupil/eai-simulator/usd \
+EAI_CONTROLLER_ROOT=/home/pupil/eai-simulator/source/EAI_assets/EAI_assets/controller \
+  /home/pupil/miniconda3/envs/env_isaaclab/bin/python \
+  -m demo.restaurant_benchmark.runtime_probe \
+  --products-root tmp/restaurant_benchmark/products-candidate-v7 \
+  --source-usd /home/pupil/eai-simulator/usd/scene/restaurant/Restaurant_Only.usda \
+  --output-root tmp/restaurant_benchmark/native-runtime-fresh --device cpu
+```
+
+The parent validates the complete bundle before starting a separate Kit worker,
+then the worker checks a Plane support ray, a horizontal obstacle-proxy ray, and
+Carter drift under zero command. Passing this probe validates the static
+collision query and stationary-drift scope only. It keeps wheel contact, overall
+physics execution, navigation, business execution, and scoreability false.
+
+The final source-bound CPU run is `native-runtime-v3`. It loaded 1,399 enabled
+colliders (one Plane and 1,398 generated proxies), hit the Plane at
+`z=-0.0000024 m`, and hit proxy `o00359` after `0.975 m` along the horizontal
+test ray. Carter spawned at `(21.875, 20.875, 0.20) m`; after 120 settle steps,
+its 240-step zero-command observation moved `0.0119324 m` with
+`0.000000149 m` vertical drift. Both ray checks and the frozen drift limits
+passed. The request, report, and Isaac log SHA-256 values are respectively
+`686ed3c7801dc7b73c92e44e9104c07cd10413866b965322efa68a8f3623966f`,
+`4e368e1aee8572e2fd22f60d4313fd7967622f041ac4fc2427e52649adbdcae0`,
+and `6a7e3b46bf62a336a212d48d3b54036e78ed6c23febdaeb008b978b2078dab0e`.
+These untracked files remain below `tmp/restaurant_benchmark/native-runtime-v3/`.
+Earlier v1/v2 directories are investigation records and are not acceptance
+evidence because their field semantics or terminal-report checks predate the
+final source binding.
+
+Candidate v7 is deliberately machine-local. Its wrapper stores a relative
+reference from the generated directory to this machine's source checkout, so
+regenerating the same geometry under a different checkout or output layout
+changes the wrapper SHA and the exact-snapshot resolver rejects it. A provider
+release must replace that layout-dependent reference with a portable packaged
+closure and freeze new release hashes.

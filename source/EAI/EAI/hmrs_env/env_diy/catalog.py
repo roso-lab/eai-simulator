@@ -23,6 +23,7 @@ SCENE_CHOICES = (
     ("warehouse_nvd", "Warehouse NVD benchmark overlay"),
     ("modern_house_nvd", "Modern House NVD benchmark overlay"),
     ("restaurant", "Restaurant authoring scene"),
+    ("restaurant_benchmark", "Restaurant benchmark candidate overlay"),
 )
 
 ROBOT_KEYS = (

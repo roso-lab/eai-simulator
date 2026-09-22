@@ -64,6 +64,10 @@ _SCENE_PATHS = {
     # closure is audited separately because it is not yet a published provider
     # bundle and has no benchmark occupancy product.
     "restaurant": ("scene/restaurant/Restaurant_Only.usda",),
+    # A local candidate is selected through EAI_RESTAURANT_BENCHMARK_ROOT.
+    # Its resolver validates an explicit staging directory; it is not a
+    # provider download until the benchmark release gates have passed.
+    "restaurant_benchmark": (),
     "airs": ("scene/airs/airs.usd", *SCENE_MAP_PATHS["airs"]),
     "desert": ("scene/desert/real_dust_scene_tiny.usda", *SCENE_MAP_PATHS["desert"]),
     "hospital": (

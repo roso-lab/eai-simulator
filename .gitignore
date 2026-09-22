@@ -187,6 +187,7 @@ ros2_cmd_vel.json
 test_*.py
 *_test.py
 !/source/EAI/test/test_restaurant_products.py
+!/source/EAI/test/test_restaurant_runtime_scene.py
 
 # Tracked lightweight tests for the asset-library showcase tool.
 !/tools/test_asset_library_showcase.py
