@@ -421,6 +421,47 @@ This preparation does not change the release gates. The candidate remains
 machine-local, so `navigation_ready=false`, `execution_validated=false`, and
 `scoreable=false`.
 
+## Candidate native admission
+
+`demo.restaurant_benchmark.candidate_admission` binds one public candidate to
+its frozen spawn, launches its real controller and asset, reads the actual
+articulation body/link identity, then measures 120 settle steps plus 240
+zero-command steps. A candidate is admitted only when all declared support
+bodies have unique native paths, filtered ground contacts stay healthy, and
+post-settle horizontal/vertical drift and tilt remain within the frozen
+thresholds. A completed probe may produce `candidate_admitted=false`; that is a
+measured rejection, not a runner failure or a release-gate promotion.
+
+The first two runs cover the two M20 authoring anchors:
+
+```bash
+PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
+EAI_USD_ROOT=/home/pupil/eai-simulator/usd \
+EAI_CONTROLLER_ROOT=/home/pupil/eai-simulator/source/EAI_assets/EAI_assets/controller \
+  /home/pupil/miniconda3/envs/env_isaaclab/bin/python \
+  -m demo.restaurant_benchmark.candidate_admission \
+  --candidate restaurant_m20_1 \
+  --products-root tmp/restaurant_benchmark/products-candidate-v7 \
+  --source-usd /home/pupil/eai-simulator/usd/scene/restaurant/Restaurant_Only.usda \
+  --output-root tmp/restaurant_benchmark/candidate-m20-1-<new> \
+  --device cpu
+```
+
+`candidate-m20-1-20260922-v3` and `candidate-m20-2-20260922-v2` both bound the
+native root to the requested public spawn within 2 micrometres, read the real
+`fl/fr/hl/hr_wheel` bodies and passed filtered support contact: every wheel was
+in contact on all 240 samples, median weight-support ratios were 0.999995 and
+0.999906, and neither contact buffer overflowed. Both failed the 0.05 m
+post-settle horizontal stability limit: M20_1 moved 0.208384 m and M20_2 moved
+0.212254 m during 4.8 s of zero-command sampling. Their vertical excursions
+were below 7 micrometres and maximum tilt stayed below 0.0037 rad, so the
+shared failure points to the current M20 controller's zero-command locomotion
+bias rather than loss of ground support or one bad spawn anchor. The report
+SHA-256 values are `cae6d785c7eeb49f93a9a8bec07def5e9cd3f873c73517285c0ea9ea24e89031`
+and `efe3bf7614b1430340c7b0fe2eb12321ab65673050d3f7f99216d889035f7085`.
+Both candidates remain excluded from `BENCHMARK_NATIVE_VALIDATED_ROBOT_IDS`.
+The probe and reports keep `execution_validated=false` and `scoreable=false`.
+
 ## First formal participant episode
 
 `demo.benchmark.goal_restaurant_episode` runs one fixed participant through
