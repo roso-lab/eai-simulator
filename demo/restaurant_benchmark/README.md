@@ -637,9 +637,33 @@ native evidence for every leg, observation and the relay. Against the
 single-Carter witness loop (~24.6 m on one robot), the allocation bounds
 per-agent travel at 10.0 m. The v1 report SHA-256 is
 `7e58faf8113e575b6df9435fcf896490c480e4f32a86d0456b3dfb3cf422f999`.
-Completion-time benefit from concurrent driving, EMOS participants and the
-independent on-disk archive verifier for this variant remain open; runs
-keep `execution_validated=false` and `scoreable=false`.
+### Measurement boundary (read before citing A/B numbers)
+
+The v1 algorithm episodes measure the *allocation* decisions only: team
+selection, mission-to-agent assignment and the relay agent, executed
+natively. They deliberately do NOT measure dispatch scheduling or task
+interleaving (the adapters dispatch serially in plan order), completion-time
+benefit (the executor is serial, so per-agent travel - 10.0 m versus the
+witness loop's 24.6 m on one robot - is the honest metric, not episode
+duration), or selection beyond the executor-covered pool (the shared
+eight-anchor declaration stays untouched; the algorithm-visible pool is the
+two Carters plus the declarable iris_1). Idle agents are station-kept by the
+executor (a measured necessity: zero-commanded Carters creep at ~0.0024 m/s
+and uncommanded Pegasus airframes fall); idle holding is infrastructure,
+never an algorithm decision. Both participants translate the identical
+mission contract through the same expansion, so algorithm-vs-algorithm
+differences are the allocation mechanism itself.
+
+`demo.benchmark.goal_restaurant_algorithm_episode --verify` independently
+recomputes an archive from disk: request substrate and leg matrix, the
+allocation-to-plan expansion, agent-bound arrivals with contact
+re-verification, agent-aware scene observations, relay ordering, the
+readiness service chain and a business replay. Building it caught a real
+evidence bug - the witness navigator stamped its fixed producer into every
+observation payload, so carter_2's scene records carried carter_1's
+identity; the navigator now re-stamps the acting agent and the verifier
+fails closed on any mismatch. Tampering any archived value breaks the hash
+chain. Runs keep `execution_validated=false` and `scoreable=false`.
 
 ## First formal participant episode
 
