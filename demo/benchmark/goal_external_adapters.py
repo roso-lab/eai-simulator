@@ -445,7 +445,7 @@ class CityTeamWeaverParticipant:
                 for task in plan_tasks:
                     if task["task_id"] not in self._remaining:
                         continue
-                    requirements = {cap: CapabilityRequirement(1.0, 1.0, True)
+                    requirements = {_CANONICAL_AXIS.get(cap, cap): CapabilityRequirement(1.0, 1.0, True)
                                     for cap in task["required_capabilities"]}
                     rows.append(SemanticTask(
                         task_id=task["task_id"], task_type=TaskType.NAVIGATE,
