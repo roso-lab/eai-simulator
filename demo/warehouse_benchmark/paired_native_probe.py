@@ -275,15 +275,365 @@ def _paired_request(base_request, deployment, selection, overrides):
         "formal_route_admission": False,
         "load_or_force_sharing_measured": False,
         "scoreable": False,
+        "member_exit_slice": bool(base_request.get("member_exit_slice", False)),
+        "algorithm": str(base_request.get("algorithm", "none")),
     }
 
 
-def prepare_probe(output_root: Path, *, gui: bool = False, device: str = "cuda:0") -> dict:
+def _member_exit_lifecycle_record(*, episode_id: str, event_time_s: float,
+                                  exited_member: str, remaining_member: str,
+                                  pair_before: dict, object_before: dict,
+                                  single_failure: dict, pair_after: dict,
+                                  rejoin_time_s: float) -> dict:
+    """Build and validate one episode-bound member-exit recovery receipt.
+
+    This is deliberately observational: a single remaining carrier must fail
+    its public-capacity admission, while object pose remains unchanged during
+    the failed continuation. The paired reacquire is a new native state in the
+    same episode and never upgrades the diagnostic to a scoreable outcome.
+    """
+    if not isinstance(episode_id, str) or not episode_id:
+        raise ValueError("member-exit event requires an episode id")
+    if exited_member == remaining_member or not exited_member or not remaining_member:
+        raise ValueError("member-exit members must be distinct")
+    event_time_s, rejoin_time_s = float(event_time_s), float(rejoin_time_s)
+    if not math.isfinite(event_time_s) or not math.isfinite(rejoin_time_s) \
+            or rejoin_time_s < event_time_s:
+        raise ValueError("member-exit times are not causal")
+    if not isinstance(single_failure, dict) or single_failure.get("status") != "failed" \
+            or single_failure.get("failure_reason") != "member allocated load exceeds public payload":
+        raise ValueError("remaining member continuation must fail on public capacity")
+    if single_failure.get("episode_id") != episode_id or single_failure.get("member_id") != remaining_member:
+        raise ValueError("single-member failure is not episode-bound")
+    if single_failure.get("object_after") != object_before:
+        raise ValueError("failed single-member continuation moved the object")
+    if not isinstance(pair_before, dict) or not isinstance(pair_after, dict):
+        raise ValueError("member-exit native pair snapshots are missing")
+    return {
+        "schema": "eai.benchmark.warehouse.member_exit_receipt",
+        "version": 1, "episode_id": episode_id,
+        "event": "member_exit", "event_time_s": event_time_s,
+        "exited_member": exited_member, "remaining_member": remaining_member,
+        "detach": {"status": "held_and_detached", "native_state": pair_before},
+        "single_member_continuation": single_failure,
+        "reassignment": {
+            "status": "rejoined", "replacement_member": exited_member,
+            "rejoin_time_s": rejoin_time_s,
+            "reassignment_latency_s": rejoin_time_s - event_time_s,
+            "native_state": pair_after,
+        },
+        "task_advanced": False, "formal_route_admission": False,
+        "execution_validated": False, "scoreable": False,
+    }
+
+
+def _formal_action(action_id, action_type, payload, *, submitted_at_s=0.0):
+    return {
+        "schema": "eai.benchmark.goal_action", "version": 1,
+        "action_id": action_id, "submitted_at_s": submitted_at_s,
+        "type": action_type, "payload": payload,
+    }
+
+
+def _formal_goal_recovery_session(public, *, run_id, deployment, initial_time_s=0.0,
+                                  algorithm=None, base_env=None):
+    """Create one episode containing an admitted overload and its recovery.
+
+    This is intentionally a host-side ledger only.  Native PhysX evidence is
+    supplied later by the worker as trusted receipts; the ledger never infers
+    business success from the skill result.
+    """
+    from demo.benchmark.goal_driven_contract import GOAL_PLAN_VERSION, build_goal_participant_api
+    from demo.benchmark.goal_session import GoalSession
+
+    episode_id = f"warehouse-formal-paired-recovery:{run_id}"
+    api = build_goal_participant_api(public)
+    session = GoalSession(public, api, episode_id=episode_id)
+    regions = {
+        row["id"]: ("rack_aisle_a" if row["mobility"] == "ground" else "rack_overview")
+        for row in public["candidate_robot_pool"]
+    }
+    objects = {
+        row["id"]: {"region_id": row["physical_properties"]["initial_region_id"]}
+        for row in public["public_world"]["objects"]
+    }
+    # GoalSession emits its initial public event at t=0.  For an external
+    # adapter, admit the first action turn at that public time, then advance
+    # the trusted runtime snapshot to the Isaac clock before native execution.
+    session.update_runtime_state(0.0 if algorithm in {"teamweaver", "emos"} else initial_time_s,
+                                 regions, objects)
+    overload_plan = {
+        "schema": "eai.benchmark.goal_plan", "version": GOAL_PLAN_VERSION,
+        "plan_id": "formal_overload_plan", "assigned_team": [M20_MEMBER],
+        "tasks": [{
+            "task_id": "formal_overload_crate", "skill": "pick",
+            "arguments": {
+                "object_id": OBJECT, "pickup_region_id": "rack_aisle_a",
+                "handling_mode_id": "single_grip",
+                "carrier_bindings": [{"agent_id": M20_MEMBER, "point_id": "center_grip"}],
+            },
+            "required_capabilities": ["pick"], "assigned_agents": [M20_MEMBER],
+            "prerequisites": [], "evidence_refs": [],
+            "execution": {"start_s": initial_time_s, "duration_s": 4.0},
+        }],
+    }
+    adapter = None
+    host = None
+    if algorithm in {"teamweaver", "emos"}:
+        from demo.benchmark.goal_algorithm_adapter import GoalAlgorithmHost
+        from demo.benchmark.goal_external_adapters import EmosGoalAdapter, TeamWeaverGoalAdapter
+        adapter = TeamWeaverGoalAdapter() if algorithm == "teamweaver" else EmosGoalAdapter(base_env)
+        host = GoalAlgorithmHost(public, build_goal_participant_api(public), adapter,
+                                 session=session)
+        accepted = host.request_actions()
+    else:
+        accepted = [
+            session.submit_action(_formal_action(
+                "formal_select_single", "select_team", {"agent_ids": [M20_MEMBER]},
+                submitted_at_s=initial_time_s)),
+            session.submit_action(_formal_action(
+                "formal_plan_overload", "submit_plan", {"plan": overload_plan},
+                submitted_at_s=initial_time_s)),
+            session.submit_action(_formal_action(
+                "formal_dispatch_overload", "dispatch_skill",
+                {"task_id": "formal_overload_crate", "evidence_refs": []},
+                submitted_at_s=initial_time_s)),
+        ]
+    if algorithm in {"teamweaver", "emos"} and initial_time_s > 0.0:
+        session.update_runtime_state(initial_time_s, regions, objects)
+    return {
+        "episode_id": episode_id, "session": session, "regions": regions,
+        "objects": objects, "accepted": accepted, "overload_plan": overload_plan,
+        "deployment_sha256": deployment["sha256"], "public": deepcopy(public),
+        "algorithm": algorithm, "adapter": adapter, "host": host,
+    }
+
+
+def _execute_formal_overload_failure(session, stage, deployment, live, active, formal_goal):
+    """Record the admitted single-carrier failure before recovery dispatch."""
+    from demo.benchmark import goal_native_attachment as attachment
+
+    crate_path = live.bindings["objects"][OBJECT]["body_path"]
+    layer_before = stage.GetEditTarget().GetLayer().ExportToString()
+    crate_before = live(crate_path)
+    failure_reason = None
+    try:
+        attachment.prepare_attachment(
+            stage, deployment["public_task"], object_id=OBJECT,
+            mode_id="single_grip", carriers={M20_MEMBER: "center_grip"},
+            active_member_ids=active, body_bindings=live.bindings,
+            pose_provider=live)
+    except ValueError as exc:
+        failure_reason = str(exc)
+    if failure_reason != "member allocated load exceeds public payload":
+        raise ValueError(f"formal overload did not fail for payload: {failure_reason}")
+    crate_after = live(crate_path)
+    physics_step = int(session.base_env.sim.current_time_step_index)
+    if physics_step != live.step:
+        raise ValueError("failure readback crossed a physics step")
+    post_failure_state = {
+        "time_s": float(session.base_env.sim.current_time),
+        "physics_step": physics_step,
+        "robot_root_state_w": {
+            row["public_id"]: _host(session.base_env.scene.articulations[
+                row["runtime_id"]].data.root_state_w[0])
+            for row in deployment["robot_instances"]
+        },
+        "objects": read_goal_objects(stage, session.base_env.scene, deployment),
+        "region_mapping_validated": False,
+    }
+    crate_rows = [row for row in post_failure_state["objects"]["objects"]
+                  if row["public_id"] == OBJECT]
+    if len(crate_rows) != 1 or crate_rows[0]["physx"]["position_m"] != crate_after["position_m"]:
+        raise ValueError("post-failure object readback differs from same-step body pose")
+    evidence = {
+        "schema": "eai.benchmark.formal_goal_skill_evidence", "version": 1,
+        "episode_id": formal_goal["episode_id"], "task_id": "formal_overload_crate",
+        "status": "failed", "failure_reason": failure_reason,
+        "object_id": OBJECT, "object_mass_kg": 12.0,
+        "object_moved": False, "task_advanced": False,
+        "zero_stage_effect": layer_before == stage.GetEditTarget().GetLayer().ExportToString(),
+        "zero_pose_effect": crate_before["position_m"] == crate_after["position_m"]
+        and crate_before["rotation_wxyz"] == crate_after["rotation_wxyz"],
+        "before": crate_before, "after": crate_after,
+        "post_failure_native_state": post_failure_state,
+        "source": "native_physx_attachment_admission",
+    }
+    if not evidence["zero_stage_effect"] or not evidence["zero_pose_effect"]:
+        raise ValueError("failed overload changed the stage or crate pose")
+    evidence_ref = "sha256:" + canonical_sha256(evidence)
+    completed_at_s = formal_goal["session"].report()["current_time_s"]
+    receipt = {
+        "backend_id": "warehouse_native_formal_attachment_v1",
+        "receipt_ref": evidence_ref, "task_id": "formal_overload_crate",
+        "action_id": formal_goal["session"].report()["tasks"][
+            "formal_overload_crate"]["dispatch_action_id"], "status": "failed",
+        "completed_at_s": completed_at_s, "episode_id": formal_goal["episode_id"],
+        "evidence_refs": [evidence_ref],
+    }
+    completion = formal_goal["session"].complete_skill(
+        "formal_overload_crate", time_s=completed_at_s, status="failed", receipt=receipt)
+    formal_goal["session"].update_runtime_state(
+        completed_at_s, formal_goal["regions"], formal_goal["objects"])
+    return {"completion": completion, "evidence": evidence, "receipt": receipt,
+            "receipt_ref": evidence_ref}
+
+
+def _execute_member_exit_slice(session, stage, live, deployment, receipt, active,
+                               formal_goal, *, aerial_goals):
+    """Detach one paired member, prove single-carrier failure, then reacquire.
+
+    The slice is opt-in and runs at the existing paired episode safe point.
+    It records native same-step snapshots but leaves formal route and scoring
+    gates closed.
+    """
+    exited = CARTER_MEMBER
+    remaining = M20_MEMBER
+    event_time = float(session.base_env.sim.current_time)
+    pair_before = {"object": live(live.bindings["objects"][OBJECT]["body_path"]),
+                   "carriers": _pose_evidence(live),
+                   "joint_readback": deepcopy(receipt.get("joint_readback", [])),
+                   "physics_step": live.step}
+    native_attachment.detach_attachment(stage, receipt)
+    zeros = {M20_RUNTIME_ID: [0.0, 0.0, 0.0], CARTER_RUNTIME_ID: [0.0, 0.0, 0.0]}
+    _step(session, live, velocities=zeros, aerial_goals=aerial_goals)
+    # Detaching a loaded crate can produce a legitimate gravity settling step.
+    # Establish the post-detach baseline before testing the remaining carrier;
+    # the capability failure itself must have zero additional pose effect.
+    failure_before = live(live.bindings["objects"][OBJECT]["body_path"])
+    failure_reason = None
+    try:
+        native_attachment.prepare_attachment(
+            stage, deployment["public_task"], object_id=OBJECT,
+            mode_id="single_grip", carriers={remaining: "center_grip"},
+            active_member_ids={remaining}, body_bindings=live.bindings,
+            pose_provider=live)
+    except ValueError as exc:
+        failure_reason = str(exc)
+    if failure_reason != "member allocated load exceeds public payload":
+        raise ValueError(f"member-exit continuation did not fail for payload: {failure_reason}")
+    # The admission failure is synchronous and must be checked before another
+    # physics tick can introduce unrelated free-fall motion.
+    object_after_attempt = live(live.bindings["objects"][OBJECT]["body_path"])
+    single_failure = {
+        "status": "failed", "failure_reason": failure_reason,
+        "episode_id": formal_goal["episode_id"], "member_id": remaining,
+        "object_before": failure_before, "object_after": object_after_attempt,
+        "object_moved": (
+            math.dist(object_after_attempt["position_m"], failure_before["position_m"]) > 1e-7
+            or math.dist(object_after_attempt["rotation_wxyz"], failure_before["rotation_wxyz"]) > 1e-7
+        ),
+        "task_advanced": False, "native_physics_step": live.step,
+    }
+    if single_failure["object_moved"]:
+        raise ValueError("member-exit single-carrier failure moved the crate")
+    formal_goal["session"].emit(
+        "member_exit", event_time, {"agent_id": exited})
+    declaration = next(row for row in formal_goal["public"]["candidate_robot_pool"]
+                       if row["id"] == exited)
+    formal_goal["session"].emit(
+        "member_join", event_time + 0.5,
+        {"agent_id": exited, "capability_version": 1,
+         "capability_declaration": deepcopy(declaration)})
+    pair_prepared = native_attachment.prepare_attachment(
+        stage, deployment["public_task"], object_id=OBJECT,
+        mode_id="paired_support", carriers=CARRIERS,
+        active_member_ids=active, body_bindings=live.bindings, pose_provider=live)
+    pair_after_receipt = native_attachment.commit_attachment(
+        stage, pair_prepared, active_member_ids=active, pose_provider=live)
+    rejoin_time = float(session.base_env.sim.current_time)
+    pair_after = {"object": live(live.bindings["objects"][OBJECT]["body_path"]),
+                  "carriers": _pose_evidence(live),
+                  "joint_readback": deepcopy(pair_after_receipt.get("joint_readback", [])),
+                  "physics_step": live.step}
+    record = _member_exit_lifecycle_record(
+        episode_id=formal_goal["episode_id"], event_time_s=event_time,
+        exited_member=exited, remaining_member=remaining,
+        pair_before=pair_before, object_before=failure_before,
+        single_failure=single_failure, pair_after=pair_after,
+        rejoin_time_s=rejoin_time)
+    return pair_after_receipt, record
+
+
+def _admit_formal_pair_recovery(formal_goal):
+    """Revise the failed plan and dispatch the two-carrier recovery task."""
+    from demo.benchmark.goal_driven_contract import GOAL_PLAN_VERSION
+
+    session = formal_goal["session"]
+    now = session.report()["current_time_s"]
+    pair = [M20_MEMBER, CARTER_MEMBER]
+    accepted = [session.submit_action(_formal_action(
+        "formal_select_pair", "select_team", {"agent_ids": pair}, submitted_at_s=now))]
+    plan = {
+        "schema": "eai.benchmark.goal_plan", "version": GOAL_PLAN_VERSION,
+        "plan_id": "formal_paired_recovery_plan", "assigned_team": pair,
+        "tasks": [{
+            "task_id": "formal_paired_recovery", "skill": "cooperative_carry",
+            "arguments": {
+                "object_id": OBJECT, "destination_region_id": "consolidation_area",
+                "handling_mode_id": "paired_support", "route_ids": ["rack_a_to_consolidation"],
+                "carrier_bindings": [
+                    {"agent_id": M20_MEMBER, "point_id": "support_left"},
+                    {"agent_id": CARTER_MEMBER, "point_id": "support_right"},
+                ],
+            },
+            "required_capabilities": ["cooperative_carry", "synchronize"],
+            "assigned_agents": pair, "prerequisites": [], "evidence_refs": [],
+            "execution": {"start_s": now, "duration_s": 240.0 - now},
+        }],
+    }
+    accepted.append(session.submit_action(_formal_action(
+        "formal_plan_pair", "revise_plan", {
+            "replaced_plan_id": "formal_overload_plan", "plan": plan,
+            "trigger_event_sequence": [session.report()["events"][-1]["sequence"]],
+            "reason": "the crate remained at its pickup location after the failed skill",
+        }, submitted_at_s=now)))
+    accepted.append(session.submit_action(_formal_action(
+        "formal_dispatch_pair", "dispatch_skill", {
+            "task_id": "formal_paired_recovery", "evidence_refs": []}, submitted_at_s=now)))
+    return {"accepted": accepted, "plan": plan,
+            "dispatch_action_id": "formal_dispatch_pair"}
+
+
+def _complete_formal_pair_recovery(formal_goal, *, native_report, time_s):
+    """Record partial native progress without claiming a completed route."""
+    session = formal_goal["session"]
+    evidence = {
+        "schema": "eai.benchmark.formal_goal_skill_evidence", "version": 1,
+        "episode_id": formal_goal["episode_id"], "task_id": "formal_paired_recovery",
+        "status": "failed", "object_id": OBJECT,
+        "object_moved": True, "task_advanced": False,
+        "failure_reason": "destination and full route were not validated",
+        "native_transport_evidence": native_report,
+        "source": "native_physx_paired_attachment_and_transport",
+    }
+    evidence_ref = "sha256:" + canonical_sha256(evidence)
+    receipt = {
+        "backend_id": "warehouse_native_formal_paired_transport_v1",
+        "receipt_ref": evidence_ref, "task_id": "formal_paired_recovery",
+        "action_id": session.report()["tasks"]["formal_paired_recovery"][
+            "dispatch_action_id"], "status": "failed",
+        "completed_at_s": time_s, "episode_id": formal_goal["episode_id"],
+        "evidence_refs": [evidence_ref],
+    }
+    completion = session.complete_skill(
+        "formal_paired_recovery", time_s=time_s, status="failed", receipt=receipt)
+    return {"completion": completion, "evidence": evidence, "receipt": receipt,
+            "receipt_ref": evidence_ref, "session_report": session.report(),
+            "execution_validated": False, "scoreable": False}
+
+
+def prepare_probe(output_root: Path, *, gui: bool = False, device: str = "cuda:0",
+                  member_exit_slice: bool = False, algorithm: str = "none") -> dict:
     """Freeze a unique paired-probe directory without starting Isaac."""
     witness.prepare_probe(output_root, gui=gui, device=device)
     base_request, deployment, base_selection = witness.load_probe(output_root)
     selection, overrides = _paired_selection(base_request, deployment, base_selection)
     request = _paired_request(base_request, deployment, selection, overrides)
+    request["member_exit_slice"] = bool(member_exit_slice)
+    if algorithm not in {"none", "teamweaver", "emos"}:
+        raise ValueError("algorithm must be none, teamweaver, or emos")
+    request["algorithm"] = algorithm
     _write(Path(output_root) / "paired_selection.json", selection)
     _write(Path(output_root) / "paired_request.json", request)
     return request
@@ -296,6 +646,8 @@ def load_probe(output_root, *, rebuild=True):
     request = json.loads((root / "paired_request.json").read_text())
     expected_selection, overrides = _paired_selection(base_request, deployment, base_selection)
     expected = _paired_request(base_request, deployment, expected_selection, overrides)
+    expected["member_exit_slice"] = bool(request.get("member_exit_slice", False))
+    expected["algorithm"] = str(request.get("algorithm", "none"))
     if selection != expected_selection or request != expected:
         raise ValueError("paired probe request/source/selection changed")
     for path, digest in request["source_files"].items():
@@ -669,6 +1021,8 @@ def _run_locked(output_root: Path, request: dict, deployment: dict, selection: d
         "samples": [],
         "lift_samples": [],
         "geometry_checks": [],
+        "captures": [],
+        "formal_goal_episode": {"execution_validated": False, "scoreable": False},
     }
 
     def configure(env_cfg):
@@ -703,6 +1057,8 @@ def _run_locked(output_root: Path, request: dict, deployment: dict, selection: d
     try:
         with open_simulator_session(config) as session, _archive_report(output_root, report):
             import omni.usd
+            if request["gui"]:
+                from demo.city_benchmark.scene import presentation as _capture_module
 
             stage = omni.usd.get_context().get_stage()
             live = attachment_probe.LiveBodies(session.base_env.scene, deployment)
@@ -730,6 +1086,21 @@ def _run_locked(output_root: Path, request: dict, deployment: dict, selection: d
             if len(crate_rows) != 1 or crate_rows[0]["status"] != "measured":
                 raise ValueError("native crate geometry/mass/pose readback unresolved")
 
+            formal_goal = _formal_goal_recovery_session(
+                deployment["public_task"], run_id=request["run_id"],
+                deployment=deployment,
+                initial_time_s=float(session.base_env.sim.current_time),
+                algorithm=request.get("algorithm", "none"), base_env=session.base_env)
+            report["formal_goal_episode"].update({
+                "episode_id": formal_goal["episode_id"],
+                "task_id": "formal_paired_recovery",
+            })
+            _write(output_root / "formal_goal_ledger_before.json", {
+                "episode_id": formal_goal["episode_id"],
+                "accepted_actions": formal_goal["accepted"],
+                "ledger": formal_goal["session"].report(),
+            })
+
             report["collision_inventory"] = _collision_inventory(stage, deployment)
             _write(output_root / REPORT_NAME, report)
             try:
@@ -744,8 +1115,55 @@ def _run_locked(output_root: Path, request: dict, deployment: dict, selection: d
                 raise ValueError("candidate collider inventory unknown") from exc
             _record_geometry_check(
                 report, live, blueprint, "settled_before_attachment")
+            overload = _execute_formal_overload_failure(
+                session, stage, deployment, live, active, formal_goal)
+            report["formal_goal_episode"]["overload_failure"] = {
+                "status": "failed_as_expected",
+                "failure_reason": overload["evidence"]["failure_reason"],
+                "object_moved": overload["evidence"]["object_moved"],
+                "task_advanced": overload["evidence"]["task_advanced"],
+                "zero_stage_effect": overload["evidence"]["zero_stage_effect"],
+                "zero_pose_effect": overload["evidence"]["zero_pose_effect"],
+                "receipt_ref": overload["receipt_ref"],
+                "post_failure_native_state_sha256": canonical_sha256(
+                    overload["evidence"]["post_failure_native_state"]),
+                "region_mapping_validated": False,
+            }
+            if formal_goal.get("host") is not None:
+                algorithm_actions = formal_goal["host"].request_actions()
+                recovery = {
+                    "accepted": algorithm_actions,
+                    "plan": formal_goal["session"].report()["tasks"][
+                        "formal_paired_recovery"]["task"],
+                    "dispatch_action_id": next(
+                        (row["action_id"] for row in algorithm_actions
+                         if row.get("type") == "dispatch_skill"), None),
+                }
+            else:
+                recovery = _admit_formal_pair_recovery(formal_goal)
+            report["formal_goal_episode"]["recovery_admission"] = {
+                "accepted_actions": recovery["accepted"],
+                "task_id": "formal_paired_recovery",
+                "episode_id": formal_goal["episode_id"],
+            }
+            if formal_goal.get("adapter") is not None:
+                report["formal_goal_episode"]["algorithm"] = formal_goal["algorithm"]
+                report["formal_goal_episode"]["algorithm_trace"] = deepcopy(
+                    formal_goal["adapter"].trace)
+            _write(output_root / "formal_goal_ledger_after_overload.json", {
+                "episode_id": formal_goal["episode_id"],
+                "overload": overload,
+                "recovery_admission": recovery,
+                "ledger": formal_goal["session"].report(),
+            })
             before = live(live.bindings["objects"][OBJECT]["body_path"])
             carriers_before = _pose_evidence(live)
+            if request["gui"]:
+                report["captures"].append(attachment_probe.physical._camera_capture(
+                    session, output_root,
+                    [before["position_m"], *[pose["position_m"] for pose in carriers_before.values()]],
+                    "paired_failed_overload", scene_key="warehouse_nvd",
+                    eye=(-10.6, -9.6, 1.8)))
             prepared = native_attachment.prepare_attachment(
                 stage, deployment["public_task"], object_id=OBJECT,
                 mode_id="paired_support", carriers=CARRIERS,
@@ -757,6 +1175,13 @@ def _run_locked(output_root: Path, request: dict, deployment: dict, selection: d
                 raise ValueError("paired attachment did not commit exactly two joints")
             report["attachment_receipt"] = receipt
             report["attachment_step"] = live.step
+            if request.get("member_exit_slice"):
+                receipt, member_exit = _execute_member_exit_slice(
+                    session, stage, live, deployment, receipt, active, formal_goal,
+                    aerial_goals=aerial_goals)
+                report["member_exit"] = member_exit
+                report["attachment_receipt"] = receipt
+                report["member_exit"]["episode_id"] = formal_goal["episode_id"]
             _write(output_root / REPORT_NAME, report)
 
             receipt = _lift(session, stage, live, receipt, direction=1,
@@ -777,6 +1202,12 @@ def _run_locked(output_root: Path, request: dict, deployment: dict, selection: d
             }
             if lift_delta < 0.015:
                 raise ValueError("dual-joint target changed but crate did not lift")
+            if request["gui"]:
+                report["captures"].append(attachment_probe.physical._camera_capture(
+                    session, output_root,
+                    [apex["position_m"], *[pose["position_m"] for pose in _pose_evidence(live).values()]],
+                    "paired_lift_apex", scene_key="warehouse_nvd",
+                    eye=(-10.6, -9.6, 1.8)))
 
             transport_start = deepcopy(apex)
             transport_carriers = _pose_evidence(live)
@@ -832,6 +1263,12 @@ def _run_locked(output_root: Path, request: dict, deployment: dict, selection: d
             if any(distance < 0.25 for distance in carrier_distances.values()):
                 raise ValueError("one carrier did not physically participate in transport")
             _record_geometry_check(report, live, blueprint, "attached_transport_end")
+            if request["gui"]:
+                report["captures"].append(attachment_probe.physical._camera_capture(
+                    session, output_root,
+                    [carried["position_m"], *[pose["position_m"] for pose in carriers_after.values()]],
+                    "paired_transport_end", scene_key="warehouse_nvd",
+                    eye=(-9.9, -9.6, 1.8)))
 
             receipt = _lift(session, stage, live, receipt, direction=-1,
                             active=active, aerial_goals=aerial_goals,
@@ -866,8 +1303,40 @@ def _run_locked(output_root: Path, request: dict, deployment: dict, selection: d
             }
             if remaining or live.step <= report["release_step"]:
                 raise ValueError("paired detach/post-release evidence incomplete")
+            completion_time = float(session.base_env.sim.current_time)
+            if completion_time > 240.0:
+                raise ValueError("formal recovery completion exceeded admitted execution window")
+            formal_completion = _complete_formal_pair_recovery(
+                formal_goal,
+                native_report={
+                    "lift_evidence": report["lift_evidence"],
+                    "transport_evidence": report["transport_evidence"],
+                    "release_evidence": report["release_evidence"],
+                },
+                time_s=completion_time,
+            )
+            report["formal_goal_episode"].update({
+                "recovery_completion": formal_completion["completion"],
+                "recovery_receipt_ref": formal_completion["receipt_ref"],
+                "recovery_skill_status": "failed_partial_native_progress",
+                "execution_validated": False,
+                "scoreable": False,
+            })
+            _write(output_root / "formal_goal_ledger_after_recovery.json", {
+                "episode_id": formal_goal["episode_id"],
+                "completion": formal_completion,
+                "ledger": formal_goal["session"].report(),
+            })
             report["final_object_readback"] = read_goal_objects(
                 stage, session.base_env.scene, deployment)
+            if request["gui"]:
+                released_pose = report["release_evidence"]["object"]
+                report["captures"].append(attachment_probe.physical._camera_capture(
+                    session, output_root,
+                    [released_pose["position_m"], *[pose["position_m"] for pose in
+                     report["release_evidence"]["carrier_poses"].values()]],
+                    "paired_after_release", scene_key="warehouse_nvd",
+                    eye=(-9.9, -9.6, 1.8)))
             report.update(
                 status="diagnostic_completed",
                 paired_native_sequence_observed=True,
@@ -983,6 +1452,10 @@ def main(argv=None):
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--gui", action="store_true")
     parser.add_argument("--device", choices=("cpu", "cuda:0"), default="cuda:0")
+    parser.add_argument("--member-exit-slice", action="store_true",
+                        help="opt into the native same-episode member-exit recovery slice")
+    parser.add_argument("--algorithm", choices=("none", "teamweaver", "emos"), default="none",
+                        help="run a real external planning adapter in the GoalSession")
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--execute", action="store_true")
     modes.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
@@ -993,7 +1466,9 @@ def main(argv=None):
     elif args.execute:
         result = execute_probe(args.output_root, timeout_s=args.timeout_s)
     else:
-        result = prepare_probe(args.output_root, gui=args.gui, device=args.device)
+        result = prepare_probe(args.output_root, gui=args.gui, device=args.device,
+                               member_exit_slice=args.member_exit_slice,
+                               algorithm=args.algorithm)
     print(json.dumps(result, ensure_ascii=False))
 
 
