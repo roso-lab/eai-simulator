@@ -247,8 +247,50 @@ class CityNativeGoalBackend:
         return ref
 
     # -- shared helpers ---------------------------------------------------
+    _SERVICE_ROLE = {"guide_people": "guidance_contact",
+                     "control_following_traffic": "traffic_control_point",
+                     "report_incident": "incident_observer"}
+
     def _runtime_state(self) -> dict[str, Any]:
         return {"robot_regions": dict(CITY_ROBOT_REGIONS), "object_states": {}}
+
+    def _dispatch_agent(self, task: Mapping[str, Any]) -> str:
+        """Member dispatch: the plan's assigned agent executes this service."""
+        return str(task["assigned_agents"][0])
+
+    def _assign_service_agent(self, task: Mapping[str, Any], *, region_id: str = "road_surface") -> str:
+        """Rebind the native services to the task's assigned agent.
+
+        Host-owned rebinding plus a measured field-role interval for the
+        chosen agent (pose-sampled from the trusted articulation state), so
+        the admission gates pass for whichever member the plan dispatched.
+        """
+        ctx = self._ctx
+        agent_id = self._dispatch_agent(task)
+        ctx["runner"].adapter.set_assignment(
+            lambda service, _a=agent_id, _r=region_id: {"agent_id": _a, "region_id": _r})
+        role = self._SERVICE_ROLE[str(task["skill"])]
+        pose = None
+        try:
+            from demo.city_benchmark.native_probe import _robot_tensor_pose
+            pose = tuple(float(v) for v in _robot_tensor_pose(ctx["session"], agent_id))
+        except (ImportError, AttributeError):
+            # Pose sampling is trace evidence, not an admission input; offline
+            # doubles without articulations still dispatch honestly.
+            pass
+        now = float(ctx["runner"].adapter.now_s())
+        # A strictly positive, already-elapsed interval (the host rejects
+        # start == end): span the most recent physics step.
+        start = max(0.0, now - float(ctx["dt"]))
+        ctx["runner"].host.record_role_occupancy(
+            agent_id, role, region_id, start_time_s=start, end_time_s=now)
+        ctx["trace"].setdefault("member_dispatch", []).append({
+            "task_id": task["task_id"], "skill": task["skill"],
+            "agent_id": agent_id, "role": role, "region_id": region_id,
+            "pose_xyz": (list(pose) if pose is not None else None),
+            "recorded_at_s": now,
+        })
+        return agent_id
 
     def _settle_to_window(self, task: Mapping[str, Any]) -> float:
         """Advance the real simulation to the task's reserved window end."""
@@ -322,7 +364,7 @@ class CityNativeGoalBackend:
         person_ids = list(task["arguments"]["person_ids"])
         region_id = task["arguments"]["assembly_region_id"]
         observation = self._current_observation()
-        ctx["role"](runner, "guidance_contact", ctx["session"], ctx["trace"])
+        self._assign_service_agent(task)
         guidance = None
         for attempt in range(CITY_GUIDE_RETRY_LIMIT):
             try:
@@ -334,7 +376,7 @@ class CityNativeGoalBackend:
                     raise
                 ctx["step"](ctx["session"], city, ctx["actions"],
                             max(1, math.ceil(1.0 / float(ctx["dt"]))))
-                ctx["role"](runner, "guidance_contact", ctx["session"], ctx["trace"])
+                self._assign_service_agent(task)
                 observation = self._current_observation()
         request = dict(guidance["request"])
         for person_id in person_ids:
@@ -369,7 +411,7 @@ class CityNativeGoalBackend:
         vehicle_ids = list(task["arguments"]["vehicle_ids"])
         mode = task["arguments"]["mode"]
         observation = self._current_observation()
-        ctx["role"](runner, "traffic_control_point", ctx["session"], ctx["trace"])
+        self._assign_service_agent(task)
         before = {vehicle_id: tuple(float(value) for value in city.following_vehicle_pose(vehicle_id))
                   for vehicle_id in vehicle_ids}
         held = runner.control_following_traffic(tuple(vehicle_ids), mode,
@@ -404,7 +446,7 @@ class CityNativeGoalBackend:
         ctx = self._ctx
         runner, city = ctx["runner"], ctx["city"]
         observation = self._current_observation()
-        ctx["role"](runner, "incident_observer", ctx["session"], ctx["trace"])
+        self._assign_service_agent(task)
         result = runner.report_incident(observation_ref=observation)
         request = dict(result["request"])
         receipt = dict(result.get("receipt") or {})

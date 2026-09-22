@@ -74,12 +74,28 @@ class _FakeCity:
         return (0.0, 0.0, 0.0)
 
 
+class _FakeAssignmentAdapter:
+    def __init__(self, runner):
+        self._runner = runner
+
+    def now_s(self):
+        return float(self._runner.city.elapsed)
+
+    def set_assignment(self, assignment):
+        latest = assignment("guide_people")
+        self._runner.calls.append(("set_assignment", latest.get("agent_id")))
+
+
 class _FakeRunner:
     """Minimal native runner double: request rows, acks, readbacks, reviews."""
 
     def __init__(self, city, *, guide_not_admitted_first=0, omit_contact_acks=()):
         self.city = city
         self.calls: list[tuple] = []
+        self.adapter = _FakeAssignmentAdapter(self)
+        self.host = SimpleNamespace(
+            record_role_occupancy=lambda *a, **k: self.calls.append(
+                ("record_role", a[0], a[1])))
         self._request_count = 0
         self._observation_count = 0
         self._guide_failures = int(guide_not_admitted_first)
@@ -367,8 +383,16 @@ def test_offline_episode_runs_all_native_skills_through_the_session(tmp_path, ci
     assert observations[0][1] == "city_native_observation_initial"
     assert all(call[1] != "city_native_observation_initial" for call in observations[1:])
     # Field roles precede every service family.
-    assert role_calls.count("guidance_contact") >= len(guide_tasks)
-    assert "traffic_control_point" in role_calls and "incident_observer" in role_calls
+    # Member dispatch: every service is rebound to the plan's assigned agent
+    # with a recorded field-role interval instead of the host role helper.
+    dispatch_rows = [row for row in runner.calls if row[0] == "record_role"]
+    assert [row[2] for row in dispatch_rows].count("guidance_contact") >= len(guide_tasks)
+    assert "traffic_control_point" in [row[2] for row in dispatch_rows]
+    assert "incident_observer" in [row[2] for row in dispatch_rows]
+    assignments = [row for row in runner.calls if row[0] == "set_assignment"]
+    assert len(assignments) == len(plan["tasks"])
+    assert all(row[1] == "go2_1" for row in assignments[:-1])
+    assert assignments[-1][1] == "iris_1"
 
     # Runtime state stays the declared shape: robots in the initial regions.
     snapshots = json.loads((episode_root / "runtime_snapshots.json").read_text())
@@ -422,7 +446,8 @@ def test_guide_retries_step_and_renew_role_until_admitted(tmp_path, city_package
         first_guide["execution"]["duration_s"]
     # Three rejections -> three one-second step batches, then the admission.
     assert [count for count in step_calls if count == int(1.0 / DT)] == [int(1.0 / DT)] * 3
-    assert role_calls.count("guidance_contact") == 1 + 3
+    assert [row for row in runner.calls
+            if row[0] == "record_role" and row[2] == "guidance_contact"].__len__() == 1 + 3
     guide_calls = [call for call in runner.calls if call[0] == "guide_people"]
     assert len(guide_calls) == 4
     # Each retry submits a renewed native observation.
