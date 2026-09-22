@@ -638,7 +638,16 @@ def stamp_arrival_times(ctx: Mapping[str, Any], stamps: dict[str, float]) -> Non
     for person_id in ctx["roster_ids"]:
         if person_id in stamps:
             continue
-        if service.people_controller.readback(person_id, service.assembly_regions)["arrived"]:
+        try:
+            arrived = service.people_controller.readback(
+                person_id, service.assembly_regions)["arrived"]
+        except ValueError as exc:
+            # Assembly assignments exist only after a person's guide request
+            # is admitted; people still waiting for guidance are skipped.
+            if "no assembly assignment" not in str(exc):
+                raise
+            continue
+        if arrived:
             stamps[person_id] = float(city.elapsed)
 
 
