@@ -68,6 +68,41 @@ _ROBOT_PROFILES = {
         "grasp_interfaces": ["support_socket_v1"],
         "max_step_height_m": 0.03,
     },
+    # These profiles are frozen benchmark abstractions for the opt-in
+    # ``expanded_v1`` candidate pool.  They are deliberately conservative and
+    # do not claim manufacturer ratings or native scene validation.
+    "go2": {
+        "configuration_id": "benchmark_go2_navigation_support_v1",
+        "body_size_m": [0.8, 0.5, 0.8],
+        "effective_payload_kg": 4.0,
+        "reach_m": 0.45,
+        "grasp_interfaces": ["support_socket_v1"],
+        "max_step_height_m": 0.22,
+    },
+    "b2": {
+        "configuration_id": "benchmark_b2_navigation_support_v1",
+        "body_size_m": [0.9, 0.6, 0.85],
+        "effective_payload_kg": 6.0,
+        "reach_m": 0.5,
+        "grasp_interfaces": ["support_socket_v1"],
+        "max_step_height_m": 0.22,
+    },
+    "lite3": {
+        "configuration_id": "benchmark_lite3_navigation_v1",
+        "body_size_m": [0.85, 0.55, 0.75],
+        "effective_payload_kg": 3.0,
+        "reach_m": 0.4,
+        "grasp_interfaces": [],
+        "max_step_height_m": 0.18,
+    },
+    "cf2x": {
+        "configuration_id": "benchmark_cf2x_camera_v1",
+        "body_size_m": [0.35, 0.35, 0.2],
+        "effective_payload_kg": 0.0,
+        "reach_m": 0.0,
+        "grasp_interfaces": [],
+        "max_step_height_m": 0.0,
+    },
 }
 
 

@@ -18,12 +18,15 @@ import tempfile
 
 from .goal_driven_contract import validate_goal_bundle, write_goal_task_bundle
 from .goal_driven_tasks import (
-    build_goal_authoring_brief, build_goal_task_package, review_goal_task_design,
-    validate_goal_authoring_brief, validate_goal_factor_pair, write_goal_authoring_brief,
+    build_goal_authoring_brief, build_goal_task_package, generate_goal_mechanism_templates,
+    review_goal_task_design, validate_goal_authoring_brief, validate_goal_factor_pair,
+    write_goal_authoring_brief,
 )
+from .mechanism_templates import M0_MECHANISMS, canonical_template_id, validate_mechanism_template
 from .goal_scene_registry import goal_scene_registration, registered_goal_scenes
 from .provenance import canonical_sha256, file_sha256
 from .release_manifest import build_goal_release_manifest
+from .task_coverage import load_coverage_matrix
 
 
 FACTOR_LEVELS = {
@@ -70,7 +73,9 @@ def _source_bindings(scene_keys):
     sources = ("goal_driven_tasks.py", "goal_driven_fixtures.py", "goal_driven_contract.py",
                "goal_constraints.py", "goal_capability_audit.py", "skill_ontology.py",
                "goal_freeze.py", "goal_suite.py", "goal_scene_registry.py", "goal_city_intake.py",
-               "goal_service_catalog.py", "release_manifest.py", "provenance.py")
+               "goal_service_catalog.py", "release_manifest.py", "provenance.py",
+               "measurement_contract.py", "mechanism_templates.py", "task_coverage.py",
+               "task_coverage_matrix.json")
     files = {str(Path(__file__).with_name(name).resolve()): file_sha256(Path(__file__).with_name(name))
              for name in sources}
     return {scene: {"revision": "local-authoring-" + canonical_sha256(files), "files": dict(files)}
@@ -103,12 +108,34 @@ def _select_scenes(scene_keys, city_package_dir):
     return list(scene_keys)
 
 
+def _validate_coverage_contract():
+    """Validate the authoring matrix before generating or reading a suite."""
+    matrix = load_coverage_matrix()
+    registered = tuple(row["scene_key"] for row in registered_goal_scenes())
+    if tuple(matrix["scene_keys"]) != registered:
+        raise ValueError("coverage matrix scene registry is stale")
+    return matrix
+
+
+def _validate_default_coverage_counts(scene_keys, package_count, factor_pair_count):
+    """Keep the published count vocabulary tied to the same source of truth."""
+    matrix = _validate_coverage_contract()
+    if tuple(scene_keys) != tuple(matrix["scene_keys"]):
+        return
+    counts = matrix["counting_policy"]
+    if package_count != counts["current_goal_packages"]:
+        raise ValueError("default suite package count differs from coverage matrix")
+    if factor_pair_count != counts["current_factor_pairs"]:
+        raise ValueError("default suite factor-pair count differs from coverage matrix")
+
+
 def write_goal_suite(output_root, *, scene_keys=None, city_package_dir=None, verify_sources=False):
     """Write a fresh matrix, verify its readback, and publish without overwrite."""
     from .goal_freeze import build_goal_freeze_manifest, write_goal_freeze_manifest
 
     if type(verify_sources) is not bool:
         raise ValueError("verify_sources must be a boolean")
+    _validate_coverage_contract()
 
     destination = Path(output_root).absolute()
     if destination.exists() or destination.is_symlink():
@@ -238,6 +265,7 @@ def verify_goal_suite(output_root, *, verify_sources=False):
     root = root.resolve()
     if type(verify_sources) is not bool:
         raise ValueError("verify_sources must be a boolean")
+    _validate_coverage_contract()
     report = _read(_relative_file(root, "audit_report.json"))
     if (report.get("schema") != "eai.benchmark.goal_suite_audit" or report.get("version") != 2
             or report.get("visibility") != "author_only"):
@@ -314,6 +342,8 @@ def verify_goal_suite(output_root, *, verify_sources=False):
         raise ValueError("suite factor pair report is incomplete or stale")
     if report["package_count"] != len(packages) or len(packages) != len(scenes) * 9:
         raise ValueError("suite condition coverage is incomplete")
+    _validate_default_coverage_counts(report["included_scene_keys"], report["package_count"],
+                                      report["factor_pair_count"])
     if packages:
         from .goal_freeze import validate_goal_freeze_manifest, verify_goal_freeze_files
         if report["freeze_manifest"] != "authoring/freeze_manifest.json":
@@ -381,6 +411,135 @@ def verify_goal_suite(output_root, *, verify_sources=False):
             "factor_pair_count": len(expected_pairs), "scoreable": False, "held_out_validated": False}
 
 
+def write_goal_mechanism_suite(output_root, *, scene_keys=None, mechanisms=None,
+                               factor_id="communication_quality", factor_level=None):
+    """Publish and verify a fresh author-only M0 mechanism matrix.
+
+    This is intentionally separate from :func:`write_goal_suite`: the latter
+    preserves the historical nine-condition compatibility matrix, while this
+    command publishes the 16 canonical scene/mechanism bundles.
+    """
+    from .task_coverage import validate_m0_template_registry
+
+    destination = Path(output_root).absolute()
+    if destination.exists() or destination.is_symlink():
+        raise FileExistsError(f"refusing to overwrite mechanism suite: {destination}")
+    selected_scenes = list(scene_keys) if scene_keys is not None else list(
+        row["scene_key"] for row in registered_goal_scenes()
+        if row["package_kind"] == "goal_bundle")
+    selected_mechanisms = list(mechanisms) if mechanisms is not None else list(M0_MECHANISMS)
+    if not selected_scenes or len(selected_scenes) != len(set(selected_scenes)):
+        raise ValueError("mechanism suite requires distinct scenes")
+    if not selected_mechanisms or len(selected_mechanisms) != len(set(selected_mechanisms)):
+        raise ValueError("mechanism suite requires distinct mechanisms")
+    if scene_keys is None and mechanisms is None:
+        validate_m0_template_registry()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=".goal-mechanism-suite-", dir=destination.parent))
+    try:
+        packages = generate_goal_mechanism_templates(
+            selected_scenes, mechanisms=selected_mechanisms,
+            factor_id=factor_id, factor_level=factor_level,
+            output_root=str(staging / "templates"))
+        records = []
+        for template_id, bundle in packages.items():
+            template = bundle["hidden_evaluator"]["mechanism_template"]
+            validate_mechanism_template(template)
+            records.append({
+                "template_id": template_id,
+                "scene_key": template["scene_key"],
+                "mechanism_family": template["mechanism_family"],
+                "path": f"templates/{template_id}",
+                "measurement_status": bundle["hidden_evaluator"]["measurement_status"],
+                "execution_status": bundle["hidden_evaluator"]["release_gate"]["execution_status"],
+                "scoreable": False,
+            })
+        report = {
+            "schema": "eai.benchmark.goal_mechanism_suite_audit",
+            "version": 1,
+            "visibility": "author_only",
+            "scene_keys": selected_scenes,
+            "mechanism_families": selected_mechanisms,
+            "canonical_template_count": len(records),
+            "templates": sorted(records, key=lambda row: row["template_id"]),
+            "execution_validated": False,
+            "scoreable": False,
+            "artifact_sha256": {
+                path.relative_to(staging).as_posix(): file_sha256(path)
+                for path in sorted(staging.rglob("*")) if path.is_file()
+            },
+        }
+        _write(staging / "audit_report.json", report)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.mkdir()
+        staging.replace(destination)
+        return verify_goal_mechanism_suite(destination)
+    finally:
+        if staging.exists():
+            shutil.rmtree(staging)
+
+
+def verify_goal_mechanism_suite(output_root):
+    """Verify M0 template identities, bytes and fail-closed release states."""
+    root = Path(output_root).absolute()
+    if root.is_symlink():
+        raise ValueError("mechanism suite root cannot be a symlink")
+    report = _read(root / "audit_report.json")
+    expected = {"schema", "version", "visibility", "scene_keys", "mechanism_families",
+                "canonical_template_count", "templates", "execution_validated", "scoreable",
+                "artifact_sha256"}
+    if set(report) != expected or report["schema"] != "eai.benchmark.goal_mechanism_suite_audit" \
+            or report["version"] != 1 or report["visibility"] != "author_only":
+        raise ValueError("unsupported mechanism suite audit report")
+    if report["execution_validated"] is not False or report["scoreable"] is not False:
+        raise ValueError("mechanism suite cannot claim execution or scoring validation")
+    records = report["templates"]
+    if report["canonical_template_count"] != len(records):
+        raise ValueError("mechanism suite template count mismatch")
+    expected_ids = {
+        canonical_template_id(scene, mechanism)
+        for scene in report["scene_keys"] for mechanism in report["mechanism_families"]
+    }
+    if {row.get("template_id") for row in records} != expected_ids:
+        raise ValueError("mechanism suite does not cover the selected scene/mechanism matrix")
+    expected_files = set()
+    for row in records:
+        template_id = row["template_id"]
+        package_root = root / row["path"]
+        if row["path"] != f"templates/{template_id}":
+            raise ValueError("mechanism suite package path is not canonical")
+        for relative in ("release/public_task.json", "release/participant_api.json",
+                         "release/baseline_manifest.json", "evaluator/hidden_evaluator.json",
+                         "authoring/goal_authoring_brief.json", "authoring/review.json"):
+            path = package_root / relative
+            if path.is_symlink() or not path.is_file():
+                raise ValueError("mechanism suite package contains a missing or symlinked artifact")
+            expected_files.add(f"{row['path']}/{relative}")
+        public = _read(package_root / "release/public_task.json")
+        hidden = _read(package_root / "evaluator/hidden_evaluator.json")
+        bundle = {
+            "public_task": public,
+            "participant_api": _read(package_root / "release/participant_api.json"),
+            "baseline_manifest": _read(package_root / "release/baseline_manifest.json"),
+            "hidden_evaluator": hidden,
+        }
+        from .goal_driven_contract import validate_goal_bundle
+        validate_goal_bundle(bundle)
+        template = validate_mechanism_template(hidden["mechanism_template"])["normalized"]
+        if template["template_id"] != template_id or hidden["measurement_status"] != "classified":
+            raise ValueError("mechanism suite template binding or measurement status is stale")
+        if row["scene_key"] != template["scene_key"] or row["mechanism_family"] != template["mechanism_family"]:
+            raise ValueError("mechanism suite record disagrees with its template")
+    inventory = report["artifact_sha256"]
+    if not isinstance(inventory, dict) or set(inventory) != expected_files:
+        raise ValueError("mechanism suite artifact inventory is incomplete")
+    for relative in expected_files:
+        if file_sha256(root / relative) != inventory[relative]:
+            raise ValueError("mechanism suite artifact hash mismatch")
+    return {"validated": True, "canonical_template_count": len(records),
+            "execution_validated": False, "scoreable": False}
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -393,14 +552,24 @@ def main(argv=None):
     verify = commands.add_parser("verify", help="re-read an existing suite and reject stale bytes or semantics")
     verify.add_argument("--output-root", required=True, type=Path)
     verify.add_argument("--verify-sources", action="store_true")
+    mechanism_audit = commands.add_parser(
+        "mechanism-audit", help="generate and verify the four-scene M0 mechanism matrix")
+    mechanism_audit.add_argument("--output-root", required=True, type=Path)
+    mechanism_verify = commands.add_parser(
+        "mechanism-verify", help="re-read an M0 mechanism matrix and reject stale bytes")
+    mechanism_verify.add_argument("--output-root", required=True, type=Path)
     args = parser.parse_args(argv)
     if args.command == "list":
         result = {"scope": "task_generation_not_simulator_activation", "scenes": registered_goal_scenes()}
     elif args.command == "audit":
         result = write_goal_suite(args.output_root, scene_keys=args.scene, city_package_dir=args.city_package,
                                   verify_sources=args.verify_sources)
-    else:
+    elif args.command == "verify":
         result = verify_goal_suite(args.output_root, verify_sources=args.verify_sources)
+    elif args.command == "mechanism-audit":
+        result = write_goal_mechanism_suite(args.output_root)
+    else:
+        result = verify_goal_mechanism_suite(args.output_root)
     print(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False))
     return 0
 

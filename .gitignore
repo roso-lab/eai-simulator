@@ -129,6 +129,8 @@ tests/
 .isaac-lab-docker-history
 ros2_cmd_vel.json
 *.json
+!/demo/benchmark/task_coverage_matrix.json
+!/demo/benchmark/tests/
 !/source/EAI_hmrs/EAI_hmrs/envs/*.json
 /source/EAI_hmrs/EAI_hmrs/envs/test*.json
 /source/EAI_hmrs/EAI_hmrs/envs/n.json
@@ -167,6 +169,16 @@ ros2_cmd_vel.json
 
 # Runtime assets and tests are maintained outside the source repository.
 /usd/*
+!/usd/scene/
+/usd/scene/*
+!/usd/scene/factory/
+/usd/scene/factory/*
+!/usd/scene/factory/goal_props/
+/usd/scene/factory/goal_props/*
+!/usd/scene/factory/goal_props/anomaly_marker_v1.usda
+!/usd/scene/factory/goal_props/service_cart_v1.usda
+!/usd/scene/factory/goal_props/anomaly_marker_v2.usda
+!/usd/scene/factory/goal_props/service_cart_v2.usda
 !/usd/picture/
 !/usd/picture/**
 /source/EAI_assets/EAI_assets/controller/
@@ -177,6 +189,7 @@ test_*.py
 
 # Tracked lightweight tests for the asset-library showcase tool.
 !/tools/test_asset_library_showcase.py
+!/demo/benchmark/tests/test_measurement_contract.py
 !/tools/ros2/
 !/tools/ros2/tests/
 !/algorithm/nav2/tests/test_*.py
