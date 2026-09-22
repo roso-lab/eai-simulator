@@ -327,11 +327,30 @@ class CityNativeGoalBackend:
             # Pose sampling is trace evidence, not an admission input; offline
             # doubles without articulations still dispatch honestly.
             pass
+        host = ctx["runner"].host
         now = float(ctx["runner"].adapter.now_s())
-        # A strictly positive, already-elapsed interval (the host rejects
-        # start == end): span the most recent physics step.
-        start = max(0.0, now - float(ctx["dt"]))
-        ctx["runner"].host.record_role_occupancy(
+        # The real episode host rejects an occupancy end that is still in its
+        # future. Window settling can move the adapter clock ahead of that host.
+        # Offline doubles record the interval directly and have no host clock.
+        host_now = getattr(host, "now_s", None)
+        advance = getattr(host, "advance", None)
+        if callable(host_now) and callable(advance):
+            if now > float(host_now()):
+                advance(now)
+            else:
+                now = float(host_now())
+            start = now - float(ctx["dt"])
+            if start < 0.0:
+                start = 0.0
+            if not start < now:
+                advance(now + float(ctx["dt"]))
+                now = float(host_now())
+                start = now - float(ctx["dt"])
+        else:
+            # A strictly positive, already-elapsed interval (the host rejects
+            # start == end): span the most recent physics step.
+            start = max(0.0, now - float(ctx["dt"]))
+        host.record_role_occupancy(
             agent_id, role, region_id, start_time_s=start, end_time_s=now)
         ctx["trace"].setdefault("member_dispatch", []).append({
             "task_id": task["task_id"], "skill": task["skill"],
