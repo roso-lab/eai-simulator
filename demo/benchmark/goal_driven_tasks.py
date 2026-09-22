@@ -103,6 +103,20 @@ _CITY_NATIVE_AFFECTED_PERSON_ASSEMBLY = {
     "affected_person_03": "assembly_candidate_002",
 }
 _CITY_NATIVE_FOLLOWING_VEHICLE_IDS = tuple(f"following_vehicle_{index:02d}" for index in range(6))
+# Author-frozen city spawn anchors (x, y) per pool profile; the native probe
+# selection spawns these exact coordinates, and the public task discloses
+# them so participants can reason about distance at t = 0.
+_CITY_CORE_SPAWN_XY = {"go2_1": (-40.0, 55.0), "carter_1": (-69.0, 25.0),
+                       "iris_1": (-55.0, 20.0)}
+
+
+def _city_spawn_positions(roster_profile: str = "abstract_v1") -> dict[str, tuple[float, float]]:
+    if roster_profile == "bound_native_v2":
+        extra = {agent: tuple(CITY_V2_SPAWN_XY_M[agent]) for agent in CITY_V2_SPAWN_XY_M}
+        return {**_CITY_CORE_SPAWN_XY, **extra}
+    return dict(_CITY_CORE_SPAWN_XY)
+
+
 _CITY_ROSTER_PROFILES = {"abstract_v1", "bound_native_v1", "bound_native_v2"}
 _CITY_RESPONSE_SERVICE_ID = "city_dispatch"
 # Frozen semantic map that gates the opt-in bound_native_v2 spawn anchors: the
@@ -841,6 +855,12 @@ def _city(roster_profile: str = "abstract_v1") -> tuple[dict[str, Any], list[dic
             "objects": [],
             "vertical_links": [],
             "routes": scene_routes("city"),
+            # ④ public spawn anchors (bound_native_v2 only, keeping the
+            # frozen v1/abstract shapes and their hash gates): the
+            # participant sees where every candidate robot starts so team
+            # selection can reason about distance.
+            **({"robot_spawn_positions": dict(_city_spawn_positions(roster_profile))}
+               if roster_profile == "bound_native_v2" else {}),
             "public_notes": (
                 "本包是城市事故响应的作者/评价侧目标束，公共世界为响应舞台的声明抽象，不是城市静态地图的替代。"
                 "事故位置、受影响人员与后续车辆身份不公开，须由送达的观察证据绑定；集合区为候选，实时安全与容量须另行核验。"

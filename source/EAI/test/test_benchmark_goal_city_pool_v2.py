@@ -221,3 +221,17 @@ def test_service_probe_cli_pool_flag_defaults_to_v1(tmp_path, capsys):
 def test_v2_anchors_resolve_against_the_frozen_recovery_binding_map():
     assert CITY_V2_SEMANTIC_MAP_PATH.is_file()
     validate_city_spawn_points(list(CITY_V2_SPAWN_XY_M.values()))
+
+
+def test_v2_public_spawn_positions_disclosed_and_v1_frozen():
+    from demo.benchmark.goal_driven_tasks import build_goal_task_package
+
+    v2 = build_goal_task_package("city", city_roster_profile="bound_native_v2")
+    spawns = v2["public_task"]["public_world"]["robot_spawn_positions"]
+    pool_ids = {row["id"] for row in v2["public_task"]["candidate_robot_pool"]}
+    assert set(spawns) == pool_ids
+    assert all(len(pos) == 2 and all(isinstance(v, float) for v in pos)
+               for pos in spawns.values())
+    # The frozen profiles keep their shape (no disclosure, hash gate intact).
+    v1 = build_goal_task_package("city", city_roster_profile="bound_native_v1")
+    assert "robot_spawn_positions" not in v1["public_task"]["public_world"]
