@@ -133,8 +133,8 @@ _INDOOR_V2_PREFIX = {
 }
 _INDOOR_V2_POOL_NOTE = (
     "bound_native_v2 为 opt-in 扩池：候选池 7 台，核心仍是原 4 台，本见证只使用核心小团队。"
-    "新增同型空中副本复制空中成员的公开技能与接口；新增 go2 复制一台核心地面成员的公开技能与接口；"
-    "lite3 仅 navigation+observe，是能力诱饵。"
+    "新增同型空中副本复制空中成员的公开技能与接口；新增 go2 复制同场景夹爪地面成员的 pick/place 与 manipulator 接口，依据是 Z1 可挂载；"
+    "lite3 仅 navigation+observe，是能力诱饵，因为 UR5 和 Z1 在该机上都被拒绝。"
     "在已声明契约下，不支持的指派不产生服务。"
     "出生锚点来自 tmp/scene_v2_anchors 冻结集，经 validate_scene_spawn_points 校验后写入 "
     "public_world.robot_spawn_positions；max_active_agents 放开为池大小，团队规模由被测算法自决。"
@@ -815,9 +815,10 @@ def _indoor_v2_pool(core: list[dict[str, Any]], scene_key: str) -> list[dict[str
     """Extend a legacy indoor pool to the opt-in seven-robot bound_native_v2 roster.
 
     Keeps the original four members, adds a same-type aerial copy, a go2 that
-    reuses one core ground member's public skills/interfaces, and a lite3 decoy
-    limited to ground_navigation plus observe.  Physical profiles come from
-    ``robot_physical_profile`` for the new types.
+    copies the gripper skills of the scene's armed ground member, and a lite3
+    decoy limited to ground_navigation plus observe.  Go2's gripper declaration
+    follows the Z1 mount, which has a stationary swing result.  UR5 on Go2 is
+    not the basis: that mount tips over.  Lite3 rejects both arms.
     """
     prefix = _INDOOR_V2_PREFIX[scene_key]
     core_by_id = {row["id"]: row for row in core}
@@ -841,13 +842,24 @@ def _indoor_v2_pool(core: list[dict[str, Any]], scene_key: str) -> list[dict[str
 
     # Ids stay clear of expanded_v1 (aerial_2, ground_4/5/6) so that
     # measurement layer can still be applied on top of this deployment pool.
-    return [
-        *core,
-        member(f"{prefix}_iris_2", "iris", same_as=aerial_id),
-        member(f"{prefix}_go2_1", "go2", same_as=ground_id),
-        member(f"{prefix}_lite3_1", "lite3", same_as=ground_id,
-               capabilities=["ground_navigation", "observe"]),
-    ]
+    # Go2 copies the armed ground member, then adds the gripper interface its
+    # navigation-only physical profile does not carry.  Z1 is the mount behind
+    # that declaration; the profile's support socket stays for handoff.
+    aerial = member(f"{prefix}_iris_2", "iris", same_as=aerial_id)
+    go2 = member(f"{prefix}_go2_1", "go2", same_as=ground_id)
+    if "manipulator" not in go2["interfaces"]:
+        go2["interfaces"] = [*go2["interfaces"], "manipulator"]
+    profile = dict(go2["physical_profile"])
+    grips = list(profile.get("grasp_interfaces") or [])
+    if "fixed_gripper_v1" not in grips:
+        grips.append("fixed_gripper_v1")
+    profile["grasp_interfaces"] = grips
+    profile["configuration_id"] = "benchmark_go2_z1_gripper_v1"
+    go2["physical_profile"] = profile
+    decoy = member(f"{prefix}_lite3_1", "lite3", same_as=ground_id,
+                   capabilities=["ground_navigation", "observe"])
+    decoy["interfaces"] = ["camera", "event_bus"]
+    return [*core, aerial, go2, decoy]
 
 
 def _indoor_v2_spawn_z(scene_key: str) -> dict[str, float]:
@@ -2091,6 +2103,8 @@ def write_goal_authoring_brief(brief: Mapping[str, Any], output_dir: str | Path)
 def generate_goal_task_packages(scene_keys: list[str] | None = None, *, factor_id: str = "communication_quality",
                                 factor_level: str | None = None,
                                 pool_profile: str = "legacy_v1",
+                                city_roster_profile: str = "abstract_v1",
+                                indoor_roster_profile: str = "legacy_v1",
                                 output_root: str | None = None) -> dict[str, dict[str, Any]]:
     """Generate and optionally publish the four registered goal packages.
 
@@ -2102,10 +2116,16 @@ def generate_goal_task_packages(scene_keys: list[str] | None = None, *, factor_i
                 if row["package_kind"] == "goal_bundle"]
     else:
         keys = list(scene_keys)
-    packages = {scene: build_goal_task_package(
-                    scene, factor_id=factor_id, factor_level=factor_level,
-                    pool_profile=pool_profile)
-                for scene in keys}
+    packages = {}
+    for scene in keys:
+        roster = {}
+        if scene == "city":
+            roster["city_roster_profile"] = city_roster_profile
+        elif scene in _INDOOR_SCENES:
+            roster["indoor_roster_profile"] = indoor_roster_profile
+        packages[scene] = build_goal_task_package(
+            scene, factor_id=factor_id, factor_level=factor_level,
+            pool_profile=pool_profile, **roster)
     if output_root is not None:
         root = Path(output_root)
         for scene, bundle in packages.items():
@@ -2137,6 +2157,12 @@ def main(argv=None) -> int:
                         help="generate classified canonical M0 bundles for this mechanism")
     parser.add_argument("--pool-profile", choices=list(POOL_PROFILES), default="legacy_v1",
                         help="candidate-pool design; expanded_v1 is opt-in and execution-pending")
+    parser.add_argument("--city-roster-profile", default="abstract_v1",
+                        choices=["abstract_v1", "bound_native_v1", "bound_native_v2", "bound_native_v3"],
+                        help="City roster; bound_native_v2/v3 open the seven-robot pool")
+    parser.add_argument("--indoor-roster-profile", default="legacy_v1",
+                        choices=["legacy_v1", "bound_native_v2"],
+                        help="factory/warehouse/house roster; bound_native_v2 is the open deployment pool")
     parser.add_argument("--factor-level", choices=["immediate", "delayed", "dropped", "bandwidth_limited", "stale",
                                                     "stable", "member_exit", "member_join", "capability_change"])
     parser.add_argument("--output-root", help="write release/evaluator artifacts below this directory")
@@ -2145,7 +2171,8 @@ def main(argv=None) -> int:
     if args.mechanism_family is None:
         packages = generate_goal_task_packages(
             scenes, factor_id=args.factor_id, factor_level=args.factor_level,
-            pool_profile=args.pool_profile, output_root=args.output_root)
+            pool_profile=args.pool_profile, city_roster_profile=args.city_roster_profile,
+            indoor_roster_profile=args.indoor_roster_profile, output_root=args.output_root)
     else:
         packages = generate_goal_mechanism_templates(
             scenes, mechanisms=[args.mechanism_family], factor_id=args.factor_id,

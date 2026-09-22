@@ -99,6 +99,14 @@ def test_bound_native_v2_pool_spawns_and_budget(scene):
             holders.setdefault(skill, set()).add(row["id"])
     duplicated = [skill for skill, agents in holders.items() if len(agents) >= 2]
     assert duplicated, "at least one core service capability must appear on two robots"
+    go2 = next(row for row in pool if row["type"] == "go2")
+    assert "pick" in go2["public_capabilities"]
+    assert "place" in go2["public_capabilities"]
+    assert "manipulator" in go2["interfaces"]
+    assert "fixed_gripper_v1" in go2["physical_profile"]["grasp_interfaces"]
+    decoy = next(row for row in pool if row["type"] == "lite3")
+    assert "manipulator" not in decoy["interfaces"]
+    assert "pick" not in decoy["public_capabilities"]
 
 
 @pytest.mark.parametrize("scene", _INDOOR_SCENES)
