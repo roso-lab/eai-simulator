@@ -56,7 +56,7 @@ from .goal_restaurant_episode import (
 from .provenance import canonical_sha256, file_sha256
 from .runtime import route_waypoints
 from demo.restaurant_benchmark import config as restaurant_config
-from demo.restaurant_benchmark import runtime_probe
+from demo.restaurant_benchmark import navigation_probe, runtime_probe
 
 
 ROBOT_BINDINGS = {
@@ -86,7 +86,7 @@ REGION_BINDINGS = {
     "dining_service": {"center_xy_m": list(_B)},
 }
 ALGORITHM_POOL = tuple(sorted(ROBOT_BINDINGS))
-ALGORITHMS = ("teamweaver",)
+ALGORITHMS = ("teamweaver", "emos")
 # Effective Carter speed measured on the witness legs (~0.25 m/s over planned
 # distance) with a 12 s per-leg margin.  Windows are per-leg ceilings and the
 # v1 executor is serial, so an allocation whose summed windows exceed the
@@ -218,6 +218,20 @@ MISSIONS = (
     {"mission_id": "kitchen_inspection", "region_id": "kitchen_service"},
     {"mission_id": "dining_inspection", "region_id": "dining_service"},
 )
+# Raw capability requirements per mission.  The relay row includes
+# ground_navigation because restaurant_staging admits ground access only -
+# that public contract fact is translated here (not filtered after the
+# allocator decides), for both participants identically.
+MISSION_REQUIREMENTS = {
+    "kitchen_inspection": ("ground_navigation", "observe"),
+    "dining_inspection": ("ground_navigation", "observe"),
+    "readiness_relay": ("relay", "ground_navigation"),
+}
+MISSION_TARGET_XY = {
+    "kitchen_inspection": _E,
+    "dining_inspection": _B,
+    "readiness_relay": _A,
+}
 
 
 def _public_route_id(task_spec: Mapping[str, Any], from_region: str, to_region: str) -> str:
@@ -355,22 +369,19 @@ class RestaurantTeamWeaverParticipant:
         axis = {"ground_navigation": "navigation", "observe": "sensing",
                 "relay": "communication"}
         pool_rows = self._task_spec["candidate_robot_pool"]
-        region_center = {"kitchen_inspection": _E, "dining_inspection": _B,
-                         "readiness_relay": _A}
-        # The relay must be published from restaurant_staging, whose public
-        # access modes admit ground navigation only.  Encoding that public
-        # contract fact into the mission requirements is interface
-        # translation, not a decision for the allocator: it still chooses
-        # which ground-capable agent publishes.
+        region_center = dict(MISSION_TARGET_XY)
+        # Mission requirements (including the relay's staging ground-access
+        # fact) live in the shared MISSION_REQUIREMENTS table; encoding that
+        # public contract fact is interface translation, not a decision for
+        # the allocator, and both participants translate it identically.
         requirement_axes = {
-            "kitchen_inspection": ("navigation", "sensing"),
-            "dining_inspection": ("navigation", "sensing"),
-            "readiness_relay": ("communication", "navigation"),
+            mission: tuple(sorted({axis.get(cap, cap)
+                                   for cap in MISSION_REQUIREMENTS[mission]}))
+            for mission in MISSION_REQUIREMENTS
         }
         raw_requirements = {
-            "kitchen_inspection": {"ground_navigation", "observe"},
-            "dining_inspection": {"ground_navigation", "observe"},
-            "readiness_relay": {"relay", "ground_navigation"},
+            mission: set(MISSION_REQUIREMENTS[mission])
+            for mission in MISSION_REQUIREMENTS
         }
 
         def robot_snapshot(row: Mapping[str, Any]) -> RobotSnapshot:
@@ -499,6 +510,269 @@ class RestaurantTeamWeaverParticipant:
 from demo.restaurant_benchmark.service_backend import RestaurantReadinessBackend
 
 
+_EMOS_POLICY_NAME = "restaurant-goal-native-deterministic"
+_EMOS_ROUND_TIMEOUT_S = 240.0
+_EMOS_DISCUSSION_LOG_DIR = ROOT / "tmp" / "emos_discussion_restaurant"
+
+
+def _emos_restaurant_policy(request):
+    """Deterministic capability-matching EMOS policy (restaurant missions).
+
+    Mirrors the city policy: each still-open mission is one scenario subtask
+    whose match_keywords carry the mission's raw capability requirements
+    (including the relay's staging ground-access fact); each round walks the
+    missions in catalogue order and assigns each to the first pool-order
+    agent whose public capabilities cover the requirements, at most one
+    mission per agent per round.
+    """
+    scenario = request.scenario
+    order = list(request.robot_positions)
+    profiles = scenario.robot_profiles
+    assignments: dict[str, str] = {}
+    for subtask_id, spec in scenario.subtasks.items():
+        required = set(spec.match_keywords)
+        for name in order:
+            if name in assignments:
+                continue
+            profile = profiles.get(name)
+            capabilities = set(profile.capabilities) if profile is not None else set()
+            if required <= capabilities:
+                assignments[name] = subtask_id
+                break
+    if not assignments:
+        raise ValueError("EMOS restaurant policy found no eligible agent")
+    return assignments
+
+
+class RestaurantEmosParticipant:
+    """Real EMOS discussion manager deciding the restaurant episode's team.
+
+    The measured decisions - team selection, mission assignment and the
+    relay agent - come from the real ``EMOSDiscussionManager`` discussion
+    boundary over the public pool, with the mission targets placed at their
+    real region centers.  The deterministic capability-matching policy runs
+    through the manager's public ``set_assignment_policy`` boundary; the
+    structural plan expansion is shared with the TeamWeaver participant, so
+    the two algorithms are measured on identical executor vocabulary.
+    """
+
+    def __init__(self, task_spec: Mapping[str, Any], routes: Mapping[str, Mapping[str, Any]]):
+        self._task_spec = deepcopy(dict(task_spec))
+        self._routes = deepcopy(dict(routes))
+        self._plan: dict[str, Any] | None = None
+        self._opened = False
+        self._next = 0
+        self._terminal: dict[str, str] = {}
+        self.trace: list[dict[str, Any]] = []
+
+    def manifest(self) -> Mapping[str, Any]:
+        return {"kind": "participant", "id": "restaurant-native-emos", "version": 1,
+                "interface": "eai.benchmark.goal_algorithm_adapter", "interface_version": 1,
+                "evaluation_track": "goal_driven",
+                "input_scope": "participant_visible_events_only",
+                "control_scope": "benchmark_managed_low_level_control"}
+
+    def initialize(self, public_task: Mapping[str, Any],
+                   participant_api: Mapping[str, Any]) -> None:
+        del public_task, participant_api
+        self.trace.append({"event": "initialize", "planner": "EMOSDiscussionManager",
+                           "policy": _EMOS_POLICY_NAME})
+
+    def _allocate(self) -> dict[str, str]:
+        import time as _time
+        from .goal_external_adapters import _ensure_algorithm_roots
+        _ensure_algorithm_roots()
+        from emos.engine import EMOSDiscussionManager
+        from emos.types import EMOSRobotAgentSpec, EMOSScenarioConfig, PositionRule, SubtaskSpec
+
+        pool_rows = self._task_spec["candidate_robot_pool"]
+        subtasks = {mission: SubtaskSpec(
+                        id=mission, name=mission, description=f"restaurant:{mission}",
+                        match_keywords=sorted(MISSION_REQUIREMENTS[mission]))
+                    for mission in MISSION_REQUIREMENTS}
+        scenario = EMOSScenarioConfig(
+            scenario_id="restaurant_goal_native", scene_title="Restaurant",
+            anchor_label="restaurant opening readiness",
+            task_description=(
+                "Coordinate the restaurant opening-readiness inspection: one "
+                "member inspects the kitchen service area, one inspects the "
+                "dining service area, and a ground member publishes the "
+                "consolidated readiness receipt from staging."),
+            subtasks=subtasks,
+            position_rules={mission: PositionRule("fixed", xy=MISSION_TARGET_XY[mission])
+                            for mission in subtasks},
+            robot_profiles={},
+            preferred_fallback={},
+            yellow_subtask_id="", green_subtask_id="")
+        specs = {row["id"]: EMOSRobotAgentSpec(
+                     agent_name=row["id"], robot_type=row["mobility"],
+                     capabilities=list(row["public_capabilities"]))
+                 for row in pool_rows}
+        assignment: dict[str, str] = {}
+        remaining = set(MISSION_REQUIREMENTS)
+        capability_map = {row["id"]: set(row["public_capabilities"]) for row in pool_rows}
+        for round_index in range(len(MISSION_REQUIREMENTS)):
+            if not remaining:
+                break
+            open_subtasks = {mission: subtasks[mission] for mission in remaining}
+            scenario.subtasks = open_subtasks
+            scenario.position_rules = {mission: PositionRule(
+                "fixed", xy=MISSION_TARGET_XY[mission]) for mission in remaining}
+            manager = EMOSDiscussionManager.build_from_agent_specs(
+                None, specs, scenario, use_env_resume=False,
+                discussion_log_dir=str(_EMOS_DISCUSSION_LOG_DIR))
+            manager.set_assignment_policy(_emos_restaurant_policy, name=_EMOS_POLICY_NAME)
+            manager.trigger(1, (0.0, 0.0, 0.0))
+            result = None
+            deadline = _time.monotonic() + _EMOS_ROUND_TIMEOUT_S
+            while result is None and _time.monotonic() < deadline:
+                result = manager.poll()
+                if result is None:
+                    _time.sleep(0.01)
+            if result is None:
+                raise RuntimeError("EMOS discussion did not produce an assignment in time")
+            round_map = {row.subtask_colour: row.robot_name for row in result.values()
+                         if row.subtask_colour in remaining}
+            self.trace.append({"event": "emos_assignment", "round": round_index,
+                               "manager": "EMOSDiscussionManager",
+                               "assignment": dict(round_map),
+                               "remaining": sorted(remaining),
+                               "discussion_count": manager.discussion_count,
+                               "discussion_elapsed_s": manager.last_discussion_elapsed_s})
+            if not round_map:
+                break
+            for mission, agent in round_map.items():
+                if not set(MISSION_REQUIREMENTS[mission]) <= capability_map[agent]:
+                    raise RuntimeError(f"EMOS assigned {mission} to ineligible {agent}")
+            assignment.update(round_map)
+            remaining -= set(round_map)
+        if remaining:
+            raise RuntimeError(
+                f"EMOS left restaurant missions unassigned: {sorted(remaining)}")
+        return assignment
+
+    def act(self, events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        self.trace.extend(deepcopy(events))
+        now = max((float(row["time_s"]) for row in events), default=0.0)
+        if not self._opened:
+            if not any(row["type"] == "episode_started" for row in events):
+                return []
+            self._opened = True
+            assignment = self._allocate()
+            self.trace.append({"event": "allocation_final", "assignment": dict(assignment),
+                               "team": sorted(set(assignment.values()))})
+            self._plan = _expand_mission_plan(
+                self._task_spec, assignment,
+                relay_agent=assignment["readiness_relay"],
+                routes=self._routes,
+                plan_id="restaurant_emos_missions_v1")
+            self.trace.append({"event": "plan_submitted",
+                               "task_ids": [row["task_id"] for row in self._plan["tasks"]],
+                               "assigned_team": self._plan["assigned_team"]})
+            return [
+                _action("restaurant_emos_select", "select_team",
+                        {"agent_ids": list(self._plan["assigned_team"])}, now),
+                _action("restaurant_emos_plan", "submit_plan",
+                        {"plan": deepcopy(self._plan)}, now),
+                _action("restaurant_emos_dispatch_0", "dispatch_skill",
+                        {"task_id": self._plan["tasks"][0]["task_id"],
+                         "evidence_refs": []}, now),
+            ]
+        for row in events:
+            if row["type"] != "action_result":
+                continue
+            payload = row["payload"]
+            if payload.get("status") in {"succeeded", "failed", "cancelled"}:
+                self._terminal[str(payload["action_id"])] = str(payload["status"])
+        previous = f"restaurant_emos_dispatch_{max(self._next - 1, 0)}"
+        if self._next == 0:
+            self._next = 1
+        if previous not in self._terminal:
+            return []
+        if (self._terminal[previous] != "succeeded"
+                or self._next >= len(self._plan["tasks"])):
+            return []
+        index = self._next
+        self._next += 1
+        return [_action(f"restaurant_emos_dispatch_{index}", "dispatch_skill",
+                        {"task_id": self._plan["tasks"][index]["task_id"],
+                         "evidence_refs": []}, now)]
+
+    def close(self) -> None:
+        return None
+
+
+class SharedIdleHolds:
+    """Keep unengaged agents stationary against zero-command creep.
+
+    Measured on the algorithm executor: a Carter commanded to exact zeros
+    still creeps at ~0.0024 m/s (0.34 m over a 140 s idle stretch, past the
+    route-start tolerance), and an uncommanded Pegasus iris loses its lift
+    wrench and falls.  Idle management is executor infrastructure, never an
+    algorithm decision: each idle ground agent is tethered to the pose where
+    it became idle (re-captured when its own mission ends) with a small
+    proportional correction, and the aerial member is commanded its frozen
+    anchor as an explicit hover goal.
+    """
+
+    POSITION_GAIN = 2.0
+    YAW_GAIN = 1.5
+    MAX_LINEAR = 0.06
+    MAX_ANGULAR = 0.30
+
+    def __init__(self, session: Any, aerial_agent: str, aerial_goal_xyz):
+        import torch
+
+        self.session = session
+        self._torch = torch
+        self._aerial_agent = aerial_agent
+        self._aerial_goal = torch.tensor(
+            [list(aerial_goal_xyz)], device=session.device,
+            dtype=torch.float32).expand(session.num_envs, 3)
+        self._hold_xy: dict[str, tuple[float, float]] = {}
+        self._hold_yaw: dict[str, float] = {}
+        self._last_active: str | None = None
+
+    def _yaw(self, quat) -> float:
+        w, x, y, z = (float(value) for value in quat)
+        return math.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
+
+    def commands(self, exclude: str) -> dict[str, Any]:
+        torch = self._torch
+        commands: dict[str, Any] = {}
+        for agent in self.session.possible_agents:
+            if agent == exclude:
+                continue
+            state = self.session.base_env.scene.articulations[agent].data.root_state_w[0]
+            state = state.detach().cpu().tolist()
+            xy = (float(state[0]), float(state[1]))
+            yaw = self._yaw(state[3:7])
+            if agent == self._aerial_agent:
+                commands[agent] = self._aerial_goal.clone()
+                continue
+            if self._last_active == agent:
+                # The agent just finished its own active stretch: re-tether
+                # at the pose where its mission left it.
+                self._hold_xy[agent] = xy
+                self._hold_yaw[agent] = yaw
+            hold_xy = self._hold_xy.setdefault(agent, xy)
+            hold_yaw = self._hold_yaw.setdefault(agent, yaw)
+            dx, dy = hold_xy[0] - xy[0], hold_xy[1] - xy[1]
+            distance = math.hypot(dx, dy)
+            heading_error = (math.atan2(dy, dx) - yaw + math.pi) % (2 * math.pi) - math.pi
+            linear = max(-self.MAX_LINEAR, min(self.MAX_LINEAR,
+                                               self.POSITION_GAIN * distance * math.cos(heading_error)))
+            angular = max(-self.MAX_ANGULAR, min(self.MAX_ANGULAR,
+                                                 self.YAW_GAIN * (
+                                                     (hold_yaw - yaw + math.pi) % (2 * math.pi) - math.pi)))
+            command = torch.zeros((self.session.num_envs, 3), device=self.session.device)
+            command[0, 0] = linear
+            command[0, 2] = angular
+            commands[agent] = command
+        self._last_active = exclude
+        return commands
+
+
 class SharedClockCarterNavigator(NativeCarterEpisodeNavigator):
     """Tie the witness navigator's episode clock to the shared sim clock.
 
@@ -509,9 +783,29 @@ class SharedClockCarterNavigator(NativeCarterEpisodeNavigator):
     so the override alone keeps windows, deadlines and holds consistent.
     """
 
-    def __init__(self, *args: Any, episode_step_origin: int, **kwargs: Any):
+    def __init__(self, *args: Any, episode_step_origin: int,
+                 idle_holds: "SharedIdleHolds", **kwargs: Any):
         super().__init__(*args, **kwargs)
         self._episode_step_origin = int(episode_step_origin)
+        # Every step carries commands for ALL agents: agents missing from an
+        # env.step dict are skipped by apply_action entirely, which lets idle
+        # Carters creep and the uncommanded iris fall out of the air.  The
+        # shared holds object tethers unengaged agents (see its docstring).
+        self._idle_holds = idle_holds
+
+    def step_once(self, command: tuple[float, float] | None = None) -> dict[str, Any]:
+        self._command.zero_()
+        if command is not None:
+            self._command[0, 0] = float(command[0])
+            self._command[0, 2] = float(command[1])
+        step_dict = self._idle_holds.commands(exclude=self.agent)
+        step_dict[self.agent] = self._command
+        self.session.env.step(step_dict)
+        self._control_steps += 1
+        root = self.pose()
+        if not navigation_probe._finite_root_state(root):
+            raise RuntimeError("non-finite Carter root state in formal Restaurant episode")
+        return self._stamp(root)
 
     @property
     def episode_time_s(self) -> float:
@@ -858,7 +1152,6 @@ def run_worker(output_root: str | Path) -> dict[str, Any]:
             iris_anchor = restaurant_config.BENCHMARK_ROBOT_SPAWN_XYZ_M["iris_1"]
             hover = torch.tensor([list(iris_anchor)], device=session.device,
                                  dtype=torch.float32).expand(session.num_envs, 3)
-            from demo.restaurant_benchmark import navigation_probe
             for _ in range(navigation_probe.SETTLE_STEPS):
                 commands = {agent: torch.zeros((session.num_envs, 3), device=session.device)
                             for agent in session.possible_agents if agent != "iris_1"}
@@ -873,6 +1166,8 @@ def run_worker(output_root: str | Path) -> dict[str, Any]:
             navigators = {}
             try:
                 episode_step_origin = int(session.base_env.sim.current_time_step_index)
+                iris_anchor = restaurant_config.BENCHMARK_ROBOT_SPAWN_XYZ_M["iris_1"]
+                idle_holds = SharedIdleHolds(session, "iris_1", iris_anchor)
                 for public_id in ALGORITHM_POOL:
                     binding = ROBOT_BINDINGS[public_id]
                     if binding["mobility"] != "ground":
@@ -880,12 +1175,17 @@ def run_worker(output_root: str | Path) -> dict[str, Any]:
                     navigators[binding["native_agent_id"]] = SharedClockCarterNavigator(
                         session, binding["native_agent_id"], products_root, routes,
                         request["region_bindings"],
-                        episode_step_origin=episode_step_origin)
+                        episode_step_origin=episode_step_origin,
+                        idle_holds=idle_holds)
                 backend = RestaurantMultiAgentGoalBackend(
                     navigators, routes,
                     request["public_task"]["public_world"]["routes"],
                     episode_id=request["episode_id"])
-                participant = RestaurantTeamWeaverParticipant(
+                participant_class = (
+                    RestaurantTeamWeaverParticipant
+                    if request["algorithm"] == "teamweaver"
+                    else RestaurantEmosParticipant)
+                participant = participant_class(
                     request["public_task"], routes)
                 evaluator = lambda episode_id, trusted: evaluate_restaurant_business(
                     backend, episode_id, trusted)
@@ -918,6 +1218,12 @@ def run_worker(output_root: str | Path) -> dict[str, Any]:
                       and result["skill_receipt_count"] == len(participant._plan["tasks"])
                       and result["business_outcomes_validated"] is True
                       and backend.business_evaluation is not None)
+            if not passed and os.environ.get("RESTAURANT_ALGO_DEBUG_POSES"):
+                poses = {}
+                for agent, art in session.base_env.scene.articulations.items():
+                    st = art.data.root_state_w[0].detach().cpu().tolist()
+                    poses[agent] = [round(float(v), 3) for v in st[:7]]
+                report["debug_poses"] = poses
             report.update(
                 status="completed" if passed else "failed",
                 actual_device=str(session.device),
@@ -934,6 +1240,15 @@ def run_worker(output_root: str | Path) -> dict[str, Any]:
         report.update(status="failed", error=repr(exc), traceback=traceback.format_exc(),
                       business_episode_execution_validated=False,
                       execution_validated=False, scoreable=False)
+        if os.environ.get("RESTAURANT_ALGO_DEBUG_POSES"):
+            try:
+                poses = {}
+                for agent, art in session.base_env.scene.articulations.items():
+                    st = art.data.root_state_w[0].detach().cpu().tolist()
+                    poses[agent] = [round(float(v), 3) for v in st[:7]]
+                report["debug_poses"] = poses
+            except Exception:
+                report["debug_poses"] = "unavailable"
         _write_json(report_path, report)
         raise
     if report["business_episode_execution_validated"] is not True:

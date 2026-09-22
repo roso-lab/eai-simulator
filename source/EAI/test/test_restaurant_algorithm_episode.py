@@ -7,7 +7,9 @@ def test_algorithm_pool_declares_heterogeneous_executable_members():
     assert m.ALGORITHM_POOL == (
         "restaurant_carter_1", "restaurant_carter_2", "restaurant_iris_1",
     )
-    assert m.ALGORITHMS == ("teamweaver",)
+    assert m.ALGORITHMS == ("teamweaver", "emos")
+    # Both participants translate the identical mission contract.
+    assert m.MISSION_REQUIREMENTS["readiness_relay"] == ("relay", "ground_navigation")
     mobilities = {m.ROBOT_BINDINGS[public]["mobility"] for public in m.ALGORITHM_POOL}
     assert mobilities == {"ground", "aerial"}
     # Only the ground anchors have dispatchable drivers in the v1 executor.
