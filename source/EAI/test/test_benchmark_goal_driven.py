@@ -419,14 +419,15 @@ def test_candidate_pool_requires_team_selection_and_carter_cannot_pick(scene):
     plan = deepcopy(witnesses[0]["plan"])
     pick = next(row for row in plan["tasks"] if row["skill"] == "pick")
     original_picker = pick["assigned_agents"][0]
-    # 预算 3：队内以 carter 整体替换原 picker 的全部任务分工，验证 pick
-    # 能力缺失在计划级仍被拒（carter 无 pick/place 能力）
+    # 用户原则（2026-09-22）：参与者路径（GoalSession，allow_physical_
+    # infeasibility=True）不再拒绝能力错配；直接 validate_goal_plan 是
+    # 作者严格路径，仍在约束层 fail-closed（换报错来源）。
     for row in plan["tasks"]:
         row["assigned_agents"] = [carter["id"] if agent == original_picker else agent
                                   for agent in row["assigned_agents"]]
     plan["assigned_team"] = [carter["id"]] + [
         member for member in plan["assigned_team"] if member != original_picker]
-    with pytest.raises(ValueError, match="does not declare"):
+    with pytest.raises(ValueError, match="lacks skill capability"):
         validate_goal_plan(plan, task_spec=public)
 
 
@@ -436,7 +437,9 @@ def test_aerial_observation_cannot_use_ground_only_region():
     plan = deepcopy(bundle["hidden_evaluator"]["witness_plans"][0]["plan"])
     observation = next(row for row in plan["tasks"] if row["skill"] == "observe")
     observation["arguments"]["region_id"] = "rack_aisle_b"
-    with pytest.raises(ValueError, match="not publicly aerial-accessible"):
+    # Region-access policing moved to execution (user principle); this
+    # fixture plan now proceeds until the kept structural continuity check.
+    with pytest.raises(ValueError, match="region continuity"):
         validate_goal_plan(plan, task_spec=public)
 
 
@@ -600,15 +603,20 @@ def test_api_publishes_fixed_point_route_and_time_contract_and_rejects_tampering
         validate_goal_participant_api(api, task_spec=public)
 
 
-@pytest.mark.parametrize("extra", ["pick", "invented_capability"])
-def test_plan_checks_every_declared_required_capability(extra):
+@pytest.mark.parametrize("extra,accepted", [("pick", True), ("invented_capability", False)])
+def test_plan_distinguishes_unknown_capability_from_capability_mismatch(extra, accepted):
     bundle = _bundle()
     plan = deepcopy(bundle["hidden_evaluator"]["witness_plans"][0]["plan"])
     aerial = next(task for task in plan["tasks"]
                   if "warehouse_aerial_1" in task["assigned_agents"])
     aerial["required_capabilities"].append(extra)
-    with pytest.raises(ValueError, match="does not declare|unknown required capability"):
+    if accepted:
+        # A capability the assigned agent lacks is an execution concern now,
+        # not a protocol violation (user principle 2026-09-22).
         validate_goal_plan(plan, task_spec=bundle["public_task"])
+    else:
+        with pytest.raises(ValueError, match="unknown required capability"):
+            validate_goal_plan(plan, task_spec=bundle["public_task"])
 
 
 def test_current_payload_and_skill_changes_override_initial_capability_declaration():
@@ -619,7 +627,7 @@ def test_current_payload_and_skill_changes_override_initial_capability_declarati
     original = next(row for row in public["candidate_robot_pool"] if row["id"] == picker)
     updated = deepcopy(original)
     updated["public_capabilities"].remove("pick")
-    with pytest.raises(ValueError, match="does not declare"):
+    with pytest.raises(ValueError, match="lacks skill capability"):
         validate_goal_plan(plan, task_spec=public, context={"capability_updates": [updated]})
     updated = deepcopy(original)
     updated["physical_profile"]["effective_payload_kg"] = 0.0

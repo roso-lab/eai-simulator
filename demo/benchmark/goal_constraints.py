@@ -575,13 +575,18 @@ def validate_plan_constraints(plan: Mapping[str, Any], *, task_spec: Mapping[str
             raise ValueError(f"{tid}: {skill} requires exactly one assigned agent")
         if skill in {"cooperative_carry", "synchronize"} and len(assigned) < 2:
             raise ValueError(f"{tid}: {skill} requires at least two assigned agents")
-        for agent in assigned:
-            if skill not in rows[agent]["public_capabilities"]:
-                raise ValueError(f"{tid}: {agent} lacks skill capability {skill}")
-            if skill == "aerial_navigation" and rows[agent]["mobility"] != "aerial":
-                raise ValueError(f"{tid}: aerial navigation requires aerial mobility")
-            if skill in {"ground_navigation", "stair_traversal"} | _TRANSPORT and rows[agent]["mobility"] != "ground":
-                raise ValueError(f"{tid}: {skill} requires ground mobility")
+        if not allow_physical_infeasibility:
+            # Author/witness review stays fail-closed. Participant plans
+            # (allow_physical_infeasibility=True, user principle 2026-09-22)
+            # pass capability/mobility mismatches through as decisions the
+            # execution layer must fail honestly.
+            for agent in assigned:
+                if skill not in rows[agent]["public_capabilities"]:
+                    raise ValueError(f"{tid}: {agent} lacks skill capability {skill}")
+                if skill == "aerial_navigation" and rows[agent]["mobility"] != "aerial":
+                    raise ValueError(f"{tid}: aerial navigation requires aerial mobility")
+                if skill in {"ground_navigation", "stair_traversal"} | _TRANSPORT and rows[agent]["mobility"] != "ground":
+                    raise ValueError(f"{tid}: {skill} requires ground mobility")
         execution = _fields(row.get("execution"), {"start_s", "duration_s"}, f"{tid} execution")
         start = _number(execution["start_s"], f"{tid} start_s")
         duration = _number(execution["duration_s"], f"{tid} duration_s", positive=True)

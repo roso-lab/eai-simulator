@@ -512,31 +512,23 @@ def _validate_public_ref(key: str, value: Any, task_spec: Mapping[str, Any]) -> 
 def _validate_skill_access(skill: str, arguments: Mapping[str, Any], assigned: list[str],
                            rows: Mapping[str, Mapping[str, Any]],
                            task_spec: Mapping[str, Any], task_id: str) -> None:
-    interfaces = _SKILL_INTERFACE_REQUIREMENTS.get(skill, set())
-    for agent in assigned:
-        missing = interfaces - set(rows[agent]["interfaces"])
-        if missing:
-            raise ValueError(f"{task_id}: {agent} lacks required interfaces {sorted(missing)}")
-    if skill == "ground_navigation" and any(rows[agent]["mobility"] != "ground" for agent in assigned):
-        raise ValueError(f"{task_id}: ground_navigation requires ground agents")
-    if skill == "aerial_navigation" and any(rows[agent]["mobility"] != "aerial" for agent in assigned):
-        raise ValueError(f"{task_id}: aerial_navigation requires aerial agents")
-    if skill in {"pick", "place", "handoff", "cooperative_carry", "stair_traversal"}:
-        if any(rows[agent]["mobility"] != "ground" for agent in assigned):
-            raise ValueError(f"{task_id}: {skill} requires ground agents")
+    """Structural validation only.
+
+    User principle (2026-09-22): interface, mobility-skill and
+    region-accessibility eligibility are physical realities of the world,
+    not protocol rules - an algorithm assigning an unsuited agent must be
+    measurable as an execution failure, never filtered at submission. The
+    plan protocol therefore validates only that a referenced region exists;
+    every physical-eligibility consequence moved to the execution layer.
+    """
+    del skill, assigned, rows
     region_id = next((arguments.get(key) for key in (
         "region_id", "pickup_region_id", "placement_region_id", "receiving_region_id",
         "destination_region_id", "exit_region_id") if arguments.get(key) is not None), None)
     if region_id is None:
         return
-    region = next(row for row in task_spec["public_world"]["regions"] if row["id"] == region_id)
-    modes = set(region["access_modes"])
-    for agent in assigned:
-        mobility = rows[agent]["mobility"]
-        if mobility == "aerial" and "aerial_navigation" not in modes:
-            raise ValueError(f"{task_id}: region {region_id} is not publicly aerial-accessible")
-        if mobility == "ground" and not modes.intersection({"ground_navigation", "stair_traversal"}):
-            raise ValueError(f"{task_id}: region {region_id} is not publicly ground-accessible")
+    if not any(row["id"] == region_id for row in task_spec["public_world"]["regions"]):
+        raise ValueError(f"{task_id}: unknown region {region_id}")
 
 
 def _validate_task_id_graph(tasks: list[Mapping[str, Any]]) -> None:
@@ -658,10 +650,13 @@ def validate_goal_plan(plan: Mapping[str, Any], *, task_spec: Mapping[str, Any],
             raise ValueError(f"{task_id}: skill {skill} requires at least {minimum_agents(skill)} agents")
         if skill == "synchronize" and set(arguments["agent_ids"]) != set(assigned):
             raise ValueError(f"{task_id}: synchronize agent_ids must match assigned_agents")
-        for agent in assigned:
-            public_caps = set(rows[agent]["public_capabilities"])
-            if not required <= public_caps:
-                raise ValueError(f"{task_id}: {agent} does not declare {sorted(required - public_caps)}")
+        # Deliberately NO capability-eligibility check on assigned agents
+        # (user principle, 2026-09-22): assigning a task to an agent that
+        # does not declare the required capabilities is an algorithm
+        # decision the benchmark must not pre-filter - it surfaces as a
+        # deterministic execution failure, and only the task/business
+        # outcomes evaluate it. The protocol validates structure only.
+        del required
         _validate_skill_access(skill, arguments, assigned, rows, task_spec, task_id)
         evidence_refs = _string_list(task["evidence_refs"], f"plan task {index} evidence_refs", allow_empty=True)
         task_rows.append({**dict(task), "arguments": arguments, "prerequisites": prerequisites,
