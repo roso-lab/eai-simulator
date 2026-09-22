@@ -10,9 +10,12 @@ requiring a network LLM during a benchmark evidence run.
 from __future__ import annotations
 
 from copy import deepcopy
+from dataclasses import replace
 from pathlib import Path
 import sys
 import time
+from types import SimpleNamespace
+import re
 from typing import Any, Mapping
 
 from .goal_algorithm_adapter import GOAL_ADAPTER_INTERFACE, GOAL_ADAPTER_INTERFACE_VERSION
@@ -292,6 +295,57 @@ class EmosGoalAdapter:
 
 
 
+def _city_llm_env() -> dict[str, str]:
+    """Resolve the dongli gateway credentials for TeamWeaver decomposition.
+
+    Priority: existing DEEPSEEK_API_KEY, then DONGLI_API_KEY, then the
+    DONGLI_API_KEY line in ~/.secrets (last resort, local-run convenience).
+    The key is never traced or archived.
+    """
+    import os
+
+    api_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
+    if not api_key:
+        api_key = os.environ.get("DONGLI_API_KEY", "").strip()
+    if not api_key:
+        secrets = Path.home() / ".secrets"
+        if secrets.is_file():
+            match = re.search(r'DONGLI_API_KEY="([^"]+)"', secrets.read_text(encoding="utf-8"))
+            api_key = match.group(1) if match else ""
+    if not api_key:
+        raise RuntimeError("no DeepSeek/dongli API key available for TeamWeaver LLM decomposition")
+    return {
+        "DEEPSEEK_API_KEY": api_key,
+        "TEAMWEAVER_DEEPSEEK_BASE_URL": os.environ.get(
+            "TEAMWEAVER_DEEPSEEK_BASE_URL", "https://ai.dongli.work/v1"),
+        "TEAMWEAVER_DEEPSEEK_MODEL": os.environ.get(
+            "TEAMWEAVER_DEEPSEEK_MODEL", "gpt-5.6-luna"),
+    }
+
+
+class _LowEffortClient:
+    """OpenAI-compatible client wrapper injecting reasoning_effort=low."""
+
+    def __init__(self, client):
+        self._client = client
+        self.chat = SimpleNamespace(
+            completions=SimpleNamespace(create=self._create))
+
+    def _create(self, **kwargs):
+        kwargs.setdefault("reasoning_effort", "low")
+        return self._client.chat.completions.create(**kwargs)
+
+
+def _low_effort_client_factory(**kwargs):
+    import httpx
+    from openai import OpenAI
+
+    kwargs = dict(kwargs)
+    kwargs["timeout"] = 240.0
+    kwargs["http_client"] = httpx.Client(timeout=240.0, trust_env=False)
+    return _LowEffortClient(OpenAI(**kwargs))
+
+
 class CityTeamWeaverParticipant:
     """Real TeamWeaver allocator deciding the City episode's team and dispatch.
 
@@ -305,8 +359,9 @@ class CityTeamWeaverParticipant:
     this object.
     """
 
-    def __init__(self, base_plan: Mapping[str, Any]):
+    def __init__(self, base_plan: Mapping[str, Any], *, use_llm_decomposition: bool = False):
         self._base = deepcopy(dict(base_plan))
+        self._use_llm = bool(use_llm_decomposition)
         self._plan: dict[str, Any] | None = None
         self._opened = False
         self._dispatched = 0
@@ -339,20 +394,29 @@ class CityTeamWeaverParticipant:
 
         pool = self._task["candidate_robot_pool"]
         plan_tasks = self._base["tasks"]
-        capability_names = sorted({cap for row in pool
-                                   for cap in row["public_capabilities"]})
+        # TeamWeaver's LLM emits canonical capability axes (navigation /
+        # sensing / ...), so the world model maps city capabilities onto
+        # those axes instead of exposing the raw city capability names.
+        _CANONICAL_AXIS = {"ground_navigation": "navigation",
+                           "observe": "sensing", "relay": "communication"}
+
+        def _capability_values(caps):
+            values = {"navigation": 0.0, "sensing": 0.0,
+                      "manipulation": 0.0, "payload": 0.0, "communication": 0.0}
+            for cap in caps:
+                axis = _CANONICAL_AXIS.get(cap, cap)
+                values[axis] = max(values.get(axis, 0.0), 1.0)
+            return values
 
         def _busy_snapshot(row):
-            caps = set(row["public_capabilities"])
-            values = {name: (1.0 if name in caps else 0.0) for name in capability_names}
+            values = _capability_values(row["public_capabilities"])
             return RobotSnapshot(
                 name=row["id"], position=(0.0, 0.0), base_capabilities=values,
                 reliability={name: 1.0 for name in values}, equipment=frozenset(),
                 busy=True, current_task="<phase_assigned>", current_load=0, safe=True)
 
         def robot_snapshot(row):
-            caps = set(row["public_capabilities"])
-            values = {name: (1.0 if name in caps else 0.0) for name in capability_names}
+            values = _capability_values(row["public_capabilities"])
             return RobotSnapshot(
                 name=row["id"], position=(0.0, 0.0), base_capabilities=values,
                 reliability={name: 1.0 for name in values}, equipment=frozenset(),
@@ -399,16 +463,74 @@ class CityTeamWeaverParticipant:
         # round plans only the still-unassigned tasks over the free pool
         # (phase-assigned robots complete between rounds), until every task
         # has an agent or a round makes no progress.
+        semantic_tasks = None
+        if self._use_llm:
+            from TeamWeaver.eai_adapter.semantic_decomposer import DeepSeekSemanticDecomposer
+
+            env = _city_llm_env()
+            decomposer = DeepSeekSemanticDecomposer(
+                env=env, client_factory=_low_effort_client_factory)
+            instruction = (
+                "Coordinate the city emergency response. Create exactly one "
+                "subtask for every listed target: guide each bound affected "
+                "person to their assembly region, hold the following traffic "
+                "at the traffic control point, and report the incident to the "
+                "city_dispatch recipient service.")
+            llm_result = decomposer.decompose(instruction, world, max_attempts=2,
+                                               retry_delays=(2.0,))
+            semantic_tasks = list(llm_result.tasks)
+            self.trace.append({
+                "event": "llm_decomposition",
+                "model": env["TEAMWEAVER_DEEPSEEK_MODEL"],
+                "base_url": env["TEAMWEAVER_DEEPSEEK_BASE_URL"],
+                "source": llm_result.source,
+                "task_ids": [t.task_id for t in semantic_tasks],
+                "targets": [t.target_ref for t in semantic_tasks],
+            })
+            covered = [t.target_ref for t in semantic_tasks]
+            catalog_ids = {task["task_id"] for task in plan_tasks}
+            missing = sorted(catalog_ids - set(covered))
+            duplicated = sorted({ref for ref in covered if covered.count(ref) > 1})
+            if missing or duplicated:
+                raise RuntimeError(
+                    f"LLM decomposition does not cover the frozen catalog "
+                    f"one-to-one (missing={missing}, duplicated={duplicated})")
+            # The public task contract's declared capabilities are the
+            # authority on eligibility: replace each LLM task's requirements
+            # with exactly the declared capabilities mapped onto canonical
+            # axes. The LLM's measured contribution is the decomposition
+            # (which targets become tasks); the allocator still makes every
+            # assignment choice among the eligible robots.
+            catalog_by_id = {task["task_id"]: task for task in plan_tasks}
+            for index, semantic in enumerate(semantic_tasks):
+                declared = catalog_by_id[semantic.target_ref]["required_capabilities"]
+                enriched = {_CANONICAL_AXIS.get(cap, cap): CapabilityRequirement(1.0, 1.0, True)
+                            for cap in declared}
+                try:
+                    semantic.requirements = enriched
+                except (TypeError, AttributeError):
+                    semantic_tasks[index] = replace(semantic, requirements=enriched)
+
         assignment: dict[str, str] = {}
         remaining = {task["task_id"] for task in plan_tasks}
         for round_index in range(len(plan_tasks)):
             if not remaining:
                 break
-            result = allocator.allocate(
-                world, _CityDecomposer(remaining).decompose(None, world).tasks)
-            round_map = {row.task_id: row.robot_name
-                         for row in result.assignments
-                         if row.task_id in remaining}
+            if semantic_tasks is not None:
+                batch = tuple(t for t in semantic_tasks if t.target_ref in remaining)
+            else:
+                batch = _CityDecomposer(remaining).decompose(None, world).tasks
+            result = allocator.allocate(world, batch)
+            if semantic_tasks is not None:
+                semantic_by_id = {t.task_id: t for t in semantic_tasks}
+                round_map = {semantic_by_id[row.task_id].target_ref: row.robot_name
+                             for row in result.assignments
+                             if row.task_id in semantic_by_id
+                             and semantic_by_id[row.task_id].target_ref in remaining}
+            else:
+                round_map = {row.task_id: row.robot_name
+                             for row in result.assignments
+                             if row.task_id in remaining}
             self.trace.append({"event": "plan_initial", "round": round_index,
                                "solver": getattr(result, "solver", "miqp"),
                                "assignment": dict(round_map),

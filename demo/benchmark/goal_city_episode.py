@@ -853,6 +853,8 @@ def run_city_episode(output_root: str | Path, *, device: str = "cpu",
         ctx["step"] = stamped_step
         backend = CityNativeGoalBackend(ctx, plan)
         participant = (CityTeamWeaverParticipant(plan) if algorithm == "teamweaver"
+                       else CityTeamWeaverParticipant(plan, use_llm_decomposition=True)
+                       if algorithm == "teamweaver_llm"
                        else CityWitnessParticipant(plan))
         runner = FormalGoalEpisodeRunner(
             public, package["participant_api"], participant, backend,
@@ -901,8 +903,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--device", choices=("cpu", "cuda:0"), default="cpu")
-    parser.add_argument("--algorithm", choices=("witness", "teamweaver"), default="witness",
-                        help="participant driving the episode (witness = fixed plan)")
+    parser.add_argument("--algorithm", choices=("witness", "teamweaver", "teamweaver_llm"),
+                        default="witness",
+                        help="participant driving the episode (witness = fixed plan; "
+                             "teamweaver_llm = real dongli LLM decomposition)")
     parser.add_argument("--episode-binding", type=Path, default=None,
                         help="authoring/private.json or standalone binding document "
                              f"(default: {DEFAULT_CITY_EPISODE_BINDING})")
