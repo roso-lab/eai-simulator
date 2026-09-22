@@ -603,6 +603,44 @@ publication remains a maintainer step before any release relies on this
 mapping, and the rough policy's zero-command rejection stands as the reason
 the default controller is unchanged.
 
+## Algorithm-participant episodes (TeamWeaver A/B)
+
+`demo.benchmark.goal_restaurant_algorithm_episode` runs the same physical
+substrate with a *measured allocator* as the participant: the real
+TeamWeaver pipeline (`DynamicMIQPAllocator`, deterministic rounds over the
+public pool with real spawn/region geometry) selects the team, assigns each
+service mission and the relay, and the episode measures those decisions
+against native execution. The executor covers the two episode-grade Carters
+through an agent-scoped physical leg matrix (both agents' staging/kitchen/
+dining legs, planned on the same 0.40 m map and frozen per request); iris_1
+carries the aerial declaration the shared goal contract requires, spawns at
+its public anchor, and has no dispatchable v1 mission because staging admits
+ground access only - an aerial relay cannot even form a valid plan under the
+shared contract, so that public fact is translated into the relay mission's
+allocator requirements rather than filtered after the fact.
+
+Two executor findings are frozen into the module. The witness navigator's
+episode clock counts its own control steps, which is wrong once several
+agents step the same simulation; `SharedClockCarterNavigator` ties the clock
+to the shared physics step index (physics substeps, not control steps -
+multiplying by the control step runs the clock decimation-times too fast,
+which is what first broke window alignment and arrival deadlines). And plan
+route references stay on the task's public route graph while the backend
+resolves the assigned agent's physical leg for the same region transition.
+
+`algo-episode-teamweaver-20260923-v1/v2` both completed and validated on CPU
+(wall 121 s, schedule end 190 s, seed 17): TeamWeaver allocated
+kitchen->carter_1, dining->carter_2, relay->carter_1 - the distance-optimal
+split (carter_1 is 3.4 m from the kitchen anchor, carter_2 is 4.3 m from
+dining) - with 7/7 skill receipts, 3/3 business outcomes and per-agent
+native evidence for every leg, observation and the relay. Against the
+single-Carter witness loop (~24.6 m on one robot), the allocation bounds
+per-agent travel at 10.0 m. The v1 report SHA-256 is
+`7e58faf8113e575b6df9435fcf896490c480e4f32a86d0456b3dfb3cf422f999`.
+Completion-time benefit from concurrent driving, EMOS participants and the
+independent on-disk archive verifier for this variant remain open; runs
+keep `execution_validated=false` and `scoreable=false`.
+
 ## First formal participant episode
 
 `demo.benchmark.goal_restaurant_episode` runs one fixed participant through
