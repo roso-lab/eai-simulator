@@ -150,6 +150,12 @@ python -m demo.benchmark.diagnostic_audit
 重规划。默认生成 36 个题包、审核 28 对因子对照。下表保留的是各场景诊断层的任务骨架，
 不应把这些固定节点当作主轨强制参考解。
 
+2026-09-21 补充：已建立单独的 M0 canonical mechanism registry，四场景各有
+`decomposition`、`role_allocation`、`communication_adaptation`、`role_churn_recovery`
+四类，共 16 个 authoring 模板。生成器可显式生成 `classified` 机制题包并独立读回；
+旧 36 包兼容矩阵保持不变。每个 M0 模板带三态团队必要性证书，当前均为 `unknown`，
+`execution_status=external_pending`、`scoreable=false`，尚未声称物理必要性或运行因果效应。
+
 | 场景 | 任务族 | 被测模型实际决定的事 |
 | --- | --- | --- |
 | Factory | F-INS-01 四阶段证据派遣（俯视观察→地面接近→近景取证→工位选择） | 等待、消费有效观测、选择 assembly/dock、提交导航 |
@@ -171,7 +177,9 @@ python -m demo.benchmark.diagnostic_audit
 - 数值约束审核（`goal_constraints.py`，65 测试）：逐成员载荷、固定点接口、携物净空、资源冲突、所有权与位置连续性。
 - 业务必要条件审核：拒绝「只有导航观察却自称完成订单」类作者证明。
 - 单因子冻结（`goal_freeze.py`，45 测试）：同布局/同任务变体不跨 development/test，改任务号/文字/因子标签不能拆分冻结组。
-- 统一产物（阶段 8/9 输出）：27 个完整作者题包、21 组单因子对照、1 个城市准备候选，`goal_suite audit --verify-sources` 生成后 `verify` 可独立读回。
+- 统一产物（当前口径）：四场景共 36 个完整作者题包、28 组单因子对照；City preparation
+  candidate 作为独立 authoring 输入，不计入 goal package。`goal_suite audit --verify-sources`
+  生成后 `verify` 可独立读回，默认场景集合由 `goal_scene_registry.py` 提供。
 
 ### 3.4 真实部署与物理证据（诊断级）
 
@@ -187,6 +195,7 @@ python -m demo.benchmark.diagnostic_audit
 - 交接前工程化预检已增加：`python -m demo.benchmark.handoff_preflight --output-root <新目录>` 一条命令生成、读回和公开 release 冒烟；部分失败会清理，不会留下可误交付目录。
 
 - 2026-09-20 本轮整改：**125 + 274 = 399 passed**，覆盖命名/审计、防篡改、场景编译、goal题包、Factory准入及City服务回归；七份sidecar重建后独立核验通过，四个规范入口`--help`通过。完整命令和原生实验限制见 [恢复记录](STAGE19_RECOVERY.zh-CN.md)。
+- 2026-09-21 authoring 增量：覆盖入口收敛、测量契约来源绑定和四场景 headless 原生初始化通过；离线定向回归 **100 passed**。四个 8 步 CPU headless 探针均 `returncode=0` 且 `diagnostic_completed=true`，证据目录见 `tmp/headless_measurement_20260921_*`。这些是配置/读回诊断，不能提升业务 `scoreable` 状态。
 - 阶段18历史聚焦回归：**222 passed**，覆盖 v8 服务运行时、paired shape/probe、Stage18 gate。
 - 历史峰值：`source/EAI/test` 全量 **1033 passed**；历史结果不作为当前工作树的新验收。
 - 运行环境：Isaac Sim 5.1 / Isaac Lab 2.x（`env_isaaclab`）；仓库根目录执行；`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` 防止系统 ROS pytest 插件干扰。
@@ -200,7 +209,8 @@ adapter 实现 `initialize(public_task, participant_api)`、`act(new_public_even
 两者的 initialize 签名和动作 schema 不同。室内三个 `main(participant_adapter=...)` 属于
 诊断入口，不能替代 goal 主轨接入。详细例子及验收步骤见 [接入指南](ALGORITHM_HANDOFF.zh-CN.md)。
 
-TeamWeaver/EMOS 是被测多机系统。导航、移动、抓取采用 benchmark 冻结的默认理想技能，
+TeamWeaver/EMOS 是被测多机系统。导航、移动、抓取采用 benchmark 冻结的默认理想技能：在
+冻结参数下物理前提可行时确定性成功，不可行时由执行层确定性失败并只回传可观察事实；
 不能由被测 adapter 替换；额外干扰只能作为显式 factor。共享 execution contract 和符号
 参考后端已存在，但 `benchmark_default_ideal` 是比较策略声明，不证明所有历史 Isaac
 控制器均已满足该契约。各场景实际后端和业务回执仍须单独验收。
@@ -248,6 +258,17 @@ conda run --no-capture-output -n env_isaaclab \
   env PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
   python -m demo.benchmark.goal_suite verify \
   --output-root tmp/goal_suite_<date> --verify-sources
+
+# 生成四场景 × 四种 M0 canonical mechanism template（16 个）并读回
+conda run --no-capture-output -n env_isaaclab \
+  env PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
+  python -m demo.benchmark.goal_suite mechanism-audit \
+  --output-root tmp/goal_mechanism_suite_<date>
+
+conda run --no-capture-output -n env_isaaclab \
+  env PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
+  python -m demo.benchmark.goal_suite mechanism-verify \
+  --output-root tmp/goal_mechanism_suite_<date>
 ```
 
 四层题包发布审计（fail-closed，当前全部 pending/不可计分是**设计状态**，见 §6）：
@@ -295,7 +316,7 @@ conda run -n env_isaaclab env PYTHONPATH=. PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
 改道原生诊断仍停在背景碰撞检查。用户已明确此项不再作为本轮任务流程整改阻断，
 停止物理排障。以下首跑状态是历史记录，后续以[本轮恢复记录](STAGE19_RECOVERY.zh-CN.md)为准。
 
-- **City**：v8 仅为候选诊断（`formal_episode_binding=false`）。**2026-09-19**：作者固化绑定（4 人 roster 逐人绑定集合候选/危险区模板/控制点/反应窗口/回执端点，intake 机检）、`_city()` builder 双语义见证、communication_quality 因子 treatment、完整 goal bundle 的 build/verify/freeze、goal_suite 城市审计与单因子对——全部落地（离线 246+211 项测试）。正式探针首跑：prepare 机检通过（`author_frozen_episode_binding`），execute 在首次服务提交的 admission 谓词（路由/权限/容量）fail-closed，待逐谓词校准（STAGE18 City 首跑记录）。
+- **City**：v8 仅为候选诊断（`formal_episode_binding=false`）。**2026-09-19**：作者固化绑定（4 人 roster 逐人绑定集合候选/危险区模板/控制点/反应窗口/回执端点，intake 机检）、`_city()` builder 双语义见证、communication_quality 因子 treatment、完整 goal bundle 的 build/verify/freeze、goal_suite 城市审计与单因子对——全部落地（离线 246+211 项测试）。正式探针首跑在服务 admission fail-closed（STAGE18 City 首跑记录）。2026-09-22 原生诊断取得四人 ACK、随后安全到达、交通 hold、事故接收及连续通路读回；可选 `bound_native_v1` 题包的 4 人/4 集合区/6 车身份审核通过。旧 v2 每人 10 秒窗口与到达相冲突；新的 City-only `eai.skills.v3` 将现场技能终态定为逐人 ACK，窗口各 20 秒，人员到达仍是后续业务证据，默认 v2 hash 不变。v3 离线审核 `tmp/city_benchmark/goal_native_bound_bundle_20260922_v3/binding_review.json` 仅为 `not_disproved_by_native_ack`，不证明参与者执行。当前仍无 GoalSession 原生 City episode，`execution_validated=false`、`scoreable=false`。
 - **Modern House**：**2026-09-20 完成**（STAGE18 阶段18/19 战役归档）：区域几何双绑定 + 干预时序全部实现；阻挡物指认为 SceneXR 沙发（占据图漏采 Mesh 资产）；干预几何改北向后 **v20 全绿**——双 M20 attach + 抬升 0.0372 m + **搬运 2.05 m 到达停车格** + 撤离 all_clear + after 快照 measured + closeout + occupancy 断言。剩余场景项：占据图重建纳入 Mesh 资产（地图哈希修订流程）；M20 仅前向的实测结论待运动模型更换（P1/M1）。
 
 ### 5.3 运动模型（用户已决策）

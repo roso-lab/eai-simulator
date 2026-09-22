@@ -32,10 +32,11 @@ controller”。现已把 B2 楼梯控制器加入同一条显式白名单，并
 
 ## 仍需交接的缺口
 
-1. **GoalSession 与技能后端仍未形成同一个运行实例。** `GoalAlgorithmHost` 和
-   `ReliableSkillReferenceHost` 目前各自 `new GoalSession`；参考后端的 `_commit()` 还会
-   `deepcopy` 后替换自己的 session。因此技能 receipt/runtime state 不能自动回写算法主轨
-   的 ledger。需要由运行器创建唯一 session，再把它注入算法宿主和技能后端，并增加组合测试。
+1. **运行器账本基础接线已完成，生产 runner 仍待实测。** `GoalAlgorithmHost` 和
+   `ReliableSkillReferenceHost` 现在支持由运行器注入并校验同一个 `GoalSession`；共享模式的
+   `_commit()` 直接回写该 ledger，组合回归已覆盖技能终态对算法主轨的可见性。仍需由真实
+   Isaac/TeamWeaver/EMOS runner 实例化这条路径，并把 episode identity、外部进程 attempt
+   目录和原生运行证据贯穿完整 episode。
 2. **外部进程 helper 尚未接入生产入口。** `run_algorithm_subprocess()` 已有 JSON、超时和
    协议分类，但当前非测试调用仍是进程内 `GoalAlgorithmHost` 或 callback/thread batch；
    helper 也没有自动调用 `validate_algorithm_result()`、核对 `episode_id`/`run_root` 并写入

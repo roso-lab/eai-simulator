@@ -14,9 +14,20 @@ TeamWeaver、EMOS 和后续异构多机系统是被测对象。它们决定团�
 四场景共享 `execution_contract()`：条件确定性技能、固定耗时、明确可见范围和占用阻塞
 反馈。异构能力、资源和业务前置条件仍须满足；理想技能不等于任何请求都成功。
 `ReliableSkillReferenceHost` 已提供确定性的符号导航与操作效果，观察、交接和城市服务
-需要可信后端回执。该参考宿主不是 Isaac 控制器，也不与 `GoalAlgorithmHost` 自动共享
-session；运行时维护者必须连接单一账本和真实后端，不能并行维护两份互不一致的状态。
+需要可信后端回执。该参考宿主不是 Isaac 控制器；运行器现在可以注入并校验与
+`GoalAlgorithmHost` 相同的 `GoalSession`，共享模式下技能终态会回写算法主轨。真实
+正式 runner 会为同一 session 绑定唯一 `episode_id`，并要求 trusted skill receipt 携带同一
+身份；participant trace、hidden evaluator trace、runtime snapshot 与业务 evidence 由 runner
+分别归档。这个 runner/receipt 身份约束仍不等同于 Isaac 业务执行验证。
+Isaac/外部进程 runner 仍必须显式使用该注入路径，不能并行维护两份互不一致的状态。
 `benchmark_default_ideal` 是必须遵守的实验策略，不能用这个字符串证明物理执行已验收。
+
+Warehouse 的 `paired_native_probe` 现归档一个 GoalSession 的单机超载失败与双 M20
+短程动作：前者保持木箱原位，后者有原生双支撑连接、抬升和约 0.65 m 位移。该探针使用
+作者专用初始位，未走完整 `rack_a_to_consolidation` 路线；配对任务的可信回执因此记录
+局部进展后的失败终态，业务结果仍未评估。它不是 TeamWeaver/EMOS 自主重规划运行，
+也不能替代正式 episode runner 的业务证据闭环。运行目录与复现命令见
+`TODO.zh-CN.md` 的持续运行清单。
 
 ## 两种接口分别接入
 
@@ -44,7 +55,9 @@ def close(self): ...
 ```
 
 题包/API 为 v2，动作 envelope 仍为 `eai.benchmark.goal_action` **version 1**，
-计划使用 `eai.benchmark.goal_plan` v2；请按公开 API 构造动作，不根据题包版本猜测动作版本。
+计划使用 `eai.benchmark.goal_plan` v3；v3 将参与者路径的物理搬运失败交给执行层
+确定性回执，同时保留 schema、能力声明、证据和预算的 fail-closed 校验。请按公开 API
+构造动作，不根据题包版本猜测动作版本。
 初始化收到公开题面/API 的副本；每次 `act` 只收到新投递的公开事件。
 算法不得读取作者见证、未来事件、隐藏评价器或宿主报告。
 
@@ -58,6 +71,13 @@ def close(self): ...
 回调或动作格式异常会关闭桥接，保留已接受动作，不自动重放半批动作。宿主按当前时间
 投递事件并串行调用。`GoalSession` 是 episode 的唯一权威账本：动作准入、运行时快照、
 技能终态和证据引用必须回写同一个 session；外部后端不得维护第二份可独立宣布完成的账本。
+正式 `FormalGoalEpisodeRunner` v3 每次只驱动一条 pending 技能到终态；同步 Isaac 后端
+必须依据同一物理时钟返回不早于当前可信时间的完成时间。并行计划的两个任务不会因此
+获得并行执行证明；若需要真正的并行技能，应另接基于实际完成事件排序的生产调度器，
+并在原生 episode 中验证完成顺序、共享状态和资源占用。
+已请求取消的技能只交给后端 `cancel()`；它必须提供 `cancelled` 终态的可信回执和
+实际物理状态读回，不能再由普通 `execute()` 启动。没有取消能力时保留
+`cancel_requested`，不冒充已停止或已完成。
 该 Python 接口是信任边界约定，非不可信代码的进程沙箱。接手者必须把不可信 adapter
 放在独立子进程/调度作业中，不能把它直接加载进持有 `GoalSession` 信任方法的 benchmark
 进程。
@@ -234,3 +254,13 @@ factor 和 runtime 配置。固定后端的实现版本、参数和 execution co
 标为 `execution_validated=true` 或 `scoreable=true`。发布前至少需要每个模型的连续上行、
 平台停留、下行和失败/超时读回，以及与 `F-VERT-01` 题包的场景绑定证据。该状态只影响
 运动执行与发布门禁，不改变任务生成、审核和高层算法接口。
+
+# Goal runner 失败反馈（诊断宿主 v2）
+
+正式 runner 的可信执行后端可在失败终态附带有限的 `skill_execution` 公开
+`observation`：`skill_succeeded`、`object_moved`、`task_advanced` 及逐载具
+`requested_load_kg`/`effective_payload_kg`。其中负载数值是请求分担质量和冻结公开
+额定上限，并非实测夹爪力。`action_id` 将观测与派遣关联；内部错误原因、
+PhysX 路径和隐藏业务评测证据不跨参与者边界。旧归档没有该反馈保证，
+不能作为算法消费失败事实后的恢复证据。没有新鲜原生区域快照时，
+GoalSession 仍拒绝后续空间计划；收到失败消息本身不构成恢复成功。

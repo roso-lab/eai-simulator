@@ -35,6 +35,12 @@ GUI渲染仍可使用GPU。其他场景遵循请求设备；不会因场景中�
 有过launch的目录不能再次执行。失败须保留原始输出，修改后创建新目录。
 Kit有时在异常清理时返回进程码0，因此还必须检查完整诊断状态与预期步数。
 
+室内作者路线在声明半宽膨胀后找不到栅格路径时，`route_bindings[].map_check`
+保留 `status=blocked`，并分别记录 `start_cell_passable`、`goal_cell_passable` 和
+`failure_class`（`endpoint_blocked` 或 `disconnected_passable_endpoints`）。端点阻塞
+只定位当前候选中心的问题；附近存在 2D 路径也不代表物体、团队队形或实际 USD
+通路通过准入，更不能自动迁移公开路线或区域边界。
+
 ## 每类证据能证明什么
 
 | 输出/模块 | 可以检查 | 仍不能证明 |
@@ -56,9 +62,16 @@ Kit有时在异常清理时返回进程码0，因此还必须检查完整诊断�
 原生占用适配器读取完整articulation实例/link清单，并保留known_noncolliding身体的审核记录。
 未加载子payload、未知碰撞几何、缺失实时姿态或无法确认的外部joint使整个快照阻塞，不能交付部分清单。
 碰撞命中的点实例索引若不是普通命中的`0xFFFFFFFF`，保持unknown，不能因路径相同就当作自身排除。
-本轮Factory/Warehouse实际读取已遇到Iris的`convexDecomposition`和Carter的CollisionAPI Xform结构；
-当前适配器不支持这些碰撞包络，因此记录具体阻塞，不发出clear平移结论。
-未来接入cooked shape读取或经验证的保守包络后，应重新取当前位姿并复验；不能将公开外形声明当作测量。
+CPU 原生读回现在可对 Iris `convexDecomposition` 和 Carter `CollisionAPI Xform`
+调用冻结物理步的 PhysX property reader；逐体核对当前步数、回调数及所有启用碰撞路径，
+其他损坏或未知 USD 几何仍保持 blocked，不用公开 profile 尺寸补齐。
+`tmp/goal-warehouse-native-occupancy-20260922-v5/` 的 240 步静置见证闭合了
+44 碰撞体、4 实体清单；其 0.2m Iris 平移被实际场景 overlap/sweep 阻断，
+这不是可通行证明。GPU readback、持物联合占用、动态路由与完整业务仍需独立实测。
+配对组 v2 可校验两条同一步 PhysX joint 回执和每个成员/物体的完整扫掠，
+组内几何接触也会阻断；目前只有离线注入测试。原生配对探针只有 USD authored
+joint 属性与运行时锚点误差，不具备 `physx_fixed_joint` 同步状态回调，不能将其
+输入 v2 伪称完整占用。实际引擎读回、点实例命中身份和正式路线均继续 pending。
 
 ## 理想固定点连接
 
@@ -94,6 +107,15 @@ python -m demo.benchmark.goal_attachment_review tmp/my_attachment_probe
 Factory/Warehouse/House各4台，City为3台，均有独立实体和有界静置状态。
 Warehouse的12kg木箱、3kg纸箱，以及House的14kg扶手椅、2kg书堆有实际匹配读回。
 Factory异常记录/维护服务车缺合适原生绑定，继续未完成；不会用清洁车或普通箱子冒充。
+
+2026-09-22 更新：上述为当时的历史状态。任务自有的 v1 USD 完成首次读回后，
+当前 v2 `usd/scene/factory/goal_props/anomaly_marker_v2.usda` 和
+`service_cart_v2.usda` 改进可见标记及服务车轮组/托盘，冻结身份、尺寸、质量不变。
+`tmp/goal-factory-native-props-gui-20260922-v3/` 完成 CPU Isaac 240 步、两件物体
+组合 USD/PhysX 读回及独立审核，并有各自近景帧（报告 SHA256
+`16316aeef517668bbb5f2be4b67b54b4250ce8a7e83d8806b78500120f5fa72b`）。
+这只解除任务物缺失；碰撞 cooking、连续通路、异常观察及服务业务回执仍须在正式
+GoalSession episode 中验收，`execution_validated=false`、`scoreable=false`。
 
 首轮ZCode发现Factory相机贴面、House候选区域位于后院露台。
 工厂改相机及近景复核；楼梯始终保留公开题面，视觉不清不会被改写为关闭使用。
