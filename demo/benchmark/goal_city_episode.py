@@ -746,6 +746,22 @@ def _write_json(path: Path, value: Any) -> None:
                                sort_keys=True, allow_nan=False) + "\n", encoding="utf-8")
 
 
+def _plain_evidence(value: Any) -> Any:
+    """Recursively reduce native evidence to JSON-safe values.
+
+    Live-source markers (e.g. ``LiveEvidence``) are not serializable and carry
+    no participant-visible facts; they are reduced to a type tag so the
+    evidence log archives without masking the episode result.
+    """
+    if isinstance(value, Mapping):
+        return {str(key): _plain_evidence(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_plain_evidence(item) for item in value]
+    if value is None or isinstance(value, (str, bool, int, float)):
+        return value
+    return f"<{type(value).__name__}>"
+
+
 def run_city_episode(output_root: str | Path, *, device: str = "cpu",
                      episode_binding: str | Path | None = None) -> dict[str, Any]:
     """Prepare the formal City probe and run the injected GoalSession episode."""
@@ -769,18 +785,8 @@ def run_city_episode(output_root: str | Path, *, device: str = "cpu",
         result = runner.run(initial_state={"robot_regions": dict(CITY_ROBOT_REGIONS),
                                            "object_states": {}})
         source_sha256 = file_sha256(Path(__file__))
-        _write_json(episode_root / "goal_episode_source.json", {
-            "schema": "eai.benchmark.goal_city_episode_source", "version": 1,
-            "module": __name__, "source_path": str(Path(__file__)),
-            "source_sha256": source_sha256, "episode_id": result["episode_id"],
-        })
-        _write_json(episode_root / "city_acceptance_evidence.json",
-                    build_acceptance_evidence(backend.evidence, ctx))
-        _write_json(episode_root / "native_evidence_log.json", {
-            "schema": "eai.benchmark.goal_city_episode_native_evidence", "version": 1,
-            "episode_id": result["episode_id"],
-            "records": deepcopy(backend.evidence),
-        })
+        # Report finalization first: an archival hiccup must never mask a
+        # completed episode in the probe report.
         ctx["report"]["trace"]["goal_episode"] = {
             "episode_id": result["episode_id"], "output_root": str(episode_root),
             "error": result["error"], "turns": result["turns"],
@@ -796,6 +802,18 @@ def run_city_episode(output_root: str | Path, *, device: str = "cpu",
         else:
             ctx["report"].update(status="blocked",
                                  blocker=f"goal episode error: {result['error']}")
+        _write_json(episode_root / "goal_episode_source.json", {
+            "schema": "eai.benchmark.goal_city_episode_source", "version": 1,
+            "module": __name__, "source_path": str(Path(__file__)),
+            "source_sha256": source_sha256, "episode_id": result["episode_id"],
+        })
+        _write_json(episode_root / "city_acceptance_evidence.json",
+                    build_acceptance_evidence(backend.evidence, ctx))
+        _write_json(episode_root / "native_evidence_log.json", {
+            "schema": "eai.benchmark.goal_city_episode_native_evidence", "version": 1,
+            "episode_id": result["episode_id"],
+            "records": _plain_evidence(deepcopy(backend.evidence)),
+        })
 
     return execute_probe(root, device=device, driver=driver)
 
