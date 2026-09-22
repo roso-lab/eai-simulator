@@ -498,17 +498,65 @@ micrometre, kept all four feet in filtered ground contact on all 240 samples
 (median support 0.999998 and 1.000078, no buffer overflow) and drifted at most
 1.9 mm horizontally with tilt below 0.028 rad. Both iris anchors stayed above
 2.93 m, kept anchor deviation at or below 0.0693 m while converging toward the
-anchor, drifted about 1 mm horizontally and held tilt below 0.001 rad. All
-four are measured admissions of the spawn/support-or-hover slice only; they
-are not promoted to `BENCHMARK_NATIVE_VALIDATED_ROBOT_IDS` because that roster
-records route-level native evidence, which the legged and aerial anchors have
-not yet produced. The reports keep `execution_validated=false` and
-`scoreable=false`. The report SHA-256 values are
+anchor, drifted about 1 mm horizontally and held tilt below 0.001 rad. The
+report SHA-256 values are
 `f9225d75f07d79c1491f24461f58d57456b452db57cb703affd91635ac59c506` (go2_1),
 `020295bd1ec2bf22494bec1bb2d4844d1bfd518170d297b33071dcb93f151c59` (lite3_1),
 `048865a092a03d46378ec800f8ad7ec97e2fa1918e43d7181f49bbd03af349a7` (iris_1 v2)
 and `fdbd61f5928ab547ec9d874c1c1a806de49268728049514330a4ce8aa346d5a9`
+(iris_2). The four were promoted into `BENCHMARK_NATIVE_VALIDATED_ROBOT_IDS`
+after the route runs below; the reports themselves keep
+`execution_validated=false` and `scoreable=false`.
+
+## Route-level admission
+
+`demo.restaurant_benchmark.route_admission` extends the Carter route-evidence
+contract to the four newly admitted anchors. Ground legged routes
+(`go2_1-dining`, `lite3_1-dining`) plan on the same 0.40 m inflated map and
+track waypoints with the policy-projection steering
+(`velocity_policy_command`); their gates require arrival within 0.25 m, at
+least two stance feet on at least 95% of steps, median weight support in
+[0.60, 1.40], route deviation at most 0.40 m, z excursion at most 0.05 m and
+tilt at most 0.15 rad. Aerial routes (`iris_1-overview`, `iris_2-overview`)
+fly the planned polyline at the 3.0 m flight height using the bounded-carrot
+goal march (0.2 m/s) proven by the house withdrawal diagnostic; their gates
+require arrival within 0.30 m (3D), altitude never below 1.0 m, route
+deviation at most 0.50 m and tilt at most 0.30 rad.
+
+Two measured tracker findings are frozen into the thresholds. First, the RSL
+locomotion policies have a response deadband: go2 commanded at 0.15 m/s did
+not move, so `go2_1-dining` v1 deadlocked whenever the distance taper floored
+the command; the tracker now holds `minimum_command_distance_scale=0.55`
+(at least ~0.25 m/s commanded). Second, the inflated grid forces the enclosed
+kitchen to be entered from its staging-side doorway, so from lite3 the
+direct-bearing kitchen route (56.5 m) is longer than the dining detour
+(47.8 m); both legged anchors therefore validate against the dining service
+region, which is sufficient for per-anchor native route evidence.
+
+The completed runs are `route-go2-1-dining-20260922-v3` (v1 deadband
+diagnosis, v2 fixed a ground final-distance bug that compared against the
+aerial z=3.0 default), `route-lite3-1-dining-20260922-v1`,
+`route-iris-1-overview-20260922-v1` and `route-iris-2-overview-20260922-v1`,
+all on CPU with wall times of 27-113 s. go2_1 arrived in 2413 steps
+(16.8 m planned, final distance 0.250 m, deviation 0.133 m, stance fraction
+1.0, median support 0.956, tilt 0.066 rad). lite3_1 arrived in 10363 steps
+(47.8 m planned, final distance 0.249 m, deviation 0.194 m, stance fraction
+1.0, median support 1.003, tilt 0.086 rad). iris_1 arrived in 5274 steps and
+iris_2 in 10157 steps (final distances 0.300 m and 0.297 m, deviations
+0.138 m both, minimum altitude 2.93 m, tilt at most 0.030 rad). Every run
+records per-step commands and root states through the control-step evidence
+recorder with full loop coverage. The report SHA-256 values are
+`2e39725277bdd0163fd9310fb0eb69bd2d3737e7b65bff79eedda65655662e55` (go2_1),
+`4b8ae65f2dc1654326b623ee10579dd7548b072e2dd79771ffd9666f7de6c53c` (lite3_1),
+`6997cc6448d14115aa573cffb5d99711d32b0a58572a559fee46935048523cc4` (iris_1)
+and `0ef67c430281f5f6eaef55a31d637dade3e4d7606a319ed73f7d0bc4e152c063`
 (iris_2).
+
+These four route validations promoted go2_1, lite3_1, iris_1 and iris_2 into
+`BENCHMARK_NATIVE_VALIDATED_ROBOT_IDS`; the M20 anchors stay excluded until
+their controller's zero-command bias is fixed and both gates are re-run.
+Route evidence does not flip `navigation_ready`, `execution_validated` or
+`scoreable`.
 
 ## First formal participant episode
 
