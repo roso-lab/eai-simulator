@@ -18,7 +18,7 @@ Warehouse 的 `--member-exit-slice` 已接入 `paired_native_probe.py`。新的 
 
 新增 `goal_external_adapters.py` 提供两个受控适配器：TeamWeaver 通过真实 `TeamWeaverPipeline` 与 `DynamicMIQPAllocator` 生成团队选择，EMOS 通过真实 `EMOSDiscussionManager` 的 assignment-policy 边界生成团队选择。两者只输出现有 Goal action envelope；不接触私有 PhysX 状态。离线首次动作翻译已通过，原生 City/House episode 尚未完成。
 
-当前 Warehouse 原生适配器诊断也已完成：TeamWeaver 目录 `tmp/goal-paired-teamweaver-20220922-v5/`（实际目录名为 `tmp/goal-paired-teamweaver-20260922-v5/`），run `f2dcb622308243cdb1968b81189b241c`，报告 SHA256 `5a00836196eaea3d796631ff3091ed6179cc14a409631aa56ab171506392b081`；EMOS 目录 `tmp/goal-paired-emos-20260922-v1/`，run `361f39872fbe460bbdb57239f796f69a`，报告 SHA256 `bdfa3e89ea268d09c11213f732ffd939c070587c3331cdcf962ba3a95f2bc747`。两份报告都为 `diagnostic_completed`，同一 GoalSession episode 中记录算法初始化、首次分配、公开 payload 失败和 replan trace；两者均不是正式路线或业务 evaluator 证据。原生 worker 必须把 `algorithm/TeamWeaver`、`algorithm` 放入 `PYTHONPATH`，否则会得到可复现的 `ModuleNotFoundError: TeamWeaver`。
+当前 Warehouse 原生适配器诊断也已完成：TeamWeaver 目录 `tmp/goal-paired-teamweaver-20260922-v5/`，run `f2dcb622308243cdb1968b81189b241c`，报告 SHA256 `5a00836196eaea3d796631ff3091ed6179cc14a409631aa56ab171506392b081`；EMOS 目录 `tmp/goal-paired-emos-20260922-v1/`，run `361f39872fbe460bbdb57239f796f69a`，报告 SHA256 `bdfa3e89ea268d09c11213f732ffd939c070587c3331cdcf962ba3a95f2bc747`。两份报告都为 `diagnostic_completed`，同一 GoalSession episode 中记录算法初始化、首次分配、公开 payload 失败和 replan trace；两者均不是正式路线或业务 evaluator 证据。原生 worker 必须把 `algorithm/TeamWeaver`、`algorithm` 放入 `PYTHONPATH`，否则会得到可复现的 `ModuleNotFoundError: TeamWeaver`。
 
 ## 反思
 
