@@ -804,9 +804,13 @@ class CityEmosParticipant:
                 None, specs, scenario, use_env_resume=False,
                 discussion_log_dir=str(_EMOS_DISCUSSION_LOG_DIR),
                 get_group_discussion_llm_kwargs=(llm_kwargs if llm_env is not None else None))
-            if llm_env is None:
-                manager.set_assignment_policy(
-                    _emos_city_capability_policy, name=_EMOS_CITY_POLICY_NAME)
+            # The capability policy is contract-level and always installed:
+            # LLM discussion shapes the negotiation content, but the final
+            # assignment still flows through the policy callback, so no
+            # discussion output can violate eligibility (remote evidence
+            # ab-llm emos_llm runs assigned guides to ineligible agents).
+            manager.set_assignment_policy(
+                _emos_city_capability_policy, name=_EMOS_CITY_POLICY_NAME)
             manager.trigger(1, (0.0, 0.0, 0.0))
             result = None
             deadline = time.monotonic() + _EMOS_CITY_ROUND_TIMEOUT_S
