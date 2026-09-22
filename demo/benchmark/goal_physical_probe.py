@@ -35,6 +35,11 @@ def _probe_sources(deployment):
                for name in _LOCAL_SOURCES}
     sources[str(ROOT / "simulator.py")] = file_sha256(ROOT / "simulator.py")
     sources.update(deployment["scene_overlay"]["source_files"])
+    sources[str(ROOT / "demo/warehouse_benchmark/paired_shapes.py")] = file_sha256(
+        ROOT / "demo/warehouse_benchmark/paired_shapes.py")
+    if deployment["scene_key"] == "warehouse_nvd":
+        path = ROOT / "demo/benchmark/goal_scene_query_calibration.py"
+        sources[str(path)] = file_sha256(path)
     if deployment["scene_key"] == "modern_house_nvd":
         path = ROOT / "demo/modern_house_benchmark/live_path.py"
         sources[str(path)] = file_sha256(path)
@@ -285,6 +290,7 @@ def run_worker(root):
             from demo.benchmark.goal_native_objects import read_goal_objects
             from demo.benchmark.goal_live_spatial import collect_live_spatial
             from demo.benchmark.goal_native_occupancy import collect_native_occupancy
+            from demo.warehouse_benchmark.paired_shapes import body_geometry as native_shape_bounds
             from demo.benchmark.goal_live_occupancy import check_live_segment
             stage = omni.usd.get_context().get_stage()
             report["actual_device"] = session.device
@@ -356,11 +362,22 @@ def run_worker(root):
                 "physics_step": int(session.base_env.sim.current_time_step_index),
                 "frame_id": "USD_world", "meters_per_unit": 1., "stage_identifier": stage.GetRootLayer().identifier,
                 "physx_view_frame": "USD_world", "readback_frozen": True, "kinematics_current": True}
+            shape_reader = None
+            if str(session.device) == "cpu":
+                shape_reader = lambda shape_stage, body, colliders: native_shape_bounds(
+                    shape_stage, body, colliders, session=session,
+                    expected_step=context["physics_step"])
             native_occupancy = collect_native_occupancy(stage, session.base_env.scene,
                 robot_bindings=[{"id": row["public_id"], "scene_key": row["runtime_id"], "instance_index": 0,
                                  "root_path": row["prim_path"], "activity": "idle"} for row in deployment["robot_instances"]],
-                readback_context=context, now_s=now)
+                readback_context=context, now_s=now, shape_bounds_reader=shape_reader)
             report["current_occupancy"] = native_occupancy
+            if request["scene_key"] == "warehouse_nvd" and native_occupancy["occupancy"]["status"] == "current_occupancy":
+                from demo.benchmark.goal_scene_query_calibration import calibrate_scene_queries
+                report["scene_query_calibration"] = calibrate_scene_queries(
+                    omni.physx.get_physx_scene_query_interface(), native_occupancy["occupancy"],
+                    stage, physics_step=context["physics_step"], object_readback=report["final_objects"],
+                    property_reader=shape_reader, snapshot=native_occupancy["snapshot"])
             if native_occupancy["snapshot"] is not None:
                 report["aerial_translation_safety_query"] = [check_live_segment(
                     native_occupancy["snapshot"], expected_inventory=native_occupancy["expected_inventory"],
@@ -379,6 +396,12 @@ def run_worker(root):
                 if object_positions:
                     report["captures"].append(_camera_capture(session, root, object_positions, "task_objects", scene_key=request["scene_key"]))
                 if request["scene_key"] == "factory":
+                    for item, eye in (("production_anomaly_marker", (4.45, 2.1, 1.25)),
+                                      ("maintenance_service_cart", (-.9, 2.0, 1.6))):
+                        target = next(row["scene_binding"]["deployment_directive"]["position_m"]
+                                      for row in deployment["object_instances"] if row["public_id"] == item)
+                        report["captures"].append(_camera_capture(session, root, [target],
+                            "task_" + item, scene_key=request["scene_key"], eye=eye))
                     report["captures"].append(_camera_capture(session, root, [(1.6814,-3.3279,.21045)],
                         "stair_entry", eye=(1.68,-1.30,1.80)))
                     report["captures"].append(_camera_capture(session, root, [(1.7168,-8.3102,1.56557)],

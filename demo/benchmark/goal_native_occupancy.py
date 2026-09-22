@@ -1,12 +1,14 @@
 """Read-only USD geometry + Isaac tensor host adapter for current occupancy.
 
 collect_native_occupancy(stage, scene, *, robot_bindings, readback_context,
-                         now_s, held_bindings=(), joint_reader=None, max_age_s=.1)
+                         now_s, held_bindings=(), joint_reader=None, max_age_s=.1,
+                         shape_bounds_reader=None)
 
 robot_bindings is the complete list of {id, scene_key, instance_index,
 root_path, activity: active|idle}, covering EVERY scene.articulations instance.
 held_bindings is {id, scene_key, instance_index, root_path, holder_id, joint_path}
-for single-body scene.rigid_objects held by exactly one robot. Other scene rigid
+for single-body scene.rigid_objects held by one robot. Paired objects instead
+provide holder_bindings=[{holder_id, joint_path}, {holder_id, joint_path}]. Other scene rigid
 objects remain external obstacles for the existing PhysX scene query.
 
 readback_context requires scene_id, snapshot_id, source_id, observed_at_s,
@@ -26,9 +28,11 @@ All links remain in body_audit. Fully loaded bodies with no enabled CollisionAPI
 are known noncolliding and have no row in the collision-only snapshot/roster.
 Entities are never omitted: an entirely noncolliding entity remains blocked
 because the frozen downstream contract requires a nonempty collision inventory.
-Unsupported geometry and missing links block the whole snapshot. Convex decomposition,
-SDF, deformables, point instancers, unloaded payloads, animated geometry and
-sheared/reflected rigid-body frames require a different measured backend.
+Unsupported geometry and missing links block the whole snapshot. A supplied
+same-step CPU PhysX property reader can cover convex decomposition and Xform
+colliders after complete path and callback checks. SDF, deformables, point
+instancers, unloaded payloads, animated geometry and sheared/reflected rigid-body
+frames remain blocked.
 """
 
 from copy import deepcopy
@@ -163,7 +167,19 @@ def _local_geometry(prim):
     return low, high, measured
 
 
-def _body_geometry(stage, body, colliders):
+def _requires_cooked_bounds(prim):
+    from pxr import UsdGeom, UsdPhysics
+    if prim.IsA(UsdGeom.Mesh):
+        approximation = UsdPhysics.MeshCollisionAPI(prim).GetApproximationAttr().Get()
+        if str(approximation) == "convexDecomposition":
+            mesh = UsdGeom.Mesh(prim)
+            for attr in (mesh.GetPointsAttr(), mesh.GetFaceVertexCountsAttr(), mesh.GetFaceVertexIndicesAttr()):
+                _get(attr)
+            return True
+    return prim.GetTypeName() == "Xform"
+
+
+def _body_geometry(stage, body, colliders, *, shape_bounds_reader=None, physics_step=None):
     from pxr import Gf, UsdGeom
     cache = UsdGeom.XformCache()
     world = cache.GetLocalToWorldTransform(body)
@@ -175,6 +191,33 @@ def _body_geometry(stage, body, colliders):
                    for i in range(3) for j in range(i))):
         raise ValueError("unsupported sheared/reflected/degenerate body frame")
     boxes, evidence = [], []
+    native = False
+    for collider in colliders:
+        if _requires_cooked_bounds(collider):
+            native = True
+        else:
+            _local_geometry(collider)
+    if native:
+        if shape_bounds_reader is None:
+            raise ValueError("cooked or Xform collision geometry requires native property bounds")
+        bounds, evidence = shape_bounds_reader(stage, body, colliders)
+        paths = [str(prim.GetPath()) for prim in colliders]
+        if (not isinstance(evidence, list) or len(evidence) != len(paths)
+                or sorted(row.get("collision_path") for row in evidence) != sorted(paths)):
+            raise ValueError("native property collider inventory mismatch")
+        for row in evidence:
+            query = row.get("query", {})
+            if (query.get("body_path") != str(body.GetPath())
+                    or query.get("physics_step") != physics_step
+                    or query.get("complete") is not True
+                    or row.get("property_callback", {}).get("path") != row["collision_path"]):
+                raise ValueError("native property query provenance incomplete")
+        if not isinstance(bounds, (list, tuple)) or len(bounds) != 2:
+            raise ValueError("invalid native property body bounds")
+        low, high = _vec(bounds[0], 3), _vec(bounds[1], 3)
+        if any(a >= b for a, b in zip(low, high)):
+            raise ValueError("invalid native property body bounds")
+        return [low, high], evidence
     for collider in colliders:
         cursor = collider
         while cursor and cursor != body:
@@ -332,7 +375,8 @@ def _joint_body_target(stage, path):
 
 
 def collect_native_occupancy(stage, scene, *, robot_bindings, readback_context,
-                             now_s, held_bindings=(), joint_reader=None, max_age_s=0.1):
+                             now_s, held_bindings=(), joint_reader=None, max_age_s=0.1,
+                             shape_bounds_reader=None):
     """Return status, snapshot, expected_inventory, occupancy and body/joint audits.
 
     On ANY unknown geometry or missing identity: status='blocked', snapshot=None,
@@ -411,9 +455,26 @@ def collect_native_occupancy(stage, scene, *, robot_bindings, readback_context,
             if robot:
                 entity["activity"] = binding["activity"]
             else:
-                entity["holder_id"] = binding["holder_id"]
-                snapshot["attachments"].append(_joint(stage, binding,
-                    robot_body_sets[binding["holder_id"]], context, joint_reader))
+                holders = binding.get("holder_bindings")
+                if holders is not None:
+                    if (binding.get("holder_id") is not None or binding.get("joint_path") is not None
+                            or not isinstance(holders, list) or len(holders) != 2
+                            or any(not isinstance(row, dict) for row in holders)):
+                        raise ValueError("paired held binding requires two explicit joint owners")
+                    ids = [_name(row.get("holder_id")) for row in holders]
+                    paths = [_path(row.get("joint_path")) for row in holders]
+                    if len(set(ids)) != 2 or len(set(paths)) != 2:
+                        raise ValueError("paired held joint identities must be distinct")
+                    entity["holder_ids"] = ids
+                    result["version"] = 2
+                    for holder in holders:
+                        joint_binding = {**binding, **holder}
+                        snapshot["attachments"].append(_joint(stage, joint_binding,
+                            robot_body_sets[holder["holder_id"]], context, joint_reader))
+                else:
+                    entity["holder_id"] = binding["holder_id"]
+                    snapshot["attachments"].append(_joint(stage, binding,
+                        robot_body_sets[binding["holder_id"]], context, joint_reader))
             for body_path, (position, quat) in poses.items():
                 audit = {"entity_id": identifier, "body_path": body_path, "status": "blocked",
                          "collision_paths": [str(p.GetPath()) for p in grouped[body_path]],
@@ -426,7 +487,8 @@ def collect_native_occupancy(stage, scene, *, robot_bindings, readback_context,
                                  reason="all_collision_apis_disabled" if disabled[body_path] else "no_collision_api_in_loaded_body_subtree")
                     continue
                 try:
-                    bounds, evidence = _body_geometry(stage, bodies[body_path], grouped[body_path])
+                    bounds, evidence = _body_geometry(stage, bodies[body_path], grouped[body_path],
+                        shape_bounds_reader=shape_bounds_reader, physics_step=context["physics_step"])
                     revision = _hash(evidence)
                     source = {**context, "body_prim_path": body_path, "configuration_revision": revision}
                     body = {"id": body_path, "entity_id": identifier, "prim_path": body_path,
@@ -434,7 +496,9 @@ def collect_native_occupancy(stage, scene, *, robot_bindings, readback_context,
                             "orientation_wxyz": quat, "bounds_frame": "body_local",
                             "local_collision_bounds_m": bounds,
                             "pose_source": {**source, "kind": "physx_body_pose", "api": "get_link_transforms" if robot else "get_transforms"},
-                            "bounds_source": {**source, "kind": "usd_collision_bounds", "covers_all_enabled_colliders": True,
+                            "bounds_source": {**source, "kind": "physx_collision_bounds" if
+                                              any("property_callback" in row for row in evidence) else "usd_collision_bounds",
+                                              "covers_all_enabled_colliders": True,
                                               "collider_measurements": evidence}}
                     snapshot["bodies"].append(body)
                     entity["body_ids"].append(body_path)
@@ -449,7 +513,8 @@ def collect_native_occupancy(stage, scene, *, robot_bindings, readback_context,
             roster.append(entity)
         # Discover unlisted inter-entity joints, including joints outside roots.
         owner = {p: identifier for identifier, row in all_poses.items() for p in row[1]}
-        declared = {b["joint_path"] for b in held_bindings}
+        declared = {holder["joint_path"] for binding in held_bindings
+                    for holder in binding.get("holder_bindings", [binding])}
         root_paths = [stage.GetPrimAtPath(root).GetPath() for root in roots]
         for prim in prims:
             if not prim.IsA(UsdPhysics.Joint):

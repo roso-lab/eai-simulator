@@ -26,7 +26,8 @@ state: the runtime must supply a fresh snapshot before subsequent spatial work.
 After time zero a snapshot at the current simulation time is mandatory.
 
 ``report()`` returns a defensive diagnostic snapshot for the host (including
-backend receipt references). Only its ``events`` are participant event frames.
+backend receipt references and the optional host-owned ``episode_id``). Only
+its ``events`` are participant event frames.
 It never certifies physical execution or infers business outcomes from skills.
 Validation errors are transactional: they do not consume accepted-action IDs,
 advance clocks, or alter plans. Accepted action IDs are unique for the session.
@@ -80,11 +81,15 @@ def _text(value: Any, name: str) -> str:
 class GoalSession:
     """Single-episode, synchronous plan and action ledger; see module API notes."""
 
-    def __init__(self, task_spec: Mapping[str, Any], api: Mapping[str, Any] | None = None):
+    def __init__(self, task_spec: Mapping[str, Any], api: Mapping[str, Any] | None = None,
+                 *, episode_id: str | None = None):
         validate_goal_task_spec(task_spec)
+        if episode_id is not None and (not isinstance(episode_id, str) or not episode_id.strip()):
+            raise ValueError("episode_id must be a nonempty string when provided")
         self._spec = deepcopy(dict(task_spec))
         self._api = deepcopy(dict(api)) if api is not None else build_goal_participant_api(self._spec)
         validate_goal_participant_api(self._api, task_spec=self._spec)
+        self._episode_id = episode_id
         self._robots = {r["id"]: deepcopy(r) for r in self._spec["candidate_robot_pool"]}
         self._pool_ids = set(self._robots)
         self._current = set(self._robots)
@@ -219,6 +224,16 @@ class GoalSession:
         Physically unsafe states (e.g. an exited carrier still holding a load)
         may be reported; pure plan validation will reject using them as safe.
         """
+        snapshot = self.validate_runtime_state(time_s, robot_regions, object_states)
+        self._snapshot = snapshot
+        self._time = snapshot["time_s"]
+        self._snapshot_required = False
+        self._version += 1
+        return deepcopy(snapshot)
+
+    def validate_runtime_state(self, time_s: float, robot_regions: Mapping[str, str],
+                               object_states: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
+        """Preflight a trusted snapshot without changing the episode ledger."""
         now = self._clock(time_s)
         if not isinstance(robot_regions, Mapping) or not isinstance(object_states, Mapping):
             raise ValueError("runtime positions and object states must be mappings")
@@ -266,11 +281,15 @@ class GoalSession:
                     points.add(point)
                 if points != {slot["point_id"] for slot in mode["slots"]}:
                     raise ValueError("runtime attachment points must match the handling mode")
-        self._snapshot = {"time_s": now, "robot_regions": robots, "object_states": objects}
-        self._time = now
-        self._snapshot_required = False
-        self._version += 1
-        return deepcopy(self._snapshot)
+        return {"time_s": now, "robot_regions": robots, "object_states": objects}
+
+    def assert_compatible(self, task_spec: Mapping[str, Any], api: Mapping[str, Any]) -> None:
+        """Check that a trusted host is attaching to this exact episode ledger."""
+        validate_goal_task_spec(task_spec)
+        validate_goal_participant_api(api, task_spec=task_spec)
+        if (canonical_sha256(self._spec) != canonical_sha256(task_spec)
+                or canonical_sha256(self._api) != canonical_sha256(api)):
+            raise ValueError("GoalSession is bound to a different task or participant API")
 
     def _resources(self, task: Mapping[str, Any]) -> dict[tuple[str, str], int]:
         args, skill = task["arguments"], task["skill"]
@@ -333,7 +352,8 @@ class GoalSession:
         validate_goal_plan({
             "schema": GOAL_PLAN_SCHEMA, "version": GOAL_PLAN_VERSION,
             "plan_id": self._plan_id, "assigned_team": task["assigned_agents"], "tasks": [projected],
-        }, task_spec=self._spec, context=self._context())
+        }, task_spec=self._spec, context=self._context(),
+            allow_physical_infeasibility=True)
         resources = self._resources(task)
         occupied = Counter(key for pending in self._pending() for key in pending["reservations"])
         for key, capacity in resources.items():
@@ -343,7 +363,9 @@ class GoalSession:
 
     def submit_action(self, action: Mapping[str, Any]) -> dict[str, Any]:
         """Validate and commit one existing v2 action; failures raise ValueError."""
-        accepted = validate_goal_action(action, api=self._api, task_spec=self._spec, context=self._context())
+        accepted = validate_goal_action(
+            action, api=self._api, task_spec=self._spec, context=self._context(),
+            allow_physical_infeasibility=True)
         action_id, type, payload = accepted["action_id"], accepted["type"], accepted["payload"]
         if action_id in self._actions:
             raise ValueError("action_id has already been accepted")
@@ -433,9 +455,13 @@ class GoalSession:
                 "completed_at_s": now}.items()):
             raise ValueError("backend receipt does not match pending task/action/status/time")
         required = {"backend_id", "receipt_ref", "task_id", "action_id", "status", "completed_at_s", "evidence_refs"}
+        if self._episode_id is not None:
+            required.add("episode_id")
         if not required <= set(data) or not data.get("backend_id") or not data.get("receipt_ref") or not data.get("evidence_refs"):
             return {"accepted": False, "task_id": task_id, "status": row["status"],
                     "reason": "missing backend receipt/evidence; request remains pending"}
+        if self._episode_id is not None and data.get("episode_id") != self._episode_id:
+            raise ValueError("backend receipt episode_id does not match GoalSession")
         if set(data) != required:
             raise ValueError("backend receipt has unexpected fields")
         key = (_text(data["backend_id"], "backend_id"), _text(data["receipt_ref"], "receipt_ref"))
@@ -538,7 +564,8 @@ class GoalSession:
         business_outcomes_validated = self._business_outcomes_validated()
         business_task_success = self._business_task_success()
         return deepcopy({
-            "task_id": self._spec["task_id"], "current_time_s": self._time,
+            "task_id": self._spec["task_id"], "episode_id": self._episode_id,
+            "current_time_s": self._time,
             "state_version": self._version, "roster_version": self._roster_version,
             "plan_version": self._plan_version, "current_plan_id": self._plan_id,
             "current_agents": sorted(self._current), "selected_team": self._team,

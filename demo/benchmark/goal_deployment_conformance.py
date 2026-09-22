@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 
 from .goal_deployment import SCENES, validate_goal_deployment
-from .goal_driven_contract import validate_goal_plan
+from .goal_driven_contract import GOAL_PLAN_VERSION, validate_goal_plan
 from .provenance import canonical_sha256, file_sha256
 from .reliable_skill_backend import ReliableSkillReferenceHost
 
@@ -42,7 +42,7 @@ def run_reference_conformance(deployment):
                      "prerequisites": [], "required_capabilities": ["ground_navigation"],
                      "assigned_agents": [ground["id"]], "evidence_refs": [],
                      "execution": {"start_s": 0., "duration_s": public["execution_contract"]["skill_durations_s"]["ground_navigation"]}}
-        plan = {"schema": "eai.benchmark.goal_plan", "version": 2, "plan_id": "reference_diagnostic",
+        plan = {"schema": "eai.benchmark.goal_plan", "version": GOAL_PLAN_VERSION, "plan_id": "reference_diagnostic",
                 "assigned_team": [ground["id"]], "tasks": [candidate]}
         try:
             validate_goal_plan(plan, task_spec=public)

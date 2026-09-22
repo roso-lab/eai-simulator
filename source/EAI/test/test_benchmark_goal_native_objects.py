@@ -107,6 +107,44 @@ def test_factory_missing_native_stays_blocked_without_isaac_import(monkeypatch):
     assert not vars(cfg.scene)
 
 
+@pytest.mark.parametrize("public_id", ["production_anomaly_marker", "maintenance_service_cart"])
+def test_factory_task_owned_mesh_has_exact_binding_and_readback(public_id):
+    from demo.benchmark.goal_deployment import build_scene_deployment
+    from demo.factory_benchmark.goal_props import FACTORY_GOAL_PROPS
+
+    deployment = build_scene_deployment("factory")
+    row = next(item for item in deployment["object_instances"] if item["public_id"] == public_id)
+    authored = FACTORY_GOAL_PROPS[public_id]
+    plan = objects._prepare(row, deployment)
+    assert plan["source_path"] == str(authored["path"])
+    assert plan["size_m"] == authored["size_m"]
+    assert plan["mass_kg"] == authored["mass_kg"]
+    stage = _target()
+    objects._author_object(stage, row["prim_path"], plan)
+    position = plan["position_m"]
+    view = SimpleNamespace(prim_paths=[row["prim_path"]],
+                           get_masses=lambda: [[plan["mass_kg"]]],
+                           get_transforms=lambda: [[*position, 0, 0, 0, 1]])
+    scene = {row["runtime_id"]: SimpleNamespace(root_physx_view=view)}
+    readback = objects.read_goal_objects(stage, scene, deployment)["objects"]
+    measured = next(item for item in readback if item["public_id"] == public_id)
+    assert measured["status"] == "measured"
+    assert measured["usd"]["local_mesh_bounds_m"]["size"] == pytest.approx(authored["size_m"])
+    assert measured["physx"]["mass_kg"] == authored["mass_kg"]
+    assert len(measured["usd"]["collisions"]) >= 2
+    assert all(item["enabled"] and item["approximation"] == "convexHull"
+               for item in measured["usd"]["collisions"])
+
+    for mutation in ("asset_key", "kind", "usd_rel", "size_m"):
+        changed = deepcopy(row)
+        if mutation == "size_m":
+            changed["physical_properties"]["size_m"] = [1.0, 1.0, 1.0]
+        else:
+            changed["scene_binding"]["deployment_directive"]["asset"][mutation] = "unbound"
+        with pytest.raises(ValueError, match="asset|dimensions|proxy"):
+            objects._prepare(changed, deployment)
+
+
 def test_physx_unknown_never_filled_from_authored_mass(tmp_path):
     deployment, row, _ = _fixture(tmp_path)
     stage = _target()

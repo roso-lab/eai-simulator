@@ -37,7 +37,7 @@ def goal_scene_registration(scene_key):
 
 def compile_registered_goal_scene(scene_key, *, city_package_dir=None,
                                   factor_id="communication_quality", factor_level=None,
-                                  verify_sources=False):
+                                  verify_sources=False, mechanism_family=None):
     """Compile the same reviewed goal contract for every registered scene.
 
     Registration never activates simulator skills, changes a scene selection,
@@ -46,7 +46,8 @@ def compile_registered_goal_scene(scene_key, *, city_package_dir=None,
     registration = goal_scene_registration(scene_key)
     from .goal_driven_tasks import build_goal_task_package
     result = {"registration": registration, "bundle": build_goal_task_package(
-        scene_key, factor_id=factor_id, factor_level=factor_level)}
+        scene_key, factor_id=factor_id, factor_level=factor_level,
+        mechanism_family=mechanism_family)}
     if city_package_dir is not None:
         if scene_key != "city":
             raise ValueError("city preparation is only applicable to the city scene")

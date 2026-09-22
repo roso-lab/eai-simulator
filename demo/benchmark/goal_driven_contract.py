@@ -15,7 +15,7 @@ from typing import Any, Iterable, Mapping
 from .provenance import canonical_sha256
 from .goal_constraints import validate_constraint_model, validate_plan_constraints
 from .skill_ontology import (
-    SKILL_CATALOG_SCHEMA, SKILL_CATALOG_VERSION, minimum_agents,
+    SKILL_CATALOG_SCHEMA, SKILL_CATALOG_VERSION, CITY_NATIVE_SKILL_CATALOG_VERSION, minimum_agents,
     public_skill_catalog, required_capabilities, validate_skill_arguments,
     validate_skill_name,
 )
@@ -34,7 +34,11 @@ GOAL_CONTRACT_VERSION = 2
 GOAL_ACTION_SCHEMA = "eai.benchmark.goal_action"
 GOAL_ACTION_VERSION = 1
 GOAL_PLAN_SCHEMA = "eai.benchmark.goal_plan"
-GOAL_PLAN_VERSION = 2
+# v3 records the participant-path physical feasibility boundary: protocol
+# legality remains fail-closed, while admitted physical transport failures are
+# reported by the execution host.  Older plans must fail fast rather than being
+# interpreted under the new execution semantics.
+GOAL_PLAN_VERSION = 3
 GOAL_EVENT_SCHEMA = "eai.benchmark.goal_event"
 GOAL_EVENT_VERSION = 1
 
@@ -175,7 +179,13 @@ def validate_goal_task_spec(spec: Mapping[str, Any]) -> dict[str, Any]:
     _string(mission["scene_key"], "mission scene key")
     _string(mission["goal"], "mission goal")
     _string(mission["context"], "mission context")
-    if spec["skill_catalog_version"] != f"{SKILL_CATALOG_SCHEMA}.v{SKILL_CATALOG_VERSION}":
+    catalog_version = spec["skill_catalog_version"]
+    default_catalog = f"{SKILL_CATALOG_SCHEMA}.v{SKILL_CATALOG_VERSION}"
+    native_catalog = f"{SKILL_CATALOG_SCHEMA}.v{CITY_NATIVE_SKILL_CATALOG_VERSION}"
+    if (catalog_version != default_catalog and not (
+            catalog_version == native_catalog and mission["scene_key"] == "city"
+            and spec["task_id"] == "CITY-GOAL-NATIVE-01")) or (
+            spec["task_id"] == "CITY-GOAL-NATIVE-01" and catalog_version != native_catalog):
         raise ValueError("goal task uses an unsupported skill catalog")
 
     outcomes = spec["required_outcomes"]
@@ -305,7 +315,8 @@ def build_goal_participant_api(task_spec: Mapping[str, Any]) -> dict[str, Any]:
         "task_id": task_spec["task_id"],
         "public_task_sha256": canonical_sha256(task_spec),
         "skill_catalog_version": task_spec["skill_catalog_version"],
-        "skill_catalog": public_skill_catalog(),
+        "skill_catalog": public_skill_catalog(
+            version=int(task_spec["skill_catalog_version"].rsplit(".v", 1)[1])),
         "plan_contract": {
             "schema": GOAL_PLAN_SCHEMA, "version": GOAL_PLAN_VERSION,
             "fields": ["plan_id", "assigned_team", "tasks"],
@@ -366,7 +377,8 @@ def validate_goal_participant_api(api: Mapping[str, Any], *, task_spec: Mapping[
         raise ValueError("goal participant API is not bound to the public task")
     if api["skill_catalog_version"] != task_spec["skill_catalog_version"]:
         raise ValueError("goal participant API skill catalog differs from task")
-    if api["skill_catalog"] != public_skill_catalog():
+    if api["skill_catalog"] != public_skill_catalog(
+            version=int(task_spec["skill_catalog_version"].rsplit(".v", 1)[1])):
         raise ValueError("goal participant API must publish the complete current skill catalog")
     plan_contract = _mapping(api["plan_contract"], "plan contract")
     _check_exact(plan_contract, {"schema", "version", "fields", "task_fields", "execution_fields",
@@ -576,7 +588,8 @@ def semantic_goal_plan_signature(plan: Mapping[str, Any]) -> str:
 
 
 def validate_goal_plan(plan: Mapping[str, Any], *, task_spec: Mapping[str, Any],
-                       context: Mapping[str, Any] | None = None) -> dict[str, Any]:
+                       context: Mapping[str, Any] | None = None,
+                       allow_physical_infeasibility: bool = False) -> dict[str, Any]:
     validate_goal_task_spec(task_spec)
     plan = _mapping(plan, "goal plan")
     expected = {"schema", "version", "plan_id", "assigned_team", "tasks"}
@@ -645,7 +658,9 @@ def validate_goal_plan(plan: Mapping[str, Any], *, task_spec: Mapping[str, Any],
         object_ids = {obj["id"] for obj in task_spec["public_world"]["objects"]}
         if set(object_states) != object_ids or not set(team) <= set(robot_regions):
             raise ValueError("runtime plan requires complete current object and selected-robot position snapshots")
-    constraints_report = validate_plan_constraints(plan, task_spec=task_spec, robot_rows=rows, context=context)
+    constraints_report = validate_plan_constraints(
+        plan, task_spec=task_spec, robot_rows=rows, context=context,
+        allow_physical_infeasibility=allow_physical_infeasibility)
     return {"plan_id": plan["plan_id"], "validated": True,
             "task_ids": [task["task_id"] for task in task_rows],
             "sha256": canonical_sha256(plan),
@@ -843,7 +858,8 @@ def validate_goal_event(event: Mapping[str, Any], *, api: Mapping[str, Any],
 
 
 def validate_goal_action(action: Mapping[str, Any], *, api: Mapping[str, Any],
-                         task_spec: Mapping[str, Any], context: Mapping[str, Any] | None = None) -> dict[str, Any]:
+                         task_spec: Mapping[str, Any], context: Mapping[str, Any] | None = None,
+                         allow_physical_infeasibility: bool = False) -> dict[str, Any]:
     validate_goal_participant_api(api, task_spec=task_spec)
     action = _mapping(action, "goal participant action")
     expected = {"schema", "version", "action_id", "submitted_at_s", "type", "payload"}
@@ -884,7 +900,9 @@ def validate_goal_action(action: Mapping[str, Any], *, api: Mapping[str, Any],
                 raise ValueError("revise_plan must replace a known submitted plan")
         plan_context = dict(context or {})
         plan_context["current_time_s"] = submitted_at
-        validate_goal_plan(payload["plan"], task_spec=task_spec, context=plan_context)
+        validate_goal_plan(
+            payload["plan"], task_spec=task_spec, context=plan_context,
+            allow_physical_infeasibility=allow_physical_infeasibility)
     elif action_type == "dispatch_skill":
         _string(payload["task_id"], "dispatch task_id")
         refs = _string_list(payload["evidence_refs"], "dispatch evidence_refs", allow_empty=True)
@@ -1058,7 +1076,9 @@ def validate_goal_hidden_evaluator(evaluator: Mapping[str, Any], *, task_spec: M
     evaluator = _mapping(evaluator, "goal hidden evaluator")
     required = {"schema", "version", "task_id", "public_task_sha256", "outcome_predicates",
                 "witness_plans", "heterogeneity_certificate", "hidden_event_schedule",
-                "factor_effect", "truth_sources", "release_gate"}
+                "factor_effect", "truth_sources", "measurement_contract",
+                "measurement_status", "mechanism_template", "team_necessity_certificate",
+                "release_gate"}
     _check_exact(evaluator, required, "goal hidden evaluator")
     if evaluator["schema"] != GOAL_HIDDEN_EVALUATOR_SCHEMA or evaluator["version"] != GOAL_CONTRACT_VERSION:
         raise ValueError("unsupported goal hidden evaluator schema")
@@ -1116,6 +1136,29 @@ def validate_goal_hidden_evaluator(evaluator: Mapping[str, Any], *, task_spec: M
     if frozen_inputs != task_spec["experiment_factor"]["frozen_inputs"]:
         raise ValueError("hidden factor effect does not preserve the public frozen inputs")
     _mapping(evaluator["truth_sources"], "truth sources")
+    from .measurement_contract import validate_measurement_contract
+    measurement = validate_measurement_contract(evaluator["measurement_contract"])
+    if measurement["normalized"]["measurement_target"]["scene_key"] != task_spec["mission"]["scene_key"]:
+        raise ValueError("goal measurement contract is not bound to the task scene")
+    if evaluator["measurement_status"] not in {"unclassified", "classified"}:
+        raise ValueError("goal measurement_status must be unclassified or classified")
+    mechanism_template = evaluator["mechanism_template"]
+    necessity_certificate = evaluator["team_necessity_certificate"]
+    if evaluator["measurement_status"] == "unclassified":
+        if mechanism_template is not None or necessity_certificate is not None:
+            raise ValueError("unclassified goal bundles cannot attach a canonical mechanism template")
+    else:
+        if not isinstance(mechanism_template, Mapping) or not isinstance(necessity_certificate, Mapping):
+            raise ValueError("classified goal bundles require a mechanism template and necessity certificate")
+        from .mechanism_templates import validate_mechanism_template, validate_team_necessity_certificate
+        template = validate_mechanism_template(mechanism_template)["normalized"]
+        certificate = validate_team_necessity_certificate(necessity_certificate)["normalized"]
+        if template["scene_key"] != task_spec["mission"]["scene_key"]:
+            raise ValueError("mechanism template is not bound to the task scene")
+        if template["measurement_contract"] != measurement["normalized"]:
+            raise ValueError("mechanism template measurement contract differs from evaluator contract")
+        if certificate != template["team_necessity_certificate"]:
+            raise ValueError("evaluator necessity certificate differs from mechanism template")
     gate = _mapping(evaluator["release_gate"], "goal release gate")
     # Bundle validation is also the writer's publication boundary. Constraint
     # review alone cannot attest native execution; this contract has no schema

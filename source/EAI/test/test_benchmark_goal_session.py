@@ -7,6 +7,7 @@ the real session integration.
 
 from copy import deepcopy
 import json
+import math
 
 import pytest
 
@@ -53,7 +54,7 @@ def _pick(*, start=0.0):
 
 
 def _plan(*tasks, pid="plan-1", team=None):
-    return {"schema": "eai.benchmark.goal_plan", "version": 2, "plan_id": pid,
+    return {"schema": "eai.benchmark.goal_plan", "version": 3, "plan_id": pid,
             "assigned_team": team or sorted({a for t in tasks for a in t["assigned_agents"]}),
             "tasks": list(tasks)}
 
@@ -350,6 +351,32 @@ def test_invalid_state_updates_are_atomic_and_require_complete_object_inventory(
     assert session.report() == before
 
 
+def test_runtime_state_preflight_never_changes_ledger(spec):
+    session = _ready(spec, _task())
+    _dispatch(session)
+    objects = _objects(spec)
+    before = session.report()
+    snapshot = session.validate_runtime_state(
+        1.0, {GROUND: "consolidation_area"}, objects)
+    assert snapshot["time_s"] == 1.0
+    snapshot["object_states"]["order_crate_01"]["region_id"] = "rack_aisle_a"
+    assert session.report() == before
+
+    invalid_binding = deepcopy(objects)
+    invalid_binding["order_carton_01"] = {
+        "region_id": "rack_aisle_b", "handling_mode_id": "single_grip",
+        "carrier_bindings": [{"agent_id": GROUND, "point_id": "unbound_point"}],
+    }
+    for time_s, positions, states in (
+            (-1.0, {GROUND: "consolidation_area"}, objects),
+            (math.inf, {GROUND: "consolidation_area"}, objects),
+            (1.0, {GROUND: "consolidation_area"}, {}),
+            (1.0, {GROUND: "rack_aisle_b"}, invalid_binding)):
+        with pytest.raises(ValueError):
+            session.validate_runtime_state(time_s, positions, states)
+        assert session.report() == before
+
+
 def test_observation_consumption_is_current_for_dispatch_but_history_is_readable(spec):
     session = GoalSession(spec)
     _observation(session, until=4.0)
@@ -421,8 +448,13 @@ def test_dispatch_revalidates_current_roster_capabilities_and_payload(spec, chan
         _change(session, spec, remove="pick" if change == "skill" else None,
                 payload=1.0 if change == "payload" else None)
     _snapshot(session, spec, 2.0, {GROUND: "rack_aisle_b"})
-    with pytest.raises(ValueError, match="team|declare|payload|capacity|handling"):
-        _dispatch(session, "pick")
+    if change == "payload":
+        # Physical payload mismatch is deliberately admitted on the
+        # participant path; the execution backend must report the failure.
+        assert _dispatch(session, "pick")["accepted"]
+    else:
+        with pytest.raises(ValueError, match="team|declare|payload|capacity|handling"):
+            _dispatch(session, "pick")
 
 
 @pytest.mark.parametrize("event_type", ["member_exit", "capability_change"])

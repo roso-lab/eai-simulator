@@ -74,8 +74,8 @@ _REGION_PROPOSALS = {
 
 _OBJECT_PROPOSALS = {
     "factory": {
-        "production_anomaly_marker": ([5.55, 3.4], None, None),
-        "maintenance_service_cart": ([-1.95, 3.4], None, None),
+        "production_anomaly_marker": ([5.55, 3.4], "factory_goal_anomaly_marker_v2", None),
+        "maintenance_service_cart": ([-1.95, 3.4], "factory_goal_service_cart_v2", None),
     },
     "warehouse_nvd": {
         "order_crate_01": ([-10.6, -11.75], "wooden_crate_a", "oversized_crate_proxy"),
@@ -162,6 +162,15 @@ def _source_files(inventory: Mapping[str, Any]) -> dict[str, str]:
         if not resolved.is_file():
             raise ValueError(f"deployment adapter source is missing: {resolved}")
         files[str(resolved)] = _sha256(resolved)
+    if inventory["scene_key"] == "factory":
+        from demo.factory_benchmark.goal_props import FACTORY_GOAL_PROPS
+        sources = [REPO_ROOT / "demo/factory_benchmark/goal_props.py",
+                   *(row["path"] for row in FACTORY_GOAL_PROPS.values())]
+        for path in sources:
+            resolved = path.resolve()
+            if not resolved.is_file():
+                raise ValueError(f"Factory task-owned source is missing: {resolved}")
+            files[str(resolved)] = _sha256(resolved)
     return dict(sorted(files.items()))
 
 
@@ -299,7 +308,22 @@ def _object_bindings(public: Mapping[str, Any], scene_key: str, inventory: Mappi
         legacy = deepcopy(old_entities.get(old_id)) if old_id else None
         asset: dict[str, Any]
         differences = []
-        if asset_key is None:
+        if scene_key == "factory":
+            from demo.factory_benchmark.goal_props import FACTORY_GOAL_PROPS
+            authored = FACTORY_GOAL_PROPS[identifier]
+            if (asset_key != authored["asset_key"] or physical["size_m"] != authored["size_m"]
+                    or physical["mass_kg"] != authored["mass_kg"]):
+                raise ValueError("Factory task-owned asset differs from frozen public parameters")
+            asset = {
+                "kind": "task_owned_usd_asset_with_public_parameter_overrides",
+                "asset_key": asset_key,
+                "usd_rel": authored["path"].relative_to(REPO_ROOT / "usd").as_posix(),
+                "native_size_m": deepcopy(authored["size_m"]),
+                "native_suggested_mass_kg": authored["mass_kg"],
+                "geometry_scale_xyz": [1.0, 1.0, 1.0],
+                "geometry_policy": "reviewed_task_owned_mesh_exact_public_size",
+            }
+        elif asset_key is None:
             asset = {
                 "kind": "procedural_box_author_proposal",
                 "asset_key": None,
@@ -474,13 +498,20 @@ def _route_bindings(public: Mapping[str, Any], scene_key: str, occupancy: Any) -
         grid = InflatedGrid(occupancy, radius)
         cells = grid.path(start[:2], goal[:2])
         if cells is None:
+            start_passable = bool(grid.passable(*grid.cell(*start[:2])))
+            goal_passable = bool(grid.passable(*grid.cell(*goal[:2])))
             row.update({
                 "status": "blocked",
                 "evidence_status": "occupancy_route_rejected",
                 "planning_candidate": None,
                 "map_check": {"check_kind": "segment", "status": "blocked", "admitted": False,
                               "inflation_radius_m": radius, "map_sha256": occupancy.sha256,
-                              "reason": "no_path_at_declared_half_width_inflation"},
+                              "reason": "no_path_at_declared_half_width_inflation",
+                              "start_cell_passable": start_passable,
+                              "goal_cell_passable": goal_passable,
+                              "failure_class": (
+                                  "endpoint_blocked" if not (start_passable and goal_passable)
+                                  else "disconnected_passable_endpoints")},
                 "gaps": ["candidate_route_not_map_admitted", "physical_clearance_not_verified"],
             })
         else:

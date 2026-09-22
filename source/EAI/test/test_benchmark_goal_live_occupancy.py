@@ -210,6 +210,23 @@ def test_proto_index_cannot_alias_an_ordinary_self_hit(scene, as_object, index):
     json.dumps(report, allow_nan=False)
 
 
+def test_early_rejected_hit_does_not_invent_an_overlap_count_error(scene):
+    class FullCountQuery(Query):
+        def overlap_box(self, half, pos, rot, callback, any_hit):
+            self.emit(self.overlaps, callback)
+            return len(self.overlaps)
+
+    hits = [dict(collision="/World/A/body/collision", rigid_body="/World/A/body",
+                 protoIndex=256, distance=0.)] * 2
+    report = segment(scene, query=FullCountQuery(overlaps=hits))
+    check = report["scene_checks"][0]["checks"][0]
+    assert check["status"] == "unknown"
+    assert check["callback_terminated_early"] is True
+    assert check["raw_return"] == 2
+    assert "unsupported or invalid point-instancer protoIndex" in check["reason"]
+    assert "overlap_completion_callback_mismatch" not in check["reason"]
+
+
 @pytest.mark.parametrize("rigid_body", [None, "/World/other/body"])
 def test_self_path_with_missing_or_conflicting_body_cannot_be_excluded(scene, rigid_body):
     own = dict(collision="/World/A/body/collision", rigid_body=rigid_body, distance=0)
@@ -244,6 +261,82 @@ def test_own_held_object_volume_also_swept_against_static_scene(scene):
     assert report["scene_checks"][0]["checks"][-1]["status"] == "no_external_hit"
     assert report["scene_checks"][1]["checks"][-1]["hits"][0]["collision"] == "/World/ledge"
     assert query.calls[-1][1] == pytest.approx([.100001, .200001, .300001])
+
+
+def paired(scene):
+    snapshot, roster = scene
+    snapshot["physics_step"] = 10
+    snapshot["bodies"][0]["pose_source"]["physics_step"] = 10
+    snapshot["bodies"][0]["bounds_source"]["physics_step"] = 10
+    add_entity(snapshot, roster, "B", (3, 0, 1))
+    obj = add_entity(snapshot, roster, "crate", (1.5, 0, 1), holder="A", half=(.25, .25, .25))
+    for body in (snapshot["bodies"][1], obj):
+        body["pose_source"]["physics_step"] = 10
+        body["bounds_source"]["physics_step"] = 10
+    roster[-1].pop("holder_id")
+    roster[-1]["holder_ids"] = ["A", "B"]
+    snapshot["attachments"] = []
+    for carrier in ("A", "B"):
+        path = f"/World/joints/{carrier}_crate"
+        sample = context(kind="physx_fixed_joint", physics_step=10,
+                         joint_path=path, body0=f"/World/{carrier}/body", body1="/World/crate/body",
+                         enabled=True, broken=False)
+        snapshot["attachments"].append(context(
+            object_id="crate", holder_id=carrier, kind="fixed_attachment_readback",
+            joint_path=path, body0=sample["body0"], body1=sample["body1"],
+            physics_step=10, solver_response_validated=False, physx_readback=sample))
+    return dict(expected_inventory=roster, carrier_ids=["A", "B"], held_object_id="crate",
+                translation_xyz_m=[4, 0, 0], now_s=10.05,
+                query_context=context(kind="physx_scene_query", physics_step=10,
+                                      readback_frozen=True, static_colliders_included=True))
+
+
+def test_paired_hold_requires_exact_two_joint_readbacks_and_sweeps_all_members(scene):
+    kwargs = paired(scene)
+    report = occupancy.check_live_paired_segment(scene[0], query=Query(), **kwargs)
+    assert report["status"] == "clear_at_snapshot_for_fixed_translation"
+    assert report["version"] == report["occupancy"]["version"] == 2
+    assert {row["entity_id"] for row in report["scene_checks"]} == {"A", "B", "crate"}
+    assert len(report["scene_checks"]) == 3
+    assert report["internal_intersections"] == []
+    assert report["excluded_self_collision_paths"] == [
+        "/World/A/body/collision", "/World/B/body/collision", "/World/crate/body/collision"]
+    assert segment(scene)["status"] == "blocked"
+    assert "paired hold requires group" in segment(scene)["blockers"][0]
+
+
+@pytest.mark.parametrize("mutation", ["missing_joint", "duplicate_joint", "stale_joint", "wrong_endpoint",
+                                     "disabled_joint", "missing_joint_source", "robot_holder_alias",
+                                     "null_pair_alias",
+                                     "idle_partner", "other_held", "internal_overlap",
+                                     "stale_query", "unknown_proto", "external_hit"])
+def test_paired_group_never_clears_on_incomplete_or_unsafe_evidence(scene, mutation):
+    kwargs = paired(scene)
+    query = Query()
+    if mutation == "missing_joint": scene[0]["attachments"].pop()
+    elif mutation == "duplicate_joint": scene[0]["attachments"][1]["joint_path"] = scene[0]["attachments"][0]["joint_path"]
+    elif mutation == "stale_joint": scene[0]["attachments"][1]["physx_readback"]["physics_step"] = 9
+    elif mutation == "wrong_endpoint": scene[0]["attachments"][1]["physx_readback"]["body0"] = "/World/A/body"
+    elif mutation == "disabled_joint": scene[0]["attachments"][0]["physx_readback"]["broken"] = True
+    elif mutation == "missing_joint_source": scene[0]["attachments"][0]["physx_readback"].pop("source_id")
+    elif mutation == "robot_holder_alias": scene[1][0]["holder_ids"] = ["A", "B"]
+    elif mutation == "null_pair_alias": scene[1][-1]["holder_ids"] = None
+    elif mutation == "idle_partner": scene[1][1]["activity"] = "idle"
+    elif mutation == "other_held": add_entity(*scene, "tool", (0, 3, 1), holder="A")
+    elif mutation == "internal_overlap": scene[0]["bodies"][1]["position_xyz_m"] = [0, 0, 1]
+    elif mutation == "stale_query": kwargs["query_context"]["physics_step"] = 9
+    elif mutation == "unknown_proto":
+        query.overlaps = [dict(collision="/World/B/body/collision", rigid_body="/World/B/body", protoIndex=7)]
+    else: query.sweeps = [dict(collision="/World/wall", distance=1)]
+    report = occupancy.check_live_paired_segment(scene[0], query=query, **kwargs)
+    assert report["status"] == "blocked"
+    if mutation in {"missing_joint", "duplicate_joint", "stale_joint", "wrong_endpoint",
+                    "disabled_joint", "missing_joint_source", "robot_holder_alias", "null_pair_alias"}:
+        assert report["occupancy"]["status"] == "blocked"
+        assert query.calls == []
+    if mutation == "internal_overlap":
+        assert report["internal_intersections"]
+    json.dumps(report, allow_nan=False)
 
 
 def test_other_robots_held_object_is_not_self(scene):

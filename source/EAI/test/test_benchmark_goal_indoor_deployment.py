@@ -112,6 +112,20 @@ def test_routes_fail_closed_or_carry_an_astar_polyline(scene_key):
         assert routes["main_stair_down"]["status"] == "blocked"
 
 
+def test_warehouse_crate_route_distinguishes_blocked_author_center_from_disconnection():
+    overlay = build_indoor_deployment_overlay(build_goal_task_spec("warehouse_nvd"))
+    routes = {row["id"]: row for row in overlay["route_bindings"]}
+    outbound = routes["rack_a_to_consolidation"]
+    inbound = routes["consolidation_to_rack_a"]
+    for row, start, goal in ((outbound, False, True), (inbound, True, False)):
+        assert row["status"] == "blocked"
+        assert row["physical_verified"] is False
+        assert row["planning_candidate"] is None
+        assert row["map_check"]["failure_class"] == "endpoint_blocked"
+        assert row["map_check"]["start_cell_passable"] is start
+        assert row["map_check"]["goal_cell_passable"] is goal
+
+
 def test_source_files_are_absolute_current_hashes():
     overlay = build_indoor_deployment_overlay(build_goal_task_spec("warehouse_nvd"))
     assert overlay["source_files"]

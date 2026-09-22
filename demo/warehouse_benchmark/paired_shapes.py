@@ -3,7 +3,8 @@
 Local AABBs are transformed using the collider-to-body USD matrix, as in
 Isaac's OgnPhysXPropertyQueryRigidBody. Callback local_pos/local_rot are
 archived but are not applied a second time. No public robot dimensions enter
-this calculation. This is not a general occupancy admission backend.
+this calculation. Goal occupancy uses it only for narrowly supported cooked
+or Xform colliders with complete same-step property callbacks.
 """
 from __future__ import annotations
 
@@ -44,6 +45,8 @@ def query_body(query, *, stage_id, body_id, body_path, decode, pump, step,
             low, high = vector(response.aabb_local_min, 3), vector(response.aabb_local_max, 3)
             if any(a >= b for a, b in zip(low, high)):
                 raise ValueError("degenerate property bounds")
+            if not math.isfinite(float(response.volume)) or float(response.volume) <= 0:
+                raise ValueError("invalid property shape volume")
             rows.append({"path": path, "aabb_local_min": low, "aabb_local_max": high,
                          "local_pos": vector(response.local_pos, 3),
                          "local_rot_xyzw": vector(response.local_rot, 4),
@@ -103,7 +106,9 @@ def cook_meshes(cooking, *, stage_id, collider_ids, collider_paths=(), pump, ste
             pump()
             if step() != start_step:
                 raise ValueError("physics advanced during convex cooking")
-        if state["finished"] != 1 or state["convex_count"] <= 0 or state["errors"]:
+        if (state["finished"] != 1 or state["result"] not in
+                ("RESULT_VALID", "PhysxCollisionRepresentationResult.RESULT_VALID")
+                or state["convex_count"] <= 0 or state["errors"]):
             cancel = getattr(cooking, "cancel_collision_representation_task", None)
             if state["finished"] == 0 and cancel is not None:
                 cancel(task, invoke_callback=False)
@@ -114,7 +119,7 @@ def cook_meshes(cooking, *, stage_id, collider_ids, collider_paths=(), pump, ste
     return records
 
 
-def body_geometry(stage, body, colliders, *, session):
+def body_geometry(stage, body, colliders, *, session, expected_step=None):
     import omni.physx
     from pxr import Gf, PhysicsSchemaTools, UsdGeom, UsdUtils
     from demo.benchmark import goal_native_occupancy as occupancy
@@ -139,10 +144,11 @@ def body_geometry(stage, body, colliders, *, session):
                                        collider_paths=[str(prim.GetPath()) for prim in colliders],
                                        pump=session.simulation_app.update, step=step)
         report = query_body(query, **query_kwargs)
-    if not report["colliders"]:
-        raise ValueError("property query returned no collider after cooking")
+    if (not report["complete"] or (expected_step is not None and
+            (report["physics_step"] != expected_step or step() != expected_step))):
+        raise ValueError("incomplete or advanced PhysX property query")
     expected = {str(p.GetPath()): p for p in colliders}
-    if {row["path"] for row in report["colliders"]} != set(expected):
+    if len(report["colliders"]) != len(expected) or {row["path"] for row in report["colliders"]} != set(expected):
         raise ValueError("native/USD enabled collider coverage differs")
     cache = UsdGeom.XformCache()
     world = cache.GetLocalToWorldTransform(body)

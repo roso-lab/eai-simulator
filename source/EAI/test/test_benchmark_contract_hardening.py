@@ -16,7 +16,7 @@ from demo.benchmark.goal_session import GoalSession
 
 def test_goal_protocol_versions_are_independent_and_explicit():
     assert GOAL_CONTRACT_VERSION == 2
-    assert GOAL_PLAN_VERSION == 2
+    assert GOAL_PLAN_VERSION == 3
     assert GOAL_ACTION_VERSION == 1
 
 

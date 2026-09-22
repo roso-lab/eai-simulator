@@ -10,11 +10,34 @@ requiring a network LLM during a benchmark evidence run.
 from __future__ import annotations
 
 from copy import deepcopy
+from pathlib import Path
+import sys
 import time
 from typing import Any, Mapping
 
 from .goal_algorithm_adapter import GOAL_ADAPTER_INTERFACE, GOAL_ADAPTER_INTERFACE_VERSION
 from .goal_driven_contract import GOAL_PLAN_VERSION
+
+
+def _ensure_algorithm_roots():
+    """Prepend the repo-local algorithm roots required by the lazy imports.
+
+    Native probes and offline tests share this module; without the bootstrap
+    the adapters only import when the launcher happened to extend PYTHONPATH
+    with ``algorithm/TeamWeaver`` and ``algorithm/emos``.
+    """
+    root = Path(__file__).resolve().parents[2]
+    required = {
+        "TeamWeaver": root / "algorithm" / "TeamWeaver" / "__init__.py",
+        "emos.engine": root / "algorithm" / "emos" / "engine.py",
+    }
+    missing = [name for name, path in required.items() if not path.is_file()]
+    if missing:
+        raise RuntimeError(f"repo-local algorithm modules missing: {', '.join(missing)}")
+    for path in (root / "algorithm", root / "algorithm" / "TeamWeaver"):
+        text = str(path)
+        if text not in sys.path:
+            sys.path.insert(0, text)
 
 
 def _emos_first_ground_policy(request):
@@ -40,6 +63,7 @@ class _WarehouseDecomposer:
         self.task = task
 
     def decompose(self, instruction, world, **_kwargs):
+        _ensure_algorithm_roots()
         from TeamWeaver.eai_adapter.semantic_decomposer import SemanticDecompositionResult
         from TeamWeaver.eai_adapter.capability_ontology import CapabilityRequirement
         from TeamWeaver.eai_adapter.task_models import SemanticTask, TaskType
@@ -131,6 +155,7 @@ class TeamWeaverGoalAdapter:
         return []
 
     def _initial_actions(self, now):
+        _ensure_algorithm_roots()
         from TeamWeaver.eai_adapter.dynamic_miqp import DynamicMIQPAllocator
         from TeamWeaver.eai_adapter.teamweaver_pipeline import TeamWeaverPipeline
 
@@ -224,6 +249,7 @@ class EmosGoalAdapter:
             return TeamWeaverGoalAdapter()._pair_actions(self._now, sequence)
         if not any(row.get("type") == "episode_started" for row in events):
             return []
+        _ensure_algorithm_roots()
         from emos.engine import EMOSDiscussionManager
         from emos.types import EMOSRobotAgentSpec, EMOSScenarioConfig, PositionRule, SubtaskSpec
 

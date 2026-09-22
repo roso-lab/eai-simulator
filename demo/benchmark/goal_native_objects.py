@@ -17,6 +17,8 @@ import re
 _NATIVE = {
     "order_crate_01": "wooden_crate_a", "order_carton_01": "cardbox_c",
     "living_armchair_01": "mh_armchair", "resident_bookstack_01": "mh_bookstack",
+    "production_anomaly_marker": "factory_goal_anomaly_marker_v2",
+    "maintenance_service_cart": "factory_goal_service_cart_v2",
 }
 
 
@@ -79,10 +81,21 @@ def _bounds(stage, geometry_root, *, relative_to=None):
 def _asset_path(row, deployment):
     directive = row["scene_binding"].get("deployment_directive", {})
     asset = directive.get("asset", {})
+    factory = row["public_id"] in {"production_anomaly_marker", "maintenance_service_cart"}
+    expected_kind = ("task_owned_usd_asset_with_public_parameter_overrides" if factory
+                     else "native_usd_asset_with_public_parameter_overrides")
     if (row["public_id"] not in _NATIVE
             or asset.get("asset_key") != _NATIVE[row["public_id"]]
-            or asset.get("kind") != "native_usd_asset_with_public_parameter_overrides"):
+            or asset.get("kind") != expected_kind):
         raise ValueError("native_asset_binding_missing_no_proxy_substitution")
+    if factory:
+        from demo.factory_benchmark.goal_props import FACTORY_GOAL_PROPS
+        authored = FACTORY_GOAL_PROPS[row["public_id"]]
+        if (asset.get("usd_rel") != authored["path"].relative_to(
+                Path(__file__).resolve().parents[2] / "usd").as_posix()
+                or row["physical_properties"]["size_m"] != authored["size_m"]
+                or row["physical_properties"]["mass_kg"] != authored["mass_kg"]):
+            raise ValueError("Factory task-owned asset or frozen dimensions mismatch")
     relative = Path(asset["usd_rel"])
     if relative.is_absolute() or ".." in relative.parts or len(relative.parts) < 2:
         raise ValueError("invalid native source relative path")

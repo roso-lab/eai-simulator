@@ -153,6 +153,16 @@ def test_total_capacity_does_not_override_individual_load_fraction(spec):
         validate_plan_constraints(_plan(_carry()), task_spec=spec)
 
 
+def test_participant_physical_mismatch_is_admitted_only_with_explicit_flag(spec):
+    overweight = _plan(_pick(obj="crate"))
+    with pytest.raises(ValueError, match="infeasible carrier payload"):
+        validate_plan_constraints(overweight, task_spec=spec)
+    report = validate_plan_constraints(
+        overweight, task_spec=spec, allow_physical_infeasibility=True)
+    assert report["validated"] is True
+    assert report["execution_validated"] is False
+
+
 @pytest.mark.parametrize("restriction", ["interface", "reach", "capability", "attachment", "mobility"])
 def test_transport_eligibility_uses_configuration_and_interface(spec, restriction):
     robot = spec["candidate_robot_pool"][0]

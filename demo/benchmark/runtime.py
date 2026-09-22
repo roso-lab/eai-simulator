@@ -546,6 +546,50 @@ def planning_radius(robot):
     return _robot_radius(robot)
 
 
+def _declared_carry_center_z(robot, entity):
+    """Resolve a carried object's center from declared support geometry.
+
+    Newer scene records may provide an absolute carrier support or mount
+    reference height. Older records only declare the carrier spawn pose, which
+    is the deterministic fallback. An object-local grasp/support anchor, when
+    present, is subtracted from that support height; no free lift offset is
+    introduced here.
+    """
+    pose = robot.get("spawn_pose") or {}
+    position = pose.get("position") or []
+    if len(position) < 3:
+        raise ValueError(f"robot {robot.get('id', '<unknown>')} has no declared spawn height")
+    support_z = robot.get("carry_support_z_m", robot.get("mount_reference_z_m", position[2]))
+    if (isinstance(support_z, bool) or not isinstance(support_z, (int, float))
+            or not math.isfinite(support_z)):
+        raise ValueError(f"robot {robot.get('id', '<unknown>')} carry support height is invalid")
+    anchor_z = entity.get("grasp_anchor_local_z_m", entity.get("support_anchor_local_z_m", 0.0))
+    if (isinstance(anchor_z, bool) or not isinstance(anchor_z, (int, float))
+            or not math.isfinite(anchor_z)):
+        raise ValueError(f"object {entity.get('id', '<unknown>')} carry anchor height is invalid")
+    size = entity.get("size_m") or []
+    if len(size) < 3 or isinstance(size[2], bool) or not isinstance(size[2], (int, float)):
+        raise ValueError(f"object {entity.get('id', '<unknown>')} has no declared height")
+    if not math.isfinite(float(size[2])) or float(size[2]) <= 0:
+        raise ValueError(f"object {entity.get('id', '<unknown>')} height is invalid")
+    # ``support_z`` is the carrier-side support/contact height and
+    # ``anchor_z`` is the object-local point used for that contact.  Convert
+    # the local point to the object's center so a support anchor below center
+    # produces the correct small lift instead of a free offset.
+    return float(support_z) + float(size[2]) / 2.0 - float(anchor_z)
+
+
+def _paired_support_yaw(positions, team, fallback):
+    """Orient a jointly carried object from the two declared support points."""
+    if len(team) < 2:
+        return fallback
+    first, second = positions[team[0]], positions[team[1]]
+    dx, dy = second[0] - first[0], second[1] - first[1]
+    if math.hypot(dx, dy) <= 1e-9:
+        return fallback
+    return math.atan2(dy, dx)
+
+
 def rebind_arrival_predicate(entry):
     """Keep a navigation visit predicate bound to the executing agent.
 
@@ -627,7 +671,6 @@ def rebuild_transport_routes(entry, *, spec, occupancy, member_positions, object
 
     entities = {entity["id"]: entity for entity in spec["composition"]["entities"]}
     entity = entities[entry["object"]]
-    carry_half = entity["size_m"][2] / 2
     pickup = tuple(object_position if object_position is not None
                    else entry["pickup_goal"])[:2]
     goal = tuple(entry["goal"])[:2]
@@ -651,7 +694,10 @@ def rebuild_transport_routes(entry, *, spec, occupancy, member_positions, object
     entry["agent_radius"] = footprint_radius
     entry["route_planning_radius_m"] = footprint_radius
     entry["path_waypoint_tolerance_m"] = grid.resolution / 2
-    entry["carry_z"] = leader["spawn_pose"]["position"][2] + 0.45 + carry_half
+    support_members = team if entry["skill"] == "joint_transport" else [entry["agent"]]
+    entry["carry_z"] = sum(
+        _declared_carry_center_z(robots[member], entity) for member in support_members
+    ) / len(support_members)
     if entry["skill"] == "joint_transport":
         from .joint_transport import joint_formation_limit, plan_joint_rendezvous
 
@@ -1310,8 +1356,10 @@ def build_plan(data, occupancy, template, *, ground_tracking_reserve_m=None):
                                         entry["team_to_target"][member])
                 for member in team)
             entity = entities[node["object_ref"]]
+            entry["carry_z"] = sum(
+                _declared_carry_center_z(robots[member], entity) for member in team
+            ) / len(team)
             carry_half = entity["size_m"][2] / 2
-            entry["carry_z"] = robot["spawn_pose"]["position"][2] + 0.45 + carry_half
             entry["release_z"] = (targets[node["target_ref"]]["position"][2] + carry_half
                                   if node["target_ref"] in targets else
                                   entities[node["target_ref"]]["spawn_pose"]["position"][2])
@@ -1330,7 +1378,7 @@ def build_plan(data, occupancy, template, *, ground_tracking_reserve_m=None):
             carry_half = entity["size_m"][2] / 2
             planar_half_diagonal = math.hypot(
                 entity["size_m"][0] / 2, entity["size_m"][1] / 2)
-            entry["carry_z"] = robot["spawn_pose"]["position"][2] + 0.45 + carry_half
+            entry["carry_z"] = _declared_carry_center_z(robot, entity)
             entry["interaction_standoff"] = (
                 footprint_radius + planar_half_diagonal + 0.1)
             if node["target_ref"] in targets:
@@ -2883,10 +2931,12 @@ def main(argv=None, *, expected_scene=None, asset_check=None, participant_adapte
                             raise RuntimeError(
                                 f"joint team {team} cannot release '{entry['object']}' owned by "
                                 f"{carrying.get(entry['object'])!r}")
-                        leader_state = robot_state(entry["agent"])
+                        positions = {member: robot_state(member) for member in team}
+                        leader_state = positions[entry["agent"]]
                         write_object_pose(entry["object"], entry["goal"][0], entry["goal"][1],
                                           entry["release_z"], leader_state[3])
-                        entry["release_yaw"] = leader_state[3]
+                        entry["release_yaw"] = _paired_support_yaw(
+                            positions, team, leader_state[3])
                         entry["phase"] = "release_settle"
                         continue
                     if entry["phase"] == "joint_carry" and carrying.get(entry["object"]):
@@ -2894,7 +2944,8 @@ def main(argv=None, *, expected_scene=None, asset_check=None, participant_adapte
                         cx = sum(state[0] for state in positions.values()) / len(positions)
                         cy = sum(state[1] for state in positions.values()) / len(positions)
                         write_object_pose(
-                            entry["object"], cx, cy, entry["carry_z"], positions[team[0]][3])
+                            entry["object"], cx, cy, entry["carry_z"],
+                            _paired_support_yaw(positions, team, positions[team[0]][3]))
                     else:
                         positions = {member: robot_state(member) for member in team}
                     for member, route in routes.items():

@@ -294,31 +294,46 @@ def _anchor_measured_infeasible(profile: Mapping[str, Any], point: Mapping[str, 
 
 def _binding_option(obj: Mapping[str, Any], mode: Mapping[str, Any],
                     assigned: tuple[Mapping[str, Any], ...], *,
-                    existing_attachment: bool = False) -> dict[str, Any] | None:
+                    existing_attachment: bool = False,
+                    allow_physical_infeasibility: bool = False) -> dict[str, Any] | None:
     props = obj["physical_properties"]
     points = {point["id"]: point for point in props["grasp_points"]}
     skill = "pick" if len(mode["slots"]) == 1 else "cooperative_carry"
     interface = "manipulator" if skill == "pick" else "cooperative_transport"
     bindings, loads = [], []
+    failure_reasons: list[str] = []
     envelope = list(mode["envelope_m"])
     for robot, slot in zip(assigned, mode["slots"]):
         profile = robot["physical_profile"]
         point = points[slot["point_id"]]
         load = props["mass_kg"] * slot["load_fraction"]
-        if (robot["mobility"] != "ground"
-                or (not existing_attachment and skill not in robot["public_capabilities"])
-                or interface not in robot["interfaces"]
-                or point["interface"] not in profile["grasp_interfaces"]
-                or load > profile["effective_payload_kg"]
-                or _anchor_measured_infeasible(profile, point)
-                or math.hypot(*point["position_m"]) > profile["reach_m"]):
-            return None
+        if robot["mobility"] != "ground":
+            failure_reasons.append("carrier_mobility_mismatch")
+        if not existing_attachment and skill not in robot["public_capabilities"]:
+            failure_reasons.append("carrier_skill_capability_missing")
+        if interface not in robot["interfaces"]:
+            failure_reasons.append("carrier_transport_interface_missing")
+        if point["interface"] not in profile["grasp_interfaces"]:
+            failure_reasons.append("grasp_interface_mismatch")
+        if load > profile["effective_payload_kg"]:
+            failure_reasons.append("carrier_payload_exceeded")
+        if _anchor_measured_infeasible(profile, point):
+            failure_reasons.append("grasp_anchor_unreachable")
+        if math.hypot(*point["position_m"]) > profile["reach_m"]:
+            failure_reasons.append("grasp_reach_exceeded")
         bindings.append({"agent_id": robot["id"], "point_id": point["id"]})
         loads.append({"agent_id": robot["id"], "load_kg": load})
         envelope = [max(a, b) for a, b in zip(envelope, profile["body_size_m"])]
-    return {"object_id": obj["id"], "handling_mode_id": mode["id"], "skill": skill,
-            "assigned_agents": [r["id"] for r in assigned], "carrier_bindings": bindings,
-            "member_loads_kg": loads, "envelope_m": envelope}
+    feasible = not failure_reasons
+    if not feasible and not (allow_physical_infeasibility and not existing_attachment):
+        return None
+    result = {"object_id": obj["id"], "handling_mode_id": mode["id"], "skill": skill,
+              "assigned_agents": [r["id"] for r in assigned], "carrier_bindings": bindings,
+              "member_loads_kg": loads, "envelope_m": envelope}
+    if allow_physical_infeasibility:
+        result.update({"physical_feasible": feasible,
+                       "physical_failure_reasons": sorted(set(failure_reasons))})
+    return result
 
 
 def transport_options(task_spec: Mapping[str, Any], object_id: str, *,
@@ -346,7 +361,8 @@ def transport_options(task_spec: Mapping[str, Any], object_id: str, *,
 
 def _binding(obj: Mapping[str, Any], arguments: Mapping[str, Any], agents: list[str],
              rows: Mapping[str, Mapping[str, Any]], label: str, *,
-             existing_attachment: bool = False) -> dict[str, Any]:
+             existing_attachment: bool = False,
+             allow_physical_infeasibility: bool = False) -> dict[str, Any]:
     mode_id = _identifier(arguments.get("handling_mode_id"), f"{label} handling_mode_id")
     modes = {mode["id"]: mode for mode in obj["physical_properties"]["handling_modes"]}
     if mode_id not in modes:
@@ -366,7 +382,9 @@ def _binding(obj: Mapping[str, Any], arguments: Mapping[str, Any], agents: list[
     if set(by_point.values()) != set(agents) or set(by_point) != {s["point_id"] for s in mode["slots"]}:
         raise ValueError(f"{label}: carrier bindings must match assigned agents and mode points")
     assigned = tuple(rows[by_point[slot["point_id"]]] for slot in mode["slots"])
-    option = _binding_option(obj, mode, assigned, existing_attachment=existing_attachment)
+    option = _binding_option(
+        obj, mode, assigned, existing_attachment=existing_attachment,
+        allow_physical_infeasibility=allow_physical_infeasibility)
     if option is None:
         if existing_attachment:
             for robot, slot in zip(assigned, mode["slots"]):
@@ -380,6 +398,43 @@ def _binding(obj: Mapping[str, Any], arguments: Mapping[str, Any], agents: list[
                              "or mobility constraints; runtime safe-state recovery required")
         raise ValueError(f"{label}: infeasible carrier payload, interface, reach, or capability")
     return option
+
+
+def assess_transport_binding(task_spec: Mapping[str, Any], object_id: str,
+                             arguments: Mapping[str, Any], assigned_agents: list[str], *,
+                             robot_rows: Any = None) -> dict[str, Any]:
+    """Return frozen physical facts for an admitted transport attempt.
+
+    This helper deliberately reports observation data and stable reason codes,
+    without turning an infeasible participant choice into a prescription.  The
+    strict authoring path continues to use :func:`transport_options` and
+    ``_binding`` with their default fail-closed behavior.
+    """
+    validate_constraint_model(task_spec)
+    rows = _rows(task_spec, robot_rows)
+    objects = {row["id"]: row for row in task_spec["public_world"]["objects"]}
+    if object_id not in objects:
+        raise ValueError(f"unknown object_id {object_id!r}")
+    option = _binding(
+        objects[object_id], arguments, list(assigned_agents), rows,
+        f"transport assessment {object_id}",
+        allow_physical_infeasibility=True)
+    return {
+        "feasible": bool(option["physical_feasible"]),
+        "failure_reasons": list(option["physical_failure_reasons"]),
+        "object_id": option["object_id"],
+        "handling_mode_id": option["handling_mode_id"],
+        "assigned_agents": list(option["assigned_agents"]),
+        "carrier_bindings": list(option["carrier_bindings"]),
+        "member_loads_kg": list(option["member_loads_kg"]),
+        "physical_profiles": {
+            agent["id"]: {
+                "effective_payload_kg": agent["physical_profile"]["effective_payload_kg"],
+                "reach_m": agent["physical_profile"]["reach_m"],
+            }
+            for agent in (rows[item] for item in assigned_agents)
+        },
+    }
 
 
 def _resource_conflicts(entries: list[tuple[float, float, str]], capacity: int, label: str) -> None:
@@ -445,7 +500,8 @@ def _route_fit(path: list[Mapping[str, Any]], robots: list[Mapping[str, Any]],
 
 
 def validate_plan_constraints(plan: Mapping[str, Any], *, task_spec: Mapping[str, Any],
-                              robot_rows: Any = None, context: Mapping[str, Any] | None = None) -> dict[str, Any]:
+                              robot_rows: Any = None, context: Mapping[str, Any] | None = None,
+                              allow_physical_infeasibility: bool = False) -> dict[str, Any]:
     """Check timed actions, ownership, attachment feasibility and resources.
 
     Every navigation action needs a directed route chain. Picks acquire one
@@ -674,7 +730,9 @@ def validate_plan_constraints(plan: Mapping[str, Any], *, task_spec: Mapping[str
             if skill in {"pick", "cooperative_carry"}:
                 if state["option"] is not None or held:
                     raise ValueError(f"{tid}: object/carriers must be available before acquisition")
-                option = _binding(objects[oid], args, assigned, rows, tid)
+                option = _binding(
+                    objects[oid], args, assigned, rows, tid,
+                    allow_physical_infeasibility=allow_physical_infeasibility)
                 if option["skill"] != skill:
                     raise ValueError(f"{tid}: handling mode does not match {skill} member count")
                 if skill == "pick" and destination != state["region"]:

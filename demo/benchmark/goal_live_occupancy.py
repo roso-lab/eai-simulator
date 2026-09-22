@@ -140,23 +140,25 @@ def collect_current_occupancy(snapshot, *, expected_inventory, now_s, max_age_s=
             raise ValueError("metric USD_world coordinates required")
         _fresh(snapshot, now, max_age)
         entities = _index(expected_inventory, "id", MAX_ENTITIES, "entity roster")
+        if any("holder_ids" in entity for entity in entities.values()):
+            result["version"] = 2
         bodies = _index(snapshot.get("bodies"), "id", MAX_BODIES, "body readbacks")
         expected_bodies, all_paths, body_paths = set(), set(), set()
         attachments = snapshot.get("attachments", [])
         if not isinstance(attachments, list) or len(attachments) > MAX_ENTITIES:
             raise ValueError("invalid attachment inventory")
         attached = {}
+        all_joint_paths = set()
         for attachment in attachments:
             object_id = _name(attachment.get("object_id"), "attached object")
-            if object_id in attached:
-                raise ValueError("duplicate attachment")
-            attached[object_id] = attachment
+            attached.setdefault(object_id, []).append(attachment)
         for identifier, entity in entities.items():
             if entity.get("kind") not in ("robot", "held_object"):
                 raise ValueError("only robot/held_object inventory supported")
             if entity["kind"] == "robot" and entity.get("activity") not in ("active", "idle"):
                 raise ValueError("active or idle robot state required")
-            if entity["kind"] == "robot" and entity.get("holder_id") is not None:
+            if entity["kind"] == "robot" and (entity.get("holder_id") is not None
+                                              or "holder_ids" in entity):
                 raise ValueError("robot cannot declare a holder/self-exclusion alias")
             body_ids, paths = entity.get("body_ids"), entity.get("collision_paths")
             if not isinstance(body_ids, list) or not body_ids or len(set(body_ids)) != len(body_ids):
@@ -169,13 +171,48 @@ def collect_current_occupancy(snapshot, *, expected_inventory, now_s, max_age_s=
             expected_bodies.update(body_ids)
             all_paths.update(paths)
             if entity["kind"] == "held_object":
-                holder = entity.get("holder_id")
-                if holder not in entities or entities[holder]["kind"] != "robot":
+                holders = entity.get("holder_ids")
+                if "holder_ids" in entity:
+                    if (entity.get("holder_id") is not None or not isinstance(holders, list)
+                            or len(holders) != 2 or len(set(holders)) != 2
+                            or type(snapshot.get("physics_step")) is not int
+                            or snapshot["physics_step"] < 0):
+                        raise ValueError("paired hold requires two distinct holders and current physics step")
+                    holders = [_name(holder, "paired holder") for holder in holders]
+                else:
+                    holders = [entity.get("holder_id")]
+                if any(holder not in entities or entities[holder]["kind"] != "robot" for holder in holders):
                     raise ValueError("held object holder identity missing")
-                attachment = attached.get(identifier)
-                _context(attachment, snapshot, now, max_age)
-                if attachment.get("kind") != "fixed_attachment_readback" or attachment.get("holder_id") != holder:
-                    raise ValueError("fixed live attachment binding required")
+                joints = attached.get(identifier, [])
+                if len(joints) != len(holders) or {row.get("holder_id") for row in joints} != set(holders):
+                    raise ValueError("complete distinct fixed attachment bindings required")
+                for attachment in joints:
+                    _context(attachment, snapshot, now, max_age)
+                    if attachment.get("kind") != "fixed_attachment_readback":
+                        raise ValueError("fixed live attachment binding required")
+                    if len(holders) == 2:
+                        path = _path(attachment.get("joint_path"))
+                        if (path in all_joint_paths or attachment.get("physics_step") != snapshot["physics_step"]
+                                or attachment.get("solver_response_validated") is not False):
+                            raise ValueError("paired joint identity or same-step readback missing")
+                        all_joint_paths.add(path)
+                        sample = attachment.get("physx_readback")
+                        if (not isinstance(sample, dict) or sample.get("kind") != "physx_fixed_joint"
+                                or sample.get("joint_path") != path or sample.get("physics_step") != snapshot["physics_step"]
+                                or sample.get("enabled") is not True or sample.get("broken") is not False):
+                            raise ValueError("paired PhysX joint readback unavailable")
+                        _name(sample.get("source_id"), "paired PhysX joint source")
+                        for key in ("scene_id", "snapshot_id", "frame_id", "meters_per_unit", "observed_at_s"):
+                            if sample.get(key) != snapshot.get(key):
+                                raise ValueError("paired joint readback context mismatch")
+                        carrier = entities[attachment["holder_id"]]
+                        object_paths = {bodies[key]["prim_path"] for key in body_ids}
+                        carrier_paths = {bodies[key]["prim_path"] for key in carrier["body_ids"]}
+                        pair = {sample.get("body0"), sample.get("body1")}
+                        if (len(pair) != 2 or not pair.intersection(object_paths)
+                                or not pair.intersection(carrier_paths)
+                                or {attachment.get("body0"), attachment.get("body1")} != pair):
+                            raise ValueError("paired joint endpoints disagree with measured carrier/object")
             elif identifier in attached:
                 raise ValueError("robot cannot be a held object")
             measured, found_paths = [], set()
@@ -202,6 +239,8 @@ def collect_current_occupancy(snapshot, *, expected_inventory, now_s, max_age_s=
                 pose, bounds = body.get("pose_source"), body.get("bounds_source")
                 for source in (pose, bounds):
                     _context(source, snapshot, now, max_age)
+                    if result["version"] == 2 and source.get("physics_step") != snapshot["physics_step"]:
+                        raise ValueError("paired body geometry/pose not from the joint readback step")
                     _name(source.get("configuration_revision"), "configuration_revision")
                     if source.get("body_prim_path") != body_path:
                         raise ValueError("source is not bound to the measured body prim")
@@ -216,11 +255,14 @@ def collect_current_occupancy(snapshot, *, expected_inventory, now_s, max_age_s=
                                  "pose_source": deepcopy(pose), "bounds_source": deepcopy(bounds)})
             if found_paths != paths:
                 raise ValueError("collider roster differs from measured bodies")
-            result["entities"].append({"id": identifier, "kind": entity["kind"],
+            measured_entity = {"id": identifier, "kind": entity["kind"],
                 "activity": entity.get("activity"), "holder_id": entity.get("holder_id"),
                 "bodies": measured, "world_aabb_m": [
                     [min(b["world_aabb_m"][0][i] for b in measured) for i in range(3)],
-                    [max(b["world_aabb_m"][1][i] for b in measured) for i in range(3)]]})
+                    [max(b["world_aabb_m"][1][i] for b in measured) for i in range(3)]]}
+            if entity.get("holder_ids") is not None:
+                measured_entity["holder_ids"] = deepcopy(entity["holder_ids"])
+            result["entities"].append(measured_entity)
         if set(bodies) != expected_bodies or set(attached) != {k for k,v in entities.items() if v["kind"] == "held_object"}:
             raise ValueError("incomplete or extra body/held-object inventory")
         result.update(status="current_occupancy", observed_at_s=snapshot["observed_at_s"],
@@ -264,13 +306,14 @@ def _scene_check(query, bounds, delta, excluded):
                   "hits": [], "excluded_self_hits": [], "unsupported_instance_hits": [], "status": "unknown"}
         if kind == "segment_sweep":
             record.update(direction=[v/length for v in delta], distance_m=length)
-        count, errors = 0, []
+        count, errors, terminated_early = 0, [], False
 
         def report(hit):
-            nonlocal count
+            nonlocal count, terminated_early
             count += 1
             if count > MAX_HITS:
                 errors.append("scene_hit_limit")
+                terminated_early = True
                 return False
             try:
                 get = hit.get if isinstance(hit, dict) else lambda key: getattr(hit, key, None)
@@ -298,6 +341,7 @@ def _scene_check(query, bounds, delta, excluded):
                 record["excluded_self_hits" if path in excluded else "hits"].append(row)
             except (ValueError, TypeError) as exc:
                 errors.append(str(exc))
+                terminated_early = True
                 return False
             return True
 
@@ -305,12 +349,14 @@ def _scene_check(query, bounds, delta, excluded):
             if kind == "segment_sweep":
                 returned = query.sweep_box_all(tuple(half), tuple(origin), (0.,0.,0.,1.),
                     tuple(v/length for v in delta), length, report, True)
-                if type(returned) is not bool or returned != bool(count):
+                if type(returned) is not bool or (not terminated_early and returned != bool(count)):
                     errors.append("sweep_completion_callback_mismatch")
             else:
                 returned = query.overlap_box(tuple(half), tuple(origin), (0.,0.,0.,1.), report, False)
-                if type(returned) is not int or returned != count:
+                if type(returned) is not int or (not terminated_early and returned != count):
                     errors.append("overlap_completion_callback_mismatch")
+            record["callback_terminated_early"] = terminated_early
+            record["raw_return"] = returned
             if errors:
                 raise ValueError(";".join(errors))
             record["status"] = "blocked" if record["hits"] else "no_external_hit"
@@ -321,7 +367,8 @@ def _scene_check(query, bounds, delta, excluded):
 
 
 def check_live_segment(snapshot, *, expected_inventory, moving_robot_id, translation_xyz_m,
-                       now_s, query=None, query_context=None, max_age_s=0.1):
+                       now_s, query=None, query_context=None, max_age_s=0.1,
+                       paired_robot_id=None, paired_object_id=None):
     """Check 3-D pure translation, keeping all current body orientations fixed.
 
     PhysX API: overlap_box(half,center,quat_xyzw,callback,False), and
@@ -353,11 +400,43 @@ def check_live_segment(snapshot, *, expected_inventory, moving_robot_id, transla
         entities = {e["id"]: e for e in occupancy["entities"]}
         if moving_robot_id not in entities or entities[moving_robot_id]["kind"] != "robot":
             raise ValueError("moving robot identity missing")
-        moving = [e for e in entities.values() if e["id"] == moving_robot_id or
-                  (e["kind"] == "held_object" and e["holder_id"] == moving_robot_id)]
+        paired = paired_robot_id is not None or paired_object_id is not None
+        if paired:
+            partner, object_id = _name(paired_robot_id, "paired_robot_id"), _name(paired_object_id, "paired_object_id")
+            if (partner == moving_robot_id or partner not in entities
+                    or entities[partner]["kind"] != "robot" or object_id not in entities
+                    or entities[object_id]["kind"] != "held_object"
+                    or set(entities[object_id].get("holder_ids", [])) != {moving_robot_id, partner}
+                    or any(entities[robot]["activity"] != "active" for robot in (moving_robot_id, partner))):
+                raise ValueError("two active carriers and their exact paired held object required")
+            moving_ids = {moving_robot_id, partner, object_id}
+            if any(e["kind"] == "held_object" and e["id"] != object_id and
+                   (e.get("holder_id") in moving_ids or set(e.get("holder_ids", [])) & moving_ids)
+                   for e in entities.values()):
+                raise ValueError("carrier has another held object")
+            result.update(version=2, moving_robot_ids=[moving_robot_id, partner],
+                          paired_object_id=object_id, internal_intersections=[])
+        else:
+            if any(e["kind"] == "held_object" and moving_robot_id in e.get("holder_ids", [])
+                   for e in entities.values()):
+                raise ValueError("paired hold requires group segment check")
+            moving_ids = {moving_robot_id} | {e["id"] for e in entities.values()
+                if e["kind"] == "held_object" and e["holder_id"] == moving_robot_id}
+        moving = [e for e in entities.values() if e["id"] in moving_ids]
         moving_ids = {e["id"] for e in moving}
         excluded = {p: b["prim_path"] for e in moving for b in e["bodies"] for p in b["collision_paths"]}
         result.update(translation_xyz_m=delta, excluded_self_collision_paths=sorted(excluded))
+        if paired:
+            for index, entity in enumerate(moving):
+                for other in moving[index + 1:]:
+                    for body in entity["bodies"]:
+                        for obstacle in other["bodies"]:
+                            if _swept_intersection(body["world_aabb_m"], obstacle["world_aabb_m"], [0, 0, 0]):
+                                result["internal_intersections"].append({"first_entity_id": entity["id"],
+                                    "first_body_id": body["body_id"], "second_entity_id": other["id"],
+                                    "second_body_id": obstacle["body_id"]})
+            if result["internal_intersections"]:
+                result["blockers"].append("paired_group_envelopes_touch_or_overlap")
         for entity in moving:
             for body in entity["bodies"]:
                 for other in entities.values():
@@ -374,6 +453,9 @@ def check_live_segment(snapshot, *, expected_inventory, moving_robot_id, transla
         _context(query_context, snapshot, _number(now_s, "now_s"), _number(max_age_s, "max_age_s"))
         if query_context.get("kind") != "physx_scene_query" or query_context.get("static_colliders_included") is not True:
             raise ValueError("current static PhysX collision scene coverage missing")
+        if paired and (query_context.get("physics_step") != snapshot.get("physics_step")
+                       or query_context.get("readback_frozen") is not True):
+            raise ValueError("paired scene query must use the frozen joint/pose step")
         if query is None:
             raise ValueError("PhysX overlap/sweep query unavailable")
         result["query_context"] = deepcopy(query_context)
@@ -391,4 +473,15 @@ def check_live_segment(snapshot, *, expected_inventory, moving_robot_id, transla
     return result
 
 
-__all__ = ["collect_current_occupancy", "check_live_segment"]
+def check_live_paired_segment(snapshot, *, expected_inventory, carrier_ids, held_object_id,
+                              translation_xyz_m, now_s, query=None, query_context=None, max_age_s=0.1):
+    """Check an attested two-carrier held group at one frozen configuration."""
+    if not isinstance(carrier_ids, (list, tuple)) or len(carrier_ids) != 2:
+        carrier_ids = (None, None)
+    return check_live_segment(snapshot, expected_inventory=expected_inventory,
+        moving_robot_id=carrier_ids[0], paired_robot_id=carrier_ids[1],
+        paired_object_id=held_object_id, translation_xyz_m=translation_xyz_m,
+        now_s=now_s, query=query, query_context=query_context, max_age_s=max_age_s)
+
+
+__all__ = ["collect_current_occupancy", "check_live_segment", "check_live_paired_segment"]

@@ -6,6 +6,8 @@ import pytest
 
 from demo.benchmark.goal_algorithm_adapter import GoalAlgorithmHost
 from demo.benchmark.goal_driven_tasks import build_goal_task_package
+from demo.benchmark.goal_session import GoalSession
+from demo.benchmark.reliable_skill_backend import ReliableSkillReferenceHost
 
 
 SCENES = ("factory", "warehouse_nvd", "modern_house_nvd", "city")
@@ -226,7 +228,7 @@ def test_trusted_skill_receipt_reaches_algorithm_as_public_event():
     bundle = build_goal_task_package("warehouse_nvd")
     public, api = bundle["public_task"], bundle["participant_api"]
     robot = "warehouse_ground_1"
-    plan = {"schema": "eai.benchmark.goal_plan", "version": 2,
+    plan = {"schema": "eai.benchmark.goal_plan", "version": 3,
             "plan_id": "navigation-smoke", "assigned_team": [robot], "tasks": [{
                 "task_id": "nav", "skill": "ground_navigation",
                 "arguments": {"region_id": "rack_aisle_a", "route_ids": ["consolidation_to_rack_a"]},
@@ -254,3 +256,55 @@ def test_trusted_skill_receipt_reaches_algorithm_as_public_event():
         assert host.trusted_report()["session"]["scoreable"] is False
         assert any(event["type"] == "action_result" and event["payload"].get("action_id") == "dispatch"
                    and event["payload"]["status"] == "succeeded" for event in adapter.batches[-1])
+
+
+def test_algorithm_and_skill_hosts_share_one_episode_ledger():
+    bundle = build_goal_task_package("warehouse_nvd")
+    public, api = bundle["public_task"], bundle["participant_api"]
+    robot = "warehouse_ground_1"
+    plan = {"schema": "eai.benchmark.goal_plan", "version": 3,
+            "plan_id": "shared-ledger", "assigned_team": [robot], "tasks": [{
+                "task_id": "shared-nav", "skill": "ground_navigation",
+                "arguments": {"region_id": "consolidation_area",
+                               "route_ids": ["rack_b_to_consolidation"]},
+                "required_capabilities": ["ground_navigation"], "assigned_agents": [robot],
+                "prerequisites": [], "evidence_refs": [],
+                "execution": {"start_s": 0., "duration_s": 16.}}]}
+
+    def decide(events):
+        if events[0]["type"] != "episode_started":
+            return []
+        return [action("select", "select_team", {"agent_ids": [robot]}),
+                action("plan", "submit_plan", {"plan": plan}),
+                action("dispatch", "dispatch_skill", {"task_id": "shared-nav", "evidence_refs": []})]
+
+    session = GoalSession(public, api)
+    adapter = RecordingAdapter(decide)
+    host = GoalAlgorithmHost(public, api, adapter, session=session)
+    regions = {
+        row["id"]: next(region["id"] for region in public["public_world"]["regions"]
+                         if ("aerial_navigation" if row["mobility"] == "aerial"
+                             else "ground_navigation") in region["access_modes"])
+        for row in public["candidate_robot_pool"]
+    }
+    regions[robot] = "rack_aisle_b"
+    backend = ReliableSkillReferenceHost(public, robot_regions=regions, session=session)
+
+    assert all(row["accepted"] for row in host.request_actions())
+    backend.set_occupancy(time_s=0., blocked_routes={}, blocked_regions={},
+                          evidence_ref="shared-ledger:clear")
+    result = backend.execute_pending("shared-nav", completed_at_s=16.)
+    assert result["accepted"] and result["status"] == "succeeded"
+    assert host.trusted_report()["session"]["tasks"]["shared-nav"]["status"] == "succeeded"
+    assert backend.report()["ledger"]["tasks"]["shared-nav"]["status"] == "succeeded"
+    host.close()
+
+
+def test_shared_host_rejects_a_session_bound_to_another_task():
+    warehouse = build_goal_task_package("warehouse_nvd")
+    factory = build_goal_task_package("factory")
+    adapter = RecordingAdapter(lambda events: [])
+    with pytest.raises(ValueError, match="different task"):
+        GoalAlgorithmHost(
+            warehouse["public_task"], warehouse["participant_api"], adapter,
+            session=GoalSession(factory["public_task"], factory["participant_api"]))

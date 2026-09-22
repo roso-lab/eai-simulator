@@ -62,7 +62,8 @@ def test_only_experimental_m20_spawn_changes_and_full_public_objects_preserved(p
         probe.prepare_probe(root)
 
 
-@pytest.mark.parametrize("field,value", [("phases", []), ("source_files", {}), ("scoreable", True),
+@pytest.mark.parametrize("field,value", [("version", 1), ("formal_binding", {}),
+    ("phases", []), ("source_files", {}), ("scoreable", True),
     ("member_id", "warehouse_ground_2"), ("gui", "yes"), ("device", "bad"), ("run_id", "bad")])
 def test_request_corruption_rejected(prepared, field, value):
     root, request, _ = prepared

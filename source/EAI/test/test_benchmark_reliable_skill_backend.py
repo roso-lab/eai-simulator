@@ -39,7 +39,7 @@ def action(host, kind, payload):
 def prepare(host, tasks):
     team = sorted({a for t in tasks for a in t["assigned_agents"]})
     action(host, "select_team", {"agent_ids": team})
-    action(host, "submit_plan", {"plan": {"schema": "eai.benchmark.goal_plan", "version": 2,
+    action(host, "submit_plan", {"plan": {"schema": "eai.benchmark.goal_plan", "version": 3,
         "plan_id": "plan", "assigned_team": team, "tasks": tasks}})
 
 
@@ -173,12 +173,93 @@ def test_cooperative_fixed_points_and_payload_constraints():
     assert host.state()["robot_regions"][G] == host.state()["robot_regions"][O] == "consolidation_area"
 
 
-def test_overweight_single_grasp_rejected_before_dispatch(host):
-    illegal = pick()
-    illegal["arguments"].update(object_id="order_crate_01", pickup_region_id="rack_aisle_a")
-    with pytest.raises(ValueError):
-        prepare(host, [illegal])
-    assert host.report()["evidence"] == []
+def test_overweight_single_grasp_is_admitted_then_fails_without_motion(host):
+    illegal = task("crate_single", "pick", {
+        "object_id": "order_crate_01", "pickup_region_id": "rack_aisle_a",
+        "handling_mode_id": "single_grip",
+        "carrier_bindings": [{"agent_id": G, "point_id": "center_grip"}],
+    }, duration=4.)
+    host._robots[G] = "rack_aisle_a"
+    host.advance(0.)
+    prepare(host, [illegal])
+    dispatch(host, "crate_single")
+    occupancy(host)
+    before = host.state()
+    result = host.execute_pending("crate_single", completed_at_s=4.)
+    assert result["accepted"] and result["status"] == "failed"
+    assert host.state()["object_states"] == before["object_states"]
+    evidence = host.report()["evidence"][-1]
+    assert evidence["reason"] == "physical_skill_failure"
+    assert evidence["observation"] == {
+        "skill_succeeded": False,
+        "object_moved": False,
+        "task_advanced": False,
+        "carrier_load_monitor": [{
+            "agent_id": G, "requested_load_kg": 12.0, "effective_payload_kg": 8.0,
+        }],
+    }
+    assert "add another" not in repr(evidence).lower()
+
+
+def test_failed_single_grasp_can_be_replanned_as_feasible_pair(host):
+    illegal = task("crate_single", "pick", {
+        "object_id": "order_crate_01", "pickup_region_id": "rack_aisle_a",
+        "handling_mode_id": "single_grip",
+        "carrier_bindings": [{"agent_id": G, "point_id": "center_grip"}],
+    }, duration=4.)
+    host._robots[G] = "rack_aisle_a"
+    host._robots[O] = "rack_aisle_a"
+    host.advance(0.)
+    prepare(host, [illegal])
+    dispatch(host, "crate_single")
+    occupancy(host)
+    assert host.execute_pending("crate_single", completed_at_s=4.)["status"] == "failed"
+
+    carry = task("crate_pair", "cooperative_carry", {
+        "object_id": "order_crate_01", "destination_region_id": "consolidation_area",
+        "route_ids": ["rack_a_to_consolidation"], "handling_mode_id": "paired_support",
+        "carrier_bindings": [
+            {"agent_id": G, "point_id": "support_left"},
+            {"agent_id": O, "point_id": "support_right"},
+        ],
+    }, agents=(G, O), start=4., duration=16.)
+    action(host, "select_team", {"agent_ids": [G, O]})
+    action(host, "revise_plan", {
+        "trigger_event_sequence": [len(host.report()["ledger"]["events"]) - 1],
+        "replaced_plan_id": "plan", "reason": "observed skill failure",
+        "plan": {"schema": "eai.benchmark.goal_plan", "version": 3,
+                  "plan_id": "replan", "assigned_team": [G, O], "tasks": [carry]},
+    })
+    dispatch(host, "crate_pair")
+    occupancy(host)
+    result = host.execute_pending("crate_pair", completed_at_s=20.)
+    assert result["accepted"] and result["status"] == "succeeded"
+    assert host.state()["object_states"]["order_crate_01"] == {
+        "region_id": "consolidation_area"
+    }
+
+
+def test_member_exit_leaves_single_carrier_attempt_as_observed_capacity_failure(host):
+    """A delivered exit must not turn a remaining single attempt into admission failure."""
+    host._robots[G] = "rack_aisle_a"
+    host._robots[O] = "rack_aisle_a"
+    host.advance(0.)
+    illegal = task("crate_after_exit", "pick", {
+        "object_id": "order_crate_01", "pickup_region_id": "rack_aisle_a",
+        "handling_mode_id": "single_grip",
+        "carrier_bindings": [{"agent_id": G, "point_id": "center_grip"}],
+    }, duration=4.)
+    action(host, "select_team", {"agent_ids": [G, O]})
+    action(host, "submit_plan", {"plan": {
+        "schema": "eai.benchmark.goal_plan", "version": 3,
+        "plan_id": "exit-plan", "assigned_team": [G, O], "tasks": [illegal]}})
+    dispatch(host, "crate_after_exit")
+    host.emit("member_exit", 0., {"agent_id": O})
+    occupancy(host)
+    result = host.execute_pending("crate_after_exit", completed_at_s=4.)
+    assert result["accepted"] and result["status"] == "failed"
+    assert host.report()["evidence"][-1]["reason"] == "physical_skill_failure"
+    assert host.report()["evidence"][-1]["observation"]["task_advanced"] is False
 
 
 def test_observation_and_city_services_cannot_be_fabricated(host):

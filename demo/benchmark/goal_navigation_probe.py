@@ -19,7 +19,7 @@ import subprocess
 import sys
 import time
 
-from .goal_driven_contract import build_goal_participant_api, validate_goal_plan
+from .goal_driven_contract import GOAL_PLAN_VERSION, build_goal_participant_api, validate_goal_plan
 from .goal_driven_tasks import build_goal_task_package
 from .provenance import REPO_ROOT, canonical_sha256, file_sha256
 
@@ -97,7 +97,7 @@ def _probe_inputs():
             row["physical_profile"]["reach_m"] = 0.0
             row["physical_profile"]["grasp_interfaces"] = []
     plan = {
-        "schema": "eai.benchmark.goal_plan", "version": 2,
+        "schema": "eai.benchmark.goal_plan", "version": GOAL_PLAN_VERSION,
         "plan_id": "author_navigation_probe", "assigned_team": [agent],
         "tasks": [{"task_id": "probe_navigation", "skill": "ground_navigation",
                    "arguments": {"region_id": "navigation_probe_goal", "route_ids": ["navigation_probe_route"]},
@@ -170,7 +170,11 @@ def execute_navigation_probe(output_root, *, device="cuda:0", process_timeout_s=
     root = Path(output_root).absolute()
     inputs = load_navigation_probe(root)
     binding = inputs["diagnostic_binding.json"]
-    session = GoalSession(inputs["public_task.json"], inputs["participant_api.json"])
+    # Navigation probe inputs do not expose a request file; bind the diagnostic
+    # identity to the reviewed binding and output root for this one run.
+    episode_id = f"navigation-probe:{canonical_sha256({'binding': binding, 'root': str(root)})[:32]}"
+    session = GoalSession(inputs["public_task.json"], inputs["participant_api.json"],
+                          episode_id=episode_id)
     session.update_runtime_state(0.0, {binding["agent_id"]: "navigation_probe_start"}, {})
     actions = [
         ("probe_select", "select_team", {"agent_ids": [binding["agent_id"]]}),
@@ -189,6 +193,7 @@ def execute_navigation_probe(output_root, *, device="cuda:0", process_timeout_s=
                "--device", device, "--headless", "--steps", "1800", "--wall-timeout-s", "120",
                "--report", str(report_path)]
     launch = {"command": command, "dispatched_action_id": "probe_dispatch",
+              "episode_id": episode_id,
               "diagnostic_binding_sha256": canonical_sha256(binding),
               "input_sha256": {name: file_sha256(root / name) for name in sorted(_FILES)},
               "process_timeout_s": process_timeout_s, "initial_state_basis": "frozen_spawn_declaration"}
@@ -229,7 +234,7 @@ def execute_navigation_probe(output_root, *, device="cuda:0", process_timeout_s=
             "backend_id": "warehouse_navigation_probe",
             "receipt_ref": "sha256:" + file_sha256(run / "deployment_review.json"),
             "task_id": binding["task_id"], "action_id": "probe_dispatch", "status": "succeeded",
-            "completed_at_s": completion_time,
+            "completed_at_s": completion_time, "episode_id": episode_id,
             "evidence_refs": ["sha256:" + file_sha256(report_path),
                               "sha256:" + file_sha256(run / "launch_request.json")],
         }
@@ -239,7 +244,7 @@ def execute_navigation_probe(output_root, *, device="cuda:0", process_timeout_s=
     _write(run / "ledger_after_review.json", session.report())
     result = {"schema": "eai.benchmark.goal_navigation_probe", "version": 1,
               "scope": "author_navigation_diagnostic_not_business_task",
-              "process": process_result, "completion": completion,
+              "episode_id": episode_id, "process": process_result, "completion": completion,
               "navigation_validated": review["navigation_validated"],
               "physical_control_validated": False, "business_outcomes_validated": False,
               "whole_task_scene_binding_validated": False, "scoreable": False,

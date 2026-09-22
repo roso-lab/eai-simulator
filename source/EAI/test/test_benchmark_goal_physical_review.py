@@ -7,6 +7,7 @@ import sys
 import pytest
 
 from demo.benchmark import goal_physical_review as review
+from demo.benchmark.goal_physical_probe import ROOT, _LOCAL_SOURCES, _probe_sources
 from demo.benchmark.provenance import canonical_sha256, file_sha256
 
 
@@ -64,6 +65,15 @@ def test_native_steps_prove_only_instance_readback_and_bounded_settle(archive):
     assert result["native_instance_and_step_readback_validated"]
     assert result["all_robots_bounded_settle"]
     assert result["physical_task_execution_validated"] is result["scoreable"] is False
+
+
+def test_warehouse_late_query_source_is_frozen_without_precontrol_load_requirement():
+    path = str(ROOT / "demo/benchmark/goal_scene_query_calibration.py")
+    deployment = {"scene_key": "factory", "scene_overlay": {"source_files": {}}}
+    assert "goal_scene_query_calibration.py" not in _LOCAL_SOURCES
+    assert path not in _probe_sources(deployment)
+    deployment["scene_key"] = "warehouse_nvd"
+    assert _probe_sources(deployment)[path] == file_sha256(ROOT / "demo/benchmark/goal_scene_query_calibration.py")
 
 
 @pytest.mark.parametrize("mutation", ["alias", "controller", "time", "negative_time", "dt", "device", "source_coverage",

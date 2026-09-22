@@ -206,6 +206,74 @@ def test_unknown_geometry_is_not_replaced_with_declared_size_or_skipped(data, mu
         assert report["body_audit"][1]["status"] == "measured"
 
 
+@pytest.mark.parametrize("kind", ["xform", "convex_decomposition"])
+def test_explicit_native_shape_reader_can_cover_unsupported_geometry(data, kind):
+    stage = data["stage"]
+    path = "/World/A/base/collision"
+    stage.RemovePrim(path)
+    if kind == "xform":
+        prim = UsdGeom.Xform.Define(stage, path).GetPrim()
+    else:
+        mesh = UsdGeom.Mesh.Define(stage, path)
+        mesh.CreatePointsAttr([(-1, -1, -1), (1, -1, -1), (0, 1, -1), (0, 0, 1)])
+        mesh.CreateFaceVertexCountsAttr([3, 3, 3, 3])
+        mesh.CreateFaceVertexIndicesAttr([0, 1, 2, 0, 1, 3, 0, 2, 3, 1, 2, 3])
+        prim = mesh.GetPrim()
+        UsdPhysics.MeshCollisionAPI.Apply(prim).CreateApproximationAttr("convexDecomposition")
+    UsdPhysics.CollisionAPI.Apply(prim)
+    seen = []
+
+    def reader(shape_stage, body, colliders):
+        seen.append((shape_stage, str(body.GetPath()), [str(p.GetPath()) for p in colliders]))
+        return [[-.25, -.5, -.75], [.25, .5, .75]], [{
+            "collision_path": path, "property_callback": {"path": path},
+            "query": {"body_path": "/World/A/base", "physics_step": 10, "complete": True}}]
+
+    report = collect(data, shape_bounds_reader=reader)
+    assert report["status"] == "current_occupancy", report["blockers"]
+    assert seen == [(stage, "/World/A/base", [path])]
+    assert report["snapshot"]["bodies"][0]["local_collision_bounds_m"] == [[-.25, -.5, -.75], [.25, .5, .75]]
+    assert report["snapshot"]["bodies"][0]["bounds_source"]["kind"] == "physx_collision_bounds"
+    assert report["snapshot"]["bodies"][1]["bounds_source"]["kind"] == "usd_collision_bounds"
+    assert report["scoreable"] is False and report["measurement_authenticity_validated"] is False
+
+
+@pytest.mark.parametrize("mutation", ["missing", "duplicate", "wrong_body", "stale_step", "incomplete", "bad_bounds"])
+def test_native_shape_reader_fail_closed_on_incomplete_property_evidence(data, mutation):
+    stage = data["stage"]
+    path = "/World/A/base/collision"
+    stage.RemovePrim(path)
+    UsdPhysics.CollisionAPI.Apply(UsdGeom.Xform.Define(stage, path).GetPrim())
+
+    def reader(_stage, _body, _colliders):
+        row = {"collision_path": path, "property_callback": {"path": path},
+               "query": {"body_path": "/World/A/base", "physics_step": 10, "complete": True}}
+        if mutation == "wrong_body": row["query"]["body_path"] = "/World/other"
+        elif mutation == "stale_step": row["query"]["physics_step"] = 9
+        elif mutation == "incomplete": row["query"]["complete"] = False
+        evidence = [] if mutation == "missing" else [row, deepcopy(row)] if mutation == "duplicate" else [row]
+        bounds = [[1, 0, 0], [0, 1, 1]] if mutation == "bad_bounds" else [[-1, -1, -1], [1, 1, 1]]
+        return bounds, evidence
+
+    report = collect(data, shape_bounds_reader=reader)
+    assert report["status"] == "blocked"
+    assert report["snapshot"] is None and report["expected_inventory"] == []
+    assert report["body_audit"][0]["status"] == "blocked"
+
+
+def test_native_reader_does_not_hide_malformed_regular_geometry(data):
+    stage = data["stage"]
+    UsdGeom.Cube(stage.GetPrimAtPath("/World/A/base/collision")).CreateSizeAttr(-1)
+    calls = []
+
+    def reader(*_args):
+        calls.append(True)
+        return [[-1, -1, -1], [1, 1, 1]], []
+
+    report = collect(data, shape_bounds_reader=reader)
+    assert report["status"] == "blocked" and not calls
+
+
 @pytest.mark.parametrize("disabled", [False, True])
 def test_loaded_noncolliding_link_keeps_live_audit_but_no_occupancy_box(data, disabled):
     prim = data["stage"].GetPrimAtPath("/World/A/link/collision")
@@ -311,6 +379,35 @@ def test_held_object_requires_joint_runtime_readback_and_its_own_live_pose(data)
     assert report["snapshot"]["bodies"][-1]["position_xyz_m"] == [1, 0, 1]
     assert report["snapshot"]["attachments"][0]["kind"] == "fixed_attachment_readback"
     assert report["expected_inventory"][-1]["holder_id"] == "A"
+
+
+def test_paired_held_object_requires_both_native_joint_readbacks(data):
+    binding, first = hold(data)
+    cube_body(data["stage"], "/World/B/base")
+    data["scene"].articulations["other"] = SimpleNamespace(root_physx_view=View(
+        [["/World/B/base"]], [[[3, 0, 1, 0, 0, 0, 1]]]))
+    data["bindings"].append(dict(id="B", scene_key="other", instance_index=0,
+                                 root_path="/World/B", activity="active"))
+    data["bindings"][0]["activity"] = "active"
+    second_path = "/World/joints/hold_b"
+    second_joint = UsdPhysics.FixedJoint.Define(data["stage"], second_path)
+    second_joint.CreateBody0Rel().SetTargets(["/World/B/base"])
+    second_joint.CreateBody1Rel().SetTargets(["/World/tool"])
+    second = dict(first, joint_path=second_path, body0="/World/B/base")
+    binding.pop("holder_id")
+    binding.pop("joint_path")
+    binding["holder_bindings"] = [
+        {"holder_id": "A", "joint_path": "/World/joints/hold"},
+        {"holder_id": "B", "joint_path": second_path}]
+    samples = {first["joint_path"]: first, second_path: second}
+    report = collect(data, held_bindings=[binding], joint_reader=samples.__getitem__)
+    assert report["status"] == "current_occupancy", report["blockers"]
+    assert report["version"] == report["occupancy"]["version"] == 2
+    assert report["expected_inventory"][-1]["holder_ids"] == ["A", "B"]
+    assert len(report["snapshot"]["attachments"]) == 2
+    assert {row["status"] for row in report["joint_audit"]} == {"declared_attachment"}
+    incomplete = collect(data, held_bindings=[binding], joint_reader=lambda path: first)
+    assert incomplete["status"] == "blocked" and incomplete["snapshot"] is None
 
 
 @pytest.mark.parametrize("mutation", ["unlisted", "broken", "wrong_endpoint", "stale", "disabled", "wrong_kind"])

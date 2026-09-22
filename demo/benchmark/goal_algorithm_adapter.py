@@ -89,6 +89,8 @@ class GoalAlgorithmHost:
         public_task: Mapping[str, Any],
         participant_api: Mapping[str, Any],
         adapter: GoalAlgorithmAdapter,
+        *,
+        session: GoalSession | None = None,
     ) -> None:
         validate_goal_task_spec(public_task)
         self._public_task = deepcopy(dict(public_task))
@@ -96,7 +98,9 @@ class GoalAlgorithmHost:
         self._participant_api = deepcopy(dict(participant_api))
         self._adapter = adapter
         self._adapter_manifest = validate_goal_adapter_manifest(adapter.manifest())
-        self._session = GoalSession(self._public_task, self._participant_api)
+        self._session = session or GoalSession(self._public_task, self._participant_api)
+        if session is not None:
+            self._session.assert_compatible(self._public_task, self._participant_api)
         self._event_cursor = 0
         self._closed = False
         self._failed = False

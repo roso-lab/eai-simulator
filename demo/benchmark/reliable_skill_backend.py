@@ -17,7 +17,8 @@ from __future__ import annotations
 from copy import deepcopy
 import math
 
-from .goal_driven_contract import build_goal_participant_api, validate_goal_plan
+from .goal_constraints import assess_transport_binding
+from .goal_driven_contract import GOAL_PLAN_VERSION, build_goal_participant_api, validate_goal_plan
 from .goal_session import GoalSession
 from .provenance import canonical_sha256
 
@@ -43,9 +44,13 @@ class ReliableSkillReferenceHost:
     This is a reference integration boundary, not a participant security server.
     """
 
-    def __init__(self, public_task, *, robot_regions):
+    def __init__(self, public_task, *, robot_regions, session: GoalSession | None = None):
         self._spec = deepcopy(public_task)
-        self._session = GoalSession(public_task, build_goal_participant_api(public_task))
+        self._api = build_goal_participant_api(public_task)
+        self._shared_session = session is not None
+        self._session = session or GoalSession(public_task, self._api)
+        if session is not None:
+            self._session.assert_compatible(public_task, self._api)
         expected = {row["id"] for row in public_task["candidate_robot_pool"]}
         if not isinstance(robot_regions, dict) or set(robot_regions) != expected:
             raise ValueError("reference backend requires a region for every candidate robot")
@@ -171,13 +176,16 @@ class ReliableSkillReferenceHost:
         if end - now < minimum or end > task["execution"]["start_s"] + task["execution"]["duration_s"]:
             raise ValueError("reference operation needs its full minimum duration within the admitted window")
         # Recheck against committed state/current declarations. Prior DAG
-        # dependencies are already enforced by GoalSession at dispatch.
+        # dependencies are already enforced by GoalSession at dispatch. The
+        # participant path intentionally permits a physically infeasible
+        # transport choice through this protocol boundary; the reference host
+        # turns that choice into a deterministic observed skill failure below.
         current_task = deepcopy(task)
         current_task["prerequisites"] = []
         current_task["execution"] = {"start_s": now, "duration_s": end - now}
         dispatch = next(action for action in report["actions"] if action["action_id"] == row["dispatch_action_id"])
         current_task["evidence_refs"] = sorted(set(task["evidence_refs"]) | set(dispatch["payload"]["evidence_refs"]))
-        plan = {"schema": "eai.benchmark.goal_plan", "version": 2,
+        plan = {"schema": "eai.benchmark.goal_plan", "version": GOAL_PLAN_VERSION,
                 "plan_id": "reference_current_step", "assigned_team": task["assigned_agents"],
                 "tasks": [current_task]}
         pool = {robot["id"] for robot in self._spec["candidate_robot_pool"]}
@@ -188,7 +196,33 @@ class ReliableSkillReferenceHost:
                    "capability_updates": [r for a, r in report["current_robot_declarations"].items() if a in pool]}
         # Evidence may have expired while dispatch was held. Recheck the full
         # call at actual reference start, including current capability versions.
-        validate_goal_plan(plan, task_spec=self._spec, context=context)
+        validate_goal_plan(
+            plan, task_spec=self._spec, context=context,
+            allow_physical_infeasibility=True)
+        if skill in {"pick", "cooperative_carry"}:
+            assigned = task["assigned_agents"]
+            declarations = report["current_robot_declarations"]
+            assessment = assess_transport_binding(
+                self._spec, args["object_id"], args, assigned,
+                robot_rows=declarations)
+            if not assessment["feasible"]:
+                observation = {
+                    "skill_succeeded": False,
+                    "object_moved": False,
+                    "task_advanced": False,
+                    "carrier_load_monitor": [
+                        {
+                            "agent_id": row["agent_id"],
+                            "requested_load_kg": row["load_kg"],
+                            "effective_payload_kg": assessment["physical_profiles"][
+                                row["agent_id"]]["effective_payload_kg"],
+                        }
+                        for row in assessment["member_loads_kg"]
+                    ],
+                }
+                return self._commit(
+                    row, end, "failed", self._robots, self._objects,
+                    reason="physical_skill_failure", observation=observation)
         robots, objects = deepcopy(self._robots), deepcopy(self._objects)
         assigned = task["assigned_agents"]
         if skill == "pick":
@@ -206,7 +240,7 @@ class ReliableSkillReferenceHost:
                 robots[agent] = destination
         return self._commit(row, end, "succeeded", robots, objects, reason="conditional_reference_effect")
 
-    def _commit(self, row, time_s, status, robots, objects, *, reason):
+    def _commit(self, row, time_s, status, robots, objects, *, reason, observation=None):
         evidence = {"schema": "eai.benchmark.reference_skill_evidence", "version": 1,
                     "origin": "deterministic_reference_not_simulator",
                     "task_id": row["task"]["task_id"], "action_id": row["dispatch_action_id"],
@@ -217,23 +251,45 @@ class ReliableSkillReferenceHost:
                     "occupancy": deepcopy(self._occupancy),
                     "physical_execution_validated": False, "business_outcomes_validated": False,
                     "scoreable": False}
+        if observation is not None:
+            evidence["observation"] = deepcopy(observation)
         ref = "sha256:" + canonical_sha256(evidence)
         receipt = {"backend_id": "reliable_skill_reference_v1", "receipt_ref": ref,
                    "task_id": row["task"]["task_id"], "action_id": row["dispatch_action_id"],
                    "status": status, "completed_at_s": time_s, "evidence_refs": [ref]}
-        # Stage all ledger mutation on a copy so a rejected snapshot cannot
-        # leave a succeeded task with uncommitted reference state.
-        session = deepcopy(self._session)
-        result = session.complete_skill(row["task"]["task_id"], time_s=time_s, status=status, receipt=receipt)
-        if not result["accepted"]:
-            return result
-        session.update_runtime_state(time_s, robots, objects)
-        self._session = session
+        episode_id = self._session.report().get("episode_id")
+        if episode_id is not None:
+            receipt["episode_id"] = episode_id
+        # Keep the shared episode ledger identity when an external runner
+        # injects one. The standalone backend retains its transactional copy.
+        if self._shared_session:
+            snapshot = deepcopy(self._session.__dict__)
+            try:
+                result = self._session.complete_skill(
+                    row["task"]["task_id"], time_s=time_s, status=status, receipt=receipt)
+                if not result["accepted"]:
+                    return result
+                self._session.update_runtime_state(time_s, robots, objects)
+            except BaseException:
+                self._session.__dict__ = snapshot
+                raise
+        else:
+            session = deepcopy(self._session)
+            result = session.complete_skill(
+                row["task"]["task_id"], time_s=time_s, status=status, receipt=receipt)
+            if not result["accepted"]:
+                return result
+            session.update_runtime_state(time_s, robots, objects)
+            self._session = session
         self._robots, self._objects = deepcopy(robots), deepcopy(objects)
         self._state_version += 1
         self._occupancy = None
         self._evidence.append({**evidence, "sha256": ref.removeprefix("sha256:")})
-        return {**result, "evidence_ref": ref, "execution_origin": "deterministic_reference_not_simulator"}
+        response = {**result, "evidence_ref": ref,
+                    "execution_origin": "deterministic_reference_not_simulator"}
+        if observation is not None:
+            response["observation"] = deepcopy(observation)
+        return response
 
     def report(self):
         return {"state": self.state(), "ledger": self._session.report(),
