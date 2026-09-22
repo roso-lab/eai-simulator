@@ -109,7 +109,9 @@ def build_city_episode_plan(public_task: Mapping[str, Any]) -> dict[str, Any]:
     observation tasks: the native host has already placed the responders and
     delivered the observation.  When the public contract publishes
     ``aerial_broadcast`` (City pool v3), one broadcast covering the whole
-    roster is inserted first and assigned to ``iris_1``; v1/v2 plans omit it.
+    roster is scheduled after the ground guidance tasks and assigned to
+    ``iris_1``.  Placing it first would timestamp contact before the ground
+    request and start the assembly clock early.  v1/v2 plans omit it.
     Windows are scheduled serially on the common simulation clock with the
     public ``skill_durations_s``; the report cites the frozen service endpoint.
     """
@@ -139,18 +141,6 @@ def build_city_episode_plan(public_task: Mapping[str, Any]) -> dict[str, Any]:
     tasks: list[dict[str, Any]] = []
     guide_ids: list[str] = []
     clock_s = 0.0
-    if "aerial_broadcast" in durations:
-        roster = sorted(_CITY_NATIVE_AFFECTED_PERSON_ASSEMBLY)
-        tasks.append(row(
-            "aerial_broadcast_roster", "aerial_broadcast",
-            {"person_ids": roster, "observation_refs": [CITY_NATIVE_OBSERVATION_REF]},
-            [], ["iris_1"], clock_s))
-        # The skill name is the declared capability gate. Ontology requirements
-        # are aerial_navigation plus relay; iris_1 on pool v3 also publishes
-        # aerial_broadcast, and a ground-only assignee must fail that check.
-        tasks[-1]["required_capabilities"] = sorted(
-            set(tasks[-1]["required_capabilities"]) | {"aerial_broadcast"})
-        clock_s += float(durations["aerial_broadcast"])
     for index, (region_id, person_ids) in enumerate(groups):
         task_id = f"guide_people_{region_id}"
         # The first two groups may be acknowledged in either order; the rest
@@ -163,6 +153,19 @@ def build_city_episode_plan(public_task: Mapping[str, Any]) -> dict[str, Any]:
                          prerequisites, ["go2_1"], clock_s))
         guide_ids.append(task_id)
         clock_s += float(durations["guide_people"])
+    if "aerial_broadcast" in durations:
+        roster = sorted(_CITY_NATIVE_AFFECTED_PERSON_ASSEMBLY)
+        tasks.append(row(
+            "aerial_broadcast_roster", "aerial_broadcast",
+            {"person_ids": roster,
+             "observation_refs": [CITY_NATIVE_OBSERVATION_REF]},
+            [guide_ids[0]], ["iris_1"], clock_s))
+        # The skill name is the declared capability gate. Ontology requirements
+        # are aerial_navigation plus relay; iris_1 on pool v3 also publishes
+        # aerial_broadcast, and a ground-only assignee must fail that check.
+        tasks[-1]["required_capabilities"] = sorted(
+            set(tasks[-1]["required_capabilities"]) | {"aerial_broadcast"})
+        clock_s += float(durations["aerial_broadcast"])
     control_id = "control_following_traffic_hold"
     tasks.append(row(control_id, "control_following_traffic",
                      {"vehicle_ids": list(_CITY_NATIVE_FOLLOWING_VEHICLE_IDS),

@@ -166,7 +166,10 @@ def test_v3_reduced_episode_plan_still_validates(v3_public):
     assert broadcasts[0]["assigned_agents"] == ["iris_1"]
     assert broadcasts[0]["task_id"] == "aerial_broadcast_roster"
     assert sorted(broadcasts[0]["arguments"]["person_ids"]) == sorted(ROSTER_IDS)
-    assert plan["tasks"][0]["skill"] == "aerial_broadcast"
+    guide_ids = [task["task_id"] for task in plan["tasks"] if task["skill"] == "guide_people"]
+    assert broadcasts[0]["prerequisites"] == [guide_ids[0]]
+    assert plan["tasks"].index(broadcasts[0]) > plan["tasks"].index(
+        next(task for task in plan["tasks"] if task["task_id"] == guide_ids[-1]))
 
 
 # -- 2. cross-version catalog admission --------------------------------------
