@@ -149,6 +149,64 @@ def _public_skill_observation(value: Any, task: Mapping[str, Any], status: str) 
     return deepcopy(dict(value))
 
 
+def team_usage_summary(trusted_report: Mapping[str, Any],
+                       public_task: Mapping[str, Any]) -> dict[str, Any]:
+    """Derive the standard per-episode team-usage record from trusted data.
+
+    Score owners decide how (or whether) to score "using fewer robots"; this
+    record only guarantees every episode archives the raw facts such a score
+    needs. Everything is derived from the session ledger and the public task
+    (never participant self-reports): the selected team, the agents the
+    submitted plans actually assign, the agents that reached a dispatch, and
+    a per-agent activation cost proxy summed over the active set (type table
+    from the candidate-pool design when the scene provides one, 1.0
+    otherwise - the source is declared either way).
+    """
+    session = trusted_report.get("session", {})
+    actions = session.get("actions") or []
+    selected: list[str] = []
+    for row in actions:
+        if row.get("type") == "select_team":
+            selected = [str(a) for a in (row.get("payload") or {}).get("agent_ids", [])]
+            break
+    plan_agents: set[str] = set()
+    dispatched_agents: set[str] = set()
+    for plan in (session.get("plans") or {}).values():
+        for task in (plan.get("plan") or {}).get("tasks", []):
+            plan_agents.update(str(a) for a in task.get("assigned_agents", []))
+    for row in actions:
+        if row.get("type") != "dispatch_skill":
+            continue
+        task_id = (row.get("payload") or {}).get("task_id")
+        for plan in (session.get("plans") or {}).values():
+            for task in (plan.get("plan") or {}).get("tasks", []):
+                if task.get("task_id") == task_id:
+                    dispatched_agents.update(str(a) for a in task.get("assigned_agents", []))
+    pool_rows = public_task.get("candidate_robot_pool") or []
+    cost_table: dict[str, float] = {}
+    cost_source = "unit_default"
+    try:
+        from .candidate_pool_design import activation_cost as _pool_cost
+        cost_table = {row["id"]: float(_pool_cost(row)) for row in pool_rows}
+        cost_source = "candidate_pool_design.activation_cost"
+    except Exception:
+        cost_table = {}
+    active = sorted(dispatched_agents)
+    total_cost = round(sum(cost_table.get(a, 1.0) for a in active), 4)
+    return {
+        "schema": "eai.benchmark.goal_team_usage", "version": 1,
+        "selected_team": selected,
+        "selected_team_size": len(selected),
+        "plan_assigned_agents": sorted(plan_agents),
+        "active_agents": active,
+        "active_team_size": len(active),
+        "activation_cost_proxy": total_cost,
+        "activation_cost_source": cost_source,
+        "action_count": len(actions),
+        "scoreable": False,
+    }
+
+
 class FormalGoalEpisodeRunner:
     """Run one trusted goal episode and archive its complete ledger."""
 
@@ -292,6 +350,8 @@ class FormalGoalEpisodeRunner:
         _write_json(self.output_root / "business_evidence.json", {
             "episode_id": self.episode_id, "outcomes": business,
             "execution_validated": False, "scoreable": False})
+        _write_json(self.output_root / "team_usage.json",
+                    team_usage_summary(final_report, self.public_task))
         _write_json(self.output_root / "participant_trace.json", {
             "episode_id": self.episode_id,
             "events": deepcopy(final_report.get("events", [])),

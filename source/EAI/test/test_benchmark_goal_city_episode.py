@@ -715,3 +715,28 @@ def test_city_episode_cli_algorithm_choices_include_emos(capsys):
         episode.main(["--help"])
     assert exc.value.code == 0
     assert "{witness,teamweaver,teamweaver_llm,emos,emos_llm}" in capsys.readouterr().out
+
+
+def test_team_usage_summary_derives_from_trusted_ledger(city_package):
+    """Every episode archives the facts a 'fewer robots' score would need."""
+    from demo.benchmark.goal_episode_runner import team_usage_summary
+
+    public = city_package["public_task"]
+    report = {"session": {
+        "actions": [
+            {"type": "select_team", "payload": {"agent_ids": ["go2_1", "iris_1"]}},
+            {"type": "dispatch_skill", "payload": {"task_id": "t1"}},
+        ],
+        "plans": {"p1": {"plan": {"tasks": [
+            {"task_id": "t1", "assigned_agents": ["go2_1"]},
+            {"task_id": "t2", "assigned_agents": ["iris_1"]},
+        ]}}},
+    }}
+    usage = team_usage_summary(report, public)
+    assert usage["selected_team"] == ["go2_1", "iris_1"]
+    assert usage["selected_team_size"] == 2
+    assert usage["plan_assigned_agents"] == ["go2_1", "iris_1"]
+    assert usage["active_agents"] == ["go2_1"]
+    assert usage["active_team_size"] == 1
+    assert usage["activation_cost_proxy"] > 0
+    assert usage["scoreable"] is False
