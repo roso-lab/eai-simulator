@@ -22,6 +22,45 @@ from .goal_episode_runner import FormalGoalEpisodeRunner
 HOUSE_EPISODE_PLAN_ID = "house_native_goal_episode_v1"
 HOUSE_BACKEND_ID = "house_native_goal_backend"
 _PENDING_REASON = "house_native_skill_adapter_pending"
+INDOOR_EPISODE_SCENES = ("factory", "warehouse_nvd", "modern_house_nvd")
+
+
+def _yaw(state: list[float]) -> float:
+    import math
+    w, qx, qy, qz = state[3:7]
+    return math.atan2(2 * (w * qz + qx * qy), 1 - 2 * (qy * qy + qz * qz))
+
+
+def _root_state(session: Any, runtime_id: str) -> list[float]:
+    return session.base_env.scene.articulations[runtime_id].data.root_state_w[0].detach().cpu().tolist()
+
+
+def _seek_command(state: list[float], target_xy: tuple[float, float],
+                  speed_limit: float, stop_radius: float, yaw_limit: float = 0.3) -> list[float]:
+    """Turn-then-drive. M20's policy does not track a lateral velocity command."""
+    import math
+    dx, dy = float(target_xy[0]) - state[0], float(target_xy[1]) - state[1]
+    distance = math.hypot(dx, dy)
+    if distance <= stop_radius:
+        return [0.0, 0.0, 0.0]
+    heading = math.atan2(dy, dx)
+    error = math.atan2(math.sin(heading - _yaw(state)), math.cos(heading - _yaw(state)))
+    if abs(error) > 0.35:
+        return [0.0, 0.0, max(-yaw_limit * 1.5, min(yaw_limit * 1.5, 1.5 * error))]
+    forward = speed_limit * max(0.2, math.cos(error))
+    return [forward, 0.0, max(-yaw_limit, min(yaw_limit, 1.5 * error))]
+
+
+def _region_xy(deployment: Mapping[str, Any] | None, region_id: str) -> tuple[float, float] | None:
+    if deployment is None:
+        return None
+    for row in deployment.get("region_bindings") or []:
+        if row.get("id") != region_id:
+            continue
+        center = (row.get("candidate_geometry") or {}).get("center_m")
+        if isinstance(center, (list, tuple)) and len(center) >= 2:
+            return float(center[0]), float(center[1])
+    return None
 
 
 def _action(identifier: str, kind: str, payload: Mapping[str, Any],
@@ -43,14 +82,17 @@ def build_house_episode_plan(package: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def house_runtime_state(public_task: Mapping[str, Any]) -> dict[str, Any]:
-    """A legal initial snapshot: aerial overhead, ground at the entry, objects at home."""
-    robots = {}
-    for robot in public_task["candidate_robot_pool"]:
-        robots[robot["id"]] = "room_overview" if robot["mobility"] == "aerial" else "entry_hall"
-    objects = {
-        "living_armchair_01": {"region_id": "furniture_side"},
-        "resident_bookstack_01": {"region_id": "living_area"},
-    }
+    """A legal initial snapshot using the first region each mobility can enter."""
+    regions = public_task["public_world"]["regions"]
+    aerial = next(row["id"] for row in regions if "aerial_navigation" in row["access_modes"])
+    ground = next(row["id"] for row in regions
+                  if "ground_navigation" in row["access_modes"] or "stair_traversal" in row["access_modes"])
+    robots = {robot["id"]: aerial if robot["mobility"] == "aerial" else ground
+              for robot in public_task["candidate_robot_pool"]}
+    objects = {}
+    for item in public_task["public_world"]["objects"]:
+        initial = (item.get("physical_properties") or {}).get("initial_region_id")
+        objects[item["id"]] = {"region_id": initial if isinstance(initial, str) else ground}
     return {"robot_regions": robots, "object_states": objects}
 
 
@@ -148,13 +190,10 @@ class HouseNativeGoalBackend:
                 import omni.usd
                 stage = omni.usd.get_context().get_stage()
                 observed = read_goal_objects(stage, self.session.base_env.scene, self.deployment)
-        status = "failed"
-        if task["skill"] == "observe" and (observed or self.session is None):
-            status = "succeeded"
+        status, reason = self._skill_result(task, observed)
         self.evidence.append({
             "task_id": task["task_id"], "skill": task["skill"], "status": status,
-            "reason": None if status == "succeeded" else _PENDING_REASON,
-            "time_s": self.time_s,
+            "reason": reason, "time_s": self.time_s,
         })
         receipt = {
             "backend_id": HOUSE_BACKEND_ID,
@@ -169,12 +208,113 @@ class HouseNativeGoalBackend:
         return {"status": status, "completed_at_s": self.time_s, "receipt": receipt,
                 "runtime_state": house_runtime_state(self.public_task)}
 
+    def _skill_result(self, task: Mapping[str, Any], observed: Any) -> tuple[str, str | None]:
+        skill = task["skill"]
+        if self.session is None:
+            if skill == "observe":
+                return "succeeded", None
+            return "failed", _PENDING_REASON
+        if skill == "observe":
+            return ("succeeded", None) if observed else ("failed", "observe_objects_unreadable")
+        if skill in {"ground_navigation", "aerial_navigation", "stair_traversal"}:
+            return self._drive_to_region(task)
+        if skill in {"pick", "place", "handoff", "cooperative_carry"}:
+            return self._manipulate(task)
+        return "failed", _PENDING_REASON
+
+    def _drive_to_region(self, task: Mapping[str, Any]) -> tuple[str, str | None]:
+        import math
+        import torch
+        arguments = task["arguments"]
+        region_id = arguments.get("exit_region_id") or arguments.get("region_id")
+        if not isinstance(region_id, str):
+            return "failed", "navigation_region_missing"
+        target = _region_xy(self.deployment, region_id)
+        if target is None:
+            return "failed", f"navigation_region_unbound:{region_id}"
+        public_ids = list(task["assigned_agents"])
+        runtime_ids = [self._runtime_id(agent_id) for agent_id in public_ids]
+        if any(item is None for item in runtime_ids):
+            return "failed", "navigation_runtime_id_missing"
+        session = self.session
+        stop = 2.0 if task["skill"] == "aerial_navigation" else 1.2
+        last_distance = None
+        for _ in range(900):
+            states = {runtime_id: _root_state(session, runtime_id) for runtime_id in runtime_ids}
+            last_distance = max(math.hypot(state[0] - target[0], state[1] - target[1])
+                                for state in states.values())
+            if last_distance <= stop:
+                return "succeeded", None
+            actions = {agent: torch.zeros((1, 3), device=session.device)
+                       for agent in session.possible_agents}
+            for runtime_id, state in states.items():
+                if task["skill"] == "aerial_navigation":
+                    goal = torch.tensor([[target[0], target[1], state[2]]],
+                                        device=session.device, dtype=torch.float32)
+                    session.base_env.set_command(runtime_id, "goal_position", goal)
+                    actions[runtime_id] = goal
+                else:
+                    command = _seek_command(state, target, 0.35, stop)
+                    session.base_env.set_command(
+                        runtime_id, "velocity",
+                        torch.tensor([command], device=session.device, dtype=torch.float32))
+                    actions[runtime_id][0] = torch.tensor(command, device=session.device)
+            session.env.step(actions)
+        return "failed", f"navigation_target_not_reached:{last_distance:.2f}m"
+
+    def _manipulate(self, task: Mapping[str, Any]) -> tuple[str, str | None]:
+        import omni.usd
+        from demo.benchmark.goal_attachment_probe import LiveBodies
+        from demo.benchmark.goal_native_attachment import (
+            commit_attachment, detach_attachment, prepare_attachment)
+        arguments = task["arguments"]
+        bindings = list(arguments.get("carrier_bindings") or [])
+        carriers = {row["agent_id"]: row["point_id"] for row in bindings
+                    if isinstance(row, Mapping)}
+        if not carriers or not isinstance(arguments.get("object_id"), str):
+            return "failed", "manipulation_arguments_incomplete"
+        stage = omni.usd.get_context().get_stage()
+        try:
+            bodies = LiveBodies(self.session.base_env.scene, self.deployment)
+            prepared = prepare_attachment(
+                stage, self.public_task, object_id=arguments["object_id"],
+                mode_id=arguments.get("handling_mode_id", "single_grip"),
+                carriers=carriers, active_member_ids=list(carriers),
+                body_bindings=bodies.bindings, pose_provider=bodies)
+            if task["skill"] == "place":
+                return "failed", "place_requires_an_existing_hold"
+            receipt = commit_attachment(
+                stage, prepared, active_member_ids=list(carriers), pose_provider=bodies)
+        except Exception as exc:
+            return "failed", f"manipulation_rejected:{type(exc).__name__}"
+        destination = arguments.get("destination_region_id") or arguments.get("placement_region_id")
+        moved = ("succeeded", None)
+        if isinstance(destination, str):
+            moved = self._drive_to_region({
+                **task, "skill": "ground_navigation",
+                "arguments": {"region_id": destination},
+            })
+        try:
+            detach_attachment(stage, receipt)
+        except Exception as exc:
+            return "failed", f"manipulation_detach_rejected:{type(exc).__name__}"
+        return moved
+
+    def _runtime_id(self, public_id: str) -> str | None:
+        if self.deployment is None:
+            return None
+        for row in self.deployment["robot_instances"]:
+            if row["public_id"] == public_id:
+                return row["runtime_id"]
+        return None
+
 
 def run_house_episode_offline(output_root: str | Path, *,
-                              roster_profile: str = "bound_native_v2") -> dict[str, Any]:
-    """Run the House witness through GoalSession without Isaac."""
+                              roster_profile: str = "bound_native_v2",
+                              scene_key: str = "modern_house_nvd") -> dict[str, Any]:
+    """Run an indoor witness through GoalSession without Isaac."""
     package = build_goal_task_package(
-        "modern_house_nvd", indoor_roster_profile=roster_profile)
+        scene_key, indoor_roster_profile=roster_profile)
     plan = build_house_episode_plan(package)
     public = package["public_task"]
     root = Path(output_root)
@@ -189,6 +329,7 @@ def run_house_episode_offline(output_root: str | Path, *,
         "turns": result["turns"],
         "skill_receipt_count": result["skill_receipt_count"],
         "task_id": public["task_id"],
+        "scene_key": scene_key,
         "roster_profile": roster_profile,
         "pending_skills": [row["skill"] for row in backend.evidence if row["status"] != "succeeded"],
         "scoreable": False,
@@ -199,12 +340,15 @@ def run_house_episode_offline(output_root: str | Path, *,
     return summary
 
 
-def build_house_deployment(roster_profile: str = "bound_native_v2"):
-    """Compile the House deployment, allowing the opt-in seven-robot roster."""
+def build_house_deployment(roster_profile: str = "bound_native_v2",
+                           scene_key: str = "modern_house_nvd"):
+    """Compile an indoor deployment, allowing the opt-in seven-robot roster."""
     from .goal_deployment import compile_goal_deployment
     from .goal_indoor_deployment import build_indoor_deployment_overlay
+    if scene_key not in INDOOR_EPISODE_SCENES:
+        raise ValueError(f"unsupported indoor episode scene: {scene_key}")
     package = build_goal_task_package(
-        "modern_house_nvd", indoor_roster_profile=roster_profile)
+        scene_key, indoor_roster_profile=roster_profile)
     extended = roster_profile != "legacy_v1"
     overlay = build_indoor_deployment_overlay(
         package["public_task"], verify_sources=False,
@@ -225,16 +369,17 @@ def house_selection(deployment: Mapping[str, Any]) -> dict[str, Any]:
                            "rotation": list(directive["rotation_wxyz"])},
             "attachments": [],
         })
-    selection = {"version": 1, "scene_key": "modern_house_nvd",
-                 "task_name": "goal_house_episode", "robots": robots}
+    selection = {"version": 1, "scene_key": deployment["scene_key"],
+                 "task_name": f"goal_episode_{deployment['scene_key']}", "robots": robots}
     interactive_selection_from_dict(selection)
     return selection
 
 
 def prepare_house_episode(output_root: str | Path, *, device: str = "cpu",
-                          roster_profile: str = "bound_native_v2") -> dict[str, Any]:
+                          roster_profile: str = "bound_native_v2",
+                          scene_key: str = "modern_house_nvd") -> dict[str, Any]:
     """Write the launch inputs. Isaac starts only in the worker process."""
-    package, deployment = build_house_deployment(roster_profile)
+    package, deployment = build_house_deployment(roster_profile, scene_key=scene_key)
     selection = house_selection(deployment)
     root = Path(output_root)
     root.mkdir(parents=True, exist_ok=False)
@@ -301,11 +446,13 @@ def _run_house_worker(root: Path) -> dict[str, Any]:
 
 
 def run_house_episode(output_root: str | Path, *, device: str = "cpu",
-                      roster_profile: str = "bound_native_v2") -> dict[str, Any]:
-    """Prepare inputs and run the House session in a clean worker process."""
+                      roster_profile: str = "bound_native_v2",
+                      scene_key: str = "modern_house_nvd") -> dict[str, Any]:
+    """Prepare inputs and run the indoor session in a clean worker process."""
     import subprocess
     root = Path(output_root)
-    prepare_house_episode(root, device=device, roster_profile=roster_profile)
+    prepare_house_episode(root, device=device, roster_profile=roster_profile,
+                          scene_key=scene_key)
     command = [sys.executable, "-m", "demo.benchmark.goal_house_episode",
                "--worker", "--output-root", str(root)]
     completed = subprocess.run(command, cwd=Path(__file__).resolve().parents[2], check=False)
@@ -318,6 +465,7 @@ def run_house_episode(output_root: str | Path, *, device: str = "cpu",
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-root", type=Path, required=True)
+    parser.add_argument("--scene", choices=INDOOR_EPISODE_SCENES, default="modern_house_nvd")
     parser.add_argument("--roster", choices=("legacy_v1", "bound_native_v2"), default="bound_native_v2")
     parser.add_argument("--device", choices=("cpu", "cuda:0"), default="cpu")
     parser.add_argument("--offline", action="store_true",
@@ -328,9 +476,12 @@ def main(argv: list[str] | None = None) -> int:
         _run_house_worker(args.output_root)
         return 0
     if args.offline:
-        summary = run_house_episode_offline(args.output_root, roster_profile=args.roster)
+        summary = run_house_episode_offline(
+            args.output_root, roster_profile=args.roster, scene_key=args.scene)
     else:
-        summary = run_house_episode(args.output_root, device=args.device, roster_profile=args.roster)
+        summary = run_house_episode(
+            args.output_root, device=args.device, roster_profile=args.roster,
+            scene_key=args.scene)
     print(json.dumps(summary, ensure_ascii=False, sort_keys=True))
     stopped_on_unbound_skill = "prerequisite" in (summary["error"] or "")
     ran = summary["skill_receipt_count"] >= 1 and (

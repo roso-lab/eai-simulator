@@ -42,6 +42,19 @@ def test_legacy_house_overlay_stays_frozen_and_v2_roster_compiles():
     ]
 
 
+def test_factory_and_warehouse_v2_have_the_same_episode_entry():
+    from demo.benchmark.goal_house_episode import build_house_episode_plan
+    for scene, task_id, skill in (
+            ("factory", "FACTORY-GOAL-NATIVE-02", "stair_traversal"),
+            ("warehouse_nvd", "WAREHOUSE-GOAL-NATIVE-02", "cooperative_carry")):
+        package, deployment = build_house_deployment("bound_native_v2", scene_key=scene)
+        assert package["public_task"]["task_id"] == task_id
+        assert validate_goal_deployment(deployment)["validated"] is True
+        assert len(deployment["robot_instances"]) == 7
+        plan = build_house_episode_plan(package)
+        assert skill in {task["skill"] for task in plan["tasks"]}
+
+
 def test_house_v2_witness_plan_runs_offline_without_claiming_success(tmp_path: Path):
     package = build_goal_task_package("modern_house_nvd", indoor_roster_profile="bound_native_v2")
     plan = build_house_episode_plan(package)
