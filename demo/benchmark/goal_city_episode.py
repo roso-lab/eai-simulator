@@ -915,6 +915,8 @@ def main(argv: list[str] | None = None) -> int:
                              "teamweaver_llm = real dongli LLM decomposition; "
                              "emos = EMOS discussion manager allocation; "
                              "emos_llm = EMOS allocation through the dongli LLM discussion)")
+    parser.add_argument("--pool", choices=("v1", "v2"), default="v1",
+                        help="candidate pool profile (v2 = expanded 7-robot bound_native_v2)")
     parser.add_argument("--episode-binding", type=Path, default=None,
                         help="authoring/private.json or standalone binding document "
                              f"(default: {DEFAULT_CITY_EPISODE_BINDING})")
