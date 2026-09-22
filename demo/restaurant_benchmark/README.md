@@ -553,10 +553,55 @@ and `0ef67c430281f5f6eaef55a31d637dade3e4d7606a319ed73f7d0bc4e152c063`
 (iris_2).
 
 These four route validations promoted go2_1, lite3_1, iris_1 and iris_2 into
-`BENCHMARK_NATIVE_VALIDATED_ROBOT_IDS`; the M20 anchors stay excluded until
-their controller's zero-command bias is fixed and both gates are re-run.
-Route evidence does not flip `navigation_ready`, `execution_validated` or
-`scoreable`.
+`BENCHMARK_NATIVE_VALIDATED_ROBOT_IDS`. Route evidence does not flip
+`navigation_ready`, `execution_validated` or `scoreable`.
+
+## M20 rehabilitation through the navigation controller
+
+The rough-policy rejection left a concrete fix path: the unregistered provider
+bundle `rl/m20_nav_rsl` closes the position loop through a navigation stage
+(goal-relative pose error to velocity commands) instead of open-loop velocity
+commands. `M20_NAV_RSL_CFG` is now registered in the catalog (as an m20
+alternative; the default stays the rough policy), the builder import map and
+the asset-requirement seeds, with both ONNX policies covered. A local
+diagnostic measured the closed-loop hold at 0.0004 m of post-settle drift
+against the rough policy's 0.21 m, with a 0.333 m steady-state anchor offset
+from the goal-controller equilibrium.
+
+The candidate probe grew a third profile, `ground_goal_hold`, for goal-driven
+ground controllers: it commands the frozen spawn anchor every step (the nav
+wrapper keeps the last goal on zero input, so a zero command would tolerate
+drift) and applies the wheel contact gates plus post-settle excursion and
+tilt. Anchor deviation is recorded but not gated because a ground anchor is a
+spawn point, not a station. `candidate-m20-1-20260922-v4` and
+`candidate-m20-2-20260922-v3` both admitted: drift 0.00044 m and 0.00027 m
+over 240 hold steps, all four wheels in contact on every sample, median
+support 0.9996 and 1.0002. The report SHA-256 values are
+`f9c20c8cd89057486ceb2781ab27b520c6d5af450628f43acfbfb55685dbb352` and
+`0e3d78b8e8efaba321b89c4a742410f7a72559ded6638d350d86a043315851e7`.
+
+The route probe grew the matching `ground_goal` kind: the commanded goal is a
+carrot point on the planned polyline that advances one metre only once the
+robot closes within 0.50 m, so the closed position loop walks the route. The
+final tolerance (0.50 m) covers the controller's measured goal-equilibrium
+band, and the tilt (0.35 rad) and z (0.08 m) bounds document the wheeled-leg
+chassis's dynamic envelope - measured route peaks reached 0.266 rad and
+0.066 m during tight turns while every wheel kept loading (worst per-wheel
+ratio 0.87), so instability surfaces in the contact ratios well before those
+bounds. `route-m20-1-dining-20260922-v3` (1662 steps, 29.4 m planned, final
+0.497 m, deviation 0.333 m, wheel ratios 0.84-0.98) and
+`route-m20-2-dining-20260922-v2` (3141 steps, 51.0 m planned, final 0.494 m,
+deviation 0.344 m, wheel ratios 0.87-0.97) both validated with full
+control-step evidence; the report SHA-256 values are
+`f401cac9a00cc26689f55f892fed244cd47982ffa8e6b8b4881758a37ad4316a` and
+`7220d1f55bdfeed7f1d57f19708934fbae3b6b17591a6a661e2ed7ca4ef843ac`.
+
+Both M20 anchors are promoted into `BENCHMARK_NATIVE_VALIDATED_ROBOT_IDS`,
+completing the eight-anchor route-validated roster. The `rl/m20_nav_rsl`
+bundle currently exists only in the local controller tree; the provider-backed
+publication remains a maintainer step before any release relies on this
+mapping, and the rough policy's zero-command rejection stands as the reason
+the default controller is unchanged.
 
 ## First formal participant episode
 
