@@ -11,12 +11,30 @@ import uuid
 from . import config as scene_config
 
 
-def build_selection() -> dict:
+_DIAGNOSTIC_ROBOTS = {
+    "carter": "CARTER_DIFF_CFG",
+}
+
+
+def build_selection(robot_type: str | None = None) -> dict:
+    robots = []
+    if robot_type is not None:
+        try:
+            controller = _DIAGNOSTIC_ROBOTS[robot_type]
+        except KeyError as exc:
+            raise ValueError(f"unsupported diagnostic robot: {robot_type}") from exc
+        robots.append(
+            {
+                "type": robot_type,
+                "controller": {"mode": "default", "cfg": controller},
+                "attachments": [],
+            }
+        )
     return {
         "version": 1,
         "task_name": "restaurant_scene",
         "scene_key": scene_config.SCENE_KEY,
-        "robots": [],
+        "robots": robots,
     }
 
 
@@ -29,9 +47,23 @@ def _write(path: Path, value: dict) -> None:
     path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def run_probe(output_root: str | Path, *, device: str, steps: int, gui: bool) -> dict:
+def run_probe(
+    output_root: str | Path,
+    *,
+    device: str,
+    steps: int,
+    gui: bool,
+    robot_type: str | None = None,
+    settle_steps: int = 120,
+) -> dict:
     if isinstance(steps, bool) or not isinstance(steps, int) or steps < 1:
         raise ValueError("steps must be a positive integer")
+    if (
+        isinstance(settle_steps, bool)
+        or not isinstance(settle_steps, int)
+        or settle_steps < 0
+    ):
+        raise ValueError("settle_steps must be a nonnegative integer")
     output = Path(output_root).expanduser().resolve()
     output.mkdir(parents=True, exist_ok=False)
     report = {
@@ -42,6 +74,8 @@ def run_probe(output_root: str | Path, *, device: str, steps: int, gui: bool) ->
         "status": "starting",
         "requested_device": device,
         "requested_steps": steps,
+        "requested_settle_steps": settle_steps if robot_type is not None else 0,
+        "requested_robot_type": robot_type,
         "gui": gui,
         "scope": "scene_load_step_and_optional_author_view_only",
         "execution_validated": False,
@@ -56,7 +90,7 @@ def run_probe(output_root: str | Path, *, device: str, steps: int, gui: bool) ->
     launch = SimulatorLaunchConfig(
         env="restaurant_scene",
         resolved_env_name="EAI-Interactive-v0",
-        selection_data=build_selection(),
+        selection_data=build_selection(robot_type),
         num_envs=1,
         device=device,
         seed=17,
@@ -73,8 +107,49 @@ def run_probe(output_root: str | Path, *, device: str, steps: int, gui: bool) ->
             scene = stage.GetPrimAtPath("/World/Restaurant")
             if not scene or not scene.IsValid():
                 raise RuntimeError("restaurant scene prim is absent after environment reset")
-            for _ in range(steps):
-                session.base_env.sim.step(render=gui)
+            if robot_type is not None:
+                import torch
+
+                if len(session.possible_agents) != 1:
+                    raise RuntimeError(
+                        f"diagnostic robot selection produced {session.possible_agents}"
+                    )
+                agent = session.possible_agents[0]
+                articulation = session.base_env.scene.articulations[agent]
+                spawn_position = articulation.data.root_pos_w[0].detach().cpu().tolist()
+
+                def step_zero_command(count: int) -> None:
+                    for _ in range(count):
+                        actions = {
+                            agent: torch.zeros(
+                                (session.num_envs, 3), device=session.device
+                            )
+                        }
+                        session.env.step(actions)
+
+                step_zero_command(settle_steps)
+                robot_start = articulation.data.root_pos_w[0].detach().cpu().tolist()
+                step_zero_command(steps)
+                robot_end = articulation.data.root_pos_w[0].detach().cpu().tolist()
+                displacement = sum(
+                    (float(robot_end[index]) - float(robot_start[index])) ** 2
+                    for index in range(3)
+                ) ** 0.5
+                report["robot_stationary_observation"] = {
+                    "agent_id": agent,
+                    "robot_type": robot_type,
+                    "spawn_root_position_m": [float(value) for value in spawn_position],
+                    "settle_steps": settle_steps,
+                    "start_root_position_m": [float(value) for value in robot_start],
+                    "end_root_position_m": [float(value) for value in robot_end],
+                    "displacement_m": displacement,
+                    "vertical_drift_m": float(robot_end[2]) - float(robot_start[2]),
+                    "scope": "spawn_and_zero_command_window_only",
+                    "navigation_validated": False,
+                }
+            else:
+                for _ in range(steps):
+                    session.base_env.sim.step(render=gui)
 
             scales = []
             for operation in UsdGeom.Xformable(scene).GetOrderedXformOps():
@@ -140,9 +215,18 @@ def main(argv=None) -> int:
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--steps", type=int, default=8)
+    parser.add_argument("--settle-steps", type=int, default=120)
     parser.add_argument("--gui", action="store_true")
+    parser.add_argument("--robot", choices=tuple(_DIAGNOSTIC_ROBOTS))
     args = parser.parse_args(argv)
-    report = run_probe(args.output_root, device=args.device, steps=args.steps, gui=args.gui)
+    report = run_probe(
+        args.output_root,
+        device=args.device,
+        steps=args.steps,
+        gui=args.gui,
+        robot_type=args.robot,
+        settle_steps=args.settle_steps,
+    )
     print(json.dumps(report, indent=2, sort_keys=True), flush=True)
     return 0
 
