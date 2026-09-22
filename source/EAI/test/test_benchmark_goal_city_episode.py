@@ -189,7 +189,7 @@ class _FakeRunner:
                    "receipt_evidence_ref": f"{request_id}:receipt"}
         if row["service"] == "guide_people":
             actors = [{"id": person_id, "arrival_time_s": row["submitted_time_s"] + 1.0,
-                       "entered_hazard": False}
+                       "safe_route_and_assembly": True}
                       for person_id in row["entity_ids"]]
             return {**deepcopy(row), "status": "evidence_complete",
                     "evidence_class": "runtime",

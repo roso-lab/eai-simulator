@@ -523,6 +523,13 @@ def build_acceptance_evidence(evidence_log: list[Mapping[str, Any]],
                               or {}).get("actors") or ()
                              if isinstance(actor, Mapping)}
             entered_hazard = review_actors.get(person_id, {}).get("entered_hazard")
+            if not isinstance(entered_hazard, bool):
+                # Guide review actors express route safety as
+                # safe_route_and_assembly; derive the predicate's
+                # entered_hazard from that trusted flag when present.
+                safe_route = review_actors.get(person_id, {}).get("safe_route_and_assembly")
+                if isinstance(safe_route, bool):
+                    entered_hazard = not safe_route
             if isinstance(entered_hazard, bool):
                 row["entered_hazard"] = entered_hazard
         ack = acks.get(person_id)
