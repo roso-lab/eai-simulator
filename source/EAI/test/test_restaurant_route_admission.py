@@ -11,19 +11,21 @@ def test_route_profiles_bind_public_candidates_to_service_regions():
     assert tuple(route_admission.ROUTE_PROFILES) == (
         "go2_1-dining",
         "lite3_1-dining",
+        "m20_1-dining",
+        "m20_2-dining",
         "iris_1-overview",
         "iris_2-overview",
     )
     assert route_admission.ROUTE_PROFILES["go2_1-dining"]["candidate_id"] == (
         "restaurant_go2_1"
     )
-    assert route_admission.ROUTE_PROFILES["lite3_1-dining"]["candidate_id"] == (
-        "restaurant_lite3_1"
+    assert route_admission.ROUTE_PROFILES["m20_2-dining"]["candidate_id"] == (
+        "restaurant_m20_2"
     )
     assert route_admission.DINING_SERVICE_XY_M == (14.225, 21.925)
     assert route_admission.KITCHEN_SERVICE_XY_M == (24.225, 17.625)
     assert route_admission.OVERVIEW_ANCHOR_XYZ_M == (19.225, 19.775, 3.0)
-    for route_id in ("go2_1-dining", "lite3_1-dining"):
+    for route_id in ("go2_1-dining", "lite3_1-dining", "m20_1-dining", "m20_2-dining"):
         assert route_admission.ROUTE_PROFILES[route_id]["goal_xy_m"] == [
             14.225,
             21.925,
@@ -35,8 +37,16 @@ def test_route_profiles_bind_public_candidates_to_service_regions():
             3.0,
         ]
         assert route_admission._aerial_route(route_id)
+        assert route_admission._route_kind(route_id) == "aerial_hover"
     for route_id in ("go2_1-dining", "lite3_1-dining"):
         assert not route_admission._aerial_route(route_id)
+        assert route_admission._route_kind(route_id) == "ground_velocity"
+    for route_id in ("m20_1-dining", "m20_2-dining"):
+        assert route_admission._route_kind(route_id) == "ground_goal_hold"
+        assert (
+            route_admission._probe_scope(route_id)
+            == "single_goal_driven_candidate_commanded_route_and_wheel_contact_only"
+        )
     with pytest.raises(ValueError, match="unknown Restaurant route"):
         route_admission._profile("m20_1-kitchen")
 
@@ -47,6 +57,8 @@ def test_route_selections_spawn_at_public_anchors():
     for route_id, spawn_key in (
         ("go2_1-dining", "go2_1"),
         ("lite3_1-dining", "lite3_1"),
+        ("m20_1-dining", "m20_1"),
+        ("m20_2-dining", "m20_2"),
         ("iris_1-overview", "iris_1"),
         ("iris_2-overview", "iris_2"),
     ):
@@ -78,6 +90,15 @@ def test_route_thresholds_are_mobility_specific():
     assert aerial["maximum_tilt_rad"] == 0.30
     assert aerial["max_steps"] == 14000
     assert "median_support_ratio" not in aerial
+    goal = route_admission._thresholds("m20_1-dining")
+    assert goal["advance_radius_m"] == 0.50
+    assert goal["advance_step_m"] == 1.0
+    assert goal["final_tolerance_m"] == 0.50
+    assert goal["minimum_wheel_contact_ratio"] == 0.70
+    assert goal["maximum_tilt_rad"] == 0.35
+    assert goal["maximum_z_excursion_m"] == 0.08
+    assert goal["max_steps"] == 12000
+    assert "minimum_stance_feet" not in goal
     assert (
         route_admission._probe_scope("go2_1-dining")
         == "single_legged_candidate_commanded_route_and_foot_contact_only"
@@ -196,9 +217,9 @@ def test_route_admission_request_rejects_goal_or_source_drift(monkeypatch):
 def test_route_evidence_promotes_only_route_validated_anchors():
     from demo.restaurant_benchmark import config
 
-    # The M20 anchors keep failing admission, so they must not appear in the
-    # route-validated roster even though both now have route tooling.
-    assert "m20_1" not in config.BENCHMARK_NATIVE_VALIDATED_ROBOT_IDS
-    assert "m20_2" not in config.BENCHMARK_NATIVE_VALIDATED_ROBOT_IDS
+    # Every anchor earned its roster slot through native route evidence.
+    assert set(config.BENCHMARK_NATIVE_VALIDATED_ROBOT_IDS) == set(
+        config.BENCHMARK_ROBOT_SPAWN_XYZ_M
+    )
     assert config.EXECUTION_VALIDATED is False
     assert config.SCOREABLE is False

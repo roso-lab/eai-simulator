@@ -1,11 +1,12 @@
 """Measure one Restaurant candidate's native spawn, support and stability.
 
-Two admission profiles share this worker.  Ground candidates (wheeled or
-legged) settle under zero commands and are gated on filtered ground contact,
-weight support and post-settle excursion.  Aerial candidates station-keep at
-their frozen spawn anchor under the position controller and are gated on
-altitude floor, anchor deviation and post-settle excursion instead of ground
-contact.
+Three admission profiles share this worker.  Velocity-profile ground
+candidates settle under zero commands and are gated on filtered ground
+contact, weight support and post-settle excursion.  Goal-hold ground
+candidates (the M20 navigation variant) command their frozen spawn anchor
+every step so the closed position loop is what gets measured.  Aerial
+candidates station-keep at their frozen anchor and are gated on altitude
+floor, anchor deviation and post-settle excursion instead of ground contact.
 
 This is an author-side admission diagnostic.  A completed diagnostic may reject
 the candidate; it never promotes the Restaurant suite or its scoreable gate.
@@ -45,6 +46,7 @@ SPAWN_BINDING_TOLERANCE_M = 0.0001
 MINIMUM_HOVER_ALTITUDE_M = 1.0
 MAXIMUM_ANCHOR_DEVIATION_M = 0.30
 PROBE_SCOPE = "candidate_spawn_support_and_zero_command_stability_only"
+GOAL_HOLD_PROBE_SCOPE = "candidate_spawn_support_and_station_stability_only"
 AERIAL_PROBE_SCOPE = "candidate_spawn_hover_and_station_stability_only"
 
 _M20_WHEELS = ("fl_wheel", "fr_wheel", "hl_wheel", "hr_wheel")
@@ -54,20 +56,28 @@ _M20_WHEELS = ("fl_wheel", "fr_wheel", "hl_wheel", "hr_wheel")
 # exactly one articulation body at runtime before trusting it.
 _GO2_FEET = ("FL_foot", "FR_foot", "RL_foot", "RR_foot")
 _LITE3_FEET = ("FL_FOOT", "FR_FOOT", "HL_FOOT", "HR_FOOT")
+# The rough M20 policy drifts 0.21 m per 4.8 s under zero commands because its
+# velocity commands are open-loop.  The nav variant closes the position loop
+# through its navigation stage: a local diagnostic measured 0.0004 m of
+# post-settle drift while holding a frozen goal (with a 0.333 m steady-state
+# anchor offset from the goal-controller equilibrium, recorded but not gated
+# because a ground anchor is a spawn point, not a station).
 _CANDIDATES = {
     "restaurant_m20_1": {
         "spawn_key": "m20_1",
         "robot_type": "m20",
-        "controller_cfg": "M20_ROUGH_RSL_CFG",
+        "controller_cfg": "M20_NAV_RSL_CFG",
         "runtime_agent": "m20_1",
         "support_bodies": list(_M20_WHEELS),
+        "profile": "ground_goal_hold",
     },
     "restaurant_m20_2": {
         "spawn_key": "m20_2",
         "robot_type": "m20",
-        "controller_cfg": "M20_ROUGH_RSL_CFG",
+        "controller_cfg": "M20_NAV_RSL_CFG",
         "runtime_agent": "m20_1",
         "support_bodies": list(_M20_WHEELS),
+        "profile": "ground_goal_hold",
     },
     "restaurant_go2_1": {
         "spawn_key": "go2_1",
@@ -105,6 +115,7 @@ _CANDIDATES = {
 
 _CONTROLLER_SOURCE_PATHS = {
     "M20_ROUGH_RSL_CFG": "rl/m20_rough_rsl/m20_rough_rsl.py",
+    "M20_NAV_RSL_CFG": "rl/m20_nav_rsl/m20_nav_rsl.py",
     "GO2_VELOCITY_RSL_CFG": "rl/go2_rsl_rl/go2_rsl_rl.py",
     "LITE3_VELOCITY_RSL_CFG": "rl/lite3_rsl_rl/lite3_rsl_rl.py",
     "PEGASUS_IRIS_POSITION_CFG": (
@@ -113,8 +124,12 @@ _CONTROLLER_SOURCE_PATHS = {
 }
 
 
+def _profile(spec: dict) -> str:
+    return spec.get("profile", "ground_velocity")
+
+
 def _is_aerial(spec: dict) -> bool:
-    return spec.get("profile") == "aerial_hover"
+    return _profile(spec) == "aerial_hover"
 
 
 def _candidate(candidate_id: str) -> dict:
@@ -159,7 +174,8 @@ def _source_files(candidate_id: str) -> dict[str, str]:
 
 
 def _thresholds(candidate_id: str) -> dict:
-    if _is_aerial(_candidate(candidate_id)):
+    profile = _profile(_candidate(candidate_id))
+    if profile == "aerial_hover":
         # No post-settle Z-excursion gate: a height-tracking controller
         # legitimately moves vertically toward the commanded anchor, and that
         # transient is bounded by the anchor-deviation gate plus the altitude
@@ -171,6 +187,24 @@ def _thresholds(candidate_id: str) -> dict:
             "minimum_hover_altitude_m": MINIMUM_HOVER_ALTITUDE_M,
             "maximum_anchor_deviation_m": MAXIMUM_ANCHOR_DEVIATION_M,
             "maximum_xy_excursion_m": MAXIMUM_XY_EXCURSION_M,
+            "maximum_tilt_rad": MAXIMUM_TILT_RAD,
+            "spawn_binding_tolerance_m": SPAWN_BINDING_TOLERANCE_M,
+        }
+    if profile == "ground_goal_hold":
+        # Goal-driven ground controllers need the longer settle for the
+        # goal-controller equilibrium to converge; the contact gates match
+        # the velocity profile.  Anchor deviation is recorded but not gated:
+        # a ground anchor is a spawn point, not a station.
+        return {
+            "settle_steps": AERIAL_SETTLE_STEPS,
+            "sample_steps": SAMPLE_STEPS,
+            "minimum_contact_sample_ratio": MINIMUM_CONTACT_SAMPLE_RATIO,
+            "median_weight_support_ratio": [
+                MINIMUM_WEIGHT_SUPPORT_RATIO,
+                MAXIMUM_WEIGHT_SUPPORT_RATIO,
+            ],
+            "maximum_xy_excursion_m": MAXIMUM_XY_EXCURSION_M,
+            "maximum_z_excursion_m": MAXIMUM_Z_EXCURSION_M,
             "maximum_tilt_rad": MAXIMUM_TILT_RAD,
             "spawn_binding_tolerance_m": SPAWN_BINDING_TOLERANCE_M,
         }
@@ -190,8 +224,11 @@ def _thresholds(candidate_id: str) -> dict:
 
 
 def _probe_scope(candidate_id: str) -> str:
-    if _is_aerial(_candidate(candidate_id)):
+    profile = _profile(_candidate(candidate_id))
+    if profile == "aerial_hover":
         return AERIAL_PROBE_SCOPE
+    if profile == "ground_goal_hold":
+        return GOAL_HOLD_PROBE_SCOPE
     return PROBE_SCOPE
 
 
@@ -324,8 +361,9 @@ def run_worker(output_root: str | Path) -> dict:
     request = _load_request(root)
     os.environ["EAI_RESTAURANT_BENCHMARK_ROOT"] = request["products_root"]
     spec = _candidate(request["candidate_id"])
-    aerial = _is_aerial(spec)
     candidate_id = request["candidate_id"]
+    profile = _profile(spec)
+    aerial = profile == "aerial_hover"
     report = {
         "schema": "eai.restaurant.candidate_admission_report",
         "version": 1,
@@ -341,8 +379,12 @@ def run_worker(output_root: str | Path) -> dict:
         "support_contact_validated": False if not aerial else None,
         "altitude_validated": None if not aerial else False,
         "hover_anchor_validated": None if not aerial else False,
-        "zero_command_stability_validated": False if not aerial else None,
-        "station_stability_validated": None if not aerial else False,
+        "zero_command_stability_validated": (
+            False if profile == "ground_velocity" else None
+        ),
+        "station_stability_validated": (
+            None if profile == "ground_velocity" else False
+        ),
         "candidate_admitted": False,
         "execution_validated": False,
         "scoreable": False,
@@ -439,20 +481,28 @@ def run_worker(output_root: str | Path) -> dict:
             expected_spawn = request["selection"]["robots"][0]["spawn_pose"][
                 "position"
             ]
-            if aerial:
-                # The Pegasus position controller treats an all-zero command as
-                # "hold the current pose", which would tolerate arbitrary drift.
-                # The aerial gate therefore commands the frozen spawn anchor as
-                # the station-keeping goal on every step.
-                hover_goal = torch.tensor(
-                    [expected_spawn],
+            if profile in ("aerial_hover", "ground_goal_hold"):
+                # Hold-profile controllers command a frozen position: the
+                # Pegasus position controller treats an all-zero command as
+                # "hold the current pose" and the M20 nav wrapper keeps the
+                # last goal on zero input, so both would tolerate arbitrary
+                # drift.  The gate therefore commands the frozen spawn anchor
+                # on every step; the goal-driven ground variant uses the 2-D
+                # anchor because the navigation policy ignores goal height.
+                hold_position = (
+                    list(expected_spawn)
+                    if aerial
+                    else [expected_spawn[0], expected_spawn[1], 0.0]
+                )
+                hold_goal = torch.tensor(
+                    [hold_position],
                     device=session.device,
                     dtype=torch.float32,
                 ).expand(session.num_envs, 3)
 
                 def step_hold() -> None:
                     session.env.step(
-                        {agent: hover_goal.clone()}
+                        {agent: hold_goal.clone()}
                     )
 
                 step_command = step_hold
@@ -569,14 +619,22 @@ def run_worker(output_root: str | Path) -> dict:
                 if not contact_ok:
                     blockers.append("support_contact_failed")
                 if not stability_ok:
-                    blockers.append("zero_command_stability_failed")
+                    blockers.append(
+                        "zero_command_stability_failed"
+                        if profile == "ground_velocity"
+                        else "station_stability_failed"
+                    )
                 admitted = identity_ok and spawn_ok and contact_ok and stability_ok
                 gate_fields = {
                     "support_contact_sample_ratios": ratios,
                     "median_weight_support_ratio": median_support,
                     "contact_buffer_capacity_reached": buffer_reached,
                     "support_contact_validated": contact_ok,
-                    "zero_command_stability_validated": stability_ok,
+                    (
+                        "zero_command_stability_validated"
+                        if profile == "ground_velocity"
+                        else "station_stability_validated"
+                    ): stability_ok,
                 }
             report.update(
                 status="diagnostic_completed",

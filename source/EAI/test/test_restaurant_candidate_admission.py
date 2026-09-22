@@ -17,7 +17,7 @@ def test_m20_candidate_selections_bind_public_anchors_to_native_controller():
         assert robot["type"] == "m20"
         assert robot["controller"] == {
             "mode": "default",
-            "cfg": "M20_ROUGH_RSL_CFG",
+            "cfg": "M20_NAV_RSL_CFG",
         }
         assert robot["spawn_pose"] == {
             "position": list(config.BENCHMARK_ROBOT_SPAWN_XYZ_M[spawn_key]),
@@ -84,22 +84,28 @@ def test_m20_candidate_identity_and_thresholds_are_explicit():
     for candidate_id in ("restaurant_m20_1", "restaurant_m20_2"):
         spec = candidate_admission._candidate(candidate_id)
         assert spec["runtime_agent"] == "m20_1"
+        assert spec["controller_cfg"] == "M20_NAV_RSL_CFG"
+        assert spec["profile"] == "ground_goal_hold"
         assert spec["support_bodies"] == [
             "fl_wheel",
             "fr_wheel",
             "hl_wheel",
             "hr_wheel",
         ]
-    assert candidate_admission._thresholds("restaurant_m20_1") == {
-        "settle_steps": 120,
-        "sample_steps": 240,
-        "minimum_contact_sample_ratio": 0.80,
-        "median_weight_support_ratio": [0.70, 1.30],
-        "maximum_xy_excursion_m": 0.05,
-        "maximum_z_excursion_m": 0.02,
-        "maximum_tilt_rad": 0.10,
-        "spawn_binding_tolerance_m": 0.0001,
-    }
+        assert candidate_admission._probe_scope(candidate_id) == (
+            "candidate_spawn_support_and_station_stability_only"
+        )
+        assert candidate_admission._thresholds(candidate_id) == {
+            "settle_steps": 240,
+            "sample_steps": 240,
+            "minimum_contact_sample_ratio": 0.80,
+            "median_weight_support_ratio": [0.70, 1.30],
+            "maximum_xy_excursion_m": 0.05,
+            "maximum_z_excursion_m": 0.02,
+            "maximum_tilt_rad": 0.10,
+            "spawn_binding_tolerance_m": 0.0001,
+        }
+    assert candidate_admission._thresholds("restaurant_go2_1")["settle_steps"] == 120
     with pytest.raises(ValueError, match="unsupported Restaurant candidate"):
         candidate_admission._candidate("restaurant_go2_9")
 
@@ -107,15 +113,14 @@ def test_m20_candidate_identity_and_thresholds_are_explicit():
 def test_profile_scopes_and_thresholds_are_mobility_specific():
     from demo.restaurant_benchmark import candidate_admission
 
-    for candidate_id in (
-        "restaurant_m20_1",
-        "restaurant_m20_2",
-        "restaurant_go2_1",
-        "restaurant_lite3_1",
-    ):
+    for candidate_id in ("restaurant_go2_1", "restaurant_lite3_1"):
         assert (
             candidate_admission._probe_scope(candidate_id)
             == "candidate_spawn_support_and_zero_command_stability_only"
+        )
+        assert (
+            candidate_admission._profile(candidate_admission._CANDIDATES[candidate_id])
+            == "ground_velocity"
         )
     for candidate_id in ("restaurant_iris_1", "restaurant_iris_2"):
         assert (
@@ -228,11 +233,13 @@ def test_aerial_request_rejects_ground_thresholds_or_profile_drift(monkeypatch):
 def test_unadmitted_m20_candidates_do_not_change_release_roster():
     from demo.restaurant_benchmark import config
 
-    # go2_1/lite3_1/iris_1/iris_2 were promoted after their route_admission
-    # runs; the M20 pair stays excluded until its controller bias is fixed.
+    # All eight anchors hold route-level evidence: the M20 pair through the
+    # registered navigation controller after the rough policy's rejection.
     assert config.BENCHMARK_NATIVE_VALIDATED_ROBOT_IDS == (
         "carter_1",
         "carter_2",
+        "m20_1",
+        "m20_2",
         "go2_1",
         "lite3_1",
         "iris_1",

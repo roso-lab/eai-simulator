@@ -38,14 +38,16 @@ BENCHMARK_ROBOT_SPAWN_XYZ_M = {
     "iris_2": (26.975, 6.975, 3.0),
 }
 BENCHMARK_MINIMUM_SPAWN_SPACING_M = 3.0
-# Carter holds route-level native evidence from the original route/contact
-# probes; go2_1, lite3_1 and both iris anchors hold route-level evidence from
-# demo.restaurant_benchmark.route_admission runs (2026-09-22).  The two M20
-# anchors stay excluded until their controller's zero-command bias is fixed
-# and both the admission and route gates are re-run.
+# Every anchor now holds route-level native evidence: the Carters from the
+# original route/contact probes, go2/lite3/iris from the 2026-09-22
+# route_admission runs, and both M20s through the registered navigation
+# controller (the rough policy's zero-command bias stays rejected; the nav
+# variant's closed position loop passes admission and route gates).
 BENCHMARK_NATIVE_VALIDATED_ROBOT_IDS = (
     "carter_1",
     "carter_2",
+    "m20_1",
+    "m20_2",
     "go2_1",
     "lite3_1",
     "iris_1",

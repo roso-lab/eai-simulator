@@ -1,10 +1,12 @@
 """Route-level native admission for the remaining Restaurant pool anchors.
 
 go2_1 and lite3_1 follow A*-planned ground routes with foot-contact health
-gates; iris_1 and iris_2 fly planned aerial polylines with altitude-floor,
-route-deviation and tilt gates.  Passing route evidence is what promotes an
-anchor into ``BENCHMARK_NATIVE_VALIDATED_ROBOT_IDS``; it never flips
-``navigation_ready``, ``execution_validated`` or ``scoreable`` by itself.
+gates; the M20 anchors run the registered navigation controller and walk
+goal-carrot routes with per-wheel contact gates; iris_1 and iris_2 fly planned
+aerial polylines with altitude-floor, route-deviation and tilt gates.
+Passing route evidence is what promotes an anchor into
+``BENCHMARK_NATIVE_VALIDATED_ROBOT_IDS``; it never flips ``navigation_ready``,
+``execution_validated`` or ``scoreable`` by itself.
 """
 
 from __future__ import annotations
@@ -84,6 +86,27 @@ AERIAL_MAXIMUM_TILT_RAD = 0.30
 AERIAL_SNAPSHOT_STRIDE = 100
 AERIAL_ROUTE_SCOPE = "single_aerial_candidate_commanded_route_and_hover_health_only"
 
+# Goal-driven ground routes (M20 navigation controller): the commanded goal is
+# a carrot point on the planned polyline that jumps ahead only once the robot
+# closes within the advance radius, so the closed position loop walks the
+# route.  The final tolerance covers the controller's measured goal-equilibrium
+# band (0.33 m at rest, up to ~0.45 m on route arrival).  The tilt and z
+# bounds are the wheeled-leg chassis's dynamic envelope: measured route peaks
+# reached 0.266 rad and 0.066 m during tight turns while every wheel kept
+# loading (worst per-wheel ratio 0.87), so instability instead shows up as
+# contact-ratio collapse well before these bounds; an actual tip-over starts
+# beyond 0.5 rad.  Per-wheel contact gates follow the Carter contract.
+GOAL_ADVANCE_RADIUS_M = 0.50
+GOAL_ADVANCE_STEP_M = 1.00
+GOAL_FINAL_TOLERANCE_M = 0.50
+GOAL_STALL_WINDOW_STEPS = 600
+GOAL_MAXIMUM_STEPS = 12000
+GOAL_SETTLE_STEPS = 240
+GOAL_MAXIMUM_TILT_RAD = 0.35
+GOAL_MAXIMUM_Z_EXCURSION_M = 0.08
+MINIMUM_WHEEL_CONTACT_RATIO = 0.70
+GROUND_GOAL_ROUTE_SCOPE = "single_goal_driven_candidate_commanded_route_and_wheel_contact_only"
+
 ROUTE_PROFILES = {
     "go2_1-dining": {
         "candidate_id": "restaurant_go2_1",
@@ -96,6 +119,16 @@ ROUTE_PROFILES = {
     # one validated service-region destination, not region diversity.
     "lite3_1-dining": {
         "candidate_id": "restaurant_lite3_1",
+        "goal_xy_m": list(DINING_SERVICE_XY_M),
+    },
+    # The M20 anchors run the registered navigation controller; dining is
+    # also their shortest service-region route (29.4 m and 51.0 m).
+    "m20_1-dining": {
+        "candidate_id": "restaurant_m20_1",
+        "goal_xy_m": list(DINING_SERVICE_XY_M),
+    },
+    "m20_2-dining": {
+        "candidate_id": "restaurant_m20_2",
         "goal_xy_m": list(DINING_SERVICE_XY_M),
     },
     "iris_1-overview": {
@@ -124,9 +157,16 @@ def _aerial_route(route_id: str) -> bool:
     return _is_aerial(_spec(route_id))
 
 
+def _route_kind(route_id: str) -> str:
+    return _spec(route_id).get("profile", "ground_velocity")
+
+
 def _probe_scope(route_id: str) -> str:
-    if _aerial_route(route_id):
+    kind = _route_kind(route_id)
+    if kind == "aerial_hover":
         return AERIAL_ROUTE_SCOPE
+    if kind == "ground_goal_hold":
+        return GROUND_GOAL_ROUTE_SCOPE
     return GROUND_ROUTE_SCOPE
 
 
@@ -161,7 +201,8 @@ def _source_files(route_id: str) -> dict[str, str]:
 
 
 def _thresholds(route_id: str) -> dict:
-    if _aerial_route(route_id):
+    kind = _route_kind(route_id)
+    if kind == "aerial_hover":
         return {
             "planning_radius_m": PLANNING_RADIUS_M,
             "flight_speed_m_s": AERIAL_FLIGHT_SPEED_M_S,
@@ -173,6 +214,25 @@ def _thresholds(route_id: str) -> dict:
             "maximum_route_deviation_m": AERIAL_MAXIMUM_ROUTE_DEVIATION_M,
             "maximum_tilt_rad": AERIAL_MAXIMUM_TILT_RAD,
             "snapshot_stride": AERIAL_SNAPSHOT_STRIDE,
+        }
+    if kind == "ground_goal_hold":
+        return {
+            "planning_radius_m": PLANNING_RADIUS_M,
+            "advance_radius_m": GOAL_ADVANCE_RADIUS_M,
+            "advance_step_m": GOAL_ADVANCE_STEP_M,
+            "settle_steps": GOAL_SETTLE_STEPS,
+            "final_tolerance_m": GOAL_FINAL_TOLERANCE_M,
+            "stall_window_steps": GOAL_STALL_WINDOW_STEPS,
+            "max_steps": GOAL_MAXIMUM_STEPS,
+            "minimum_wheel_contact_ratio": MINIMUM_WHEEL_CONTACT_RATIO,
+            "median_support_ratio": [
+                MINIMUM_MEDIAN_SUPPORT_RATIO,
+                MAXIMUM_MEDIAN_SUPPORT_RATIO,
+            ],
+            "maximum_route_deviation_m": MAXIMUM_ROUTE_DEVIATION_M,
+            "maximum_z_excursion_m": GOAL_MAXIMUM_Z_EXCURSION_M,
+            "maximum_tilt_rad": GOAL_MAXIMUM_TILT_RAD,
+            "contact_snapshot_stride": CONTACT_SNAPSHOT_STRIDE,
         }
     return {
         "planning_radius_m": PLANNING_RADIUS_M,
@@ -631,6 +691,115 @@ def run_worker(output_root: str | Path) -> dict:
                     if goal_distance <= thresholds["final_tolerance_m"]:
                         arrival_step = step
                         break
+            elif _route_kind(route_id) == "ground_goal_hold":
+                weight_N = mass_kg * 9.81
+                spawn_anchor = request["selection"]["robots"][0]["spawn_pose"][
+                    "position"
+                ]
+                anchor_goal = torch.tensor(
+                    [[spawn_anchor[0], spawn_anchor[1], 0.0]],
+                    device=session.device,
+                    dtype=torch.float32,
+                ).expand(session.num_envs, 3)
+                for _ in range(thresholds["settle_steps"]):
+                    session.env.step({agent: anchor_goal.clone()})
+                reference = articulation.data.root_state_w[0].detach().cpu().tolist()
+                if not _finite_root_state(reference):
+                    raise RuntimeError("non-finite goal-driven state after settle")
+                polyline = [
+                    (float(x), float(y))
+                    for x, y in [route["start_xy_m"], *route["waypoints_xy_m"]]
+                ]
+                total_length = sum(
+                    math.dist(a, b) for a, b in zip(polyline[:-1], polyline[1:])
+                )
+                goal_xy = route["goal_xy_m"]
+                arc_s = 0.0
+                best_goal_distance = math.inf
+                last_progress_step = 0
+                for step in range(1, thresholds["max_steps"] + 1):
+                    x, y, _z, _yaw = navigation_state(articulation)
+                    carrot = _polyline_point(polyline, arc_s)
+                    if (
+                        arc_s < total_length
+                        and math.dist((x, y), carrot)
+                        <= thresholds["advance_radius_m"]
+                    ):
+                        arc_s = min(total_length, arc_s + thresholds["advance_step_m"])
+                        carrot = _polyline_point(polyline, arc_s)
+                        best_goal_distance = math.inf
+                    command[0, 0] = carrot[0]
+                    command[0, 1] = carrot[1]
+                    command[0, 2] = 0.0
+                    submitted = {agent: command[0].detach().cpu().tolist()}
+                    session.env.step({agent: command})
+                    root_state = (
+                        articulation.data.root_state_w[0].detach().cpu().tolist()
+                    )
+                    recorder.record(step, submitted, {agent: root_state})
+                    if not _finite_root_state(root_state):
+                        failure = "non_finite_root_state"
+                        break
+                    post_xy = (float(root_state[0]), float(root_state[1]))
+                    deviation = _route_deviation(post_xy, polyline)
+                    z_excursion = abs(float(root_state[2]) - float(reference[2]))
+                    tilt = _tilt(root_state)
+                    max_deviation = max(max_deviation, deviation)
+                    max_z_excursion = max(max_z_excursion, z_excursion)
+                    max_tilt = max(max_tilt, tilt)
+
+                    wheels = {}
+                    total_ground_z = 0.0
+                    for name, view in views.items():
+                        sample = contact_probe._sample_contact_view(
+                            view, physics_dt=physics_dt
+                        )
+                        wheels[name] = sample
+                        force_z = sample["ground_force_N"][2]
+                        total_ground_z += force_z
+                        if force_z > contact_probe.CONTACT_FORCE_THRESHOLD_N:
+                            contact_steps[name] += 1
+                        buffer_reached = (
+                            buffer_reached or sample["buffer_capacity_reached"]
+                        )
+                    support_ratio = total_ground_z / weight_N
+                    support_ratios.append(support_ratio)
+                    if (
+                        step == 1
+                        or step % thresholds["contact_snapshot_stride"] == 0
+                    ):
+                        snapshots.append(
+                            {
+                                "step": step,
+                                "weight_support_ratio": support_ratio,
+                                "wheels": wheels,
+                            }
+                        )
+                    goal_distance = math.dist(post_xy, goal_xy)
+                    trajectory.append(
+                        {
+                            "step": step,
+                            "simulation_time_s": float(
+                                session.base_env.sim.current_time
+                            ),
+                            "carrot_arc_s_m": arc_s,
+                            "command": submitted[agent],
+                            "root_state_w": [float(value) for value in root_state],
+                            "route_deviation_m": deviation,
+                            "z_excursion_m": z_excursion,
+                            "tilt_rad": tilt,
+                            "distance_to_goal_m": goal_distance,
+                        }
+                    )
+                    if goal_distance < best_goal_distance - 0.005:
+                        best_goal_distance = goal_distance
+                        last_progress_step = step
+                    if step - last_progress_step > thresholds["stall_window_steps"]:
+                        failure = "navigation_deadlock"
+                        break
+                    if goal_distance <= thresholds["final_tolerance_m"]:
+                        arrival_step = step
+                        break
             else:
                 from EAI.scenario_spec.geometry import FactoryMap
                 from EAI.scenario_spec.oracle import InflatedGrid
@@ -854,6 +1023,40 @@ def run_worker(output_root: str | Path) -> dict:
                     ),
                     "contact_health_validated": None,
                     "aerial_health_validated": health_ok,
+                }
+            elif _route_kind(route_id) == "ground_goal_hold":
+                sorted_support = sorted(support_ratios)
+                median_support = (
+                    sorted_support[len(sorted_support) // 2] if sorted_support else 0.0
+                )
+                wheel_ratios = {
+                    name: (contact_steps[name] / steps_taken if steps_taken else 0.0)
+                    for name in support_bodies
+                }
+                contact_ok = (
+                    steps_taken > 0
+                    and not buffer_reached
+                    and all(
+                        ratio >= thresholds["minimum_wheel_contact_ratio"]
+                        for ratio in wheel_ratios.values()
+                    )
+                    and thresholds["median_support_ratio"][0]
+                    <= median_support
+                    <= thresholds["median_support_ratio"][1]
+                )
+                health_ok = (
+                    contact_ok
+                    and max_deviation <= thresholds["maximum_route_deviation_m"]
+                    and max_z_excursion <= thresholds["maximum_z_excursion_m"]
+                    and max_tilt <= thresholds["maximum_tilt_rad"]
+                )
+                gate_fields = {
+                    "wheel_contact_sample_ratios": wheel_ratios,
+                    "median_weight_support_ratio": median_support,
+                    "contact_buffer_capacity_reached": buffer_reached,
+                    "contact_health_validated": contact_ok,
+                    "aerial_health_validated": None,
+                    "maximum_z_excursion_m": max_z_excursion,
                 }
             else:
                 sorted_support = sorted(support_ratios)
