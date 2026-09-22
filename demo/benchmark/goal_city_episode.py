@@ -267,8 +267,10 @@ class CityNativeGoalBackend:
         """
         ctx = self._ctx
         agent_id = self._dispatch_agent(task)
-        ctx["runner"].adapter.set_assignment(
-            lambda service, _a=agent_id, _r=region_id: {"agent_id": _a, "region_id": _r})
+        # The native runner submits each service with its own agent_id (the
+        # request adapter is a separate non-prose API path), so member
+        # dispatch swaps the runner's agent identity per task.
+        ctx["runner"].agent_id = agent_id
         role = self._SERVICE_ROLE[str(task["skill"])]
         pose = None
         try:

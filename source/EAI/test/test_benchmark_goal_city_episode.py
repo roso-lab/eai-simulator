@@ -81,10 +81,6 @@ class _FakeAssignmentAdapter:
     def now_s(self):
         return float(self._runner.city.elapsed)
 
-    def set_assignment(self, assignment):
-        latest = assignment("guide_people")
-        self._runner.calls.append(("set_assignment", latest.get("agent_id")))
-
 
 class _FakeRunner:
     """Minimal native runner double: request rows, acks, readbacks, reviews."""
@@ -92,6 +88,7 @@ class _FakeRunner:
     def __init__(self, city, *, guide_not_admitted_first=0, omit_contact_acks=()):
         self.city = city
         self.calls: list[tuple] = []
+        self.agent_id = "go2_1"
         self.adapter = _FakeAssignmentAdapter(self)
         self.host = SimpleNamespace(
             record_role_occupancy=lambda *a, **k: self.calls.append(
@@ -389,10 +386,11 @@ def test_offline_episode_runs_all_native_skills_through_the_session(tmp_path, ci
     assert [row[2] for row in dispatch_rows].count("guidance_contact") >= len(guide_tasks)
     assert "traffic_control_point" in [row[2] for row in dispatch_rows]
     assert "incident_observer" in [row[2] for row in dispatch_rows]
-    assignments = [row for row in runner.calls if row[0] == "set_assignment"]
-    assert len(assignments) == len(plan["tasks"])
-    assert all(row[1] == "go2_1" for row in assignments[:-1])
-    assert assignments[-1][1] == "iris_1"
+    dispatch_trace = ctx["trace"].get("member_dispatch", [])
+    assert len(dispatch_trace) == len(plan["tasks"])
+    assert all(row["agent_id"] == "go2_1" for row in dispatch_trace[:-1])
+    assert dispatch_trace[-1]["agent_id"] == "iris_1"
+    assert runner.agent_id == "iris_1"
 
     # Runtime state stays the declared shape: robots in the initial regions.
     snapshots = json.loads((episode_root / "runtime_snapshots.json").read_text())
