@@ -547,7 +547,6 @@ class CityTeamWeaverParticipant:
                 except (TypeError, AttributeError):
                     semantic_tasks[index] = replace(semantic, requirements=enriched)
 
-        capability_map = {row["id"]: set(row["public_capabilities"]) for row in pool}
         assignment: dict[str, str] = {}
         remaining = {task["task_id"] for task in plan_tasks}
         team: set[str] = set()
@@ -595,12 +594,10 @@ class CityTeamWeaverParticipant:
 
         rewritten = deepcopy(self._base)
         for task in rewritten["tasks"]:
-            agent = assignment[task["task_id"]]
-            required = set(task["required_capabilities"])
-            if not required <= capability_map[agent]:
-                raise RuntimeError(
-                    f"TeamWeaver assigned {task['task_id']} to ineligible {agent}")
-            task["assigned_agents"] = [agent]
+            # Faithful translation (user principle): the allocator's choice
+            # stands as-is, capable or not - an incapable assignment must be
+            # measurable as an execution failure, never filtered here.
+            task["assigned_agents"] = [assignment[task["task_id"]]]
         team = list(dict.fromkeys(
             assignment[task["task_id"]] for task in rewritten["tasks"]))
         order = {row["id"]: index for index, row in enumerate(pool)}
@@ -742,14 +739,7 @@ class CityEmosParticipant:
             raise RuntimeError("CityEmosParticipant was not initialized")
         pool = self._task["candidate_robot_pool"]
         plan_tasks = self._base["tasks"]
-        capability_map = {row["id"]: set(row["public_capabilities"]) for row in pool}
-        # Fail-closed eligibility: every plan task needs at least one agent
-        # whose public capabilities cover its declared requirements.
-        for task in plan_tasks:
-            required = set(task["required_capabilities"])
-            if not any(required <= caps for caps in capability_map.values()):
-                raise RuntimeError(
-                    f"no eligible agent in the public pool for city task {task['task_id']}")
+
 
         llm_env = None
         if self._use_llm_discussion and not self._llm_unavailable:
@@ -804,13 +794,10 @@ class CityEmosParticipant:
                 None, specs, scenario, use_env_resume=False,
                 discussion_log_dir=str(_EMOS_DISCUSSION_LOG_DIR),
                 get_group_discussion_llm_kwargs=(llm_kwargs if llm_env is not None else None))
-            # The capability policy is contract-level and always installed:
-            # LLM discussion shapes the negotiation content, but the final
-            # assignment still flows through the policy callback, so no
-            # discussion output can violate eligibility (remote evidence
-            # ab-llm emos_llm runs assigned guides to ineligible agents).
-            manager.set_assignment_policy(
-                _emos_city_capability_policy, name=_EMOS_CITY_POLICY_NAME)
+            # No adapter-side capability policy (user principle): judging or
+            # filtering the algorithm's assignments is measurement pollution -
+            # a bad assignment must surface as an execution failure. EMOS's
+            # own default (or LLM-driven) assignment mechanism stands.
             manager.trigger(1, (0.0, 0.0, 0.0))
             result = None
             deadline = time.monotonic() + _EMOS_CITY_ROUND_TIMEOUT_S
@@ -840,12 +827,9 @@ class CityEmosParticipant:
 
         rewritten = deepcopy(self._base)
         for task in rewritten["tasks"]:
-            agent = assignment[task["task_id"]]
-            required = set(task["required_capabilities"])
-            if not required <= capability_map[agent]:
-                raise RuntimeError(
-                    f"EMOS assigned {task['task_id']} to ineligible {agent}")
-            task["assigned_agents"] = [agent]
+            # Faithful translation: incapable assignments stand and surface
+            # as execution failures (user principle: never judge the output).
+            task["assigned_agents"] = [assignment[task["task_id"]]]
         team = list(dict.fromkeys(
             assignment[task["task_id"]] for task in rewritten["tasks"]))
         order = {row["id"]: index for index, row in enumerate(pool)}

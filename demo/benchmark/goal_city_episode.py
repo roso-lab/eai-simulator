@@ -222,6 +222,10 @@ class CityWitnessParticipant:
         pass
 
 
+class _CapabilityExecutionFailure(RuntimeError):
+    """Deterministic execution-layer failure for incapable assignments."""
+
+
 class CityNativeGoalBackend:
     """Execute GoalSession dispatches through the concrete City services.
 
@@ -239,6 +243,7 @@ class CityNativeGoalBackend:
         self._plan = deepcopy(dict(plan))
         self._robot_regions = (city_robot_regions(public_task) if public_task is not None
                                else dict(CITY_ROBOT_REGIONS))
+        self._task_pool = list((public_task or {}).get("candidate_robot_pool") or [])
         self.evidence: list[dict[str, Any]] = []
         # No simulation step can run between the host warmup observation and
         # this construction, so the shared clock reading is the observation's
@@ -275,9 +280,22 @@ class CityNativeGoalBackend:
         Host-owned rebinding plus a measured field-role interval for the
         chosen agent (pose-sampled from the trusted articulation state), so
         the admission gates pass for whichever member the plan dispatched.
+        Capability reality is enforced HERE, at the execution layer (user
+        principle: bad assignments are measurable, never filtered at the
+        adapter): an agent whose public capabilities do not cover the task's
+        declared requirements fails this dispatch deterministically, with
+        factual observables only - mirroring the warehouse overload pattern.
         """
         ctx = self._ctx
         agent_id = self._dispatch_agent(task)
+        required = set(task.get("required_capabilities", ()))
+        pool_caps = {row["id"]: set(row["public_capabilities"])
+                     for row in self._task_pool}
+        if required and agent_id in pool_caps and not required <= pool_caps[agent_id]:
+            raise _CapabilityExecutionFailure(
+                f"execution failure: agent {agent_id} lacks "
+                f"{sorted(required - pool_caps[agent_id])} required by "
+                f"{task['task_id']} (public capability contract)")
         # The native runner submits each service with its own agent_id (the
         # request adapter is a separate non-prose API path), so member
         # dispatch swaps the runner's agent identity per task.
@@ -338,12 +356,32 @@ class CityNativeGoalBackend:
                 or row["task"] != task or row["plan_id"] != ledger["current_plan_id"]):
             raise ValueError("native city task does not match the pending GoalSession dispatch")
         skill = task["skill"]
-        if skill == "guide_people":
-            return self._execute_guide(task, row, episode_id, float(ledger["current_time_s"]))
-        if skill == "control_following_traffic":
-            return self._execute_control(task, row, episode_id, float(ledger["current_time_s"]))
-        if skill == "report_incident":
-            return self._execute_report(task, row, episode_id, float(ledger["current_time_s"]))
+        try:
+            if skill == "guide_people":
+                return self._execute_guide(task, row, episode_id, float(ledger["current_time_s"]))
+            if skill == "control_following_traffic":
+                return self._execute_control(task, row, episode_id, float(ledger["current_time_s"]))
+            if skill == "report_incident":
+                return self._execute_report(task, row, episode_id, float(ledger["current_time_s"]))
+        except _CapabilityExecutionFailure as failure:
+            # Task-level failure with factual observables only: the episode
+            # continues and the business outcomes judge the algorithm.
+            window_end = (float(task["execution"]["start_s"])
+                          + float(task["execution"]["duration_s"]))
+            now = max(float(ledger["current_time_s"]),
+                      min(float(self._ctx["city"].elapsed) + float(self._ctx["dt"]),
+                          window_end))
+            self.evidence.append({"kind": "capability_execution_failure",
+                                  "task_id": task["task_id"],
+                                  "agent_id": self._dispatch_agent(task),
+                                  "reason": str(failure)})
+            return {"status": "failed", "completed_at_s": now,
+                    "receipt": {"backend_id": CITY_BACKEND_ID,
+                                "receipt_ref": f"capability:{episode_id}:{task['task_id']}",
+                                "task_id": task["task_id"],
+                                "action_id": row["dispatch_action_id"],
+                                "status": "failed", "completed_at_s": now,
+                                "evidence_refs": [f"capability:{task['task_id']}"]}}
         raise ValueError(f"native city backend does not implement skill: {skill}")
 
     def cancel(self, task: Mapping[str, Any], *, episode_id: str,

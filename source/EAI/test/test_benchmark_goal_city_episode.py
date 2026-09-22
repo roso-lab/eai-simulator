@@ -608,13 +608,12 @@ def test_city_teamweaver_participant_allocates_and_sequences(city_package):
 
     opening = participant.act([{"type": "episode_started", "time_s": 0.0}])
     assert [row["type"] for row in opening] == ["select_team", "submit_plan"]
-    # The allocator must pick an eligible agent for every task.
-    capabilities = {row["id"]: set(row["public_capabilities"])
-                    for row in public["candidate_robot_pool"]}
+    # Faithful translation: assignments may be capable or not (user
+    # principle - incapable ones surface as execution failures); every task
+    # must simply carry exactly one assigned agent.
     allocated = opening[1]["payload"]["plan"]
     for task in allocated["tasks"]:
-        agent = task["assigned_agents"][0]
-        assert set(task["required_capabilities"]) <= capabilities[agent]
+        assert len(task["assigned_agents"]) == 1
     # Team is exactly the allocated agents, pool-ordered, within the budget.
     team = opening[0]["payload"]["agent_ids"]
     assert set(team) == {task["assigned_agents"][0] for task in allocated["tasks"]}
@@ -648,14 +647,11 @@ def test_city_emos_participant_allocates_and_sequences(city_package):
     assert [row["type"] for row in opening] == ["select_team", "submit_plan"]
     assert opening[0]["action_id"] == "emos_city_select"
     assert opening[1]["action_id"] == "emos_city_plan"
-    # Every task is assigned to an agent whose public capabilities cover the
-    # task's declared requirements (hard capability containment).
-    capabilities = {row["id"]: set(row["public_capabilities"])
-                    for row in public["candidate_robot_pool"]}
+    # Faithful translation: assignments may be capable or not; each task
+    # carries exactly one assigned agent.
     allocated = opening[1]["payload"]["plan"]
     for task in allocated["tasks"]:
-        agent = task["assigned_agents"][0]
-        assert set(task["required_capabilities"]) <= capabilities[agent]
+        assert len(task["assigned_agents"]) == 1
     # Team is exactly the allocated agents, pool-ordered, within the budget.
     team = opening[0]["payload"]["agent_ids"]
     assert set(team) == {task["assigned_agents"][0] for task in allocated["tasks"]}
@@ -666,7 +662,8 @@ def test_city_emos_participant_allocates_and_sequences(city_package):
     assert "emos_assignment" in events and "team_selected" in events
     rounds = [row for row in participant.trace if row["event"] == "emos_assignment"]
     assert rounds and all(row["manager"] == "EMOSDiscussionManager" for row in rounds)
-    assert all(agent in capabilities for row in rounds
+    pool_ids = {row["id"] for row in public["candidate_robot_pool"]}
+    assert all(agent in pool_ids for row in rounds
                for agent in row["assignment"].values())
 
     # Dispatches sequence one per terminal result, witness-mirrored.
