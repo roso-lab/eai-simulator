@@ -829,18 +829,20 @@ def _plain_evidence(value: Any) -> Any:
 
 def run_city_episode(output_root: str | Path, *, device: str = "cpu",
                      episode_binding: str | Path | None = None,
-                     algorithm: str = "witness") -> dict[str, Any]:
+                     algorithm: str = "witness",
+                     pool: str = "v1") -> dict[str, Any]:
     """Prepare the formal City probe and run the injected GoalSession episode."""
     from demo.city_benchmark.service_probe import execute_probe, prepare_probe
 
     root = Path(output_root).absolute()
     binding = Path(episode_binding) if episode_binding is not None \
         else DEFAULT_CITY_EPISODE_BINDING
-    prepare_probe(root, device=device, episode_binding=binding)
+    prepare_probe(root, device=device, episode_binding=binding, pool=pool)
 
     def driver(ctx: Mapping[str, Any]) -> None:
         episode_root = Path(ctx["report_path"]).parent / "goal_episode"
-        package = build_goal_task_package("city", city_roster_profile="bound_native_v1")
+        roster_profile = "bound_native_v2" if pool == "v2" else "bound_native_v1"
+        package = build_goal_task_package("city", city_roster_profile=roster_profile)
         public = package["public_task"]
         plan = build_city_episode_plan(public)
         arrival_stamps: dict[str, float] = {}
@@ -899,7 +901,7 @@ def run_city_episode(output_root: str | Path, *, device: str = "cpu",
             "records": _plain_evidence(deepcopy(backend.evidence)),
         })
 
-    return execute_probe(root, device=device, driver=driver)
+    return execute_probe(root, device=device, driver=driver, pool=pool)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -919,7 +921,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     report = run_city_episode(args.output_root, device=args.device,
                               episode_binding=args.episode_binding,
-                              algorithm=args.algorithm)
+                              algorithm=args.algorithm, pool=args.pool)
     print(json.dumps(report, ensure_ascii=False, sort_keys=True))
     return 0 if report.get("status") == "completed" else 1
 
