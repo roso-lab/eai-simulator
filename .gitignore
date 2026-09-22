@@ -190,6 +190,7 @@ test_*.py
 !/source/EAI/test/test_restaurant_runtime_scene.py
 !/source/EAI/test/test_restaurant_candidate_admission.py
 !/source/EAI/test/test_restaurant_route_admission.py
+!/source/EAI/test/test_restaurant_algorithm_episode.py
 
 # Tracked lightweight tests for the asset-library showcase tool.
 !/tools/test_asset_library_showcase.py
