@@ -172,6 +172,7 @@ CONTROLLER_CFG_IMPORTS = {
     "B2_VELOCITY_RSL_CFG": ("rl/b2_rsl_rl/b2_rsl_rl.py", "B2_VELOCITY_RSL_CFG"),
     "B2_MIXED_STAIRS_CFG": ("rl/b2_rsl_rl/b2_rsl_rl.py", "B2_MIXED_STAIRS_CFG"),
     "M20_ROUGH_RSL_CFG": ("rl/m20_rough_rsl/m20_rough_rsl.py", "M20_ROUGH_RSL_CFG"),
+    "M20_NAV_RSL_CFG": ("rl/m20_nav_rsl/m20_nav_rsl.py", "M20_NAV_RSL_CFG"),
     "LITE3_VELOCITY_RSL_CFG": ("rl/lite3_rsl_rl/lite3_rsl_rl.py", "LITE3_VELOCITY_RSL_CFG"),
     "SCOUT_DIFF_CFG": ("traditional/scout_diff/scout_diff.py", "SCOUT_DIFF_CFG"),
     "MUSHR_ACKERMANN_CFG": ("traditional/mushr_ackermann/mushr_ackermann.py", "MUSHR_ACKERMANN_CFG"),

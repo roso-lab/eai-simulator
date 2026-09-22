@@ -267,6 +267,12 @@ _CONTROLLER_PATHS = {
         "rl/m20_rough_rsl/m20_rough_rsl.py",
         "rl/m20_rough_rsl/model/m20_rough.onnx",
     ),
+    "M20_NAV_RSL_CFG": (
+        "rl/m20_nav_rsl/__init__.py",
+        "rl/m20_nav_rsl/m20_nav_rsl.py",
+        "rl/m20_nav_rsl/model/nav.onnx",
+        "rl/m20_nav_rsl/model/controller.onnx",
+    ),
     "LITE3_VELOCITY_RSL_CFG": (
         "rl/lite3_rsl_rl/__init__.py",
         "rl/lite3_rsl_rl/lite3_rsl_rl.py",
