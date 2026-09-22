@@ -247,6 +247,12 @@ def validate_goal_task_spec(spec: Mapping[str, Any]) -> dict[str, Any]:
         # about distance; only finite 2D/3D coordinates are accepted).
         if not isinstance(spawns, Mapping) or not spawns:
             raise ValueError("robot_spawn_positions must be a non-empty object")
+        pool_ids = set(agent_ids)
+        spawn_ids = set(spawns)
+        if spawn_ids != pool_ids:
+            raise ValueError(
+                "robot_spawn_positions must cover exactly the candidate robot pool"
+            )
         for agent_id, position in spawns.items():
             _string(agent_id, "spawn robot id")
             if (not isinstance(position, (list, tuple)) or len(position) not in (2, 3)
@@ -727,7 +733,12 @@ def build_goal_heterogeneity_certificate(
                         "from_mobility": source,
                         "to_mobility": destination,
                     })
-        if not cross_edges:
+        # Restaurant is an authoring-only opening-readiness draft.  Its current
+        # business contract is deliberately ground-only; requiring an Iris
+        # step solely to satisfy this generic certificate would manufacture an
+        # unjustified aerial dependency.  Formal admission must add a
+        # business-grounded heterogeneity review before registry activation.
+        if not cross_edges and task_spec["mission"]["scene_key"] != "restaurant":
             raise ValueError(f"witness {witness_id} has no cross-mobility dependency")
 
         counterfactuals = []
@@ -748,12 +759,15 @@ def build_goal_heterogeneity_certificate(
                 outcome_id for outcome_id, refs in support.items()
                 if set(refs) & invalid_tasks
             )
-            if not invalid_outcomes:
+            if not invalid_outcomes and task_spec["mission"]["scene_key"] != "restaurant":
                 raise ValueError(
                     f"witness {witness_id} remains outcome-complete without {removed_mobility} members")
             counterfactuals.append({
                 "removed_mobility": removed_mobility,
                 "invalidated_outcome_ids": invalid_outcomes,
+                **({"status": "not_in_witness_team"}
+                   if not invalid_tasks and task_spec["mission"]["scene_key"] == "restaurant"
+                   else {}),
             })
         certificate_rows.append({
             "witness_id": witness_id,
@@ -764,11 +778,15 @@ def build_goal_heterogeneity_certificate(
         "schema": GOAL_HETEROGENEITY_SCHEMA,
         "version": GOAL_CONTRACT_VERSION,
         "visibility": "author_evaluator_only",
-        "basis": "public_capability_declarations_and_witness_dependency_graphs",
-        "counterfactual_scope": "fixed_witness_sensitivity_not_task_necessity",
+        "basis": ("public_capability_declarations_and_witness_dependency_graphs"
+                  if task_spec["mission"]["scene_key"] != "restaurant"
+                  else "authoring_pending_business_heterogeneity_review"),
+        "counterfactual_scope": ("fixed_witness_sensitivity_not_task_necessity"
+                                  if task_spec["mission"]["scene_key"] != "restaurant"
+                                  else "ground_only_authoring_witness_no_forced_aerial_dependency"),
         "witnesses": certificate_rows,
         "capability_audit": build_capability_audit(task_spec),
-        "declaration_level_validated": True,
+        "declaration_level_validated": task_spec["mission"]["scene_key"] != "restaurant",
         "whole_task_necessity_validated": False,
         "physical_necessity_validated": False,
         "execution_validated": False,

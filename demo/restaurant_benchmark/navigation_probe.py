@@ -26,6 +26,10 @@ ROOT = Path(__file__).resolve().parents[2]
 ROUTES = {
     "A-E": {"start_xy_m": (21.875, 20.875), "goal_xy_m": (24.225, 17.625)},
     "A-B": {"start_xy_m": (21.875, 20.875), "goal_xy_m": (14.225, 21.925)},
+    # The second formal-service Carter starts in a separate dining-zone
+    # staging area. Keeping this as an independently runnable route lets the
+    # formal episode freeze its scheduling window from native time evidence.
+    "C-B": {"start_xy_m": (10.675, 18.375), "goal_xy_m": (14.225, 21.925)},
 }
 PLANNING_RADIUS_M = 0.40
 SPEED_M_S = 0.45
@@ -109,6 +113,25 @@ def _thresholds() -> dict:
     }
 
 
+def _selection_for_route(route_id: str) -> dict:
+    """Return the exact native selection bound to one frozen route start.
+
+    The historical A-* diagnostics predate explicit spawn poses and keep their
+    original selection contract.  Deployment-v2 routes must name their start
+    pose so the native articulation begins where the public route says it
+    begins; otherwise a geometrically valid path could be driven from the
+    builder's legacy formation and produce misleading deviation evidence.
+    """
+    selection = runtime_probe._selection()
+    if route_id == "C-B":
+        start = ROUTES[route_id]["start_xy_m"]
+        selection["robots"][0]["spawn_pose"] = {
+            "position": [*start, scene_config.BENCHMARK_ROBOT_SPAWN_XYZ_M["carter_2"][2]],
+            "rotation": [1.0, 0.0, 0.0, 0.0],
+        }
+    return selection
+
+
 def _plan_route(products: Path, route_id: str) -> dict:
     from EAI.scenario_spec.geometry import FactoryMap
     from EAI.scenario_spec.oracle import InflatedGrid
@@ -168,7 +191,7 @@ def prepare_probe(
         "metadata_sha256": runtime_probe._sha256(metadata_path),
         "bundle_manifest_sha256": metadata["bundle_manifest_sha256"],
         "product_validation": validation,
-        "selection": runtime_probe._selection(),
+        "selection": _selection_for_route(route_id),
         "requested_device": device,
         "route": _plan_route(products, route_id),
         "thresholds": _thresholds(),
@@ -197,7 +220,7 @@ def _validate_request_contract(request: dict) -> None:
         or parsed.version != 4
         or parsed.hex != run_id
         or request.get("scene_key") != scene_config.BENCHMARK_SCENE_KEY
-        or request.get("selection") != runtime_probe._selection()
+        or request.get("selection") != _selection_for_route(route_id)
         or request.get("requested_device") not in {"cpu", "cuda:0"}
         or request.get("source_sha256") != scene_config.SOURCE_SHA256
         or request.get("product_validation", {}).get("validated") is not True

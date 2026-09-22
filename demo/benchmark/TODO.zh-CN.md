@@ -785,3 +785,18 @@ McClintock 负责独立审核；主线负责共享编译器、参考后端、集
 - [ ] TeamWeaver/EMOS 原生重规划：将适配器接入 City/House 正式 runner，补齐失败 `action_result` 到 `revise_plan` 的事件序列和 native receipt；禁止用当前 Warehouse author-only microprobe 替代正式算法 episode。
 - [ ] Warehouse 路线：`rack_a_to_consolidation` 起点半宽、`consolidation_area` 实测区域、双机 swept occupancy 和视觉接触继续单独修复；当前 `protoIndex`/命中身份调查限时为一次 SDK/property 负例审查，未取得独立身份前不得继续扩展测量。
 - [ ] 分批提交：本阶段相关源码/测试/文档推送 GitLab `benchmark-task`；下一阶段每完成一个 City/House 可复核 episode 再单独提交，提交说明必须包含命令、episode ID、报告 SHA256、测试结果和未解除门禁。
+
+## Restaurant 场景 Goal 接入（2026-09-22，独立分支 `codex/restaurant-benchmark`）
+
+- [x] 按 deployment-realism v2 公开八机候选池：2 Carter、2 M20、Go2、Lite3 诱饵、2 Iris；`max_active_agents=8`，团队规模由算法决定。
+- [x] 将八个冻结 `robot_spawn_positions` 写入 Restaurant Goal `public_world`，共享契约要求出生点键集合与候选池精确一致，并保留分散间距回归。
+- [x] 构造 `RESTAURANT-GOAL-01` opening-readiness 题包：厨房检查、用餐区检查、两处观察后的 readiness relay；两份语义不同 witness 均通过协议与业务必要条件审查。
+- [x] 增加 Restaurant 专项离线回归，覆盖题包、出生点、能力重叠/诱饵、witness、release flags 和正式 registry 未注册状态。
+- [x] 同步 README，明确当前只有 Carter native route/contact 证据；题包仍 `external_pending`，不得提升 `execution_validated` 或 `scoreable`。
+- [ ] 逐一验证 M20/Go2/Lite3/Iris 的 native controller、spawn、接触与厨房/用餐路线；失败和未绑定证据必须单独记账，不能用 authoring anchors 代替真实运行。
+- [ ] 实现并运行第一条正式 participant GoalSession episode：每次 native step 记录到达、观察和 receipt 时刻，业务 evaluator 只消费 episode-owned 证据；完成前不注册 Restaurant suite。
+- [ ] 真实业务 episode 成功后再接入 TeamWeaver/EMOS A/B、能力签名必要性证书和 release gate；portable provider release 仍是 `scoreable` 的独立门槛。
+- [ ] P0 部署准入：八个 authoring anchors 已统一来自 `demo.restaurant_benchmark.config`，但只有 Carter 通过当前 native route/contact probes；逐一补齐其余候选的 spawn、支撑/飞行、观测和区域路线证据后，才能把它们视为正式可选成员。
+- [ ] P0 业务边界：`service_backend.py` 已将 relay publication 与 readiness receipt 分离；正式 runner 必须在每次 native step 后锁存到达/观察/receipt 时间，evaluator 只能消费同一 `episode_id` 的真实证据。
+- [ ] P0 异构性审查：Restaurant witness 暂不强塞 Iris 观察；当前 heterogeneity certificate 明确为 ground-only authoring draft，正式 admission 前必须证明业务确有跨机动性必要性，不能用形式步骤制造依赖。
+- [ ] P1 几何/时限冻结：将八个 anchor 映射到 native `initial_region -> route`，用真实路线时间加公开观察/回执 margin 冻结 deadline；fixture 中的 7/5/9 m 目前仍是 authoring values。

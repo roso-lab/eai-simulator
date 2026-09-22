@@ -24,6 +24,8 @@ MEASUREMENT_CONTRACT_SCHEMA = "eai.benchmark.collaboration_measurement_contract"
 MEASUREMENT_CONTRACT_VERSION = 1
 
 SCENE_KEYS = ("factory", "warehouse_nvd", "modern_house_nvd", "city")
+AUTHORING_ONLY_SCENE_KEYS = ("restaurant",)
+_SUPPORTED_SCENE_KEYS = (*SCENE_KEYS, *AUTHORING_ONLY_SCENE_KEYS)
 INTERVENTION_KINDS = ("I-skill", "I-comm", "I-role", "I-timing")
 
 MECHANISM_FAMILIES = (
@@ -242,7 +244,7 @@ def contract_sha256(value: Any) -> str:
 def validate_measurement_target(value: Mapping[str, Any]) -> dict[str, Any]:
     value = _object(value, "measurement_target")
     _exact(value, _TARGET_FIELDS, "measurement_target")
-    scene = _enum(value["scene_key"], set(SCENE_KEYS), "measurement_target.scene_key")
+    scene = _enum(value["scene_key"], set(_SUPPORTED_SCENE_KEYS), "measurement_target.scene_key")
     mechanism = _enum(value["mechanism_family"], set(MECHANISM_FAMILIES), "measurement_target.mechanism_family")
     primitive = _text(value["collaboration_primitive"], "measurement_target.collaboration_primitive")
     if primitive != COLLABORATION_PRIMITIVES[mechanism]:
@@ -316,7 +318,7 @@ def validate_reference_solution(value: Mapping[str, Any]) -> dict[str, Any]:
 def validate_intervention_contract(value: Mapping[str, Any]) -> dict[str, Any]:
     value = _object(value, "intervention_contract")
     _exact(value, _INTERVENTION_FIELDS, "intervention_contract")
-    scene = _enum(value["scene_key"], set(SCENE_KEYS), "intervention_contract.scene_key")
+    scene = _enum(value["scene_key"], set(_SUPPORTED_SCENE_KEYS), "intervention_contract.scene_key")
     identifier = _text(value["intervention_id"], "intervention_contract.intervention_id")
     kind = _enum(value["kind"], set(INTERVENTION_KINDS), "intervention_contract.kind")
     window = _object(value["decision_window"], "intervention_contract.decision_window")
@@ -358,7 +360,7 @@ def validate_intervention_contract(value: Mapping[str, Any]) -> dict[str, Any]:
 def validate_calibration_profile(value: Mapping[str, Any]) -> dict[str, Any]:
     value = _object(value, "calibration_profile")
     _exact(value, _CALIBRATION_FIELDS, "calibration_profile")
-    scene = _enum(value["scene_key"], set(SCENE_KEYS), "calibration_profile.scene_key")
+    scene = _enum(value["scene_key"], set(_SUPPORTED_SCENE_KEYS), "calibration_profile.scene_key")
     identifier = _text(value["calibration_id"], "calibration_profile.calibration_id")
     role = _enum(value["role"], set(CALIBRATION_ROLES), "calibration_profile.role")
     mechanisms = _unique_strings(value["expected_mechanisms"], "calibration_profile.expected_mechanisms",

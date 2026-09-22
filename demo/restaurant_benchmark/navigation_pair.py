@@ -10,6 +10,9 @@ from . import navigation_probe
 from . import runtime_probe
 
 
+DIAGNOSTIC_ROUTE_IDS = frozenset({"A-E", "A-B"})
+
+
 def _load_attempt(root: Path) -> tuple[dict, dict, dict]:
     request_path = root / "request.json"
     report_path = root / "navigation_probe_report.json"
@@ -56,7 +59,7 @@ def validate_pair(ae_root: str | Path, ab_root: str | Path) -> dict:
         if route_id in attempts:
             raise ValueError(f"duplicate Restaurant route {route_id}")
         attempts[route_id] = (request, report, hashes)
-    if set(attempts) != set(navigation_probe.ROUTES):
+    if set(attempts) != DIAGNOSTIC_ROUTE_IDS:
         raise ValueError("Restaurant navigation pair must contain A-E and A-B")
     ae_request, _, _ = attempts["A-E"]
     for request, report, _hashes in attempts.values():

@@ -58,6 +58,11 @@ from .candidate_pool_design import (
     pool_design_summary,
     validate_pool_design_summary,
 )
+from demo.restaurant_benchmark.config import (
+    BENCHMARK_ADMISSION_STATUS,
+    BENCHMARK_DEPLOYMENT_PROFILE,
+    BENCHMARK_ROBOT_SPAWN_XYZ_M,
+)
 
 
 _FACTOR_LEVELS = {
@@ -83,6 +88,7 @@ _AUTHORING_BUSINESS_FAMILIES = {
     "warehouse_nvd": "order_fulfilment_inventory_and_dock_closeout",
     "modern_house_nvd": "resident_home_recovery_and_access_restoration",
     "city": "urban_incident_response",
+    "restaurant": "restaurant_opening_readiness_inspection",
 }
 # Frozen city episode identities used by declaration-level witness plans. They
 # mirror the private roster naming of ``build_response_people`` and the
@@ -108,6 +114,11 @@ _CITY_NATIVE_FOLLOWING_VEHICLE_IDS = tuple(f"following_vehicle_{index:02d}" for 
 # them so participants can reason about distance at t = 0.
 _CITY_CORE_SPAWN_XY = {"go2_1": (-40.0, 55.0), "carter_1": (-69.0, 25.0),
                        "iris_1": (-55.0, 20.0)}
+
+_RESTAURANT_SPAWN_XYZ = {
+    f"restaurant_{robot_id}": tuple(position)
+    for robot_id, position in BENCHMARK_ROBOT_SPAWN_XYZ_M.items()
+}
 
 
 def _city_spawn_positions(roster_profile: str = "abstract_v1") -> dict[str, tuple[float, float]]:
@@ -302,7 +313,8 @@ def _task(task_id: str, scene_key: str, goal: str, context: str,
           regions: list[dict[str, Any]], objects: list[dict[str, Any]],
           links: list[dict[str, Any]], constraints: list[str], notes: str,
           factor_level: str, factor_id: str = "communication_quality",
-          max_active_agents: int | None = None) -> dict[str, Any]:
+          max_active_agents: int | None = None,
+          robot_spawn_positions: Mapping[str, tuple[float, ...]] | None = None) -> dict[str, Any]:
     return {
         "schema": GOAL_TASK_SCHEMA,
         "version": GOAL_CONTRACT_VERSION,
@@ -318,6 +330,9 @@ def _task(task_id: str, scene_key: str, goal: str, context: str,
             "objects": objects,
             "vertical_links": links,
             "routes": scene_routes(scene_key),
+            **({"robot_spawn_positions": {
+                agent: list(position) for agent, position in robot_spawn_positions.items()
+            }} if robot_spawn_positions is not None else {}),
             "public_notes": (
                 notes + " 所有尺寸、载荷、接口、点位和时长均为冻结的 benchmark 实验定义，"
                 "不是硬件额定性能或 USD 实测结果；场景绑定尚待核验。抓取点采用物体本地坐标，"
@@ -1040,6 +1055,122 @@ def _city_witness(public: dict[str, Any], suffix: str) -> dict[str, Any]:
             else witness)
 
 
+def _restaurant() -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Restaurant opening-readiness bundle with an expanded authoring pool.
+
+    The eight candidates are public deployment declarations.  Only Carter
+    routes currently have native evidence; the remaining candidates stay
+    authoring-only until their controller and contact probes are complete.
+    """
+    robots = [
+        _robot("restaurant_carter_1", "carter", "ground",
+               ["ground_navigation", "observe", "relay"], ["camera", "event_bus"]),
+        _robot("restaurant_carter_2", "carter", "ground",
+               ["ground_navigation", "observe", "relay"], ["camera", "event_bus"]),
+        _robot("restaurant_m20_1", "m20", "ground",
+               ["ground_navigation", "observe", "relay"], ["camera", "event_bus"]),
+        _robot("restaurant_m20_2", "m20", "ground",
+               ["ground_navigation", "observe", "relay"], ["camera", "event_bus"]),
+        _robot("restaurant_go2_1", "go2", "ground",
+               ["ground_navigation", "observe", "relay"], ["camera", "event_bus"]),
+        _robot("restaurant_lite3_1", "lite3", "ground",
+               ["ground_navigation", "observe"], ["camera"]),
+        _robot("restaurant_iris_1", "iris", "aerial",
+               ["aerial_navigation", "observe", "relay"], ["camera", "event_bus"]),
+        _robot("restaurant_iris_2", "iris", "aerial",
+               ["aerial_navigation", "observe", "relay"], ["camera", "event_bus"]),
+    ]
+    regions = [
+        _region("restaurant_staging", "staging_area", "餐厅开业检查的公开集结区", ["ground_navigation", "aerial_navigation"]),
+        _region("kitchen_service", "service_zone", "厨房服务区；需要地面到达后读取现场状态", ["ground_navigation"]),
+        _region("dining_service", "service_zone", "用餐服务区；需要地面到达后读取现场状态", ["ground_navigation"]),
+        _region("restaurant_overview", "inspection_area", "覆盖厨房与用餐区的空中观察区", ["aerial_navigation"]),
+        _region("restaurant_standby_a", "standby", "检查完成后的第一待机区", ["ground_navigation"]),
+        _region("restaurant_standby_b", "standby", "检查完成后的第二待机区", ["ground_navigation"]),
+    ]
+    public = _task(
+        "RESTAURANT-GOAL-01", "restaurant",
+        "在开业截止时间前完成厨房和用餐服务区检查，并提交汇总 readiness 回执。",
+        "餐厅开业检查包含两个需要分别到达的服务区；算法可选择单机串行或多机并行，最终由当前团队提交统一回执。",
+        [
+            _outcome("kitchen_service_inspected", "厨房服务区已由机器人到达并完成当前状态检查。", "存在厨房区域的到达证据和新鲜观察证据。", ["region_arrival", "observation_digest"]),
+            _outcome("dining_service_inspected", "用餐服务区已由机器人到达并完成当前状态检查。", "存在用餐区域的到达证据和新鲜观察证据。", ["region_arrival", "observation_digest"]),
+            _outcome("readiness_receipt_committed", "厨房与用餐区的检查结果已合并并提交给开业服务端点。", "回执引用两处当前观察，并在截止时间前获得发布记录。", ["message_publication", "delivery_receipt"]),
+        ], robots, regions, [], [],
+        [
+            "厨房和用餐服务区必须分别由当前运行中的成员到达后观察；仅凭路线规划或机器人自报不能替代观察证据。",
+            "readiness 回执只有在两处观察证据已经产生后才能提交，回执本身不提供隐藏世界状态。",
+            "团队规模由参与算法决定，max_active_agents 只是公开池上限；Lite3 是合法导航/观察诱饵但没有 relay 能力。",
+            f"部署配置 {BENCHMARK_DEPLOYMENT_PROFILE} 由 Restaurant config 的八个出生锚点统一生成；当前准入状态为 {BENCHMARK_ADMISSION_STATUS}，"
+            "除已完成的 Carter native probe 外，其余控制器、支撑/飞行和区域路线证据仍待正式 episode 验证，因此本包是 authoring draft，不是正式可选 roster。",
+            "成员加入、退出和能力变化只在运行时事件实际送达后进入当前团队状态，未来事件不公开。",
+        ],
+        "厨房与用餐服务区均是公开业务区域，staging 是所有地面成员的起始参考；观察必须绑定对应区域。截止时间和到达时刻必须由真实步进记录冻结，当前题包不声称 execution_validated。",
+        "immediate", max_active_agents=8, robot_spawn_positions=_RESTAURANT_SPAWN_XYZ,
+    )
+
+    def row(name: str, skill: str, arguments: dict[str, Any], prerequisites: list[str], agents: list[str]) -> dict[str, Any]:
+        return _task_row(name, skill, arguments, prerequisites, [skill], agents)
+
+    kitchen_route = "restaurant_staging_to_kitchen"
+    dining_route = "restaurant_staging_to_dining"
+    kitchen_to_dining = "restaurant_kitchen_to_dining"
+    plan_a_rows = [
+        row("restaurant_a_arrive_kitchen", "ground_navigation",
+            {"region_id": "kitchen_service", "route_ids": [kitchen_route]}, [], ["restaurant_carter_1"]),
+        row("restaurant_a_observe_kitchen", "observe",
+            {"region_id": "kitchen_service", "subject_ref": "kitchen_service", "observation_mode": "opening_readiness"},
+            ["restaurant_a_arrive_kitchen"], ["restaurant_carter_1"]),
+        row("restaurant_a_arrive_dining", "ground_navigation",
+            {"region_id": "dining_service", "route_ids": [kitchen_to_dining]},
+            ["restaurant_a_observe_kitchen"], ["restaurant_carter_1"]),
+        row("restaurant_a_observe_dining", "observe",
+            {"region_id": "dining_service", "subject_ref": "dining_service", "observation_mode": "opening_readiness"},
+            ["restaurant_a_arrive_dining"], ["restaurant_carter_1"]),
+        row("restaurant_a_return_kitchen", "ground_navigation",
+            {"region_id": "kitchen_service", "route_ids": ["restaurant_dining_to_kitchen"]},
+            ["restaurant_a_observe_dining"], ["restaurant_carter_1"]),
+        row("restaurant_a_return_staging", "ground_navigation",
+            {"region_id": "restaurant_staging", "route_ids": ["restaurant_kitchen_to_staging"]},
+            ["restaurant_a_return_kitchen"], ["restaurant_carter_1"]),
+        row("restaurant_a_relay_readiness", "relay",
+            {"message_kind": "restaurant_readiness_receipt", "region_id": "restaurant_staging"},
+            ["restaurant_a_return_staging", "restaurant_a_observe_kitchen", "restaurant_a_observe_dining"], ["restaurant_carter_1"]),
+    ]
+    plan_b_rows = [
+        row("restaurant_b_arrive_kitchen", "ground_navigation",
+            {"region_id": "kitchen_service", "route_ids": [kitchen_route]}, [], ["restaurant_carter_2"]),
+        row("restaurant_b_observe_kitchen", "observe",
+            {"region_id": "kitchen_service", "subject_ref": "kitchen_service", "observation_mode": "opening_readiness"},
+            ["restaurant_b_arrive_kitchen"], ["restaurant_carter_2"]),
+        row("restaurant_b_arrive_dining", "ground_navigation",
+            {"region_id": "dining_service", "route_ids": [dining_route]}, [], ["restaurant_m20_1"]),
+        row("restaurant_b_observe_dining", "observe",
+            {"region_id": "dining_service", "subject_ref": "dining_service", "observation_mode": "opening_readiness"},
+            ["restaurant_b_arrive_dining"], ["restaurant_m20_1"]),
+        row("restaurant_b_return_staging", "ground_navigation",
+            {"region_id": "restaurant_staging", "route_ids": ["restaurant_kitchen_to_staging"]},
+            ["restaurant_b_observe_kitchen", "restaurant_b_observe_dining"], ["restaurant_carter_2"]),
+        row("restaurant_b_relay_readiness", "relay",
+            {"message_kind": "restaurant_readiness_receipt", "region_id": "restaurant_staging"},
+            ["restaurant_b_return_staging", "restaurant_b_observe_kitchen", "restaurant_b_observe_dining"], ["restaurant_carter_2"]),
+    ]
+    return public, [
+        {"id": "restaurant_witness_a", "satisfies_outcomes": [row["id"] for row in public["required_outcomes"]],
+         "outcome_support": {
+             "kitchen_service_inspected": ["restaurant_a_observe_kitchen"],
+             "dining_service_inspected": ["restaurant_a_observe_dining"],
+             "readiness_receipt_committed": ["restaurant_a_relay_readiness"],
+         }, "plan": _plan("restaurant_witness_a", ["restaurant_carter_1"], plan_a_rows)},
+        {"id": "restaurant_witness_b", "satisfies_outcomes": [row["id"] for row in public["required_outcomes"]],
+         "outcome_support": {
+             "kitchen_service_inspected": ["restaurant_b_observe_kitchen"],
+             "dining_service_inspected": ["restaurant_b_observe_dining"],
+             "readiness_receipt_committed": ["restaurant_b_relay_readiness"],
+         }, "plan": _plan("restaurant_witness_b", ["restaurant_carter_2", "restaurant_m20_1"], plan_b_rows)},
+    ]
+
+
 def _city_native_witness(witness: dict[str, Any], durations: Mapping[str, float]) -> dict[str, Any]:
     """Expand each abstract guidance group into the frozen native roster."""
     result = deepcopy(witness)
@@ -1187,8 +1318,20 @@ def build_goal_task_spec(scene_key: str, *, factor_id: str = "communication_qual
                          city_roster_profile: str = "abstract_v1") -> dict[str, Any]:
     if city_roster_profile != "abstract_v1" and scene_key != "city":
         raise ValueError("City roster profile applies only to the City scene")
+    if scene_key == "restaurant" and pool_profile != "legacy_v1":
+        raise ValueError(
+            "Restaurant bound_native_v2 is the base authoring deployment; "
+            "additional pool profiles require native candidate admission first"
+        )
+    if scene_key == "restaurant" and (
+            (factor_id == "communication_quality" and factor_level not in (None, "immediate"))
+            or (factor_id == "team_continuity" and factor_level not in (None, "stable"))):
+        raise ValueError(
+            "Restaurant factor treatments require a native business episode and "
+            "business-grounded heterogeneity admission"
+        )
     builders = {"factory": _factory, "warehouse_nvd": _warehouse, "modern_house_nvd": _house,
-                "city": lambda: _city(city_roster_profile)}
+                "city": lambda: _city(city_roster_profile), "restaurant": _restaurant}
     try:
         public, _ = builders[scene_key]()
     except KeyError as exc:
@@ -1245,6 +1388,8 @@ def review_goal_business_witness(
                              "resident_path_restored", "team_withdrawn"},
         "city": {"incident_assessed", "exposed_people_accounted_for",
                  "secondary_traffic_protected", "response_access_preserved"},
+        "restaurant": {"kitchen_service_inspected", "dining_service_inspected",
+                       "readiness_receipt_committed"},
     }
     require(outcome_ids == registered_outcomes.get(public_task["mission"]["scene_key"]),
             "every_outcome_requires_registered_business_review")
@@ -1446,6 +1591,35 @@ def review_goal_business_witness(
                 "city:access_check_after_all_business_services")
         require(any(all(precedes(check, report) for check in access_checks) for report in reports),
                 "city:report_after_continuous_access_check")
+    elif scene == "restaurant":
+        kitchen = match(skills={"observe"}, mobility="ground",
+                        region_id="kitchen_service", subject_ref="kitchen_service",
+                        observation_mode="opening_readiness",
+                        outcome="kitchen_service_inspected")
+        dining = match(skills={"observe"}, mobility="ground",
+                       region_id="dining_service", subject_ref="dining_service",
+                       observation_mode="opening_readiness",
+                       outcome="dining_service_inspected")
+        require(kitchen, "restaurant:kitchen_observation_present")
+        require(dining, "restaurant:dining_observation_present")
+        for label, observations, region in (
+                ("kitchen", kitchen, "kitchen_service"),
+                ("dining", dining, "dining_service")):
+            arrivals = match(skills={"ground_navigation"}, mobility="ground",
+                             region_id=region)
+            require(any(any(precedes(arrival, observation)
+                            and set(arrival["assigned_agents"])
+                            & set(observation["assigned_agents"])
+                            for arrival in arrivals)
+                         for observation in observations),
+                    f"restaurant:{label}_observation_after_ground_arrival")
+        relays = match(skills={"relay"}, message_kind="restaurant_readiness_receipt",
+                       region_id="restaurant_staging", outcome="readiness_receipt_committed")
+        require(relays, "restaurant:readiness_relay_trigger_present")
+        for relay in relays:
+            require(any(precedes(observation, relay) for observation in kitchen)
+                    and any(precedes(observation, relay) for observation in dining),
+                    "restaurant:readiness_relay_trigger_after_both_observations")
     else:
         raise ValueError(f"no symbolic business review for scene: {scene}")
     return {
@@ -1525,8 +1699,20 @@ def build_goal_task_package(scene_key: str, *, factor_id: str = "communication_q
                             city_roster_profile: str = "abstract_v1") -> dict[str, dict[str, Any]]:
     if city_roster_profile != "abstract_v1" and scene_key != "city":
         raise ValueError("City roster profile applies only to the City scene")
+    if scene_key == "restaurant" and pool_profile != "legacy_v1":
+        raise ValueError(
+            "Restaurant bound_native_v2 is the base authoring deployment; "
+            "additional pool profiles require native candidate admission first"
+        )
+    if scene_key == "restaurant" and (
+            (factor_id == "communication_quality" and factor_level not in (None, "immediate"))
+            or (factor_id == "team_continuity" and factor_level not in (None, "stable"))):
+        raise ValueError(
+            "Restaurant factor treatments require a native business episode and "
+            "business-grounded heterogeneity admission"
+        )
     builders = {"factory": _factory, "warehouse_nvd": _warehouse, "modern_house_nvd": _house,
-                "city": lambda: _city(city_roster_profile)}
+                "city": lambda: _city(city_roster_profile), "restaurant": _restaurant}
     try:
         public, witnesses = builders[scene_key]()
     except KeyError as exc:
@@ -1587,6 +1773,10 @@ def build_goal_task_package(scene_key: str, *, factor_id: str = "communication_q
             "benchmark_ready": False,
             "scoreable": False,
             "blockers": [
+                *(["restaurant_candidate_native_admission",
+                    "restaurant_spawn_initial_region_route_binding",
+                    "restaurant_episode_owned_readiness_receipt"]
+                  if scene_key == "restaurant" else []),
                 "reliable_skill_backend_conformance",
                 "scene_geometry_and_object_binding",
                 "declared_visibility_and_occlusion_binding",

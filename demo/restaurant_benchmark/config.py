@@ -19,6 +19,31 @@ RUNTIME_SCALE = (0.01, 0.01, 0.01)
 BENCHMARK_ROBOT_SPAWN_ORIGIN = (24.875, 20.875)
 BENCHMARK_PRIMARY_SPAWN_XY_M = (21.875, 20.875)
 
+# Restaurant adopts the deployment-realism v2 authoring standard from its
+# first goal episode. These anchors are deliberately spread across the
+# source-bound candidate map instead of using the dynamic builder's compact
+# formation. Ground anchors are admitted on the 0.40 m inflated map; aerial
+# anchors use the same conservative horizontal cells and a 3 m flight height.
+# The public goal task exposes the complete map so team selection can reason
+# about travel distance at t=0.
+BENCHMARK_DEPLOYMENT_PROFILE = "bound_native_v2"
+BENCHMARK_ROBOT_SPAWN_XYZ_M = {
+    "carter_1": (21.875, 20.875, 0.20),
+    "carter_2": (10.675, 18.375, 0.20),
+    "m20_1": (2.125, -0.675, 0.53),
+    "m20_2": (33.525, -0.675, 0.53),
+    "go2_1": (0.875, 14.525, 0.62),
+    "lite3_1": (34.675, 13.475, 0.35),
+    "iris_1": (8.325, 7.675, 3.0),
+    "iris_2": (26.975, 6.975, 3.0),
+}
+BENCHMARK_MINIMUM_SPAWN_SPACING_M = 3.0
+# Only Carter has passed the current native route/contact probes.  The full
+# eight-anchor map is therefore an authoring deployment declaration, not a
+# formal participant roster.
+BENCHMARK_NATIVE_VALIDATED_ROBOT_IDS = ("carter_1", "carter_2")
+BENCHMARK_ADMISSION_STATUS = "authoring_pending_native_candidate_evidence"
+
 # These gates remain closed until scene-derived products and execution evidence
 # exist. Keeping them explicit prevents a successful visual load from being
 # interpreted as a benchmark-ready episode.

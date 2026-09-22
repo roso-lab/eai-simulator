@@ -279,7 +279,7 @@ def test_restaurant_contact_decoder_rejects_invalid_buffers(raw):
 
 
 def test_restaurant_navigation_routes_and_scoped_gates_are_frozen():
-    from demo.restaurant_benchmark import navigation_probe
+    from demo.restaurant_benchmark import config, navigation_probe
 
     assert navigation_probe.ROUTES == {
         "A-E": {
@@ -290,11 +290,38 @@ def test_restaurant_navigation_routes_and_scoped_gates_are_frozen():
             "start_xy_m": (21.875, 20.875),
             "goal_xy_m": (14.225, 21.925),
         },
+        "C-B": {
+            "start_xy_m": (10.675, 18.375),
+            "goal_xy_m": (14.225, 21.925),
+        },
     }
+    assert config.BENCHMARK_DEPLOYMENT_PROFILE == "bound_native_v2"
+    assert config.BENCHMARK_ADMISSION_STATUS == "authoring_pending_native_candidate_evidence"
+    assert config.BENCHMARK_NATIVE_VALIDATED_ROBOT_IDS == ("carter_1", "carter_2")
+    assert set(config.BENCHMARK_ROBOT_SPAWN_XYZ_M) == {
+        "carter_1", "carter_2", "m20_1", "m20_2", "go2_1", "lite3_1", "iris_1", "iris_2",
+    }
+    anchors = list(config.BENCHMARK_ROBOT_SPAWN_XYZ_M.values())
+    assert min(
+        math.dist(a[:2], b[:2])
+        for index, a in enumerate(anchors)
+        for b in anchors[index + 1:]
+    ) >= config.BENCHMARK_MINIMUM_SPAWN_SPACING_M
     assert navigation_probe.PLANNING_RADIUS_M == 0.40
     assert navigation_probe.FINAL_TOLERANCE_M == 0.25
     assert navigation_probe.MAXIMUM_ROUTE_DEVIATION_M == 0.40
     assert navigation_probe.PROBE_SCOPE.endswith("wheel_contact_only")
+
+
+def test_restaurant_deployment_route_uses_its_explicit_native_spawn():
+    from demo.restaurant_benchmark import config, navigation_probe, runtime_probe
+
+    assert navigation_probe._selection_for_route("A-E") == runtime_probe._selection()
+    selection = navigation_probe._selection_for_route("C-B")
+    assert selection["robots"][0]["spawn_pose"] == {
+        "position": list(config.BENCHMARK_ROBOT_SPAWN_XYZ_M["carter_2"]),
+        "rotation": [1.0, 0.0, 0.0, 0.0],
+    }
 
 
 def test_restaurant_navigation_route_deviation_uses_all_segments():

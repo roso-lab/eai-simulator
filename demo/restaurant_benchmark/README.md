@@ -111,6 +111,42 @@ coordinates, validate PhysX raycasts and map connectivity, and run a real
 navigation and business episode. A visual launch or stationary robot window alone
 is not execution evidence.
 
+## Restaurant Goal authoring bundle
+
+The unregistered `RESTAURANT-GOAL-01` authoring bundle is available through
+the shared goal task builder:
+
+```python
+from demo.benchmark.goal_driven_tasks import build_goal_task_package
+
+bundle = build_goal_task_package("restaurant")
+```
+
+It exposes an eight-robot candidate pool (two Carter, two M20, Go2, Lite3 and
+two Iris) with all eight frozen `robot_spawn_positions`. `max_active_agents`
+equals the pool size, so team size remains the participant's decision. Lite3 is
+a legal navigation/observation decoy without `relay`; the two author witnesses
+use different teams and different kitchen/dining allocation patterns. The
+symbolic business review requires ground arrival before each observation and a
+readiness relay after both observations.
+
+This bundle is deliberately not in `registered_goal_scenes()` yet. Carter has
+native route/contact evidence, while the other candidate controllers and the
+opening-readiness business episode still need native validation. The generated
+bundle therefore keeps `execution_status=external_pending`,
+`execution_validated=false`, and `scoreable=false`. Do not treat the existing
+navigation probes as a completed Goal business episode; arrival timestamps,
+observation evidence, receipt causality and the participant trace must all come
+from one real stepped episode before registry or release changes.
+
+`demo.restaurant_benchmark.service_backend` provides the pure episode-owned
+readiness boundary used by the future runner. `relay` publication is recorded
+as an event-bus fact only. A business receipt is issued only after both native
+zone observations are bound to the same `episode_id`, have strictly earlier
+simulation steps/timestamps, and are passed to the service endpoint. The
+backend cannot synthesize observations or fill arrival times during final
+evaluation.
+
 ## Local collision and occupancy candidate
 
 `tools.assets.build_restaurant_products` is the Restaurant-specific product
@@ -347,3 +383,40 @@ It sets `two_route_navigation_validated=true` for candidate v7 and these two
 Carter routes. `navigation_ready` remains false pending a portable released
 asset bundle and formal task admission. No restaurant business episode has run,
 so `business_episode_execution_validated` and `scoreable` remain false.
+
+## Goal deployment v2 preparation
+
+Restaurant follows the shared deployment-realism v2 rules before its first
+formal Goal episode. The frozen authoring deployment contains eight robots across
+wheeled, quadruped and aerial types; the team-size budget equals the pool size,
+so the participant decides how many robots to activate and `team_usage.json`
+records that decision for later scoring. The eight public spawn anchors are
+spread across the conservative candidate map with at least 3 m pairwise
+horizontal separation. They are defined by
+`config.BENCHMARK_ROBOT_SPAWN_XYZ_M` and are copied into
+`public_world.robot_spawn_positions` by the Goal task.
+The profile remains authoring-only until every candidate has native spawn,
+support or flight, observation and route evidence; currently only the two
+Carter anchors are listed in `BENCHMARK_NATIVE_VALIDATED_ROBOT_IDS`.
+
+The existing A-E route remains the first Carter service leg. A new C-B route
+starts the second Carter at `(10.675, 18.375)` m, away from the compact legacy
+formation, and reaches dining zone B. It must pass a fresh native route probe
+before its measured simulation duration is used to freeze the formal episode
+schedule and business deadline:
+
+```bash
+PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
+EAI_USD_ROOT=/home/pupil/eai-simulator/usd \
+EAI_CONTROLLER_ROOT=/home/pupil/eai-simulator/source/EAI_assets/EAI_assets/controller \
+  /home/pupil/miniconda3/envs/env_isaaclab/bin/python \
+  -m demo.restaurant_benchmark.navigation_probe \
+  --products-root tmp/restaurant_benchmark/products-candidate-v7 \
+  --source-usd /home/pupil/eai-simulator/usd/scene/restaurant/Restaurant_Only.usda \
+  --output-root tmp/restaurant_benchmark/navigation-c-b-v1 \
+  --route C-B --device cpu
+```
+
+This preparation does not change the release gates. The candidate remains
+machine-local and no formal business episode has completed, so
+`navigation_ready=false`, `execution_validated=false`, and `scoreable=false`.

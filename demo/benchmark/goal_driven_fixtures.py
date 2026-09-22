@@ -244,6 +244,13 @@ _ROUTES = {
         _route("city_incident_to_control", "incident_vicinity", "traffic_control_point", 4.0, 1.2),
         _route("city_control_to_incident", "traffic_control_point", "incident_vicinity", 4.0, 1.2),
     ],
+    "restaurant": [
+        _route("restaurant_staging_to_kitchen", "restaurant_staging", "kitchen_service", 7.0, 1.2, resource="restaurant_main_lane"),
+        _route("restaurant_kitchen_to_staging", "kitchen_service", "restaurant_staging", 7.0, 1.2, resource="restaurant_main_lane"),
+        _route("restaurant_kitchen_to_dining", "kitchen_service", "dining_service", 5.0, 1.2, resource="restaurant_service_lane"),
+        _route("restaurant_dining_to_kitchen", "dining_service", "kitchen_service", 5.0, 1.2, resource="restaurant_service_lane"),
+        _route("restaurant_staging_to_dining", "restaurant_staging", "dining_service", 9.0, 1.2, resource="restaurant_main_lane"),
+    ],
 }
 
 
@@ -256,6 +263,7 @@ def region_resource_capacity(region_id: str) -> int:
     if region_id in {
         "rack_aisle_a", "consolidation_area", "outbound_dock", "receiving_buffer",
         "furniture_side", "furniture_parking", "response_staging", "assembly_cell",
+        "restaurant_staging", "kitchen_service", "dining_service",
     }:
         return 2
     return 1
