@@ -462,6 +462,54 @@ and `efe3bf7614b1430340c7b0fe2eb12321ab65673050d3f7f99216d889035f7085`.
 Both candidates remain excluded from `BENCHMARK_NATIVE_VALIDATED_ROBOT_IDS`.
 The probe and reports keep `execution_validated=false` and `scoreable=false`.
 
+The M20 diagnosis was confirmed at source level: `M20_ROUGH_RSL_CFG` is the
+only registered M20 controller, its observation/action mapping matches the
+training configuration, and the command path provably reaches the policy (the
+measured command-response slices), so the drift is a policy-level
+out-of-distribution zero-command behaviour. Fixing it means retraining or
+registering a replacement policy; an unregistered provider bundle
+`rl/m20_nav_rsl` exists as a candidate replacement path but is not wired into
+the catalog/builder and its own zero-command behaviour is unmeasured.
+
+### Ground legged and aerial admission profiles
+
+The probe covers all six remaining pool anchors through two profiles. Ground
+candidates (`restaurant_go2_1`, `restaurant_lite3_1`) use the wheel profile
+with verified foot bodies from
+`demo.benchmark.vertical_traversal.FOOT_CONTACT_BODIES`: go2 uses lowercase
+`FL/FR/RL/RR_foot`, lite3 uses uppercase `FL/FR/HL/HR_FOOT`. Aerial candidates
+(`restaurant_iris_1`, `restaurant_iris_2`) station-keep at their frozen spawn
+anchor instead of ground support: the Pegasus position controller treats an
+all-zero command as "hold the current pose", which would tolerate arbitrary
+drift, so the probe commands the frozen anchor as the goal on every step and
+gates on the altitude floor (1.0 m), maximum anchor deviation (0.30 m),
+post-settle horizontal excursion (0.05 m) and tilt (0.10 rad). The aerial
+profile deliberately has no post-settle vertical-excursion gate: iris_1 v1
+measured a monotone climb back toward the commanded anchor (2.93 m to 2.96 m
+at roughly 1.5 cm/s) that the ground-calibrated 0.02 m Z limit misread as
+drift; vertical motion toward the goal is bounded by the anchor-deviation and
+altitude-floor gates instead.
+
+The completed runs are `candidate-go2-1-20260922-v1`,
+`candidate-lite3-1-20260922-v1`, `candidate-iris-1-20260922-v2` (v1 kept as
+the gate-design iteration) and `candidate-iris-2-20260922-v1`, all on CPU with
+wall times of 16-20 s. go2_1 and lite3_1 each bound their spawn within one
+micrometre, kept all four feet in filtered ground contact on all 240 samples
+(median support 0.999998 and 1.000078, no buffer overflow) and drifted at most
+1.9 mm horizontally with tilt below 0.028 rad. Both iris anchors stayed above
+2.93 m, kept anchor deviation at or below 0.0693 m while converging toward the
+anchor, drifted about 1 mm horizontally and held tilt below 0.001 rad. All
+four are measured admissions of the spawn/support-or-hover slice only; they
+are not promoted to `BENCHMARK_NATIVE_VALIDATED_ROBOT_IDS` because that roster
+records route-level native evidence, which the legged and aerial anchors have
+not yet produced. The reports keep `execution_validated=false` and
+`scoreable=false`. The report SHA-256 values are
+`f9225d75f07d79c1491f24461f58d57456b452db57cb703affd91635ac59c506` (go2_1),
+`020295bd1ec2bf22494bec1bb2d4844d1bfd518170d297b33071dcb93f151c59` (lite3_1),
+`048865a092a03d46378ec800f8ad7ec97e2fa1918e43d7181f49bbd03af349a7` (iris_1 v2)
+and `fdbd61f5928ab547ec9d874c1c1a806de49268728049514330a4ce8aa346d5a9`
+(iris_2).
+
 ## First formal participant episode
 
 `demo.benchmark.goal_restaurant_episode` runs one fixed participant through
