@@ -283,3 +283,67 @@ static collision queries, four-wheel ground contact, and bounded zero-command
 stability. The generic `physics_scene_validated` field stays false because the
 probe does not cover the full scene or commanded motion. `navigation_validated`,
 `business_episode_execution_validated`, and `scoreable` also remain false.
+
+## Carter navigation evidence
+
+The native navigation probe plans on the candidate map inflated by the frozen
+`0.40 m` Carter radius, then sends `[vx, 0, wz]` commands through
+`session.env.step(...)` and the selected `CARTER_DIFF_CFG`. It records every
+submitted command and immediate 13-component articulation root state. The report
+also samples the same exact four wheel-to-ground contact views used by the
+stationary contact probe. Run each route into a separate new directory:
+
+```bash
+PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
+EAI_USD_ROOT=/home/pupil/eai-simulator/usd \
+EAI_CONTROLLER_ROOT=/home/pupil/eai-simulator/source/EAI_assets/EAI_assets/controller \
+  /home/pupil/miniconda3/envs/env_isaaclab/bin/python \
+  -m demo.restaurant_benchmark.navigation_probe \
+  --products-root tmp/restaurant_benchmark/products-candidate-v7 \
+  --source-usd /home/pupil/eai-simulator/usd/scene/restaurant/Restaurant_Only.usda \
+  --route A-E --output-root tmp/restaurant_benchmark/navigation-ae-fresh \
+  --device cpu
+
+# Repeat with --route A-B and another --output-root.
+```
+
+The accepted CPU attempts used the same candidate, map, simulator sources,
+navigation probe SHA-256
+`df28c341366808e0277e7c328ce879a6accab6a2af4986cfe8e2c0156b821043`,
+and Carter controller SHA-256
+`c28ea84c5701463c985c9df8b8e5c5ffea65f53e54370a083e37711a246c1f82`.
+Neither attempt required a replan:
+
+| Route | Planned length | Control steps | Final goal error | Maximum route deviation | Median weight support |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| A to E | `4.2234 m` | 1,032 | `0.24986 m` | `0.05438 m` | `1.00031` |
+| A to B | `8.0849 m` | 1,617 | `0.24781 m` | `0.05993 m` | `0.99980` |
+
+Every wheel retained a ground-contact sample ratio of `1.0` in both attempts;
+neither contact buffer reached capacity. The A-to-E request, report and Isaac log
+SHA-256 values are `de5eb543...f3fd`, `3de99731...4a94`, and
+`4e9403dd...d2ae`. The A-to-B values are `24dfcbb7...353a`,
+`0e25d3de...9371`, and `31f4ac93...bb9e`. Full hashes and all untracked evidence
+remain below `tmp/restaurant_benchmark/navigation-ae-v1/` and
+`tmp/restaurant_benchmark/navigation-ab-v1/`.
+
+Validate the pair without launching Isaac again:
+
+```bash
+PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
+EAI_CONTROLLER_ROOT=/home/pupil/eai-simulator/source/EAI_assets/EAI_assets/controller \
+  /home/pupil/miniconda3/envs/env_isaaclab/bin/python \
+  -m demo.restaurant_benchmark.navigation_pair \
+  --ae-root tmp/restaurant_benchmark/navigation-ae-v1 \
+  --ab-root tmp/restaurant_benchmark/navigation-ab-v1 \
+  --output tmp/restaurant_benchmark/navigation-pair-fresh.json
+```
+
+The accepted pair certificate has content SHA-256
+`7270b318b8458e54aba110623c0c113108d78e0fae4c68f036eb65d98fb3e118`
+and file SHA-256
+`8274dfac8c8351a5c0fe20a39af3650efcfc0f8d5387b87889149524901f8d35`.
+It sets `two_route_navigation_validated=true` for candidate v7 and these two
+Carter routes. `navigation_ready` remains false pending a portable released
+asset bundle and formal task admission. No restaurant business episode has run,
+so `business_episode_execution_validated` and `scoreable` remain false.

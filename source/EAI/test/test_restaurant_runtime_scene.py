@@ -276,3 +276,81 @@ def test_restaurant_contact_decoder_rejects_invalid_buffers(raw):
 
     with pytest.raises(RuntimeError, match="invalid Carter wheel contact buffer"):
         contact_probe._decode_contact_data(raw)
+
+
+def test_restaurant_navigation_routes_and_scoped_gates_are_frozen():
+    from demo.restaurant_benchmark import navigation_probe
+
+    assert navigation_probe.ROUTES == {
+        "A-E": {
+            "start_xy_m": (21.875, 20.875),
+            "goal_xy_m": (24.225, 17.625),
+        },
+        "A-B": {
+            "start_xy_m": (21.875, 20.875),
+            "goal_xy_m": (14.225, 21.925),
+        },
+    }
+    assert navigation_probe.PLANNING_RADIUS_M == 0.40
+    assert navigation_probe.FINAL_TOLERANCE_M == 0.25
+    assert navigation_probe.MAXIMUM_ROUTE_DEVIATION_M == 0.40
+    assert navigation_probe.PROBE_SCOPE.endswith("wheel_contact_only")
+
+
+def test_restaurant_navigation_route_deviation_uses_all_segments():
+    from demo.restaurant_benchmark import navigation_probe
+
+    polyline = [(0.0, 0.0), (2.0, 0.0), (2.0, 2.0)]
+    assert navigation_probe._route_deviation((1.0, 0.3), polyline) == pytest.approx(0.3)
+    assert navigation_probe._route_deviation((2.2, 1.0), polyline) == pytest.approx(0.2)
+
+
+def _navigation_request(monkeypatch):
+    from demo.restaurant_benchmark import config, navigation_probe, runtime_probe
+
+    monkeypatch.setattr(navigation_probe, "_source_files", lambda: {})
+    return {
+        "schema": "eai.restaurant.native_navigation_request",
+        "version": 1,
+        "run_id": uuid.uuid4().hex,
+        "scene_key": config.BENCHMARK_SCENE_KEY,
+        "selection": runtime_probe._selection(),
+        "requested_device": "cpu",
+        "source_sha256": config.SOURCE_SHA256,
+        "product_validation": {"validated": True},
+        "source_files": {},
+        "thresholds": navigation_probe._thresholds(),
+        "route": {
+            "route_id": "A-E",
+            "start_xy_m": [21.875, 20.875],
+            "goal_xy_m": [24.225, 17.625],
+            "map_sha256": "m" * 64,
+            "route_cells": [[1, 2], [2, 3]],
+            "waypoints_xy_m": [[21.875, 20.875], [24.225, 17.625]],
+            "planned_length_m": 4.0,
+        },
+        "release_gates": {
+            "navigation_ready": False,
+            "execution_validated": False,
+            "scoreable": False,
+        },
+        "business_episode_execution_validated": False,
+        "scoreable": False,
+    }
+
+
+@pytest.mark.parametrize("tamper", ["run_id", "thresholds", "route", "scoreable"])
+def test_restaurant_navigation_request_contract_fails_closed(monkeypatch, tamper):
+    from demo.restaurant_benchmark import navigation_probe
+
+    request = _navigation_request(monkeypatch)
+    if tamper == "run_id":
+        request["run_id"] = "not-a-run-id"
+    elif tamper == "thresholds":
+        request["thresholds"]["max_steps"] += 1
+    elif tamper == "route":
+        request["route"]["goal_xy_m"] = [0.0, 0.0]
+    else:
+        request["scoreable"] = True
+    with pytest.raises(ValueError, match="invalid Restaurant native navigation request"):
+        navigation_probe._validate_request_contract(request)
