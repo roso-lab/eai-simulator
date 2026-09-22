@@ -107,9 +107,11 @@ def build_city_episode_plan(public_task: Mapping[str, Any]) -> dict[str, Any]:
     following vehicles in ``hold`` mode, and one ``report_incident`` to the
     frozen response service) while dropping the witness's navigation and
     observation tasks: the native host has already placed the responders and
-    delivered the observation.  Windows are scheduled serially on the common
-    simulation clock with the public ``skill_durations_s``; the report cites
-    the frozen service endpoint.
+    delivered the observation.  When the public contract publishes
+    ``aerial_broadcast`` (City pool v3), one broadcast covering the whole
+    roster is inserted first and assigned to ``iris_1``; v1/v2 plans omit it.
+    Windows are scheduled serially on the common simulation clock with the
+    public ``skill_durations_s``; the report cites the frozen service endpoint.
     """
     durations = public_task["execution_contract"]["skill_durations_s"]
     for skill in ("guide_people", "control_following_traffic", "report_incident"):
@@ -137,6 +139,18 @@ def build_city_episode_plan(public_task: Mapping[str, Any]) -> dict[str, Any]:
     tasks: list[dict[str, Any]] = []
     guide_ids: list[str] = []
     clock_s = 0.0
+    if "aerial_broadcast" in durations:
+        roster = sorted(_CITY_NATIVE_AFFECTED_PERSON_ASSEMBLY)
+        tasks.append(row(
+            "aerial_broadcast_roster", "aerial_broadcast",
+            {"person_ids": roster, "observation_refs": [CITY_NATIVE_OBSERVATION_REF]},
+            [], ["iris_1"], clock_s))
+        # The skill name is the declared capability gate. Ontology requirements
+        # are aerial_navigation plus relay; iris_1 on pool v3 also publishes
+        # aerial_broadcast, and a ground-only assignee must fail that check.
+        tasks[-1]["required_capabilities"] = sorted(
+            set(tasks[-1]["required_capabilities"]) | {"aerial_broadcast"})
+        clock_s += float(durations["aerial_broadcast"])
     for index, (region_id, person_ids) in enumerate(groups):
         task_id = f"guide_people_{region_id}"
         # The first two groups may be acknowledged in either order; the rest

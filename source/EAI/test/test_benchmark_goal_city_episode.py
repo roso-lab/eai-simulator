@@ -271,6 +271,7 @@ def test_reduced_plan_validates_and_matches_frozen_native_roster(city_package):
     reports = [task for task in plan["tasks"] if task["skill"] == "report_incident"]
     assert len(guides) == len(_CITY_NATIVE_AFFECTED_PERSON_ASSEMBLY) and len(controls) == 1 \
         and len(reports) == 1
+    assert not any(task["skill"] == "aerial_broadcast" for task in plan["tasks"])
 
     guided_people = [person for task in guides for person in task["arguments"]["person_ids"]]
     assert sorted(guided_people) == ROSTER_IDS
