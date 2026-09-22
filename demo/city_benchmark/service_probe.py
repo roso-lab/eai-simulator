@@ -587,13 +587,17 @@ def _step(session: Any, city: Any, actions: Mapping[str, Any], count: int = 1) -
 def _role(runner: Any, role: str, session: Any, trace: dict) -> None:
     now = runner.adapter.now_s()
     samples = session._city_diagnostic_role_interval
+    # The diagnostic role region follows the probe selection's actual go2
+    # spawn (v2 dispersed spawns); the historical staging line stays the
+    # default for callers that never set the centre.
+    centre = getattr(session, "_city_role_center_xy", (-69., 49.))
     if (samples[-1]["time_s"] != now or samples[0]["time_s"] >= now
-            or any(math.dist(row["position_m"][:2], [-69., 49.]) > 2. for row in samples)):
+            or any(math.dist(row["position_m"][:2], centre) > 2. for row in samples)):
         raise RuntimeError("native robot left diagnostic role region or interval is stale")
     runner.record_role(role, start_time_s=samples[0]["time_s"], end_time_s=now)
     trace.setdefault("role_intervals", []).append({"role": role,
         "agent_id": "go2_1", "source": "articulation.data.root_pos_w", "samples": samples,
-        "diagnostic_region_center_xy": [-69., 49.], "radius_m": 2.})
+        "diagnostic_region_center_xy": list(centre), "radius_m": 2.})
 
 
 def _rotation_sweep_half(half, angle):
@@ -791,6 +795,9 @@ def _execute(output_root: Path, prepared: Mapping[str, Any], *, run_id: str,
         city = CityEaiRuntime.from_current_stage(
             config=CityRuntimeConfig(seed=seed, use_flow=False, episode_id=run_id))
         city.reset()
+        go2_spawn = next(row["spawn_pose"]["position"] for row in config.selection_data["robots"]
+                         if row["type"] == "go2")
+        session._city_role_center_xy = (float(go2_spawn[0]), float(go2_spawn[1]))
         session._city_probe_max_episode_s = prepared.get("bounded", {}).get(
             "max_episode_s", MAX_EPISODE_S)
         actions = _zero_actions(session)
