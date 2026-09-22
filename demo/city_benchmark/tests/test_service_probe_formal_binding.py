@@ -120,7 +120,7 @@ def test_prepare_with_standalone_binding_document_enters_formal_mode(tmp_path):
     assert result["episode_binding_source_kind"] == "binding_document"
     assert result["episode_binding_map_review"] is None
     assert result["scoreable"] is False
-    assert result["bounded"] == {"people_assembly_arrival_s": 120., "max_episode_s": 180.}
+    assert result["bounded"] == {"people_assembly_arrival_s": 60., "max_episode_s": 180.}
     assert result["requires"] == ["scene_query_support", "cpu_current_physx_queries",
                                   "bound_roster_spawn_from_episode_binding",
                                   "all_active_following_vehicles_bound_at_instantiation"]

@@ -77,14 +77,17 @@ def _selection(seed: int) -> dict[str, Any]:
     return {
         "version": 1, "scene_key": "modern_house_nvd", "task_name": "city_eai_demo",
         "robots": [
+            # v2 dispersed spawns: north / south-west / centre-south road
+            # points, road-polygon and static-obstacle validated against the
+            # frozen semantic map (cleaner than the former shared staging line).
             {"type": "go2", "controller": {"mode": "default", "cfg": "GO2_VELOCITY_RSL_CFG"},
-             "spawn_pose": {"position": [-69.0, 49.0, 0.62], "rotation": [1, 0, 0, 0]},
+             "spawn_pose": {"position": [-40.0, 55.0, 0.62], "rotation": [1, 0, 0, 0]},
              "attachments": []},
             {"type": "carter", "controller": {"mode": "default", "cfg": "CARTER_DIFF_CFG"},
-             "spawn_pose": {"position": [-65.0, 49.0, 0.22], "rotation": [1, 0, 0, 0]},
+             "spawn_pose": {"position": [-69.0, 25.0, 0.22], "rotation": [1, 0, 0, 0]},
              "attachments": []},
             {"type": "iris", "controller": {"mode": "default", "cfg": "PEGASUS_IRIS_POSITION_CFG"},
-             "spawn_pose": {"position": [-61.0, 49.0, 3.0], "rotation": [1, 0, 0, 0]},
+             "spawn_pose": {"position": [-55.0, 20.0, 3.0], "rotation": [1, 0, 0, 0]},
              "attachments": []},
         ],
         "scenario_seed": int(seed),

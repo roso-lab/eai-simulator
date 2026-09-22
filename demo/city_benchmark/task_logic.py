@@ -44,7 +44,7 @@ def default_deadline_policy(response_budget_s: float = 180.0) -> dict[str, Any]:
         "traffic_control_ack_s": 10.0,
         "traffic_reaction_window_s": 5.0,
         "people_guidance_ack_s": 20.0,
-        "people_assembly_arrival_s": 120.0,
+        "people_assembly_arrival_s": 60.0,  # v2: jog 3.6 m/s keeps worst arrival ~55 s
         "report_receipt_s": 15.0,
         "response_budget_s": budget,
     }

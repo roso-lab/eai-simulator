@@ -16,6 +16,7 @@ from types import SimpleNamespace
 import pytest
 
 from demo.benchmark.goal_city_episode import (
+    stamp_arrival_times,
     CITY_BACKEND_ID,
     CITY_EVALUATOR_REF,
     CITY_EPISODE_PLAN_ID,
@@ -293,13 +294,27 @@ def test_reduced_plan_validates_and_matches_frozen_native_roster(city_package):
 def test_offline_episode_runs_all_native_skills_through_the_session(tmp_path, city_package):
     ctx, runner, step_calls, role_calls = _make_ctx(tmp_path)
     plan = build_city_episode_plan(city_package["public_task"])
+    # Mirror the driver's stepping hook: arrival stamps are collected during
+    # every simulation advance, not only during the evaluator's final wait.
+    arrival_stamps: dict[str, float] = {}
+    native_step = ctx["step"]
+
+    def stamped_step(session, city, actions, count=1):
+        native_step(session, city, actions, count)
+        stamp_arrival_times(ctx, arrival_stamps)
+
+    ctx["step"] = stamped_step
+    # People reach assembly after the last guide group acknowledges (~60 s);
+    # arriving earlier than an acknowledgement is causally impossible.
+    ctx["city"]._episode_service.people_controller.arrive_at_s = 65.0
     backend = CityNativeGoalBackend(ctx, plan)
     episode_root = tmp_path / "episode"
     formal = FormalGoalEpisodeRunner(
         city_package["public_task"], city_package["participant_api"],
         CityWitnessParticipant(plan), backend, output_root=episode_root,
         episode_id="city-goal-offline-001",
-        evaluator=city_business_evaluator(backend.evidence, ctx))
+        evaluator=city_business_evaluator(backend.evidence, ctx,
+                                          arrival_stamps=arrival_stamps))
     result = formal.run(initial_state={"robot_regions": dict(CITY_ROBOT_REGIONS),
                                        "object_states": {}})
 

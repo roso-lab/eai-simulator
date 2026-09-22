@@ -81,7 +81,7 @@ CITY_GUIDE_RETRY_LIMIT = 20
 CITY_ROBOT_REGIONS = {"go2_1": "road_surface", "carter_1": "road_surface",
                       "iris_1": "road_surface"}
 DEFAULT_CITY_EPISODE_BINDING = ROOT / (
-    "tmp/city_benchmark/recovery_binding_20260920/authoring/private.json")
+    "tmp/city_benchmark/recovery_binding_v2_20260922/authoring/private.json")
 
 
 def _action(identifier: str, kind: str, payload: Mapping[str, Any],
@@ -626,8 +626,25 @@ def build_acceptance_evidence(evidence_log: list[Mapping[str, Any]],
     }
 
 
+def stamp_arrival_times(ctx: Mapping[str, Any], stamps: dict[str, float]) -> None:
+    """Record each person's first native arrival readback time.
+
+    Called after every simulation advance so people who reach assembly while
+    earlier skills execute are stamped at their actual arrival, not at the
+    evaluator's first observation.
+    """
+    city = ctx["city"]
+    service = city._episode_service
+    for person_id in ctx["roster_ids"]:
+        if person_id in stamps:
+            continue
+        if service.people_controller.readback(person_id, service.assembly_regions)["arrived"]:
+            stamps[person_id] = float(city.elapsed)
+
+
 def await_assembly_arrivals(ctx: Mapping[str, Any],
-                            evidence_log: list[Mapping[str, Any]]) -> None:
+                            evidence_log: list[Mapping[str, Any]],
+                            stamps: dict[str, float] | None = None) -> None:
     """Advance the native scene until the guided roster reaches assembly.
 
     Mirrors the host sequence's arrival wait: step the simulation until every
@@ -662,18 +679,11 @@ def await_assembly_arrivals(ctx: Mapping[str, Any],
     deadlines = [person_deadline(row, person_id)
                  for row in guides for person_id in row.get("person_ids", ())]
     horizon = max(deadlines, default=float(city.elapsed))
-    first_arrival: dict[str, float] = {}
+    first_arrival: dict[str, float] = stamps if stamps is not None else {}
 
     def poll_arrivals() -> bool:
-        state = {}
-        for person_id in roster:
-            arrived = bool(controller.readback(person_id, regions)["arrived"])
-            state[person_id] = arrived
-            if arrived and person_id not in first_arrival:
-                # Native-clock measurement: the moment this person's readback
-                # first reports assembly arrival during the wait.
-                first_arrival[person_id] = float(city.elapsed)
-        return all(state.values())
+        stamp_arrival_times(ctx, first_arrival)
+        return all(person_id in first_arrival for person_id in roster)
 
     poll_arrivals()
     while float(city.elapsed) < horizon and not poll_arrivals():
@@ -715,13 +725,14 @@ def await_assembly_arrivals(ctx: Mapping[str, Any],
 
 
 def city_business_evaluator(evidence_log: list[Mapping[str, Any]],
-                            ctx: Mapping[str, Any]) -> Callable[[str, Mapping[str, Any]],
-                                                                dict[str, dict[str, Any]]]:
+                            ctx: Mapping[str, Any],
+                            arrival_stamps: dict[str, float] | None = None,
+                            ) -> Callable[[str, Mapping[str, Any]], dict[str, dict[str, Any]]]:
     """Wrap the City acceptance predicates as a FormalGoalEpisodeRunner evaluator."""
 
     def evaluate(episode_id: str, trusted_report: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
         del episode_id
-        await_assembly_arrivals(ctx, evidence_log)
+        await_assembly_arrivals(ctx, evidence_log, stamps=arrival_stamps)
         envelope = build_acceptance_evidence(evidence_log, ctx)
         acceptance = evaluate_city_acceptance(
             envelope, default_deadline_policy(),
@@ -777,11 +788,20 @@ def run_city_episode(output_root: str | Path, *, device: str = "cpu",
         package = build_goal_task_package("city", city_roster_profile="bound_native_v1")
         public = package["public_task"]
         plan = build_city_episode_plan(public)
+        arrival_stamps: dict[str, float] = {}
+        native_step = ctx["step"]
+
+        def stamped_step(session, city, actions, count=1):
+            native_step(session, city, actions, count)
+            stamp_arrival_times(ctx, arrival_stamps)
+
+        ctx["step"] = stamped_step
         backend = CityNativeGoalBackend(ctx, plan)
         runner = FormalGoalEpisodeRunner(
             public, package["participant_api"], CityWitnessParticipant(plan), backend,
             output_root=episode_root,
-            evaluator=city_business_evaluator(backend.evidence, ctx))
+            evaluator=city_business_evaluator(backend.evidence, ctx,
+                                              arrival_stamps=arrival_stamps))
         result = runner.run(initial_state={"robot_regions": dict(CITY_ROBOT_REGIONS),
                                            "object_states": {}})
         source_sha256 = file_sha256(Path(__file__))
