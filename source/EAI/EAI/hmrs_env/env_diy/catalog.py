@@ -22,6 +22,7 @@ SCENE_CHOICES = (
     ("rmuc2024", "RMUC 2024"),
     ("warehouse_nvd", "Warehouse NVD benchmark overlay"),
     ("modern_house_nvd", "Modern House NVD benchmark overlay"),
+    ("restaurant", "Restaurant authoring scene"),
 )
 
 ROBOT_KEYS = (

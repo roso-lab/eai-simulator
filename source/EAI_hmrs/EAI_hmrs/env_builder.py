@@ -128,6 +128,13 @@ SCENE_OPTIONS = [
         prim_path="/World/WarehouseNVD",
     ),
     SceneOption(
+        "restaurant",
+        "Restaurant authoring scene",
+        ("EAI_assets.scene.restaurant", "RESTAURANT_CFG"),
+        prim_path="/World/Restaurant",
+        robot_spawn_origin=(18.0, 14.0),
+    ),
+    SceneOption(
         "desert",
         "Desert",
         ("EAI_assets.scene.desert", "DESERT_CFG"),

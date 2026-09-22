@@ -11,6 +11,7 @@ _EXPORTS = {
     "DESERT_CFG": ("EAI_assets.scene.desert", "DESERT_CFG"),
     "HOSPITAL_CFG": ("EAI_assets.scene.hospital", "HOSPITAL_CFG"),
     "RMUC2024_CFG": ("EAI_assets.scene.rmuc2024", "RMUC2024_CFG"),
+    "RESTAURANT_CFG": ("EAI_assets.scene.restaurant", "RESTAURANT_CFG"),
 }
 
 __all__ = sorted(_EXPORTS)

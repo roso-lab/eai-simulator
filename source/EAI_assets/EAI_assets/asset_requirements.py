@@ -60,6 +60,10 @@ _SCENE_PATHS = {
     # files only, so no provider download is declared for it.
     "warehouse_nvd": ("scene/warehouse_nvd/warehouse_nvd_bench.usd",),
     "modern_house_nvd": ("scene/modern_house_nvd/modern_house_nvd_bench.usd",),
+    # The restaurant is a local authoring package. Its composed dependency
+    # closure is audited separately because it is not yet a published provider
+    # bundle and has no benchmark occupancy product.
+    "restaurant": ("scene/restaurant/Restaurant_Only.usda",),
     "airs": ("scene/airs/airs.usd", *SCENE_MAP_PATHS["airs"]),
     "desert": ("scene/desert/real_dust_scene_tiny.usda", *SCENE_MAP_PATHS["desert"]),
     "hospital": (
