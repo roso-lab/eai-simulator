@@ -64,6 +64,7 @@ from .goal_driven_tasks import (
     build_goal_task_package,
 )
 from .goal_episode_runner import FormalGoalEpisodeRunner
+from .goal_external_adapters import CityTeamWeaverParticipant
 from .provenance import file_sha256
 from demo.city_benchmark.task_logic import (
     default_deadline_policy,
@@ -827,7 +828,8 @@ def _plain_evidence(value: Any) -> Any:
 
 
 def run_city_episode(output_root: str | Path, *, device: str = "cpu",
-                     episode_binding: str | Path | None = None) -> dict[str, Any]:
+                     episode_binding: str | Path | None = None,
+                     algorithm: str = "witness") -> dict[str, Any]:
     """Prepare the formal City probe and run the injected GoalSession episode."""
     from demo.city_benchmark.service_probe import execute_probe, prepare_probe
 
@@ -850,8 +852,10 @@ def run_city_episode(output_root: str | Path, *, device: str = "cpu",
 
         ctx["step"] = stamped_step
         backend = CityNativeGoalBackend(ctx, plan)
+        participant = (CityTeamWeaverParticipant(plan) if algorithm == "teamweaver"
+                       else CityWitnessParticipant(plan))
         runner = FormalGoalEpisodeRunner(
-            public, package["participant_api"], CityWitnessParticipant(plan), backend,
+            public, package["participant_api"], participant, backend,
             output_root=episode_root,
             evaluator=city_business_evaluator(backend.evidence, ctx,
                                               arrival_stamps=arrival_stamps))
@@ -865,6 +869,8 @@ def run_city_episode(output_root: str | Path, *, device: str = "cpu",
             "error": result["error"], "turns": result["turns"],
             "skill_receipt_count": result["skill_receipt_count"],
             "backend": type(backend).__name__,
+            "participant": type(participant).__name__,
+            "participant_trace": deepcopy(getattr(participant, "trace", []) or []),
             "participant_plan_id": CITY_EPISODE_PLAN_ID,
             "source_sha256": source_sha256,
         }
@@ -895,12 +901,15 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--device", choices=("cpu", "cuda:0"), default="cpu")
+    parser.add_argument("--algorithm", choices=("witness", "teamweaver"), default="witness",
+                        help="participant driving the episode (witness = fixed plan)")
     parser.add_argument("--episode-binding", type=Path, default=None,
                         help="authoring/private.json or standalone binding document "
                              f"(default: {DEFAULT_CITY_EPISODE_BINDING})")
     args = parser.parse_args(argv)
     report = run_city_episode(args.output_root, device=args.device,
-                              episode_binding=args.episode_binding)
+                              episode_binding=args.episode_binding,
+                              algorithm=args.algorithm)
     print(json.dumps(report, ensure_ascii=False, sort_keys=True))
     return 0 if report.get("status") == "completed" else 1
 

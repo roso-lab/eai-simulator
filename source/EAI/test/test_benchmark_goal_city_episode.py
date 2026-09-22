@@ -595,3 +595,40 @@ def test_goal_city_episode_cli_entrypoint_executes():
     )
     assert result.returncode == 0
     assert "--output-root" in result.stdout
+
+
+def test_city_teamweaver_participant_allocates_and_sequences(city_package):
+    """Real TeamWeaver allocator drives team selection and per-task agents."""
+    from demo.benchmark.goal_external_adapters import CityTeamWeaverParticipant
+
+    public = city_package["public_task"]
+    plan = build_city_episode_plan(public)
+    participant = CityTeamWeaverParticipant(plan)
+    participant.initialize(public, city_package["participant_api"])
+
+    opening = participant.act([{"type": "episode_started", "time_s": 0.0}])
+    assert [row["type"] for row in opening] == ["select_team", "submit_plan"]
+    # The allocator must pick an eligible agent for every task.
+    capabilities = {row["id"]: set(row["public_capabilities"])
+                    for row in public["candidate_robot_pool"]}
+    allocated = opening[1]["payload"]["plan"]
+    for task in allocated["tasks"]:
+        agent = task["assigned_agents"][0]
+        assert set(task["required_capabilities"]) <= capabilities[agent]
+    # Team is exactly the allocated agents, pool-ordered, within the budget.
+    team = opening[0]["payload"]["agent_ids"]
+    assert set(team) == {task["assigned_agents"][0] for task in allocated["tasks"]}
+    assert len(team) <= public["budgets"]["max_active_agents"]
+    assert participant.trace[0]["planner"] == "TeamWeaverPipeline"
+    assert participant.trace[1]["event"] == "plan_initial"
+    assert participant.trace[1]["solver"] in {"hungarian", "miqp"}
+
+    # Dispatches sequence one per terminal result, witness-mirrored.
+    first = participant.act([{"type": "action_result", "time_s": 20.0,
+                              "payload": {"action_id": "tw_city_plan",
+                                          "status": "accepted"}}])
+    assert [row["type"] for row in first] == ["dispatch_skill"]
+    assert first[0]["payload"]["task_id"] == allocated["tasks"][0]["task_id"]
+    idle = participant.act([{"type": "action_result", "time_s": 20.5,
+                             "payload": {"action_id": "other", "status": "accepted"}}])
+    assert idle == []

@@ -290,4 +290,192 @@ class EmosGoalAdapter:
         self.trace.append({"event": "close"})
 
 
-__all__ = ["TeamWeaverGoalAdapter", "EmosGoalAdapter"]
+
+
+class CityTeamWeaverParticipant:
+    """Real TeamWeaver allocator deciding the City episode's team and dispatch.
+
+    The reduced City plan's structure (tasks, windows, prerequisites) is
+    witness-derived; the measured decisions are team selection and the
+    per-task agent assignment, which this participant derives from the real
+    ``TeamWeaverPipeline`` + ``DynamicMIQPAllocator`` over the public
+    candidate pool.  Eligibility is a hard capability containment: a task is
+    only ever assigned to an agent whose public capabilities cover the task's
+    declared requirements.  Trusted receipts and host state never cross into
+    this object.
+    """
+
+    def __init__(self, base_plan: Mapping[str, Any]):
+        self._base = deepcopy(dict(base_plan))
+        self._plan: dict[str, Any] | None = None
+        self._opened = False
+        self._dispatched = 0
+        self._terminal: set[str] = set()
+        self.trace: list[dict[str, Any]] = []
+
+    def manifest(self) -> Mapping[str, Any]:
+        return {"kind": "participant", "id": "city-native-teamweaver", "version": 1,
+                "interface": "eai.benchmark.goal_algorithm_adapter", "interface_version": 1,
+                "evaluation_track": "goal_driven",
+                "input_scope": "participant_visible_events_only",
+                "control_scope": "benchmark_managed_low_level_control"}
+
+    def initialize(self, public_task: Mapping[str, Any],
+                   participant_api: Mapping[str, Any]) -> None:
+        self._task = deepcopy(public_task)
+        del participant_api
+        self.trace.append({"event": "initialize", "planner": "TeamWeaverPipeline"})
+
+    # -- allocation ------------------------------------------------------
+    def _allocate(self) -> None:
+        _ensure_algorithm_roots()
+        from TeamWeaver.eai_adapter.dynamic_miqp import DynamicMIQPAllocator
+        from TeamWeaver.eai_adapter.semantic_decomposer import SemanticDecompositionResult
+        from TeamWeaver.eai_adapter.capability_ontology import CapabilityRequirement
+        from TeamWeaver.eai_adapter.task_models import (
+            RobotSnapshot, SemanticTask, SymbolicWorldState, TargetSnapshot, TaskType,
+        )
+        from TeamWeaver.eai_adapter.teamweaver_pipeline import TeamWeaverPipeline
+
+        pool = self._task["candidate_robot_pool"]
+        plan_tasks = self._base["tasks"]
+        capability_names = sorted({cap for row in pool
+                                   for cap in row["public_capabilities"]})
+
+        def _busy_snapshot(row):
+            caps = set(row["public_capabilities"])
+            values = {name: (1.0 if name in caps else 0.0) for name in capability_names}
+            return RobotSnapshot(
+                name=row["id"], position=(0.0, 0.0), base_capabilities=values,
+                reliability={name: 1.0 for name in values}, equipment=frozenset(),
+                busy=True, current_task="<phase_assigned>", current_load=0, safe=True)
+
+        def robot_snapshot(row):
+            caps = set(row["public_capabilities"])
+            values = {name: (1.0 if name in caps else 0.0) for name in capability_names}
+            return RobotSnapshot(
+                name=row["id"], position=(0.0, 0.0), base_capabilities=values,
+                reliability={name: 1.0 for name in values}, equipment=frozenset(),
+                busy=False, current_task=None, current_load=0, safe=True)
+
+        targets = tuple(TargetSnapshot(
+            ref=task["task_id"], position=(0.0, 0.0, 0.0), available=True,
+            kind="region", compatible_task_types=(TaskType.NAVIGATE,))
+            for task in plan_tasks)
+        world = SymbolicWorldState(
+            hazard_id=0, hazard_position=(0.0, 0.0, 0.0), hazard_active=False,
+            targets=targets, robots=tuple(robot_snapshot(row) for row in pool),
+            extinguisher_available=False, extinguisher_carrier=None,
+            extinguisher_delivered=False, rescue_channel_open=True,
+            completed_task_ids=(), failed_task_ids=(), recent_feedback=(),
+            observations={})
+
+        class _CityDecomposer:
+            """Emit the still-unassigned plan tasks as semantic tasks."""
+
+            def __init__(self, remaining):
+                self._remaining = remaining
+
+            def decompose(self, instruction, world_state, **_kwargs):
+                rows = []
+                for task in plan_tasks:
+                    if task["task_id"] not in self._remaining:
+                        continue
+                    requirements = {cap: CapabilityRequirement(1.0, 1.0, True)
+                                    for cap in task["required_capabilities"]}
+                    rows.append(SemanticTask(
+                        task_id=task["task_id"], task_type=TaskType.NAVIGATE,
+                        description=task["skill"], target_ref=task["task_id"],
+                        priority=1, requirements=requirements,
+                        prerequisites=(), can_parallel=False,
+                        estimated_duration_s=float(task["execution"]["duration_s"]),
+                        preferred_agent=None))
+                return SemanticDecompositionResult(
+                    tasks=tuple(rows), source="deepseek", attempts=1)
+
+        allocator = DynamicMIQPAllocator(prefer_miqp=False)
+        # The allocator is a per-phase matching (at most one task per robot
+        # per round), so the city episode allocates in dynamic rounds: each
+        # round plans only the still-unassigned tasks over the free pool
+        # (phase-assigned robots complete between rounds), until every task
+        # has an agent or a round makes no progress.
+        assignment: dict[str, str] = {}
+        remaining = {task["task_id"] for task in plan_tasks}
+        for round_index in range(len(plan_tasks)):
+            if not remaining:
+                break
+            result = allocator.allocate(
+                world, _CityDecomposer(remaining).decompose(None, world).tasks)
+            round_map = {row.task_id: row.robot_name
+                         for row in result.assignments
+                         if row.task_id in remaining}
+            self.trace.append({"event": "plan_initial", "round": round_index,
+                               "solver": getattr(result, "solver", "miqp"),
+                               "assignment": dict(round_map),
+                               "task_ids": sorted(remaining)})
+            if not round_map:
+                break
+            assignment.update(round_map)
+            remaining -= set(round_map)
+        if remaining:
+            raise RuntimeError(f"TeamWeaver left city tasks unassigned: {sorted(remaining)}")
+
+        capability_map = {row["id"]: set(row["public_capabilities"]) for row in pool}
+        rewritten = deepcopy(self._base)
+        for task in rewritten["tasks"]:
+            agent = assignment[task["task_id"]]
+            required = set(task["required_capabilities"])
+            if not required <= capability_map[agent]:
+                raise RuntimeError(
+                    f"TeamWeaver assigned {task['task_id']} to ineligible {agent}")
+            task["assigned_agents"] = [agent]
+        team = list(dict.fromkeys(
+            assignment[task["task_id"]] for task in rewritten["tasks"]))
+        order = {row["id"]: index for index, row in enumerate(pool)}
+        rewritten["assigned_team"] = sorted(team, key=lambda name: order[name])
+        self._plan = rewritten
+        self.trace.append({"event": "team_selected", "team": rewritten["assigned_team"]})
+
+    # -- action sequencing (mirrors the witness participant) --------------
+    def act(self, events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        if not self._opened:
+            if not any(item["type"] == "episode_started" for item in events):
+                return []
+            self._opened = True
+            self._allocate()
+            return [{
+                "schema": "eai.benchmark.goal_action", "version": 1,
+                "action_id": "tw_city_select", "submitted_at_s": 0.0,
+                "type": "select_team", "payload": {"agent_ids": list(self._plan["assigned_team"])},
+            }, {
+                "schema": "eai.benchmark.goal_action", "version": 1,
+                "action_id": "tw_city_plan", "submitted_at_s": 0.0,
+                "type": "submit_plan", "payload": {"plan": deepcopy(self._plan)},
+            }]
+        for item in events:
+            if item["type"] == "action_result" and item["payload"].get("status") in {
+                    "succeeded", "failed", "cancelled"}:
+                self._terminal.add(item["payload"]["action_id"])
+                if item["payload"].get("status") == "failed":
+                    self.trace.append({"event": "replan", "reason": "public_skill_failure"})
+        tasks = self._plan["tasks"]
+        if self._dispatched >= len(tasks):
+            return []
+        previous = f"tw_city_dispatch_{self._dispatched - 1}"
+        if self._dispatched and previous not in self._terminal:
+            return []
+        index = self._dispatched
+        self._dispatched += 1
+        now = max((item["time_s"] for item in events), default=0.0)
+        return [{
+            "schema": "eai.benchmark.goal_action", "version": 1,
+            "action_id": f"tw_city_dispatch_{index}", "submitted_at_s": float(now),
+            "type": "dispatch_skill",
+            "payload": {"task_id": tasks[index]["task_id"], "evidence_refs": []},
+        }]
+
+    def close(self) -> None:
+        pass
+
+
+__all__ = ["TeamWeaverGoalAdapter", "EmosGoalAdapter", "CityTeamWeaverParticipant"]
