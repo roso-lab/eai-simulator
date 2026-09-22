@@ -171,7 +171,8 @@ class _FakeRunner:
     def record_person_arrival(self, request_id, person_id, *, previous_position,
                                assembly_region_id, arrived):
         self.calls.append(("record_person_arrival", request_id, person_id, arrived))
-        return {"person_id": person_id, "arrived": bool(arrived)}
+        return {"person_id": person_id, "arrived": bool(arrived),
+                "safe_route_and_assembly": True}
 
     def review(self, request_id):
         self.calls.append(("review", request_id))

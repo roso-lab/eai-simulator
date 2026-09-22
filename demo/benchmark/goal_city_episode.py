@@ -524,10 +524,11 @@ def build_acceptance_evidence(evidence_log: list[Mapping[str, Any]],
                              if isinstance(actor, Mapping)}
             entered_hazard = review_actors.get(person_id, {}).get("entered_hazard")
             if not isinstance(entered_hazard, bool):
-                # Guide review actors express route safety as
-                # safe_route_and_assembly; derive the predicate's
-                # entered_hazard from that trusted flag when present.
-                safe_route = review_actors.get(person_id, {}).get("safe_route_and_assembly")
+                # Route safety preference: the readback row returned by the
+                # arrival recording itself, then the review actor's flag.
+                safe_route = arrival.get("safe_route_and_assembly")
+                if not isinstance(safe_route, bool):
+                    safe_route = review_actors.get(person_id, {}).get("safe_route_and_assembly")
                 if isinstance(safe_route, bool):
                     entered_hazard = not safe_route
             if isinstance(entered_hazard, bool):
@@ -683,7 +684,7 @@ def await_assembly_arrivals(ctx: Mapping[str, Any],
         region_id = row.get("assembly_region_id")
         for person_id in row.get("person_ids", ()):
             readback = controller.readback(person_id, regions)
-            ctx["runner"].record_person_arrival(
+            recorded = ctx["runner"].record_person_arrival(
                 request_id, person_id,
                 previous_position=ctx["person_start"][person_id],
                 assembly_region_id=region_id, arrived=bool(readback["arrived"]))
@@ -697,11 +698,18 @@ def await_assembly_arrivals(ctx: Mapping[str, Any],
                             else (float(actor_time)
                                   if isinstance(actor_time, (int, float))
                                   and not isinstance(actor_time, bool) else None))
+            # Route safety: prefer the trusted readback row returned by the
+            # recording call itself; the review actor is only a fallback.
+            safe_route = (recorded or {}).get("safe_route_and_assembly") \
+                if isinstance(recorded, Mapping) else None
+            if not isinstance(safe_route, bool):
+                safe_route = actor.get("safe_route_and_assembly")
             evidence_log.append({
                 "kind": "arrival", "person_id": person_id,
                 "request_id": request_id, "assembly_region_id": region_id,
                 "arrived": bool(readback["arrived"]),
                 "arrival_time_s": arrival_time,
+                "safe_route_and_assembly": safe_route,
                 "review": review,
             })
 
@@ -768,6 +776,11 @@ def run_city_episode(output_root: str | Path, *, device: str = "cpu",
         })
         _write_json(episode_root / "city_acceptance_evidence.json",
                     build_acceptance_evidence(backend.evidence, ctx))
+        _write_json(episode_root / "native_evidence_log.json", {
+            "schema": "eai.benchmark.goal_city_episode_native_evidence", "version": 1,
+            "episode_id": result["episode_id"],
+            "records": deepcopy(backend.evidence),
+        })
         ctx["report"]["trace"]["goal_episode"] = {
             "episode_id": result["episode_id"], "output_root": str(episode_root),
             "error": result["error"], "turns": result["turns"],
