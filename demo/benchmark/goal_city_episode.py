@@ -79,6 +79,13 @@ CITY_NATIVE_OBSERVATION_REF = "city_native_runtime_observation"
 CITY_BACKEND_ID = "isaac.city.runtime"
 CITY_EVALUATOR_REF = "demo.city_benchmark.task_logic.evaluate_city_acceptance"
 CITY_GUIDE_RETRY_LIMIT = 20
+def city_robot_regions(public_task: Mapping[str, Any]) -> dict[str, str]:
+    """Region snapshot for the whole candidate pool (road_surface admits
+    both mobilities), so any team the algorithm selects is coverable."""
+    return {row["id"]: "road_surface"
+            for row in public_task["candidate_robot_pool"]}
+
+
 CITY_ROBOT_REGIONS = {"go2_1": "road_surface", "carter_1": "road_surface",
                       "iris_1": "road_surface"}
 DEFAULT_CITY_EPISODE_BINDING = ROOT / (
@@ -226,9 +233,12 @@ class CityNativeGoalBackend:
     error; no path fabricates a success.
     """
 
-    def __init__(self, ctx: Mapping[str, Any], plan: Mapping[str, Any]):
+    def __init__(self, ctx: Mapping[str, Any], plan: Mapping[str, Any],
+                 public_task: Mapping[str, Any] | None = None):
         self._ctx = dict(ctx)
         self._plan = deepcopy(dict(plan))
+        self._robot_regions = (city_robot_regions(public_task) if public_task is not None
+                               else dict(CITY_ROBOT_REGIONS))
         self.evidence: list[dict[str, Any]] = []
         # No simulation step can run between the host warmup observation and
         # this construction, so the shared clock reading is the observation's
@@ -253,7 +263,7 @@ class CityNativeGoalBackend:
                      "report_incident": "incident_observer"}
 
     def _runtime_state(self) -> dict[str, Any]:
-        return {"robot_regions": dict(CITY_ROBOT_REGIONS), "object_states": {}}
+        return {"robot_regions": self._robot_regions, "object_states": {}}
 
     def _dispatch_agent(self, task: Mapping[str, Any]) -> str:
         """Member dispatch: the plan's assigned agent executes this service."""
@@ -853,7 +863,7 @@ def run_city_episode(output_root: str | Path, *, device: str = "cpu",
             stamp_arrival_times(ctx, arrival_stamps)
 
         ctx["step"] = stamped_step
-        backend = CityNativeGoalBackend(ctx, plan)
+        backend = CityNativeGoalBackend(ctx, plan, public_task=public)
         participant = (CityTeamWeaverParticipant(plan) if algorithm == "teamweaver"
                        else CityTeamWeaverParticipant(plan, use_llm_decomposition=True)
                        if algorithm == "teamweaver_llm"
@@ -866,7 +876,7 @@ def run_city_episode(output_root: str | Path, *, device: str = "cpu",
             output_root=episode_root,
             evaluator=city_business_evaluator(backend.evidence, ctx,
                                               arrival_stamps=arrival_stamps))
-        result = runner.run(initial_state={"robot_regions": dict(CITY_ROBOT_REGIONS),
+        result = runner.run(initial_state={"robot_regions": city_robot_regions(public),
                                            "object_states": {}})
         source_sha256 = file_sha256(Path(__file__))
         # Report finalization first: an archival hiccup must never mask a
