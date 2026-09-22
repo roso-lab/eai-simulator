@@ -679,7 +679,7 @@ def build_acceptance_evidence(evidence_log: list[Mapping[str, Any]],
     start = float(report["receipt_time_s"]) if report is not None else None
     end = float(report["access_end_time_s"]) if report is not None else None
     clear = access.get("measured_clear_throughout") is True
-    return {
+    envelope = {
         "incident_assessed": {
             "observation_ref": (observation or {}).get("observation_ref"),
             "fresh_at_decision": bool(admitted and delivered is not None
@@ -700,24 +700,28 @@ def build_acceptance_evidence(evidence_log: list[Mapping[str, Any]],
         },
         "people": people,
         "traffic": traffic,
-        "incident_report": {
-            "observation_refs": [report["observation_ref"]] if report is not None else [],
+    }
+    # Sections without measured evidence are omitted entirely: a skipped or
+    # never-attempted service must fail via the evaluator's missing-section
+    # failure codes, never via null timestamps that crash time parsing.
+    if report is not None:
+        envelope["incident_report"] = {
+            "observation_refs": [report["observation_ref"]],
             "receipt_received": bool(isinstance(received, (int, float))
                                      and not isinstance(received, bool)),
-            "submit_time_s": (float(report["request"]["submitted_time_s"])
-                              if report is not None else None),
+            "submit_time_s": float(report["request"]["submitted_time_s"]),
             "receipt_time_s": (float(received) if isinstance(received, (int, float))
                                and not isinstance(received, bool) else None),
-        },
-        "response_access": {
-            "continuous_access_check": bool(clear and start is not None and end is not None
-                                            and end > start),
+        }
+    if report is not None and start is not None and end is not None:
+        envelope["response_access"] = {
+            "continuous_access_check": bool(clear and end > start),
             "route_admitted": access.get("rescue_and_evacuation_routes_admitted") is True,
             "hazard_free_throughout": clear,
             "check_start_time_s": start,
             "check_end_time_s": end,
-        },
-    }
+        }
+    return envelope
 
 
 def stamp_arrival_times(ctx: Mapping[str, Any], stamps: dict[str, float]) -> None:
