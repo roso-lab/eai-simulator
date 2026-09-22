@@ -60,8 +60,11 @@ def _native_inputs():
 def test_native_roster_profile_has_distinct_legal_witnesses_and_keeps_default():
     default = build_goal_task_package("city")
     assert default == build_goal_task_package("city", city_roster_profile="abstract_v1")
+    # v2 re-freeze: the recalibrated people_assembly_arrival_s (120 -> 60 s
+    # with the doubled jog speed) is part of the frozen package, so the
+    # abstract package hash moved from 51423656... to the v2 value below.
     assert canonical_sha256(default["public_task"]) == (
-        "51423656d67d350023c1d3e6fe2c7981383c806ca9fd8b3f37030be3757ec57f")
+        "10b1b9b40f5b3f1b7ca74be879cacff14c65085561eac5c7866de352237aecfb")
     assert default["public_task"]["skill_catalog_version"] == "eai.skills.v2"
     assert default["participant_api"]["skill_catalog"] == public_skill_catalog()
     native = build_goal_task_package("city", city_roster_profile="bound_native_v1")

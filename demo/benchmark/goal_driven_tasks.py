@@ -103,8 +103,37 @@ _CITY_NATIVE_AFFECTED_PERSON_ASSEMBLY = {
     "affected_person_03": "assembly_candidate_002",
 }
 _CITY_NATIVE_FOLLOWING_VEHICLE_IDS = tuple(f"following_vehicle_{index:02d}" for index in range(6))
-_CITY_ROSTER_PROFILES = {"abstract_v1", "bound_native_v1"}
+_CITY_ROSTER_PROFILES = {"abstract_v1", "bound_native_v1", "bound_native_v2"}
 _CITY_RESPONSE_SERVICE_ID = "city_dispatch"
+# Frozen semantic map that gates the opt-in bound_native_v2 spawn anchors: the
+# road_surface polygon supplies the drivable footprint and static_obstacles
+# bounds_m supply the keep-out boxes.  The map is the maintained
+# recovery_binding_v2 release input, so a missing file is an authoring error
+# rather than a silent validation pass.
+CITY_V2_SEMANTIC_MAP_PATH = (Path(__file__).resolve().parents[2] / "tmp" / "city_benchmark"
+                             / "recovery_binding_v2_20260922" / "release" / "maps"
+                             / "semantic_map.json")
+CITY_SPAWN_CLEARANCE_M = 1.5
+# Opt-in pool-expansion anchors, validated by validate_city_spawn_points.  The
+# sketched carter_2 (-55, 45) and iris_2 (-48, 52) spots fall inside a building
+# block hole of the frozen road polygon (iris_2 also sits inside a roadside
+# obstacle), so the nearest clean road_surface anchors are frozen instead.
+CITY_V2_SPAWN_XY_M = {
+    "go2_2": (-72.0, 40.0),
+    "carter_2": (-55.0, 58.0),
+    "lite3_1": (-70.0, 55.0),
+    "iris_2": (-48.0, 57.0),
+}
+_CITY_V2_POOL_NOTE = (
+    "bound_native_v2 为 opt-in 扩池：候选池 7 台，核心成员仍是 go2_1/carter_1/iris_1，"
+    "本见证与 bound_native_v1 相同，只使用核心 3 台。新增 go2_2/carter_2 复制同型核心成员的公开技能"
+    "（含 guide_people/control_following_traffic），iris_2 复制 iris_1（含 report_incident），"
+    "lite3_1 仅 ground_navigation+observe、无城市服务技能，是能力诱饵。四个新增出生锚点已由 "
+    "validate_city_spawn_points 对照冻结的 recovery_binding_v2 semantic map 校验"
+    f"（road_surface 多边形 point-in-polygon + static_obstacles bounds_m 外扩 {CITY_SPAWN_CLEARANCE_M:g} m 避让）："
+    + json.dumps(CITY_V2_SPAWN_XY_M, sort_keys=True)
+    + "。max_active_agents 与全部 budgets 维持 bound_native_v1 数值；扩池不改变本见证。"
+)
 
 
 def _legacy_measurement_contract(public: Mapping[str, Any]) -> dict[str, Any]:
@@ -618,6 +647,117 @@ def _house_witness(public: dict[str, Any], suffix: str, picker: str, *,
     }
 
 
+def _point_in_ring(x: float, y: float, ring: Any) -> bool:
+    """Even-odd ray-casting containment for one closed GeoJSON linear ring."""
+    inside = False
+    for index in range(len(ring) - 1):
+        x1, y1 = float(ring[index][0]), float(ring[index][1])
+        x2, y2 = float(ring[index + 1][0]), float(ring[index + 1][1])
+        if (y1 > y) != (y2 > y):
+            crossing_x = x1 + (y - y1) * (x2 - x1) / (y2 - y1)
+            if x < crossing_x:
+                inside = not inside
+    return inside
+
+
+def validate_city_spawn_points(points: Any, *,
+                                semantic_map: Mapping[str, Any] | None = None,
+                                clearance_m: float = CITY_SPAWN_CLEARANCE_M) -> dict[str, Any]:
+    """Admit City spawn anchors against the frozen road surface and obstacles.
+
+    Every point must lie inside the semantic map's ``road_surface`` polygon
+    (exterior ring minus its holes) and outside each ``static_obstacles``
+    ``bounds_m`` box inflated by ``clearance_m`` in XY.  The frozen
+    recovery_binding_v2 map is the default authority; callers may pass their
+    own map for isolated tests.  Any rejected point raises ``ValueError`` with
+    per-point reasons, so a pass means every anchor is a clean road point.
+    """
+    map_source = "caller_supplied" if semantic_map is not None else str(CITY_V2_SEMANTIC_MAP_PATH)
+    if semantic_map is None:
+        if not CITY_V2_SEMANTIC_MAP_PATH.is_file():
+            raise ValueError(f"City spawn semantic map is missing: {CITY_V2_SEMANTIC_MAP_PATH}")
+        semantic_map = json.loads(CITY_V2_SEMANTIC_MAP_PATH.read_text(encoding="utf-8"))
+    binding = next((row for row in semantic_map.get("bindings", ())
+                    if row.get("id") == "road_surface"), None)
+    if binding is None or binding.get("geometry", {}).get("type") != "Polygon":
+        raise ValueError("semantic map has no road_surface Polygon binding")
+    rings = binding["geometry"]["coordinates"]
+    obstacles: list[tuple[str, list[float], list[float]]] = []
+    for row in semantic_map.get("static_obstacles", ()):
+        bounds = row.get("bounds_m")
+        if (not isinstance(bounds, list) or len(bounds) != 2
+                or len(bounds[0]) < 2 or len(bounds[1]) < 2):
+            raise ValueError(f"static obstacle {row.get('id')!r} lacks a bounds_m min/max pair")
+        obstacles.append((str(row.get("id")), [float(bounds[0][0]), float(bounds[0][1])],
+                          [float(bounds[1][0]), float(bounds[1][1])]))
+    labelled = ([(str(key), points[key]) for key in points] if isinstance(points, Mapping)
+                else [(f"point[{index}]", point) for index, point in enumerate(points)])
+    if not labelled:
+        raise ValueError("City spawn point validation requires at least one point")
+    failures: list[str] = []
+    accepted: list[str] = []
+    for label, point in labelled:
+        try:
+            x, y = float(point[0]), float(point[1])
+        except (TypeError, ValueError, IndexError):
+            failures.append(f"{label}: not a two-coordinate point")
+            continue
+        if not _point_in_ring(x, y, rings[0]):
+            failures.append(f"{label} ({x:g}, {y:g}): outside the road_surface polygon")
+            continue
+        if any(_point_in_ring(x, y, hole) for hole in rings[1:]):
+            failures.append(f"{label} ({x:g}, {y:g}): inside a road_surface hole (non-road block)")
+            continue
+        near = sorted(obstacle_id for obstacle_id, low, high in obstacles
+                      if low[0] - clearance_m <= x <= high[0] + clearance_m
+                      and low[1] - clearance_m <= y <= high[1] + clearance_m)
+        if near:
+            failures.append(
+                f"{label} ({x:g}, {y:g}): within {float(clearance_m):g} m of static obstacles {near}")
+            continue
+        accepted.append(label)
+    if failures:
+        raise ValueError("City spawn point validation failed: " + "; ".join(failures))
+    return {"validated": True, "point_count": len(accepted), "accepted": accepted,
+            "semantic_map_source": map_source, "clearance_m": float(clearance_m)}
+
+
+def _city_v2_pool(core: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Extend the bound-native pool with the opt-in seven-robot roster.
+
+    go2_2/carter_2/iris_2 reuse the public skill composition and interfaces of
+    their same-type core members (including the city service skills), while
+    lite3_1 is a deliberate decoy limited to ground_navigation and observe so
+    it can carry no city service task.  The four additions use the frozen
+    ``goal_driven_fixtures`` physical profiles (lite3 keeps its own
+    benchmark_lite3_navigation_v1 profile); the core three keep their
+    city-specific profiles unchanged.
+    """
+    core_by_id = {row["id"]: row for row in core}
+
+    def member(identifier: str, robot_type: str, same_as: str,
+               capabilities: list[str] | None = None) -> dict[str, Any]:
+        source = core_by_id[same_as]
+        return {
+            "id": identifier,
+            "type": robot_type,
+            "mobility": source["mobility"],
+            "public_capabilities": list(source["public_capabilities"] if capabilities is None
+                                        else capabilities),
+            "interfaces": list(source["interfaces"]),
+            "physical_profile": robot_physical_profile(robot_type),
+        }
+
+    return [
+        *core,
+        member("go2_2", "go2", same_as="go2_1"),
+        member("carter_2", "carter", same_as="carter_1"),
+        member("lite3_1", "lite3", same_as="go2_1",
+               capabilities=["ground_navigation", "observe"]),
+        member("iris_2", "iris", same_as="iris_1"),
+    ]
+
+
 def _city(roster_profile: str = "abstract_v1") -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """City goal bundle: the urban incident-response family as a four-layer package.
 
@@ -646,6 +786,13 @@ def _city(roster_profile: str = "abstract_v1") -> tuple[dict[str, Any], list[dic
     for robot in pool:
         robot["public_capabilities"] = sorted(
             set(robot["public_capabilities"]) | service_skills.get(robot["id"], set()))
+    native = roster_profile in {"bound_native_v1", "bound_native_v2"}
+    if roster_profile == "bound_native_v2":
+        # Hard spawn gate: the four opt-in anchors must sit on the frozen
+        # recovery_binding_v2 road surface and clear every static obstacle by
+        # the declared clearance before the pool is extended.
+        validate_city_spawn_points(CITY_V2_SPAWN_XY_M)
+        pool = _city_v2_pool(pool)
 
     regions = [
         _region("road_surface", "road_network", "城市地面道路网络；救援、管制与报告成员的公共通行区域",
@@ -663,7 +810,7 @@ def _city(roster_profile: str = "abstract_v1") -> tuple[dict[str, Any], list[dic
         _region("city_assembly_south", "assembly_candidate", "南侧候选集合区；容量、可达性与当前危险净空需运行核验",
                 ["ground_navigation"]),
     ]
-    if roster_profile == "bound_native_v1":
+    if native:
         regions = [row for row in regions if row["kind"] != "assembly_candidate"]
         regions.extend(_region(
             region_id, "assembly_candidate", "候选集合区；容量、可达性与当前危险净空需运行核验",
@@ -671,12 +818,14 @@ def _city(roster_profile: str = "abstract_v1") -> tuple[dict[str, Any], list[dic
                 _CITY_NATIVE_AFFECTED_PERSON_ASSEMBLY.values())))
     policy = default_deadline_policy(180.0)
     contract = execution_contract()
-    if roster_profile == "bound_native_v1":
+    if native:
         contract["skill_durations_s"]["guide_people"] = policy["people_guidance_ack_s"]
     public = {
         "schema": GOAL_TASK_SCHEMA,
         "version": GOAL_CONTRACT_VERSION,
-        "task_id": "CITY-GOAL-NATIVE-01" if roster_profile == "bound_native_v1" else "CITY-GOAL-01",
+        "task_id": ("CITY-GOAL-NATIVE-02" if roster_profile == "bound_native_v2"
+                    else "CITY-GOAL-NATIVE-01" if roster_profile == "bound_native_v1"
+                    else "CITY-GOAL-01"),
         "evaluation_track": "goal_driven_team_planning_v1",
         "mission": {"scene_key": "city",
                     "goal": "应对城市道路突发事故：查明影响，保护人员和后续交通，保持救援通路。",
@@ -684,7 +833,7 @@ def _city(roster_profile: str = "abstract_v1") -> tuple[dict[str, Any], list[dic
         "required_outcomes": [_outcome(*row) for row in city_outcome_rows()],
         "candidate_robot_pool": pool,
         "skill_catalog_version": f"{SKILL_CATALOG_SCHEMA}.v{CITY_NATIVE_SKILL_CATALOG_VERSION}"
-                                 if roster_profile == "bound_native_v1"
+                                 if native
                                  else f"{SKILL_CATALOG_SCHEMA}.v{SKILL_CATALOG_VERSION}",
         "execution_contract": contract,
         "public_world": {
@@ -722,7 +871,11 @@ def _city(roster_profile: str = "abstract_v1") -> tuple[dict[str, Any], list[dic
                               "candidate_robot_pool", "budgets", "model_budget"],
         },
     }
-    return public, [_city_witness(public, "a"), _city_witness(public, "b")]
+    witnesses = [_city_witness(public, "a"), _city_witness(public, "b")]
+    if roster_profile == "bound_native_v2":
+        for witness in witnesses:
+            witness["pool_note"] = _CITY_V2_POOL_NOTE
+    return public, witnesses
 
 
 def _city_witness(public: dict[str, Any], suffix: str) -> dict[str, Any]:
@@ -858,7 +1011,7 @@ def _city_witness(public: dict[str, Any], suffix: str) -> dict[str, Any]:
         "plan": _plan(identifier, team, rows),
     }
     return (_city_native_witness(witness, public["execution_contract"]["skill_durations_s"])
-            if public["task_id"] == "CITY-GOAL-NATIVE-01"
+            if public["task_id"] in ("CITY-GOAL-NATIVE-01", "CITY-GOAL-NATIVE-02")
             else witness)
 
 
@@ -1197,7 +1350,7 @@ def review_goal_business_witness(
                 "factory:service_receipt_after_field_checks_and_actual_return")
         final_object("maintenance_service_cart", "response_staging")
     elif scene == "city":
-        if public_task["task_id"] == "CITY-GOAL-NATIVE-01":
+        if public_task["task_id"] in ("CITY-GOAL-NATIVE-01", "CITY-GOAL-NATIVE-02"):
             person_assembly = _CITY_NATIVE_AFFECTED_PERSON_ASSEMBLY
             following_ids = _CITY_NATIVE_FOLLOWING_VEHICLE_IDS
         else:
@@ -1783,7 +1936,7 @@ __all__ = [
     "build_goal_authoring_brief", "build_goal_task_package", "build_goal_task_spec",
     "generate_canonical_goal_task_packages", "generate_goal_mechanism_templates",
     "generate_goal_task_packages", "main", "review_goal_task_design",
-    "review_goal_business_witness",
+    "review_goal_business_witness", "validate_city_spawn_points",
     "validate_goal_authoring_brief", "validate_goal_factor_pair",
     "write_goal_authoring_brief",
 ]

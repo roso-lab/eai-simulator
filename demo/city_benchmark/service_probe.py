@@ -72,9 +72,20 @@ def _hashes() -> dict[str, str]:
     return {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}
 
 
-def _selection(seed: int) -> dict[str, Any]:
-    """Build the probe selection without importing City/Kit modules early."""
-    return {
+_PROBE_POOLS = ("v1", "v2")
+
+
+def _selection(seed: int, pool: str | None = None) -> dict[str, Any]:
+    """Build the probe selection without importing City/Kit modules early.
+
+    ``pool=None`` and ``pool="v1"`` return the unchanged three-robot
+    diagnostic/formal roster.  ``pool="v2"`` opts into the seven-robot
+    bound_native_v2 roster: the four additions reuse their same-type
+    controller cfgs and spawn anchors that pass
+    ``demo.benchmark.goal_driven_tasks.validate_city_spawn_points`` (the
+    anchors mirror ``CITY_V2_SPAWN_XY_M`` there; the sync is test-enforced).
+    """
+    selection = {
         "version": 1, "scene_key": "modern_house_nvd", "task_name": "city_eai_demo",
         "robots": [
             # v2 dispersed spawns: north / south-west / centre-south road
@@ -92,6 +103,28 @@ def _selection(seed: int) -> dict[str, Any]:
         ],
         "scenario_seed": int(seed),
     }
+    if pool in (None, "v1"):
+        return selection
+    if pool != "v2":
+        raise ValueError(f"unsupported City service probe pool: {pool!r}")
+    selection["robots"].extend([
+        # bound_native_v2 opt-in expansion; instances go2_2/carter_2/lite3_1/
+        # iris_2 are numbered after the first same-type instance.  Heights
+        # follow each type's v1 spawn (lite3 uses its RobotOption default).
+        {"type": "go2", "controller": {"mode": "default", "cfg": "GO2_VELOCITY_RSL_CFG"},
+         "spawn_pose": {"position": [-72.0, 40.0, 0.62], "rotation": [1, 0, 0, 0]},
+         "attachments": []},
+        {"type": "carter", "controller": {"mode": "default", "cfg": "CARTER_DIFF_CFG"},
+         "spawn_pose": {"position": [-55.0, 58.0, 0.22], "rotation": [1, 0, 0, 0]},
+         "attachments": []},
+        {"type": "lite3", "controller": {"mode": "default", "cfg": "LITE3_VELOCITY_RSL_CFG"},
+         "spawn_pose": {"position": [-70.0, 55.0, 0.35], "rotation": [1, 0, 0, 0]},
+         "attachments": []},
+        {"type": "iris", "controller": {"mode": "default", "cfg": "PEGASUS_IRIS_POSITION_CFG"},
+         "spawn_pose": {"position": [-48.0, 57.0, 3.0], "rotation": [1, 0, 0, 0]},
+         "attachments": []},
+    ])
+    return selection
 
 
 def _checkpoint(path: Path, report: Mapping[str, Any]) -> None:
@@ -250,16 +283,20 @@ def _load_episode_binding(path: Path) -> dict[str, Any]:
 def prepare_probe(output_root: Path, *, device: str = "cpu", seed: int = 17,
                   overwrite: bool = False,
                   episode_binding: Path | None = None,
-                  fault_probe: str | None = None) -> dict[str, Any]:
+                  fault_probe: str | None = None,
+                  pool: str = "v1") -> dict[str, Any]:
     path = output_root / "service_probe_prepare.json"
     if path.exists() and not overwrite:
         raise FileExistsError("City service probe is already prepared; use a fresh directory")
     formal = episode_binding is not None
     if fault_probe not in (None, "traffic_second_controller") or (fault_probe and not formal):
         raise ValueError("traffic batch fault probe requires a frozen episode binding")
+    if pool not in _PROBE_POOLS:
+        raise ValueError(f"unsupported City service probe pool: {pool!r}")
     report = {"schema": SCHEMA, "version": REPORT_VERSION, "track_id": TRACK_ID, "status": "prepared",
               "device": str(device), "seed": int(seed), "scoreable": False,
               "fault_probe": fault_probe,
+              "pool": pool,
               "formal_episode_binding": False,
               "geometry_scope": DIAGNOSTIC_GEOMETRY_SCOPE,
               "source_hashes": _hashes(),
@@ -751,9 +788,14 @@ def _dynamic_route_grid(envelopes, person_id, half, offset):
 
 
 def _execute(output_root: Path, prepared: Mapping[str, Any], *, run_id: str,
-             headless: bool, driver: Any = None) -> dict[str, Any]:
+             headless: bool, driver: Any = None,
+             pool: str | None = None) -> dict[str, Any]:
     from simulator import SimulatorLaunchConfig, open_simulator_session
 
+    if pool is None:
+        pool = str(prepared.get("pool", "v1"))
+    if pool not in _PROBE_POOLS:
+        raise ValueError(f"unsupported City service probe pool: {pool!r}")
     binding = _prepared_binding(prepared)
     formal = binding is not None
     if driver is not None and not formal:
@@ -782,7 +824,7 @@ def _execute(output_root: Path, prepared: Mapping[str, Any], *, run_id: str,
 
     config = SimulatorLaunchConfig(
         env="city_service_probe", resolved_env_name="EAI-Interactive-v0",
-        selection_data=_selection(seed), num_envs=1, device=device, seed=seed,
+        selection_data=_selection(seed, pool), num_envs=1, device=device, seed=seed,
         headless=headless, enable_ros_bridge_extension=False, disable_orsus_ros_env=True,
         env_cfg_hook=partial(configure))
     report_path = output_root / "service_probe_report.json"
@@ -1589,17 +1631,23 @@ def _run_bound_episode(session, city, actions, report, report_path, prepared, ru
 
 def execute_probe(output_root: Path, *, device: str = "cpu", seed: int = 17,
                   headless: bool = True, overwrite: bool = False,
-                  driver: Any = None) -> dict[str, Any]:
+                  driver: Any = None,
+                  pool: str | None = None) -> dict[str, Any]:
     with _serial_lock():
         prepared = _load_prepare(output_root)
         if prepared["device"] != device or int(prepared["seed"]) != int(seed):
             raise ValueError("execute device/seed must match prepare")
+        prepared_pool = str(prepared.get("pool", "v1"))
+        if pool is None:
+            pool = prepared_pool
+        elif pool != prepared_pool:
+            raise ValueError("execute pool must match prepare")
         if prepared["source_hashes"] != _hashes():
             raise RuntimeError("City service probe sources changed; prepare again")
         if (output_root / "service_probe_start.json").exists() and not overwrite:
             raise FileExistsError("City service probe launch already exists")
         return _execute(output_root, prepared, run_id=str(uuid.uuid4()), headless=headless,
-                        driver=driver)
+                        driver=driver, pool=pool)
 
 
 def main(argv=None) -> int:
@@ -1613,6 +1661,9 @@ def main(argv=None) -> int:
                              "a prepare package authoring/private.json")
     parser.add_argument("--fault-probe", choices=("traffic_second_controller",),
                         help="prepare only: bounded native traffic batch failure diagnostic")
+    parser.add_argument("--pool", choices=_PROBE_POOLS, default="v1",
+                        help="candidate-pool roster: v1 keeps the frozen three-robot "
+                             "selection, v2 opts into the seven-robot bound_native_v2 roster")
     parser.add_argument("--device", choices=("cpu", "cuda:0"), default="cpu")
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--gui", action="store_true")
@@ -1625,10 +1676,10 @@ def main(argv=None) -> int:
     if args.prepare:
         result = prepare_probe(args.output_root, device=args.device, seed=args.seed,
                                overwrite=args.overwrite, episode_binding=args.episode_binding,
-                               fault_probe=args.fault_probe)
+                               fault_probe=args.fault_probe, pool=args.pool)
     else:
         result = execute_probe(args.output_root, device=args.device, seed=args.seed,
-                               headless=not args.gui, overwrite=args.overwrite)
+                               headless=not args.gui, overwrite=args.overwrite, pool=args.pool)
     print(json.dumps(result, ensure_ascii=False))
     return 0 if args.prepare or result.get("status") in {"completed", "diagnostic_completed"} else 1
 

@@ -182,10 +182,13 @@ def validate_goal_task_spec(spec: Mapping[str, Any]) -> dict[str, Any]:
     catalog_version = spec["skill_catalog_version"]
     default_catalog = f"{SKILL_CATALOG_SCHEMA}.v{SKILL_CATALOG_VERSION}"
     native_catalog = f"{SKILL_CATALOG_SCHEMA}.v{CITY_NATIVE_SKILL_CATALOG_VERSION}"
+    # bound_native_v2 reuses the same frozen native City skill catalog; only
+    # the opt-in candidate-pool roster differs.
+    native_task_ids = ("CITY-GOAL-NATIVE-01", "CITY-GOAL-NATIVE-02")
     if (catalog_version != default_catalog and not (
             catalog_version == native_catalog and mission["scene_key"] == "city"
-            and spec["task_id"] == "CITY-GOAL-NATIVE-01")) or (
-            spec["task_id"] == "CITY-GOAL-NATIVE-01" and catalog_version != native_catalog):
+            and spec["task_id"] in native_task_ids)) or (
+            spec["task_id"] in native_task_ids and catalog_version != native_catalog):
         raise ValueError("goal task uses an unsupported skill catalog")
 
     outcomes = spec["required_outcomes"]
