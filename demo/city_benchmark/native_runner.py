@@ -36,6 +36,8 @@ class CityNativeServiceRunner:
                  clearance_query_provenance: str | None = None,
                  physx_readback_suppressed: bool | None = None,
                  current_gpu_tensor_clearance: bool = False):
+        if getattr(runtime, "_city_native_service_runner_bound", None) is not None:
+            raise ValueError("City runtime already has an episode service runner")
         self.runtime = runtime
         binding_factory = getattr(runtime, "city_service_native_binding", None)
         binding = binding_factory() if callable(binding_factory) else {}
@@ -62,7 +64,9 @@ class CityNativeServiceRunner:
             affected_person_roster=affected_person_roster,
             following_vehicle_roster=following_vehicle_roster,
             person_controller=person_controller, person_readback=person_readback,
+            person_stop=binding.get("person_stop"),
             vehicle_controller=vehicle_controller, admission=admission,
+            vehicle_stop=binding.get("vehicle_stop"),
             vehicle_pose_reader=vehicle_pose_reader, hazard_readback=hazard_readback,
             access_readback=access_readback,
             incident_receiver=incident_receiver,
@@ -83,6 +87,15 @@ class CityNativeServiceRunner:
         self.witness = CityLiveEpisodeWitness(self.host, episode_id=episode_id)
         self.receiver = incident_receiver
         self._observation_ref: str | None = None
+        runtime._city_native_service_runner_bound = self
+
+    def close(self) -> None:
+        """Allow a pre-command route rebind, never discard active service claims."""
+        if self.host.request_ids():
+            raise ValueError("cannot unbind City runner with service requests")
+        if getattr(self.runtime, "_city_native_service_runner_bound", None) is not self:
+            raise ValueError("City runner is no longer bound to its runtime")
+        self.runtime._city_native_service_runner_bound = None
 
     def _bind_rosters(self) -> None:
         if (callable(self.adapter.affected_person_roster)
@@ -223,6 +236,9 @@ class CityNativeServiceRunner:
 
     def review(self, request_id: str) -> dict[str, Any]:
         return self.witness.review(request_id)
+
+    def guidance_contact(self, request_id: str) -> dict[str, Any]:
+        return self.witness.backend.guidance_contact(request_id)
 
 
 __all__ = ["CityNativeServiceRunner"]

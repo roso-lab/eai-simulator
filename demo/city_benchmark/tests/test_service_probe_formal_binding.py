@@ -99,6 +99,16 @@ def test_prepare_without_binding_keeps_the_diagnostic_contract(tmp_path):
                                   "one_city_person", "one_following_vehicle"]
 
 
+def test_batch_fault_probe_requires_frozen_binding(tmp_path):
+    with pytest.raises(ValueError, match="frozen episode binding"):
+        service_probe.prepare_probe(tmp_path / "unbound", fault_probe="traffic_second_controller")
+    document = _write_json(tmp_path / "bind.json", _binding())
+    result = service_probe.prepare_probe(tmp_path / "bound", episode_binding=document,
+                                         fault_probe="traffic_second_controller")
+    assert result["fault_probe"] == "traffic_second_controller"
+    assert result["scoreable"] is False
+
+
 def test_prepare_with_standalone_binding_document_enters_formal_mode(tmp_path):
     document = _write_json(tmp_path / "bind.json", _binding())
     result = service_probe.prepare_probe(tmp_path, device="cpu", seed=17,
@@ -405,7 +415,7 @@ def _consistent_evidence(binding=None):
             "readback_status": "measured"},
         "window": {"runtime_policy": policy, "bound_vehicle_ids": list(vehicle_ids),
                    "controlled_vehicle_ids": list(vehicle_ids),
-                   "executed_modes": ["hold", "release", "divert"],
+                   "executed_modes": ["hold", "divert", "release"],
                    "reaction_span_s": 5.2},
         "endpoint": {
             "receiver_runtime_class": "demo.city_benchmark.live_witness.CityIncidentReceiver",

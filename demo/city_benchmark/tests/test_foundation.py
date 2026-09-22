@@ -99,7 +99,7 @@ def test_city_public_capabilities_can_submit_observation_and_team_message(scene)
     from demo.benchmark.goal_driven_contract import validate_goal_plan
     public = build_public_task(scene[-1])
     plan = {
-        "schema": "eai.benchmark.goal_plan", "version": 2, "plan_id": "city_probe",
+        "schema": "eai.benchmark.goal_plan", "version": 3, "plan_id": "city_probe",
         "assigned_team": ["iris_1"],
         "tasks": [
             {"task_id": "observe_building", "skill": "observe",

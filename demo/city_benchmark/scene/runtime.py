@@ -105,6 +105,14 @@ class CityEpisodeServiceRuntime:
         return {**result, "episode_id": self.city.episode_id,
                 "source_id": self.city.city_service_source_id, "route_readback": route}
 
+    def stop_person(self, person_id: str) -> dict[str, Any]:
+        result = self.people_controller.stop(person_id)
+        self._person_service_starts.pop(str(person_id), None)
+        return {**result, "episode_id": self.city.episode_id,
+                "source_id": self.city.city_service_source_id,
+                "observed_time_s": float(self.city.elapsed),
+                "evidence_ref": self._ref("person_stop", str(person_id))}
+
     def person_readback(self, person_id: str) -> dict[str, Any]:
         result = self.people_controller.readback(person_id, self.assembly_regions)
         assembly = self._latest_region(result["assembly_region_id"])
@@ -142,6 +150,12 @@ class CityEpisodeServiceRuntime:
         if route is not None:
             result["route_readback"] = route
         return result
+
+    def stop_vehicle(self, vehicle_id: str) -> dict[str, Any]:
+        result = self.city.control_following_vehicle(vehicle_id, "hold")
+        self._vehicle_service_starts.pop(str(vehicle_id), None)
+        return {**result, "position_xyz": list(self.city.following_vehicle_pose(vehicle_id)),
+                "evidence_ref": self._ref("vehicle_stop", str(vehicle_id))}
 
     def vehicle_pose(self, vehicle_id: str) -> tuple[float, float, float]:
         return self.city.following_vehicle_pose(vehicle_id)
@@ -182,10 +196,16 @@ class CityEpisodeServiceRuntime:
                 result = self._latest_region(str(target_region_id))
                 capacity = result.get("region_metadata", {}).get("capacity")
                 occupants = result.get("dynamic_envelopes", {})
+                roster = self.affected_person_roster()
+                in_flight = {person_id for person_id in self._person_service_starts
+                             if roster[person_id]["assembly_region_id"] == target_region_id}
                 routes_clear = all(self._person_route(entity_id).get("clear") is True for entity_id in ids)
-                return (set(ids) <= set(self.affected_person_roster())
+                return (set(ids) <= set(roster)
+                        and all(roster[entity_id]["assembly_region_id"] == target_region_id
+                                for entity_id in ids)
                         and result.get("status") == "measured" and not result.get("static_hits")
-                        and type(capacity) is int and len(set(occupants) | set(ids)) <= capacity
+                        and type(capacity) is int
+                        and len(set(occupants) | in_flight | set(ids)) <= capacity
                         and routes_clear)
             if service == "control_traffic":
                 hazard = self._latest_region(self.hazard_region_id)
@@ -355,8 +375,10 @@ class CityEaiRuntime:
             "affected_person_roster": service.affected_person_roster,
             "following_vehicle_roster": service.following_vehicle_roster,
             "person_controller": service.guide_person,
+            "person_stop": service.stop_person,
             "person_readback": service.person_readback,
             "vehicle_controller": service.control_vehicle,
+            "vehicle_stop": service.stop_vehicle,
             "vehicle_pose_reader": service.vehicle_pose,
             "admission": service.admit,
             "hazard_readback": service.hazard_readback,
@@ -392,7 +414,9 @@ class CityEaiRuntime:
             state["active_route"] = Polyline((current, *points))
             state["distance"] = 0.0
         state["mode"] = mode
-        return {"vehicle_id": vehicle_id, "status_before": before, "status_after": mode,
+        return {"vehicle_id": vehicle_id, "episode_id": self.episode_id,
+                "source_id": self.city_service_source_id,
+                "status_before": before, "status_after": mode,
                 "observed_time_s": float(self.elapsed),
                 "evidence_ref": f"{self.city_service_source_id}:controller:{vehicle_id}:{mode}:"
                                 f"{int(self.elapsed * 1000):09d}"}
@@ -406,7 +430,7 @@ class CityEaiRuntime:
         result.update(self._city_service_sources)
         required = (
             "affected_person_roster", "following_vehicle_roster", "person_controller",
-            "person_readback", "vehicle_controller",
+            "person_stop", "person_readback", "vehicle_controller", "vehicle_stop",
             "vehicle_pose_reader", "admission", "access_readback", "assignment",
             "hazard_readback", "incident_receiver",
         )

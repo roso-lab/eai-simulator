@@ -98,6 +98,7 @@ class CityServiceBackend:
         review_deadline_policy(self.policy)
         self._requests: dict[str, dict[str, Any]] = {}
         self._keys: set[tuple[Any, ...]] = set()
+        self._contacts: dict[str, dict[str, Any]] = {}
 
     def _role_covers(self, row: Mapping[str, Any], start: float, end: float,
                      as_of: float) -> bool:
@@ -206,6 +207,20 @@ class CityServiceBackend:
                             ids=tuple(person_ids), target_region_id=assembly_region_id,
                             observation_refs=tuple(observation_refs))
 
+    def discard_unregistered(self, request: Mapping[str, Any]) -> None:
+        """Undo a rejected host registration before any endpoint action is run."""
+        request_id = request.get("request_id")
+        row = self._requests.get(request_id)
+        if row is None or row != dict(request) or row["status"] != "pending":
+            raise ValueError("cannot discard a changed service request")
+        if self.source.service_update(request_id) is not None:
+            raise ValueError("cannot discard a request with endpoint readback")
+        key = (row["service"], row["agent_id"], row["region_id"],
+               tuple(sorted(row["entity_ids"])), row["mode"], row["recipient_service_id"],
+               row["target_region_id"], tuple(row["observation_refs"]))
+        self._keys.remove(key)
+        del self._requests[request_id]
+
     def control_following_traffic(self, *, agent_id: str, region_id: str,
                                   vehicle_ids: tuple[str, ...], mode: str,
                                   observation_refs: tuple[str, ...]) -> dict[str, Any]:
@@ -216,6 +231,77 @@ class CityServiceBackend:
                         recipient_service_id: str) -> dict[str, Any]:
         return self._submit("report_incident", agent_id=agent_id, region_id=region_id,
                             observation_refs=tuple(observation_refs), recipient=recipient_service_id)
+
+    def guidance_contact(self, request_id: str) -> dict[str, Any]:
+        """Read the field contact terminal separately from later assembly arrival."""
+        row = self._requests[request_id]
+        if row["service"] != "guide_people":
+            raise ValueError("guidance contact requires a guidance request")
+        if request_id in self._contacts:
+            return deepcopy(self._contacts[request_id])
+        now = _time(self.source.now_s())
+        start = row["submitted_time_s"]
+        if now < start:
+            raise ValueError("episode clock moved backwards")
+        deadline = start + self.policy["people_guidance_ack_s"]
+        result = {"request_id": request_id, "status": "pending", "agent_id": row["agent_id"],
+                  "ack_time_s": None, "evidence_refs": [], "actor_acks": [],
+                  "business_outcome_validated": False, "scoreable": False}
+        if row["status"] in {"timed_out", "partial_failed"}:
+            result["status"] = row["status"]
+            self._contacts[request_id] = deepcopy(result)
+            return result
+        update = self.source.service_update(request_id)
+        if update is not None:
+            if update.get("request_id") != request_id or update.get("service") != "guide_people":
+                raise ValueError("service readback identity mismatch")
+            if update.get("evidence_class") not in {"reference", "runtime"}:
+                raise ValueError("service evidence provenance missing")
+            actors = update.get("actors")
+            if isinstance(actors, list):
+                ids = [actor.get("id") for actor in actors if isinstance(actor, Mapping)]
+                if len(ids) != len(actors) or len(ids) != len(set(ids)) or any(
+                        actor_id not in row["entity_ids"] for actor_id in ids):
+                    raise ValueError("guidance contact has invalid actor identity")
+                if set(ids) == set(row["entity_ids"]):
+                    times = []
+                    refs = []
+                    for actor in actors:
+                        if actor.get("ack_time_s") is None:
+                            break
+                        ack = _time(actor["ack_time_s"])
+                        if not start <= ack <= now:
+                            raise ValueError("acknowledgement outside causal interval")
+                        if ack > deadline:
+                            break
+                        if not self._role_covers(row, start, ack, ack):
+                            raise ValueError("field role lost before service acknowledgement; new assignment must resubmit")
+                        ref = actor.get("ack_evidence_ref")
+                        if not isinstance(ref, str) or not ref:
+                            raise ValueError("guidance acknowledgement evidence missing")
+                        times.append(ack)
+                        refs.append(ref)
+                    if len(times) == len(actors):
+                        if len(refs) != len(set(refs)):
+                            raise ValueError("duplicate guidance acknowledgement evidence")
+                        if update["evidence_class"] == "runtime" and now <= min(
+                                deadline, self.policy["response_budget_s"]):
+                            result.update(status="contact_confirmed", ack_time_s=max(times),
+                                          evidence_refs=refs,
+                                          actor_acks=[{"id": actor["id"],
+                                                       "ack_time_s": actor["ack_time_s"],
+                                                       "ack_evidence_ref": actor["ack_evidence_ref"]}
+                                                      for actor in actors])
+                            self._contacts[request_id] = deepcopy(result)
+                            return result
+                        if (update["evidence_class"] == "reference"
+                                and now <= min(deadline, self.policy["response_budget_s"])):
+                            result["status"] = "reference_contact_only"
+                            return result
+        if now > deadline or now > self.policy["response_budget_s"]:
+            result["status"] = "timed_out"
+            self._contacts[request_id] = deepcopy(result)
+        return result
 
     def review(self, request_id: str) -> dict[str, Any]:
         """Read trusted service and physical evidence; fail closed on missing readback."""
@@ -273,6 +359,21 @@ class CityServiceBackend:
             row["status"] = "timed_out"
         return deepcopy(row)
 
+    def mark_partial_failed(self, request_id: str) -> dict[str, Any]:
+        row = self._requests[request_id]
+        if row["status"] != "pending":
+            raise ValueError("service request is already terminal")
+        update = self.source.service_update(request_id)
+        failure = update.get("partial_failure") if isinstance(update, Mapping) else None
+        if (not isinstance(failure, Mapping) or update.get("request_id") != request_id
+                or update.get("service") != row["service"]
+                or failure.get("failed_actor_id") not in row["entity_ids"]):
+            raise ValueError("trusted partial failure readback is missing")
+        row["status"] = "partial_failed"
+        row["evidence_class"] = update["evidence_class"]
+        row["evidence"] = deepcopy(dict(update))
+        return deepcopy(row)
+
     def _review_actors(self, request: Mapping[str, Any], update: Mapping[str, Any], now: float) -> bool:
         rows = update.get("actors")
         if not isinstance(rows, list):
@@ -291,7 +392,7 @@ class CityServiceBackend:
                         else self.policy["traffic_control_ack_s"])
             if ack - start > deadline:
                 return False
-            if not self._role_covers(request, start, ack, now):
+            if not self._role_covers(request, start, ack, ack):
                 raise ValueError("field role lost before service acknowledgement; new assignment must resubmit")
             if request["service"] == "guide_people":
                 if actor.get("arrival_time_s") is None:

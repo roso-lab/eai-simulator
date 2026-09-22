@@ -52,6 +52,7 @@ class EpisodeAffectedPeopleController:
         self.people_runtime = people_runtime
         self.roster = roster
         self._assignments: dict[str, dict[str, Any]] = {}
+        self._paused_by_failure: set[str] = set()
 
     def guide(self, actor_id: str) -> dict[str, Any]:
         actor_id = str(actor_id)
@@ -81,9 +82,22 @@ class EpisodeAffectedPeopleController:
             "assembly_region_id": str(spec["assembly_region_id"]),
             "final_waypoint": list(waypoints[-1]), "loop": False,
         }
+        if actor_id in self._paused_by_failure:
+            self.people_runtime.resume(actor_id)
+            self._paused_by_failure.remove(actor_id)
         return {"entity_id": actor_id, "status_before": "awaiting_guidance",
                 "status_after": "guidance_applied", "position_xyz": list(current),
                 "assembly_region_id": str(spec["assembly_region_id"]), "loop": False}
+
+    def stop(self, actor_id: str) -> dict[str, Any]:
+        actor_id = str(actor_id)
+        if actor_id not in self.roster.snapshot():
+            raise ValueError("stop actor is outside the affected-person roster")
+        self.people_runtime.pause(actor_id)
+        self._paused_by_failure.add(actor_id)
+        self._assignments.pop(actor_id, None)
+        return {"entity_id": actor_id, "status_before": "guidance_applied",
+                "status_after": "paused", "position_xyz": list(self.people_runtime.position(actor_id))}
 
     def readback(self, actor_id: str, assembly_regions: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
         actor_id = str(actor_id)

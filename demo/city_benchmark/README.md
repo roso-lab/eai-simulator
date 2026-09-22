@@ -32,6 +32,27 @@ Warehouse/House DAG 节点内分配的区别见 [交付规范](../benchmark/DELI
 背景车辆碰撞按用户本轮要求作为场景诊断记录，不阻断任务流程整改，也不改写历史探针的
 失败结果；业务服务是否完成仍以实际读回为准。
 
+原生 `guide_people` 和 `control_following_traffic` 批量请求若在逐人/逐车控制或 ACK 时中断，
+宿主会对已尝试的成员逐一调用可信停控端点（人员暂停、车辆 hold），保留位置、时刻和
+来源绑定的停控回执。服务请求成为 `partial_failed`，`review()` 与人员现场接触审核都
+不能将它升级为成功；`stop_unconfirmed` 表示停控尚无可信读回，必须继续按可能在运动的
+对象处理。City 运行时仅允许一个原生服务 runner 绑定同一场景实例。以上是服务宿主
+失败语义，完整参与者 `GoalSession` 派发、人员到达和业务计分仍需独立原生验收。
+
+维护者可用冻结绑定做六车批量停控故障诊断：
+
+```bash
+python -m demo.city_benchmark.service_probe --output-root tmp/city_batch_fault \
+  --prepare --episode-binding tmp/city_benchmark/recovery_binding_20260920/authoring/private.json \
+  --fault-probe traffic_second_controller --device cpu --seed 17
+python -m demo.city_benchmark.service_probe --output-root tmp/city_batch_fault \
+  --execute --device cpu --seed 17
+```
+
+第二辆车执行原生 hold 后注入控制器异常；报告须同时有 `partial_failed`、独立
+`vehicle_stop` 引用、`all_stopped=true` 和一秒后的位姿/模式读回。输出仅为故障诊断，
+`execution_validated=false`、`scoreable=false`；该选项不能在无冻结 episode 绑定时启用。
+
 业务目标是“应对道路突发事故，保护受影响人员和后续交通，保持救援通路”。
 公开题面只有四个结果：事故态势被确认、受影响人员去向可核对、后续交通得到保护、
 救援通路与态势交接成立。任务分解、机器人选择、并行顺序、重规划和路线由参与者决定。
@@ -153,9 +174,9 @@ selection = build_selected_selection(["go2_1", "iris_1"], seed=7, max_active_age
 
 调用者必须使用 `demo.city_benchmark.scene.main.configure_city_env_cfg` 和现有 session API 组合环境。
 此 selection helper 只生成配置；不会激活机器人、代替加入事件、建立导航或实施参与者动作。
-共享 `goal_scene_registry.py` 已注册 city 为 `preparation_draft_not_goal_bundle`，并由
-`goal_city_intake.py` 校验 prepare v1 的 10 个 artifact 加 manifest。完整题包生成器
-`goal_driven_tasks.py` 尚未准入 city；注册准备稿不激活共享技能或模拟器场景。
+共享 `goal_scene_registry.py` 已注册 city 为 `goal_bundle`，并由
+`goal_city_intake.py` 独立校验 prepare v1 的 artifact 和 manifest。`goal_driven_tasks.py`
+现已能生成 City 的 goal bundle；prepare 产物仍是独立的 authoring/intake 输入，不自动激活共享技能或模拟器场景。
 
 共享 hidden-evaluator validator 要求至少两份完整见证。目前 observe/navigation 不能产生
 人员到达、交通管制确认或救援接收回执，所以没有为了通过校验而生成伪造 witness。
@@ -195,6 +216,21 @@ selection = build_selected_selection(["go2_1", "iris_1"], seed=7, max_active_age
 现场角色按服务分阶段：`guide_people` 的原执行者须连续驻留至每名人员确认接受引导；
 `control_traffic` 的原执行者须连续驻留至每辆后续车辆的管制服务确认。之后人员沿路线移动、
 车辆在已确认的管制策略下反应，可由独立服务持续推进，不要求原机器人留到到达或轨迹检查。
+宿主内部 `CityServiceBackend.guidance_contact(request_id)` 在所有目标人员的原生 ACK、
+独立证据引用、20 秒确认期限和原执行者连续驻留均核验后返回 `contact_confirmed`；
+回执中的 `actor_acks` 保留逐人身份、确认时间和证据引用，供作者侧独立审核接触窗口。
+它不提交 GoalSession 终态，也不验证人员已抵达。既有 `review(request_id)` 仍要等逐人
+到达和安全轨迹才会返回 `evidence_complete`。可选 `CITY-GOAL-NATIVE-01` 的
+`eai.skills.v3` 已公开 ACK 作为技能终态，并给每人至少 20 秒的声明窗口；默认 v2
+保持原语义。实际 GoalSession 派发与业务评测尚未接线；原生探针中的 contact 读回
+只是诊断，不能以 ACK 充当疏散业务成功。
+原生服务准入在已量测区域占用外，还计入本 episode 已启动引导的人员，
+并要求目标集合区与冻结人员绑定相符；同一人只占一个槽位。
+episode 宿主也将已登记的同目标请求并入准入，单个 live witness 串行执行检查和登记；
+同一 City runtime 不接受第二个 native runner，首次路线量测后仅零请求时可解绑重建。
+正式 GoalSession 接线仍需跨全部服务入口建立统一的原子预约，在 ACK 和角色重派后
+保留在途责任，直到可信到达/安全停控与占用转移得到验证。批量人员或车辆控制的部分
+生效没有安全中断证据，目前不能作为正式执行成功。
 `report_incident` 在提交时要求有非零时长的现场角色区间；后续回执由接收服务产生，完整
 通路检查由独立世界读回提供，不要求报告者一直留到回执。历史角色区间必须由 episode 所有者
 在 `role_interval(agent_id, role, region_id, as_of_s)` 返回连续的起止时间；失去角色后不能让
@@ -256,6 +292,8 @@ execute 改为作者固定参数：背景行人替换为绑定 roster（`spawn_r
 置 false 并在 `formal_binding_review.mismatches` 列出差异；全部一致且服务证据完整时
 `full_city_service=formal_episode_binding_measured` 并列出剩余缺口。诊断路径
 （无绑定的默认 prepare/execute）保持 v8 行为不变。
+服务探针由宿主派发，完成时也保持 `execution_validated=false`、`scoreable=false`；
+该结果仅证明本探针范围的原生服务读回，不能替代参与者 GoalSession 的正式业务 episode。
 
 正式探针的人员到达等待使用公共策略的 120 秒窗口，总运行上限为 180 秒；
 不再把诊断模式的 800 步（默认步长下为16秒）用于正式长路线。

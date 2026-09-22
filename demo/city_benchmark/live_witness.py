@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from copy import deepcopy
 import math
+from threading import RLock
 from typing import Any, Callable, Iterable, Mapping
 
 from .episode_adapter import CityEpisodeEvidenceHost
@@ -20,7 +21,7 @@ from .service_backend import CityServiceBackend, _time
 _HOST_METHODS = (
     "as_source", "advance", "deliver_observation", "register_request",
     "record_actor_ack", "record_person_readback", "record_traffic_readback",
-    "record_receipt", "record_access_readback",
+    "record_receipt", "record_access_readback", "record_partial_failure",
 )
 
 
@@ -175,7 +176,9 @@ class CityDemoRuntimeWitnessAdapter:
                  following_vehicle_roster: Callable[[], Mapping[str, Mapping[str, Any]]] | None = None,
                  person_controller: Callable[[str], Mapping[str, Any]] | None = None,
                  person_readback: Callable[[str], Mapping[str, Any]] | None = None,
+                 person_stop: Callable[[str], Mapping[str, Any]] | None = None,
                  vehicle_controller: Any = None, admission: Any = None,
+                 vehicle_stop: Callable[[str], Mapping[str, Any]] | None = None,
                  vehicle_pose_reader: Callable[[str], Iterable[float]] | None = None,
                  hazard_readback: Callable[[str, float], Mapping[str, Any]] | None = None,
                  access_readback: Callable[[Mapping[str, Any], float, float], Mapping[str, Any]] | None = None,
@@ -192,7 +195,9 @@ class CityDemoRuntimeWitnessAdapter:
         self.following_vehicle_roster = following_vehicle_roster
         self.person_controller = person_controller
         self.person_readback = person_readback
+        self.person_stop = person_stop
         self.vehicle_controller = vehicle_controller
+        self.vehicle_stop = vehicle_stop
         self.vehicle_pose_reader = vehicle_pose_reader
         self.hazard_readback = hazard_readback
         self.access_readback = access_readback
@@ -350,19 +355,34 @@ class CityDemoRuntimeWitnessAdapter:
             agent_id=agent_id, region_id=region_id, assembly_region_id=assembly_region_id,
             person_ids=person_ids, observation_refs=observation_refs)
         actions = []
+        attempted = []
         for person_id in person_ids:
-            action = self.guide_person(person_id)
-            ack = LiveEvidence(
-                episode_id=self.episode_id,
-                evidence_ref=f"{self.source_id}:{request['request_id']}:{person_id}:ack",
-                kind="service_ack", source_id=self.source_id,
-                entity_ids=(str(person_id),), observed_time_s=self.now_s(),
-                status_before={"status": action["status_before"]},
-                status_after={"status": action["status_after"]},
-            )
-            witness.record_actor_ack(request["request_id"], str(person_id),
-                                     time_s=self.now_s(), evidence=ack)
-            actions.append({"action": action, "evidence": ack.as_dict()})
+            attempted.append(person_id)
+            stage = "controller"
+            try:
+                action = self.guide_person(person_id)
+                stage = "ack"
+                if (not isinstance(action, Mapping) or action.get("entity_id") != person_id
+                        or action.get("episode_id") != self.episode_id
+                        or action.get("source_id") != self.source_id
+                        or action.get("status_after") != "guidance_applied"):
+                    raise CityRuntimeWitnessBlocked("person controller acknowledgement identity mismatch")
+                ack = LiveEvidence(
+                    episode_id=self.episode_id,
+                    evidence_ref=f"{self.source_id}:{request['request_id']}:{person_id}:ack",
+                    kind="service_ack", source_id=self.source_id,
+                    entity_ids=(str(person_id),), observed_time_s=self.now_s(),
+                    status_before={"status": action["status_before"]},
+                    status_after={"status": action["status_after"]},
+                )
+                witness.record_actor_ack(request["request_id"], str(person_id),
+                                         time_s=self.now_s(), evidence=ack)
+                actions.append({"action": action, "evidence": ack.as_dict()})
+            except Exception as exc:
+                self._fail_batch(witness, request["request_id"], tuple(attempted), stage,
+                                 stop=self.person_stop, identity="entity_id", stopped="paused")
+                raise CityRuntimeWitnessBlocked(
+                    f"guidance request {request['request_id']} partially failed at {stage}") from exc
         return request, tuple(actions)
 
     def submit_traffic(self, witness: CityLiveEpisodeWitness, *, agent_id: str,
@@ -372,23 +392,74 @@ class CityDemoRuntimeWitnessAdapter:
             agent_id=agent_id, region_id=region_id, vehicle_ids=vehicle_ids,
             mode=mode, observation_refs=observation_refs)
         actions = []
+        attempted = []
         for vehicle_id in vehicle_ids:
-            result = self.control_vehicle(vehicle_id, mode)
-            if not isinstance(result, Mapping):
-                raise CityRuntimeWitnessBlocked("vehicle controller returned no endpoint acknowledgement")
-            before = _text(result.get("status_before", "awaiting_control"), "vehicle status before")
-            after = _text(result.get("status_after"), "vehicle status after")
-            observed = _time(result.get("observed_time_s", self.now_s()))
-            ack = LiveEvidence(
-                episode_id=self.episode_id,
-                evidence_ref=_text(result.get("evidence_ref"), "vehicle acknowledgement reference"),
-                kind="service_ack", source_id=self.source_id,
-                entity_ids=(str(vehicle_id),), observed_time_s=observed,
-                status_before={"status": before}, status_after={"status": after})
-            witness.record_actor_ack(request["request_id"], str(vehicle_id), time_s=observed,
-                                     applied_mode=mode, evidence=ack)
-            actions.append({"vehicle_id": vehicle_id, "action": dict(result), "evidence": ack.as_dict()})
+            attempted.append(vehicle_id)
+            stage = "controller"
+            try:
+                result = self.control_vehicle(vehicle_id, mode)
+                stage = "ack"
+                if (not isinstance(result, Mapping) or result.get("vehicle_id") != vehicle_id
+                        or result.get("episode_id") != self.episode_id
+                        or result.get("source_id") != self.source_id
+                        or result.get("status_after") != mode):
+                    raise CityRuntimeWitnessBlocked("vehicle controller acknowledgement identity mismatch")
+                before = _text(result.get("status_before", "awaiting_control"), "vehicle status before")
+                after = _text(result.get("status_after"), "vehicle status after")
+                observed = _time(result.get("observed_time_s", self.now_s()))
+                ack = LiveEvidence(
+                    episode_id=self.episode_id,
+                    evidence_ref=_text(result.get("evidence_ref"), "vehicle acknowledgement reference"),
+                    kind="service_ack", source_id=self.source_id,
+                    entity_ids=(str(vehicle_id),), observed_time_s=observed,
+                    status_before={"status": before}, status_after={"status": after})
+                witness.record_actor_ack(request["request_id"], str(vehicle_id), time_s=observed,
+                                         applied_mode=mode, evidence=ack)
+                actions.append({"vehicle_id": vehicle_id, "action": dict(result), "evidence": ack.as_dict()})
+            except Exception as exc:
+                self._fail_batch(witness, request["request_id"], tuple(attempted), stage,
+                                 stop=self.vehicle_stop, identity="vehicle_id", stopped="hold")
+                raise CityRuntimeWitnessBlocked(
+                    f"traffic request {request['request_id']} partially failed at {stage}") from exc
         return request, tuple(actions)
+
+    def _fail_batch(self, witness: CityLiveEpisodeWitness, request_id: str,
+                    attempted: tuple[str, ...], stage: str, *, stop: Any,
+                    identity: str, stopped: str) -> None:
+        stops = []
+        for actor_id in reversed(attempted):
+            row = {"id": actor_id, "status": "stop_unconfirmed"}
+            try:
+                if not callable(stop):
+                    raise CityRuntimeWitnessBlocked("native stop endpoint unavailable")
+                receipt = stop(actor_id)
+                if (not isinstance(receipt, Mapping) or receipt.get(identity) != actor_id
+                        or receipt.get("episode_id") != self.episode_id
+                        or receipt.get("source_id") != self.source_id
+                        or receipt.get("status_after") != stopped):
+                    raise CityRuntimeWitnessBlocked("native stop acknowledgement identity mismatch")
+                position = tuple(float(value) for value in receipt.get("position_xyz", ()))
+                if len(position) != 3 or not all(math.isfinite(value) for value in position):
+                    raise CityRuntimeWitnessBlocked("native stop position readback is missing")
+                observed = _time(receipt.get("observed_time_s"))
+                evidence = LiveEvidence(
+                    episode_id=self.episode_id,
+                    evidence_ref=_text(receipt.get("evidence_ref"), "native stop evidence"),
+                    kind="service_stop", source_id=self.source_id,
+                    entity_ids=(actor_id,), observed_time_s=observed,
+                    status_before={"status": str(receipt.get("status_before", "unknown")),
+                                   "batch_status": "stop_unconfirmed"},
+                    status_after={"status": stopped, "batch_status": "stopped"})
+                witness._accept(evidence, "service_stop", (actor_id,))
+                row = {"id": actor_id, "status": "stopped",
+                       "time_s": observed, "evidence_ref": evidence.evidence_ref,
+                       "position_xyz": list(position)}
+            except Exception:
+                pass
+            stops.append(row)
+        witness.record_partial_failure(request_id, attempted_ids=attempted,
+                                       failed_actor_id=attempted[-1],
+                                       failure_stage=stage, stops=tuple(stops))
 
     def capture_person_readback(self, person_id: str, *, previous_position: Iterable[float],
                                 status_before: str, arrived: bool,
@@ -616,6 +687,10 @@ class CityDemoRuntimeWitnessAdapter:
         for key, ready in capabilities.items():
             if not ready:
                 blockers.append(f"missing_live_capability:{key}")
+        if not callable(self.person_stop):
+            blockers.append("missing_native_stop_endpoint:person")
+        if not callable(self.vehicle_stop):
+            blockers.append("missing_native_stop_endpoint:vehicle")
         if not query_ready:
             blockers.extend(("scene_query_support_disabled_or_not_verified",
                              "clearance_query_provenance_missing"))
@@ -724,6 +799,7 @@ class CityLiveEpisodeWitness:
         self.episode_id = _text(episode_id, "episode id")
         self.backend = CityServiceBackend(host.as_source())
         self._evidence: dict[str, LiveEvidence] = {}
+        self._submit_lock = RLock()
 
     @classmethod
     def from_runtime(cls, runtime: Any) -> "CityLiveEpisodeWitness":
@@ -746,22 +822,25 @@ class CityLiveEpisodeWitness:
 
     def guide_people(self, *, agent_id: str, region_id: str, assembly_region_id: str,
                      person_ids: tuple[str, ...], observation_refs: tuple[str, ...]) -> dict[str, Any]:
-        return self._submit(self.backend.guide_people(
-            agent_id=agent_id, region_id=region_id, assembly_region_id=assembly_region_id,
-            person_ids=person_ids, observation_refs=observation_refs))
+        with self._submit_lock:
+            return self._submit(self.backend.guide_people(
+                agent_id=agent_id, region_id=region_id, assembly_region_id=assembly_region_id,
+                person_ids=person_ids, observation_refs=observation_refs))
 
     def control_following_traffic(self, *, agent_id: str, region_id: str,
                                   vehicle_ids: tuple[str, ...], mode: str,
                                   observation_refs: tuple[str, ...]) -> dict[str, Any]:
-        return self._submit(self.backend.control_following_traffic(
-            agent_id=agent_id, region_id=region_id, vehicle_ids=vehicle_ids,
-            mode=mode, observation_refs=observation_refs))
+        with self._submit_lock:
+            return self._submit(self.backend.control_following_traffic(
+                agent_id=agent_id, region_id=region_id, vehicle_ids=vehicle_ids,
+                mode=mode, observation_refs=observation_refs))
 
     def report_incident(self, *, agent_id: str, region_id: str,
                         observation_refs: tuple[str, ...], recipient_service_id: str) -> dict[str, Any]:
-        return self._submit(self.backend.report_incident(
-            agent_id=agent_id, region_id=region_id, observation_refs=observation_refs,
-            recipient_service_id=recipient_service_id))
+        with self._submit_lock:
+            return self._submit(self.backend.report_incident(
+                agent_id=agent_id, region_id=region_id, observation_refs=observation_refs,
+                recipient_service_id=recipient_service_id))
 
     def record_actor_ack(self, request_id: str, actor_id: str, *, time_s: float,
                          evidence: LiveEvidence, applied_mode: str | None = None) -> None:
@@ -835,8 +914,20 @@ class CityLiveEpisodeWitness:
         result["scoreable"] = False
         return result
 
+    def record_partial_failure(self, request_id: str, *, attempted_ids: tuple[str, ...],
+                               failed_actor_id: str, failure_stage: str,
+                               stops: tuple[Mapping[str, Any], ...]) -> None:
+        self.host.record_partial_failure(request_id, attempted_ids=attempted_ids,
+                                         failed_actor_id=failed_actor_id,
+                                         failure_stage=failure_stage, stops=stops)
+        self.backend.mark_partial_failed(request_id)
+
     def _submit(self, request: Mapping[str, Any]) -> dict[str, Any]:
-        self.host.register_request(request, evidence_class="runtime")
+        try:
+            self.host.register_request(request, evidence_class="runtime")
+        except Exception:
+            self.backend.discard_unregistered(request)
+            raise
         return dict(request)
 
     def _accept(self, evidence: LiveEvidence, kind: str, entities: Iterable[Any], expected_ref: Any = None) -> None:

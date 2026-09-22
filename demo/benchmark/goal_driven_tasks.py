@@ -1,4 +1,4 @@
-"""Scene-native goal-driven task families for Factory, Warehouse and House.
+"""Scene-native goal-driven task families for the four benchmark scenes.
 
 The returned public packet is intentionally outcome based.  The witness plans
 are author/evaluator material and are never copied into the participant task.
@@ -16,6 +16,7 @@ from .goal_driven_contract import (
     GOAL_BASELINE_SCHEMA,
     GOAL_CONTRACT_VERSION,
     GOAL_HIDDEN_EVALUATOR_SCHEMA,
+    GOAL_PLAN_VERSION,
     GOAL_TASK_SCHEMA,
     build_goal_heterogeneity_certificate,
     build_goal_participant_api,
@@ -26,7 +27,16 @@ from .goal_driven_contract import (
     write_goal_task_bundle,
 )
 from .provenance import canonical_sha256
-from .skill_ontology import SKILL_CATALOG_SCHEMA, SKILL_CATALOG_VERSION, required_capabilities
+from .measurement_contract import (
+    build_calibration_profile,
+    build_intervention_contract,
+    build_measurement_target,
+    build_reference_solution,
+)
+from .skill_ontology import (
+    SKILL_CATALOG_SCHEMA, SKILL_CATALOG_VERSION, CITY_NATIVE_SKILL_CATALOG_VERSION,
+    required_capabilities,
+)
 from .goal_driven_fixtures import (
     SKILL_DURATIONS_S,
     execution_contract,
@@ -35,6 +45,18 @@ from .goal_driven_fixtures import (
     region_resource_capacity,
     robot_physical_profile,
     scene_routes,
+)
+from .goal_scene_registry import registered_goal_scenes
+from .mechanism_templates import (
+    M0_MECHANISMS,
+    build_mechanism_template,
+    canonical_template_id,
+)
+from .candidate_pool_design import (
+    POOL_PROFILES,
+    apply_pool_profile,
+    pool_design_summary,
+    validate_pool_design_summary,
 )
 
 
@@ -74,7 +96,134 @@ _CITY_AFFECTED_PERSON_ASSEMBLY = {
     "affected_person_03": "city_assembly_south",
 }
 _CITY_FOLLOWING_VEHICLE_IDS = ("following_vehicle_00",)
+_CITY_NATIVE_AFFECTED_PERSON_ASSEMBLY = {
+    "affected_person_00": "assembly_candidate_004",
+    "affected_person_01": "assembly_candidate_001",
+    "affected_person_02": "assembly_candidate_003",
+    "affected_person_03": "assembly_candidate_002",
+}
+_CITY_NATIVE_FOLLOWING_VEHICLE_IDS = tuple(f"following_vehicle_{index:02d}" for index in range(6))
+_CITY_ROSTER_PROFILES = {"abstract_v1", "bound_native_v1"}
 _CITY_RESPONSE_SERVICE_ID = "city_dispatch"
+
+
+def _legacy_measurement_contract(public: Mapping[str, Any]) -> dict[str, Any]:
+    """Attach a conservative contract while legacy tasks await classification.
+
+    The provisional mechanism follows the controlled factor only to make the
+    treatment auditable; ``measurement_status=unclassified`` prevents this
+    metadata from being presented as a completed mechanism claim.
+    """
+    scene = public["mission"]["scene_key"]
+    factor = public["experiment_factor"]["id"]
+    if factor == "communication_quality":
+        mechanism = "communication_adaptation"
+        kind = "I-comm"
+        mutable = ["communication_quality"]
+        evidence = ["communication_event", "message_receipt"]
+        expected = ["communication_adaptation"]
+    else:
+        mechanism = "role_churn_recovery"
+        kind = "I-role"
+        mutable = ["active_agents"]
+        evidence = ["membership_event", "reassignment_event"]
+        expected = ["role_churn_recovery"]
+    target = build_measurement_target(
+        scene_key=scene,
+        mechanism_family=mechanism,
+        failure_mechanisms=["stale_observation" if factor == "communication_quality" else "responsibility_vacuum"],
+        eligible_metrics=["coordination_wait" if factor == "communication_quality" else "reassignment_latency"],
+        allowed_claims=["factor_condition_coverage"],
+        forbidden_claims=["global_optimality", "whole_task_necessity", "physical_causality",
+                          "causal_attribution", "statistical_generalization", "runtime_execution_validation"],
+    )
+    reference = build_reference_solution(
+        status="feasible_reference_only", strategy_id=f"{scene}_legacy_witness_reference_v1",
+        reference_metrics={"completion_time_s": 0.0},
+    )
+    intervention = build_intervention_contract(
+        scene_key=scene, intervention_id=f"{public['task_id']}-{factor}-legacy",
+        kind=kind, start_event="first_cross_mobility_observation_published",
+        end_event="first_business_state_commit", phase="decision_window",
+        mutable_fields=mutable,
+        frozen_fields=["task_goal", "low_level_controller", "world_seed"],
+        expected_evidence=evidence,
+        invalid_branches=["post_failure_injection", "changes_frozen_field"],
+    )
+    calibration = build_calibration_profile(
+        scene_key=scene, calibration_id=f"{scene}-{factor}-legacy-control",
+        role="single_factor_control", expected_mechanisms=expected,
+        control_condition="no_fault", expected_evidence=evidence,
+    )
+    from .measurement_contract import MEASUREMENT_CONTRACT_SCHEMA, MEASUREMENT_CONTRACT_VERSION
+    return {
+        "schema": MEASUREMENT_CONTRACT_SCHEMA,
+        "version": MEASUREMENT_CONTRACT_VERSION,
+        "measurement_target": target,
+        "reference_solution": reference,
+        "intervention_contract": intervention,
+        "calibration_profile": calibration,
+    }
+
+
+def _apply_mechanism_template(public: dict[str, Any], template: Mapping[str, Any]) -> dict[str, Any]:
+    """Bind a canonical mechanism to an otherwise scene-native goal task.
+
+    The mechanism is kept out of the participant task vocabulary.  The public
+    business objective and world remain the source of the agent's decisions;
+    the hidden evaluator receives the reviewed template and its measurement
+    contract.  This prevents a mechanism label from becoming an answer hint.
+    """
+    scene = public["mission"]["scene_key"]
+    if template["scene_key"] != scene:
+        raise ValueError("mechanism template scene does not match public task")
+    mechanism = template["mechanism_family"]
+    public["task_id"] = f"{public['task_id']}-M0-{mechanism}"
+    public["mission"]["context"] = (
+        f"{public['mission']['context']} 本题冻结的协作测量关注业务中的机制交互，"
+        "评价只使用当前送达信息和业务证据，不公开未来事件或参考分配。"
+    )
+    public["business_constraints"] = [
+        *public["business_constraints"],
+        f"机制题包要求保留 {mechanism} 的决策证据链；底层导航和动作执行仍是固定的可靠执行前提。",
+    ]
+    return public
+
+
+def _apply_mechanism_probe_to_witnesses(
+        witnesses: list[dict[str, Any]], public: Mapping[str, Any],
+        mechanism_family: str) -> list[dict[str, Any]]:
+    """Add a concrete, legal evidence hook to each canonical witness.
+
+    The hook is intentionally a normal participant skill.  It changes the
+    generated plan graph and therefore its semantic signature, while the
+    business witness still has to satisfy the scene predicates independently.
+    """
+    for witness in witnesses:
+        plan = witness["plan"]
+        rows = {row["id"]: row for row in public["candidate_robot_pool"]}
+        relay_agents = [agent for agent in plan["assigned_team"]
+                        if "relay" in rows[agent]["public_capabilities"]
+                        and "event_bus" in rows[agent]["interfaces"]]
+        if not relay_agents:
+            raise ValueError(f"{public['mission']['scene_key']} witness has no relay-capable member")
+        probe_id = f"mechanism_probe_{mechanism_family}_{witness['id']}"
+        if any(row["task_id"] == probe_id for row in plan["tasks"]):
+            raise ValueError("mechanism probe id collides with witness task")
+        probe = _task_row(
+            probe_id, "relay",
+            {"message_kind": f"benchmark_mechanism:{mechanism_family}"},
+            [], ["relay"], [relay_agents[0]])
+        end_s = max(
+            row["execution"]["start_s"] + row["execution"]["duration_s"]
+            for row in plan["tasks"]
+        )
+        probe["execution"] = {
+            "start_s": end_s,
+            "duration_s": SKILL_DURATIONS_S["relay"],
+        }
+        plan["tasks"].append(probe)
+    return witnesses
 
 
 def _robot(identifier: str, robot_type: str, mobility: str, capabilities: list[str], interfaces: list[str]) -> dict[str, Any]:
@@ -152,16 +301,17 @@ def _task(task_id: str, scene_key: str, goal: str, context: str,
     }
 
 
-def _plan(plan_id: str, team: list[str], tasks: list[dict[str, Any]]) -> dict[str, Any]:
+def _plan(plan_id: str, team: list[str], tasks: list[dict[str, Any]], *,
+          durations: Mapping[str, float] = SKILL_DURATIONS_S) -> dict[str, Any]:
     # These are deliberately conservative author witnesses, not optimal schedules.
     # Serial intervals avoid silently outsourcing resource ordering to navigation.
     scheduled = deepcopy(tasks)
     clock_s = 0.0
     for task in scheduled:
-        duration_s = SKILL_DURATIONS_S[task["skill"]]
+        duration_s = durations[task["skill"]]
         task["execution"] = {"start_s": clock_s, "duration_s": duration_s}
         clock_s += duration_s
-    return {"schema": "eai.benchmark.goal_plan", "version": 2,
+    return {"schema": "eai.benchmark.goal_plan", "version": GOAL_PLAN_VERSION,
             "plan_id": plan_id, "assigned_team": team, "tasks": scheduled}
 
 
@@ -468,7 +618,7 @@ def _house_witness(public: dict[str, Any], suffix: str, picker: str, *,
     }
 
 
-def _city() -> tuple[dict[str, Any], list[dict[str, Any]]]:
+def _city(roster_profile: str = "abstract_v1") -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """City goal bundle: the urban incident-response family as a four-layer package.
 
     The public world is the authoring abstraction of the response theater (not
@@ -478,6 +628,8 @@ def _city() -> tuple[dict[str, Any], list[dict[str, Any]]]:
     carry the per-person assembly binding. Declaration-level witness plans use
     the frozen roster/service identities; execution evidence stays pending.
     """
+    if roster_profile not in _CITY_ROSTER_PROFILES:
+        raise ValueError(f"unsupported City roster profile: {roster_profile}")
     from demo.city_benchmark.contracts import candidate_pool, city_outcome_rows
     from demo.city_benchmark.task_logic import default_deadline_policy, public_deadline_constraints
 
@@ -511,19 +663,30 @@ def _city() -> tuple[dict[str, Any], list[dict[str, Any]]]:
         _region("city_assembly_south", "assembly_candidate", "南侧候选集合区；容量、可达性与当前危险净空需运行核验",
                 ["ground_navigation"]),
     ]
+    if roster_profile == "bound_native_v1":
+        regions = [row for row in regions if row["kind"] != "assembly_candidate"]
+        regions.extend(_region(
+            region_id, "assembly_candidate", "候选集合区；容量、可达性与当前危险净空需运行核验",
+            ["ground_navigation"]) for region_id in sorted(set(
+                _CITY_NATIVE_AFFECTED_PERSON_ASSEMBLY.values())))
     policy = default_deadline_policy(180.0)
+    contract = execution_contract()
+    if roster_profile == "bound_native_v1":
+        contract["skill_durations_s"]["guide_people"] = policy["people_guidance_ack_s"]
     public = {
         "schema": GOAL_TASK_SCHEMA,
         "version": GOAL_CONTRACT_VERSION,
-        "task_id": "CITY-GOAL-01",
+        "task_id": "CITY-GOAL-NATIVE-01" if roster_profile == "bound_native_v1" else "CITY-GOAL-01",
         "evaluation_track": "goal_driven_team_planning_v1",
         "mission": {"scene_key": "city",
                     "goal": "应对城市道路突发事故：查明影响，保护人员和后续交通，保持救援通路。",
                     "context": "城市街区有背景交通、步行人员和建筑；根据实际到达的告警与观察组织响应。具体事故位置和未来事件不预先公开。"},
         "required_outcomes": [_outcome(*row) for row in city_outcome_rows()],
         "candidate_robot_pool": pool,
-        "skill_catalog_version": f"{SKILL_CATALOG_SCHEMA}.v{SKILL_CATALOG_VERSION}",
-        "execution_contract": execution_contract(),
+        "skill_catalog_version": f"{SKILL_CATALOG_SCHEMA}.v{CITY_NATIVE_SKILL_CATALOG_VERSION}"
+                                 if roster_profile == "bound_native_v1"
+                                 else f"{SKILL_CATALOG_SCHEMA}.v{SKILL_CATALOG_VERSION}",
+        "execution_contract": contract,
         "public_world": {
             "regions": regions,
             "objects": [],
@@ -689,11 +852,56 @@ def _city_witness(public: dict[str, Any], suffix: str) -> dict[str, Any]:
                      "recipient_service_id": _CITY_RESPONSE_SERVICE_ID,
                      "time_s": report_start},
                     [f"verify_access_{suffix}"], [aerial]))
-    return {
+    witness = {
         "id": identifier, "satisfies_outcomes": [row["id"] for row in public["required_outcomes"]],
         "outcome_support": support,
         "plan": _plan(identifier, team, rows),
     }
+    return (_city_native_witness(witness, public["execution_contract"]["skill_durations_s"])
+            if public["task_id"] == "CITY-GOAL-NATIVE-01"
+            else witness)
+
+
+def _city_native_witness(witness: dict[str, Any], durations: Mapping[str, float]) -> dict[str, Any]:
+    """Expand each abstract guidance group into the frozen native roster."""
+    result = deepcopy(witness)
+    expanded: list[dict[str, Any]] = []
+    replacements: dict[str, list[str]] = {}
+    for original in result["plan"]["tasks"]:
+        row = deepcopy(original)
+        row["prerequisites"] = [replacements[parent][-1] if parent in replacements else parent
+                                for parent in row["prerequisites"]]
+        if row["skill"] == "guide_people":
+            previous = None
+            replacement_ids = []
+            for person_id in row["arguments"]["person_ids"]:
+                guide = deepcopy(row)
+                guide["task_id"] = f"guide_{person_id}_{witness['id'][-1]}"
+                guide["arguments"]["person_ids"] = [person_id]
+                guide["arguments"]["assembly_region_id"] = (
+                    _CITY_NATIVE_AFFECTED_PERSON_ASSEMBLY[person_id])
+                if previous is not None:
+                    guide["prerequisites"] = [previous]
+                expanded.append(guide)
+                replacement_ids.append(guide["task_id"])
+                previous = guide["task_id"]
+            replacements[row["task_id"]] = replacement_ids
+            continue
+        if row["skill"] == "control_following_traffic":
+            row["arguments"]["vehicle_ids"] = list(_CITY_NATIVE_FOLLOWING_VEHICLE_IDS)
+        if row["skill"] == "report_incident":
+            row["arguments"]["time_s"] = math.fsum(
+                durations[task["skill"]] for task in expanded)
+        expanded.append(row)
+    result["id"] = result["id"].replace("city_witness_", "city_native_witness_", 1)
+    result["outcome_support"] = {
+        outcome: [new_id for old_id in references
+                  for new_id in replacements.get(old_id, [old_id])]
+        for outcome, references in result["outcome_support"].items()
+    }
+    result["plan"] = _plan(result["id"], result["plan"]["assigned_team"], expanded,
+                           durations=durations)
+    return result
 
 
 def _apply_factor(public: dict[str, Any], factor_id: str, factor_level: str | None) -> dict[str, Any]:
@@ -795,13 +1003,21 @@ def _build_hidden_event_schedule(public: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def build_goal_task_spec(scene_key: str, *, factor_id: str = "communication_quality",
-                         factor_level: str | None = None) -> dict[str, Any]:
+                         factor_level: str | None = None,
+                         mechanism_family: str | None = None,
+                         pool_profile: str = "legacy_v1",
+                         city_roster_profile: str = "abstract_v1") -> dict[str, Any]:
+    if city_roster_profile != "abstract_v1" and scene_key != "city":
+        raise ValueError("City roster profile applies only to the City scene")
     builders = {"factory": _factory, "warehouse_nvd": _warehouse, "modern_house_nvd": _house,
-                "city": _city}
+                "city": lambda: _city(city_roster_profile)}
     try:
         public, _ = builders[scene_key]()
     except KeyError as exc:
         raise ValueError(f"unsupported goal-driven scene: {scene_key}") from exc
+    public = apply_pool_profile(public, pool_profile)
+    if mechanism_family is not None:
+        _apply_mechanism_template(public, build_mechanism_template(scene_key, mechanism_family))
     _apply_factor(public, factor_id, factor_level)
     validate_goal_task_spec(public)
     return public
@@ -981,6 +1197,12 @@ def review_goal_business_witness(
                 "factory:service_receipt_after_field_checks_and_actual_return")
         final_object("maintenance_service_cart", "response_staging")
     elif scene == "city":
+        if public_task["task_id"] == "CITY-GOAL-NATIVE-01":
+            person_assembly = _CITY_NATIVE_AFFECTED_PERSON_ASSEMBLY
+            following_ids = _CITY_NATIVE_FOLLOWING_VEHICLE_IDS
+        else:
+            person_assembly = _CITY_AFFECTED_PERSON_ASSEMBLY
+            following_ids = _CITY_FOLLOWING_VEHICLE_IDS
         surveys = match(skills={"observe"}, mobility="aerial", region_id="city_incident_overview",
                         observation_mode="incident_overview", outcome="incident_assessed")
         require(surveys, "city:aerial_incident_observation_with_provenance")
@@ -1000,13 +1222,13 @@ def review_goal_business_witness(
             require(any(precedes(tasks[reference], guidance) for reference in references),
                     "city:guidance_after_delivered_people_observation")
             for person_id in guidance["arguments"]["person_ids"]:
-                require(person_id in _CITY_AFFECTED_PERSON_ASSEMBLY,
+                require(person_id in person_assembly,
                         "city:guidance_references_frozen_roster")
-                require(_CITY_AFFECTED_PERSON_ASSEMBLY[person_id] == assembly,
+                require(person_assembly[person_id] == assembly,
                         "city:person_bound_assembly_respected")
                 require(person_id not in guided, "city:each_person_guided_exactly_once")
                 guided[person_id] = guidance
-        require(set(guided) == set(_CITY_AFFECTED_PERSON_ASSEMBLY), "city:full_roster_guided")
+        require(set(guided) == set(person_assembly), "city:full_roster_guided")
         traffic_surveys = match(skills={"observe"}, mobility="aerial",
                                 observation_mode="following_traffic_survey")
         controls = match(skills={"control_following_traffic"})
@@ -1014,7 +1236,7 @@ def review_goal_business_witness(
         for control in controls:
             require(control["task_id"] in coverage["secondary_traffic_protected"],
                     "city:traffic_control_inside_outcome_support")
-            require(set(control["arguments"]["vehicle_ids"]) == set(_CITY_FOLLOWING_VEHICLE_IDS),
+            require(set(control["arguments"]["vehicle_ids"]) == set(following_ids),
                     "city:control_covers_frozen_following_traffic")
             references = set(control["arguments"]["observation_refs"])
             require(references and references <= {scan["task_id"] for scan in traffic_surveys},
@@ -1119,14 +1341,26 @@ def review_goal_task_design(public_task: Mapping[str, Any], witnesses: list[Mapp
 
 
 def build_goal_task_package(scene_key: str, *, factor_id: str = "communication_quality",
-                            factor_level: str | None = None) -> dict[str, dict[str, Any]]:
+                            factor_level: str | None = None,
+                            mechanism_family: str | None = None,
+                            pool_profile: str = "legacy_v1",
+                            city_roster_profile: str = "abstract_v1") -> dict[str, dict[str, Any]]:
+    if city_roster_profile != "abstract_v1" and scene_key != "city":
+        raise ValueError("City roster profile applies only to the City scene")
     builders = {"factory": _factory, "warehouse_nvd": _warehouse, "modern_house_nvd": _house,
-                "city": _city}
+                "city": lambda: _city(city_roster_profile)}
     try:
         public, witnesses = builders[scene_key]()
     except KeyError as exc:
         raise ValueError(f"unsupported goal-driven scene: {scene_key}") from exc
+    mechanism_template = None
+    if mechanism_family is not None:
+        mechanism_template = build_mechanism_template(scene_key, mechanism_family)
+        _apply_mechanism_template(public, mechanism_template)
     _apply_factor(public, factor_id, factor_level)
+    public = apply_pool_profile(public, pool_profile)
+    if mechanism_template is not None:
+        _apply_mechanism_probe_to_witnesses(witnesses, public, mechanism_family)
     validate_goal_task_spec(public)
     review = review_goal_task_design(public, witnesses)
     api = build_goal_participant_api(public)
@@ -1159,6 +1393,16 @@ def build_goal_task_package(scene_key: str, *, factor_id: str = "communication_q
             "business_state": "scene-owned identity, service, handoff and access predicates",
             "motion_evidence": "measured pose and object trajectory records",
         },
+        "measurement_contract": (
+            deepcopy(mechanism_template["measurement_contract"])
+            if mechanism_template is not None else _legacy_measurement_contract(public)
+        ),
+        "measurement_status": "classified" if mechanism_template is not None else "unclassified",
+        "mechanism_template": deepcopy(mechanism_template) if mechanism_template is not None else None,
+        "team_necessity_certificate": (
+            deepcopy(mechanism_template["team_necessity_certificate"])
+            if mechanism_template is not None else None
+        ),
         "release_gate": {
             "authoring_status": review["authoring_status"],
             "execution_status": review["execution_status"],
@@ -1191,6 +1435,59 @@ def build_goal_task_package(scene_key: str, *, factor_id: str = "communication_q
               "hidden_evaluator": hidden, "baseline_manifest": baseline}
     validate_goal_bundle(bundle)
     return bundle
+
+
+def generate_goal_mechanism_templates(
+        scene_keys: list[str] | None = None,
+        *, mechanisms: list[str] | None = None,
+        factor_id: str = "communication_quality",
+        factor_level: str | None = None,
+        pool_profile: str = "legacy_v1",
+        output_root: str | None = None) -> dict[str, dict[str, dict[str, Any]]]:
+    """Generate the four-scene M0 matrix (16 canonical goal bundles).
+
+    The returned mapping is keyed by stable ``scene.m0.mechanism`` template
+    identifiers.  ``output_root`` uses a fresh directory per template and
+    never overwrites an existing authoring artifact.
+    """
+    scenes = list(scene_keys) if scene_keys is not None else [
+        row["scene_key"] for row in registered_goal_scenes()
+        if row["package_kind"] == "goal_bundle"
+    ]
+    selected_mechanisms = list(mechanisms) if mechanisms is not None else list(M0_MECHANISMS)
+    if not scenes or len(scenes) != len(set(scenes)):
+        raise ValueError("mechanism template generation requires distinct scenes")
+    if not selected_mechanisms or len(selected_mechanisms) != len(set(selected_mechanisms)):
+        raise ValueError("mechanism template generation requires distinct mechanisms")
+    packages: dict[str, dict[str, dict[str, Any]]] = {}
+    for scene in scenes:
+        for mechanism in selected_mechanisms:
+            template_id = canonical_template_id(scene, mechanism)
+            bundle = build_goal_task_package(
+                scene, factor_id=factor_id, factor_level=factor_level,
+                mechanism_family=mechanism, pool_profile=pool_profile)
+            packages[template_id] = bundle
+            if output_root is not None:
+                root = Path(output_root) / template_id
+                write_goal_task_bundle(bundle, root)
+                write_goal_authoring_brief(
+                    build_goal_authoring_brief(scene, pool_profile=pool_profile), root / "authoring")
+                if pool_profile != "legacy_v1":
+                    design = pool_design_summary(bundle["public_task"], pool_profile)
+                    validate_pool_design_summary(design, bundle["public_task"])
+                    (root / "authoring" / "candidate_pool_design.json").write_text(
+                        json.dumps(design, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+                        encoding="utf-8")
+                review = review_goal_task_design(
+                    bundle["public_task"], bundle["hidden_evaluator"]["witness_plans"])
+                (root / "authoring" / "review.json").write_text(
+                    json.dumps(review, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+                    encoding="utf-8")
+    return packages
+
+
+# More discoverable alias used by release tooling and external authoring jobs.
+generate_canonical_goal_task_packages = generate_goal_mechanism_templates
 
 
 def validate_goal_factor_pair(
@@ -1261,9 +1558,9 @@ def validate_goal_factor_pair(
     }
 
 
-def build_goal_authoring_brief(scene_key: str) -> dict[str, Any]:
+def build_goal_authoring_brief(scene_key: str, *, pool_profile: str = "legacy_v1") -> dict[str, Any]:
     """Return a scene-bounded prompt contract for an authoring LLM."""
-    public = build_goal_task_spec(scene_key)
+    public = build_goal_task_spec(scene_key, pool_profile=pool_profile)
     capabilities = sorted({
         capability
         for robot in public["candidate_robot_pool"]
@@ -1271,9 +1568,10 @@ def build_goal_authoring_brief(scene_key: str) -> dict[str, Any]:
     })
     brief = {
         "schema": "eai.benchmark.goal_authoring_brief",
-        "version": 2,
+        "version": 3,
         "visibility": "author_only",
         "scene_key": scene_key,
+        "pool_profile": pool_profile,
         "business_family": _AUTHORING_BUSINESS_FAMILIES[scene_key],
         "allowed_object_categories": sorted({
             row["category"] for row in public["public_world"]["objects"]
@@ -1338,7 +1636,7 @@ def build_goal_authoring_brief(scene_key: str) -> dict[str, Any]:
 def validate_goal_authoring_brief(brief: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(brief, Mapping):
         raise ValueError("goal authoring brief must be an object")
-    expected = {"schema", "version", "visibility", "scene_key", "business_family",
+    expected = {"schema", "version", "visibility", "scene_key", "pool_profile", "business_family",
                 "allowed_object_categories", "allowed_region_kinds", "allowed_capabilities",
                 "required_outcome_themes", "factor_axes", "generation_requirements",
                 "forbidden_public_fields", "admission_checks", "output_contract", "quantitative_boundary"}
@@ -1348,9 +1646,11 @@ def validate_goal_authoring_brief(brief: Mapping[str, Any]) -> dict[str, Any]:
     if scene_key not in _AUTHORING_BUSINESS_FAMILIES:
         raise ValueError("goal authoring brief uses an unsupported scene")
     if (brief["schema"] != "eai.benchmark.goal_authoring_brief"
-            or brief["version"] != 2 or brief["visibility"] != "author_only"):
+            or brief["version"] != 3 or brief["visibility"] != "author_only"):
         raise ValueError("unsupported goal authoring brief schema")
-    public = build_goal_task_spec(scene_key)
+    if brief["pool_profile"] not in POOL_PROFILES:
+        raise ValueError("goal authoring brief uses an unsupported candidate-pool profile")
+    public = build_goal_task_spec(scene_key, pool_profile=brief["pool_profile"])
     expected_categories = sorted({row["category"] for row in public["public_world"]["objects"]})
     expected_regions = sorted({row["kind"] for row in public["public_world"]["regions"]})
     expected_capabilities = sorted({
@@ -1409,20 +1709,34 @@ def write_goal_authoring_brief(brief: Mapping[str, Any], output_dir: str | Path)
 
 def generate_goal_task_packages(scene_keys: list[str] | None = None, *, factor_id: str = "communication_quality",
                                 factor_level: str | None = None,
+                                pool_profile: str = "legacy_v1",
                                 output_root: str | None = None) -> dict[str, dict[str, Any]]:
-    """Generate and optionally publish the three goal-driven packages.
+    """Generate and optionally publish the four registered goal packages.
 
     ``output_root`` is an author-controlled output directory. Existing scene
     directories are never overwritten by ``write_goal_task_bundle``.
     """
-    keys = scene_keys or ["factory", "warehouse_nvd", "modern_house_nvd"]
-    packages = {scene: build_goal_task_package(scene, factor_id=factor_id, factor_level=factor_level)
+    if scene_keys is None:
+        keys = [row["scene_key"] for row in registered_goal_scenes()
+                if row["package_kind"] == "goal_bundle"]
+    else:
+        keys = list(scene_keys)
+    packages = {scene: build_goal_task_package(
+                    scene, factor_id=factor_id, factor_level=factor_level,
+                    pool_profile=pool_profile)
                 for scene in keys}
     if output_root is not None:
         root = Path(output_root)
         for scene, bundle in packages.items():
             write_goal_task_bundle(bundle, root / scene)
-            write_goal_authoring_brief(build_goal_authoring_brief(scene), root / scene / "authoring")
+            write_goal_authoring_brief(
+                build_goal_authoring_brief(scene, pool_profile=pool_profile), root / scene / "authoring")
+            if pool_profile != "legacy_v1":
+                design = pool_design_summary(bundle["public_task"], pool_profile)
+                validate_pool_design_summary(design, bundle["public_task"])
+                (root / scene / "authoring" / "candidate_pool_design.json").write_text(
+                    json.dumps(design, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+                    encoding="utf-8")
             review = review_goal_task_design(bundle["public_task"], bundle["hidden_evaluator"]["witness_plans"])
             (root / scene / "authoring" / "review.json").write_text(
                 json.dumps(review, indent=2, sort_keys=True, ensure_ascii=False) + "\n", encoding="utf-8")
@@ -1434,17 +1748,28 @@ def main(argv=None) -> int:
     import json
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--scene", choices=["all", "factory", "warehouse_nvd", "modern_house_nvd"],
+    parser.add_argument("--scene", choices=["all", *[row["scene_key"] for row in registered_goal_scenes()]],
                         default="all")
     parser.add_argument("--factor-id", choices=["communication_quality", "team_continuity"],
                         default="communication_quality")
+    parser.add_argument("--mechanism-family", choices=list(M0_MECHANISMS),
+                        help="generate classified canonical M0 bundles for this mechanism")
+    parser.add_argument("--pool-profile", choices=list(POOL_PROFILES), default="legacy_v1",
+                        help="candidate-pool design; expanded_v1 is opt-in and execution-pending")
     parser.add_argument("--factor-level", choices=["immediate", "delayed", "dropped", "bandwidth_limited", "stale",
                                                     "stable", "member_exit", "member_join", "capability_change"])
     parser.add_argument("--output-root", help="write release/evaluator artifacts below this directory")
     args = parser.parse_args(argv)
     scenes = None if args.scene == "all" else [args.scene]
-    packages = generate_goal_task_packages(scenes, factor_id=args.factor_id, factor_level=args.factor_level,
-                                           output_root=args.output_root)
+    if args.mechanism_family is None:
+        packages = generate_goal_task_packages(
+            scenes, factor_id=args.factor_id, factor_level=args.factor_level,
+            pool_profile=args.pool_profile, output_root=args.output_root)
+    else:
+        packages = generate_goal_mechanism_templates(
+            scenes, mechanisms=[args.mechanism_family], factor_id=args.factor_id,
+            factor_level=args.factor_level, pool_profile=args.pool_profile,
+            output_root=args.output_root)
     print(json.dumps({scene: {
         "task_id": bundle["public_task"]["task_id"],
         "authoring_status": bundle["hidden_evaluator"]["release_gate"]["authoring_status"],
@@ -1456,6 +1781,7 @@ def main(argv=None) -> int:
 
 __all__ = [
     "build_goal_authoring_brief", "build_goal_task_package", "build_goal_task_spec",
+    "generate_canonical_goal_task_packages", "generate_goal_mechanism_templates",
     "generate_goal_task_packages", "main", "review_goal_task_design",
     "review_goal_business_witness",
     "validate_goal_authoring_brief", "validate_goal_factor_pair",

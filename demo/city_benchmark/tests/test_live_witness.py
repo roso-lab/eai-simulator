@@ -1,4 +1,5 @@
 """Focused live-witness checks; no Isaac, CUDA, ROS or reference backend."""
+from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 
 import pytest
@@ -97,6 +98,202 @@ def test_live_episode_wires_people_ack_arrival_as_runtime_witness():
     assert result["evidence_class"] == "runtime"
     assert result["live_witness"] is True
     assert result["scoreable"] is False
+
+
+def test_live_guidance_serializes_same_tick_capacity_claims():
+    host = CityEpisodeEvidenceHost(
+        admission=lambda service, ids, *_: service != "guide_people" or len(set(ids)) <= 1,
+        episode_id="ep-1", source_id="isaac.city.service_endpoint")
+    host.advance(10.0)
+    witness = CityLiveEpisodeWitness(host, episode_id="ep-1")
+    witness.deliver_observation({
+        "id": "obs", "producer_agent_id": "iris_1", "region_id": "road_surface",
+        "captured_at_s": 8.0, "delivered_at_s": 9.0, "valid_until_s": 30.0,
+        "entities": [{"id": "p1", "kind": "person"}, {"id": "p2", "kind": "person"}],
+    }, evidence("ep-1", "obs", "observation", ("p1", "p2"), 8.0,
+                before="hidden", after="delivered"))
+    host.record_role_occupancy("go2_1", "guidance_contact", "road_surface",
+                               start_time_s=8.0, end_time_s=10.0)
+
+    def submit(person_id):
+        return witness.guide_people(
+            agent_id="go2_1", region_id="road_surface", assembly_region_id="assembly_1",
+            person_ids=(person_id,), observation_refs=("obs",))
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        outcomes = list(pool.map(lambda person: (person, _attempt(submit, person)), ("p1", "p2")))
+    accepted = [row for _, row in outcomes if isinstance(row, dict)]
+    rejected = [row for _, row in outcomes if isinstance(row, ValueError)]
+    assert len(accepted) == len(rejected) == 1
+    assert "not admitted" in str(rejected[0])
+    assert host.request_ids() == (accepted[0]["request_id"],)
+    assert host.admit("guide_people", ("p1",), "road_surface", "assembly_2", None, 10.) is False
+
+
+def test_rejected_live_registration_leaves_no_backend_request():
+    host = CityEpisodeEvidenceHost(
+        admission=lambda *args: True, episode_id="ep-1",
+        source_id="isaac.city.service_endpoint", require_episode_rosters=True)
+    host.advance(10.0)
+    witness = CityLiveEpisodeWitness(host, episode_id="ep-1")
+    witness.deliver_observation({
+        "id": "obs", "producer_agent_id": "iris_1", "region_id": "road_surface",
+        "captured_at_s": 8.0, "delivered_at_s": 9.0, "valid_until_s": 30.0,
+        "entities": [{"id": "p1", "kind": "person"}],
+    }, evidence("ep-1", "obs", "observation", ("p1",), 8.0,
+                before="hidden", after="delivered"))
+    host.record_role_occupancy("go2_1", "guidance_contact", "road_surface",
+                               start_time_s=8.0, end_time_s=10.0)
+    arguments = {"agent_id": "go2_1", "region_id": "road_surface",
+                 "assembly_region_id": "assembly_1", "person_ids": ("p1",),
+                 "observation_refs": ("obs",)}
+    with pytest.raises(ValueError, match="missing episode-owned person roster"):
+        witness.guide_people(**arguments)
+    assert host.request_ids() == () and witness.backend._requests == {}
+    host.bind_affected_person_roster({"p1": {
+        "id": "p1", "kind": "person", "episode_id": "ep-1",
+        "source_id": "isaac.city.service_endpoint"}})
+    assert witness.guide_people(**arguments)["request_id"] == "city_service_0001"
+
+
+def test_native_controller_identity_is_checked_before_ack():
+    adapter = CityDemoRuntimeWitnessAdapter.__new__(CityDemoRuntimeWitnessAdapter)
+    adapter.episode_id = "ep-1"
+    adapter.source_id = "isaac.city.runtime"
+    adapter.person_stop = None
+    adapter.vehicle_stop = None
+    adapter.now_s = lambda: 10.
+    adapter.guide_person = lambda _: {
+        "entity_id": "other", "episode_id": "ep-1", "source_id": "isaac.city.runtime",
+        "status_before": "waiting", "status_after": "guidance_applied"}
+    adapter.control_vehicle = lambda _, mode: {
+        "vehicle_id": "other", "episode_id": "ep-1", "source_id": "isaac.city.runtime",
+        "status_before": "flowing", "status_after": mode,
+        "observed_time_s": 10., "evidence_ref": "wrong-controller"}
+    acknowledged = []
+    witness = SimpleNamespace(
+        guide_people=lambda **_: {"request_id": "guidance"},
+        control_following_traffic=lambda **_: {"request_id": "traffic"},
+        record_actor_ack=lambda *args, **kwargs: acknowledged.append((args, kwargs)),
+        record_partial_failure=lambda *args, **kwargs: None)
+    with pytest.raises(CityRuntimeWitnessBlocked,
+                       match="guidance request guidance partially failed at ack") as person_error:
+        adapter.submit_guidance(witness, agent_id="go2_1", region_id="road_surface",
+                                assembly_region_id="assembly_1", person_ids=("p1",),
+                                observation_refs=("obs",))
+    assert "person controller acknowledgement identity mismatch" in str(person_error.value.__cause__)
+    with pytest.raises(CityRuntimeWitnessBlocked,
+                       match="traffic request traffic partially failed at ack") as vehicle_error:
+        adapter.submit_traffic(witness, agent_id="go2_1", region_id="road_surface",
+                               vehicle_ids=("v1",), mode="hold", observation_refs=("obs",))
+    assert "vehicle controller acknowledgement identity mismatch" in str(vehicle_error.value.__cause__)
+    assert acknowledged == []
+
+
+@pytest.mark.parametrize("service", ("guide_people", "control_traffic"))
+@pytest.mark.parametrize("failure", ("controller", "ack", "stop"))
+def test_native_partial_batch_stops_and_cannot_promote(service, failure):
+    host = make_host()
+    ids = ("p1", "p2") if service == "guide_people" else ("v1", "v2")
+    kind = "person" if service == "guide_people" else "vehicle"
+    witness = CityLiveEpisodeWitness(host, episode_id="ep-1")
+    witness.deliver_observation({
+        "id": "obs", "producer_agent_id": "iris_1", "region_id": "road_surface",
+        "captured_at_s": 8., "delivered_at_s": 9., "valid_until_s": 30.,
+        "entities": [{"id": entity_id, "kind": kind,
+                      "following_incident": kind == "vehicle",
+                      "is_accident_vehicle": False} for entity_id in ids],
+    }, evidence("ep-1", "obs", "observation", ids, 8.,
+                before="hidden", after="delivered"))
+    role = "guidance_contact" if kind == "person" else "traffic_control_point"
+    host.record_role_occupancy("go2_1", role, "road_surface",
+                               start_time_s=8., end_time_s=10.)
+    calls = []
+
+    def control(entity_id, mode=None):
+        calls.append(("control", entity_id))
+        if entity_id == ids[1] and failure == "controller":
+            raise RuntimeError("control failed after possible actuation")
+        return ({"entity_id": entity_id, "status_before": "waiting",
+                 "status_after": "guidance_applied", "episode_id": "ep-1",
+                 "source_id": "isaac.city.service_endpoint"} if kind == "person" else
+                {"vehicle_id": entity_id, "status_before": "flowing",
+                 "status_after": "hold", "observed_time_s": 10.,
+                 "evidence_ref": f"ack:{entity_id}", "episode_id": "ep-1",
+                 "source_id": "isaac.city.service_endpoint"})
+
+    def stop(entity_id):
+        calls.append(("stop", entity_id))
+        if entity_id == ids[0] and failure == "stop":
+            raise RuntimeError("stop endpoint failed")
+        return {"entity_id" if kind == "person" else "vehicle_id": entity_id,
+                "status_before": "guidance_applied" if kind == "person" else "hold",
+                "status_after": "paused" if kind == "person" else "hold",
+                "position_xyz": [1., 2., 0.], "observed_time_s": 10.,
+                "evidence_ref": f"stop:{entity_id}", "episode_id": "ep-1",
+                "source_id": "isaac.city.service_endpoint"}
+
+    adapter = CityDemoRuntimeWitnessAdapter(
+        SimpleNamespace(elapsed=10., people=SimpleNamespace(
+            actor_ids=ids, play_action=lambda *args, **kwargs: None,
+            set_path_speed=lambda *args: None)),
+        episode_id="ep-1", source_id="isaac.city.service_endpoint",
+        affected_people={person_id: {"speed_mps": 1.} for person_id in ids},
+        person_controller=control if kind == "person" else None,
+        vehicle_controller=control if kind == "vehicle" else None,
+        person_stop=stop if kind == "person" else None,
+        vehicle_stop=stop if kind == "vehicle" else None)
+    if failure == "ack":
+        original = witness.record_actor_ack
+
+        def reject_second(request_id, entity_id, **kwargs):
+            if entity_id == ids[1]:
+                raise ValueError("endpoint ack failed")
+            return original(request_id, entity_id, **kwargs)
+
+        witness.record_actor_ack = reject_second
+    if failure == "stop":
+        # The second actor fails to ACK, then the first stop fails.
+        original = witness.record_actor_ack
+
+        def reject_second(request_id, entity_id, **kwargs):
+            if entity_id == ids[1]:
+                raise ValueError("endpoint ack failed")
+            return original(request_id, entity_id, **kwargs)
+
+        witness.record_actor_ack = reject_second
+    kwargs = {"agent_id": "go2_1", "region_id": "road_surface",
+              "observation_refs": ("obs",)}
+    with pytest.raises(CityRuntimeWitnessBlocked, match="partially failed"):
+        if kind == "person":
+            adapter.submit_guidance(witness, assembly_region_id="assembly_1",
+                                    person_ids=ids, **kwargs)
+        else:
+            adapter.submit_traffic(witness, vehicle_ids=ids, mode="hold", **kwargs)
+    assert calls == [("control", ids[0]), ("control", ids[1]),
+                     ("stop", ids[1]), ("stop", ids[0])]
+    request_id, = host.request_ids()
+    review = witness.review(request_id)
+    assert review["status"] == "partial_failed"
+    assert review["live_witness"] is False and review["scoreable"] is False
+    partial = review["evidence"]["partial_failure"]
+    assert partial["failed_actor_id"] == ids[1]
+    assert partial["attempted_ids"] == list(ids)
+    assert partial["failure_stage"] == ("controller" if failure == "controller" else "ack")
+    assert [row["status"] for row in partial["stops"]] == (
+        ["stopped", "stop_unconfirmed"] if failure == "stop" else ["stopped", "stopped"])
+    assert partial["all_stopped"] is (failure != "stop")
+    assert all("evidence_ref" not in row for row in partial["stops"] if row["status"] != "stopped")
+    assert witness.review(request_id) == review
+    if kind == "person":
+        assert witness.backend.guidance_contact(request_id)["status"] == "partial_failed"
+
+
+def _attempt(submit, person_id):
+    try:
+        return submit(person_id)
+    except ValueError as exc:
+        return exc
 
 
 def test_live_incident_receipt_requires_runtime_receipt_and_access_readback():
@@ -296,8 +493,9 @@ def test_native_runner_traces_real_actor_and_receiver_request_without_promoting_
             people.positions["person_00"] = (x + dt, y, z)
 
     receiver = CityIncidentReceiver(episode_id="ep-1", service_id="city_dispatch")
+    runtime = Runtime()
     runner = CityNativeServiceRunner(
-        Runtime(), episode_id="ep-1", agent_id="go2_1", region_id="road_surface",
+        runtime, episode_id="ep-1", agent_id="go2_1", region_id="road_surface",
         assembly_region_id="assembly_1", recipient_service_id="city_dispatch",
         affected_people={"person_00": {"speed_mps": 1.8}},
         admission=lambda *args: True, role_source_id="isaac.field_role",
@@ -305,6 +503,10 @@ def test_native_runner_traces_real_actor_and_receiver_request_without_promoting_
         scene_query_support=True,
         clearance_query_provenance="isaac.scene_query.episode_timestamped",
         physx_readback_suppressed=False)
+    with pytest.raises(ValueError, match="already has an episode service runner"):
+        CityNativeServiceRunner(
+            runtime, episode_id="ep-1", agent_id="go2_1", region_id="road_surface",
+            assembly_region_id="assembly_1", recipient_service_id="city_dispatch")
     assert runner.readiness["status"] == "blocked"
     assert "missing_live_capability:following_vehicle_source" in runner.readiness["blockers"]
     observation_ref = runner.observe()
@@ -347,8 +549,14 @@ def test_full_native_binding_uses_roster_specs_vehicle_controller_and_world_read
                                    "episode_id": "ep-1", "source_id": "isaac.city.runtime",
                                    "following_incident": True, "is_accident_vehicle": False}},
                 "person_controller": self.control_person,
+                "person_stop": lambda person_id: {
+                    "entity_id": person_id, "episode_id": "ep-1",
+                    "source_id": "isaac.city.runtime", "status_before": "guidance_applied",
+                    "status_after": "paused", "position_xyz": [1., 2., .3],
+                    "observed_time_s": self.elapsed, "evidence_ref": f"stop:{person_id}"},
                 "person_readback": lambda person_id: {},
                 "vehicle_controller": self.control_vehicle,
+                "vehicle_stop": lambda vehicle_id: self.control_vehicle(vehicle_id, "hold"),
                 "vehicle_pose_reader": lambda vehicle_id: vehicle_positions[vehicle_id],
                 "hazard_readback": lambda vehicle_id, now: {
                     "no_hazard_ingress": True, "rescue_access_preserved": True,
@@ -371,7 +579,9 @@ def test_full_native_binding_uses_roster_specs_vehicle_controller_and_world_read
 
         def control_vehicle(self, vehicle_id, mode):
             controller_calls.append((vehicle_id, mode))
-            return {"status_before": "flowing", "status_after": mode,
+            return {"vehicle_id": vehicle_id, "episode_id": "ep-1",
+                    "source_id": "isaac.city.runtime",
+                    "status_before": "flowing", "status_after": mode,
                     "observed_time_s": self.elapsed,
                     "evidence_ref": f"controller:{vehicle_id}:{mode}"}
 

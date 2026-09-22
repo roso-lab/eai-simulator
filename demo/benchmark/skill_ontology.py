@@ -14,6 +14,7 @@ from typing import Any, Mapping
 
 SKILL_CATALOG_SCHEMA = "eai.skills"
 SKILL_CATALOG_VERSION = 2
+CITY_NATIVE_SKILL_CATALOG_VERSION = 3
 
 
 _SKILLS: dict[str, dict[str, Any]] = {
@@ -280,13 +281,20 @@ def skill_names() -> tuple[str, ...]:
     return tuple(_SKILLS)
 
 
-def skill_definition(skill: str) -> dict[str, Any]:
+def skill_definition(skill: str, *, version: int = SKILL_CATALOG_VERSION) -> dict[str, Any]:
     if skill not in _SKILLS:
         raise ValueError(f"unknown skill: {skill}")
+    if version not in {SKILL_CATALOG_VERSION, CITY_NATIVE_SKILL_CATALOG_VERSION} or type(version) is not int:
+        raise ValueError("unsupported skill catalog version")
     result = deepcopy(_SKILLS[skill])
+    if version == CITY_NATIVE_SKILL_CATALOG_VERSION and skill == "guide_people":
+        result["timeout_semantics"] = "per_person_acknowledgement_window; arrival_is_later_business_evidence"
+        result["evidence_types"] = ["guidance_acknowledgement", "observation_provenance"]
+        result["terminal_semantics"] = "all_targets_acknowledged_by_native_service_while_field_role_held"
+        result["later_business_evidence"] = ["measured_person_trajectory", "assembly_arrival"]
     result["id"] = skill
     result["catalog"] = SKILL_CATALOG_SCHEMA
-    result["version"] = SKILL_CATALOG_VERSION
+    result["version"] = version
     result["guarantee"] = "deterministic_effect_if_preconditions_and_invariants_hold"
     result["configuration_basis"] = "task_declared_profile; robot_type_is_not_certification"
     result["execution_fault_policy"] = "valid_call_backend_failure_is_infrastructure_error"
@@ -305,12 +313,14 @@ def skill_definition(skill: str) -> dict[str, Any]:
     return result
 
 
-def public_skill_catalog() -> dict[str, Any]:
+def public_skill_catalog(*, version: int = SKILL_CATALOG_VERSION) -> dict[str, Any]:
     """Return the reviewable catalog with no implementation imports or paths."""
+    if version not in {SKILL_CATALOG_VERSION, CITY_NATIVE_SKILL_CATALOG_VERSION} or type(version) is not int:
+        raise ValueError("unsupported skill catalog version")
     return {
         "schema": SKILL_CATALOG_SCHEMA,
-        "version": SKILL_CATALOG_VERSION,
-        "skills": {name: skill_definition(name) for name in _SKILLS},
+        "version": version,
+        "skills": {name: skill_definition(name, version=version) for name in _SKILLS},
     }
 
 
@@ -376,7 +386,7 @@ def minimum_agents(skill: str) -> int:
 
 
 __all__ = [
-    "SKILL_CATALOG_SCHEMA", "SKILL_CATALOG_VERSION", "minimum_agents",
+    "SKILL_CATALOG_SCHEMA", "SKILL_CATALOG_VERSION", "CITY_NATIVE_SKILL_CATALOG_VERSION", "minimum_agents",
     "public_skill_catalog", "required_capabilities", "skill_definition",
     "skill_names", "validate_skill_arguments", "validate_skill_name",
 ]

@@ -8,6 +8,8 @@ not sample Isaac, decide physical safety, or synthesize successful outcomes.
 from __future__ import annotations
 
 from copy import deepcopy
+import math
+from threading import RLock
 from typing import Any, Callable, Mapping
 
 from .service_backend import CityRuntimeReadbackAdapter, _time
@@ -166,6 +168,22 @@ class CityEpisodeEvidenceHost:
               target_region_id: str | None, mode: str | None, now_s: float) -> bool:
         if _time(now_s) != self._now:
             raise ValueError("admission must use the current episode clock")
+        if service == "guide_people":
+            requested = set(ids)
+            claimed: set[str] = set()
+            for request in self._requests.values():
+                if request["service"] != "guide_people":
+                    continue
+                failure = self._readbacks[request["request_id"]].get("partial_failure")
+                if failure and all(stop["status"] == "stopped" for stop in failure["stops"]):
+                    continue
+                people = set(request["entity_ids"])
+                if request["target_region_id"] != target_region_id:
+                    if requested & people:
+                        return False
+                    continue
+                claimed.update(people)
+            ids = tuple(dict.fromkeys((*ids, *sorted(claimed))))
         return self._admission(service, ids, region_id, target_region_id, mode, now_s) is True
 
     def register_request(self, request: Mapping[str, Any], *, evidence_class: str) -> None:
@@ -234,6 +252,39 @@ class CityEpisodeEvidenceHost:
                             "ack_evidence_ref": evidence_ref}
         if applied_mode is not None:
             actors[actor_id]["applied_mode"] = applied_mode
+
+    def record_partial_failure(self, request_id: str, *, attempted_ids: tuple[str, ...],
+                               failed_actor_id: str, failure_stage: str,
+                               stops: tuple[Mapping[str, Any], ...]) -> None:
+        request = self._requests[request_id]
+        update = self._readbacks[request_id]
+        if (request["service"] not in {"guide_people", "control_traffic"}
+                or "partial_failure" in update or failure_stage not in {"controller", "ack"}
+                or not attempted_ids or attempted_ids[-1] != failed_actor_id
+                or tuple(request["entity_ids"][:len(attempted_ids)]) != attempted_ids
+                or len(stops) != len(attempted_ids)):
+            raise ValueError("invalid partial service failure identity")
+        seen_refs = set()
+        for actor_id, stop in zip(reversed(attempted_ids), stops):
+            if stop.get("id") != actor_id or stop.get("status") not in {"stopped", "stop_unconfirmed"}:
+                raise ValueError("partial failure stop identity mismatch")
+            if stop["status"] == "stopped":
+                ref = _id(stop.get("evidence_ref"), "native stop evidence")
+                position = stop.get("position_xyz")
+                if (not isinstance(position, list) or len(position) != 3
+                        or any(type(value) not in (int, float) or not math.isfinite(value)
+                               for value in position)):
+                    raise ValueError("native stop position readback is invalid")
+                if ref in seen_refs or not request["submitted_time_s"] <= _time(stop.get("time_s")) <= self._now:
+                    raise ValueError("native stop evidence is duplicate or outside causal interval")
+                seen_refs.add(ref)
+            elif "evidence_ref" in stop:
+                raise ValueError("unconfirmed stop cannot claim evidence")
+        update["partial_failure"] = {
+            "failed_actor_id": failed_actor_id, "failure_stage": failure_stage,
+            "attempted_ids": list(attempted_ids), "stops": deepcopy(list(stops)),
+            "all_stopped": all(stop["status"] == "stopped" for stop in stops),
+        }
 
     def record_person_readback(self, request_id: str, person_id: str, *, arrival_time_s: float,
                                assembly_region_id: str, measured_trajectory: bool,
@@ -321,6 +372,9 @@ class CityEpisodeEvidenceHost:
         if row is None:
             return None
         result = deepcopy(row)
+        if "partial_failure" in result:
+            result["actors"] = list(result.get("actors", {}).values())
+            return result
         if result["service"] != "report_incident":
             if len(result.get("actors", {})) != len(self._requests[request_id]["entity_ids"]):
                 return None
@@ -367,6 +421,7 @@ class CityEpisodeServiceWitness:
         self._pull = None
         self._clock = None
         self._last_sync: float | None = None
+        self._submit_lock = RLock()
         self._report = self._probe()
 
     @classmethod
@@ -465,12 +520,17 @@ class CityEpisodeServiceWitness:
         self._last_sync = now
 
     def submit(self, service: str, **kwargs: Any) -> dict[str, Any]:
-        self.sync()
-        if service not in {"guide_people", "control_following_traffic", "report_incident"}:
-            raise ValueError(f"unsupported city service operation: {service}")
-        request = getattr(self._requests, service)(**kwargs)
-        self._host.register_request(request, evidence_class="runtime")
-        return deepcopy(request)
+        with self._submit_lock:
+            self.sync()
+            if service not in {"guide_people", "control_following_traffic", "report_incident"}:
+                raise ValueError(f"unsupported city service operation: {service}")
+            request = getattr(self._requests, service)(**kwargs)
+            try:
+                self._host.register_request(request, evidence_class="runtime")
+            except Exception:
+                self._backend.discard_unregistered(request)
+                raise
+            return deepcopy(request)
 
     def review(self, request_id: str) -> dict[str, Any]:
         self.sync()

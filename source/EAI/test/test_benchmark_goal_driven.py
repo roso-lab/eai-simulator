@@ -732,7 +732,7 @@ def test_replanning_requires_current_positions_and_cannot_reinfer_upper_floor_sp
     observe = deepcopy(next(t for t in original["tasks"] if t["task_id"] == "close_view_upper"))
     observe["prerequisites"] = []
     observe["execution"]["start_s"] = 10.0
-    plan = {"schema": "eai.benchmark.goal_plan", "version": 2, "plan_id": "recovery",
+    plan = {"schema": "eai.benchmark.goal_plan", "version": 3, "plan_id": "recovery",
             "assigned_team": observe["assigned_agents"], "tasks": [observe]}
     with pytest.raises(ValueError, match="snapshot"):
         validate_goal_plan(plan, task_spec=public, context={"current_time_s": 10})

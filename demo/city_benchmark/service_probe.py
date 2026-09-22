@@ -61,6 +61,8 @@ def _hashes() -> dict[str, str]:
     paths = [ROOT / path for path in (
         "demo/city_benchmark/scene/runtime.py", "demo/city_benchmark/scene/people.py", "demo/city_benchmark/scene/usd_scene.py",
         "demo/city_benchmark/live_witness.py", "demo/city_benchmark/native_runner.py",
+        "demo/city_benchmark/service_backend.py", "demo/city_benchmark/episode_adapter.py",
+        "demo/city_benchmark/task_logic.py",
         "demo/city_benchmark/service_probe.py", "demo/city_benchmark/response.py",
         "demo/city_benchmark/scene/main.py", "simulator.py",
         "usd/scene/city/city_static.usd", "usd/scene/city/city_scenario.json",
@@ -233,13 +235,17 @@ def _load_episode_binding(path: Path) -> dict[str, Any]:
 
 def prepare_probe(output_root: Path, *, device: str = "cpu", seed: int = 17,
                   overwrite: bool = False,
-                  episode_binding: Path | None = None) -> dict[str, Any]:
+                  episode_binding: Path | None = None,
+                  fault_probe: str | None = None) -> dict[str, Any]:
     path = output_root / "service_probe_prepare.json"
     if path.exists() and not overwrite:
         raise FileExistsError("City service probe is already prepared; use a fresh directory")
     formal = episode_binding is not None
+    if fault_probe not in (None, "traffic_second_controller") or (fault_probe and not formal):
+        raise ValueError("traffic batch fault probe requires a frozen episode binding")
     report = {"schema": SCHEMA, "version": REPORT_VERSION, "track_id": TRACK_ID, "status": "prepared",
               "device": str(device), "seed": int(seed), "scoreable": False,
+              "fault_probe": fault_probe,
               "formal_episode_binding": False,
               "geometry_scope": DIAGNOSTIC_GEOMETRY_SCOPE,
               "source_hashes": _hashes(),
@@ -920,6 +926,7 @@ def _run_diagnostic_episode(session, city, actions, report, report_path, prepare
     trace["services"]["guide_people"] = {
         "status": "command_accepted_pending_readback",
         "request": guidance["request"],
+        "contact": runner.guidance_contact(guidance["request"]["request_id"]),
         "position_before": list(start_person),
     }
     _checkpoint(report_path, report)
@@ -935,10 +942,11 @@ def _run_diagnostic_episode(session, city, actions, report, report_path, prepare
     trace["services"]["guide_people"] = {
         "status": "readback_recorded",
         "request": guidance["request"], "readback": person_row,
+        "contact": runner.guidance_contact(guidance["request"]["request_id"]),
         "review": runner.review(guidance["request"]["request_id"])}
     _checkpoint(report_path, report)
 
-    for mode in ("hold", "release", "divert"):
+    for mode in ("hold", "divert", "release"):
         observation = runner.observe()
         _role(runner, "traffic_control_point", session, trace)
         before = city.following_vehicle_pose(vehicle_id)
@@ -989,7 +997,7 @@ def _run_diagnostic_episode(session, city, actions, report, report_path, prepare
         "review": runner.review(incident_result["request"]["request_id"])}
     _checkpoint(report_path, report)
     reviews = [row["review"] for row in trace["services"].values()]
-    report.update(status="completed", execution_validated=True,
+    report.update(status="completed", execution_validated=False,
                   candidate_witness="evidence_complete"
                   if all(row.get("status") == "evidence_complete" for row in reviews) else "pending",
                   full_city_service="pending_formal_episode_geometry",
@@ -1230,6 +1238,7 @@ def _run_bound_episode(session, city, actions, report, report_path, prepared, ru
         second_pass.pop("_grid_cells_holder", None)
         report["trace"]["route_instantiation_second_pass"] = second_pass
         _checkpoint(report_path, report)
+        runner.close()
         city.bind_city_service_sources(
             affected_people={spec.person_id: {
                 "speed_mps": float(spec.jog_speed_mps), "motion": "jog",
@@ -1265,6 +1274,58 @@ def _run_bound_episode(session, city, actions, report, report_path, prepared, ru
         (float(window["trajectory_reaction_window_s"]) + 0.1) / dt))
     _role(runner, "traffic_control_point", session, trace)
     hold_before = {vehicle_id: city.following_vehicle_pose(vehicle_id) for vehicle_id in vehicle_ids}
+    if prepared.get("fault_probe") == "traffic_second_controller":
+        from demo.city_benchmark.live_witness import CityRuntimeWitnessBlocked
+
+        if len(vehicle_ids) < 2:
+            raise RuntimeError("traffic batch fault probe requires two vehicles")
+        original_control = runner.adapter.control_vehicle
+
+        def fail_second(vehicle_id, mode):
+            result = original_control(vehicle_id, mode)
+            if vehicle_id == vehicle_ids[1]:
+                raise RuntimeError("injected second vehicle controller failure after native action")
+            return result
+
+        runner.adapter.control_vehicle = fail_second
+        try:
+            try:
+                runner.control_following_traffic(vehicle_ids, "hold",
+                                                 observation_ref=guidance_observation)
+            except CityRuntimeWitnessBlocked as exc:
+                failure = str(exc)
+            else:
+                raise RuntimeError("injected City traffic batch unexpectedly succeeded")
+        finally:
+            runner.adapter.control_vehicle = original_control
+        request_id = runner.host.request_ids()[-1]
+        review = runner.review(request_id)
+        attempted = vehicle_ids[:2]
+        before = {key: list(city.following_vehicle_pose(key)) for key in attempted}
+        _step(session, city, actions, max(1, math.ceil(1.0 / dt)))
+        after = {key: list(city.following_vehicle_pose(key)) for key in attempted}
+        stationary = all(math.dist(before[key], after[key]) < 1e-5 for key in attempted)
+        held_modes = all(city._traffic_state[key]["mode"] == "hold" for key in attempted)
+        partial = review.get("evidence", {}).get("partial_failure", {})
+        trace["fault_probe"] = {
+            "injection": "traffic_second_controller_after_native_action",
+            "failure": failure, "request_id": request_id, "review": review,
+            "attempted_ids": list(attempted), "stop_positions_xyz": before,
+            "later_positions_xyz": after, "later_time_s": city.elapsed,
+            "stationary_after_stop": stationary, "held_after_stop": held_modes,
+        }
+        if (review.get("status") != "partial_failed" or partial.get("attempted_ids") != list(attempted)
+                or partial.get("all_stopped") is not True or not stationary or not held_modes):
+            raise RuntimeError("native City batch failure did not safely stop the attempted vehicles")
+        report.update(status="diagnostic_completed", device_actual=str(session.device),
+                      episode_time_s=city.elapsed, candidate_witness="partial_failure_only",
+                      formal_episode_binding=False, execution_validated=False, scoreable=False,
+                      source_hashes_after=_hashes())
+        report["sources_unchanged"] = report["source_hashes_after"] == prepared["source_hashes"]
+        if not report["sources_unchanged"]:
+            raise RuntimeError("City batch fault probe sources changed after prepare")
+        _checkpoint(report_path, report)
+        return
     held = runner.control_following_traffic(vehicle_ids, "hold", observation_ref=guidance_observation)
     hold_start = city.elapsed
     _step(session, city, actions, reaction_steps)
@@ -1303,6 +1364,7 @@ def _run_bound_episode(session, city, actions, report, report_path, prepared, ru
         trace["services"][f"guide_people:{region_id}"] = {
             "status": "command_accepted_pending_readback",
             "request": guidance["request"],
+            "contact": runner.guidance_contact(guidance["request"]["request_id"]),
             "position_before": {person_id: list(person_start[person_id]) for person_id in group},
         }
         _checkpoint(report_path, report)
@@ -1336,15 +1398,35 @@ def _run_bound_episode(session, city, actions, report, report_path, prepared, ru
         trace["services"][f"guide_people:{region_id}"] = {
             "status": "readback_recorded",
             "request": request, "readback": rows,
+            "contact": runner.guidance_contact(request["request_id"]),
             "review": runner.review(request["request_id"])}
         _checkpoint(report_path, report)
+
+    observation = runner.observe()
+    _role(runner, "incident_observer", session, trace)
+    incident_result = runner.report_incident(observation_ref=observation)
+    trace["services"]["report_incident"] = {
+        "status": "receipt_recorded_pending_continuous_access",
+        **incident_result,
+    }
+    _checkpoint(report_path, report)
+    receipt_time = city.elapsed
+    access_steps = max(1, math.ceil(float(endpoint["continuous_access_min_span_s"]) / dt)) + 1
+    _step(session, city, actions, access_steps)
+    access_span = city.elapsed - receipt_time
+    access_result = runner.record_continuous_access(
+        incident_result["request"], start_time_s=receipt_time, end_time_s=city.elapsed)
+    trace["services"]["report_incident"] = {
+        "status": "continuous_access_recorded", **incident_result, "access": access_result,
+        "review": runner.review(incident_result["request"]["request_id"])}
+    _checkpoint(report_path, report)
 
     reaction_steps = max(1, math.ceil(
         (float(window["trajectory_reaction_window_s"]) + 0.1) / dt))
     reaction_span = {"hold": hold_span}
     controlled_ids: set[str] = set(vehicle_ids)
     executed_modes = ["hold"]
-    for mode in ("release", "divert"):
+    for mode in ("divert", "release"):
         observation = runner.observe()
         _role(runner, "traffic_control_point", session, trace)
         before = {vehicle_id: city.following_vehicle_pose(vehicle_id) for vehicle_id in vehicle_ids}
@@ -1387,25 +1469,6 @@ def _run_bound_episode(session, city, actions, report, report_path, prepared, ru
                                for vehicle_id in vehicle_ids},
             "readback": readbacks, "review": runner.review(controlled["request"]["request_id"])}
         _checkpoint(report_path, report)
-
-    observation = runner.observe()
-    _role(runner, "incident_observer", session, trace)
-    incident_result = runner.report_incident(observation_ref=observation)
-    trace["services"]["report_incident"] = {
-        "status": "receipt_recorded_pending_continuous_access",
-        **incident_result,
-    }
-    _checkpoint(report_path, report)
-    receipt_time = city.elapsed
-    access_steps = max(1, math.ceil(float(endpoint["continuous_access_min_span_s"]) / dt)) + 1
-    _step(session, city, actions, access_steps)
-    access_span = city.elapsed - receipt_time
-    access_result = runner.record_continuous_access(
-        incident_result["request"], start_time_s=receipt_time, end_time_s=city.elapsed)
-    trace["services"]["report_incident"] = {
-        "status": "continuous_access_recorded", **incident_result, "access": access_result,
-        "review": runner.review(incident_result["request"]["request_id"])}
-    _checkpoint(report_path, report)
 
     evidence = {
         "person_spawn": {person_id: {
@@ -1471,7 +1534,7 @@ def _run_bound_episode(session, city, actions, report, report_path, prepared, ru
                              else FORMAL_BINDING_MISMATCH_LABELS["incomplete"])
     else:
         full_city_service = FORMAL_BINDING_MISMATCH_LABELS["mismatch"]
-    report.update(status="completed", execution_validated=True,
+    report.update(status="completed", execution_validated=False,
                   candidate_witness="evidence_complete" if all_complete else "pending",
                   formal_episode_binding=binding_review["formal_episode_binding"],
                   formal_binding_review=binding_review,
@@ -1511,6 +1574,8 @@ def main(argv=None) -> int:
     parser.add_argument("--episode-binding", type=Path, default=None,
                         help="prepare only: author-frozen binding document or "
                              "a prepare package authoring/private.json")
+    parser.add_argument("--fault-probe", choices=("traffic_second_controller",),
+                        help="prepare only: bounded native traffic batch failure diagnostic")
     parser.add_argument("--device", choices=("cpu", "cuda:0"), default="cpu")
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--gui", action="store_true")
@@ -1518,14 +1583,17 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     if args.episode_binding is not None and not args.prepare:
         parser.error("--episode-binding applies only to --prepare")
+    if args.fault_probe is not None and not args.prepare:
+        parser.error("--fault-probe applies only to --prepare")
     if args.prepare:
         result = prepare_probe(args.output_root, device=args.device, seed=args.seed,
-                               overwrite=args.overwrite, episode_binding=args.episode_binding)
+                               overwrite=args.overwrite, episode_binding=args.episode_binding,
+                               fault_probe=args.fault_probe)
     else:
         result = execute_probe(args.output_root, device=args.device, seed=args.seed,
                                headless=not args.gui, overwrite=args.overwrite)
     print(json.dumps(result, ensure_ascii=False))
-    return 0 if args.prepare or result.get("status") == "completed" else 1
+    return 0 if args.prepare or result.get("status") in {"completed", "diagnostic_completed"} else 1
 
 
 if __name__ == "__main__":

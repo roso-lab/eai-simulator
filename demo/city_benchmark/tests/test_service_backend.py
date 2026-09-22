@@ -83,6 +83,137 @@ def test_guide_requires_trusted_arrival_after_independent_ack(source_and_backend
     assert backend.review(request["request_id"])["evidence"]["actors"][0]["id"] == "p1"
 
 
+def test_guidance_contact_can_finish_before_independent_arrival(source_and_backend):
+    source, backend = source_and_backend
+    request = guide(backend)
+    source.clock = 12.0
+    source.updates[request["request_id"]] = {
+        "request_id": request["request_id"], "service": "guide_people",
+        "evidence_class": "runtime",
+        "actors": [{"id": "p1", "ack_time_s": 12.0, "ack_evidence_ref": "native-ack-p1"}],
+    }
+    contact = backend.guidance_contact(request["request_id"])
+    assert contact == {
+        "request_id": request["request_id"], "status": "contact_confirmed",
+        "agent_id": "go2_1", "ack_time_s": 12.0,
+        "evidence_refs": ["native-ack-p1"],
+        "actor_acks": [{"id": "p1", "ack_time_s": 12.0,
+                        "ack_evidence_ref": "native-ack-p1"}],
+        "business_outcome_validated": False, "scoreable": False,
+    }
+    assert backend.review(request["request_id"])["status"] == "pending"
+    source.clock = 40.0
+    source.updates[request["request_id"]]["actors"][0].update(
+        arrival_time_s=39.0, assembly_region_id="assembly_1",
+        measured_trajectory=True, safe_route_and_assembly=True)
+    assert backend.review(request["request_id"])["status"] == "evidence_complete"
+
+
+@pytest.mark.parametrize("change,expected", [
+    (lambda source, actor: actor.pop("ack_evidence_ref"), "evidence missing"),
+    (lambda source, actor: actor.update(ack_time_s=31.0), "timed_out"),
+    (lambda source, actor: setattr(source, "role_until", 11.0), "role lost"),
+    (lambda source, actor: actor.update(id="other"), "identity"),
+    (lambda source, actor: source.updates[next(iter(source.updates))].update(
+        evidence_class="reference") or setattr(source, "clock", 12.0), "reference_contact_only"),
+])
+def test_guidance_contact_rejects_untrusted_or_late_ack(source_and_backend, change, expected):
+    source, backend = source_and_backend
+    request = guide(backend)
+    source.clock = 32.0
+    actor = {"id": "p1", "ack_time_s": 12.0, "ack_evidence_ref": "native-ack-p1"}
+    source.updates[request["request_id"]] = {
+        "request_id": request["request_id"], "service": "guide_people",
+        "evidence_class": "runtime", "actors": [actor]}
+    change(source, actor)
+    if expected in {"timed_out", "reference_contact_only"}:
+        assert backend.guidance_contact(request["request_id"])["status"] == expected
+    else:
+        with pytest.raises(ValueError, match=expected):
+            backend.guidance_contact(request["request_id"])
+
+
+def test_guidance_contact_does_not_promote_historical_ack_after_budget(source_and_backend):
+    source, backend = source_and_backend
+    request = guide(backend)
+    source.clock = 181.0
+    source.updates[request["request_id"]] = {
+        "request_id": request["request_id"], "service": "guide_people",
+        "evidence_class": "runtime",
+        "actors": [{"id": "p1", "ack_time_s": 12.0, "ack_evidence_ref": "native-ack-p1"}],
+    }
+    assert backend.guidance_contact(request["request_id"])["status"] == "timed_out"
+
+
+def test_guidance_contact_stays_timed_out_after_late_backfill(source_and_backend):
+    source, backend = source_and_backend
+    request = guide(backend)
+    source.clock = 32.0
+    assert backend.review(request["request_id"])["status"] == "timed_out"
+    source.updates[request["request_id"]] = {
+        "request_id": request["request_id"], "service": "guide_people",
+        "evidence_class": "runtime",
+        "actors": [{"id": "p1", "ack_time_s": 12.0, "ack_evidence_ref": "ack-p1"}],
+    }
+    assert backend.guidance_contact(request["request_id"])["status"] == "timed_out"
+
+
+def test_confirmed_contact_survives_later_arrival_timeout(source_and_backend):
+    source, backend = source_and_backend
+    request = guide(backend)
+    source.clock = 12.0
+    source.updates[request["request_id"]] = {
+        "request_id": request["request_id"], "service": "guide_people",
+        "evidence_class": "runtime",
+        "actors": [{"id": "p1", "ack_time_s": 12.0, "ack_evidence_ref": "ack-p1"}],
+    }
+    confirmed = backend.guidance_contact(request["request_id"])
+    source.clock = 133.0
+    assert backend.review(request["request_id"])["status"] == "timed_out"
+    assert backend.guidance_contact(request["request_id"]) == confirmed
+
+
+def test_guidance_contact_requires_every_target_ack_and_unique_evidence(source_and_backend):
+    source, backend = source_and_backend
+    source.snapshots["obs"]["entities"].append({"id": "p2", "kind": "person"})
+    request = guide(backend, person_ids=("p1", "p2"))
+    source.clock = 12.0
+    update = {"request_id": request["request_id"], "service": "guide_people",
+              "evidence_class": "runtime", "actors": [
+                  {"id": "p1", "ack_time_s": 11.0, "ack_evidence_ref": "ack-p1"}]}
+    source.updates[request["request_id"]] = update
+    assert backend.guidance_contact(request["request_id"])["status"] == "pending"
+    update["actors"].append({"id": "p2", "ack_time_s": 12.0,
+                             "ack_evidence_ref": "ack-p2"})
+    update["actors"][1]["ack_evidence_ref"] = "ack-p1"
+    with pytest.raises(ValueError, match="duplicate guidance acknowledgement evidence"):
+        backend.guidance_contact(request["request_id"])
+    update["actors"][1]["ack_evidence_ref"] = "ack-p2"
+    assert backend.guidance_contact(request["request_id"])["ack_time_s"] == 12.0
+
+
+def test_guidance_contact_uses_original_role_interval_after_reentry(source_and_backend):
+    source, backend = source_and_backend
+    request = guide(backend)
+    source.clock = 25.0
+    source.updates[request["request_id"]] = {
+        "request_id": request["request_id"], "service": "guide_people",
+        "evidence_class": "runtime",
+        "actors": [{"id": "p1", "ack_time_s": 12.0, "ack_evidence_ref": "ack-p1",
+                    "arrival_time_s": 24.0, "assembly_region_id": "assembly_1",
+                    "measured_trajectory": True, "safe_route_and_assembly": True}],
+    }
+    def interval(agent_id, role, region_id, as_of_s):
+        if (agent_id, role, region_id) != ("go2_1", "guidance_contact", "road_surface"):
+            return None
+        if as_of_s < 15.0:
+            return {"start_time_s": 10.0, "end_time_s": as_of_s}
+        return {"start_time_s": 20.0, "end_time_s": as_of_s}
+    source.role_interval = interval
+    assert backend.guidance_contact(request["request_id"])["status"] == "contact_confirmed"
+    assert backend.review(request["request_id"])["status"] == "evidence_complete"
+
+
 @pytest.mark.parametrize("change,expected", [
     (lambda s: s.snapshots["obs"].update(delivered_at_s=11.0), "future"),
     (lambda s: s.snapshots["obs"].update(valid_until_s=10.0), "expired"),
