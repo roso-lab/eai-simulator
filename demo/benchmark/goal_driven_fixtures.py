@@ -250,6 +250,7 @@ _ROUTES = {
         _route("restaurant_kitchen_to_dining", "kitchen_service", "dining_service", 5.0, 1.2, resource="restaurant_service_lane"),
         _route("restaurant_dining_to_kitchen", "dining_service", "kitchen_service", 5.0, 1.2, resource="restaurant_service_lane"),
         _route("restaurant_staging_to_dining", "restaurant_staging", "dining_service", 9.0, 1.2, resource="restaurant_main_lane"),
+        _route("restaurant_dining_to_staging", "dining_service", "restaurant_staging", 9.0, 1.2, resource="restaurant_main_lane"),
     ],
 }
 

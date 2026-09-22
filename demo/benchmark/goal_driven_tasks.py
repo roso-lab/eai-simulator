@@ -1114,25 +1114,24 @@ def _restaurant() -> tuple[dict[str, Any], list[dict[str, Any]]]:
 
     kitchen_route = "restaurant_staging_to_kitchen"
     dining_route = "restaurant_staging_to_dining"
-    kitchen_to_dining = "restaurant_kitchen_to_dining"
     plan_a_rows = [
         row("restaurant_a_arrive_kitchen", "ground_navigation",
             {"region_id": "kitchen_service", "route_ids": [kitchen_route]}, [], ["restaurant_carter_1"]),
         row("restaurant_a_observe_kitchen", "observe",
             {"region_id": "kitchen_service", "subject_ref": "kitchen_service", "observation_mode": "opening_readiness"},
             ["restaurant_a_arrive_kitchen"], ["restaurant_carter_1"]),
-        row("restaurant_a_arrive_dining", "ground_navigation",
-            {"region_id": "dining_service", "route_ids": [kitchen_to_dining]},
+        row("restaurant_a_return_staging_after_kitchen", "ground_navigation",
+            {"region_id": "restaurant_staging", "route_ids": ["restaurant_kitchen_to_staging"]},
             ["restaurant_a_observe_kitchen"], ["restaurant_carter_1"]),
+        row("restaurant_a_arrive_dining", "ground_navigation",
+            {"region_id": "dining_service", "route_ids": [dining_route]},
+            ["restaurant_a_return_staging_after_kitchen"], ["restaurant_carter_1"]),
         row("restaurant_a_observe_dining", "observe",
             {"region_id": "dining_service", "subject_ref": "dining_service", "observation_mode": "opening_readiness"},
             ["restaurant_a_arrive_dining"], ["restaurant_carter_1"]),
-        row("restaurant_a_return_kitchen", "ground_navigation",
-            {"region_id": "kitchen_service", "route_ids": ["restaurant_dining_to_kitchen"]},
-            ["restaurant_a_observe_dining"], ["restaurant_carter_1"]),
         row("restaurant_a_return_staging", "ground_navigation",
-            {"region_id": "restaurant_staging", "route_ids": ["restaurant_kitchen_to_staging"]},
-            ["restaurant_a_return_kitchen"], ["restaurant_carter_1"]),
+            {"region_id": "restaurant_staging", "route_ids": ["restaurant_dining_to_staging"]},
+            ["restaurant_a_observe_dining"], ["restaurant_carter_1"]),
         row("restaurant_a_relay_readiness", "relay",
             {"message_kind": "restaurant_readiness_receipt", "region_id": "restaurant_staging"},
             ["restaurant_a_return_staging", "restaurant_a_observe_kitchen", "restaurant_a_observe_dining"], ["restaurant_carter_1"]),

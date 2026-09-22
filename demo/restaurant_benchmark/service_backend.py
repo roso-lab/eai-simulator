@@ -40,6 +40,15 @@ def _digest(value: Mapping[str, Any]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def _unique_refs(value: Any, label: str) -> list[str]:
+    if not isinstance(value, list):
+        raise ValueError(f"{label} must be a list")
+    refs = [_text(item, f"{label} item") for item in value]
+    if len(refs) != len(set(refs)):
+        raise ValueError(f"{label} must not contain duplicates")
+    return refs
+
+
 class RestaurantReadinessBackend:
     """Collect native observation facts and issue one episode-bound receipt."""
 
@@ -89,9 +98,10 @@ class RestaurantReadinessBackend:
     def publish_relay(self, *, message_id: str, simulation_step: int,
                       time_s: float, observation_refs: list[str]) -> dict[str, Any]:
         message = _text(message_id, "message_id")
-        refs = [_text(item, "observation_ref") for item in observation_refs]
-        if not refs:
-            raise ValueError("relay publication requires observation references")
+        refs = sorted(_unique_refs(observation_refs, "observation_refs"))
+        observed = {row["observation_id"] for row in self._observations.values()}
+        if set(refs) != observed or len(refs) != len(observed) or len(observed) != len(REQUIRED_REGIONS):
+            raise ValueError("relay publication requires both recorded observations")
         step, timestamp = self._check_step(simulation_step, time_s)
         publication = {
             "schema": SCHEMA,
@@ -110,7 +120,7 @@ class RestaurantReadinessBackend:
         if self._receipt is not None:
             raise ValueError("Restaurant readiness receipt already committed")
         receipt = _text(receipt_id, "receipt_id")
-        refs = [_text(item, "observation_ref") for item in observation_refs]
+        refs = _unique_refs(observation_refs, "observation_refs")
         step = _step(simulation_step, "simulation_step")
         timestamp = _time(time_s, "time_s")
         if step <= self._last_step or timestamp <= self._last_time_s:
@@ -156,14 +166,17 @@ class RestaurantReadinessBackend:
 
 
 def evaluate_readiness_receipt(*, episode_id: str, receipt: Mapping[str, Any],
-                               observations: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
-    """Validate the business causal chain independently of relay publication."""
+                               observations: Mapping[str, Mapping[str, Any]],
+                               relay_publications: list[Mapping[str, Any]]) -> dict[str, Any]:
+    """Validate the complete business causal chain from archived evidence."""
     if receipt.get("schema") != SCHEMA or receipt.get("kind") != "readiness_receipt":
         raise ValueError("invalid Restaurant readiness receipt")
     if receipt.get("episode_id") != episode_id:
         raise ValueError("readiness receipt episode_id mismatch")
-    refs = set(receipt.get("observation_refs", ()))
-    if set(observations) != refs:
+    _text(receipt.get("receipt_id"), "receipt_id")
+    receipt_refs = _unique_refs(receipt.get("observation_refs"), "receipt observation_refs")
+    refs = set(receipt_refs)
+    if len(refs) != len(REQUIRED_REGIONS) or set(observations) != refs:
         raise ValueError("readiness receipt must bind both required observations")
     receipt_step = _step(receipt.get("simulation_step"), "receipt simulation_step")
     receipt_time = _time(receipt.get("time_s"), "receipt time_s")
@@ -173,15 +186,48 @@ def evaluate_readiness_receipt(*, episode_id: str, receipt: Mapping[str, Any],
                                "simulation_step": receipt_step})
     if receipt.get("receipt_digest") != expected_digest:
         raise ValueError("readiness receipt digest mismatch")
-    for row in observations.values():
+    observation_steps: list[int] = []
+    observation_times: list[float] = []
+    for observation_id, row in observations.items():
+        if row.get("schema") != SCHEMA or row.get("kind") != "native_observation":
+            raise ValueError("invalid Restaurant readiness observation")
         if row.get("episode_id") != episode_id:
             raise ValueError("observation episode_id mismatch")
-        if row.get("simulation_step", -1) >= receipt_step or row.get("time_s", -1) >= receipt_time:
+        if row.get("observation_id") != observation_id:
+            raise ValueError("observation archive key does not match observation_id")
+        _text(row.get("producer_id"), "observation producer_id")
+        _text(row.get("evidence_digest"), "observation evidence_digest")
+        step = _step(row.get("simulation_step"), "observation simulation_step")
+        timestamp = _time(row.get("time_s"), "observation time_s")
+        observation_steps.append(step)
+        observation_times.append(timestamp)
+        if step >= receipt_step or timestamp >= receipt_time:
             raise ValueError("receipt is not causally after every observation")
     if {row.get("region_id") for row in observations.values()} != set(REQUIRED_REGIONS):
         raise ValueError("readiness receipt must bind both required service regions")
+    if not isinstance(relay_publications, list) or len(relay_publications) != 1:
+        raise ValueError("exactly one relay publication must be archived")
+    publication = relay_publications[0]
+    if not isinstance(publication, Mapping):
+        raise ValueError("invalid Restaurant relay publication")
+    if (publication.get("schema") != SCHEMA
+            or publication.get("kind") != "relay_publication"
+            or publication.get("episode_id") != episode_id):
+        raise ValueError("invalid Restaurant relay publication")
+    _text(publication.get("message_id"), "relay message_id")
+    relay_refs = _unique_refs(publication.get("observation_refs"),
+                              "relay observation_refs")
+    if relay_refs != receipt_refs:
+        raise ValueError("relay publication must bind the exact receipt observations")
+    relay_step = _step(publication.get("simulation_step"), "relay simulation_step")
+    relay_time = _time(publication.get("time_s"), "relay time_s")
+    if (any(step >= relay_step for step in observation_steps)
+            or any(timestamp >= relay_time for timestamp in observation_times)
+            or relay_step >= receipt_step or relay_time >= receipt_time):
+        raise ValueError("relay publication must be after observations and before receipt")
     return {"validated": True, "episode_id": episode_id, "outcome": "readiness_receipt_committed",
-            "observation_count": len(observations), "receipt_id": receipt["receipt_id"]}
+            "observation_count": len(observations), "relay_publication_count": 1,
+            "receipt_id": receipt["receipt_id"]}
 
 
 __all__ = ["RestaurantReadinessBackend", "evaluate_readiness_receipt", "REQUIRED_REGIONS", "SCHEMA"]
