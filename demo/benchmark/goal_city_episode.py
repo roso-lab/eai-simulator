@@ -515,7 +515,9 @@ def build_acceptance_evidence(evidence_log: list[Mapping[str, Any]],
             "arrived_at_admitted_assembly": bool(arrival.get("arrived")),
         }
         if arrival.get("arrived"):
-            row["arrival_time_s"] = arrival.get("arrival_time_s")
+            arrival_time = arrival.get("arrival_time_s")
+            if isinstance(arrival_time, (int, float)) and not isinstance(arrival_time, bool):
+                row["arrival_time_s"] = float(arrival_time)
             review_actors = {str(actor.get("id")): actor for actor in
                              (dict(arrival.get("review") or {}).get("evidence")
                               or {}).get("actors") or ()
@@ -652,8 +654,21 @@ def await_assembly_arrivals(ctx: Mapping[str, Any],
     deadlines = [person_deadline(row, person_id)
                  for row in guides for person_id in row.get("person_ids", ())]
     horizon = max(deadlines, default=float(city.elapsed))
-    while float(city.elapsed) < horizon and not all(
-            controller.readback(pid, regions)["arrived"] for pid in roster):
+    first_arrival: dict[str, float] = {}
+
+    def poll_arrivals() -> bool:
+        state = {}
+        for person_id in roster:
+            arrived = bool(controller.readback(person_id, regions)["arrived"])
+            state[person_id] = arrived
+            if arrived and person_id not in first_arrival:
+                # Native-clock measurement: the moment this person's readback
+                # first reports assembly arrival during the wait.
+                first_arrival[person_id] = float(city.elapsed)
+        return all(state.values())
+
+    poll_arrivals()
+    while float(city.elapsed) < horizon and not poll_arrivals():
         ctx["step"](ctx["session"], city, ctx["actions"])
 
     for row in guides:
@@ -670,13 +685,16 @@ def await_assembly_arrivals(ctx: Mapping[str, Any],
                           (dict(review or {}).get("evidence") or {}).get("actors") or ()
                           if isinstance(item, Mapping) and item.get("id") == person_id), {})
             actor_time = actor.get("arrival_time_s")
+            measured = first_arrival.get(person_id)
+            arrival_time = (float(measured) if measured is not None
+                            else (float(actor_time)
+                                  if isinstance(actor_time, (int, float))
+                                  and not isinstance(actor_time, bool) else None))
             evidence_log.append({
                 "kind": "arrival", "person_id": person_id,
                 "request_id": request_id, "assembly_region_id": region_id,
                 "arrived": bool(readback["arrived"]),
-                "arrival_time_s": (float(actor_time)
-                                   if isinstance(actor_time, (int, float))
-                                   and not isinstance(actor_time, bool) else None),
+                "arrival_time_s": arrival_time,
                 "review": review,
             })
 

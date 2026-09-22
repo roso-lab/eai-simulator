@@ -51,10 +51,14 @@ class _FakePeople:
 
 
 class _FakePeopleController:
-    def __init__(self, arrived=True):
+    def __init__(self, arrived=True, city=None, arrive_at_s=None):
         self._arrived = arrived
+        self._city = city
+        self.arrive_at_s = arrive_at_s
 
     def readback(self, person_id, regions):
+        if self.arrive_at_s is not None and self._city is not None:
+            return {"arrived": float(self._city.elapsed) >= float(self.arrive_at_s)}
         return {"arrived": self._arrived}
 
 
@@ -63,7 +67,7 @@ class _FakeCity:
         self.elapsed = float(start_s)
         self.people = _FakePeople()
         self._episode_service = SimpleNamespace(
-            people_controller=_FakePeopleController(), assembly_regions={})
+            people_controller=_FakePeopleController(city=self), assembly_regions={})
 
     def following_vehicle_pose(self, vehicle_id):
         return (0.0, 0.0, 0.0)
@@ -477,6 +481,9 @@ def test_business_evaluator_maps_acceptance_predicates(tmp_path):
         _runner._guide_requests[f"guide_{index}"] = {
             "service": "guide_people", "entity_ids": [person_id],
             "submitted_time_s": now + index}
+    # People reach assembly only after every acknowledgement (now + 3.5 + a
+    # margin), so the wait loop must step and stamp arrival after the acks.
+    ctx["city"]._episode_service.people_controller.arrive_at_s = now + 30.0
     evaluator = city_business_evaluator(log, ctx)
     outcomes = evaluator("episode-eval", {"session": {"business_outcomes": [
         {"id": "incident_assessed"}, {"id": "exposed_people_accounted_for"},
@@ -491,6 +498,7 @@ def test_business_evaluator_maps_acceptance_predicates(tmp_path):
     assert any(row.get("kind") == "arrival" and row["arrived"] for row in log)
     # Fail-closed variant: people never arrive -> outcome stays failed.
     log_blocked = [row for row in log if row.get("kind") != "arrival"]
+    ctx["city"]._episode_service.people_controller.arrive_at_s = None
     ctx["city"]._episode_service.people_controller._arrived = False
     outcomes_blocked = city_business_evaluator(log_blocked, ctx)(
         "episode-eval", {"session": {"business_outcomes": [
