@@ -35,6 +35,7 @@ from .measurement_contract import (
 )
 from .skill_ontology import (
     SKILL_CATALOG_SCHEMA, SKILL_CATALOG_VERSION, CITY_NATIVE_SKILL_CATALOG_VERSION,
+    CITY_AERIAL_SKILL_CATALOG_VERSION,
     required_capabilities,
 )
 from .goal_driven_fixtures import (
@@ -111,13 +112,13 @@ _CITY_CORE_SPAWN_XY = {"go2_1": (-40.0, 55.0), "carter_1": (-69.0, 25.0),
 
 
 def _city_spawn_positions(roster_profile: str = "abstract_v1") -> dict[str, tuple[float, float]]:
-    if roster_profile == "bound_native_v2":
+    if roster_profile in {"bound_native_v2", "bound_native_v3"}:
         extra = {agent: tuple(CITY_V2_SPAWN_XY_M[agent]) for agent in CITY_V2_SPAWN_XY_M}
         return {**_CITY_CORE_SPAWN_XY, **extra}
     return dict(_CITY_CORE_SPAWN_XY)
 
 
-_CITY_ROSTER_PROFILES = {"abstract_v1", "bound_native_v1", "bound_native_v2"}
+_CITY_ROSTER_PROFILES = {"abstract_v1", "bound_native_v1", "bound_native_v2", "bound_native_v3"}
 _CITY_RESPONSE_SERVICE_ID = "city_dispatch"
 # Frozen semantic map that gates the opt-in bound_native_v2 spawn anchors: the
 # road_surface polygon supplies the drivable footprint and static_obstacles
@@ -147,6 +148,22 @@ _CITY_V2_POOL_NOTE = (
     f"（road_surface 多边形 point-in-polygon + static_obstacles bounds_m 外扩 {CITY_SPAWN_CLEARANCE_M:g} m 避让）："
     + json.dumps(CITY_V2_SPAWN_XY_M, sort_keys=True)
     + "。除 max_active_agents（扩池按用户原则放开为池大小，团队规模由被测算法自决）外 budgets 维持 bound_native_v1 数值；扩池不改变本见证。"
+)
+# City P0 aerial guidance modality (frozen benchmark definition): the aerial
+# advance-arrival broadcast window is deliberately shorter than the ground
+# guide_people 20 s per-person ACK window so the aerial modality's speed
+# advantage is measurable.  It is an experimental duration, not a hardware
+# rating.
+CITY_AERIAL_BROADCAST_DURATION_S = 10.0
+_CITY_V3_POOL_NOTE = (
+    "bound_native_v3 为 City P0 空中引导模态：候选池与出生锚点复用 bound_native_v2 的 7 台配置，"
+    "仅 iris_1/iris_2 新增 aerial_broadcast 公开能力（go2/carter/lite3 声明不变，lite3_1 仍是能力诱饵），"
+    f"技能目录升至 v{CITY_AERIAL_SKILL_CATALOG_VERSION}（aerial_broadcast 首发于该版本，v2/v3 目录不含此技能），"
+    f"aerial_broadcast 预留时窗为 {CITY_AERIAL_BROADCAST_DURATION_S:g} s。本见证与 bound_native_v2 相同，"
+    "仍走地面 guide_people 接触确认链，不因新模态改写见证。B 平行路径（已拍板）：aerial_broadcast 的"
+    "广播接触确认与地面 guide_people ACK 同为业务评价中接触确认分量的两个合法来源，人员到达始终由"
+    "到达读回判定，四项业务 outcome 语义不变。指派与声明契约不符时仍在执行层确定性失败"
+    "（例如 go2 派 aerial_broadcast、iris 派 guide_people 均产生事实回执，回执不含处方）。"
 )
 
 
@@ -745,7 +762,9 @@ def _city_v2_pool(core: list[dict[str, Any]]) -> list[dict[str, Any]]:
     it can carry no city service task.  The four additions use the frozen
     ``goal_driven_fixtures`` physical profiles (lite3 keeps its own
     benchmark_lite3_navigation_v1 profile); the core three keep their
-    city-specific profiles unchanged.
+    city-specific profiles unchanged.  bound_native_v3 reuses this roster
+    unchanged: its aerial_broadcast capability is added to iris_1 (and copied
+    onto iris_2 here) before the extension runs.
     """
     core_by_id = {row["id"]: row for row in core}
 
@@ -797,11 +816,16 @@ def _city(roster_profile: str = "abstract_v1") -> tuple[dict[str, Any], list[dic
         "carter_1": {"guide_people", "control_following_traffic"},
         "iris_1": {"report_incident"},
     }
+    if roster_profile == "bound_native_v3":
+        # City P0 aerial guidance modality: only the iris members publish the
+        # aerial_broadcast capability (_city_v2_pool copies iris_1's skill set
+        # onto iris_2); the ground roster keeps its frozen declarations.
+        service_skills["iris_1"].add("aerial_broadcast")
     for robot in pool:
         robot["public_capabilities"] = sorted(
             set(robot["public_capabilities"]) | service_skills.get(robot["id"], set()))
-    native = roster_profile in {"bound_native_v1", "bound_native_v2"}
-    if roster_profile == "bound_native_v2":
+    native = roster_profile in {"bound_native_v1", "bound_native_v2", "bound_native_v3"}
+    if roster_profile in {"bound_native_v2", "bound_native_v3"}:
         # Hard spawn gate: the four opt-in anchors must sit on the frozen
         # recovery_binding_v2 road surface and clear every static obstacle by
         # the declared clearance before the pool is extended.
@@ -834,10 +858,16 @@ def _city(roster_profile: str = "abstract_v1") -> tuple[dict[str, Any], list[dic
     contract = execution_contract()
     if native:
         contract["skill_durations_s"]["guide_people"] = policy["people_guidance_ack_s"]
+    if roster_profile == "bound_native_v3":
+        # The v4 catalog also schedules aerial_broadcast, so the frozen exact
+        # duration-table check demands its window here (shorter than the
+        # ground 20 s ACK window by design; see CITY_AERIAL_BROADCAST_DURATION_S).
+        contract["skill_durations_s"]["aerial_broadcast"] = CITY_AERIAL_BROADCAST_DURATION_S
     public = {
         "schema": GOAL_TASK_SCHEMA,
         "version": GOAL_CONTRACT_VERSION,
-        "task_id": ("CITY-GOAL-NATIVE-02" if roster_profile == "bound_native_v2"
+        "task_id": ("CITY-GOAL-NATIVE-03" if roster_profile == "bound_native_v3"
+                    else "CITY-GOAL-NATIVE-02" if roster_profile == "bound_native_v2"
                     else "CITY-GOAL-NATIVE-01" if roster_profile == "bound_native_v1"
                     else "CITY-GOAL-01"),
         "evaluation_track": "goal_driven_team_planning_v1",
@@ -846,21 +876,24 @@ def _city(roster_profile: str = "abstract_v1") -> tuple[dict[str, Any], list[dic
                     "context": "城市街区有背景交通、步行人员和建筑；根据实际到达的告警与观察组织响应。具体事故位置和未来事件不预先公开。"},
         "required_outcomes": [_outcome(*row) for row in city_outcome_rows()],
         "candidate_robot_pool": pool,
-        "skill_catalog_version": f"{SKILL_CATALOG_SCHEMA}.v{CITY_NATIVE_SKILL_CATALOG_VERSION}"
-                                 if native
-                                 else f"{SKILL_CATALOG_SCHEMA}.v{SKILL_CATALOG_VERSION}",
+        "skill_catalog_version": (
+            f"{SKILL_CATALOG_SCHEMA}.v{CITY_AERIAL_SKILL_CATALOG_VERSION}"
+            if roster_profile == "bound_native_v3"
+            else f"{SKILL_CATALOG_SCHEMA}.v{CITY_NATIVE_SKILL_CATALOG_VERSION}"
+            if native
+            else f"{SKILL_CATALOG_SCHEMA}.v{SKILL_CATALOG_VERSION}"),
         "execution_contract": contract,
         "public_world": {
             "regions": regions,
             "objects": [],
             "vertical_links": [],
             "routes": scene_routes("city"),
-            # ④ public spawn anchors (bound_native_v2 only, keeping the
+            # ④ public spawn anchors (bound_native_v2/v3, keeping the
             # frozen v1/abstract shapes and their hash gates): the
             # participant sees where every candidate robot starts so team
             # selection can reason about distance.
             **({"robot_spawn_positions": dict(_city_spawn_positions(roster_profile))}
-               if roster_profile == "bound_native_v2" else {}),
+               if roster_profile in {"bound_native_v2", "bound_native_v3"} else {}),
             "public_notes": (
                 "本包是城市事故响应的作者/评价侧目标束，公共世界为响应舞台的声明抽象，不是城市静态地图的替代。"
                 "事故位置、受影响人员与后续车辆身份不公开，须由送达的观察证据绑定；集合区为候选，实时安全与容量须另行核验。"
@@ -886,7 +919,7 @@ def _city(roster_profile: str = "abstract_v1") -> tuple[dict[str, Any], list[dic
             # a measurement signal, not a restriction the benchmark imposes.
             # The expanded pool therefore declares its full size as the
             # budget; the frozen v1 profiles keep their historical value.
-            "max_active_agents": (len(pool) if roster_profile == "bound_native_v2" else 3),
+            "max_active_agents": (len(pool) if roster_profile in {"bound_native_v2", "bound_native_v3"} else 3),
         },
         "experiment_factor": {
             "id": "communication_quality",
@@ -897,9 +930,10 @@ def _city(roster_profile: str = "abstract_v1") -> tuple[dict[str, Any], list[dic
         },
     }
     witnesses = [_city_witness(public, "a"), _city_witness(public, "b")]
-    if roster_profile == "bound_native_v2":
+    if roster_profile in {"bound_native_v2", "bound_native_v3"}:
+        note = _CITY_V3_POOL_NOTE if roster_profile == "bound_native_v3" else _CITY_V2_POOL_NOTE
         for witness in witnesses:
-            witness["pool_note"] = _CITY_V2_POOL_NOTE
+            witness["pool_note"] = note
     return public, witnesses
 
 
@@ -1036,7 +1070,8 @@ def _city_witness(public: dict[str, Any], suffix: str) -> dict[str, Any]:
         "plan": _plan(identifier, team, rows),
     }
     return (_city_native_witness(witness, public["execution_contract"]["skill_durations_s"])
-            if public["task_id"] in ("CITY-GOAL-NATIVE-01", "CITY-GOAL-NATIVE-02")
+            if public["task_id"] in ("CITY-GOAL-NATIVE-01", "CITY-GOAL-NATIVE-02",
+                                     "CITY-GOAL-NATIVE-03")
             else witness)
 
 
@@ -1375,7 +1410,8 @@ def review_goal_business_witness(
                 "factory:service_receipt_after_field_checks_and_actual_return")
         final_object("maintenance_service_cart", "response_staging")
     elif scene == "city":
-        if public_task["task_id"] in ("CITY-GOAL-NATIVE-01", "CITY-GOAL-NATIVE-02"):
+        if public_task["task_id"] in ("CITY-GOAL-NATIVE-01", "CITY-GOAL-NATIVE-02",
+                                      "CITY-GOAL-NATIVE-03"):
             person_assembly = _CITY_NATIVE_AFFECTED_PERSON_ASSEMBLY
             following_ids = _CITY_NATIVE_FOLLOWING_VEHICLE_IDS
         else:

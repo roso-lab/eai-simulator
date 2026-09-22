@@ -121,8 +121,13 @@ def test_native_catalog_versions_fail_closed_without_changing_default():
         changed[field] = value
         with pytest.raises(ValueError, match="skill catalog"):
             validate_goal_participant_api(changed, task_spec=public)
+    # Since the City P0 aerial modality, v4 is an admitted revision (it first
+    # publishes aerial_broadcast for CITY-GOAL-NATIVE-03); the fail-closed
+    # unknown-revision boundary is now v5.
+    aerial = public_skill_catalog(version=4)
+    assert "aerial_broadcast" in aerial["skills"]
     with pytest.raises(ValueError, match="unsupported skill catalog version"):
-        public_skill_catalog(version=4)
+        public_skill_catalog(version=5)
 
 
 def test_native_goal_session_ack_terminal_does_not_validate_arrival():

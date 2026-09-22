@@ -265,7 +265,8 @@ class CityNativeGoalBackend:
     # -- shared helpers ---------------------------------------------------
     _SERVICE_ROLE = {"guide_people": "guidance_contact",
                      "control_following_traffic": "traffic_control_point",
-                     "report_incident": "incident_observer"}
+                     "report_incident": "incident_observer",
+                     "aerial_broadcast": "aerial_broadcaster"}
 
     def _runtime_state(self) -> dict[str, Any]:
         return {"robot_regions": self._robot_regions, "object_states": {}}
@@ -363,6 +364,8 @@ class CityNativeGoalBackend:
                 return self._execute_control(task, row, episode_id, float(ledger["current_time_s"]))
             if skill == "report_incident":
                 return self._execute_report(task, row, episode_id, float(ledger["current_time_s"]))
+            if skill == "aerial_broadcast":
+                return self._execute_broadcast(task, row, episode_id, float(ledger["current_time_s"]))
         except _CapabilityExecutionFailure as failure:
             # Task-level failure with factual observables only: the episode
             # continues and the business outcomes judge the algorithm. Like a
@@ -533,6 +536,42 @@ class CityNativeGoalBackend:
         return self._terminal(task, row, episode_id, "failed",
                               max(float(city.elapsed), ledger_now), refs, request["request_id"])
 
+    def _execute_broadcast(self, task: Mapping[str, Any], row: Mapping[str, Any],
+                           episode_id: str, ledger_now: float) -> dict[str, Any]:
+        """Aerial advance-arrival broadcast (City P0 modality, ``eai.skills.v4``).
+
+        The member dispatch gate runs first exactly like the ground services,
+        so an assignment whose declared capabilities do not cover the task
+        fails deterministically through the shared ``_CapabilityExecutionFailure``
+        path (factual receipt, window still consumed).  A capable dispatch
+        records one broadcast ACK per person - acknowledgement time from the
+        native clock, evidence bound to the current trusted observation - plus
+        the native clock stamp taken when the broadcast window opened.  The
+        business evaluator decides what the ACK is worth (B parallel path);
+        person arrival itself always stays with the arrival readbacks.
+        """
+        ctx = self._ctx
+        city = ctx["city"]
+        person_ids = list(task["arguments"]["person_ids"])
+        self._assign_service_agent(task)
+        observation = self._current_observation()
+        arrival_stamp = float(city.elapsed)
+        actor_acks = [{"id": person_id,
+                       "ack_time_s": float(city.elapsed),
+                       "ack_evidence_ref": observation}
+                      for person_id in person_ids]
+        self.evidence.append({
+            "kind": "broadcast", "task_id": task["task_id"], "skill": "aerial_broadcast",
+            "person_ids": person_ids, "actor_acks": actor_acks,
+            "arrival_stamp": arrival_stamp, "observation_ref": observation})
+        refs = [f"broadcast:{task['task_id']}"]
+        receipt_ref = f"broadcast:{episode_id}:{task['task_id']}"
+        window_end = self._settle_to_window(task)
+        if float(city.elapsed) > window_end + float(ctx["dt"]):
+            return self._terminal(task, row, episode_id, "failed",
+                                  max(float(city.elapsed), ledger_now), refs, receipt_ref)
+        return self._terminal(task, row, episode_id, "succeeded", window_end, refs, receipt_ref)
+
     @staticmethod
     def _readback_ref(readback: Mapping[str, Any]) -> str | None:
         for key in ("evidence_ref", "trajectory_evidence_ref", "hazard_evidence_ref"):
@@ -562,9 +601,20 @@ def build_acceptance_evidence(evidence_log: list[Mapping[str, Any]],
     consulted.  Unmeasurable facts are omitted so ``evaluate_city_acceptance``
     fails closed on them, and this slice's missing assembly arrival is recorded
     explicitly as ``arrived_at_admitted_assembly=False``.
+
+    B parallel path (City P0 aerial modality, frozen decision): an aerial
+    ``aerial_broadcast`` ACK and a ground ``guide_people`` contact confirmation
+    are two legal sources of the per-person contact-confirmation component.
+    For each person, ``guidance_acknowledged`` is the union of both sources and
+    ``guidance_time_s`` takes the earlier available acknowledgement; the ground
+    observation provenance wins when both exist.  Person arrival at an
+    admitted assembly always stays with the arrival readbacks, and the four
+    business outcome predicates in ``evaluate_city_acceptance`` are unchanged.
+    Evidence logs without broadcast rows keep exactly the historical behavior.
     """
     records = list(evidence_log)
     guides = [row for row in records if row.get("kind") == "guide"]
+    broadcasts = [row for row in records if row.get("kind") == "broadcast"]
     controls = [row for row in records if row.get("kind") == "control"]
     reports = [row for row in records if row.get("kind") == "report"]
     observation = next((row for row in records
@@ -589,25 +639,44 @@ def build_acceptance_evidence(evidence_log: list[Mapping[str, Any]],
         first_ack_time = max(float(actor.get("ack_time_s")) for actor in first_acks.values()
                              if actor.get("ack_time_s") is not None)
 
+    def broadcast_ack_time(record: Mapping[str, Any] | None,
+                           person_id: str) -> float | None:
+        if record is None:
+            return None
+        for actor in record.get("actor_acks") or ():
+            if (isinstance(actor, Mapping) and actor.get("id") == person_id
+                    and isinstance(actor.get("ack_time_s"), (int, float))
+                    and not isinstance(actor.get("ack_time_s"), bool)):
+                return float(actor["ack_time_s"])
+        return None
+
     people: list[dict[str, Any]] = []
     arrivals = {row.get("person_id"): row for row in records
                 if row.get("kind") == "arrival"}
     for person_id in sorted(ctx["roster_ids"]):
         record = next((row for row in guides if person_id in row.get("person_ids", ())), None)
-        if record is None:
+        broadcast = next((row for row in broadcasts
+                          if person_id in row.get("person_ids", ())), None)
+        broadcast_ack_s = broadcast_ack_time(broadcast, person_id)
+        if record is None and broadcast is None:
             people.append({"person_id": person_id})
             continue
-        acks = contact_acks(record)
+        acks = contact_acks(record) if record is not None else {}
         arrival = arrivals.get(person_id) or {}
         row: dict[str, Any] = {
             "person_id": person_id,
-            "observation_ref": record.get("observation_ref"),
-            # The native admission gate accepted the evacuation route and the
-            # assembly capacity when it accepted this request.
-            "route_admitted": True,
-            "guidance_request_time_s": float(record["request"]["submitted_time_s"]),
+            # Ground provenance wins when both sources exist (B path rule).
+            "observation_ref": (record.get("observation_ref") if record is not None
+                                else broadcast.get("observation_ref")),
             "arrived_at_admitted_assembly": bool(arrival.get("arrived")),
         }
+        if record is not None:
+            # The native admission gate accepted the evacuation route and the
+            # assembly capacity when it accepted this request.  A broadcast
+            # alone carries no route admission; such a row keeps failing the
+            # evaluator's remaining components honestly.
+            row["route_admitted"] = True
+            row["guidance_request_time_s"] = float(record["request"]["submitted_time_s"])
         if arrival.get("arrived"):
             arrival_time = arrival.get("arrival_time_s")
             if isinstance(arrival_time, (int, float)) and not isinstance(arrival_time, bool):
@@ -628,12 +697,18 @@ def build_acceptance_evidence(evidence_log: list[Mapping[str, Any]],
             if isinstance(entered_hazard, bool):
                 row["entered_hazard"] = entered_hazard
         ack = acks.get(person_id)
-        row["guidance_acknowledged"] = bool(
+        ground_acknowledged = bool(
             ack is not None
             and (record.get("contact") or {}).get("status") == "contact_confirmed")
-        row["guidance_time_s"] = (float(ack["ack_time_s"])
-                                  if ack is not None and ack.get("ack_time_s") is not None
-                                  else None)
+        ack_times: list[float] = []
+        if record is not None and ack is not None and ack.get("ack_time_s") is not None:
+            ack_times.append(float(ack["ack_time_s"]))
+        if broadcast_ack_s is not None:
+            ack_times.append(broadcast_ack_s)
+        # B path union: either legal contact-confirmation source acknowledges
+        # the person; the earlier available acknowledgement timestamps it.
+        row["guidance_acknowledged"] = bool(ground_acknowledged or broadcast_ack_s is not None)
+        row["guidance_time_s"] = min(ack_times) if ack_times else None
         people.append(row)
 
     traffic: list[dict[str, Any]] = []
@@ -890,11 +965,17 @@ def run_city_episode(output_root: str | Path, *, device: str = "cpu",
     root = Path(output_root).absolute()
     binding = Path(episode_binding) if episode_binding is not None \
         else DEFAULT_CITY_EPISODE_BINDING
-    prepare_probe(root, device=device, episode_binding=binding, pool=pool)
+    # The physical probe stage stays frozen at the v1/v2 rosters.  Pool v3 is
+    # the bound_native_v3 goal-side roster (same seven robots and spawn
+    # anchors as v2 plus the aerial_broadcast capability declaration), so it
+    # reuses the v2 physical stage unchanged.
+    probe_pool = "v2" if pool == "v3" else pool
+    prepare_probe(root, device=device, episode_binding=binding, pool=probe_pool)
 
     def driver(ctx: Mapping[str, Any]) -> None:
         episode_root = Path(ctx["report_path"]).parent / "goal_episode"
-        roster_profile = "bound_native_v2" if pool == "v2" else "bound_native_v1"
+        roster_profile = {"v1": "bound_native_v1", "v2": "bound_native_v2",
+                          "v3": "bound_native_v3"}[pool]
         package = build_goal_task_package("city", city_roster_profile=roster_profile)
         public = package["public_task"]
         plan = build_city_episode_plan(public)
@@ -954,7 +1035,7 @@ def run_city_episode(output_root: str | Path, *, device: str = "cpu",
             "records": _plain_evidence(deepcopy(backend.evidence)),
         })
 
-    return execute_probe(root, device=device, driver=driver, pool=pool)
+    return execute_probe(root, device=device, driver=driver, pool=probe_pool)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -968,8 +1049,10 @@ def main(argv: list[str] | None = None) -> int:
                              "teamweaver_llm = real dongli LLM decomposition; "
                              "emos = EMOS discussion manager allocation; "
                              "emos_llm = EMOS allocation through the dongli LLM discussion)")
-    parser.add_argument("--pool", choices=("v1", "v2"), default="v1",
-                        help="candidate pool profile (v2 = expanded 7-robot bound_native_v2)")
+    parser.add_argument("--pool", choices=("v1", "v2", "v3"), default="v1",
+                        help="candidate pool profile (v2 = expanded 7-robot bound_native_v2; "
+                             "v3 = bound_native_v3 aerial goal roster (skill catalog v4, "
+                             "iris gains aerial_broadcast) on the same v2 physical stage)")
     parser.add_argument("--episode-binding", type=Path, default=None,
                         help="authoring/private.json or standalone binding document "
                              f"(default: {DEFAULT_CITY_EPISODE_BINDING})")

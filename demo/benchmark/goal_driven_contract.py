@@ -15,8 +15,9 @@ from typing import Any, Iterable, Mapping
 from .provenance import canonical_sha256
 from .goal_constraints import validate_constraint_model, validate_plan_constraints
 from .skill_ontology import (
-    SKILL_CATALOG_SCHEMA, SKILL_CATALOG_VERSION, CITY_NATIVE_SKILL_CATALOG_VERSION, minimum_agents,
-    public_skill_catalog, required_capabilities, validate_skill_arguments,
+    SKILL_CATALOG_SCHEMA, SKILL_CATALOG_VERSION, CITY_NATIVE_SKILL_CATALOG_VERSION,
+    CITY_AERIAL_SKILL_CATALOG_VERSION, minimum_agents, public_skill_catalog,
+    required_capabilities, skill_names_for_catalog, validate_skill_arguments,
     validate_skill_name,
 )
 
@@ -102,6 +103,17 @@ _SKILL_INTERFACE_REQUIREMENTS = {
     "relay": {"event_bus"},
     "synchronize": {"event_bus"},
 }
+# Cross-version fail-closed City catalog admission: each pinned City skill
+# catalog serves exactly its own frozen task ids and every pinned City task id
+# must carry exactly its own catalog.  v3 admits only NATIVE-01/02 (the frozen
+# bound_native_v1/v2 rosters share it), v4 admits only NATIVE-03 (where
+# aerial_broadcast first publishes), and no task may cross versions.
+_SKILL_CATALOG_TASK_ADMISSION = {
+    CITY_NATIVE_SKILL_CATALOG_VERSION: ("CITY-GOAL-NATIVE-01", "CITY-GOAL-NATIVE-02"),
+    CITY_AERIAL_SKILL_CATALOG_VERSION: ("CITY-GOAL-NATIVE-03",),
+}
+_PINNED_CITY_TASK_IDS = frozenset(
+    task_id for ids in _SKILL_CATALOG_TASK_ADMISSION.values() for task_id in ids)
 
 
 def _mapping(value: Any, label: str) -> Mapping[str, Any]:
@@ -182,15 +194,21 @@ def validate_goal_task_spec(spec: Mapping[str, Any]) -> dict[str, Any]:
     _string(mission["context"], "mission context")
     catalog_version = spec["skill_catalog_version"]
     default_catalog = f"{SKILL_CATALOG_SCHEMA}.v{SKILL_CATALOG_VERSION}"
-    native_catalog = f"{SKILL_CATALOG_SCHEMA}.v{CITY_NATIVE_SKILL_CATALOG_VERSION}"
-    # bound_native_v2 reuses the same frozen native City skill catalog; only
-    # the opt-in candidate-pool roster differs.
-    native_task_ids = ("CITY-GOAL-NATIVE-01", "CITY-GOAL-NATIVE-02")
-    if (catalog_version != default_catalog and not (
-            catalog_version == native_catalog and mission["scene_key"] == "city"
-            and spec["task_id"] in native_task_ids)) or (
-            spec["task_id"] in native_task_ids and catalog_version != native_catalog):
+    # Cross-version fail-closed: a pinned City catalog serves only its own
+    # frozen task ids, a pinned City task id must use exactly its own catalog,
+    # and the default catalog serves every non-pinned task.
+    admitted_ids = next(
+        (ids for version, ids in _SKILL_CATALOG_TASK_ADMISSION.items()
+         if catalog_version == f"{SKILL_CATALOG_SCHEMA}.v{version}"), None)
+    if not ((catalog_version == default_catalog
+             and spec["task_id"] not in _PINNED_CITY_TASK_IDS)
+            or (admitted_ids is not None and mission["scene_key"] == "city"
+                and spec["task_id"] in admitted_ids)):
         raise ValueError("goal task uses an unsupported skill catalog")
+    # Capability and skill vocabulary follow the spec's own admitted catalog
+    # revision, so a v4 City task may publish aerial_broadcast while the
+    # frozen v2/v3 vocabularies stay exact.
+    known_capabilities = set(skill_names_for_catalog(catalog_version))
 
     outcomes = spec["required_outcomes"]
     if not isinstance(outcomes, list) or len(outcomes) < 2:
@@ -215,7 +233,6 @@ def validate_goal_task_spec(spec: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(pool, list) or not pool:
         raise ValueError("goal task requires a nonempty candidate robot pool")
     agent_ids: list[str] = []
-    known_capabilities = set(public_skill_catalog()["skills"])
     for index, raw in enumerate(pool):
         robot = _mapping(raw, f"candidate robot {index}")
         _check_exact(robot, _ROBOT_FIELDS, f"candidate robot {index}")
@@ -458,7 +475,13 @@ def _current_agents(task_spec: Mapping[str, Any], context: Mapping[str, Any] | N
     return agents
 
 
-def _validate_robot_declaration(value: Any, label: str) -> Mapping[str, Any]:
+def _spec_skill_names(task_spec: Mapping[str, Any]) -> set[str]:
+    """Skill vocabulary of the task spec's own admitted catalog revision."""
+    return set(skill_names_for_catalog(task_spec["skill_catalog_version"]))
+
+
+def _validate_robot_declaration(value: Any, label: str,
+                                known_skills: set[str] | None = None) -> Mapping[str, Any]:
     from .goal_constraints import validate_robot_profile
 
     item = _mapping(value, label)
@@ -466,7 +489,9 @@ def _validate_robot_declaration(value: Any, label: str) -> Mapping[str, Any]:
     _string(item["id"], f"{label} id")
     _string(item["type"], f"{label} type")
     capabilities = _string_list(item["public_capabilities"], f"{label} capabilities", allow_empty=True)
-    if not set(capabilities) <= set(public_skill_catalog()["skills"]):
+    allowed = (known_skills if known_skills is not None
+               else set(public_skill_catalog()["skills"]))
+    if not set(capabilities) <= allowed:
         raise ValueError(f"{label} contains an unknown public capability")
     _string_list(item["interfaces"], f"{label} interfaces", allow_empty=True)
     validate_robot_profile(item)
@@ -476,15 +501,16 @@ def _validate_robot_declaration(value: Any, label: str) -> Mapping[str, Any]:
 def _robot_rows(task_spec: Mapping[str, Any], context: Mapping[str, Any] | None) -> dict[str, Mapping[str, Any]]:
     rows = {row["id"]: row for row in task_spec["candidate_robot_pool"]}
     if context:
+        known_skills = _spec_skill_names(task_spec)
         for row in context.get("joined_agents", ()):
-            item = _validate_robot_declaration(row, "joined agent")
+            item = _validate_robot_declaration(row, "joined agent", known_skills)
             identifier = item["id"]
             if identifier in rows:
                 raise ValueError("joined agent id collides with public candidate pool")
             rows[identifier] = item
         updated = set()
         for row in context.get("capability_updates", ()):
-            item = _validate_robot_declaration(row, "capability update")
+            item = _validate_robot_declaration(row, "capability update", known_skills)
             identifier = item["id"]
             if identifier not in rows or identifier in updated:
                 raise ValueError("capability update requires a unique known agent")
@@ -638,7 +664,7 @@ def validate_goal_plan(plan: Mapping[str, Any], *, task_spec: Mapping[str, Any],
         required = set(required_capabilities(skill))
         if not required <= set(capabilities):
             raise ValueError(f"{task_id}: declared required_capabilities omit {sorted(required)}")
-        if not set(capabilities) <= set(public_skill_catalog()["skills"]):
+        if not set(capabilities) <= _spec_skill_names(task_spec):
             raise ValueError(f"{task_id}: unknown required capability")
         required = set(capabilities)
         assigned = _string_list(task["assigned_agents"], f"plan task {index} assigned_agents")
@@ -849,7 +875,9 @@ def validate_goal_event(event: Mapping[str, Any], *, api: Mapping[str, Any],
             raise ValueError("observation expires before publication")
     elif event_type in {"member_join", "capability_change"}:
         _string(payload["agent_id"], f"{event_type} agent id")
-        declaration = _validate_robot_declaration(payload["capability_declaration"], "capability declaration")
+        declaration = _validate_robot_declaration(
+            payload["capability_declaration"], "capability declaration",
+            _spec_skill_names(task_spec))
         if declaration["id"] != payload["agent_id"]:
             raise ValueError("capability event declaration id mismatch")
         if type(payload["capability_version"]) is not int or payload["capability_version"] < 1:
@@ -1012,7 +1040,8 @@ def _validate_hidden_event_schedule(schedule: Mapping[str, Any], *, task_spec: M
             agent_id = _string(selector["agent_id"], "member_join agent id")
             if agent_id in pool_by_id:
                 raise ValueError("member_join identity must remain outside the initial candidate pool")
-            declaration = _validate_robot_declaration(declaration, "team treatment agent_declaration")
+            declaration = _validate_robot_declaration(
+                declaration, "team treatment agent_declaration", _spec_skill_names(task_spec))
             _check_exact(declaration, _ROBOT_FIELDS, "team treatment agent_declaration")
             if declaration["id"] != agent_id:
                 raise ValueError("team treatment declaration id mismatch")
@@ -1021,7 +1050,7 @@ def _validate_hidden_event_schedule(schedule: Mapping[str, Any], *, task_spec: M
                 raise ValueError("team treatment mobility must be ground or aerial")
             capabilities = _string_list(
                 declaration["public_capabilities"], "team treatment capabilities")
-            unknown = set(capabilities) - set(public_skill_catalog()["skills"])
+            unknown = set(capabilities) - _spec_skill_names(task_spec)
             if unknown:
                 raise ValueError(f"team treatment has unknown capabilities {sorted(unknown)}")
             _string_list(declaration["interfaces"], "team treatment interfaces", allow_empty=True)

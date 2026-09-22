@@ -164,8 +164,10 @@ def test_v2_witnesses_stay_on_the_core_roster_with_pool_note():
 def test_city_roster_profile_scoping_and_rejection():
     with pytest.raises(ValueError, match="City roster profile applies only"):
         build_goal_task_package("factory", city_roster_profile="bound_native_v2")
+    # bound_native_v3 is a valid City profile since the aerial modality; the
+    # rejection case uses the next unknown profile instead.
     with pytest.raises(ValueError, match="unsupported City roster profile"):
-        build_goal_task_package("city", city_roster_profile="bound_native_v3")
+        build_goal_task_package("city", city_roster_profile="bound_native_v4")
 
 
 def test_service_probe_default_selection_is_unchanged_v1():

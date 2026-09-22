@@ -448,13 +448,16 @@ def test_dispatch_revalidates_current_roster_capabilities_and_payload(spec, chan
         _change(session, spec, remove="pick" if change == "skill" else None,
                 payload=1.0 if change == "payload" else None)
     _snapshot(session, spec, 2.0, {GROUND: "rack_aisle_b"})
-    if change == "payload":
-        # Physical payload mismatch is deliberately admitted on the
-        # participant path; the execution backend must report the failure.
-        assert _dispatch(session, "pick")["accepted"]
-    else:
-        with pytest.raises(ValueError, match="team|declare|payload|capacity|handling"):
+    if change == "member_exit":
+        # Structural (the exited agent no longer exists in the roster), not
+        # capability policing - stays fail-closed.
+        with pytest.raises(ValueError, match="team"):
             _dispatch(session, "pick")
+    else:
+        # User principle (2026-09-22): no protocol-side capability policing -
+        # skill/payload mismatches are admitted and surface as
+        # execution-layer failures.
+        assert _dispatch(session, "pick")["accepted"]
 
 
 @pytest.mark.parametrize("event_type", ["member_exit", "capability_change"])

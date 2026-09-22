@@ -28,7 +28,7 @@ from itertools import permutations
 import math
 from typing import Any, Mapping
 
-from .skill_ontology import skill_names
+from .skill_ontology import skill_names_for_catalog
 
 
 CONSTRAINT_SCHEMA = "eai.benchmark.reliable_skills"
@@ -192,7 +192,13 @@ def validate_constraint_model(task_spec: Mapping[str, Any]) -> dict[str, Any]:
         if contract[key] != value or (key == "version" and type(contract[key]) is not int):
             raise ValueError(f"execution_contract {key} must be {value!r}")
     _number(contract["clearance_margin_m"], "clearance_margin_m")
-    durations = _fields(contract["skill_durations_s"], set(skill_names()), "skill_durations_s")
+    # The duration table must exactly cover the spec's own catalog revision:
+    # a v4 City task also schedules aerial_broadcast, while every frozen v2/v3
+    # task keeps its historical exact key set.  Specs without an admitted
+    # catalog identifier resolve to the default vocabulary as before.
+    durations = _fields(contract["skill_durations_s"],
+                        set(skill_names_for_catalog(spec.get("skill_catalog_version"))),
+                        "skill_durations_s")
     for key, duration in durations.items():
         _number(duration, f"skill_durations_s {key}", positive=True)
     _indexed(spec.get("candidate_robot_pool"), "candidate_robot_pool", empty=False)

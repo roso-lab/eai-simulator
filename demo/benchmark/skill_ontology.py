@@ -15,6 +15,21 @@ from typing import Any, Mapping
 SKILL_CATALOG_SCHEMA = "eai.skills"
 SKILL_CATALOG_VERSION = 2
 CITY_NATIVE_SKILL_CATALOG_VERSION = 3
+CITY_AERIAL_SKILL_CATALOG_VERSION = 4
+
+# Every admitted catalog revision.  The frozen v2/v3 releases must stay
+# byte-identical, so new skills declare the first version that publishes them
+# and older versions keep assembling their exact historical vocabularies.
+_SKILL_CATALOG_VERSIONS = (SKILL_CATALOG_VERSION,
+                           CITY_NATIVE_SKILL_CATALOG_VERSION,
+                           CITY_AERIAL_SKILL_CATALOG_VERSION)
+_SKILL_INTRODUCED_AT: dict[str, int] = {
+    "aerial_broadcast": CITY_AERIAL_SKILL_CATALOG_VERSION,
+}
+# Canonical "eai.skills.vN" identifiers for consumers that hold a task spec's
+# catalog field instead of an integer revision.
+_CATALOG_IDENTIFIERS = {f"{SKILL_CATALOG_SCHEMA}.v{version}": version
+                        for version in _SKILL_CATALOG_VERSIONS}
 
 
 _SKILLS: dict[str, dict[str, Any]] = {
@@ -165,6 +180,29 @@ _SKILLS: dict[str, dict[str, Any]] = {
         "execution_owner": "communication_runtime",
         "example_robot_types": ["iris", "cf2x"],
     },
+    "aerial_broadcast": {
+        "parameters": {
+            "person_ids": {"required": True, "kind": "string_list"},
+            "observation_refs": {"required": True, "kind": "string_list"},
+            "anchor_region_id": {"required": False, "kind": "public_region"},
+            "now_s": {"required": False, "kind": "finite_nonnegative"},
+        },
+        "preconditions": [
+            "agent_is_active", "aerial_navigation_interface_available",
+            "fresh_delivered_person_observations", "broadcast_channel_available",
+        ],
+        "effects": ["aerial_arrival_stamp_recorded", "broadcast_acknowledgement_collected"],
+        "capability_requirements": {"all_of": ["aerial_navigation", "relay"], "min_agents": 1},
+        "failure_codes": [
+            "person_not_observed", "evidence_expired", "no_broadcast_acknowledgement",
+            "anchor_unreachable", "timeout",
+        ],
+        "evidence_types": ["broadcast_ack", "arrival_stamp", "observation_provenance"],
+        "timeout_semantics": "bounded_aerial_arrival_and_broadcast_acknowledgement_window",
+        "cancel_semantics": "cancel_before_broadcast_commit",
+        "execution_owner": "aerial_broadcast_runtime",
+        "example_robot_types": ["iris"],
+    },
     "guide_people": {
         "parameters": {
             "person_ids": {"required": True, "kind": "string_list"},
@@ -277,21 +315,48 @@ _SKILLS: dict[str, dict[str, Any]] = {
 }
 
 
-def skill_names() -> tuple[str, ...]:
-    return tuple(_SKILLS)
+def _skills_at(version: int) -> tuple[str, ...]:
+    """Skills published by one catalog revision, in definition order."""
+    return tuple(name for name in _SKILLS
+                 if _SKILL_INTRODUCED_AT.get(name, SKILL_CATALOG_VERSION) <= version)
+
+
+def skill_names(*, version: int = SKILL_CATALOG_VERSION) -> tuple[str, ...]:
+    return _skills_at(version)
+
+
+def skill_names_for_catalog(identifier: Any) -> tuple[str, ...]:
+    """Skill names published by a task's ``eai.skills.vN`` catalog identifier.
+
+    Catalog admission stays with the goal contract; this resolver only maps an
+    admitted revision identifier to its exact vocabulary.  Anything that is not
+    an admitted identifier resolves to the default catalog, so callers that
+    never carried a catalog field keep their historical behavior.
+    """
+    version = (_CATALOG_IDENTIFIERS.get(identifier)
+               if isinstance(identifier, str) else None)
+    return _skills_at(version if version is not None else SKILL_CATALOG_VERSION)
 
 
 def skill_definition(skill: str, *, version: int = SKILL_CATALOG_VERSION) -> dict[str, Any]:
     if skill not in _SKILLS:
         raise ValueError(f"unknown skill: {skill}")
-    if version not in {SKILL_CATALOG_VERSION, CITY_NATIVE_SKILL_CATALOG_VERSION} or type(version) is not int:
+    if version not in set(_SKILL_CATALOG_VERSIONS) or type(version) is not int:
         raise ValueError("unsupported skill catalog version")
+    if skill not in _skills_at(version):
+        # Cross-version fail-closed: a revision never serves a skill that a
+        # later version introduced, so older frozen catalogs stay exact.
+        raise ValueError(f"skill {skill} is not published by skill catalog version {version}")
     result = deepcopy(_SKILLS[skill])
-    if version == CITY_NATIVE_SKILL_CATALOG_VERSION and skill == "guide_people":
+    if (skill == "guide_people"
+            and version in {CITY_NATIVE_SKILL_CATALOG_VERSION,
+                            CITY_AERIAL_SKILL_CATALOG_VERSION}):
         result["timeout_semantics"] = "per_person_acknowledgement_window; arrival_is_later_business_evidence"
         result["evidence_types"] = ["guidance_acknowledgement", "observation_provenance"]
         result["terminal_semantics"] = "all_targets_acknowledged_by_native_service_while_field_role_held"
         result["later_business_evidence"] = ["measured_person_trajectory", "assembly_arrival"]
+    if skill == "aerial_broadcast" and version == CITY_AERIAL_SKILL_CATALOG_VERSION:
+        result["terminal_semantics"] = "aerial_arrival_and_broadcast_acknowledged_while_field_role_held"
     result["id"] = skill
     result["catalog"] = SKILL_CATALOG_SCHEMA
     result["version"] = version
@@ -315,12 +380,13 @@ def skill_definition(skill: str, *, version: int = SKILL_CATALOG_VERSION) -> dic
 
 def public_skill_catalog(*, version: int = SKILL_CATALOG_VERSION) -> dict[str, Any]:
     """Return the reviewable catalog with no implementation imports or paths."""
-    if version not in {SKILL_CATALOG_VERSION, CITY_NATIVE_SKILL_CATALOG_VERSION} or type(version) is not int:
+    if version not in set(_SKILL_CATALOG_VERSIONS) or type(version) is not int:
         raise ValueError("unsupported skill catalog version")
     return {
         "schema": SKILL_CATALOG_SCHEMA,
         "version": version,
-        "skills": {name: skill_definition(name, version=version) for name in _SKILLS},
+        "skills": {name: skill_definition(name, version=version)
+                   for name in _skills_at(version)},
     }
 
 
@@ -377,16 +443,26 @@ def validate_skill_arguments(skill: str, arguments: Mapping[str, Any]) -> dict[s
 
 
 def required_capabilities(skill: str) -> tuple[str, ...]:
-    definition = skill_definition(skill)
-    return tuple(definition["capability_requirements"]["all_of"])
+    # Capability requirements are identical across catalog revisions (the
+    # version overrides only touch semantics/evidence fields), so this reads
+    # the definition directly instead of pinning one revision: callers working
+    # with a v4 task can resolve the aerial_broadcast requirements that the
+    # frozen v2/v3 catalogs never published.
+    if skill not in _SKILLS:
+        raise ValueError(f"unknown skill: {skill}")
+    return tuple(_SKILLS[skill]["capability_requirements"]["all_of"])
 
 
 def minimum_agents(skill: str) -> int:
-    return int(skill_definition(skill)["capability_requirements"]["min_agents"])
+    if skill not in _SKILLS:
+        raise ValueError(f"unknown skill: {skill}")
+    return int(_SKILLS[skill]["capability_requirements"]["min_agents"])
 
 
 __all__ = [
-    "SKILL_CATALOG_SCHEMA", "SKILL_CATALOG_VERSION", "CITY_NATIVE_SKILL_CATALOG_VERSION", "minimum_agents",
+    "SKILL_CATALOG_SCHEMA", "SKILL_CATALOG_VERSION", "CITY_NATIVE_SKILL_CATALOG_VERSION",
+    "CITY_AERIAL_SKILL_CATALOG_VERSION", "minimum_agents",
     "public_skill_catalog", "required_capabilities", "skill_definition",
-    "skill_names", "validate_skill_arguments", "validate_skill_name",
+    "skill_names", "skill_names_for_catalog", "validate_skill_arguments",
+    "validate_skill_name",
 ]
