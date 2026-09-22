@@ -430,9 +430,10 @@ the physical A-to-E, E-to-A, A-to-B and B-to-A loop. The immutable request binds
 the public robot to native `carter_1`, freezes A/E/B as staging/kitchen/dining,
 and stores the source, controller, map, task, plan and route hashes.
 
-The evidence contract has three layers, hardened after two diagnostic runs
-(`goal-episode-20260922-v1/v2`) were invalidated by review because their
-observations hashed only the robot pose:
+The evidence contract has three layers. It was first hardened after two
+diagnostic runs (`goal-episode-20260922-v1/v2`) were invalidated by review
+because their observations hashed only the robot pose, then hardened again
+after the v4 archive verifier was found to trust recorded validation booleans:
 
 1. every arrival latches per-route wheel contact health (per-wheel PhysX ground
    force sampling, median weight-support ratio inside its envelope, no contact
@@ -442,15 +443,19 @@ observations hashed only the robot pose:
    robot's region error - it fails closed unless the scene query confirms the
    service-zone floor;
 3. after the run, `verify_episode_archive()` recomputes the complete chain from
-   disk alone (all recorded hashes, episode identities, evidence-ref
-   preimages, route/region progression, arrival-before-observation-before-
-   relay-before-receipt ordering, an independent replay of the readiness
-   receipt review, and the team-usage record) and writes
-   `archive_verification.json`; `--verify` re-runs this offline at any time.
+   disk alone: all recorded hashes, episode identities, evidence-ref
+   preimages, route/region progression, per-wheel contact ratios and snapshots,
+   median support, region error, raycast predicates, the service evidence
+   digest, arrival-before-observation-before-relay-before-receipt ordering, an
+   independent readiness receipt review, and the team-usage record. It writes
+   `archive_verification.json`; `--verify` re-runs the check from the matching
+   source checkout and controller source used to create the archive.
 
-The accepted CPU run is under
-`tmp/restaurant_benchmark/goal-episode-20260922-v4/`, episode
-`restaurant-goal:b84492d5bbd7496aa59b5cc2b2cf7da8` (75 s wall, 9,500 episode
+The v4 archive remains a historical native run, but is not the current-source
+acceptance artifact because its original verifier did not independently
+recompute contact and scene-observation semantics. The accepted current-source
+CPU run is under `tmp/restaurant_benchmark/goal-episode-20260922-v5/`, episode
+`restaurant-goal:fa73ad0222bf4891be2bf6ed68b48032` (67.47 s wall, 9,500 episode
 control steps at 0.02 s). All four arrivals validated contact health with a
 median weight-support ratio of 0.999-1.0 and every wheel in ground contact for
 100% of route steps. The kitchen observation latched on native step 9,486 with
@@ -458,14 +463,19 @@ a region error of 0.188 m and 3/4 ground-support raycasts; the dining
 observation latched on step 28,286 with 0.215 m and 4/4 raycasts. The relay
 publication and readiness receipt followed on steps 38,086 and 38,090. All
 seven GoalSession skill receipts were accepted, all three business outcomes
-validated, and the archive verifier confirmed the chain from disk.
+validated under the narrower service-ground-readiness contract, and both the
+in-run verifier and a separate `--verify` invocation confirmed the chain from
+disk. The observations establish service-zone ground reachability and support;
+they do not claim to inspect arbitrary kitchen or dining business objects.
 `team_usage.json` records one selected/active Carter, nine participant actions
 and activation-cost proxy 1.1. The episode report SHA-256 is
-`90a23f90501d9097409a89ccdce47fdbf292611ea7f4ea90f5afa308cfc376ef`; the
+`6e47d6f21c0136d94adbe176c7ebf62abdc4aeceba9cc18d1c72ec7a9c5dcbf2`; the
 native evidence log SHA-256 is
-`f9c5a4b53fefe091877e76b3aa04b8e6cd044fbcd94ed9711e3e3df464c63190`; the
+`63369678a7c4c24b90654ead78ed5249db00e7701f5e7dfdd45380f859ea333a`; the
 readiness snapshot SHA-256 is
-`eb5b0cb2f9ac11acd5749b2dae2ee356883461452711d218f0f4014758e23696`.
+`b6f02862cf09af4c1f7d1792c42b5b5fbaadb5f5961784f7229fcadc5fb8ee6c`; the
+archive verification SHA-256 is
+`51d66ec8d7389ec7981a312dec7a8a9613210de53bc077cccd62761b8329d1bd`.
 
 Reproduce it in a new output directory (the worktree relies on the shared
 resolver roots for Carter USD and the controller source):
@@ -489,8 +499,12 @@ EAI_CONTROLLER_ROOT=/home/pupil/eai-simulator/source/EAI_assets/EAI_assets/contr
 PYTHONPATH=.:source/EAI:source/EAI_assets \
   /home/pupil/miniconda3/envs/env_isaaclab/bin/python \
   -m demo.benchmark.goal_restaurant_episode \
-  --verify --output-root tmp/restaurant_benchmark/goal-episode-20260922-v4
+  --verify --output-root tmp/restaurant_benchmark/goal-episode-20260922-v5
 ```
+
+Archive verification is source-bound: use the source revision and controller
+source recorded by the episode. A later checkout is not promised to verify an
+older archive whose public task or verifier contract has changed.
 
 This closes the first-witness business-episode item only. It does not validate
 M20, Go2, Lite3 or Iris, does not provide TeamWeaver/EMOS comparison evidence,
