@@ -1082,8 +1082,8 @@ def _restaurant() -> tuple[dict[str, Any], list[dict[str, Any]]]:
     ]
     regions = [
         _region("restaurant_staging", "staging_area", "餐厅开业检查的公开集结区", ["ground_navigation", "aerial_navigation"]),
-        _region("kitchen_service", "service_zone", "厨房服务区；需要地面到达后读取现场状态", ["ground_navigation"]),
-        _region("dining_service", "service_zone", "用餐服务区；需要地面到达后读取现场状态", ["ground_navigation"]),
+        _region("kitchen_service", "service_zone", "厨房服务区；需要地面到达后核验服务区地面可达与支撑状态", ["ground_navigation"]),
+        _region("dining_service", "service_zone", "用餐服务区；需要地面到达后核验服务区地面可达与支撑状态", ["ground_navigation"]),
         _region("restaurant_overview", "inspection_area", "覆盖厨房与用餐区的空中观察区", ["aerial_navigation"]),
         _region("restaurant_standby_a", "standby", "检查完成后的第一待机区", ["ground_navigation"]),
         _region("restaurant_standby_b", "standby", "检查完成后的第二待机区", ["ground_navigation"]),
@@ -1093,12 +1093,12 @@ def _restaurant() -> tuple[dict[str, Any], list[dict[str, Any]]]:
         "在开业截止时间前完成厨房和用餐服务区检查，并提交汇总 readiness 回执。",
         "餐厅开业检查包含两个需要分别到达的服务区；算法可选择单机串行或多机并行，最终由当前团队提交统一回执。",
         [
-            _outcome("kitchen_service_inspected", "厨房服务区已由机器人到达并完成当前状态检查。", "存在厨房区域的到达证据和新鲜观察证据。", ["region_arrival", "observation_digest"]),
-            _outcome("dining_service_inspected", "用餐服务区已由机器人到达并完成当前状态检查。", "存在用餐区域的到达证据和新鲜观察证据。", ["region_arrival", "observation_digest"]),
+            _outcome("kitchen_service_inspected", "厨房服务区已由机器人到达并完成地面可达与支撑状态检查。", "存在厨房区域的到达证据和当前原生地面支撑查询证据。", ["region_arrival", "observation_digest"]),
+            _outcome("dining_service_inspected", "用餐服务区已由机器人到达并完成地面可达与支撑状态检查。", "存在用餐区域的到达证据和当前原生地面支撑查询证据。", ["region_arrival", "observation_digest"]),
             _outcome("readiness_receipt_committed", "厨房与用餐区的检查结果已合并并提交给开业服务端点。", "回执引用两处当前观察，并在截止时间前获得发布记录。", ["message_publication", "delivery_receipt"]),
         ], robots, regions, [], [],
         [
-            "厨房和用餐服务区必须分别由当前运行中的成员到达后观察；仅凭路线规划或机器人自报不能替代观察证据。",
+            "厨房和用餐服务区必须分别由当前运行中的成员到达后执行原生地面支撑查询；仅凭路线规划或机器人自报不能替代观察证据。",
             "readiness 回执只有在两处观察证据已经产生后才能提交，回执本身不提供隐藏世界状态。",
             "团队规模由参与算法决定，max_active_agents 只是公开池上限；Lite3 是合法导航/观察诱饵但没有 relay 能力。",
             f"部署配置 {BENCHMARK_DEPLOYMENT_PROFILE} 由 Restaurant config 的八个出生锚点统一生成；当前准入状态为 {BENCHMARK_ADMISSION_STATUS}，"
@@ -1118,7 +1118,7 @@ def _restaurant() -> tuple[dict[str, Any], list[dict[str, Any]]]:
         row("restaurant_a_arrive_kitchen", "ground_navigation",
             {"region_id": "kitchen_service", "route_ids": [kitchen_route]}, [], ["restaurant_carter_1"]),
         row("restaurant_a_observe_kitchen", "observe",
-            {"region_id": "kitchen_service", "subject_ref": "kitchen_service", "observation_mode": "opening_readiness"},
+            {"region_id": "kitchen_service", "subject_ref": "kitchen_service", "observation_mode": "service_ground_readiness"},
             ["restaurant_a_arrive_kitchen"], ["restaurant_carter_1"]),
         row("restaurant_a_return_staging_after_kitchen", "ground_navigation",
             {"region_id": "restaurant_staging", "route_ids": ["restaurant_kitchen_to_staging"]},
@@ -1127,7 +1127,7 @@ def _restaurant() -> tuple[dict[str, Any], list[dict[str, Any]]]:
             {"region_id": "dining_service", "route_ids": [dining_route]},
             ["restaurant_a_return_staging_after_kitchen"], ["restaurant_carter_1"]),
         row("restaurant_a_observe_dining", "observe",
-            {"region_id": "dining_service", "subject_ref": "dining_service", "observation_mode": "opening_readiness"},
+            {"region_id": "dining_service", "subject_ref": "dining_service", "observation_mode": "service_ground_readiness"},
             ["restaurant_a_arrive_dining"], ["restaurant_carter_1"]),
         row("restaurant_a_return_staging", "ground_navigation",
             {"region_id": "restaurant_staging", "route_ids": ["restaurant_dining_to_staging"]},
@@ -1140,12 +1140,12 @@ def _restaurant() -> tuple[dict[str, Any], list[dict[str, Any]]]:
         row("restaurant_b_arrive_kitchen", "ground_navigation",
             {"region_id": "kitchen_service", "route_ids": [kitchen_route]}, [], ["restaurant_carter_2"]),
         row("restaurant_b_observe_kitchen", "observe",
-            {"region_id": "kitchen_service", "subject_ref": "kitchen_service", "observation_mode": "opening_readiness"},
+            {"region_id": "kitchen_service", "subject_ref": "kitchen_service", "observation_mode": "service_ground_readiness"},
             ["restaurant_b_arrive_kitchen"], ["restaurant_carter_2"]),
         row("restaurant_b_arrive_dining", "ground_navigation",
             {"region_id": "dining_service", "route_ids": [dining_route]}, [], ["restaurant_m20_1"]),
         row("restaurant_b_observe_dining", "observe",
-            {"region_id": "dining_service", "subject_ref": "dining_service", "observation_mode": "opening_readiness"},
+            {"region_id": "dining_service", "subject_ref": "dining_service", "observation_mode": "service_ground_readiness"},
             ["restaurant_b_arrive_dining"], ["restaurant_m20_1"]),
         row("restaurant_b_return_staging", "ground_navigation",
             {"region_id": "restaurant_staging", "route_ids": ["restaurant_kitchen_to_staging"]},
@@ -1593,11 +1593,11 @@ def review_goal_business_witness(
     elif scene == "restaurant":
         kitchen = match(skills={"observe"}, mobility="ground",
                         region_id="kitchen_service", subject_ref="kitchen_service",
-                        observation_mode="opening_readiness",
+                        observation_mode="service_ground_readiness",
                         outcome="kitchen_service_inspected")
         dining = match(skills={"observe"}, mobility="ground",
                        region_id="dining_service", subject_ref="dining_service",
-                       observation_mode="opening_readiness",
+                       observation_mode="service_ground_readiness",
                        outcome="dining_service_inspected")
         require(kitchen, "restaurant:kitchen_observation_present")
         require(dining, "restaurant:dining_observation_present")

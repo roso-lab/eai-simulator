@@ -114,7 +114,7 @@ def build_restaurant_episode_plan(public_task: Mapping[str, Any]) -> dict[str, A
             "route_ids": ["restaurant_staging_to_kitchen"]}, [], NAVIGATION_WINDOW_S)
     append("restaurant_native_observe_kitchen", "observe",
            {"region_id": "kitchen_service", "subject_ref": "kitchen_service",
-            "observation_mode": "opening_readiness"},
+            "observation_mode": "service_ground_readiness"},
            ["restaurant_native_arrive_kitchen"], OBSERVATION_WINDOW_S)
     append("restaurant_native_return_after_kitchen", "ground_navigation",
            {"region_id": "restaurant_staging",
@@ -126,7 +126,7 @@ def build_restaurant_episode_plan(public_task: Mapping[str, Any]) -> dict[str, A
            ["restaurant_native_return_after_kitchen"], NAVIGATION_WINDOW_S)
     append("restaurant_native_observe_dining", "observe",
            {"region_id": "dining_service", "subject_ref": "dining_service",
-            "observation_mode": "opening_readiness"},
+            "observation_mode": "service_ground_readiness"},
            ["restaurant_native_arrive_dining"], OBSERVATION_WINDOW_S)
     append("restaurant_native_return_after_dining", "ground_navigation",
            {"region_id": "restaurant_staging",
@@ -882,6 +882,163 @@ _ROUTE_ORDER = (
 )
 
 
+def _finite_number(value: Any, label: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{label} must be a finite number")
+    result = float(value)
+    if not math.isfinite(result):
+        raise ValueError(f"{label} must be a finite number")
+    return result
+
+
+def _verify_archived_contact(row: Mapping[str, Any]) -> None:
+    route_id = str(row.get("route_id"))
+    steps = row.get("steps_taken")
+    if isinstance(steps, bool) or not isinstance(steps, int) or steps <= 0:
+        raise ValueError(f"invalid contact sample count for {route_id}")
+    identities = row.get("contact_view_identities")
+    ratios = row.get("wheel_contact_sample_ratios")
+    snapshots = row.get("contact_snapshots")
+    if (not isinstance(identities, Mapping)
+            or set(identities) != set(contact_probe.WHEEL_NAMES)
+            or not isinstance(ratios, Mapping)
+            or set(ratios) != set(contact_probe.WHEEL_NAMES)
+            or not isinstance(snapshots, list) or not snapshots):
+        raise ValueError(f"incomplete contact evidence for {route_id}")
+    for name in contact_probe.WHEEL_NAMES:
+        identity = identities[name]
+        if (not isinstance(identity, Mapping)
+                or not isinstance(identity.get("sensor_paths"), list)
+                or len(identity["sensor_paths"]) != 1
+                or not isinstance(identity["sensor_paths"][0], str)
+                or not identity["sensor_paths"][0].endswith(f"/{name}")
+                or identity.get("filter_paths") != [contact_probe.GROUND_COLLISION_PATH]
+                or identity.get("max_contact_data_count")
+                != contact_probe.CONTACT_BUFFER_CAPACITY):
+            raise ValueError(f"invalid contact view identity for {route_id}/{name}")
+        ratio = _finite_number(ratios[name], f"contact ratio {route_id}/{name}")
+        if not 0.0 <= ratio <= 1.0 or ratio < navigation_probe.MINIMUM_WHEEL_CONTACT_RATIO:
+            raise ValueError(f"contact ratio failed for {route_id}/{name}")
+    median = _finite_number(row.get("median_weight_support_ratio"),
+                            f"median support ratio {route_id}")
+    if (not navigation_probe.MINIMUM_MEDIAN_SUPPORT_RATIO
+            <= median <= navigation_probe.MAXIMUM_MEDIAN_SUPPORT_RATIO
+            or row.get("contact_buffer_capacity_reached") is not False):
+        raise ValueError(f"contact support evidence failed for {route_id}")
+    previous_step = 0
+    low_counts = {name: 0 for name in contact_probe.WHEEL_NAMES}
+    for snapshot in snapshots:
+        if not isinstance(snapshot, Mapping):
+            raise ValueError(f"invalid contact snapshot for {route_id}")
+        local_step = snapshot.get("route_control_step")
+        if (isinstance(local_step, bool) or not isinstance(local_step, int)
+                or not previous_step < local_step <= steps):
+            raise ValueError(f"unordered contact snapshots for {route_id}")
+        previous_step = local_step
+        _finite_number(snapshot.get("weight_support_ratio"),
+                       f"snapshot support ratio {route_id}")
+        wheels = snapshot.get("wheels")
+        if not isinstance(wheels, Mapping) or set(wheels) != set(contact_probe.WHEEL_NAMES):
+            raise ValueError(f"contact snapshot wheel set mismatch for {route_id}")
+        for name, wheel in wheels.items():
+            if not isinstance(wheel, Mapping):
+                raise ValueError(f"invalid wheel contact snapshot for {route_id}/{name}")
+            force = wheel.get("ground_force_N")
+            if not isinstance(force, list) or len(force) != 3:
+                raise ValueError(f"invalid ground force for {route_id}/{name}")
+            ground_z = _finite_number(force[2], f"ground force {route_id}/{name}")
+            if wheel.get("buffer_capacity_reached") is not False:
+                raise ValueError(f"contact buffer reached for {route_id}/{name}")
+            if ground_z <= contact_probe.CONTACT_FORCE_THRESHOLD_N:
+                low_counts[name] += 1
+    for name, low_count in low_counts.items():
+        reported_contact_steps = int(round(_finite_number(
+            ratios[name], f"contact ratio {route_id}/{name}") * steps))
+        if low_count > steps - reported_contact_steps:
+            raise ValueError(f"contact snapshots contradict ratio for {route_id}/{name}")
+    control = row.get("control_step_evidence")
+    if (not isinstance(control, Mapping) or control.get("validated") is not True
+            or control.get("sample_count") != steps
+            or row.get("contact_health_validated") is not True):
+        raise ValueError(f"contact/control validation failed for {route_id}")
+
+
+def _verify_archived_scene_observation(
+        row: Mapping[str, Any], request: Mapping[str, Any]) -> str:
+    region = row.get("region_id")
+    scene = row.get("scene_observation")
+    stamp = row.get("stamp")
+    if (region not in {"kitchen_service", "dining_service"}
+            or not isinstance(scene, Mapping) or not isinstance(stamp, Mapping)
+            or scene.get("schema") != "eai.restaurant.native_region_observation"
+            or scene.get("version") != 1
+            or scene.get("region_id") != region
+            or scene.get("producer_id") != ROBOT_ID
+            or scene.get("stamp") != stamp
+            or scene.get("scene_queries_enabled") is not True
+            or scene.get("query_kind")
+            != "episode_timestamped_physx_ground_support_raycast"
+            or scene.get("expected_collision_path") != contact_probe.GROUND_COLLISION_PATH):
+        raise ValueError(f"native observation evidence failed its contract: {region}")
+    center = request["region_bindings"][region]["center_xy_m"]
+    observed_xy = stamp.get("root_state_w", ())[:2]
+    if (scene.get("region_center_xy_m") != center
+            or scene.get("observed_robot_xy_m") != observed_xy
+            or len(observed_xy) != 2):
+        raise ValueError(f"native observation position binding failed: {region}")
+    expected_error = math.dist(
+        [_finite_number(value, f"observed position {region}") for value in observed_xy],
+        [_finite_number(value, f"region center {region}") for value in center])
+    archived_error = _finite_number(scene.get("region_error_m"),
+                                    f"region error {region}")
+    tolerance = _finite_number(scene.get("region_tolerance_m"),
+                               f"region tolerance {region}")
+    if (not math.isclose(archived_error, expected_error, abs_tol=1e-9)
+            or tolerance != REGION_OBSERVATION_TOLERANCE_M
+            or archived_error > tolerance):
+        raise ValueError(f"native observation lies outside its region: {region}")
+    samples = scene.get("support_samples")
+    expected_origins = {
+        (center[0] + dx, center[1] + dy, REGION_SUPPORT_RAY_HEIGHT_M)
+        for dx, dy in REGION_SUPPORT_SAMPLE_OFFSETS_M
+    }
+    if (not isinstance(samples, list) or len(samples) != len(expected_origins)
+            or scene.get("minimum_support_samples") != MINIMUM_REGION_SUPPORT_SAMPLES):
+        raise ValueError(f"native observation support sample set is incomplete: {region}")
+    seen_origins: set[tuple[float, float, float]] = set()
+    passed_count = 0
+    for sample in samples:
+        hit = sample.get("hit") if isinstance(sample, Mapping) else None
+        origin = sample.get("origin_m") if isinstance(sample, Mapping) else None
+        if (not isinstance(origin, list) or len(origin) != 3
+                or tuple(origin) not in expected_origins
+                or tuple(origin) in seen_origins
+                or sample.get("direction") != [0.0, 0.0, -1.0]
+                or sample.get("distance_m") != REGION_SUPPORT_RAY_DISTANCE_M
+                or not isinstance(hit, Mapping)):
+            raise ValueError(f"native observation support query mismatch: {region}")
+        seen_origins.add(tuple(origin))
+        position = hit.get("position_m")
+        normal = hit.get("normal")
+        predicate = (
+            hit.get("hit") is True
+            and hit.get("collision") == contact_probe.GROUND_COLLISION_PATH
+            and isinstance(position, list) and len(position) == 3
+            and abs(_finite_number(position[2], f"support height {region}")) <= 0.02
+            and isinstance(normal, list) and len(normal) == 3
+            and _finite_number(normal[2], f"support normal {region}") >= 0.99
+        )
+        if sample.get("passed") is not predicate:
+            raise ValueError(f"native observation support predicate mismatch: {region}")
+        passed_count += int(predicate)
+    if (seen_origins != expected_origins
+            or scene.get("passed_support_samples") != passed_count
+            or passed_count < MINIMUM_REGION_SUPPORT_SAMPLES
+            or scene.get("scene_observation_validated") is not True):
+        raise ValueError(f"native observation support validation failed: {region}")
+    return str(region)
+
+
 def verify_episode_archive(output_root: str | Path) -> dict[str, Any]:
     """Independently recompute a finished episode's evidence chain from disk.
 
@@ -1026,22 +1183,19 @@ def verify_episode_archive(output_root: str | Path) -> dict[str, Any]:
                  "restaurant_dining_to_staging": "restaurant_staging"}
     for row in arrivals:
         if (row.get("region_id") != region_of[row["route_id"]]
-                or row.get("contact_health_validated") is not True
                 or row.get("producer_id") != ROBOT_ID
                 or int(row["arrival"]["simulation_step"])
                 <= int(row["started"]["simulation_step"])):
             raise ValueError(f"native arrival evidence failed its contract: {row['route_id']}")
+        _verify_archived_contact(row)
     observation_by_region: dict[str, dict[str, Any]] = {}
     arrival_by_region: dict[str, dict[str, Any]] = {}
     for row in arrivals:
         arrival_by_region[row["region_id"]] = row
     for row in observations:
-        region = row.get("region_id")
-        if (region not in {"kitchen_service", "dining_service"}
-                or row.get("scene_observation", {}).get(
-                    "scene_observation_validated") is not True
-                or row.get("producer_id") != ROBOT_ID):
-            raise ValueError(f"native observation evidence failed its contract: {region}")
+        region = _verify_archived_scene_observation(row, request)
+        if row.get("producer_id") != ROBOT_ID:
+            raise ValueError(f"native observation producer mismatch: {region}")
         if region in observation_by_region:
             raise ValueError(f"duplicate native observation for {region}")
         observation_by_region[region] = row
@@ -1071,11 +1225,20 @@ def verify_episode_archive(output_root: str | Path) -> dict[str, Any]:
                              for row in (service.get("observations") or {}).values()}
     for observation in observation_by_region.values():
         service_row = observation.get("service_record") or {}
+        expected_digest = "sha256:" + canonical_sha256({
+            "episode_id": episode_id,
+            "region_id": observation["region_id"],
+            "producer_id": ROBOT_ID,
+            "scene_observation": observation["scene_observation"],
+        })
         if (service_row.get("observation_id") not in archived_observations
                 or service_row.get("simulation_step")
                 != observation["stamp"]["simulation_step"]
                 or service_row.get("time_s") != observation["stamp"]["time_s"]
-                or service_row.get("region_id") != observation["region_id"]):
+                or service_row.get("region_id") != observation["region_id"]
+                or service_row.get("producer_id") != ROBOT_ID
+                or service_row.get("evidence_digest") != expected_digest
+                or archived_observations[service_row["observation_id"]] != service_row):
             raise ValueError("archived service observation diverges from native stamp")
     review = evaluate_readiness_receipt(
         episode_id=episode_id, receipt=service.get("receipt"),

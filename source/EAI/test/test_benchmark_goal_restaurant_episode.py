@@ -9,7 +9,12 @@ import pytest
 from demo.benchmark.goal_driven_tasks import build_goal_task_package
 from demo.benchmark.goal_episode_runner import FormalGoalEpisodeRunner
 from demo.benchmark.goal_restaurant_episode import (
+    MINIMUM_REGION_SUPPORT_SAMPLES,
     PHYSICAL_LEGS,
+    REGION_OBSERVATION_TOLERANCE_M,
+    REGION_SUPPORT_RAY_DISTANCE_M,
+    REGION_SUPPORT_RAY_HEIGHT_M,
+    REGION_SUPPORT_SAMPLE_OFFSETS_M,
     ROBOT_ID,
     RestaurantNativeGoalBackend,
     RestaurantWitnessParticipant,
@@ -18,7 +23,7 @@ from demo.benchmark.goal_restaurant_episode import (
     verify_episode_archive,
 )
 from demo.benchmark.provenance import canonical_sha256, file_sha256
-from demo.restaurant_benchmark import runtime_probe
+from demo.restaurant_benchmark import contact_probe, runtime_probe
 
 
 class _FakeNavigator:
@@ -26,13 +31,14 @@ class _FakeNavigator:
         self.episode_time_s = 0.0
         self.step = 0
         self.driven = []
+        self.xy = list(PHYSICAL_LEGS["restaurant_staging_to_kitchen"]["start_xy_m"])
 
     def _stamp(self):
         return {
             "simulation_step": self.step,
             "episode_control_step": self.step,
             "time_s": self.episode_time_s,
-            "root_state_w": [0.0, 0.0, 0.2, 1.0, 0.0, 0.0, 0.0,
+            "root_state_w": [*self.xy, 0.2, 1.0, 0.0, 0.0, 0.0,
                              0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
         }
 
@@ -42,6 +48,12 @@ class _FakeNavigator:
         self.episode_time_s += 1.0
         self.driven.append(route_id)
         definition = PHYSICAL_LEGS[route_id]
+        self.xy = list(definition["goal_xy_m"])
+        wheels = {
+            name: {"ground_force_N": [0.0, 0.0, 25.0],
+                   "buffer_capacity_reached": False}
+            for name in contact_probe.WHEEL_NAMES
+        }
         return {
             "kind": "arrival", "route_id": route_id,
             "from_region_id": definition["from_region_id"],
@@ -49,6 +61,20 @@ class _FakeNavigator:
             "producer_id": ROBOT_ID, "arrival": self._stamp(),
             "started": started,
             "steps_taken": 1, "deadline_s": deadline_s,
+            "control_step_evidence": {"validated": True, "sample_count": 1},
+            "contact_view_identities": {
+                name: {"sensor_paths": [f"/World/m20/{name}"],
+                       "filter_paths": [contact_probe.GROUND_COLLISION_PATH],
+                       "max_contact_data_count": contact_probe.CONTACT_BUFFER_CAPACITY}
+                for name in contact_probe.WHEEL_NAMES
+            },
+            "contact_snapshots": [{"route_control_step": 1,
+                                   "weight_support_ratio": 1.0,
+                                   "wheels": wheels}],
+            "wheel_contact_sample_ratios": {
+                name: 1.0 for name in contact_probe.WHEEL_NAMES},
+            "median_weight_support_ratio": 1.0,
+            "contact_buffer_capacity_reached": False,
             "contact_health_validated": True,
         }
 
@@ -66,11 +92,31 @@ class _FakeNavigator:
 
     def observe_region(self, region_id):
         stamp = self.step_once()
+        samples = []
+        for dx, dy in REGION_SUPPORT_SAMPLE_OFFSETS_M:
+            samples.append({
+                "origin_m": [self.xy[0] + dx, self.xy[1] + dy,
+                             REGION_SUPPORT_RAY_HEIGHT_M],
+                "direction": [0.0, 0.0, -1.0],
+                "distance_m": REGION_SUPPORT_RAY_DISTANCE_M,
+                "hit": {"hit": True, "collision": contact_probe.GROUND_COLLISION_PATH,
+                        "position_m": [self.xy[0] + dx, self.xy[1] + dy, 0.0],
+                        "normal": [0.0, 0.0, 1.0]},
+                "passed": True,
+            })
         return {
             "schema": "eai.restaurant.native_region_observation", "version": 1,
             "region_id": region_id, "producer_id": ROBOT_ID,
-            "query_kind": "offline_fake_raycast",
-            "region_error_m": 0.0, "passed_support_samples": 4,
+            "query_kind": "episode_timestamped_physx_ground_support_raycast",
+            "scene_queries_enabled": True,
+            "expected_collision_path": contact_probe.GROUND_COLLISION_PATH,
+            "region_center_xy_m": list(self.xy),
+            "observed_robot_xy_m": list(self.xy),
+            "region_error_m": 0.0,
+            "region_tolerance_m": REGION_OBSERVATION_TOLERANCE_M,
+            "support_samples": samples,
+            "minimum_support_samples": MINIMUM_REGION_SUPPORT_SAMPLES,
+            "passed_support_samples": len(samples),
             "scene_observation_validated": True, "stamp": stamp,
         }
 
@@ -243,6 +289,27 @@ def _refresh_hashes(base: Path, *, evidence: bool = True, snapshot: bool = False
     _write(base / "process.json", process)
 
 
+def _replace_evidence_ref(base: Path, stale_ref: str, fresh_ref: str) -> None:
+    receipts_path = base / "goal_episode" / "skill_receipts.json"
+    receipts = json.loads(receipts_path.read_text())
+    for receipt in receipts:
+        receipt["evidence_refs"] = [fresh_ref if ref == stale_ref else ref
+                                    for ref in receipt.get("evidence_refs", [])]
+    _write(receipts_path, receipts)
+    business_path = base / "goal_episode" / "business_evidence.json"
+    business = json.loads(business_path.read_text())
+    for row in business["outcomes"].values():
+        row["evidence_refs"] = [fresh_ref if ref == stale_ref else ref
+                                for ref in row.get("evidence_refs", [])]
+    _write(business_path, business)
+    session_path = base / "goal_episode" / "goal_session_report.json"
+    session_report = json.loads(session_path.read_text())
+    for row in session_report["report"]["business_outcomes"]:
+        row["evidence_refs"] = [fresh_ref if ref == stale_ref else ref
+                                for ref in row.get("evidence_refs", [])]
+    _write(session_path, session_report)
+
+
 def test_archive_verifier_accepts_a_complete_synthetic_archive(tmp_path: Path):
     base = _build_synthetic_archive(tmp_path / "archive")
     verification = verify_episode_archive(base)
@@ -271,31 +338,70 @@ def test_archive_verifier_rejects_self_consistent_causality_tampering(tmp_path: 
                        if row["kind"] == "observation"
                        and row["region_id"] == "kitchen_service")
     observation["stamp"]["simulation_step"] = 0
+    observation["scene_observation"]["stamp"]["simulation_step"] = 0
     body = {key: value for key, value in observation.items() if key != "evidence_ref"}
     stale_ref = observation["evidence_ref"]
     fresh_ref = "sha256:" + canonical_sha256(body)
     observation["evidence_ref"] = fresh_ref
     _write(log_path, log)
-    receipts_path = base / "goal_episode" / "skill_receipts.json"
-    receipts = json.loads(receipts_path.read_text())
-    for receipt in receipts:
-        receipt["evidence_refs"] = [fresh_ref if ref == stale_ref else ref
-                                    for ref in receipt.get("evidence_refs", [])]
-    _write(receipts_path, receipts)
-    business_path = base / "goal_episode" / "business_evidence.json"
-    business = json.loads(business_path.read_text())
-    for row in business["outcomes"].values():
-        row["evidence_refs"] = [fresh_ref if ref == stale_ref else ref
-                                for ref in row.get("evidence_refs", [])]
-    _write(business_path, business)
-    session_path = base / "goal_episode" / "goal_session_report.json"
-    session_report = json.loads(session_path.read_text())
-    for row in session_report["report"]["business_outcomes"]:
-        row["evidence_refs"] = [fresh_ref if ref == stale_ref else ref
-                                for ref in row.get("evidence_refs", [])]
-    _write(session_path, session_report)
+    _replace_evidence_ref(base, stale_ref, fresh_ref)
     _refresh_hashes(base)
     with pytest.raises(ValueError, match="not caused by its arrival"):
+        verify_episode_archive(base)
+
+
+def test_archive_verifier_recomputes_contact_health_after_self_consistent_tamper(
+        tmp_path: Path):
+    base = _build_synthetic_archive(tmp_path / "archive")
+    log_path = base / "goal_episode" / "native_evidence_log.json"
+    log = json.loads(log_path.read_text())
+    arrival = next(row for row in log["records"] if row["kind"] == "arrival")
+    wheel = contact_probe.WHEEL_NAMES[0]
+    arrival["wheel_contact_sample_ratios"][wheel] = 0.0
+    arrival["contact_snapshots"][0]["wheels"][wheel]["ground_force_N"][2] = 0.0
+    stale_ref = arrival["evidence_ref"]
+    body = {key: value for key, value in arrival.items() if key != "evidence_ref"}
+    fresh_ref = "sha256:" + canonical_sha256(body)
+    arrival["evidence_ref"] = fresh_ref
+    _write(log_path, log)
+    _replace_evidence_ref(base, stale_ref, fresh_ref)
+    _refresh_hashes(base)
+    with pytest.raises(ValueError, match="contact ratio failed"):
+        verify_episode_archive(base)
+
+
+def test_archive_verifier_recomputes_scene_observation_after_self_consistent_tamper(
+        tmp_path: Path):
+    base = _build_synthetic_archive(tmp_path / "archive")
+    log_path = base / "goal_episode" / "native_evidence_log.json"
+    log = json.loads(log_path.read_text())
+    observation = next(row for row in log["records"] if row["kind"] == "observation")
+    scene = observation["scene_observation"]
+    scene["observed_robot_xy_m"] = [999.0, 999.0]
+    scene["region_error_m"] = 999.0
+    scene["passed_support_samples"] = 0
+    for sample in scene["support_samples"]:
+        sample["hit"]["hit"] = False
+        sample["passed"] = False
+    observation["service_record"]["evidence_digest"] = "sha256:" + canonical_sha256({
+        "episode_id": observation["episode_id"],
+        "region_id": observation["region_id"],
+        "producer_id": ROBOT_ID,
+        "scene_observation": scene,
+    })
+    stale_ref = observation["evidence_ref"]
+    body = {key: value for key, value in observation.items() if key != "evidence_ref"}
+    fresh_ref = "sha256:" + canonical_sha256(body)
+    observation["evidence_ref"] = fresh_ref
+    _write(log_path, log)
+    _replace_evidence_ref(base, stale_ref, fresh_ref)
+    snapshot_path = base / "goal_episode" / "readiness_service_snapshot.json"
+    snapshot = json.loads(snapshot_path.read_text())
+    region = observation["region_id"]
+    snapshot["service"]["observations"][region] = observation["service_record"]
+    _write(snapshot_path, snapshot)
+    _refresh_hashes(base, snapshot=True)
+    with pytest.raises(ValueError, match="position binding failed"):
         verify_episode_archive(base)
 
 
