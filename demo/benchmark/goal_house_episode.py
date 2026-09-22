@@ -128,9 +128,10 @@ class HouseNativeGoalBackend:
                 or row["task"] != task or row["plan_id"] != ledger["current_plan_id"]):
             raise ValueError("native house task does not match the pending GoalSession dispatch")
         duration = float(task["execution"]["duration_s"])
+        window_end = float(task["execution"]["start_s"]) + duration
         observed = None
         if self.session is None:
-            self.time_s += duration
+            self.time_s = max(self.time_s, window_end)
         else:
             import torch
             dt = float(self.session.base_env.step_dt)
@@ -139,7 +140,9 @@ class HouseNativeGoalBackend:
             for _ in range(steps):
                 actions = {agent: torch.zeros((1, 3), device=self.session.device) for agent in agents}
                 self.session.env.step(actions)
-            self.time_s = float(self.session.base_env.sim.current_time)
+            # The ledger follows the plan window. A short physics step must not
+            # dispatch the next skill before its half-open window opens.
+            self.time_s = max(self.time_s, window_end, float(self.session.base_env.sim.current_time))
             if self.deployment is not None and task["skill"] == "observe":
                 from demo.benchmark.goal_native_objects import read_goal_objects
                 import omni.usd
@@ -279,20 +282,21 @@ def _run_house_worker(root: Path) -> dict[str, Any]:
             public, package["participant_api"], HouseWitnessParticipant(plan), backend,
             output_root=root / "goal_episode")
         result = runner.run(initial_state=house_runtime_state(public))
-    summary = {
-        "episode_id": result["episode_id"],
-        "error": result["error"],
-        "turns": result["turns"],
-        "skill_receipt_count": result["skill_receipt_count"],
-        "task_id": public["task_id"],
-        "roster_profile": request["roster_profile"],
-        "device": request["device"],
-        "possible_agents": agents,
-        "pending_skills": [row["skill"] for row in backend.evidence if row["status"] != "succeeded"],
-        "scoreable": False,
-    }
-    (root / "house_episode_summary.json").write_text(
-        json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        summary = {
+            "episode_id": result["episode_id"],
+            "error": result["error"],
+            "turns": result["turns"],
+            "skill_receipt_count": result["skill_receipt_count"],
+            "task_id": public["task_id"],
+            "roster_profile": request["roster_profile"],
+            "device": request["device"],
+            "possible_agents": agents,
+            "pending_skills": [row["skill"] for row in backend.evidence
+                               if row["status"] != "succeeded"],
+            "scoreable": False,
+        }
+        (root / "house_episode_summary.json").write_text(
+            json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return summary
 
 
