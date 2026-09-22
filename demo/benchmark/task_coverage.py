@@ -11,10 +11,18 @@ SCENES = ("factory", "warehouse_nvd", "modern_house_nvd", "city")
 M0_MECHANISMS = (
     "decomposition", "role_allocation", "communication_adaptation", "role_churn_recovery",
 )
-EXPECTED_MECHANISMS = set(M0_MECHANISMS) | {
+M1_MECHANISMS = (
     "timing_synchronization", "resource_contention", "recovery_replanning",
     "multi_bottleneck_calibration",
-}
+)
+EXPECTED_MECHANISMS = set(M0_MECHANISMS) | set(M1_MECHANISMS)
+
+
+def _expected_scene_template_ids(scene: str) -> list[str]:
+    return (
+        [f"{scene}.m0.{mechanism}" for mechanism in M0_MECHANISMS]
+        + [f"{scene}.m1.{mechanism}" for mechanism in M1_MECHANISMS]
+    )
 
 
 def load_coverage_matrix(path: str | Path | None = None) -> dict[str, Any]:
@@ -50,12 +58,25 @@ def validate_coverage_matrix(value: Mapping[str, Any]) -> dict[str, Any]:
                 "m0_target_canonical_templates", "m1_target_canonical_templates"):
         if not isinstance(counts.get(key), int) or counts[key] < 0:
             raise ValueError(f"coverage count {key} must be a nonnegative integer")
+    if counts["current_goal_packages"] != 36 or counts["current_factor_pairs"] != 28:
+        raise ValueError("coverage matrix must preserve the legacy 36/28 package and factor counts")
+    if counts["m0_target_canonical_templates"] != 16:
+        raise ValueError("coverage matrix must keep the M0 target at 16 templates")
+    if counts["m1_target_canonical_templates"] != 32:
+        raise ValueError("coverage matrix must keep the M1 target at 32 templates")
+    if counts["current_canonical_templates"] != 32:
+        raise ValueError("coverage matrix must declare 32 current canonical templates")
     taxonomy = value["mechanism_taxonomy"]
     if not isinstance(taxonomy, list) or {row.get("mechanism_id") for row in taxonomy} != EXPECTED_MECHANISMS:
         raise ValueError("coverage taxonomy must contain exactly the eight registered mechanisms")
     for row in taxonomy:
-        if row.get("m0") is True and row["mechanism_id"] not in M0_MECHANISMS:
+        mechanism_id = row["mechanism_id"]
+        if row.get("m0") is True and mechanism_id not in M0_MECHANISMS:
             raise ValueError("non-M0 mechanism cannot be marked as an M0 target")
+        if mechanism_id in M0_MECHANISMS and row.get("m0") is not True:
+            raise ValueError("M0 mechanism must remain marked as an M0 target")
+        if mechanism_id in M1_MECHANISMS and row.get("m0") is not False:
+            raise ValueError("M1 mechanism must remain marked m0=false")
         for field in ("collaboration_primitive", "measurement_target", "failure_mechanisms",
                       "eligible_metrics", "calibration_role"):
             if field not in row or not row[field]:
@@ -67,6 +88,10 @@ def validate_coverage_matrix(value: Mapping[str, Any]) -> dict[str, Any]:
         row = coverage[scene]
         if set(row.get("m0_required_mechanisms", ())) != set(M0_MECHANISMS):
             raise ValueError(f"scene {scene} does not have the complete M0 mechanism target")
+        expected_ids = _expected_scene_template_ids(scene)
+        listed = row.get("current_canonical_templates")
+        if not isinstance(listed, list) or listed != expected_ids:
+            raise ValueError(f"scene {scene} must list the eight M0+M1 canonical template ids")
         if row.get("current_status") not in {
             "legacy_measurement_unclassified",
             "m0_authoring_classified_execution_pending",
@@ -97,9 +122,45 @@ def validate_m0_template_registry(*, scenes: tuple[str, ...] = SCENES,
     ids = [row.get("template_id") for row in rows]
     if len(ids) != len(set(ids)):
         raise ValueError("M0 registry template ids must be unique")
+    if any(".m1." in template_id for template_id in ids):
+        raise ValueError("M0 registry validation must not include M1 template ids")
     return {"validated": True, "canonical_template_count": len(rows),
             "scene_count": len(scenes), "mechanism_count": len(mechanisms),
             "execution_validated": False, "scoreable": False}
 
 
-__all__ = ["load_coverage_matrix", "validate_coverage_matrix", "validate_m0_template_registry"]
+def validate_m1_template_registry(*, scenes: tuple[str, ...] = SCENES,
+                                  mechanisms: tuple[str, ...] = M1_MECHANISMS) -> dict[str, Any]:
+    """Check that the authoring registry covers the declared M1 grid (16 rows).
+
+    This is independent of :func:`validate_m0_template_registry`, which must
+    continue to assert exactly the 16 M0 templates.
+    """
+    from .mechanism_templates import M1_MECHANISMS as registry_m1
+    from .mechanism_templates import registered_mechanism_templates
+
+    if tuple(scenes) != SCENES or tuple(mechanisms) != M1_MECHANISMS:
+        raise ValueError("M1 registry validation must use the canonical scene and mechanism order")
+    if tuple(mechanisms) != registry_m1:
+        raise ValueError("M1 registry mechanisms must match the template module")
+    rows = registered_mechanism_templates(scenes=scenes, mechanisms=mechanisms)
+    expected = len(scenes) * len(mechanisms)
+    if len(rows) != expected or any(row.get("execution_status") != "external_pending" for row in rows):
+        raise ValueError("M1 registry must contain one pending template per scene/mechanism pair")
+    ids = [row.get("template_id") for row in rows]
+    if len(ids) != len(set(ids)):
+        raise ValueError("M1 registry template ids must be unique")
+    if any(not isinstance(template_id, str) or ".m1." not in template_id for template_id in ids):
+        raise ValueError("M1 registry template ids must use the .m1. tier")
+    if any(row.get("scoreable") is not False for row in rows):
+        raise ValueError("M1 registry templates cannot claim scoreability")
+    return {"validated": True, "canonical_template_count": len(rows),
+            "scene_count": len(scenes), "mechanism_count": len(mechanisms),
+            "execution_validated": False, "scoreable": False}
+
+
+__all__ = [
+    "M0_MECHANISMS", "M1_MECHANISMS", "load_coverage_matrix",
+    "validate_coverage_matrix", "validate_m0_template_registry",
+    "validate_m1_template_registry",
+]

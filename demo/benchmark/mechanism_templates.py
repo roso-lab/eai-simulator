@@ -1,9 +1,10 @@
 """Canonical collaboration-mechanism templates for the goal benchmark.
 
 The legacy goal bundles deliberately remain available for compatibility.  This
-module is the authoring registry for the next track: one template per scene and
-M0 mechanism.  A template describes the measurement question and evidence
-boundary; it never claims that the mechanism has been physically executed.
+module is the authoring registry for scene × mechanism templates.  The default
+M0 grid remains sixteen templates; an explicit M1 grid adds sixteen more.
+A template describes the measurement question and evidence boundary; it never
+claims that the mechanism has been physically executed.
 """
 
 from __future__ import annotations
@@ -35,6 +36,14 @@ M0_MECHANISMS = (
     "communication_adaptation",
     "role_churn_recovery",
 )
+M1_MECHANISMS = (
+    "timing_synchronization",
+    "resource_contention",
+    "recovery_replanning",
+    "multi_bottleneck_calibration",
+)
+_MECHANISM_TIER = {name: "m0" for name in M0_MECHANISMS}
+_MECHANISM_TIER.update({name: "m1" for name in M1_MECHANISMS})
 
 _MECHANISM = {
     "decomposition": {
@@ -82,6 +91,50 @@ _MECHANISM = {
         "calibration_role": "known_fault",
         "calibration_condition": "known_fault",
     },
+    "timing_synchronization": {
+        "primitive": "deadline_and_barrier_coordination",
+        "question": "Can the team coordinate deadlines, waits and synchronization barriers without premature commit?",
+        "failures": ["premature_commit", "barrier_deadlock", "deadline_miss"],
+        "metrics": ["coordination_wait", "deadline_slack", "barrier_release_latency"],
+        "kind": "I-timing",
+        "mutable": ["deadline", "wait_window", "barrier"],
+        "evidence": ["timing_event", "deadline_event", "barrier_event"],
+        "calibration_role": "single_factor_control",
+        "calibration_condition": "no_fault",
+    },
+    "resource_contention": {
+        "primitive": "shared_resource_arbitration",
+        "question": "Can the team arbitrate shared routes, payload supports and business resources under conflict?",
+        "failures": ["resource_conflict", "unsafe_overlap", "priority_inversion"],
+        "metrics": ["conflict_duration", "resource_wait", "recovery_count"],
+        "kind": "I-role",
+        "mutable": ["role_assignments"],
+        "evidence": ["decision_event", "failure_event"],
+        "calibration_role": "known_fault",
+        "calibration_condition": "known_fault",
+    },
+    "recovery_replanning": {
+        "primitive": "fault_triggered_replanning",
+        "question": "Can the team revise an incomplete plan while preserving business identity and evidence?",
+        "failures": ["plan_staleness", "partial_commit_loss", "repeated_failure"],
+        "metrics": ["replan_latency", "recovery_completion", "duplicate_work"],
+        "kind": "I-role",
+        "mutable": ["role_assignments"],
+        "evidence": ["decision_event", "ledger_event", "failure_event"],
+        "calibration_role": "known_fault",
+        "calibration_condition": "known_fault",
+    },
+    "multi_bottleneck_calibration": {
+        "primitive": "ambiguous_intervention_diagnosis",
+        "question": "Can probes distinguish a unique mechanism from multiple mechanisms that can explain or rescue an outcome?",
+        "failures": ["multiple_explanations", "non_identifiable_cause", "invalid_intervention"],
+        "metrics": ["probe_precision", "probe_recall", "identifiability_status"],
+        "kind": "I-role",
+        "mutable": ["role_assignments"],
+        "evidence": ["intervention_applied", "failure_event"],
+        "calibration_role": "multi_bottleneck",
+        "calibration_condition": "multi_bottleneck",
+    },
 }
 
 _SCENE_FOCUS = {
@@ -103,9 +156,15 @@ def canonical_template_id(scene_key: str, mechanism_family: str) -> str:
     """Return the stable, seed- and factor-independent template identifier."""
     if scene_key not in SCENES:
         raise ValueError(f"unsupported mechanism-template scene: {scene_key}")
-    if mechanism_family not in M0_MECHANISMS:
-        raise ValueError(f"unsupported M0 mechanism: {mechanism_family}")
-    return f"{scene_key}.m0.{mechanism_family}"
+    tier = _MECHANISM_TIER.get(mechanism_family)
+    if tier is None:
+        raise ValueError(f"unsupported mechanism: {mechanism_family}")
+    return f"{scene_key}.{tier}.{mechanism_family}"
+
+
+def registered_mechanism_families() -> tuple[str, ...]:
+    """Return M0 then M1 families in registry order (32-template combined grid)."""
+    return M0_MECHANISMS + M1_MECHANISMS
 
 
 def _build_measurement_contract(scene_key: str, mechanism_family: str,
@@ -174,7 +233,7 @@ def build_team_necessity_certificate(
     """
     if scene_key not in SCENES:
         raise ValueError(f"unsupported necessity-certificate scene: {scene_key}")
-    if mechanism_family not in M0_MECHANISMS:
+    if mechanism_family not in _MECHANISM_TIER:
         raise ValueError(f"unsupported necessity-certificate mechanism: {mechanism_family}")
     if status not in {"validated", "disproven", "unknown"}:
         raise ValueError("necessity certificate status must be validated, disproven or unknown")
@@ -307,6 +366,12 @@ def build_mechanism_template(scene_key: str, mechanism_family: str) -> dict[str,
 
 def registered_mechanism_templates(*, scenes: Sequence[str] = SCENES,
                                    mechanisms: Sequence[str] = M0_MECHANISMS) -> list[dict[str, Any]]:
+    """Build templates for the selected grid.
+
+    The default arguments remain the M0 4×4 authoring grid (16 rows).  Pass
+    ``mechanisms=M1_MECHANISMS`` for the M1 grid, or
+    ``mechanisms=registered_mechanism_families()`` for the combined 32-row set.
+    """
     rows = []
     for scene in scenes:
         for mechanism in mechanisms:
@@ -315,9 +380,10 @@ def registered_mechanism_templates(*, scenes: Sequence[str] = SCENES,
 
 
 __all__ = [
-    "M0_MECHANISMS", "MECHANISM_TEMPLATE_SCHEMA", "MECHANISM_TEMPLATE_VERSION",
-    "TEAM_NECESSITY_SCHEMA", "TEAM_NECESSITY_VERSION", "SCENES",
-    "build_mechanism_template", "build_team_necessity_certificate",
-    "canonical_template_id", "registered_mechanism_templates",
-    "validate_mechanism_template", "validate_team_necessity_certificate",
+    "M0_MECHANISMS", "M1_MECHANISMS", "MECHANISM_TEMPLATE_SCHEMA",
+    "MECHANISM_TEMPLATE_VERSION", "TEAM_NECESSITY_SCHEMA", "TEAM_NECESSITY_VERSION",
+    "SCENES", "build_mechanism_template", "build_team_necessity_certificate",
+    "canonical_template_id", "registered_mechanism_families",
+    "registered_mechanism_templates", "validate_mechanism_template",
+    "validate_team_necessity_certificate",
 ]

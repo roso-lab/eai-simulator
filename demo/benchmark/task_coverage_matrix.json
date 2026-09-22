@@ -15,16 +15,25 @@
       "statistical_generalization",
       "runtime_execution_validation"
     ],
-    "unknown_states": ["unknown", "non_identifiable", "external_pending"]
+    "unknown_states": [
+      "unknown",
+      "non_identifiable",
+      "external_pending"
+    ]
   },
-  "scene_keys": ["factory", "warehouse_nvd", "modern_house_nvd", "city"],
+  "scene_keys": [
+    "factory",
+    "warehouse_nvd",
+    "modern_house_nvd",
+    "city"
+  ],
   "counting_policy": {
     "canonical_template": "A distinct collaboration mechanism and business structure, independent of factor level and random seed.",
     "condition": "A canonical template instantiated with a frozen factor treatment or control condition.",
     "diagnostic_track": "A fixed-DAG or service-probe artifact outside the goal-driven canonical-template count.",
     "current_goal_packages": 36,
     "current_factor_pairs": 28,
-    "current_canonical_templates": 16,
+    "current_canonical_templates": 32,
     "m0_target_canonical_templates": 16,
     "m1_target_canonical_templates": 32
   },
@@ -33,8 +42,16 @@
       "mechanism_id": "decomposition",
       "collaboration_primitive": "task_decomposition",
       "measurement_target": "How the system exposes and sequences interdependent business subtasks.",
-      "failure_mechanisms": ["hidden_dependency", "incomplete_decomposition", "invalid_merge"],
-      "eligible_metrics": ["uncovered_objective", "dependency_violation", "replan_count"],
+      "failure_mechanisms": [
+        "hidden_dependency",
+        "incomplete_decomposition",
+        "invalid_merge"
+      ],
+      "eligible_metrics": [
+        "uncovered_objective",
+        "dependency_violation",
+        "replan_count"
+      ],
       "calibration_role": "known_failure_and_no_fault",
       "m0": true
     },
@@ -42,8 +59,18 @@
       "mechanism_id": "role_allocation",
       "collaboration_primitive": "capability_matched_assignment",
       "measurement_target": "How responsibility is assigned to agents with the required public capabilities.",
-      "failure_mechanisms": ["stale_assignment", "responsibility_vacuum", "capability_mismatch"],
-      "eligible_metrics": ["assignment_latency", "uncovered_objective", "duplicate_work", "active_team_size", "activation_cost_proxy"],
+      "failure_mechanisms": [
+        "stale_assignment",
+        "responsibility_vacuum",
+        "capability_mismatch"
+      ],
+      "eligible_metrics": [
+        "assignment_latency",
+        "uncovered_objective",
+        "duplicate_work",
+        "active_team_size",
+        "activation_cost_proxy"
+      ],
       "calibration_role": "known_failure_and_counterfactual_control",
       "m0": true
     },
@@ -51,8 +78,16 @@
       "mechanism_id": "communication_adaptation",
       "collaboration_primitive": "information_delivery_and_recovery",
       "measurement_target": "How the system adapts decisions to delayed, dropped, stale or bandwidth-limited information.",
-      "failure_mechanisms": ["stale_observation", "message_loss", "inconsistent_world_model"],
-      "eligible_metrics": ["message_recovery_latency", "stale_consumption", "coordination_wait"],
+      "failure_mechanisms": [
+        "stale_observation",
+        "message_loss",
+        "inconsistent_world_model"
+      ],
+      "eligible_metrics": [
+        "message_recovery_latency",
+        "stale_consumption",
+        "coordination_wait"
+      ],
       "calibration_role": "single_factor_control",
       "m0": true
     },
@@ -60,8 +95,16 @@
       "mechanism_id": "role_churn_recovery",
       "collaboration_primitive": "join_exit_capability_reassignment",
       "measurement_target": "How responsibility is recovered after membership or capability changes.",
-      "failure_mechanisms": ["responsibility_vacuum", "duplicate_work", "unacknowledged_exit"],
-      "eligible_metrics": ["reassignment_latency", "uncovered_duration", "recovery_completion"],
+      "failure_mechanisms": [
+        "responsibility_vacuum",
+        "duplicate_work",
+        "unacknowledged_exit"
+      ],
+      "eligible_metrics": [
+        "reassignment_latency",
+        "uncovered_duration",
+        "recovery_completion"
+      ],
       "calibration_role": "known_failure_and_no_fault",
       "m0": true
     },
@@ -69,8 +112,16 @@
       "mechanism_id": "timing_synchronization",
       "collaboration_primitive": "deadline_and_barrier_coordination",
       "measurement_target": "How agents coordinate deadlines, waits and synchronization barriers.",
-      "failure_mechanisms": ["premature_commit", "barrier_deadlock", "deadline_miss"],
-      "eligible_metrics": ["coordination_wait", "deadline_slack", "barrier_release_latency"],
+      "failure_mechanisms": [
+        "premature_commit",
+        "barrier_deadlock",
+        "deadline_miss"
+      ],
+      "eligible_metrics": [
+        "coordination_wait",
+        "deadline_slack",
+        "barrier_release_latency"
+      ],
       "calibration_role": "timing_control",
       "m0": false
     },
@@ -78,8 +129,16 @@
       "mechanism_id": "resource_contention",
       "collaboration_primitive": "shared_resource_arbitration",
       "measurement_target": "How agents arbitrate shared routes, payload supports and business resources.",
-      "failure_mechanisms": ["resource_conflict", "unsafe_overlap", "priority_inversion"],
-      "eligible_metrics": ["conflict_duration", "resource_wait", "recovery_count"],
+      "failure_mechanisms": [
+        "resource_conflict",
+        "unsafe_overlap",
+        "priority_inversion"
+      ],
+      "eligible_metrics": [
+        "conflict_duration",
+        "resource_wait",
+        "recovery_count"
+      ],
       "calibration_role": "contention_control",
       "m0": false
     },
@@ -87,8 +146,16 @@
       "mechanism_id": "recovery_replanning",
       "collaboration_primitive": "fault_triggered_replanning",
       "measurement_target": "How a team revises an incomplete plan while preserving business identity and evidence.",
-      "failure_mechanisms": ["plan_staleness", "partial_commit_loss", "repeated_failure"],
-      "eligible_metrics": ["replan_latency", "recovery_completion", "duplicate_work"],
+      "failure_mechanisms": [
+        "plan_staleness",
+        "partial_commit_loss",
+        "repeated_failure"
+      ],
+      "eligible_metrics": [
+        "replan_latency",
+        "recovery_completion",
+        "duplicate_work"
+      ],
       "calibration_role": "known_fault_and_joint_rescue",
       "m0": false
     },
@@ -96,45 +163,134 @@
       "mechanism_id": "multi_bottleneck_calibration",
       "collaboration_primitive": "ambiguous_intervention_diagnosis",
       "measurement_target": "Whether probes distinguish a unique mechanism from multiple mechanisms that can explain or rescue an outcome.",
-      "failure_mechanisms": ["multiple_explanations", "non_identifiable_cause", "invalid_intervention"],
-      "eligible_metrics": ["probe_precision", "probe_recall", "identifiability_status"],
+      "failure_mechanisms": [
+        "multiple_explanations",
+        "non_identifiable_cause",
+        "invalid_intervention"
+      ],
+      "eligible_metrics": [
+        "probe_precision",
+        "probe_recall",
+        "identifiability_status"
+      ],
       "calibration_role": "multi_bottleneck_and_non_identifiable",
       "m0": false
     }
   ],
   "scene_coverage": {
     "factory": {
-      "current_canonical_templates": ["factory.m0.decomposition", "factory.m0.role_allocation", "factory.m0.communication_adaptation", "factory.m0.role_churn_recovery"],
+      "current_canonical_templates": [
+        "factory.m0.decomposition",
+        "factory.m0.role_allocation",
+        "factory.m0.communication_adaptation",
+        "factory.m0.role_churn_recovery",
+        "factory.m1.timing_synchronization",
+        "factory.m1.resource_contention",
+        "factory.m1.recovery_replanning",
+        "factory.m1.multi_bottleneck_calibration"
+      ],
       "current_status": "m0_authoring_classified_execution_pending",
-      "m0_required_mechanisms": ["decomposition", "role_allocation", "communication_adaptation", "role_churn_recovery"],
-      "diagnostic_tracks": ["F-INS", "F-TRAFFIC", "F-COV", "F-VERT"],
+      "m0_required_mechanisms": [
+        "decomposition",
+        "role_allocation",
+        "communication_adaptation",
+        "role_churn_recovery"
+      ],
+      "diagnostic_tracks": [
+        "F-INS",
+        "F-TRAFFIC",
+        "F-COV",
+        "F-VERT"
+      ],
       "load_note": "Three outcomes and two semantically distinct witness plans; stair traversal is a fixed execution prerequisite."
     },
     "warehouse_nvd": {
-      "current_canonical_templates": ["warehouse_nvd.m0.decomposition", "warehouse_nvd.m0.role_allocation", "warehouse_nvd.m0.communication_adaptation", "warehouse_nvd.m0.role_churn_recovery"],
+      "current_canonical_templates": [
+        "warehouse_nvd.m0.decomposition",
+        "warehouse_nvd.m0.role_allocation",
+        "warehouse_nvd.m0.communication_adaptation",
+        "warehouse_nvd.m0.role_churn_recovery",
+        "warehouse_nvd.m1.timing_synchronization",
+        "warehouse_nvd.m1.resource_contention",
+        "warehouse_nvd.m1.recovery_replanning",
+        "warehouse_nvd.m1.multi_bottleneck_calibration"
+      ],
       "current_status": "m0_authoring_classified_execution_pending",
-      "m0_required_mechanisms": ["decomposition", "role_allocation", "communication_adaptation", "role_churn_recovery"],
-      "diagnostic_tracks": ["W-DAG-01", "warehouse_smoke"],
+      "m0_required_mechanisms": [
+        "decomposition",
+        "role_allocation",
+        "communication_adaptation",
+        "role_churn_recovery"
+      ],
+      "diagnostic_tracks": [
+        "W-DAG-01",
+        "warehouse_smoke"
+      ],
       "load_note": "Four outcomes and two witness plans; cooperative transport and shared dock resources are business constraints, not yet mechanism labels."
     },
     "modern_house_nvd": {
-      "current_canonical_templates": ["modern_house_nvd.m0.decomposition", "modern_house_nvd.m0.role_allocation", "modern_house_nvd.m0.communication_adaptation", "modern_house_nvd.m0.role_churn_recovery"],
+      "current_canonical_templates": [
+        "modern_house_nvd.m0.decomposition",
+        "modern_house_nvd.m0.role_allocation",
+        "modern_house_nvd.m0.communication_adaptation",
+        "modern_house_nvd.m0.role_churn_recovery",
+        "modern_house_nvd.m1.timing_synchronization",
+        "modern_house_nvd.m1.resource_contention",
+        "modern_house_nvd.m1.recovery_replanning",
+        "modern_house_nvd.m1.multi_bottleneck_calibration"
+      ],
       "current_status": "m0_authoring_classified_execution_pending",
-      "m0_required_mechanisms": ["decomposition", "role_allocation", "communication_adaptation", "role_churn_recovery"],
-      "diagnostic_tracks": ["MH-DAG-01", "house_smoke"],
+      "m0_required_mechanisms": [
+        "decomposition",
+        "role_allocation",
+        "communication_adaptation",
+        "role_churn_recovery"
+      ],
+      "diagnostic_tracks": [
+        "MH-DAG-01",
+        "house_smoke"
+      ],
       "load_note": "Four outcomes and two witness plans; furniture clearance and resident access are business constraints, not yet mechanism labels."
     },
     "city": {
-      "current_canonical_templates": ["city.m0.decomposition", "city.m0.role_allocation", "city.m0.communication_adaptation", "city.m0.role_churn_recovery"],
+      "current_canonical_templates": [
+        "city.m0.decomposition",
+        "city.m0.role_allocation",
+        "city.m0.communication_adaptation",
+        "city.m0.role_churn_recovery",
+        "city.m1.timing_synchronization",
+        "city.m1.resource_contention",
+        "city.m1.recovery_replanning",
+        "city.m1.multi_bottleneck_calibration"
+      ],
       "current_status": "m0_authoring_classified_execution_pending",
-      "m0_required_mechanisms": ["decomposition", "role_allocation", "communication_adaptation", "role_churn_recovery"],
-      "diagnostic_tracks": ["city_service_probe", "native_probe"],
+      "m0_required_mechanisms": [
+        "decomposition",
+        "role_allocation",
+        "communication_adaptation",
+        "role_churn_recovery"
+      ],
+      "diagnostic_tracks": [
+        "city_service_probe",
+        "native_probe"
+      ],
       "load_note": "Four outcomes and two witness plans; service diagnostics remain a separate track until a fixed-DAG decision is documented."
     }
   },
   "factor_conditions": {
-    "communication_quality": ["immediate", "delayed", "dropped", "bandwidth_limited", "stale"],
-    "team_continuity": ["stable", "member_exit", "member_join", "capability_change"]
+    "communication_quality": [
+      "immediate",
+      "delayed",
+      "dropped",
+      "bandwidth_limited",
+      "stale"
+    ],
+    "team_continuity": [
+      "stable",
+      "member_exit",
+      "member_join",
+      "capability_change"
+    ]
   },
   "coverage_gates": [
     "Every registered scene has the same M0 mechanism target list.",
