@@ -41,22 +41,26 @@ from .goal_driven_contract import (
 from .goal_driven_tasks import build_goal_task_package
 from .goal_episode_runner import FormalGoalEpisodeRunner
 from .goal_restaurant_episode import (
+    EVALUATOR_REF,
     NAVIGATION_WINDOW_S,
     NativeCarterEpisodeNavigator,
     OBSERVATION_WINDOW_S,
+    REGION_OBSERVATION_TOLERANCE_M,
     RELAY_WINDOW_S,
     ROOT,
     _A,
     _B,
     _E,
     _action,
+    _finite_number,
+    _verify_archived_contact,
     _write_json,
     evaluate_restaurant_business,
 )
 from .provenance import canonical_sha256, file_sha256
 from .runtime import route_waypoints
 from demo.restaurant_benchmark import config as restaurant_config
-from demo.restaurant_benchmark import navigation_probe, runtime_probe
+from demo.restaurant_benchmark import contact_probe, navigation_probe, runtime_probe
 
 
 ROBOT_BINDINGS = {
@@ -507,7 +511,10 @@ class RestaurantTeamWeaverParticipant:
         return None
 
 
-from demo.restaurant_benchmark.service_backend import RestaurantReadinessBackend
+from demo.restaurant_benchmark.service_backend import (
+    RestaurantReadinessBackend,
+    evaluate_readiness_receipt,
+)
 
 
 _EMOS_POLICY_NAME = "restaurant-goal-native-deterministic"
@@ -784,14 +791,23 @@ class SharedClockCarterNavigator(NativeCarterEpisodeNavigator):
     """
 
     def __init__(self, *args: Any, episode_step_origin: int,
-                 idle_holds: "SharedIdleHolds", **kwargs: Any):
+                 idle_holds: "SharedIdleHolds", public_producer_id: str, **kwargs: Any):
         super().__init__(*args, **kwargs)
+        self.public_producer_id = str(public_producer_id)
         self._episode_step_origin = int(episode_step_origin)
         # Every step carries commands for ALL agents: agents missing from an
         # env.step dict are skipped by apply_action entirely, which lets idle
         # Carters creep and the uncommanded iris fall out of the air.  The
         # shared holds object tethers unengaged agents (see its docstring).
         self._idle_holds = idle_holds
+
+    def observe_region(self, region_id: str) -> dict[str, Any]:
+        # The witness navigator stamps its fixed public producer into the
+        # observation payload; multi-agent evidence must carry the acting
+        # agent's public id, so re-stamp after the native query.
+        observation = super().observe_region(region_id)
+        observation["producer_id"] = self.public_producer_id
+        return observation
 
     def step_once(self, command: tuple[float, float] | None = None) -> dict[str, Any]:
         self._command.zero_()
@@ -1024,7 +1040,8 @@ def prepare_episode(output_root: str | Path, *, products_root: str | Path,
                                   "and its anchor but has no dispatchable v1 mission"},
         "release_gates": {"navigation_ready": False, "execution_validated": False,
                           "scoreable": False},
-        "archive_verifier": "pending_independent_disk_verifier",
+        "archive_verifier": "demo.benchmark.goal_restaurant_algorithm_episode"
+                           ".verify_algorithm_episode_archive",
     }
     _write_json(root / "request.json", request)
     return request
@@ -1085,7 +1102,9 @@ def _validate_request(request: Any) -> dict[str, Any]:
             or request.get("release_gates") != {
                 "navigation_ready": False, "execution_validated": False,
                 "scoreable": False}
-            or request.get("archive_verifier") != "pending_independent_disk_verifier"):
+            or request.get("archive_verifier")
+            != "demo.benchmark.goal_restaurant_algorithm_episode"
+               ".verify_algorithm_episode_archive"):
         raise ValueError("invalid Restaurant algorithm episode request")
     return request
 
@@ -1176,7 +1195,7 @@ def run_worker(output_root: str | Path) -> dict[str, Any]:
                         session, binding["native_agent_id"], products_root, routes,
                         request["region_bindings"],
                         episode_step_origin=episode_step_origin,
-                        idle_holds=idle_holds)
+                        idle_holds=idle_holds, public_producer_id=public_id)
                 backend = RestaurantMultiAgentGoalBackend(
                     navigators, routes,
                     request["public_task"]["public_world"]["routes"],
@@ -1256,6 +1275,348 @@ def run_worker(output_root: str | Path) -> dict[str, Any]:
     return report
 
 
+_ALGO_ARCHIVE_EPISODE_FILES = (
+    "episode_manifest.json", "public_task.json", "participant_api.json",
+    "goal_session_report.json", "skill_receipts.json", "business_evidence.json",
+    "team_usage.json", "participant_trace.json", "hidden_evaluator_trace.json",
+    "runtime_snapshots.json", "result.json", "native_evidence_log.json",
+    "readiness_service_snapshot.json", "goal_episode_source.json",
+)
+
+
+def _verify_archived_agent_observation(row: Mapping[str, Any], request: Mapping[str, Any]) -> str:
+    """Agent-aware adaptation of the witness scene-observation contract."""
+    region = row.get("region_id")
+    scene = row.get("scene_observation")
+    stamp = row.get("stamp")
+    producer = row.get("producer_id")
+    if (region not in {"kitchen_service", "dining_service"}
+            or not isinstance(scene, Mapping) or not isinstance(stamp, Mapping)
+            or scene.get("schema") != "eai.restaurant.native_region_observation"
+            or scene.get("version") != 1
+            or scene.get("region_id") != region
+            or scene.get("producer_id") != producer
+            or scene.get("stamp") != stamp
+            or scene.get("scene_queries_enabled") is not True
+            or scene.get("query_kind")
+            != "episode_timestamped_physx_ground_support_raycast"
+            or scene.get("expected_collision_path") != contact_probe.GROUND_COLLISION_PATH):
+        raise ValueError(f"native observation evidence failed its contract: {region}")
+    center = request["region_bindings"][region]["center_xy_m"]
+    observed_xy = stamp.get("root_state_w", ())[:2]
+    if (scene.get("region_center_xy_m") != center
+            or scene.get("observed_robot_xy_m") != observed_xy
+            or len(observed_xy) != 2):
+        raise ValueError(f"native observation position binding failed: {region}")
+    expected_error = math.dist(
+        [_finite_number(value, f"observed position {region}") for value in observed_xy],
+        [_finite_number(value, f"region center {region}") for value in center])
+    archived_error = _finite_number(scene.get("region_error_m"), f"region error {region}")
+    tolerance = _finite_number(scene.get("region_tolerance_m"), f"region tolerance {region}")
+    if (not math.isclose(archived_error, expected_error, abs_tol=1e-9)
+            or tolerance != REGION_OBSERVATION_TOLERANCE_M
+            or archived_error > tolerance):
+        raise ValueError(f"native observation lies outside its region: {region}")
+    return region
+
+
+def verify_algorithm_episode_archive(output_root: str | Path) -> dict[str, Any]:
+    """Independently recompute an algorithm episode's evidence chain from disk.
+
+    Mirrors the witness verifier's discipline: no worker in-memory state is
+    trusted.  The algorithm plan is re-derived from the archived participant
+    allocation and the frozen request substrate, and every native record,
+    service row, receipt and business outcome is recomputed or cross-checked.
+    """
+    base = Path(output_root).expanduser().resolve()
+    episode_root = base / "goal_episode"
+    missing = [name for name in _ALGO_ARCHIVE_EPISODE_FILES
+               if not (episode_root / name).is_file()]
+    missing += [name for name in ("request.json",
+                                  "restaurant_algorithm_episode_report.json",
+                                  "process.json", "isaac.log")
+                if not (base / name).is_file()]
+    if missing:
+        raise ValueError(f"algorithm episode archive is incomplete: {sorted(missing)}")
+
+    def load(path: Path) -> Any:
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    request = _load_request(base)
+    report = load(base / "restaurant_algorithm_episode_report.json")
+    process = load(base / "process.json")
+    bundle = build_goal_task_package("restaurant")
+    public_task = _algorithm_public_task(bundle)
+    participant_api = build_goal_participant_api(public_task)
+    episode_id = request["episode_id"]
+    routes = request["physical_routes"]
+
+    if process.get("returncode") != 0:
+        raise ValueError("archived algorithm worker did not exit cleanly")
+    if (report.get("schema") != "eai.restaurant.formal_goal_algorithm_episode_report"
+            or report.get("version") != 1
+            or report.get("run_id") != request["run_id"]
+            or report.get("episode_id") != episode_id
+            or report.get("algorithm") != request["algorithm"]
+            or report.get("status") != "completed"
+            or report.get("business_episode_execution_validated") is not True
+            or report.get("execution_validated") is not False
+            or report.get("scoreable") is not False):
+        raise ValueError("archived algorithm report violates its own release gates")
+    if (report.get("native_evidence_log_sha256")
+            != file_sha256(episode_root / "native_evidence_log.json")
+            or report.get("readiness_service_snapshot_sha256")
+            != file_sha256(episode_root / "readiness_service_snapshot.json")
+            or process.get("report_sha256")
+            != file_sha256(base / "restaurant_algorithm_episode_report.json")
+            or process.get("isaac_log_sha256") != file_sha256(base / "isaac.log")):
+        raise ValueError("archived algorithm hash chain does not match its files")
+    source_row = load(episode_root / "goal_episode_source.json")
+    if (source_row.get("schema") != "eai.restaurant.formal_goal_episode_source"
+            or source_row.get("version") != 1
+            or source_row.get("episode_id") != episode_id
+            or source_row.get("source_files") != request["source_files"]
+            or source_row.get("request_sha256") != file_sha256(base / "request.json")):
+        raise ValueError("archived algorithm source binding is inconsistent")
+
+    manifest = load(episode_root / "episode_manifest.json")
+    archived_task = load(episode_root / "public_task.json")
+    archived_api = load(episode_root / "participant_api.json")
+    if (manifest.get("episode_id") != episode_id
+            or manifest.get("schema") != "eai.benchmark.formal_goal_episode"
+            or manifest.get("task_id") != public_task["task_id"]
+            or manifest.get("scene_key") != public_task["mission"]["scene_key"]
+            or manifest.get("public_task_sha256") != canonical_sha256(archived_task)
+            or canonical_sha256(archived_task) != canonical_sha256(public_task)
+            or manifest.get("participant_api_sha256") != canonical_sha256(archived_api)
+            or canonical_sha256(archived_api) != canonical_sha256(participant_api)
+            or manifest.get("execution_validated") is not False
+            or manifest.get("scoreable") is not False):
+        raise ValueError("archived algorithm manifest is inconsistent")
+    for name in ("result.json", "business_evidence.json", "participant_trace.json",
+                 "hidden_evaluator_trace.json", "goal_session_report.json",
+                 "native_evidence_log.json", "readiness_service_snapshot.json"):
+        if load(episode_root / name).get("episode_id") != episode_id:
+            raise ValueError(f"archived {name} carries a foreign episode identity")
+
+    # The allocator's decision record lives in the hash-chained report
+    # participant trace; the runner's participant_trace.json only carries the
+    # public event stream.
+    allocations = [row for row in (report.get("participant_trace") or [])
+                   if row.get("event") == "allocation_final"]
+    if len(allocations) != 1:
+        raise ValueError("archived report trace lacks exactly one final allocation")
+    assignment = allocations[0]["assignment"]
+    session = load(episode_root / "goal_session_report.json")["report"]
+    plan_rows = session.get("plans") or []
+    submitted = [row for row in plan_rows
+                 if (row.get("plan") or {}).get("plan_id")
+                 == f"restaurant_{request['algorithm']}_missions_v1"]
+    if len(submitted) != 1:
+        raise ValueError("archived session did not submit the algorithm plan")
+    submitted_plan = submitted[0]["plan"]
+    # The allocation must expand to exactly the submitted plan.
+    expected_plan = _expand_mission_plan(
+        public_task, assignment,
+        relay_agent=assignment["readiness_relay"], routes=routes,
+        plan_id=submitted_plan["plan_id"])
+    if canonical_sha256(submitted_plan) != canonical_sha256(expected_plan):
+        raise ValueError("archived plan does not match its allocation expansion")
+    plan = expected_plan
+    task_by_id = {row["task_id"]: row for row in plan["tasks"]}
+    tasks = session.get("tasks") or {}
+    if (set(tasks) != set(task_by_id)
+            or any(row.get("status") != "succeeded" for row in tasks.values())):
+        raise ValueError("archived session tasks did not all succeed")
+    outcomes_rows = session.get("business_outcomes") or []
+    required = {row["id"] for row in public_task["required_outcomes"]}
+    if ({row.get("id") for row in outcomes_rows} != required
+            or any(row.get("status") != "validated"
+                   or row.get("evaluator_ref") != EVALUATOR_REF
+                   for row in outcomes_rows)):
+        raise ValueError("archived session business outcomes are not fully validated")
+
+    receipts = load(episode_root / "skill_receipts.json")
+    result = load(episode_root / "result.json")
+    if (len(receipts) != len(plan["tasks"])
+            or any(row.get("status") != "succeeded"
+                   or row.get("episode_id") != episode_id for row in receipts)
+            or result.get("error") is not None
+            or result.get("skill_receipt_count") != len(plan["tasks"])
+            or result.get("business_outcomes_validated") is not True
+            or result.get("execution_validated") is not False
+            or result.get("scoreable") is not False):
+        raise ValueError("archived skill receipts or result contradict the episode")
+
+    evidence_log = load(episode_root / "native_evidence_log.json")
+    records = evidence_log.get("records")
+    if (evidence_log.get("schema") != "eai.restaurant.formal_goal_native_evidence"
+            or evidence_log.get("version") != 1
+            or not isinstance(records, list) or len(records) != len(plan["tasks"])):
+        raise ValueError("native evidence record count does not match the plan")
+    evidence_refs: dict[str, dict[str, Any]] = {}
+    for record in records:
+        if record.get("episode_id") != episode_id or "evidence_ref" not in record:
+            raise ValueError("native evidence record is not episode-bound")
+        body = {key: value for key, value in record.items() if key != "evidence_ref"}
+        if record["evidence_ref"] != "sha256:" + canonical_sha256(body):
+            raise ValueError("native evidence record does not match its evidence_ref")
+        evidence_refs[record["evidence_ref"]] = record
+    for row in receipts + outcomes_rows:
+        for ref in row.get("evidence_refs", []):
+            if ref not in evidence_refs:
+                raise ValueError("receipt or outcome references missing native evidence")
+
+    arrivals = [row for row in records if row.get("kind") == "arrival"]
+    observations = [row for row in records if row.get("kind") == "observation"]
+    relays = [row for row in records if row.get("kind") == "relay_and_receipt"]
+    if len(relays) != 1:
+        raise ValueError("native evidence lacks exactly one relay")
+    leg_by_task = {}
+    public_routes = {row["id"]: row for row in public_task["public_world"]["routes"]}
+    for row in plan["tasks"]:
+        if row["skill"] != "ground_navigation":
+            continue
+        public_route = public_routes[row["arguments"]["route_ids"][0]]
+        producer = row["assigned_agents"][0]
+        native = ROBOT_BINDINGS[producer]["native_agent_id"]
+        leg_id, leg = _leg_for(native, public_route["from_region_id"],
+                               str(row["arguments"]["region_id"]), routes)
+        leg_by_task[row["task_id"]] = (leg_id, leg)
+    seen_legs = []
+    for row in arrivals:
+        task = task_by_id.get(row.get("task_id"))
+        if task is None or row.get("task_id") not in leg_by_task:
+            raise ValueError("native arrival does not correspond to a navigation task")
+        leg_id, leg = leg_by_task[row["task_id"]]
+        producer = row.get("producer_id")
+        binding = ROBOT_BINDINGS.get(producer)
+        if (row.get("route_id") != leg_id
+                or binding is None
+                or leg["agent"] != binding["native_agent_id"]
+                or row.get("region_id") != leg["to_region_id"]
+                or task["assigned_agents"] != [producer]
+                or int(row["arrival"]["simulation_step"])
+                <= int(row["started"]["simulation_step"])):
+            raise ValueError(f"native arrival failed its agent binding: {leg_id}")
+        _verify_archived_contact(row)
+        seen_legs.append(leg_id)
+    if sorted(seen_legs) != sorted(leg_id for leg_id, _ in leg_by_task.values()):
+        raise ValueError("native arrivals do not cover the plan's navigation legs")
+    observation_by_region: dict[str, dict[str, Any]] = {}
+    arrival_by_region: dict[str, dict[str, Any]] = {}
+    for row in arrivals:
+        arrival_by_region[row["region_id"]] = row
+    for row in observations:
+        task = task_by_id.get(row.get("task_id"))
+        if task is None or task["skill"] != "observe":
+            raise ValueError("native observation does not correspond to an observe task")
+        region = _verify_archived_agent_observation(row, request)
+        if (task["assigned_agents"] != [row.get("producer_id")]
+                or region in observation_by_region):
+            raise ValueError(f"native observation producer mismatch: {region}")
+        observation_by_region[region] = row
+    if set(observation_by_region) != {"kitchen_service", "dining_service"}:
+        raise ValueError("native evidence lacks both service observations")
+    relay_row = relays[0]
+    relay_task = task_by_id.get(relay_row.get("task_id"))
+    if (relay_task is None or relay_task["skill"] != "relay"
+            or relay_task["assigned_agents"] != [relay_row.get("producer_id")]):
+        raise ValueError("native relay does not match its plan task")
+    for region, observation in observation_by_region.items():
+        arrival = arrival_by_region.get(region)
+        if (arrival is None
+                or arrival["producer_id"] != observation["producer_id"]
+                or int(arrival["arrival"]["simulation_step"])
+                >= int(observation["stamp"]["simulation_step"])):
+            raise ValueError(f"native observation for {region} is not caused by its arrival")
+    if (int(relay_row["publication_stamp"]["simulation_step"])
+            >= int(relay_row["receipt_stamp"]["simulation_step"])
+            or max(int(row["stamp"]["simulation_step"])
+                   for row in observation_by_region.values())
+            >= int(relay_row["publication_stamp"]["simulation_step"])):
+        raise ValueError("native relay is not ordered after observations and before receipt")
+
+    snapshot = load(episode_root / "readiness_service_snapshot.json")
+    if (snapshot.get("schema") != "eai.restaurant.formal_goal_readiness_snapshot"
+            or snapshot.get("version") != 1):
+        raise ValueError("invalid readiness snapshot schema")
+    service = snapshot.get("service") or {}
+    archived_observations = {row["observation_id"]: row
+                             for row in (service.get("observations") or {}).values()}
+    for observation in observation_by_region.values():
+        service_row = observation.get("service_record") or {}
+        expected_digest = "sha256:" + canonical_sha256({
+            "episode_id": episode_id,
+            "region_id": observation["region_id"],
+            "producer_id": observation["producer_id"],
+            "scene_observation": observation["scene_observation"],
+        })
+        if (service_row.get("observation_id") not in archived_observations
+                or service_row.get("simulation_step")
+                != observation["stamp"]["simulation_step"]
+                or service_row.get("region_id") != observation["region_id"]
+                or service_row.get("producer_id") != observation["producer_id"]
+                or service_row.get("evidence_digest") != expected_digest
+                or archived_observations[service_row["observation_id"]] != service_row):
+            raise ValueError("archived service observation diverges from native stamp")
+    review = evaluate_readiness_receipt(
+        episode_id=episode_id, receipt=service.get("receipt"),
+        observations=archived_observations,
+        relay_publications=service.get("relay_publications"))
+    if review.get("validated") is not True:
+        raise ValueError("archived readiness receipt did not survive independent review")
+
+    business = load(episode_root / "business_evidence.json")
+    usage = load(episode_root / "team_usage.json")
+    if (set(business.get("outcomes") or {}) != required
+            or any(row.get("status") != "validated"
+                   or row.get("evaluator_ref") != EVALUATOR_REF
+                   or any(ref not in evidence_refs for ref in row.get("evidence_refs", []))
+                   for row in business["outcomes"].values())
+            or business.get("execution_validated") is not False
+            or business.get("scoreable") is not False
+            or usage.get("selected_team") != plan["assigned_team"]
+            or usage.get("action_count") != 2 + len(plan["tasks"])
+            or usage.get("scoreable") is not False):
+        raise ValueError("archived business or team-usage evidence is inconsistent")
+
+    class _ReplayBackend:
+        """Evaluate the archived business facts with the shared evaluator."""
+
+        def __init__(self):
+            self.evidence = records
+            self.business_evaluation = None
+
+        class _Readiness:
+            def __init__(self, service_row):
+                self._service = service_row
+
+            def snapshot(self):
+                return self._service
+
+        @property
+        def readiness(self):
+            return _ReplayBackend._Readiness(service)
+
+    replayed = evaluate_restaurant_business(_ReplayBackend(), episode_id, {
+        "session": {"episode_id": episode_id}})
+    if {key: row["status"] for key, row in replayed.items()} != {
+            key: row["status"] for key, row in business["outcomes"].items()}:
+        raise ValueError("independent business replay disagrees with the archive")
+    return {
+        "schema": "eai.restaurant.formal_goal_algorithm_archive_verification", "version": 1,
+        "episode_id": episode_id, "algorithm": request["algorithm"],
+        "validated": True,
+        "record_count": len(records), "receipt_count": len(receipts),
+        "outcomes": sorted(required),
+        "allocation": dict(assignment),
+        "assigned_team": plan["assigned_team"],
+        "readiness_review": review,
+        "execution_validated": False, "scoreable": False,
+    }
+
+
 def execute_episode(output_root: str | Path, *, timeout_s: float = 1800.0) -> dict[str, Any]:
     root = Path(output_root).expanduser().resolve()
     _load_request(root)
@@ -1289,7 +1650,9 @@ def execute_episode(output_root: str | Path, *, timeout_s: float = 1800.0) -> di
     _write_json(root / "process.json", process)
     if completed.returncode != 0 or not process["business_episode_execution_validated"]:
         raise RuntimeError("Restaurant algorithm episode worker failed")
-    return process
+    verification = verify_algorithm_episode_archive(root)
+    _write_json(root / "archive_verification.json", verification)
+    return {**process, "archive_verification": verification}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1300,8 +1663,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--device", choices=("cpu", "cuda:0"), default="cpu")
     parser.add_argument("--algorithm", choices=ALGORITHMS, default="teamweaver")
     parser.add_argument("--timeout-s", type=float, default=1800.0)
+    parser.add_argument("--verify", action="store_true",
+                         help="independently re-verify a finished episode archive")
     parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
+    if args.verify:
+        verification = verify_algorithm_episode_archive(args.output_root)
+        print(json.dumps({"episode_id": verification["episode_id"],
+                          "algorithm": verification["algorithm"],
+                          "validated": verification["validated"],
+                          "execution_validated": False, "scoreable": False},
+                         sort_keys=True))
+        return 0
     if args.worker:
         report = run_worker(args.output_root)
     else:
