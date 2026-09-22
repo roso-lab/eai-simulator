@@ -409,6 +409,7 @@ class CityTeamWeaverParticipant:
         self._opened = False
         self._dispatched = 0
         self._terminal: set[str] = set()
+        self._succeeded: set[str] = set()
         self.trace: list[dict[str, Any]] = []
 
     def manifest(self) -> Mapping[str, Any]:
@@ -625,7 +626,16 @@ class CityTeamWeaverParticipant:
             if item["type"] == "action_result" and item["payload"].get("status") in {
                     "succeeded", "failed", "cancelled"}:
                 self._terminal.add(item["payload"]["action_id"])
-                if item["payload"].get("status") == "failed":
+                if item["payload"].get("status") == "succeeded":
+                    marker = "tw_city_dispatch_"
+                    if str(item["payload"].get("action_id", "")).startswith(marker):
+                        try:
+                            self._succeeded.add(
+                                self._plan["tasks"][int(
+                                    str(item["payload"]["action_id"])[len(marker):])]["task_id"])
+                        except (ValueError, IndexError):
+                            pass
+                elif item["payload"].get("status") == "failed":
                     self.trace.append({"event": "replan", "reason": "public_skill_failure"})
         tasks = self._plan["tasks"]
         if self._dispatched >= len(tasks):
@@ -634,7 +644,17 @@ class CityTeamWeaverParticipant:
         if self._dispatched and previous not in self._terminal:
             return []
         index = self._dispatched
-        self._dispatched += 1
+        # Algorithm-level replanning: dependents of failed prerequisites are
+        # skipped (the dispatch ledger would correctly reject them).
+        while index < len(tasks) and any(pre not in self._succeeded
+                                         for pre in tasks[index].get("prerequisites", [])):
+            self.trace.append({"event": "skipped_failed_prerequisite",
+                               "task_id": tasks[index]["task_id"]})
+            index += 1
+        if index >= len(tasks):
+            self._dispatched = len(tasks)
+            return []
+        self._dispatched = index + 1
         now = max((item["time_s"] for item in events), default=0.0)
         return [{
             "schema": "eai.benchmark.goal_action", "version": 1,
@@ -682,6 +702,7 @@ class CityEmosParticipant:
         self._opened = False
         self._dispatched = 0
         self._terminal: set[str] = set()
+        self._succeeded: set[str] = set()
         self.trace: list[dict[str, Any]] = []
 
     def manifest(self) -> Mapping[str, Any]:
@@ -857,7 +878,16 @@ class CityEmosParticipant:
             if item["type"] == "action_result" and item["payload"].get("status") in {
                     "succeeded", "failed", "cancelled"}:
                 self._terminal.add(item["payload"]["action_id"])
-                if item["payload"].get("status") == "failed":
+                if item["payload"].get("status") == "succeeded":
+                    marker = "emos_city_dispatch_"
+                    if str(item["payload"].get("action_id", "")).startswith(marker):
+                        try:
+                            self._succeeded.add(
+                                self._plan["tasks"][int(
+                                    str(item["payload"]["action_id"])[len(marker):])]["task_id"])
+                        except (ValueError, IndexError):
+                            pass
+                elif item["payload"].get("status") == "failed":
                     self.trace.append({"event": "replan", "reason": "public_skill_failure"})
         tasks = self._plan["tasks"]
         if self._dispatched >= len(tasks):
@@ -866,7 +896,17 @@ class CityEmosParticipant:
         if self._dispatched and previous not in self._terminal:
             return []
         index = self._dispatched
-        self._dispatched += 1
+        # Algorithm-level replanning: dependents of failed prerequisites are
+        # skipped (the dispatch ledger would correctly reject them).
+        while index < len(tasks) and any(pre not in self._succeeded
+                                         for pre in tasks[index].get("prerequisites", [])):
+            self.trace.append({"event": "skipped_failed_prerequisite",
+                               "task_id": tasks[index]["task_id"]})
+            index += 1
+        if index >= len(tasks):
+            self._dispatched = len(tasks)
+            return []
+        self._dispatched = index + 1
         now = max((item["time_s"] for item in events), default=0.0)
         return [{
             "schema": "eai.benchmark.goal_action", "version": 1,

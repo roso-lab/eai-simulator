@@ -365,22 +365,23 @@ class CityNativeGoalBackend:
                 return self._execute_report(task, row, episode_id, float(ledger["current_time_s"]))
         except _CapabilityExecutionFailure as failure:
             # Task-level failure with factual observables only: the episode
-            # continues and the business outcomes judge the algorithm.
-            window_end = (float(task["execution"]["start_s"])
-                          + float(task["execution"]["duration_s"]))
-            now = max(float(ledger["current_time_s"]),
-                      min(float(self._ctx["city"].elapsed) + float(self._ctx["dt"]),
-                          window_end))
+            # continues and the business outcomes judge the algorithm. Like a
+            # success, the failed attempt consumes its reserved window (the
+            # world settles to the window end) so the plan cadence holds.
+            window_end = self._settle_to_window(task)
+            now = window_end
             self.evidence.append({"kind": "capability_execution_failure",
                                   "task_id": task["task_id"],
                                   "agent_id": self._dispatch_agent(task),
                                   "reason": str(failure)})
             return {"status": "failed", "completed_at_s": now,
+                    "runtime_state": self._runtime_state(),
                     "receipt": {"backend_id": CITY_BACKEND_ID,
                                 "receipt_ref": f"capability:{episode_id}:{task['task_id']}",
                                 "task_id": task["task_id"],
                                 "action_id": row["dispatch_action_id"],
                                 "status": "failed", "completed_at_s": now,
+                                "episode_id": episode_id,
                                 "evidence_refs": [f"capability:{task['task_id']}"]}}
         raise ValueError(f"native city backend does not implement skill: {skill}")
 
