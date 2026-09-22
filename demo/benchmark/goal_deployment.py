@@ -55,7 +55,9 @@ def _rebuild_overlay(public_task, overlay):
             raise ValueError("city overlay needs its source package directory")
         return build_city_deployment_overlay(public_task, city_package_dir=path, verify_sources=mode)
     from .goal_indoor_deployment import build_indoor_deployment_overlay
-    return build_indoor_deployment_overlay(public_task, verify_sources=mode)
+    return build_indoor_deployment_overlay(
+        public_task, verify_sources=mode,
+        allow_extended_roster=overlay.get("allow_extended_roster") is True)
 
 
 def compile_goal_deployment(public_task, overlay):

@@ -539,9 +539,21 @@ def _route_bindings(public: Mapping[str, Any], scene_key: str, occupancy: Any) -
 
 def _robot_spawns(public: Mapping[str, Any], scene_key: str, occupancy: Any,
                   measured: Mapping[str, Any] | None = None) -> list[dict[str, Any]]:
+    published = dict(public.get("public_world", {}).get("robot_spawn_positions") or {})
     rows = []
     for item in public["candidate_robot_pool"]:
-        position, rotation, old_id = _SPAWN_PROPOSALS[scene_key][item["id"]]
+        proposal = _SPAWN_PROPOSALS[scene_key].get(item["id"])
+        if proposal is not None:
+            position, rotation, old_id = proposal
+        else:
+            # Opt-in pools publish frozen anchors. Legacy ids stay on the
+            # proposal table so the default overlay does not move.
+            raw = published.get(item["id"])
+            if not isinstance(raw, (list, tuple)) or len(raw) != 3:
+                raise KeyError(item["id"])
+            position = [float(raw[0]), float(raw[1]), float(raw[2])]
+            rotation = [1.0, 0.0, 0.0, 0.0]
+            old_id = None
         profile = item["physical_profile"]
         if item["mobility"] == "ground":
             check = _map_check_rectangle(
@@ -615,12 +627,13 @@ def _vertical_links(public: Mapping[str, Any], inventory: Mapping[str, Any]) -> 
 
 
 def build_indoor_deployment_overlay(
-        public_task: Mapping[str, Any], *, verify_sources: bool = True) -> dict[str, Any]:
+        public_task: Mapping[str, Any], *, verify_sources: bool = True,
+        allow_extended_roster: bool = False) -> dict[str, Any]:
     """Build a source-bound author overlay without starting Isaac or ROS."""
     if not isinstance(public_task, Mapping):
         raise ValueError("public_task must be a mapping")
-    if type(verify_sources) is not bool:
-        raise ValueError("verify_sources must be boolean")
+    if type(verify_sources) is not bool or type(allow_extended_roster) is not bool:
+        raise ValueError("verify_sources and allow_extended_roster must be boolean")
     public = deepcopy(dict(public_task))
     validate_goal_task_spec(public)
     scene_key = public["mission"]["scene_key"]
@@ -631,7 +644,7 @@ def build_indoor_deployment_overlay(
         scene_key, verify_sources=verify_sources)
     if inventory.get("scene_key") != scene_key:
         raise ValueError("current scene-binding inventory names a different scene")
-    if inventory.get("public_task_sha256") != public_hash:
+    if inventory.get("public_task_sha256") != public_hash and not allow_extended_roster:
         raise ValueError("public task does not match the current frozen public task")
     sources = _source_files(inventory)
     occupancy = provider_map(scene_key=scene_key)
@@ -671,6 +684,7 @@ def build_indoor_deployment_overlay(
         "scene_key": scene_key,
         "public_task_sha256": public_hash,
         "source_verification_requested": verify_sources,
+        **({"allow_extended_roster": True} if allow_extended_roster else {}),
         "object_bindings": objects,
         "region_bindings": regions,
         "route_bindings": routes,
