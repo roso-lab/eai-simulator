@@ -95,6 +95,17 @@ def _checkpoint(path: Path, report: Mapping[str, Any]) -> None:
     _write(path, _jsonable(report))
 
 
+def ensure_driver_compatible(prepared: Mapping[str, Any], driver: Any) -> None:
+    """Reject driver injections the host-owned fault probe cannot carry.
+
+    A ``driver`` replaces the participant-invisible host service sequence with
+    an injected caller.  The ``traffic_second_controller`` fault probe mutates
+    that same sequence, so the two modes can never be combined.
+    """
+    if driver is not None and prepared.get("fault_probe"):
+        raise RuntimeError("driver injection cannot combine with fault_probe")
+
+
 @contextmanager
 def _service_report_guard(path: Path, report: dict[str, Any],
                           *, pending_label: str = "pending_formal_episode_geometry") -> Iterator[None]:
@@ -733,11 +744,13 @@ def _dynamic_route_grid(envelopes, person_id, half, offset):
 
 
 def _execute(output_root: Path, prepared: Mapping[str, Any], *, run_id: str,
-             headless: bool) -> dict[str, Any]:
+             headless: bool, driver: Any = None) -> dict[str, Any]:
     from simulator import SimulatorLaunchConfig, open_simulator_session
 
     binding = _prepared_binding(prepared)
     formal = binding is not None
+    if driver is not None and not formal:
+        raise RuntimeError("driver injection requires a frozen episode binding")
     seed, device = int(prepared["seed"]), str(prepared["device"])
     geometry_scope = (FORMAL_GEOMETRY_SCOPE if formal else DIAGNOSTIC_GEOMETRY_SCOPE)
     pending_label = (FORMAL_BINDING_MISMATCH_LABELS["blocked"] if formal
@@ -780,7 +793,7 @@ def _execute(output_root: Path, prepared: Mapping[str, Any], *, run_id: str,
         actions = _zero_actions(session)
         if formal:
             _run_bound_episode(session, city, actions, report, report_path, prepared,
-                               run_id, binding)
+                               run_id, binding, driver=driver)
         else:
             _run_diagnostic_episode(session, city, actions, report, report_path,
                                     prepared, run_id)
@@ -1010,7 +1023,7 @@ def _run_diagnostic_episode(session, city, actions, report, report_path, prepare
 
 
 def _run_bound_episode(session, city, actions, report, report_path, prepared, run_id,
-                       binding) -> None:
+                       binding, driver=None) -> None:
     """Drive the author-frozen formal episode through the concrete services."""
     import omni.physx
     from demo.city_benchmark.scene.usd_scene import CityNativeRegionReader, world_envelopes
@@ -1268,6 +1281,18 @@ def _run_bound_episode(session, city, actions, report, report_path, prepared, ru
             person_id: city._episode_service._person_route(person_id)
             for person_id in roster_ids}
         _checkpoint(report_path, report)
+    # Driver injection: hand the fully built native scene over to an injected
+    # caller instead of running the host-owned service sequence below.  The
+    # scene, roster, geometry, warmup observation and runner are identical.
+    if driver is not None:
+        ensure_driver_compatible(prepared, driver)
+        driver(ctx=dict(session=session, city=city, actions=actions, runner=runner,
+                        report=report, report_path=report_path, prepared=prepared,
+                        run_id=run_id, binding=binding, specs=specs, roster_ids=roster_ids,
+                        vehicle_ids=vehicle_ids, window=window, endpoint=endpoint, dt=dt,
+                        guidance_observation=guidance_observation,
+                        person_start=person_start, step=_step, role=_role, trace=trace))
+        return
     # Stop following traffic through its public service before pedestrians
     # cross. Keep it held until the complete evacuation trace is recorded.
     reaction_steps = max(1, math.ceil(
@@ -1553,7 +1578,8 @@ def _run_bound_episode(session, city, actions, report, report_path, prepared, ru
 
 
 def execute_probe(output_root: Path, *, device: str = "cpu", seed: int = 17,
-                  headless: bool = True, overwrite: bool = False) -> dict[str, Any]:
+                  headless: bool = True, overwrite: bool = False,
+                  driver: Any = None) -> dict[str, Any]:
     with _serial_lock():
         prepared = _load_prepare(output_root)
         if prepared["device"] != device or int(prepared["seed"]) != int(seed):
@@ -1562,7 +1588,8 @@ def execute_probe(output_root: Path, *, device: str = "cpu", seed: int = 17,
             raise RuntimeError("City service probe sources changed; prepare again")
         if (output_root / "service_probe_start.json").exists() and not overwrite:
             raise FileExistsError("City service probe launch already exists")
-        return _execute(output_root, prepared, run_id=str(uuid.uuid4()), headless=headless)
+        return _execute(output_root, prepared, run_id=str(uuid.uuid4()), headless=headless,
+                        driver=driver)
 
 
 def main(argv=None) -> int:
