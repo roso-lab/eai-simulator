@@ -118,7 +118,7 @@ def _joint_evidence(stage, path):
             "owner_token": prim.GetCustomDataByKey("goal_attachment_owner")}
 
 
-def _evaluate(stage, request, active_member_ids, provider):
+def _evaluate(stage, request, active_member_ids, provider, *, reach_diagnostics=None):
     from pxr import Gf, Usd, UsdGeom, UsdPhysics
     from .goal_driven_contract import validate_goal_task_spec
     public = request["public_task"]
@@ -194,6 +194,22 @@ def _evaluate(stage, request, active_member_ids, provider):
         delta = _rotate(object_pose["rotation_wxyz"], point["position_m"])
         world = [object_pose["position_m"][i] + delta[i] for i in range(3)]
         distance = math.dist(pose["position_m"], world)
+        if reach_diagnostics is not None:
+            # Observe the exact check, including the rejecting member. Never
+            # resample or continue checking later slots after a rejection.
+            reach_diagnostics.append({
+                "agent_id": member, "point_id": point["id"],
+                "body_path": path, "object_body_path": object_path,
+                "root_position_m": deepcopy(pose["position_m"]),
+                "object_position_m": deepcopy(object_pose["position_m"]),
+                "object_rotation_wxyz": deepcopy(object_pose["rotation_wxyz"]),
+                "fixed_point_local_m": deepcopy(point["position_m"]),
+                "fixed_point_world_m": world,
+                "distance_3d_m": distance, "reach_m": profile["reach_m"],
+                "within_reach": distance <= profile["reach_m"] + 1e-8,
+                "physics_step": pose["physics_step"],
+                "object_physics_step": object_pose["physics_step"],
+            })
         if distance > profile["reach_m"] + 1e-8:
             raise ValueError("current PhysX root-to-fixed-point distance exceeds reach")
         local0 = _rotate(_inverse(pose["rotation_wxyz"]),
@@ -225,7 +241,8 @@ def _evaluate(stage, request, active_member_ids, provider):
 
 
 def prepare_attachment(stage, public_task, *, object_id, mode_id, carriers,
-                       active_member_ids, body_bindings, pose_provider):
+                       active_member_ids, body_bindings, pose_provider,
+                       reach_diagnostics=None):
     """Read-only preflight. carriers maps public member ID -> public point ID.
 
     body_bindings has objects/members maps, each public ID ->
@@ -236,10 +253,13 @@ def prepare_attachment(stage, public_task, *, object_id, mode_id, carriers,
     Mass is required for the object; body/root poses must not come from USD.
     All samples in a call must belong to one paused physical step. Root-to-point
     reach is an ideal connector rule, not manipulator workspace/IK evidence.
+    Optional ``reach_diagnostics`` receives each reach measurement actually
+    attempted, even on failure; later members may remain unchecked.
     """
     request = deepcopy({"public_task": public_task, "object_id": object_id,
                         "mode_id": mode_id, "carriers": carriers, "body_bindings": body_bindings})
-    checks = _evaluate(stage, request, active_member_ids, pose_provider)
+    checks = _evaluate(stage, request, active_member_ids, pose_provider,
+                       reach_diagnostics=reach_diagnostics)
     return _seal({"schema": "eai.goal_attachment_prepared", "version": 1,
                   "status": "prepared", "token": uuid.uuid4().hex,
                   "stage_identifier": stage.GetRootLayer().identifier,
@@ -283,7 +303,8 @@ def _remove_prim(stage, path):
     return stage.RemovePrim(path)
 
 
-def commit_attachment(stage, prepared, *, active_member_ids, pose_provider):
+def commit_attachment(stage, prepared, *, active_member_ids, pose_provider,
+                      reach_diagnostics=None):
     """Recheck fresh poses and active state, then author only owned joint prims.
 
     Frames coincide at commit poses; bodies are never teleported. Fixed joints
@@ -296,7 +317,8 @@ def commit_attachment(stage, prepared, *, active_member_ids, pose_provider):
     if (stage.GetRootLayer().identifier != prepared["stage_identifier"]
             or layer.identifier != prepared["edit_layer_identifier"] or not layer.permissionToEdit):
         raise ValueError("attachment stage/edit target changed or is not editable")
-    checks = _evaluate(stage, prepared["request"], active_member_ids, pose_provider)
+    checks = _evaluate(stage, prepared["request"], active_member_ids, pose_provider,
+                       reach_diagnostics=reach_diagnostics)
     if checks["physics_step"] < prepared["preflight"]["physics_step"]:
         raise ValueError("PhysX samples regressed to an older step")
     token = prepared["token"]

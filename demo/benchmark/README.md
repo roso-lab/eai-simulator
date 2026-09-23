@@ -4,6 +4,9 @@
 > [`DELIVERY.zh-CN.md`](DELIVERY.zh-CN.md)；阶段 1–18 权威勾选记录见
 > [`TODO.zh-CN.md`](TODO.zh-CN.md)。本文描述模块契约与运行边界。
 
+室内正式 episode 的逐机器人接近/连接诊断及理想抓取边界，见
+[室内执行诊断](INDOOR_EXECUTION_DIAGNOSTICS.zh-CN.md)。执行器失败不等于模型分配错误。
+
 The independent applications are [Factory](../factory_benchmark/README.zh-CN.md),
 [Warehouse](../warehouse_benchmark/README.zh-CN.md) and
 [Modern House](../modern_house_benchmark/README.zh-CN.md).
