@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -217,6 +218,67 @@ def deployment_assessment_observations(
             "scoreable": False}
 
 
+def plan_admission_observations(session_report: Mapping[str, Any]) -> dict[str, Any]:
+    """Summarize participant plan admission facts without judging decomposition.
+
+    Rejected ``submit_plan``/``revise_plan`` attempts are recorded by the
+    trusted GoalSession before the host fails closed.  The denominator includes
+    accepted and rejected attempts; this is a diagnostic profile for the
+    participant's own plan, not a fixed-subtask score.
+    """
+    if not isinstance(session_report, Mapping):
+        raise ValueError("session_report must be an object")
+    actions = session_report.get("actions", [])
+    rejections = session_report.get("action_rejections", [])
+    if not isinstance(actions, list) or not isinstance(rejections, list):
+        raise ValueError("session report plan admission records must be lists")
+    accepted = [row for row in actions
+                if isinstance(row, Mapping)
+                and row.get("type") in {"submit_plan", "revise_plan"}]
+    rejected = [row for row in rejections
+                if isinstance(row, Mapping)
+                and row.get("type") in {"submit_plan", "revise_plan"}]
+
+    def category(reason: Any) -> str:
+        text = str(reason).lower()
+        if any(token in text for token in ("capability", "assigned", "team", "agent")):
+            return "capability"
+        if any(token in text for token in ("load", "capacity", "max_active", "busy")):
+            return "load"
+        if any(token in text for token in ("resource", "conflict", "reservation", "overlap")):
+            return "resource_conflict"
+        if any(token in text for token in ("budget", "window", "time", "duration")):
+            return "budget"
+        return "contract_or_other"
+
+    counts = {name: 0 for name in
+              ("capability", "load", "resource_conflict", "budget", "contract_or_other")}
+    for row in rejected:
+        counts[category(row.get("reason"))] += 1
+    attempts = len(accepted) + len(rejected)
+    revision_attempts = sum(row.get("type") == "revise_plan"
+                            for row in accepted + rejected)
+    accepted_revisions = sum(row.get("type") == "revise_plan" for row in accepted)
+    ratio = lambda numerator, denominator: (numerator / denominator if denominator else None)
+    return {
+        "status": "observed",
+        "raw_only": True,
+        "not_protocol_score": True,
+        "accepted_plan_attempt_count": len(accepted),
+        "rejected_plan_attempt_count": len(rejected),
+        "plan_attempt_count": attempts,
+        "plan_rejection_rate": ratio(len(rejected), attempts),
+        "rejection_counts_by_category": counts,
+        "resource_conflict_rate": ratio(counts["resource_conflict"], attempts),
+        "resource_conflict_rate_among_rejections": ratio(
+            counts["resource_conflict"], len(rejected)),
+        "revision_attempt_count": revision_attempts,
+        "accepted_revision_count": accepted_revisions,
+        "revision_survival_rate": ratio(accepted_revisions, revision_attempts),
+        "rejections": deepcopy(rejected),
+    }
+
+
 def _assessment_archive(root: Path, *, episode_id: str, task_sha256: str) -> dict[str, Any]:
     path = root / "goal_session_report.json"
     try:
@@ -227,6 +289,18 @@ def _assessment_archive(root: Path, *, episode_id: str, task_sha256: str) -> dic
     except (OSError, ValueError, KeyError, TypeError, AttributeError):
         return {"status": "missing_or_invalid_archive", "raw_only": True,
                 "records": [], "accuracy_denominator": None}
+
+
+def _plan_admission_archive(root: Path) -> dict[str, Any]:
+    path = root / "goal_session_report.json"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, Mapping) or not isinstance(payload.get("report"), Mapping):
+            raise ValueError("plan admission archive is missing report")
+        return plan_admission_observations(payload["report"])
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, json.JSONDecodeError):
+        return {"status": "missing_or_invalid_archive", "raw_only": True,
+                "not_protocol_score": True}
 
 
 def build_scoring_adapter_metadata(
@@ -259,6 +333,7 @@ def build_scoring_adapter_metadata(
         "task_contract_sha256": canonical_sha256(public_task),
         "deployment_assessment": _assessment_archive(
             Path(output_root), episode_id=episode_id, task_sha256=canonical_sha256(public_task)),
+        "plan_admission": _plan_admission_archive(Path(output_root)),
         "condition": {
             "id": public_task.get("condition_id"),
             "seed": public_task.get("seed"),
@@ -320,5 +395,5 @@ def build_scoring_adapter_metadata(
 __all__ = [
     "DIMENSION_STATUS", "PROTOCOL_MAPPING_REVISION", "SCORING_ADAPTER_SCHEMA",
     "SCORING_ADAPTER_VERSION", "build_archive_index", "build_scoring_adapter_metadata",
-    "deployment_assessment_observations",
+    "deployment_assessment_observations", "plan_admission_observations",
 ]

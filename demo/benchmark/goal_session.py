@@ -107,6 +107,7 @@ class GoalSession:
         self._message_ids: set[str] = set()
         self._consumed: set[str] = set()
         self._actions: dict[str, dict[str, Any]] = {}
+        self._action_rejections: list[dict[str, Any]] = []
         self._plans: dict[str, dict[str, Any]] = {}
         self._plan_id: str | None = None
         self._plan_version = 0
@@ -620,6 +621,39 @@ class GoalSession:
                 result["termination_event"] = deepcopy(assistance)
         return result
 
+    def record_action_rejection(
+        self, action: Mapping[str, Any], *, reason: str,
+    ) -> dict[str, Any]:
+        """Record a rejected plan admission for raw scoring diagnostics.
+
+        The caller still fails closed after recording. This does not create a
+        plan, imply progress, or add a fixed-subtask scoring track.
+        """
+        if not isinstance(action, Mapping):
+            raise ValueError("rejected action must be an object")
+        action_type = action.get("type")
+        if action_type not in {"submit_plan", "revise_plan"}:
+            raise ValueError("only plan admission rejections are recorded")
+        action_id = action.get("action_id")
+        if not isinstance(action_id, str) or not action_id:
+            raise ValueError("rejected plan action_id must be nonempty")
+        if any(row["action_id"] == action_id for row in self._action_rejections):
+            raise ValueError("rejected plan action_id has already been recorded")
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError("rejection reason must be nonempty")
+        payload = action.get("payload")
+        plan = payload.get("plan") if isinstance(payload, Mapping) else None
+        row = {
+            "action_id": action_id,
+            "type": action_type,
+            "submitted_at_s": action.get("submitted_at_s"),
+            "reason": reason,
+            "state_version": self._version,
+            "plan_id": plan.get("plan_id") if isinstance(plan, Mapping) else None,
+        }
+        self._action_rejections.append(row)
+        return deepcopy(row)
+
     def record_deployment_assessment_evaluation(
         self, evaluation: Mapping[str, Any],
     ) -> dict[str, Any]:
@@ -776,6 +810,7 @@ class GoalSession:
             "capability_versions": self._capability_versions,
             "current_robot_declarations": self._robots, "events": self._events,
             "consumed_message_ids": sorted(self._consumed), "actions": list(self._actions.values()),
+            "action_rejections": list(self._action_rejections),
             "plans": list(self._plans.values()), "tasks": self._tasks,
             "runtime_state": self._snapshot, "runtime_snapshot_refresh_required": self._snapshot_required,
             # Explicitly separate trusted backend completion from domain

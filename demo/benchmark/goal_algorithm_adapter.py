@@ -336,7 +336,13 @@ class GoalAlgorithmHost:
                     raise ValueError("pose message is not currently delivered and fresh")
                 if consumes_camera and not camera_telemetry.can_consume(message_id, time_s=now):
                     raise ValueError("camera message is not currently delivered and fresh")
-                result = self._session.submit_action(action)
+                try:
+                    result = self._session.submit_action(action)
+                except ValueError as exc:
+                    if action.get("type") in {"submit_plan", "revise_plan"}:
+                        self._session.record_action_rejection(
+                            action, reason=str(exc))
+                    raise
                 if consumes_pose:
                     pose_telemetry.consume(message_id, action_id=action["action_id"],
                                            time_s=self._session.report()["current_time_s"])

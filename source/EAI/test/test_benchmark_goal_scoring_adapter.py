@@ -9,6 +9,7 @@ from demo.benchmark.goal_scoring_adapter import (
     build_archive_index,
     build_scoring_adapter_metadata,
     deployment_assessment_observations,
+    plan_admission_observations,
 )
 
 
@@ -41,6 +42,34 @@ def test_scoring_sidecar_rejects_invalid_episode_or_task():
     task = build_goal_task_package("factory")["public_task"]
     with pytest.raises(ValueError):
         build_scoring_adapter_metadata(task, episode_id="", output_root="/tmp")
+
+
+def test_plan_admission_observations_aggregate_rejections_without_fixed_subtasks():
+    report = {
+        "actions": [
+            {"action_id": "p0", "type": "submit_plan"},
+            {"action_id": "r1", "type": "revise_plan"},
+        ],
+        "action_rejections": [
+            {"action_id": "r2", "type": "revise_plan",
+             "reason": "pending runtime resource conflict: arm grasp"},
+            {"action_id": "r3", "type": "submit_plan",
+             "reason": "task capability is unavailable"},
+            {"action_id": "r4", "type": "revise_plan",
+             "reason": "episode simulation budget has ended"},
+        ],
+    }
+    observed = plan_admission_observations(report)
+    assert observed["plan_attempt_count"] == 5
+    assert observed["rejected_plan_attempt_count"] == 3
+    assert observed["plan_rejection_rate"] == pytest.approx(3 / 5)
+    assert observed["rejection_counts_by_category"] == {
+        "capability": 1, "load": 0, "resource_conflict": 1,
+        "budget": 1, "contract_or_other": 0,
+    }
+    assert observed["resource_conflict_rate"] == pytest.approx(1 / 5)
+    assert observed["revision_survival_rate"] == pytest.approx(1 / 3)
+    assert observed["not_protocol_score"] is True
 
 
 @pytest.mark.parametrize("payload,expected", [

@@ -17,6 +17,8 @@
 | `730a40d`、`1f15363` | 必要条件内部诊断、二元剩余任务oracle、质量失败分离 |
 | `98106e7`、`ce65318` | v3部署门禁、五场景候选、固定风险集和评分侧车接线 |
 | `abff921` | 运行中成员/能力失效端到端测试，暴露模型异常后的取消缺口 |
+| `daef408` | 编键随机流：传感器和 physics replay 按过程/实体/事件键抽样，保留旧录制兼容 |
+| `c0ecbd3` | 云边端通信池：backhaul 上下行、p2p、单机接入、丢包分类、AoI 和 C/C0 摘要 |
 
 ## 评分路线与阶段依赖
 
@@ -51,6 +53,11 @@ ljy同提交完整测试 **2207 passed、8 skipped，87.93秒**。
 failed/null。最新本机部署/session/host/runner/工具/评分/oracle专项
 **265 passed，20.28秒**，日志`/tmp/eai-deployment-stage-close-focused.log`。
 本次增量未重跑远端或全量；子代理工作已结束，按用户要求不展开下一阶段。
+
+本轮新增 B/D 专项回归 **209 passed**（通信旧/新池、Goal session/adapter、编键
+随机流、physics replay）；通信池仍未接入真实三层 episode，AoI尚未实现连续时间面积
+统计。餐厅准备命令对现有 v7 的结果为 `hash_resolver=passed`、
+`source_closure_missing`，因此没有启动正式 episode。
 
 以下保留较早基线的历史证据；远端资产缺口随后已补齐，不再是当前回归阻塞：
 
