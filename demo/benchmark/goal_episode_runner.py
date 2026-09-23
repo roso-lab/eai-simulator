@@ -224,7 +224,7 @@ class FormalGoalEpisodeRunner:
                  adapter: GoalAlgorithmAdapter, backend: GoalExecutionBackend, *,
                  output_root: str | Path, episode_id: str | None = None,
                  evaluator: BusinessEvaluator | None = None, max_turns: int = 256,
-                 pose_tools: Any = None):
+                 pose_tools: Any = None, camera_tools: Any = None):
         if not isinstance(max_turns, int) or isinstance(max_turns, bool) or max_turns < 1:
             raise ValueError("max_turns must be a positive integer")
         self.public_task = deepcopy(dict(public_task))
@@ -238,10 +238,15 @@ class FormalGoalEpisodeRunner:
         self.evaluator = evaluator
         self.max_turns = max_turns
         self.pose_tools = pose_tools
+        self.camera_tools = camera_tools
         if pose_tools is not None and (
                 pose_tools.episode_id != self.episode_id
                 or pose_tools.public_task_sha256 != canonical_sha256(self.public_task)):
             raise ValueError("pose tools must be bound to this episode and public task")
+        if camera_tools is not None and (
+                camera_tools.episode_id != self.episode_id
+                or camera_tools.public_task_sha256 != canonical_sha256(self.public_task)):
+            raise ValueError("camera tools must be bound to this episode and public task")
 
     def run(self, *, initial_state: Mapping[str, Any]) -> dict[str, Any]:
         if self.output_root.exists():
@@ -268,6 +273,13 @@ class FormalGoalEpisodeRunner:
                 "sampling_scope": "runner_boundaries; no intra-skill fixed-rate claim",
             }
             _write_json(self.output_root / "pose_tool_profile.json", profile)
+        if self.camera_tools is not None:
+            profile = self.camera_tools.public_profile()
+            manifest["camera_tools"] = {
+                "profile_sha256": canonical_sha256(profile),
+                "capture_scope": "owner_thread_on_request; idle_destroy render lifecycle",
+            }
+            _write_json(self.output_root / "camera_tool_profile.json", profile)
         _write_json(self.output_root / "episode_manifest.json", manifest)
         _write_json(self.output_root / "public_task.json", self.public_task)
         _write_json(self.output_root / "participant_api.json", self.participant_api)
@@ -280,7 +292,8 @@ class FormalGoalEpisodeRunner:
         try:
             session.update_runtime_state(0.0, robots, objects)
             with GoalAlgorithmHost(self.public_task, self.participant_api, self.adapter,
-                                    session=session, pose_tools=self.pose_tools) as host:
+                                    session=session, pose_tools=self.pose_tools,
+                                    camera_tools=self.camera_tools) as host:
                 for turns in range(1, self.max_turns + 1):
                     host.request_actions()
                     report = host.trusted_report()["session"]
@@ -292,30 +305,60 @@ class FormalGoalEpisodeRunner:
                             # Optional backends can keep a real simulation clock
                             # moving while a model waits for a delayed query.
                             idle = getattr(self.backend, "advance_idle", None)
-                            if (self.pose_tools is not None and self.pose_tools.has_pending_work()
-                                    and callable(idle)):
+                            pose_pending = (self.pose_tools is not None
+                                            and self.pose_tools.has_pending_work())
+                            camera_pending = (self.camera_tools is not None
+                                              and self.camera_tools.has_pending_work())
+                            if ((pose_pending or camera_pending) and callable(idle)):
                                 now = host.trusted_report()["session"]["current_time_s"]
-                                next_time = min(now + self.pose_tools.period_s,
-                                                self.public_task["budgets"]["simulation_s"])
+                                wakeups: list[float] = []
+                                if pose_pending:
+                                    wake = self.pose_tools.next_wakeup_s()
+                                    if wake is None:
+                                        wake = now + self.pose_tools.period_s
+                                    wakeups.append(float(wake))
+                                if camera_pending:
+                                    wake = self.camera_tools.next_wakeup_s()
+                                    if wake is None:
+                                        wake = now + 1e-6
+                                    wakeups.append(float(wake))
+                                budget = float(self.public_task["budgets"]["simulation_s"])
+                                next_time = min(min(wakeups), budget)
+                                if next_time <= now:
+                                    # Deadlines in the past still need a forward tick.
+                                    next_time = min(now + 1e-6, budget)
                                 if next_time > now:
                                     idle_result = idle(next_time)
                                     actual_time = idle_result.get("time_s") if isinstance(idle_result, Mapping) else None
                                     if (isinstance(actual_time, bool)
                                             or not isinstance(actual_time, (int, float))
                                             or not math.isfinite(actual_time)
-                                            or not now < actual_time <= self.public_task["budgets"]["simulation_s"]):
+                                            or not now < actual_time <= budget):
                                         raise ValueError("idle backend must report its actual advancing episode time")
                                     idle_state = idle_result.get("runtime_state")
                                     robots, objects = _require_state(idle_state, "idle runtime state")
                                     host.update_runtime_state(actual_time, robots, objects)
-                                    host.emit("tick", actual_time, {"state_digest": "pose_tool_idle"})
+                                    digest = ("tool_idle"
+                                              if pose_pending and camera_pending
+                                              else ("pose_tool_idle" if pose_pending
+                                                    else "camera_tool_idle"))
+                                    host.emit("tick", actual_time, {"state_digest": digest})
                                     snapshots.append({"episode_id": self.episode_id, "time_s": actual_time,
                                                       "robot_regions": deepcopy(robots),
                                                       "object_states": deepcopy(objects)})
                                     continue
-                            if (self.pose_tools is not None and self.pose_tools.has_pending_work()
-                                    and not callable(idle)):
-                                raise RuntimeError("pose tools are waiting but the backend cannot advance its idle clock")
+                                # Hit simulation budget while tools still pending.
+                                if camera_pending:
+                                    self.camera_tools.finalize_episode(budget)
+                                break
+                            if ((pose_pending or camera_pending) and not callable(idle)):
+                                waiting = []
+                                if pose_pending:
+                                    waiting.append("pose tools")
+                                if camera_pending:
+                                    waiting.append("camera tools")
+                                raise RuntimeError(
+                                    f"{' and '.join(waiting)} are waiting but the backend cannot advance its idle clock")
                             break
                         continue
                     # A synchronous backend advances the same physical scene;
@@ -415,6 +458,21 @@ class FormalGoalEpisodeRunner:
             _write_json(self.output_root / "pose_tools_report.json", tool_report)
             _write_json(self.output_root / "pose_communication_replay.json",
                         validate_communication_report(tool_report["communication"]))
+        if self.camera_tools is not None:
+            from .communication import validate_communication_report
+            finalizer = getattr(self.camera_tools, "finalize_episode", None)
+            if callable(finalizer):
+                finalizer()
+            tool_report = self.camera_tools.report()
+            _write_json(self.output_root / "camera_tools_report.json", tool_report)
+            _write_json(self.output_root / "camera_communication_replay.json",
+                        validate_communication_report(tool_report["communication"]))
+            closer = getattr(self.camera_tools, "close", None)
+            if callable(closer):
+                closer()
+            if tool_report.get("lifecycle_errors"):
+                _write_json(self.output_root / "camera_lifecycle_errors.json",
+                            tool_report["lifecycle_errors"])
         _write_json(self.output_root / "participant_trace.json", {
             "episode_id": self.episode_id,
             "events": deepcopy(final_report.get("events", [])),

@@ -3,6 +3,16 @@ name: Orsus
 category: sensor
 models: [orsus]
 description: Stereo camera, point cloud, and odometry interfaces published directly by Orsus.
+benchmark_ondemand_rgb:
+  capability: optional_goal_camera_tools
+  schema: eai.benchmark.goal_camera_tool_call
+  default_source: orsus_rgb_render_product
+  activation: declaration_only_not_runtime
+  notes: >-
+    Catalog metadata documents that benchmark GoalCameraTools may request
+    single-frame RGB via an owned on-demand render product. This declaration
+    does not activate ROS publishers, create render products, or admit frames
+    into a GoalSession.
 interfaces:
   - id: ros.orsus.left_image
     name: Left camera image
@@ -48,3 +58,16 @@ interfaces:
     example: ros2 topic echo --once /{robot}/odometry
     requires_attachment: navigation_io
     read_only_test: {type: ros_topic}
+  - id: benchmark.orsus.ondemand_rgb
+    name: Benchmark on-demand RGB capability
+    protocol: benchmark
+    direction: output
+    kind: capability
+    endpoint: goal_camera_tools.request_observation
+    data_type: eai.benchmark.goal_camera_tool_call
+    description: >-
+      Optional GoalSession companion capability for single-frame Orsus RGB
+      requests. Not a ROS topic and not active unless GoalCameraTools is injected.
+    example: See demo/benchmark/GOAL_CAMERA_TOOLS.zh-CN.md
+    activation: companion_injection_required
+    continuous_ros_independent: true

@@ -93,6 +93,7 @@ class GoalAlgorithmHost:
         *,
         session: GoalSession | None = None,
         pose_tools: Any = None,
+        camera_tools: Any = None,
     ) -> None:
         validate_goal_task_spec(public_task)
         self._public_task = deepcopy(dict(public_task))
@@ -105,8 +106,12 @@ class GoalAlgorithmHost:
             self._session.assert_compatible(self._public_task, self._participant_api)
         self._event_cursor = 0
         self._pose_visible_ids: set[str] = set()
+        self._camera_visible_ids: set[str] = set()
         self._pose_tools = pose_tools
+        self._camera_tools = camera_tools
         self._tools_connected = False
+        self._camera_tools_connected = False
+        self._camera_profile: dict[str, Any] | None = None
         self._closed = False
         self._failed = False
         try:
@@ -118,6 +123,14 @@ class GoalAlgorithmHost:
                     raise ValueError("pose tool profile does not match public task")
                 initialize_tools(deepcopy(profile))
                 self._tools_connected = True
+            initialize_camera = getattr(adapter, "initialize_camera_tools", None)
+            if camera_tools is not None and callable(initialize_camera):
+                profile = camera_tools.public_profile()
+                if profile["public_task_sha256"] != self._participant_api["public_task_sha256"]:
+                    raise ValueError("camera tool profile does not match public task")
+                initialize_camera(deepcopy(profile))
+                self._camera_tools_connected = True
+                self._camera_profile = deepcopy(profile)
         except BaseException:
             self._fail_closed()
             raise
@@ -130,6 +143,13 @@ class GoalAlgorithmHost:
     def _close_adapter(self) -> None:
         if not self._closed:
             self._closed = True
+            if self._camera_tools is not None:
+                closer = getattr(self._camera_tools, "close", None)
+                if callable(closer):
+                    try:
+                        closer()
+                    except BaseException:
+                        pass
             self._adapter.close()
 
     def _fail_closed(self) -> None:
@@ -162,25 +182,59 @@ class GoalAlgorithmHost:
         call. If a turn fails, the bridge closes and cannot replay the batch.
         """
         self._require_open()
-        if self._tools_connected:
-            try:
+        try:
+            if self._tools_connected:
                 self.pump_pose_tools()
-            except BaseException:
-                self._fail_closed()
-                raise
+            if self._camera_tools_connected:
+                self.pump_camera_tools()
+        except BaseException:
+            self._fail_closed()
+            raise
         host_report = self._session.report()
         event_end = len(host_report["events"])
         if self._event_cursor == event_end:
             return []
         events = deepcopy(host_report["events"][self._event_cursor:event_end])
         try:
-            if self._tools_connected:
-                for event in events:
-                    if event["type"] == "member_join":
-                        self._pose_tools.register_public_robot(event["payload"]["agent_id"])
+            delivered_events = list(events)
+            for offset, event in enumerate(events):
+                if event["type"] != "member_join":
+                    continue
+                agent_id = event["payload"]["agent_id"]
+                if self._tools_connected:
+                    self._pose_tools.register_public_robot(agent_id)
+                if self._camera_tools_connected:
+                    session_index = self._event_cursor + offset
+                    now = host_report["current_time_s"]
+                    delta = self._camera_tools.activate_joined_member(
+                        event, session_event_index=session_index, time_s=now)
+                    self._camera_profile = deepcopy(self._camera_tools.public_profile())
+                    update_camera = getattr(self._adapter, "update_camera_tools", None)
+                    if callable(update_camera):
+                        update_camera(deepcopy(delta))
+                    else:
+                        # Participants without the companion hook still receive a
+                        # public observation carrying the same join-scoped delta.
+                        delivered_events.append({
+                            "type": "observation",
+                            "time_s": now,
+                            "payload": {
+                                "kind": "camera_tools_profile_delta",
+                                "message_id": (
+                                    f"{self._camera_tools.episode_id}:"
+                                    f"camera-profile-delta:{session_index}"),
+                                "data": deepcopy(delta),
+                                "valid_until_s": now + self._camera_tools.validity_s,
+                            },
+                        })
+            events = delivered_events
             self._pose_visible_ids.update(
                 event["payload"]["message_id"] for event in events
                 if event["type"] == "observation" and event["payload"]["kind"] == "pose_update")
+            self._camera_visible_ids.update(
+                event["payload"]["message_id"] for event in events
+                if event["type"] == "observation"
+                and event["payload"]["kind"] in {"camera_frame", "camera_tools_profile_delta"})
             raw_actions = self._adapter.act(deepcopy(events))
             if not isinstance(raw_actions, list):
                 raise ValueError("goal algorithm adapter must return a list of actions")
@@ -196,6 +250,10 @@ class GoalAlgorithmHost:
                     if (isinstance(action.get("call_id"), str)
                             and action["call_id"] in {row["action_id"] for row in report["actions"]}):
                         raise ValueError("tool call ID collides with a goal action")
+                    if (self._camera_tools_connected
+                            and isinstance(action.get("call_id"), str)
+                            and self._camera_tools.owns_call(action["call_id"])):
+                        raise ValueError("pose tool call ID collides with a camera request")
                     actions.append(self._pose_tools.submit(
                         action, time_s=report["current_time_s"],
                         current_agents=set(report["current_agents"])))
@@ -203,25 +261,57 @@ class GoalAlgorithmHost:
                     # as hidden publication/queue records in this action batch.
                     self.pump_pose_tools()
                     continue
+                if action.get("schema") == "eai.benchmark.goal_camera_tool_call":
+                    if not self._camera_tools_connected:
+                        raise ValueError("camera tool interface was not connected")
+                    report = self._session.report()
+                    request_id = action.get("request_id")
+                    if (isinstance(request_id, str)
+                            and request_id in {row["action_id"] for row in report["actions"]}):
+                        raise ValueError("camera request ID collides with a goal action")
+                    if (self._tools_connected and isinstance(request_id, str)
+                            and self._pose_tools.owns_call(request_id)):
+                        raise ValueError("camera request ID collides with a pose tool call")
+                    actions.append(self._camera_tools.submit(
+                        action, time_s=report["current_time_s"],
+                        current_agents=set(report["current_agents"])))
+                    self.pump_camera_tools()
+                    continue
                 if self._tools_connected and self._pose_tools.owns_call(action.get("action_id")):
                     raise ValueError("goal action ID collides with a tool call")
+                if (self._camera_tools_connected
+                        and self._camera_tools.owns_call(action.get("action_id"))):
+                    raise ValueError("goal action ID collides with a camera request")
                 if action.get("type") in _LOW_LEVEL_ACTION_TYPES:
                     raise ValueError(
                         "goal algorithm may emit high-level goal actions only, not low-level control")
-                telemetry = self._pose_tools.telemetry if self._tools_connected else None
+                pose_telemetry = self._pose_tools.telemetry if self._tools_connected else None
+                camera_telemetry = (
+                    self._camera_tools.telemetry if self._camera_tools_connected else None)
                 payload = action.get("payload")
                 message_id = payload.get("message_id") if isinstance(payload, Mapping) else None
-                consumes_pose = (action.get("type") == "consume_message" and telemetry is not None
-                                 and telemetry.owns_message(message_id))
+                consumes_pose = (action.get("type") == "consume_message"
+                                 and pose_telemetry is not None
+                                 and pose_telemetry.owns_message(message_id))
+                consumes_camera = (action.get("type") == "consume_message"
+                                   and camera_telemetry is not None
+                                   and camera_telemetry.owns_message(message_id))
                 if consumes_pose and message_id not in self._pose_visible_ids:
                     raise ValueError("pose message has not been delivered to the algorithm")
-                if consumes_pose and not telemetry.can_consume(
-                        message_id, time_s=self._session.report()["current_time_s"]):
+                if consumes_camera and message_id not in self._camera_visible_ids:
+                    raise ValueError("camera message has not been delivered to the algorithm")
+                now = self._session.report()["current_time_s"]
+                if consumes_pose and not pose_telemetry.can_consume(message_id, time_s=now):
                     raise ValueError("pose message is not currently delivered and fresh")
+                if consumes_camera and not camera_telemetry.can_consume(message_id, time_s=now):
+                    raise ValueError("camera message is not currently delivered and fresh")
                 result = self._session.submit_action(action)
                 if consumes_pose:
-                    telemetry.consume(message_id, action_id=action["action_id"],
-                                      time_s=self._session.report()["current_time_s"])
+                    pose_telemetry.consume(message_id, action_id=action["action_id"],
+                                           time_s=self._session.report()["current_time_s"])
+                if consumes_camera:
+                    camera_telemetry.consume(message_id, action_id=action["action_id"],
+                                             time_s=self._session.report()["current_time_s"])
                 actions.append(result)
         except BaseException:
             # The adapter has observed this batch. A partial action batch cannot
@@ -242,6 +332,16 @@ class GoalAlgorithmHost:
         report = self._session.report()
         now = report["current_time_s"]
         for payload in self._pose_tools.tick(now, current_agents=set(report["current_agents"])):
+            self._session.emit("observation", now, payload)
+
+    def pump_camera_tools(self) -> None:
+        """Capture accepted requests on the owner thread and deliver fresh frames."""
+        self._require_open()
+        if not self._camera_tools_connected:
+            return
+        report = self._session.report()
+        now = report["current_time_s"]
+        for payload in self._camera_tools.tick(now, current_agents=set(report["current_agents"])):
             self._session.emit("observation", now, payload)
 
     def emit(self, type: str, time_s: float, payload: Mapping[str, Any]) -> dict[str, Any]:

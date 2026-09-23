@@ -226,3 +226,38 @@ class GoalPoseTools:
         return any(delivery["status"] in {"queued", "in_transit"}
                    for message in self.telemetry.communication_report()["messages"].values()
                    for delivery in message["recipients"].values())
+
+    def next_wakeup_s(self) -> float | None:
+        """Earliest subscription due, query deadline, or in-transit delivery time.
+
+        Pending query timeouts also schedule the next ``period_s`` step so dropped
+        queries still receive idle ticks without jumping past earlier camera
+        deadlines when both tools share a runner.
+        """
+        candidates = []
+        for due in self._subscriptions.values():
+            candidates.append(float(due))
+        for query in self._pending_queries.values():
+            deadline = float(query["deadline_s"])
+            candidates.append(deadline)
+            step = self._now + self.period_s
+            if step < deadline:
+                candidates.append(step)
+        report = self.telemetry.communication_report()
+        for message_id, message in report["messages"].items():
+            if message_id not in self.telemetry._owned_messages:
+                continue
+            for delivery in message["recipients"].values():
+                scheduled = delivery.get("scheduled_delivery_at_s")
+                if delivery.get("status") == "in_transit" and scheduled is not None:
+                    candidates.append(float(scheduled))
+                elif delivery.get("status") == "queued":
+                    transport = self.telemetry.next_transport_event_s()
+                    if transport is not None:
+                        candidates.append(float(transport))
+                    else:
+                        # Conservative: next subscription period without busy-polling.
+                        candidates.append(self._now + self.period_s)
+        if not candidates:
+            return None
+        return min(candidates)

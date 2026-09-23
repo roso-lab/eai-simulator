@@ -196,5 +196,9 @@ class GoalPoseTelemetry:
         """Return the unannotated evaluator report accepted by replay validation."""
         return self.runtime.report()
 
+    def next_transport_event_s(self) -> float | None:
+        """Earliest CommunicationRuntime service/delivery/expiry wake time."""
+        return self.runtime.next_event_time_s()
+
 
 __all__ = ["GoalPoseTelemetry"]

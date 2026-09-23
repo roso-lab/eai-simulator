@@ -138,6 +138,16 @@ class CommunicationRuntime:
     def time_s(self):
         return float(self._now)
 
+    def next_event_time_s(self):
+        """Earliest scheduled service, delivery, or expiry time, if any.
+
+        After ``advance(t)``, remaining heap entries are strictly later than
+        ``t``. Callers may jump directly to this instant instead of polling.
+        """
+        if not self._events:
+            return None
+        return float(self._events[0][0])
+
     def _record(self, event, time, **data):
         self._ledger.append({"sequence": len(self._ledger), "event": event,
                              "time_s": float(time), **deepcopy(data)})
