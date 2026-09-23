@@ -102,12 +102,14 @@ def test_unreplayed_or_malformed_communication_is_not_zero_cost(tmp_path):
         ]},
     })
     _write(tmp_path, "pose_communication_replay.json", {"validated": False})
+    _write(tmp_path, "camera_tools_report.json", {"schema": "broken"})
     _write(tmp_path, "team_usage.json", {"activation_cost_proxy": 0})
 
     result = build_raw_cost_evidence(tmp_path)
 
     assert result["communication"]["total_bytes"] is None
     assert result["communication"]["valid"] is False
+    assert result["communication"]["invalid_source_count"] == 2
     assert result["activation_cost_proxy"]["value"] is None
     assert result["accepted_actions"]["total_count"] == 0
 

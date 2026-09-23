@@ -131,6 +131,9 @@ def _communication_bytes(root: Path) -> dict[str, Any]:
     reliable_sources = 0
     invalid_sources = 0
     for report_name, replay_name in sources:
+        report_path = root / report_name
+        if not report_path.is_file():
+            continue
         report_payload = _read_json(root, report_name)
         replay = _read_json(root, replay_name)
         communication = (report_payload.get("communication")
@@ -139,6 +142,7 @@ def _communication_bytes(root: Path) -> dict[str, Any]:
             # A generic archive may already be the communication report.
             communication = report_payload if report_payload.get("schema") == "eai.benchmark.communication" else None
         if not isinstance(communication, Mapping):
+            invalid_sources += 1
             continue
         if not isinstance(replay, Mapping) or replay.get("validated") is not True:
             invalid_sources += 1
