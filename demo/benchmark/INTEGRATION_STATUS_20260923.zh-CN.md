@@ -59,6 +59,10 @@ failed/null。最新本机部署/session/host/runner/工具/评分/oracle专项
 统计。餐厅准备命令对现有 v7 的结果为 `hash_resolver=passed`、
 `source_closure_missing`，因此没有启动正式 episode。
 
+已将完整 `672f2dc` bundle 同步到 ljy 隔离工作树（未触碰 ljy 原仓未提交修改），
+同一专项测试结果为 **134 passed，0.26秒**。远端专项包含通信旧/新池、评分侧车、
+编键随机、physics replay 和餐厅准备测试；没有启动 Isaac 原生 episode。
+
 以下保留较早基线的历史证据；远端资产缺口随后已补齐，不再是当前回归阻塞：
 
 本机评分/runner/工具专项249项通过；后续新增生命周期与餐厅测试87项通过。
