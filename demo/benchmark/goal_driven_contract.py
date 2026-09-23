@@ -32,6 +32,7 @@ GOAL_HETEROGENEITY_SCHEMA = "eai.benchmark.goal_heterogeneity_certificate"
 # these constants together so adapters cannot infer an envelope version from
 # the package version (a common integration mistake).
 GOAL_CONTRACT_VERSION = 2
+GOAL_DEPLOYMENT_CONTRACT_VERSION = 3
 GOAL_ACTION_SCHEMA = "eai.benchmark.goal_action"
 GOAL_ACTION_VERSION = 1
 GOAL_PLAN_SCHEMA = "eai.benchmark.goal_plan"
@@ -49,6 +50,7 @@ _PUBLIC_TASK_FIELDS = {
     "required_outcomes", "candidate_robot_pool", "skill_catalog_version",
     "public_world", "business_constraints", "budgets", "experiment_factor", "execution_contract",
 }
+_PUBLIC_TASK_FIELDS_V3 = _PUBLIC_TASK_FIELDS | {"deployment_assessment"}
 _MISSION_FIELDS = {"scene_key", "goal", "context"}
 _OUTCOME_FIELDS = {"id", "description", "acceptance", "evidence_expectations"}
 _ROBOT_FIELDS = {"id", "type", "mobility", "public_capabilities", "interfaces", "physical_profile"}
@@ -85,6 +87,12 @@ _ACTION_FIELDS = {
     "cancel_skill": {"task_id", "reason"},
     "consume_message": {"message_id"},
 }
+_DEPLOYMENT_ACTION_FIELDS = {
+    "deployment_assessment": {
+        "assessment_id", "assessment_epoch", "roster_version",
+        "capability_versions", "decision", "reason_codes", "evidence_refs",
+    },
+}
 _EVENT_FIELDS = {
     "episode_started": {"public_task_digest"},
     "observation": {"message_id", "producer_id", "kind", "data", "valid_until_s"},
@@ -94,6 +102,19 @@ _EVENT_FIELDS = {
     "communication_status": {"status", "available_bytes"},
     "action_result": {"action_id", "status", "reason"},
     "tick": {"state_digest"},
+}
+_DEPLOYMENT_EVENT_FIELDS = {
+    "deployment_assessment_required": {
+        "assessment_id", "assessment_epoch", "trigger_event_sequence",
+        "trigger_event_type", "roster_version", "capability_versions",
+        "current_agent_ids",
+    },
+    "human_assistance_requested": {
+        "assessment_id", "assessment_epoch", "decision_action_id",
+        "reason_codes", "evidence_refs",
+    },
+    "resource_status": {"resource_id", "resource_version", "available_capacity"},
+    "deployment_change": {"change_id", "change_version", "public_facts"},
 }
 _SKILL_INTERFACE_REQUIREMENTS = {
     "observe": {"camera"},
@@ -180,9 +201,17 @@ def _public_ids(task_spec: Mapping[str, Any]) -> tuple[set[str], set[str], set[s
 
 def validate_goal_task_spec(spec: Mapping[str, Any]) -> dict[str, Any]:
     spec = _mapping(spec, "goal task spec")
-    _check_exact(spec, _PUBLIC_TASK_FIELDS, "goal task spec")
-    if spec["schema"] != GOAL_TASK_SCHEMA or spec["version"] != GOAL_CONTRACT_VERSION:
+    version = spec.get("version")
+    expected_fields = (_PUBLIC_TASK_FIELDS_V3
+                       if version == GOAL_DEPLOYMENT_CONTRACT_VERSION
+                       else _PUBLIC_TASK_FIELDS)
+    _check_exact(spec, expected_fields, "goal task spec")
+    if (spec["schema"] != GOAL_TASK_SCHEMA
+            or version not in {GOAL_CONTRACT_VERSION, GOAL_DEPLOYMENT_CONTRACT_VERSION}):
         raise ValueError("unsupported goal task schema")
+    if version == GOAL_DEPLOYMENT_CONTRACT_VERSION:
+        from .goal_deployment_assessment import validate_deployment_assessment_contract
+        validate_deployment_assessment_contract(spec["deployment_assessment"])
     _string(spec["task_id"], "task id")
     _string(spec["evaluation_track"], "evaluation track")
     if spec["evaluation_track"] != "goal_driven_team_planning_v1":
@@ -343,8 +372,9 @@ def validate_goal_task_spec(spec: Mapping[str, Any]) -> dict[str, Any]:
         raise ValueError(f"goal public task leaks private or v1 execution fields: {forbidden}")
     if any(key in _OUTCOME_FORBIDDEN_KEYS for outcome in outcomes for key in outcome):
         raise ValueError("required outcomes must remain business-level")
-    if not {"aerial_navigation", "ground_navigation"} <= {
-            capability for robot in pool for capability in robot["public_capabilities"]}:
+    if (version == GOAL_CONTRACT_VERSION
+            and not {"aerial_navigation", "ground_navigation"} <= {
+                capability for robot in pool for capability in robot["public_capabilities"]}):
         raise ValueError("goal task must expose heterogeneous aerial and ground capabilities")
     constraints_report = validate_constraint_model(spec)
     return {"task_id": spec["task_id"], "validated": True, "sha256": canonical_sha256(spec),
@@ -353,9 +383,14 @@ def validate_goal_task_spec(spec: Mapping[str, Any]) -> dict[str, Any]:
 
 def build_goal_participant_api(task_spec: Mapping[str, Any]) -> dict[str, Any]:
     validate_goal_task_spec(task_spec)
+    deployment_enabled = task_spec["version"] == GOAL_DEPLOYMENT_CONTRACT_VERSION
+    action_fields = {**_ACTION_FIELDS,
+                     **(_DEPLOYMENT_ACTION_FIELDS if deployment_enabled else {})}
+    event_fields = {**_EVENT_FIELDS,
+                    **(_DEPLOYMENT_EVENT_FIELDS if deployment_enabled else {})}
     api = {
         "schema": GOAL_API_SCHEMA,
-        "version": GOAL_CONTRACT_VERSION,
+        "version": task_spec["version"],
         "task_id": task_spec["task_id"],
         "public_task_sha256": canonical_sha256(task_spec),
         "skill_catalog_version": task_spec["skill_catalog_version"],
@@ -379,17 +414,10 @@ def build_goal_participant_api(task_spec: Mapping[str, Any]) -> dict[str, Any]:
                            "fields": ["sequence", "time_s", "type", "payload"]},
         "action_envelope": {"schema": GOAL_ACTION_SCHEMA, "version": GOAL_ACTION_VERSION,
                             "fields": ["action_id", "submitted_at_s", "type", "payload"]},
-        "event_types": {
-            "episode_started": {"payload_fields": sorted(_EVENT_FIELDS["episode_started"])},
-            "observation": {"payload_fields": sorted(_EVENT_FIELDS["observation"])},
-            "member_join": {"payload_fields": sorted(_EVENT_FIELDS["member_join"])},
-            "member_exit": {"payload_fields": sorted(_EVENT_FIELDS["member_exit"])},
-            "capability_change": {"payload_fields": sorted(_EVENT_FIELDS["capability_change"])},
-            "communication_status": {"payload_fields": sorted(_EVENT_FIELDS["communication_status"])},
-            "action_result": {"payload_fields": sorted(_EVENT_FIELDS["action_result"])},
-            "tick": {"payload_fields": sorted(_EVENT_FIELDS["tick"])},
-        },
-        "action_types": {name: {"payload_fields": sorted(fields)} for name, fields in _ACTION_FIELDS.items()},
+        "event_types": {name: {"payload_fields": sorted(fields)}
+                        for name, fields in event_fields.items()},
+        "action_types": {name: {"payload_fields": sorted(fields)}
+                         for name, fields in action_fields.items()},
         "ordering": "visible event sequence is monotonic; action submission uses simulation time",
         "truth_boundary": (
             "Only current public world, current roster, delivered messages and observed events are visible. "
@@ -402,6 +430,8 @@ def build_goal_participant_api(task_spec: Mapping[str, Any]) -> dict[str, Any]:
             "runtime_execution": "external_pending",
             "dynamic_team_events": "event_contract_only",
             "skill_dispatch": "contract_only",
+            **({"deployment_assessment": "trusted_gate"}
+               if deployment_enabled else {}),
         },
     }
     validate_goal_participant_api(api, task_spec=task_spec)
@@ -415,7 +445,7 @@ def validate_goal_participant_api(api: Mapping[str, Any], *, task_spec: Mapping[
                 "event_envelope", "action_envelope", "event_types", "action_types", "ordering",
                 "truth_boundary", "implementation_status", "skill_catalog", "plan_contract"}
     _check_exact(api, expected, "goal participant API")
-    if api["schema"] != GOAL_API_SCHEMA or api["version"] != GOAL_CONTRACT_VERSION:
+    if api["schema"] != GOAL_API_SCHEMA or api["version"] != task_spec["version"]:
         raise ValueError("unsupported goal participant API schema")
     if api["task_id"] != task_spec["task_id"] or api["public_task_sha256"] != canonical_sha256(task_spec):
         raise ValueError("goal participant API is not bound to the public task")
@@ -450,18 +480,25 @@ def validate_goal_participant_api(api: Mapping[str, Any], *, task_spec: Mapping[
         "contract_validation": "available", "plan_submission": "contract_only",
         "runtime_execution": "external_pending", "dynamic_team_events": "event_contract_only",
         "skill_dispatch": "contract_only",
+        **({"deployment_assessment": "trusted_gate"}
+           if task_spec["version"] == GOAL_DEPLOYMENT_CONTRACT_VERSION else {}),
     }
     if api["implementation_status"] != expected_status:
         raise ValueError("goal participant API implementation_status differs from the available contract")
-    if set(api["action_types"]) != set(_ACTION_FIELDS):
+    deployment_enabled = task_spec["version"] == GOAL_DEPLOYMENT_CONTRACT_VERSION
+    action_fields = {**_ACTION_FIELDS,
+                     **(_DEPLOYMENT_ACTION_FIELDS if deployment_enabled else {})}
+    event_fields = {**_EVENT_FIELDS,
+                    **(_DEPLOYMENT_EVENT_FIELDS if deployment_enabled else {})}
+    if set(api["action_types"]) != set(action_fields):
         raise ValueError("goal participant API must expose the complete goal action vocabulary")
-    if set(api["event_types"]) != set(_EVENT_FIELDS):
+    if set(api["event_types"]) != set(event_fields):
         raise ValueError("goal participant API must expose the complete event vocabulary")
-    for name, fields in _ACTION_FIELDS.items():
+    for name, fields in action_fields.items():
         declared = _mapping(api["action_types"][name], f"goal action {name}")
         if dict(declared) != {"payload_fields": sorted(fields)}:
             raise ValueError(f"goal action {name} has an invalid payload declaration")
-    for name, fields in _EVENT_FIELDS.items():
+    for name, fields in event_fields.items():
         declared = _mapping(api["event_types"][name], f"goal event {name}")
         if dict(declared) != {"payload_fields": sorted(fields)}:
             raise ValueError(f"goal event {name} has an invalid payload declaration")
@@ -880,10 +917,13 @@ def validate_goal_event(event: Mapping[str, Any], *, api: Mapping[str, Any],
     if current_time_s is not None and event_time > _nonnegative(current_time_s, "current_time_s"):
         raise ValueError("future event cannot be delivered to the participant")
     event_type = event["type"]
-    if event_type not in _EVENT_FIELDS:
+    event_fields = {**_EVENT_FIELDS,
+                    **(_DEPLOYMENT_EVENT_FIELDS
+                       if task_spec["version"] == GOAL_DEPLOYMENT_CONTRACT_VERSION else {})}
+    if event_type not in event_fields:
         raise ValueError("goal event type is not declared")
     payload = _mapping(event["payload"], "goal event payload")
-    _check_exact(payload, _EVENT_FIELDS[event_type], f"goal event {event_type}")
+    _check_exact(payload, event_fields[event_type], f"goal event {event_type}")
     if event_type == "observation":
         _string(payload["message_id"], "observation message id")
         _string(payload["producer_id"], "observation producer id")
@@ -911,8 +951,37 @@ def validate_goal_event(event: Mapping[str, Any], *, api: Mapping[str, Any],
         _string(payload["reason"], "action result reason")
     elif event_type == "member_exit":
         _string(payload["agent_id"], "member_exit agent id")
+    elif event_type == "deployment_assessment_required":
+        _string(payload["assessment_id"], "assessment id")
+        for name in ("assessment_epoch", "trigger_event_sequence", "roster_version"):
+            if type(payload[name]) is not int or payload[name] < 0:
+                raise ValueError(f"{name} must be a nonnegative integer")
+        _string(payload["trigger_event_type"], "assessment trigger event type")
+        agents = _string_list(payload["current_agent_ids"], "current assessment agents",
+                              allow_empty=True)
+        versions = _mapping(payload["capability_versions"], "assessment capability_versions")
+        if set(versions) != set(agents) or any(
+                type(version) is not int or version < 0 for version in versions.values()):
+            raise ValueError("assessment capability_versions must cover current agents")
+    elif event_type == "human_assistance_requested":
+        _string(payload["assessment_id"], "assistance assessment id")
+        _string(payload["decision_action_id"], "assistance decision action id")
+        if type(payload["assessment_epoch"]) is not int or payload["assessment_epoch"] < 0:
+            raise ValueError("assistance assessment_epoch must be nonnegative")
+        _string_list(payload["reason_codes"], "assistance reason_codes")
+        _string_list(payload["evidence_refs"], "assistance evidence_refs", allow_empty=True)
+    elif event_type == "resource_status":
+        _string(payload["resource_id"], "resource id")
+        if type(payload["resource_version"]) is not int or payload["resource_version"] < 1:
+            raise ValueError("resource_version must be a positive integer")
+        _nonnegative(payload["available_capacity"], "available_capacity")
+    elif event_type == "deployment_change":
+        _string(payload["change_id"], "deployment change id")
+        if type(payload["change_version"]) is not int or payload["change_version"] < 1:
+            raise ValueError("change_version must be a positive integer")
+        _mapping(payload["public_facts"], "deployment change public_facts")
     elif event_type in {"episode_started", "tick"}:
-        _string(payload[next(iter(_EVENT_FIELDS[event_type]))], f"{event_type} digest")
+        _string(payload[next(iter(event_fields[event_type]))], f"{event_type} digest")
     forbidden = _find_keys(event)
     if forbidden:
         raise ValueError(f"goal event contains private fields: {forbidden}")
@@ -935,10 +1004,13 @@ def validate_goal_action(action: Mapping[str, Any], *, api: Mapping[str, Any],
             raise ValueError("action submission time must match current simulation time")
     context = {**dict(context or {}), "current_time_s": submitted_at}
     action_type = action["type"]
-    if action_type not in _ACTION_FIELDS:
+    action_fields = {**_ACTION_FIELDS,
+                     **(_DEPLOYMENT_ACTION_FIELDS
+                        if task_spec["version"] == GOAL_DEPLOYMENT_CONTRACT_VERSION else {})}
+    if action_type not in action_fields:
         raise ValueError("goal action type is not declared")
     payload = _mapping(action["payload"], "goal action payload")
-    _check_exact(payload, _ACTION_FIELDS[action_type], f"goal action {action_type}")
+    _check_exact(payload, action_fields[action_type], f"goal action {action_type}")
     current_agents = _current_agents(task_spec, context)
     if action_type == "select_team":
         agents = _string_list(payload["agent_ids"], "selected team")
@@ -989,6 +1061,44 @@ def validate_goal_action(action: Mapping[str, Any], *, api: Mapping[str, Any],
         consumed = set(context.get("consumed_message_ids", [])) if context else set()
         if payload["message_id"] in consumed:
             raise ValueError("message has already been consumed by this participant")
+    elif action_type == "deployment_assessment":
+        from .goal_deployment_assessment import DEPLOYMENT_DECISIONS, DEPLOYMENT_REASON_CODES
+        _string(payload["assessment_id"], "deployment assessment id")
+        for name in ("assessment_epoch", "roster_version"):
+            if type(payload[name]) is not int or payload[name] < 0:
+                raise ValueError(f"deployment {name} must be a nonnegative integer")
+        versions = _mapping(payload["capability_versions"], "deployment capability_versions")
+        if any(type(value) is not int or value < 0 for value in versions.values()):
+            raise ValueError("deployment capability_versions must be nonnegative integers")
+        if payload["decision"] not in DEPLOYMENT_DECISIONS:
+            raise ValueError("deployment decision must be deployable or not_deployable")
+        reasons = _string_list(payload["reason_codes"], "deployment reason_codes",
+                               allow_empty=True)
+        if not set(reasons) <= set(DEPLOYMENT_REASON_CODES):
+            raise ValueError("deployment reason_codes contain an unknown declaration")
+        if payload["decision"] == "not_deployable" and not reasons:
+            raise ValueError("not_deployable requires at least one reason_code")
+        if payload["decision"] == "deployable" and reasons:
+            raise ValueError("deployable cannot carry not_deployable reason_codes")
+        refs = _string_list(payload["evidence_refs"], "deployment evidence_refs",
+                            allow_empty=True)
+        visible_events = context.get("visible_events", [])
+        public_refs = set(current_agents)
+        public_refs |= {row["id"] for row in task_spec["candidate_robot_pool"]}
+        public_refs |= {
+            event["payload"]["agent_id"]
+            for event in visible_events
+            if (event.get("type") in {"member_join", "member_exit", "capability_change"}
+                and isinstance(event.get("payload"), Mapping)
+                and isinstance(event["payload"].get("agent_id"), str))
+        }
+        regions, objects, links = _public_ids(task_spec)
+        public_refs |= regions | objects | links
+        public_refs |= {row["id"] for row in task_spec["required_outcomes"]}
+        visible_ids, _ = _visible_event_index(visible_events)
+        public_refs |= visible_ids
+        if not set(refs) <= public_refs:
+            raise ValueError("deployment evidence_refs must name public entities or messages")
     forbidden = _find_keys(action)
     if forbidden:
         raise ValueError(f"goal action contains private fields: {forbidden}")
@@ -1309,6 +1419,7 @@ def write_goal_task_bundle(bundle: Mapping[str, Mapping[str, Any]], output_dir: 
 __all__ = [
     "GOAL_ACTION_SCHEMA", "GOAL_ACTION_VERSION", "GOAL_API_SCHEMA",
     "GOAL_BASELINE_SCHEMA", "GOAL_CONTRACT_VERSION", "GOAL_EVENT_SCHEMA",
+    "GOAL_DEPLOYMENT_CONTRACT_VERSION",
     "GOAL_EVENT_VERSION", "GOAL_PLAN_SCHEMA", "GOAL_PLAN_VERSION",
     "GOAL_HETEROGENEITY_SCHEMA", "GOAL_HIDDEN_EVALUATOR_SCHEMA", "GOAL_TASK_SCHEMA",
     "build_goal_heterogeneity_certificate", "build_goal_participant_api",

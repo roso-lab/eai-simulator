@@ -41,6 +41,7 @@ import math
 from typing import Any, Mapping
 
 from .goal_driven_contract import (
+    GOAL_DEPLOYMENT_CONTRACT_VERSION,
     GOAL_EVENT_SCHEMA,
     GOAL_EVENT_VERSION,
     GOAL_PLAN_SCHEMA,
@@ -51,6 +52,10 @@ from .goal_driven_contract import (
     validate_goal_participant_api,
     validate_goal_plan,
     validate_goal_task_spec,
+)
+from .goal_deployment_assessment import (
+    DEPLOYMENT_REASSESSMENT_EVENTS,
+    validate_assessment_evaluation,
 )
 from .provenance import canonical_sha256
 
@@ -115,7 +120,37 @@ class GoalSession:
                         "evidence_refs": [], "evaluator_ref": None}
             for row in self._spec["required_outcomes"]
         }
-        self._append_event("episode_started", {"public_task_digest": canonical_sha256(self._spec)})
+        self._deployment_enabled = (
+            self._spec["version"] == GOAL_DEPLOYMENT_CONTRACT_VERSION)
+        self._deployment = {
+            "enabled": self._deployment_enabled,
+            "status": "not_required",
+            "assessment_epoch": None,
+            "assessment_id": None,
+            "trigger_event_sequence": None,
+            "trigger_event_type": None,
+            "roster_version": self._roster_version,
+            "capability_versions": {},
+            "current_agent_ids": [],
+            "current_robot_pool": {},
+            "resource_versions": {},
+            "deployment_change_versions": {},
+            "runtime_state": None,
+            "runtime_state_sha256": None,
+            "public_task_sha256": canonical_sha256(self._spec),
+            "completed_outcome_ids": [],
+            "external_evaluation": None,
+            "oracle_evaluations": [],
+            "history": [],
+            "terminated": False,
+            "termination": None,
+        }
+        self._resource_versions: dict[str, int] = {}
+        self._deployment_change_versions: dict[str, int] = {}
+        started = self._append_event(
+            "episode_started", {"public_task_digest": canonical_sha256(self._spec)})
+        if self._deployment_enabled:
+            self._invalidate_deployment_assessment(started)
 
     def _clock(self, time_s: Any) -> float:
         now = _number(time_s, "time_s")
@@ -151,9 +186,79 @@ class GoalSession:
             "active_task_ids": [r["task"]["task_id"] for r in self._pending()],
             "consumed_message_ids": sorted(self._consumed),
         }
+        if self._deployment_enabled:
+            context["deployment_assessment"] = deepcopy(self._deployment)
         if self._snapshot is not None:
             context.update({k: self._snapshot[k] for k in ("robot_regions", "object_states")})
         return context
+
+    def _assessment_snapshot(self) -> dict[str, Any]:
+        agents = sorted(self._current)
+        runtime_state = deepcopy(self._snapshot)
+        return {
+            "roster_version": self._roster_version,
+            "capability_versions": {
+                agent: self._capability_versions[agent] for agent in agents},
+            "current_agent_ids": agents,
+            "current_robot_pool": {
+                agent: deepcopy(self._robots[agent]) for agent in agents},
+            "resource_versions": deepcopy(self._resource_versions),
+            "deployment_change_versions": deepcopy(
+                self._deployment_change_versions),
+            "runtime_state": runtime_state,
+            "runtime_state_sha256": (
+                canonical_sha256(runtime_state) if runtime_state is not None else None),
+            "public_task_sha256": canonical_sha256(self._spec),
+            "completed_outcome_ids": sorted(
+                outcome_id for outcome_id, row in self._business_outcomes.items()
+                if row["status"] == "validated"),
+        }
+
+    def _invalidate_deployment_assessment(self, trigger: Mapping[str, Any]) -> None:
+        if not self._deployment_enabled or self._deployment["terminated"]:
+            return
+        previous = self._deployment["assessment_epoch"]
+        epoch = 0 if previous is None else previous + 1
+        snapshot = self._assessment_snapshot()
+        assessment_id = f"deployment-assessment-{epoch}"
+        self._deployment.update({
+            "status": "required",
+            "assessment_epoch": epoch,
+            "assessment_id": assessment_id,
+            "trigger_event_sequence": trigger["sequence"],
+            "trigger_event_type": trigger["type"],
+            "triggered_at_s": trigger["time_s"],
+            "external_evaluation": None,
+            **snapshot,
+        })
+        for row in self._pending():
+            if trigger["sequence"] not in row["invalidated_by"]:
+                row["invalidated_by"].append(trigger["sequence"])
+            if row["status"] == "pending":
+                row["status"] = "cancel_requested"
+                row["safety_stop"] = {
+                    "requested": True,
+                    "trigger_event_sequence": trigger["sequence"],
+                    "acknowledged": False,
+                }
+        self._append_event("deployment_assessment_required", {
+            "assessment_id": assessment_id,
+            "assessment_epoch": epoch,
+            "trigger_event_sequence": trigger["sequence"],
+            "trigger_event_type": trigger["type"],
+            "roster_version": snapshot["roster_version"],
+            "capability_versions": snapshot["capability_versions"],
+            "current_agent_ids": snapshot["current_agent_ids"],
+        })
+
+    def _require_deployable(self, action_type: str) -> None:
+        if not self._deployment_enabled:
+            return
+        if self._deployment["terminated"]:
+            raise ValueError("deployment assessment terminated the episode")
+        if self._deployment["status"] != "deployable":
+            raise ValueError(
+                f"deployment_assessment is required before {action_type}")
 
     def _require_snapshot(self, agents: list[str]) -> None:
         if self._time == 0 and not self._snapshot_required and self._snapshot is None:
@@ -179,6 +284,12 @@ class GoalSession:
             raise ValueError("observation message id has already been delivered")
         if type == "action_result" and data["action_id"] not in self._actions:
             raise ValueError("action_result must reference an accepted action")
+        if type == "resource_status":
+            if data["resource_version"] <= self._resource_versions.get(data["resource_id"], 0):
+                raise ValueError("resource_version must strictly increase")
+        if type == "deployment_change":
+            if data["change_version"] <= self._deployment_change_versions.get(data["change_id"], 0):
+                raise ValueError("deployment change_version must strictly increase")
         if type in {"member_join", "member_exit", "capability_change"}:
             agent = data["agent_id"]
             if type == "member_join":
@@ -209,9 +320,15 @@ class GoalSession:
             for row in self._pending():
                 if agent in row["task"]["assigned_agents"]:
                     row["invalidated_by"].append(event["sequence"])
+        elif type == "resource_status":
+            self._resource_versions[data["resource_id"]] = data["resource_version"]
+        elif type == "deployment_change":
+            self._deployment_change_versions[data["change_id"]] = data["change_version"]
         if type == "observation":
             self._message_ids.add(data["message_id"])
         self._events.append(event)
+        if type in DEPLOYMENT_REASSESSMENT_EVENTS:
+            self._invalidate_deployment_assessment(event)
         self._version += 1
         return deepcopy(event)
 
@@ -362,13 +479,17 @@ class GoalSession:
         return resources
 
     def submit_action(self, action: Mapping[str, Any]) -> dict[str, Any]:
-        """Validate and commit one existing v2 action; failures raise ValueError."""
+        """Validate and commit one version-declared action; failures raise ValueError."""
+        if self._deployment_enabled and self._deployment["terminated"]:
+            raise ValueError("deployment assessment terminated the episode")
         accepted = validate_goal_action(
             action, api=self._api, task_spec=self._spec, context=self._context(),
             allow_physical_infeasibility=True)
         action_id, type, payload = accepted["action_id"], accepted["type"], accepted["payload"]
         if action_id in self._actions:
             raise ValueError("action_id has already been accepted")
+        if type in {"select_team", "submit_plan", "revise_plan", "dispatch_skill"}:
+            self._require_deployable(type)
         if type not in {"cancel_skill", "consume_message"} and self._time >= self._spec["budgets"]["simulation_s"]:
             raise ValueError("episode simulation budget has ended")
         if type == "select_team":
@@ -392,6 +513,18 @@ class GoalSession:
             reservations = self._admit_dispatch(accepted)
         elif type == "cancel_skill" and self._tasks[payload["task_id"]]["status"] == "cancel_requested":
             raise ValueError("cancellation has already been requested")
+        elif type == "deployment_assessment":
+            current = self._deployment
+            if current["status"] != "required":
+                raise ValueError("deployment assessment is not currently required")
+            expected = {
+                "assessment_id": current["assessment_id"],
+                "assessment_epoch": current["assessment_epoch"],
+                "roster_version": current["roster_version"],
+                "capability_versions": current["capability_versions"],
+            }
+            if any(payload[name] != value for name, value in expected.items()):
+                raise ValueError("deployment assessment is bound to a stale roster or epoch")
 
         self._actions[action_id] = accepted
         if type == "select_team":
@@ -426,6 +559,45 @@ class GoalSession:
             self._tasks[payload["task_id"]].update({"status": "cancel_requested", "cancel_action_id": action_id})
         elif type == "consume_message":
             self._consumed.add(payload["message_id"])
+        elif type == "deployment_assessment":
+            snapshot = {
+                name: deepcopy(self._deployment[name]) for name in (
+                    "assessment_id", "assessment_epoch", "trigger_event_sequence",
+                    "trigger_event_type", "triggered_at_s", "roster_version",
+                    "capability_versions",
+                    "current_agent_ids", "current_robot_pool", "public_task_sha256",
+                    "resource_versions", "deployment_change_versions")
+            }
+            declaration = self._assessment_snapshot()
+            row = {
+                **snapshot,
+                "trigger_completed_outcome_ids": deepcopy(
+                    self._deployment["completed_outcome_ids"]),
+                "trigger_runtime_state": deepcopy(self._deployment["runtime_state"]),
+                "trigger_runtime_state_sha256": self._deployment["runtime_state_sha256"],
+                "completed_outcome_ids": declaration["completed_outcome_ids"],
+                "declared_runtime_state": declaration["runtime_state"],
+                "declared_runtime_state_sha256": declaration["runtime_state_sha256"],
+                "decision_action_id": action_id,
+                "decision": payload["decision"],
+                "reason_codes": list(payload["reason_codes"]),
+                "evidence_refs": list(payload["evidence_refs"]),
+                "declared_at_s": self._time,
+                "external_evaluation": deepcopy(
+                    self._deployment["external_evaluation"]),
+            }
+            self._deployment["history"].append(row)
+            self._deployment["status"] = payload["decision"]
+            if payload["decision"] == "not_deployable":
+                self._deployment["terminated"] = True
+                self._deployment["termination"] = {
+                    "category": "human_assistance_requested",
+                    "assessment_id": payload["assessment_id"],
+                    "assessment_epoch": payload["assessment_epoch"],
+                    "decision_action_id": action_id,
+                    "time_s": self._time,
+                    "resource_injected": False,
+                }
         self._version += 1
         event = self._append_event("action_result", {
             "action_id": action_id, "status": "accepted", "reason": "ledger admission; no execution claim",
@@ -435,7 +607,37 @@ class GoalSession:
                   "event": deepcopy(event), "execution_validated": False}
         if type in {"dispatch_skill", "cancel_skill"}:
             result["pending_task"] = deepcopy(self._tasks[payload["task_id"]])
+        if type == "deployment_assessment":
+            result["deployment_assessment"] = deepcopy(self._deployment)
+            if payload["decision"] == "not_deployable":
+                assistance = self._append_event("human_assistance_requested", {
+                    "assessment_id": payload["assessment_id"],
+                    "assessment_epoch": payload["assessment_epoch"],
+                    "decision_action_id": action_id,
+                    "reason_codes": list(payload["reason_codes"]),
+                    "evidence_refs": list(payload["evidence_refs"]),
+                })
+                result["termination_event"] = deepcopy(assistance)
         return result
+
+    def record_deployment_assessment_evaluation(
+        self, evaluation: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Attach one trusted hidden label to an accepted declaration epoch."""
+        current = self._deployment
+        if not self._deployment_enabled or current["status"] != "required":
+            raise ValueError("no required deployment assessment epoch is available")
+        if current["external_evaluation"] is not None:
+            raise ValueError("deployment assessment epoch is already evaluated")
+        validated = validate_assessment_evaluation(
+            evaluation, assessment_id=current["assessment_id"],
+            assessment_epoch=current["assessment_epoch"])
+        current["external_evaluation"] = validated
+        current["oracle_evaluations"].append(deepcopy(validated))
+        self._version += 1
+        return {"accepted": True, "assessment_id": current["assessment_id"],
+                "assessment_epoch": current["assessment_epoch"],
+                "state_version": self._version}
 
     def complete_skill(self, task_id: str, *, time_s: float, status: str,
                        receipt: Mapping[str, Any] | None) -> dict[str, Any]:
@@ -485,6 +687,8 @@ class GoalSession:
         self._time = now
         self._receipt_ids.add(key)
         row.update({"status": status, "receipt": deepcopy(data), "completed_at_s": now, "reservations": []})
+        if "safety_stop" in row:
+            row["safety_stop"]["acknowledged"] = status == "cancelled"
         self._snapshot_required = True
         self._version += 1
         event = self._append_event("action_result", {
@@ -563,7 +767,7 @@ class GoalSession:
                                 if status in _TERMINAL)
         business_outcomes_validated = self._business_outcomes_validated()
         business_task_success = self._business_task_success()
-        return deepcopy({
+        report = {
             "task_id": self._spec["task_id"], "episode_id": self._episode_id,
             "current_time_s": self._time,
             "state_version": self._version, "roster_version": self._roster_version,
@@ -585,12 +789,21 @@ class GoalSession:
             },
             "business_outcomes": list(self._business_outcomes.values()),
             "business_task_success": business_task_success,
-            "execution_validated": False, "business_outcomes_validated": business_outcomes_validated,
+            "execution_validated": False,
+            "business_outcomes_validated": (
+                business_outcomes_validated and not self._deployment_enabled),
             "scoreable": False,
             "limitations": ["trusted_host_must_authenticate_backend_and_resolve_evidence",
                             "symbolic_resources_only_no_contact_or_idle_occupancy_model",
                             "no_executor_no_business_evaluator", "remaining_work_revisions_only"],
-        })
+        }
+        if self._deployment_enabled:
+            report.update({
+                "resource_versions": self._resource_versions,
+                "deployment_change_versions": self._deployment_change_versions,
+                "deployment_assessment": self._deployment,
+            })
+        return deepcopy(report)
 
 
 __all__ = ["GoalSession"]

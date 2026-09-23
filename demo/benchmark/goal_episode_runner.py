@@ -46,6 +46,11 @@ class GoalExecutionBackend(Protocol):
 
 
 BusinessEvaluator = Callable[[str, Mapping[str, Any]], Mapping[str, Mapping[str, Any]]]
+AssessmentEvaluator = Callable[[str, Mapping[str, Any]], Mapping[str, Any]]
+
+
+class DeploymentAssessmentProtocolError(RuntimeError):
+    """Participant failed to declare a required deployment assessment."""
 
 
 class SubprocessGoalAdapter:
@@ -224,7 +229,8 @@ class FormalGoalEpisodeRunner:
                  adapter: GoalAlgorithmAdapter, backend: GoalExecutionBackend, *,
                  output_root: str | Path, episode_id: str | None = None,
                  evaluator: BusinessEvaluator | None = None, max_turns: int = 256,
-                 pose_tools: Any = None, camera_tools: Any = None):
+                 pose_tools: Any = None, camera_tools: Any = None,
+                 assessment_evaluator: AssessmentEvaluator | None = None):
         if not isinstance(max_turns, int) or isinstance(max_turns, bool) or max_turns < 1:
             raise ValueError("max_turns must be a positive integer")
         self.public_task = deepcopy(dict(public_task))
@@ -236,6 +242,7 @@ class FormalGoalEpisodeRunner:
         if not isinstance(self.episode_id, str) or not self.episode_id.strip():
             raise ValueError("episode_id must be a nonempty string")
         self.evaluator = evaluator
+        self.assessment_evaluator = assessment_evaluator
         self.max_turns = max_turns
         self.pose_tools = pose_tools
         self.camera_tools = camera_tools
@@ -247,6 +254,27 @@ class FormalGoalEpisodeRunner:
                 camera_tools.episode_id != self.episode_id
                 or camera_tools.public_task_sha256 != canonical_sha256(self.public_task)):
             raise ValueError("camera tools must be bound to this episode and public task")
+
+    def _evaluate_required_assessment(self, host: GoalAlgorithmHost) -> None:
+        report = host.trusted_report()["session"]
+        assessment = report.get("deployment_assessment")
+        if (assessment is not None
+                and assessment["status"] == "required"
+                and assessment["external_evaluation"] is None):
+            if self.assessment_evaluator is None:
+                evaluation = {
+                    "assessment_id": assessment["assessment_id"],
+                    "assessment_epoch": assessment["assessment_epoch"],
+                    "feasibility_label": None,
+                    "oracle_status": "failed",
+                    "platform_valid": False,
+                    "evidence_refs": [],
+                    "evaluator_ref": "oracle_not_configured",
+                }
+            else:
+                evaluation = self.assessment_evaluator(
+                    self.episode_id, host.trusted_report())
+            host.record_deployment_assessment_evaluation(evaluation)
 
     def run(self, *, initial_state: Mapping[str, Any]) -> dict[str, Any]:
         if self.output_root.exists():
@@ -289,6 +317,7 @@ class FormalGoalEpisodeRunner:
         business: dict[str, Any] = {}
         lifecycle_errors: list[dict[str, str]] = []
         error: str | None = None
+        protocol_error: dict[str, Any] | None = None
         turns = 0
         host = None
         try:
@@ -297,71 +326,93 @@ class FormalGoalEpisodeRunner:
                                     session=session, pose_tools=self.pose_tools,
                                     camera_tools=self.camera_tools) as host:
                 for turns in range(1, self.max_turns + 1):
+                    self._evaluate_required_assessment(host)
                     host.request_actions()
                     report = host.trusted_report()["session"]
+                    assessment = report.get("deployment_assessment")
                     pending = [row for row in report["tasks"].values()
                                if row["status"] in {"pending", "cancel_requested"}]
                     if not pending:
+                        if assessment is not None and assessment["terminated"]:
+                            break
                         # A final adapter turn may still consume terminal receipts.
-                        if turns > 1 and not host.request_actions():
+                        if turns > 1:
+                            self._evaluate_required_assessment(host)
+                            followup_actions = host.request_actions()
+                            report = host.trusted_report()["session"]
+                            assessment = report.get("deployment_assessment")
+                            pending = [row for row in report["tasks"].values()
+                                       if row["status"] in {"pending", "cancel_requested"}]
+                            if assessment is not None and assessment["terminated"]:
+                                break
+                            if pending:
+                                pass
+                            elif followup_actions:
+                                continue
                             # Optional backends can keep a real simulation clock
                             # moving while a model waits for a delayed query.
-                            idle = getattr(self.backend, "advance_idle", None)
-                            pose_pending = (self.pose_tools is not None
-                                            and self.pose_tools.has_pending_work())
-                            camera_pending = (self.camera_tools is not None
-                                              and self.camera_tools.has_pending_work())
-                            if ((pose_pending or camera_pending) and callable(idle)):
-                                now = host.trusted_report()["session"]["current_time_s"]
-                                wakeups: list[float] = []
-                                if pose_pending:
-                                    wake = self.pose_tools.next_wakeup_s()
-                                    if wake is None:
-                                        wake = now + self.pose_tools.period_s
-                                    wakeups.append(float(wake))
-                                if camera_pending:
-                                    wake = self.camera_tools.next_wakeup_s()
-                                    if wake is None:
-                                        wake = now + 1e-6
-                                    wakeups.append(float(wake))
-                                budget = float(self.public_task["budgets"]["simulation_s"])
-                                next_time = min(min(wakeups), budget)
-                                if next_time <= now:
-                                    # Deadlines in the past still need a forward tick.
-                                    next_time = min(now + 1e-6, budget)
-                                if next_time > now:
-                                    idle_result = idle(next_time)
-                                    actual_time = idle_result.get("time_s") if isinstance(idle_result, Mapping) else None
-                                    if (isinstance(actual_time, bool)
-                                            or not isinstance(actual_time, (int, float))
-                                            or not math.isfinite(actual_time)
-                                            or not now < actual_time <= budget):
-                                        raise ValueError("idle backend must report its actual advancing episode time")
-                                    idle_state = idle_result.get("runtime_state")
-                                    robots, objects = _require_state(idle_state, "idle runtime state")
-                                    host.update_runtime_state(actual_time, robots, objects)
-                                    digest = ("tool_idle"
-                                              if pose_pending and camera_pending
-                                              else ("pose_tool_idle" if pose_pending
-                                                    else "camera_tool_idle"))
-                                    host.emit("tick", actual_time, {"state_digest": digest})
-                                    snapshots.append({"episode_id": self.episode_id, "time_s": actual_time,
-                                                      "robot_regions": deepcopy(robots),
-                                                      "object_states": deepcopy(objects)})
-                                    continue
-                                # Hit simulation budget while tools still pending.
-                                if camera_pending:
-                                    self.camera_tools.finalize_episode(budget)
+                            else:
+                                idle = getattr(self.backend, "advance_idle", None)
+                                pose_pending = (self.pose_tools is not None
+                                                and self.pose_tools.has_pending_work())
+                                camera_pending = (self.camera_tools is not None
+                                                  and self.camera_tools.has_pending_work())
+                                if ((pose_pending or camera_pending) and callable(idle)):
+                                    now = host.trusted_report()["session"]["current_time_s"]
+                                    wakeups: list[float] = []
+                                    if pose_pending:
+                                        wake = self.pose_tools.next_wakeup_s()
+                                        if wake is None:
+                                            wake = now + self.pose_tools.period_s
+                                        wakeups.append(float(wake))
+                                    if camera_pending:
+                                        wake = self.camera_tools.next_wakeup_s()
+                                        if wake is None:
+                                            wake = now + 1e-6
+                                        wakeups.append(float(wake))
+                                    budget = float(self.public_task["budgets"]["simulation_s"])
+                                    next_time = min(min(wakeups), budget)
+                                    if next_time <= now:
+                                        # Deadlines in the past still need a forward tick.
+                                        next_time = min(now + 1e-6, budget)
+                                    if next_time > now:
+                                        idle_result = idle(next_time)
+                                        actual_time = idle_result.get("time_s") if isinstance(idle_result, Mapping) else None
+                                        if (isinstance(actual_time, bool)
+                                                or not isinstance(actual_time, (int, float))
+                                                or not math.isfinite(actual_time)
+                                                or not now < actual_time <= budget):
+                                            raise ValueError("idle backend must report its actual advancing episode time")
+                                        idle_state = idle_result.get("runtime_state")
+                                        robots, objects = _require_state(idle_state, "idle runtime state")
+                                        host.update_runtime_state(actual_time, robots, objects)
+                                        digest = ("tool_idle"
+                                                  if pose_pending and camera_pending
+                                                  else ("pose_tool_idle" if pose_pending
+                                                        else "camera_tool_idle"))
+                                        host.emit("tick", actual_time, {"state_digest": digest})
+                                        snapshots.append({"episode_id": self.episode_id, "time_s": actual_time,
+                                                          "robot_regions": deepcopy(robots),
+                                                          "object_states": deepcopy(objects)})
+                                        continue
+                                    # Hit simulation budget while tools still pending.
+                                    if camera_pending:
+                                        self.camera_tools.finalize_episode(budget)
+                                    break
+                                if ((pose_pending or camera_pending) and not callable(idle)):
+                                    waiting = []
+                                    if pose_pending:
+                                        waiting.append("pose tools")
+                                    if camera_pending:
+                                        waiting.append("camera tools")
+                                    raise RuntimeError(
+                                        f"{' and '.join(waiting)} are waiting but the backend cannot advance its idle clock")
+                                if (assessment is not None
+                                        and assessment["status"] == "required"):
+                                    raise DeploymentAssessmentProtocolError(
+                                        "missing_deployment_assessment: participant became idle "
+                                        f"during required epoch {assessment['assessment_epoch']}")
                                 break
-                            if ((pose_pending or camera_pending) and not callable(idle)):
-                                waiting = []
-                                if pose_pending:
-                                    waiting.append("pose tools")
-                                if camera_pending:
-                                    waiting.append("camera tools")
-                                raise RuntimeError(
-                                    f"{' and '.join(waiting)} are waiting but the backend cannot advance its idle clock")
-                            break
                         continue
                     # A synchronous backend advances the same physical scene;
                     # never infer overlapping completion times from plan order.
@@ -421,8 +472,18 @@ class FormalGoalEpisodeRunner:
                                 self.public_task["budgets"]["simulation_s"]),
                         })
                 else:
+                    final_assessment = host.trusted_report()["session"].get(
+                        "deployment_assessment")
+                    if (final_assessment is not None
+                            and final_assessment["status"] == "required"):
+                        raise DeploymentAssessmentProtocolError(
+                            "missing_deployment_assessment: max_turns reached "
+                            f"during required epoch {final_assessment['assessment_epoch']}")
                     raise RuntimeError("formal goal episode exceeded max_turns")
-                if self.evaluator is not None:
+                final_assessment = host.trusted_report()["session"].get(
+                    "deployment_assessment")
+                if (self.evaluator is not None
+                        and not (final_assessment or {}).get("terminated", False)):
                     evaluations = self.evaluator(self.episode_id, host.trusted_report())
                     if not isinstance(evaluations, Mapping):
                         raise ValueError("business evaluator must return an object")
@@ -443,12 +504,39 @@ class FormalGoalEpisodeRunner:
                             raise ValueError(f"business outcome was not accepted: {result}")
                         business[outcome_id] = data
                 final_report = host.trusted_report()["session"]
+        except DeploymentAssessmentProtocolError as exc:
+            error = f"{type(exc).__name__}: {exc}"
+            current = session.report()["deployment_assessment"]
+            protocol_error = {
+                "category": "protocol_error",
+                "code": "missing_assessment",
+                "assessment_id": current["assessment_id"],
+                "assessment_epoch": current["assessment_epoch"],
+                "message": str(exc),
+            }
+            final_report = session.report()
         except Exception as exc:
             error = f"{type(exc).__name__}: {exc}"
             final_report = session.report()
 
         if host is not None:
             lifecycle_errors.extend(host.cleanup_errors)
+
+        if protocol_error is not None:
+            _write_json(self.output_root / "deployment_protocol_error.json", protocol_error)
+        assessment_report = getattr(self.assessment_evaluator, "report", None)
+        if callable(assessment_report):
+            try:
+                evidence = assessment_report()
+                if not isinstance(evidence, Mapping):
+                    raise ValueError("deployment assessment evaluator report must be an object")
+                _write_json(self.output_root / "deployment_feasibility_evidence.json", evidence)
+            except Exception as exc:
+                lifecycle_errors.append({
+                    "component": "deployment_assessment_evaluator",
+                    "operation": "report",
+                    "error": f"{type(exc).__name__}: {exc}",
+                })
 
         _write_json(self.output_root / "runtime_snapshots.json", snapshots)
         _write_json(self.output_root / "skill_receipts.json", receipts)
@@ -517,15 +605,20 @@ class FormalGoalEpisodeRunner:
             "events": deepcopy(final_report.get("events", [])),
             "actions": deepcopy(final_report.get("actions", [])),
         })
-        _write_json(self.output_root / "hidden_evaluator_trace.json", {
+        hidden_trace = {
             "episode_id": self.episode_id,
             "plans": deepcopy(final_report.get("plans", [])),
             "tasks": deepcopy(final_report.get("tasks", {})),
             "business_outcomes": deepcopy(final_report.get("business_outcomes", [])),
             "runtime_state": deepcopy(final_report.get("runtime_state")),
-        })
+        }
+        if "deployment_assessment" in final_report:
+            hidden_trace["deployment_assessment"] = deepcopy(
+                final_report["deployment_assessment"])
+        _write_json(self.output_root / "hidden_evaluator_trace.json", hidden_trace)
         _write_json(self.output_root / "goal_session_report.json", {
             "episode_id": self.episode_id, "report": final_report})
+        deployment_assessment = final_report.get("deployment_assessment")
         result = {
             "schema": "eai.benchmark.formal_goal_episode_result", "version": 3,
             "episode_id": self.episode_id, "task_id": self.public_task["task_id"],
@@ -533,10 +626,13 @@ class FormalGoalEpisodeRunner:
             "turns": turns, "error": error,
             "skill_receipt_count": len(receipts),
             "business_outcomes_validated": bool(business) and all(
-                row.get("status") == "validated" for row in business.values()),
+                row.get("status") == "validated" for row in business.values())
+                and not (deployment_assessment or {}).get("enabled", False),
             "execution_validated": False, "scoreable": False,
             "output_root": str(self.output_root),
         }
+        if deployment_assessment is not None:
+            result["termination"] = deepcopy(deployment_assessment.get("termination"))
         _write_json(self.output_root / "result.json", result)
         from .goal_scoring_adapter import build_scoring_adapter_metadata
         scoring_metadata = build_scoring_adapter_metadata(
@@ -555,4 +651,7 @@ class FormalGoalEpisodeRunner:
         return result
 
 
-__all__ = ["FormalGoalEpisodeRunner", "GoalExecutionBackend", "SubprocessGoalAdapter"]
+__all__ = [
+    "DeploymentAssessmentProtocolError", "FormalGoalEpisodeRunner",
+    "GoalExecutionBackend", "SubprocessGoalAdapter",
+]

@@ -205,6 +205,9 @@ class GoalAlgorithmHost:
         call. If a turn fails, the bridge closes and cannot replay the batch.
         """
         self._require_open()
+        host_report = self._session.report()
+        if host_report.get("deployment_assessment", {}).get("terminated"):
+            return []
         try:
             if self._tools_connected:
                 self.pump_pose_tools()
@@ -214,6 +217,8 @@ class GoalAlgorithmHost:
             self._fail_closed()
             raise
         host_report = self._session.report()
+        if host_report.get("deployment_assessment", {}).get("terminated"):
+            return []
         event_end = len(host_report["events"])
         if self._event_cursor == event_end:
             return []
@@ -263,6 +268,9 @@ class GoalAlgorithmHost:
                 raise ValueError("goal algorithm adapter must return a list of actions")
             actions = []
             for raw in raw_actions:
+                if self._session.report().get(
+                        "deployment_assessment", {}).get("terminated"):
+                    break
                 if not isinstance(raw, Mapping):
                     raise ValueError("goal algorithm action must be an object")
                 action = deepcopy(dict(raw))
@@ -371,6 +379,13 @@ class GoalAlgorithmHost:
         self._require_open()
         return self._session.emit(type, time_s, payload)
 
+    def record_deployment_assessment_evaluation(
+        self, evaluation: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Trusted hook for hidden feasibility labels; never emits a public event."""
+        self._require_open()
+        return self._session.record_deployment_assessment_evaluation(evaluation)
+
     def update_runtime_state(
         self,
         time_s: float,
@@ -408,13 +423,20 @@ class GoalAlgorithmHost:
 
     def trusted_report(self) -> dict[str, Any]:
         """Return host-only diagnostics; never pass this value to the adapter."""
-        return {
+        session_report = self._session.report()
+        report = {
             "adapter": deepcopy(self._adapter_manifest),
             "event_cursor": self._event_cursor,
             "closed": self._closed,
             "failed": self._failed,
-            "session": self._session.report(),
+            "session": session_report,
         }
+        if "deployment_assessment" in session_report:
+            report["optional_tools"] = {
+                "pose_enabled": self._tools_connected,
+                "camera_enabled": self._camera_tools_connected,
+            }
+        return report
 
 
 __all__ = ["GOAL_ADAPTER_INTERFACE", "GOAL_ADAPTER_INTERFACE_VERSION",
