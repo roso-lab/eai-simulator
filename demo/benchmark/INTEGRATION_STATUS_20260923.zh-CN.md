@@ -85,6 +85,12 @@ failed/null。最新本机部署/session/host/runner/工具/评分/oracle专项
 真实三层 episode。餐厅准备命令对现有 v7 的结果为 `hash_resolver=passed`、
 `source_closure_missing`，因此没有启动正式 episode。
 
+本批 `14911e4`/`dcfcac0` 的本机完整 benchmark 回归为 **2233 passed，243.60 秒**；
+ljy 隔离工作树通过 git bundle 同步到同一提交后，通信与评分侧车专项为
+**124 passed，0.28 秒**。ljy 原仓和用户未提交文件未触碰。独立评分审查确认：
+当前 sidecar 仍是 raw-only；真实物理/参与者恢复、三层 GoalSession 通信接线、
+真实时钟和成本仍缺失，不能进入正式六维统计。
+
 已将完整 `672f2dc` bundle 同步到 ljy 隔离工作树（未触碰 ljy 原仓未提交修改），
 同一专项测试结果为 **134 passed，0.26秒**。远端专项包含通信旧/新池、评分侧车、
 编键随机、physics replay 和餐厅准备测试；没有启动 Isaac 原生 episode。
