@@ -1,4 +1,4 @@
-"""Offline contract checks for the unregistered Restaurant Goal bundle."""
+"""Offline contract checks for the authoring-only Restaurant Goal bundle."""
 
 from copy import deepcopy
 
@@ -66,10 +66,10 @@ def test_restaurant_spawn_map_must_cover_exact_candidate_pool():
         validate_goal_task_spec(public)
 
 
-def test_restaurant_remains_outside_formal_goal_scene_registry():
-    assert "restaurant" not in {
-        row["scene_key"] for row in registered_goal_scenes()
-    }
+def test_restaurant_is_registered_as_authoring_only_outside_formal_matrix():
+    registrations = {row["scene_key"]: row for row in registered_goal_scenes()}
+    assert registrations["restaurant"]["package_kind"] == "authoring_only"
+    assert registrations["restaurant"]["scoreable"] is False
     assert "restaurant" not in SCENE_KEYS
     assert AUTHORING_ONLY_SCENE_KEYS == ("restaurant",)
 

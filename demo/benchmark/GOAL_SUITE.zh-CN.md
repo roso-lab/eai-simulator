@@ -1,8 +1,9 @@
 # 任务生成、冻结与城市接入
 
-`goal_suite` 是任务生成侧的统一入口。工厂、仓库、家居和城市均生成完整的作者审核题包，
+`goal_suite` 是任务生成侧的统一入口。注册表包含五个任务生成场景；工厂、仓库、家居和城市均生成完整的作者审核题包，
 每场景九种因子条件、七组控制/变体对；城市地图准备包是可选的独立补充材料。
-注册表不会修改模拟器场景选择、激活服务技能或启动实验。
+Restaurant 当前仅有 authoring-only 题包，仍保持 `execution_status=external_pending`、
+`scoreable=false`，因此不进入默认四场景条件矩阵。注册表不会修改模拟器场景选择、激活服务技能或启动实验。
 
 ## 重复执行审核
 
@@ -28,7 +29,8 @@ conda run -n env_isaaclab env PYTHONPATH=. python -m demo.benchmark.goal_suite v
   --output-root tmp/goal_suite_with_city_new --verify-sources
 ```
 
-`--scene` 可重复指定，默认选择四场景；`--scene city` 可独立生成城市九条件题包，
+`--scene` 可重复指定，默认选择四个已准入场景；Restaurant 仅用于独立作者契约编译，不能作为
+`goal_suite` 条件矩阵输入。`--scene city` 可独立生成城市九条件题包，
 不需要准备包。`--city-package` 只增加地图准备包审核，且要求选择 City。
 输出已存在时拒绝覆盖，失败时清理本次创建的
 暂存目录。输出包含：

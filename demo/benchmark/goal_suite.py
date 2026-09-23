@@ -103,6 +103,13 @@ def _select_scenes(scene_keys, city_package_dir):
         raise ValueError("scene_keys must be a nonempty list of distinct registered scenes")
     for key in scene_keys:
         goal_scene_registration(key)
+    authoring_only = [key for key in scene_keys
+                      if goal_scene_registration(key)["package_kind"] != "goal_bundle"]
+    if authoring_only:
+        raise ValueError(
+            "goal_suite condition matrices admit only goal_bundle scenes; "
+            f"authoring-only scenes require separate admission: {authoring_only}"
+        )
     if city_package_dir is not None and "city" not in scene_keys:
         raise ValueError("--city-package requires city in the selected scene matrix")
     return list(scene_keys)
@@ -111,7 +118,11 @@ def _select_scenes(scene_keys, city_package_dir):
 def _validate_coverage_contract():
     """Validate the authoring matrix before generating or reading a suite."""
     matrix = load_coverage_matrix()
-    registered = tuple(row["scene_key"] for row in registered_goal_scenes())
+    # The coverage matrix is the formal factor-matrix admission list.  The
+    # shared task-generation registry also exposes authoring-only families,
+    # which must not silently change the four-scene coverage counts.
+    registered = tuple(row["scene_key"] for row in registered_goal_scenes()
+                       if row["package_kind"] == "goal_bundle")
     if tuple(matrix["scene_keys"]) != registered:
         raise ValueError("coverage matrix scene registry is stale")
     return matrix
@@ -430,6 +441,13 @@ def write_goal_mechanism_suite(output_root, *, scene_keys=None, mechanisms=None,
     selected_mechanisms = list(mechanisms) if mechanisms is not None else list(M0_MECHANISMS)
     if not selected_scenes or len(selected_scenes) != len(set(selected_scenes)):
         raise ValueError("mechanism suite requires distinct scenes")
+    authoring_only = [scene for scene in selected_scenes
+                      if goal_scene_registration(scene)["package_kind"] != "goal_bundle"]
+    if authoring_only:
+        raise ValueError(
+            "goal_suite mechanism matrices admit only goal_bundle scenes; "
+            f"authoring-only scenes require separate admission: {authoring_only}"
+        )
     if not selected_mechanisms or len(selected_mechanisms) != len(set(selected_mechanisms)):
         raise ValueError("mechanism suite requires distinct mechanisms")
     if scene_keys is None and mechanisms is None:

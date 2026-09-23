@@ -61,9 +61,10 @@ Its author-only generation brief, semantic witness review, cross-mobility
 counterfactual certificate, and one-factor treatment validator are task-design
 evidence only; execution and scoring remain external release gates.
 
-`python -m demo.benchmark.goal_suite list` lists the four task-generation
-registrations. `goal_suite audit --output-root <new-directory>` generates and
-reads back all four scene families across nine factor conditions (36 bundles),
+`python -m demo.benchmark.goal_suite list` lists the five task-generation
+registrations, including Restaurant as an authoring-only entry. `goal_suite
+audit --output-root <new-directory>` generates and reads back the four admitted
+scene families across nine factor conditions (36 bundles),
 freezes their contents, and checks 28 control/variant pairs. Optionally supply
 `--city-package <city-prepare-directory> --verify-sources` to audit an additional
 City preparation candidate separately from its full goal bundles. This does

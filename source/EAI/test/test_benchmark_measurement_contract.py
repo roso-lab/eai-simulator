@@ -8,6 +8,7 @@ from demo.benchmark.goal_driven_tasks import (
     generate_goal_task_packages,
 )
 from demo.benchmark.goal_scene_registry import registered_goal_scenes
+from demo.benchmark.measurement_contract import AUTHORING_ONLY_SCENE_KEYS, SCENE_KEYS
 
 
 SCENES = tuple(row["scene_key"] for row in registered_goal_scenes()
@@ -28,6 +29,16 @@ def test_all_registered_goal_scenes_carry_unclassified_measurement_contract():
 def test_default_generation_is_four_scene_complete():
     packages = generate_goal_task_packages()
     assert set(packages) == set(SCENES)
+
+
+def test_registry_exposes_authoring_only_restaurant_without_formal_matrix_admission():
+    registrations = {row["scene_key"]: row for row in registered_goal_scenes()}
+    assert tuple(SCENES) == SCENE_KEYS
+    assert AUTHORING_ONLY_SCENE_KEYS == ("restaurant",)
+    assert registrations["restaurant"]["package_kind"] == "authoring_only"
+    bundle = build_goal_task_package("restaurant")
+    assert bundle["hidden_evaluator"]["measurement_contract"]["measurement_target"]["scene_key"] == "restaurant"
+    assert bundle["hidden_evaluator"]["release_gate"]["scoreable"] is False
 
 
 def test_goal_task_cli_uses_registered_city_scene(capsys):

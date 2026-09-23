@@ -34,13 +34,24 @@ def suite_copy(one_scene_suite, tmp_path):
 
 def test_city_registration_uses_same_authoring_bundle_without_execution_claims():
     scenes = {row["scene_key"]: row for row in registered_goal_scenes()}
-    assert set(scenes) == {"factory", "warehouse_nvd", "modern_house_nvd", "city"}
+    assert set(scenes) == {"factory", "warehouse_nvd", "modern_house_nvd", "city", "restaurant"}
     assert scenes["city"]["package_kind"] == "goal_bundle"
+    assert scenes["restaurant"]["package_kind"] == "authoring_only"
+    assert scenes["restaurant"]["scoreable"] is False
     scenes["factory"]["package_kind"] = "forged"
     assert goal_scene_registration("factory")["package_kind"] == "goal_bundle"
     for level in ("immediate", "delayed"):
         compiled = compile_registered_goal_scene("city", factor_level=level)
         assert compiled["bundle"]["hidden_evaluator"]["release_gate"]["scoreable"] is False
+
+
+def test_authoring_only_restaurant_compiles_without_entering_formal_suite():
+    compiled = compile_registered_goal_scene("restaurant")
+    assert compiled["registration"]["package_kind"] == "authoring_only"
+    gate = compiled["bundle"]["hidden_evaluator"]["release_gate"]
+    assert gate["authoring_status"] == "passed"
+    assert gate["execution_status"] == "external_pending"
+    assert gate["scoreable"] is False
 
 
 def test_city_full_bundle_is_builder_admitted_and_execution_stays_pending():
@@ -68,6 +79,17 @@ def test_default_suite_contains_four_scenes_with_equal_factor_coverage(tmp_path)
     from collections import Counter
     assert dict(Counter(r["scene_key"] for r in report["packages"])) == {
         key: 9 for key in ("factory", "warehouse_nvd", "modern_house_nvd", "city")}
+
+
+def test_suite_rejects_authoring_only_restaurant_matrix(tmp_path):
+    with pytest.raises(ValueError, match="authoring-only scenes"):
+        write_goal_suite(tmp_path / "restaurant", scene_keys=["restaurant"])
+
+
+def test_mechanism_suite_rejects_authoring_only_restaurant_matrix(tmp_path):
+    from demo.benchmark.goal_suite import write_goal_mechanism_suite
+    with pytest.raises(ValueError, match="authoring-only scenes"):
+        write_goal_mechanism_suite(tmp_path / "restaurant", scene_keys=["restaurant"])
 
 
 def test_registered_goal_scene_uses_existing_full_contract():

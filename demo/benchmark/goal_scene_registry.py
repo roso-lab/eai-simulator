@@ -1,4 +1,9 @@
-"""Task-generation registrations; this is not the simulator scene registry."""
+"""Task-generation registrations; this is not the simulator scene registry.
+
+The catalog includes authoring-only scene families so task-generation tooling
+has one vocabulary.  ``package_kind`` remains the admission boundary: only
+``goal_bundle`` entries enter the formal factor matrix.
+"""
 
 from copy import deepcopy
 
@@ -22,6 +27,14 @@ _SCENES = {
         "authoring_entrypoint": "demo.benchmark.goal_driven_tasks",
         "scene_preparation_entrypoint": "demo.city_benchmark.prepare",
     },
+    "restaurant": {
+        "business_family": "restaurant_opening_readiness_inspection",
+        "package_kind": "authoring_only",
+        "authoring_entrypoint": "demo.benchmark.goal_driven_tasks",
+        "authoring_status": "passed",
+        "execution_status": "external_pending",
+        "scoreable": False,
+    },
 }
 
 
@@ -40,14 +53,21 @@ def compile_registered_goal_scene(scene_key, *, city_package_dir=None,
                                   verify_sources=False, mechanism_family=None):
     """Compile the same reviewed goal contract for every registered scene.
 
-    Registration never activates simulator skills, changes a scene selection,
-    or makes a city preparation draft into a four-layer goal bundle.
+    Registration never activates simulator skills or changes a scene selection.
+    An authoring-only entry can be compiled for contract review, but its
+    release gate remains owned by the scene's evidence admission.
     """
     registration = goal_scene_registration(scene_key)
     from .goal_driven_tasks import build_goal_task_package
     result = {"registration": registration, "bundle": build_goal_task_package(
         scene_key, factor_id=factor_id, factor_level=factor_level,
         mechanism_family=mechanism_family)}
+    gate = result["bundle"]["hidden_evaluator"]["release_gate"]
+    if registration["package_kind"] == "authoring_only":
+        if (gate.get("authoring_status") != registration["authoring_status"]
+                or gate.get("execution_status") != registration["execution_status"]
+                or gate.get("scoreable") is not registration["scoreable"]):
+            raise ValueError("authoring-only scene release gate disagrees with its registration")
     if city_package_dir is not None:
         if scene_key != "city":
             raise ValueError("city preparation is only applicable to the city scene")
