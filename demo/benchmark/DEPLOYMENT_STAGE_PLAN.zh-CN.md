@@ -26,6 +26,7 @@
 - [x] D1 补齐ljy隔离部署所需City车辆、NVD物理资源闭包、Factory LFS与地图；不放宽哈希/路径检查。
 - [x] D2 门禁基线ce65318双机全量回归完成；8项远端跳过不算通过。停止修复增量仍须复验。
 - [x] A2 旧派遣取消独立于模型重评估响应；覆盖静默、抛异常、后端错误回执和取消失败，不虚报已停止。
+- [x] A3 TeamWeaver/EMOS Goal adapter 在 v3 public API 下先提交 deployment_assessment，再自主选队/计划；v2 接口保持原行为，动态重评估使用当前公开 roster/capability 声明。
 - [ ] E1 真实宿主最小门禁证据；正式原生证据通过前三个release gate保持false。
 - [ ] E2 餐厅冻结v7路径闭包或独立新版候选准入；不得重写冻结包。
 - [ ] F1 真实checkpoint与sham恢复；未实现前禁止把符号快照用于因果分支评分。

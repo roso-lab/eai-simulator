@@ -57,6 +57,15 @@ checkpoint/restore、sham 和外部 Q(t)/终局证据；eligible、ceiling、unk
 仍失败；Factory、Warehouse、House、City 继续为 unknown。L-G1 前不修改生成器、
 机制模板、冻结题包或 witness。
 
+### P0 A3 参与者门禁接线增量
+
+`goal_external_adapters.py` 中的 TeamWeaver、EMOS、City TeamWeaver 和 City EMOS
+适配器已识别 v3 public API 的 `deployment_assessment` 动作：收到公开
+`deployment_assessment_required` 后先提交二元判断，下一回合才进行自主选队、计划和
+派发。v2 API 不含该动作时保留既有行为。动态评估只使用当前公开成员池及已送达的
+能力声明，成员退出或能力变化后不会沿用过期 roster。适配器本身不读取隐藏 oracle；
+正确性仍由 runner 的独立 oracle 评估。定向 TeamWeaver/EMOS/City 回归为 17 项通过。
+
 ## 最新回归与未通过项
 
 部署门禁基线`ce65318`：本机完整benchmark测试 **2215 passed，235.44秒**；

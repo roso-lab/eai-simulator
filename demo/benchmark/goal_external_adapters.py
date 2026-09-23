@@ -102,6 +102,68 @@ def _action(action_id: str, action_type: str, payload: Mapping[str, Any], time_s
     }
 
 
+def _deployment_assessment_action(
+    events: list[Mapping[str, Any]], *, action_id_prefix: str,
+    public_task: Mapping[str, Any], required_capabilities: set[str] | None = None,
+    plan: Mapping[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Declare a participant-side deployment decision when the v3 gate is present.
+
+    External adapters remain usable with the frozen v2 contract.  On v3 they
+    must answer the visible assessment event before selecting a team or
+    submitting a plan.  The decision is derived only from public capabilities
+    and the adapter's own public plan; hidden oracle labels never cross this
+    boundary.  A negative declaration is therefore a participant decision,
+    while the trusted runner independently validates its correctness.
+    """
+    required = next((row for row in events
+                     if row.get("type") == "deployment_assessment_required"), None)
+    if required is None:
+        return None
+    payload = required.get("payload") or {}
+    versions = payload.get("capability_versions")
+    if not isinstance(versions, Mapping):
+        return None
+    pool = {row["id"]: deepcopy(row)
+            for row in public_task.get("candidate_robot_pool", [])}
+    current_ids = payload.get("current_agent_ids")
+    if isinstance(current_ids, list):
+        pool = {agent: pool[agent] for agent in current_ids if agent in pool}
+    # Lifecycle declarations are public inputs.  Apply the visible change that
+    # triggered this assessment before checking the participant's own plan.
+    for event in events:
+        event_payload = event.get("payload") or {}
+        agent = event_payload.get("agent_id")
+        if event.get("type") in {"member_join", "capability_change"} and isinstance(agent, str):
+            declaration = event_payload.get("capability_declaration")
+            if isinstance(declaration, Mapping):
+                pool[agent] = deepcopy(dict(declaration))
+        elif event.get("type") == "member_exit" and isinstance(agent, str):
+            pool.pop(agent, None)
+    if plan is not None:
+        requirements = [set(task.get("required_capabilities", ()))
+                        for task in plan.get("tasks", [])]
+        feasible = all(any(req <= set(robot.get("public_capabilities", ()))
+                        for robot in pool.values()) for req in requirements)
+    else:
+        capabilities = set(required_capabilities or ())
+        feasible = bool(capabilities) and any(
+            capabilities <= set(robot.get("public_capabilities", ()))
+            for robot in pool.values())
+    decision = "deployable" if feasible else "not_deployable"
+    reasons = [] if feasible else ["missing_capability"]
+    return _action(
+        f"{action_id_prefix}_{payload['assessment_id']}",
+        "deployment_assessment",
+        {"assessment_id": payload["assessment_id"],
+         "assessment_epoch": payload["assessment_epoch"],
+         "roster_version": payload["roster_version"],
+         "capability_versions": dict(versions),
+         "decision": decision, "reason_codes": reasons, "evidence_refs": []},
+        float(required.get("time_s", 0.0)),
+    )
+
+
 class _WarehouseDecomposer:
     """Small deterministic decomposer with the same result contract as TeamWeaver."""
 
@@ -183,12 +245,21 @@ class TeamWeaverGoalAdapter:
 
     def initialize(self, public_task, participant_api):
         self._task = deepcopy(public_task)
+        self._assessment_enabled = "deployment_assessment" in participant_api.get("action_types", [])
+        self._assessment_submitted = False
         self.trace.append({"event": "initialize", "planner": "TeamWeaverPipeline"})
 
     def act(self, events):
         if self._task is None:
             raise RuntimeError("TeamWeaver adapter was not initialized")
         self._now = max((float(row.get("time_s", 0.0)) for row in events), default=self._now)
+        if self._assessment_enabled:
+            assessment = _deployment_assessment_action(
+                events, action_id_prefix="tw_deployment", public_task=self._task,
+                required_capabilities={"pick"})
+            if assessment is not None:
+                self._assessment_submitted = True
+                return [assessment]
         if any(row.get("type") == "action_result" and row.get("payload", {}).get("status") == "failed"
                for row in events):
             self._replanned = True
@@ -196,7 +267,9 @@ class TeamWeaverGoalAdapter:
             sequence = next((row.get("sequence") for row in events
                              if row.get("type") == "action_result"), None)
             return self._pair_actions(self._now, sequence)
-        if any(row.get("type") == "episode_started" for row in events):
+        if (any(row.get("type") == "episode_started" for row in events)
+                or self._assessment_submitted):
+            self._assessment_submitted = False
             return self._initial_actions(self._now)
         return []
 
@@ -283,18 +356,29 @@ class EmosGoalAdapter:
 
     def initialize(self, public_task, participant_api):
         self._task = deepcopy(public_task)
+        self._assessment_enabled = "deployment_assessment" in participant_api.get("action_types", [])
+        self._assessment_submitted = False
         self.trace.append({"event": "initialize", "planner": "EMOSDiscussionManager"})
 
     def act(self, events):
         self._now = max((float(row.get("time_s", 0.0)) for row in events), default=self._now)
+        if self._assessment_enabled:
+            assessment = _deployment_assessment_action(
+                events, action_id_prefix="emos_deployment", public_task=self._task,
+                required_capabilities={"pick"})
+            if assessment is not None:
+                self._assessment_submitted = True
+                return [assessment]
         if any(row.get("type") == "action_result" and row.get("payload", {}).get("status") == "failed"
                for row in events):
             self.trace.append({"event": "replan", "reason": "public_skill_failure"})
             sequence = next((row.get("sequence") for row in events
                              if row.get("type") == "action_result"), None)
             return TeamWeaverGoalAdapter()._pair_actions(self._now, sequence)
-        if not any(row.get("type") == "episode_started" for row in events):
+        if (not any(row.get("type") == "episode_started" for row in events)
+                and not self._assessment_submitted):
             return []
+        self._assessment_submitted = False
         _ensure_algorithm_roots()
         from emos.engine import EMOSDiscussionManager
         from emos.types import EMOSRobotAgentSpec, EMOSScenarioConfig, PositionRule, SubtaskSpec
@@ -422,6 +506,8 @@ class CityTeamWeaverParticipant:
     def initialize(self, public_task: Mapping[str, Any],
                    participant_api: Mapping[str, Any]) -> None:
         self._task = deepcopy(public_task)
+        self._assessment_enabled = "deployment_assessment" in participant_api.get("action_types", [])
+        self._assessment_submitted = False
         del participant_api
         self.trace.append({"event": "initialize", "planner": "TeamWeaverPipeline"})
 
@@ -608,9 +694,18 @@ class CityTeamWeaverParticipant:
 
     # -- action sequencing (mirrors the witness participant) --------------
     def act(self, events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        if self._assessment_enabled:
+            assessment = _deployment_assessment_action(
+                events, action_id_prefix="tw_city_deployment", public_task=self._task,
+                plan=self._base)
+            if assessment is not None:
+                self._assessment_submitted = True
+                return [assessment]
         if not self._opened:
-            if not any(item["type"] == "episode_started" for item in events):
+            if (not any(item["type"] == "episode_started" for item in events)
+                    and not self._assessment_submitted):
                 return []
+            self._assessment_submitted = False
             self._opened = True
             self._allocate()
             return [{
@@ -715,6 +810,8 @@ class CityEmosParticipant:
     def initialize(self, public_task: Mapping[str, Any],
                    participant_api: Mapping[str, Any]) -> None:
         self._task = deepcopy(public_task)
+        self._assessment_enabled = "deployment_assessment" in participant_api.get("action_types", [])
+        self._assessment_submitted = False
         del participant_api
         self.trace.append({"event": "initialize", "planner": "EMOSDiscussionManager"})
         self._record_llm_mode()
@@ -860,9 +957,18 @@ class CityEmosParticipant:
 
     # -- action sequencing (mirrors the witness participant) --------------
     def act(self, events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        if self._assessment_enabled:
+            assessment = _deployment_assessment_action(
+                events, action_id_prefix="emos_city_deployment", public_task=self._task,
+                plan=self._base)
+            if assessment is not None:
+                self._assessment_submitted = True
+                return [assessment]
         if not self._opened:
-            if not any(item["type"] == "episode_started" for item in events):
+            if (not any(item["type"] == "episode_started" for item in events)
+                    and not self._assessment_submitted):
                 return []
+            self._assessment_submitted = False
             self._opened = True
             self._allocate()
             return [{
