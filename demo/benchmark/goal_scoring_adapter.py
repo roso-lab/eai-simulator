@@ -374,6 +374,12 @@ def build_scoring_adapter_metadata(
             ],
             "design_ref": "SCORING_CHECKPOINT_DESIGN.zh-CN.md",
         },
+        "trusted_state_contract": {
+            "status": "contract_only",
+            "design_ref": "TRUSTED_STATE_CONTRACT.zh-CN.md",
+            "formal_label_source": "registered_remaining_feasibility_oracle",
+            "native_verified": False,
+        },
         "archive_role": "goal_engineering_observation",
         "code_baseline": code_baseline,
         "branch_id": None,
