@@ -53,3 +53,10 @@ Warehouse、House、City 的原生执行缺口分别归为平台/资产/低层�
  记录不能进入正式统计的场景；
 - checkpoint/sham 和真实时钟仍未通过时，继续保持三个发布标志为 false。
 
+## 双机复验
+
+本机 env_isaaclab 专项：`44 passed`（cost/scoring/runner，含 malformed-source
+fail-closed）。ljy 隔离工作树 `/home/ljy/eai-simulator-worktrees/benchmark-scoring-20260923-19eee7e`
+通过 git bundle 同步到 `36941ad` 后，使用其 `python3` 完成同一部署、通信、评分和
+raw-cost 专项：`81 passed`。ljy 原仓未提交内容未触碰；远端没有可用的
+`env_isaaclab` 路径，因此没有声称其运行 Isaac 原生 episode。
