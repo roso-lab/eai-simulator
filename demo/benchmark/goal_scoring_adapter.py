@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -76,6 +77,7 @@ def build_archive_index(output_root: str | Path) -> dict[str, Any]:
         "participant_api.json", "result.json",
         "lifecycle_errors.json",
         "camera_render_failures.json",
+        "deployment_assessment_report.json",
     )
     files = {}
     for name in names:
@@ -93,6 +95,107 @@ def build_archive_index(output_root: str | Path) -> dict[str, Any]:
     return {"schema": "eai.benchmark.raw_archive_index", "version": 1,
             "raw_only": True, "not_protocol_score": True, "files": files,
             "counts": counts}
+
+
+def deployment_assessment_observations(
+    session_report: Mapping[str, Any], *, task_sha256: str,
+) -> dict[str, Any]:
+    """Archive assessment classification facts without inventing score inputs.
+
+    Timing is the host receipt clock. Physical change/notification transport
+    latency and per-epoch byte costs remain unknown until their real sources
+    are joined. Unknown or platform-invalid labels never enter accuracy counts.
+    """
+    gate = session_report.get("deployment_assessment")
+    if not isinstance(gate, Mapping) or not gate.get("enabled"):
+        return {"status": "not_enabled", "raw_only": True, "records": [],
+                "accuracy_denominator": None}
+    events = session_report.get("events", [])
+    actions = {row["action_id"]: row for row in session_report.get("actions", [])}
+    event_index = {row["sequence"]: row for row in events}
+    termination = gate.get("termination") or {}
+    records = []
+    seen = set()
+    for row in gate.get("history", []):
+        epoch = row.get("assessment_epoch")
+        key = (row.get("assessment_id"), epoch)
+        duplicate = key in seen
+        seen.add(key)
+        external = row.get("external_evaluation") or {}
+        valid = (not duplicate and row.get("public_task_sha256") == task_sha256
+                 and external.get("assessment_id") == key[0]
+                 and external.get("assessment_epoch") == epoch
+                 and external.get("platform_valid") is True
+                 and bool(external.get("evidence_refs"))
+                 and bool(external.get("evaluator_ref"))
+                 and external.get("label") in {"deployable", "not_deployable"})
+        label, decision = external.get("label"), row.get("decision")
+        classification = "unverified"
+        if valid:
+            classification = {
+                ("deployable", "deployable"): "correct_deployment",
+                ("deployable", "not_deployable"): "false_refusal",
+                ("not_deployable", "deployable"): "false_deployment",
+                ("not_deployable", "not_deployable"): "correct_refusal",
+            }.get((label, decision), "unverified")
+        trigger = event_index.get(row.get("trigger_event_sequence"), {})
+        start, declared = trigger.get("time_s"), row.get("declared_at_s")
+        def finite(value):
+            return type(value) in (float, int) and math.isfinite(value)
+        latency = (declared - start if finite(start) and finite(declared) and declared >= start else None)
+        before = []
+        declaration_found = False
+        for event in events:
+            if event.get("sequence", -1) < row.get("trigger_event_sequence", 0):
+                continue
+            payload = event.get("payload", {})
+            if event.get("type") != "action_result" or payload.get("status") != "accepted":
+                continue
+            if payload.get("action_id") == row.get("decision_action_id"):
+                declaration_found = True
+                break
+            accepted = actions.get(payload.get("action_id"))
+            if accepted:
+                before.append(accepted)
+        counts = {kind: sum(a["type"] == kind for a in before) for kind in (
+            "select_team", "submit_plan", "revise_plan", "dispatch_skill", "consume_message")}
+        requested = termination.get("assessment_id") == key[0]
+        records.append({
+            "assessment_id": key[0], "assessment_epoch": epoch,
+            "phase": "initial" if row.get("trigger_event_type") == "episode_started" else "runtime",
+            "classification": classification, "label_eligible": valid and classification != "unverified",
+            "platform_valid": external.get("platform_valid"),
+            "decision": decision, "label": label, "duplicate_epoch": duplicate,
+            "host_declaration_latency_s": latency,
+            "physical_change_latency_s": None, "notification_delivery_latency_s": None,
+            "human_assistance_requested": requested,
+            "stopped_before_epoch_dispatch": (counts["dispatch_skill"] == 0
+                if requested and declaration_found else None),
+            "pre_declaration_accepted_action_counts": counts if declaration_found else None,
+            "pre_declaration_communication_bytes": None,
+            "pre_declaration_activation_cost": None,
+            "pre_declaration_planning_compute_cost": None,
+            "business_task_completed": False if requested else None,
+        })
+    return {"status": gate.get("status"), "raw_only": True, "not_protocol_score": True,
+            "records": records, "accuracy_denominator": sum(r["label_eligible"] for r in records),
+            "classification_counts": {name: sum(r["classification"] == name for r in records)
+                for name in ("correct_deployment", "false_refusal", "false_deployment", "correct_refusal", "unverified")},
+            "undeclared_current_epoch": gate.get("status") == "required",
+            "clock_source": "goal_host_receipt_clock", "physical_clock_bound": False,
+            "scoreable": False}
+
+
+def _assessment_archive(root: Path, *, episode_id: str, task_sha256: str) -> dict[str, Any]:
+    path = root / "goal_session_report.json"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if payload.get("episode_id") != episode_id or not isinstance(payload.get("report"), Mapping):
+            raise ValueError("assessment archive episode mismatch")
+        return deployment_assessment_observations(payload["report"], task_sha256=task_sha256)
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return {"status": "missing_or_invalid_archive", "raw_only": True,
+                "records": [], "accuracy_denominator": None}
 
 
 def build_scoring_adapter_metadata(
@@ -123,6 +226,8 @@ def build_scoring_adapter_metadata(
         "task_id": task_id,
         "scene_key": scene_key,
         "task_contract_sha256": canonical_sha256(public_task),
+        "deployment_assessment": _assessment_archive(
+            Path(output_root), episode_id=episode_id, task_sha256=canonical_sha256(public_task)),
         "condition": {
             "id": public_task.get("condition_id"),
             "seed": public_task.get("seed"),
@@ -143,10 +248,12 @@ def build_scoring_adapter_metadata(
                 "environment_physics", "participant_recoverable",
                 "visible_history", "rng_and_clocks",
                 "host_scheduler_and_pending_communication",
+                "deployment_gate_epoch_and_assessment_history",
             ],
             "preregistered_trigger_design": [
                 "initial", "decision_pre", "treatment_pre", "replan_pre",
                 "milestone_change", "episode_round",
+                "initial_assessment_pre", "reassessment_pre",
             ],
             "design_ref": "SCORING_CHECKPOINT_DESIGN.zh-CN.md",
         },
@@ -181,4 +288,5 @@ def build_scoring_adapter_metadata(
 __all__ = [
     "DIMENSION_STATUS", "PROTOCOL_MAPPING_REVISION", "SCORING_ADAPTER_SCHEMA",
     "SCORING_ADAPTER_VERSION", "build_archive_index", "build_scoring_adapter_metadata",
+    "deployment_assessment_observations",
 ]
