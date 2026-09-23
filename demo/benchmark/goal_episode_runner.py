@@ -272,8 +272,25 @@ class FormalGoalEpisodeRunner:
                     "evaluator_ref": "oracle_not_configured",
                 }
             else:
-                evaluation = self.assessment_evaluator(
-                    self.episode_id, host.trusted_report())
+                try:
+                    evaluation = self.assessment_evaluator(
+                        self.episode_id, host.trusted_report())
+                    host.record_deployment_assessment_evaluation(evaluation)
+                except Exception:
+                    # A broken hook is an infrastructure fault at this frozen
+                    # opportunity, never a missing participant answer or a
+                    # third feasibility class. Retain the original exception.
+                    host.record_deployment_assessment_evaluation({
+                        "assessment_id": assessment["assessment_id"],
+                        "assessment_epoch": assessment["assessment_epoch"],
+                        "feasibility_label": None,
+                        "oracle_status": "failed",
+                        "platform_valid": False,
+                        "evidence_refs": [],
+                        "evaluator_ref": "oracle_evaluation_failed",
+                    })
+                    raise
+                return
             host.record_deployment_assessment_evaluation(evaluation)
 
     def run(self, *, initial_state: Mapping[str, Any]) -> dict[str, Any]:
@@ -320,14 +337,92 @@ class FormalGoalEpisodeRunner:
         protocol_error: dict[str, Any] | None = None
         turns = 0
         host = None
+        cancellation_attempts: set[tuple[str, str]] = set()
+
+        def drain_safety_stops() -> None:
+            # Safety acknowledgement belongs to the trusted runner, even after
+            # an adapter failure has closed the participant-facing host.
+            nonlocal robots, objects
+            if host is None:
+                return
+            requested = [row for row in session.report()["tasks"].values()
+                         if row["status"] == "cancel_requested"]
+            for row in requested:
+                task_id = row["task"]["task_id"]
+                attempt_key = (task_id, row["dispatch_action_id"])
+                if attempt_key in cancellation_attempts:
+                    continue
+                cancellation_attempts.add(attempt_key)
+                try:
+                    cancel = getattr(self.backend, "cancel", None)
+                    if not callable(cancel):
+                        raise ValueError("execution backend cannot acknowledge cancellation")
+                    trusted = host.trusted_report()
+                    result = dict(cancel(row["task"], episode_id=self.episode_id,
+                                         trusted_report=trusted))
+                    if result.get("status") != "cancelled":
+                        raise ValueError("cancellation backend must return cancelled status")
+                    completed_at_s = result.get("completed_at_s")
+                    if (isinstance(completed_at_s, bool)
+                            or not isinstance(completed_at_s, (int, float))
+                            or not math.isfinite(completed_at_s)
+                            or completed_at_s < session.report()["current_time_s"]):
+                        raise ValueError("cancellation backend returned a nonmonotonic completion time")
+                    state = result.get("runtime_state")
+                    if state is not None:
+                        next_robots, next_objects = _require_state(state, "runtime_state")
+                        session.validate_runtime_state(completed_at_s, next_robots, next_objects)
+                    receipt = result.get("receipt")
+                    completion = session.complete_skill(
+                        task_id, time_s=completed_at_s, status="cancelled", receipt=receipt)
+                    if not completion.get("accepted"):
+                        raise ValueError(f"backend cancellation receipt was not accepted: {completion}")
+                    receipts.append({**deepcopy(dict(receipt)), "episode_id": self.episode_id})
+                    if state is not None:
+                        robots, objects = next_robots, next_objects
+                        session.update_runtime_state(completed_at_s, robots, objects)
+                        snapshots.append({"episode_id": self.episode_id,
+                                          "time_s": completed_at_s,
+                                          "robot_regions": deepcopy(robots),
+                                          "object_states": deepcopy(objects)})
+                except Exception as exc:
+                    # Do not lose the original participant error, fabricate an
+                    # acknowledgement, or skip the remaining robots' stops.
+                    lifecycle_errors.append({
+                        "component": "execution_backend", "operation": "cancel",
+                        "task_id": task_id, "error": f"{type(exc).__name__}: {exc}",
+                    })
+
+        def require_acknowledged_stops() -> None:
+            if any(row["status"] == "cancel_requested"
+                   for row in session.report()["tasks"].values()):
+                details = "; ".join(row["error"] for row in lifecycle_errors
+                                    if row["component"] == "execution_backend"
+                                    and row["operation"] == "cancel")
+                raise RuntimeError(f"safety cancellation was not acknowledged: {details}")
+
+        def request_actions() -> list[dict[str, Any]]:
+            try:
+                # Freeze the measurement before cancellation or participant
+                # behavior can change the current assessment's evidence.
+                self._evaluate_required_assessment(host)
+            finally:
+                drain_safety_stops()
+            require_acknowledged_stops()
+            try:
+                actions = host.request_actions()
+            finally:
+                drain_safety_stops()
+            require_acknowledged_stops()
+            return actions
+
         try:
             session.update_runtime_state(0.0, robots, objects)
             with GoalAlgorithmHost(self.public_task, self.participant_api, self.adapter,
                                     session=session, pose_tools=self.pose_tools,
                                     camera_tools=self.camera_tools) as host:
                 for turns in range(1, self.max_turns + 1):
-                    self._evaluate_required_assessment(host)
-                    host.request_actions()
+                    request_actions()
                     report = host.trusted_report()["session"]
                     assessment = report.get("deployment_assessment")
                     pending = [row for row in report["tasks"].values()
@@ -337,8 +432,7 @@ class FormalGoalEpisodeRunner:
                             break
                         # A final adapter turn may still consume terminal receipts.
                         if turns > 1:
-                            self._evaluate_required_assessment(host)
-                            followup_actions = host.request_actions()
+                            followup_actions = request_actions()
                             report = host.trusted_report()["session"]
                             assessment = report.get("deployment_assessment")
                             pending = [row for row in report["tasks"].values()
@@ -418,18 +512,10 @@ class FormalGoalEpisodeRunner:
                     # never infer overlapping completion times from plan order.
                     row = pending[0]
                     trusted = host.trusted_report()
-                    if row["status"] == "cancel_requested":
-                        cancel = getattr(self.backend, "cancel", None)
-                        if not callable(cancel):
-                            raise ValueError("execution backend cannot acknowledge cancellation")
-                        result = dict(cancel(row["task"], episode_id=self.episode_id,
-                                             trusted_report=trusted))
-                        if result.get("status") != "cancelled":
-                            raise ValueError("cancellation backend must return cancelled status")
-                    else:
-                        result = dict(self.backend.execute(
-                            row["task"], episode_id=self.episode_id,
-                            trusted_report=trusted))
+                    require_acknowledged_stops()
+                    result = dict(self.backend.execute(
+                        row["task"], episode_id=self.episode_id,
+                        trusted_report=trusted))
                     status = result.get("status")
                     completed_at_s = result.get("completed_at_s")
                     receipt = result.get("receipt")
@@ -519,6 +605,8 @@ class FormalGoalEpisodeRunner:
             error = f"{type(exc).__name__}: {exc}"
             final_report = session.report()
 
+        drain_safety_stops()
+        final_report = session.report()
         if host is not None:
             lifecycle_errors.extend(host.cleanup_errors)
 

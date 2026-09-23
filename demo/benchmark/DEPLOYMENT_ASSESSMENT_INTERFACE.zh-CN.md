@@ -50,6 +50,10 @@ EMOS 和其他现有 participant adapter 不会自动升级；它们在支持
 `deployment_change` 创建新 epoch。旧评估不能重放。在途任务进入
 `cancel_requested`，`safety_stop.requested=true`；只有后端返回取消回执后才记录
 `acknowledged=true`，不能把请求安全停止描述成瞬时停止或任务成功。
+runner先缓存该测量点的oracle，再在调用participant前独立处理所有取消请求。
+participant抛异常或oracle失败也会触发可信停止收尾；收尾不依赖已关闭的participant
+宿主。每次派遣最多尝试一次取消，逐项保留错误并继续处理其他取消请求；没有合法
+回执就保持未确认，阻止继续自主执行。原始异常与后端取消错误分别归档。
 
 Participant 静默到达空闲点或轮次上限时，runner 写入
 `deployment_protocol_error.json`，其中 `category=protocol_error`、
@@ -94,6 +98,9 @@ runner 未配置 oracle 时仍在 `act()` 前记录一条
 `oracle_status=failed`、`feasibility_label=null`、
 `evaluator_ref=oracle_not_configured` 的平台失败测量点。它不替 participant 作默认
 判断，只用于保持 epoch 账本完整并让统计侧剔除该 episode。
+oracle调用异常或返回违反合同的对象时，runner在当前epoch缓存
+`failed/null`、`evaluator_ref=oracle_evaluation_failed`，保留原始异常并结束本次运行；
+不能把评测器报错留下的空白当成participant漏答。
 
 隐藏标签和 oracle 证据不进入 participant 事件。若 evaluator 提供 `report()`，
 runner 将其可信详情写入 `deployment_feasibility_evidence.json`；异常按平台生命周期

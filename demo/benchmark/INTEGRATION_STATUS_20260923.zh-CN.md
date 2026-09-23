@@ -14,12 +14,16 @@
 | `91d3ced`、`1b07a7b` | EMOS原生root-state接线、逐机器人来源证据；TeamWeaver未消费位置时不伪称采样 |
 | `19eee7e` | 用户最新自分解主线与checkpoint需求映射，修正旧固定子任务Track-A建议 |
 | `1687a49` | 首次close异常不因重试而消失、render清理未完成报错、缺失事件数不记为零 |
+| `730a40d`、`1f15363` | 必要条件内部诊断、二元剩余任务oracle、质量失败分离 |
+| `98106e7`、`ce65318` | v3部署门禁、五场景候选、固定风险集和评分侧车接线 |
+| `abff921` | 运行中成员/能力失效端到端测试，暴露模型异常后的取消缺口 |
 
 ## 评分路线与阶段依赖
 
 最新优先级更新：在以下后续评分/分支工程之前，先实现用户指定的
-[部署可行性确认主线P0](DEPLOYMENT_ASSESSMENT_P0.zh-CN.md)。该任务尚未实现，
-包括初始/变化后评估、求助终止、五场景团队不可行实例及隐藏可行性校验。
+[部署可行性确认主线P0](DEPLOYMENT_ASSESSMENT_P0.zh-CN.md)。合同、宿主门禁、
+求助终止与原始评分接线已实现；五场景仅有诊断候选，原生完整剩余任务oracle
+尚未认证，现有参与者仍需显式升级。具体依赖见[阶段清单](DEPLOYMENT_STAGE_PLAN.zh-CN.md)。
 
 用户已确定：提供总体目标和可验证里程碑，模型自主分解、选团队、指派和排序。
 冻结评分参数不能等同冻结作者策略。原固定子任务公式暂不适用，应调整评分定义；
@@ -35,7 +39,20 @@
 `scoreable=false`、执行release gate均未提升。原生业务证据、资产验证、完整checkpoint、
 并发和因果评分分别验收，不能用一项成功替代其他项。
 
-## 本轮验证与未通过项
+## 最新回归与未通过项
+
+部署门禁基线`ce65318`：本机完整benchmark测试 **2215 passed，235.44秒**；
+ljy同提交完整测试 **2207 passed、8 skipped，87.93秒**。
+两机日志均为`/tmp/eai-deployment-ce65318-full.log`。未采集8项跳过的具体原因，
+不能将跳过算作通过。这些是轻量/假后端/参考世界测试；没有启动原生Isaac episode，
+不提供五场景oracle原生认证。后续动态停止修复按增量单独记录。
+
+阶段收尾增量已修复模型异常漏取消、保留具体后端取消错误，并为oracle异常缓存
+failed/null。最新本机部署/session/host/runner/工具/评分/oracle专项
+**265 passed，20.28秒**，日志`/tmp/eai-deployment-stage-close-focused.log`。
+本次增量未重跑远端或全量；子代理工作已结束，按用户要求不展开下一阶段。
+
+以下保留较早基线的历史证据；远端资产缺口随后已补齐，不再是当前回归阻塞：
 
 本机评分/runner/工具专项249项通过；后续新增生命周期与餐厅测试87项通过。
 最终本机完整`source/EAI/test/test_benchmark_*.py`：**2155 passed，230.41秒**；
@@ -47,8 +64,10 @@ ljy隔离工作树位于 `/home/ljy/eai-simulator-worktrees/benchmark-scoring-20
 其主仓未提交的 `goal_house_episode.py` 保留；通过Git bundle同步代码，未配置或复制凭据。
 完整回归最初2041 passed/70 failed/19 errors/18 skipped；配置已有USD根目录和地图后
 2106 passed/17 failed/7 errors/18 skipped；补齐运行时锚点和场景入口后，重跑失败集合
-19 passed/5 failed。剩余5项均有明确部署输入缺口：City车辆运行资产、Factory两份
-LFS文件未展开、NVD产品验证禁止跨工作树symlink逃逸。保持路径/哈希校验，不改测试掩盖。
+19 passed/5 failed。当时5项均有明确部署输入缺口：City车辆运行资产、Factory两份
+LFS文件未展开、NVD产品验证禁止跨工作树symlink逃逸。已通过复制既有资产闭包、
+展开匹配哈希的LFS对象及补地图解决，定向60项通过，随后通过上述完整回归。
+保持路径/哈希校验，没有改测试掩盖；原仓用户修改未触碰。
 远端日志：`/tmp/eai-scoring-19eee7e-tests.log`、`/tmp/eai-scoring-19eee7e-retest.log`、
 `/tmp/eai-scoring-1687a49-focused.log`。
 

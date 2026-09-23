@@ -326,6 +326,7 @@ def test_dynamic_loss_reassesses_then_cancels_queued_skill(
     assert all(call[1]["session"]["deployment_assessment"]["status"] == "required"
                for call in oracle.calls)
     assert oracle.calls[0][1]["session"]["deployment_assessment"]["history"] == []
+    assert oracle.calls[1][1]["session"]["tasks"][SECOND_TASK]["status"] == "cancel_requested"
     second_pre_act_history = oracle.calls[1][1]["session"][
         "deployment_assessment"]["history"]
     assert [row["assessment_epoch"] for row in second_pre_act_history] == [0]
@@ -357,11 +358,68 @@ def test_silent_reassessment_still_acknowledges_queued_cancellation(
     assert protocol["code"] == "missing_assessment"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=("FormalGoalEpisodeRunner exits on participant reassessment exception "
-            "before draining cancel_requested work"),
-)
+@pytest.mark.parametrize("failure", ["exception", "wrong_status", "wrong_receipt"])
+def test_cancellation_failure_remains_unacknowledged_without_retry(
+        tmp_path, monkeypatch, failure):
+    original_cancel = _DynamicBackend.cancel
+
+    def broken_cancel(self, task, **kwargs):
+        result = original_cancel(self, task, **kwargs)
+        if failure == "exception":
+            raise RuntimeError("backend stop failed")
+        if failure == "wrong_status":
+            result["status"] = "succeeded"
+        else:
+            result["receipt"]["action_id"] = "wrong-dispatch"
+        return result
+
+    monkeypatch.setattr(_DynamicBackend, "cancel", broken_cancel)
+    result, report, _hidden, receipts, backend, _oracle, root = _run_dynamic(
+        tmp_path, monkeypatch, event_type="member_exit", reassessment="raise")
+
+    assert "safety cancellation was not acknowledged" in result["error"]
+    assert backend.execute_calls == [FIRST_TASK]
+    assert backend.cancel_calls == [SECOND_TASK]
+    assert report["tasks"][SECOND_TASK]["status"] == "cancel_requested"
+    assert report["tasks"][SECOND_TASK]["safety_stop"]["acknowledged"] is False
+    assert [row["status"] for row in receipts] == ["succeeded"]
+    failures = json.loads((root / "lifecycle_errors.json").read_text())
+    assert len(failures) == 1
+    assert failures[0]["component"] == "execution_backend"
+    assert failures[0]["operation"] == "cancel"
+    assert failures[0]["task_id"] == SECOND_TASK
+
+
+def test_oracle_error_preserved_while_cancellation_failure_is_archived(
+        tmp_path, monkeypatch):
+    original_oracle = _EpochOracle.__call__
+
+    def broken_oracle(self, episode_id, trusted_report):
+        if trusted_report["session"]["deployment_assessment"]["assessment_epoch"] == 1:
+            raise RuntimeError("oracle grounding failed")
+        return original_oracle(self, episode_id, trusted_report)
+
+    def broken_cancel(self, task, **kwargs):
+        self.cancel_calls.append(task["task_id"])
+        raise RuntimeError("backend stop failed")
+
+    monkeypatch.setattr(_EpochOracle, "__call__", broken_oracle)
+    monkeypatch.setattr(_DynamicBackend, "cancel", broken_cancel)
+    result, report, _hidden, _receipts, backend, _oracle, root = _run_dynamic(
+        tmp_path, monkeypatch, event_type="member_exit", reassessment="raise")
+
+    assert "oracle grounding failed" in result["error"]
+    evaluations = report["deployment_assessment"]["oracle_evaluations"]
+    assert [row["oracle_status"] for row in evaluations] == ["verified", "failed"]
+    assert evaluations[-1]["feasibility_label"] is None
+    assert evaluations[-1]["evaluator_ref"] == "oracle_evaluation_failed"
+    assert backend.cancel_calls == [SECOND_TASK]
+    assert report["tasks"][SECOND_TASK]["safety_stop"]["acknowledged"] is False
+    failures = json.loads((root / "lifecycle_errors.json").read_text())
+    assert len(failures) == 1
+    assert "backend stop failed" in failures[0]["error"]
+
+
 def test_reassessment_exception_must_still_acknowledge_queued_cancellation(
         tmp_path, monkeypatch):
     result, report, _hidden, _receipts, backend, _oracle, _root = _run_dynamic(
