@@ -552,6 +552,7 @@ _EMOS_DISCUSSION_LOG_DIR = ROOT / "tmp" / "emos_discussion_restaurant"
 # label ``public_spawn_anchor`` as a PhysX sample.
 POSITION_SOURCE_PUBLIC_SPAWN_ANCHOR = "public_spawn_anchor"
 POSITION_SOURCE_NATIVE_ROOT_STATE = "native_root_state"
+POSITION_SOURCE_NOT_CONSUMED = "allocator_does_not_consume_positions"
 
 
 def restaurant_public_spawn_xyz_m(public_id: str) -> tuple[float, float, float]:
@@ -606,11 +607,7 @@ class RestaurantNativeRootStateProvider:
         if missing:
             raise RuntimeError(
                 f"Restaurant native position provider missing articulations: {missing}")
-        step = getattr(getattr(base_env, "sim", None),
-                       "current_time_step_index", None)
-        if isinstance(step, bool) or not isinstance(step, int):
-            raise RuntimeError("Restaurant native position provider has no integer physics step")
-        self._last_step: int | None = int(step)
+        self._samples: dict[str, dict[str, Any]] = {}
 
     def __call__(self, public_id: str) -> tuple[float, float, float]:
         try:
@@ -632,14 +629,22 @@ class RestaurantNativeRootStateProvider:
                        "current_time_step_index", None)
         if isinstance(step, bool) or not isinstance(step, int):
             raise RuntimeError("Restaurant native position provider has no integer physics step")
-        self._last_step = int(step)
+        self._samples[public_id] = {
+            "native_agent_id": native_id,
+            "physics_step": int(step),
+            "root_state_w": [float(value) for value in state],
+        }
         return tuple(float(value) for value in state[:3])
 
     def metadata(self) -> dict[str, Any]:
+        if set(self._samples) != set(self._bindings):
+            missing = sorted(set(self._bindings) - set(self._samples))
+            raise RuntimeError(
+                f"Restaurant native position provider has not sampled: {missing}")
         return {
             "position_source": POSITION_SOURCE_NATIVE_ROOT_STATE,
             "capture": "settled_articulation_root_state_w",
-            "physics_step": self._last_step,
+            "samples": deepcopy(self._samples),
         }
 
 
@@ -1438,8 +1443,6 @@ def run_worker(output_root: str | Path) -> dict[str, Any]:
                 session.env.step(commands)
             products_root = Path(request["products_root"])
             routes = request["physical_routes"]
-            native_position_provider = RestaurantNativeRootStateProvider(
-                session.base_env, ALGORITHM_POOL)
             # Creation order matters for the shared contact-processing toggle:
             # close in reverse so each navigator restores what it observed.
             # Carters get navigation/observation drivers. Iris gets a
@@ -1473,10 +1476,14 @@ def run_worker(output_root: str | Path) -> dict[str, Any]:
                     else RestaurantEmosParticipant)
                 participant_kwargs = {}
                 if participant_class is RestaurantEmosParticipant:
+                    native_position_provider = RestaurantNativeRootStateProvider(
+                        session.base_env, ALGORITHM_POOL)
                     participant_kwargs = {
                         "get_robot_pos_fn": native_position_provider,
                         "position_source": POSITION_SOURCE_NATIVE_ROOT_STATE,
                     }
+                else:
+                    native_position_provider = None
                 participant = participant_class(
                     request["public_task"], routes, **participant_kwargs)
                 evaluator = lambda episode_id, trusted: evaluate_restaurant_business(
@@ -1506,7 +1513,11 @@ def run_worker(output_root: str | Path) -> dict[str, Any]:
                 "episode_id": request["episode_id"],
                 "request_sha256": file_sha256(root / "request.json"),
                 "source_files": request["source_files"],
-                "position_provenance": native_position_provider.metadata()})
+                "position_provenance": (
+                    native_position_provider.metadata()
+                    if native_position_provider is not None else {
+                        "position_source": POSITION_SOURCE_NOT_CONSUMED,
+                    })})
             passed = (result["error"] is None
                       and result["skill_receipt_count"] == len(participant._plan["tasks"])
                       and result["business_outcomes_validated"] is True
@@ -1556,6 +1567,38 @@ _ALGO_ARCHIVE_EPISODE_FILES = (
     "runtime_snapshots.json", "result.json", "native_evidence_log.json",
     "readiness_service_snapshot.json", "goal_episode_source.json",
 )
+
+
+def _validate_archived_position_provenance(
+    provenance: Any, algorithm: str,
+) -> Mapping[str, Any]:
+    """Validate allocator pose provenance without upgrading unused samples."""
+    if algorithm == "teamweaver":
+        expected = {"position_source": POSITION_SOURCE_NOT_CONSUMED}
+        if provenance != expected:
+            raise ValueError("TeamWeaver archive falsely claims allocator position capture")
+        return provenance
+    if algorithm != "emos" or not isinstance(provenance, Mapping):
+        raise ValueError("archived allocator position provenance is invalid")
+    samples = provenance.get("samples")
+    if (provenance.get("position_source") != POSITION_SOURCE_NATIVE_ROOT_STATE
+            or provenance.get("capture") != "settled_articulation_root_state_w"
+            or not isinstance(samples, Mapping)
+            or set(samples) != set(ALGORITHM_POOL)):
+        raise ValueError("archived EMOS native position provenance is incomplete")
+    for public_id, binding in ROBOT_BINDINGS.items():
+        sample = samples.get(public_id)
+        root = sample.get("root_state_w") if isinstance(sample, Mapping) else None
+        step = sample.get("physics_step") if isinstance(sample, Mapping) else None
+        if (not isinstance(sample, Mapping)
+                or sample.get("native_agent_id") != binding["native_agent_id"]
+                or isinstance(step, bool) or not isinstance(step, int) or step < 0
+                or not isinstance(root, list) or len(root) != 13
+                or any(isinstance(value, bool) for value in root)
+                or not navigation_probe._finite_root_state(root)):
+            raise ValueError(
+                f"archived EMOS native position sample is invalid: {public_id}")
+    return provenance
 
 
 def _verify_archived_agent_observation(row: Mapping[str, Any], request: Mapping[str, Any]) -> str:
@@ -1742,14 +1785,8 @@ def verify_algorithm_episode_archive(output_root: str | Path) -> dict[str, Any]:
             or process.get("isaac_log_sha256") != file_sha256(base / "isaac.log")):
         raise ValueError("archived algorithm hash chain does not match its files")
     source_row = load(episode_root / "goal_episode_source.json")
-    provenance = source_row.get("position_provenance")
-    if (not isinstance(provenance, Mapping)
-            or provenance.get("position_source") != POSITION_SOURCE_NATIVE_ROOT_STATE
-            or provenance.get("capture") != "settled_articulation_root_state_w"
-            or isinstance(provenance.get("physics_step"), bool)
-            or not isinstance(provenance.get("physics_step"), int)
-            or provenance.get("physics_step") < 0):
-        raise ValueError("archived native position provenance is missing or invalid")
+    provenance = _validate_archived_position_provenance(
+        source_row.get("position_provenance"), request["algorithm"])
     if (source_row.get("schema") != "eai.restaurant.formal_goal_episode_source"
             or source_row.get("version") != 1
             or source_row.get("episode_id") != episode_id
@@ -1794,6 +1831,15 @@ def verify_algorithm_episode_archive(output_root: str | Path) -> dict[str, Any]:
                 or position_events[0].get("position_source")
                 != POSITION_SOURCE_NATIVE_ROOT_STATE):
             raise ValueError("archived EMOS position provenance diverges from source")
+        positions = position_events[0].get("robot_positions")
+        if (not isinstance(positions, Mapping)
+                or set(positions) != set(ALGORITHM_POOL)
+                or any(positions[public_id]
+                       != provenance["samples"][public_id]["root_state_w"][:3]
+                       for public_id in ALGORITHM_POOL)):
+            raise ValueError("archived EMOS allocator positions diverge from native samples")
+    elif position_events:
+        raise ValueError("archived TeamWeaver trace falsely claims position consumption")
     assignment = allocations[0]["assignment"]
     session = load(episode_root / "goal_session_report.json")["report"]
     plan_rows = session.get("plans") or []

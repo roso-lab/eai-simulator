@@ -62,9 +62,10 @@ Iris 被分配 readiness relay 时，计划把 relay 绑定到它当前的
 kitchen/dining inspection。
 
 **本 focused 证据使用 `public_spawn_anchor`，不是原生 PhysX 采样验证。** Formal
-`run_worker()` 在 settle 后为 EMOS 注入 `RestaurantNativeRootStateProvider`，从三台
-实际 articulation 的 `root_state_w[:3]` 读取位置；缺 articulation、缺 root-state 或非有限
-状态都会 fail-fast。provider 的 `position_source`、采样类型和整数 physics step 同时写入
-EMOS participant trace 与 `goal_episode_source.json`，归档 verifier 会检查两处 provenance
-一致。TeamWeaver 仍不消费位置 callback；它的 formal 归档保留同一 native provenance，不能
-把公开 spawn 图误报成 allocator 输入。
+`run_worker()` 在 settle 后仅为 EMOS 构造并注入 `RestaurantNativeRootStateProvider`，从三台
+实际 articulation 的 13D `root_state_w` 读取位置；缺 articulation、缺 root-state、非有限
+状态或未覆盖三台机器的采样都会 fail-fast。provider 的 `position_source`、每台机器的 native
+id、13D 样本和实际整数 physics step 同时写入 EMOS participant trace 与
+`goal_episode_source.json`，归档 verifier 会检查两处 provenance 一致。TeamWeaver 不消费
+位置 callback，也不构造 provider；它的 formal 归档只能声明
+`allocator_does_not_consume_positions`，不得出现虚假的 capture 或 samples。

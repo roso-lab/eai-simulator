@@ -750,14 +750,26 @@ def test_formal_native_root_state_provider_maps_public_ids_and_archives_step():
         sim=SimpleNamespace(current_time_step_index=321),
     )
     provider = m.RestaurantNativeRootStateProvider(base_env)
+    with pytest.raises(RuntimeError, match="has not sampled"):
+        provider.metadata()
     assert provider("restaurant_carter_1") == pytest.approx((1.0, 2.0, 3.0))
     assert provider("restaurant_carter_2") == pytest.approx((2.0, 3.0, 4.0))
     assert provider("restaurant_iris_1") == pytest.approx((3.0, 4.0, 5.0))
-    assert provider.metadata() == {
-        "position_source": m.POSITION_SOURCE_NATIVE_ROOT_STATE,
-        "capture": "settled_articulation_root_state_w",
-        "physics_step": 321,
-    }
+    metadata = provider.metadata()
+    assert metadata["position_source"] == m.POSITION_SOURCE_NATIVE_ROOT_STATE
+    assert metadata["capture"] == "settled_articulation_root_state_w"
+    assert set(metadata["samples"]) == set(m.ALGORITHM_POOL)
+    for public_id, sample in metadata["samples"].items():
+        assert sample["native_agent_id"] == m.ROBOT_BINDINGS[public_id]["native_agent_id"]
+        assert sample["physics_step"] == 321
+        assert len(sample["root_state_w"]) == 13
+    assert m._validate_archived_position_provenance(metadata, "emos") == metadata
+
+    teamweaver = {"position_source": m.POSITION_SOURCE_NOT_CONSUMED}
+    assert m._validate_archived_position_provenance(
+        teamweaver, "teamweaver") == teamweaver
+    with pytest.raises(ValueError, match="falsely claims"):
+        m._validate_archived_position_provenance(metadata, "teamweaver")
 
     missing = SimpleNamespace(
         scene=SimpleNamespace(articulations={"carter_1": articulations["carter_1"]}),
@@ -804,8 +816,41 @@ def test_formal_native_root_state_provider_rejects_nonfinite_or_missing_step():
             for native in ("carter_1", "carter_2", "iris_1")}),
         sim=BoolStep(),
     )
+    provider = m.RestaurantNativeRootStateProvider(no_step)
     with pytest.raises(RuntimeError, match="integer physics step"):
-        m.RestaurantNativeRootStateProvider(no_step)
+        provider("restaurant_carter_1")
+
+
+def test_position_provenance_verifier_rejects_partial_or_tampered_native_samples():
+    from demo.benchmark import goal_restaurant_algorithm_episode as m
+
+    sample = {
+        "native_agent_id": "carter_1",
+        "physics_step": 7,
+        "root_state_w": [1.0, 2.0, 0.2, 1.0] + [0.0] * 9,
+    }
+    partial = {
+        "position_source": m.POSITION_SOURCE_NATIVE_ROOT_STATE,
+        "capture": "settled_articulation_root_state_w",
+        "samples": {"restaurant_carter_1": sample},
+    }
+    with pytest.raises(ValueError, match="incomplete"):
+        m._validate_archived_position_provenance(partial, "emos")
+
+    samples = {}
+    for public_id, binding in m.ROBOT_BINDINGS.items():
+        samples[public_id] = {
+            "native_agent_id": binding["native_agent_id"],
+            "physics_step": 7,
+            "root_state_w": [1.0, 2.0, 0.2, 1.0] + [0.0] * 9,
+        }
+    tampered = {
+        **partial,
+        "samples": {**samples, "restaurant_iris_1": {
+            **samples["restaurant_iris_1"], "physics_step": True}},
+    }
+    with pytest.raises(ValueError, match="sample is invalid"):
+        m._validate_archived_position_provenance(tampered, "emos")
 
 
 def test_emos_rejects_missing_position_provider_without_inventing_zeros():
