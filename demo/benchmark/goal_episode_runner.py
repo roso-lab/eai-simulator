@@ -287,6 +287,7 @@ class FormalGoalEpisodeRunner:
                       "robot_regions": deepcopy(robots), "object_states": deepcopy(objects)}]
         receipts: list[dict[str, Any]] = []
         business: dict[str, Any] = {}
+        lifecycle_errors: list[dict[str, str]] = []
         error: str | None = None
         turns = 0
         try:
@@ -452,27 +453,53 @@ class FormalGoalEpisodeRunner:
             "execution_validated": False, "scoreable": False})
         _write_json(self.output_root / "team_usage.json",
                     team_usage_summary(final_report, self.public_task))
+
+        def record_lifecycle_error(component: str, operation: str, exc: Exception) -> None:
+            lifecycle_errors.append({
+                "component": component,
+                "operation": operation,
+                "error": f"{type(exc).__name__}: {exc}",
+            })
+
         if self.pose_tools is not None:
             from .communication import validate_communication_report
-            tool_report = self.pose_tools.report()
-            _write_json(self.output_root / "pose_tools_report.json", tool_report)
-            _write_json(self.output_root / "pose_communication_replay.json",
-                        validate_communication_report(tool_report["communication"]))
+            try:
+                tool_report = self.pose_tools.report()
+                _write_json(self.output_root / "pose_tools_report.json", tool_report)
+                _write_json(self.output_root / "pose_communication_replay.json",
+                            validate_communication_report(tool_report["communication"]))
+            except Exception as exc:
+                record_lifecycle_error("pose_tools", "report", exc)
         if self.camera_tools is not None:
             from .communication import validate_communication_report
             finalizer = getattr(self.camera_tools, "finalize_episode", None)
             if callable(finalizer):
-                finalizer()
-            tool_report = self.camera_tools.report()
-            _write_json(self.output_root / "camera_tools_report.json", tool_report)
-            _write_json(self.output_root / "camera_communication_replay.json",
-                        validate_communication_report(tool_report["communication"]))
+                try:
+                    finalizer()
+                except Exception as exc:
+                    record_lifecycle_error("camera_tools", "finalize_episode", exc)
+            tool_report = None
+            try:
+                tool_report = self.camera_tools.report()
+                _write_json(self.output_root / "camera_tools_report.json", tool_report)
+                _write_json(self.output_root / "camera_communication_replay.json",
+                            validate_communication_report(tool_report["communication"]))
+            except Exception as exc:
+                record_lifecycle_error("camera_tools", "report", exc)
             closer = getattr(self.camera_tools, "close", None)
             if callable(closer):
-                closer()
-            if tool_report.get("lifecycle_errors"):
+                try:
+                    closer()
+                except Exception as exc:
+                    record_lifecycle_error("camera_tools", "close", exc)
+            if isinstance(tool_report, Mapping) and tool_report.get("lifecycle_errors"):
                 _write_json(self.output_root / "camera_lifecycle_errors.json",
                             tool_report["lifecycle_errors"])
+        if lifecycle_errors:
+            _write_json(self.output_root / "lifecycle_errors.json", lifecycle_errors)
+            if error is None:
+                error = "lifecycle_error: " + "; ".join(
+                    row["error"] for row in lifecycle_errors)
         _write_json(self.output_root / "participant_trace.json", {
             "episode_id": self.episode_id,
             "events": deepcopy(final_report.get("events", [])),
@@ -487,13 +514,6 @@ class FormalGoalEpisodeRunner:
         })
         _write_json(self.output_root / "goal_session_report.json", {
             "episode_id": self.episode_id, "report": final_report})
-        from .goal_scoring_adapter import build_scoring_adapter_metadata
-        scoring_metadata = build_scoring_adapter_metadata(
-            self.public_task,
-            episode_id=self.episode_id,
-            output_root=self.output_root,
-        )
-        _write_json(self.output_root / "scoring_adapter_metadata.json", scoring_metadata)
         result = {
             "schema": "eai.benchmark.formal_goal_episode_result", "version": 3,
             "episode_id": self.episode_id, "task_id": self.public_task["task_id"],
@@ -506,6 +526,21 @@ class FormalGoalEpisodeRunner:
             "output_root": str(self.output_root),
         }
         _write_json(self.output_root / "result.json", result)
+        from .goal_scoring_adapter import build_scoring_adapter_metadata
+        scoring_metadata = build_scoring_adapter_metadata(
+            self.public_task,
+            episode_id=self.episode_id,
+            output_root=self.output_root,
+            code_baseline=self.public_task.get("task_package_version"),
+        )
+        scoring_metadata["episode_result"] = {
+            "error": result["error"],
+            "turns": result["turns"],
+            "skill_receipt_count": result["skill_receipt_count"],
+            "business_outcomes_validated": result["business_outcomes_validated"],
+            "lifecycle_error_count": len(lifecycle_errors),
+        }
+        _write_json(self.output_root / "scoring_adapter_metadata.json", scoring_metadata)
         return result
 
 

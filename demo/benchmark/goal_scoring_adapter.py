@@ -46,6 +46,12 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _canonical_sha256(value: Any) -> str:
+    payload = json.dumps(value, ensure_ascii=False, sort_keys=True,
+                         separators=(",", ":"), allow_nan=False).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
 def _count_json(path: Path, key: str) -> int | None:
     if not path.is_file():
         return None
@@ -68,6 +74,9 @@ def build_archive_index(output_root: str | Path) -> dict[str, Any]:
         "business_evidence.json", "pose_tools_report.json", "pose_communication_replay.json",
         "camera_tool_profile.json", "camera_tools_report.json",
         "camera_communication_replay.json", "camera_lifecycle_errors.json",
+        "pose_tool_profile.json", "runtime_snapshots.json", "public_task.json",
+        "participant_api.json", "result.json",
+        "lifecycle_errors.json",
     )
     files = {}
     for name in names:
@@ -124,6 +133,12 @@ def build_scoring_adapter_metadata(
         "episode_id": episode_id,
         "task_id": task_id,
         "scene_key": scene_key,
+        "task_contract_sha256": _canonical_sha256(public_task),
+        "condition": {
+            "id": public_task.get("condition_id"),
+            "seed": public_task.get("seed"),
+            "experiment_factor": public_task.get("experiment_factor"),
+        },
         "evaluation_track": "goal_driven_team_planning_v1",
         "archive_role": "goal_engineering_observation",
         "code_baseline": code_baseline,
