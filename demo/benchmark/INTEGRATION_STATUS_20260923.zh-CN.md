@@ -41,6 +41,22 @@
 `scoreable=false`、执行release gate均未提升。原生业务证据、资产验证、完整checkpoint、
 并发和因果评分分别验收，不能用一项成功替代其他项。
 
+### P1-L 经验学习难度审计（本阶段收尾）
+
+已完成 L0-L3 的只读审计，详见
+[LEARNING_DIFFICULTY_AUDIT.zh-CN.md](LEARNING_DIFFICULTY_AUDIT.zh-CN.md)。五场景的
+任务族、包版本、公开/隐藏哈希、见证任务量和结构签名已登记；M0/M1 机制是同一任务族
+的条件，不重复计作学习样本。City 的 TeamWeaver/TeamWeaver_LLM/EMOS trace 只作为
+participant algorithm evidence，室内运行和 Restaurant 算法 batch 的缺口仍分别记为
+infra-mixed 或 documentation-only。
+
+当前只允许后续 pilot 以前的机会注册设计。正式 learning opportunity 必须按
+base_instance、轮次、R/C 条件和指标冻结，并同时满足二元可行性 oracle、真实时钟、
+checkpoint/restore、sham 和外部 Q(t)/终局证据；eligible、ceiling、unknown 的分母
+不能根据被测系统正式结果改变。Restaurant 是结构上的 high 候选，但 A2 资产源闭包
+仍失败；Factory、Warehouse、House、City 继续为 unknown。L-G1 前不修改生成器、
+机制模板、冻结题包或 witness。
+
 ## 最新回归与未通过项
 
 部署门禁基线`ce65318`：本机完整benchmark测试 **2215 passed，235.44秒**；

@@ -12,6 +12,7 @@
 | D：并行回归 | 本机+ljy隔离目录，Terra/high运行 | 定向负例后全量；逐提交保留日志和资产身份 | `ce65318`本机2215通过；ljy2207通过/8跳过；后续停止修复单独验收 |
 | E：原生最小验收 | 当前可部署场景的真实宿主 | 初始可行声明/不可行求助/外生失效重评估；真实停止与零终止后派遣 | 待A–D通过；不为抓取微小几何反复改题 |
 | F：评分实验 | 完整状态恢复、处理前checkpoint、指标分母与统计 | 无处理sham一致后才分支；固定子任务公式先修订 | 设计已有，PhysX/参与者可恢复checkpoint未实现 |
+| L：经验学习难度准入 | 任务族证据登记、Y/Q(H)/AUP/RMST、陷阱机会与分母边界 | L-G1 前只做审计；正式机会、R/C、pilot 和 sham 未通过不得出学习分数 | `LEARNING_DIFFICULTY_AUDIT.zh-CN.md`；当前 Restaurant 仅结构 high 候选，其余 unknown |
 
 ## 当前 To-do
 
@@ -28,6 +29,8 @@
 - [ ] E1 真实宿主最小门禁证据；正式原生证据通过前三个release gate保持false。
 - [ ] E2 餐厅冻结v7路径闭包或独立新版候选准入；不得重写冻结包。
 - [ ] F1 真实checkpoint与sham恢复；未实现前禁止把符号快照用于因果分支评分。
+- [x] L0-L3 经验学习难度审计：冻结五场景结构签名、证据等级、eligible/ceiling/unknown 判据和后续 pilot 依赖；L-G1 前不改生成器或题包。
+- [ ] L4-L9 版本化加难实例、独立 pilot、learning opportunity registry 和 R/C 正式实验；依赖 P0 原生 oracle、checkpoint/restore 和 sham 一致性。
 
 ## 下一批交付的依赖顺序
 
@@ -43,6 +46,12 @@
    用可行、初始不可行、失效后不可行及失效后仍可行四类原生实例验收。
 5. **F1及公式适配**。以上质量门禁通过后，再冻结公式分母、做checkpoint/sham和并行分支。
    全部预注册点verified是正式发布条件；开发测试通过不自动改变三个release标志。
+
+6. **L0-L3 经验学习审计**。经验学习不与 P0 抢占部署门禁的先后顺序；本阶段只登记
+   任务族和证据边界，明确学习机会必须由结构、可行性、时钟、R/C 恢复和 sham 共同
+   证明。Restaurant 可作为首个 pilot 候选，但 A2 资产失败只能记平台阻断；Factory、
+   Warehouse、House、City 在原生业务证据前保持 unknown。详见
+   [P1-L 审计](LEARNING_DIFFICULTY_AUDIT.zh-CN.md)。
 
 B3a与A3在接口冻结后可并行，B3b依赖B3a，原生验收依赖二者；本机和ljy负责独立
 测试，不共享可变episode状态。每批记录提交、输入/资产身份、测试日志与仍未验证项。
