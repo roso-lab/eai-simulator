@@ -78,6 +78,7 @@ def build_archive_index(output_root: str | Path) -> dict[str, Any]:
         "lifecycle_errors.json",
         "camera_render_failures.json",
         "deployment_assessment_report.json",
+        "deployment_feasibility_evidence.json", "deployment_protocol_error.json",
     )
     files = {}
     for name in names:
@@ -125,19 +126,20 @@ def deployment_assessment_observations(
         valid = (not duplicate and row.get("public_task_sha256") == task_sha256
                  and external.get("assessment_id") == key[0]
                  and external.get("assessment_epoch") == epoch
+                 and external.get("oracle_status") == "verified"
                  and external.get("platform_valid") is True
                  and bool(external.get("evidence_refs"))
                  and bool(external.get("evaluator_ref"))
-                 and external.get("label") in {"deployable", "not_deployable"})
-        label, decision = external.get("label"), row.get("decision")
-        classification = "unverified"
+                 and external.get("feasibility_label") in {"deployable", "not_deployable"})
+        label, decision = external.get("feasibility_label"), row.get("decision")
+        classification = None
         if valid:
             classification = {
                 ("deployable", "deployable"): "correct_deployment",
                 ("deployable", "not_deployable"): "false_refusal",
                 ("not_deployable", "deployable"): "false_deployment",
                 ("not_deployable", "not_deployable"): "correct_refusal",
-            }.get((label, decision), "unverified")
+            }.get((label, decision))
         trigger = event_index.get(row.get("trigger_event_sequence"), {})
         start, declared = trigger.get("time_s"), row.get("declared_at_s")
         def finite(value):
@@ -163,9 +165,10 @@ def deployment_assessment_observations(
         records.append({
             "assessment_id": key[0], "assessment_epoch": epoch,
             "phase": "initial" if row.get("trigger_event_type") == "episode_started" else "runtime",
-            "classification": classification, "label_eligible": valid and classification != "unverified",
+            "classification": classification, "label_eligible": valid and classification is not None,
+            "oracle_status": "verified" if valid else "failed",
             "platform_valid": external.get("platform_valid"),
-            "decision": decision, "label": label, "duplicate_epoch": duplicate,
+            "decision": decision, "feasibility_label": label if valid else None, "duplicate_epoch": duplicate,
             "host_declaration_latency_s": latency,
             "physical_change_latency_s": None, "notification_delivery_latency_s": None,
             "human_assistance_requested": requested,
@@ -177,10 +180,37 @@ def deployment_assessment_observations(
             "pre_declaration_planning_compute_cost": None,
             "business_task_completed": False if requested else None,
         })
+    required = {(event.get("payload", {}).get("assessment_id"),
+                 event.get("payload", {}).get("assessment_epoch"))
+                for event in events if event.get("type") == "deployment_assessment_required"}
+    unanswered = sorted(required - seen, key=lambda pair: pair[1])
+    oracles = gate.get("oracle_evaluations", [])
+    by_epoch = {}
+    duplicate_oracle = False
+    for oracle in oracles:
+        key = (oracle.get("assessment_id"), oracle.get("assessment_epoch"))
+        duplicate_oracle |= key in by_epoch
+        by_epoch[key] = oracle
+    valid_oracles = {key for key, oracle in by_epoch.items()
+                     if oracle.get("oracle_status") == "verified"
+                     and oracle.get("feasibility_label") in {"deployable", "not_deployable"}
+                     and oracle.get("platform_valid") is True
+                     and bool(oracle.get("evidence_refs")) and bool(oracle.get("evaluator_ref"))}
+    missing_or_failed = required - valid_oracles
+    episode_eligible = (bool(required) and not missing_or_failed and not duplicate_oracle
+                        and set(by_epoch) == required
+                        and all(record["label_eligible"] for record in records))
     return {"status": gate.get("status"), "raw_only": True, "not_protocol_score": True,
-            "records": records, "accuracy_denominator": sum(r["label_eligible"] for r in records),
-            "classification_counts": {name: sum(r["classification"] == name for r in records)
-                for name in ("correct_deployment", "false_refusal", "false_deployment", "correct_refusal", "unverified")},
+            "records": records, "accuracy_denominator": len(required) if episode_eligible else 0,
+            "accuracy_denominator_scope": "all_required_epochs_of_oracle_verified_episodes_including_missing_answers",
+            "episode_oracle_eligible": episode_eligible,
+            "required_epoch_count": len(required) if required else None,
+            "unanswered_epochs": [{"assessment_id": key[0], "assessment_epoch": key[1]}
+                                   for key in unanswered],
+            "classification_counts": {name: (sum(r["classification"] == name for r in records) if episode_eligible else 0)
+                for name in ("correct_deployment", "false_refusal", "false_deployment", "correct_refusal")},
+            "oracle_infrastructure_failure_count": len(missing_or_failed),
+            "missing_assessment_count": len(unanswered) if episode_eligible else None,
             "undeclared_current_epoch": gate.get("status") == "required",
             "clock_source": "goal_host_receipt_clock", "physical_clock_bound": False,
             "scoreable": False}
@@ -249,6 +279,7 @@ def build_scoring_adapter_metadata(
                 "visible_history", "rng_and_clocks",
                 "host_scheduler_and_pending_communication",
                 "deployment_gate_epoch_and_assessment_history",
+                "preregistered_remaining_task_oracle_and_cached_truth",
             ],
             "preregistered_trigger_design": [
                 "initial", "decision_pre", "treatment_pre", "replan_pre",

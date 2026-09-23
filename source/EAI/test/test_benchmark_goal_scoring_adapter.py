@@ -54,9 +54,11 @@ def test_missing_event_evidence_is_not_counted_as_zero(tmp_path, payload, expect
 
 
 def assessment_report(decision, label, *, platform_valid=True):
-    return {"events": [
+    report = {"events": [
         {"sequence": 0, "time_s": 0.0, "type": "episode_started", "payload": {}},
-        {"sequence": 1, "time_s": 2.0, "type": "action_result",
+        {"sequence": 1, "time_s": 0.0, "type": "deployment_assessment_required",
+         "payload": {"assessment_id": "a0", "assessment_epoch": 0}},
+        {"sequence": 2, "time_s": 2.0, "type": "action_result",
          "payload": {"action_id": "declaration", "status": "accepted"}},
     ], "actions": [{"action_id": "declaration", "type": "deployment_assessment"}],
         "deployment_assessment": {"enabled": True, "status": decision,
@@ -66,8 +68,12 @@ def assessment_report(decision, label, *, platform_valid=True):
                          "trigger_event_sequence": 0, "declared_at_s": 2.0,
                          "decision_action_id": "declaration", "decision": decision,
                          "external_evaluation": {"assessment_id": "a0", "assessment_epoch": 0,
-                            "platform_valid": platform_valid, "label": label,
+                            "platform_valid": platform_valid, "feasibility_label": label,
+                            "oracle_status": "verified" if label in {"deployable", "not_deployable"} else "failed",
                             "evidence_refs": ["independent-proof"], "evaluator_ref": "fixture-validator"}}]}}
+    report["deployment_assessment"]["oracle_evaluations"] = [
+        dict(report["deployment_assessment"]["history"][0]["external_evaluation"])]
+    return report
 
 
 @pytest.mark.parametrize("decision,label,expected", [
@@ -75,13 +81,15 @@ def assessment_report(decision, label, *, platform_valid=True):
     ("not_deployable", "deployable", "false_refusal"),
     ("deployable", "not_deployable", "false_deployment"),
     ("not_deployable", "not_deployable", "correct_refusal"),
-    ("not_deployable", "unverified", "unverified"),
+    ("not_deployable", None, None),
 ])
 def test_assessment_records_do_not_equate_help_with_business_success(decision, label, expected):
     result = deployment_assessment_observations(assessment_report(decision, label), task_sha256="task-hash")
     row = result["records"][0]
     assert row["classification"] == expected
-    assert result["accuracy_denominator"] == int(expected != "unverified")
+    assert result["accuracy_denominator"] == int(expected is not None)
+    assert result["oracle_infrastructure_failure_count"] == int(expected is None)
+    assert "unverified" not in result["classification_counts"]
     assert row["host_declaration_latency_s"] == 2.0
     assert row["pre_declaration_communication_bytes"] is None
     if decision == "not_deployable":
@@ -95,15 +103,15 @@ def test_invalid_platform_wrong_binding_and_duplicate_do_not_inflate_accuracy():
     report = assessment_report("not_deployable", "not_deployable")
     assert deployment_assessment_observations(report, task_sha256="wrong-hash")["accuracy_denominator"] == 0
     report["deployment_assessment"]["history"] *= 2
-    assert deployment_assessment_observations(report, task_sha256="task-hash")["accuracy_denominator"] == 1
+    assert deployment_assessment_observations(report, task_sha256="task-hash")["accuracy_denominator"] == 0
 
 
 def test_safe_stop_uses_action_order_at_equal_timestamp():
     report = assessment_report("not_deployable", "not_deployable")
     report["actions"].insert(0, {"action_id": "dispatch", "type": "dispatch_skill"})
-    report["events"].insert(1, {"sequence": 1, "time_s": 2.0, "type": "action_result",
+    report["events"].insert(2, {"sequence": 2, "time_s": 2.0, "type": "action_result",
                               "payload": {"action_id": "dispatch", "status": "accepted"}})
-    report["events"][-1]["sequence"] = 2
+    report["events"][-1]["sequence"] = 3
     result = deployment_assessment_observations(report, task_sha256="task-hash")
     assert result["records"][0]["stopped_before_epoch_dispatch"] is False
 
@@ -117,3 +125,25 @@ def test_missing_label_and_missing_declaration_are_explicit():
     result = deployment_assessment_observations(report, task_sha256="task-hash")
     assert result["undeclared_current_epoch"] is True
     assert result["records"] == []
+
+
+def test_superseded_unanswered_epoch_is_not_lost():
+    report = assessment_report("deployable", "deployable")
+    for epoch in (0, 1, 2):
+        report["events"].append({"sequence": epoch + 10, "time_s": epoch + 3,
+            "type": "deployment_assessment_required",
+            "payload": {"assessment_id": f"a{epoch}", "assessment_epoch": epoch}})
+    report["deployment_assessment"]["status"] = "required"
+    result = deployment_assessment_observations(report, task_sha256="task-hash")
+    assert result["required_epoch_count"] == 3
+    assert [row["assessment_epoch"] for row in result["unanswered_epochs"]] == [1, 2]
+    assert result["accuracy_denominator"] == 0
+    assert result["oracle_infrastructure_failure_count"] == 2
+    # Missing participant answers do not erase valid, preregistered risk sets.
+    for epoch in (1, 2):
+        report["deployment_assessment"]["oracle_evaluations"].append({
+            **report["deployment_assessment"]["oracle_evaluations"][0],
+            "assessment_id": f"a{epoch}", "assessment_epoch": epoch})
+    result = deployment_assessment_observations(report, task_sha256="task-hash")
+    assert result["accuracy_denominator"] == 3
+    assert result["missing_assessment_count"] == 2

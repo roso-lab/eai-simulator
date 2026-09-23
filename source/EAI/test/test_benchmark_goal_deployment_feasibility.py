@@ -76,7 +76,8 @@ def test_unique_provider_loss_requires_remaining_outcome_and_new_snapshot():
             robot["public_capabilities"] = [c for c in robot["public_capabilities"] if c != "relay"]
     before = evaluate(task, robots)
     remaining = [r for r in robots if r["id"] != provider["id"]]
-    after = evaluate(task, remaining, assessment_epoch=1, roster_version=1, assessment_id="assessment-1")
+    after = evaluate(task, remaining, assessment_epoch=1, roster_version=1, assessment_id="assessment-1",
+                     pending_requirement_outcome_ids=["readiness_receipt_committed"])
     assert before["label"] == "unverified"
     assert after["label"] == "not_deployable"
     assert before["binding_sha256"] != after["binding_sha256"]
@@ -104,21 +105,39 @@ def test_bad_platform_and_zero_survivors_are_distinct():
 
 def test_false_and_stale_positive_certificates_do_not_become_truth():
     task = build_goal_task_package("factory")["public_task"]
-    before = evaluate(task)
+    state = {"clock_s": 0.0, "snapshot_ref": "trusted-initial-state"}
+    before = evaluate(task, runtime_state=state)
     certificate = {"binding_sha256": before["binding_sha256"], "proof_ref": "independent-fixture"}
     with pytest.raises(ValueError, match="independent validator"):
-        evaluate(task, certificate=certificate)
-    assert evaluate(task, certificate=certificate, certificate_validator=lambda c, s: False)["label"] == "unverified"
-    assert evaluate(task, certificate=certificate, certificate_validator=lambda c, s: True)["label"] == "deployable"
+        evaluate(task, runtime_state=state, certificate=certificate)
+    assert evaluate(task, runtime_state=state, certificate=certificate, certificate_validator=lambda c, s: False)["label"] == "unverified"
+    assert evaluate(task, runtime_state=state, certificate=certificate, certificate_validator=lambda c, s: True)["label"] == "deployable"
     with pytest.raises(ValueError, match="different assessment snapshot"):
-        evaluate(task, assessment_epoch=1, certificate=certificate, certificate_validator=lambda c, s: True)
+        evaluate(task, runtime_state=state, assessment_epoch=1, certificate=certificate, certificate_validator=lambda c, s: True)
+
+
+def test_partial_progress_does_not_become_false_runtime_infeasibility():
+    task = build_goal_task_package("warehouse_nvd")["public_task"]
+    robots = deepcopy(task["candidate_robot_pool"])
+    for robot in robots:
+        robot["public_capabilities"] = [c for c in robot["public_capabilities"] if c not in {"pick", "cooperative_carry"}]
+    # Business handoff may be unfinished, although all transportation is done.
+    assert evaluate(task, robots, assessment_epoch=1)["label"] == "unverified"
+    result = evaluate(task, robots, assessment_epoch=1,
+                      pending_requirement_outcome_ids=["dock_handoff_confirmed"],
+                      transport_satisfied_object_ids=["order_crate_01", "order_carton_01"])
+    assert result["label"] == "unverified"
+    assert evaluate(task, robots, assessment_epoch=1,
+                    pending_requirement_outcome_ids=["dock_handoff_confirmed"])["label"] == "not_deployable"
 
 
 def test_private_hook_projection_and_requirement_binding():
     task = build_goal_task_package("factory")["public_task"]
     report = evaluate(task)
-    assert set(gate_evaluation(report)) == {"assessment_id", "assessment_epoch", "label", "platform_valid",
-                                            "evidence_refs", "evaluator_ref"}
+    projected = gate_evaluation(report)
+    assert set(projected) == {"assessment_id", "assessment_epoch", "feasibility_label", "oracle_status",
+                             "platform_valid", "evidence_refs", "evaluator_ref"}
+    assert projected["feasibility_label"] is None and projected["oracle_status"] == "failed"
     rules = scene_requirements(task)
     changed = deepcopy(task)
     changed["mission"]["goal"] += " changed"
@@ -134,3 +153,12 @@ def test_declaration_errors_do_not_turn_into_infeasibility():
         evaluate(task, robots)
     with pytest.raises(ValueError, match="match uniquely"):
         evaluate(task, capability_versions={})
+
+
+def test_optional_camera_channel_is_a_legal_alternative_to_observe_skill():
+    task = build_goal_task_package("factory")["public_task"]
+    robots = deepcopy(task["candidate_robot_pool"])
+    for robot in robots:
+        robot["public_capabilities"] = [c for c in robot["public_capabilities"] if c != "observe"]
+    assert evaluate(task, robots)["label"] == "not_deployable"
+    assert evaluate(task, robots, supplementary_capabilities=["observe"])["label"] == "unverified"

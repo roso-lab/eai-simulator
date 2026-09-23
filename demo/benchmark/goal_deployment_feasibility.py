@@ -13,7 +13,8 @@ from copy import deepcopy
 from itertools import permutations
 from typing import Any
 
-from .goal_constraints import validate_constraint_model, validate_robot_profile
+from .goal_constraints import validate_robot_profile
+from .goal_driven_contract import validate_goal_task_spec
 from .provenance import canonical_sha256
 
 
@@ -56,7 +57,7 @@ def scene_requirements(task_spec: Mapping[str, Any]) -> dict[str, Any]:
             "task_sha256": canonical_sha256(task_spec), "conditions": rows}
 
 
-def _transport_has_option(task_spec, object_id, robots, max_active_agents):
+def _transport_has_option(task_spec, object_id, robots, max_active_agents, *, enforce_payload=True):
     """Relaxed necessary screen over every declared mode and distinct carrier.
 
     Intentionally ignores reach/anchor calibration, approach and collision
@@ -84,7 +85,7 @@ def _transport_has_option(task_spec, object_id, robots, max_active_agents):
                 and skill in robot["public_capabilities"]
                 and interface in robot["interfaces"]
                 and points[slot["point_id"]]["interface"] in robot["physical_profile"]["grasp_interfaces"]
-                and props["mass_kg"] * slot["load_fraction"] <= robot["physical_profile"]["effective_payload_kg"]
+                and (not enforce_payload or props["mass_kg"] * slot["load_fraction"] <= robot["physical_profile"]["effective_payload_kg"])
                 for robot, slot in zip(assigned, slots)
             ):
                 return True
@@ -97,9 +98,14 @@ def evaluate_deployment_feasibility(
     current_robot_pool: Sequence[Mapping[str, Any]],
     capability_versions: Mapping[str, int],
     completed_outcome_ids: Sequence[str] = (),
+    pending_requirement_outcome_ids: Sequence[str] | None = None,
+    transport_satisfied_object_ids: Sequence[str] = (),
+    runtime_state: Mapping[str, Any] | None = None,
+    supplementary_capabilities: Sequence[str] = (),
     platform_valid: bool,
     platform_evidence_refs: Sequence[str],
     resource_versions: Mapping[str, int] | None = None,
+    deployment_change_versions: Mapping[str, int] | None = None,
     requirements: Mapping[str, Any] | None = None,
     certificate: Mapping[str, Any] | None = None,
     certificate_validator: Callable[[Mapping[str, Any], Mapping[str, Any]], bool] | None = None,
@@ -116,7 +122,7 @@ def evaluate_deployment_feasibility(
     if not episode_id or not assessment_id:
         raise ValueError("episode and assessment identities are required")
     for value in (assessment_epoch, roster_version, *capability_versions.values(),
-                  *(resource_versions or {}).values()):
+                  *(resource_versions or {}).values(), *(deployment_change_versions or {}).values()):
         if type(value) is not int or value < 0:
             raise ValueError("snapshot versions must be nonnegative integers")
     if not platform_evidence_refs or any(not isinstance(ref, str) or not ref for ref in platform_evidence_refs):
@@ -129,6 +135,15 @@ def evaluate_deployment_feasibility(
     completed = set(completed_outcome_ids)
     if not completed <= outcomes:
         raise ValueError("unknown completed outcome")
+    pending = (set(pending_requirement_outcome_ids)
+               if pending_requirement_outcome_ids is not None else None)
+    if pending is not None and (not pending <= outcomes or pending & completed):
+        raise ValueError("pending requirements must name unfinished known outcomes")
+    satisfied = set(transport_satisfied_object_ids)
+    if not satisfied <= {row["id"] for row in task_spec["public_world"]["objects"]}:
+        raise ValueError("unknown already transported object")
+    if any(not isinstance(cap, str) or not cap for cap in supplementary_capabilities):
+        raise ValueError("supplementary capabilities must be nonempty strings")
     binding = {
         "episode_id": episode_id, "assessment_id": assessment_id,
         "assessment_epoch": assessment_epoch, "roster_version": roster_version,
@@ -136,7 +151,12 @@ def evaluate_deployment_feasibility(
         "current_robot_pool": sorted(robots, key=lambda row: row["id"]),
         "capability_versions": dict(capability_versions),
         "resource_versions": dict(resource_versions or {}),
+        "deployment_change_versions": dict(deployment_change_versions or {}),
         "completed_outcome_ids": sorted(completed),
+        "pending_requirement_outcome_ids": sorted(pending) if pending is not None else None,
+        "transport_satisfied_object_ids": sorted(satisfied),
+        "runtime_state": deepcopy(runtime_state),
+        "supplementary_capabilities": sorted(set(supplementary_capabilities)),
         "team_scope": "current_available_pool_not_selected_subset",
     }
     fingerprint = canonical_sha256(binding)
@@ -150,8 +170,9 @@ def evaluate_deployment_feasibility(
               "scoreable": False}
     if not platform_valid:
         return report
-    # This validates physical declarations, not current-team feasibility.
-    validate_constraint_model(task_spec)
+    # Validate the package separately from the possibly empty surviving pool.
+    # Bad budgets/interfaces are platform errors, not negative model labels.
+    validate_goal_task_spec(task_spec)
     for robot in robots:
         validate_robot_profile(robot)
     rules = dict(requirements) if requirements is not None else scene_requirements(task_spec)
@@ -161,7 +182,13 @@ def evaluate_deployment_feasibility(
         outcome = rule["outcome_id"]
         if outcome not in outcomes:
             raise ValueError("necessary condition references unknown outcome")
-        if outcome in completed:
+        if outcome in completed or (pending is not None and outcome not in pending):
+            continue
+        # After work has begun, an unfinished business outcome may already
+        # have all needed observations or its object at the target. Losing a
+        # provider then is not proof of impossibility. Demand an independent
+        # runtime determination that this necessary condition is still unmet.
+        if assessment_epoch > 0 and pending is None:
             continue
         alternatives = rule["capability_alternatives"]
         obj = rule["transport_object_id"]
@@ -170,10 +197,19 @@ def evaluate_deployment_feasibility(
                 raise ValueError("empty capability alternative")
             passed = any(set(alternative) <= set(robot["public_capabilities"])
                          for alternative in alternatives for robot in robots)
+            passed = passed or any(set(alternative) <= set(supplementary_capabilities)
+                                   for alternative in alternatives)
             reason = "missing_capability"
         elif obj:
+            if obj in satisfied:
+                continue
             passed = _transport_has_option(task_spec, obj, robots, task_spec["budgets"]["max_active_agents"])
             reason = "capacity_or_load_exhausted"
+            if not passed:
+                if not _transport_has_option(task_spec, obj, robots, len(robots), enforce_payload=False):
+                    reason = "missing_capability"
+                elif _transport_has_option(task_spec, obj, robots, len(robots)):
+                    reason = "current_team_resource_conflict"
         else:
             raise ValueError("necessary condition has no test")
         if not passed:
@@ -183,6 +219,8 @@ def evaluate_deployment_feasibility(
         report["evidence_refs"].append("necessary_conditions:" + canonical_sha256({
             "binding_sha256": fingerprint, "failures": report["failed_necessary_conditions"]}))
     elif certificate is not None:
+        if runtime_state is None:
+            raise ValueError("positive certificate requires bound runtime state")
         if certificate.get("binding_sha256") != fingerprint:
             raise ValueError("positive certificate belongs to a different assessment snapshot")
         if certificate_validator is None:
@@ -194,7 +232,73 @@ def evaluate_deployment_feasibility(
 
 
 def gate_evaluation(report: Mapping[str, Any]) -> dict[str, Any]:
-    """Project private detailed evidence onto the runner's strict hook schema."""
-    return {key: deepcopy(report[key]) for key in (
-        "assessment_id", "assessment_epoch", "label", "platform_valid",
-        "evidence_refs", "evaluator_ref")}
+    """Expose only infrastructure failure until a registered oracle is used.
+
+    This generic necessary-condition screen is an internal proof aid. It is
+    not a preregistered complete remaining-task oracle, even when it proves a
+    local negative. It must not provide formal truth or alter denominators.
+    """
+    return {"assessment_id": report["assessment_id"],
+            "assessment_epoch": report["assessment_epoch"],
+            "feasibility_label": None, "oracle_status": "failed",
+            "platform_valid": report["platform_valid"],
+            "evidence_refs": deepcopy(report["evidence_refs"]),
+            "evaluator_ref": "unregistered_necessary_condition_diagnostic"}
+
+
+class DeploymentFeasibilityEvaluator:
+    """Callable adapter for ``FormalGoalEpisodeRunner.assessment_evaluator``.
+
+    Platform evidence is supplied by the deployment validator, not inferred
+    from a participant refusal. The detailed reports remain private and can
+    be archived with ``report()``. Runtime partial progress must be resolved
+    by an independent requirements provider; otherwise negative labels after
+    an external change stay unverified.
+    """
+
+    def __init__(self, task_spec: Mapping[str, Any], *, platform_valid: bool,
+                 platform_evidence_refs: Sequence[str],
+                 pending_requirements_provider: Callable[[Mapping[str, Any]], Mapping[str, Any]] | None = None):
+        self._task = deepcopy(dict(task_spec))
+        self._platform_valid = platform_valid
+        self._platform_refs = list(platform_evidence_refs)
+        self._pending_provider = pending_requirements_provider
+        self._reports: list[dict[str, Any]] = []
+
+    def __call__(self, episode_id: str, trusted_report: Mapping[str, Any]) -> dict[str, Any]:
+        session = trusted_report["session"]
+        if session["episode_id"] != episode_id:
+            raise ValueError("feasibility evaluator episode mismatch")
+        gate = session["deployment_assessment"]
+        row = gate if gate["status"] == "required" else gate["history"][-1]
+        if row["public_task_sha256"] != canonical_sha256(self._task):
+            raise ValueError("feasibility evaluator public task mismatch")
+        # Use the declaration snapshot even when later actions in the same
+        # batch changed the selected team or queued a plan.
+        pool = row["current_robot_pool"]
+        if isinstance(pool, Mapping):
+            pool = list(pool.values())
+        extra = {}
+        if self._pending_provider is not None:
+            extra = dict(self._pending_provider(deepcopy(row)))
+            if not set(extra) <= {"pending_requirement_outcome_ids", "transport_satisfied_object_ids"}:
+                raise ValueError("runtime requirement provider returned unsupported fields")
+        result = evaluate_deployment_feasibility(
+            self._task, episode_id=episode_id, assessment_id=row["assessment_id"],
+            assessment_epoch=row["assessment_epoch"], roster_version=row["roster_version"],
+            current_robot_pool=pool, capability_versions=row["capability_versions"],
+            completed_outcome_ids=row["completed_outcome_ids"],
+            resource_versions=row.get("resource_versions"),
+            deployment_change_versions=row.get("deployment_change_versions"),
+            runtime_state=(session.get("runtime_state") if gate["status"] == "required"
+                           else row.get("declared_runtime_state")),
+            supplementary_capabilities=(
+                ["observe"] if trusted_report.get("optional_tools", {}).get("camera_enabled") else []),
+            platform_valid=self._platform_valid, platform_evidence_refs=self._platform_refs, **extra)
+        self._reports.append(result)
+        return gate_evaluation(result)
+
+    def report(self) -> dict[str, Any]:
+        return {"schema": "eai.benchmark.deployment_feasibility_evidence", "version": 1,
+                "visibility": "evaluator_only", "evaluations": deepcopy(self._reports),
+                "execution_validated": False, "business_outcomes_validated": False, "scoreable": False}

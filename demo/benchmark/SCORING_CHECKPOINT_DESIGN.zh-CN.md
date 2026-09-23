@@ -5,6 +5,15 @@
 保存点必须包含门禁状态、评估轮次、团队/能力版本、通知队列和声明前成本；
 动态对照仍使用变化生效前的`treatment_pre`，求助终止不等于业务完成。
 
+剩余可行性oracle修订：正式标签仅`deployable|not_deployable`，另以
+`oracle_status=verified|failed`归档平台证据质量。`initial_assessment_pre`和
+`reassessment_pre`须保留预注册测量点ID、oracle模型/注册哈希、可信当前谓词与资源状态、
+状态量测依据及缓存二元真值；在参与者声明前完成oracle，恢复时不得按参与者结果重算
+或选择剔除。失败点按事先规则使该episode退出部署判断指标并单列基础设施缺口。
+所有要求评估的轮次及oracle结果均保存，包含未作答即被下一外生变化替代的轮次。
+正式发布前每个预注册实例/处理点必须有verified证据；通用有限状态搜索通过不能替代
+五场景原生谓词映射及模型完备性验证。变化后oracle查询不能替代变化前`treatment_pre`。
+
 本文件只规定把 Goal 自分解主线的原始回合证据接到后续评分实验所需
 checkpoint 的设计边界，不改变公开题面、题包哈希、`scoreable` 闸门或
 评分协议原文。Goal 主线继续由被测系统自行分解任务、选择团队、安排时序，
