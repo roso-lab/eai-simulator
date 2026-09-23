@@ -26,6 +26,22 @@ def test_noise_tape_reuses_exact_samples():
     replay.assert_step_consumed(4)
 
 
+def test_noise_tape_keyed_events_are_stable_across_branch_draw_order():
+    left = NoiseTape.recording(seed=11)
+    expected = left.sample("wind", 4, lambda rng: rng.normal(size=3), event_key="gust")
+    right = NoiseTape.recording(seed=11)
+    right.sample("wind", 4, lambda rng: rng.normal(size=99), event_key="unrelated")
+    actual = right.sample("wind", 4, lambda rng: rng.normal(size=3), event_key="gust")
+    np.testing.assert_array_equal(expected, actual)
+
+    replay = NoiseTape.replaying({4: right.values_for_step(4)}, seed=11)
+    replay.sample("wind", 4, lambda rng: np.full(3, 99.0), event_key="unrelated")
+    np.testing.assert_array_equal(
+        replay.sample("wind", 4, lambda rng: np.full(3, 99.0), event_key="gust"),
+        actual,
+    )
+
+
 def test_noise_tape_rejects_missing_and_unconsumed_samples():
     replay = NoiseTape.replaying(
         {

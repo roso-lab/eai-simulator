@@ -17,6 +17,7 @@ from EAI.physics.aerial_sensors import (
     FirstOrderBiasConfig,
     sanitize_ros_component,
 )
+from EAI.keyed_random import keyed_seed
 from EAI.physics.simple_car_sensors import (
     CAMERA_FOCAL_LENGTH_MM,
     CAMERA_HORIZONTAL_APERTURE_MM,
@@ -503,8 +504,11 @@ class SimpleCarSensorSuiteManager:
             )
         self._specs = {spec.robot_name: spec for spec in specs}
         self._models = {
-            spec.robot_name: AerialSensorModel(_SIMPLE_CAR_IMU_MODEL_CONFIG, seed=seed + index)
-            for index, spec in enumerate(specs)
+            spec.robot_name: AerialSensorModel(
+                _SIMPLE_CAR_IMU_MODEL_CONFIG,
+                seed=keyed_seed(seed, "simple_car_imu", spec.robot_name),
+            )
+            for spec in specs
             if spec.navigation_io
         }
         self._runtime = runtime or _IsaacSimpleCarSensorRuntime(
@@ -641,6 +645,7 @@ class SimpleCarSensorSuiteManager:
                 linear_velocity_w=robot.data.root_lin_vel_w[0].detach().cpu().numpy(),
                 angular_velocity_b=robot.data.root_ang_vel_b[0].detach().cpu().numpy(),
                 dt=dt,
+                event_key=("physics_step", int(getattr(self._env, "common_step_counter", 0))),
             )
             self._runtime.set_imu(
                 robot_name,

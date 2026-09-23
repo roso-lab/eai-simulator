@@ -21,6 +21,7 @@ from EAI.physics.aerial_sensors import (
     sanitize_ros_component,
     selection_requires_aerial_camera,
 )
+from EAI.keyed_random import keyed_seed
 
 
 class _IsaacAerialSensorGraphRuntime:
@@ -406,8 +407,10 @@ class AerialSensorSuiteManager:
         self._env = env
         self._specs = {spec.robot_name: spec for spec in specs}
         self._models = {
-            spec.robot_name: AerialSensorModel(seed=seed + index)
-            for index, spec in enumerate(specs)
+            spec.robot_name: AerialSensorModel(
+                seed=keyed_seed(seed, "aerial_sensor", spec.robot_name)
+            )
+            for spec in specs
         }
         self._registered_robots: tuple[str, ...] = ()
         self._runtime = runtime or _IsaacAerialSensorGraphRuntime()
@@ -494,6 +497,7 @@ class AerialSensorSuiteManager:
                 linear_velocity_w=robot.data.root_lin_vel_w[0].detach().cpu().numpy(),
                 angular_velocity_b=robot.data.root_ang_vel_b[0].detach().cpu().numpy(),
                 dt=dt,
+                event_key=("physics_step", int(getattr(self._env, "common_step_counter", 0))),
             )
             self._publish(robot_name, reading, timestamp)
 

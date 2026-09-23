@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from hashlib import sha256
+import json
 from typing import Any, Callable, Mapping, Sequence
 
 import numpy as np
@@ -140,15 +141,31 @@ class NoiseTape:
         channel: str,
         step_index: int,
         sampler: Callable[[np.random.Generator], Any],
+        *,
+        event_key: Any | None = None,
     ) -> np.ndarray:
         channel = str(channel).strip()
         if not channel:
             raise ValueError("noise channel must not be empty")
         step_index = int(step_index)
-        counter_key = (step_index, channel)
-        sample_index = self._counters.get(counter_key, 0)
-        self._counters[counter_key] = sample_index + 1
-        key = f"{channel}#{sample_index}"
+        if event_key is None:
+            # Legacy recordings remain readable. New environment and
+            # communication sources should always provide an event key.
+            counter_key = (step_index, channel)
+            sample_index = self._counters.get(counter_key, 0)
+            self._counters[counter_key] = sample_index + 1
+            key = f"{channel}#{sample_index}"
+            material = f"{self.seed}|legacy|{channel}|{step_index}|{sample_index}"
+        else:
+            try:
+                canonical_event = json.dumps(
+                    event_key, sort_keys=True, separators=(",", ":"),
+                    ensure_ascii=False, allow_nan=False,
+                )
+            except (TypeError, ValueError) as exc:
+                raise ValueError("event_key must be finite JSON data") from exc
+            key = f"{channel}@{canonical_event}"
+            material = f"{self.seed}|physics_replay_noise|{channel}|{step_index}|{canonical_event}"
         if self.mode == "replay":
             try:
                 value = self._values[step_index][key]
@@ -159,8 +176,7 @@ class NoiseTape:
             self._consumed.setdefault(step_index, set()).add(key)
             return value.copy()
 
-        material = f"{self.seed}|{channel}|{step_index}|{sample_index}".encode("utf-8")
-        derived_seed = int.from_bytes(sha256(material).digest()[:8], "big")
+        derived_seed = int.from_bytes(sha256(material.encode("utf-8")).digest()[:16], "big")
         value = _to_numpy(sampler(np.random.default_rng(derived_seed)))
         self._values.setdefault(step_index, {})[key] = value
         return value.copy()
