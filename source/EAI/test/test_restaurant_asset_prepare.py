@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from tools.assets.prepare_restaurant_benchmark_assets import (
-    _source_reference, inspect_candidate, materialize_source_closure,
+    _source_reference, copy_candidate, inspect_candidate, materialize_source_closure,
 )
 
 
@@ -54,3 +54,26 @@ def test_materialize_source_closure_preserves_overlay_and_rejects_byte_mismatch(
     Path(report["destination"]).write_bytes(b"different-source")
     with pytest.raises(RuntimeError, match="bytes differ"):
         materialize_source_closure(root, source)
+
+
+def test_copy_candidate_can_materialize_source_after_target_layout_exists(tmp_path: Path, monkeypatch):
+    import EAI_assets.restaurant_benchmark_products as products
+
+    source_root = tmp_path / "source"
+    target_root = tmp_path / "a" / "b" / "c" / "d" / "candidate"
+    source_root.mkdir()
+    overlay = source_root / "restaurant_benchmark_bench.usda"
+    overlay.write_text(
+        'prepend references = @../../../../../eai-simulator/usd/scene/restaurant/Restaurant_Only.usda@\n',
+        encoding="utf-8",
+    )
+    for name in ("restaurant_benchmark_map.png", "restaurant_benchmark_map.yaml", "bench_meta.json"):
+        (source_root / name).write_bytes(name.encode())
+    source = tmp_path / "reviewed.usda"
+    source.write_bytes(b"reviewed-source")
+    monkeypatch.setattr(products, "resolve_restaurant_benchmark_products", lambda root: None)
+
+    result = copy_candidate(source_root, target_root, source_usd=source)
+
+    assert result["status"] == "ready"
+    assert Path(result["overlay_source_reference"]).read_bytes() == source.read_bytes()

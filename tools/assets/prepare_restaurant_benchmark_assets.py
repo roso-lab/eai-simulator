@@ -97,20 +97,33 @@ def materialize_source_closure(candidate: str | Path, source_usd: str | Path) ->
             "sha256": source_hash, "copied": copied}
 
 
-def copy_candidate(source: str | Path, target: str | Path) -> dict[str, Any]:
+def copy_candidate(source: str | Path, target: str | Path,
+                   *, source_usd: str | Path | None = None) -> dict[str, Any]:
     source_root = Path(source).expanduser().resolve()
     target_root = Path(target).expanduser().resolve()
-    source_report = inspect_candidate(source_root)
-    # Copying a candidate with an unresolved source would create a misleading
-    # apparently-ready directory, so require source closure before copying.
-    if source_report.get("status") != "ready":
-        raise RuntimeError(json.dumps(source_report, sort_keys=True))
+    if source_usd is None:
+        source_report = inspect_candidate(source_root)
+        # Copying a candidate with an unresolved source would create a misleading
+        # apparently-ready directory, so require source closure before copying.
+        if source_report.get("status") != "ready":
+            raise RuntimeError(json.dumps(source_report, sort_keys=True))
+    else:
+        # A frozen overlay may resolve relative to the eventual target layout,
+        # so validate its four hash-bound files before copying and materialize
+        # the reviewed source only after the target path exists.
+        from EAI_assets.restaurant_benchmark_products import resolve_restaurant_benchmark_products
+        resolve_restaurant_benchmark_products(source_root)
     target_root.mkdir(parents=True, exist_ok=True)
     for name in PRODUCT_FILES:
         shutil.copyfile(source_root / name, target_root / name)
+    closure = None
+    if source_usd is not None:
+        closure = materialize_source_closure(target_root, source_usd)
     result = inspect_candidate(target_root)
     if result.get("status") != "ready":
         raise RuntimeError(json.dumps(result, sort_keys=True))
+    if closure is not None:
+        result["source_closure_materialized"] = closure
     return result
 
 
@@ -124,11 +137,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
-    if args.source_usd is not None:
+    if args.source_usd is not None and args.copy_to is None:
         closure = materialize_source_closure(args.candidate_root, args.source_usd)
     else:
         closure = None
-    result = (copy_candidate(args.candidate_root, args.copy_to)
+    result = (copy_candidate(args.candidate_root, args.copy_to, source_usd=args.source_usd)
               if args.copy_to is not None
               else inspect_candidate(args.candidate_root))
     if closure is not None:

@@ -32,6 +32,25 @@ PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
   --source-usd "$PWD/usd/scene/restaurant/Restaurant_Only.usda"
 ```
 
+If the frozen relative reference resolves outside the checkout on a clean host,
+copy the four supplied files into a writable staging directory whose depth makes
+that reference resolve to the reviewed checkout, and pass both options in one
+step. The script verifies the source bundle hashes before copying, then places
+the reviewed USD at the target's frozen reference and runs the same resolver:
+
+```bash
+mkdir -p "$HOME/restaurant-layout/a/b/c/d/products-candidate-v7"
+PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
+  /home/pupil/miniconda3/envs/env_isaaclab/bin/python \
+  tools/assets/prepare_restaurant_benchmark_assets.py \
+  --candidate-root /path/to/supplied/products-candidate-v7 \
+  --copy-to "$HOME/restaurant-layout/a/b/c/d/products-candidate-v7" \
+  --source-usd "$PWD/usd/scene/restaurant/Restaurant_Only.usda"
+```
+
+Do not use a staging layout to change the overlay or hash; it only supplies the
+same reviewed source bytes at the already frozen relative reference.
+
 Run this command in both the local and ljy isolated worktrees, using each host's
 own checkout source. Preserve the JSON report and the source SHA256 with the
 episode preflight record. If destination bytes differ, stop and review the

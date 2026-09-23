@@ -33,5 +33,24 @@ PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
 - 餐厅 A2 本机冻结 overlay 的源闭包路径仍需可复现的可写布局准备；本阶段没有改 hash 或题包语义。
 - E2 机间 participant service / 多端点适配器仍停留在已拍板前的接口设计阶段。
 
-因此本阶段只确认静态/单元回归和评分证据接线无回归，不抬升任何 `execution_validated`、`business_outcomes_validated` 或 `scoreable` 标志。
+## A2 资产布局复验
 
+`tools/assets/prepare_restaurant_benchmark_assets.py` 现在支持在目标 staging
+目录先复制四个冻结产品，再把 `--source-usd` 放到目标 overlay 的既有相对引用
+位置；不会改写 overlay 或任何产品哈希。冻结引用要求 staging 目录位于同一深度，
+例如本机 `/home/pupil/a/b/c/d/products-candidate-v7`、ljy
+`/home/ljy/a/b/c/d/products-candidate-v7`。两台机器均报告：
+
+```text
+hash_resolver=passed
+source_closure_exists=true
+product_validation.validated=true
+proxy_count=1398
+occupied_cells=89051
+source_sha256=618470672c40d18b93adbbcdecf69aea98931ebc4d5e1f8d13e7a77ee67e653b
+```
+
+这证明了干净 staging 到正式 episode 启动前的 composition/preflight 门禁可复现；
+尚未启动正式餐厅业务 episode，也不改变餐厅 release gates。
+
+因此本阶段只确认静态/单元回归和评分证据接线无回归，不抬升任何 `execution_validated`、`business_outcomes_validated` 或 `scoreable` 标志。
