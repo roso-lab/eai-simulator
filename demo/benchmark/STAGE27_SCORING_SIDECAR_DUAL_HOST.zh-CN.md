@@ -21,3 +21,7 @@ remaining oracle、deployment、checkpoint、USD closure：55 passed
 同步时首次检出遇到 Git LFS 资产下载 EOF；重新以 `GIT_LFS_SKIP_SMUDGE=1` 创建隔离树后完成测试。该资产下载问题属于环境基础设施记录，不影响本批纯 Python 验证，也没有触碰 ljy 原工作区或 `stage26-usd-compat` 的未提交修复。
 
 本阶段仍不宣称真实三层 Goal episode 已接线；participant p2p service、native remaining-task 读回和物理 checkpoint/sham 仍是后续门禁。
+
+随后加入五场景 oracle registry 审计器后，同一 ljy 隔离树在提交 `644dee8` 上复跑扩展集合，
+共 `103 passed`；其中新增 registry 完备性审计为 6 项。该审计仍只验证 evaluator-only
+注册、合同、哈希、测量点和 native evidence 覆盖，不替代五场景真实 reader 或合法路径证书。
