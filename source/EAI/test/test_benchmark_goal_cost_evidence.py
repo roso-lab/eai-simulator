@@ -131,3 +131,25 @@ def test_generic_communication_report_is_supported(tmp_path):
 
     assert result["communication"]["total_bytes"] == 7
     assert result["communication"]["by_pool_bytes"] == {"backhaul_downlink": 7}
+
+
+def test_direction_breakdown_fails_closed_when_pool_row_omits_direction(tmp_path):
+    from demo.benchmark.goal_cost_evidence import build_raw_cost_evidence
+
+    _write(tmp_path, "goal_session_report.json", {
+        "report": {"current_time_s": 2.0, "actions": []},
+    })
+    _write(tmp_path, "communication_report.json", {
+        "schema": "eai.benchmark.communication",
+        "ledger": [{"event": "bytes_served", "bytes": 7,
+                     "pool": "backhaul_uplink"}],
+    })
+    _write(tmp_path, "communication_replay.json", {"validated": True})
+
+    result = build_raw_cost_evidence(tmp_path)
+
+    assert result["communication"]["total_bytes"] == 7
+    assert result["communication"]["by_pool_bytes"] == {"backhaul_uplink": 7}
+    assert result["communication"]["by_direction_bytes"] is None
+    assert result["communication"]["direction_complete"] is False
+    assert result["communication"]["valid"] is True

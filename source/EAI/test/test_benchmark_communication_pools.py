@@ -100,6 +100,24 @@ def test_aoi_reports_delivery_age_mean_and_p95_and_replays():
     assert validate_communication_report(runtime.report())["validated"]
 
 
+def test_explicit_pool_direction_is_preserved_on_served_and_expiry_rows():
+    runtime = CommunicationRuntime({
+        "pools": {"backhaul_uplink": {"capacity_bps": 100.}},
+    })
+    _publish(runtime, "served", pool="backhaul_uplink", expiry=100.)
+    # The helper does not set direction, so publish directly for the explicit
+    # direction path used by the scoring sidecar.
+    runtime.publish(message_id="down", producer_id="cloud", recipients=["robot_a"],
+                    channel="dispatch", pool="backhaul_uplink", direction="up",
+                    estimate={"value": "down"}, valid_until_s=0.1)
+    runtime.advance(1.)
+    rows = [row for row in runtime.report()["ledger"]
+            if row["event"] in {"bytes_served", "expired"}]
+    assert any(row["message_id"] == "down" and row["direction"] == "up"
+               for row in rows)
+    assert validate_communication_report(runtime.report())["validated"]
+
+
 def test_aoi_continuous_statistics_follow_latest_update_per_information_item():
     runtime = CommunicationRuntime({"delay_s": 0.})
     _publish(runtime, "first", recipient="cloud", information_id="pose")

@@ -288,6 +288,17 @@ class CommunicationRuntime:
         self._ledger.append({"sequence": len(self._ledger), "event": event,
                              "time_s": float(time), **deepcopy(data)})
 
+    def _direction_fields(self, message_id):
+        """Return the explicit publication direction for transport evidence.
+
+        Direction is optional for legacy links.  When supplied by a pooled
+        publication it is copied into every later service/drop/expiry row so a
+        scorer can attribute bytes without joining mutable ledger history.
+        """
+        message = self._messages.get(message_id)
+        direction = message.get("direction") if message else None
+        return {"direction": direction} if direction is not None else {}
+
     def _schedule(self, time, kind, key):
         # Expiry wins ties with service and arrival: TTL is half-open.
         priority = {"expire": 0, "pool_service": 1, "service": 2, "deliver": 3}[kind]
@@ -360,7 +371,7 @@ class CommunicationRuntime:
         delivery["status"] = "dropped"
         delivery["drop_reason"] = reason
         self._record("dropped", time, message_id=message_id, recipient=recipient,
-                     reason=reason)
+                     reason=reason, **self._direction_fields(message_id))
 
     def _queue_pool_copy(self, message_id, recipient, *, pool_name, endpoints,
                          conditions, published, expiry):
@@ -428,7 +439,7 @@ class CommunicationRuntime:
                 delivery["status"] = "expired"
                 delivery["drop_reason"] = "ttl"
                 self._record("expired", time, message_id=message_id, recipient=recipient,
-                             bytes_sent=0, reason="ttl")
+                             bytes_sent=0, reason="ttl", **self._direction_fields(message_id))
                 continue
             policy = self._pool_policy(pool_name)
             finish = _time(delivery["scheduled_finish_at_s"], "scheduled_finish_at_s")
@@ -436,8 +447,10 @@ class CommunicationRuntime:
                             transmitted_at_s=float(time),
                             scheduled_delivery_at_s=float(finish + _time(
                                 policy.get("fixed_delay_s", 0.), "fixed_delay_s")))
+            direction = message.get("direction")
             self._record("bytes_served", time, message_id=message_id, recipient=recipient,
                          channel=message["channel"], pool=pool_name,
+                         **({"direction": direction} if direction is not None else {}),
                          bytes=message["size_bytes"], bytes_sent=message["size_bytes"])
             delay = _time(policy.get("fixed_delay_s", 0.), "fixed_delay_s")
             arrival = finish + delay
@@ -582,7 +595,13 @@ class CommunicationRuntime:
         size = len(json.dumps(payload, sort_keys=True, ensure_ascii=False,
                               separators=(",", ":"), allow_nan=False).encode("utf-8"))
         self.advance(float(published))
-        message = {"payload": payload, "channel": channel, "size_bytes": size, "recipients": {}}
+        # Preserve explicit direction for service/drop ledger rows emitted
+        # after publication.  Without this immutable metadata, pooled traffic
+        # can be replayed but cannot be attributed by direction in scoring.
+        message = {"payload": payload, "channel": channel, "size_bytes": size,
+                   "recipients": {}}
+        if direction is not None:
+            message["direction"] = direction
         self._messages[message_id] = message
         selected_pool = None
         if self._pool_mode():
@@ -616,7 +635,7 @@ class CommunicationRuntime:
                 delivery["status"] = "expired"
                 delivery["drop_reason"] = "ttl"
                 self._record("expired", published, message_id=message_id, recipient=recipient,
-                             bytes_sent=0, reason="ttl")
+                             bytes_sent=0, reason="ttl", **self._direction_fields(message_id))
             elif selected_pool:
                 endpoints = self._access_endpoints(producer_id=producer_id,
                                                    recipient=recipient,
@@ -672,7 +691,8 @@ class CommunicationRuntime:
                 link["used_bytes"] += served
                 self._record("bytes_served", time, message_id=message_id, recipient=recipient,
                              channel=link_key[1], window_index=int(window), bytes=served,
-                             bytes_sent=delivery["bytes_sent"])
+                             bytes_sent=delivery["bytes_sent"],
+                             **self._direction_fields(message_id))
             if delivery["bytes_sent"] < message["size_bytes"]:
                 self._request_service(link_key, (window + 1) * width)
                 break
@@ -714,7 +734,8 @@ class CommunicationRuntime:
                 delivery["status"] = "expired"
                 delivery["drop_reason"] = "ttl"
                 self._record("expired", time, message_id=message_id, recipient=recipient,
-                             bytes_sent=delivery["bytes_sent"], reason="ttl")
+                             bytes_sent=delivery["bytes_sent"], reason="ttl",
+                             **self._direction_fields(message_id))
             elif kind == "deliver" and delivery["status"] == "in_transit":
                 delivery.update(status="delivered", delivered_at_s=float(time))
                 self._record("delivered", time, message_id=message_id, recipient=recipient)

@@ -130,6 +130,7 @@ def _communication_bytes(root: Path) -> dict[str, Any]:
     by_direction: Counter[str] = Counter()
     reliable_sources = 0
     invalid_sources = 0
+    direction_complete = True
     for report_name, replay_name in sources:
         report_path = root / report_name
         if not report_path.is_file():
@@ -165,6 +166,11 @@ def _communication_bytes(root: Path) -> dict[str, Any]:
             direction = event.get("direction")
             if isinstance(pool, str) and pool:
                 by_pool[pool] += int(value)
+                if not (isinstance(direction, str) and direction):
+                    # Totals and pool attribution remain valid, but a
+                    # direction breakdown must fail closed when any pooled
+                    # transmission lacks its publication direction.
+                    direction_complete = False
             if isinstance(direction, str) and direction:
                 by_direction[direction] += int(value)
         if not source_valid:
@@ -176,7 +182,9 @@ def _communication_bytes(root: Path) -> dict[str, Any]:
     return {
         "total_bytes": total if reliable else None,
         "by_pool_bytes": dict(sorted(by_pool.items())) if reliable else None,
-        "by_direction_bytes": dict(sorted(by_direction.items())) if reliable else None,
+        "by_direction_bytes": (dict(sorted(by_direction.items()))
+                               if reliable and direction_complete else None),
+        "direction_complete": direction_complete if reliable else False,
         "reliable_source_count": reliable_sources,
         "invalid_source_count": invalid_sources,
         "source": "validated_communication_replay" if reliable else None,
