@@ -5,7 +5,12 @@ from __future__ import annotations
 import math
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
-from .types import EMOSScenarioConfig, RobotTask
+from .types import (
+    EMOSScenarioConfig,
+    RobotTask,
+    open_subtask_ids,
+    resolve_subtask_target_xy,
+)
 
 
 def parse_discussion_results(
@@ -22,8 +27,13 @@ def parse_discussion_results(
     keyword_map: Dict[str, List[str]],
     agent_iteration_order: Optional[List[str]] = None,
     preserve_raw_assignments: bool = False,
+    excluded_subtask_ids: Optional[Set[str]] = None,
 ) -> Dict[str, RobotTask]:
-    available_ids = list(positions.keys())
+    # Active task universe is scenario.subtasks minus explicit exclusions —
+    # never positions.keys() alone (targetless missions are absent from positions).
+    excluded = set(excluded_subtask_ids or ())
+    available_ids = open_subtask_ids(
+        scenario, positions, excluded_subtask_ids=excluded)
     assignments: Dict[str, RobotTask] = {}
 
     for robot_name, agent_args in results.items():
@@ -49,7 +59,7 @@ def parse_discussion_results(
                 subtask_colour=matched,
                 subtask_name=tn,
                 subtask_desc=getattr(agent_args, "subtask_description", td),
-                target_xy=positions.get(matched, (0.0, 0.0)),
+                target_xy=resolve_subtask_target_xy(scenario, matched, positions),
             )
 
     if not preserve_raw_assignments:
@@ -63,7 +73,7 @@ def parse_discussion_results(
                     subtask_colour=c,
                     subtask_name=tn,
                     subtask_desc=td,
-                    target_xy=positions.get(c, (0.0, 0.0)),
+                    target_xy=resolve_subtask_target_xy(scenario, c, positions),
                 )
 
     final_assignments = assignments if preserve_raw_assignments else sanitize(assignments, positions)
@@ -75,15 +85,61 @@ def parse_discussion_results(
     summary_lines = ["📋 任务分配结果："]
     for rn, rt in final_assignments.items():
         tpos = rt.target_xy
+        if tpos is None:
+            target_text = "无空间目标"
+        else:
+            target_text = f"目标 ({tpos[0]:.1f}, {tpos[1]:.1f})"
         summary_lines.append(
-            f"  🤖 {rn} → {rt.subtask_name}（{rt.subtask_colour}）"
-            f" 目标 ({tpos[0]:.1f}, {tpos[1]:.1f})"
+            f"  🤖 {rn} → {rt.subtask_name}（{rt.subtask_colour}） {target_text}"
         )
         summary_lines.append(f"     {rt.subtask_desc[:80]}")
     push_chat("emos", "EMOS 任务分配", "\n".join(summary_lines))
 
     generate_report(final_assignments)
     return final_assignments
+
+
+def _can_take_yellow_agent(
+    scenario: EMOSScenarioConfig,
+    robot_name: str,
+    *,
+    blocked: Set[str],
+) -> bool:
+    if robot_name in blocked:
+        return False
+    profile = scenario.robot_profiles.get(robot_name)
+    prefix = scenario.yellow_robot_prefix
+    if not profile:
+        return bool(prefix) and robot_name.startswith(prefix)
+    cap_text = " ".join(profile.capabilities).lower()
+    required_keywords = ["四足", "翻越", "quadruped"]
+    return any(kw in cap_text for kw in required_keywords)
+
+
+def excluded_subtask_ids_for_completed(
+    scenario: EMOSScenarioConfig,
+    agents: list[str],
+    robots_completed_extinguisher: Set[str],
+    robots_completed_rescue: Set[str],
+) -> frozenset[str]:
+    """Return intentionally closed subtask ids (not missing-coordinate failures).
+
+    Yellow is excluded when no remaining agent can take it (all yellow-capable
+    robots completed/blocked, or none match the capability/prefix gate).
+    Callers must pass this set into ``open_subtask_ids`` / parse / fallback;
+    do not delete yellow coordinates to express closure.
+    """
+    excluded: set[str] = set()
+    yid = (scenario.yellow_subtask_id or "").strip()
+    if yid and yid in scenario.subtasks:
+        blocked = robots_completed_extinguisher | robots_completed_rescue
+        eligible = [
+            name for name in agents
+            if _can_take_yellow_agent(scenario, name, blocked=blocked)
+        ]
+        if not eligible:
+            excluded.add(yid)
+    return frozenset(excluded)
 
 
 def fallback_assignment(
@@ -97,15 +153,17 @@ def fallback_assignment(
     push_chat: Callable[[str, str, str], None],
     generate_report: Callable[[Dict[str, RobotTask]], None],
     color_for_agent: Optional[Callable[[str], str]] = None,
+    excluded_subtask_ids: Optional[Set[str]] = None,
 ) -> Dict[str, RobotTask]:
-    positions = filter_subtask_positions_for_completed(
-        positions,
-        scenario,
-        agents,
-        robots_completed_extinguisher,
-        robots_completed_rescue,
+    # Keep spatial coordinates intact; closure is an explicit id set.
+    positions = dict(positions)
+    excluded = set(excluded_subtask_ids) if excluded_subtask_ids is not None else set(
+        excluded_subtask_ids_for_completed(
+            scenario, agents, robots_completed_extinguisher, robots_completed_rescue,
+        )
     )
-    colours = list(positions.keys())
+    colours = open_subtask_ids(
+        scenario, positions, excluded_subtask_ids=excluded)
     assignments: Dict[str, RobotTask] = {}
     blocked_y = robots_completed_extinguisher | robots_completed_rescue
     preferred = scenario.preferred_fallback
@@ -115,17 +173,7 @@ def fallback_assignment(
     prefix = scenario.yellow_robot_prefix
 
     def _can_take_yellow(rn: str) -> bool:
-        # 能力驱动的 yellow 任务分配：检查机器人能力而非前缀
-        if rn in blocked_y:
-            return False
-        profile = scenario.robot_profiles.get(rn)
-        if not profile:
-            # 如果没有 profile 但名字匹配前缀，也允许（兼容旧逻辑）
-            return rn.startswith(prefix)
-        cap_text = " ".join(profile.capabilities).lower()
-        # yellow 任务需要：四足移动/翻越 能力
-        required_keywords = ["四足", "翻越", "quadruped"]
-        return any(kw in cap_text for kw in required_keywords)
+        return _can_take_yellow_agent(scenario, rn, blocked=blocked_y)
 
     gid = scenario.green_subtask_id
     green_target = (scenario.green_robot_name or "").strip()
@@ -142,7 +190,7 @@ def fallback_assignment(
             subtask_colour=gid,
             subtask_name=gn,
             subtask_desc=gd,
-            target_xy=positions.get(gid, (0.0, 0.0)),
+            target_xy=resolve_subtask_target_xy(scenario, gid, positions),
         )
         used.add(gid)
         if color_for_agent:
@@ -177,7 +225,7 @@ def fallback_assignment(
             subtask_colour=c,
             subtask_name=tn,
             subtask_desc=td,
-            target_xy=positions.get(c, (0.0, 0.0)),
+            target_xy=resolve_subtask_target_xy(scenario, c, positions),
         )
         if color_for_agent:
             sys_log(f"  {color_for_agent(rname)} → {tn}（{c}）")
@@ -187,9 +235,12 @@ def fallback_assignment(
     fb_lines = ["📋 启发式任务分配结果："]
     for rn, rt in assignments.items():
         tpos = rt.target_xy
+        if tpos is None:
+            target_text = "无空间目标"
+        else:
+            target_text = f"目标 ({tpos[0]:.1f}, {tpos[1]:.1f})"
         fb_lines.append(
-            f"  🤖 {rn} → {rt.subtask_name}（{rt.subtask_colour}）"
-            f" 目标 ({tpos[0]:.1f}, {tpos[1]:.1f})"
+            f"  🤖 {rn} → {rt.subtask_name}（{rt.subtask_colour}） {target_text}"
         )
     push_chat("emos", "EMOS 任务分配", "\n".join(fb_lines))
 
@@ -204,27 +255,14 @@ def filter_subtask_positions_for_completed(
     robots_completed_extinguisher: Set[str],
     robots_completed_rescue: Set[str],
 ) -> Dict[str, Tuple[float, float]]:
-    """过滤已完成任务的子任务位置，能力驱动的 yellow 分配"""
-    out = dict(positions)
-    yid = scenario.yellow_subtask_id
-    prefix = scenario.yellow_robot_prefix
-    blocked = robots_completed_extinguisher | robots_completed_rescue
+    """Compatibility shim: returns a shallow copy of ``positions`` unchanged.
 
-    # 能力驱动的 yellow 机器人筛选：检查能力而非前缀
-    def _can_take_yellow(rn: str) -> bool:
-        if rn in blocked:
-            return False
-        profile = scenario.robot_profiles.get(rn)
-        if not profile:
-            return rn.startswith(prefix)  # 兼容：没有 profile 时用前缀
-        cap_text = " ".join(profile.capabilities).lower()
-        required_keywords = ["四足", "翻越", "quadruped"]
-        return any(kw in cap_text for kw in required_keywords)
-
-    elig_yellow = [a for a in agents if _can_take_yellow(a)]
-    if yid in out and not elig_yellow:
-        out.pop(yid, None)
-    return out
+    Yellow closure is expressed by ``excluded_subtask_ids_for_completed``, not
+    by deleting coordinates. Deleting coords collided with strict
+    ``open_subtask_ids`` resolution (missing spatial target errors).
+    """
+    del scenario, agents, robots_completed_extinguisher, robots_completed_rescue
+    return dict(positions)
 
 
 def sanitize_llm_assignments(
@@ -236,8 +274,11 @@ def sanitize_llm_assignments(
     robots_completed_rescue: Set[str],
     fallback_fn: Callable[[Dict[str, Tuple[float, float]]], Dict[str, RobotTask]],
 ) -> Dict[str, RobotTask]:
-    pos = filter_subtask_positions_for_completed(
-        dict(positions), scenario, agents, robots_completed_extinguisher, robots_completed_rescue
+    pos = dict(positions)
+    excluded = set(
+        excluded_subtask_ids_for_completed(
+            scenario, agents, robots_completed_extinguisher, robots_completed_rescue,
+        )
     )
     blocked = robots_completed_extinguisher | robots_completed_rescue
     yid = scenario.yellow_subtask_id
@@ -245,14 +286,7 @@ def sanitize_llm_assignments(
     red_id = "red"
 
     def _can_take_yellow(rn: str) -> bool:
-        if rn in blocked:
-            return False
-        profile = scenario.robot_profiles.get(rn)
-        if not profile:
-            return rn.startswith(scenario.yellow_robot_prefix)
-        cap_text = " ".join(profile.capabilities).lower()
-        required_keywords = ["四足", "翻越", "quadruped"]
-        return any(kw in cap_text for kw in required_keywords)
+        return _can_take_yellow_agent(scenario, rn, blocked=blocked)
 
     def _profile_text(rn: str) -> str:
         profile = scenario.robot_profiles.get(rn)
@@ -288,9 +322,33 @@ def sanitize_llm_assignments(
             target_xy=ta.target_xy,
         )
 
+    def _renormalize(tasks: Dict[str, RobotTask]) -> Dict[str, RobotTask]:
+        # Always rebuild target_xy from the scenario rule. Targetless missions
+        # must become None even when a caller forged (0, 0); ordinary spatial
+        # missions with missing/invalid coordinates raise instead of masking.
+        # Excluded colours must not survive sanitize.
+        normalized: Dict[str, RobotTask] = {}
+        for rn, rt in tasks.items():
+            if rt.subtask_colour in excluded:
+                raise ValueError(
+                    f"excluded subtask {rt.subtask_colour!r} cannot be assigned to {rn!r}"
+                )
+            target_xy = resolve_subtask_target_xy(scenario, rt.subtask_colour, pos)
+            normalized[rn] = RobotTask(
+                robot_name=rn,
+                subtask_colour=rt.subtask_colour,
+                subtask_name=rt.subtask_name,
+                subtask_desc=rt.subtask_desc,
+                target_xy=target_xy,
+            )
+        return normalized
+
+    if any(rt.subtask_colour in excluded for rt in assignments.values()):
+        return _renormalize(fallback_fn(pos))
+
     for rn, rt in assignments.items():
         if rt.subtask_colour == yid and not _can_take_yellow(rn):
-            return fallback_fn(pos)
+            return _renormalize(fallback_fn(pos))
     blue_robot = next((rn for rn, rt in assignments.items() if rt.subtask_colour == blue_id), None)
     if blue_robot and not _can_take_blue(blue_robot):
         candidate = next(
@@ -315,7 +373,7 @@ def sanitize_llm_assignments(
         )
         if candidate:
             _swap_tasks(red_robot, candidate)
-    return assignments
+    return _renormalize(assignments)
 
 
 def validate_and_fix_yellow_assignment(
@@ -345,7 +403,10 @@ def validate_and_fix_yellow_assignment(
             f"⚠️ LLM 将 {yid} 子任务分配给了 {yellow_robot}（非 {prefix}），"
             f"已自动修正为最近的可用机器人。",
         )
-        ext_pos = positions.get(yid, (1.77, -9.38))
+        ext_pos = resolve_subtask_target_xy(scenario, yid, positions)
+        if ext_pos is None:
+            raise ValueError(
+                f"yellow subtask {yid!r} is targetless; cannot distance-correct assignee")
         candidates = [a for a in agents if a.startswith(prefix)]
         best = None
         best_dist = float("inf")
@@ -369,7 +430,7 @@ def validate_and_fix_yellow_assignment(
                 subtask_colour=yid,
                 subtask_name=old_yellow_task.subtask_name,
                 subtask_desc=old_yellow_task.subtask_desc,
-                target_xy=positions.get(yid, ext_pos),
+                target_xy=ext_pos,
             )
             if best in assignments:
                 old_other = assignments[best]
@@ -413,6 +474,10 @@ def validate_and_fix_green_assignment(
     if not target:
         return sanitize(assignments, positions)
 
+    excluded = excluded_subtask_ids_for_completed(
+        scenario, agents, robots_completed_extinguisher, robots_completed_rescue,
+    )
+
     green_robot = None
     for rname, task in assignments.items():
         if task.subtask_colour == gid:
@@ -436,14 +501,14 @@ def validate_and_fix_green_assignment(
         "EMOS 系统",
         f"⚠️ LLM 将 {gid} 子任务分配给了 {green_robot}（应为 {target}），已自动交换任务。",
     )
-    green_pos = positions.get(gid, (10.58, 1.0))
+    green_pos = resolve_subtask_target_xy(scenario, gid, positions)
     old_green_task = assignments[green_robot]
     new_green_task = RobotTask(
         robot_name=target,
         subtask_colour=gid,
         subtask_name=old_green_task.subtask_name,
         subtask_desc=old_green_task.subtask_desc,
-        target_xy=positions.get(gid, green_pos),
+        target_xy=green_pos,
     )
     if target in assignments:
         old_other = assignments[target]
@@ -473,7 +538,8 @@ def validate_and_fix_green_assignment(
 
         st_map = scenario.subtask_tuple_map()
         replacement: Optional[str] = None
-        for cid in positions.keys():
+        for cid in open_subtask_ids(
+                scenario, positions, excluded_subtask_ids=excluded):
             if cid == gid:
                 continue
             if cid in used_by_others:
@@ -489,12 +555,14 @@ def validate_and_fix_green_assignment(
                 subtask_colour=replacement,
                 subtask_name=tn,
                 subtask_desc=td,
-                target_xy=positions.get(replacement, (0.0, 0.0)),
+                target_xy=resolve_subtask_target_xy(scenario, replacement, positions),
             )
         else:
             # 无空闲颜色时：将 yellow 改派到可领 yellow 的机体，原机体颜色让给 green 持有者
             donor: Optional[str] = None
-            if yid in positions:
+            open_ids = open_subtask_ids(
+                scenario, positions, excluded_subtask_ids=excluded)
+            if yid in open_ids:
                 for rn in agents:
                     if rn in (green_robot, target) or rn not in assignments:
                         continue
@@ -513,7 +581,7 @@ def validate_and_fix_green_assignment(
                     subtask_colour=yid,
                     subtask_name=tn_y,
                     subtask_desc=td_y,
-                    target_xy=positions.get(yid, (0.0, 0.0)),
+                    target_xy=resolve_subtask_target_xy(scenario, yid, positions),
                 )
                 tn_o, td_o = st_map.get(old_c, (old_c, ""))
                 assignments[green_robot] = RobotTask(
@@ -521,7 +589,7 @@ def validate_and_fix_green_assignment(
                     subtask_colour=old_c,
                     subtask_name=tn_o,
                     subtask_desc=td_o,
-                    target_xy=positions.get(old_c, (0.0, 0.0)),
+                    target_xy=resolve_subtask_target_xy(scenario, old_c, positions),
                 )
             else:
                 del assignments[green_robot]

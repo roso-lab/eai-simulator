@@ -6,9 +6,9 @@ EMOS 提供与具体业务无关的多智能体 LLM 讨论和子任务分配能�
 
 - EMOSScenarioConfig：场景文本、子任务、目标位置规则、约束文案、回退映射和可选机器人档案。
 - EMOSRobotAgentSpec：agent 名称、机器人类型、能力和可选偏好任务；名称必须与环境 agent 名称一致。
-- RobotTask：poll() 返回的机器人任务，包含机器人、子任务说明和 target_xy。
+- RobotTask：poll() 返回的机器人任务，包含机器人、子任务说明和 target_xy（无空间目标子任务为 ``None``）。
 
-scenario_from_dict(data) 将调用方数据转换为配置；load_scenario(path) 可选地从 YAML 加载相同结构。位置规则通过 compute_subtask_positions 支持 fixed 和 anchor_offset。
+scenario_from_dict(data) 将调用方数据转换为配置；load_scenario(path) 可选地从 YAML 加载相同结构。位置规则通过 compute_subtask_positions 支持 fixed、anchor_offset 与 none/无空间目标；无空间目标不会进入位置表，也不会被伪造成 ``(0, 0)``。``{"type":"fixed"}`` 缺 ``xy`` 与未知 kind 会抛 ``ValueError``；显式 ``{"type":"none"}`` 与遗留 ``{"type":"fixed","xy":null}`` 仍是支持的无空间目标写法。有意关闭的任务（例如无合格机器人时的 yellow）通过 ``excluded_subtask_ids`` 传入 ``open_subtask_ids`` / parse / fallback / 场景提示，不得靠删除坐标表达关闭。
 
 ## 集成流程
 
@@ -22,7 +22,7 @@ scenario_from_dict(dict) 或 load_scenario(path)
         -> 调用方的导航和控制层
 ~~~
 
-集成顺序是构造 scenario、构造 agent_specs、调用 build_from_agent_specs、触发事件并轮询任务。base_env 只用于读取位姿或生成可选简历；执行仍由调用方负责。
+集成顺序是构造 scenario、构造 agent_specs、调用 build_from_agent_specs、触发事件并轮询任务。默认从 `base_env` 读取位姿或生成可选简历；也可传入显式 `get_robot_pos_fn`（离线 / authoring 优先）以及可选 `position_source` 标签（如 `native_root_state` 或 `public_spawn_anchor`）。显式提供器 fail-fast，不会无声写成 `(0, 0, 0)`。执行仍由调用方负责。
 
 ## 公开入口
 
@@ -36,6 +36,14 @@ manager = EMOSDiscussionManager.build_from_agent_specs(
     agent_specs=agent_specs,
     scenario=scenario,
 )
+# 离线 / 标注 spawn 注入（可选，优先于 base_env）：
+# manager = EMOSDiscussionManager.build_from_agent_specs(
+#     base_env=None,
+#     agent_specs=agent_specs,
+#     scenario=scenario,
+#     get_robot_pos_fn=spawn_callback,
+#     position_source="public_spawn_anchor",
+# )
 manager.trigger(hazard_id=1, hazard_pos=(0.0, 0.0, 0.0))
 result = manager.poll()
 ~~~

@@ -6,9 +6,10 @@ EMOS provides business-agnostic multi-agent LLM discussion and subtask allocatio
 
 - EMOSScenarioConfig stores scene text, subtasks, position rules, constraints, fallback mapping, and optional robot profiles.
 - EMOSRobotAgentSpec describes an agent name, robot type, capabilities, and an optional preferred task. The name must match the environment agent name.
-- RobotTask is returned by poll() and contains the robot, subtask description, and target_xy.
+- RobotTask is returned by poll() and contains the robot, subtask description, and
+  target_xy (``None`` for targetless / non-motion subtasks).
 
-scenario_from_dict(data) builds the configuration from caller-owned data. load_scenario(path) optionally loads the same schema from YAML. Position rules support fixed and anchor_offset targets through compute_subtask_positions.
+scenario_from_dict(data) builds the configuration from caller-owned data. load_scenario(path) optionally loads the same schema from YAML. Position rules support fixed, anchor_offset, and none/targetless targets through compute_subtask_positions; targetless rules are omitted from the positions map rather than invented as ``(0, 0)``. ``{"type":"fixed"}`` without ``xy`` and unknown kinds raise ``ValueError``; explicit ``{"type":"none"}`` and legacy ``{"type":"fixed","xy":null}`` remain the supported targetless spellings. Intentionally closed tasks (for example yellow when no eligible robot remains) are passed as ``excluded_subtask_ids`` into ``open_subtask_ids`` / parse / fallback / scene prompts — never by deleting coordinates.
 
 ## Integration flow
 
@@ -22,7 +23,7 @@ scenario_from_dict(dict) or load_scenario(path)
         -> caller-owned navigation and control layer
 ~~~
 
-The integration sequence is: build the scenario, build agent specifications, call build_from_agent_specs, trigger an event, and poll for tasks. base_env is read for poses or optional resume generation; execution remains with the caller.
+The integration sequence is: build the scenario, build agent specifications, call build_from_agent_specs, trigger an event, and poll for tasks. By default `base_env` is read for poses or optional resume generation; callers may instead pass an explicit `get_robot_pos_fn` (preferred for offline / authoring paths) and an optional `position_source` label such as `native_root_state` or `public_spawn_anchor`. Explicit providers are fail-fast and never silently invent `(0, 0, 0)`. Execution remains with the caller.
 
 ## Public entry point
 
@@ -36,6 +37,14 @@ manager = EMOSDiscussionManager.build_from_agent_specs(
     agent_specs=agent_specs,
     scenario=scenario,
 )
+# Offline / labeled spawn injection (optional; takes priority over base_env):
+# manager = EMOSDiscussionManager.build_from_agent_specs(
+#     base_env=None,
+#     agent_specs=agent_specs,
+#     scenario=scenario,
+#     get_robot_pos_fn=spawn_callback,
+#     position_source="public_spawn_anchor",
+# )
 manager.trigger(hazard_id=1, hazard_pos=(0.0, 0.0, 0.0))
 result = manager.poll()
 ~~~

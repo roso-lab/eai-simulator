@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import html
 import json
+import math
 import os
 import threading
 import time
@@ -16,6 +17,7 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 from .assignment import (
     fallback_assignment,
     filter_subtask_positions_for_completed,
+    excluded_subtask_ids_for_completed,
     parse_discussion_results,
     sanitize_llm_assignments,
     validate_and_fix_green_assignment,
@@ -83,12 +85,54 @@ def _leader(msg: str) -> None:
     print(f"{_C.CYAN}{_C.BOLD}[EMOS-Leader]{_C.RST}{_C.CYAN} {msg}{_C.RST}")
 
 
+class RobotPositionUnavailableError(RuntimeError):
+    """Raised when an authoritative robot pose is required but cannot be resolved.
+
+    Callers that opt into strict position collection must not invent ``(0, 0, 0)``.
+    Distinguish labeled public spawn anchors from live PhysX / root-state samples
+    via :attr:`EMOSDiscussionManager.position_source`; never label a spawn anchor
+    as ``native_root_state``.
+    """
+
+
+def _normalize_robot_position(
+    robot_name: str, position: Any
+) -> Tuple[float, float, float]:
+    """Validate a caller- or env-provided ``(x, y, z)`` pose."""
+    if not isinstance(position, (tuple, list)) or len(position) != 3:
+        raise RobotPositionUnavailableError(
+            f"robot position for {robot_name!r} must be a length-3 sequence; "
+            f"got {position!r}"
+        )
+    if any(
+        value is None
+        or isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        for value in position
+    ):
+        raise RobotPositionUnavailableError(
+            f"robot position for {robot_name!r} has non-numeric components: "
+            f"{position!r}"
+        )
+    xyz = (float(position[0]), float(position[1]), float(position[2]))
+    if not all(math.isfinite(value) for value in xyz):
+        raise RobotPositionUnavailableError(
+            f"robot position for {robot_name!r} must be finite: {position!r}"
+        )
+    return xyz
+
+
 def _get_robot_pos(env: Any, robot_name: str) -> Tuple[float, float, float]:
     """Extract (x, y, z) world position of a robot from the Isaac Lab scene.
 
     Prefer :attr:`ArticulationData.root_pos_w` (Isaac Lab / PhysX). The legacy
     ``gym.get_actor_root_state_tensor`` path often yields zeros or garbage on
     current Isaac Sim builds because actor indices no longer match that tensor layout.
+
+    Compatibility note: when ``env`` lacks a usable scene/asset this returns
+    ``(0, 0, 0)``. Prefer an explicit ``get_robot_pos_fn`` (or
+    ``strict_robot_positions=True``) for authoring-only / offline paths that must
+    not silently invent origin poses.
     """
     if not hasattr(env, "scene"):
         return (0.0, 0.0, 0.0)
@@ -123,6 +167,64 @@ def _get_robot_pos(env: Any, robot_name: str) -> Tuple[float, float, float]:
     return (0.0, 0.0, 0.0)
 
 
+def _wrap_robot_pos_fn(
+    get_robot_pos_fn: Callable[[str], Tuple[float, float, float]],
+) -> Callable[[str], Tuple[float, float, float]]:
+    """Normalize and fail-fast around an explicit caller position provider."""
+
+    def _fn(robot_name: str) -> Tuple[float, float, float]:
+        try:
+            raw = get_robot_pos_fn(robot_name)
+        except Exception as exc:
+            # ``algorithm.emos`` and ``emos`` may load this module twice; match by
+            # type name so caller-raised unavailability is not double-wrapped.
+            if type(exc).__name__ == "RobotPositionUnavailableError":
+                raise
+            raise RobotPositionUnavailableError(
+                f"robot position provider failed for {robot_name!r}"
+            ) from exc
+        return _normalize_robot_position(robot_name, raw)
+
+    return _fn
+
+
+def _env_robot_pos_fn(
+    base_env: Any, *, strict: bool
+) -> Callable[[str], Tuple[float, float, float]]:
+    """Build a pose callback from ``base_env`` PhysX / root state."""
+
+    def _fn(robot_name: str) -> Tuple[float, float, float]:
+        if base_env is None or not hasattr(base_env, "scene"):
+            if strict:
+                raise RobotPositionUnavailableError(
+                    f"robot position unavailable for {robot_name!r}: "
+                    "no base_env scene and no get_robot_pos_fn"
+                )
+            return (0.0, 0.0, 0.0)
+        pos = _get_robot_pos(base_env, robot_name)
+        if strict:
+            # ``_get_robot_pos`` collapses missing assets to origin; refuse that
+            # sentinel when the caller asked for authoritative poses.
+            scene = base_env.scene
+            in_art = (
+                hasattr(scene, "articulations")
+                and robot_name in scene.articulations
+            )
+            in_rigid = (
+                hasattr(scene, "rigid_objects")
+                and robot_name in scene.rigid_objects
+            )
+            if not in_art and not in_rigid:
+                raise RobotPositionUnavailableError(
+                    f"robot position unavailable for {robot_name!r}: "
+                    "agent not present in base_env scene"
+                )
+            return _normalize_robot_position(robot_name, pos)
+        return pos
+
+    return _fn
+
+
 class EMOSDiscussionManager:
     """Manages EMOS multi-LLM discussion in a background thread."""
 
@@ -140,6 +242,8 @@ class EMOSDiscussionManager:
         rescue_constraint_fn: Optional[Callable[[], Optional[str]]] = None,
         write_html_report: bool = False,
         get_group_discussion_llm_kwargs: Optional[Callable[[], Dict[str, Any]]] = None,
+        position_source: Optional[str] = None,
+        strict_robot_positions: bool = False,
     ):
         self._env = base_env
         self._agents = list(possible_agents)
@@ -152,6 +256,8 @@ class EMOSDiscussionManager:
         self._rescue_constraint_fn = rescue_constraint_fn
         self._write_html_report = write_html_report
         self._get_group_discussion_llm_kwargs = get_group_discussion_llm_kwargs
+        self._position_source = position_source
+        self._strict_robot_positions = bool(strict_robot_positions)
         self._assignment_policy = None
         self._assignment_policy_name = "emos"
         self._assignment_request = None
@@ -181,6 +287,18 @@ class EMOSDiscussionManager:
         self._last_trigger_started_at: float = 0.0
         self.fallback_dispatch_count: int = 0
 
+    @property
+    def position_source(self) -> Optional[str]:
+        """Label for the active robot-pose provider (never invents a source).
+
+        Common values:
+        - ``native_root_state``: live PhysX / articulation root pose from a
+          caller callback or ``base_env`` sample.
+        - ``public_spawn_anchor``: frozen public spawn disclosed in a selection
+          / spawn map (authoring or focused offline evidence only).
+        """
+        return self._position_source
+
     @classmethod
     def build_from_agent_specs(
         cls,
@@ -194,6 +312,11 @@ class EMOSDiscussionManager:
         rescue_constraint_fn: Optional[Callable[[], Optional[str]]] = None,
         write_html_report: bool = False,
         get_group_discussion_llm_kwargs: Optional[Callable[[], Dict[str, Any]]] = None,
+        get_robot_pos_fn: Optional[
+            Callable[[str], Tuple[float, float, float]]
+        ] = None,
+        position_source: Optional[str] = None,
+        strict_robot_positions: Optional[bool] = None,
     ) -> "EMOSDiscussionManager":
         """Build a manager from per-robot specs and a **caller-supplied** scenario.
 
@@ -213,6 +336,17 @@ class EMOSDiscussionManager:
             rescue_constraint_fn: Optional callable returning rescue constraints.
             get_group_discussion_llm_kwargs: Optional callable returning ``llm_model`` /
                 ``llm_base_url`` / ``llm_api_key_env`` for :func:`~.brain.MultiLLM_discussion.group_discussion`.
+            get_robot_pos_fn: Optional explicit pose provider. When set it takes
+                priority over ``base_env`` sampling and is fail-fast by default
+                (never silently replaced with ``(0, 0, 0)``).
+            position_source: Optional label stored on the manager / assignment
+                request (for example ``native_root_state`` or
+                ``public_spawn_anchor``). Does not change allocation logic.
+            strict_robot_positions: When ``True``, missing poses raise
+                :class:`RobotPositionUnavailableError` instead of inventing
+                origin. Defaults to ``True`` when ``get_robot_pos_fn`` is
+                provided; otherwise ``False`` for backward compatibility with
+                existing ``base_env`` consumers.
         """
         scenario_cfg = copy.deepcopy(scenario)
 
@@ -233,10 +367,24 @@ class EMOSDiscussionManager:
             if spec.preferred_task and name not in scenario_cfg.preferred_fallback:
                 scenario_cfg.preferred_fallback[name] = spec.preferred_task
 
+        if strict_robot_positions is None:
+            strict = get_robot_pos_fn is not None
+        else:
+            strict = bool(strict_robot_positions)
+
+        if get_robot_pos_fn is not None:
+            pos_fn = _wrap_robot_pos_fn(get_robot_pos_fn)
+            if position_source is None:
+                position_source = "caller_position_callback"
+        else:
+            pos_fn = _env_robot_pos_fn(base_env, strict=strict)
+            if position_source is None and base_env is not None and hasattr(base_env, "scene"):
+                position_source = "native_root_state"
+
         manager = cls(
             base_env=base_env,
             possible_agents=agents,
-            get_robot_pos_fn=lambda n, _env=base_env: _get_robot_pos(_env, n),
+            get_robot_pos_fn=pos_fn,
             push_chat_fn=push_chat_fn,
             log_dir=log_dir,
             discussion_log_dir=discussion_log_dir,
@@ -245,6 +393,8 @@ class EMOSDiscussionManager:
             rescue_constraint_fn=rescue_constraint_fn,
             write_html_report=write_html_report,
             get_group_discussion_llm_kwargs=get_group_discussion_llm_kwargs,
+            position_source=position_source,
+            strict_robot_positions=strict,
         )
         return manager
 
@@ -479,15 +629,27 @@ class EMOSDiscussionManager:
         return self._sanitize_llm_assignments(ass, pos)
 
     def _worker(self, task_desc: str, positions: Dict[str, Tuple[float, float]]) -> None:
+        # Keep spatial coordinates intact; yellow closure is an explicit id set.
+        positions = dict(positions)
+        excluded = set(
+            excluded_subtask_ids_for_completed(
+                self._scenario,
+                self._agents,
+                self._robots_completed_extinguisher,
+                self._robots_completed_rescue,
+            )
+        )
+        # Compatibility no-op (no longer deletes yellow coords).
         positions = filter_subtask_positions_for_completed(
-            dict(positions),
+            positions,
             self._scenario,
             self._agents,
             self._robots_completed_extinguisher,
             self._robots_completed_rescue,
         )
         try:
-            assignments = self._run_discussion(task_desc, positions)
+            assignments = self._run_discussion(
+                task_desc, positions, excluded_subtask_ids=excluded)
             with self._lock:
                 if self._fallback_dispatched_for_round:
                     _sys(
@@ -518,14 +680,30 @@ class EMOSDiscussionManager:
                 if self._fallback_dispatched_for_round:
                     return
                 self._fallback_dispatched_for_round = True
-            assignments = self._fallback_wrapped(positions)
+            assignments = self._fallback_wrapped(
+                positions, excluded_subtask_ids=excluded)
             self._result_queue.put(assignments)
             with self._lock:
                 # 与 trigger_local_fallback 终态对齐：本轮已成功入队 → DONE，
                 # 让消费方只看队列是否有结果即可，不再额外区分 ERROR。
                 self._phase = EMOSPhase.DONE
 
-    def _fallback_wrapped(self, positions: Dict[str, Tuple[float, float]]) -> Dict[str, RobotTask]:
+    def _fallback_wrapped(
+        self,
+        positions: Dict[str, Tuple[float, float]],
+        *,
+        excluded_subtask_ids: Optional[Set[str]] = None,
+    ) -> Dict[str, RobotTask]:
+        excluded = excluded_subtask_ids
+        if excluded is None:
+            excluded = set(
+                excluded_subtask_ids_for_completed(
+                    self._scenario,
+                    self._agents,
+                    self._robots_completed_extinguisher,
+                    self._robots_completed_rescue,
+                )
+            )
         ass = fallback_assignment(
             self._scenario,
             positions,
@@ -536,12 +714,27 @@ class EMOSDiscussionManager:
             push_chat=self._push_chat,
             generate_report=self._generate_report,
             color_for_agent=lambda rn: f"{_C.r(rn)}{rn}{_C.RST}",
+            excluded_subtask_ids=excluded,
         )
         return self._sanitize_llm_assignments(ass, positions)
 
     def _run_discussion(
-        self, task_desc: str, positions: Dict[str, Tuple[float, float]]
+        self,
+        task_desc: str,
+        positions: Dict[str, Tuple[float, float]],
+        *,
+        excluded_subtask_ids: Optional[Set[str]] = None,
     ) -> Dict[str, RobotTask]:
+        excluded = excluded_subtask_ids
+        if excluded is None:
+            excluded = set(
+                excluded_subtask_ids_for_completed(
+                    self._scenario,
+                    self._agents,
+                    self._robots_completed_extinguisher,
+                    self._robots_completed_rescue,
+                )
+            )
         if self._assignment_policy is not None:
             from .policy import assignment_tasks
 
@@ -559,7 +752,12 @@ class EMOSDiscussionManager:
                 p = self._get_pos(name)
                 robot_positions[name] = (float(p[0]), float(p[1]))
             except Exception:
+                if self._strict_robot_positions:
+                    raise
                 robot_positions[name] = (0.0, 0.0)
+
+        if self._position_source:
+            _sys(f"📐 robot position_source={self._position_source}")
 
         rescue_extra = None
         if self._rescue_constraint_fn:
@@ -575,6 +773,7 @@ class EMOSDiscussionManager:
             robot_positions=robot_positions,
             subtask_positions=positions,
             active_rescue_extra=rescue_extra,
+            excluded_subtask_ids=excluded,
         )
 
         gen = generate_robot_resume_fn if LLM_AVAILABLE else None
@@ -620,7 +819,10 @@ class EMOSDiscussionManager:
                 f"🧠 正在调用 {_ln} 进行多轮协同讨论...\n"
                 "机器人将基于各自能力和位置进行任务分析与分配。",
             )
-            return self._run_llm_discussion(task_desc, scene, robot_resumes, positions)
+            return self._run_llm_discussion(
+                task_desc, scene, robot_resumes, positions,
+                excluded_subtask_ids=excluded,
+            )
 
         _sys("⚠️  LLM 模块不可用，使用默认启发式任务分配。")
         if _LLM_IMPORT_ERROR is not None:
@@ -632,7 +834,7 @@ class EMOSDiscussionManager:
             "EMOS 系统",
             "⚠️ LLM 模块不可用，使用启发式规则进行任务分配。",
         )
-        return self._fallback_wrapped(positions)
+        return self._fallback_wrapped(positions, excluded_subtask_ids=excluded)
 
     def _run_llm_discussion(
         self,
@@ -640,7 +842,10 @@ class EMOSDiscussionManager:
         scene: str,
         robot_resumes: Dict[str, Any],
         positions: Dict[str, Tuple[float, float]],
+        *,
+        excluded_subtask_ids: Optional[Set[str]] = None,
     ) -> Dict[str, RobotTask]:
+        excluded = set(excluded_subtask_ids or ())
         proxy_vars = [
             "http_proxy",
             "https_proxy",
@@ -737,6 +942,7 @@ class EMOSDiscussionManager:
             keyword_map=self._scenario.keyword_map_for_parse(),
             agent_iteration_order=self._agents,
             preserve_raw_assignments=_preserve_raw_assignments,
+            excluded_subtask_ids=excluded,
         )
 
     def _validate_and_fix_yellow_assignment(
@@ -830,11 +1036,15 @@ class EMOSDiscussionManager:
             for rt in assignments.values():
                 profile = self._scenario.robot_profiles.get(rt.robot_name)
                 caps = "、".join(profile.capabilities) if profile else ""
+                if rt.target_xy is None:
+                    target_cell = "targetless"
+                else:
+                    target_cell = f"({rt.target_xy[0]:.1f}, {rt.target_xy[1]:.1f})"
                 rows.append(
                     f"<tr><td>{esc(rt.robot_name)}</td>"
                     f"<td>{esc(rt.subtask_name)}</td>"
                     f"<td>{esc(rt.subtask_desc[:150])}</td>"
-                    f"<td>({rt.target_xy[0]:.1f}, {rt.target_xy[1]:.1f})</td>"
+                    f"<td>{esc(target_cell)}</td>"
                     f"<td style='font-size:11px;color:#9ca3af;'>{esc(caps)}</td></tr>"
                 )
 

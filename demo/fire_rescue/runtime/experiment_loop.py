@@ -795,9 +795,16 @@ def run_robot_factory_platform(
         }
 
     def _assignments_dict_from_fixed(fixed):
+        from demo.fire_rescue.scenario import require_spatial_target_xy
+
         out = {}
         for rn, rt in fixed.items():
-            out[rn] = {"subtask": rt.subtask_name, "colour": rt.subtask_colour, "target_xy": list(rt.target_xy)}
+            gx, gy = require_spatial_target_xy(rt.target_xy, robot_name=rn)
+            out[rn] = {
+                "subtask": rt.subtask_name,
+                "colour": rt.subtask_colour,
+                "target_xy": [gx, gy],
+            }
         return out
 
     def _reconcile_rescue_channel_assignee(new_green):
@@ -815,6 +822,8 @@ def run_robot_factory_platform(
     def _dispatch_assignments(assignments_raw, merge_ui=True):
         nonlocal _suppress_patrol_pending
         from algorithm.emos.types import RobotTask as AlgoRobotTask
+        from demo.fire_rescue.scenario import require_spatial_target_xy
+
         filtered = emos_mgr.filter_dashboard_reassignments(assignments_raw)
         if not filtered:
             return 0
@@ -823,10 +832,7 @@ def run_robot_factory_platform(
         for rn, info in filtered.items():
             if rn not in base_env.scene.articulations:
                 continue
-            xy = info.get("target_xy")
-            if not xy or len(xy) < 2:
-                continue
-            gx, gy = float(xy[0]), float(xy[1])
+            gx, gy = require_spatial_target_xy(info.get("target_xy"), robot_name=rn)
             algo_tasks[rn] = AlgoRobotTask(
                 robot_name=rn, subtask_colour=str(info.get("colour", "")),
                 subtask_name=str(info.get("subtask", "")), subtask_desc="",
@@ -841,7 +847,12 @@ def run_robot_factory_platform(
             fixed_algo = emos_mgr._validate_and_fix_green_assignment(copy.deepcopy(algo_tasks), pos)
             for rn, rt in fixed_algo.items():
                 if rn in filtered:
-                    filtered[rn] = {"subtask": rt.subtask_name, "colour": rt.subtask_colour, "target_xy": list(rt.target_xy)}
+                    gx, gy = require_spatial_target_xy(rt.target_xy, robot_name=rn)
+                    filtered[rn] = {
+                        "subtask": rt.subtask_name,
+                        "colour": rt.subtask_colour,
+                        "target_xy": [gx, gy],
+                    }
             new_green = next((rn for rn, rt in fixed_algo.items() if rt.subtask_colour == "green"), None)
             _reconcile_rescue_channel_assignee(new_green)
         else:
@@ -854,10 +865,7 @@ def run_robot_factory_platform(
         for rn, info in filtered.items():
             if rn not in base_env.scene.articulations:
                 continue
-            xy = info.get("target_xy")
-            if not xy or len(xy) < 2:
-                continue
-            gx, gy = float(xy[0]), float(xy[1])
+            gx, gy = require_spatial_target_xy(info.get("target_xy"), robot_name=rn)
             task = RobotTask(
                 task_id=f"emos_{rn}_{int(time.time() * 1000)}", task_type="emos",
                 subtask_name=str(info.get("subtask", "")), subtask_colour=str(info.get("colour", "")),

@@ -1,4 +1,4 @@
-"""Algorithm-participant restaurant episodes over a dual-Carter executor.
+"""Algorithm-participant restaurant episodes over a measured mixed executor.
 
 The witness episode (``demo.benchmark.goal_restaurant_episode``) proves the
 business closed loop with one fixed serial participant.  This module runs the
@@ -6,15 +6,15 @@ same physical substrate with a *measured allocator* as the participant: the
 real TeamWeaver pipeline selects the team and assigns each service mission to
 an agent, and the episode measures those decisions against native execution.
 
-v1 scope, frozen deliberately: the executor covers the two Carter anchors
-(both carry episode-grade native drivers), tasks execute serially through the
-shared FormalGoalEpisodeRunner contract, and the algorithm-visible pool is
-therefore the two Carters - mirroring the City discipline of declaring pools
-whose every selection is executable.  Completion-time benefit from concurrent
-driving and pools beyond the Carters are executor v2 work.  The independent
-on-disk archive verifier for this variant is also pending; runs keep
-``execution_validated=false`` and ``scoreable=false`` and their evidence is
-in-run validated only.
+v1 scope, frozen deliberately: the two Carter anchors carry episode-grade
+navigation/observation drivers and the hover-held Iris can publish the final
+non-motion relay from its actual overview pose. Tasks execute serially through
+the shared FormalGoalEpisodeRunner contract. Aerial service-zone inspection,
+concurrent driving and pools beyond these three agents are executor v2 work.
+The on-disk verifier independently re-derives the allocation/plan and checks
+native arrivals, observations, relay pose/stamps, receipts and business
+evidence. Runs still keep ``execution_validated=false`` and ``scoreable=false``
+until a new native archive is accepted under the release process.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ import subprocess
 import sys
 import time
 import traceback
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping, Optional
 import uuid
 
 from .goal_driven_contract import (
@@ -69,15 +69,9 @@ ROBOT_BINDINGS = {
     "restaurant_carter_2": {"native_agent_id": "carter_2", "spawn_region_id": "restaurant_staging",
                             "spawn_xy_m": list(restaurant_config.BENCHMARK_ROBOT_SPAWN_XYZ_M["carter_2"][:2]),
                             "mobility": "ground"},
-    # The shared goal contract requires every task to expose heterogeneous
-    # aerial and ground capabilities, so iris_1 carries the aerial
-    # declaration and spawns at its public anchor.  The narrowed v5 business
-    # semantics have no aerial-dispatchable mission (staging admits ground
-    # access only, so an aerial relay plan cannot even validate), so iris_1
-    # is a declarable candidate that no legal v1 plan dispatches; forcing an
-    # aerial observation mission remains the open heterogeneity review.  Its
-    # declared region is the public overview airspace, the only
-    # aerial-access region in the shared contract.
+    # Iris spawns and remains hover-held at its public overview anchor. The
+    # service-zone inspections remain ground-only, while relay is a non-motion
+    # event-bus skill and can execute from this current public region.
     "restaurant_iris_1": {"native_agent_id": "iris_1", "spawn_region_id": "restaurant_overview",
                           "spawn_xy_m": list(restaurant_config.BENCHMARK_ROBOT_SPAWN_XYZ_M["iris_1"][:2]),
                           "mobility": "aerial"},
@@ -192,17 +186,19 @@ def _algorithm_selection() -> dict[str, Any]:
 
 
 def _algorithm_public_task(bundle: Mapping[str, Any]) -> dict[str, Any]:
-    """Restrict the shared pool to the executor-covered Carters (v1).
+    """Restrict the shared pool to the v1 executable algorithm pool.
 
     The shared bundle's eight-anchor pool stays the authoring declaration;
-    algorithm episodes declare the v1 executor coverage by filtering the
-    pool, mirroring the City discipline that every selectable team is
-    executable.  The derived task keeps the shared schema exactly.
+    algorithm episodes declare measured executor coverage by filtering to the
+    two Carter navigation/observation anchors plus the hover-held Iris relay
+    member. Every remaining selection must be executable or fail closed. The
+    derived task keeps the shared schema exactly, including staging's public
+    aerial+ground access modes.
     """
     task = deepcopy(dict(bundle["public_task"]))
     pool = [row for row in task["candidate_robot_pool"] if row["id"] in ALGORITHM_POOL]
     if len(pool) != len(ALGORITHM_POOL):
-        raise ValueError("shared restaurant pool lost the Carter declarations")
+        raise ValueError("shared restaurant pool lost an algorithm-pool declaration")
     task["candidate_robot_pool"] = pool
     world = deepcopy(dict(task["public_world"]))
     spawns = world.get("robot_spawn_positions")
@@ -222,19 +218,23 @@ MISSIONS = (
     {"mission_id": "kitchen_inspection", "region_id": "kitchen_service"},
     {"mission_id": "dining_inspection", "region_id": "dining_service"},
 )
-# Raw capability requirements per mission.  The relay row includes
-# ground_navigation because restaurant_staging admits ground access only -
-# that public contract fact is translated here (not filtered after the
-# allocator decides), for both participants identically.
+# Raw capability requirements per mission. Relay is a communication action;
+# it does not inherit a mobility requirement from the producer's region.
 MISSION_REQUIREMENTS = {
     "kitchen_inspection": ("ground_navigation", "observe"),
     "dining_inspection": ("ground_navigation", "observe"),
-    "readiness_relay": ("relay", "ground_navigation"),
+    "readiness_relay": ("relay",),
 }
+# Stable catalogue order drives both allocators. Never rebuild this from a
+# set: PYTHONHASHSEED would otherwise reshuffle mission walk order and can
+# assign relay before the two inspections, leaving an aerial member as the
+# only remaining body for a ground-only mission.
+MISSION_ORDER = tuple(MISSION_REQUIREMENTS)
+# Physical inspection targets are region centers. Readiness relay is a
+# non-motion event-bus action and has no invented travel target.
 MISSION_TARGET_XY = {
     "kitchen_inspection": _E,
     "dining_inspection": _B,
-    "readiness_relay": _A,
 }
 
 
@@ -255,11 +255,12 @@ def _expand_mission_plan(task_spec: Mapping[str, Any], assignment: Mapping[str, 
     """Expand mission->agent allocation into the structural GoalSession plan.
 
     Each inspection mission expands to arrive/observe/return bound to one
-    agent (region continuity is per agent); the relay closes the episode from
-    staging by the allocation's relay agent.  Plan arguments reference the
-    task's public route graph; the backend resolves the assigned agent's
-    physical leg for the same transition at execution time, with windows from
-    the frozen per-leg table.
+    ground agent (region continuity is per agent). The relay closes the
+    episode from the relay agent's current public region: staging for a
+    returned Carter, overview for the hover-held Iris. Plan arguments
+    reference the task's public route graph; the backend resolves the
+    assigned agent's physical leg for the same transition at execution time,
+    with windows from the frozen per-leg table.
     """
     rows: list[dict[str, Any]] = []
     clock = 0.0
@@ -310,15 +311,15 @@ def _expand_mission_plan(task_spec: Mapping[str, Any], assignment: Mapping[str, 
     relay_public = assignment["readiness_relay"]
     if relay_public not in ROBOT_BINDINGS:
         raise ValueError("relay agent is outside the algorithm pool")
-    if ROBOT_BINDINGS[relay_public]["mobility"] != "ground":
-        # staging admits ground access only, so an aerial relay cannot form
-        # a valid plan under the shared contract; refuse loudly so the
-        # allocator's decision surfaces as a measured plan failure.
-        raise ValueError(
-            f"aerial relay by {relay_public} cannot validate: staging is ground-access-only")
+    if relay_agent != relay_public:
+        raise ValueError("relay agent does not match the mission assignment")
+    # Every ground inspection returns to its ground spawn region. Iris never
+    # moves during this executor version and relays from its hover-held public
+    # overview region. No symbolic location or physical pose is fabricated.
+    relay_region = ROBOT_BINDINGS[relay_public]["spawn_region_id"]
     append("restaurant_readiness_relay", "relay",
            {"message_kind": "restaurant_readiness_receipt",
-            "region_id": "restaurant_staging"},
+            "region_id": relay_region},
            ["restaurant_kitchen_inspection_observe",
             "restaurant_dining_inspection_observe",
             "restaurant_kitchen_inspection_return",
@@ -336,8 +337,9 @@ class RestaurantTeamWeaverParticipant:
 
     The measured decisions are team selection, the mission assignment and the
     relay agent; the structural expansion (arrive/observe/return per mission)
-    is executor vocabulary.  Positions are the public spawn anchors and region
-    centers, so the allocator's distance cost operates on real geometry.
+    is executor vocabulary. Inspection positions use public spawn anchors and
+    region centers. Relay is a virtual non-motion target, so it adds no false
+    travel distance.
     """
 
     def __init__(self, task_spec: Mapping[str, Any], routes: Mapping[str, Mapping[str, Any]]):
@@ -374,21 +376,24 @@ class RestaurantTeamWeaverParticipant:
                 "relay": "communication"}
         pool_rows = self._task_spec["candidate_robot_pool"]
         region_center = dict(MISSION_TARGET_XY)
-        # Mission requirements (including the relay's staging ground-access
-        # fact) live in the shared MISSION_REQUIREMENTS table; encoding that
-        # public contract fact is interface translation, not a decision for
-        # the allocator, and both participants translate it identically.
+        # Both participants translate the same public capability requirements
+        # in MISSION_ORDER so hash seed cannot reshuffle the catalogue.
         requirement_axes = {
             mission: tuple(sorted({axis.get(cap, cap)
                                    for cap in MISSION_REQUIREMENTS[mission]}))
-            for mission in MISSION_REQUIREMENTS
+            for mission in MISSION_ORDER
         }
         raw_requirements = {
             mission: set(MISSION_REQUIREMENTS[mission])
-            for mission in MISSION_REQUIREMENTS
+            for mission in MISSION_ORDER
+        }
+        task_types = {
+            mission: (TaskType.ESTABLISH_RELAY
+                      if mission == "readiness_relay" else TaskType.NAVIGATE)
+            for mission in MISSION_ORDER
         }
 
-        def robot_snapshot(row: Mapping[str, Any]) -> RobotSnapshot:
+        def robot_snapshot(row: Mapping[str, Any], *, busy: bool = False) -> RobotSnapshot:
             values = {"navigation": 0.0, "sensing": 0.0, "manipulation": 0.0,
                       "payload": 0.0, "communication": 0.0}
             for cap in row["public_capabilities"]:
@@ -398,66 +403,87 @@ class RestaurantTeamWeaverParticipant:
             return RobotSnapshot(
                 name=row["id"], position=position, base_capabilities=values,
                 reliability={name: 1.0 for name in values}, equipment=frozenset(),
-                busy=False, current_task=None, current_load=0, safe=True)
+                busy=busy, current_task=None, current_load=0, safe=True)
 
         targets = tuple(
-            TargetSnapshot(ref=mission, position=(*region_center[mission], 0.0),
-                           available=True, kind="region",
-                           compatible_task_types=(TaskType.NAVIGATE,))
-            for mission in (*requirement_axes,))
-
-        catalog = []
+            TargetSnapshot(
+                ref=mission,
+                position=(None if mission == "readiness_relay"
+                          else (*region_center[mission], 0.0)),
+                available=True,
+                kind="virtual" if mission == "readiness_relay" else "region",
+                compatible_task_types=(task_types[mission],),
+            )
+            for mission in MISSION_ORDER)
 
         class _Decomposer:
             def decompose(self, instruction, world_state, **_kwargs):
                 rows = []
-                for mission, axes in requirement_axes.items():
+                for mission in MISSION_ORDER:
+                    axes = requirement_axes[mission]
                     rows.append(SemanticTask(
-                        task_id=mission, task_type=TaskType.NAVIGATE,
+                        task_id=mission, task_type=task_types[mission],
                         description="restaurant_mission", target_ref=mission,
                         priority=1,
                         requirements={key: CapabilityRequirement(1.0, 1.0, True)
                                       for key in axes},
                         prerequisites=(), can_parallel=True,
-                        estimated_duration_s=45.0, preferred_agent=None))
+                        estimated_duration_s=(RELAY_WINDOW_S
+                                              if mission == "readiness_relay" else 45.0),
+                        preferred_agent=None))
                 return SemanticDecompositionResult(tasks=tuple(rows), source="catalog",
                                                    attempts=1)
 
         catalog = list(_Decomposer().decompose(None, None).tasks)
         allocator = DynamicMIQPAllocator(prefer_miqp=False)
         assignment: dict[str, str] = {}
-        remaining = set(requirement_axes)
-        team: set[str] = set()
-        for round_index in range(len(requirement_axes)):
+        # Ordered remainder + busy agents across rounds: never rebuild the
+        # open set from a hash-ordered set comprehension.
+        remaining = list(MISSION_ORDER)
+        used_agents: set[str] = set()
+        for round_index in range(len(MISSION_ORDER)):
             if not remaining:
                 break
+            open_ids = set(remaining)
             world = SymbolicWorldState(
                 hazard_id=0, hazard_position=(0.0, 0.0, 0.0), hazard_active=False,
-                targets=targets, robots=tuple(robot_snapshot(row) for row in pool_rows),
+                targets=targets,
+                robots=tuple(
+                    robot_snapshot(row, busy=(row["id"] in used_agents))
+                    for row in pool_rows),
                 extinguisher_available=False, extinguisher_carrier=None,
                 extinguisher_delivered=False, rescue_channel_open=True,
                 completed_task_ids=(), failed_task_ids=(), recent_feedback=(),
                 observations={})
-            batch = tuple(task for task in catalog if task.task_id in remaining)
+            batch = tuple(task for task in catalog if task.task_id in open_ids)
             result = allocator.allocate(world, batch)
             round_map = {row.task_id: row.robot_name for row in result.assignments
-                         if row.task_id in remaining}
+                         if row.task_id in open_ids}
             self.trace.append({"event": "allocation_round", "round": round_index,
                                "solver": getattr(result, "solver", "miqp"),
                                "assignment": dict(round_map),
-                               "remaining": sorted(remaining)})
+                               "remaining": list(remaining)})
             if not round_map:
                 break
-            assignment.update(round_map)
-            team.update(round_map.values())
-            remaining -= set(round_map)
+            for mission, agent in round_map.items():
+                if mission in assignment:
+                    raise RuntimeError(f"TeamWeaver reassigned mission {mission}")
+                assignment[mission] = agent
+                used_agents.add(agent)
+            remaining = [mission for mission in remaining if mission not in round_map]
         if remaining:
             raise RuntimeError(
-                f"TeamWeaver left restaurant missions unassigned: {sorted(remaining)}")
+                f"TeamWeaver left restaurant missions unassigned: {remaining}")
+        if set(assignment) != set(MISSION_ORDER):
+            raise RuntimeError(
+                f"TeamWeaver assignment keys diverge from MISSION_ORDER: {assignment}")
         public_caps = {row["id"]: set(row["public_capabilities"]) for row in pool_rows}
         for mission, agent in assignment.items():
             if not raw_requirements[mission] <= public_caps[agent]:
                 raise ValueError(f"{agent} cannot cover {mission}")
+            binding = ROBOT_BINDINGS[agent]
+            if mission != "readiness_relay" and binding["mobility"] != "ground":
+                raise ValueError(f"{agent} cannot cover ground mission {mission}")
         return assignment
 
     def act(self, events: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -521,33 +547,74 @@ _EMOS_POLICY_NAME = "restaurant-goal-native-deterministic"
 _EMOS_ROUND_TIMEOUT_S = 240.0
 _EMOS_DISCUSSION_LOG_DIR = ROOT / "tmp" / "emos_discussion_restaurant"
 
+# Pose providers for EMOS. Focused / authoring allocation uses the frozen public
+# spawn map; native episode wiring injects a live root-state callback. Never
+# label ``public_spawn_anchor`` as a PhysX sample.
+POSITION_SOURCE_PUBLIC_SPAWN_ANCHOR = "public_spawn_anchor"
+POSITION_SOURCE_NATIVE_ROOT_STATE = "native_root_state"
+
+
+def restaurant_public_spawn_xyz_m(public_id: str) -> tuple[float, float, float]:
+    """Frozen public spawn for a pool member (xy from bindings, z from config).
+
+    This is a disclosed selection / spawn-map anchor, not a live root-state
+    sample. Iris uses the overview anchor; Carters use their staging spawns.
+    """
+    binding = ROBOT_BINDINGS[public_id]
+    native = binding["native_agent_id"]
+    spawn_xyz = restaurant_config.BENCHMARK_ROBOT_SPAWN_XYZ_M[native]
+    xy = binding["spawn_xy_m"]
+    return (float(xy[0]), float(xy[1]), float(spawn_xyz[2]))
+
+
+def make_restaurant_public_spawn_pos_fn(
+    agent_ids: Optional[Any] = None,
+) -> Callable[[str], tuple[float, float, float]]:
+    """Snapshot public spawn anchors for EMOS ``get_robot_pos_fn`` injection."""
+    ids = tuple(agent_ids) if agent_ids is not None else ALGORITHM_POOL
+    snapshot = {agent_id: restaurant_public_spawn_xyz_m(agent_id) for agent_id in ids}
+
+    def _fn(robot_name: str) -> tuple[float, float, float]:
+        if robot_name not in snapshot:
+            raise KeyError(
+                f"restaurant public spawn anchor unavailable for {robot_name!r}"
+            )
+        return snapshot[robot_name]
+
+    return _fn
+
 
 def _emos_restaurant_policy(request):
     """Deterministic capability-matching EMOS policy (restaurant missions).
 
-    Mirrors the city policy: each still-open mission is one scenario subtask
-    whose match_keywords carry the mission's raw capability requirements
-    (including the relay's staging ground-access fact); each round walks the
-    missions in catalogue order and assigns each to the first pool-order
-    agent whose public capabilities cover the requirements, at most one
-    mission per agent per round.
+    Walks scenario.subtasks in insertion order (must be MISSION_ORDER) and
+    assigns each open mission to the first still-unused pool-order agent
+    whose public capabilities cover the requirements. Unique agents plus
+    inspection-before-relay catalogue order make Iris the only remaining
+    relay-capable body after the two Carters take the ground inspections —
+    without hard-coding Iris onto readiness_relay.
     """
     scenario = request.scenario
     order = list(request.robot_positions)
     profiles = scenario.robot_profiles
     assignments: dict[str, str] = {}
+    used_agents: set[str] = set()
     for subtask_id, spec in scenario.subtasks.items():
         required = set(spec.match_keywords)
         for name in order:
-            if name in assignments:
+            if name in used_agents:
                 continue
             profile = profiles.get(name)
             capabilities = set(profile.capabilities) if profile is not None else set()
             if required <= capabilities:
                 assignments[name] = subtask_id
+                used_agents.add(name)
                 break
-    if not assignments:
-        raise ValueError("EMOS restaurant policy found no eligible agent")
+        else:
+            raise ValueError(
+                f"EMOS restaurant policy found no eligible unused agent for {subtask_id}")
+    if len(assignments) != len(scenario.subtasks):
+        raise ValueError("EMOS restaurant policy left missions unassigned")
     return assignments
 
 
@@ -556,14 +623,29 @@ class RestaurantEmosParticipant:
 
     The measured decisions - team selection, mission assignment and the
     relay agent - come from the real ``EMOSDiscussionManager`` discussion
-    boundary over the public pool, with the mission targets placed at their
-    real region centers.  The deterministic capability-matching policy runs
-    through the manager's public ``set_assignment_policy`` boundary; the
-    structural plan expansion is shared with the TeamWeaver participant, so
-    the two algorithms are measured on identical executor vocabulary.
+    boundary over the public pool. Inspection targets use their real region
+    centers; readiness relay has no travel target. The deterministic
+    capability-matching policy runs through the manager's public
+    ``set_assignment_policy`` boundary; the structural plan expansion is
+    shared with the TeamWeaver participant, so the two algorithms are
+    measured on identical executor vocabulary.
+
+    Robot poses for EMOS scene / assignment requests are injected explicitly:
+    a caller-supplied ``get_robot_pos_fn`` (native root-state) takes priority;
+    otherwise the focused path uses labeled ``public_spawn_anchor`` snapshots.
+    Neither path silently invents ``(0, 0, 0)``.
     """
 
-    def __init__(self, task_spec: Mapping[str, Any], routes: Mapping[str, Mapping[str, Any]]):
+    def __init__(
+        self,
+        task_spec: Mapping[str, Any],
+        routes: Mapping[str, Mapping[str, Any]],
+        *,
+        get_robot_pos_fn: Optional[
+            Callable[[str], tuple[float, float, float]]
+        ] = None,
+        position_source: Optional[str] = None,
+    ):
         self._task_spec = deepcopy(dict(task_spec))
         self._routes = deepcopy(dict(routes))
         self._plan: dict[str, Any] | None = None
@@ -571,6 +653,16 @@ class RestaurantEmosParticipant:
         self._next = 0
         self._terminal: dict[str, str] = {}
         self.trace: list[dict[str, Any]] = []
+        if get_robot_pos_fn is not None:
+            self._get_robot_pos_fn = get_robot_pos_fn
+            self._position_source = (
+                position_source or POSITION_SOURCE_NATIVE_ROOT_STATE
+            )
+        else:
+            self._get_robot_pos_fn = None
+            self._position_source = (
+                position_source or POSITION_SOURCE_PUBLIC_SPAWN_ANCHOR
+            )
 
     def manifest(self) -> Mapping[str, Any]:
         return {"kind": "participant", "id": "restaurant-native-emos", "version": 1,
@@ -583,7 +675,28 @@ class RestaurantEmosParticipant:
                    participant_api: Mapping[str, Any]) -> None:
         del public_task, participant_api
         self.trace.append({"event": "initialize", "planner": "EMOSDiscussionManager",
-                           "policy": _EMOS_POLICY_NAME})
+                           "policy": _EMOS_POLICY_NAME,
+                           "position_source": self._position_source})
+
+    def _resolve_position_provider(
+        self, pool_rows: list[Mapping[str, Any]]
+    ) -> tuple[Callable[[str], tuple[float, float, float]], str]:
+        if self._get_robot_pos_fn is not None:
+            return self._get_robot_pos_fn, self._position_source
+        if self._position_source not in {
+            POSITION_SOURCE_PUBLIC_SPAWN_ANCHOR,
+            None,
+            "",
+        }:
+            raise RuntimeError(
+                f"restaurant EMOS position_source={self._position_source!r} "
+                "requires an explicit get_robot_pos_fn; refusing invented zeros"
+            )
+        agent_ids = [row["id"] for row in pool_rows]
+        return (
+            make_restaurant_public_spawn_pos_fn(agent_ids),
+            POSITION_SOURCE_PUBLIC_SPAWN_ANCHOR,
+        )
 
     def _allocate(self) -> dict[str, str]:
         import time as _time
@@ -593,21 +706,35 @@ class RestaurantEmosParticipant:
         from emos.types import EMOSRobotAgentSpec, EMOSScenarioConfig, PositionRule, SubtaskSpec
 
         pool_rows = self._task_spec["candidate_robot_pool"]
-        subtasks = {mission: SubtaskSpec(
-                        id=mission, name=mission, description=f"restaurant:{mission}",
-                        match_keywords=sorted(MISSION_REQUIREMENTS[mission]))
-                    for mission in MISSION_REQUIREMENTS}
+        pos_fn, position_source = self._resolve_position_provider(pool_rows)
+        # One-shot unique assignment over MISSION_ORDER. Building open
+        # subtasks from set(remaining) was PYTHONHASHSEED-sensitive and could
+        # schedule relay before inspections, then leave Iris as the only body
+        # for a ground-only mission (or re-use Carter across rounds).
+        subtasks = {
+            mission: SubtaskSpec(
+                id=mission, name=mission, description=f"restaurant:{mission}",
+                match_keywords=sorted(MISSION_REQUIREMENTS[mission]))
+            for mission in MISSION_ORDER
+        }
+
+        def _position_rule(mission: str) -> PositionRule:
+            # Relay has no travel target; do not invent a staging waypoint that
+            # would fake distance cost or imply Iris must leave overview.
+            if mission == "readiness_relay":
+                return PositionRule(kind="none", xy=None)
+            return PositionRule(kind="fixed", xy=MISSION_TARGET_XY[mission])
+
         scenario = EMOSScenarioConfig(
             scenario_id="restaurant_goal_native", scene_title="Restaurant",
             anchor_label="restaurant opening readiness",
             task_description=(
                 "Coordinate the restaurant opening-readiness inspection: one "
                 "member inspects the kitchen service area, one inspects the "
-                "dining service area, and a ground member publishes the "
-                "consolidated readiness receipt from staging."),
+                "dining service area, and a relay-capable member publishes "
+                "the consolidated readiness receipt from its current region."),
             subtasks=subtasks,
-            position_rules={mission: PositionRule("fixed", xy=MISSION_TARGET_XY[mission])
-                            for mission in subtasks},
+            position_rules={mission: _position_rule(mission) for mission in MISSION_ORDER},
             robot_profiles={},
             preferred_fallback={},
             yellow_subtask_id="", green_subtask_id="")
@@ -615,47 +742,61 @@ class RestaurantEmosParticipant:
                      agent_name=row["id"], robot_type=row["mobility"],
                      capabilities=list(row["public_capabilities"]))
                  for row in pool_rows}
-        assignment: dict[str, str] = {}
-        remaining = set(MISSION_REQUIREMENTS)
         capability_map = {row["id"]: set(row["public_capabilities"]) for row in pool_rows}
-        for round_index in range(len(MISSION_REQUIREMENTS)):
-            if not remaining:
-                break
-            open_subtasks = {mission: subtasks[mission] for mission in remaining}
-            scenario.subtasks = open_subtasks
-            scenario.position_rules = {mission: PositionRule(
-                "fixed", xy=MISSION_TARGET_XY[mission]) for mission in remaining}
-            manager = EMOSDiscussionManager.build_from_agent_specs(
-                None, specs, scenario, use_env_resume=False,
-                discussion_log_dir=str(_EMOS_DISCUSSION_LOG_DIR))
-            manager.set_assignment_policy(_emos_restaurant_policy, name=_EMOS_POLICY_NAME)
-            manager.trigger(1, (0.0, 0.0, 0.0))
-            result = None
-            deadline = _time.monotonic() + _EMOS_ROUND_TIMEOUT_S
-            while result is None and _time.monotonic() < deadline:
-                result = manager.poll()
-                if result is None:
-                    _time.sleep(0.01)
+        manager = EMOSDiscussionManager.build_from_agent_specs(
+            None, specs, scenario, use_env_resume=False,
+            discussion_log_dir=str(_EMOS_DISCUSSION_LOG_DIR),
+            get_robot_pos_fn=pos_fn,
+            position_source=position_source,
+            strict_robot_positions=True)
+        manager.set_assignment_policy(_emos_restaurant_policy, name=_EMOS_POLICY_NAME)
+        manager.trigger(1, (0.0, 0.0, 0.0))
+        request = manager._assignment_request
+        if request is None:
+            raise RuntimeError("EMOS assignment request was not built")
+        robot_positions = {
+            name: tuple(request.robot_positions[name]) for name in request.robot_positions
+        }
+        for name, xyz in robot_positions.items():
+            if xyz[:2] == (0.0, 0.0) and xyz[2] == 0.0:
+                raise RuntimeError(
+                    f"EMOS restaurant refused invented origin pose for {name}: {xyz}"
+                )
+        self.trace.append({
+            "event": "emos_robot_positions",
+            "position_source": position_source,
+            "robot_positions": {
+                name: [float(v) for v in xyz] for name, xyz in robot_positions.items()
+            },
+        })
+        result = None
+        deadline = _time.monotonic() + _EMOS_ROUND_TIMEOUT_S
+        while result is None and _time.monotonic() < deadline:
+            result = manager.poll()
             if result is None:
-                raise RuntimeError("EMOS discussion did not produce an assignment in time")
-            round_map = {row.subtask_colour: row.robot_name for row in result.values()
-                         if row.subtask_colour in remaining}
-            self.trace.append({"event": "emos_assignment", "round": round_index,
-                               "manager": "EMOSDiscussionManager",
-                               "assignment": dict(round_map),
-                               "remaining": sorted(remaining),
-                               "discussion_count": manager.discussion_count,
-                               "discussion_elapsed_s": manager.last_discussion_elapsed_s})
-            if not round_map:
-                break
-            for mission, agent in round_map.items():
-                if not set(MISSION_REQUIREMENTS[mission]) <= capability_map[agent]:
-                    raise RuntimeError(f"EMOS assigned {mission} to ineligible {agent}")
-            assignment.update(round_map)
-            remaining -= set(round_map)
-        if remaining:
+                _time.sleep(0.01)
+        if result is None:
+            raise RuntimeError("EMOS discussion did not produce an assignment in time")
+        assignment = {row.subtask_colour: row.robot_name for row in result.values()}
+        self.trace.append({"event": "emos_assignment", "round": 0,
+                           "manager": "EMOSDiscussionManager",
+                           "assignment": dict(assignment),
+                           "remaining": [],
+                           "position_source": position_source,
+                           "discussion_count": manager.discussion_count,
+                           "discussion_elapsed_s": manager.last_discussion_elapsed_s})
+        if set(assignment) != set(MISSION_ORDER):
             raise RuntimeError(
-                f"EMOS left restaurant missions unassigned: {sorted(remaining)}")
+                f"EMOS left restaurant missions unassigned or invented ids: {assignment}")
+        if len(set(assignment.values())) != len(assignment):
+            raise RuntimeError(
+                f"EMOS reused an agent across restaurant missions: {assignment}")
+        for mission, agent in assignment.items():
+            if not set(MISSION_REQUIREMENTS[mission]) <= capability_map[agent]:
+                raise RuntimeError(f"EMOS assigned {mission} to ineligible {agent}")
+            binding = ROBOT_BINDINGS[agent]
+            if mission != "readiness_relay" and binding["mobility"] != "ground":
+                raise RuntimeError(f"EMOS assigned ground mission {mission} to {agent}")
         return assignment
 
     def act(self, events: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -744,7 +885,7 @@ class SharedIdleHolds:
         w, x, y, z = (float(value) for value in quat)
         return math.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
 
-    def commands(self, exclude: str) -> dict[str, Any]:
+    def commands(self, exclude: str | None) -> dict[str, Any]:
         torch = self._torch
         commands: dict[str, Any] = {}
         for agent in self.session.possible_agents:
@@ -778,6 +919,60 @@ class SharedIdleHolds:
             commands[agent] = command
         self._last_active = exclude
         return commands
+
+
+class SharedClockRelayDriver:
+    """Advance a stationary relay on the shared simulator clock.
+
+    Relay is an event-bus operation, so it needs no navigation driver. Each
+    step still advances the real scene with all agents held in place and
+    stamps the selected producer's measured root state.
+    """
+
+    def __init__(self, session: Any, agent: str, *, episode_step_origin: int,
+                 idle_holds: SharedIdleHolds):
+        self.session = session
+        self.agent = agent
+        self.articulation = session.base_env.scene.articulations[agent]
+        self.control_dt_s = float(session.base_env.step_dt)
+        self._episode_step_origin = int(episode_step_origin)
+        self._idle_holds = idle_holds
+
+    def close(self) -> None:
+        return None
+
+    @property
+    def episode_time_s(self) -> float:
+        index = int(self.session.base_env.sim.current_time_step_index)
+        return (index - self._episode_step_origin) * float(
+            self.session.base_env.sim.get_physics_dt())
+
+    def pose(self) -> list[float]:
+        return self.articulation.data.root_state_w[0].detach().cpu().tolist()
+
+    def _stamp(self) -> dict[str, Any]:
+        root = self.pose()
+        if not navigation_probe._finite_root_state(root):
+            raise RuntimeError("non-finite Iris root state in formal Restaurant relay")
+        return {
+            "simulation_step": int(self.session.base_env.sim.current_time_step_index),
+            "time_s": self.episode_time_s,
+            "root_state_w": [float(value) for value in root],
+        }
+
+    def step_once(self) -> dict[str, Any]:
+        self.session.env.step(self._idle_holds.commands(exclude=None))
+        return self._stamp()
+
+    def wait_until(self, target_time_s: float) -> dict[str, Any]:
+        if target_time_s + 1e-9 < self.episode_time_s:
+            raise RuntimeError("native Restaurant execution exceeded its GoalSession window")
+        start = self._stamp()
+        while self.episode_time_s + self.control_dt_s <= target_time_s + 1e-9:
+            self.step_once()
+        if not math.isclose(self.episode_time_s, target_time_s, abs_tol=1e-6):
+            raise RuntimeError("GoalSession window is not aligned to the native control step")
+        return {"kind": "native_window_hold", "start": start, "end": self._stamp()}
 
 
 class SharedClockCarterNavigator(NativeCarterEpisodeNavigator):
@@ -893,7 +1088,10 @@ class RestaurantMultiAgentGoalBackend:
         public_agent = task["assigned_agents"][0]
         binding = ROBOT_BINDINGS[public_agent]
         native_agent = binding["native_agent_id"]
-        navigator = self.navigators[native_agent]
+        navigator = self.navigators.get(native_agent)
+        if navigator is None:
+            raise RuntimeError(
+                f"native executor has no driver for {public_agent} ({native_agent})")
         execution = task["execution"]
         end_s = float(execution["start_s"] + execution["duration_s"])
         if not math.isclose(navigator.episode_time_s,
@@ -947,9 +1145,9 @@ class RestaurantMultiAgentGoalBackend:
             native["window_hold"] = navigator.wait_until(end_s)
             _saved, evidence_ref = self._record(native)
         elif skill == "relay":
-            if (self.robot_regions[public_agent] != "restaurant_staging"
-                    or arguments.get("region_id") != "restaurant_staging"):
-                raise ValueError("algorithm readiness relay must run from staging")
+            relay_region = str(arguments.get("region_id"))
+            if self.robot_regions[public_agent] != relay_region:
+                raise ValueError("algorithm readiness relay region is not the producer's current region")
             snapshot = self.readiness.snapshot()
             refs = sorted(row["observation_id"] for row in snapshot["observations"].values())
             publication_stamp = navigator.step_once()
@@ -1033,11 +1231,11 @@ def prepare_episode(output_root: str | Path, *, products_root: str | Path,
         "participant_api_sha256": canonical_sha256(
             build_goal_participant_api(public_task)),
         "source_files": _source_files(),
-        "executor": {"kind": "serial_ground_executor_v1",
+        "executor": {"kind": "serial_mixed_executor_v1",
                      "concurrent_driving": False,
                      "pool_note": "executor coverage v1: the two episode-grade Carters "
-                                  "carry drivers; iris_1 holds the aerial declaration "
-                                  "and its anchor but has no dispatchable v1 mission"},
+                                  "carry navigation/observation drivers; hover-held "
+                                  "iris_1 can execute stationary relay only"},
         "release_gates": {"navigation_ready": False, "execution_validated": False,
                           "scoreable": False},
         "archive_verifier": "demo.benchmark.goal_restaurant_algorithm_episode"
@@ -1095,10 +1293,10 @@ def _validate_request(request: Any) -> dict[str, Any]:
             != canonical_sha256(build_goal_participant_api(public_task))
             or request.get("source_files") != _source_files()
             or request.get("executor") != {
-                "kind": "serial_ground_executor_v1", "concurrent_driving": False,
+                "kind": "serial_mixed_executor_v1", "concurrent_driving": False,
                 "pool_note": "executor coverage v1: the two episode-grade Carters "
-                             "carry drivers; iris_1 holds the aerial declaration "
-                             "and its anchor but has no dispatchable v1 mission"}
+                             "carry navigation/observation drivers; hover-held "
+                             "iris_1 can execute stationary relay only"}
             or request.get("release_gates") != {
                 "navigation_ready": False, "execution_validated": False,
                 "scoreable": False}
@@ -1180,8 +1378,9 @@ def run_worker(output_root: str | Path) -> dict[str, Any]:
             routes = request["physical_routes"]
             # Creation order matters for the shared contact-processing toggle:
             # close in reverse so each navigator restores what it observed.
-            # Only the ground anchors get drivers; iris_1 has no dispatchable
-            # v1 mission and holds its anchor through the episode.
+            # Carters get navigation/observation drivers. Iris gets a
+            # stationary relay driver that advances the same physical clock
+            # while SharedIdleHolds continues commanding its hover anchor.
             navigators = {}
             try:
                 episode_step_origin = int(session.base_env.sim.current_time_step_index)
@@ -1189,7 +1388,11 @@ def run_worker(output_root: str | Path) -> dict[str, Any]:
                 idle_holds = SharedIdleHolds(session, "iris_1", iris_anchor)
                 for public_id in ALGORITHM_POOL:
                     binding = ROBOT_BINDINGS[public_id]
-                    if binding["mobility"] != "ground":
+                    if binding["mobility"] == "aerial":
+                        navigators[binding["native_agent_id"]] = SharedClockRelayDriver(
+                            session, binding["native_agent_id"],
+                            episode_step_origin=episode_step_origin,
+                            idle_holds=idle_holds)
                         continue
                     navigators[binding["native_agent_id"]] = SharedClockCarterNavigator(
                         session, binding["native_agent_id"], products_root, routes,
@@ -1318,6 +1521,102 @@ def _verify_archived_agent_observation(row: Mapping[str, Any], request: Mapping[
             or archived_error > tolerance):
         raise ValueError(f"native observation lies outside its region: {region}")
     return region
+
+
+def _verify_archived_relay_pose(row: Mapping[str, Any], task: Mapping[str, Any]) -> str:
+    """Bind a relay's producer and native stamps to its unchanged anchor region."""
+    producer = row.get("producer_id")
+    binding = ROBOT_BINDINGS.get(producer)
+    region = (task.get("arguments") or {}).get("region_id")
+    if (binding is None
+            or task.get("skill") != "relay"
+            or task.get("assigned_agents") != [producer]
+            or row.get("native_agent_id") != binding["native_agent_id"]
+            or region != binding["spawn_region_id"]):
+        raise ValueError("native relay producer does not match its current public region")
+    expected_xyz = restaurant_config.BENCHMARK_ROBOT_SPAWN_XYZ_M[
+        binding["native_agent_id"]]
+    dimensions = 3 if binding["mobility"] == "aerial" else 2
+    for name in ("publication_stamp", "receipt_stamp"):
+        stamp = row.get(name)
+        root = stamp.get("root_state_w") if isinstance(stamp, Mapping) else None
+        if (not isinstance(root, list)
+                or not navigation_probe._finite_root_state(root)
+                or math.dist(root[:dimensions], expected_xyz[:dimensions])
+                > navigation_probe.FINAL_TOLERANCE_M):
+            raise ValueError(f"native relay {name} is outside its bound producer region")
+    return str(region)
+
+
+def _require_non_bool_int(value: Any, label: str) -> int:
+    """Reject bool/str/float for archive simulation steps."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{label} must be a non-bool int, got {type(value).__name__}")
+    return value
+
+
+def _require_finite_numeric(value: Any, label: str) -> float:
+    """Reject bool/str/non-finite values for archive simulation times."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{label} must be a non-bool finite numeric, got {type(value).__name__}")
+    out = float(value)
+    if not math.isfinite(out):
+        raise ValueError(f"{label} must be finite")
+    return out
+
+
+def _verify_archived_relay_service_binding(row: Mapping[str, Any],
+                                          service: Mapping[str, Any]) -> None:
+    """Cross-bind the native relay evidence row to the readiness service archive.
+
+    Pose/root-state checks alone are insufficient: the native publication and
+    receipt stamps must match the readiness service records field-for-field,
+    including simulation step and time with strict Python types (non-bool int
+    step, non-bool finite numeric time — strings do not coerce). Divergent or
+    type-tampered step/time values must fail closed.
+    """
+    publications = service.get("relay_publications")
+    receipt = service.get("receipt")
+    native_publication = row.get("relay_publication")
+    native_receipt = row.get("business_receipt")
+    publication_stamp = row.get("publication_stamp")
+    receipt_stamp = row.get("receipt_stamp")
+    if (not isinstance(publications, list) or len(publications) != 1
+            or not isinstance(receipt, Mapping)
+            or not isinstance(native_publication, Mapping)
+            or not isinstance(native_receipt, Mapping)
+            or not isinstance(publication_stamp, Mapping)
+            or not isinstance(receipt_stamp, Mapping)):
+        raise ValueError("native relay is missing readiness service binding records")
+    service_publication = publications[0]
+    if native_publication != service_publication:
+        raise ValueError("native relay_publication diverges from readiness service archive")
+    if native_receipt != receipt:
+        raise ValueError("native business_receipt diverges from readiness service archive")
+
+    pub_native_step = _require_non_bool_int(
+        native_publication.get("simulation_step"), "relay_publication.simulation_step")
+    pub_stamp_step = _require_non_bool_int(
+        publication_stamp.get("simulation_step"), "publication_stamp.simulation_step")
+    pub_native_time = _require_finite_numeric(
+        native_publication.get("time_s"), "relay_publication.time_s")
+    pub_stamp_time = _require_finite_numeric(
+        publication_stamp.get("time_s"), "publication_stamp.time_s")
+    if pub_native_step != pub_stamp_step or pub_native_time != pub_stamp_time:
+        raise ValueError("relay publication step/time diverges from native publication_stamp")
+
+    rec_native_step = _require_non_bool_int(
+        native_receipt.get("simulation_step"), "business_receipt.simulation_step")
+    rec_stamp_step = _require_non_bool_int(
+        receipt_stamp.get("simulation_step"), "receipt_stamp.simulation_step")
+    rec_native_time = _require_finite_numeric(
+        native_receipt.get("time_s"), "business_receipt.time_s")
+    rec_stamp_time = _require_finite_numeric(
+        receipt_stamp.get("time_s"), "receipt_stamp.time_s")
+    if rec_native_step != rec_stamp_step or rec_native_time != rec_stamp_time:
+        raise ValueError("readiness receipt step/time diverges from native receipt_stamp")
+    if (pub_stamp_step >= rec_stamp_step or pub_stamp_time >= rec_stamp_time):
+        raise ValueError("native relay stamps are not strictly ordered publication before receipt")
 
 
 def verify_algorithm_episode_archive(output_root: str | Path) -> dict[str, Any]:
@@ -1523,6 +1822,7 @@ def verify_algorithm_episode_archive(output_root: str | Path) -> dict[str, Any]:
     if (relay_task is None or relay_task["skill"] != "relay"
             or relay_task["assigned_agents"] != [relay_row.get("producer_id")]):
         raise ValueError("native relay does not match its plan task")
+    _verify_archived_relay_pose(relay_row, relay_task)
     for region, observation in observation_by_region.items():
         arrival = arrival_by_region.get(region)
         if (arrival is None
@@ -1542,6 +1842,7 @@ def verify_algorithm_episode_archive(output_root: str | Path) -> dict[str, Any]:
             or snapshot.get("version") != 1):
         raise ValueError("invalid readiness snapshot schema")
     service = snapshot.get("service") or {}
+    _verify_archived_relay_service_binding(relay_row, service)
     archived_observations = {row["observation_id"]: row
                              for row in (service.get("observations") or {}).values()}
     for observation in observation_by_region.values():

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Callable, Dict, Optional, Tuple
+from typing import Callable, Dict, Iterable, Optional, Tuple
 
-from .types import EMOSScenarioConfig
+from .types import EMOSScenarioConfig, is_targetless_position_rule
 
 
 def build_scene_description(
@@ -16,7 +16,9 @@ def build_scene_description(
     robot_positions: Dict[str, Tuple[float, float]],
     subtask_positions: Dict[str, Tuple[float, float]],
     active_rescue_extra: Optional[str] = None,
+    excluded_subtask_ids: Optional[Iterable[str]] = None,
 ) -> str:
+    excluded = frozenset(excluded_subtask_ids or ())
     lines = [
         f"场景：{scenario.scene_title}，发现{scenario.anchor_label}，需要多机器人协作完成任务。\n",
         f"{scenario.anchor_label}位置（标记 #{hazard_id}）: "
@@ -25,11 +27,20 @@ def build_scene_description(
     ]
     st_map = scenario.subtask_tuple_map()
     for sid in sorted(scenario.subtasks.keys()):
+        if sid in excluded:
+            continue
         name, desc = st_map.get(sid, (sid, ""))
-        pos = subtask_positions.get(sid, (0.0, 0.0))
-        lines.append(
-            f"  - {name}（{sid} 标记）: 位置 ({pos[0]:.2f}, {pos[1]:.2f})"
-        )
+        rule = scenario.position_rules.get(sid)
+        if rule is not None and is_targetless_position_rule(rule):
+            lines.append(f"  - {name}（{sid} 标记）: 无空间目标（targetless）")
+        else:
+            pos = subtask_positions.get(sid)
+            if pos is None:
+                lines.append(f"  - {name}（{sid} 标记）: 位置未解析")
+            else:
+                lines.append(
+                    f"  - {name}（{sid} 标记）: 位置 ({pos[0]:.2f}, {pos[1]:.2f})"
+                )
         lines.append(f"    要求: {desc}")
 
     lines.append("\n机器人当前位置与能力：")
@@ -45,6 +56,8 @@ def build_scene_description(
         lines.append(active_rescue_extra)
 
     for block in scenario.subtask_constraints:
+        if block.subtask_id in excluded:
+            continue
         lines.append(f"\n{block.title}")
         for ln in block.lines:
             lines.append(f"  {ln}")

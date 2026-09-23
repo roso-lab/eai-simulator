@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+import math
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from .algorithm_paths import ensure_fire_rescue_algorithm_paths
@@ -203,18 +204,55 @@ def build_factory_emos_manager(
     )
 
 
+def require_spatial_target_xy(target_xy: Any, *, robot_name: str) -> Tuple[float, float]:
+    """Domain-level Fire Rescue navigation target check (never invents (0, 0))."""
+    if target_xy is None:
+        raise ValueError(
+            f"Fire Rescue navigation requires spatial target_xy for {robot_name!r}; got None"
+        )
+    if not isinstance(target_xy, (tuple, list)) or len(target_xy) != 2:
+        raise ValueError(
+            f"Fire Rescue target_xy for {robot_name!r} must be a length-2 tuple/list"
+        )
+    if any(
+        value is None
+        or isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        for value in target_xy
+    ):
+        raise ValueError(
+            f"Fire Rescue target_xy for {robot_name!r} has non-finite/null components: "
+            f"{target_xy!r}"
+        )
+    gx, gy = float(target_xy[0]), float(target_xy[1])
+    if not (math.isfinite(gx) and math.isfinite(gy)):
+        raise ValueError(
+            f"Fire Rescue target_xy for {robot_name!r} must be finite: {target_xy!r}"
+        )
+    return (gx, gy)
+
+
 def interpret_factory_tasks(result: Dict[str, Any]) -> List[FireRescueInterpretedTask]:
+    """Convert EMOS RobotTask results into Fire Rescue navigation tasks.
+
+    Fire Rescue currently only executes spatial navigation subtasks. A missing
+    or null ``target_xy`` (including ``(None, None)`` / ``[None, None]``) is a
+    hard failure — never invent ``(0, 0)`` or silently skip the robot.
+    """
     interpreted: List[FireRescueInterpretedTask] = []
     for robot_name, task in result.items():
         raw = FACTORY_EMOS_AGENT_RESUMES.get(robot_name, {})
         colour = str(getattr(task, "subtask_colour", "") or "").lower().strip()
+        gx, gy = require_spatial_target_xy(
+            getattr(task, "target_xy", None), robot_name=robot_name
+        )
         interpreted.append(
             FireRescueInterpretedTask(
                 robot_name=robot_name,
                 robot_type_label=str(raw.get("robot_type", robot_name)),
                 subtask_colour=str(getattr(task, "subtask_colour", "")),
                 subtask_name=str(getattr(task, "subtask_name", "")),
-                target_xy=tuple(getattr(task, "target_xy", (0.0, 0.0))),
+                target_xy=(gx, gy),
                 event_kind=COLOUR_TO_EVENT.get(colour, FireRescueEventKind.UNKNOWN),
             )
         )
