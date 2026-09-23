@@ -18,6 +18,24 @@ PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
 
 For an existing directory, run the same command without `--copy-to`. A successful
 report requires both `hash_resolver=passed` and `source_closure_exists=true`.
+
+On a clean checkout whose absolute path differs from the path embedded in the
+frozen overlay, materialize the explicitly reviewed source at that reference
+before inspection. The command checks existing bytes and refuses a mismatch;
+it does not rewrite the overlay or product files:
+
+```bash
+PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
+  /home/pupil/miniconda3/envs/env_isaaclab/bin/python \
+  tools/assets/prepare_restaurant_benchmark_assets.py \
+  --candidate-root tmp/restaurant_benchmark/products-candidate-v7 \
+  --source-usd "$PWD/usd/scene/restaurant/Restaurant_Only.usda"
+```
+
+Run this command in both the local and ljy isolated worktrees, using each host's
+own checkout source. Preserve the JSON report and the source SHA256 with the
+episode preflight record. If destination bytes differ, stop and review the
+candidate/source version instead of replacing the file.
 Only then may the normal pre-episode command be attempted:
 
 ```bash

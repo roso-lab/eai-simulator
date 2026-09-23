@@ -14,6 +14,7 @@ import argparse
 import json
 import re
 import shutil
+import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -65,6 +66,37 @@ def inspect_candidate(root: str | Path) -> dict[str, Any]:
     return result
 
 
+def materialize_source_closure(candidate: str | Path, source_usd: str | Path) -> dict[str, Any]:
+    """Place the explicitly supplied source at the frozen overlay reference.
+
+    The overlay bytes and product hashes are never edited. Existing destination
+    bytes must match exactly; this prevents a clean host from silently binding a
+    different scene source under the same frozen candidate.
+    """
+    candidate_root = Path(candidate).expanduser().resolve()
+    source = Path(source_usd).expanduser().resolve()
+    overlay = candidate_root / PRODUCT_FILES[0]
+    if not source.is_file():
+        raise RuntimeError(f"source USD does not exist: {source}")
+    destination = _source_reference(overlay)
+    source_hash = hashlib.sha256(source.read_bytes()).hexdigest()
+    if destination.exists():
+        if not destination.is_file():
+            raise RuntimeError(f"source closure destination is not a file: {destination}")
+        destination_hash = hashlib.sha256(destination.read_bytes()).hexdigest()
+        if destination_hash != source_hash:
+            raise RuntimeError(
+                f"source closure bytes differ at {destination}: "
+                f"expected {source_hash}, found {destination_hash}")
+        copied = False
+    else:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, destination)
+        copied = True
+    return {"source": str(source), "destination": str(destination),
+            "sha256": source_hash, "copied": copied}
+
+
 def copy_candidate(source: str | Path, target: str | Path) -> dict[str, Any]:
     source_root = Path(source).expanduser().resolve()
     target_root = Path(target).expanduser().resolve()
@@ -86,11 +118,21 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--candidate-root", type=Path, required=True)
     parser.add_argument("--copy-to", type=Path)
+    parser.add_argument(
+        "--source-usd", type=Path,
+        help="explicit Restaurant_Only.usda used to materialize the frozen overlay reference",
+    )
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
+    if args.source_usd is not None:
+        closure = materialize_source_closure(args.candidate_root, args.source_usd)
+    else:
+        closure = None
     result = (copy_candidate(args.candidate_root, args.copy_to)
               if args.copy_to is not None
               else inspect_candidate(args.candidate_root))
+    if closure is not None:
+        result["source_closure_materialized"] = closure
     print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
     return 0 if result.get("status") == "ready" else 2
 

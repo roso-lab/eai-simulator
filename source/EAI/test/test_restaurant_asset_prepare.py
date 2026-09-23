@@ -2,7 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from tools.assets.prepare_restaurant_benchmark_assets import _source_reference, inspect_candidate
+from tools.assets.prepare_restaurant_benchmark_assets import (
+    _source_reference, inspect_candidate, materialize_source_closure,
+)
 
 
 def test_source_reference_is_resolved_relative_to_overlay(tmp_path: Path):
@@ -34,3 +36,21 @@ def test_inspection_rejects_overlay_without_source_reference(tmp_path: Path):
         (root / name).write_text("x", encoding="utf-8")
     with pytest.raises(RuntimeError, match="source reference"):
         inspect_candidate(root)
+
+
+def test_materialize_source_closure_preserves_overlay_and_rejects_byte_mismatch(tmp_path: Path):
+    root = tmp_path / "candidate"
+    root.mkdir()
+    overlay = root / "restaurant_benchmark_bench.usda"
+    overlay.write_text("prepend references = @../assets/Restaurant_Only.usda@\n", encoding="utf-8")
+    source = tmp_path / "reviewed.usda"
+    source.write_bytes(b"reviewed-source")
+    original_overlay = overlay.read_bytes()
+    report = materialize_source_closure(root, source)
+    assert report["copied"] is True
+    assert Path(report["destination"]).read_bytes() == source.read_bytes()
+    assert overlay.read_bytes() == original_overlay
+    assert materialize_source_closure(root, source)["copied"] is False
+    Path(report["destination"]).write_bytes(b"different-source")
+    with pytest.raises(RuntimeError, match="bytes differ"):
+        materialize_source_closure(root, source)

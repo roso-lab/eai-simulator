@@ -21,6 +21,7 @@
 | `c0ecbd3` | 云边端通信池：backhaul 上下行、p2p、单机接入、丢包分类和 C/C0 摘要 |
 | `14911e4` | 连续 AoI：按 `(recipient, information_id)` 记录覆盖区间、面积、时间均值/P95，并兼容旧事件级回放 |
 | `a878a53` | B3a 可信状态绑定合同：冻结五场景任务/注册表/资产/技能版本、事实来源与硬终局谓词；grounding 失败不产生第三类标签 |
+| `WORKTREE` | 餐厅资产准备脚本新增显式 `--source-usd` 闭包物化：按冻结 overlay 引用路径复制并逐字节校验，冲突即失败 |
 
 ## 评分路线与阶段依赖
 
@@ -95,6 +96,11 @@ ljy 隔离工作树通过 git bundle 同步到同一提交后，通信与评分�
 B3a 定向合同与现有剩余可行性 oracle 回归 **17 passed**，评分/部署/通信联合回归
 **157 passed**。合同不会自行生成 `deployable`/`not_deployable`；只有已注册的剩余任务
 求解器可以提供二元标签，五场景 native reader 尚未认证。
+
+餐厅资产准备新增闭包物化定向测试，与 B3a/评分侧车合计 **34 passed**；尚未对正式
+v7 目录执行物化，避免未经用户明确批准在 `/home/eai-simulator` 外创建源文件。正式
+episode 仍需在本机和 ljy 各自用审查过的 `Restaurant_Only.usda` 执行该步骤并保存
+source SHA256，然后才能进入启动前 preflight。
 
 已将完整 `672f2dc` bundle 同步到 ljy 隔离工作树（未触碰 ljy 原仓未提交修改），
 同一专项测试结果为 **134 passed，0.26秒**。远端专项包含通信旧/新池、评分侧车、
