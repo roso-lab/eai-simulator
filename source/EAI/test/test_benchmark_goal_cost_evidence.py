@@ -12,6 +12,8 @@ def test_raw_cost_evidence_keeps_unavailable_sources_null(tmp_path):
 
     assert result["schema"] == "eai.benchmark.goal_raw_cost_evidence"
     assert result["version"] == 1
+    assert result["clock_source"] == "goal_host_receipt_clock"
+    assert result["clock_valid"] is False
     assert result["clock"]["valid"] is False
     assert result["clock"]["elapsed_s"] is None
     assert result["accepted_actions"]["total_count"] is None
@@ -63,6 +65,8 @@ def test_raw_cost_evidence_joins_trusted_clock_actions_proxy_and_replayed_bytes(
         "source": "goal_host_receipt_clock", "start_s": 0.0,
         "end_s": 4.5, "elapsed_s": 4.5, "valid": True,
     }
+    assert result["clock_source"] == "goal_host_receipt_clock"
+    assert result["clock_valid"] is True
     assert result["accepted_actions"] == {
         "counts_by_type": {"dispatch_skill": 2, "select_team": 1, "submit_plan": 1},
         "total_count": 4,

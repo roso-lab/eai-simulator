@@ -80,6 +80,7 @@ def build_archive_index(output_root: str | Path) -> dict[str, Any]:
         "camera_render_failures.json",
         "deployment_assessment_report.json",
         "deployment_feasibility_evidence.json", "deployment_protocol_error.json",
+        "cost_evidence.json",
     )
     files = {}
     for name in names:
@@ -332,6 +333,11 @@ def build_scoring_adapter_metadata(
         raise ValueError("public_task.task_id must be a nonempty string")
     if not isinstance(scene_key, str) or not scene_key.strip():
         raise ValueError("public_task.mission.scene_key must be a nonempty string")
+    from .goal_cost_evidence import build_cost_evidence
+
+    # Cost evidence is an auditable raw sidecar.  It intentionally preserves
+    # missing clocks/ledgers as null and never promotes release flags.
+    cost_evidence = build_cost_evidence(output_root)
     return {
         "schema": SCORING_ADAPTER_SCHEMA,
         "version": SCORING_ADAPTER_VERSION,
@@ -344,6 +350,7 @@ def build_scoring_adapter_metadata(
         "deployment_assessment": _assessment_archive(
             Path(output_root), episode_id=episode_id, task_sha256=canonical_sha256(public_task)),
         "plan_admission": _plan_admission_archive(Path(output_root)),
+        "cost_evidence": cost_evidence,
         "condition": {
             "id": public_task.get("condition_id"),
             "seed": public_task.get("seed"),

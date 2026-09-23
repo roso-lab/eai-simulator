@@ -27,6 +27,9 @@ def test_scoring_sidecar_is_raw_only_and_has_no_protocol_branch(tmp_path):
     assert metadata["execution_validated"] is False
     assert metadata["scoreable"] is False
     assert metadata["archive_index"]["files"]["participant_trace.json"]["bytes"] > 0
+    assert metadata["cost_evidence"]["raw_only"] is True
+    assert metadata["cost_evidence"]["validity"]["scoreable"] is False
+    assert metadata["cost_evidence"]["communication"]["total_bytes"] is None
 
 
 def test_archive_index_distinguishes_missing_files(tmp_path):

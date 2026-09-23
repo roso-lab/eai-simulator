@@ -214,6 +214,8 @@ def build_raw_cost_evidence(
         "version": VERSION,
         "raw_only": True,
         "not_protocol_score": True,
+        "clock_source": clock["source"],
+        "clock_valid": clock["valid"],
         "clock": clock,
         "accepted_actions": {
             "counts_by_type": action_counts,
