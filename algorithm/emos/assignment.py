@@ -113,7 +113,12 @@ def _can_take_yellow_agent(
         return bool(prefix) and robot_name.startswith(prefix)
     cap_text = " ".join(profile.capabilities).lower()
     required_keywords = ["四足", "翻越", "quadruped"]
-    return any(kw in cap_text for kw in required_keywords)
+    # A scenario may declare eligibility by an explicit stable robot prefix
+    # (for example warehouse_ground_*).  Keep that contract alongside the
+    # capability-text check used by Fire Rescue; otherwise a generic
+    # navigation profile is incorrectly treated as an exhausted yellow pool.
+    return ((bool(prefix) and robot_name.startswith(prefix))
+            or any(kw in cap_text for kw in required_keywords))
 
 
 def excluded_subtask_ids_for_completed(
