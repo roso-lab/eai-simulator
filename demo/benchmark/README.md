@@ -567,3 +567,8 @@ and `execution_validated=false`: they are contract-review artifacts until the
 listed provider, live-domain, lifecycle/factor and reference-execution blockers
 are closed.  The maintained Chinese phase checklist is
 [`TODO.zh-CN.md`](TODO.zh-CN.md).
+
+2026-09-23 接力集成与验证限制见
+[`INTEGRATION_STATUS_20260923.zh-CN.md`](INTEGRATION_STATUS_20260923.zh-CN.md)。
+下一阶段优先实现[`部署可行性确认 P0`](DEPLOYMENT_ASSESSMENT_P0.zh-CN.md)，
+其后再按[`Checkpoint 设计`](SCORING_CHECKPOINT_DESIGN.zh-CN.md)建设恢复与分支评分。
