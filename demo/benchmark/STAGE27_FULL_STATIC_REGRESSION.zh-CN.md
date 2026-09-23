@@ -14,3 +14,5 @@ python -m pytest -q source/EAI/test
 首次运行未加入 `source/EAI_env_diy` 时在收集阶段缺少 `EAI_env_diy`；补齐仓库 source 路径后才得到上述完整结果。ROS pytest 插件自动加载仍需禁用，因为环境缺少 `lark`。
 
 因此本阶段完成轻量代码回归，但仍不能宣称正式 Isaac episode、Factory 资产版本门禁或 scoreable 发布已完成；三个发布标志继续为 `false`。
+
+ljy 端在带有既有场景运行资产的隔离树 `/home/ljy/eai-simulator-worktrees/benchmark-scoring-20260923-19eee7e` 上同步同一提交后得到 `2805 passed, 9 skipped, 2 failed`。两项失败均为 Factory USD 文件缺失；其余测试通过。另一个从 git bundle 新建的纯代码树因缺少多个 `.gitignore` 资产产生大量连锁失败，未作为代码回归结论使用。
