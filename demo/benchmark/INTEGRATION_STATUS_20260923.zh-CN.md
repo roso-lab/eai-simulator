@@ -65,6 +65,10 @@ failed/null。最新本机部署/session/host/runner/工具/评分/oracle专项
 
 以下保留较早基线的历史证据；远端资产缺口随后已补齐，不再是当前回归阻塞：
 
+A1 双机全量复验（`672f2dc`）：本机 **2229 passed，234.35秒**；ljy
+**2221 passed、8 skipped，87.12秒**。跳过原因未收集，不能宣称全量全部通过；本轮
+没有原生 Isaac episode，发布标志不变。
+
 本机评分/runner/工具专项249项通过；后续新增生命周期与餐厅测试87项通过。
 最终本机完整`source/EAI/test/test_benchmark_*.py`：**2155 passed，230.41秒**；
 日志`/tmp/eai-benchmark-final-1687a49.log`。
