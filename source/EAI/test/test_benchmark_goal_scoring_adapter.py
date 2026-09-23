@@ -147,3 +147,18 @@ def test_superseded_unanswered_epoch_is_not_lost():
     result = deployment_assessment_observations(report, task_sha256="task-hash")
     assert result["accuracy_denominator"] == 3
     assert result["missing_assessment_count"] == 2
+
+
+def test_one_failed_oracle_excludes_whole_episode_not_just_bad_point():
+    report = assessment_report("deployable", "deployable")
+    report["events"].append({"sequence": 3, "time_s": 4, "type": "deployment_assessment_required",
+                             "payload": {"assessment_id": "a1", "assessment_epoch": 1}})
+    report["deployment_assessment"]["oracle_evaluations"].append({
+        "assessment_id": "a1", "assessment_epoch": 1, "oracle_status": "failed",
+        "feasibility_label": None, "platform_valid": False, "evidence_refs": [], "evaluator_ref": "failed-oracle"})
+    result = deployment_assessment_observations(report, task_sha256="task-hash")
+    assert result["excluded_from_deployment_metrics"] is True
+    assert result["accuracy_denominator"] == 0
+    assert sum(result["classification_counts"].values()) == 0
+    assert result["oracle_infrastructure_failure_count"] == 1
+    assert result["records"][0]["classification"] == "correct_deployment"  # raw diagnostic only

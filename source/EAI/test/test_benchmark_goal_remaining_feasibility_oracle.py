@@ -144,11 +144,15 @@ def test_runner_hook_evaluates_before_decision_and_does_not_expose_actions_to_gr
         "runtime_state": {"objects": "actual-trusted-snapshot"},
         "actions": [{"decision": "must-not-reach-grounder"}],
         "deployment_assessment": {"status": "required", "assessment_id": "a1",
-            "assessment_epoch": 1, "public_task_sha256": "task", "runtime_state": None}}}
+            "assessment_epoch": 1, "public_task_sha256": "task", "runtime_state": None,
+            "roster_version": 1, "capability_versions": {"clerk": 1}, "resource_versions": {}}}}
     result = oracle("episode", trusted)
     assert result["feasibility_label"] == "deployable" and result["oracle_status"] == "verified"
     assert received[0]["runtime_state"] == trusted["session"]["runtime_state"]
     assert "must-not-reach-grounder" not in str(received)
+    trusted["session"]["current_time_s"] = 5.0
+    stale = oracle("episode", trusted)
+    assert stale["oracle_status"] == "failed" and stale["feasibility_label"] is None
     trusted["session"]["deployment_assessment"]["status"] = "deployable"
     with pytest.raises(ValueError, match="before declaration"):
         oracle("episode", trusted)

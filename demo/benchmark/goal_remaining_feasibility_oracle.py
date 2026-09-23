@@ -240,10 +240,19 @@ class RegisteredRemainingTaskOracle:
         snapshot["runtime_state"] = deepcopy(session.get("runtime_state"))
         snapshot["oracle_at_s"] = session["current_time_s"]
         observation = self._provider(snapshot)
+        observed_state = observation["state"]
+        binding_matches = (
+            observed_state.get("time_s") == session["current_time_s"]
+            and observed_state.get("roster_version") == gate.get("roster_version")
+            and observed_state.get("capability_versions") == gate.get("capability_versions")
+            and observed_state.get("resource_versions", {}) == gate.get("resource_versions", {}))
+        grounding = observation["grounding"] if binding_matches else {"status": "failed"}
         result = query_remaining_feasibility(
             self._registration, measurement_id=observation["measurement_id"], episode_id=episode_id,
             assessment_id=gate["assessment_id"], assessment_epoch=gate["assessment_epoch"],
-            task_sha256=gate["public_task_sha256"], state=observation["state"], grounding=observation["grounding"])
+            task_sha256=gate["public_task_sha256"], state=observed_state, grounding=grounding)
+        if not binding_matches:
+            result["quality_failure"] = "measurement_snapshot_binding_mismatch"
         self._results.append(result)
         return {key: deepcopy(result[key]) for key in (
             "assessment_id", "assessment_epoch", "feasibility_label", "oracle_status",

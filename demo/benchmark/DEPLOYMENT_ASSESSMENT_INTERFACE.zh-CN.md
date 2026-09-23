@@ -63,8 +63,9 @@ runner 在每个 required epoch 的 participant `act()` 之前调用：
 assessment_evaluator(episode_id, trusted_report) -> evaluation
 ```
 
-Oracle 此时只看到当前门禁快照；当前 participant decision 尚不存在，history 也
-尚无本轮声明。返回对象必须严格包含七个字段：
+此时本轮 participant decision 尚不存在，history 尚无本轮声明。通用可信hook
+收到宿主诊断报告；`RegisteredRemainingTaskOracle`进一步只将当前快照交给量测
+provider，不传历史计划或参与者声明。返回对象必须严格包含七个字段：
 
 ```json
 {

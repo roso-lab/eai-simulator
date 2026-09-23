@@ -204,6 +204,7 @@ def deployment_assessment_observations(
             "records": records, "accuracy_denominator": len(required) if episode_eligible else 0,
             "accuracy_denominator_scope": "all_required_epochs_of_oracle_verified_episodes_including_missing_answers",
             "episode_oracle_eligible": episode_eligible,
+            "excluded_from_deployment_metrics": not episode_eligible,
             "required_epoch_count": len(required) if required else None,
             "unanswered_epochs": [{"assessment_id": key[0], "assessment_epoch": key[1]}
                                    for key in unanswered],

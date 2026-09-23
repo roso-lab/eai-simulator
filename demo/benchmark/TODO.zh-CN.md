@@ -21,14 +21,22 @@
 产生终止性的human_assistance_requested，不补资源、不重试。团队/能力/资源
 预注册变化后重新评估。团队不可行是有效题目，平台基础设施错误必须单列。
 
-- [ ] P0-1 版本化action/event及GoalSession门禁。
-- [ ] P0-2 Host/runner重新评估、求助终止、参与者升级与成本归档。
+- [x] P0-1 版本化action/event及GoalSession门禁：v3显式启用，冻结v2兼容；工程分支已集成。
+- [ ] P0-2 Host/runner重新评估、求助终止已接；既有参与者升级及完整成本源仍待完成。
 - [ ] P0-3 五场景初始不可行、关键能力运行中失联/降级实例及隐藏独立校验。
 - [ ] P0-4 sidecar/Checkpoint加入评估轮次、触发/通知/声明时间和成本截点。
 - [ ] P0-5 可行、初始不可行、动态不可行及防绕过回归；原生门禁保持false。
 
 详细交接、依赖、写集、原因类别与验收见
 [部署可行性确认P0](DEPLOYMENT_ASSESSMENT_P0.zh-CN.md)。这是下一阶段实现任务，尚未上线。
+
+最新实现：门禁分支`5019e08`等价合入为`98106e7`；模型声明前缓存二元oracle，
+独立保留未作答轮次，求助终止后阻断工具和派遣。独立工程回归232+57项通过；
+合入后的门禁/五场景候选/必要条件/oracle/评分侧车定向68项通过。
+五场景候选仍属作者诊断，不是已认证正式样本。完整剩余任务oracle尚需原生谓词映射与
+所有预注册测量点的完备性认证；`oracle_status=failed`使episode整体退出部署指标，
+正式真值没有第三类。见[阶段清单](DEPLOYMENT_STAGE_PLAN.zh-CN.md)和
+[剩余可行性oracle](REMAINING_FEASIBILITY_ORACLE.zh-CN.md)。
 
 ### 2026-09-23 Cursor 接力集成与评分主线纠正
 
