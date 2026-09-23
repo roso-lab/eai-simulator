@@ -7,6 +7,10 @@
 室内正式 episode 的逐机器人接近/连接诊断及理想抓取边界，见
 [室内执行诊断](INDOOR_EXECUTION_DIAGNOSTICS.zh-CN.md)。执行器失败不等于模型分配错误。
 
+五场景的最新高层任务审查见 [六能力轴设计审查与阶段任务](CAPABILITY_DESIGN_AUDIT.zh-CN.md)。
+它区分题面能力要求、实际模型决定权与运行证据；规模响应和失效恢复分别审查，
+模板数量及见证播放成功均不能替代能力测量。
+
 The independent applications are [Factory](../factory_benchmark/README.zh-CN.md),
 [Warehouse](../warehouse_benchmark/README.zh-CN.md) and
 [Modern House](../modern_house_benchmark/README.zh-CN.md).
