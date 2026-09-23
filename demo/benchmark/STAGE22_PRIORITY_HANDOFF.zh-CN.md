@@ -37,7 +37,7 @@ SHA256、冻结 resolver 输入和 episode 启动前 preflight。不能放宽 ov
 
 - 当前 Goal episode 尚未统一接入机器人→云、云→机器人和机器人↔机器人真实通信。
 - 五场景 native oracle 尚未全部达到 `verified`。
-- checkpoint/sham 尚未实现真实保存恢复。
+- checkpoint/sham 已有离线接口与 fixture，但尚未实现真实保存恢复。
 - 餐厅 A2 双机资产证据尚未完成。
 
 全程保持：
