@@ -28,3 +28,6 @@ remaining oracle、deployment、checkpoint、USD closure：55 passed
 
 评分侧车同时接受可选的 `native_oracle_registry_audit.json`，保留其 `verified`、`failed` 或
 `invalid` 状态和哈希；缺失/失败只作为评测基础设施证据，不进入部署判断分母。
+
+评分侧车加入 registry 归档后，本机和 ljy 同一带运行资产隔离树的 focused
+scoring/registry/communication/餐厅资产集合均为 `56 passed`。
