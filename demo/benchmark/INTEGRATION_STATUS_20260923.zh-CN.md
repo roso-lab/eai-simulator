@@ -18,7 +18,8 @@
 | `98106e7`、`ce65318` | v3部署门禁、五场景候选、固定风险集和评分侧车接线 |
 | `abff921` | 运行中成员/能力失效端到端测试，暴露模型异常后的取消缺口 |
 | `daef408` | 编键随机流：传感器和 physics replay 按过程/实体/事件键抽样，保留旧录制兼容 |
-| `c0ecbd3` | 云边端通信池：backhaul 上下行、p2p、单机接入、丢包分类、AoI 和 C/C0 摘要 |
+| `c0ecbd3` | 云边端通信池：backhaul 上下行、p2p、单机接入、丢包分类和 C/C0 摘要 |
+| `14911e4` | 连续 AoI：按 `(recipient, information_id)` 记录覆盖区间、面积、时间均值/P95，并兼容旧事件级回放 |
 
 ## 评分路线与阶段依赖
 
@@ -80,8 +81,8 @@ failed/null。最新本机部署/session/host/runner/工具/评分/oracle专项
 本次增量未重跑远端或全量；子代理工作已结束，按用户要求不展开下一阶段。
 
 本轮新增 B/D 专项回归 **209 passed**（通信旧/新池、Goal session/adapter、编键
-随机流、physics replay）；通信池仍未接入真实三层 episode，AoI尚未实现连续时间面积
-统计。餐厅准备命令对现有 v7 的结果为 `hash_resolver=passed`、
+随机流、physics replay）；连续 AoI 另有通信专项 **105 passed**，但通信池仍未接入
+真实三层 episode。餐厅准备命令对现有 v7 的结果为 `hash_resolver=passed`、
 `source_closure_missing`，因此没有启动正式 episode。
 
 已将完整 `672f2dc` bundle 同步到 ljy 隔离工作树（未触碰 ljy 原仓未提交修改），
