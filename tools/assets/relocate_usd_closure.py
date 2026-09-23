@@ -86,7 +86,10 @@ def relocate(roots, *, source_root, destination, boundary, backup, aliases=None)
             shutil.copy2(source, target)
     for source, layer in layers.items():
         if source == mapping[source] and source in rewritten:
-            layer.Reload()
+            # USD 0.24 can retain the pre-replace layer when the atomic export
+            # lands within its coarse mtime bucket. Force the reload so the
+            # cached layer and the serialized file stay in agreement.
+            layer.Reload(True)
     report = audit([mapping[Path(root).resolve()] for root in roots], boundary=boundary, hashes=True)
     report["repairs"] = repairs
     report["copied_files"] = sum(source != target for source, target in mapping.items())
