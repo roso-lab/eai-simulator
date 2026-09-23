@@ -32,6 +32,27 @@ mesh because simplification left invalid material-subset indices. The source has
 unchanged transform and non-mesh-content checks, and original optimized-asset backup
 are retained in `tmp/factory_benchmark/pegasus_visual_repair/`.
 
+## Restaurant benchmark products
+
+`build_restaurant_products.py` derives a metric Restaurant wrapper, a tri-state
+ROS occupancy map, and static collision proxies from the same composed source
+triangles. It requires the source entry and effective closure to match the
+policy in `demo.restaurant_benchmark.config`, writes only to an explicit output
+directory, and labels every bundle `local_candidate`. The checker binds the
+current generator and source hashes and requires exact occupied-cell equality
+between the PNG and USD proxy inventory.
+
+```bash
+PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
+  python -m tools.assets.build_restaurant_products \
+  --source-usd "$EAI_USD_ROOT/scene/restaurant/Restaurant_Only.usda" \
+  --output-dir tmp/restaurant_benchmark/products-candidate
+```
+
+Generated Restaurant products remain runtime evidence below `tmp/`; do not
+commit or publish them until native physics, navigation, and business-episode
+gates have passed.
+
 ## NVD benchmark products
 
 `rebuild_nvd_products.py` regenerates ground occupancy, drone voxels and collision

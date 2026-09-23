@@ -60,6 +60,14 @@ _SCENE_PATHS = {
     # files only, so no provider download is declared for it.
     "warehouse_nvd": ("scene/warehouse_nvd/warehouse_nvd_bench.usd",),
     "modern_house_nvd": ("scene/modern_house_nvd/modern_house_nvd_bench.usd",),
+    # The restaurant is a local authoring package. Its composed dependency
+    # closure is audited separately because it is not yet a published provider
+    # bundle and has no benchmark occupancy product.
+    "restaurant": ("scene/restaurant/Restaurant_Only.usda",),
+    # A local candidate is selected through EAI_RESTAURANT_BENCHMARK_ROOT.
+    # Its resolver validates an explicit staging directory; it is not a
+    # provider download until the benchmark release gates have passed.
+    "restaurant_benchmark": (),
     "airs": ("scene/airs/airs.usd", *SCENE_MAP_PATHS["airs"]),
     "desert": ("scene/desert/real_dust_scene_tiny.usda", *SCENE_MAP_PATHS["desert"]),
     "hospital": (
@@ -258,6 +266,12 @@ _CONTROLLER_PATHS = {
         "rl/m20_rough_rsl/__init__.py",
         "rl/m20_rough_rsl/m20_rough_rsl.py",
         "rl/m20_rough_rsl/model/m20_rough.onnx",
+    ),
+    "M20_NAV_RSL_CFG": (
+        "rl/m20_nav_rsl/__init__.py",
+        "rl/m20_nav_rsl/m20_nav_rsl.py",
+        "rl/m20_nav_rsl/model/nav.onnx",
+        "rl/m20_nav_rsl/model/controller.onnx",
     ),
     "LITE3_VELOCITY_RSL_CFG": (
         "rl/lite3_rsl_rl/__init__.py",

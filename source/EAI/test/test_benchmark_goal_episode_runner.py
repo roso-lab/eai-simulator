@@ -110,6 +110,40 @@ def test_formal_runner_keeps_one_episode_identity_and_pending_release(tmp_path: 
     assert '"scoreable": false' in (root / "business_evidence.json").read_text()
     assert '"episode_id": "formal-runner-warehouse-001"' in (root / "participant_trace.json").read_text()
     assert '"episode_id": "formal-runner-warehouse-001"' in (root / "hidden_evaluator_trace.json").read_text()
+    usage = json.loads((root / "team_usage.json").read_text())
+    assert usage["selected_team"] == [robot]
+    assert usage["active_agents"] == [robot]
+    assert usage["action_count"] == 3
+
+
+def test_formal_runner_rejects_partial_business_evaluator_output(tmp_path: Path):
+    bundle = build_goal_task_package("warehouse_nvd")
+    public, api = bundle["public_task"], bundle["participant_api"]
+    robot = "warehouse_ground_1"
+    plan = {
+        "schema": "eai.benchmark.goal_plan", "version": GOAL_PLAN_VERSION,
+        "plan_id": "partial-evaluator-plan", "assigned_team": [robot],
+        "tasks": [{
+            "task_id": "formal_nav", "skill": "ground_navigation",
+            "arguments": {"region_id": "consolidation_area",
+                          "route_ids": ["rack_a_to_consolidation"]},
+            "required_capabilities": ["ground_navigation"],
+            "assigned_agents": [robot], "prerequisites": [], "evidence_refs": [],
+            "execution": {"start_s": 0.0, "duration_s": 16.0},
+        }],
+    }
+    regions = {row["id"]: "rack_aisle_a" for row in public["candidate_robot_pool"]}
+    objects = {row["id"]: {"region_id": row["physical_properties"]["initial_region_id"]}
+               for row in public["public_world"]["objects"]}
+    outcome = public["required_outcomes"][0]["id"]
+    result = FormalGoalEpisodeRunner(
+        public, api, _Adapter(plan, robot), _Backend(public, robot, regions, objects),
+        output_root=tmp_path / "partial", evaluator=lambda _episode, _trusted: {
+            outcome: {"status": "validated", "evidence_refs": ["partial:evidence"],
+                      "evaluator_ref": "partial-test"}},
+    ).run(initial_state={"robot_regions": regions, "object_states": objects})
+    assert "every required outcome exactly" in result["error"]
+    assert result["business_outcomes_validated"] is False
 
 
 def test_subprocess_goal_adapter_exposes_only_public_json_boundary(tmp_path: Path):

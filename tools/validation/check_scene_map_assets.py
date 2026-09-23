@@ -32,21 +32,25 @@ from EAI_assets.scene_resources import (  # noqa: E402
 
 def _check_scene_requirements() -> None:
     scene_keys = tuple(key for key, _label in scene_choices())
-    assert scene_keys == tuple(SCENE_MAP_PATHS)
-    assert scene_keys == tuple(_SCENE_PATHS)
+    assert set(scene_keys) == set(_SCENE_PATHS)
+    assert set(SCENE_MAP_PATHS).issubset(scene_keys)
 
     for scene_key in scene_keys:
-        expected_maps = (
-            f"scene/{scene_key}/{scene_key}_map.yaml",
-            f"scene/{scene_key}/{scene_key}_map.png",
-        )
-        assert SCENE_MAP_PATHS[scene_key] == expected_maps
-        assert _SCENE_PATHS[scene_key][-2:] == expected_maps
-
         graph = resolve_selection({"scene_key": scene_key, "robots": []})
         requirement = next(item for item in graph.requirements if item.id == f"scene:{scene_key}")
         assert requirement.relative_paths == _SCENE_PATHS[scene_key]
-        assert requirement.remote_paths[-2:] == tuple(f"usd/{path}" for path in expected_maps)
+        if scene_key in SCENE_MAP_PATHS:
+            expected_maps = (
+                f"scene/{scene_key}/{scene_key}_map.yaml",
+                f"scene/{scene_key}/{scene_key}_map.png",
+            )
+            assert SCENE_MAP_PATHS[scene_key] == expected_maps
+            assert _SCENE_PATHS[scene_key][-2:] == expected_maps
+            assert requirement.remote_paths[-2:] == tuple(
+                f"usd/{path}" for path in expected_maps
+            )
+        else:
+            assert scene_key not in SCENE_RESOURCE_PATHS
 
 
 def _check_scene_resource_api() -> None:

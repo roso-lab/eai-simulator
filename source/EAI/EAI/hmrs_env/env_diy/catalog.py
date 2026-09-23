@@ -22,6 +22,8 @@ SCENE_CHOICES = (
     ("rmuc2024", "RMUC 2024"),
     ("warehouse_nvd", "Warehouse NVD benchmark overlay"),
     ("modern_house_nvd", "Modern House NVD benchmark overlay"),
+    ("restaurant", "Restaurant authoring scene"),
+    ("restaurant_benchmark", "Restaurant benchmark candidate overlay"),
 )
 
 ROBOT_KEYS = (
@@ -145,6 +147,7 @@ _CONTROLLER_CFG_NAMES = (
     "B2_VELOCITY_RSL_CFG",
     "B2_MIXED_STAIRS_CFG",
     "M20_ROUGH_RSL_CFG",
+    "M20_NAV_RSL_CFG",
     "SCOUT_DIFF_CFG",
     "MUSHR_ACKERMANN_CFG",
     "MUSHR_RWD_ACKERMANN_CFG",
@@ -161,6 +164,7 @@ _CONTROLLER_CFG_NAMES = (
 )
 
 _CONTROLLER_CFG_ROBOTS = {
+    "M20_NAV_RSL_CFG": ("m20",),
     "GO2_VELOCITY_RSL_CFG": ("go2",),
     "GO2_MIXED_STAIRS_CFG": ("go2",),
     "B2_MIXED_STAIRS_CFG": ("b2",),

@@ -162,7 +162,8 @@ def team_usage_summary(trusted_report: Mapping[str, Any],
     from the candidate-pool design when the scene provides one, 1.0
     otherwise - the source is declared either way).
     """
-    session = trusted_report.get("session", {})
+    nested = trusted_report.get("session")
+    session = nested if isinstance(nested, Mapping) else trusted_report
     actions = session.get("actions") or []
     selected: list[str] = []
     for row in actions:
@@ -171,14 +172,16 @@ def team_usage_summary(trusted_report: Mapping[str, Any],
             break
     plan_agents: set[str] = set()
     dispatched_agents: set[str] = set()
-    for plan in (session.get("plans") or {}).values():
+    plans = session.get("plans") or []
+    plan_rows = list(plans.values()) if isinstance(plans, Mapping) else list(plans)
+    for plan in plan_rows:
         for task in (plan.get("plan") or {}).get("tasks", []):
             plan_agents.update(str(a) for a in task.get("assigned_agents", []))
     for row in actions:
         if row.get("type") != "dispatch_skill":
             continue
         task_id = (row.get("payload") or {}).get("task_id")
-        for plan in (session.get("plans") or {}).values():
+        for plan in plan_rows:
             for task in (plan.get("plan") or {}).get("tasks", []):
                 if task.get("task_id") == task_id:
                     dispatched_agents.update(str(a) for a in task.get("assigned_agents", []))
@@ -331,6 +334,13 @@ class FormalGoalEpisodeRunner:
                     evaluations = self.evaluator(self.episode_id, host.trusted_report())
                     if not isinstance(evaluations, Mapping):
                         raise ValueError("business evaluator must return an object")
+                    required_outcomes = {
+                        row["id"] for row in self.public_task["required_outcomes"]
+                    }
+                    if set(evaluations) != required_outcomes:
+                        raise ValueError(
+                            "business evaluator must return every required outcome exactly"
+                        )
                     for outcome_id, row in evaluations.items():
                         data = dict(row)
                         result = host.record_business_outcome(
