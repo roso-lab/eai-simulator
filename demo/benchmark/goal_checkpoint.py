@@ -15,6 +15,7 @@ from copy import deepcopy
 import hashlib
 import json
 import math
+import re
 from typing import Any, Mapping, Sequence
 
 from EAI.keyed_random import KeyedRandom
@@ -36,6 +37,23 @@ STATE_DOMAINS = (
 )
 DOMAIN_STATUSES = frozenset({"verified", "missing"})
 BRANCH_IDS = frozenset({"fact", "reference", "sham", "intervention"})
+_CHECKPOINT_KEYS = frozenset({
+    "schema", "version", "checkpoint_id", "task_id", "task_contract_version",
+    "scene_version", "code_version", "asset_version", "entity_keys",
+    "condition_id", "pair_repeat", "trigger_event_key", "branch_id",
+    "parent_checkpoint_id", "state_domains", "state_payloads",
+    "state_payload_sha256", "clock", "restore_status", "replay_status",
+    "strict_branch_comparison_eligible", "raw_only", "not_protocol_score", "sha256",
+})
+_CLOCK_KEYS = frozenset({"sim_time_s", "decision_step", "resolution_s"})
+_SHAM_KEYS = frozenset({
+    "schema", "version", "fixture_only", "raw_only", "not_protocol_score",
+    "checkpoint_id", "checkpoint_sha256", "restore_status", "replay_status",
+    "strict_branch_comparison_eligible", "rng", "branches",
+})
+_RNG_KEYS = frozenset({"scheme", "seed", "process", "entity", "event_keys", "branch_draws"})
+_BRANCH_KEYS = frozenset({"state_sha256", "event_order"})
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 def _canonical(value: Any) -> str:
@@ -66,6 +84,55 @@ def _finite_number(value: Any, name: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
         raise ValueError(f"{name} must be a finite number")
     return float(value)
+
+
+def _nonnegative_number(value: Any, name: str) -> float:
+    number = _finite_number(value, name)
+    if number < 0.0:
+        raise ValueError(f"{name} must be nonnegative")
+    return number
+
+
+def _nonnegative_int(value: Any, name: str) -> int:
+    if type(value) is not int or value < 0:
+        raise ValueError(f"{name} must be a nonnegative integer")
+    return value
+
+
+def _sha256_text(value: Any, name: str) -> str:
+    if not isinstance(value, str) or _SHA256_RE.fullmatch(value) is None:
+        raise ValueError(f"{name} must be a lowercase SHA-256 hex digest")
+    return value
+
+
+def _clock_value(clock: Mapping[str, Any] | None) -> dict[str, Any]:
+    if clock is None:
+        return {"sim_time_s": None, "decision_step": None, "resolution_s": None}
+    value = dict(_mapping(clock, "clock"))
+    extra = set(value) - _CLOCK_KEYS
+    if extra:
+        raise ValueError(f"clock has unknown fields: {sorted(extra)}")
+    value.setdefault("sim_time_s", None)
+    value.setdefault("decision_step", None)
+    value.setdefault("resolution_s", None)
+    if value["sim_time_s"] is not None:
+        _nonnegative_number(value["sim_time_s"], "clock.sim_time_s")
+    if value["decision_step"] is not None:
+        _nonnegative_int(value["decision_step"], "clock.decision_step")
+    if value["resolution_s"] is not None:
+        resolution = _finite_number(value["resolution_s"], "clock.resolution_s")
+        if resolution <= 0.0:
+            raise ValueError("clock.resolution_s must be positive")
+    return value
+
+
+def _sequence_of_text(value: Any, name: str, *, unique: bool = False) -> list[str]:
+    if not isinstance(value, list):
+        raise ValueError(f"{name} must be an array of strings")
+    result = [_text(item, name[:-1] if name.endswith("s") else name) for item in value]
+    if unique and len(set(result)) != len(result):
+        raise ValueError(f"{name} must contain unique strings")
+    return result
 
 
 def build_checkpoint(
@@ -101,7 +168,7 @@ def build_checkpoint(
         (pair_repeat, "pair_repeat"), (trigger_event_key, "trigger_event_key"),
     ):
         _text(value, name)
-    if branch_id is not None and branch_id not in BRANCH_IDS:
+    if branch_id is not None and (not isinstance(branch_id, str) or branch_id not in BRANCH_IDS):
         raise ValueError(f"branch_id must be one of {sorted(BRANCH_IDS)}")
     if parent_checkpoint_id is not None:
         _text(parent_checkpoint_id, "parent_checkpoint_id")
@@ -115,10 +182,13 @@ def build_checkpoint(
     missing = set(STATE_DOMAINS) - set(domains)
     if unknown or missing:
         raise ValueError(f"state_domains must cover exactly required domains; unknown={sorted(unknown)}, missing={sorted(missing)}")
-    invalid = {key: value for key, value in domains.items() if value not in DOMAIN_STATUSES}
+    invalid = {
+        key: value for key, value in domains.items()
+        if not isinstance(value, str) or value not in DOMAIN_STATUSES
+    }
     if invalid:
         raise ValueError(f"invalid state domain statuses: {invalid}")
-    payloads = dict(state_payloads or {})
+    payloads = {} if state_payloads is None else dict(_mapping(state_payloads, "state_payloads"))
     extra_payloads = set(payloads) - set(STATE_DOMAINS)
     if extra_payloads:
         raise ValueError(f"state_payloads has unknown domains: {sorted(extra_payloads)}")
@@ -127,16 +197,7 @@ def build_checkpoint(
             raise ValueError(f"verified domain {domain!r} requires a payload")
         if domain in payloads:
             _canonical(payloads[domain])
-    if clock is None:
-        clock_value = {"sim_time_s": None, "decision_step": None, "resolution_s": None}
-    else:
-        clock_value = dict(_mapping(clock, "clock"))
-        for key in ("sim_time_s", "decision_step", "resolution_s"):
-            if key in clock_value and clock_value[key] is not None:
-                _finite_number(clock_value[key], f"clock.{key}")
-        clock_value.setdefault("sim_time_s", None)
-        clock_value.setdefault("decision_step", None)
-        clock_value.setdefault("resolution_s", None)
+    clock_value = _clock_value(clock)
     payload_hashes = {
         domain: _digest(payloads[domain]) for domain in sorted(payloads)
     }
@@ -171,28 +232,62 @@ def build_checkpoint(
 def validate_checkpoint(checkpoint: Mapping[str, Any]) -> dict[str, Any]:
     """Validate structure and content hashes, returning a defensive copy."""
     data = dict(_mapping(checkpoint, "checkpoint"))
-    if data.get("schema") != CHECKPOINT_SCHEMA or data.get("version") != CHECKPOINT_VERSION:
+    if set(data) != _CHECKPOINT_KEYS:
+        raise ValueError("checkpoint fields are incomplete or unknown")
+    if data.get("schema") != CHECKPOINT_SCHEMA or type(data.get("version")) is not int or data.get("version") != CHECKPOINT_VERSION:
         raise ValueError("unsupported checkpoint schema or version")
     supplied = data.get("sha256")
     if not isinstance(supplied, str) or supplied != _digest({key: value for key, value in data.items() if key != "sha256"}):
         raise ValueError("checkpoint digest mismatch")
+    for key in ("checkpoint_id", "task_id", "task_contract_version", "scene_version",
+                "code_version", "asset_version", "condition_id", "pair_repeat",
+                "trigger_event_key"):
+        _text(data.get(key), key)
+    branch_id = data.get("branch_id")
+    if branch_id is not None and (not isinstance(branch_id, str) or branch_id not in BRANCH_IDS):
+        raise ValueError("checkpoint branch_id is invalid")
+    parent = data.get("parent_checkpoint_id")
+    if parent is not None:
+        _text(parent, "parent_checkpoint_id")
+    entities = _sequence_of_text(data.get("entity_keys"), "entity_keys", unique=True)
+    if not entities or entities != sorted(entities):
+        raise ValueError("checkpoint entity_keys must be a nonempty sorted set")
+    if not isinstance(data.get("clock"), Mapping):
+        raise ValueError("clock must be an object")
+    _clock_value(data["clock"])
+    if data.get("restore_status") != "unverified":
+        raise ValueError("checkpoint restore_status must remain unverified")
+    if data.get("replay_status") != "stochastic_replay_unverified":
+        raise ValueError("checkpoint replay_status must remain unverified")
+    if data.get("raw_only") is not True or data.get("not_protocol_score") is not True:
+        raise ValueError("checkpoint must remain raw-only and excluded from protocol scoring")
+    if data.get("strict_branch_comparison_eligible") is not False:
+        raise ValueError("checkpoint must remain raw-only and ineligible")
     domains = data.get("state_domains")
     payloads = data.get("state_payloads")
     hashes = data.get("state_payload_sha256")
-    _mapping(domains, "state_domains")
-    _mapping(payloads, "state_payloads")
-    _mapping(hashes, "state_payload_sha256")
-    if set(domains) != set(STATE_DOMAINS) or any(value not in DOMAIN_STATUSES for value in domains.values()):
+    domains = dict(_mapping(domains, "state_domains"))
+    payloads = dict(_mapping(payloads, "state_payloads"))
+    hashes = dict(_mapping(hashes, "state_payload_sha256"))
+    if set(domains) != set(STATE_DOMAINS) or any(
+        type(key) is not str or not isinstance(value, str) or value not in DOMAIN_STATUSES
+        for key, value in domains.items()
+    ):
         raise ValueError("checkpoint state domains are incomplete or invalid")
     if set(payloads) != set(hashes):
         raise ValueError("checkpoint payload hash inventory mismatch")
+    if set(payloads) - set(STATE_DOMAINS):
+        raise ValueError("checkpoint payload inventory has unknown domains")
+    for domain, status in domains.items():
+        has_payload = domain in payloads
+        if status == "verified" and not has_payload:
+            raise ValueError(f"verified domain {domain!r} requires a payload")
+        if status == "missing" and has_payload:
+            raise ValueError(f"missing domain {domain} cannot carry a payload")
     for domain, payload in payloads.items():
+        _sha256_text(hashes.get(domain), f"state_payload_sha256.{domain}")
         if hashes.get(domain) != _digest(payload):
             raise ValueError(f"checkpoint payload digest mismatch for {domain}")
-        if domains[domain] == "missing":
-            raise ValueError(f"missing domain {domain} cannot carry a payload")
-    if data.get("raw_only") is not True or data.get("strict_branch_comparison_eligible") is not False:
-        raise ValueError("checkpoint must remain raw-only and ineligible")
     return deepcopy(data)
 
 
@@ -214,15 +309,26 @@ def build_offline_sham_fixture(
     _text(entity, "entity")
     if type(seed) is not int:
         raise ValueError("seed must be an integer")
+    if isinstance(event_keys, (str, bytes)) or not isinstance(event_keys, Sequence):
+        raise ValueError("event_keys must be a sequence of strings")
     keys = [_text(key, "event_key") for key in event_keys]
     if not keys or len(set(keys)) != len(keys):
         raise ValueError("event_keys must be nonempty and unique")
-    orders = dict(branch_order or {"fact": keys, "sham": list(reversed(keys))})
+    if branch_order is None:
+        orders = {"fact": keys, "sham": list(reversed(keys))}
+    else:
+        orders = dict(_mapping(branch_order, "branch_order"))
     if set(orders) != {"fact", "sham"}:
         raise ValueError("branch_order must contain fact and sham permutations of event_keys")
-    for order in orders.values():
+    normalized_orders = {}
+    for branch, order in orders.items():
+        if isinstance(order, (str, bytes)) or not isinstance(order, Sequence):
+            raise ValueError("branch_order must contain fact and sham permutations of event_keys")
+        order = [_text(key, "event_key") for key in order]
+        normalized_orders[branch] = order
         if set(order) != set(keys) or len(order) != len(keys):
             raise ValueError("branch_order must contain fact and sham permutations of event_keys")
+    orders = normalized_orders
     rng = KeyedRandom(seed, process)
     branch_draws = {}
     for branch, order in orders.items():
@@ -250,22 +356,60 @@ def build_offline_sham_fixture(
 
 def validate_offline_sham_fixture(fixture: Mapping[str, Any]) -> dict[str, Any]:
     data = dict(_mapping(fixture, "fixture"))
-    if data.get("schema") != SHAM_SCHEMA or data.get("version") != SHAM_VERSION:
+    if set(data) != _SHAM_KEYS | {"sha256"}:
+        raise ValueError("sham fixture fields are incomplete or unknown")
+    if data.get("schema") != SHAM_SCHEMA or type(data.get("version")) is not int or data.get("version") != SHAM_VERSION:
         raise ValueError("unsupported sham fixture schema or version")
+    supplied = data.get("sha256")
+    if not isinstance(supplied, str) or supplied != _digest({key: value for key, value in data.items() if key != "sha256"}):
+        raise ValueError("sham fixture digest mismatch")
     if data.get("fixture_only") is not True or data.get("raw_only") is not True:
         raise ValueError("sham fixture must remain offline and raw-only")
-    supplied = data.get("sha256")
-    if supplied != _digest({key: value for key, value in data.items() if key != "sha256"}):
-        raise ValueError("sham fixture digest mismatch")
+    if data.get("not_protocol_score") is not True:
+        raise ValueError("sham fixture must remain excluded from protocol scoring")
+    if data.get("restore_status") != "unverified_for_protocol_replay":
+        raise ValueError("sham fixture restore status must remain unverified")
+    if data.get("replay_status") != "stochastic_replay_unverified":
+        raise ValueError("sham fixture replay status must remain unverified")
+    if data.get("strict_branch_comparison_eligible") is not False:
+        raise ValueError("sham fixture must remain ineligible")
+    _text(data.get("checkpoint_id"), "checkpoint_id")
+    checkpoint_sha = _sha256_text(data.get("checkpoint_sha256"), "checkpoint_sha256")
     branches = _mapping(data.get("branches"), "fixture.branches")
     rng = _mapping(data.get("rng"), "fixture.rng")
+    if set(rng) != _RNG_KEYS:
+        raise ValueError("fixture RNG fields are incomplete or unknown")
+    if rng.get("scheme") != "keyed" or type(rng.get("seed")) is not int:
+        raise ValueError("fixture RNG scheme or seed is invalid")
+    process = _text(rng.get("process"), "rng.process")
+    entity = _text(rng.get("entity"), "rng.entity")
+    keys = _sequence_of_text(rng.get("event_keys"), "rng.event_keys", unique=True)
     draws = _mapping(rng.get("branch_draws"), "fixture.rng.branch_draws")
     if set(branches) != {"fact", "sham"} or set(draws) != {"fact", "sham"}:
         raise ValueError("sham fixture requires fact and sham branches")
+    random = KeyedRandom(rng["seed"], process)
+    expected_draws = {
+        key: float(random.uniform(entity, key, 0.0, 1.0)) for key in keys
+    }
+    for branch_name in ("fact", "sham"):
+        branch = dict(_mapping(branches[branch_name], f"fixture.branches.{branch_name}"))
+        if set(branch) != _BRANCH_KEYS:
+            raise ValueError(f"fixture branch {branch_name} fields are incomplete or unknown")
+        _sha256_text(branch.get("state_sha256"), f"branches.{branch_name}.state_sha256")
+        if branch.get("state_sha256") != checkpoint_sha:
+            raise ValueError("sham branches do not share the checkpoint snapshot")
+        order = _sequence_of_text(branch.get("event_order"), f"branches.{branch_name}.event_order", unique=True)
+        if set(order) != set(keys) or len(order) != len(keys):
+            raise ValueError("branch_order must contain fact and sham permutations of event_keys")
+        branch_draws = dict(_mapping(draws[branch_name], f"fixture.rng.branch_draws.{branch_name}"))
+        if set(branch_draws) != set(keys):
+            raise ValueError("fixture random draw inventory does not match event_keys")
+        for key, value in branch_draws.items():
+            _finite_number(value, f"rng.branch_draws.{branch_name}.{key}")
+        if branch_draws != expected_draws:
+            raise ValueError("keyed random draws differ from the declared seed and event keys")
     if dict(draws["fact"]) != dict(draws["sham"]):
         raise ValueError("keyed random draws differ between sham branch orderings")
-    if any(branch.get("state_sha256") != data.get("checkpoint_sha256") for branch in branches.values()):
-        raise ValueError("sham branches do not share the checkpoint snapshot")
     return deepcopy(data)
 
 
