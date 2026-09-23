@@ -41,3 +41,6 @@
   与 `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`）：`2952 passed`。Factory evaluator fixture 单测
   需要本机未纳入 Git 的外部 USD，其实际哈希与冻结 fixture 不同，作为资产版本缺口单列，
   未修改 fixture、资产或哈希门禁。
+- ljy 隔离树同提交全量（排除上述外部 Factory fixture）：`2788 passed, 9 skipped, 1 failed`。
+  唯一失败是 `test_usd_closure.py` 的 metrics layer relocation；只读对比确认 ljy
+  OpenUSD `0.24.11`、本机 `0.26.8`，因此归类为运行时依赖差异，不能修改测试预期来掩盖。
