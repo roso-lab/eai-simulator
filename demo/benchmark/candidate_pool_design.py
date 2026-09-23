@@ -140,6 +140,34 @@ def apply_pool_profile(public_task: Mapping[str, Any], profile: str) -> dict[str
         if existing & {row["id"] for row in additions}:
             raise ValueError("expanded candidate pool id collides with legacy pool")
         result["candidate_robot_pool"].extend(additions)
+        # A public spawn map is optional for the legacy authoring packets, but
+        # once it exists it is part of the participant-visible pool contract.
+        # Extend it for every added candidate so validation cannot produce a
+        # pool whose published anchors cover only the old members.  These
+        # deterministic offsets are authoring anchors for measurement design;
+        # they are explicitly not native scene admission evidence.
+        world = result.get("public_world")
+        spawns = world.get("robot_spawn_positions") if isinstance(world, Mapping) else None
+        if spawns is not None:
+            if not isinstance(spawns, Mapping) or not spawns:
+                raise ValueError("expanded pool requires a non-empty spawn map when one is published")
+            points = {str(key): list(value) for key, value in spawns.items()}
+            if any(len(point) not in (2, 3) for point in points.values()):
+                raise ValueError("expanded pool spawn anchors must be 2D or 3D coordinates")
+            anchor = next(iter(points.values()))
+            for index, row in enumerate(additions, start=1):
+                # Keep the dimensionality of the existing public anchors and
+                # separate each authoring candidate in a reproducible grid.
+                offset = 1.5 * index
+                points[row["id"]] = [
+                    float(anchor[0]) + offset,
+                    float(anchor[1]) + offset,
+                    *([float(anchor[2])] if len(anchor) == 3 else []),
+                ]
+            world["robot_spawn_positions"] = points
+            note = " expanded_v1 additions use deterministic authoring spawn anchors; native spawn admission remains pending."
+            if note not in world.get("public_notes", ""):
+                world["public_notes"] = str(world.get("public_notes", "")) + note
     return result
 
 
