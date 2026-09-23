@@ -56,7 +56,16 @@ _SOURCE_FILES = (
 
 def file_sha256(path):
     with Path(path).open("rb") as stream:
-        return hashlib.file_digest(stream, "sha256").hexdigest()
+        # ``hashlib.file_digest`` is only available from Python 3.11.  The
+        # benchmark also runs on the supported system Python 3.10, so keep the
+        # exact SHA-256 bytes contract with a streaming fallback.
+        file_digest = getattr(hashlib, "file_digest", None)
+        if file_digest is not None:
+            return file_digest(stream, "sha256").hexdigest()
+        digest = hashlib.sha256()
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+        return digest.hexdigest()
 
 
 def canonical_sha256(value):
