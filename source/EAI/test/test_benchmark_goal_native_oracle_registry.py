@@ -83,6 +83,16 @@ def test_missing_scene_is_explicit_and_fail_closed():
     assert "restaurant" not in report["scenes"]
 
 
+def test_partial_scene_bundle_is_incomplete_coverage():
+    row = _bundle("factory")
+    report = audit_native_oracle_registry({"factory": row["registration"]},
+                                          {"factory": row["state_contract"]}, {})
+    assert report["oracle_release_ready"] is False
+    assert report["covered_scenes"] == []
+    assert report["incomplete_scenes"] == [{"scene_key": "factory",
+                                             "missing_components": ["release_review"]}]
+
+
 def test_authoring_only_validation_scope_is_invalid():
     rows = _all()
     row = rows[0]

@@ -324,6 +324,7 @@ def audit_native_oracle_registry(
         "expected_scenes": expected,
         "covered_scenes": [],
         "missing_scenes": [],
+        "incomplete_scenes": [],
         "duplicate_scenes": [],
         "duplicate_measurements": [],
         "scenes": {},
@@ -357,8 +358,22 @@ def audit_native_oracle_registry(
         review_map = _as_scene_map(release_reviews, component="release_review")
 
     all_scenes = set(reg_map) | set(contract_map) | set(review_map)
-    report["covered_scenes"] = sorted(scene for scene in all_scenes if scene in expected)
+    present_components = {
+        scene: tuple(name for name, index in (
+            ("registration", reg_map), ("state_contract", contract_map), ("release_review", review_map))
+            if scene in index)
+        for scene in all_scenes
+    }
+    report["covered_scenes"] = sorted(scene for scene in expected
+                                      if len(present_components.get(scene, ())) == 3)
     report["missing_scenes"] = sorted(set(expected) - set(report["covered_scenes"]))
+    report["incomplete_scenes"] = [
+        {"scene_key": scene, "missing_components": [name for name in
+         ("registration", "state_contract", "release_review")
+         if name not in present_components.get(scene, ())]}
+        for scene in expected
+        if scene in all_scenes and scene not in report["covered_scenes"]
+    ]
     report["duplicate_scenes"] = sorted(scene for scene in all_scenes
                                          if any(isinstance(index.get(scene), list) and len(index[scene]) > 1
                                                 for index in (reg_map, contract_map, review_map)))
