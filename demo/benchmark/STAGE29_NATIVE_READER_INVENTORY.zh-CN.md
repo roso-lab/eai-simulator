@@ -40,10 +40,15 @@ fixture 要求另一版本。未修改 USD、fixture、题包或哈希；该项�
 本批重点聚焦回归仍为 `116 passed`，任务分配画像提交为 `8f588e7` 并已推送
 `origin/benchmark-task`。三个发布标志继续保持 false。
 
+新增只读命令 `tools/assets/check_factory_fixture_admission.py`，可以同时核对工作树资产
+和 provider cache 候选，输出实际 SHA256、匹配候选与 `mutated=false`。本机工作树为
+`93e731d9…`，HF `v0.1.0-beta.1` cache 为 `09890201…`，均不匹配冻结值
+`783f24ff…`；因此当前结论仍是 `blocked:factory_usd_hash_mismatch`，没有可信版本可供
+替换。
+
 ## 下一步
 
 1. 先解决 Factory 受信 provider/资产版本准入或形成可复现阻断报告；不放宽哈希。
 2. 按 Warehouse → House → City → Restaurant → Factory 的事实源可用性，逐场景冻结
    `predicate_bindings`、终局谓词和 measurement points。
 3. 只在 reader、替代路径完备性和 native 证据全绿后，运行双机动态部署回归。
-
