@@ -290,6 +290,7 @@ class FormalGoalEpisodeRunner:
         lifecycle_errors: list[dict[str, str]] = []
         error: str | None = None
         turns = 0
+        host = None
         try:
             session.update_runtime_state(0.0, robots, objects)
             with GoalAlgorithmHost(self.public_task, self.participant_api, self.adapter,
@@ -446,6 +447,9 @@ class FormalGoalEpisodeRunner:
             error = f"{type(exc).__name__}: {exc}"
             final_report = session.report()
 
+        if host is not None:
+            lifecycle_errors.extend(host.cleanup_errors)
+
         _write_json(self.output_root / "runtime_snapshots.json", snapshots)
         _write_json(self.output_root / "skill_receipts.json", receipts)
         _write_json(self.output_root / "business_evidence.json", {
@@ -495,6 +499,14 @@ class FormalGoalEpisodeRunner:
             if isinstance(tool_report, Mapping) and tool_report.get("lifecycle_errors"):
                 _write_json(self.output_root / "camera_lifecycle_errors.json",
                             tool_report["lifecycle_errors"])
+            if isinstance(tool_report, Mapping):
+                render_report = tool_report.get("render_lifecycle") or {}
+                if render_report.get("cleanup_pending"):
+                    record_lifecycle_error("camera_tools", "render_cleanup",
+                                           RuntimeError("owned render products still pending cleanup"))
+                if render_report.get("failures"):
+                    _write_json(self.output_root / "camera_render_failures.json",
+                                render_report["failures"])
         if lifecycle_errors:
             _write_json(self.output_root / "lifecycle_errors.json", lifecycle_errors)
             if error is None:

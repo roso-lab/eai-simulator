@@ -40,3 +40,13 @@ def test_scoring_sidecar_rejects_invalid_episode_or_task():
     task = build_goal_task_package("factory")["public_task"]
     with pytest.raises(ValueError):
         build_scoring_adapter_metadata(task, episode_id="", output_root="/tmp")
+
+
+@pytest.mark.parametrize("payload,expected", [
+    ({}, None), ({"report": {}}, None), ({"report": {"events": None}}, None),
+    ({"report": {"events": []}}, 0),
+    ({"report": {"events": [{"type": "episode_started"}]}}, 1),
+])
+def test_missing_event_evidence_is_not_counted_as_zero(tmp_path, payload, expected):
+    (tmp_path / "goal_session_report.json").write_text(json.dumps(payload))
+    assert build_archive_index(tmp_path)["counts"]["events"] == expected

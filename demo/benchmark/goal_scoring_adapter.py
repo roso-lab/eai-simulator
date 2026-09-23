@@ -48,13 +48,15 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _count_json(path: Path, key: str) -> int | None:
+def _count_json(path: Path, key: str, *, parent: str | None = None) -> int | None:
     if not path.is_file():
         return None
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
+    if parent is not None:
+        value = value.get(parent) if isinstance(value, Mapping) else None
     if isinstance(value, list):
         return len(value) if key in {"items", "receipts"} else None
     item = value.get(key) if isinstance(value, Mapping) else None
@@ -73,6 +75,7 @@ def build_archive_index(output_root: str | Path) -> dict[str, Any]:
         "pose_tool_profile.json", "runtime_snapshots.json", "public_task.json",
         "participant_api.json", "result.json",
         "lifecycle_errors.json",
+        "camera_render_failures.json",
     )
     files = {}
     for name in names:
@@ -80,23 +83,13 @@ def build_archive_index(output_root: str | Path) -> dict[str, Any]:
         if path.is_file():
             files[name] = {"sha256": _sha256(path), "bytes": path.stat().st_size}
     counts = {
-        "events": _count_json(root / "goal_session_report.json", "report"),
+        "events": _count_json(root / "goal_session_report.json", "events", parent="report"),
         "actions": _count_json(root / "participant_trace.json", "actions"),
         "participant_events": _count_json(root / "participant_trace.json", "events"),
         "plans": _count_json(root / "hidden_evaluator_trace.json", "plans"),
         "tasks": _count_json(root / "hidden_evaluator_trace.json", "tasks"),
         "skill_receipts": _count_json(root / "skill_receipts.json", "receipts"),
     }
-    # The session report nests its events under report; expose the count when
-    # available without changing the archive schema of that source file.
-    report_path = root / "goal_session_report.json"
-    if report_path.is_file():
-        try:
-            report = json.loads(report_path.read_text(encoding="utf-8"))
-            nested = report.get("report", {}) if isinstance(report, Mapping) else {}
-            counts["events"] = len(nested.get("events", [])) if isinstance(nested, Mapping) else None
-        except (OSError, ValueError):
-            pass
     return {"schema": "eai.benchmark.raw_archive_index", "version": 1,
             "raw_only": True, "not_protocol_score": True, "files": files,
             "counts": counts}

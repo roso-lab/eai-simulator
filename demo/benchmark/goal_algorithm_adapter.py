@@ -124,6 +124,7 @@ class GoalAlgorithmHost:
         self._camera_profile: dict[str, Any] | None = None
         self._closed = False
         self._failed = False
+        self._cleanup_errors: list[dict[str, str]] = []
         try:
             adapter.initialize(deepcopy(self._public_task), deepcopy(self._participant_api))
             bind_camera = getattr(self._camera_tools, "bind_goal_session", None)
@@ -161,9 +162,18 @@ class GoalAlgorithmHost:
                 if callable(closer):
                     try:
                         closer()
-                    except BaseException:
-                        pass
+                    except Exception as exc:
+                        self._cleanup_errors.append({
+                            "component": "camera_tools",
+                            "operation": "host_close",
+                            "error": f"{type(exc).__name__}: {exc}",
+                        })
             self._adapter.close()
+
+    @property
+    def cleanup_errors(self) -> list[dict[str, str]]:
+        """Trusted teardown evidence, retained even when a later close retries."""
+        return deepcopy(self._cleanup_errors)
 
     def _fail_closed(self) -> None:
         """Close without replacing the adapter/action failure being raised."""
