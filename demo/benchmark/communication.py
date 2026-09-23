@@ -6,7 +6,9 @@ or its alias ``tick`` before reading/consuming. Times are absolute seconds.
 
 Contracts accept delay_s, drop, bytes_per_window (None = unlimited), window_s,
 and rules. Rules match recipient/channel (omission = wildcard); later matching
-rules override earlier fields. ``set_conditions`` changes the current policy
+rules override earlier fields. An opt-in ``pools``/``access`` contract models
+shared cloud/edge/backhaul, robot-to-robot (p2p), and per-robot last-mile
+capacity. ``set_conditions`` changes the current policy
 for future publications and records a condition-change event; it never exposes
 an upcoming change to participants. Each recipient/channel has an independent FIFO
 link. Windows are anchored at zero. Bytes are served immediately from that
@@ -51,6 +53,22 @@ import math
 from collections.abc import Mapping
 
 
+_POOL_POLICY_FIELDS = {
+    "capacity_bps", "bytes_per_second", "fixed_delay_s", "delay_s",
+    "buffer_bytes", "buffer_capacity_bytes", "drop", "active_drop",
+    "ttl_s", "bytes_per_window", "window_s", "c0_bps", "baseline_capacity_bps",
+}
+_POOL_ALIASES = {
+    "backhaul": "backhaul_uplink",
+    "uplink": "backhaul_uplink",
+    "downlink": "backhaul_downlink",
+    "backhaul_up": "backhaul_uplink",
+    "backhaul_down": "backhaul_downlink",
+    "robot": "p2p",
+    "robot_to_robot": "p2p",
+}
+
+
 def _time(value, name, *, positive=False):
     try:
         finite = math.isfinite(value)
@@ -90,18 +108,123 @@ def validate_communication_contract(contract=None):
         budget = result.get("bytes_per_window")
         if budget is not None and (type(budget) is not int or budget <= 0):
             raise ValueError("bytes_per_window must be a positive integer or None")
+        if "capacity_bps" in result:
+            _time(result["capacity_bps"], "capacity_bps", positive=True)
+        if "bytes_per_second" in result:
+            _time(result["bytes_per_second"], "bytes_per_second", positive=True)
+        for key in ("fixed_delay_s", "buffer_bytes", "buffer_capacity_bytes", "ttl_s"):
+            if key in result:
+                value = result[key]
+                if key in {"buffer_bytes", "buffer_capacity_bytes"}:
+                    if type(value) is not int or value <= 0:
+                        raise ValueError(f"{key} must be a positive integer")
+                else:
+                    _time(value, key, positive=key == "ttl_s")
+        if "active_drop" in result and type(result["active_drop"]) is not bool:
+            raise ValueError("active_drop must be a boolean")
         for key in ("recipient", "channel"):
             if key in result:
                 _name(result[key], key)
         return result
 
-    normalized = validate(contract, fields | {"rules"})
+    base_allowed = fields | {"rules", "pools", "access", "default_pool",
+                             "default_access", "aoi_sample_policy"}
+    normalized = validate(contract, base_allowed)
     rules = normalized.pop("rules", [])
     if not isinstance(rules, (list, tuple)):
         raise ValueError("rules must be a sequence of mappings")
-    return {"delay_s": 0., "drop": False, "bytes_per_window": None,
-            "window_s": 1., **normalized,
-            "rules": [validate(rule, fields | {"recipient", "channel"}) for rule in rules]}
+    pools = normalized.pop("pools", {})
+    if pools is None:
+        pools = {}
+    if not isinstance(pools, Mapping):
+        raise ValueError("pools must be a mapping")
+    normalized_pools = {}
+    for name, policy in pools.items():
+        _name(name, "pool")
+        if not isinstance(policy, Mapping):
+            raise ValueError("pool policy must be a mapping")
+        normalized_pools[str(name)] = _validate_pool_policy(policy)
+    access = normalized.pop("access", {})
+    if access is None:
+        access = {}
+    if not isinstance(access, Mapping):
+        raise ValueError("access must be a mapping")
+    normalized_access = {}
+    for name, policy in access.items():
+        _name(name, "access robot")
+        if not isinstance(policy, Mapping):
+            raise ValueError("access policy must be a mapping")
+        normalized_access[str(name)] = _validate_pool_policy(policy)
+    result = {"delay_s": 0., "drop": False, "bytes_per_window": None,
+              "window_s": 1., **normalized,
+              "rules": [validate(rule, fields | {"recipient", "channel"}) for rule in rules]}
+    if normalized_pools:
+        result["pools"] = normalized_pools
+    if normalized_access:
+        result["access"] = normalized_access
+    if "default_pool" in contract:
+        result["default_pool"] = _name(contract["default_pool"], "default_pool")
+    if "default_access" in contract:
+        result["default_access"] = _name(contract["default_access"], "default_access")
+    if "aoi_sample_policy" in contract:
+        policy = contract["aoi_sample_policy"]
+        if policy not in {"delivery", "consume"}:
+            raise ValueError("aoi_sample_policy must be delivery or consume")
+        result["aoi_sample_policy"] = policy
+    return result
+
+
+def _validate_pool_policy(policy):
+    unknown = set(policy) - _POOL_POLICY_FIELDS
+    if unknown:
+        raise ValueError(f"unknown pool policy fields: {sorted(unknown)}")
+    row = deepcopy(dict(policy))
+    # Normalize the public spelling while retaining only one capacity field.
+    if "bytes_per_second" in row and "capacity_bps" in row:
+        if float(row["bytes_per_second"]) != float(row["capacity_bps"]):
+            raise ValueError("capacity_bps and bytes_per_second disagree")
+        row.pop("bytes_per_second")
+    if "bytes_per_second" in row:
+        row["capacity_bps"] = row.pop("bytes_per_second")
+    if "c0_bps" in row and "baseline_capacity_bps" in row:
+        if float(row["c0_bps"]) != float(row["baseline_capacity_bps"]):
+            raise ValueError("c0_bps and baseline_capacity_bps disagree")
+        row.pop("baseline_capacity_bps")
+    if "baseline_capacity_bps" in row:
+        row["c0_bps"] = row.pop("baseline_capacity_bps")
+    if "buffer_capacity_bytes" in row and "buffer_bytes" in row:
+        if row["buffer_capacity_bytes"] != row["buffer_bytes"]:
+            raise ValueError("buffer_bytes and buffer_capacity_bytes disagree")
+        row.pop("buffer_capacity_bytes")
+    if "buffer_capacity_bytes" in row:
+        row["buffer_bytes"] = row.pop("buffer_capacity_bytes")
+    if "fixed_delay_s" in row and "delay_s" in row:
+        if float(row["fixed_delay_s"]) != float(row["delay_s"]):
+            raise ValueError("fixed_delay_s and delay_s disagree")
+        row.pop("delay_s")
+    for key in ("capacity_bps", "fixed_delay_s", "ttl_s", "c0_bps"):
+        if key in row and row[key] is not None:
+            _time(row[key], key, positive=key in {"capacity_bps", "ttl_s", "c0_bps"})
+    if ("buffer_bytes" in row and row["buffer_bytes"] is not None
+            and (type(row["buffer_bytes"]) is not int or row["buffer_bytes"] <= 0)):
+        raise ValueError("buffer_bytes must be a positive integer")
+    if "bytes_per_window" in row:
+        if type(row["bytes_per_window"]) is not int or row["bytes_per_window"] <= 0:
+            raise ValueError("bytes_per_window must be a positive integer")
+        _time(row.get("window_s", 1.), "window_s", positive=True)
+    if "drop" in row and type(row["drop"]) is not bool:
+        raise ValueError("drop must be a boolean")
+    if "active_drop" in row and type(row["active_drop"]) is not bool:
+        raise ValueError("active_drop must be a boolean")
+    if "capacity_bps" not in row and "bytes_per_window" not in row:
+        # A shared pool without an explicit capacity remains unlimited, which
+        # is useful for deterministic delay/loss controls.
+        row["capacity_bps"] = None
+    row.setdefault("fixed_delay_s", 0.)
+    row.setdefault("drop", False)
+    row.setdefault("active_drop", False)
+    row.setdefault("buffer_bytes", None)
+    return row
 
 
 def _json_copy(value):
@@ -133,6 +256,9 @@ class CommunicationRuntime:
         self._scheduled_services = set()
         self._sequence = 0
         self._ledger = []
+        self._pool_states = {}
+        self._access_states = {}
+        self._aoi_samples = []
 
     @property
     def time_s(self):
@@ -154,7 +280,7 @@ class CommunicationRuntime:
 
     def _schedule(self, time, kind, key):
         # Expiry wins ties with service and arrival: TTL is half-open.
-        priority = {"expire": 0, "service": 1, "deliver": 2}[kind]
+        priority = {"expire": 0, "pool_service": 1, "service": 2, "deliver": 3}[kind]
         heapq.heappush(self._events, (time, priority, self._sequence, kind, key))
         self._sequence += 1
 
@@ -166,13 +292,161 @@ class CommunicationRuntime:
                 result.update({k: v for k, v in rule.items() if k not in {"recipient", "channel"}})
         return result
 
+    def _pool_mode(self):
+        return bool(self._contract.get("pools") or self._contract.get("access"))
+
+    def _pool_name(self, *, producer_id, recipient, channel, pool=None, direction=None):
+        if pool is None:
+            pool = direction
+        if pool is None:
+            lower = channel.lower()
+            if any(token in lower for token in ("p2p", "relay", "handoff", "negotiat")):
+                pool = "p2p"
+            elif any(token in lower for token in ("command", "plan", "dispatch", "downlink")):
+                pool = "backhaul_downlink"
+            else:
+                pool = self._contract.get("default_pool", "backhaul_uplink")
+        pool = _POOL_ALIASES.get(pool, pool)
+        if pool not in self._contract.get("pools", {}):
+            # Permit a single backhaul declaration to serve both directions,
+            # while preserving explicit direction names when available.
+            if pool in {"backhaul_uplink", "backhaul_downlink"} and "backhaul" in self._contract.get("pools", {}):
+                pool = "backhaul"
+            elif pool not in self._contract.get("pools", {}):
+                raise ValueError(f"unknown communication pool {pool!r}")
+        return pool
+
+    def _pool_policy(self, pool_name):
+        policy = self._contract.get("pools", {}).get(pool_name)
+        if policy is None:
+            raise ValueError(f"pool {pool_name!r} has no policy")
+        return policy
+
+    def _access_endpoints(self, *, producer_id, recipient, pool_name, access_robot_id=None):
+        if access_robot_id is not None:
+            return [_name(access_robot_id, "access_robot_id")]
+        if pool_name == "p2p":
+            return sorted({producer_id, recipient})
+        if pool_name == "backhaul_downlink":
+            return [recipient]
+        return [producer_id]
+
+    def _access_policy(self, endpoint):
+        access = self._contract.get("access", {})
+        return access.get(endpoint) or access.get("*" ) or access.get(
+            self._contract.get("default_access", ""))
+
+    @staticmethod
+    def _pool_capacity(policy):
+        capacity = policy.get("capacity_bps")
+        if capacity is not None:
+            return float(capacity)
+        budget = policy.get("bytes_per_window")
+        if budget is not None:
+            return float(budget) / float(policy.get("window_s", 1.))
+        return None
+
+    def _drop_delivery(self, delivery, *, time, reason, message_id, recipient):
+        delivery["status"] = "dropped"
+        delivery["drop_reason"] = reason
+        self._record("dropped", time, message_id=message_id, recipient=recipient,
+                     reason=reason)
+
+    def _queue_pool_copy(self, message_id, recipient, *, pool_name, endpoints,
+                         conditions, published, expiry):
+        policy = self._pool_policy(pool_name)
+        pool = self._pool_states.setdefault(pool_name, {
+            "queue": deque(), "queued_bytes": 0, "next_available": published,
+            "policy": deepcopy(policy),
+        })
+        buffer = policy.get("buffer_bytes")
+        if buffer is not None and pool["queued_bytes"] + self._messages[message_id]["size_bytes"] > buffer:
+            self._drop_delivery(self._messages[message_id]["recipients"][recipient],
+                                time=published, reason="buffer_overflow",
+                                message_id=message_id, recipient=recipient)
+            return
+        starts = [published, pool["next_available"]]
+        for endpoint in endpoints:
+            access_policy = self._access_policy(endpoint)
+            if access_policy is not None:
+                state = self._access_states.setdefault(endpoint, {"next_available": published})
+                starts.append(state["next_available"])
+        start = max(starts)
+        capacity = self._pool_capacity(policy)
+        size = self._messages[message_id]["size_bytes"]
+        durations = [size / capacity] if capacity is not None else [0.]
+        for endpoint in endpoints:
+            access_policy = self._access_policy(endpoint)
+            access_capacity = (self._pool_capacity(access_policy)
+                               if access_policy is not None else None)
+            if access_capacity is not None:
+                durations.append(size / access_capacity)
+        duration = max(durations)
+        finish = start + Fraction(str(duration))
+        pool["next_available"] = finish
+        for endpoint in endpoints:
+            if self._access_policy(endpoint) is not None:
+                self._access_states.setdefault(endpoint, {"next_available": published})[
+                    "next_available"] = finish
+        key = (message_id, recipient)
+        pool["queue"].append(key)
+        pool["queued_bytes"] += self._messages[message_id]["size_bytes"]
+        delivery = self._messages[message_id]["recipients"][recipient]
+        delivery.update(pool=pool_name, access_endpoints=list(endpoints),
+                        scheduled_transmit_at_s=float(start),
+                        scheduled_finish_at_s=float(finish),
+                        transport_valid_until_s=float(expiry))
+        self._record("queued", published, message_id=message_id, recipient=recipient,
+                     pool=pool_name, access_endpoints=list(endpoints))
+        self._schedule(expiry, "expire", key)
+        self._schedule(start, "pool_service", pool_name)
+
+    def _service_pool(self, pool_name, time):
+        pool = self._pool_states[pool_name]
+        while pool["queue"]:
+            message_id, recipient = pool["queue"][0]
+            message = self._messages[message_id]
+            delivery = message["recipients"][recipient]
+            pool["queue"].popleft()
+            pool["queued_bytes"] = max(0, pool["queued_bytes"] - message["size_bytes"])
+            if delivery["status"] != "queued":
+                continue
+            expiry = _time(delivery.get("transport_valid_until_s",
+                                         message["payload"]["valid_until_s"]),
+                           "valid_until_s")
+            if expiry <= time:
+                delivery["status"] = "expired"
+                delivery["drop_reason"] = "ttl"
+                self._record("expired", time, message_id=message_id, recipient=recipient,
+                             bytes_sent=0, reason="ttl")
+                continue
+            policy = self._pool_policy(pool_name)
+            finish = _time(delivery["scheduled_finish_at_s"], "scheduled_finish_at_s")
+            delivery.update(status="in_transit", bytes_sent=message["size_bytes"],
+                            transmitted_at_s=float(time),
+                            scheduled_delivery_at_s=float(finish + _time(
+                                policy.get("fixed_delay_s", 0.), "fixed_delay_s")))
+            self._record("bytes_served", time, message_id=message_id, recipient=recipient,
+                         channel=message["channel"], pool=pool_name,
+                         bytes=message["size_bytes"], bytes_sent=message["size_bytes"])
+            delay = _time(policy.get("fixed_delay_s", 0.), "fixed_delay_s")
+            arrival = finish + delay
+            if arrival >= expiry:
+                self._schedule(expiry, "expire", (message_id, recipient))
+            else:
+                self._schedule(arrival, "deliver", (message_id, recipient))
+            # A pool reservation schedules each copy independently.  The next
+            # reservation is already reflected in its own pool_service event.
+            break
+
     def _request_service(self, link, time):
         key = (link, time)
         if key not in self._scheduled_services:
             self._scheduled_services.add(key)
             self._schedule(time, "service", link)
 
-    def set_conditions(self, conditions, *, recipient=None, channel=None, time_s=None):
+    def set_conditions(self, conditions, *, recipient=None, channel=None, pool=None,
+                       time_s=None):
         """Apply a policy at the current time; it affects subsequent publishes.
 
         A bandwidth/window change is rejected while that selected link has
@@ -180,6 +454,44 @@ class CommunicationRuntime:
         can distinguish an attempted intervention from an ignored one. Existing
         queued/in-flight copies retain their publication-time conditions.
         """
+        if pool is not None:
+            if not self._pool_mode():
+                raise ValueError("pool condition requires a pool contract")
+            pool = _POOL_ALIASES.get(_name(pool, "pool"), pool)
+            if pool not in self._contract.get("pools", {}):
+                raise ValueError(f"unknown communication pool {pool!r}")
+            if not isinstance(conditions, Mapping) or set(conditions) - _POOL_POLICY_FIELDS:
+                raise ValueError("pool conditions contain an unknown field")
+            if any(key in conditions for key in ("capacity_bps", "bytes_per_second",
+                                                 "buffer_bytes", "buffer_capacity_bytes",
+                                                 "fixed_delay_s", "ttl_s", "bytes_per_window",
+                                                 "window_s")):
+                # Validate the partial patch without introducing defaults into
+                # the recorded condition-change event.
+                normalized_patch = _validate_pool_policy(dict(conditions))
+                values = {key: normalized_patch[key] for key in conditions
+                          if key in normalized_patch}
+                if "bytes_per_second" in conditions:
+                    values.pop("bytes_per_second", None)
+                    values["capacity_bps"] = normalized_patch["capacity_bps"]
+                if "buffer_capacity_bytes" in conditions:
+                    values.pop("buffer_capacity_bytes", None)
+                    values["buffer_bytes"] = normalized_patch["buffer_bytes"]
+                if "delay_s" in conditions:
+                    values.pop("delay_s", None)
+                    values["fixed_delay_s"] = normalized_patch["fixed_delay_s"]
+            else:
+                values = deepcopy(dict(conditions))
+            now = self._now if time_s is None else _time(time_s, "time_s")
+            if now != self._now:
+                if now < self._now:
+                    raise ValueError("condition-change time must equal current time")
+                self.advance(float(now))
+            self._contract["pools"][pool].update(values)
+            self._record("channel_condition_changed", self._now, recipient=None,
+                         channel=None, pool=pool, conditions=values,
+                         applies_to="future_publications")
+            return deepcopy(values)
         if recipient is None and channel is None:
             selector = {}
         else:
@@ -221,13 +533,15 @@ class CommunicationRuntime:
                      channel=channel, conditions=values, applies_to="future_publications")
         return deepcopy(values)
 
-    def update_contract(self, conditions, *, recipient=None, channel=None, time_s=None):
+    def update_contract(self, conditions, *, recipient=None, channel=None, pool=None,
+                        time_s=None):
         """Named alias for current-time condition intervention."""
         return self.set_conditions(conditions, recipient=recipient, channel=channel,
-                                   time_s=time_s)
+                                   pool=pool, time_s=time_s)
 
     def publish(self, *, message_id, producer_id, recipients, channel, estimate,
-                valid_until_s, published_at_s=None):
+                valid_until_s, published_at_s=None, pool=None, direction=None,
+                access_robot_id=None, information_id=None):
         """Publish one global ID to distinct recipients; return evaluator record.
 
         Wire size includes the five public payload fields; each unicast copy
@@ -253,27 +567,54 @@ class CommunicationRuntime:
         payload = {"message_id": message_id, "producer_id": producer_id,
                    "published_at_s": float(published), "valid_until_s": float(expiry),
                    "estimate": _json_copy(dict(estimate))}
+        if information_id is not None:
+            payload["information_id"] = _name(information_id, "information_id")
         size = len(json.dumps(payload, sort_keys=True, ensure_ascii=False,
                               separators=(",", ":"), allow_nan=False).encode("utf-8"))
         self.advance(float(published))
         message = {"payload": payload, "channel": channel, "size_bytes": size, "recipients": {}}
         self._messages[message_id] = message
+        selected_pool = None
+        if self._pool_mode():
+            selected_pool = self._pool_name(producer_id=producer_id,
+                                             recipient=recipients[0], channel=channel,
+                                             pool=pool, direction=direction)
         self._record("published", published, message_id=message_id, producer_id=producer_id,
-                     channel=channel, recipients=sorted(recipients), size_bytes=size)
+                     channel=channel, recipients=sorted(recipients), size_bytes=size,
+                     **({"pool": selected_pool, "direction": direction,
+                         "access_robot_id": access_robot_id,
+                         "information_id": information_id}
+                        if self._pool_mode() else {}))
         for recipient in sorted(recipients):
             conditions = self._conditions(recipient, channel)
             delivery = {"status": "queued", "conditions": conditions, "bytes_sent": 0,
                         "transmitted_at_s": None, "scheduled_delivery_at_s": None,
-                        "delivered_at_s": None, "consumption": None}
+                        "delivered_at_s": None, "consumption": None,
+                        "drop_reason": None}
             message["recipients"][recipient] = delivery
             key = (message_id, recipient)
-            if conditions["drop"]:
-                delivery["status"] = "dropped"
-                self._record("dropped", published, message_id=message_id, recipient=recipient)
-            elif expiry <= published:
+            pool_conditions = self._pool_policy(selected_pool) if selected_pool else {}
+            effective_expiry = expiry
+            if selected_pool and pool_conditions.get("ttl_s") is not None:
+                effective_expiry = min(
+                    expiry, published + _time(pool_conditions["ttl_s"], "ttl_s"))
+            if conditions["drop"] or pool_conditions.get("drop") or pool_conditions.get("active_drop"):
+                self._drop_delivery(delivery, time=published,
+                                    reason="active", message_id=message_id,
+                                    recipient=recipient)
+            elif effective_expiry <= published:
                 delivery["status"] = "expired"
+                delivery["drop_reason"] = "ttl"
                 self._record("expired", published, message_id=message_id, recipient=recipient,
-                             bytes_sent=0)
+                             bytes_sent=0, reason="ttl")
+            elif selected_pool:
+                endpoints = self._access_endpoints(producer_id=producer_id,
+                                                   recipient=recipient,
+                                                   pool_name=selected_pool,
+                                                   access_robot_id=access_robot_id)
+                self._queue_pool_copy(message_id, recipient, pool_name=selected_pool,
+                                      endpoints=endpoints, conditions=conditions,
+                                      published=published, expiry=effective_expiry)
             else:
                 link_key = (recipient, channel)
                 link = self._links.setdefault(link_key, {"queue": deque(), "window": None,
@@ -347,22 +688,79 @@ class CommunicationRuntime:
         while self._events and self._events[0][0] <= target:
             time, _, _, kind, key = heapq.heappop(self._events)
             self._now = time
+            if kind == "pool_service":
+                self._service_pool(key, time)
+                continue
             if kind == "service":
                 self._service(key, time)
                 continue
             message_id, recipient = key
             delivery = self._messages[message_id]["recipients"][recipient]
             if kind == "expire" and delivery["status"] not in {"dropped", "expired"}:
+                if delivery["status"] == "queued" and delivery.get("pool") in self._pool_states:
+                    pool = self._pool_states[delivery["pool"]]
+                    pool["queued_bytes"] = max(0, pool["queued_bytes"] -
+                                                 self._messages[message_id]["size_bytes"])
                 delivery["status"] = "expired"
+                delivery["drop_reason"] = "ttl"
                 self._record("expired", time, message_id=message_id, recipient=recipient,
-                             bytes_sent=delivery["bytes_sent"])
+                             bytes_sent=delivery["bytes_sent"], reason="ttl")
             elif kind == "deliver" and delivery["status"] == "in_transit":
                 delivery.update(status="delivered", delivered_at_s=float(time))
                 self._record("delivered", time, message_id=message_id, recipient=recipient)
+                self._record_aoi(message_id, recipient, time)
         self._now = target
         return self.time_s
 
     tick = advance
+
+    def _record_aoi(self, message_id, recipient, delivered_at):
+        message = self._messages[message_id]
+        payload = message["payload"]
+        info_id = payload.get("information_id")
+        if info_id is None:
+            estimate = payload.get("estimate", {})
+            info_id = estimate.get("information_id") or estimate.get("observation_id")
+        if info_id is None:
+            # Every payload is still an information item; using the message ID
+            # avoids silently dropping samples from generic channels.
+            info_id = message_id
+        generated = _time(payload["published_at_s"], "published_at_s")
+        self._aoi_samples.append({"information_id": info_id, "message_id": message_id,
+                                  "recipient": recipient, "age_s": float(delivered_at - generated),
+                                  "generated_at_s": float(generated),
+                                  "delivered_at_s": float(delivered_at)})
+
+    def aoi(self):
+        """Return evaluator-only age-of-information delivery statistics."""
+        samples = deepcopy(self._aoi_samples)
+        values = sorted(item["age_s"] for item in samples)
+        if not values:
+            return {"sample_count": 0, "samples": [], "mean_s": None, "p95_s": None}
+        position = (len(values) - 1) * 0.95
+        lower = math.floor(position)
+        upper = math.ceil(position)
+        p95 = values[lower] if lower == upper else values[lower] + (
+            values[upper] - values[lower]) * (position - lower)
+        return {"sample_count": len(values), "samples": samples,
+                "mean_s": sum(values) / len(values), "p95_s": p95}
+
+    def pool_utilization(self):
+        """Evaluator-only capacity summary with absolute and C/C0 values."""
+        summary = {}
+        for name, policy in self._contract.get("pools", {}).items():
+            capacity = self._pool_capacity(policy)
+            baseline = policy.get("c0_bps")
+            summary[name] = {
+                "capacity_bps": capacity,
+                "c0_bps": baseline,
+                "capacity_ratio_c0": (capacity / float(baseline)
+                                       if capacity is not None and baseline else None),
+                "bytes_served": sum(event.get("bytes", 0) for event in self._ledger
+                                     if event.get("event") == "bytes_served"
+                                     and event.get("pool") == name),
+            }
+        return summary
 
     def public_messages(self, *, recipient, channel=None):
         """Fresh inbox payloads only; repeat reads do not consume or advance time."""
@@ -429,7 +827,9 @@ class CommunicationRuntime:
                 "visibility": "evaluator_only", "time_s": self.time_s,
                 "initial_contract": deepcopy(self._initial_contract),
                 "contract": deepcopy(self._contract), "messages": deepcopy(self._messages),
-                "ledger": deepcopy(self._ledger), "isaac_integrated": False}
+                "ledger": deepcopy(self._ledger), "aoi": self.aoi(),
+                "pool_utilization": self.pool_utilization(),
+                "isaac_integrated": False}
 
 
 class ParticipantCommunicationBoundary:
@@ -449,7 +849,8 @@ class ParticipantCommunicationBoundary:
         self._emitted = set()
 
     def publish_observation(self, observation, *, consumer_ids=(),
-                            channel="observation"):
+                            channel="observation", pool=None, direction=None,
+                            access_robot_id=None):
         if not isinstance(observation, dict):
             raise ValueError("observation message source must be an object")
         consumers = list(consumer_ids)
@@ -470,6 +871,8 @@ class ParticipantCommunicationBoundary:
             estimate=estimate,
             valid_until_s=observation["valid_until_s"],
             published_at_s=observation["timestamp_s"],
+            pool=pool, direction=direction, access_robot_id=access_robot_id,
+            information_id=observation.get("observation_id"),
         )
 
     def advance(self, time_s):
@@ -490,10 +893,10 @@ class ParticipantCommunicationBoundary:
             message_id, recipient=self.recipient_id,
             consumer_id=consumer_id, time_s=time_s)
 
-    def set_conditions(self, conditions, *, time_s, channel=None):
+    def set_conditions(self, conditions, *, time_s, channel=None, pool=None):
         return self.runtime.set_conditions(
             conditions, recipient=self.recipient_id,
-            channel=channel, time_s=time_s)
+            channel=channel, pool=pool, time_s=time_s)
 
     def report(self):
         report = self.runtime.report()
@@ -594,11 +997,13 @@ def validate_communication_report(report, *, expected_initial_contract=None):
         for event in ledger:
             if event.get("event") == "channel_condition_changed":
                 replay.set_conditions(event["conditions"], recipient=event.get("recipient"),
-                                      channel=event.get("channel"), time_s=event["time_s"])
+                                      channel=event.get("channel"), pool=event.get("pool"),
+                                      time_s=event["time_s"])
             elif event.get("event") == "channel_condition_change_rejected":
                 try:
                     replay.set_conditions(event["conditions"], recipient=event.get("recipient"),
-                                          channel=event.get("channel"), time_s=event["time_s"])
+                                          channel=event.get("channel"), pool=event.get("pool"),
+                                          time_s=event["time_s"])
                 except ValueError:
                     pass
                 else:
@@ -615,7 +1020,11 @@ def validate_communication_report(report, *, expected_initial_contract=None):
                                channel=event["channel"],
                                estimate=payload["estimate"],
                                published_at_s=payload["published_at_s"],
-                               valid_until_s=payload["valid_until_s"])
+                               valid_until_s=payload["valid_until_s"],
+                               pool=event.get("pool"),
+                               direction=event.get("direction"),
+                               access_robot_id=event.get("access_robot_id"),
+                               information_id=payload.get("information_id"))
             elif event.get("event") == "consumed":
                 replay.consume(event["message_id"], recipient=event["recipient"],
                                consumer_id=event["consumer_id"], time_s=event["time_s"])
@@ -638,6 +1047,10 @@ def validate_communication_report(report, *, expected_initial_contract=None):
             result["mismatches"].append("ledger differs after deterministic replay")
         if _canonical_json(actual["messages"]) != _canonical_json(dict(messages)):
             result["mismatches"].append("message delivery/consumption state differs after replay")
+        if "aoi" in report and _canonical_json(actual["aoi"]) != _canonical_json(report["aoi"]):
+            result["mismatches"].append("AoI statistics differ after deterministic replay")
+        if "pool_utilization" in report and _canonical_json(actual["pool_utilization"]) != _canonical_json(report["pool_utilization"]):
+            result["mismatches"].append("pool utilization differs after deterministic replay")
         result["published_count"] = len(messages)
         result["ledger_event_count"] = len(ledger)
     except (KeyError, TypeError, ValueError, OverflowError) as error:
