@@ -14,10 +14,12 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
+from .provenance import canonical_sha256
+
 
 SCORING_ADAPTER_SCHEMA = "eai.benchmark.scoring_adapter_metadata"
 SCORING_ADAPTER_VERSION = 1
-PROTOCOL_MAPPING_REVISION = "protocol-20260923-goal-track-audit-v1"
+PROTOCOL_MAPPING_REVISION = "protocol-20260923-goal-milestones-v2"
 
 DIMENSION_STATUS = {
     "task_allocation": "P/X",
@@ -30,7 +32,7 @@ DIMENSION_STATUS = {
 }
 
 SCOREABILITY_REASONS = [
-    "goal_track_is_self_decomposed_and_not_protocol_fixed_subtasks",
+    "fixed_subtask_metrics_require_revision_for_goal_decomposition",
     "no_protocol_shared_capacity_or_iid_loss_contract",
     "no_physics_checkpoint_or_fact_reference_sham_branch",
     "formal_runner_is_serial_and_has_no_protocol_concurrency_evidence",
@@ -44,12 +46,6 @@ def _sha256(path: Path) -> str:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
-
-
-def _canonical_sha256(value: Any) -> str:
-    payload = json.dumps(value, ensure_ascii=False, sort_keys=True,
-                         separators=(",", ":"), allow_nan=False).encode("utf-8")
-    return hashlib.sha256(payload).hexdigest()
 
 
 def _count_json(path: Path, key: str) -> int | None:
@@ -133,13 +129,34 @@ def build_scoring_adapter_metadata(
         "episode_id": episode_id,
         "task_id": task_id,
         "scene_key": scene_key,
-        "task_contract_sha256": _canonical_sha256(public_task),
+        "task_contract_sha256": canonical_sha256(public_task),
         "condition": {
             "id": public_task.get("condition_id"),
             "seed": public_task.get("seed"),
             "experiment_factor": public_task.get("experiment_factor"),
         },
         "evaluation_track": "goal_driven_team_planning_v1",
+        "task_design": {
+            "decomposition_owner": "participant",
+            "assignment_owner": "participant",
+            "schedule_owner": "participant",
+            "fixed_subtask_metrics": "not_applicable_protocol_mismatch",
+        },
+        "checkpoint_requirements": {
+            "status": "planned_not_captured",
+            "restore_verified": False,
+            "strict_branch_comparison_eligible": False,
+            "required_state_domains": [
+                "environment_physics", "participant_recoverable",
+                "visible_history", "rng_and_clocks",
+                "host_scheduler_and_pending_communication",
+            ],
+            "preregistered_trigger_design": [
+                "initial", "decision_pre", "treatment_pre", "replan_pre",
+                "milestone_change", "episode_round",
+            ],
+            "design_ref": "SCORING_CHECKPOINT_DESIGN.zh-CN.md",
+        },
         "archive_role": "goal_engineering_observation",
         "code_baseline": code_baseline,
         "branch_id": None,

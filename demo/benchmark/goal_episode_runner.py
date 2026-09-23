@@ -478,6 +478,12 @@ class FormalGoalEpisodeRunner:
                     finalizer()
                 except Exception as exc:
                     record_lifecycle_error("camera_tools", "finalize_episode", exc)
+            closer = getattr(self.camera_tools, "close", None)
+            if callable(closer):
+                try:
+                    closer()
+                except Exception as exc:
+                    record_lifecycle_error("camera_tools", "close", exc)
             tool_report = None
             try:
                 tool_report = self.camera_tools.report()
@@ -486,12 +492,6 @@ class FormalGoalEpisodeRunner:
                             validate_communication_report(tool_report["communication"]))
             except Exception as exc:
                 record_lifecycle_error("camera_tools", "report", exc)
-            closer = getattr(self.camera_tools, "close", None)
-            if callable(closer):
-                try:
-                    closer()
-                except Exception as exc:
-                    record_lifecycle_error("camera_tools", "close", exc)
             if isinstance(tool_report, Mapping) and tool_report.get("lifecycle_errors"):
                 _write_json(self.output_root / "camera_lifecycle_errors.json",
                             tool_report["lifecycle_errors"])
@@ -531,7 +531,6 @@ class FormalGoalEpisodeRunner:
             self.public_task,
             episode_id=self.episode_id,
             output_root=self.output_root,
-            code_baseline=self.public_task.get("task_package_version"),
         )
         scoring_metadata["episode_result"] = {
             "error": result["error"],

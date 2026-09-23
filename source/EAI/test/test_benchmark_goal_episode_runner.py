@@ -114,6 +114,14 @@ def test_formal_runner_keeps_one_episode_identity_and_pending_release(tmp_path: 
     assert usage["selected_team"] == [robot]
     assert usage["active_agents"] == [robot]
     assert usage["action_count"] == 3
+    metadata = json.loads((root / "scoring_adapter_metadata.json").read_text())
+    manifest = json.loads((root / "episode_manifest.json").read_text())
+    assert metadata["task_contract_sha256"] == manifest["public_task_sha256"]
+    assert metadata["episode_result"]["error"] is None
+    assert metadata["task_design"]["decomposition_owner"] == "participant"
+    assert metadata["checkpoint_requirements"]["restore_verified"] is False
+    assert {"result.json", "runtime_snapshots.json", "public_task.json",
+            "participant_api.json"} <= set(metadata["archive_index"]["files"])
 
 
 def test_formal_runner_rejects_partial_business_evaluator_output(tmp_path: Path):
@@ -144,6 +152,9 @@ def test_formal_runner_rejects_partial_business_evaluator_output(tmp_path: Path)
     ).run(initial_state={"robot_regions": regions, "object_states": objects})
     assert "every required outcome exactly" in result["error"]
     assert result["business_outcomes_validated"] is False
+    metadata = json.loads((tmp_path / "partial/scoring_adapter_metadata.json").read_text())
+    assert metadata["episode_result"]["error"] == result["error"]
+    assert metadata["scoreable"] is False
 
 
 def test_subprocess_goal_adapter_exposes_only_public_json_boundary(tmp_path: Path):

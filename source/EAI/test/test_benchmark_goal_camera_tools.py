@@ -883,6 +883,52 @@ def test_formal_runner_archives_camera_report(bundle, tmp_path):
         "validated"]
 
 
+@pytest.mark.parametrize("operation", ["report", "finalize_episode", "close"])
+def test_tool_teardown_error_preserves_scoring_archive(bundle, tmp_path, monkeypatch, operation):
+    tools, _ = setup_tools(bundle, episode_id="cam-test")
+    state = {
+        "robot_regions": {r["id"]: "rack_aisle_a"
+                          for r in bundle["public_task"]["candidate_robot_pool"]},
+        "object_states": {
+            o["id"]: {"region_id": o["physical_properties"]["initial_region_id"]}
+            for o in bundle["public_task"]["public_world"]["objects"]
+        },
+    }
+
+    def fail():
+        raise RuntimeError(f"{operation} failed during teardown")
+
+    closed = []
+    original_close = tools.close
+
+    def close():
+        closed.append(True)
+        if operation == "close":
+            fail()
+        original_close()
+
+    monkeypatch.setattr(tools, "close", close)
+    if operation != "close":
+        monkeypatch.setattr(tools, operation, fail)
+    root = tmp_path / "episode"
+    result = FormalGoalEpisodeRunner(
+        bundle["public_task"], bundle["participant_api"], Adapter(), object(),
+        episode_id="cam-test", output_root=root, camera_tools=tools,
+    ).run(initial_state=state)
+    assert closed
+    assert operation in result["error"]
+    assert result["scoreable"] is False
+    metadata = json.loads((root / "scoring_adapter_metadata.json").read_text())
+    assert metadata["episode_result"]["lifecycle_error_count"] == 1
+    assert metadata["episode_result"]["error"] == result["error"]
+    assert metadata["scoreable"] is False
+    assert "lifecycle_errors.json" in metadata["archive_index"]["files"]
+    assert "result.json" in metadata["archive_index"]["files"]
+    if operation != "report":
+        archive = json.loads((root / "camera_tools_report.json").read_text())
+        assert archive["closed"] is (operation != "close")
+
+
 def test_idle_destroy_rebuild_warmup_and_shared_owner():
     created = []
     destroyed = []
