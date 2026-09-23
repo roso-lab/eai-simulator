@@ -487,6 +487,13 @@ class FormalGoalEpisodeRunner:
         })
         _write_json(self.output_root / "goal_session_report.json", {
             "episode_id": self.episode_id, "report": final_report})
+        from .goal_scoring_adapter import build_scoring_adapter_metadata
+        scoring_metadata = build_scoring_adapter_metadata(
+            self.public_task,
+            episode_id=self.episode_id,
+            output_root=self.output_root,
+        )
+        _write_json(self.output_root / "scoring_adapter_metadata.json", scoring_metadata)
         result = {
             "schema": "eai.benchmark.formal_goal_episode_result", "version": 3,
             "episode_id": self.episode_id, "task_id": self.public_task["task_id"],
