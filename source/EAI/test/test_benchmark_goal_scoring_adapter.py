@@ -12,6 +12,7 @@ from demo.benchmark.goal_scoring_adapter import (
     deployment_assessment_observations,
     native_oracle_registry_observations,
     plan_admission_observations,
+    task_allocation_observations,
 )
 from demo.benchmark.goal_session import classify_plan_rejection
 
@@ -32,6 +33,8 @@ def test_scoring_sidecar_is_raw_only_and_has_no_protocol_branch(tmp_path):
     assert metadata["cost_evidence"]["raw_only"] is True
     assert metadata["cost_evidence"]["validity"]["scoreable"] is False
     assert metadata["cost_evidence"]["communication"]["total_bytes"] is None
+    assert metadata["task_allocation"]["raw_only"] is True
+    assert metadata["task_allocation"]["scoreable"] is False
 
 
 def test_archive_index_distinguishes_missing_files(tmp_path):
@@ -167,6 +170,40 @@ def test_plan_admission_prefers_stable_rejection_code_over_localized_text():
                                 "reason": "任意本地化文本", "reason_code": "resource_conflict"}],
     })
     assert observed["rejection_counts_by_category"]["resource_conflict"] == 1
+
+
+def test_task_allocation_profile_joins_verified_gate_and_plan_diagnostics():
+    deployment = {
+        "episode_oracle_eligible": True,
+        "accuracy_denominator": 4,
+        "classification_counts": {
+            "correct_deployment": 1, "correct_refusal": 1,
+            "false_refusal": 1, "false_deployment": 1,
+        },
+        "oracle_infrastructure_failure_count": 0,
+    }
+    plan = plan_admission_observations({
+        "actions": [{"type": "submit_plan"}],
+        "action_rejections": [{"type": "revise_plan", "reason_code": "resource_conflict"}],
+    })
+    observed = task_allocation_observations(deployment, plan)
+    assert observed["deployment_gate"]["verified_epoch_count"] == 4
+    assert observed["deployment_gate"]["false_refusal_rate"] == pytest.approx(0.25)
+    assert observed["deployment_gate"]["false_deployment_rate"] == pytest.approx(0.25)
+    assert observed["plan_admission"]["resource_conflict_rate"] == pytest.approx(0.5)
+    assert observed["scoreable"] is False
+
+
+def test_task_allocation_profile_keeps_ineligible_deployment_rates_null():
+    observed = task_allocation_observations(
+        {"episode_oracle_eligible": False, "accuracy_denominator": 3,
+         "classification_counts": {"false_refusal": 3}},
+        {"status": "observed"},
+    )
+    gate = observed["deployment_gate"]
+    assert gate["verified_epoch_count"] == 0
+    assert gate["false_refusal_rate"] is None
+    assert observed["quality_failures"] == ["deployment_oracle_ineligible"]
 
 
 @pytest.mark.parametrize("payload,expected", [

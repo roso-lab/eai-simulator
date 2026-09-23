@@ -26,5 +26,8 @@
 ## 与本阶段代码的关系
 
 - `goal_scoring_adapter.py` 生成 sidecar 元数据和原始归档索引，声明 checkpoint 需求为 `planned_not_captured`，不实现恢复或评分公式。
+- sidecar 的 `task_allocation` 字段把已验证部署门禁的显式分类计数/错误率与模型自身
+  plan admission 诊断合并为一份任务分配画像；oracle 不合格时部署分母为零，画像仍保持
+  raw-only，不构成正式六轴分数。
 - `goal_episode_runner.py` 在结果归档后写入该 sidecar；执行/工具收尾异常也保留错误及 `scoreable=false`。存储不可写和启动前校验失败不保证产生完整归档；场景 wrapper 后写的证据仍需最终封存索引。
 - `measurement_contract.py` 的旧干预标签不自动等同协议新版本权限；在政策冻结前不重命名、不扩展其评分语义。

@@ -358,6 +358,66 @@ def plan_admission_observations(session_report: Mapping[str, Any]) -> dict[str, 
     }
 
 
+def task_allocation_observations(
+    deployment: Mapping[str, Any], plan_admission: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Join deployment-gate and self-authored plan diagnostics.
+
+    This is a raw diagnostic profile for the task-allocation dimension.  It
+    keeps the deployment denominator fail-closed: an episode whose hidden
+    remaining-task oracle is not eligible contributes no deployment rate, but
+    its plan admission facts remain available for diagnosis.  The function
+    deliberately does not calculate a protocol score or treat a rejected
+    participant plan as a decomposition error.
+    """
+    if not isinstance(deployment, Mapping) or not isinstance(plan_admission, Mapping):
+        raise ValueError("task allocation observations require two mapping inputs")
+    raw_counts = deployment.get("classification_counts")
+    if not isinstance(raw_counts, Mapping):
+        raw_counts = {}
+    eligible = deployment.get("episode_oracle_eligible") is True
+    denominator = deployment.get("accuracy_denominator")
+    if type(denominator) is not int or denominator < 0:
+        denominator = 0
+    if not eligible:
+        denominator = 0
+
+    def count(name: str) -> int:
+        value = raw_counts.get(name, 0)
+        return value if type(value) is int and value >= 0 else 0
+
+    def rate(name: str) -> float | None:
+        return count(name) / denominator if denominator else None
+
+    # The explicit names avoid importing ambiguous legacy IRR/FIR meanings
+    # into the self-decomposed Goal track.  They are the raw ingredients for a
+    # future protocol statistic once native oracle and checkpoint gates pass.
+    deployment_metrics = {
+        "oracle_eligible": eligible,
+        "verified_epoch_count": denominator,
+        "correct_deployment_count": count("correct_deployment") if eligible else 0,
+        "correct_refusal_count": count("correct_refusal") if eligible else 0,
+        "false_refusal_count": count("false_refusal") if eligible else 0,
+        "false_deployment_count": count("false_deployment") if eligible else 0,
+        "false_refusal_rate": rate("false_refusal"),
+        "false_deployment_rate": rate("false_deployment"),
+        "infrastructure_failure_count": deployment.get(
+            "oracle_infrastructure_failure_count", 0),
+    }
+    return {
+        "schema": "eai.benchmark.task_allocation_observations",
+        "version": 1,
+        "raw_only": True,
+        "not_protocol_score": True,
+        "deployment_gate": deployment_metrics,
+        "plan_admission": deepcopy(dict(plan_admission)),
+        "quality_failures": ([] if eligible else ["deployment_oracle_ineligible"]),
+        "scoreable": False,
+        "execution_validated": False,
+        "business_outcomes_validated": False,
+    }
+
+
 def _assessment_archive(root: Path, *, episode_id: str, task_sha256: str) -> dict[str, Any]:
     path = root / "goal_session_report.json"
     try:
@@ -406,6 +466,10 @@ def build_scoring_adapter_metadata(
     # Cost evidence is an auditable raw sidecar.  It intentionally preserves
     # missing clocks/ledgers as null and never promotes release flags.
     cost_evidence = build_cost_evidence(output_root, episode_id=episode_id)
+    deployment_observations = _assessment_archive(
+        Path(output_root), episode_id=episode_id,
+        task_sha256=canonical_sha256(public_task))
+    plan_observations = _plan_admission_archive(Path(output_root))
     return {
         "schema": SCORING_ADAPTER_SCHEMA,
         "version": SCORING_ADAPTER_VERSION,
@@ -415,9 +479,10 @@ def build_scoring_adapter_metadata(
         "task_id": task_id,
         "scene_key": scene_key,
         "task_contract_sha256": canonical_sha256(public_task),
-        "deployment_assessment": _assessment_archive(
-            Path(output_root), episode_id=episode_id, task_sha256=canonical_sha256(public_task)),
-        "plan_admission": _plan_admission_archive(Path(output_root)),
+        "deployment_assessment": deployment_observations,
+        "plan_admission": plan_observations,
+        "task_allocation": task_allocation_observations(
+            deployment_observations, plan_observations),
         "communication_analysis": communication_analysis_observations(output_root),
         "native_oracle_registry": native_oracle_registry_observations(output_root),
         "cost_evidence": cost_evidence,
@@ -490,5 +555,5 @@ __all__ = [
     "SCORING_ADAPTER_VERSION", "build_archive_index", "build_scoring_adapter_metadata",
     "communication_analysis_observations", "deployment_assessment_observations",
     "native_oracle_registry_observations",
-    "plan_admission_observations",
+    "plan_admission_observations", "task_allocation_observations",
 ]
