@@ -71,6 +71,7 @@ def _all():
 def test_all_five_scenes_with_binary_native_results_are_release_ready():
     report = audit_native_oracle_registry(_all())
     assert report["oracle_release_ready"] is True
+    assert report["status"] == "verified"
     assert report["missing_scenes"] == []
     assert all(row["status"] == "verified" for row in report["scenes"].values())
     assert report["scoreable"] is False
@@ -79,6 +80,7 @@ def test_all_five_scenes_with_binary_native_results_are_release_ready():
 def test_missing_scene_is_explicit_and_fail_closed():
     report = audit_native_oracle_registry(_all()[:-1])
     assert report["oracle_release_ready"] is False
+    assert report["status"] == "failed"
     assert report["missing_scenes"] == ["restaurant"]
     assert "restaurant" not in report["scenes"]
 
@@ -119,6 +121,7 @@ def test_failed_measurement_does_not_become_a_third_truth():
     report = audit_native_oracle_registry(rows)
     assert report["oracle_release_ready"] is False
     assert report["scenes"]["modern_house_nvd"]["status"] == "failed"
+    assert report["status"] == "failed"
     assert "modern_house_nvd:initial" in report["scenes"]["modern_house_nvd"]["failed_measurement_ids"]
     assert all(row["feasibility_label"] not in {"unverified"}
                for row in rows[2]["release_review"]["results"])

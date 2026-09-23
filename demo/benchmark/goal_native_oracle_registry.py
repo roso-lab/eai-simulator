@@ -325,6 +325,7 @@ def audit_native_oracle_registry(
         "schema": NATIVE_ORACLE_REGISTRY_SCHEMA,
         "version": NATIVE_ORACLE_REGISTRY_VERSION,
         "visibility": "evaluator_only",
+        "status": "failed",
         "expected_scenes": expected,
         "covered_scenes": [],
         "missing_scenes": [],
@@ -341,6 +342,7 @@ def audit_native_oracle_registry(
     }
     if len(expected) != len(required) or any(not _is_nonempty_string(scene) for scene in required):
         report["invalid"].append(_failure("registry", None, "invalid_expected_scenes"))
+        report["status"] = "invalid"
         return report
 
     if state_contracts is None and release_reviews is None:
@@ -444,6 +446,8 @@ def audit_native_oracle_registry(
         and set(report["scenes"]) == set(expected)
         and all(row["status"] == "verified" for row in report["scenes"].values())
     )
+    report["status"] = "verified" if report["oracle_release_ready"] else (
+        "invalid" if report["invalid"] else "failed")
     return report
 
 
