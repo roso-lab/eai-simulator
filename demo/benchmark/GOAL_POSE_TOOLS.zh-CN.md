@@ -84,6 +84,22 @@ House/Warehouse 的名义技能时间与 PhysX 时间尚未统一，不能直接
 无效 action 或过期消费不得污染 Goal 与通信任一账本。已收到的旧值可以留在模型内存，
 benchmark 不声称能删除它；消费/引用记录也不证明模型实际依赖该信息。
 
+## 原生根状态读取
+
+`NativeGoalPoseSource` 只读取已有 session，按公开 ID→native articulation 绑定采样。
+episode 在完成 settle 后记录统一 `episode_step_origin`；时间来自
+`(current_time_step_index - origin) * physics_dt`。读取器拒绝名义时间与真实时间不一致、
+未绑定机器人、非有限位姿、无效四元数、物理时钟回退和步长变化；不会重定位任何机器人。
+恢复到另一个分支时必须重新建立带该分支原点的 source，不能沿用旧的单调采样状态。
+这只是测量源，不是完整 checkpoint 恢复接口。
+
+2026-09-23 的本机 CUDA 餐厅三机短程探针在已有 `SharedIdleHolds` 下真实步进 1.6 秒，
+以 0.25 秒订阅周期和 0.05 秒链路延迟，读到 Carter/Iris 共 14 条投递位置消息；
+规范链路重放通过，故意传入错误的计划时间被拒绝。报告位于
+`tmp/goal-pose-native-20260923/report.json`，运行日志和 probe 脚本在同目录，
+源文件 SHA 已绑定且核对一致。该探针在每次真实 env.step 后采样，
+**不代表正式业务 runner 已具备技能内推送或五场景完整接线**，release gate 不变。
+
 ## 计量及归档范围
 
 - 位姿响应经过 `CommunicationRuntime`，规范 UTF-8 JSON 按收件副本刚性计量，
