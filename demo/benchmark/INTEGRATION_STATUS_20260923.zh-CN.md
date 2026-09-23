@@ -102,6 +102,11 @@ v7 目录执行物化，避免未经用户明确批准在 `/home/eai-simulator` 
 episode 仍需在本机和 ljy 各自用审查过的 `Restaurant_Only.usda` 执行该步骤并保存
 source SHA256，然后才能进入启动前 preflight。
 
+当前提交 `4d90543` 在本机完整 `source/EAI/test/test_benchmark_*.py` 回归为
+**2244 passed，245.99 秒**；ljy 隔离工作树同提交的餐厅资产、B3a、评分侧车和通信
+专项为 **139 passed，0.24 秒**。两项都没有启动 Isaac 原生 episode；发布标志继续为
+false。
+
 已将完整 `672f2dc` bundle 同步到 ljy 隔离工作树（未触碰 ljy 原仓未提交修改），
 同一专项测试结果为 **134 passed，0.26秒**。远端专项包含通信旧/新池、评分侧车、
 编键随机、physics replay 和餐厅准备测试；没有启动 Isaac 原生 episode。
