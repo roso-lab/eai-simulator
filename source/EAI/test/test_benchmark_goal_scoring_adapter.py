@@ -10,6 +10,7 @@ from demo.benchmark.goal_scoring_adapter import (
     build_scoring_adapter_metadata,
     communication_analysis_observations,
     deployment_assessment_observations,
+    native_oracle_registry_observations,
     plan_admission_observations,
 )
 from demo.benchmark.goal_session import classify_plan_rejection
@@ -81,6 +82,35 @@ def test_communication_analysis_archive_fails_closed_on_wrong_schema(tmp_path):
     assert observed["status"] == "invalid"
     assert observed["report"] is None
     assert observed["scoreable"] is False
+
+
+def test_native_oracle_registry_archive_is_optional_raw_evidence(tmp_path):
+    assert native_oracle_registry_observations(tmp_path)["status"] == "missing"
+    report = {
+        "schema": "eai.benchmark.native_oracle_registry_audit", "version": 1,
+        "status": "failed", "oracle_release_ready": False,
+        "missing_scenes": ["factory"], "scoreable": False,
+    }
+    (tmp_path / "native_oracle_registry_audit.json").write_text(
+        json.dumps(report), encoding="utf-8")
+    observed = native_oracle_registry_observations(tmp_path)
+    assert observed["status"] == "observed"
+    assert observed["report"]["status"] == "failed"
+    metadata = build_scoring_adapter_metadata(
+        build_goal_task_package("factory")["public_task"],
+        episode_id="episode-registry", output_root=tmp_path)
+    assert metadata["native_oracle_registry"]["status"] == "observed"
+    assert metadata["scoreable"] is False
+
+
+def test_native_oracle_registry_archive_rejects_unknown_status(tmp_path):
+    (tmp_path / "native_oracle_registry_audit.json").write_text(
+        json.dumps({"schema": "eai.benchmark.native_oracle_registry_audit",
+                    "version": 1, "status": "unverified"}),
+        encoding="utf-8")
+    observed = native_oracle_registry_observations(tmp_path)
+    assert observed["status"] == "invalid"
+    assert observed["report"] is None
 
 
 def test_scoring_sidecar_rejects_invalid_episode_or_task():

@@ -25,3 +25,6 @@ remaining oracle、deployment、checkpoint、USD closure：55 passed
 随后加入五场景 oracle registry 审计器后，同一 ljy 隔离树在提交 `644dee8` 上复跑扩展集合，
 共 `104 passed`；其中新增 registry 完备性审计为 7 项。该审计仍只验证 evaluator-only
 注册、合同、哈希、测量点和 native evidence 覆盖，不替代五场景真实 reader 或合法路径证书。
+
+评分侧车同时接受可选的 `native_oracle_registry_audit.json`，保留其 `verified`、`failed` 或
+`invalid` 状态和哈希；缺失/失败只作为评测基础设施证据，不进入部署判断分母。

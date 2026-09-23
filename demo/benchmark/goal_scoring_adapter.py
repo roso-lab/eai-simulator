@@ -100,6 +100,38 @@ def communication_analysis_observations(output_root: str | Path) -> dict[str, An
             "report_sha256": _sha256(path)}
 
 
+def native_oracle_registry_observations(output_root: str | Path) -> dict[str, Any]:
+    """Archive the evaluator-side five-scene oracle completeness report.
+
+    The registry audit is a release gate, not a participant outcome.  This
+    adapter preserves its verified/failed/invalid status and never converts a
+    missing scene or failed measurement into a model classification.
+    """
+    path = Path(output_root) / "native_oracle_registry_audit.json"
+    base = {"raw_only": True, "not_protocol_score": True,
+            "scoreable": False, "execution_validated": False,
+            "business_outcomes_validated": False}
+    if not path.is_file():
+        return {**base, "status": "missing", "report": None,
+                "report_sha256": None, "quality_failure": "registry_archive_missing"}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, Mapping):
+            raise ValueError("registry archive must be an object")
+        if payload.get("schema") != "eai.benchmark.native_oracle_registry_audit":
+            raise ValueError("unexpected native oracle registry schema")
+        if type(payload.get("version")) is not int or payload["version"] < 1:
+            raise ValueError("invalid native oracle registry version")
+        if payload.get("status") not in {"verified", "failed", "invalid"}:
+            raise ValueError("registry status must be verified, failed, or invalid")
+    except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+        return {**base, "status": "invalid", "report": None,
+                "report_sha256": None,
+                "quality_failure": f"registry_archive_invalid:{type(exc).__name__}"}
+    return {**base, "status": "observed", "report": deepcopy(payload),
+            "report_sha256": _sha256(path)}
+
+
 def build_archive_index(output_root: str | Path) -> dict[str, Any]:
     """Index known raw artifacts without interpreting them as protocol scores."""
     root = Path(output_root).absolute()
@@ -116,6 +148,7 @@ def build_archive_index(output_root: str | Path) -> dict[str, Any]:
         "deployment_assessment_report.json",
         "deployment_feasibility_evidence.json", "deployment_protocol_error.json",
         "cost_evidence.json", "communication_analysis.json",
+        "native_oracle_registry_audit.json",
     )
     files = {}
     for name in names:
@@ -386,6 +419,7 @@ def build_scoring_adapter_metadata(
             Path(output_root), episode_id=episode_id, task_sha256=canonical_sha256(public_task)),
         "plan_admission": _plan_admission_archive(Path(output_root)),
         "communication_analysis": communication_analysis_observations(output_root),
+        "native_oracle_registry": native_oracle_registry_observations(output_root),
         "cost_evidence": cost_evidence,
         "condition": {
             "id": public_task.get("condition_id"),
@@ -455,5 +489,6 @@ __all__ = [
     "DIMENSION_STATUS", "PROTOCOL_MAPPING_REVISION", "SCORING_ADAPTER_SCHEMA",
     "SCORING_ADAPTER_VERSION", "build_archive_index", "build_scoring_adapter_metadata",
     "communication_analysis_observations", "deployment_assessment_observations",
+    "native_oracle_registry_observations",
     "plan_admission_observations",
 ]
