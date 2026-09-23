@@ -8,6 +8,7 @@ from demo.benchmark.goal_driven_tasks import build_goal_task_package
 from demo.benchmark.goal_scoring_adapter import (
     build_archive_index,
     build_scoring_adapter_metadata,
+    communication_analysis_observations,
     deployment_assessment_observations,
     plan_admission_observations,
 )
@@ -38,6 +39,48 @@ def test_archive_index_distinguishes_missing_files(tmp_path):
     assert index["not_protocol_score"] is True
     assert index["files"] == {}
     assert index["counts"]["events"] is None
+
+
+def test_communication_analysis_is_explicitly_missing_until_archived(tmp_path):
+    observed = communication_analysis_observations(tmp_path)
+    assert observed["status"] == "missing"
+    assert observed["report"] is None
+    assert observed["report_sha256"] is None
+    metadata = build_scoring_adapter_metadata(
+        build_goal_task_package("factory")["public_task"],
+        episode_id="episode-comm-missing", output_root=tmp_path)
+    assert metadata["communication_analysis"]["status"] == "missing"
+    assert "communication_analysis.json" not in metadata["archive_index"]["files"]
+
+
+def test_communication_analysis_archive_is_bound_without_becoming_a_score(tmp_path):
+    report = {
+        "schema": "eai.benchmark.communication_analysis", "version": 1,
+        "status": "ok", "reference": {"capacity_bps": None, "mean": 1.0},
+        "points": [], "thresholds": {}, "no_extrapolation": True,
+    }
+    path = tmp_path / "communication_analysis.json"
+    path.write_text(json.dumps(report), encoding="utf-8")
+    observed = communication_analysis_observations(tmp_path)
+    assert observed["status"] == "observed"
+    assert observed["report"]["no_extrapolation"] is True
+    assert len(observed["report_sha256"]) == 64
+    metadata = build_scoring_adapter_metadata(
+        build_goal_task_package("factory")["public_task"],
+        episode_id="episode-comm-observed", output_root=tmp_path)
+    assert metadata["communication_analysis"]["status"] == "observed"
+    assert metadata["scoreable"] is False
+    assert metadata["execution_validated"] is False
+
+
+def test_communication_analysis_archive_fails_closed_on_wrong_schema(tmp_path):
+    (tmp_path / "communication_analysis.json").write_text(
+        json.dumps({"schema": "other", "version": 1, "status": "ok"}),
+        encoding="utf-8")
+    observed = communication_analysis_observations(tmp_path)
+    assert observed["status"] == "invalid"
+    assert observed["report"] is None
+    assert observed["scoreable"] is False
 
 
 def test_scoring_sidecar_rejects_invalid_episode_or_task():

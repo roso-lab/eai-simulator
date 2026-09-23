@@ -29,3 +29,7 @@
 这些结果是通信适应的原始/诊断证据；真实 Goal episode 接线、participant p2p service
 和 `scoreable` 晋升仍需独立门禁。
 
+评分侧车现在可选读取 episode 根目录的 `communication_analysis.json`。它校验
+`eai.benchmark.communication_analysis` schema、版本和有限实验状态，并按 SHA-256
+绑定原始报告；缺失或格式错误分别归档为 `missing` / `invalid`，不会补成零成本、
+不会计算正式六维分数，也不会改变三个发布标志。

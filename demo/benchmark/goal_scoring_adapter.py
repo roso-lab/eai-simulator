@@ -35,7 +35,7 @@ DIMENSION_STATUS = {
 
 SCOREABILITY_REASONS = [
     "fixed_subtask_metrics_require_revision_for_goal_decomposition",
-    "no_protocol_shared_capacity_or_iid_loss_contract",
+    "no_native_communication_episode_provenance",
     "no_physics_checkpoint_or_fact_reference_sham_branch",
     "formal_runner_is_serial_and_has_no_protocol_concurrency_evidence",
     "execution_and_business_validation_are_release_gated",
@@ -65,6 +65,41 @@ def _count_json(path: Path, key: str, *, parent: str | None = None) -> int | Non
     return len(item) if isinstance(item, (list, dict)) else None
 
 
+def communication_analysis_observations(output_root: str | Path) -> dict[str, Any]:
+    """Attach an already computed communication analysis as raw evidence.
+
+    Capacity curves and paired distribution effects are computed by
+    ``communication_analysis`` before this adapter runs.  The sidecar only
+    verifies the archive identity and preserves the report; it never turns a
+    curve or threshold into a protocol score.  Missing or malformed analysis
+    remains an explicit infrastructure state rather than a zero-cost result.
+    """
+    path = Path(output_root) / "communication_analysis.json"
+    base = {"raw_only": True, "not_protocol_score": True,
+            "scoreable": False, "execution_validated": False,
+            "business_outcomes_validated": False}
+    if not path.is_file():
+        return {**base, "status": "missing", "report": None,
+                "report_sha256": None, "quality_failure": "analysis_archive_missing"}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, Mapping):
+            raise ValueError("analysis archive must be an object")
+        if payload.get("schema") != "eai.benchmark.communication_analysis":
+            raise ValueError("unexpected communication analysis schema")
+        if type(payload.get("version")) is not int or payload["version"] < 1:
+            raise ValueError("invalid communication analysis version")
+        status = payload.get("status")
+        if status not in {"ok", "missing_reference"}:
+            raise ValueError("communication analysis is not a bounded summary")
+    except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+        return {**base, "status": "invalid", "report": None,
+                "report_sha256": None,
+                "quality_failure": f"analysis_archive_invalid:{type(exc).__name__}"}
+    return {**base, "status": "observed", "report": deepcopy(payload),
+            "report_sha256": _sha256(path)}
+
+
 def build_archive_index(output_root: str | Path) -> dict[str, Any]:
     """Index known raw artifacts without interpreting them as protocol scores."""
     root = Path(output_root).absolute()
@@ -80,7 +115,7 @@ def build_archive_index(output_root: str | Path) -> dict[str, Any]:
         "camera_render_failures.json",
         "deployment_assessment_report.json",
         "deployment_feasibility_evidence.json", "deployment_protocol_error.json",
-        "cost_evidence.json",
+        "cost_evidence.json", "communication_analysis.json",
     )
     files = {}
     for name in names:
@@ -350,6 +385,7 @@ def build_scoring_adapter_metadata(
         "deployment_assessment": _assessment_archive(
             Path(output_root), episode_id=episode_id, task_sha256=canonical_sha256(public_task)),
         "plan_admission": _plan_admission_archive(Path(output_root)),
+        "communication_analysis": communication_analysis_observations(output_root),
         "cost_evidence": cost_evidence,
         "condition": {
             "id": public_task.get("condition_id"),
@@ -418,5 +454,6 @@ def build_scoring_adapter_metadata(
 __all__ = [
     "DIMENSION_STATUS", "PROTOCOL_MAPPING_REVISION", "SCORING_ADAPTER_SCHEMA",
     "SCORING_ADAPTER_VERSION", "build_archive_index", "build_scoring_adapter_metadata",
-    "deployment_assessment_observations", "plan_admission_observations",
+    "communication_analysis_observations", "deployment_assessment_observations",
+    "plan_admission_observations",
 ]
