@@ -160,6 +160,7 @@ def test_runner_hook_evaluates_before_decision_and_does_not_expose_actions_to_gr
 
 @pytest.mark.parametrize("provider", [
     lambda _snapshot: {"measurement_id": "initial"},
+    lambda _snapshot: {"measurement_id": "initial", "state": [], "grounding": {}},
     lambda _snapshot: (_ for _ in ()).throw(RuntimeError("native reader unavailable")),
 ])
 def test_native_reader_failure_is_archived_as_failed_binary_gap(registration, provider):

@@ -272,6 +272,10 @@ class RegisteredRemainingTaskOracle:
             observed_state = observation["state"]
             measurement_id = observation["measurement_id"]
             grounding = observation["grounding"]
+            if not isinstance(observed_state, Mapping):
+                raise TypeError("state provider state must be an object")
+            if not isinstance(grounding, Mapping):
+                raise TypeError("state provider grounding must be an object")
         except Exception as exc:
             # A missing native reader, malformed readback, or provider error
             # is a platform evidence failure. Preserve only a stable category
