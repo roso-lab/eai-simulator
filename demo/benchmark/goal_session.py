@@ -60,6 +60,29 @@ from .goal_deployment_assessment import (
 from .provenance import canonical_sha256
 
 
+def classify_plan_rejection(reason: str) -> str:
+    """Return a stable evaluator code while preserving the raw error text.
+
+    Plan admission diagnostics must survive wording changes and localization.
+    The code is intentionally limited to admission categories; it does not
+    judge whether the participant's decomposition was correct.
+    """
+    if not isinstance(reason, str) or not reason.strip():
+        raise ValueError("plan rejection reason must be nonempty")
+    text = reason.casefold()
+    if "resource conflict" in text or "reservation" in text or "overlap" in text:
+        return "resource_conflict"
+    if any(token in text for token in ("simulation budget", "budget has ended", "outside its planned")):
+        return "budget_exhausted"
+    if any(token in text for token in ("load", "capacity", "max_active", "busy")):
+        return "load_conflict"
+    if any(token in text for token in ("capability", "assigned", "team", "agent")):
+        return "capability_or_team"
+    if "snapshot" in text or "evidence" in text:
+        return "missing_evidence"
+    return "plan_contract"
+
+
 _NAVIGATION = {"ground_navigation", "aerial_navigation", "stair_traversal"}
 _TERMINAL = {"succeeded", "failed", "cancelled"}
 _PENDING = {"pending", "cancel_requested"}
@@ -648,6 +671,7 @@ class GoalSession:
             "type": action_type,
             "submitted_at_s": action.get("submitted_at_s"),
             "reason": reason,
+            "reason_code": classify_plan_rejection(reason),
             "state_version": self._version,
             "plan_id": plan.get("plan_id") if isinstance(plan, Mapping) else None,
         }
@@ -841,4 +865,4 @@ class GoalSession:
         return deepcopy(report)
 
 
-__all__ = ["GoalSession"]
+__all__ = ["GoalSession", "classify_plan_rejection"]

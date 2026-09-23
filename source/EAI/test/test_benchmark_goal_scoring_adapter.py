@@ -11,6 +11,7 @@ from demo.benchmark.goal_scoring_adapter import (
     deployment_assessment_observations,
     plan_admission_observations,
 )
+from demo.benchmark.goal_session import classify_plan_rejection
 
 
 def test_scoring_sidecar_is_raw_only_and_has_no_protocol_branch(tmp_path):
@@ -70,6 +71,26 @@ def test_plan_admission_observations_aggregate_rejections_without_fixed_subtasks
     assert observed["resource_conflict_rate"] == pytest.approx(1 / 5)
     assert observed["revision_survival_rate"] == pytest.approx(1 / 3)
     assert observed["not_protocol_score"] is True
+
+
+@pytest.mark.parametrize("reason,code", [
+    ("pending runtime resource conflict: arm grasp", "resource_conflict"),
+    ("episode simulation budget has ended", "budget_exhausted"),
+    ("task capability is unavailable", "capability_or_team"),
+    ("cannot deselect a busy agent", "load_conflict"),
+    ("plan snapshot is stale", "missing_evidence"),
+])
+def test_plan_rejection_codes_are_stable_across_reason_wording(reason, code):
+    assert classify_plan_rejection(reason) == code
+
+
+def test_plan_admission_prefers_stable_rejection_code_over_localized_text():
+    observed = plan_admission_observations({
+        "actions": [{"action_id": "p0", "type": "submit_plan"}],
+        "action_rejections": [{"action_id": "r0", "type": "submit_plan",
+                                "reason": "任意本地化文本", "reason_code": "resource_conflict"}],
+    })
+    assert observed["rejection_counts_by_category"]["resource_conflict"] == 1
 
 
 @pytest.mark.parametrize("payload,expected", [

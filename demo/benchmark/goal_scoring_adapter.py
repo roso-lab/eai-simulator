@@ -239,7 +239,17 @@ def plan_admission_observations(session_report: Mapping[str, Any]) -> dict[str, 
                 if isinstance(row, Mapping)
                 and row.get("type") in {"submit_plan", "revise_plan"}]
 
-    def category(reason: Any) -> str:
+    def category(row: Mapping[str, Any]) -> str:
+        code = row.get("reason_code")
+        stable = {
+            "resource_conflict": "resource_conflict",
+            "load_conflict": "load",
+            "capability_or_team": "capability",
+            "budget_exhausted": "budget",
+        }
+        if code in stable:
+            return stable[code]
+        reason = row.get("reason")
         text = str(reason).lower()
         if any(token in text for token in ("capability", "assigned", "team", "agent")):
             return "capability"
@@ -254,7 +264,7 @@ def plan_admission_observations(session_report: Mapping[str, Any]) -> dict[str, 
     counts = {name: 0 for name in
               ("capability", "load", "resource_conflict", "budget", "contract_or_other")}
     for row in rejected:
-        counts[category(row.get("reason"))] += 1
+        counts[category(row)] += 1
     attempts = len(accepted) + len(rejected)
     revision_attempts = sum(row.get("type") == "revise_plan"
                             for row in accepted + rejected)
