@@ -268,16 +268,20 @@ def _audit_scene(scene: str, registration: Any, contract: Any, review: Any) -> d
                 label = row.get("feasibility_label")
                 status = row.get("oracle_status")
                 scope = row.get("validation_scope")
-                if status != "verified" or label not in _BINARY_LABELS or scope != NATIVE_REMAINING_TASK_SCOPE:
+                if status != "verified":
                     failed.append(measurement_id)
-                    if status == "unverified" or label == "unverified":
-                        invalid.append(f"unverified_measurement:{measurement_id}")
-                    elif status != "verified":
-                        invalid.append(f"measurement_not_verified:{measurement_id}")
-                    elif label not in _BINARY_LABELS:
-                        invalid.append(f"non_binary_measurement:{measurement_id}")
-                    else:
-                        invalid.append(f"measurement_scope_mismatch:{measurement_id}")
+                    # ``failed`` and ``unverified`` are platform evidence
+                    # states.  Keep them out of structural-invalid so the
+                    # report distinguishes an absent/failed reader from a
+                    # malformed third task truth.
+                    if label == "unverified":
+                        failed.append(f"unverified_measurement:{measurement_id}")
+                elif label not in _BINARY_LABELS:
+                    failed.append(measurement_id)
+                    invalid.append(f"non_binary_measurement:{measurement_id}")
+                elif scope != NATIVE_REMAINING_TASK_SCOPE:
+                    failed.append(measurement_id)
+                    invalid.append(f"measurement_scope_mismatch:{measurement_id}")
                 if not _evidence_refs(row.get("evidence_refs")):
                     failed.append(measurement_id)
                     invalid.append(f"empty_measurement_evidence:{measurement_id}")

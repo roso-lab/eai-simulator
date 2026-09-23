@@ -118,7 +118,7 @@ def test_failed_measurement_does_not_become_a_third_truth():
     rows[2]["release_review"]["results"][0]["feasibility_label"] = None
     report = audit_native_oracle_registry(rows)
     assert report["oracle_release_ready"] is False
-    assert report["scenes"]["modern_house_nvd"]["status"] == "invalid"
+    assert report["scenes"]["modern_house_nvd"]["status"] == "failed"
     assert "modern_house_nvd:initial" in report["scenes"]["modern_house_nvd"]["failed_measurement_ids"]
     assert all(row["feasibility_label"] not in {"unverified"}
                for row in rows[2]["release_review"]["results"])
