@@ -28,3 +28,16 @@
 - [ ] 本机和 ljy 在同一提交运行静态全量回归；所有跳过项写明环境原因。
 - [ ] 原生 checkpoint restore/replay、E2 participant service 和六轴正式统计继续保持未完成状态，不能以离线 fixture 替代。
 
+## 阶段实证（2026-09-24）
+
+- P0 oracle reader fail-closed：`4537001`、`c1de19c`；聚焦回归 29 passed。缺失、异常或
+  非对象 readback 均归档为 `oracle_status=failed`、`feasibility_label=null`，不会把
+  `unverified` 传给被测模型。
+- 餐厅 A2（ljy 隔离树，`70459d9`）：正确 staging
+  `/home/ljy/a/b/c/d/products-candidate-v7` 的哈希、source closure、resolver 和
+  `runtime_probe.prepare_probe` 全部通过；餐厅静态回归 44 passed、8 skipped。受限
+  native 启动因 ljy 无显示环境的 GLFW 初始化超时停止，所有执行/业务/scoreable 门仍关闭。
+- 本机静态全量（`PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs:source/EAI_env_diy`
+  与 `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`）：`2952 passed`。Factory evaluator fixture 单测
+  需要本机未纳入 Git 的外部 USD，其实际哈希与冻结 fixture 不同，作为资产版本缺口单列，
+  未修改 fixture、资产或哈希门禁。
