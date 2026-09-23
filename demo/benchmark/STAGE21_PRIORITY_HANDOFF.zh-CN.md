@@ -60,3 +60,7 @@ fail-closed）。ljy 隔离工作树 `/home/ljy/eai-simulator-worktrees/benchmar
 通过 git bundle 同步到 `36941ad` 后，使用其 `python3` 完成同一部署、通信、评分和
 raw-cost 专项：`81 passed`。ljy 原仓未提交内容未触碰；远端没有可用的
 `env_isaaclab` 路径，因此没有声称其运行 Isaac 原生 episode。
+
+阶段收尾时本机完整 `source/EAI/test/test_benchmark_*.py` 回归为 **2248 passed，
+246.55 秒**。该回归仍是轻量/契约和假后端测试；没有把它解释为五场景原生业务完成，
+也没有改变任何 release gate。
