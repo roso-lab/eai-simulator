@@ -139,6 +139,14 @@ def setup_tools(bundle, *, contract=None, episode_id="cam-test",
     return tools, backend
 
 
+def bind_join_event(tools, event, *, index=0):
+    class Session:
+        def report(self):
+            events = [{} for _ in range(index)] + [deepcopy(event)]
+            return {"events": events}
+    tools.bind_goal_session(Session())
+
+
 def link_bytes(report):
     total = 0
     for message in report["communication"]["messages"].values():
@@ -415,6 +423,7 @@ def test_member_join_requires_predeclared_catalog(bundle):
     assert "joined" not in tools.public_profile()["sensors"]
     assert "joined" not in tools.public_profile()["robot_ids"]
     event = {"type": "member_join", "payload": {"agent_id": "joined"}}
+    bind_join_event(tools, event)
     delta = tools.activate_joined_member(event, session_event_index=0, time_s=0.0)
     assert delta["joined_robot_id"] == "joined"
     assert set(delta["sensors"]) == {"joined"}
@@ -440,7 +449,8 @@ def test_p1_hidden_join_identity_not_in_public_profile(bundle):
     with pytest.raises(RuntimeError, match="direct register_public_robot is disabled"):
         tools.register_public_robot(hidden)
     event = {"type": "member_join", "payload": {"agent_id": hidden}}
-    tools.activate_joined_member(event, session_event_index=3, time_s=0.0)
+    bind_join_event(tools, event)
+    tools.activate_joined_member(event, session_event_index=0, time_s=0.0)
     profile2 = tools.public_profile()
     assert set(profile2["sensors"]) - set(profile["sensors"]) == {hidden}
     assert hidden in profile2["robot_ids"]
@@ -674,7 +684,7 @@ def test_p1_host_member_join_delivers_profile_delta(bundle):
         # Direct spoof still fails while the tools remain open.
         with pytest.raises(RuntimeError, match="direct register_public_robot is disabled"):
             tools.register_public_robot(hidden)
-        with pytest.raises(ValueError, match="private sensor registry"):
+        with pytest.raises(ValueError, match="not committed in GoalSession"):
             tools.activate_joined_member(
                 {"type": "member_join", "payload": {"agent_id": "totally_unknown"}},
                 session_event_index=99, time_s=1.0)

@@ -214,6 +214,7 @@ class GoalCameraTools:
         self._closed = False
         self._episode_finalized = False
         self._activated_join_indices: set[int] = set()
+        self._bound_goal_session: Any | None = None
         self._calls: dict[str, dict[str, Any]] = {}
         self._requests: dict[str, dict[str, Any]] = {}
         self._pending: dict[str, dict[str, Any]] = {}
@@ -321,6 +322,36 @@ class GoalCameraTools:
             "direct register_public_robot is disabled; GoalAlgorithmHost must call "
             "activate_joined_member with a committed GoalSession member_join event")
 
+    def bind_goal_session(self, session: Any) -> None:
+        """Bind the trusted host session used to authenticate member joins.
+
+        The participant never receives this object.  Keeping the binding on the
+        host side prevents a caller that only holds the camera companion from
+        fabricating a plausible event and sequence number.
+        """
+        if session is None or not callable(getattr(session, "report", None)):
+            raise ValueError("camera tools require a GoalSession report provider")
+        if self._bound_goal_session is not None and self._bound_goal_session is not session:
+            raise RuntimeError("camera tools are already bound to another GoalSession")
+        self._bound_goal_session = session
+
+    def _validate_bound_join_event(
+        self, event: Mapping[str, Any], session_event_index: int,
+    ) -> None:
+        session = self._bound_goal_session
+        if session is None:
+            raise RuntimeError(
+                "camera join activation requires a trusted GoalSession binding")
+        report = session.report()
+        events = report.get("events") if isinstance(report, Mapping) else None
+        if not isinstance(events, list) or session_event_index >= len(events):
+            raise ValueError("member_join event index is not committed in GoalSession")
+        committed = events[session_event_index]
+        if committed != event:
+            raise ValueError("member_join event does not match committed GoalSession event")
+        if committed.get("type") != "member_join":
+            raise ValueError("committed GoalSession event is not member_join")
+
     def activate_joined_member(
         self,
         event: Mapping[str, Any],
@@ -339,6 +370,7 @@ class GoalCameraTools:
             raise ValueError("session_event_index must be an int")
         if session_event_index < 0:
             raise ValueError("session_event_index must be nonnegative")
+        self._validate_bound_join_event(event, session_event_index)
         if not isinstance(event, Mapping) or event.get("type") != "member_join":
             raise ValueError("activation requires a member_join session event")
         payload = event.get("payload")

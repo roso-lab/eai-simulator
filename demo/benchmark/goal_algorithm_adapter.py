@@ -116,6 +116,9 @@ class GoalAlgorithmHost:
         self._failed = False
         try:
             adapter.initialize(deepcopy(self._public_task), deepcopy(self._participant_api))
+            bind_camera = getattr(self._camera_tools, "bind_goal_session", None)
+            if self._camera_tools is not None and callable(bind_camera):
+                bind_camera(self._session)
             initialize_tools = getattr(adapter, "initialize_tools", None)
             if pose_tools is not None and callable(initialize_tools):
                 profile = pose_tools.public_profile()
