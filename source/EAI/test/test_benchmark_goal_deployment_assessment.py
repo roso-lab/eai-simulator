@@ -471,6 +471,42 @@ def test_runner_archives_missing_assessment_as_protocol_error(tmp_path):
     }]
 
 
+def test_runner_converts_unverified_reader_output_to_failed_platform_record(tmp_path):
+    _bundle, public, api = _v3()
+
+    def unverified_reader(_episode_id, trusted):
+        gate = trusted["session"]["deployment_assessment"]
+        return {
+            "assessment_id": gate["assessment_id"],
+            "assessment_epoch": gate["assessment_epoch"],
+            "feasibility_label": "unverified",
+            "oracle_status": "failed",
+            "platform_valid": False,
+            "evidence_refs": [],
+            "evaluator_ref": "test.native-reader",
+        }
+
+    root = tmp_path / "unverified-reader"
+    result = FormalGoalEpisodeRunner(
+        public, api, _IdleAdapter(), _NeverBackend(), output_root=root,
+        assessment_evaluator=unverified_reader,
+    ).run(initial_state=_initial_state(public))
+
+    assert result["error"] is not None
+    hidden = json.loads((root / "hidden_evaluator_trace.json").read_text())
+    evaluations = hidden["deployment_assessment"]["oracle_evaluations"]
+    assert evaluations == [{
+        "assessment_id": "deployment-assessment-0",
+        "assessment_epoch": 0,
+        "feasibility_label": None,
+        "oracle_status": "failed",
+        "platform_valid": False,
+        "evidence_refs": [],
+        "evaluator_ref": "oracle_evaluation_failed",
+    }]
+    assert "unverified" not in json.dumps(hidden)
+
+
 class _DeployableOnlyAdapter(_NotDeployableAdapter):
     def act(self, events):
         actions = super().act(events)

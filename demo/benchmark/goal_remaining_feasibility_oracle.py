@@ -33,6 +33,33 @@ def _amounts(value, field):
     return dict(value)
 
 
+def _failed_result(*, episode_id: str, measurement_id: str | None,
+                   assessment_id: str, assessment_epoch: int,
+                   quality_failure: str) -> dict[str, Any]:
+    """Build the evaluator-only platform failure shape.
+
+    Native reader gaps are evidence failures, never a third feasibility label.
+    Keeping this constructor shared by the query and reader adapter also makes
+    malformed provider output deterministic in the archived evidence report.
+    """
+    return {
+        "assessment_id": assessment_id,
+        "assessment_epoch": assessment_epoch,
+        "feasibility_label": None,
+        "oracle_status": "failed",
+        "platform_valid": False,
+        "evidence_refs": [],
+        "evaluator_ref": "remaining_task_reachability_v1",
+        "episode_id": episode_id,
+        "measurement_id": measurement_id,
+        "visibility": "evaluator_only",
+        "scoreable": False,
+        "execution_validated": False,
+        "business_outcomes_validated": False,
+        "quality_failure": quality_failure,
+    }
+
+
 def validate_oracle_model(model: Mapping[str, Any]) -> str:
     """Validate a finite, closed transition model; return its immutable hash."""
     facts = _names(model["fact_ids"], "fact_ids")
@@ -126,12 +153,10 @@ def query_remaining_feasibility(
     alternatives, including serialization and alternative teams; it returns
     no solution plan to either the caller or participant.
     """
-    result = {"assessment_id": assessment_id, "assessment_epoch": assessment_epoch,
-              "feasibility_label": None, "oracle_status": "failed", "platform_valid": False,
-              "evidence_refs": [], "evaluator_ref": "remaining_task_reachability_v1",
-              "episode_id": episode_id, "measurement_id": measurement_id,
-              "visibility": "evaluator_only", "scoreable": False,
-              "execution_validated": False, "business_outcomes_validated": False}
+    result = _failed_result(
+        episode_id=episode_id, measurement_id=measurement_id,
+        assessment_id=assessment_id, assessment_epoch=assessment_epoch,
+        quality_failure="not_evaluated")
     def fail(reason):
         result["quality_failure"] = reason
         return result
@@ -239,16 +264,38 @@ class RegisteredRemainingTaskOracle:
         # retaining the trigger identity separately.
         snapshot["runtime_state"] = deepcopy(session.get("runtime_state"))
         snapshot["oracle_at_s"] = session["current_time_s"]
-        observation = self._provider(snapshot)
-        observed_state = observation["state"]
+        observation = None
+        try:
+            observation = self._provider(snapshot)
+            if not isinstance(observation, Mapping):
+                raise TypeError("state provider must return an object")
+            observed_state = observation["state"]
+            measurement_id = observation["measurement_id"]
+            grounding = observation["grounding"]
+        except Exception as exc:
+            # A missing native reader, malformed readback, or provider error
+            # is a platform evidence failure. Preserve only a stable category
+            # in the evaluator report; never let ``unverified`` reach the
+            # participant-facing assessment contract.
+            result = _failed_result(
+                episode_id=episode_id,
+                measurement_id=(observation.get("measurement_id")
+                                if isinstance(observation, Mapping) else None),
+                assessment_id=gate["assessment_id"],
+                assessment_epoch=gate["assessment_epoch"],
+                quality_failure=f"state_provider_failed:{type(exc).__name__}")
+            self._results.append(result)
+            return {key: deepcopy(result[key]) for key in (
+                "assessment_id", "assessment_epoch", "feasibility_label", "oracle_status",
+                "platform_valid", "evidence_refs", "evaluator_ref")}
         binding_matches = (
             observed_state.get("time_s") == session["current_time_s"]
             and observed_state.get("roster_version") == gate.get("roster_version")
             and observed_state.get("capability_versions") == gate.get("capability_versions")
             and observed_state.get("resource_versions", {}) == gate.get("resource_versions", {}))
-        grounding = observation["grounding"] if binding_matches else {"status": "failed"}
+        grounding = grounding if binding_matches else {"status": "failed"}
         result = query_remaining_feasibility(
-            self._registration, measurement_id=observation["measurement_id"], episode_id=episode_id,
+            self._registration, measurement_id=measurement_id, episode_id=episode_id,
             assessment_id=gate["assessment_id"], assessment_epoch=gate["assessment_epoch"],
             task_sha256=gate["public_task_sha256"], state=observed_state, grounding=grounding)
         if not binding_matches:

@@ -156,3 +156,24 @@ def test_runner_hook_evaluates_before_decision_and_does_not_expose_actions_to_gr
     trusted["session"]["deployment_assessment"]["status"] = "deployable"
     with pytest.raises(ValueError, match="before declaration"):
         oracle("episode", trusted)
+
+
+@pytest.mark.parametrize("provider", [
+    lambda _snapshot: {"measurement_id": "initial"},
+    lambda _snapshot: (_ for _ in ()).throw(RuntimeError("native reader unavailable")),
+])
+def test_native_reader_failure_is_archived_as_failed_binary_gap(registration, provider):
+    oracle = RegisteredRemainingTaskOracle(registration, provider)
+    trusted = {"session": {"episode_id": "episode", "current_time_s": 4.0,
+        "runtime_state": {"trusted": True},
+        "deployment_assessment": {"status": "required", "assessment_id": "a1",
+            "assessment_epoch": 1, "public_task_sha256": "task", "runtime_state": None,
+            "roster_version": 1, "capability_versions": {"clerk": 1}, "resource_versions": {}}}}
+
+    result = oracle("episode", trusted)
+    assert result["oracle_status"] == "failed"
+    assert result["feasibility_label"] is None
+    report = oracle.report()
+    assert report["results"][-1]["oracle_status"] == "failed"
+    assert report["results"][-1]["feasibility_label"] is None
+    assert report["results"][-1]["quality_failure"].startswith("state_provider_failed:")
