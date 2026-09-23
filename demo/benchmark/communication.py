@@ -26,6 +26,13 @@ messages may declare ``estimate.consumer_ids``; each listed downstream task may
 then consume the same delivered copy once. This component does not authenticate
 caller identities.
 
+AoI keeps the existing delivery/consume samples for compatibility and also
+tracks a continuous age curve per ``(recipient, information_id)``. The curve
+starts when the first update selected by ``aoi_sample_policy`` is accepted and
+is integrated until the report time. Time-weighted mean and P95 are reported
+separately from the event-age sample mean and P95; time before the first
+accepted update is uncovered rather than silently treated as a zero-age value.
+
 ``public_messages(recipient=...)`` returns only fresh, delivered, unconsumed
 Factory-compatible payloads: message_id, producer_id, published_at_s,
 valid_until_s, estimate. The latter two times are publisher metadata; hidden
@@ -259,6 +266,9 @@ class CommunicationRuntime:
         self._pool_states = {}
         self._access_states = {}
         self._aoi_samples = []
+        # Tracks are keyed by (recipient, information_id). Completed segments
+        # are immutable; the current tail is materialized by ``aoi()``.
+        self._aoi_tracks = {}
 
     @property
     def time_s(self):
@@ -708,42 +718,166 @@ class CommunicationRuntime:
             elif kind == "deliver" and delivery["status"] == "in_transit":
                 delivery.update(status="delivered", delivered_at_s=float(time))
                 self._record("delivered", time, message_id=message_id, recipient=recipient)
-                self._record_aoi(message_id, recipient, time)
+                if self._contract.get("aoi_sample_policy", "delivery") == "delivery":
+                    self._record_aoi(message_id, recipient, time)
         self._now = target
         return self.time_s
 
     tick = advance
 
-    def _record_aoi(self, message_id, recipient, delivered_at):
+    def _aoi_information_id(self, message_id):
+        """Resolve the evaluator's logical information-item identity."""
         message = self._messages[message_id]
         payload = message["payload"]
         info_id = payload.get("information_id")
         if info_id is None:
             estimate = payload.get("estimate", {})
             info_id = estimate.get("information_id") or estimate.get("observation_id")
-        if info_id is None:
-            # Every payload is still an information item; using the message ID
-            # avoids silently dropping samples from generic channels.
-            info_id = message_id
+        # Generic messages remain measurable; their message ID is a stable
+        # fallback and preserves the pre-continuous AoI behavior.
+        return (info_id if isinstance(info_id, str) and info_id
+                else message_id)
+
+    @staticmethod
+    def _append_aoi_segment(track, start, end, generated):
+        if end <= start:
+            return
+        age_start = start - generated
+        age_end = end - generated
+        track["segments"].append((start, end, age_start, age_end))
+
+    def _record_aoi(self, message_id, recipient, sampled_at):
+        """Record one accepted update and advance its continuous age curve."""
+        message = self._messages[message_id]
+        payload = message["payload"]
+        info_id = self._aoi_information_id(message_id)
+        sampled_at = (sampled_at if isinstance(sampled_at, Fraction)
+                      else _time(sampled_at, "aoi sample time"))
         generated = _time(payload["published_at_s"], "published_at_s")
+        delivery = message["recipients"][recipient]
+        delivered_at = delivery.get("delivered_at_s")
+        delivered = (None if delivered_at is None else
+                     _time(delivered_at, "delivered_at_s"))
         self._aoi_samples.append({"information_id": info_id, "message_id": message_id,
-                                  "recipient": recipient, "age_s": float(delivered_at - generated),
+                                  "recipient": recipient,
+                                  "age_s": float(sampled_at - generated),
                                   "generated_at_s": float(generated),
-                                  "delivered_at_s": float(delivered_at)})
+                                  "delivered_at_s": (None if delivered is None
+                                                     else float(delivered)),
+                                  "sampled_at_s": float(sampled_at)})
+
+        key = (recipient, info_id)
+        track = self._aoi_tracks.setdefault(key, {
+            "recipient": recipient, "information_id": info_id,
+            "first_sampled_at": sampled_at, "last_sampled_at": None,
+            "latest_generated_at": None, "sample_count": 0, "segments": [],
+        })
+        track["sample_count"] += 1
+        previous_at = track["last_sampled_at"]
+        previous_generated = track["latest_generated_at"]
+        if previous_at is None:
+            track["first_sampled_at"] = sampled_at
+        else:
+            self._append_aoi_segment(track, previous_at, sampled_at,
+                                     previous_generated)
+        # A late packet with an older generation timestamp must not make the
+        # information appear newer. It is still retained as an event sample.
+        if previous_generated is None or generated >= previous_generated:
+            track["latest_generated_at"] = generated
+        track["last_sampled_at"] = sampled_at
+
+    @staticmethod
+    def _weighted_aoi_p95(segments):
+        """Return the 95th percentile of age weighted by time duration."""
+        intervals = [(age_start, age_end)
+                     for _, _, age_start, age_end in segments
+                     if age_end > age_start]
+        if not intervals:
+            return None
+        boundaries = sorted({point for pair in intervals for point in pair})
+        total = sum(end - start for start, end in intervals)
+        target = total * Fraction("0.95")
+        cumulative = Fraction(0)
+        for left, right in zip(boundaries, boundaries[1:]):
+            active = sum(start <= left < end for start, end in intervals)
+            if not active:
+                continue
+            bucket = (right - left) * active
+            if target <= cumulative + bucket:
+                return float(left + (target - cumulative) / active)
+            cumulative += bucket
+        return float(boundaries[-1])
+
+    def _aoi_continuous(self):
+        """Build immutable continuous AoI statistics at the current time."""
+        now = self._now
+        items = []
+        aggregate_segments = []
+        aggregate_duration = Fraction(0)
+        aggregate_area = Fraction(0)
+        for key in sorted(self._aoi_tracks, key=lambda value: (value[0], str(value[1]))):
+            track = self._aoi_tracks[key]
+            segments = list(track["segments"])
+            if track["last_sampled_at"] is not None:
+                if now > track["last_sampled_at"]:
+                    start = track["last_sampled_at"]
+                    generated = track["latest_generated_at"]
+                    end = now
+                    age_start, age_end = start - generated, end - generated
+                    segments.append((start, end, age_start, age_end))
+            duration = sum(end - start for start, end, _, _ in segments)
+            area = sum((age_start + age_end) * (end - start) / 2
+                       for start, end, age_start, age_end in segments)
+            aggregate_segments.extend(segments)
+            aggregate_duration += duration
+            aggregate_area += area
+            item = {
+                "recipient": track["recipient"],
+                "information_id": track["information_id"],
+                "sample_count": track["sample_count"],
+                "start_s": float(track["first_sampled_at"]),
+                "end_s": float(now),
+                "covered_duration_s": float(duration),
+                "area_s2": float(area),
+                "time_mean_s": (float(area / duration) if duration else None),
+                "time_p95_s": self._weighted_aoi_p95(segments),
+                "segments": [{"start_s": float(start), "end_s": float(end),
+                              "age_start_s": float(age_start),
+                              "age_end_s": float(age_end)}
+                             for start, end, age_start, age_end in segments],
+            }
+            items.append(item)
+        return {
+            "horizon_s": float(now),
+            "item_count": len(items),
+            "covered_duration_s": float(aggregate_duration),
+            "area_s2": float(aggregate_area),
+            "time_mean_s": (float(aggregate_area / aggregate_duration)
+                             if aggregate_duration else None),
+            "time_p95_s": self._weighted_aoi_p95(aggregate_segments),
+            "items": items,
+        }
 
     def aoi(self):
-        """Return evaluator-only age-of-information delivery statistics."""
+        """Return event samples plus continuous time-weighted AoI statistics."""
         samples = deepcopy(self._aoi_samples)
         values = sorted(item["age_s"] for item in samples)
+        continuous = self._aoi_continuous()
         if not values:
-            return {"sample_count": 0, "samples": [], "mean_s": None, "p95_s": None}
+            return {"sample_count": 0, "samples": [], "mean_s": None, "p95_s": None,
+                    "time_mean_s": continuous["time_mean_s"],
+                    "time_p95_s": continuous["time_p95_s"],
+                    "continuous": continuous}
         position = (len(values) - 1) * 0.95
         lower = math.floor(position)
         upper = math.ceil(position)
         p95 = values[lower] if lower == upper else values[lower] + (
             values[upper] - values[lower]) * (position - lower)
         return {"sample_count": len(values), "samples": samples,
-                "mean_s": sum(values) / len(values), "p95_s": p95}
+                "mean_s": sum(values) / len(values), "p95_s": p95,
+                "time_mean_s": continuous["time_mean_s"],
+                "time_p95_s": continuous["time_p95_s"],
+                "continuous": continuous}
 
     def pool_utilization(self):
         """Evaluator-only capacity summary with absolute and C/C0 values."""
@@ -819,6 +953,8 @@ class CommunicationRuntime:
         else:
             delivery.setdefault("additional_consumptions", []).append(deepcopy(event))
         self._record("consumed", self._now, **{k: v for k, v in event.items() if k != "time_s"})
+        if self._contract.get("aoi_sample_policy", "delivery") == "consume":
+            self._record_aoi(message_id, recipient, self._now)
         return deepcopy(event)
 
     def report(self):
@@ -910,6 +1046,25 @@ def _canonical_json(value):
     # other paths). Evidence must be finite JSON and retain its recorded types.
     return json.dumps(_json_copy(value), sort_keys=True, ensure_ascii=False,
                       separators=(",", ":"), allow_nan=False)
+
+
+def _aoi_report_matches(actual, expected):
+    """Compare an AoI report while accepting fields absent from old reports.
+
+    Continuous AoI and ``sampled_at_s`` were added after the original v1/v2
+    report shape. Existing reports remain replayable when their recorded
+    fields match; reports that include the new fields still compare them
+    exactly. This compatibility is scoped to the AoI subtree only.
+    """
+    if isinstance(expected, Mapping):
+        return (isinstance(actual, Mapping)
+                and all(key in actual and _aoi_report_matches(actual[key], value)
+                        for key, value in expected.items()))
+    if isinstance(expected, list):
+        return (isinstance(actual, list) and len(actual) == len(expected)
+                and all(_aoi_report_matches(left, right)
+                        for left, right in zip(actual, expected)))
+    return _canonical_json(actual) == _canonical_json(expected)
 
 
 def _report_contract(report, field):
@@ -1047,7 +1202,7 @@ def validate_communication_report(report, *, expected_initial_contract=None):
             result["mismatches"].append("ledger differs after deterministic replay")
         if _canonical_json(actual["messages"]) != _canonical_json(dict(messages)):
             result["mismatches"].append("message delivery/consumption state differs after replay")
-        if "aoi" in report and _canonical_json(actual["aoi"]) != _canonical_json(report["aoi"]):
+        if "aoi" in report and not _aoi_report_matches(actual["aoi"], report["aoi"]):
             result["mismatches"].append("AoI statistics differ after deterministic replay")
         if "pool_utilization" in report and _canonical_json(actual["pool_utilization"]) != _canonical_json(report["pool_utilization"]):
             result["mismatches"].append("pool utilization differs after deterministic replay")

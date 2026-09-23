@@ -89,4 +89,52 @@ def test_aoi_reports_delivery_age_mean_and_p95_and_replays():
     assert stats["sample_count"] == 1
     assert stats["mean_s"] == pytest.approx(stats["p95_s"])
     assert stats["samples"][0]["information_id"] == "pose"
+    sample = stats["samples"][0]
+    tail = 10. - sample["sampled_at_s"]
+    assert stats["time_mean_s"] == pytest.approx(sample["age_s"] + tail / 2.)
+    assert stats["time_p95_s"] == pytest.approx(sample["age_s"] + tail * .95)
+    continuous = stats["continuous"]
+    assert continuous["covered_duration_s"] == pytest.approx(tail)
+    assert continuous["items"][0]["recipient"] == "cloud"
+    assert continuous["items"][0]["time_mean_s"] == pytest.approx(stats["time_mean_s"])
+    assert validate_communication_report(runtime.report())["validated"]
+
+
+def test_aoi_continuous_statistics_follow_latest_update_per_information_item():
+    runtime = CommunicationRuntime({"delay_s": 0.})
+    _publish(runtime, "first", recipient="cloud", information_id="pose")
+    runtime.advance(4.)
+    _publish(runtime, "second", recipient="cloud", information_id="pose")
+    runtime.advance(10.)
+
+    stats = runtime.report()["aoi"]
+    assert stats["sample_count"] == 2
+    item = stats["continuous"]["items"][0]
+    assert item["sample_count"] == 2
+    assert item["covered_duration_s"] == pytest.approx(10.)
+    assert item["area_s2"] == pytest.approx(26.)
+    assert item["time_mean_s"] == pytest.approx(2.6)
+    assert item["time_p95_s"] == pytest.approx(5.5)
+    assert stats["time_mean_s"] == pytest.approx(2.6)
+    assert stats["time_p95_s"] == pytest.approx(5.5)
+    assert validate_communication_report(runtime.report())["validated"]
+
+
+def test_aoi_consume_policy_starts_continuous_curve_at_consumption():
+    runtime = CommunicationRuntime({"delay_s": 0., "aoi_sample_policy": "consume"})
+    _publish(runtime, "observation", recipient="cloud", information_id="pose")
+    runtime.advance(0.)
+    before = runtime.report()["aoi"]
+    assert before["sample_count"] == 0
+    assert before["continuous"]["item_count"] == 0
+
+    runtime.consume("observation", recipient="cloud", consumer_id="planner", time_s=4.)
+    runtime.advance(10.)
+    stats = runtime.report()["aoi"]
+    assert stats["sample_count"] == 1
+    assert stats["samples"][0]["delivered_at_s"] == pytest.approx(0.)
+    assert stats["samples"][0]["sampled_at_s"] == pytest.approx(4.)
+    assert stats["samples"][0]["age_s"] == pytest.approx(4.)
+    assert stats["time_mean_s"] == pytest.approx(7.)
+    assert stats["time_p95_s"] == pytest.approx(9.7)
     assert validate_communication_report(runtime.report())["validated"]
