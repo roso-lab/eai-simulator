@@ -11,6 +11,9 @@
 它区分题面能力要求、实际模型决定权与运行证据；规模响应和失效恢复分别审查，
 模板数量及见证播放成功均不能替代能力测量。
 
+模型可按需查询或订阅位置，接口和当前原生接线边界见
+[可选位置工具与通信计量](GOAL_POSE_TOOLS.zh-CN.md)。
+
 The independent applications are [Factory](../factory_benchmark/README.zh-CN.md),
 [Warehouse](../warehouse_benchmark/README.zh-CN.md) and
 [Modern House](../modern_house_benchmark/README.zh-CN.md).

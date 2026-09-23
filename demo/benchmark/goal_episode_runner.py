@@ -71,6 +71,11 @@ class SubprocessGoalAdapter:
         self._episode_id = episode_id
         self._public_task: dict[str, Any] | None = None
         self._participant_api: dict[str, Any] | None = None
+        self._tool_profile: dict[str, Any] | None = None
+
+    def initialize_tools(self, profile: Mapping[str, Any]) -> None:
+        """Optional companion interface; the child may ignore the profile."""
+        self._tool_profile = deepcopy(dict(profile))
 
     def manifest(self) -> Mapping[str, Any]:
         return deepcopy(self._manifest)
@@ -88,6 +93,8 @@ class SubprocessGoalAdapter:
             "participant_api": self._participant_api,
             "events": deepcopy(events),
         }
+        if self._tool_profile is not None:
+            context["tool_profile"] = deepcopy(self._tool_profile)
         result = run_algorithm_subprocess(
             self._command, manifest=self._manifest, context=context,
             timeout_s=self._timeout_s, cwd=self._cwd, env=self._env)
@@ -216,7 +223,8 @@ class FormalGoalEpisodeRunner:
     def __init__(self, public_task: Mapping[str, Any], participant_api: Mapping[str, Any],
                  adapter: GoalAlgorithmAdapter, backend: GoalExecutionBackend, *,
                  output_root: str | Path, episode_id: str | None = None,
-                 evaluator: BusinessEvaluator | None = None, max_turns: int = 256):
+                 evaluator: BusinessEvaluator | None = None, max_turns: int = 256,
+                 pose_tools: Any = None):
         if not isinstance(max_turns, int) or isinstance(max_turns, bool) or max_turns < 1:
             raise ValueError("max_turns must be a positive integer")
         self.public_task = deepcopy(dict(public_task))
@@ -229,6 +237,11 @@ class FormalGoalEpisodeRunner:
             raise ValueError("episode_id must be a nonempty string")
         self.evaluator = evaluator
         self.max_turns = max_turns
+        self.pose_tools = pose_tools
+        if pose_tools is not None and (
+                pose_tools.episode_id != self.episode_id
+                or pose_tools.public_task_sha256 != canonical_sha256(self.public_task)):
+            raise ValueError("pose tools must be bound to this episode and public task")
 
     def run(self, *, initial_state: Mapping[str, Any]) -> dict[str, Any]:
         if self.output_root.exists():
@@ -248,6 +261,13 @@ class FormalGoalEpisodeRunner:
             "execution_validated": False,
             "scoreable": False,
         }
+        if self.pose_tools is not None:
+            profile = self.pose_tools.public_profile()
+            manifest["pose_tools"] = {
+                "profile_sha256": canonical_sha256(profile),
+                "sampling_scope": "runner_boundaries; no intra-skill fixed-rate claim",
+            }
+            _write_json(self.output_root / "pose_tool_profile.json", profile)
         _write_json(self.output_root / "episode_manifest.json", manifest)
         _write_json(self.output_root / "public_task.json", self.public_task)
         _write_json(self.output_root / "participant_api.json", self.participant_api)
@@ -260,7 +280,7 @@ class FormalGoalEpisodeRunner:
         try:
             session.update_runtime_state(0.0, robots, objects)
             with GoalAlgorithmHost(self.public_task, self.participant_api, self.adapter,
-                                    session=session) as host:
+                                    session=session, pose_tools=self.pose_tools) as host:
                 for turns in range(1, self.max_turns + 1):
                     host.request_actions()
                     report = host.trusted_report()["session"]
@@ -269,6 +289,33 @@ class FormalGoalEpisodeRunner:
                     if not pending:
                         # A final adapter turn may still consume terminal receipts.
                         if turns > 1 and not host.request_actions():
+                            # Optional backends can keep a real simulation clock
+                            # moving while a model waits for a delayed query.
+                            idle = getattr(self.backend, "advance_idle", None)
+                            if (self.pose_tools is not None and self.pose_tools.has_pending_work()
+                                    and callable(idle)):
+                                now = host.trusted_report()["session"]["current_time_s"]
+                                next_time = min(now + self.pose_tools.period_s,
+                                                self.public_task["budgets"]["simulation_s"])
+                                if next_time > now:
+                                    idle_result = idle(next_time)
+                                    actual_time = idle_result.get("time_s") if isinstance(idle_result, Mapping) else None
+                                    if (isinstance(actual_time, bool)
+                                            or not isinstance(actual_time, (int, float))
+                                            or not math.isfinite(actual_time)
+                                            or not now < actual_time <= self.public_task["budgets"]["simulation_s"]):
+                                        raise ValueError("idle backend must report its actual advancing episode time")
+                                    idle_state = idle_result.get("runtime_state")
+                                    robots, objects = _require_state(idle_state, "idle runtime state")
+                                    host.update_runtime_state(actual_time, robots, objects)
+                                    host.emit("tick", actual_time, {"state_digest": "pose_tool_idle"})
+                                    snapshots.append({"episode_id": self.episode_id, "time_s": actual_time,
+                                                      "robot_regions": deepcopy(robots),
+                                                      "object_states": deepcopy(objects)})
+                                    continue
+                            if (self.pose_tools is not None and self.pose_tools.has_pending_work()
+                                    and not callable(idle)):
+                                raise RuntimeError("pose tools are waiting but the backend cannot advance its idle clock")
                             break
                         continue
                     # A synchronous backend advances the same physical scene;
@@ -362,6 +409,12 @@ class FormalGoalEpisodeRunner:
             "execution_validated": False, "scoreable": False})
         _write_json(self.output_root / "team_usage.json",
                     team_usage_summary(final_report, self.public_task))
+        if self.pose_tools is not None:
+            from .communication import validate_communication_report
+            tool_report = self.pose_tools.report()
+            _write_json(self.output_root / "pose_tools_report.json", tool_report)
+            _write_json(self.output_root / "pose_communication_replay.json",
+                        validate_communication_report(tool_report["communication"]))
         _write_json(self.output_root / "participant_trace.json", {
             "episode_id": self.episode_id,
             "events": deepcopy(final_report.get("events", [])),

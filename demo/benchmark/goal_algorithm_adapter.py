@@ -6,8 +6,9 @@ The tested adapter lifecycle is deliberately small::
     actions = adapter.act(new_public_events)
     adapter.close()
 
-``actions`` must use the existing ``eai.benchmark.goal_action`` envelope.
-This module does not define another action schema and does not execute skills.
+Goal actions use the existing ``eai.benchmark.goal_action`` envelope. An
+explicitly connected pose companion accepts tool calls beside those actions;
+it does not alter the frozen Goal action schema or execute skills.
 The trusted host retains sole ownership of runtime events, symbolic snapshots
 and terminal backend receipts.  A full ``GoalSession.report()`` is therefore
 never passed to the adapter; only public task/API copies and newly visible
@@ -91,6 +92,7 @@ class GoalAlgorithmHost:
         adapter: GoalAlgorithmAdapter,
         *,
         session: GoalSession | None = None,
+        pose_tools: Any = None,
     ) -> None:
         validate_goal_task_spec(public_task)
         self._public_task = deepcopy(dict(public_task))
@@ -102,10 +104,20 @@ class GoalAlgorithmHost:
         if session is not None:
             self._session.assert_compatible(self._public_task, self._participant_api)
         self._event_cursor = 0
+        self._pose_visible_ids: set[str] = set()
+        self._pose_tools = pose_tools
+        self._tools_connected = False
         self._closed = False
         self._failed = False
         try:
             adapter.initialize(deepcopy(self._public_task), deepcopy(self._participant_api))
+            initialize_tools = getattr(adapter, "initialize_tools", None)
+            if pose_tools is not None and callable(initialize_tools):
+                profile = pose_tools.public_profile()
+                if profile["public_task_sha256"] != self._participant_api["public_task_sha256"]:
+                    raise ValueError("pose tool profile does not match public task")
+                initialize_tools(deepcopy(profile))
+                self._tools_connected = True
         except BaseException:
             self._fail_closed()
             raise
@@ -150,12 +162,25 @@ class GoalAlgorithmHost:
         call. If a turn fails, the bridge closes and cannot replay the batch.
         """
         self._require_open()
+        if self._tools_connected:
+            try:
+                self.pump_pose_tools()
+            except BaseException:
+                self._fail_closed()
+                raise
         host_report = self._session.report()
         event_end = len(host_report["events"])
         if self._event_cursor == event_end:
             return []
         events = deepcopy(host_report["events"][self._event_cursor:event_end])
         try:
+            if self._tools_connected:
+                for event in events:
+                    if event["type"] == "member_join":
+                        self._pose_tools.register_public_robot(event["payload"]["agent_id"])
+            self._pose_visible_ids.update(
+                event["payload"]["message_id"] for event in events
+                if event["type"] == "observation" and event["payload"]["kind"] == "pose_update")
             raw_actions = self._adapter.act(deepcopy(events))
             if not isinstance(raw_actions, list):
                 raise ValueError("goal algorithm adapter must return a list of actions")
@@ -164,10 +189,40 @@ class GoalAlgorithmHost:
                 if not isinstance(raw, Mapping):
                     raise ValueError("goal algorithm action must be an object")
                 action = deepcopy(dict(raw))
+                if action.get("schema") == "eai.benchmark.goal_pose_tool_call":
+                    if not self._tools_connected:
+                        raise ValueError("pose tool interface was not connected")
+                    report = self._session.report()
+                    if (isinstance(action.get("call_id"), str)
+                            and action["call_id"] in {row["action_id"] for row in report["actions"]}):
+                        raise ValueError("tool call ID collides with a goal action")
+                    actions.append(self._pose_tools.submit(
+                        action, time_s=report["current_time_s"],
+                        current_agents=set(report["current_agents"])))
+                    # Results are event-delivered next turn, never passed back
+                    # as hidden publication/queue records in this action batch.
+                    self.pump_pose_tools()
+                    continue
+                if self._tools_connected and self._pose_tools.owns_call(action.get("action_id")):
+                    raise ValueError("goal action ID collides with a tool call")
                 if action.get("type") in _LOW_LEVEL_ACTION_TYPES:
                     raise ValueError(
                         "goal algorithm may emit high-level goal actions only, not low-level control")
-                actions.append(self._session.submit_action(action))
+                telemetry = self._pose_tools.telemetry if self._tools_connected else None
+                payload = action.get("payload")
+                message_id = payload.get("message_id") if isinstance(payload, Mapping) else None
+                consumes_pose = (action.get("type") == "consume_message" and telemetry is not None
+                                 and telemetry.owns_message(message_id))
+                if consumes_pose and message_id not in self._pose_visible_ids:
+                    raise ValueError("pose message has not been delivered to the algorithm")
+                if consumes_pose and not telemetry.can_consume(
+                        message_id, time_s=self._session.report()["current_time_s"]):
+                    raise ValueError("pose message is not currently delivered and fresh")
+                result = self._session.submit_action(action)
+                if consumes_pose:
+                    telemetry.consume(message_id, action_id=action["action_id"],
+                                      time_s=self._session.report()["current_time_s"])
+                actions.append(result)
         except BaseException:
             # The adapter has observed this batch. A partial action batch cannot
             # be replayed transactionally through GoalSession, so fail closed.
@@ -179,6 +234,16 @@ class GoalAlgorithmHost:
 
     # The following methods are trusted-host operations. They are intentionally
     # absent from GoalAlgorithmAdapter and the adapter never receives ``self``.
+    def pump_pose_tools(self) -> None:
+        """Publish due samples and deliver only fresh link responses at this tick."""
+        self._require_open()
+        if not self._tools_connected:
+            return
+        report = self._session.report()
+        now = report["current_time_s"]
+        for payload in self._pose_tools.tick(now, current_agents=set(report["current_agents"])):
+            self._session.emit("observation", now, payload)
+
     def emit(self, type: str, time_s: float, payload: Mapping[str, Any]) -> dict[str, Any]:
         self._require_open()
         return self._session.emit(type, time_s, payload)
