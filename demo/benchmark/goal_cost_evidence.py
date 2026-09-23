@@ -10,6 +10,7 @@ zero-cost claim.
 from __future__ import annotations
 
 from collections import Counter
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -112,7 +113,14 @@ def _explicit_compute_cost(report: Mapping[str, Any] | None) -> dict[str, Any]:
             "valid": recorded}
 
 
-def _communication_bytes(root: Path) -> dict[str, Any]:
+def _canonical_digest(value: Any) -> str:
+    """Return a stable identity for deduplicating mirrored archive files."""
+    payload = json.dumps(value, sort_keys=True, ensure_ascii=False,
+                         separators=(",", ":"), allow_nan=False).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _communication_bytes(root: Path, *, episode_id: str | None = None) -> dict[str, Any]:
     """Sum bytes only from communication reports with replay proof.
 
     Pose and camera tools each own an archive report.  The replay sidecar is
@@ -131,6 +139,7 @@ def _communication_bytes(root: Path) -> dict[str, Any]:
     reliable_sources = 0
     invalid_sources = 0
     direction_complete = True
+    seen_archives: set[tuple[str, str]] = set()
     for report_name, replay_name in sources:
         report_path = root / report_name
         if not report_path.is_file():
@@ -145,9 +154,22 @@ def _communication_bytes(root: Path) -> dict[str, Any]:
         if not isinstance(communication, Mapping):
             invalid_sources += 1
             continue
+        # Tool reports are episode-owned.  Older fixture reports may omit the
+        # wrapper, so absence remains compatible; an explicit mismatch is a
+        # hard evidence failure and must never be silently joined.
+        recorded_episode = report_payload.get("episode_id") if isinstance(report_payload, Mapping) else None
+        if episode_id is not None and recorded_episode is not None and recorded_episode != episode_id:
+            invalid_sources += 1
+            continue
         if not isinstance(replay, Mapping) or replay.get("validated") is not True:
             invalid_sources += 1
             continue
+        archive_key = (_canonical_digest(communication), _canonical_digest(replay))
+        if archive_key in seen_archives:
+            # A runner may expose the same transport under a generic filename
+            # and a tool-specific filename.  Count that transport once.
+            continue
+        seen_archives.add(archive_key)
         ledger = communication.get("ledger")
         if not isinstance(ledger, list):
             invalid_sources += 1
@@ -196,6 +218,7 @@ def build_raw_cost_evidence(
     output_root: str | Path,
     *,
     trusted_report: Mapping[str, Any] | None = None,
+    episode_id: str | None = None,
 ) -> dict[str, Any]:
     """Build a stable, raw-only declaration/coordination cost archive.
 
@@ -206,7 +229,7 @@ def build_raw_cost_evidence(
     report = _session_report(root, trusted_report)
     action_counts, action_total = _accepted_actions(report)
     clock = _host_clock(report)
-    communication = _communication_bytes(root)
+    communication = _communication_bytes(root, episode_id=episode_id)
     activation = _activation_proxy(root)
     compute = _explicit_compute_cost(report)
     validity = {
@@ -245,9 +268,11 @@ def build_cost_evidence(
     output_root: str | Path,
     *,
     trusted_report: Mapping[str, Any] | None = None,
+    episode_id: str | None = None,
 ) -> dict[str, Any]:
     """Stable short alias for consumers assembling a scoring sidecar."""
-    return build_raw_cost_evidence(output_root, trusted_report=trusted_report)
+    return build_raw_cost_evidence(output_root, trusted_report=trusted_report,
+                                   episode_id=episode_id)
 
 
 __all__ = ["SCHEMA", "VERSION", "build_raw_cost_evidence", "build_cost_evidence"]

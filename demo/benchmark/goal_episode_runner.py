@@ -711,7 +711,7 @@ class FormalGoalEpisodeRunner:
         # unavailable physical/compute sources as null.
         from .goal_cost_evidence import build_cost_evidence
         _write_json(self.output_root / "cost_evidence.json",
-                    build_cost_evidence(self.output_root))
+                    build_cost_evidence(self.output_root, episode_id=self.episode_id))
         deployment_assessment = final_report.get("deployment_assessment")
         result = {
             "schema": "eai.benchmark.formal_goal_episode_result", "version": 3,

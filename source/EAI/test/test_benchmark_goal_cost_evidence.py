@@ -153,3 +153,42 @@ def test_direction_breakdown_fails_closed_when_pool_row_omits_direction(tmp_path
     assert result["communication"]["by_direction_bytes"] is None
     assert result["communication"]["direction_complete"] is False
     assert result["communication"]["valid"] is True
+
+
+def test_episode_mismatch_invalidates_explicitly_bound_transport(tmp_path):
+    from demo.benchmark.goal_cost_evidence import build_raw_cost_evidence
+
+    _write(tmp_path, "pose_tools_report.json", {
+        "episode_id": "other-episode",
+        "communication": {"ledger": [{"event": "bytes_served", "bytes": 4,
+                                        "pool": "backhaul_uplink", "direction": "up"}]},
+    })
+    _write(tmp_path, "pose_communication_replay.json", {"validated": True})
+
+    result = build_raw_cost_evidence(tmp_path, episode_id="expected-episode")
+
+    assert result["communication"]["total_bytes"] is None
+    assert result["communication"]["valid"] is False
+    assert result["communication"]["invalid_source_count"] == 1
+
+
+def test_mirrored_transport_archives_are_counted_once(tmp_path):
+    from demo.benchmark.goal_cost_evidence import build_raw_cost_evidence
+
+    communication = {
+        "schema": "eai.benchmark.communication", "version": 2,
+        "messages": {}, "time_s": 0, "contract": {}, "initial_contract": {},
+        "ledger": [{"event": "bytes_served", "bytes": 9,
+                     "pool": "p2p", "direction": "up"}],
+    }
+    report = {"episode_id": "episode-1", "communication": communication}
+    replay = {"validated": True}
+    _write(tmp_path, "pose_tools_report.json", report)
+    _write(tmp_path, "pose_communication_replay.json", replay)
+    _write(tmp_path, "communication_report.json", communication)
+    _write(tmp_path, "communication_replay.json", replay)
+
+    result = build_raw_cost_evidence(tmp_path, episode_id="episode-1")
+
+    assert result["communication"]["total_bytes"] == 9
+    assert result["communication"]["reliable_source_count"] == 1

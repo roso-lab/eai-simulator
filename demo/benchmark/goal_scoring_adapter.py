@@ -337,7 +337,7 @@ def build_scoring_adapter_metadata(
 
     # Cost evidence is an auditable raw sidecar.  It intentionally preserves
     # missing clocks/ledgers as null and never promotes release flags.
-    cost_evidence = build_cost_evidence(output_root)
+    cost_evidence = build_cost_evidence(output_root, episode_id=episode_id)
     return {
         "schema": SCORING_ADAPTER_SCHEMA,
         "version": SCORING_ADAPTER_VERSION,
