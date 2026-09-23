@@ -331,6 +331,9 @@ class GoalCameraTools:
         """
         if session is None or not callable(getattr(session, "report", None)):
             raise ValueError("camera tools require a GoalSession report provider")
+        initial = session.report()
+        if not isinstance(initial, Mapping) or initial.get("episode_id") != self.episode_id:
+            raise ValueError("GoalSession episode_id does not match camera tools")
         if self._bound_goal_session is not None and self._bound_goal_session is not session:
             raise RuntimeError("camera tools are already bound to another GoalSession")
         self._bound_goal_session = session

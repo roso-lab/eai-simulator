@@ -143,7 +143,7 @@ def bind_join_event(tools, event, *, index=0):
     class Session:
         def report(self):
             events = [{} for _ in range(index)] + [deepcopy(event)]
-            return {"events": events}
+            return {"episode_id": tools.episode_id, "events": events}
     tools.bind_goal_session(Session())
 
 

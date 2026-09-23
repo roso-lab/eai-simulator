@@ -101,9 +101,19 @@ class GoalAlgorithmHost:
         self._participant_api = deepcopy(dict(participant_api))
         self._adapter = adapter
         self._adapter_manifest = validate_goal_adapter_manifest(adapter.manifest())
-        self._session = session or GoalSession(self._public_task, self._participant_api)
+        bound_episode_id = None
+        for tool in (pose_tools, camera_tools):
+            candidate = getattr(tool, "episode_id", None)
+            if candidate is not None:
+                if bound_episode_id is not None and candidate != bound_episode_id:
+                    raise ValueError("pose and camera tools must share episode identity")
+                bound_episode_id = candidate
+        self._session = session or GoalSession(
+            self._public_task, self._participant_api, episode_id=bound_episode_id)
         if session is not None:
             self._session.assert_compatible(self._public_task, self._participant_api)
+            if bound_episode_id is not None and self._session.report().get("episode_id") != bound_episode_id:
+                raise ValueError("GoalSession episode_id does not match connected tools")
         self._event_cursor = 0
         self._pose_visible_ids: set[str] = set()
         self._camera_visible_ids: set[str] = set()
