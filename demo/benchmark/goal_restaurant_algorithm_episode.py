@@ -584,6 +584,65 @@ def make_restaurant_public_spawn_pos_fn(
     return _fn
 
 
+class RestaurantNativeRootStateProvider:
+    """Read public robot positions from the settled native articulation state.
+
+    The provider is deliberately strict: a formal EMOS allocation cannot fall
+    back to public spawn anchors or an invented origin when a native body is
+    missing or unhealthy.  ``metadata`` is archived with the participant
+    trace so reviewers can bind the allocator input to a physics step.
+    """
+
+    def __init__(self, base_env: Any, public_ids: Any = ALGORITHM_POOL):
+        self._base_env = base_env
+        self._bindings = {
+            public_id: ROBOT_BINDINGS[public_id]["native_agent_id"]
+            for public_id in tuple(public_ids)
+        }
+        articulations = getattr(getattr(base_env, "scene", None), "articulations", None)
+        if not isinstance(articulations, Mapping):
+            raise RuntimeError("Restaurant native position provider has no articulation scene")
+        missing = sorted(set(self._bindings.values()) - set(articulations))
+        if missing:
+            raise RuntimeError(
+                f"Restaurant native position provider missing articulations: {missing}")
+        step = getattr(getattr(base_env, "sim", None),
+                       "current_time_step_index", None)
+        if isinstance(step, bool) or not isinstance(step, int):
+            raise RuntimeError("Restaurant native position provider has no integer physics step")
+        self._last_step: int | None = int(step)
+
+    def __call__(self, public_id: str) -> tuple[float, float, float]:
+        try:
+            native_id = self._bindings[public_id]
+        except KeyError as exc:
+            raise KeyError(f"unknown Restaurant public robot {public_id!r}") from exc
+        articulation = self._base_env.scene.articulations[native_id]
+        try:
+            state = articulation.data.root_state_w[0].detach().cpu().tolist()
+        except Exception as exc:
+            raise RuntimeError(
+                f"Restaurant native root state unavailable for {public_id} ({native_id})"
+            ) from exc
+        if (not isinstance(state, list) or len(state) < 13
+                or not navigation_probe._finite_root_state(state)):
+            raise RuntimeError(
+                f"Restaurant native root state is invalid for {public_id} ({native_id})")
+        step = getattr(getattr(self._base_env, "sim", None),
+                       "current_time_step_index", None)
+        if isinstance(step, bool) or not isinstance(step, int):
+            raise RuntimeError("Restaurant native position provider has no integer physics step")
+        self._last_step = int(step)
+        return tuple(float(value) for value in state[:3])
+
+    def metadata(self) -> dict[str, Any]:
+        return {
+            "position_source": POSITION_SOURCE_NATIVE_ROOT_STATE,
+            "capture": "settled_articulation_root_state_w",
+            "physics_step": self._last_step,
+        }
+
+
 def _emos_restaurant_policy(request):
     """Deterministic capability-matching EMOS policy (restaurant missions).
 
@@ -769,6 +828,9 @@ class RestaurantEmosParticipant:
                 name: [float(v) for v in xyz] for name, xyz in robot_positions.items()
             },
         })
+        metadata = getattr(pos_fn, "metadata", None)
+        if callable(metadata):
+            self.trace[-1]["position_provenance"] = metadata()
         result = None
         deadline = _time.monotonic() + _EMOS_ROUND_TIMEOUT_S
         while result is None and _time.monotonic() < deadline:
@@ -1376,6 +1438,8 @@ def run_worker(output_root: str | Path) -> dict[str, Any]:
                 session.env.step(commands)
             products_root = Path(request["products_root"])
             routes = request["physical_routes"]
+            native_position_provider = RestaurantNativeRootStateProvider(
+                session.base_env, ALGORITHM_POOL)
             # Creation order matters for the shared contact-processing toggle:
             # close in reverse so each navigator restores what it observed.
             # Carters get navigation/observation drivers. Iris gets a
@@ -1407,8 +1471,14 @@ def run_worker(output_root: str | Path) -> dict[str, Any]:
                     RestaurantTeamWeaverParticipant
                     if request["algorithm"] == "teamweaver"
                     else RestaurantEmosParticipant)
+                participant_kwargs = {}
+                if participant_class is RestaurantEmosParticipant:
+                    participant_kwargs = {
+                        "get_robot_pos_fn": native_position_provider,
+                        "position_source": POSITION_SOURCE_NATIVE_ROOT_STATE,
+                    }
                 participant = participant_class(
-                    request["public_task"], routes)
+                    request["public_task"], routes, **participant_kwargs)
                 evaluator = lambda episode_id, trusted: evaluate_restaurant_business(
                     backend, episode_id, trusted)
                 episode_root = root / "goal_episode"
@@ -1435,7 +1505,8 @@ def run_worker(output_root: str | Path) -> dict[str, Any]:
                 "schema": "eai.restaurant.formal_goal_episode_source", "version": 1,
                 "episode_id": request["episode_id"],
                 "request_sha256": file_sha256(root / "request.json"),
-                "source_files": request["source_files"]})
+                "source_files": request["source_files"],
+                "position_provenance": native_position_provider.metadata()})
             passed = (result["error"] is None
                       and result["skill_receipt_count"] == len(participant._plan["tasks"])
                       and result["business_outcomes_validated"] is True
@@ -1671,6 +1742,14 @@ def verify_algorithm_episode_archive(output_root: str | Path) -> dict[str, Any]:
             or process.get("isaac_log_sha256") != file_sha256(base / "isaac.log")):
         raise ValueError("archived algorithm hash chain does not match its files")
     source_row = load(episode_root / "goal_episode_source.json")
+    provenance = source_row.get("position_provenance")
+    if (not isinstance(provenance, Mapping)
+            or provenance.get("position_source") != POSITION_SOURCE_NATIVE_ROOT_STATE
+            or provenance.get("capture") != "settled_articulation_root_state_w"
+            or isinstance(provenance.get("physics_step"), bool)
+            or not isinstance(provenance.get("physics_step"), int)
+            or provenance.get("physics_step") < 0):
+        raise ValueError("archived native position provenance is missing or invalid")
     if (source_row.get("schema") != "eai.restaurant.formal_goal_episode_source"
             or source_row.get("version") != 1
             or source_row.get("episode_id") != episode_id
@@ -1705,6 +1784,16 @@ def verify_algorithm_episode_archive(output_root: str | Path) -> dict[str, Any]:
                    if row.get("event") == "allocation_final"]
     if len(allocations) != 1:
         raise ValueError("archived report trace lacks exactly one final allocation")
+    position_events = [row for row in (report.get("participant_trace") or [])
+                       if row.get("event") == "emos_robot_positions"]
+    if request["algorithm"] == "emos":
+        if len(position_events) != 1:
+            raise ValueError("archived EMOS trace lacks native position provenance")
+        trace_provenance = position_events[0].get("position_provenance")
+        if (trace_provenance != provenance
+                or position_events[0].get("position_source")
+                != POSITION_SOURCE_NATIVE_ROOT_STATE):
+            raise ValueError("archived EMOS position provenance diverges from source")
     assignment = allocations[0]["assignment"]
     session = load(episode_root / "goal_session_report.json")["report"]
     plan_rows = session.get("plans") or []

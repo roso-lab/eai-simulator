@@ -724,6 +724,90 @@ def test_emos_native_root_state_callback_takes_priority_over_public_spawn():
     assert set(assignment.values()) == set(m.ALGORITHM_POOL)
 
 
+def test_formal_native_root_state_provider_maps_public_ids_and_archives_step():
+    from demo.benchmark import goal_restaurant_algorithm_episode as m
+
+    class Tensor:
+        def __init__(self, values):
+            self.values = values
+
+        def detach(self):
+            return self
+
+        def cpu(self):
+            return self
+
+        def tolist(self):
+            return list(self.values)
+
+    articulations = {
+        native: SimpleNamespace(data=SimpleNamespace(root_state_w=[Tensor(
+            [index + 1.0, index + 2.0, index + 3.0, 1.0] + [0.0] * 9)]))
+        for index, native in enumerate(("carter_1", "carter_2", "iris_1"))
+    }
+    base_env = SimpleNamespace(
+        scene=SimpleNamespace(articulations=articulations),
+        sim=SimpleNamespace(current_time_step_index=321),
+    )
+    provider = m.RestaurantNativeRootStateProvider(base_env)
+    assert provider("restaurant_carter_1") == pytest.approx((1.0, 2.0, 3.0))
+    assert provider("restaurant_carter_2") == pytest.approx((2.0, 3.0, 4.0))
+    assert provider("restaurant_iris_1") == pytest.approx((3.0, 4.0, 5.0))
+    assert provider.metadata() == {
+        "position_source": m.POSITION_SOURCE_NATIVE_ROOT_STATE,
+        "capture": "settled_articulation_root_state_w",
+        "physics_step": 321,
+    }
+
+    missing = SimpleNamespace(
+        scene=SimpleNamespace(articulations={"carter_1": articulations["carter_1"]}),
+        sim=SimpleNamespace(current_time_step_index=321),
+    )
+    with pytest.raises(RuntimeError, match="missing articulations"):
+        m.RestaurantNativeRootStateProvider(missing)
+
+
+def test_formal_native_root_state_provider_rejects_nonfinite_or_missing_step():
+    from demo.benchmark import goal_restaurant_algorithm_episode as m
+
+    class Tensor:
+        def __init__(self, values):
+            self.values = values
+
+        def detach(self):
+            return self
+
+        def cpu(self):
+            return self
+
+        def tolist(self):
+            return list(self.values)
+
+    bad = [Tensor([1.0, 2.0, 3.0, 1.0] + [0.0] * 8 + [float("nan")])]
+    base_env = SimpleNamespace(
+        scene=SimpleNamespace(articulations={
+            native: SimpleNamespace(data=SimpleNamespace(root_state_w=bad))
+            for native in ("carter_1", "carter_2", "iris_1")}),
+        sim=SimpleNamespace(current_time_step_index=42),
+    )
+    provider = m.RestaurantNativeRootStateProvider(base_env)
+    with pytest.raises(RuntimeError, match="root state is invalid"):
+        provider("restaurant_carter_1")
+
+    class BoolStep:
+        current_time_step_index = True
+
+    good_state = [Tensor([1.0, 2.0, 3.0, 1.0] + [0.0] * 9)]
+    no_step = SimpleNamespace(
+        scene=SimpleNamespace(articulations={
+            native: SimpleNamespace(data=SimpleNamespace(root_state_w=good_state))
+            for native in ("carter_1", "carter_2", "iris_1")}),
+        sim=BoolStep(),
+    )
+    with pytest.raises(RuntimeError, match="integer physics step"):
+        m.RestaurantNativeRootStateProvider(no_step)
+
+
 def test_emos_rejects_missing_position_provider_without_inventing_zeros():
     from algorithm.emos.engine import RobotPositionUnavailableError
     from demo.benchmark import goal_restaurant_algorithm_episode as m
