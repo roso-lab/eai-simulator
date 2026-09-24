@@ -1,9 +1,11 @@
-"""Read-only four-scene handoff status for benchmark task generation.
+"""Read-only handoff status for benchmark task generation.
 
 This report is the boundary handed to the developer who integrates external
 multi-robot systems.  It deliberately separates authoring/API readiness from
-Isaac execution and scoreability: all four scenes must have the same contract
-shape before handoff, while scene-specific live blockers remain explicit.
+Isaac execution and scoreability: all admitted scenes must have the same contract
+shape before handoff, while scene-specific live blockers remain explicit.  The
+default handoff covers five scenes; the named four-scene functions remain as
+compatibility wrappers for archived version-2 handoffs.
 """
 
 from __future__ import annotations
@@ -22,13 +24,16 @@ from .provenance import canonical_sha256
 
 
 SCENE_KEYS = ("factory", "warehouse_nvd", "modern_house_nvd", "city")
+FIVE_SCENE_KEYS = (*SCENE_KEYS, "restaurant")
 SCHEMA = "eai.benchmark.four_scene_handoff"
+HANDOFF_SCHEMA = "eai.benchmark.goal_scene_handoff"
 
 _DIAGNOSTIC_BOUNDARIES = {
     "factory": "ParticipantSession + factory main(participant_adapter=...)",
     "warehouse_nvd": "ParticipantSession + warehouse main(participant_adapter=...)",
     "modern_house_nvd": "ParticipantSession + modern_house main(participant_adapter=...)",
     "city": "City service probes; no fixed business DAG",
+    "restaurant": "GoalSession + restaurant route/readback adapter; treatment effects pending",
 }
 
 _BUNDLE_PATHS = {
@@ -40,7 +45,7 @@ _BUNDLE_PATHS = {
 
 
 def _scene_handoff(scene_key: str, bundle: Mapping[str, Any]) -> dict[str, Any]:
-    if scene_key not in SCENE_KEYS:
+    if scene_key not in FIVE_SCENE_KEYS:
         raise ValueError(f"unsupported handoff scene: {scene_key!r}")
     validate_goal_bundle(bundle)
     if bundle["public_task"]["mission"]["scene_key"] != scene_key:
@@ -193,20 +198,139 @@ def verify_four_scene_handoff(output_root):
     return validate_four_scene_handoff(read("handoff.json"), bundles=bundles)
 
 
+def _selected_bundles(scene_keys, bundles=None):
+    keys = tuple(scene_keys)
+    if (not keys or len(keys) != len(set(keys))
+            or any(key not in FIVE_SCENE_KEYS for key in keys)):
+        raise ValueError("handoff scene_keys must be distinct registered handoff scenes")
+    if bundles is None:
+        return keys, {key: build_goal_task_package(key) for key in keys}
+    if not isinstance(bundles, Mapping) or set(bundles) != set(keys):
+        raise ValueError("handoff bundles must cover exactly the selected scenes")
+    return keys, bundles
+
+
+def build_goal_handoff(bundles=None, *, scene_keys=FIVE_SCENE_KEYS) -> dict[str, Any]:
+    """Build the default five-scene handoff without starting Isaac."""
+    keys, selected = _selected_bundles(scene_keys, bundles)
+    scenes = [_scene_handoff(key, selected[key]) for key in keys]
+    report = {
+        "schema": HANDOFF_SCHEMA,
+        "version": 1,
+        "scope": "task_generation_and_review_handoff",
+        "low_level_control_policy": deepcopy(DEFAULT_CONTROL_STACK),
+        "scene_keys": list(keys),
+        "scenes": scenes,
+        "all_handoff_ready": all(row["handoff_ready"] for row in scenes),
+        "all_authoring_passed": all(row["author_review"] == "passed" for row in scenes),
+        "all_execution_pending": all(row["execution_status"] == "external_pending" for row in scenes),
+        "execution_validated": False,
+        "business_outcomes_validated": False,
+        "scoreable": False,
+        "isaac_started": False,
+    }
+    return report
+
+
+def validate_goal_handoff(
+        report: Mapping[str, Any], *, bundles=None, scene_keys=FIVE_SCENE_KEYS) -> dict[str, Any]:
+    """Re-audit a selected-scene handoff against actual or current bundles."""
+    keys = tuple(scene_keys)
+    if (not isinstance(report, Mapping) or report.get("schema") != HANDOFF_SCHEMA
+            or report.get("version") != 1):
+        raise ValueError("unsupported goal-scene handoff report")
+    if tuple(report.get("scene_keys", ())) != keys:
+        raise ValueError("handoff scene order or identity differs from the selected scenes")
+    if report.get("low_level_control_policy") != DEFAULT_CONTROL_STACK:
+        raise ValueError("handoff control policy drifted from benchmark defaults")
+    if any(report.get(key) is not False for key in (
+            "execution_validated", "business_outcomes_validated", "scoreable")):
+        raise ValueError("handoff cannot claim execution, business, or scoring validation")
+    _, selected = _selected_bundles(keys, bundles)
+    expected = build_goal_handoff(selected, scene_keys=keys)
+    if canonical_sha256(dict(report)) != canonical_sha256(expected):
+        raise ValueError("handoff report does not match re-audited bundle content")
+    return deepcopy(dict(report))
+
+
+def write_goal_handoff(output_root, *, scene_keys=FIVE_SCENE_KEYS):
+    """Export the selected handoff to a fresh, protected directory."""
+    root = Path(output_root).absolute()
+    if any(path.is_symlink() for path in (root, *root.parents)):
+        raise ValueError("handoff root cannot traverse symlinks")
+    keys, bundles = _selected_bundles(scene_keys)
+    report = build_goal_handoff(bundles, scene_keys=keys)
+    root.mkdir(parents=True, exist_ok=False)
+    try:
+        for key, bundle in bundles.items():
+            write_goal_task_bundle(bundle, root / key)
+        (root / "handoff.json").write_text(
+            json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True, allow_nan=False) + "\n",
+            encoding="utf-8")
+        return verify_goal_handoff(root, scene_keys=keys)
+    except Exception:
+        import shutil
+        shutil.rmtree(root, ignore_errors=True)
+        raise
+
+
+def verify_goal_handoff(output_root, *, scene_keys=FIVE_SCENE_KEYS):
+    """Read actual selected-scene artifacts and enforce the public/private boundary."""
+    root = Path(output_root).absolute()
+    keys = tuple(scene_keys)
+    if any(path.is_symlink() for path in (root, *root.parents)):
+        raise ValueError("handoff root cannot traverse symlinks")
+
+    def read(relative):
+        path = root
+        for part in Path(relative).parts:
+            path = path / part
+            if path.is_symlink():
+                raise ValueError("handoff artifacts cannot traverse symlinks")
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    expected_files = {"handoff.json"} | {
+        f"{scene}/{relative}" for scene in keys for relative in _BUNDLE_PATHS.values()}
+    actual_files = set()
+    for path in root.rglob("*"):
+        if path.is_symlink():
+            raise ValueError("handoff artifacts cannot traverse symlinks")
+        if path.is_file():
+            actual_files.add(path.relative_to(root).as_posix())
+        elif not path.is_dir():
+            raise ValueError("handoff artifacts must be regular files or directories")
+    if actual_files != expected_files:
+        raise ValueError("handoff file inventory differs from the reviewed public/private boundary")
+    bundles = {scene: {key: read(f"{scene}/{path}")
+                       for key, path in _BUNDLE_PATHS.items()} for scene in keys}
+    return validate_goal_handoff(read("handoff.json"), bundles=bundles, scene_keys=keys)
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group()
-    mode.add_argument("--output-root", help="Export a fresh four-scene authoring handoff")
+    mode.add_argument("--output-root", help="Export a fresh five-scene authoring handoff")
     mode.add_argument("--verify", help="Read back and independently audit an exported handoff")
+    parser.add_argument("--legacy-four-scene", action="store_true",
+                        help="Use the archived version-2 four-scene compatibility API")
     args = parser.parse_args(argv)
-    report = (write_four_scene_handoff(args.output_root) if args.output_root else
-              verify_four_scene_handoff(args.verify) if args.verify else build_four_scene_handoff())
+    if args.legacy_four_scene:
+        report = (write_four_scene_handoff(args.output_root) if args.output_root else
+                  verify_four_scene_handoff(args.verify) if args.verify else build_four_scene_handoff())
+    else:
+        report = (write_goal_handoff(args.output_root) if args.output_root else
+                  verify_goal_handoff(args.verify) if args.verify else build_goal_handoff())
     print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True))
     return 0
 
 
-__all__ = ["SCENE_KEYS", "SCHEMA", "build_four_scene_handoff", "validate_four_scene_handoff",
-           "write_four_scene_handoff", "verify_four_scene_handoff", "main"]
+__all__ = [
+    "FIVE_SCENE_KEYS", "HANDOFF_SCHEMA", "SCENE_KEYS", "SCHEMA",
+    "build_four_scene_handoff", "build_goal_handoff", "main",
+    "validate_four_scene_handoff", "validate_goal_handoff",
+    "verify_four_scene_handoff", "verify_goal_handoff",
+    "write_four_scene_handoff", "write_goal_handoff",
+]
 
 
 if __name__ == "__main__":

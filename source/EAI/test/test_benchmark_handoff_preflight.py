@@ -5,15 +5,19 @@ import pytest
 from demo.benchmark.handoff_preflight import run_handoff_preflight
 
 
-def test_preflight_builds_four_scene_public_boundary(tmp_path):
+def test_preflight_builds_five_scene_public_boundary(tmp_path):
     root = tmp_path / "preflight"
     report = run_handoff_preflight(root)
-    assert report["scene_keys"] == ["factory", "warehouse_nvd", "modern_house_nvd", "city"]
-    assert report["suite"]["package_count"] == 36
-    assert report["suite"]["factor_pair_count"] == 28
+    assert report["scene_keys"] == [
+        "factory", "warehouse_nvd", "modern_house_nvd", "city", "restaurant"]
+    assert report["suite"]["package_count"] == 45
+    assert report["suite"]["factor_pair_count"] == 35
     assert all(row["accepted"] for row in report["public_adapter_smoke"].values())
     assert report["isaac_started"] is False
-    assert json.loads((root / "preflight.json").read_text())["scoreable"] is False
+    saved = json.loads((root / "preflight.json").read_text())
+    assert saved["execution_validated"] is False
+    assert saved["business_outcomes_validated"] is False
+    assert saved["scoreable"] is False
 
 
 def test_preflight_refuses_existing_output_and_cleans_failed_output(tmp_path, monkeypatch):

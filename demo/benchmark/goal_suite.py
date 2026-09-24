@@ -1,7 +1,9 @@
 """Generate, freeze and read back the goal-task authoring matrix.
 
 This author-only command does not launch a simulator, execute a participant or
-score an episode. All four scenes produce the same nine-condition goal matrix.
+score an episode. All admitted scenes produce the same nine-condition goal
+matrix.  The separate ``full-audit`` command materializes the versioned
+baseline + M0 + M1 grid while preserving this baseline-only compatibility API.
 Optional City preparation drafts are copied and re-intaken separately;
 including a draft never promotes it or claims scoring readiness.
 Existing public templates are reserved for further review, not called
@@ -120,7 +122,7 @@ def _validate_coverage_contract():
     matrix = load_coverage_matrix()
     # The coverage matrix is the formal factor-matrix admission list.  The
     # shared task-generation registry also exposes authoring-only families,
-    # which must not silently change the four-scene coverage counts.
+    # which must not silently change the admitted-scene coverage counts.
     registered = tuple(row["scene_key"] for row in registered_goal_scenes()
                        if row["package_kind"] == "goal_bundle")
     if tuple(matrix["scene_keys"]) != registered:
@@ -428,7 +430,7 @@ def write_goal_mechanism_suite(output_root, *, scene_keys=None, mechanisms=None,
 
     This is intentionally separate from :func:`write_goal_suite`: the latter
     preserves the historical nine-condition compatibility matrix, while this
-    command publishes the 16 canonical scene/mechanism bundles.
+    command publishes the admitted-scene M0 canonical bundles (currently 20).
     """
     from .task_coverage import validate_m0_template_registry
 
@@ -571,11 +573,18 @@ def main(argv=None):
     verify.add_argument("--output-root", required=True, type=Path)
     verify.add_argument("--verify-sources", action="store_true")
     mechanism_audit = commands.add_parser(
-        "mechanism-audit", help="generate and verify the four-scene M0 mechanism matrix")
+        "mechanism-audit", help="generate and verify the admitted-scene M0 mechanism matrix")
     mechanism_audit.add_argument("--output-root", required=True, type=Path)
     mechanism_verify = commands.add_parser(
         "mechanism-verify", help="re-read an M0 mechanism matrix and reject stale bytes")
     mechanism_verify.add_argument("--output-root", required=True, type=Path)
+    full_audit = commands.add_parser(
+        "full-audit", help="generate and verify the five-scene 405-package full matrix")
+    full_audit.add_argument("--output-root", required=True, type=Path)
+    full_verify = commands.add_parser(
+        "full-verify", help="re-read the full matrix and reject missing, duplicate or stale artifacts")
+    full_verify.add_argument("--output-root", required=True, type=Path)
+    full_verify.add_argument("--verify-sources", action="store_true")
     args = parser.parse_args(argv)
     if args.command == "list":
         result = {"scope": "task_generation_not_simulator_activation", "scenes": registered_goal_scenes()}
@@ -586,8 +595,13 @@ def main(argv=None):
         result = verify_goal_suite(args.output_root, verify_sources=args.verify_sources)
     elif args.command == "mechanism-audit":
         result = write_goal_mechanism_suite(args.output_root)
-    else:
+    elif args.command == "mechanism-verify":
         result = verify_goal_mechanism_suite(args.output_root)
+    else:
+        from .goal_full_matrix import verify_goal_full_matrix, write_goal_full_matrix
+        result = (write_goal_full_matrix(args.output_root) if args.command == "full-audit"
+                  else verify_goal_full_matrix(
+                      args.output_root, verify_sources=args.verify_sources))
     print(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False))
     return 0
 

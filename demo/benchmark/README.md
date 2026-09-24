@@ -72,10 +72,10 @@ counterfactual certificate, and one-factor treatment validator are task-design
 evidence only; execution and scoring remain external release gates.
 
 `python -m demo.benchmark.goal_suite list` lists the five task-generation
-registrations, including Restaurant as an authoring-only entry. `goal_suite
-audit --output-root <new-directory>` generates and reads back the four admitted
-scene families across nine factor conditions (36 bundles),
-freezes their contents, and checks 28 control/variant pairs. Optionally supply
+registrations, including Restaurant in the authoring matrix. `goal_suite
+audit --output-root <new-directory>` generates and reads back the five admitted
+scene families across nine factor conditions (45 baseline bundles),
+freezes their contents, and checks 35 control/variant pairs. Optionally supply
 `--city-package <city-prepare-directory> --verify-sources` to audit an additional
 City preparation candidate separately from its full goal bundles. This does
 not activate simulator scenes or city service skills. `goal_suite verify
@@ -83,7 +83,17 @@ not activate simulator scenes or city service skills. `goal_suite verify
 See [the generation and handoff workflow](GOAL_SUITE.zh-CN.md) for source
 verification, reserved splits, city service proposals, and remaining owners.
 
-All four goal scenes use `GoalAlgorithmHost` in `goal_algorithm_adapter.py`:
+`python -m demo.benchmark.goal_suite full-audit --output-root <new-directory>`
+materializes the full **5 × 9 × 9 = 405** matrix: each scene's baseline and eight
+mechanism variants across all nine conditions, with 315 control/variant pairs.
+`goal_suite full-verify --output-root <directory> --verify-sources` checks its
+exact package inventory, frozen content, source hashes, and public/private file
+boundary. These are measurement variants over shared business goals, not 405
+independent business objectives or validated native episodes. See the
+[stage 34 handoff](STAGE34_RESTAURANT_FULL_MATRIX.zh-CN.md) for counting and
+execution limits. All release flags remain false.
+
+All five goal scenes use `GoalAlgorithmHost` in `goal_algorithm_adapter.py`:
 `initialize(public_task, participant_api)`, `act(new_public_events)`, `close()`.
 Actions use the existing goal protocol and are admitted by `GoalSession`.
 `CallableAlgorithmAdapter`/`ParticipantSession` serve the separate fixed-DAG

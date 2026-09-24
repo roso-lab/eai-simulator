@@ -3,10 +3,15 @@ import json
 
 from demo.benchmark.algorithm_adapter import DEFAULT_CONTROL_STACK
 from demo.benchmark.handoff_manifest import (
+    FIVE_SCENE_KEYS,
     SCENE_KEYS,
     build_four_scene_handoff,
+    build_goal_handoff,
     validate_four_scene_handoff,
+    validate_goal_handoff,
+    verify_goal_handoff,
     write_four_scene_handoff,
+    write_goal_handoff,
     verify_four_scene_handoff,
 )
 
@@ -25,6 +30,19 @@ def test_four_scene_handoff_has_uniform_authoring_shape_and_fixed_controls():
     assert [row["task_id"] for row in report["scenes"]] == [
         "FACTORY-GOAL-01", "WAREHOUSE-GOAL-01", "MODERN_HOUSE-GOAL-01", "CITY-GOAL-01",
     ]
+
+
+def test_default_handoff_has_five_scenes_and_fail_closed_release_flags():
+    report = build_goal_handoff()
+    assert report["scene_keys"] == list(FIVE_SCENE_KEYS)
+    assert report["scenes"][-1]["scene_key"] == "restaurant"
+    assert report["scenes"][-1]["task_id"] == "RESTAURANT-GOAL-01"
+    assert report["all_handoff_ready"] is True
+    assert report["all_execution_pending"] is True
+    assert report["execution_validated"] is False
+    assert report["business_outcomes_validated"] is False
+    assert report["scoreable"] is False
+    assert validate_goal_handoff(report) == report
 
 
 def test_handoff_rejects_control_stack_or_execution_claim_drift():
@@ -68,6 +86,16 @@ def test_export_reads_actual_bundle_files_and_does_not_overwrite(tmp_path):
     public_path.write_text(json.dumps(public))
     with pytest.raises(ValueError):
         verify_four_scene_handoff(root)
+
+
+def test_default_export_reads_actual_five_scene_bundles(tmp_path):
+    root = tmp_path / "five-scene-handoff"
+    report = write_goal_handoff(root)
+    assert verify_goal_handoff(root) == report
+    assert (root / "restaurant/release/public_task.json").is_file()
+    assert not (root / "restaurant/release/hidden_evaluator.json").exists()
+    with pytest.raises(FileExistsError):
+        write_goal_handoff(root)
 
 
 def test_handoff_does_not_accept_report_without_complete_bundles():

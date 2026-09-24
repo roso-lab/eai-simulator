@@ -15,10 +15,10 @@ from typing import Any, Mapping
 
 from .goal_algorithm_adapter import GoalAlgorithmHost
 from .goal_suite import verify_goal_suite, write_goal_suite
-from .handoff_manifest import verify_four_scene_handoff, write_four_scene_handoff
+from .handoff_manifest import FIVE_SCENE_KEYS, verify_goal_handoff, write_goal_handoff
 
 
-SCENES = ("factory", "warehouse_nvd", "modern_house_nvd", "city")
+SCENES = FIVE_SCENE_KEYS
 PUBLIC_FILES = {"public_task.json", "participant_api.json", "baseline_manifest.json"}
 
 
@@ -58,12 +58,17 @@ def _read(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def run_handoff_preflight(output_root: str | Path) -> dict[str, Any]:
+def run_handoff_preflight(
+        output_root: str | Path, *, scene_keys=SCENES) -> dict[str, Any]:
     """Create and verify fresh artifacts below ``output_root``.
 
     ``output_root`` must not exist, which prevents a preflight from silently
     mixing results from different source revisions.
     """
+    keys = tuple(scene_keys)
+    if (not keys or len(keys) != len(set(keys))
+            or any(key not in SCENES for key in keys)):
+        raise ValueError("preflight scene_keys must be distinct registered scenes")
     root = Path(output_root).absolute()
     if any(path.is_symlink() for path in (root, *root.parents)):
         raise ValueError("preflight output cannot traverse symlinks")
@@ -71,13 +76,13 @@ def run_handoff_preflight(output_root: str | Path) -> dict[str, Any]:
         raise FileExistsError(f"preflight output already exists: {root}")
     root.mkdir(parents=True)
     try:
-        suite_summary = write_goal_suite(root / "suite", verify_sources=True)
+        write_goal_suite(root / "suite", scene_keys=list(keys), verify_sources=True)
         suite_readback = verify_goal_suite(root / "suite", verify_sources=True)
-        handoff_summary = write_four_scene_handoff(root / "handoff")
-        handoff_readback = verify_four_scene_handoff(root / "handoff")
+        write_goal_handoff(root / "handoff", scene_keys=keys)
+        handoff_readback = verify_goal_handoff(root / "handoff", scene_keys=keys)
 
         public_smoke = {}
-        for scene in SCENES:
+        for scene in keys:
             release = root / "handoff" / scene / "release"
             files = {path.name for path in release.iterdir() if path.is_file()}
             if files != PUBLIC_FILES:
@@ -92,14 +97,17 @@ def run_handoff_preflight(output_root: str | Path) -> dict[str, Any]:
             public_smoke[scene] = {"accepted": True, "task_id": public["task_id"]}
 
         report = {
-            "schema": "eai.benchmark.handoff_preflight", "version": 1,
-            "scene_keys": list(SCENES), "suite": suite_readback,
+            "schema": "eai.benchmark.handoff_preflight", "version": 2,
+            "scene_keys": list(keys), "suite": suite_readback,
             "handoff": {"scene_count": len(handoff_readback["scenes"]),
                         "all_handoff_ready": handoff_readback["all_handoff_ready"]},
             "public_release_inventory": sorted(PUBLIC_FILES),
             "public_adapter_smoke": public_smoke,
             "isaac_started": False, "ros_started": False,
-            "external_scheduler_started": False, "scoreable": False,
+            "external_scheduler_started": False,
+            "execution_validated": False,
+            "business_outcomes_validated": False,
+            "scoreable": False,
         }
         (root / "preflight.json").write_text(
             json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n",

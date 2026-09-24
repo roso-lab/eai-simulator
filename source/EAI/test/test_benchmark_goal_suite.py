@@ -32,11 +32,11 @@ def suite_copy(one_scene_suite, tmp_path):
     return root
 
 
-def test_city_registration_uses_same_authoring_bundle_without_execution_claims():
+def test_five_scene_registration_uses_same_authoring_bundle_without_execution_claims():
     scenes = {row["scene_key"]: row for row in registered_goal_scenes()}
     assert set(scenes) == {"factory", "warehouse_nvd", "modern_house_nvd", "city", "restaurant"}
     assert scenes["city"]["package_kind"] == "goal_bundle"
-    assert scenes["restaurant"]["package_kind"] == "authoring_only"
+    assert scenes["restaurant"]["package_kind"] == "goal_bundle"
     assert scenes["restaurant"]["scoreable"] is False
     scenes["factory"]["package_kind"] = "forged"
     assert goal_scene_registration("factory")["package_kind"] == "goal_bundle"
@@ -45,9 +45,9 @@ def test_city_registration_uses_same_authoring_bundle_without_execution_claims()
         assert compiled["bundle"]["hidden_evaluator"]["release_gate"]["scoreable"] is False
 
 
-def test_authoring_only_restaurant_compiles_without_entering_formal_suite():
+def test_restaurant_compiles_as_fail_closed_goal_bundle():
     compiled = compile_registered_goal_scene("restaurant")
-    assert compiled["registration"]["package_kind"] == "authoring_only"
+    assert compiled["registration"]["package_kind"] == "goal_bundle"
     gate = compiled["bundle"]["hidden_evaluator"]["release_gate"]
     assert gate["authoring_status"] == "passed"
     assert gate["execution_status"] == "external_pending"
@@ -67,29 +67,34 @@ def test_city_full_bundle_is_builder_admitted_and_execution_stays_pending():
     assert goal_scene_registration("city")["package_kind"] == "goal_bundle"
 
 
-def test_default_suite_contains_four_scenes_with_equal_factor_coverage(tmp_path):
-    root = tmp_path / "four-scenes"
+def test_default_suite_contains_five_scenes_with_equal_factor_coverage(tmp_path):
+    root = tmp_path / "five-scenes"
     assert write_goal_suite(root) == {
-        "output_root": str(root),
-        "validated": True, "package_count": 36, "candidate_count": 0,
-        "factor_pair_count": 28, "scoreable": False, "held_out_validated": False,
+        "output_root": str(root), "validated": True, "package_count": 45,
+        "candidate_count": 0, "factor_pair_count": 35, "scoreable": False,
+        "held_out_validated": False,
     }
-    assert verify_goal_suite(root, verify_sources=True)["package_count"] == 36
+    assert verify_goal_suite(root, verify_sources=True)["package_count"] == 45
     report = json.loads((root / "audit_report.json").read_text())
     from collections import Counter
     assert dict(Counter(r["scene_key"] for r in report["packages"])) == {
-        key: 9 for key in ("factory", "warehouse_nvd", "modern_house_nvd", "city")}
+        key: 9 for key in (
+            "factory", "warehouse_nvd", "modern_house_nvd", "city", "restaurant")}
 
 
-def test_suite_rejects_authoring_only_restaurant_matrix(tmp_path):
-    with pytest.raises(ValueError, match="authoring-only scenes"):
-        write_goal_suite(tmp_path / "restaurant", scene_keys=["restaurant"])
+def test_suite_admits_restaurant_matrix_without_execution_claims(tmp_path):
+    result = write_goal_suite(tmp_path / "restaurant", scene_keys=["restaurant"])
+    assert result["package_count"] == 9
+    assert result["factor_pair_count"] == 7
+    assert result["scoreable"] is False
 
 
-def test_mechanism_suite_rejects_authoring_only_restaurant_matrix(tmp_path):
+def test_mechanism_suite_admits_restaurant_without_execution_claims(tmp_path):
     from demo.benchmark.goal_suite import write_goal_mechanism_suite
-    with pytest.raises(ValueError, match="authoring-only scenes"):
-        write_goal_mechanism_suite(tmp_path / "restaurant", scene_keys=["restaurant"])
+    result = write_goal_mechanism_suite(tmp_path / "restaurant-mechanisms", scene_keys=["restaurant"])
+    assert result["canonical_template_count"] == 4
+    assert result["execution_validated"] is False
+    assert result["scoreable"] is False
 
 
 def test_registered_goal_scene_uses_existing_full_contract():
