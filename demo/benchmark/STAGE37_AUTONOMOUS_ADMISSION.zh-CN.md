@@ -83,10 +83,65 @@ Iris 飞行/观察驱动未实现、自主入口与v2通信业务接线、并发
 
 覆盖检查本机/ljy各12项通过，提交 `df91015` 已推送。
 审计提交 `24d4e0b` 已推送，ljy六文件152项通过。工程聚焦130项、主审四文件52项
-与其有重叠，不相加。业务/审计/新旧服务组合76项通过；最终整合回归随后追加。
+与其有重叠，不相加。业务/审计/新旧服务组合76项通过。
 所有摘要/回放均证明对应归档的一致性，不独立认证传感器或PhysX事实。
 `scoreable=false`、`execution_validated=false`、`business_outcomes_validated=false`。
+
+### 最终双机验收
+
+业务实现提交 `1d8c455`。同一组13个测试文件，本机 **273 passed / 0 skipped**
+（27.77秒），ljy **273 passed / 0 skipped**（10.42秒）。前述小集合是同一批的
+阶段检查，不能与273相加。最终列表如下，均在 `source/EAI/test/`：
+
+```text
+test_benchmark_goal_session_audit.py
+test_benchmark_goal_episode_runner.py
+test_benchmark_goal_session.py
+test_benchmark_goal_scoring_adapter.py
+test_benchmark_goal_execution_downlink.py
+test_benchmark_goal_deployment_runtime_integration.py
+test_benchmark_restaurant_autonomous_admission.py
+test_benchmark_goal_restaurant_business_v2.py
+test_benchmark_restaurant_service_v2.py
+test_restaurant_service_backend.py
+test_benchmark_goal_restaurant_episode.py
+test_restaurant_algorithm_episode.py
+test_restaurant_native_transport.py
+```
+
+本机命令：
+
+```bash
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
+PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs:source/EAI_env_diy \
+xargs -a tmp/stage37-validation/test-files.txt \
+  /home/pupil/miniconda3/envs/env_isaaclab/bin/python -m pytest -q -rs
+```
+
+ljy用git bundle同步至新隔离树
+`/home/ljy/eai-simulator-worktrees/benchmark-stage37-autonomous-admission`，测试提交
+`1d8c455`；不依赖GitLab凭据，原工作区的 `goal_house_episode.py` 修改保留。
+远端使用同一测试列表及 `env_isaaclab` Python，额外显式绑定已有资产：
+
+```bash
+EAI_CONTROLLER_ROOT=/home/ljy/eai-simulator/source/EAI_assets/EAI_assets/controller
+EAI_USD_ROOT=/home/ljy/eai-simulator/usd
+RESTAURANT_PRODUCTS_ROOT=/home/ljy/eai-simulator-worktrees/benchmark-scoring-20260923-19eee7e/tmp/restaurant_benchmark/products-candidate-v7
+```
+
+最终日志在本机 `tmp/stage37-validation/local-final.log` 与 `ljy-final.log`；
+这些运行产物不提交。双机重算覆盖报告摘要均为
+`fe65c9662c88a537d155b955c49a9225c298d3c727acdf32bac4ac36c8a5e065`，题包和v3公开
+任务哈希也一致。`git diff --check`通过，冻结题包/见证/资产及用户文件未纳入提交。
+本阶段没有启动GPU/Isaac；RTX5080可用性已核实，但已知full8原生缺口尚未补齐，
+不能用一次旧三机诊断冒充其验证。
+
+### 下一阶段验收出口
 
 随后由同一所有者整合自主request、runner、backend和原生归档验真；先以受控后端
 验证并发、执行中事件和取消，再在ljy运行对应原生验证。串行后端无法执行合法
 并发方案时应报平台限制，不能改成参与者错误，也不能悄悄将其串行化后出分。
+
+先前固定出生点中继、固定message_kind和单段route要求属于旧适配器的实现边界，
+不能无声进入新业务成功定义。这是本次复查后实际修正的测量偏差；未来应在搬用旧
+验真器之前先列明身份、时序和业务谓词，避免把见证细节当作唯一合法方案。
