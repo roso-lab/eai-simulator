@@ -95,6 +95,7 @@ class GoalAlgorithmHost:
         pose_tools: Any = None,
         camera_tools: Any = None,
         communication_tools: Any = None,
+        observation_consumer: Any = None,
     ) -> None:
         validate_goal_task_spec(public_task)
         self._public_task = deepcopy(dict(public_task))
@@ -122,6 +123,11 @@ class GoalAlgorithmHost:
         self._pose_tools = pose_tools
         self._camera_tools = camera_tools
         self._communication_tools = communication_tools
+        self._observation_consumer = observation_consumer
+        if observation_consumer is not None and any(
+                not callable(getattr(observation_consumer, name, None))
+                for name in ("owns_message", "can_consume", "consume")):
+            raise ValueError("observation consumer must implement delivery-bound consumption")
         self._tools_connected = False
         self._camera_tools_connected = False
         self._communication_tools_connected = False
@@ -380,6 +386,12 @@ class GoalAlgorithmHost:
                 consumes_comm = (action.get("type") == "consume_message"
                                  and comm_tools is not None
                                  and comm_tools.owns_message(message_id))
+                consumes_observation = (
+                    action.get("type") == "consume_message"
+                    and self._observation_consumer is not None
+                    and self._observation_consumer.owns_message(message_id))
+                if consumes_observation and (consumes_pose or consumes_camera or consumes_comm):
+                    raise ValueError("observation message has multiple transport owners")
                 if consumes_pose and message_id not in self._pose_visible_ids:
                     raise ValueError("pose message has not been delivered to the algorithm")
                 if consumes_camera and message_id not in self._camera_visible_ids:
@@ -393,6 +405,10 @@ class GoalAlgorithmHost:
                     raise ValueError("camera message is not currently delivered and fresh")
                 if consumes_comm and not comm_tools.can_consume(message_id, time_s=now):
                     raise ValueError("communication message is not currently delivered and fresh")
+                if consumes_observation and (
+                        message_id not in self._communication_visible_ids
+                        or not self._observation_consumer.can_consume(message_id, time_s=now)):
+                    raise ValueError("observation message is not currently delivered and fresh")
                 try:
                     result = self._session.submit_action(action)
                 except ValueError as exc:
@@ -409,6 +425,10 @@ class GoalAlgorithmHost:
                 if consumes_comm:
                     comm_tools.consume(message_id, action_id=action["action_id"],
                                        time_s=self._session.report()["current_time_s"])
+                if consumes_observation:
+                    self._observation_consumer.consume(
+                        message_id, action_id=action["action_id"],
+                        time_s=self._session.report()["current_time_s"])
                 actions.append(result)
         except BaseException:
             # The adapter has observed this batch. A partial action batch cannot

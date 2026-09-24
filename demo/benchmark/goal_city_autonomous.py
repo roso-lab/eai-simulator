@@ -17,6 +17,7 @@ from __future__ import annotations
 from copy import deepcopy
 import json
 import math
+import uuid
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
@@ -286,6 +287,9 @@ def run_city_autonomous_session(
     assessment_evaluator: AssessmentEvaluator | None = None,
     progress_reader: ProgressReader | None = None,
     episode_id: str | None = None,
+    communication_runtime: Any = None,
+    execution_observer: Any = None,
+    downlink: Any = None,
 ) -> dict[str, Any]:
     """Run an external adapter through the real formal runner boundary.
 
@@ -304,6 +308,9 @@ def run_city_autonomous_session(
         "assessment_evaluator": (
             assessment_evaluator or city_autonomous_platform_gap_evaluator),
         "session_audit": True,
+        "shared_communication_runtime": communication_runtime,
+        "execution_observer": execution_observer,
+        "downlink": downlink,
     }
     if progress_reader is not None:
         # Stage39's trusted progress hook belongs to the runner. Keeping it
@@ -333,6 +340,7 @@ def run_city_autonomous_context(
     assessment_evaluator: AssessmentEvaluator | None = None,
     progress_reader: ProgressReader | None = None,
     episode_id: str | None = None,
+    communication_runtime: Any = None,
 ) -> tuple[dict[str, Any], CityNativeGoalBackend]:
     """Bind one prepared native City context to the autonomous session."""
     public, _participant_api = build_city_autonomous_contract()
@@ -352,13 +360,30 @@ def run_city_autonomous_context(
         ctx["step"] = stamped_step  # type: ignore[index]
     except TypeError as exc:
         raise ValueError("native City context must permit the trusted step wrapper") from exc
-    backend = CityNativeGoalBackend(ctx, public_task=public, clock_epoch_s=clock_epoch_s)
     default_progress = None
-    if progress_reader is None:
-        default_progress = CityAcceptanceProgressReader(
-            backend.evidence, ctx, output_root, clock_epoch_s=clock_epoch_s)
-        progress_reader = default_progress
     try:
+        backend = CityNativeGoalBackend(
+            ctx, public_task=public, clock_epoch_s=clock_epoch_s, strict_dispatch_clock=True)
+        if progress_reader is None:
+            default_progress = CityAcceptanceProgressReader(
+                backend.evidence, ctx, output_root, clock_epoch_s=clock_epoch_s)
+            progress_reader = default_progress
+        observer = downlink = None
+        if communication_runtime is not None:
+            from .goal_city_runtime_observations import (
+                CityRuntimeObservationReader, GoalCityRuntimeIntake)
+            from .goal_execution_downlink import GoalExecutionDownlink
+
+            episode_id = episode_id or uuid.uuid4().hex
+            observer = GoalCityRuntimeIntake(
+                public, episode_id=episode_id, runtime=communication_runtime,
+                reader=CityRuntimeObservationReader(ctx),
+                native_episode_id=ctx["runner"].adapter.episode_id,
+                native_source_id=ctx["runner"].adapter.source_id,
+                clock_epoch_s=clock_epoch_s,
+                recipient_service_id=ctx["endpoint"]["service_id"])
+            downlink = GoalExecutionDownlink(
+                public, episode_id=episode_id, runtime=communication_runtime)
         result = run_city_autonomous_session(
             adapter,
             backend,
@@ -369,6 +394,9 @@ def run_city_autonomous_context(
             assessment_evaluator=assessment_evaluator,
             progress_reader=progress_reader,
             episode_id=episode_id,
+            communication_runtime=communication_runtime,
+            execution_observer=observer,
+            downlink=downlink,
         )
     finally:
         ctx["step"] = native_step  # type: ignore[index]
@@ -388,6 +416,7 @@ def run_city_autonomous_episode(
     assessment_evaluator: AssessmentEvaluator | None = None,
     progress_reader: ProgressReader | None = None,
     episode_id: str | None = None,
+    communication_runtime: Any = None,
 ) -> dict[str, Any]:
     """Run the explicit v1 autonomous entry against the prepared native probe."""
     from demo.city_benchmark.service_probe import execute_probe, prepare_probe
@@ -408,6 +437,7 @@ def run_city_autonomous_episode(
             assessment_evaluator=assessment_evaluator,
             progress_reader=progress_reader,
             episode_id=episode_id,
+            communication_runtime=communication_runtime,
         )
         sources_after = _source_hashes()
         sources_unchanged = sources_before == sources_after

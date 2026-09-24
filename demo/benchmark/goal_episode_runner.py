@@ -795,7 +795,12 @@ class FormalGoalEpisodeRunner:
             with GoalAlgorithmHost(self.public_task, self.participant_api, self.adapter,
                                     session=session, pose_tools=self.pose_tools,
                                     camera_tools=self.camera_tools,
-                                    communication_tools=self.communication_tools) as host:
+                                    communication_tools=self.communication_tools,
+                                    observation_consumer=(
+                                        self.execution_observer if all(
+                                            callable(getattr(self.execution_observer, name, None))
+                                            for name in ("owns_message", "can_consume", "consume"))
+                                        else None)) as host:
                 for turns in range(1, self.max_turns + 1):
                     request_actions()
                     advance_execution_downlink()

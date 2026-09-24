@@ -271,9 +271,13 @@ class CityNativeGoalBackend:
 
     def __init__(self, ctx: Mapping[str, Any], plan: Mapping[str, Any] | None = None,
                  public_task: Mapping[str, Any] | None = None, *,
-                 clock_epoch_s: float = 0.0):
+                 clock_epoch_s: float = 0.0,
+                 strict_dispatch_clock: bool = False):
         self._ctx = dict(ctx)
         self.clock_epoch_s = _clock_epoch(clock_epoch_s)
+        if type(strict_dispatch_clock) is not bool:
+            raise ValueError("strict_dispatch_clock must be a bool")
+        self.strict_dispatch_clock = strict_dispatch_clock
         # ``plan`` remains an ignored compatibility argument for legacy
         # callers. Runtime execution is bound exclusively to the pending task
         # in GoalSession's trusted report, so autonomous adapters do not need
@@ -282,23 +286,48 @@ class CityNativeGoalBackend:
         self._robot_regions = (city_robot_regions(public_task) if public_task is not None
                                else dict(CITY_ROBOT_REGIONS))
         self._task_pool = list((public_task or {}).get("candidate_robot_pool") or [])
+        budget = ((public_task or {}).get("budgets") or {}).get("simulation_s")
+        self._simulation_budget_s = None
+        if budget is not None:
+            if (isinstance(budget, bool) or not isinstance(budget, (int, float))
+                    or not math.isfinite(budget) or budget <= 0):
+                raise ValueError("City simulation budget must be finite and positive")
+            self._simulation_budget_s = float(budget)
         self.evidence: list[dict[str, Any]] = []
         # No simulation step can run between the host warmup observation and
         # this construction, so the shared clock reading is the observation's
         # delivery time (the native snapshot expires one second after capture).
         self._observation_time_s = float(ctx["city"].elapsed)
+        self._observation_ref = str(ctx["guidance_observation"])
         self.evidence.append({"kind": "episode_observation",
-                              "observation_ref": str(ctx["guidance_observation"]),
+                              "observation_ref": self._observation_ref,
                               "delivered_at_s": self._observation_time_s})
 
     # -- trusted observation renewal ------------------------------------
     def _current_observation(self) -> str:
         ctx = self._ctx
-        if float(ctx["city"].elapsed) <= self._observation_time_s:
-            return str(ctx["guidance_observation"])
-        ref = str(ctx["runner"].observe())
-        self._observation_time_s = float(ctx["city"].elapsed)
-        return ref
+        now = float(ctx["city"].elapsed)
+        if now <= self._observation_time_s:
+            return self._observation_ref
+        # A trusted intake observer may already have captured this exact
+        # native tick. Reuse it to avoid the runner's timestamp-derived ID
+        # colliding; observations from older ticks never refresh the TTL.
+        runner = ctx["runner"]
+        current_ref = getattr(runner, "_observation_ref", None)
+        lookup = getattr(getattr(runner, "host", None), "observation", None)
+        if isinstance(current_ref, str) and current_ref and callable(lookup):
+            current = lookup(current_ref)
+            captured = (current or {}).get("captured_at_s") \
+                if isinstance(current, Mapping) else None
+            if (isinstance(captured, (int, float)) and not isinstance(captured, bool)
+                    and math.isclose(float(captured), now, rel_tol=0.0, abs_tol=1e-9)):
+                self._observation_time_s = now
+                self._observation_ref = current_ref
+                return self._observation_ref
+        ref = str(runner.observe())
+        self._observation_time_s = now
+        self._observation_ref = ref
+        return self._observation_ref
 
     # -- shared helpers ---------------------------------------------------
     _SERVICE_ROLE = {"guide_people": "guidance_contact",
@@ -396,6 +425,173 @@ class CityNativeGoalBackend:
             raise ValueError("native City clock must be finite")
         return max(0.0, native_now - self.clock_epoch_s)
 
+    def _strict_dispatch_start(
+        self,
+        task: Mapping[str, Any],
+        *,
+        episode_id: str,
+        action_id: str,
+        dispatched_at_s: float,
+        backend_entry_host_s: float,
+    ) -> tuple[dict[str, Any], bool]:
+        """Align native time before service entry and archive the real clock."""
+        for value, label in (
+                (dispatched_at_s, "trusted ledger dispatch time"),
+                (backend_entry_host_s, "backend entry host time")):
+            if not math.isfinite(value) or value < 0:
+                raise ValueError(f"{label} must be finite and nonnegative")
+        if dispatched_at_s > backend_entry_host_s:
+            raise ValueError("trusted dispatch cannot follow backend entry host time")
+        planned_start = float(task["execution"]["start_s"])
+        duration = float(task["execution"]["duration_s"])
+        planned_end = planned_start + duration
+        if (not math.isfinite(planned_start) or planned_start < 0
+                or not math.isfinite(duration) or duration <= 0
+                or not math.isfinite(planned_end)):
+            raise ValueError("City planned window must be finite and nonnegative")
+
+        row = {
+            "kind": "dispatch_clock",
+            "episode_id": episode_id,
+            "action_id": action_id,
+            "task_id": task["task_id"],
+            "skill": task["skill"],
+            "clock_scope": "backend_entry",
+            "clock_epoch_s": self.clock_epoch_s,
+            "planned_start_s": planned_start,
+            "planned_end_s": planned_end,
+            "dispatched_at_s": dispatched_at_s,
+            "ledger_dispatch_s": dispatched_at_s,
+            "backend_entry_host_s": backend_entry_host_s,
+            "native_actual_start_s": None,
+            "actual_start_s": None,
+            "native_actual_end_s": None,
+            "actual_end_s": None,
+            "service_request_id": None,
+            "service_request_native_s": None,
+            "service_request_time_s": None,
+            "disposition": None,
+            "status": None,
+        }
+        native_now = float(self._ctx["city"].elapsed)
+        relative_now = self._relative_now()
+        if backend_entry_host_s >= planned_end or relative_now >= planned_end:
+            row.update(disposition="missed_window", status="failed")
+            self.evidence.append(row)
+            return row, False
+
+        target_relative = max(planned_start, backend_entry_host_s)
+        target_native = self.clock_epoch_s + target_relative
+        if native_now < target_native:
+            dt = float(self._ctx["dt"])
+            if not math.isfinite(dt) or dt <= 0:
+                raise ValueError("native City step must be finite and positive")
+            step_count = max(1, math.ceil((target_native - native_now) / dt))
+            self._ctx["step"](
+                self._ctx["session"], self._ctx["city"],
+                self._ctx["actions"], step_count)
+            native_now = float(self._ctx["city"].elapsed)
+            relative_now = self._relative_now()
+
+        # The plan window is half-open. A physics quantum that crosses the end
+        # cannot be treated as an on-time service start.
+        if relative_now >= planned_end:
+            row.update(disposition="missed_window", status="failed")
+            self.evidence.append(row)
+            return row, False
+        if relative_now < backend_entry_host_s:
+            raise RuntimeError("native City clock did not reach backend entry host time")
+
+        row.update(
+            native_actual_start_s=native_now,
+            actual_start_s=relative_now,
+            disposition="executing",
+        )
+        self.evidence.append(row)
+        return row, True
+
+    def _finish_dispatch_clock(
+        self,
+        row: dict[str, Any],
+        result: Mapping[str, Any] | None,
+    ) -> None:
+        native_end = float(self._ctx["city"].elapsed)
+        row["native_actual_end_s"] = native_end
+        row["actual_end_s"] = self._relative_now()
+        row["disposition"] = "executed"
+        row["status"] = result.get("status") if result is not None else "error"
+        for evidence in reversed(self.evidence):
+            if evidence is row or evidence.get("task_id") != row["task_id"]:
+                continue
+            request = evidence.get("request")
+            if not isinstance(request, Mapping):
+                continue
+            request_id = request.get("request_id")
+            submitted = request.get("submitted_time_s")
+            if (isinstance(request_id, str) and request_id
+                    and isinstance(submitted, (int, float))
+                    and not isinstance(submitted, bool)
+                    and math.isfinite(submitted)):
+                row["service_request_id"] = request_id
+                row["service_request_native_s"] = float(submitted)
+                row["service_request_time_s"] = _relative_timestamp(
+                    submitted, self.clock_epoch_s)
+            break
+
+    def _strict_window_expired(self, task: Mapping[str, Any]) -> bool:
+        if not self.strict_dispatch_clock:
+            return False
+        planned_end = (float(task["execution"]["start_s"])
+                       + float(task["execution"]["duration_s"]))
+        return self._relative_now() >= planned_end
+
+    def advance_idle(self, target_time_s: float) -> Mapping[str, Any]:
+        """Advance only the real native clock toward a relative wakeup."""
+        if (isinstance(target_time_s, bool)
+                or not isinstance(target_time_s, (int, float))
+                or not math.isfinite(target_time_s)):
+            raise ValueError("City idle target must be finite")
+        target = float(target_time_s)
+        now = self._relative_now()
+        if target <= now:
+            raise ValueError("City idle target must advance the episode clock")
+        if self._simulation_budget_s is None:
+            raise RuntimeError("City idle advance requires a public simulation budget")
+        budget = self._simulation_budget_s
+        if now >= budget:
+            raise RuntimeError("City idle cannot advance beyond the simulation budget")
+        dt = float(self._ctx["dt"])
+        if not math.isfinite(dt) or dt <= 0:
+            raise ValueError("native City step must be finite and positive")
+
+        limit = min(target, budget)
+        steps = max(1, math.ceil((limit - now) / dt - 1e-9))
+        if now + steps * dt > budget + 1e-9:
+            steps = math.floor((budget - now) / dt + 1e-9)
+        if steps <= 0:
+            raise RuntimeError("City idle has no reachable physics step within budget")
+
+        native_start = float(self._ctx["city"].elapsed)
+        self._ctx["step"](
+            self._ctx["session"], self._ctx["city"], self._ctx["actions"], steps)
+        native_end = float(self._ctx["city"].elapsed)
+        actual = self._relative_now()
+        if not native_end > native_start or not actual > now:
+            raise RuntimeError("City idle physics clock did not advance")
+        if actual > budget + 1e-9:
+            raise RuntimeError("City idle physics clock exceeded the simulation budget")
+        self.evidence.append({
+            "kind": "idle_clock",
+            "clock_epoch_s": self.clock_epoch_s,
+            "requested_time_s": target,
+            "start_time_s": now,
+            "completed_at_s": actual,
+            "native_start_s": native_start,
+            "native_end_s": native_end,
+            "control_steps": steps,
+        })
+        return {"time_s": actual, "runtime_state": self._runtime_state()}
+
     def _terminal(self, task: Mapping[str, Any], row: Mapping[str, Any], episode_id: str,
                   status: str, completed_at_s: float, evidence_refs: list[str],
                   receipt_ref: Any) -> dict[str, Any]:
@@ -422,16 +618,41 @@ class CityNativeGoalBackend:
         if (ledger["episode_id"] != episode_id or row["status"] != "pending"
                 or row["task"] != task or row["plan_id"] != ledger["current_plan_id"]):
             raise ValueError("native city task does not match the pending GoalSession dispatch")
+        ledger_now = float(ledger["current_time_s"])
+        dispatch_clock = None
+        if self.strict_dispatch_clock:
+            dispatched = row.get("dispatched_at_s", ledger_now)
+            if (isinstance(dispatched, bool)
+                    or not isinstance(dispatched, (int, float))):
+                raise ValueError("trusted ledger dispatched_at_s must be a number")
+            dispatch_clock, can_execute = self._strict_dispatch_start(
+                task,
+                episode_id=episode_id,
+                action_id=str(row["dispatch_action_id"]),
+                dispatched_at_s=float(dispatched),
+                backend_entry_host_s=ledger_now,
+            )
+            if not can_execute:
+                completed = max(self._relative_now(), ledger_now)
+                result = self._terminal(
+                    task, row, episode_id, "failed", completed,
+                    [f"dispatch_clock:{task_id}:missed_window"],
+                    f"dispatch_clock:{episode_id}:{task_id}")
+                result["reason"] = "native city service window expired before execution"
+                return result
         skill = task["skill"]
+        result: Mapping[str, Any] | None = None
         try:
             if skill == "guide_people":
-                return self._execute_guide(task, row, episode_id, float(ledger["current_time_s"]))
-            if skill == "control_following_traffic":
-                return self._execute_control(task, row, episode_id, float(ledger["current_time_s"]))
-            if skill == "report_incident":
-                return self._execute_report(task, row, episode_id, float(ledger["current_time_s"]))
-            if skill == "aerial_broadcast":
-                return self._execute_broadcast(task, row, episode_id, float(ledger["current_time_s"]))
+                result = self._execute_guide(task, row, episode_id, ledger_now)
+            elif skill == "control_following_traffic":
+                result = self._execute_control(task, row, episode_id, ledger_now)
+            elif skill == "report_incident":
+                result = self._execute_report(task, row, episode_id, ledger_now)
+            elif skill == "aerial_broadcast":
+                result = self._execute_broadcast(task, row, episode_id, ledger_now)
+            else:
+                raise ValueError(f"native city backend does not implement skill: {skill}")
         except _CapabilityExecutionFailure as failure:
             # Task-level failure with factual observables only: the episode
             # continues and the business outcomes judge the algorithm. Like a
@@ -443,16 +664,19 @@ class CityNativeGoalBackend:
                                   "task_id": task["task_id"],
                                   "agent_id": self._dispatch_agent(task),
                                   "reason": str(failure)})
-            return {"status": "failed", "completed_at_s": now,
-                    "runtime_state": self._runtime_state(),
-                    "receipt": {"backend_id": CITY_BACKEND_ID,
-                                "receipt_ref": f"capability:{episode_id}:{task['task_id']}",
-                                "task_id": task["task_id"],
-                                "action_id": row["dispatch_action_id"],
-                                "status": "failed", "completed_at_s": now,
-                                "episode_id": episode_id,
-                                "evidence_refs": [f"capability:{task['task_id']}"]}}
-        raise ValueError(f"native city backend does not implement skill: {skill}")
+            result = {"status": "failed", "completed_at_s": now,
+                      "runtime_state": self._runtime_state(),
+                      "receipt": {"backend_id": CITY_BACKEND_ID,
+                                  "receipt_ref": f"capability:{episode_id}:{task['task_id']}",
+                                  "task_id": task["task_id"],
+                                  "action_id": row["dispatch_action_id"],
+                                  "status": "failed", "completed_at_s": now,
+                                  "episode_id": episode_id,
+                                  "evidence_refs": [f"capability:{task['task_id']}"]}}
+        finally:
+            if dispatch_clock is not None:
+                self._finish_dispatch_clock(dispatch_clock, result)
+        return result
 
     def cancel(self, task: Mapping[str, Any], *, episode_id: str,
                trusted_report: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -484,10 +708,19 @@ class CityNativeGoalBackend:
         runner, city = ctx["runner"], ctx["city"]
         person_ids = list(task["arguments"]["person_ids"])
         region_id = task["arguments"]["assembly_region_id"]
-        observation = self._current_observation()
-        self._assign_service_agent(task)
         guidance = None
+        observation = None
         for attempt in range(CITY_GUIDE_RETRY_LIMIT):
+            if self._strict_window_expired(task):
+                result = self._terminal(
+                    task, row, episode_id, "failed",
+                    max(self._relative_now(), ledger_now),
+                    [f"dispatch_clock:{task['task_id']}:retry_window_expired"],
+                    f"retry_window:{episode_id}:{task['task_id']}")
+                result["reason"] = "native city guide retry window expired"
+                return result
+            observation = self._current_observation()
+            self._assign_service_agent(task)
             try:
                 guidance = runner.guide_people(tuple(person_ids), observation_ref=observation,
                                                assembly_region_id=region_id)
@@ -497,8 +730,6 @@ class CityNativeGoalBackend:
                     raise
                 ctx["step"](ctx["session"], city, ctx["actions"],
                             max(1, math.ceil(1.0 / float(ctx["dt"]))))
-                self._assign_service_agent(task)
-                observation = self._current_observation()
         request = dict(guidance["request"])
         for person_id in person_ids:
             city.people.resume(person_id)
