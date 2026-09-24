@@ -100,6 +100,21 @@ native、fail-closed 分母缩水、有限状态模型边界、证书人工复�
 四个 reader 模块标题改为"reader wiring (synthetic/contract-only backend)"降低
 误读风险。
 
+## viewer 复核与回归收口（2026-09-24 晚）
+
+- **viewer 复核**（`tmp/stage32_p0_recheck_viewer.md`，只读独立复核）：三条 P0
+  **全部修复到位**，无新 P0；上轮"必要的不完美"7 项确认保持未修；证书仍是
+  evaluator-only 完备性门，单场景发布与五场景总览区分明确。
+- **全量轻量回归**（提交 02ab009 后）：`3075 passed, 1 failed`。唯一失败仍为
+  `test_factory_evaluator_fixture.py::test_inspection_fixture_matches_factory_scene_and_two_views`，
+  归因 Factory 冻结 evaluator fixture 与当前 USD SHA256 不匹配（外部资产缺口，
+  与本批代码无关；不修改 hash/fixture/题包）。
+- **评分侧车接线**：新增 `communication_capacity_observations()` 与
+  `checkpoint_branch_observations()`——容量实验与分支回放报告以带 development
+  marker 的 JSON 归档进 episode 输出目录后，侧车校验 schema/marker 并作为 raw
+  证据归档；报告缺失→missing、篡改 marker 或宣称 native restore→invalid，
+  三个发布标志恒 false（侧车测试 39 passed）。
+
 ## 轨道结果汇总
 
 聚焦回归（本批全部新增+关联既有测试）：`308 passed`。
