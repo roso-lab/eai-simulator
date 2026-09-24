@@ -60,4 +60,9 @@ report = run_city_autonomous_episode(
 
 ## 尚未完成的原生认证
 
-本阶段没有运行 Isaac Sim/GPU，未认证三机并发执行、动态成员变更、全池控制器能力、真实 native feasibility oracle 或连续物理进展。入口和外层报告固定保留 `execution_validated=false`、`business_outcomes_validated=false`、`scoreable=false` 的发布边界；session 内的某次业务 evaluator 结果只是该 episode 的归档事实，不提升该自主入口的发布状态。
+初次实现交接时未运行 Isaac Sim/GPU；随后 `1504a99` 已完成 ljy 局部原生诊断和双机
+222 项回归，详情见 [阶段39验收](STAGE39_ACCEPTANCE.zh-CN.md)。该诊断未认证真实模型的
+完整自主任务、三机并发执行、动态成员变更、全池控制器能力、真实 native feasibility oracle
+或连续物理进展。发布边界仍为 `execution_validated=false`、
+`business_outcomes_validated=false`、`scoreable=false`；某次业务 evaluator 的归档事实
+不提升该自主入口的发布状态。
