@@ -664,3 +664,217 @@ def test_communication_only_episode_archives_without_camera_state(tmp_path: Path
     assert analysis["tools"]["communication_tools"]["status"] == "observed"
     assert analysis["development_track"]["evidence_class"] == "contract"
     assert not (root / "lifecycle_errors.json").exists()
+
+
+class _SharedTransportParticipant(_Adapter):
+    """Connects the communication service and publishes one p2p message."""
+
+    def __init__(self, plan, robot, peer):
+        super().__init__(plan, robot)
+        self.peer = peer
+        self.comm_profile = None
+        self.published = False
+
+    def initialize_communication_tools(self, profile):
+        self.comm_profile = profile
+
+    def act(self, events):
+        initial = super().act(events)
+        if initial:
+            return initial
+        if (not self.published
+                and any(event["type"] == "action_result"
+                        and event["payload"]["action_id"] == "dispatch"
+                        and event["payload"]["status"] == "succeeded"
+                        for event in events)):
+            self.published = True
+            now = max(event["time_s"] for event in events)
+            return [{
+                "schema": "eai.benchmark.goal_communication_tool_call",
+                "version": 1,
+                "call_id": "shared-comm-publish-1",
+                "submitted_at_s": now,
+                "operation": "publish",
+                "arguments": {
+                    "producer_id": f"robot:{self.robot}",
+                    "recipients": [f"robot:{self.peer}"],
+                    "channel": "relay",
+                    "estimate": {"note": "shared transport probe"},
+                    "valid_until_s": now + 4.0,
+                },
+            }]
+        return []
+
+
+def test_shared_communication_runtime_archives_transport_once(tmp_path: Path):
+    """Route decision 2026-09-24 ruling 1: seal, validate, and count once.
+
+    The pose and communication tools reuse one runner-declared
+    CommunicationRuntime.  The per-tool replay archives stay, plus one
+    communication_transport_replay.json, and the aggregated analysis counts
+    the shared ledger exactly once instead of summing the duplicate tool
+    views.
+    """
+    from demo.benchmark.communication import CommunicationRuntime
+    from demo.benchmark.goal_communication_tool import GoalCommunicationTools
+    from demo.benchmark.goal_pose_telemetry import GoalPoseTelemetry
+    from demo.benchmark.goal_pose_tools import GoalPoseTools
+
+    bundle = build_goal_task_package("warehouse_nvd")
+    public = bundle["public_task"]
+    robot = "warehouse_ground_1"
+    plan = {
+        "schema": "eai.benchmark.goal_plan", "version": GOAL_PLAN_VERSION,
+        "plan_id": "shared-transport-plan", "assigned_team": [robot],
+        "tasks": [{
+            "task_id": "formal_nav", "skill": "ground_navigation",
+            "arguments": {"region_id": "consolidation_area",
+                           "route_ids": ["rack_a_to_consolidation"]},
+            "required_capabilities": ["ground_navigation"], "assigned_agents": [robot],
+            "prerequisites": [], "evidence_refs": [],
+            "execution": {"start_s": 0.0, "duration_s": 16.0},
+        }],
+    }
+    regions = {row["id"]: "rack_aisle_a" for row in public["candidate_robot_pool"]}
+    objects = {row["id"]: {"region_id": row["physical_properties"]["initial_region_id"]}
+               for row in public["public_world"]["objects"]}
+    pool = [row["id"] for row in public["candidate_robot_pool"]]
+    episode_id = "shared-transport-warehouse-001"
+    shared = CommunicationRuntime({"pools": {"p2p": {}}})
+    pose_tools = GoalPoseTools(
+        public, episode_id=episode_id,
+        sample=lambda robot_id, time_s: pytest.fail(
+            "pose sampling is not part of this shared-transport episode"),
+        telemetry=GoalPoseTelemetry(shared))
+    comm_tools = GoalCommunicationTools(
+        public, episode_id=episode_id,
+        endpoints={"edges": {"edge_1": [pool[1]]}, "robots": pool[:3]},
+        runtime=shared)
+    root = tmp_path / "episode"
+    runner = FormalGoalEpisodeRunner(
+        public, bundle["participant_api"],
+        _SharedTransportParticipant(plan, robot, pool[1]),
+        _Backend(public, robot, regions, objects),
+        output_root=root, episode_id=episode_id,
+        pose_tools=pose_tools, communication_tools=comm_tools,
+        shared_communication_runtime=shared)
+    result = runner.run(initial_state={"robot_regions": regions,
+                                        "object_states": objects})
+    assert result["error"] is None
+    # Per-tool service audits plus the single sealed transport replay.
+    assert (root / "pose_tools_report.json").is_file()
+    assert (root / "pose_communication_replay.json").is_file()
+    assert (root / "communication_tool_report.json").is_file()
+    assert (root / "communication_tool_replay.json").is_file()
+    transport_replay = json.loads(
+        (root / "communication_transport_replay.json").read_text())
+    assert transport_replay["validated"] is True
+    analysis = json.loads((root / "communication_analysis.json").read_text())
+    assert analysis["aggregation"] == "shared_transport_counted_once"
+    assert analysis["event_totals"] == {
+        "published": 1, "delivered": 1, "dropped": 0, "expired": 0}
+    assert analysis["transport"]["event_counts"]["published"] == 1
+    assert analysis["transport"]["bytes_by_direction"] == {
+        "p2p": analysis["transport"]["total_bytes_served"]}
+    assert analysis["direction_breakdown"] == "complete"
+    # Both tool entries are audit views of the same ledger; their counts do
+    # not re-enter the episode totals.
+    assert analysis["tools"]["pose_tools"]["event_counts"]["published"] == 1
+    assert analysis["tools"]["communication_tools"]["event_counts"]["published"] == 1
+    assert not (root / "lifecycle_errors.json").exists()
+
+
+def test_runner_rejects_tools_not_sharing_the_declared_runtime(tmp_path: Path):
+    from demo.benchmark.communication import CommunicationRuntime
+    from demo.benchmark.goal_communication_tool import GoalCommunicationTools
+
+    bundle = build_goal_task_package("warehouse_nvd")
+    public = bundle["public_task"]
+    robot = "warehouse_ground_1"
+    regions = {row["id"]: "rack_aisle_a" for row in public["candidate_robot_pool"]}
+    objects = {row["id"]: {"region_id": row["physical_properties"]["initial_region_id"]}
+               for row in public["public_world"]["objects"]}
+    pool = [row["id"] for row in public["candidate_robot_pool"]]
+    private_tools = GoalCommunicationTools(
+        public, episode_id="shared-mismatch-1",
+        endpoints={"edges": {"edge_1": [pool[1]]}, "robots": pool[:3]})
+    with pytest.raises(ValueError,
+                        match="must reuse the shared communication runtime"):
+        FormalGoalEpisodeRunner(
+            public, bundle["participant_api"],
+            _Adapter(None, robot), _Backend(public, robot, regions, objects),
+            output_root=tmp_path / "mismatch", episode_id="shared-mismatch-1",
+            communication_tools=private_tools,
+            shared_communication_runtime=CommunicationRuntime())
+    with pytest.raises(
+            ValueError,
+            match="shared_communication_runtime must be a CommunicationRuntime"):
+        FormalGoalEpisodeRunner(
+            public, bundle["participant_api"],
+            _Adapter(None, robot), _Backend(public, robot, regions, objects),
+            output_root=tmp_path / "not-a-runtime", episode_id="shared-mismatch-2",
+            shared_communication_runtime=object())
+
+
+def test_shared_mode_refuses_tampered_transport_from_aggregation(tmp_path: Path):
+    """A tampered shared transport archive is an infrastructure error, never
+    a fallback per-tool sum that would count the shared ledger twice."""
+    from demo.benchmark.communication import CommunicationRuntime
+    from demo.benchmark.goal_communication_tool import GoalCommunicationTools
+
+    class TamperedRuntime(CommunicationRuntime):
+        def report(self):
+            report = super().report()
+            if report["ledger"]:
+                report["ledger"] = report["ledger"][:-1]
+            return report
+
+    bundle = build_goal_task_package("warehouse_nvd")
+    public = bundle["public_task"]
+    robot = "warehouse_ground_1"
+    plan = {
+        "schema": "eai.benchmark.goal_plan", "version": GOAL_PLAN_VERSION,
+        "plan_id": "tampered-transport-plan", "assigned_team": [robot],
+        "tasks": [{
+            "task_id": "formal_nav", "skill": "ground_navigation",
+            "arguments": {"region_id": "consolidation_area",
+                           "route_ids": ["rack_a_to_consolidation"]},
+            "required_capabilities": ["ground_navigation"], "assigned_agents": [robot],
+            "prerequisites": [], "evidence_refs": [],
+            "execution": {"start_s": 0.0, "duration_s": 16.0},
+        }],
+    }
+    regions = {row["id"]: "rack_aisle_a" for row in public["candidate_robot_pool"]}
+    objects = {row["id"]: {"region_id": row["physical_properties"]["initial_region_id"]}
+               for row in public["public_world"]["objects"]}
+    pool = [row["id"] for row in public["candidate_robot_pool"]]
+    shared = TamperedRuntime({"pools": {"p2p": {}, "backhaul_downlink": {}}})
+    # Runner-held real downlink traffic with no tool view of its own.
+    shared.publish(
+        message_id="downlink-1", producer_id="cloud",
+        recipients=[f"robot:{pool[0]}"], channel="dispatch",
+        estimate={"order": 1}, valid_until_s=5.0,
+        pool="backhaul_downlink", direction="downlink")
+    shared.advance(5.0)
+    comm_tools = GoalCommunicationTools(
+        public, episode_id="tampered-transport-1",
+        endpoints={"edges": {"edge_1": [pool[1]]}, "robots": pool[:3]},
+        runtime=shared)
+    root = tmp_path / "episode"
+    runner = FormalGoalEpisodeRunner(
+        public, bundle["participant_api"],
+        _Adapter(plan, robot), _Backend(public, robot, regions, objects),
+        output_root=root, episode_id="tampered-transport-1",
+        communication_tools=comm_tools,
+        shared_communication_runtime=shared)
+    result = runner.run(initial_state={"robot_regions": regions,
+                                        "object_states": objects})
+    replay = json.loads((root / "communication_transport_replay.json").read_text())
+    assert replay["validated"] is False
+    errors = json.loads((root / "lifecycle_errors.json").read_text())
+    assert any(row["component"] == "communication_transport"
+               and row["operation"] == "replay" for row in errors)
+    assert "communication transport replay failed" in result["error"]
+    # The refused transport archive keeps the whole aggregation out of the
+    # episode output; the shared tool ledger is never summed as a fallback.
+    assert not (root / "communication_analysis.json").exists()

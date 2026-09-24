@@ -231,7 +231,8 @@ class FormalGoalEpisodeRunner:
                  evaluator: BusinessEvaluator | None = None, max_turns: int = 256,
                  pose_tools: Any = None, camera_tools: Any = None,
                  communication_tools: Any = None,
-                 assessment_evaluator: AssessmentEvaluator | None = None):
+                 assessment_evaluator: AssessmentEvaluator | None = None,
+                 shared_communication_runtime: Any = None):
         if not isinstance(max_turns, int) or isinstance(max_turns, bool) or max_turns < 1:
             raise ValueError("max_turns must be a positive integer")
         self.public_task = deepcopy(dict(public_task))
@@ -261,6 +262,29 @@ class FormalGoalEpisodeRunner:
                 camera_tools.episode_id != self.episode_id
                 or camera_tools.public_task_sha256 != canonical_sha256(self.public_task)):
             raise ValueError("camera tools must be bound to this episode and public task")
+        # Shared-transport mode (route decision 2026-09-24): the runner holds
+        # the one restricted CommunicationRuntime that the caller used to
+        # build the pose/camera/communication tools.  The runner never
+        # rebuilds tools; it only seals, validates, and counts that transport
+        # archive once.  Refuse obviously mismatched wiring for the known tool
+        # shapes so a private runtime cannot silently drop out of the totals.
+        self.shared_communication_runtime = None
+        if shared_communication_runtime is not None:
+            from .communication import CommunicationRuntime
+            if not isinstance(shared_communication_runtime, CommunicationRuntime):
+                raise ValueError(
+                    "shared_communication_runtime must be a CommunicationRuntime")
+            self.shared_communication_runtime = shared_communication_runtime
+            for label, tools, attributes in (
+                    ("pose tools", self.pose_tools, ("telemetry", "runtime")),
+                    ("camera tools", self.camera_tools, ("telemetry", "runtime")),
+                    ("communication tools", self.communication_tools, ("runtime",))):
+                holder: Any = tools
+                for attribute in attributes:
+                    holder = getattr(holder, attribute, None)
+                if holder is not None and holder is not shared_communication_runtime:
+                    raise ValueError(
+                        f"{label} must reuse the shared communication runtime")
 
     def _evaluate_required_assessment(self, host: GoalAlgorithmHost) -> None:
         report = host.trusted_report()["session"]
@@ -733,7 +757,46 @@ class FormalGoalEpisodeRunner:
                         self.communication_tools.communication_report())
             except Exception as exc:
                 record_lifecycle_error("communication_tools", "report", exc)
-        if communication_reports:
+        transport_report: dict[str, Any] | None = None
+        if self.shared_communication_runtime is not None:
+            from .communication import validate_communication_report
+            try:
+                candidate = self.shared_communication_runtime.report()
+                replay = validate_communication_report(candidate)
+                _write_json(self.output_root / "communication_transport_replay.json",
+                            replay)
+                # Same gate as communication_tool_replay: the sealed shared
+                # transport archive enters the aggregation only when its
+                # deterministic replay validates.
+                if replay.get("validated") is not True:
+                    record_lifecycle_error(
+                        "communication_transport", "replay",
+                        RuntimeError(
+                            "communication transport replay failed: "
+                            + "; ".join(replay.get("mismatches") or ["unknown"])))
+                else:
+                    transport_report = candidate
+            except Exception as exc:
+                record_lifecycle_error("communication_transport", "report", exc)
+        if self.shared_communication_runtime is not None:
+            # Shared-transport mode: the one sealed transport ledger is the
+            # only authority for the episode totals.  Tool ledgers are
+            # duplicate views of the same runtime and are never summed as a
+            # fallback, so a refused transport archive means no analysis
+            # rather than a multiple-counted one.
+            if transport_report is not None:
+                try:
+                    from .goal_communication_archive import build_communication_analysis
+
+                    _write_json(self.output_root / "communication_analysis.json",
+                                build_communication_analysis(
+                                    communication_reports, episode_id=self.episode_id,
+                                    scene_key=self.public_task["mission"]["scene_key"],
+                                    evidence_class="contract",
+                                    transport_report=transport_report))
+                except Exception as exc:
+                    record_lifecycle_error("communication_archive", "analyze", exc)
+        elif communication_reports:
             # P1-COMM formal episode hookup: fold the replay-validated tool
             # ledgers into one sidecar-visible analysis archive.
             try:
