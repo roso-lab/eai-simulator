@@ -68,4 +68,32 @@
 
 ## 轨道结果汇总
 
-（待并行代理返回后填写）
+聚焦回归（本批全部新增+关联既有测试）：`308 passed`。
+
+### 轨道A：House/City reader（子代理两次限流失败后由主任务接管）
+
+- 新增 `goal_reader_house.py`、`goal_reader_city.py`，测试 `test_benchmark_goal_reader_house.py`、`test_benchmark_goal_reader_city.py`（26 passed）。
+- 两个场景各有：冻结注册（合成 scope `synthetic_contract_development`，native scope 必须携带 `native:` 前缀证据否则拒绝）、状态合同、合成状态 provider（native 桥接点=host 注入 probes）、独立 source readers（从 native samples 测量，绝不读 state 的 true_facts）、开发案例查询（结果盖 development marker）。
+- 关键语义已锁进测试：书堆/椅子完成后搬运成员退出仍 deployable（能力不再必要）；唯一搬运退出且未完成经完整 BFS 才 not_deployable；City 地面引导与空中服务双替代路径+双向失效对照；地面退出后空中替代救不了交通谓词（求解器整合全部终局谓词）；reader 读回缺谓词/说谎/实体版本错配一律 fail-closed。
+- 缺口（native 接入时）：`time_s` 换 native clock、readers 换 host 原生探针、注册换 `native_remaining_task` scope+native 证据。
+
+### 轨道B：替代路径证书 + Warehouse/Factory reader（同上由主任务接管）
+
+- 新增 `goal_alternative_path_certificate.py`：证书冻结路径类别/覆盖测量点/独立复核状态；`gate_not_deployable_result()` 把无有效证书的 not_deployable 降级为 failed/null；deployable 不需要证书（搜索本身展示了一条合法路径）；证书永不产生标签。
+- `goal_reader_warehouse.py`（10+11 测试）：两订单对象身份、dock 稳定放置、回执、closeout、通道；**"已到 dock 未交接"中间态 + 抓取退出仍 deployable** 已锁进测试；单机强载荷/双机轻载荷组合（2 dolly）+纸箱（1 dolly）替代路径与资源不足对照。
+- `goal_reader_factory.py`（contract-only）：异常独立观察（observation_record）、实际服务到达（physical_completion）、维护交接回执（business_receipt）三类 reader；固定服务车无虚构搬运要求（测试断言无 carry 槽）；全程携带 `factory_fixture_hash_mismatch` marker。
+- 测试：证书 10 + warehouse 10 + factory 11 = 31 passed。
+
+### 轨道D：通信容量契约实验 + checkpoint 分支（子代理失败后由主任务接管）
+
+- 新增 `communication_capacity_experiments.py`：通过 `set_conditions(pool=...)` 正规机制注入时变延迟/丢包（每次干预进 ledger）；JP=固定 vs 抖动（精确同均值，TTL 分离分布效应）；BP=IID vs 突发（每十块精确同丢包率）；三池容量扫描走 `summarize_capacity_curve` 得 C90/C50 包围区间，bootstrap 只在有效样本内；`bytes_by_direction()` 方向缺失 → 分解 null 不猜测。
+- 新增 `goal_checkpoint_branch.py`：变化前快照纪律（checkpoint 时间/序列必须严格早于变化点，违反即 invalid）；分支 RNG 用共享比较流键（同 seed 同键同流，异键异流）；sham 控制永远 diagnostic 隔离，合并即抛错；strict 比较资格=同 seed+同流键+流摘要一致。native PhysX restore 验证仍是待过的门（blocker `native_restore_verification_pending`）。
+- 测试：容量 12 + 分支 8 = 20 passed（含方向 fail-closed、参考点完美、低容量退化）。
+
+### 轨道E：餐厅八机准入审计（子代理失败后由主任务接管）
+
+- 产出 `STAGE32_RESTAURANT_ADMISSION_AUDIT.zh-CN.md`：八机逐机证据矩阵（仅 Carter 有原生证据，出处 `goal_driven_tasks.py:1250-1273` docstring）、authoring_only→native admission 十项差距清单（含"回执已提交后 relay 能力退出仍 deployable"对照态设计）、单 Carter 闭环不可外推边界（代码显式声明 `goal_restaurant_episode.py:1-8`）、建议准入顺序（carter_2→iris_1→m20_1→go2/lite3）。
+
+### 子代理基础设施事件记录
+
+本批四个工程子代理全部因 harness 模型请求失败（"Model request failed"，与上午 codex 会话 429 同期）中断且无部分产出，按"不重复启动同一任务、主任务接管"纪律由主任务顺序完成全部轨道。阶段审核代理（gpt-6-astra）在收尾阶段重新发起，审核报告落地 `tmp/stage32_directional_audit_gpt6astra.md`。
