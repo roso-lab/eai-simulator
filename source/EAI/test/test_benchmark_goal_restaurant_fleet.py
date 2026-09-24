@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from copy import deepcopy
+import json
 import math
 from pathlib import Path
 from types import SimpleNamespace
@@ -144,6 +146,133 @@ def test_idle_tick_commands_every_agent_and_holds_goal_controllers_explicitly(tm
     assert tick["time_s"] == pytest.approx(0.02)
     assert tick["execution_validated"] is False
     assert tick["business_outcomes_validated"] is False
+
+
+def test_begin_episode_warms_full8_archives_old_epoch_and_rebases_time_zero(tmp_path):
+    from demo.benchmark import goal_restaurant_fleet as fleet
+
+    session = _session()
+    controller = fleet.RestaurantFleetController(session, products_root=tmp_path)
+    hold_targets = deepcopy(controller._hold_targets)
+    hold_yaws = deepcopy(controller._hold_yaws)
+    metadata = controller.begin_episode("stage51-test", warmup_ticks=3)
+
+    assert len(session.env.calls) == 3
+    assert all(set(commands) == set(session.possible_agents)
+               for commands in session.env.calls)
+    assert controller._hold_targets == hold_targets
+    assert controller._hold_yaws == hold_yaws
+    assert metadata["lifecycle_state"] == "post_warmup"
+    assert metadata["native_initial_state_ready"] is True
+    assert metadata["origin_physics_step"] == 112
+    assert metadata["origin_time_s"] == 0.0
+    assert metadata["post_warmup_sample"]["physics_step"] == 112
+    assert metadata["post_warmup_sample"]["time_s"] == 0.0
+    assert set(metadata["post_warmup_sample"]["agents"]) == set(
+        fleet.FLEET_CONTROLLER_REGISTRY)
+    assert metadata["post_warmup_sample_measured"] is True
+    assert metadata["warmup_stability_certified"] is False
+    assert metadata["execution_validated"] is False
+    assert metadata["scoreable"] is False
+
+    snapshot = controller.snapshot()
+    assert snapshot["physics_step"] == 112
+    assert snapshot["time_s"] == 0.0
+    assert snapshot["agents"] == metadata["post_warmup_sample"]["agents"]
+    assert snapshot["episode"]["lifecycle_state"] == "post_warmup"
+    assert "post_warmup_sample" not in snapshot["episode"]
+
+    archive_path = Path(metadata["archive"]["path"])
+    assert archive_path.parent == tmp_path
+    archive = json.loads(archive_path.read_text(encoding="utf-8"))
+    assert archive["old_epoch"]["origin_physics_step"] == 100
+    assert archive["old_epoch"]["pre_warmup_physics_step"] == 100
+    assert len(archive["warmup_ticks"]) == 3
+    assert [row["warmup_index"] for row in archive["warmup_ticks"]] == [0, 1, 2]
+    assert [row["physics_step"] for row in archive["warmup_ticks"]] == [104, 108, 112]
+    assert [row["time_s"] for row in archive["warmup_ticks"]] == pytest.approx(
+        [0.02, 0.04, 0.06])
+    assert all(set(row["agents"]) == set(fleet.FLEET_CONTROLLER_REGISTRY)
+               for row in archive["warmup_ticks"])
+    assert archive["post_warmup_sample"] == metadata["post_warmup_sample"]
+    assert len(metadata["archive"]["sha256"]) == 64
+
+
+def test_warmup_preserves_original_m20_hold_when_controller_equilibrium_moves(tmp_path):
+    from demo.benchmark import goal_restaurant_fleet as fleet
+
+    session = _session()
+    original_step = session.env.step
+
+    def moving_step(commands):
+        original_step(commands)
+        session.base_env.scene.articulations["m20_1"].data.root_state_w[0, 0] += 0.1
+
+    session.env.step = moving_step
+    controller = fleet.RestaurantFleetController(session, products_root=tmp_path)
+    target = list(controller._hold_targets["restaurant_m20_1"])
+    metadata = controller.begin_episode("moving-m20", warmup_ticks=2)
+
+    assert controller._hold_targets["restaurant_m20_1"] == target
+    assert session.env.calls[0]["m20_1"][0].tolist() == pytest.approx(
+        [target[0], target[1], 0.0])
+    assert session.env.calls[1]["m20_1"][0].tolist() == pytest.approx(
+        [target[0], target[1], 0.0])
+    assert metadata["post_warmup_sample"]["agents"]["restaurant_m20_1"][
+        "position_m"][0] == pytest.approx(target[0] + 0.2)
+    assert metadata["warmup_stability_certified"] is False
+
+
+@pytest.mark.parametrize("warmup_ticks", [True, 0, -1, 10_001, 1.5, "2"])
+def test_begin_episode_rejects_unbounded_or_noninteger_warmup(tmp_path, warmup_ticks):
+    from demo.benchmark import goal_restaurant_fleet as fleet
+
+    controller = fleet.RestaurantFleetController(_session(), products_root=tmp_path)
+    with pytest.raises(ValueError, match="warmup ticks"):
+        controller.begin_episode("bad-warmup", warmup_ticks=warmup_ticks)
+
+
+@pytest.mark.parametrize("activity", ["snapshot", "step", "route"])
+def test_begin_episode_rejects_prior_public_fleet_activity(tmp_path, activity):
+    from demo.benchmark import goal_restaurant_fleet as fleet
+
+    controller = fleet.RestaurantFleetController(_session(), products_root=tmp_path)
+    if activity == "snapshot":
+        controller.snapshot()
+    elif activity == "step":
+        controller.step_once()
+    else:
+        with pytest.raises(ValueError, match="outside the full8 pool"):
+            controller.plan_route("foreign", "route", "restaurant_staging")
+    with pytest.raises(RuntimeError, match="before public fleet activity"):
+        controller.begin_episode("late", warmup_ticks=1)
+
+
+def test_begin_episode_is_one_shot_and_detects_clock_or_hold_mutation(tmp_path):
+    from demo.benchmark import goal_restaurant_fleet as fleet
+
+    controller = fleet.RestaurantFleetController(_session(), products_root=tmp_path / "one")
+    controller.begin_episode("once", warmup_ticks=1)
+    with pytest.raises(RuntimeError, match="exactly once"):
+        controller.begin_episode("twice", warmup_ticks=1)
+
+    jumped_session = _session()
+    jumped = fleet.RestaurantFleetController(jumped_session, products_root=tmp_path / "jump")
+    jumped_session.base_env.sim.current_time_step_index += 4
+    with pytest.raises(RuntimeError, match="advanced outside fleet control"):
+        jumped.begin_episode("jumped", warmup_ticks=1)
+
+    changed_session = _session()
+    changed = fleet.RestaurantFleetController(changed_session, products_root=tmp_path / "hold")
+    original_step = changed_session.env.step
+
+    def changing_step(commands):
+        original_step(commands)
+        changed._hold_targets["restaurant_m20_1"][0] += 1.0
+
+    changed_session.env.step = changing_step
+    with pytest.raises(RuntimeError, match="hold targets changed"):
+        changed.begin_episode("changed", warmup_ticks=1)
 
 
 def test_measured_route_rejects_free_goal_and_stale_start(tmp_path, monkeypatch):

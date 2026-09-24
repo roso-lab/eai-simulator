@@ -20,6 +20,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 from typing import Any, Mapping
 
 
@@ -28,6 +29,12 @@ ENV_BUILDER_PATH = ROOT / "source/EAI_hmrs/EAI_hmrs/env_builder.py"
 CONTROLLER_ROOT = ROOT / "source/EAI_assets/EAI_assets/controller"
 TRUSTED_GOAL_SOURCE = "trusted_public_region_geometry"
 ROUTE_SCHEMA = "eai.restaurant.measured_fleet_route"
+RESTAURANT_TASK_ID = "RESTAURANT-GOAL-01"
+RESTAURANT_PUBLIC_TASK_SHA256 = (
+    "e34fe98668acece2234fda06140f867840f58c272e11216430151ce86eac9084"
+)
+EPISODE_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
+MAX_EPISODE_WARMUP_TICKS = 10_000
 CLOSED_VALIDATION_FLAGS = {
     "execution_validated": False,
     "business_outcomes_validated": False,
@@ -369,6 +376,9 @@ class RestaurantFleetController:
         self._last_step = self._origin_step
         self._operations: dict[str, dict[str, Any]] = {}
         self._active_by_agent: dict[str, str] = {}
+        self._episode_begin_attempted = False
+        self._episode_metadata_value: dict[str, Any] | None = None
+        self._pre_episode_public_activity: set[str] = set()
         self._route_seal_key = os.urandom(32)
         self._hold_targets: dict[str, list[float]] = {}
         self._hold_yaws: dict[str, float] = {}
@@ -376,6 +386,10 @@ class RestaurantFleetController:
         for public_id, sample in initial.items():
             self._hold_targets[public_id] = list(sample["root_state_w"][:3])
             self._hold_yaws[public_id] = float(sample["yaw_rad"])
+
+    def _record_public_activity(self, name: str) -> None:
+        if self._episode_metadata_value is None:
+            self._pre_episode_public_activity.add(name)
 
     def _read_step(self) -> int:
         value = self.session.base_env.sim.current_time_step_index
@@ -423,8 +437,9 @@ class RestaurantFleetController:
         return samples
 
     def snapshot(self) -> dict[str, Any]:
+        self._record_public_activity("snapshot")
         states = self._read_states()
-        return {
+        result = {
             "schema": "eai.restaurant.native_fleet_snapshot",
             "version": 1,
             "physics_step": next(iter(states.values()))["physics_step"],
@@ -433,6 +448,123 @@ class RestaurantFleetController:
             "operations": deepcopy(self._operations),
             **CLOSED_VALIDATION_FLAGS,
         }
+        if self._episode_metadata_value is not None:
+            result["episode"] = {
+                key: deepcopy(value)
+                for key, value in self._episode_metadata_value.items()
+                if key != "post_warmup_sample"
+            }
+        return result
+
+    def episode_metadata(self) -> dict[str, Any]:
+        """Return the frozen post-warmup epoch or fail before it exists."""
+        if self._episode_metadata_value is None:
+            raise RuntimeError("Restaurant post-warmup episode has not begun")
+        return deepcopy(self._episode_metadata_value)
+
+    def begin_episode(self, episode_id: str, *, warmup_ticks: int) -> dict[str, Any]:
+        """Warm all eight controllers once and freeze the participant time origin."""
+        from demo.benchmark.goal_driven_tasks import build_goal_task_package
+        from demo.benchmark.provenance import canonical_sha256
+
+        if self._episode_begin_attempted:
+            raise RuntimeError("Restaurant episode lifecycle may begin exactly once")
+        if (not isinstance(episode_id, str)
+                or EPISODE_ID_PATTERN.fullmatch(episode_id) is None):
+            raise ValueError("Restaurant episode id is not a safe nonempty token")
+        if (isinstance(warmup_ticks, bool) or not isinstance(warmup_ticks, int)
+                or not 1 <= warmup_ticks <= MAX_EPISODE_WARMUP_TICKS):
+            raise ValueError(
+                f"Restaurant warmup ticks must be an integer from 1 to "
+                f"{MAX_EPISODE_WARMUP_TICKS}")
+        if self._pre_episode_public_activity:
+            activity = ", ".join(sorted(self._pre_episode_public_activity))
+            raise RuntimeError(
+                f"Restaurant episode must begin before public fleet activity: {activity}")
+        if self._operations or self._active_by_agent:
+            raise RuntimeError("Restaurant episode cannot begin with navigation operations")
+
+        public = build_goal_task_package("restaurant")["public_task"]
+        task_sha256 = canonical_sha256(public)
+        if (public.get("task_id") != RESTAURANT_TASK_ID
+                or task_sha256 != RESTAURANT_PUBLIC_TASK_SHA256):
+            raise RuntimeError("Restaurant public task identity drifted before episode warmup")
+
+        archive_path = self.products_root / f"restaurant_native_episode_{episode_id}.json"
+        if archive_path.exists():
+            raise FileExistsError(f"Restaurant episode archive already exists: {archive_path}")
+        self.products_root.mkdir(parents=True, exist_ok=True)
+        self._episode_begin_attempted = True
+
+        original_targets = deepcopy(self._hold_targets)
+        original_yaws = deepcopy(self._hold_yaws)
+        old_origin_step = self._origin_step
+        pre_warmup = self._read_states()
+        warmup: list[dict[str, Any]] = []
+        for index in range(warmup_ticks):
+            if (self._hold_targets != original_targets
+                    or self._hold_yaws != original_yaws):
+                raise RuntimeError("Restaurant hold targets changed during episode warmup")
+            warmup.append(self._step_once(activity=None, warmup_index=index))
+        if (self._hold_targets != original_targets
+                or self._hold_yaws != original_yaws):
+            raise RuntimeError("Restaurant hold targets changed during episode warmup")
+
+        post_step = self._check_clock()
+        self._origin_step = post_step
+        post_warmup = self._read_states()
+        if (any(sample["physics_step"] != post_step or sample["time_s"] != 0.0
+                for sample in post_warmup.values())):
+            raise RuntimeError("Restaurant post-warmup sample did not rebase to native t=0")
+        archive = {
+            "schema": "eai.restaurant.native_episode_warmup_archive",
+            "version": 1,
+            "episode_id": episode_id,
+            "task_id": RESTAURANT_TASK_ID,
+            "public_task_sha256": task_sha256,
+            "old_epoch": {
+                "origin_physics_step": old_origin_step,
+                "pre_warmup_physics_step": next(iter(pre_warmup.values()))[
+                    "physics_step"],
+                "pre_warmup_time_s": next(iter(pre_warmup.values()))["time_s"],
+                "pre_warmup_agents": pre_warmup,
+            },
+            "warmup_ticks": warmup,
+            "post_warmup_sample": {
+                "physics_step": post_step,
+                "time_s": 0.0,
+                "agents": post_warmup,
+            },
+            "hold_targets_before_warmup": original_targets,
+            "hold_yaws_before_warmup": original_yaws,
+            "controller_instances_preserved": True,
+            "post_warmup_sample_measured": True,
+            "warmup_stability_certified": False,
+            **CLOSED_VALIDATION_FLAGS,
+        }
+        with archive_path.open("x", encoding="utf-8") as stream:
+            json.dump(archive, stream, ensure_ascii=False, indent=2,
+                      sort_keys=True, allow_nan=False)
+            stream.write("\n")
+        archive_sha256 = _sha256(archive_path)
+        self._episode_metadata_value = {
+            "schema": "eai.restaurant.native_episode_epoch",
+            "version": 1,
+            "lifecycle_state": "post_warmup",
+            "native_initial_state_ready": True,
+            "episode_id": episode_id,
+            "task_id": RESTAURANT_TASK_ID,
+            "public_task_sha256": task_sha256,
+            "warmup_ticks": warmup_ticks,
+            "origin_physics_step": post_step,
+            "origin_time_s": 0.0,
+            "post_warmup_sample": deepcopy(archive["post_warmup_sample"]),
+            "archive": {"path": str(archive_path), "sha256": archive_sha256},
+            "post_warmup_sample_measured": True,
+            "warmup_stability_certified": False,
+            **CLOSED_VALIDATION_FLAGS,
+        }
+        return self.episode_metadata()
 
     def _region_goal(self, public_agent_id: str, region_id: str) -> dict[str, Any]:
         """Resolve only maintained public-region geometry inside the host."""
@@ -482,6 +614,7 @@ class RestaurantFleetController:
         from demo.benchmark.runtime import route_waypoints
         from demo.restaurant_benchmark import route_admission
 
+        self._record_public_activity("plan_route")
         if public_agent_id not in FLEET_CONTROLLER_REGISTRY:
             raise ValueError("Restaurant route agent is outside the full8 pool")
         if not isinstance(route_id, str) or not route_id.strip():
@@ -528,6 +661,7 @@ class RestaurantFleetController:
 
     def begin_navigation(self, operation_id: str, route: Mapping[str, Any], *,
                          deadline_s: float) -> dict[str, Any]:
+        self._record_public_activity("begin_navigation")
         if not isinstance(operation_id, str) or not operation_id.strip():
             raise ValueError("Restaurant navigation operation id must be nonempty")
         if operation_id in self._operations:
@@ -602,6 +736,7 @@ class RestaurantFleetController:
         return deepcopy(operation)
 
     def cancel_navigation(self, operation_id: str) -> dict[str, Any]:
+        self._record_public_activity("cancel_navigation")
         operation = self._operations.get(operation_id)
         if operation is None:
             raise KeyError("unknown Restaurant navigation operation")
@@ -806,8 +941,10 @@ class RestaurantFleetController:
         if state["time_s"] >= operation["deadline_s"] - 1e-9:
             self._finish(operation, "failed", "navigation_deadline", state)
 
-    def step_once(self) -> dict[str, Any]:
-        """Advance exactly one full-fleet control tick and return raw progress."""
+    def _step_once(self, *, activity: str | None,
+                   warmup_index: int | None = None) -> dict[str, Any]:
+        if activity is not None:
+            self._record_public_activity(activity)
         before = self._read_states()
         before_step = self._check_clock()
         commands = {}
@@ -837,7 +974,7 @@ class RestaurantFleetController:
         for operation_id in active_at_start:
             operation = self._operations[operation_id]
             self._post_step(operation, after[operation["public_agent_id"]])
-        return {
+        result = {
             "schema": "eai.restaurant.native_fleet_tick",
             "version": 1,
             "start_physics_step": before_step,
@@ -848,6 +985,14 @@ class RestaurantFleetController:
             "operations": deepcopy(self._operations),
             **CLOSED_VALIDATION_FLAGS,
         }
+        if warmup_index is not None:
+            result["warmup_index"] = warmup_index
+            result["post_warmup_stability_certified"] = False
+        return result
+
+    def step_once(self) -> dict[str, Any]:
+        """Advance exactly one full-fleet control tick and return raw progress."""
+        return self._step_once(activity="step_once")
 
     def advance_idle_once(self) -> dict[str, Any]:
         """Advance one tick; active operations, if any, remain incremental."""
