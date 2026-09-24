@@ -115,6 +115,46 @@ native、fail-closed 分母缩水、有限状态模型边界、证书人工复�
   证据归档；报告缺失→missing、篡改 marker 或宣称 native restore→invalid，
   三个发布标志恒 false（侧车测试 39 passed）。
 
+## ljy 双机回归与 P2 phase1（2026-09-24 午后）
+
+**代码同步方式（重要教训）**：ljy 主仓的 remote 是本地 bundle 文件
+（`/home/ljy/tmp/benchmark-task-stage30-full.bundle`），不是 GitLab；ljy 的
+benchmark-task 线在 stage30 后与主线分叉（同补丁不同哈希+3个本地提交）。
+正确流程：本机 `git bundle create <file> HEAD` → scp → ljy `git fetch <bundle>
+HEAD:refs/heads/benchmark-stage32` → 新 worktree。**不要**直接 bundle 本地同名
+分支 `benchmark-task`（存在指向旧提交 dd995a25 的同名本地分支，第一轮因此测错基线）。
+
+**worktree 资产配置**：新 worktree 缺三类运行数据，需从主仓挂载：
+`EAI_USD_ROOT`/`EAI_CONTROLLER_ROOT` 指向主仓对应根 + 符号链接
+`usd/*`、`usd/scene/*`、`tmp/*`（city benchmark 的语义地图等运行产物在 tmp/）。
+
+**结果（fa5a4b9，第六轮）**：`2921 passed, 3 failed, 6 skipped`。
+- 1 失败 = Factory 冻结哈希缺口（与本机相同，外部资产问题）；
+- 2 失败 = worktree 资产挂载的路径绑定产物：`test_benchmark_nvd_products`
+  经 EAI_USD_ROOT 解析到 worktree 之外的绝对路径触发 "escapes the repository"，
+  `test_factory_evaluator_fixture::rejects_changed_source_hash` 的前置同样依赖
+  本地 Factory fixture 匹配。两者在正常检出（本机）均通过，非代码回归。
+- 阶段32 全部新增测试（reader/证书/容量/分支/侧车/归档）在 ljy 全绿。
+
+**P2 phase1（已提交 3e2ee13）**：`goal_communication_tool.py`（866 行）+
+42 测试全绿。按冻结设计全量实现：17 个 publish 错误码 + 4 个 consume 码
+（设计表 3.2/3.4 为准）、49 端点对穷举推导表（34 允许/15 拒绝）、
+参与者不可注入 pool/direction/message_id、golden 夹具逐字节一致且
+`validate_communication_report().validated is True`、Goal 词汇零改动锁、
+ingress 字节单独记账不入三池、release 标志恒 false。
+实现者自报 7 条 open questions（错误码数量出入、robot 自环 p2p、
+robot→cloud 直连等）交 viewer 审计裁决，报告
+`tmp/stage32_p2_phase1_audit_viewer.md`。
+
+**P2 phase1 审计回改（56f1b19）**：viewer 审计发现两处逻辑缺陷并已修复：
+(1) 内容自带 `consumer_ids` 隐式改变消费授权——修复为 runtime 发布时显式
+`declared_consumer_ids`（evaluator 侧元数据，不影响字节计量），内容只是内容；
+(2) 池 TTL 截短后的生效有效期未同步到送达 observation 与 stale 判定——修复为
+工具统一记录并读取每条消息的生效有效期。两条回归测试锁定；通信套件 156 passed，
+关联套件 89 passed。审计报告 `tmp/stage32_p2_phase1_audit_viewer.md`；
+phase2 接线前置条件（冻结配置/ID 互斥/时钟绑定/消费-派遣证据链/单一 replay
+archive/下行执行责任）已在报告中列明。
+
 ## 轨道结果汇总
 
 聚焦回归（本批全部新增+关联既有测试）：`308 passed`。
