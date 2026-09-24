@@ -16,6 +16,7 @@ from demo.city_benchmark.guide_admission import (
     canonical_state_sha256,
 )
 from demo.city_benchmark.live_witness import CityDemoRuntimeWitnessAdapter
+from demo.benchmark.goal_city_episode import stamp_arrival_times
 from demo.city_benchmark.tests.test_requested_target_guidance import (
     _Actor,
     _direct_provider,
@@ -364,24 +365,85 @@ def test_v2_arrival_requires_complete_xy_body_and_3d_safe_history(v2_service):
     service.region_reader.contained = {"p1"}
     service.city.people._actor("p1")._pending_pose = PathFollowerOutput(
         position=target, yaw=0.0, speed=0.0, locomotion="walk", finished=False)
+    before_finish_arrival = service.arrival_readback("p1")
     before_finish = service.person_readback("p1")
+    assert before_finish_arrival["arrived"] == before_finish["arrived"]
     assert before_finish["arrived"] is False
     assert before_finish["safe_route_and_assembly"] is False
     service.city.people._actor("p1")._pending_pose = PathFollowerOutput(
         position=target, yaw=0.0, speed=0.0, locomotion="walk", finished=True)
+    arrival = service.arrival_readback("p1")
     result = service.person_readback("p1")
+    assert arrival["arrived"] == result["arrived"]
     assert result["inside_assembly"] is True
     assert result["full_body_inside_assembly"] is True
     assert result["arrived"] is True and result["safe_route_and_assembly"] is True
+    assert len(result["trajectory_samples"]) > 1
+    assert result["trajectory_evidence_ref"] and result["safety_evidence_ref"]
 
     service.city.elapsed = 6.1
     service._world_samples.append(deepcopy(service._world_samples[-1]))
     service._world_samples[-1]["time_s"] = 6.1
     service.region_reader.contained.clear()
+    arrival = service.arrival_readback("p1")
     result = service.person_readback("p1")
+    assert arrival["arrived"] == result["arrived"]
     assert result["inside_assembly"] is True
     assert result["full_body_inside_assembly"] is False
     assert result["arrived"] is False and result["safe_route_and_assembly"] is False
+
+
+def test_v2_arrival_readback_is_current_and_does_not_build_trajectory(v2_service):
+    service = v2_service
+    _admit(service, "p1")
+    service.guide_person("p1", target_region_id=IDS[0])
+    target = (10.0, 0.0, 0.3)
+    actor = service.city.people._actor("p1")
+    service.region_reader.occupants = {"p1"}
+    service.region_reader.contained = {"p1"}
+    service._trajectory = lambda *args, **kwargs: (_ for _ in ()).throw(
+        AssertionError("arrival polling must not read trajectory history"))
+
+    actor._pending_pose = PathFollowerOutput(
+        position=target, yaw=0.0, speed=0.0, locomotion="walk", finished=False)
+    unfinished = service.arrival_readback("p1")
+    assert unfinished["path_finished"] is False
+    assert unfinished["full_body_inside_assembly"] is True
+    assert unfinished["arrived"] is False
+
+    actor._pending_pose = PathFollowerOutput(
+        position=target, yaw=0.0, speed=0.0, locomotion="walk", finished=True)
+    service.region_reader.contained.clear()
+    outside = service.arrival_readback("p1")
+    assert outside["path_finished"] is True
+    assert outside["inside_assembly"] is True
+    assert outside["full_body_inside_assembly"] is False
+    assert outside["arrived"] is False
+
+    service.region_reader.contained = {"p1"}
+    arrived = service.arrival_readback("p1")
+    assert arrived["path_finished"] is True
+    assert arrived["full_body_inside_assembly"] is True
+    assert arrived["arrived"] is True
+    assert not {"trajectory_samples", "world_readback", "safe_route_and_assembly"} & arrived.keys()
+    with pytest.raises(ValueError, match="no assembly assignment"):
+        service.arrival_readback("p2")
+
+
+def test_v2_arrival_poll_short_circuits_native_candidate_until_path_finishes(v2_service):
+    service = v2_service
+    _admit(service, "p1")
+    service.guide_person("p1", target_region_id=IDS[0])
+    actor = service.city.people._actor("p1")
+    actor._pending_pose = PathFollowerOutput(
+        position=(9.5, 0.0, 0.3), yaw=0.0, speed=0.0,
+        locomotion="walk", finished=False)
+    service._v2_candidate_affordance = lambda *args, **kwargs: (_ for _ in ()).throw(
+        AssertionError("unfinished polling must not read candidate/support/world geometry"))
+
+    stamps = {}
+    stamp_arrival_times({"city": service.city, "roster_ids": ["p1"]}, stamps)
+    assert stamps == {}
 
 
 def test_v2_live_witness_preserves_requested_target_controller_contract(v2_service):

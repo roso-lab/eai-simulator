@@ -1280,13 +1280,10 @@ def stamp_arrival_times(ctx: Mapping[str, Any], stamps: dict[str, float]) -> Non
             continue
         try:
             if _support_footprint_profile(service):
-                # Path completion is a necessary v2 arrival condition. Avoid
-                # copying the growing trajectory and reacquiring footprint
-                # support on every unfinished simulation tick.
                 motion = service.people_controller.motion_readback(person_id)
                 if motion.get("path_finished") is not True:
                     continue
-                arrived = service.person_readback(person_id)["arrived"]
+                arrived = service.arrival_readback(person_id)["arrived"]
             else:
                 arrived = service.people_controller.readback(
                     person_id, service.assembly_regions)["arrived"]

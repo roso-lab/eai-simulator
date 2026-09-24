@@ -276,7 +276,28 @@ class CityEpisodeServiceRuntime:
                 "trajectory_evidence_ref": self._ref("person_trajectory", person_id),
                 "safety_evidence_ref": self._ref("person_safety", person_id)}
 
-    def _v2_person_readback(self, person_id: str) -> dict[str, Any]:
+    def arrival_readback(self, person_id: str) -> dict[str, Any]:
+        """Read current arrival facts without constructing trajectory evidence.
+
+        Requested-target v2 polling still checks path completion and the
+        current native complete-body disk containment. The full
+        :meth:`person_readback` remains the final safety/evidence boundary.
+        Legacy profiles retain their existing controller/AABB readback.
+        """
+        if self._guidance_profile != REQUESTED_TARGET_V2_PROFILE:
+            return self.people_controller.readback(person_id, self.assembly_regions)
+        result, _candidate, _readback, root_inside, contained = \
+            self._v2_arrival_state(person_id)
+        return {
+            **result,
+            "inside_assembly": root_inside,
+            "full_body_inside_assembly": contained,
+            "arrived": result["path_finished"] and contained,
+            "observed_time_s": float(self.city.elapsed),
+        }
+
+    def _v2_arrival_state(self, person_id: str) -> tuple[
+            dict[str, Any], dict[str, Any], dict[str, Any], bool, bool]:
         result = self.people_controller.motion_readback(person_id)
         region_id = result["assembly_region_id"]
         candidate = self._v2_candidate_affordance(region_id)
@@ -286,6 +307,11 @@ class CityEpisodeServiceRuntime:
         root_inside = sum((position[index] - center[index]) ** 2
                           for index in range(2)) <= float(candidate["radius_m"]) ** 2
         contained = str(person_id) in set(readback.get("contained_body_ids") or ())
+        return result, candidate, readback, root_inside, contained
+
+    def _v2_person_readback(self, person_id: str) -> dict[str, Any]:
+        result, candidate, readback, root_inside, contained = \
+            self._v2_arrival_state(person_id)
         trajectory = self._trajectory(
             "people", str(person_id), self._person_service_starts[str(person_id)])
         route_clear = all(row.get("route_readback", {}).get("status") == "measured"

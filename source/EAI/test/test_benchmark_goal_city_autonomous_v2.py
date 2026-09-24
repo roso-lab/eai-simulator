@@ -135,18 +135,25 @@ def test_v2_profile_agrees_across_service_initial_intake_and_projection(
 
 
 def test_v2_arrival_stamp_uses_service_footprint_readback():
+    calls = []
     controller = SimpleNamespace(
-        motion_readback=lambda person_id: {"path_finished": person_id == "p1"},
+        motion_readback=lambda person_id: (
+            calls.append(("motion", person_id))
+            or {"path_finished": person_id == "p1"}),
         readback=lambda *args, **kwargs: (_ for _ in ()).throw(
             AssertionError("v2 must not use the legacy AABB controller readback")))
     service = SimpleNamespace(
         guidance_profile=REQUESTED_TARGET_V2_PROFILE,
-        person_readback=lambda person_id: {"arrived": person_id == "p1"},
+        arrival_readback=lambda person_id: (
+            calls.append(("arrival", person_id)) or {"arrived": person_id == "p1"}),
+        person_readback=lambda person_id: (_ for _ in ()).throw(
+            AssertionError("arrival polling must not build full trajectory evidence")),
         people_controller=controller, assembly_regions={})
     city = SimpleNamespace(elapsed=7.5, _episode_service=service)
     stamps = {}
-    stamp_arrival_times({"city": city, "roster_ids": ["p1"]}, stamps)
+    stamp_arrival_times({"city": city, "roster_ids": ["waiting", "p1"]}, stamps)
     assert stamps == {"p1": 7.5}
+    assert calls == [("motion", "waiting"), ("motion", "p1"), ("arrival", "p1")]
 
 
 def test_episode_v2_builds_native_support_closure_and_archives_profile(
