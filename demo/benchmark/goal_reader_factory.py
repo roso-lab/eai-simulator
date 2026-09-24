@@ -1,4 +1,4 @@
-"""Factory native remaining-task reader (contract-only development track).
+"""Factory remaining-task reader wiring (contract-only development track).
 
 Wires the trusted-state/oracle contracts onto the Factory business family
 ``production_anomaly_confirmation_and_maintenance_dispatch``.  Closes the
@@ -83,7 +83,9 @@ FACTORY_MODEL = {
          "capability_slots": [{"requires_all": ["observe"], "min_payload_kg": 0}],
          "resource_costs": {"shift_time_budget": 1}},
         # Actual service arrival: navigation to the response zone only.  The
-        # fixed service vehicle gets no fabricated carrying requirement.
+        # fixed service vehicle gets no fabricated carrying requirement; the
+        # 10 kg payload floor is a vehicle property of the dispatched unit,
+        # not an extra capability demand the model invents.
         {"id": "serve_response_area", "requires_all": ["anomaly_confirmed"],
          "requires_absent": [], "adds": ["response_area_served"], "deletes": [],
          "capability_slots": [{"requires_all": ["navigate"], "min_payload_kg": 10}],

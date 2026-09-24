@@ -134,3 +134,15 @@ def test_warehouse_malformed_readback_fails_closed():
                              state=observation["state"], readbacks=packets)
     assert grounding["status"] == "failed"
     assert grounding["quality_failure"]
+
+
+def test_warehouse_carrier_exit_before_anything_moves_is_not_deployable():
+    # Distinct from the at-dock case: nothing has moved yet, and the dock
+    # unit alone cannot carry either order object off the shelf.
+    registration = build_warehouse_registration()
+    result = query_warehouse_development_case(
+        "carrier_exits_before_crate_moves", registration=registration,
+        state_contract=build_warehouse_state_contract(registration),
+        certificate=_verified_certificate(registration))
+    assert result["feasibility_label"] == "not_deployable"
+    assert result["alternative_path_gate"] == "verified"

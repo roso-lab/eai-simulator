@@ -136,3 +136,43 @@ def test_duplicate_scene_and_duplicate_measurement_fail_closed():
     assert report["oracle_release_ready"] is False
     assert "factory" in report["duplicate_scenes"]
     assert "warehouse_nvd:initial" in report["duplicate_measurements"]
+
+
+def test_not_deployable_without_certificate_gate_fails_the_scene():
+    rows = _all()
+    row = rows[3]  # city
+    result = row["release_review"]["results"][0]
+    result["feasibility_label"] = "not_deployable"
+    report = audit_native_oracle_registry(rows)
+    assert report["oracle_release_ready"] is False
+    scene = report["scenes"]["city"]
+    assert scene["status"] == "failed"
+    assert any(reason.startswith("not_deployable_without_verified_certificate")
+               for reason in scene["failed"])
+
+
+def test_not_deployable_with_verified_certificate_stays_releasable():
+    rows = _all()
+    row = rows[3]  # city
+    result = row["release_review"]["results"][0]
+    result["feasibility_label"] = "not_deployable"
+    result["alternative_path_gate"] = "verified"
+    result["certificate_sha256"] = "c" * 64
+    report = audit_native_oracle_registry(rows)
+    assert report["scenes"]["city"]["status"] == "verified"
+    assert report["oracle_release_ready"] is True
+
+
+def test_release_unit_is_per_scene_and_subsets_do_not_deadlock():
+    # The release unit is one scene registration: auditing a subset reports
+    # the others as missing without manufacturing failures for them, so one
+    # scene's external asset blocker cannot deadlock the rest.
+    subset = [_bundle(scene) for scene in ("modern_house_nvd", "city")]
+    report = audit_native_oracle_registry(subset,
+                                          expected_scenes=("modern_house_nvd", "city"))
+    assert report["oracle_release_ready"] is True
+    assert report["missing_scenes"] == []
+    overview = audit_native_oracle_registry(subset)
+    assert overview["oracle_release_ready"] is False
+    assert set(overview["missing_scenes"]) == set(EXPECTED_SCENES) - {
+        "modern_house_nvd", "city"}

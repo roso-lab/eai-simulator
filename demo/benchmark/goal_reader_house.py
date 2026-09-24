@@ -1,4 +1,4 @@
-"""Modern House native remaining-task reader (development track).
+"""Modern House remaining-task reader wiring (development track, synthetic backend).
 
 This module wires the generic trusted-state/oracle contracts onto the
 Modern House business family ``resident_home_recovery_and_access_restoration``.
@@ -23,6 +23,10 @@ from typing import Any
 from .development_track_marker import (
     build_development_marker,
     stamp_evidence_record,
+)
+from .goal_alternative_path_certificate import (
+    build_alternative_path_certificate,
+    gate_not_deployable_result,
 )
 from .goal_driven_tasks import build_goal_task_package
 from .goal_remaining_feasibility_oracle import (
@@ -215,6 +219,29 @@ def house_native_samples(measurement_id: str, facts: set[str]) -> dict[str, dict
     return {"measurement_id": measurement_id, "sources": by_source}
 
 
+def build_house_development_certificate(registration: Mapping[str, Any],
+                                         *, independent_review: str = "pending"):
+    """Development completeness certificate; review stays pending in dev."""
+    return build_alternative_path_certificate(
+        HOUSE_SCENE_KEY, registration,
+        path_classes={
+            "direct_shelve_vs_staged_alternatives": {
+                "description": "书堆从地面直接到位或经稳定中间位两段完成的合法替代",
+                "covered_transitions": ["shelve_books_from_floor",
+                                        "stage_books",
+                                        "shelve_books_from_stage"]},
+            "carrier_capability_necessity_boundary": {
+                "description": "搬运能力仅在家具/书堆谓词未满足时必要；完成后退出不改变可行性",
+                "covered_transitions": ["restore_chair", "restore_access",
+                                        "withdraw_team"]},
+        },
+        covered_measurement_ids=[point["id"] for point in
+                                 HOUSE_MEASUREMENT_POINTS],
+        uncovered_path_policy="treated_as_uncovered",
+        independent_review=independent_review,
+        evidence_refs=["dev:house-path-review-v1"])
+
+
 def make_house_source_readers(
     native_probes: Mapping[str, Callable[[Mapping[str, Any]], Mapping[str, bool]]] | None = None,
 ):
@@ -284,9 +311,15 @@ def query_house_development_case(
     case_id: str, *, episode_id: str = "house-dev-episode",
     registration: Mapping[str, Any] | None = None,
     state_contract: Mapping[str, Any] | None = None,
+    certificate: Mapping[str, Any] | None = None,
     native_probes: Mapping[str, Callable] | None = None,
 ) -> dict[str, Any]:
-    """Run one development case end-to-end and stamp it as non-formal evidence."""
+    """Run one development case end-to-end and stamp it as non-formal evidence.
+
+    ``not_deployable`` answers pass the alternative-path certificate gate,
+    matching the warehouse/factory readers: without a verified certificate
+    the label downgrades to a platform failure with a null label.
+    """
     if case_id not in HOUSE_DEV_CASES:
         raise ValueError(f"unknown house development case: {case_id}")
     measurement_id, robots, resources = HOUSE_DEV_CASES[case_id]
@@ -294,6 +327,7 @@ def query_house_development_case(
     facts = set(point["required_true"])
     registration = registration or build_house_registration()
     contract = state_contract or build_house_state_contract(registration)
+    certificate = certificate or build_house_development_certificate(registration)
     provider = make_house_state_provider(
         measurement_id, facts, robots=deepcopy(robots), resources=resources)
     readers = make_house_source_readers(native_probes)
@@ -309,7 +343,8 @@ def query_house_development_case(
         assessment_id=snapshot["assessment_id"], assessment_epoch=0,
         task_sha256=registration["task_sha256"],
         state=observation["state"], grounding=grounding)
-    return stamp_evidence_record(result, house_development_marker())
+    gated = gate_not_deployable_result(result, certificate, registration)
+    return stamp_evidence_record(gated, house_development_marker())
 
 
 __all__ = [
@@ -317,8 +352,9 @@ __all__ = [
     "HOUSE_MEASUREMENT_POINTS", "HOUSE_MODEL", "HOUSE_NATIVE_BLOCKER",
     "HOUSE_NATIVE_SCOPE", "HOUSE_PREDICATE_BINDINGS", "HOUSE_SCENE_KEY",
     "HOUSE_SOURCE_VERSIONS", "HOUSE_TERMINAL_ALL",
-    "build_house_public_task", "build_house_registration",
-    "build_house_state_contract", "house_development_marker",
-    "house_native_samples", "make_house_source_readers",
-    "make_house_state_provider", "query_house_development_case",
+    "build_house_development_certificate", "build_house_public_task",
+    "build_house_registration", "build_house_state_contract",
+    "house_development_marker", "house_native_samples",
+    "make_house_source_readers", "make_house_state_provider",
+    "query_house_development_case",
 ]

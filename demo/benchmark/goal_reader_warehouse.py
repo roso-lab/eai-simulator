@@ -1,4 +1,4 @@
-"""Warehouse native remaining-task reader (development track).
+"""Warehouse remaining-task reader wiring (development track, synthetic backend).
 
 Wires the trusted-state/oracle contracts onto the Warehouse business family
 ``order_fulfilment_inventory_and_dock_closeout``.  Closes the STAGE29 gaps
@@ -183,7 +183,7 @@ WAREHOUSE_DEV_CASES = {
         "warehouse_at_dock_before_receipt", [WAREHOUSE_DOCK_UNIT],
         {"shift_time_budget": 8, "dollies": 2}),
     "carrier_exits_before_crate_moves": (
-        "warehouse_at_dock_before_receipt", [WAREHOUSE_DOCK_UNIT],
+        "warehouse_initial", [WAREHOUSE_DOCK_UNIT],
         {"shift_time_budget": 8, "dollies": 2}),
     "light_only_cannot_take_wood_path": (
         "warehouse_carton_only_remaining", [WAREHOUSE_LIGHT_UNITS[1]],

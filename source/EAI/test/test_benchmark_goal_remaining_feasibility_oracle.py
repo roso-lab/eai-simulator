@@ -178,3 +178,22 @@ def test_native_reader_failure_is_archived_as_failed_binary_gap(registration, pr
     assert report["results"][-1]["oracle_status"] == "failed"
     assert report["results"][-1]["feasibility_label"] is None
     assert report["results"][-1]["quality_failure"].startswith("state_provider_failed:")
+
+
+def test_release_review_requires_certificate_gate_on_not_deployable(registration):
+    result = query(registration, "initial", ["at_rack"],
+                   [robot("carrier", ["carry"], 8)])
+    assert result["oracle_status"] == "verified"
+    native = {**result, "validation_scope": "native_remaining_task"}
+    ungated = {**native, "feasibility_label": "not_deployable"}
+    review = formal_oracle_release_review(registration, [ungated])
+    assert review["oracle_release_ready"] is False
+    assert "initial" in review["certificate_gate_failed_measurement_ids"]
+    gated = {**ungated, "alternative_path_gate": "verified",
+             "certificate_sha256": "a" * 64}
+    review = formal_oracle_release_review(registration, [gated])
+    assert "initial" not in review["certificate_gate_failed_measurement_ids"]
+    tampered = {**ungated, "alternative_path_gate": "verified",
+                "certificate_sha256": "short"}
+    review = formal_oracle_release_review(registration, [tampered])
+    assert "initial" in review["certificate_gate_failed_measurement_ids"]

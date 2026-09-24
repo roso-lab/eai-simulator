@@ -1,7 +1,13 @@
+from copy import deepcopy
+
+from demo.benchmark.goal_alternative_path_certificate import (
+    build_alternative_path_certificate,
+)
 from demo.benchmark.goal_reader_city import (
     CITY_DEVELOPMENT_SCOPE,
     CITY_ENTITY_IDS,
     CITY_NATIVE_SCOPE,
+    build_city_development_certificate,
     build_city_registration,
     build_city_state_contract,
     city_development_marker,
@@ -13,6 +19,18 @@ from demo.benchmark.goal_remaining_feasibility_oracle import (
     formal_oracle_release_review,
 )
 from demo.benchmark.goal_trusted_state import ground_state
+
+
+def _verified_certificate(registration):
+    return build_alternative_path_certificate(
+        "city", registration,
+        path_classes=deepcopy(
+            build_city_development_certificate(registration)["path_classes"]),
+        covered_measurement_ids=[point["id"] for point in
+                                 registration["measurement_points"]],
+        uncovered_path_policy="treated_as_uncovered",
+        independent_review="verified",
+        evidence_refs=["native:city-path-review-v1"])
 
 
 def test_city_registration_and_contract_freeze_round_trip():
@@ -63,17 +81,35 @@ def test_city_ground_only_capability_change_is_deployable():
 def test_city_ground_exit_is_not_rescued_by_guiding_alternative_alone():
     # The aerial unit can still account for people, but traffic protection
     # has no aerial provider: the solver answers over every terminal
-    # predicate, so the guiding alternative alone cannot rescue the task.
-    result = query_city_development_case("ground_exits_aerial_remains")
+    # predicate, so the guiding alternative alone cannot rescue the task —
+    # and the not_deployable answer survives only with a verified
+    # completeness certificate.
+    registration = build_city_registration()
+    result = query_city_development_case(
+        "ground_exits_aerial_remains", registration=registration,
+        state_contract=build_city_state_contract(registration),
+        certificate=_verified_certificate(registration))
     assert result["feasibility_label"] == "not_deployable"
     assert result["oracle_status"] == "verified"
+    assert result["alternative_path_gate"] == "verified"
+
+
+def test_city_not_deployable_downgrades_without_verified_certificate():
+    result = query_city_development_case("ground_exits_aerial_remains")
+    assert result["feasibility_label"] is None
+    assert result["oracle_status"] == "failed"
+    assert result["quality_failure"] == "certificate_review_pending"
 
 
 def test_city_no_guide_capability_left_is_not_deployable():
     # With neither ground guidance nor aerial service available and people
     # still unaccounted, the solver must exhaust both legal alternatives and
     # answer not_deployable through the full transition model.
-    result = query_city_development_case("no_guide_capability_left")
+    registration = build_city_registration()
+    result = query_city_development_case(
+        "no_guide_capability_left", registration=registration,
+        state_contract=build_city_state_contract(registration),
+        certificate=_verified_certificate(registration))
     assert result["feasibility_label"] == "not_deployable"
     assert result["oracle_status"] == "verified"
 
@@ -86,7 +122,11 @@ def test_city_guides_exit_after_people_accounted_stays_deployable():
 
 
 def test_city_exhausted_dispatch_budget_is_not_deployable():
-    result = query_city_development_case("budget_exhausted")
+    registration = build_city_registration()
+    result = query_city_development_case(
+        "budget_exhausted", registration=registration,
+        state_contract=build_city_state_contract(registration),
+        certificate=_verified_certificate(registration))
     assert result["feasibility_label"] == "not_deployable"
 
 

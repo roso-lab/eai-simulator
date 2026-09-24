@@ -1,4 +1,4 @@
-"""City native remaining-task reader (development track).
+"""City remaining-task reader wiring (development track, synthetic backend).
 
 Wires the trusted-state/oracle contracts onto the City business family
 ``urban_incident_response``.  Closes the STAGE29 gaps for a complete runtime
@@ -21,6 +21,10 @@ from typing import Any
 from .development_track_marker import (
     build_development_marker,
     stamp_evidence_record,
+)
+from .goal_alternative_path_certificate import (
+    build_alternative_path_certificate,
+    gate_not_deployable_result,
 )
 from .goal_driven_tasks import build_goal_task_package
 from .goal_remaining_feasibility_oracle import (
@@ -191,6 +195,28 @@ def city_native_samples(measurement_id: str, facts: set[str]) -> dict[str, Any]:
     return {"measurement_id": measurement_id, "sources": by_source}
 
 
+def build_city_development_certificate(registration: Mapping[str, Any],
+                                        *, independent_review: str = "pending"):
+    """Development completeness certificate; review stays pending in dev."""
+    return build_alternative_path_certificate(
+        CITY_SCENE_KEY, registration,
+        path_classes={
+            "ground_vs_aerial_guidance_alternatives": {
+                "description": "地面引导与空中服务是到达同一终局谓词的两条合法替代路径",
+                "covered_transitions": ["guide_people_by_ground",
+                                        "serve_people_by_air"]},
+            "service_predicates_beyond_guidance": {
+                "description": "交通保护与响应通路保持谓词独立于引导替代路径被满足",
+                "covered_transitions": ["assess_incident", "protect_traffic",
+                                        "preserve_response_access"]},
+        },
+        covered_measurement_ids=[point["id"] for point in
+                                 CITY_MEASUREMENT_POINTS],
+        uncovered_path_policy="treated_as_uncovered",
+        independent_review=independent_review,
+        evidence_refs=["dev:city-path-review-v1"])
+
+
 def make_city_source_readers(
     native_probes: Mapping[str, Callable[[Mapping[str, Any]], Mapping[str, bool]]] | None = None,
 ):
@@ -258,8 +284,10 @@ def query_city_development_case(
     case_id: str, *, episode_id: str = "city-dev-episode",
     registration: Mapping[str, Any] | None = None,
     state_contract: Mapping[str, Any] | None = None,
+    certificate: Mapping[str, Any] | None = None,
     native_probes: Mapping[str, Callable] | None = None,
 ) -> dict[str, Any]:
+    """Run one development case; not_deployable passes the certificate gate."""
     if case_id not in CITY_DEV_CASES:
         raise ValueError(f"unknown city development case: {case_id}")
     measurement_id, robots, resources = CITY_DEV_CASES[case_id]
@@ -267,6 +295,7 @@ def query_city_development_case(
     facts = set(point["required_true"])
     registration = registration or build_city_registration()
     contract = state_contract or build_city_state_contract(registration)
+    certificate = certificate or build_city_development_certificate(registration)
     provider = make_city_state_provider(
         measurement_id, facts, robots=deepcopy(robots), resources=resources)
     readers = make_city_source_readers(native_probes)
@@ -282,7 +311,8 @@ def query_city_development_case(
         assessment_id=snapshot["assessment_id"], assessment_epoch=0,
         task_sha256=registration["task_sha256"],
         state=observation["state"], grounding=grounding)
-    return stamp_evidence_record(result, city_development_marker())
+    gated = gate_not_deployable_result(result, certificate, registration)
+    return stamp_evidence_record(gated, city_development_marker())
 
 
 __all__ = [
@@ -290,8 +320,9 @@ __all__ = [
     "CITY_MEASUREMENT_POINTS", "CITY_MODEL", "CITY_NATIVE_BLOCKER",
     "CITY_NATIVE_SCOPE", "CITY_PREDICATE_BINDINGS", "CITY_SCENE_KEY",
     "CITY_SOURCE_VERSIONS", "CITY_TERMINAL_ALL",
-    "build_city_public_task", "build_city_registration",
-    "build_city_state_contract", "city_development_marker",
-    "city_native_samples", "make_city_source_readers",
-    "make_city_state_provider", "query_city_development_case",
+    "build_city_development_certificate", "build_city_public_task",
+    "build_city_registration", "build_city_state_contract",
+    "city_development_marker", "city_native_samples",
+    "make_city_source_readers", "make_city_state_provider",
+    "query_city_development_case",
 ]

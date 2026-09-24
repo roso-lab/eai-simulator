@@ -1,8 +1,14 @@
 from copy import deepcopy
 
+from copy import deepcopy
+
+from demo.benchmark.goal_alternative_path_certificate import (
+    build_alternative_path_certificate,
+)
 from demo.benchmark.goal_reader_house import (
     HOUSE_DEVELOPMENT_SCOPE,
     HOUSE_NATIVE_SCOPE,
+    build_house_development_certificate,
     build_house_registration,
     build_house_state_contract,
     house_development_marker,
@@ -14,6 +20,18 @@ from demo.benchmark.goal_remaining_feasibility_oracle import (
     formal_oracle_release_review,
 )
 from demo.benchmark.goal_trusted_state import ground_state
+
+
+def _verified_certificate(registration):
+    return build_alternative_path_certificate(
+        "modern_house_nvd", registration,
+        path_classes=deepcopy(
+            build_house_development_certificate(registration)["path_classes"]),
+        covered_measurement_ids=[point["id"] for point in
+                                 registration["measurement_points"]],
+        uncovered_path_policy="treated_as_uncovered",
+        independent_review="verified",
+        evidence_refs=["native:house-path-review-v1"])
 
 
 def test_house_registration_and_contract_freeze_round_trip():
@@ -56,11 +74,24 @@ def test_house_full_team_initial_is_deployable():
 def test_house_carrier_exit_before_completion_is_not_deployable():
     # Books still on the floor and the chair still blocking: the only carry
     # capability left with the member, so the full solver must exhaust every
-    # legal alternative before answering not_deployable.
-    result = query_house_development_case("carrier_exits_early")
+    # legal alternative before answering not_deployable — and the answer only
+    # survives with a verified completeness certificate.
+    registration = build_house_registration()
+    result = query_house_development_case(
+        "carrier_exits_early", registration=registration,
+        state_contract=build_house_state_contract(registration),
+        certificate=_verified_certificate(registration))
     assert result["feasibility_label"] == "not_deployable"
     assert result["oracle_status"] == "verified"
+    assert result["alternative_path_gate"] == "verified"
     assert result["explored_state_count"] >= 1
+
+
+def test_house_not_deployable_downgrades_without_verified_certificate():
+    result = query_house_development_case("carrier_exits_early")
+    assert result["feasibility_label"] is None
+    assert result["oracle_status"] == "failed"
+    assert result["quality_failure"] == "certificate_review_pending"
 
 
 def test_house_books_intermediate_state_is_groundable():
@@ -93,12 +124,20 @@ def test_house_capability_no_longer_necessary_stays_deployable():
 def test_house_navigator_exit_before_access_restored_is_not_deployable():
     # Access restoration still needs a navigating unit; with only the carrier
     # left the corridor clearance predicate can never be measured true.
-    result = query_house_development_case("navigator_exits_before_access_restored")
+    registration = build_house_registration()
+    result = query_house_development_case(
+        "navigator_exits_before_access_restored", registration=registration,
+        state_contract=build_house_state_contract(registration),
+        certificate=_verified_certificate(registration))
     assert result["feasibility_label"] == "not_deployable"
 
 
 def test_house_exhausted_time_budget_is_not_deployable():
-    result = query_house_development_case("budget_exhausted")
+    registration = build_house_registration()
+    result = query_house_development_case(
+        "budget_exhausted", registration=registration,
+        state_contract=build_house_state_contract(registration),
+        certificate=_verified_certificate(registration))
     assert result["feasibility_label"] == "not_deployable"
     assert result["oracle_status"] == "verified"
 

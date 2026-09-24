@@ -6,6 +6,16 @@ registration and its trusted-state contract are supplied by the evaluator;
 the audit only verifies that every frozen measurement point has a verified
 binary result with native evidence and that all identities remain bound.
 
+The release unit is one scene registration: ``oracle_release_ready`` for a
+scene depends only on that scene's evidence.  The five-scene aggregate over
+``expected_scenes`` is an overview report, and callers may audit any scene
+subset so one scene's external asset blocker cannot deadlock the others.
+
+A verified ``not_deployable`` row additionally requires the alternative-path
+completeness certificate gate (``alternative_path_gate == "verified"`` with a
+valid ``certificate_sha256``); an unattested "no legal path" claim is an
+evidence failure, never a releasable truth.
+
 ``unverified`` is deliberately treated as an evidence failure.  It is never
 returned as a task truth and cannot contribute to a release-ready report.
 """
@@ -282,6 +292,16 @@ def _audit_scene(scene: str, registration: Any, contract: Any, review: Any) -> d
                 elif scope != NATIVE_REMAINING_TASK_SCOPE:
                     failed.append(measurement_id)
                     invalid.append(f"measurement_scope_mismatch:{measurement_id}")
+                elif label == "not_deployable":
+                    # A verified "no legal path exists" claim needs its
+                    # alternative-path completeness certificate; without it
+                    # the row is an evidence failure, not a task truth.
+                    digest = row.get("certificate_sha256")
+                    if (row.get("alternative_path_gate") != "verified"
+                            or not _is_sha256(digest)):
+                        failed.append(measurement_id)
+                        failed.append(
+                            f"not_deployable_without_verified_certificate:{measurement_id}")
                 if not _evidence_refs(row.get("evidence_refs")):
                     failed.append(measurement_id)
                     invalid.append(f"empty_measurement_evidence:{measurement_id}")

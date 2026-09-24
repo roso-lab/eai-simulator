@@ -318,18 +318,40 @@ class RegisteredRemainingTaskOracle:
 
 
 def formal_oracle_release_review(registration: Mapping[str, Any], results: list[Mapping[str, Any]]) -> dict[str, Any]:
-    """Fail release unless all registered points have native verified evidence."""
+    """Fail release unless all registered points have native verified evidence.
+
+    A verified ``not_deployable`` is only releasable with a verified
+    alternative-path completeness certificate attached by
+    ``gate_not_deployable_result`` (``alternative_path_gate == "verified"``
+    plus its ``certificate_sha256``).  Without the certificate, an
+    unattested "no legal path exists" claim cannot enter formal statistics.
+    """
     expected = {point["id"] for point in registration["measurement_points"]}
-    covered = {row.get("measurement_id") for row in results
-               if row.get("registration_sha256") == registration["registration_sha256"]
-               and row.get("oracle_status") == "verified"
-               and row.get("feasibility_label") in {"deployable", "not_deployable"}
-               and row.get("validation_scope") == "native_remaining_task"}
-    failed = [row.get("measurement_id") for row in results if row.get("oracle_status") != "verified"]
+    covered = set()
+    certificate_gated = []
+    for row in results:
+        if (row.get("registration_sha256") != registration.get("registration_sha256")
+                or row.get("oracle_status") != "verified"
+                or row.get("feasibility_label") not in {"deployable", "not_deployable"}
+                or row.get("validation_scope") != "native_remaining_task"):
+            continue
+        if row.get("feasibility_label") == "not_deployable":
+            digest = row.get("certificate_sha256")
+            if (row.get("alternative_path_gate") != "verified"
+                    or not isinstance(digest, str) or len(digest) != 64
+                    or any(char not in "0123456789abcdef" for char in digest)):
+                certificate_gated.append(row.get("measurement_id"))
+                continue
+        covered.add(row.get("measurement_id"))
+    failed = [row.get("measurement_id") for row in results
+              if row.get("oracle_status") != "verified"]
+    failed.extend(certificate_gated)
     frozen = {key: value for key, value in registration.items() if key != "registration_sha256"}
     registration_valid = canonical_sha256(frozen) == registration["registration_sha256"]
     return {"oracle_release_ready": registration_valid and expected <= covered and not failed
             and registration["validation"].get("status") == "verified"
             and registration["validation"].get("scope") == "native_remaining_task",
             "missing_measurement_ids": sorted(expected - covered),
-            "failed_measurement_ids": failed, "scoreable": False}
+            "failed_measurement_ids": failed,
+            "certificate_gate_failed_measurement_ids": sorted(set(certificate_gated)),
+            "scoreable": False}

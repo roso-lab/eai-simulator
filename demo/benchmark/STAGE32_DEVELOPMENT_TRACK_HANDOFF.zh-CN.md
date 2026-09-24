@@ -66,6 +66,40 @@
 
 各轨道测试结果与缺口见文末"轨道结果汇总"（代理返回后更新）。
 
+## 发布单元拍板（gpt-6-astra 阶段审核 P0-3）
+
+**发布单元 = 单场景注册。** `formal_oracle_release_review` 本就是单注册粒度；
+`audit_native_oracle_registry` 的五场景汇总（`EXPECTED_SCENES`）只作总览报表，
+调用方可按需传 `expected_scenes` 子集（`goal_native_oracle_registry.py` 已支持）。
+因此 Factory 冻结哈希阻塞与餐厅八机准入**不会**死锁 House/City/Warehouse 的正式
+评分；"hash 不匹配只阻塞 Factory 正式项"的声明由该粒度保证。测试
+`test_release_unit_is_per_scene_and_subsets_do_not_deadlock` 锁定此语义。
+
+## 阶段审核与 P0 修正（gpt-6-astra，2026-09-24）
+
+审核报告：`tmp/stage32_directional_audit_gpt6astra.md`（只读方向审核，审核基线
+`2d98221`）。总判定：**方向有偏差需修正**——架构自洽、能通向六能力正式评分，
+但有三条链路缺口，均已在本批修复：
+
+1. **P0-1 证书门禁接入发布审核链（已修）**：`formal_oracle_release_review()` 现在
+   要求每个 verified `not_deployable` 行携带 `alternative_path_gate=verified` 与
+   64 位十六进制 `certificate_sha256`，否则计入
+   `certificate_gate_failed_measurement_ids` 并阻断 release；`audit_native_oracle_registry()`
+   对同样缺失的行判场景 failed（`not_deployable_without_verified_certificate:*`）。
+   未认证的"不存在合法路径"声明从此无法进入正式统计分母。
+2. **P0-2 House/City not_deployable 统一过证书门（已修）**：两场景补
+   `build_*_development_certificate()`，`query_*_development_case()` 接入
+   `gate_not_deployable_result`，与 Warehouse/Factory 一致；新增降级测试
+   （默认 pending 证书下 not_deployable → failed/null）。
+3. **P0-3 发布单元=逐场景（已拍板）**：见上节。
+
+审核确认的"必要的不完美"（不修）：Factory 哈希保持 blocked、合成后端不冒充
+native、fail-closed 分母缩水、有限状态模型边界、证书人工复核信任、串行 runner
+不假装测并发、`release_eligible` 单向棘轮。小项同步处理：warehouse 重复案例名
+修正并补测、factory 服务车 10kg 载荷下限加注记（车辆属性而非虚构搬运要求）、
+四个 reader 模块标题改为"reader wiring (synthetic/contract-only backend)"降低
+误读风险。
+
 ## 轨道结果汇总
 
 聚焦回归（本批全部新增+关联既有测试）：`308 passed`。
