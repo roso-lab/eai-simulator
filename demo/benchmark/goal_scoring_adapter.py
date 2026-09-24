@@ -572,6 +572,76 @@ def development_track_observations(
                 "scoreable": False}
 
 
+def communication_capacity_observations(output_root: str | Path) -> dict[str, Any]:
+    """Attach the offline capacity-experiment report as raw evidence.
+
+    JP/IID/BP paired effects and per-pool C90/C50 curves are development
+    diagnostics until the formal episode hookup; the sidecar preserves the
+    stamped development marker and never converts a bracket into a score.
+    """
+    path = Path(output_root) / "communication_capacity_experiments.json"
+    base = {"raw_only": True, "not_protocol_score": True,
+            "scoreable": False, "execution_validated": False,
+            "business_outcomes_validated": False}
+    if not path.is_file():
+        return {**base, "status": "missing", "report": None,
+                "report_sha256": None, "quality_failure": "capacity_archive_missing"}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, Mapping):
+            raise ValueError("capacity archive must be an object")
+        if payload.get("schema") != "eai.benchmark.communication_capacity_experiments":
+            raise ValueError("unexpected capacity experiments schema")
+        if type(payload.get("version")) is not int or payload["version"] < 1:
+            raise ValueError("invalid capacity experiments version")
+        if payload.get("status") != "ok":
+            raise ValueError("capacity experiments are not summarized")
+        marker = payload.get("development_track")
+        if not isinstance(marker, Mapping) or marker.get("release_eligible") is not False:
+            raise ValueError("capacity experiments lack a development marker")
+    except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+        return {**base, "status": "invalid", "report": None,
+                "report_sha256": None,
+                "quality_failure": f"capacity_archive_invalid:{type(exc).__name__}"}
+    return {**base, "status": "observed", "report": deepcopy(payload),
+            "report_sha256": _sha256(path)}
+
+
+def checkpoint_branch_observations(output_root: str | Path) -> dict[str, Any]:
+    """Attach the checkpoint branch-replay report as raw evidence.
+
+    Strict branch eligibility and sham isolation are infrastructure facts;
+    a missing or malformed branch report never becomes replay evidence and
+    native restore stays explicitly unverified until its own gate passes.
+    """
+    path = Path(output_root) / "goal_checkpoint_branch.json"
+    base = {"raw_only": True, "not_protocol_score": True,
+            "scoreable": False, "execution_validated": False,
+            "business_outcomes_validated": False}
+    if not path.is_file():
+        return {**base, "status": "missing", "report": None,
+                "report_sha256": None, "quality_failure": "branch_archive_missing"}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, Mapping):
+            raise ValueError("branch archive must be an object")
+        if payload.get("schema") != "eai.benchmark.goal_checkpoint_branch":
+            raise ValueError("unexpected checkpoint branch schema")
+        if type(payload.get("version")) is not int or payload["version"] < 1:
+            raise ValueError("invalid checkpoint branch version")
+        if payload.get("native_restore_verified") is not False:
+            raise ValueError("branch report cannot claim native restore")
+        marker = payload.get("development_track")
+        if not isinstance(marker, Mapping) or marker.get("release_eligible") is not False:
+            raise ValueError("branch report lacks a development marker")
+    except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+        return {**base, "status": "invalid", "report": None,
+                "report_sha256": None,
+                "quality_failure": f"branch_archive_invalid:{type(exc).__name__}"}
+    return {**base, "status": "observed", "report": deepcopy(payload),
+            "report_sha256": _sha256(path)}
+
+
 def build_scoring_adapter_metadata(
     public_task: Mapping[str, Any],
     *,
@@ -615,6 +685,8 @@ def build_scoring_adapter_metadata(
         "task_allocation": task_allocation_observations(
             deployment_observations, plan_observations),
         "communication_analysis": communication_analysis_observations(output_root),
+        "communication_capacity": communication_capacity_observations(output_root),
+        "checkpoint_branch": checkpoint_branch_observations(output_root),
         "native_oracle_registry": native_oracle_registry_observations(output_root),
         "development_track": development_track_observations(development_markers),
         "cost_evidence": cost_evidence,
@@ -685,7 +757,8 @@ def build_scoring_adapter_metadata(
 __all__ = [
     "DIMENSION_STATUS", "PROTOCOL_MAPPING_REVISION", "SCORING_ADAPTER_SCHEMA",
     "SCORING_ADAPTER_VERSION", "build_archive_index", "build_scoring_adapter_metadata",
-    "communication_analysis_observations", "deployment_assessment_observations",
+    "checkpoint_branch_observations", "communication_analysis_observations",
+    "communication_capacity_observations", "deployment_assessment_observations",
     "development_track_observations", "native_oracle_registry_observations",
     "plan_admission_observations", "task_allocation_observations",
 ]

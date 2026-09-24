@@ -8,7 +8,9 @@ from demo.benchmark.goal_driven_tasks import build_goal_task_package
 from demo.benchmark.goal_scoring_adapter import (
     build_archive_index,
     build_scoring_adapter_metadata,
+    checkpoint_branch_observations,
     communication_analysis_observations,
+    communication_capacity_observations,
     deployment_assessment_observations,
     development_track_observations,
     native_oracle_registry_observations,
@@ -377,3 +379,68 @@ def test_development_track_defaults_to_missing_and_fails_closed_on_bad_marker(tm
     observed = development_track_observations([bad])
     assert observed["status"] == "invalid_marker"
     assert observed["scoreable"] is False
+
+
+def test_capacity_and_branch_observations_default_to_missing(tmp_path):
+    task = build_goal_task_package("factory")["public_task"]
+    metadata = build_scoring_adapter_metadata(
+        task, episode_id="episode-cap", output_root=tmp_path)
+    assert metadata["communication_capacity"]["status"] == "missing"
+    assert metadata["checkpoint_branch"]["status"] == "missing"
+    assert metadata["communication_capacity"]["scoreable"] is False
+    assert metadata["checkpoint_branch"]["quality_failure"] == "branch_archive_missing"
+
+
+def test_capacity_observation_accepts_stamped_report_only(tmp_path):
+    from demo.benchmark.communication_capacity_experiments import (
+        summarize_capacity_experiments,
+    )
+
+    report = summarize_capacity_experiments(
+        jitter_rows=[], loss_rows=[], capacity_rows_by_pool={})
+    (tmp_path / "communication_capacity_experiments.json").write_text(
+        json.dumps(report), encoding="utf-8")
+    observed = communication_capacity_observations(tmp_path)
+    assert observed["status"] == "observed"
+    assert observed["report"]["development_track"]["release_eligible"] is False
+    assert observed["scoreable"] is False
+    tampered = dict(report)
+    tampered["development_track"] = {"release_eligible": True}
+    (tmp_path / "communication_capacity_experiments.json").write_text(
+        json.dumps(tampered), encoding="utf-8")
+    observed = communication_capacity_observations(tmp_path)
+    assert observed["status"] == "invalid"
+    assert "capacity_archive_invalid" in observed["quality_failure"]
+
+
+def test_branch_observation_rejects_native_restore_claims(tmp_path):
+    from demo.benchmark.goal_checkpoint_branch import (
+        build_branch_plan,
+        build_branch_replay_report,
+    )
+
+    treatment = build_branch_plan("t", seed=3, rng_stream_key="change-1",
+                                  changes=[{"change_id": "c1", "time_s": 10.0,
+                                            "sequence": 50,
+                                            "pre_change_checkpoint_id": "cp-1"}],
+                                  checkpoints=[{"checkpoint_id": "cp-1",
+                                                "time_s": 9.0, "sequence": 40}])
+    control = build_branch_plan("c", seed=3, rng_stream_key="change-1",
+                                changes=[{"change_id": "c1", "time_s": 10.0,
+                                          "sequence": 50,
+                                          "pre_change_checkpoint_id": "cp-1"}],
+                                checkpoints=[{"checkpoint_id": "cp-1",
+                                              "time_s": 9.0, "sequence": 40}])
+    report = build_branch_replay_report(treatment=treatment, control=control)
+    (tmp_path / "goal_checkpoint_branch.json").write_text(
+        json.dumps(report), encoding="utf-8")
+    observed = checkpoint_branch_observations(tmp_path)
+    assert observed["status"] == "observed"
+    assert observed["report"]["native_restore_verified"] is False
+    promoted = dict(report)
+    promoted["native_restore_verified"] = True
+    (tmp_path / "goal_checkpoint_branch.json").write_text(
+        json.dumps(promoted), encoding="utf-8")
+    observed = checkpoint_branch_observations(tmp_path)
+    assert observed["status"] == "invalid"
+    assert "branch_archive_invalid" in observed["quality_failure"]
