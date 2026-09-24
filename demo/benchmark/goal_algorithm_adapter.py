@@ -338,18 +338,20 @@ class GoalAlgorithmHost:
                         raise ValueError("communication tool interface was not connected")
                     report = self._session.report()
                     call_id = action.get("call_id")
-                    if (isinstance(call_id, str)
-                            and call_id in {row["action_id"] for row in report["actions"]}):
-                        raise ValueError("communication call ID collides with a goal action")
                     if (self._tools_connected and isinstance(call_id, str)
                             and self._pose_tools.owns_call(call_id)):
                         raise ValueError("communication call ID collides with a pose tool call")
                     if (self._camera_tools_connected and isinstance(call_id, str)
                             and self._camera_tools.owns_call(call_id)):
                         raise ValueError("communication call ID collides with a camera request")
+                    # Goal-action collisions are rejected at the service
+                    # boundary so the stable ``call_id_collision`` code lands
+                    # in the service call ledger, not only in this exception.
                     actions.append(self._communication_tools.submit(
                         action, time_s=report["current_time_s"],
-                        current_agents=set(report["current_agents"])))
+                        current_agents=set(report["current_agents"]),
+                        reserved_call_ids=(
+                            row["action_id"] for row in report["actions"])))
                     self.pump_communication_tools()
                     continue
                 if self._tools_connected and self._pose_tools.owns_call(action.get("action_id")):
