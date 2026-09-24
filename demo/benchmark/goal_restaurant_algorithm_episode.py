@@ -1544,6 +1544,19 @@ def _load_request(root: Path) -> dict[str, Any]:
 
 # -- worker ------------------------------------------------------------------
 
+def _native_business_facts_validated(evaluation: Any, public_task: Mapping[str, Any]) -> bool:
+    """Native diagnostic success is independent of the closed release flags."""
+    if not isinstance(evaluation, Mapping):
+        return False
+    outcomes = evaluation.get("outcomes")
+    required = {row["id"] for row in public_task["required_outcomes"]}
+    return (isinstance(outcomes, Mapping) and set(outcomes) == required
+            and all(isinstance(row, Mapping) and row.get("status") == "validated"
+                    and row.get("evaluator_ref") == EVALUATOR_REF
+                    and bool(row.get("evidence_refs")) for row in outcomes.values())
+            and evaluation.get("receipt_review", {}).get("validated") is True)
+
+
 def run_worker(output_root: str | Path) -> dict[str, Any]:
     root = Path(output_root).expanduser().resolve()
     request = _load_request(root)
@@ -1559,7 +1572,7 @@ def run_worker(output_root: str | Path) -> dict[str, Any]:
         "run_id": request["run_id"], "episode_id": request["episode_id"],
         "algorithm": request["algorithm"],
         "status": "starting", "business_episode_execution_validated": False,
-        "execution_validated": False, "scoreable": False,
+        "execution_validated": False, "business_outcomes_validated": False, "scoreable": False,
     }
     report_path = root / "restaurant_algorithm_episode_report.json"
     _write_json(report_path, report)
@@ -1675,8 +1688,8 @@ def run_worker(output_root: str | Path) -> dict[str, Any]:
                     })})
             passed = (result["error"] is None
                       and result["skill_receipt_count"] == len(participant._plan["tasks"])
-                      and result["business_outcomes_validated"] is True
-                      and backend.business_evaluation is not None)
+                      and result["business_outcomes_validated"] is (request["version"] == 1)
+                      and _native_business_facts_validated(backend.business_evaluation, public_task))
             if not passed and os.environ.get("RESTAURANT_ALGO_DEBUG_POSES"):
                 poses = {}
                 for agent, art in session.base_env.scene.articulations.items():
@@ -2117,7 +2130,7 @@ def verify_algorithm_episode_archive(output_root: str | Path) -> dict[str, Any]:
                    or row.get("episode_id") != episode_id for row in receipts)
             or result.get("error") is not None
             or result.get("skill_receipt_count") != len(plan["tasks"])
-            or result.get("business_outcomes_validated") is not True
+            or result.get("business_outcomes_validated") is not (request["version"] == 1)
             or result.get("execution_validated") is not False
             or result.get("scoreable") is not False):
         raise ValueError("archived skill receipts or result contradict the episode")

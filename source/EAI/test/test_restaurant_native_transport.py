@@ -45,6 +45,17 @@ def test_native_idle_rejects_nonadvancing_clock():
         backend(clock).advance_idle(0.01)
 
 
+def test_native_diagnostic_success_uses_business_facts_not_release_flags():
+    public = {"required_outcomes": [{"id": "receipt"}]}
+    evaluation = {"receipt_review": {"validated": True}, "outcomes": {
+        "receipt": {"status": "validated", "evaluator_ref": episode.EVALUATOR_REF,
+                    "evidence_refs": ["native-proof"]}},
+        "business_outcomes_validated": False, "scoreable": False}
+    assert episode._native_business_facts_validated(evaluation, public)
+    evaluation["outcomes"]["receipt"]["evidence_refs"] = []
+    assert not episode._native_business_facts_validated(evaluation, public)
+
+
 def dispatch(task, *, status="pending"):
     return {"session": {
         "episode_id": "episode", "current_time_s": 0.0, "current_plan_id": "plan",
