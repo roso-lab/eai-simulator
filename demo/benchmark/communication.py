@@ -627,7 +627,8 @@ class CommunicationRuntime:
                      **({"pool": selected_pool, "direction": direction,
                          "access_robot_id": access_robot_id,
                          "information_id": information_id}
-                        if self._pool_mode() else {}))
+                        if self._pool_mode() else
+                        ({"direction": direction} if direction is not None else {})))
         for recipient in sorted(recipients):
             conditions = self._conditions(recipient, channel)
             delivery = {"status": "queued", "conditions": conditions, "bytes_sent": 0,
