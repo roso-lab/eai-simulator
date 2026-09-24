@@ -1,5 +1,28 @@
 # 评分协议接入边界（阶段记录）
 
+2026-09-25更新：以下原阶段描述中的串行runner、共享容量未实现、
+`planned_not_captured`及固定子任务协议缺口是历史快照，不代表当前运行。
+当前映射为 `protocol-20260925-goal-claim-scopes-v3`，sidecar schema仍为v1；
+已有字段保留，但状态字符串按新映射修正，消费者应记录mapping revision。
+任务分配使用参与者自主计划事后审计与部署门禁，覆盖由外部里程碑检查，
+不再将自主分解列为等待修复的缺陷。见[当前路线](RELEASE_ROADMAP.zh-CN.md)。
+
+`scoreability_reasons`只描述raw-only与独立发布验收边界，不无条件声称通信证据缺失、
+runner串行或需要固定子任务。`claim_requirements`列出适用声明所需证据，**不选择本次
+实验声明、不证明要求已满足、不自动授予资格**。restore/sham仅用于严格同快照比较，
+并发证据仅用于并发协调声明；普通基线仍须具备原生执行、业务和部署oracle证据。
+checkpoint/trusted-state/clock的 `not_attested_by_adapter` 表示本适配器不出具认证，
+不表示没有采集器；具体归档状态见引用的raw observation子块，`observed`也不代表
+完整验真。`physical_clock_bound=false`是本侧车的未认证标记，不否定其他原始物理读数。
+三项发布标志继续false，不改旧档案或公开任务。
+
+`snapshot_evidence`原四个布尔字段改为可空的未观测值null，字段名保留；不可将null
+当作已恢复或已捕获。该变化由mapping v3明确区分，旧消费者若只支持布尔值应拒绝
+新mapping或处理null，不能填true/false冒充测量。未提交可选branch档案记
+`status=missing`与`absence_reason`，不产生全局质量失败；提交后格式不合法仍记invalid。
+严格分支声明的外部资格验收必须要求有效restore/sham证据，不能依据“没有quality_failure”
+授予资格。本adapter没有新增声明选择或自动资格验收接口。
+
 本记录把 Goal 主轨的原始运行证据与《异构多机器人高层协作智能+Benchmark+能力分类与评测协议》分开。协议原文由用户提供，当前版本 SHA256 为 `539822d71b46b520c21df9170b182e0b7fe66016b8cfb26825a33294f52651c1`。
 
 ## 主线：目标与里程碑，由模型拆题
@@ -25,7 +48,9 @@
 
 ## 与本阶段代码的关系
 
-- `goal_scoring_adapter.py` 生成 sidecar 元数据和原始归档索引，声明 checkpoint 需求为 `planned_not_captured`，不实现恢复或评分公式。
+- `goal_scoring_adapter.py` 生成 sidecar 元数据和原始归档索引。checkpoint旧状态为
+  `planned_not_captured`；mapping v3已改为 `not_attested_by_adapter`，只将恢复/sham
+  列作严格同快照声明要求，不实现恢复或评分公式。
 - sidecar 的 `task_allocation` 字段把已验证部署门禁的显式分类计数/错误率与模型自身
   plan admission 诊断合并为一份任务分配画像；oracle 不合格时部署分母为零，画像仍保持
   raw-only，不构成正式六轴分数。

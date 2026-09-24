@@ -48,6 +48,70 @@ def test_archive_index_distinguishes_missing_files(tmp_path):
     assert index["counts"]["events"] is None
 
 
+@pytest.mark.parametrize("archive_state", ["missing", "invalid", "observed"])
+def test_claim_scope_does_not_confuse_raw_archives_with_qualification(
+    tmp_path, archive_state,
+):
+    task = build_goal_task_package("city")["public_task"]
+    original_task = json.dumps(task, sort_keys=True)
+    if archive_state != "missing":
+        reports = {
+            "goal_checkpoint_branch.json": {
+                "schema": "eai.benchmark.goal_checkpoint_branch", "version": 1,
+                "native_restore_verified": False,
+                "development_track": {"release_eligible": False},
+            },
+            "native_oracle_registry_audit.json": {
+                "schema": "eai.benchmark.native_oracle_registry_audit", "version": 1,
+                "status": "verified",
+            },
+            "communication_analysis.json": {
+                "schema": "eai.benchmark.communication_analysis", "version": 1,
+                "status": "ok",
+            },
+        }
+        for name, report in reports.items():
+            (tmp_path / name).write_text(json.dumps(
+                report if archive_state == "observed" else {"schema": "wrong"}))
+    metadata = build_scoring_adapter_metadata(
+        task, episode_id="claim-scope", output_root=tmp_path)
+    for key in ("checkpoint_branch", "native_oracle_registry", "communication_analysis"):
+        assert metadata[key]["status"] == archive_state
+    if archive_state == "missing":
+        assert "quality_failure" not in metadata["checkpoint_branch"]
+        assert metadata["checkpoint_branch"]["absence_reason"] == "optional_branch_archive_missing"
+    elif archive_state == "invalid":
+        assert "quality_failure" in metadata["checkpoint_branch"]
+    for key in ("symbolic_runtime_state", "physics_state", "rng_state", "branching"):
+        assert metadata["snapshot_evidence"][key] is None
+    assert metadata["task_design"]["evidence_status"] == "observation_dependent"
+    assert json.dumps(task, sort_keys=True) == original_task
+    assert metadata["protocol_mapping_revision"] == "protocol-20260925-goal-claim-scopes-v3"
+    assert metadata["task_design"]["fixed_subtask_metrics"] == (
+        "not_applicable_participant_decomposition")
+    assert metadata["checkpoint_requirements"]["required_for_baseline_execution"] is False
+    assert metadata["checkpoint_requirements"]["restore_verified"] is False
+    assert metadata["trusted_state_contract"]["native_verified"] is False
+    assert metadata["clock_evidence"]["physical_clock_bound"] is False
+    for flag in ("scoreable", "execution_validated", "business_outcomes_validated"):
+        assert metadata[flag] is False
+    assert metadata["claim_requirements"]["status"] == "requirements_only_not_eligibility"
+    claims = metadata["claim_requirements"]["requirements_by_claim"]
+    baseline = claims["baseline_execution"]
+    assert all("restore" not in item and "overlap" not in item for item in baseline)
+    assert "native_and_participant_state_restore" in claims["strict_same_snapshot_comparison"]
+    assert "same_native_clock_execution_overlap_and_completion_evidence" in (
+        claims["concurrent_coordination"])
+    assert "no_native_communication_episode_provenance" not in metadata["scoreability_reasons"]
+    assert "formal_runner_is_serial_and_has_no_protocol_concurrency_evidence" not in (
+        metadata["scoreability_reasons"])
+    # A consumer changing its own report cannot mutate the next episode's requirements.
+    baseline.append("consumer_local_annotation")
+    again = build_scoring_adapter_metadata(task, episode_id="next", output_root=tmp_path)
+    assert "consumer_local_annotation" not in (
+        again["claim_requirements"]["requirements_by_claim"]["baseline_execution"])
+
+
 def test_communication_analysis_is_explicitly_missing_until_archived(tmp_path):
     observed = communication_analysis_observations(tmp_path)
     assert observed["status"] == "missing"
@@ -388,7 +452,8 @@ def test_capacity_and_branch_observations_default_to_missing(tmp_path):
     assert metadata["communication_capacity"]["status"] == "missing"
     assert metadata["checkpoint_branch"]["status"] == "missing"
     assert metadata["communication_capacity"]["scoreable"] is False
-    assert metadata["checkpoint_branch"]["quality_failure"] == "branch_archive_missing"
+    assert metadata["checkpoint_branch"]["absence_reason"] == "optional_branch_archive_missing"
+    assert "quality_failure" not in metadata["checkpoint_branch"]
 
 
 def test_capacity_observation_accepts_stamped_report_only(tmp_path):

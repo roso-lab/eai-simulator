@@ -22,7 +22,7 @@ from .provenance import canonical_sha256
 
 SCORING_ADAPTER_SCHEMA = "eai.benchmark.scoring_adapter_metadata"
 SCORING_ADAPTER_VERSION = 1
-PROTOCOL_MAPPING_REVISION = "protocol-20260923-goal-milestones-v2"
+PROTOCOL_MAPPING_REVISION = "protocol-20260925-goal-claim-scopes-v3"
 
 DIMENSION_STATUS = {
     "task_allocation": "P/X",
@@ -35,12 +35,30 @@ DIMENSION_STATUS = {
 }
 
 SCOREABILITY_REASONS = [
-    "fixed_subtask_metrics_require_revision_for_goal_decomposition",
-    "no_native_communication_episode_provenance",
-    "no_physics_checkpoint_or_fact_reference_sham_branch",
-    "formal_runner_is_serial_and_has_no_protocol_concurrency_evidence",
+    "raw_observations_are_not_protocol_scores",
+    "claim_specific_native_qualification_requires_independent_review",
     "execution_and_business_validation_are_release_gated",
 ]
+
+# Requirements describe the evidence needed for a claim, not the absence of
+# producers or the outcome of an episode. This adapter never issues attestation.
+CLAIM_REQUIREMENTS = {
+    "baseline_execution": [
+        "exact_task_native_execution_and_business_evidence",
+        "registered_binary_remaining_feasibility_oracle",
+    ],
+    "communication_adaptation": [
+        "native_transport_and_participant_visible_delivery_evidence",
+        "preregistered_link_conditions_and_business_outcome_comparison",
+    ],
+    "concurrent_coordination": [
+        "same_native_clock_execution_overlap_and_completion_evidence",
+    ],
+    "strict_same_snapshot_comparison": [
+        "native_and_participant_state_restore",
+        "preregistered_sham_consistency_and_branch_isolation",
+    ],
+}
 
 
 def _sha256(path: Path) -> str:
@@ -505,7 +523,8 @@ def task_allocation_observations(
 
     # The explicit names avoid importing ambiguous legacy IRR/FIR meanings
     # into the self-decomposed Goal track.  They are the raw ingredients for a
-    # future protocol statistic once native oracle and checkpoint gates pass.
+    # future protocol statistic once its native oracle and applicable claim
+    # gates pass. A single-episode assessment does not require branch restore.
     deployment_metrics = {
         "oracle_eligible": eligible,
         "verified_epoch_count": denominator,
@@ -630,7 +649,7 @@ def checkpoint_branch_observations(output_root: str | Path) -> dict[str, Any]:
             "business_outcomes_validated": False}
     if not path.is_file():
         return {**base, "status": "missing", "report": None,
-                "report_sha256": None, "quality_failure": "branch_archive_missing"}
+                "report_sha256": None, "absence_reason": "optional_branch_archive_missing"}
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(payload, Mapping):
@@ -766,10 +785,17 @@ def build_scoring_adapter_metadata(
             "decomposition_owner": "participant",
             "assignment_owner": "participant",
             "schedule_owner": "participant",
-            "fixed_subtask_metrics": "not_applicable_protocol_mismatch",
+            "fixed_subtask_metrics": "not_applicable_participant_decomposition",
+            "allocation_evidence": "participant_plan_posthoc_audit_and_deployment_gate",
+            "coverage_evidence": "external_milestone_progress",
+            "evidence_status": "observation_dependent",
+            "observation_refs": ["task_allocation", "progress_evidence"],
         },
         "checkpoint_requirements": {
-            "status": "planned_not_captured",
+            "status": "not_attested_by_adapter",
+            "applies_to": "strict_same_snapshot_comparison",
+            "observation_ref": "checkpoint_branch",
+            "required_for_baseline_execution": False,
             "restore_verified": False,
             "strict_branch_comparison_eligible": False,
             "required_state_domains": [
@@ -787,7 +813,8 @@ def build_scoring_adapter_metadata(
             "design_ref": "SCORING_CHECKPOINT_DESIGN.zh-CN.md",
         },
         "trusted_state_contract": {
-            "status": "contract_only",
+            "status": "not_attested_by_adapter",
+            "observation_refs": ["native_oracle_registry", "deployment_assessment"],
             "design_ref": "TRUSTED_STATE_CONTRACT.zh-CN.md",
             "formal_label_source": "registered_remaining_feasibility_oracle",
             "native_verified": False,
@@ -801,18 +828,28 @@ def build_scoring_adapter_metadata(
         "dimensions": dict(DIMENSION_STATUS),
         "clock_evidence": {
             "source": "goal_host_receipt_clock",
+            "scope": "adapter_attestation_only",
+            "observation_refs": ["cost_evidence", "progress_evidence"],
             "physical_clock_bound": False,
             "native_pose_scope": "optional_current_readback",
-            "protocol_time_status": "unverified_clock",
+            "protocol_time_status": "not_attested_by_adapter",
         },
         "snapshot_evidence": {
-            "symbolic_runtime_state": True,
-            "physics_state": False,
-            "rng_state": False,
-            "branching": False,
-            "status": "unverified_for_protocol_replay",
+            "symbolic_runtime_state": None,
+            "physics_state": None,
+            "rng_state": None,
+            "branching": None,
+            "status": "not_attested_by_adapter",
+            "applies_to": "strict_same_snapshot_comparison",
+            "required_for_baseline_execution": False,
+            "observation_ref": "checkpoint_branch",
         },
         "scoreability_reasons": list(SCOREABILITY_REASONS),
+        "claim_requirements": {
+            "status": "requirements_only_not_eligibility",
+            "qualification_source": "independent_native_release_review",
+            "requirements_by_claim": deepcopy(CLAIM_REQUIREMENTS),
+        },
         "execution_validated": False,
         "business_outcomes_validated": False,
         "scoreable": False,

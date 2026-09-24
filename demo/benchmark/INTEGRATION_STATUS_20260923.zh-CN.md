@@ -36,7 +36,9 @@
 
 1. 当前已接：原始动作/事件/技能收据/业务结果/工具账本索引、哈希、失败记录。
 2. 当前已设计：[Checkpoint合同](SCORING_CHECKPOINT_DESIGN.zh-CN.md)，按评分指标
-   预注册处理前保存点、必要状态、分支对照与恢复验收；元数据为`planned_not_captured`。
+   预注册处理前保存点、必要状态、分支对照与恢复验收；历史元数据为`planned_not_captured`。
+   阶段47 mapping v3已改为`not_attested_by_adapter`，restore/sham只门控严格同快照
+   声明，普通基线不以此为前置条件，见[当前评分边界](SCORE_PROTOCOL_ADAPTATION.zh-CN.md)。
 3. 下一阶段：状态生产器与save/restore接口、宿主/通信队列/技能进度、参与者可写状态、
    环境与随机流；先通过无处理sham一致性，再建设并行分支调度。
 4. 再后：逐场景真实时钟与里程碑进展、删失/NA、分方向通信成本、六维统计。

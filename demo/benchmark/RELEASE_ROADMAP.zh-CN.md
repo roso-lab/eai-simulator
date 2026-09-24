@@ -1,6 +1,6 @@
 # Benchmark 发布主线路线图
 
-更新时间：2026-09-25；阶段46终态几何诊断归档；代码证据基线 `0451ccd`。
+更新时间：2026-09-25；阶段47评分声明校正；输入基线 `f249df2`。
 本文维护**当前队列与发布出口**；[TODO](TODO.zh-CN.md)保留阶段记录，
 [DELIVERY](DELIVERY.zh-CN.md)提供入口。旧阶段中的“当前”“下一步”仅指当时状态，
 冲突时以用户最新决定和本文为准。发布标志继续false。
@@ -43,6 +43,13 @@ projection/review/vector及独立dispatch硬条件。双机各674项通过，原
 另两名人员的新诊断因动画覆盖不足为unknown。见[阶段46验收](STAGE46_ACCEPTANCE.zh-CN.md)。
 停止扩展基础几何，下一最小门回到R1/R2的整身到达测量契约与评分事实一致性，
 随后完整业务和initial oracle。ljy网络无路由，本批远端复验待补；发布全false。
+
+阶段47增量：两个候选定向包络方案均不满足保留原语义的要求，四个人物资产不在
+有限leaf-only支持集合，已停止v3开发、不再重复GPU。原业务3/4和initial oracle
+failed/null保持。R2侧车映射v3修正过时全局失败原因，将原始观测、适用声明要求与
+独立发布认证分开；普通基线不要求分支/sham，未观测快照保持null。
+见[阶段47](STAGE47_SCORING_SCOPE.zh-CN.md)。下一P0回到评分事实/缺失原因与
+各指标分母审计；City到达契约争议单列，不以继续细化资产替代主线推进。
 
 ## 1. 发布目标与当前结论
 
@@ -106,7 +113,8 @@ business_outcomes_validated: false
 源文件入口：`goal_episode_runner.py`、`goal_session_audit.py`、
 `goal_scoring_adapter.py`、`goal_cost_evidence.py`、`goal_communication_tool.py`、
 `goal_native_oracle_registry.py`、`goal_checkpoint.py`、`release_manifest.py`。
-当前sidecar的物理时钟/native验证仍为false，checkpoint记录仍为planned；
+当前sidecar的物理时钟/native认证仍为false，checkpoint声明为未由adapter认证，
+实际采集状态见raw evidence，不能由静态声明推断缺失；
 `release_manifest.py`生成的是pending候选清单，尚不是正式认证/晋级实现。
 
 ### 五场景落点
