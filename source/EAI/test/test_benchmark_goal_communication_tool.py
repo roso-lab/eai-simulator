@@ -852,3 +852,40 @@ def test_report_stamped_with_contract_marker_and_false_release_flags():
     assert report["timing"]["wall_clock_s"] is None
     assert report["timing"]["notification_delivery_delay_s"] is None
     assert report["timing"]["planning_compute_duration_s"] is None
+
+
+def test_content_borne_consumer_ids_cannot_change_authorization():
+    # Viewer audit P0-1: a participant-controlled estimate must never alter
+    # consume permissions. A message whose content carries an empty (or
+    # foreign) consumer_ids list stays a generic once-per-recipient message.
+    contract = {"pools": {"p2p": {"capacity_bps": 1000.0,
+                                  "fixed_delay_s": 1.0}}}
+    service = build_service(contract=contract)
+    response = service.submit(
+        publish_call("auth1", estimate={"consumer_ids": []}, valid_until=6.0,
+                     now=1.0), time_s=1.0)
+    observations = service.advance(3.0)
+    assert [row["message_id"] for row in observations] == [response["message_id"]]
+    assert service.can_consume(response["message_id"], time_s=3.0)
+    receipt = service.consume(response["message_id"], action_id="a1",
+                              time_s=3.0)
+    assert receipt["consumer_id"] == "a1"
+
+
+def test_ttl_truncation_is_consistent_across_receipt_observation_and_stale():
+    # Viewer audit P0-2: the pool-TTL-truncated validity must be the single
+    # validity the participant sees and the stale check enforces.
+    service = build_service(contract=_pool_contract())
+    response = service.submit(
+        publish_call("ttl1", producer="cloud", recipient="robot:r3",
+                     channel="dispatch", valid_until=100.0, now=1.0),
+        time_s=1.0)
+    assert response["valid_until_s"] == pytest.approx(21.0)  # 1.0 + ttl 20
+    observations = service.advance(10.0)
+    assert [row["message_id"] for row in observations] == [response["message_id"]]
+    assert observations[0]["valid_until_s"] == pytest.approx(21.0)
+    # Between effective (21) and requested (101) validity: stale, not fresh.
+    assert not service.can_consume(response["message_id"], time_s=22.0)
+    with pytest.raises(GoalCommunicationToolError) as excinfo:
+        service.consume(response["message_id"], action_id="a9", time_s=22.0)
+    assert excinfo.value.error_code == "consume_stale"

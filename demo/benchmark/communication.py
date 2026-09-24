@@ -564,12 +564,17 @@ class CommunicationRuntime:
 
     def publish(self, *, message_id, producer_id, recipients, channel, estimate,
                 valid_until_s, published_at_s=None, pool=None, direction=None,
-                access_robot_id=None, information_id=None):
+                access_robot_id=None, information_id=None,
+                declared_consumer_ids=None):
         """Publish one global ID to distinct recipients; return evaluator record.
 
         Wire size includes the five public payload fields; each unicast copy
         spends its link's own budget. Caller-declared size cannot bypass this.
         Validation happens before advancing time or reserving the identifier.
+
+        ``declared_consumer_ids`` is the only way to enable multi-consumer
+        authorization for a message: consumer lists inside ``estimate`` are
+        plain content and never change consume permissions by themselves.
         """
         _name(message_id, "message_id")
         if message_id in self._messages:
@@ -602,6 +607,15 @@ class CommunicationRuntime:
                    "recipients": {}}
         if direction is not None:
             message["direction"] = direction
+        if declared_consumer_ids is not None:
+            # Evaluator-side authorization metadata; deliberately not part of
+            # the wire payload so declaring consumers never changes billing.
+            consumers = list(declared_consumer_ids)
+            if (not consumers or any(not isinstance(item, str) or not item
+                                     for item in consumers)
+                    or len(set(consumers)) != len(consumers)):
+                raise ValueError("declared_consumer_ids must be unique nonempty strings")
+            message["declared_consumers"] = consumers
         self._messages[message_id] = message
         selected_pool = None
         if self._pool_mode():
@@ -934,9 +948,10 @@ class CommunicationRuntime:
         """Authorize a fresh delivery once per declared logical consumer.
 
         Generic messages preserve the original once-per-recipient behavior.
-        Observation messages can list ``estimate.consumer_ids`` so one delivered
-        sensor result can satisfy several dependent DAG nodes without duplicating
-        bytes on the communication link.
+        Multi-consumer authorization is opt-in at publish time through
+        ``declared_consumer_ids`` (see ``publish_observation``): a consumer
+        list inside ``estimate`` content alone never grants or restricts
+        consume permissions.
         """
         _name(message_id, "message_id")
         _name(recipient, "recipient")
@@ -946,8 +961,7 @@ class CommunicationRuntime:
         message = self._messages.get(message_id)
         delivery = message["recipients"].get(recipient) if message else None
         declared_consumers = (
-            message["payload"].get("estimate", {}).get("consumer_ids")
-            if message is not None else None
+            message.get("declared_consumers") if message is not None else None
         )
         multi_consumer = isinstance(declared_consumers, list)
         previous_consumptions = []
@@ -1030,6 +1044,7 @@ class ParticipantCommunicationBoundary:
             published_at_s=observation["timestamp_s"],
             pool=pool, direction=direction, access_robot_id=access_robot_id,
             information_id=observation.get("observation_id"),
+            declared_consumer_ids=consumers,
         )
 
     def advance(self, time_s):
@@ -1200,7 +1215,8 @@ def validate_communication_report(report, *, expected_initial_contract=None):
                                pool=event.get("pool"),
                                direction=event.get("direction"),
                                access_robot_id=event.get("access_robot_id"),
-                               information_id=payload.get("information_id"))
+                               information_id=payload.get("information_id"),
+                               declared_consumer_ids=message.get("declared_consumers"))
             elif event.get("event") == "consumed":
                 replay.consume(event["message_id"], recipient=event["recipient"],
                                consumer_id=event["consumer_id"], time_s=event["time_s"])

@@ -188,13 +188,18 @@ def _canonical_size(value: Any) -> int | None:
 
 
 def communication_message_observation(payload: Mapping[str, Any], *,
-                                      recipient_id: str) -> dict[str, Any]:
+                                      recipient_id: str,
+                                      effective_valid_until_s: float | None = None
+                                      ) -> dict[str, Any]:
     """Build the participant-visible delivery event payload (design 3.5).
 
     The payload keeps the frozen ``observation`` field set.  ``data`` carries
     the host-side delivery view (recipient endpoint, estimate, information
     id); queue state, conditions, drop reasons, and scheduled arrivals never
     enter this view.  ``published_at_s`` is intentionally not exposed.
+    ``effective_valid_until_s`` overrides the requested validity with the
+    transport-effective window (pool TTL truncation), keeping the delivery
+    view consistent with the publish receipt and the consume stale check.
     """
     recipient_id = _name(recipient_id, "recipient_id")
     if not isinstance(payload, Mapping):
@@ -202,6 +207,8 @@ def communication_message_observation(payload: Mapping[str, Any], *,
     estimate = payload.get("estimate")
     if not isinstance(estimate, Mapping):
         raise ValueError("delivery payload estimate must be a mapping")
+    validity = (payload["valid_until_s"] if effective_valid_until_s is None
+                else effective_valid_until_s)
     return {
         "message_id": _name(payload["message_id"], "message_id"),
         "producer_id": _name(payload["producer_id"], "producer_id"),
@@ -211,7 +218,7 @@ def communication_message_observation(payload: Mapping[str, Any], *,
             "estimate": _json_copy(dict(estimate), "estimate"),
             "information_id": payload.get("information_id"),
         },
-        "valid_until_s": _finite_number(payload["valid_until_s"], "valid_until_s"),
+        "valid_until_s": _finite_number(validity, "valid_until_s"),
     }
 
 
@@ -425,6 +432,9 @@ class GoalCommunicationTools:
         self._call_rows: list[dict[str, Any]] = []
         self._consume_rows: list[dict[str, Any]] = []
         self._owned_messages: dict[str, str] = {}
+        # Transport-effective validity per message (pool-TTL truncated); the
+        # publish receipt, delivery observation, and stale check all read it.
+        self._effective_valid_until: dict[str, float] = {}
         self._emitted_messages: set[str] = set()
         self._emitted_valid_until: dict[str, float] = {}
         self._actions: dict[str, tuple[str, dict[str, Any]]] = {}
@@ -704,6 +714,7 @@ class GoalCommunicationTools:
         delivery = record["recipients"][recipient_id]
         effective_validity = delivery.get(
             "transport_valid_until_s", record["payload"]["valid_until_s"])
+        self._effective_valid_until[message_id] = float(effective_validity)
         row.update(status="accepted", message_id=message_id, pool=pool,
                    direction=direction,
                    published_size_bytes=record["size_bytes"])
@@ -750,12 +761,16 @@ class GoalCommunicationTools:
                 if (self._owned_messages.get(message_id) != endpoint
                         or message_id in self._emitted_messages):
                     continue
-                if now >= payload["valid_until_s"]:
+                effective_validity = self._effective_valid_until.get(
+                    message_id, payload["valid_until_s"])
+                if now >= effective_validity:
                     continue
                 observations.append(
-                    communication_message_observation(payload, recipient_id=endpoint))
+                    communication_message_observation(
+                        payload, recipient_id=endpoint,
+                        effective_valid_until_s=effective_validity))
                 self._emitted_messages.add(message_id)
-                self._emitted_valid_until[message_id] = payload["valid_until_s"]
+                self._emitted_valid_until[message_id] = effective_validity
         return observations
 
     # ------------------------------------------------------------------
@@ -780,7 +795,9 @@ class GoalCommunicationTools:
         for payload in self.runtime.public_messages(
                 recipient=self._owned_messages[message_id]):
             if payload["message_id"] == message_id:
-                return now < payload["valid_until_s"]
+                effective_validity = self._effective_valid_until.get(
+                    message_id, payload["valid_until_s"])
+                return now < effective_validity
         return False
 
     def consume(self, message_id: str, *, action_id: str,
