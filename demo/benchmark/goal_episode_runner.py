@@ -230,6 +230,7 @@ class FormalGoalEpisodeRunner:
                  output_root: str | Path, episode_id: str | None = None,
                  evaluator: BusinessEvaluator | None = None, max_turns: int = 256,
                  pose_tools: Any = None, camera_tools: Any = None,
+                 communication_tools: Any = None,
                  assessment_evaluator: AssessmentEvaluator | None = None):
         if not isinstance(max_turns, int) or isinstance(max_turns, bool) or max_turns < 1:
             raise ValueError("max_turns must be a positive integer")
@@ -246,10 +247,16 @@ class FormalGoalEpisodeRunner:
         self.max_turns = max_turns
         self.pose_tools = pose_tools
         self.camera_tools = camera_tools
+        self.communication_tools = communication_tools
         if pose_tools is not None and (
                 pose_tools.episode_id != self.episode_id
                 or pose_tools.public_task_sha256 != canonical_sha256(self.public_task)):
             raise ValueError("pose tools must be bound to this episode and public task")
+        if communication_tools is not None and (
+                communication_tools.episode_id != self.episode_id
+                or communication_tools.public_task_sha256 != canonical_sha256(self.public_task)):
+            raise ValueError(
+                "communication tools must be bound to this episode and public task")
         if camera_tools is not None and (
                 camera_tools.episode_id != self.episode_id
                 or camera_tools.public_task_sha256 != canonical_sha256(self.public_task)):
@@ -420,7 +427,8 @@ class FormalGoalEpisodeRunner:
             session.update_runtime_state(0.0, robots, objects)
             with GoalAlgorithmHost(self.public_task, self.participant_api, self.adapter,
                                     session=session, pose_tools=self.pose_tools,
-                                    camera_tools=self.camera_tools) as host:
+                                    camera_tools=self.camera_tools,
+                                    communication_tools=self.communication_tools) as host:
                 for turns in range(1, self.max_turns + 1):
                     request_actions()
                     report = host.trusted_report()["session"]
@@ -677,6 +685,18 @@ class FormalGoalEpisodeRunner:
                     communication_reports["camera_tools"] = tool_report["communication"]
             except Exception as exc:
                 record_lifecycle_error("camera_tools", "report", exc)
+        if self.communication_tools is not None:
+            from .communication import validate_communication_report
+            try:
+                _write_json(self.output_root / "communication_tool_report.json",
+                            self.communication_tools.report())
+                _write_json(self.output_root / "communication_tool_replay.json",
+                            validate_communication_report(
+                                self.communication_tools.communication_report()))
+                communication_reports["communication_tools"] = (
+                    self.communication_tools.communication_report())
+            except Exception as exc:
+                record_lifecycle_error("communication_tools", "report", exc)
         if communication_reports:
             # P1-COMM formal episode hookup: fold the replay-validated tool
             # ledgers into one sidecar-visible analysis archive.

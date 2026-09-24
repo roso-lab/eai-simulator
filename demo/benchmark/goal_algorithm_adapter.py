@@ -94,6 +94,7 @@ class GoalAlgorithmHost:
         session: GoalSession | None = None,
         pose_tools: Any = None,
         camera_tools: Any = None,
+        communication_tools: Any = None,
     ) -> None:
         validate_goal_task_spec(public_task)
         self._public_task = deepcopy(dict(public_task))
@@ -102,11 +103,11 @@ class GoalAlgorithmHost:
         self._adapter = adapter
         self._adapter_manifest = validate_goal_adapter_manifest(adapter.manifest())
         bound_episode_id = None
-        for tool in (pose_tools, camera_tools):
+        for tool in (pose_tools, camera_tools, communication_tools):
             candidate = getattr(tool, "episode_id", None)
             if candidate is not None:
                 if bound_episode_id is not None and candidate != bound_episode_id:
-                    raise ValueError("pose and camera tools must share episode identity")
+                    raise ValueError("companion tools must share episode identity")
                 bound_episode_id = candidate
         self._session = session or GoalSession(
             self._public_task, self._participant_api, episode_id=bound_episode_id)
@@ -117,10 +118,13 @@ class GoalAlgorithmHost:
         self._event_cursor = 0
         self._pose_visible_ids: set[str] = set()
         self._camera_visible_ids: set[str] = set()
+        self._communication_visible_ids: set[str] = set()
         self._pose_tools = pose_tools
         self._camera_tools = camera_tools
+        self._communication_tools = communication_tools
         self._tools_connected = False
         self._camera_tools_connected = False
+        self._communication_tools_connected = False
         self._camera_profile: dict[str, Any] | None = None
         self._closed = False
         self._failed = False
@@ -145,6 +149,13 @@ class GoalAlgorithmHost:
                 initialize_camera(deepcopy(profile))
                 self._camera_tools_connected = True
                 self._camera_profile = deepcopy(profile)
+            initialize_comm = getattr(adapter, "initialize_communication_tools", None)
+            if communication_tools is not None and callable(initialize_comm):
+                profile = communication_tools.public_profile()
+                if profile["public_task_sha256"] != self._participant_api["public_task_sha256"]:
+                    raise ValueError("communication tool profile does not match public task")
+                initialize_comm(deepcopy(profile))
+                self._communication_tools_connected = True
         except BaseException:
             self._fail_closed()
             raise
@@ -213,6 +224,8 @@ class GoalAlgorithmHost:
                 self.pump_pose_tools()
             if self._camera_tools_connected:
                 self.pump_camera_tools()
+            if self._communication_tools_connected:
+                self.pump_communication_tools()
         except BaseException:
             self._fail_closed()
             raise
@@ -263,6 +276,10 @@ class GoalAlgorithmHost:
                 event["payload"]["message_id"] for event in events
                 if event["type"] == "observation"
                 and event["payload"]["kind"] in {"camera_frame", "camera_tools_profile_delta"})
+            self._communication_visible_ids.update(
+                event["payload"]["message_id"] for event in events
+                if event["type"] == "observation"
+                and event["payload"]["kind"] == "communication_message")
             raw_actions = self._adapter.act(deepcopy(events))
             if not isinstance(raw_actions, list):
                 raise ValueError("goal algorithm adapter must return a list of actions")
@@ -285,6 +302,10 @@ class GoalAlgorithmHost:
                             and isinstance(action.get("call_id"), str)
                             and self._camera_tools.owns_call(action["call_id"])):
                         raise ValueError("pose tool call ID collides with a camera request")
+                    if (self._communication_tools_connected
+                            and isinstance(action.get("call_id"), str)
+                            and self._communication_tools.owns_call(action["call_id"])):
+                        raise ValueError("pose tool call ID collides with a communication call")
                     actions.append(self._pose_tools.submit(
                         action, time_s=report["current_time_s"],
                         current_agents=set(report["current_agents"])))
@@ -303,22 +324,49 @@ class GoalAlgorithmHost:
                     if (self._tools_connected and isinstance(request_id, str)
                             and self._pose_tools.owns_call(request_id)):
                         raise ValueError("camera request ID collides with a pose tool call")
+                    if (self._communication_tools_connected
+                            and isinstance(request_id, str)
+                            and self._communication_tools.owns_call(request_id)):
+                        raise ValueError("camera request ID collides with a communication call")
                     actions.append(self._camera_tools.submit(
                         action, time_s=report["current_time_s"],
                         current_agents=set(report["current_agents"])))
                     self.pump_camera_tools()
+                    continue
+                if action.get("schema") == "eai.benchmark.goal_communication_tool_call":
+                    if not self._communication_tools_connected:
+                        raise ValueError("communication tool interface was not connected")
+                    report = self._session.report()
+                    call_id = action.get("call_id")
+                    if (isinstance(call_id, str)
+                            and call_id in {row["action_id"] for row in report["actions"]}):
+                        raise ValueError("communication call ID collides with a goal action")
+                    if (self._tools_connected and isinstance(call_id, str)
+                            and self._pose_tools.owns_call(call_id)):
+                        raise ValueError("communication call ID collides with a pose tool call")
+                    if (self._camera_tools_connected and isinstance(call_id, str)
+                            and self._camera_tools.owns_call(call_id)):
+                        raise ValueError("communication call ID collides with a camera request")
+                    actions.append(self._communication_tools.submit(
+                        action, time_s=report["current_time_s"],
+                        current_agents=set(report["current_agents"])))
+                    self.pump_communication_tools()
                     continue
                 if self._tools_connected and self._pose_tools.owns_call(action.get("action_id")):
                     raise ValueError("goal action ID collides with a tool call")
                 if (self._camera_tools_connected
                         and self._camera_tools.owns_call(action.get("action_id"))):
                     raise ValueError("goal action ID collides with a camera request")
+                if (self._communication_tools_connected
+                        and self._communication_tools.owns_call(action.get("action_id"))):
+                    raise ValueError("goal action ID collides with a communication call")
                 if action.get("type") in _LOW_LEVEL_ACTION_TYPES:
                     raise ValueError(
                         "goal algorithm may emit high-level goal actions only, not low-level control")
                 pose_telemetry = self._pose_tools.telemetry if self._tools_connected else None
                 camera_telemetry = (
                     self._camera_tools.telemetry if self._camera_tools_connected else None)
+                comm_tools = self._communication_tools if self._communication_tools_connected else None
                 payload = action.get("payload")
                 message_id = payload.get("message_id") if isinstance(payload, Mapping) else None
                 consumes_pose = (action.get("type") == "consume_message"
@@ -327,15 +375,22 @@ class GoalAlgorithmHost:
                 consumes_camera = (action.get("type") == "consume_message"
                                    and camera_telemetry is not None
                                    and camera_telemetry.owns_message(message_id))
+                consumes_comm = (action.get("type") == "consume_message"
+                                 and comm_tools is not None
+                                 and comm_tools.owns_message(message_id))
                 if consumes_pose and message_id not in self._pose_visible_ids:
                     raise ValueError("pose message has not been delivered to the algorithm")
                 if consumes_camera and message_id not in self._camera_visible_ids:
                     raise ValueError("camera message has not been delivered to the algorithm")
+                if consumes_comm and message_id not in self._communication_visible_ids:
+                    raise ValueError("communication message has not been delivered to the algorithm")
                 now = self._session.report()["current_time_s"]
                 if consumes_pose and not pose_telemetry.can_consume(message_id, time_s=now):
                     raise ValueError("pose message is not currently delivered and fresh")
                 if consumes_camera and not camera_telemetry.can_consume(message_id, time_s=now):
                     raise ValueError("camera message is not currently delivered and fresh")
+                if consumes_comm and not comm_tools.can_consume(message_id, time_s=now):
+                    raise ValueError("communication message is not currently delivered and fresh")
                 try:
                     result = self._session.submit_action(action)
                 except ValueError as exc:
@@ -349,6 +404,9 @@ class GoalAlgorithmHost:
                 if consumes_camera:
                     camera_telemetry.consume(message_id, action_id=action["action_id"],
                                              time_s=self._session.report()["current_time_s"])
+                if consumes_comm:
+                    comm_tools.consume(message_id, action_id=action["action_id"],
+                                       time_s=self._session.report()["current_time_s"])
                 actions.append(result)
         except BaseException:
             # The adapter has observed this batch. A partial action batch cannot
@@ -379,6 +437,17 @@ class GoalAlgorithmHost:
         report = self._session.report()
         now = report["current_time_s"]
         for payload in self._camera_tools.tick(now, current_agents=set(report["current_agents"])):
+            self._session.emit("observation", now, payload)
+
+    def pump_communication_tools(self) -> None:
+        """Advance the shared transport clock and deliver fresh messages."""
+        self._require_open()
+        if not self._communication_tools_connected:
+            return
+        report = self._session.report()
+        now = report["current_time_s"]
+        for payload in self._communication_tools.advance(
+                now, current_agents=set(report["current_agents"])):
             self._session.emit("observation", now, payload)
 
     def emit(self, type: str, time_s: float, payload: Mapping[str, Any]) -> dict[str, Any]:
