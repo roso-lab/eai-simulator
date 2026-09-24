@@ -71,6 +71,25 @@ python -m demo.benchmark.goal_restaurant_algorithm_episode \
 - ljy headless 槽1：餐厅正式 episode（✅ 完成验真）
 - 主任务：四拍板实现（#4 已落）、阶段文档、餐厅准入清单
 
+## 批次一收口结果（2026-09-24，a1b16ee 后）
+
+- **P2 phase3 验收通过**：goal 六文件族 149 passed；handoff_preflight 全新目录
+  exit 0（suite validated=true，36 包/28 因子对，4 场景 all_handoff_ready，
+  公开清单精确 3 文件，公开 adapter 冒烟全 accepted）；零改动 diff 审计成立
+  （goal_driven_contract/goal_session/goal_driven_tasks 自 phase1 无触碰）；
+  TeamWeaver/EMOS smoke 经真实适配器离线通过（无 LLM/网络）。不变性测试强化：
+  两侧真正执行 select_team→submit_plan→dispatch→consume 四类动作并比较完整
+  事件流/动作序列/可信终态，附突变自检。报告 tmp/p2_phase3_regression_report.md。
+- **六能力评分定义矩阵**（`SCORING_DEFINITION_MATRIX.zh-CN.md`，538 行）：六轴
+  指标/生产器/门禁/缺失现状 + 44 项未冻结参数显式编号 + 三个关键定义决策点
+  （TA 公式、Q(t) 进展底座、学习 R/C 记忆清空等价性）。拍板前实现者不得引用
+  临时取值。
+- **碰撞入服务账本测试**：comm call_id 与 goal action id 碰撞以稳定
+  `call_id_collision` 落服务调用账本（host 文件释放后补上）。
+- **餐厅 reader 契约层**：goal_reader_restaurant.py + 19 测试 + 探针注册表扩展
+  （33+61 passed）。open questions：观察转移的身份绑定抽象与并行联合转移建模
+  留待 native 准入审核独立复核（证书 treated_as_uncovered 政策覆盖）。
+
 ## 探针凭证纪律（viewer 审计发现，必须遵守）
 
 `goal_native_probe_runner` 的 `host_installed` 只是接线模式，不能作为 native 准入
