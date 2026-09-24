@@ -729,7 +729,47 @@ class GoalSession:
     def complete_skill(self, task_id: str, *, time_s: float, status: str,
                        receipt: Mapping[str, Any] | None) -> dict[str, Any]:
         """Record a trusted backend terminal result; never execute/infer effects."""
-        now = self._clock(time_s)
+        return self._complete_skill_result(
+            task_id, physical_completed_at_s=time_s,
+            delivered_at_s=time_s, status=status, receipt=receipt,
+            record_delivery_time=False)
+
+    def complete_skill_delivery(
+        self,
+        task_id: str,
+        *,
+        physical_completed_at_s: float,
+        delivered_at_s: float,
+        status: str,
+        receipt: Mapping[str, Any] | None,
+    ) -> dict[str, Any]:
+        """Deliver a terminal backend result after its physical completion.
+
+        The backend receipt remains bound to the immutable physical terminal
+        time.  The session clock and participant-visible ``action_result`` use
+        the later transport delivery time.  This opt-in path lets a result
+        cross the admitted execution-window end without relabelling an on-time
+        physical completion as late execution.
+        """
+        return self._complete_skill_result(
+            task_id, physical_completed_at_s=physical_completed_at_s,
+            delivered_at_s=delivered_at_s, status=status, receipt=receipt,
+            record_delivery_time=True)
+
+    def _complete_skill_result(
+        self,
+        task_id: str,
+        *,
+        physical_completed_at_s: float,
+        delivered_at_s: float,
+        status: str,
+        receipt: Mapping[str, Any] | None,
+        record_delivery_time: bool,
+    ) -> dict[str, Any]:
+        delivered = self._clock(delivered_at_s)
+        physical = _number(physical_completed_at_s, "physical_completed_at_s")
+        if physical > delivered:
+            raise ValueError("physical completion cannot follow result delivery")
         _text(task_id, "task_id")
         if task_id not in self._tasks or self._tasks[task_id]["status"] not in _PENDING:
             raise ValueError("completion requires a pending dispatched task")
@@ -741,7 +781,7 @@ class GoalSession:
         data = dict(receipt or {})
         if any(k in data and data[k] != v for k, v in {
                 "task_id": task_id, "action_id": row["dispatch_action_id"], "status": status,
-                "completed_at_s": now}.items()):
+                "completed_at_s": physical}.items()):
             raise ValueError("backend receipt does not match pending task/action/status/time")
         required = {"backend_id", "receipt_ref", "task_id", "action_id", "status", "completed_at_s", "evidence_refs"}
         if self._episode_id is not None:
@@ -762,6 +802,8 @@ class GoalSession:
             raise ValueError("backend evidence references must be distinct")
         if key in self._receipt_ids:
             raise ValueError("backend receipt reference has already been used")
+        if physical < row["dispatched_at_s"]:
+            raise ValueError("physical completion precedes task dispatch")
         if status == "succeeded":
             if row["invalidated_by"] or row["status"] == "cancel_requested":
                 raise ValueError("invalidated/cancel-requested task cannot silently succeed")
@@ -769,11 +811,14 @@ class GoalSession:
             end = task["execution"]["start_s"] + task["execution"]["duration_s"]
             # Duration is the admitted budget/reservation, not a minimum
             # backend latency. A real arrival may precede the nominal duration.
-            if not row["dispatched_at_s"] <= now <= end:
+            if not row["dispatched_at_s"] <= physical <= end:
                 raise ValueError("successful backend completion is outside the execution time window")
-        self._time = now
+        self._time = delivered
         self._receipt_ids.add(key)
-        row.update({"status": status, "receipt": deepcopy(data), "completed_at_s": now, "reservations": []})
+        row.update({"status": status, "receipt": deepcopy(data),
+                    "completed_at_s": physical, "reservations": []})
+        if record_delivery_time:
+            row["result_delivered_at_s"] = delivered
         if "safety_stop" in row:
             row["safety_stop"]["acknowledged"] = status == "cancelled"
         self._snapshot_required = True

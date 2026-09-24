@@ -30,6 +30,8 @@ _METHOD_ARGUMENT_FIELDS = {
     "validate_runtime_state": {"time_s", "robot_regions", "object_states"},
     "update_runtime_state": {"time_s", "robot_regions", "object_states"},
     "complete_skill": {"task_id", "time_s", "status", "receipt"},
+    "complete_skill_delivery": {
+        "task_id", "physical_completed_at_s", "delivered_at_s", "status", "receipt"},
     "record_deployment_assessment_evaluation": {"evaluation"},
     "initialize_deployment_runtime_state": {"robot_regions", "object_states"},
     "record_business_outcome": {
@@ -243,6 +245,23 @@ class AuditedGoalSession:
         return self._invoke("complete_skill", {
             "task_id": task_id,
             "time_s": time_s,
+            "status": status,
+            "receipt": receipt,
+        })
+
+    def complete_skill_delivery(
+        self,
+        task_id: str,
+        *,
+        physical_completed_at_s: float,
+        delivered_at_s: float,
+        status: str,
+        receipt: Mapping[str, Any] | None,
+    ) -> dict[str, Any]:
+        return self._invoke("complete_skill_delivery", {
+            "task_id": task_id,
+            "physical_completed_at_s": physical_completed_at_s,
+            "delivered_at_s": delivered_at_s,
             "status": status,
             "receipt": receipt,
         })

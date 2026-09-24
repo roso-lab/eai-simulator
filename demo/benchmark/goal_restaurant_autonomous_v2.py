@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Iterator, Mapping
 
 from .goal_algorithm_adapter import GoalAlgorithmHost, validate_goal_adapter_manifest
@@ -34,6 +34,35 @@ class RestaurantAutonomousContext:
     contract: dict[str, Any]
     initial_state: dict[str, Any]
     binding: dict[str, Any]
+    execution_profile: dict[str, Any] | None = None
+    execution_profile_ack: dict[str, Any] | None = None
+    execution_loop_connected: bool = False
+    _execution_initializer: Any = field(default=None, repr=False)
+
+    def initialize_execution(self, profile: Mapping[str, Any]) -> dict[str, Any]:
+        """Expose one opt-in native execution profile to the participant."""
+        if self.execution_profile is not None:
+            if canonical_sha256(profile) != canonical_sha256(self.execution_profile):
+                raise RestaurantDeploymentContextError(
+                    "execution profile is already bound to another contract")
+            return deepcopy(self.execution_profile_ack)
+        if not callable(self._execution_initializer):
+            raise RestaurantDeploymentContextError(
+                "adapter has not opted into the native execution profile")
+        public = deepcopy(dict(profile))
+        digest = canonical_sha256(public)
+        acknowledged = self._execution_initializer(deepcopy(public))
+        expected = {
+            "schema": "eai.restaurant.execution_profile_ack",
+            "version": 1,
+            "profile_sha256": digest,
+        }
+        if acknowledged != expected:
+            raise RestaurantDeploymentContextError(
+                "adapter execution-profile acknowledgement mismatch")
+        self.execution_profile = public
+        self.execution_profile_ack = deepcopy(expected)
+        return deepcopy(expected)
 
     def archive(self) -> dict[str, Any]:
         """Evaluator-only context evidence, including actual participant plans."""
@@ -41,8 +70,12 @@ class RestaurantAutonomousContext:
                 "binding": deepcopy(self.binding),
                 "initial_state": deepcopy(self.initial_state),
                 "public_contract": deepcopy(self.contract),
+                "execution_profile": deepcopy(self.execution_profile),
+                "execution_profile_ack": deepcopy(self.execution_profile_ack),
                 "session_audit": self.session.audit_journal(),
-                "execution_loop_connected": False, **CLOSED_VALIDATION_FLAGS}
+                "execution_profile_acknowledged": self.execution_profile is not None,
+                "execution_loop_connected": self.execution_loop_connected,
+                **CLOSED_VALIDATION_FLAGS}
 
 
 @contextmanager
@@ -115,7 +148,9 @@ def open_restaurant_autonomous_context(
         raise
     with GoalAlgorithmHost(contract["public_task"], contract["participant_api"],
                            adapter, session=session) as host:
-        yield RestaurantAutonomousContext(host, session, fleet, contract, state, binding)
+        yield RestaurantAutonomousContext(
+            host, session, fleet, contract, state, binding,
+            _execution_initializer=getattr(adapter, "initialize_execution", None))
 
 
 __all__ = ["RestaurantAutonomousContext", "RestaurantDeploymentContextError",

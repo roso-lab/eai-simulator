@@ -185,6 +185,77 @@ def test_audit_replays_trusted_deployment_oracle_evaluation():
     assert replay_goal_session_audit(journal, public, api)["validated"] is True
 
 
+def test_audit_replays_result_delivery_after_on_time_physical_completion():
+    bundle = build_goal_task_package("warehouse_nvd")
+    public, api = bundle["public_task"], bundle["participant_api"]
+    robot = "warehouse_ground_1"
+    state = _initial_state(public)
+    session = AuditedGoalSession(public, api, episode_id="delivery-audit")
+    session.update_runtime_state(0.0, state["robot_regions"], state["object_states"])
+    session.submit_action(_action(
+        session, "select", "select_team", {"agent_ids": [robot]}))
+    plan = _navigation_plan("delivery-plan", "delivery-nav", robot)
+    session.submit_action(_action(
+        session, "plan", "submit_plan", {"plan": plan}))
+    session.submit_action(_action(
+        session, "dispatch", "dispatch_skill",
+        {"task_id": "delivery-nav", "evidence_refs": []}))
+    session.emit("tick", 8.0, {"state_digest": "result-in-transit"})
+    receipt = {
+        "backend_id": "delivery-test-backend",
+        "receipt_ref": "delivery-test/nav",
+        "task_id": "delivery-nav",
+        "action_id": "dispatch",
+        "status": "succeeded",
+        "completed_at_s": 7.5,
+        "episode_id": "delivery-audit",
+        "evidence_refs": ["native:delivery-test:arrival"],
+    }
+    completion = session.complete_skill_delivery(
+        "delivery-nav", physical_completed_at_s=7.5,
+        delivered_at_s=20.0, status="succeeded", receipt=receipt)
+    report = session.report()
+    assert completion["event"]["time_s"] == 20.0
+    assert report["current_time_s"] == 20.0
+    assert report["tasks"]["delivery-nav"]["completed_at_s"] == 7.5
+    assert report["tasks"]["delivery-nav"]["result_delivered_at_s"] == 20.0
+    journal = session.audit_journal()
+    assert journal["calls"][-1]["method"] == "complete_skill_delivery"
+    assert replay_goal_session_audit(journal, public, api)["validated"] is True
+
+
+def test_delivery_api_rejects_success_after_cancel_without_erasing_physical_time():
+    bundle = build_goal_task_package("warehouse_nvd")
+    public, api = bundle["public_task"], bundle["participant_api"]
+    robot = "warehouse_ground_1"
+    state = _initial_state(public)
+    session = AuditedGoalSession(public, api, episode_id="delivery-race")
+    session.update_runtime_state(0.0, state["robot_regions"], state["object_states"])
+    session.submit_action(_action(session, "select", "select_team", {"agent_ids": [robot]}))
+    plan = _navigation_plan("race-plan", "race-nav", robot)
+    session.submit_action(_action(session, "plan", "submit_plan", {"plan": plan}))
+    session.submit_action(_action(
+        session, "dispatch", "dispatch_skill",
+        {"task_id": "race-nav", "evidence_refs": []}))
+    session.submit_action(_action(
+        session, "cancel", "cancel_skill",
+        {"task_id": "race-nav", "reason": "participant changed course"}))
+    receipt = {
+        "backend_id": "delivery-test-backend", "receipt_ref": "delivery-test/race",
+        "task_id": "race-nav", "action_id": "dispatch", "status": "succeeded",
+        "completed_at_s": 1.0, "episode_id": "delivery-race",
+        "evidence_refs": ["native:delivery-test:physical-arrival"],
+    }
+    with pytest.raises(ValueError, match="cannot silently succeed"):
+        session.complete_skill_delivery(
+            "race-nav", physical_completed_at_s=1.0,
+            delivered_at_s=2.0, status="succeeded", receipt=receipt)
+    assert session.report()["tasks"]["race-nav"]["status"] == "cancel_requested"
+    journal = session.audit_journal()
+    assert journal["calls"][-1]["outcome"] == "raised"
+    assert replay_goal_session_audit(journal, public, api)["validated"] is True
+
+
 def test_audit_preserves_nonfinite_rejected_call_as_strict_json():
     bundle = build_goal_task_package("factory")
     public, api = bundle["public_task"], bundle["participant_api"]
