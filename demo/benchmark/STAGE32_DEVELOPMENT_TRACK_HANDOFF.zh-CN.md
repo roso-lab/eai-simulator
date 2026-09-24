@@ -155,6 +155,37 @@ robot→cloud 直连等）交 viewer 审计裁决，报告
 phase2 接线前置条件（冻结配置/ID 互斥/时钟绑定/消费-派遣证据链/单一 replay
 archive/下行执行责任）已在报告中列明。
 
+## P2 phase2 接线与 viewer 审计回改（2026-09-24 晚，至 b7d3cfb）
+
+- **phase2 接线**（904a404）：GoalAlgorithmHost 接入 `communication_tools`
+  （opt-in 钩子 `initialize_communication_tools`、四方 ID 双向互斥、
+  `pump_communication_tools` 时钟=session 时钟、consume 四步含可见性前置）；
+  runner 参数透传+归档（communication_tool_report/communication_tool_replay/
+  并入 communication_analysis 聚合）。5 个 host 集成测试覆盖设计 §4.2 验收链
+  a/c（publish→受限池送达→consume→message_id 作 dispatch evidence_refs；
+  无钩子 adapter 开关不变）。
+- **viewer phase2 审计**（报告内联返回，由主任务落盘 tmp/）判定"有缺口"，
+  3 条 P0 已全部修复（b7d3cfb）：
+  1. runner 通信等待推进：`has_pending_work`/`next_wakeup_s` 入工具，
+     等待分支纳入 comm（唤醒/预算终止/无 idle 后端时报基础设施错误）——
+     参与者不再需要先派遣无关任务才能收到延迟消息；
+  2. communication-only 归档 UnboundLocalError（camera 后处理误缩进）修复，
+     补 runner 级 communication-only episode 回归测试；
+  3. replay 成为真门禁：`validated is not True` → 记录基础设施错误+
+     mismatches，账本不进聚合；聚合 evidence_class 对齐 contract。
+- **审计确认的开放项**（phase3 前需明确）：共享传输 archive 的所有权与去重
+  （pose/camera/comm 共用 runtime 还是独立）、端点+池契约的 episode 冻结绑定
+  进启动 manifest、派遣/取消真实下行的 host 执行责任、跨域碰撞未入服务账本
+  （reserved_call_ids 未透传，非 P0）。
+- **native 探针采集 harness**（子代理产出，b7d3cfb）：
+  `goal_native_probe_runner.py`——native clock 契约（单 epoch 单时钟、
+  单调、跨 epoch 重绑定违规 fail-closed）、probe 协议与 harness、
+  `probe_collection_plan` 采集清单（每 source 谓词/实体版本/对照案例）、
+  `archive_probe_evidence` 证据归档（schema=eai.benchmark.native_probe_evidence）；
+  14 测试 + house/city 回归 28 passed。真 Isaac 探针接入缺口清单见其报告。
+- 双机验证：ljy 通信聚焦回归 167 passed（56f1b19 修复验证）；本机全量
+  3132 passed / 1 failed（Factory 冻结哈希，已知）。
+
 ## 轨道结果汇总
 
 聚焦回归（本批全部新增+关联既有测试）：`308 passed`。
