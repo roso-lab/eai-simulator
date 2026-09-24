@@ -81,9 +81,10 @@ PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs:source/EAI_env_diy \
 ```
 
 实际配置为三个池显式 `capacity_bps=1000000/fixed_delay_s=0.1`，downlink TTL=30，
-observer=true，communication_quality/immediate；观察触发按冻结因子处理表改上行池。
+restaurant_interventions=true，communication_quality/immediate；观察触发按冻结因子处理表改上行池。
 这只是诊断配置，**不作为绝对 bit/s 或 C0 的正式测量**：现有 runtime 的容量单位与
-分析层 bit/s 文案需专门核对，下一阶段先收口单位契约再生产容量阈值证据。
+分析层 bit/s 文案已确认存在 8 倍歧义（runtime 实际 B/s），下一阶段先做兼容的
+版本化修复再生产容量阈值证据。旧实验 `None` 参考实际使用有限容量也要单独收口。
 
 失败记录未覆盖：v1 未指定资产根而尝试联网下载，277.46 秒后无 episode 完成，
 属于环境启动缺口；v2 的七项原生技能和业务事实成功，但旧外壳错误要求开启业务
