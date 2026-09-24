@@ -75,7 +75,9 @@ class _Backend:
         }
 
 
-def test_formal_runner_keeps_one_episode_identity_and_pending_release(tmp_path: Path):
+@pytest.mark.parametrize("audit_enabled", [False, True])
+def test_formal_runner_keeps_one_episode_identity_and_pending_release(
+        tmp_path: Path, audit_enabled: bool):
     bundle = build_goal_task_package("warehouse_nvd")
     public, api = bundle["public_task"], bundle["participant_api"]
     robot = "warehouse_ground_1"
@@ -98,7 +100,7 @@ def test_formal_runner_keeps_one_episode_identity_and_pending_release(tmp_path: 
     root = tmp_path / "episode"
     runner = FormalGoalEpisodeRunner(
         public, api, _Adapter(plan, robot), _Backend(public, robot, regions, objects),
-        output_root=root, episode_id=episode_id)
+        output_root=root, episode_id=episode_id, session_audit=audit_enabled)
     result = runner.run(initial_state={"robot_regions": regions, "object_states": objects})
 
     assert result["episode_id"] == episode_id
@@ -122,6 +124,14 @@ def test_formal_runner_keeps_one_episode_identity_and_pending_release(tmp_path: 
     assert metadata["checkpoint_requirements"]["restore_verified"] is False
     assert {"result.json", "runtime_snapshots.json", "public_task.json",
             "participant_api.json"} <= set(metadata["archive_index"]["files"])
+    if audit_enabled:
+        from demo.benchmark.goal_session_audit import replay_goal_session_audit
+
+        journal = json.loads((root / "goal_session_audit.json").read_text())
+        assert replay_goal_session_audit(journal, public, api)["validated"] is True
+        assert result["session_audit_validated"] is True
+        assert journal["final_report"]["tasks"]["formal_nav"]["status"] == "succeeded"
+        assert sum(call["method"] == "complete_skill" for call in journal["calls"]) == 1
 
 
 def test_formal_runner_rejects_partial_business_evaluator_output(tmp_path: Path):
