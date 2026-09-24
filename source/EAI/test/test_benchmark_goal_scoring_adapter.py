@@ -10,6 +10,7 @@ from demo.benchmark.goal_scoring_adapter import (
     build_scoring_adapter_metadata,
     communication_analysis_observations,
     deployment_assessment_observations,
+    development_track_observations,
     native_oracle_registry_observations,
     plan_admission_observations,
     task_allocation_observations,
@@ -345,3 +346,34 @@ def test_one_failed_oracle_excludes_whole_episode_not_just_bad_point():
     assert sum(result["classification_counts"].values()) == 0
     assert result["oracle_infrastructure_failure_count"] == 1
     assert result["records"][0]["classification"] == "correct_deployment"  # raw diagnostic only
+
+
+def test_development_track_markers_are_validated_and_keep_sidecar_raw(tmp_path):
+    from demo.benchmark.development_track_marker import factory_hash_mismatch_marker
+
+    task = build_goal_task_package("factory")["public_task"]
+    metadata = build_scoring_adapter_metadata(
+        task, episode_id="episode-dev", output_root=tmp_path,
+        development_markers=[factory_hash_mismatch_marker()])
+    track = metadata["development_track"]
+    assert track["status"] == "verified"
+    assert track["development_unverified_scenes"] == ["factory"]
+    assert track["infrastructure_blockers"] == ["factory_fixture_hash_mismatch"]
+    assert track["release_eligible"] is False
+    assert track["scoreable"] is False
+    assert metadata["scoreable"] is False
+
+
+def test_development_track_defaults_to_missing_and_fails_closed_on_bad_marker(tmp_path):
+    from demo.benchmark.development_track_marker import factory_hash_mismatch_marker
+
+    task = build_goal_task_package("factory")["public_task"]
+    metadata = build_scoring_adapter_metadata(
+        task, episode_id="episode-nodev", output_root=tmp_path)
+    assert metadata["development_track"]["status"] == "missing"
+    assert metadata["development_track"]["scoreable"] is False
+    bad = factory_hash_mismatch_marker()
+    bad["evidence_class"] = "formal"
+    observed = development_track_observations([bad])
+    assert observed["status"] == "invalid_marker"
+    assert observed["scoreable"] is False

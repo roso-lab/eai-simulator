@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+from collections.abc import Iterable
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Mapping
@@ -545,12 +546,39 @@ def _plan_admission_archive(root: Path) -> dict[str, Any]:
                 "not_protocol_score": True}
 
 
+def development_track_observations(
+    markers: Iterable[Mapping[str, Any]] | None,
+) -> dict[str, Any]:
+    """Validate development-track markers without ever releasing evidence.
+
+    A missing marker list keeps the sidecar fail-closed: undeclared runs are
+    not formal statistics either.  Malformed markers fail closed to an
+    invalid marker report instead of raising, so one bad scene cannot lose
+    the remaining raw observations.
+    """
+    if markers is None:
+        return {"status": "missing", "scene_markers": {}, "release_eligible": False,
+                "execution_validated": False, "business_outcomes_validated": False,
+                "scoreable": False}
+    try:
+        from .development_track_marker import merge_development_markers
+
+        boundary = merge_development_markers(markers)
+        return {"status": "verified", **boundary}
+    except (ValueError, TypeError, AttributeError) as exc:
+        return {"status": "invalid_marker", "quality_failure": str(exc),
+                "scene_markers": {}, "release_eligible": False,
+                "execution_validated": False, "business_outcomes_validated": False,
+                "scoreable": False}
+
+
 def build_scoring_adapter_metadata(
     public_task: Mapping[str, Any],
     *,
     episode_id: str,
     output_root: str | Path,
     code_baseline: str | None = None,
+    development_markers: Iterable[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Build a fail-closed, raw-only protocol mapping sidecar."""
     if not isinstance(episode_id, str) or not episode_id.strip():
@@ -588,6 +616,7 @@ def build_scoring_adapter_metadata(
             deployment_observations, plan_observations),
         "communication_analysis": communication_analysis_observations(output_root),
         "native_oracle_registry": native_oracle_registry_observations(output_root),
+        "development_track": development_track_observations(development_markers),
         "cost_evidence": cost_evidence,
         "condition": {
             "id": public_task.get("condition_id"),
@@ -657,6 +686,6 @@ __all__ = [
     "DIMENSION_STATUS", "PROTOCOL_MAPPING_REVISION", "SCORING_ADAPTER_SCHEMA",
     "SCORING_ADAPTER_VERSION", "build_archive_index", "build_scoring_adapter_metadata",
     "communication_analysis_observations", "deployment_assessment_observations",
-    "native_oracle_registry_observations",
+    "development_track_observations", "native_oracle_registry_observations",
     "plan_admission_observations", "task_allocation_observations",
 ]
