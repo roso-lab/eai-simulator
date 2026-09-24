@@ -641,6 +641,7 @@ class FormalGoalEpisodeRunner:
                 "error": f"{type(exc).__name__}: {exc}",
             })
 
+        communication_reports: dict[str, Any] = {}
         if self.pose_tools is not None:
             from .communication import validate_communication_report
             try:
@@ -648,6 +649,7 @@ class FormalGoalEpisodeRunner:
                 _write_json(self.output_root / "pose_tools_report.json", tool_report)
                 _write_json(self.output_root / "pose_communication_replay.json",
                             validate_communication_report(tool_report["communication"]))
+                communication_reports["pose_tools"] = tool_report["communication"]
             except Exception as exc:
                 record_lifecycle_error("pose_tools", "report", exc)
         if self.camera_tools is not None:
@@ -670,8 +672,23 @@ class FormalGoalEpisodeRunner:
                 _write_json(self.output_root / "camera_tools_report.json", tool_report)
                 _write_json(self.output_root / "camera_communication_replay.json",
                             validate_communication_report(tool_report["communication"]))
+                if isinstance(tool_report, Mapping) and isinstance(
+                        tool_report.get("communication"), Mapping):
+                    communication_reports["camera_tools"] = tool_report["communication"]
             except Exception as exc:
                 record_lifecycle_error("camera_tools", "report", exc)
+        if communication_reports:
+            # P1-COMM formal episode hookup: fold the replay-validated tool
+            # ledgers into one sidecar-visible analysis archive.
+            try:
+                from .goal_communication_archive import build_communication_analysis
+
+                _write_json(self.output_root / "communication_analysis.json",
+                            build_communication_analysis(
+                                communication_reports, episode_id=self.episode_id,
+                                scene_key=self.public_task["mission"]["scene_key"]))
+            except Exception as exc:
+                record_lifecycle_error("communication_archive", "analyze", exc)
             if isinstance(tool_report, Mapping) and tool_report.get("lifecycle_errors"):
                 _write_json(self.output_root / "camera_lifecycle_errors.json",
                             tool_report["lifecycle_errors"])
