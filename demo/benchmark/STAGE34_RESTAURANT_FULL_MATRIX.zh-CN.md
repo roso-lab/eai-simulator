@@ -53,7 +53,7 @@ business_constraints 会显示 mechanism 名称，因此不能宣称机制分类
 
 ## 本批证据
 
-第一批注册/模板已完成；完整矩阵及双机验收仍在进行。当前实际证据：
+注册、模板、完整矩阵与五场景交接已完成；本机复验与 ljy 验收通过。实际证据：
 
 - `test_benchmark_measurement_contract.py`、`test_restaurant_goal_task.py`、
   `test_benchmark_goal_driven.py`：本机 **96 passed**。
@@ -65,7 +65,46 @@ business_constraints 会显示 mechanism 名称，因此不能宣称机制分类
   hidden_evaluator、baseline_manifest 共 20 个 canonical SHA-256 全部不变；
   原有四场景 32 个机制模板的聚合 SHA-256 亦不变。
 
-后续矩阵、交接、ljy 和推送结果在实际完成后补记。
+实现按下列两批提交，并分批推送至 GitLab `benchmark-task`。
+
+实施提交分为 `2676842`（五场景注册、覆盖和模态审计）与 `f3cfb79`
+（完整矩阵与五场景交接）。实际产物保存在 `tmp/stage34-goal-full-matrix-405`：
+405 包、315 对、45 个 scene/variant 身份、2,513 个被哈希的文件；baseline
+条件子集 45/35 单列。生成时读回和 CLI `full-verify --verify-sources` 已通过。
+五场景 baseline suite / handoff / preflight 定向回归 **40 passed**；
+模态审计 v2 定向 **21 passed**，原四场景 32 条记录结构不变。v2 的
+idealized_unknown 只是审计证据状态，不是可行性第三类标签。
+
+本机广泛回归命令：
+
+```bash
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
+PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs:source/EAI_env_diy \
+/home/pupil/miniconda3/envs/env_isaaclab/bin/python -m pytest -q \
+  source/EAI/test/test_benchmark*.py source/EAI/test/test_restaurant*.py demo/benchmark/tests
+```
+
+结果 **2664 passed / 1 failed**。唯一失败为测试辅助函数在创建新泄漏文件前
+调用 unlink；进程在修复前已加载旧函数。修改为 missing_ok=True 后，新进程仅重跑
+`test_benchmark_goal_full_matrix.py::test_full_matrix_rejects_private_file_in_public_release_even_if_inventoried`
+得到 **1 passed**，且重新生成并读回了全量矩阵。故这 2665 项的覆盖现均已有通过证据，
+不把首轮失败日志改写成一次全绿。两份原始日志在 `tmp/stage34-validation/`。
+
+ljy 同步的是 **HEAD 的增量 bundle**（以前已存在的 `cd546df` 为先决提交），
+新建隔离工作树 `/home/ljy/eai-simulator-worktrees/benchmark-stage34-405`，提交为
+`f3cfb79`。没有修改其原工作区的 `goal_house_episode.py`。新工作树须先创建 `tmp/`
+父目录再使用 `pytest --basetemp=tmp/stage34-regression-f3cfb79-r2`；第一次因缺少父目录
+得到 204 passed / 51 setup errors，属于测试目录准备错误；补目录后同套测试 **255 passed**。
+套件包括 full_matrix、goal_suite、handoff_manifest/preflight、measurement_contract、
+mechanism_templates、modality_matrix、task_coverage、goal_driven、restaurant_goal_task、
+restaurant_runtime_scene 及 demo 中的 measurement_contract 测试，环境变量与本机相同，
+使用 `/home/ljy/miniconda3/envs/env_isaaclab/bin/python -m pytest -q`。
+
+双机独立生成的 **405 个 package_id → bundle_sha256 全部相同**；聚合哈希为
+`9d94ff82569a6d95a99b380082ae6802d3fe5b4ad786d8bf784dac20eb2336ec`。
+源码绝对路径绑定按各机器自己的位置记录，不要求跨机器相等。
+ljy 日志、远端矩阵索引与逐包对拍结果已保存到本机 `tmp/stage34-validation/`。
+本批不启动 Isaac/ROS，不新增原生业务或干预已通过的声明。
 
 首轮广泛回归发现覆盖矩阵扩容后的相邻遗漏：modality_matrix 从共享注册表读取五场景，
 但审计 JSON 仍是四场景，19 项测试失败，已交同一模板代理补齐有源码证据的餐厅审计。
