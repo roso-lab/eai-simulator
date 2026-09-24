@@ -1,6 +1,13 @@
 # 评分协议接入边界（阶段记录）
 
-阶段48更新：当前mapping为 `protocol-20260925-goal-claim-scopes-v4`，沿用下述v3的
+阶段49更新：当前mapping为 `protocol-20260925-goal-score-source-bindings-v5`；raw cost
+version=2。正式计划/成本按expected episode、任务digest和runner封存的固定源文件hash
+读取；缺绑定/替换文件的相关事实为null，消费者不得补造历史绑定。逐源失败不遮蔽
+其他有效事实；共享transport保持唯一权威，不回退到工具镜像。只给episode或不传身份
+的旧成本调用为明确legacy诊断，不授予task-bound资格。餐厅验真器区分正式与旧成本
+版本复算，旧v1字段比较不认证来源。见[阶段49](STAGE49_SCORE_SOURCE_BINDING.zh-CN.md)。
+
+阶段48更新：当时mapping为 `protocol-20260925-goal-claim-scopes-v4`，沿用下述v3的
 声明适用范围；task_allocation子块version=2，误拒/误部署率使用可行/不可行各自风险
 分母，旧全体份额移至`all_epoch_*_share`。未答保留、零分母null，按initial/runtime
 分层；缺少新风险字段的旧调用不猜测条件率。见[阶段48](STAGE48_DEPLOYMENT_DENOMINATORS.zh-CN.md)。

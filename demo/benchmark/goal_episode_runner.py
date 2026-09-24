@@ -1223,9 +1223,18 @@ class FormalGoalEpisodeRunner:
         # Preserve a separate raw-only cost archive for downstream protocol
         # review.  The helper reads only trusted host records and leaves
         # unavailable physical/compute sources as null.
-        from .goal_cost_evidence import build_cost_evidence
+        from .goal_cost_evidence import build_cost_evidence, build_cost_source_bindings
+        task_sha256 = canonical_sha256(self.public_task)
+        _write_json(
+            self.output_root / "goal_cost_source_bindings.json",
+            build_cost_source_bindings(
+                self.output_root, episode_id=self.episode_id,
+                task_sha256=task_sha256),
+        )
         _write_json(self.output_root / "cost_evidence.json",
-                    build_cost_evidence(self.output_root, episode_id=self.episode_id))
+                    build_cost_evidence(
+                        self.output_root, episode_id=self.episode_id,
+                        task_sha256=task_sha256))
         deployment_assessment = final_report.get("deployment_assessment")
         result = {
             "schema": "eai.benchmark.formal_goal_episode_result", "version": 3,

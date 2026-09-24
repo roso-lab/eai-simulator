@@ -1765,9 +1765,43 @@ def _verify_native_transport(root: Path, request: Mapping[str, Any],
         raise ValueError("native transport replay failed")
     from .goal_cost_evidence import build_cost_evidence
 
-    recomputed_cost = build_cost_evidence(root, episode_id=request["episode_id"])["communication"]
+    archived_cost = load("cost_evidence.json")
+    if (not isinstance(archived_cost, Mapping)
+            or type(archived_cost.get("version")) is not int
+            or archived_cost["version"] not in {1, 2}):
+        raise ValueError("native communication cost has an unsupported schema")
+    binding = archived_cost.get("source_binding")
+    communication_cost = archived_cost.get("communication")
+    if "source_binding" in archived_cost and (
+            not isinstance(binding, Mapping)
+            or binding.get("mode") not in {"formal", "legacy_unbound", "legacy_episode_only"}):
+        raise ValueError("native communication cost has an invalid binding mode")
+    # v2 legacy calls are supported only when their producer explicitly
+    # recorded that mode. Removing formal metadata must not select legacy.
+    explicit_legacy = (
+        isinstance(binding, Mapping)
+        and binding.get("mode") in {"legacy_unbound", "legacy_episode_only"}
+        and isinstance(communication_cost, Mapping)
+        and communication_cost.get("binding_status") == "legacy_unbound"
+    )
+    communication_bound = (isinstance(communication_cost, Mapping) and (
+        communication_cost.get("binding_status") not in {None, "legacy_unbound"}
+        or bool(communication_cost.get("binding_file_statuses"))))
+    formal_cost = ((root / "goal_cost_source_bindings.json").exists()
+                   or (archived_cost["version"] == 2 and not explicit_legacy)
+                   or communication_bound
+                   or (isinstance(binding, Mapping) and binding.get("mode") == "formal"))
+    recomputed_cost = build_cost_evidence(
+        root, episode_id=request["episode_id"],
+        task_sha256=request["public_task_sha256"] if formal_cost else None,
+    )["communication"]
+    # Historical v1 cost blocks predate binding metadata. Compare their
+    # original facts without claiming that a legacy archive is task-bound.
+    if archived_cost.get("version") == 1 and not formal_cost:
+        recomputed_cost = {key: value for key, value in recomputed_cost.items()
+                           if key not in {"binding_status", "binding_file_statuses"}}
     if (not recomputed_cost["valid"]
-            or load("cost_evidence.json").get("communication") != recomputed_cost):
+            or archived_cost.get("communication") != recomputed_cost):
         raise ValueError("native communication cost differs from shared transport")
     downlink = load("execution_downlink_report.json")
     if (downlink.get("episode_id") != request["episode_id"]
@@ -1819,6 +1853,7 @@ def _verify_native_transport(root: Path, request: Mapping[str, Any],
             raise ValueError("native Restaurant intervention lacks valid measurement evidence")
     return {"validated": True, "dispatches": len(dispatches),
             "communication_replay_validated": True, "observer_review": observer_review,
+            "cost_source_binding": "formal" if formal_cost else "legacy_unbound",
             "scoreable": False}
 
 

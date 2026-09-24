@@ -123,7 +123,13 @@ def test_formal_runner_keeps_one_episode_identity_and_pending_release(
     assert metadata["task_design"]["decomposition_owner"] == "participant"
     assert metadata["checkpoint_requirements"]["restore_verified"] is False
     assert {"result.json", "runtime_snapshots.json", "public_task.json",
-            "participant_api.json"} <= set(metadata["archive_index"]["files"])
+            "participant_api.json", "goal_cost_source_bindings.json"} <= set(
+                metadata["archive_index"]["files"])
+    bindings = json.loads((root / "goal_cost_source_bindings.json").read_text())
+    assert bindings["episode_id"] == episode_id
+    assert bindings["public_task_sha256"] == manifest["public_task_sha256"]
+    assert bindings["session_wrapper"]["filename"] == "goal_session_report.json"
+    assert metadata["cost_evidence"]["source_binding"]["status"] == "verified"
     if audit_enabled:
         from demo.benchmark.goal_session_audit import replay_goal_session_audit
 

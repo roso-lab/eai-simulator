@@ -23,7 +23,7 @@ from .provenance import canonical_sha256
 
 SCORING_ADAPTER_SCHEMA = "eai.benchmark.scoring_adapter_metadata"
 SCORING_ADAPTER_VERSION = 1
-PROTOCOL_MAPPING_REVISION = "protocol-20260925-goal-claim-scopes-v4"
+PROTOCOL_MAPPING_REVISION = "protocol-20260925-goal-score-source-bindings-v5"
 
 DIMENSION_STATUS = {
     "task_allocation": "P/X",
@@ -167,7 +167,8 @@ def build_archive_index(output_root: str | Path) -> dict[str, Any]:
         "camera_render_failures.json",
         "deployment_assessment_report.json",
         "deployment_feasibility_evidence.json", "deployment_protocol_error.json",
-        "cost_evidence.json", "communication_analysis.json",
+        "cost_evidence.json", "goal_cost_source_bindings.json",
+        "communication_analysis.json",
         "native_oracle_registry_audit.json",
         "communication_tool_profile.json", "communication_tool_report.json",
         "communication_tool_replay.json", "communication_transport_replay.json",
@@ -879,16 +880,23 @@ def _assessment_archive(root: Path, *, episode_id: str, task_sha256: str) -> dic
                 "records": [], "accuracy_denominator": None}
 
 
-def _plan_admission_archive(root: Path) -> dict[str, Any]:
+def _plan_admission_archive(
+    root: Path, *, episode_id: str, session_binding_status: str,
+) -> dict[str, Any]:
     path = root / "goal_session_report.json"
     try:
+        if session_binding_status != "verified":
+            raise ValueError("plan admission session source is not identity-bound")
         payload = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(payload, Mapping) or not isinstance(payload.get("report"), Mapping):
+        if (not isinstance(payload, Mapping) or payload.get("episode_id") != episode_id
+                or not isinstance(payload.get("report"), Mapping)):
             raise ValueError("plan admission archive is missing report")
-        return plan_admission_observations(payload["report"])
+        return {**plan_admission_observations(payload["report"]),
+                "binding_status": session_binding_status}
     except (OSError, ValueError, KeyError, TypeError, AttributeError, json.JSONDecodeError):
         return {"status": "missing_or_invalid_archive", "raw_only": True,
-                "not_protocol_score": True}
+                "not_protocol_score": True,
+                "binding_status": session_binding_status}
 
 
 def development_track_observations(
@@ -1064,11 +1072,15 @@ def build_scoring_adapter_metadata(
 
     # Cost evidence is an auditable raw sidecar.  It intentionally preserves
     # missing clocks/ledgers as null and never promotes release flags.
-    cost_evidence = build_cost_evidence(output_root, episode_id=episode_id)
+    task_sha256 = canonical_sha256(public_task)
+    cost_evidence = build_cost_evidence(
+        output_root, episode_id=episode_id, task_sha256=task_sha256)
     deployment_observations = _assessment_archive(
         Path(output_root), episode_id=episode_id,
-        task_sha256=canonical_sha256(public_task))
-    plan_observations = _plan_admission_archive(Path(output_root))
+        task_sha256=task_sha256)
+    plan_observations = _plan_admission_archive(
+        Path(output_root), episode_id=episode_id,
+        session_binding_status=cost_evidence["accepted_actions"]["binding_status"])
     return {
         "schema": SCORING_ADAPTER_SCHEMA,
         "version": SCORING_ADAPTER_VERSION,

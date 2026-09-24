@@ -130,7 +130,8 @@ def test_scoring_index_preserves_new_raw_transport_artifacts(tmp_path):
     assert index["raw_only"] is True
 
 
-def test_native_archive_cross_checks_link_delivery_against_physical_start(tmp_path):
+@pytest.mark.parametrize("cost_mode", ["legacy_v1", "legacy", "formal"])
+def test_native_archive_cross_checks_link_delivery_against_physical_start(tmp_path, cost_mode):
     from demo.benchmark.communication import validate_communication_report
 
     config = profile()
@@ -159,12 +160,43 @@ def test_native_archive_cross_checks_link_delivery_against_physical_start(tmp_pa
         "skill_receipts.json": [{"task_id": "observe", "action_id": "dispatch"}],
     }.items():
         episode._write_json(tmp_path / name, payload)
-    from demo.benchmark.goal_cost_evidence import build_cost_evidence
+    from demo.benchmark.goal_cost_evidence import build_cost_evidence, build_cost_source_bindings
 
-    episode._write_json(tmp_path / "cost_evidence.json", build_cost_evidence(tmp_path))
+    if cost_mode == "formal":
+        episode._write_json(tmp_path / "goal_session_report.json", {
+            "episode_id": "episode", "report": {
+                "public_task_sha256": request["public_task_sha256"]}})
+        episode._write_json(tmp_path / "goal_cost_source_bindings.json", build_cost_source_bindings(
+            tmp_path, episode_id="episode", task_sha256=request["public_task_sha256"]))
+    cost = build_cost_evidence(
+        tmp_path, episode_id="episode" if cost_mode == "formal" else None,
+        task_sha256=request["public_task_sha256"] if cost_mode == "formal" else None)
+    if cost_mode == "legacy_v1":
+        cost["version"] = 1
+        cost.pop("source_binding")
+        cost["communication"].pop("binding_status")
+        cost["communication"].pop("binding_file_statuses")
+    episode._write_json(tmp_path / "cost_evidence.json", cost)
     records = [{"task_id": "observe", "execution_started_at_s": 1.0}]
     assert episode._verify_native_transport(
         tmp_path, request, manifest, {"observe": task}, records)["validated"] is True
     records[0]["execution_started_at_s"] = 0.0
     with pytest.raises(ValueError, match="physical start"):
         episode._verify_native_transport(tmp_path, request, manifest, {"observe": task}, records)
+    if cost_mode == "formal":
+        records[0]["execution_started_at_s"] = 1.0
+        (tmp_path / "goal_cost_source_bindings.json").unlink()
+        with pytest.raises(ValueError, match="communication cost"):
+            episode._verify_native_transport(tmp_path, request, manifest, {"observe": task}, records)
+        cost.pop("source_binding")
+        episode._write_json(tmp_path / "cost_evidence.json", cost)
+        with pytest.raises(ValueError, match="communication cost"):
+            episode._verify_native_transport(tmp_path, request, manifest, {"observe": task}, records)
+        cost["source_binding"] = {"mode": "unknown"}
+        episode._write_json(tmp_path / "cost_evidence.json", cost)
+        with pytest.raises(ValueError, match="invalid binding mode"):
+            episode._verify_native_transport(tmp_path, request, manifest, {"observe": task}, records)
+        cost["version"] = True
+        episode._write_json(tmp_path / "cost_evidence.json", cost)
+        with pytest.raises(ValueError, match="unsupported schema"):
+            episode._verify_native_transport(tmp_path, request, manifest, {"observe": task}, records)

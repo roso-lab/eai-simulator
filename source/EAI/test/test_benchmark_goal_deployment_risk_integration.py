@@ -13,6 +13,8 @@ from demo.benchmark.goal_driven_contract import build_goal_participant_api
 from demo.benchmark.goal_driven_tasks import build_goal_task_package
 from demo.benchmark.goal_scoring_adapter import build_scoring_adapter_metadata
 from demo.benchmark.goal_session import GoalSession
+from demo.benchmark.goal_cost_evidence import build_cost_source_bindings
+from demo.benchmark.provenance import canonical_sha256
 
 
 def _archive_session(tmp_path, labels, decisions):
@@ -59,6 +61,9 @@ def _archive_session(tmp_path, labels, decisions):
     (tmp_path / "goal_session_report.json").write_text(json.dumps({
         "episode_id": "risk-integration", "report": report,
     }))
+    (tmp_path / "goal_cost_source_bindings.json").write_text(json.dumps(
+        build_cost_source_bindings(
+            tmp_path, episode_id="risk-integration", task_sha256=canonical_sha256(public))))
     metadata = build_scoring_adapter_metadata(
         public, episode_id="risk-integration", output_root=tmp_path)
     # Hidden fixture labels must not migrate into events/actions or the public task.
