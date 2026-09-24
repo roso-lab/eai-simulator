@@ -72,7 +72,7 @@ timeout --signal=TERM --kill-after=30s 600s <env_isaaclab>/bin/python \
 
 沿用CPU PhysX/CUDA渲染，并在PYTHONPATH追加source/EAI/test。
 29项归档字节/hash、session/progress/communication三类replay、初始资格连接均通过。
-额外从磁盘读取v2源档案，独立重算全部5个边界的projection/review/vector/hard condition，
+额外从磁盘读取评分源 schema v2 档案，独立重算全部5个边界的projection/review/vector/hard condition，
 与实际进展账本一致。初始全unknown，skill_completed起incident与dispatch为true，
 其余三业务仍unknown；最终业务evaluator将未完成项记failed，二者口径不同，不混为成功。
 
