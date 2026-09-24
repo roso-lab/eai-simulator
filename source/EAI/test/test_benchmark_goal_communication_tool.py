@@ -889,3 +889,21 @@ def test_ttl_truncation_is_consistent_across_receipt_observation_and_stale():
     with pytest.raises(GoalCommunicationToolError) as excinfo:
         service.consume(response["message_id"], action_id="a9", time_s=22.0)
     assert excinfo.value.error_code == "consume_stale"
+
+
+def test_pending_work_and_wakeup_drive_runner_idle_advancement():
+    contract = {"pools": {"p2p": {"capacity_bps": 90.0, "fixed_delay_s": 2.0}}}
+    service = build_service(contract=contract)
+    assert service.has_pending_work() is False
+    assert service.next_wakeup_s() is None
+    response = service.submit(publish_call("w1", valid_until=60.0, now=0.0),
+                              time_s=0.0)
+    # In flight on the restricted pool: pending until delivered or expired.
+    assert service.has_pending_work() is True
+    assert service.next_wakeup_s() is not None
+    observations = service.advance(20.0)
+    assert [row["message_id"] for row in observations] == [response["message_id"]]
+    assert service.has_pending_work() is False
+    # A residual TTL-expiry event may remain scheduled; the pending gate is
+    # what stops the runner from advancing the clock for it.
+    assert service.next_wakeup_s() is None or service.next_wakeup_s() > 20.0

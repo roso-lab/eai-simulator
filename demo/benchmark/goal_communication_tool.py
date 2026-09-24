@@ -530,6 +530,20 @@ class GoalCommunicationTools:
     def owns_call(self, call_id: Any) -> bool:
         return isinstance(call_id, str) and call_id in self._call_ids
 
+    def has_pending_work(self) -> bool:
+        """True while an owned message still awaits transport resolution.
+
+        The runner uses this (with ``next_wakeup_s``) to keep the trusted
+        session clock advancing while a participant waits for a delayed
+        delivery instead of having to dispatch unrelated work first.
+        """
+        undelivered = bool(self._owned_messages.keys() - self._emitted_messages)
+        return undelivered and self.runtime.next_event_time_s() is not None
+
+    def next_wakeup_s(self) -> float | None:
+        """Earliest scheduled transport event time, if any."""
+        return self.runtime.next_event_time_s()
+
     def _validate_time(self, time_s: Any) -> float:
         if (isinstance(time_s, bool) or not isinstance(time_s, (int, float))
                 or not math.isfinite(time_s) or time_s < self._now):

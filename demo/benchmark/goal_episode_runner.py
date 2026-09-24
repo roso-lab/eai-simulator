@@ -459,7 +459,10 @@ class FormalGoalEpisodeRunner:
                                                 and self.pose_tools.has_pending_work())
                                 camera_pending = (self.camera_tools is not None
                                                   and self.camera_tools.has_pending_work())
-                                if ((pose_pending or camera_pending) and callable(idle)):
+                                comm_pending = (self.communication_tools is not None
+                                                and self.communication_tools.has_pending_work())
+                                if ((pose_pending or camera_pending or comm_pending)
+                                        and callable(idle)):
                                     now = host.trusted_report()["session"]["current_time_s"]
                                     wakeups: list[float] = []
                                     if pose_pending:
@@ -469,6 +472,14 @@ class FormalGoalEpisodeRunner:
                                         wakeups.append(float(wake))
                                     if camera_pending:
                                         wake = self.camera_tools.next_wakeup_s()
+                                        if wake is None:
+                                            wake = now + 1e-6
+                                        wakeups.append(float(wake))
+                                    if comm_pending:
+                                        # A participant waiting for a delayed
+                                        # delivery must not have to dispatch
+                                        # unrelated work to advance the clock.
+                                        wake = self.communication_tools.next_wakeup_s()
                                         if wake is None:
                                             wake = now + 1e-6
                                         wakeups.append(float(wake))
@@ -492,6 +503,8 @@ class FormalGoalEpisodeRunner:
                                                   if pose_pending and camera_pending
                                                   else ("pose_tool_idle" if pose_pending
                                                         else "camera_tool_idle"))
+                                        if comm_pending:
+                                            digest += "+communication_idle"
                                         host.emit("tick", actual_time, {"state_digest": digest})
                                         snapshots.append({"episode_id": self.episode_id, "time_s": actual_time,
                                                           "robot_regions": deepcopy(robots),
@@ -501,12 +514,15 @@ class FormalGoalEpisodeRunner:
                                     if camera_pending:
                                         self.camera_tools.finalize_episode(budget)
                                     break
-                                if ((pose_pending or camera_pending) and not callable(idle)):
+                                if ((pose_pending or camera_pending or comm_pending)
+                                        and not callable(idle)):
                                     waiting = []
                                     if pose_pending:
                                         waiting.append("pose tools")
                                     if camera_pending:
                                         waiting.append("camera tools")
+                                    if comm_pending:
+                                        waiting.append("communication tools")
                                     raise RuntimeError(
                                         f"{' and '.join(waiting)} are waiting but the backend cannot advance its idle clock")
                                 if (assessment is not None
@@ -685,30 +701,6 @@ class FormalGoalEpisodeRunner:
                     communication_reports["camera_tools"] = tool_report["communication"]
             except Exception as exc:
                 record_lifecycle_error("camera_tools", "report", exc)
-        if self.communication_tools is not None:
-            from .communication import validate_communication_report
-            try:
-                _write_json(self.output_root / "communication_tool_report.json",
-                            self.communication_tools.report())
-                _write_json(self.output_root / "communication_tool_replay.json",
-                            validate_communication_report(
-                                self.communication_tools.communication_report()))
-                communication_reports["communication_tools"] = (
-                    self.communication_tools.communication_report())
-            except Exception as exc:
-                record_lifecycle_error("communication_tools", "report", exc)
-        if communication_reports:
-            # P1-COMM formal episode hookup: fold the replay-validated tool
-            # ledgers into one sidecar-visible analysis archive.
-            try:
-                from .goal_communication_archive import build_communication_analysis
-
-                _write_json(self.output_root / "communication_analysis.json",
-                            build_communication_analysis(
-                                communication_reports, episode_id=self.episode_id,
-                                scene_key=self.public_task["mission"]["scene_key"]))
-            except Exception as exc:
-                record_lifecycle_error("communication_archive", "analyze", exc)
             if isinstance(tool_report, Mapping) and tool_report.get("lifecycle_errors"):
                 _write_json(self.output_root / "camera_lifecycle_errors.json",
                             tool_report["lifecycle_errors"])
@@ -720,6 +712,40 @@ class FormalGoalEpisodeRunner:
                 if render_report.get("failures"):
                     _write_json(self.output_root / "camera_render_failures.json",
                                 render_report["failures"])
+        if self.communication_tools is not None:
+            from .communication import validate_communication_report
+            try:
+                _write_json(self.output_root / "communication_tool_report.json",
+                            self.communication_tools.report())
+                replay = validate_communication_report(
+                    self.communication_tools.communication_report())
+                _write_json(self.output_root / "communication_tool_replay.json", replay)
+                # A replay mismatch is an infrastructure failure, never a
+                # silently accepted ledger: it stays out of the aggregation.
+                if replay.get("validated") is not True:
+                    record_lifecycle_error(
+                        "communication_tools", "replay",
+                        RuntimeError(
+                            "communication replay failed: "
+                            + "; ".join(replay.get("mismatches") or ["unknown"])))
+                else:
+                    communication_reports["communication_tools"] = (
+                        self.communication_tools.communication_report())
+            except Exception as exc:
+                record_lifecycle_error("communication_tools", "report", exc)
+        if communication_reports:
+            # P1-COMM formal episode hookup: fold the replay-validated tool
+            # ledgers into one sidecar-visible analysis archive.
+            try:
+                from .goal_communication_archive import build_communication_analysis
+
+                _write_json(self.output_root / "communication_analysis.json",
+                            build_communication_analysis(
+                                communication_reports, episode_id=self.episode_id,
+                                scene_key=self.public_task["mission"]["scene_key"],
+                                evidence_class="contract"))
+            except Exception as exc:
+                record_lifecycle_error("communication_archive", "analyze", exc)
         if lifecycle_errors:
             _write_json(self.output_root / "lifecycle_errors.json", lifecycle_errors)
             if error is None:

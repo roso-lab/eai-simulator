@@ -617,3 +617,50 @@ def test_failed_observation_can_trigger_same_episode_replanning_with_fresh_state
         "first-pick": "failed", "paired-carry": "failed"}
     assert report["runtime_snapshot_refresh_required"] is False
     assert result["execution_validated"] is False and result["scoreable"] is False
+
+
+def test_communication_only_episode_archives_without_camera_state(tmp_path: Path):
+    """Communication alone must archive cleanly (viewer phase2 audit P0-2)."""
+    from demo.benchmark.communication import CommunicationRuntime
+    from demo.benchmark.goal_communication_tool import GoalCommunicationTools
+
+    bundle = build_goal_task_package("warehouse_nvd")
+    public = bundle["public_task"]
+    robot = "warehouse_ground_1"
+    plan = {
+        "schema": "eai.benchmark.goal_plan", "version": GOAL_PLAN_VERSION,
+        "plan_id": "comm-only-plan", "assigned_team": [robot],
+        "tasks": [{
+            "task_id": "formal_nav", "skill": "ground_navigation",
+            "arguments": {"region_id": "consolidation_area",
+                           "route_ids": ["rack_a_to_consolidation"]},
+            "required_capabilities": ["ground_navigation"], "assigned_agents": [robot],
+            "prerequisites": [], "evidence_refs": [],
+            "execution": {"start_s": 0.0, "duration_s": 16.0},
+        }],
+    }
+    regions = {row["id"]: "rack_aisle_a" for row in public["candidate_robot_pool"]}
+    objects = {row["id"]: {"region_id": row["physical_properties"]["initial_region_id"]}
+               for row in public["public_world"]["objects"]}
+    pool = [row["id"] for row in public["candidate_robot_pool"]]
+    tools = GoalCommunicationTools(
+        public, episode_id="comm-only-episode",
+        endpoints={"edges": {"edge_1": [pool[1]]}, "robots": pool[:3]},
+        runtime=CommunicationRuntime({"pools": {
+            "p2p": {"capacity_bps": 5000.0}}}))
+    root = tmp_path / "episode"
+    runner = FormalGoalEpisodeRunner(
+        public, bundle["participant_api"],
+        _Adapter(plan, robot), _Backend(public, robot, regions, objects),
+        output_root=root, episode_id="comm-only-episode",
+        communication_tools=tools)
+    result = runner.run(initial_state={"robot_regions": regions,
+                                        "object_states": objects})
+    assert result["error"] is None
+    assert (root / "communication_tool_report.json").is_file()
+    replay = json.loads((root / "communication_tool_replay.json").read_text())
+    assert replay["validated"] is True
+    analysis = json.loads((root / "communication_analysis.json").read_text())
+    assert analysis["tools"]["communication_tools"]["status"] == "observed"
+    assert analysis["development_track"]["evidence_class"] == "contract"
+    assert not (root / "lifecycle_errors.json").exists()
