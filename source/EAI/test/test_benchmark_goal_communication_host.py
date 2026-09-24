@@ -67,6 +67,7 @@ class BaseAdapter:
         self.actions: list = []
         self.seen: list = []
         self.profiles: list = []
+        self.act_turns = 0
 
     def manifest(self):
         return {
@@ -81,6 +82,7 @@ class BaseAdapter:
         pass
 
     def act(self, events):
+        self.act_turns += 1
         self.seen.extend(events)
         actions, self.actions = list(self.actions), []
         return actions
@@ -204,27 +206,122 @@ def test_transport_ledger_replays_and_directions_are_complete(bundle):
 
 
 def test_adapter_without_hook_is_unchanged_with_companion_on_or_off(bundle):
-    def run(with_tools):
-        tools = _communication_tools(bundle) if with_tools else None
-        adapter = BaseAdapter(bundle)
-        host = GoalAlgorithmHost(bundle["public_task"],
-                                 bundle["participant_api"], adapter,
-                                 communication_tools=tools)
-        with host:
-            host.request_actions()
-            adapter.actions = [_goal_action("select-1", "select_team",
-                                            {"agent_ids": _team(bundle)})]
-            host.request_actions()
-            return deepcopy(adapter.seen)
+    """A legacy adapter runs one identical real episode either way.
 
+    Both configurations bind an explicit episode ledger and drive five turns
+    that each deliver new events, so every queued goal action (select_team,
+    submit_plan, dispatch_skill, consume_message) is genuinely submitted to
+    ``GoalSession`` instead of being skipped by an empty-event early return.
+    The complete delivered event stream, the accepted action results (each
+    carrying its ``action_result`` evidence) and the trusted session state are
+    compared across the companion-off and companion-on runs.
+    """
     from copy import deepcopy
 
-    off_events = run(False)
-    on_events = run(True)
-    assert off_events == on_events
-    assert not any(event["type"] == "observation"
-                   and event["payload"].get("kind") == "communication_message"
-                   for event in on_events)
+    from demo.benchmark.goal_session import GoalSession
+
+    def run(with_tools):
+        session = GoalSession(bundle["public_task"], bundle["participant_api"],
+                              episode_id="comm-host")
+        tools = _communication_tools(bundle) if with_tools else None
+        adapter = BaseAdapter(bundle)
+        plan = bundle["hidden_evaluator"]["witness_plans"][0]["plan"]
+        host = GoalAlgorithmHost(bundle["public_task"],
+                                 bundle["participant_api"], adapter,
+                                 session=session,
+                                 communication_tools=tools)
+        with host:
+            # Turn 1 delivers episode_started; select_team is executed now.
+            adapter.actions = [
+                _goal_action("select-1", "select_team",
+                             {"agent_ids": plan["assigned_team"]})]
+            results = [host.request_actions()]
+            # Turn 2 delivers the select_team action_result; submit the
+            # witness plan so the ledger owns a real current plan.
+            adapter.actions = [
+                _goal_action("plan-1", "submit_plan", {"plan": plan})]
+            results.append(host.request_actions())
+            # Turn 3 delivers the submit_plan action_result; dispatch the
+            # plan's first task, producing a pending runtime request.
+            adapter.actions = [
+                _goal_action("dispatch-1", "dispatch_skill",
+                             {"task_id": plan["tasks"][0]["task_id"],
+                              "evidence_refs": []})]
+            results.append(host.request_actions())
+            # Turn 4 delivers the dispatch action_result plus one trusted
+            # observation, which the adapter consumes like any public message.
+            host.emit("observation", 1.0, {
+                "message_id": "invariance-observation-1",
+                "producer_id": plan["assigned_team"][0],
+                "kind": "incident_update",
+                "data": {"status": "visible"},
+                "valid_until_s": 10.0,
+            })
+            adapter.actions = [
+                _goal_action("consume-1", "consume_message",
+                             {"message_id": "invariance-observation-1"},
+                             now=1.0)]
+            results.append(host.request_actions())
+            # Turn 5 delivers the consume_message action_result; the adapter
+            # sees it and returns no further action.
+            results.append(host.request_actions())
+            # With no undelivered events left the next request must not wake
+            # the adapter, whether or not an unconnected companion exists.
+            idle_results = host.request_actions()
+            turns_after_idle = adapter.act_turns
+            trusted = host.trusted_report()
+        return {
+            "events": deepcopy(adapter.seen),
+            "results": results,
+            "idle_results": idle_results,
+            "act_turns": adapter.act_turns,
+            "turns_after_idle": turns_after_idle,
+            "executed": [(turn[0]["type"], turn[0]["accepted"])
+                         for turn in results if turn],
+            "hooks": hasattr(adapter, "initialize_communication_tools"),
+            "profiles": list(adapter.profiles),
+            "failed": trusted["failed"],
+            "selected_team": trusted["session"]["selected_team"],
+            "current_plan_id": trusted["session"]["current_plan_id"],
+            "task_statuses": {task_id: row["status"] for task_id, row
+                              in trusted["session"]["tasks"].items()},
+            "consumed": trusted["session"]["consumed_message_ids"],
+        }
+
+    off = run(False)
+    on = run(True)
+
+    # The legacy four-method adapter was never asked for anything new.
+    assert off["hooks"] is False and on["hooks"] is False
+    assert off["profiles"] == [] and on["profiles"] == []
+    assert off["failed"] is False and on["failed"] is False
+    # Actions were really executed: four accepted turns, one act() per turn.
+    expected = [("select_team", True), ("submit_plan", True),
+                ("dispatch_skill", True), ("consume_message", True)]
+    assert off["executed"] == expected
+    assert on["executed"] == expected
+    # Five event-delivered turns (the consume action_result closes the stream);
+    # the final idle request wakes nobody on either side.
+    assert off["act_turns"] == on["act_turns"] == 5
+    assert off["turns_after_idle"] == on["turns_after_idle"] == 5
+    # No companion observations and no idle wake-ups on either side.
+    for side in (off, on):
+        assert not any(event["type"] == "observation"
+                       and event["payload"].get("kind") == "communication_message"
+                       for event in side["events"])
+        assert side["idle_results"] == []
+    # Complete delivered event streams (including action_result frames with
+    # sequence numbers) and accepted action results are identical.
+    assert off["events"] == on["events"]
+    assert off["results"] == on["results"]
+    # The trusted ledger state reached the same point in both runs.
+    assert off["selected_team"] == on["selected_team"]
+    assert off["current_plan_id"] == on["current_plan_id"]
+    assert off["task_statuses"] == on["task_statuses"]
+    first_task_id = (bundle["hidden_evaluator"]["witness_plans"][0]
+                     ["plan"]["tasks"][0]["task_id"])
+    assert off["task_statuses"][first_task_id] == "pending"
+    assert off["consumed"] == on["consumed"] == ["invariance-observation-1"]
 
 
 def test_tool_call_without_the_hook_fails_closed(bundle):
@@ -257,3 +354,29 @@ def test_goal_action_id_colliding_with_a_communication_call_is_rejected(bundle):
             _goal_action("comm-1", "select_team", {"agent_ids": ids})]
         with pytest.raises(ValueError, match="collides with a communication call"):
             host.request_actions()
+
+
+def test_comm_call_colliding_with_goal_action_lands_in_service_ledger(bundle):
+    # Batch-one decision 4: goal-action collisions are rejected at the
+    # service boundary so the stable ``call_id_collision`` code is archived
+    # in the service call ledger, not only raised by the host.
+    from demo.benchmark.goal_communication_tool import GoalCommunicationToolError
+
+    tools = _communication_tools(bundle)
+    adapter = CompanionAdapter(bundle)
+    ids = _team(bundle)
+    with GoalAlgorithmHost(bundle["public_task"], bundle["participant_api"],
+                           adapter, communication_tools=tools) as host:
+        adapter.actions = [
+            _goal_action("goal-act-1", "select_team", {"agent_ids": ids})]
+        host.request_actions()
+        adapter.actions = [
+            _tool_call("goal-act-1", producer=f"robot:{ids[0]}",
+                       recipient=f"robot:{ids[1]}")]
+        with pytest.raises(GoalCommunicationToolError) as excinfo:
+            host.request_actions()
+        assert excinfo.value.error_code == "call_id_collision"
+        calls = tools.report()["calls"]
+        rejected = [row for row in calls if row.get("call_id") == "goal-act-1"]
+        assert rejected and rejected[0]["status"] == "rejected"
+        assert rejected[0]["error_code"] == "call_id_collision"
