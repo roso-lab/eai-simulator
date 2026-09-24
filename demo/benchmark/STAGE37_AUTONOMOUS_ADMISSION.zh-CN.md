@@ -48,7 +48,20 @@ Iris 飞行/观察驱动未实现、自主入口与v2通信业务接线、并发
 
 ## 验收记录与下阶段
 
-实现与测试进行中；最终命令和双机结果在收拢时补入，未执行项不预先勾选。
+### 实际计划审计
+
+`FormalGoalEpisodeRunner(..., session_audit=True)` 显式启用，默认不新增文件或字段。
+可信侧输出 `goal_session_audit.json` 与 `goal_session_audit_replay.json`，评分侧车
+的原始文件索引收录两者的字节数和哈希。它们不进入参与者事件流。
+`AuditedGoalSession` 使用组合代理，只记录顶层调用，避免内部 `emit` 重复记账。
+独立 `replay_goal_session_audit(journal, public_task, participant_api)` 逐次比对结果
+或异常，并比对最终报告；允许被拒计划、失败执行、合法修订，不要求所有尝试成功。
+校验错误仍输出结果和评分侧车，记录为基础设施错误；不会把审计失败变成模型失误。
+审计模式不抬升业务验证标志，旧模式兼容行为保留。
+
+覆盖检查本机/ljy各12项通过，提交 `df91015` 已推送。
+审计工程聚焦回归130项通过；主审另跑audit/runner/downlink/动态部署四文件52项通过，
+这些集合有重叠，不相加。餐厅业务验真仍在收拢；最终双机结果随后追加。
 所有摘要/回放均证明对应归档的一致性，不独立认证传感器或PhysX事实。
 `scoreable=false`、`execution_validated=false`、`business_outcomes_validated=false`。
 

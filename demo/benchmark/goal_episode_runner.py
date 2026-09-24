@@ -20,6 +20,12 @@ from .goal_algorithm_adapter import GoalAlgorithmAdapter, GoalAlgorithmHost
 from .goal_algorithm_adapter import validate_goal_adapter_manifest
 from .algorithm_adapter import run_algorithm_subprocess
 from .goal_session import GoalSession
+from .goal_session_audit import (
+    AuditedGoalSession,
+    GOAL_SESSION_AUDIT_REPLAY_SCHEMA,
+    GOAL_SESSION_AUDIT_VERSION,
+    replay_goal_session_audit,
+)
 from .provenance import canonical_sha256
 
 
@@ -233,7 +239,8 @@ class FormalGoalEpisodeRunner:
                  communication_tools: Any = None,
                  assessment_evaluator: AssessmentEvaluator | None = None,
                  shared_communication_runtime: Any = None,
-                 downlink: Any = None, execution_observer: Any = None):
+                 downlink: Any = None, execution_observer: Any = None,
+                 session_audit: bool = False):
         if not isinstance(max_turns, int) or isinstance(max_turns, bool) or max_turns < 1:
             raise ValueError("max_turns must be a positive integer")
         self.public_task = deepcopy(dict(public_task))
@@ -252,6 +259,9 @@ class FormalGoalEpisodeRunner:
         self.communication_tools = communication_tools
         self.downlink = downlink
         self.execution_observer = execution_observer
+        if type(session_audit) is not bool:
+            raise ValueError("session_audit must be a bool")
+        self.session_audit = session_audit
         if pose_tools is not None and (
                 pose_tools.episode_id != self.episode_id
                 or pose_tools.public_task_sha256 != canonical_sha256(self.public_task)):
@@ -353,7 +363,12 @@ class FormalGoalEpisodeRunner:
             raise FileExistsError(f"episode output already exists: {self.output_root}")
         self.output_root.mkdir(parents=True)
         robots, objects = _require_state(initial_state, "initial_state")
-        session = GoalSession(self.public_task, self.participant_api, episode_id=self.episode_id)
+        session = (
+            AuditedGoalSession(
+                self.public_task, self.participant_api, episode_id=self.episode_id)
+            if self.session_audit else
+            GoalSession(self.public_task, self.participant_api, episode_id=self.episode_id)
+        )
         manifest = {
             "schema": "eai.benchmark.formal_goal_episode",
             "version": 3,
@@ -366,6 +381,15 @@ class FormalGoalEpisodeRunner:
             "execution_validated": False,
             "scoreable": False,
         }
+        if self.session_audit:
+            manifest["session_audit"] = {
+                "enabled": True,
+                "journal": "goal_session_audit.json",
+                "replay": "goal_session_audit_replay.json",
+                "execution_validated": False,
+                "business_outcomes_validated": False,
+                "scoreable": False,
+            }
         if self.pose_tools is not None:
             profile = self.pose_tools.public_profile()
             manifest["pose_tools"] = {
@@ -412,6 +436,7 @@ class FormalGoalEpisodeRunner:
         host = None
         cancellation_attempts: set[tuple[str, str]] = set()
         downlink_ready: dict[str, dict[str, Any]] = {}
+        session_audit_replay: dict[str, Any] | None = None
 
         def notify_after_skill(task: Mapping[str, Any], result: Mapping[str, Any]) -> None:
             if self.execution_observer is not None and host is not None:
@@ -1074,6 +1099,47 @@ class FormalGoalEpisodeRunner:
                                 evidence_class="contract"))
             except Exception as exc:
                 record_lifecycle_error("communication_archive", "analyze", exc)
+        if self.session_audit:
+            audit_journal = None
+            try:
+                final_report = session.report()
+                audit_journal = session.audit_journal()
+                _write_json(
+                    self.output_root / "goal_session_audit.json", audit_journal)
+                session_audit_replay = replay_goal_session_audit(
+                    audit_journal, self.public_task, self.participant_api)
+                _write_json(
+                    self.output_root / "goal_session_audit_replay.json",
+                    session_audit_replay)
+            except Exception as exc:
+                session_audit_replay = {
+                    "schema": GOAL_SESSION_AUDIT_REPLAY_SCHEMA,
+                    "version": GOAL_SESSION_AUDIT_VERSION,
+                    "episode_id": self.episode_id,
+                    "journal_sha256": (
+                        audit_journal.get("journal_sha256")
+                        if isinstance(audit_journal, Mapping) else None),
+                    "calls_replayed": 0,
+                    "returned_calls_replayed": 0,
+                    "raised_calls_replayed": 0,
+                    "final_report_sha256": canonical_sha256(session.report()),
+                    "validated": False,
+                    "error": f"{type(exc).__name__}: {exc}",
+                    "execution_validated": False,
+                    "business_outcomes_validated": False,
+                    "scoreable": False,
+                    "integrity_scope": (
+                        "internal_consistency_not_physical_authentication"),
+                }
+                record_lifecycle_error(
+                    "goal_session_audit", "build_write_replay", exc)
+                try:
+                    _write_json(
+                        self.output_root / "goal_session_audit_replay.json",
+                        session_audit_replay)
+                except Exception as archive_exc:
+                    record_lifecycle_error(
+                        "goal_session_audit", "write_failure_receipt", archive_exc)
         if lifecycle_errors:
             _write_json(self.output_root / "lifecycle_errors.json", lifecycle_errors)
             if error is None:
@@ -1113,12 +1179,17 @@ class FormalGoalEpisodeRunner:
             "business_outcomes_validated": bool(business) and all(
                 row.get("status") == "validated" for row in business.values())
                 and not (deployment_assessment or {}).get("enabled", False)
+                and not self.session_audit
                 and self.downlink is None and self.execution_observer is None,
             "execution_validated": False, "scoreable": False,
             "output_root": str(self.output_root),
         }
         if deployment_assessment is not None:
             result["termination"] = deepcopy(deployment_assessment.get("termination"))
+        if self.session_audit:
+            result["session_audit_validated"] = (
+                session_audit_replay is not None
+                and session_audit_replay.get("validated") is True)
         _write_json(self.output_root / "result.json", result)
         from .goal_scoring_adapter import build_scoring_adapter_metadata
         scoring_metadata = build_scoring_adapter_metadata(
