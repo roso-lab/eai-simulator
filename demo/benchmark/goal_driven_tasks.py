@@ -1,4 +1,4 @@
-"""Scene-native goal-driven task families for the four benchmark scenes.
+"""Scene-native goal-driven task families for the five benchmark scenes.
 
 The returned public packet is intentionally outcome based.  The witness plans
 are author/evaluator material and are never copied into the participant task.
@@ -83,6 +83,7 @@ _TEAM_TREATMENT_TARGETS = {
     "warehouse_nvd": "warehouse_ground_1",
     "modern_house_nvd": "house_ground_1",
     "city": "go2_1",
+    "restaurant": "restaurant_carter_1",
 }
 _AUTHORING_BUSINESS_FAMILIES = {
     "factory": "production_anomaly_confirmation_and_maintenance_dispatch",
@@ -260,16 +261,20 @@ def _legacy_measurement_contract(public: Mapping[str, Any]) -> dict[str, Any]:
 def _apply_mechanism_template(public: dict[str, Any], template: Mapping[str, Any]) -> dict[str, Any]:
     """Bind a canonical mechanism to an otherwise scene-native goal task.
 
-    The mechanism is kept out of the participant task vocabulary.  The public
-    business objective and world remain the source of the agent's decisions;
-    the hidden evaluator receives the reviewed template and its measurement
-    contract.  This prevents a mechanism label from becoming an answer hint.
+    The reviewed template and measurement contract remain evaluator-only, but
+    the legacy public identity and evidence constraint disclose the mechanism
+    name. These bundles must not be presented as mechanism-blind trials.
+    Versioned public projections are needed before making that claim.
     """
     scene = public["mission"]["scene_key"]
     if template["scene_key"] != scene:
         raise ValueError("mechanism template scene does not match public task")
     mechanism = template["mechanism_family"]
-    public["task_id"] = f"{public['task_id']}-M0-{mechanism}"
+    # Preserve existing four-scene identities, including their historical M0
+    # suffix for M1 variants. Newly admitted restaurant variants use their tier;
+    # the evaluator template, not the legacy public suffix, owns classification.
+    tier = template["template_id"].split(".")[1].upper() if scene == "restaurant" else "M0"
+    public["task_id"] = f"{public['task_id']}-{tier}-{mechanism}"
     public["mission"]["context"] = (
         f"{public['mission']['context']} 本题冻结的协作测量关注业务中的机制交互，"
         "评价只使用当前送达信息和业务证据，不公开未来事件或参考分配。"
@@ -1250,9 +1255,11 @@ def _city_witness(public: dict[str, Any], suffix: str) -> dict[str, Any]:
 def _restaurant() -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Restaurant opening-readiness bundle with an expanded authoring pool.
 
-    The eight candidates are public deployment declarations.  Only Carter
-    routes currently have native evidence; the remaining candidates stay
-    authoring-only until their controller and contact probes are complete.
+    All eight candidates have route-level admission evidence, and a three-robot
+    business episode has been independently replayed (see STAGE33). The frozen
+    baseline text below remains unchanged for archived task hashes. Matrix
+    admission and current evidence status live in the registry and stage docs;
+    they do not certify every treatment or promote scoreability.
     """
     robots = [
         _robot("restaurant_carter_1", "carter", "ground",
@@ -1453,7 +1460,8 @@ def _team_treatment(public: Mapping[str, Any], level: str) -> list[dict[str, Any
     target_id = _TEAM_TREATMENT_TARGETS[scene_key]
     target = deepcopy(next(
         row for row in public["candidate_robot_pool"] if row["id"] == target_id))
-    critical_capability = {"factory": "stair_traversal", "city": "relay"}.get(scene_key, "pick")
+    critical_capability = {"factory": "stair_traversal", "city": "relay",
+                           "restaurant": "relay"}.get(scene_key, "pick")
     event = {
         "id": f"{scene_key}_{level}_treatment",
         "trigger": "after_first_cross_mobility_observation_before_first_business_commit",
@@ -1522,13 +1530,6 @@ def build_goal_task_spec(scene_key: str, *, factor_id: str = "communication_qual
         raise ValueError(
             "Restaurant bound_native_v2 is the base authoring deployment; "
             "additional pool profiles require native candidate admission first"
-        )
-    if scene_key == "restaurant" and (
-            (factor_id == "communication_quality" and factor_level not in (None, "immediate"))
-            or (factor_id == "team_continuity" and factor_level not in (None, "stable"))):
-        raise ValueError(
-            "Restaurant factor treatments require a native business episode and "
-            "business-grounded heterogeneity admission"
         )
     builders = {"factory": _factory, "warehouse_nvd": _warehouse, "modern_house_nvd": _house,
                 "city": lambda: _city(city_roster_profile), "restaurant": _restaurant}
@@ -1915,13 +1916,6 @@ def build_goal_task_package(scene_key: str, *, factor_id: str = "communication_q
         raise ValueError(
             "Restaurant bound_native_v2 is the base authoring deployment; "
             "additional pool profiles require native candidate admission first"
-        )
-    if scene_key == "restaurant" and (
-            (factor_id == "communication_quality" and factor_level not in (None, "immediate"))
-            or (factor_id == "team_continuity" and factor_level not in (None, "stable"))):
-        raise ValueError(
-            "Restaurant factor treatments require a native business episode and "
-            "business-grounded heterogeneity admission"
         )
     builders = {"factory": _factory, "warehouse_nvd": _warehouse, "modern_house_nvd": _house,
                 "city": lambda: _city(city_roster_profile), "restaurant": _restaurant}

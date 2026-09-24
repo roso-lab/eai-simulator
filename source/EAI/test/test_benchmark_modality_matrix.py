@@ -14,10 +14,16 @@ from demo.benchmark.modality_matrix import (
 
 
 EXPECTED_COUNTS = {
-    "factory": {"declared_realistic": 5, "realistic_missing": 0, "excluded_defensible": 2},
-    "warehouse_nvd": {"declared_realistic": 6, "realistic_missing": 0, "excluded_defensible": 2},
-    "modern_house_nvd": {"declared_realistic": 6, "realistic_missing": 1, "excluded_defensible": 2},
-    "city": {"declared_realistic": 4, "realistic_missing": 3, "excluded_defensible": 1},
+    "factory": {"declared_realistic": 5, "realistic_missing": 0,
+                "excluded_defensible": 2, "idealized_unknown": 0},
+    "warehouse_nvd": {"declared_realistic": 6, "realistic_missing": 0,
+                      "excluded_defensible": 2, "idealized_unknown": 0},
+    "modern_house_nvd": {"declared_realistic": 6, "realistic_missing": 1,
+                         "excluded_defensible": 2, "idealized_unknown": 0},
+    "city": {"declared_realistic": 4, "realistic_missing": 3,
+             "excluded_defensible": 1, "idealized_unknown": 0},
+    "restaurant": {"declared_realistic": 3, "realistic_missing": 0,
+                   "excluded_defensible": 0, "idealized_unknown": 5},
 }
 
 
@@ -26,7 +32,8 @@ def test_tracked_matrix_loads_and_validates_with_expected_statistics():
     statistics = modality_matrix_statistics(matrix)
     assert statistics["by_scene"] == EXPECTED_COUNTS
     assert statistics["totals"] == {
-        "declared_realistic": 21, "realistic_missing": 4, "excluded_defensible": 7}
+        "declared_realistic": 24, "realistic_missing": 4,
+        "excluded_defensible": 7, "idealized_unknown": 5}
     assert statistics["row_count"] == sum(sum(counts.values()) for counts in EXPECTED_COUNTS.values())
     assert validate_modality_matrix(matrix)["validated"] is True
 
@@ -42,6 +49,20 @@ def test_every_row_carries_evidence_and_phase_decomposition_wording():
                 assert "proposal" not in row
             if row["status"] == "realistic_missing":
                 assert row.get("proposal", "").strip(), (scene, row["skill"])
+            if row["status"] == "idealized_unknown":
+                assert "idealized/unknown" in row["rationale"], (scene, row["skill"])
+
+
+def test_restaurant_audit_preserves_solo_ground_closure_without_heterogeneity_claim():
+    rows = load_modality_matrix()["scene_modality_audit"]["restaurant"]
+    solo = [row for row in rows if row["status"] == "declared_realistic"]
+    assert {(row["skill"], row["modality"]) for row in solo} == {
+        ("ground_navigation", "ground-wheeled"),
+        ("observe", "ground-wheeled"),
+        ("relay", "ground-wheeled"),
+    }
+    assert all("单 Carter" in row["rationale"] for row in solo)
+    assert all("不构成异构团队必要性" in row["rationale"] for row in rows)
 
 
 def _matrix():
@@ -97,6 +118,14 @@ def test_unknown_status_is_rejected():
     with pytest.raises(ValueError, match="status"):
         validate_modality_matrix(matrix)
     assert "physically_impossible" not in MODALITY_STATUSES
+
+
+def test_idealized_unknown_without_explicit_boundary_is_rejected():
+    matrix = _matrix()
+    row = _first_row(matrix, "idealized_unknown")
+    row["rationale"] = row["rationale"].replace("idealized/unknown", "pending")
+    with pytest.raises(ValueError, match="idealized/unknown"):
+        validate_modality_matrix(matrix)
 
 
 def test_row_without_evidence_is_rejected():

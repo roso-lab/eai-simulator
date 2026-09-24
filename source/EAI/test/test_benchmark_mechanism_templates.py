@@ -1,4 +1,4 @@
-"""Offline checks for the four-scene M0/M1 mechanism-template matrix."""
+"""Offline checks for the five-scene M0/M1 mechanism-template matrix."""
 
 from copy import deepcopy
 
@@ -23,12 +23,12 @@ from demo.benchmark.mechanism_templates import (
 )
 
 
-SCENES = ("factory", "warehouse_nvd", "modern_house_nvd", "city")
+SCENES = ("factory", "warehouse_nvd", "modern_house_nvd", "city", "restaurant")
 
 
 def test_registry_has_one_validated_authoring_template_per_scene_and_m0_mechanism():
     rows = registered_mechanism_templates()
-    assert len(rows) == 16
+    assert len(rows) == 20
     assert {row["template_id"] for row in rows} == {
         canonical_template_id(scene, mechanism)
         for scene in SCENES for mechanism in M0_MECHANISMS
@@ -38,9 +38,9 @@ def test_registry_has_one_validated_authoring_template_per_scene_and_m0_mechanis
     assert all(validate_mechanism_template(row)["validated"] for row in rows)
 
 
-def test_registry_has_sixteen_m1_authoring_templates_and_thirty_two_combined():
+def test_registry_has_twenty_m1_authoring_templates_and_forty_combined():
     m1_rows = registered_mechanism_templates(mechanisms=M1_MECHANISMS)
-    assert len(m1_rows) == 16
+    assert len(m1_rows) == 20
     assert {row["template_id"] for row in m1_rows} == {
         canonical_template_id(scene, mechanism)
         for scene in SCENES for mechanism in M1_MECHANISMS
@@ -52,7 +52,7 @@ def test_registry_has_sixteen_m1_authoring_templates_and_thirty_two_combined():
 
     combined = registered_mechanism_templates(mechanisms=registered_mechanism_families())
     ids = [row["template_id"] for row in combined]
-    assert len(combined) == 32
+    assert len(combined) == 40
     assert len(ids) == len(set(ids))
     assert all(row["scoreable"] is False for row in combined)
     assert all(row["execution_status"] == "external_pending" for row in combined)
@@ -72,7 +72,7 @@ def test_generated_bundle_is_classified_and_bound_to_template(scene, mechanism):
     assert template["measurement_contract"] == hidden["measurement_contract"]
 
 
-def test_canonical_generation_returns_sixteen_seed_and_factor_independent_ids():
+def test_canonical_generation_returns_twenty_seed_and_factor_independent_ids():
     packages = generate_canonical_goal_task_packages()
     assert set(packages) == {
         canonical_template_id(scene, mechanism)
@@ -110,16 +110,35 @@ def test_necessity_certificate_is_three_state_and_fails_closed():
         validate_team_necessity_certificate(forged)
 
 
-def test_mechanism_suite_publishes_and_roundtrips_sixteen_templates(tmp_path):
+@pytest.mark.parametrize("mechanism", registered_mechanism_families())
+def test_restaurant_templates_use_business_grounding_without_inventing_team_necessity(mechanism):
+    template = build_mechanism_template("restaurant", mechanism)
+    certificate = template["team_necessity_certificate"]
+    assert template["business_focus"] == (
+        "kitchen and dining service-readiness inspection with readiness-receipt closeout"
+    )
+    assert certificate["status"] == "unknown"
+    assert certificate["minimum_team_size"] == 1
+    assert certificate["required_mobility"] == ["ground"]
+    assert certificate["unknown_reason"] == (
+        "single_carter_witness_legal_team_necessity_unproven"
+    )
+    assert certificate["physical_execution_validated"] is False
+    assert certificate["whole_task_necessity_validated"] is False
+    assert template["execution_status"] == "external_pending"
+    assert template["scoreable"] is False
+
+
+def test_mechanism_suite_publishes_and_roundtrips_twenty_templates(tmp_path):
     root = tmp_path / "m0"
     result = write_goal_mechanism_suite(root)
     assert result == {
         "validated": True,
-        "canonical_template_count": 16,
+        "canonical_template_count": 20,
         "execution_validated": False,
         "scoreable": False,
     }
-    assert verify_goal_mechanism_suite(root)["canonical_template_count"] == 16
+    assert verify_goal_mechanism_suite(root)["canonical_template_count"] == 20
 
 
 def test_canonical_template_id_rejects_unknown_and_keeps_m0_prefix():

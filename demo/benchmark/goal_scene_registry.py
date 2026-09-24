@@ -29,7 +29,7 @@ _SCENES = {
     },
     "restaurant": {
         "business_family": "restaurant_opening_readiness_inspection",
-        "package_kind": "authoring_only",
+        "package_kind": "goal_bundle",
         "authoring_entrypoint": "demo.benchmark.goal_driven_tasks",
         "authoring_status": "passed",
         "execution_status": "external_pending",
@@ -63,11 +63,11 @@ def compile_registered_goal_scene(scene_key, *, city_package_dir=None,
         scene_key, factor_id=factor_id, factor_level=factor_level,
         mechanism_family=mechanism_family)}
     gate = result["bundle"]["hidden_evaluator"]["release_gate"]
-    if registration["package_kind"] == "authoring_only":
+    if "authoring_status" in registration:
         if (gate.get("authoring_status") != registration["authoring_status"]
                 or gate.get("execution_status") != registration["execution_status"]
                 or gate.get("scoreable") is not registration["scoreable"]):
-            raise ValueError("authoring-only scene release gate disagrees with its registration")
+            raise ValueError("scene release gate disagrees with its registration")
     if city_package_dir is not None:
         if scene_key != "city":
             raise ValueError("city preparation is only applicable to the city scene")

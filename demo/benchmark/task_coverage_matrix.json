@@ -1,6 +1,6 @@
 {
   "schema": "eai.benchmark.task_coverage_matrix",
-  "version": 1,
+  "version": 2,
   "status": "authoring_contract",
   "claim_boundary": {
     "allowed": [
@@ -25,17 +25,24 @@
     "factory",
     "warehouse_nvd",
     "modern_house_nvd",
-    "city"
+    "city",
+    "restaurant"
   ],
   "counting_policy": {
-    "canonical_template": "A distinct collaboration mechanism and business structure, independent of factor level and random seed.",
+    "canonical_template": "An authoring measurement template identified by scene and mechanism, independent of factor level and random seed; it does not imply an independent business goal or proven team necessity.",
     "condition": "A canonical template instantiated with a frozen factor treatment or control condition.",
     "diagnostic_track": "A fixed-DAG or service-probe artifact outside the goal-driven canonical-template count.",
-    "current_goal_packages": 36,
-    "current_factor_pairs": 28,
-    "current_canonical_templates": 32,
-    "m0_target_canonical_templates": 16,
-    "m1_target_canonical_templates": 32
+    "current_goal_packages": 45,
+    "current_factor_pairs": 35,
+    "current_canonical_templates": 40,
+    "m0_target_canonical_templates": 20,
+    "m1_target_canonical_templates": 20,
+    "baseline_canonical_templates": 5,
+    "baseline_condition_packages": 45,
+    "conditions_per_canonical_template": 9,
+    "full_grid_canonical_templates": 45,
+    "full_grid_goal_packages": 405,
+    "full_grid_factor_pairs": 315
   },
   "mechanism_taxonomy": [
     {
@@ -275,6 +282,31 @@
         "native_probe"
       ],
       "load_note": "Four outcomes and two witness plans; service diagnostics remain a separate track until a fixed-DAG decision is documented."
+    },
+    "restaurant": {
+      "current_canonical_templates": [
+        "restaurant.m0.decomposition",
+        "restaurant.m0.role_allocation",
+        "restaurant.m0.communication_adaptation",
+        "restaurant.m0.role_churn_recovery",
+        "restaurant.m1.timing_synchronization",
+        "restaurant.m1.resource_contention",
+        "restaurant.m1.recovery_replanning",
+        "restaurant.m1.multi_bottleneck_calibration"
+      ],
+      "current_status": "m0_authoring_classified_execution_pending",
+      "m0_required_mechanisms": [
+        "decomposition",
+        "role_allocation",
+        "communication_adaptation",
+        "role_churn_recovery"
+      ],
+      "diagnostic_tracks": [
+        "restaurant_native_admission",
+        "restaurant_algorithm_episode",
+        "restaurant_native_probe"
+      ],
+      "load_note": "Three service-readiness outcomes and two witness plans; the legal single-Carter witness forbids inventing a two-agent or aerial-mobility necessity."
     }
   },
   "factor_conditions": {

@@ -1,4 +1,4 @@
-"""Offline validation for the four-scene collaboration coverage registry."""
+"""Offline validation for the five-scene collaboration coverage registry."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 
-SCENES = ("factory", "warehouse_nvd", "modern_house_nvd", "city")
+SCENES = ("factory", "warehouse_nvd", "modern_house_nvd", "city", "restaurant")
 M0_MECHANISMS = (
     "decomposition", "role_allocation", "communication_adaptation", "role_churn_recovery",
 )
@@ -42,30 +42,47 @@ def validate_coverage_matrix(value: Mapping[str, Any]) -> dict[str, Any]:
     }
     if set(value) != required:
         raise ValueError("coverage matrix fields mismatch")
-    if value["schema"] != "eai.benchmark.task_coverage_matrix" or value["version"] != 1:
+    if value["schema"] != "eai.benchmark.task_coverage_matrix" or value["version"] != 2:
         raise ValueError("unsupported coverage matrix schema")
     if value["status"] != "authoring_contract":
         raise ValueError("coverage matrix must remain an authoring contract")
     if tuple(value["scene_keys"]) != SCENES:
-        raise ValueError("coverage matrix must list the four scenes in registry order")
+        raise ValueError("coverage matrix must list the five scenes in registry order")
     boundary = value["claim_boundary"]
     if not isinstance(boundary, Mapping) or "forbidden" not in boundary or "unknown_states" not in boundary:
         raise ValueError("coverage matrix claim boundary is incomplete")
     if "physical_causality" not in boundary["forbidden"] or "external_pending" not in boundary["unknown_states"]:
         raise ValueError("coverage matrix must fail closed on physical and pending claims")
     counts = value["counting_policy"]
-    for key in ("current_goal_packages", "current_factor_pairs", "current_canonical_templates",
-                "m0_target_canonical_templates", "m1_target_canonical_templates"):
+    for key in (
+        "current_goal_packages", "current_factor_pairs", "current_canonical_templates",
+        "m0_target_canonical_templates", "m1_target_canonical_templates",
+        "baseline_canonical_templates", "baseline_condition_packages",
+        "conditions_per_canonical_template", "full_grid_canonical_templates",
+        "full_grid_goal_packages", "full_grid_factor_pairs",
+    ):
         if not isinstance(counts.get(key), int) or counts[key] < 0:
             raise ValueError(f"coverage count {key} must be a nonnegative integer")
-    if counts["current_goal_packages"] != 36 or counts["current_factor_pairs"] != 28:
-        raise ValueError("coverage matrix must preserve the legacy 36/28 package and factor counts")
-    if counts["m0_target_canonical_templates"] != 16:
-        raise ValueError("coverage matrix must keep the M0 target at 16 templates")
-    if counts["m1_target_canonical_templates"] != 32:
-        raise ValueError("coverage matrix must keep the M1 target at 32 templates")
-    if counts["current_canonical_templates"] != 32:
-        raise ValueError("coverage matrix must declare 32 current canonical templates")
+    expected_counts = {
+        "current_goal_packages": 45,
+        "current_factor_pairs": 35,
+        "current_canonical_templates": 40,
+        "m0_target_canonical_templates": 20,
+        "m1_target_canonical_templates": 20,
+        "baseline_canonical_templates": 5,
+        "baseline_condition_packages": 45,
+        "conditions_per_canonical_template": 9,
+        "full_grid_canonical_templates": 45,
+        "full_grid_goal_packages": 405,
+        "full_grid_factor_pairs": 315,
+    }
+    for key, expected in expected_counts.items():
+        if counts[key] != expected:
+            raise ValueError(f"coverage matrix count {key} must be {expected}")
+    if counts["full_grid_goal_packages"] != (
+            counts["full_grid_canonical_templates"]
+            * counts["conditions_per_canonical_template"]):
+        raise ValueError("coverage full-grid package count identity is inconsistent")
     taxonomy = value["mechanism_taxonomy"]
     if not isinstance(taxonomy, list) or {row.get("mechanism_id") for row in taxonomy} != EXPECTED_MECHANISMS:
         raise ValueError("coverage taxonomy must contain exactly the eight registered mechanisms")
@@ -109,7 +126,7 @@ def validate_m0_template_registry(*, scenes: tuple[str, ...] = SCENES,
 
     The import is lazy so reading the static coverage matrix stays independent
     of the goal generator.  This helper is used by release/preflight checks
-    that want the stronger 16-template assertion.
+    that want the stronger 20-template assertion.
     """
     from .mechanism_templates import registered_mechanism_templates
 
@@ -131,10 +148,10 @@ def validate_m0_template_registry(*, scenes: tuple[str, ...] = SCENES,
 
 def validate_m1_template_registry(*, scenes: tuple[str, ...] = SCENES,
                                   mechanisms: tuple[str, ...] = M1_MECHANISMS) -> dict[str, Any]:
-    """Check that the authoring registry covers the declared M1 grid (16 rows).
+    """Check that the authoring registry covers the declared M1 grid (20 rows).
 
     This is independent of :func:`validate_m0_template_registry`, which must
-    continue to assert exactly the 16 M0 templates.
+    continue to assert exactly the 20 M0 templates.
     """
     from .mechanism_templates import M1_MECHANISMS as registry_m1
     from .mechanism_templates import registered_mechanism_templates

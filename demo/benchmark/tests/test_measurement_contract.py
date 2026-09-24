@@ -20,7 +20,7 @@ from demo.benchmark.measurement_contract import (
 )
 
 
-SCENES = ("factory", "warehouse_nvd", "modern_house_nvd", "city")
+SCENES = ("factory", "warehouse_nvd", "modern_house_nvd", "city", "restaurant")
 KINDS = ("I-skill", "I-comm", "I-role", "I-timing")
 MUTABLE = {
     "I-skill": ["skill_backend"],

@@ -1,6 +1,6 @@
 {
   "schema": "eai.benchmark.modality_matrix",
-  "version": 1,
+  "version": 2,
   "status": "deployment_realism_audit",
   "claim_boundary": {
     "allowed": [
@@ -18,8 +18,8 @@
     "wording_rule": "每行只陈述现行声明契约下该阶段由何种模态履行及其 file:line 证据；不产出机型能力断言，也不声明执行验证。",
     "unknown_states": ["external_pending", "scene_binding_pending"]
   },
-  "scene_keys": ["factory", "warehouse_nvd", "modern_house_nvd", "city"],
-  "status_vocabulary": ["declared_realistic", "realistic_missing", "excluded_defensible"],
+  "scene_keys": ["factory", "warehouse_nvd", "modern_house_nvd", "city", "restaurant"],
+  "status_vocabulary": ["declared_realistic", "realistic_missing", "excluded_defensible", "idealized_unknown"],
   "modality_vocabulary": ["aerial", "ground-legged", "ground-wheeled", "ground-legged+ground-wheeled"],
   "wording_blacklist": ["不该", "不应该", "错误决策", "不适合"],
   "scene_modality_audit": {
@@ -478,6 +478,115 @@
         ],
         "rationale": "现行城市候选池的地面成员（go2_1/carter_1）未声明 observe 且无相机接口，bound_native_v2 扩池中具备 ground observe 的 lite3_1 未挂接 relay 与城市服务技能（作者标注的能力诱饵），而上报成员须同时具备 observe+relay；地面现场上报阶段在现行声明中未由任何成员履行，而现实中地面响应成员的现场上报是常规模态。",
         "proposal": "为城市地面响应成员声明相机/observe 接口或引入 relay 型上报通道，使通信受限条件下地面成员具备现场上报模态；可与 bound_native 扩池议题合并评估。"
+      }
+    ],
+    "restaurant": [
+      {
+        "skill": "ground_navigation",
+        "phase": "到达-厨房与用餐服务区",
+        "modality": "ground-wheeled",
+        "status": "declared_realistic",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:1265-1268",
+          "demo/benchmark/goal_driven_tasks.py:1283-1285",
+          "demo/benchmark/goal_driven_tasks.py:1317-1333",
+          "demo/benchmark/goal_driven_tasks.py:1798-1819",
+          "demo/benchmark/goal_restaurant_algorithm_episode.py:96-115"
+        ],
+        "rationale": "厨房与用餐服务区到达阶段在现行声明契约中可由轮式 Carter 履行；单 Carter 见证依次完成两处到达、观察和返回，业务复核要求观察与同一地面成员的实际到达绑定，因而该行只审计轮式地面闭环，不构成异构团队必要性。"
+      },
+      {
+        "skill": "observe",
+        "phase": "观察-服务区地面支撑状态",
+        "modality": "ground-wheeled",
+        "status": "declared_realistic",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:1265-1268",
+          "demo/benchmark/goal_driven_tasks.py:1295-1301",
+          "demo/benchmark/goal_driven_tasks.py:1319-1329",
+          "demo/benchmark/goal_driven_tasks.py:1798-1819"
+        ],
+        "rationale": "服务区地面支撑状态观察阶段由已到达的轮式 Carter 执行 service_ground_readiness 查询；单 Carter 见证覆盖厨房与用餐区两次观察，符号业务复核只接受 ground mobility 且要求到达先于观察，不构成异构团队必要性。"
+      },
+      {
+        "skill": "relay",
+        "phase": "提交-readiness回执",
+        "modality": "ground-wheeled",
+        "status": "declared_realistic",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:1265-1268",
+          "demo/benchmark/goal_driven_tasks.py:1292-1302",
+          "demo/benchmark/goal_driven_tasks.py:1330-1336",
+          "demo/benchmark/goal_driven_tasks.py:1820-1826",
+          "demo/benchmark/goal_restaurant_algorithm_episode.py:221-227"
+        ],
+        "rationale": "readiness 回执提交阶段可由具备 event_bus 的轮式 Carter 在两处观察完成后履行；单 Carter 见证独立闭合到达、观察和 relay，业务复核要求回执晚于两处观察，因此该业务闭环不构成异构团队必要性。"
+      },
+      {
+        "skill": "ground_navigation",
+        "phase": "到达-腿式候选服务区路线",
+        "modality": "ground-legged",
+        "status": "idealized_unknown",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:1269-1276",
+          "demo/benchmark/goal_driven_tasks.py:1283-1285",
+          "demo/benchmark/goal_driven_tasks.py:1344-1348",
+          "demo/restaurant_benchmark/config.py:41-56"
+        ],
+        "rationale": "M20、go2 与 Lite3 在候选池中声明 ground_navigation，且配置登记了路线级原生准入；M20 见证含用餐区到达，但各腿式候选的完整双服务区业务闭环仍是 idealized/unknown，不能从路线准入外推执行验证，也不构成异构团队必要性。"
+      },
+      {
+        "skill": "observe",
+        "phase": "观察-腿式候选地面支撑状态",
+        "modality": "ground-legged",
+        "status": "idealized_unknown",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:1269-1276",
+          "demo/benchmark/goal_driven_tasks.py:1295-1304",
+          "demo/benchmark/goal_driven_tasks.py:1344-1348",
+          "demo/benchmark/goal_driven_tasks.py:1798-1819"
+        ],
+        "rationale": "腿式候选声明 observe，M20 的作者见证包含用餐区 service_ground_readiness 观察；该证据仍是声明与符号见证，针对各腿式候选的原生观察可见性和双区域完成均为 idealized/unknown，不虚构现场能力，也不构成异构团队必要性。"
+      },
+      {
+        "skill": "relay",
+        "phase": "提交-腿式候选readiness回执",
+        "modality": "ground-legged",
+        "status": "idealized_unknown",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:1269-1276",
+          "demo/benchmark/goal_driven_tasks.py:1297-1304",
+          "demo/benchmark/goal_driven_tasks.py:1820-1826"
+        ],
+        "rationale": "M20 与 go2 声明 relay/event_bus，而 Lite3 明确只声明导航与观察；当前作者见证的最终回执由 Carter 提交，因此腿式成员独立提交业务回执仍为 idealized/unknown，不把部分候选的声明扩写成全体能力，也不构成异构团队必要性。"
+      },
+      {
+        "skill": "observe",
+        "phase": "观察-可选空中俯瞰",
+        "modality": "aerial",
+        "status": "idealized_unknown",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:1277-1280",
+          "demo/benchmark/goal_driven_tasks.py:1283-1286",
+          "demo/benchmark/goal_driven_tasks.py:1295-1302",
+          "demo/benchmark/goal_driven_tasks.py:1798-1819"
+        ],
+        "rationale": "Iris 候选与 restaurant_overview 空中观察区均有声明，但三个业务结果要求厨房和用餐区的地面到达与地面支撑查询，现行见证未把空中观察作为必要证据；该可选俯瞰阶段为 idealized/unknown，不替代地面观察，也不构成异构团队必要性。"
+      },
+      {
+        "skill": "relay",
+        "phase": "提交-可选空中readiness回执",
+        "modality": "aerial",
+        "status": "idealized_unknown",
+        "evidence": [
+          "demo/benchmark/goal_driven_tasks.py:1277-1280",
+          "demo/benchmark/goal_driven_tasks.py:1297-1304",
+          "demo/benchmark/goal_restaurant_algorithm_episode.py:66-80",
+          "demo/benchmark/goal_restaurant_algorithm_episode.py:221-234",
+          "demo/benchmark/goal_restaurant_algorithm_episode.py:252-263",
+          "demo/benchmark/goal_driven_tasks.py:1820-1826"
+        ],
+        "rationale": "Iris 声明 relay/event_bus，且既有原生多机 episode 的算法适配器允许 hover-held Iris 从 restaurant_overview 执行无位移 relay；但冻结 baseline 的符号业务复核仍将 readiness 回执绑定 restaurant_staging，overview relay 与当前冻结题面同一绑定下的全因子干预尚未完成统一准入，因此该跨契约绑定记为 idealized/unknown，而非否认 Iris 原生回执证据，也不构成异构团队必要性。"
       }
     ]
   }

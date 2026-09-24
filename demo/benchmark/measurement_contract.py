@@ -23,8 +23,8 @@ from typing import Any, Mapping
 MEASUREMENT_CONTRACT_SCHEMA = "eai.benchmark.collaboration_measurement_contract"
 MEASUREMENT_CONTRACT_VERSION = 1
 
-SCENE_KEYS = ("factory", "warehouse_nvd", "modern_house_nvd", "city")
-AUTHORING_ONLY_SCENE_KEYS = ("restaurant",)
+SCENE_KEYS = ("factory", "warehouse_nvd", "modern_house_nvd", "city", "restaurant")
+AUTHORING_ONLY_SCENE_KEYS = ()
 _SUPPORTED_SCENE_KEYS = (*SCENE_KEYS, *AUTHORING_ONLY_SCENE_KEYS)
 INTERVENTION_KINDS = ("I-skill", "I-comm", "I-role", "I-timing")
 

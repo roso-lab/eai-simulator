@@ -1,4 +1,4 @@
-"""Offline validation for the four-scene deployment-realism modality matrix.
+"""Offline validation for the five-scene deployment-realism modality matrix.
 
 The matrix audits, per scene and per declared skill, which mobility modality
 fulfils each business phase under the current authoring contract.  It is an
@@ -21,9 +21,11 @@ from .task_coverage import SCENES
 
 
 MODALITY_MATRIX_SCHEMA = "eai.benchmark.modality_matrix"
-MODALITY_MATRIX_VERSION = 1
+MODALITY_MATRIX_VERSION = 2
 MODALITY_MATRIX_STATUS = "deployment_realism_audit"
-MODALITY_STATUSES = ("declared_realistic", "realistic_missing", "excluded_defensible")
+MODALITY_STATUSES = (
+    "declared_realistic", "realistic_missing", "excluded_defensible", "idealized_unknown",
+)
 MODALITY_VOCABULARY = (
     "aerial", "ground-legged", "ground-wheeled", "ground-legged+ground-wheeled",
 )
@@ -104,10 +106,13 @@ def _validate_row(row: Any, label: str, *, skills: frozenset[str],
         raise ValueError(
             f"{label}: excluded_defensible rows must decompose the excluded modality "
             "into phases (rationale must mention '阶段')")
+    if status == "idealized_unknown" and "idealized/unknown" not in rationale:
+        raise ValueError(
+            f"{label}: idealized_unknown rows must state the 'idealized/unknown' boundary")
 
 
 def validate_modality_matrix(value: Mapping[str, Any]) -> dict[str, Any]:
-    """Validate structure, three-state semantics, evidence and wording discipline."""
+    """Validate structure, four-state semantics, evidence and wording discipline."""
     if not isinstance(value, Mapping):
         raise ValueError("modality matrix must be an object")
     required = {
@@ -130,7 +135,7 @@ def validate_modality_matrix(value: Mapping[str, Any]) -> dict[str, Any]:
         raise ValueError("modality matrix must fail closed on execution and prohibition claims")
     _require_nonempty_string(boundary["wording_rule"], "claim_boundary.wording_rule")
     if tuple(value["scene_keys"]) != SCENES:
-        raise ValueError("modality matrix must list the four scenes in registry order")
+        raise ValueError("modality matrix must list the five scenes in registry order")
     if tuple(value["status_vocabulary"]) != MODALITY_STATUSES:
         raise ValueError("modality matrix status vocabulary mismatch")
     if tuple(value["modality_vocabulary"]) != MODALITY_VOCABULARY:
@@ -159,7 +164,7 @@ def validate_modality_matrix(value: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def modality_matrix_statistics(value: Mapping[str, Any]) -> dict[str, Any]:
-    """Per-scene and total three-state counts for reporting and release checks."""
+    """Per-scene and total four-state counts for reporting and release checks."""
     audit = value["scene_modality_audit"]
     scenes: dict[str, dict[str, int]] = {}
     totals = {status: 0 for status in MODALITY_STATUSES}

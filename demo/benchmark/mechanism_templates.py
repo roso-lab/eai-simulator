@@ -2,7 +2,7 @@
 
 The legacy goal bundles deliberately remain available for compatibility.  This
 module is the authoring registry for scene × mechanism templates.  The default
-M0 grid remains sixteen templates; an explicit M1 grid adds sixteen more.
+M0 grid contains twenty templates; an explicit M1 grid adds twenty more.
 A template describes the measurement question and evidence boundary; it never
 claims that the mechanism has been physically executed.
 """
@@ -29,7 +29,7 @@ MECHANISM_TEMPLATE_VERSION = 1
 TEAM_NECESSITY_SCHEMA = "eai.benchmark.team_necessity_certificate"
 TEAM_NECESSITY_VERSION = 1
 
-SCENES = ("factory", "warehouse_nvd", "modern_house_nvd", "city")
+SCENES = ("factory", "warehouse_nvd", "modern_house_nvd", "city", "restaurant")
 M0_MECHANISMS = (
     "decomposition",
     "role_allocation",
@@ -142,6 +142,9 @@ _SCENE_FOCUS = {
     "warehouse_nvd": "order fulfilment, inventory identity and dock closeout",
     "modern_house_nvd": "resident access restoration and home recovery",
     "city": "urban incident response and protected access",
+    "restaurant": (
+        "kitchen and dining service-readiness inspection with readiness-receipt closeout"
+    ),
 }
 
 _ALL_FORBIDDEN = [
@@ -163,7 +166,7 @@ def canonical_template_id(scene_key: str, mechanism_family: str) -> str:
 
 
 def registered_mechanism_families() -> tuple[str, ...]:
-    """Return M0 then M1 families in registry order (32-template combined grid)."""
+    """Return M0 then M1 families in registry order (40-template combined grid)."""
     return M0_MECHANISMS + M1_MECHANISMS
 
 
@@ -346,6 +349,16 @@ def validate_mechanism_template(value: Mapping[str, Any]) -> dict[str, Any]:
 
 def build_mechanism_template(scene_key: str, mechanism_family: str) -> dict[str, Any]:
     template_id = canonical_template_id(scene_key, mechanism_family)
+    necessity_kwargs = {}
+    if scene_key == "restaurant":
+        # The frozen restaurant bundle has a legal single-Carter witness.  Its
+        # authoring templates therefore must not manufacture a two-agent or
+        # aerial-mobility requirement while physical necessity remains unknown.
+        necessity_kwargs = {
+            "minimum_team_size": 1,
+            "required_mobility": ("ground",),
+            "unknown_reason": "single_carter_witness_legal_team_necessity_unproven",
+        }
     value = {
         "schema": MECHANISM_TEMPLATE_SCHEMA,
         "version": MECHANISM_TEMPLATE_VERSION,
@@ -356,7 +369,8 @@ def build_mechanism_template(scene_key: str, mechanism_family: str) -> dict[str,
         "business_focus": _SCENE_FOCUS[scene_key],
         "measurement_contract": _build_measurement_contract(scene_key, mechanism_family, template_id),
         "team_necessity_certificate": build_team_necessity_certificate(
-            scene_key=scene_key, template_id=template_id, mechanism_family=mechanism_family),
+            scene_key=scene_key, template_id=template_id, mechanism_family=mechanism_family,
+            **necessity_kwargs),
         "authoring_status": "passed",
         "execution_status": "external_pending",
         "scoreable": False,
@@ -368,9 +382,9 @@ def registered_mechanism_templates(*, scenes: Sequence[str] = SCENES,
                                    mechanisms: Sequence[str] = M0_MECHANISMS) -> list[dict[str, Any]]:
     """Build templates for the selected grid.
 
-    The default arguments remain the M0 4×4 authoring grid (16 rows).  Pass
+    The default arguments select the M0 5×4 authoring grid (20 rows).  Pass
     ``mechanisms=M1_MECHANISMS`` for the M1 grid, or
-    ``mechanisms=registered_mechanism_families()`` for the combined 32-row set.
+    ``mechanisms=registered_mechanism_families()`` for the combined 40-row set.
     """
     rows = []
     for scene in scenes:
