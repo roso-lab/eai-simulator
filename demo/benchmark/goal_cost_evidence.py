@@ -123,9 +123,8 @@ def _canonical_digest(value: Any) -> str:
 def _communication_bytes(root: Path, *, episode_id: str | None = None) -> dict[str, Any]:
     """Sum bytes only from communication reports with replay proof.
 
-    Pose and camera tools each own an archive report.  The replay sidecar is
-    the provenance gate; a raw report without a validated replay is not
-    treated as reliable traffic evidence.
+    Shared mode has one authoritative transport and never falls back to tool
+    mirrors. Legacy tool reports retain their existing replay-sidecar contract.
     """
     sources = (
         ("pose_tools_report.json", "pose_communication_replay.json"),
@@ -133,6 +132,10 @@ def _communication_bytes(root: Path, *, episode_id: str | None = None) -> dict[s
         ("communication_report.json", "communication_replay.json"),
         ("communication.json", "communication_replay.json"),
     )
+    shared_source = ("communication_transport_report.json", "communication_transport_replay.json")
+    shared = any((root / name).exists() for name in shared_source)
+    if shared:
+        sources = (shared_source,)
     total = 0
     by_pool: Counter[str] = Counter()
     by_direction: Counter[str] = Counter()
@@ -143,6 +146,8 @@ def _communication_bytes(root: Path, *, episode_id: str | None = None) -> dict[s
     for report_name, replay_name in sources:
         report_path = root / report_name
         if not report_path.is_file():
+            if shared:
+                invalid_sources += 1
             continue
         report_payload = _read_json(root, report_name)
         replay = _read_json(root, replay_name)
@@ -164,6 +169,14 @@ def _communication_bytes(root: Path, *, episode_id: str | None = None) -> dict[s
         if not isinstance(replay, Mapping) or replay.get("validated") is not True:
             invalid_sources += 1
             continue
+        if shared:
+            from .communication import validate_communication_report
+
+            # Recompute from the raw ledger: an old or tampered sidecar cannot
+            # authorize a different transport snapshot.
+            if validate_communication_report(communication).get("validated") is not True:
+                invalid_sources += 1
+                continue
         archive_key = (_canonical_digest(communication), _canonical_digest(replay))
         if archive_key in seen_archives:
             # A runner may expose the same transport under a generic filename
@@ -211,6 +224,7 @@ def _communication_bytes(root: Path, *, episode_id: str | None = None) -> dict[s
         "invalid_source_count": invalid_sources,
         "source": "validated_communication_replay" if reliable else None,
         "valid": reliable,
+        "aggregation": "shared_transport_counted_once" if shared else "legacy_distinct_reports",
     }
 
 

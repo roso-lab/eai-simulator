@@ -150,6 +150,11 @@ def build_archive_index(output_root: str | Path) -> dict[str, Any]:
         "deployment_feasibility_evidence.json", "deployment_protocol_error.json",
         "cost_evidence.json", "communication_analysis.json",
         "native_oracle_registry_audit.json",
+        "communication_tool_profile.json", "communication_tool_report.json",
+        "communication_tool_replay.json", "communication_transport_replay.json",
+        "communication_transport_report.json",
+        "execution_downlink_profile.json", "execution_downlink_report.json",
+        "execution_observer_profile.json", "execution_observer_report.json",
     )
     files = {}
     for name in names:

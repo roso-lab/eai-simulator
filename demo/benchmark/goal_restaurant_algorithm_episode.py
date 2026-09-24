@@ -1119,7 +1119,8 @@ class RestaurantMultiAgentGoalBackend:
     BACKEND_ID = "isaac.restaurant.goal_algorithm_episode.v1"
 
     def __init__(self, navigators: Mapping[str, Any], routes: Mapping[str, Mapping[str, Any]],
-                 public_routes: Mapping[str, Mapping[str, Any]], *, episode_id: str):
+                 public_routes: Mapping[str, Mapping[str, Any]], *, episode_id: str,
+                 simulation_budget_s: float | None = None):
         self.navigators = dict(navigators)
         self.routes = deepcopy(dict(routes))
         self.public_routes = {str(row["id"]): deepcopy(dict(row))
@@ -1130,6 +1131,34 @@ class RestaurantMultiAgentGoalBackend:
                               for public in ROBOT_BINDINGS}
         self.evidence: list[dict[str, Any]] = []
         self.business_evaluation: dict[str, Any] | None = None
+        self.simulation_budget_s = simulation_budget_s
+
+    def advance_idle(self, target_time_s: float) -> Mapping[str, Any]:
+        """Advance actual physics, rounding fractional link wakeups up one control tick."""
+        driver = self.navigators.get("iris_1")
+        if driver is None:
+            raise RuntimeError("native idle requires the shared all-agent hold driver")
+        now = float(driver.episode_time_s)
+        dt = float(driver.control_dt_s)
+        if (not math.isfinite(target_time_s) or target_time_s <= now
+                or not math.isfinite(dt) or dt <= 0):
+            raise ValueError("native idle requires a finite advancing target and control step")
+        steps = max(1, math.ceil((target_time_s - now) / dt - 1e-9))
+        if (self.simulation_budget_s is not None
+                and now + steps * dt > self.simulation_budget_s + 1e-9):
+            raise ValueError("native idle control tick would exceed simulation budget")
+        for _ in range(steps):
+            previous = float(driver.episode_time_s)
+            driver.step_once()
+            if not math.isclose(float(driver.episode_time_s) - previous, dt, abs_tol=1e-6):
+                raise RuntimeError("native idle clock did not advance by its control step")
+        actual = float(driver.episode_time_s)
+        self._record({"kind": "transport_idle", "episode_id": self.episode_id,
+                      "requested_time_s": target_time_s, "start_time_s": now,
+                      "completed_at_s": actual, "control_steps": steps})
+        return {"time_s": actual,
+                "runtime_state": {"robot_regions": deepcopy(self.robot_regions),
+                                  "object_states": {}}}
 
     def _pending(self, task: Mapping[str, Any], trusted_report: Mapping[str, Any]) -> dict[str, Any]:
         ledger = trusted_report["session"]
@@ -1166,6 +1195,27 @@ class RestaurantMultiAgentGoalBackend:
             raise ValueError("native algorithm clock diverged from GoalSession")
         skill = task["skill"]
         arguments = task["arguments"]
+        started_at_s = float(navigator.episode_time_s)
+        # Link latency consumes the original execution window. A late command
+        # cannot perform a physical operation and subsequently backdate success.
+        minimum_steps = 2 if skill == "relay" else 1
+        dt = float(getattr(navigator, "control_dt_s", 0.02))
+        if navigator.episode_time_s + minimum_steps * dt > end_s + 1e-9:
+            completed = float(navigator.episode_time_s)
+            _, evidence_ref = self._record({
+                "kind": "execution_window_expired", "episode_id": episode_id,
+                "task_id": task["task_id"], "completed_at_s": completed,
+                "deadline_s": end_s})
+            return {"status": "failed", "completed_at_s": completed,
+                    "receipt": {"backend_id": self.BACKEND_ID,
+                                "receipt_ref": f"{episode_id}/{task['task_id']}",
+                                "task_id": task["task_id"],
+                                "action_id": pending["dispatch_action_id"],
+                                "status": "failed", "completed_at_s": completed,
+                                "episode_id": episode_id,
+                                "evidence_refs": [evidence_ref]},
+                    "runtime_state": {"robot_regions": deepcopy(self.robot_regions),
+                                      "object_states": {}}}
         if skill == "ground_navigation":
             route_ids = arguments.get("route_ids")
             if not isinstance(route_ids, list) or len(route_ids) != 1:
@@ -1188,6 +1238,7 @@ class RestaurantMultiAgentGoalBackend:
             native["native_agent_id"] = native_agent
             native["public_route_id"] = str(route_ids[0])
             native["window_hold"] = navigator.wait_until(end_s)
+            native["execution_started_at_s"] = started_at_s
             _saved, evidence_ref = self._record(native)
         elif skill == "observe":
             region = str(arguments.get("region_id"))
@@ -1210,6 +1261,7 @@ class RestaurantMultiAgentGoalBackend:
                       "stamp": stamp, "scene_observation": scene_observation,
                       "service_record": service_row}
             native["window_hold"] = navigator.wait_until(end_s)
+            native["execution_started_at_s"] = started_at_s
             _saved, evidence_ref = self._record(native)
         elif skill == "relay":
             relay_region = str(arguments.get("region_id"))
@@ -1235,6 +1287,7 @@ class RestaurantMultiAgentGoalBackend:
                       "relay_publication": publication,
                       "business_receipt": business_receipt}
             native["window_hold"] = navigator.wait_until(end_s)
+            native["execution_started_at_s"] = started_at_s
             _saved, evidence_ref = self._record(native)
         else:
             raise ValueError(f"unsupported algorithm Restaurant skill: {skill}")
@@ -1245,14 +1298,34 @@ class RestaurantMultiAgentGoalBackend:
             "status": "succeeded", "completed_at_s": end_s,
             "episode_id": episode_id, "evidence_refs": [evidence_ref],
         }
-        return {"status": "succeeded", "completed_at_s": end_s, "receipt": receipt,
+        result = {"status": "succeeded", "completed_at_s": end_s, "receipt": receipt,
                 "runtime_state": {"robot_regions": deepcopy(self.robot_regions),
                                   "object_states": {}}}
+        if skill == "observe":
+            result["trusted_observation"] = deepcopy(service_row)
+        return result
 
     def cancel(self, task: Mapping[str, Any], *, episode_id: str,
                trusted_report: Mapping[str, Any]) -> Mapping[str, Any]:
-        return {"status": "cancelled",
+        ledger = trusted_report["session"]
+        row = ledger["tasks"].get(task["task_id"])
+        if (episode_id != self.episode_id or ledger.get("episode_id") != episode_id
+                or row is None or row["status"] != "cancel_requested"
+                or row["task"] != task):
+            raise ValueError("native cancellation does not match a requested dispatch")
+        driver = next(iter(self.navigators.values()))
+        completed = float(driver.episode_time_s)
+        if not math.isclose(completed, float(ledger["current_time_s"]), abs_tol=1e-6):
+            raise ValueError("native cancellation clock diverged from GoalSession")
+        _, evidence_ref = self._record({
+            "kind": "cancellation", "episode_id": episode_id,
+            "task_id": task["task_id"], "completed_at_s": completed,
+            "execution_model": "synchronous_no_inflight_native_operation"})
+        return {"status": "cancelled", "completed_at_s": completed,
                 "receipt": {"backend_id": self.BACKEND_ID, "status": "cancelled",
+                            "receipt_ref": f"{episode_id}/{task['task_id']}/cancel",
+                            "action_id": row["dispatch_action_id"],
+                            "completed_at_s": completed, "evidence_refs": [evidence_ref],
                             "task_id": task["task_id"], "episode_id": episode_id},
                 "runtime_state": {"robot_regions": deepcopy(self.robot_regions),
                                   "object_states": {}}}
@@ -1260,12 +1333,71 @@ class RestaurantMultiAgentGoalBackend:
 
 # -- request contract --------------------------------------------------------
 
+def _validate_execution_profile(value: Any) -> dict[str, Any]:
+    """Versioned diagnostic transport configuration, never a formal C0 anchor."""
+    from .communication import validate_communication_contract
+
+    fields = {"schema", "version", "communication_contract", "downlink_ttl_s",
+              "restaurant_interventions", "factor_id", "factor_level"}
+    if (not isinstance(value, Mapping) or set(value) != fields
+            or value.get("schema") != "eai.restaurant.native_execution_profile"
+            or type(value.get("version")) is not int or value["version"] != 1
+            or type(value.get("restaurant_interventions")) is not bool):
+        raise ValueError("invalid native execution profile")
+    ttl = value["downlink_ttl_s"]
+    if (isinstance(ttl, bool) or not isinstance(ttl, (int, float))
+            or not math.isfinite(ttl) or ttl <= 0):
+        raise ValueError("downlink_ttl_s must be positive and finite")
+    if (not isinstance(value["factor_id"], str)
+            or not isinstance(value["factor_level"], str)):
+        raise ValueError("execution factor must be explicit")
+    build_goal_task_package("restaurant", factor_id=value["factor_id"],
+                            factor_level=value["factor_level"])
+    result = deepcopy(dict(value))
+    result["communication_contract"] = validate_communication_contract(
+        result["communication_contract"])
+    # Require declared pools rather than silently treating this as a system-wide
+    # nominal capacity. These diagnostic values do not define scoring anchors.
+    pools = result["communication_contract"].get("pools", {})
+    if not {"backhaul_uplink", "backhaul_downlink", "p2p"} <= set(pools):
+        raise ValueError("native profile must declare all three communication pools")
+    return result
+
+
+def _request_bundle(request: Mapping[str, Any]) -> dict[str, Any]:
+    profile = request.get("execution_profile")
+    options = ({"factor_id": profile["factor_id"], "factor_level": profile["factor_level"]}
+               if profile is not None else {})
+    return build_goal_task_package("restaurant", **options)
+
+
+def _execution_services(public_task: Mapping[str, Any], *, episode_id: str,
+                        profile: Mapping[str, Any]) -> dict[str, Any]:
+    from .communication import CommunicationRuntime
+    from .goal_execution_downlink import GoalExecutionDownlink
+    from .goal_restaurant_interventions import GoalRestaurantInterventions
+
+    profile = _validate_execution_profile(profile)
+    runtime = CommunicationRuntime(profile["communication_contract"])
+    return {
+        "shared_communication_runtime": runtime,
+        "downlink": GoalExecutionDownlink(public_task, episode_id=episode_id,
+                                           runtime=runtime, ttl_s=profile["downlink_ttl_s"]),
+        "execution_observer": (
+            GoalRestaurantInterventions(public_task, episode_id=episode_id, runtime=runtime)
+            if profile["restaurant_interventions"] else None),
+    }
+
+
 def prepare_episode(output_root: str | Path, *, products_root: str | Path,
-                    source_usd: str | Path, device: str, algorithm: str) -> dict[str, Any]:
+                    source_usd: str | Path, device: str, algorithm: str,
+                    execution_profile: Mapping[str, Any] | None = None) -> dict[str, Any]:
     if algorithm not in ALGORITHMS:
         raise ValueError(f"unknown algorithm participant: {algorithm}")
     if device not in {"cpu", "cuda:0"}:
         raise ValueError("device must be cpu or cuda:0")
+    profile = (_validate_execution_profile(execution_profile)
+               if execution_profile is not None else None)
     root = Path(output_root).expanduser().resolve()
     root.mkdir(parents=True, exist_ok=False)
     products = Path(products_root).expanduser().resolve()
@@ -1275,7 +1407,7 @@ def prepare_episode(output_root: str | Path, *, products_root: str | Path,
     product_validation = validate_products(products, source_usd=source)
     metadata_path = products / "bench_meta.json"
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    bundle = build_goal_task_package("restaurant")
+    bundle = _request_bundle({"execution_profile": profile})
     public_task = _algorithm_public_task(bundle)
     run_id = uuid.uuid4().hex
     request = {
@@ -1297,7 +1429,7 @@ def prepare_episode(output_root: str | Path, *, products_root: str | Path,
         "public_task_sha256": canonical_sha256(public_task),
         "participant_api_sha256": canonical_sha256(
             build_goal_participant_api(public_task)),
-        "source_files": _source_files(),
+        "source_files": _source_files(include_transport=profile is not None),
         "executor": {"kind": "serial_mixed_executor_v1",
                      "concurrent_driving": False,
                      "pool_note": "executor coverage v1: the two episode-grade Carters "
@@ -1308,11 +1440,14 @@ def prepare_episode(output_root: str | Path, *, products_root: str | Path,
         "archive_verifier": "demo.benchmark.goal_restaurant_algorithm_episode"
                            ".verify_algorithm_episode_archive",
     }
+    if profile is not None:
+        request.update(version=2, execution_profile=profile,
+                       execution_profile_sha256=canonical_sha256(profile))
     _write_json(root / "request.json", request)
     return request
 
 
-def _source_files() -> dict[str, str]:
+def _source_files(*, include_transport: bool = False) -> dict[str, str]:
     files = [
         Path(__file__).resolve(),
         ROOT / "demo/benchmark/goal_restaurant_episode.py",
@@ -1327,6 +1462,12 @@ def _source_files() -> dict[str, str]:
         ROOT / "source/EAI/EAI/scenario_spec/geometry.py",
         ROOT / "source/EAI/EAI/scenario_spec/oracle.py",
     ]
+    if include_transport:
+        files.extend(ROOT / "demo/benchmark" / name for name in (
+            "communication.py", "goal_execution_downlink.py",
+            "goal_restaurant_interventions.py", "goal_cost_evidence.py",
+            "goal_scoring_adapter.py", "goal_communication_archive.py",
+            "goal_communication_tool.py"))
     return {str(path): file_sha256(path) for path in files}
 
 
@@ -1338,10 +1479,20 @@ def _validate_request(request: Any) -> dict[str, Any]:
         parsed = uuid.UUID(hex=run_id) if isinstance(run_id, str) else None
     except ValueError:
         parsed = None
-    bundle = build_goal_task_package("restaurant")
+    version = request.get("version")
+    if type(version) is not int or version not in {1, 2}:
+        raise ValueError("invalid Restaurant request version")
+    if version == 1:
+        if "execution_profile" in request or "execution_profile_sha256" in request:
+            raise ValueError("execution profile requires request version 2")
+    else:
+        profile = _validate_execution_profile(request.get("execution_profile"))
+        if (profile != request["execution_profile"]
+                or request.get("execution_profile_sha256") != canonical_sha256(profile)):
+            raise ValueError("native execution profile binding mismatch")
+    bundle = _request_bundle(request)
     public_task = _algorithm_public_task(bundle)
     if (request.get("schema") != "eai.restaurant.formal_goal_algorithm_episode_request"
-            or request.get("version") != 1
             or parsed is None or parsed.version != 4 or parsed.hex != run_id
             or request.get("episode_id") != f"restaurant-algo:{run_id}"
             or request.get("algorithm") not in ALGORITHMS
@@ -1358,7 +1509,7 @@ def _validate_request(request: Any) -> dict[str, Any]:
             or request.get("public_task_sha256") != canonical_sha256(public_task)
             or request.get("participant_api_sha256")
             != canonical_sha256(build_goal_participant_api(public_task))
-            or request.get("source_files") != _source_files()
+            or request.get("source_files") != _source_files(include_transport=version == 2)
             or request.get("executor") != {
                 "kind": "serial_mixed_executor_v1", "concurrent_driving": False,
                 "pool_note": "executor coverage v1: the two episode-grade Carters "
@@ -1397,7 +1548,7 @@ def run_worker(output_root: str | Path) -> dict[str, Any]:
     root = Path(output_root).expanduser().resolve()
     request = _load_request(root)
     os.environ["EAI_RESTAURANT_BENCHMARK_ROOT"] = request["products_root"]
-    public_task = _algorithm_public_task(build_goal_task_package("restaurant"))
+    public_task = _algorithm_public_task(_request_bundle(request))
     participant_api = build_goal_participant_api(public_task)
     if canonical_sha256(participant_api) != request["participant_api_sha256"]:
         raise ValueError("participant API drifted from the frozen request")
@@ -1469,7 +1620,8 @@ def run_worker(output_root: str | Path) -> dict[str, Any]:
                 backend = RestaurantMultiAgentGoalBackend(
                     navigators, routes,
                     request["public_task"]["public_world"]["routes"],
-                    episode_id=request["episode_id"])
+                    episode_id=request["episode_id"],
+                    simulation_budget_s=float(public_task["budgets"]["simulation_s"]))
                 participant_class = (
                     RestaurantTeamWeaverParticipant
                     if request["algorithm"] == "teamweaver"
@@ -1489,10 +1641,13 @@ def run_worker(output_root: str | Path) -> dict[str, Any]:
                 evaluator = lambda episode_id, trusted: evaluate_restaurant_business(
                     backend, episode_id, trusted)
                 episode_root = root / "goal_episode"
+                services = (_execution_services(public_task, episode_id=request["episode_id"],
+                                                profile=request["execution_profile"])
+                            if request["version"] == 2 else {})
                 result = FormalGoalEpisodeRunner(
                     request["public_task"], participant_api, participant,
                     backend, output_root=episode_root, episode_id=request["episode_id"],
-                    evaluator=evaluator, max_turns=48,
+                    evaluator=evaluator, max_turns=128 if services else 48, **services,
                 ).run(initial_state={
                     "robot_regions": {public: ROBOT_BINDINGS[public]["spawn_region_id"]
                                       for public in ALGORITHM_POOL},
@@ -1567,6 +1722,91 @@ _ALGO_ARCHIVE_EPISODE_FILES = (
     "runtime_snapshots.json", "result.json", "native_evidence_log.json",
     "readiness_service_snapshot.json", "goal_episode_source.json",
 )
+
+
+def _verify_native_transport(root: Path, request: Mapping[str, Any],
+                             manifest: Mapping[str, Any], tasks: Mapping[str, Any],
+                             records: list[Mapping[str, Any]]) -> dict[str, Any]:
+    """Bind replayed transport to physical starts, without awarding any score."""
+    from .communication import validate_communication_report
+
+    def load(name: str) -> Any:
+        return json.loads((root / name).read_text(encoding="utf-8"))
+
+    services = _execution_services(request["public_task"], episode_id=request["episode_id"],
+                                   profile=request["execution_profile"])
+    for key, service in (("execution_downlink", services["downlink"]),
+                         ("execution_observer", services["execution_observer"])):
+        if service is None:
+            if key in manifest or (root / f"{key}_report.json").exists():
+                raise ValueError("disabled native service has archived evidence")
+            continue
+        profile = load(f"{key}_profile.json")
+        if (profile != service.profile() or manifest.get(key, {}).get("profile_sha256")
+                != canonical_sha256(profile)):
+            raise ValueError("native execution service profile binding mismatch")
+    transport = load("communication_transport_report.json")
+    replay = validate_communication_report(
+        transport, expected_initial_contract=request["execution_profile"]["communication_contract"])
+    if replay.get("validated") is not True:
+        raise ValueError("native transport replay failed")
+    from .goal_cost_evidence import build_cost_evidence
+
+    recomputed_cost = build_cost_evidence(root, episode_id=request["episode_id"])["communication"]
+    if (not recomputed_cost["valid"]
+            or load("cost_evidence.json").get("communication") != recomputed_cost):
+        raise ValueError("native communication cost differs from shared transport")
+    downlink = load("execution_downlink_report.json")
+    if (downlink.get("episode_id") != request["episode_id"]
+            or downlink.get("public_task_sha256") != request["public_task_sha256"]
+            or any(downlink.get(flag) is not False for flag in (
+                "scoreable", "execution_validated", "business_outcomes_validated"))):
+        raise ValueError("native downlink report binding mismatch")
+    dispatches = downlink.get("dispatches", {})
+    if set(dispatches) != set(tasks):
+        raise ValueError("native downlink does not cover the executed plan")
+    physical = {row["task_id"]: row for row in records if "task_id" in row}
+    receipts = {row["task_id"]: row for row in load("skill_receipts.json")}
+    for task_id, task in tasks.items():
+        entry = dispatches[task_id]
+        operation = entry["dispatch"]
+        started = _finite_number(entry.get("physical_started_at_s"), "physical start")
+        message = transport["messages"][operation["message_id"]]
+        payload = message["payload"]
+        if (entry.get("task") != task or entry.get("physical_started") is not True
+                or entry.get("tombstoned") is not False
+                or entry.get("terminal", {}).get("status") != "succeeded"
+                or physical[task_id].get("execution_started_at_s") != started
+                or payload.get("estimate", {}).get("task") != task
+                or payload.get("estimate", {}).get("episode_id") != request["episode_id"]
+                or payload.get("estimate", {}).get("dispatch_action_id") != operation["action_id"]
+                or receipts[task_id].get("action_id") != operation["action_id"]
+                or set(message.get("recipients", {})) != set(task["assigned_agents"])):
+            raise ValueError("native physical start differs from its delivered command")
+        for recipient in task["assigned_agents"]:
+            delivery = message["recipients"][recipient]
+            delivered = _finite_number(delivery.get("delivered_at_s"), "delivery time")
+            consumed = _finite_number((delivery.get("consumption") or {}).get("time_s"),
+                                      "command consumption time")
+            if (delivered > started
+                    or not delivered <= consumed <= started
+                    or not started < min(payload["valid_until_s"],
+                                         delivery.get("transport_valid_until_s",
+                                                      payload["valid_until_s"]))):
+                raise ValueError("native skill started before fresh delivery")
+    observer_review = None
+    if services["execution_observer"] is not None:
+        from .goal_restaurant_interventions import verify_restaurant_intervention_report
+
+        observer_review = verify_restaurant_intervention_report(
+            load("execution_observer_report.json"), public_task=request["public_task"],
+            episode_id=request["episode_id"], transport_report=transport,
+            native_observations=records)
+        if observer_review.get("measurement_valid") is not True:
+            raise ValueError("native Restaurant intervention lacks valid measurement evidence")
+    return {"validated": True, "dispatches": len(dispatches),
+            "communication_replay_validated": True, "observer_review": observer_review,
+            "scoreable": False}
 
 
 def _validate_archived_position_provenance(
@@ -1758,7 +1998,7 @@ def verify_algorithm_episode_archive(output_root: str | Path) -> dict[str, Any]:
     request = _load_request(base)
     report = load(base / "restaurant_algorithm_episode_report.json")
     process = load(base / "process.json")
-    bundle = build_goal_task_package("restaurant")
+    bundle = _request_bundle(request)
     public_task = _algorithm_public_task(bundle)
     participant_api = build_goal_participant_api(public_task)
     episode_id = request["episode_id"]
@@ -1886,7 +2126,9 @@ def verify_algorithm_episode_archive(output_root: str | Path) -> dict[str, Any]:
     records = evidence_log.get("records")
     if (evidence_log.get("schema") != "eai.restaurant.formal_goal_native_evidence"
             or evidence_log.get("version") != 1
-            or not isinstance(records, list) or len(records) != len(plan["tasks"])):
+            or not isinstance(records, list)
+            or len([row for row in records if row.get("kind") != "transport_idle"])
+            != len(plan["tasks"])):
         raise ValueError("native evidence record count does not match the plan")
     evidence_refs: dict[str, dict[str, Any]] = {}
     for record in records:
@@ -2040,6 +2282,9 @@ def verify_algorithm_episode_archive(output_root: str | Path) -> dict[str, Any]:
     if {key: row["status"] for key, row in replayed.items()} != {
             key: row["status"] for key, row in business["outcomes"].items()}:
         raise ValueError("independent business replay disagrees with the archive")
+    transport_review = (_verify_native_transport(
+        episode_root, request, manifest, task_by_id, records)
+        if request["version"] == 2 else None)
     return {
         "schema": "eai.restaurant.formal_goal_algorithm_archive_verification", "version": 1,
         "episode_id": episode_id, "algorithm": request["algorithm"],
@@ -2049,6 +2294,7 @@ def verify_algorithm_episode_archive(output_root: str | Path) -> dict[str, Any]:
         "allocation": dict(assignment),
         "assigned_team": plan["assigned_team"],
         "readiness_review": review,
+        "transport_review": transport_review,
         "execution_validated": False, "scoreable": False,
     }
 
@@ -2098,6 +2344,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--source-usd", type=Path)
     parser.add_argument("--device", choices=("cpu", "cuda:0"), default="cpu")
     parser.add_argument("--algorithm", choices=ALGORITHMS, default="teamweaver")
+    parser.add_argument("--execution-profile", type=Path,
+                        help="opt-in versioned JSON diagnostic communication profile")
     parser.add_argument("--timeout-s", type=float, default=1800.0)
     parser.add_argument("--verify", action="store_true",
                          help="independently re-verify a finished episode archive")
@@ -2118,7 +2366,9 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("--products-root and --source-usd are required")
         prepare_episode(args.output_root, products_root=args.products_root,
                         source_usd=args.source_usd, device=args.device,
-                        algorithm=args.algorithm)
+                        algorithm=args.algorithm,
+                        execution_profile=(json.loads(args.execution_profile.read_text())
+                                           if args.execution_profile else None))
         execute_episode(args.output_root, timeout_s=args.timeout_s)
         report = json.loads(
             (args.output_root / "restaurant_algorithm_episode_report.json").read_text(

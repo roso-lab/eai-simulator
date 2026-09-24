@@ -3,9 +3,10 @@
 > 交付状态总览与文档地图见 [`DELIVERY.zh-CN.md`](DELIVERY.zh-CN.md)。
 > 本清单是阶段 1–18 的权威勾选记录，按时间顺序追加，不回填。
 
-## 当前接力：阶段 34（2026-09-24）
+## 当前接力：阶段 35（2026-09-24）
 
-下文历史阶段保留原状；最新路线以 [阶段34](STAGE34_RESTAURANT_FULL_MATRIX.zh-CN.md)、
+下文历史阶段保留原状；最新路线以 [阶段35](STAGE35_EXECUTION_TRANSPORT.zh-CN.md)、
+[阶段34](STAGE34_RESTAURANT_FULL_MATRIX.zh-CN.md)、
 [阶段33](STAGE33_ROUTE_AND_RESTAURANT.zh-CN.md) 和 [开发/发布隔离流程](STAGE32_DEVELOPMENT_TRACK_HANDOFF.zh-CN.md) 为准。
 餐厅完整纳入 **5×9×9=405**，不再等待任务数量拍板，也不再按“仅 Carter 有证据”排期。
 
@@ -14,6 +15,14 @@
 - [x] 真实生成/读回 405 个条件题包、315 个单因子对照对，五场景交接预检。
 - [x] 本机与 ljy 隔离树回归、独立验收、分批推送 `benchmark-task`（`2676842`、`f3cfb79`）。
 - [ ] 继续真实下行调度、单场景 native 恢复与六能力生产器；未拍板评分参数保持未赋值。
+
+阶段35并行出口：
+
+- [ ] P0：完整派遣/取消消息过共享下行池；未送达不得执行或冒称取消确认。
+- [ ] P0：餐厅实际成功观察触发；单 Carter 合法路径可达，未触发/无实体后端不计有效。
+- [ ] P1：原生 v2 profile + 真实 idle 时钟 + 原始评分归档；旧入口兼容。
+- [ ] 验收：本机聚焦回归、ljy 隔离树回归及带延迟原生 episode；保留失败证据。
+- [ ] 后续：预变化 native checkpoint/restore/sham；六能力生产器及盲测公开投影。
 
 Factory 冻结资产只阻塞对应正式发布；不得阻塞上述开发和契约测试。所有发布标志继续 false。
 

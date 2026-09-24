@@ -1,6 +1,39 @@
 import json
 
 
+def test_shared_transport_is_authoritative_replayed_and_counted_once(tmp_path):
+    from demo.benchmark.communication import CommunicationRuntime, validate_communication_report
+    from demo.benchmark.goal_cost_evidence import build_cost_evidence
+
+    runtime = CommunicationRuntime({"pools": {
+        "backhaul_downlink": {"capacity_bps": 1000000},
+        "backhaul_uplink": {"capacity_bps": 1000000}}})
+    for index, direction in enumerate(("downlink", "uplink")):
+        runtime.publish(message_id=f"command-{index}", producer_id="cloud",
+                        recipients=["robot-a"], channel="execution", estimate={"body": index},
+                        valid_until_s=10, pool=f"backhaul_{direction}", direction=direction)
+    runtime.advance(1.0)
+    report = runtime.report()
+    _write(tmp_path, "communication_transport_report.json", report)
+    _write(tmp_path, "communication_transport_replay.json", validate_communication_report(report))
+    # An older partial tool view must neither double count nor invalidate the
+    # authoritative transport, even when its byte count is different.
+    _write(tmp_path, "pose_tools_report.json", {"communication": {
+        "ledger": [{"event": "bytes_served", "bytes": 9999999}]}})
+    _write(tmp_path, "pose_communication_replay.json", {"validated": True})
+    result = build_cost_evidence(tmp_path)["communication"]
+    expected = sum(row["bytes"] for row in report["ledger"] if row["event"] == "bytes_served")
+    assert result["total_bytes"] == expected
+    assert sum(result["by_direction_bytes"].values()) == expected
+    assert result["reliable_source_count"] == 1
+    assert result["aggregation"] == "shared_transport_counted_once"
+    next(row for row in report["ledger"] if row["event"] == "bytes_served")["bytes"] += 1
+    _write(tmp_path, "communication_transport_report.json", report)
+    assert build_cost_evidence(tmp_path)["communication"]["total_bytes"] is None
+    (tmp_path / "communication_transport_report.json").unlink()
+    assert build_cost_evidence(tmp_path)["communication"]["total_bytes"] is None
+
+
 def _write(root, name, value):
     (root / name).write_text(json.dumps(value), encoding="utf-8")
 
