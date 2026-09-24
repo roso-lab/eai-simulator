@@ -168,6 +168,45 @@ def build_archive_index(output_root: str | Path) -> dict[str, Any]:
             "counts": counts}
 
 
+_ASSESSMENT_EVALUATION_FIELDS = frozenset({
+    "assessment_id", "assessment_epoch", "feasibility_label",
+    "oracle_status", "platform_valid", "evidence_refs", "evaluator_ref",
+})
+_FEASIBILITY_LABELS = frozenset({"deployable", "not_deployable"})
+
+
+def _assessment_key(value: Any) -> tuple[str, int] | None:
+    """Return a canonical epoch key, rejecting bool-as-int and blank IDs."""
+    if not isinstance(value, Mapping):
+        return None
+    assessment_id = value.get("assessment_id")
+    epoch = value.get("assessment_epoch")
+    if (not isinstance(assessment_id, str) or not assessment_id.strip()
+            or type(epoch) is not int or epoch < 0):
+        return None
+    return assessment_id, epoch
+
+
+def _valid_oracle_evaluation(value: Any, key: tuple[str, int] | None = None) -> bool:
+    """Validate the strict seven-field evaluator contract used by GoalSession."""
+    if not isinstance(value, Mapping) or set(value) != _ASSESSMENT_EVALUATION_FIELDS:
+        return False
+    actual = _assessment_key(value)
+    if actual is None or (key is not None and actual != key):
+        return False
+    refs = value.get("evidence_refs")
+    return (
+        value.get("feasibility_label") in _FEASIBILITY_LABELS
+        and value.get("oracle_status") == "verified"
+        and value.get("platform_valid") is True
+        and isinstance(refs, list)
+        and bool(refs)
+        and all(isinstance(ref, str) and ref.strip() for ref in refs)
+        and isinstance(value.get("evaluator_ref"), str)
+        and bool(value["evaluator_ref"].strip())
+    )
+
+
 def deployment_assessment_observations(
     session_report: Mapping[str, Any], *, task_sha256: str,
 ) -> dict[str, Any]:
@@ -177,31 +216,60 @@ def deployment_assessment_observations(
     latency and per-epoch byte costs remain unknown until their real sources
     are joined. Unknown or platform-invalid labels never enter accuracy counts.
     """
+    if not isinstance(session_report, Mapping):
+        return {"status": "invalid_report", "raw_only": True, "records": [],
+                "accuracy_denominator": 0,
+                "quality_failures": ["session_report_not_mapping"]}
     gate = session_report.get("deployment_assessment")
     if not isinstance(gate, Mapping) or not gate.get("enabled"):
         return {"status": "not_enabled", "raw_only": True, "records": [],
                 "accuracy_denominator": None}
-    events = session_report.get("events", [])
-    actions = {row["action_id"]: row for row in session_report.get("actions", [])}
-    event_index = {row["sequence"]: row for row in events}
+    quality_failures = []
+    raw_events = session_report.get("events", [])
+    if not isinstance(raw_events, list):
+        quality_failures.append("events_not_list")
+        events = []
+    else:
+        events = raw_events
+    raw_actions = session_report.get("actions", [])
+    if not isinstance(raw_actions, list):
+        quality_failures.append("actions_not_list")
+        raw_actions = []
+    actions = {row.get("action_id"): row for row in raw_actions
+               if isinstance(row, Mapping) and isinstance(row.get("action_id"), str)}
+    event_index = {row.get("sequence"): row for row in events
+                   if isinstance(row, Mapping) and "sequence" in row}
     termination = gate.get("termination") or {}
     records = []
+    raw_history = gate.get("history", [])
+    if not isinstance(raw_history, list):
+        quality_failures.append("history_not_list")
+        raw_history = []
     seen = set()
-    for row in gate.get("history", []):
-        epoch = row.get("assessment_epoch")
-        key = (row.get("assessment_id"), epoch)
+    duplicate_history = False
+    for row in raw_history:
+        if not isinstance(row, Mapping):
+            quality_failures.append("malformed_history_entry")
+            row = {}
+        key = _assessment_key(row)
+        if key is None:
+            quality_failures.append("malformed_history_key")
+            # Keep malformed raw rows diagnosable without allowing arbitrary
+            # JSON values (for example a list ID) to break set bookkeeping.
+            key = (None, len(records))
+        epoch = key[1]
         duplicate = key in seen
+        duplicate_history |= duplicate
         seen.add(key)
         external = row.get("external_evaluation") or {}
-        valid = (not duplicate and row.get("public_task_sha256") == task_sha256
-                 and external.get("assessment_id") == key[0]
-                 and external.get("assessment_epoch") == epoch
-                 and external.get("oracle_status") == "verified"
-                 and external.get("platform_valid") is True
-                 and bool(external.get("evidence_refs"))
-                 and bool(external.get("evaluator_ref"))
-                 and external.get("feasibility_label") in {"deployable", "not_deployable"})
-        label, decision = external.get("feasibility_label"), row.get("decision")
+        if not isinstance(external, Mapping):
+            quality_failures.append("malformed_history_evaluation")
+            external = {}
+        valid = (not duplicate and key[0] is not None and
+                 row.get("public_task_sha256") == task_sha256 and
+                 _valid_oracle_evaluation(external, key))
+        label = external.get("feasibility_label") if isinstance(external, Mapping) else None
+        decision = row.get("decision")
         classification = None
         if valid:
             classification = {
@@ -211,6 +279,8 @@ def deployment_assessment_observations(
                 ("not_deployable", "not_deployable"): "correct_refusal",
             }.get((label, decision))
         trigger = event_index.get(row.get("trigger_event_sequence"), {})
+        if not isinstance(trigger, Mapping):
+            trigger = {}
         start, declared = trigger.get("time_s"), row.get("declared_at_s")
         def finite(value):
             return type(value) in (float, int) and math.isfinite(value)
@@ -218,9 +288,13 @@ def deployment_assessment_observations(
         before = []
         declaration_found = False
         for event in events:
+            if not isinstance(event, Mapping):
+                continue
             if event.get("sequence", -1) < row.get("trigger_event_sequence", 0):
                 continue
             payload = event.get("payload", {})
+            if not isinstance(payload, Mapping):
+                continue
             if event.get("type") != "action_result" or payload.get("status") != "accepted":
                 continue
             if payload.get("action_id") == row.get("decision_action_id"):
@@ -229,7 +303,7 @@ def deployment_assessment_observations(
             accepted = actions.get(payload.get("action_id"))
             if accepted:
                 before.append(accepted)
-        counts = {kind: sum(a["type"] == kind for a in before) for kind in (
+        counts = {kind: sum(isinstance(a, Mapping) and a.get("type") == kind for a in before) for kind in (
             "select_team", "submit_plan", "revise_plan", "dispatch_skill", "consume_message")}
         requested = termination.get("assessment_id") == key[0]
         records.append({
@@ -250,37 +324,66 @@ def deployment_assessment_observations(
             "pre_declaration_planning_compute_cost": None,
             "business_task_completed": False if requested else None,
         })
-    required = {(event.get("payload", {}).get("assessment_id"),
-                 event.get("payload", {}).get("assessment_epoch"))
-                for event in events if event.get("type") == "deployment_assessment_required"}
+    required = set()
+    duplicate_required = False
+    for event in events:
+        if not isinstance(event, Mapping) or event.get("type") != "deployment_assessment_required":
+            continue
+        payload = event.get("payload")
+        key = _assessment_key(payload)
+        if key is None:
+            quality_failures.append("malformed_required_epoch")
+            continue
+        if key in required:
+            duplicate_required = True
+        required.add(key)
     unanswered = sorted(required - seen, key=lambda pair: pair[1])
-    oracles = gate.get("oracle_evaluations", [])
+    raw_oracles = gate.get("oracle_evaluations", [])
+    if not isinstance(raw_oracles, list):
+        quality_failures.append("oracle_evaluations_not_list")
+        raw_oracles = []
+    oracles = raw_oracles
     by_epoch = {}
     duplicate_oracle = False
+    malformed_oracle = 0
     for oracle in oracles:
-        key = (oracle.get("assessment_id"), oracle.get("assessment_epoch"))
+        key = _assessment_key(oracle)
+        if key is None:
+            malformed_oracle += 1
+            quality_failures.append("malformed_oracle_evaluation")
+            continue
         duplicate_oracle |= key in by_epoch
+        if key in by_epoch:
+            quality_failures.append("duplicate_oracle_epoch")
         by_epoch[key] = oracle
     valid_oracles = {key for key, oracle in by_epoch.items()
-                     if oracle.get("oracle_status") == "verified"
-                     and oracle.get("feasibility_label") in {"deployable", "not_deployable"}
-                     and oracle.get("platform_valid") is True
-                     and bool(oracle.get("evidence_refs")) and bool(oracle.get("evaluator_ref"))}
+                     if key in required and _valid_oracle_evaluation(oracle, key)}
     missing_or_failed = required - valid_oracles
+    if set(by_epoch) != required:
+        quality_failures.append("oracle_epoch_set_mismatch")
+    if duplicate_history:
+        quality_failures.append("duplicate_history_epoch")
     episode_eligible = (bool(required) and not missing_or_failed and not duplicate_oracle
                         and set(by_epoch) == required
+                        and not quality_failures
                         and all(record["label_eligible"] for record in records))
+    infrastructure_failures = len(missing_or_failed) + malformed_oracle
+    if duplicate_oracle:
+        infrastructure_failures += 1
+    if quality_failures and infrastructure_failures == 0:
+        infrastructure_failures = 1
     return {"status": gate.get("status"), "raw_only": True, "not_protocol_score": True,
             "records": records, "accuracy_denominator": len(required) if episode_eligible else 0,
             "accuracy_denominator_scope": "all_required_epochs_of_oracle_verified_episodes_including_missing_answers",
             "episode_oracle_eligible": episode_eligible,
             "excluded_from_deployment_metrics": not episode_eligible,
             "required_epoch_count": len(required) if required else None,
+            "quality_failures": sorted(set(quality_failures)),
             "unanswered_epochs": [{"assessment_id": key[0], "assessment_epoch": key[1]}
                                    for key in unanswered],
             "classification_counts": {name: (sum(r["classification"] == name for r in records) if episode_eligible else 0)
                 for name in ("correct_deployment", "false_refusal", "false_deployment", "correct_refusal")},
-            "oracle_infrastructure_failure_count": len(missing_or_failed),
+            "oracle_infrastructure_failure_count": infrastructure_failures,
             "missing_assessment_count": len(unanswered) if episode_eligible else None,
             "undeclared_current_epoch": gate.get("status") == "required",
             "clock_source": "goal_host_receipt_clock", "physical_clock_bound": False,

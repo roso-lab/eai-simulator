@@ -269,6 +269,26 @@ def test_invalid_platform_wrong_binding_and_duplicate_do_not_inflate_accuracy():
     assert deployment_assessment_observations(report, task_sha256="task-hash")["accuracy_denominator"] == 0
 
 
+def test_malformed_oracle_shape_is_infrastructure_failure_and_keeps_plan_facts_outside_gate():
+    report = assessment_report("deployable", "deployable")
+    evaluation = report["deployment_assessment"]["oracle_evaluations"][0]
+    evaluation["unexpected"] = "third_truth"
+    result = deployment_assessment_observations(report, task_sha256="task-hash")
+    assert result["accuracy_denominator"] == 0
+    assert result["episode_oracle_eligible"] is False
+    assert result["oracle_infrastructure_failure_count"] >= 1
+    assert result["records"][0]["label_eligible"] is True
+
+
+def test_non_mapping_history_does_not_crash_or_create_an_epoch():
+    report = assessment_report("deployable", "deployable")
+    report["deployment_assessment"]["history"].append(["malformed"])
+    result = deployment_assessment_observations(report, task_sha256="task-hash")
+    assert result["accuracy_denominator"] == 0
+    assert result["episode_oracle_eligible"] is False
+    assert "malformed_history_entry" in result["quality_failures"]
+
+
 def test_safe_stop_uses_action_order_at_equal_timestamp():
     report = assessment_report("not_deployable", "not_deployable")
     report["actions"].insert(0, {"action_id": "dispatch", "type": "dispatch_skill"})
