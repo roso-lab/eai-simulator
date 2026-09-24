@@ -240,7 +240,7 @@ class FormalGoalEpisodeRunner:
                  assessment_evaluator: AssessmentEvaluator | None = None,
                  shared_communication_runtime: Any = None,
                  downlink: Any = None, execution_observer: Any = None,
-                 session_audit: bool = False):
+                 session_audit: bool = False, progress_reader: Any = None):
         if not isinstance(max_turns, int) or isinstance(max_turns, bool) or max_turns < 1:
             raise ValueError("max_turns must be a positive integer")
         self.public_task = deepcopy(dict(public_task))
@@ -262,6 +262,9 @@ class FormalGoalEpisodeRunner:
         if type(session_audit) is not bool:
             raise ValueError("session_audit must be a bool")
         self.session_audit = session_audit
+        if progress_reader is not None and not callable(progress_reader):
+            raise ValueError("progress_reader must be a trusted host callable")
+        self.progress_reader = progress_reader
         if pose_tools is not None and (
                 pose_tools.episode_id != self.episode_id
                 or pose_tools.public_task_sha256 != canonical_sha256(self.public_task)):
@@ -390,6 +393,12 @@ class FormalGoalEpisodeRunner:
                 "business_outcomes_validated": False,
                 "scoreable": False,
             }
+        if self.progress_reader is not None:
+            manifest["progress_evidence"] = {
+                "version": 1, "archive": "goal_progress_evidence.json",
+                "sampling_scope": "runner_boundaries", "visibility": "evaluator_only",
+                "physical_source_authenticated": False,
+            }
         if self.pose_tools is not None:
             profile = self.pose_tools.public_profile()
             manifest["pose_tools"] = {
@@ -437,11 +446,36 @@ class FormalGoalEpisodeRunner:
         cancellation_attempts: set[tuple[str, str]] = set()
         downlink_ready: dict[str, dict[str, Any]] = {}
         session_audit_replay: dict[str, Any] | None = None
+        progress = None
+        if self.progress_reader is not None:
+            from .goal_progress_evidence import GoalProgressRecorder
+            progress = GoalProgressRecorder(self.public_task, self.episode_id)
+
+        def sample_progress(boundary: str) -> None:
+            if progress is None:
+                return
+            trusted = {"session": session.report()}
+            host_time = trusted["session"]["current_time_s"]
+            try:
+                payload = self.progress_reader(
+                    episode_id=self.episode_id, boundary=boundary,
+                    trusted_report=deepcopy(trusted))
+                progress.append(payload, boundary=boundary, host_time_s=host_time)
+            except Exception as exc:
+                # Instrumentation failure is not a participant action result.
+                message = f"{type(exc).__name__}: {exc}"
+                progress.record_error(boundary=boundary, host_time_s=host_time,
+                                      error=message)
+                lifecycle_errors.append({"component": "progress_reader",
+                                         "operation": boundary, "error": message})
 
         def notify_after_skill(task: Mapping[str, Any], result: Mapping[str, Any]) -> None:
-            if self.execution_observer is not None and host is not None:
-                self.execution_observer.after_skill(
-                    deepcopy(dict(task)), deepcopy(dict(result)), host=host)
+            try:
+                if self.execution_observer is not None and host is not None:
+                    self.execution_observer.after_skill(
+                        deepcopy(dict(task)), deepcopy(dict(result)), host=host)
+            finally:
+                sample_progress("skill_completed")
 
         def complete_local_transport(outcome: Mapping[str, Any], *,
                                      status: str, disposition: str) -> None:
@@ -748,6 +782,7 @@ class FormalGoalEpisodeRunner:
             snapshots.append({"episode_id": self.episode_id, "time_s": actual_time,
                               "robot_regions": deepcopy(robots),
                               "object_states": deepcopy(objects)})
+            sample_progress("idle")
             if self.execution_observer is not None:
                 self.execution_observer.advance(host=host)
             drain_safety_stops()
@@ -756,6 +791,7 @@ class FormalGoalEpisodeRunner:
 
         try:
             session.update_runtime_state(0.0, robots, objects)
+            sample_progress("initial")
             with GoalAlgorithmHost(self.public_task, self.participant_api, self.adapter,
                                     session=session, pose_tools=self.pose_tools,
                                     camera_tools=self.camera_tools,
@@ -882,6 +918,7 @@ class FormalGoalEpisodeRunner:
                     raise RuntimeError("formal goal episode exceeded max_turns")
                 final_assessment = host.trusted_report()["session"].get(
                     "deployment_assessment")
+                sample_progress("execution_stopped")
                 if (self.evaluator is not None
                         and not (final_assessment or {}).get("terminated", False)):
                     evaluations = self.evaluator(self.episode_id, host.trusted_report())
@@ -903,6 +940,7 @@ class FormalGoalEpisodeRunner:
                         if not result.get("accepted"):
                             raise ValueError(f"business outcome was not accepted: {result}")
                         business[outcome_id] = data
+                    sample_progress("business_evaluated")
                 final_report = host.trusted_report()["session"]
         except DeploymentAssessmentProtocolError as exc:
             error = f"{type(exc).__name__}: {exc}"
@@ -921,6 +959,7 @@ class FormalGoalEpisodeRunner:
 
         drain_safety_stops()
         final_report = session.report()
+        sample_progress("terminal")
         if host is not None:
             lifecycle_errors.extend(host.cleanup_errors)
 
@@ -1140,6 +1179,19 @@ class FormalGoalEpisodeRunner:
                 except Exception as archive_exc:
                     record_lifecycle_error(
                         "goal_session_audit", "write_failure_receipt", archive_exc)
+        if progress is not None:
+            from .goal_progress_evidence import replay_progress_evidence
+            assessment = final_report.get("deployment_assessment") or {}
+            reason = ("human_assistance_requested" if assessment.get("terminated")
+                      else "execution_error" if error is not None
+                      else "participant_stopped")
+            progress_report = progress.report(
+                termination_reason=reason,
+                host_cutoff_s=final_report["current_time_s"])
+            _write_json(self.output_root / "goal_progress_evidence.json", progress_report)
+            _write_json(self.output_root / "goal_progress_replay.json",
+                        replay_progress_evidence(progress_report, self.public_task,
+                                                 episode_id=self.episode_id))
         if lifecycle_errors:
             _write_json(self.output_root / "lifecycle_errors.json", lifecycle_errors)
             if error is None:
@@ -1180,6 +1232,7 @@ class FormalGoalEpisodeRunner:
                 row.get("status") == "validated" for row in business.values())
                 and not (deployment_assessment or {}).get("enabled", False)
                 and not self.session_audit
+                and self.progress_reader is None
                 and self.downlink is None and self.execution_observer is None,
             "execution_validated": False, "scoreable": False,
             "output_root": str(self.output_root),

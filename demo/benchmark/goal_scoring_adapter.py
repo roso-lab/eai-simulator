@@ -156,6 +156,9 @@ def build_archive_index(output_root: str | Path) -> dict[str, Any]:
         "execution_downlink_profile.json", "execution_downlink_report.json",
         "execution_observer_profile.json", "execution_observer_report.json",
         "goal_session_audit.json", "goal_session_audit_replay.json",
+        "goal_progress_evidence.json", "goal_progress_replay.json",
+        "goal_city_autonomous_entry.json", "goal_city_autonomous_source.json", "city_acceptance_evidence.json",
+        "native_evidence_log.json", "city_progress_sources.json",
     )
     files = {}
     for name in names:
@@ -648,6 +651,59 @@ def checkpoint_branch_observations(output_root: str | Path) -> dict[str, Any]:
             "report_sha256": _sha256(path)}
 
 
+def progress_evidence_observations(output_root: str | Path,
+                                   public_task: Mapping[str, Any], *,
+                                   episode_id: str) -> dict[str, Any]:
+    """Independently replay raw predicate facts; do not trust a stored replay flag."""
+    from .goal_progress_evidence import replay_progress_evidence
+
+    path = Path(output_root) / "goal_progress_evidence.json"
+    base = {"raw_only": True, "not_protocol_score": True,
+            "scoreable": False, "execution_validated": False,
+            "business_outcomes_validated": False}
+    if not path.is_file():
+        return {**base, "status": "missing", "report": None,
+                "quality_failure": "progress_archive_missing"}
+    try:
+        report = json.loads(path.read_text(encoding="utf-8"))
+        replay = replay_progress_evidence(report, public_task, episode_id=episode_id)
+        receipt_path = Path(output_root) / "skill_receipts.json"
+        if not receipt_path.is_file():
+            return {**base, "status": "missing", "report": None,
+                    "quality_failure": "progress_receipt_archive_missing"}
+        receipts = json.loads(receipt_path.read_text(encoding="utf-8"))
+        if not isinstance(receipts, list) or any(
+                not isinstance(row, Mapping) or row.get("episode_id") != episode_id
+                for row in receipts):
+            raise ValueError("progress receipt binding has invalid episode identities")
+        receipt_times = [row["completed_at_s"] for row in receipts]
+        if any(isinstance(time, bool) or not isinstance(time, (float, int))
+               or not math.isfinite(time) for time in receipt_times):
+            raise ValueError("progress receipt binding has invalid times")
+        receipt_times.sort()
+        boundary_times = sorted(row["host_time_s"] for row in
+                                [*report["samples"], *report["quality_errors"]]
+                                if row["boundary"] == "skill_completed")
+        if receipt_times != boundary_times:
+            raise ValueError("progress boundaries do not match accepted skill receipts")
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        return {**base, "status": "invalid", "report": None,
+                "quality_failure": f"progress_archive_invalid:{type(exc).__name__}"}
+    return {**base, "status": replay["status"], "report": report,
+            "replay": replay, "report_sha256": _sha256(path)}
+
+
+def _progress_requested(output_root: str | Path) -> bool:
+    root = Path(output_root)
+    if (root / "goal_progress_evidence.json").exists():
+        return True
+    try:
+        manifest = json.loads((root / "episode_manifest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return isinstance(manifest, Mapping) and "progress_evidence" in manifest
+
+
 def build_scoring_adapter_metadata(
     public_task: Mapping[str, Any],
     *,
@@ -696,6 +752,9 @@ def build_scoring_adapter_metadata(
         "native_oracle_registry": native_oracle_registry_observations(output_root),
         "development_track": development_track_observations(development_markers),
         "cost_evidence": cost_evidence,
+        **({"progress_evidence": progress_evidence_observations(
+            output_root, public_task, episode_id=episode_id)}
+           if _progress_requested(output_root) else {}),
         "condition": {
             "id": public_task.get("condition_id"),
             "seed": public_task.get("seed"),
@@ -767,4 +826,5 @@ __all__ = [
     "communication_capacity_observations", "deployment_assessment_observations",
     "development_track_observations", "native_oracle_registry_observations",
     "plan_admission_observations", "task_allocation_observations",
+    "progress_evidence_observations",
 ]
