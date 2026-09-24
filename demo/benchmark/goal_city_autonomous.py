@@ -56,6 +56,32 @@ CITY_PROGRESS_SOURCE_SCHEMA = "eai.benchmark.goal_city_progress_sources"
 CITY_PROGRESS_EVALUATOR_REF = (
     "demo.benchmark.goal_city_autonomous.read_only_acceptance_progress")
 
+_CITY_PARTIAL_ACCEPTANCE_PROJECTIONS = {
+    "incident_assessed": {
+        "sections": ("incident_assessed",),
+        "required_outcomes": ("incident_assessed",),
+    },
+    "response_dispatch": {
+        "sections": (
+            "responder_dispatch",
+            "incident_assessed.observation_delivery_time_s",
+        ),
+        "required_outcomes": ("response_dispatch",),
+    },
+    "exposed_people_accounted_for": {
+        "sections": ("people",),
+        "required_outcomes": ("exposed_people_accounted_for",),
+    },
+    "secondary_traffic_protected": {
+        "sections": ("traffic",),
+        "required_outcomes": ("secondary_traffic_protected",),
+    },
+    "response_access_preserved": {
+        "sections": ("incident_report", "response_access"),
+        "required_outcomes": ("response_access_preserved",),
+    },
+}
+
 AssessmentEvaluator = Callable[[str, Mapping[str, Any]], Mapping[str, Any]]
 BusinessEvaluator = Callable[[str, Mapping[str, Any]], Mapping[str, Any]]
 ProgressReader = Callable[..., Mapping[str, Any]]
@@ -103,6 +129,172 @@ def _has_pending_timestamp(value: Any) -> bool:
     if isinstance(value, (list, tuple)):
         return any(_has_pending_timestamp(item) for item in value)
     return False
+
+
+def _validate_nonnull_timestamps(value: Any, *, path: str = "acceptance_envelope") -> None:
+    """Reject malformed measured timestamps while retaining null as pending."""
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            item_path = f"{path}.{key}"
+            if isinstance(key, str) and key.endswith("_time_s") and item is not None:
+                if (isinstance(item, bool) or not isinstance(item, (int, float))
+                        or not math.isfinite(item) or item < 0):
+                    raise ValueError(
+                        f"{item_path} must be a finite nonnegative time or null")
+            _validate_nonnull_timestamps(item, path=item_path)
+    elif isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            _validate_nonnull_timestamps(item, path=f"{path}[{index}]")
+
+
+def _strict_json_evidence(
+        value: Any, *, path: tuple[str | int, ...] = (),
+        special_floats: list[dict[str, Any]] | None = None) -> Any:
+    """Encode rejected non-finite floats without losing their path or kind."""
+    if special_floats is None:
+        special_floats = []
+    if isinstance(value, Mapping):
+        return {
+            str(key): _strict_json_evidence(
+                item, path=(*path, str(key)), special_floats=special_floats)
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [
+            _strict_json_evidence(
+                item, path=(*path, index), special_floats=special_floats)
+            for index, item in enumerate(value)
+        ]
+    if isinstance(value, float) and not math.isfinite(value):
+        kind = "nan" if math.isnan(value) else ("inf" if value > 0 else "-inf")
+        special_floats.append({"path": list(path), "value": kind})
+        return {"nonfinite_float": kind}
+    return deepcopy(value)
+
+
+def evaluate_city_partial_acceptance(
+        acceptance_envelope: Mapping[str, Any], *,
+        expected_affected_person_ids: set[str],
+        expected_following_vehicle_ids: set[str],
+        outcome_ids: list[str] | tuple[str, ...] | None = None,
+) -> dict[str, Any]:
+    """Evaluate independently complete City milestones with explicit projections.
+
+    Null timestamps remain pending evidence. Every non-null timestamp in the raw
+    envelope is validated before projection so malformed evidence cannot hide
+    behind an unrelated pending service. Each reviewed projection is passed to
+    the canonical City acceptance evaluator unchanged.
+    """
+    if not isinstance(acceptance_envelope, Mapping):
+        raise ValueError("city acceptance evidence must be an object")
+    _validate_nonnull_timestamps(acceptance_envelope)
+    public_outcomes = tuple(
+        outcome_id for outcome_id in _CITY_PARTIAL_ACCEPTANCE_PROJECTIONS
+        if outcome_id != "response_dispatch")
+    requested = (public_outcomes
+                 if outcome_ids is None else tuple(outcome_ids))
+    if len(requested) != len(set(requested)):
+        raise ValueError("City partial acceptance outcome ids must be unique")
+    unknown = sorted(set(requested) - set(public_outcomes))
+    if unknown:
+        raise ValueError(f"unsupported City partial acceptance outcomes: {unknown}")
+
+    partial_reviews: dict[str, dict[str, Any]] = {}
+    predicate_vector: dict[str, bool | None] = {}
+    policy = default_deadline_policy()
+    review_outcomes = (*requested, "response_dispatch")
+    review_satisfaction: dict[str, bool | None] = {}
+    for outcome_id in review_outcomes:
+        contract = _CITY_PARTIAL_ACCEPTANCE_PROJECTIONS[outcome_id]
+        sections = contract["sections"]
+        required_outcomes = contract["required_outcomes"]
+        missing_dependencies: list[str] = []
+        if outcome_id == "response_dispatch":
+            projection = {}
+            if "responder_dispatch" in acceptance_envelope:
+                projection["responder_dispatch"] = deepcopy(
+                    acceptance_envelope["responder_dispatch"])
+            incident = acceptance_envelope.get("incident_assessed")
+            if (isinstance(incident, Mapping)
+                    and "observation_delivery_time_s" in incident):
+                projection["incident_assessed"] = {
+                    "observation_delivery_time_s": deepcopy(
+                        incident["observation_delivery_time_s"]),
+                }
+            else:
+                missing_dependencies.append(
+                    "incident_assessed.observation_delivery_time_s")
+        else:
+            projection = {
+                section: deepcopy(acceptance_envelope[section])
+                for section in sections if section in acceptance_envelope
+            }
+        if missing_dependencies or _has_pending_timestamp(projection):
+            status = "pending"
+            review = None
+            satisfied = None
+        else:
+            review = evaluate_city_acceptance(
+                projection,
+                policy,
+                expected_affected_person_ids=expected_affected_person_ids,
+                expected_following_vehicle_ids=expected_following_vehicle_ids,
+            )
+            reviewed_outcomes = review.get("outcomes") or {}
+            satisfied = bool(
+                not review.get("failure_codes")
+                and all(
+                    isinstance(reviewed_outcomes.get(required_id), Mapping)
+                    and reviewed_outcomes[required_id].get("success") is True
+                    for required_id in required_outcomes
+                )
+            )
+            status = "satisfied" if satisfied else "not_satisfied"
+            if not satisfied:
+                satisfied = None
+        partial_reviews[outcome_id] = {
+            "sections": list(sections),
+            "required_evaluator_outcomes": list(required_outcomes),
+            "missing_dependencies": missing_dependencies,
+            "projection": projection,
+            "status": status,
+            "budget_decision": {
+                "response_budget_s": policy["response_budget_s"],
+                "status": (
+                    "pending" if review is None else
+                    "exceeded" if "response_budget_exceeded" in review["failure_codes"]
+                    else "within_budget"),
+            },
+            "review": deepcopy(review),
+        }
+        review_satisfaction[outcome_id] = satisfied
+        if outcome_id in requested:
+            predicate_vector[outcome_id] = satisfied
+    complete_public_request = (
+        len(requested) == len(public_outcomes)
+        and set(requested) == set(public_outcomes))
+    public_complete = (
+        complete_public_request
+        and all(value is True for value in predicate_vector.values()))
+    dispatch_complete = review_satisfaction["response_dispatch"] is True
+    return {
+        "partial_acceptance_reviews": partial_reviews,
+        "predicate_vector": predicate_vector,
+        "hard_conditions": {
+            "response_dispatch": review_satisfaction["response_dispatch"],
+        },
+        "whole_task_completion_available": {
+            "evidence_available": public_complete and dispatch_complete,
+            "meaning": (
+                "all public progress predicates and the hidden response_dispatch "
+                "condition have positive projected evidence; this is not a "
+                "mission-success or scoring claim"),
+            "complete_public_predicate_set_requested": complete_public_request,
+            "all_public_predicates_satisfied": public_complete,
+            "response_dispatch_satisfied": dispatch_complete,
+            "mission_success": None,
+        },
+    }
 
 
 def _autonomous_entry(manifest: Mapping[str, Any]) -> dict[str, Any]:
@@ -193,22 +385,41 @@ class CityAcceptanceProgressReader:
         error = None
         acceptance_error: Exception | None = None
         acceptance = None
-        # The native envelope intentionally uses null timestamps while an
-        # action has not yet produced its readback. That is a legal incomplete
-        # boundary and remains unknown. Once timestamps are complete, any
-        # evaluator exception is an infrastructure evidence failure.
-        if not _has_pending_timestamp(envelope):
-            try:
+        partial_acceptance = None
+        required = [
+            row["id"] for row in
+            trusted_report["session"]["business_outcomes"]
+        ]
+        # The raw native envelope intentionally retains null timestamps for
+        # pending readbacks. Independently complete milestones are evaluated
+        # through explicit projections; malformed measured timestamps still
+        # fail the entire sample as infrastructure evidence.
+        try:
+            partial_acceptance = evaluate_city_partial_acceptance(
+                envelope,
+                expected_affected_person_ids=set(self._ctx["roster_ids"]),
+                expected_following_vehicle_ids=set(self._ctx["vehicle_ids"]),
+                outcome_ids=required,
+            )
+            # Preserve the historical complete-envelope review for archive
+            # consumers once no timestamp remains pending.
+            if not _has_pending_timestamp(envelope):
                 acceptance = evaluate_city_acceptance(
                     envelope,
                     default_deadline_policy(),
                     expected_affected_person_ids=set(self._ctx["roster_ids"]),
                     expected_following_vehicle_ids=set(self._ctx["vehicle_ids"]),
                 )
-            except Exception as exc:
-                acceptance_error = exc
-                error = f"{type(exc).__name__}: {exc}"
+        except Exception as exc:
+            acceptance_error = exc
+            error = f"{type(exc).__name__}: {exc}"
+            # A boundary with any infrastructure evaluation failure cannot
+            # retain a partially trusted projected vector.
+            partial_acceptance = None
         source_index = len(self._samples)
+        special_floats: list[dict[str, Any]] = []
+        archived_envelope = _strict_json_evidence(
+            envelope, special_floats=special_floats)
         self._samples.append({
             "index": source_index,
             "episode_id": episode_id,
@@ -216,22 +427,28 @@ class CityAcceptanceProgressReader:
             "native_time_s": native_time_s,
             "clock_epoch_s": self._clock_epoch_s,
             "time_s": time_s,
-            "acceptance_envelope": deepcopy(envelope),
+            "acceptance_envelope": archived_envelope,
+            "acceptance_envelope_special_floats": special_floats,
             "acceptance_review": deepcopy(acceptance),
+            "expected_affected_person_ids": sorted(self._ctx["roster_ids"]),
+            "expected_following_vehicle_ids": sorted(self._ctx["vehicle_ids"]),
+            "partial_acceptance_reviews": deepcopy(
+                (partial_acceptance or {}).get("partial_acceptance_reviews")),
+            "predicate_vector": deepcopy(
+                (partial_acceptance or {}).get("predicate_vector")),
+            "hard_conditions": deepcopy(
+                (partial_acceptance or {}).get("hard_conditions")),
+            "whole_task_completion_available": deepcopy(
+                (partial_acceptance or {}).get(
+                    "whole_task_completion_available")),
             "error": error,
         })
         if acceptance_error is not None:
             raise RuntimeError(
                 "City acceptance progress evaluation failed") from acceptance_error
-        required = [
-            row["id"] for row in
-            trusted_report["session"]["business_outcomes"]
-        ]
         predicates: dict[str, dict[str, Any]] = {}
         for outcome_id in required:
-            reviewed = ((acceptance or {}).get("outcomes") or {}).get(outcome_id)
-            satisfied = True if (isinstance(reviewed, Mapping)
-                                 and reviewed.get("success") is True) else None
+            satisfied = (partial_acceptance or {})["predicate_vector"][outcome_id]
             refs = ([f"city_progress_sources.json#sample={source_index}"
                      f"&outcome={outcome_id}"] if satisfied is True else [])
             predicates[outcome_id] = {
@@ -251,7 +468,7 @@ class CityAcceptanceProgressReader:
             return
         _write_json(self._path, {
             "schema": CITY_PROGRESS_SOURCE_SCHEMA,
-            "version": 1,
+            "version": 2,
             "episode_id": self._episode_id,
             "clock_source": "native_simulation",
             "evaluator_ref": CITY_PROGRESS_EVALUATOR_REF,
@@ -576,6 +793,7 @@ __all__ = [
     "CityAcceptanceProgressReader",
     "build_city_autonomous_contract",
     "city_autonomous_platform_gap_evaluator",
+    "evaluate_city_partial_acceptance",
     "run_city_autonomous_context",
     "run_city_autonomous_episode",
     "run_city_autonomous_session",

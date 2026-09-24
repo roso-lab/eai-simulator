@@ -452,8 +452,9 @@ def test_acceptance_reader_failure_is_platform_evidence_failure(
     assert ctx["step"] is original_step
     progress = json.loads((root / "goal_progress_evidence.json").read_text())
     assert progress["status"] == "failed"
-    assert progress["samples"][0]["boundary"] == "initial"
+    assert progress["samples"] == []
     assert progress["quality_errors"]
+    assert progress["quality_errors"][0]["boundary"] == "initial"
     assert all(row["category"] == "infrastructure_evidence_failure"
                and row["error"].startswith("RuntimeError:")
                for row in progress["quality_errors"])
