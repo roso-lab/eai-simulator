@@ -1,8 +1,8 @@
 """Native admission probe harness for the remaining-task readers.
 
-This module is the offline, pure-Python assembly point between the four scene
-readers (Modern House, City, Warehouse, Factory) and host-installed native
-probes.  It defines protocols and wiring only: nothing here imports Isaac,
+This module is the offline, pure-Python assembly point between the five scene
+readers (Modern House, City, Warehouse, Factory, Restaurant) and
+host-installed native probes.  It defines protocols and wiring only: nothing here imports Isaac,
 ROS, or torch.  A real PhysX/USD probe is a host-installed callable that
 closes over the caller-owned simulator session (ljy / headless execution);
 offline development uses deterministic fake probes that exercise exactly the
@@ -93,6 +93,19 @@ from .goal_reader_house import (
     build_house_registration,
     build_house_state_contract,
     make_house_source_readers,
+)
+from .goal_reader_restaurant import (
+    RESTAURANT_DEV_CASES,
+    RESTAURANT_ENTITY_IDS,
+    RESTAURANT_MEASUREMENT_POINTS,
+    RESTAURANT_NATIVE_BLOCKER,
+    RESTAURANT_PREDICATE_BINDINGS,
+    RESTAURANT_SCENE_KEY,
+    RESTAURANT_SOURCE_VERSIONS,
+    build_restaurant_development_certificate,
+    build_restaurant_registration,
+    build_restaurant_state_contract,
+    make_restaurant_source_readers,
 )
 from .goal_reader_warehouse import (
     WAREHOUSE_DEV_CASES,
@@ -205,6 +218,21 @@ _SCENE_SPECS: dict[str, NativeProbeSpec] = {
         # pending native admission blocker is recorded alongside it.
         native_blockers=(FACTORY_FIXTURE_HASH_MISMATCH,
                          f"{FACTORY_SCENE_KEY}_native_admission_pending"),
+    ),
+    RESTAURANT_SCENE_KEY: NativeProbeSpec(
+        scene_key=RESTAURANT_SCENE_KEY,
+        registration_builder=build_restaurant_registration,
+        contract_builder=build_restaurant_state_contract,
+        certificate_builder=build_restaurant_development_certificate,
+        source_readers_factory=make_restaurant_source_readers,
+        measurement_points=tuple(RESTAURANT_MEASUREMENT_POINTS),
+        source_versions=dict(RESTAURANT_SOURCE_VERSIONS),
+        predicate_bindings=dict(RESTAURANT_PREDICATE_BINDINGS),
+        entity_ids=tuple(RESTAURANT_ENTITY_IDS),
+        dev_cases=dict(RESTAURANT_DEV_CASES),
+        # Restaurant stays authoring-only until every pool candidate has its
+        # native controller/route/contact evidence (STAGE32 audit).
+        native_blockers=(RESTAURANT_NATIVE_BLOCKER,),
     ),
 }
 

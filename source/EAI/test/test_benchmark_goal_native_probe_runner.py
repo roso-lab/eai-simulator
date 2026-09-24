@@ -86,7 +86,7 @@ def _clock_sample(**overrides):
 
 
 def test_unregistered_scene_is_rejected():
-    for scene_key in ("restaurant", "not_a_scene"):
+    for scene_key in ("not_a_scene", "restaurant_staging"):
         try:
             build_probe_harness(scene_key)
         except ValueError:
@@ -102,6 +102,7 @@ def test_unregistered_scene_is_rejected():
     scenes = registered_probe_scenes()
     assert "modern_house_nvd" in scenes and "city" in scenes
     assert "warehouse_nvd" in scenes and "factory" in scenes
+    assert "restaurant" in scenes
 
 
 def test_host_probe_factories_must_cover_every_registered_source():
