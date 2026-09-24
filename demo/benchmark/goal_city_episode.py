@@ -81,6 +81,18 @@ CITY_EVALUATOR_REF = "demo.city_benchmark.task_logic.evaluate_city_acceptance"
 CITY_GUIDE_RETRY_LIMIT = 20
 
 
+def _requested_target_profile(service: Any) -> bool:
+    from demo.city_benchmark.guide_admission import REQUESTED_TARGET_PROFILES
+
+    return getattr(service, "guidance_profile", None) in REQUESTED_TARGET_PROFILES
+
+
+def _support_footprint_profile(service: Any) -> bool:
+    from demo.city_benchmark.guide_admission import REQUESTED_TARGET_V2_PROFILE
+
+    return getattr(service, "guidance_profile", None) == REQUESTED_TARGET_V2_PROFILE
+
+
 def _clock_epoch(value: Any) -> float:
     if (isinstance(value, bool) or not isinstance(value, (int, float))
             or not math.isfinite(value) or value < 0):
@@ -714,7 +726,7 @@ class CityNativeGoalBackend:
         from demo.city_benchmark.guide_admission import CityGuideAdmissionError
 
         service = getattr(self._ctx["city"], "_episode_service", None)
-        if getattr(service, "guidance_profile", None) != "requested_target_v1":
+        if not _requested_target_profile(service):
             return
         target = task["arguments"]["assembly_region_id"]
         if target not in self._assembly_candidates:
@@ -739,7 +751,7 @@ class CityNativeGoalBackend:
 
         self._guide_evidence_checked = None
         service = getattr(self._ctx["city"], "_episode_service", None)
-        if service is None or getattr(service, "guidance_profile", None) != "requested_target_v1":
+        if service is None or not _requested_target_profile(service):
             return
         action = next((action for action in ledger.get("actions", ())
                        if action.get("action_id") == dispatch_row["dispatch_action_id"]), {})
@@ -1267,8 +1279,17 @@ def stamp_arrival_times(ctx: Mapping[str, Any], stamps: dict[str, float]) -> Non
         if person_id in stamps:
             continue
         try:
-            arrived = service.people_controller.readback(
-                person_id, service.assembly_regions)["arrived"]
+            if _support_footprint_profile(service):
+                # Path completion is a necessary v2 arrival condition. Avoid
+                # copying the growing trajectory and reacquiring footprint
+                # support on every unfinished simulation tick.
+                motion = service.people_controller.motion_readback(person_id)
+                if motion.get("path_finished") is not True:
+                    continue
+                arrived = service.person_readback(person_id)["arrived"]
+            else:
+                arrived = service.people_controller.readback(
+                    person_id, service.assembly_regions)["arrived"]
         except ValueError as exc:
             # Assembly assignments exist only after a person's guide request
             # is admitted; people still waiting for guidance are skipped.
@@ -1296,7 +1317,6 @@ def await_assembly_arrivals(ctx: Mapping[str, Any],
     roster = list(ctx["roster_ids"])
     guides = [row for row in evidence_log if row.get("kind") == "guide"]
     service = city._episode_service
-    controller, regions = service.people_controller, service.assembly_regions
     budget = float(default_deadline_policy()["people_assembly_arrival_s"])
 
     def ack_time(record: Mapping[str, Any], person_id: str) -> float | None:
@@ -1330,7 +1350,10 @@ def await_assembly_arrivals(ctx: Mapping[str, Any],
         request_id = row["request"]["request_id"]
         region_id = row.get("assembly_region_id")
         for person_id in row.get("person_ids", ()):
-            readback = controller.readback(person_id, regions)
+            readback = (service.person_readback(person_id)
+                        if _support_footprint_profile(service)
+                        else service.people_controller.readback(
+                            person_id, service.assembly_regions))
             recorded = ctx["runner"].record_person_arrival(
                 request_id, person_id,
                 previous_position=ctx["person_start"][person_id],

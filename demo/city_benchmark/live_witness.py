@@ -314,7 +314,7 @@ class CityDemoRuntimeWitnessAdapter:
             })
         return rows
 
-    def _requested_target_profile_enabled(self) -> bool:
+    def _requested_target_profile(self) -> str | None:
         runtime = getattr(self, "runtime", None)
         service = getattr(runtime, "_episode_service", None)
         profile = getattr(service, "guidance_profile", None)
@@ -323,7 +323,12 @@ class CityDemoRuntimeWitnessAdapter:
             if callable(binding_factory):
                 binding = binding_factory()
                 profile = binding.get("guidance_profile") if isinstance(binding, Mapping) else None
-        return profile == "requested_target_v1"
+        from demo.city_benchmark.guide_admission import REQUESTED_TARGET_PROFILES
+
+        return profile if profile in REQUESTED_TARGET_PROFILES else None
+
+    def _requested_target_profile_enabled(self) -> bool:
+        return self._requested_target_profile() is not None
 
     def _call_with_optional_target(self, callback: Callable[..., Any], person_id: str,
                                    assembly_region_id: str | None) -> Any:
@@ -332,12 +337,13 @@ class CityDemoRuntimeWitnessAdapter:
         try:
             inspect.signature(callback).bind(person_id, target_region_id=assembly_region_id)
         except (TypeError, ValueError):
-            if self._requested_target_profile_enabled():
+            profile = self._requested_target_profile()
+            if profile is not None:
                 from demo.city_benchmark.guide_admission import CityGuideAdmissionError
 
                 raise CityGuideAdmissionError(
                     ["route_proposal_missing"], infrastructure_failure=True,
-                    report={"profile": "requested_target_v1", "person_id": person_id,
+                    report={"profile": profile, "person_id": person_id,
                             "target_region_id": assembly_region_id,
                             "controller_target_unsupported": True})
             return callback(person_id)

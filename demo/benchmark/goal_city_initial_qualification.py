@@ -11,7 +11,7 @@ from copy import deepcopy
 import math
 from typing import Any
 
-from .goal_city_assembly import PROFILE, project_assembly_affordances
+from .goal_city_assembly import PROFILE, SUPPORT_FOOTPRINT_PROFILE, project_assembly_affordances
 from .goal_driven_contract import validate_goal_task_spec
 from .provenance import canonical_sha256
 
@@ -76,6 +76,11 @@ def _coverage(observation: Mapping[str, Any], affordance: Mapping[str, Any], *,
                    if isinstance(row, Mapping)}
     geometry_qualified = bool(derivations) and all(
         isinstance(value, str) and "author" not in value for value in derivations)
+    if affordance.get("profile") == SUPPORT_FOOTPRINT_PROFILE:
+        geometry_qualified = geometry_qualified and all(
+            row.get("status") != "unavailable"
+            and row.get("support_status") in {"sampled_supported", "unsupported"}
+            for row in affordance.get("candidates", ()))
     observation_refs = ([str(observation["observation_ref"])]
                         if observation_current and observation.get("observation_ref") else [])
     route_refs = (sorted(str(row["evidence_ref"]) for row in affordance.get("routes", ())
@@ -346,23 +351,26 @@ def _affordance_measurement(ctx: Mapping[str, Any], public_task: Mapping[str, An
                             limitations: set[str]) -> dict[str, Any]:
     city = ctx.get("city")
     service = getattr(city, "_episode_service", None)
-    if getattr(service, "guidance_profile", None) != PROFILE:
+    profile = getattr(service, "guidance_profile", None)
+    if profile not in {PROFILE, SUPPORT_FOOTPRINT_PROFILE}:
         issues.append(_issue("requested_target_profile_inactive",
-                             "initial qualification requires requested_target_v1"))
+                             "initial qualification requires an exact supported requested-target profile"))
         return {"status": "unavailable", "profile": getattr(service, "guidance_profile", None)}
     reader = getattr(service, "assembly_affordances", None)
     if not callable(reader):
         issues.append(_issue("assembly_affordance_reader_missing",
                              "requested-target reader is unavailable"))
-        return {"status": "unavailable", "profile": PROFILE}
+        return {"status": "unavailable", "profile": profile}
     if not observed_people:
         issues.append(_issue("assembly_affordance_people_unbound",
                              "route-pair validation requires observed people"))
-        return {"status": "unavailable", "profile": PROFILE}
+        return {"status": "unavailable", "profile": profile}
     try:
         raw = reader()
         if not isinstance(raw, Mapping):
             raise ValueError("assembly reader returned no mapping")
+        if raw.get("profile") != profile:
+            raise ValueError("assembly source profile differs from active execution profile")
         raw_candidates = raw.get("candidates")
         raw_routes = raw.get("routes")
         if (not isinstance(raw_candidates, list)
@@ -375,7 +383,7 @@ def _affordance_measurement(ctx: Mapping[str, Any], public_task: Mapping[str, An
             readback = row.get("native_readback")
             if not isinstance(readback, Mapping):
                 raise ValueError("candidate native_readback must be an object")
-            if not isinstance(readback.get("region_metadata"), Mapping):
+            if profile == PROFILE and not isinstance(readback.get("region_metadata"), Mapping):
                 raise ValueError("candidate region_metadata must be an object")
         projected = project_assembly_affordances(
             raw, public_task, native_episode_id=str(native_episode_id),
@@ -384,6 +392,42 @@ def _affordance_measurement(ctx: Mapping[str, Any], public_task: Mapping[str, An
         raw_candidates = {row.get("region_id"): row for row in raw_candidates}
         for candidate in projected["candidates"]:
             raw_row = raw_candidates.get(candidate["region_id"])
+            if profile == SUPPORT_FOOTPRINT_PROFILE:
+                readback = raw_row["native_readback"]
+                support = readback.get("support")
+                footprint = readback.get("footprint")
+                if (not isinstance(support, Mapping) or not isinstance(footprint, Mapping)
+                        or readback.get("episode_id") != native_episode_id
+                        or readback.get("observed_time_s") != now_s
+                        or readback.get("source") != "native_city_assembly_footprint_reader"
+                        or any(footprint.get(key) != candidate[key] for key in (
+                            "region_id", "footprint", "center_xy_m", "radius_m",
+                            "support_plane_z_m", "capacity", "geometry_sha256"))
+                        or support.get("profile") != "city_static_assembly_support_v1"
+                        or support.get("episode_id") != native_episode_id
+                        or support.get("source_id") != source_id
+                        or support.get("captured_native_s") != now_s
+                        or support.get("semantic_map_sha256") != projected["semantic_map_sha256"]
+                        or support.get("candidate_geometry_sha256") != projected["candidate_geometry_sha256"]
+                        or support.get("geometry_sha256") != candidate["geometry_sha256"]
+                        or support.get("status") != candidate["support_status"]
+                        or support.get("evidence_ref") != candidate["support_evidence_ref"]):
+                    raise ValueError("initial footprint/native support identity or freshness mismatch")
+                if (readback.get("status") not in {"measured", "unsupported", "unknown"}
+                        or (readback["status"] == "unknown" and candidate["status"] != "unavailable")
+                        or (readback["status"] == "unsupported" and candidate["status"] == "measured")):
+                    raise ValueError("initial footprint native status contradicts candidate")
+                candidate["derivation"] = "frozen_semantic_map_disk_with_current_native_support"
+                candidate["support_evidence"] = {
+                    key: deepcopy(support[key]) for key in (
+                        "profile", "episode_id", "source_id", "captured_native_s",
+                        "semantic_map_sha256", "candidate_geometry_sha256", "geometry_sha256",
+                        "status", "evidence_ref")}
+                if candidate["status"] == "unavailable":
+                    issues.append(_issue("initial_assembly_support_or_occupancy_unavailable",
+                                         candidate["region_id"]))
+                limitations.add("sampled_support_not_continuous_surface_coverage")
+                continue
             metadata = ((raw_row or {}).get("native_readback") or {}).get("region_metadata")
             derivation = metadata.get("derivation") if isinstance(metadata, Mapping) else None
             if not isinstance(derivation, str) or not derivation.strip():
@@ -426,7 +470,7 @@ def _affordance_measurement(ctx: Mapping[str, Any], public_task: Mapping[str, An
         return projected
     except (KeyError, TypeError, ValueError, RuntimeError) as exc:
         issues.append(_issue("assembly_affordance_reader_failed", f"{type(exc).__name__}: {exc}"))
-        return {"status": "unavailable", "profile": PROFILE}
+        return {"status": "unavailable", "profile": profile}
 
 
 def capture_city_initial_qualification(

@@ -14,9 +14,11 @@ from pathlib import Path
 from typing import Any
 
 from demo.city_benchmark.response import _astar_leg, _obstacle_grid, _segment_obstruction
+from demo.city_benchmark.guide_admission import REQUESTED_TARGET_V2_PROFILE
 from .provenance import canonical_sha256, file_sha256
 
 PROFILE = "requested_target_v1"
+SUPPORT_FOOTPRINT_PROFILE = REQUESTED_TARGET_V2_PROFILE
 
 
 def _point(value: Any, name: str) -> list[float]:
@@ -107,8 +109,12 @@ def project_assembly_affordances(raw: Mapping[str, Any], public_task: Mapping[st
                                 clock_epoch_s: float, observed_person_ids: set[str],
                                 captured_at_s: float) -> dict[str, Any]:
     """Publish measurements for every candidate; never publish a chosen answer."""
-    if (raw.get("schema") != "eai.city.assembly_affordance" or raw.get("version") != 1
-            or raw.get("profile") != PROFILE
+    profile = raw.get("profile")
+    footprint = profile == SUPPORT_FOOTPRINT_PROFILE
+    version = 2 if footprint else 1
+    if (raw.get("schema") != "eai.city.assembly_affordance" or raw.get("version") != version
+            or profile not in {PROFILE, SUPPORT_FOOTPRINT_PROFILE}
+            or (footprint and type(raw.get("version")) is not int)
             or raw.get("episode_id") != native_episode_id
             or raw.get("source_id") != native_source_id):
         raise ValueError("assembly affordance source/profile mismatch")
@@ -122,15 +128,27 @@ def project_assembly_affordances(raw: Mapping[str, Any], public_task: Mapping[st
         raise ValueError("invalid semantic map hash")
     public_regions = {row["id"]: row for row in public_task["public_world"]["regions"]
                       if row["kind"] == "assembly_candidate"}
-    candidates, seen = [], set()
+    geometry_by_id = {}
+    if footprint:
+        from demo.city_benchmark.assembly_support import validate_assembly_footprint_profile
+
+        geometry = validate_assembly_footprint_profile({
+            "schema": "eai.city.assembly_footprint_profile", "version": 2,
+            "profile": profile, "semantic_map_sha256": digest,
+            "candidate_geometry_sha256": raw.get("candidate_geometry_sha256"),
+            "candidates": raw.get("candidates"),
+        })
+        geometry_by_id = {row["region_id"]: row for row in geometry["candidates"]}
+    candidates, seen, claims_by_region = [], set(), {}
     for row in raw.get("candidates", ()):
         identity = _text(row.get("region_id"), "region_id")
         if identity not in public_regions or identity in seen:
             raise ValueError("unknown/duplicate assembly candidate")
         seen.add(identity)
-        lo, hi = _point(row.get("min"), "candidate.min"), _point(row.get("max"), "candidate.max")
-        if any(a >= b for a, b in zip(lo, hi)):
-            raise ValueError("invalid assembly bounds")
+        if not footprint:
+            lo, hi = _point(row.get("min"), "candidate.min"), _point(row.get("max"), "candidate.max")
+            if any(a >= b for a, b in zip(lo, hi)):
+                raise ValueError("invalid assembly bounds")
         counts = {}
         for key in ("capacity", "occupancy_count", "reservation_count"):
             val = row.get(key)
@@ -139,10 +157,39 @@ def project_assembly_affordances(raw: Mapping[str, Any], public_task: Mapping[st
             counts[key] = val
         if counts["capacity"] != public_regions[identity]["resource_capacity"]:
             raise ValueError("native capacity differs from public task")
-        if row.get("status") not in {"measured", "unavailable"}:
+        if row.get("status") not in ({"measured", "blocked", "unavailable"} if footprint
+                                     else {"measured", "unavailable"}):
             raise ValueError("invalid candidate measurement status")
-        candidates.append({"region_id": identity, "min_m": lo, "max_m": hi, **counts,
-                           "status": row["status"], "reason_codes": _reasons(row)})
+        reasons = _reasons(row)
+        if footprint:
+            claims = set()
+            for identities, count in (("occupant_ids", "occupancy_count"),
+                                      ("reservation_ids", "reservation_count")):
+                values = row.get(identities)
+                if (not isinstance(values, list)
+                        or any(not isinstance(value, str) for value in values)
+                        or len(values) != counts[count] or len(set(values)) != len(values)
+                        or not set(values) <= observed_person_ids):
+                    raise ValueError("invalid trusted candidate capacity identities")
+                claims.update(values)
+            claims_by_region[identity] = claims
+            support = row.get("support_status")
+            if support not in {"sampled_supported", "unsupported", "unknown"}:
+                raise ValueError("invalid assembly support status")
+            if support == "unknown" and (row["status"] != "unavailable"
+                                          or "target_support_unknown" not in reasons):
+                raise ValueError("unknown support must remain unavailable")
+            if support == "unsupported" and (row["status"] == "measured"
+                                              or "target_support_unsupported" not in reasons):
+                raise ValueError("unsupported candidate cannot be measured available")
+            candidate = {**geometry_by_id[identity], **counts, "status": row["status"],
+                         "reason_codes": reasons, "support_status": support,
+                         "support_evidence_ref": _text(row.get("support_evidence_ref"),
+                                                       "support_evidence_ref")}
+        else:
+            candidate = {"region_id": identity, "min_m": lo, "max_m": hi, **counts,
+                         "status": row["status"], "reason_codes": reasons}
+        candidates.append(candidate)
     if seen != set(public_regions):
         raise ValueError("assembly affordance must cover every public candidate")
     routes, seen = [], set()
@@ -154,6 +201,20 @@ def project_assembly_affordances(raw: Mapping[str, Any], public_task: Mapping[st
         status = row.get("status")
         if status not in {"admissible", "blocked", "unavailable"}:
             raise ValueError("invalid route measurement status")
+        if footprint:
+            candidate = next(c for c in candidates if c["region_id"] == key[1])
+            # Global fullness does not block the person already owning the
+            # claim. Validate private identity deduplication before publishing
+            # the per-person result; never expose those identities themselves.
+            own_capacity_claim = (
+                set(candidate["reason_codes"]) == {"target_capacity_full"}
+                and candidate["support_status"] == "sampled_supported"
+                and key[0] in claims_by_region[key[1]]
+                and len(claims_by_region[key[1]]) == candidate["capacity"])
+            if ((candidate["status"] == "unavailable" and status != "unavailable")
+                    or (candidate["status"] == "blocked" and status == "admissible"
+                        and not own_capacity_claim)):
+                raise ValueError("route status contradicts candidate support/measurement")
         route = {"person_id": key[0], "region_id": key[1], "status": status,
                  "reason_codes": _reasons(row), "evidence_ref": _text(row.get("evidence_ref"), "evidence_ref")}
         fingerprint = _text(row.get("state_sha256"), "state_sha256")
@@ -168,11 +229,14 @@ def project_assembly_affordances(raw: Mapping[str, Any], public_task: Mapping[st
         routes.append(route)
     if seen != {(person, region) for person in observed_person_ids for region in public_regions}:
         raise ValueError("assembly routes must cover all observed person-target pairs")
-    return {"schema": "eai.benchmark.city_assembly_affordance", "version": 1,
-            "profile": PROFILE, "captured_at_s": stamp - epoch,
-            "valid_until_s": expiry - epoch, "semantic_map_sha256": digest,
-            "candidates": sorted(candidates, key=lambda row: row["region_id"]),
-            "routes": sorted(routes, key=lambda row: (row["person_id"], row["region_id"]))}
+    result = {"schema": "eai.benchmark.city_assembly_affordance", "version": version,
+              "profile": profile, "captured_at_s": stamp - epoch,
+              "valid_until_s": expiry - epoch, "semantic_map_sha256": digest,
+              "candidates": sorted(candidates, key=lambda row: row["region_id"]),
+              "routes": sorted(routes, key=lambda row: (row["person_id"], row["region_id"]))}
+    if footprint:
+        result["candidate_geometry_sha256"] = geometry["candidate_geometry_sha256"]
+    return result
 
 
 def _reasons(row: Mapping[str, Any]) -> list[str]:

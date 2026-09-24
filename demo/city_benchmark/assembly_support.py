@@ -13,9 +13,16 @@ import math
 from pathlib import Path
 from typing import Any
 
-from .guide_admission import canonical_state_sha256, validate_semantic_map_sha256
+from .guide_admission import (
+    REQUESTED_TARGET_V2_PROFILE,
+    canonical_state_sha256,
+    validate_semantic_map_sha256,
+)
 
 PROFILE = "city_static_assembly_support_v1"
+EXECUTION_PROFILE = REQUESTED_TARGET_V2_PROFILE
+FOOTPRINT_SCHEMA = "eai.city.assembly_footprint_profile"
+FOOTPRINT_VERSION = 2
 TOLERANCE_M = 1e-5
 _IDS = {f"assembly_candidate_{index:03d}" for index in range(1, 5)}
 
@@ -76,6 +83,89 @@ def _footprints(public_regions: Any, semantic_map: Mapping[str, Any]) -> list[di
                        "center_xy_m": list(coordinates), "radius_m": radius,
                        "support_plane_z_m": plane, "capacity": 1})
     return result
+
+
+def resolve_assembly_footprint_profile(
+        *, semantic_map_path: str | Path, expected_semantic_map_sha256: str,
+        public_regions: Any) -> dict[str, Any]:
+    """Resolve the exact public/map v2 disks without person-derived geometry."""
+    digest = validate_semantic_map_sha256(expected_semantic_map_sha256)
+    payload = Path(semantic_map_path).read_bytes()
+    if hashlib.sha256(payload).hexdigest() != digest:
+        raise ValueError("semantic map differs from the frozen expected digest")
+    geometries = _footprints(public_regions, json.loads(payload))
+    candidates = [{**row, "geometry_sha256": canonical_state_sha256(row)}
+                  for row in geometries]
+    return {
+        "schema": FOOTPRINT_SCHEMA,
+        "version": FOOTPRINT_VERSION,
+        "profile": EXECUTION_PROFILE,
+        "semantic_map_sha256": digest,
+        "candidate_geometry_sha256": canonical_state_sha256(
+            {"candidates": geometries}),
+        "candidates": candidates,
+    }
+
+
+def validate_assembly_footprint_profile(
+        value: Mapping[str, Any], *, expected_semantic_map_sha256: str | None = None,
+) -> dict[str, Any]:
+    """Validate and copy one resolved v2 profile for execution consumers."""
+    if (not isinstance(value, Mapping) or value.get("schema") != FOOTPRINT_SCHEMA
+            or type(value.get("version")) is not int
+            or value.get("version") != FOOTPRINT_VERSION
+            or value.get("profile") != EXECUTION_PROFILE):
+        raise ValueError("unsupported City assembly footprint profile")
+    digest = validate_semantic_map_sha256(value.get("semantic_map_sha256"))
+    if expected_semantic_map_sha256 is not None \
+            and digest != validate_semantic_map_sha256(expected_semantic_map_sha256):
+        raise ValueError("assembly footprint semantic map mismatch")
+    rows = value.get("candidates")
+    if not isinstance(rows, list) or len(rows) != 4:
+        raise ValueError("assembly footprint profile requires four candidates")
+    candidates = []
+    for row in rows:
+        if not isinstance(row, Mapping) or row.get("region_id") not in _IDS:
+            raise ValueError("invalid assembly footprint candidate identity")
+        geometry = {
+            "region_id": row["region_id"],
+            "footprint": row.get("footprint"),
+            "center_xy_m": list(row.get("center_xy_m", ())),
+            "radius_m": row.get("radius_m"),
+            "support_plane_z_m": row.get("support_plane_z_m"),
+            "capacity": row.get("capacity"),
+        }
+        if (geometry["footprint"] != "disk"
+                or len(geometry["center_xy_m"]) != 2
+                or any(type(component) not in (int, float)
+                       or not math.isfinite(component)
+                       for component in geometry["center_xy_m"])
+                or _number(geometry["radius_m"]) != 0.75
+                or _number(geometry["support_plane_z_m"]) != 0.3
+                or type(geometry["capacity"]) is not int
+                or geometry["capacity"] != 1
+                or row.get("geometry_sha256") != canonical_state_sha256(geometry)):
+            raise ValueError("assembly footprint candidate geometry mismatch")
+        candidates.append({**geometry, "center_xy_m": [
+            float(component) for component in geometry["center_xy_m"]],
+            "radius_m": float(geometry["radius_m"]),
+            "support_plane_z_m": float(geometry["support_plane_z_m"]),
+            "geometry_sha256": row["geometry_sha256"]})
+    if len({row["region_id"] for row in candidates}) != 4:
+        raise ValueError("assembly footprint candidate identities must be unique")
+    candidates.sort(key=lambda row: row["region_id"])
+    geometry_digest = canonical_state_sha256({
+        "candidates": [{key: item[key] for key in (
+            "region_id", "footprint", "center_xy_m", "radius_m",
+            "support_plane_z_m", "capacity")} for item in candidates]})
+    if value.get("candidate_geometry_sha256") != geometry_digest:
+        raise ValueError("assembly footprint geometry digest mismatch")
+    return {
+        "schema": FOOTPRINT_SCHEMA, "version": FOOTPRINT_VERSION,
+        "profile": EXECUTION_PROFILE, "semantic_map_sha256": digest,
+        "candidate_geometry_sha256": geometry_digest,
+        "candidates": candidates,
+    }
 
 
 def _support_sources(stage: Any, paths: set[str]) -> list[dict[str, Any]]:
@@ -166,11 +256,14 @@ def measure_assembly_supports(stage: Any, query: Any, *, semantic_map_path: str 
     Malformed host inputs raise. Unsupported or missing native evidence remains
     explicit per-candidate evidence and never becomes a deployment label.
     """
-    digest = validate_semantic_map_sha256(expected_semantic_map_sha256)
-    payload = Path(semantic_map_path).read_bytes()
-    if hashlib.sha256(payload).hexdigest() != digest:
-        raise ValueError("semantic map differs from the frozen expected digest")
-    geometries = _footprints(public_regions, json.loads(payload))
+    profile = resolve_assembly_footprint_profile(
+        semantic_map_path=semantic_map_path,
+        expected_semantic_map_sha256=expected_semantic_map_sha256,
+        public_regions=public_regions)
+    digest = profile["semantic_map_sha256"]
+    geometries = [{key: row[key] for key in (
+        "region_id", "footprint", "center_xy_m", "radius_m",
+        "support_plane_z_m", "capacity")} for row in profile["candidates"]]
     if not all(isinstance(v, str) and v.strip() for v in (episode_id, source_id)):
         raise ValueError("support measurement requires episode/source identity")
     before = _number(native_clock())
@@ -202,3 +295,10 @@ def measure_assembly_supports(stage: Any, query: Any, *, semantic_map_path: str 
             "continuous_support_validated": False,
             "execution_profile_enabled": False, "scoreable": False,
             "execution_validated": False, "business_outcomes_validated": False}
+
+
+__all__ = [
+    "EXECUTION_PROFILE", "FOOTPRINT_SCHEMA", "FOOTPRINT_VERSION", "PROFILE",
+    "TOLERANCE_M", "measure_assembly_supports",
+    "resolve_assembly_footprint_profile", "validate_assembly_footprint_profile",
+]

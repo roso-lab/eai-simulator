@@ -563,8 +563,36 @@ def run_city_autonomous_context(
     episode_id: str | None = None,
     communication_runtime: Any = None,
     guide_route_provider: Any = None,
+    guide_execution_profile: str | None = None,
+    assembly_footprint_profile: Mapping[str, Any] | None = None,
+    assembly_support_reader: Any = None,
 ) -> tuple[dict[str, Any], CityNativeGoalBackend]:
     """Bind one prepared native City context to the autonomous session."""
+    from demo.city_benchmark.guide_admission import (
+        REQUESTED_TARGET_PROFILE,
+        REQUESTED_TARGET_PROFILES,
+        REQUESTED_TARGET_V2_PROFILE,
+    )
+
+    if guide_execution_profile is not None \
+            and guide_execution_profile not in REQUESTED_TARGET_PROFILES:
+        raise ValueError("unsupported requested-target guidance profile")
+    if guide_route_provider is None:
+        if (guide_execution_profile is not None
+                or assembly_footprint_profile is not None
+                or assembly_support_reader is not None):
+            raise ValueError("requested-target guidance profile requires a route provider")
+        selected_guide_profile = None
+    else:
+        selected_guide_profile = guide_execution_profile or REQUESTED_TARGET_PROFILE
+        if communication_runtime is None:
+            raise ValueError("requested-target guidance requires metered communication")
+        if selected_guide_profile == REQUESTED_TARGET_V2_PROFILE:
+            if assembly_footprint_profile is None or not callable(assembly_support_reader):
+                raise ValueError(
+                    "requested-target v2 requires footprint and trusted support inputs")
+        elif assembly_footprint_profile is not None or assembly_support_reader is not None:
+            raise ValueError("assembly footprint inputs require requested-target v2")
     public, _participant_api = build_city_autonomous_contract()
     clock_epoch_s = float(ctx["city"].elapsed)
     if not math.isfinite(clock_epoch_s) or clock_epoch_s < 0:
@@ -587,12 +615,13 @@ def run_city_autonomous_context(
         assembly_reader = None
         initial_qualification = None
         if guide_route_provider is not None:
-            if communication_runtime is None:
-                raise ValueError("requested-target guidance requires metered communication")
             service = ctx["city"]._episode_service
             service.enable_requested_target_guidance(
                 route_provider=guide_route_provider,
-                semantic_map_sha256=guide_route_provider.semantic_map_sha256)
+                semantic_map_sha256=guide_route_provider.semantic_map_sha256,
+                profile=selected_guide_profile,
+                assembly_footprint_profile=assembly_footprint_profile,
+                assembly_support_reader=assembly_support_reader)
             assembly_reader = service.assembly_affordances
             # Freeze the evaluator's initial evidence before the adapter is
             # initialized or allowed to assess/select/plan. This diagnostic
@@ -631,7 +660,9 @@ def run_city_autonomous_context(
             episode_id = episode_id or uuid.uuid4().hex
             observer = GoalCityRuntimeIntake(
                 public, episode_id=episode_id, runtime=communication_runtime,
-                reader=CityRuntimeObservationReader(ctx, assembly_reader=assembly_reader),
+                reader=CityRuntimeObservationReader(
+                    ctx, assembly_reader=assembly_reader,
+                    assembly_profile=selected_guide_profile),
                 native_episode_id=ctx["runner"].adapter.episode_id,
                 native_source_id=ctx["runner"].adapter.source_id,
                 clock_epoch_s=clock_epoch_s,
@@ -672,26 +703,70 @@ def run_city_autonomous_episode(
     episode_id: str | None = None,
     communication_runtime: Any = None,
     guide_semantic_map_path: str | Path | None = None,
+    guide_execution_profile: str | None = None,
 ) -> dict[str, Any]:
-    """Run the explicit v1 autonomous entry against the prepared native probe."""
+    """Run the opt-in requested-target entry against the prepared native probe."""
     from demo.city_benchmark.service_probe import execute_probe, prepare_probe
+    from demo.city_benchmark.guide_admission import (
+        REQUESTED_TARGET_PROFILE,
+        REQUESTED_TARGET_PROFILES,
+        REQUESTED_TARGET_V2_PROFILE,
+    )
 
     adapter = _bind_adapter(adapter)
     sources_before = _source_hashes()
     root = Path(output_root).absolute()
     binding = (Path(episode_binding) if episode_binding is not None
                else DEFAULT_CITY_EPISODE_BINDING)
+    if guide_execution_profile is not None \
+            and guide_execution_profile not in REQUESTED_TARGET_PROFILES:
+        raise ValueError("unsupported requested-target guidance profile")
     route_provider = None
+    footprint_profile = None
+    selected_guide_profile = None
     if guide_semantic_map_path is not None:
         from .goal_city_assembly import CityRequestedTargetRouteProvider
 
         route_provider = CityRequestedTargetRouteProvider.from_path(guide_semantic_map_path)
+        selected_guide_profile = guide_execution_profile or REQUESTED_TARGET_PROFILE
         if communication_runtime is None:
             raise ValueError("requested-target guidance requires metered communication")
+        if selected_guide_profile == REQUESTED_TARGET_V2_PROFILE:
+            from demo.city_benchmark.assembly_support import (
+                resolve_assembly_footprint_profile,
+            )
+
+            public, _participant_api = build_city_autonomous_contract()
+            footprint_profile = resolve_assembly_footprint_profile(
+                semantic_map_path=guide_semantic_map_path,
+                expected_semantic_map_sha256=route_provider.semantic_map_sha256,
+                public_regions=public["public_world"]["regions"])
+    elif guide_execution_profile is not None:
+        raise ValueError("requested-target guidance profile requires a semantic map")
     prepare_probe(root, device=device, episode_binding=binding, pool=CITY_AUTONOMOUS_POOL)
 
     def driver(ctx: Mapping[str, Any]) -> None:
         episode_root = Path(ctx["report_path"]).parent / "goal_autonomous_episode"
+        support_reader = None
+        if selected_guide_profile == REQUESTED_TARGET_V2_PROFILE:
+            from demo.city_benchmark.assembly_support import measure_assembly_supports
+
+            service = ctx["city"]._episode_service
+            native_reader = service.region_reader
+            public, _participant_api = build_city_autonomous_contract()
+
+            def support_reader():
+                return measure_assembly_supports(
+                    ctx["city"].stage, native_reader.query,
+                    semantic_map_path=guide_semantic_map_path,
+                    expected_semantic_map_sha256=route_provider.semantic_map_sha256,
+                    public_regions=public["public_world"]["regions"],
+                    episode_id=ctx["runner"].adapter.episode_id,
+                    source_id=ctx["runner"].adapter.source_id,
+                    native_clock=lambda: float(ctx["city"].elapsed),
+                    scene_queries_enabled=native_reader.scene_queries_enabled,
+                    device=native_reader.device,
+                    current_gpu_geometry=native_reader.current_gpu_geometry)
         result, backend = run_city_autonomous_context(
             ctx,
             adapter,
@@ -701,6 +776,9 @@ def run_city_autonomous_episode(
             episode_id=episode_id,
             communication_runtime=communication_runtime,
             guide_route_provider=route_provider,
+            guide_execution_profile=selected_guide_profile,
+            assembly_footprint_profile=footprint_profile,
+            assembly_support_reader=support_reader,
         )
         sources_after = _source_hashes()
         sources_unchanged = sources_before == sources_after
@@ -725,7 +803,7 @@ def run_city_autonomous_episode(
             "source_sha256": source_sha256,
             "sources_unchanged": sources_unchanged,
             "clock_epoch_s": backend.clock_epoch_s,
-            "guide_admission_profile": ("requested_target_v1" if route_provider else "legacy_bound_target"),
+            "guide_admission_profile": selected_guide_profile or "legacy_bound_target",
             "initial_qualification_artifact": (
                 "city_initial_qualification.json" if route_provider else None),
         }
@@ -754,7 +832,7 @@ def run_city_autonomous_episode(
             "source_hashes_after": sources_after,
             "sources_unchanged": sources_unchanged,
             "clock_epoch_s": backend.clock_epoch_s,
-            "guide_admission_profile": ("requested_target_v1" if route_provider else "legacy_bound_target"),
+            "guide_admission_profile": selected_guide_profile or "legacy_bound_target",
             "episode_id": result["episode_id"],
             "candidate_robot_ids": list(CITY_AUTONOMOUS_ROBOT_IDS),
             "author_plan_supplied": False,

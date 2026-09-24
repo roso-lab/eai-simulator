@@ -114,21 +114,27 @@ class EpisodeAffectedPeopleController:
                 "status_after": "paused", "position_xyz": list(self.people_runtime.position(actor_id))}
 
     def readback(self, actor_id: str, assembly_regions: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
+        result = self.motion_readback(actor_id)
+        region = assembly_regions[result["assembly_region_id"]]
+        low = tuple(float(value) for value in region["min"])
+        high = tuple(float(value) for value in region["max"])
+        position = tuple(result["position_xyz"])
+        inside = all(low[index] <= position[index] <= high[index] for index in range(3))
+        return {**result, "inside_assembly": inside,
+                "arrived": result["path_finished"] and inside}
+
+    def motion_readback(self, actor_id: str) -> dict[str, Any]:
+        """Return assignment and motion state without imposing region geometry."""
         actor_id = str(actor_id)
         assignment = self._assignments.get(actor_id)
         if assignment is None:
             raise ValueError("affected person has no assembly assignment")
         actor = self.people_runtime._actor(actor_id)
-        region = assembly_regions[assignment["assembly_region_id"]]
-        low = tuple(float(value) for value in region["min"])
-        high = tuple(float(value) for value in region["max"])
         position = tuple(float(value) for value in self.people_runtime.position(actor_id))
-        inside = all(low[index] <= position[index] <= high[index] for index in range(3))
         finished = bool(actor.pending_pose is not None and actor.pending_pose.finished)
         return {"person_id": actor_id, "position_xyz": list(position),
                 "assembly_region_id": assignment["assembly_region_id"],
-                "path_finished": finished, "inside_assembly": inside,
-                "arrived": finished and inside, "loop": False}
+                "path_finished": finished, "loop": False}
 
 
 def sidewalk_paths(scene, routes, count):

@@ -13,6 +13,7 @@ from typing import Any, Callable, Iterable, Mapping
 
 from demo.city_benchmark.scene.scenario import (AccidentPlan, BuildingCandidate, CityScenarioConfig,
                                 Polyline, choose_accident_plan, load_vehicle_lanes)
+from demo.city_benchmark.guide_admission import canonical_state_sha256
 
 CITY_ROOT = Path(__file__).resolve().parents[3] / "usd" / "scene" / "city"
 CITY_STATIC_USD = CITY_ROOT / "city_static.usd"
@@ -554,6 +555,106 @@ class CityNativeRegionReader:
                 "all_dynamic_envelopes": envelopes,
                 "query_context": {"scene_queries_enabled": True, "device": self.device,
                                   "current_gpu_geometry": self.current_gpu_geometry}}
+
+    def read_assembly_footprint(
+            self, footprint: Mapping[str, Any], *, episode_id: str, time_s: float,
+            support: Mapping[str, Any], affected_person_ids: Iterable[str],
+    ) -> dict[str, Any]:
+        """Read current body envelopes against one fixed XY disk.
+
+        This assembly-only path does not reinterpret the AABBs used by
+        :meth:`read` for hazard, access or requested-target v1.
+        """
+        region_id = str(footprint.get("region_id", ""))
+        center = tuple(float(value) for value in footprint.get("center_xy_m", ()))
+        radius = footprint.get("radius_m")
+        if (not region_id or footprint.get("footprint") != "disk"
+                or region_id not in {f"assembly_candidate_{index:03d}"
+                                     for index in range(1, 5)}
+                or len(center) != 2 or not all(math.isfinite(value) for value in center)
+                or type(radius) not in (int, float) or not math.isfinite(radius)
+                or float(radius) != 0.75
+                or footprint.get("support_plane_z_m") != 0.3
+                or type(footprint.get("capacity")) is not int
+                or footprint.get("capacity") != 1):
+            raise ValueError("invalid City assembly disk")
+        geometry = {key: deepcopy(footprint.get(key)) for key in (
+            "region_id", "footprint", "center_xy_m", "radius_m",
+            "support_plane_z_m", "capacity")}
+        if footprint.get("geometry_sha256") != canonical_state_sha256(geometry):
+            raise ValueError("City assembly disk geometry digest mismatch")
+        roster = {str(value) for value in affected_person_ids}
+        if not roster or any(not value for value in roster):
+            raise ValueError("assembly footprint requires affected-person identities")
+        base = {"region_id": region_id, "episode_id": str(episode_id),
+                "observed_time_s": float(time_s),
+                "source": "native_city_assembly_footprint_reader",
+                "footprint": deepcopy(dict(footprint)),
+                "support": deepcopy(dict(support))}
+        if (support.get("profile") != "city_static_assembly_support_v1"
+                or support.get("episode_id") != str(episode_id)
+                or support.get("captured_native_s") != float(time_s)
+                or not isinstance(support.get("source_id"), str)
+                or not support["source_id"].strip()
+                or not isinstance(support.get("semantic_map_sha256"), str)
+                or len(support["semantic_map_sha256"]) != 64
+                or not isinstance(support.get("candidate_geometry_sha256"), str)
+                or len(support["candidate_geometry_sha256"]) != 64
+                or support.get("geometry_sha256") != footprint["geometry_sha256"]
+                or not isinstance(support.get("evidence_ref"), str)
+                or not support["evidence_ref"].strip()):
+            raise ValueError("assembly footprint support join is incomplete or stale")
+        if not self.scene_queries_enabled or self.query is None:
+            return {**base, "status": "unknown", "reason": "scene_query_unavailable"}
+        if self.device.startswith("cuda") and not self.current_gpu_geometry:
+            return {**base, "status": "unknown",
+                    "reason": "dynamic_scene_query_pose_not_synchronized"}
+        support_status = support.get("status")
+        if support_status == "unknown":
+            return {**base, "status": "unknown",
+                    "reason": support.get("reason") or "support_evidence_unknown"}
+        if support_status not in {"sampled_supported", "unsupported"}:
+            return {**base, "status": "unknown", "reason": "support_evidence_malformed"}
+        try:
+            envelopes = {str(key): dict(value) for key, value in self.envelope_reader().items()}
+            intersecting, contained = {}, set()
+            radius_sq = float(radius) ** 2
+            for identity, envelope in envelopes.items():
+                low = tuple(float(value) for value in envelope.get("min", ()))
+                high = tuple(float(value) for value in envelope.get("max", ()))
+                if (len(low) != 3 or len(high) != 3
+                        or any(not math.isfinite(value) for value in (*low, *high))
+                        or any(low[index] > high[index] for index in range(3))):
+                    raise ValueError("dynamic body envelope is invalid")
+                closest = tuple(min(max(center[index], low[index]), high[index])
+                                for index in range(2))
+                if sum((closest[index] - center[index]) ** 2 for index in range(2)) \
+                        <= radius_sq:
+                    intersecting[identity] = deepcopy(envelope)
+                    corners = ((low[0], low[1]), (low[0], high[1]),
+                               (high[0], low[1]), (high[0], high[1]))
+                    if all(sum((corner[index] - center[index]) ** 2
+                               for index in range(2)) <= radius_sq
+                           for corner in corners):
+                        contained.add(identity)
+        except Exception as exc:
+            return {**base, "status": "unknown",
+                    "reason": f"native_envelope_read_failed:{type(exc).__name__}:{exc}"}
+        occupants = sorted(set(intersecting) & roster)
+        foreign = {key: value for key, value in intersecting.items() if key not in roster}
+        return {
+            **base,
+            "status": ("measured" if support_status == "sampled_supported"
+                       else "unsupported"),
+            "support_status": support_status,
+            "occupant_ids": occupants,
+            "contained_body_ids": sorted(contained & roster),
+            "dynamic_envelopes": {key: intersecting[key] for key in occupants},
+            "untrusted_dynamic_envelopes": foreign,
+            "all_dynamic_envelopes": envelopes,
+            "query_context": {"scene_queries_enabled": True, "device": self.device,
+                              "current_gpu_geometry": self.current_gpu_geometry},
+        }
 
     def read_route(self, route_id: str, waypoints: Iterable[Iterable[float]], *,
                    half_extents_m: Iterable[float], episode_id: str, time_s: float,

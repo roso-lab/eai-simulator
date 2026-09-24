@@ -15,6 +15,9 @@ from typing import Any, Iterable, Mapping
 
 
 REQUESTED_TARGET_PROFILE = "requested_target_v1"
+REQUESTED_TARGET_V2_PROFILE = "requested_target_v2_support_footprint"
+REQUESTED_TARGET_PROFILES = frozenset({
+    REQUESTED_TARGET_PROFILE, REQUESTED_TARGET_V2_PROFILE})
 ASSEMBLY_AFFORDANCE_SCHEMA = "eai.city.assembly_affordance"
 ASSEMBLY_AFFORDANCE_VERSION = 1
 _SHA256 = re.compile(r"[0-9a-f]{64}")
@@ -30,6 +33,9 @@ GUIDE_ADMISSION_REASON_CODES = frozenset({
     "target_static_blocked",
     "target_capacity_full",
     "target_body_outside_region",
+    "target_body_outside_footprint",
+    "target_support_unknown",
+    "target_support_unsupported",
     "route_provider_unavailable",
     "route_provider_returned_none",
     "route_provider_contract_violation",
@@ -148,10 +154,24 @@ def assembly_target_xyz(region: Mapping[str, Any]) -> tuple[float, float, float]
     return ((low[0] + high[0]) * 0.5, (low[1] + high[1]) * 0.5, low[2] + 0.05)
 
 
+def assembly_footprint_target_xyz(
+        footprint: Mapping[str, Any]) -> tuple[float, float, float]:
+    """Return the exact v2 disk centre on its frozen support plane."""
+    if not isinstance(footprint, Mapping) or footprint.get("footprint") != "disk":
+        raise ValueError("assembly footprint must be a disk")
+    center = tuple(float(value) for value in footprint.get("center_xy_m", ()))
+    plane = footprint.get("support_plane_z_m")
+    if (len(center) != 2 or not all(math.isfinite(value) for value in center)
+            or type(plane) not in (int, float) or not math.isfinite(plane)):
+        raise ValueError("assembly footprint target is invalid")
+    return center[0], center[1], float(plane)
+
+
 __all__ = [
     "ASSEMBLY_AFFORDANCE_SCHEMA", "ASSEMBLY_AFFORDANCE_VERSION",
     "CityGuideAdmissionError", "GUIDE_ADMISSION_REASON_CODES", "PUBLIC_GUIDE_REASON_CODES",
-    "REQUESTED_TARGET_PROFILE",
-    "assembly_target_xyz", "requested_route", "route_length_m",
+    "REQUESTED_TARGET_PROFILE", "REQUESTED_TARGET_PROFILES",
+    "REQUESTED_TARGET_V2_PROFILE",
+    "assembly_footprint_target_xyz", "assembly_target_xyz", "requested_route", "route_length_m",
     "canonical_state_sha256", "validate_semantic_map_sha256", "xyz",
 ]

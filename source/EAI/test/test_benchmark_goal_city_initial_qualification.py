@@ -125,6 +125,102 @@ def _capture(ctx, public):
         ctx, public, episode_id="goal-episode", clock_epoch_s=10.0)
 
 
+def _v2_context():
+    from source.EAI.test.test_benchmark_goal_city_assembly_v2 import _fixture
+
+    public, raw, _ = _fixture()
+    raw.update(episode_id="native-episode", source_id="isaac.city.runtime")
+    for candidate in raw["candidates"]:
+        footprint = {key: deepcopy(candidate[key]) for key in (
+            "region_id", "footprint", "center_xy_m", "radius_m",
+            "support_plane_z_m", "capacity", "geometry_sha256")}
+        support = {"profile": "city_static_assembly_support_v1",
+                   "episode_id": raw["episode_id"], "source_id": raw["source_id"],
+                   "captured_native_s": raw["captured_at_s"],
+                   "semantic_map_sha256": raw["semantic_map_sha256"],
+                   "candidate_geometry_sha256": raw["candidate_geometry_sha256"],
+                   "geometry_sha256": candidate["geometry_sha256"],
+                   "status": "sampled_supported", "evidence_ref": candidate["support_evidence_ref"],
+                   "execution_profile_enabled": False}
+        candidate["native_readback"] = {
+            "source": "native_city_assembly_footprint_reader", "episode_id": raw["episode_id"],
+            "observed_time_s": raw["captured_at_s"], "footprint": footprint,
+            "support": support, "status": "measured", "private_paths": "DO_NOT_COPY"}
+    ctx, service = _context(public, raw=raw)
+    service.guidance_profile = raw["profile"]
+    return ctx, service, public
+
+
+def test_initial_v2_binds_independent_geometry_and_support_without_oracle_promotion():
+    ctx, service, public = _v2_context()
+    before = deepcopy(service.raw)
+    result = _capture(ctx, public)
+    affordance = result["measurements"]["assembly_affordance"]
+    assert service.raw == before and service.calls == 1
+    assert affordance["profile"] == service.guidance_profile
+    assert affordance["version"] == 2 and affordance["measured_pair_count"] == 16
+    assert affordance["exact_pair_record_coverage"] is True
+    assert affordance["admissible_graph_matching"]["cardinality"] == 4
+    assert result["quality_issues"] == []
+    assert "author_derived_candidate_geometry_not_person_independent" not in result["limitation_codes"]
+    assert "sampled_support_not_continuous_surface_coverage" in result["limitation_codes"]
+    assert result["hard_predicate_coverage"]["assembly_candidate_geometry_capacity"]["status"] == "measured_initial"
+    assert result["hard_predicate_coverage"]["person_safe_assembly_arrival"]["status"] == "execution_only"
+    assert result["oracle_status"] == "failed" and result["feasibility_label"] is None
+    assert not any(result[key] for key in ("platform_valid", "scoreable", "execution_validated",
+                                           "business_outcomes_validated"))
+    assert "DO_NOT_COPY" not in json.dumps(result)
+    # A collector does not activate execution; its flag is not a runtime profile.
+    assert before["candidates"][0]["native_readback"]["support"]["execution_profile_enabled"] is False
+
+
+@pytest.mark.parametrize("case", ["profile", "readback_time", "support_source", "support_time",
+                                  "support_geometry", "support_ref", "readback_footprint"])
+def test_initial_v2_bad_native_support_joins_remain_platform_failures(case):
+    ctx, service, public = _v2_context()
+    raw = service.raw
+    readback = raw["candidates"][0]["native_readback"]
+    if case == "profile":
+        service.guidance_profile = "requested_target_v1"
+    elif case == "readback_time":
+        readback["observed_time_s"] -= .02
+    elif case == "support_source":
+        readback["support"]["source_id"] = "foreign"
+    elif case == "support_time":
+        readback["support"]["captured_native_s"] -= .02
+    elif case == "support_geometry":
+        readback["support"]["geometry_sha256"] = "f" * 64
+    elif case == "support_ref":
+        readback["support"]["evidence_ref"] = "unjoined"
+    else:
+        readback["footprint"]["radius_m"] = 2.
+    result = _capture(ctx, public)
+    assert result["measurements"]["assembly_affordance"]["status"] == "unavailable"
+    assert "assembly_affordance_reader_failed" in {row["code"] for row in result["quality_issues"]}
+    assert result["oracle_status"] == "failed" and result["feasibility_label"] is None
+
+
+def test_initial_v2_unknown_support_retains_all_records_without_geometry_qualification():
+    ctx, service, public = _v2_context()
+    candidate = service.raw["candidates"][0]
+    candidate.update(status="unavailable", support_status="unknown",
+                     reason_codes=["target_support_unknown"])
+    candidate["native_readback"].update(status="unknown")
+    candidate["native_readback"]["support"].update(status="unknown")
+    for route in service.raw["routes"]:
+        if route["region_id"] == candidate["region_id"]:
+            route.update(status="unavailable", reason_codes=["target_support_unknown"],
+                         length_m=None, estimated_travel_s=None)
+    result = _capture(ctx, public)
+    affordance = result["measurements"]["assembly_affordance"]
+    assert affordance["recorded_pair_count"] == 16 and affordance["measured_pair_count"] == 12
+    assert affordance["route_status_counts"]["unavailable"] == 4
+    assert result["hard_predicate_coverage"]["assembly_candidate_geometry_capacity"]["status"] == "qualification_limited"
+    assert "initial_assembly_support_or_occupancy_unavailable" in {
+        row["code"] for row in result["quality_issues"]}
+    assert result["oracle_status"] == "failed" and result["feasibility_label"] is None
+
+
 def test_capture_is_initial_read_only_exact_and_never_promotes_release():
     public, _ = build_city_autonomous_contract()
     ctx, service = _context(public)

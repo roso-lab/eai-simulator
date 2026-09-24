@@ -104,11 +104,24 @@ def project_city_observation(row: Mapping[str, Any], public_task: Mapping[str, A
 class CityRuntimeObservationReader:
     """Use a native delivered snapshot, reusing same-tick capture identities."""
 
-    def __init__(self, ctx: Mapping[str, Any], *, assembly_reader: Any = None):
+    def __init__(self, ctx: Mapping[str, Any], *, assembly_reader: Any = None,
+                 assembly_profile: str | None = None):
         self.ctx = ctx
         if assembly_reader is not None and not callable(assembly_reader):
             raise ValueError("assembly reader must be a trusted callable")
+        if assembly_reader is None and assembly_profile is not None:
+            raise ValueError("assembly profile requires a trusted assembly reader")
+        if assembly_reader is not None:
+            from demo.city_benchmark.guide_admission import (
+                REQUESTED_TARGET_PROFILE,
+                REQUESTED_TARGET_PROFILES,
+            )
+
+            assembly_profile = assembly_profile or REQUESTED_TARGET_PROFILE
+            if assembly_profile not in REQUESTED_TARGET_PROFILES:
+                raise ValueError("unsupported City assembly execution profile")
         self.assembly_reader = assembly_reader
+        self.assembly_profile = assembly_profile
 
     def __call__(self) -> Mapping[str, Any]:
         runner, city = self.ctx["runner"], self.ctx["city"]
@@ -169,8 +182,7 @@ class GoalCityRuntimeIntake:
                 "measurement_scope": "trusted_scene_state_not_robot_field_of_view",
                 "pool": "backhaul_uplink", "direction": "uplink",
                 "source_kind": "scene_telemetry", "robot_access_attribution": None,
-                "assembly_profile": ("requested_target_v1" if getattr(
-                    self._reader, "assembly_reader", None) is not None else None)}
+                "assembly_profile": getattr(self._reader, "assembly_profile", None)}
 
     def _now(self, host: Any) -> float:
         report = host.trusted_report()["session"]
@@ -269,6 +281,7 @@ class GoalCityRuntimeIntake:
     def report(self) -> dict[str, Any]:
         return {"schema": SCHEMA + "_report", "version": VERSION,
                 "episode_id": self.episode_id, "public_task_sha256": self.public_task_sha256,
+                "profile": self.profile(),
                 "source_binding": deepcopy(self._binding),
                 "samples": deepcopy(self._samples), "emitted_message_ids": sorted(self._emitted),
                 "consumed_action_ids": sorted(self._consumed),

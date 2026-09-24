@@ -11,12 +11,19 @@ from demo.city_benchmark.guide_admission import (
     ASSEMBLY_AFFORDANCE_VERSION,
     CityGuideAdmissionError,
     REQUESTED_TARGET_PROFILE,
+    REQUESTED_TARGET_PROFILES,
+    REQUESTED_TARGET_V2_PROFILE,
+    assembly_footprint_target_xyz,
     assembly_target_xyz,
     canonical_state_sha256,
     requested_route,
     route_length_m,
     validate_semantic_map_sha256,
     xyz,
+)
+from demo.city_benchmark.assembly_support import (
+    PROFILE as ASSEMBLY_SUPPORT_PROFILE,
+    validate_assembly_footprint_profile,
 )
 from demo.city_benchmark.scene.scenario import CityScenarioConfig, Polyline
 
@@ -95,6 +102,10 @@ class CityEpisodeServiceRuntime:
         self._guidance_profile: str | None = None
         self._requested_target_route_provider: Callable[..., Any] | None = None
         self._semantic_map_sha256: str | None = None
+        self._assembly_footprint_profile: dict[str, Any] | None = None
+        self._assembly_support_reader: Callable[[], Mapping[str, Any]] | None = None
+        self._assembly_support_cache: tuple[
+            float, dict[str, dict[str, Any]], dict[str, Any] | None] | None = None
         self._pending_guidance_proposals: dict[str, dict[str, Any]] = {}
         self._active_guidance_targets: dict[str, str] = {}
         self._last_guidance_admission_report: dict[str, Any] | None = None
@@ -112,17 +123,36 @@ class CityEpisodeServiceRuntime:
     def assignment(self, service: str) -> dict[str, str]:
         return deepcopy(self.assignment_rows[str(service)])
 
-    def enable_requested_target_guidance(self, *, route_provider: Callable[..., Any],
-                                         semantic_map_sha256: str) -> None:
+    def enable_requested_target_guidance(
+            self, *, route_provider: Callable[..., Any], semantic_map_sha256: str,
+            profile: str = REQUESTED_TARGET_PROFILE,
+            assembly_footprint_profile: Mapping[str, Any] | None = None,
+            assembly_support_reader: Callable[[], Mapping[str, Any]] | None = None,
+    ) -> None:
         """Enable the opt-in public-target profile before any guide request."""
         if not callable(route_provider):
             raise ValueError("requested-target guidance requires a route provider")
         if self._person_service_starts or self._pending_guidance_proposals \
                 or self._active_guidance_targets:
             raise ValueError("requested-target guidance must be enabled before guidance starts")
+        if profile not in REQUESTED_TARGET_PROFILES:
+            raise ValueError("unsupported requested-target guidance profile")
+        digest = validate_semantic_map_sha256(semantic_map_sha256)
+        footprint = None
+        if profile == REQUESTED_TARGET_V2_PROFILE:
+            footprint = validate_assembly_footprint_profile(
+                assembly_footprint_profile,
+                expected_semantic_map_sha256=digest)
+            if not callable(assembly_support_reader):
+                raise ValueError("requested-target v2 requires a trusted support reader")
+            self._assembly_support_reader = assembly_support_reader
+        elif assembly_footprint_profile is not None or assembly_support_reader is not None:
+            raise ValueError("assembly footprint inputs require requested-target v2")
         self._requested_target_route_provider = route_provider
-        self._semantic_map_sha256 = validate_semantic_map_sha256(semantic_map_sha256)
-        self._guidance_profile = REQUESTED_TARGET_PROFILE
+        self._semantic_map_sha256 = digest
+        self._assembly_footprint_profile = footprint
+        self._assembly_support_cache = None
+        self._guidance_profile = profile
 
     @property
     def guidance_profile(self) -> str | None:
@@ -130,31 +160,45 @@ class CityEpisodeServiceRuntime:
 
     def assembly_affordances(self) -> dict[str, Any]:
         """Measure every affected-person/candidate pair without reserving it."""
-        if self._guidance_profile != REQUESTED_TARGET_PROFILE:
+        if self._guidance_profile not in REQUESTED_TARGET_PROFILES:
             raise ValueError("requested-target guidance profile is not enabled")
         captured = float(self.city.elapsed)
+        candidate_ids = (sorted(self._v2_footprints())
+                         if self._guidance_profile == REQUESTED_TARGET_V2_PROFILE
+                         else sorted(self.assembly_regions))
         candidates = [self._candidate_affordance(region_id)
-                      for region_id in sorted(self.assembly_regions)]
+                      for region_id in candidate_ids]
         by_region = {row["region_id"]: row for row in candidates}
         routes = [self._requested_route_affordance(person_id, region_id, by_region[region_id])
                   for person_id in sorted(self.affected_person_roster())
-                  for region_id in sorted(self.assembly_regions)]
-        return {
+                  for region_id in candidate_ids]
+        result = {
             "schema": ASSEMBLY_AFFORDANCE_SCHEMA,
-            "version": ASSEMBLY_AFFORDANCE_VERSION,
-            "profile": REQUESTED_TARGET_PROFILE,
+            "version": (2 if self._guidance_profile == REQUESTED_TARGET_V2_PROFILE
+                        else ASSEMBLY_AFFORDANCE_VERSION),
+            "profile": self._guidance_profile,
             "episode_id": self.city.episode_id,
             "source_id": self.city.city_service_source_id,
             "captured_at_s": captured,
             "valid_until_s": captured + 1.0,
             "semantic_map_sha256": self._semantic_map_sha256,
+            **({"candidate_geometry_sha256":
+                self._assembly_footprint_profile["candidate_geometry_sha256"]}
+               if self._guidance_profile == REQUESTED_TARGET_V2_PROFILE else {}),
             "candidates": candidates,
             "routes": routes,
         }
+        if self._guidance_profile == REQUESTED_TARGET_V2_PROFILE:
+            cached = self._assembly_support_cache
+            if cached is not None and cached[0] == captured and cached[2] is not None:
+                # Evaluator-only source artifact. Public projection uses an
+                # explicit allowlist and never copies rays or collider paths.
+                result["assembly_support_measurement"] = deepcopy(cached[2])
+        return result
 
     def guide_person(self, person_id: str, *, target_region_id: str | None = None) -> dict[str, Any]:
         person_id = str(person_id)
-        requested = getattr(self, "_guidance_profile", None) == REQUESTED_TARGET_PROFILE
+        requested = getattr(self, "_guidance_profile", None) in REQUESTED_TARGET_PROFILES
         proposal = None
         if requested:
             proposal = self._pending_guidance_proposals.pop(person_id, None)
@@ -167,7 +211,7 @@ class CityEpisodeServiceRuntime:
             if reason is not None:
                 raise CityGuideAdmissionError(
                     [reason], infrastructure_failure=True,
-                    report={"profile": REQUESTED_TARGET_PROFILE, "person_id": person_id,
+                    report={"profile": self._guidance_profile, "person_id": person_id,
                             "target_region_id": target_region_id,
                             "captured_at_s": float(self.city.elapsed)})
             route = deepcopy(proposal["route_readback"])
@@ -206,6 +250,8 @@ class CityEpisodeServiceRuntime:
                 "evidence_ref": self._ref("person_stop", person_id)}
 
     def person_readback(self, person_id: str) -> dict[str, Any]:
+        if self._guidance_profile == REQUESTED_TARGET_V2_PROFILE:
+            return self._v2_person_readback(person_id)
         result = self.people_controller.readback(person_id, self.assembly_regions)
         assembly = self._latest_region(result["assembly_region_id"])
         occupants = set(assembly.get("dynamic_envelopes", {}))
@@ -229,6 +275,52 @@ class CityEpisodeServiceRuntime:
                 "world_readback": assembly,
                 "trajectory_evidence_ref": self._ref("person_trajectory", person_id),
                 "safety_evidence_ref": self._ref("person_safety", person_id)}
+
+    def _v2_person_readback(self, person_id: str) -> dict[str, Any]:
+        result = self.people_controller.motion_readback(person_id)
+        region_id = result["assembly_region_id"]
+        candidate = self._v2_candidate_affordance(region_id)
+        readback = candidate["native_readback"]
+        position = tuple(float(value) for value in result["position_xyz"])
+        center = tuple(float(value) for value in candidate["center_xy_m"])
+        root_inside = sum((position[index] - center[index]) ** 2
+                          for index in range(2)) <= float(candidate["radius_m"]) ** 2
+        contained = str(person_id) in set(readback.get("contained_body_ids") or ())
+        trajectory = self._trajectory(
+            "people", str(person_id), self._person_service_starts[str(person_id)])
+        route_clear = all(row.get("route_readback", {}).get("status") == "measured"
+                          and row["route_readback"].get("clear") is True
+                          for row in trajectory[1:])
+        claims = (set(candidate.get("occupant_ids") or ())
+                  | set(candidate.get("reservation_ids") or ()))
+        capacity_ok = (candidate["capacity"] == 1 and person_id in claims
+                       and len(claims) <= candidate["capacity"])
+        support_ok = candidate.get("support_status") == "sampled_supported"
+        person_envelope = (readback.get("dynamic_envelopes") or {}).get(str(person_id))
+        foreign = readback.get("untrusted_dynamic_envelopes") or {}
+
+        def overlaps_3d(left: Mapping[str, Any], right: Mapping[str, Any]) -> bool:
+            return all(float(left["min"][axis]) <= float(right["max"][axis])
+                       and float(right["min"][axis]) <= float(left["max"][axis])
+                       for axis in range(3))
+
+        foreign_clear = (person_envelope is not None
+                         and not any(overlaps_3d(person_envelope, envelope)
+                                     for envelope in foreign.values()))
+        safe = (result["path_finished"] and support_ok and contained
+                and capacity_ok and foreign_clear
+                and len(trajectory) > 1 and route_clear)
+        return {
+            **result,
+            "inside_assembly": root_inside,
+            "arrived": result["path_finished"] and contained,
+            "safe_route_and_assembly": safe,
+            "full_body_inside_assembly": contained,
+            "trajectory_samples": trajectory,
+            "world_readback": deepcopy(readback),
+            "trajectory_evidence_ref": self._ref("person_trajectory", person_id),
+            "safety_evidence_ref": self._ref("person_safety", person_id),
+        }
 
     def control_vehicle(self, vehicle_id: str, mode: str) -> dict[str, Any]:
         route = None
@@ -280,6 +372,8 @@ class CityEpisodeServiceRuntime:
         }
 
     def _candidate_affordance(self, region_id: str) -> dict[str, Any]:
+        if self._guidance_profile == REQUESTED_TARGET_V2_PROFILE:
+            return self._v2_candidate_affordance(region_id)
         region_id = str(region_id)
         registered = self.assembly_regions[region_id]
         capacity = registered.get("capacity")
@@ -326,6 +420,130 @@ class CityEpisodeServiceRuntime:
             "native_readback": deepcopy(readback),
         }
 
+    def _v2_footprints(self) -> dict[str, dict[str, Any]]:
+        profile = self._assembly_footprint_profile
+        if profile is None:
+            raise RuntimeError("requested-target v2 footprint profile is unavailable")
+        return {row["region_id"]: row for row in profile["candidates"]}
+
+    def _v2_supports(self) -> dict[str, dict[str, Any]]:
+        """Capture at most once per native tick and never reuse on a later tick."""
+        now = float(self.city.elapsed)
+        if self._assembly_support_cache is not None \
+                and self._assembly_support_cache[0] == now:
+            return deepcopy(self._assembly_support_cache[1])
+        footprints = self._v2_footprints()
+        unknown = {region_id: {
+            "status": "unknown", "reason": "support_evidence_unavailable",
+            "profile": ASSEMBLY_SUPPORT_PROFILE,
+            "captured_native_s": now,
+            "episode_id": self.city.episode_id,
+            "source_id": self.city.city_service_source_id,
+            "semantic_map_sha256": self._semantic_map_sha256,
+            "candidate_geometry_sha256":
+                self._assembly_footprint_profile["candidate_geometry_sha256"],
+            "geometry_sha256": footprint["geometry_sha256"],
+            "evidence_ref": self._ref("assembly_support", region_id),
+        } for region_id, footprint in footprints.items()}
+        raw_measurement = None
+        try:
+            raw = self._assembly_support_reader()
+            if not isinstance(raw, Mapping):
+                raise ValueError("support reader returned no mapping")
+            raw_measurement = deepcopy(dict(raw))
+            if (raw.get("schema") != "eai.city.assembly_support"
+                    or raw.get("version") != 1
+                    or raw.get("profile") != ASSEMBLY_SUPPORT_PROFILE
+                    or raw.get("episode_id") != self.city.episode_id
+                    or raw.get("source_id") != self.city.city_service_source_id
+                    or raw.get("semantic_map_sha256") != self._semantic_map_sha256
+                    or raw.get("candidate_geometry_sha256") !=
+                    self._assembly_footprint_profile["candidate_geometry_sha256"]
+                    or raw.get("captured_native_s") != now
+                    or raw.get("native_clock_after_s") != now
+                    or raw.get("same_tick") is not True):
+                raise ValueError("support source identity or freshness mismatch")
+            rows = raw.get("candidates")
+            if not isinstance(rows, list) or len(rows) != 4:
+                raise ValueError("support evidence must cover four candidates")
+            by_id = {}
+            for row in rows:
+                region_id = row.get("region_id") if isinstance(row, Mapping) else None
+                footprint = footprints.get(region_id)
+                if (footprint is None or region_id in by_id
+                        or row.get("geometry_sha256") != footprint["geometry_sha256"]
+                        or row.get("center_xy_m") != footprint["center_xy_m"]
+                        or row.get("radius_m") != footprint["radius_m"]
+                        or row.get("support_plane_z_m") != footprint["support_plane_z_m"]
+                        or row.get("capacity") != footprint["capacity"]
+                        or row.get("status") not in {
+                            "sampled_supported", "unsupported", "unknown"}):
+                    raise ValueError("support candidate geometry or status mismatch")
+                by_id[region_id] = {
+                    "status": row["status"],
+                    "reason": row.get("reason"),
+                    "profile": ASSEMBLY_SUPPORT_PROFILE,
+                    "captured_native_s": now,
+                    "episode_id": raw["episode_id"],
+                    "source_id": raw["source_id"],
+                    "semantic_map_sha256": raw["semantic_map_sha256"],
+                    "candidate_geometry_sha256": raw["candidate_geometry_sha256"],
+                    "geometry_sha256": row["geometry_sha256"],
+                    "evidence_ref": self._ref("assembly_support", region_id),
+                }
+            if set(by_id) != set(footprints):
+                raise ValueError("support candidate identities mismatch")
+            result = by_id
+        except Exception as exc:
+            reason = f"support_evidence_unknown:{type(exc).__name__}:{exc}"
+            result = {region_id: {**row, "reason": reason}
+                      for region_id, row in unknown.items()}
+        self._assembly_support_cache = (
+            now, deepcopy(result), deepcopy(raw_measurement))
+        return deepcopy(result)
+
+    def _v2_reservations(self, region_id: str) -> list[str]:
+        pending = {person_id for person_id, proposal in self._pending_guidance_proposals.items()
+                   if proposal.get("target_region_id") == region_id}
+        active = {person_id for person_id, target in self._active_guidance_targets.items()
+                  if target == region_id}
+        return sorted(pending | active)
+
+    def _v2_candidate_affordance(self, region_id: str) -> dict[str, Any]:
+        region_id = str(region_id)
+        footprint = self._v2_footprints().get(region_id)
+        if footprint is None:
+            raise ValueError("requested-target v2 candidate is unknown")
+        support = self._v2_supports()[region_id]
+        readback = self.region_reader.read_assembly_footprint(
+            footprint, episode_id=self.city.episode_id, time_s=self.city.elapsed,
+            support=support, affected_person_ids=self.affected_person_roster())
+        occupants = sorted(readback.get("occupant_ids") or ())
+        reservations = self._v2_reservations(region_id)
+        reasons = []
+        if support["status"] == "unknown" or readback.get("status") == "unknown":
+            reasons.append("target_support_unknown")
+        elif support["status"] == "unsupported" or readback.get("status") == "unsupported":
+            reasons.append("target_support_unsupported")
+        if len(set(occupants) | set(reservations)) >= footprint["capacity"]:
+            reasons.append("target_capacity_full")
+        # Unknown support dominates any simultaneously measured factual block.
+        status = ("unavailable" if "target_support_unknown" in reasons
+                  else "blocked" if "target_support_unsupported" in reasons
+                  else "measured")
+        return {
+            **deepcopy(footprint),
+            "occupancy_count": len(occupants),
+            "reservation_count": len(reservations),
+            "status": status,
+            "reason_codes": sorted(set(reasons)),
+            "support_status": support["status"],
+            "support_evidence_ref": support["evidence_ref"],
+            "occupant_ids": occupants,
+            "reservation_ids": reservations,
+            "native_readback": deepcopy(readback),
+        }
+
     def _requested_route_affordance(self, person_id: str, region_id: str,
                                     candidate: Mapping[str, Any]) -> dict[str, Any]:
         person_id, region_id = str(person_id), str(region_id)
@@ -347,6 +565,10 @@ class CityEpisodeServiceRuntime:
             reasons.append("person_not_in_roster")
         else:
             active = getattr(self, "_active_guidance_targets", {}).get(person_id)
+            if self._guidance_profile == REQUESTED_TARGET_V2_PROFILE:
+                pending = self._pending_guidance_proposals.get(person_id)
+                if pending is not None:
+                    active = pending.get("target_region_id")
             if active is not None and active != region_id:
                 reasons.append("person_reserved_for_other_target")
             capacity = candidate.get("capacity")
@@ -356,7 +578,9 @@ class CityEpisodeServiceRuntime:
                 reasons.append("target_capacity_full")
             try:
                 current = xyz(self.city.people.position(person_id), "current person position")
-                target = assembly_target_xyz(self.assembly_regions[region_id])
+                target = (assembly_footprint_target_xyz(candidate)
+                          if self._guidance_profile == REQUESTED_TARGET_V2_PROFILE
+                          else assembly_target_xyz(self.assembly_regions[region_id]))
                 body_half = xyz(spec.get("body_half_extents_m", ()), "body half extents")
                 body_offset = xyz(spec.get("body_center_offset_m", ()), "body center offset")
                 if any(value <= 0 for value in body_half):
@@ -410,35 +634,50 @@ class CityEpisodeServiceRuntime:
                     if not static_hits and not dynamic_envelopes:
                         reasons.append("route_measurement_unknown")
             if target:
-                region = self.assembly_regions[region_id]
                 center = tuple(target[axis] + body_offset[axis] for axis in range(3))
                 low = tuple(center[axis] - body_half[axis] for axis in range(3))
                 high = tuple(center[axis] + body_half[axis] for axis in range(3))
-                if any(float(region["min"][axis]) > low[axis]
-                       or high[axis] > float(region["max"][axis]) for axis in range(3)):
-                    reasons.append("target_body_outside_region")
+                if self._guidance_profile == REQUESTED_TARGET_V2_PROFILE:
+                    xy = candidate["center_xy_m"]
+                    radius_sq = float(candidate["radius_m"]) ** 2
+                    corners = ((low[0], low[1]), (low[0], high[1]),
+                               (high[0], low[1]), (high[0], high[1]))
+                    if not all(sum((corner[axis] - float(xy[axis])) ** 2
+                                   for axis in range(2)) <= radius_sq
+                               for corner in corners):
+                        reasons.append("target_body_outside_footprint")
+                else:
+                    region = self.assembly_regions[region_id]
+                    if any(float(region["min"][axis]) > low[axis]
+                           or high[axis] > float(region["max"][axis]) for axis in range(3)):
+                        reasons.append("target_body_outside_region")
         reasons = sorted(set(reasons))
         unavailable = {
             "person_not_in_roster", "region_readback_unavailable", "region_measurement_unknown",
             "capacity_contract_invalid", "route_provider_unavailable",
             "route_provider_returned_none", "route_provider_contract_violation",
             "route_measurement_unknown", "target_body_outside_region",
+            "target_support_unknown",
         }
         status = ("unavailable" if unavailable & set(reasons) else
                   "blocked" if reasons else "admissible")
         length = route_length_m(proposal) if proposal else None
         speed = float(spec["speed_mps"]) if spec is not None else None
         state = {
-            "profile": REQUESTED_TARGET_PROFILE,
+            "profile": self._guidance_profile,
             "semantic_map_sha256": self._semantic_map_sha256,
             "person_id": person_id,
             "region_id": region_id,
             "body_half_extents_m": list(body_half),
             "body_center_offset_m": list(body_offset),
-            "target": {"min": list(candidate["min"]), "max": list(candidate["max"]),
-                       "capacity": candidate["capacity"],
+            "target": ({key: deepcopy(candidate[key]) for key in (
+                "footprint", "center_xy_m", "radius_m", "support_plane_z_m",
+                "geometry_sha256", "capacity", "occupancy_count", "reservation_count")}
+                       if self._guidance_profile == REQUESTED_TARGET_V2_PROFILE else
+                       {"min": list(candidate["min"]), "max": list(candidate["max"]),
+                        "capacity": candidate["capacity"],
                        "occupancy_count": candidate["occupancy_count"],
-                       "reservation_count": candidate["reservation_count"]},
+                        "reservation_count": candidate["reservation_count"]}),
             "proposal_waypoints_m": [list(point) for point in proposal],
             "status": status,
             "reason_codes": reasons,
@@ -467,13 +706,16 @@ class CityEpisodeServiceRuntime:
         if float(now_s) != float(self.city.elapsed):
             raise CityGuideAdmissionError(
                 ["episode_clock_mismatch"], infrastructure_failure=True,
-                report={"profile": REQUESTED_TARGET_PROFILE, "now_s": float(now_s),
+                report={"profile": self._guidance_profile, "now_s": float(now_s),
                         "city_elapsed_s": float(self.city.elapsed)})
         target = str(target_region_id or "")
-        if target not in self.assembly_regions:
+        target_ids = (set(self._v2_footprints())
+                      if self._guidance_profile == REQUESTED_TARGET_V2_PROFILE
+                      else set(self.assembly_regions))
+        if target not in target_ids:
             raise CityGuideAdmissionError(
                 ["target_region_unknown"], infrastructure_failure=True,
-                report={"profile": REQUESTED_TARGET_PROFILE,
+                report={"profile": self._guidance_profile,
                         "target_region_id": target_region_id,
                         "captured_at_s": float(self.city.elapsed)})
         roster = self.affected_person_roster()
@@ -483,6 +725,10 @@ class CityEpisodeServiceRuntime:
             reasons.append("person_not_in_roster")
         for person_id in people:
             active = getattr(self, "_active_guidance_targets", {}).get(person_id)
+            if self._guidance_profile == REQUESTED_TARGET_V2_PROFILE:
+                pending = self._pending_guidance_proposals.get(person_id)
+                if pending is not None:
+                    active = pending.get("target_region_id")
             if active is not None and active != target:
                 reasons.append("person_reserved_for_other_target")
         candidate = self._candidate_affordance(target)
@@ -501,8 +747,9 @@ class CityEpisodeServiceRuntime:
         reasons = sorted(set(reasons))
         report = {
             "schema": ASSEMBLY_AFFORDANCE_SCHEMA,
-            "version": ASSEMBLY_AFFORDANCE_VERSION,
-            "profile": REQUESTED_TARGET_PROFILE,
+            "version": (2 if self._guidance_profile == REQUESTED_TARGET_V2_PROFILE
+                        else ASSEMBLY_AFFORDANCE_VERSION),
+            "profile": self._guidance_profile,
             "episode_id": self.city.episode_id,
             "source_id": self.city.city_service_source_id,
             "captured_at_s": float(self.city.elapsed),
@@ -521,7 +768,7 @@ class CityEpisodeServiceRuntime:
                 "capacity_contract_invalid", "route_provider_unavailable",
                 "route_provider_returned_none", "route_provider_contract_violation",
                 "route_measurement_unknown", "route_proposal_missing", "route_proposal_stale",
-                "target_body_outside_region",
+                "target_body_outside_region", "target_support_unknown",
             })
             raise CityGuideAdmissionError(
                 reasons, infrastructure_failure=infrastructure, report=report)
@@ -540,7 +787,7 @@ class CityEpisodeServiceRuntime:
     def admit(self, service: str, ids: tuple[str, ...], region_id: str,
               target_region_id: str | None, mode: str | None, now_s: float) -> bool:
         if service == "guide_people" and getattr(
-                self, "_guidance_profile", None) == REQUESTED_TARGET_PROFILE:
+                self, "_guidance_profile", None) in REQUESTED_TARGET_PROFILES:
             return self._requested_target_admission(ids, target_region_id, now_s)
         if float(now_s) != float(self.city.elapsed):
             return False
@@ -611,6 +858,7 @@ class CityEpisodeServiceRuntime:
         self._pending_guidance_proposals.clear()
         self._active_guidance_targets.clear()
         self._last_guidance_admission_report = None
+        self._assembly_support_cache = None
 
     def continuous_access(self, request: Mapping[str, Any], start_s: float,
                           end_s: float) -> dict[str, Any]:
@@ -746,12 +994,18 @@ class CityEaiRuntime:
         }
         service.observe_step()
 
-    def enable_requested_target_guidance(self, *, route_provider: Callable[..., Any],
-                                         semantic_map_sha256: str) -> None:
+    def enable_requested_target_guidance(
+            self, *, route_provider: Callable[..., Any], semantic_map_sha256: str,
+            profile: str = REQUESTED_TARGET_PROFILE,
+            assembly_footprint_profile: Mapping[str, Any] | None = None,
+            assembly_support_reader: Callable[[], Mapping[str, Any]] | None = None,
+    ) -> None:
         if self._episode_service is None:
             raise RuntimeError("City service sources must be bound before requested-target guidance")
         self._episode_service.enable_requested_target_guidance(
-            route_provider=route_provider, semantic_map_sha256=semantic_map_sha256)
+            route_provider=route_provider, semantic_map_sha256=semantic_map_sha256,
+            profile=profile, assembly_footprint_profile=assembly_footprint_profile,
+            assembly_support_reader=assembly_support_reader)
 
     def assembly_affordances(self) -> dict[str, Any]:
         if self._episode_service is None:
