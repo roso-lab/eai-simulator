@@ -286,6 +286,9 @@ class CityNativeGoalBackend:
         self._robot_regions = (city_robot_regions(public_task) if public_task is not None
                                else dict(CITY_ROBOT_REGIONS))
         self._task_pool = list((public_task or {}).get("candidate_robot_pool") or [])
+        self._assembly_candidates = {
+            item["id"] for item in (public_task or {}).get("public_world", {}).get("regions", ())
+            if item.get("kind") == "assembly_candidate"}
         budget = ((public_task or {}).get("budgets") or {}).get("simulation_s")
         self._simulation_budget_s = None
         if budget is not None:
@@ -641,9 +644,13 @@ class CityNativeGoalBackend:
                 result["reason"] = "native city service window expired before execution"
                 return result
         skill = task["skill"]
+        from demo.city_benchmark.guide_admission import CityGuideAdmissionError
+
         result: Mapping[str, Any] | None = None
         try:
             if skill == "guide_people":
+                self._check_requested_guide_entities(task)
+                self._check_public_guide_evidence(task, row, ledger)
                 result = self._execute_guide(task, row, episode_id, ledger_now)
             elif skill == "control_following_traffic":
                 result = self._execute_control(task, row, episode_id, ledger_now)
@@ -653,6 +660,30 @@ class CityNativeGoalBackend:
                 result = self._execute_broadcast(task, row, episode_id, ledger_now)
             else:
                 raise ValueError(f"native city backend does not implement skill: {skill}")
+        except CityGuideAdmissionError as failure:
+            # Legacy candidate heights were qualified for author-selected
+            # people, not every public choice. Preserve that geometry but do
+            # not charge its qualification gap to the participant.
+            if "target_body_outside_region" in failure.reason_codes:
+                failure = CityGuideAdmissionError(
+                    failure.reason_codes, infrastructure_failure=True,
+                    report={"platform_qualification_failure": True,
+                            "admission": failure.report})
+            evidence_ref = f"guide_admission:{episode_id}:{row['dispatch_action_id']}"
+            self.evidence.append({
+                "kind": "guide_admission_failure", "task_id": task_id,
+                "action_id": row["dispatch_action_id"], "evidence_ref": evidence_ref,
+                "classification": ("infrastructure_evidence_failure" if failure.infrastructure_failure
+                                   else "execution_condition_failure"),
+                "reason_codes": list(failure.reason_codes), "report": deepcopy(failure.report),
+                "native_time_s": float(self._ctx["city"].elapsed)})
+            if failure.infrastructure_failure:
+                raise failure
+            result = self._terminal(task, row, episode_id, "failed",
+                                    max(self._relative_now(), ledger_now), [evidence_ref], evidence_ref)
+            result["city_admission_outcome"] = {
+                "task_id": task_id, "action_id": row["dispatch_action_id"], "status": "failed",
+                "reason_codes": list(failure.reason_codes), "evidence_ref": evidence_ref}
         except _CapabilityExecutionFailure as failure:
             # Task-level failure with factual observables only: the episode
             # continues and the business outcomes judge the algorithm. Like a
@@ -677,6 +708,108 @@ class CityNativeGoalBackend:
             if dispatch_clock is not None:
                 self._finish_dispatch_clock(dispatch_clock, result)
         return result
+
+    def _check_requested_guide_entities(self, task) -> None:
+        """Reject invalid public identities without requiring tool consumption."""
+        from demo.city_benchmark.guide_admission import CityGuideAdmissionError
+
+        service = getattr(self._ctx["city"], "_episode_service", None)
+        if getattr(service, "guidance_profile", None) != "requested_target_v1":
+            return
+        target = task["arguments"]["assembly_region_id"]
+        if target not in self._assembly_candidates:
+            raise CityGuideAdmissionError(
+                ["target_region_unknown"], infrastructure_failure=False,
+                report={"invalid_public_target": target})
+        lookup = getattr(self._ctx["runner"].host, "observation", None)
+        if callable(lookup):
+            observation = lookup(self._current_observation())
+            if not isinstance(observation, Mapping):
+                raise ValueError("current trusted City observation is missing")
+            persons = {row["id"] for row in observation.get("entities", ())
+                       if row.get("kind") == "person"}
+            if not set(task["arguments"]["person_ids"]) <= persons:
+                raise CityGuideAdmissionError(
+                    ["person_not_observed"], infrastructure_failure=False,
+                    report={"requested_person_ids": task["arguments"]["person_ids"]})
+
+    def _check_public_guide_evidence(self, task, dispatch_row, ledger) -> None:
+        """Bind optional cited measurements without making tool use mandatory."""
+        from demo.city_benchmark.guide_admission import CityGuideAdmissionError
+
+        self._guide_evidence_checked = None
+        service = getattr(self._ctx["city"], "_episode_service", None)
+        if service is None or getattr(service, "guidance_profile", None) != "requested_target_v1":
+            return
+        action = next((action for action in ledger.get("actions", ())
+                       if action.get("action_id") == dispatch_row["dispatch_action_id"]), {})
+        refs = set(task.get("evidence_refs", ())) | set(action.get("payload", {}).get("evidence_refs", ()))
+        cited = []
+        consumed = set(ledger.get("consumed_message_ids", ()))
+        for event in ledger.get("events", ()):
+            payload = event.get("payload", {})
+            if event.get("type") != "observation" or payload.get("message_id") not in refs:
+                continue
+            estimate = payload.get("data", {}).get("estimate", {})
+            if "assembly_affordance" in estimate:
+                if payload["message_id"] not in consumed:
+                    raise CityGuideAdmissionError(
+                        reason_codes=["route_proposal_missing"], infrastructure_failure=True,
+                        report={"unconsumed_public_evidence": payload["message_id"]})
+                cited.append((payload, estimate["assembly_affordance"]))
+        if not cited:
+            return  # Blind target choice is a legitimate participant action.
+        target = task["arguments"]["assembly_region_id"]
+        people = set(task["arguments"]["person_ids"])
+        signatures = {tuple(sorted((r["person_id"], r["state_sha256"])
+                                  for r in snap["routes"]
+                                  if r["region_id"] == target and r["person_id"] in people))
+                      for _, snap in cited}
+        if len(signatures) != 1:
+            raise CityGuideAdmissionError(
+                reason_codes=["affordance_changed"], infrastructure_failure=False,
+                report={"conflicting_message_ids": [p["message_id"] for p, _ in cited]})
+        payload, snapshot = max(cited, key=lambda item: item[1]["captured_at_s"])
+        now = self._relative_now()
+        if now >= min(float(payload["valid_until_s"]), float(snapshot["valid_until_s"])):
+            raise CityGuideAdmissionError(
+                reason_codes=["affordance_expired"], infrastructure_failure=False,
+                report={"message_id": payload["message_id"], "now_s": now})
+        current = service.assembly_affordances()
+        for person in task["arguments"]["person_ids"]:
+            old = next((r for r in snapshot["routes"]
+                        if (r["person_id"], r["region_id"]) == (person, target)), None)
+            new = next((r for r in current["routes"]
+                        if (r["person_id"], r["region_id"]) == (person, target)), None)
+            if old is None or new is None:
+                raise CityGuideAdmissionError(
+                    reason_codes=["route_proposal_missing"], infrastructure_failure=True,
+                    report={"message_id": payload["message_id"], "person_id": person, "region_id": target})
+            if new.get("status") == "unavailable" or "target_body_outside_region" in new.get("reason_codes", ()):
+                raise CityGuideAdmissionError(
+                    reason_codes=new.get("reason_codes") or ["route_measurement_unknown"],
+                    infrastructure_failure=True,
+                    report={"message_id": payload["message_id"], "previous": old, "current": new})
+            if old["state_sha256"] != new["state_sha256"]:
+                raise CityGuideAdmissionError(
+                    reason_codes=["affordance_changed"], infrastructure_failure=False,
+                    report={"message_id": payload["message_id"], "previous": old, "current": new})
+        candidate = next((candidate for candidate in current.get("candidates", ())
+                          if candidate["region_id"] == target), None)
+        batch_fits = False
+        if candidate is not None:
+            occupants = candidate.get("occupant_ids", [])
+            reservations = candidate.get("reservation_ids", [])
+            # These identity sets remain trusted-side. Counts alone cannot
+            # detect overlap with the requested people or between claims.
+            claims_known = (len(occupants) == candidate.get("occupancy_count", 0)
+                            and len(reservations) == candidate.get("reservation_count", 0))
+            batch_fits = claims_known and len(set(occupants) | set(reservations) | people) <= candidate["capacity"]
+        self._guide_evidence_checked = {
+            "task_id": task["task_id"], "message_id": payload["message_id"],
+            "batch_fits": batch_fits,
+            "routes": [r for r in current["routes"]
+                       if r["region_id"] == target and r["person_id"] in task["arguments"]["person_ids"]]}
 
     def cancel(self, task: Mapping[str, Any], *, episode_id: str,
                trusted_report: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -726,6 +859,18 @@ class CityNativeGoalBackend:
                                                assembly_region_id=region_id)
                 break
             except ValueError as exc:
+                from demo.city_benchmark.guide_admission import CityGuideAdmissionError
+
+                if isinstance(exc, CityGuideAdmissionError):
+                    checked = getattr(self, "_guide_evidence_checked", None)
+                    if (checked is not None and checked["task_id"] == task["task_id"]
+                            and checked["batch_fits"]
+                            and all(r["status"] == "admissible" for r in checked["routes"])):
+                        raise CityGuideAdmissionError(
+                            reason_codes=list(exc.reason_codes), infrastructure_failure=True,
+                            report={"same_state_admission_contradiction": True,
+                                    "public_evidence": checked, "admission": exc.report}) from exc
+                    raise  # A typed rejection is not a transient legacy retry.
                 if "not admitted" not in str(exc) or attempt == CITY_GUIDE_RETRY_LIMIT - 1:
                     raise
                 ctx["step"](ctx["session"], city, ctx["actions"],
@@ -742,6 +887,10 @@ class CityNativeGoalBackend:
             "person_ids": person_ids, "assembly_region_id": region_id,
             "observation_ref": observation, "request": request, "contact": contact,
             "acknowledged": acknowledged})
+        service = getattr(city, "_episode_service", None)
+        admission = getattr(service, "_last_guidance_admission_report", None)
+        if admission is not None:
+            self.evidence[-1]["requested_target_admission"] = deepcopy(admission)
         refs = [str(request["request_id"]),
                 *(str(ref) for ref in contact.get("evidence_refs") or ())]
         if not acknowledged:
@@ -1225,8 +1374,20 @@ def city_business_evaluator(evidence_log: list[Mapping[str, Any]],
         await_assembly_arrivals(ctx, evidence_log, stamps=arrival_stamps)
         envelope = build_acceptance_evidence(
             evidence_log, ctx, clock_epoch_s=epoch)
+        # Raw boundary evidence retains None for a measurement that never
+        # happened. The acceptance contract expresses that as a missing field,
+        # not a timestamp to parse and not an invented zero. This allows a
+        # rejected-before-start attempt to finish with honest failed outcomes.
+        def measured_times(value):
+            if isinstance(value, Mapping):
+                return {key: measured_times(item) for key, item in value.items()
+                        if not (key.endswith("_time_s") and item is None)}
+            if isinstance(value, list):
+                return [measured_times(item) for item in value]
+            return value
+
         acceptance = evaluate_city_acceptance(
-            envelope, default_deadline_policy(),
+            measured_times(envelope), default_deadline_policy(),
             expected_affected_person_ids=set(ctx["roster_ids"]),
             expected_following_vehicle_ids=set(ctx["vehicle_ids"]))
         required = {row["id"] for row in trusted_report["session"]["business_outcomes"]}

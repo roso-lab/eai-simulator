@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from copy import deepcopy
+import inspect
 import math
 from threading import RLock
 from typing import Any, Callable, Iterable, Mapping
@@ -174,7 +175,7 @@ class CityDemoRuntimeWitnessAdapter:
                  affected_people: Mapping[str, Mapping[str, Any]] | None = None,
                  affected_person_roster: Callable[[], Mapping[str, Mapping[str, Any]]] | None = None,
                  following_vehicle_roster: Callable[[], Mapping[str, Mapping[str, Any]]] | None = None,
-                 person_controller: Callable[[str], Mapping[str, Any]] | None = None,
+                 person_controller: Callable[..., Mapping[str, Any]] | None = None,
                  person_readback: Callable[[str], Mapping[str, Any]] | None = None,
                  person_stop: Callable[[str], Mapping[str, Any]] | None = None,
                  vehicle_controller: Any = None, admission: Any = None,
@@ -313,7 +314,36 @@ class CityDemoRuntimeWitnessAdapter:
             })
         return rows
 
-    def guide_person(self, person_id: str) -> dict[str, Any]:
+    def _requested_target_profile_enabled(self) -> bool:
+        runtime = getattr(self, "runtime", None)
+        service = getattr(runtime, "_episode_service", None)
+        profile = getattr(service, "guidance_profile", None)
+        if profile is None:
+            binding_factory = getattr(runtime, "city_service_native_binding", None)
+            if callable(binding_factory):
+                binding = binding_factory()
+                profile = binding.get("guidance_profile") if isinstance(binding, Mapping) else None
+        return profile == "requested_target_v1"
+
+    def _call_with_optional_target(self, callback: Callable[..., Any], person_id: str,
+                                   assembly_region_id: str | None) -> Any:
+        if assembly_region_id is None:
+            return callback(person_id)
+        try:
+            inspect.signature(callback).bind(person_id, target_region_id=assembly_region_id)
+        except (TypeError, ValueError):
+            if self._requested_target_profile_enabled():
+                from demo.city_benchmark.guide_admission import CityGuideAdmissionError
+
+                raise CityGuideAdmissionError(
+                    ["route_proposal_missing"], infrastructure_failure=True,
+                    report={"profile": "requested_target_v1", "person_id": person_id,
+                            "target_region_id": assembly_region_id,
+                            "controller_target_unsupported": True})
+            return callback(person_id)
+        return callback(person_id, target_region_id=assembly_region_id)
+
+    def guide_person(self, person_id: str, *, target_region_id: str | None = None) -> dict[str, Any]:
         person_id = _text(person_id, "affected person id")
         people = self._people_runtime()
         roster = None
@@ -328,7 +358,8 @@ class CityDemoRuntimeWitnessAdapter:
                 raise CityRuntimeWitnessBlocked(f"human runtime lacks {method} service action")
         spec = specs[person_id]
         if callable(self.person_controller):
-            result = self.person_controller(person_id)
+            result = self._call_with_optional_target(
+                self.person_controller, person_id, target_region_id)
             if not isinstance(result, Mapping):
                 raise CityRuntimeWitnessBlocked("person controller returned no endpoint acknowledgement")
             return dict(result)
@@ -360,12 +391,14 @@ class CityDemoRuntimeWitnessAdapter:
             attempted.append(person_id)
             stage = "controller"
             try:
-                action = self.guide_person(person_id)
+                action = self._call_with_optional_target(
+                    self.guide_person, person_id, assembly_region_id)
                 stage = "ack"
                 if (not isinstance(action, Mapping) or action.get("entity_id") != person_id
                         or action.get("episode_id") != self.episode_id
                         or action.get("source_id") != self.source_id
-                        or action.get("status_after") != "guidance_applied"):
+                        or action.get("status_after") != "guidance_applied"
+                        or action.get("assembly_region_id", assembly_region_id) != assembly_region_id):
                     raise CityRuntimeWitnessBlocked("person controller acknowledgement identity mismatch")
                 ack = LiveEvidence(
                     episode_id=self.episode_id,
@@ -381,6 +414,9 @@ class CityDemoRuntimeWitnessAdapter:
             except Exception as exc:
                 self._fail_batch(witness, request["request_id"], tuple(attempted), stage,
                                  stop=self.person_stop, identity="entity_id", stopped="paused")
+                from demo.city_benchmark.guide_admission import CityGuideAdmissionError
+                if isinstance(exc, CityGuideAdmissionError):
+                    raise
                 raise CityRuntimeWitnessBlocked(
                     f"guidance request {request['request_id']} partially failed at {stage}") from exc
         return request, tuple(actions)

@@ -85,7 +85,11 @@ def _source_hashes() -> dict[str, Any]:
     # Include the full benchmark Python surface so a transitive contract,
     # communication or validator edit cannot evade the entry/backend guard.
     paths = sorted(Path(__file__).parent.glob("*.py"))
+    city_root = Path(__file__).parent.parent / "city_benchmark"
+    city_paths = sorted([*city_root.glob("*.py"), *(city_root / "scene").glob("*.py")])
     return {"goal_modules": {path.name: file_sha256(path) for path in paths},
+            "city_modules": {str(path.relative_to(city_root)): file_sha256(path)
+                             for path in city_paths},
             "service_probe_sources": _hashes()}
 
 
@@ -341,6 +345,7 @@ def run_city_autonomous_context(
     progress_reader: ProgressReader | None = None,
     episode_id: str | None = None,
     communication_runtime: Any = None,
+    guide_route_provider: Any = None,
 ) -> tuple[dict[str, Any], CityNativeGoalBackend]:
     """Bind one prepared native City context to the autonomous session."""
     public, _participant_api = build_city_autonomous_contract()
@@ -362,6 +367,15 @@ def run_city_autonomous_context(
         raise ValueError("native City context must permit the trusted step wrapper") from exc
     default_progress = None
     try:
+        assembly_reader = None
+        if guide_route_provider is not None:
+            if communication_runtime is None:
+                raise ValueError("requested-target guidance requires metered communication")
+            service = ctx["city"]._episode_service
+            service.enable_requested_target_guidance(
+                route_provider=guide_route_provider,
+                semantic_map_sha256=guide_route_provider.semantic_map_sha256)
+            assembly_reader = service.assembly_affordances
         backend = CityNativeGoalBackend(
             ctx, public_task=public, clock_epoch_s=clock_epoch_s, strict_dispatch_clock=True)
         if progress_reader is None:
@@ -377,7 +391,7 @@ def run_city_autonomous_context(
             episode_id = episode_id or uuid.uuid4().hex
             observer = GoalCityRuntimeIntake(
                 public, episode_id=episode_id, runtime=communication_runtime,
-                reader=CityRuntimeObservationReader(ctx),
+                reader=CityRuntimeObservationReader(ctx, assembly_reader=assembly_reader),
                 native_episode_id=ctx["runner"].adapter.episode_id,
                 native_source_id=ctx["runner"].adapter.source_id,
                 clock_epoch_s=clock_epoch_s,
@@ -417,6 +431,7 @@ def run_city_autonomous_episode(
     progress_reader: ProgressReader | None = None,
     episode_id: str | None = None,
     communication_runtime: Any = None,
+    guide_semantic_map_path: str | Path | None = None,
 ) -> dict[str, Any]:
     """Run the explicit v1 autonomous entry against the prepared native probe."""
     from demo.city_benchmark.service_probe import execute_probe, prepare_probe
@@ -426,6 +441,13 @@ def run_city_autonomous_episode(
     root = Path(output_root).absolute()
     binding = (Path(episode_binding) if episode_binding is not None
                else DEFAULT_CITY_EPISODE_BINDING)
+    route_provider = None
+    if guide_semantic_map_path is not None:
+        from .goal_city_assembly import CityRequestedTargetRouteProvider
+
+        route_provider = CityRequestedTargetRouteProvider.from_path(guide_semantic_map_path)
+        if communication_runtime is None:
+            raise ValueError("requested-target guidance requires metered communication")
     prepare_probe(root, device=device, episode_binding=binding, pool=CITY_AUTONOMOUS_POOL)
 
     def driver(ctx: Mapping[str, Any]) -> None:
@@ -438,6 +460,7 @@ def run_city_autonomous_episode(
             progress_reader=progress_reader,
             episode_id=episode_id,
             communication_runtime=communication_runtime,
+            guide_route_provider=route_provider,
         )
         sources_after = _source_hashes()
         sources_unchanged = sources_before == sources_after
@@ -462,6 +485,7 @@ def run_city_autonomous_episode(
             "source_sha256": source_sha256,
             "sources_unchanged": sources_unchanged,
             "clock_epoch_s": backend.clock_epoch_s,
+            "guide_admission_profile": ("requested_target_v1" if route_provider else "legacy_bound_target"),
         }
         if not sources_unchanged:
             ctx["report"].update(
@@ -488,6 +512,7 @@ def run_city_autonomous_episode(
             "source_hashes_after": sources_after,
             "sources_unchanged": sources_unchanged,
             "clock_epoch_s": backend.clock_epoch_s,
+            "guide_admission_profile": ("requested_target_v1" if route_provider else "legacy_bound_target"),
             "episode_id": result["episode_id"],
             "candidate_robot_ids": list(CITY_AUTONOMOUS_ROBOT_IDS),
             "author_plan_supplied": False,

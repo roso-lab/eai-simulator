@@ -54,22 +54,36 @@ class EpisodeAffectedPeopleController:
         self._assignments: dict[str, dict[str, Any]] = {}
         self._paused_by_failure: set[str] = set()
 
-    def guide(self, actor_id: str) -> dict[str, Any]:
+    def guide(self, actor_id: str, *, assembly_region_id: str | None = None,
+              waypoints: Any = None) -> dict[str, Any]:
         actor_id = str(actor_id)
         spec = self.roster.snapshot().get(actor_id)
         if spec is None:
             raise ValueError("guidance actor is outside the affected-person roster")
-        waypoints = tuple(tuple(float(value) for value in point)
-                          for point in spec.get("assembly_waypoints", ()))
-        if not waypoints:
+        requested = waypoints is not None
+        selected = tuple(tuple(float(value) for value in point)
+                         for point in (waypoints if requested else
+                                       spec.get("assembly_waypoints", ())))
+        if not selected:
             raise ValueError("affected person requires assembly_waypoints")
         current = tuple(float(value) for value in self.people_runtime.position(actor_id))
-        if len(current) != 3 or any(len(point) != 3 for point in waypoints):
+        if len(current) != 3 or any(len(point) != 3 for point in selected):
             raise ValueError("assembly waypoints must contain XYZ triples")
+        if requested:
+            if not isinstance(assembly_region_id, str) or not assembly_region_id:
+                raise ValueError("requested guidance requires an assembly region")
+            if len(selected) < 2 or any(abs(selected[0][axis] - current[axis]) > 1e-9
+                                        for axis in range(3)):
+                raise ValueError("requested guidance route must start at the current pose")
+            path = selected
+            target_region = assembly_region_id
+        else:
+            path = (current, *selected)
+            target_region = str(spec["assembly_region_id"])
         from EAI_assets.humans.path_follower import PathFollower
         actor = self.people_runtime._actor(actor_id)
         follower = PathFollower(
-            actor_id=actor_id, waypoints=(current, *waypoints),
+            actor_id=actor_id, waypoints=path,
             speed=float(spec["speed_mps"]), loop=False,
             locomotion=str(spec.get("motion", "walk")),
             movement_gate=actor._movement_gate)
@@ -79,15 +93,15 @@ class EpisodeAffectedPeopleController:
         actor._pending_pose = pose
         self.people_runtime._write_pose(actor_id, pose)
         self._assignments[actor_id] = {
-            "assembly_region_id": str(spec["assembly_region_id"]),
-            "final_waypoint": list(waypoints[-1]), "loop": False,
+            "assembly_region_id": target_region,
+            "final_waypoint": list(path[-1]), "loop": False,
         }
         if actor_id in self._paused_by_failure:
             self.people_runtime.resume(actor_id)
             self._paused_by_failure.remove(actor_id)
         return {"entity_id": actor_id, "status_before": "awaiting_guidance",
                 "status_after": "guidance_applied", "position_xyz": list(current),
-                "assembly_region_id": str(spec["assembly_region_id"]), "loop": False}
+                "assembly_region_id": target_region, "loop": False}
 
     def stop(self, actor_id: str) -> dict[str, Any]:
         actor_id = str(actor_id)

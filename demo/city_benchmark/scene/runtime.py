@@ -6,6 +6,18 @@ from dataclasses import dataclass
 from copy import deepcopy
 from typing import Any, Callable, Iterable, Mapping
 
+from demo.city_benchmark.guide_admission import (
+    ASSEMBLY_AFFORDANCE_SCHEMA,
+    ASSEMBLY_AFFORDANCE_VERSION,
+    CityGuideAdmissionError,
+    REQUESTED_TARGET_PROFILE,
+    assembly_target_xyz,
+    canonical_state_sha256,
+    requested_route,
+    route_length_m,
+    validate_semantic_map_sha256,
+    xyz,
+)
 from demo.city_benchmark.scene.scenario import CityScenarioConfig, Polyline
 
 
@@ -80,6 +92,12 @@ class CityEpisodeServiceRuntime:
         self._world_samples: list[dict[str, Any]] = []
         self._person_service_starts: dict[str, float] = {}
         self._vehicle_service_starts: dict[str, float] = {}
+        self._guidance_profile: str | None = None
+        self._requested_target_route_provider: Callable[..., Any] | None = None
+        self._semantic_map_sha256: str | None = None
+        self._pending_guidance_proposals: dict[str, dict[str, Any]] = {}
+        self._active_guidance_targets: dict[str, str] = {}
+        self._last_guidance_admission_report: dict[str, Any] | None = None
 
     def affected_person_roster(self) -> dict[str, dict[str, Any]]:
         return self.people_roster.snapshot()
@@ -94,24 +112,98 @@ class CityEpisodeServiceRuntime:
     def assignment(self, service: str) -> dict[str, str]:
         return deepcopy(self.assignment_rows[str(service)])
 
-    def guide_person(self, person_id: str) -> dict[str, Any]:
-        route = self._person_route(person_id)
+    def enable_requested_target_guidance(self, *, route_provider: Callable[..., Any],
+                                         semantic_map_sha256: str) -> None:
+        """Enable the opt-in public-target profile before any guide request."""
+        if not callable(route_provider):
+            raise ValueError("requested-target guidance requires a route provider")
+        if self._person_service_starts or self._pending_guidance_proposals \
+                or self._active_guidance_targets:
+            raise ValueError("requested-target guidance must be enabled before guidance starts")
+        self._requested_target_route_provider = route_provider
+        self._semantic_map_sha256 = validate_semantic_map_sha256(semantic_map_sha256)
+        self._guidance_profile = REQUESTED_TARGET_PROFILE
+
+    @property
+    def guidance_profile(self) -> str | None:
+        return self._guidance_profile
+
+    def assembly_affordances(self) -> dict[str, Any]:
+        """Measure every affected-person/candidate pair without reserving it."""
+        if self._guidance_profile != REQUESTED_TARGET_PROFILE:
+            raise ValueError("requested-target guidance profile is not enabled")
+        captured = float(self.city.elapsed)
+        candidates = [self._candidate_affordance(region_id)
+                      for region_id in sorted(self.assembly_regions)]
+        by_region = {row["region_id"]: row for row in candidates}
+        routes = [self._requested_route_affordance(person_id, region_id, by_region[region_id])
+                  for person_id in sorted(self.affected_person_roster())
+                  for region_id in sorted(self.assembly_regions)]
+        return {
+            "schema": ASSEMBLY_AFFORDANCE_SCHEMA,
+            "version": ASSEMBLY_AFFORDANCE_VERSION,
+            "profile": REQUESTED_TARGET_PROFILE,
+            "episode_id": self.city.episode_id,
+            "source_id": self.city.city_service_source_id,
+            "captured_at_s": captured,
+            "valid_until_s": captured + 1.0,
+            "semantic_map_sha256": self._semantic_map_sha256,
+            "candidates": candidates,
+            "routes": routes,
+        }
+
+    def guide_person(self, person_id: str, *, target_region_id: str | None = None) -> dict[str, Any]:
+        person_id = str(person_id)
+        requested = getattr(self, "_guidance_profile", None) == REQUESTED_TARGET_PROFILE
+        proposal = None
+        if requested:
+            proposal = self._pending_guidance_proposals.pop(person_id, None)
+            reason = None
+            if proposal is None:
+                reason = "route_proposal_missing"
+            elif (proposal["captured_at_s"] != float(self.city.elapsed)
+                  or proposal["target_region_id"] != str(target_region_id)):
+                reason = "route_proposal_stale"
+            if reason is not None:
+                raise CityGuideAdmissionError(
+                    [reason], infrastructure_failure=True,
+                    report={"profile": REQUESTED_TARGET_PROFILE, "person_id": person_id,
+                            "target_region_id": target_region_id,
+                            "captured_at_s": float(self.city.elapsed)})
+            route = deepcopy(proposal["route_readback"])
+            waypoints = tuple(tuple(point) for point in proposal["proposal_waypoints_m"])
+            self._active_guidance_targets[person_id] = str(target_region_id)
+        else:
+            route = self._person_route(person_id)
+            waypoints = None
         if route.get("status") != "measured" or route.get("clear") is not True:
+            self._active_guidance_targets.pop(person_id, None)
             raise RuntimeError("affected-person assembly route is not natively clear")
         from pxr import Usd
-        with Usd.EditContext(self.city.stage, self.city.stage.GetSessionLayer()):
-            result = self.people_controller.guide(person_id)
+        try:
+            with Usd.EditContext(self.city.stage, self.city.stage.GetSessionLayer()):
+                result = self.people_controller.guide(
+                    person_id, assembly_region_id=(str(target_region_id) if requested else None),
+                    waypoints=waypoints)
+        except Exception:
+            self._active_guidance_targets.pop(person_id, None)
+            raise
         self._person_service_starts[str(person_id)] = float(self.city.elapsed)
         return {**result, "episode_id": self.city.episode_id,
                 "source_id": self.city.city_service_source_id, "route_readback": route}
 
     def stop_person(self, person_id: str) -> dict[str, Any]:
-        result = self.people_controller.stop(person_id)
-        self._person_service_starts.pop(str(person_id), None)
+        person_id = str(person_id)
+        try:
+            result = self.people_controller.stop(person_id)
+        finally:
+            self._person_service_starts.pop(person_id, None)
+            self._pending_guidance_proposals.pop(person_id, None)
+            self._active_guidance_targets.pop(person_id, None)
         return {**result, "episode_id": self.city.episode_id,
                 "source_id": self.city.city_service_source_id,
                 "observed_time_s": float(self.city.elapsed),
-                "evidence_ref": self._ref("person_stop", str(person_id))}
+                "evidence_ref": self._ref("person_stop", person_id)}
 
     def person_readback(self, person_id: str) -> dict[str, Any]:
         result = self.people_controller.readback(person_id, self.assembly_regions)
@@ -187,8 +279,269 @@ class CityEpisodeServiceRuntime:
             "hazard_readback": deepcopy(hazard), "access_readback": deepcopy(access),
         }
 
+    def _candidate_affordance(self, region_id: str) -> dict[str, Any]:
+        region_id = str(region_id)
+        registered = self.assembly_regions[region_id]
+        capacity = registered.get("capacity")
+        reservations = sorted(person_id for person_id, target in
+                              getattr(self, "_active_guidance_targets", {}).items()
+                              if target == region_id)
+        reasons: list[str] = []
+        readback: dict[str, Any] | None = None
+        occupants: list[str] = []
+        try:
+            readback = self._latest_region(region_id)
+        except (KeyError, RuntimeError, ValueError):
+            reasons.append("region_readback_unavailable")
+        if readback is not None:
+            if readback.get("status") != "measured":
+                reasons.append("region_measurement_unknown")
+            else:
+                occupants = sorted(str(value) for value in
+                                   (readback.get("dynamic_envelopes") or {}))
+                if readback.get("static_hits"):
+                    reasons.append("target_static_blocked")
+                measured_capacity = (readback.get("region_metadata") or {}).get("capacity")
+                if measured_capacity != capacity:
+                    reasons.append("capacity_contract_invalid")
+        if type(capacity) is not int or capacity <= 0:
+            reasons.append("capacity_contract_invalid")
+        if type(capacity) is int and capacity > 0 \
+                and len(set(occupants) | set(reservations)) >= capacity:
+            reasons.append("target_capacity_full")
+        unavailable = {"region_readback_unavailable", "region_measurement_unknown",
+                       "capacity_contract_invalid"}
+        return {
+            "region_id": region_id,
+            "min": [float(value) for value in registered.get("min", ())],
+            "max": [float(value) for value in registered.get("max", ())],
+            "capacity": capacity,
+            "occupancy_count": len(occupants),
+            "reservation_count": len(reservations),
+            "status": "unavailable" if unavailable & set(reasons) else "measured",
+            "reason_codes": sorted(set(reasons)),
+            # Evaluator-only detail. Public projection uses counts and reason codes.
+            "occupant_ids": occupants,
+            "reservation_ids": reservations,
+            "native_readback": deepcopy(readback),
+        }
+
+    def _requested_route_affordance(self, person_id: str, region_id: str,
+                                    candidate: Mapping[str, Any]) -> dict[str, Any]:
+        person_id, region_id = str(person_id), str(region_id)
+        evidence_ref = self._ref("assembly_route", f"{person_id}:{region_id}")
+        # Candidate fullness is global state. Pair admission recomputes the
+        # union so an occupant/reservation held by this same person is counted
+        # once rather than making its own current target look unavailable.
+        reasons = [reason for reason in (candidate.get("reason_codes") or ())
+                   if reason != "target_capacity_full"]
+        roster = self.affected_person_roster()
+        spec = roster.get(person_id)
+        proposal: tuple[tuple[float, float, float], ...] = ()
+        readback: dict[str, Any] | None = None
+        provider_error = None
+        body_half: tuple[float, float, float] = ()
+        body_offset: tuple[float, float, float] = ()
+        target: tuple[float, float, float] = ()
+        if spec is None:
+            reasons.append("person_not_in_roster")
+        else:
+            active = getattr(self, "_active_guidance_targets", {}).get(person_id)
+            if active is not None and active != region_id:
+                reasons.append("person_reserved_for_other_target")
+            capacity = candidate.get("capacity")
+            claims = (set(candidate.get("occupant_ids") or ())
+                      | set(candidate.get("reservation_ids") or ()) | {person_id})
+            if type(capacity) is int and capacity > 0 and len(claims) > capacity:
+                reasons.append("target_capacity_full")
+            try:
+                current = xyz(self.city.people.position(person_id), "current person position")
+                target = assembly_target_xyz(self.assembly_regions[region_id])
+                body_half = xyz(spec.get("body_half_extents_m", ()), "body half extents")
+                body_offset = xyz(spec.get("body_center_offset_m", ()), "body center offset")
+                if any(value <= 0 for value in body_half):
+                    raise ValueError("body half extents must be positive")
+                provider = getattr(self, "_requested_target_route_provider", None)
+                if not callable(provider):
+                    reasons.append("route_provider_unavailable")
+                else:
+                    supplied = provider(
+                        person_id=person_id,
+                        current_xyz=current,
+                        target_region_id=region_id,
+                        target_xyz=target,
+                        body_half_extents_m=body_half,
+                        body_center_offset_m=body_offset)
+                    if supplied is None:
+                        reasons.append("route_provider_returned_none")
+                    else:
+                        proposal = requested_route(
+                            supplied, current_xyz=current, target_xyz=target)
+            except Exception as exc:
+                reasons.append("route_provider_contract_violation")
+                provider_error = f"{type(exc).__name__}:{exc}"
+        if proposal:
+            centered = tuple(tuple(point[axis] + body_offset[axis] for axis in range(3))
+                             for point in proposal)
+            try:
+                readback = self.region_reader.read_route(
+                    evidence_ref, centered, half_extents_m=body_half,
+                    episode_id=self.city.episode_id, time_s=self.city.elapsed,
+                    moving_entity_id=person_id)
+            except Exception as exc:
+                reasons.append("route_measurement_unknown")
+                provider_error = f"native_read:{type(exc).__name__}:{exc}"
+            if readback is None:
+                reasons.append("route_measurement_unknown")
+            else:
+                fresh = (readback.get("episode_id") == self.city.episode_id
+                         and readback.get("observed_time_s") == float(self.city.elapsed))
+                if readback.get("status") != "measured" or not fresh:
+                    reasons.append("route_measurement_unknown")
+                elif type(readback.get("clear")) is not bool:
+                    reasons.append("route_measurement_unknown")
+                elif readback["clear"] is False:
+                    static_hits = readback.get("static_hits")
+                    dynamic_envelopes = readback.get("dynamic_envelopes")
+                    if static_hits:
+                        reasons.append("route_static_blocked")
+                    if dynamic_envelopes:
+                        reasons.append("route_dynamic_blocked")
+                    if not static_hits and not dynamic_envelopes:
+                        reasons.append("route_measurement_unknown")
+            if target:
+                region = self.assembly_regions[region_id]
+                center = tuple(target[axis] + body_offset[axis] for axis in range(3))
+                low = tuple(center[axis] - body_half[axis] for axis in range(3))
+                high = tuple(center[axis] + body_half[axis] for axis in range(3))
+                if any(float(region["min"][axis]) > low[axis]
+                       or high[axis] > float(region["max"][axis]) for axis in range(3)):
+                    reasons.append("target_body_outside_region")
+        reasons = sorted(set(reasons))
+        unavailable = {
+            "person_not_in_roster", "region_readback_unavailable", "region_measurement_unknown",
+            "capacity_contract_invalid", "route_provider_unavailable",
+            "route_provider_returned_none", "route_provider_contract_violation",
+            "route_measurement_unknown", "target_body_outside_region",
+        }
+        status = ("unavailable" if unavailable & set(reasons) else
+                  "blocked" if reasons else "admissible")
+        length = route_length_m(proposal) if proposal else None
+        speed = float(spec["speed_mps"]) if spec is not None else None
+        state = {
+            "profile": REQUESTED_TARGET_PROFILE,
+            "semantic_map_sha256": self._semantic_map_sha256,
+            "person_id": person_id,
+            "region_id": region_id,
+            "body_half_extents_m": list(body_half),
+            "body_center_offset_m": list(body_offset),
+            "target": {"min": list(candidate["min"]), "max": list(candidate["max"]),
+                       "capacity": candidate["capacity"],
+                       "occupancy_count": candidate["occupancy_count"],
+                       "reservation_count": candidate["reservation_count"]},
+            "proposal_waypoints_m": [list(point) for point in proposal],
+            "status": status,
+            "reason_codes": reasons,
+        }
+        return {
+            "person_id": person_id,
+            "region_id": region_id,
+            "status": status,
+            "reason_codes": reasons,
+            "length_m": length,
+            "estimated_travel_s": (length / speed if length is not None and speed else None),
+            "evidence_ref": evidence_ref,
+            "state_sha256": canonical_state_sha256(state),
+            # Evaluator-only proposal/readback; public projection allowlists fields.
+            "proposal_waypoints_m": [list(point) for point in proposal],
+            "target_xyz": list(target),
+            "body_half_extents_m": list(body_half),
+            "body_center_offset_m": list(body_offset),
+            "route_readback": deepcopy(readback),
+            "provider_error": provider_error,
+        }
+
+    def _requested_target_admission(self, ids: tuple[str, ...],
+                                    target_region_id: str | None,
+                                    now_s: float) -> bool:
+        if float(now_s) != float(self.city.elapsed):
+            raise CityGuideAdmissionError(
+                ["episode_clock_mismatch"], infrastructure_failure=True,
+                report={"profile": REQUESTED_TARGET_PROFILE, "now_s": float(now_s),
+                        "city_elapsed_s": float(self.city.elapsed)})
+        target = str(target_region_id or "")
+        if target not in self.assembly_regions:
+            raise CityGuideAdmissionError(
+                ["target_region_unknown"], infrastructure_failure=True,
+                report={"profile": REQUESTED_TARGET_PROFILE,
+                        "target_region_id": target_region_id,
+                        "captured_at_s": float(self.city.elapsed)})
+        roster = self.affected_person_roster()
+        people = tuple(dict.fromkeys(str(person_id) for person_id in ids))
+        reasons = []
+        if any(person_id not in roster for person_id in people):
+            reasons.append("person_not_in_roster")
+        for person_id in people:
+            active = getattr(self, "_active_guidance_targets", {}).get(person_id)
+            if active is not None and active != target:
+                reasons.append("person_reserved_for_other_target")
+        candidate = self._candidate_affordance(target)
+        reasons.extend(reason for reason in candidate["reason_codes"]
+                       if reason != "target_capacity_full")
+        capacity = candidate["capacity"]
+        claims = set(candidate["occupant_ids"]) | set(candidate["reservation_ids"]) | set(people)
+        if type(capacity) is int and capacity > 0 and len(claims) > capacity:
+            reasons.append("target_capacity_full")
+        routes = []
+        if not any(person_id not in roster for person_id in people):
+            routes = [self._requested_route_affordance(person_id, target, candidate)
+                      for person_id in people]
+            for route in routes:
+                reasons.extend(route["reason_codes"])
+        reasons = sorted(set(reasons))
+        report = {
+            "schema": ASSEMBLY_AFFORDANCE_SCHEMA,
+            "version": ASSEMBLY_AFFORDANCE_VERSION,
+            "profile": REQUESTED_TARGET_PROFILE,
+            "episode_id": self.city.episode_id,
+            "source_id": self.city.city_service_source_id,
+            "captured_at_s": float(self.city.elapsed),
+            "semantic_map_sha256": self._semantic_map_sha256,
+            "request": {"person_ids": list(people), "target_region_id": target},
+            "candidate": candidate,
+            "routes": routes,
+            "reason_codes": reasons,
+            "admitted": not reasons,
+        }
+        self._last_guidance_admission_report = deepcopy(report)
+        if reasons:
+            infrastructure = bool(set(reasons) & {
+                "episode_clock_mismatch", "target_region_unknown", "person_not_in_roster",
+                "region_readback_unavailable", "region_measurement_unknown",
+                "capacity_contract_invalid", "route_provider_unavailable",
+                "route_provider_returned_none", "route_provider_contract_violation",
+                "route_measurement_unknown", "route_proposal_missing", "route_proposal_stale",
+                "target_body_outside_region",
+            })
+            raise CityGuideAdmissionError(
+                reasons, infrastructure_failure=infrastructure, report=report)
+        self._pending_guidance_proposals = {
+            **self._pending_guidance_proposals,
+            **{route["person_id"]: {
+                "captured_at_s": float(self.city.elapsed),
+                "target_region_id": target,
+                "proposal_waypoints_m": deepcopy(route["proposal_waypoints_m"]),
+                "route_readback": deepcopy(route["route_readback"]),
+                "state_sha256": route["state_sha256"],
+            } for route in routes},
+        }
+        return True
+
     def admit(self, service: str, ids: tuple[str, ...], region_id: str,
               target_region_id: str | None, mode: str | None, now_s: float) -> bool:
+        if service == "guide_people" and getattr(
+                self, "_guidance_profile", None) == REQUESTED_TARGET_PROFILE:
+            return self._requested_target_admission(ids, target_region_id, now_s)
         if float(now_s) != float(self.city.elapsed):
             return False
         try:
@@ -255,6 +608,9 @@ class CityEpisodeServiceRuntime:
         self._world_samples.clear()
         self._person_service_starts.clear()
         self._vehicle_service_starts.clear()
+        self._pending_guidance_proposals.clear()
+        self._active_guidance_targets.clear()
+        self._last_guidance_admission_report = None
 
     def continuous_access(self, request: Mapping[str, Any], start_s: float,
                           end_s: float) -> dict[str, Any]:
@@ -381,6 +737,7 @@ class CityEaiRuntime:
             "vehicle_stop": service.stop_vehicle,
             "vehicle_pose_reader": service.vehicle_pose,
             "admission": service.admit,
+            "assembly_affordances": service.assembly_affordances,
             "hazard_readback": service.hazard_readback,
             "access_readback": service.continuous_access,
             "assignment": service.assignment,
@@ -388,6 +745,18 @@ class CityEaiRuntime:
             "pull_episode_witness": self._pull_city_episode_witness,
         }
         service.observe_step()
+
+    def enable_requested_target_guidance(self, *, route_provider: Callable[..., Any],
+                                         semantic_map_sha256: str) -> None:
+        if self._episode_service is None:
+            raise RuntimeError("City service sources must be bound before requested-target guidance")
+        self._episode_service.enable_requested_target_guidance(
+            route_provider=route_provider, semantic_map_sha256=semantic_map_sha256)
+
+    def assembly_affordances(self) -> dict[str, Any]:
+        if self._episode_service is None:
+            raise RuntimeError("City service sources are not bound")
+        return self._episode_service.assembly_affordances()
 
     def following_vehicle_pose(self, vehicle_id: str) -> tuple[float, float, float]:
         state = self._traffic_state.get(str(vehicle_id))
@@ -426,6 +795,8 @@ class CityEaiRuntime:
         result = {
             "episode_id": self.episode_id, "source_id": self.city_service_source_id,
             "scoreable": False,
+            "guidance_profile": (self._episode_service.guidance_profile
+                                 if self._episode_service is not None else None),
         }
         result.update(self._city_service_sources)
         required = (

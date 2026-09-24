@@ -52,6 +52,8 @@ class CityNativeServiceRunner:
         hazard_readback = hazard_readback or binding.get("hazard_readback")
         access_readback = access_readback or binding.get("access_readback")
         admission = admission or binding.get("admission")
+        self._initial_guidance_profile = binding.get("guidance_profile")
+        self._assembly_affordances = binding.get("assembly_affordances")
         incident_receiver = incident_receiver or binding.get("incident_receiver")
         self.agent_id = str(agent_id)
         self.region_id = str(region_id)
@@ -88,6 +90,19 @@ class CityNativeServiceRunner:
         self.receiver = incident_receiver
         self._observation_ref: str | None = None
         runtime._city_native_service_runner_bound = self
+
+    @property
+    def guidance_profile(self) -> str | None:
+        """Read the current profile because it may be enabled after runner binding."""
+        service = getattr(self.runtime, "_episode_service", None)
+        if service is not None:
+            return getattr(service, "guidance_profile", self._initial_guidance_profile)
+        binding_factory = getattr(self.runtime, "city_service_native_binding", None)
+        if callable(binding_factory):
+            binding = binding_factory()
+            if isinstance(binding, Mapping):
+                return binding.get("guidance_profile", self._initial_guidance_profile)
+        return self._initial_guidance_profile
 
     def close(self) -> None:
         """Allow a pre-command route rebind, never discard active service claims."""
@@ -151,6 +166,12 @@ class CityNativeServiceRunner:
         self.witness.deliver_observation(row, evidence)
         self._observation_ref = ref
         return ref
+
+    def assembly_affordances(self) -> dict[str, Any]:
+        """Return the evaluator record without creating a request or reservation."""
+        if not callable(self._assembly_affordances):
+            raise CityRuntimeWitnessBlocked("requested-target assembly affordances are unavailable")
+        return dict(self._assembly_affordances())
 
     def record_role(self, role: str, *, start_time_s: float, end_time_s: float) -> None:
         """Record a measured field-role interval supplied by the City host."""
