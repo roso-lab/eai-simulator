@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 import json
 
 import pytest
@@ -86,7 +87,7 @@ def test_claim_scope_does_not_confuse_raw_archives_with_qualification(
         assert metadata["snapshot_evidence"][key] is None
     assert metadata["task_design"]["evidence_status"] == "observation_dependent"
     assert json.dumps(task, sort_keys=True) == original_task
-    assert metadata["protocol_mapping_revision"] == "protocol-20260925-goal-claim-scopes-v3"
+    assert metadata["protocol_mapping_revision"] == "protocol-20260925-goal-claim-scopes-v4"
     assert metadata["task_design"]["fixed_subtask_metrics"] == (
         "not_applicable_participant_decomposition")
     assert metadata["checkpoint_requirements"]["required_for_baseline_execution"] is False
@@ -255,8 +256,16 @@ def test_task_allocation_profile_joins_verified_gate_and_plan_diagnostics():
     })
     observed = task_allocation_observations(deployment, plan)
     assert observed["deployment_gate"]["verified_epoch_count"] == 4
-    assert observed["deployment_gate"]["false_refusal_rate"] == pytest.approx(0.25)
-    assert observed["deployment_gate"]["false_deployment_rate"] == pytest.approx(0.25)
+    assert observed["version"] == 2
+    assert observed["deployment_gate"]["false_refusal_rate"] is None
+    assert observed["deployment_gate"]["false_deployment_rate"] is None
+    assert observed["deployment_gate"]["all_epoch_false_refusal_share"] == pytest.approx(0.25)
+    assert observed["deployment_gate"]["all_epoch_false_deployment_share"] == pytest.approx(0.25)
+    assert observed["deployment_gate"]["risk_set_denominators"] == {
+        "deployable_required_epoch_count": None,
+        "not_deployable_required_epoch_count": None,
+    }
+    assert observed["quality_failures"] == ["deployment_label_risk_counts_missing"]
     assert observed["plan_admission"]["resource_conflict_rate"] == pytest.approx(0.5)
     assert observed["scoreable"] is False
 
@@ -292,6 +301,7 @@ def assessment_report(decision, label, *, platform_valid=True):
          "payload": {"action_id": "declaration", "status": "accepted"}},
     ], "actions": [{"action_id": "declaration", "type": "deployment_assessment"}],
         "deployment_assessment": {"enabled": True, "status": decision,
+            "public_task_sha256": "task-hash",
             "termination": {"assessment_id": "a0"} if decision == "not_deployable" else None,
             "history": [{"assessment_id": "a0", "assessment_epoch": 0,
                          "public_task_sha256": "task-hash", "trigger_event_type": "episode_started",
@@ -304,6 +314,37 @@ def assessment_report(decision, label, *, platform_valid=True):
     report["deployment_assessment"]["oracle_evaluations"] = [
         dict(report["deployment_assessment"]["history"][0]["external_evaluation"])]
     return report
+
+
+def append_assessment_epoch(report, epoch, label, decision=None, *,
+                            trigger_event_type="capability_change"):
+    assessment_id = f"a{epoch}"
+    sequence = max(row["sequence"] for row in report["events"]) + 1
+    report["events"].append({
+        "sequence": sequence, "time_s": float(epoch),
+        "type": "deployment_assessment_required",
+        "payload": {
+            "assessment_id": assessment_id, "assessment_epoch": epoch,
+            "trigger_event_type": trigger_event_type,
+        },
+    })
+    evaluation = {
+        "assessment_id": assessment_id, "assessment_epoch": epoch,
+        "platform_valid": True, "feasibility_label": label,
+        "oracle_status": "verified", "evidence_refs": [f"proof-{epoch}"],
+        "evaluator_ref": "fixture-validator",
+    }
+    report["deployment_assessment"]["oracle_evaluations"].append(evaluation)
+    if decision is not None:
+        report["deployment_assessment"]["history"].append({
+            "assessment_id": assessment_id, "assessment_epoch": epoch,
+            "public_task_sha256": "task-hash",
+            "trigger_event_type": trigger_event_type,
+            "trigger_event_sequence": sequence, "declared_at_s": float(epoch),
+            "decision_action_id": f"declaration-{epoch}", "decision": decision,
+            "external_evaluation": deepcopy(evaluation),
+        })
+    return evaluation
 
 
 @pytest.mark.parametrize("decision,label,expected", [
@@ -344,7 +385,8 @@ def test_malformed_oracle_shape_is_infrastructure_failure_and_keeps_plan_facts_o
     assert result["accuracy_denominator"] == 0
     assert result["episode_oracle_eligible"] is False
     assert result["oracle_infrastructure_failure_count"] >= 1
-    assert result["records"][0]["label_eligible"] is True
+    assert result["records"][0]["label_eligible"] is False
+    assert result["records"][0]["classification"] is None
 
 
 def test_non_mapping_history_does_not_crash_or_create_an_epoch():
@@ -397,6 +439,128 @@ def test_superseded_unanswered_epoch_is_not_lost():
     result = deployment_assessment_observations(report, task_sha256="task-hash")
     assert result["accuracy_denominator"] == 3
     assert result["missing_assessment_count"] == 2
+
+
+def test_label_risk_sets_use_oracle_truth_and_keep_unanswered_class_denominator():
+    report = assessment_report("deployable", "deployable")
+    append_assessment_epoch(report, 1, "not_deployable")
+    append_assessment_epoch(report, 2, "deployable", "not_deployable")
+
+    result = deployment_assessment_observations(report, task_sha256="task-hash")
+    assert result["episode_oracle_eligible"] is True
+    assert result["label_risk_counts"] == {
+        "required_epoch_count": 3,
+        "deployable_required_epoch_count": 2,
+        "not_deployable_required_epoch_count": 1,
+        "answered_epoch_count": 2,
+        "unanswered_epoch_count": 1,
+        "unanswered_deployable_count": 0,
+        "unanswered_not_deployable_count": 1,
+        "correct_deployment_count": 1,
+        "false_refusal_count": 1,
+        "false_deployment_count": 0,
+        "correct_refusal_count": 0,
+    }
+    assert result["conditional_rates"] == {
+        "correct_deployment_rate": 0.5,
+        "correct_refusal_rate": 0.0,
+        "false_refusal_rate": 0.5,
+        "false_deployment_rate": 0.0,
+        "unanswered_rate": pytest.approx(1 / 3),
+        "unanswered_deployable_rate": 0.0,
+        "unanswered_not_deployable_rate": 1.0,
+    }
+    assert result["conditional_rates_by_phase"]["initial"]["correct_deployment_rate"] == 1.0
+    assert result["conditional_rates_by_phase"]["runtime"]["false_refusal_rate"] == 1.0
+    assert result["all_epoch_false_refusal_share"] == pytest.approx(1 / 3)
+
+
+def test_zero_label_denominator_is_null_while_present_class_rate_is_zero():
+    report = assessment_report("deployable", "deployable")
+    append_assessment_epoch(report, 1, "deployable")
+    result = deployment_assessment_observations(report, task_sha256="task-hash")
+    rates = result["conditional_rates"]
+    assert rates["false_refusal_rate"] == 0.0
+    assert rates["false_deployment_rate"] is None
+    assert rates["correct_refusal_rate"] is None
+    assert rates["unanswered_deployable_rate"] == 0.5
+    assert rates["unanswered_not_deployable_rate"] is None
+
+
+def test_history_oracle_conflict_and_extra_history_cannot_create_numerators():
+    report = assessment_report("deployable", "deployable")
+    report["deployment_assessment"]["history"][0]["external_evaluation"][
+        "feasibility_label"] = "not_deployable"
+    result = deployment_assessment_observations(report, task_sha256="task-hash")
+    assert result["episode_oracle_eligible"] is False
+    assert result["records"][0]["classification"] is None
+    assert result["label_risk_counts"] is None
+    assert "history_oracle_cache_mismatch" in result["quality_failures"]
+
+    report = assessment_report("deployable", "deployable")
+    extra = deepcopy(report["deployment_assessment"]["history"][0])
+    extra["assessment_id"] = "extra"
+    extra["assessment_epoch"] = 9
+    extra["external_evaluation"].update(
+        assessment_id="extra", assessment_epoch=9)
+    report["deployment_assessment"]["history"].append(extra)
+    result = deployment_assessment_observations(report, task_sha256="task-hash")
+    assert result["episode_oracle_eligible"] is False
+    assert "history_epoch_not_required" in result["quality_failures"]
+
+
+def test_required_epoch_duplicates_are_idempotent_only_when_payloads_match():
+    report = assessment_report("deployable", "deployable")
+    duplicate = deepcopy(report["events"][1])
+    duplicate["sequence"] = 9
+    report["events"].append(duplicate)
+    result = deployment_assessment_observations(report, task_sha256="task-hash")
+    assert result["episode_oracle_eligible"] is True
+    assert result["required_epoch_count"] == 1
+
+    duplicate["payload"]["trigger_event_type"] = "capability_change"
+    result = deployment_assessment_observations(report, task_sha256="task-hash")
+    assert result["episode_oracle_eligible"] is False
+    assert "conflicting_required_epoch_trigger" in result["quality_failures"]
+
+
+def test_invalid_trigger_and_conflicting_task_bindings_fail_closed():
+    report = assessment_report("deployable", "deployable")
+    report["events"][1]["payload"]["trigger_event_type"] = "invented_trigger"
+    result = deployment_assessment_observations(report, task_sha256="task-hash")
+    assert result["episode_oracle_eligible"] is False
+    assert "malformed_required_trigger_event_type" in result["quality_failures"]
+
+    report = assessment_report("deployable", "deployable")
+    report["events"][0]["payload"]["public_task_digest"] = "other-task"
+    result = deployment_assessment_observations(report, task_sha256="task-hash")
+    assert result["task_binding_valid"] is False
+    assert result["episode_oracle_eligible"] is False
+    assert "deployment_task_binding_invalid" in result["quality_failures"]
+
+    report = assessment_report("deployable", "deployable")
+    report["deployment_assessment"].pop("public_task_sha256")
+    report["deployment_assessment"]["history"] = []
+    result = deployment_assessment_observations(report, task_sha256="task-hash")
+    assert result["task_binding_source"] == "legacy_consistent_history_public_task_sha256"
+    assert result["task_binding_valid"] is False
+    assert result["episode_oracle_eligible"] is False
+
+
+@pytest.mark.parametrize("field,value", [
+    ("deployable_required_epoch_count", True),
+    ("unanswered_epoch_count", -1),
+    ("required_epoch_count", 99),
+])
+def test_task_allocation_rejects_malformed_or_nonconserving_risk_counts(field, value):
+    report = assessment_report("deployable", "deployable")
+    deployment = deployment_assessment_observations(report, task_sha256="task-hash")
+    deployment["label_risk_counts"][field] = value
+    observed = task_allocation_observations(deployment, {"status": "observed"})
+    gate = observed["deployment_gate"]
+    assert gate["false_refusal_rate"] is None
+    assert gate["risk_set_denominators"]["deployable_required_epoch_count"] is None
+    assert "deployment_label_risk_counts_invalid" in observed["quality_failures"]
 
 
 def test_one_failed_oracle_excludes_whole_episode_not_just_bad_point():

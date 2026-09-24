@@ -8,6 +8,11 @@
 详见[评分接入更新](SCORE_PROTOCOL_ADAPTATION.zh-CN.md)及[发布路线](RELEASE_ROADMAP.zh-CN.md)。
 其余尚未冻结的权重、视窗与统计参数不因本次校正获得授权。
 
+阶段48分母修正：§1.1旧“部署层比率都除要求epoch数”仅对应全体份额，不是误拒/误部署
+的条件率。mapping v4按verified oracle形成可行/不可行风险集，保留未答，分别作分母，
+零分母null；旧份额显式命名`all_epoch_*_share`。initial/runtime分层，不跨episode
+聚合或宣称独立样本。详见[阶段48口径](STAGE48_DEPLOYMENT_DENOMINATORS.zh-CN.md)。
+
 状态：**定义冻结提案，等待用户/viewer 拍板；未实现任何公式或生产器**
 日期：2026-09-24
 输入基线：`codex/benchmark-pose-telemetry`，HEAD `419d15f`

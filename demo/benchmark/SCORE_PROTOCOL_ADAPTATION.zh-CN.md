@@ -1,8 +1,13 @@
 # 评分协议接入边界（阶段记录）
 
+阶段48更新：当前mapping为 `protocol-20260925-goal-claim-scopes-v4`，沿用下述v3的
+声明适用范围；task_allocation子块version=2，误拒/误部署率使用可行/不可行各自风险
+分母，旧全体份额移至`all_epoch_*_share`。未答保留、零分母null，按initial/runtime
+分层；缺少新风险字段的旧调用不猜测条件率。见[阶段48](STAGE48_DEPLOYMENT_DENOMINATORS.zh-CN.md)。
+
 2026-09-25更新：以下原阶段描述中的串行runner、共享容量未实现、
 `planned_not_captured`及固定子任务协议缺口是历史快照，不代表当前运行。
-当前映射为 `protocol-20260925-goal-claim-scopes-v3`，sidecar schema仍为v1；
+阶段47映射为 `protocol-20260925-goal-claim-scopes-v3`，sidecar schema仍为v1；
 已有字段保留，但状态字符串按新映射修正，消费者应记录mapping revision。
 任务分配使用参与者自主计划事后审计与部署门禁，覆盖由外部里程碑检查，
 不再将自主分解列为等待修复的缺陷。见[当前路线](RELEASE_ROADMAP.zh-CN.md)。
