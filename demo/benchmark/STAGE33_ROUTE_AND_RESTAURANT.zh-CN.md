@@ -90,6 +90,38 @@ python -m demo.benchmark.goal_restaurant_algorithm_episode \
   （33+61 passed）。open questions：观察转移的身份绑定抽象与并行联合转移建模
   留待 native 准入审核独立复核（证书 treated_as_uncovered 政策覆盖）。
 
+## 判卷证据链闭合与翻转方案（2026-09-24 晚，收口批）
+
+**判卷证据已从真实归档推导**（`goal_restaurant_probe_evidence.py`，9 测试 +
+真实归档重放全过）：对 ljy 验真 episode `restaurant-algo:d35af72d…` 的
+native evidence log 逐记录重放——每个事实独立取自自己的证据记录（区域到达←
+arrival+接触健康记录、区域观察←observation 记录、回执←relay publication +
+readiness_receipt），四个测量点全部 grounding verified + oracle verified +
+deployable（事实 0→2→4→5 递进），初始 roster 取自 episode 自己的 select_team，
+证据文件 tmp/restaurant_benchmark/restaurant_probe_evidence_20260924.json
+（development marker: diagnostic + restaurant_native_candidate_evidence_pending）。
+
+**注册翻转方案（剩余唯一缺口，已探明全部代码位点）：**
+1. `goal_scene_registry.py` `_SCENES["restaurant"]`：package_kind→goal_bundle
+   （编译一致性检查要求注册字段==题包 gate 字段，需同步 3）；
+2. `goal_driven_tasks.py` build_goal_task_package 的两处 restaurant 特判：
+   pool_profile 限制与因子档闸门（前置"native business episode"已满足，解锁
+   communication_quality 全档/team_continuity 全档；"heterogeneity admission"
+   = 八机准入诊断，亦已满足）；
+3. `goal_driven_tasks.py` `_restaurant()` hidden gate 的 execution_status
+   （external_pending→native_witness_verified 等新值）与 `restaurant_benchmark/
+   config.py` 的 BENCHMARK_ADMISSION_STATUS，同步
+   `test_restaurant_runtime_scene.py:299` 状态锁；
+4. `mechanism_templates.py` canonical_template_id 拒绝 restaurant——需为餐厅
+   作者 M0 机制模板（decomposition/role_allocation/communication_adaptation/
+   role_churn_recovery，对照其余四场景每场景 4 个 M0 模板）；
+5. `task_coverage_matrix.json`：scene_keys 加 restaurant + scene_coverage 补
+   餐厅行（canonical templates/status/m0_required_mechanisms）；
+6. 计数口径更新：headline 324=4场景×9×9 → 五场景新口径**需用户拍板**；
+   逐场景发布单元下亦可先只翻 package_kind 让餐厅进矩阵基线，机制模板与
+   因子档分两步走。
+翻转后：goal_suite 重生成（v2 报告）+ handoff_preflight + 双机回归。
+
 ## 探针凭证纪律（viewer 审计发现，必须遵守）
 
 `goal_native_probe_runner` 的 `host_installed` 只是接线模式，不能作为 native 准入
