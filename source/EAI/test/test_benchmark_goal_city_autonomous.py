@@ -23,6 +23,109 @@ from demo.benchmark.skill_ontology import required_capabilities
 from source.EAI.test.test_benchmark_goal_city_episode import _make_ctx
 
 
+def test_initial_qualification_is_archived_before_participant_and_stays_private(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from demo.benchmark import goal_city_initial_qualification as qualification
+    from source.EAI.test.test_benchmark_goal_city_assembly import (
+        AssemblyChoiceAdapter, _raw_affordance)
+    from source.EAI.test.test_benchmark_goal_city_runtime_observations import (
+        _native_context, _runtime, _snapshot)
+
+    public, _api = build_city_autonomous_contract()
+    ctx, _steps = _native_context(tmp_path / "ctx")
+    root = tmp_path / "episode"
+    calls = []
+    artifact = {"schema": "eai.benchmark.city_initial_qualification", "version": 1,
+                "episode_id": "initial-capture", "private": "EVALUATOR_ONLY_SENTINEL",
+                "oracle_status": "failed", "feasibility_label": None, "platform_valid": False,
+                "scoreable": False, "execution_validated": False, "business_outcomes_validated": False}
+
+    def capture(context, task, *, episode_id, clock_epoch_s):
+        calls.append("capture")
+        assert context["city"]._episode_service.guidance_profile == "requested_target_v1"
+        assert episode_id == "initial-capture" and clock_epoch_s == context["city"].elapsed
+        return deepcopy(artifact)
+
+    monkeypatch.setattr(qualification, "capture_city_initial_qualification", capture)
+    previous = ctx["city"]._episode_service
+    service = SimpleNamespace(
+        guidance_profile=None, people_controller=previous.people_controller,
+        assembly_regions=previous.assembly_regions,
+        assembly_affordances=lambda: _raw_affordance(public, _snapshot(ctx["city"].elapsed)))
+    service.enable_requested_target_guidance = lambda **kw: setattr(service, "guidance_profile", "requested_target_v1")
+    ctx["city"]._episode_service = service
+
+    class PrivateBoundaryAdapter(AssemblyChoiceAdapter):
+        def initialize(self, task, api):
+            assert calls == ["capture"]
+            assert json.loads((root / "city_initial_qualification.json").read_text()) == artifact
+            assert "EVALUATOR_ONLY_SENTINEL" not in json.dumps([task, api])
+            calls.append("initialize")
+            super().initialize(task, api)
+
+        def act(self, events):
+            assert "EVALUATOR_ONLY_SENTINEL" not in json.dumps(events)
+            calls.append("act")
+            return super().act(events)
+
+    result, _ = run_city_autonomous_context(
+        ctx, PrivateBoundaryAdapter(), output_root=root, episode_id="initial-capture",
+        communication_runtime=_runtime(),
+        guide_route_provider=SimpleNamespace(semantic_map_sha256="a" * 64))
+    assert result["error"] is None and calls[:2] == ["capture", "initialize"]
+    metadata = json.loads((root / "scoring_adapter_metadata.json").read_text())
+    assert metadata["archive_index"]["files"]["city_initial_qualification.json"]["sha256"] == _sha256(
+        root / "city_initial_qualification.json")
+    trace = json.loads((root / "hidden_evaluator_trace.json").read_text())
+    external = trace["deployment_assessment"]["external_evaluation"]
+    assert external["oracle_status"] == "failed" and external["feasibility_label"] is None
+    assert json.loads((root / "city_initial_qualification.json").read_text()) == artifact
+
+
+@pytest.mark.parametrize("reader_fails", [False, True])
+def test_initial_capture_does_not_change_participant_or_transport(tmp_path, monkeypatch, reader_fails):
+    from types import SimpleNamespace
+    from demo.benchmark import goal_city_initial_qualification as qualification
+    from source.EAI.test.test_benchmark_goal_city_assembly import AssemblyChoiceAdapter, _raw_affordance
+    from source.EAI.test.test_benchmark_goal_city_runtime_observations import _native_context, _runtime, _snapshot
+
+    public, _api = build_city_autonomous_contract()
+    snapshots = []
+    actual_capture = qualification.capture_city_initial_qualification
+    for enabled in (True, False):
+        ctx, _steps = _native_context(tmp_path / str(enabled))
+        previous = ctx["city"]._episode_service
+        counter = []
+
+        def raw():
+            counter.append(1)
+            if enabled and reader_fails and len(counter) == 1:
+                raise ValueError("initial measurement unavailable")
+            return _raw_affordance(public, _snapshot(ctx["city"].elapsed))
+
+        service = SimpleNamespace(guidance_profile="requested_target_v1",
+                                  enable_requested_target_guidance=lambda **kwargs: None,
+                                  assembly_affordances=raw, people_controller=previous.people_controller,
+                                  assembly_regions=previous.assembly_regions)
+        ctx["city"]._episode_service = service
+        monkeypatch.setattr(qualification, "capture_city_initial_qualification",
+                            actual_capture if enabled else lambda *args, **kwargs: {"test_noop": True})
+        root = tmp_path / ("captured" if enabled else "noop")
+        runtime = _runtime()
+        result, _ = run_city_autonomous_context(
+            ctx, AssemblyChoiceAdapter(), output_root=root, episode_id="equivalent",
+            communication_runtime=runtime,
+            guide_route_provider=SimpleNamespace(semantic_map_sha256="a" * 64))
+        assert result["error"] is None
+        snapshots.append((json.loads((root / "participant_trace.json").read_text()), runtime.report()))
+        if enabled:
+            archive = json.loads((root / "city_initial_qualification.json").read_text())
+            assert archive["oracle_status"] == "failed" and archive["feasibility_label"] is None
+            if reader_fails:
+                assert archive["quality_issues"]
+    assert snapshots[0] == snapshots[1]
+
+
 def _manifest(identifier):
     return {
         "kind": "participant",
@@ -393,6 +496,7 @@ def test_native_warmup_does_not_consume_participant_execution_window(tmp_path):
         episode_id="warmup-epoch")
     assert result["error"] is None
     assert backend.clock_epoch_s == 10.0
+    assert not (root / "city_initial_qualification.json").exists()
     assert ctx["city"].elapsed == pytest.approx(40.0, abs=0.051)
     progress = json.loads((root / "goal_progress_evidence.json").read_text())
     sources = json.loads((root / "city_progress_sources.json").read_text())

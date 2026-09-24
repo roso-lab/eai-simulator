@@ -368,6 +368,7 @@ def run_city_autonomous_context(
     default_progress = None
     try:
         assembly_reader = None
+        initial_qualification = None
         if guide_route_provider is not None:
             if communication_runtime is None:
                 raise ValueError("requested-target guidance requires metered communication")
@@ -376,12 +377,34 @@ def run_city_autonomous_context(
                 route_provider=guide_route_provider,
                 semantic_map_sha256=guide_route_provider.semantic_map_sha256)
             assembly_reader = service.assembly_affordances
+            # Freeze the evaluator's initial evidence before the adapter is
+            # initialized or allowed to assess/select/plan. This diagnostic
+            # does not supply a feasibility label or participant information.
+            from .goal_city_initial_qualification import capture_city_initial_qualification
+
+            episode_id = episode_id or uuid.uuid4().hex
+            initial_qualification = capture_city_initial_qualification(
+                ctx, public, episode_id=episode_id, clock_epoch_s=clock_epoch_s)
         backend = CityNativeGoalBackend(
             ctx, public_task=public, clock_epoch_s=clock_epoch_s, strict_dispatch_clock=True)
         if progress_reader is None:
             default_progress = CityAcceptanceProgressReader(
                 backend.evidence, ctx, output_root, clock_epoch_s=clock_epoch_s)
             progress_reader = default_progress
+        if initial_qualification is not None:
+            frozen_initial = deepcopy(initial_qualification)
+            delegated_progress = progress_reader
+
+            def archive_initial_progress(*, episode_id, boundary, trusted_report):
+                # The runner owns output-directory creation. Its initial
+                # progress boundary occurs before participant initialize.
+                # Persist the earlier capture here; never recapture later.
+                if boundary == "initial":
+                    _write_json(Path(output_root) / "city_initial_qualification.json", frozen_initial)
+                return delegated_progress(
+                    episode_id=episode_id, boundary=boundary, trusted_report=trusted_report)
+
+            progress_reader = archive_initial_progress
         observer = downlink = None
         if communication_runtime is not None:
             from .goal_city_runtime_observations import (
@@ -486,6 +509,8 @@ def run_city_autonomous_episode(
             "sources_unchanged": sources_unchanged,
             "clock_epoch_s": backend.clock_epoch_s,
             "guide_admission_profile": ("requested_target_v1" if route_provider else "legacy_bound_target"),
+            "initial_qualification_artifact": (
+                "city_initial_qualification.json" if route_provider else None),
         }
         if not sources_unchanged:
             ctx["report"].update(

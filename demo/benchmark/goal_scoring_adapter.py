@@ -159,6 +159,7 @@ def build_archive_index(output_root: str | Path) -> dict[str, Any]:
         "goal_progress_evidence.json", "goal_progress_replay.json",
         "goal_city_autonomous_entry.json", "goal_city_autonomous_source.json", "city_acceptance_evidence.json",
         "native_evidence_log.json", "city_progress_sources.json",
+        "city_initial_qualification.json",
     )
     files = {}
     for name in names:
