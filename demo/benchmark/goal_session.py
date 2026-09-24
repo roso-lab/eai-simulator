@@ -372,6 +372,35 @@ class GoalSession:
         self._version += 1
         return deepcopy(snapshot)
 
+    def initialize_deployment_runtime_state(
+        self, robot_regions: Mapping[str, str],
+        object_states: Mapping[str, Mapping[str, Any]],
+    ) -> dict[str, Any]:
+        """Seed an opt-in native initial epoch before exposing the session.
+
+        Trusted entry points call this once on a pristine v3 session. Unlike a
+        normal later snapshot refresh, it binds the initial assessment trigger
+        to the exact same state used by the evaluator and first declaration.
+        No new public event, participant requirement or legacy behavior is added.
+        """
+        if (not self._deployment_enabled or self._time != 0 or self._version != 0
+                or self._snapshot is not None or self._actions
+                or self._deployment["assessment_epoch"] != 0
+                or self._deployment["status"] != "required"
+                or self._deployment["external_evaluation"] is not None
+                or self._deployment["oracle_evaluations"] or self._deployment["history"]
+                or [e["type"] for e in self._events] != [
+                    "episode_started", "deployment_assessment_required"]):
+            raise ValueError("initial deployment state requires a pristine v3 session")
+        snapshot = self.validate_runtime_state(0., robot_regions, object_states)
+        if set(snapshot["robot_regions"]) != self._current:
+            raise ValueError("initial deployment state must cover the complete current team pool")
+        self._snapshot = snapshot
+        self._deployment.update(self._assessment_snapshot())
+        self._snapshot_required = False
+        self._version += 1
+        return deepcopy(snapshot)
+
     def validate_runtime_state(self, time_s: float, robot_regions: Mapping[str, str],
                                object_states: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
         """Preflight a trusted snapshot without changing the episode ledger."""

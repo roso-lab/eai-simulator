@@ -68,21 +68,41 @@ def build_restaurant_native_initial_state(fleet: Any) -> dict[str, Any]:
         metadata = fleet.episode_metadata()
     except Exception as exc:  # A lifecycle/platform failure is never participant error.
         return _platform_gap("post_warmup_epoch_unavailable", detail=str(exc))
-    if (not isinstance(metadata, Mapping)
-            or metadata.get("schema") != "eai.restaurant.native_episode_epoch"
+    if not isinstance(metadata, Mapping):
+        return _platform_gap("foreign_or_invalid_post_warmup_epoch")
+    contract = None
+    expected_id, expected_sha = RESTAURANT_TASK_ID, RESTAURANT_PUBLIC_TASK_SHA256
+    if metadata.get("deployment_profile") is not None:
+        from .goal_restaurant_deployment_v2 import (
+            DEPLOYMENT_PROFILE, build_restaurant_deployment_v2,
+        )
+        if metadata["deployment_profile"] != DEPLOYMENT_PROFILE:
+            return _platform_gap("unsupported_deployment_profile")
+        contract = build_restaurant_deployment_v2()
+        expected_id = contract["deployment"]["task_id"]
+        expected_sha = contract["deployment"]["public_task_sha256"]
+        if metadata.get("deployment_sha256") != canonical_sha256(contract["deployment"]):
+            return _platform_gap("deployment_companion_identity_mismatch")
+
+    def gap(reason: str, *, detail: str | None = None) -> dict[str, Any]:
+        return {**_platform_gap(reason, detail=detail), "task_id": expected_id,
+                "public_task_sha256": expected_sha}
+
+    if (metadata.get("schema") != "eai.restaurant.native_episode_epoch"
             or metadata.get("version") != 1
             or metadata.get("lifecycle_state") != "post_warmup"
             or metadata.get("native_initial_state_ready") is not True
             or metadata.get("origin_time_s") != 0.0
-            or metadata.get("task_id") != RESTAURANT_TASK_ID
-            or metadata.get("public_task_sha256") != RESTAURANT_PUBLIC_TASK_SHA256):
-        return _platform_gap("foreign_or_invalid_post_warmup_epoch")
+            or metadata.get("task_id") != expected_id
+            or metadata.get("public_task_sha256") != expected_sha):
+        return gap("foreign_or_invalid_post_warmup_epoch")
 
-    public = build_goal_task_package("restaurant")["public_task"]
-    if (public.get("task_id") != RESTAURANT_TASK_ID
-            or canonical_sha256(public) != RESTAURANT_PUBLIC_TASK_SHA256
+    public = (contract["public_task"] if contract else
+              build_goal_task_package("restaurant")["public_task"])
+    if (public.get("task_id") != expected_id
+            or canonical_sha256(public) != expected_sha
             or config.BENCHMARK_DEPLOYMENT_PROFILE != "bound_native_v2"):
-        return _platform_gap("maintained_restaurant_task_or_profile_drifted")
+        return gap("maintained_restaurant_task_or_profile_drifted")
     expected_ids = tuple(FLEET_CONTROLLER_REGISTRY)
     public_spawns = public.get("public_world", {}).get("robot_spawn_positions")
     expected_spawns = {
@@ -91,14 +111,18 @@ def build_restaurant_native_initial_state(fleet: Any) -> dict[str, Any]:
     }
     if (not isinstance(public_spawns, Mapping)
             or dict(public_spawns) != expected_spawns):
-        return _platform_gap("maintained_restaurant_spawn_contract_drifted")
+        return gap("maintained_restaurant_spawn_contract_drifted")
 
     try:
         snapshot = fleet.snapshot()
     except Exception as exc:
-        return _platform_gap("post_warmup_snapshot_unavailable", detail=str(exc))
+        return gap("post_warmup_snapshot_unavailable", detail=str(exc))
     if not isinstance(snapshot, Mapping):
-        return _platform_gap("post_warmup_snapshot_epoch_mismatch")
+        return gap("post_warmup_snapshot_epoch_mismatch")
+    if contract and any(snapshot.get("episode", {}).get(key) != metadata.get(key)
+                        for key in ("episode_id", "task_id", "public_task_sha256",
+                                    "deployment_profile", "deployment_sha256", "archive")):
+        return gap("post_warmup_snapshot_epoch_mismatch")
     agents = snapshot.get("agents") if isinstance(snapshot, Mapping) else None
     frozen = metadata.get("post_warmup_sample")
     frozen_agents = frozen.get("agents") if isinstance(frozen, Mapping) else None
@@ -113,7 +137,7 @@ def build_restaurant_native_initial_state(fleet: Any) -> dict[str, Any]:
             or not isinstance(frozen_agents, Mapping)
             or tuple(agents) != expected_ids
             or tuple(frozen_agents) != expected_ids):
-        return _platform_gap("post_warmup_snapshot_epoch_mismatch")
+        return gap("post_warmup_snapshot_epoch_mismatch")
 
     native_roots: dict[str, dict[str, Any]] = {}
     initial_regions: dict[str, dict[str, Any]] = {}
@@ -131,7 +155,7 @@ def build_restaurant_native_initial_state(fleet: Any) -> dict[str, Any]:
                 or sample.get("time_s") != 0.0
                 or not _is_finite_root(root)
                 or sample != frozen_sample):
-            return _platform_gap(
+            return gap(
                 "invalid_or_changed_post_warmup_root", detail=public_id)
         root = [float(value) for value in root]
         anchor = expected_spawns[public_id]
@@ -151,7 +175,25 @@ def build_restaurant_native_initial_state(fleet: Any) -> dict[str, Any]:
         # binding: the A-E route start is the Restaurant staging center.  The
         # distributed full8 spawn anchors do not thereby become staging, and
         # the Iris spawn anchors are far from the maintained overview center.
-        if public_id == "restaurant_carter_1":
+        if contract is not None:
+            region = contract["deployment"]["spawn_regions"][public_id]
+            geometry = contract["deployment"]["region_bindings"][region]
+            center = geometry.get("center_xyz_m", geometry.get("center_xy_m"))
+            error = math.dist(root[:len(center)], center)
+            admitted = error <= geometry["tolerance_m"]
+            initial_regions[public_id] = {
+                "status": "measured_region_membership" if admitted else "platform_gap",
+                "region_id": region if admitted else None,
+                "region_center_m": list(center), "region_error_m": error,
+                "region_tolerance_m": geometry["tolerance_m"],
+                "source": contract["deployment"]["profile"],
+            }
+            if admitted:
+                robot_regions[public_id] = region
+            else:
+                gaps.append({"public_agent_id": public_id,
+                             "reason": "maintained_initial_region_membership_failed"})
+        elif public_id == "restaurant_carter_1":
             center = list(navigation_probe.ROUTES["A-E"]["start_xy_m"])
             error = math.dist(root[:2], center)
             admitted = error <= navigation_probe.FINAL_TOLERANCE_M
@@ -184,8 +226,10 @@ def build_restaurant_native_initial_state(fleet: Any) -> dict[str, Any]:
         "schema": SCHEMA,
         "version": 1,
         "status": "platform_gap" if gaps else "measured",
-        "task_id": RESTAURANT_TASK_ID,
-        "public_task_sha256": RESTAURANT_PUBLIC_TASK_SHA256,
+        "task_id": expected_id,
+        "public_task_sha256": expected_sha,
+        **({"deployment_profile": metadata["deployment_profile"],
+            "deployment_sha256": metadata["deployment_sha256"]} if contract else {}),
         "episode_id": metadata["episode_id"],
         "origin_physics_step": origin_step,
         "time_s": 0.0,

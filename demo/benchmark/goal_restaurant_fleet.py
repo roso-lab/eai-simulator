@@ -343,13 +343,23 @@ class RestaurantFleetController:
     CARTER_HOLD_MAX_LINEAR = 0.06
     CARTER_HOLD_MAX_ANGULAR = 0.30
 
-    def __init__(self, session: Any, *, products_root: str | Path):
+    def __init__(self, session: Any, *, products_root: str | Path,
+                 deployment_profile: str | None = None):
         import torch
 
         if getattr(session, "num_envs", None) != 1:
             raise ValueError("Restaurant full fleet requires one native environment")
         self.session = session
         self.products_root = Path(products_root).expanduser().resolve()
+        self._deployment_contract = None
+        if deployment_profile is not None:
+            from .goal_restaurant_deployment_v2 import (
+                DEPLOYMENT_PROFILE, build_restaurant_deployment_v2,
+            )
+            if deployment_profile != DEPLOYMENT_PROFILE:
+                raise ValueError("unsupported Restaurant deployment profile")
+            self._deployment_contract = build_restaurant_deployment_v2()
+        self.deployment_profile = deployment_profile
         self._torch = torch
         self._public_to_native = {
             public_id: binding["native_agent_id"]
@@ -484,10 +494,15 @@ class RestaurantFleetController:
         if self._operations or self._active_by_agent:
             raise RuntimeError("Restaurant episode cannot begin with navigation operations")
 
-        public = build_goal_task_package("restaurant")["public_task"]
+        public = (self._deployment_contract["public_task"]
+                  if self._deployment_contract is not None else
+                  build_goal_task_package("restaurant")["public_task"])
         task_sha256 = canonical_sha256(public)
-        if (public.get("task_id") != RESTAURANT_TASK_ID
-                or task_sha256 != RESTAURANT_PUBLIC_TASK_SHA256):
+        expected_id = (self._deployment_contract["deployment"]["task_id"]
+                       if self._deployment_contract else RESTAURANT_TASK_ID)
+        expected_sha = (self._deployment_contract["deployment"]["public_task_sha256"]
+                       if self._deployment_contract else RESTAURANT_PUBLIC_TASK_SHA256)
+        if public.get("task_id") != expected_id or task_sha256 != expected_sha:
             raise RuntimeError("Restaurant public task identity drifted before episode warmup")
 
         archive_path = self.products_root / f"restaurant_native_episode_{episode_id}.json"
@@ -520,7 +535,7 @@ class RestaurantFleetController:
             "schema": "eai.restaurant.native_episode_warmup_archive",
             "version": 1,
             "episode_id": episode_id,
-            "task_id": RESTAURANT_TASK_ID,
+            "task_id": expected_id,
             "public_task_sha256": task_sha256,
             "old_epoch": {
                 "origin_physics_step": old_origin_step,
@@ -542,6 +557,10 @@ class RestaurantFleetController:
             "warmup_stability_certified": False,
             **CLOSED_VALIDATION_FLAGS,
         }
+        if self.deployment_profile is not None:
+            archive["deployment_profile"] = self.deployment_profile
+            archive["deployment_sha256"] = canonical_sha256(
+                self._deployment_contract["deployment"])
         with archive_path.open("x", encoding="utf-8") as stream:
             json.dump(archive, stream, ensure_ascii=False, indent=2,
                       sort_keys=True, allow_nan=False)
@@ -553,7 +572,7 @@ class RestaurantFleetController:
             "lifecycle_state": "post_warmup",
             "native_initial_state_ready": True,
             "episode_id": episode_id,
-            "task_id": RESTAURANT_TASK_ID,
+            "task_id": expected_id,
             "public_task_sha256": task_sha256,
             "warmup_ticks": warmup_ticks,
             "origin_physics_step": post_step,
@@ -564,12 +583,32 @@ class RestaurantFleetController:
             "warmup_stability_certified": False,
             **CLOSED_VALIDATION_FLAGS,
         }
+        if self.deployment_profile is not None:
+            self._episode_metadata_value["deployment_profile"] = self.deployment_profile
+            self._episode_metadata_value["deployment_sha256"] = archive["deployment_sha256"]
         return self.episode_metadata()
 
     def _region_goal(self, public_agent_id: str, region_id: str) -> dict[str, Any]:
         """Resolve only maintained public-region geometry inside the host."""
         from demo.benchmark.goal_driven_tasks import build_goal_task_package
         from demo.restaurant_benchmark import config, route_admission
+
+        if self._deployment_contract is not None:
+            binding = self._deployment_contract["deployment"]["region_bindings"].get(region_id)
+            if binding is None or binding.get("geometry_status") != "defined":
+                raise ValueError("Restaurant public region has no maintained native goal binding")
+            aerial = FLEET_CONTROLLER_REGISTRY[public_agent_id]["command_profile"] == "aerial_position"
+            mode = "aerial_navigation" if aerial else "ground_navigation"
+            if mode not in binding["access_modes"]:
+                raise ValueError("Restaurant agent mobility cannot access the public region")
+            goal = binding.get("center_xyz_m")
+            if goal is None:
+                xy = binding["center_xy_m"]
+                if aerial and "aerial_goal_z_m" not in binding:
+                    raise ValueError("Restaurant region lacks a maintained aerial goal altitude")
+                goal = [*xy, binding["aerial_goal_z_m"] if aerial else 0.0]
+            return {"source": TRUSTED_GOAL_SOURCE, "region_id": region_id,
+                    "goal_xyz_m": [float(value) for value in goal]}
 
         task = build_goal_task_package("restaurant")["public_task"]
         regions = {row["id"]: row for row in task["public_world"]["regions"]}
@@ -625,6 +664,22 @@ class RestaurantFleetController:
         goal = list(goal_binding["goal_xyz_m"])
         measured = self._read_states()[public_agent_id]
         start = measured["position_m"]
+        if self._deployment_contract is not None:
+            public_routes = {row["id"]: row for row in
+                             self._deployment_contract["public_task"]["public_world"]["routes"]}
+            declared = public_routes.get(route_id)
+            mode = ("aerial_navigation" if FLEET_CONTROLLER_REGISTRY[public_agent_id][
+                    "command_profile"] == "aerial_position" else "ground_navigation")
+            if (declared is None or declared["to_region_id"] != region_id
+                    or mode not in declared["access_modes"]):
+                raise ValueError("route request differs from the public deployment topology")
+            source = self._deployment_contract["deployment"]["region_bindings"][
+                declared["from_region_id"]]
+            if source["geometry_status"] != "defined":
+                raise ValueError("route origin has no maintained geometry")
+            center = source.get("center_xyz_m", source.get("center_xy_m"))
+            if math.dist(start[:len(center)], center) > source["tolerance_m"]:
+                raise RuntimeError("measured root is outside the requested route origin")
         occupancy = FactoryMap(self.products_root / "restaurant_benchmark_map.yaml")
         grid = InflatedGrid(occupancy, route_admission.PLANNING_RADIUS_M)
         cells = grid.path(start[:2], goal[:2])

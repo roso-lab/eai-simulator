@@ -82,10 +82,21 @@ class RestaurantNativeObservationProvider:
         except RuntimeError as exc:
             raise RestaurantObservationCoverageError(
                 "observation requires the post-warmup episode epoch") from exc
+        expected_id, expected_sha = RESTAURANT_TASK_ID, RESTAURANT_PUBLIC_TASK_SHA256
+        if lifecycle.get("deployment_profile") is not None:
+            from .goal_restaurant_deployment_v2 import (
+                DEPLOYMENT_PROFILE, build_restaurant_deployment_v2,
+            )
+            contract = build_restaurant_deployment_v2()
+            if (lifecycle["deployment_profile"] != DEPLOYMENT_PROFILE
+                    or lifecycle.get("deployment_sha256") != canonical_sha256(contract["deployment"])):
+                raise RestaurantObservationCoverageError("observation deployment companion mismatch")
+            expected_id = contract["deployment"]["task_id"]
+            expected_sha = contract["deployment"]["public_task_sha256"]
         if (lifecycle.get("schema") != "eai.restaurant.native_episode_epoch"
                 or lifecycle.get("version") != 1
-                or lifecycle.get("task_id") != RESTAURANT_TASK_ID
-                or lifecycle.get("public_task_sha256") != RESTAURANT_PUBLIC_TASK_SHA256
+                or lifecycle.get("task_id") != expected_id
+                or lifecycle.get("public_task_sha256") != expected_sha
                 or not isinstance(lifecycle.get("episode_id"), str)
                 or not lifecycle["episode_id"]
                 or lifecycle.get("lifecycle_state") != "post_warmup"
@@ -96,7 +107,8 @@ class RestaurantNativeObservationProvider:
         if any(epoch.get(key) != lifecycle.get(key) for key in (
                 "schema", "version", "task_id", "public_task_sha256",
                 "lifecycle_state", "native_initial_state_ready", "episode_id",
-                "origin_physics_step", "origin_time_s", "archive")):
+                "origin_physics_step", "origin_time_s", "archive",
+                "deployment_profile", "deployment_sha256")):
             raise RuntimeError("native observation epoch mismatch")
         step, time_s = snapshot.get("physics_step"), snapshot.get("time_s")
         origin = lifecycle.get("origin_physics_step")

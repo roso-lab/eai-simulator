@@ -31,6 +31,7 @@ _METHOD_ARGUMENT_FIELDS = {
     "update_runtime_state": {"time_s", "robot_regions", "object_states"},
     "complete_skill": {"task_id", "time_s", "status", "receipt"},
     "record_deployment_assessment_evaluation": {"evaluation"},
+    "initialize_deployment_runtime_state": {"robot_regions", "object_states"},
     "record_business_outcome": {
         "outcome_id", "status", "evidence_refs", "evaluator_ref"},
 }
@@ -225,6 +226,14 @@ class AuditedGoalSession:
             "time_s": time_s,
             "robot_regions": robot_regions,
             "object_states": object_states,
+        })
+
+    def initialize_deployment_runtime_state(
+        self, robot_regions: Mapping[str, str],
+        object_states: Mapping[str, Mapping[str, Any]],
+    ) -> dict[str, Any]:
+        return self._invoke("initialize_deployment_runtime_state", {
+            "robot_regions": robot_regions, "object_states": object_states,
         })
 
     def complete_skill(
