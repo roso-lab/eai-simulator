@@ -1297,6 +1297,36 @@ def stamp_arrival_times(ctx: Mapping[str, Any], stamps: dict[str, float]) -> Non
             stamps[person_id] = float(city.elapsed)
 
 
+def _terminal_body_evidence(city: Any, service: Any, person_id: str,
+                            readback: Mapping[str, Any]) -> dict[str, Any]:
+    """Private same-tick diagnostic; never an arrival or safety predicate.
+
+    Keep terminal facts even for failed arrivals. The existing native world
+    samples own the trajectory; do not copy that growing history a second time.
+    """
+    from demo.city_benchmark.body_geometry_diagnostic import capture_body_geometry
+
+    captured = float(city.elapsed)
+    terminal = {key: deepcopy(value) for key, value in readback.items()
+                if key != "trajectory_samples"}
+    trajectory = readback.get("trajectory_samples")
+    terminal["trajectory_sample_count"] = (
+        len(trajectory) if isinstance(trajectory, (list, tuple)) else None)
+    terminal["captured_native_s"] = captured
+    world = readback.get("world_readback") or {}
+    envelope = ((world.get("dynamic_envelopes") or {}).get(person_id)
+                or (world.get("all_dynamic_envelopes") or {}).get(person_id) or {})
+    footprints = getattr(service, "_v2_footprints", None)
+    footprint = (footprints().get(readback.get("assembly_region_id"))
+                 if callable(footprints) else None)
+    diagnostic = capture_body_geometry(
+        getattr(city, "stage", None), prim_path=envelope.get("prim_path"),
+        person_id=person_id, episode_id=getattr(city, "episode_id", None),
+        source_id=getattr(city, "city_service_source_id", None),
+        captured_native_s=captured, footprint=footprint)
+    return {"terminal_readback": terminal, "body_geometry_diagnostic": diagnostic}
+
+
 def await_assembly_arrivals(ctx: Mapping[str, Any],
                             evidence_log: list[Mapping[str, Any]],
                             stamps: dict[str, float] | None = None) -> None:
@@ -1343,6 +1373,7 @@ def await_assembly_arrivals(ctx: Mapping[str, Any],
     while float(city.elapsed) < horizon and not poll_arrivals():
         ctx["step"](ctx["session"], city, ctx["actions"])
 
+    terminal_evidence: dict[str, dict[str, Any]] = {}
     for row in guides:
         request_id = row["request"]["request_id"]
         region_id = row.get("assembly_region_id")
@@ -1351,6 +1382,9 @@ def await_assembly_arrivals(ctx: Mapping[str, Any],
                         if _support_footprint_profile(service)
                         else service.people_controller.readback(
                             person_id, service.assembly_regions))
+            if _support_footprint_profile(service) and person_id not in terminal_evidence:
+                terminal_evidence[person_id] = _terminal_body_evidence(
+                    city, service, person_id, readback)
             recorded = ctx["runner"].record_person_arrival(
                 request_id, person_id,
                 previous_position=ctx["person_start"][person_id],
@@ -1378,6 +1412,7 @@ def await_assembly_arrivals(ctx: Mapping[str, Any],
                 "arrival_time_s": arrival_time,
                 "safe_route_and_assembly": safe_route,
                 "review": review,
+                **terminal_evidence.get(person_id, {}),
             })
 
 
