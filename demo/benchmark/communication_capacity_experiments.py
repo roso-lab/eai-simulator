@@ -1,8 +1,9 @@
 """Offline capacity experiments for the three-pool communication contract.
 
 Drives ``CommunicationRuntime`` deterministically to produce the STAGE22
-acceptance evidence offline: paired fixed-delay vs jitter (JP) and IID-loss
-vs burst-loss (BP) comparisons, per-pool capacity sweeps with C90/C50
+acceptance evidence offline: paired fixed-delay vs deterministic alternating
+delay (legacy label ``jitter``) and seeded scattered fixed-count loss (legacy
+label ``iid_loss``) vs burst-loss comparisons, per-pool capacity sweeps with C90/C50
 brackets, and direction attribution that fails closed instead of guessing.
 
 Time-varying delay and loss go through the sanctioned
@@ -13,6 +14,13 @@ row keeps the direction breakdown ``null`` while total/pool bytes survive.
 Bootstrap intervals are computed only inside valid samples (the analysis
 helpers never extrapolate).  Every report is development-track evidence:
 release flags stay false and a development marker is attached.
+
+This module is the legacy v1 API. Its historical ``capacity_bps`` values are
+consumed by the runtime as bytes/second, and its ``None`` reference is a finite
+20,000-byte/second surrogate. New experiments must opt into
+``communication_capacity_v2`` for bit/s units and a real unlimited reference.
+The delivery metric here is a synthetic link diagnostic, never a participant
+adaptation or business-performance score.
 """
 
 from __future__ import annotations
@@ -49,13 +57,14 @@ def _jitter_delays(seed: int, count: int, mean_s: float, amplitude_s: float) -> 
 
 
 def _iid_drop_indices(seed: int, count: int, rate: float) -> set[int]:
-    """Scattered loss with exactly ``round(rate*10)`` drops per block of ten.
+    """Legacy ``iid`` label: seeded scattered fixed-count loss, not IID.
 
-    Drop positions are spread evenly and rotated per block by a seeded
-    offset, so consecutive drops (the burst signature) never occur.
+    Exactly ``round(rate*10)`` positions are spread evenly and rotated per
+    block by a seeded offset, so consecutive drops (the burst signature) never
+    occur. The draws are constrained per block and are not Bernoulli IID.
     """
     if count % 10:
-        raise ValueError("IID loss cells require message counts in blocks of ten")
+        raise ValueError("legacy iid_loss cells require message counts in blocks of ten")
     block_drops = max(0, round(rate * 10))
     if block_drops == 0:
         return set()
@@ -124,12 +133,13 @@ def run_delay_cell(*, condition: str, mean_delay_s: float, amplitude_s: float = 
                    seed: int, base_instance: str, count: int = 12,
                    interval_s: float = 0.5, ttl_s: float | None = None,
                    capacity_bps: float = 20000.0) -> dict[str, Any]:
-    """One JP cell: fixed or jittered pool delay with the same exact mean.
+    """One JP cell: fixed or alternating pool delay with the same exact mean.
 
     The default TTL sits strictly between the fixed arrival (mean plus
-    queueing) and the jitter high sample (mean plus amplitude), so the fixed
-    cell delivers everything while jitter high samples expire — the paired
-    difference isolates distribution, not the mean.
+    queueing) and the alternating high sample (mean plus amplitude), so the
+    fixed cell delivers everything while high samples expire. The legacy
+    ``jitter`` condition is a deterministic diagnostic, not a random jitter
+    distribution.
     """
     if amplitude_s >= mean_delay_s - 0.05:
         raise ValueError("jitter amplitude must stay below the mean delay")
@@ -159,7 +169,11 @@ def run_delay_cell(*, condition: str, mean_delay_s: float, amplitude_s: float = 
 def run_loss_cell(*, condition: str, rate: float, seed: int, base_instance: str,
                   count: int = 20, interval_s: float = 0.5, ttl_s: float = 4.0,
                   capacity_bps: float = 20000.0) -> dict[str, Any]:
-    """One BP cell: scattered IID loss or consecutive burst loss, same rate."""
+    """One legacy BP cell: scattered fixed-count or burst loss, same rate.
+
+    ``iid_loss`` is retained as a v1 condition identity only; it is not a
+    claim that the deterministic scattered pattern is Bernoulli IID.
+    """
     runtime = CommunicationRuntime({"pools": {
         "p2p": {"capacity_bps": capacity_bps, "ttl_s": ttl_s * 2}}})
     dropped = (_iid_drop_indices(seed, count, rate) if condition == "iid_loss"
@@ -185,7 +199,12 @@ def run_capacity_cell(*, pool: str, capacity_bps: float | None, base_instance: s
                       seed: int, count: int = 16, interval_s: float = 0.5,
                       ttl_s: float = 3.0, reference_capacity_bps: float = 20000.0,
                       direction: str | None = None) -> dict[str, Any]:
-    """One capacity-sweep cell; ``None`` capacity is the perfect reference."""
+    """One legacy v1 cell; ``None`` selects a finite reference surrogate.
+
+    The name and behavior are preserved for archive replay. The runtime treats
+    the effective value as bytes/second. Use capacity v2 for explicit bit/s and
+    a true unlimited reference.
+    """
     effective = reference_capacity_bps if capacity_bps is None else capacity_bps
     recipient = "edge_1" if pool == "backhaul_uplink" else "robot_2"
     runtime = CommunicationRuntime({"pools": {

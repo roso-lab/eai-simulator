@@ -18,6 +18,25 @@ from typing import Any, Mapping, Sequence
 
 SCHEMA = "eai.benchmark.communication_analysis"
 VERSION = 1
+CAPACITY_V2_OBSERVATION_SCHEMA = (
+    "eai.benchmark.communication_capacity_observation_v2")
+CAPACITY_V2_ANALYSIS_SCHEMA = "eai.benchmark.communication_capacity_analysis_v2"
+CAPACITY_V2_VERSION = 2
+CAPACITY_V2_METHOD_ID = "synthetic_link_delivery_capacity_v2"
+CAPACITY_V2_METRIC = "synthetic_link_delivery_rate"
+_CAPACITY_V2_POOL_DIRECTIONS = {
+    "backhaul_uplink": "uplink",
+    "p2p": "p2p",
+}
+_CAPACITY_V2_OBSERVATION_FIELDS = frozenset({
+    "schema", "version", "method_id", "measurement_scope",
+    "base_instance_id", "channel_seed", "pool", "capacity_mode",
+    "capacity_unit", "capacity_bits_per_s", "runtime_capacity_unit",
+    "runtime_capacity_bytes_per_s", "c0_bits_per_s", "metric",
+    "metric_value", "published_count", "delivered_count",
+    "metric_interpretation", "direction", "wire_size_bytes",
+    "serialization_duration_s", "workload_design", "seed_role",
+})
 
 
 def _text(value: Any, field: str) -> str:
@@ -201,6 +220,178 @@ def summarize_capacity_curve(
             "no_extrapolation": True}
 
 
+def summarize_capacity_curve_v2(
+    observations: Sequence[Mapping[str, Any]], *,
+    metric: str = CAPACITY_V2_METRIC,
+    bootstrap_samples: int = 2000, seed: int = 0,
+    min_reference_mean: float | None = None,
+    thresholds: Sequence[float] = (.9, .5),
+) -> dict[str, Any]:
+    """Summarize opt-in v2 rows with explicit bit/s experiment units.
+
+    The legacy runtime field named ``capacity_bps`` is bytes/second in actual
+    service-time arithmetic.  V2 therefore accepts only rows carrying both
+    the experiment-facing bit/s value and its one-time bytes/s conversion.
+    Legacy capacity/C0 spellings, mixed schemas or methods, and partially
+    specified C0 values fail closed before the v1 numerical aggregator is
+    reused internally.
+    """
+    if isinstance(observations, (str, bytes)) or not isinstance(observations, Sequence):
+        raise ValueError("observations must be a sequence of objects")
+    if not observations:
+        raise ValueError("observations must not be empty")
+    if metric != CAPACITY_V2_METRIC:
+        raise ValueError(
+            f"capacity v2 metric is fixed as {CAPACITY_V2_METRIC!r}")
+    forbidden = {
+        "capacity_bps", "c0_bps", "capacity_bytes_per_s",
+        "c0_bytes_per_s", "baseline_capacity_bps",
+    }
+    normalized: list[dict[str, Any]] = []
+    c0_presence: set[bool] = set()
+    c0_values: set[float] = set()
+    pools: set[str] = set()
+    for raw in observations:
+        if not isinstance(raw, Mapping):
+            raise ValueError("each observation must be an object")
+        mixed = sorted(forbidden & set(raw))
+        if mixed:
+            raise ValueError(f"v2 observations contain legacy or byte-unit fields: {mixed}")
+        if set(raw) != _CAPACITY_V2_OBSERVATION_FIELDS:
+            raise ValueError("capacity v2 observation fields are incomplete or unknown")
+        if (raw.get("schema") != CAPACITY_V2_OBSERVATION_SCHEMA
+                or type(raw.get("version")) is not int
+                or raw.get("version") != CAPACITY_V2_VERSION):
+            raise ValueError("capacity v2 observation schema/version mismatch")
+        if raw.get("method_id") != CAPACITY_V2_METHOD_ID:
+            raise ValueError("capacity v2 observations contain a different method_id")
+        if raw.get("capacity_unit") != "bits_per_second":
+            raise ValueError("capacity v2 observation unit must be bits_per_second")
+        if raw.get("runtime_capacity_unit") != "bytes_per_second":
+            raise ValueError("runtime capacity unit must be bytes_per_second")
+        if raw.get("measurement_scope") != "synthetic_link_delivery_diagnostic":
+            raise ValueError("capacity v2 observation measurement scope is invalid")
+        if raw.get("workload_design") != "deterministic_fixed_message_sequence":
+            raise ValueError("capacity v2 workload design is invalid")
+        if raw.get("seed_role") != "identity_only_no_random_draws":
+            raise ValueError("capacity v2 seed role is invalid")
+        if raw.get("metric") != metric:
+            raise ValueError("capacity v2 observations contain a different metric")
+        pool = _text(raw.get("pool"), "pool")
+        expected_direction = _CAPACITY_V2_POOL_DIRECTIONS.get(pool)
+        if expected_direction is None:
+            raise ValueError("capacity v2 observation pool is invalid")
+        if raw.get("direction") != expected_direction:
+            raise ValueError("capacity v2 observation direction conflicts with its pool")
+        pools.add(pool)
+        published = raw.get("published_count")
+        delivered = raw.get("delivered_count")
+        if (type(published) is not int or published < 1
+                or type(delivered) is not int or not 0 <= delivered <= published):
+            raise ValueError("capacity v2 delivery counts are invalid")
+        metric_value = _number(raw.get("metric_value"), "metric_value")
+        if not math.isclose(metric_value, delivered / published,
+                            rel_tol=0.0, abs_tol=1e-12):
+            raise ValueError("capacity v2 delivery metric differs from its counts")
+        if (raw.get("metric_interpretation") !=
+                "synthetic messages delivered divided by published messages; "
+                "not system business performance or participant adaptation"):
+            raise ValueError("capacity v2 metric interpretation is invalid")
+        wire_size = raw.get("wire_size_bytes")
+        if type(wire_size) is not int or wire_size < 1:
+            raise ValueError("wire_size_bytes must be a positive integer")
+        serialization_s = _number(
+            raw.get("serialization_duration_s"),
+            "serialization_duration_s", nonnegative=True)
+        mode = raw.get("capacity_mode")
+        bits = raw.get("capacity_bits_per_s")
+        runtime_bytes = raw.get("runtime_capacity_bytes_per_s")
+        if mode == "unlimited":
+            if bits is not None or runtime_bytes is not None:
+                raise ValueError("unlimited capacity must use null bit/s and runtime capacity")
+            if serialization_s != 0.0:
+                raise ValueError("unlimited capacity must have zero serialization duration")
+            normalized_capacity = None
+        elif mode == "finite":
+            normalized_capacity = _number(
+                bits, "capacity_bits_per_s", nonnegative=True)
+            if normalized_capacity <= 0:
+                raise ValueError("capacity_bits_per_s must be positive")
+            converted = _number(
+                runtime_bytes, "runtime_capacity_bytes_per_s", nonnegative=True)
+            if converted <= 0 or not math.isclose(
+                    converted, normalized_capacity / 8.0,
+                    rel_tol=0.0, abs_tol=1e-12):
+                raise ValueError("runtime capacity is not the unique bit/s to byte/s conversion")
+            if not math.isclose(
+                    serialization_s, wire_size / converted,
+                    rel_tol=0.0, abs_tol=1e-12):
+                raise ValueError(
+                    "serialization duration differs from wire size and runtime capacity")
+        else:
+            raise ValueError("capacity_mode must be finite or unlimited")
+        c0_present = raw.get("c0_bits_per_s") is not None
+        c0_presence.add(c0_present)
+        c0_value = None
+        if c0_present:
+            c0_value = _number(raw["c0_bits_per_s"], "c0_bits_per_s", nonnegative=True)
+            if c0_value <= 0:
+                raise ValueError("c0_bits_per_s must be positive")
+            c0_values.add(c0_value)
+        normalized.append({
+            "base_instance_id": raw.get("base_instance_id"),
+            "channel_seed": raw.get("channel_seed"),
+            "method_id": CAPACITY_V2_METHOD_ID,
+            # The private v1 aggregator treats this scalar generically.  In
+            # this call it is explicitly bit/s; the public result is renamed.
+            "capacity_bps": normalized_capacity,
+            **({"c0_bps": c0_value} if c0_present else {}),
+            "metric_value": raw.get("metric_value"),
+        })
+    if len(pools) != 1:
+        raise ValueError("capacity v2 curve cannot mix pool identities")
+    if len(c0_presence) > 1:
+        raise ValueError("c0_bits_per_s must be supplied for every v2 row or none")
+    if len(c0_values) > 1:
+        raise ValueError("c0_bits_per_s must be frozen across the v2 experiment")
+    legacy = summarize_capacity_curve(
+        normalized, metric=metric, method_id=CAPACITY_V2_METHOD_ID,
+        bootstrap_samples=bootstrap_samples, seed=seed,
+        min_reference_mean=min_reference_mean, thresholds=thresholds)
+
+    def rename_bounds(row: Mapping[str, Any]) -> dict[str, Any]:
+        result = dict(row)
+        names = {
+            "capacity_bps": "capacity_bits_per_s",
+            "capacity_lower_bps": "capacity_lower_bits_per_s",
+            "capacity_upper_bps": "capacity_upper_bits_per_s",
+            "capacity_lower_bound_bps": "capacity_lower_bound_bits_per_s",
+            "capacity_upper_bound_bps": "capacity_upper_bound_bits_per_s",
+        }
+        for old, new in names.items():
+            if old in result:
+                result[new] = result.pop(old)
+        return result
+
+    result = {
+        **legacy,
+        "schema": CAPACITY_V2_ANALYSIS_SCHEMA,
+        "version": CAPACITY_V2_VERSION,
+        "method_ids": [CAPACITY_V2_METHOD_ID],
+        "capacity_unit": "bits_per_second",
+        "runtime_capacity_unit": "bytes_per_second",
+        "points": [rename_bounds(point) for point in legacy["points"]],
+        "thresholds": {
+            key: rename_bounds(value) for key, value in legacy["thresholds"].items()
+        },
+        "measurement_scope": "synthetic_link_delivery_diagnostic",
+        "not_system_business_performance": True,
+    }
+    if "reference" in legacy:
+        result["reference"] = rename_bounds(legacy["reference"])
+    return result
+
+
 def summarize_paired_distribution_effect(
     observations: Sequence[Mapping[str, Any]], *, left_condition: str,
     right_condition: str, metric: str = "completion_rate", method_id: str | None = None,
@@ -275,5 +466,10 @@ def summarize_paired_distribution_effect(
             "effects": effects, "no_unmatched_pair_inference": True}
 
 
-__all__ = ["SCHEMA", "VERSION", "summarize_capacity_curve",
-           "summarize_paired_distribution_effect"]
+__all__ = [
+    "CAPACITY_V2_ANALYSIS_SCHEMA", "CAPACITY_V2_METHOD_ID",
+    "CAPACITY_V2_METRIC", "CAPACITY_V2_OBSERVATION_SCHEMA",
+    "CAPACITY_V2_VERSION", "SCHEMA", "VERSION",
+    "summarize_capacity_curve", "summarize_capacity_curve_v2",
+    "summarize_paired_distribution_effect",
+]
