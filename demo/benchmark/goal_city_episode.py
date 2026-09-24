@@ -79,6 +79,21 @@ CITY_NATIVE_OBSERVATION_REF = "city_native_runtime_observation"
 CITY_BACKEND_ID = "isaac.city.runtime"
 CITY_EVALUATOR_REF = "demo.city_benchmark.task_logic.evaluate_city_acceptance"
 CITY_GUIDE_RETRY_LIMIT = 20
+
+
+def _clock_epoch(value: Any) -> float:
+    if (isinstance(value, bool) or not isinstance(value, (int, float))
+            or not math.isfinite(value) or value < 0):
+        raise ValueError("clock_epoch_s must be finite and nonnegative")
+    return float(value)
+
+
+def _relative_timestamp(value: Any, clock_epoch_s: float) -> float | None:
+    if value is None:
+        return None
+    return float(value) - clock_epoch_s
+
+
 def city_robot_regions(public_task: Mapping[str, Any]) -> dict[str, str]:
     """Region snapshot for the whole candidate pool (road_surface admits
     both mobilities), so any team the algorithm selects is coverable."""
@@ -254,10 +269,16 @@ class CityNativeGoalBackend:
     error; no path fabricates a success.
     """
 
-    def __init__(self, ctx: Mapping[str, Any], plan: Mapping[str, Any],
-                 public_task: Mapping[str, Any] | None = None):
+    def __init__(self, ctx: Mapping[str, Any], plan: Mapping[str, Any] | None = None,
+                 public_task: Mapping[str, Any] | None = None, *,
+                 clock_epoch_s: float = 0.0):
         self._ctx = dict(ctx)
-        self._plan = deepcopy(dict(plan))
+        self.clock_epoch_s = _clock_epoch(clock_epoch_s)
+        # ``plan`` remains an ignored compatibility argument for legacy
+        # callers. Runtime execution is bound exclusively to the pending task
+        # in GoalSession's trusted report, so autonomous adapters do not need
+        # an author-preconstructed plan at backend construction time.
+        del plan
         self._robot_regions = (city_robot_regions(public_task) if public_task is not None
                                else dict(CITY_ROBOT_REGIONS))
         self._task_pool = list((public_task or {}).get("candidate_robot_pool") or [])
@@ -361,12 +382,19 @@ class CityNativeGoalBackend:
         return agent_id
 
     def _settle_to_window(self, task: Mapping[str, Any]) -> float:
-        """Advance the real simulation to the task's reserved window end."""
+        """Advance native time to an episode-relative reserved window end."""
         ctx = self._ctx
         window_end = float(task["execution"]["start_s"]) + float(task["execution"]["duration_s"])
-        while float(ctx["city"].elapsed) + float(ctx["dt"]) <= window_end:
+        native_window_end = self.clock_epoch_s + window_end
+        while float(ctx["city"].elapsed) + float(ctx["dt"]) <= native_window_end:
             ctx["step"](ctx["session"], ctx["city"], ctx["actions"], 1)
         return window_end
+
+    def _relative_now(self) -> float:
+        native_now = float(self._ctx["city"].elapsed)
+        if not math.isfinite(native_now):
+            raise ValueError("native City clock must be finite")
+        return max(0.0, native_now - self.clock_epoch_s)
 
     def _terminal(self, task: Mapping[str, Any], row: Mapping[str, Any], episode_id: str,
                   status: str, completed_at_s: float, evidence_refs: list[str],
@@ -375,6 +403,8 @@ class CityNativeGoalBackend:
         if not refs:
             refs = [f"{CITY_BACKEND_ID}:{task['task_id']}"]
         completed = float(completed_at_s)
+        if not math.isfinite(completed) or completed < 0:
+            raise ValueError("City receipt time must be finite and nonnegative")
         return {"status": status, "completed_at_s": completed,
                 "receipt": {"backend_id": CITY_BACKEND_ID, "receipt_ref": str(receipt_ref),
                             "task_id": task["task_id"],
@@ -485,12 +515,12 @@ class CityNativeGoalBackend:
                 *(str(ref) for ref in contact.get("evidence_refs") or ())]
         if not acknowledged:
             return self._terminal(task, row, episode_id, "failed",
-                                  max(float(city.elapsed), ledger_now), refs,
+                                  max(self._relative_now(), ledger_now), refs,
                                   request["request_id"])
         window_end = self._settle_to_window(task)
-        if float(city.elapsed) > window_end + float(ctx["dt"]):
+        if float(city.elapsed) > self.clock_epoch_s + window_end + float(ctx["dt"]):
             return self._terminal(task, row, episode_id, "failed",
-                                  max(float(city.elapsed), ledger_now), refs,
+                                  max(self._relative_now(), ledger_now), refs,
                                   request["request_id"])
         return self._terminal(task, row, episode_id, "succeeded", window_end, refs,
                               request["request_id"])
@@ -526,11 +556,11 @@ class CityNativeGoalBackend:
         status = "succeeded" if review.get("status") == "evidence_complete" else "failed"
         if status == "succeeded":
             window_end = self._settle_to_window(task)
-            if float(city.elapsed) <= window_end + float(ctx["dt"]):
+            if float(city.elapsed) <= self.clock_epoch_s + window_end + float(ctx["dt"]):
                 return self._terminal(task, row, episode_id, "succeeded", window_end, refs,
                                       request["request_id"])
         return self._terminal(task, row, episode_id, "failed",
-                              max(float(city.elapsed), ledger_now), refs, request["request_id"])
+                              max(self._relative_now(), ledger_now), refs, request["request_id"])
 
     def _execute_report(self, task: Mapping[str, Any], row: Mapping[str, Any],
                         episode_id: str, ledger_now: float) -> dict[str, Any]:
@@ -566,11 +596,11 @@ class CityNativeGoalBackend:
         status = "succeeded" if review.get("status") == "evidence_complete" else "failed"
         if status == "succeeded":
             window_end = self._settle_to_window(task)
-            if float(city.elapsed) <= window_end + float(ctx["dt"]):
+            if float(city.elapsed) <= self.clock_epoch_s + window_end + float(ctx["dt"]):
                 return self._terminal(task, row, episode_id, "succeeded", window_end, refs,
                                       request["request_id"])
         return self._terminal(task, row, episode_id, "failed",
-                              max(float(city.elapsed), ledger_now), refs, request["request_id"])
+                              max(self._relative_now(), ledger_now), refs, request["request_id"])
 
     def _execute_broadcast(self, task: Mapping[str, Any], row: Mapping[str, Any],
                            episode_id: str, ledger_now: float) -> dict[str, Any]:
@@ -603,9 +633,9 @@ class CityNativeGoalBackend:
         refs = [f"broadcast:{task['task_id']}"]
         receipt_ref = f"broadcast:{episode_id}:{task['task_id']}"
         window_end = self._settle_to_window(task)
-        if float(city.elapsed) > window_end + float(ctx["dt"]):
+        if float(city.elapsed) > self.clock_epoch_s + window_end + float(ctx["dt"]):
             return self._terminal(task, row, episode_id, "failed",
-                                  max(float(city.elapsed), ledger_now), refs, receipt_ref)
+                                  max(self._relative_now(), ledger_now), refs, receipt_ref)
         return self._terminal(task, row, episode_id, "succeeded", window_end, refs, receipt_ref)
 
     @staticmethod
@@ -629,7 +659,8 @@ class CityNativeGoalBackend:
 
 
 def build_acceptance_evidence(evidence_log: list[Mapping[str, Any]],
-                              ctx: Mapping[str, Any]) -> dict[str, Any]:
+                              ctx: Mapping[str, Any], *,
+                              clock_epoch_s: float = 0.0) -> dict[str, Any]:
     """Assemble the acceptance envelope from trusted native readbacks only.
 
     Every boolean is derived from an admitted request, a confirmed contact, a
@@ -648,6 +679,7 @@ def build_acceptance_evidence(evidence_log: list[Mapping[str, Any]],
     business outcome predicates in ``evaluate_city_acceptance`` are unchanged.
     Evidence logs without broadcast rows keep exactly the historical behavior.
     """
+    epoch = _clock_epoch(clock_epoch_s)
     records = list(evidence_log)
     guides = [row for row in records if row.get("kind") == "guide"]
     broadcasts = [row for row in records if row.get("kind") == "broadcast"]
@@ -656,9 +688,9 @@ def build_acceptance_evidence(evidence_log: list[Mapping[str, Any]],
     observation = next((row for row in records
                         if row.get("kind") == "episode_observation"), None)
     first = guides[0] if guides else None
-    delivered = (float(observation["delivered_at_s"])
+    delivered = (_relative_timestamp(observation["delivered_at_s"], epoch)
                  if observation is not None else None)
-    decision = (float(first["request"]["submitted_time_s"])
+    decision = (_relative_timestamp(first["request"]["submitted_time_s"], epoch)
                 if first is not None else None)
     admitted = first is not None and observation is not None
 
@@ -670,10 +702,11 @@ def build_acceptance_evidence(evidence_log: list[Mapping[str, Any]],
     first_acks = contact_acks(first) if first is not None else {}
     first_ack_time = None
     if first is not None and first.get("contact", {}).get("ack_time_s") is not None:
-        first_ack_time = float(first["contact"]["ack_time_s"])
+        first_ack_time = _relative_timestamp(first["contact"]["ack_time_s"], epoch)
     elif first_acks:
-        first_ack_time = max(float(actor.get("ack_time_s")) for actor in first_acks.values()
-                             if actor.get("ack_time_s") is not None)
+        first_ack_time = max(
+            _relative_timestamp(actor.get("ack_time_s"), epoch)
+            for actor in first_acks.values() if actor.get("ack_time_s") is not None)
 
     def broadcast_ack_time(record: Mapping[str, Any] | None,
                            person_id: str) -> float | None:
@@ -683,7 +716,7 @@ def build_acceptance_evidence(evidence_log: list[Mapping[str, Any]],
             if (isinstance(actor, Mapping) and actor.get("id") == person_id
                     and isinstance(actor.get("ack_time_s"), (int, float))
                     and not isinstance(actor.get("ack_time_s"), bool)):
-                return float(actor["ack_time_s"])
+                return _relative_timestamp(actor["ack_time_s"], epoch)
         return None
 
     people: list[dict[str, Any]] = []
@@ -712,11 +745,12 @@ def build_acceptance_evidence(evidence_log: list[Mapping[str, Any]],
             # alone carries no route admission; such a row keeps failing the
             # evaluator's remaining components honestly.
             row["route_admitted"] = True
-            row["guidance_request_time_s"] = float(record["request"]["submitted_time_s"])
+            row["guidance_request_time_s"] = _relative_timestamp(
+                record["request"]["submitted_time_s"], epoch)
         if arrival.get("arrived"):
             arrival_time = arrival.get("arrival_time_s")
             if isinstance(arrival_time, (int, float)) and not isinstance(arrival_time, bool):
-                row["arrival_time_s"] = float(arrival_time)
+                row["arrival_time_s"] = _relative_timestamp(arrival_time, epoch)
             review_actors = {str(actor.get("id")): actor for actor in
                              (dict(arrival.get("review") or {}).get("evidence")
                               or {}).get("actors") or ()
@@ -738,7 +772,7 @@ def build_acceptance_evidence(evidence_log: list[Mapping[str, Any]],
             and (record.get("contact") or {}).get("status") == "contact_confirmed")
         ack_times: list[float] = []
         if record is not None and ack is not None and ack.get("ack_time_s") is not None:
-            ack_times.append(float(ack["ack_time_s"]))
+            ack_times.append(_relative_timestamp(ack["ack_time_s"], epoch))
         if broadcast_ack_s is not None:
             ack_times.append(broadcast_ack_s)
         # B path union: either legal contact-confirmation source acknowledges
@@ -772,13 +806,14 @@ def build_acceptance_evidence(evidence_log: list[Mapping[str, Any]],
                 and isinstance(check_time, (int, float))
                 and not isinstance(check_time, bool)
                 and float(check_time) >= float(ack_time)),
-            "request_time_s": float(control["request"]["submitted_time_s"]),
-            "ack_time_s": (float(ack_time)
+            "request_time_s": _relative_timestamp(
+                control["request"]["submitted_time_s"], epoch),
+            "ack_time_s": (_relative_timestamp(ack_time, epoch)
                            if isinstance(ack_time, (int, float))
                            and not isinstance(ack_time, bool) else None),
         }
         if check_time is not None:
-            row["trajectory_check_time_s"] = float(check_time)
+            row["trajectory_check_time_s"] = _relative_timestamp(check_time, epoch)
         if readback:
             row["entered_exclusion_boundary"] = not bool(readback.get("no_hazard_ingress"))
         traffic.append(row)
@@ -787,8 +822,10 @@ def build_acceptance_evidence(evidence_log: list[Mapping[str, Any]],
     receipt = dict((report or {}).get("receipt") or {})
     received = receipt.get("received_time_s")
     access = dict((report or {}).get("access") or {})
-    start = float(report["receipt_time_s"]) if report is not None else None
-    end = float(report["access_end_time_s"]) if report is not None else None
+    start = (_relative_timestamp(report["receipt_time_s"], epoch)
+             if report is not None else None)
+    end = (_relative_timestamp(report["access_end_time_s"], epoch)
+           if report is not None else None)
     clear = access.get("measured_clear_throughout") is True
     envelope = {
         "incident_assessed": {
@@ -820,8 +857,10 @@ def build_acceptance_evidence(evidence_log: list[Mapping[str, Any]],
             "observation_refs": [report["observation_ref"]],
             "receipt_received": bool(isinstance(received, (int, float))
                                      and not isinstance(received, bool)),
-            "submit_time_s": float(report["request"]["submitted_time_s"]),
-            "receipt_time_s": (float(received) if isinstance(received, (int, float))
+            "submit_time_s": _relative_timestamp(
+                report["request"]["submitted_time_s"], epoch),
+            "receipt_time_s": (_relative_timestamp(received, epoch)
+                               if isinstance(received, (int, float))
                                and not isinstance(received, bool) else None),
         }
     if report is not None and start is not None and end is not None:
@@ -945,13 +984,16 @@ def await_assembly_arrivals(ctx: Mapping[str, Any],
 def city_business_evaluator(evidence_log: list[Mapping[str, Any]],
                             ctx: Mapping[str, Any],
                             arrival_stamps: dict[str, float] | None = None,
+                            *, clock_epoch_s: float = 0.0,
                             ) -> Callable[[str, Mapping[str, Any]], dict[str, dict[str, Any]]]:
     """Wrap the City acceptance predicates as a FormalGoalEpisodeRunner evaluator."""
+    epoch = _clock_epoch(clock_epoch_s)
 
     def evaluate(episode_id: str, trusted_report: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
         del episode_id
         await_assembly_arrivals(ctx, evidence_log, stamps=arrival_stamps)
-        envelope = build_acceptance_evidence(evidence_log, ctx)
+        envelope = build_acceptance_evidence(
+            evidence_log, ctx, clock_epoch_s=epoch)
         acceptance = evaluate_city_acceptance(
             envelope, default_deadline_policy(),
             expected_affected_person_ids=set(ctx["roster_ids"]),
