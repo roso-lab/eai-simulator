@@ -13,8 +13,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from copy import deepcopy
+import hashlib
+import json
 import math
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from .goal_remaining_feasibility_oracle import (
@@ -26,13 +28,19 @@ from .provenance import canonical_sha256
 
 CERTIFICATE_SCHEMA = "eai.restaurant.initial_positive_certificate"
 CERTIFICATE_VERSION = 1
+CERTIFICATE_VERSION_V2 = 2
 EVALUATOR_REF = "restaurant_initial_positive_v1"
+EVALUATOR_REF_V2 = "restaurant_initial_positive_v2"
 MEASUREMENT_ID = "restaurant_initial_positive"
 HARD_BUDGET_MS = 240_000
 CONSTRUCTION_COMPLETION_MS = 82_000
 NATIVE_ROOT_TOLERANCE_LIMIT = [0.01] * 3 + [0.005] * 4 + [0.01] * 6
 TASK_ID = "RESTAURANT-GOAL-NATIVE-02"
 DEPLOYMENT_PROFILE = "metric_regions_v2"
+COEXISTENCE_SCHEMA = "eai.restaurant.initial_coexistence_domain"
+COEXISTENCE_VERSION = 1
+COEXISTENCE_WARMUP_TICKS = 240
+COEXISTENCE_HOLD_BINDING = "pre_warmup_measured_root_xyz_and_yaw"
 
 CARTER_1 = "restaurant_carter_1"
 CARTER_2 = "restaurant_carter_2"
@@ -147,6 +155,235 @@ def _validate_root_domain(value: Any, label: str) -> dict[str, list[float]]:
     }
 
 
+def build_restaurant_initial_coexistence_domain() -> dict[str, Any]:
+    """Build the maintained full8 initial coexistence contract for v2 certificates."""
+    from .goal_restaurant_deployment_v2 import build_restaurant_deployment_v2
+
+    contract = build_restaurant_deployment_v2()
+    deployment = contract["deployment"]
+    robots = {row["id"]: row for row in contract["public_task"]["candidate_robot_pool"]}
+    spawn_regions = deployment["spawn_regions"]
+    if set(spawn_regions) != set(robots) or len(robots) != 8:
+        raise RuntimeError("maintained Restaurant coexistence roster is not full8")
+    bindings: dict[str, dict[str, Any]] = {}
+    for agent, region_id in spawn_regions.items():
+        geometry = deployment["region_bindings"].get(region_id)
+        if not isinstance(geometry, Mapping) or geometry.get("geometry_status") != "defined":
+            raise RuntimeError("maintained Restaurant spawn geometry is unavailable")
+        center = geometry.get("center_xyz_m", geometry.get("center_xy_m"))
+        expected_dimensions = 3 if robots[agent]["mobility"] == "aerial" else 2
+        if not isinstance(center, list) or len(center) != expected_dimensions:
+            raise RuntimeError("maintained Restaurant spawn geometry has the wrong dimension")
+        bindings[agent] = {
+            "region_id": region_id,
+            "center_m": [_finite(value, f"spawn center for {agent}") for value in center],
+            "tolerance_m": _finite(
+                geometry.get("tolerance_m"), f"spawn tolerance for {agent}",
+                nonnegative=True),
+        }
+    return {
+        "schema": COEXISTENCE_SCHEMA,
+        "version": COEXISTENCE_VERSION,
+        "warmup_ticks": COEXISTENCE_WARMUP_TICKS,
+        "hold_binding": COEXISTENCE_HOLD_BINDING,
+        "spawn_region_bindings": bindings,
+    }
+
+
+def _root_yaw(root: list[float], label: str) -> float:
+    if len(root) != 13:
+        raise ValueError(f"{label} must cover the complete 13D root")
+    w, x, y, z = root[3:7]
+    norm = math.sqrt(w * w + x * x + y * y + z * z)
+    if not math.isclose(norm, 1.0, rel_tol=0.0, abs_tol=1e-3):
+        raise ValueError(f"{label} quaternion must be normalized")
+    w, x, y, z = (value / norm for value in (w, x, y, z))
+    return math.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
+
+
+def _epoch_agent_root(
+    value: Any, *, agent: str, native_agent: str,
+    physics_step: int, time_s: float,
+) -> list[float]:
+    sample = _mapping(value, f"epoch agent {agent}")
+    vector = sample.get("root_state_w")
+    if (sample.get("public_agent_id") != agent
+            or sample.get("native_agent_id") != native_agent
+            or sample.get("physics_step") != physics_step
+            or sample.get("time_s") != time_s
+            or not isinstance(vector, list) or len(vector) != 13):
+        raise ValueError(f"epoch agent {agent} identity or clock mismatch")
+    root = [_finite(item, f"epoch root for {agent}") for item in vector]
+    _root_yaw(root, f"epoch root for {agent}")
+    return root
+
+
+def validate_restaurant_initial_coexistence(
+    state: Any, coexistence_domain: Any,
+) -> dict[str, Any]:
+    """Validate v2 full8 coexistence and its byte-pinned warmup archive.
+
+    This helper checks evidence structure only. It does not issue a certificate
+    or return an oracle feasibility label.
+    """
+    expected = build_restaurant_initial_coexistence_domain()
+    domain = _mapping(coexistence_domain, "coexistence_domain")
+    if domain != expected:
+        raise ValueError("coexistence domain differs from the maintained deployment")
+    row = _mapping(state, "native_initial_state")
+    from .goal_restaurant_fleet import FLEET_CONTROLLER_REGISTRY
+
+    bindings = domain["spawn_region_bindings"]
+    expected_agents = set(bindings)
+    if set(FLEET_CONTROLLER_REGISTRY) != expected_agents:
+        raise ValueError("coexistence domain differs from the maintained full8 controller roster")
+    roots = _mapping(row.get("native_initial_roots"), "native initial roots")
+    memberships = _mapping(row.get("initial_regions"), "initial regions")
+    robot_regions = _mapping(row.get("robot_regions"), "robot regions")
+    if (set(roots) != expected_agents or set(memberships) != expected_agents
+            or set(robot_regions) != expected_agents):
+        raise ValueError("coexistence state does not cover exactly the full8 roster")
+    origin_step = row.get("origin_physics_step")
+    if type(origin_step) is not int or origin_step < 0 or row.get("time_s") != 0.0:
+        raise ValueError("coexistence state has an invalid post-warmup epoch")
+    normalized_roots: dict[str, list[float]] = {}
+    for agent, binding in bindings.items():
+        root = _epoch_agent_root(
+            roots[agent], agent=agent,
+            native_agent=FLEET_CONTROLLER_REGISTRY[agent]["native_agent_id"],
+            physics_step=origin_step, time_s=0.0)
+        center = binding["center_m"]
+        error = math.dist(root[:len(center)], center)
+        membership = _mapping(memberships[agent], f"initial membership for {agent}")
+        recorded_error = _finite(
+            membership.get("region_error_m"), f"initial region error for {agent}",
+            nonnegative=True)
+        if (error > binding["tolerance_m"]
+                or membership.get("status") != "measured_region_membership"
+                or membership.get("region_id") != binding["region_id"]
+                or membership.get("region_center_m") != center
+                or membership.get("region_tolerance_m") != binding["tolerance_m"]
+                or not math.isclose(recorded_error, error, rel_tol=0.0, abs_tol=1e-12)
+                or robot_regions[agent] != binding["region_id"]):
+            raise ValueError("initial region membership differs from measured maintained geometry")
+        normalized_roots[agent] = root
+
+    source = _mapping(row.get("source_epoch_archive"), "source_epoch_archive")
+    _exact_fields(source, {"path", "sha256"}, "source_epoch_archive")
+    archive_path = source.get("path")
+    if not isinstance(archive_path, str) or not archive_path:
+        raise ValueError("source epoch archive path must be nonempty")
+    expected_sha = _digest(source.get("sha256"), "source epoch archive digest")
+    try:
+        archive_bytes = Path(archive_path).read_bytes()
+    except OSError as exc:
+        raise ValueError("source epoch archive is unavailable") from exc
+    if hashlib.sha256(archive_bytes).hexdigest() != expected_sha:
+        raise ValueError("source epoch archive bytes differ from the pinned digest")
+    try:
+        archive = json.loads(archive_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("source epoch archive is malformed") from exc
+    archive = _mapping(archive, "source epoch archive")
+    if (archive.get("schema") != "eai.restaurant.native_episode_warmup_archive"
+            or archive.get("version") != 1
+            or archive.get("episode_id") != row.get("episode_id")
+            or archive.get("task_id") != row.get("task_id")
+            or archive.get("public_task_sha256") != row.get("public_task_sha256")
+            or archive.get("deployment_profile") != row.get("deployment_profile")
+            or archive.get("deployment_sha256") != row.get("deployment_sha256")
+            or archive.get("controller_instances_preserved") is not True
+            or archive.get("post_warmup_sample_measured") is not True
+            or any(archive.get(flag) is not False for flag in (
+                "scoreable", "execution_validated", "business_outcomes_validated",
+                "feasibility_oracle_verified", "release_ready",
+            ))):
+        raise ValueError("source epoch archive identity or provenance mismatch")
+    warmup = archive.get("warmup_ticks")
+    if (not isinstance(warmup, list)
+            or len(warmup) != domain["warmup_ticks"]
+            or [tick.get("warmup_index") if isinstance(tick, Mapping) else None
+                for tick in warmup] != list(range(domain["warmup_ticks"]))
+            or any(not isinstance(tick, Mapping) for tick in warmup)):
+        raise ValueError("source epoch archive does not contain exactly 240 full8 warmup ticks")
+    previous_step: int | None = None
+    for index, tick in enumerate(warmup):
+        tick_step = tick.get("physics_step")
+        tick_time = tick.get("time_s")
+        tick_agents = _mapping(tick.get("agents"), "warmup tick agents")
+        if (tick.get("schema") != "eai.restaurant.native_fleet_tick"
+                or tick.get("version") != 1
+                or tick.get("warmup_index") != index
+                or type(tick_step) is not int
+                or set(tick_agents) != expected_agents
+                or (previous_step is not None and tick.get("start_physics_step") != previous_step)
+                or previous_step is not None and tick_step <= previous_step):
+            raise ValueError("source epoch archive warmup tick identity or clock mismatch")
+        tick_time = _finite(tick_time, "warmup tick time", nonnegative=True)
+        for agent in bindings:
+            _epoch_agent_root(
+                tick_agents[agent], agent=agent,
+                native_agent=FLEET_CONTROLLER_REGISTRY[agent]["native_agent_id"],
+                physics_step=tick_step, time_s=tick_time)
+        previous_step = tick_step
+    post = _mapping(archive.get("post_warmup_sample"), "post_warmup_sample")
+    post_agents = _mapping(post.get("agents"), "post_warmup agents")
+    if (post.get("physics_step") != origin_step or post.get("time_s") != 0.0
+            or set(post_agents) != expected_agents
+            or warmup[-1].get("physics_step") != origin_step):
+        raise ValueError("source epoch archive post-warmup sample mismatch")
+    for agent in bindings:
+        archived_root = _epoch_agent_root(
+            post_agents[agent], agent=agent,
+            native_agent=FLEET_CONTROLLER_REGISTRY[agent]["native_agent_id"],
+            physics_step=origin_step, time_s=0.0)
+        if archived_root != normalized_roots[agent]:
+            raise ValueError("source epoch archive root differs from native initial state")
+
+    old_epoch = _mapping(archive.get("old_epoch"), "old_epoch")
+    pre_step = old_epoch.get("pre_warmup_physics_step")
+    pre_agents = _mapping(old_epoch.get("pre_warmup_agents"), "pre-warmup agents")
+    hold_targets = _mapping(
+        archive.get("hold_targets_before_warmup"), "pre-warmup hold targets")
+    hold_yaws = _mapping(archive.get("hold_yaws_before_warmup"), "pre-warmup hold yaws")
+    if (type(pre_step) is not int or pre_step < 0 or set(pre_agents) != expected_agents
+            or set(hold_targets) != expected_agents or set(hold_yaws) != expected_agents):
+        raise ValueError("source epoch archive pre-warmup roster mismatch")
+    pre_time = old_epoch.get("pre_warmup_time_s")
+    pre_time = _finite(pre_time, "pre-warmup time")
+    if old_epoch.get("origin_physics_step") != pre_step:
+        raise ValueError("source epoch archive old origin differs from pre-warmup step")
+    previous_step = pre_step
+    for tick in warmup:
+        if tick.get("start_physics_step") != previous_step:
+            raise ValueError("source epoch archive warmup steps are not contiguous")
+        previous_step = tick["physics_step"]
+    for agent in bindings:
+        pre_root = _epoch_agent_root(
+            pre_agents[agent], agent=agent,
+            native_agent=FLEET_CONTROLLER_REGISTRY[agent]["native_agent_id"],
+            physics_step=pre_step, time_s=pre_time)
+        target = hold_targets[agent]
+        yaw = _finite(hold_yaws[agent], f"pre-warmup hold yaw for {agent}")
+        if not isinstance(target, list) or len(target) != 3:
+            raise ValueError("hold provenance has an invalid target")
+        target = [_finite(value, f"pre-warmup hold target for {agent}")
+                  for value in target]
+        if (target != pre_root[:3]
+                or not math.isclose(yaw, _root_yaw(pre_root, f"pre-warmup root for {agent}"),
+                                    rel_tol=0.0, abs_tol=1e-12)):
+            raise ValueError("hold provenance differs from the measured pre-warmup root")
+    return {
+        "schema": "eai.restaurant.initial_coexistence_validation",
+        "version": 1,
+        "source_epoch_archive_sha256": expected_sha,
+        "warmup_ticks": domain["warmup_ticks"],
+        "origin_physics_step": origin_step,
+        "agent_ids": sorted(expected_agents),
+        "robot_regions_sha256": canonical_sha256(robot_regions),
+    }
+
+
 def _expected_actions() -> dict[str, Any]:
     return {
         "window_semantics": "start_inclusive_end_exclusive",
@@ -239,12 +476,18 @@ def _validate_certificate(
 ) -> tuple[dict[str, Any], dict[str, Any], str]:
     expected = _digest(expected_certificate_sha256, "expected certificate digest")
     row = _mapping(certificate, "certificate")
-    _exact_fields(row, {
+    version = row.get("version")
+    if type(version) is not int or version not in {CERTIFICATE_VERSION, CERTIFICATE_VERSION_V2}:
+        raise ValueError("certificate schema, version, or visibility is invalid")
+    certificate_fields = {
         "schema", "version", "visibility", "qualification", "identities",
         "execution_dependency_paths", "initial_domain", "action_domains",
         "registration_sha256",
-    }, "certificate")
-    if (row["schema"] != CERTIFICATE_SCHEMA or row["version"] != CERTIFICATE_VERSION
+    }
+    if version == CERTIFICATE_VERSION_V2:
+        certificate_fields.add("coexistence_domain")
+    _exact_fields(row, certificate_fields, "certificate")
+    if (row["schema"] != CERTIFICATE_SCHEMA
             or row["visibility"] != "evaluator_only"):
         raise ValueError("certificate schema, version, or visibility is invalid")
     actual = canonical_sha256(row)
@@ -263,13 +506,20 @@ def _validate_certificate(
     if not refs or any(not ref.startswith(prefix) for ref in refs):
         raise ValueError("qualification evidence refs do not match their scope")
     _digest(qualification["calibration_manifest_sha256"], "calibration manifest digest")
+    profiles = _string_list(
+        qualification["allowed_runtime_profile_sha256"],
+        "allowed runtime profile digests")
+    if not profiles:
+        raise ValueError("qualification requires an allowed runtime profile")
+    for profile in profiles:
+        _digest(profile, "allowed runtime profile digest")
     trials = qualification["calibration_trials"]
     if not isinstance(trials, list):
         raise ValueError("calibration_trials must be a list")
     if qualification["scope"] == "synthetic_fixture":
         if trials:
             raise ValueError("synthetic fixture cannot claim native calibration trials")
-    else:
+    elif version == CERTIFICATE_VERSION:
         slots = set()
         for trial in trials:
             trial = _mapping(trial, "calibration trial")
@@ -284,13 +534,31 @@ def _validate_certificate(
             raise ValueError("native certificate requires all six preregistered calibration slots")
         # Shape checks cannot authenticate archives or their outcomes. That is
         # the independent issuer's job, bound by the externally pinned digest.
-    profiles = _string_list(
-        qualification["allowed_runtime_profile_sha256"],
-        "allowed runtime profile digests")
-    if not profiles:
-        raise ValueError("qualification requires an allowed runtime profile")
-    for profile in profiles:
-        _digest(profile, "allowed runtime profile digest")
+    else:
+        slots: set[tuple[str, int]] = set()
+        archive_digests: set[str] = set()
+        covered_profiles: set[str] = set()
+        for trial in trials:
+            trial = _mapping(trial, "calibration trial")
+            _exact_fields(trial, {
+                "host", "seed", "raw_archive_sha256", "runtime_profile_sha256",
+            }, "calibration trial")
+            if trial["host"] not in {"local", "ljy"} or type(trial["seed"]) is not int:
+                raise ValueError("invalid calibration host or seed")
+            archive_digest = _digest(
+                trial["raw_archive_sha256"], "calibration archive digest")
+            runtime_profile = _digest(
+                trial["runtime_profile_sha256"], "calibration runtime profile digest")
+            if runtime_profile not in profiles:
+                raise ValueError("calibration trial uses a runtime profile outside the allowlist")
+            slot = (trial["host"], trial["seed"])
+            if slot in slots or archive_digest in archive_digests:
+                raise ValueError("v2 calibration trials must use unique slots and raw archives")
+            slots.add(slot)
+            archive_digests.add(archive_digest)
+            covered_profiles.add(runtime_profile)
+        if not trials or covered_profiles != set(profiles):
+            raise ValueError("v2 native certificate requires a trial for every runtime profile")
 
     identities = _mapping(row["identities"], "identities")
     _exact_fields(identities, {
@@ -327,8 +595,18 @@ def _validate_certificate(
         raise ValueError("roster_version must be a nonnegative integer")
     roots = _mapping(domain["root_domains"], "root_domains")
     versions = _mapping(domain["capability_versions"], "capability_versions")
-    if set(roots) != set(versions) or len(roots) != 8 or {CARTER_1, CARTER_2} - set(roots):
-        raise ValueError("certificate must bind all eight root and capability domains")
+    if version == CERTIFICATE_VERSION:
+        if set(roots) != set(versions) or len(roots) != 8 or {CARTER_1, CARTER_2} - set(roots):
+            raise ValueError("certificate must bind all eight root and capability domains")
+    else:
+        coexistence = _mapping(row["coexistence_domain"], "coexistence_domain")
+        maintained_coexistence = build_restaurant_initial_coexistence_domain()
+        if coexistence != maintained_coexistence:
+            raise ValueError("coexistence domain differs from the maintained deployment")
+        full8 = set(coexistence["spawn_region_bindings"])
+        if set(roots) != {CARTER_1, CARTER_2} or set(versions) != full8:
+            raise ValueError("v2 certificate must separate Carter action roots from full8 coexistence")
+        row["coexistence_domain"] = maintained_coexistence
     domain["root_domains"] = {
         agent: _validate_root_domain(value, f"root domain for {agent}")
         for agent, value in roots.items()
@@ -336,7 +614,9 @@ def _validate_certificate(
     if qualification["scope"] == "native_empirical_domain" and any(
             tolerance > limit for root in domain["root_domains"].values()
             for tolerance, limit in zip(root["abs_tolerance"], NATIVE_ROOT_TOLERANCE_LIMIT)):
-        raise ValueError("native root domain exceeds the preregistered v1 tolerance envelope")
+        if version == CERTIFICATE_VERSION:
+            raise ValueError("native root domain exceeds the preregistered v1 tolerance envelope")
+        raise ValueError("native Carter root domain exceeds the preregistered tolerance envelope")
     for agent, version in versions.items():
         if type(version) is not int or version < 0:
             raise ValueError(f"capability version for {agent} must be nonnegative")
@@ -392,7 +672,7 @@ def _validate_authorities(value: Any) -> dict[str, Any]:
 
 def _failure(
     *, episode_id: str, assessment_id: str, assessment_epoch: int,
-    quality_failure: str, certificate_sha256: str | None,
+    quality_failure: str, certificate_sha256: str | None, evaluator_ref: str,
 ) -> dict[str, Any]:
     return {
         "assessment_id": assessment_id,
@@ -401,7 +681,7 @@ def _failure(
         "oracle_status": "failed",
         "platform_valid": False,
         "evidence_refs": [],
-        "evaluator_ref": EVALUATOR_REF,
+        "evaluator_ref": evaluator_ref,
         "episode_id": episode_id,
         "measurement_id": MEASUREMENT_ID,
         "visibility": "evaluator_only",
@@ -431,6 +711,13 @@ class RestaurantInitialPositiveOracle:
         self._authorities = None
         self._certificate_sha256 = (
             expected_certificate_sha256 if isinstance(expected_certificate_sha256, str) else None)
+        self._evaluator_ref = (
+            EVALUATOR_REF_V2
+            if isinstance(certificate, Mapping)
+            and type(certificate.get("version")) is int
+            and certificate.get("version") == CERTIFICATE_VERSION_V2
+            else EVALUATOR_REF
+        )
         self._configuration_error: str | None = None
         self._results: list[dict[str, Any]] = []
         self._cache: dict[tuple[str, str, int], dict[str, Any]] = {}
@@ -461,7 +748,8 @@ class RestaurantInitialPositiveOracle:
             return _failure(
                 episode_id=episode_id, assessment_id=assessment_id,
                 assessment_epoch=assessment_epoch, quality_failure=reason,
-                certificate_sha256=self._certificate_sha256)
+                certificate_sha256=self._certificate_sha256,
+                evaluator_ref=self._evaluator_ref)
 
         if self._configuration_error is not None:
             return fail(self._configuration_error)
@@ -496,6 +784,13 @@ class RestaurantInitialPositiveOracle:
             return fail("execution_authority_mismatch")
 
         domain = certificate["initial_domain"]
+        certificate_version = certificate["version"]
+        coexistence_domain = certificate.get("coexistence_domain")
+        expected_agents = (
+            set(coexistence_domain["spawn_region_bindings"])
+            if certificate_version == CERTIFICATE_VERSION_V2
+            else set(domain["root_domains"])
+        )
         state = _mapping(report.get("native_initial_state"), "native_initial_state")
         binding = _mapping(report.get("deployment_binding"), "deployment_binding")
         runtime_state = _mapping(session.get("runtime_state"), "runtime_state")
@@ -548,11 +843,13 @@ class RestaurantInitialPositiveOracle:
         robot_regions = _mapping(state.get("robot_regions"), "robot_regions")
         if (
             not isinstance(current_ids, list)
-            or set(current_ids) != set(domain["root_domains"])
-            or set(current_pool) != set(domain["root_domains"])
-            or set(roots) != set(domain["root_domains"])
-            or set(initial_regions) != set(domain["root_domains"])
-            or set(robot_regions) != set(domain["root_domains"])
+            or set(current_ids) != expected_agents
+            or (certificate_version == CERTIFICATE_VERSION_V2
+                and len(current_ids) != len(expected_agents))
+            or set(current_pool) != expected_agents
+            or set(roots) != expected_agents
+            or set(initial_regions) != expected_agents
+            or set(robot_regions) != expected_agents
             or canonical_sha256(current_pool) != domain["roster_sha256"]
             or canonical_sha256(robot_regions) != domain["robot_regions_sha256"]
             or runtime_state.get("robot_regions") != robot_regions
@@ -616,6 +913,11 @@ class RestaurantInitialPositiveOracle:
             or binding.get("native_initial_state_sha256") != canonical_sha256(state)
         ):
             return fail("native_epoch_join_mismatch")
+        if certificate_version == CERTIFICATE_VERSION_V2:
+            try:
+                validate_restaurant_initial_coexistence(state, coexistence_domain)
+            except (KeyError, OSError, TypeError, ValueError):
+                return fail("initial_coexistence_validation_failed")
 
         try:
             solver_robots = []
@@ -667,7 +969,7 @@ class RestaurantInitialPositiveOracle:
 
         result = deepcopy(dict(solver_result))
         result.update({
-            "evaluator_ref": EVALUATOR_REF,
+            "evaluator_ref": self._evaluator_ref,
             "evidence_refs": [
                 f"certificate:{self._certificate_sha256}",
                 f"initial-state:{canonical_sha256(state)}",
@@ -702,6 +1004,7 @@ class RestaurantInitialPositiveOracle:
                 assessment_epoch=assessment_epoch,
                 quality_failure=f"trusted_input_failed:{type(exc).__name__}",
                 certificate_sha256=self._certificate_sha256,
+                evaluator_ref=self._evaluator_ref,
             )
         self._cache[key] = deepcopy(result)
         self._results.append(deepcopy(result))
@@ -733,5 +1036,7 @@ class RestaurantInitialPositiveOracle:
 
 __all__ = [
     "RestaurantInitialPositiveOracle",
+    "build_restaurant_initial_coexistence_domain",
+    "validate_restaurant_initial_coexistence",
     "validate_restaurant_initial_positive_certificate",
 ]
