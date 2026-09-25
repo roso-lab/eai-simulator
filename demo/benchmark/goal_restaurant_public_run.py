@@ -42,6 +42,12 @@ def parser():
     result.add_argument("--preflight-only", action="store_true")
     result.add_argument("--publication-treatment", action="store_true",
                         help="opt into evaluator-only single-observation treatment; does not alter the policy")
+    result.add_argument("--initial-oracle-inputs", action="store_true",
+                        help="archive trusted execution identities for separate initial-domain calibration")
+    result.add_argument("--initial-oracle-certificate", type=Path,
+                        help="optional evaluator-only, independently calibrated positive certificate")
+    result.add_argument("--initial-oracle-sha256",
+                        help="separately pinned canonical certificate digest; required with the certificate")
     result.add_argument("--device", choices=("cpu", "cuda:0"), default="cpu")
     result.add_argument("--seed", type=int, default=17)
     result.add_argument("--warmup-ticks", type=_positive_integer, default=240)
@@ -58,6 +64,15 @@ def _source_snapshot():
     for directory in ("demo/benchmark", "demo/restaurant_benchmark"):
         for path in (ROOT / directory).glob("*.py"):
             sources[str(path)] = hashlib.sha256(path.read_bytes()).hexdigest()
+    for name in (
+            "source/EAI/EAI/hmrs_env/multi_robot_direct_env.py",
+            "source/EAI/EAI/hmrs_env/multi_robot_direct_env_cfg.py",
+            "source/EAI/EAI/controllers/base.py",
+            "source/EAI_assets/EAI_assets/asset_resolver.py",
+            "source/EAI_hmrs/EAI_hmrs/controller_loader.py",
+            "tools/assets/prepare_restaurant_benchmark_assets.py"):
+        path = ROOT / name
+        sources[str(path)] = hashlib.sha256(path.read_bytes()).hexdigest()
     return sources
 
 
@@ -71,6 +86,8 @@ def prepare_request(args):
 
     if not args.episode_id.strip():
         raise ValueError("episode id must be nonempty")
+    if bool(args.initial_oracle_certificate) != bool(args.initial_oracle_sha256):
+        raise ValueError("initial oracle certificate and independently pinned digest must be supplied together")
     contract = build_restaurant_deployment_v2()
     communication = validate_communication_contract(json.loads(
         args.communication_contract.read_text(encoding="utf-8")))
@@ -97,7 +114,25 @@ def prepare_request(args):
     }
     if args.publication_treatment:
         request["publication_treatment_extension"] = "shared_fifo_anchored_window_v1"
+    if args.initial_oracle_inputs or args.initial_oracle_certificate:
+        request["initial_oracle_inputs_requested"] = True
+    if args.initial_oracle_certificate:
+        # The whole request is evaluator-only. Nothing here enters the public task.
+        request["initial_oracle_certificate"] = json.loads(
+            args.initial_oracle_certificate.read_text(encoding="utf-8"))
+        request["initial_oracle_expected_sha256"] = args.initial_oracle_sha256
     return request
+
+
+def initial_assessment_evaluator(request, inputs):
+    """Freeze optional evaluator inputs before constructing any participant."""
+    if "initial_oracle_certificate" not in request:
+        return None
+    from .goal_restaurant_initial_oracle import RestaurantInitialPositiveOracle
+    return RestaurantInitialPositiveOracle(
+        request["initial_oracle_certificate"],
+        expected_certificate_sha256=request["initial_oracle_expected_sha256"],
+        trusted_authorities=inputs["authorities"])
 
 
 def ground_policy_condition_event(request, session, communication, pump_archive):
@@ -146,6 +181,10 @@ def run_native(args, request):
     from .goal_restaurant_public_policy import PublicRestaurantParticipant
     from .goal_session_audit import replay_goal_session_audit
 
+    inputs = (json.loads((args.output / "initial-oracle-inputs.json").read_text(encoding="utf-8"))
+              if request.get("initial_oracle_inputs_requested") else None)
+    evaluator = initial_assessment_evaluator(request, inputs)
+
     os.environ["EAI_RESTAURANT_BENCHMARK_ROOT"] = request["products_root"]
     from simulator import SimulatorLaunchConfig, open_simulator_session
 
@@ -159,6 +198,13 @@ def run_native(args, request):
         selection_data=selection, num_envs=1, device=args.device, seed=args.seed, headless=True,
         enable_ros_bridge_extension=False, disable_orsus_ros_env=True, env_cfg_hook=configure)
     with open_simulator_session(config) as simulator:
+        applied = {"requested_seed": args.seed, "effective_seed": simulator.base_env.cfg.seed,
+                   "requested_device": args.device,
+                   "effective_device": str(simulator.base_env.cfg.sim.device)}
+        _write(args.output, "runtime-configuration.json", applied)
+        if request.get("initial_oracle_inputs_requested") and (
+                applied["effective_seed"] != args.seed or applied["effective_device"] != args.device):
+            raise RuntimeError("oracle input runtime profile differs from applied seed or physics device")
         fleet = RestaurantFleetController(simulator, products_root=args.products_root.resolve(),
                                           deployment_profile=DEPLOYMENT_PROFILE)
         metadata = fleet.begin_episode(args.episode_id, warmup_ticks=args.warmup_ticks)
@@ -168,7 +214,11 @@ def run_native(args, request):
         runtime = CommunicationRuntime(request["communication_contract"])
         provider = RestaurantNativeObservationProvider(fleet)
         with open_restaurant_autonomous_context(
-                fleet, adapter, deployment=request["deployment"]) as context:
+                fleet, adapter, deployment=request["deployment"],
+                assessment_evaluator=evaluator) as context:
+            if evaluator is not None:
+                # Archive the frozen initial row now, before any execution.
+                _write(args.output, "initial-oracle-report.json", evaluator.report())
             hook = None
             if request.get("publication_treatment_extension"):
                 from .goal_driven_tasks import build_goal_task_package
@@ -268,6 +318,10 @@ def main(argv=None):
         _write(args.output, "asset-preflight.json", assets)
         if assets["status"] != "ready":
             raise RuntimeError("frozen Restaurant asset closure is not ready")
+        if request.get("initial_oracle_inputs_requested"):
+            from .goal_restaurant_oracle_inputs import collect_initial_oracle_inputs
+            _write(args.output, "initial-oracle-inputs.json",
+                   collect_initial_oracle_inputs(args, request, assets))
         if args.preflight_only:
             result = {"status": "preflight_ready", "native_started": False,
                       "oracle_status": "failed", "feasibility_label": None,
