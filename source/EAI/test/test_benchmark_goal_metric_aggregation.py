@@ -696,3 +696,59 @@ def test_release_flags_false_everywhere():
         assert output["scoreable"] is False
         assert output["execution_validated"] is False
         assert output["business_outcomes_validated"] is False
+
+
+def _bound_reports():
+    return [{"source_bindings": _bindings("ep%d" % index)}
+            for index in range(2)]
+
+
+def test_gate_cannot_shrink_mandatory_bindings():
+    # Viewer stage66 P0-1: dropping any mandatory field from the gate raises.
+    from demo.benchmark.goal_metric_aggregation import evidence_source_gate
+
+    for reduced in (("contract_sha256", "episode_id", "evaluator_ref"),
+                    ("contract_sha256",)):
+        with pytest.raises(ValueError, match="mandatory"):
+            evidence_source_gate(_bound_reports(), required_bindings=reduced)
+
+
+def test_gate_synthetic_episode_id_stays_development():
+    # Viewer stage66 P0-2: an episode id derived from the row index is not
+    # source evidence; the report lands in development_evidence.
+    from demo.benchmark.goal_metric_aggregation import evidence_source_gate
+
+    reports = _bound_reports()
+    for report in reports:
+        report.pop("episode_id", None)
+        report.get("source_bindings", {}).pop("episode_id", None)
+    gate = evidence_source_gate(reports, required_bindings=SOURCE_BINDING_FIELDS)
+    assert gate["development_evidence_count"] == len(reports)
+    assert gate["formal_eligible_count"] == 0
+
+
+def test_gate_source_conflict_drops_to_development():
+    # Viewer stage66 P0-3: source_bindings disagreeing with the top-level
+    # field is a conflict — the report cannot enter the formal bucket.
+    from demo.benchmark.goal_metric_aggregation import evidence_source_gate
+
+    reports = _bound_reports()
+    reports[0]["episode_id"] = "conflicting-id"
+    gate = evidence_source_gate(reports, required_bindings=SOURCE_BINDING_FIELDS)
+    row = next(item for item in gate["development_evidence"]
+               if item["report_index"] == 0)
+    assert row is not None
+    assert "episode_id_missing" in row["missing_bindings"]
+
+
+def test_gate_untrusted_anchor_source_stays_development():
+    # Viewer stage66 P0-4: only host_event / native_receipt anchor sources
+    # are formal-eligible; any other label is development-state.
+    from demo.benchmark.goal_metric_aggregation import evidence_source_gate
+
+    reports = _bound_reports()
+    reports[0]["source_bindings"]["termination_anchor_source"] = "self_report"
+    gate = evidence_source_gate(reports, required_bindings=SOURCE_BINDING_FIELDS)
+    row = next(item for item in gate["development_evidence"]
+               if item["report_index"] == 0)
+    assert "termination_anchor_source_not_trusted" in row["missing_bindings"]

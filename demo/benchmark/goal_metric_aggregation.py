@@ -95,6 +95,7 @@ EVIDENCE_BUCKETS = ("development_evidence", "formal_eligible")
 GATE_STATUSES = ("formal_eligible", "development_evidence")
 SOURCE_BINDING_FIELDS = ("contract_sha256", "episode_id", "evaluator_ref",
                          "termination_anchor_source")
+TRUSTED_ANCHOR_SOURCES = frozenset({"host_event", "native_receipt"})
 UNVERIFIED_ANCHOR_SOURCE = "unverified"
 FORMAL_PROMOTION_STATUS = "separate_release_action_not_issued_here"
 
@@ -925,6 +926,14 @@ def aggregate_mutex(episode_mutex,
 def _binding_value(report: Mapping[str, Any], field: str) -> Any:
     bindings = report.get("source_bindings")
     if isinstance(bindings, Mapping) and field in bindings:
+        # Viewer stage66 P0-3: a binding that disagrees with the report's
+        # top-level value (when the top level also carries the field) is a
+        # source conflict — resolve to None so the report drops to
+        # development_evidence instead of silently preferring one side.
+        top_level = report.get(field)
+        if (top_level is not None
+                and bindings[field] != top_level):
+            return None
         return bindings[field]
     return report.get(field)
 
@@ -942,14 +951,26 @@ def _check_binding(field: str, value: Any) -> str | None:
             # A present but unverified anchor is an honest marker of
             # non-trust: right-censored evidence stays development-state.
             return "termination_anchor_source_unverified"
+        # Viewer stage66 P0-4: only trusted host/native receipt sources are
+        # formal-eligible anchor provenance; any other label stays
+        # development-state with an explicit reason.
+        if value not in TRUSTED_ANCHOR_SOURCES:
+            return "termination_anchor_source_not_trusted"
         return None
     if not isinstance(value, str) or not value.strip():
         return f"{field}_missing"
     return None
 
 
+MANDATORY_SOURCE_BINDINGS = frozenset(SOURCE_BINDING_FIELDS)
+
+
 def evidence_source_gate(reports, *, required_bindings: Sequence[str]) -> dict[str, Any]:
     """Bucket episode reports into development vs formal-eligible evidence.
+
+    Viewer stage66 P0-1: ``required_bindings`` must cover every mandatory
+    source-binding field — a caller cannot shrink the gate.  Passing fewer
+    fields raises instead of quietly widening formal eligibility.
 
     Every report is checked for the required provenance markers
     (``contract_sha256`` as a 64-hex digest, ``episode_id``,
@@ -969,6 +990,11 @@ def evidence_source_gate(reports, *, required_bindings: Sequence[str]) -> dict[s
     unknown = sorted(set(required_bindings) - set(SOURCE_BINDING_FIELDS))
     if unknown:
         raise ValueError(f"unknown source binding fields: {unknown}")
+    if not MANDATORY_SOURCE_BINDINGS <= set(required_bindings):
+        missing = sorted(MANDATORY_SOURCE_BINDINGS - set(required_bindings))
+        raise ValueError(
+            "required_bindings cannot shrink the mandatory source gate; "
+            f"missing mandatory fields: {missing}")
     if isinstance(reports, Mapping) or not isinstance(reports, Sequence):
         raise ValueError("reports must be a sequence of report mappings")
     required = list(required_bindings)
@@ -978,6 +1004,9 @@ def evidence_source_gate(reports, *, required_bindings: Sequence[str]) -> dict[s
     for index, report in enumerate(reports):
         if not isinstance(report, Mapping):
             raise ValueError(f"report {index} must be a mapping")
+        # Viewer stage66 P0-2: a derived/synthetic episode id is not source
+        # evidence — the row records None and the binding check below puts
+        # the report into development_evidence.
         episode_id = report.get("episode_id")
         if not (isinstance(episode_id, str) and episode_id):
             episode_id = _binding_value(report, "episode_id")
