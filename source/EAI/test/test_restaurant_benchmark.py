@@ -8,7 +8,11 @@ def test_restaurant_is_registered_as_a_selectable_runtime_scene():
     assert ("restaurant", "Restaurant authoring scene") in scene_choices()
     graph = resolve_selection({"scene_key": "restaurant", "robots": []})
     requirement = next(item for item in graph.requirements if item.id == "scene:restaurant")
-    assert requirement.relative_paths == ("scene/restaurant/Restaurant_Only.usda",)
+    assert requirement.relative_paths == (
+        "scene/restaurant/Restaurant_Only.usda",
+        "scene/restaurant/Assemblies/assembly_Restaurant.usd",
+        "scene/restaurant/World_RestaurantDemopack.usd",
+    )
 
 
 def test_restaurant_scene_only_preset_has_no_unvalidated_robot_spawn():
