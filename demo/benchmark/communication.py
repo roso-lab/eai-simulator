@@ -50,8 +50,13 @@ that binding independently of the report. Legacy v1 reports remain replayable
 when the initial policy is recoverable; global changes in v1 require that
 external initial contract because the overwritten values were not recorded.
 Using a validated single-publication treatment upgrades only that runtime's
-report to v3; the normalized treatment and its deterministic segment plan stay
-evaluator-only and are recomputed by strict replay.
+report to v4. V4 materializes completed whole bytes inside the active service
+segment at the report horizon; the normalized treatment and its deterministic
+segment plan stay evaluator-only and are recomputed by strict replay. Archived
+v3 treatment reports retain their segment-event-only replay semantics. This
+exact progress projection is scoped to treated copies. Ordinary pooled copies
+retain their legacy whole-copy charge at service start, including in a mixed
+v4 report; its total ledger is therefore not a physical completed-byte counter.
 """
 
 from collections import deque
@@ -85,6 +90,13 @@ _PUBLICATION_TREATMENT_FIELDS = {
     "schema", "version", "semantics", "binding_sha256", "event_id",
     "trigger", "operation", "delay_s", "drop", "bytes_per_window",
     "window_s", "publication_validity_s",
+}
+_REPORT_V4_BYTE_ACCOUNTING = {
+    "schema": "eai.benchmark.communication_byte_accounting",
+    "version": 1,
+    "treated_copy_semantics": "completed_whole_bytes_at_report_horizon",
+    "ordinary_pool_copy_semantics": "whole_copy_charged_at_service_start",
+    "total_physical_progress": False,
 }
 
 
@@ -314,6 +326,11 @@ class CommunicationRuntime:
         self._access_states = {}
         self._pool_buffered = set()
         self._publication_treatment_used = False
+        # Exact physical-rate progress inside the current treated segment is
+        # evaluator-only runtime state. Segment completion remains event-based;
+        # reports lazily materialize whole-byte progress without mutating it.
+        self._treatment_progress = {}
+        self._active_treatments = set()
         self._aoi_samples = []
         # Tracks are keyed by (recipient, information_id). Completed segments
         # are immutable; the current tail is materialized by ``aoi()``.
@@ -436,6 +453,7 @@ class CommunicationRuntime:
         remaining = size
         current = start
         segments = []
+        progress_segments = []
         event_times = []
         byte_progress = Fraction(0)
         while remaining > 0 and current < expiry:
@@ -466,10 +484,16 @@ class CommunicationRuntime:
                 "bytes": int(served),
                 "bytes_sent": int(cumulative),
             })
+            progress_segments.append({
+                "starts_at": current,
+                "ends_at": segment_end,
+                "initial_byte_progress": byte_progress,
+                "rate": rate,
+            })
             event_times.append(segment_end)
             remaining -= served
             if remaining == 0:
-                return segments, event_times, segment_end, True
+                return segments, progress_segments, event_times, segment_end, True
             # Exhausting this publication's quota holds its FIFO reservation
             # until the next zero-anchored window. Physical-rate exhaustion
             # reaches the current boundary (or the half-open expiry) directly.
@@ -479,7 +503,7 @@ class CommunicationRuntime:
             else:
                 byte_progress = rate * (service_limit - segment_end)
                 current = service_limit
-        return segments, event_times, expiry, False
+        return segments, progress_segments, event_times, expiry, False
 
     def _release_pool_buffer(self, pool_name, key, size):
         pool = self._pool_states[pool_name]
@@ -597,7 +621,7 @@ class CommunicationRuntime:
                             serialization_complete=False)
             return
 
-        segments, event_times, reservation_end, complete = (
+        segments, progress_segments, event_times, reservation_end, complete = (
             self._treatment_serialization_plan(
             size=size, start=start, expiry=expiry, treatment=treatment,
             capacities=capacities))
@@ -605,6 +629,10 @@ class CommunicationRuntime:
                         scheduled_finish_at_s=float(reservation_end),
                         serialization_segments=segments,
                         serialization_complete=complete)
+        self._treatment_progress[key] = {
+            "segments": progress_segments,
+            "committed_segments": 0,
+        }
         # reservation_end is clipped at this copy's expiry. Because start is at
         # least every existing next_available value, this never lowers an older
         # sibling reservation and never leaves ghost head-of-line capacity.
@@ -636,6 +664,7 @@ class CommunicationRuntime:
             pass
         self._release_pool_buffer(pool_name, key, message["size_bytes"])
         delivery["status"] = "serializing"
+        self._active_treatments.add(key)
 
     def _service_treated_segment(self, key, time):
         message_id, recipient, index = key
@@ -646,6 +675,10 @@ class CommunicationRuntime:
         pool_name = delivery["pool"]
         segment = delivery["serialization_segments"][index]
         delivery["bytes_sent"] = segment["bytes_sent"]
+        progress = self._treatment_progress.get((message_id, recipient))
+        if progress is not None:
+            progress["committed_segments"] = max(
+                progress["committed_segments"], index + 1)
         self._record("bytes_served", time, message_id=message_id,
                      recipient=recipient, channel=message["channel"],
                      pool=pool_name, window_index=segment["window_index"],
@@ -658,6 +691,8 @@ class CommunicationRuntime:
         delivery = message["recipients"][recipient]
         if delivery["status"] != "serializing":
             return
+        self._active_treatments.discard(key)
+        self._treatment_progress.pop(key, None)
         expiry = _time(delivery["transport_valid_until_s"],
                        "transport_valid_until_s")
         delay = _time(delivery["publication_treatment"]["delay_s"],
@@ -1076,6 +1111,8 @@ class CommunicationRuntime:
             message_id, recipient = key
             delivery = self._messages[message_id]["recipients"][recipient]
             if kind == "expire" and delivery["status"] not in {"dropped", "expired"}:
+                self._active_treatments.discard(key)
+                self._treatment_progress.pop(key, None)
                 if delivery["status"] == "queued" and delivery.get("pool") in self._pool_states:
                     self._release_pool_buffer(
                         delivery["pool"], (message_id, recipient),
@@ -1249,8 +1286,64 @@ class CommunicationRuntime:
                 "time_p95_s": continuous["time_p95_s"],
                 "continuous": continuous}
 
-    def pool_utilization(self):
-        """Evaluator-only capacity summary with absolute and C/C0 values."""
+    def _materialized_treatment_snapshot(self, *, copy_messages=True):
+        """Return exact report-time messages/ledger without changing runtime.
+
+        Treated segment events commit complete planned chunks. Between those
+        events, this bounded arithmetic accounts for whole bytes completed at
+        the report horizon. The row is rebuilt on every report, so sampling
+        frequency cannot double bill or alter later service events.
+        """
+        messages = deepcopy(self._messages) if copy_messages else None
+        ledger = deepcopy(self._ledger)
+        now = self._now
+        for key in sorted(self._active_treatments):
+            message_id, recipient = key
+            live_delivery = self._messages[message_id]["recipients"][recipient]
+            if live_delivery["status"] != "serializing":
+                continue
+            progress = self._treatment_progress.get(key)
+            if progress is None:
+                continue
+            index = progress["committed_segments"]
+            if index >= len(progress["segments"]):
+                continue
+            current = progress["segments"][index]
+            if not current["starts_at"] <= now < current["ends_at"]:
+                continue
+            rate = current["rate"]
+            if rate is None:
+                continue
+            possible = (current["initial_byte_progress"]
+                        + rate * (now - current["starts_at"]))
+            completed = possible.numerator // possible.denominator
+            planned = live_delivery["serialization_segments"][index]
+            completed = min(int(completed), planned["bytes"])
+            cumulative = planned["bytes_sent"] - planned["bytes"] + completed
+            delta = cumulative - live_delivery["bytes_sent"]
+            if delta <= 0:
+                continue
+            if messages is not None:
+                messages[message_id]["recipients"][recipient][
+                    "bytes_sent"] = cumulative
+            ledger.append({
+                "sequence": len(ledger),
+                "event": "bytes_served",
+                "time_s": float(now),
+                "message_id": message_id,
+                "recipient": recipient,
+                "channel": self._messages[message_id]["channel"],
+                "pool": live_delivery["pool"],
+                "window_index": planned["window_index"],
+                "bytes": delta,
+                "bytes_sent": cumulative,
+                "progress_snapshot": True,
+                **self._direction_fields(message_id),
+            })
+        return messages, ledger
+
+    def _pool_utilization_from_ledger(self, ledger):
+        """Build the capacity summary from one materialized ledger."""
         summary = {}
         for name, policy in self._contract.get("pools", {}).items():
             capacity = self._pool_capacity(policy)
@@ -1260,11 +1353,17 @@ class CommunicationRuntime:
                 "c0_bps": baseline,
                 "capacity_ratio_c0": (capacity / float(baseline)
                                        if capacity is not None and baseline else None),
-                "bytes_served": sum(event.get("bytes", 0) for event in self._ledger
+                "bytes_served": sum(event.get("bytes", 0) for event in ledger
                                      if event.get("event") == "bytes_served"
                                      and event.get("pool") == name),
             }
         return summary
+
+    def pool_utilization(self):
+        """Summarize exact treated progress plus ordinary service-start charges."""
+        _messages, ledger = self._materialized_treatment_snapshot(
+            copy_messages=False)
+        return self._pool_utilization_from_ledger(ledger)
 
     def public_messages(self, *, recipient, channel=None):
         """Fresh inbox payloads only; repeat reads do not consume or advance time."""
@@ -1327,16 +1426,29 @@ class CommunicationRuntime:
             self._record_aoi(message_id, recipient, self._now)
         return deepcopy(event)
 
+    def _report_snapshot(self, *, materialize_treatment_progress):
+        """Build a current or legacy treatment report without changing state."""
+        if materialize_treatment_progress:
+            messages, ledger = self._materialized_treatment_snapshot()
+        else:
+            messages, ledger = deepcopy(self._messages), deepcopy(self._ledger)
+        version = ((4 if materialize_treatment_progress else 3)
+                   if self._publication_treatment_used else 2)
+        report = {"schema": "eai.benchmark.communication",
+                  "version": version,
+                  "visibility": "evaluator_only", "time_s": self.time_s,
+                  "initial_contract": deepcopy(self._initial_contract),
+                  "contract": deepcopy(self._contract), "messages": messages,
+                  "ledger": ledger, "aoi": self.aoi(),
+                  "pool_utilization": self._pool_utilization_from_ledger(ledger),
+                  "isaac_integrated": False}
+        if version == 4:
+            report["byte_accounting"] = deepcopy(_REPORT_V4_BYTE_ACCOUNTING)
+        return report
+
     def report(self):
         """Evaluator snapshot with initial and final policy plus causal evidence."""
-        return {"schema": "eai.benchmark.communication",
-                "version": 3 if self._publication_treatment_used else 2,
-                "visibility": "evaluator_only", "time_s": self.time_s,
-                "initial_contract": deepcopy(self._initial_contract),
-                "contract": deepcopy(self._contract), "messages": deepcopy(self._messages),
-                "ledger": deepcopy(self._ledger), "aoi": self.aoi(),
-                "pool_utilization": self.pool_utilization(),
-                "isaac_integrated": False}
+        return self._report_snapshot(materialize_treatment_progress=True)
 
 
 class ParticipantCommunicationBoundary:
@@ -1487,7 +1599,7 @@ def validate_communication_report(report, *, expected_initial_contract=None):
         return result
     version = report.get("version")
     if (report.get("schema") != "eai.benchmark.communication"
-            or type(version) is not int or version not in (1, 2, 3)):
+            or type(version) is not int or version not in (1, 2, 3, 4)):
         result["mismatches"].append("unsupported report schema/version")
         return result
     result["isaac_integrated"] = report.get("isaac_integrated") is True
@@ -1511,15 +1623,18 @@ def validate_communication_report(report, *, expected_initial_contract=None):
             previous_time = event_time
         expected = (validate_communication_contract(expected_initial_contract)
                     if expected_initial_contract is not None else None)
-        if version in (2, 3):
+        if version in (2, 3, 4):
             initial_contract = _report_contract(report, "initial_contract")
         else:
             if "initial_contract" in report:
-                raise ValueError("initial_contract requires report version 2 or 3")
+                raise ValueError(
+                    "initial_contract requires report version 2, 3, or 4")
             initial_contract = (expected if expected is not None
                                 else _legacy_initial_contract(final_contract, ledger))
         if expected is not None and initial_contract != expected:
             raise ValueError("initial contract differs from expected_initial_contract")
+        if version != 4 and "byte_accounting" in report:
+            raise ValueError("byte_accounting requires report version 4")
         replay = CommunicationRuntime(initial_contract)
         for event in ledger:
             if event.get("event") == "channel_condition_changed":
@@ -1570,8 +1685,12 @@ def validate_communication_report(report, *, expected_initial_contract=None):
                 else:
                     raise ValueError("rejected consumption was accepted during replay")
         replay.advance(report["time_s"])
-        actual = replay.report()
-        if ((version in (2, 3) or actual["version"] == 3)
+        # V3 archives predate report-time progress materialization. Rebuild
+        # their segment-event-only view instead of silently applying v4 byte
+        # semantics to old evidence.
+        actual = (replay._report_snapshot(materialize_treatment_progress=False)
+                  if version == 3 else replay.report())
+        if ((version in (2, 3, 4) or actual["version"] in (3, 4))
                 and actual["version"] != version):
             result["mismatches"].append(
                 "report version differs after deterministic replay")
@@ -1585,6 +1704,10 @@ def validate_communication_report(report, *, expected_initial_contract=None):
             result["mismatches"].append("AoI statistics differ after deterministic replay")
         if "pool_utilization" in report and _canonical_json(actual["pool_utilization"]) != _canonical_json(report["pool_utilization"]):
             result["mismatches"].append("pool utilization differs after deterministic replay")
+        if (version == 4 and _canonical_json(actual["byte_accounting"])
+                != _canonical_json(report.get("byte_accounting"))):
+            result["mismatches"].append(
+                "byte accounting semantics differ after deterministic replay")
         result["published_count"] = len(messages)
         result["ledger_event_count"] = len(ledger)
     except (KeyError, TypeError, ValueError, OverflowError) as error:

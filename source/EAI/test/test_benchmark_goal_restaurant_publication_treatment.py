@@ -76,7 +76,7 @@ def test_actual_observation_uplink_one_shot_and_private_binding(tmp_path):
     assert "binding_sha256" not in str(participant.execution_profile)
     assert len(report["physical_records"]) == 6
     assert all(row["status"] == "succeeded" for row in report["physical_records"])
-    assert report["communication"]["version"] == 3
+    assert report["communication"]["version"] == 4
 
 
 def test_ground_only_plan_preserves_default_transport_and_is_not_forced_to_trigger(tmp_path):
@@ -229,6 +229,6 @@ def test_all_frozen_factor_levels_reach_the_same_real_transport(level):
         pool="backhaul_uplink", direction="uplink", publication_treatment=selected)
     runtime.advance(now + min(29., selected["publication_validity_s"]))
     report = runtime.report()
-    assert report["version"] == 3
+    assert report["version"] == 4
     assert report["messages"]["result"]["publication_treatment"] == selected
     assert validate_communication_report(report)["validated"]

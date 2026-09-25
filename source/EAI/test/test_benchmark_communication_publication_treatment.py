@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 import json
+import math
 
 import pytest
 
@@ -59,6 +60,14 @@ def _publish(runtime, message_id, *, treatment=None, time=None, expiry=100.0,
 def _delivery(runtime, message_id):
     return runtime.report()["messages"][message_id]["recipients"][
         "trusted_execution_host"]
+
+
+def _long_treated_runtime():
+    runtime = _runtime(capacity=4.0)
+    _publish(runtime, "target", treatment=_treatment(
+        bytes_per_window=1000, window_s=100.0,
+        publication_validity_s=100.0), estimate={"value": "x" * 100})
+    return runtime
 
 
 @pytest.mark.parametrize("mutate", [
@@ -353,14 +362,14 @@ def test_tick_partitioning_does_not_change_integer_bytes_timing_or_report():
         partitioned, sort_keys=True)
 
 
-def test_v3_replay_recomputes_treatment_and_rejects_all_archived_tampering():
+def test_v4_replay_recomputes_treatment_and_rejects_all_archived_tampering():
     runtime = _runtime(capacity=100.0)
     _publish(runtime, "target", treatment=_treatment(
         bytes_per_window=64, delay_s=1.0),
         estimate={"value": "x" * 100})
     runtime.advance(10.0)
     report = runtime.report()
-    assert report["version"] == 3
+    assert report["version"] == 4
     assert validate_communication_report(report)["validated"]
     assert validate_communication_report(
         json.loads(json.dumps(report)),
@@ -394,6 +403,174 @@ def test_v3_replay_recomputes_treatment_and_rejects_all_archived_tampering():
     altered = deepcopy(report)
     next(row for row in altered["ledger"] if row["event"] == "published").pop(
         "publication_treatment")
+    assert not validate_communication_report(altered)["validated"]
+
+
+def test_v3_partial_archive_retains_segment_event_only_replay_semantics():
+    runtime = _long_treated_runtime()
+    runtime.advance(1.25)
+    archived = runtime.report()
+    assert archived["version"] == 4
+
+    snapshot = archived["ledger"].pop()
+    assert snapshot["progress_snapshot"] is True
+    archived["version"] = 3
+    archived.pop("byte_accounting")
+    archived["messages"]["target"]["recipients"][
+        "trusted_execution_host"]["bytes_sent"] = 0
+    archived["pool_utilization"]["backhaul_uplink"]["bytes_served"] = 0
+
+    assert validate_communication_report(archived)["validated"]
+
+
+def test_mid_segment_progress_is_exact_repeatable_and_cost_visible():
+    runtime = _long_treated_runtime()
+    runtime.advance(1.25)
+
+    first = runtime.report()
+    second = runtime.report()
+    assert first == second
+    assert first["version"] == 4
+    delivery = first["messages"]["target"]["recipients"][
+        "trusted_execution_host"]
+    assert delivery["status"] == "serializing"
+    assert delivery["bytes_sent"] == 5
+    snapshots = [row for row in first["ledger"]
+                 if row.get("progress_snapshot") is True]
+    assert len(snapshots) == 1
+    assert snapshots[0]["event"] == "bytes_served"
+    assert snapshots[0]["bytes"] == snapshots[0]["bytes_sent"] == 5
+    assert first["pool_utilization"]["backhaul_uplink"]["bytes_served"] == 5
+    assert runtime.pool_utilization()["backhaul_uplink"]["bytes_served"] == 5
+    assert validate_communication_report(first)["validated"]
+
+
+def test_v4_mixed_runtime_preserves_ordinary_service_start_accounting():
+    runtime = _runtime(capacity=4.0)
+    _publish(runtime, "treated-drop", treatment=_treatment(
+        operation="drop", drop=True))
+    ordinary = _publish(
+        runtime, "ordinary", estimate={"value": "x" * 100})
+
+    runtime.advance(1.25)
+    report = runtime.report()
+    delivery = report["messages"]["ordinary"]["recipients"][
+        "trusted_execution_host"]
+    served = [row for row in report["ledger"]
+              if row["event"] == "bytes_served"
+              and row["message_id"] == "ordinary"]
+
+    assert report["version"] == 4
+    assert report["byte_accounting"] == {
+        "schema": "eai.benchmark.communication_byte_accounting",
+        "version": 1,
+        "treated_copy_semantics": "completed_whole_bytes_at_report_horizon",
+        "ordinary_pool_copy_semantics": "whole_copy_charged_at_service_start",
+        "total_physical_progress": False,
+    }
+    assert ordinary["size_bytes"] == 214
+    assert 4.0 * report["time_s"] == 5.0
+    assert delivery["status"] == "in_transit"
+    assert report["time_s"] < delivery["scheduled_finish_at_s"]
+    assert delivery["bytes_sent"] == ordinary["size_bytes"]
+    assert sum(row["bytes"] for row in served) == ordinary["size_bytes"]
+    assert all("progress_snapshot" not in row for row in served)
+    assert report["pool_utilization"]["backhaul_uplink"][
+        "bytes_served"] == ordinary["size_bytes"]
+    assert validate_communication_report(report)["validated"]
+
+
+def test_report_sampling_does_not_change_later_delivery_or_double_bill():
+    coarse = _long_treated_runtime()
+    fine = _long_treated_runtime()
+
+    coarse.advance(60.0)
+    for horizon in (0.1, 0.25, 1.25, 10.0, 25.5, 52.99, 60.0):
+        fine.advance(horizon)
+        fine.report()
+        fine.pool_utilization()
+
+    coarse_report = coarse.report()
+    fine_report = fine.report()
+    assert json.dumps(coarse_report, sort_keys=True) == json.dumps(
+        fine_report, sort_keys=True)
+    served = [row for row in fine_report["ledger"]
+              if row["event"] == "bytes_served"
+              and row["message_id"] == "target"]
+    assert all("progress_snapshot" not in row for row in served)
+    assert len(served) == 1
+    assert sum(row["bytes"] for row in served) == fine_report[
+        "messages"]["target"]["size_bytes"]
+
+
+def test_partial_progress_obeys_exact_whole_byte_boundaries():
+    runtime = _long_treated_runtime()
+    runtime.advance(math.nextafter(0.25, 0.0))
+    assert _delivery(runtime, "target")["bytes_sent"] == 0
+    runtime.advance(0.25)
+    assert _delivery(runtime, "target")["bytes_sent"] == 1
+    runtime.advance(math.nextafter(0.25, 1.0))
+    assert _delivery(runtime, "target")["bytes_sent"] == 1
+
+
+def test_partial_progress_preserves_half_open_expiry_boundary():
+    runtime = _runtime(capacity=4.0)
+    _publish(runtime, "target", treatment=_treatment(
+        bytes_per_window=1000, window_s=100.0,
+        publication_validity_s=0.5), estimate={"value": "x" * 100})
+
+    runtime.advance(0.25)
+    assert _delivery(runtime, "target")["bytes_sent"] == 1
+    runtime.advance(math.nextafter(0.5, 0.0))
+    before = runtime.report()
+    assert before["messages"]["target"]["recipients"][
+        "trusted_execution_host"]["bytes_sent"] == 1
+    runtime.advance(0.5)
+    at_expiry = runtime.report()
+    delivery = at_expiry["messages"]["target"]["recipients"][
+        "trusted_execution_host"]
+    assert delivery["status"] == "expired"
+    assert delivery["bytes_sent"] == 1
+    assert at_expiry["pool_utilization"]["backhaul_uplink"]["bytes_served"] == 1
+    runtime.advance(math.nextafter(0.5, 1.0))
+    after_expiry = runtime.report()
+    assert after_expiry["messages"]["target"]["recipients"][
+        "trusted_execution_host"]["bytes_sent"] == 1
+    assert after_expiry["pool_utilization"]["backhaul_uplink"][
+        "bytes_served"] == 1
+
+
+def test_v4_partial_snapshot_tampering_is_rejected_by_strict_replay():
+    runtime = _long_treated_runtime()
+    runtime.advance(1.25)
+    report = runtime.report()
+    assert validate_communication_report(report)["validated"]
+
+    altered = deepcopy(report)
+    next(row for row in altered["ledger"]
+         if row.get("progress_snapshot"))["bytes"] += 1
+    assert not validate_communication_report(altered)["validated"]
+
+    altered = deepcopy(report)
+    altered["messages"]["target"]["recipients"][
+        "trusted_execution_host"]["bytes_sent"] += 1
+    assert not validate_communication_report(altered)["validated"]
+
+    altered = deepcopy(report)
+    altered["pool_utilization"]["backhaul_uplink"]["bytes_served"] += 1
+    assert not validate_communication_report(altered)["validated"]
+
+    altered = deepcopy(report)
+    altered["ledger"] = [row for row in altered["ledger"]
+                         if not row.get("progress_snapshot")]
+    assert not validate_communication_report(altered)["validated"]
+
+    altered = deepcopy(report)
+    altered["byte_accounting"]["total_physical_progress"] = True
+    assert not validate_communication_report(altered)["validated"]
+
+    altered = deepcopy(report)
+    altered.pop("byte_accounting")
     assert not validate_communication_report(altered)["validated"]
 
 
