@@ -160,6 +160,12 @@ SCENE_OPTIONS = [
         ("EAI_assets.scene.rmuc2024", "RMUC2024_CFG"),
         prim_path="/World/RMUC2024",
     ),
+    SceneOption("city", "City", ("EAI_assets.scene.benchmark", "CITY_CFG"), robot_spawn_origin=(3.0, 0.0)),
+    SceneOption(
+        "factory_benchmark", "Factory benchmark", ("EAI_assets.scene.benchmark", "FACTORY_BENCHMARK_CFG"),
+        prim_path="/World/Indoor",
+        robot_spawn_origin=(3.0, 0.0),
+    ),
 ]
 
 

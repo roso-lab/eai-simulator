@@ -4,6 +4,9 @@ This extension contains configurations for various assets and sensors. The confi
 used to spawn and configure the instances in the simulation. They are passed to their corresponding
 classes during construction.
 
+For the locally imported city, warehouse, restaurant, house, and Factory scenes,
+see [Local benchmark scenes](benchmark-scenes.md).
+
 ## Organizing custom assets
 
 For Isaac Lab, we primarily store assets on the Omniverse Nucleus server. However, at times, it may be

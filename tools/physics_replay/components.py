@@ -199,6 +199,28 @@ class RngStateComponent:
 
             stream.set_state(torch.as_tensor(snapshot["state"], dtype=torch.uint8, device="cpu"))
 
+    def _validate_named_streams(self, state: Mapping[str, Any], *, require_identity: bool = False) -> None:
+        """Validate stream bindings without mutating a stream or global RNG.
+
+        Stream object identities are process-local implementation details.  A
+        checkpoint copied to another slot must validate the stream name and
+        generator kind/device while restoring the recipient's own generator.
+        ``require_identity`` is retained for callers auditing an in-process
+        component binding and is deliberately disabled for public branching.
+        """
+        if set(state.get("streams", {})) != set(self.streams):
+            raise ValueError("named random stream set changed since checkpoint")
+        for name, stream in self.streams.items():
+            snapshot = state["streams"][name]
+            if not isinstance(snapshot, Mapping):
+                raise ValueError(f"named random stream snapshot is invalid: {name}")
+            current = self._stream_state(stream)
+            for key in ("kind", "algorithm", "device"):
+                if key in current and snapshot.get(key) != current[key]:
+                    raise ValueError(f"named random stream changed: {name}")
+            if require_identity and snapshot.get("identity") != id(stream):
+                raise ValueError(f"named random stream identity changed: {name}")
+
     def capture_state(self) -> Mapping[str, Any]:
         state: dict[str, Any] = {
             "python": random.getstate(),
@@ -228,16 +250,7 @@ class RngStateComponent:
             raise ValueError(f"RNG snapshot is missing: {', '.join(missing)}")
         random.Random().setstate(tuple(state["python"]))
         np.random.RandomState().set_state(tuple(state["numpy"]))
-        if set(state["streams"]) != set(self.streams):
-            raise ValueError("named random stream set changed since checkpoint")
-        for name, stream in self.streams.items():
-            snapshot = state["streams"][name]
-            current = self._stream_state(stream)
-            if snapshot["identity"] != id(stream) or any(
-                snapshot.get(key) != value for key, value in current.items() if key != "state"
-            ):
-                raise ValueError(f"named random stream changed: {name}")
-            self._set_stream_state(deepcopy(stream), snapshot)
+        self._validate_named_streams(state)
         if state["torch"] is not None:
             import torch
 
@@ -268,3 +281,11 @@ class RngStateComponent:
             torch.cuda.set_rng_state_all(
                 [torch.as_tensor(value, dtype=torch.uint8, device="cpu") for value in cuda_values]
             )
+
+    def restore_named_streams(self, state: Mapping[str, Any]) -> None:
+        """Restore only per-owner streams, leaving process-global RNG untouched."""
+        if not isinstance(state, Mapping):
+            raise ValueError("RNG snapshot must be a mapping")
+        self._validate_named_streams(state)
+        for name, stream in self.streams.items():
+            self._set_stream_state(stream, state["streams"][name])

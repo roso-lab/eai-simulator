@@ -1,4 +1,4 @@
-"""Provider-backed resources owned by selectable EAI scenes."""
+"""Declared resources owned by selectable EAI scenes."""
 
 from __future__ import annotations
 
@@ -13,21 +13,43 @@ from typing import Any, Mapping
 OCCUPANCY_MAP = "occupancy_map"
 
 SCENE_RESOURCE_PATHS: Mapping[str, Mapping[str, tuple[str, ...]]] = {
-    scene_key: {
+    **{
+        scene_key: {
+            OCCUPANCY_MAP: (
+                f"scene/{scene_key}/{scene_key}_map.yaml",
+                f"scene/{scene_key}/{scene_key}_map.png",
+            )
+        }
+        for scene_key in ("plane", "warehouse", "factory", "airs", "desert", "hospital")
+    },
+    "rmuc2024": {
         OCCUPANCY_MAP: (
-            f"scene/{scene_key}/{scene_key}_map.yaml",
-            f"scene/{scene_key}/{scene_key}_map.png",
-        )
-    }
-    for scene_key in (
-        "plane",
-        "warehouse",
-        "factory",
-        "airs",
-        "desert",
-        "hospital",
-        "rmuc2024",
-    )
+            "scene/rmuc2024/rmuc2024_map.yaml",
+            "scene/rmuc2024/rmuc2024_map.png",
+        ),
+    },
+    # Imported scenes expose only resources actually present in the local pack.
+    "warehouse_nvd": {
+        OCCUPANCY_MAP: (
+            "scene/warehouse_nvd/warehouse_nvd_map.yaml",
+            "scene/warehouse_nvd/warehouse_nvd_map.png",
+        ),
+    },
+    "modern_house_nvd": {
+        OCCUPANCY_MAP: (
+            "scene/modern_house_nvd/ground_map_0.6m.yaml",
+            "scene/modern_house_nvd/ground_map_0.6m.png",
+        ),
+    },
+    "city": {},
+    "restaurant": {},
+    "restaurant_benchmark": {},
+    "factory_benchmark": {
+        OCCUPANCY_MAP: (
+            "scene/factory_benchmark/factory_map.yaml",
+            "scene/factory_benchmark/factory_map.png",
+        ),
+    },
 }
 
 SCENE_RESOURCE_REMOTE_PATHS = frozenset(

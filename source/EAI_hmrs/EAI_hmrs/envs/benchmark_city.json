@@ -1,0 +1,32 @@
+{
+  "robots": [
+    {
+      "attachments": [],
+      "controller": {
+        "cfg": "CARTER_DIFF_CFG",
+        "mode": "default"
+      },
+      "spawn_pose": {
+        "position": [
+          0.0,
+          0.0,
+          0.5
+        ],
+        "rotation": [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "type": "carter",
+      "visual": {
+        "x": 0.0,
+        "y": 0.0
+      }
+    }
+  ],
+  "scene_key": "city",
+  "task_name": "benchmark_city",
+  "version": 1
+}

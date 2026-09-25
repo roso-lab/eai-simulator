@@ -56,18 +56,6 @@ _SCENE_PATHS = {
     "plane": SCENE_MAP_PATHS["plane"],
     "warehouse": ("scene/warehouse/warehouse.usd", *SCENE_MAP_PATHS["warehouse"]),
     "factory": ("scene/factory/factory.usd", *SCENE_MAP_PATHS["factory"]),
-    # NVD overlay is tracked in-repo (tiny edit layer); requirements are local
-    # files only, so no provider download is declared for it.
-    "warehouse_nvd": ("scene/warehouse_nvd/warehouse_nvd_bench.usd",),
-    "modern_house_nvd": ("scene/modern_house_nvd/modern_house_nvd_bench.usd",),
-    # The restaurant is a local authoring package. Its composed dependency
-    # closure is audited separately because it is not yet a published provider
-    # bundle and has no benchmark occupancy product.
-    "restaurant": ("scene/restaurant/Restaurant_Only.usda",),
-    # A local candidate is selected through EAI_RESTAURANT_BENCHMARK_ROOT.
-    # Its resolver validates an explicit staging directory; it is not a
-    # provider download until the benchmark release gates have passed.
-    "restaurant_benchmark": (),
     "airs": ("scene/airs/airs.usd", *SCENE_MAP_PATHS["airs"]),
     "desert": ("scene/desert/real_dust_scene_tiny.usda", *SCENE_MAP_PATHS["desert"]),
     "hospital": (
@@ -81,6 +69,29 @@ _SCENE_PATHS = {
         "scene/rmuc2024/source.json",
         "scene/rmuc2024/LICENSE.Apache-2.0.txt",
         *SCENE_MAP_PATHS["rmuc2024"],
+    ),
+    # NVD overlay is tracked in-repo (tiny edit layer); requirements are local
+    # files only, so no provider download is declared for it.
+    "warehouse_nvd": (
+        "scene/warehouse_nvd/warehouse_nvd_bench.usd",
+        "assets/nvd/XR_Content_NVD@10010/Assets/XR/Stages/Indoor/Warehouse/Warehouse_XR.usd",
+        *SCENE_MAP_PATHS["warehouse_nvd"],
+    ),
+    "modern_house_nvd": (
+        "scene/modern_house_nvd/modern_house_nvd_bench.usd",
+        "assets/nvd/XR_Content_NVD@10010/Assets/XR/Stages/Indoor/Modern_House_XR.usd",
+        *SCENE_MAP_PATHS["modern_house_nvd"],
+    ),
+    "city": ("scene/city/city_static.usd",),
+    "restaurant": (
+        "scene/restaurant/Restaurant_Only.usda",
+        "scene/restaurant/Assemblies/assembly_Restaurant.usd",
+        "scene/restaurant/World_RestaurantDemopack.usd",
+    ),
+    # The local candidate is selected through EAI_RESTAURANT_BENCHMARK_ROOT.
+    "restaurant_benchmark": (),
+    "factory_benchmark": (
+        "scene/factory_benchmark/factory.usd", *SCENE_MAP_PATHS["factory_benchmark"],
     ),
 }
 

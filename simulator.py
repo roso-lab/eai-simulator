@@ -223,7 +223,7 @@ def _runtime_device_for_env(
     selection_data: dict[str, Any] | None,
     requested_device: str,
 ) -> str:
-    """Honor the requested device, except for the independent factory fallback."""
+    """Resolve the PhysX device while preserving explicit scene safeguards."""
     # The converted factory scene destabilizes GPU PhysX: its render load
     # races RTX-sensor pose reads (per-step getArticulationData error flood
     # until PhysX stops) and even sensor-less runs hit carb::tasking
@@ -239,6 +239,54 @@ def _runtime_device_for_env(
     ):
         return "cpu"
     return str(requested_device)
+
+
+def _install_cuda_delay_buffer_compat(device: str) -> None:
+    """Avoid a PyTorch CUDA advanced-index broadcast bug in Isaac Lab 2.x.
+
+    Isaac Lab's ``CircularBuffer.append`` uses a boolean mask on the batch
+    dimension while broadcasting the first sample across history.  With the
+    Factory delayed PD tensors on the supported Torch/CUDA stack this can
+    trigger ``Indexing.cu:699`` (for example 72 vs 864 elements) before the
+    first physics step.  Integer indices plus an explicit expanded RHS have
+    identical buffer semantics and keep the original delay ranges and task
+    inputs unchanged.
+    """
+    if not str(device).startswith("cuda"):
+        return
+    from isaaclab.utils.buffers import CircularBuffer
+
+    if getattr(CircularBuffer, "_eai_cuda_compat", False):
+        return
+    def append(self, data):
+        if data.shape[0] != self.batch_size:
+            raise ValueError(
+                f"The input data has '{data.shape[0]}' batch size while expecting '{self.batch_size}'"
+            )
+        data = data.to(self._device)
+        if self._buffer is None:
+            self._pointer = -1
+            # Zero initialization keeps the transient ring finite even on
+            # CUDA builds where masked broadcast writes may leave untouched
+            # lanes; the first-push fill below then applies the same delay
+            # semantics as Isaac Lab's original implementation.
+            self._buffer = torch.zeros(
+                (self.max_length, *data.shape), dtype=data.dtype, device=self._device
+            )
+        is_first_push = self._num_pushes == 0
+        self._pointer = (self._pointer + 1) % self.max_length
+        self._buffer[self._pointer] = data
+        if bool(torch.any(is_first_push)):
+            first_ids = torch.nonzero(is_first_push, as_tuple=False).flatten()
+            first_data = data.index_select(0, first_ids)
+            values = first_data.unsqueeze(0).expand(self.max_length, *first_data.shape)
+            self._buffer[:, first_ids].copy_(values)
+        self._num_pushes += 1
+
+    import torch
+
+    CircularBuffer.append = append
+    CircularBuffer._eai_cuda_compat = True
 
 
 def _selection_requires_omnigraph(selection_data: dict[str, Any] | None) -> bool:
@@ -947,6 +995,80 @@ class SimulatorLaunchConfig:
     env_cfg_hook: Callable[[Any], None] | None = None
     existing_simulation_app: Any | None = None
     scenario_file: str | None = None
+    # Explicit in-process aerial sensor backend. ``disabled`` keeps aerial
+    # robot physics while requiring an attachment-free selection.
+    aerial_sensor_backend: str = "native"
+
+
+def _validate_session_sensor_backend(config, selection_data):
+    if config.aerial_sensor_backend == "native":
+        _validate_sensor_scene_num_envs(selection_data, config.num_envs)
+        return
+    if config.aerial_sensor_backend == "disabled":
+        robots = (selection_data or {}).get("robots", [])
+        aerial_types = {"cf2x", "iris", "pegasus"}
+        aerial = [robot for robot in robots if robot.get("type") in aerial_types]
+        if any(robot.get("attachments") for robot in aerial):
+            raise ValueError(
+                "disabled aerial sensors require attachment-free aerial robots")
+        _validate_sensor_scene_num_envs(
+            {"robots": [robot for robot in robots if robot not in aerial]},
+            config.num_envs,
+        )
+        return
+    if config.aerial_sensor_backend not in {"tiled_rgb", "tiled_rgb_isolated_orsus", "pooled_rgb_isolated_orsus"}:
+        raise ValueError("unknown aerial sensor backend")
+    if config.enable_ros_bridge_extension or config.resolved_env_name is None:
+        raise ValueError("tiled aerial RGB requires resolved selection and ROS disabled")
+    robots = (selection_data or {}).get("robots", [])
+    aerial = [r for r in robots if r.get("type") in {"cf2x", "iris", "pegasus"}]
+    if not aerial:
+        raise ValueError("tiled aerial RGB requires aerial robots")
+    for robot in aerial:
+        attachments = {a["type"] for a in robot.get("attachments", [])}
+        if attachments != {"camera"}:
+            raise ValueError("tiled aerial RGB supports the camera tool only")
+    if config.aerial_sensor_backend in {"tiled_rgb_isolated_orsus", "pooled_rgb_isolated_orsus"}:
+        ground = [r for r in robots if r not in aerial]
+        if (len(ground) != 1 or ground[0].get("type") != "carter"
+                or {a["type"] for a in ground[0].get("attachments", [])}
+                != {"orsus", "camera", "navigation_io"} or config.env_cfg_hook is None):
+            raise ValueError("isolated Orsus backend requires one Carter with stereo/cloud and an explicit scene hook")
+    else:
+        _validate_sensor_scene_num_envs(
+            {"robots": [r for r in robots if r not in aerial]}, config.num_envs)
+
+
+def _validate_tiled_aerial_cfg(env_cfg, selection_data):
+    from isaaclab.sensors import TiledCameraCfg
+
+    counts = {}
+    for robot in selection_data["robots"]:
+        kind = robot["type"]
+        counts[kind] = counts.get(kind, 0) + 1
+        if kind not in {"cf2x", "iris", "pegasus"}:
+            continue
+        name = f"{kind}_{counts[kind]}"
+        camera = getattr(env_cfg.scene, f"aerial_rgb_{name}", None)
+        if (not isinstance(camera, TiledCameraCfg)
+                or camera.prim_path != f"{{ENV_REGEX_NS}}/{name}/body/Camera"
+                or "rgb" not in camera.data_types):
+            raise ValueError(f"missing registered tiled RGB camera for {name}")
+
+
+def _validate_pooled_aerial_cfg(env_cfg, selection_data):
+    """Pooled render targets retain the native camera mounts, without tiled buffers."""
+    counts = {}
+    for robot in selection_data["robots"]:
+        kind = robot["type"]
+        counts[kind] = counts.get(kind, 0) + 1
+        if kind not in {"cf2x", "iris", "pegasus"}:
+            continue
+        name = f"{kind}_{counts[kind]}"
+        mount = getattr(env_cfg.scene, f"camera_{name}", None)
+        if (mount is None or mount.prim_path != f"{{ENV_REGEX_NS}}/{name}/body/Camera"
+                or getattr(env_cfg.scene, f"aerial_rgb_{name}", None) is not None):
+            raise ValueError(f"pooled RGB requires the native camera mount without tiled buffers: {name}")
 
 
 @dataclass
@@ -1754,6 +1876,7 @@ def _setup_aerial_sensor_manager(
     selection_data: dict[str, Any] | None,
     possible_agents: list[str],
     seed: int = 0,
+    publish_ros: bool = True,
 ):
     from EAI.hmrs_ros.aerial_sensor_suite import (
         AerialSensorSuiteManager,
@@ -1768,7 +1891,12 @@ def _setup_aerial_sensor_manager(
     manager = get_aerial_sensor_manager(base_env)
     if manager is not None:
         return manager
-    manager = AerialSensorSuiteManager(base_env, specs, seed=seed)
+    manager = AerialSensorSuiteManager(
+        base_env,
+        specs,
+        seed=seed,
+        publish_ros=publish_ros,
+    )
     if not manager.registered_robots:
         manager.close()
         return None
@@ -2281,7 +2409,7 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         ros_bridge_enabled=config.enable_ros_bridge_extension,
     )
     _validate_payload_mount_compatibility(selection_data)
-    _validate_sensor_scene_num_envs(selection_data, config.num_envs)
+    _validate_session_sensor_backend(config, selection_data)
     runtime_device = _runtime_device_for_env(env_name, selection_data, config.device)
     if runtime_device != config.device:
         print(
@@ -2314,6 +2442,7 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         and runtime_device == "cpu"
     ):
         _silence_factory_cpu_physx_error_spam()
+    _install_cuda_delay_buffer_compat(runtime_device)
     env = None
     manipulator_manager = None
     aerial_sensor_manager = None
@@ -2337,6 +2466,17 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         env_cfg = _load_env_cfg(env_name, selection_data)
         _initialize_env_cfg(env_cfg, _session_env_init_args(config))
         _apply_env_cfg_hook(env_cfg, config)
+        if config.aerial_sensor_backend in {"tiled_rgb", "tiled_rgb_isolated_orsus"}:
+            _validate_tiled_aerial_cfg(env_cfg, selection_data)
+        if config.aerial_sensor_backend == "pooled_rgb_isolated_orsus":
+            _validate_pooled_aerial_cfg(env_cfg, selection_data)
+        if config.aerial_sensor_backend in {"tiled_rgb_isolated_orsus", "pooled_rgb_isolated_orsus"}:
+            payload = env_cfg.scene.orsus_carter_1.spawn
+            if (payload.enable_camera_publish or payload.enable_ros_publish
+                    or not env_cfg.scene.world.prim_path.startswith("{ENV_REGEX_NS}/")
+                    or not env_cfg.scene.world.prim_path.removeprefix("{ENV_REGEX_NS}/").isidentifier()
+                    or env_cfg.scene.env_spacing < 128.0):
+                raise ValueError("isolated Orsus requires disabled embedded publishers and spatial scene copies")
         if not config.enable_ros_bridge_extension:
             disabled_manipulators = _disable_manipulator_ros2_auxiliaries(env_cfg)
             if disabled_manipulators:
@@ -2372,12 +2512,14 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
                     possible_agents=possible_agents,
                     env_cfg=env_cfg,
                 )
-        aerial_sensor_manager = _setup_aerial_sensor_manager(
-            base_env=base_env,
-            selection_data=selection_data,
-            possible_agents=possible_agents,
-            seed=config.seed,
-        )
+        if config.aerial_sensor_backend == "native":
+            aerial_sensor_manager = _setup_aerial_sensor_manager(
+                base_env=base_env,
+                selection_data=selection_data,
+                possible_agents=possible_agents,
+                seed=config.seed,
+                publish_ros=config.enable_ros_bridge_extension,
+            )
         if config.enable_ros_bridge_extension:
             simple_car_sensor_manager = _setup_simple_car_sensor_manager(
                 base_env=base_env,
@@ -2406,10 +2548,12 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
             device=config.device,
         )
     except BaseException:
-        # Kit close can terminate the process before an exception reaches the
-        # caller. Preserve the original traceback before application teardown.
+        # Kit's native shutdown may terminate the process before an outer
+        # caller can report this exception. Preserve the original failure
+        # before closing the application, including scene-construction errors.
         import traceback
-        traceback.print_exc()
+
+        traceback.print_exc(file=sys.stderr)
         sys.stderr.flush()
         raise
     finally:

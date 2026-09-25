@@ -70,7 +70,12 @@ class ReplayResource:
             raise ValueError(f"{self.name}: ONNX checkpoint auditing requires the onnx package") from exc
 
         policy = self.instance
-        if set(vars(policy)) != {"session", "device", "input_name", "output_name"}:
+        attributes = set(vars(policy))
+        transient_act_hook = attributes - {"session", "device", "input_name", "output_name"}
+        if transient_act_hook:
+            if transient_act_hook != {"act"} or not callable(vars(policy).get("act")):
+                raise ValueError(f"{self.name}: ONNX wrapper has unadapted mutable state")
+        if not {"session", "device", "input_name", "output_name"}.issubset(attributes):
             raise ValueError(f"{self.name}: ONNX wrapper has unadapted mutable state")
         session = policy.session
         if len(session.get_inputs()) != 1 or len(session.get_outputs()) != 1:

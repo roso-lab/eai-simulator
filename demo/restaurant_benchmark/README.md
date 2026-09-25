@@ -1,5 +1,33 @@
 # Restaurant benchmark authoring scene
 
+## Shared Branch Data Tool probe
+
+Restaurant is not yet registered as a scoreable formal suite task. The runner
+below therefore measures the shared Branch Data Tool boundary only: resident
+Isaac rows, append-only JSONL ledgers, public checkpoint save/restore, and
+continuation after restore. It deliberately reports `full_task_completed=false`,
+`business_episode_validated=false`, and `formal=false`; a passing run is not a
+Restaurant business-task result.
+
+Run a one-slot smoke or a measured 32-slot scene-lifecycle batch:
+
+```bash
+/home/airs/miniconda3/envs/env_isaaclab/bin/python \
+  -m demo.restaurant_benchmark.checkpoint_branches \
+  --slots 1 --steps 12 --device cuda:0 \
+  --output demo/restaurant_benchmark/runs/branch_data_scene_lifecycle_1_<timestamp>
+
+/home/airs/miniconda3/envs/env_isaaclab/bin/python \
+  -m demo.restaurant_benchmark.checkpoint_branches \
+  --slots 32 --steps 12 --device cuda:0 \
+  --output demo/restaurant_benchmark/runs/branch_data_scene_lifecycle_32_<timestamp>
+```
+
+The output contains the common `manifest.json`, all eight JSONL ledgers,
+`run_state.json`, `validation.json`, and public checkpoint artifacts. The
+measured 32-slot probe uses task id `RESTAURANT-SCENE-LIFECYCLE-01`; it does
+not replace the single-Carter GoalSession evidence documented below.
+
 This package is the fifth goal-benchmark scene integration. The current phase
 registers the local restaurant USD package with the shared selection and dynamic
 environment builder, preserves its centimetre-authored source layers, and exposes

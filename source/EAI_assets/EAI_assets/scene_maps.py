@@ -12,6 +12,7 @@ from EAI_assets.scene_resources import (
 SCENE_MAP_PATHS = {
     scene_key: resources[OCCUPANCY_MAP]
     for scene_key, resources in SCENE_RESOURCE_PATHS.items()
+    if OCCUPANCY_MAP in resources
 }
 
 

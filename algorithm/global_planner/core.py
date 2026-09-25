@@ -554,12 +554,15 @@ class FactoryWaypointNavigator:
             self.indices[robot_name] = len(wps) - 1
             return (final_xy[0], final_xy[1], curr_z), False
 
-        start_x = float(wps[idx][0])
-        start_y = float(wps[idx][1])
-        seg_start_idx = idx
-        if idx < len(wps) - 1:
-            ax, ay = float(wps[idx][0]), float(wps[idx][1])
-            bx, by = float(wps[idx + 1][0]), float(wps[idx + 1][1])
+        # idx is the next waypoint to reach. Project onto the segment leading
+        # to it; using idx as the segment start skips the entire first leg as
+        # soon as the robot leaves the route's starting waypoint.
+        seg_start_idx = max(0, idx - 1)
+        start_x = float(wps[seg_start_idx][0])
+        start_y = float(wps[seg_start_idx][1])
+        if seg_start_idx < len(wps) - 1:
+            ax, ay = float(wps[seg_start_idx][0]), float(wps[seg_start_idx][1])
+            bx, by = float(wps[seg_start_idx + 1][0]), float(wps[seg_start_idx + 1][1])
             vx, vy = bx - ax, by - ay
             seg_len_sq = vx * vx + vy * vy
             if seg_len_sq > 1e-9:
