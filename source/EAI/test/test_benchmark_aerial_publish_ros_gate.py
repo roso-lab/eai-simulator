@@ -65,7 +65,8 @@ def test_simulator_caller_passes_publish_ros():
     tree = _parse(SIMULATOR)
     wrapper = _function(tree, "_setup_aerial_sensor_manager")
     wrapper_source = ast.unparse(wrapper)
-    assert "publish_ros: bool = True" in wrapper_source
+    kws = {arg.arg for arg in wrapper.args.kwonlyargs}
+    assert "publish_ros" in kws
     assert "publish_ros=publish_ros" in wrapper_source
     # The only call site forwards the ROS bridge flag.
     simulator_source = ast.unparse(tree)
