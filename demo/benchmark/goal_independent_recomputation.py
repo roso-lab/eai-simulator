@@ -128,9 +128,30 @@ def _progress_curve_from_records(records, kind_map, *, horizon_s):
     observations = [{"milestone_id": milestone_id,
                      "satisfied_at_s": time_s}
                     for milestone_id, time_s in milestone_times.items()]
-    last_time = max(milestone_times.values())
-    return build_progress_curve(active, observations, horizon_s=horizon_s,
-                                execution_end_s=min(last_time, horizon_s))
+    # Viewer stage65-batch3 P0-3: the execution window must come from a
+    # trusted termination anchor, never from the last milestone observation
+    # time.  Without a verified termination the window is unverified and the
+    # PGI family is recomputed over the full horizon with an explicit
+    # unverified marker instead of an inferred end.
+    from .goal_temporal_metrics import frozen_time_anchors
+
+    anchors = frozen_time_anchors({"events": [], "actions": []},
+                                  native_evidence_log={
+                                      "records": list(records)})
+    termination = anchors.get("termination") or {}
+    end = termination.get("time_s")
+    source = termination.get("source")
+    if end is not None:
+        end = min(float(end), horizon_s)
+        window = {"t_exec_s": end, "source": f"anchor:{source}"}
+    else:
+        end = horizon_s
+        window = {"t_exec_s": horizon_s, "source":
+                  "anchor:termination_unverified_do_not_infer"}
+    curve = build_progress_curve(active, observations, horizon_s=horizon_s,
+                                 execution_end_s=end)
+    curve["execution_window"] = window
+    return curve
 
 
 def _duplicate_refs(rows: list[dict[str, Any]]) -> list[str]:

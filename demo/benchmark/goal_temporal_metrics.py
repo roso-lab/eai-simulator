@@ -717,9 +717,10 @@ def mutex_metrics(concurrency_evidence: Mapping[str, Any]) -> dict[str, Any]:
         prev: float | None = None
         for time, delta in boundary:
             if prev is not None and count >= 1:
-                occupied += time - prev
-                if count > 1:
-                    overlap += time - prev
+                span = time - prev
+                occupied += span
+                if count > 1 and span > 0:
+                    overlap += span
                     any_violation = True
             count += delta
             prev = time
@@ -944,12 +945,25 @@ def _eligible_actions(report: Mapping[str, Any],
         entry: dict[str, Any] = {"action_id": action_id, "type": action_type,
                                  "task_id": task_id,
                                  "started_at_s": start}
+        # Viewer stage65-batch3 P0-2: eligibility ends at the earlier of the
+        # terminal receipt and the T_a^max boundary; a late receipt past the
+        # timeout never extends eligibility past the timeout (the timeout
+        # fact is preserved when it fires first).
+        timeout_cap: float | None = None
+        if action_type in action_timeout_table:
+            timeout_cap = start + _nonnegative(
+                action_timeout_table[action_type], "T_a_max entry")
         if action_id in terminal:
-            entry.update({"eligible_until_s": terminal[action_id],
-                          "end_status": "terminal_receipt"})
-        elif action_type in action_timeout_table:
-            limit = _nonnegative(action_timeout_table[action_type], "T_a_max entry")
-            entry.update({"eligible_until_s": start + limit,
+            end_time = terminal[action_id]
+            if timeout_cap is not None and end_time > timeout_cap:
+                entry.update({"eligible_until_s": timeout_cap,
+                              "end_status": "action_timeout_before_late_receipt",
+                              "terminal_receipt_at_s": end_time})
+            else:
+                entry.update({"eligible_until_s": end_time,
+                              "end_status": "terminal_receipt"})
+        elif timeout_cap is not None:
+            entry.update({"eligible_until_s": timeout_cap,
                           "end_status": "action_timeout"})
         else:
             entry.update({"eligible_until_s": None,
@@ -1120,11 +1134,19 @@ def coordination_stall_metrics(
     if current_start is not None:
         candidates.append({"start_s": current_start, "end_s": horizon})
 
+    # Viewer stage65-batch3 P0-1: a stall is confirmed the moment its
+    # duration crosses delta_stall with Q held within epsilon up to that
+    # crossing; later Q progress ends the candidate but never retroactively
+    # cancels an already-confirmed detection.  The candidate interval itself
+    # is still cut at the breakpoint for observation bookkeeping.
     confirmed: list[dict[str, Any]] = []
     for candidate in candidates:
         start, end = candidate["start_s"], candidate["end_s"]
-        if end - start >= delta_stall and q.at(end) - q.at(start) <= epsilon:
-            confirmed.append({**candidate, "T_det_s": start + delta_stall})
+        if end - start < delta_stall:
+            continue
+        crossing = start + delta_stall
+        if q.at(crossing) - q.at(start) <= epsilon:
+            confirmed.append({**candidate, "T_det_s": crossing})
 
     recovery = _merge_intervals(recovery_windows or []) if recovery_windows else []
 

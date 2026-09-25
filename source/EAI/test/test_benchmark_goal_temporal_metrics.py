@@ -507,9 +507,11 @@ def test_stall_below_delta_stall_not_confirmed():
 
 
 def test_stall_interrupted_by_q_progress_and_retimed():
-    # Q jumps from 0 to 1 at t=30 (> epsilon_q): the first candidate [0, 30]
-    # cannot confirm (Q(e)-Q(s) exceeds the tolerance) and timing restarts
-    # at t=30 with the new baseline, confirming [30, 100].
+    # Viewer stage65-batch3 P0-1: Q jumps at t=30 but the candidate [0, 30]
+    # held Q within epsilon for 30 s >= delta_stall=20, so the detection at
+    # T_det=20 is LOCKED and never retroactively cancelled by the later Q
+    # progress; timing restarts at t=30 for a second candidate that also
+    # confirms (no further Q change).
     q_curve = {"Q_samples": [{"t_s": 0.0, "Q": 0.0},
                              {"t_s": 30.0, "Q": 1.0}]}
     report = _terminated_report()
@@ -520,9 +522,27 @@ def test_stall_interrupted_by_q_progress_and_retimed():
         opportunity_windows=[{"opportunity_id": "o1", "ready_at_s": 0.0}])
     assert result["candidate_intervals"] == [
         {"start_s": 0.0, "end_s": 30.0}, {"start_s": 30.0, "end_s": 100.0}]
+    assert result["M_stall"] == 2
+    assert result["stalls"][0]["T_on_s"] == 0.0
+    assert result["stalls"][0]["T_det_s"] == 20.0
+    assert result["stalls"][1]["T_on_s"] == 30.0
+    assert result["stalls"][1]["T_det_s"] == 50.0
+
+
+def test_stall_shorter_than_delta_stall_before_q_jump_stays_unconfirmed():
+    # Q jumps at t=30 with delta_stall=35: the first candidate only held for
+    # 30 s, so no detection is locked; the second candidate confirms later.
+    q_curve = {"Q_samples": [{"t_s": 0.0, "Q": 0.0},
+                             {"t_s": 30.0, "Q": 1.0}]}
+    report = _terminated_report()
+    result = coordination_stall_metrics(
+        report,
+        delta_stall_s=35.0, delta_clear_s=10.0, epsilon_q=0.1,
+        q_curve=q_curve, action_timeout_table={},
+        opportunity_windows=[{"opportunity_id": "o1", "ready_at_s": 0.0}])
     assert result["M_stall"] == 1
     assert result["stalls"][0]["T_on_s"] == 30.0
-    assert result["stalls"][0]["T_det_s"] == 50.0
+    assert result["stalls"][0]["T_det_s"] == 65.0
 
 
 def test_stall_recovery_window_shorter_than_delta_clear_not_recovery():
