@@ -44,8 +44,15 @@ def _sha256(path: Path) -> str | None:
         return None
 
 
-def _recompute_progress(goal_dir: Path) -> dict[str, Any]:
-    """Milestones from the native evidence log, not business_evidence.json."""
+def _recompute_progress(goal_dir: Path, *,
+                        milestone_kind_map: Mapping[str, str] | None = None,
+                        horizon_s: float = 240.0) -> dict[str, Any]:
+    """Milestones from the native evidence log, not business_evidence.json.
+
+    With ``milestone_kind_map`` the recomputation also derives the protocol
+    progress curve (Q/MCR/AUP/PGI) from the same raw records, under the
+    frozen equal-weight v1 policy.
+    """
     payload = _load(goal_dir / "native_evidence_log.json")
     if not isinstance(payload, Mapping):
         return {"status": "missing_source",
@@ -74,7 +81,7 @@ def _recompute_progress(goal_dir: Path) -> dict[str, Any]:
     arrivals.sort(key=lambda row: (row["time_s"] is None, row["time_s"]))
     observations.sort(key=lambda row: (row["time_s"] is None, row["time_s"]))
     duplicates = _duplicate_refs(arrivals + observations + receipts)
-    return {
+    result = {
         "status": "recomputed",
         "arrival_count": len(arrivals),
         "observation_count": len(observations),
@@ -85,6 +92,45 @@ def _recompute_progress(goal_dir: Path) -> dict[str, Any]:
         "duplicate_evidence_refs": duplicates,
         "early_termination": False,  # refined by comparison below
     }
+    curve = _progress_curve_from_records(records, milestone_kind_map,
+                                          horizon_s=horizon_s)
+    if curve is not None:
+        result["progress_curve"] = curve
+    return result
+
+
+def _progress_curve_from_records(records, kind_map, *, horizon_s):
+    if not isinstance(kind_map, Mapping) or not kind_map:
+        return None
+    from .goal_progress_curve import build_progress_curve
+
+    milestone_times: dict[str, float] = {}
+    for record in records:
+        milestone_id = kind_map.get(record.get("kind", ""))
+        if milestone_id is None:
+            # Region-scoped observation kinds carry the region in the row.
+            if record.get("kind") == "observation":
+                milestone_id = kind_map.get(
+                    f"observation:{record.get('region_id')}")
+        if milestone_id is None:
+            continue
+        stamp = (record.get("stamp") or record.get("arrival")
+                 or record.get("relay_publication") or {})
+        time_s = stamp.get("time_s") if isinstance(stamp, Mapping) else None
+        if type(time_s) not in (int, float):
+            continue
+        previous = milestone_times.get(milestone_id)
+        if previous is None or time_s < previous:
+            milestone_times[milestone_id] = float(time_s)
+    if not milestone_times:
+        return None
+    active = sorted(set(kind_map.values()))
+    observations = [{"milestone_id": milestone_id,
+                     "satisfied_at_s": time_s}
+                    for milestone_id, time_s in milestone_times.items()]
+    last_time = max(milestone_times.values())
+    return build_progress_curve(active, observations, horizon_s=horizon_s,
+                                execution_end_s=min(last_time, horizon_s))
 
 
 def _duplicate_refs(rows: list[dict[str, Any]]) -> list[str]:
@@ -205,11 +251,19 @@ def _compare_family(recomputed: Any, archived: Any) -> dict[str, Any]:
             "recomputed": recomputed, "archived": archived}
 
 
-def recompute_episode_facts(top_root: str | Path) -> dict[str, Any]:
-    """Independently recompute all fact families for one episode archive."""
+def recompute_episode_facts(top_root: str | Path, *,
+                            milestone_kind_map: Mapping[str, str] | None = None,
+                            horizon_s: float = 240.0) -> dict[str, Any]:
+    """Independently recompute all fact families for one episode archive.
+
+    ``milestone_kind_map`` optionally derives the protocol progress curve
+    (equal-weight v1) from the same raw records; absent mapping keeps the
+    progress family curve-free (explicitly, not as zero progress).
+    """
     root = Path(top_root)
     goal_dir = root / "goal_episode"
-    progress = _recompute_progress(goal_dir)
+    progress = _recompute_progress(goal_dir, milestone_kind_map=milestone_kind_map,
+                                   horizon_s=horizon_s)
     deployment = _recompute_deployment(goal_dir)
     communication = _recompute_communication(goal_dir, root)
     cost = _recompute_cost(goal_dir, root)

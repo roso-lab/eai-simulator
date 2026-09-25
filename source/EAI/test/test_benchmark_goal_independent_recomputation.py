@@ -136,3 +136,27 @@ def test_writer_round_trips(tmp_path):
         "eai.benchmark.goal_independent_recomputation")
     assert payload["version"] == 1
     assert payload["execution_validated"] is False
+
+
+def test_progress_curve_derived_from_raw_records_with_mapping(tmp_path):
+    result = recompute_episode_facts(_full_archive(tmp_path), milestone_kind_map={
+        "observation:kitchen_service": "kitchen_service_inspected",
+        "observation:dining_service": "dining_service_inspected",
+        "relay_and_receipt": "readiness_receipt_committed",
+    }, horizon_s=240.0)
+    curve = result["families"]["progress"]["recomputed"]["progress_curve"]
+    assert curve["status"] == "computed"
+    assert curve["weight_policy"] == "protocol-v1-equal"
+    # The fixture archive has one observation region (kitchen) and one
+    # relay receipt; the unmapped dining milestone stays unsatisfied.
+    assert curve["Q_H"] == 2 / 3
+    assert curve["completed_milestones"] == [
+        "kitchen_service_inspected", "readiness_receipt_committed"]
+    assert curve["nPGI_exec"] is not None
+
+
+def test_progress_curve_absent_mapping_is_explicit_not_zero(tmp_path):
+    result = recompute_episode_facts(_full_archive(tmp_path))
+    progress = result["families"]["progress"]["recomputed"]
+    assert "progress_curve" not in progress
+    assert progress["receipt_count"] == 1
