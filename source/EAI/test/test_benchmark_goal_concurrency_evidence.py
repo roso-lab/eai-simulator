@@ -899,3 +899,583 @@ def test_runner_termination_stops_execution_and_backend_refuses_afterwards(
     cancels = report["cancellations_other"]
     assert cancels and cancels[0]["cause"] == "safety_stop_after_invalidation"
     assert cancels[0]["in_flight"] is False
+
+
+# ----------------------------------------------------------------------
+# Runner-level async execution mode (opt-in, capability-negotiated)
+# ----------------------------------------------------------------------
+class _AsyncBatchAdapter:
+    """Participant that submits team, plan, and every dispatch in one batch."""
+
+    def __init__(self, plan, task_ids, *, peer=None):
+        self.plan = plan
+        self.task_ids = list(task_ids)
+        self.peer = peer
+        self.submitted = False
+        self.published = False
+        self.seen_events: list[dict[str, Any]] = []
+
+    def manifest(self):
+        return {"kind": "participant", "id": "concurrency-evidence-async-test",
+                "version": 1, "interface": "eai.benchmark.goal_algorithm_adapter",
+                "interface_version": 1, "evaluation_track": "goal_driven",
+                "input_scope": "participant_visible_events_only",
+                "control_scope": "benchmark_managed_low_level_control"}
+
+    def initialize(self, public_task, participant_api):
+        pass
+
+    def initialize_communication_tools(self, profile):
+        pass
+
+    def act(self, events):
+        self.seen_events.extend(events)
+        events = self.seen_events
+        now = max((row["time_s"] for row in events), default=0.0)
+        if (not self.submitted
+                and any(row["type"] == "episode_started" for row in events)):
+            self.submitted = True
+            actions = [
+                _action("team", "select_team",
+                        {"agent_ids": self.plan["assigned_team"]}, submitted_at_s=now),
+                _action("plan", "submit_plan", {"plan": self.plan},
+                        submitted_at_s=now),
+            ]
+            actions.extend(
+                _action(f"dispatch-{task_id}", "dispatch_skill",
+                        {"task_id": task_id, "evidence_refs": []},
+                        submitted_at_s=now)
+                for task_id in self.task_ids)
+            return actions
+        if (self.peer is not None and not self.published
+                and all(any(row["type"] == "action_result"
+                            and row["payload"]["action_id"] == f"dispatch-{task_id}"
+                            and row["payload"]["status"] == "succeeded"
+                            for row in events)
+                        for task_id in self.task_ids)):
+            self.published = True
+            return [{
+                "schema": "eai.benchmark.goal_communication_tool_call", "version": 1,
+                "call_id": "async-publish-1", "submitted_at_s": now,
+                "operation": "publish",
+                "arguments": {"producer_id": f"robot:{self.plan['assigned_team'][0]}",
+                              "recipients": [f"robot:{self.peer}"],
+                              "channel": "relay",
+                              "estimate": {"note": "async idle clock probe"},
+                              "valid_until_s": now + 8.0},
+            }]
+        return []
+
+    def close(self):
+        pass
+
+
+def _pick_task(task_id, agent, object_id, pickup_region, start_s, duration_s):
+    return {
+        "task_id": task_id, "skill": "pick",
+        "arguments": {"object_id": object_id, "pickup_region_id": pickup_region,
+                      "handling_mode_id": "single_grip",
+                      "carrier_bindings": [
+                          {"agent_id": agent, "point_id": "center_grip"}]},
+        "required_capabilities": ["pick"], "assigned_agents": [agent],
+        "prerequisites": [], "evidence_refs": [],
+        "execution": {"start_s": start_s, "duration_s": duration_s},
+    }
+
+
+def _async_recorder_backend(public, state, *, episode_id):
+    recorder = ConcurrencyProbeRecorder(episode_id=episode_id)
+    backend = ConcurrentFakeBackend(
+        public, episode_id=episode_id, recorder=recorder, runtime_state=state)
+    return recorder, backend
+
+
+def test_async_mode_fails_closed_without_declared_backend_capability(tmp_path):
+    public, api, state = _component_fixture()
+    plan = {"schema": "eai.benchmark.goal_plan", "version": GOAL_PLAN_VERSION,
+            "plan_id": "fail-closed-plan", "assigned_team": [GROUND_1],
+            "tasks": [_nav_task("nav_a", GROUND_1, "rack_aisle_a",
+                                "consolidation_to_rack_a", 0.0, 10.0)]}
+    recorder, backend = _async_recorder_backend(public, state, episode_id="fail-closed-1")
+    serial_backend = ConcurrentFakeBackend(
+        public, episode_id="fail-closed-1", recorder=recorder,
+        runtime_state=state, serial=True)
+    adapter = _AsyncBatchAdapter(plan, ["nav_a"])
+
+    def _runner(backend, **kwargs):
+        return FormalGoalEpisodeRunner(
+            public, api, adapter, backend, output_root=tmp_path / "fail-closed",
+            episode_id="fail-closed-1", **kwargs)
+
+    # The in-flight fake backend declares the capability; serial mode does not.
+    assert backend.supports_async_execution is True
+    assert serial_backend.supports_async_execution is False
+    with pytest.raises(ValueError, match="supports_async_execution"):
+        _runner(serial_backend, execution_mode="async")
+    with pytest.raises(ValueError, match="execution_mode must be 'serial' or 'async'"):
+        _runner(serial_backend, execution_mode="parallel")
+    with pytest.raises(ValueError, match="concurrency_recorder requires"):
+        _runner(serial_backend, concurrency_recorder=recorder)
+
+    class _NoPumpBackend:
+        supports_async_execution = True
+
+        def execute(self, task, *, episode_id, trusted_report):
+            return {"status": "in_flight"}
+
+    class _NoDeliveriesBackend(_NoPumpBackend):
+        def advance_idle(self, target_s):
+            return {"time_s": target_s}
+
+    with pytest.raises(ValueError, match="advance_idle"):
+        _runner(_NoPumpBackend(), execution_mode="async")
+    with pytest.raises(ValueError, match="completed_deliveries"):
+        _runner(_NoDeliveriesBackend(), execution_mode="async")
+
+    from demo.benchmark.communication import CommunicationRuntime
+    from demo.benchmark.provenance import canonical_sha256
+
+    class _StubDownlink:
+        def __init__(self, episode_id, task_sha256, runtime):
+            self.episode_id = episode_id
+            self.public_task_sha256 = task_sha256
+            self.runtime = runtime
+
+        def profile(self):
+            return {}
+
+        def queue_dispatch(self, *args, **kwargs):
+            return None
+
+        def queue_cancel(self, *args, **kwargs):
+            return None
+
+        def advance(self, now, **kwargs):
+            return {"failed_dispatches": [], "ready_cancels": [],
+                    "failed_cancels": [], "ready_dispatches": []}
+
+        def has_pending_work(self):
+            return False
+
+        def next_wakeup_s(self):
+            return None
+
+        def cancellation_state(self, task_id, **kwargs):
+            return {"status": "pending"}
+
+        def report(self):
+            return {}
+
+    runtime = CommunicationRuntime()
+    downlink = _StubDownlink(
+        "fail-closed-1", canonical_sha256(public), runtime)
+    with pytest.raises(ValueError, match="does not support the execution downlink"):
+        _runner(backend, execution_mode="async",
+                shared_communication_runtime=runtime, downlink=downlink)
+
+
+def test_runner_async_mode_runs_two_skills_simultaneously(tmp_path: Path):
+    """Real runner loop in async mode: both dispatches start at t=0, stay
+    simultaneously in flight, complete on the backend clock with real
+    receipts, and the archived evidence credits the genuine overlap.  A
+    delayed communication message afterwards exercises the idle branch on
+    the same backend clock."""
+    public, api, state = _component_fixture()
+    plan = {"schema": "eai.benchmark.goal_plan", "version": GOAL_PLAN_VERSION,
+            "plan_id": "runner-async-overlap-plan", "assigned_team": [GROUND_1, GROUND_3],
+            "tasks": [
+                _nav_task("nav_a", GROUND_1, "rack_aisle_a",
+                          "consolidation_to_rack_a", 0.0, 10.0),
+                _nav_task("nav_b", GROUND_3, "rack_aisle_b",
+                          "consolidation_to_rack_b", 0.0, 8.0),
+            ]}
+    episode_id = "runner-async-overlap-1"
+    recorder, backend = _async_recorder_backend(public, state, episode_id=episode_id)
+    pool = [row["id"] for row in public["candidate_robot_pool"]]
+    tools = GoalCommunicationTools(
+        public, episode_id=episode_id,
+        endpoints={"edges": {"edge_1": [pool[1]]}, "robots": pool[:3]},
+        runtime=CommunicationRuntime(
+            {"pools": {"p2p": {"bytes_per_second": 100000, "fixed_delay_s": 0.04}}}))
+    root = tmp_path / "episode"
+    result = FormalGoalEpisodeRunner(
+        public, api, _AsyncBatchAdapter(plan, ["nav_a", "nav_b"], peer=pool[2]),
+        backend, output_root=root, episode_id=episode_id,
+        communication_tools=tools,
+        execution_mode="async", concurrency_recorder=recorder).run(initial_state=state)
+
+    assert result["error"] is None
+    assert result["skill_receipt_count"] == 2
+    assert result["execution_mode"] == "async"
+    # Both skills were dispatched at t=0 and closed with real receipts.
+    assert backend.execute_calls == [("nav_a", 0.0), ("nav_b", 0.0)]
+    assert backend.in_flight_task_ids() == []
+    receipts = json.loads((root / "skill_receipts.json").read_text())
+    assert sorted(row["completed_at_s"] for row in receipts) == [8.0, 10.0]
+    session_report = json.loads(
+        (root / "goal_session_report.json").read_text())["report"]
+    assert {tid: row["status"] for tid, row in session_report["tasks"].items()} == {
+        "nav_a": "succeeded", "nav_b": "succeeded"}
+    # The delayed message kept the backend clock moving past both completions.
+    assert session_report["current_time_s"] > 10.0
+
+    evidence = json.loads((root / "concurrency_evidence.json").read_text())
+    assert evidence["schema"] == GOAL_CONCURRENCY_EVIDENCE_SCHEMA
+    assert evidence["episode_id"] == episode_id
+    assert evidence["execution_counts"] == {"total": 2, "closed": 2, "in_flight_open": 0}
+    assert evidence["runner_integration"] == {
+        "integrated": True, "turns": result["turns"], "error": None,
+        "skill_receipt_count": 2, "termination": None}
+    assert len(evidence["overlap_pairs"]) == 1
+    pair = evidence["overlap_pairs"][0]
+    assert pair["tasks"] == ["nav_a", "nav_b"]
+    assert (pair["overlap_start_s"], pair["overlap_end_s"]) == (0.0, 8.0)
+    assert pair["statuses"] == {"nav_a": "succeeded", "nav_b": "succeeded"}
+    assert set(pair["evidence_refs"]) == {row["receipt_ref"] for row in receipts}
+    assert evidence["planned_overlap_not_counted"] == []
+    assert evidence["release"] is False and evidence["scoreable"] is False
+    # The pump drove the clock to each planned end; the idle branch then
+    # carried the delayed communication delivery past both completions.
+    assert backend.idle_calls[:2] == [8.0, 10.0]
+    assert backend.idle_calls[-1] > 10.0
+    manifest = json.loads((root / "episode_manifest.json").read_text())
+    assert manifest["execution_mode"] == "async"
+    assert manifest["concurrency_evidence"]["archive"] == "concurrency_evidence.json"
+    replay = json.loads((root / "communication_tool_replay.json").read_text())
+    assert replay["validated"] is True
+    assert not (root / "lifecycle_errors.json").exists()
+
+
+def test_runner_async_mode_backend_mutex_refuses_then_resumes_serially(tmp_path: Path):
+    """Runner-level backend mutex: the session admits both picks (the shared
+    pickup region has capacity two) while the fake backend refuses the second
+    in-flight hold; the refused dispatch stays pending, is retried after the
+    first terminal releases the region, and completes inside its admitted
+    window.  No overlap is credited."""
+    public, api, state = _component_fixture()
+    state["robot_regions"][GROUND_1] = "rack_aisle_a"
+    state["robot_regions"][GROUND_3] = "rack_aisle_a"
+    state["object_states"]["order_carton_01"]["region_id"] = "rack_aisle_a"
+    plan = {"schema": "eai.benchmark.goal_plan", "version": GOAL_PLAN_VERSION,
+            "plan_id": "runner-async-mutex-plan", "assigned_team": [GROUND_1, GROUND_3],
+            "tasks": [
+                _pick_task("pick_a", GROUND_1, "order_crate_01",
+                           "rack_aisle_a", 0.0, 10.0),
+                _pick_task("pick_b", GROUND_3, "order_carton_01",
+                           "rack_aisle_a", 0.0, 12.0),
+            ]}
+    episode_id = "runner-async-mutex-1"
+    recorder, backend = _async_recorder_backend(public, state, episode_id=episode_id)
+    root = tmp_path / "episode"
+    result = FormalGoalEpisodeRunner(
+        public, api, _AsyncBatchAdapter(plan, ["pick_a", "pick_b"]),
+        backend, output_root=root, episode_id=episode_id,
+        execution_mode="async", concurrency_recorder=recorder).run(initial_state=state)
+
+    assert result["error"] is None
+    assert result["skill_receipt_count"] == 2
+    session_report = json.loads(
+        (root / "goal_session_report.json").read_text())["report"]
+    assert {tid: row["status"] for tid, row in session_report["tasks"].items()} == {
+        "pick_a": "succeeded", "pick_b": "succeeded"}
+
+    evidence = json.loads((root / "concurrency_evidence.json").read_text())
+    conflicts = evidence["resource_conflicts"]
+    assert conflicts["status"] == "triggered"
+    (detail,) = conflicts["details"]
+    assert detail == {
+        "task_id": "pick_b", "resource_key": "region:rack_aisle_a",
+        "held_by": "pick_a", "at_s": 0.0, "layer": "backend_mutex",
+        "detail": ("fake backend refused a second in-flight execution holding "
+                   "region:rack_aisle_a"),
+    }
+    # The mutex kept the region serially held; the planned overlap of both
+    # windows is explicitly not counted as concurrency evidence.
+    assert evidence["overlap_pairs"] == []
+    holdings = evidence["resource_intervals"]["region:rack_aisle_a"]
+    assert [(row["task_id"], row["start_s"], row["end_s"], row["status"])
+            for row in holdings] == [
+        ("pick_a", 0.0, 10.0, "succeeded"),
+        ("pick_b", 10.0, 12.0, "succeeded")]
+    assert len(evidence["planned_overlap_not_counted"]) == 1
+    assert evidence["planned_overlap_not_counted"][0]["tasks"] == ["pick_a", "pick_b"]
+    assert evidence["planned_overlap_not_counted"][0][
+        "reason"] == "actual_execution_intervals_do_not_overlap"
+
+
+def test_runner_async_mode_termination_never_starts_the_queued_dispatch(
+        tmp_path: Path, monkeypatch):
+    """Real runner loop, async mode, v3 deployment: the queued pick is refused
+    by the backend mutex, a capability change then invalidates it, the
+    participant requests human assistance, and the queued dispatch is
+    safety-cancelled without ever starting; no execution happens after the
+    termination."""
+    public, api, state = _component_fixture(deployment=True)
+    state["robot_regions"][GROUND_1] = "rack_aisle_a"
+    state["robot_regions"][GROUND_3] = "rack_aisle_a"
+    state["object_states"]["order_carton_01"]["region_id"] = "rack_aisle_a"
+    plan = {"schema": "eai.benchmark.goal_plan", "version": GOAL_PLAN_VERSION,
+            "plan_id": "runner-async-termination-plan",
+            "assigned_team": [GROUND_1, GROUND_3],
+            "tasks": [
+                _pick_task("pick_a", GROUND_1, "order_crate_01",
+                           "rack_aisle_a", 0.0, 10.0),
+                _pick_task("pick_b", GROUND_3, "order_carton_01",
+                           "rack_aisle_a", 0.0, 12.0),
+            ]}
+    episode_id = "runner-async-termination-1"
+    host_box: dict[str, Any] = {}
+
+    class _EventEmittingHost(GoalAlgorithmHost):
+        def complete_skill(self, task_id, *, time_s, status, receipt):
+            result = super().complete_skill(
+                task_id, time_s=time_s, status=status, receipt=receipt)
+            request = host_box.pop("event", None)
+            if request is not None:
+                self.emit("capability_change", time_s, request)
+            return result
+
+    monkeypatch.setattr(runner_module, "GoalAlgorithmHost", _EventEmittingHost)
+
+    class _AssessmentAdapter:
+        """Declares every assessment epoch and batch-dispatches both picks."""
+
+        def __init__(self, plan):
+            self.plan = plan
+            self.submitted = False
+
+        def manifest(self):
+            return {"kind": "participant", "id": "concurrency-evidence-async-term",
+                    "version": 1, "interface": "eai.benchmark.goal_algorithm_adapter",
+                    "interface_version": 1, "evaluation_track": "goal_driven",
+                    "input_scope": "participant_visible_events_only",
+                    "control_scope": "benchmark_managed_low_level_control"}
+
+        def initialize(self, public_task, participant_api):
+            pass
+
+        def act(self, events):
+            required = next(
+                (row for row in reversed(events)
+                 if row["type"] == "deployment_assessment_required"), None)
+            if required is not None:
+                payload = required["payload"]
+                return [_action(
+                    f"assess-{payload['assessment_epoch']}", "deployment_assessment",
+                    {"assessment_id": payload["assessment_id"],
+                     "assessment_epoch": payload["assessment_epoch"],
+                     "roster_version": payload["roster_version"],
+                     "capability_versions": payload["capability_versions"],
+                     "decision": ("deployable" if payload["assessment_epoch"] == 0
+                                  else "not_deployable"),
+                     "reason_codes": ([] if payload["assessment_epoch"] == 0
+                                      else ["lost_unique_capability"]),
+                     "evidence_refs": ([] if payload["assessment_epoch"] == 0
+                                       else [AERIAL])},
+                    submitted_at_s=required["time_s"])]
+            if (not self.submitted and any(
+                    row["type"] == "action_result"
+                    and row["payload"]["action_id"] == "assess-0"
+                    for row in events)):
+                self.submitted = True
+                now = max(row["time_s"] for row in events)
+                actions = [
+                    _action("team", "select_team",
+                            {"agent_ids": self.plan["assigned_team"]},
+                            submitted_at_s=now),
+                    _action("plan", "submit_plan", {"plan": self.plan},
+                            submitted_at_s=now),
+                ]
+                actions.extend(
+                    _action(f"dispatch-{task_id}", "dispatch_skill",
+                            {"task_id": task_id, "evidence_refs": []},
+                            submitted_at_s=now)
+                    for task_id in ("pick_a", "pick_b"))
+                return actions
+            return []
+
+        def close(self):
+            pass
+
+    class _EventBackend(ConcurrentFakeBackend):
+        def execute(self, task, *, episode_id, trusted_report):
+            result = super().execute(task, episode_id=episode_id,
+                                     trusted_report=trusted_report)
+            if task["task_id"] == "pick_a":
+                session = trusted_report["session"]
+                declaration = deepcopy(
+                    session["current_robot_declarations"][AERIAL])
+                declaration["public_capabilities"] = [
+                    capability for capability in declaration["public_capabilities"]
+                    if capability != "aerial_navigation"]
+                host_box["event"] = {
+                    "agent_id": AERIAL, "capability_declaration": declaration,
+                    "capability_version": (
+                        session["capability_versions"][AERIAL] + 1),
+                }
+            return result
+
+    recorder, _ = _async_recorder_backend(public, state, episode_id=episode_id)
+    backend = _EventBackend(
+        public, episode_id=episode_id, recorder=recorder, runtime_state=state)
+    root = tmp_path / "episode"
+    result = FormalGoalEpisodeRunner(
+        public, api, _AssessmentAdapter(plan), backend, output_root=root,
+        episode_id=episode_id,
+        execution_mode="async", concurrency_recorder=recorder).run(initial_state=state)
+
+    assert result["error"] is None
+    assert result["termination"]["category"] == "human_assistance_requested"
+    # pick_b was attempted once (refused by the backend mutex) and never
+    # started; no execution was attempted after the termination.
+    assert backend.execute_calls == [("pick_a", 0.0), ("pick_b", 0.0)]
+    assert backend.cancel_calls == ["pick_b"]
+    session_report = json.loads(
+        (root / "goal_session_report.json").read_text())["report"]
+    assert session_report["tasks"]["pick_a"]["status"] == "succeeded"
+    stopped = session_report["tasks"]["pick_b"]
+    assert stopped["status"] == "cancelled"
+    assert stopped["safety_stop"]["acknowledged"] is True
+
+    evidence = json.loads((root / "concurrency_evidence.json").read_text())
+    assert evidence["execution_counts"] == {"total": 1, "closed": 1, "in_flight_open": 0}
+    assert evidence["executions"][0]["task_id"] == "pick_a"
+    assert evidence["resource_conflicts"]["status"] == "triggered"
+    assert evidence["post_termination_execution_attempts"] == {
+        "status": "not_triggered", "count": 0, "details": []}
+    assert evidence["clock"]["terminated_at_s"] == 10.0
+    assert evidence["runner_integration"]["termination"]["category"] == (
+        "human_assistance_requested")
+    assert evidence["overlap_pairs"] == []
+
+
+def test_runner_async_member_exit_safety_cancels_in_flight_skill(
+        tmp_path: Path, monkeypatch):
+    """Real runner loop, async mode: while both skills are genuinely in
+    flight, one member exits; the runner safety-cancels that member's in-
+    flight skill through the session state machine (no silent success), the
+    other skill keeps its real success, and the overlap with the cancelled
+    interval is still credited as concurrency evidence."""
+    public, api, state = _component_fixture()
+    plan = {"schema": "eai.benchmark.goal_plan", "version": GOAL_PLAN_VERSION,
+            "plan_id": "runner-async-exit-plan", "assigned_team": [GROUND_1, GROUND_3],
+            "tasks": [
+                _nav_task("nav_a", GROUND_1, "rack_aisle_a",
+                          "consolidation_to_rack_a", 0.0, 10.0),
+                _nav_task("nav_b", GROUND_3, "rack_aisle_b",
+                          "consolidation_to_rack_b", 0.0, 8.0),
+            ]}
+    episode_id = "runner-async-exit-1"
+    host_box: dict[str, Any] = {}
+
+    class _ExitEmittingHost(GoalAlgorithmHost):
+        def complete_skill(self, task_id, *, time_s, status, receipt):
+            result = super().complete_skill(
+                task_id, time_s=time_s, status=status, receipt=receipt)
+            request = host_box.pop("exit", None)
+            if request is not None:
+                self.emit("member_exit", time_s, request)
+            return result
+
+    monkeypatch.setattr(runner_module, "GoalAlgorithmHost", _ExitEmittingHost)
+
+    class _ExitBackend(ConcurrentFakeBackend):
+        def execute(self, task, *, episode_id, trusted_report):
+            result = super().execute(task, episode_id=episode_id,
+                                     trusted_report=trusted_report)
+            if task["task_id"] == "nav_b":
+                host_box["exit"] = {"agent_id": GROUND_1}
+            return result
+
+    recorder, _ = _async_recorder_backend(public, state, episode_id=episode_id)
+    backend = _ExitBackend(
+        public, episode_id=episode_id, recorder=recorder, runtime_state=state)
+    root = tmp_path / "episode"
+    result = FormalGoalEpisodeRunner(
+        public, api, _AsyncBatchAdapter(plan, ["nav_a", "nav_b"]),
+        backend, output_root=root, episode_id=episode_id,
+        execution_mode="async", concurrency_recorder=recorder).run(initial_state=state)
+
+    assert result["error"] is None
+    assert result["skill_receipt_count"] == 2
+    session_report = json.loads(
+        (root / "goal_session_report.json").read_text())["report"]
+    assert session_report["tasks"]["nav_a"]["status"] == "cancelled"
+    assert session_report["tasks"]["nav_b"]["status"] == "succeeded"
+
+    evidence = json.loads((root / "concurrency_evidence.json").read_text())
+    exits = evidence["midflight_member_exits"]
+    assert exits["status"] == "triggered"
+    (exit_detail,) = exits["details"]
+    assert exit_detail == {
+        "task_id": "nav_a", "agent_id": GROUND_1, "at_s": 8.0,
+        "in_flight": True, "session_status_before": "pending",
+        "session_status_after": "cancelled",
+        "task_outcome": {"status": "cancelled", "end_s": 8.0},
+    }
+    executions = {row["task_id"]: row for row in evidence["executions"]}
+    assert executions["nav_a"]["status"] == "cancelled"
+    assert (executions["nav_a"]["start_s"], executions["nav_a"]["end_s"]) == (0.0, 8.0)
+    assert executions["nav_b"]["status"] == "succeeded"
+    # The cancelled and succeeded intervals genuinely overlapped.
+    assert len(evidence["overlap_pairs"]) == 1
+    pair = evidence["overlap_pairs"][0]
+    assert pair["tasks"] == ["nav_a", "nav_b"]
+    assert (pair["overlap_start_s"], pair["overlap_end_s"]) == (0.0, 8.0)
+    assert pair["statuses"] == {"nav_a": "cancelled", "nav_b": "succeeded"}
+
+
+def test_runner_default_serial_mode_is_unchanged_and_evidence_free(tmp_path: Path):
+    """Regression: omitting ``execution_mode`` and passing it explicitly as
+    ``"serial"`` produce byte-identical archives, and the default episode
+    writes no async markers or concurrency evidence at all."""
+    public, api, state = _component_fixture()
+    plan = {"schema": "eai.benchmark.goal_plan", "version": GOAL_PLAN_VERSION,
+            "plan_id": "serial-regression-plan", "assigned_team": [GROUND_1],
+            "tasks": [_nav_task("nav_a", GROUND_1, "rack_aisle_a",
+                                "consolidation_to_rack_a", 0.0, 10.0)]}
+
+    def _run(root: Path, **kwargs):
+        recorder = ConcurrencyProbeRecorder(episode_id="serial-regression-1")
+        backend = ConcurrentFakeBackend(
+            public, episode_id="serial-regression-1", recorder=recorder,
+            runtime_state=state, serial=True)
+        result = FormalGoalEpisodeRunner(
+            public, api, _AsyncBatchAdapter(plan, ["nav_a"]), backend,
+            output_root=root, episode_id="serial-regression-1",
+            **kwargs).run(initial_state=state)
+        assert result["error"] is None
+        assert result["skill_receipt_count"] == 1
+        return result
+
+    default_root = tmp_path / "default"
+    explicit_root = tmp_path / "explicit-serial"
+    first = _run(default_root)
+    second = _run(explicit_root, execution_mode="serial")
+    assert {key: value for key, value in first.items() if key != "output_root"} == {
+        key: value for key, value in second.items() if key != "output_root"}
+    assert first["output_root"] == str(default_root)
+    assert "execution_mode" not in first
+
+    default_files = sorted(path.name for path in default_root.iterdir())
+    explicit_files = sorted(path.name for path in explicit_root.iterdir())
+    assert default_files == explicit_files
+    assert "concurrency_evidence.json" not in default_files
+    for name in default_files:
+        default_data = json.loads((default_root / name).read_text(encoding="utf-8"))
+        explicit_data = json.loads((explicit_root / name).read_text(encoding="utf-8"))
+        if name == "result.json":
+            # Only the episode directory itself differs between the two runs.
+            default_data.pop("output_root")
+            explicit_data.pop("output_root")
+        if name == "scoring_adapter_metadata.json":
+            # The raw archive index hashes result.json's original bytes, which
+            # embed that episode directory name.
+            for row in (default_data, explicit_data):
+                row["archive_index"]["files"].pop("result.json")
+        assert default_data == explicit_data, name
+    manifest = json.loads((default_root / "episode_manifest.json").read_text())
+    assert "execution_mode" not in manifest
+    assert "concurrency_evidence" not in manifest
+    result_json = json.loads((default_root / "result.json").read_text())
+    assert "execution_mode" not in result_json

@@ -5,6 +5,14 @@ backend, domain evaluator, and persisted evidence on the same episode identity.
 It is deliberately backend-neutral: an Isaac adapter can implement the small
 ``GoalExecutionBackend`` protocol without changing the participant boundary.
 The runner never promotes a run to a scoreable benchmark result by itself.
+
+The default execution mode is strictly serial: ``pending[0]`` runs to a
+terminal receipt before the next skill starts. ``execution_mode="async"``
+opts into an explicitly negotiated backend capability (see
+``GoalExecutionBackend``) under which several dispatches may be
+simultaneously in flight, the backend clock pump drives their completions,
+and an optional ``ConcurrencyProbeRecorder`` archives runner-level
+concurrency evidence; every other behavior stays unchanged.
 """
 
 from __future__ import annotations
@@ -19,6 +27,11 @@ import uuid
 from .goal_algorithm_adapter import GoalAlgorithmAdapter, GoalAlgorithmHost
 from .goal_algorithm_adapter import validate_goal_adapter_manifest
 from .algorithm_adapter import run_algorithm_subprocess
+from .goal_concurrency_evidence import (
+    ConcurrencyEvidenceRefused,
+    ConcurrencyProbeRecorder,
+    build_concurrency_evidence_report,
+)
 from .goal_session import GoalSession
 from .goal_session_audit import (
     AuditedGoalSession,
@@ -42,6 +55,22 @@ class GoalExecutionBackend(Protocol):
     ordinary execution. It must return a ``cancelled`` terminal receipt and
     may include a fresh state. Backends without cancellation support fail
     closed while the task remains cancel_requested.
+
+    Optional async execution capability (``execution_mode="async"`` on the
+    runner): a backend opts in by declaring ``supports_async_execution =
+    True`` together with a callable ``advance_idle(target_s)`` clock pump and
+    a ``completed_deliveries`` staging list. In that mode ``execute`` may
+    return ``{"status": "in_flight", "started_at_s": ...,
+    "planned_end_s": ...}``: the dispatch has physically started, several
+    skills may be simultaneously in flight, and the runner closes each one by
+    committing a terminal result that the backend stages into
+    ``completed_deliveries`` (populated by ``advance_idle``) through
+    ``GoalSession.complete_skill``. A backend resource conflict is signalled
+    by raising ``ConcurrencyEvidenceRefused``; the runner records the refusal
+    through its existing evidence semantics and retries the dispatch later
+    instead of crashing. The serial protocol shape above is unchanged, old
+    backends stay fully compatible, and requesting async execution from a
+    backend without the explicit capability fails closed at construction.
     """
 
     def execute(self, task: Mapping[str, Any], *, episode_id: str,
@@ -240,7 +269,9 @@ class FormalGoalEpisodeRunner:
                  assessment_evaluator: AssessmentEvaluator | None = None,
                  shared_communication_runtime: Any = None,
                  downlink: Any = None, execution_observer: Any = None,
-                 session_audit: bool = False, progress_reader: Any = None):
+                 session_audit: bool = False, progress_reader: Any = None,
+                 execution_mode: str = "serial",
+                 concurrency_recorder: ConcurrencyProbeRecorder | None = None):
         if not isinstance(max_turns, int) or isinstance(max_turns, bool) or max_turns < 1:
             raise ValueError("max_turns must be a positive integer")
         self.public_task = deepcopy(dict(public_task))
@@ -322,6 +353,34 @@ class FormalGoalEpisodeRunner:
                 raise ValueError(f"{label} must reuse the shared communication runtime")
             if any(not callable(getattr(component, name, None)) for name in methods):
                 raise ValueError(f"{label} does not implement its required interface")
+        if not isinstance(execution_mode, str) or execution_mode not in {
+                "serial", "async"}:
+            raise ValueError("execution_mode must be 'serial' or 'async'")
+        self.execution_mode = execution_mode
+        if concurrency_recorder is not None and not isinstance(
+                concurrency_recorder, ConcurrencyProbeRecorder):
+            raise ValueError("concurrency_recorder must be a ConcurrencyProbeRecorder")
+        if concurrency_recorder is not None and execution_mode != "async":
+            raise ValueError("concurrency_recorder requires execution_mode='async'")
+        self.concurrency_recorder = concurrency_recorder
+        if execution_mode == "async":
+            # Fail closed: async execution is an explicit backend capability,
+            # never a silent degradation of the serial contract.
+            if self.downlink is not None:
+                raise ValueError(
+                    "async execution mode does not support the execution downlink")
+            if getattr(self.backend, "supports_async_execution", False) is not True:
+                raise ValueError(
+                    "async execution mode requires a backend that declares "
+                    "supports_async_execution=True")
+            if not callable(getattr(self.backend, "advance_idle", None)):
+                raise ValueError(
+                    "async execution mode requires a backend "
+                    "advance_idle(target_s) clock pump")
+            if not isinstance(getattr(self.backend, "completed_deliveries", None), list):
+                raise ValueError(
+                    "async execution mode requires a backend "
+                    "completed_deliveries staging list")
 
     def _evaluate_required_assessment(self, host: GoalAlgorithmHost) -> None:
         report = host.trusted_report()["session"]
@@ -392,6 +451,14 @@ class FormalGoalEpisodeRunner:
                 "execution_validated": False,
                 "business_outcomes_validated": False,
                 "scoreable": False,
+            }
+        if self.execution_mode == "async":
+            manifest["execution_mode"] = "async"
+            manifest["concurrency_evidence"] = {
+                "archive": ("concurrency_evidence.json"
+                            if self.concurrency_recorder is not None else None),
+                "backend_capability": "supports_async_execution",
+                "release": False, "scoreable": False, "execution_validated": False,
             }
         if self.progress_reader is not None:
             manifest["progress_evidence"] = {
@@ -789,6 +856,253 @@ class FormalGoalEpisodeRunner:
             advance_execution_downlink()
             return True
 
+        # ------------------------------------------------------------------
+        # Optional async execution mode: dispatches start without blocking,
+        # completions arrive through the backend's staged deliveries, and the
+        # runner commits each terminal receipt through the same session
+        # contract as the serial path.
+        # ------------------------------------------------------------------
+        async_in_flight: dict[str, dict[str, float]] = {}
+        termination_noted = False
+        recorder = self.concurrency_recorder
+
+        def note_async_termination(assessment: Mapping[str, Any] | None,
+                                   current_time_s: float) -> None:
+            nonlocal termination_noted
+            if (recorder is not None and not termination_noted
+                    and assessment is not None and assessment.get("terminated")):
+                termination_noted = True
+                recorder.note_termination(current_time_s)
+
+        def note_async_plans(report: Mapping[str, Any]) -> None:
+            if recorder is None:
+                return
+            for plan_row in report.get("plans") or []:
+                recorder.note_plan(plan_row["plan"])
+
+        def prune_async_in_flight() -> None:
+            tasks = session.report()["tasks"]
+            for task_id in list(async_in_flight):
+                row = tasks.get(task_id)
+                if row is None or row["status"] not in {"pending", "cancel_requested"}:
+                    del async_in_flight[task_id]
+
+        def commit_async_terminal(row: Mapping[str, Any], result: Mapping[str, Any]) -> None:
+            """Commit one trusted backend terminal exactly like the serial path."""
+            nonlocal robots, objects
+            task_id = row["task"]["task_id"]
+            status = result.get("status")
+            completed_at_s = result.get("completed_at_s")
+            receipt = result.get("receipt")
+            if status not in {"succeeded", "failed", "cancelled"}:
+                raise ValueError("async execution backend must return a terminal status")
+            session_now = session.report()["current_time_s"]
+            if (isinstance(completed_at_s, bool)
+                    or not isinstance(completed_at_s, (int, float))
+                    or not math.isfinite(completed_at_s)
+                    or completed_at_s < session_now):
+                raise ValueError(
+                    "async execution backend returned a nonmonotonic completion time")
+            observation = (_public_skill_observation(
+                result["public_observation"], row["task"], status)
+                if "public_observation" in result else None)
+            state = result.get("runtime_state")
+            if state is not None:
+                next_robots, next_objects = _require_state(state, "runtime_state")
+                session.validate_runtime_state(completed_at_s, next_robots, next_objects)
+            completion = host.complete_skill(task_id, time_s=completed_at_s,
+                                             status=status, receipt=receipt)
+            if not completion.get("accepted"):
+                raise ValueError(f"backend receipt was not accepted: {completion}")
+            receipt_row = deepcopy(dict(receipt))
+            receipt_row["episode_id"] = self.episode_id
+            receipts.append(receipt_row)
+            if state is not None:
+                robots, objects = next_robots, next_objects
+                host.update_runtime_state(completed_at_s, robots, objects)
+                snapshots.append({"episode_id": self.episode_id,
+                                  "time_s": completed_at_s,
+                                  "robot_regions": deepcopy(robots),
+                                  "object_states": deepcopy(objects)})
+            notify_after_skill(row["task"], result)
+            if observation is not None:
+                host.emit("observation", completed_at_s, {
+                    "message_id": f"skill:{row['dispatch_action_id']}",
+                    "producer_id": "trusted_skill_backend",
+                    "kind": "skill_execution",
+                    "data": {"action_id": row["dispatch_action_id"], **observation},
+                    "valid_until_s": max(completed_at_s,
+                        self.public_task["budgets"]["simulation_s"]),
+                })
+
+        def settle_async_terminal(task_id: str, result: Mapping[str, Any]) -> bool:
+            """Commit one backend terminal against the live session row.
+
+            A cancellation or invalidation that arrived first wins the race:
+            the terminal result is dropped and the task is safety-cancelled
+            through the backend acknowledgement path instead.
+            """
+            current = session.report()["tasks"].get(task_id)
+            if current is None:
+                raise ValueError("async backend terminal references an unknown task")
+            if current["status"] not in {"pending", "cancel_requested"}:
+                # Already terminal (for example safety-cancelled earlier in
+                # this turn); the late backend result loses the race.
+                return False
+            if current["status"] == "cancel_requested" or current.get("invalidated_by"):
+                acknowledge_backend_cancel(current)
+            else:
+                commit_async_terminal(current, result)
+            async_in_flight.pop(task_id, None)
+            return True
+
+        def start_async_executions(report: Mapping[str, Any],
+                                   assessment: Mapping[str, Any] | None) -> bool:
+            """Start every not-yet-started pending dispatch; never block on one."""
+            if assessment is not None and assessment.get("terminated"):
+                # A human-assistance termination forbids new execution starts.
+                return False
+            trusted = host.trusted_report()
+            progress = False
+            for task_id in list(report["tasks"]):
+                if task_id in async_in_flight:
+                    continue
+                current = session.report()["tasks"].get(task_id)
+                if (current is None or current["status"] != "pending"
+                        or current.get("invalidated_by")):
+                    continue
+                try:
+                    result = dict(self.backend.execute(
+                        current["task"], episode_id=self.episode_id,
+                        trusted_report=trusted))
+                except ConcurrencyEvidenceRefused:
+                    # Backend-level resource mutex: the refusal is recorded in
+                    # the backend's evidence recorder; the dispatch stays
+                    # pending and is retried once the holder terminates.
+                    continue
+                if result.get("status") == "in_flight":
+                    started_at = result.get("started_at_s")
+                    planned_end = result.get("planned_end_s")
+                    for value, label in ((started_at, "started_at_s"),
+                                         (planned_end, "planned_end_s")):
+                        if (isinstance(value, bool)
+                                or not isinstance(value, (int, float))
+                                or not math.isfinite(value)):
+                            raise ValueError(
+                                f"async backend in-flight result requires a finite {label}")
+                    if planned_end < started_at:
+                        raise ValueError(
+                            "async backend in-flight planned end precedes its start")
+                    async_in_flight[task_id] = {
+                        "started_at_s": float(started_at),
+                        "planned_end_s": float(planned_end)}
+                else:
+                    settle_async_terminal(task_id, result)
+                progress = True
+            return progress
+
+        def drain_async_deliveries() -> bool:
+            """Commit every terminal result the backend staged for this runner."""
+            channel = getattr(self.backend, "completed_deliveries", None)
+            if not isinstance(channel, list) or not channel:
+                return False
+
+            def _order(item: Mapping[str, Any]) -> tuple[float, str]:
+                receipt = item.get("receipt")
+                task_id = (receipt.get("task_id") if isinstance(receipt, Mapping)
+                           else item.get("task_id"))
+                completed = item.get("completed_at_s")
+                return ((completed if isinstance(completed, (int, float))
+                         and not isinstance(completed, bool) else 0.0),
+                        str(task_id or ""))
+
+            deliveries = sorted(channel, key=_order)
+            channel.clear()
+            progress = False
+            for delivery in deliveries:
+                receipt = delivery.get("receipt")
+                if not isinstance(receipt, Mapping):
+                    raise ValueError("async backend delivery requires a receipt object")
+                task_id = receipt.get("task_id")
+                if not isinstance(task_id, str) or not task_id:
+                    raise ValueError(
+                        "async backend delivery receipt requires a task_id")
+                if settle_async_terminal(task_id, delivery):
+                    progress = True
+            return progress
+
+        def safety_cancel_invalidated(report: Mapping[str, Any]) -> bool:
+            """Safety-cancel pending tasks invalidated by lifecycle events.
+
+            ``GoalSession`` forbids a silently succeeded completion for such a
+            task, so the trusted runner terminates it through the backend
+            cancellation acknowledgement while recording the mid-flight exit
+            on the concurrency recorder when one is configured.
+            """
+            cancelled_any = False
+            for task_id in list(report["tasks"]):
+                current = session.report()["tasks"].get(task_id)
+                if current is None or current["status"] != "pending":
+                    continue
+                if not current.get("invalidated_by"):
+                    continue
+                exit_event = None
+                for event in session.report()["events"]:
+                    if (event["type"] == "member_exit"
+                            and event["sequence"] in current["invalidated_by"]
+                            and event["payload"].get("agent_id")
+                            in current["task"]["assigned_agents"]):
+                        exit_event = event
+                        break
+                if recorder is not None and exit_event is not None:
+                    recorder.note_midflight_exit(
+                        task_id, agent_id=exit_event["payload"]["agent_id"],
+                        at_s=exit_event["time_s"],
+                        in_flight=task_id in async_in_flight,
+                        session_status_before="pending",
+                        session_status_after="cancelled")
+                acknowledge_backend_cancel(current)
+                async_in_flight.pop(task_id, None)
+                cancelled_any = True
+            return cancelled_any
+
+        def pump_async_clock() -> bool:
+            """Advance the backend clock to the earliest in-flight completion."""
+            nonlocal robots, objects
+            idle = getattr(self.backend, "advance_idle", None)
+            now = session.report()["current_time_s"]
+            budget = float(self.public_task["budgets"]["simulation_s"])
+            planned_ends = [info["planned_end_s"] for info in async_in_flight.values()]
+            target = min(min(planned_ends), budget)
+            if target <= now:
+                target = min(now + 1e-6, budget)
+            if target <= now:
+                return False
+            idle_result = idle(target)
+            actual_time = (idle_result.get("time_s")
+                           if isinstance(idle_result, Mapping) else None)
+            if (isinstance(actual_time, bool)
+                    or not isinstance(actual_time, (int, float))
+                    or not math.isfinite(actual_time)
+                    or not now < actual_time <= budget):
+                raise ValueError(
+                    "async idle backend must report its actual advancing episode time")
+            idle_state = idle_result.get("runtime_state")
+            next_robots, next_objects = _require_state(idle_state, "idle runtime state")
+            # Commit completions at their own (possibly earlier) physical
+            # times before the session clock moves to the advanced idle time.
+            drain_async_deliveries()
+            host.update_runtime_state(actual_time, next_robots, next_objects)
+            robots, objects = next_robots, next_objects
+            snapshots.append({"episode_id": self.episode_id, "time_s": actual_time,
+                              "robot_regions": deepcopy(robots),
+                              "object_states": deepcopy(objects)})
+            host.emit("tick", actual_time, {"state_digest": "async_execution_pump"})
+            sample_progress("idle")
+            drain_safety_stops()
+            advance_execution_downlink()
+            return True
+
         try:
             session.update_runtime_state(0.0, robots, objects)
             sample_progress("initial")
@@ -806,6 +1120,8 @@ class FormalGoalEpisodeRunner:
                     advance_execution_downlink()
                     report = host.trusted_report()["session"]
                     assessment = report.get("deployment_assessment")
+                    if self.execution_mode == "async":
+                        note_async_termination(assessment, report["current_time_s"])
                     pending = [row for row in report["tasks"].values()
                                if row["status"] in {"pending", "cancel_requested"}]
                     if not pending:
@@ -836,6 +1152,30 @@ class FormalGoalEpisodeRunner:
                                         f"during required epoch {assessment['assessment_epoch']}")
                                 break
                         continue
+                    if self.execution_mode == "async":
+                        require_acknowledged_stops()
+                        note_async_plans(report)
+                        prune_async_in_flight()
+                        cancelled = safety_cancel_invalidated(report)
+                        progressed = start_async_executions(report, assessment)
+                        if async_in_flight:
+                            if not pump_async_clock():
+                                require_acknowledged_stops()
+                                raise RuntimeError(
+                                    "async execution pump cannot advance the physical clock")
+                            drain_async_deliveries()
+                            continue
+                        if cancelled or progressed or drain_async_deliveries():
+                            continue
+                        # Pending work remains, nothing is in flight, and no
+                        # backend terminal arrived: only tool waits can still
+                        # make progress on this episode.
+                        if advance_idle_work():
+                            continue
+                        require_acknowledged_stops()
+                        raise RuntimeError(
+                            "pending execution made no async progress and no "
+                            "execution is in flight")
                     # A synchronous backend advances the same physical scene;
                     # never infer overlapping completion times from plan order.
                     if self.downlink is not None:
@@ -1268,7 +1608,17 @@ class FormalGoalEpisodeRunner:
             result["session_audit_validated"] = (
                 session_audit_replay is not None
                 and session_audit_replay.get("validated") is True)
+        if self.execution_mode == "async":
+            result["execution_mode"] = "async"
         _write_json(self.output_root / "result.json", result)
+        if self.execution_mode == "async" and self.concurrency_recorder is not None:
+            _write_json(
+                self.output_root / "concurrency_evidence.json",
+                build_concurrency_evidence_report(
+                    self.concurrency_recorder,
+                    task_id=self.public_task["task_id"],
+                    scene_key=self.public_task["mission"]["scene_key"],
+                    runner_result=result))
         from .goal_scoring_adapter import build_scoring_adapter_metadata
         scoring_metadata = build_scoring_adapter_metadata(
             self.public_task,

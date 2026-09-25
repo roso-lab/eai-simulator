@@ -24,16 +24,22 @@ that proof:
   five evidence categories is either ``triggered`` with details or explicitly
   ``not_triggered``; release-style flags are permanently ``False``.
 
-Known integration boundary (documented, not hidden): the current runner loop
-executes ``pending[0]`` synchronously to a terminal receipt before the next
-skill starts, so genuine in-flight overlap cannot be produced *through* that
-unmodified loop.  Runner-level integration in this module therefore proves the
-serial counterexample (planned overlap that is correctly not credited), the
-admission-window behaviour, cancellation, and post-termination refusals;
-genuine overlap, the backend mutex, mid-flight exits, and cancel races are
-proven at component level against the real ``GoalSession`` state machine.
-This module never starts Isaac and never promotes any run to a scoreable
-benchmark result.
+Known integration boundary (documented, not hidden): the *default* runner
+loop executes ``pending[0]`` synchronously to a terminal receipt before the
+next skill starts, so genuine in-flight overlap cannot be produced through
+that unmodified serial loop. ``FormalGoalEpisodeRunner`` now offers an
+opt-in ``execution_mode="async"`` that requires this backend's explicit
+``supports_async_execution`` capability (in-flight mode only); under that
+mode the runner starts every pending dispatch without blocking, advances
+the backend clock through ``advance_idle``, commits staged
+``completed_deliveries`` terminals through the real ``GoalSession``, and
+archives this report as ``concurrency_evidence.json`` when a recorder is
+configured. Runner-level serial tests still prove the serial counterexample
+(planned overlap that is correctly not credited), admission windows,
+cancellation, and post-termination refusals; component-level tests keep
+covering the same races directly against the state machine. This module
+never starts Isaac and never promotes any run to a scoreable benchmark
+result.
 """
 
 from __future__ import annotations
@@ -69,14 +75,19 @@ _EVIDENCE_DEFINITION = (
 
 _INTEGRATION_GAP = {
     "runner_loop": (
-        "FormalGoalEpisodeRunner executes pending[0] synchronously to a "
-        "terminal receipt before the next skill starts, so no two skills can "
-        "be simultaneously in flight through the unmodified loop."
+        "The default FormalGoalEpisodeRunner loop executes pending[0] "
+        "synchronously to a terminal receipt before the next skill starts, so "
+        "no two skills can be simultaneously in flight through that "
+        "unmodified serial loop. The opt-in execution_mode='async' removes "
+        "this structural limit for backends that explicitly declare "
+        "supports_async_execution."
     ),
     "genuine_overlap_scope": (
-        "Genuine in-flight overlap, backend-level resource mutex, mid-flight "
-        "member exits, and cancel-versus-completion races are exercised at "
-        "component level against the real GoalSession state machine."
+        "Genuine in-flight overlap, the backend-level resource mutex, "
+        "mid-flight member exits, and cancel-versus-completion races are "
+        "exercised at component level against the real GoalSession state "
+        "machine and, in the runner's opt-in async execution mode, through "
+        "the real FormalGoalEpisodeRunner loop itself."
     ),
     "native_validation": (
         "All facts in this archive come from a deterministic fake backend; "
@@ -554,6 +565,16 @@ class ConcurrentFakeBackend:
     def serial(self) -> bool:
         return self._serial
 
+    @property
+    def supports_async_execution(self) -> bool:
+        """Declare the runner's opt-in async execution capability.
+
+        Only the in-flight mode can keep several skills simultaneously
+        executing under the runner's two-phase dispatch/pump loop; the serial
+        mode exists precisely for the default synchronous runner loop.
+        """
+        return not self._serial
+
     def in_flight_task_ids(self) -> list[str]:
         return sorted(self._in_flight)
 
@@ -588,10 +609,17 @@ class ConcurrentFakeBackend:
                             f"holding {key}"))
                 raise ResourceConflictExecutionRefused(
                     f"resource {key} is already held by in-flight task {holder}")
-        duration = _finite_s(task["execution"]["duration_s"], "task duration_s")
+        execution = task["execution"]
+        duration = _finite_s(execution["duration_s"], "task duration_s")
+        planned_start = _finite_s(execution["start_s"], "task start_s")
+        # Complete at the admitted window end when the dispatch started late,
+        # exactly like serial mode: GoalSession refuses a successful completion
+        # beyond the planned window, so an in-flight skill restarted after a
+        # backend mutex refusal must not plan past that boundary.
+        planned_end = min(start_s + duration, planned_start + duration)
         row = {
             "task": deepcopy(dict(task)), "resources": resources,
-            "planned_end_s": start_s + duration,
+            "planned_end_s": planned_end,
         }
         self._in_flight[task_id] = row
         self._recorder.note_execution_start(
