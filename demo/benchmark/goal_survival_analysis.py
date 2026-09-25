@@ -493,7 +493,8 @@ def restricted_mean_gap(curve, *, lo: float, hi: float) -> dict[str, Any]:
 
 def aggregate_survival(pair_sets, *, horizon_s: float, ell_star=None,
                        bootstrap_iterations: int = DEFAULT_BOOTSTRAP_ITERATIONS,
-                       seed: int = DEFAULT_BOOTSTRAP_SEED) -> dict[str, Any]:
+                       seed: int = DEFAULT_BOOTSTRAP_SEED,
+                       base_instance_ids=None) -> dict[str, Any]:
     """Aggregate per-episode right-censored pair sets (protocol 2.6).
 
     ``pair_sets`` is the aggregator's per-episode ``[(tilde_tau, Delta)]``
@@ -503,14 +504,16 @@ def aggregate_survival(pair_sets, *, horizon_s: float, ell_star=None,
     one Kaplan-Meier curve is estimated over the union; per-episode
     clusters stay the resampling unit.
 
+    ``base_instance_ids`` (viewer stage67 P0-1) optionally maps each pair
+    set to its base instance: episodes sharing a base instance form one
+    bootstrap cluster so they are never resampled as independent samples.
+    Without the mapping every episode is its own instance (disclosed).
+
     The result discloses the pooled curve, :math:`\\mathrm{RMST}(H)`, the
     within-:math:`\\ell^{\\star}` probability when ``ell_star`` is given,
-    event/censoring counts, and the cluster-bootstrap CI (episodes first,
-    then pairs inside every drawn episode; rebuild KM; take the 2.5/97.5
-    percentiles of the RMST distribution — the same discipline as
-    ``goal_metric_aggregation``).  Bootstrap replicates whose resample
-    contains no event keep :math:`S\\equiv1` (RMST = H); they are honest
-    samples of estimator variability, not skipped.
+    event/censoring counts, and the cluster-bootstrap CI.  Bootstrap
+    replicates whose resample contains no event keep :math:`S\\equiv1`
+    (RMST = H); they are honest samples of estimator variability.
 
     Empty input, all-empty episode collections and all-censored pair sets
     are explicit N/A labels, never zero values.
@@ -522,6 +525,23 @@ def aggregate_survival(pair_sets, *, horizon_s: float, ell_star=None,
     if isinstance(pair_sets, Mapping) or not isinstance(pair_sets, Sequence):
         raise ValueError("pair_sets must be a sequence of per-episode pair "
                          "collections")
+
+    # Viewer stage67 P0-1: group episodes into base-instance clusters when
+    # the mapping is provided; otherwise each episode is its own instance.
+    if base_instance_ids is not None:
+        if (not isinstance(base_instance_ids, Sequence)
+                or len(base_instance_ids) != len(pair_sets)):
+            raise ValueError("base_instance_ids must match pair_sets length")
+        by_instance: dict[str, list[int]] = {}
+        for index, iid in enumerate(base_instance_ids):
+            if not isinstance(iid, str) or not iid:
+                raise ValueError("base_instance_ids entries must be nonempty")
+            by_instance.setdefault(iid, []).append(index)
+        instance_groups = list(by_instance.values())
+        clustering = "base_instance_provided"
+    else:
+        instance_groups = [[index] for index in range(len(pair_sets))]
+        clustering = "one_episode_per_instance_assumed"
 
     clusters: list[list[tuple[float, int]]] = []
     incomplete_pairs = 0
@@ -619,19 +639,21 @@ def aggregate_survival(pair_sets, *, horizon_s: float, ell_star=None,
         result["recovery_prob_at_ell_star"] = recovery
 
     rng = random.Random(seed)
-    n_clusters = len(clusters)
+    n_groups = len(instance_groups)
     rmst_replicates: list[float] = []
     recovery_replicates: list[float] = []
     skipped_empty = 0
     for _ in range(bootstrap_iterations):
         sample: list[tuple[float, int]] = []
-        for _ in range(n_clusters):
-            cluster = clusters[rng.randrange(n_clusters)]
-            if not cluster:
-                continue
-            size = len(cluster)
-            for _ in range(size):
-                sample.append(cluster[rng.randrange(size)])
+        for _ in range(n_groups):
+            group = instance_groups[rng.randrange(n_groups)]
+            for episode_index in group:
+                cluster = clusters[episode_index]
+                if not cluster:
+                    continue
+                size = len(cluster)
+                for _ in range(size):
+                    sample.append(cluster[rng.randrange(size)])
         if not sample:
             skipped_empty += 1
             continue
@@ -646,10 +668,11 @@ def aggregate_survival(pair_sets, *, horizon_s: float, ell_star=None,
         "iterations": bootstrap_iterations,
         "seed": seed,
         "method": "percentile_2.5_97.5",
-        "resampling": ("instance-level (episode cluster) stratified: pair-set "
-                       "clusters first, then pairs within every drawn "
-                       "cluster; KM rebuilt per replicate — same discipline "
-                       "as goal_metric_aggregation"),
+        "resampling": ("base-instance clustered: instance groups first, then "
+                       "episodes within a group, then pairs within every "
+                       "drawn episode; KM rebuilt per replicate — same "
+                       "discipline as goal_metric_aggregation"),
+        "clustering": clustering,
         "zero_event_replicate_rule": ("a replicate whose resample contains no "
                                       "event keeps S=1 (RMST = H) and is an "
                                       "honest sample of estimator "
@@ -683,6 +706,95 @@ __all__ = [
     "NA_NO_EVENTS", "NA_WINDOW_BEYOND_HORIZON",
     "PROTOCOL_SECTION", "PROTOCOL_SECTION_LEARNING", "PROTOCOL_SECTION_STALL",
     "SURVIVAL_SCHEMA", "SURVIVAL_VERSION",
-    "aggregate_survival", "kaplan_meier_curve", "recovery_probability",
+    "aggregate_survival", "kaplan_meier_curve", "learning_rc_survival_gain",
+    "recovery_probability",
     "restricted_mean_gap", "rmst", "rmst_difference",
 ]
+
+
+def learning_rc_survival_gain(condition_c_pairs, condition_r_pairs, *,
+                               horizon_s: float,
+                               base_instance_ids=None,
+                               bootstrap_iterations: int = 2000,
+                               seed: int = 0) -> dict[str, Any]:
+    """Per-instance RMST learning gain LG^RMST = RMST^C - RMST^R (§3.5).
+
+    ``condition_c_pairs`` is the no-experience baseline C and
+    ``condition_r_pairs`` the learning condition R, each a per-episode pair
+    set list (same shapes as :func:`aggregate_survival`).  The function
+    builds per-base-instance pooled KM curves for both conditions, computes
+    the per-instance RMST difference, then macro-averages and produces a
+    paired bootstrap CI at the base-instance level.
+    """
+    horizon = _validate_horizon(horizon_s)
+    if len(condition_c_pairs) != len(condition_r_pairs):
+        raise ValueError("condition pair sets must be paired per base instance")
+    n = len(condition_c_pairs)
+    if base_instance_ids is None:
+        base_instance_ids_list = ["bi%d" % index for index in range(n)]
+    else:
+        if len(base_instance_ids) != n:
+            raise ValueError("base_instance_ids must match pair sets length")
+        base_instance_ids_list = list(base_instance_ids)
+
+    by_instance: dict[str, dict[str, list[tuple[float, int]]]] = {}
+    for index in range(n):
+        iid = base_instance_ids_list[index]
+        c_pairs, _, _ = _parse_pair_list(condition_c_pairs[index], horizon=horizon,
+                                          label="C[%d]" % index)
+        r_pairs, _, _ = _parse_pair_list(condition_r_pairs[index], horizon=horizon,
+                                          label="R[%d]" % index)
+        by_instance[iid] = {"C": c_pairs, "R": r_pairs}
+
+    per_instance_diffs: dict[str, float | None] = {}
+    for iid, pair_sets in by_instance.items():
+        c_pooled = pair_sets["C"]
+        r_pooled = pair_sets["R"]
+        if not c_pooled or not r_pooled:
+            per_instance_diffs[iid] = None
+            continue
+        c_curve = kaplan_meier_curve(c_pooled, horizon_s=horizon)
+        r_curve = kaplan_meier_curve(r_pooled, horizon_s=horizon)
+        if c_curve.get("status") == "na" or r_curve.get("status") == "na":
+            per_instance_diffs[iid] = None
+            continue
+        c_rmst = rmst(c_curve, horizon_s=horizon)
+        r_rmst = rmst(r_curve, horizon_s=horizon)
+        per_instance_diffs[iid] = c_rmst - r_rmst
+
+    valid = [value for value in per_instance_diffs.values() if value is not None]
+    if not valid:
+        return {"schema": SURVIVAL_SCHEMA, "version": SURVIVAL_VERSION,
+                "status": NA_EMPTY_SET,
+                "LG_RMST_macro": None,
+                "per_instance": per_instance_diffs,
+                **_RELEASE}
+
+    macro = sum(valid) / len(valid)
+    iids = sorted(iid for iid, v in per_instance_diffs.items() if v is not None)
+    rng = random.Random(seed)
+    replicates: list[float] = []
+    for _ in range(bootstrap_iterations):
+        sampled = [iids[rng.randrange(len(iids))] for _ in iids]
+        values = [per_instance_diffs[iid] for iid in sampled]
+        replicates.append(sum(values) / len(values))
+    replicates.sort()
+
+    return {
+        "schema": SURVIVAL_SCHEMA,
+        "version": SURVIVAL_VERSION,
+        "status": "computed",
+        "LG_RMST_definition": "LG^RMST = RMST^C(H) - RMST^R(H) per base instance, macro-averaged",
+        "LG_RMST_macro": macro,
+        "per_instance": per_instance_diffs,
+        "n_valid_instances": len(valid),
+        "n_missing_instances": len(per_instance_diffs) - len(valid),
+        "bootstrap": {
+            "iterations": bootstrap_iterations,
+            "seed": seed,
+            "ci_lower": _percentile(replicates, 0.025),
+            "ci_upper": _percentile(replicates, 0.975),
+            "method": "base_instance_paired_percentile",
+        },
+        **_RELEASE,
+    }

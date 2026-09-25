@@ -187,6 +187,11 @@ def _task_performance(progress_inputs: Mapping[str, Any] | None) -> dict[str, An
         # final-success predicate Y_i additionally requires the frozen
         # global termination predicates, which offline archives cannot see.
         "SR_comm": 1.0 if curve["Q_H"] == 1.0 else 0.0,
+        "SR_comm_proxy_scope": "offline_terminal_success_proxy_qh_only",
+        "SR_comm_full_yi_note": (
+            "formal Y_i additionally requires frozen global termination "
+            "predicates; consumers must not treat SR_comm=1.0 as Y_i=1 "
+            "without the contract's full success_predicate check"),
         "MCR_comm": curve["MCR"],
         "AUP_comm": curve["AUP"],
         "progress_curve": curve,
