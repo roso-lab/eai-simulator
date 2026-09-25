@@ -284,8 +284,19 @@ def _results(**overrides):
     return results
 
 
+def _full_bindings(task):
+    return register_predicate_binding(task, {
+        outcome_id: {"evaluator_ref": f"evaluator://{outcome_id}/v1",
+                     "parameters_digest": "a" * 64}
+        for outcome_id in FACTORY_OUTCOMES})
+
+
 def _judge(task, evidence, *, registry=None, results=None,
-           bindings=None):
+           bindings="auto"):
+    if bindings == "auto" and task is not None:
+        bindings = _full_bindings(task)
+    elif bindings == "auto":
+        bindings = None
     return constraint_satisfaction_vector(
         task, evidence, milestone_results=results, robot_registry=registry,
         predicate_bindings=bindings)

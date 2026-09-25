@@ -354,31 +354,19 @@ def _committed_plan_before_first_dispatch(session_report: Mapping[str, Any]) -> 
     dispatched).  ``None`` when the archive carries no parsable event/action
     lists to decide from.
     """
-    events = session_report.get("events")
-    raw_actions = session_report.get("actions")
-    if not isinstance(events, list) or not isinstance(raw_actions, list):
+    # Viewer stage65 P0-2: reuse the batch-2B parsable-plan eligibility so
+    # both layers accept exactly the same plans (an accepted plan action
+    # with a malformed/missing stored payload is NOT a committed plan).
+    from .goal_cs_vector import _committed_plan_candidates
+
+    candidates = _committed_plan_candidates(session_report)
+    if candidates is None:
         return None
-    actions = {row.get("action_id"): row.get("type") for row in raw_actions
-               if isinstance(row, Mapping) and isinstance(row.get("action_id"), str)}
-    first_dispatch_sequence: int | None = None
-    plan_sequences: list[int] = []
-    for event in events:
-        if not isinstance(event, Mapping) or event.get("type") != "action_result":
-            continue
-        payload = event.get("payload")
-        if not isinstance(payload, Mapping) or payload.get("status") != "accepted":
-            continue
-        sequence = event.get("sequence")
-        if type(sequence) is not int:
-            continue
-        action_type = actions.get(payload.get("action_id"))
-        if action_type == "dispatch_skill" and first_dispatch_sequence is None:
-            first_dispatch_sequence = sequence
-        elif action_type in {"submit_plan", "revise_plan"}:
-            plan_sequences.append(sequence)
-    if first_dispatch_sequence is None:
-        return bool(plan_sequences)
-    return any(sequence < first_dispatch_sequence for sequence in plan_sequences)
+    plan_events, first_dispatch = candidates
+    if first_dispatch is None:
+        return bool(plan_events)
+    return any(event["sequence"] < first_dispatch["sequence"]
+               for event in plan_events)
 
 
 _TERMINAL_BUSINESS_STATUSES = frozenset({"validated", "failed"})

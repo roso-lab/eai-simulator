@@ -279,6 +279,28 @@ def _accepted_plan_and_dispatch_ledger(
     return plan_events, first_dispatch, None
 
 
+def _committed_plan_candidates(session_report: Mapping[str, Any]):
+    """Eligible accepted plan events (parsable payload) + first dispatch.
+
+    Shared eligibility for the batch-0 ``no_committed_plan`` label and this
+    module's lock rule (viewer stage65 P0-2): only accepted plan actions
+    whose stored payload is structurally parsable count as committed-plan
+    candidates; an accepted action with a malformed or missing payload does
+    not.
+    """
+    plan_events, first_dispatch, unparsable = _accepted_plan_and_dispatch_ledger(
+        session_report)
+    if unparsable is not None:
+        return None
+    stored = _stored_plans(session_report)
+    eligible = []
+    for event in plan_events:
+        row = stored.get(event["action_id"])
+        if row is not None and _parsable_plan(row.get("plan")):
+            eligible.append(event)
+    return eligible, first_dispatch
+
+
 def _stored_plans(session_report: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
     rows = session_report.get("plans")
     stored: dict[str, Mapping[str, Any]] = {}
@@ -1028,7 +1050,7 @@ def _milestone_verdict(milestone: Mapping[str, Any],
         "failure_label": None,
         "evidence": {},
     }
-    if bound_ids is not None and milestone_id not in bound_ids:
+    if milestone_id not in bound_ids:
         # Never guess: without a sealed trusted-evaluator binding the
         # external predicate result has no provenance, even if a value was
         # supplied.
@@ -1074,7 +1096,9 @@ def _components_result(status: str, gate: int | None, *,
                        gate_terms: dict[str, Any] | None = None,
                        gate_reasons: list[str] | None = None,
                        atomic: dict[str, Any] | None = None,
-                       working_set: dict[str, Any] | None = None) -> dict[str, Any]:
+                       working_set: dict[str, Any] | None = None,
+                       predicate_binding_registry: dict[str, Any] | None = None,
+                       predicate_registry_missing: bool = False) -> dict[str, Any]:
     component_status = {
         CS_GATE_NO_CONTRACT_STATUS: COMPONENT_NOT_EVALUABLE_NO_CONTRACT,
         CS_STATUS_TEAM_STATE_INFEASIBLE: COMPONENT_NOT_DEFINED_INFEASIBLE,
@@ -1098,6 +1122,8 @@ def _components_result(status: str, gate: int | None, *,
         gate={"G": gate, "terms": gate_terms or {},
               "failure_reasons": gate_reasons or []},
         components=components,
+        predicate_binding_registry=predicate_binding_registry,
+        predicate_registry_missing=predicate_registry_missing,
         vector={name: entry["rate"] for name, entry in components.items()},
         atomic_verdicts=atomic or {"capability": [], "role": [], "milestone": []},
         activation_working_set=working_set or {},
@@ -1194,11 +1220,16 @@ def constraint_satisfaction_vector(contract_v4: Mapping[str, Any] | None,
                      for milestone in contract_v4[MILESTONES_FIELD]}
     results = _validate_milestone_results(milestone_results, milestone_ids)
     registry = _validate_robot_registry(robot_registry)
-    bound_ids: set[str] | None = None
+    binding_report: dict[str, Any] | None = None
+    bound_ids: set[str] = set()
     if predicate_bindings is not None:
         binding_report = validate_predicate_bindings(
             contract_v4, predicate_bindings)
         bound_ids = set(binding_report["bound_milestone_ids"])
+    # Without a sealed trusted-evaluator registry, no milestone result has
+    # provenance: every required milestone is predicate_unbound and can
+    # never be satisfied by a bare boolean (viewer stage65 review P0-1).
+    binding_missing = predicate_bindings is None
 
     active_cap = [constraint for constraint
                   in contract_v4[CAPABILITY_CONSTRAINTS_FIELD]
@@ -1253,6 +1284,8 @@ def constraint_satisfaction_vector(contract_v4: Mapping[str, Any] | None,
         judge_status, gate, cap=cap_verdicts, role=role_verdicts,
         mile=mile_verdicts, gate_terms=gate_terms,
         gate_reasons=gate_reasons,
+        predicate_binding_registry=binding_report,
+        predicate_registry_missing=binding_missing,
         atomic={"capability": cap_verdicts, "role": role_verdicts,
                 "milestone": mile_verdicts},
         working_set=working_set)

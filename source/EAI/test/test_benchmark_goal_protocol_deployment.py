@@ -119,11 +119,33 @@ def build_session_report(
                                 "assessment_epoch": index},
                 })
                 sequence += 1
+    plans = []
     for action_type in post_actions:
-        accept(action_type, 100.0)
+        action_id = accept(action_type, 100.0)
+        if action_type in {"submit_plan", "revise_plan"}:
+            # Batch-2B parsable-plan eligibility (viewer P0-2): an accepted
+            # plan action only counts with a parsable stored payload.
+            plans.append({
+                "action_id": action_id,
+                "plan": {
+                    "schema": "eai.benchmark.goal_plan", "version": 3,
+                    "plan_id": f"plan-{action_id}",
+                    "assigned_team": ["warehouse_ground_1"],
+                    "tasks": [{
+                        "task_id": "nav", "skill": "ground_navigation",
+                        "arguments": {"region_id": "consolidation_area",
+                                      "route_ids": ["rack_a_to_consolidation"]},
+                        "required_capabilities": ["ground_navigation"],
+                        "assigned_agents": ["warehouse_ground_1"],
+                        "prerequisites": [], "evidence_refs": [],
+                        "execution": {"start_s": 0.0, "duration_s": 16.0},
+                    }],
+                },
+            })
     report = {
         "events": events,
         "actions": actions,
+        "plans": plans,
         "business_outcomes": deepcopy(business_outcomes),
         "deployment_assessment": {
             "enabled": True,
