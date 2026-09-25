@@ -403,6 +403,7 @@ class AerialSensorSuiteManager:
         *,
         seed: int = 0,
         runtime: Any | None = None,
+        publish_ros: bool = True,
     ) -> None:
         self._env = env
         self._specs = {spec.robot_name: spec for spec in specs}
@@ -414,6 +415,10 @@ class AerialSensorSuiteManager:
         }
         self._registered_robots: tuple[str, ...] = ()
         self._runtime = runtime or _IsaacAerialSensorGraphRuntime()
+        # Independent gates: the physical sensors (LiDAR prim, camera prim)
+        # exist without ROS publishing; ``publish_ros=False`` skips every
+        # ROS2 graph attachment while keeping the physical sensor layer.
+        self._publish_ros = publish_ros
         self._setup()
 
     @property
@@ -437,9 +442,9 @@ class AerialSensorSuiteManager:
             for robot_name, spec in self._specs.items():
                 if robot_name not in self._env.scene.articulations:
                     continue
-                if spec.base_sensors:
+                if spec.base_sensors and self._publish_ros:
                     self._runtime.create_sensor_graph(robot_name)
-                if spec.camera:
+                if spec.camera and self._publish_ros:
                     camera_prim_path = (
                         f"/World/envs/env_0/{robot_name}/{spec.camera_mount_link}/Camera"
                     )
@@ -455,7 +460,8 @@ class AerialSensorSuiteManager:
                             f"{robot_name} ({camera_prim_path}); skipping camera graph."
                         )
                 # Only aerial robots carry the native RTX LiDAR; MuSHR uses the
-                # optional RosLidarCfg payload instead.
+                # optional RosLidarCfg payload instead.  The physical sensor is
+                # created regardless of the ROS publishing gate.
                 if spec.robot_type in AERIAL_SENSOR_TYPES and spec.lidar:
                     body_prim_path = f"/World/envs/env_0/{robot_name}/body"
                     self._runtime.create_aerial_lidar_sensor(
@@ -463,7 +469,8 @@ class AerialSensorSuiteManager:
                         body_prim_path,
                         spec.lidar_offset,
                     )
-                    self._runtime.create_aerial_lidar_publisher(robot_name)
+                    if self._publish_ros:
+                        self._runtime.create_aerial_lidar_publisher(robot_name)
                 active.append(robot_name)
         except Exception:
             self.close()
