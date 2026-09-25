@@ -1,74 +1,72 @@
-"""Independent-gate semantics for the aerial sensor suite (no Isaac).
+"""Static contract lock for the aerial publish_ros gate (no Isaac).
 
-``publish_ros`` skips every ROS2 graph attachment while the physical sensor
-layer (native RTX LiDAR prim) is still created — mirroring the camera /
-navigation_io tool gating used elsewhere in the repository.  This also
-regresses the fused ``simulator.py`` caller, which passes
-``publish_ros=config.enable_ros_bridge_extension``.
+The ``EAI.hmrs_ros`` package imports ``omni.usd`` transitively, so the gate
+semantics are locked structurally instead of by instantiation: the fused
+``simulator.py`` caller passes ``publish_ros=`` and the suite manager must
+accept it, keep the physical LiDAR creation ungated, and gate every ROS2
+graph attachment behind the flag.  This is exactly the mismatch class that
+crashed aerial-containing startups after the branch-tool fusion.
 """
 
-from EAI.hmrs_ros.aerial_sensor_suite import AerialSensorSuiteManager
-from EAI.physics.aerial_sensors import AerialSensorRobotSpec
+import ast
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[3]
+SUITE = ROOT / "source/EAI/EAI/hmrs_ros/aerial_sensor_suite.py"
+SIMULATOR = ROOT / "simulator.py"
 
 
-class _RecordingRuntime:
-    def __init__(self):
-        self.calls: list[str] = []
-
-    def create_sensor_graph(self, robot_name):
-        self.calls.append(f"sensor_graph:{robot_name}")
-
-    def create_camera_graph(self, robot_name, camera_prim_path):
-        self.calls.append(f"camera_graph:{robot_name}")
-
-    def create_aerial_lidar_sensor(self, robot_name, body_prim_path, offset):
-        self.calls.append(f"lidar_sensor:{robot_name}")
-
-    def create_aerial_lidar_publisher(self, robot_name):
-        self.calls.append(f"lidar_publisher:{robot_name}")
-
-    def close(self):
-        self.calls.append("close")
+def _parse(path):
+    return ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 
 
-class _Env:
-    def __init__(self, robots):
-        self.scene = type("Scene", (), {"articulations": set(robots)})()
-        self._aerial_sensor_manager = None
+def _function(tree, name):
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == name:
+            return node
+    raise AssertionError(f"function {name} not found")
 
 
-def _spec(robot, **kwargs):
-    return AerialSensorRobotSpec(robot_name=robot, robot_type="iris", **kwargs)
+def test_suite_manager_accepts_publish_ros_keyword():
+    tree = _parse(SUITE)
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.ClassDef)
+                and node.name == "AerialSensorSuiteManager"):
+            init = next(child for child in node.body
+                        if isinstance(child, ast.FunctionDef)
+                        and child.name == "__init__")
+            kws = {arg.arg for arg in init.args.kwonlyargs}
+            assert "publish_ros" in kws
+            defaults = {arg.arg: default for arg, default in
+                        zip(init.args.kwonlyargs, init.args.kw_defaults)
+                        if default is not None}
+            assert defaults.get("publish_ros")
+            return
+    raise AssertionError("AerialSensorSuiteManager not found")
 
 
-def test_publish_ros_true_attaches_all_graphs():
-    runtime = _RecordingRuntime()
-    env = _Env(["iris_1"])
-    manager = AerialSensorSuiteManager(
-        env, [_spec("iris_1", lidar=True, base_sensors=True)],
-        runtime=runtime, publish_ros=True)
-    assert "sensor_graph:iris_1" in runtime.calls
-    assert "lidar_sensor:iris_1" in runtime.calls
-    assert "lidar_publisher:iris_1" in runtime.calls
+def test_setup_gates_ros_graphs_but_not_physical_lidar():
+    tree = _parse(SUITE)
+    setup = _function(tree, "_setup")
+    source = ast.unparse(setup)
+    assert "if spec.base_sensors and self._publish_ros" in source
+    assert "if spec.camera and self._publish_ros" in source
+    assert "if self._publish_ros" in source
+    # The physical LiDAR creation call must appear before/outside the
+    # publisher gate in the same block.
+    assert "create_aerial_lidar_sensor(" in source
+    assert "create_aerial_lidar_publisher(robot_name)" in source
+    sensor_index = source.index("create_aerial_lidar_sensor(")
+    publisher_gate = source.index("if self._publish_ros")
+    assert sensor_index < publisher_gate
 
 
-def test_publish_ros_false_keeps_physical_sensor_skips_ros_graphs():
-    runtime = _RecordingRuntime()
-    env = _Env(["iris_1"])
-    manager = AerialSensorSuiteManager(
-        env, [_spec("iris_1", lidar=True, base_sensors=True)],
-        runtime=runtime, publish_ros=False)
-    assert "lidar_sensor:iris_1" in runtime.calls
-    assert "sensor_graph:iris_1" not in runtime.calls
-    assert "lidar_publisher:iris_1" not in runtime.calls
-    assert "camera_graph:iris_1" not in runtime.calls
-
-
-def test_publish_ros_false_skips_camera_graph_without_touching_usd():
-    runtime = _RecordingRuntime()
-    env = _Env(["iris_1"])
-    AerialSensorSuiteManager(
-        env, [_spec("iris_1", camera=True)],
-        runtime=runtime, publish_ros=False)
-    # No omni.usd import path is taken when publishing is disabled.
-    assert runtime.calls == []
+def test_simulator_caller_passes_publish_ros():
+    tree = _parse(SIMULATOR)
+    wrapper = _function(tree, "_setup_aerial_sensor_manager")
+    wrapper_source = ast.unparse(wrapper)
+    assert "publish_ros: bool = True" in wrapper_source
+    assert "publish_ros=publish_ros" in wrapper_source
+    # The only call site forwards the ROS bridge flag.
+    simulator_source = ast.unparse(tree)
+    assert "publish_ros=config.enable_ros_bridge_extension" in simulator_source
