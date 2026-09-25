@@ -1235,6 +1235,17 @@ class FormalGoalEpisodeRunner:
                     build_cost_evidence(
                         self.output_root, episode_id=self.episode_id,
                         task_sha256=task_sha256))
+        # R2 declaration-boundary cost snapshot: freeze pre-declaration facts
+        # at each deployment decision with actual call-order semantics.
+        from .goal_declaration_cost_snapshot import (
+            build_declaration_cost_snapshots,
+        )
+        _write_json(self.output_root / "declaration_cost_snapshots.json",
+                    build_declaration_cost_snapshots(
+                        {"episode_id": self.episode_id, "report": final_report},
+                        communication_report=(
+                            self.communication_tools.communication_report()
+                            if self.communication_tools is not None else None)))
         deployment_assessment = final_report.get("deployment_assessment")
         result = {
             "schema": "eai.benchmark.formal_goal_episode_result", "version": 3,

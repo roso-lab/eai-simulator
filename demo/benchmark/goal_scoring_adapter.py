@@ -961,6 +961,47 @@ def communication_capacity_observations(output_root: str | Path) -> dict[str, An
             "report_sha256": _sha256(path)}
 
 
+def declaration_cost_snapshot_observations(output_root: str | Path) -> dict[str, Any]:
+    """Attach the declaration-boundary cost snapshots as raw evidence.
+
+    Pre-declaration costs are only comparable through their explicit
+    boundary semantics (actual call order, ambiguous-at-boundary
+    segregation, scheduling-billing bytes).  A missing snapshot file keeps
+    the episode explicitly unmeasured at declaration granularity — it never
+    becomes a zero-cost result.
+    """
+    path = Path(output_root) / "declaration_cost_snapshots.json"
+    base = {"raw_only": True, "not_protocol_score": True,
+            "scoreable": False, "execution_validated": False,
+            "business_outcomes_validated": False}
+    if not path.is_file():
+        return {**base, "status": "missing", "report": None,
+                "quality_failure": "declaration_snapshots_missing"}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, Mapping):
+            raise ValueError("declaration snapshots must be an object")
+        if payload.get("schema") != "eai.benchmark.goal_declaration_cost_snapshot":
+            raise ValueError("unexpected declaration snapshot schema")
+        if type(payload.get("version")) is not int or payload["version"] < 1:
+            raise ValueError("invalid declaration snapshot version")
+        if payload.get("scoreable") is not False:
+            raise ValueError("declaration snapshots cannot be a score")
+        snapshots = payload.get("snapshots")
+        if not isinstance(snapshots, list):
+            raise ValueError("declaration snapshots must be a list")
+        if any(isinstance(row, Mapping) and row.get("status") == "snapshot"
+               and row.get("quality_failures")
+               for row in snapshots):
+            raise ValueError("declaration snapshot quality failures present")
+    except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+        return {**base, "status": "invalid", "report": None,
+                "quality_failure": f"declaration_snapshots_invalid:{type(exc).__name__}"}
+    return {**base, "status": "observed",
+            "snapshot_count": payload.get("snapshot_count", len(snapshots)),
+            "unmeasured_note": payload.get("unmeasured_note")}
+
+
 def checkpoint_branch_observations(output_root: str | Path) -> dict[str, Any]:
     """Attach the checkpoint branch-replay report as raw evidence.
 
@@ -1105,6 +1146,8 @@ def build_scoring_adapter_metadata(
         "communication_analysis": communication_analysis_observations(output_root),
         "communication_capacity": communication_capacity_observations(output_root),
         "checkpoint_branch": checkpoint_branch_observations(output_root),
+        "declaration_cost_snapshots": declaration_cost_snapshot_observations(
+            output_root),
         "native_oracle_registry": native_oracle_registry_observations(output_root),
         "development_track": development_track_observations(development_markers),
         "cost_evidence": cost_evidence,
@@ -1201,6 +1244,7 @@ __all__ = [
     "DIMENSION_STATUS", "PROTOCOL_MAPPING_REVISION", "SCORING_ADAPTER_SCHEMA",
     "SCORING_ADAPTER_VERSION", "build_archive_index", "build_scoring_adapter_metadata",
     "checkpoint_branch_observations", "communication_analysis_observations",
+    "declaration_cost_snapshot_observations",
     "communication_capacity_observations", "deployment_assessment_observations",
     "development_track_observations", "native_oracle_registry_observations",
     "plan_admission_observations", "task_allocation_observations",
