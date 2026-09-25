@@ -1,9 +1,9 @@
 # EAI Simulator Benchmark 工程交接文档
 
 日期：2026-09-26  
-分支：`codex/benchmark-pose-telemetry`（推送目标 `benchmark-task`）  
-HEAD：`f249048`  
-编写：ZCode 主任务（goal 循环暂停时的阶段性交接）
+分支：`codex/benchmark-stage57-oracle-integration`（推送目标 `benchmark-task`）
+HEAD：`0b3746b`（Stage68 工作树验收基线；通信 P0 尚未提交）
+编写：主任务（goal 循环中的阶段性交接；Stage68 细节见 `STAGE68_COMMUNICATION_P0.zh-CN.md`）
 
 ---
 

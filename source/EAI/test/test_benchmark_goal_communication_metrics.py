@@ -67,6 +67,10 @@ def test_sr_mcr_aup_end_to_end_from_progress_curve():
         condition_id="perfect")["task_performance"]
     assert full["SR_comm"] == 1.0
     assert full["MCR_comm"] == 1.0
+    assert full["sr_basis"] == "Q(H)"
+    assert full["proxy_only"] is True
+    assert full["global_termination_predicate_available"] is False
+    assert full["SR_comm_formal"] is None
 
 
 def test_task_performance_na_when_milestones_missing():
@@ -282,6 +286,11 @@ def test_retention_curve_reference_gates_ordering_and_unknown_rows():
     assert (bracket["x_lower_condition"],
             bracket["x_upper_condition"]) == ("d0", "d2")
 
+    trailing = retention_curve({"d0": 0.9, "d1": 0.8, "d2": None},
+                               reference_condition="d0")
+    assert trailing["thresholds"]["0.5"]["status"] == "na_trailing_condition_missing"
+    assert "x_upper_bound_condition" not in trailing["thresholds"]["0.5"]
+
     with pytest.raises(ValueError, match="lowest-severity"):
         retention_curve({"d1": 0.5, "d0": 0.9}, reference_condition="d0")
 
@@ -332,6 +341,11 @@ def test_capacity_thresholds_edge_statuses_and_boundary():
                                 min_reference=0.5)
     assert gated["status"] == "reference_below_minimum"
     assert gated["reference"]["valid"] is False
+
+    trailing = capacity_thresholds(
+        {None: 1.0, 1000.0: 0.8, 2000.0: None}, c0_bps=4000.0)
+    assert trailing["thresholds"]["0.9"]["status"] == "na_trailing_capacity_missing"
+    assert "capacity_lower_bound_bits_per_s" not in trailing["thresholds"]["0.9"]
 
 
 def test_communication_dependency_gated_by_m_min():

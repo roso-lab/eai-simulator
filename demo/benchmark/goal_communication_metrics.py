@@ -157,11 +157,22 @@ def _task_performance(progress_inputs: Mapping[str, Any] | None) -> dict[str, An
     are N/A rather than errors; malformed values fail closed inside
     :func:`goal_progress_curve.build_progress_curve`.
     """
+    # ``SR_comm`` is intentionally retained as the numeric Q(H) proxy for
+    # offline analysis, but its evidence boundary is always machine-readable.
+    # The offline milestone archive does not carry the frozen global
+    # termination predicate, so no result from this function is formal Y_i.
+    sr_proxy_metadata = {
+        "sr_basis": "Q(H)",
+        "proxy_only": True,
+        "global_termination_predicate_available": False,
+        "SR_comm_formal": None,
+        "SR_comm_status": "offline_terminal_success_proxy",
+    }
     na = {"status": NA_MISSING_MILESTONES,
           "na_reason": "milestone observations are absent: SR/MCR/AUP are N/A",
           "SR_comm": None, "MCR_comm": None, "AUP_comm": None,
           "e_step": None, "e_step_note": "decision_steps_not_recorded",
-          "progress_curve": None}
+          "progress_curve": None, **sr_proxy_metadata}
     if progress_inputs is None:
         return dict(na)
     if not isinstance(progress_inputs, Mapping):
@@ -188,6 +199,7 @@ def _task_performance(progress_inputs: Mapping[str, Any] | None) -> dict[str, An
         # global termination predicates, which offline archives cannot see.
         "SR_comm": 1.0 if curve["Q_H"] == 1.0 else 0.0,
         "SR_comm_proxy_scope": "offline_terminal_success_proxy_qh_only",
+        **sr_proxy_metadata,
         "SR_comm_full_yi_note": (
             "formal Y_i additionally requires frozen global termination "
             "predicates; consumers must not treat SR_comm=1.0 as Y_i=1 "
@@ -519,9 +531,24 @@ def retention_curve(
         violating = next((row for row in known[1:]
                           if _falls_below(row["retention"], q)), None)
         if violating is None:
-            thresholds_out[str(q)] = {
-                "status": "above_tested_maximum", "threshold": q,
-                "x_upper_bound_condition": order[-1]}
+            # A trailing pre-registered condition with unknown M means the
+            # tested severity boundary is unknown.  Do not turn the last
+            # *known* point into an above-tested claim or imply extrapolation.
+            if not known:
+                thresholds_out[str(q)] = {
+                    "status": "na_no_known_performance", "threshold": q,
+                    "na_reason": "no tested condition has known retention"}
+            elif out_rows[-1]["retention"] is None:
+                thresholds_out[str(q)] = {
+                    "status": "na_trailing_condition_missing",
+                    "threshold": q,
+                    "na_reason": (
+                        "the terminal pre-registered condition has no known "
+                        "performance")}
+            else:
+                thresholds_out[str(q)] = {
+                    "status": "above_tested_maximum", "threshold": q,
+                    "x_upper_bound_condition": known[-1]["condition"]}
             continue
         index = out_rows.index(violating)
         preceding = next((row for row in reversed(out_rows[:index])
@@ -616,10 +643,20 @@ def capacity_thresholds(
         qualified = [point for point in known
                      if _meets(point["retention"], q)]
         if not qualified:
-            thresholds_out[str(q)] = {
-                "status": "above_tested_maximum", "threshold": q,
-                "capacity_lower_bound_bits_per_s": (
-                    finite_points[-1][0] if finite_points else None)}
+            if not known:
+                thresholds_out[str(q)] = {
+                    "status": "na_no_known_performance", "threshold": q,
+                    "na_reason": "no tested capacity has known retention"}
+            elif points[-1]["retention"] is None:
+                thresholds_out[str(q)] = {
+                    "status": "na_trailing_capacity_missing", "threshold": q,
+                    "na_reason": (
+                        "the terminal pre-registered capacity has no known "
+                        "performance")}
+            else:
+                thresholds_out[str(q)] = {
+                    "status": "above_tested_maximum", "threshold": q,
+                    "capacity_lower_bound_bits_per_s": known[-1]["capacity_bits_per_s"]}
             continue
         high = min(qualified, key=lambda point: point["capacity_bits_per_s"])
         lower = [point for point in known
@@ -629,6 +666,12 @@ def capacity_thresholds(
                 "status": "bracketed", "threshold": q,
                 "capacity_lower_bits_per_s": lower[-1]["capacity_bits_per_s"],
                 "capacity_upper_bits_per_s": high["capacity_bits_per_s"]}
+        elif points[0]["retention"] is None:
+            thresholds_out[str(q)] = {
+                "status": "na_least_capacity_missing", "threshold": q,
+                "na_reason": (
+                    "the least pre-registered capacity has no known "
+                    "performance")}
         else:
             thresholds_out[str(q)] = {
                 "status": "at_or_below_tested_minimum", "threshold": q,
