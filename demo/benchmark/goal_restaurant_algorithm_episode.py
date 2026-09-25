@@ -92,6 +92,10 @@ ALGORITHMS = ("teamweaver", "emos")
 # allocator's assignment choice, not an infrastructure failure.
 EFFECTIVE_SPEED_M_S = 0.25
 NAVIGATION_MARGIN_S = 12.0
+_STAGE59_COMMUNICATION_COST_FIELDS = frozenset({
+    "byte_accounting", "total_bytes_interpretation",
+    "total_physical_progress",
+})
 
 # Agent-scoped leg matrix.  Both anchors are "restaurant_staging" members; a
 # leg is identified by (native agent, from-region, to-region) and its geometry
@@ -1768,7 +1772,7 @@ def _verify_native_transport(root: Path, request: Mapping[str, Any],
     archived_cost = load("cost_evidence.json")
     if (not isinstance(archived_cost, Mapping)
             or type(archived_cost.get("version")) is not int
-            or archived_cost["version"] not in {1, 2}):
+            or archived_cost["version"] not in {1, 2, 3}):
         raise ValueError("native communication cost has an unsupported schema")
     binding = archived_cost.get("source_binding")
     communication_cost = archived_cost.get("communication")
@@ -1788,16 +1792,35 @@ def _verify_native_transport(root: Path, request: Mapping[str, Any],
         communication_cost.get("binding_status") not in {None, "legacy_unbound"}
         or bool(communication_cost.get("binding_file_statuses"))))
     formal_cost = ((root / "goal_cost_source_bindings.json").exists()
-                   or (archived_cost["version"] == 2 and not explicit_legacy)
+                   or (archived_cost["version"] in {2, 3} and not explicit_legacy)
                    or communication_bound
                    or (isinstance(binding, Mapping) and binding.get("mode") == "formal"))
+    if archived_cost["version"] == 1 and formal_cost:
+        raise ValueError("historical v1 communication cost cannot be formal")
     recomputed_cost = build_cost_evidence(
         root, episode_id=request["episode_id"],
         task_sha256=request["public_task_sha256"] if formal_cost else None,
     )["communication"]
-    # Historical v1 cost blocks predate binding metadata. Compare their
-    # original facts without claiming that a legacy archive is task-bound.
-    if archived_cost.get("version") == 1 and not formal_cost:
+    # Historical v1/v2 blocks predate byte-accounting semantics. Project only
+    # fields known to be absent in that generation; a downgraded archive that
+    # carries new fields is rejected instead of having them silently stripped.
+    if archived_cost["version"] in {1, 2}:
+        if (not isinstance(communication_cost, Mapping)
+                or _STAGE59_COMMUNICATION_COST_FIELDS & set(communication_cost)):
+            raise ValueError(
+                "historical communication cost has unexpected byte semantics")
+        recomputed_cost = {
+            key: value for key, value in recomputed_cost.items()
+            if key not in _STAGE59_COMMUNICATION_COST_FIELDS
+        }
+    # V1 also predates source binding. Reject a partially stripped downgrade,
+    # then compare the original facts without claiming task binding.
+    if archived_cost["version"] == 1:
+        if ("source_binding" in archived_cost
+                or {"binding_status", "binding_file_statuses"}
+                & set(communication_cost)):
+            raise ValueError(
+                "historical v1 communication cost has unexpected source binding")
         recomputed_cost = {key: value for key, value in recomputed_cost.items()
                            if key not in {"binding_status", "binding_file_statuses"}}
     if (not recomputed_cost["valid"]

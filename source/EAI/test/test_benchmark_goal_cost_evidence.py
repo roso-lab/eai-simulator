@@ -1,6 +1,52 @@
 import json
+from copy import deepcopy
 
 import pytest
+
+
+_V4_BYTE_ACCOUNTING = {
+    "schema": "eai.benchmark.communication_byte_accounting",
+    "version": 1,
+    "treated_copy_semantics": "completed_whole_bytes_at_report_horizon",
+    "ordinary_pool_copy_semantics": "whole_copy_charged_at_service_start",
+    "total_physical_progress": False,
+}
+
+
+def _treatment():
+    return {
+        "schema": "eai.benchmark.communication_publication_treatment",
+        "version": 1,
+        "semantics": "shared_fifo_anchored_window_v1",
+        "binding_sha256": "a" * 64,
+        "event_id": "stage59-byte-semantics",
+        "trigger": "stage59-byte-semantics",
+        "operation": "drop",
+        "delay_s": 0.0,
+        "drop": True,
+        "bytes_per_window": 1000,
+        "window_s": 100.0,
+        "publication_validity_s": 100.0,
+    }
+
+
+def _mixed_v4_report():
+    from demo.benchmark.communication import CommunicationRuntime
+
+    runtime = CommunicationRuntime({"pools": {
+        "backhaul_uplink": {"capacity_bps": 4.0}}})
+    runtime.publish(
+        message_id="treated-drop", producer_id="robot", recipients=["host"],
+        channel="result", estimate={"value": "t"}, valid_until_s=100.0,
+        pool="backhaul_uplink", direction="uplink",
+        publication_treatment=_treatment())
+    ordinary = runtime.publish(
+        message_id="ordinary", producer_id="robot", recipients=["host"],
+        channel="result", estimate={"value": "x" * 100}, valid_until_s=100.0,
+        pool="backhaul_uplink", direction="uplink")
+    runtime.advance(1.25)
+    assert ordinary["size_bytes"] == 214
+    return runtime.report()
 
 
 def test_shared_transport_is_authoritative_replayed_and_counted_once(tmp_path):
@@ -46,7 +92,7 @@ def test_raw_cost_evidence_keeps_unavailable_sources_null(tmp_path):
     result = build_cost_evidence(tmp_path)
 
     assert result["schema"] == "eai.benchmark.goal_raw_cost_evidence"
-    assert result["version"] == 2
+    assert result["version"] == 3
     assert result["source_binding"]["mode"] == "legacy_unbound"
     assert result["clock_source"] == "goal_host_receipt_clock"
     assert result["clock_valid"] is False
@@ -54,6 +100,9 @@ def test_raw_cost_evidence_keeps_unavailable_sources_null(tmp_path):
     assert result["clock"]["elapsed_s"] is None
     assert result["accepted_actions"]["total_count"] is None
     assert result["communication"]["total_bytes"] is None
+    assert result["communication"]["byte_accounting"] is None
+    assert result["communication"]["total_bytes_interpretation"] == "unavailable"
+    assert result["communication"]["total_physical_progress"] is False
     assert result["activation_cost_proxy"]["value"] is None
     assert result["planning_compute_cost"]["total_s"] is None
     assert result["validity"]["scoreable"] is False
@@ -115,6 +164,10 @@ def test_raw_cost_evidence_joins_trusted_clock_actions_proxy_and_replayed_bytes(
         "backhaul_uplink": 12, "p2p": 8,
     }
     assert result["communication"]["by_direction_bytes"] == {"down": 8, "up": 12}
+    assert result["communication"]["byte_accounting"] is None
+    assert result["communication"][
+        "total_bytes_interpretation"] == "legacy_unspecified"
+    assert result["communication"]["total_physical_progress"] is False
     assert result["activation_cost_proxy"] == {
         "value": 2.5,
         "source": "candidate_pool_design.activation_cost",
@@ -152,6 +205,87 @@ def test_unreplayed_or_malformed_communication_is_not_zero_cost(tmp_path):
     assert result["communication"]["invalid_source_count"] == 2
     assert result["activation_cost_proxy"]["value"] is None
     assert result["accepted_actions"]["total_count"] == 0
+
+
+def test_mixed_v4_semantics_survive_raw_cost_reduction(tmp_path):
+    from demo.benchmark.communication import validate_communication_report
+    from demo.benchmark.goal_cost_evidence import build_raw_cost_evidence
+
+    report = _mixed_v4_report()
+    _write(tmp_path, "communication_transport_report.json", report)
+    _write(tmp_path, "communication_transport_replay.json",
+           validate_communication_report(report))
+
+    result = build_raw_cost_evidence(tmp_path)
+    communication = result["communication"]
+    assert result["version"] == 3
+    assert communication["total_bytes"] == 214
+    assert 4.0 * report["time_s"] == 5.0
+    assert communication["byte_accounting"] == _V4_BYTE_ACCOUNTING
+    assert communication["total_bytes_interpretation"] == "scheduler_charged_bytes"
+    assert communication["total_physical_progress"] is False
+    assert result["raw_only"] is True
+    assert result["not_protocol_score"] is True
+    assert result["validity"]["scoreable"] is False
+
+
+@pytest.mark.parametrize("corruption", ["missing", "tampered"])
+def test_v4_semantics_missing_or_tampered_fail_closed_in_cost(tmp_path, corruption):
+    from demo.benchmark.communication import validate_communication_report
+    from demo.benchmark.goal_cost_evidence import build_raw_cost_evidence
+
+    report = _mixed_v4_report()
+    replay = validate_communication_report(report)
+    if corruption == "missing":
+        report.pop("byte_accounting")
+    else:
+        report["byte_accounting"]["total_physical_progress"] = True
+    _write(tmp_path, "communication_transport_report.json", report)
+    _write(tmp_path, "communication_transport_replay.json", replay)
+
+    communication = build_raw_cost_evidence(tmp_path)["communication"]
+    assert communication["total_bytes"] is None
+    assert communication["byte_accounting"] is None
+    assert communication["total_bytes_interpretation"] == "unavailable"
+    assert communication["total_physical_progress"] is False
+    assert communication["valid"] is False
+
+
+def test_independent_v4_report_is_replayed_before_semantics_are_accepted(tmp_path):
+    from demo.benchmark.goal_cost_evidence import build_raw_cost_evidence
+
+    valid = _mixed_v4_report()
+    invalid = deepcopy(valid)
+    invalid["byte_accounting"]["total_physical_progress"] = True
+    _write(tmp_path, "pose_tools_report.json", {
+        "communication": valid})
+    _write(tmp_path, "pose_communication_replay.json", {"validated": True})
+    _write(tmp_path, "camera_tools_report.json", {
+        "communication": invalid})
+    _write(tmp_path, "camera_communication_replay.json", {"validated": True})
+
+    communication = build_raw_cost_evidence(tmp_path)["communication"]
+    assert communication["total_bytes"] is None
+    assert communication["reliable_source_count"] == 1
+    assert communication["invalid_source_count"] == 1
+    assert communication["total_bytes_interpretation"] == "unavailable"
+
+
+@pytest.mark.parametrize("invalid_version", [5, True, "3", None])
+def test_explicit_unknown_or_malformed_report_version_is_not_counted(
+        tmp_path, invalid_version):
+    from demo.benchmark.goal_cost_evidence import build_raw_cost_evidence
+
+    report = _mixed_v4_report()
+    report["version"] = invalid_version
+    report.pop("byte_accounting")
+    _write(tmp_path, "pose_tools_report.json", {"communication": report})
+    _write(tmp_path, "pose_communication_replay.json", {"validated": True})
+
+    communication = build_raw_cost_evidence(tmp_path)["communication"]
+    assert communication["total_bytes"] is None
+    assert communication["invalid_source_count"] == 1
+    assert communication["total_bytes_interpretation"] == "unavailable"
 
 
 def test_generic_communication_report_is_supported(tmp_path):

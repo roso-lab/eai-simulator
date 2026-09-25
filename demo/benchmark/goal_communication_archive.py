@@ -21,7 +21,10 @@ Discipline (STAGE22 / capacity experiments): totals survive without
 direction metadata, but the direction breakdown fails closed to ``null``
 instead of guessing from channel names; missing evidence is never zero cost;
 release flags stay false and every report carries a development marker until
-the formal episode provenance gate passes.
+the formal episode provenance gate passes. Archive v2 also carries the source
+byte-accounting semantics: v4 transport totals are scheduler-charged bytes,
+while legacy sources remain explicitly unspecified and never become physical
+completed-byte claims.
 """
 
 from __future__ import annotations
@@ -32,15 +35,19 @@ from typing import Any
 
 from .communication import validate_communication_report
 from .communication_capacity_experiments import bytes_by_direction
-from .communication_analysis import SCHEMA, VERSION
+from .communication_analysis import SCHEMA
 from .development_track_marker import build_development_marker, stamp_evidence_record
 
 COMMUNICATION_FORMAL_BLOCKER = "communication_formal_episode_pending"
+COMMUNICATION_ARCHIVE_VERSION = 2
 _EVENT_COUNTERS = ("published", "delivered", "dropped", "expired", "consumed",
                    "bytes_served")
 _TOTAL_EVENTS = ("published", "delivered", "dropped", "expired")
 AGGREGATION_SHARED_TRANSPORT = "shared_transport_counted_once"
 AGGREGATION_PER_TOOL_SUM = "per_tool_sum"
+_SCHEDULER_CHARGED_BYTES = "scheduler_charged_bytes"
+_LEGACY_UNSPECIFIED = "legacy_unspecified"
+_ACCOUNTING_UNAVAILABLE = "unavailable"
 
 
 def _event_counts(ledger: Sequence[Mapping[str, Any]]) -> dict[str, int]:
@@ -56,10 +63,33 @@ def _tool_analysis(communication_report: Mapping[str, Any]) -> dict[str, Any]:
     ledger = communication_report.get("ledger")
     if not isinstance(ledger, list):
         raise ValueError("communication report has no ledger")
+    version = communication_report.get("version")
+    byte_accounting = communication_report.get("byte_accounting")
+    current_version = type(version) is int and version == 4
+    legacy_version = "version" not in communication_report or (
+        type(version) is int and version in {1, 2, 3}
+    )
+    if current_version:
+        replay = validate_communication_report(communication_report)
+        if replay.get("validated") is not True:
+            mismatches = "; ".join(replay.get("mismatches") or ["unknown"])
+            raise ValueError(f"v4 communication report failed replay validation: {mismatches}")
+        byte_accounting = deepcopy(byte_accounting)
+        interpretation = _SCHEDULER_CHARGED_BYTES
+    elif legacy_version:
+        if "byte_accounting" in communication_report:
+            raise ValueError("byte_accounting requires communication report version 4")
+        byte_accounting = None
+        interpretation = _LEGACY_UNSPECIFIED
+    else:
+        raise ValueError("communication report has an unsupported version")
     attribution = bytes_by_direction(ledger)
     return {
         "event_counts": _event_counts(ledger),
         "total_bytes_served": attribution["total_bytes"],
+        "byte_accounting": byte_accounting,
+        "total_bytes_interpretation": interpretation,
+        "total_physical_progress": False,
         "bytes_by_pool": attribution["bytes_by_pool"],
         "bytes_by_direction": attribution["bytes_by_direction"],
         "direction_complete": attribution["direction_complete"],
@@ -132,6 +162,7 @@ def build_communication_analysis(
                   for event in _TOTAL_EVENTS}
         direction_complete = transport["direction_complete"] is True
         aggregation = AGGREGATION_SHARED_TRANSPORT
+        counted = [transport]
     else:
         totals = {
             "published": sum(row.get("event_counts", {}).get("published", 0)
@@ -148,13 +179,32 @@ def build_communication_analysis(
             for row in tools.values()
             if isinstance(row, Mapping) and row.get("status") == "observed")
         aggregation = AGGREGATION_PER_TOOL_SUM
+        counted = [row for row in tools.values()
+                   if isinstance(row, Mapping) and row.get("status") == "observed"]
+    exact_accounting = (
+        deepcopy(counted[0]["byte_accounting"])
+        if counted
+        and all(row.get("total_bytes_interpretation") == _SCHEDULER_CHARGED_BYTES
+                and row.get("byte_accounting") == counted[0].get("byte_accounting")
+                for row in counted)
+        else None
+    )
+    total_interpretation = (
+        _SCHEDULER_CHARGED_BYTES if exact_accounting is not None
+        else _LEGACY_UNSPECIFIED if counted
+        else _ACCOUNTING_UNAVAILABLE
+    )
     report = {
-        "schema": SCHEMA, "version": VERSION, "status": "ok",
+        "schema": SCHEMA, "version": COMMUNICATION_ARCHIVE_VERSION,
+        "status": "ok",
         "episode_id": episode_id,
         "aggregation": aggregation,
         "tools": tools,
         **({"transport": transport} if transport is not None else {}),
         "event_totals": totals,
+        "byte_accounting": exact_accounting,
+        "total_bytes_interpretation": total_interpretation,
+        "total_physical_progress": False,
         # Any direction gap keeps the whole episode breakdown fail-closed.
         "direction_breakdown": "complete" if direction_complete else "fail_closed_null",
         "quality_failures": quality_failures,
@@ -171,5 +221,6 @@ def build_communication_analysis(
 
 __all__ = [
     "AGGREGATION_PER_TOOL_SUM", "AGGREGATION_SHARED_TRANSPORT",
-    "COMMUNICATION_FORMAL_BLOCKER", "build_communication_analysis",
+    "COMMUNICATION_ARCHIVE_VERSION", "COMMUNICATION_FORMAL_BLOCKER",
+    "build_communication_analysis",
 ]

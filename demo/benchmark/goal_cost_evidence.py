@@ -4,12 +4,15 @@ This module deliberately joins only trusted host-side records that already
 exist in an episode archive.  It does not estimate physics time, participant
 compute, or communication traffic from action counts.  Missing or unverified
 sources remain ``None`` so the sidecar cannot turn an evidence gap into a
-zero-cost claim.
+zero-cost claim. V3 cost evidence preserves communication byte-accounting
+semantics; numeric totals remain scheduler evidence and never imply total
+physical completed-byte progress.
 """
 
 from __future__ import annotations
 
 from collections import Counter
+from copy import deepcopy
 import hashlib
 import json
 import math
@@ -18,7 +21,7 @@ from typing import Any, Mapping
 
 
 SCHEMA = "eai.benchmark.goal_raw_cost_evidence"
-VERSION = 2
+VERSION = 3
 COST_SOURCE_BINDING_SCHEMA = "eai.benchmark.goal_cost_source_bindings"
 COST_SOURCE_BINDING_VERSION = 1
 COST_SOURCE_BINDING_FILE = "goal_cost_source_bindings.json"
@@ -32,6 +35,9 @@ _COMMUNICATION_SOURCES = (
     "communication_transport_replay.json",
 )
 _COST_SOURCE_FILES = (_SESSION_SOURCE, _ACTIVATION_SOURCE, *_COMMUNICATION_SOURCES)
+_SCHEDULER_CHARGED_BYTES = "scheduler_charged_bytes"
+_LEGACY_UNSPECIFIED = "legacy_unspecified"
+_ACCOUNTING_UNAVAILABLE = "unavailable"
 
 
 def _finite_number(value: Any, *, nonnegative: bool = False) -> bool:
@@ -378,6 +384,7 @@ def _communication_bytes(
     seen_archives: set[tuple[str, str]] = set()
     binding_files: dict[str, str] = {}
     binding_failed = False
+    accounting_rows: list[dict[str, Any] | None] = []
     for report_name, replay_name in sources:
         report_path = root / report_name
         report_status = (_file_binding_status(context, report_name)
@@ -420,14 +427,30 @@ def _communication_bytes(
         if not isinstance(replay, Mapping) or replay.get("validated") is not True:
             invalid_sources += 1
             continue
-        if shared:
+        communication_version = communication.get("version")
+        current_version = (
+            type(communication_version) is int and communication_version == 4
+        )
+        legacy_version = "version" not in communication or (
+            type(communication_version) is int
+            and communication_version in {1, 2, 3}
+        )
+        if not current_version and not legacy_version:
+            invalid_sources += 1
+            continue
+        if shared or current_version:
             from .communication import validate_communication_report
 
-            # Recompute from the raw ledger: an old or tampered sidecar cannot
-            # authorize a different transport snapshot.
+            # Recompute shared reports and every v4 independent report. A
+            # self-asserted replay sidecar cannot authorize v4 byte semantics.
             if validate_communication_report(communication).get("validated") is not True:
                 invalid_sources += 1
                 continue
+        elif "byte_accounting" in communication:
+            # Historical report versions cannot acquire v4 semantics through
+            # a forged downgrade.
+            invalid_sources += 1
+            continue
         archive_key = (_canonical_digest(communication), _canonical_digest(replay))
         if archive_key in seen_archives:
             # A runner may expose the same transport under a generic filename
@@ -463,8 +486,22 @@ def _communication_bytes(
             invalid_sources += 1
             continue
         total += source_total
+        accounting_rows.append(
+            deepcopy(communication["byte_accounting"])
+            if current_version else None)
         reliable_sources += 1
     reliable = reliable_sources > 0 and invalid_sources == 0
+    exact_accounting = (
+        deepcopy(accounting_rows[0])
+        if reliable and accounting_rows and accounting_rows[0] is not None
+        and all(row == accounting_rows[0] for row in accounting_rows)
+        else None
+    )
+    total_interpretation = (
+        _SCHEDULER_CHARGED_BYTES if exact_accounting is not None
+        else _LEGACY_UNSPECIFIED if reliable
+        else _ACCOUNTING_UNAVAILABLE
+    )
     if formal:
         binding_status = ("source_binding_failed" if binding_failed else
                           "verified" if binding_files else "not_produced")
@@ -476,6 +513,9 @@ def _communication_bytes(
         binding_status = "legacy_unbound"
     return {
         "total_bytes": total if reliable else None,
+        "byte_accounting": exact_accounting,
+        "total_bytes_interpretation": total_interpretation,
+        "total_physical_progress": False,
         "by_pool_bytes": dict(sorted(by_pool.items())) if reliable else None,
         "by_direction_bytes": (dict(sorted(by_direction.items()))
                                if reliable and direction_complete else None),

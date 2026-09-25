@@ -130,7 +130,8 @@ def test_scoring_index_preserves_new_raw_transport_artifacts(tmp_path):
     assert index["raw_only"] is True
 
 
-@pytest.mark.parametrize("cost_mode", ["legacy_v1", "legacy", "formal"])
+@pytest.mark.parametrize(
+    "cost_mode", ["legacy_v1", "legacy_v2", "legacy", "formal"])
 def test_native_archive_cross_checks_link_delivery_against_physical_start(tmp_path, cost_mode):
     from demo.benchmark.communication import validate_communication_report
 
@@ -171,8 +172,12 @@ def test_native_archive_cross_checks_link_delivery_against_physical_start(tmp_pa
     cost = build_cost_evidence(
         tmp_path, episode_id="episode" if cost_mode == "formal" else None,
         task_sha256=request["public_task_sha256"] if cost_mode == "formal" else None)
+    if cost_mode in {"legacy_v1", "legacy_v2"}:
+        cost["version"] = 1 if cost_mode == "legacy_v1" else 2
+        for field in ("byte_accounting", "total_bytes_interpretation",
+                      "total_physical_progress"):
+            cost["communication"].pop(field)
     if cost_mode == "legacy_v1":
-        cost["version"] = 1
         cost.pop("source_binding")
         cost["communication"].pop("binding_status")
         cost["communication"].pop("binding_file_statuses")
@@ -183,8 +188,39 @@ def test_native_archive_cross_checks_link_delivery_against_physical_start(tmp_pa
     records[0]["execution_started_at_s"] = 0.0
     with pytest.raises(ValueError, match="physical start"):
         episode._verify_native_transport(tmp_path, request, manifest, {"observe": task}, records)
+    if cost_mode == "legacy_v2":
+        records[0]["execution_started_at_s"] = 1.0
+        forged = build_cost_evidence(tmp_path)
+        forged["version"] = 2
+        episode._write_json(tmp_path / "cost_evidence.json", forged)
+        with pytest.raises(ValueError, match="unexpected byte semantics"):
+            episode._verify_native_transport(
+                tmp_path, request, manifest, {"observe": task}, records)
+    if cost_mode == "legacy_v1":
+        records[0]["execution_started_at_s"] = 1.0
+        forged = build_cost_evidence(tmp_path)
+        forged["version"] = 1
+        for field in ("byte_accounting", "total_bytes_interpretation",
+                      "total_physical_progress"):
+            forged["communication"].pop(field)
+        episode._write_json(tmp_path / "cost_evidence.json", forged)
+        with pytest.raises(ValueError, match="unexpected source binding"):
+            episode._verify_native_transport(
+                tmp_path, request, manifest, {"observe": task}, records)
     if cost_mode == "formal":
         records[0]["execution_started_at_s"] = 1.0
+        downgraded = deepcopy(cost)
+        downgraded["version"] = 1
+        downgraded.pop("source_binding")
+        for field in ("byte_accounting", "total_bytes_interpretation",
+                      "total_physical_progress", "binding_status",
+                      "binding_file_statuses"):
+            downgraded["communication"].pop(field)
+        episode._write_json(tmp_path / "cost_evidence.json", downgraded)
+        with pytest.raises(ValueError, match="v1 communication cost cannot be formal"):
+            episode._verify_native_transport(
+                tmp_path, request, manifest, {"observe": task}, records)
+        episode._write_json(tmp_path / "cost_evidence.json", cost)
         (tmp_path / "goal_cost_source_bindings.json").unlink()
         with pytest.raises(ValueError, match="communication cost"):
             episode._verify_native_transport(tmp_path, request, manifest, {"observe": task}, records)

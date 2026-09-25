@@ -15,6 +15,51 @@ from demo.benchmark.goal_scoring_adapter import (
 )
 
 
+_V4_BYTE_ACCOUNTING = {
+    "schema": "eai.benchmark.communication_byte_accounting",
+    "version": 1,
+    "treated_copy_semantics": "completed_whole_bytes_at_report_horizon",
+    "ordinary_pool_copy_semantics": "whole_copy_charged_at_service_start",
+    "total_physical_progress": False,
+}
+
+
+def _treatment(**changes):
+    row = {
+        "schema": "eai.benchmark.communication_publication_treatment",
+        "version": 1,
+        "semantics": "shared_fifo_anchored_window_v1",
+        "binding_sha256": "a" * 64,
+        "event_id": "stage59-byte-semantics",
+        "trigger": "stage59-byte-semantics",
+        "operation": "drop",
+        "delay_s": 0.0,
+        "drop": True,
+        "bytes_per_window": 1000,
+        "window_s": 100.0,
+        "publication_validity_s": 100.0,
+    }
+    row.update(changes)
+    return row
+
+
+def _mixed_v4_report():
+    runtime = CommunicationRuntime({"pools": {
+        "backhaul_uplink": {"capacity_bps": 4.0}}})
+    runtime.publish(
+        message_id="treated-drop", producer_id="robot", recipients=["host"],
+        channel="result", estimate={"value": "t"}, valid_until_s=100.0,
+        pool="backhaul_uplink", direction="uplink",
+        publication_treatment=_treatment())
+    ordinary = runtime.publish(
+        message_id="ordinary", producer_id="robot", recipients=["host"],
+        channel="result", estimate={"value": "x" * 100}, valid_until_s=100.0,
+        pool="backhaul_uplink", direction="uplink")
+    runtime.advance(1.25)
+    assert ordinary["size_bytes"] == 214
+    return runtime.report()
+
+
 def _runtime_report(pool_mode: bool = True, *, advance_s: float = 6.0):
     runtime = CommunicationRuntime({"pools": {
         "backhaul_uplink": {"capacity_bps": 20000.0, "ttl_s": 8.0}}} if pool_mode else None)
@@ -37,6 +82,7 @@ def test_analysis_folds_tool_ledgers_with_direction_intact():
         {"pose_tools": _runtime_report()}, episode_id="episode-comm-1",
         scene_key="city")
     assert analysis["schema"] == "eai.benchmark.communication_analysis"
+    assert analysis["version"] == 2
     assert analysis["status"] == "ok"
     tool = analysis["tools"]["pose_tools"]
     assert tool["status"] == "observed"
@@ -49,6 +95,12 @@ def test_analysis_folds_tool_ledgers_with_direction_intact():
     assert analysis["development_track"]["infrastructure_blockers"] == [
         COMMUNICATION_FORMAL_BLOCKER]
     assert analysis["scoreable"] is False
+    assert tool["byte_accounting"] is None
+    assert tool["total_bytes_interpretation"] == "legacy_unspecified"
+    assert tool["total_physical_progress"] is False
+    assert analysis["byte_accounting"] is None
+    assert analysis["total_bytes_interpretation"] == "legacy_unspecified"
+    assert analysis["total_physical_progress"] is False
 
 
 def test_analysis_fails_closed_when_direction_metadata_is_missing():
@@ -126,6 +178,75 @@ def test_shared_runtime_ledger_is_counted_exactly_once():
     assert analysis["scoreable"] is False
 
 
+def test_mixed_v4_byte_semantics_survive_shared_archive_reduction():
+    shared = _mixed_v4_report()
+    analysis = build_communication_analysis(
+        {}, episode_id="episode-stage59-shared", scene_key="city",
+        transport_report=shared)
+
+    transport = analysis["transport"]
+    assert transport["total_bytes_served"] == 214
+    assert 4.0 * shared["time_s"] == 5.0
+    assert transport["byte_accounting"] == _V4_BYTE_ACCOUNTING
+    assert transport["total_bytes_interpretation"] == "scheduler_charged_bytes"
+    assert transport["total_physical_progress"] is False
+    assert analysis["byte_accounting"] == _V4_BYTE_ACCOUNTING
+    assert analysis["total_bytes_interpretation"] == "scheduler_charged_bytes"
+    assert analysis["total_physical_progress"] is False
+
+
+@pytest.mark.parametrize("corruption", ["missing", "tampered"])
+def test_independent_v4_semantics_fail_closed_per_tool(corruption):
+    valid = _mixed_v4_report()
+    invalid = deepcopy(valid)
+    if corruption == "missing":
+        invalid.pop("byte_accounting")
+    else:
+        invalid["byte_accounting"]["total_physical_progress"] = True
+
+    analysis = build_communication_analysis(
+        {"valid_tool": valid, "invalid_tool": invalid},
+        episode_id=f"episode-stage59-{corruption}", scene_key="city")
+
+    assert analysis["tools"]["valid_tool"]["status"] == "observed"
+    assert analysis["tools"]["valid_tool"]["total_bytes_served"] == 214
+    assert analysis["tools"]["invalid_tool"]["status"] == "invalid"
+    assert "v4 communication report failed replay validation" in analysis[
+        "tools"]["invalid_tool"]["quality_failure"]
+    assert analysis["byte_accounting"] == _V4_BYTE_ACCOUNTING
+    assert analysis["quality_failures"]
+
+    failed_only = build_communication_analysis(
+        {"invalid_tool": invalid},
+        episode_id=f"episode-stage59-only-{corruption}", scene_key="city")
+    assert failed_only["byte_accounting"] is None
+    assert failed_only["total_bytes_interpretation"] == "unavailable"
+    assert failed_only["total_physical_progress"] is False
+
+
+@pytest.mark.parametrize("invalid_version", [5, True, "3", None])
+def test_explicit_unknown_or_malformed_tool_version_fails_closed(invalid_version):
+    valid = _mixed_v4_report()
+    invalid = deepcopy(valid)
+    invalid["version"] = invalid_version
+    invalid.pop("byte_accounting")
+
+    analysis = build_communication_analysis(
+        {"valid_tool": valid, "invalid_tool": invalid},
+        episode_id=f"episode-stage59-version-{invalid_version!r}", scene_key="city")
+    assert analysis["tools"]["valid_tool"]["status"] == "observed"
+    assert analysis["tools"]["invalid_tool"]["status"] == "invalid"
+    assert "unsupported version" in analysis["tools"]["invalid_tool"]["quality_failure"]
+    assert analysis["byte_accounting"] == _V4_BYTE_ACCOUNTING
+
+    failed_only = build_communication_analysis(
+        {"invalid_tool": invalid},
+        episode_id=f"episode-stage59-version-only-{invalid_version!r}", scene_key="city")
+    assert failed_only["byte_accounting"] is None
+    assert failed_only["total_bytes_interpretation"] == "unavailable"
+    assert failed_only["total_physical_progress"] is False
+
+
 def test_independent_runtimes_keep_the_per_tool_sum():
     """Regression: without a shared transport the historical sum stands."""
     reports = {name: _runtime_report(advance_s=5.0)
@@ -166,3 +287,20 @@ def test_transport_only_aggregation_is_allowed_without_tool_reports():
     assert analysis["development_track"]["infrastructure_blockers"] == [
         COMMUNICATION_FORMAL_BLOCKER]
     assert analysis["scoreable"] is False
+
+
+def test_scoring_reader_preserves_historical_v1_analysis_without_upgrade(tmp_path):
+    analysis = build_communication_analysis(
+        {"pose_tools": _runtime_report()}, episode_id="legacy-analysis-v1",
+        scene_key="city")
+    analysis["version"] = 1
+    for field in ("byte_accounting", "total_bytes_interpretation",
+                  "total_physical_progress"):
+        analysis.pop(field)
+        analysis["tools"]["pose_tools"].pop(field)
+    (tmp_path / "communication_analysis.json").write_text(
+        json.dumps(analysis), encoding="utf-8")
+
+    observed = communication_analysis_observations(tmp_path)
+    assert observed["status"] == "observed"
+    assert observed["report"] == analysis
