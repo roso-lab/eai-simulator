@@ -18,12 +18,13 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from .goal_deployment_assessment import DEPLOYMENT_REASSESSMENT_EVENTS
+from .goal_protocol_deployment import normalize_oracle_truth_label
 from .provenance import canonical_sha256
 
 
 SCORING_ADAPTER_SCHEMA = "eai.benchmark.scoring_adapter_metadata"
 SCORING_ADAPTER_VERSION = 1
-PROTOCOL_MAPPING_REVISION = "protocol-20260925-goal-score-source-bindings-v5"
+PROTOCOL_MAPPING_REVISION = "protocol-20260925-protocol-deployment-vocabulary-v7"
 
 DIMENSION_STATUS = {
     "task_allocation": "P/X",
@@ -204,7 +205,12 @@ _ASSESSMENT_EVALUATION_FIELDS = frozenset({
     "assessment_id", "assessment_epoch", "feasibility_label",
     "oracle_status", "platform_valid", "evidence_refs", "evaluator_ref",
 })
-_FEASIBILITY_LABELS = frozenset({"deployable", "not_deployable"})
+# Truth-side reading is a dual read: the remaining-feasibility solver keeps
+# emitting the legacy ``not_deployable`` word, while protocol-aligned oracle
+# archives may carry the protocol truth word ``team_state_infeasible``.  Both
+# spellings are accepted; the system declaration side stays ``not_deployable``
+# and is never normalized through this set.
+_FEASIBILITY_LABELS = frozenset({"deployable", "not_deployable", "team_state_infeasible"})
 _CLASSIFICATIONS = (
     "correct_deployment", "false_refusal", "false_deployment", "correct_refusal",
 )
@@ -462,6 +468,10 @@ def deployment_assessment_observations(
         if required_epoch and not cached_matches:
             quality_failures.append("history_oracle_cache_mismatch")
         label = external.get("feasibility_label") if external_valid else None
+        # Protocol truth word: the raw archive spelling is dual-read into the
+        # truth vocabulary (legacy ``not_deployable`` == ``team_state_infeasible``)
+        # before it is joined with the system declaration side.
+        truth_state = normalize_oracle_truth_label(label) if external_valid else None
         decision = row.get("decision")
         classification = None
         if (external_valid and task_bound and not duplicate and required_epoch
@@ -469,9 +479,9 @@ def deployment_assessment_observations(
             classification = {
                 ("deployable", "deployable"): "correct_deployment",
                 ("deployable", "not_deployable"): "false_refusal",
-                ("not_deployable", "deployable"): "false_deployment",
-                ("not_deployable", "not_deployable"): "correct_refusal",
-            }.get((label, decision))
+                ("team_state_infeasible", "deployable"): "false_deployment",
+                ("team_state_infeasible", "not_deployable"): "correct_refusal",
+            }.get((truth_state, decision))
         if required_epoch and classification is None:
             quality_failures.append("history_decision_invalid")
         valid = (required_epoch and not duplicate and task_bound
@@ -514,7 +524,8 @@ def deployment_assessment_observations(
             "classification": classification, "label_eligible": valid and classification is not None,
             "oracle_status": "verified" if external_valid else "failed",
             "platform_valid": external.get("platform_valid") if isinstance(external, Mapping) else None,
-            "decision": decision, "feasibility_label": label if valid else None, "duplicate_epoch": duplicate,
+            "decision": decision, "feasibility_label": label if valid else None,
+            "truth_state": truth_state, "duplicate_epoch": duplicate,
             "cached_oracle_matches_history": cached_matches,
             "host_declaration_latency_s": latency,
             "physical_change_latency_s": None, "notification_delivery_latency_s": None,
@@ -544,20 +555,24 @@ def deployment_assessment_observations(
     }
 
     def risk_counts(keys: set[tuple[str, int]]) -> dict[str, int]:
-        labels = {key: by_epoch[key]["feasibility_label"] for key in keys}
+        # Count by normalized protocol truth state so legacy and protocol
+        # truth spellings share one infeasible denominator.
+        truths = {key: normalize_oracle_truth_label(
+            by_epoch[key]["feasibility_label"]) for key in keys}
         phase_answered = keys & answered_required
         counts = {
             "required_epoch_count": len(keys),
             "deployable_required_epoch_count": sum(
-                label == "deployable" for label in labels.values()),
+                truth == "deployable" for truth in truths.values()),
             "not_deployable_required_epoch_count": sum(
-                label == "not_deployable" for label in labels.values()),
+                truth == "team_state_infeasible" for truth in truths.values()),
             "answered_epoch_count": len(phase_answered),
             "unanswered_epoch_count": len(keys - phase_answered),
             "unanswered_deployable_count": sum(
-                labels[key] == "deployable" for key in keys - phase_answered),
+                truths[key] == "deployable" for key in keys - phase_answered),
             "unanswered_not_deployable_count": sum(
-                labels[key] == "not_deployable" for key in keys - phase_answered),
+                truths[key] == "team_state_infeasible"
+                for key in keys - phase_answered),
         }
         counts.update({
             f"{name}_count": sum(
@@ -596,8 +611,12 @@ def deployment_assessment_observations(
             "unanswered_epochs": [{"assessment_id": key[0], "assessment_epoch": key[1],
                                    "phase": required_by_epoch[key]["phase"],
                                    "feasibility_label": (by_epoch[key].get("feasibility_label")
-                                                         if key in valid_oracles else None)}
-                                   for key in unanswered],
+                                                         if key in valid_oracles else None),
+                                   "truth_state": (
+                                       normalize_oracle_truth_label(
+                                           by_epoch[key].get("feasibility_label"))
+                                       if key in valid_oracles else None)}
+                                  for key in unanswered],
             "classification_counts": classification_counts,
             "label_risk_counts": label_risks,
             "label_risk_counts_by_phase": phase_risks,
@@ -900,6 +919,47 @@ def _plan_admission_archive(
                 "binding_status": session_binding_status}
 
 
+def _protocol_deployment_archive(
+    root: Path, *, episode_id: str, task_sha256: str,
+) -> dict[str, Any]:
+    """Attach the protocol 3.1 five-rate and constraint-label synthesis.
+
+    The synthesis joins the archived deployment history and oracle
+    evaluations through the same fail-closed observations used elsewhere; a
+    missing or identity-mismatched archive keeps every rate field present
+    but null instead of inventing numbers.
+    """
+    from .goal_protocol_deployment import (
+        protocol_constraint_failure_labels,
+        protocol_deployment_rates,
+    )
+
+    base = {"raw_only": True, "not_protocol_score": True, "scoreable": False}
+    path = root / "goal_session_report.json"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if (not isinstance(payload, Mapping) or payload.get("episode_id") != episode_id
+                or not isinstance(payload.get("report"), Mapping)):
+            raise ValueError("protocol deployment archive episode mismatch")
+        report = payload["report"]
+        return {
+            **base,
+            "status": "observed",
+            "rates": protocol_deployment_rates(report, task_sha256),
+            "constraint_failure_labels": protocol_constraint_failure_labels(
+                report, task_sha256),
+        }
+    except (OSError, ValueError, KeyError, TypeError, AttributeError,
+            json.JSONDecodeError):
+        return {
+            **base,
+            "status": "missing_or_invalid_archive",
+            "rates": protocol_deployment_rates({}, task_sha256),
+            "constraint_failure_labels": protocol_constraint_failure_labels(
+                {}, task_sha256),
+        }
+
+
 def development_track_observations(
     markers: Iterable[Mapping[str, Any]] | None,
 ) -> dict[str, Any]:
@@ -1143,6 +1203,8 @@ def build_scoring_adapter_metadata(
         "plan_admission": plan_observations,
         "task_allocation": task_allocation_observations(
             deployment_observations, plan_observations),
+        "protocol_deployment": _protocol_deployment_archive(
+            Path(output_root), episode_id=episode_id, task_sha256=task_sha256),
         "communication_analysis": communication_analysis_observations(output_root),
         "communication_capacity": communication_capacity_observations(output_root),
         "checkpoint_branch": checkpoint_branch_observations(output_root),

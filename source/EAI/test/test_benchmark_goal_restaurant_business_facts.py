@@ -34,7 +34,7 @@ def _assert_existing_observations_unchanged(left, right):
 def test_opt_in_missing_source_is_explicit_and_does_not_change_legacy_metrics(public_task, tmp_path):
     legacy = _metadata(tmp_path, public_task)
     assert "restaurant_business_facts" not in legacy
-    assert legacy["protocol_mapping_revision"].endswith("v5")
+    assert legacy["protocol_mapping_revision"].endswith("v7")
     (tmp_path / "episode_manifest.json").write_text(json.dumps({
         "restaurant_business_facts": {"version": 1, "archive": ARCHIVE_NAME}}))
     current = _metadata(tmp_path, public_task)

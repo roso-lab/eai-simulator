@@ -88,7 +88,7 @@ def test_claim_scope_does_not_confuse_raw_archives_with_qualification(
     assert metadata["task_design"]["evidence_status"] == "observation_dependent"
     assert json.dumps(task, sort_keys=True) == original_task
     assert metadata["protocol_mapping_revision"] == (
-        "protocol-20260925-goal-score-source-bindings-v5")
+        "protocol-20260925-protocol-deployment-vocabulary-v7")
     assert metadata["task_design"]["fixed_subtask_metrics"] == (
         "not_applicable_participant_decomposition")
     assert metadata["checkpoint_requirements"]["required_for_baseline_execution"] is False
