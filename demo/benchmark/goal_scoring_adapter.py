@@ -180,6 +180,7 @@ def build_archive_index(output_root: str | Path) -> dict[str, Any]:
         "goal_city_autonomous_entry.json", "goal_city_autonomous_source.json", "city_acceptance_evidence.json",
         "native_evidence_log.json", "city_progress_sources.json",
         "city_initial_qualification.json",
+        "restaurant_business_facts.json",
     )
     files = {}
     for name in names:
@@ -1081,11 +1082,18 @@ def build_scoring_adapter_metadata(
     plan_observations = _plan_admission_archive(
         Path(output_root), episode_id=episode_id,
         session_binding_status=cost_evidence["accepted_actions"]["binding_status"])
+    from .goal_restaurant_business_facts import (
+        restaurant_business_fact_observations, restaurant_business_facts_requested,
+    )
+
+    restaurant_extension = restaurant_business_facts_requested(output_root)
     return {
         "schema": SCORING_ADAPTER_SCHEMA,
         "version": SCORING_ADAPTER_VERSION,
         "adapter_schema": SCORING_ADAPTER_SCHEMA,
-        "protocol_mapping_revision": PROTOCOL_MAPPING_REVISION,
+        "protocol_mapping_revision": (
+            "protocol-20260925-restaurant-business-facts-v6"
+            if restaurant_extension else PROTOCOL_MAPPING_REVISION),
         "episode_id": episode_id,
         "task_id": task_id,
         "scene_key": scene_key,
@@ -1103,6 +1111,9 @@ def build_scoring_adapter_metadata(
         **({"progress_evidence": progress_evidence_observations(
             output_root, public_task, episode_id=episode_id)}
            if _progress_requested(output_root) else {}),
+        **({"restaurant_business_facts": restaurant_business_fact_observations(
+            output_root, public_task, episode_id=episode_id)}
+           if restaurant_extension else {}),
         "condition": {
             "id": public_task.get("condition_id"),
             "seed": public_task.get("seed"),
@@ -1117,7 +1128,8 @@ def build_scoring_adapter_metadata(
             "allocation_evidence": "participant_plan_posthoc_audit_and_deployment_gate",
             "coverage_evidence": "external_milestone_progress",
             "evidence_status": "observation_dependent",
-            "observation_refs": ["task_allocation", "progress_evidence"],
+            "observation_refs": ["task_allocation", "progress_evidence"] + (
+                ["restaurant_business_facts"] if restaurant_extension else []),
         },
         "checkpoint_requirements": {
             "status": "not_attested_by_adapter",
