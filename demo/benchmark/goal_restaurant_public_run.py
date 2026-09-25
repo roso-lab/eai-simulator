@@ -40,6 +40,8 @@ def parser():
     result.add_argument("--communication-contract", type=Path, required=True,
                         help="explicit shared-pool JSON; no implicit diagnostic capacities")
     result.add_argument("--preflight-only", action="store_true")
+    result.add_argument("--publication-treatment", action="store_true",
+                        help="opt into evaluator-only single-observation treatment; does not alter the policy")
     result.add_argument("--device", choices=("cpu", "cuda:0"), default="cpu")
     result.add_argument("--seed", type=int, default=17)
     result.add_argument("--warmup-ticks", type=_positive_integer, default=240)
@@ -93,6 +95,8 @@ def prepare_request(args):
         "task_exact_communication_treatment_validated": False,
         **CLOSED_VALIDATION_FLAGS,
     }
+    if args.publication_treatment:
+        request["publication_treatment_extension"] = "shared_fifo_anchored_window_v1"
     return request
 
 
@@ -165,7 +169,17 @@ def run_native(args, request):
         provider = RestaurantNativeObservationProvider(fleet)
         with open_restaurant_autonomous_context(
                 fleet, adapter, deployment=request["deployment"]) as context:
-            pump = RestaurantExecutionPump(context, runtime=runtime, observation_provider=provider)
+            hook = None
+            if request.get("publication_treatment_extension"):
+                from .goal_driven_tasks import build_goal_task_package
+                from .goal_restaurant_publication_treatment import RestaurantPublicationTreatment
+                hook = RestaurantPublicationTreatment(
+                    public_task=request["public_task"],
+                    hidden_evaluator=build_goal_task_package("restaurant")["hidden_evaluator"],
+                    communication_contract=request["communication_contract"],
+                    deployment_companion=request["deployment"])
+            pump = RestaurantExecutionPump(context, runtime=runtime, observation_provider=provider,
+                                           publication_treatment=hook)
             error = None
             try:
                 pump.run(max_ticks=args.max_ticks)
@@ -193,6 +207,15 @@ def run_native(args, request):
                 expected_initial_contract=request["communication_contract"])
             _write(args.output, "audit-review.json", audit)
             _write(args.output, "communication-review.json", communication)
+            if hook is not None:
+                from .goal_restaurant_publication_treatment import verify_restaurant_publication_treatment
+                treatment_review = verify_restaurant_publication_treatment(
+                    pump_report=archive, public_task=request["public_task"],
+                    participant_api=request["participant_api"],
+                    hidden_evaluator=build_goal_task_package("restaurant")["hidden_evaluator"],
+                    communication_contract=request["communication_contract"],
+                    deployment_companion=request["deployment"])
+                _write(args.output, "publication-treatment-review.json", treatment_review)
             drift = [path for path, digest in request["source_sha256"].items()
                      if not Path(path).is_file()
                      or hashlib.sha256(Path(path).read_bytes()).hexdigest() != digest]

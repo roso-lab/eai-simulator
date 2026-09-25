@@ -439,7 +439,11 @@ def test_tick_fails_if_registry_cannot_supply_all_eight_commands(tmp_path, monke
 
     session = _session()
     controller = fleet.RestaurantFleetController(session, products_root=tmp_path)
-    monkeypatch.delitem(fleet.FLEET_CONTROLLER_REGISTRY, "restaurant_lite3_1")
+    # delitem undo reinserts at the end and silently changes this ordered
+    # maintained registry for later tests in the same process.
+    monkeypatch.setattr(fleet, "FLEET_CONTROLLER_REGISTRY", {
+        key: value for key, value in fleet.FLEET_CONTROLLER_REGISTRY.items()
+        if key != "restaurant_lite3_1"})
     with pytest.raises(RuntimeError, match="omitted a native controller"):
         controller.step_once()
     assert session.env.calls == []

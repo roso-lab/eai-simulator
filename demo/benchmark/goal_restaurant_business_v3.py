@@ -457,7 +457,7 @@ def _result_binding(
                     or record.get("terminal_reason")
                     != (recipient.get("drop_reason") or recipient_status)):
                 raise ValueError(f"task {task_id} result transport outcome was substituted")
-        elif recipient_status not in {"queued", "in_transit"}:
+        elif recipient_status not in {"queued", "serializing", "in_transit"}:
             raise ValueError(f"task {task_id} has an unknown result transport outcome")
 
     if delivered_record and not qualifying and not invalidated and not rejected_delivery:

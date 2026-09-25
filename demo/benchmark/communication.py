@@ -49,6 +49,9 @@ Validation proves internal consistency, not provenance: an evaluator can supply
 that binding independently of the report. Legacy v1 reports remain replayable
 when the initial policy is recoverable; global changes in v1 require that
 external initial contract because the overwritten values were not recorded.
+Using a validated single-publication treatment upgrades only that runtime's
+report to v3; the normalized treatment and its deterministic segment plan stay
+evaluator-only and are recomputed by strict replay.
 """
 
 from collections import deque
@@ -57,6 +60,7 @@ from fractions import Fraction
 import heapq
 import json
 import math
+import re
 from collections.abc import Mapping
 
 
@@ -73,6 +77,14 @@ _POOL_ALIASES = {
     "backhaul_down": "backhaul_downlink",
     "robot": "p2p",
     "robot_to_robot": "p2p",
+}
+_PUBLICATION_TREATMENT_SCHEMA = (
+    "eai.benchmark.communication_publication_treatment")
+_PUBLICATION_TREATMENT_SEMANTICS = "shared_fifo_anchored_window_v1"
+_PUBLICATION_TREATMENT_FIELDS = {
+    "schema", "version", "semantics", "binding_sha256", "event_id",
+    "trigger", "operation", "delay_s", "drop", "bytes_per_window",
+    "window_s", "publication_validity_s",
 }
 
 
@@ -93,6 +105,41 @@ def _name(value, name):
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{name} must be a nonempty string")
     return value
+
+
+def _validate_publication_treatment(value):
+    """Normalize the evaluator-only single-publication transport treatment."""
+    if not isinstance(value, Mapping):
+        raise ValueError("publication_treatment must be a mapping")
+    if set(value) != _PUBLICATION_TREATMENT_FIELDS:
+        raise ValueError("publication_treatment fields are incomplete or unknown")
+    row = deepcopy(dict(value))
+    if row["schema"] != _PUBLICATION_TREATMENT_SCHEMA:
+        raise ValueError("unsupported publication_treatment schema")
+    if type(row["version"]) is not int or row["version"] != 1:
+        raise ValueError("unsupported publication_treatment version")
+    if row["semantics"] != _PUBLICATION_TREATMENT_SEMANTICS:
+        raise ValueError("unsupported publication_treatment semantics")
+    binding = row["binding_sha256"]
+    if (not isinstance(binding, str)
+            or re.fullmatch(r"[0-9a-f]{64}", binding) is None):
+        raise ValueError("publication_treatment binding_sha256 must be lowercase SHA-256")
+    _name(row["event_id"], "publication_treatment event_id")
+    _name(row["trigger"], "publication_treatment trigger")
+    if row["operation"] not in {"deliver", "drop"}:
+        raise ValueError("publication_treatment operation must be deliver or drop")
+    if type(row["drop"]) is not bool:
+        raise ValueError("publication_treatment drop must be a boolean")
+    if (row["operation"] == "drop") != row["drop"]:
+        raise ValueError("publication_treatment operation and drop disagree")
+    for field in ("delay_s", "window_s", "publication_validity_s"):
+        row[field] = float(_time(
+            row[field], f"publication_treatment {field}",
+            positive=field == "window_s"))
+    budget = row["bytes_per_window"]
+    if type(budget) is not int or budget <= 0:
+        raise ValueError("publication_treatment bytes_per_window must be a positive integer")
+    return row
 
 
 def validate_communication_contract(contract=None):
@@ -265,6 +312,8 @@ class CommunicationRuntime:
         self._ledger = []
         self._pool_states = {}
         self._access_states = {}
+        self._pool_buffered = set()
+        self._publication_treatment_used = False
         self._aoi_samples = []
         # Tracks are keyed by (recipient, information_id). Completed segments
         # are immutable; the current tail is materialized by ``aoi()``.
@@ -301,7 +350,9 @@ class CommunicationRuntime:
 
     def _schedule(self, time, kind, key):
         # Expiry wins ties with service and arrival: TTL is half-open.
-        priority = {"expire": 0, "pool_service": 1, "service": 2, "deliver": 3}[kind]
+        priority = {"expire": 0, "pool_service": 1, "treatment_start": 1,
+                    "treatment_service": 1,
+                    "treatment_finish": 2, "service": 2, "deliver": 3}[kind]
         heapq.heappush(self._events, (time, priority, self._sequence, kind, key))
         self._sequence += 1
 
@@ -367,6 +418,83 @@ class CommunicationRuntime:
             return float(budget) / float(policy.get("window_s", 1.))
         return None
 
+    @staticmethod
+    def _pool_capacity_fraction(policy):
+        capacity = CommunicationRuntime._pool_capacity(policy)
+        return (None if capacity is None else
+                _time(capacity, "pool capacity", positive=True))
+
+    @staticmethod
+    def _treatment_serialization_plan(*, size, start, expiry, treatment,
+                                      capacities):
+        """Plan one FIFO reservation under a zero-anchored byte quota."""
+        finite = [capacity for capacity in capacities if capacity is not None]
+        rate = min(finite) if finite else None
+        width = _time(treatment["window_s"], "publication_treatment window_s",
+                      positive=True)
+        budget = Fraction(treatment["bytes_per_window"])
+        remaining = size
+        current = start
+        segments = []
+        event_times = []
+        byte_progress = Fraction(0)
+        while remaining > 0 and current < expiry:
+            window_index = current // width
+            window_end = (window_index + 1) * width
+            service_limit = min(window_end, expiry)
+            if rate is None:
+                served = min(remaining, budget)
+                segment_end = current
+            else:
+                possible = byte_progress + rate * (service_limit - current)
+                # Bytes are the existing runtime's integer accounting unit.
+                # A byte completing exactly at the half-open expiry is excluded.
+                max_completed = (possible.numerator // possible.denominator)
+                if service_limit == expiry and possible.denominator == 1:
+                    max_completed = max(0, max_completed - 1)
+                served = min(remaining, int(budget), max_completed)
+                if served <= 0:
+                    byte_progress = possible
+                    current = service_limit
+                    continue
+                segment_end = current + (Fraction(served) - byte_progress) / rate
+            cumulative = size - remaining + served
+            segments.append({
+                "window_index": int(window_index),
+                "starts_at_s": float(current),
+                "ends_at_s": float(segment_end),
+                "bytes": int(served),
+                "bytes_sent": int(cumulative),
+            })
+            event_times.append(segment_end)
+            remaining -= served
+            if remaining == 0:
+                return segments, event_times, segment_end, True
+            # Exhausting this publication's quota holds its FIFO reservation
+            # until the next zero-anchored window. Physical-rate exhaustion
+            # reaches the current boundary (or the half-open expiry) directly.
+            if served == budget and segment_end < window_end:
+                current = window_end
+                byte_progress = Fraction(0)
+            else:
+                byte_progress = rate * (service_limit - segment_end)
+                current = service_limit
+        return segments, event_times, expiry, False
+
+    def _release_pool_buffer(self, pool_name, key, size):
+        pool = self._pool_states[pool_name]
+        if not self._publication_treatment_used:
+            # Preserve the frozen v2 bookkeeping, including its second
+            # subtraction when a stale service event later skips an expired
+            # head. Deduplication is part of the opt-in v3 mixed scheduler only.
+            self._pool_buffered.discard(key)
+            pool["queued_bytes"] = max(0, pool["queued_bytes"] - size)
+            return
+        if key not in self._pool_buffered:
+            return
+        self._pool_buffered.remove(key)
+        pool["queued_bytes"] = max(0, pool["queued_bytes"] - size)
+
     def _drop_delivery(self, delivery, *, time, reason, message_id, recipient):
         delivery["status"] = "dropped"
         delivery["drop_reason"] = reason
@@ -412,6 +540,7 @@ class CommunicationRuntime:
         key = (message_id, recipient)
         pool["queue"].append(key)
         pool["queued_bytes"] += self._messages[message_id]["size_bytes"]
+        self._pool_buffered.add(key)
         delivery = self._messages[message_id]["recipients"][recipient]
         delivery.update(pool=pool_name, access_endpoints=list(endpoints),
                         scheduled_transmit_at_s=float(start),
@@ -422,16 +551,152 @@ class CommunicationRuntime:
         self._schedule(expiry, "expire", key)
         self._schedule(start, "pool_service", pool_name)
 
+    def _queue_treated_pool_copy(self, message_id, recipient, *, pool_name,
+                                 endpoints, published, expiry, treatment):
+        policy = self._pool_policy(pool_name)
+        pool = self._pool_states.setdefault(pool_name, {
+            "queue": deque(), "queued_bytes": 0, "next_available": published,
+            "policy": deepcopy(policy),
+        })
+        size = self._messages[message_id]["size_bytes"]
+        delivery = self._messages[message_id]["recipients"][recipient]
+        key = (message_id, recipient)
+        buffer = policy.get("buffer_bytes")
+        if buffer is not None and pool["queued_bytes"] + size > buffer:
+            self._drop_delivery(delivery, time=published, reason="buffer_overflow",
+                                message_id=message_id, recipient=recipient)
+            return
+
+        starts = [published, pool["next_available"]]
+        capacities = [self._pool_capacity_fraction(policy)]
+        for endpoint in endpoints:
+            access_policy = self._access_policy(endpoint)
+            if access_policy is not None:
+                state = self._access_states.setdefault(
+                    endpoint, {"next_available": published})
+                starts.append(state["next_available"])
+                capacities.append(self._pool_capacity_fraction(access_policy))
+        start = max(starts)
+        delivery.update(pool=pool_name, access_endpoints=list(endpoints),
+                        transport_valid_until_s=float(expiry))
+        self._record("queued", published, message_id=message_id,
+                     recipient=recipient, pool=pool_name,
+                     access_endpoints=list(endpoints))
+        self._schedule(expiry, "expire", key)
+        if expiry <= start:
+            # The older reservation remains authoritative. This copy cannot
+            # begin within its lifetime, so it reserves no service capacity.
+            # It is nevertheless buffered until expiry; knowing it cannot
+            # start is not an unrecorded proactive drop or extra buffer space.
+            pool["queue"].append(key)
+            pool["queued_bytes"] += size
+            self._pool_buffered.add(key)
+            delivery.update(scheduled_transmit_at_s=None,
+                            scheduled_finish_at_s=None,
+                            serialization_segments=[],
+                            serialization_complete=False)
+            return
+
+        segments, event_times, reservation_end, complete = (
+            self._treatment_serialization_plan(
+            size=size, start=start, expiry=expiry, treatment=treatment,
+            capacities=capacities))
+        delivery.update(scheduled_transmit_at_s=float(start),
+                        scheduled_finish_at_s=float(reservation_end),
+                        serialization_segments=segments,
+                        serialization_complete=complete)
+        # reservation_end is clipped at this copy's expiry. Because start is at
+        # least every existing next_available value, this never lowers an older
+        # sibling reservation and never leaves ghost head-of-line capacity.
+        pool["next_available"] = reservation_end
+        for endpoint in endpoints:
+            if self._access_policy(endpoint) is not None:
+                self._access_states[endpoint]["next_available"] = reservation_end
+        pool["queue"].append(key)
+        pool["queued_bytes"] += size
+        self._pool_buffered.add(key)
+        self._schedule(start, "treatment_start", key)
+        for index, event_time in enumerate(event_times):
+            self._schedule(event_time,
+                           "treatment_service", (message_id, recipient, index))
+        if complete:
+            self._schedule(reservation_end, "treatment_finish", key)
+
+    def _start_treated_copy(self, key, time):
+        message_id, recipient = key
+        message = self._messages[message_id]
+        delivery = message["recipients"][recipient]
+        if delivery["status"] != "queued":
+            return
+        pool_name = delivery["pool"]
+        pool = self._pool_states[pool_name]
+        try:
+            pool["queue"].remove(key)
+        except ValueError:
+            pass
+        self._release_pool_buffer(pool_name, key, message["size_bytes"])
+        delivery["status"] = "serializing"
+
+    def _service_treated_segment(self, key, time):
+        message_id, recipient, index = key
+        message = self._messages[message_id]
+        delivery = message["recipients"][recipient]
+        if delivery["status"] != "serializing":
+            return
+        pool_name = delivery["pool"]
+        segment = delivery["serialization_segments"][index]
+        delivery["bytes_sent"] = segment["bytes_sent"]
+        self._record("bytes_served", time, message_id=message_id,
+                     recipient=recipient, channel=message["channel"],
+                     pool=pool_name, window_index=segment["window_index"],
+                     bytes=segment["bytes"], bytes_sent=segment["bytes_sent"],
+                     **self._direction_fields(message_id))
+
+    def _finish_treated_copy(self, key, time):
+        message_id, recipient = key
+        message = self._messages[message_id]
+        delivery = message["recipients"][recipient]
+        if delivery["status"] != "serializing":
+            return
+        expiry = _time(delivery["transport_valid_until_s"],
+                       "transport_valid_until_s")
+        delay = _time(delivery["publication_treatment"]["delay_s"],
+                      "publication_treatment delay_s")
+        arrival = time + delay
+        delivery.update(
+            status="in_transit", transmitted_at_s=float(time),
+            scheduled_delivery_at_s=(float(arrival) if arrival < expiry else None))
+        self._record("transmitted", time, message_id=message_id,
+                     recipient=recipient,
+                     scheduled_delivery_at_s=delivery["scheduled_delivery_at_s"],
+                     delivery_exceeds_validity=arrival >= expiry,
+                     **self._direction_fields(message_id))
+        if arrival < expiry:
+            self._schedule(arrival, "deliver", key)
+
     def _service_pool(self, pool_name, time):
         pool = self._pool_states[pool_name]
         while pool["queue"]:
             message_id, recipient = pool["queue"][0]
             message = self._messages[message_id]
             delivery = message["recipients"][recipient]
-            pool["queue"].popleft()
-            pool["queued_bytes"] = max(0, pool["queued_bytes"] - message["size_bytes"])
             if delivery["status"] != "queued":
+                pool["queue"].popleft()
+                self._release_pool_buffer(pool_name, (message_id, recipient),
+                                          message["size_bytes"])
                 continue
+            # In a v3 mixed runtime, a stale legacy pool_service event may
+            # remain after an older head expires. It must never steal a treated
+            # reservation or transmit the next copy before its frozen start.
+            if delivery.get("publication_treatment") is not None:
+                break
+            scheduled = _time(delivery["scheduled_transmit_at_s"],
+                              "scheduled_transmit_at_s")
+            if self._publication_treatment_used and scheduled > time:
+                break
+            pool["queue"].popleft()
+            self._release_pool_buffer(pool_name, (message_id, recipient),
+                                      message["size_bytes"])
             expiry = _time(delivery.get("transport_valid_until_s",
                                          message["payload"]["valid_until_s"]),
                            "valid_until_s")
@@ -565,7 +830,7 @@ class CommunicationRuntime:
     def publish(self, *, message_id, producer_id, recipients, channel, estimate,
                 valid_until_s, published_at_s=None, pool=None, direction=None,
                 access_robot_id=None, information_id=None,
-                declared_consumer_ids=None):
+                declared_consumer_ids=None, publication_treatment=None):
         """Publish one global ID to distinct recipients; return evaluator record.
 
         Wire size includes the five public payload fields; each unicast copy
@@ -592,6 +857,17 @@ class CommunicationRuntime:
             raise ValueError("publish time must be monotonic")
         if not isinstance(estimate, Mapping):
             raise ValueError("estimate must be a mapping")
+        treatment = (None if publication_treatment is None else
+                     _validate_publication_treatment(publication_treatment))
+        if treatment is not None and len(recipients) != 1:
+            raise ValueError("publication_treatment version 1 requires exactly one recipient")
+        if treatment is not None and not self._pool_mode():
+            raise ValueError("publication_treatment requires a shared-pool contract")
+        if treatment is not None:
+            if pool is not None:
+                _name(pool, "pool")
+            if direction is not None:
+                _name(direction, "direction")
         payload = {"message_id": message_id, "producer_id": producer_id,
                    "published_at_s": float(published), "valid_until_s": float(expiry),
                    "estimate": _json_copy(dict(estimate))}
@@ -599,6 +875,28 @@ class CommunicationRuntime:
             payload["information_id"] = _name(information_id, "information_id")
         size = len(json.dumps(payload, sort_keys=True, ensure_ascii=False,
                               separators=(",", ":"), allow_nan=False).encode("utf-8"))
+        consumers = None
+        if declared_consumer_ids is not None:
+            consumers = list(declared_consumer_ids)
+            if (not consumers or any(not isinstance(item, str) or not item
+                                     for item in consumers)
+                    or len(set(consumers)) != len(consumers)):
+                raise ValueError("declared_consumer_ids must be unique nonempty strings")
+        selected_pool = None
+        treatment_endpoints = None
+        if self._pool_mode():
+            selected_pool = self._pool_name(
+                producer_id=producer_id, recipient=recipients[0], channel=channel,
+                pool=pool, direction=direction)
+        if treatment is not None:
+            # Resolve every shared physical input while the call is still pure.
+            # Buffer admission is a runtime outcome and is intentionally later.
+            self._pool_policy(selected_pool)
+            treatment_endpoints = self._access_endpoints(
+                producer_id=producer_id, recipient=recipients[0],
+                pool_name=selected_pool, access_robot_id=access_robot_id)
+            for endpoint in treatment_endpoints:
+                self._access_policy(endpoint)
         self.advance(float(published))
         # Preserve explicit direction for service/drop ledger rows emitted
         # after publication.  Without this immutable metadata, pooled traffic
@@ -607,26 +905,22 @@ class CommunicationRuntime:
                    "recipients": {}}
         if direction is not None:
             message["direction"] = direction
-        if declared_consumer_ids is not None:
+        if consumers is not None:
             # Evaluator-side authorization metadata; deliberately not part of
             # the wire payload so declaring consumers never changes billing.
-            consumers = list(declared_consumer_ids)
-            if (not consumers or any(not isinstance(item, str) or not item
-                                     for item in consumers)
-                    or len(set(consumers)) != len(consumers)):
-                raise ValueError("declared_consumer_ids must be unique nonempty strings")
             message["declared_consumers"] = consumers
+        if treatment is not None:
+            message["publication_treatment"] = deepcopy(treatment)
         self._messages[message_id] = message
-        selected_pool = None
-        if self._pool_mode():
-            selected_pool = self._pool_name(producer_id=producer_id,
-                                             recipient=recipients[0], channel=channel,
-                                             pool=pool, direction=direction)
+        if treatment is not None:
+            self._publication_treatment_used = True
         self._record("published", published, message_id=message_id, producer_id=producer_id,
                      channel=channel, recipients=sorted(recipients), size_bytes=size,
                      **({"pool": selected_pool, "direction": direction,
                          "access_robot_id": access_robot_id,
-                         "information_id": information_id}
+                         "information_id": information_id,
+                         **({"publication_treatment": treatment}
+                            if treatment is not None else {})}
                         if self._pool_mode() else
                         ({"direction": direction} if direction is not None else {})))
         for recipient in sorted(recipients):
@@ -639,10 +933,33 @@ class CommunicationRuntime:
             key = (message_id, recipient)
             pool_conditions = self._pool_policy(selected_pool) if selected_pool else {}
             effective_expiry = expiry
-            if selected_pool and pool_conditions.get("ttl_s") is not None:
+            if treatment is not None:
+                effective_expiry = min(
+                    expiry, published + _time(
+                        treatment["publication_validity_s"],
+                        "publication_treatment publication_validity_s"))
+                endpoints = list(treatment_endpoints)
+                delivery.update(
+                    publication_treatment=deepcopy(treatment),
+                    pool=selected_pool, access_endpoints=endpoints,
+                    transport_valid_until_s=float(effective_expiry),
+                    frozen_transport_policy={
+                        "pool": deepcopy(pool_conditions),
+                        "access": {
+                            endpoint: deepcopy(self._access_policy(endpoint))
+                            for endpoint in endpoints
+                        },
+                    })
+            elif selected_pool and pool_conditions.get("ttl_s") is not None:
                 effective_expiry = min(
                     expiry, published + _time(pool_conditions["ttl_s"], "ttl_s"))
-            if conditions["drop"] or pool_conditions.get("drop") or pool_conditions.get("active_drop"):
+            if treatment is not None and treatment["drop"]:
+                self._drop_delivery(delivery, time=published,
+                                    reason="publication_treatment",
+                                    message_id=message_id, recipient=recipient)
+            elif (treatment is None and
+                  (conditions["drop"] or pool_conditions.get("drop")
+                   or pool_conditions.get("active_drop"))):
                 self._drop_delivery(delivery, time=published,
                                     reason="active", message_id=message_id,
                                     recipient=recipient)
@@ -652,13 +969,21 @@ class CommunicationRuntime:
                 self._record("expired", published, message_id=message_id, recipient=recipient,
                              bytes_sent=0, reason="ttl", **self._direction_fields(message_id))
             elif selected_pool:
-                endpoints = self._access_endpoints(producer_id=producer_id,
-                                                   recipient=recipient,
-                                                   pool_name=selected_pool,
-                                                   access_robot_id=access_robot_id)
-                self._queue_pool_copy(message_id, recipient, pool_name=selected_pool,
-                                      endpoints=endpoints, conditions=conditions,
-                                      published=published, expiry=effective_expiry)
+                endpoints = (list(treatment_endpoints) if treatment is not None else
+                             self._access_endpoints(
+                                 producer_id=producer_id, recipient=recipient,
+                                 pool_name=selected_pool,
+                                 access_robot_id=access_robot_id))
+                if treatment is not None:
+                    self._queue_treated_pool_copy(
+                        message_id, recipient, pool_name=selected_pool,
+                        endpoints=endpoints, published=published,
+                        expiry=effective_expiry, treatment=treatment)
+                else:
+                    self._queue_pool_copy(
+                        message_id, recipient, pool_name=selected_pool,
+                        endpoints=endpoints, conditions=conditions,
+                        published=published, expiry=effective_expiry)
             else:
                 link_key = (recipient, channel)
                 link = self._links.setdefault(link_key, {"queue": deque(), "window": None,
@@ -736,6 +1061,15 @@ class CommunicationRuntime:
             if kind == "pool_service":
                 self._service_pool(key, time)
                 continue
+            if kind == "treatment_start":
+                self._start_treated_copy(key, time)
+                continue
+            if kind == "treatment_service":
+                self._service_treated_segment(key, time)
+                continue
+            if kind == "treatment_finish":
+                self._finish_treated_copy(key, time)
+                continue
             if kind == "service":
                 self._service(key, time)
                 continue
@@ -743,9 +1077,9 @@ class CommunicationRuntime:
             delivery = self._messages[message_id]["recipients"][recipient]
             if kind == "expire" and delivery["status"] not in {"dropped", "expired"}:
                 if delivery["status"] == "queued" and delivery.get("pool") in self._pool_states:
-                    pool = self._pool_states[delivery["pool"]]
-                    pool["queued_bytes"] = max(0, pool["queued_bytes"] -
-                                                 self._messages[message_id]["size_bytes"])
+                    self._release_pool_buffer(
+                        delivery["pool"], (message_id, recipient),
+                        self._messages[message_id]["size_bytes"])
                 delivery["status"] = "expired"
                 delivery["drop_reason"] = "ttl"
                 self._record("expired", time, message_id=message_id, recipient=recipient,
@@ -995,7 +1329,8 @@ class CommunicationRuntime:
 
     def report(self):
         """Evaluator snapshot with initial and final policy plus causal evidence."""
-        return {"schema": "eai.benchmark.communication", "version": 2,
+        return {"schema": "eai.benchmark.communication",
+                "version": 3 if self._publication_treatment_used else 2,
                 "visibility": "evaluator_only", "time_s": self.time_s,
                 "initial_contract": deepcopy(self._initial_contract),
                 "contract": deepcopy(self._contract), "messages": deepcopy(self._messages),
@@ -1152,7 +1487,7 @@ def validate_communication_report(report, *, expected_initial_contract=None):
         return result
     version = report.get("version")
     if (report.get("schema") != "eai.benchmark.communication"
-            or type(version) is not int or version not in (1, 2)):
+            or type(version) is not int or version not in (1, 2, 3)):
         result["mismatches"].append("unsupported report schema/version")
         return result
     result["isaac_integrated"] = report.get("isaac_integrated") is True
@@ -1176,11 +1511,11 @@ def validate_communication_report(report, *, expected_initial_contract=None):
             previous_time = event_time
         expected = (validate_communication_contract(expected_initial_contract)
                     if expected_initial_contract is not None else None)
-        if version == 2:
+        if version in (2, 3):
             initial_contract = _report_contract(report, "initial_contract")
         else:
             if "initial_contract" in report:
-                raise ValueError("initial_contract requires report version 2")
+                raise ValueError("initial_contract requires report version 2 or 3")
             initial_contract = (expected if expected is not None
                                 else _legacy_initial_contract(final_contract, ledger))
         if expected is not None and initial_contract != expected:
@@ -1217,7 +1552,9 @@ def validate_communication_report(report, *, expected_initial_contract=None):
                                direction=event.get("direction"),
                                access_robot_id=event.get("access_robot_id"),
                                information_id=payload.get("information_id"),
-                               declared_consumer_ids=message.get("declared_consumers"))
+                               declared_consumer_ids=message.get("declared_consumers"),
+                               publication_treatment=event.get(
+                                   "publication_treatment"))
             elif event.get("event") == "consumed":
                 replay.consume(event["message_id"], recipient=event["recipient"],
                                consumer_id=event["consumer_id"], time_s=event["time_s"])
@@ -1234,6 +1571,10 @@ def validate_communication_report(report, *, expected_initial_contract=None):
                     raise ValueError("rejected consumption was accepted during replay")
         replay.advance(report["time_s"])
         actual = replay.report()
+        if ((version in (2, 3) or actual["version"] == 3)
+                and actual["version"] != version):
+            result["mismatches"].append(
+                "report version differs after deterministic replay")
         if _canonical_json(actual["contract"]) != _canonical_json(final_contract):
             result["mismatches"].append("final contract differs after deterministic replay")
         if _canonical_json(actual["ledger"]) != _canonical_json(ledger):

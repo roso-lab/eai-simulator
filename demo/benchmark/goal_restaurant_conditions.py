@@ -1,12 +1,12 @@
 """Exact Restaurant task-condition binding with a fail-closed runtime boundary.
 
 The authoring schedule defines one treatment for the first cross-mobility
-observation published before the first business-state commit.  The current
-``CommunicationRuntime`` has no single-publication override for the complete
-pooled treatment, especially its byte window and serialization.  Consequently
-this module binds and resolves the exact task event, but reports a triggered
-event as unsupported instead of broadening it into a pool mutation.  This does
-not deny that individual drop/validity fields have other runtime entry points.
+observation published before the first business-state commit. This original
+v1 resolver remains a binding-only interface: a triggered event is unsupported
+here instead of being broadened into a pool mutation. The explicit extension
+in ``goal_restaurant_publication_treatment`` connects the real execution-result
+uplink to the runtime's versioned single-publication policy. Its application
+archive is separate; old binding-only reports retain their original meaning.
 """
 
 from __future__ import annotations

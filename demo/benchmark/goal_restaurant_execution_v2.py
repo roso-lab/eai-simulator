@@ -19,6 +19,7 @@ from .goal_execution_downlink import GoalExecutionDownlink
 from .goal_restaurant_autonomous_v2 import RestaurantAutonomousContext
 from .goal_restaurant_fleet import CLOSED_VALIDATION_FLAGS, FLEET_CONTROLLER_REGISTRY
 from .goal_restaurant_transport import RestaurantReadinessTransport
+from .goal_restaurant_publication_treatment import RestaurantPublicationTreatment
 from .goal_session_audit import replay_goal_session_audit
 from .provenance import canonical_sha256
 
@@ -28,6 +29,10 @@ RESULT_CHANNEL = "goal_execution_result"
 SUPPORTED_OBSERVATION_MODE = "service_ground_readiness"
 READINESS_MESSAGE_KIND = "restaurant_readiness_receipt"
 REQUIRED_READINESS_REGIONS = ("kitchen_service", "dining_service")
+
+
+class ResultPublicationError(RuntimeError):
+    """Infrastructure failure after physical evidence was recorded."""
 
 
 def _positive(value: Any, label: str) -> float:
@@ -56,6 +61,7 @@ class RestaurantExecutionPump:
         result_ttl_s: float = 30.0,
         relay_ttl_s: float = 30.0,
         participant_tick_interval_s: float = 0.5,
+        publication_treatment: RestaurantPublicationTreatment | None = None,
     ):
         if not isinstance(context, RestaurantAutonomousContext):
             raise ValueError("context must be a RestaurantAutonomousContext")
@@ -73,6 +79,14 @@ class RestaurantExecutionPump:
             participant_tick_interval_s, "participant_tick_interval_s")
         self.episode_id = context.binding["episode_id"]
         public_task = context.contract["public_task"]
+        if publication_treatment is not None:
+            if (not isinstance(publication_treatment, RestaurantPublicationTreatment)
+                    or publication_treatment.public_task != public_task
+                    or publication_treatment.conditions["initial_communication_contract"]
+                    != runtime.report()["initial_contract"]
+                    or publication_treatment.report()["decisions"]):
+                raise ValueError("publication treatment must be pristine and bound to this task and runtime")
+        self._publication_treatment = deepcopy(publication_treatment)
         self.downlink = GoalExecutionDownlink(
             public_task, episode_id=self.episode_id, runtime=runtime,
             ttl_s=self.dispatch_ttl_s)
@@ -460,13 +474,35 @@ class RestaurantExecutionPump:
             "source_record_ref": source_record_ref,
             "participant_observation": participant_observation,
         }
-        message = self.runtime.publish(
-            message_id=message_id, producer_id=producer,
-            recipients=[RESULT_RECIPIENT], channel=RESULT_CHANNEL,
-            estimate=estimate, published_at_s=physical_completed_at_s,
-            valid_until_s=physical_completed_at_s + self.result_ttl_s,
-            pool="backhaul_uplink", direction="uplink",
-            access_robot_id=producer)
+        # Stage the host-only decision so a rejected publication cannot consume
+        # the one-shot treatment or leave a phantom decision in the archive.
+        staged_treatment = None
+        publication_options = {}
+        try:
+            if (self._publication_treatment is not None and status == "succeeded"
+                    and participant_observation is not None):
+                staged_treatment = deepcopy(self._publication_treatment)
+                source = next(record for record in self._physical_records
+                              if record["evidence_ref"] == source_record_ref)
+                publication_options["publication_treatment"] = staged_treatment.select(
+                    message_id=message_id, producer_id=producer, task_id=task_id,
+                    published_at_s=physical_completed_at_s, physical_record=source,
+                    audit_journal=self.context.session.audit_journal(),
+                    readiness_receipt=self.readiness.snapshot()["readiness_service"]["receipt"])
+            message = self.runtime.publish(
+                message_id=message_id, producer_id=producer,
+                recipients=[RESULT_RECIPIENT], channel=RESULT_CHANNEL,
+                estimate=estimate, published_at_s=physical_completed_at_s,
+                valid_until_s=physical_completed_at_s + self.result_ttl_s,
+                pool="backhaul_uplink", direction="uplink",
+                access_robot_id=producer, **publication_options)
+        except Exception as exc:
+            self._record_gap(task_id, physical_completed_at_s, "result_publication_failure",
+                             exception_type=type(exc).__name__, exception_message=str(exc),
+                             participant_failure_inferred=False)
+            raise ResultPublicationError(str(exc)) from exc
+        if staged_treatment is not None:
+            self._publication_treatment = staged_treatment
         record = {
             "message_id": message_id,
             "task_id": task_id,
@@ -672,6 +708,10 @@ class RestaurantExecutionPump:
                         region_record=region_record, evidence=[gap],
                         disposition="platform_gap")
                 started.append(task_id)
+            except ResultPublicationError:
+                # Transport/evaluator failures cannot rewrite a recorded
+                # physical success into a native skill failure.
+                raise
             except Exception as exc:
                 gap = self._record_gap(
                     task_id, now, "native_start_failure",
@@ -853,7 +893,7 @@ class RestaurantExecutionPump:
                 continue
             copy = messages[message_id]["recipients"][RESULT_RECIPIENT]
             status = copy["status"]
-            if status in {"queued", "in_transit"}:
+            if status in {"queued", "serializing", "in_transit"}:
                 continue
             if status in {"dropped", "expired"}:
                 record["publication_status"] = status
@@ -1081,6 +1121,8 @@ class RestaurantExecutionPump:
             "bounded_incremental_execution": True,
             "synchronous_drive_to_completion_fallback": False,
             "business_arrival_contact_evidence_available": False,
+            **({"publication_treatment": self._publication_treatment.report()}
+               if self._publication_treatment is not None else {}),
             **CLOSED_VALIDATION_FLAGS,
         }
 
