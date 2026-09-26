@@ -180,6 +180,17 @@ ros2_cmd_vel.json
 !/usd/scene/factory/goal_props/service_cart_v1.usda
 !/usd/scene/factory/goal_props/anomaly_marker_v2.usda
 !/usd/scene/factory/goal_props/service_cart_v2.usda
+# Maintained 2D occupancy maps used by benchmark planning and tests.
+!/usd/scene/factory/factory_map.yaml
+!/usd/scene/factory/factory_map.png
+!/usd/scene/warehouse_nvd/
+/usd/scene/warehouse_nvd/*
+!/usd/scene/warehouse_nvd/ground_map_0.6m.yaml
+!/usd/scene/warehouse_nvd/ground_map_0.6m.png
+!/usd/scene/modern_house_nvd/
+/usd/scene/modern_house_nvd/*
+!/usd/scene/modern_house_nvd/ground_map_0.6m.yaml
+!/usd/scene/modern_house_nvd/ground_map_0.6m.png
 !/usd/picture/
 !/usd/picture/**
 /source/EAI_assets/EAI_assets/controller/
