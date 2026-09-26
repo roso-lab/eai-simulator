@@ -99,6 +99,18 @@ def communication_expected_manifest_sha256(manifest: Mapping[str, Any]) -> str:
     return sha256(payload).hexdigest()
 
 
+def validate_communication_expected_manifest(
+    manifest: Mapping[str, Any],
+) -> str:
+    """Validate a frozen expected-cell manifest and return its digest.
+
+    Producers use this public boundary before persisting a manifest.  It does
+    not derive expected cells from observed results and performs no scoring.
+    """
+    _, digest = _validate_expected_manifest(manifest)
+    return digest
+
+
 def _canonical_json_sha256(value: Any) -> str:
     try:
         payload = json.dumps(
@@ -572,4 +584,5 @@ __all__ = [
     "TRUSTED_TERMINATION_ANCHOR_SOURCES",
     "build_communication_source_matrix",
     "communication_expected_manifest_sha256",
+    "validate_communication_expected_manifest",
 ]
