@@ -1,4 +1,4 @@
-"""Disk producer/replay tests for Stage70 raw communication evidence."""
+"""Disk producer/replay tests for Stage70/71 raw communication evidence."""
 
 from copy import deepcopy
 import hashlib
@@ -14,6 +14,7 @@ from demo.benchmark.goal_communication_evidence import (
     CONDITION_SPEC_SCHEMA,
     EXPECTED_MANIFEST_FILE,
     ROW_SCHEMA,
+    ROW_TASK_PERFORMANCE_VERSION,
     SOURCE_ARCHIVE_SCHEMA,
     build_episode_source_row,
     freeze_expected_manifest,
@@ -22,6 +23,16 @@ from demo.benchmark.goal_communication_evidence import (
 )
 from demo.benchmark.goal_communication_source_binding import (
     EXPECTED_MANIFEST_SCHEMA,
+    EXPECTED_MANIFEST_TASK_PERFORMANCE_VERSION,
+)
+from demo.benchmark.goal_communication_task_performance import (
+    TASK_PERFORMANCE_MAPPING_SCHEMA,
+    TASK_PERFORMANCE_METHOD_ID,
+)
+from demo.benchmark.goal_contract_v4 import (
+    ACTIVATION_EPISODE_START,
+    freeze_contract_v4,
+    migrate_v3_to_contract_v4,
 )
 from demo.benchmark.goal_progress_evidence import (
     GoalProgressRecorder,
@@ -60,7 +71,51 @@ def _contract():
     }
 
 
-def _manifest(public_task=None, *, episode_id="ep0", relpath="episodes/ep0"):
+def _task_performance_mapping(public_task, *, weights=None,
+                              reasons=None, evaluator_ref="progress-reader"):
+    ids = [row["id"] for row in public_task["required_outcomes"]]
+    weights = weights or {key: 1.0 for key in ids}
+    specs = {
+        key: {
+            "weight": weights[key],
+            "activation_rule": ACTIVATION_EPISODE_START,
+            "stability_duration_s": 0.0,
+            "monotonicity": "monotonic",
+            "anti_double_count_rule": "first_external_satisfaction_only",
+        }
+        for key in ids
+    }
+    frozen = freeze_contract_v4(migrate_v3_to_contract_v4(
+        public_task, milestone_specs=specs)["task_v4"])
+    return {
+        "schema": TASK_PERFORMANCE_MAPPING_SCHEMA,
+        "version": 1,
+        "method_id": TASK_PERFORMANCE_METHOD_ID,
+        "metric_name": "MCR_comm",
+        "frozen_contract_v4": frozen,
+        "progress_source": {
+            "schema": "eai.benchmark.goal_progress_evidence",
+            "version": 1,
+            "evaluator_ref": evaluator_ref,
+            "clock_source": "contract_clock",
+        },
+        "sample_selector": "terminal",
+        "predicate_binding": (
+            "contract_outcome_ref_equals_progress_predicate_id"),
+        "unknown_policy": "metric_na",
+        "revocation_policy": "monotonic_contract_violation_na",
+        "stability_policy": "require_zero_duration",
+        "eligible_termination_reasons": reasons or ["participant_stopped"],
+        "higher_is_better": True,
+        "release": False,
+        "scoreable": False,
+        "execution_validated": False,
+        "business_outcomes_validated": False,
+    }
+
+
+def _manifest(public_task=None, *, episode_id="ep0", relpath="episodes/ep0",
+              task_performance_mapping=None):
     public_task = public_task or _public_task()
     task_id = public_task["task_id"]
     initial_contract = CommunicationRuntime(_contract()).report()["initial_contract"]
@@ -84,9 +139,10 @@ def _manifest(public_task=None, *, episode_id="ep0", relpath="episodes/ep0"):
         "condition_spec": spec,
         "condition_spec_sha256": canonical_sha256(spec),
     }
-    return {
+    manifest = {
         "schema": EXPECTED_MANIFEST_SCHEMA,
-        "version": 1,
+        "version": (EXPECTED_MANIFEST_TASK_PERFORMANCE_VERSION
+                    if task_performance_mapping is not None else 1),
         "frozen_before_execution": True,
         "frozen_at": "2026-09-26T00:00:00Z",
         "task_id": task_id,
@@ -105,13 +161,20 @@ def _manifest(public_task=None, *, episode_id="ep0", relpath="episodes/ep0"):
         "execution_validated": False,
         "business_outcomes_validated": False,
     }
+    if task_performance_mapping is not None:
+        manifest["task_performance_mapping"] = task_performance_mapping
+        manifest["task_performance_mapping_sha256"] = canonical_sha256(
+            task_performance_mapping)
+    return manifest
 
 
-def _episode(matrix_root, manifest, *, messages=False):
+def _episode(matrix_root, manifest, *, messages=False, public_task=None,
+             terminal_values=None, intermediate_values=None,
+             termination_reason="participant_stopped"):
     cell = manifest["cells"][0]
     root = matrix_root / cell["episode_relpath"]
     root.mkdir(parents=True)
-    public = _public_task()
+    public = public_task or _public_task()
     runtime = CommunicationRuntime(cell["condition_spec"]["initial_contract"])
     if messages:
         runtime.publish(
@@ -124,24 +187,43 @@ def _episode(matrix_root, manifest, *, messages=False):
     transport_replay = validate_communication_report(transport)
     assert transport_replay["validated"] is True
 
+    predicate_ids = [row["id"] for row in public["required_outcomes"]]
     recorder = GoalProgressRecorder(public, cell["episode_id"])
     recorder.append({
         "episode_id": cell["episode_id"],
         "time_s": 0.0,
         "clock_source": "contract_clock",
         "evaluator_ref": "progress-reader",
-        "predicates": {"milestone0": {"satisfied": None,
-                                       "evidence_refs": []}},
+        "predicates": {key: {"satisfied": None, "evidence_refs": []}
+                       for key in predicate_ids},
     }, boundary="initial", host_time_s=0.0)
+    if intermediate_values is not None:
+        recorder.append({
+            "episode_id": cell["episode_id"],
+            "time_s": .5,
+            "clock_source": "contract_clock",
+            "evaluator_ref": "progress-reader",
+            "predicates": {
+                key: {"satisfied": intermediate_values[key],
+                      "evidence_refs": (
+                          [] if intermediate_values[key] is None
+                          else [f"native://intermediate/{key}"])}
+                for key in predicate_ids},
+        }, boundary="skill_completed", host_time_s=.5)
+    if terminal_values is None:
+        terminal_values = {key: key == "milestone0" for key in predicate_ids}
     recorder.append({
         "episode_id": cell["episode_id"],
         "time_s": 1.0,
         "clock_source": "contract_clock",
         "evaluator_ref": "progress-reader",
-        "predicates": {"milestone0": {"satisfied": True,
-                                       "evidence_refs": ["native://m0"]}},
+        "predicates": {
+            key: {"satisfied": terminal_values[key],
+                  "evidence_refs": ([] if terminal_values[key] is None
+                                    else [f"native://terminal/{key}"])}
+            for key in predicate_ids},
     }, boundary="terminal", host_time_s=1.0)
-    progress = recorder.report(termination_reason="participant_stopped",
+    progress = recorder.report(termination_reason=termination_reason,
                                host_cutoff_s=1.0)
     progress_replay = replay_progress_evidence(
         progress, public, episode_id=cell["episode_id"])
@@ -273,7 +355,134 @@ def test_disk_producer_zero_message_and_read_only_verifier(tmp_path):
         "na_dimension_source_not_wired")
 
 
-def test_post_runner_producer_reads_the_actual_episode_archive(tmp_path):
+def test_v2_mapping_computes_unequal_weight_mcr_and_accepts_raw_only(tmp_path):
+    public = build_goal_task_package("factory")["public_task"]
+    ids = [row["id"] for row in public["required_outcomes"]]
+    weights = {ids[0]: 1.0, ids[1]: 3.0, ids[2]: 0.0}
+    mapping = _task_performance_mapping(public, weights=weights)
+    manifest = _manifest(public, task_performance_mapping=mapping)
+    root = tmp_path / "matrix"
+    freeze_expected_manifest(root, manifest)
+    episode = _episode(
+        root, manifest, public_task=public,
+        terminal_values={ids[0]: True, ids[1]: False, ids[2]: None})
+
+    row = build_episode_source_row(root, episode, manifest["cells"][0])
+    assert row["version"] == ROW_TASK_PERFORMANCE_VERSION
+    assert row["task_performance_mapping_status"] == "computed"
+    assert row["condition_metrics"]["task_performance"]["MCR_comm"] == (
+        pytest.approx(.25))
+    assert row["condition_metrics"]["task_performance"]["AUP_comm"] is None
+    assert row["source_bindings"]["task_performance_mapping_sha256"] == (
+        manifest["task_performance_mapping_sha256"])
+    assert row["source_bindings"]["frozen_contract_v4_seal_sha256"] == (
+        mapping["frozen_contract_v4"]["seal_sha256"])
+    write_episode_source_row(root, row)
+
+    before = _tree_hashes(root)
+    verified = verify_communication_evidence_archive(root)
+    assert _tree_hashes(root) == before
+    assert verified["verified_row_count"] == 1
+    assert verified["source_matrix"]["accepted_raw_only_count"] == 1
+    assert verified["source_matrix"]["rows"][0]["measurement"][
+        "qualified_metric_value"] == pytest.approx(.25)
+    assert verified["source_matrix"]["formal_scoring_wired"] is False
+    assert verified["source_matrix"]["dimension_status"] == (
+        "na_dimension_source_not_wired")
+
+
+@pytest.mark.parametrize("mode, expected_status", [
+    ("unknown", "na_unknown_terminal_predicates"),
+    ("revoked", "na_monotonicity_violation"),
+    ("ineligible", "na_ineligible_termination_reason"),
+])
+def test_v2_valid_na_cases_remain_diagnostic_not_zero(
+        tmp_path, mode, expected_status):
+    public = build_goal_task_package("factory")["public_task"]
+    ids = [row["id"] for row in public["required_outcomes"]]
+    mapping = _task_performance_mapping(public)
+    manifest = _manifest(public, task_performance_mapping=mapping)
+    root = tmp_path / "matrix"
+    freeze_expected_manifest(root, manifest)
+    terminal = {key: False for key in ids}
+    intermediate = None
+    reason = "participant_stopped"
+    if mode == "unknown":
+        terminal[ids[0]] = None
+    elif mode == "revoked":
+        intermediate = {key: False for key in ids}
+        intermediate[ids[0]] = True
+    else:
+        reason = "execution_error"
+    episode = _episode(
+        root, manifest, public_task=public, terminal_values=terminal,
+        intermediate_values=intermediate, termination_reason=reason)
+    row = build_episode_source_row(root, episode, manifest["cells"][0])
+    assert row["task_performance_mapping_status"] == expected_status
+    assert row["condition_metrics"]["task_performance"]["MCR_comm"] is None
+    write_episode_source_row(root, row)
+    verified = verify_communication_evidence_archive(root)
+    assert verified["verified_row_count"] == 1
+    assert verified["source_matrix"]["accepted_raw_only_count"] == 0
+    assert verified["source_matrix"]["diagnostic_only_count"] == 1
+    assert verified["source_matrix"]["rows"][0]["measurement"][
+        "metric_value"] is None
+
+
+@pytest.mark.parametrize("mutation, match", [
+    ("mapping_missing", "task_performance_mapping must be an object"),
+    ("mapping_digest", "mapping digest differs"),
+    ("unsupported_metric", "only MCR_comm"),
+])
+def test_v2_manifest_mapping_is_required_and_digest_bound(
+        tmp_path, mutation, match):
+    public = build_goal_task_package("factory")["public_task"]
+    mapping = _task_performance_mapping(public)
+    manifest = _manifest(public, task_performance_mapping=mapping)
+    if mutation == "mapping_missing":
+        manifest.pop("task_performance_mapping")
+    elif mutation == "mapping_digest":
+        manifest["task_performance_mapping_sha256"] = "0" * 64
+    else:
+        manifest["task_performance_mapping"]["metric_name"] = "AUP_comm"
+        manifest["task_performance_mapping_sha256"] = canonical_sha256(
+            manifest["task_performance_mapping"])
+    with pytest.raises(ValueError, match=match):
+        freeze_expected_manifest(tmp_path / "matrix", manifest)
+
+
+def test_v2_tampered_stored_mcr_is_rejected_and_stale_measurement_cleared(
+        tmp_path):
+    public = build_goal_task_package("factory")["public_task"]
+    ids = [row["id"] for row in public["required_outcomes"]]
+    mapping = _task_performance_mapping(public)
+    manifest = _manifest(public, task_performance_mapping=mapping)
+    root = tmp_path / "matrix"
+    freeze_expected_manifest(root, manifest)
+    episode = _episode(
+        root, manifest, public_task=public,
+        terminal_values={key: False for key in ids})
+    row = build_episode_source_row(root, episode, manifest["cells"][0])
+    path = write_episode_source_row(root, row)
+    changed = json.loads(path.read_text())
+    changed["condition_metrics"]["task_performance"]["MCR_comm"] = 1.0
+    _write(path, changed)
+
+    verified = verify_communication_evidence_archive(root)
+    assert verified["invalid_row_count"] == 1
+    record = verified["source_matrix"]["rows"][0]
+    assert record["row_status"] == "rejected"
+    assert record["measurement"]["metric_value"] is None
+    assert record["measurement"].get("B_offer_bits") is None
+    assert record["measurement"].get("B_link_bits") is None
+
+
+@pytest.mark.parametrize(("stage71_mapping", "expected_status"), [
+    (False, "na_missing_milestones"),
+    (True, "na_unknown_terminal_predicates"),
+])
+def test_post_runner_producer_reads_the_actual_episode_archive(
+        tmp_path, stage71_mapping, expected_status):
     class Adapter:
         def manifest(self):
             return {
@@ -300,8 +509,12 @@ def test_post_runner_producer_reads_the_actual_episode_archive(tmp_path):
     bundle = build_goal_task_package("warehouse_nvd")
     public = bundle["public_task"]
     root = tmp_path / "matrix"
+    mapping = (_task_performance_mapping(
+        public, evaluator_ref="stage70-progress-reader")
+        if stage71_mapping else None)
     manifest = _manifest(public, episode_id="runner-ep",
-                         relpath="episodes/runner-ep")
+                         relpath="episodes/runner-ep",
+                         task_performance_mapping=mapping)
     freeze_expected_manifest(root, manifest)
     runtime = CommunicationRuntime(
         manifest["cells"][0]["condition_spec"]["initial_contract"])
@@ -345,7 +558,12 @@ def test_post_runner_producer_reads_the_actual_episode_archive(tmp_path):
         "communication_transport_report.json"]["sha256"] == hashlib.sha256(
             (episode / "communication_transport_report.json").read_bytes()).hexdigest()
     assert row["condition_metrics"]["task_performance"]["status"] == (
-        "na_missing_milestones")
+        expected_status)
+    assert row["condition_metrics"]["task_performance"]["MCR_comm"] is None
+    if stage71_mapping:
+        assert row["version"] == ROW_TASK_PERFORMANCE_VERSION
+        assert row["task_performance_mapping_status"] == expected_status
+        assert verified["source_matrix"]["diagnostic_only_count"] == 1
 
 
 def test_create_once_manifest_is_idempotent_but_never_overwritten(tmp_path):

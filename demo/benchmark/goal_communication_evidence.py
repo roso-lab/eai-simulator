@@ -1,11 +1,12 @@
 """Evaluator-owned disk closure for raw communication matrix evidence.
 
-Stage69 validates already assembled rows.  This module owns the preceding
+Stage69 validates already assembled rows.  Stage70 added this preceding disk
 boundary: freeze the expected matrix before execution, derive one row only
 from completed episode files, and independently rebuild every row before
-passing it to the Stage69 validator.  It deliberately does not choose a
-milestone-to-metric mapping, aggregate a communication score, or change any
-release gate.
+passing it to the Stage69 validator.  Stage71 may execute an evaluator-authored
+sealed-v4 terminal-MCR mapping carried by manifest v2.  This module does not
+author that mapping, aggregate a communication score, or change any release
+gate.
 """
 
 from __future__ import annotations
@@ -21,9 +22,13 @@ from .communication import validate_communication_report
 from .goal_communication_metrics import communication_condition_metrics
 from .goal_communication_source_binding import (
     EXPECTED_CELL_FIELDS,
+    EXPECTED_MANIFEST_TASK_PERFORMANCE_VERSION,
     build_communication_source_matrix,
     communication_expected_manifest_sha256,
     validate_communication_expected_manifest,
+)
+from .goal_communication_task_performance import (
+    replay_communication_task_performance,
 )
 from .goal_progress_evidence import replay_progress_evidence
 from .goal_scoring_adapter import (
@@ -38,6 +43,7 @@ EXPECTED_MANIFEST_FILE = "communication_expected_manifest.json"
 ROWS_DIRECTORY = "rows"
 ROW_SCHEMA = "eai.benchmark.communication_source_row"
 ROW_VERSION = 1
+ROW_TASK_PERFORMANCE_VERSION = 2
 SOURCE_ARCHIVE_SCHEMA = "eai.benchmark.communication_source_archive"
 SOURCE_ARCHIVE_VERSION = 1
 VERIFICATION_SCHEMA = "eai.benchmark.communication_evidence_verification"
@@ -546,6 +552,19 @@ def build_episode_source_row(
         condition_id=cell["condition_id"],
         excluded_message_ids=manifest["excluded_message_ids"],
     )
+    row_version = ROW_VERSION
+    mapping_status = "na_not_frozen_stage70_no_inference"
+    task_performance_replay: dict[str, Any] | None = None
+    if manifest.get("version") == EXPECTED_MANIFEST_TASK_PERFORMANCE_VERSION:
+        task_performance_replay = replay_communication_task_performance(
+            manifest["task_performance_mapping"],
+            payloads["goal_progress_evidence.json"],
+            payloads["public_task.json"],
+            episode_id=episode_id,
+        )
+        condition_metrics["task_performance"] = task_performance_replay
+        mapping_status = task_performance_replay["status"]
+        row_version = ROW_TASK_PERFORMANCE_VERSION
     bindings = {
         "contract_sha256": manifest["contract_sha256"],
         "expected_manifest_sha256": manifest_digest,
@@ -573,17 +592,25 @@ def build_episode_source_row(
         "endpoint_pool_binding_sha256": canonical_sha256(endpoint_binding),
         **_RELEASE,
     }
+    if task_performance_replay is not None:
+        frozen = manifest["task_performance_mapping"]["frozen_contract_v4"]
+        bindings.update({
+            "task_performance_mapping_sha256": manifest[
+                "task_performance_mapping_sha256"],
+            "frozen_contract_v4_seal_sha256": frozen["seal_sha256"],
+            "task_performance_replay_sha256": canonical_sha256(
+                task_performance_replay),
+        })
     row = {
         "schema": ROW_SCHEMA,
-        "version": ROW_VERSION,
+        "version": row_version,
         "episode_id": episode_id,
         **{field: cell[field] for field in EXPECTED_CELL_FIELDS},
         "metric_name": manifest["metric_name"],
         "condition_metrics": condition_metrics,
         "source_bindings": bindings,
         "source_archive": archive,
-        "task_performance_mapping_status": (
-            "na_not_frozen_stage70_no_inference"),
+        "task_performance_mapping_status": mapping_status,
         "raw_only": True,
         "not_protocol_score": True,
         **_RELEASE,
@@ -602,9 +629,14 @@ def write_episode_source_row(
     root = _safe_root(matrix_root, "matrix root")
     if not isinstance(row, Mapping):
         raise ValueError("source row must be an object")
-    if row.get("schema") != ROW_SCHEMA or row.get("version") != ROW_VERSION:
-        raise ValueError("source row schema/version is unsupported")
     manifest, _ = _load_manifest(root)
+    expected_version = (ROW_TASK_PERFORMANCE_VERSION
+                        if manifest.get("version")
+                        == EXPECTED_MANIFEST_TASK_PERFORMANCE_VERSION
+                        else ROW_VERSION)
+    if (row.get("schema") != ROW_SCHEMA
+            or row.get("version") != expected_version):
+        raise ValueError("source row schema/version is unsupported")
     cell = _manifest_cell(manifest, row, require_exact=False)
     rebuilt = build_episode_source_row(
         root, root / cell["episode_relpath"], cell)
@@ -640,6 +672,10 @@ def verify_communication_evidence_archive(
     """Pure read-only rebuild of every row followed by Stage69 validation."""
     root = _safe_root(matrix_root, "matrix root")
     manifest, manifest_digest = _load_manifest(root)
+    expected_row_version = (ROW_TASK_PERFORMANCE_VERSION
+                            if manifest.get("version")
+                            == EXPECTED_MANIFEST_TASK_PERFORMANCE_VERSION
+                            else ROW_VERSION)
     expected = {_expected_key(cell): dict(cell) for cell in manifest["cells"]}
     rows_dir = root / ROWS_DIRECTORY
     errors: list[dict[str, Any]] = []
@@ -666,7 +702,8 @@ def verify_communication_evidence_archive(
         failure: str | None = None
         if path.name != _key_digest(row) + ".json":
             failure = "row_filename_not_canonical"
-        elif row.get("schema") != ROW_SCHEMA or row.get("version") != ROW_VERSION:
+        elif (row.get("schema") != ROW_SCHEMA
+              or row.get("version") != expected_row_version):
             failure = "row_schema_or_version_unknown"
         elif cell is None:
             failure = "row_cell_not_preregistered"
@@ -713,6 +750,7 @@ __all__ = [
     "CONDITION_SPEC_SCHEMA", "CONDITION_SPEC_VERSION",
     "ENDPOINT_POOL_BINDING_SCHEMA", "ENDPOINT_POOL_BINDING_VERSION",
     "EXPECTED_MANIFEST_FILE", "ROWS_DIRECTORY", "ROW_SCHEMA", "ROW_VERSION",
+    "ROW_TASK_PERFORMANCE_VERSION",
     "SOURCE_ARCHIVE_SCHEMA", "SOURCE_ARCHIVE_VERSION",
     "VERIFICATION_SCHEMA", "VERIFICATION_VERSION",
     "build_episode_source_row", "freeze_expected_manifest",

@@ -26,6 +26,10 @@ from .goal_communication_metrics import (
     COMMUNICATION_METRICS_SCHEMA,
     COMMUNICATION_METRICS_VERSION,
 )
+from .goal_communication_task_performance import (
+    validate_communication_task_performance_mapping,
+    validate_communication_task_performance_replay,
+)
 
 
 COMMUNICATION_SOURCE_BINDING_SCHEMA = (
@@ -33,6 +37,7 @@ COMMUNICATION_SOURCE_BINDING_SCHEMA = (
 COMMUNICATION_SOURCE_BINDING_VERSION = 1
 EXPECTED_MANIFEST_SCHEMA = "eai.benchmark.communication_expected_cells"
 EXPECTED_MANIFEST_VERSION = 1
+EXPECTED_MANIFEST_TASK_PERFORMANCE_VERSION = 2
 
 COMMUNICATION_FAMILIES = frozenset({
     "fixed_delay", "iid_loss", "capacity", "jitter", "burst_loss",
@@ -59,6 +64,11 @@ SOURCE_BINDING_FIELDS = (
     "transport_report_schema", "transport_report_version",
     "transport_replay_validated", "shared_transport_runtime_ref",
     "endpoint_pool_binding_sha256",
+)
+TASK_PERFORMANCE_SOURCE_BINDING_FIELDS = (
+    "task_performance_mapping_sha256",
+    "frozen_contract_v4_seal_sha256",
+    "task_performance_replay_sha256",
 )
 
 RAW_ONLY_DIMENSION_STATUS = "na_dimension_source_not_wired"
@@ -157,7 +167,10 @@ def _validate_expected_manifest(
         raise ValueError("expected_manifest must be a mapping")
     if manifest.get("schema") != EXPECTED_MANIFEST_SCHEMA:
         raise ValueError("expected_manifest schema is unknown")
-    if manifest.get("version") != EXPECTED_MANIFEST_VERSION:
+    manifest_version = manifest.get("version")
+    if manifest_version not in {
+            EXPECTED_MANIFEST_VERSION,
+            EXPECTED_MANIFEST_TASK_PERFORMANCE_VERSION}:
         raise ValueError("expected_manifest version is unknown")
     if manifest.get("frozen_before_execution") is not True:
         raise ValueError("expected_manifest must be frozen before execution")
@@ -182,6 +195,25 @@ def _validate_expected_manifest(
         raise ValueError("expected_manifest archive_version must be positive")
     if manifest.get("metric_name") not in TASK_PERFORMANCE_METRICS:
         raise ValueError("expected_manifest metric_name is not task performance")
+    mapping = manifest.get("task_performance_mapping")
+    mapping_sha256 = manifest.get("task_performance_mapping_sha256")
+    if manifest_version == EXPECTED_MANIFEST_VERSION:
+        if ("task_performance_mapping" in manifest
+                or "task_performance_mapping_sha256" in manifest):
+            raise ValueError(
+                "expected_manifest v1 cannot carry task_performance_mapping")
+    else:
+        digest = validate_communication_task_performance_mapping(
+            mapping,
+            contract_sha256=manifest.get("contract_sha256"),
+            task_id=manifest.get("task_id"),
+        )
+        if mapping_sha256 != digest:
+            raise ValueError(
+                "expected_manifest task_performance_mapping digest differs")
+        if mapping.get("metric_name") != manifest.get("metric_name"):
+            raise ValueError(
+                "expected_manifest task_performance_mapping metric differs")
     excluded = manifest.get("excluded_message_ids")
     if (isinstance(excluded, (str, bytes, Mapping))
             or not isinstance(excluded, Sequence)
@@ -303,6 +335,34 @@ def _source_reasons(
         reasons.append("excluded_message_ids_sha256_missing_or_invalid")
     elif bindings.get("excluded_message_ids_sha256") != expected_exclusions_sha:
         reasons.append("excluded_message_ids_sha256_mismatch")
+    if manifest.get("version") == EXPECTED_MANIFEST_TASK_PERFORMANCE_VERSION:
+        mapping = manifest.get("task_performance_mapping", {})
+        expected_mapping_sha = manifest.get(
+            "task_performance_mapping_sha256")
+        if bindings.get("task_performance_mapping_sha256") != expected_mapping_sha:
+            reasons.append("task_performance_mapping_sha256_mismatch")
+        frozen = mapping.get("frozen_contract_v4")
+        expected_seal = (frozen.get("seal_sha256")
+                         if isinstance(frozen, Mapping) else None)
+        if bindings.get("frozen_contract_v4_seal_sha256") != expected_seal:
+            reasons.append("frozen_contract_v4_seal_sha256_mismatch")
+        condition = row.get("condition_metrics")
+        task = (condition.get("task_performance")
+                if isinstance(condition, Mapping) else None)
+        expected_replay_sha = None
+        try:
+            expected_replay_sha = validate_communication_task_performance_replay(
+                task, mapping,
+                episode_id=row.get("episode_id"),
+                public_task_sha256=manifest.get("contract_sha256"),
+            )
+        except (KeyError, TypeError, ValueError):
+            reasons.append("task_performance_replay_invalid")
+        if bindings.get("task_performance_replay_sha256") != expected_replay_sha:
+            reasons.append("task_performance_replay_sha256_mismatch")
+        task_status = task.get("status") if isinstance(task, Mapping) else None
+        if row.get("task_performance_mapping_status") != task_status:
+            reasons.append("task_performance_mapping_status_mismatch")
     if expected is not None:
         if bindings.get("condition_spec_sha256") != expected.get(
                 "condition_spec_sha256"):
@@ -562,7 +622,11 @@ def build_communication_source_matrix(
         "missing_cells": missing_cells,
         "unexpected_rows": unexpected,
         "duplicate_rows": duplicates,
-        "required_source_bindings": list(SOURCE_BINDING_FIELDS),
+        "required_source_bindings": list(
+            SOURCE_BINDING_FIELDS
+            + (TASK_PERFORMANCE_SOURCE_BINDING_FIELDS
+               if expected_manifest.get("version")
+               == EXPECTED_MANIFEST_TASK_PERFORMANCE_VERSION else ())),
         "expected_cell_key": list(EXPECTED_CELL_FIELDS),
         "rows": records,
         "missing_is_not_zero": True,
@@ -579,8 +643,10 @@ __all__ = [
     "COMMUNICATION_FAMILIES", "COMMUNICATION_SOURCE_BINDING_SCHEMA",
     "COMMUNICATION_SOURCE_BINDING_VERSION", "EXPECTED_CELL_FIELDS",
     "EXPECTED_MANIFEST_SCHEMA", "EXPECTED_MANIFEST_VERSION",
+    "EXPECTED_MANIFEST_TASK_PERFORMANCE_VERSION",
     "OBSERVED_IDENTITY_FIELDS", "RAW_ONLY_DIMENSION_STATUS",
     "SOURCE_BINDING_FIELDS", "TASK_PERFORMANCE_METRICS",
+    "TASK_PERFORMANCE_SOURCE_BINDING_FIELDS",
     "TRUSTED_TERMINATION_ANCHOR_SOURCES",
     "build_communication_source_matrix",
     "communication_expected_manifest_sha256",

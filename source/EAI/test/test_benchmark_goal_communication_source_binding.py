@@ -14,15 +14,29 @@ from demo.benchmark.goal_communication_metrics import (
 from demo.benchmark.goal_communication_source_binding import (
     COMMUNICATION_FAMILIES,
     EXPECTED_MANIFEST_SCHEMA,
+    EXPECTED_MANIFEST_TASK_PERFORMANCE_VERSION,
     OBSERVED_IDENTITY_FIELDS,
     RAW_ONLY_DIMENSION_STATUS,
     build_communication_source_matrix,
     communication_expected_manifest_sha256,
 )
+from demo.benchmark.goal_communication_task_performance import (
+    TASK_PERFORMANCE_MAPPING_SCHEMA,
+    TASK_PERFORMANCE_METHOD_ID,
+    replay_communication_task_performance,
+)
+from demo.benchmark.goal_contract_v4 import (
+    ACTIVATION_EPISODE_START,
+    freeze_contract_v4,
+    migrate_v3_to_contract_v4,
+)
+from demo.benchmark.goal_driven_tasks import build_goal_task_package
 from demo.benchmark.goal_metric_aggregation import (
     NA_DIMENSION_SOURCE_NOT_WIRED,
     build_protocol_metrics_report,
 )
+from demo.benchmark.goal_progress_evidence import GoalProgressRecorder
+from demo.benchmark.provenance import canonical_sha256
 
 
 _SHA = "a" * 64
@@ -160,6 +174,101 @@ def _five_family_manifest():
     ])
 
 
+def _stage71_manifest_and_row():
+    public = build_goal_task_package("factory")["public_task"]
+    outcome_ids = [row["id"] for row in public["required_outcomes"]]
+    weights = {
+        outcome_id: weight
+        for outcome_id, weight in zip(outcome_ids, (1.0, 3.0, 0.0))
+    }
+    specs = {
+        outcome_id: {
+            "weight": weights[outcome_id],
+            "activation_rule": ACTIVATION_EPISODE_START,
+            "stability_duration_s": 0.0,
+            "monotonicity": "monotonic",
+            "anti_double_count_rule": "first_external_satisfaction_only",
+        }
+        for outcome_id in outcome_ids
+    }
+    frozen = freeze_contract_v4(migrate_v3_to_contract_v4(
+        public, milestone_specs=specs)["task_v4"])
+    mapping = {
+        "schema": TASK_PERFORMANCE_MAPPING_SCHEMA,
+        "version": 1,
+        "method_id": TASK_PERFORMANCE_METHOD_ID,
+        "metric_name": "MCR_comm",
+        "frozen_contract_v4": frozen,
+        "progress_source": {
+            "schema": "eai.benchmark.goal_progress_evidence",
+            "version": 1,
+            "evaluator_ref": "stage71-source-binding",
+            "clock_source": "contract_clock",
+        },
+        "sample_selector": "terminal",
+        "predicate_binding": (
+            "contract_outcome_ref_equals_progress_predicate_id"),
+        "unknown_policy": "metric_na",
+        "revocation_policy": "monotonic_contract_violation_na",
+        "stability_policy": "require_zero_duration",
+        "eligible_termination_reasons": ["participant_stopped"],
+        "higher_is_better": True,
+        "release": False,
+        "scoreable": False,
+        "execution_validated": False,
+        "business_outcomes_validated": False,
+    }
+    manifest = _manifest()
+    manifest.update({
+        "version": EXPECTED_MANIFEST_TASK_PERFORMANCE_VERSION,
+        "task_id": public["task_id"],
+        "contract_sha256": canonical_sha256(public),
+        "task_performance_mapping": mapping,
+        "task_performance_mapping_sha256": canonical_sha256(mapping),
+    })
+    manifest["cells"][0]["task_id"] = public["task_id"]
+
+    recorder = GoalProgressRecorder(public, "ep0")
+    recorder.append({
+        "episode_id": "ep0",
+        "time_s": 0.0,
+        "clock_source": "contract_clock",
+        "evaluator_ref": "stage71-source-binding",
+        "predicates": {
+            outcome_id: {"satisfied": None, "evidence_refs": []}
+            for outcome_id in outcome_ids
+        },
+    }, boundary="initial", host_time_s=0.0)
+    terminal = {outcome_id: False for outcome_id in outcome_ids}
+    terminal[outcome_ids[0]] = True
+    recorder.append({
+        "episode_id": "ep0",
+        "time_s": 1.0,
+        "clock_source": "contract_clock",
+        "evaluator_ref": "stage71-source-binding",
+        "predicates": {
+            outcome_id: {
+                "satisfied": terminal[outcome_id],
+                "evidence_refs": [f"test://terminal/{outcome_id}"],
+            }
+            for outcome_id in outcome_ids
+        },
+    }, boundary="terminal", host_time_s=1.0)
+    progress = recorder.report(
+        termination_reason="participant_stopped", host_cutoff_s=1.0)
+    replay = replay_communication_task_performance(
+        mapping, progress, public, episode_id="ep0")
+    row = _row(manifest, value=replay["MCR_comm"])
+    row["condition_metrics"]["task_performance"] = replay
+    row["task_performance_mapping_status"] = replay["status"]
+    row["source_bindings"].update({
+        "task_performance_mapping_sha256": canonical_sha256(mapping),
+        "frozen_contract_v4_seal_sha256": frozen["seal_sha256"],
+        "task_performance_replay_sha256": canonical_sha256(replay),
+    })
+    return manifest, row
+
+
 def test_five_family_manifest_happy_path_is_raw_only_not_score():
     manifest = _five_family_manifest()
     rows = [_row(manifest, cell, episode_id=f"ep-{index}")
@@ -171,6 +280,51 @@ def test_five_family_manifest_happy_path_is_raw_only_not_score():
     assert result["formal_scoring_wired"] is False
     assert result["not_protocol_score"] is True
     assert result["dimension_status"] == RAW_ONLY_DIMENSION_STATUS
+
+
+def test_stage71_v2_standalone_source_binding_accepts_structural_replay():
+    manifest, row = _stage71_manifest_and_row()
+    result = build_communication_source_matrix(manifest, [row])
+    assert result["accepted_raw_only_count"] == 1
+    assert result["rows"][0]["measurement"]["qualified_metric_value"] == .25
+    assert result["formal_scoring_wired"] is False
+    assert result["dimension_status"] == RAW_ONLY_DIMENSION_STATUS
+
+
+@pytest.mark.parametrize(("mutation", "expected_reason"), [
+    ("mapping_binding", "task_performance_mapping_sha256_mismatch"),
+    ("contract_seal_binding", "frozen_contract_v4_seal_sha256_mismatch"),
+    ("replay_binding", "task_performance_replay_sha256_mismatch"),
+    ("replay_mcr", "task_performance_replay_sha256_mismatch"),
+    ("replay_status", "task_performance_replay_invalid"),
+    ("replay_episode", "task_performance_replay_invalid"),
+    ("replay_public_task", "task_performance_replay_invalid"),
+])
+def test_stage71_v2_standalone_source_binding_rejects_tampering(
+        mutation, expected_reason):
+    manifest, row = _stage71_manifest_and_row()
+    bindings = row["source_bindings"]
+    replay = row["condition_metrics"]["task_performance"]
+    if mutation == "mapping_binding":
+        bindings["task_performance_mapping_sha256"] = "0" * 64
+    elif mutation == "contract_seal_binding":
+        bindings["frozen_contract_v4_seal_sha256"] = "0" * 64
+    elif mutation == "replay_binding":
+        bindings["task_performance_replay_sha256"] = "0" * 64
+    elif mutation == "replay_mcr":
+        replay["MCR_comm"] = .5
+    elif mutation == "replay_status":
+        replay["status"] = "na_unknown_terminal_predicates"
+    elif mutation == "replay_episode":
+        replay["episode_id"] = "other-episode"
+    else:
+        replay["public_task_sha256"] = "0" * 64
+
+    result = build_communication_source_matrix(manifest, [row])
+    record = result["rows"][0]
+    assert record["row_status"] == "rejected"
+    assert expected_reason in record["source_reasons"]
+    assert result["accepted_raw_only_count"] == 0
 
 
 def test_missing_and_unexpected_are_distinct_and_never_imputed():
@@ -429,9 +583,14 @@ def test_invalid_manifest_pairing_schema_and_version_fail_closed():
     with pytest.raises(ValueError, match="schema"):
         build_communication_source_matrix(bad_schema, [])
     bad_version = _manifest()
-    bad_version["version"] = 2
+    bad_version["version"] = 3
     with pytest.raises(ValueError, match="version"):
         build_communication_source_matrix(bad_version, [])
+    legacy_with_null_mapping = _manifest()
+    legacy_with_null_mapping["task_performance_mapping"] = None
+    legacy_with_null_mapping["task_performance_mapping_sha256"] = None
+    with pytest.raises(ValueError, match="v1 cannot carry"):
+        build_communication_source_matrix(legacy_with_null_mapping, [])
     bad_metric = _manifest()
     bad_metric["metric_name"] = "synthetic_link_delivery_diagnostic"
     with pytest.raises(ValueError, match="metric_name"):
