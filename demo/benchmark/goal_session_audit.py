@@ -42,7 +42,8 @@ _CALL_FIELDS = {
     "exception", "previous_call_sha256", "call_sha256",
 }
 _JOURNAL_FIELDS = {
-    "schema", "version", "episode_id", "public_task_sha256",
+    "schema", "version", "episode_id", "plan_admission",
+    "public_task_sha256",
     "participant_api_sha256", "calls", "final_report",
     "final_report_sha256", "execution_validated",
     "business_outcomes_validated", "scoreable", "integrity_scope",
@@ -157,6 +158,9 @@ class AuditedGoalSession:
             self._public_task, self._participant_api, episode_id=episode_id,
             admission=admission)
         self._episode_id = episode_id
+        # GoalSession validated the admission value; keep it for the journal so
+        # an interface-admission ledger can be replayed under the same gate.
+        self._admission = admission
         self._calls: list[dict[str, Any]] = []
 
     def _invoke(self, method: str, arguments: Mapping[str, Any]) -> dict[str, Any]:
@@ -292,6 +296,7 @@ class AuditedGoalSession:
             "schema": GOAL_SESSION_AUDIT_SCHEMA,
             "version": GOAL_SESSION_AUDIT_VERSION,
             "episode_id": self._episode_id,
+            "plan_admission": self._admission,
             "public_task_sha256": canonical_sha256(self._public_task),
             "participant_api_sha256": canonical_sha256(self._participant_api),
             "calls": deepcopy(self._calls),
@@ -308,7 +313,13 @@ class AuditedGoalSession:
 
 def validate_goal_session_audit(journal: Mapping[str, Any]) -> dict[str, Any]:
     """Validate the closed schema, hash chain, and final report binding."""
-    journal = _strict_fields(journal, _JOURNAL_FIELDS, "goal session audit")
+    # ``plan_admission`` is optional-with-default-full so archives written
+    # before interface admission existed stay readable; new journals always
+    # record it explicitly through ``audit_journal()``.
+    if not isinstance(journal, Mapping) or (
+            set(journal) - set(_JOURNAL_FIELDS)
+            or not set(_JOURNAL_FIELDS) - {"plan_admission"} <= set(journal)):
+        raise ValueError("goal session audit fields are incomplete or unknown")
     if (journal.get("schema") != GOAL_SESSION_AUDIT_SCHEMA
             or type(journal.get("version")) is not int
             or journal["version"] != GOAL_SESSION_AUDIT_VERSION):
@@ -317,6 +328,8 @@ def validate_goal_session_audit(journal: Mapping[str, Any]) -> dict[str, Any]:
     if episode_id is not None and (
             not isinstance(episode_id, str) or not episode_id.strip()):
         raise ValueError("goal session audit episode_id is invalid")
+    if journal.get("plan_admission", "full") not in {"full", "interface"}:
+        raise ValueError("goal session audit plan_admission is invalid")
     _sha256(journal["public_task_sha256"], "public_task_sha256")
     _sha256(journal["participant_api_sha256"], "participant_api_sha256")
     if any(journal.get(flag) is not False for flag in (
@@ -387,7 +400,8 @@ def replay_goal_session_audit(
     if canonical_sha256(participant_api) != journal["participant_api_sha256"]:
         raise ValueError("goal session audit participant API digest mismatch")
     session = GoalSession(
-        public_task, participant_api, episode_id=journal["episode_id"])
+        public_task, participant_api, episode_id=journal["episode_id"],
+        admission=journal.get("plan_admission", "full"))
     returned = 0
     raised = 0
     for row in journal["calls"]:

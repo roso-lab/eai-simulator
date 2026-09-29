@@ -669,6 +669,45 @@ def semantic_goal_plan_signature(plan: Mapping[str, Any]) -> str:
     })
 
 
+def _validate_carrier_binding_structure(task_id: str, arguments: Mapping[str, Any],
+                                        task_spec: Mapping[str, Any],
+                                        assigned: list[str]) -> None:
+    """Structural carrier-binding consistency shared by both admission modes.
+
+    Checks references and set equality only: the handling mode and its slot
+    points exist, bindings carry distinct agents and points, the bound robot
+    set equals the task's assigned agents, and the bound points equal the
+    mode's slots. Payload, reach and mobility matching stay in the full
+    constraint model and the execution layer.
+    """
+    object_id = arguments.get("object_id")
+    objects = {row["id"]: row for row in task_spec["public_world"]["objects"]}
+    obj = objects.get(object_id) if isinstance(object_id, str) else None
+    if obj is None:
+        raise ValueError(f"{task_id}: carrier_bindings need a known object_id")
+    modes = {mode["id"]: mode
+             for mode in obj["physical_properties"]["handling_modes"]}
+    mode = modes.get(arguments.get("handling_mode_id"))
+    if mode is None:
+        raise ValueError(f"{task_id}: unknown handling_mode_id")
+    raw = arguments["carrier_bindings"]
+    if not isinstance(raw, list) or len(raw) != len(mode["slots"]):
+        raise ValueError(f"{task_id}: carrier_bindings must match handling slots")
+    bound_agents: list[str] = []
+    bound_points: list[str] = []
+    for binding in raw:
+        if not isinstance(binding, Mapping) or set(binding) != {"agent_id", "point_id"}:
+            raise ValueError(f"{task_id}: carrier binding fields are invalid")
+        bound_agents.append(_string(binding["agent_id"], f"{task_id} carrier agent"))
+        bound_points.append(_string(binding["point_id"], f"{task_id} carrier point"))
+    if len(set(bound_agents)) != len(bound_agents) or len(set(bound_points)) != len(bound_points):
+        raise ValueError(f"{task_id}: carrier bindings need distinct agents and points")
+    if (set(bound_agents) != set(assigned)
+            or set(bound_points) != {slot["point_id"] for slot in mode["slots"]}):
+        raise ValueError(
+            f"{task_id}: carrier bindings must match assigned agents and mode points")
+
+
 def validate_goal_plan(plan: Mapping[str, Any], *, task_spec: Mapping[str, Any],
                        context: Mapping[str, Any] | None = None,
                        allow_physical_infeasibility: bool = False,
@@ -702,6 +741,12 @@ def validate_goal_plan(plan: Mapping[str, Any], *, task_spec: Mapping[str, Any],
         _check_exact(task, expected_task_fields, f"plan task {index}")
         task_id = _string(task["task_id"], f"plan task {index} id")
         skill = validate_skill_name(task["skill"])
+        # Structural vocabulary check (both admission modes): the named skill
+        # must be published by this task's own admitted catalog revision.
+        # Full mode already fails such plans through the constraint model's
+        # duration table; interface mode has no later net, so it needs it here.
+        if skill not in _spec_skill_names(task_spec):
+            raise ValueError(f"{task_id}: unknown skill {skill} for the task skill catalog")
         arguments = validate_skill_arguments(skill, task["arguments"])
         for key, value in arguments.items():
             _validate_public_ref(key, value, task_spec)
@@ -722,6 +767,13 @@ def validate_goal_plan(plan: Mapping[str, Any], *, task_spec: Mapping[str, Any],
             raise ValueError(f"{task_id}: skill {skill} requires at least {minimum_agents(skill)} agents")
         if skill == "synchronize" and set(arguments["agent_ids"]) != set(assigned):
             raise ValueError(f"{task_id}: synchronize agent_ids must match assigned_agents")
+        if "carrier_bindings" in arguments:
+            # Structural binding consistency (both admission modes): the named
+            # handling mode and its slot points must exist, and the bound
+            # robot set must equal assigned_agents, so a plan can never
+            # dispatch to robot A while the backend executes carrier B.
+            # Payload, reach and mobility stay execution measurements.
+            _validate_carrier_binding_structure(task_id, arguments, task_spec, assigned)
         # Deliberately NO capability-eligibility check on assigned agents
         # (user principle, 2026-09-22): assigning a task to an agent that
         # does not declare the required capabilities is an algorithm

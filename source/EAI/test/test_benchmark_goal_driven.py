@@ -425,6 +425,12 @@ def test_candidate_pool_requires_team_selection_and_carter_cannot_pick(scene):
     for row in plan["tasks"]:
         row["assigned_agents"] = [carter["id"] if agent == original_picker else agent
                                   for agent in row["assigned_agents"]]
+        # Keep carrier bindings aligned with the swapped assignment; a
+        # binding/assignment divergence is structurally rejected first and
+        # would mask the capability rejection this test targets.
+        for binding in (row.get("arguments") or {}).get("carrier_bindings") or []:
+            if binding.get("agent_id") == original_picker:
+                binding["agent_id"] = carter["id"]
     plan["assigned_team"] = [carter["id"]] + [
         member for member in plan["assigned_team"] if member != original_picker]
     with pytest.raises(ValueError, match="lacks skill capability"):
