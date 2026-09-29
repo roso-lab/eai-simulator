@@ -936,8 +936,114 @@ def test_house_signoff_and_fire_sense_read_measured_subjects() -> None:
     assert _second_mission_subject_measured(fire_public, sense, clearance, fire_deployment) is False
 
 
-def test_emos_dispatch_reaches_the_house_backend(tmp_path) -> None:
-    """EMOS emits the standard actions; the house backend executes the dispatch."""
+def test_measured_llm_channel_uses_the_gateway_key(monkeypatch) -> None:
+    """A dongli endpoint must not be called with a different provider key."""
+    from demo.benchmark.second_mission_decision import measured_llm_channel
+
+    monkeypatch.setenv("TEAMWEAVER_DEEPSEEK_BASE_URL", "https://ai.dongli.work/v1")
+    monkeypatch.setenv("TEAMWEAVER_DEEPSEEK_MODEL", "gpt-5.6-luna")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "deepseek-test-key")
+    monkeypatch.setenv("DONGLI_API_KEY", "dongli-test-key")
+    channel = measured_llm_channel()
+    assert channel["key_env"] == "DONGLI_API_KEY"
+    assert channel["api_key"] == "dongli-test-key"
+    assert channel["base_url"] == "https://ai.dongli.work/v1"
+    monkeypatch.setenv("TEAMWEAVER_DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
+    channel = measured_llm_channel()
+    assert channel["key_env"] == "DEEPSEEK_API_KEY"
+    assert channel["api_key"] == "deepseek-test-key"
+    monkeypatch.delenv("TEAMWEAVER_DEEPSEEK_MODEL", raising=False)
+    monkeypatch.delenv("TEAMWEAVER_DEEPSEEK_BASE_URL", raising=False)
+    monkeypatch.setenv("DONGLI_BASE_URL", "https://ai.dongli.work/v1")
+    monkeypatch.setenv("DONGLI_MODEL", "gpt-5.5")
+    channel = measured_llm_channel()
+    assert channel["model"] == "gpt-5.5"
+    assert channel["base_url"] == "https://ai.dongli.work/v1"
+    assert channel["key_env"] == "DONGLI_API_KEY"
+
+
+def test_interface_admission_lets_a_mismatch_fail_at_execution() -> None:
+    """Capability and region mismatches are execution measurements, not admission filters."""
+    from copy import deepcopy
+
+    import pytest
+
+    from demo.benchmark.factory_fire_task import build_factory_fire_package
+    from demo.benchmark.goal_driven_contract import validate_goal_plan
+    from demo.benchmark.goal_house_episode import second_mission_constraint_violation
+    from demo.benchmark.goal_session import GoalSession
+
+    package = build_factory_fire_package()
+    public = package["public_task"]
+    plan = deepcopy(package["hidden_evaluator"]["witness_plans"][0]["plan"])
+    plan["assigned_team"] = [
+        "factory_iris_1" if agent == "factory_scout_1" else agent
+        for agent in plan["assigned_team"]
+    ]
+    for task in plan["tasks"]:
+        task["assigned_agents"] = [
+            "factory_iris_1" if agent == "factory_scout_1" else agent
+            for agent in task["assigned_agents"]
+        ]
+    with pytest.raises(ValueError):
+        validate_goal_plan(plan, task_spec=public)
+    admitted = validate_goal_plan(plan, task_spec=public, admission="interface")
+    assert admitted["validated"] is True
+    assert admitted["constraint_review"]["admission"] == "interface"
+    assert admitted["constraint_review"]["execution_validated"] is False
+    reason = second_mission_constraint_violation(public, plan["tasks"][0])
+    assert reason is not None
+    assert reason.startswith("constraint_violation:")
+
+    def action(identifier: str, kind: str, payload: dict) -> dict:
+        return {
+            "schema": "eai.benchmark.goal_action", "version": 1,
+            "action_id": identifier, "submitted_at_s": 0.0, "type": kind, "payload": payload,
+        }
+
+    blocked = GoalSession(public)
+    blocked.submit_action(action("select", "select_team", {"agent_ids": plan["assigned_team"]}))
+    with pytest.raises(ValueError):
+        blocked.submit_action(action("plan", "submit_plan", {"plan": plan}))
+    measured = GoalSession(public, admission="interface")
+    measured.submit_action(action("select", "select_team", {"agent_ids": plan["assigned_team"]}))
+    measured.submit_action(action("plan", "submit_plan", {"plan": plan}))
+
+
+def test_emos_llm_unavailable_stops_without_a_deterministic_plan(tmp_path, monkeypatch) -> None:
+    """A missing LLM is an unavailable measurement. It must not impersonate a decision."""
+    from demo.benchmark.goal_external_adapters import _ensure_algorithm_roots
+    from demo.benchmark.second_mission_episode import (
+        run_second_mission_episode,
+        second_mission_builders,
+    )
+
+    _ensure_algorithm_roots()
+    monkeypatch.setattr("emos.engine.LLM_AVAILABLE", False)
+    for task_id in second_mission_builders():
+        summary = run_second_mission_episode(
+            task_id, tmp_path / task_id, algorithm="emos")
+        assert summary["allocation_source"] == "unavailable"
+        assert summary["error"] is None
+        assert summary["skill_results"] == []
+        assert summary["scoreable"] is False
+        assert summary["benchmark_ready"] is False
+        assert summary["execution_validated"] is False
+        assert summary["business_outcomes_validated"] is False
+        trace = summary["adapter_trace"]
+        assert any(row.get("reason") == "llm_module_unavailable" for row in trace)
+        assert not any(row.get("event") == "dispatch_skill" for row in trace)
+        assert not any(row.get("event") == "team_selected" for row in trace)
+        pool = next(row["candidate_pool"] for row in trace if row.get("event") == "initialize")
+        public_pool = [
+            row["id"] for row in second_mission_builders()[task_id]()["public_task"]["candidate_robot_pool"]
+        ]
+        assert pool == public_pool
+        assert summary["instruction_source"] == "goal_algorithm_adapter"
+
+
+def test_emos_diagnostic_reaches_the_house_backend(tmp_path) -> None:
+    """The labeled non-LLM policy can dispatch; it is not the measured decision."""
     import json
 
     from demo.benchmark.second_mission_episode import (
@@ -989,10 +1095,13 @@ def test_emos_dispatch_reaches_the_house_backend(tmp_path) -> None:
         "episode_started", "observation", "member_join", "member_exit",
         "capability_change", "communication_status", "action_result", "tick",
     }
+    kernel_hits = []
     for task_id in second_mission_builders():
         root = tmp_path / task_id
         summary = run_second_mission_episode(
-            task_id, root, session=Session(), algorithm="emos")
+            task_id, root, session=Session(), algorithm="emos_diagnostic")
+        assert summary["allocation_source"] == "deterministic_fallback"
+        assert summary["error"] is None
         assert summary["instruction_source"] == "goal_algorithm_adapter"
         assert summary["adapter_id"] == "second-mission-emos"
         assert summary["formal_backend"] == "house_native_goal_backend"
@@ -1000,15 +1109,21 @@ def test_emos_dispatch_reaches_the_house_backend(tmp_path) -> None:
         assert summary["benchmark_ready"] is False
         assert summary["execution_validated"] is False
         assert summary["business_outcomes_validated"] is False
+        trace = summary["adapter_trace"]
+        pool = next(row["candidate_pool"] for row in trace if row.get("event") == "initialize")
+        public_pool = [
+            row["id"] for row in second_mission_builders()[task_id]()["public_task"]["candidate_robot_pool"]
+        ]
+        assert pool == public_pool
         assert any(
             row.get("manager") == "EMOSDiscussionManager" and row.get("event") == "emos_assignment"
-            for row in summary["adapter_trace"])
-        assert any(row.get("event") == "dispatch_skill" for row in summary["adapter_trace"])
+            for row in trace)
+        assert any(row.get("event") == "dispatch_skill" for row in trace)
         first = summary["skill_results"][0]
-        assert first["skill"] == "ground_navigation"
         assert first["status"] == "failed"
-        assert first["reason"].startswith("navigation_path_blocked:")
         assert first["reason"] != PENDING_REASON
+        assert first["reason"].startswith(("navigation_path_blocked:", "constraint_violation:"))
+        kernel_hits.append(first["reason"])
         report = json.loads((root / "goal_episode" / "goal_session_report.json").read_text())
         ledger = report["report"]
         action_types = {row["type"] for row in ledger["actions"]}
@@ -1017,3 +1132,4 @@ def test_emos_dispatch_reaches_the_house_backend(tmp_path) -> None:
         assert {"select_team", "submit_plan"} <= action_types
         assert action_types <= actions
         assert event_types <= events
+    assert any(reason.startswith("navigation_path_blocked:") for reason in kernel_hits)
