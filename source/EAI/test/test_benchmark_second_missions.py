@@ -934,3 +934,86 @@ def test_house_signoff_and_fire_sense_read_measured_subjects() -> None:
          "physx": {"status": "measured", "position_m": [4.2, 3.4]}},
     ]}
     assert _second_mission_subject_measured(fire_public, sense, clearance, fire_deployment) is False
+
+
+def test_emos_dispatch_reaches_the_house_backend(tmp_path) -> None:
+    """EMOS emits the standard actions; the house backend executes the dispatch."""
+    import json
+
+    from demo.benchmark.second_mission_episode import (
+        PENDING_REASON,
+        run_second_mission_episode,
+        second_mission_builders,
+    )
+
+    class Pose:
+        def detach(self):
+            return self
+
+        def cpu(self):
+            return self
+
+        def tolist(self):
+            return [1.0e6, 1.0e6, 0.0, 1.0, 0.0, 0.0, 0.0]
+
+    class Articulations(dict):
+        def __missing__(self, key):
+            row = type("Articulation", (), {
+                "data": type("Data", (), {"root_state_w": [Pose()]})(),
+            })()
+            self[key] = row
+            return row
+
+    class Env:
+        def step(self, actions):
+            del actions
+
+    class Base:
+        step_dt = 0.05
+        scene = type("Scene", (), {"articulations": Articulations()})()
+
+        def set_command(self, *_args, **_kwargs):
+            raise AssertionError("a blocked path must fail before a velocity command")
+
+    class Session:
+        device = "cpu"
+        possible_agents = []
+        env = Env()
+        base_env = Base()
+
+    actions = {
+        "select_team", "submit_plan", "revise_plan",
+        "dispatch_skill", "cancel_skill", "consume_message",
+    }
+    events = {
+        "episode_started", "observation", "member_join", "member_exit",
+        "capability_change", "communication_status", "action_result", "tick",
+    }
+    for task_id in second_mission_builders():
+        root = tmp_path / task_id
+        summary = run_second_mission_episode(
+            task_id, root, session=Session(), algorithm="emos")
+        assert summary["instruction_source"] == "goal_algorithm_adapter"
+        assert summary["adapter_id"] == "second-mission-emos"
+        assert summary["formal_backend"] == "house_native_goal_backend"
+        assert summary["scoreable"] is False
+        assert summary["benchmark_ready"] is False
+        assert summary["execution_validated"] is False
+        assert summary["business_outcomes_validated"] is False
+        assert any(
+            row.get("manager") == "EMOSDiscussionManager" and row.get("event") == "emos_assignment"
+            for row in summary["adapter_trace"])
+        assert any(row.get("event") == "dispatch_skill" for row in summary["adapter_trace"])
+        first = summary["skill_results"][0]
+        assert first["skill"] == "ground_navigation"
+        assert first["status"] == "failed"
+        assert first["reason"].startswith("navigation_path_blocked:")
+        assert first["reason"] != PENDING_REASON
+        report = json.loads((root / "goal_episode" / "goal_session_report.json").read_text())
+        ledger = report["report"]
+        action_types = {row["type"] for row in ledger["actions"]}
+        event_types = {row["type"] for row in ledger["events"]}
+        assert "dispatch_skill" in action_types
+        assert {"select_team", "submit_plan"} <= action_types
+        assert action_types <= actions
+        assert event_types <= events

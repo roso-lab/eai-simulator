@@ -1,11 +1,16 @@
 """Formal GoalSession entry for each scene's second mission.
 
-The witness plan is the episode plan. Execution goes through the same
-``HouseNativeGoalBackend`` the indoor formal episodes use, with author region
-centres so a live session can resolve navigation. Without that session every
-non-observe skill fails closed as ``house_native_skill_adapter_pending``.
-That receipt is admission to the formal runner, not business success.
-``scoreable`` stays false, and these tasks stay outside the 9x9 suite.
+Skill execution stays on ``HouseNativeGoalBackend``: native attach, the
+heading lock before a laden move, ``guide_people``, and Pepper record skills
+are that backend. The instruction source is a goal-algorithm adapter. EMOS is
+one such adapter; it submits the standard six actions and dispatches skills
+with ``dispatch_skill``. The author witness remains available for the
+admission checks that do not put an algorithm under test.
+
+Without a live session every non-observe skill fails closed as
+``house_native_skill_adapter_pending``. That receipt is admission to the
+formal runner, not business success. ``scoreable`` stays false, and these
+tasks stay outside the 9x9 suite.
 """
 
 from __future__ import annotations
@@ -194,8 +199,15 @@ def deployment_record_for_disk(deployment: Mapping[str, Any]) -> Mapping[str, An
 def run_second_mission_episode(task_id: str, output_root: str | Path, *,
                                witness_index: int = 0,
                                session: Any = None,
-                               deployment: Mapping[str, Any] | None = None) -> dict[str, Any]:
-    """Run one second mission through FormalGoalEpisodeRunner and the House skill backend."""
+                               deployment: Mapping[str, Any] | None = None,
+                               algorithm: str = "witness",
+                               adapter: Any = None) -> dict[str, Any]:
+    """Run one second mission through FormalGoalEpisodeRunner and the House skill backend.
+
+    ``algorithm="emos"`` installs the EMOS goal adapter. An explicit ``adapter``
+    is any other ``GoalAlgorithmAdapter``; the runner does not branch on its
+    class. The author witness is only the admission path.
+    """
     from demo.benchmark.goal_episode_runner import FormalGoalEpisodeRunner
     from demo.benchmark.goal_house_episode import HOUSE_BACKEND_ID, HouseNativeGoalBackend, house_runtime_state
     from demo.benchmark.second_mission_deployment import build_second_mission_deployment
@@ -216,9 +228,23 @@ def run_second_mission_episode(task_id: str, output_root: str | Path, *,
     (root / "second_mission_deployment.json").write_text(
         json.dumps(deployment_record_for_disk(deployment), indent=2, sort_keys=True) + "\n",
         encoding="utf-8")
+    if adapter is not None and algorithm != "witness":
+        raise ValueError("pass either an adapter or an algorithm name")
+    instruction_source = "author_witness"
+    participant = SecondMissionWitness(plan)
+    if adapter is not None:
+        participant = adapter
+        instruction_source = "goal_algorithm_adapter"
+    elif algorithm == "emos":
+        from demo.benchmark.second_mission_decision import SecondMissionEmosAdapter
+
+        participant = SecondMissionEmosAdapter(plan)
+        instruction_source = "goal_algorithm_adapter"
+    elif algorithm != "witness":
+        raise ValueError(f"unknown second-mission algorithm: {algorithm}")
     backend = HouseNativeGoalBackend(public, session=session, deployment=deployment, plan=plan)
     runner = FormalGoalEpisodeRunner(
-        public, package["participant_api"], SecondMissionWitness(plan), backend,
+        public, package["participant_api"], participant, backend,
         output_root=root / "goal_episode",
     )
     result = runner.run(initial_state=house_runtime_state(public, plan))
@@ -241,6 +267,9 @@ def run_second_mission_episode(task_id: str, output_root: str | Path, *,
         "witness_id": witnesses[witness_index]["id"],
         "plan_id": plan["plan_id"],
         "formal_backend": HOUSE_BACKEND_ID,
+        "instruction_source": instruction_source,
+        "adapter_id": participant.manifest()["id"],
+        "adapter_trace": deepcopy(getattr(participant, "trace", [])),
         "skill_results": backend.evidence,
         "region_ids": sorted(bound_regions),
         "physical_episode_bound": session is not None,
@@ -384,7 +413,8 @@ def _record_restaurant_customers(session: Any, deployment: dict[str, Any]) -> No
     print("restaurant_customers", sorted(deployment["service_subjects"]), flush=True)
 
 
-def _run_isaac_worker(task_id: str, output_root: Path, *, device: str) -> dict[str, Any]:
+def _run_isaac_worker(task_id: str, output_root: Path, *, device: str,
+                      algorithm: str = "witness") -> dict[str, Any]:
     """Open one Isaac session and run the formal episode in that process."""
     import torch
     if any(name == "pxr" or name.startswith("pxr.") for name in sys.modules):
@@ -451,7 +481,8 @@ def _run_isaac_worker(task_id: str, output_root: Path, *, device: str) -> dict[s
             deployment["support_deploy"] = resolve_support_deploy(package["public_task"])
             bind_second_mission_payloads(deployment)
         summary = run_second_mission_episode(
-            task_id, output_root, session=session, deployment=deployment)
+            task_id, output_root, session=session, deployment=deployment,
+            algorithm=algorithm)
         summary["possible_agents"] = agents
         summary["session_device"] = str(session.device)
         (output_root / "second_mission_episode_summary.json").write_text(
@@ -472,14 +503,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--task", required=True)
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--device", choices=("cuda:0", "cpu"), default="cuda:0")
+    parser.add_argument("--algorithm", choices=("witness", "emos"), default="witness")
     parser.add_argument("--isaac", action="store_true")
     args = parser.parse_args(argv)
     if args.isaac:
-        _run_isaac_worker(args.task, args.output_root, device=args.device)
+        _run_isaac_worker(
+            args.task, args.output_root, device=args.device, algorithm=args.algorithm)
         return 0
-    summary = run_second_mission_episode(args.task, args.output_root)
+    summary = run_second_mission_episode(
+        args.task, args.output_root, algorithm=args.algorithm)
     print(json.dumps({key: summary[key] for key in (
-        "task_id", "skill_receipt_count", "scoreable", "clearance_status")}, sort_keys=True))
+        "task_id", "instruction_source", "adapter_id",
+        "skill_receipt_count", "scoreable", "clearance_status")}, sort_keys=True))
     return 0
 
 
