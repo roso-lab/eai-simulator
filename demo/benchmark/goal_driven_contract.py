@@ -671,19 +671,22 @@ def semantic_goal_plan_signature(plan: Mapping[str, Any]) -> str:
 
 def validate_goal_plan(plan: Mapping[str, Any], *, task_spec: Mapping[str, Any],
                        context: Mapping[str, Any] | None = None,
-                       allow_physical_infeasibility: bool = False) -> dict[str, Any]:
+                       allow_physical_infeasibility: bool = False,
+                       admission: str = "full") -> dict[str, Any]:
     validate_goal_task_spec(task_spec)
     plan = _mapping(plan, "goal plan")
     expected = {"schema", "version", "plan_id", "assigned_team", "tasks"}
     _check_exact(plan, expected, "goal plan")
     if plan["schema"] != GOAL_PLAN_SCHEMA or plan["version"] != GOAL_PLAN_VERSION:
         raise ValueError("unsupported goal plan schema")
+    if admission not in {"full", "interface"}:
+        raise ValueError("plan admission must be full or interface")
     _string(plan["plan_id"], "plan id")
     agents = _current_agents(task_spec, context)
     team = _string_list(plan["assigned_team"], "plan assigned_team")
     if not set(team) <= agents:
         raise ValueError("plan assigned_team contains an unavailable agent")
-    if len(team) > task_spec["budgets"]["max_active_agents"]:
+    if admission != "interface" and len(team) > task_spec["budgets"]["max_active_agents"]:
         raise ValueError("plan assigned_team exceeds the public team budget")
     tasks = plan["tasks"]
     if not isinstance(tasks, list) or not tasks:
@@ -715,7 +718,7 @@ def validate_goal_plan(plan: Mapping[str, Any], *, task_spec: Mapping[str, Any],
             raise ValueError(f"{task_id}: assigned agent is unavailable")
         if not set(assigned) <= set(team):
             raise ValueError(f"{task_id}: assigned agent is outside the selected plan team")
-        if len(assigned) < minimum_agents(skill):
+        if admission != "interface" and len(assigned) < minimum_agents(skill):
             raise ValueError(f"{task_id}: skill {skill} requires at least {minimum_agents(skill)} agents")
         if skill == "synchronize" and set(arguments["agent_ids"]) != set(assigned):
             raise ValueError(f"{task_id}: synchronize agent_ids must match assigned_agents")
@@ -743,9 +746,17 @@ def validate_goal_plan(plan: Mapping[str, Any], *, task_spec: Mapping[str, Any],
         object_ids = {obj["id"] for obj in task_spec["public_world"]["objects"]}
         if set(object_states) != object_ids or not set(team) <= set(robot_regions):
             raise ValueError("runtime plan requires complete current object and selected-robot position snapshots")
-    constraints_report = validate_plan_constraints(
-        plan, task_spec=task_spec, robot_rows=rows, context=context,
-        allow_physical_infeasibility=allow_physical_infeasibility)
+    if admission == "interface":
+        # Second-mission measurement: schema and robot/skill references only.
+        # Capability, mobility and region matching stay execution results.
+        constraints_report = {
+            "validated": True, "scope": "interface", "execution_validated": False,
+            "admission": "interface",
+        }
+    else:
+        constraints_report = validate_plan_constraints(
+            plan, task_spec=task_spec, robot_rows=rows, context=context,
+            allow_physical_infeasibility=allow_physical_infeasibility)
     return {"plan_id": plan["plan_id"], "validated": True,
             "task_ids": [task["task_id"] for task in task_rows],
             "sha256": canonical_sha256(plan),
@@ -1008,7 +1019,8 @@ def validate_goal_event(event: Mapping[str, Any], *, api: Mapping[str, Any],
 
 def validate_goal_action(action: Mapping[str, Any], *, api: Mapping[str, Any],
                          task_spec: Mapping[str, Any], context: Mapping[str, Any] | None = None,
-                         allow_physical_infeasibility: bool = False) -> dict[str, Any]:
+                         allow_physical_infeasibility: bool = False,
+                         admission: str = "full") -> dict[str, Any]:
     validate_goal_participant_api(api, task_spec=task_spec)
     action = _mapping(action, "goal participant action")
     expected = {"schema", "version", "action_id", "submitted_at_s", "type", "payload"}
@@ -1034,7 +1046,7 @@ def validate_goal_action(action: Mapping[str, Any], *, api: Mapping[str, Any],
         agents = _string_list(payload["agent_ids"], "selected team")
         if not set(agents) <= current_agents:
             raise ValueError("selected team contains an unavailable agent")
-        if len(agents) > task_spec["budgets"]["max_active_agents"]:
+        if admission != "interface" and len(agents) > task_spec["budgets"]["max_active_agents"]:
             raise ValueError("selected team exceeds the public team budget")
     elif action_type in {"submit_plan", "revise_plan"}:
         if action_type == "revise_plan":
@@ -1054,7 +1066,8 @@ def validate_goal_action(action: Mapping[str, Any], *, api: Mapping[str, Any],
         plan_context["current_time_s"] = submitted_at
         validate_goal_plan(
             payload["plan"], task_spec=task_spec, context=plan_context,
-            allow_physical_infeasibility=allow_physical_infeasibility)
+            allow_physical_infeasibility=allow_physical_infeasibility,
+            admission=admission)
     elif action_type == "dispatch_skill":
         _string(payload["task_id"], "dispatch task_id")
         refs = _string_list(payload["evidence_refs"], "dispatch evidence_refs", allow_empty=True)

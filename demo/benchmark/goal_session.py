@@ -110,13 +110,16 @@ class GoalSession:
     """Single-episode, synchronous plan and action ledger; see module API notes."""
 
     def __init__(self, task_spec: Mapping[str, Any], api: Mapping[str, Any] | None = None,
-                 *, episode_id: str | None = None):
+                 *, episode_id: str | None = None, admission: str = "full"):
         validate_goal_task_spec(task_spec)
         if episode_id is not None and (not isinstance(episode_id, str) or not episode_id.strip()):
             raise ValueError("episode_id must be a nonempty string when provided")
         self._spec = deepcopy(dict(task_spec))
         self._api = deepcopy(dict(api)) if api is not None else build_goal_participant_api(self._spec)
         validate_goal_participant_api(self._api, task_spec=self._spec)
+        if admission not in {"full", "interface"}:
+            raise ValueError("plan admission must be full or interface")
+        self._admission = admission
         self._episode_id = episode_id
         self._robots = {r["id"]: deepcopy(r) for r in self._spec["candidate_robot_pool"]}
         self._pool_ids = set(self._robots)
@@ -523,7 +526,7 @@ class GoalSession:
             "schema": GOAL_PLAN_SCHEMA, "version": GOAL_PLAN_VERSION,
             "plan_id": self._plan_id, "assigned_team": task["assigned_agents"], "tasks": [projected],
         }, task_spec=self._spec, context=self._context(),
-            allow_physical_infeasibility=True)
+            allow_physical_infeasibility=True, admission=self._admission)
         resources = self._resources(task)
         occupied = Counter(key for pending in self._pending() for key in pending["reservations"])
         for key, capacity in resources.items():
@@ -537,7 +540,7 @@ class GoalSession:
             raise ValueError("deployment assessment terminated the episode")
         accepted = validate_goal_action(
             action, api=self._api, task_spec=self._spec, context=self._context(),
-            allow_physical_infeasibility=True)
+            allow_physical_infeasibility=True, admission=self._admission)
         action_id, type, payload = accepted["action_id"], accepted["type"], accepted["payload"]
         if action_id in self._actions:
             raise ValueError("action_id has already been accepted")

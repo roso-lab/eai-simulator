@@ -148,13 +148,14 @@ class AuditedGoalSession:
     """Composition proxy that records each external ``GoalSession`` mutation."""
 
     def __init__(self, task_spec: Mapping[str, Any], api: Mapping[str, Any] | None = None,
-                 *, episode_id: str | None = None):
+                 *, episode_id: str | None = None, admission: str = "full"):
         effective_api = (deepcopy(dict(api)) if api is not None
                          else build_goal_participant_api(task_spec))
         self._public_task = deepcopy(dict(task_spec))
         self._participant_api = effective_api
         self._session = GoalSession(
-            self._public_task, self._participant_api, episode_id=episode_id)
+            self._public_task, self._participant_api, episode_id=episode_id,
+            admission=admission)
         self._episode_id = episode_id
         self._calls: list[dict[str, Any]] = []
 

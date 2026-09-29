@@ -271,7 +271,8 @@ class FormalGoalEpisodeRunner:
                  downlink: Any = None, execution_observer: Any = None,
                  session_audit: bool = False, progress_reader: Any = None,
                  execution_mode: str = "serial",
-                 concurrency_recorder: ConcurrencyProbeRecorder | None = None):
+                 concurrency_recorder: ConcurrencyProbeRecorder | None = None,
+                 admission: str = "full"):
         if not isinstance(max_turns, int) or isinstance(max_turns, bool) or max_turns < 1:
             raise ValueError("max_turns must be a positive integer")
         self.public_task = deepcopy(dict(public_task))
@@ -292,6 +293,9 @@ class FormalGoalEpisodeRunner:
         self.execution_observer = execution_observer
         if type(session_audit) is not bool:
             raise ValueError("session_audit must be a bool")
+        if admission not in {"full", "interface"}:
+            raise ValueError("plan admission must be full or interface")
+        self.admission = admission
         self.session_audit = session_audit
         if progress_reader is not None and not callable(progress_reader):
             raise ValueError("progress_reader must be a trusted host callable")
@@ -427,9 +431,11 @@ class FormalGoalEpisodeRunner:
         robots, objects = _require_state(initial_state, "initial_state")
         session = (
             AuditedGoalSession(
-                self.public_task, self.participant_api, episode_id=self.episode_id)
+                self.public_task, self.participant_api, episode_id=self.episode_id,
+                admission=self.admission)
             if self.session_audit else
-            GoalSession(self.public_task, self.participant_api, episode_id=self.episode_id)
+            GoalSession(self.public_task, self.participant_api, episode_id=self.episode_id,
+                        admission=self.admission)
         )
         manifest = {
             "schema": "eai.benchmark.formal_goal_episode",
