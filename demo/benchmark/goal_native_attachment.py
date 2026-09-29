@@ -210,7 +210,9 @@ def _evaluate(stage, request, active_member_ids, provider, *, reach_diagnostics=
                 "physics_step": pose["physics_step"],
                 "object_physics_step": object_pose["physics_step"],
             })
-        if distance > profile["reach_m"] + 1e-8:
+        # A planned rally may stand outside the declared connector length.
+        # The joint then records that live separation. GOAL-01 still rejects it.
+        if distance > profile["reach_m"] + 1e-8 and request.get("ideal_connector") is not True:
             raise ValueError("current PhysX root-to-fixed-point distance exceeds reach")
         local0 = _rotate(_inverse(pose["rotation_wxyz"]),
                          [world[i] - pose["position_m"][i] for i in range(3)])
@@ -242,7 +244,7 @@ def _evaluate(stage, request, active_member_ids, provider, *, reach_diagnostics=
 
 def prepare_attachment(stage, public_task, *, object_id, mode_id, carriers,
                        active_member_ids, body_bindings, pose_provider,
-                       reach_diagnostics=None):
+                       reach_diagnostics=None, ideal_connector=False):
     """Read-only preflight. carriers maps public member ID -> public point ID.
 
     body_bindings has objects/members maps, each public ID ->
@@ -253,11 +255,15 @@ def prepare_attachment(stage, public_task, *, object_id, mode_id, carriers,
     Mass is required for the object; body/root poses must not come from USD.
     All samples in a call must belong to one paused physical step. Root-to-point
     reach is an ideal connector rule, not manipulator workspace/IK evidence.
+    ``ideal_connector=True`` records a live separation outside that length and
+    lets commit author the joint at the current pose. The object is not moved.
     Optional ``reach_diagnostics`` receives each reach measurement actually
     attempted, even on failure; later members may remain unchecked.
     """
     request = deepcopy({"public_task": public_task, "object_id": object_id,
                         "mode_id": mode_id, "carriers": carriers, "body_bindings": body_bindings})
+    if ideal_connector:
+        request["ideal_connector"] = True
     checks = _evaluate(stage, request, active_member_ids, pose_provider,
                        reach_diagnostics=reach_diagnostics)
     return _seal({"schema": "eai.goal_attachment_prepared", "version": 1,

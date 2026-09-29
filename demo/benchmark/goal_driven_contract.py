@@ -753,6 +753,24 @@ def validate_goal_plan(plan: Mapping[str, Any], *, task_spec: Mapping[str, Any],
             "constraint_review": constraints_report}
 
 
+# Second missions keep an aerial candidate in the pool because the goal
+# contract requires both aerial and ground capabilities, but their jobs do
+# not use that aircraft.  Exempting these ids leaves every GOAL-01
+# certificate on the original cross-mobility path.
+_GROUND_ONLY_AUTHORING_TASK_IDS = frozenset({
+    "FACTORY-FIRE-01",
+    "WAREHOUSE-INBOUND-01",
+    "MODERN_HOUSE-DELIVERY-01",
+    "CITY-EXIT-01",
+})
+
+
+def _authoring_omits_forced_aerial(task_spec: Mapping[str, Any]) -> bool:
+    if task_spec["mission"]["scene_key"] == "restaurant":
+        return True
+    return task_spec["task_id"] in _GROUND_ONLY_AUTHORING_TASK_IDS
+
+
 def build_goal_heterogeneity_certificate(
         task_spec: Mapping[str, Any], witnesses: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
     """Report witness sensitivity and independent local capability supply."""
@@ -791,12 +809,12 @@ def build_goal_heterogeneity_certificate(
                         "from_mobility": source,
                         "to_mobility": destination,
                     })
-        # Restaurant is an authoring-only opening-readiness draft.  Its current
-        # business contract is deliberately ground-only; requiring an Iris
-        # step solely to satisfy this generic certificate would manufacture an
-        # unjustified aerial dependency.  Formal admission must add a
-        # business-grounded heterogeneity review before registry activation.
-        if not cross_edges and task_spec["mission"]["scene_key"] != "restaurant":
+        # Restaurant opening readiness, and the second-mission drafts below,
+        # are ground-only authoring witnesses.  Requiring an Iris step only to
+        # satisfy this generic certificate would manufacture an aerial
+        # dependency the job does not have.  GOAL-01 packages are not in the
+        # exemption set, so their certificates stay on the cross-mobility path.
+        if not cross_edges and not _authoring_omits_forced_aerial(task_spec):
             raise ValueError(f"witness {witness_id} has no cross-mobility dependency")
 
         counterfactuals = []
@@ -817,14 +835,14 @@ def build_goal_heterogeneity_certificate(
                 outcome_id for outcome_id, refs in support.items()
                 if set(refs) & invalid_tasks
             )
-            if not invalid_outcomes and task_spec["mission"]["scene_key"] != "restaurant":
+            if not invalid_outcomes and not _authoring_omits_forced_aerial(task_spec):
                 raise ValueError(
                     f"witness {witness_id} remains outcome-complete without {removed_mobility} members")
             counterfactuals.append({
                 "removed_mobility": removed_mobility,
                 "invalidated_outcome_ids": invalid_outcomes,
                 **({"status": "not_in_witness_team"}
-                   if not invalid_tasks and task_spec["mission"]["scene_key"] == "restaurant"
+                   if not invalid_tasks and _authoring_omits_forced_aerial(task_spec)
                    else {}),
             })
         certificate_rows.append({
@@ -837,14 +855,14 @@ def build_goal_heterogeneity_certificate(
         "version": GOAL_CONTRACT_VERSION,
         "visibility": "author_evaluator_only",
         "basis": ("public_capability_declarations_and_witness_dependency_graphs"
-                  if task_spec["mission"]["scene_key"] != "restaurant"
+                  if not _authoring_omits_forced_aerial(task_spec)
                   else "authoring_pending_business_heterogeneity_review"),
         "counterfactual_scope": ("fixed_witness_sensitivity_not_task_necessity"
-                                  if task_spec["mission"]["scene_key"] != "restaurant"
+                                  if not _authoring_omits_forced_aerial(task_spec)
                                   else "ground_only_authoring_witness_no_forced_aerial_dependency"),
         "witnesses": certificate_rows,
         "capability_audit": build_capability_audit(task_spec),
-        "declaration_level_validated": task_spec["mission"]["scene_key"] != "restaurant",
+        "declaration_level_validated": not _authoring_omits_forced_aerial(task_spec),
         "whole_task_necessity_validated": False,
         "physical_necessity_validated": False,
         "execution_validated": False,

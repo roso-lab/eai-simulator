@@ -286,6 +286,35 @@ def test_detach_rejects_sealed_forged_attachment_inventory(setup, change):
     assert snapshot(setup) == before
 
 
+def test_ideal_connector_commits_a_rally_separation_without_moving_the_object(setup):
+    left = setup["bindings"]["members"]["warehouse_ground_1"]["body_path"]
+    right = setup["bindings"]["members"]["warehouse_ground_2"]["body_path"]
+    crate = setup["bindings"]["objects"]["order_crate_01"]["body_path"]
+    setup["samples"][left]["position_m"] = [0.0, -1.65, 0.55]
+    setup["samples"][right]["position_m"] = [0.0, 1.65, 0.55]
+    before = snapshot(setup)
+    with pytest.raises(ValueError, match="distance exceeds reach"):
+        prepare(setup, paired=True)
+    assert snapshot(setup) == before
+    prepared = attachment.prepare_attachment(
+        setup["stage"], setup["public"], object_id="order_crate_01",
+        mode_id="paired_support",
+        carriers={"warehouse_ground_1": "support_left", "warehouse_ground_2": "support_right"},
+        active_member_ids=setup["active"], body_bindings=setup["bindings"],
+        pose_provider=lambda path: deepcopy(setup["samples"][path]),
+        ideal_connector=True)
+    assert prepared["request"]["ideal_connector"] is True
+    assert all(row["measured_distance_m"] > 1.2 for row in prepared["preflight"]["bindings"])
+    assert snapshot(setup) == before
+    receipt = commit(setup, prepared)
+    assert len(receipt["joint_readback"]) == 2
+    assert all(math.dist(row["local_pos0"], [0.0, 0.0, 0.0]) > 1.2
+               for row in receipt["joint_readback"])
+    translate = setup["stage"].GetPrimAtPath(crate).GetAttribute("xformOp:translate").Get()
+    assert [translate[0], translate[1], translate[2]] == [100, 200, 300]
+    assert setup["samples"][crate]["position_m"] == [0, 0, 0.3]
+
+
 def test_existing_constraint_blocks_second_attach_and_changed_joint_refuses_detach(setup):
     receipt = commit(setup, prepare(setup))
     with pytest.raises(ValueError, match="already has"):

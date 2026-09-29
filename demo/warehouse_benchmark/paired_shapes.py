@@ -124,8 +124,20 @@ def body_geometry(stage, body, colliders, *, session, expected_step=None):
     from pxr import Gf, PhysicsSchemaTools, UsdGeom, UsdUtils
     from demo.benchmark import goal_native_occupancy as occupancy
 
-    if str(session.device) != "cpu" or omni.physx.get_physx_interface().is_readback_suppressed():
-        raise ValueError("cooked shape diagnostic requires current CPU readback")
+    from demo.benchmark.gpu_evidence_contract import admit_live_session
+
+    # Stage141 CUDA evidence stays valid. A later readback gate uses the
+    # synchronized GPU seam. CPU may still run as exploratory debug, and a
+    # suppressed or unsynchronized GPU query fails closed instead of falling
+    # back to CPU.
+    admitted, readback = admit_live_session(session)
+    if str(session.device).startswith("cuda") and not admitted:
+        raise ValueError(f"geometry readback fail-closed: {readback['reason']}")
+    if not str(session.device).startswith("cuda"):
+        suppressed = omni.physx.get_physx_interface().is_readback_suppressed()
+        if suppressed is not False:
+            raise ValueError("exploratory CPU geometry requires an unsuppressed readback")
+    del readback
     stage_id = UsdUtils.StageCache.Get().Insert(stage).ToLongInt()
     from omni.physx.bindings._physx import PhysxPropertyQueryMode
     step = lambda: int(session.base_env.sim.current_time_step_index)

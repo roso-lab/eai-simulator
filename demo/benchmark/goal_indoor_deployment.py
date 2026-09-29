@@ -300,6 +300,18 @@ def _object_bindings(public: Mapping[str, Any], scene_key: str, inventory: Mappi
         identifier = item["id"]
         physical = deepcopy(item["physical_properties"])
         xy, asset_key, old_id = _OBJECT_PROPOSALS[scene_key][identifier]
+        if (public.get("task_id") == "WAREHOUSE-INBOUND-01"
+                and physical["initial_region_id"] == "receiving_buffer"):
+            # GOAL-01 leaves these goods on the rack. This task's own copy
+            # starts inside the measured receiving buffer; the rack coordinates
+            # stay put for the frozen outbound task.
+            bounds, _, _ = _region_interval_bounds(scene_key, "receiving_buffer", measured)
+            half_x = float(physical["size_m"][0]) / 2
+            half_y = float(physical["size_m"][1]) / 2
+            cx = (bounds[0] + bounds[2]) / 2
+            cy = (bounds[1] + half_y if identifier == "order_crate_01"
+                  else bounds[3] - half_y)
+            xy = [cx, cy]
         # House's live floor is z=.25 (Stage17 native support rays/cuboids).
         # Centring a 25cm bookstack at z=.125 buries it wholly in that slab.
         # The armchair may depenetrate by itself; a thin bookstack need not.

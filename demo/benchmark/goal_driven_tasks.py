@@ -1594,7 +1594,37 @@ def review_goal_business_witness(
         "restaurant": {"kitchen_service_inspected", "dining_service_inspected",
                        "readiness_receipt_committed"},
     }
-    require(outcome_ids == registered_outcomes.get(public_task["mission"]["scene_key"]),
+    expected_outcomes = registered_outcomes.get(public_task["mission"]["scene_key"])
+    if public_task["task_id"] == "RESTAURANT-SERVICE-01":
+        expected_outcomes = {
+            "table_a_order_recorded", "table_b_order_recorded",
+            "table_a_dish_delivered", "table_b_dish_delivered",
+            "table_a_service_receipt", "table_b_service_receipt",
+        }
+    elif public_task["task_id"] == "FACTORY-FIRE-01":
+        expected_outcomes = {
+            "rescue_channel_opened", "extinguisher_at_fire", "fire_scene_sensed",
+            "scout_at_fire_site", "carter_at_fire_site", "extinguisher_carrier_at_fire_site",
+        }
+    elif public_task["task_id"] == "WAREHOUSE-INBOUND-01":
+        expected_outcomes = {
+            "crate_arrival_identified", "carton_arrival_identified",
+            "crate_shelved_on_aisle_a", "carton_shelved_on_aisle_b",
+            "receiving_buffer_closed", "inbound_team_withdrawn",
+        }
+    elif public_task["task_id"] == "MODERN_HOUSE-DELIVERY-01":
+        expected_outcomes = {
+            "parcel_released_indoors", "delivery_signoff_recorded",
+            "carrier_left_delivery_path", "pepper_left_signoff_path",
+        }
+    elif public_task["task_id"] == "CITY-EXIT-01":
+        from .city_exit_task import dismissal_roster
+        expected_outcomes = {
+            "dismissal_roster_observed", "dismissal_headcount_reconciled",
+            "station_corridor_clear",
+            *(f"{person_id}_at_dismissal_assembly" for person_id in dismissal_roster()),
+        }
+    require(outcome_ids == expected_outcomes,
             "every_outcome_requires_registered_business_review")
     require(isinstance(support, Mapping) and set(support) == outcome_ids,
             "complete_outcome_support")
@@ -1648,7 +1678,31 @@ def review_goal_business_witness(
         return withdrawals
 
     scene = public_task["mission"]["scene_key"]
-    if scene == "warehouse_nvd":
+    task_id = public_task["task_id"]
+    if task_id == "FACTORY-FIRE-01":
+        from .factory_fire_task import review_factory_fire_witness
+        review_factory_fire_witness(
+            match=match, require=require, precedes=precedes,
+            release_at=release_at, final_object=final_object,
+            constraint_review=constraint_review, plan=plan, robots=robots)
+    elif task_id == "WAREHOUSE-INBOUND-01":
+        from .warehouse_inbound_task import review_warehouse_inbound_witness
+        review_warehouse_inbound_witness(
+            match=match, require=require, precedes=precedes,
+            release_at=release_at, final_object=final_object,
+            constraint_review=constraint_review, plan=plan, robots=robots, regions=regions)
+    elif task_id == "MODERN_HOUSE-DELIVERY-01":
+        from .house_delivery_task import review_house_delivery_witness
+        review_house_delivery_witness(
+            match=match, require=require, precedes=precedes,
+            release_at=release_at, final_object=final_object,
+            constraint_review=constraint_review, plan=plan, robots=robots, regions=regions)
+    elif task_id == "CITY-EXIT-01":
+        from .city_exit_task import review_city_exit_witness
+        review_city_exit_witness(
+            match=match, require=require, precedes=precedes,
+            constraint_review=constraint_review, plan=plan, robots=robots, regions=regions)
+    elif scene == "warehouse_nvd":
         receipts_by_object: list[list[Mapping[str, Any]]] = []
         for object_id in ("order_crate_01", "order_carton_01"):
             inventory = match(skills={"observe"}, mobility="aerial", subject_ref=object_id,
@@ -1795,6 +1849,11 @@ def review_goal_business_witness(
                 "city:access_check_after_all_business_services")
         require(any(all(precedes(check, report) for check in access_checks) for report in reports),
                 "city:report_after_continuous_access_check")
+    elif scene == "restaurant" and public_task["task_id"] == "RESTAURANT-SERVICE-01":
+        from .restaurant_service_task import review_restaurant_service_witness
+        review_restaurant_service_witness(
+            match=match, require=require, precedes=precedes,
+            release_at=release_at, final_object=final_object)
     elif scene == "restaurant":
         kitchen = match(skills={"observe"}, mobility="ground",
                         region_id="kitchen_service", subject_ref="kitchen_service",

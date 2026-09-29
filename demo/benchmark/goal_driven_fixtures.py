@@ -95,6 +95,26 @@ _ROBOT_PROFILES = {
         "grasp_interfaces": [],
         "max_step_height_m": 0.18,
     },
+    # Phase-1 restaurant service uses the holonomic base only. Arms exist on
+    # the Pepper asset, but this profile does not claim finger grasp.
+    "pepper": {
+        "configuration_id": "benchmark_pepper_holonomic_order_v1",
+        "body_size_m": [0.45, 0.45, 1.2],
+        "effective_payload_kg": 0.0,
+        "reach_m": 0.4,
+        "grasp_interfaces": [],
+        "max_step_height_m": 0.02,
+    },
+    # Scout in the fire-rescue mission carries a back-mounted UR5. This
+    # profile records that fixed-joint mount. It does not add finger grasp.
+    "scout": {
+        "configuration_id": "benchmark_scout_ur5_fixed_joint_v1",
+        "body_size_m": [0.93, 0.70, 0.45],
+        "effective_payload_kg": 5.0,
+        "reach_m": 0.8,
+        "grasp_interfaces": ["support_socket_v1"],
+        "max_step_height_m": 0.03,
+    },
     "cf2x": {
         "configuration_id": "benchmark_cf2x_camera_v1",
         "body_size_m": [0.35, 0.35, 0.2],
@@ -166,6 +186,52 @@ _OBJECT_PROPERTIES = {
         "initial_region_id": "living_area",
         "grasp_points": [_point("center_grip", [0.0, 0.0, 0.125], "fixed_gripper_v1")],
         "handling_modes": [_mode("single_grip", [("center_grip", 1.0)], [1.05, 0.65, 1.1])],
+    },
+    # Rigid plate-plus-apple payload. The support socket is the warehouse-style
+    # attach used in phase 1; it is not a finger grasp.
+    "service_plate_apple_a": {
+        "mass_kg": 0.45, "size_m": [0.28, 0.28, 0.08],
+        "initial_region_id": "kitchen_service",
+        "grasp_points": [_point("support_center", [0.0, 0.0, 0.04], "support_socket_v1")],
+        "handling_modes": [_mode("support_attach", [("support_center", 1.0)], [0.5, 0.5, 0.4])],
+    },
+    "service_plate_apple_b": {
+        "mass_kg": 0.45, "size_m": [0.28, 0.28, 0.08],
+        "initial_region_id": "kitchen_service",
+        "grasp_points": [_point("support_center", [0.0, 0.0, 0.04], "support_socket_v1")],
+        "handling_modes": [_mode("support_attach", [("support_center", 1.0)], [0.5, 0.5, 0.4])],
+    },
+    "static_customer_a": {
+        "mass_kg": 70.0, "size_m": [0.5, 0.5, 1.7],
+        "initial_region_id": "dining_table_a",
+        "grasp_points": [], "handling_modes": [],
+    },
+    "static_customer_b": {
+        "mass_kg": 70.0, "size_m": [0.5, 0.5, 1.7],
+        "initial_region_id": "dining_table_b",
+        "grasp_points": [], "handling_modes": [],
+    },
+    "rescue_channel_button": {
+        "mass_kg": 0.4, "size_m": [0.2, 0.15, 0.2],
+        "initial_region_id": "rescue_button",
+        "grasp_points": [], "handling_modes": [],
+    },
+    "factory_extinguisher_01": {
+        "mass_kg": 4.0, "size_m": [0.2, 0.2, 0.55],
+        "initial_region_id": "extinguisher_cache",
+        "grasp_points": [_point("support_center", [0.0, 0.0, 0.08], "support_socket_v1")],
+        "handling_modes": [_mode("support_attach", [("support_center", 1.0)], [0.45, 0.35, 0.7])],
+    },
+    "doorstep_parcel_01": {
+        "mass_kg": 2.0, "size_m": [0.3, 0.2, 0.12],
+        "initial_region_id": "entry_hall",
+        "grasp_points": [_point("support_center", [0.0, 0.0, 0.04], "support_socket_v1")],
+        "handling_modes": [_mode("support_attach", [("support_center", 1.0)], [0.5, 0.4, 0.4])],
+    },
+    "delivery_signoff_marker": {
+        "mass_kg": 0.2, "size_m": [0.15, 0.1, 0.2],
+        "initial_region_id": "delivery_signoff",
+        "grasp_points": [], "handling_modes": [],
     },
 }
 
@@ -265,6 +331,7 @@ def region_resource_capacity(region_id: str) -> int:
         "rack_aisle_a", "consolidation_area", "outbound_dock", "receiving_buffer",
         "furniture_side", "furniture_parking", "response_staging", "assembly_cell",
         "restaurant_staging", "kitchen_service", "dining_service",
+        "dining_table_a", "dining_table_b",
     }:
         return 2
     return 1

@@ -131,6 +131,7 @@ ros2_cmd_vel.json
 *.json
 !/demo/benchmark/task_coverage_matrix.json
 !/demo/benchmark/modality_matrix.json
+!/demo/benchmark/second_mission_weights.json
 !/demo/benchmark/tests/
 !/source/EAI_hmrs/EAI_hmrs/envs/*.json
 /source/EAI_hmrs/EAI_hmrs/envs/test*.json
@@ -180,6 +181,14 @@ ros2_cmd_vel.json
 !/usd/scene/factory/goal_props/service_cart_v1.usda
 !/usd/scene/factory/goal_props/anomaly_marker_v2.usda
 !/usd/scene/factory/goal_props/service_cart_v2.usda
+# Restaurant service props copied from the Modern House NVD pack for the
+# order-and-delivery task. The rest of the restaurant scene stays ignored.
+!/usd/scene/restaurant/
+/usd/scene/restaurant/*
+!/usd/scene/restaurant/Assets/
+/usd/scene/restaurant/Assets/*
+!/usd/scene/restaurant/Assets/ServiceProps/
+!/usd/scene/restaurant/Assets/ServiceProps/**
 # Maintained 2D occupancy maps used by benchmark planning and tests.
 !/usd/scene/factory/factory_map.yaml
 !/usd/scene/factory/factory_map.png
