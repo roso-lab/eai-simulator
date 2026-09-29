@@ -1088,6 +1088,7 @@ def test_measured_allocation_accepts_a_real_llm_sourced_round(monkeypatch) -> No
     adapter, actions = _drive_measured_adapter("RESTAURANT-SERVICE-01", monkeypatch,
                                                _FakeEmosManager)
     assert adapter.allocation_source == "real_llm"
+    assert adapter.discussion_source == "llm"
     assert adapter.submitted_plan_id == adapter._plan["plan_id"]
     assert adapter._plan["plan_id"].endswith("_emos")
     assert [row["type"] for row in actions] == ["select_team", "submit_plan"]
@@ -1102,6 +1103,7 @@ def test_measured_allocation_records_an_unparseable_llm_reply(monkeypatch) -> No
     adapter, actions = _drive_measured_adapter("RESTAURANT-SERVICE-01", monkeypatch,
                                                _FakeEmosManager)
     assert adapter.allocation_source == "real_llm"
+    assert adapter.discussion_source == "llm"
     assert actions == []
     assert adapter._plan is None
     row = next(r for r in adapter.trace if r.get("event") == "allocation_invalid")
@@ -1118,6 +1120,7 @@ def test_measured_allocation_aborts_when_the_llm_call_never_answered(monkeypatch
         adapter, actions = _drive_measured_adapter("RESTAURANT-SERVICE-01", monkeypatch,
                                                    _FakeEmosManager)
         assert adapter.allocation_source == "unavailable", source
+        assert adapter.discussion_source == "unavailable", source
         assert actions == []
         row = next(r for r in adapter.trace if r.get("event") == "allocation_aborted")
         assert row["reason"].startswith("llm_result_source:")

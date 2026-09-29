@@ -312,6 +312,7 @@ def run_second_mission_episode(task_id: str, output_root: str | Path, *,
         "formal_backend": HOUSE_BACKEND_ID,
         "instruction_source": instruction_source,
         "allocation_source": getattr(participant, "allocation_source", None),
+        "discussion_source": getattr(participant, "discussion_source", None),
         "adapter_id": participant.manifest()["id"],
         "adapter_trace": deepcopy(getattr(participant, "trace", [])),
         "skill_results": backend.evidence,
@@ -576,7 +577,7 @@ def main(argv: list[str] | None = None) -> int:
         args.task, args.output_root, algorithm=args.algorithm,
         plan_override=plan_override)
     print(json.dumps({key: summary[key] for key in (
-        "task_id", "instruction_source", "allocation_source", "adapter_id",
+        "task_id", "instruction_source", "allocation_source", "discussion_source", "adapter_id",
         "skill_receipt_count", "scoreable", "clearance_status")}, sort_keys=True))
     return 0
 

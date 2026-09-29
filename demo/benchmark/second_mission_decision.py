@@ -180,6 +180,7 @@ class SecondMissionEmosAdapter:
         self._terminal: set[str] = set()
         self._stopped = False
         self.allocation_source: str | None = None
+        self.discussion_source: str | None = None
         self.submitted_plan_id: str | None = None
         self.trace: list[dict[str, Any]] = []
 
@@ -260,7 +261,8 @@ class SecondMissionEmosAdapter:
         )]
 
     def close(self) -> None:
-        self.trace.append({"event": "close", "allocation_source": self.allocation_source})
+        self.trace.append({"event": "close", "allocation_source": self.allocation_source,
+                           "discussion_source": self.discussion_source})
 
     def _allocate(self) -> None:
         try:
@@ -302,11 +304,14 @@ class SecondMissionEmosAdapter:
         llm_env = None
         if not self._use_llm:
             self.allocation_source = ALLOCATION_DIAGNOSTIC
+            self.discussion_source = "policy"
         elif not emos_engine.LLM_AVAILABLE:
             self.allocation_source = ALLOCATION_UNAVAILABLE
+            self.discussion_source = "unavailable"
             self.trace.append({
                 "event": "allocation_aborted",
                 "allocation_source": ALLOCATION_UNAVAILABLE,
+                "discussion_source": self.discussion_source,
                 "reason": "llm_module_unavailable",
             })
             return
@@ -315,13 +320,16 @@ class SecondMissionEmosAdapter:
                 llm_env = measured_llm_channel()
             except RuntimeError:
                 self.allocation_source = ALLOCATION_UNAVAILABLE
+                self.discussion_source = "unavailable"
                 self.trace.append({
                     "event": "allocation_aborted",
                     "allocation_source": ALLOCATION_UNAVAILABLE,
+                    "discussion_source": self.discussion_source,
                     "reason": "llm_credentials_unavailable",
                 })
                 return
             self.allocation_source = ALLOCATION_REAL_LLM
+            self.discussion_source = "unavailable"
 
         def llm_kwargs() -> dict[str, Any]:
             assert llm_env is not None
@@ -417,9 +425,11 @@ class SecondMissionEmosAdapter:
                     # assignment: the algorithm's allocation failure, kept as
                     # a measurement. The engine's heuristic fallback result
                     # is discarded and never executed.
+                    self.discussion_source = "llm"
                     self.trace.append({
                         "event": "allocation_invalid",
                         "allocation_source": ALLOCATION_REAL_LLM,
+                        "discussion_source": self.discussion_source,
                         "round": round_index,
                         "reason": "llm_response_unparseable",
                         "discarded": "heuristic_engine_fallback",
@@ -430,6 +440,7 @@ class SecondMissionEmosAdapter:
                 self.trace.append({
                     "event": "allocation_aborted",
                     "allocation_source": ALLOCATION_UNAVAILABLE,
+                    "discussion_source": self.discussion_source,
                     "round": round_index,
                     "reason": f"llm_result_source:{result_source or 'none'}",
                     "llm_responded": llm_responded,
@@ -441,6 +452,7 @@ class SecondMissionEmosAdapter:
             if self._use_llm:
                 saw_real_llm = True
                 self.allocation_source = ALLOCATION_REAL_LLM
+                self.discussion_source = "llm"
             round_map: dict[str, str] = {}
             for row in result.values():
                 colour = str(row.subtask_colour)
