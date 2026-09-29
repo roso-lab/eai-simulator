@@ -15,6 +15,7 @@ mismatch is admitted and fails later as one ``constraint_violation`` receipt.
 
 from __future__ import annotations
 
+import os
 from copy import deepcopy
 from pathlib import Path
 import time
@@ -28,7 +29,11 @@ ALLOCATION_UNAVAILABLE = "unavailable"
 _POLICY_NAME = "second-mission-diagnostic"
 _ROUND_TIMEOUT_S = 240.0
 _DIAGNOSTIC_TIMEOUT_S = 5.0
-_DISCUSSION_LOG_DIR = Path(__file__).resolve().parents[2] / "tmp" / "emos_discussion"
+# The engine writes chat history below <dir>/<episode_id>/ with a fixed
+# episode id, so concurrent processes must isolate this directory via
+# EAI_EMOS_DISCUSSION_DIR instead of sharing tmp/emos_discussion.
+_DISCUSSION_LOG_DIR = Path(os.environ.get("EAI_EMOS_DISCUSSION_DIR")
+                           or Path(__file__).resolve().parents[2] / "tmp" / "emos_discussion")
 _ACTION_SCHEMA = "eai.benchmark.goal_action"
 _GOAL_ACTIONS = frozenset({
     "select_team", "submit_plan", "revise_plan",
