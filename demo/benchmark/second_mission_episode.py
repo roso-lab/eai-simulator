@@ -198,17 +198,21 @@ def deployment_record_for_disk(deployment: Mapping[str, Any]) -> Mapping[str, An
 
 
 def run_second_mission_episode(task_id: str, output_root: str | Path, *,
-                               witness_index: int = 0,
                                session: Any = None,
                                deployment: Mapping[str, Any] | None = None,
+                               witness_index: int = 0,
                                algorithm: str = "witness",
-                               adapter: Any = None) -> dict[str, Any]:
+                               adapter: Any = None,
+                               plan_override: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """Run one second mission through FormalGoalEpisodeRunner and the House skill backend.
 
     ``algorithm="emos"`` is the measured EMOS LLM path. ``emos_diagnostic`` is
     the labeled deterministic policy and does not count as that measurement.
     An explicit ``adapter`` is any other ``GoalAlgorithmAdapter``; the runner
     does not branch on its class. Measured plans use interface admission.
+    ``plan_override`` (GPU-queue matrix handoff) replaces the author witness
+    plan with a fixed expanded allocation from the multi-solution matrix; the
+    witness participant then submits that plan unchanged.
     """
     from demo.benchmark.goal_episode_runner import FormalGoalEpisodeRunner
     from demo.benchmark.goal_house_episode import HOUSE_BACKEND_ID, HouseNativeGoalBackend, house_runtime_state
@@ -223,6 +227,21 @@ def run_second_mission_episode(task_id: str, output_root: str | Path, *,
     if not 0 <= witness_index < len(witnesses):
         raise ValueError("witness index is outside the author witness list")
     plan = witnesses[witness_index]["plan"]
+    if plan_override is not None:
+        if adapter is not None or algorithm != "witness":
+            raise ValueError("plan_override runs the fixed-plan witness path only")
+        plan = deepcopy(dict(plan_override))
+        # The runner dispatches serially in plan-task order, so a handed-over
+        # plan with a parallel authored schedule (witness b and constructed
+        # matrix rows) would see later dispatches fall outside their windows
+        # after earlier tasks consume the clock. Re-sequence start times in
+        # task order; declared durations are untouched and the allocation
+        # itself is unchanged.
+        clock_s = 0.0
+        for task in plan["tasks"]:
+            duration_s = float(task["execution"]["duration_s"])
+            task["execution"] = {"start_s": clock_s, "duration_s": duration_s}
+            clock_s += duration_s
     if deployment is None:
         deployment = build_second_mission_deployment(public, plan)
     root = Path(output_root)
@@ -439,7 +458,8 @@ def _record_restaurant_customers(session: Any, deployment: dict[str, Any]) -> No
 
 
 def _run_isaac_worker(task_id: str, output_root: Path, *, device: str,
-                      algorithm: str = "witness") -> dict[str, Any]:
+                      algorithm: str = "witness",
+                      allocation_id: str | None = None) -> dict[str, Any]:
     """Open one Isaac session and run the formal episode in that process."""
     import torch
     if any(name == "pxr" or name.startswith("pxr.") for name in sys.modules):
@@ -458,6 +478,11 @@ def _run_isaac_worker(task_id: str, output_root: Path, *, device: str,
         os.environ["EAI_RESTAURANT_BENCHMARK_ROOT"] = str(
             Path("tmp/restaurant_benchmark/products-candidate-v7").resolve())
     witness_plan = package["hidden_evaluator"]["witness_plans"][0]["plan"]
+    plan_override = None
+    if allocation_id is not None:
+        from demo.benchmark.second_mission_allocation_matrix import expand_allocation_plan
+
+        plan_override = expand_allocation_plan(task_id, allocation_id)
     formal = compile_second_mission_formal_deployment(package["public_task"])
     deployment = formal or build_second_mission_deployment(package["public_task"], witness_plan)
     selection = house_selection(deployment)
@@ -507,7 +532,7 @@ def _run_isaac_worker(task_id: str, output_root: Path, *, device: str,
             bind_second_mission_payloads(deployment)
         summary = run_second_mission_episode(
             task_id, output_root, session=session, deployment=deployment,
-            algorithm=algorithm)
+            algorithm=algorithm, plan_override=plan_override)
         summary["possible_agents"] = agents
         summary["session_device"] = str(session.device)
         (output_root / "second_mission_episode_summary.json").write_text(
@@ -530,14 +555,26 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--device", choices=("cuda:0", "cpu"), default="cuda:0")
     parser.add_argument(
         "--algorithm", choices=("witness", "emos", "emos_diagnostic"), default="witness")
+    parser.add_argument(
+        "--allocation", default=None,
+        help="run one matrix allocation id (fixed-plan witness path, GPU queue 3)")
     parser.add_argument("--isaac", action="store_true")
     args = parser.parse_args(argv)
+    plan_override = None
+    if args.allocation is not None:
+        if args.algorithm != "witness":
+            raise SystemExit("--allocation requires the default witness algorithm")
+        from demo.benchmark.second_mission_allocation_matrix import expand_allocation_plan
+
+        plan_override = expand_allocation_plan(args.task, args.allocation)
     if args.isaac:
         _run_isaac_worker(
-            args.task, args.output_root, device=args.device, algorithm=args.algorithm)
+            args.task, args.output_root, device=args.device, algorithm=args.algorithm,
+            allocation_id=args.allocation)
         return 0
     summary = run_second_mission_episode(
-        args.task, args.output_root, algorithm=args.algorithm)
+        args.task, args.output_root, algorithm=args.algorithm,
+        plan_override=plan_override)
     print(json.dumps({key: summary[key] for key in (
         "task_id", "instruction_source", "allocation_source", "adapter_id",
         "skill_receipt_count", "scoreable", "clearance_status")}, sort_keys=True))
