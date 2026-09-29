@@ -327,6 +327,68 @@ _SECOND_MISSION_TASK_IDS = frozenset({
     "CITY-EXIT-01",
     "RESTAURANT-SERVICE-01",
 })
+_GROUND_SKILLS = frozenset({
+    "ground_navigation", "stair_traversal", "pick", "place", "handoff", "cooperative_carry",
+})
+_REGION_ARGUMENT_KEYS = (
+    "region_id", "pickup_region_id", "placement_region_id",
+    "receiving_region_id", "destination_region_id", "exit_region_id",
+)
+
+
+def second_mission_constraint_violation(public_task: Mapping[str, Any],
+                                        task: Mapping[str, Any]) -> str | None:
+    """Return a recorded organization failure, or None when the assignment may run.
+
+    Capability, mobility and region access are execution measurements. This
+    does not reject the plan and does not replace the skill kernel.
+    """
+    from demo.benchmark.goal_constraints import _region_access
+    from demo.benchmark.skill_ontology import minimum_agents
+
+    pool = {row["id"]: row for row in public_task["candidate_robot_pool"]}
+    assigned = [agent for agent in task.get("assigned_agents") or [] if isinstance(agent, str)]
+    skill = str(task.get("skill") or "")
+    needed = minimum_agents(skill) if skill else 1
+    if len(assigned) < needed:
+        return f"constraint_violation:agent_count:{skill}:{len(assigned)}:{needed}"
+    world = public_task["public_world"]
+    regions = {row["id"]: row for row in world["regions"]}
+    routes = {row["id"]: row for row in world.get("routes") or []}
+    arguments = task.get("arguments") or {}
+    region_ids: list[str] = []
+    for key in _REGION_ARGUMENT_KEYS:
+        value = arguments.get(key)
+        if isinstance(value, str):
+            region_ids.append(value)
+    for route_id in arguments.get("route_ids") or []:
+        route = routes.get(route_id) if isinstance(route_id, str) else None
+        if route is None:
+            continue
+        for endpoint in ("from_region_id", "to_region_id"):
+            value = route.get(endpoint)
+            if isinstance(value, str):
+                region_ids.append(value)
+    required = {item for item in task.get("required_capabilities") or [] if isinstance(item, str)}
+    for agent in assigned:
+        row = pool.get(agent)
+        if row is None:
+            return f"constraint_violation:unknown_agent:{agent}"
+        if required and not required <= set(row["public_capabilities"]):
+            return f"constraint_violation:capability:{agent}:{skill}"
+        if skill in _GROUND_SKILLS and row["mobility"] != "ground":
+            return f"constraint_violation:mobility:{agent}:{skill}"
+        if skill == "aerial_navigation" and row["mobility"] != "aerial":
+            return f"constraint_violation:mobility:{agent}:{skill}"
+        for region_id in region_ids:
+            region = regions.get(region_id)
+            if region is None:
+                continue
+            try:
+                _region_access(region, row, str(task.get("task_id") or skill))
+            except ValueError:
+                return f"constraint_violation:region_access:{agent}:{region_id}"
+    return None
 _CITY_EXIT_OBSERVE_MODES = frozenset({
     "dismissal_roster",
     "dismissal_headcount",
@@ -649,10 +711,36 @@ def _customer_order_observation(task: Mapping[str, Any], deployment: Mapping[str
     }, None
 
 
+def route_inflation_radius_m(robot_type: str | None) -> float:
+    """Occupancy inflation for one robot type.
+
+    The radius follows the public body size. Pepper keeps the measured 0.45 m
+    floor: half of its declared body still left the base against a wall.
+    """
+    if not robot_type:
+        return 0.25
+    from demo.benchmark.goal_driven_fixtures import robot_physical_profile
+
+    body = robot_physical_profile(robot_type)["body_size_m"]
+    half = 0.5 * max(float(body[0]), float(body[1]))
+    if robot_type == "pepper":
+        return max(half, _PEPPER_OCCUPANCY_RADIUS_M)
+    return max(0.25, min(half, 0.45))
+
+
 def restaurant_pepper_stand(task_id: str, region_id: str,
-                            agent_ids: list[str]) -> tuple[float, float] | None:
-    """Pepper meets a diner at the 0.8 m stand, not on the table-region edge."""
-    if task_id != "RESTAURANT-SERVICE-01" or "restaurant_pepper_1" not in agent_ids:
+                            agent_ids: list[str],
+                            robot_types: Mapping[str, str] | None = None,
+                            ) -> tuple[float, float] | None:
+    """A pepper-type robot meets a diner at the 0.8 m stand.
+
+    The stand follows the assigned robot's type. Any pepper in the public
+    pool uses it; a different robot id of that type is the same skill.
+    """
+    if task_id != "RESTAURANT-SERVICE-01":
+        return None
+    types = robot_types or {}
+    if not any(types.get(agent) == "pepper" for agent in agent_ids):
         return None
     if region_id not in {"dining_table_a", "dining_table_b"}:
         return None
@@ -1031,6 +1119,10 @@ class HouseNativeGoalBackend:
                     return "failed", "observe_objects_unreadable"
                 return "succeeded", None
             return "failed", _PENDING_REASON
+        if self.public_task.get("task_id") in _SECOND_MISSION_TASK_IDS:
+            violation = second_mission_constraint_violation(self.public_task, task)
+            if violation is not None:
+                return "failed", violation
         if skill == "observe":
             if observed:
                 return "succeeded", None
@@ -1183,8 +1275,12 @@ class HouseNativeGoalBackend:
         # Pepper's table visit is the interaction stand. The published box
         # edge is more than a metre from the diner, and the last formal run
         # stopped there.
+        robot_types = {
+            row["id"]: row["type"] for row in self.public_task["candidate_robot_pool"]
+        }
         stand = restaurant_pepper_stand(
-            str(self.public_task.get("task_id") or ""), region_id, public_ids)
+            str(self.public_task.get("task_id") or ""), region_id, public_ids,
+            robot_types=robot_types)
         aim = stand or target
 
         def arrived(states: Mapping[str, list[float]]) -> bool:
@@ -1869,8 +1965,8 @@ class HouseNativeGoalBackend:
                 path = [tuple(point) for point in preset_paths[runtime_id]]
             else:
                 try:
-                    radius = (_PEPPER_OCCUPANCY_RADIUS_M
-                              if robot_types.get(runtime_id) == "pepper" else 0.25)
+                    kind = robot_types.get(runtime_id)
+                    radius = route_inflation_radius_m(kind)
                     path = occupancy_waypoints(
                         scene_key, (state[0], state[1]), goals[runtime_id], radius)
                 except (OSError, RuntimeError, ValueError) as exc:
@@ -1878,12 +1974,21 @@ class HouseNativeGoalBackend:
                     return "failed", f"navigation_path_blocked:{label}"
             if not path:
                 self._last_navigation_diagnostics["failure"] = "path_blocked"
+                self._last_navigation_diagnostics["agents"][runtime_id]["robot_type"] = kind
+                self._last_navigation_diagnostics["agents"][runtime_id]["route_radius_m"] = radius
                 return "failed", f"navigation_path_blocked:{label}"
             paths[runtime_id] = path
+            length = sum(math.dist(a, b) for a, b in zip(path, path[1:]))
+            agent_row = self._last_navigation_diagnostics["agents"][runtime_id]
+            agent_row["robot_type"] = kind
+            agent_row["route_radius_m"] = radius
+            agent_row["path_length_m"] = length
+            agent_row["waypoint_count"] = len(path)
         first = paths[runtime_ids[0]]
-        length = sum(math.dist(a, b) for a, b in zip(first, first[1:]))
         print(f"house_path {label} {runtime_ids[0]} waypoints={len(first)} "
-              f"length={length:.2f}", flush=True)
+              f"length={self._last_navigation_diagnostics['agents'][runtime_ids[0]].get('path_length_m', 0):.2f} "
+              f"radius={self._last_navigation_diagnostics['agents'][runtime_ids[0]].get('route_radius_m')}",
+              flush=True)
         last_distance = None
         goals = dict(goals)
         for _ in range(7000):
