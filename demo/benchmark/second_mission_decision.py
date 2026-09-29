@@ -140,13 +140,26 @@ def measured_llm_channel() -> dict[str, str]:
     }
 
 
-def _public_argument_text(task: Mapping[str, Any]) -> str:
+def _public_argument_text(task: Mapping[str, Any], index: int = 0) -> str:
+    """Public per-slot brief: which carrier point this slot is bound to.
+
+    Slot ``task#index`` maps to ``carrier_bindings[index]``; disclosing that
+    mapping keeps the adapter's positional rebind honest, so a wrong-point
+    or far-robot choice is the algorithm's informed decision rather than an
+    adapter translation error.
+    """
     arguments = dict(task.get("arguments") or {})
     bindings = arguments.pop("carrier_bindings", None)
-    points = []
-    if isinstance(bindings, list):
-        points = [row.get("point_id") for row in bindings if isinstance(row, Mapping)]
-    return f"skill={task['skill']} arguments={arguments} points={points}"
+    lines = [f"skill={task['skill']} arguments={arguments}"]
+    if isinstance(bindings, list) and bindings:
+        ordered = [row.get("point_id") for row in bindings if isinstance(row, Mapping)]
+        own = None
+        if 0 <= index < len(bindings) and isinstance(bindings[index], Mapping):
+            own = bindings[index].get("point_id")
+        lines.append(
+            f"carrier points in slot order={ordered}; this slot #{index} carries point {own}")
+    lines.append("robot positions are not part of this contract")
+    return "; ".join(lines)
 
 
 class SecondMissionEmosAdapter:
@@ -162,6 +175,7 @@ class SecondMissionEmosAdapter:
         self._terminal: set[str] = set()
         self._stopped = False
         self.allocation_source: str | None = None
+        self.submitted_plan_id: str | None = None
         self.trace: list[dict[str, Any]] = []
 
     def manifest(self) -> Mapping[str, Any]:
@@ -329,7 +343,8 @@ class SecondMissionEmosAdapter:
                     id=slot_id,
                     name=task["skill"],
                     description=(
-                        f"Reply must contain {slot_id}. {_public_argument_text(task)}"
+                        f"Reply must contain {slot_id}. "
+                        f"{_public_argument_text(task, index)}"
                     ),
                     match_keywords=keywords,
                 )
@@ -389,12 +404,30 @@ class SecondMissionEmosAdapter:
                 if self._use_llm and not saw_real_llm:
                     self.allocation_source = ALLOCATION_UNAVAILABLE
                 break
-            if self._use_llm and manager.discussion_count == before:
+            if self._use_llm and manager.last_result_source != "llm":
+                result_source = manager.last_result_source
+                llm_responded = manager.discussion_count > before
+                if result_source == "fallback" and llm_responded:
+                    # The real LLM answered but its reply yielded no usable
+                    # assignment: the algorithm's allocation failure, kept as
+                    # a measurement. The engine's heuristic fallback result
+                    # is discarded and never executed.
+                    self.trace.append({
+                        "event": "allocation_invalid",
+                        "allocation_source": ALLOCATION_REAL_LLM,
+                        "round": round_index,
+                        "reason": "llm_response_unparseable",
+                        "discarded": "heuristic_engine_fallback",
+                    })
+                    saw_real_llm = True
+                    self.allocation_source = ALLOCATION_REAL_LLM
+                    break
                 self.trace.append({
                     "event": "allocation_aborted",
                     "allocation_source": ALLOCATION_UNAVAILABLE,
                     "round": round_index,
-                    "reason": "llm_discussion_failed",
+                    "reason": f"llm_result_source:{result_source or 'none'}",
+                    "llm_responded": llm_responded,
                     "discarded": "deterministic_engine_fallback",
                 })
                 if not saw_real_llm:
@@ -489,6 +522,7 @@ class SecondMissionEmosAdapter:
         rank = {name: index for index, name in enumerate(pool_ids)}
         rewritten["assigned_team"] = sorted(team, key=lambda name: rank[name])
         self._plan = rewritten
+        self.submitted_plan_id = rewritten["plan_id"]
         self.trace.append({
             "event": "team_selected",
             "allocation_source": self.allocation_source,

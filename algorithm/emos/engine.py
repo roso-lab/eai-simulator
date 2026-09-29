@@ -286,6 +286,16 @@ class EMOSDiscussionManager:
         # 最近一次 trigger 的墙钟时间戳（供上层做超时熔断判断）
         self._last_trigger_started_at: float = 0.0
         self.fallback_dispatch_count: int = 0
+        # 最近一次入队结果的产生路径："llm" / "policy" / "fallback" /
+        # "local_fallback"，空串表示尚无结果。供上层把分配来源与结果绑定，
+        # 避免 discussion_count（解析前自增）被误当作 LLM 来源凭证。
+        self._last_result_source: str = ""
+
+    @property
+    def last_result_source(self) -> str:
+        """最近一次入队分配结果的产生路径（见 ``_last_result_source``）。"""
+        with self._lock:
+            return self._last_result_source
 
     @property
     def position_source(self) -> Optional[str]:
@@ -552,6 +562,7 @@ class EMOSDiscussionManager:
                 self._fallback_dispatched_for_round = False
             return False
 
+        self._last_result_source = "local_fallback"
         self._result_queue.put(assignments)
         with self._lock:
             self._phase = EMOSPhase.DONE
@@ -682,6 +693,7 @@ class EMOSDiscussionManager:
                 self._fallback_dispatched_for_round = True
             assignments = self._fallback_wrapped(
                 positions, excluded_subtask_ids=excluded)
+            self._last_result_source = "fallback"
             self._result_queue.put(assignments)
             with self._lock:
                 # 与 trigger_local_fallback 终态对齐：本轮已成功入队 → DONE，
@@ -746,6 +758,7 @@ class EMOSDiscussionManager:
                 self.last_discussion_elapsed_s = time.perf_counter() - started
                 self.cumulative_discussion_elapsed_s += self.last_discussion_elapsed_s
                 self.discussion_count += 1
+                self._last_result_source = "policy"
         robot_positions: Dict[str, Tuple[float, float]] = {}
         for name in self._agents:
             try:
@@ -929,7 +942,7 @@ class EMOSDiscussionManager:
                 f" 目标 ({pos[0]:.1f}, {pos[1]:.1f})"
             )
 
-        return parse_discussion_results(
+        assignments = parse_discussion_results(
             self._scenario,
             results,
             positions,
@@ -944,6 +957,10 @@ class EMOSDiscussionManager:
             preserve_raw_assignments=_preserve_raw_assignments,
             excluded_subtask_ids=excluded,
         )
+        # 解析成功后标记来源；解析抛异常时保持原值，由 _worker 的
+        # fallback 路径覆盖为 "fallback"。
+        self._last_result_source = "llm"
+        return assignments
 
     def _validate_and_fix_yellow_assignment(
         self,

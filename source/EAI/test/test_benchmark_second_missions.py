@@ -1010,6 +1010,120 @@ def test_interface_admission_lets_a_mismatch_fail_at_execution() -> None:
     measured.submit_action(action("plan", "submit_plan", {"plan": plan}))
 
 
+def _drive_measured_adapter(task_id: str, monkeypatch, manager_cls) -> tuple:
+    """Run the measured adapter's first act() with a fake EMOS manager."""
+    from demo.benchmark.goal_external_adapters import _ensure_algorithm_roots
+    from demo.benchmark.second_mission_decision import (
+        SecondMissionEmosAdapter,
+        _slot_count,
+    )
+    from demo.benchmark.second_mission_episode import second_mission_builders
+
+    _ensure_algorithm_roots()
+    monkeypatch.setattr("emos.engine.LLM_AVAILABLE", True)
+    monkeypatch.setenv("DONGLI_API_KEY", "probe-key")
+    monkeypatch.setenv("TEAMWEAVER_DEEPSEEK_BASE_URL", "https://ai.dongli.work/v1")
+    monkeypatch.setattr("emos.engine.EMOSDiscussionManager", manager_cls)
+    package = second_mission_builders()[task_id]()
+    plan = package["hidden_evaluator"]["witness_plans"][0]["plan"]
+    pool = [row["id"] for row in package["public_task"]["candidate_robot_pool"]]
+    slots = [(task["task_id"], index) for task in plan["tasks"]
+             for index in range(_slot_count(task))]
+    assignment = {}
+    for position, (task_id_slot, _index) in enumerate(slots):
+        assignment[f"{task_id_slot}#0"] = pool[position % len(pool)]
+    manager_cls.reset(assignment)
+    adapter = SecondMissionEmosAdapter(plan, use_llm_discussion=True)
+    adapter.initialize(package["public_task"], {
+        "action_types": ["select_team", "submit_plan", "revise_plan",
+                         "dispatch_skill", "cancel_skill", "consume_message"],
+    })
+    actions = adapter.act([{"type": "episode_started", "time_s": 0.0}])
+    return adapter, actions
+
+
+class _FakeEmosManager:
+    """Engine stand-in with a controllable result source and slot map.
+
+    Mirrors the real result shape: rows keyed by robot name, at most one
+    subtask per robot per round, so a multi-slot task fills over rounds.
+    """
+
+    next_source = "llm"
+    next_discussion_count = 1
+    _pending: list[tuple[str, str]] = []
+
+    @classmethod
+    def reset(cls, assignment: dict[str, str]) -> None:
+        cls._pending = list(assignment.items())
+
+    def __init__(self) -> None:
+        self.discussion_count = 0
+        self.last_result_source = ""
+
+    @classmethod
+    def build_from_agent_specs(cls, *_args, **_kwargs):
+        return cls()
+
+    def set_assignment_policy(self, _callback, *, _name):
+        raise AssertionError("measured mode must not install a policy")
+
+    def trigger(self, *_args):
+        return None
+
+    def poll(self):
+        from types import SimpleNamespace
+
+        self.discussion_count = type(self).next_discussion_count
+        self.last_result_source = type(self).next_source
+        batch, type(self)._pending = type(self)._pending[:4], type(self)._pending[4:]
+        return {robot: SimpleNamespace(subtask_colour=slot, robot_name=robot)
+                for slot, robot in batch}
+
+
+def test_measured_allocation_accepts_a_real_llm_sourced_round(monkeypatch) -> None:
+    """An engine-reported llm source yields the measured plan and receipt ids."""
+    _FakeEmosManager.next_source = "llm"
+    _FakeEmosManager.next_discussion_count = 1
+    adapter, actions = _drive_measured_adapter("RESTAURANT-SERVICE-01", monkeypatch,
+                                               _FakeEmosManager)
+    assert adapter.allocation_source == "real_llm"
+    assert adapter.submitted_plan_id == adapter._plan["plan_id"]
+    assert adapter._plan["plan_id"].endswith("_emos")
+    assert [row["type"] for row in actions] == ["select_team", "submit_plan"]
+    assert adapter._plan["assigned_team"]
+    assert all(task["assigned_agents"] for task in adapter._plan["tasks"])
+
+
+def test_measured_allocation_records_an_unparseable_llm_reply(monkeypatch) -> None:
+    """LLM answered but parsing failed: algorithm failure, fallback discarded."""
+    _FakeEmosManager.next_source = "fallback"
+    _FakeEmosManager.next_discussion_count = 1
+    adapter, actions = _drive_measured_adapter("RESTAURANT-SERVICE-01", monkeypatch,
+                                               _FakeEmosManager)
+    assert adapter.allocation_source == "real_llm"
+    assert actions == []
+    assert adapter._plan is None
+    row = next(r for r in adapter.trace if r.get("event") == "allocation_invalid")
+    assert row["reason"] == "llm_response_unparseable"
+    assert row["discarded"] == "heuristic_engine_fallback"
+    assert not any(r.get("event") == "team_selected" for r in adapter.trace)
+
+
+def test_measured_allocation_aborts_when_the_llm_call_never_answered(monkeypatch) -> None:
+    """A failed LLM call is unavailability, never a deterministic impersonation."""
+    for source in ("fallback", "local_fallback", ""):
+        _FakeEmosManager.next_source = source
+        _FakeEmosManager.next_discussion_count = 0
+        adapter, actions = _drive_measured_adapter("RESTAURANT-SERVICE-01", monkeypatch,
+                                                   _FakeEmosManager)
+        assert adapter.allocation_source == "unavailable", source
+        assert actions == []
+        row = next(r for r in adapter.trace if r.get("event") == "allocation_aborted")
+        assert row["reason"].startswith("llm_result_source:")
+        assert not any(r.get("event") == "team_selected" for r in adapter.trace)
+
+
 def test_emos_llm_unavailable_stops_without_a_deterministic_plan(tmp_path, monkeypatch) -> None:
     """A missing LLM is an unavailable measurement. It must not impersonate a decision."""
     from demo.benchmark.goal_external_adapters import _ensure_algorithm_roots

@@ -250,7 +250,18 @@ def run_second_mission_episode(task_id: str, output_root: str | Path, *,
     elif algorithm != "witness":
         raise ValueError(f"unknown second-mission algorithm: {algorithm}")
     measured = instruction_source == "goal_algorithm_adapter"
-    seed_plan = None if measured else plan
+    if measured:
+        # Task structure only: the backend's plan copy feeds the pre-joint
+        # heading hint (prerequisites -> next region), which reads no agents.
+        # The measured team and assignments reach the backend exclusively
+        # through the dispatched session tasks.
+        structure_plan = deepcopy(plan)
+        structure_plan["assigned_team"] = []
+        for structure_task in structure_plan["tasks"]:
+            structure_task["assigned_agents"] = []
+        seed_plan = structure_plan
+    else:
+        seed_plan = plan
     backend = HouseNativeGoalBackend(
         public, session=session, deployment=deployment, plan=seed_plan)
     runner = FormalGoalEpisodeRunner(
@@ -277,6 +288,8 @@ def run_second_mission_episode(task_id: str, output_root: str | Path, *,
         "scene_key": public["mission"]["scene_key"],
         "witness_id": witnesses[witness_index]["id"],
         "plan_id": plan["plan_id"],
+        "submitted_plan_id": getattr(participant, "submitted_plan_id", None)
+        if instruction_source == "goal_algorithm_adapter" else plan["plan_id"],
         "formal_backend": HOUSE_BACKEND_ID,
         "instruction_source": instruction_source,
         "allocation_source": getattr(participant, "allocation_source", None),
