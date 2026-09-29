@@ -2,10 +2,11 @@
 
 Skill execution stays on ``HouseNativeGoalBackend``: native attach, the
 heading lock before a laden move, ``guide_people``, and Pepper record skills
-are that backend. The instruction source is a goal-algorithm adapter. EMOS is
-one such adapter; it submits the standard six actions and dispatches skills
-with ``dispatch_skill``. The author witness remains available for the
-admission checks that do not put an algorithm under test.
+are that backend. The measured instruction source is a goal-algorithm adapter.
+``--algorithm emos`` asks EMOS for a real LLM assignment over the public robot
+pool and dispatches with ``dispatch_skill``. ``--algorithm emos_diagnostic``
+is the labeled non-LLM policy and is not a measured decision. The author
+witness remains the admission path and is not the team the algorithm must copy.
 
 Without a live session every non-observe skill fails closed as
 ``house_native_skill_adapter_pending``. That receipt is admission to the
@@ -204,9 +205,10 @@ def run_second_mission_episode(task_id: str, output_root: str | Path, *,
                                adapter: Any = None) -> dict[str, Any]:
     """Run one second mission through FormalGoalEpisodeRunner and the House skill backend.
 
-    ``algorithm="emos"`` installs the EMOS goal adapter. An explicit ``adapter``
-    is any other ``GoalAlgorithmAdapter``; the runner does not branch on its
-    class. The author witness is only the admission path.
+    ``algorithm="emos"`` is the measured EMOS LLM path. ``emos_diagnostic`` is
+    the labeled deterministic policy and does not count as that measurement.
+    An explicit ``adapter`` is any other ``GoalAlgorithmAdapter``; the runner
+    does not branch on its class. Measured plans use interface admission.
     """
     from demo.benchmark.goal_episode_runner import FormalGoalEpisodeRunner
     from demo.benchmark.goal_house_episode import HOUSE_BACKEND_ID, HouseNativeGoalBackend, house_runtime_state
@@ -238,16 +240,25 @@ def run_second_mission_episode(task_id: str, output_root: str | Path, *,
     elif algorithm == "emos":
         from demo.benchmark.second_mission_decision import SecondMissionEmosAdapter
 
-        participant = SecondMissionEmosAdapter(plan)
+        participant = SecondMissionEmosAdapter(plan, use_llm_discussion=True)
+        instruction_source = "goal_algorithm_adapter"
+    elif algorithm == "emos_diagnostic":
+        from demo.benchmark.second_mission_decision import SecondMissionEmosAdapter
+
+        participant = SecondMissionEmosAdapter(plan, use_llm_discussion=False)
         instruction_source = "goal_algorithm_adapter"
     elif algorithm != "witness":
         raise ValueError(f"unknown second-mission algorithm: {algorithm}")
-    backend = HouseNativeGoalBackend(public, session=session, deployment=deployment, plan=plan)
+    measured = instruction_source == "goal_algorithm_adapter"
+    seed_plan = None if measured else plan
+    backend = HouseNativeGoalBackend(
+        public, session=session, deployment=deployment, plan=seed_plan)
     runner = FormalGoalEpisodeRunner(
         public, package["participant_api"], participant, backend,
         output_root=root / "goal_episode",
+        admission="interface" if measured else "full",
     )
-    result = runner.run(initial_state=house_runtime_state(public, plan))
+    result = runner.run(initial_state=house_runtime_state(public, seed_plan))
     bound_regions = {
         row["id"] for row in deployment["region_bindings"]
         if isinstance((row.get("candidate_geometry") or {}).get("center_m"), list)
@@ -268,6 +279,7 @@ def run_second_mission_episode(task_id: str, output_root: str | Path, *,
         "plan_id": plan["plan_id"],
         "formal_backend": HOUSE_BACKEND_ID,
         "instruction_source": instruction_source,
+        "allocation_source": getattr(participant, "allocation_source", None),
         "adapter_id": participant.manifest()["id"],
         "adapter_trace": deepcopy(getattr(participant, "trace", [])),
         "skill_results": backend.evidence,
@@ -503,7 +515,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--task", required=True)
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--device", choices=("cuda:0", "cpu"), default="cuda:0")
-    parser.add_argument("--algorithm", choices=("witness", "emos"), default="witness")
+    parser.add_argument(
+        "--algorithm", choices=("witness", "emos", "emos_diagnostic"), default="witness")
     parser.add_argument("--isaac", action="store_true")
     args = parser.parse_args(argv)
     if args.isaac:
@@ -513,7 +526,7 @@ def main(argv: list[str] | None = None) -> int:
     summary = run_second_mission_episode(
         args.task, args.output_root, algorithm=args.algorithm)
     print(json.dumps({key: summary[key] for key in (
-        "task_id", "instruction_source", "adapter_id",
+        "task_id", "instruction_source", "allocation_source", "adapter_id",
         "skill_receipt_count", "scoreable", "clearance_status")}, sort_keys=True))
     return 0
 
