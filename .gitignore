@@ -315,3 +315,7 @@ test_*.py
 /usd/effects/*
 !/usd/effects/README.md
 !/usd/effects/manifest.json
+
+!/source/EAI/test/test_second_mission_admission.py
+!/source/EAI/test/test_second_mission_agent_parameterization.py
+!/source/EAI/test/test_second_mission_allocation_matrix.py

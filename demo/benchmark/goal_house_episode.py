@@ -1961,12 +1961,17 @@ class HouseNativeGoalBackend:
             if row.get("command_interface") == "goal_position"
         }
         for runtime_id, state in states.items():
+            # The route bookkeeping follows the dispatched robot's machine type
+            # on every path source. Rally presets skip the A* query but the
+            # agent row still records the type and its route radius, so a
+            # same-type partner produces the same record and a preset route
+            # never reports another robot's type.
+            kind = robot_types.get(runtime_id)
+            radius = route_inflation_radius_m(kind)
             if preset_paths is not None:
                 path = [tuple(point) for point in preset_paths[runtime_id]]
             else:
                 try:
-                    kind = robot_types.get(runtime_id)
-                    radius = route_inflation_radius_m(kind)
                     path = occupancy_waypoints(
                         scene_key, (state[0], state[1]), goals[runtime_id], radius)
                 except (OSError, RuntimeError, ValueError) as exc:
