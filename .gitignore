@@ -339,13 +339,6 @@ test_*.py
 /algorithm/heterocoord/tests/__pycache__/
 /task/tests/__pycache__/
 
-# Volumetric-effect preset metadata is maintained here; the Omniverse-licensed
-# preset USD payloads below usd/effects/ stay untracked local runtime data.
-!/usd/effects/
-/usd/effects/*
-!/usd/effects/README.md
-!/usd/effects/manifest.json
-
 !/source/EAI/test/test_second_mission_admission.py
 !/source/EAI/test/test_second_mission_agent_parameterization.py
 !/source/EAI/test/test_second_mission_allocation_matrix.py
@@ -364,9 +357,6 @@ test_*.py
 !/usd/scene/.gitkeep
 !/usd/picture/
 !/usd/picture/.gitkeep
-!/usd/effects/
-!/usd/effects/.gitkeep
-
 # Ignore every nested USD asset as well; only the six top-level layout
 # placeholders above are eligible for tracking.
 /usd/**
