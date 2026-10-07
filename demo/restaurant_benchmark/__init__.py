@@ -1,1 +1,0 @@
-"""Restaurant benchmark authoring package."""

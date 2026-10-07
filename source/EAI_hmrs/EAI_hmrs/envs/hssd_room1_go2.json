@@ -1,0 +1,24 @@
+{
+  "robots": [
+    {
+      "attachments": [
+        {
+          "controller": null,
+          "type": "keyboard"
+        }
+      ],
+      "controller": {
+        "cfg": "GO2_VELOCITY_RSL_CFG",
+        "mode": "default"
+      },
+      "type": "go2",
+      "visual": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    }
+  ],
+  "scene_key": "hssd_room1",
+  "task_name": "hssd_room1_go2",
+  "version": 1
+}

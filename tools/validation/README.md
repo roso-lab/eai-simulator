@@ -1,24 +1,43 @@
-# Validation Tools
+# Validation tools
 
-[Chinese](README.zh-CN.md)
+[中文说明](README.zh-CN.md)
 
-The checks in the inventory run without a full simulator launch. Run them from the repository root. A passing result covers only the contract named below; it is not evidence that Isaac Sim, a GPU, live ROS2, network access, or downloaded assets work.
+`tools/validation/` contains repository, configuration, asset, and optional
+runtime smoke checks. It is a quality gate around the benchmark; it is not a
+task evaluator and it does not replace `task/evaluators/`.
 
-The separate [UR5 contact grasp and mobile arm fixtures](manipulation_contact.md) intentionally launch Isaac Sim headlessly. They test Robotiq contact grasping and unscaled UR5/Z1 payload mounts; they are opt-in integration experiments, not part of the lightweight sequence below.
+## What it checks
 
-## Check inventory
+The checks may cover:
 
-| Command | What it checks | Runtime |
-| --- | --- | --- |
-| `python tools/validation/check_asset_download_errors.py` | Asset-preflight network/access error normalization, parent reports, worker payloads, visible diagnostics, and nonzero exit behavior | Python; uses mocks instead of downloading assets |
-| `python tools/validation/check_documentation_consistency.py` | Release revision text, algorithm README inventory, public README image references, and hosted-documentation references when the hosted tree exists | Python; local files only |
-| `python tools/validation/check_env_diy_exclusivity.py` | Shared Env DIY attachment validation, Orsus/LiDAR exclusivity, authoring-model validation, simulator validation, and Navigation I/O gates | Python; imports pure modules and test doubles, not Isaac |
-| `node tools/validation/check_env_diy_runtime.mjs all` | Env DIY HTML structure, unique element IDs, local resource references, inline JavaScript syntax, and related runtime contracts | Node.js 20 LTS or newer |
-| `python tools/validation/check_release_links.py` | Public release/download links and release revision consistency | Python; local files only |
-| `python tools/validation/check_ros_distro_config.py` | Humble/Jazzy validation, resolution precedence, persisted selection, and invalid-value behavior | Python and Bash; does not import Isaac or ROS2 |
-| `python tools/validation/check_scene_map_assets.py` | Seven canonical scene-map pairs, requirement expansion, normal-preflight path merging, and removal of algorithm/demo map copies | Python; local files and pure modules only |
+- repository and documentation consistency;
+- asset-preflight and provider error reporting;
+- scene/map ownership and resource declarations;
+- ROS distribution and setup configuration;
+- Env DIY or interface compatibility contracts;
+- robot/attachment/URDF/USD and selected physics smoke probes.
 
-## Recommended sequence
+A passing check proves only the named contract. It does not prove that Isaac
+Sim, GPU, ROS2, external assets, a controller, or a multi-robot task will work
+end to end.
+
+## Boundary with task evaluation
+
+```text
+tools/validation/
+    Is the repository/configuration/input admissible?
+
+task/evaluators/
+    Did the physical task satisfy its milestones?
+```
+
+For example, `check_scene_map_assets.py` checks that map declarations and asset
+ownership are consistent. A task evaluator must still decide whether the robot
+reached the target, inspected the hazard, or completed extinguishing.
+
+## Lightweight checks
+
+Run the applicable checks from the repository root:
 
 ```bash
 python tools/validation/check_asset_download_errors.py
@@ -30,16 +49,33 @@ python tools/validation/check_scene_map_assets.py
 node tools/validation/check_env_diy_runtime.mjs all
 ```
 
-Each command exits nonzero when a check fails and prints the failed assertion or diagnostic. Run commands individually when isolating a failure; do not hide their exit codes in an unconditional shell pipeline.
+The lightweight checks use local files, mocks, or pure modules and should not
+download assets or launch Isaac Sim. Run them individually when diagnosing a
+failure so that nonzero exit codes remain visible.
 
-## When to run them
+## Optional runtime probes
 
-- Run the documentation and release-link checks after changing README files, release references, algorithm documentation, or public image links.
-- Run the Env DIY checks after changing its catalog, selection format, compatibility rules, HTML application, authoring model, or launcher gates.
-- Run the asset-download error check after changing preflight workers, provider error translation, or parent/child reports.
-- Run the scene-resource check after changing selectable scenes, resource declarations, external asset requests, preflight path collection, or occupancy-map ownership.
-- Run the ROS distribution check after changing setup scripts, distribution precedence, or persisted configuration.
+Some files in this directory intentionally cross the lightweight boundary,
+for example the manipulation/contact documentation and headless mount smoke
+tests. Treat these as opt-in integration checks:
 
-## Limitations
+- run them only in the intended `env_isaaclab`;
+- use the exact asset/controller configuration under test;
+- keep reports outside the source tree unless they are maintained fixtures;
+- do not interpret a probe as a benchmark task success result.
 
-These scripts intentionally avoid expensive dependencies. Follow them with the relevant unit tests and, when behavior crosses a runtime boundary, a prepared integration check using the exact Isaac Sim, ROS2, assets, and hardware configuration affected by the change.
+## When to run checks
+
+- Documentation or algorithm inventory changes → documentation and release-link checks.
+- Preflight, provider, or asset resolver changes → asset-download and scene-resource checks.
+- Env DIY, interface, or compatibility changes → Env DIY checks.
+- Setup or ROS distribution changes → ROS distribution check.
+- Robot mount or physics changes → the relevant optional runtime probe and unit tests.
+
+After these checks, run the affected unit tests. If the change crosses the
+runtime boundary, perform a separate Isaac Sim integration test without
+altering the existing simulator, Torch, ROS, or asset-cache environment.
+
+For task contracts and execution orchestration, read
+[task/README.md](../../task/README.md). For optional scenario authoring, read
+[scenario generation](../scenario_generation/README.md).

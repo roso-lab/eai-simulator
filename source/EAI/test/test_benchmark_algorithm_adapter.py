@@ -1,5 +1,8 @@
+from copy import deepcopy
+
 import pytest
 
+from algorithm.common_coordination import AlgorithmCondition
 from demo.benchmark.algorithm_adapter import (
     CallableAlgorithmAdapter,
     DEFAULT_CONTROL_STACK,
@@ -12,6 +15,14 @@ from demo.benchmark.algorithm_adapter import (
     run_algorithm_batch,
     summarize_algorithm_metric,
 )
+from demo.benchmark.goal_algorithm_adapter import GoalAlgorithmHost
+from demo.benchmark.participant_runtime import ParticipantSession
+from demo.benchmark.submitted_system import (
+    CallbackSubmittedSystemAdapter,
+    EmosSubmittedSystemAdapter,
+)
+from demo.benchmark.goal_driven_tasks import build_goal_task_package
+from demo.warehouse_benchmark.challenge import compile_challenge
 
 
 HASH = "a" * 64
@@ -166,3 +177,102 @@ def test_manual_comparison_key_cannot_hide_changed_control_or_task_inputs(change
                for m in (baseline, candidate)]
     with pytest.raises(ValueError, match="mismatched frozen inputs"):
         compare_paired_metric(results, "baseline", "candidate", "success")
+
+
+def _condition():
+    return AlgorithmCondition(
+        algorithm_id="EMOS-adapted-to-EAI",
+        source_reference="test",
+        implementation="submitted_system",
+        execution_scope="participant",
+        planner="EMOS",
+    )
+
+
+def test_goal_callback_adapter_reuses_goal_host_boundary_and_closes():
+    bundle = build_goal_task_package("factory")
+    public, api = bundle["public_task"], bundle["participant_api"]
+    selected = public["candidate_robot_pool"][0]["id"]
+    seen = {"initialized": [], "events": []}
+
+    def initialize(public_task, participant_api):
+        seen["initialized"].append((deepcopy(public_task), deepcopy(participant_api)))
+        # The host owns its copies; mutating callback inputs must not mutate the
+        # trusted task/session state.
+        public_task["task_id"] = "callback-tampered"
+        participant_api["public_task_sha256"] = "callback-tampered"
+
+    def decide(events):
+        seen["events"].append(events)
+        events[0]["type"] = "callback-tampered"
+        return [{
+            "schema": "eai.benchmark.goal_action", "version": 1,
+            "action_id": "callback-select", "submitted_at_s": events[0]["time_s"],
+            "type": "select_team", "payload": {"agent_ids": [selected]},
+        }]
+
+    closed = []
+    adapter = CallbackSubmittedSystemAdapter(
+        decide, condition=_condition(), initialize=initialize,
+        close=lambda: closed.append(True))
+    host = GoalAlgorithmHost(public, api, adapter)
+    assert adapter.manifest()["interface"] == "eai.benchmark.goal_algorithm_adapter"
+    accepted = host.request_actions()
+    assert accepted[0]["accepted"] and accepted[0]["type"] == "select_team"
+    assert seen["initialized"] == [(public, api)]
+    assert seen["events"][0][0]["type"] == "callback-tampered"
+    report = host.trusted_report()
+    assert report["session"]["task_id"] == public["task_id"]
+    assert report["session"]["events"][0]["type"] == "episode_started"
+    assert report["session"]["actions"][0]["action_id"] == "callback-select"
+    assert "hidden_evaluator" not in seen["initialized"][0][0]
+    host.close()
+    assert closed == [True]
+    with pytest.raises(RuntimeError, match="goal algorithm host is closed"):
+        host.request_actions()
+
+
+def test_goal_callback_adapter_invalid_action_fails_closed():
+    bundle = build_goal_task_package("factory")
+    adapter = CallbackSubmittedSystemAdapter(
+        lambda events: [{
+            "schema": "eai.benchmark.goal_action", "version": 1,
+            "action_id": "callback-invalid", "submitted_at_s": 0.0,
+            "type": "cmd_vel", "payload": {},
+        }],
+        condition=_condition())
+    host = GoalAlgorithmHost(bundle["public_task"], bundle["participant_api"], adapter)
+    with pytest.raises(ValueError, match="low-level control|action type is not declared"):
+        host.request_actions()
+    report = host.trusted_report()
+    assert report["failed"] and report["closed"]
+    assert report["session"]["actions"] == []
+
+
+def test_emos_adapter_emits_only_a_public_allocate_action():
+    bundle = compile_challenge()
+    public, api = bundle["public_task"], bundle["participant_api"]
+    adapter = EmosSubmittedSystemAdapter(
+        lambda request: {"iris_1": "rack_overview_scan"},
+        condition=_condition(),
+        public_task=public,
+        project_request=lambda task, events: {"task": task["task_id"], "events": events},
+    )
+    session = ParticipantSession(adapter=adapter, api=api, task_spec=public)
+    session.emit("phase_ready", time_s=1.0, payload={
+        "node_id": "rack_overview_scan", "eligible_agent_ids": ["iris_1"],
+    })
+    actions = session.request_actions()
+    assert len(actions) == 1
+    assert actions[0]["type"] == "allocate"
+    assert actions[0]["payload"] == {"node_id": "rack_overview_scan", "agent_ids": ["iris_1"]}
+    assert not any("ground_truth" in event for event in session.report()["events"])
+
+
+def test_emos_adapter_does_not_fill_an_empty_callback_result():
+    bundle = compile_challenge()
+    adapter = EmosSubmittedSystemAdapter(
+        lambda request: {}, condition=_condition(), public_task=bundle["public_task"],
+        project_request=lambda task, events: object(),
+    )
+    assert adapter.act([{"time_s": 1.0, "type": "phase_ready", "payload": {}}]) == []

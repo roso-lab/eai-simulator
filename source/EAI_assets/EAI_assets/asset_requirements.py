@@ -93,6 +93,9 @@ _SCENE_PATHS = {
     "factory_benchmark": (
         "scene/factory_benchmark/factory.usd", *SCENE_MAP_PATHS["factory_benchmark"],
     ),
+    # Converted HSSD room lives outside the provider tree by absolute local
+    # path; no provider download is declared for it.
+    "hssd_room1": (),
 }
 
 _ROBOT_PATHS = {

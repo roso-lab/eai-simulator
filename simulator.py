@@ -666,7 +666,7 @@ def _remove_external_repo_packages(repo_root: Path) -> None:
 def _ensure_repo_sources_on_path() -> None:
     repo_root = _repo_root()
     _remove_external_repo_packages(repo_root)
-    for rel in ("source/EAI", "source/EAI_assets", "source/EAI_hmrs", "source/EAI_env_diy"):
+    for rel in ("source/EAI", "source/EAI_assets", "source/EAI_hmrs"):
         path = repo_root / rel
         if path.is_dir():
             path_text = str(path)
@@ -754,41 +754,16 @@ def _enable_isaac_extension(extension_name: str) -> None:
     raise ModuleNotFoundError("No Isaac Sim extension enable helper is available")
 
 
-@contextmanager
-def _managed_env_diy_extension(
-    extension_manager,
-    extension_root: str | Path,
-    *,
-    direct_path_type,
-):
-    """Register and run the Env DIY extension through Kit's standard lifecycle."""
-    extension_id = "EAI_env_diy"
-    path = str(Path(extension_root))
-    extension_manager.add_path(path, direct_path_type)
-    try:
-        extension_manager.process_and_apply_all_changes()
-        extension_manager.set_extension_enabled_immediate(extension_id, True)
-        if not extension_manager.is_extension_enabled(extension_id):
-            raise RuntimeError(f"Kit could not enable extension '{extension_id}'.")
-        yield
-    finally:
-        try:
-            if extension_manager.is_extension_enabled(extension_id):
-                extension_manager.set_extension_enabled_immediate(extension_id, False)
-        finally:
-            extension_manager.remove_path(path)
-
-
 def _base_parser(*, include_device: bool = True) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="EAI simulator launcher. Builds environments from JSON or Env DIY authoring.",
+        description="EAI simulator launcher. Builds a saved environment from JSON.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         conflict_handler="resolve",
         epilog="""
 Examples:
   python simulator.py --env=EAI-Factory-v0
   python simulator.py --env=factory_go2_nav2
-  python simulator.py --diy-3d
+  python simulator.py --scenario-file=/path/to/eai-scenario.json
         """,
     )
     parser.add_argument(
@@ -797,15 +772,16 @@ Examples:
         default=None,
         help=(
             "JSON environment name from source/EAI_hmrs/EAI_hmrs/envs, without the .json suffix. "
-            "If omitted, Env DIY selection is shown."
+            "The launcher requires either --env or --scenario-file."
         ),
     )
     parser.add_argument(
-        "--diy-3d",
-        action="store_true",
-        help="Open the Isaac Sim 3D Env DIY editor before starting simulation.",
+        "--scenario-file",
+        help=(
+            "Validated EAI scenario-spec JSON (exclusive with --env); this is an EAI "
+            "environment selection, not a task/config contract."
+        ),
     )
-    parser.add_argument("--scenario-file", help="Validated Factory V2 JSON file (exclusive with --env/--diy-3d).")
     parser.add_argument("--num_envs", type=int, default=1, help="Number of environments to simulate.")
     if include_device:
         parser.add_argument("--device", type=str, default="cuda:0", help="Simulation device.")
@@ -946,8 +922,6 @@ def _handle_preflight_payload(
     if isinstance(internal_failure, dict):
         _report_preflight_internal_failure(internal_failure)
         raise SystemExit(1)
-    if payload.get("startup_mode") == "diy-3d":
-        raise Diy3dRequested
     if not payload.get("should_run", True):
         raise SystemExit(0)
     asset_resolver = _load_asset_resolver()
@@ -969,13 +943,6 @@ class TaskSource:
     kind: str
     task_name: str
     saved_task: dict[str, Any] | None = None
-
-
-@dataclass(frozen=True)
-class TerminalCompletionResult:
-    saved_task: dict[str, Any] | None
-    should_run: bool
-    back_to_controller: bool = False
 
 
 @dataclass(frozen=True)
@@ -1093,46 +1060,14 @@ class TaskRequest:
     selection_data: dict[str, Any] | None = None
 
 
-class BackToDiyMethod(Exception):
-    """Raised when terminal DIY backs out to the method chooser."""
-
-
-class Diy3dRequested(Exception):
-    """Raised when the Env DIY method chooser requests the 3D editor."""
-
-
 def _resolve_startup_mode(args: argparse.Namespace) -> str:
     if getattr(args, "scenario_file", None):
-        if _requested_env_name(args) or getattr(args, "diy_3d", False):
-            raise ValueError("--scenario-file cannot be combined with --env or --diy-3d.")
-        return "scenario-file"
-    if bool(getattr(args, "diy_3d", False)):
         if _requested_env_name(args):
-            raise ValueError("--diy-3d cannot be combined with --env.")
-        return "diy-3d"
-    return "saved-env" if _requested_env_name(args) else "diy"
-
-
-def _task_request_from_diy_3d_result(payload: dict[str, Any]) -> TaskRequest:
-    status = str(payload.get("status", "")).strip().lower()
-    action = str(payload.get("action", "")).strip().lower()
-    selection_data = payload.get("selection")
-    if status == "failed":
-        raise RuntimeError(str(payload.get("error") or "Env DIY 3D authoring failed."))
-    if status == "cancelled" or action == "cancel":
-        return TaskRequest(task_name=None, should_run=False)
-    if status != "completed":
-        raise ValueError(f"Unknown DIY 3D result status '{status}'.")
-    if action not in {"run", "save"}:
-        raise ValueError(f"Unknown DIY 3D result action '{action}'.")
-    if not isinstance(selection_data, dict):
-        raise ValueError("Completed DIY 3D result must include a selection object.")
-    return TaskRequest(
-        task_name="EAI-Interactive-v0" if action == "run" else None,
-        selection_data=selection_data,
-        saved_task=payload.get("saved_task"),
-        should_run=action == "run",
-    )
+            raise ValueError("--scenario-file cannot be combined with --env.")
+        return "scenario-file"
+    if not _requested_env_name(args):
+        raise ValueError("the core EAI launcher requires --env or --scenario-file; Env DIY is not included")
+    return "saved-env"
 
 
 def resolve_task_source(
@@ -1146,32 +1081,6 @@ def resolve_task_source(
     if saved_task_exists(task_name, repo_root=repo_root):
         return TaskSource("json", task_name, load_task(task_name, repo_root=repo_root))
     raise ValueError(f"Unknown env JSON '{task_name}'.")
-
-
-def _diy_method_prompt_text() -> str:
-    return (
-        "\n未指定 --env，请选择 env 制定方式："
-        "\n  1. 可视化窗口（Scenes → Robots → Payloads → Tools）"
-        "\n  2. 终端快速（同样顺序，Payloads 先机械臂后传感器）"
-        "\n  3. Isaac Sim 3D 编辑器（编辑真实位置、旋转与碰撞面）"
-    )
-
-
-def choose_diy_selection_before_preflight():
-    repo_root = _repo_root()
-    while True:
-        print(_diy_method_prompt_text())
-        raw = input("输入 1、2 或 3: ").strip()
-        if raw == "1":
-            return _choose_visual_diy(repo_root)
-        if raw == "2":
-            try:
-                return _choose_terminal_diy(repo_root)
-            except BackToDiyMethod:
-                continue
-        if raw == "3":
-            raise Diy3dRequested
-        print("请输入 1、2 或 3。")
 
 
 def _requested_env_name(args: argparse.Namespace) -> str | None:
@@ -1197,154 +1106,7 @@ def _resolve_task_request_before_app(args: argparse.Namespace) -> TaskRequest:
     if requested:
         return TaskRequest(task_name=requested)
 
-    selection, saved_task_data, should_run = choose_diy_selection_before_preflight()
-    if not should_run:
-        return TaskRequest(
-            task_name=None,
-            selection=selection,
-            saved_task=saved_task_data,
-            should_run=False,
-        )
-    return TaskRequest(
-        task_name="EAI-Interactive-v0",
-        selection=selection,
-        saved_task=saved_task_data,
-        should_run=True,
-    )
-
-
-def _choose_visual_diy(repo_root: Path):
-    output_path = repo_root / "tmp" / "task_diy_window_result.json"
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.unlink(missing_ok=True)
-    cmd = [
-        sys.executable,
-        "-m",
-        "EAI.hmrs_env.env_diy.webview_app",
-        "--keyboard-preflight-output",
-        str(output_path),
-    ]
-    env = os.environ.copy()
-    source_root = str(repo_root / "source" / "EAI")
-    existing_pythonpath = env.get("PYTHONPATH")
-    env["PYTHONPATH"] = source_root if not existing_pythonpath else os.pathsep.join((source_root, existing_pythonpath))
-    if sys.platform.startswith("linux"):
-        environment_lib = str(Path(sys.prefix) / "lib")
-        existing_library_path = env.get("LD_LIBRARY_PATH")
-        env["LD_LIBRARY_PATH"] = (
-            environment_lib
-            if not existing_library_path
-            else os.pathsep.join((environment_lib, existing_library_path))
-        )
-    subprocess.run(cmd, check=True, cwd=repo_root, env=env)
-    if not output_path.exists():
-        raise SystemExit(0)
-    payload = json.loads(output_path.read_text(encoding="utf-8"))
-    if not payload.get("should_run", False):
-        return None, payload.get("saved_task"), False
-    _ensure_repo_sources_on_path()
-    from EAI.hmrs_env.env_diy.flow import interactive_selection_from_dict
-
-    saved_task = payload.get("saved_task")
-    selection_data = payload.get("selection") or saved_task
-    return interactive_selection_from_dict(selection_data), saved_task, True
-
-
-def _choose_terminal_diy(repo_root: Path):
-    _ensure_repo_sources_on_path()
-    from EAI.hmrs_env.env_diy.flow import (
-        TERMINAL_CONTROLLER_STEP,
-        choose_terminal_interactive_selection,
-        interactive_selection_to_dict,
-    )
-
-    selection = None
-    resume_controller_step = False
-    while True:
-        selection = choose_terminal_interactive_selection(
-            initial_selection=selection if resume_controller_step else None,
-            allow_back_from_first=True,
-            start_step=TERMINAL_CONTROLLER_STEP if resume_controller_step else 0,
-        )
-        if selection is None:
-            raise BackToDiyMethod
-        resume_controller_step = False
-        selection_data = interactive_selection_to_dict(selection)
-        result = _complete_terminal_selection(selection_data, repo_root)
-        if result.back_to_controller:
-            resume_controller_step = True
-            continue
-        return selection, result.saved_task, result.should_run
-
-
-def _complete_terminal_selection(
-    selection_data: dict[str, Any],
-    repo_root: Path,
-    *,
-    input_func=input,
-) -> TerminalCompletionResult:
-    _ensure_repo_sources_on_path()
-    from EAI.hmrs_env.env_diy.storage import save_task
-
-    print("\n[完成] 保存与运行")
-    print("-" * 72)
-    print("  可以保存为可复用的 JSON env，并选择是否立即运行")
-    saved_task = None
-    step = "save"
-    while True:
-        if step == "save":
-            save_choice = _ask_yes_no_or_back("保存此 env", default=True, input_func=input_func)
-            if save_choice is None:
-                return TerminalCompletionResult(None, False, back_to_controller=True)
-            if not save_choice:
-                saved_task = None
-            step = "name" if save_choice else "execute"
-            continue
-
-        if step == "name":
-            name = input_func("env 名称 (b 返回): ").strip()
-            if not name:
-                print("  ! env 名称不能为空。")
-                continue
-            if name.lower() in {"b", "back"}:
-                step = "save"
-                continue
-            try:
-                saved_path = save_task(
-                    name,
-                    selection_data,
-                    repo_root=repo_root,
-                )
-            except ValueError as exc:
-                print(f"  ! env 名称无效: {exc}")
-                continue
-            saved_task = json.loads(saved_path.read_text(encoding="utf-8"))
-            print("\n  已保存 env")
-            print(f"  {saved_path}")
-            step = "execute"
-            continue
-
-        should_run = _ask_yes_no_or_back("立即运行", default=True, input_func=input_func)
-        if should_run is None:
-            saved_task = None
-            step = "save"
-            continue
-        return TerminalCompletionResult(saved_task, bool(should_run))
-
-
-def _ask_yes_no_or_back(prompt: str, *, default: bool, input_func=input) -> bool | None:
-    suffix = "Y/n" if default else "y/N"
-    while True:
-        raw = input_func(f"{prompt} [{suffix}] (b 返回): ").strip().lower()
-        if raw in {"b", "back"}:
-            return None
-        if not raw:
-            return default
-        if raw in {"y", "yes"}:
-            return True
-        if raw in {"n", "no"}:
-            return False
-        print("  ! 请输入 y、n 或 b。")
+    raise AssertionError("unreachable: startup mode validation requires an environment")
 
 
 def _initialize_preflight_env_cfg(env_cfg: Any, *, num_envs: int, device: str) -> None:
@@ -1505,20 +1267,7 @@ def _collect_asset_payload_after_app(args: argparse.Namespace, task_request: Tas
 def _run_asset_preflight_worker(args: argparse.Namespace) -> None:
     _ensure_repo_sources_on_path()
     output_path = Path(args.preflight_output).resolve()
-    try:
-        task_request = _resolve_task_request_before_app(args)
-    except Diy3dRequested:
-        payload = {
-            "startup_mode": "diy-3d",
-            "task_name": None,
-            "selection": None,
-            "saved_task": None,
-            "usd_paths": [],
-            "controller_paths": [],
-            "should_run": False,
-        }
-        output_path.write_text(json.dumps(payload), encoding="utf-8")
-        return
+    task_request = _resolve_task_request_before_app(args)
 
     if not task_request.should_run:
         payload = {
@@ -1583,76 +1332,6 @@ def _run_asset_preflight(
         _run_preflight_subprocess(cmd, env)
         payload = _read_preflight_payload(output_path)
     return _handle_preflight_payload(payload)
-
-
-def _run_diy_3d_authoring_in_process(
-    args: argparse.Namespace,
-    *,
-    simulation_app: Any | None = None,
-    initial_selection: dict[str, Any] | None = None,
-    restore_error: str | None = None,
-) -> tuple[TaskRequest, Any]:
-    """Run Env DIY authoring in the Kit process that will run the formal env."""
-
-    _ensure_repo_sources_on_path()
-    if simulation_app is None:
-        from isaaclab.app import AppLauncher
-
-        raw_launcher_options = getattr(args, "app_launcher_args", None)
-        launcher_options = dict(raw_launcher_options if raw_launcher_options is not None else vars(args))
-        launcher_options.pop("interfaces_menu", None)
-        launcher_options.setdefault("headless", False)
-        launcher_options.setdefault("device", getattr(args, "device", "cuda:0"))
-        launcher_options["enable_cameras"] = True
-        existing_kit_args = str(launcher_options.get("kit_args", "")).strip()
-        launcher_options["kit_args"] = " ".join(
-            item for item in (existing_kit_args, _RTX_LIDAR_PRELOAD_KIT_ARGS) if item
-        )
-        app_launcher = AppLauncher(launcher_options)
-        simulation_app = app_launcher.app
-
-    from EAI_env_diy.protocol import (
-        AuthoringResult,
-        clear_in_process_callback,
-        set_in_process_callback,
-    )
-
-    result_box: list[AuthoringResult] = []
-    result_ready = threading.Event()
-
-    def receive(result: AuthoringResult) -> None:
-        result_box.append(result)
-        result_ready.set()
-
-    set_in_process_callback(
-        receive,
-        initial_selection=initial_selection,
-        error=restore_error,
-    )
-    try:
-        _enable_isaac_extension("omni.kit.viewport.window")
-        import omni.ext
-        import omni.kit.app
-
-        extension_manager = omni.kit.app.get_app().get_extension_manager()
-        with _managed_env_diy_extension(
-            extension_manager,
-            _repo_root() / "source/EAI_env_diy",
-            direct_path_type=omni.ext.ExtensionPathType.DIRECT_PATH,
-        ):
-            while simulation_app.is_running() and not result_ready.is_set():
-                simulation_app.update()
-    except Exception as exc:
-        if not result_box:
-            result_box.append(AuthoringResult(status="failed", action="cancel", error=str(exc)))
-        raise
-    finally:
-        clear_in_process_callback()
-
-    if not result_box:
-        raise RuntimeError("Env DIY 3D authoring ended without a result.")
-    result = result_box[-1]
-    return _task_request_from_diy_3d_result(result.to_dict()), simulation_app
 
 
 def _pump_kit_updates(simulation_app: Any, count: int) -> None:
@@ -2597,40 +2276,17 @@ def main() -> None:
         _run_asset_preflight_worker(preflight_args)
         return
     try:
-        startup_mode = _resolve_startup_mode(preflight_args)
+        _resolve_startup_mode(preflight_args)
     except ValueError as exc:
         preflight_parser.error(str(exc))
-    task_request = None
-    existing_simulation_app = None
-    if startup_mode != "diy-3d":
-        try:
-            env_name, selection_data = _run_asset_preflight(preflight_args, task_request)
-        except Diy3dRequested:
-            startup_mode = "diy-3d"
+    env_name, selection_data = _run_asset_preflight(preflight_args)
+    from isaaclab.app import AppLauncher
 
-    if startup_mode == "diy-3d":
-        from isaaclab.app import AppLauncher
-
-        launch_parser = _base_parser(include_device=False)
-        AppLauncher.add_app_launcher_args(launch_parser)
-        args_cli, hydra_args = launch_parser.parse_known_args()
-        task_request, existing_simulation_app = _run_diy_3d_authoring_in_process(args_cli)
-        if not task_request.should_run:
-            if task_request.saved_task:
-                print("Env DIY 3D selection saved; simulation was not started.")
-            existing_simulation_app.close()
-            return
-        env_name = "EAI-Interactive-v0"
-        selection_data = task_request.selection_data
-        sys.argv = [sys.argv[0]] + hydra_args
-    else:
-        from isaaclab.app import AppLauncher
-
-        launch_parser = _base_parser(include_device=False)
-        AppLauncher.add_app_launcher_args(launch_parser)
-        args_cli, hydra_args = launch_parser.parse_known_args()
-        args_cli.env = env_name
-        sys.argv = [sys.argv[0]] + hydra_args
+    launch_parser = _base_parser(include_device=False)
+    AppLauncher.add_app_launcher_args(launch_parser)
+    args_cli, hydra_args = launch_parser.parse_known_args()
+    args_cli.env = env_name
+    sys.argv = [sys.argv[0]] + hydra_args
 
     launch_config = SimulatorLaunchConfig(
         env=env_name,
@@ -2644,38 +2300,15 @@ def main() -> None:
         app_launcher_args=dict(vars(args_cli)),
         resolved_env_name=env_name,
         selection_data=selection_data,
-        existing_simulation_app=existing_simulation_app,
+        existing_simulation_app=None,
     )
 
     entered_session = False
     session_context = None
     try:
-        if existing_simulation_app is not None:
-            _prepare_formal_gpu_stage(existing_simulation_app, args_cli.device)
-        while True:
-            session_context = open_simulator_session(launch_config)
-            try:
-                session = session_context.__enter__()
-            except Exception as exc:
-                if existing_simulation_app is None:
-                    raise
-                _reset_kit_after_failed_formal_env(existing_simulation_app, args_cli.device)
-                task_request, _ = _run_diy_3d_authoring_in_process(
-                    args_cli,
-                    simulation_app=existing_simulation_app,
-                    initial_selection=selection_data,
-                    restore_error=str(exc),
-                )
-                if not task_request.should_run:
-                    if task_request.saved_task:
-                        print("Env DIY 3D selection saved after formal environment rollback.")
-                    return
-                selection_data = task_request.selection_data
-                _prepare_formal_gpu_stage(existing_simulation_app, args_cli.device)
-                launch_config = replace(launch_config, selection_data=selection_data)
-                continue
-            entered_session = True
-            break
+        session_context = open_simulator_session(launch_config)
+        session = session_context.__enter__()
+        entered_session = True
         import torch
         from EAI.controllers.base import normalize_controller_entry
 
@@ -2849,8 +2482,6 @@ def main() -> None:
     finally:
         if entered_session:
             session_context.__exit__(*sys.exc_info())
-        if existing_simulation_app is not None:
-            existing_simulation_app.close()
 
 
 if __name__ == "__main__":

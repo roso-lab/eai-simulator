@@ -58,7 +58,10 @@ def _run_task_worker(tmp_path):
 
             task_config = FireRescueConfig(
                 trials=1, trial_hazard_ids="1", auto_fire_delay=0.0, headless=True,
-                task_checkpoints=True, assignment_policy="algorithm.emos.example_policy:assign",
+                task_checkpoints=True,
+                assignment_policy=(
+                    "algorithm.system.coordination.emos.example_policy:assign"
+                ),
                 branch_checkpoint_dir=tmp_path / "task",
             )
             steps = run_robot_baseline_experiment(session, task_config, run_platform=bounded_platform)

@@ -1,39 +1,19 @@
 {
- "robots": [
-  {
-   "attachments": [],
-   "controller": {
-    "cfg": "CARTER_DIFF_CFG",
-    "mode": "default"
-   },
-   "type": "carter",
-   "visual": {
-    "x": 0.0,
-    "y": 0.0
-   }
-  },
-  {
-   "attachments": [
+  "robots": [
     {
-     "controller": {
-      "cfg": "Z1_IK_CFG",
-      "mode": "default"
-     },
-     "type": "z1"
+      "attachments": [],
+      "controller": {
+        "cfg": "G1_SKRL_CFG",
+        "mode": "manual"
+      },
+      "type": "g1",
+      "visual": {
+        "x": 0.0,
+        "y": 0.0
+      }
     }
-   ],
-   "controller": {
-    "cfg": "GO2_VELOCITY_RSL_CFG",
-    "mode": "default"
-   },
-   "type": "go2",
-   "visual": {
-    "x": 0.0,
-    "y": 0.0
-   }
-  }
- ],
- "scene_key": "plane",
- "task_name": "my_env",
- "version": 1
+  ],
+  "scene_key": "plane",
+  "task_name": "my_env",
+  "version": 1
 }

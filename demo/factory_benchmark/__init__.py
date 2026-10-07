@@ -1,1 +1,0 @@
-"""factory benchmark demo."""

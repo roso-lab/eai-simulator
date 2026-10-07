@@ -694,7 +694,7 @@ def test_city_emos_llm_flag_recorded(city_package, monkeypatch):
     modes = [row for row in participant.trace if row.get("event") == "llm_discussion"]
     assert len(modes) == 1
     # The EMOS brain LLM path decides which recording is honest; both are.
-    from emos import engine as emos_engine
+    from algorithm.system.coordination.emos import engine as emos_engine
     if emos_engine.LLM_AVAILABLE:
         assert modes[0]["mode"] == "dongli"
         assert modes[0]["model"]

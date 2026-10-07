@@ -430,7 +430,7 @@ def _check_source_ownership() -> None:
             "-C",
             str(REPO_ROOT),
             "ls-files",
-            "algorithm/multi_robot_navigation/maps/**",
+            "algorithm/skills/navigation/multi_robot_navigation/maps/**",
             "demo/fire_rescue/assets/factory_map.*",
         ],
         check=True,

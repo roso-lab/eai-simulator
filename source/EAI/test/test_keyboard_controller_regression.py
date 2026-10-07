@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import torch
+import pytest
 
-from algorithm.keyboard.keyboard import command_for_key, topic_for_robot
 from simulator import _apply_cmd_vel_bridge_commands
 
 
@@ -15,6 +15,12 @@ class _FakeBridge:
 
 
 def test_keyboard_quadruped_keys_keep_velocity_contract():
+    keyboard = pytest.importorskip(
+        "algorithm.skills.external_io.keyboard.keyboard",
+        reason="keyboard Skill provider is supplied by the dedicated Skill developer",
+    )
+    command_for_key = keyboard.command_for_key
+    topic_for_robot = keyboard.topic_for_robot
     assert topic_for_robot("/b2_1/") == "/b2_1/cmd_vel"
     assert command_for_key("w", linear_speed=0.5, angular_speed=0.8) == command_for_key(
         "W", linear_speed=0.5, angular_speed=0.8

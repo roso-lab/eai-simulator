@@ -1,3 +1,0 @@
-# Keep this new scene's focused tests reviewable despite the root tests/ rule.
-!tests/
-!tests/*.py

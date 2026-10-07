@@ -26,6 +26,7 @@ SCENE_CHOICES = (
     ("restaurant", "Restaurant authoring scene"),
     ("restaurant_benchmark", "Restaurant benchmark candidate overlay"),
     ("factory_benchmark", "Factory (local benchmark)"),
+    ("hssd_room1", "HSSD Room 1 (converted, local)"),
 )
 
 ROBOT_KEYS = (

@@ -854,7 +854,7 @@ def test_position_provenance_verifier_rejects_partial_or_tampered_native_samples
 
 
 def test_emos_rejects_missing_position_provider_without_inventing_zeros():
-    from algorithm.emos.engine import RobotPositionUnavailableError
+    from algorithm.system.coordination.emos.engine import RobotPositionUnavailableError
     from demo.benchmark import goal_restaurant_algorithm_episode as m
     from demo.benchmark.goal_driven_tasks import build_goal_task_package
 
@@ -877,8 +877,11 @@ def test_emos_rejects_missing_position_provider_without_inventing_zeros():
 
 
 def test_emos_build_from_agent_specs_strict_env_none_fails_without_callback():
-    from algorithm.emos.engine import EMOSDiscussionManager, RobotPositionUnavailableError
-    from algorithm.emos.types import (
+    from algorithm.system.coordination.emos.engine import (
+        EMOSDiscussionManager,
+        RobotPositionUnavailableError,
+    )
+    from algorithm.system.coordination.emos.types import (
         EMOSRobotAgentSpec,
         EMOSScenarioConfig,
         PositionRule,

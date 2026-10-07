@@ -24,6 +24,7 @@ from EAI_assets.robots.deeprobotics import (
 )
 from EAI_assets.robots.go2 import GO2_CFG
 from EAI_assets.scene.factory_runtime import FACTORY_RAYCAST_PROXY_PRIM_PATH
+from EAI_assets.scene.hssd_room1 import HSSD_ROOM1_CFG
 from EAI_assets.robots.pepper import PEPPER_CFG
 from EAI_assets.robots.pegasus import PEGASUS_IRIS_CFG, PEGASUS_X4_CFG
 from EAI_assets.robots.quadcopter import CRAZYFLIE_CFG
@@ -165,6 +166,17 @@ SCENE_OPTIONS = [
         "factory_benchmark", "Factory benchmark", ("EAI_assets.scene.benchmark", "FACTORY_BENCHMARK_CFG"),
         prim_path="/World/Indoor",
         robot_spawn_origin=(3.0, 0.0),
+    ),
+    SceneOption(
+        "hssd_room1",
+        "HSSD Room 1 (converted, local)",
+        ("EAI_assets.scene.hssd_room1", "HSSD_ROOM1_CFG"),
+        prim_path="/World/HSSDRoom1",
+        # _spawn_xy offsets the first robot by (-3.0, 0) from this origin, so
+        # (-6.16, 0.35) lands go2 exactly at the verified free spot (-9.16,
+        # 0.35) from the clearance map. Uncompensated origins embed the robot
+        # in the west wall and PhysX ejects it out of the apartment.
+        robot_spawn_origin=(-6.16, 0.35),
     ),
 ]
 

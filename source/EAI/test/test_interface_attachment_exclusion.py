@@ -115,21 +115,6 @@ def test_builder_has_no_mushr_builtin_camera_spawn_path():
     assert all("mushr_v2" not in robot_types for robot_types in builtin_camera_sets)
 
 
-def test_visual_env_diy_has_no_mushr_camera_exemption():
-    html_path = (
-        Path(__file__).resolve().parents[1]
-        / "EAI"
-        / "hmrs_env"
-        / "env_diy"
-        / "env_diy_app.html"
-    )
-    html = html_path.read_text(encoding="utf-8")
-    assert '["cf2x", "iris", "pegasus", "mushr_v2"]' not in html
-    assert (
-        'const hasBuiltinCamera = ["cf2x", "iris", "pegasus", "simple_car"]' in html
-    )
-
-
 def test_env_diy_requires_explicit_mushr_camera_provider():
     assert "mushr_v2" not in env_diy_catalog.BUILTIN_CAMERA_ROBOTS
     try:
