@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "heterocoord.branch_manifest.v1",
+  "type": "object",
+  "required": ["branch_id", "logical_branch_id", "branch_type", "pair_group_id", "checkpoint_digest", "execution_scope"],
+  "properties": {
+    "branch_id": {"type": "string", "minLength": 1},
+    "logical_branch_id": {"type": "string", "minLength": 1},
+    "branch_type": {"enum": ["fact", "reference", "sham", "intervention"]},
+    "pair_group_id": {"type": "string", "minLength": 1},
+    "slot": {"type": "integer", "minimum": 0},
+    "attempt": {"type": "integer", "minimum": 0},
+    "checkpoint_digest": {"type": "string", "minLength": 1},
+    "restore_checkpoint_digest": {"type": "string"},
+    "execution_scope": {"enum": ["measured", "protocol_synthetic", "pending", "failed"]}
+  },
+  "additionalProperties": true
+}

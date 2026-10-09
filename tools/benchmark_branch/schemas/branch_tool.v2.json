@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://heterocoord.local/schemas/branch_tool.v2.json",
+  "title": "HeteroCoord benchmark branch ledger envelope",
+  "type": "object",
+  "required": ["schema", "run_id", "branch_id", "execution_scope"],
+  "properties": {
+    "schema": {"type": "string", "pattern": "^heterocoord\\.branch_tool\\.v2"},
+    "run_id": {"type": "string", "minLength": 1},
+    "branch_id": {"type": "string", "minLength": 1},
+    "logical_branch_id": {"type": "string", "minLength": 1},
+    "branch_type": {"enum": ["fact", "reference", "sham", "intervention"]},
+    "attempt": {"type": "integer", "minimum": 0},
+    "slot": {"type": "integer", "minimum": 0},
+    "execution_scope": {"enum": ["measured", "protocol_synthetic", "pending", "failed"]},
+    "worker_instance_id": {"type": "string"},
+    "worker_session_id": {"type": "string"},
+    "checkpoint_digest": {"type": "string"},
+    "restore_checkpoint_digest": {"type": "string"}
+  },
+  "identity_fields": [
+    "run_id", "system_id", "scene_key", "task_id", "base_instance_id",
+    "condition_id", "pair_group_id", "branch_id", "branch_type", "slot",
+    "attempt", "repeat_id", "pair_seed", "checkpoint_digest",
+    "restore_checkpoint_digest", "task_version", "system_version",
+    "source_revision", "worker_instance_id", "worker_session_id",
+    "rng_namespace", "communication_rng_namespace", "intervention_point",
+    "execution_scope", "task_contract_digest", "scene_build_digest",
+    "asset_resolution_digest", "scene_build_order_digest",
+    "skill_adapter_version"
+  ],
+  "ledger_names": [
+    "branch_manifest", "checkpoints", "steps", "episodes", "events",
+    "progress", "network", "costs", "resources", "metrics", "observations"
+  ]
+}
