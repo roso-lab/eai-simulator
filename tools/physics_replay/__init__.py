@@ -16,6 +16,19 @@ from .replayer import PhysicsReplayer
 from .store import EpisodeReader, EpisodeWriter
 from .tape import ExecutionTape, NoiseTape, ReplayStep
 from .coordinator import CoordinatorReport, ReplayCoordinator
+from .execution.scheduler import (
+    BranchLease,
+    CapacityDenied,
+    CapacitySnapshot,
+    DeviceEvidence,
+    DevicePreflightError,
+    ReplayAudit,
+    ReplayCapacity,
+    ReplayRequest,
+    ReplayScheduler,
+    ResourceReservation,
+    SceneLease,
+)
 
 __all__ = [
     "FORMAT_VERSION",
@@ -34,6 +47,17 @@ __all__ = [
     "NoiseTape",
     "ReplayStep",
     "ReplayCoordinator",
+    "BranchLease",
+    "CapacityDenied",
+    "CapacitySnapshot",
+    "DeviceEvidence",
+    "DevicePreflightError",
+    "ReplayAudit",
+    "ReplayCapacity",
+    "ReplayRequest",
+    "ReplayScheduler",
+    "ResourceReservation",
+    "SceneLease",
     "SUPPORTED_CHANNELS",
     "TargetSpec",
 ]

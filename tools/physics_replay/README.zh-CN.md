@@ -65,6 +65,65 @@ python -m demo.fire_rescue.checks.reconstruct_physics --output tmp/replay/carry_
 `tools/physics_replay/`。它不创建第二个 Isaac Sim 应用，而是接入已有的
 `open_simulator_session()` 和 `env.step()` 循环。
 
+## Replay/GPU Scheduler
+
+`tools/physics_replay/execution/scheduler.py` 只负责资源准入和 session 生命周期，
+不实现任务图、EMOS、外部 evaluator 或 D1–D6 指标。benchmark 主干必须为每个
+scene/branch 调用独立的 session/coordinator factory；scheduler 不允许把不同
+`branch_key` 合并到同一个可变 physics session。
+
+调度合同包含三层容量限制：`max_parallel_scenes`、全局
+`max_parallel_branches` 和单 scene 的 `max_branches_per_scene`。容量不足时请求
+只能排队或用 `wait=False` 明确拒绝，不能隐式 oversubscribe GPU。所有 scene 和
+branch 都有 lease，lease 上下文退出（包括 worker 异常）会幂等释放并写入 audit。
+
+正式 GPU gate 要核对 requested device、actual physics device 和 controller/action
+device。actual device 无法观测时是 `unavailable`；requested=`cuda:0` 但实际是
+CPU 时是 `failed`，该运行只能保留诊断 artifact，不能作为正式 GPU 结果。
+`preflight()` 通过后才允许 branch admission；warm-up ticks 记录在 audit 中，
+不计入 episode execution time。资源 probe 的 GPU UUID、显存、容量快照、PID、
+异常原因和生命周期事件都只构成资源证据，不是物理成功或 paired valid 结论。
+
+```python
+from tools.physics_replay import (
+    ReplayCapacity, ReplayRequest, ReplayScheduler, ResourceReservation,
+)
+
+scheduler = ReplayScheduler(ReplayCapacity(
+    max_parallel_scenes=2, max_parallel_branches=32,
+    max_branches_per_scene=4, gpu_memory_budget_mb=20_000,
+))
+with scheduler.scene_slot(
+    "warehouse", reservation=ResourceReservation(2_000, 4_000),
+    requested_device="cuda:0",
+) as scene:
+    evidence = scheduler.preflight(
+        ReplayRequest("warehouse", "run-key", ResourceReservation(2_000, 4_000), "cuda:0", warmup_ticks=10),
+        session,
+    )
+    with scheduler.branch_slot(
+        scene, branch_key="run-key", reservation=ResourceReservation(500, 200),
+        requested_device="cuda:0", warmup_ticks=10,
+    ) as branch:
+        coordinator = coordinator_factory(branch)  # fresh session/coordinator
+        ...
+```
+
+`recover_stale(live_pid_check=...)` 只回收已确认不存在的 owner PID，并写入
+`stale_lease_recovered`；不能因为超时强制删除仍存活进程的 lease。scheduler audit
+包含 `scene_id`、`branch_key`、lease、设备、GPU UUID、容量旋钮、warm-up、时间边界、
+release status 和 crash/abort reason。它不会生成 `physical_success`、D1–D6 或
+`causal_replay` 结论；现有 coordinator 仍负责 checkpoint restore 和 fidelity
+report，只有完整的外部证据才能把 `physical_state_only` 提升为更强状态。
+
+纯 Python 并行 smoke（不启动 Isaac）由 `run_fake_parallel()` 提供，验证每个
+branch 有独立可变 session、真实重叠的 active 区间以及异常后的 lease 清理；它
+只能证明 scheduler 生命周期，不能证明 GPU 容量或物理任务成功：
+
+```bash
+python3 -m pytest -q tools/physics_replay/tests/test_scheduler.py
+```
+
 ## 快速检查
 
 在仓库根目录运行：

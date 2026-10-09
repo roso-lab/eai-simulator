@@ -4,6 +4,40 @@
 the same simulator process. It lives under `tools/physics_replay/` and uses an
 existing `open_simulator_session()` instead of creating a second application.
 
+## Replay/GPU scheduler
+
+`execution/scheduler.py` is the resource-admission and session-lifecycle layer.
+It does not implement task graphs, EMOS, evaluators, or D1-D6 metrics. The
+benchmark layer must create one isolated session/coordinator per scene/branch;
+the scheduler never merges mutable physics state for different `branch_key`
+values.
+
+`ReplayCapacity` applies all three limits: `max_parallel_scenes`, global
+`max_parallel_branches`, and `max_branches_per_scene`. Requests over capacity
+queue or are explicitly rejected (`wait=False`); the scheduler never silently
+oversubscribes the GPU. Scene and branch leases are idempotently released by
+context managers, including worker exceptions. `preflight()` must observe the
+actual physics and controller devices before a branch can be admitted. CUDA
+requested with CPU physics is `failed`; an unobservable device is
+`unavailable`, and neither is formal GPU evidence. Warm-up ticks are audited
+but excluded from episode execution time. GPU UUID, memory, PID, capacity,
+release and abort information are resource evidence only, not physical success,
+paired validity, or causal replay.
+
+`recover_stale()` reclaims only leases whose owner PID has been independently
+confirmed dead and emits `stale_lease_recovered`; timeouts never delete a live
+owner's lease. Existing `ReplayCoordinator` remains responsible for checkpoint
+restore and fidelity reporting.
+
+The Isaac-independent `run_fake_parallel()` smoke verifies distinct mutable
+session objects, overlapping active workers, and cleanup after exceptions. It
+is scheduler lifecycle evidence only, not GPU capacity or physical task
+evidence:
+
+```bash
+python3 -m pytest -q tools/physics_replay/tests/test_scheduler.py
+```
+
 ## Fresh-scene reconstruction journal
 
 `reconstruction.py` adds a separate alternative: **re-execute from a clean initial
