@@ -1,0 +1,23 @@
+{
+  "event": "branch_released",
+  "lease_id": "example-branch-lease",
+  "scene_id": "warehouse",
+  "branch_key": "run-key",
+  "requested_device": "cuda:0",
+  "actual_physics_device": "cuda:0",
+  "controller_device": "cuda:0",
+  "device_validation": "passed",
+  "gpu_uuid": "GPU-example",
+  "gpu_memory_budget_mb": 2000,
+  "max_parallel_scenes": 2,
+  "max_parallel_branches": 32,
+  "max_branches_per_scene": 4,
+  "warmup_ticks": 10,
+  "episode_start_time_ns": 1700000000000000000,
+  "episode_end_time_ns": 1700000001000000000,
+  "episode_time_s": 1.0,
+  "release_status": "completed",
+  "crash_or_abort_reason": "",
+  "owner_pid": 12345,
+  "diagnostics": []
+}
