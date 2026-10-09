@@ -355,6 +355,7 @@ class ReplayScheduler:
             self._scene_devices[lease.lease_id] = scene_device
             self._audit(self._base_audit(event="scene_acquired", lease_id=lease.lease_id,
                                          scene_id=scene_id, device=scene_device,
+                                         episode_start_time_ns=now,
                                          owner_pid=lease.owner_pid))
             return lease
 
@@ -520,7 +521,10 @@ class ReplayScheduler:
                 return
             self._audit(self._base_audit(event="scene_released", lease_id=current.lease_id,
                                          scene_id=current.scene_id, device=self._scene_devices.get(current.lease_id), release_status=status,
-                                         crash_or_abort_reason=reason, owner_pid=current.owner_pid))
+                                         crash_or_abort_reason=reason,
+                                         episode_start_time_ns=current.acquired_at_ns,
+                                         episode_end_time_ns=time.time_ns(),
+                                         owner_pid=current.owner_pid))
             self._released_scene_ids.add(current.lease_id)
             self._scene_devices.pop(current.lease_id, None)
             self._condition.notify_all()
