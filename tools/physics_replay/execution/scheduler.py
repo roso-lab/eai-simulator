@@ -103,6 +103,7 @@ class SceneLease:
     scene_id: str
     slot: int
     capacity: ReplayCapacity
+    branch_key: str = ""
     owner_pid: int = 0
     acquired_at_ns: int = 0
 
@@ -245,6 +246,32 @@ class ReplayScheduler:
             return "host memory below reservation"
         return None
 
+    def _branch_admission_reason(self, scene: SceneLease,
+                                 reservation: ResourceReservation) -> str | None:
+        scene_count = sum(item.scene_id == scene.scene_id for item in self._branches.values())
+        if scene_count >= self.capacity.max_branches_per_scene:
+            return "max_branches_per_scene reached"
+        if len(self._branches) >= self.capacity.max_parallel_branches:
+            return "max_parallel_branches reached"
+        active_res = [getattr(item, "_reservation", ResourceReservation(0, 0))
+                      for item in self._branches.values()]
+        if (self.capacity.gpu_memory_budget_mb is not None
+                and sum(item.gpu_memory_mb for item in active_res) + reservation.gpu_memory_mb
+                > self.capacity.gpu_memory_budget_mb):
+            return "GPU memory budget exceeded"
+        if (self.capacity.host_memory_budget_mb is not None
+                and sum(item.host_memory_mb for item in active_res) + reservation.host_memory_mb
+                > self.capacity.host_memory_budget_mb):
+            return "host memory budget exceeded"
+        sample = self._resource_sample()
+        free_gpu = self._memory_mb(sample, "gpu_free_memory_mb", "gpu_free_bytes", "gpu_free", "vram_free_bytes")
+        free_host = self._memory_mb(sample, "host_available_memory_mb", "host_available_bytes", "host_available", "ram_available_bytes")
+        if free_gpu is not None and reservation.gpu_memory_mb > free_gpu:
+            return "GPU free memory below reservation"
+        if free_host is not None and reservation.host_memory_mb > free_host:
+            return "host memory below reservation"
+        return None
+
     def _audit(self, event: ReplayAudit) -> None:
         row = event.to_dict()
         self._events.append(row)
@@ -319,8 +346,10 @@ class ReplayScheduler:
                     self._queued -= 1
             slot = len(self._scenes)
             now = time.time_ns()
-            lease = SceneLease(str(uuid.uuid4()), scene_id, slot, self.capacity,
-                               os.getpid() if owner_pid is None else int(owner_pid), now)
+            lease = SceneLease(
+                str(uuid.uuid4()), scene_id, slot, self.capacity, "",
+                os.getpid() if owner_pid is None else int(owner_pid), now,
+            )
             object.__setattr__(lease, "_reservation", reservation)
             self._scenes[lease.lease_id] = lease
             self._scene_devices[lease.lease_id] = scene_device
@@ -345,28 +374,14 @@ class ReplayScheduler:
             queued = False
 
             def ready() -> bool:
-                scene_count = sum(item.scene_id == scene.scene_id for item in self._branches.values())
-                if scene_count >= self.capacity.max_branches_per_scene:
-                    return False
-                if len(self._branches) >= self.capacity.max_parallel_branches:
-                    return False
-                active_res = [getattr(item, "_reservation", ResourceReservation(0, 0)) for item in self._branches.values()]
-                if self.capacity.gpu_memory_budget_mb is not None and sum(item.gpu_memory_mb for item in active_res) + reservation.gpu_memory_mb > self.capacity.gpu_memory_budget_mb:
-                    return False
-                if self.capacity.host_memory_budget_mb is not None and sum(item.host_memory_mb for item in active_res) + reservation.host_memory_mb > self.capacity.host_memory_budget_mb:
-                    return False
-                sample = self._resource_sample()
-                free_gpu = self._memory_mb(sample, "gpu_free_memory_mb", "gpu_free_bytes", "gpu_free", "vram_free_bytes")
-                free_host = self._memory_mb(sample, "host_available_memory_mb", "host_available_bytes", "host_available", "ram_available_bytes")
-                return not ((free_gpu is not None and reservation.gpu_memory_mb > free_gpu)
-                            or (free_host is not None and reservation.host_memory_mb > free_host))
+                return self._branch_admission_reason(scene, reservation) is None
 
             def queue_event() -> None:
                 nonlocal queued
                 if not queued:
                     queued = True
                     self._queued += 1
-                    reason = "max_parallel_branches or max_branches_per_scene reached"
+                    reason = self._branch_admission_reason(scene, reservation) or "capacity unavailable"
                     event = "gpu_admission_rejected" if "GPU" in reason or "gpu" in reason else "branch_queued"
                     self._audit(self._base_audit(event=event, lease_id="", scene_id=scene.scene_id,
                                                  branch_key=branch_key, diagnostics=(reason,)))
@@ -397,10 +412,12 @@ class ReplayScheduler:
             self._audit(self._base_audit(event="branch_acquired", lease_id=lease.lease_id,
                                          scene_id=scene.scene_id, branch_key=branch_key,
                                          device=evidence, warmup_ticks=int(warmup_ticks),
+                                         episode_start_time_ns=now,
                                          owner_pid=lease.owner_pid))
             self._audit(self._base_audit(event="branch_started", lease_id=lease.lease_id,
                                          scene_id=scene.scene_id, branch_key=branch_key,
                                          device=evidence, warmup_ticks=int(warmup_ticks),
+                                         episode_start_time_ns=now,
                                          owner_pid=lease.owner_pid))
             return lease
 
@@ -485,7 +502,10 @@ class ReplayScheduler:
                                          scene_id=current.scene_id, branch_key=current.branch_key,
                                          device=current.device, warmup_ticks=current.warmup_ticks,
                                          episode_time_s=episode_time, release_status=status,
-                                         crash_or_abort_reason=reason, owner_pid=current.owner_pid))
+                                         crash_or_abort_reason=reason,
+                                         episode_start_time_ns=current.acquired_at_ns,
+                                         episode_end_time_ns=time.time_ns(),
+                                         owner_pid=current.owner_pid))
             self._released_branch_ids.add(current.lease_id)
             self._branch_scene_leases.pop(current.lease_id, None)
             self._condition.notify_all()
