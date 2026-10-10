@@ -1,18 +1,40 @@
-"""Skill-level planning contracts and provider classifications.
+"""Typed, dependency-light skill contracts for EAI controllers."""
 
-Skill providers turn one already-assigned task into a path, trajectory, ROS
-goal, or controller-level command. They do not assign tasks and do not claim
-that the robot physically completed the task.
-"""
-
-from .contracts import SkillCommand, SkillKind, SkillPlan, SkillRequest
+from .contracts import (
+    SkillCommand,
+    SkillContractError,
+    SkillKind,
+    SkillPlan,
+    SkillProvider,
+    SkillRequest,
+)
 from .registry import SKILL_REGISTRY, skill_records
+from .simulator_schema import (
+    SIMULATOR_SKILL_SCHEMAS,
+    SIMULATOR_SKILL_SCHEMA_VERSION,
+    SimulatorCommandSpec,
+    SimulatorFieldSpec,
+    SimulatorSchemaError,
+    SimulatorSkillSchema,
+    simulator_skill_schema,
+    validate_simulator_skill_request,
+)
 
 __all__ = [
     "SKILL_REGISTRY",
+    "SIMULATOR_SKILL_SCHEMAS",
+    "SIMULATOR_SKILL_SCHEMA_VERSION",
+    "SimulatorCommandSpec",
+    "SimulatorFieldSpec",
+    "SimulatorSchemaError",
+    "SimulatorSkillSchema",
     "SkillCommand",
+    "SkillContractError",
     "SkillKind",
     "SkillPlan",
+    "SkillProvider",
     "SkillRequest",
+    "simulator_skill_schema",
     "skill_records",
+    "validate_simulator_skill_request",
 ]

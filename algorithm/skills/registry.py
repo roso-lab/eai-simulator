@@ -1,4 +1,8 @@
-"""Classification of existing motion/control modules as benchmark skills."""
+"""Public EAI skill registry.
+
+Only capabilities with a concrete provider and EAI execution route are listed.
+G1 box transport is intentionally absent because it is not supported.
+"""
 
 from __future__ import annotations
 
@@ -56,10 +60,24 @@ SKILL_REGISTRY: tuple[dict[str, Any], ...] = (
         "executor_owner": "migration target: task.executors -> EAI controller",
         "status": "internal_emos_runtime_not_standalone_system_algorithm",
     },
+    {
+        "skill_id": "eai.transport.composite",
+        "provider_id": "eai.pepper.box_transport",
+        "provider_version": "1.0.0",
+        "kind": "transport",
+        "robot_type": "Pepper",
+        "controller_cfg": "PEPPER_BOX_TRANSPORT_CFG",
+        "module": "algorithm.skills.pepper_transport",
+        "schema_version": "simulator.skill.v1",
+        "executor_owner": "EAI runtime",
+        "evaluator_owner": "external evidence evaluator",
+        "status": "implemented_pepper_only",
+    },
 )
 
 
 def skill_records() -> list[dict[str, Any]]:
-    """Return a copy suitable for manifests and handoff tooling."""
-
     return [dict(item) for item in SKILL_REGISTRY]
+
+
+__all__ = ["SKILL_REGISTRY", "skill_records"]

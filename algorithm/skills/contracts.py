@@ -1,8 +1,9 @@
-"""Dependency-light contracts for paper-independent execution skills.
+"""Dependency-light contracts for EAI execution skills.
 
-These records intentionally do not import Isaac Sim, Isaac Lab, Torch, or ROS.
-The skill provider may compute a path or command, while an EAI executor owns
-controller invocation, simulator stepping, and physical evidence.
+These records mirror the HeteroCoord ``simulator.skill.v1`` boundary.  A
+provider compiles an already assigned request into controller-facing commands;
+it does not import Isaac Sim, Torch, or ROS and it cannot certify a physical
+outcome.
 """
 
 from __future__ import annotations
@@ -27,6 +28,8 @@ class SkillKind(str, Enum):
 
 
 def _finite(value: object, name: str) -> float:
+    if isinstance(value, bool):
+        raise SkillContractError(f"{name} must be numeric")
     try:
         result = float(value)
     except (TypeError, ValueError) as exc:
@@ -49,9 +52,10 @@ class SkillRequest:
 
     def __post_init__(self) -> None:
         for name in ("request_id", "skill_id", "robot_id"):
-            if not str(getattr(self, name)).strip():
+            value = str(getattr(self, name)).strip()
+            if not value:
                 raise SkillContractError(f"{name} is required")
-            object.__setattr__(self, name, str(getattr(self, name)).strip())
+            object.__setattr__(self, name, value)
         if self.target_pose is not None:
             pose = tuple(_finite(item, "target_pose") for item in self.target_pose)
             if len(pose) not in (2, 3, 6, 7):
@@ -62,21 +66,22 @@ class SkillRequest:
 
 @dataclass(frozen=True)
 class SkillCommand:
-    """A command that an EAI executor can translate to a controller input."""
+    """A command that an EAI executor can translate to controller input."""
 
     command_type: str
     payload: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        if not str(self.command_type).strip():
+        value = str(self.command_type).strip()
+        if not value:
             raise SkillContractError("command_type is required")
-        object.__setattr__(self, "command_type", str(self.command_type).strip())
+        object.__setattr__(self, "command_type", value)
         object.__setattr__(self, "payload", dict(self.payload))
 
 
 @dataclass(frozen=True)
 class SkillPlan:
-    """Skill provider output; it is not an execution-success assertion."""
+    """Provider output; ``planned`` is never a physical-success assertion."""
 
     request_id: str
     skill_id: str
@@ -87,9 +92,10 @@ class SkillPlan:
 
     def __post_init__(self) -> None:
         for name in ("request_id", "skill_id", "robot_id", "status"):
-            if not str(getattr(self, name)).strip():
+            value = str(getattr(self, name)).strip()
+            if not value:
                 raise SkillContractError(f"{name} is required")
-            object.__setattr__(self, name, str(getattr(self, name)).strip())
+            object.__setattr__(self, name, value)
         object.__setattr__(self, "commands", tuple(self.commands))
         if any(not isinstance(item, SkillCommand) for item in self.commands):
             raise SkillContractError("commands must contain SkillCommand records")
@@ -97,8 +103,6 @@ class SkillPlan:
 
 
 class SkillProvider(Protocol):
-    """Protocol implemented by navigation/manipulation skill providers."""
-
     skill_id: str
     kind: SkillKind
 
@@ -108,7 +112,7 @@ class SkillProvider(Protocol):
         *,
         observation: Mapping[str, Any] | None = None,
     ) -> SkillPlan:
-        """Produce an executor-facing plan without stepping the simulator."""
+        """Compile a plan without stepping the simulator."""
 
 
 __all__ = [

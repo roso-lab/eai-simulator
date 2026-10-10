@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "task_name": "pepper_box_transport",
+  "scene_key": "plane",
+  "robots": [
+    {
+      "type": "pepper",
+      "controller": {
+        "cfg": "PEPPER_BOX_TRANSPORT_CFG",
+        "mode": "default"
+      },
+      "visual": {"x": 0.0, "y": 0.0},
+      "spawn_pose": {
+        "position": [0.0, 0.0, 0.0],
+        "rotation": [1.0, 0.0, 0.0, 0.0]
+      },
+      "attachments": []
+    }
+  ]
+}
