@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, replace
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import get_context
 from pathlib import Path
 from queue import Empty
@@ -16,6 +17,7 @@ from .adapters import SceneAdapter
 from .models import BranchJob, BranchPlan, CheckpointArtifact, ResourceSnapshot
 from .resources import ResourceProbe, resource_row
 from .store import BranchRunStore
+from .session import backend_method
 
 
 @dataclass(frozen=True)
@@ -209,7 +211,10 @@ class BranchExecutor:
     def __init__(self, plan: BranchPlan, adapter: SceneAdapter, store: BranchRunStore,
                  *, max_workers: int = 1, queue_size: int | None = None,
                  timeout_s: float | None = None, resource_limit: Mapping[str, Any] | None = None,
-                 start_method: str = "spawn"):
+                 start_method: str = "spawn", session_backend: Any = None,
+                 scheduler: Any = None, requested_device: str = "cuda:0",
+                 scene_reservation: Any = None, branch_reservation: Any = None,
+                 warmup_ticks: int = 0):
         # The store owns the durable run id.  Use its frozen plan so a CLI
         # run never emits the transient ``planned`` identity.
         self.plan, self.adapter, self.store = store.plan, adapter, store
@@ -219,6 +224,242 @@ class BranchExecutor:
         self.resource_limit = dict(resource_limit or {})
         self.resource_probe = ResourceProbe()
         self.ctx = get_context(start_method)
+        self.session_backend = session_backend
+        self.scheduler = scheduler
+        self.requested_device = str(requested_device)
+        self.scene_reservation = scene_reservation
+        self.branch_reservation = branch_reservation
+        self.warmup_ticks = max(0, int(warmup_ticks))
+
+    def _run_session_backend(self, jobs: list[BranchJob], checkpoint: CheckpointArtifact) -> dict[str, Any]:
+        """Run scene-owned sessions under explicit scheduler leases.
+
+        This path is deliberately opt-in.  It is the integration seam for a
+        real ExperimentBatch runner: the scheduler admits a scene, the
+        backend opens and warms the simulator, device preflight runs before
+        any branch lease, then each branch gets its own lease/runtime.  Scene
+        groups execute concurrently so two scenes can be resident at once;
+        the scheduler remains the authority for the actual capacity.
+        """
+
+        if self.session_backend is None or self.scheduler is None:
+            raise ValueError("session_backend and scheduler must be supplied together")
+        from tools.physics_replay.execution.scheduler import ReplayRequest, ResourceReservation
+
+        backend = self.session_backend
+        scene_reservation = self.scene_reservation or ResourceReservation(0, 0)
+        branch_reservation = self.branch_reservation or ResourceReservation(0, 0)
+        grouped: dict[str, list[BranchJob]] = {}
+        for job in jobs:
+            grouped.setdefault(job.scene_key, []).append(job)
+        records_lock = __import__("threading").RLock()
+        scene_results: list[dict[str, Any]] = []
+        peak_state = {"value": 0}
+
+        def append_scheduler_audit(row: Mapping[str, Any]) -> None:
+            # Resource/audit rows do not carry benchmark identity.  Keep the
+            # scheduler evidence separate from evaluator outcomes.
+            self.store.append("resources", {"scheduler_audit": dict(row),
+                                             "execution_scope": self.plan.execution_scope}, sync=True)
+
+        def run_scene(scene_id: str, scene_jobs: list[BranchJob]) -> dict[str, Any]:
+            completed = failed = 0
+            scene_lease = None
+            session = None
+            try:
+                scene_lease = self.scheduler.acquire_scene(
+                    scene_id, reservation=scene_reservation,
+                    requested_device=self.requested_device, wait=True,
+                    timeout_s=self.timeout_s,
+                )
+                session = backend.open_scene(scene_id, scheduler=self.scheduler)
+                warmup = backend_method(backend, "warmup")
+                if warmup is not None:
+                    warmup(session, ticks=self.warmup_ticks)
+                request = ReplayRequest(
+                    scene_id=scene_id, branch_key=f"{scene_id}/preflight",
+                    reservation=branch_reservation, requested_device=self.requested_device,
+                    warmup_ticks=self.warmup_ticks,
+                )
+                evidence = self.scheduler.preflight(request, session)
+                if not evidence.valid:
+                    reason = "; ".join(evidence.diagnostics) or evidence.device_validation
+                    for job in scene_jobs:
+                        self.store.append("episodes", {
+                            "status": "infrastructure_invalid", "completed": False,
+                            "physical_success": None, "error": reason,
+                            "device_evidence": evidence.__dict__,
+                        }, job=job)
+                        failed += 1
+                    return {"scene_id": scene_id, "completed": 0, "failed": len(scene_jobs),
+                            "preflight": evidence.__dict__}
+                def run_branch(job: BranchJob) -> bool:
+                    """Run one isolated branch runtime inside this scene.
+
+                    A scene session may contain many independent branch slots.
+                    The scheduler lease, backend runtime and branch-local ledger
+                    are the isolation boundary; the backend must not share
+                    mutable controller, queue, RNG or checkpoint state between
+                    runtimes.  Running these calls in a bounded pool is what
+                    makes ``max_branches_per_scene`` observable as real
+                    overlap instead of sequential admission.
+                    """
+
+                    branch_lease = None
+                    branch_runtime = None
+                    started = time.time_ns()
+                    try:
+                        branch_lease = self.scheduler.acquire_branch(
+                            scene_lease, branch_key=job.branch_id,
+                            reservation=branch_reservation,
+                            requested_device=self.requested_device, wait=True,
+                            timeout_s=self.timeout_s, warmup_ticks=self.warmup_ticks,
+                        )
+                        with records_lock:
+                            peak_state["value"] = max(
+                                peak_state["value"],
+                                int(self.scheduler.snapshot().active_branches),
+                            )
+                        self.store.append("metrics", {
+                            "kind": "session_branch_started",
+                            "lease_id": branch_lease.lease_id,
+                            "scene_id": scene_id,
+                            "branch_key": job.branch_id,
+                            "requested_device": evidence.requested_device,
+                            "actual_physics_device": evidence.actual_physics_device,
+                            "controller_device": evidence.controller_device,
+                            "gpu_uuid": evidence.gpu_uuid,
+                            "warmup_ticks": self.warmup_ticks,
+                            "episode_start_time_ns": started,
+                        }, job=job, sync=True)
+                        branch_runtime = backend.open_branch(session, job, lease=branch_lease)
+
+                        def emit(ledger: str, payload: Mapping[str, Any], *, event: bool = False) -> None:
+                            self.store.append(ledger, payload, job=job, event=event,
+                                              sync=event or ledger in {"checkpoints", "episodes"})
+
+                        result = backend.run_branch(branch_runtime, job, emit=emit)
+                        result = dict(result) if isinstance(result, Mapping) else {}
+                        status = str(result.get("status", "missing_response"))
+                        branch_completed = bool(result.get("completed", False))
+                        if not result or "completed" not in result or "status" not in result:
+                            status = "missing_response"
+                            branch_completed = False
+                        self.store.append("episodes", {
+                            "status": status, "completed": branch_completed,
+                            "outcome": result.get("outcome", result),
+                            "physical_success": result.get("physical_success"),
+                            "scheduler_lease_id": branch_lease.lease_id,
+                            # Backend supplied identities are preferred, but
+                            # the collector must still give every branch a
+                            # distinct auditable fallback identity.
+                            "worker_instance_id": str(result.get(
+                                "worker_instance_id", f"branch-worker-{branch_lease.lease_id}")),
+                            "worker_session_id": str(result.get(
+                                "worker_session_id", f"{scene_lease.lease_id}/{branch_lease.lease_id}")),
+                            "episode_start_time_ns": started,
+                            "episode_end_time_ns": time.time_ns(),
+                        }, job=job, sync=True)
+                        self.scheduler.release_branch(
+                            branch_lease, status="completed" if branch_completed else status,
+                        )
+                        branch_lease = None
+                        return branch_completed
+                    except BaseException as exc:
+                        self.store.append("episodes", {
+                            "status": "crashed", "completed": False,
+                            "physical_success": None,
+                            "error": f"{type(exc).__name__}: {exc}",
+                            "episode_start_time_ns": started,
+                            "episode_end_time_ns": time.time_ns(),
+                        }, job=job, sync=True)
+                        if branch_lease is not None:
+                            self.scheduler.release_branch(
+                                branch_lease, status="aborted",
+                                reason=f"{type(exc).__name__}: {exc}",
+                            )
+                        return False
+                    finally:
+                        if branch_runtime is not None:
+                            close_branch = backend_method(backend, "close_branch")
+                            if close_branch is not None:
+                                close_branch(branch_runtime)
+
+                # Admit/run branch slots concurrently within one scene-owned
+                # session.  The scheduler remains authoritative when global
+                # or per-scene capacity is lower than this requested pool.
+                branch_pool_workers = max(1, min(
+                    self.requested_max_workers, len(scene_jobs),
+                    int(self.scheduler.capacity.max_branches_per_scene),
+                    int(self.scheduler.capacity.max_parallel_branches),
+                ))
+                with ThreadPoolExecutor(max_workers=branch_pool_workers) as branch_pool:
+                    branch_futures = [branch_pool.submit(run_branch, job) for job in scene_jobs]
+                    branch_outcomes = [future.result() for future in as_completed(branch_futures)]
+                completed = sum(1 for outcome in branch_outcomes if outcome)
+                failed = len(branch_outcomes) - completed
+            except BaseException as exc:
+                # A scene/session failure must leave one raw receipt per
+                # branch so resume and validation can account for it.
+                for job in scene_jobs:
+                    self.store.append("episodes", {
+                        "status": "crashed", "completed": False,
+                        "physical_success": None,
+                        "error": f"scene session failed: {type(exc).__name__}: {exc}",
+                    }, job=job, sync=True)
+                completed = 0
+                failed = len(scene_jobs)
+                return {"scene_id": scene_id, "completed": completed,
+                        "failed": failed, "error": str(exc)}
+            finally:
+                if session is not None:
+                    close_scene = backend_method(backend, "close_scene")
+                    if close_scene is not None:
+                        close_scene(session)
+                if scene_lease is not None:
+                    self.scheduler.release_scene(
+                        scene_lease,
+                        status="completed" if failed == 0 else "aborted",
+                        reason="session branch failure" if failed else "",
+                    )
+            return {"scene_id": scene_id, "completed": completed, "failed": failed}
+
+        with ThreadPoolExecutor(max_workers=max(1, len(grouped))) as pool:
+            futures = [pool.submit(run_scene, scene_id, scene_jobs)
+                       for scene_id, scene_jobs in grouped.items()]
+            for future in as_completed(futures):
+                scene_results.append(future.result())
+
+        # Capture the scheduler's immutable audit stream after all scene
+        # threads have released their leases.  Each audit row remains resource
+        # evidence and is intentionally separate from evaluator outcomes.
+        for audit in self.scheduler.audits:
+            append_scheduler_audit(audit)
+        completed = sum(item["completed"] for item in scene_results)
+        failed = sum(item["failed"] for item in scene_results)
+        self.store.update_manifest(
+            execution_backend="session_backend", scheduler_integrated=True,
+            requested=len(jobs), resident=0, active=0, completed=completed,
+            failed=failed, queued=0,
+            observed_peak_branch_workers=peak_state["value"],
+            infrastructure_status="valid" if failed == 0 else "invalid_or_failed",
+        )
+        self.store.finish()
+        from .validation import summarize_run, validate_run
+        validate_run(self.store.root)
+        summarize_run(self.store.root)
+        snapshot = self.scheduler.snapshot()
+        return {
+            "run_id": self.store.run_id,
+            "execution_backend": "session_backend",
+            "scheduler_integrated": True,
+            "logical_branches": len(jobs), "completed": completed,
+            "failed": failed, "queued": 0,
+            "observed_peak_branch_workers": peak_state["value"],
+            "active": snapshot.active_branches,
+            "scene_results": scene_results,
+            "scheduler_snapshot": dict(snapshot.__dict__),
+        }
 
     def _checkpoint(self) -> CheckpointArtifact:
         value = _call(self.adapter, "create_checkpoint", self.plan, default=None)
@@ -448,6 +689,14 @@ class BranchExecutor:
             )
             self.store.finish()
             raise ValueError(reason)
+        if requested_scope == "measured" and (self.session_backend is None or self.scheduler is None):
+            reason = "measured execution requires an explicit session_backend and ReplayScheduler"
+            self.store.update_manifest(
+                status="rejected", collector_status="rejected",
+                inference_status="unsupported", rejection_reason=reason,
+            )
+            self.store.finish()
+            raise ValueError(reason)
         contract = _call(self.adapter, "validate_contract", self.plan, default=True)
         if isinstance(contract, Mapping) and not bool(contract.get("passed", True)):
             raise ValueError(f"task contract rejected: {contract}")
@@ -489,6 +738,9 @@ class BranchExecutor:
             report.update({"run_id": self.store.run_id, "logical_branches": self.plan.logical_branch_count,
                            "pair_slots": self.plan.pair_slots, "results": []})
             return report
+
+        if self.session_backend is not None or self.scheduler is not None:
+            return self._run_session_backend(jobs, checkpoint)
 
         if str(self.store.manifest.get("execution_mode", "")) == "shared_session":
             return self._run_shared_session(jobs, checkpoint)

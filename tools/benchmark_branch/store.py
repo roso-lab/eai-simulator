@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import threading
 from typing import Any, Iterable, Mapping, TextIO
 
 from .models import BranchJob, BranchPlan, IDENTITY_FIELDS, SCHEMA_VERSION
@@ -56,6 +57,7 @@ class BranchRunStore:
         # still fsyncs lifecycle boundaries explicitly.
         self._streams: dict[str, TextIO] = {}
         self._branch_streams: dict[str, TextIO] = {}
+        self._append_lock = threading.RLock()
         if not resume:
             for name in LEDGERS:
                 (self.root / f"{name}.jsonl").touch(exist_ok=True)
@@ -153,6 +155,14 @@ class BranchRunStore:
 
     def append(self, ledger: str, row: Mapping[str, Any], *, job: BranchJob | None = None,
                event: bool = False, sync: bool = True) -> dict[str, Any]:
+        # Session backends may run multiple scene sessions concurrently.  The
+        # parent remains the sole writer, and this lock keeps JSONL rows,
+        # event counters and branch mirrors coherent across those threads.
+        with self._append_lock:
+            return self._append_locked(ledger, row, job=job, event=event, sync=sync)
+
+    def _append_locked(self, ledger: str, row: Mapping[str, Any], *, job: BranchJob | None = None,
+                       event: bool = False, sync: bool = True) -> dict[str, Any]:
         if ledger not in LEDGERS:
             raise ValueError(f"unknown ledger: {ledger}")
         payload = dict(row)

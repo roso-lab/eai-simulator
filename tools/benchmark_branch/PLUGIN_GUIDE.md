@@ -58,3 +58,36 @@ actual device is `unavailable`; CPU fallback makes the GPU run invalid/pending.
 A plugin may be tested with `DummyAdapter`, but protocol-synthetic overlap does
 not prove Isaac concurrency, task physics, sensor correctness, evaluator truth,
 or GPU capacity. Keep source revision and artifact paths in the manifest.
+
+## Scheduler-aware session backend
+
+For a measured run, pass an implementation of `SessionBackend` and one
+`ReplayScheduler` to `BranchExecutor`. The collector then executes this order
+for every scene group:
+
+```text
+acquire_scene
+  -> open_scene
+  -> warmup
+  -> scheduler.preflight
+  -> acquire_branch
+  -> open_branch / run_branch / close_branch
+  -> release_branch
+  -> close_scene / release_scene
+```
+
+The backend methods are declared in `tools/benchmark_branch/session.py`. Scene
+groups run in parallel session threads, and each scene runs its admitted branch
+slots concurrently up to `ReplayScheduler.capacity.max_branches_per_scene`;
+the backend must give every slot an isolated mutable runtime even when static
+assets are shared.
+`run_branch` must return explicit `completed` and `status` fields; missing
+responses become `missing_response`. A failed preflight creates raw
+`infrastructure_invalid` episode rows with `physical_success: null` and never
+opens branch leases. Scheduler audit rows are stored in `resources.jsonl`.
+
+Use `requested_device="cuda:0"` (or another explicit CUDA device) and a real
+device probe that reports actual physics/controller devices and GPU UUID. The
+collector rejects `measured` execution unless both the session backend and
+scheduler are supplied. The collector still does not run the benchmark paired
+gate or infer physical success.

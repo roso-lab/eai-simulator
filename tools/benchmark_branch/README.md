@@ -17,9 +17,11 @@ tests, schemas and configuration examples; scene runners are separate dependenci
 | `physics_replay` | Capture/restore/fidelity; `ReplayScheduler` handles resource admission, GPU preflight and leases |
 | Upstream scene plugin | Isaac application, isolated runtime state, task semantics and evaluator evidence |
 
-The collector does **not automatically invoke `ReplayScheduler`**. An upstream
-runner must connect the two and use one admission authority for concurrent
-scenes. Two independent CLI runs do not share a GPU capacity budget.
+The collector does not create a `ReplayScheduler` from CLI configuration. An
+upstream runner can explicitly pass one scheduler and a `SessionBackend` to
+`BranchExecutor`; that path admits all scene groups through one capacity
+ledger and runs branch slots concurrently inside each scene session. Two
+independent CLI runs still do not share a GPU capacity budget.
 
 ## Quick start
 
@@ -77,11 +79,10 @@ not a physical-success count.
 The planner accepts `scenes`, `tasks`, `systems`, `conditions` and `repeats`.
 The current executor loads one adapter and one base checkpoint per run; it does
 not dispatch a different plugin/checkpoint for each physical scene. For Modern
-House and Warehouse, launch one run per scene through an upstream supervisor,
-with separate output directories and shared GPU admission. Each shared-session
-run can request 32 slots (128 logical branches over waves). The tool itself
-neither launches two Isaac applications automatically nor certifies their GPU
-capacity.
+House and Warehouse, launch them through an upstream supervisor with separate
+scene adapters and shared GPU admission. An injected `SessionBackend` may open
+two scene sessions at once and run branch slots concurrently; the tool itself
+does not construct Isaac applications or certify their GPU capacity.
 
 The `modern_house*.json` and `warehouse*.json` examples require
 `demo.benchmark.branch_plugins` and scene assets from the upstream task package.

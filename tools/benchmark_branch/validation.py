@@ -17,6 +17,7 @@ STATUS_RISK = {
     "right_censored", "not_evaluable", "invalid_instance", "feasibility_unverified",
     "pair_invalid", "sham_invalid", "method_timeout",
     "malformed_action", "crashed", "budget_overrun", "missing_response", "undefined_zero_progress",
+    "infrastructure_invalid",
 }
 
 

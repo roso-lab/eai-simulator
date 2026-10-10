@@ -15,8 +15,10 @@ repeat 生成配对实验，执行分支、保存账本、重试恢复、校验�
 | `tools/physics_replay/` | checkpoint capture/restore/fidelity；ReplayScheduler 负责 GPU 准入、容量和 lease 生命周期 |
 | 上游任务插件 | 创建 Isaac 应用、分支状态隔离、物理推进、任务语义和外部 evaluator |
 
-**当前采集器尚未自动调用 ReplayScheduler。** 同时运行两个场景时，需要上层 supervisor
-连接两个工具并统一 GPU 准入；两个独立 CLI 进程不会自动共享显存预算。
+采集器不会从 CLI 配置自动创建 `ReplayScheduler`。上层 runner 显式传入一个
+`SessionBackend` 和一个 `ReplayScheduler` 后，`BranchExecutor` 会让所有 scene group
+共用同一容量账本，并在每个 scene session 内并发准入 branch。两个独立 CLI 进程不会
+自动共享显存预算。
 工具不实现 EMOS planner、D1–D6 指标或第二套物理成功判定。
 
 ## 安装与快速使用
@@ -54,9 +56,10 @@ python3 -m tools.benchmark_branch resume --run-dir /tmp/branch-dummy-run --max-w
 `max-workers=32` 是请求并发上限，需要分波运行全部 128 分支。
 [多维示例](examples/dummy_matrix.json) 演示笛卡尔积；不同场景支持的任务组合应由上游选择。
 
-当前单次 executor 使用一个 adapter 和一个 base checkpoint，不会自动为每个 scene
-选择不同插件或创建不同 checkpoint。因此物理多场景应分别建立 run，保留各自合同和
-checkpoint，再由上层并发启动、汇总。多场景计划展开不等于多个物理场景已经启动。
+默认 CLI executor 仍使用一个 adapter 和一个 base checkpoint，不会自动为每个 scene
+选择不同插件或创建不同 checkpoint。显式接入 `SessionBackend` 后，backend 可以按
+`scene_key` 同时打开多个 scene session；各 scene 的 branch 会由同一个 scheduler
+统一准入。backend 仍需自行提供每个场景的合同、checkpoint 和 Isaac session。
 
 ## 两种执行方式
 
@@ -125,6 +128,27 @@ JSON schema 提供字段合同，CLI 使用自身校验逻辑，不自动运行�
 `resource_limit` 支持 `max_workers`、`per_worker_ram_bytes`、`per_worker_vram_bytes`、
 `min_ram_available_bytes`、`min_vram_free_bytes`。这是尽力而为的容量估算，GPU 采样当前
 取 GPU 0；严格 GPU 准入必须使用 ReplayScheduler 和真实设备探针，不能仅看配置 `cuda`。
+
+## SessionBackend 接线
+
+正式 `measured` 运行现在可以通过 `BranchExecutor` 显式传入
+`SessionBackend` 和 `ReplayScheduler`。执行顺序是：
+
+```text
+scene lease → open_scene → warm-up → scheduler.preflight
+→ branch lease → open_branch/run_branch/close_branch
+→ release_branch → close_scene/release_scene
+```
+
+接口定义在 [session.py](session.py)。多个 `scene_key` 会由独立 session 线程并发处理，
+每个 scene 内的 branch 也按 `max_branches_per_scene` 并发运行；实际容量仍由同一个
+`ReplayScheduler` 控制。`run_branch` 必须返回明确的
+`completed` 和 `status`；缺失响应记为 `missing_response`。GPU preflight 失败会保留
+`infrastructure_invalid` 原始 episode，`physical_success` 保持 `null`，不会取得 branch
+lease。scheduler audit 写入 `resources.jsonl`。
+
+如果 `execution_scope="measured"` 却没有同时提供这两个对象，collector 会 fail closed；
+仅写 `cuda:0` 不能替代 actual physics/controller device 和 GPU UUID 证据。
 
 ## 证据状态和当前边界
 

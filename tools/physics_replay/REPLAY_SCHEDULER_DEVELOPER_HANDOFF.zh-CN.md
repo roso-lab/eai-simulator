@@ -7,9 +7,11 @@
 这份文档只描述 tools/physics_replay/ 的底层能力。论文实验的 branch 语义、任务流程和指标仍由 benchmark/ 主干负责。
 
 当前实现状态：scheduler 的 scene/branch lease、容量限制、统一显存账本、device
-preflight、stale lease 回收和 audit 已落地并有 fake-backend 测试；它尚未由
-`tools/benchmark_branch.BranchExecutor` 自动创建或调用。正式 runner 仍需显式编排
-资源准入和 collector，不能把现有 collector 的完成状态当成 GPU 预检通过。
+preflight、stale lease 回收和 audit 已落地并有 fake-backend 测试。`BranchExecutor`
+现在支持显式注入一个 `SessionBackend` 和一个 `ReplayScheduler`，按
+scene admission → session warm-up/preflight → branch admission → branch release 的顺序
+执行；它不会从 CLI 配置自动创建 scheduler。正式 runner 仍需提供真实 session、设备
+探针和 evaluator，不能把 collector 的完成状态当成 GPU 预检或物理成功。
 
 ## 1. 职责边界
 
@@ -330,5 +332,6 @@ tool audit 是资源与设备证据，不是 evaluator evidence，也不直接�
 - audit JSON 样例；
 - 明确说明哪些 fidelity 仍是 physical_state_only、哪些条件才能报告 causal_replay。
 
-在完成上述接线前，tool 开发者的交付应标记为 `scheduler_ready_but_not_integrated`；
-不得把它写成 `measured`、`GPU_valid` 或 `strict_paired_valid`。
+显式接线已经完成，但没有真实 Isaac session、GPU UUID/preflight 和外部 evaluator
+证据的运行仍必须按 `protocol_synthetic`、`pending` 或 `infrastructure_invalid` 记录；
+不得把它写成 `GPU_valid` 或 `strict_paired_valid`。

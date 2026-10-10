@@ -10,6 +10,7 @@ manifests so a resumed run can be reconstructed without importing a simulator.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import asdict, is_dataclass
 import hashlib
 from typing import Any
 
@@ -31,6 +32,26 @@ def _text(value: Any, name: str, default: str = "") -> str:
     if not result:
         raise BenchmarkBridgeError(f"benchmark field {name} is required")
     return result
+
+
+def _mapping(value: Any) -> dict[str, Any]:
+    """Detach a benchmark dataclass, mapping, or simple protocol object."""
+
+    if value is None:
+        return {}
+    if isinstance(value, Mapping):
+        return dict(value)
+    to_dict = getattr(value, "to_dict", None)
+    if callable(to_dict):
+        result = to_dict()
+        if isinstance(result, Mapping):
+            return dict(result)
+    if is_dataclass(value):
+        return dict(asdict(value))
+    values = getattr(value, "__dict__", None)
+    if isinstance(values, Mapping):
+        return dict(values)
+    raise BenchmarkBridgeError(f"benchmark object is not mapping-compatible: {type(value).__name__}")
 
 
 def _role(value: Any) -> str:
@@ -69,8 +90,8 @@ def _batch_metadata(batch: Any) -> dict[str, Any]:
     cell = _value(batch, "cell", {})
     anchor = _value(batch, "anchor", {})
     checkpoint = _value(batch, "checkpoint", {})
-    cell_data = cell.to_dict() if callable(getattr(cell, "to_dict", None)) else dict(cell or {})
-    anchor_data = anchor.to_dict() if callable(getattr(anchor, "to_dict", None)) else dict(anchor or {})
+    cell_data = _mapping(cell)
+    anchor_data = _mapping(anchor)
     manifest = batch.manifest() if callable(getattr(batch, "manifest", None)) else {}
     anchor_digest = str(_value(batch, "anchor_digest", manifest.get("anchor_digest", "")))
     return {
@@ -159,7 +180,7 @@ def branch_job_from_spec(
         task_version=task_version, system_version=run_key_values["system_id"],
         source_revision=batch_meta["benchmark_manifest_digest"],
         intervention_point=branch_meta["treatment_id"], execution_scope=execution_scope,
-        task_contract_digest=str(_value(batch, "anchor_digest", "")), metadata=metadata,
+        task_contract_digest=str(batch_meta["anchor_digest"]), metadata=metadata,
     )
 
 
@@ -177,19 +198,36 @@ def branch_jobs_from_batch(
     branches = tuple(branches or ())
     if not branches:
         raise BenchmarkBridgeError("benchmark batch contains no branches")
-    return tuple(
-        branch_job_from_spec(item, batch=batch, slot=index, execution_scope=execution_scope, run_id=run_id)
-        for index, item in enumerate(branches)
-    )
+    pair_slots: dict[tuple[str, ...], int] = {}
+    jobs: list[BranchJob] = []
+    pair_fields = ("base_instance_id", "system_id", "condition_id", "repeat_id", "checkpoint_round")
+    for item in branches:
+        key = _run_key(item)
+        pair_key = tuple(_text(_value(key, field, ""), field) for field in pair_fields)
+        slot = pair_slots.setdefault(pair_key, len(pair_slots))
+        jobs.append(branch_job_from_spec(
+            item, batch=batch, slot=slot, execution_scope=execution_scope,
+            run_id=run_id,
+        ))
+    return tuple(jobs)
 
 
 def validate_jobs_against_batch(jobs: Sequence[BranchJob], batch: Any) -> dict[str, Any]:
     """Check that a projected job list still names the benchmark batch."""
 
     expected = tuple(_value(batch, "branches", ()) or ())
-    actual_keys = {str(job.metadata.get("benchmark_run_key", {}).get("branch_role", job.branch_type)) + ":" + job.base_instance_id for job in jobs}
+    def _job_key(job: BranchJob) -> tuple[str, ...]:
+        values = job.metadata.get("benchmark_run_key", {})
+        return tuple(str(values.get(field, "")) for field in (
+            "base_instance_id", "system_id", "condition_id", "repeat_id",
+            "checkpoint_round", "branch_role",
+        ))
+
+    actual_keys = {_job_key(job) for job in jobs}
     expected_keys = {
-        _role(_run_key(branch)) + ":" + _text(_value(_run_key(branch), "base_instance_id"), "base_instance_id")
+        tuple(_text(_value(_run_key(branch), field, ""), field)
+              for field in ("base_instance_id", "system_id", "condition_id",
+                            "repeat_id", "checkpoint_round")) + (_role(_run_key(branch)),)
         for branch in expected
     }
     manifest_digest = _text(_value(batch, "manifest_digest", ""), "manifest_digest")

@@ -22,6 +22,7 @@ OUTCOME_STATUSES = (
     'feasibility_unverified', 'team_state_infeasible', 'pair_invalid',
     'sham_invalid', 'safe_stop', 'method_timeout', 'malformed_action',
     'crashed', 'budget_overrun', 'missing_response', 'undefined_zero_progress',
+    'infrastructure_invalid',
 )
 METHOD_FAILURES = {'method_timeout', 'malformed_action', 'crashed', 'budget_overrun', 'missing_response'}
 CHECKPOINT_FIELDS = (

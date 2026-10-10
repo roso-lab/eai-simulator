@@ -1,6 +1,8 @@
+from dataclasses import dataclass
+from types import SimpleNamespace
+
 import pytest
 
-from benchmark import build_batch_identity, default_experiment_plan
 from tools.benchmark_branch import (
     BranchExecutor,
     BranchPlan,
@@ -11,10 +13,45 @@ from tools.benchmark_branch import (
 from tools.benchmark_branch.validation import summarize_run, validate_run
 
 
+@dataclass(frozen=True)
+class _Checkpoint:
+    checkpoint_id: str = "cp-1"
+    digest: str = "checkpoint-digest"
+    schema: str = "benchmark.checkpoint.v1"
+    artifact_uri: str = "memory://checkpoint"
+    step: int = 10
+
+
 def _batch(*, strict: bool):
-    plan = default_experiment_plan()
-    cell = next(item for item in plan.iter_cells() if item.strict_pair_required is strict)
-    return build_batch_identity(cell, plan=plan)
+    repeat_id = "r2"
+    checkpoint = _Checkpoint()
+    cell = SimpleNamespace(
+        repeat_id=repeat_id, checkpoint_round="round-1",
+        strict_pair_required=strict,
+    )
+    anchor = SimpleNamespace(anchor_id="anchor-1", scene_key="scene-a")
+    roles = ("fact", "reference", "sham", "intervention") if strict else ("fact",)
+    branches = []
+    for role in roles:
+        key = SimpleNamespace(
+            base_instance_id="base-1", system_id="system-a",
+            condition_id="nominal", repeat_id=repeat_id,
+            checkpoint_round="round-1", untreated_history_id="history-1",
+            branch_role=role,
+        )
+        branches.append(SimpleNamespace(
+            run_key=key, treatment_id=f"treatment-{role}",
+            authority="benchmark.protocol", non_target_budget={"communication": 1},
+            checkpoint=checkpoint,
+        ))
+    return SimpleNamespace(
+        manifest_digest="manifest-digest", plan_digest="plan-digest",
+        anchor_digest="anchor-digest", anchor_id="anchor-1", anchor=anchor,
+        cell=cell, checkpoint=checkpoint, branches=tuple(branches),
+        strict_pair_required=strict, base_instance_id="base-1",
+        metadata={},
+        manifest=lambda: {"anchor_digest": "anchor-digest"},
+    )
 
 
 def test_bridge_preserves_benchmark_run_keys_and_manifest_digest():
@@ -29,6 +66,7 @@ def test_bridge_preserves_benchmark_run_keys_and_manifest_digest():
     assert {job.metadata["treatment_id"] for job in plan.jobs()} == {
         branch.treatment_id for branch in batch.branches
     }
+    assert {job.slot for job in plan.jobs()} == {0}
     assert {job.checkpoint_digest for job in plan.jobs()} == {batch.checkpoint.digest}
     assert {job.metadata["checkpoint_round"] for job in plan.jobs()} == {batch.cell.checkpoint_round}
 
@@ -39,6 +77,7 @@ def test_bridge_does_not_force_fact_only_batch_into_four_arms():
     assert len(plan.jobs()) == 1
     assert plan.arms == ("fact",)
     assert plan.logical_branch_count == 1
+    assert {job.slot for job in plan.jobs()} == {0}
 
 
 def test_retry_preserves_base_instance_and_repeat_identity():

@@ -101,7 +101,7 @@ collector_plan = branch_plan_from_batch(
 
 ### 4.2 Scheduler 必须和真实 session 生命周期接通
 
-当前 tools/physics_replay/execution/scheduler.py 已有 scene/branch lease、GPU/host memory 总账、max_parallel_scenes、max_parallel_branches、max_branches_per_scene 和 requested/actual device audit；但 collector 尚未自动调用它。
+当前 tools/physics_replay/execution/scheduler.py 已有 scene/branch lease、GPU/host memory 总账、max_parallel_scenes、max_parallel_branches、max_branches_per_scene 和 requested/actual device audit。`BranchExecutor` 已支持显式传入 `SessionBackend + ReplayScheduler`，并在多个 scene group 间并发、在每个 scene 内按 branch 容量并发；它不会自动创建 scheduler。
 
 正式顺序应为：
 
@@ -129,8 +129,9 @@ ExperimentBatch
   -> benchmark replay/evaluator/reducer
 ~~~
 
-`BranchExecutor` 当前不会自动创建 `ReplayScheduler`，因此不能仅凭 collector 的
-`validation.json` 证明 GPU admission 或物理 session 隔离已经通过。
+`BranchExecutor` 不会自动创建 `ReplayScheduler`；必须由上层 runner 显式提供真实
+session/backend 和设备探针。因此不能仅凭 collector 的 `validation.json` 证明 GPU
+admission、物理 session 隔离或外部 evaluator 结论已经通过。
 
 ### 4.3 shared-session 不能直接获得 strict paired 资格
 
@@ -151,7 +152,7 @@ collector 可以收集外部 evaluator 返回的 raw evidence，但不能从“�
 
 ## 5. 建议的下一版接口
 
-tool 可增加一个 session-aware runner seam，但不要把 EMOS、任务 DAG 或 D1–D6 逻辑写入 tool：
+tool 已增加一个 session-aware runner seam；不要把 EMOS、任务 DAG 或 D1–D6 逻辑写入 tool：
 
 ~~~python
 class SessionBackend:
