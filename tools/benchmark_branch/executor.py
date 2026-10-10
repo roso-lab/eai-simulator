@@ -39,6 +39,21 @@ def _call(adapter: Any, name: str, *args: Any, default: Any = None) -> Any:
     return fn(*args) if callable(fn) else default
 
 
+def _supported_execution_scopes(adapter: Any) -> frozenset[str]:
+    """Return an explicit adapter scope declaration, failing closed.
+
+    Older adapters remain usable for protocol smoke runs, but they cannot be
+    promoted to ``measured`` merely by changing a CLI flag.
+    """
+
+    raw = getattr(adapter, "supported_execution_scopes", None)
+    if raw is None:
+        return frozenset({"protocol_synthetic"})
+    if isinstance(raw, str):
+        raw = (raw,)
+    return frozenset(str(item) for item in raw)
+
+
 def _worker_main(adapter: Any, job: BranchJob, checkpoint: CheckpointArtifact, branch_dir: str, out: Any) -> None:
     pid = os.getpid()
     instance_id = f"worker-{pid}"
@@ -420,6 +435,19 @@ class BranchExecutor:
         # launched so a later audit can distinguish requested policy from the
         # observed resident/active counts.
         self.store.update_manifest(timeout_s=self.timeout_s, resource_limit=dict(self.resource_limit))
+        requested_scope = str(self.store.manifest.get("execution_scope") or self.plan.execution_scope)
+        supported_scopes = _supported_execution_scopes(self.adapter)
+        if requested_scope not in supported_scopes:
+            reason = (
+                f"adapter {type(self.adapter).__name__} does not support execution_scope="
+                f"{requested_scope!r}; declared={sorted(supported_scopes)!r}"
+            )
+            self.store.update_manifest(
+                status="rejected", collector_status="rejected",
+                inference_status="unsupported", rejection_reason=reason,
+            )
+            self.store.finish()
+            raise ValueError(reason)
         contract = _call(self.adapter, "validate_contract", self.plan, default=True)
         if isinstance(contract, Mapping) and not bool(contract.get("passed", True)):
             raise ValueError(f"task contract rejected: {contract}")

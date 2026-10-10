@@ -273,6 +273,11 @@ def validate_run(run_dir: str | Path, *, write: bool = True) -> dict[str, Any]:
     outcome_status_counts: dict[str, int] = defaultdict(int)
     for row in latest_episode_values:
         outcome_status_counts[str(row.get("status", "missing"))] += 1
+    collector_pairing_complete = bool(eligible) and not bool(excluded)
+    # The collector can establish structural completeness and runtime
+    # receipts, but it does not run causal replay fidelity or sham
+    # calibration.  Never expose this diagnostic as a paper-valid paired
+    # claim; benchmark.PairedBranchCoordinator remains the authority.
     result = {
         "schema": f"{SCHEMA_VERSION}.validation.v1", "run_id": manifest.get("run_id"),
         "status": "passed" if not errors else "failed", "errors": errors, "warnings": warnings,
@@ -299,7 +304,12 @@ def validate_run(run_dir: str | Path, *, write: bool = True) -> dict[str, Any]:
             "outcome_status_counts": dict(sorted(outcome_status_counts.items())),
             "restore_failures": restore_failures,
             "pairing_eligible_groups": eligible, "pairing_excluded_groups": excluded,
-            "formal_pairing_eligible": not bool(excluded),
+            "collector_pairing_complete": collector_pairing_complete,
+            "strict_pair_claim_status": "unsupported",
+            "strict_pair_claim_reason": "benchmark_paired_gate_required",
+            # Deprecated compatibility field.  It is deliberately false even
+            # when all four collector roles have complete runtime receipts.
+            "formal_pairing_eligible": False,
         },
         "validated_at_ns": time.time_ns(),
     }
@@ -319,11 +329,24 @@ def summarize_run(run_dir: str | Path, *, write: bool = True) -> dict[str, Any]:
         fact = next((row for row in members if row.get("branch_type") == "fact"), None)
         valid = [row for row in members if bool(row.get("completed")) and row.get("status") not in STATUS_RISK]
         outcome = fact.get("outcome", {}) if fact else {}
-        outcomes.append({"pair_group_id": group, "status": "valid" if valid else "not_evaluable",
+        complete = bool(members) and len(valid) == len(members)
+        outcomes.append({"pair_group_id": group,
+                         "status": "collector_complete" if complete else "collector_incomplete",
+                         "inference_status": "unsupported",
                          "completed_branches": len(valid), "fact_status": fact.get("status") if fact else "missing",
                          "fact_outcome": outcome if isinstance(outcome, Mapping) else None})
+    validation_metrics = validation.get("metrics", {})
+    collector_status = (
+        "complete"
+        if validation.get("status") == "passed"
+        and int(validation_metrics.get("runtime_failed", 0)) == 0
+        and int(validation_metrics.get("runtime_completed", 0)) == int(validation_metrics.get("logical_branches", 0))
+        else "incomplete"
+    )
     summary = {"schema": f"{SCHEMA_VERSION}.summary.v1", "run_id": validation.get("run_id"),
                "validation_status": validation.get("status"), "metrics": validation.get("metrics", {}),
+               "collector_status": collector_status, "inference_status": "unsupported",
+               "inference_status_reason": "benchmark_metric_reducer_and_release_index_required",
                "outcomes": outcomes, "derived_from": {"raw_ledgers": [f"{name}.jsonl" for name in LEDGERS], "audit": "validation.json"}}
     if write: (root / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return summary

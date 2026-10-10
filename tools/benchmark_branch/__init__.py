@@ -2,6 +2,10 @@
 
 from .adapters import (DummyAdapter, ModernHouseExampleAdapter, SceneAdapter,
                        SharedSessionAdapter, WarehouseExampleAdapter)
+from .benchmark_bridge import (
+    BenchmarkBridgeError, branch_job_from_spec, branch_jobs_from_batch,
+    branch_plan_from_batch, validate_jobs_against_batch,
+)
 from .contracts import (CHECKPOINT_FIELDS, METHOD_FAILURES, OUTCOME_STATUSES,
                         STEP_FIELDS, TaskContract, evaluator_result)
 from .executor import BranchExecutor, BranchWorker, WorkerResult
@@ -14,6 +18,8 @@ __all__ = [
     "BRANCH_ROLES", "EXECUTION_SCOPES", "BranchJob", "BranchPlan", "CheckpointArtifact",
     "ResourceSnapshot", "canonical_digest", "SceneAdapter", "DummyAdapter",
     "ModernHouseExampleAdapter", "WarehouseExampleAdapter", "SharedSessionAdapter",
+    "BenchmarkBridgeError", "branch_job_from_spec", "branch_jobs_from_batch",
+    "branch_plan_from_batch", "validate_jobs_against_batch",
     "BranchExecutor", "BranchWorker", "WorkerResult",
     "TaskContract", "evaluator_result", "OUTCOME_STATUSES", "METHOD_FAILURES",
     "CHECKPOINT_FIELDS", "STEP_FIELDS",

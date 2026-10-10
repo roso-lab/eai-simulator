@@ -102,7 +102,10 @@ class BranchJob:
     branch_type: str
     branch_id: str
     pair_group_id: str
-    repeat_id: int = 0
+    # Keep this as text: the paper protocol uses stable ids such as ``r1``.
+    # Numeric repeat counters lose identity when a benchmark manifest is
+    # projected into the collector.
+    repeat_id: str = "r1"
     pair_seed: int = 0
     attempt: int = 0
     base_instance_id: str = ""
@@ -127,10 +130,12 @@ class BranchJob:
             raise ValueError(f"unknown branch type: {self.branch_type!r}")
         if self.execution_scope not in EXECUTION_SCOPES:
             raise ValueError(f"unknown execution_scope: {self.execution_scope!r}")
-        for name in ("slot", "repeat_id", "attempt"):
+        for name in ("slot", "attempt"):
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, int) or value < 0:
                 raise ValueError(f"{name} must be a non-negative integer")
+        if not isinstance(self.repeat_id, str) or not self.repeat_id.strip():
+            raise ValueError("repeat_id must be non-empty text")
         for name in ("run_id", "system_id", "scene_key", "task_id", "condition_id",
                      "branch_id", "pair_group_id"):
             if not str(getattr(self, name)).strip():
@@ -153,9 +158,31 @@ class BranchJob:
             self,
             branch_id=f"{base}#attempt-{int(attempt)}",
             attempt=int(attempt),
-            base_instance_id=self.base_instance_id.split("#attempt-", 1)[0]
-            + f"#attempt-{int(attempt)}",
+            # Retry is an execution attempt, not a new statistical base
+            # instance.  Reducers cluster repeats by this stable id.
+            base_instance_id=self.base_instance_id,
         )
+
+    @classmethod
+    def from_mapping(cls, value: Mapping[str, Any]) -> "BranchJob":
+        """Rehydrate an explicit benchmark-owned job without worker fields."""
+
+        names = {
+            "run_id", "system_id", "scene_key", "task_id", "condition_id",
+            "slot", "branch_type", "branch_id", "pair_group_id", "repeat_id",
+            "pair_seed", "attempt", "base_instance_id", "checkpoint_digest",
+            "restore_checkpoint_digest", "task_version", "system_version",
+            "source_revision", "rng_namespace", "communication_rng_namespace",
+            "intervention_point", "execution_scope", "task_contract_digest",
+            "scene_build_digest", "asset_resolution_digest",
+            "scene_build_order_digest", "skill_adapter_version", "metadata",
+        }
+        payload = {key: value[key] for key in names if key in value}
+        # v2 collectors used an integer repeat counter.  Reading an old
+        # manifest is safe when it is normalised to the paper's text id.
+        if "repeat_id" in payload:
+            payload["repeat_id"] = str(payload["repeat_id"])
+        return cls(**payload)
 
     def identity(self) -> dict[str, Any]:
         row = asdict(self)
@@ -193,16 +220,26 @@ class BranchPlan:
     systems: tuple[str, ...] = ()
     conditions: tuple[str, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    # A benchmark bridge may provide an exact fact-only or strict-pair job
+    # list.  When present it is the identity authority; ``jobs()`` must not
+    # regenerate branch ids from the collector's convenience dimensions.
+    explicit_jobs: tuple[BranchJob, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "arms", tuple(self.arms))
+        object.__setattr__(self, "explicit_jobs", tuple(self.explicit_jobs))
+        if self.explicit_jobs:
+            if len({job.branch_id for job in self.explicit_jobs}) != len(self.explicit_jobs):
+                raise ValueError("explicit_jobs must have unique branch_id values")
+            roles = tuple(dict.fromkeys(job.branch_type for job in self.explicit_jobs))
+            object.__setattr__(self, "arms", roles)
         if self.slots < 1:
             raise ValueError("slots must be positive")
         if self.repeats < 1:
             raise ValueError("repeats must be positive")
         if tuple(self.arms) != tuple(dict.fromkeys(self.arms)):
             raise ValueError("arms must not contain duplicates")
-        if set(self.arms) != set(BRANCH_ROLES):
+        if not self.explicit_jobs and set(self.arms) != set(BRANCH_ROLES):
             raise ValueError("formal plans must contain fact/reference/sham/intervention")
         if self.execution_scope not in EXECUTION_SCOPES:
             raise ValueError(f"unknown execution_scope: {self.execution_scope!r}")
@@ -224,10 +261,14 @@ class BranchPlan:
 
     @property
     def pair_slots(self) -> int:
+        if self.explicit_jobs:
+            return len({job.pair_group_id for job in self.explicit_jobs})
         return self.slots * self.repeats * self.combination_count
 
     @property
     def logical_branch_count(self) -> int:
+        if self.explicit_jobs:
+            return len(self.explicit_jobs)
         return self.pair_slots * len(self.arms)
 
     @property
@@ -241,13 +282,17 @@ class BranchPlan:
     def jobs(self) -> tuple[BranchJob, ...]:
         """Generate deterministic logical jobs in repeat/combination/slot order."""
 
+        if self.explicit_jobs:
+            return self.explicit_jobs
+
         import itertools
 
         run = self.run_id or "planned"
         jobs: list[BranchJob] = []
-        for repeat_id in range(self.repeats):
+        for repeat_index in range(self.repeats):
+            repeat_id = f"r{repeat_index + 1}"
             for scene, task, system, condition in itertools.product(*self.dimensions):
-                group_seed = self.pair_seed + repeat_id
+                group_seed = self.pair_seed + repeat_index
                 for slot in range(self.slots):
                     group = f"{run}/{scene}/{task}/{system}/{condition}/repeat-{repeat_id}/slot-{slot}/seed-{group_seed}"
                     base = f"{group}/base"
@@ -293,6 +338,7 @@ class BranchPlan:
             "pair_slots": self.pair_slots,
             "logical_branches": self.logical_branch_count,
             "metadata": dict(self.metadata),
+            "explicit_jobs": [job.identity() for job in self.explicit_jobs],
         }
 
     @classmethod
@@ -303,6 +349,11 @@ class BranchPlan:
                 return (raw,)
             return tuple(str(item) for item in raw or ())
 
+        raw_jobs = value.get("explicit_jobs", ())
+        explicit_jobs = tuple(
+            item if isinstance(item, BranchJob) else BranchJob.from_mapping(item)
+            for item in (raw_jobs or ())
+        )
         return cls(
             scene_key=str(value.get("scene_key", "scene")),
             task_id=str(value.get("task_id", "task")),
@@ -319,6 +370,7 @@ class BranchPlan:
             execution_scope=str(value.get("execution_scope", "protocol_synthetic")),
             scenes=_seq("scenes"), tasks=_seq("tasks"), systems=_seq("systems"),
             conditions=_seq("conditions"), metadata=dict(value.get("metadata", {})),
+            explicit_jobs=explicit_jobs,
         )
 
 

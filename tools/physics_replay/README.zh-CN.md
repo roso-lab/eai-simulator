@@ -65,6 +65,10 @@ python -m demo.fire_rescue.checks.reconstruct_physics --output tmp/replay/carry_
 `tools/physics_replay/`。它不创建第二个 Isaac Sim 应用，而是接入已有的
 `open_simulator_session()` 和 `env.step()` 循环。
 
+正式 benchmark 的 GPU 资源准入、scene/branch 并行限制和 session 生命周期交接见
+[REPLAY_SCHEDULER_DEVELOPER_HANDOFF.zh-CN.md](REPLAY_SCHEDULER_DEVELOPER_HANDOFF.zh-CN.md)。
+该调度器属于 tool 层；四 branch 论文语义和 D1–D6 仍由 benchmark/ 负责。
+
 ## Replay/GPU Scheduler
 
 上层多场景实验采集工具见 [benchmark_branch](../benchmark_branch/README.zh-CN.md)：
@@ -80,6 +84,8 @@ scene/branch 调用独立的 session/coordinator factory；scheduler 不允许�
 `max_parallel_branches` 和单 scene 的 `max_branches_per_scene`。容量不足时请求
 只能排队或用 `wait=False` 明确拒绝，不能隐式 oversubscribe GPU。所有 scene 和
 branch 都有 lease，lease 上下文退出（包括 worker 异常）会幂等释放并写入 audit。
+scene reservation 与增量 branch reservation 计入同一 GPU/host memory 总账；调用方
+不能在两层重复填报同一块显存。
 
 正式 GPU gate 要核对 requested device、actual physics device 和 controller/action
 device。actual device 无法观测时是 `unavailable`；requested=`cuda:0` 但实际是

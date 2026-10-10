@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import time
-from typing import Any, Mapping, Protocol, Sequence
+from typing import Any, ClassVar, Mapping, Protocol, Sequence
 
 from .models import BranchJob, BranchPlan, CheckpointArtifact, canonical_digest
 
@@ -32,6 +32,10 @@ class SceneAdapter(Protocol):
     def collect_cost(self, runtime: Any, job: BranchJob) -> Mapping[str, Any]: ...
     def finish_episode(self, runtime: Any, job: BranchJob) -> Mapping[str, Any]: ...
     def close(self, runtime: Any) -> None: ...
+
+    # Measured execution is opt-in.  A plugin that has not explicitly
+    # certified its simulator/evaluator boundary is synthetic-only.
+    supported_execution_scopes: ClassVar[frozenset[str]]
 
 
 class SharedSessionAdapter(SceneAdapter, Protocol):
@@ -74,6 +78,7 @@ class DummyAdapter:
     scene_build_order_digest: str = "dummy-order-v1"
     skill_adapter_version: str = "dummy-skill-v1"
     evaluator_version: str = "dummy-evaluator-v1"
+    supported_execution_scopes: ClassVar[frozenset[str]] = frozenset({"protocol_synthetic"})
 
     def __post_init__(self) -> None:
         self.steps = max(1, int(self.steps))
