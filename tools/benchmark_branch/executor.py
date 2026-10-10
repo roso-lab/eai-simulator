@@ -252,6 +252,10 @@ class BranchExecutor:
         grouped: dict[str, list[BranchJob]] = {}
         for job in jobs:
             grouped.setdefault(job.scene_key, []).append(job)
+        # Select the session backend before any branch row is emitted so the
+        # store also creates branch-local mirrors for this path.
+        self.store.update_manifest(execution_backend="session_backend",
+                                   scheduler_integrated=True)
         records_lock = __import__("threading").RLock()
         scene_results: list[dict[str, Any]] = []
         peak_state = {"value": 0}
@@ -266,6 +270,7 @@ class BranchExecutor:
             completed = failed = 0
             scene_lease = None
             session = None
+            active_runtime_ids: set[int] = set()
             try:
                 scene_lease = self.scheduler.acquire_scene(
                     scene_id, reservation=scene_reservation,
@@ -288,6 +293,7 @@ class BranchExecutor:
                         self.store.append("episodes", {
                             "status": "infrastructure_invalid", "completed": False,
                             "physical_success": None, "error": reason,
+                            "infrastructure_preflight": True,
                             "device_evidence": evidence.__dict__,
                         }, job=job)
                         failed += 1
@@ -308,6 +314,8 @@ class BranchExecutor:
                     branch_lease = None
                     branch_runtime = None
                     started = time.time_ns()
+                    receipt = {"heartbeat": False, "first_tick": None,
+                               "last_tick": None, "restore_passed": None}
                     try:
                         branch_lease = self.scheduler.acquire_branch(
                             scene_lease, branch_key=job.branch_id,
@@ -333,9 +341,30 @@ class BranchExecutor:
                             "episode_start_time_ns": started,
                         }, job=job, sync=True)
                         branch_runtime = backend.open_branch(session, job, lease=branch_lease)
+                        if branch_runtime is None:
+                            raise RuntimeError("SessionBackend.open_branch returned no branch runtime")
+                        runtime_identity = id(branch_runtime)
+                        with records_lock:
+                            if runtime_identity in active_runtime_ids:
+                                raise RuntimeError(
+                                    "SessionBackend returned one mutable branch runtime for multiple active branches"
+                                )
+                            active_runtime_ids.add(runtime_identity)
 
                         def emit(ledger: str, payload: Mapping[str, Any], *, event: bool = False) -> None:
-                            self.store.append(ledger, payload, job=job, event=event,
+                            row = dict(payload)
+                            row.setdefault("worker_instance_id", f"branch-worker-{branch_lease.lease_id}")
+                            row.setdefault("worker_session_id", f"{scene_lease.lease_id}/{branch_lease.lease_id}")
+                            row.setdefault("worker_pid", os.getpid())
+                            if ledger == "metrics" and row.get("kind") == "heartbeat":
+                                receipt["heartbeat"] = True
+                            if ledger == "steps" and row.get("simulator_step") is not None:
+                                step = int(row["simulator_step"])
+                                receipt["first_tick"] = step if receipt["first_tick"] is None else min(receipt["first_tick"], step)
+                                receipt["last_tick"] = step if receipt["last_tick"] is None else max(receipt["last_tick"], step)
+                            if ledger == "checkpoints" and row.get("restore_passed") is not None:
+                                receipt["restore_passed"] = bool(row["restore_passed"])
+                            self.store.append(ledger, row, job=job, event=event,
                                               sync=event or ledger in {"checkpoints", "episodes"})
 
                         result = backend.run_branch(branch_runtime, job, emit=emit)
@@ -345,7 +374,47 @@ class BranchExecutor:
                         if not result or "completed" not in result or "status" not in result:
                             status = "missing_response"
                             branch_completed = False
-                        self.store.append("episodes", {
+                        execution_scope = str(self.store.manifest.get("execution_scope") or self.plan.execution_scope)
+                        if execution_scope == "measured":
+                            heartbeat = bool(result.get("heartbeat", receipt["heartbeat"]))
+                            first_tick = result.get("first_tick", receipt["first_tick"])
+                            last_tick = result.get("last_tick", receipt["last_tick"])
+                            restore_passed = result.get("restore_passed", receipt["restore_passed"])
+                            if not heartbeat or first_tick is None or last_tick is None or restore_passed is not True:
+                                status = "infrastructure_invalid"
+                                branch_completed = False
+                                result["physical_success"] = None
+                                result["infrastructure_error"] = {
+                                    "heartbeat": heartbeat, "first_tick": first_tick,
+                                    "last_tick": last_tick, "restore_passed": restore_passed,
+                                }
+                            else:
+                                # A measured run may only expose a physical
+                                # outcome when an external evaluator supplies
+                                # the evidence envelope.  Process completion,
+                                # a horizon tick, or a backend-provided
+                                # ``physical_success`` flag is not evidence.
+                                required = ("evaluator_version", "evidence_hash",
+                                            "evidence_refs", "evidence_source")
+                                evaluator_ok = (
+                                    all(bool(result.get(field)) for field in required)
+                                    and result.get("evidence_source") == "external_evaluator"
+                                )
+                                terminal_candidate = (
+                                    branch_completed
+                                    or status in {"completed", "success", "valid_terminal",
+                                                   "safe_stop", "team_state_infeasible"}
+                                    or result.get("physical_success") is not None
+                                )
+                                if terminal_candidate and not evaluator_ok:
+                                    status = "not_evaluable"
+                                    branch_completed = False
+                                    result["physical_success"] = None
+                                    result["evaluator_error"] = {
+                                        "required": required,
+                                        "evidence_source": result.get("evidence_source"),
+                                    }
+                        episode = {
                             "status": status, "completed": branch_completed,
                             "outcome": result.get("outcome", result),
                             "physical_success": result.get("physical_success"),
@@ -359,7 +428,15 @@ class BranchExecutor:
                                 "worker_session_id", f"{scene_lease.lease_id}/{branch_lease.lease_id}")),
                             "episode_start_time_ns": started,
                             "episode_end_time_ns": time.time_ns(),
-                        }, job=job, sync=True)
+                        }
+                        for field in ("evaluator_version", "evidence_hash", "evidence_refs",
+                                      "evidence_source", "milestones", "terminal_predicate",
+                                      "safety_predicate", "feasibility_predicate",
+                                      "first_tick", "last_tick", "heartbeat_first_ns",
+                                      "heartbeat_last_ns", "restore_passed", "restore_error"):
+                            if field in result:
+                                episode[field] = result[field]
+                        self.store.append("episodes", episode, job=job, sync=True)
                         self.scheduler.release_branch(
                             branch_lease, status="completed" if branch_completed else status,
                         )
@@ -370,6 +447,13 @@ class BranchExecutor:
                             "status": "crashed", "completed": False,
                             "physical_success": None,
                             "error": f"{type(exc).__name__}: {exc}",
+                            "worker_instance_id": (
+                                f"branch-worker-{branch_lease.lease_id}" if branch_lease else ""
+                            ),
+                            "worker_session_id": (
+                                f"{scene_lease.lease_id}/{branch_lease.lease_id}"
+                                if branch_lease else ""
+                            ),
                             "episode_start_time_ns": started,
                             "episode_end_time_ns": time.time_ns(),
                         }, job=job, sync=True)
@@ -381,9 +465,18 @@ class BranchExecutor:
                         return False
                     finally:
                         if branch_runtime is not None:
+                            with records_lock:
+                                active_runtime_ids.discard(id(branch_runtime))
                             close_branch = backend_method(backend, "close_branch")
                             if close_branch is not None:
-                                close_branch(branch_runtime)
+                                try:
+                                    close_branch(branch_runtime)
+                                except BaseException as close_exc:
+                                    self.store.append("resources", {
+                                        "kind": "branch_close_error", "scene_id": scene_id,
+                                        "branch_id": job.branch_id,
+                                        "error": f"{type(close_exc).__name__}: {close_exc}",
+                                    }, job=job, sync=True)
 
                 # Admit/run branch slots concurrently within one scene-owned
                 # session.  The scheduler remains authoritative when global
@@ -415,13 +508,26 @@ class BranchExecutor:
                 if session is not None:
                     close_scene = backend_method(backend, "close_scene")
                     if close_scene is not None:
-                        close_scene(session)
+                        try:
+                            close_scene(session)
+                        except BaseException as close_exc:
+                            self.store.append("resources", {
+                                "kind": "session_close_error", "scene_id": scene_id,
+                                "error": f"{type(close_exc).__name__}: {close_exc}",
+                            }, sync=True)
                 if scene_lease is not None:
-                    self.scheduler.release_scene(
-                        scene_lease,
-                        status="completed" if failed == 0 else "aborted",
-                        reason="session branch failure" if failed else "",
-                    )
+                    try:
+                        self.scheduler.release_scene(
+                            scene_lease,
+                            status="completed" if failed == 0 else "aborted",
+                            reason="session branch failure" if failed else "",
+                        )
+                    except BaseException as release_exc:
+                        self.store.append("resources", {
+                            "kind": "scene_lease_release_error", "scene_id": scene_id,
+                            "lease_id": scene_lease.lease_id,
+                            "error": f"{type(release_exc).__name__}: {release_exc}",
+                        }, sync=True)
             return {"scene_id": scene_id, "completed": completed, "failed": failed}
 
         with ThreadPoolExecutor(max_workers=max(1, len(grouped))) as pool:
@@ -701,6 +807,29 @@ class BranchExecutor:
         if isinstance(contract, Mapping) and not bool(contract.get("passed", True)):
             raise ValueError(f"task contract rejected: {contract}")
         checkpoint = self._checkpoint()
+        explicit_checkpoint_digests = {
+            str(job.checkpoint_digest) for job in self.plan.jobs() if str(job.checkpoint_digest)
+        }
+        if explicit_checkpoint_digests and explicit_checkpoint_digests != {checkpoint.digest}:
+            requested_scope = str(self.store.manifest.get("execution_scope") or self.plan.execution_scope)
+            if requested_scope != "protocol_synthetic":
+                reason = ("captured checkpoint digest does not match benchmark-owned explicit job "
+                          f"digest(s): expected={sorted(explicit_checkpoint_digests)!r}, got={checkpoint.digest!r}")
+                self.store.update_manifest(status="rejected", collector_status="rejected",
+                                           inference_status="unsupported", rejection_reason=reason)
+                self.store.finish()
+                raise ValueError(reason)
+            # Synthetic adapters may not deserialize an upstream checkpoint,
+            # but they must retain its authoritative identity. Keep the
+            # adapter digest as diagnostic metadata and never call this measured.
+            checkpoint = CheckpointArtifact(
+                checkpoint_id=checkpoint.checkpoint_id,
+                digest=next(iter(explicit_checkpoint_digests)),
+                state=checkpoint.state, schema=checkpoint.schema,
+                metadata={**dict(checkpoint.metadata),
+                          "captured_state_digest": checkpoint.digest,
+                          "checkpoint_digest_source": "benchmark_identity"},
+            )
         metadata = dict(checkpoint.metadata)
         self.store.update_manifest(
             task_contract_digest=str(metadata.get("task_contract_digest") or (contract.get("task_contract_digest", "") if isinstance(contract, Mapping) else "")),
@@ -713,7 +842,9 @@ class BranchExecutor:
         jobs = self._jobs_to_run()
         resolved_jobs: list[BranchJob] = []
         for job in jobs:
-            updated = replace(job, checkpoint_digest=checkpoint.digest, restore_checkpoint_digest=checkpoint.digest,
+            updated = replace(job,
+                              checkpoint_digest=job.checkpoint_digest or checkpoint.digest,
+                              restore_checkpoint_digest=job.restore_checkpoint_digest or checkpoint.digest,
                               task_contract_digest=job.task_contract_digest or str(metadata.get("task_contract_digest", "")),
                               scene_build_digest=job.scene_build_digest or str(metadata.get("scene_build_digest", "")),
                               asset_resolution_digest=job.asset_resolution_digest or str(metadata.get("asset_resolution_digest", "")),

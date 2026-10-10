@@ -205,7 +205,8 @@ class BranchRunStore:
         # inspectable while the top-level ledger remains the canonical source
         # for validation and aggregation.  Fresh-process workers already own
         # their branch/ledger.jsonl, so they do not use this mirror.
-        if job is not None and self.manifest.get("execution_mode") == "shared_session":
+        if job is not None and (self.manifest.get("execution_mode") == "shared_session"
+                                or self.manifest.get("execution_backend") == "session_backend"):
             self.append_branch_ledger(job, ledger, payload, sync=sync)
         return payload
 

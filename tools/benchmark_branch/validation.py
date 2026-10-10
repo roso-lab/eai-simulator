@@ -10,6 +10,7 @@ import time
 from typing import Any, Mapping
 
 from .models import BRANCH_ROLES, IDENTITY_FIELDS, SCHEMA_VERSION
+from .benchmark_bridge import benchmark_job_errors
 from .store import LEDGERS
 
 
@@ -95,6 +96,14 @@ def validate_run(run_dir: str | Path, *, write: bool = True) -> dict[str, Any]:
     duplicates = sorted({item for item in ids if item and ids.count(item) > 1})
     if duplicates: errors.append(f"duplicate branch_id: {duplicates[:5]}")
     latest_branches = _latest(branch_rows)
+    if str(manifest.get("execution_scope")) == "measured":
+        for row in latest_branches.values():
+            try:
+                from .models import BranchJob
+                errors.extend(f"{row.get('branch_id')}: {item}" for item in
+                              benchmark_job_errors(BranchJob.from_mapping(row)))
+            except Exception as exc:
+                errors.append(f"measured benchmark identity invalid {row.get('branch_id', '')}: {exc}")
     expected = int(manifest.get("logical_branches", plan.get("logical_branches", 0)) or 0)
     if expected and len(latest_branches) != expected:
         errors.append(f"logical branch count {len(latest_branches)} != expected {expected}")
@@ -167,7 +176,11 @@ def validate_run(run_dir: str | Path, *, write: bool = True) -> dict[str, Any]:
     for name in ("episodes", "metrics", "steps", "events"):
         for row in rows[name]:
             logical = str(row.get("logical_branch_id") or str(row.get("branch_id", "")).split("#attempt-", 1)[0])
-            if logical and row.get("branch_id"):
+            # A scene-level device preflight can reject every branch before a
+            # worker/session exists.  Preserve those raw infrastructure rows,
+            # but do not require runtime worker identity for a branch that was
+            # never admitted.
+            if logical and row.get("branch_id") and not row.get("infrastructure_preflight"):
                 executed_logicals.add(logical)
             worker = str(row.get("worker_instance_id") or "")
             session = str(row.get("worker_session_id") or "")
@@ -185,8 +198,9 @@ def validate_run(run_dir: str | Path, *, write: bool = True) -> dict[str, Any]:
     worker_sessions = {item[1] for item in latest_runtime_identities}
     if missing_worker_identity:
         errors.append(f"missing worker identity: {missing_worker_identity[:5]}")
-    shared_backend = str(manifest.get("execution_backend") or
-                         manifest.get("execution_mode") or "") == "shared_session"
+    execution_backend = str(manifest.get("execution_backend") or "")
+    shared_backend = str(manifest.get("execution_mode") or "") == "shared_session"
+    session_backend = execution_backend == "session_backend"
     if not shared_backend and len(worker_sessions) != len(latest_runtime_identities):
         errors.append("duplicate worker_session_id across latest branches")
     if not shared_backend and len(worker_instances) != len(latest_runtime_identities):
@@ -199,24 +213,28 @@ def validate_run(run_dir: str | Path, *, write: bool = True) -> dict[str, Any]:
         for name in ("episodes", "metrics", "steps", "events")
         for row in rows[name] if row.get("branch_id") and row.get("shared_session_id")
     }
-    if shared_backend:
+    if shared_backend or session_backend:
+        if session_backend and manifest.get("scheduler_integrated") is not True:
+            errors.append("session backend did not record scheduler integration")
         if len(shared_sessions) != 1:
-            errors.append("shared session identity is missing or split across branches")
-        slot_workers: dict[int, str] = {}
-        for name in ("episodes", "steps", "events"):
-            for row in rows[name]:
-                # ``slot`` is the experimental pair slot.  Shared-session
-                # adapters may reuse it across four arms; ownership is keyed
-                # by the physical environment slot instead.
-                slot_value = row.get("environment_slot", row.get("slot"))
-                if not row.get("branch_id") or slot_value is None:
-                    continue
-                slot = int(slot_value)
-                worker = str(row.get("worker_instance_id") or "")
-                old = slot_workers.setdefault(slot, worker)
-                if old and worker and old != worker:
-                    errors.append(f"slot {slot} changed worker ownership")
-        if manifest.get("slot_isolation_validated") is not True:
+            if shared_backend:
+                errors.append("shared session identity is missing or split across branches")
+        if shared_backend:
+            slot_workers: dict[int, str] = {}
+            for name in ("episodes", "steps", "events"):
+                for row in rows[name]:
+                    # ``slot`` is the experimental pair slot.  Shared-session
+                    # adapters may reuse it across four arms; ownership is
+                    # keyed by the physical environment slot instead.
+                    slot_value = row.get("environment_slot", row.get("slot"))
+                    if not row.get("branch_id") or slot_value is None:
+                        continue
+                    slot = int(slot_value)
+                    worker = str(row.get("worker_instance_id") or "")
+                    old = slot_workers.setdefault(slot, worker)
+                    if old and worker and old != worker:
+                        errors.append(f"slot {slot} changed worker ownership")
+        if shared_backend and manifest.get("slot_isolation_validated") is not True:
             errors.append("shared-session slot isolation was not validated")
         # Shared-session collection has one parent writer, but every logical
         # branch must still retain an independently inspectable append-only
@@ -267,6 +285,16 @@ def validate_run(run_dir: str | Path, *, write: bool = True) -> dict[str, Any]:
         if reason: excluded[group] = reason
         else: eligible.append(group)
     latest_episode_values = list(episodes.values())
+    if str(manifest.get("execution_scope")) == "measured":
+        for row in latest_episode_values:
+            if not bool(row.get("completed")):
+                continue
+            status = str(row.get("status", ""))
+            if status in {"valid_terminal", "safe_stop", "team_state_infeasible"}:
+                required = ("evaluator_version", "evidence_hash", "evidence_refs", "evidence_source")
+                missing = [field for field in required if not row.get(field)]
+                if missing or row.get("evidence_source") != "external_evaluator":
+                    errors.append(f"measured episode lacks external evaluator evidence: {row.get('branch_id', '')}")
     completed = sum(bool(row.get("completed")) and str(row.get("status")) not in STATUS_RISK for row in latest_episode_values)
     failed = sum(str(row.get("status")) in STATUS_RISK or (row.get("completed") is False) for row in latest_episode_values)
     runtime_completed = sum(bool(row.get("completed")) for row in latest_episode_values)
@@ -298,6 +326,7 @@ def validate_run(run_dir: str | Path, *, write: bool = True) -> dict[str, Any]:
             "independent_worker_instances": len(worker_instances),
             "independent_worker_sessions": 1 if shared_backend and shared_sessions else len(worker_sessions),
             "shared_session": shared_backend,
+            "session_backend": session_backend,
             "shared_session_ids": sorted(shared_sessions),
             "missing_worker_identity": missing_worker_identity,
             "runtime_completed": runtime_completed,

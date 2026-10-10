@@ -71,6 +71,25 @@ def test_bridge_preserves_benchmark_run_keys_and_manifest_digest():
     assert {job.metadata["checkpoint_round"] for job in plan.jobs()} == {batch.cell.checkpoint_round}
 
 
+def test_bridge_preserves_authoritative_branch_and_pair_identity():
+    batch = _batch(strict=True)
+    for branch in batch.branches:
+        branch.branch_id = f"benchmark-owned/{branch.run_key.branch_role}"
+        branch.run_key.pair_group_id = "benchmark-owned/pair-7"
+        branch.run_key.pair_key = ("benchmark-owned", "pair-7")
+        branch.run_key.pair_seed = 91
+    plan = branch_plan_from_batch(batch, execution_scope="protocol_synthetic")
+    assert {job.branch_id for job in plan.jobs()} == {
+        f"benchmark-owned/{branch.run_key.branch_role}"
+        for branch in batch.branches
+    }
+    assert {job.pair_group_id for job in plan.jobs()} == {"benchmark-owned/pair-7"}
+    assert {job.pair_seed for job in plan.jobs()} == {91}
+    assert {tuple(job.metadata["benchmark_pair_key"]) for job in plan.jobs()} == {
+        ("benchmark-owned", "pair-7")
+    }
+
+
 def test_bridge_does_not_force_fact_only_batch_into_four_arms():
     batch = _batch(strict=False)
     plan = branch_plan_from_batch(batch, execution_scope="protocol_synthetic")

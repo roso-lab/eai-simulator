@@ -57,6 +57,22 @@ class _SessionBackend:
             self.closed.append(session["scene_id"])
 
 
+class _MeasuredAdapter(DummyAdapter):
+    supported_execution_scopes = frozenset({"protocol_synthetic", "measured"})
+
+
+class _MeasuredEvidenceBackend(_SessionBackend):
+    def run_branch(self, runtime, job, *, emit):
+        emit("metrics", {"kind": "heartbeat", "heartbeat_at_ns": time.time_ns()})
+        emit("steps", {"simulator_step": 0, "sim_time_s": 0.0,
+                        "active": False, "completed": True, "terminated": True})
+        emit("checkpoints", {"restore_passed": True,
+                              "restore_status": "passed",
+                              "readback_digest": job.checkpoint_digest})
+        return {"status": "completed", "completed": True,
+                "physical_success": True}
+
+
 def _scheduler():
     return ReplayScheduler(
         ReplayCapacity(max_parallel_scenes=2, max_parallel_branches=8,
@@ -111,6 +127,22 @@ def test_session_backend_cpu_preflight_is_fail_closed(tmp_path):
     assert result["failed"] == 4
     episodes = store.read_ledger("episodes")
     assert {row["status"] for row in episodes} == {"infrastructure_invalid"}
+    assert all(row["physical_success"] is None for row in episodes)
+
+
+def test_measured_backend_cannot_promote_completion_to_physical_success(tmp_path):
+    plan = BranchPlan(slots=1, execution_scope="measured")
+    store = BranchRunStore.create(tmp_path / "run", plan, requested_max_workers=4,
+                                  execution_scope="measured")
+    result = BranchExecutor(
+        plan, _MeasuredAdapter(steps=1), store, max_workers=4,
+        session_backend=_MeasuredEvidenceBackend(), scheduler=_scheduler(),
+        requested_device="cuda:0",
+    ).run()
+    assert result["completed"] == 0
+    assert result["failed"] == 4
+    episodes = store.read_ledger("episodes")
+    assert {row["status"] for row in episodes} == {"not_evaluable"}
     assert all(row["physical_success"] is None for row in episodes)
 
 

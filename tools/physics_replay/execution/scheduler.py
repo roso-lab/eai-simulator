@@ -143,6 +143,8 @@ class ReplayAudit:
     device_validation: str = ""
     gpu_uuid: str = ""
     gpu_memory_budget_mb: int | None = None
+    gpu_free_memory_mb: int | None = None
+    host_available_memory_mb: int | None = None
     max_parallel_scenes: int | None = None
     max_parallel_branches: int | None = None
     max_branches_per_scene: int | None = None
@@ -317,6 +319,9 @@ class ReplayScheduler:
 
     def _base_audit(self, *, event: str, lease_id: str, scene_id: str, branch_key: str = "",
                     device: DeviceEvidence | None = None, **kwargs: Any) -> ReplayAudit:
+        sample = self._resource_sample()
+        gpu_free = self._memory_mb(sample, "gpu_free_memory_mb", "gpu_free_bytes", "gpu_free", "vram_free_bytes")
+        host_free = self._memory_mb(sample, "host_available_memory_mb", "host_available_bytes", "host_available", "ram_available_bytes")
         return ReplayAudit(
             event=event, lease_id=lease_id, scene_id=scene_id, branch_key=branch_key,
             requested_device=device.requested_device if device else "",
@@ -325,6 +330,8 @@ class ReplayScheduler:
             device_validation=device.device_validation if device else "",
             gpu_uuid=device.gpu_uuid if device else "",
             gpu_memory_budget_mb=device.gpu_memory_budget_mb if device else None,
+            gpu_free_memory_mb=gpu_free,
+            host_available_memory_mb=host_free,
             max_parallel_scenes=self.capacity.max_parallel_scenes,
             max_parallel_branches=self.capacity.max_parallel_branches,
             max_branches_per_scene=self.capacity.max_branches_per_scene,
@@ -547,6 +554,14 @@ class ReplayScheduler:
                                          episode_start_time_ns=current.acquired_at_ns,
                                          episode_end_time_ns=time.time_ns(),
                                          owner_pid=current.owner_pid))
+            if status in {"completed", "success", "released"}:
+                self._audit(self._base_audit(event="branch_completed", lease_id=current.lease_id,
+                                             scene_id=current.scene_id, branch_key=current.branch_key,
+                                             device=current.device, warmup_ticks=current.warmup_ticks,
+                                             episode_time_s=episode_time, release_status=status,
+                                             episode_start_time_ns=current.acquired_at_ns,
+                                             episode_end_time_ns=time.time_ns(),
+                                             owner_pid=current.owner_pid))
             self._released_branch_ids.add(current.lease_id)
             self._branch_scene_leases.pop(current.lease_id, None)
             self._condition.notify_all()
