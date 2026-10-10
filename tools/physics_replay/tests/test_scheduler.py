@@ -169,6 +169,93 @@ def test_gpu_budget_rejects_without_implicit_oversubscription():
     s.release_scene(scene)
 
 
+def test_scene_and_branch_reservations_share_one_memory_budget():
+    s = scheduler(ReplayCapacity(
+        1, 2, 2, gpu_memory_budget_mb=100, host_memory_budget_mb=100,
+    ))
+    scene = s.acquire_scene(
+        "scene", reservation=ResourceReservation(70, 60),
+        requested_device="cuda:0",
+    )
+    s.preflight(
+        ReplayRequest(
+            "scene", "branch", ResourceReservation(20, 20), "cuda:0",
+        ),
+        object(),
+    )
+    with pytest.raises(CapacityDenied):
+        s.acquire_branch(
+            scene, branch_key="branch",
+            reservation=ResourceReservation(31, 20),
+            requested_device="cuda:0", wait=False,
+        )
+    s.release_scene(scene)
+
+
+def test_active_slots_remain_unique_after_out_of_order_release():
+    s = scheduler(ReplayCapacity(3, 4, 3, 1000, 1000))
+    scene_a = admit_scene(s, "a")
+    scene_b = admit_scene(s, "b")
+    s.release_scene(scene_a)
+    scene_c = admit_scene(s, "c")
+    assert scene_b.slot != scene_c.slot
+
+    first = s.acquire_branch(
+        scene_b, branch_key="first", reservation=ResourceReservation(100, 100),
+        requested_device="cuda:0",
+    )
+    second = s.acquire_branch(
+        scene_b, branch_key="second", reservation=ResourceReservation(100, 100),
+        requested_device="cuda:0",
+    )
+    s.release_branch(first)
+    third = s.acquire_branch(
+        scene_b, branch_key="third", reservation=ResourceReservation(100, 100),
+        requested_device="cuda:0",
+    )
+    assert second.slot != third.slot
+    s.release_branch(second)
+    s.release_branch(third)
+    s.release_scene(scene_b)
+    s.release_scene(scene_c)
+
+
+def test_branch_device_request_must_match_preflight_request():
+    s = scheduler()
+    scene = admit_scene(s)
+    with pytest.raises(DevicePreflightError, match="preflight was for"):
+        s.acquire_branch(
+            scene, branch_key="branch",
+            reservation=ResourceReservation(100, 100),
+            requested_device="cuda:1",
+        )
+    s.release_scene(scene)
+
+
+def test_cuda_preflight_requires_gpu_uuid():
+    class MissingUuidProbe(DeviceProbe):
+        def probe(self, session, request):
+            return {
+                "actual_physics_device": self.physics,
+                "controller_device": self.controller,
+            }
+
+    s = ReplayScheduler(
+        ReplayCapacity(1, 1, 1), device_probe=MissingUuidProbe(),
+    )
+    scene = s.acquire_scene(
+        "scene", reservation=ResourceReservation(0, 0),
+        requested_device="cuda:0",
+    )
+    evidence = s.preflight(
+        ReplayRequest("scene", "branch", ResourceReservation(0, 0), "cuda:0"),
+        object(),
+    )
+    assert evidence.device_validation == "unavailable"
+    assert "GPU UUID" in evidence.diagnostics[-1]
+    s.release_scene(scene)
+
+
 def test_audit_contains_gpu_uuid_capacity_and_abort_reason():
     s = scheduler()
     scene = admit_scene(s)

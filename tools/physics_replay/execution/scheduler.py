@@ -196,6 +196,39 @@ class ReplayScheduler:
         self._scene_devices: dict[str, DeviceEvidence] = {}
         self._branch_scene_leases: dict[str, str] = {}
 
+    @staticmethod
+    def _next_slot(occupied: Any) -> int:
+        """Return the smallest free non-negative slot.
+
+        Active leases can be released out of order.  Using ``len(active)``
+        would then reuse a slot that is still owned by another lease.
+        """
+
+        used = {int(value) for value in occupied}
+        slot = 0
+        while slot in used:
+            slot += 1
+        return slot
+
+    def _branch_leases_for_scene(self, scene_lease_id: str) -> tuple[BranchLease, ...]:
+        return tuple(
+            lease
+            for lease_id, lease in self._branches.items()
+            if self._branch_scene_leases.get(lease_id) == scene_lease_id
+        )
+
+    def _reserved_memory_mb(self) -> tuple[int, int]:
+        """Return total active scene plus incremental branch reservations."""
+
+        reservations = [
+            getattr(lease, "_reservation", ResourceReservation(0, 0))
+            for lease in (*self._scenes.values(), *self._branches.values())
+        ]
+        return (
+            sum(item.gpu_memory_mb for item in reservations),
+            sum(item.host_memory_mb for item in reservations),
+        )
+
     def _resource_sample(self) -> Mapping[str, Any]:
         probe = self.resource_probe
         if probe is None:
@@ -228,11 +261,9 @@ class ReplayScheduler:
             return "max_parallel_branches reached"
         if not scene:
             return None
-        # Scene admission reserves the supplied scene resources too; branch
-        # reservations are checked separately when a branch is acquired.
-        scene_reservations = [getattr(lease, "_reservation", ResourceReservation(0, 0)) for lease in self._scenes.values()]
-        gpu_used = sum(item.gpu_memory_mb for item in scene_reservations) + reservation.gpu_memory_mb
-        host_used = sum(item.host_memory_mb for item in scene_reservations) + reservation.host_memory_mb
+        gpu_reserved, host_reserved = self._reserved_memory_mb()
+        gpu_used = gpu_reserved + reservation.gpu_memory_mb
+        host_used = host_reserved + reservation.host_memory_mb
         if self.capacity.gpu_memory_budget_mb is not None and gpu_used > self.capacity.gpu_memory_budget_mb:
             return "GPU memory budget exceeded"
         if self.capacity.host_memory_budget_mb is not None and host_used > self.capacity.host_memory_budget_mb:
@@ -248,19 +279,18 @@ class ReplayScheduler:
 
     def _branch_admission_reason(self, scene: SceneLease,
                                  reservation: ResourceReservation) -> str | None:
-        scene_count = sum(item.scene_id == scene.scene_id for item in self._branches.values())
+        scene_count = len(self._branch_leases_for_scene(scene.lease_id))
         if scene_count >= self.capacity.max_branches_per_scene:
             return "max_branches_per_scene reached"
         if len(self._branches) >= self.capacity.max_parallel_branches:
             return "max_parallel_branches reached"
-        active_res = [getattr(item, "_reservation", ResourceReservation(0, 0))
-                      for item in self._branches.values()]
+        gpu_reserved, host_reserved = self._reserved_memory_mb()
         if (self.capacity.gpu_memory_budget_mb is not None
-                and sum(item.gpu_memory_mb for item in active_res) + reservation.gpu_memory_mb
+                and gpu_reserved + reservation.gpu_memory_mb
                 > self.capacity.gpu_memory_budget_mb):
             return "GPU memory budget exceeded"
         if (self.capacity.host_memory_budget_mb is not None
-                and sum(item.host_memory_mb for item in active_res) + reservation.host_memory_mb
+                and host_reserved + reservation.host_memory_mb
                 > self.capacity.host_memory_budget_mb):
             return "host memory budget exceeded"
         sample = self._resource_sample()
@@ -344,7 +374,7 @@ class ReplayScheduler:
             finally:
                 if queued:
                     self._queued -= 1
-            slot = len(self._scenes)
+            slot = self._next_slot(lease.slot for lease in self._scenes.values())
             now = time.time_ns()
             lease = SceneLease(
                 str(uuid.uuid4()), scene_id, slot, self.capacity, "",
@@ -392,7 +422,9 @@ class ReplayScheduler:
             finally:
                 if queued:
                     self._queued -= 1
-            slot = sum(item.scene_id == scene.scene_id for item in self._branches.values())
+            slot = self._next_slot(
+                lease.slot for lease in self._branch_leases_for_scene(scene.lease_id)
+            )
             now = time.time_ns()
             evidence = self._preflights.get(branch_key) or self._preflights.get(scene.scene_id)
             if evidence is None:
@@ -403,6 +435,11 @@ class ReplayScheduler:
                 raise DevicePreflightError(
                     f"scene {scene.scene_id!r} device preflight did not pass: "
                     + "; ".join(evidence.diagnostics)
+                )
+            if evidence.requested_device != requested_device:
+                raise DevicePreflightError(
+                    f"branch requested {requested_device!r}, but preflight was for "
+                    f"{evidence.requested_device!r}"
                 )
             lease = BranchLease(str(uuid.uuid4()), scene.scene_id, branch_key, slot, evidence,
                                 os.getpid() if owner_pid is None else int(owner_pid), now,
@@ -464,6 +501,9 @@ class ReplayScheduler:
         elif actual != requested or controller != requested:
             validation = "failed"
             diagnostics += (f"requested {requested}, physics={actual}, controller={controller}",)
+        elif requested.startswith("cuda:") and not gpu_uuid:
+            validation = "unavailable"
+            diagnostics += ("GPU UUID must be observable for a formal CUDA preflight",)
         else:
             validation = "passed"
         evidence = DeviceEvidence(requested, actual, controller, validation, gpu_uuid,
@@ -595,7 +635,7 @@ class ReplayScheduler:
             with self._condition:
                 if lease.lease_id not in self._scenes:
                     continue
-                has_branch = any(item.scene_id == lease.scene_id for item in self._branches.values())
+                has_branch = bool(self._branch_leases_for_scene(lease.lease_id))
             if not has_branch and lease.owner_pid and not live_pid_check(lease.owner_pid):
                 self.release_scene(lease, status="stale", reason="owner PID is no longer alive")
                 recovered.append(lease.lease_id)
