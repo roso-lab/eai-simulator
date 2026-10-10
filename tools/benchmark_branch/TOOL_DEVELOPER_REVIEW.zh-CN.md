@@ -3,6 +3,10 @@
 本文是对提交 1cc505f81d6df6b0c62a5472230c32736e59b63b 合入后的审查结论。
 它给 tool 开发者说明：哪些功能已经接受、哪些职责不能越界、下一版还需要补什么。
 
+当前文档对应 `HeteroCoord` 正式分支的兼容提交 `01296b5d`。本次已完成的是
+collector 身份兼容和 fail-closed 边界；真实 Isaac session、GPU preflight 自动接线
+和 shared-session 认证仍属于后续 tool 开发任务。
+
 ## 1. 这次合入已经接受的能力
 
 tools/benchmark_branch/ 作为实验采集基础设施已经保留并接入主分支，原因是它解决了原有轻量 runner 没有覆盖的工程问题：
@@ -113,6 +117,20 @@ scene admission
 ~~~
 
 不要在 session 创建前把 branch 当作已通过 physics preflight。requested cuda:0、actual physics device、controller/action device 和 GPU UUID 都要写进 scheduler audit；无法观测 actual device 时必须是 unavailable，不能默认为 CUDA。
+
+当前正式入口仍需要上层 runner 显式编排：
+
+~~~text
+ExperimentBatch
+  -> branch_plan_from_batch(...)
+  -> scene/branch scheduler leases
+  -> BranchExecutor / SessionBackend
+  -> raw collector ledgers
+  -> benchmark replay/evaluator/reducer
+~~~
+
+`BranchExecutor` 当前不会自动创建 `ReplayScheduler`，因此不能仅凭 collector 的
+`validation.json` 证明 GPU admission 或物理 session 隔离已经通过。
 
 ### 4.3 shared-session 不能直接获得 strict paired 资格
 
