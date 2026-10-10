@@ -9,12 +9,13 @@ from tools.benchmark_branch.validation import validate_run
 
 
 class _SessionBackend:
-    def __init__(self):
+    def __init__(self, barrier_size=None):
         self.lock = threading.Lock()
         self.open_sessions = 0
         self.peak_sessions = 0
         self.active_branches = 0
         self.peak_branches = 0
+        self.branch_barrier = threading.Barrier(barrier_size) if barrier_size else None
         self.closed = []
 
     def open_scene(self, scene_id, *, scheduler):
@@ -35,6 +36,8 @@ class _SessionBackend:
         with self.lock:
             self.active_branches += 1
             self.peak_branches = max(self.peak_branches, self.active_branches)
+        if self.branch_barrier is not None:
+            self.branch_barrier.wait(timeout=5)
         emit("steps", {"simulator_step": 0, "sim_time_s": 0.0,
                         "active": False, "completed": True, "terminated": True})
         try:
@@ -117,7 +120,7 @@ def test_session_backend_can_overlap_32_branch_slots_across_two_scenes(tmp_path)
     )
     store = BranchRunStore.create(tmp_path / "run", plan, requested_max_workers=32,
                                   execution_scope="protocol_synthetic")
-    backend = _SessionBackend()
+    backend = _SessionBackend(barrier_size=32)
     scheduler = ReplayScheduler(
         ReplayCapacity(max_parallel_scenes=2, max_parallel_branches=32,
                        max_branches_per_scene=16),
