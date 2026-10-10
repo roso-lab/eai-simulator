@@ -67,6 +67,10 @@ python -m demo.fire_rescue.checks.reconstruct_physics --output tmp/replay/carry_
 
 ## Replay/GPU Scheduler
 
+上层多场景实验采集工具见 [benchmark_branch](../benchmark_branch/README.zh-CN.md)：
+它负责实验分支和数据账本，本工具负责回放与资源准入。当前两个模块仍需上游 runner
+显式连接；启动两个 collector 进程不会自动形成共享 GPU 准入或多场景总预算。
+
 `tools/physics_replay/execution/scheduler.py` 只负责资源准入和 session 生命周期，
 不实现任务图、EMOS、外部 evaluator 或 D1–D6 指标。benchmark 主干必须为每个
 scene/branch 调用独立的 session/coordinator factory；scheduler 不允许把不同

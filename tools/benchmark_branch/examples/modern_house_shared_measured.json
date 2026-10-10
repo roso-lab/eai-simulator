@@ -1,0 +1,23 @@
+{
+  "scene_key": "modern_house_nvd",
+  "task_id": "MH-DAG-01",
+  "system_id": "isaac-runtime",
+  "task_version": "scenario.v2",
+  "system_version": "isaac-runtime-report.v1",
+  "source_revision": "modern-house-scenario-json-v2",
+  "slots": 32,
+  "arms": ["fact", "reference", "sham", "intervention"],
+  "execution_scope": "measured",
+  "shared_session_envs": 32,
+  "adapter": "demo.benchmark.branch_plugins:ModernHouseMeasuredAdapter",
+  "adapter_kwargs": {
+    "scenario_path": "demo/modern_house_benchmark/scenarios/home_recovery_01.json",
+    "runtime_steps": 0,
+    "device": "cuda",
+    "transport_mode": "kinematic",
+    "participant_mode": "public_greedy",
+    "execution_backend": "shared_session",
+    "shared_session_envs": 32,
+    "artifact_root": "tmp/benchmark_branch_shared_measured_reports_modern_house"
+  }
+}

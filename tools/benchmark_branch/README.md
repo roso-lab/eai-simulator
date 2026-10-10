@@ -1,0 +1,140 @@
+# Benchmark branch collection tool
+
+[中文文档](README.zh-CN.md) · [Plugin integration](PLUGIN_GUIDE.md) · [Example dependencies](examples/README.md)
+
+`tools.benchmark_branch` collects paired branch experiments across scenes,
+tasks, systems, conditions and repeats. It owns experiment identities,
+checkpoint fan-out, worker execution, append-only ledgers, retries, validation,
+summary and export. Upstream plugins own scene assets, controllers, physical
+stepping and external evaluators. This distribution contains reusable tools,
+tests, schemas and configuration examples; scene runners are separate dependencies.
+
+## Tool boundaries
+
+| Component | Responsibility |
+| --- | --- |
+| `benchmark_branch` | Plan `fact/reference/sham/intervention`, execute plugins, persist and audit data |
+| `physics_replay` | Capture/restore/fidelity; `ReplayScheduler` handles resource admission, GPU preflight and leases |
+| Upstream scene plugin | Isaac application, isolated runtime state, task semantics and evaluator evidence |
+
+The collector does **not automatically invoke `ReplayScheduler`**. An upstream
+runner must connect the two and use one admission authority for concurrent
+scenes. Two independent CLI runs do not share a GPU capacity budget.
+
+## Quick start
+
+Use Python 3.10+ from the repository root. The JSON/Dummy path uses the standard
+library. Tests require `pytest`; YAML requires `PyYAML` for full syntax, and
+Parquet export requires `pyarrow`. Isaac is needed only by an external measured
+plugin. Use a new output directory for each run.
+
+```bash
+python3 -m tools.benchmark_branch plan --config tools/benchmark_branch/examples/dummy_32.json
+python3 -m tools.benchmark_branch run --config tools/benchmark_branch/examples/dummy_32.json \
+  --max-workers 32 --output /tmp/branch-dummy-run
+python3 -m tools.benchmark_branch validate --run-dir /tmp/branch-dummy-run
+python3 -m tools.benchmark_branch summarize --run-dir /tmp/branch-dummy-run
+python3 -m tools.benchmark_branch export --run-dir /tmp/branch-dummy-run --format jsonl
+python3 -m tools.benchmark_branch resume --run-dir /tmp/branch-dummy-run --max-workers 32
+```
+
+Use `--execution-mode shared_session` with the same Dummy config to exercise
+the vectorized callback contract without Isaac. `run` also accepts `--slots`,
+`--arms`, `--execution-scope`, `--timeout`, `--queue-size` and `--resume`.
+Formal plans require all four arms even when `--arms` is supplied.
+
+## Plan and concurrency
+
+`pair_slots = slots × repeats × scenes × tasks × systems × conditions`.
+`logical_branches = pair_slots × 4`. With one combination and 32 slots, the
+plan has **128 branches**, not 128 simultaneous workers. `dummy_matrix.json`
+shows Cartesian expansion. It is a protocol example, not a physical scene test.
+
+| Backend | Ownership and counting |
+| --- | --- |
+| `isolated_parallel` (default) | Fresh process per branch; bounded queue; parent writes canonical ledgers |
+| `shared_session` | One adapter-owned scene session; each active branch needs a distinct environment slot and mutable state |
+
+The shared adapter can reuse static assets. Physics state, controllers, task
+state, queues, RNGs and outputs must remain isolated. A simulator process crash
+can affect the whole shared scene; this is a weaker fault boundary than one
+process per branch. `job.slot` identifies an experimental pair; it is not a
+physical environment index. Store the latter separately as `environment_slot`.
+
+`requested_max_workers`, `admitted_max_workers`, `requested_shared_envs`,
+`admitted_shared_envs` and `observed_peak_branch_workers` describe different
+things. The process backend's peak counts live child processes; the shared
+backend's peak comes from the adapter report (zero when absent). Neither alone
+proves 32 simultaneous physics branches. Check overlapping tick/heartbeat
+intervals, independent branch receipts, isolation and device evidence.
+`validate`'s `overlap_detected` means some overlap, not a 32-way acceptance gate.
+Legacy `resident` can report retained/peak capacity after a run; use lifecycle
+receipts to establish current live occupancy. `completed` is runtime completion,
+not a physical-success count.
+
+## Multiple physical scenes
+
+The planner accepts `scenes`, `tasks`, `systems`, `conditions` and `repeats`.
+The current executor loads one adapter and one base checkpoint per run; it does
+not dispatch a different plugin/checkpoint for each physical scene. For Modern
+House and Warehouse, launch one run per scene through an upstream supervisor,
+with separate output directories and shared GPU admission. Each shared-session
+run can request 32 slots (128 logical branches over waves). The tool itself
+neither launches two Isaac applications automatically nor certifies their GPU
+capacity.
+
+The `modern_house*.json` and `warehouse*.json` examples require
+`demo.benchmark.branch_plugins` and scene assets from the upstream task package.
+They cannot execute from this tool-only publication. The shared examples use
+`runtime_steps: 0` for the upstream authored horizon, `device: cuda`,
+`transport_mode: kinematic` and `participant_mode: public_greedy`. Those settings
+do not prove dynamic-contact transport, EMOS integration or evaluator success.
+See [example dependencies](examples/README.md) before using them on a GPU host.
+
+## Persistence and audit
+
+Run outputs include `manifest.json`, `plan.json`, `run_state.json`,
+`collector_state.json`, `checksums.sha256`, `validation.json`, `summary.json`
+and `branches/<branch-id>/ledger.jsonl`. The canonical JSONL ledgers are:
+
+- `branch_manifest`, `checkpoints`, `steps`, `episodes`, `events`;
+- `progress`, `network`, `costs`, `resources`, `metrics`, `observations`.
+
+Lifecycle boundaries are fsynced. High-frequency rows are flushed and fsynced
+at close. Resume appends a new attempt for unfinished logical branches, retaining
+old rows. Plugins must reproduce the same immutable checkpoint when resumed;
+this collector does not serialize arbitrary simulator state for them.
+
+Validation checks identities, checkpoint consistency, restore receipts, pair
+roles, sham status, event sequence, missing ledgers and checksums. Failed restores
+exclude pairs without deleting raw fact data. Summary is rebuilt from raw ledgers;
+export writes a separate file (never choose a raw ledger as its output path).
+JSON schemas are field contracts; CLI validation implements its own checks and
+does not invoke a general JSON Schema engine.
+
+Optional `resource_limit` keys are `max_workers`, `per_worker_ram_bytes`,
+`per_worker_vram_bytes`, `min_ram_available_bytes`, `min_vram_free_bytes`.
+This probe is best-effort worker sizing (currently GPU 0 telemetry), not strict
+multi-process GPU admission. Use `ReplayScheduler` and a measured device probe
+for the formal GPU gate. Resume callers should reapply resource/timeout policy;
+the current resume CLI does not restore every scheduling option automatically.
+
+## Evidence and tests
+
+`execution_scope` distinguishes `measured`, `protocol_synthetic`, `pending` and
+`failed`. Dummy runs must stay `protocol_synthetic`. Measured runtime receipts
+can still have `physical_success: null` and `not_evaluable` outcomes. Only an
+external evaluator can establish physical success; assignment, authored phase
+completion, process exit, sham and intervention success cannot replace fact.
+The local pairing checks are infrastructure checks, not the benchmark's strict
+causal-pair gate or D1–D6 metric implementation.
+
+```bash
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -q \
+  tools/physics_replay/tests/test_scheduler.py tools/benchmark_branch/tests
+```
+
+These checks cover planning, persistence, process overlap, failure/resume,
+restore mismatch, corruption detection, shared slot bookkeeping and scheduler
+lifecycle. Optional scene-plugin tests are skipped when the upstream package is
+absent. This suite does not start Isaac or certify full GPU mission acceptance.
