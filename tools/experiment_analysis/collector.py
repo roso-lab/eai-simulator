@@ -43,6 +43,11 @@ def collector_handoff(run_dir: str | Path) -> dict:
     if validation["status"] != "passed":
         raise AnalysisError("collector validation failed: " + "; ".join(validation["errors"]))
     manifest = read_json(root / "manifest.json")
+    plan = read_json(root / "plan.json")
+    if manifest.get("plan_digest") != digest(plan):
+        raise AnalysisError("collector plan digest mismatch")
+    if manifest.get("run_id") != plan.get("run_id") or manifest.get("execution_scope") != plan.get("execution_scope"):
+        raise AnalysisError("collector manifest/plan run or scope mismatch")
     ledgers = {name: _rows(root / f"{name}.jsonl") for name in LEDGERS}
     branches, episodes = ledgers["branch_manifest"], ledgers["episodes"]
     counts = Counter(row["branch_id"] for row in episodes)
@@ -52,6 +57,8 @@ def collector_handoff(run_dir: str | Path) -> dict:
     identities = {row["branch_id"]: row for row in branches}
     if len(identities) != len(branches):
         raise AnalysisError("duplicate branch attempt identity")
+    if any(row.get("run_id") != manifest["run_id"] for row in branches):
+        raise AnalysisError("collector branch/manifest run mismatch")
     scopes = {row["execution_scope"] for row in branches}
     scope = manifest.get("execution_scope")
     if not scopes or scopes != {scope}:
@@ -69,6 +76,7 @@ def collector_handoff(run_dir: str | Path) -> dict:
     if before != (root / "checksums.sha256").read_bytes() or verify_seal(root):
         raise AnalysisError("collector changed during handoff")
     return {"schema": ANALYSIS_VERSION + ".collector_handoff", "collector_path": str(root),
+            "run_id": manifest["run_id"], "plan_digest": digest(plan),
             "seal_sha256": hashlib.sha256(before).hexdigest(), "execution_scope": scope,
             "provenance": "synthetic" if scope == "protocol_synthetic" else "measured_unverified",
             "publishable": False, "qualification": "external_endpoint_evaluator_required",
@@ -78,12 +86,11 @@ def collector_handoff(run_dir: str | Path) -> dict:
             "raw_endpoint_records": None}
 
 
-def bind_outcomes(design_data: dict, outcomes: dict, run_dir: str | Path) -> dict:
-    """Join caller-evaluated outcomes to exact sealed branch attempts.
+def bind_attempts(design_data: dict, outcomes: dict, handoff: dict) -> list[dict]:
+    """Bind all evaluated attempts to an already verified handoff snapshot.
 
-    The supplied evaluator and pairing digests remain unverified scientific
-    attestations. Structural identity verification never promotes them. This
-    adapter owns neither attempt selection nor metric extraction from events.
+    Offline callers must not treat the snapshot as an authenticated collector.
+    Repeated scientific observations are retained for registered selection.
     """
     design = Design.parse(design_data)
     obj(outcomes, "schema design_digest collector_seal_sha256 evaluator selection_policy_digest records")
@@ -94,17 +101,20 @@ def bind_outcomes(design_data: dict, outcomes: dict, run_dir: str | Path) -> dic
     text(evaluator["version"])
     sha(evaluator["source_digest"])
     sha(outcomes["selection_policy_digest"])
-    handoff = collector_handoff(run_dir)
     if outcomes["collector_seal_sha256"] != handoff["seal_sha256"]:
         raise AnalysisError("evaluated outcomes name a different collector seal")
     by_id = {item["identity"]["branch_id"]: item for item in handoff["attempts"]}
-    selected, records, evidence = set(), [], []
+    selected, records = set(), []
+    if not isinstance(outcomes["records"], list):
+        raise AnalysisError("evaluated records must be an array")
     for item in outcomes["records"]:
         obj(item, "branch_id identity_digest outcome")
         branch_id = text(item["branch_id"])
         attempt = by_id.get(branch_id)
         if attempt is None or attempt["identity_digest"] != item["identity_digest"]:
             raise AnalysisError("unknown or misbound branch attempt")
+        if digest(attempt["identity"]) != attempt["identity_digest"] or digest(attempt["episode"]) != attempt["episode_digest"]:
+            raise AnalysisError("handoff identity/episode content digest mismatch")
         if branch_id in selected:
             raise AnalysisError("duplicate selected branch attempt")
         selected.add(branch_id)
@@ -131,11 +141,26 @@ def bind_outcomes(design_data: dict, outcomes: dict, run_dir: str | Path) -> dic
                            "episode": attempt["episode_digest"], "evaluator": evaluator,
                            "selection_policy": outcomes["selection_policy_digest"], "outcome": raw})
         raw["artifact_digest"] = artifact
-        records.append(raw)
-        evidence.append(artifact)
-    data = {"schema": ANALYSIS_VERSION + ".dataset", "design_digest": design.digest,
-            "provenance": {"kind": handoff["provenance"], "producer": f"{evaluator['id']}@{evaluator['version']}",
-                           "source_revision": evaluator["source_digest"], "evidence_digests": sorted(evidence)},
+        candidate = make_dataset(design, [raw], handoff["provenance"], evaluator)
+        Dataset.parse(candidate, design)
+        records.append({"run_id": identity["run_id"], "branch_id": branch_id,
+                        "attempt": identity["attempt"], "record": raw})
+    return records
+
+
+def make_dataset(design_data: dict | Design, records: list[dict], provenance: str, evaluator: dict) -> dict:
+    data = {"schema": ANALYSIS_VERSION + ".dataset", "design_digest": design_data.digest if isinstance(design_data, Design) else digest(design_data),
+            "provenance": {"kind": provenance, "producer": f"{evaluator['id']}@{evaluator['version']}",
+                           "source_revision": evaluator["source_digest"],
+                           "evidence_digests": sorted({r["artifact_digest"] for r in records})},
             "records": records}
+    return data
+
+
+def bind_outcomes(design_data: dict, outcomes: dict, run_dir: str | Path) -> dict:
+    """Single-run compatibility path; scientific qualification is external."""
+    handoff = collector_handoff(run_dir)
+    attempts = bind_attempts(design_data, outcomes, handoff)
+    data = make_dataset(design_data, [a["record"] for a in attempts], handoff["provenance"], outcomes["evaluator"])
     Dataset.parse(data, design_data)
     return data

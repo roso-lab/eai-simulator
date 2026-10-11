@@ -108,7 +108,10 @@ class BranchRunStore:
         if (Path(root) / "manifest.json").exists():
             raise FileExistsError("run directory already contains a manifest; use resume or a new directory")
         run_id = plan.run_id or f"run-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}-{os.getpid()}"
-        plan = BranchPlan.from_mapping({**plan.row(), "run_id": run_id})
+        scope = execution_scope or plan.execution_scope
+        if any(job.run_id != run_id or job.execution_scope != scope for job in plan.explicit_jobs):
+            raise ValueError("explicit jobs must match the registered run_id and execution_scope; set the plan run_id before expanding jobs")
+        plan = BranchPlan.from_mapping({**plan.row(), "run_id": run_id, "execution_scope": scope})
         manifest = {
             "schema": SCHEMA_VERSION, "run_id": run_id,
             "created_at": _now(), "scene_key": plan.scene_key, "task_id": plan.task_id,

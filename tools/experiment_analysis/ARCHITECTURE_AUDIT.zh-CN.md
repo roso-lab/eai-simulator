@@ -32,14 +32,27 @@ benchmark_branch collector（所有 attempt、封存日志）
         ↓ 只读 handoff，核对 seal 与分支身份
 外部 evaluator（成功谓词、数值/事件、排除原因、选择策略）
         ↓ evaluated_outcomes + 冻结设计
-experiment_analysis bind-outcomes → 支持/完整性检查 → 数学归约
+experiment_analysis freeze + assemble → 登记重试/支持/完整性检查 → 数学归约
         ↓ 带来源与资格限制的 JSON/CSV/Markdown
+结果包 verify → 保存证据重放 + 可选精确环境完整复算
+        ↓ 内容一致性结果（不认证注册时间/原始物理真值）
 外部协议 release 审计（本工具不授予发布资格）
 ```
 
 此前运行框架已经包含 observation/replan、资源占用与隔离、协作技能、checkpoint、
 独立进程 watchdog 和 GPU 准入。本轮补齐其下游数据准备、运行量预检查、证据交接、
 计划外/重复身份拒绝、缺失实例显式化、归约和复算导出。
+
+后续 D 阶段（基线 `125bb9d5`）进一步补齐多批次收集。日程精确枚举设计需要的
+观测，冻结任务、代码、检查点、资产和所有分支 metadata；只有原始 episode 与
+evaluator 一致且允许的基础设施原因才能推进重试。方法失败不能被后续成功替换。
+两批 CPU 脚本控制使用真实 collector 封存，共 14 attempts / 12 observations，
+结果为手算的 5/12；不是 Isaac 物理运行。
+
+结果包保存来源快照、选择审计、数据和派生视图。离线验证可重放选择并在同版本
+Python/源码下完整复算；原始高容量 ledger 仍单独保管，因此不宣称离线重验原始 seal。
+单批次 `bind-outcomes` 保留兼容，其任意 policy digest 仍由调用方负责；登记选择规则
+需使用 `assemble`。正式 benchmark 的语义权威与外部未提交代码边界保持不变。
 
 ## 论文公式到代码的对应
 

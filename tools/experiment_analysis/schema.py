@@ -356,8 +356,10 @@ class Dataset:
     digest: str
 
     @classmethod
-    def parse(cls, data: dict, design_data: dict) -> Dataset:
-        design = Design.parse(design_data)
+    def parse(cls, data: dict, design_data: dict | Design) -> Dataset:
+        # Reuse an already validated immutable Design when binding many
+        # attempts, instead of reparsing the whole registry for each record.
+        design = design_data if isinstance(design_data, Design) else Design.parse(design_data)
         obj(data, "schema design_digest provenance records")
         if data["schema"] != ANALYSIS_VERSION + ".dataset" or data["design_digest"] != design.digest:
             raise AnalysisError("dataset schema or design digest mismatch")

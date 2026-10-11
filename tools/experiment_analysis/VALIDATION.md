@@ -1,5 +1,76 @@
 # Validation record — 2026-10-11
 
+## Phase D: frozen batches and detached result bundles
+
+Continuation baseline: `125bb9d5`. The earlier A–C evidence below is preserved
+as historical validation, not substituted for the new test run.
+
+The full regression command shown below was rerun after the batch, bundle and
+collector fixes: **407 passed, 1 skipped in 29.66 s**. The skip remains the
+uninstalled historical demo plugin. AST parsing passed for 21 analysis and
+changed collector Python files; `git diff --check` passed.
+
+Executed end-to-end controls (all outputs ignored under `tmp/`):
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 /home/pupil/miniconda3/envs/env_isaaclab/bin/python \
+  -m tools.experiment_analysis synthetic-batch \
+  --output tmp/experiment_analysis/verified-batch-controls
+PYTHONDONTWRITEBYTECODE=1 /home/pupil/miniconda3/envs/env_isaaclab/bin/python \
+  -m tools.experiment_analysis verify \
+  --bundle tmp/experiment_analysis/verified-batch-controls/result --recompute
+PYTHONDONTWRITEBYTECODE=1 /home/pupil/miniconda3/envs/env_isaaclab/bin/python \
+  -m tools.experiment_analysis synthetic \
+  --output tmp/experiment_analysis/verified-bundle-controls --resamples 1000
+PYTHONDONTWRITEBYTECODE=1 /home/pupil/miniconda3/envs/env_isaaclab/bin/python \
+  -m tools.experiment_analysis verify \
+  --bundle tmp/experiment_analysis/verified-bundle-controls --recompute
+```
+
+- Two actual `BranchExecutor`/`DummyAdapter` collector runs with a scripted CPU
+  session backend: 14 attempts, 12 selected observations, two cells and three
+  repeats. Design, registration and plans are written before either run starts.
+- Allowed infrastructure retry selects the later attempt; a valid method timeout
+  remains zero despite a later success. Estimate `0.41666666666666663` matches
+  5/12 within floating-point tolerance. All nine batch bundle members pass
+  integrity, selection replay and complete-report recomputation.
+- Mathematical bundle: 3,984 records, 19 analytic results, zero N/A; 1,000
+  bootstrap draws. All seven bundle members and complete-report recomputation
+  pass. This rechecks mathematics after adding new analysis source modules.
+- Neither control runs Isaac or measures physical success. Every result remains
+  synthetic and `publishable=false`; verifier output explicitly denies trusted
+  registration-time certification and offline raw-ledger seal reverification.
+
+Local output fingerprints (file-byte SHA-256, not scientific certificates):
+
+| File under `tmp/experiment_analysis/` | SHA-256 |
+|---|---|
+| `verified-batch-controls/registration.json` | `08de6d21813f3da585f83d111c419144dfc17adef843f4b2f656746c0539216d` |
+| `verified-batch-controls/result/output_manifest.json` | `94762cde0d3d78302c697d056e1c002397aca1b4e5d866ea5930f7472afb808a` |
+| `verified-bundle-controls/output_manifest.json` | `aa78c07fb3a0a2bf804cbfcee0a9365475bf392d23c80a1794eb2cfae31cc6be` |
+
+Adversarial regressions cover missing predecessors, evaluator relabeling,
+disallowed retry reasons, version/asset/RNG/slot/metadata drift, duplicate runs
+or seals, truncated schedules, unregistered attempts, resealed altered audits,
+resealed qualification escalation, changed derived views, wrong numerical
+results, code/Python mismatch, symlinks, extra files and strict JSON boundaries.
+
+Independent review led to additional fixes: preserve infrastructure reason and
+receipt diagnostics even when a backend has nested `outcome`; freeze pair-group,
+slot and metadata alongside versions; validate every result's qualification;
+link plan/manifest/branch run identities. The new bound-bundle test exposed
+explicit jobs expanded before a stable run ID was assigned. Store creation now
+rejects that inconsistency before writing instead of silently rewriting jobs;
+normal generated-run plans freeze their selected execution scope.
+
+Intermediate failures (including an undersized mathematical control test and
+the explicit-job mismatch) were fixed before the final passing regression.
+Independent final review found no unresolved P0/P1/P2 within this scope and
+separately ran 93 focused tests (18.26 s), the full 407-pass/1-skip suite
+(28.47 s), and a fresh two-batch synthetic run with exact bundle recomputation.
+
+## Earlier A–C milestone
+
 Scope: descriptive mathematical infrastructure, collector identity/handoff and
 historical plan compatibility. No robot/controller changes; no Isaac/GPU run
 was required or performed in this phase. Formal evaluator semantics and release

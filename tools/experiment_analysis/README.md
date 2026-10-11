@@ -60,7 +60,7 @@ All systems/conditions/repeats for an ordinary instance must refer to the same
 registered base ID. A base cannot be split across units. The parser cannot detect
 a producer that invents different IDs for physically identical instances; the
 external generator audit must establish that identity. Attempts are not repeats:
-the caller selects attempts with a preregistered policy before analysis. The
+use a frozen collection schedule for deterministic selection before analysis. The
 engine rejects multiple records for a scientific observation key.
 
 `valid` method failures, timeouts, malformed actions, budget overruns and no-plan
@@ -158,6 +158,115 @@ The CLI preserves the evaluator payload and handoff next to the bound dataset.
 Missing external evaluators or historical identity mismatches must be repaired
 at their owner; this adapter never guesses a checkpoint round, task outcome,
 base-ID migration, strict pairing or release qualification.
+
+## Frozen multi-batch collection and retry selection
+
+Run the complete transport control (two real CPU collector sessions, scripted
+synthetic outcomes, no Isaac or physical evaluation):
+
+```bash
+python -m tools.experiment_analysis synthetic-batch \
+  --output tmp/experiment_analysis/batch-control
+python -m tools.experiment_analysis verify \
+  --bundle tmp/experiment_analysis/batch-control/result --recompute
+```
+
+The control writes its design, registration and both exact plans **before**
+starting either collector. It splits cells across runs and also registers two
+cross-run retry chains. Fourteen attempts yield twelve scientific observations:
+one allowed infrastructure retry supplies a value; one method timeout remains
+zero despite a later success. The equal-cell result is 5/12. All generated data,
+including sealed collector directories, remain below the requested output path.
+`synthetic_batch.py` is an executable transport example, not a production task
+contract or a physical success evaluator.
+
+For externally owned tasks, prepare the design and schedule, freeze them before
+execution, run the exact declared plans, and have the external evaluator write
+one outcomes file per sealed run:
+
+```bash
+python -m tools.experiment_analysis freeze \
+  --design tmp/design.json --schedule tmp/schedule.json \
+  --output tmp/frozen-collection
+python -m tools.experiment_analysis assemble \
+  --design tmp/design.json \
+  --registration tmp/frozen-collection/registration.json \
+  --sources tmp/batch-sources.json --output tmp/experiment_analysis/assembled
+python -m tools.experiment_analysis verify \
+  --bundle tmp/experiment_analysis/assembled --recompute
+```
+
+`registration.py` validates `eai.analysis.v1.collection_schedule`:
+
+| Field | Contract |
+|---|---|
+| `design_digest`, `evaluator` | Exact frozen design and external evaluator `{id, version, source_digest}` |
+| `execution_scope` | Exactly one of `protocol_synthetic`, `measured`, `measured_diagnostic`; scopes never mix |
+| `batches` | Nonempty `{run_id, plan_digest}` list; set a stable run ID before hashing `BranchPlan.row()` |
+| `retry_policy` | `{mode, infrastructure_reasons}`; `first_attempt` has no reasons and exactly one attempt per observation; `infrastructure_retry` has a nonempty reason allowlist |
+| `observations[].identity` | Exact unit/base/member/system/condition/branch/checkpoint/repeat key; the observation set must equal the design's enumerated dependencies |
+| `observations[].execution_identity` | Frozen task/system/source versions, checkpoint/restore/contract/scene/asset/build-order digests, skill version, RNG namespaces, intervention, pair seed, slot, pair group and canonical metadata digest; obtain the exact shape via `execution_identity(job.identity())` |
+| `observations[].attempts` | Ordered `{run_id, branch_id, attempt}` array; within a run, one logical branch starting at ordinal zero with no gaps; suffix must be `#attempt-N` |
+
+Resolve the declared checkpoint and execution context before freezing; do not
+fill unknown fields from successful attempts afterward. Retry context includes
+all branch metadata, so changing metadata or versions requires a separately
+registered experiment, not a retry hidden in the old observation. Cross-run
+attempt order is explicitly declared; the tool does not authenticate wall-clock
+chronology. The envelope's `registration_digest` covers the exact schedule.
+**Content freezing is not trusted preregistration time or source authenticity.**
+
+The sources manifest has schema `eai.analysis.v1.batch_sources` and a `sources`
+array of `{run_dir, outcomes}`; paths resolve relative to that manifest's parent.
+Each evaluator payload uses `selection_policy_digest=registration_digest`.
+Missing sources are permitted and explicitly recorded; duplicate/unregistered
+runs, duplicate seals, changed plans, contexts, evaluator versions or scopes
+are rejected. Additional observed attempts for any scheduled observation cannot
+be hidden from its registered chain. Unrelated collector branches are disclosed
+in `unregistered_collector_attempts` and cannot contribute evaluated records.
+
+Only an evaluator `infrastructure_invalid` row whose reason matches the sealed
+episode's explicit infrastructure reason can advance a retry chain, and only
+when that reason was allowlisted. The collector seals `preflight_rejected` and
+`missing_runtime_receipt` for its own failures; adapters may supply explicit
+codes. Existing episodes without a machine-readable reason do not acquire one
+by inference. A method failure, non-evaluable result or disallowed reason ends
+selection; missing preceding source/attempt/episode/evaluation blocks all later
+attempts. The audit retains every declared attempt, including unused successes.
+Exhausted retries and missing observations remain missing in the dataset, with
+explicit audit reasons; no artificial values or evidence digests are inserted.
+
+`assemble` returns zero when assembly/calculation succeeds, including incomplete
+collections. Inspect `batch_audit.json.status`, missing measures/sources and each
+report result. A passed integrity check does not mean collection is complete.
+The earlier `bind-outcomes` interface remains compatible for single-run inputs;
+its arbitrary policy digest is caller-managed and does **not** execute the new
+registered retry rules. Use `assemble` for that guarantee.
+
+## Offline result-bundle verification
+
+Bundles include the design/data, report, CSV/Markdown views and a manifest with
+an exact `bundle_type` and required file set. Batch bundles additionally preserve
+registration, handoff/outcomes snapshots, readiness and the complete selection
+audit. Publication uses a new directory and writes the manifest last; interrupted
+or pre-existing directories are never silently accepted or overwritten.
+
+`verify` reads each member's bytes once, rejects symlinks/non-regular files,
+missing/extra members, path escapes, duplicate JSON fields and checksum changes.
+It checks identities and qualification flags, regenerates derived views, and
+replays batch selection or the single-run evidence join from saved snapshots.
+`--recompute` additionally requires identical Python version and analysis source
+hashes, then recomputes and compares the **complete** report. Without this flag,
+consistent but numerically wrong results can pass content checks; no calculation
+verification is claimed. Archived Python is never executed.
+
+Snapshots permit detached selection replay, but do not contain all raw ledgers.
+Verification therefore returns `raw_collector_seal_reverified=false` and
+`registration_time_verified=false`. Preserve original sealed run directories
+for a fresh live `collector-handoff`/`assemble` audit. Hashes cannot certify an
+honest evaluator, physical success or chronological preregistration. Every
+bundle and result remains `publishable=false`. Older outputs without a
+`bundle_type` need a new `compute` export; the verifier does not rewrite them.
 
 ## Validation
 

@@ -4,6 +4,22 @@ from .schema import Design, digest
 from . import ANALYSIS_VERSION
 
 
+def expected_observations(design: Design) -> dict[tuple[str, ...], tuple[str, ...]]:
+    """Exact scientific observation keys and their required measure union."""
+    expected = {}
+    for est in design.estimands:
+        for unit in design.units:
+            if est.support_id not in unit.supports:
+                continue
+            for term in est.terms:
+                for system in (term.system_id,) if term.system_id else design.systems:
+                    for repeat in unit.repeats:
+                        key = (unit.id, term.member, system, term.condition_id,
+                               term.branch_role, term.checkpoint_round, repeat)
+                        expected.setdefault(key, set()).add(term.measure)
+    return {key: tuple(sorted(measures)) for key, measures in sorted(expected.items())}
+
+
 def readiness(design_data: dict) -> dict:
     design = Design.parse(design_data)
     expected = set()

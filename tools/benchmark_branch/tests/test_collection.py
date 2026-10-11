@@ -1,6 +1,9 @@
 import json
 import hashlib
+from dataclasses import replace
 from pathlib import Path
+
+import pytest
 
 from tools.benchmark_branch import BranchExecutor, BranchPlan, BranchRunStore, DummyAdapter
 from tools.benchmark_branch.validation import summarize_run, validate_run
@@ -122,6 +125,30 @@ def test_duplicate_manifest_is_rejected_before_append(tmp_path):
     else:
         raise AssertionError("duplicate branch manifest was accepted")
     assert (tmp_path / "branch_manifest.jsonl").read_text() == before
+    store.finish()
+
+
+@pytest.mark.parametrize("field", ["run_id", "execution_scope"])
+def test_explicit_jobs_cannot_disagree_with_durable_run(tmp_path, field):
+    plan = BranchPlan(run_id="registered-run", slots=1)
+    jobs = plan.jobs()
+    if field == "run_id":
+        jobs = (replace(jobs[0], run_id="planned"), *jobs[1:])
+    else:
+        jobs = (replace(jobs[0], execution_scope="measured_diagnostic"), *jobs[1:])
+    plan = replace(plan, explicit_jobs=jobs)
+    root = tmp_path / "invalid"
+    with pytest.raises(ValueError, match="explicit jobs must match"):
+        BranchRunStore.create(root, plan, execution_scope="protocol_synthetic")
+    assert not root.exists()
+
+
+def test_generated_run_id_and_selected_scope_are_frozen_in_plan(tmp_path):
+    plan = BranchPlan(slots=1)
+    store = BranchRunStore.create(tmp_path / "run", plan, execution_scope="measured_diagnostic")
+    assert store.plan.run_id == store.manifest["run_id"]
+    assert store.plan.execution_scope == store.manifest["execution_scope"] == "measured_diagnostic"
+    assert all(j.run_id == store.run_id and j.execution_scope == "measured_diagnostic" for j in store.plan.jobs())
     store.finish()
 
 

@@ -62,8 +62,11 @@ python3 -m tools.benchmark_branch resume --run-dir /tmp/branch-dummy-run --max-w
 跨 system、condition、repeat 使用同一个基础实例 ID；分支与配对组仍区分这些轴。
 显式 benchmark jobs 保留上游身份。恢复旧封存计划时，缺少版本字段按 v1 重建，
 不改写历史日志或自动将旧样本升级为可推断数据。
+使用 `explicit_jobs` 时先指定稳定的 `plan.run_id`，再展开 jobs；存储入口拒绝
+job 与已登记 run ID 或 execution scope 不一致的输入，不会替换上游显式身份。
+自动生成 run ID 的简易计划由 store 保存最终 ID 和选定 scope，执行器沿用该计划。
 
-下游的冻结计划检查、只读 collector/evaluator 交接和模拟数学验证见
+下游的冻结多批次计划、登记重试、只读 collector/evaluator 交接、结果包复核和模拟数学验证见
 [实验分析说明](../experiment_analysis/README.md) 与
 [框架审查](../experiment_analysis/ARCHITECTURE_AUDIT.zh-CN.md)。该层不会自行授予论文发布资格。
 `max-workers=32` 是请求并发上限，需要分波运行全部 128 分支。

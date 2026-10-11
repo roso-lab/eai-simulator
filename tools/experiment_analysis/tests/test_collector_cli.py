@@ -15,7 +15,7 @@ from tools.experiment_analysis.tests.test_engine import fixture, rebind
 
 def collect(root, metadata=None):
     d, data = fixture([[[[1]] * 3, [[0]] * 3]])
-    plan = BranchPlan(scene_key="synthetic", task_id="control", system_id="system", condition_id="z0", slots=2,
+    plan = BranchPlan(run_id="synthetic-single-control", scene_key="synthetic", task_id="control", system_id="system", condition_id="z0", slots=2,
                       repeats=3, metadata=metadata or {"checkpoint_round": "e0"})
     plan = replace(plan, explicit_jobs=tuple(job for job in plan.jobs() if job.branch_type == "fact"))
     store = BranchRunStore.create(root, plan, requested_max_workers=2, execution_scope="protocol_synthetic", adapter="dummy")
@@ -140,3 +140,24 @@ def test_cli_binding_exports_raw_evidence_and_results(tmp_path):
                  "--run-dir", str(root), "--output", str(out)]) == 0
     assert read_json(out / "data.json")["provenance"]["kind"] == "synthetic"
     assert read_json(out / "report.json")["results"][0]["estimate"] == .5
+    assert main(["verify", "--bundle", str(out), "--recompute"]) == 0
+
+
+@pytest.mark.parametrize("field", ["run_id", "execution_scope"])
+def test_handoff_rejects_resealed_manifest_plan_mismatch(tmp_path, field):
+    root = tmp_path / "collector"
+    collect(root)
+    plan = read_json(root / "plan.json")
+    plan[field] = "other-run" if field == "run_id" else "measured_diagnostic"
+    (root / "plan.json").write_text(json.dumps(plan))
+    manifest = read_json(root / "manifest.json")
+    manifest["plan_digest"] = digest(plan)
+    (root / "manifest.json").write_text(json.dumps(manifest))
+    seal = root / "checksums.sha256"
+    entries = []
+    for line in seal.read_text().splitlines():
+        _, name = line.split()
+        entries.append(hashlib.sha256((root / name).read_bytes()).hexdigest() + "  " + name)
+    seal.write_text("\n".join(entries) + "\n")
+    with pytest.raises(AnalysisError, match="manifest/plan"):
+        collector_handoff(root)

@@ -112,6 +112,14 @@ assets are shared. `caller_thread` runs serially on the caller, as required by
 responses become `missing_response`. A failed preflight creates raw
 `infrastructure_invalid` episode rows with `physical_success: null` and never
 opens branch leases. Scheduler audit rows are stored in `resources.jsonl`.
+Collector-owned infrastructure failures retain explicit machine-readable
+`infrastructure_reason` codes: `preflight_rejected` and
+`missing_runtime_receipt`. Missing-receipt diagnostics are sealed at episode
+top level even when the backend supplies a nested `outcome`. Adapters declaring
+their own infrastructure failure must provide an explicit reason code; an
+external evaluator cannot reclassify a method failure as a retryable incident.
+The downstream [analysis schedule](../experiment_analysis/README.md) requires
+the sealed code to match its frozen allowlist and evaluated exclusion reason.
 
 Use `requested_device="cuda:0"` (or another explicit CUDA device) and a real
 device probe that reports actual physics/controller devices and GPU UUID. The

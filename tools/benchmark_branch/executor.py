@@ -303,6 +303,7 @@ class BranchExecutor:
                             "status": "infrastructure_invalid", "completed": False,
                             "physical_success": None, "error": reason,
                             "infrastructure_preflight": True,
+                            "infrastructure_reason": "preflight_rejected",
                             "device_evidence": evidence.__dict__,
                         }, job=job)
                         failed += 1
@@ -401,6 +402,7 @@ class BranchExecutor:
                                 status = "infrastructure_invalid"
                                 branch_completed = False
                                 result["physical_success"] = None
+                                result["infrastructure_reason"] = "missing_runtime_receipt"
                                 result["infrastructure_error"] = {
                                     "heartbeat": heartbeat, "first_tick": first_tick,
                                     "last_tick": last_tick, "restore_passed": restore_passed,
@@ -452,7 +454,8 @@ class BranchExecutor:
                                       "evidence_source", "milestones", "terminal_predicate",
                                       "safety_predicate", "feasibility_predicate",
                                       "first_tick", "last_tick", "heartbeat_first_ns",
-                                      "heartbeat_last_ns", "restore_passed", "restore_error"):
+                                      "heartbeat_last_ns", "restore_passed", "restore_error",
+                                      "infrastructure_reason", "infrastructure_error"):
                             if field in result:
                                 episode[field] = result[field]
                         self.store.append("episodes", episode, job=job, sync=True)

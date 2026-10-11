@@ -146,6 +146,25 @@ def test_measured_backend_cannot_promote_completion_to_physical_success(tmp_path
     assert all(row["physical_success"] is None for row in episodes)
 
 
+def test_missing_receipt_reason_is_sealed_even_with_nested_outcome(tmp_path):
+    class NestedBackend(_SessionBackend):
+        def run_branch(self, runtime, job, *, emit):
+            return {"status": "completed", "completed": True, "outcome": {"value": 1}}
+
+    plan = BranchPlan(slots=1, execution_scope="measured_diagnostic")
+    store = BranchRunStore.create(tmp_path / "run", plan, requested_max_workers=4,
+                                  execution_scope="measured_diagnostic")
+    BranchExecutor(plan, _MeasuredAdapter(steps=1), store, max_workers=4,
+                   session_backend=NestedBackend(), scheduler=_scheduler(), requested_device="cuda:0").run()
+    episodes = store.read_ledger("episodes")
+    assert len(episodes) == 4
+    for row in episodes:
+        assert row["status"] == "infrastructure_invalid"
+        assert row["infrastructure_reason"] == "missing_runtime_receipt"
+        assert row["infrastructure_error"]["heartbeat"] is False
+        assert row["outcome"] == {"value": 1}
+
+
 def test_session_backend_can_overlap_32_branch_slots_across_two_scenes(tmp_path):
     plan = BranchPlan(
         scenes=("scene-a", "scene-b"), slots=4,
