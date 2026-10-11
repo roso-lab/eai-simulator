@@ -225,8 +225,13 @@ class BranchPlan:
     # list.  When present it is the identity authority; ``jobs()`` must not
     # regenerate branch ids from the collector's convenience dimensions.
     explicit_jobs: tuple[BranchJob, ...] = ()
+    # V1 is retained only for exact reconstruction of previously sealed runs.
+    # V2 separates statistical instances from systems/conditions/repeats.
+    base_identity_version: int = 2
 
     def __post_init__(self) -> None:
+        if type(self.base_identity_version) is not int or self.base_identity_version not in (1, 2):
+            raise ValueError("base_identity_version must be 1 or 2")
         object.__setattr__(self, "arms", tuple(self.arms))
         object.__setattr__(self, "explicit_jobs", tuple(self.explicit_jobs))
         if self.explicit_jobs:
@@ -298,7 +303,10 @@ class BranchPlan:
                 group_seed = self.pair_seed + repeat_index
                 for slot in range(self.slots):
                     group = f"{run}/{scene}/{task}/{system}/{condition}/repeat-{repeat_id}/slot-{slot}/seed-{group_seed}"
-                    base = f"{group}/base"
+                    base = (f"{group}/base" if self.base_identity_version == 1 else
+                            "base-v2/" + canonical_digest({"run": run, "scene": scene, "task": task,
+                                                         "task_version": self.task_version,
+                                                         "slot": slot, "base_seed": self.pair_seed}))
                     for role in self.arms:
                         logical = f"{group}/{role}"
                         jobs.append(BranchJob(
@@ -342,6 +350,7 @@ class BranchPlan:
             "logical_branches": self.logical_branch_count,
             "metadata": dict(self.metadata),
             "explicit_jobs": [job.identity() for job in self.explicit_jobs],
+            "base_identity_version": self.base_identity_version,
         }
 
     @classmethod
@@ -374,6 +383,7 @@ class BranchPlan:
             scenes=_seq("scenes"), tasks=_seq("tasks"), systems=_seq("systems"),
             conditions=_seq("conditions"), metadata=dict(value.get("metadata", {})),
             explicit_jobs=explicit_jobs,
+            base_identity_version=value.get("base_identity_version", 2),
         )
 
 

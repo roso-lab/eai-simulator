@@ -82,6 +82,17 @@ not a physical-success count.
 ## Multiple physical scenes
 
 The planner accepts `scenes`, `tasks`, `systems`, `conditions` and `repeats`.
+New convenience plans use `base_identity_version=2`: one base ID is shared
+across systems, conditions and repeats for the same run/scene/task/version/slot
+and fixed base seed. Branch and pair-group IDs still distinguish those axes.
+Explicit benchmark jobs retain the upstream identity unchanged. Resuming a
+historical sealed plan without this version reconstructs v1 IDs exactly;
+existing artifacts are never silently migrated or relabelled for inference.
+
+For downstream mathematical checks and a read-only sealed collector/evaluator
+handoff, see [experiment analysis](../experiment_analysis/README.md). That layer
+keeps synthetic and unverified measured results descriptive and does not replace
+the external benchmark's task semantics, evaluator or release gates.
 The current executor loads one adapter and one base checkpoint per run; it does
 not dispatch a different plugin/checkpoint for each physical scene. For Modern
 House and Warehouse, launch them through an upstream supervisor with separate

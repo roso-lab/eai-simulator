@@ -366,3 +366,8 @@ test_*.py
 
 # Local Codex planning state is never source.
 /.zcode/
+
+# Maintained experiment-analysis conformance tests, not generated datasets.
+!/tools/experiment_analysis/tests/
+!/tools/experiment_analysis/tests/**
+/tools/experiment_analysis/tests/__pycache__/

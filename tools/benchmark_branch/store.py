@@ -149,7 +149,11 @@ class BranchRunStore:
         manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
         if manifest.get("plan_digest") != _sha256_json(plan_data):
             raise ValueError("resume refused: frozen plan digest mismatch")
-        return cls(root, BranchPlan.from_mapping(plan_data), manifest, resume=True)
+        # Missing version identifies a historically sealed V1 plan. Preserve
+        # its exact base IDs on resume; new plans default to repeat-independent
+        # V2 IDs. Never rewrite old artifacts or silently migrate their units.
+        restored = {**plan_data, "base_identity_version": plan_data.get("base_identity_version", 1)}
+        return cls(root, BranchPlan.from_mapping(restored), manifest, resume=True)
 
     def _load_existing(self) -> None:
         self._branch_ids.clear(); self._logical_ids.clear(); self._event_seq.clear()

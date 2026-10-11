@@ -57,6 +57,15 @@ python3 -m tools.benchmark_branch resume --run-dir /tmp/branch-dummy-run --max-w
 
 `pair_slots = slots × repeats × 场景数 × 任务数 × 系统数 × 条件数`；
 `logical_branches = pair_slots × 4`。单一组合默认 `slots=32`，得到 128 个逻辑分支。
+
+新建简易计划默认 `base_identity_version=2`：同一 run/scene/task/version/slot/base seed
+跨 system、condition、repeat 使用同一个基础实例 ID；分支与配对组仍区分这些轴。
+显式 benchmark jobs 保留上游身份。恢复旧封存计划时，缺少版本字段按 v1 重建，
+不改写历史日志或自动将旧样本升级为可推断数据。
+
+下游的冻结计划检查、只读 collector/evaluator 交接和模拟数学验证见
+[实验分析说明](../experiment_analysis/README.md) 与
+[框架审查](../experiment_analysis/ARCHITECTURE_AUDIT.zh-CN.md)。该层不会自行授予论文发布资格。
 `max-workers=32` 是请求并发上限，需要分波运行全部 128 分支。
 [多维示例](examples/dummy_matrix.json) 演示笛卡尔积；不同场景支持的任务组合应由上游选择。
 

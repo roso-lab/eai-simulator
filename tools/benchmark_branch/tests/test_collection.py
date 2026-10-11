@@ -1,4 +1,5 @@
 import json
+import hashlib
 from pathlib import Path
 
 from tools.benchmark_branch import BranchExecutor, BranchPlan, BranchRunStore, DummyAdapter
@@ -148,3 +149,34 @@ def test_executor_timeout_preserves_failed_and_queued_for_resume(tmp_path):
     assert retry["failed"] == 0
     assert retry["queued"] == 0
     assert validate_run(tmp_path)["status"] == "passed"
+
+
+def test_resume_unversioned_legacy_plan_preserves_base_ids(tmp_path):
+    plan = BranchPlan(scene_key="test", task_id="task", system_id="system", slots=1,
+                      repeats=3, base_identity_version=1)
+    store = BranchRunStore.create(tmp_path, plan, requested_max_workers=2,
+                                  execution_scope="protocol_synthetic", adapter="dummy")
+    BranchExecutor(store.plan, DummyAdapter(steps=1), store, max_workers=2).run()
+    expected = {job.branch_id: job.base_instance_id for job in store.plan.jobs()}
+    # Reconstruct the exact pre-version serialized schema and seal, rather than
+    # pretending all old saved plans already carried a version marker.
+    plan_path = tmp_path / "plan.json"
+    plan_data = json.loads(plan_path.read_text())
+    del plan_data["base_identity_version"]
+    plan_path.write_text(json.dumps(plan_data, sort_keys=True) + "\n")
+    manifest_path = tmp_path / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["plan_digest"] = hashlib.sha256(json.dumps(plan_data, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    manifest_path.write_text(json.dumps(manifest, sort_keys=True) + "\n")
+    seal = tmp_path / "checksums.sha256"
+    entries = []
+    for line in seal.read_text().splitlines():
+        _, name = line.split()
+        entries.append(hashlib.sha256((tmp_path / name).read_bytes()).hexdigest() + "  " + name)
+    seal.write_text("\n".join(entries) + "\n")
+    frozen = plan_path.read_bytes()
+    restored = BranchRunStore.resume(tmp_path)
+    assert restored.plan.base_identity_version == 1
+    assert {job.branch_id: job.base_instance_id for job in restored.plan.jobs()} == expected
+    assert plan_path.read_bytes() == frozen
+    assert len({job.base_instance_id for job in restored.plan.jobs()}) == 3
