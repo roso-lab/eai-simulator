@@ -24,6 +24,7 @@ SKILL_ID = "eai.transport.composite"
 PROVIDER_ID = "eai.pepper.box_transport"
 PROVIDER_VERSION = "1.0.0"
 CONTROLLER_CFG = "PEPPER_BOX_TRANSPORT_CFG"
+COOPERATIVE_CONTROLLER_CFG = "PEPPER_BOX_TRANSPORT_TASK_CFG"
 COMMAND_TYPE = "pepper_transport_advance"
 COMMAND_ROUTE = "env.step -> PEPPER_BOX_TRANSPORT_CFG"
 CARRY_MODE = "bilateral_ideal_attachment"
@@ -127,6 +128,7 @@ class PepperTransportProvider:
             metadata={
                 "command_route": COMMAND_ROUTE,
                 "controller_cfg": CONTROLLER_CFG,
+                "cooperative_controller_cfg": COOPERATIVE_CONTROLLER_CFG,
                 "physical_outcome": "external_evaluator_required",
                 "provider_id": PROVIDER_ID,
                 "provider_version": PROVIDER_VERSION,
@@ -162,6 +164,7 @@ __all__ = [
     "COMMAND_ROUTE",
     "COMMAND_TYPE",
     "CONTROLLER_CFG",
+    "COOPERATIVE_CONTROLLER_CFG",
     "DEFAULT_HORIZON_TICKS",
     "MAX_HORIZON_TICKS",
     "PROVIDER_ID",

@@ -64,6 +64,14 @@ def contract_runtime(*, plan, run_dir):
                              "contract-fixture", "1", {"requested_device": "cpu"})
 
 
+PROVENANCE_FACTORY_CALLS = []
+
+
+def provenance_runtime(*, plan, run_dir):
+    PROVENANCE_FACTORY_CALLS.append((plan, run_dir))
+    return contract_runtime(plan=plan, run_dir=run_dir)
+
+
 def test_cli_runtime_run_resume_and_artifact_revalidation(tmp_path, capsys):
     config = tmp_path / "config.json"
     config.write_text(json.dumps({"slots": 1, "arms": ["fact"],
@@ -87,8 +95,85 @@ def test_runtime_pin_rejects_changed_factory(tmp_path):
     config = {"runtime_factory": f"{__name__}:contract_runtime"}
     plan = BranchPlan()
     _, pin = load_runtime(config, plan=plan, run_dir=tmp_path)
+    assert "runtime_dependencies" not in pin
     with pytest.raises(ValueError, match="changed"):
         load_runtime(config, plan=plan, run_dir=tmp_path, expected={**pin, "factory_sha256": "changed"})
+
+
+def test_runtime_pin_records_only_declared_dependency_groups(tmp_path):
+    paths = {}
+    for group in ("controllers", "models", "assets", "external_inputs"):
+        path = tmp_path / f"{group}.bin"
+        path.write_bytes(group.encode())
+        paths[group] = path
+    config = {
+        "runtime_factory": f"{__name__}:provenance_runtime",
+        "runtime_dependencies": {group: [str(path)] for group, path in paths.items()},
+    }
+    PROVENANCE_FACTORY_CALLS.clear()
+    _, pin = load_runtime(config, plan=BranchPlan(), run_dir=tmp_path)
+
+    assert len(PROVENANCE_FACTORY_CALLS) == 1
+    assert set(pin["runtime_dependencies"]) == set(paths)
+    for group, path in paths.items():
+        entry = pin["runtime_dependencies"][group][0]
+        assert entry["path"] == str(path.resolve())
+        assert entry["kind"] == "file"
+        assert len(entry["sha256"]) == 64
+
+
+def test_runtime_resume_rejects_mutated_dependency_before_factory_side_effect(tmp_path):
+    dependency = tmp_path / "controller.py"
+    dependency.write_text("original")
+    config = {
+        "runtime_factory": f"{__name__}:provenance_runtime",
+        "runtime_dependencies": {"controllers": [str(dependency)]},
+    }
+    PROVENANCE_FACTORY_CALLS.clear()
+    _, pin = load_runtime(config, plan=BranchPlan(), run_dir=tmp_path)
+    assert len(PROVENANCE_FACTORY_CALLS) == 1
+    dependency.write_text("mutated")
+
+    with pytest.raises(ValueError, match="dependenc.*(digest|changed)"):
+        load_runtime(config, plan=BranchPlan(), run_dir=tmp_path, expected=pin)
+    assert len(PROVENANCE_FACTORY_CALLS) == 1
+
+
+def test_runtime_resume_rejects_missing_dependency_before_factory_side_effect(tmp_path):
+    dependency = tmp_path / "model.bin"
+    dependency.write_bytes(b"model")
+    config = {
+        "runtime_factory": f"{__name__}:provenance_runtime",
+        "runtime_dependencies": {"models": [str(dependency)]},
+    }
+    PROVENANCE_FACTORY_CALLS.clear()
+    _, pin = load_runtime(config, plan=BranchPlan(), run_dir=tmp_path)
+    dependency.unlink()
+
+    with pytest.raises(ValueError, match="dependency is missing"):
+        load_runtime(config, plan=BranchPlan(), run_dir=tmp_path, expected=pin)
+    assert len(PROVENANCE_FACTORY_CALLS) == 1
+
+
+def test_runtime_resume_rejects_changed_declaration_before_factory_side_effect(tmp_path):
+    first = tmp_path / "input-a.json"
+    second = tmp_path / "input-b.json"
+    first.write_text("same-content")
+    second.write_text("same-content")
+    config = {
+        "runtime_factory": f"{__name__}:provenance_runtime",
+        "runtime_dependencies": {"external_inputs": [str(first)]},
+    }
+    PROVENANCE_FACTORY_CALLS.clear()
+    _, pin = load_runtime(config, plan=BranchPlan(), run_dir=tmp_path)
+    changed = {
+        **config,
+        "runtime_dependencies": {"external_inputs": [str(second)]},
+    }
+
+    with pytest.raises(ValueError, match="dependencies changed"):
+        load_runtime(changed, plan=BranchPlan(), run_dir=tmp_path, expected=pin)
+    assert len(PROVENANCE_FACTORY_CALLS) == 1
 
 
 def test_evidence_rejects_other_branch_retry_and_inconsistent_predicates(tmp_path):

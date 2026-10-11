@@ -15,6 +15,12 @@
 本目录不内置正式任务 manifest。单元测试使用通用 inline fixture；有场景约束的
 短诊断输入只能放在项目忽略的 `tmp/` 下，不能因此升级成发布任务。
 
+通用运行接线已提供 `SkillTaskExecutor`、`WorldSnapshot` 和 session 内
+`ResourceManager`。具体组装、停止与资源恢复边界见
+[运行接入说明](RUNTIME_GUIDE.zh-CN.md)，后续进度见
+[开发清单](DEVELOPMENT_TODO.zh-CN.md)。这些适配器复用现有 task/skill 合同，
+业务请求映射、现场验证、controller 执行和物理 evaluator 仍由调用方提供。
+
 ## 两种运行方式
 
 `TaskRunner.run(...)` 保留兼容的一次性 decision/dispatch API。

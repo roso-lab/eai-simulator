@@ -121,10 +121,19 @@ task 层提供可选的有界 DAG 调度、执行反馈和重规划回调，仍�
 
 | 路线 | 待完成内容 | 验收边界 |
 | --- | --- | --- |
-| 可独立开发的基础设施 | 隔离进程 Isaac backend、跨进程统一 GPU 资源预留、硬超时 watchdog、进程崩溃后的显式恢复协议 | 使用临时诊断和故障注入，验证隔离、资源回收、超时终止及证据保全；当前协作式超时和封存后 resume 不替代这些能力 |
-| 可提前建设的通用状态接口 | 明确状态提供者、版本与 snapshot/restore/readback 合同，并测试漏项和不匹配拒绝 | 通用合同可先测试；完整状态范围必须由接入的机器人、controller、随机源和通信状态共同确定 |
+| 独立开发的基础设施 | 已增加隔离进程 supervisor、固定跨进程 GPU slot 预留、硬超时 watchdog、崩溃后的显式新 attempt；声明依赖指纹 | 见 PROCESS_RUNTIME.zh-CN.md；真实轻量 Isaac 已测1/2/4进程。不是通用32路或复杂场景容量认证 |
+| 通用状态接口 | 已增加 WorldSnapshot、共享资源、协作步进与同session skill checkpoint，对漏项和不匹配拒绝 | 真实 Pepper 持箱回退已测；完整因果状态仍由机器人、controller、随机源和通信状态共同确定 |
 | 需要真实任务的集成 | 物体与 skill 绑定、业务 DAG、成功/安全/可行性谓词、执行反馈与算法重规划闭环 | 真实状态与独立 evaluator 证明端到端任务效果；任务返回 completed 不等于物理成功 |
 | 需要外部实验协议的验收 | 完整因果恢复、sham 校准、严格配对、统计 reducer 与发布门禁 | 上游冻结身份及协议验收；本工具不自行授予严格配对资格 |
 
-建议先继续故障与恢复测试，并接入一个最小真实任务闭环；隔离进程能力就绪后，再按
-1→2→4 等级递增并发，每级测量容量和隔离效果。尚未验证 32 路 GPU 物理并发。
+真实任务接入后应以该任务重新测量容量、恢复轨迹及成功/安全谓词。
+当前1→2→4轻量诊断不能替代正式任务的测量，尚未验证32路GPU物理并发。
+
+task 层后续已增加通用 `SkillTaskExecutor`、live `WorldSnapshot` 与 session 内
+资源租约。branch driver 可在自己持有的 session 上组装这些组件；每个分支使用
+新 executor，业务任务仍由外部输入。接线与限制见
+[task 运行接入说明](../../task/RUNTIME_GUIDE.zh-CN.md)，分阶段进度见
+[开发清单](../../task/DEVELOPMENT_TODO.zh-CN.md)。该资源管理器不替代 GPU scheduler，
+也不为跨进程隔离或正式任务成功提供认证。
+
+外层进程隔离与依赖声明入口见 [进程与复现说明](PROCESS_RUNTIME.zh-CN.md)。

@@ -1,5 +1,14 @@
 # EAI executors
 
+`skills.py` 提供 `SkillTaskExecutor`，通过调用方注入的 `BoundSkill` 连接下面的
+执行链路。它不定义业务映射，支持 live 观测、请求去重和 session 内资源租约；
+异常无法确认停止时隔离占用。用法与精确边界见
+[运行接入说明](../RUNTIME_GUIDE.zh-CN.md)。
+
+`cooperative.py` 提供 `CooperativeBatchExecutor` 和非步进 handle 协议，同场景
+多个机器人每 tick 合并动作后只执行一次物理步。取消必须等实测停止；未确认停止
+阻断整个共享 scene，并保留资源占用。外部进程 watchdog 才能提供墙钟硬超时。
+
 这里放将高层 `Assignment` 转换为低层 `SkillRequest`，调用
 `algorithm/skills/` 中的 provider 得到 `SkillPlan`，再映射为 EAI
 controller/skill 调用的实现。

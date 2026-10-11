@@ -167,12 +167,14 @@ class TaskRunner:
         executor: SkillExecutor | None = None,
         orchestration_executor: OrchestrationExecutor | BatchOrchestrationExecutor | None = None,
         evaluator: EvidenceEvaluator | None = None,
+        observation_provider: Callable[[Any], Any] | None = None,
     ) -> None:
         self.scene_provider = scene_provider or (lambda scene_id: {"scene_id": scene_id})
         self.replay = replay
         self.executor = executor
         self.orchestration_executor = orchestration_executor
         self.evaluator = evaluator
+        self.observation_provider = observation_provider
 
     def run(
         self,
@@ -182,6 +184,8 @@ class TaskRunner:
         condition=None,
     ) -> TaskRunResult:
         task = request.task
+        if request.checkpoint is not None and self.replay is None:
+            raise ValueError("checkpoint requested but no replay backend was injected")
         scene = self.scene_provider(task.scene_id)
         ledger = EventLedger()
         if request.checkpoint is not None:
@@ -273,6 +277,11 @@ class TaskRunner:
 
         limits = limits or OrchestrationLimits()
         task = request.task
+        if request.checkpoint is not None and self.replay is None:
+            raise ValueError("checkpoint requested but no replay backend was injected")
+        bind_run = getattr(self.orchestration_executor, "bind_run", None)
+        if callable(bind_run):
+            bind_run(request)
         scene = self.scene_provider(task.scene_id)
         ledger = EventLedger(schema_version="task.orchestration.v1")
         if request.checkpoint is not None:
@@ -285,6 +294,35 @@ class TaskRunner:
                 branch_id=request.branch_id,
             )
 
+        from .observation import WorldSnapshot
+
+        previous_observation: WorldSnapshot | None = None
+
+        def refresh_observation(*, after_dispatch: bool = False) -> bool:
+            nonlocal task, previous_observation
+            if self.observation_provider is None:
+                return False
+            snapshot = self.observation_provider(scene)
+            if not isinstance(snapshot, WorldSnapshot):
+                raise TypeError("observation provider must return WorldSnapshot")
+            if snapshot.scene_id != request.task.scene_id:
+                raise ValueError("observation does not belong to requested scene")
+            if previous_observation is not None:
+                snapshot.validate_successor(previous_observation)
+                if after_dispatch and snapshot.revision <= previous_observation.revision:
+                    raise ValueError("post-dispatch observation requires a fresh revision")
+            changed = previous_observation is None or snapshot.digest != previous_observation.digest
+            task = request.task.bind_runtime(
+                robots=snapshot.robots,
+                metadata={"runtime_observation": snapshot.to_dict()},
+            )
+            if changed:
+                ledger.append("world_observed", revision=snapshot.revision,
+                              tick=snapshot.tick, digest=snapshot.digest)
+            previous_observation = snapshot
+            return changed
+
+        refresh_observation()
         task_order = tuple(item.task_id for item in task.graph.tasks)
         task_by_id = {item.task_id: item for item in task.graph.tasks}
         robot_by_id = {
@@ -321,6 +359,29 @@ class TaskRunner:
             if rounds >= limits.max_rounds:
                 termination_reason = "max_rounds_reached"
                 break
+
+            changed = refresh_observation()
+            robot_by_id = {
+                item.capability.robot_id: item for item in task.robots
+                if item.capability.active
+            }
+            if changed and replan is not None:
+                replacement = self._call_replan(
+                    replan, task=task, task_order=task_order, states=states,
+                    feedback=feedback, last_decision=decisions[-1], rounds=rounds,
+                    condition=initial.condition, task_by_id=task_by_id,
+                    robot_by_id=robot_by_id,
+                )
+                rounds += 1
+                if replacement is None:
+                    termination_reason = "planner_stopped"
+                    break
+                decisions.append(replacement)
+                active_assignments = {item.task_id: item for item in replacement.assignments}
+                _append_decision_event(ledger, replacement, round_index=rounds)
+                if rounds >= limits.max_rounds:
+                    termination_reason = "max_rounds_reached"
+                    break
 
             ready = self._ready_assignments(
                 task_order,
@@ -363,6 +424,12 @@ class TaskRunner:
             if dispatch_count + len(ready) > limits.max_dispatches:
                 termination_reason = "max_dispatches_reached"
                 break
+            # A previously valid assignment may lose its live capability before
+            # dispatch. Never execute it against an obsolete roster.
+            _validate_decision(
+                AlgorithmDecision(condition=initial.condition, assignments=ready),
+                task_by_id=task_by_id, robot_by_id=robot_by_id,
+            )
             if self.orchestration_executor is None:
                 for assignment in ready:
                     feedback.append(
@@ -416,6 +483,11 @@ class TaskRunner:
                 )
 
             self._propagate_blocked_dependencies(states, task_by_id)
+            refresh_observation(after_dispatch=True)
+            robot_by_id = {
+                item.capability.robot_id: item for item in task.robots
+                if item.capability.active
+            }
             if all(state == "completed" for state in states.values()):
                 termination_reason = "all_dependencies_completed"
                 break
@@ -555,6 +627,10 @@ class TaskRunner:
         expected = {(item.task_id, item.robot_id) for item in assignments}
         by_identity: dict[tuple[str, str], ExecutionUpdate] = {}
         for update in raw_updates:
+            if (update.dependency_outcome is DependencyOutcome.COMPLETED) != (
+                update.feedback.failure_code is FailureCode.NONE
+            ):
+                raise ValueError("dependency outcome contradicts execution failure code")
             identity = (update.feedback.task_id, update.feedback.robot_id)
             if identity in by_identity:
                 raise ValueError(f"executor returned duplicate feedback: {identity}")

@@ -218,6 +218,10 @@ class LiveCheckpointBackend:
                     component.restore_state(snapshots[component.name].state)
             errors = state_errors(physical.state["state"], self.read_physics())
         except Exception as exc:
+            for component in ordered:
+                callback = getattr(component, "on_restore_failed", None)
+                if callable(callback):
+                    callback()
             result = {"checkpoint_id": identifier, "passed": False, "phase": "restore", "state_may_have_changed": True, "error": str(exc)}
             try:
                 self._write_report(result)
@@ -240,6 +244,10 @@ class LiveCheckpointBackend:
         }
         self._write_report(result)
         if not passed:
+            for component in ordered:
+                callback = getattr(component, "on_restore_failed", None)
+                if callable(callback):
+                    callback()
             raise RuntimeError("restored state exceeds tolerance; simulation remains paused")
         return result
 

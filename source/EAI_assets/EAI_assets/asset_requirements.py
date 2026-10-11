@@ -346,6 +346,9 @@ _CONTROLLER_PATHS = {
 }
 
 
+_CONTROLLER_PATHS["PEPPER_BOX_TRANSPORT_TASK_CFG"] = _CONTROLLER_PATHS["PEPPER_BOX_TRANSPORT_CFG"]
+
+
 def _add(
     entries: dict[str, AssetRequirement],
     requirement: AssetRequirement,

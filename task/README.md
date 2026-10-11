@@ -19,6 +19,16 @@ No production task manifest is bundled here. Unit tests build generic inline
 packages. Scenario-specific files used for a bounded diagnostic belong under
 the project ignored `tmp/` tree and do not become published tasks.
 
+`SkillTaskExecutor` now routes caller-resolved `BoundSkill` instances through
+the existing skill contracts. `WorldSnapshot` supplies detached, versioned live
+observations to bounded orchestration; `ResourceManager` provides atomic
+session-local ownership and quarantine when stopping cannot be confirmed.
+Each executor binds to one run before scene/replay effects. Batches remain
+serial, and a runtime completion receipt never replaces an independent physical
+evaluator. Business request mapping, live validation and controller callbacks
+remain caller-owned. See the [runtime guide](RUNTIME_GUIDE.zh-CN.md) and
+[development checklist](DEVELOPMENT_TODO.zh-CN.md) for wiring and limitations.
+
 ## One-shot compatibility
 
 `TaskRunner.run(...)` preserves the existing one-shot API: it requests one

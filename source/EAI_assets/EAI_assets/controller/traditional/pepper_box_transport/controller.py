@@ -38,9 +38,14 @@ def compute_pepper_box_transport_action(
     command: torch.Tensor,
     controller_dict: Dict[str, Any],
 ) -> torch.Tensor:
-    del command
     runtime: PepperBoxGraspRuntime = controller_dict["runtime"]
     transport: BoxTransportState = controller_dict["transport"]
+    if not controller_dict.get("execution_enabled", True):
+        controller_dict["internal_velocity_command"] = (0.0, 0.0, 0.0)
+        controller_dict["locomotion_compute_calls"] = int(controller_dict.get("locomotion_compute_calls", 0)) + 1
+        return compute_pepper_holonomic_action_from_command(
+            PEPPER_HOLONOMIC_CFG, env, robot_name, torch.zeros_like(command), controller_dict,
+        )
     generated = transport.update(
         runtime.state.phase,
         runtime.state.attached,
@@ -91,6 +96,10 @@ def apply_pepper_box_transport_action(
         controller_dict.get("locomotion_apply_calls", 0)
     ) + 1
     runtime: PepperBoxGraspRuntime = controller_dict["runtime"]
+    if not controller_dict.get("execution_enabled", True):
+        env.pepper_box_grasp_state = runtime.state.snapshot()
+        env.box_transport_state = controller_dict["transport"].snapshot()
+        return
     sim_cfg = getattr(getattr(env, "cfg", None), "sim", None)
     physics_dt = float(getattr(sim_cfg, "dt", 0.005))
     if runtime.state.phase is G1BoxGraspPhase.IDLE and controller_dict.get("auto_start", True):
@@ -119,6 +128,9 @@ class PepperBoxTransportControllerCfg(ControllerCfg):
     )
     transport_config: BoxTransportConfig = BoxTransportConfig()
     auto_start: bool = True
+    # Legacy demonstrations retain auto execution. Task-owned runtimes set this
+    # false so unrelated shared simulator steps cannot start a transport skill.
+    execution_enabled: bool = True
 
     def load(self, robot_name: str, task_name: str, device: str, env: Any) -> Dict[str, Any]:
         controller_dict = PEPPER_HOLONOMIC_CFG.load(robot_name, task_name, device, env)
@@ -135,6 +147,7 @@ class PepperBoxTransportControllerCfg(ControllerCfg):
                 "runtime": runtime,
                 "transport": BoxTransportState(self.transport_config),
                 "auto_start": bool(self.auto_start),
+                "execution_enabled": bool(self.execution_enabled),
                 "locomotion_controller": "PEPPER_HOLONOMIC_CFG",
                 "source_settle_elapsed_s": 0.0,
                 # FilteredPairsAPI is authored by the transport robot spawner
@@ -183,6 +196,7 @@ class PepperBoxTransportControllerCfg(ControllerCfg):
         controller_dict["collision_filter_installed"] = True
         controller_dict["locomotion_compute_calls"] = 0
         controller_dict["locomotion_apply_calls"] = 0
+        controller_dict["execution_enabled"] = bool(self.execution_enabled)
 
 
 PEPPER_BOX_TRANSPORT_CFG = PepperBoxTransportControllerCfg(
@@ -191,9 +205,15 @@ PEPPER_BOX_TRANSPORT_CFG = PepperBoxTransportControllerCfg(
     apply_action_func=apply_pepper_box_transport_action,
 )
 
+# Same controller contract with explicit task ownership. The caller supplies
+# the box/support scene binding; ordinary shared steps cannot start this cfg.
+PEPPER_BOX_TRANSPORT_TASK_CFG = PEPPER_BOX_TRANSPORT_CFG.copy()
+PEPPER_BOX_TRANSPORT_TASK_CFG.execution_enabled = False
+
 
 __all__ = [
     "PEPPER_BOX_TRANSPORT_CFG",
+    "PEPPER_BOX_TRANSPORT_TASK_CFG",
     "PepperBoxTransportControllerCfg",
     "apply_pepper_box_transport_action",
     "compute_pepper_box_transport_action",
