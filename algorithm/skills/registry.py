@@ -11,6 +11,20 @@ from typing import Any
 
 SKILL_REGISTRY: tuple[dict[str, Any], ...] = (
     {
+        "skill_id": "eai.navigation.ground_navigation",
+        "provider_id": "ground_navigation.provider",
+        "provider_version": "1.0",
+        "kind": "navigation",
+        "role": "authored_node_heading_pid",
+        "module": "algorithm.skills.navigation.ground_navigation",
+        "schema_version": "simulator.skill.v1",
+        "input_contract": "SkillRequest(target_ref | target_pose, intent, world_state_seq)",
+        "output_contract": "SkillPlan(base_velocity=[v, 0, wz])",
+        "executor_owner": "task.executors.ground_navigation.GroundNavigationExecutor",
+        "evaluator_owner": "external evidence evaluator",
+        "status": "implemented_generic_executor",
+    },
+    {
         "skill_id": "global_2d_navigation",
         "kind": "navigation",
         "role": "single_robot_path_and_velocity",

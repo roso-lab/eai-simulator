@@ -37,9 +37,10 @@ algorithm/
 
 EMOS 和 TeamWeaver 是被测系统算法本体，不是兼容副本。它们唯一支持的导入路径是
 `algorithm.system.coordination.emos` 和
-`algorithm.system.coordination.TeamWeaver`。导航、Nav2 和键盘 provider 当前从本分支
-移除，等待专门的 Skill 开发者上传；`algorithm/skills/` 保留合同和 registry 槽位，
-它们不属于论文级任务协同算法。
+`algorithm.system.coordination.TeamWeaver`。人工节点与航向 PID 地面导航已接入
+`algorithm/skills/navigation/`，真实执行 I/O 位于 `task/executors/`。
+全局栅格、db-CBS、Nav2 和键盘 provider 仍等待专门的 Skill 实现；
+这些 Skill 不属于论文级任务协同算法。
 
 ## 系统算法边界
 
@@ -68,6 +69,7 @@ Skill provider 在任务分配之后接收 `SkillRequest`，返回包含
 
 | Skill provider | 计划路径 | 职责 |
 |---|---|---|
+| node/PID 地面导航 | `algorithm/skills/navigation/ground_navigation.py` | 人工节点选路与底盘速度；已有通用执行适配 |
 | global 2D navigation | `algorithm/skills/navigation/global_planner/` | 路径和速度生成 |
 | db-CBS navigation | `algorithm/skills/navigation/multi_robot_navigation/` | 多机轨迹与碰撞规避 |
 | Nav2 | `algorithm/skills/external_io/nav2/` | system-ROS 目标/传输 |

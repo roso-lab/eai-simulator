@@ -30,6 +30,14 @@ assigned/unassigned 重叠、声明的 robot capability 和 feedback identity。
 ready 声明。历史 scenario-specific bridge 只是诊断适配器，不是当前通用运行时
 发布范围。
 
+## 地面导航 Skill
+
+`algorithm/skills/navigation/ground_navigation.py` 提供人工拓扑节点选路和航向
+PID Provider；`task/executors/ground_navigation.py` 在调用者线程读取真实位姿、
+发送底盘速度并负责超时、异常和终态停车。导航不依赖全局栅格、局部代价地图、
+DWA、OBB 或碰撞查询。接口、节点弯道表达规则和证据边界见
+`algorithm/skills/navigation/GROUND_NAVIGATION.zh-CN.md`。
+
 ## 最小验证
 
 ```bash

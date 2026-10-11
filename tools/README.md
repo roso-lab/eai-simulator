@@ -13,6 +13,7 @@ Run commands in this tree from the repository root. `tools/` groups independent 
 | [`ros2/`](ros2/README.md) | External sensor, mobile-base, and manipulator clients plus focused tests | Selected system ROS2 Python |
 | [`human_assets/`](human_assets/README.md) | Human conversion, authoring, migration, cache generation, validation, and demo workflows | Pure Python or Isaac Sim/OpenUSD, depending on the command |
 | [`physics_replay/`](physics_replay/README.md) | Isaac Sim physics, command/action/noise tapes, checkpoint restore, and episode inspection | Pure Python inspection; Factory validation requires `env_isaaclab` |
+| [`topology_authoring/`](topology_authoring/README.md) | Scene-adapter based topology drafts and Isaac Sim authoring UI | Pure Python model or Isaac Sim GUI; adapter decides scene inputs |
 
 ## Runtime boundaries
 
@@ -63,6 +64,18 @@ python tools/human_assets/migrate_assets.py --help
 ```
 
 `scene.py` and `motion_controls.py` are imported support modules, not standalone commands. See the human-asset guide before running a command that writes USD, manifests, caches, or reports.
+
+### Topology authoring
+
+```bash
+python tools/topology_authoring/author.py \
+  --scene-key warehouse \
+  --adapter tools.topology_authoring.adapters.empty:EmptyTopologyAdapter \
+  --asset-root /path/to/scene-assets \
+  --output-root /path/to/prepared-package
+```
+
+Use `--headless` to inspect an adapter without launching Isaac Sim.
 
 ## Side effects
 

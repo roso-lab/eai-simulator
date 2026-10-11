@@ -36,3 +36,17 @@ executor 返回 `ExecutionUpdate`；其中 `DependencyOutcome` 只表示 schedul
 executor 还负责解析 live scene 中的 object reference、asset、controller resource
 和 skill implementation。runner 只能验证 manifest 声明的 robot capability，不能
 推断这些不透明资源是否存在；资源缺失或版本不匹配必须返回显式 failure/update。
+
+## 地面导航
+
+`ground_navigation.py` 提供 `GroundNavigationExecutor` 控制周期适配器：接收
+地面 `SkillRequest`，从已创建的 EAI 环境读取真实 XYZ+yaw，将纯 Provider
+生成的 `base_velocity` 经 `env.step` 传入 controller。调用者注入已校验拓扑、
+世界状态校验、模拟时间或动作聚合回调；executor 不创建 simulator。
+
+显式调用 `dispatch` 后，用 `control` 发送 start、continue、hold、replan 或 stop。
+任务独立保存模拟时间和私有命令证据；成功、取消、不可达、超时或异常都应用
+零速度，应用失败时记录停止错误。通用接入不加载 City benchmark 或地图产品。
+高层 `Assignment -> SkillRequest` 的映射与 TaskRunner 注入仍由任务 host 完成。
+
+详见 `algorithm/skills/navigation/GROUND_NAVIGATION.zh-CN.md`。
