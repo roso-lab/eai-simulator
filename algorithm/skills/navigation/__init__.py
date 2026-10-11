@@ -1,6 +1,15 @@
-"""Navigation skill provider upload namespace.
+"""Pure navigation providers and authored-node tracking primitives."""
 
-Concrete navigation providers are intentionally absent from this branch and
-will be added here by the dedicated Skill developer. Their machine-readable
-classification lives in :mod:`algorithm.skills.registry`.
-"""
+from .ground_navigation import (
+    GroundNavigationProvider,
+    GroundNavigationResponse,
+    GroundPose,
+    GroundTrackingConfig,
+    NodeRouteTracker,
+    select_node_route,
+)
+
+__all__ = [
+    "GroundNavigationProvider", "GroundNavigationResponse", "GroundPose",
+    "GroundTrackingConfig", "NodeRouteTracker", "select_node_route",
+]

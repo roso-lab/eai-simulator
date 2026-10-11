@@ -40,10 +40,11 @@ algorithm/
 EMOS and TeamWeaver are tested system-algorithm implementations, not
 compatibility copies. Their only supported import paths are
 `algorithm.system.coordination.emos` and
-`algorithm.system.coordination.TeamWeaver`. Navigation, Nav2, and keyboard
-providers are currently absent from this branch and are reserved for the
-dedicated Skill implementation. Their contracts and registry slots remain in
-`algorithm/skills/`; they are not paper-level coordination algorithms.
+`algorithm.system.coordination.TeamWeaver`. Authored-node ground navigation is
+implemented under `algorithm/skills/navigation/`, with native I/O in
+`task/executors/`. Global-grid, db-CBS, Nav2 and keyboard providers remain
+reserved for dedicated Skill implementations. These skills are not paper-level
+coordination algorithms.
 
 ## System algorithm boundary
 
@@ -75,6 +76,7 @@ providers are classified in `algorithm/skills/registry.py`:
 
 | Skill provider | Planned provider path | Role |
 |---|---|---|
+| node/PID ground navigation | `algorithm/skills/navigation/ground_navigation.py` | authored-node routing and body velocity; implemented generic executor |
 | global 2D navigation | `algorithm/skills/navigation/global_planner/` | path and velocity generation |
 | db-CBS navigation | `algorithm/skills/navigation/multi_robot_navigation/` | multi-robot trajectory and collision avoidance |
 | Nav2 | `algorithm/skills/external_io/nav2/` | system-ROS goal/transport path |
