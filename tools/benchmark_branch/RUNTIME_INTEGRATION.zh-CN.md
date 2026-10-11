@@ -1,0 +1,130 @@
+# 通用运行接入与验收边界
+
+本工具为后续任务包提供执行和审计机制，不内置正式场景、任务 DAG、算法选择、
+成功谓词或论文指标。Factory 等临时诊断的插件、配置和结果只能放在 `tmp/`；
+不得把诊断目标注册成默认业务任务。
+
+## 运行范围
+
+| scope | 输入与用途 | 可以证明什么 |
+| --- | --- | --- |
+| `protocol_synthetic` | Dummy 或协议插件 | 生命周期、并发记账和文件完整性 |
+| `measured_diagnostic` | 外部临时任务 + 实际 session + evaluator | 指定诊断的物理观测；不具备正式配对或论文发布资格 |
+| `measured` | 外部 benchmark 冻结的 explicit jobs + 实际 session + evaluator | 正式身份下的原始实测证据；仍需外部严格配对与统计验收 |
+
+`measured_diagnostic` 允许只选择 fact；两种实测范围均要求 scheduler preflight、
+step/heartbeat、checkpoint readback 和可核验的 evaluator artifact。
+`measured` 在启动 session 之前校验上游身份字段，不能靠改 scope 将诊断晋升。
+`formal_pairing_eligible` 始终为 false，`strict_pair_claim_status` 始终为 unsupported。
+
+## CLI 的插件入口
+
+任务包提供可导入的 `module:factory`，在 JSON 配置中填写：
+
+```json
+{
+  "runtime_factory": "my_task_package.runtime:create_runtime",
+  "runtime_kwargs": {"task_file": "tmp/my-diagnostic/task.json"},
+  "execution_scope": "measured_diagnostic",
+  "slots": 1,
+  "arms": ["fact"]
+}
+```
+
+factory 签名为 `create_runtime(*, plan, run_dir, **runtime_kwargs)`，返回
+`tools.benchmark_branch.runtime.RuntimeComponents`：adapter、session_backend、
+scheduler、plugin_id、plugin_version，以及 executor_options。可选 executor_options
+仅包含 requested_device、scene_reservation、branch_reservation、warmup_ticks。
+factory 只组装对象，不启动 Isaac；正式场景在 `open_scene` 中启动。
+
+```bash
+python -m tools.benchmark_branch run --config tmp/my-diagnostic/config.json \
+  --output tmp/my-diagnostic/run-1 --max-workers 1
+python -m tools.benchmark_branch validate --run-dir tmp/my-diagnostic/run-1
+python -m tools.benchmark_branch resume --run-dir tmp/my-diagnostic/run-1
+```
+
+run/resume 共用插件加载路径。manifest 固定 factory 源文件 SHA-256、配置和插件版本；
+改变后必须新建运行目录。该 hash 不覆盖传递依赖、外部任务文件或资产，任务包必须在
+自身版本/合同 digest 中固定这些输入，并在 `validate_contract` 检查。不要把凭据写入配置。
+已有运行目录不得覆盖，重试保留原始 attempt 和失败记录。
+恢复前校验已有 seal 与冻结计划，损坏时拒绝写入，不能通过 resume 重算校验和掩盖损坏。
+seal 强制覆盖所有账本、evaluator 文件、plan 和 manifest；缺失 seal 或必需条目时
+禁止自动 resume。旧版本不完整 seal 和未封存崩溃目录同样保留供人工审计，不自动迁移。
+离线验证检查每一次 attempt 的
+证据，不只检查最后一次。若重试进程在旧 seal 之后追加数据又崩溃而未封存，保留原目录
+供审计并新建恢复运行，工具不会猜测哪些不匹配属于合法追加。
+
+## Isaac 生命周期
+
+`EaiSessionBackend` 只调用 `simulator.open_simulator_session`，不创建第二套 launcher。
+调用者注入 launch_config、branch_driver、evaluator 和 run_dir。
+
+driver 提供 `warmup(session, ticks=...)`、`open_branch(session, job, lease=...)`、
+`run_branch(runtime, job, emit=...)`、`close_branch(runtime)`。
+driver 负责 controller 特定的空闲命令、实际恢复、执行与原始观测；不同 controller
+的动作维度不同，backend 不猜测零命令。driver 在 session 上暴露实际使用的
+`benchmark_action_tensor`，供 `probe_eai_devices` 读取；probe 同时读取 live physics
+device、GPU dynamics/pipeline 和 CUDA UUID。缺失信息拒绝准入，不回填配置值。
+`CudaResourceProbe(device)` 可作为 scheduler 的 resource_probe，采集指定 CUDA 设备
+的 UUID、可用显存和主机可用内存；遵循 CUDA_VISIBLE_DEVICES，不固定取物理 GPU 0。
+跨进程统一容量预留仍由部署层负责，瞬时可用显存采样不能替代资源所有权。
+
+evaluator 提供 `evaluate(runtime, job, execution=..., run_dir=...)`。它读取执行后的
+物理状态/原始观测，独立产生 verdict；driver 自报 physical_success 不会传入最终结果。
+
+backend 声明 `execution_affinity="caller_thread"`，因此 session 创建、step 和关闭
+在主线程串行执行。请求 32 worker 不会制造 32 路物理并行的记录。需要实际并行时，
+上层应提供隔离进程 backend 和统一资源准入；禁止多线程直接 step 同一 Isaac world。
+通用 thread_pool backend 仍用于明确支持并发的 runtime；其隔离认证由提供者负责。
+Kit fast_shutdown 在此 backend 中关闭，以便关闭 session 后仍能释放 lease 和封存账本。
+
+`--timeout` 对 session backend 是协作式期限：emit 和返回点检查超时。阻塞的原生
+step 无法被安全线程中断，需要部署层的进程 watchdog；不宣称为硬实时超时。
+
+## 可重验的物理证据
+
+外部 evaluator 调用 `write_evaluator_evidence`，写出内容寻址 JSON，包含：完整 job
+绑定 digest（含 attempt/checkpoint）、evaluator 版本、原始 observations、status、
+completed、physical_success 和 terminal/safety/feasibility 三个布尔谓词。
+允许记录失败；谓词不全为 true 时，physical_success 不得为 true。
+
+collector 与离线 validate 都重新读文件，验证 SHA-256、路径在运行目录内、分支身份、
+版本以及 verdict 一致性。伪造非空 hash、借用另一分支/旧 attempt 的证据、事后修改
+artifact 均拒绝。Hash 证明完整性和绑定，不证明 evaluator 诚实或谓词科学有效；
+领域审计器仍须复核原始观测。固定版本和可信 evaluator 是外部任务包的责任。
+
+## 外部 benchmark 的责任
+
+旧文档中的 `benchmark.*` 是上游权威层名称，不是本仓库随附或自动安装的包。
+本仓库以 `branch_plan_from_batch` 的结构化对象接口接收其冻结身份，不复制论文协议。
+上游负责 ExperimentBatch、causal replay、sham 校准、strict pair gate、reducer 和
+release。只有上游实现安装后才能做其版本兼容测试；协议 fixture 测试不能替代它。
+旧 `demo.benchmark.branch_plugins` 测试是历史可选集成，不是通用工具的运行依赖。
+
+接入新任务的顺序：先验证合同与资源依赖，再单分支实测，再恢复/失败/重试，随后按
+外部协议验证配对，最后逐级扩展隔离并发。不能由 collector 自动批准科学结论。
+
+## 开发阶段与后续工作
+
+当前阶段是“通用单 session 基础链路已验证，可以接入真实任务”，不是完整实验系统
+已验收。运行接入、恢复前完整性校验、逐 attempt 证据审计和资源释放已有回归覆盖；
+task 层提供可选的有界 DAG 调度、执行反馈和重规划回调，仍需外部 executor/evaluator。
+
+本次针对工具、回放字段、任务编排和方法注册的轻量回归为 109 passed、1 skipped；
+跳过项是未安装的历史外部场景插件。Isaac GPU 临时诊断完成 2 个串行分支，每个
+120 tick，并验证完成后 resume 不重复执行。其物理目标仅为动态刚体恢复、下落及
+稳定支撑，不代表机器人搬运流程或正式方法效果。请求 4 worker 时实际峰值仍为 1。
+临时场景、插件和原始实验产物全部保留在 `tmp/`，不作为维护的任务输入。
+
+后续工作可沿两条路线推进，无须等待正式任务流程全部完成：
+
+| 路线 | 待完成内容 | 验收边界 |
+| --- | --- | --- |
+| 可独立开发的基础设施 | 隔离进程 Isaac backend、跨进程统一 GPU 资源预留、硬超时 watchdog、进程崩溃后的显式恢复协议 | 使用临时诊断和故障注入，验证隔离、资源回收、超时终止及证据保全；当前协作式超时和封存后 resume 不替代这些能力 |
+| 可提前建设的通用状态接口 | 明确状态提供者、版本与 snapshot/restore/readback 合同，并测试漏项和不匹配拒绝 | 通用合同可先测试；完整状态范围必须由接入的机器人、controller、随机源和通信状态共同确定 |
+| 需要真实任务的集成 | 物体与 skill 绑定、业务 DAG、成功/安全/可行性谓词、执行反馈与算法重规划闭环 | 真实状态与独立 evaluator 证明端到端任务效果；任务返回 completed 不等于物理成功 |
+| 需要外部实验协议的验收 | 完整因果恢复、sham 校准、严格配对、统计 reducer 与发布门禁 | 上游冻结身份及协议验收；本工具不自行授予严格配对资格 |
+
+建议先继续故障与恢复测试，并接入一个最小真实任务闭环；隔离进程能力就绪后，再按
+1→2→4 等级递增并发，每级测量容量和隔离效果。尚未验证 32 路 GPU 物理并发。

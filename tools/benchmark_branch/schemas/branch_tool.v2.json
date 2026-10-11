@@ -12,7 +12,7 @@
     "branch_type": {"enum": ["fact", "reference", "sham", "intervention"]},
     "attempt": {"type": "integer", "minimum": 0},
     "slot": {"type": "integer", "minimum": 0},
-    "execution_scope": {"enum": ["measured", "protocol_synthetic", "pending", "failed"]},
+    "execution_scope": {"enum": ["measured", "measured_diagnostic", "protocol_synthetic", "pending", "failed"]},
     "worker_instance_id": {"type": "string"},
     "worker_session_id": {"type": "string"},
     "checkpoint_digest": {"type": "string"},

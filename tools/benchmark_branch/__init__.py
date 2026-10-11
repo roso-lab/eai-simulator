@@ -10,6 +10,9 @@ from .contracts import (CHECKPOINT_FIELDS, METHOD_FAILURES, OUTCOME_STATUSES,
                         STEP_FIELDS, TaskContract, evaluator_result)
 from .executor import BranchExecutor, BranchWorker, WorkerResult
 from .session import EmitRow, SessionBackend
+from .runtime import RuntimeComponents
+from .eai_session import EaiSessionBackend, probe_eai_devices, CudaResourceProbe
+from .evidence import write_evaluator_evidence, verify_evaluator_evidence
 from .models import (BRANCH_ROLES, EXECUTION_SCOPES, BranchJob, BranchPlan,
                      CheckpointArtifact, ResourceSnapshot, canonical_digest)
 from .store import LEDGERS, BranchDataCollector, BranchRunStore
@@ -23,6 +26,8 @@ __all__ = [
     "branch_plan_from_batch", "validate_jobs_against_batch", "benchmark_job_errors",
     "BranchExecutor", "BranchWorker", "WorkerResult",
     "SessionBackend", "EmitRow",
+    "RuntimeComponents", "EaiSessionBackend", "probe_eai_devices", "CudaResourceProbe",
+    "write_evaluator_evidence", "verify_evaluator_evidence",
     "TaskContract", "evaluator_result", "OUTCOME_STATUSES", "METHOD_FAILURES",
     "CHECKPOINT_FIELDS", "STEP_FIELDS",
     "LEDGERS", "BranchDataCollector", "BranchRunStore", "BranchValidator", "BranchAggregator",

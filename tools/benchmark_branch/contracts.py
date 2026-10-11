@@ -119,7 +119,7 @@ def evaluator_result(result: Any, contract: TaskContract, scope: str):
         if required - result.keys() or not result.get('evidence_refs'):
             return {'status': 'not_evaluable', 'failure_reason': 'external evidence incomplete',
                     'value': None, 'raw_evaluator_result': result}
-        if scope == 'measured' and result['evidence_source'] != 'external_evaluator':
+        if scope in {'measured', 'measured_diagnostic'} and result['evidence_source'] != 'external_evaluator':
             return {'status': 'not_evaluable', 'failure_reason': 'measured result requires external evaluator', 'value': None}
         expected = {m['id']: m for m in contract.data['milestones']}
         if set(result['milestones']) != set(expected):

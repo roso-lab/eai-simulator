@@ -2,6 +2,11 @@
 
 [中文文档](README.zh-CN.md) · [Plugin integration](PLUGIN_GUIDE.md) · [Example dependencies](examples/README.md)
 
+The CLI now supports a versioned `runtime_factory` for run/resume. See
+[runtime integration](RUNTIME_INTEGRATION.zh-CN.md) for `measured_diagnostic`,
+main-thread EAI sessions, branch-bound evaluator artifacts and external
+benchmark dependencies. No production task or scene is bundled by this seam.
+
 `tools.benchmark_branch` collects paired branch experiments across scenes,
 tasks, systems, conditions and repeats. It owns experiment identities,
 checkpoint fan-out, worker execution, append-only ledgers, retries, validation,
@@ -17,7 +22,7 @@ tests, schemas and configuration examples; scene runners are separate dependenci
 | `physics_replay` | Capture/restore/fidelity; `ReplayScheduler` handles resource admission, GPU preflight and leases |
 | Upstream scene plugin | Isaac application, isolated runtime state, task semantics and evaluator evidence |
 
-The collector does not create a `ReplayScheduler` from CLI configuration. An
+The CLI runtime factory or a Python caller supplies a `ReplayScheduler`. An
 upstream runner can explicitly pass one scheduler and a `SessionBackend` to
 `BranchExecutor`; that path admits all scene groups through one capacity
 ledger and runs branch slots concurrently inside each scene session. Two
@@ -117,12 +122,12 @@ Optional `resource_limit` keys are `max_workers`, `per_worker_ram_bytes`,
 `per_worker_vram_bytes`, `min_ram_available_bytes`, `min_vram_free_bytes`.
 This probe is best-effort worker sizing (currently GPU 0 telemetry), not strict
 multi-process GPU admission. Use `ReplayScheduler` and a measured device probe
-for the formal GPU gate. Resume callers should reapply resource/timeout policy;
-the current resume CLI does not restore every scheduling option automatically.
+for the formal GPU gate. Resume reloads the frozen runtime factory and timeout/
+resource limits; the factory owns its scheduler capacity and reservation policy.
 
 ## Evidence and tests
 
-`execution_scope` distinguishes `measured`, `protocol_synthetic`, `pending` and
+`execution_scope` distinguishes `measured`, `measured_diagnostic`, `protocol_synthetic`, `pending` and
 `failed`. Dummy runs must stay `protocol_synthetic`. Measured runtime receipts
 can still have `physical_success: null` and `not_evaluable` outcomes. Only an
 external evaluator can establish physical success; assignment, authored phase

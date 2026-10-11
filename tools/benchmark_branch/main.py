@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import ast
 import importlib
 import json
 from pathlib import Path
@@ -11,7 +10,8 @@ from typing import Any, Mapping
 
 from .adapters import DummyAdapter
 from .executor import BranchExecutor
-from .models import BRANCH_ROLES, BranchPlan
+from .models import BRANCH_ROLES, BranchPlan, EXECUTION_SCOPES
+from .runtime import load_runtime
 from .store import BranchRunStore, LEDGERS
 from .validation import summarize_run, validate_run
 
@@ -24,21 +24,8 @@ def load_config(path: str | Path) -> dict[str, Any]:
         try:
             import yaml  # type: ignore
             value = yaml.safe_load(text)
-        except ImportError:
-            value = {}
-            current_key = None
-            for line in text.splitlines():
-                stripped = line.strip()
-                if not stripped or stripped.startswith("#"): continue
-                if stripped.startswith("-") and current_key:
-                    value.setdefault(current_key, []).append(stripped[1:].strip().strip("'\"")); continue
-                if ":" not in stripped: raise ValueError("unsupported YAML; use JSON or install PyYAML")
-                key, raw = stripped.split(":", 1); key, raw = key.strip(), raw.strip()
-                if not raw: value[key] = []; current_key = key; continue
-                try: parsed = ast.literal_eval(raw)
-                except (ValueError, SyntaxError):
-                    lowered = raw.lower(); parsed = True if lowered == "true" else False if lowered == "false" else raw.strip("'\"")
-                value[key] = parsed; current_key = None
+        except ImportError as exc:
+            raise ValueError("YAML configuration requires PyYAML; JSON needs no extra dependency") from exc
     if not isinstance(value, dict): raise ValueError("config must be an object")
     return value
 
@@ -84,11 +71,45 @@ def export_run(run_dir: str | Path, output: str | Path | None = None, fmt: str =
     return {"output": str(target.resolve()), "records": len(records), "format": fmt}
 
 
+def execute_store(store, config, *, max_workers, queue_size=None, timeout_s=None, resume=False):
+    """Use the identical frozen plugin path for first execution and retries."""
+    expected = store.manifest.get("runtime_plugin") if resume else None
+    if expected:
+        config = {**config, **expected}
+    try:
+        options = {}
+        if config.get("runtime_factory"):
+            runtime, pin = load_runtime(config, plan=store.plan, run_dir=store.root, expected=expected)
+            allowed = {"requested_device", "scene_reservation", "branch_reservation", "warmup_ticks"}
+            if set(runtime.executor_options) - allowed:
+                raise ValueError("unsupported runtime executor options")
+            options = {**runtime.executor_options, "session_backend": runtime.session_backend,
+                       "scheduler": runtime.scheduler}
+            adapter = runtime.adapter
+            store.update_manifest(runtime_plugin=pin)
+        else:
+            adapter = load_adapter(config)
+        result = BranchExecutor(store.plan, adapter, store, max_workers=max_workers,
+                                queue_size=queue_size, timeout_s=timeout_s,
+                                resource_limit=config.get("resource_limit"), **options).run()
+        result["validation_status"] = validate_run(store.root)["status"]
+        return result
+    except Exception as exc:
+        store.update_manifest(status="rejected", collector_status="rejected",
+                              inference_status="unsupported", rejection_reason=str(exc))
+        store.finish()
+        raise
+
+
+def _exit_status(result):
+    return 0 if result.get("failed", 0) == 0 and result.get("validation_status", "passed") == "passed" else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m tools.benchmark_branch")
     sub = parser.add_subparsers(dest="command", required=True)
     plan_parser = sub.add_parser("plan"); plan_parser.add_argument("--config", required=True); plan_parser.add_argument("--output")
-    run_parser = sub.add_parser("run"); run_parser.add_argument("--config", required=True); run_parser.add_argument("--slots", type=int); run_parser.add_argument("--arms", nargs="+", choices=BRANCH_ROLES); run_parser.add_argument("--max-workers", type=int, default=32); run_parser.add_argument("--execution-mode", default="isolated_parallel"); run_parser.add_argument("--execution-scope", choices=("measured", "protocol_synthetic", "pending", "failed")); run_parser.add_argument("--timeout", type=float); run_parser.add_argument("--output", required=True); run_parser.add_argument("--queue-size", type=int); run_parser.add_argument("--resume", action="store_true")
+    run_parser = sub.add_parser("run"); run_parser.add_argument("--config", required=True); run_parser.add_argument("--slots", type=int); run_parser.add_argument("--arms", nargs="+", choices=BRANCH_ROLES); run_parser.add_argument("--max-workers", type=int, default=32); run_parser.add_argument("--execution-mode", default="isolated_parallel"); run_parser.add_argument("--execution-scope", choices=EXECUTION_SCOPES); run_parser.add_argument("--timeout", type=float); run_parser.add_argument("--output", required=True); run_parser.add_argument("--queue-size", type=int); run_parser.add_argument("--resume", action="store_true")
     resume_parser = sub.add_parser("resume"); resume_parser.add_argument("--run-dir", required=True); resume_parser.add_argument("--max-workers", type=int)
     for command in ("validate", "summarize"): sub.add_parser(command).add_argument("--run-dir", required=True)
     export_parser = sub.add_parser("export"); export_parser.add_argument("--run-dir", required=True); export_parser.add_argument("--format", choices=("jsonl", "parquet"), default="jsonl"); export_parser.add_argument("--output")
@@ -101,10 +122,9 @@ def main(argv: list[str] | None = None) -> int:
         config = load_config(args.config); plan = make_plan(config, args)
         if args.resume:
             store = BranchRunStore.resume(args.output)
-            adapter = load_adapter({"adapter": store.manifest.get("adapter", config.get("adapter", "dummy")),
-                                    "adapter_kwargs": store.manifest.get("adapter_kwargs", config.get("adapter_kwargs", {}))})
-            result = BranchExecutor(store.plan, adapter, store, max_workers=args.max_workers).run()
-            print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True)); return 0 if result.get("failed", 0) == 0 else 1
+            result = execute_store(store, store.manifest, max_workers=args.max_workers,
+                                   timeout_s=store.manifest.get("timeout_s"), resume=True)
+            print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True)); return _exit_status(result)
         scope = args.execution_scope or str(config.get("execution_scope", plan.execution_scope))
         if scope != plan.execution_scope: plan = BranchPlan.from_mapping({**plan.row(), "execution_scope": scope})
         store = BranchRunStore.create(args.output, plan, requested_max_workers=args.max_workers,
@@ -113,14 +133,16 @@ def main(argv: list[str] | None = None) -> int:
                                       adapter_kwargs=config.get("adapter_kwargs", {}))
         if config.get("shared_session_envs") is not None:
             store.update_manifest(shared_session_envs=int(config["shared_session_envs"]))
-        result = BranchExecutor(plan, load_adapter(config), store, max_workers=args.max_workers,
-                                queue_size=args.queue_size, timeout_s=args.timeout,
-                                resource_limit=config.get("resource_limit")).run()
-        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True)); return 0 if result.get("failed", 0) == 0 else 1
+        result = execute_store(store, config, max_workers=args.max_workers,
+                               queue_size=args.queue_size, timeout_s=args.timeout)
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True)); return _exit_status(result)
     if args.command == "resume":
-        store = BranchRunStore.resume(args.run_dir); adapter = load_adapter({"adapter": store.manifest.get("adapter", "dummy"), "adapter_kwargs": store.manifest.get("adapter_kwargs", {})})
-        result = BranchExecutor(store.plan, adapter, store, max_workers=args.max_workers or int(store.manifest.get("admitted_max_workers") or 1)).run()
-        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True)); return 0
+        store = BranchRunStore.resume(args.run_dir)
+        result = execute_store(store, store.manifest,
+                               max_workers=args.max_workers or int(store.manifest.get("admitted_max_workers") or 1),
+                               timeout_s=store.manifest.get("timeout_s"), resume=True)
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+        return _exit_status(result)
     if args.command == "validate":
         result = validate_run(args.run_dir)
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True)); return 0 if result.get("status") == "passed" else 1

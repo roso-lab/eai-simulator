@@ -8,6 +8,7 @@ success evidence are supplied by injected EAI adapters.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+from enum import Enum
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -178,11 +179,146 @@ class TaskRunResult:
         }
 
 
+class DependencyOutcome(str, Enum):
+    """Executor-owned scheduler outcome, not a physical-success verdict."""
+
+    COMPLETED = "completed"
+    RETRYABLE_FAILURE = "retryable_failure"
+    TERMINAL_FAILURE = "terminal_failure"
+
+
+@dataclass(frozen=True)
+class ExecutionUpdate:
+    """One dispatch result used to advance (or stop) DAG scheduling.
+
+    ``dependency_outcome`` only controls whether dependent tasks may be
+    dispatched.  It never substitutes for evaluator-owned physical evidence.
+    A retryable failure requires a later explicit planner assignment; the
+    runner does not retry it implicitly.
+    """
+
+    feedback: ExecutionFeedback
+    dependency_outcome: DependencyOutcome
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.feedback, ExecutionFeedback):
+            raise TypeError("feedback must be an ExecutionFeedback record")
+        object.__setattr__(
+            self,
+            "dependency_outcome",
+            DependencyOutcome(self.dependency_outcome),
+        )
+
+
+@dataclass(frozen=True)
+class OrchestrationLimits:
+    """Hard limits for feedback-driven orchestration."""
+
+    max_rounds: int = 16
+    max_dispatches: int = 256
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.max_rounds, int)
+            or isinstance(self.max_rounds, bool)
+            or self.max_rounds < 1
+        ):
+            raise ValueError("max_rounds must be a positive integer")
+        if (
+            not isinstance(self.max_dispatches, int)
+            or isinstance(self.max_dispatches, bool)
+            or self.max_dispatches < 1
+        ):
+            raise ValueError("max_dispatches must be a positive integer")
+
+
+@dataclass(frozen=True)
+class OrchestrationState:
+    """Immutable input supplied to an optional replan callback."""
+
+    round_index: int
+    completed_task_ids: tuple[str, ...]
+    failed_task_ids: tuple[str, ...]
+    blocked_task_ids: tuple[str, ...]
+    pending_task_ids: tuple[str, ...]
+    feedback: tuple[ExecutionFeedback, ...]
+    last_decision: AlgorithmDecision
+
+
+@dataclass(frozen=True)
+class OrchestratedTaskRunResult:
+    """Result of bounded DAG scheduling with full decision history."""
+
+    request: TaskRunRequest
+    decisions: tuple[AlgorithmDecision, ...]
+    feedback: tuple[ExecutionFeedback, ...]
+    verdict: Mapping[str, Any]
+    ledger: EventLedger
+    task_states: Mapping[str, str]
+    termination_reason: str
+    rounds: int
+    dispatch_count: int
+
+    def __post_init__(self) -> None:
+        if not self.decisions:
+            raise ValueError("orchestrated result requires at least one decision")
+        object.__setattr__(self, "decisions", tuple(self.decisions))
+        object.__setattr__(self, "feedback", tuple(self.feedback))
+        object.__setattr__(self, "verdict", dict(self.verdict))
+        object.__setattr__(self, "task_states", dict(self.task_states))
+
+    @property
+    def decision(self) -> AlgorithmDecision:
+        """Most recent decision, matching the one-shot result convenience API."""
+
+        return self.decisions[-1]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "task_id": self.request.task.task_id,
+            "scene_id": self.request.task.scene_id,
+            "branch_id": self.request.branch_id,
+            "checkpoint": self.request.checkpoint,
+            "repeat_id": self.request.repeat_id,
+            "condition": self.decision.condition.to_dict(),
+            "decisions": [
+                {
+                    "assignments": [item.__dict__ for item in decision.assignments],
+                    "unassigned_tasks": list(decision.unassigned_tasks),
+                    "provenance": dict(decision.provenance),
+                }
+                for decision in self.decisions
+            ],
+            "feedback": [
+                {
+                    **item.__dict__,
+                    "failure_code": item.failure_code.value,
+                }
+                for item in self.feedback
+            ],
+            "task_states": dict(self.task_states),
+            "termination_reason": self.termination_reason,
+            "rounds": self.rounds,
+            "dispatch_count": self.dispatch_count,
+            "verdict": dict(self.verdict),
+            "ledger": {
+                "schema_version": self.ledger.schema_version,
+                "events": list(self.ledger.events),
+                "digest": self.ledger.digest(),
+            },
+        }
+
+
 __all__ = [
     "AlgorithmDecision",
     "Assignment",
+    "DependencyOutcome",
     "EaiTaskPackage",
     "ExecutionFeedback",
+    "ExecutionUpdate",
+    "OrchestratedTaskRunResult",
+    "OrchestrationLimits",
+    "OrchestrationState",
     "RobotState",
     "TaskRunRequest",
     "TaskRunResult",

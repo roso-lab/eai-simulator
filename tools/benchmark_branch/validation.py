@@ -9,9 +9,10 @@ from pathlib import Path
 import time
 from typing import Any, Mapping
 
-from .models import BRANCH_ROLES, IDENTITY_FIELDS, SCHEMA_VERSION
+from .models import BRANCH_ROLES, IDENTITY_FIELDS, SCHEMA_VERSION, MEASURED_SCOPES, BranchJob
+from .evidence import verify_evaluator_evidence
 from .benchmark_bridge import benchmark_job_errors
-from .store import LEDGERS
+from .store import LEDGERS, verify_seal
 
 
 STATUS_RISK = {
@@ -79,15 +80,14 @@ def validate_run(run_dir: str | Path, *, write: bool = True) -> dict[str, Any]:
         else:
             try: rows[name] = _read(path)
             except Exception as exc: errors.append(f"invalid ledger {name}: {exc}"); rows[name] = []
-    checksum_path = root / "checksums.sha256"
-    if not checksum_path.exists():
-        errors.append("missing checksums.sha256")
-    else:
-        for line in checksum_path.read_text(encoding="ascii").splitlines():
-            parts = line.split()
-            if len(parts) == 2 and parts[1].endswith(".jsonl") and (root / parts[1]).exists() and _sha(root / parts[1]) != parts[0]:
-                errors.append(f"checksum mismatch: {parts[1]}")
+    try:
+        errors.extend(verify_seal(root))
+    except (OSError, UnicodeError, ValueError) as exc:
+        errors.append(f"invalid checksum seal: {exc}")
     branch_rows = rows["branch_manifest"]
+    for row in rows["resources"]:
+        if row.get("kind") in {"branch_close_error", "session_close_error", "scene_lease_release_error"}:
+            errors.append(f"runtime cleanup failed: {row.get('kind')}: {row.get('error')}")
     for row in branch_rows:
         missing = sorted(field for field in IDENTITY_FIELDS if field not in row)
         if missing:
@@ -99,7 +99,6 @@ def validate_run(run_dir: str | Path, *, write: bool = True) -> dict[str, Any]:
     if str(manifest.get("execution_scope")) == "measured":
         for row in latest_branches.values():
             try:
-                from .models import BranchJob
                 errors.extend(f"{row.get('branch_id')}: {item}" for item in
                               benchmark_job_errors(BranchJob.from_mapping(row)))
             except Exception as exc:
@@ -285,16 +284,15 @@ def validate_run(run_dir: str | Path, *, write: bool = True) -> dict[str, Any]:
         if reason: excluded[group] = reason
         else: eligible.append(group)
     latest_episode_values = list(episodes.values())
-    if str(manifest.get("execution_scope")) == "measured":
-        for row in latest_episode_values:
-            if not bool(row.get("completed")):
+    if str(manifest.get("execution_scope")) in MEASURED_SCOPES:
+        for row in rows["episodes"]:
+            if not bool(row.get("completed")) and row.get("physical_success") is None:
                 continue
-            status = str(row.get("status", ""))
-            if status in {"valid_terminal", "safe_stop", "team_state_infeasible"}:
-                required = ("evaluator_version", "evidence_hash", "evidence_refs", "evidence_source")
-                missing = [field for field in required if not row.get(field)]
-                if missing or row.get("evidence_source") != "external_evaluator":
-                    errors.append(f"measured episode lacks external evaluator evidence: {row.get('branch_id', '')}")
+            try:
+                branch = next(item for item in branch_rows if item["branch_id"] == row["branch_id"])
+                verify_evaluator_evidence(root, BranchJob.from_mapping(branch), row)
+            except (ValueError, OSError, TypeError, KeyError, StopIteration) as exc:
+                errors.append(f"measured episode invalid external evaluator evidence {row.get('branch_id')}: {exc}")
     completed = sum(bool(row.get("completed")) and str(row.get("status")) not in STATUS_RISK for row in latest_episode_values)
     failed = sum(str(row.get("status")) in STATUS_RISK or (row.get("completed") is False) for row in latest_episode_values)
     runtime_completed = sum(bool(row.get("completed")) for row in latest_episode_values)

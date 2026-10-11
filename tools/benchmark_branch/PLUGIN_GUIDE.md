@@ -1,5 +1,30 @@
 # Third-party plugin integration
 
+## Runtime factories (current entry point)
+
+Configure `runtime_factory: "your_package.runtime:create_runtime"` and optional
+`runtime_kwargs`. The callable receives `plan`, `run_dir`, and those kwargs,
+returning `RuntimeComponents(adapter, session_backend, scheduler, plugin_id,
+plugin_version, executor_options)`. Both CLI run and resume load this factory;
+resume rejects changed source/config/version. Factories must not launch Isaac.
+Task/asset dependency hashes remain the external package's responsibility.
+
+`EaiSessionBackend` uses the existing EAI session context on the main thread,
+with injected driver and evaluator callbacks. It serializes branches; another
+backend must explicitly own process isolation for real physical concurrency.
+The session path's timeout is cooperative at emit/return boundaries, not a
+watchdog for blocked native calls. `close_branch` must be idempotent.
+
+Use `measured_diagnostic` for temporary tool probes without benchmark-owned
+identities; it cannot establish formal pairing. `measured` rejects missing
+upstream identity before opening a session. Both require actual device and
+restore/tick evidence. Evaluators call `write_evaluator_evidence` to persist
+raw observations and branch-bound verdicts; execution and offline validation
+re-read files, hashes, identity, predicates and verdict consistency.
+
+See [the full integration contract](RUNTIME_INTEGRATION.zh-CN.md).
+The adapter-only paths below remain useful for synthetic protocol checks.
+
 `benchmark_branch` is intentionally scene-neutral. A plugin is an importable
 Python object configured with `adapter: "package.module:Class"`; it must not
 modify the collector's ledgers directly.
@@ -76,11 +101,13 @@ acquire_scene
   -> close_scene / release_scene
 ```
 
-The backend methods are declared in `tools/benchmark_branch/session.py`. Scene
-groups run in parallel session threads, and each scene runs its admitted branch
+The backend methods are declared in `tools/benchmark_branch/session.py`. For
+`execution_affinity="thread_pool"`, scene groups run in parallel session threads,
+and each scene runs its admitted branch
 slots concurrently up to `ReplayScheduler.capacity.max_branches_per_scene`;
 the backend must give every slot an isolated mutable runtime even when static
-assets are shared.
+assets are shared. `caller_thread` runs serially on the caller, as required by
+`EaiSessionBackend` and Isaac/Kit.
 `run_branch` must return explicit `completed` and `status` fields; missing
 responses become `missing_response`. A failed preflight creates raw
 `infrastructure_invalid` episode rows with `physical_success: null` and never

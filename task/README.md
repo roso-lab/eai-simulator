@@ -1,60 +1,82 @@
-# HeteroCoord task layer
+# Generic task orchestration layer
 
-`task/` is the benchmark and experiment layer built on top of the EAI core. It
-contains task contracts, task manifests, orchestration, replay hooks, and
-evidence boundaries. It does not contain USD assets, Isaac Kit extensions, a
-Gym registration, or robot controllers. Low-level planning/control providers
-are classified under `algorithm/skills/`; EAI-backed execution is injected
-through `task/executors/`.
+`task/` is a dependency-light boundary between external task packages,
+coordination algorithms, caller-owned EAI sessions, and independent evidence
+evaluators. It does not own scene construction, Isaac/Kit lifecycle, robot
+controllers, task-specific success predicates, USD assets, or benchmark identity.
 
 The dependency direction is:
 
 ```text
-task manifest + robot roster
-          -> algorithm adapter
-          -> task runner
-          -> injected EAI SkillExecutor / simulator session
-          -> independent evaluator and append-only ledger
+external EaiTaskPackage + live robot roster
+                 -> planner / optional replan callback
+                 -> TaskRunner DAG scheduler
+                 -> injected executor (owns EAI/Kit stepping)
+                 -> independent evaluator (owns physical verdict)
 ```
 
-The runner can be unit-tested without Isaac Sim. Load the static task JSON and
-call `EaiTaskPackage.bind_runtime(...)` after the EAI session provides the
-active robot roster. A plan or assignment is a
-decision record only. When the EAI executor or evaluator is not injected, the
-run is reported as `N/A` with `physical_evidence_required`.
+No production task manifest is bundled here. Unit tests build generic inline
+packages. Scenario-specific files used for a bounded diagnostic belong under
+the project ignored `tmp/` tree and do not become published tasks.
 
-## Directory contract
+## One-shot compatibility
 
-```text
-task/
-├── config/       task packages; no scene assets
-├── contracts.py   dependency-light public records
-├── runner.py      composition and lifecycle boundary
-├── fixtures/      symbolic adapter-test inputs, never physical evidence
-├── replay/        future checkpoint/branch adapters
-├── executors/     future EAI skill bindings
-├── evaluators/    future physical-evidence readers
-└── tests/         simulator-free contract tests
-```
+`TaskRunner.run(...)` preserves the existing one-shot API: it requests one
+decision, validates task and active-robot identities plus declared
+capabilities, dispatches assignments sequentially through `SkillExecutor`,
+and passes feedback to the evaluator. If no executor is injected, the result is
+always `N/A / physical_evidence_required`, even when an evaluator object was
+provided.
 
-System algorithms stay under `algorithm/system/` and emit decisions through the
-task contracts. EMOS and TeamWeaver are tested implementations under
-`algorithm/system/coordination/`; they do not have top-level compatibility
-copies. Skill providers stay under `algorithm/skills/` and emit `SkillPlan`
-records. EAI owns
-`SimulatorLaunchConfig`, controller application, physical skills, and Isaac
-lifecycle. Assets remain provider-managed; `usd/` is intentionally not a source
-tree for this project.
+## Optional bounded feedback orchestration
 
-## Core launcher
+`TaskRunner.run_orchestrated(...)` adds an optional DAG scheduler:
 
-The basic simulator now requires an explicit saved environment:
+- `OrchestrationLimits(max_rounds, max_dispatches)` provides hard termination
+  bounds.
+- The initial planner may assign a whole DAG or a ready subset.
+- A `ReplanProvider(task, robots, state)` may replace the pending assignment
+  plan after each dispatch round. Returning `None` stops planning. The runner
+  does not substitute another algorithm or silently reuse a failed assignment.
+- The executor returns an `ExecutionUpdate` with an explicit scheduler-only
+  `DependencyOutcome`: `completed`, `retryable_failure`, or
+  `terminal_failure`. A retryable task runs again only if the replanner
+  explicitly assigns it.
+- A terminal failure blocks descendants but does not prevent independent ready
+  tasks from completing.
+- At most one assignment per robot is selected in a round. An executor may
+  implement `execute_batch(assignments, tasks, scene=...)` to receive the
+  parallel-ready set in one callback. The runner starts no threads and performs
+  no Isaac steps; the callback must keep Kit/session access on its owner thread.
+- Every feedback identity must exactly match one dispatched task/robot pair.
+  Unknown tasks, inactive robots, duplicate task assignments, task/unassigned
+  overlap, capability mismatches, missing feedback, and extra feedback fail
+  closed.
 
-```bash
-python simulator.py --env EAI-Factory-Z1-v0 --headless
-```
+Scheduler completion only means that the executor allowed DAG dependencies to
+advance. It is not a task-success or physical-success verdict. Only the
+injected evaluator may return such a verdict. With no evaluator the verdict
+remains `N/A / physical_evidence_required`.
 
-The standalone `source/EAI_env_diy` Kit extension and its `--diy-3d` entry point
-are not part of HeteroCoord. Use a maintained JSON environment under
-`source/EAI_hmrs/EAI_hmrs/envs/`, or add a task-owned scenario provider without
-reintroducing an EAI UI extension.
+## External dependency protocol
+
+The caller must supply and version the environment-specific pieces:
+
+1. Build or load an `EaiTaskPackage`, then use `bind_runtime(...)` with the
+   active robot roster sampled from the live session.
+2. A scene provider returns an opaque caller-owned scene/session context.
+3. A planner returns `AlgorithmDecision` records; it never executes controls
+   or declares physical success.
+4. The executor resolves task metadata such as object references, controller
+   resources, assets, and skill implementations. The task runner can validate
+   declared robot capabilities, but it cannot infer whether opaque scene
+   resources exist. Missing or stale resources must produce an explicit
+   executor failure/update, never a fabricated completion.
+5. The executor owns all controller calls and simulator stepping. A batch
+   callback may schedule a ready set serially inside one live EAI session.
+6. The evaluator consumes runtime evidence and owns milestone predicates and
+   the final verdict. Replay, when requested, is likewise an injected backend.
+
+The append-only ledger records decisions, dispatches, scheduler updates,
+termination, and the evaluator verdict so orchestration provenance remains
+auditable without importing Isaac Sim.

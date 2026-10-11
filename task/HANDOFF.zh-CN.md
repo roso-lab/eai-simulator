@@ -1,101 +1,46 @@
-# HeteroCoord 工程交接说明
+# 通用任务运行时交接
 
-## 目标
+## 稳定边界
 
-本分支是在 EAI Simulator 基础能力上建立的异构多机器人测评骨架。它提供
-任务合同、算法适配边界、EAI 执行注入点、物理证据判定和回放接口。它不携带
-USD、下载的 checkpoint、实验输出或 demo 场景代码。
+`task/contracts.py` 和 `task/runner.py` 不导入 Isaac、Torch、ROS 或外部 benchmark
+包。调用方负责创建 EAI session、绑定实时 robot roster，并注入 scene provider、
+executor、可选 replay 和 evaluator。
 
-当前工作区中的 `demo/` 和 `usd/` 删除是有意的；场景资源由 EAI 资产解析器
-从本地资产根目录或 provider 提供。不要为了让单元测试通过而恢复它们。
+`TaskRunner.run()` 是兼容的一次性路径；`run_orchestrated()` 是可选的有界 DAG
+路径。后者使用 `OrchestrationLimits`、`OrchestrationState`、显式 replan callback
+和 executor 返回的 `ExecutionUpdate`。retryable failure 不会自动重试；planner
+必须重新提交 assignment。terminal failure 阻塞其 descendants，但独立 ready
+任务仍可继续。batch callback 只聚合 ready set，不允许 runner 并发推进 Isaac。
 
-## 目录所有权
+## 证据边界
 
-```text
-simulator.py             EAI 基础启动和 open_simulator_session API
-source/EAI/              EAI core、controller contract、ROS/interface
-source/EAI_assets/       资产配置和 provider resolver
-source/EAI_hmrs/         saved environment 和动态 env builder
-algorithm/system/        系统级算法的规范分类和 registry
-algorithm/skills/        底层运动/控制 provider 的规范合同和 registry
-algorithm/system/coordination/emos/
-                         被测 EMOS 系统算法本体
-algorithm/system/coordination/TeamWeaver/
-                         被测 TeamWeaver 系统算法本体
-algorithm/skills/navigation/
-                         人工节点与航向 PID 地面导航 Provider
-algorithm/skills/external_io/
-                         外部 ROS/输入 Skill provider 上传位置（当前为空）
-algorithm/common_coordination/
-                         算法和任务层共用的无 Isaac 合同
-algorithm/heterocoord/   provenance registry 和 Fire Rescue decision ledger
-task/config/             与场景解耦的任务合同和机器人能力输入
-task/fixtures/           无 Isaac 的符号化适配器测试输入
-task/contracts.py        对外数据类型
-task/runner.py           算法 → EAI executor → evaluator 编排
-task/executors/          地面导航控制周期接入；高层 Assignment 映射由 host 提供
-task/evaluators/         物理 milestone 和终止谓词（后续开发）
-task/replay/             checkpoint、分支和并行回放注入点
-task/tests/              不启动 Isaac 的合同测试
-tools/                   安装、验证和 ROS 运维工具
-```
+`DependencyOutcome.COMPLETED` 只解锁 DAG，不代表物理任务成功。物理 predicate、
+milestone 和最终 verdict 始终由外部 evaluator 持有。缺 executor 时，即使传入
+evaluator 也固定返回 `N/A / physical_evidence_required`；缺 evaluator 同样 N/A。
 
-## 不可违反的边界
+runner fail closed 检查 task/robot identity、inactive robot、重复 task assignment、
+assigned/unassigned 重叠、声明的 robot capability 和 feedback identity。live scene
+中的 object、asset、controller 与 skill resource 是不透明外部依赖，由 executor
+解析并以显式失败报告。
 
-1. `algorithm/system/` 不创建 Isaac App，不读取 PhysX/joint handle，不调用 EAI
-   skill，也不写入物理成功结果。`algorithm/skills/` 可以计算路径、轨迹或命令，
-   但同样不能推进 simulator、直接应用 controller 或伪造物理成功。
-2. `task/runner.py` 不创建 simulator。真实运行时由调用者先创建
-   `open_simulator_session(SimulatorLaunchConfig(env=...))`，再注入
-   `scene_provider`、`SkillExecutor` 和 `EvidenceEvaluator`。
-3. `Assignment`、规划成功、进程退出码和回放成功都只是算法或运行事件。
-   只有 evaluator 提供的物理证据可以把 verdict 置为 `success`。
-4. 没有 executor 或 evaluator 时，结果必须是
-   `status=N/A, reason=physical_evidence_required`。
-5. 分支必须显式使用 `TaskRunRequest.branch_id/checkpoint`，不得从算法内部
-   读取隐藏 checkpoint 或复用事实分支的 milestone。
+## 场景与任务输入
 
-## 当前算法状态
+仓库当前不发布 `task/config/` 任务。测试只用 inline generic fixture。任何临时
+场景诊断输入只能放到项目忽略的 `tmp/`，不能作为正式 task、测评成功或跨场景
+ready 声明。历史 scenario-specific bridge 只是诊断适配器，不是当前通用运行时
+发布范围。
 
-可作为任务分配适配器使用的系统算法目录包括 EMOS、TeamWeaver、COHERENT、FMC-ATA、
-BT capabilities、MRTA heuristic、Hybrid SUSD、DCMRTA 和 HeteroMRTA。它们
-均只返回 assignment/plan。节点 PID 地面导航 Provider 和通用 EAI 执行适配已
-提供，使用语义目标绑定、人工拓扑和真实位姿，详细接口见
-[地面导航说明](../algorithm/skills/navigation/GROUND_NAVIGATION.zh-CN.md)。
-全局栅格、db-CBS、Nav2 和 keyboard provider 仍由专门的 Skill 开发者负责；
-City 专属接入、Z1、抓取和物理判定不属于本次通用导航迁移。
+## 地面导航 Skill
 
-DCMRTA/HeteroMRTA 的官方 checkpoint 只在原论文输入分布上做 decision-only
-轨道；Fire Rescue 物理轨道使用任务合同声明的默认分配，并将跨域 checkpoint
-泛化记为 `N/A`。FMC-ATA 在不可拆分的 Fire Rescue skill 上同样只保留默认分配
-以验证执行链路，fractional allocation 指标记为 `N/A`。
-
-没有作者源码或可核验官方权重的候选算法不放入运行目录；文献来源可在
-`algorithm/heterocoord/registry.py` 留下 `N/A` 记录。HAPPO 目前只有相关工作
-记录，没有可核验的 EAI 官方 checkpoint，不进入测评矩阵。
-
-## 推荐开发顺序
-
-1. 先运行无 Isaac 的合同测试，确认任务和算法输出可序列化。
-2. 在 `task/executors/` 实现 `Assignment -> SkillRequest -> SkillPlan -> EAI
-   controller/skill`，只使用已存在的 `SimulatorSession.base_env` 和 controller
-   contract。系统算法不要反向调用 executor。
-3. 在 `task/evaluators/` 读取 EAI 物理状态、里程碑和失败原因，写入独立
-   evidence；不得让算法自行判定成功。
-4. 在 `task/replay/` 接入现有并行回溯工具，保证每个 branch 使用独立 ledger
-   和 checkpoint 元数据。
-5. 再用固定 `source/EAI_hmrs/EAI_hmrs/envs/EAI-Factory-Z1-v0.json`
-   做单环境 Isaac smoke；确认后才扩展场景或并行度。
+`algorithm/skills/navigation/ground_navigation.py` 提供人工拓扑节点选路和航向
+PID Provider；`task/executors/ground_navigation.py` 在调用者线程读取真实位姿、
+发送底盘速度并负责超时、异常和终态停车。导航不依赖全局栅格、局部代价地图、
+DWA、OBB 或碰撞查询。接口、节点弯道表达规则和证据边界见
+`algorithm/skills/navigation/GROUND_NAVIGATION.zh-CN.md`。
 
 ## 最小验证
 
 ```bash
-PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
-  python -m pytest -q task/tests algorithm/common_coordination/tests
-
-python -m py_compile simulator.py task/contracts.py task/runner.py
-bash -n tools/setup/install_packages.sh
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 /home/pupil/miniconda3/envs/env_isaaclab/bin/python \
+  -m pytest -q task/tests algorithm/common_coordination/tests
 ```
-
-完整 Isaac 验证必须在 `env_isaaclab` 中单独执行，不要在开发者环境中覆盖
-原有 Isaac Sim、Torch 或资产缓存。
