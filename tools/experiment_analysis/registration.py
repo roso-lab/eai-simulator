@@ -18,8 +18,25 @@ def execution_identity(identity: dict) -> dict:
         if not isinstance(identity["metadata"], dict):
             raise AnalysisError("execution metadata must be an object")
         context["metadata_digest"] = digest(identity["metadata"])
+        mode = identity["metadata"].get("checkpoint_receipt_mode", "restore")
+        if mode != "restore":
+            from tools.benchmark_branch.initialization import validate_initialization_job
+            from tools.benchmark_branch.models import BranchJob
+            validate_initialization_job(BranchJob.from_mapping(identity), session_backend=True)
+            context["checkpoint_receipt_mode"] = mode
+            context["initialization_spec_digest"] = identity["checkpoint_digest"]
+    else:
+        for name in ("checkpoint_receipt_mode", "initialization_spec_digest"):
+            if name in identity:
+                context[name] = identity[name]
+    fresh = context.get("checkpoint_receipt_mode") == "fresh_initialization_v1"
+    if "checkpoint_receipt_mode" in context or "initialization_spec_digest" in context:
+        if not fresh or context.get("initialization_spec_digest") != context["checkpoint_digest"]:
+            raise AnalysisError("invalid frozen fresh initialization identity")
+        if context["restore_checkpoint_digest"] != "":
+            raise AnalysisError("fresh initialization cannot identify a restored checkpoint")
     for name, value in context.items():
-        if name != "intervention_point" or value != "":
+        if not (value == "" and (name == "intervention_point" or name == "restore_checkpoint_digest" and fresh)):
             text(value)
     context["pair_seed"] = integer(identity.get("pair_seed"))
     context["slot"] = integer(identity.get("slot"))
@@ -62,8 +79,12 @@ def validate_schedule(design_data: dict, schedule: dict) -> None:
         raise AnalysisError("observations must be an array")
     for entry in schedule["observations"]:
         obj(entry, "identity execution_identity attempts")
-        obj(entry["execution_identity"], EXECUTION_FIELDS + " pair_seed slot")
+        obj(entry["execution_identity"], EXECUTION_FIELDS + " pair_seed slot",
+            "checkpoint_receipt_mode initialization_spec_digest")
         execution_identity(entry["execution_identity"])
+        if (entry["execution_identity"]["restore_checkpoint_digest"] == ""
+                and schedule["execution_scope"] != "measured_diagnostic"):
+            raise AnalysisError("only fresh measured diagnostics may omit a restore digest")
         ident = obj(entry["identity"], IDENTITY)
         for value in ident.values():
             text(value)

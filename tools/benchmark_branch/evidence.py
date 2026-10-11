@@ -14,6 +14,10 @@ from .models import BranchJob, canonical_digest
 
 SCHEMA = "eai.evaluator_evidence.v1"
 PREDICATES = ("terminal_predicate", "safety_predicate", "feasibility_predicate")
+ENVELOPE_FIELDS = (
+    "evaluator_version", "evidence_source", "evidence_hash", "evidence_refs",
+    "physical_success", *PREDICATES,
+)
 
 
 def _binding(job: BranchJob) -> str:
@@ -55,12 +59,25 @@ def write_evaluator_evidence(root: str | Path, job: BranchJob, *,
 def verify_evaluator_evidence(root: str | Path, job: BranchJob,
                               result: Mapping[str, Any]) -> dict[str, Any]:
     """Re-read the artifact and reject tampering, wrong branches and stale retries."""
-    if result.get("evidence_source") != "external_evaluator":
+    nested = result.get("evaluator_verdict")
+    if nested is not None:
+        if not isinstance(nested, Mapping):
+            raise ValueError("evaluator_verdict must be an object")
+        envelope = dict(nested)
+        # Status/completion intentionally may differ at the episode top level:
+        # method failure remains terminal even if cleanup leaves a successful
+        # physical state. All other duplicated evaluator fields must agree.
+        for name in ENVELOPE_FIELDS:
+            if name in result and result[name] != envelope.get(name):
+                raise ValueError(f"nested evaluator verdict mismatch: {name}")
+    else:
+        envelope = result
+    if envelope.get("evidence_source") != "external_evaluator":
         raise ValueError("external evaluator evidence required")
-    version = result.get("evaluator_version")
+    version = envelope.get("evaluator_version")
     if not isinstance(version, str) or not version.strip():
         raise ValueError("evaluator_version must be nonempty text")
-    refs = result.get("evidence_refs")
+    refs = envelope.get("evidence_refs")
     if not isinstance(refs, list) or len(refs) != 1 or not isinstance(refs[0], str):
         raise ValueError("evidence_refs must contain one relative JSON artifact")
     root = Path(root).resolve()
@@ -69,7 +86,7 @@ def verify_evaluator_evidence(root: str | Path, job: BranchJob,
     if ref.is_absolute() or not path.is_relative_to(root) or ".." in ref.parts:
         raise ValueError("evidence path must remain inside run directory")
     raw = path.read_bytes()
-    if hashlib.sha256(raw).hexdigest() != result.get("evidence_hash"):
+    if hashlib.sha256(raw).hexdigest() != envelope.get("evidence_hash"):
         raise ValueError("evaluator evidence hash mismatch")
     payload = json.loads(raw)
     if not isinstance(payload, dict):
@@ -80,7 +97,7 @@ def verify_evaluator_evidence(root: str | Path, job: BranchJob,
         raise ValueError("evaluator version or raw observations missing/mismatched")
     verdict = payload.get("result", {})
     for name in ("status", "completed", "physical_success", *PREDICATES):
-        if name not in verdict or verdict[name] != result.get(name):
+        if name not in verdict or verdict[name] != envelope.get(name):
             raise ValueError(f"evaluator verdict mismatch: {name}")
     if type(verdict["completed"]) is not bool:
         raise ValueError("completed must be boolean")

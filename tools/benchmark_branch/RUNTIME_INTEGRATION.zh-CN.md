@@ -137,3 +137,31 @@ task 层后续已增加通用 `SkillTaskExecutor`、live `WorldSnapshot` 与 ses
 也不为跨进程隔离或正式任务成功提供认证。
 
 外层进程隔离与依赖声明入口见 [进程与复现说明](PROCESS_RUNTIME.zh-CN.md)。
+## 新建场景诊断与执行/物理结果分离
+
+默认仍要求真实 checkpoint restore/readback。新建物理场景的临时接线诊断可显式设置
+`job.metadata.checkpoint_receipt_mode="fresh_initialization_v1"`，仅限
+`measured_diagnostic`、`fact` 分支和 session backend。正式 `measured`、其他分支
+或独立进程 adapter 不能使用此方式代替恢复。
+
+`metadata.initialization_spec` 在运行前冻结，包含
+`schema="heterocoord.fresh_initialization.v1"`、非空标量映射 `expected` 和同键的
+非负 `absolute_tolerances`。`checkpoint_digest` 是该规范的 canonical digest；
+`restore_checkpoint_digest` 必须为空。它标识初始化规范，不是捕获的物理状态。
+driver 从真实场景读取同键标量，通过 `initialization_receipt(job, readback)` 生成
+凭据，并在第一个 branch step 前仅发送一次 `emit("checkpoints", receipt)`。
+凭据保存原始读数、其哈希及逐项容差比较，离线 validator 重新计算；不能携带
+`restore_passed`/`restore_status`。缺少或失败的初始化不能提供已测物理结果。
+具体读数的含义和容差仍由外部任务/诊断 driver 决定，通用工具不认证场景语义。
+
+`EaiSessionBackend` 的 driver 应返回明确的 `status`、布尔 `completed` 和
+`method_outcome`。独立 evaluator 的完整签名结果保存为 `evaluator_verdict`。
+驱动器状态 `valid_terminal`/`completed`/`success` 对应 `completed=true`；
+`crashed`、`method_timeout`、`malformed_action`、`budget_overrun`、`missing_response`、
+`safe_stop`、`team_state_infeasible`、`right_censored`、`infrastructure_invalid`
+对应各自未完成结果。未知状态、非布尔完成标记及互相矛盾的别名字段均拒绝。
+方法失败时 episode 保留方法失败状态和 `completed=false`，但 evaluator 可以
+记录清理后的 `physical_success=true`。这两个值分别回答动作是否成功执行、
+场景是否达到评估器的物理终态。例如持箱回调异常后安全放下，不能变成方法成功。
+单批绑定和多批分析均拒绝把 sealed method failure 重标为 completed。
+旧的 flat evaluator artifact 继续兼容；嵌套与顶层重复证据字段必须一致。

@@ -1,4 +1,125 @@
-# Validation record — 2026-10-11
+# Validation record — 2026-10-12
+
+## Phase G: native Isaac diagnostic through sealed analysis and archive
+
+Baseline: `ab2e165f7ca86a5e4ae59417e70032c390a75d29`. Native diagnostic inputs
+were frozen under ignored `tmp/native_analysis/final-04` before its four runs.
+The source revision includes the baseline plus a digest of the working Python
+sources; source files, selection JSON, observation/capture helper, Pepper USD
+and its three local textures are checked before each process. This is a local
+integration diagnostic, not a formal task, trusted preregistration timestamp,
+paper experiment, or complete environment replay specification.
+
+Environment observed: Isaac Sim **5.1.0.0**, installed Isaac Lab package
+**0.54.2**, Torch **2.7.0+cu128**, Quadro RTX 6000. Actual PhysX and controller
+tensor devices were `cuda:0`; the recorded GPU UUID was
+`aa40060e-cb9d-b04a-e70c-4c91cbb67fb0`. One shared launcher session per process,
+`fast_shutdown=False`, one sequential GPU admission slot, 300 s process timeout.
+No G1 robot or formal factory task was used.
+
+| Diagnostic | Box dimensions (m) | Native steps, including 50 settling steps | Method / final physical evaluator | Final box center (m) | Process duration / exit |
+|---|---|---:|---|---|---|
+| nominal | 0.26 × 0.28 × 0.30 | 716 | completed / success | (0.199795, 0.749998, 0.620000) | 168.88 s / 0 |
+| small | 0.22 × 0.24 × 0.24 | 836 | completed / success | (0.199950, 0.750000, 0.590000) | 175.77 s / 0 |
+| large | 0.28 × 0.32 × 0.34 | 663 | completed / success | (0.200000, 0.750000, 0.630000) | 157.69 s / 0 |
+| held callback failure, nominal box | 0.26 × 0.28 × 0.30 | 716 | method_failure / success after cleanup | (0.199796, 0.749998, 0.620000) | 163.81 s / 0 |
+
+All boxes had measured mass **8 kg**. Initialization receipts read live poses,
+dimensions, gravity, rigid-body/collision flags, tabletop bounds, controller
+idle/gate state, environment step 20 and actual CUDA state. They contain no
+restore-pass claim. Source and destination tabletops are physical static
+colliders, separated by 0.75 m; attachment is deliberately ideal, and robot
+contacts against box/tables are filtered. This is not friction-based grasping.
+
+Both arms moved: maximum joint change from idle across the phase snapshots
+ranged from **0.772 to 1.578 rad** across sides/cases. The robot moved about
+0.787 m; every final box speed was below 0.000079 m/s. All boxes were released,
+execution gates disabled and runtime leases empty. The coordinator inspected
+actual phase PNGs and the four-case start/carry/final contact sheet. This is
+rendered-view inspection plus numeric evidence, not collision-free certification.
+The large box has **−0.0100 m vertical support error**, within the existing
+evaluator's 0.03 m tolerance; do not describe that placement as zero-error or
+zero-penetration. External runtime/OmniPBR dependencies and unused package
+version metadata are outside the frozen simulator-rerun scope.
+
+The held-box failure was injected at tick **262**, after the physical step while
+attached. The cooperative executor returned `retryable_failure` and
+`execution_failure`; 666 motion callbacks produced 665 handle ticks. Cleanup
+reached a safe physical terminal state, but the sealed episode and analysis
+retained `crashed`, `completed=false`, `method_outcome=method_failure` alongside
+the independent nested evaluator's `physical_success=true`.
+
+Commands actually run (repository root, `env_isaaclab` Python; worker environment
+used `EAI_USD_ROOT=/home/pupil/eai-simulator/usd` and
+`PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs`):
+
+```bash
+python tmp/native_analysis/run.py freeze --root tmp/native_analysis/final-04
+python tmp/native_analysis/run.py run --root tmp/native_analysis/final-04
+python tmp/native_analysis/run.py assemble --root tmp/native_analysis/final-04
+python tmp/native_analysis/inspect_results.py tmp/native_analysis/final-04
+python tmp/native_analysis/relocate_verify.py tmp/native_analysis/final-04
+```
+
+All four collector validations passed; every process group terminated normally,
+with no timeout, TERM/KILL or cleanup intervention. The registered batch is
+complete: **4 records, 8 computed endpoints**. Normal method completion and safe
+placement are 1; the failure case retains method completion 0 and safe placement
+1. Every interval is **N/A: insufficient_independent_clusters**, because each
+condition has one instance/run. No population success-rate conclusion is made.
+
+The portable archive contains **74 files**, revalidates **4 runs / 64 raw
+collector files**, replays selection and recomputes the entire report. It was
+moved to `tmp/native_analysis/final-04-relocated-evidence`, while the original
+collector/result paths were temporarily unavailable; verification still passed.
+The original raw directories were then restored. `relocation-verification.json`
+records this check. Images, unsealed process receipts and local USD remain
+separate in ignored storage; archive verification certifies content/calculation
+consistency, not physical truth or evaluator semantics. `publishable=false`.
+
+Preliminary iterations are retained: `validation-01` failed design support
+validation before native launch; `validation-02` ran nominal/small successfully;
+`final-03` completed nominal, then its changed-source check rejected the next
+worker before Isaac startup. These were development iterations, not retries
+selected into final-04. A contact-sheet reread overlapped the deliberately hidden
+source-path verification and failed with a missing file; it was rerun sequentially
+after restoration.
+
+Lightweight final source regression:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
+  /home/pupil/miniconda3/envs/env_isaaclab/bin/python -m pytest \
+  --rootdir="$PWD" -q -p no:cacheprovider \
+  tools/experiment_analysis/tests tools/benchmark_branch/tests \
+  task/tests algorithm/skills/tests
+```
+
+**543 passed, 1 skipped, 33.23 s**. The skip remains the unavailable historical
+scene plugin. The new coverage rejects malformed/late/failing initialization,
+formal-scope bypass, receipt tampering, method/evaluator contradictions, unknown
+driver outcomes, and method/infrastructure relabeling through both binding APIs.
+No tracked Python source changed after this regression or final-04's source freeze.
+
+Independent final review found no blocking P1 within this diagnostic scope.
+The reviewer reran the benchmark/analysis suites (**326 passed, 1 skipped**),
+revalidated all four seals and ledgers, recomputed the bundle and relocated
+archive, and inspected actual image pixels. The large-box support error and
+non-publishable, ideal-attachment limitations remain part of acceptance.
+
+For a new local GUI review, use a new output directory:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 \
+PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
+  /home/pupil/miniconda3/envs/env_isaaclab/bin/python \
+  tmp/native_analysis/run.py demo --root tmp/native_analysis/gui-review --case nominal
+```
+
+The supervisor supplies the USD root and starts GUI Isaac; it closes normally
+after the motion and evidence collection. `small`, `large`, and `held-failure`
+are also supported. This script and the diagnostic scene deliberately remain
+local `tmp/` artifacts, not tracked production tasks.
 
 ## Phase F: consistent ingestion and transactional result publication
 

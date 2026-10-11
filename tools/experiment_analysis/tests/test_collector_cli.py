@@ -69,6 +69,37 @@ def test_external_evaluator_cannot_rebind_branch_identity(tmp_path, field):
         bind_outcomes(d, outcomes, root)
 
 
+def test_single_run_binding_cannot_relabel_sealed_method_failure(tmp_path):
+    root = tmp_path / "collector"
+    d, outcomes, _ = collect(root)
+    branch_id = outcomes["records"][0]["branch_id"]
+    path = root / "episodes.jsonl"
+    rows = [json.loads(line) for line in path.read_text().splitlines()]
+    episode = next(row for row in rows if row["branch_id"] == branch_id)
+    episode.update(status="method_timeout", completed=False,
+                   method_outcome="timeout")
+    path.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    seal = root / "checksums.sha256"
+    entries = []
+    for line in seal.read_text().splitlines():
+        _, name = line.split()
+        entries.append(hashlib.sha256((root / name).read_bytes()).hexdigest()
+                       + "  " + name)
+    seal.write_text("\n".join(entries) + "\n")
+    outcomes["collector_seal_sha256"] = hashlib.sha256(seal.read_bytes()).hexdigest()
+
+    outcomes["records"][0]["outcome"]["method_outcome"] = "completed"
+    with pytest.raises(AnalysisError, match="sealed episode method outcome"):
+        bind_outcomes(d, outcomes, root)
+
+    outcomes["records"][0]["outcome"]["method_outcome"] = "timeout"
+    data = bind_outcomes(d, outcomes, root)
+    assert next(row for row in data["records"] if row["repeat_id"]
+                == outcomes["records"][0]["outcome"]["repeat_id"]
+                and row["base_instance_id"]
+                == outcomes["records"][0]["outcome"]["base_instance_id"])["method_outcome"] == "timeout"
+
+
 def test_outcome_seal_and_identity_hash_are_checked(tmp_path):
     root = tmp_path / "collector"
     d, outcomes, _ = collect(root)

@@ -83,6 +83,53 @@ def test_evaluator_cannot_relabel_method_failure_as_infrastructure(inputs):
         assemble(d, reg, sources)
 
 
+@pytest.mark.parametrize(
+    ("episode_status", "sealed_outcome"),
+    [
+        ("method_timeout", "timeout"),
+        ("malformed_action", "malformed_action"),
+        ("crashed", "method_failure"),
+        ("budget_overrun", "budget_overrun"),
+        ("missing_response", "no_plan"),
+    ],
+)
+def test_evaluator_cannot_relabel_sealed_method_failure_as_completion(
+        inputs, episode_status, sealed_outcome):
+    d, reg, sources = inputs
+    source = sources[0]
+    outcome = _outcome(source, "c0/u1")
+    raw = outcome["outcome"]
+    attempt = _attempt(source, outcome["branch_id"])
+    attempt["episode"]["status"] = episode_status
+    attempt["episode"]["method_outcome"] = sealed_outcome
+    _rehash(source, attempt)
+    raw["method_outcome"] = "completed"
+    with pytest.raises(AnalysisError, match="sealed episode method outcome"):
+        assemble(d, reg, sources)
+
+
+def test_method_failure_survives_independent_safe_physical_outcome(inputs):
+    d, reg, sources = inputs
+    source = sources[0]
+    raw = _outcome(source, "c0/u1")["outcome"]
+    attempt = _attempt(source, _outcome(source, "c0/u1")["branch_id"])
+    attempt["episode"].update(
+        method_outcome="timeout",
+        physical_success=True,
+        evaluator_verdict={"status": "valid_terminal", "completed": True,
+                           "physical_success": True},
+    )
+    _rehash(source, attempt)
+
+    data, audit = assemble(d, reg, sources)
+    failure = _audit(audit, "c0/u1")
+    assert failure["attempts"][0]["method_outcome"] == "timeout"
+    assert failure["attempts"][0]["disposition"] == "selected"
+    assert failure["attempts"][1]["disposition"] == "after_terminal"
+    assert next(row for row in data["records"] if row["unit_id"] == "c0/u1"
+                and row["repeat_id"] == "r0")["method_outcome"] == "timeout"
+
+
 def test_evaluator_cannot_promote_infrastructure_to_valid(inputs):
     d, reg, sources = inputs
     raw = _outcome(sources[0], "c0/u0")["outcome"]

@@ -65,6 +65,20 @@ external generator audit must establish that identity. Attempts are not repeats:
 use a frozen collection schedule for deterministic selection before analysis. The
 engine rejects multiple records for a scientific observation key.
 
+Fresh-scene fact diagnostics may use the collector's explicit
+`fresh_initialization_v1` mode with a frozen initialization specification and
+an empty restore digest. This is restricted to `measured_diagnostic`; formal
+collection still requires restored-state evidence. The archive pins and runs
+the initialization validator as part of its validation dependency closure.
+
+Method execution and physical evaluator outcomes remain separate. A driver
+failure followed by safe placement can have `completed=false` and
+`physical_success=true`, with the evaluator's signed result retained under
+`evaluator_verdict`. Both single-run binding and registered batch assembly
+reject relabeling the sealed method outcome as completion. Descriptive endpoint
+values still belong to the external evaluator; the tool does not invent a
+success score from physical safety.
+
 `valid` method failures, timeouts, malformed actions, budget overruns and no-plan
 outcomes remain observations. The external evaluator supplies their values.
 Unavailable records require an explicit exclusion reason and have no numeric

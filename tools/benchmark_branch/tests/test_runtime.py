@@ -192,6 +192,165 @@ def test_evidence_rejects_other_branch_retry_and_inconsistent_predicates(tmp_pat
         verify_evaluator_evidence(tmp_path, job, {**result, "evidence_refs": ["../outside.json"]})
 
 
+def test_method_failure_and_independent_physical_success_remain_separate(tmp_path):
+    job = BranchPlan(slots=1, arms=("fact",),
+                     execution_scope="measured_diagnostic").jobs()[0]
+
+    class Driver:
+        def run_branch(self, runtime, current_job, *, emit):
+            return {
+                "status": "crashed", "completed": False,
+                "method_outcome": "method_failure",
+                # A driver self-report must remain irrelevant.
+                "physical_success": False,
+            }
+
+    class Evaluator:
+        def evaluate(self, runtime, current_job, *, execution, run_dir):
+            return write_evaluator_evidence(
+                run_dir, current_job, evaluator_version="separation-fixture.v1",
+                result=VERDICT, observations={"safe_after_cleanup": True},
+            )
+
+    backend = EaiSessionBackend(
+        scene_id="fixture", launch_config=None, branch_driver=Driver(),
+        evaluator=Evaluator(), run_dir=tmp_path, session_opener=None,
+    )
+    result = backend.run_branch({}, job, emit=lambda *args, **kwargs: None)
+
+    assert result["status"] == result["method_status"] == "crashed"
+    assert result["completed"] is result["method_completed"] is False
+    assert result["method_outcome"] == "method_failure"
+    assert result["physical_success"] is True
+    assert result["evaluator_verdict"]["status"] == "valid_terminal"
+    assert result["evaluator_verdict"]["completed"] is True
+    verify_evaluator_evidence(tmp_path, job, result)
+
+    with pytest.raises(ValueError, match="nested evaluator verdict mismatch"):
+        verify_evaluator_evidence(tmp_path, job, {**result, "physical_success": False})
+
+
+@pytest.mark.parametrize(
+    ("status", "completed", "method_outcome"),
+    [
+        ("crashed", False, "completed"),
+        ("method_timeout", False, "method_failure"),
+        ("valid_terminal", True, "method_failure"),
+        ("safe_stop", True, "safe_stop"),
+        ("infrastructure_invalid", False, "method_failure"),
+        ("invalid_instance", False, "not_run"),
+        ("invented_status", True, "completed"),
+        ("valid_terminal", True, "invented_outcome"),
+    ],
+)
+def test_driver_method_receipt_rejects_internal_contradictions(
+        tmp_path, status, completed, method_outcome):
+    job = BranchPlan(slots=1).jobs()[0]
+
+    class Driver:
+        def run_branch(self, runtime, current_job, *, emit):
+            return {"status": status, "completed": completed,
+                    "method_outcome": method_outcome}
+
+    class Evaluator:
+        def evaluate(self, runtime, current_job, *, execution, run_dir):
+            raise AssertionError("contradictory method receipt must fail before evaluation")
+
+    backend = EaiSessionBackend(
+        scene_id="fixture", launch_config=None, branch_driver=Driver(),
+        evaluator=Evaluator(), run_dir=tmp_path,
+    )
+    with pytest.raises(ValueError, match="method"):
+        backend.run_branch({}, job, emit=lambda *args, **kwargs: None)
+
+
+@pytest.mark.parametrize(
+    ("method_status", "method_completed", "method_outcome"),
+    [
+        ("valid_terminal", True, "completed"),
+        ("completed", True, "completed"),
+        ("success", True, "completed"),
+        ("method_timeout", False, "timeout"),
+        ("malformed_action", False, "malformed_action"),
+        ("crashed", False, "method_failure"),
+        ("budget_overrun", False, "budget_overrun"),
+        ("missing_response", False, "no_plan"),
+        ("safe_stop", False, "safe_stop"),
+        ("team_state_infeasible", False, "infeasible"),
+        ("right_censored", False, "censored"),
+        ("infrastructure_invalid", False, "not_run"),
+    ],
+)
+def test_driver_method_receipt_uses_exact_status_contract(
+        tmp_path, method_status, method_completed, method_outcome):
+    job = BranchPlan(slots=1).jobs()[0]
+
+    class Driver:
+        def run_branch(self, runtime, current_job, *, emit):
+            return {"method_status": method_status,
+                    "method_completed": method_completed,
+                    "method_outcome": method_outcome}
+
+    class Evaluator:
+        def evaluate(self, runtime, current_job, *, execution, run_dir):
+            return dict(VERDICT)
+
+    backend = EaiSessionBackend(
+        scene_id="fixture", launch_config=None, branch_driver=Driver(),
+        evaluator=Evaluator(), run_dir=tmp_path,
+    )
+    result = backend.run_branch({}, job, emit=lambda *args, **kwargs: None)
+    assert result["method_status"] == method_status
+    assert result["method_completed"] is method_completed
+    assert result["method_outcome"] == method_outcome
+    if method_completed:
+        assert result["status"] == "valid_terminal"
+        assert result["completed"] is True
+    else:
+        assert result["status"] == method_status
+        assert result["completed"] is False
+
+
+@pytest.mark.parametrize(
+    "execution",
+    [
+        {"status": "crashed", "method_status": "valid_terminal",
+         "completed": False, "method_completed": False,
+         "method_outcome": "method_failure"},
+        {"status": "crashed", "method_status": "crashed",
+         "completed": False, "method_completed": True,
+         "method_outcome": "method_failure"},
+        {"status": "crashed", "completed": 0, "method_outcome": "method_failure"},
+    ],
+)
+def test_driver_method_receipt_rejects_conflicting_aliases(tmp_path, execution):
+    job = BranchPlan(slots=1).jobs()[0]
+
+    class Driver:
+        def run_branch(self, runtime, current_job, *, emit):
+            return execution
+
+    class Evaluator:
+        def evaluate(self, runtime, current_job, *, execution, run_dir):
+            raise AssertionError("contradictory method receipt must fail before evaluation")
+
+    backend = EaiSessionBackend(
+        scene_id="fixture", launch_config=None, branch_driver=Driver(),
+        evaluator=Evaluator(), run_dir=tmp_path,
+    )
+    with pytest.raises(ValueError, match="method"):
+        backend.run_branch({}, job, emit=lambda *args, **kwargs: None)
+
+
+def test_legacy_flat_evaluator_envelope_remains_valid(tmp_path):
+    job = BranchPlan(slots=1).jobs()[0]
+    result = write_evaluator_evidence(
+        tmp_path, job, evaluator_version="legacy-flat.v1", result=VERDICT,
+        observations={"fixture": True},
+    )
+    assert verify_evaluator_evidence(tmp_path, job, result)["result"] == VERDICT
+
+
 def test_formal_measured_requires_authoritative_identity_before_open(tmp_path):
     plan = BranchPlan(execution_scope="measured")
     store = BranchRunStore.create(tmp_path, plan)

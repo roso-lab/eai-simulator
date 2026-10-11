@@ -11,6 +11,7 @@ from typing import Any, Mapping
 
 from .models import BRANCH_ROLES, IDENTITY_FIELDS, SCHEMA_VERSION, MEASURED_SCOPES, BranchJob
 from .evidence import verify_evaluator_evidence
+from .initialization import FRESH, receipt_mode, validate_initialization_job, verify_initialization_receipt
 from .benchmark_bridge import benchmark_job_errors
 from .store import LEDGERS, verify_seal
 
@@ -154,6 +155,11 @@ def validate_run(run_dir: str | Path, *, write: bool = True) -> dict[str, Any]:
         if row.get("ended_at_ns") is not None:
             ended_at[branch_id] = max(ended_at.get(branch_id, 0), int(row["ended_at_ns"]))
     intervals = sorted((start, ended_at[branch_id]) for branch_id, start in started_at.items() if branch_id in ended_at)
+    # Session backends emit actual step rows; summary metrics are optional.
+    stepped_branches = {str(row["branch_id"]) for row in rows["steps"]
+                        if row.get("branch_id") and row.get("simulator_step") is not None}
+    first_tick_branches.update(stepped_branches)
+    last_tick_branches.update(stepped_branches)
     overlap_detected = False
     latest_end = -1
     for start, end in intervals:
@@ -200,6 +206,31 @@ def validate_run(run_dir: str | Path, *, write: bool = True) -> dict[str, Any]:
     execution_backend = str(manifest.get("execution_backend") or "")
     shared_backend = str(manifest.get("execution_mode") or "") == "shared_session"
     session_backend = execution_backend == "session_backend"
+    fresh_branches = set()
+    for branch_id, identity in branch_identity.items():
+        try:
+            job = BranchJob.from_mapping(identity)
+            validate_initialization_job(job, session_backend=session_backend)
+            if receipt_mode(job) != FRESH:
+                continue
+            fresh_branches.add(branch_id)
+            receipts = [row for row in rows["checkpoints"] if row.get("branch_id") == branch_id]
+            episode = next((row for row in rows["episodes"] if row.get("branch_id") == branch_id), {})
+            terminal = bool(episode.get("completed")) or episode.get("physical_success") is not None
+            infra_failure = (episode.get("status") == "infrastructure_invalid"
+                             and episode.get("infrastructure_reason") in {"preflight_rejected", "missing_runtime_receipt"}
+                             and branch_id not in stepped_branches and not terminal)
+            if not receipts and (infra_failure or not episode and branch_id not in stepped_branches):
+                continue
+            if len(receipts) != 1:
+                raise ValueError("fresh initialization requires exactly one receipt")
+            passed = verify_initialization_receipt(job, receipts[0])
+            if not passed and not infra_failure:
+                raise ValueError("method outcome requires passed initialization")
+            if terminal and (branch_id not in heartbeat_branches or branch_id not in first_tick_branches or branch_id not in last_tick_branches):
+                raise ValueError("terminal measured outcome lacks heartbeat/steps")
+        except (ValueError, TypeError, KeyError) as exc:
+            errors.append(f"invalid initialization {branch_id}: {exc}")
     if not shared_backend and len(worker_sessions) != len(latest_runtime_identities):
         errors.append("duplicate worker_session_id across latest branches")
     if not shared_backend and len(worker_instances) != len(latest_runtime_identities):
@@ -257,6 +288,11 @@ def validate_run(run_dir: str | Path, *, write: bool = True) -> dict[str, Any]:
             local_ids = {str(row.get("branch_id", "")) for row in local_rows}
             if local_ids != {branch_id}:
                 errors.append(f"shared-session branch ledger identity mismatch: {branch_id}")
+            if branch_id in fresh_branches:
+                init_index = next((i for i, row in enumerate(local_rows) if row.get("initialization_passed") is not None), None)
+                first_step = next((i for i, row in enumerate(local_rows) if row.get("simulator_step") is not None and row.get("ledger") == "steps"), None)
+                if init_index is not None and first_step is not None and init_index >= first_step:
+                    errors.append(f"initialization receipt follows branch steps: {branch_id}")
     pairs: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in latest_branches.values(): pairs[str(row.get("pair_group_id"))].append(row)
     eligible: list[str] = []; excluded: dict[str, str] = {}

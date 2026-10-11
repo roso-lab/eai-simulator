@@ -18,6 +18,43 @@ from .schema import AnalysisError, Dataset, Design, digest, read_json, _pairs, o
 from .snapshot import Budget, SnapshotLimits
 
 
+_LEGACY_METHOD_OUTCOME_BY_STATUS = {
+    "method_timeout": "timeout",
+    "malformed_action": "malformed_action",
+    "crashed": "method_failure",
+    "budget_overrun": "budget_overrun",
+    "missing_response": "no_plan",
+}
+
+
+def sealed_method_outcome(episode: dict) -> str | None:
+    """Return driver-owned method semantics and reject contradictory seals."""
+
+    explicit = episode.get("method_outcome")
+    if explicit is not None:
+        explicit = text(explicit)
+    expected = _LEGACY_METHOD_OUTCOME_BY_STATUS.get(episode.get("status"))
+    if expected is not None and explicit is not None and explicit != expected:
+        raise AnalysisError("sealed episode method status/outcome mismatch")
+    return explicit if explicit is not None else expected
+
+
+def _sealed_infrastructure_reason(episode: dict) -> str | None:
+    if episode.get("status") != "infrastructure_invalid":
+        return None
+    if episode.get("infrastructure_reason") is not None:
+        return text(episode["infrastructure_reason"])
+    if episode.get("infrastructure_preflight") is True:
+        return "preflight_rejected"
+    outcome = episode.get("outcome", {})
+    if not isinstance(outcome, dict):
+        return None
+    if isinstance(outcome.get("infrastructure_error"), dict):
+        return "missing_runtime_receipt"
+    code = outcome.get("infrastructure_reason")
+    return text(code) if code is not None else None
+
+
 def _rows(path: Path) -> list[dict]:
     rows = []
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -137,6 +174,7 @@ def bind_attempts(design_data: dict, outcomes: dict, handoff: dict) -> list[dict
         selected.add(branch_id)
         if attempt["episode"] is None:
             raise AnalysisError("selected attempt has no terminal episode")
+        episode = attempt["episode"]
         raw = dict(item["outcome"])
         if "artifact_digest" in raw:
             raise AnalysisError("artifact digest is assigned by the evidence join")
@@ -154,6 +192,16 @@ def bind_attempts(design_data: dict, outcomes: dict, handoff: dict) -> list[dict
         checkpoint_round = run_key.get("checkpoint_round", metadata.get("checkpoint_round"))
         if not checkpoint_round or raw.get("checkpoint_round") != checkpoint_round:
             raise AnalysisError("missing or mismatched authoritative checkpoint_round")
+        if (raw.get("status") == "infrastructure_invalid"
+                and _sealed_infrastructure_reason(episode) != raw.get("reason")):
+            raise AnalysisError("infrastructure outcome lacks matching sealed episode reason")
+        if episode.get("status") == "infrastructure_invalid" and raw.get("status") == "valid":
+            raise AnalysisError("infrastructure episode cannot supply a valid outcome")
+        method_outcome = sealed_method_outcome(episode)
+        if method_outcome is not None and raw.get("method_outcome") != method_outcome:
+            raise AnalysisError(
+                "evaluated method outcome differs from sealed episode method outcome"
+            )
         artifact = digest({"seal": handoff["seal_sha256"], "identity": attempt["identity_digest"],
                            "episode": attempt["episode_digest"], "evaluator": evaluator,
                            "selection_policy": outcomes["selection_policy_digest"], "outcome": raw})

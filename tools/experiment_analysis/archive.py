@@ -27,7 +27,7 @@ def verification_environment() -> dict:
     sources = {"analysis/" + p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(package.glob("*.py"))}
     # Exact validation dependency closure; no simulator, task registry or
     # evaluator implementation is imported/executed from the archive.
-    for name in ("store.py", "models.py", "validation.py", "evidence.py", "benchmark_bridge.py"):
+    for name in ("store.py", "models.py", "validation.py", "evidence.py", "benchmark_bridge.py", "initialization.py"):
         path = package.parent / "benchmark_branch" / name
         sources["collector/" + name] = hashlib.sha256(path.read_bytes()).hexdigest()
     return {"python": platform.python_version(), "source_files": sources, "code_digest": digest(sources)}

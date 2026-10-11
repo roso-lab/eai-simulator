@@ -16,6 +16,7 @@ from typing import Any, Mapping, TextIO
 from .adapters import SceneAdapter
 from .models import BranchJob, BranchPlan, CheckpointArtifact, ResourceSnapshot, MEASURED_SCOPES
 from .evidence import verify_evaluator_evidence
+from .initialization import FRESH, receipt_mode, validate_initialization_job, verify_initialization_receipt
 from .resources import ResourceProbe, resource_row
 from .store import BranchRunStore
 from .session import backend_method
@@ -326,7 +327,9 @@ class BranchExecutor:
                     started = time.time_ns()
                     deadline = time.monotonic() + self.timeout_s if self.timeout_s is not None else None
                     receipt = {"heartbeat": False, "first_tick": None,
-                               "last_tick": None, "restore_passed": None}
+                               "last_tick": None, "restore_passed": None,
+                               "initialization_passed": None}
+                    fresh = receipt_mode(job) == FRESH
                     try:
                         branch_lease = self.scheduler.acquire_branch(
                             scene_lease, branch_key=job.branch_id,
@@ -372,14 +375,22 @@ class BranchExecutor:
                             if ledger == "metrics" and row.get("kind") == "heartbeat":
                                 receipt["heartbeat"] = True
                             if ledger == "steps" and row.get("simulator_step") is not None:
+                                if fresh and receipt["initialization_passed"] is not True:
+                                    raise ValueError("branch steps require passed initialization")
                                 step = int(row["simulator_step"])
                                 receipt["first_tick"] = step if receipt["first_tick"] is None else min(receipt["first_tick"], step)
                                 receipt["last_tick"] = step if receipt["last_tick"] is None else max(receipt["last_tick"], step)
                             if ledger == "checkpoints" and row.get("restore_passed") is not None:
+                                if fresh:
+                                    raise ValueError("fresh initialization cannot emit a restore receipt")
                                 receipt["restore_passed"] = (
                                     row["restore_passed"] is True
                                     and row.get("readback_digest") == job.checkpoint_digest
                                 )
+                            if ledger == "checkpoints" and ("initialization_passed" in row or row.get("checkpoint_receipt_mode") == FRESH):
+                                if not fresh or receipt["first_tick"] is not None or receipt["initialization_passed"] is not None:
+                                    raise ValueError("initialization requires one receipt before branch steps")
+                                receipt["initialization_passed"] = verify_initialization_receipt(job, row)
                             self.store.append(ledger, row, job=job, event=event,
                                               sync=event or ledger in {"checkpoints", "episodes"})
 
@@ -398,7 +409,8 @@ class BranchExecutor:
                             first_tick = receipt["first_tick"]
                             last_tick = receipt["last_tick"]
                             restore_passed = receipt["restore_passed"]
-                            if not heartbeat or first_tick is None or last_tick is None or restore_passed is not True:
+                            initial_state_passed = receipt["initialization_passed"] if fresh else restore_passed
+                            if not heartbeat or first_tick is None or last_tick is None or initial_state_passed is not True:
                                 status = "infrastructure_invalid"
                                 branch_completed = False
                                 result["physical_success"] = None
@@ -406,6 +418,7 @@ class BranchExecutor:
                                 result["infrastructure_error"] = {
                                     "heartbeat": heartbeat, "first_tick": first_tick,
                                     "last_tick": last_tick, "restore_passed": restore_passed,
+                                    "initialization_passed": receipt["initialization_passed"],
                                 }
                             else:
                                 # A measured run may only expose a physical
@@ -455,6 +468,7 @@ class BranchExecutor:
                                       "safety_predicate", "feasibility_predicate",
                                       "first_tick", "last_tick", "heartbeat_first_ns",
                                       "heartbeat_last_ns", "restore_passed", "restore_error",
+                                      "evaluator_verdict", "method_status", "method_completed", "method_outcome",
                                       "infrastructure_reason", "infrastructure_error"):
                             if field in result:
                                 episode[field] = result[field]
@@ -465,9 +479,11 @@ class BranchExecutor:
                         branch_lease = None
                         return branch_completed
                     except BaseException as exc:
+                        init_invalid = fresh and receipt["initialization_passed"] is not True
                         self.store.append("episodes", {
-                            "status": "method_timeout" if isinstance(exc, TimeoutError) else "crashed", "completed": False,
+                            "status": "infrastructure_invalid" if init_invalid else "method_timeout" if isinstance(exc, TimeoutError) else "crashed", "completed": False,
                             "physical_success": None,
+                            **({"infrastructure_reason": "missing_runtime_receipt"} if init_invalid else {}),
                             "error": f"{type(exc).__name__}: {exc}",
                             "worker_instance_id": (
                                 f"branch-worker-{branch_lease.lease_id}" if branch_lease else ""
@@ -836,6 +852,8 @@ class BranchExecutor:
             )
             self.store.finish()
             raise ValueError(reason)
+        for job in self.plan.jobs():
+            validate_initialization_job(job, session_backend=self.session_backend is not None)
         if requested_scope == "measured":
             from .benchmark_bridge import benchmark_job_errors
             errors = [error for job in self.plan.jobs() for error in benchmark_job_errors(job)]
@@ -891,7 +909,7 @@ class BranchExecutor:
         for job in jobs:
             updated = replace(job,
                               checkpoint_digest=job.checkpoint_digest or checkpoint.digest,
-                              restore_checkpoint_digest=job.restore_checkpoint_digest or checkpoint.digest,
+                              restore_checkpoint_digest=("" if receipt_mode(job) == FRESH else job.restore_checkpoint_digest or checkpoint.digest),
                               task_contract_digest=job.task_contract_digest or str(metadata.get("task_contract_digest", "")),
                               scene_build_digest=job.scene_build_digest or str(metadata.get("scene_build_digest", "")),
                               asset_resolution_digest=job.asset_resolution_digest or str(metadata.get("asset_resolution_digest", "")),
