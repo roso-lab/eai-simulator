@@ -13,6 +13,7 @@
 | [`ros2/`](ros2/README.zh-CN.md) | 外部传感器、移动底盘和机械臂客户端及其聚焦测试 | 选定的系统 ROS2 Python |
 | [`human_assets/`](human_assets/README.zh-CN.md) | Human 转换、创作、迁移、cache 生成、验证和演示 | 依命令使用纯 Python 或 Isaac Sim/OpenUSD |
 | [`physics_replay/`](physics_replay/README.zh-CN.md) | Isaac Sim 物理状态、command/action/noise tape、checkpoint 恢复和 episode 检查 | 纯 Python 检查；Factory 验证需要 `env_isaaclab` |
+| [`topology_authoring/`](topology_authoring/README.zh-CN.md) | 基于场景适配器的通用拓扑草稿和 Isaac Sim 创作界面 | 纯 Python 模型或 Isaac Sim GUI；由适配器决定场景输入 |
 
 ## 运行环境边界
 
@@ -63,6 +64,18 @@ python tools/human_assets/migrate_assets.py --help
 ```
 
 `scene.py` 和 `motion_controls.py` 是被其他脚本导入的辅助模块，不是独立命令。运行会写 USD、manifest、cache 或报告的命令前，请先阅读 Human 资产指南。
+
+### 拓扑创作
+
+```bash
+python tools/topology_authoring/author.py \
+  --scene-key warehouse \
+  --adapter tools.topology_authoring.adapters.empty:EmptyTopologyAdapter \
+  --asset-root /path/to/scene-assets \
+  --output-root /path/to/prepared-package
+```
+
+加 `--headless` 可在不启动 Isaac Sim 时检查适配器。
 
 ## 副作用
 
