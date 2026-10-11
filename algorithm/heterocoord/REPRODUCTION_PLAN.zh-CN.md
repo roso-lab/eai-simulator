@@ -10,7 +10,7 @@
 2. `BT-capabilities-adapted-to-EAI`：官方 `ros_bt_py` v1.1.0 已固定；使用 `algorithm/system/coordination/bt_capabilities/` 保留 capability interface、utility/precondition、remote slot、auction 和 member failure reauction。ROS1/catkin 不导入 Isaac 进程。
 3. `COHERENT-adapted-to-EAI`：复用 `algorithm/system/coordination/coherent/` 和官方 commit `17554a5`，只报告 assignment-level PEFA；原 OmniGibson serial physical loop 不在 EAI 中重建。
 4. `EMOS-adapted-to-EAI` 与 `TeamWeaver-adapted-to-EAI`：复用仓库已有适配，保持现有模型/API、Gurobi、任务 DAG 和回放合同；不把它们改写成 HeteroCoord 主表中的其他算法。
-5. `HARL-HAPPO`：官方 HARL runner 已固定，EAI `algorithm/harl_isaac/` 已提供单 Kit 进程接口；由于没有可核验的官方 HAPPO checkpoint，任何 Isaac 训练结果都必须另起 `self-trained` condition，官方权重结果写 `N/A`。
+5. `HARL-HAPPO`：只固定官方 HARL 源码版本用于 provenance；当前源码树不存在 `algorithm/harl_isaac/`，也没有可核验的官方 HAPPO weights，因此 EAI adapter 与官方权重评测均为 `N/A`。未来新增适配或 Isaac 自训练结果必须分别注册新 condition，不能沿用官方权重身份。
 6. `MRTA heuristic`：使用官方 ICRA 2024/IEEE T-RO 2025 源码等价 Python 适配，先完成异构能力/距离代价分配，再记录 `planRepair` 等价的延迟修复；可在 Z1 Fire Rescue 中运行。
 7. `Hybrid SUSD MRTA`：使用官方 ICRA 2023 的 market 初始化 + SUSD 局部搜索等价适配；可在 Z1 Fire Rescue 中运行，论文原生故障重规划记为 `N/A`，适配器级重分配单独记录。
 8. `DCMRTA` 与 `HeteroMRTA`：保留官方 checkpoint 的原生测试集 decision-only 轨道；Fire Rescue 使用默认分配跑完整 Z1 流程，跨域 checkpoint 泛化记为 `N/A`。
@@ -41,10 +41,11 @@ Gosrich 没有可核验的官方代码；LiP-LLM 没有作者代码；Epistemic 
 - Fire Rescue CLI 可用 `--coordination-ledger-dir DIR` 保存每个 trial 的
   `coordination_run.json`。算法分配成功不会自动写成 mission success，只有 evaluator 的
   `mission_success` 证据才能验证物理成功。
-- MRTA heuristic 和 Hybrid SUSD 已用 `EAI-Factory-Z1-v0` 完成短 Isaac smoke；日志/账本
-  可见 Z1 backend、算法计划、实际派遣、执行反馈、超时和适配器级重分配。该 smoke
-  不把计划成功升级为物理任务成功。运行前仍需固定场景资产 revision、机器人身份、seed、
-  动作 schema、LLM/API provenance、Gurobi 版本和回放分支。
+- MRTA heuristic 和 Hybrid SUSD 曾针对一个本地 Z1 场景完成短 Isaac smoke；这只是
+  scenario-bound 历史诊断，不能证明当前源码、当前资产或其他场景的 published runtime
+  readiness。对应输入不是正式 `task/config/` 任务。未来若重跑，场景输入只能作为 `tmp/`
+  下的临时诊断材料，并须固定 runtime/plugin identity、资产 revision、机器人身份、seed、
+  动作 schema、外部依赖 provenance 和回放分支；计划/派遣成功仍不能升级为物理成功。
 - DCMRTA 已加入双轨条件：官方 checkpoint 只在原生测试集上计入 decision-only；Fire
   Rescue 轨道使用默认分配完成 Z1 执行/反馈/回放，跨域 checkpoint 泛化记录为 `N/A`。
 - HeteroMRTA（IEEE RA-L 2025）已加入同样的双轨条件：官方 checkpoint 原生输入为

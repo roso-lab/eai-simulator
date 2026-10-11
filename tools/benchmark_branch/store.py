@@ -39,6 +39,38 @@ def _atomic_json(path: Path, value: Mapping[str, Any]) -> None:
     temp.replace(path)
 
 
+def verify_seal(root: Path) -> list[str]:
+    """Check the existing seal without modifying it or blessing damaged files."""
+    errors = []
+    seal = root / "checksums.sha256"
+    if not seal.exists():
+        return ["missing checksums.sha256"]
+    names = set()
+    for line in seal.read_text(encoding="ascii").splitlines():
+        parts = line.split()
+        if len(parts) != 2:
+            errors.append("malformed checksum entry")
+            continue
+        digest, name = parts
+        path = (root / name).resolve()
+        if name in names or Path(name).is_absolute() or not path.is_relative_to(root.resolve()):
+            errors.append(f"invalid checksum path: {name}")
+            continue
+        names.add(name)
+        if not path.is_file() or _sha256(path) != digest:
+            errors.append(f"checksum mismatch: {name}")
+    required = {f"{name}.jsonl" for name in LEDGERS} | {"plan.json", "manifest.json"}
+    required.update(str(path.relative_to(root)) for path in (root / "branches").glob("*/ledger.jsonl"))
+    required.update(str(path.relative_to(root)) for path in (root / "evidence").glob("*.json"))
+    for row in _read_jsonl(root / "episodes.jsonl"):
+        refs = row.get("evidence_refs", [])
+        if isinstance(refs, list):
+            required.update(ref for ref in refs if isinstance(ref, str))
+    for name in sorted(required - names):
+        errors.append(f"missing checksum entry: {name}")
+    return errors
+
+
 class BranchRunStore:
     """Durable run directory owned by the parent collector process."""
 
@@ -73,6 +105,8 @@ class BranchRunStore:
                execution_mode: str = "isolated_parallel", execution_scope: str | None = None,
                resource_budget: Mapping[str, Any] | None = None, adapter: str = "",
                adapter_kwargs: Mapping[str, Any] | None = None) -> "BranchRunStore":
+        if (Path(root) / "manifest.json").exists():
+            raise FileExistsError("run directory already contains a manifest; use resume or a new directory")
         run_id = plan.run_id or f"run-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}-{os.getpid()}"
         plan = BranchPlan.from_mapping({**plan.row(), "run_id": run_id})
         manifest = {
@@ -106,8 +140,15 @@ class BranchRunStore:
     @classmethod
     def resume(cls, root: str | Path) -> "BranchRunStore":
         root = Path(root).resolve()
+        # Only sealed attempts can be resumed automatically. An unsealed crash
+        # needs explicit recovery in a new run, not guessed integrity.
+        errors = verify_seal(root)
+        if errors:
+            raise ValueError(f"resume refused: {errors}")
         plan_data = json.loads((root / "plan.json").read_text(encoding="utf-8"))
         manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+        if manifest.get("plan_digest") != _sha256_json(plan_data):
+            raise ValueError("resume refused: frozen plan digest mismatch")
         return cls(root, BranchPlan.from_mapping(plan_data), manifest, resume=True)
 
     def _load_existing(self) -> None:
@@ -169,6 +210,9 @@ class BranchRunStore:
         if job is not None:
             identity = job.identity()
             for key in IDENTITY_FIELDS:
+                if key in payload and key in identity and key not in {"worker_instance_id", "worker_session_id"}:
+                    if payload[key] != identity[key]:
+                        raise ValueError(f"runtime row cannot override branch identity: {key}")
                 if key not in payload and key in identity:
                     payload[key] = identity[key]
             payload.setdefault("logical_branch_id", job.logical_branch_id)
@@ -245,10 +289,14 @@ class BranchRunStore:
         checksums = {name: _sha256(self.root / f"{name}.jsonl") for name in LEDGERS}
         branch_files = sorted((self.root / "branches").glob("*/ledger.jsonl")) if (self.root / "branches").exists() else []
         checksums.update({str(path.relative_to(self.root)): _sha256(path) for path in branch_files})
+        for path in sorted((self.root / "evidence").glob("*.json")):
+            checksums[str(path.relative_to(self.root))] = _sha256(path)
+        for name in ("plan.json", "manifest.json"):
+            checksums[name] = _sha256(self.root / name)
         self._close_streams()
         self._close_branch_streams()
         (self.root / "checksums.sha256").write_text(
-            "".join(f"{digest}  {name if name.endswith('.jsonl') else name + '.jsonl'}\n"
+            "".join(f"{digest}  {name if name.endswith(('.jsonl', '.json')) else name + '.jsonl'}\n"
                      for name, digest in checksums.items()), encoding="ascii"
         )
         self.persist_state()

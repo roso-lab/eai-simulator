@@ -28,7 +28,7 @@ _RAW_REGISTRY: tuple[dict[str, Any], ...] = (
         "supported_primitives": ["communication_delay_loss", "task_arrival", "heterogeneous_skills"],
         "unsupported_dimensions": ["Isaac_physical_execution_until_adapter"],
         "physical_executor_owner": "eai_runtime",
-        "status": "source_pulled_fire_rescue_bridge_ready; indivisible_condition_N/A",
+        "status": "source_pulled_legacy_scenario_bridge_only; indivisible_condition_N/A",
     },
     {
         "algorithm_id": "BT-capabilities",
@@ -45,7 +45,7 @@ _RAW_REGISTRY: tuple[dict[str, Any], ...] = (
         "supported_primitives": ["capability_auction", "mission_tree", "member_failure"],
         "unsupported_dimensions": ["ROS1_catkin_to_Isaac5_bridge", "physical_evidence_until_adapter"],
         "physical_executor_owner": "eai_runtime",
-        "status": "source_pulled_fire_rescue_bridge_ready",
+        "status": "source_pulled_legacy_scenario_bridge_only",
     },
     {
         "algorithm_id": "Gosrich-et-al",
@@ -71,15 +71,15 @@ _RAW_REGISTRY: tuple[dict[str, Any], ...] = (
         "official_repo": "https://github.com/PKU-MARL/HARL",
         "source_commit": "b1af98b0dbab72a2eee9d160751cd09aedbb8ce2",
         "license": "repo_license_to_review",
-        "implementation": "official_runner_plus_EAI_adapter",
+        "implementation": "official_source_reference_only_no_in_tree_EAI_adapter",
         "execution_scope": "heterogeneous_ctde_policy_training_or_inference",
         "model_or_api": "HAPPO_sequential_actor_updates",
         "checkpoint": "N/A_no_verifiable_official_HAPPO_checkpoint",
-        "training_access": "self_trained_isaac_is_separate_condition",
+        "training_access": "official_weights_N/A; any_self_training_is_a_separate_condition",
         "supported_primitives": ["heterogeneous_observation_action", "fixed_actor_identity"],
-        "unsupported_dimensions": ["official_weight_evaluation", "physical_success_without_checkpoint"],
+        "unsupported_dimensions": ["in_tree_EAI_adapter", "official_weight_evaluation", "physical_success_without_checkpoint"],
         "physical_executor_owner": "eai_runtime",
-        "status": "source_pulled_existing_adapter",
+        "status": "N/A_no_in_tree_EAI_adapter_or_verifiable_official_HAPPO_weights",
     },
     {
         "algorithm_id": "Qrainbow",
@@ -130,7 +130,7 @@ _RAW_REGISTRY: tuple[dict[str, Any], ...] = (
         "supported_primitives": ["heterogeneous_capability_assignment", "feedback_adjustment"],
         "unsupported_dimensions": ["serial_physics_loop", "D2_D4_D5_without_registered_evidence"],
         "physical_executor_owner": "eai_runtime",
-        "status": "fire_rescue_typed_bridge_ready",
+        "status": "legacy_scenario_bridge_unit_tested; generic_runtime_readiness_N/A",
     },
     {
         "algorithm_id": "LiP-LLM-adapted-to-EAI",
@@ -181,7 +181,7 @@ _RAW_REGISTRY: tuple[dict[str, Any], ...] = (
         "supported_primitives": ["heterogeneous_capability", "battery_cost", "priority", "delay_repair"],
         "unsupported_dimensions": ["official_matlab_zero_modification_execution", "coalition_tasks", "navigation_manipulation_physics"],
         "physical_executor_owner": "eai_runtime",
-        "status": "fire_rescue_z1_bridge_ready",
+        "status": "historical_scenario_smoke_only; current_published_runtime_readiness_N/A",
     },
     {
         "algorithm_id": "TeamWeaver-adapted-to-EAI",
@@ -215,7 +215,7 @@ _RAW_REGISTRY: tuple[dict[str, Any], ...] = (
         "supported_primitives": ["specialization_Q", "task_types_Y", "market_initialization", "susd_local_search"],
         "unsupported_dimensions": ["native_matlab_zero_modification_execution", "native_failure_replanning", "navigation_manipulation_physics"],
         "physical_executor_owner": "eai_runtime",
-        "status": "fire_rescue_z1_bridge_ready; native_failure_replanning_N/A",
+        "status": "historical_scenario_smoke_only; current_published_runtime_readiness_N/A; native_failure_replanning_N/A",
     },
     {
         "algorithm_id": "DCMRTA-adapted-to-EAI",
@@ -232,7 +232,7 @@ _RAW_REGISTRY: tuple[dict[str, Any], ...] = (
         "supported_primitives": ["coalition_task_decision", "native_checkpoint_inference", "EAI_feedback_ledger"],
         "unsupported_dimensions": ["zero_shot_Fire_Rescue_checkpoint_validity", "4_agent_4_task_native_input", "Z1_manipulation_physics"],
         "physical_executor_owner": "eai_runtime",
-        "status": "native_decision_only; Fire Rescue fixed-default full-flow adapter; cross_domain_generalization_N/A",
+        "status": "native_decision_only; legacy fixed-default scenario bridge; current runtime and cross_domain_generalization_N/A",
     },
     {
         "algorithm_id": "HeteroMRTA-adapted-to-EAI",
@@ -249,7 +249,7 @@ _RAW_REGISTRY: tuple[dict[str, Any], ...] = (
         "supported_primitives": ["heterogeneous_traits", "coalition_task_scheduling", "native_checkpoint_inference", "EAI_feedback_ledger"],
         "unsupported_dimensions": ["zero_shot_Fire_Rescue_checkpoint_validity", "4_agent_4_task_native_input", "Z1_manipulation_physics"],
         "physical_executor_owner": "eai_runtime",
-        "status": "native_decision_only; Fire Rescue fixed-default full-flow adapter; cross_domain_generalization_N/A",
+        "status": "native_decision_only; legacy fixed-default scenario bridge; current runtime and cross_domain_generalization_N/A",
     },
 )
 
@@ -289,6 +289,7 @@ def _annotate_system_record(record: dict[str, Any]) -> dict[str, Any]:
             ),
             "executor_owner": "task.executors -> EAI controller/skill",
             "physical_success_owner": "task.evaluators -> EAI runtime",
+            "published_runtime_readiness": "not_established_by_registry",
         }
     )
     return result

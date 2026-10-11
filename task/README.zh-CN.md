@@ -1,41 +1,54 @@
-# HeteroCoord 任务层
+# 通用任务编排层
 
-`task/` 是建立在 EAI core、assets 和 HMRS 之上的独立任务编排层。它维护任务
-合同、机器人能力输入、算法决策记录、执行反馈、回放接口和物理证据边界。
-
-任务层不维护 USD、不注册 Gym task、不创建 Isaac App，也不实现机器人控制器。
-`task/fixtures/` 仅提供无仿真的符号化适配器测试输入，不代表物理场景。
-底层路径/轨迹/命令 provider 统一归类在 `algorithm/skills/`；`task/executors/`
-负责将它们接到 EAI controller/skill。场景与机器人由 EAI 的 saved environment
-和资产解析器负责，物理动作由 EAI runtime 负责。
-
-## 依赖方向
+`task/` 是外部任务包、协调算法、调用方持有的 EAI session 与独立 evaluator
+之间的轻量边界。它不负责构建场景、管理 Isaac/Kit 生命周期、实现控制器或任务
+成功谓词，也不拥有 USD、测评任务身份或正式场景配置。
 
 ```text
-task/config  ->  algorithm adapter  ->  task/runner
-                                           |
-                                           +-> EAI SkillExecutor
-                                           +-> evaluator / ledger
+外部 EaiTaskPackage + 实时机器人 roster
+                 -> planner / 可选 replan callback
+                 -> TaskRunner DAG scheduler
+                 -> 注入 executor（独占 EAI/Kit stepping）
+                 -> 独立 evaluator（独占物理 verdict）
 ```
 
-没有注入真实 `SkillExecutor` 或 evaluator 时，运行结果只能是
-`N/A / physical_evidence_required`。算法返回的 assignment、导航派遣和计划状态
-都不能直接证明物理成功。
+本目录不内置正式任务 manifest。单元测试使用通用 inline fixture；有场景约束的
+短诊断输入只能放在项目忽略的 `tmp/` 下，不能因此升级成发布任务。
 
-## 当前边界
+## 两种运行方式
 
-- `simulator.py` 只接受显式 `--env` 或 EAI 自身 schema 的 `--scenario-file`；
-  `task/config/*.json` 是任务合同，不能直接作为 simulator scenario-file。
-- 独立的 `source/EAI_env_diy` Kit 扩展和 `--diy-3d` 已删除。
-- EAI 内部 `EAI.hmrs_env.env_diy` 仅保留 saved environment 的 JSON 兼容解析，不能
-  被重新扩展成 UI 或插件入口。
-- USD 和大模型权重由 provider/本地资产根目录提供，不上传到 HeteroCoord 源码分支。
-- 任务场景逻辑进入 `task/`；系统算法放在 `algorithm/system/`。EMOS 和 TeamWeaver
-  的被测实现位于 `algorithm/system/coordination/`，不再保留顶层兼容副本；底层算法
-  放在 `algorithm/skills/`，两者都不反向依赖 task runner 的实现细节。
+`TaskRunner.run(...)` 保留兼容的一次性 decision/dispatch API。
+`TaskRunner.run_orchestrated(...)` 提供可选的有界反馈编排：
 
-## 交接顺序
+- `OrchestrationLimits` 同时限制 round 和 dispatch 总数；
+- 初始 planner 可分配完整 DAG，也可只分配当前子集；
+- `ReplanProvider` 每轮显式替换 pending assignment；返回 `None` 即停止，
+  runner 不切换算法，也不自动重试失败 assignment；
+- executor 必须返回 `ExecutionUpdate`，其中
+  `completed/retryable_failure/terminal_failure` 只控制依赖是否可继续；
+- terminal failure 会阻塞后继任务，但独立 ready 任务仍可执行；
+- 每轮同一机器人最多选一个任务；可选 `execute_batch` 一次接收 ready set，
+  但 runner 不创建线程、不执行 Isaac step，Kit 仍由 callback 在 owner thread
+  内串行访问；
+- 未知 task、inactive robot、重复 task assignment、assigned/unassigned 重叠、
+  能力不满足以及 feedback 身份缺失/多余均 fail closed。
 
-先读 `task/contracts.py` 和 `task/runner.py`，再实现算法 adapter；随后由执行层
-接入 EAI 控制器/skill，再由 evaluator 写入物理证据。回放和并行分支属于
-`task/replay/` 的工具边界，不能成为算法隐藏状态。
+调度层的 `completed` 不是物理成功。只有外部 evaluator 能给出任务/物理 verdict。
+缺 executor 时，即使传入 evaluator，也必须返回
+`N/A / physical_evidence_required`；缺 evaluator 时同样保持 `N/A`。
+
+## 外部依赖协议
+
+1. 调用方构造或加载 `EaiTaskPackage`，再用实时 session 采样的 robot roster
+   调用 `bind_runtime(...)`。
+2. scene provider 返回调用方持有的不透明 scene/session context。
+3. planner 只提交 `AlgorithmDecision`，不能执行控制或宣称物理成功。
+4. runner 可验证 task/robot identity、DAG 和声明的 robot capability；对象引用、
+   controller resource、asset 与 skill 是否真实存在，只能由 executor 针对 live
+   scene 解析。缺失或陈旧资源必须返回显式失败，不能伪造成 completed。
+5. executor 独占控制器调用与 simulator stepping；batch callback 可在一个 session
+   内串行处理 ready set。
+6. evaluator 独占 milestone predicate 和最终 verdict；replay 也由调用方注入。
+
+事件 ledger 会记录 decision、dispatch、scheduler update、有界终止和 evaluator
+verdict，且整个任务合同层无需导入 Isaac Sim。

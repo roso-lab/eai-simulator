@@ -2,6 +2,10 @@
 
 [English](README.md) · [第三方插件接入](PLUGIN_GUIDE.md) · [示例依赖](examples/README.md)
 
+当前运行入口、诊断范围、证据校验与外部依赖见
+[通用运行接入](RUNTIME_INTEGRATION.zh-CN.md)。CLI 支持 `runtime_factory` 注入
+backend/scheduler；`EaiSessionBackend` 使用主线程串行会话。具体场景与任务仍由外部提供。
+
 `benchmark_branch` 是通用的分支并行数据采集器：支持按场景、任务、系统、条件和
 repeat 生成配对实验，执行分支、保存账本、重试恢复、校验、汇总和导出。
 本次发布包含工具代码、测试、schema、配置示例和文档。具体任务 runner、场景资产、
@@ -15,7 +19,7 @@ repeat 生成配对实验，执行分支、保存账本、重试恢复、校验�
 | `tools/physics_replay/` | checkpoint capture/restore/fidelity；ReplayScheduler 负责 GPU 准入、容量和 lease 生命周期 |
 | 上游任务插件 | 创建 Isaac 应用、分支状态隔离、物理推进、任务语义和外部 evaluator |
 
-采集器不会从 CLI 配置自动创建 `ReplayScheduler`。上层 runner 显式传入一个
+采集器不会猜测 GPU 容量。CLI 的 runtime factory 或上层 runner 显式提供一个
 `SessionBackend` 和一个 `ReplayScheduler` 后，`BranchExecutor` 会让所有 scene group
 共用同一容量账本，并在每个 scene session 内并发准入 branch。两个独立 CLI 进程不会
 自动共享显存预算。
@@ -116,8 +120,8 @@ EMOS 已验收；完整 authored horizon 也不等于 evaluator 确认完整物�
 
 父进程统一写总账；生命周期边界 fsync，高频记录先 flush、关闭时 fsync。
 `resume` 为未完成分支追加新 attempt，旧行保留。插件必须能够重建相同的冻结 checkpoint；
-采集器不会替插件序列化任意 simulator 隐状态。当前 resume CLI 不自动恢复所有资源/
-timeout 参数，有此要求时通过 Python API 重新施加策略。
+采集器不会替插件序列化任意 simulator 隐状态。resume 重载冻结的 runtime factory、
+timeout 和 resource_limit；scheduler 容量及预留策略由该 factory 负责重建。
 
 `validate` 检查身份漂移、重复 branch、checkpoint digest、restore、配对角色、sham、
 缺失账本、事件序号和 checksum。restore mismatch 排除配对统计，同时保留 raw fact；

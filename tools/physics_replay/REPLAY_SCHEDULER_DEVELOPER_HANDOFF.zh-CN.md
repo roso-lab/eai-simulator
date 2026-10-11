@@ -1,5 +1,9 @@
 # Replay/GPU Scheduler Tool 开发交接文档
 
+当前 collector 已提供 CLI runtime factory、主线程 EAI backend 和文件级 evaluator
+证据校验，接线见 [运行集成合同](../benchmark_branch/RUNTIME_INTEGRATION.zh-CN.md)。
+这些机制不内置场景任务，也不替代 shared-session 隔离认证或外部严格配对验收。
+
 版本：replay.scheduler.v1
 
 目标：为正式 benchmark 提供可审计的 GPU 资源准入、scene/branch 并行控制和独立 replay session 生命周期。

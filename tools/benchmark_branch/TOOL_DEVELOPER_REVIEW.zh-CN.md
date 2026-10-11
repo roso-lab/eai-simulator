@@ -1,5 +1,9 @@
 # benchmark_branch 工具审查与下一版开发交接
 
+> 本文保留历史审查要求；当前实现、CLI runtime factory、EAI 主线程 backend 与
+> artifact 核验见 [通用运行接入](RUNTIME_INTEGRATION.zh-CN.md)。下面的 `benchmark.*`
+> 是外部协议所有者，不是随仓库提供的包；其科学验收仍须独立接入。
+
 本文是对提交 1cc505f81d6df6b0c62a5472230c32736e59b63b 合入后的审查结论。
 它给 tool 开发者说明：哪些功能已经接受、哪些职责不能越界、下一版还需要补什么。
 

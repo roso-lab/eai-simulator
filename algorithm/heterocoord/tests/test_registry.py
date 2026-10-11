@@ -11,6 +11,9 @@ def test_registry_preserves_missing_artifact_boundaries():
     by_id = {item["algorithm_id"]: item for item in REGISTRY}
     assert by_id["Qrainbow"]["official_repo"] is None
     assert "N/A" in by_id["HARL-HAPPO"]["checkpoint"]
+    assert by_id["HARL-HAPPO"]["implementation"] == "official_source_reference_only_no_in_tree_EAI_adapter"
+    assert by_id["HARL-HAPPO"]["status"].startswith("N/A_")
+    assert "in_tree_EAI_adapter" in by_id["HARL-HAPPO"]["unsupported_dimensions"]
     assert by_id["LiP-LLM-adapted-to-EAI"]["implementation"] == "paper_derived_adapter_not_reproduction"
     assert by_id["LiP-LLM-adapted-to-EAI"]["status"].startswith("N/A_")
     assert by_id["MRTA-heuristic-adapted-to-EAI"]["source_commit"] == "c69509e8d2370f55824519dda0a13252e1817415"
@@ -24,3 +27,4 @@ def test_registry_records_system_layer_contract():
         assert item["input_contract"].startswith("EaiTaskPackage")
         assert "AlgorithmDecision" in item["output_contract"]
         assert item["executor_owner"].startswith("task.executors")
+        assert item["published_runtime_readiness"] == "not_established_by_registry"

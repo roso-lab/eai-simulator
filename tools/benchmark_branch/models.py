@@ -14,7 +14,8 @@ from typing import Any, Mapping, Sequence
 
 
 BRANCH_ROLES = ("fact", "reference", "sham", "intervention")
-EXECUTION_SCOPES = ("measured", "protocol_synthetic", "pending", "failed")
+MEASURED_SCOPES = ("measured", "measured_diagnostic")
+EXECUTION_SCOPES = (*MEASURED_SCOPES, "protocol_synthetic", "pending", "failed")
 SCHEMA_VERSION = "heterocoord.branch_tool.v2"
 
 IDENTITY_FIELDS = (
@@ -239,7 +240,9 @@ class BranchPlan:
             raise ValueError("repeats must be positive")
         if tuple(self.arms) != tuple(dict.fromkeys(self.arms)):
             raise ValueError("arms must not contain duplicates")
-        if not self.explicit_jobs and set(self.arms) != set(BRANCH_ROLES):
+        if not self.arms or not set(self.arms).issubset(BRANCH_ROLES):
+            raise ValueError("arms must be a nonempty subset of known branch roles")
+        if not self.explicit_jobs and self.execution_scope != "measured_diagnostic" and set(self.arms) != set(BRANCH_ROLES):
             raise ValueError("formal plans must contain fact/reference/sham/intervention")
         if self.execution_scope not in EXECUTION_SCOPES:
             raise ValueError(f"unknown execution_scope: {self.execution_scope!r}")

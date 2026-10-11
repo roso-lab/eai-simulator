@@ -58,7 +58,7 @@ class _SessionBackend:
 
 
 class _MeasuredAdapter(DummyAdapter):
-    supported_execution_scopes = frozenset({"protocol_synthetic", "measured"})
+    supported_execution_scopes = frozenset({"protocol_synthetic", "measured", "measured_diagnostic"})
 
 
 class _MeasuredEvidenceBackend(_SessionBackend):
@@ -131,9 +131,9 @@ def test_session_backend_cpu_preflight_is_fail_closed(tmp_path):
 
 
 def test_measured_backend_cannot_promote_completion_to_physical_success(tmp_path):
-    plan = BranchPlan(slots=1, execution_scope="measured")
+    plan = BranchPlan(slots=1, execution_scope="measured_diagnostic")
     store = BranchRunStore.create(tmp_path / "run", plan, requested_max_workers=4,
-                                  execution_scope="measured")
+                                  execution_scope="measured_diagnostic")
     result = BranchExecutor(
         plan, _MeasuredAdapter(steps=1), store, max_workers=4,
         session_backend=_MeasuredEvidenceBackend(), scheduler=_scheduler(),
