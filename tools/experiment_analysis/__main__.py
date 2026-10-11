@@ -54,8 +54,29 @@ def main(argv: list[str] | None = None) -> int:
     verify.add_argument("--recompute", action="store_true")
     batch_control = commands.add_parser("synthetic-batch", help="freeze then run two synthetic collector batches and verify their result bundle")
     batch_control.add_argument("--output", required=True)
+    archive = commands.add_parser("archive", help="copy and bind sealed collector evidence to a portable analysis archive")
+    archive.add_argument("--bundle", required=True)
+    archive.add_argument("--run-dir", action="append", required=True, help="repeat once per observed collector run")
+    archive.add_argument("--output", required=True)
+    archive_verify = commands.add_parser("verify-archive", help="revalidate relocated raw collector evidence and its analysis bundle")
+    archive_verify.add_argument("--archive", required=True)
+    for command in (archive, archive_verify):
+        command.add_argument("--recompute", action="store_true")
+        command.add_argument("--max-files", type=int, default=100000)
+        command.add_argument("--max-file-bytes", type=int, default=256 * 1024 * 1024)
+        command.add_argument("--max-total-bytes", type=int, default=2 * 1024 * 1024 * 1024)
     args = parser.parse_args(argv)
     try:
+        if args.command in {"archive", "verify-archive"}:
+            from .archive import archive_bundle, verify_archive
+            from .snapshot import SnapshotLimits
+            limits = SnapshotLimits(args.max_files, args.max_file_bytes, args.max_total_bytes)
+            if args.command == "archive":
+                result = archive_bundle(args.bundle, args.run_dir, args.output, limits=limits, recompute=args.recompute)
+            else:
+                result = verify_archive(args.archive, limits=limits, recompute=args.recompute)
+            print(json.dumps(result, sort_keys=True))
+            return 0
         if args.command == "freeze":
             registration = freeze(read_json(args.design), read_json(args.schedule))
             root = _output(args.output)

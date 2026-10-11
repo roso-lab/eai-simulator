@@ -1,5 +1,71 @@
 # Validation record — 2026-10-11
 
+## Phase E: portable sealed collector archives
+
+Continuation baseline: `7008cd0a`. Final expanded regression used the same
+four-directory pytest command recorded below: **447 passed, 1 skipped in
+32.60 s**. The skip remains the unavailable historical scene plugin. AST parsing
+passed for all 21 analysis Python files; `git diff --check` passed.
+
+New archive and streaming-snapshot tests cover canonical paths, symlink parents
+and members, FIFOs, missing/foreign/duplicate sources, extra files/directories,
+manifest and raw-seal tampering, consistently rehashed but false handoffs,
+file/total/count budgets including the manifest, source growth/change during
+copy, and a destination publication race. Scripted measured-format controls
+also preserve and revalidate three evaluator JSON artifacts; they are not
+physical measurements.
+
+Executed CLI acceptance from the isolated worktree, with
+`PYTHONDONTWRITEBYTECODE=1` and the `env_isaaclab` Python executable:
+
+```bash
+python -m tools.experiment_analysis synthetic-batch \
+  --output tmp/experiment_analysis/portable-control-verified
+python -m tools.experiment_analysis archive \
+  --bundle tmp/experiment_analysis/portable-control-verified/result \
+  --run-dir tmp/experiment_analysis/portable-control-verified/synthetic-batch-a \
+  --run-dir tmp/experiment_analysis/portable-control-verified/synthetic-batch-b \
+  --output tmp/experiment_analysis/portable-evidence-verified --recompute
+mv -T --no-clobber tmp/experiment_analysis/portable-control-verified \
+  tmp/experiment_analysis/portable-control-retained
+mv -T --no-clobber tmp/experiment_analysis/portable-evidence-verified \
+  tmp/experiment_analysis/portable-evidence-relocated
+python -m tools.experiment_analysis verify-archive \
+  --archive tmp/experiment_analysis/portable-evidence-relocated --recompute
+diff -rq tmp/experiment_analysis/portable-control-retained/result \
+  tmp/experiment_analysis/portable-evidence-relocated/analysis
+```
+
+Both old paths were checked absent before accepting relocation. The two-run
+archive contains 53 files / 391,199 bytes, including 42 raw collector files.
+Original analysis bytes are unchanged (`diff -rq` exit 0). Raw seal, structural
+validation, selection replay and complete-report recomputation all passed
+without the original locations. Synthetic selection remains 14 attempts → 12
+observations and the analytic 5/12 estimate. Sources were retained at their new
+path, and all generated outputs remain ignored under `tmp/`.
+
+| File under `tmp/experiment_analysis/` | SHA-256 |
+|---|---|
+| `portable-evidence-relocated/evidence_manifest.json` | `e9b210be2c2a67304a50793772c3830f548f4ce28bf6abf4602930f327db1b37` |
+| `portable-evidence-relocated/analysis/output_manifest.json` | `7898a031a930eeaad15929582d43ba34c81f04ca2a77816371b605e00556bd04` |
+| `portable-control-retained/registration.json` | `08de6d21813f3da585f83d111c419144dfc17adef843f4b2f656746c0539216d` |
+
+Independent final review found no unresolved P0/P1/P2 in this scope. It ran
+40 focused tests (3.13 s), 97 cross-module tests (17.79 s), and 389 tests plus
+the one known skip across analysis/collector/task (31.12 s); these overlapping
+suites are not additive. Its separate relocated CLI probe also passed exact
+byte comparison and recomputation with original paths absent. Review closed
+earlier findings concerning safe seal enumeration, bounded metadata rereads,
+manifest budget accounting and atomic no-replace publication.
+
+No Isaac/GPU run was required or performed. This archive proves content linkage
+under pinned Python/validator sources, not authenticity, preregistration time,
+evaluator semantics, physical truth or release eligibility. Those verification
+flags and `publishable` remain false. Assets, videos, models, unsealed state and
+external paths embedded in JSON are not implicitly archived. Ordinary `verify`
+still cannot revalidate absent raw ledgers; only `verify-archive` with the
+included originals provides the new raw-content check.
+
 ## Phase D: frozen batches and detached result bundles
 
 Continuation baseline: `125bb9d5`. The earlier A–C evidence below is preserved

@@ -13,7 +13,7 @@ Run commands in this tree from the repository root. `tools/` groups independent 
 | [`ros2/`](ros2/README.md) | External sensor, mobile-base, and manipulator clients plus focused tests | Selected system ROS2 Python |
 | [`human_assets/`](human_assets/README.md) | Human conversion, authoring, migration, cache generation, validation, and demo workflows | Pure Python or Isaac Sim/OpenUSD, depending on the command |
 | [`physics_replay/`](physics_replay/README.md) | Isaac Sim physics, command/action/noise tapes, checkpoint restore, and episode inspection | Pure Python inspection; Factory validation requires `env_isaaclab` |
-| [`experiment_analysis/`](experiment_analysis/README.md) | Frozen multi-batch schedules, auditable retry selection, collector/evaluator handoff, descriptive estimators and independently verifiable result bundles | Standard-library Python; no simulator or release approval |
+| [`experiment_analysis/`](experiment_analysis/README.md) | Frozen multi-batch schedules, auditable retry selection, descriptive estimators, result verification and portable sealed-evidence archives | Standard-library Python; archive publishing on Linux; no simulator or release approval |
 | [`topology_authoring/`](topology_authoring/README.md) | Scene-adapter based topology drafts and Isaac Sim authoring UI | Pure Python model or Isaac Sim GUI; adapter decides scene inputs |
 
 ## Runtime boundaries

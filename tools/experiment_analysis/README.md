@@ -268,6 +268,86 @@ honest evaluator, physical success or chronological preregistration. Every
 bundle and result remains `publishable=false`. Older outputs without a
 `bundle_type` need a new `compute` export; the verifier does not rewrite them.
 
+## Portable raw-evidence archives
+
+Use an evidence archive when the result and its sealed collector logs must move
+together. This is a directory format; no tar extraction, downloaded code or
+original absolute source path is used by verification. On the supported Ubuntu
+host, publication uses Linux `renameat2(RENAME_NOREPLACE)` to atomically publish
+the complete validated directory, including when another writer races to create
+the destination. Existing outputs are never overwritten.
+
+```bash
+python -m tools.experiment_analysis synthetic-batch \
+  --output tmp/experiment_analysis/portable-control
+python -m tools.experiment_analysis archive \
+  --bundle tmp/experiment_analysis/portable-control/result \
+  --run-dir tmp/experiment_analysis/portable-control/synthetic-batch-a \
+  --run-dir tmp/experiment_analysis/portable-control/synthetic-batch-b \
+  --output tmp/experiment_analysis/portable-archive --recompute
+python -m tools.experiment_analysis verify-archive \
+  --archive tmp/experiment_analysis/portable-archive --recompute
+```
+
+Repeat `--run-dir` for every observed source in a `batch` or `bound` result
+bundle. The explicit source list must match the saved handoffs one-to-one by
+run ID and original checksum-file hash; the command never follows saved
+`collector_path` strings to locate or copy data. Missing, foreign or duplicate
+sources are rejected. A batch with missing planned observations can still be
+archived: archive integrity does not mean the experiment is complete. Pure
+`compute`/`synthetic` bundles have no bound raw collector sources and continue
+to use ordinary `verify`.
+
+The archive contains:
+
+```text
+evidence_manifest.json           exact files, byte lengths, hashes, source runs,
+                                 bundle-manifest identity and validator versions
+analysis/                       original result bundle, byte-for-byte
+runs/<original-seal-sha256>/     original checksums.sha256 and its sealed members
+```
+
+The supported sealed members are `plan.json`, `manifest.json`, all collector
+JSONL ledgers, `branches/<branch>/ledger.jsonl`, and content-addressed
+`evidence/<sha256>.json` evaluator artifacts. Unsealed state, worker receipts,
+validation reports and other convenience files are omitted. An unsealed branch
+mirror or evaluator JSON is an error. Asset files, videos, simulator binaries,
+external observation paths inside JSON, and unsealed checkpoint state are not
+implicitly followed or packaged. Preserve those separately when the registered
+experiment requires them; this archive is an evidence boundary, not a complete
+physical rerun environment.
+
+Archive creation and verification use bounded streaming copies through directory
+descriptors. Source roots, parent components and files cannot be symlinks;
+noncanonical/traversal paths, special files, checksum aliases and unknown sealed
+member types are rejected. Default limits are 100,000 copied files, 256 MiB per
+file, and 2 GiB aggregate, including the archive manifest. Override with
+`--max-files`, `--max-file-bytes`, and `--max-total-bytes`; metadata additionally
+has an 8 MiB cap. Verification needs temporary disk space for a private snapshot
+of the archive and never modifies the input directory. Failed builds clean up
+their private staging directory and leave no partly published destination.
+
+`verify-archive` can run after moving the archive and making the original bundle
+and collector directories unavailable. It requires the pinned Python version,
+analysis code and collector validation modules; their hashes are stored in
+`environment`. It checks the exact file/directory set and copied bytes, validates
+strict JSON in every ledger and evidence artifact, reruns collector seal and
+structural checks, and rebuilds each handoff from the archived logs. Rebuilt
+handoffs must equal the saved originals in every field except `collector_path`.
+The original analysis files are preserved, not rewritten to new paths. Optional
+`--recompute` then also requires the report's own analysis environment and
+compares the complete recalculated report, as with ordinary `verify`.
+
+Successful archive verification explicitly reports
+`raw_collector_seal_reverified=true` and `raw_ledger_structure_revalidated=true`.
+It still reports `collector_authenticity_verified=false`,
+`physical_success_verified=false`, `evaluator_semantics_verified=false`,
+`registration_time_verified=false`, and `publishable=false`. A party able to
+replace the entire archive can also rebuild all its hashes. These checks prove
+content linkage and reproducibility of calculations, not honest collection,
+trusted timestamps, evaluator correctness, physical success or scientific
+release. Measured-format envelope tests use scripted fixtures, not Isaac data.
+
 ## Validation
 
 ```bash
