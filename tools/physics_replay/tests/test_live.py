@@ -1,4 +1,5 @@
 from collections import deque
+from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum
 import json
@@ -7,7 +8,15 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from tools.physics_replay.live import CheckpointBusy, LiveCheckpoint, LiveReplayController, RestoreRejected, state_errors
+from tools.physics_replay.components import ComponentRegistry, ComponentSnapshot
+from tools.physics_replay.live import (
+    CheckpointBusy,
+    LiveCheckpoint,
+    LiveCheckpointBackend,
+    LiveReplayController,
+    RestoreRejected,
+    state_errors,
+)
 from tools.physics_replay.replayer import PhysicsReplayer
 from tools.physics_replay.runtime_state import ObjectStateComponent, StateCodec
 
@@ -150,6 +159,131 @@ def test_pose_errors_ignore_quaternion_sign_and_measure_units():
     assert np.isinf(state_errors({"joint": [np.nan]}, {"joint": [0]})["joint"])
     with pytest.raises(ValueError, match="target set"):
         state_errors(expected, {})
+
+
+class _RestoreProbe:
+    version = 1
+
+    def __init__(self, name, priority, *, restore_error=None, hook_error=None):
+        self.name = name
+        self.priority = priority
+        self.restore_error = restore_error
+        self.hook_error = hook_error
+        self.failure_calls = 0
+        self.quarantined = False
+
+    def capture_state(self):
+        return {}
+
+    def validate_state(self, state):
+        assert state == {}
+
+    def restore_state(self, state):
+        if self.restore_error is not None:
+            raise self.restore_error
+
+    def on_restore_failed(self):
+        self.failure_calls += 1
+        self.quarantined = True
+        if self.hook_error is not None:
+            raise self.hook_error
+
+
+def _restore_backend(tmp_path, components, *, readback=0.0):
+    registry = ComponentRegistry(components)
+    snapshots = registry.capture_all()
+    snapshots["physics"] = ComponentSnapshot(
+        "physics",
+        1,
+        {"step_index": 1, "targets": [], "state": {"robot/velocity": [0.0]}},
+    )
+    backend = LiveCheckpointBackend.__new__(LiveCheckpointBackend)
+    backend.checkpoints = [LiveCheckpoint(0, 1, "test")]
+    backend.restore_check = lambda: None
+    backend.store = SimpleNamespace(read=lambda identifier: deepcopy(snapshots))
+    backend.targets = []
+    backend.registry = registry
+    backend.replayer = SimpleNamespace(
+        validate_snapshot=lambda state: None,
+        restore_snapshot=lambda state, index: SimpleNamespace(ok=True, summary="ok"),
+    )
+    backend.read_physics = lambda: {"robot/velocity": [readback]}
+    backend.output_dir = tmp_path
+    backend.tolerance = 1e-5
+    backend.last_report = None
+    return backend
+
+
+def test_restore_interrupt_notifies_failure_hooks_before_propagating(tmp_path):
+    ownership = _RestoreProbe("ownership", 80)
+    interrupted = _RestoreProbe(
+        "interrupted", 100, restore_error=KeyboardInterrupt("restore interrupted")
+    )
+    backend = _restore_backend(tmp_path, (ownership, interrupted))
+
+    with pytest.raises(KeyboardInterrupt, match="restore interrupted"):
+        backend.restore(0)
+
+    assert ownership.quarantined
+    assert ownership.failure_calls == 1
+    assert backend.last_report["phase"] == "restore"
+    assert backend.last_report["state_may_have_changed"] is True
+
+
+def test_failure_hooks_are_isolated_and_original_restore_error_is_preserved(tmp_path):
+    broken_hook = _RestoreProbe(
+        "broken_hook", 70, hook_error=KeyboardInterrupt("hook interrupted")
+    )
+    ownership = _RestoreProbe("ownership", 80)
+    failed_restore = _RestoreProbe(
+        "failed_restore", 100, restore_error=ValueError("original restore failure")
+    )
+    backend = _restore_backend(tmp_path, (broken_hook, ownership, failed_restore))
+
+    with pytest.raises(ValueError, match="original restore failure"):
+        backend.restore(0)
+
+    assert broken_hook.failure_calls == 1
+    assert ownership.quarantined
+    assert failed_restore.failure_calls == 1
+    assert backend.last_report["failure_hook_errors"] == [{
+        "component": "broken_hook",
+        "error": "KeyboardInterrupt: hook interrupted",
+    }]
+
+
+def test_failed_readback_quarantines_before_report_io_and_preserves_error(tmp_path):
+    ownership = _RestoreProbe("ownership", 80)
+    backend = _restore_backend(tmp_path, (ownership,), readback=1.0)
+    report_attempts = []
+
+    def failed_report(result):
+        report_attempts.append((ownership.quarantined, deepcopy(result)))
+        raise OSError("report storage unavailable")
+
+    backend._write_report = failed_report
+    with pytest.raises(RuntimeError, match="restored state exceeds tolerance"):
+        backend.restore(0)
+
+    assert ownership.failure_calls == 1
+    assert report_attempts[0][0] is True
+    assert report_attempts[0][1]["passed"] is False
+    assert report_attempts[0][1]["error"] == (
+        "restored state exceeds tolerance; simulation remains paused"
+    )
+
+
+def test_prewrite_rejection_is_not_replaced_by_failure_report_error(tmp_path):
+    ownership = _RestoreProbe("ownership", 80)
+    backend = _restore_backend(tmp_path, (ownership,))
+    backend._write_report = lambda result: (_ for _ in ()).throw(
+        KeyboardInterrupt("report interrupted")
+    )
+
+    with pytest.raises(RestoreRejected, match="before writes"):
+        backend.restore(999)
+
+    assert ownership.failure_calls == 0
 
 
 class Phase(Enum):

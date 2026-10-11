@@ -58,6 +58,12 @@ def resolver(execute=None, *, stop=None, provider=None, request_id="request-1", 
     return resolve
 
 
+def bind(executor):
+    executor.bind_run(TaskRunRequest(EaiTaskPackage(
+        "fixture", "test-scene", TaskGraph((TASK,), "inline"), roster())))
+    return executor
+
+
 def test_snapshot_detaches_inputs_and_all_accessors():
     robots = list(roster())
     objects = {"item": {"value": [1]}}
@@ -99,6 +105,7 @@ def test_executor_rejects_duplicate_requests_and_cross_session_reuse():
         calls.append(plan.request_id)
         return receipt(plan)
     executor = SkillTaskExecutor(resolver(execute))
+    bind(executor)
     scene = {}
     assert executor.execute(ASSIGNMENT, TASK, scene=scene).dependency_outcome is DependencyOutcome.COMPLETED
     again = executor.execute(ASSIGNMENT, TASK, scene=scene)
@@ -113,6 +120,7 @@ def test_resource_contention_does_not_execute_or_consume_request():
     resources = ResourceManager()
     held = resources.acquire("other", ("object:item",))
     executor = SkillTaskExecutor(resolver(), resources=resources)
+    bind(executor)
     scene = {}
     assert executor.execute(ASSIGNMENT, TASK, scene=scene).dependency_outcome is DependencyOutcome.RETRYABLE_FAILURE
     resources.release(held)
@@ -124,6 +132,7 @@ def test_runtime_failure_releases_only_after_explicit_stop(stop_confirmed):
     def execute(plan, **kwargs):
         raise RuntimeError("driver failed after starting command")
     executor = SkillTaskExecutor(resolver(execute, stop=lambda **kwargs: stop_confirmed))
+    bind(executor)
     result = executor.execute(ASSIGNMENT, TASK, scene={})
     if stop_confirmed is True:
         assert result.dependency_outcome is DependencyOutcome.RETRYABLE_FAILURE
@@ -140,6 +149,7 @@ def test_invalid_runtime_identity_quarantines_and_never_completes():
     def execute(plan, **kwargs):
         return replace(receipt(plan), request_id="another-request")
     executor = SkillTaskExecutor(resolver(execute))
+    bind(executor)
     result = executor.execute(ASSIGNMENT, TASK, scene={})
     assert result.dependency_outcome is DependencyOutcome.TERMINAL_FAILURE
     assert executor.quarantined_leases
@@ -148,6 +158,7 @@ def test_invalid_runtime_identity_quarantines_and_never_completes():
 def test_unconfirmed_quiescence_cannot_unlock_dependencies():
     executor = SkillTaskExecutor(resolver(lambda plan, **kwargs: receipt(plan, quiescent=False),
                                          stop=lambda **kwargs: True))
+    bind(executor)
     assert executor.execute(ASSIGNMENT, TASK, scene={}).dependency_outcome is DependencyOutcome.RETRYABLE_FAILURE
 
 
@@ -164,6 +175,7 @@ def test_invalid_plan_identity_and_live_binding_do_not_execute():
         def plan(self, request, **kwargs):
             return replace(super().plan(request, **kwargs), robot_id="r2")
     executor = SkillTaskExecutor(resolver(provider=BadProvider()))
+    bind(executor)
     assert executor.execute(ASSIGNMENT, TASK, scene={}).feedback.failure_code is FailureCode.INVALID_PLAN
     assert executor.resources.snapshot()["leases"] == []
 
@@ -176,6 +188,7 @@ def test_changed_binding_under_lease_fails_before_command_and_releases():
             raise ValueError("object disappeared")
     executor = SkillTaskExecutor(resolver(validate=validate,
         execute=lambda *args, **kwargs: pytest.fail("unexpected command")))
+    bind(executor)
     result = executor.execute(ASSIGNMENT, TASK, scene={})
     assert result.feedback.failure_code is FailureCode.INVALID_PLAN
     assert executor.resources.snapshot()["leases"] == []
@@ -243,6 +256,7 @@ def test_malformed_receipt_remains_terminal_even_after_successful_stop():
     executor = SkillTaskExecutor(resolver(
         lambda plan, **kwargs: replace(receipt(plan), request_id="foreign"),
         stop=lambda **kwargs: True))
+    bind(executor)
     result = executor.execute(ASSIGNMENT, TASK, scene={})
     assert result.dependency_outcome is DependencyOutcome.TERMINAL_FAILURE
     assert result.feedback.failure_code is FailureCode.INVALID_PLAN
@@ -254,6 +268,7 @@ def test_executor_rejects_foreign_scene_observation_before_command():
         observation_provider=lambda _: WorldSnapshot(scene_id="foreign", revision=0, tick=0,
                                                        robots=roster()),
         expected_scene_id="test-scene")
+    bind(executor)
     result = executor.execute(ASSIGNMENT, TASK, scene={})
     assert result.feedback.failure_code is FailureCode.INVALID_PLAN
 
@@ -313,3 +328,49 @@ def test_missing_replay_is_rejected_before_scene_creation(method):
     runner = TaskRunner(scene_provider=lambda _: pytest.fail("scene must not be opened"))
     with pytest.raises(ValueError, match="no replay backend"):
         getattr(runner, method)(TaskRunRequest(package, checkpoint="cp"), lambda *args: ())
+
+
+def test_unbound_executor_cannot_resolve_or_execute():
+    executor = SkillTaskExecutor(lambda *a, **kw: pytest.fail("unbound resolve"))
+    with pytest.raises(RuntimeError, match="bind_run"):
+        executor.execute(ASSIGNMENT, TASK, scene={})
+    assert not executor.resources.snapshot()["leases"]
+
+
+@pytest.mark.parametrize("event", ["resources_acquired", "runtime_started"])
+def test_admission_log_interrupt_releases_unstarted_lease_and_preserves_error(event):
+    executor = bind(SkillTaskExecutor(resolver(
+        execute=lambda *a, **kw: pytest.fail("unexpected runtime"))))
+    original = executor.ledger.append
+    interrupted = KeyboardInterrupt("injected log interruption")
+
+    def append(kind, **kwargs):
+        if kind == event:
+            raise interrupted
+        if kind == "binding_rejected_before_command":
+            raise OSError("secondary logging failure")
+        original(kind, **kwargs)
+
+    executor.ledger.append = append
+    with pytest.raises(KeyboardInterrupt) as caught:
+        executor.execute(ASSIGNMENT, TASK, scene={})
+    assert caught.value is interrupted
+    assert not executor.resources.snapshot()["leases"]
+    assert not executor._consumed
+
+
+@pytest.mark.parametrize("raises", [False, True])
+def test_serial_runtime_quarantine_overrides_completion_or_stop_claim(raises):
+    resources = ResourceManager()
+
+    def execute(plan, **kw):
+        resources.quarantine_active("partial restore")
+        if raises:
+            raise RuntimeError("restore failed")
+        return receipt(plan)
+
+    executor = bind(SkillTaskExecutor(resolver(execute, stop=lambda **kw: True), resources=resources))
+    update = executor.execute(ASSIGNMENT, TASK, scene={})
+    assert update.feedback.failure_code is FailureCode.SAFE_STOP
+    assert len(executor.quarantined_leases) == 1
+    assert resources.snapshot()["leases"][0]["state"] == "quarantined"

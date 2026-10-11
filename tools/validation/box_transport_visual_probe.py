@@ -136,6 +136,8 @@ class _RgbCapture:
         set_camera_view(eye=(2.45, -2.65, 1.85), target=(0.22, 0.38, 0.68))
 
     def save(self, name: str) -> str:
+        if self._capture is None:
+            raise RuntimeError("viewport capture is closed")
         path = self._output_dir / f"{name}.png"
         self._capture.capture_next_frame_swapchain(str(path))
         for _ in range(15):
@@ -147,9 +149,14 @@ class _RgbCapture:
         return str(path)
 
     def close(self) -> None:
-        wait = getattr(self._capture, "wait_async_capture", None)
-        if wait is not None:
-            wait()
+        capture, self._capture = self._capture, None
+        self._app = None
+        if capture is not None:
+            wait = getattr(capture, "wait_async_capture", None)
+            if wait is not None:
+                wait()
+        # Drop the native interface while Kit is still alive. Do not shut down
+        # the shared capture service: other viewport clients may still own it.
 
 
 def _evaluate(report: dict[str, Any], controller_dict: dict[str, Any]) -> None:

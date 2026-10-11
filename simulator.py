@@ -631,6 +631,93 @@ def _prepare_replicator_for_app_close() -> None:
         print(f"[EAI Simulator] Warning: Replicator close preparation failed: {exc}")
 
 
+def _prepare_gui_for_app_close(simulation_app: Any) -> None:
+    """Release Kit 107 GUI callbacks before native/Python services disappear.
+
+    EditorMenu is retained by Menu.static_class until Python finalization. Its
+    destructor then frees extension hooks against an already destroyed manager
+    (native SIGSEGV with full shutdown). Only touch an existing menu singleton;
+    importing or calling get_editor_menu here could create new subscriptions.
+    """
+    # Some Kit windows omit deregistering their show callback. omni.ui's
+    # static C++ map then releases Python callables after Py_FinalizeEx and
+    # waits forever acquiring the dead interpreter's GIL. Clear the public
+    # workspace registrations while Python and the UI service are alive.
+    workspace = getattr(sys.modules.get("omni.ui"), "Workspace", None)
+    if workspace is not None:
+        try:
+            titles = tuple(workspace.get_show_window_titles())
+        except Exception as exc:
+            print(f"[EAI Simulator] Warning: GUI workspace enumeration failed: {exc}")
+            titles = ()
+        for title in titles:
+            try:
+                workspace.set_show_window_fn(title, None)
+            except Exception as exc:
+                print(f"[EAI Simulator] Warning: GUI window cleanup failed ({title}): {exc}")
+    ui = sys.modules.get("omni.kit.ui")
+    menu = getattr(getattr(ui, "Menu", None), "static_class", None)
+    editor_type = getattr(ui, "EditorMenu", None)
+    if not isinstance(editor_type, type) or not isinstance(menu, editor_type):
+        return
+    # The legacy File menu can retain old stage subscriptions/menu entries.
+    # Stop the menu service too, so late extension events cannot rebuild stale
+    # can_close callbacks after the USD context has gone away.
+    try:
+        manager = simulation_app.app.get_extension_manager()
+        if manager.is_extension_enabled("isaacsim.gui.menu"):
+            manager.set_extension_enabled_immediate("isaacsim.gui.menu", False)
+    except Exception as exc:
+        print(f"[EAI Simulator] Warning: GUI menu cleanup failed: {exc}")
+    try:
+        menu_utils = sys.modules.get("omni.kit.menu.utils")
+        instance = menu_utils.get_instance() if menu_utils is not None else None
+        if instance is not None:
+            # Its shutdown is idempotent and clears the singleton. Disabling
+            # this extension through the manager would cascade into live
+            # Replicator/viewport dependencies while they are still in use.
+            instance.on_shutdown()
+    except Exception as exc:
+        print(f"[EAI Simulator] Warning: GUI menu service cleanup failed: {exc}")
+    hooks = getattr(menu, "_hooks", None)
+    if isinstance(hooks, list):
+        hooks.clear()
+
+
+def _close_environment_for_app_close(env: Any) -> None:
+    """Close an owned environment and release views while PhysX is alive.
+
+    Capture the shared view before env.close(), which can stop an in-memory
+    stage and clear SimulationManager's reference. First remove Isaac Lab's
+    interactive STOP handler; asset STOP subscriptions remain registered.
+    Replay adapters and controllers may retain those assets beyond scene close.
+    """
+    base_env = getattr(env, "unwrapped", env)
+    sim = getattr(base_env, "sim", None)
+    view = getattr(sim, "physics_sim_view", None)
+    try:
+        if sim is not None:
+            sim.clear_instance()
+        if env is not None:
+            env.close()
+    finally:
+        try:
+            try:
+                if sim is not None:
+                    sim.stop()
+            finally:
+                if view is not None:
+                    try:
+                        view.invalidate()
+                    finally:
+                        # Kit 107's native destructor needs the live plugin
+                        # even after invalidation. Retained asset wrappers may
+                        # no longer access buffers after their session closes.
+                        view._backend = None
+        except Exception as exc:
+            print(f"[EAI Simulator] Warning: Physics close preparation failed: {exc}")
+
+
 def _repo_root() -> Path:
     return Path(__file__).resolve().parent
 
@@ -2245,7 +2332,8 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
                 getattr(realsense_imu_manager, "close", None),
                 getattr(manipulator_manager, "close", None),
                 getattr(simulation_clock_manager, "close", None),
-                getattr(env, "close", None),
+                ((lambda: _close_environment_for_app_close(env))
+                 if owns_simulation_app else getattr(env, "close", None)),
             )
             for cleanup_callback in cleanup_callbacks:
                 if cleanup_callback is None:
@@ -2256,8 +2344,15 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
                     print(f"[EAI Simulator] Cleanup warning: {exc}")
         finally:
             if owns_simulation_app:
-                _prepare_replicator_for_app_close()
-                simulation_app.close()
+                try:
+                    _prepare_gui_for_app_close(simulation_app)
+                except Exception as exc:
+                    print(f"[EAI Simulator] Warning: GUI close preparation failed: {exc}")
+                finally:
+                    try:
+                        _prepare_replicator_for_app_close()
+                    finally:
+                        simulation_app.close()
 
 
 def main() -> None:

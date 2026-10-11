@@ -183,6 +183,32 @@ class LiveCheckpointBackend:
         temporary.write_text(json.dumps(result, indent=2, allow_nan=False) + "\n", encoding="utf-8")
         temporary.replace(destination)
 
+    @staticmethod
+    def _notify_restore_failed(components: Iterable[Any]) -> list[dict[str, str]]:
+        """Run every failure hook without replacing the restore failure."""
+
+        errors = []
+        for component in components:
+            callback = getattr(component, "on_restore_failed", None)
+            if not callable(callback):
+                continue
+            try:
+                callback()
+            except BaseException as exc:
+                errors.append({
+                    "component": str(component.name),
+                    "error": f"{type(exc).__name__}: {exc}",
+                })
+        return errors
+
+    def _write_failure_report(self, result: dict[str, Any]) -> None:
+        """Failure reporting is diagnostic and cannot replace a safety failure."""
+
+        try:
+            self._write_report(result)
+        except BaseException:
+            pass
+
     def restore(self, identifier: int) -> dict[str, Any]:
         try:
             if identifier not in {checkpoint.identifier for checkpoint in self.checkpoints}:
@@ -200,10 +226,7 @@ class LiveCheckpointBackend:
             raise
         except (ValueError, RuntimeError, OSError, TypeError, KeyError) as exc:
             result = {"checkpoint_id": identifier, "passed": False, "phase": "validation", "state_may_have_changed": False, "error": str(exc)}
-            try:
-                self._write_report(result)
-            except OSError:
-                pass
+            self._write_failure_report(result)
             raise RestoreRejected(f"Restore rejected before writes: {exc}. Current state is unchanged.") from exc
         ordered = sorted(self.registry.components, key=lambda item: (item.priority, item.name))
         try:
@@ -217,16 +240,12 @@ class LiveCheckpointBackend:
                 if component.priority >= 20:
                     component.restore_state(snapshots[component.name].state)
             errors = state_errors(physical.state["state"], self.read_physics())
-        except Exception as exc:
-            for component in ordered:
-                callback = getattr(component, "on_restore_failed", None)
-                if callable(callback):
-                    callback()
+        except BaseException as exc:
+            hook_errors = self._notify_restore_failed(ordered)
             result = {"checkpoint_id": identifier, "passed": False, "phase": "restore", "state_may_have_changed": True, "error": str(exc)}
-            try:
-                self._write_report(result)
-            except OSError:
-                pass
+            if hook_errors:
+                result["failure_hook_errors"] = hook_errors
+            self._write_failure_report(result)
             raise
         passed = bool(errors) and all(value <= self.tolerance for value in errors.values())
         result = {
@@ -242,13 +261,15 @@ class LiveCheckpointBackend:
             "solver_cache_restored": False,
             "trajectory_verified": False,
         }
-        self._write_report(result)
         if not passed:
-            for component in ordered:
-                callback = getattr(component, "on_restore_failed", None)
-                if callable(callback):
-                    callback()
-            raise RuntimeError("restored state exceeds tolerance; simulation remains paused")
+            error = RuntimeError("restored state exceeds tolerance; simulation remains paused")
+            hook_errors = self._notify_restore_failed(ordered)
+            result["error"] = str(error)
+            if hook_errors:
+                result["failure_hook_errors"] = hook_errors
+            self._write_failure_report(result)
+            raise error
+        self._write_report(result)
         return result
 
 

@@ -61,6 +61,20 @@ node tools/validation/check_env_diy_runtime.mjs all
 
 ## 何时运行
 
+GUI 生命周期回归不需要启动 Isaac：
+
+```bash
+python -m pytest -q tools/validation/test_simulator_gui_shutdown.py tools/validation/test_box_transport_capture.py
+```
+
+`open_simulator_session()` 在关闭自己创建的应用前释放已有 Kit GUI 回调；
+不关闭或修改调用方持有的应用。环境关闭后，在 PhysX 仍存活时停止物理并释放
+共享 native tensor view，覆盖回放和 controller 对资产的残留引用；这些对象在
+session 关闭后不可继续使用。Kit 107 的兼容清理显式释放失效 view 的 native owner，
+因为上游 wrapper 没有独立 close 方法。单项清理失败不会跳过其余清理或应用关闭。
+GUI 集成检查必须分别确认物理证据、进程退出码为0及整个工作进程组终止，
+物理报告成功不能抵消逐扩展卸载期间的崩溃。
+
 - 修改文档或算法清单 → 运行文档和 Release 链接检查；
 - 修改 preflight、provider 或资产 resolver → 运行资产错误和场景资源检查；
 - 修改 Env DIY、interface 或兼容性规则 → 运行 Env DIY 检查；

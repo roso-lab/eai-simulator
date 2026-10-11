@@ -371,7 +371,12 @@ class CooperativeBatchExecutor:
         for item in startable:
             assert item.lease is not None
             if self._has_quarantine():
-                self.resources.release(item.lease)
+                try:
+                    self.resources.release(item.lease)
+                except ResourceQuarantinedError:
+                    # A start callback may quarantine the whole manager,
+                    # including this not-yet-started batch member.
+                    self._quarantine(item.lease, reason="scene quarantined during batch start")
                 results[item.index] = self._update(item.assignment, DependencyOutcome.TERMINAL_FAILURE,
                     FailureCode.SAFE_STOP, "scene quarantined during batch start; handle not started")
                 continue
@@ -466,6 +471,10 @@ class CooperativeBatchExecutor:
             or getattr(binding.provider, "skill_id", None) != request.skill_id
         ):
             raise ValueError("assignment/request/provider identities disagree")
+        if request.task_id is not None and request.task_id != assignment.task_id:
+            raise ValueError("request task identity does not match assignment")
+        if request.skill_version != "simulator.skill.v1":
+            raise ValueError("unsupported skill request version")
         digest = self._request_digest(request)
         binding.validate(scene=scene, request=deepcopy(request))
         plan = binding.provider.plan(
@@ -812,14 +821,7 @@ class CooperativeBatchExecutor:
     def _request_digest(request: SkillRequest) -> str:
         return hashlib.sha256(
             json.dumps(
-                {
-                    "request_id": request.request_id,
-                    "skill_id": request.skill_id,
-                    "robot_id": request.robot_id,
-                    "target_ref": request.target_ref,
-                    "target_pose": request.target_pose,
-                    "parameters": dict(request.parameters),
-                },
+                request.to_mapping(),
                 sort_keys=True,
                 allow_nan=False,
             ).encode()

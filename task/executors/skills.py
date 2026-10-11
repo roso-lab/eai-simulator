@@ -19,7 +19,7 @@ from algorithm.common_coordination.contract import Assignment, EventLedger, Exec
 from algorithm.skills.contracts import SkillPlan, SkillProvider, SkillRequest
 from task.contracts import DependencyOutcome, ExecutionUpdate, TaskRunRequest
 from task.observation import WorldSnapshot
-from task.resources import ResourceBusyError, ResourceLease, ResourceManager
+from task.resources import ResourceBusyError, ResourceLease, ResourceManager, ResourceQuarantinedError
 
 
 class _ReceiptError(ValueError):
@@ -128,6 +128,8 @@ class SkillTaskExecutor:
             raise RuntimeError('scene has quarantined runtime ownership; reconcile recovery before stepping')
         if threading.get_ident() != self._owner_thread or self._executing:
             raise RuntimeError("skill executor must run non-reentrantly on its session owner thread")
+        if not self._run_bound:
+            raise RuntimeError("bind_run must be called before skill execution")
         if self._scene_bound and scene is not self._scene:
             raise ValueError("skill executor cannot be reused across sessions/branches")
         self._scene, self._scene_bound = scene, True
@@ -147,11 +149,9 @@ class SkillTaskExecutor:
 
     @staticmethod
     def _request_digest(request: SkillRequest) -> str:
-        return hashlib.sha256(json.dumps({
-            "request_id": request.request_id, "skill_id": request.skill_id,
-            "robot_id": request.robot_id, "target_ref": request.target_ref,
-            "target_pose": request.target_pose, "parameters": dict(request.parameters),
-        }, sort_keys=True, allow_nan=False).encode()).hexdigest()
+        return hashlib.sha256(json.dumps(
+            request.to_mapping(), sort_keys=True, allow_nan=False,
+        ).encode()).hexdigest()
 
     def _execute(self, assignment: Assignment, task: Any, *, scene: Any) -> ExecutionUpdate:
         fail = DependencyOutcome.TERMINAL_FAILURE
@@ -165,6 +165,10 @@ class SkillTaskExecutor:
             request = deepcopy(binding.request)
             if request.robot_id != assignment.robot_id or binding.provider.skill_id != request.skill_id:
                 raise ValueError("assignment/request/provider identities disagree")
+            if request.task_id is not None and request.task_id != assignment.task_id:
+                raise ValueError("request task identity does not match assignment")
+            if request.skill_version != "simulator.skill.v1":
+                raise ValueError("unsupported skill request version")
             if request.request_id in self._consumed:
                 raise ValueError("request already consumed; explicit retries require a new request id")
             observation = None
@@ -208,22 +212,20 @@ class SkillTaskExecutor:
             self.ledger.append("binding_rejected", task_id=assignment.task_id, reason=str(exc))
             return self._update(assignment, fail, FailureCode.INVALID_PLAN, str(exc))
 
-        self.ledger.append("resources_acquired", request_id=request.request_id,
-                           lease_id=lease.lease_id, resources=list(lease.resources))
+        started = False
         try:
+            self.ledger.append("resources_acquired", request_id=request.request_id,
+                               lease_id=lease.lease_id, resources=list(lease.resources))
             # Validate again while holding ownership, before invoking runtime.
             binding.validate(scene=scene, request=deepcopy(request))
-        except BaseException as exc:
-            self.resources.release(lease)
-            self.ledger.append("binding_rejected_before_command", request_id=request.request_id,
-                               lease_id=lease.lease_id, reason=str(exc))
-            if not isinstance(exc, Exception):
-                raise
-            return self._update(assignment, fail, FailureCode.INVALID_PLAN, str(exc))
-        self._consumed.add(request.request_id)
-        self.ledger.append("runtime_started", request_id=request.request_id)
-        try:
+            if self._has_quarantine():
+                raise ResourceQuarantinedError("scene quarantined before runtime start")
+            self.ledger.append("runtime_started", request_id=request.request_id)
+            self._consumed.add(request.request_id)
+            started = True
             receipt = binding.execute(plan, scene=scene)
+            if self._has_quarantine():
+                raise ResourceQuarantinedError("scene quarantined during runtime")
             if not isinstance(receipt, ExecutionReceipt):
                 raise _ReceiptError("runtime must return ExecutionReceipt")
             if (receipt.request_id, receipt.skill_id, receipt.robot_id) != identity:
@@ -231,22 +233,30 @@ class SkillTaskExecutor:
             if not receipt.quiescent:
                 raise RuntimeError("runtime did not confirm quiescence")
         except BaseException as exc:
-            stopped = False
-            if binding.stop is not None:
+            stopped = not started
+            if started and binding.stop is not None:
                 try:
                     stopped = binding.stop(scene=scene, request=deepcopy(request)) is True
                 except BaseException:
                     stopped = False
-            if stopped:
+            quarantined = self._has_quarantine()
+            if stopped and not quarantined:
                 self.resources.release(lease)
             else:
-                self.resources.quarantine(lease, reason=f"unconfirmed stop: {type(exc).__name__}")
-                self._quarantined.append(lease)
-            self.ledger.append("runtime_aborted", request_id=request.request_id,
-                               lease_id=lease.lease_id, stop_confirmed=stopped,
-                               resources_released=stopped, reason=str(exc))
+                stopped = False
+                self._quarantine(lease, reason=f"unconfirmed stop: {type(exc).__name__}")
+            try:
+                self.ledger.append("runtime_aborted" if started else "binding_rejected_before_command",
+                                   request_id=request.request_id, lease_id=lease.lease_id,
+                                   stop_confirmed=stopped, resources_released=stopped, reason=str(exc))
+            except BaseException:
+                # Recording failure must not replace the original interrupt or
+                # prevent ownership cleanup. Propagate the original error.
+                raise exc
             if not isinstance(exc, Exception):
                 raise
+            if not started and stopped:
+                return self._update(assignment, fail, FailureCode.INVALID_PLAN, str(exc))
             return self._update(
                 assignment, retry if stopped and not isinstance(exc, _ReceiptError) else fail,
                 (FailureCode.INVALID_PLAN if isinstance(exc, _ReceiptError)
@@ -258,3 +268,14 @@ class SkillTaskExecutor:
                            lease_id=lease.lease_id, outcome=receipt.outcome.value,
                            quiescent=True, resources_released=True)
         return self._update(assignment, receipt.outcome, receipt.failure_code, receipt.message)
+
+    def _has_quarantine(self) -> bool:
+        return any(record["state"] == "quarantined" for record in self.resources.snapshot()["leases"])
+
+    def _quarantine(self, lease: ResourceLease, *, reason: str) -> None:
+        try:
+            self.resources.quarantine(lease, reason)
+        except ResourceQuarantinedError:
+            pass
+        if lease not in self._quarantined:
+            self._quarantined.append(lease)

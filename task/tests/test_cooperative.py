@@ -411,6 +411,28 @@ def test_partial_start_exception_has_only_tracked_quarantined_occupancy():
         executor.execute_batch(ASSIGNMENTS, {task.task_id:task for task in TASKS}, scene={})
 
 
+def test_start_callback_quarantine_returns_safe_stop_without_starting_peer():
+    resources = ResourceManager()
+    first = ScriptedHandle("request:left", "r1")
+
+    def start(plan, **kwargs):
+        resources.quarantine_active("injected start restore failure")
+        return first
+
+    executor = executor_for(
+        {"left": binding(ASSIGNMENTS[0], first, start=start),
+         "right": binding(ASSIGNMENTS[1], None,
+                          start=lambda *a, **kw: pytest.fail("peer must not start"))},
+        resources=resources, step=lambda *a: pytest.fail("quarantined scene must not step"),
+        neutral_actions=lambda scene: {},
+    )
+    updates = executor.execute_batch(ASSIGNMENTS, {task.task_id: task for task in TASKS}, scene={})
+    assert all(update.feedback.failure_code is FailureCode.SAFE_STOP for update in updates)
+    assert first.cancel_reasons and first.polls == 0
+    assert len(executor.quarantined_leases) == 2
+    assert all(record["state"] == "quarantined" for record in resources.snapshot()["leases"])
+
+
 def test_wrong_receipt_stays_terminal_after_quiescent_cancel_confirmation():
     class WrongThenStopped(ScriptedHandle):
         def after_step(self):

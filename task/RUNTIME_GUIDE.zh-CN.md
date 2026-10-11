@@ -31,6 +31,10 @@ result = runner.run_orchestrated(
 每个运行/分支建立新的 executor。runner 在打开 scene 或调用 replay 前执行
 `executor.bind_run(request)`，拒绝跨运行复用，避免重复请求记录和旧观测泄漏。
 session 生命周期仍由调用方管理，运行器不会自动创建或关闭 Isaac。
+串行与协作执行器均要求先绑定运行，直接跳过 `bind_run` 会在调用 resolver 前拒绝。
+请求可携带主分支扩展的 task_id、skill_version、simulator_snapshot、timing、budget、
+branch_context；任务身份/版本必须匹配，完整字段均纳入防篡改摘要。预算等字段的
+业务解释仍归调用方，摘要覆盖不意味着该执行器自动实施全部预算语义。
 
 同一 scene 内需要互斥的执行器必须共享一个 `ResourceManager`。manager 只有进程内
 资源记账，不是跨进程锁，也不替代 GPU scheduler。`SkillTaskExecutor.execute_batch` 按顺序执行完整
@@ -172,6 +176,9 @@ scene/依赖指纹、真实租约身份和技能状态；资源占用或 adapter
 物理 backend 先恢复关节/刚体/目标并读回，然后该组件恢复状态机、持物标志、
 controller 缓冲与 handle 计数，调用 `reconcile` 核对持物位置。任意后续 component
 或最终读回失败都会调用 `on_restore_failed()`，锁定运行并隔离资源。
+恢复写入阶段的 Ctrl+C/SystemExit 同样触发所有失败钩子；一个钩子失败不会阻止
+其他钩子执行，钩子错误单独记录。资源隔离先于失败报告写盘；日志写盘失败不覆盖
+原始恢复错误，也不能让未知物理状态继续持有可用租约。
 
 这是同一 live handle 的可观测状态回退，不回退 scheduler 的请求历史、调度预算或
 观测版本；调用方持续增加观察 revision，原始事件和尝试记录不删减。已经结束的

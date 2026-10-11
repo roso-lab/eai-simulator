@@ -66,6 +66,24 @@ tests. Treat these as opt-in integration checks:
 
 ## When to run checks
 
+GUI lifecycle regression tests can run without Isaac:
+
+```bash
+python -m pytest -q tools/validation/test_simulator_gui_shutdown.py tools/validation/test_box_transport_capture.py
+```
+
+`open_simulator_session()` releases existing Kit GUI callbacks before closing
+an application it owns; it does not close or alter caller-owned applications.
+After environment close, it stops physics and releases the shared native tensor
+view while PhysX is alive, including references retained by replay/controller
+objects. These objects cannot be used after their session closes. The Kit 107
+compatibility guard releases the native owner of the invalidated view because
+the upstream wrapper has no explicit close method.
+Each cleanup error is isolated so remaining cleanup and application close can
+proceed. A GUI integration check must separately confirm physical evidence and
+a zero process exit with the entire worker process group terminated. A physical
+success report alone does not qualify a crash during extension teardown.
+
 - Documentation or algorithm inventory changes → documentation and release-link checks.
 - Preflight, provider, or asset resolver changes → asset-download and scene-resource checks.
 - Env DIY, interface, or compatibility changes → Env DIY checks.
