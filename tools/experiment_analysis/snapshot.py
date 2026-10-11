@@ -6,6 +6,7 @@ import hashlib
 import os
 from pathlib import Path, PurePosixPath
 import stat
+import tempfile
 
 from .schema import AnalysisError, integer, text
 
@@ -160,3 +161,31 @@ def publish_directory(source: Path, target: Path) -> None:
     if rename(-100, os.fsencode(source), -100, os.fsencode(target), 1) != 0:
         error = ctypes.get_errno()
         raise OSError(error, os.strerror(error), str(target))
+
+
+@contextmanager
+def staged_directory(path: str | Path):
+    """Build privately, publish atomically on normal exit, discard on exception.
+
+    The caller validates the payload before leaving this context. A process
+    killed without Python cleanup may leave hidden staging, never a partly
+    published destination. Output parents must remain under caller control.
+    """
+    target = Path(path).absolute()
+    if target.exists() or target.is_symlink():
+        raise FileExistsError("analysis output already exists")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with directory(target.parent):
+        # Validate ancestors without resolving symlinks before staging begins.
+        with tempfile.TemporaryDirectory(prefix=".eai-analysis-build-", dir=target.parent) as temp:
+            payload = Path(temp) / "payload"
+            payload.mkdir()
+            yield payload
+            publish_directory(payload, target)
+
+
+def separate_output(path: str | Path, sources: list[str | Path]) -> None:
+    """Do not publish analysis inside a read-only collector source tree."""
+    target = Path(path).resolve()
+    if any(target.is_relative_to(Path(source).resolve()) for source in sources):
+        raise AnalysisError("analysis output cannot be inside its collector sources")

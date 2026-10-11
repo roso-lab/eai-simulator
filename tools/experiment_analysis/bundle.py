@@ -16,6 +16,7 @@ from .collector import bind_attempts, make_dataset
 from .engine import analyze
 from .planning import readiness
 from .schema import AnalysisError, Dataset, _pairs, canonical, digest, number, obj, sha, strings, text
+from .snapshot import staged_directory
 
 
 BASE_FILES = {"design.json", "data.json", "report.json", "results.csv", "report.md"}
@@ -83,15 +84,27 @@ def export_report(root: Path, report: dict, *, bundle_type: str) -> None:
 def export_batch(path: str | Path, design: dict, registration: dict, sources: list[dict]) -> Path:
     data, audit = assemble(design, registration, sources)
     report = analyze(design, data)
-    root = output_directory(path)
     payloads = {"design": design, "data": data, "registration": registration,
                 "sources": {"schema": ANALYSIS_VERSION + ".source_snapshots",
                             "sources": sorted(sources, key=lambda s: s["handoff"]["run_id"])},
                 "batch_audit": audit, "readiness": readiness(design)}
-    for name, value in payloads.items():
-        write_json(root / (name + ".json"), value)
-    export_report(root, report, bundle_type="batch")
-    return root
+    return publish_bundle(path, payloads, report, bundle_type="batch")
+
+
+def publish_bundle(path: str | Path, payloads: dict, report: dict, *, bundle_type: str) -> Path:
+    """Publish a complete validated result or leave the destination untouched."""
+    if bundle_type not in EXTRA_FILES:
+        raise AnalysisError("unsupported bundle type")
+    expected = {name[:-5] for name in (BASE_FILES | EXTRA_FILES[bundle_type])
+                if name.endswith(".json") and name != "report.json"}
+    if set(payloads) != expected:
+        raise AnalysisError("incorrect bundle payload set")
+    with staged_directory(path) as root:
+        for name, value in payloads.items():
+            write_json(root / (name + ".json"), value)
+        export_report(root, report, bundle_type=bundle_type)
+        verify_bundle(root)
+    return Path(path).absolute()
 
 
 def _read_regular(root_fd: int, name: str) -> bytes:

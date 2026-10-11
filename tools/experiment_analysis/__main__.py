@@ -8,14 +8,15 @@ import math
 from pathlib import Path
 import sys
 
-from .collector import collector_handoff, bind_outcomes
+from .collector import collector_handoff, bind_handoff
 from .batch import read_sources
-from .bundle import export_batch, export_report, output_directory as _output, verify_bundle, write_json as _write
+from .bundle import export_batch, publish_bundle, verify_bundle, write_json as _write
 from .engine import analyze
 from .planning import readiness
 from .registration import freeze
 from .schema import AnalysisError, read_json
 from .synthetic import generate
+from .snapshot import SnapshotLimits, separate_output, staged_directory
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -62,6 +63,7 @@ def main(argv: list[str] | None = None) -> int:
     archive_verify.add_argument("--archive", required=True)
     for command in (archive, archive_verify):
         command.add_argument("--recompute", action="store_true")
+    for command in (archive, archive_verify, handoff, binding, merge):
         command.add_argument("--max-files", type=int, default=100000)
         command.add_argument("--max-file-bytes", type=int, default=256 * 1024 * 1024)
         command.add_argument("--max-total-bytes", type=int, default=2 * 1024 * 1024 * 1024)
@@ -69,7 +71,6 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command in {"archive", "verify-archive"}:
             from .archive import archive_bundle, verify_archive
-            from .snapshot import SnapshotLimits
             limits = SnapshotLimits(args.max_files, args.max_file_bytes, args.max_total_bytes)
             if args.command == "archive":
                 result = archive_bundle(args.bundle, args.run_dir, args.output, limits=limits, recompute=args.recompute)
@@ -79,13 +80,15 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "freeze":
             registration = freeze(read_json(args.design), read_json(args.schedule))
-            root = _output(args.output)
-            _write(root / "registration.json", registration)
-            print(json.dumps({"output": str(root), "registration_digest": registration["registration_digest"], "publishable": False}))
+            with staged_directory(args.output) as root:
+                _write(root / "registration.json", registration)
+            print(json.dumps({"output": str(Path(args.output).absolute()), "registration_digest": registration["registration_digest"], "publishable": False}))
             return 0
         if args.command == "assemble":
-            source_path = Path(args.sources).resolve()
-            sources = read_sources(read_json(source_path), base_dir=source_path.parent)
+            source_path = Path(args.sources).absolute()
+            limits = SnapshotLimits(args.max_files, args.max_file_bytes, args.max_total_bytes)
+            sources = read_sources(read_json(source_path), base_dir=source_path.parent, limits=limits)
+            separate_output(args.output, [s["handoff"]["collector_path"] for s in sources])
             root = export_batch(args.output, read_json(args.design), read_json(args.registration), sources)
             audit = read_json(root / "batch_audit.json")
             print(json.dumps({"output": str(root), "collection_status": audit["status"], "selected_observations": audit["selected_observations"], "publishable": False}))
@@ -102,24 +105,22 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(report, ensure_ascii=False, sort_keys=True, allow_nan=False))
             return 0 if report["status"] == "ready_for_collection" else 2
         if args.command == "collector-handoff":
-            report = collector_handoff(args.run_dir)
-            root = _output(args.output)
-            _write(root / "handoff.json", report)
-            print(json.dumps({"output": str(root), "attempts": len(report["attempts"]), "publishable": False}))
+            separate_output(args.output, [args.run_dir])
+            limits = SnapshotLimits(args.max_files, args.max_file_bytes, args.max_total_bytes)
+            report = collector_handoff(args.run_dir, limits=limits)
+            with staged_directory(args.output) as root:
+                _write(root / "handoff.json", report)
+            print(json.dumps({"output": str(Path(args.output).absolute()), "attempts": len(report["attempts"]), "publishable": False}))
             return 0
         if args.command == "bind-outcomes":
+            separate_output(args.output, [args.run_dir])
             design, outcomes = read_json(args.design), read_json(args.outcomes)
-            data = bind_outcomes(design, outcomes, args.run_dir)
+            limits = SnapshotLimits(args.max_files, args.max_file_bytes, args.max_total_bytes)
+            handoff = collector_handoff(args.run_dir, limits=limits)
+            data = bind_handoff(design, outcomes, handoff)
             report = analyze(design, data)
-            handoff = collector_handoff(args.run_dir)
-            if handoff["seal_sha256"] != outcomes["collector_seal_sha256"]:
-                raise AnalysisError("collector changed before export")
-            root = _output(args.output)
-            _write(root / "design.json", design)
-            _write(root / "data.json", data)
-            _write(root / "evaluated_outcomes.json", outcomes)
-            _write(root / "handoff.json", handoff)
-            export_report(root, report, bundle_type="bound")
+            root = publish_bundle(args.output, {"design": design, "data": data,
+                                  "evaluated_outcomes": outcomes, "handoff": handoff}, report, bundle_type="bound")
             print(json.dumps({"output": str(root), "records": report["records"], "publishable": False}))
             return 0
         if args.command == "synthetic":
@@ -128,10 +129,7 @@ def main(argv: list[str] | None = None) -> int:
             design, data = read_json(args.design), read_json(args.data)
             expected = None
         report = analyze(design, data)
-        root = _output(args.output)
-        _write(root / "design.json", design)
-        _write(root / "data.json", data)
-        _write(root / "readiness.json", readiness(design))
+        payloads = {"design": design, "data": data, "readiness": readiness(design)}
         if expected is not None:
             checks = []
             for row in report["results"]:
@@ -140,11 +138,14 @@ def main(argv: list[str] | None = None) -> int:
                     value = value[row["system_id"]]
                 checks.append({"estimand": row["estimand_id"], "system": row["system_id"], "expected": value,
                                "actual": row["estimate"], "passed": row["estimate"] is not None and math.isclose(value, row["estimate"], abs_tol=1e-12)})
-            _write(root / "analytic_checks.json", {"passed": all(c["passed"] for c in checks), "checks": checks, "publishable": False})
-        export_report(root, report, bundle_type="synthetic" if expected is not None else "compute")
+            payloads["analytic_checks"] = {"passed": all(c["passed"] for c in checks), "checks": checks, "publishable": False}
+            if not payloads["analytic_checks"]["passed"]:
+                print("synthetic analytic control failed; no result bundle published", file=sys.stderr)
+                return 1
+        root = publish_bundle(args.output, payloads, report, bundle_type="synthetic" if expected is not None else "compute")
         print(json.dumps({"output": str(root), "records": report["records"], "results": len(report["results"]),
                           "N/A": sum(r["status"] == "N/A" for r in report["results"]), "publishable": False}))
-        return 1 if expected is not None and not all(c["passed"] for c in checks) else 0
+        return 0
     except (AnalysisError, OSError, ValueError, TypeError, KeyError) as exc:
         print(f"analysis rejected: {exc}", file=sys.stderr)
         return 2

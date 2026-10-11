@@ -10,18 +10,16 @@ from pathlib import Path
 import platform
 import tempfile
 
-from tools.benchmark_branch.store import LEDGERS
-
 from . import ANALYSIS_VERSION
 from .bundle import BASE_FILES, EXTRA_FILES, _parse, verify_bundle
-from .collector import collector_handoff
-from .schema import AnalysisError, _pairs, canonical, digest, integer, obj, read_json, sha, text
+from .collector import _handoff_from_snapshot
+from .collector_snapshot import parse_seal, snapshot_run as _snapshot_run
+from .schema import AnalysisError, canonical, digest, integer, obj, read_json, sha, text
 from .snapshot import (Budget, SnapshotLimits, copy_file, directory, inventory,
                        parent_directories, publish_directory, read_small, relative_name, write_bytes)
 
 
 MANIFEST = "evidence_manifest.json"
-REQUIRED_RUN_FILES = {name + ".jsonl" for name in LEDGERS} | {"plan.json", "manifest.json"}
 
 
 def verification_environment() -> dict:
@@ -33,34 +31,6 @@ def verification_environment() -> dict:
         path = package.parent / "benchmark_branch" / name
         sources["collector/" + name] = hashlib.sha256(path.read_bytes()).hexdigest()
     return {"python": platform.python_version(), "source_files": sources, "code_digest": digest(sources)}
-
-
-def _allowed_run_file(name: str) -> bool:
-    parts = relative_name(name).split("/")
-    if name in REQUIRED_RUN_FILES:
-        return True
-    if len(parts) == 3 and parts[0] == "branches" and parts[2] == "ledger.jsonl":
-        return True
-    if len(parts) == 2 and parts[0] == "evidence" and parts[1].endswith(".json"):
-        sha(parts[1][:-5])
-        return True
-    return False
-
-
-def parse_seal(raw: bytes) -> dict[str, str]:
-    """Accept only the collector's canonical ledger/evaluator file grammar."""
-    files = {}
-    for line in raw.decode("ascii").splitlines():
-        parts = line.split("  ")
-        if len(parts) != 2:
-            raise AnalysisError("malformed collector seal entry")
-        checksum, name = sha(parts[0]), relative_name(parts[1])
-        if name in files or not _allowed_run_file(name):
-            raise AnalysisError("duplicate or unsupported collector seal member")
-        files[name] = checksum
-    if not REQUIRED_RUN_FILES <= set(files):
-        raise AnalysisError("collector seal omits required files")
-    return files
 
 
 def _snapshot_bundle(source: str | Path, target: Path, budget: Budget) -> dict[str, dict]:
@@ -107,46 +77,6 @@ def _handoffs(analysis: Path) -> dict[str, dict]:
     return runs
 
 
-def _snapshot_run(source: str | Path, staging: Path, expected_seals: set[str], budget: Budget) -> tuple[str, dict]:
-    with directory(source) as fd:
-        raw = read_small(fd, "checksums.sha256", limit=min(8 * 1024 * 1024, budget.limits.max_file_bytes, budget.limits.max_total_bytes - budget.bytes))
-        seal = hashlib.sha256(raw).hexdigest()
-        if seal not in expected_seals:
-            raise AnalysisError("collector seal is not a unique source of this analysis bundle")
-        members = parse_seal(raw)
-        if len(members) + budget.files + 1 > budget.limits.max_files:
-            raise AnalysisError("snapshot total file limit exceeded")
-        found, dirs = inventory(fd, budget.limits)
-        # Never omit an unsealed mirror/evaluator JSON that the live validator
-        # would require. State/worker/validation files are unsealed and omitted.
-        discovered = {name for name in found if name.startswith("branches/") and name.endswith("/ledger.jsonl")
-                      or name.startswith("evidence/") and name.endswith(".json")}
-        if not discovered <= set(members):
-            raise AnalysisError("collector has unsealed branch/evaluator evidence")
-        prefix = "runs/" + seal + "/"
-        files = {prefix + "checksums.sha256": write_bytes(staging / prefix / "checksums.sha256", raw, budget)}
-        for name, checksum in sorted(members.items()):
-            files[prefix + name] = copy_file(fd, name, staging / prefix / name, checksum, budget)
-        if read_small(fd, "checksums.sha256", limit=len(raw)) != raw or inventory(fd, budget.limits) != (found, dirs):
-            raise AnalysisError("collector source changed during snapshot")
-    return seal, files
-
-
-def _strict_run_json(root: Path, names: dict) -> None:
-    for name in names:
-        path = root / name
-        if name.endswith(".jsonl"):
-            with path.open(encoding="utf-8") as stream:
-                for line in stream:
-                    if line.strip():
-                        row = json.loads(line, object_pairs_hook=_pairs)
-                        if not isinstance(row, dict):
-                            raise AnalysisError("non-object archived ledger row")
-                        canonical(row)
-        else:
-            canonical(read_json(path))
-
-
 def _validate_snapshot(root: Path, manifest: dict, *, recompute: bool) -> dict:
     obj(manifest, "schema files runs bundle_manifest_sha256 environment qualification publishable")
     if (manifest["schema"] != ANALYSIS_VERSION + ".evidence_archive" or manifest["publishable"] is not False
@@ -179,8 +109,7 @@ def _validate_snapshot(root: Path, manifest: dict, *, recompute: bool) -> dict:
         for name, checksum in members.items():
             if manifest["files"][prefix + name]["sha256"] != checksum:
                 raise AnalysisError("archive file index differs from collector seal")
-        _strict_run_json(run_root, members)
-        actual = collector_handoff(run_root)
+        actual = _handoff_from_snapshot(run_root)
         # Location is the sole transport-dependent field. Preserve the original
         # report/snapshots byte-for-byte; normalize only the comparison object.
         actual["collector_path"] = handoffs[run]["collector_path"]

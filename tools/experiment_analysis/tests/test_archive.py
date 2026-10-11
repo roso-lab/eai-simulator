@@ -240,7 +240,7 @@ def test_publish_race_never_overwrites_another_destination(source, tmp_path, mon
 
 
 def test_source_change_during_copy_does_not_publish(source, tmp_path, monkeypatch):
-    import tools.experiment_analysis.archive as module
+    import tools.experiment_analysis.collector_snapshot as module
     _, bundle, runs = source
     copy = Path(shutil.copytree(runs[0], tmp_path / "changing-source"))
     real_copy = module.copy_file

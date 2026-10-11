@@ -1,5 +1,82 @@
 # Validation record — 2026-10-11
 
+## Phase F: consistent ingestion and transactional result publication
+
+Continuation baseline: `fb171c30`. The final four-directory regression command
+recorded below passed **482 tests, 1 skipped in 34.41 s**. The skip is still the
+unavailable historical scene plugin. AST parsing passed for all 23 analysis
+Python files, and `git diff --check` passed.
+
+The 35 new transaction tests include:
+
+- Rename the live collector away before legacy validation and still reconstruct
+  the exact handoff from private bytes; verify the temporary copy is cleaned.
+- Remove the live collector immediately after the one CLI acquisition and bind,
+  serialize and recompute successfully from that same handoff.
+- Reject linked roots/ancestors/members, FIFO, checksum aliases, unknown sealed
+  files, unsealed mirrors/artifacts and resealed duplicate/non-object JSON before
+  legacy validation. Detect source-seal mutation while copying.
+- Enforce per-file, total-byte and file-count limits, including a budget shared
+  across batch sources. Prevent handoff/bind/assemble output inside collectors.
+- Inject failures at data write, rendering, manifest write, verification and
+  publication; inject `KeyboardInterrupt` and `SystemExit`. Each leaves no public
+  target or staging residue and permits a successful retry at the same path.
+- Preserve competing empty/populated directories, files and symlinks at the
+  final rename. Reject inconsistent readiness and failed analytic controls
+  before a result directory becomes visible.
+- Run a real child process that calls `os._exit(23)` before publication. It
+  leaves one hidden staging directory and no public target; retry succeeds
+  without deleting the abandoned staging. This is process-exit evidence, not
+  a power-loss/fsync test.
+
+Fresh end-to-end CLI commands used
+`PYTHONDONTWRITEBYTECODE=1 /home/pupil/miniconda3/envs/env_isaaclab/bin/python`
+in place of `python` below:
+
+```bash
+python -m tools.experiment_analysis synthetic-batch \
+  --output tmp/experiment_analysis/transaction-batch-verified
+python -m tools.experiment_analysis synthetic \
+  --output tmp/experiment_analysis/transaction-math-verified --resamples 1000
+python -m tools.experiment_analysis verify \
+  --bundle tmp/experiment_analysis/transaction-math-verified --recompute
+python -m tools.experiment_analysis archive \
+  --bundle tmp/experiment_analysis/transaction-batch-verified/result \
+  --run-dir tmp/experiment_analysis/transaction-batch-verified/synthetic-batch-a \
+  --run-dir tmp/experiment_analysis/transaction-batch-verified/synthetic-batch-b \
+  --output tmp/experiment_analysis/transaction-archive-verified --recompute
+python -m tools.experiment_analysis verify-archive \
+  --archive tmp/experiment_analysis/transaction-archive-verified --recompute
+```
+
+The math control produced 3,984 records and 19 matching analytic results, zero
+N/A, with 1,000 bootstrap draws and complete-report recomputation. The two-batch
+control preserved 14 attempts → 12 observations and 5/12. The portable archive
+contains 53 files / 391,412 bytes and revalidates 2 runs / 42 raw files, selection
+and full calculation. Generated outputs remain ignored under `tmp/`.
+
+| File under `tmp/experiment_analysis/` | SHA-256 |
+|---|---|
+| `transaction-batch-verified/result/output_manifest.json` | `a766fa2bdc69b3fde18c02b380eb11e182ff8c788764552d97c35f3236cb44c8` |
+| `transaction-math-verified/output_manifest.json` | `fd82d93722999f0f64d3342cd58c631784b994074c242071ce83a183509dd08c` |
+| `transaction-archive-verified/evidence_manifest.json` | `7ed5d330dae451980075d27aa8ea63da19097d3bdcf1ff4cf58d13b5d1f0d1bb` |
+
+Independent final review found no unresolved P0/P1/P2. Focused regression passed
+111 tests in 19.30 s; the independent analysis/collector/task suite passed 424
+tests plus the one historical skip in 34.57 s. These overlapping counts are not
+additive. A pre-F result bundle
+passed ordinary `verify` under the current code and correctly rejected
+`--recompute` with exit 2 for a changed source environment. Existing archive and
+recomputation pins remain strict; no silent migration or weakened validation.
+
+Scope limits: result directories have atomic visibility on the supported Linux
+host, not guaranteed power-loss durability. The caller controls output parents;
+unrecoverable exits can leave hidden staging. The outer `synthetic-batch` work
+area preserves runtime evidence and is not a disposable transaction. Raw-copy
+budgets do not cap whole-process memory or separate design/evaluator inputs.
+No Isaac/GPU run occurred; task, evaluator, numerical and qualification semantics
+were not changed. Every synthetic report remains non-publishable.
+
 ## Phase E: portable sealed collector archives
 
 Continuation baseline: `7008cd0a`. Final expanded regression used the same

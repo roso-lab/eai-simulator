@@ -5,13 +5,17 @@ from __future__ import annotations
 from collections import Counter
 import hashlib
 import json
+import os
 from pathlib import Path
+import tempfile
 
 from tools.benchmark_branch.store import verify_seal, LEDGERS
 from tools.benchmark_branch.validation import validate_run
 
 from . import ANALYSIS_VERSION
+from .collector_snapshot import parse_seal, snapshot_run, strict_run_json
 from .schema import AnalysisError, Dataset, Design, digest, read_json, _pairs, obj, text, sha
+from .snapshot import Budget, SnapshotLimits
 
 
 def _rows(path: Path) -> list[dict]:
@@ -27,15 +31,32 @@ def _rows(path: Path) -> list[dict]:
     return rows
 
 
-def collector_handoff(run_dir: str | Path) -> dict:
+def collector_handoff(run_dir: str | Path, *, limits: SnapshotLimits = SnapshotLimits()) -> dict:
     """Export every attempt; never select an outcome-dependent retry winner.
 
-    Hashes bind a local immutable snapshot, not a scientific authenticity claim.
+    Copies bounded sealed bytes once, then validates only the private snapshot.
+    Hashes bind content, not a scientific authenticity claim.
     The external evaluator must consume the ledgers and return registered raw
     scalar/event outcomes. No milestone or success is inferred here.
     """
-    root = Path(run_dir).resolve()
+    return _snapshot_handoff(run_dir, Budget(limits))
+
+
+def _snapshot_handoff(run_dir: str | Path, budget: Budget) -> dict:
+    # Do not resolve input paths: the copier rejects symlink ancestors as well
+    # as leaf members. Preserve the historical location in the exported handoff.
+    with tempfile.TemporaryDirectory(prefix="eai-collector-handoff-") as temp:
+        try:
+            seal, _ = snapshot_run(run_dir, Path(temp), None, budget)
+        except AnalysisError as exc:
+            raise AnalysisError(f"collector snapshot/seal failed: {exc}") from exc
+        return _handoff_from_snapshot(Path(temp) / "runs" / seal, collector_path=os.path.abspath(run_dir))
+
+
+def _handoff_from_snapshot(root: Path, *, collector_path: str | None = None) -> dict:
+    """Internal only: root must be a private, checksum-verified snapshot."""
     before = (root / "checksums.sha256").read_bytes()
+    strict_run_json(root, parse_seal(before))
     errors = verify_seal(root)
     if errors:
         raise AnalysisError("collector seal failed: " + "; ".join(errors))
@@ -71,11 +92,7 @@ def collector_handoff(run_dir: str | Path) -> dict:
                  "identity_digest": digest(row),
                  "episode_digest": digest(by_branch[row["branch_id"]]) if row["branch_id"] in by_branch else None}
                 for row in sorted(branches, key=lambda x: x["branch_id"])]
-    # Detect writers during the read. Re-verify the actual files, not only the
-    # checksum file: live/unsealed mutation cannot become an admitted snapshot.
-    if before != (root / "checksums.sha256").read_bytes() or verify_seal(root):
-        raise AnalysisError("collector changed during handoff")
-    return {"schema": ANALYSIS_VERSION + ".collector_handoff", "collector_path": str(root),
+    return {"schema": ANALYSIS_VERSION + ".collector_handoff", "collector_path": collector_path or str(root),
             "run_id": manifest["run_id"], "plan_digest": digest(plan),
             "seal_sha256": hashlib.sha256(before).hexdigest(), "execution_scope": scope,
             "provenance": "synthetic" if scope == "protocol_synthetic" else "measured_unverified",
@@ -157,9 +174,15 @@ def make_dataset(design_data: dict | Design, records: list[dict], provenance: st
     return data
 
 
-def bind_outcomes(design_data: dict, outcomes: dict, run_dir: str | Path) -> dict:
+def bind_outcomes(design_data: dict, outcomes: dict, run_dir: str | Path, *,
+                  limits: SnapshotLimits = SnapshotLimits()) -> dict:
     """Single-run compatibility path; scientific qualification is external."""
-    handoff = collector_handoff(run_dir)
+    handoff = collector_handoff(run_dir, limits=limits)
+    return bind_handoff(design_data, outcomes, handoff)
+
+
+def bind_handoff(design_data: dict, outcomes: dict, handoff: dict) -> dict:
+    """Bind and export from the same already acquired handoff; no source reread."""
     attempts = bind_attempts(design_data, outcomes, handoff)
     data = make_dataset(design_data, [a["record"] for a in attempts], handoff["provenance"], outcomes["evaluator"])
     Dataset.parse(data, design_data)

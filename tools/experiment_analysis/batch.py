@@ -5,23 +5,24 @@ from pathlib import Path
 from tools.benchmark_branch.models import IDENTITY_FIELDS
 
 from . import ANALYSIS_VERSION
-from .collector import bind_attempts, collector_handoff, make_dataset
+from .collector import bind_attempts, _snapshot_handoff, make_dataset
 from .planning import expected_observations
 from .registration import execution_identity, load_registration
 from .schema import AnalysisError, Dataset, Design, digest, integer, obj, read_json, record_key, sha, text
+from .snapshot import Budget, SnapshotLimits
 
 
-def read_sources(manifest: dict, *, base_dir: Path) -> list[dict]:
+def read_sources(manifest: dict, *, base_dir: Path, limits: SnapshotLimits = SnapshotLimits()) -> list[dict]:
     """Read live sealed collector sources once, before producing any output."""
     obj(manifest, "schema sources")
     if manifest["schema"] != ANALYSIS_VERSION + ".batch_sources" or not isinstance(manifest["sources"], list):
         raise AnalysisError("invalid batch source manifest")
-    sources = []
+    sources, budget = [], Budget(limits)
     for entry in manifest["sources"]:
         obj(entry, "run_dir outcomes")
-        run_dir = (base_dir / text(entry["run_dir"])).resolve()
+        run_dir = base_dir / text(entry["run_dir"])
         outcomes_path = (base_dir / text(entry["outcomes"])).resolve()
-        sources.append({"handoff": collector_handoff(run_dir), "outcomes": read_json(outcomes_path)})
+        sources.append({"handoff": _snapshot_handoff(run_dir, budget), "outcomes": read_json(outcomes_path)})
     return sources
 
 

@@ -31,7 +31,9 @@ module, so a changed implementation is distinguishable from an exact replay.
 Synthetic records always produce `qualification=synthetic_validation` and
 `publishable=false`. `compute` returns zero for a successful calculation even
 when a registered estimand is N/A; inspect its status/reasons. `synthetic` returns
-1 if any analytic point-answer check fails. Invalid inputs return 2.
+1 if any analytic point-answer check fails, without publishing a result directory.
+Invalid inputs return 2. Result publication requires the supported Linux host's
+`renameat2(RENAME_NOREPLACE)` operation; the mathematics uses standard Python.
 
 The controls use two toy systems, two cells, three repeats, four factor corners,
 five event causes including censoring, and three transfer families with unequal
@@ -136,11 +138,26 @@ python -m tools.experiment_analysis bind-outcomes \
   --outcomes tmp/evaluated_outcomes.json --output tmp/experiment_analysis/bound
 ```
 
-The handoff verifies the existing seal and collector validation **without
-writing into the run**, exports all attempts, and rejects duplicate terminal
-episodes. No latest/successful-attempt selection is performed. Raw ledgers remain
+The handoff first copies the exact sealed members through the same bounded,
+no-follow reader used by portable archives. It verifies the seal and collector
+structure only on that private snapshot, **without writing into the run**, exports
+all attempts, and rejects duplicate terminal episodes. Every sealed JSON/JSONL
+is strictly parsed, including branch mirrors and evaluator artifacts. Source
+roots/ancestors cannot be symlinks; aliases, special files, unknown sealed
+members and unsealed branch/evaluator evidence are rejected. Changes after the
+snapshot cannot change the admitted data; this is not a live-directory lock.
+No latest/successful-attempt selection is performed. Raw ledgers remain
 at the referenced sealed collector path; the handoff is not a self-contained
 copy of every high-volume ledger. Preserve that directory alongside results.
+
+`collector-handoff`, `bind-outcomes` and `assemble` accept `--max-files`,
+`--max-file-bytes`, and `--max-total-bytes` (defaults: 100,000 files, 256 MiB
+per file, 2 GiB total). These limit copied raw collector bytes, including seal
+files; checksum metadata additionally has an 8 MiB cap. `assemble` shares one
+budget across all source runs. These are not whole-process memory limits or
+limits on design/evaluator-sidecar JSON. Temporary disk must accommodate the
+private copy of one source at a time. Existing source contents and reported
+`collector_path` are preserved; temporary paths never become source identities.
 
 The evaluator returns `eai.analysis.v1.evaluated_outcomes` with `design_digest`,
 `collector_seal_sha256`, `evaluator: {id, version, source_digest}`,
@@ -154,7 +171,10 @@ collector cannot be upgraded to measured by evaluator output. A measured
 collector stays `measured_unverified`; a hash does not verify the evaluator or
 prove that a selection policy was registered before outcomes.
 
-The CLI preserves the evaluator payload and handoff next to the bound dataset.
+The CLI acquires exactly one handoff for binding and saves that same handoff
+next to the evaluator payload and bound dataset. It never rereads the collector
+to build a different export snapshot. All three ingestion commands reject
+output paths inside their source collector directories.
 Missing external evaluators or historical identity mismatches must be repaired
 at their owner; this adapter never guesses a checkpoint round, task outcome,
 base-ID migration, strict pairing or release qualification.
@@ -248,8 +268,23 @@ registered retry rules. Use `assemble` for that guarantee.
 Bundles include the design/data, report, CSV/Markdown views and a manifest with
 an exact `bundle_type` and required file set. Batch bundles additionally preserve
 registration, handoff/outcomes snapshots, readiness and the complete selection
-audit. Publication uses a new directory and writes the manifest last; interrupted
-or pre-existing directories are never silently accepted or overwritten.
+audit. `compute`, `synthetic`, `bind-outcomes` and `assemble` build the complete
+result in private staging beside the destination, write the manifest last, run
+`verify_bundle` there, and only then publish the directory in one atomic
+no-replace rename. A failed write, render or verification exposes no partial
+destination; an existing or racing destination is preserved. Python exceptions,
+`KeyboardInterrupt` and `SystemExit` clean up staging, allowing a retry at the
+same output path. This verifies content consistency before publication, not an
+additional numerical recomputation. `freeze` and `collector-handoff` likewise
+publish their already validated single-document exports atomically.
+
+Output parents must remain under caller control and cannot have symlink
+ancestors. A hard process kill can leave a hidden `.eai-analysis-build-*`
+directory, but the public target is either absent or complete. A retry does not
+delete another process's staging. This is atomic visibility, not a power-loss
+durability guarantee. The `synthetic-batch` outer directory is a collector work
+area and deliberately retains plans/logs on failure; only its `result/` bundle
+uses transactional publication.
 
 `verify` reads each member's bytes once, rejects symlinks/non-regular files,
 missing/extra members, path escapes, duplicate JSON fields and checksum changes.
