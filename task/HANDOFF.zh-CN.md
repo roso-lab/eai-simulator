@@ -23,7 +23,7 @@ algorithm/system/coordination/emos/
 algorithm/system/coordination/TeamWeaver/
                          被测 TeamWeaver 系统算法本体
 algorithm/skills/navigation/
-                         导航 Skill provider 上传位置（当前为空）
+                         人工节点与航向 PID 地面导航 Provider
 algorithm/skills/external_io/
                          外部 ROS/输入 Skill provider 上传位置（当前为空）
 algorithm/common_coordination/
@@ -33,7 +33,7 @@ task/config/             与场景解耦的任务合同和机器人能力输入
 task/fixtures/           无 Isaac 的符号化适配器测试输入
 task/contracts.py        对外数据类型
 task/runner.py           算法 → EAI executor → evaluator 编排
-task/executors/          Assignment/SkillPlan → EAI controller/skill（后续开发）
+task/executors/          地面导航控制周期接入；高层 Assignment 映射由 host 提供
 task/evaluators/         物理 milestone 和终止谓词（后续开发）
 task/replay/             checkpoint、分支和并行回放注入点
 task/tests/              不启动 Isaac 的合同测试
@@ -59,9 +59,11 @@ tools/                   安装、验证和 ROS 运维工具
 
 可作为任务分配适配器使用的系统算法目录包括 EMOS、TeamWeaver、COHERENT、FMC-ATA、
 BT capabilities、MRTA heuristic、Hybrid SUSD、DCMRTA 和 HeteroMRTA。它们
-均只返回 assignment/plan。导航、db-CBS、Nav2 和 keyboard provider 当前由专门的
-Skill 开发者负责上传，暂不随本分支提供。Z1、抓取和物理判定属于后续
-EAI executor/evaluator。
+均只返回 assignment/plan。节点 PID 地面导航 Provider 和通用 EAI 执行适配已
+提供，使用语义目标绑定、人工拓扑和真实位姿，详细接口见
+[地面导航说明](../algorithm/skills/navigation/GROUND_NAVIGATION.zh-CN.md)。
+全局栅格、db-CBS、Nav2 和 keyboard provider 仍由专门的 Skill 开发者负责；
+City 专属接入、Z1、抓取和物理判定不属于本次通用导航迁移。
 
 DCMRTA/HeteroMRTA 的官方 checkpoint 只在原论文输入分布上做 decision-only
 轨道；Fire Rescue 物理轨道使用任务合同声明的默认分配，并将跨域 checkpoint

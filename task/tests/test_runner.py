@@ -1,11 +1,25 @@
+import json
+
+import pytest
+
 from algorithm.common_coordination.contract import AlgorithmCondition, RobotCapability
 
 from task.contracts import EaiTaskPackage, RobotState, TaskRunRequest
 from task.runner import TaskRunner
 
 
-def test_task_runner_is_na_without_eai_executor():
-    package = EaiTaskPackage.from_json("task/config/fire_rescue.json")
+@pytest.fixture
+def package(tmp_path):
+    path = tmp_path / "fire_rescue.json"
+    path.write_text(json.dumps({
+        "task_id": "fire-rescue", "scene_id": "EAI-Factory-Z1-v0",
+        "tasks": [{"task_id": "inspect", "description": "Inspect the target"}],
+        "robots": [],
+    }), encoding="utf-8")
+    return EaiTaskPackage.from_json(path)
+
+
+def test_task_runner_is_na_without_eai_executor(package):
     condition = AlgorithmCondition(
         algorithm_id="test",
         source_reference="local",
@@ -24,8 +38,7 @@ def test_task_runner_is_na_without_eai_executor():
     assert result.ledger.events[-1]["kind"] == "verdict"
 
 
-def test_task_package_binds_runtime_roster_without_mutating_static_contract():
-    package = EaiTaskPackage.from_json("task/config/fire_rescue.json")
+def test_task_package_binds_runtime_roster_without_mutating_static_contract(package):
     robot = RobotState(RobotCapability("z1_1", frozenset({"navigate", "manipulate"})))
     bound = package.bind_runtime(robots=(robot,), scene_id="EAI-Factory-Z1-v0")
     assert package.robots == ()
