@@ -1,9 +1,12 @@
 # Topology authoring and node-route validation
 
 This record covers the fixes following `b5e819efd9c4515c06e72433628fb3a130abf544`.
-The implementation keeps the existing directed XY shortest path and node PID.
+The version 1 implementation keeps the existing directed XY shortest path and node PID.
 Scene selection, task orchestration, physical evaluation and experiment identity
 remain host responsibilities. No formal scene/task contract is introduced.
+
+The later version 2 multilevel implementation and Go2 stair validation are
+recorded separately in [MULTILEVEL_VALIDATION.md](MULTILEVEL_VALIDATION.md).
 
 ## Repeatable lightweight checks
 
@@ -17,6 +20,8 @@ python -m pytest --rootdir="$PWD" -q -p no:cacheprovider \
   tools/validation/test_topology_authoring.py \
   tools/validation/test_topology_route_contract.py \
   tools/validation/test_topology_authoring_ui.py \
+  tools/validation/test_topology_multilevel_authoring.py \
+  tools/validation/test_topology_surfaces.py \
   tools/validation/test_simulator_gui_shutdown.py
 git diff --check
 ```
@@ -59,7 +64,8 @@ direct access to the nearest start node, and evaluates the task independently.
 
 ## Observed result — 2026-10-12
 
-The command above completed with **625 passed, 1 skipped** in 36.29 seconds.
+The original version 1 matrix (before adding the multilevel files above)
+completed with **625 passed, 1 skipped** in 36.29 seconds.
 The skip is a historical scene plugin unavailable in this checkout.
 `git diff --check` passed.
 

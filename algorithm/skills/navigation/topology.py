@@ -1,6 +1,6 @@
 """Shared, simulator-free contract for authored ground-node routes.
 
-Only nodes, directed edges and world coordinates affect route execution.
+Nodes, directed edges, world coordinates and v2 traversal admission affect execution.
 Polyline decoration, profiles and scene collision checks belong to authoring.
 """
 from __future__ import annotations
@@ -9,6 +9,9 @@ import hashlib
 import json
 import math
 from typing import Any, Mapping
+
+LEVEL_HEIGHT_TOLERANCE_M = 0.20
+TRAVERSAL_MODES = frozenset({"walk", "stairs", "ramp"})
 
 
 def finite_number(value: Any) -> bool:
@@ -29,8 +32,18 @@ def topology_fields(document: Any) -> Mapping[str, Any]:
     if isinstance(document, Mapping):
         return document
     return {name: getattr(document, name) for name in
-            ("nodes", "edges", "coordinate_frame", "meters_per_unit", "up_axis")
+            ("nodes", "edges", "coordinate_frame", "meters_per_unit", "up_axis", "version", "levels")
             if hasattr(document, name)}
+
+
+def edge_capabilities(edge: Mapping[str, Any]) -> frozenset[str]:
+    return frozenset((edge.get("traversal_mode", "walk"),
+                      *edge.get("required_controller_capabilities", ())))
+
+
+def _strings(value: Any) -> bool:
+    return (isinstance(value, (list, tuple))
+            and all(isinstance(item, str) and item.strip() for item in value))
 
 
 def validate_ground_topology(document: Any) -> list[str]:
@@ -41,6 +54,23 @@ def validate_ground_topology(document: Any) -> list[str]:
     """
     data = topology_fields(document)
     errors: list[str] = []
+    version = data.get("version", 1)
+    if type(version) is not int or version not in (1, 2):
+        errors.append("unsupported ground topology version")
+    levels = {}
+    if version == 2:
+        rows = data.get("levels")
+        if not isinstance(rows, (list, tuple)) or not rows:
+            errors.append("multilevel topology requires declared levels")
+        else:
+            for row in rows:
+                if (not isinstance(row, Mapping) or not isinstance(row.get("id"), str)
+                        or not row["id"].strip() or row["id"] in levels
+                        or not isinstance(row.get("label"), str)
+                        or not finite_number(row.get("support_z_m"))):
+                    errors.append("invalid or duplicate topology level")
+                    continue
+                levels[row["id"]] = row["support_z_m"]
     if data.get("coordinate_frame", "scene_world") != "scene_world":
         errors.append("ground topology coordinate_frame must be scene_world")
     units = data.get("meters_per_unit", 1.0)
@@ -51,7 +81,7 @@ def validate_ground_topology(document: Any) -> list[str]:
     rows, edges = data.get("nodes"), data.get("edges")
     if not isinstance(rows, (list, tuple)) or not isinstance(edges, (list, tuple)):
         return errors + ["ground topology nodes and edges must be arrays"]
-    nodes, node_ids = {}, set()
+    nodes, node_ids, node_rows, bound_refs = {}, set(), {}, {}
     for index, row in enumerate(rows):
         if not isinstance(row, Mapping):
             errors.append(f"invalid node object: {index}")
@@ -63,6 +93,7 @@ def validate_ground_topology(document: Any) -> list[str]:
         if node_id in node_ids:
             errors.append(f"duplicate/invalid node id: {node_id!r}")
         node_ids.add(node_id)
+        node_rows[node_id] = row
         if not finite_xyz(row.get("position_xyz")):
             errors.append(f"invalid node position: {node_id}")
         else:
@@ -71,6 +102,38 @@ def validate_ground_topology(document: Any) -> list[str]:
         if (not isinstance(refs, (list, tuple)) or
                 any(not isinstance(ref, str) or not ref.strip() or ":" not in ref for ref in refs)):
             errors.append(f"invalid node target references: {node_id}")
+        elif version == 2:
+            for ref in refs:
+                if ref in bound_refs and bound_refs[ref] != node_id:
+                    errors.append(f"ambiguous stable target reference: {ref}")
+                bound_refs[ref] = node_id
+        if version == 2:
+            level_id = row.get("level_id")
+            if level_id is None and row.get("kind") == "transition":
+                pass
+            elif not isinstance(level_id, str) or level_id not in levels:
+                errors.append(f"node requires a declared level or transition kind: {node_id}")
+            elif (node_id in nodes and
+                  abs(nodes[node_id][2] - levels[level_id]) > LEVEL_HEIGHT_TOLERANCE_M):
+                errors.append(f"node support height differs from declared level: {node_id}")
+            if not isinstance(row.get("label", ""), str) or not _strings(row.get("aliases", [])):
+                errors.append(f"invalid node landmark metadata: {node_id}")
+    if version == 2:
+        for ref, owner in bound_refs.items():
+            if ref in node_ids and ref != owner:
+                errors.append(f"stable target reference conflicts with another node id: {ref}")
+        # Arrival uses a bounded support-height tolerance. Ordinary floor bands
+        # must remain disjoint under that tolerance; small stair landings belong
+        # to transition nodes, not indistinguishable declared building floors.
+        bands = {level: [height, height] for level, height in levels.items()}
+        for node_id, row in node_rows.items():
+            level = row.get("level_id")
+            if isinstance(level,str) and level in bands and node_id in nodes:
+                bands[level][0] = min(bands[level][0], nodes[node_id][2])
+                bands[level][1] = max(bands[level][1], nodes[node_id][2])
+        ordered = sorted(bands.values())
+        if any(b[0]-a[1] <= 2*LEVEL_HEIGHT_TOLERANCE_M for a,b in zip(ordered,ordered[1:])):
+            errors.append("declared floor height bands overlap the support tolerance; use transition nodes")
     edge_ids = set()
     for index, edge in enumerate(edges):
         if not isinstance(edge, Mapping):
@@ -89,6 +152,18 @@ def validate_ground_topology(document: Any) -> list[str]:
             errors.append(f"ground topology edge must have nonzero XY length: {edge_id}")
         if type(edge.get("directed", False)) is not bool:
             errors.append(f"invalid edge direction: {edge_id}")
+        if version == 2:
+            mode = edge.get("traversal_mode")
+            if not isinstance(mode, str) or mode not in TRAVERSAL_MODES:
+                errors.append(f"invalid edge traversal_mode: {edge_id}")
+            if not _strings(edge.get("required_controller_capabilities", [])):
+                errors.append(f"invalid edge controller capabilities: {edge_id}")
+            if (mode == "walk" and isinstance(first, str) and isinstance(last, str)
+                    and first in nodes and last in nodes):
+                a, b = node_rows[first], node_rows[last]
+                if (a.get("level_id") is None or a.get("level_id") != b.get("level_id")
+                        or abs(nodes[first][2] - nodes[last][2]) > LEVEL_HEIGHT_TOLERANCE_M):
+                    errors.append(f"walk edge cannot cross levels or transitions: {edge_id}")
     return sorted(set(errors))
 
 
@@ -113,5 +188,20 @@ def route_graph_digest(document: Any) -> str:
             "directed": row.get("directed", False),
         } for row in data["edges"]), key=lambda row: row["id"]),
     }
+    if data.get("version", 1) == 2:
+        payload["schema"] = "eai.navigation.node_route.v2"
+        payload["levels"] = sorted((dict(id=row["id"], label=row["label"],
+                                          support_z_m=float(row["support_z_m"]))
+                                    for row in data["levels"]), key=lambda row: row["id"])
+        by_id = {row["id"]: row for row in data["nodes"]}
+        for row in payload["nodes"]:
+            original = by_id[row["id"]]
+            row.update(level_id=original.get("level_id"), label=original.get("label", ""),
+                       aliases=sorted(set(original.get("aliases", []))))
+        by_id = {row["id"]: row for row in data["edges"]}
+        for row in payload["edges"]:
+            original = by_id[row["id"]]
+            row.update(traversal_mode=original["traversal_mode"],
+                       required_controller_capabilities=sorted(edge_capabilities(original)))
     return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":"),
                                      allow_nan=False).encode()).hexdigest()

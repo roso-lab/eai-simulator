@@ -21,7 +21,9 @@ The task evaluator still owns physical safety and business success.
 ## Authored topology navigation
 
 `GroundNavigationProvider` implements `eai.navigation.ground_navigation` using
-authored topology nodes, directed XY Dijkstra and a heading PID. It compiles
+authored topology nodes, directed Dijkstra and a heading PID. Version 1 uses XY
+distance. Version 2 uses XYZ length, explicit floor/traversal metadata and host
+controller capabilities. It compiles
 body-frame `base_velocity=[v, 0, wz]` commands and keeps independent state for
 each task. It does not load occupancy maps, costmaps, DWA, OBB or collision
 queries; bends require intermediate nodes.
@@ -39,3 +41,11 @@ See [the Chinese guide](GROUND_NAVIGATION.zh-CN.md) for request fields, defaults
 topology authoring, lifecycle controls, executor injection and focused tests.
 The injected 2D planner adapter above is independent; db-CBS, Nav2 and keyboard
 providers retain their separate registry status.
+
+For multilevel scenes, `landmark_inventory` exposes authored labels/references;
+`resolve_landmark_route` converts a unique origin/destination to ordered XYZ
+nodes plus the graph digest and executable skill parameters. Inject a measured
+`support_height_reader` into the existing executor: root body height is not floor
+height. Version 2 refuses unknown/ambiguous landmarks, unsupported transitions,
+wrong-height starts and distant starts. It never emits a vertical body command.
+See [multilevel authoring and deployment](../../../tools/topology_authoring/MULTILEVEL.md).

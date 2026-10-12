@@ -2,6 +2,10 @@
 
 工具通过 `--adapter module:Class` 接收场景。所有场景都从空拓扑开始，工具不会自动读取道路、路口或道路中线生成节点和拓扑线。适配器只负责加载场景、语义目标、支持面投影和校验。使用 `--headless` 可在不启动 Isaac Sim 时检查适配器；语义地图不在资产目录时可传 `--semantic-map`。
 
+楼层切换、楼梯/坡道连接、关键点标注、有序 XYZ 路线导出和 Go2 部署见
+[多楼层工作流](MULTILEVEL.zh-CN.md)。内置 `UsdSceneAdapter` 读取场景描述文件；
+具体场景数据由调用方提供，不会自动成为正式实验任务。
+
 启动 Isaac Sim 编辑器：
 
 ```bash
@@ -26,7 +30,8 @@ python tools/topology_authoring/author.py \
 
 `Save Draft` 保存可继续编辑的草稿，`Validate` 检查拓扑，`Generate` 通过检查后写入 `authoring/navigation/ground/topology.json`。
 
-地面导航只跟踪 node，并按边方向和节点间 XY 距离选择最短路；不使用 edge
+地面导航只跟踪 node，并按边方向选路。版本 1 使用节点间 XY 距离；版本 2
+使用 XYZ 距离和控制器通行能力，并用实测支持面高度判定进度。不使用 edge
 polyline 或 profile clearance。每个弯道都需要增加 node 并依次连边，例如
 `A → 拐角B → C`。仅修改 `A → C` 的折线点不会改变实际运动路径。
 相邻节点之间的直接通行条件和间距由作者保证，运行时没有自动节点间距限制，

@@ -139,6 +139,8 @@ SIMULATOR_SKILL_SCHEMAS: tuple[SimulatorSkillSchema, ...] = (
             SimulatorFieldSpec("frame", "string", enum_values=("world", "base_link")),
             SimulatorFieldSpec("target_yaw", "finite_number", unit="rad"),
             SimulatorFieldSpec("horizon_ticks", "positive_int", unit="tick"),
+            SimulatorFieldSpec("origin_ref", "string", description="Optional authored start landmark; start verifies proximity."),
+            SimulatorFieldSpec("route_graph_digest", "string", description="Frozen executable topology identity from route resolution."),
         ),
         commands=(SimulatorCommandSpec(
             "base_velocity", "env.step -> EAI velocity controller",

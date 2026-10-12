@@ -49,7 +49,14 @@ def build_document(adapter, asset_root, semantic_map=None, *, requested_scene_ke
             f"adapter source scene {source.scene_key!r} differs from requested "
             f"scene {requested_scene_key!r}"
         )
-    return source, TopologyDocument(source.scene_key, adapter.source_digests(source))
+    document = TopologyDocument(source.scene_key, adapter.source_digests(source))
+    if "levels" in source.payload:
+        document.set_levels(source.payload["levels"])
+        # Source-declared levels are the initial document state, not an author
+        # edit that can be undone back into a mismatched v1 product.
+        document._undo.clear()
+        document._redo.clear()
+    return source, document
 
 def _headless(args):
     semantic_map = _read_semantic_map(args.semantic_map)
@@ -72,6 +79,7 @@ def _gui(args):
     from isaacsim import SimulationApp
     app=SimulationApp({"headless":False, "fast_shutdown":False})
     window = None
+    adapter = None
     try:
         # Use an absolute import so the documented direct-script entry point
         # (``python tools/topology_authoring/author.py``) works as well as
@@ -106,6 +114,10 @@ def _gui(args):
         try:
             if window is not None:
                 window.destroy()
+                window = None
+            close = getattr(adapter, "close", None)
+            if callable(close):
+                close()
         finally:
             try:
                 from simulator import _prepare_gui_for_app_close

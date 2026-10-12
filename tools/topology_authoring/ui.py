@@ -3,10 +3,14 @@ from __future__ import annotations
 
 import json
 import math
+import os
 from pathlib import Path
+import tempfile
+from typing import Mapping
 
 from .adapter import SceneSource
 from .model import PROFILES, TopologyDocument
+from .viewport import visible_edges, visible_node_ids
 
 
 def _with_semantic_map(source, semantic_map):
@@ -15,6 +19,37 @@ def _with_semantic_map(source, semantic_map):
     payload = dict(source.payload)
     payload["semantic"] = semantic_map
     return SceneSource(source.scene_key, Path(source.asset_root), payload)
+
+
+def _new_document(adapter, source):
+    document = TopologyDocument(source.scene_key, adapter.source_digests(source))
+    if "levels" in source.payload:
+        document.set_levels(source.payload["levels"])
+        document._undo.clear()
+        document._redo.clear()
+    return document
+
+
+def _csv_strings(value):
+    return tuple(sorted({item.strip() for item in str(value).split(",") if item.strip()}))
+
+
+def _write_json_atomic(path: Path, value) -> None:
+    payload = json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent,
+            prefix=f".{path.name}.", delete=False,
+        ) as stream:
+            temporary = Path(stream.name)
+            stream.write(payload)
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 def _stages_match(first, second):
@@ -200,12 +235,24 @@ class TopologyAuthoringWindow:
         self._frames = []
         self._overlay = None
         self._retained_stage_restore_points = []
+        self.active_level_id = (
+            document.levels[0]["id"]
+            if document.version == 2 and document.levels else None
+        )
+        self._pending_node_kind = "custom"
+        self._pending_traversal_mode = "walk"
+        self._pending_controller_capabilities = ()
+        self._route_preview = None
+        self._route_origin_model = None
+        self._route_destination_model = None
+        self._route_capabilities_model = None
         self.window = ui.Window("Topology Authoring", width=520, height=760)
         try:
             self._build()
             from .viewport import ViewportOverlay
 
             self._overlay = ViewportOverlay(document, self.on_viewport_click, self.cancel_preview)
+            self._apply_active_level_view()
             self._refresh()
         except Exception:
             try:
@@ -216,6 +263,9 @@ class TopologyAuthoringWindow:
 
     def _build(self):
         ui = self._ui
+        self._route_origin_model = ui.SimpleStringModel("")
+        self._route_destination_model = ui.SimpleStringModel("")
+        self._route_capabilities_model = ui.SimpleStringModel("walk")
         with self.window.frame:
             with ui.ScrollingFrame(
                 horizontal_scrollbar_policy=ui.ScrollBarPolicy.SCROLLBAR_ALWAYS_OFF,
@@ -243,7 +293,7 @@ class TopologyAuthoringWindow:
                             ui.Button("Redo", width=0, clicked_fn=self.redo)
                             ui.Button("Cancel Preview", width=0, clicked_fn=self.cancel_preview)
                     with ui.CollapsableFrame("Preview", collapsed=False, height=0):
-                        with ui.VStack(height=100, spacing=4):
+                        with ui.VStack(height=0, spacing=4):
                             ui.Label(
                                 "Empty click = red node preview. Confirm Node commits it. "
                                 "Click a green node, then click a destination node.", word_wrap=True,
@@ -255,8 +305,19 @@ class TopologyAuthoringWindow:
                             with ui.HStack(height=28, spacing=5):
                                 ui.Button("One-way", width=0, clicked_fn=lambda: self.set_pending_direction(True))
                                 ui.Button("Two-way", width=0, clicked_fn=lambda: self.set_pending_direction(False))
-                    for builder in (self._build_selection, self._build_node_properties,
-                                    self._build_edge_properties, self._build_target_properties):
+                            if self.document.version == 2:
+                                with ui.HStack(height=28, spacing=5):
+                                    ui.Button("Regular Node", width=0,
+                                              clicked_fn=lambda: self.set_pending_node_kind("custom"))
+                                    ui.Button("Transition Node", width=0,
+                                              clicked_fn=lambda: self.set_pending_node_kind("transition"))
+                                with ui.HStack(height=28, spacing=5):
+                                    for mode in ("walk", "stairs", "ramp"):
+                                        ui.Button(mode.title(), width=0,
+                                                  clicked_fn=lambda value=mode: self.set_pending_traversal(value))
+                    for builder in (self._build_level_controls, self._build_selection,
+                                    self._build_node_properties, self._build_edge_properties,
+                                    self._build_target_properties, self._build_route_preview):
                         frame = ui.Frame(height=0)
                         frame.set_build_fn(builder)
                         self._frames.append(frame)
@@ -266,6 +327,71 @@ class TopologyAuthoringWindow:
     @staticmethod
     def _format_point(point):
         return "(" + ", ".join(f"{float(value):.2f}" for value in point) + ")"
+
+    def _normalize_active_level(self):
+        if self.document.version != 2 or not self.document.levels:
+            self.active_level_id = None
+            return
+        known = {row["id"] for row in self.document.levels}
+        current = getattr(self, "active_level_id", None)
+        if current is not None and current not in known:
+            self.active_level_id = self.document.levels[0]["id"]
+
+    def _apply_active_level_view(self):
+        self._normalize_active_level()
+        for name in ("set_active_level", "set_level_view"):
+            callback = getattr(self.adapter, name, None)
+            if callable(callback):
+                callback(self.active_level_id, self.source)
+        if self._overlay is not None:
+            setter = getattr(self._overlay, "set_active_level", None)
+            if callable(setter):
+                setter(self.active_level_id)
+
+    def set_active_level(self, level_id):
+        if self.document.version != 2:
+            self.active_level_id = None
+            return
+        if level_id is not None and level_id not in {
+            row["id"] for row in self.document.levels
+        }:
+            self._set_status(f"Unknown level: {level_id}")
+            return
+        self.document.cancel_preview()
+        self.active_level_id = level_id
+        try:
+            self._apply_active_level_view()
+            label = "all levels" if level_id is None else level_id
+            self._set_status(f"Authoring view set to {label}")
+        except (AttributeError, RuntimeError, TypeError, ValueError) as exc:
+            self._set_status(f"Level view failed: {exc}")
+        self._refresh()
+
+    def _build_level_controls(self):
+        if self.document.version != 2:
+            return
+        ui = self._ui
+        with ui.CollapsableFrame("Level View", collapsed=False, height=0):
+            with ui.VStack(height=0, spacing=4):
+                if self.active_level_id is None:
+                    current = "all levels"
+                else:
+                    level = next(
+                        row for row in self.document.levels
+                        if row["id"] == self.active_level_id
+                    )
+                    name = level["label"] or level["id"]
+                    current = (
+                        f"{name} ({level['id']}), "
+                        f"support Z = {float(level['support_z_m']):.3f} m"
+                    )
+                ui.Label(f"Active: {current}", word_wrap=True)
+                with ui.HStack(height=28, spacing=4):
+                    ui.Button("All Levels", width=0,
+                              clicked_fn=lambda: self.set_active_level(None))
+                    for level in self.document.levels:
+                        ui.Button(level["label"] or level["id"], width=0,
+                                  clicked_fn=lambda value=level["id"]: self.set_active_level(value))
 
     def _build_selection(self):
         ui = self._ui
@@ -280,9 +406,14 @@ class TopologyAuthoringWindow:
                 ui.Label(f"Locked: {bool(row.get('locked') or row.get('locked_geometry'))}")
                 if kind == "node":
                     ui.Label(f"Position: {self._format_point(row['position_xyz'])}")
+                    if self.document.version == 2:
+                        ui.Label(f"Level: {row.get('level_id') or 'transition/unassigned'}")
+                        ui.Label(f"Label: {row.get('label') or '(none)'}")
                 else:
                     ui.Label(f"From: {row['from']}    To: {row['to']}")
                     ui.Label(f"Direction: {'one-way' if row.get('directed') else 'two-way'}")
+                    if self.document.version == 2:
+                        ui.Label(f"Traversal: {row.get('traversal_mode', 'walk')}")
 
     def _build_node_properties(self):
         ui = self._ui
@@ -303,6 +434,21 @@ class TopologyAuthoringWindow:
                 with ui.HStack(height=28, spacing=5):
                     ui.Button("Apply Move", clicked_fn=lambda: self._apply_node_move(models))
                     ui.Button("Delete Node", clicked_fn=self.delete_selected_node)
+                if self.document.version == 2:
+                    level_model = ui.SimpleStringModel(node.get("level_id") or "")
+                    label_model = ui.SimpleStringModel(node.get("label", ""))
+                    aliases_model = ui.SimpleStringModel(", ".join(node.get("aliases", ())))
+                    ui.Label("Level ID (blank only for transition nodes)")
+                    ui.StringField(level_model)
+                    ui.Label("Landmark label")
+                    ui.StringField(label_model)
+                    ui.Label("Aliases (comma-separated)")
+                    ui.StringField(aliases_model)
+                    ui.Button(
+                        "Apply Metadata",
+                        clicked_fn=lambda: self._apply_node_metadata(
+                            level_model, label_model, aliases_model),
+                    )
                 refs = node.get("target_refs", ())
                 ui.Label("Bound targets: " + (", ".join(refs) if refs else "none"), word_wrap=True)
 
@@ -315,6 +461,22 @@ class TopologyAuthoringWindow:
             self._set_status("Node position updated")
         except (AttributeError, TypeError, ValueError, KeyError) as exc:
             self._set_status(f"Move failed: {exc}")
+        self._refresh()
+
+    def _apply_node_metadata(self, level_model, label_model, aliases_model):
+        if not self._require_stage_ready():
+            return
+        try:
+            level_id = level_model.as_string.strip() or None
+            self.document.set_node_metadata(
+                self.document.selected_node_id,
+                level_id=level_id,
+                label=label_model.as_string,
+                aliases=_csv_strings(aliases_model.as_string),
+            )
+            self._set_status("Node metadata updated")
+        except (AttributeError, TypeError, ValueError, KeyError) as exc:
+            self._set_status(f"Metadata update failed: {exc}")
         self._refresh()
 
     def _build_edge_properties(self):
@@ -332,6 +494,22 @@ class TopologyAuthoringWindow:
                     ui.Button("Set One-way", clicked_fn=lambda: self.set_selected_direction(True))
                     ui.Button("Set Two-way", clicked_fn=lambda: self.set_selected_direction(False))
                     ui.Button("Delete Edge", clicked_fn=self.delete_selected_edge)
+                if self.document.version == 2:
+                    capabilities_model = ui.SimpleStringModel(
+                        ", ".join(edge.get("required_controller_capabilities", ())))
+                    ui.Label(
+                        f"Traversal: {edge.get('traversal_mode', 'walk')} "
+                        "(mode capability is implicit)"
+                    )
+                    ui.Label("Additional controller capabilities (comma-separated)")
+                    ui.StringField(capabilities_model)
+                    with ui.HStack(height=28, spacing=4):
+                        for mode in ("walk", "stairs", "ramp"):
+                            ui.Button(
+                                mode.title(), width=0,
+                                clicked_fn=lambda value=mode, model=capabilities_model:
+                                    self.set_selected_traversal(value, model),
+                            )
                 for profile in PROFILES:
                     current = edge.get("profiles", {}).get(profile, {}).get("clearance_m", PROFILES[profile])
                     model = ui.SimpleFloatModel(float(current))
@@ -355,6 +533,24 @@ class TopologyAuthoringWindow:
             self._set_status(f"{profile} clearance updated")
         except (AttributeError, TypeError, ValueError, KeyError) as exc:
             self._set_status(f"Profile update failed: {exc}")
+        self._refresh()
+
+    def set_selected_traversal(self, traversal_mode, capabilities_model=None):
+        if not self._require_stage_ready():
+            return
+        try:
+            capabilities = (
+                _csv_strings(capabilities_model.as_string)
+                if capabilities_model is not None else ()
+            )
+            self.document.set_edge_traversal(
+                self.document.selected_edge_id,
+                traversal_mode,
+                capabilities,
+            )
+            self._set_status(f"Edge traversal set to {traversal_mode}")
+        except (AttributeError, TypeError, ValueError, KeyError) as exc:
+            self._set_status(f"Traversal update failed: {exc}")
         self._refresh()
 
     def _apply_polyline(self, model):
@@ -382,7 +578,121 @@ class TopologyAuthoringWindow:
                         clicked_fn=lambda ref=target.ref: self.bind_current(ref),
                     )
 
+    def _build_route_preview(self):
+        if self.document.version != 2:
+            return
+        ui = self._ui
+        with ui.CollapsableFrame("Landmark Route Preview", collapsed=False, height=0):
+            with ui.VStack(height=0, spacing=4):
+                ui.Label("Origin ref or unambiguous label/alias")
+                ui.StringField(self._route_origin_model)
+                ui.Label("Destination ref or unambiguous label/alias")
+                ui.StringField(self._route_destination_model)
+                ui.Label("Controller capabilities (comma-separated)")
+                ui.StringField(self._route_capabilities_model)
+                with ui.HStack(height=28, spacing=4):
+                    ui.Button("Preview Route", width=0, clicked_fn=self.preview_route)
+                    ui.Button("Export Preview", width=0, clicked_fn=self.export_route_preview)
+                    ui.Button("Clear", width=0, clicked_fn=self.clear_route_preview)
+                if isinstance(self._route_preview, Mapping):
+                    nodes = self._route_preview.get("topology_node_ids", ())
+                    ui.Label(
+                        "Route: " + (" -> ".join(map(str, nodes)) if nodes else "none"),
+                        word_wrap=True,
+                    )
+
+    def _resolve_route_preview(self):
+        from algorithm.skills.navigation.landmarks import resolve_landmark_route
+
+        origin = self._route_origin_model.as_string.strip()
+        destination = self._route_destination_model.as_string.strip()
+        if not origin or not destination:
+            raise ValueError("origin and destination are required")
+        result = resolve_landmark_route(
+            self.document,
+            origin_ref=origin,
+            destination_ref=destination,
+            controller_capabilities=_csv_strings(
+                self._route_capabilities_model.as_string),
+        )
+        if not isinstance(result, Mapping):
+            raise ValueError("route resolver must return a mapping")
+        if result.get("admitted") is not True:
+            raise ValueError(str(result.get("reason", "route was not admitted")))
+        points = result.get("route_points_m")
+        node_ids = result.get("topology_node_ids")
+        if (not isinstance(points, (list, tuple)) or not points
+                or not isinstance(node_ids, (list, tuple))
+                or len(points) != len(node_ids)):
+            raise ValueError("resolved route must contain matching node IDs and XYZ points")
+        normalized = []
+        for point in points:
+            if (not isinstance(point, (list, tuple)) or len(point) != 3
+                    or any(isinstance(value, bool) or not isinstance(value, (int, float))
+                           or not math.isfinite(float(value)) for value in point)):
+                raise ValueError("resolved route contains an invalid XYZ point")
+            normalized.append([float(value) for value in point])
+        route = dict(result)
+        route["route_points_m"] = normalized
+        route["topology_node_ids"] = list(node_ids)
+        return route
+
+    def preview_route(self):
+        try:
+            route = self._resolve_route_preview()
+            self._route_preview = route
+            if self._overlay is not None:
+                setter = getattr(self._overlay, "set_route_preview", None)
+                if callable(setter):
+                    setter(route["route_points_m"], route["topology_node_ids"])
+            self._set_status(
+                f"Route preview ready: {len(route['topology_node_ids'])} nodes")
+            self._refresh()
+            return route
+        except (ImportError, AttributeError, KeyError, RuntimeError, TypeError, ValueError) as exc:
+            self._discard_route_preview()
+            self._set_status(f"Route preview failed: {exc}")
+            self._refresh()
+            return None
+
+    def export_route_preview(self):
+        route = self.preview_route()
+        if route is None:
+            return None
+        path = self.output_root / "authoring/navigation/ground/route.preview.json"
+        try:
+            _write_json_atomic(path, route)
+        except (OSError, TypeError, ValueError) as exc:
+            self._set_status(f"Route export failed: {exc}")
+            return None
+        self._set_status(f"Route preview exported: {path}")
+        return path
+
+    def clear_route_preview(self):
+        self._discard_route_preview()
+        self._set_status("Route preview cleared")
+        self._refresh()
+
+    def _discard_route_preview(self):
+        self._route_preview = None
+        if self._overlay is not None:
+            setter = getattr(self._overlay, "set_route_preview", None)
+            if callable(setter):
+                try:
+                    setter((), ())
+                except (AttributeError, RuntimeError, TypeError, ValueError):
+                    pass
+
     def _refresh(self):
+        if isinstance(self._route_preview, Mapping):
+            try:
+                from algorithm.skills.navigation.topology import route_graph_digest
+
+                current_digest = route_graph_digest(self.document)
+            except (ImportError, AttributeError, KeyError, TypeError, ValueError):
+                current_digest = None
+            if current_digest != self._route_preview.get("route_graph_digest"):
+                self._discard_route_preview()
         if self._overlay:
             self._overlay.refresh()
         for frame in self._frames:
@@ -392,6 +702,10 @@ class TopologyAuthoringWindow:
             states = ["red node preview"] if self.document.pending_node else []
             if self.document.pending_edge:
                 states.append("red edge preview")
+            if self.document.version == 2:
+                states.append(f"level={getattr(self, 'active_level_id', None) or 'all'}")
+            if self._route_preview is not None:
+                states.append("route preview")
             suffix = " | " + ", ".join(states) if states else ""
             self.object_summary.text = (
                 f"Green nodes: {len(self.document.nodes)} | green edges: {len(self.document.edges)} "
@@ -413,27 +727,37 @@ class TopologyAuthoringWindow:
 
     def _nearest_node(self, position):
         best = None
+        visible = visible_node_ids(
+            self.document, getattr(self, "active_level_id", None))
         for node in self.document.nodes:
-            distance = math.dist(position[:2], node["position_xyz"][:2])
+            if node["id"] not in visible:
+                continue
+            distance = math.dist(position, node["position_xyz"])
             if best is None or distance < best[0]:
                 best = (distance, node)
-        return best if best and best[0] <= 1.5 else None
+        radius = .12 if self.document.version == 2 else 1.5
+        return best if best and best[0] <= radius else None
 
     @staticmethod
     def _point_segment_distance(point, start, end):
-        px, py = point[:2]
-        ax, ay = start[:2]
-        bx, by = end[:2]
-        dx, dy = bx - ax, by - ay
-        denom = dx * dx + dy * dy
+        p = tuple(float(value) for value in point)
+        a = tuple(float(value) for value in start)
+        b = tuple(float(value) for value in end)
+        delta = tuple(last - first for first, last in zip(a, b))
+        denom = sum(value * value for value in delta)
         if denom <= 1e-12:
-            return math.dist((px, py), (ax, ay))
-        t = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / denom))
-        return math.dist((px, py), (ax + t * dx, ay + t * dy))
+            return math.dist(p, a)
+        t = max(0.0, min(1.0, sum(
+            (value - origin) * direction
+            for value, origin, direction in zip(p, a, delta)
+        ) / denom))
+        projection = tuple(origin + t * direction for origin, direction in zip(a, delta))
+        return math.dist(p, projection)
 
     def _nearest_edge(self, position):
         best = None
-        for edge in self.document.edges:
+        for edge in visible_edges(
+            self.document, getattr(self, "active_level_id", None)):
             points = edge.get("polyline_xyz", ())
             distance = min(
                 (self._point_segment_distance(position, a, b) for a, b in zip(points, points[1:])),
@@ -441,7 +765,8 @@ class TopologyAuthoringWindow:
             )
             if best is None or distance < best[0]:
                 best = (distance, edge)
-        return best if best and best[0] <= 1.5 else None
+        radius = .08 if self.document.version == 2 else 1.5
+        return best if best and best[0] <= radius else None
 
     def on_viewport_click(self, position, _prim_path=None):
         if not self._require_stage_ready():
@@ -477,7 +802,17 @@ class TopologyAuthoringWindow:
         if not self._require_stage_ready():
             return
         try:
-            node_id = self.document.confirm_node_preview()
+            if self.document.version == 2:
+                kind = getattr(self, "_pending_node_kind", "custom")
+                level_id = getattr(self, "active_level_id", None)
+                if kind != "transition" and level_id is None:
+                    raise ValueError("select an active level before confirming a regular node")
+                node_id = self.document.confirm_node_preview(
+                    kind=kind,
+                    level_id=level_id,
+                )
+            else:
+                node_id = self.document.confirm_node_preview()
             self._set_status(f"Node {node_id} committed")
         except ValueError as exc:
             self._set_status(str(exc))
@@ -487,10 +822,34 @@ class TopologyAuthoringWindow:
         if not self._require_stage_ready():
             return
         try:
-            edge_id = self.document.confirm_edge_preview()
+            if self.document.version == 2:
+                edge_id = self.document.confirm_edge_preview(
+                    traversal_mode=getattr(self, "_pending_traversal_mode", "walk"),
+                    required_controller_capabilities=getattr(
+                        self, "_pending_controller_capabilities", ()),
+                )
+            else:
+                edge_id = self.document.confirm_edge_preview()
             self._set_status(f"Edge {edge_id} committed")
         except ValueError as exc:
             self._set_status(str(exc))
+        self._refresh()
+
+    def set_pending_node_kind(self, kind):
+        if kind not in {"custom", "transition"}:
+            self._set_status(f"Unknown node kind: {kind}")
+            return
+        self._pending_node_kind = kind
+        self._set_status(f"New node kind set to {kind}")
+        self._refresh()
+
+    def set_pending_traversal(self, traversal_mode, capabilities=()):
+        if traversal_mode not in {"walk", "stairs", "ramp"}:
+            self._set_status(f"Unknown traversal mode: {traversal_mode}")
+            return
+        self._pending_traversal_mode = traversal_mode
+        self._pending_controller_capabilities = tuple(capabilities)
+        self._set_status(f"New edge traversal set to {traversal_mode}")
         self._refresh()
 
     def set_pending_direction(self, directed):
@@ -564,6 +923,12 @@ class TopologyAuthoringWindow:
         if not self._require_stage_ready():
             return
         self.document.undo()
+        try:
+            self._apply_active_level_view()
+        except (AttributeError, RuntimeError, TypeError, ValueError) as exc:
+            self._set_status(f"Undo applied; level view failed: {exc}")
+            self._refresh()
+            return
         self._set_status("Undo applied")
         self._refresh()
 
@@ -571,6 +936,12 @@ class TopologyAuthoringWindow:
         if not self._require_stage_ready():
             return
         self.document.redo()
+        try:
+            self._apply_active_level_view()
+        except (AttributeError, RuntimeError, TypeError, ValueError) as exc:
+            self._set_status(f"Redo applied; level view failed: {exc}")
+            self._refresh()
+            return
         self._set_status("Redo applied")
         self._refresh()
 
@@ -587,10 +958,7 @@ class TopologyAuthoringWindow:
                     f"reloaded source scene {source.scene_key!r} differs from "
                     f"current scene {self.document.scene_key!r}"
                 )
-            document = TopologyDocument(
-                source.scene_key,
-                self.adapter.source_digests(source),
-            )
+            document = _new_document(self.adapter, source)
             from .product import validate_document
 
             errors = validate_document(document, self.adapter, source)
@@ -605,6 +973,12 @@ class TopologyAuthoringWindow:
                 self._overlay.rebind_stage()
             self.document.replace_content(document)
             self.source = source
+            self.active_level_id = (
+                document.levels[0]["id"]
+                if document.version == 2 and document.levels else None
+            )
+            self._discard_route_preview()
+            self._apply_active_level_view()
             self._stage_ready = True
         except Exception as exc:
             if not stage_load_started:
@@ -710,6 +1084,12 @@ class TopologyAuthoringWindow:
             if loaded.scene_key != self.document.scene_key:
                 raise ValueError("draft scene differs from source")
             self.document.replace_content(loaded)
+            self.active_level_id = (
+                loaded.levels[0]["id"]
+                if loaded.version == 2 and loaded.levels else None
+            )
+            self._discard_route_preview()
+            self._apply_active_level_view()
             self._set_status("Draft loaded")
             self._refresh()
         except (OSError, ValueError, KeyError) as exc:
@@ -735,6 +1115,14 @@ class TopologyAuthoringWindow:
             self._set_status(str(exc))
 
     def destroy(self):
+        adapter = getattr(self, "adapter", None)
+        source = getattr(self, "source", None)
+        restore_view = getattr(adapter, "set_level_view", None)
+        if callable(restore_view) and source is not None:
+            try:
+                restore_view(None, source)
+            except (AttributeError, RuntimeError, TypeError, ValueError):
+                pass
         overlay = self._overlay
         self._overlay = None
         window = self.window
@@ -751,6 +1139,10 @@ class TopologyAuthoringWindow:
             self._frames.clear()
             self.status = None
             self.object_summary = None
+            self._route_origin_model = None
+            self._route_destination_model = None
+            self._route_capabilities_model = None
+            self._route_preview = None
             self._ui = None
             if window is not None:
                 frame = getattr(window, "frame", None)

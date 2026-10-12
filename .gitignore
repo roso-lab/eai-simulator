@@ -207,6 +207,8 @@ ros2_cmd_vel.json
 /docs/test-reports/
 test_*.py
 *_test.py
+!/tools/validation/test_topology_multilevel_authoring.py
+!/tools/validation/test_topology_surfaces.py
 !/source/EAI/test/test_restaurant_products.py
 !/source/EAI/test/test_restaurant_runtime_scene.py
 !/source/EAI/test/test_restaurant_candidate_admission.py

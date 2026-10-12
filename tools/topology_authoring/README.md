@@ -8,6 +8,11 @@ Adapters only load scene facts, semantic targets, and support-surface checks.
 Pass `--semantic-map release/maps/task_semantic_map.json` when the semantic map
 is stored in a prepared package rather than beside the source assets.
 
+For floor selection, stair/ramp connections, landmark labels, ordered XYZ route
+export and Go2 deployment, see [the multilevel workflow](MULTILEVEL.md).
+The bundled `UsdSceneAdapter` accepts a scene descriptor; scene data stays with
+the caller and does not become a benchmark task.
+
 For any scene, use an adapter that only loads scene facts:
 
 ```bash
@@ -66,8 +71,9 @@ adapters should construct a replacement stage rather than mutate the currently
 attached stage in place. Headless validation errors return a nonzero exit code.
 Map validation and navigation arrival are not physical task-success verdicts.
 
-Ground navigation follows only nodes and edge direction, using XY distance
-for shortest routes. It ignores edge polylines and profile clearance. Express
+Ground navigation follows only nodes and edge direction. Version 1 uses XY
+distance; version 2 uses XYZ length and declared traversal capabilities, with
+measured support height for progress. It ignores edge polylines and profile clearance. Express
 each bend with an intermediate node and connect the nodes in order; changing
 an edge's polyline alone does not change the robot's path. Authors guarantee
 direct passage between adjacent nodes and choose spacing manually. The runtime

@@ -13,7 +13,8 @@ import math
 from typing import Any, Mapping, Sequence
 
 from ..contracts import SkillCommand, SkillContractError, SkillKind, SkillPlan, SkillRequest
-from .topology import route_graph_digest, validate_ground_topology
+from .topology import (LEVEL_HEIGHT_TOLERANCE_M, edge_capabilities, topology_fields,
+                       route_graph_digest, validate_ground_topology)
 from ..simulator_schema import (
     GROUND_NAVIGATION_SKILL_ID, GROUND_NAVIGATION_SKILL_IDS,
     SimulatorSchemaError, validate_simulator_skill_request,
@@ -40,10 +41,13 @@ def normalize_angle(value: float) -> float:
 class GroundPose:
     position_m: tuple[float, float, float]
     yaw_rad: float
+    support_z_m: float | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "position_m", _xyz(self.position_m))
         object.__setattr__(self, "yaw_rad", normalize_angle(_number(self.yaw_rad, "yaw")))
+        if self.support_z_m is not None:
+            object.__setattr__(self, "support_z_m", _number(self.support_z_m, "support_z_m"))
 
 
 @dataclass(frozen=True)
@@ -71,6 +75,7 @@ class NodeRouteTracker:
     """One task's ordered node index and PID memory."""
     route_points_m: Sequence[Sequence[float]]
     config: GroundTrackingConfig = field(default_factory=GroundTrackingConfig)
+    height_aware: bool = False
     node_index: int = field(default=0, init=False)
     integral: float = field(default=0.0, init=False)
     previous_error: float | None = field(default=None, init=False)
@@ -89,9 +94,13 @@ class NodeRouteTracker:
         self.previous_error = None
 
     def advance_nodes(self, pose: GroundPose) -> bool:
+        if self.height_aware and pose.support_z_m is None:
+            raise SkillContractError("multilevel tracking requires measured support_z_m")
         while not self.arrived:
             target = self.route_points_m[self.node_index]
             if math.dist(pose.position_m[:2], target[:2]) > self.config.node_radius_m:
+                break
+            if self.height_aware and abs(pose.support_z_m - target[2]) > LEVEL_HEIGHT_TOLERANCE_M:
                 break
             self.node_index += 1
             self.reset_pid()
@@ -104,6 +113,9 @@ class NodeRouteTracker:
         if self.advance_nodes(pose):
             return [0.0, 0.0, 0.0]
         target = self.route_points_m[self.node_index]
+        if (self.height_aware and math.dist(pose.position_m[:2], target[:2]) < 0.05
+                and abs(pose.support_z_m - target[2]) > LEVEL_HEIGHT_TOLERANCE_M):
+            raise SkillContractError("target XY reached at the wrong support height")
         error = normalize_angle(math.atan2(target[1] - pose.position_m[1],
                                             target[0] - pose.position_m[0]) - pose.yaw_rad)
         limit = self.config.integral_limit_rad_s
@@ -122,12 +134,27 @@ class NodeRouteTracker:
 def select_node_route(document: Any, pose: GroundPose, *,
                       target_refs: Sequence[str] = (),
                       target_pose: Sequence[float] | None = None,
-                      node_radius_m: float = 0.30) -> dict[str, Any]:
-    """Nearest node then deterministic directed XY Dijkstra; no geometry."""
+                      node_radius_m: float = 0.30,
+                      origin_ref: str | None = None,
+                      controller_capabilities: Sequence[str] = ("walk",)) -> dict[str, Any]:
+    """Directed Dijkstra on authored nodes; v2 checks floor and capabilities.
+
+    v1 retains nearest-XY behavior. v2 requires measured support height and a
+    nearby start; it never invents an unvalidated connector from a distant robot.
+    """
     errors = validate_ground_topology(document)
     if errors:
         raise SkillContractError("invalid ground topology: " + "; ".join(errors))
     graph_digest = route_graph_digest(document)
+    multilevel = topology_fields(document).get("version", 1) == 2
+    if multilevel and pose.support_z_m is None:
+        raise SkillContractError("multilevel routing requires measured support_z_m")
+    if (isinstance(controller_capabilities, (str, bytes)) or
+            not all(isinstance(item, str) and item for item in controller_capabilities)):
+        raise SkillContractError("invalid controller capabilities")
+    capabilities = frozenset(controller_capabilities)
+    def at_height(point):
+        return not multilevel or abs(pose.support_z_m - point[2]) <= LEVEL_HEIGHT_TOLERANCE_M
     rows = document.get("nodes", ()) if isinstance(document, Mapping) else document.nodes
     edges = document.get("edges", ()) if isinstance(document, Mapping) else document.edges
     nodes: dict[str, tuple[float, float, float]] = {}
@@ -141,19 +168,34 @@ def select_node_route(document: Any, pose: GroundPose, *,
     if not nodes:
         return {"admitted": False, "reason": "topology_start_unconnected", "route_graph_digest": graph_digest}
     if target_refs:
-        targets = {node_id for node_id in nodes if refs[node_id].intersection(target_refs)}
+        targets = {node_id for node_id in nodes if refs[node_id].intersection(target_refs)
+                   or (multilevel and node_id in target_refs)}
     elif target_pose is not None:
         point = list(target_pose)
+        if multilevel and len(point) != 3:
+            raise SkillContractError("multilevel target_pose requires XYZ")
         if len(point) == 2:
             point.append(pose.position_m[2])
         point = _xyz(point)
-        nearest = min(nodes, key=lambda node_id: (math.dist(point[:2], nodes[node_id][:2]), node_id))
-        targets = ({nearest} if math.dist(point[:2], nodes[nearest][:2]) <= node_radius_m else set())
+        candidates = [node_id for node_id in nodes if not multilevel or
+                      abs(point[2] - nodes[node_id][2]) <= LEVEL_HEIGHT_TOLERANCE_M]
+        nearest = min(candidates, key=lambda node_id: (math.dist(point[:2], nodes[node_id][:2]), node_id)) if candidates else None
+        targets = ({nearest} if nearest is not None and math.dist(point[:2], nodes[nearest][:2]) <= node_radius_m else set())
     else:
         targets = set()
     if not targets:
         return {"admitted": False, "reason": "target_unresolved", "route_graph_digest": graph_digest}
-    start = min(nodes, key=lambda node_id: (math.dist(pose.position_m[:2], nodes[node_id][:2]), node_id))
+    starts = [node_id for node_id in nodes if at_height(nodes[node_id])]
+    if origin_ref is not None:
+        starts = [node_id for node_id in starts if origin_ref in refs[node_id] or origin_ref == node_id]
+        if len(starts) != 1:
+            return {"admitted": False, "reason": "origin_unresolved_or_wrong_level", "route_graph_digest": graph_digest}
+    if multilevel or origin_ref is not None:
+        starts = [node_id for node_id in starts
+                  if math.dist(pose.position_m[:2], nodes[node_id][:2]) <= node_radius_m]
+    if not starts:
+        return {"admitted": False, "reason": "topology_start_unconnected", "route_graph_digest": graph_digest}
+    start = min(starts, key=lambda node_id: (math.dist(pose.position_m[:2], nodes[node_id][:2]), node_id))
     adjacency: dict[str, list[tuple[str, str, float]]] = {node_id: [] for node_id in nodes}
     edge_ids: set[str] = set()
     for edge in edges:
@@ -163,9 +205,11 @@ def select_node_route(document: Any, pose: GroundPose, *,
                 or type(edge.get("directed", False)) is not bool):
             raise SkillContractError("topology edge is invalid")
         edge_ids.add(edge_id)
-        length = math.dist(nodes[first][:2], nodes[last][:2])
+        length = math.dist(nodes[first], nodes[last]) if multilevel else math.dist(nodes[first][:2], nodes[last][:2])
         if length <= 0:
             raise SkillContractError("ground topology edge must have nonzero XY length")
+        if multilevel and not edge_capabilities(edge).issubset(capabilities):
+            continue
         adjacency[first].append((last, edge_id, length))
         if not edge.get("directed", False):
             adjacency[last].append((first, edge_id, length))
@@ -183,11 +227,15 @@ def select_node_route(document: Any, pose: GroundPose, *,
         if node_id in targets:
             points = [list(nodes[item]) for item in path]
             return {"admitted": True, "route_points_m": points,
+                    **({"height_aware": True, "controller_capabilities": sorted(capabilities),
+                        "route_level_ids": [next(row for row in rows if row["id"] == item).get("level_id") for item in path],
+                        "traversal_modes": [next(edge for edge in edges if edge["id"] == item)["traversal_mode"] for item in traversed]}
+                       if multilevel else {}),
                     "route_graph_digest": graph_digest,
                     "topology_node_ids": list(path), "topology_edge_ids": list(traversed),
                     "route_length_m": length,
                     "already_at_target": len(path) == 1 and
-                    math.dist(pose.position_m[:2], points[-1][:2]) <= node_radius_m}
+                    math.dist(pose.position_m[:2], points[-1][:2]) <= node_radius_m and at_height(points[-1])}
         for neighbor, edge_id, distance in sorted(adjacency[node_id]):
             if neighbor not in best:
                 heapq.heappush(queue, (length + distance, neighbor,
@@ -252,8 +300,11 @@ class GroundNavigationProvider:
     provider_id = "ground_navigation.provider"
     provider_version = "1.0"
 
-    def __init__(self, *, tracking_config: GroundTrackingConfig | None = None):
+    def __init__(self, *, tracking_config: GroundTrackingConfig | None = None,
+                 controller_capabilities: Mapping[str, Sequence[str]] | None = None):
         self.tracking_config = tracking_config or GroundTrackingConfig()
+        self.controller_capabilities = {robot: tuple(values) for robot, values in
+                                        (controller_capabilities or {}).items()}
         self._tasks: dict[str, _GroundTask] = {}
 
     @property
@@ -283,6 +334,9 @@ class GroundNavigationProvider:
             raise SkillContractError("ground navigation robot_id does not match the task")
         if request.target_ref != task.request.target_ref or request.target_pose != task.request.target_pose:
             raise SkillContractError("ground navigation target does not match the task")
+        for key in ("origin_ref", "route_graph_digest"):
+            if request.parameters.get(key) != task.request.parameters.get(key):
+                raise SkillContractError(f"ground navigation {key} does not match the task")
         intent = request.parameters.get("intent", "start")
         try:
             _validate_observation(request, observation, motion=intent in {"start", "continue", "replan"})
@@ -307,12 +361,18 @@ class GroundNavigationProvider:
                         observation["topology"], pose,
                         target_refs=(request.target_ref,) if request.target_ref else (),
                         target_pose=request.target_pose,
-                        node_radius_m=self.tracking_config.node_radius_m)
+                        node_radius_m=self.tracking_config.node_radius_m,
+                        origin_ref=request.parameters.get("origin_ref") if intent == "start" else None,
+                        controller_capabilities=self.controller_capabilities.get(request.robot_id, ("walk",)))
+                    expected_digest = request.parameters.get("route_graph_digest")
+                    if expected_digest is not None and expected_digest != selected["route_graph_digest"]:
+                        raise SkillContractError("topology differs from resolved route graph")
                     task.private_evidence["route_selection"] = selected
                     if selected.get("admitted") is not True:
                         self._finish(task, "failed", "route_unreachable")
                         return self.response(task_id)
-                    task.tracker = NodeRouteTracker(selected["route_points_m"], self.tracking_config)
+                    task.tracker = NodeRouteTracker(selected["route_points_m"], self.tracking_config,
+                                                   height_aware=selected.get("height_aware", False))
                 command = task.tracker.step(pose, dt_s=dt_s)
                 if task.tracker.arrived:
                     self._finish(task, "succeeded", "arrived")

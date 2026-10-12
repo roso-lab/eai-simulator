@@ -84,6 +84,7 @@ class GroundNavigationExecutor:
         world_state_validator: Callable[[int, bool], None],
         provider: GroundNavigationProvider | None = None,
         pose_reader: Callable[[str], GroundPose] | None = None,
+        support_height_reader: Callable[[str], float] | None = None,
         simulation_time_reader: Callable[[], float] | None = None,
         action_factory: Callable[[Any, str, Sequence[float]], Any] | None = None,
         advance_hook: Callable[[Mapping[str, Any]], Any] | None = None,
@@ -97,6 +98,7 @@ class GroundNavigationExecutor:
         self.provider = provider if provider is not None else GroundNavigationProvider()
         self._validate = world_state_validator
         self._pose = pose_reader if pose_reader is not None else lambda robot: read_ground_pose(env, robot)
+        self._support_height = support_height_reader
         self._time = simulation_time_reader if simulation_time_reader is not None else lambda: read_simulation_time(env)
         self._action = action_factory if action_factory is not None else _default_action
         self._advance = advance_hook if advance_hook is not None else env.step
@@ -113,6 +115,8 @@ class GroundNavigationExecutor:
             pose = self._pose(request.robot_id)
             if not isinstance(pose, GroundPose):
                 raise SkillContractError("pose_reader must return GroundPose")
+            if self._support_height is not None:
+                pose = replace(pose, support_z_m=_number(self._support_height(request.robot_id), "support height"))
             observation["pose"] = pose
             if request.parameters.get("intent", "start") in {"start", "replan"}:
                 observation["topology"] = (
@@ -215,6 +219,8 @@ class GroundNavigationExecutor:
         sample = {"simulation_time_s": now, "velocity": command, "command_applied": applied}
         if pose is not None:
             sample["position_m"], sample["yaw_rad"] = list(pose.position_m), pose.yaw_rad
+            if pose.support_z_m is not None:
+                sample["support_z_m"] = pose.support_z_m
         self._samples[key].append(sample)
         evidence = dict(response.private_evidence)
         evidence.update(errors)
