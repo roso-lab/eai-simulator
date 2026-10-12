@@ -50,3 +50,15 @@ executor 还负责解析 live scene 中的 object reference、asset、controller
 高层 `Assignment -> SkillRequest` 的映射与 TaskRunner 注入仍由任务 host 完成。
 
 详见 `algorithm/skills/navigation/GROUND_NAVIGATION.zh-CN.md`。
+
+## 无人机 Pick/Place
+
+`aerial_pick_place.py` 提供 `AerialPickPlaceExecutor` 和 `PhysxAerialTransportBridge`。
+executor 使用已有 session 的真实位姿和模拟时间，写入 `[1,3]` goal_position，
+经原位置控制器推进；bridge 管理临时世界支撑、完整旋转局部帧 FixedJoint 和
+物体碰撞备份/恢复，保留质量等物理属性。调用者可注入引用、位姿和动作聚合回调。
+
+每阶段只编译当前命令，修改阶段等实际应用确认后推进。持物停止/失败/超时
+隔离并保留连接和资源，直到 host 显式恢复；不可报告为可自动释放的 quiescent。
+高层 Assignment 映射和 evaluator 仍由 host 提供。
+详见 `algorithm/skills/aerial_transport/AERIAL_PICK_PLACE.zh-CN.md`。

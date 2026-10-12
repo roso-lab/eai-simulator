@@ -10,6 +10,8 @@ from .contracts import (
 )
 from .registry import SKILL_REGISTRY, skill_records
 from .simulator_schema import (
+    AERIAL_NAVIGATION_SKILL_ID,
+    AERIAL_PICK_PLACE_SKILL_ID,
     SIMULATOR_SKILL_SCHEMAS,
     SIMULATOR_SKILL_SCHEMA_VERSION,
     SimulatorCommandSpec,
@@ -21,6 +23,8 @@ from .simulator_schema import (
 )
 
 __all__ = [
+    "AERIAL_NAVIGATION_SKILL_ID",
+    "AERIAL_PICK_PLACE_SKILL_ID",
     "SKILL_REGISTRY",
     "SIMULATOR_SKILL_SCHEMAS",
     "SIMULATOR_SKILL_SCHEMA_VERSION",

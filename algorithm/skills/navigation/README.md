@@ -1,5 +1,10 @@
 # Navigation skill providers
 
+`AerialNavigationProvider` implements pure authored XYZ node routing and world
+`goal_position` compilation. Aerial transport composes its route-selection and
+tracking primitives, with an additional precise anchor alignment gate. See the
+[aerial guide](../aerial_transport/AERIAL_PICK_PLACE.zh-CN.md).
+
 ## Injected 2D planner adapter
 
 `NavigationProvider(planner, planner_version=...)` wraps a caller-owned existing

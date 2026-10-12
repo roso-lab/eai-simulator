@@ -11,7 +11,13 @@
 导航不使用全局栅格、局部代价地图、DWA、OBB 或碰撞查询。
 详见[地面导航中文说明](navigation/GROUND_NAVIGATION.zh-CN.md)。
 
-当前注册的搬运能力仅支持 Pepper：
+无人机搬运入口为 `algorithm.skills.aerial_transport.AerialPickPlaceProvider`，
+Skill ID 为 `eai.transport.aerial_pick_place`。人工 XYZ 导航、垂直梯形轨迹与
+确认驱动状态机由纯 Provider 编译；`task.executors.aerial_pick_place` 负责位置
+控制器、临时世界支撑、真实 FixedJoint 和精确碰撞恢复。持物停止保留连接和租约。
+详见[无人机 Pick/Place 中文说明](aerial_transport/AERIAL_PICK_PLACE.zh-CN.md)。
+
+Pepper 搬运接口为：
 
 ```text
 eai.transport.composite

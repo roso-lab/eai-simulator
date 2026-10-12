@@ -12,7 +12,13 @@ uses the caller's existing EAI environment. It requires validated topology and
 world state, with no occupancy, costmap, DWA, OBB or collision queries.
 See [the navigation guide](navigation/GROUND_NAVIGATION.zh-CN.md).
 
-The currently registered composite transport implementation is Pepper-only and
-routes to `PEPPER_BOX_TRANSPORT_CFG`. G1 transport is deliberately not exposed
+`AerialPickPlaceProvider` implements `eai.transport.aerial_pick_place` with authored
+XYZ navigation, a continuous vertical profile and mutation confirmations. The
+caller-owned `AerialPickPlaceExecutor` applies existing position controllers,
+temporary world support, owned FixedJoints and exact collision restoration.
+Attached cancellation retains the joint and resource lease for explicit host recovery.
+See [the aerial transport guide](aerial_transport/AERIAL_PICK_PLACE.zh-CN.md).
+
+Pepper composite transport routes to `PEPPER_BOX_TRANSPORT_CFG`. G1 is deliberately not exposed
 as a supported skill. Provider planning and executor feedback never certify a
 physical outcome; only the external evaluator may do so.
