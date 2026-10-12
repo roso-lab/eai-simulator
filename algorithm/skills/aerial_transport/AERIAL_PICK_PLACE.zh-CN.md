@@ -215,53 +215,21 @@ host 应冻结拓扑产品身份并校验场景来源，Provider 不自行读取
 不支持 handoff、多机协作抓取、批量环境、自动抓取点检测、避障、转子直接控制
 或自动 payload 补偿。注册条目独立于 Pepper，不能因此声明其他无人机资产都已验证。
 
-## 7. 验证命令
+## 7. 验证边界
 
-轻量测试覆盖请求/schema、确定性 JSON、XYZ 导航、门槛、轨迹、携带偏移、
-高度恢复、确认、暂停、重规划、任务隔离、超时、持物取消和失败回退：
+本分支不跟踪该 Skill 的测试与烟测脚本。轻量合同测试、OpenUSD 写入测试和
+Iris cycle / retained-stop 烟测曾随开发提交 `bb605fc3` 进入本分支历史并全部
+通过，随后按发布要求移除；host 需要复验时应从该提交取回脚本，或在自有环境
+中重建等价检查。运行时日志与 JSON 输出不属于源码。
 
-```bash
-PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
-PYTHONPATH="$PWD:$PWD/source/EAI:$PWD/source/EAI_assets:$PWD/source/EAI_hmrs" \
-python -m pytest -q algorithm/skills/tests \
-  algorithm/skills/pepper_transport/pepper_transport_tests.py \
-  task/tests -p no:cacheprovider
-```
+历史验证记录：轻量合同、地面导航、Pepper 和 task executor 回归 320 项通过，
+OpenUSD 测试 4 项通过（env_isaaclab）。完整循环中，物体落在支座上并在额外
+2 模拟秒后保持约 `(0.606,-0.0004,0.675)` m，无人机恢复至约 1.30 m；5 g 质量
+及碰撞原值和写入状态保持一致。持物停止保留关节、禁碰撞和隔离租约，继续仿真
+2 秒位置漂移约 1.2 mm，host 显式释放后物理属性及资源恢复。这些数值描述该
+夹具的观测，不认证其他载荷；任何回归或烟测都不能替代外部 evaluator，缺少
+evaluator 时物理结果保持 unknown。
 
-OpenUSD 测试使用实际 USD stage，但不推进 PhysX：
-
-```bash
-PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
-PYTHONPATH="$PWD:$PWD/source/EAI:$PWD/source/EAI_assets:$PWD/source/EAI_hmrs" \
-conda run -n env_isaaclab python -m pytest -q \
-  task/tests/test_aerial_transport_usd.py -p no:cacheprovider
-```
-
-显式 Iris 原生烟测使用同一个 session API、单机位置控制器、5 g 物体与静态支座；
-需要 Isaac Sim 5.1、GPU、可用资产和 env_isaaclab。运行时日志与 JSON 不属于源码：
-
-```bash
-PYTHONPATH="$PWD:$PWD/source/EAI:$PWD/source/EAI_assets:$PWD/source/EAI_hmrs" \
-conda run -n env_isaaclab python task/tests/aerial_pick_place_smoke.py \
-  --mode cycle --output tmp/aerial_pick_place_cycle.json
-PYTHONPATH="$PWD:$PWD/source/EAI:$PWD/source/EAI_assets:$PWD/source/EAI_hmrs" \
-conda run -n env_isaaclab python task/tests/aerial_pick_place_smoke.py \
-  --mode retained-stop --output tmp/aerial_pick_place_retained_stop.json
-```
-
-JSON 分别记录命令执行与阶段位姿、物体位置、质量/碰撞、保留关节和租约。
-烟测不是 evaluator；其物理结果保持 unknown。单测的人工观测、USD 写入检查
-和源分支原型结果都不能替代迁移分支的真实运行证据。
-
-迁移分支已在 env_isaaclab / Isaac Sim 5.1 / CUDA Iris 上运行上述两种烟测。
-轻量合同、地面导航、Pepper 和 task executor 回归为 320 项通过；基础 Python
-缺少 pxr，跳过一个 OpenUSD 测试模块，该模块另在 env_isaaclab 中运行，4 项通过。
-完整循环中，物体落在支座上并在额外 2 模拟秒后保持约
-`(0.606,-0.0004,0.675)` m，无人机恢复至约 1.30 m；5 g 质量及碰撞原值和写入状态
-保持一致。持物停止保留关节、禁碰撞和隔离租约，继续仿真 2 秒位置漂移约 1.2 mm，
-host 显式释放后物理属性及资源恢复。这些数值描述该夹具的观测，不认证其他载荷。
-烟测还对该夹具的位置、悬停速度、属性恢复与租约执行独立 `smoke_checks`，
-这组回归检查不能替代外部 evaluator。
 当前 Isaac 的 PhysicsUSD 在创建携带关节时仍输出 `disjointed body transforms`
 警告；已有变换同步调用，实测挂接样本未出现大幅位移，完整循环与保留停止都完成。
 host 应保留原始日志和锚点/关节证据，不能用命令状态隐藏这条 native 警告。
