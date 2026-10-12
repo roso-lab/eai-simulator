@@ -1,114 +1,175 @@
-"""Serialization and fail-closed validation for topology products."""
+"""Serialization and validation of scene-bound, authored ground topologies."""
 from __future__ import annotations
-import hashlib, json, math
+
+import hashlib
+import json
+import math
+import os
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+import tempfile
+from typing import Mapping
+
+from algorithm.skills.navigation.topology import finite_number, finite_xyz, validate_ground_topology
 from .model import PROFILES, TopologyDocument
 
-def _sha(path: Path) -> str:
-    h = hashlib.sha256(); h.update(path.read_bytes()); return h.hexdigest()
 
 def validate_document(doc: TopologyDocument, adapter=None, source=None, *, require_targets=False,
                       node_only=False) -> list[str]:
-    errors=[]; ids=set()
-    if doc.scene_key.strip() != doc.scene_key or not doc.scene_key or "/" in doc.scene_key or "\\" in doc.scene_key:
+    errors = validate_ground_topology(doc)
+    if (not isinstance(doc.scene_key, str) or not doc.scene_key
+            or doc.scene_key.strip() != doc.scene_key or doc.scene_key in {".", ".."}
+            or "/" in doc.scene_key or "\\" in doc.scene_key):
         errors.append("scene_key is invalid")
-    if doc.coordinate_frame.startswith("/") or doc.up_axis != "Z":
-        errors.append("topology coordinate system is invalid")
     if not isinstance(doc.source, Mapping):
         errors.append("source digest inventory is invalid")
     else:
         for name, digest in doc.source.items():
-            if not isinstance(name, str) or not name or name.startswith(("/", "\\")) \
-                    or ".." in name.split("/"):
+            if (not isinstance(name, str) or not name or name.startswith("/")
+                    or "\\" in name or ".." in name.split("/")):
                 errors.append("source digest key is invalid")
-            if not isinstance(digest, str) or len(digest) != 64 \
-                    or any(char not in "0123456789abcdef" for char in digest):
+            if (not isinstance(digest, str) or len(digest) != 64
+                    or any(char not in "0123456789abcdef" for char in digest)):
                 errors.append(f"invalid source digest: {name}")
-    if adapter is not None and source is not None:
+    if (adapter is None) != (source is None):
+        errors.append("adapter and source must be supplied together")
+    bound_source = adapter is not None and source is not None
+    target_refs = set()
+    if bound_source:
+        if doc.scene_key != source.scene_key or getattr(adapter, "scene_key", source.scene_key) != source.scene_key:
+            errors.append("topology scene differs from current scene input")
         try:
             expected = dict(adapter.source_digests(source))
-        except (AttributeError, TypeError, ValueError) as exc:
-            errors.append(f"cannot read source digests: {exc}")
-        else:
-            if dict(doc.source) != expected:
+            if doc.source != expected:
                 errors.append("source digest differs from current scene input")
-    for n in doc.nodes:
-        nid=n.get("id")
-        if not isinstance(nid,str) or nid in ids: errors.append(f"duplicate/invalid node id: {nid}")
-        ids.add(nid)
-        try:
-            p=n["position_xyz"]
-            if len(p)!=3 or any(not math.isfinite(float(v)) for v in p): raise ValueError
-        except (KeyError,TypeError,ValueError): errors.append(f"invalid node position: {nid}")
-        refs = n.get("target_refs", ())
-        if not isinstance(refs, list) or any(not isinstance(ref, str) or not ref or ":" not in ref
-                                             for ref in refs):
-            errors.append(f"invalid node target references: {nid}")
-    target_refs=set()
-    if adapter is not None and source is not None:
-        target_refs={t.ref for t in adapter.semantic_targets(source)}
-    if require_targets:
-        bound={r for n in doc.nodes for r in n.get("target_refs",())}
-        errors.extend(f"target has no entrance: {r}" for r in sorted(target_refs-bound))
-    edge_ids=set()
-    for e in doc.edges:
-        eid=e.get("id")
-        if not isinstance(eid,str) or eid in edge_ids: errors.append(f"duplicate/invalid edge id: {eid}")
-        edge_ids.add(eid)
-        if e.get("from") not in ids or e.get("to") not in ids or e.get("from")==e.get("to"): errors.append(f"invalid edge endpoints: {eid}")
-        if type(e.get("directed", False)) is not bool:
-            errors.append(f"invalid edge direction: {eid}")
-        if node_only:
+            scene_refs = [target.ref for target in adapter.semantic_targets(source)]
+            if any(not isinstance(ref, str) or not ref or ":" not in ref for ref in scene_refs):
+                raise ValueError("invalid scene target reference")
+            target_refs = set(scene_refs)
+        except (AttributeError, OSError, RuntimeError, TypeError, ValueError) as exc:
+            errors.append(f"cannot read scene facts: {exc}")
+    elif require_targets:
+        errors.append("target validation requires a scene adapter and source")
+
+    # Do not perform geometry operations on malformed structural inputs.
+    nodes = {row["id"]: row for row in doc.nodes
+             if isinstance(row, Mapping) and isinstance(row.get("id"), str)
+             and finite_xyz(row.get("position_xyz"))} if isinstance(doc.nodes, (list, tuple)) else {}
+    bound = set()
+    for node in doc.nodes if isinstance(doc.nodes, (list, tuple)) else ():
+        if not isinstance(node, Mapping):
             continue
-        points=e.get("polyline_xyz")
-        if not isinstance(points,list) or len(points)<2: errors.append(f"edge has too few points: {eid}"); continue
-        for p in points:
-            try:
-                if len(p)!=3 or any(not math.isfinite(float(v)) for v in p): raise ValueError
-            except (TypeError,ValueError): errors.append(f"invalid edge point: {eid}"); break
-        if all(math.dist(points[index - 1], points[index]) <= 1e-9
-               for index in range(1, len(points))):
-            errors.append(f"zero length edge: {eid}")
-        try:
-            start_node = next(row for row in doc.nodes if row.get("id") == e.get("from"))
-            end_node = next(row for row in doc.nodes if row.get("id") == e.get("to"))
-            if math.dist(points[0], start_node["position_xyz"]) > 1e-5 \
-                    or math.dist(points[-1], end_node["position_xyz"]) > 1e-5:
-                errors.append(f"edge endpoints do not match polyline: {eid}")
-        except (StopIteration, KeyError, TypeError, ValueError):
-            pass
-        for profile, cfg in (e.get("profiles") or {}).items():
-            try:
-                clearance = float(cfg.get("clearance_m", 0)) if isinstance(cfg, Mapping) else 0
-            except (TypeError, ValueError):
-                clearance = 0
-            if profile not in PROFILES or not isinstance(cfg,Mapping) or not math.isfinite(clearance) or clearance<=0:
-                errors.append(f"invalid profile {profile}: {eid}")
-        if adapter is not None and source is not None:
-            for profile in (e.get("profiles") or {}): errors.extend(f"{eid}: {x}" for x in adapter.validate_polyline(points, profile, source))
-    if target_refs:
-        for n in doc.nodes:
-            for ref in n.get("target_refs",()):
-                if ref not in target_refs: errors.append(f"unknown target reference: {ref}")
+        refs = node.get("target_refs", [])
+        if not isinstance(refs, (list, tuple)):
+            continue
+        for ref in refs:
+            if isinstance(ref, str):
+                bound.add(ref)
+                if bound_source and ref not in target_refs:
+                    errors.append(f"unknown target reference: {ref}")
+    if require_targets:
+        errors.extend(f"target has no entrance: {ref}" for ref in sorted(target_refs - bound))
+
+    for edge in doc.edges if isinstance(doc.edges, (list, tuple)) else ():
+        if not isinstance(edge, Mapping):
+            continue
+        edge_id = edge.get("id")
+        start, end = edge.get("from"), edge.get("to")
+        endpoints = (isinstance(start, str) and isinstance(end, str)
+                     and start in nodes and end in nodes and start != end)
+        points = edge.get("polyline_xyz")
+        if not node_only:
+            if not isinstance(points, list) or len(points) < 2:
+                errors.append(f"edge has too few points: {edge_id}")
+            elif not all(finite_xyz(point) for point in points):
+                errors.append(f"invalid edge point: {edge_id}")
+            else:
+                if all(math.dist(a, b) <= 1e-9 for a, b in zip(points, points[1:])):
+                    errors.append(f"zero length edge: {edge_id}")
+                if endpoints and (math.dist(points[0], nodes[start]["position_xyz"]) > 1e-5
+                                  or math.dist(points[-1], nodes[end]["position_xyz"]) > 1e-5):
+                    errors.append(f"edge endpoints do not match polyline: {edge_id}")
+        profiles = edge.get("profiles", {})
+        if not isinstance(profiles, Mapping) or not profiles:
+            if not node_only:
+                errors.append(f"edge profiles must be a nonempty object: {edge_id}")
+            continue
+        for profile, config in profiles.items():
+            clearance = config.get("clearance_m") if isinstance(config, Mapping) else None
+            if profile not in PROFILES or not finite_number(clearance) or clearance <= 0:
+                if not node_only:
+                    errors.append(f"invalid profile {profile}: {edge_id}")
+                continue
+            if bound_source and endpoints:
+                # Validate exactly what node-only execution will follow, never
+                # use a decorative bend as evidence for straight-line passage.
+                segment = [nodes[start]["position_xyz"], nodes[end]["position_xyz"]]
+                try:
+                    problems = adapter.validate_polyline(segment, profile, source)
+                    if not isinstance(problems, list) or any(not isinstance(item, str) for item in problems):
+                        raise ValueError("adapter validation must return a list of errors")
+                    errors.extend(f"{edge_id}: {item}" for item in problems)
+                except (AttributeError, OSError, RuntimeError, TypeError, ValueError) as exc:
+                    errors.append(f"{edge_id}: scene validation failed: {exc}")
     return sorted(set(errors))
 
-def save_draft(path: Path, doc: TopologyDocument) -> None:
-    path=Path(path); path.parent.mkdir(parents=True,exist_ok=True); path.write_text(json.dumps(doc.to_dict(),indent=2,ensure_ascii=False)+"\n",encoding="utf-8")
 
-def load_product(path: Path, adapter=None, source=None) -> TopologyDocument:
-    document = TopologyDocument.from_dict(json.loads(Path(path).read_text(encoding="utf-8")))
-    if adapter is not None and source is not None:
-        errors = validate_document(document, adapter, source)
-        if errors:
-            raise ValueError("topology source validation failed: " + "; ".join(errors))
+def product_digest(doc: TopologyDocument) -> str:
+    """Hash the complete serialized product; the caller freezes it before runs."""
+    return hashlib.sha256(json.dumps(doc.to_dict(), sort_keys=True, separators=(",", ":"),
+                                     allow_nan=False).encode("utf-8")).hexdigest()
+
+
+def save_draft(path: Path, doc: TopologyDocument) -> None:
+    # Serialize first, then replace atomically so failed writes preserve drafts.
+    payload = json.dumps(doc.to_dict(), indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
+                                         prefix=f".{path.name}.", delete=False) as stream:
+            temporary = Path(stream.name)
+            stream.write(payload)
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
+def _unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def _reject_constant(value):
+    raise ValueError(f"nonfinite JSON constant: {value}")
+
+
+def load_product(path: Path, adapter=None, source=None, *, expected_digest=None) -> TopologyDocument:
+    document = TopologyDocument.from_dict(json.loads(
+        Path(path).read_text(encoding="utf-8"), object_pairs_hook=_unique_object,
+        parse_constant=_reject_constant))
+    errors = validate_document(document, adapter, source)
+    if errors:
+        raise ValueError("topology validation failed: " + "; ".join(errors))
+    if expected_digest is not None and product_digest(document) != expected_digest:
+        raise ValueError("topology product differs from frozen digest")
     return document
 
+
 def generate_product(path: Path, doc: TopologyDocument, adapter=None, source=None, *, require_targets=False) -> Path:
-    errors=validate_document(doc,adapter,source,require_targets=require_targets)
+    errors = validate_document(doc, adapter, source, require_targets=require_targets)
+    if errors:
+        raise ValueError("topology validation failed: " + "; ".join(errors))
     if not doc.nodes:
         errors.append("topology is empty; add at least two nodes before generating")
     elif len(doc.nodes) < 2 or not doc.edges:
         errors.append("topology is incomplete; add connected nodes and edges before generating")
-    if errors: raise ValueError("topology validation failed: " + "; ".join(errors))
-    save_draft(path,doc); return Path(path)
+    if errors:
+        raise ValueError("topology validation failed: " + "; ".join(errors))
+    save_draft(path, doc)
+    return Path(path)

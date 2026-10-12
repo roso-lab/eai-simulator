@@ -13,6 +13,7 @@ import math
 from typing import Any, Mapping, Sequence
 
 from ..contracts import SkillCommand, SkillContractError, SkillKind, SkillPlan, SkillRequest
+from .topology import route_graph_digest, validate_ground_topology
 from ..simulator_schema import (
     GROUND_NAVIGATION_SKILL_ID, GROUND_NAVIGATION_SKILL_IDS,
     SimulatorSchemaError, validate_simulator_skill_request,
@@ -123,6 +124,10 @@ def select_node_route(document: Any, pose: GroundPose, *,
                       target_pose: Sequence[float] | None = None,
                       node_radius_m: float = 0.30) -> dict[str, Any]:
     """Nearest node then deterministic directed XY Dijkstra; no geometry."""
+    errors = validate_ground_topology(document)
+    if errors:
+        raise SkillContractError("invalid ground topology: " + "; ".join(errors))
+    graph_digest = route_graph_digest(document)
     rows = document.get("nodes", ()) if isinstance(document, Mapping) else document.nodes
     edges = document.get("edges", ()) if isinstance(document, Mapping) else document.edges
     nodes: dict[str, tuple[float, float, float]] = {}
@@ -134,7 +139,7 @@ def select_node_route(document: Any, pose: GroundPose, *,
         nodes[node_id] = _xyz(row["position_xyz"])
         refs[node_id] = set(row.get("target_refs", ()))
     if not nodes:
-        return {"admitted": False, "reason": "topology_start_unconnected"}
+        return {"admitted": False, "reason": "topology_start_unconnected", "route_graph_digest": graph_digest}
     if target_refs:
         targets = {node_id for node_id in nodes if refs[node_id].intersection(target_refs)}
     elif target_pose is not None:
@@ -147,7 +152,7 @@ def select_node_route(document: Any, pose: GroundPose, *,
     else:
         targets = set()
     if not targets:
-        return {"admitted": False, "reason": "target_unresolved"}
+        return {"admitted": False, "reason": "target_unresolved", "route_graph_digest": graph_digest}
     start = min(nodes, key=lambda node_id: (math.dist(pose.position_m[:2], nodes[node_id][:2]), node_id))
     adjacency: dict[str, list[tuple[str, str, float]]] = {node_id: [] for node_id in nodes}
     edge_ids: set[str] = set()
@@ -178,6 +183,7 @@ def select_node_route(document: Any, pose: GroundPose, *,
         if node_id in targets:
             points = [list(nodes[item]) for item in path]
             return {"admitted": True, "route_points_m": points,
+                    "route_graph_digest": graph_digest,
                     "topology_node_ids": list(path), "topology_edge_ids": list(traversed),
                     "route_length_m": length,
                     "already_at_target": len(path) == 1 and
@@ -186,7 +192,7 @@ def select_node_route(document: Any, pose: GroundPose, *,
             if neighbor not in best:
                 heapq.heappush(queue, (length + distance, neighbor,
                                       (*path, neighbor), (*traversed, edge_id)))
-    return {"admitted": False, "reason": "topology_route_unreachable"}
+    return {"admitted": False, "reason": "topology_route_unreachable", "route_graph_digest": graph_digest}
 
 
 COMMAND_ROUTE = "env.step -> EAI velocity controller"

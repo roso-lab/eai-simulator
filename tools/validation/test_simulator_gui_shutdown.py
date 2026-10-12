@@ -112,14 +112,18 @@ def test_physics_stop_removes_interactive_stop_handler_first():
     simulator._close_environment_for_app_close(None)
 
 
-def test_menu_service_shutdown_without_dependency_cascade(monkeypatch):
+@pytest.mark.parametrize("legacy_menu", [True, False])
+def test_menu_service_shutdown_without_dependency_cascade(monkeypatch, legacy_menu):
     events = []
 
     class EditorMenu:
         _hooks = []
 
-    monkeypatch.setitem(sys.modules, "omni.kit.ui", SimpleNamespace(
-        EditorMenu=EditorMenu, Menu=SimpleNamespace(static_class=EditorMenu())))
+    if legacy_menu:
+        monkeypatch.setitem(sys.modules, "omni.kit.ui", SimpleNamespace(
+            EditorMenu=EditorMenu, Menu=SimpleNamespace(static_class=EditorMenu())))
+    else:
+        monkeypatch.delitem(sys.modules, "omni.kit.ui", raising=False)
     instance = SimpleNamespace(on_shutdown=lambda: events.append("menu_service_closed"))
     monkeypatch.setitem(sys.modules, "omni.kit.menu.utils", SimpleNamespace(get_instance=lambda: instance))
     manager = SimpleNamespace(is_extension_enabled=lambda name: True,

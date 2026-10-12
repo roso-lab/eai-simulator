@@ -658,11 +658,10 @@ def _prepare_gui_for_app_close(simulation_app: Any) -> None:
     ui = sys.modules.get("omni.kit.ui")
     menu = getattr(getattr(ui, "Menu", None), "static_class", None)
     editor_type = getattr(ui, "EditorMenu", None)
-    if not isinstance(editor_type, type) or not isinstance(menu, editor_type):
-        return
     # The legacy File menu can retain old stage subscriptions/menu entries.
     # Stop the menu service too, so late extension events cannot rebuild stale
-    # can_close callbacks after the USD context has gone away.
+    # can_close callbacks after the USD context has gone away. Standalone
+    # editors may load this service without constructing an EditorMenu.
     try:
         manager = simulation_app.app.get_extension_manager()
         if manager.is_extension_enabled("isaacsim.gui.menu"):
@@ -679,6 +678,8 @@ def _prepare_gui_for_app_close(simulation_app: Any) -> None:
             instance.on_shutdown()
     except Exception as exc:
         print(f"[EAI Simulator] Warning: GUI menu service cleanup failed: {exc}")
+    if not isinstance(editor_type, type) or not isinstance(menu, editor_type):
+        return
     hooks = getattr(menu, "_hooks", None)
     if isinstance(hooks, list):
         hooks.clear()

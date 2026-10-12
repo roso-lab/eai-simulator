@@ -6,59 +6,113 @@ imports Kit only after parsing the scene adapter and is therefore also useful
 for checking adapter wiring with ``--help``.
 """
 from __future__ import annotations
-import argparse, importlib, json, sys
+import argparse, importlib, inspect, json, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path: sys.path.insert(0, str(ROOT))
 from tools.topology_authoring.model import TopologyDocument
 from tools.topology_authoring.product import generate_product, validate_document
+from tools.topology_authoring.adapter import SceneSource
 
 def _load(spec, scene_key=None):
     module, name = spec.split(":", 1)
     factory = getattr(importlib.import_module(module), name)
     if scene_key is not None:
         try:
+            signature = inspect.signature(factory)
+        except (TypeError, ValueError):
             return factory(scene_key=scene_key)
+        try:
+            signature.bind(scene_key=scene_key)
         except TypeError:
-            pass
+            return factory()
+        return factory(scene_key=scene_key)
     return factory()
 
-def build_document(adapter, asset_root):
-    source=adapter.load_source(Path(asset_root))
+def _with_semantic_map(source, semantic_map):
+    if semantic_map is None:
+        return source
+    payload = dict(source.payload)
+    payload["semantic"] = semantic_map
+    return SceneSource(source.scene_key, Path(source.asset_root), payload)
+
+def _read_semantic_map(path):
+    if path is None:
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+def build_document(adapter, asset_root, semantic_map=None, *, requested_scene_key=None):
+    source = _with_semantic_map(adapter.load_source(Path(asset_root)), semantic_map)
+    if requested_scene_key is not None and source.scene_key != requested_scene_key:
+        raise ValueError(
+            f"adapter source scene {source.scene_key!r} differs from requested "
+            f"scene {requested_scene_key!r}"
+        )
     return source, TopologyDocument(source.scene_key, adapter.source_digests(source))
 
 def _headless(args):
-    adapter=_load(args.adapter, args.scene_key); source, doc=build_document(adapter,args.asset_root)
-    if args.semantic_map:
-        source.payload["semantic"] = json.loads(args.semantic_map.read_text(encoding="utf-8"))
-        doc = TopologyDocument(source.scene_key, adapter.source_digests(source))
+    semantic_map = _read_semantic_map(args.semantic_map)
+    adapter=_load(args.adapter, args.scene_key)
+    source, doc=build_document(
+        adapter,
+        args.asset_root,
+        semantic_map,
+        requested_scene_key=args.scene_key,
+    )
     errors=validate_document(doc,adapter,source)
     print(json.dumps({"scene_key":source.scene_key,"nodes":len(doc.nodes),"edges":len(doc.edges),"validation_errors":errors},ensure_ascii=False,indent=2))
     if args.generate:
         generate_product(Path(args.generate),doc,adapter,source)
-    return 0
+    return 1 if errors else 0
 
 def _gui(args):
     # Isaac imports are deliberately lazy: adapters and model remain usable on
     # CI hosts without Kit.
     from isaacsim import SimulationApp
-    app=SimulationApp({"headless":False})
-    import omni.kit.app
-    # Use an absolute import so the documented direct-script entry point
-    # (``python tools/topology_authoring/author.py``) works as well as
-    # ``python -m tools.topology_authoring.author``.  A relative import has no
-    # package context when this file is executed by path.
-    from tools.topology_authoring.ui import TopologyAuthoringWindow
-    adapter=_load(args.adapter, args.scene_key); source, doc=build_document(adapter,args.asset_root)
-    if args.semantic_map:
-        source.payload["semantic"] = json.loads(args.semantic_map.read_text(encoding="utf-8"))
-        doc = TopologyDocument(source.scene_key, adapter.source_digests(source))
-    adapter.load_stage(source)
-    window=TopologyAuthoringWindow(doc,adapter,source,Path(args.output_root))
-    while app.is_running():
-        app.update()
-    window.destroy(); app.close(); return 0
+    app=SimulationApp({"headless":False, "fast_shutdown":False})
+    window = None
+    try:
+        # Use an absolute import so the documented direct-script entry point
+        # (``python tools/topology_authoring/author.py``) works as well as
+        # ``python -m tools.topology_authoring.author``.  A relative import has no
+        # package context when this file is executed by path.
+        from tools.topology_authoring.ui import TopologyAuthoringWindow
+        semantic_map = _read_semantic_map(args.semantic_map)
+        adapter=_load(args.adapter, args.scene_key)
+        source, doc=build_document(
+            adapter,
+            args.asset_root,
+            semantic_map,
+            requested_scene_key=args.scene_key,
+        )
+        errors = validate_document(doc, adapter, source)
+        if errors:
+            raise ValueError(
+                "source validation failed: " + "; ".join(errors)
+            )
+        adapter.load_stage(source)
+        window=TopologyAuthoringWindow(
+            doc,
+            adapter,
+            source,
+            Path(args.output_root),
+            semantic_map=semantic_map,
+        )
+        while app.is_running():
+            app.update()
+        return 0
+    finally:
+        try:
+            if window is not None:
+                window.destroy()
+        finally:
+            try:
+                from simulator import _prepare_gui_for_app_close
+
+                _prepare_gui_for_app_close(app)
+            finally:
+                app.close()
 
 def main(argv=None):
     p=argparse.ArgumentParser(description=__doc__)

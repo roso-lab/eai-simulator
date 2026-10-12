@@ -53,12 +53,31 @@ class TopologyDocument:
         self._undo.append(self._snapshot())
         self._redo.clear()
 
+    def replace_content(self, other: "TopologyDocument") -> None:
+        """Commit a validated load as a new document/history boundary."""
+        for name in ("scene_key", "source", "nodes", "edges", "coordinate_frame",
+                     "meters_per_unit", "up_axis"):
+            setattr(self, name, deepcopy(getattr(other, name)))
+        self._undo.clear()
+        self._redo.clear()
+        self.cancel_preview()
+
+    @staticmethod
+    def _next_id(rows: list[dict[str, Any]], prefix: str) -> str:
+        used = {row["id"] for row in rows}
+        suffixes = [int(value[len(prefix):]) for value in used
+                    if value.startswith(prefix) and value[len(prefix):].isascii()
+                    and value[len(prefix):].isdigit()]
+        ordinal = max(suffixes, default=0) + 1
+        return f"{prefix}{ordinal:04d}"
+
     def undo(self) -> bool:
         if not self._undo:
             return False
         self._redo.append(self._snapshot())
         state = self._undo.pop()
         self.nodes, self.edges = state["nodes"], state["edges"]
+        self.cancel_preview()
         return True
 
     def redo(self) -> bool:
@@ -67,15 +86,19 @@ class TopologyDocument:
         self._undo.append(self._snapshot())
         state = self._redo.pop()
         self.nodes, self.edges = state["nodes"], state["edges"]
+        self.cancel_preview()
         return True
 
     def add_node(self, position: Sequence[float], *, kind="custom", node_id=None,
                  target_refs: Iterable[str] = (), source_ref=None, locked=False) -> str:
-        self._record()
-        node_id = node_id or f"node:{len(self.nodes) + 1:04d}"
+        node_id = self._next_id(self.nodes, "node:") if node_id is None else node_id
+        if not isinstance(node_id, str) or not node_id.strip():
+            raise ValueError("node id must be a nonempty string")
         if any(row["id"] == node_id for row in self.nodes):
             raise ValueError(f"duplicate node id: {node_id}")
-        self.nodes.append({"id": str(node_id), "kind": str(kind), "position_xyz": _point(position),
+        point = _point(position)
+        self._record()
+        self.nodes.append({"id": str(node_id), "kind": str(kind), "position_xyz": point,
                            "target_refs": sorted(set(map(str, target_refs))),
                            "source_ref": source_ref, "locked": bool(locked)})
         return str(node_id)
@@ -160,8 +183,8 @@ class TopologyDocument:
         return edge
 
     def bind_target(self, node_id: str, target_ref: str) -> None:
-        self._record()
         node = self.node(node_id)
+        self._record()
         refs = set(node.setdefault("target_refs", [])); refs.add(str(target_ref))
         node["target_refs"] = sorted(refs)
         node["kind"] = "target_entrance"
@@ -170,9 +193,10 @@ class TopologyDocument:
                  edge_id=None, directed=False, kind="custom_connection", source_ref=None,
                  profiles: Mapping[str, Mapping[str, float]] | None = None,
                  locked_geometry=False) -> str:
-        self._record()
         points = [_point(p) for p in polyline]
-        edge_id = edge_id or f"edge:{len(self.edges) + 1:04d}"
+        edge_id = self._next_id(self.edges, "edge:") if edge_id is None else edge_id
+        if not isinstance(edge_id, str) or not edge_id.strip():
+            raise ValueError("edge id must be a nonempty string")
         if from_id == to_id or len(points) < 2:
             raise ValueError("edge requires two distinct nodes and two points")
         if any(row["id"] == edge_id for row in self.edges):
@@ -180,6 +204,7 @@ class TopologyDocument:
         if from_id not in {n["id"] for n in self.nodes} or to_id not in {n["id"] for n in self.nodes}:
             raise ValueError("edge endpoint does not exist")
         prof = deepcopy(dict(profiles or {k: {"clearance_m": v} for k, v in PROFILES.items()}))
+        self._record()
         self.edges.append({"id": str(edge_id), "kind": str(kind), "from": str(from_id),
                            "to": str(to_id), "directed": bool(directed),
                            "polyline_xyz": points, "profiles": prof,
@@ -199,8 +224,7 @@ class TopologyDocument:
         self._record()
         self.nodes = [n for n in self.nodes if n["id"] != node_id]
         self.edges = [e for e in self.edges if e["from"] != node_id and e["to"] != node_id]
-        if self.selected_node_id == node_id:
-            self.selected_node_id = None
+        self.cancel_preview()
 
     def remove_edge(self, edge_id: str) -> None:
         edge = next((e for e in self.edges if e["id"] == edge_id), None)
@@ -243,7 +267,8 @@ class TopologyDocument:
         self._record(); edge["polyline_xyz"].pop(index)
 
     def set_edge_direction(self, edge_id: str, directed: bool) -> None:
-        self._record(); self.edge(edge_id)["directed"] = bool(directed)
+        edge = self.edge(edge_id)
+        self._record(); edge["directed"] = bool(directed)
 
     def set_edge_profile(self, edge_id: str, profile: str, clearance_m: float) -> None:
         if profile not in PROFILES:
@@ -251,7 +276,8 @@ class TopologyDocument:
         value = float(clearance_m)
         if not math.isfinite(value) or value <= 0:
             raise ValueError("clearance_m must be positive and finite")
-        self._record(); self.edge(edge_id).setdefault("profiles", {})[profile] = {"clearance_m": value}
+        edge = self.edge(edge_id)
+        self._record(); edge.setdefault("profiles", {})[profile] = {"clearance_m": value}
 
     def move_node(self, node_id: str, position: Sequence[float]) -> None:
         node = self.node(node_id)
@@ -281,9 +307,14 @@ class TopologyDocument:
 
     @classmethod
     def from_dict(cls, value: Mapping[str, Any]) -> "TopologyDocument":
-        if value.get("schema") != "eai.navigation.topology" or value.get("version") != 1:
+        if (not isinstance(value, Mapping) or value.get("schema") != "eai.navigation.topology"
+                or type(value.get("version")) is not int or value["version"] != 1):
             raise ValueError("unsupported topology product")
-        return cls(str(value["scene_key"]), dict(value.get("source", {})),
-                   deepcopy(list(value.get("nodes", []))), deepcopy(list(value.get("edges", []))),
-                   str(value.get("coordinate_frame", "scene_world")), float(value.get("meters_per_unit", 1.0)),
-                   str(value.get("up_axis", "Z")))
+        if not isinstance(value.get("scene_key"), str) or not isinstance(value.get("source", {}), Mapping):
+            raise ValueError("invalid topology scene/source")
+        if not isinstance(value.get("nodes", []), list) or not isinstance(value.get("edges", []), list):
+            raise ValueError("topology nodes and edges must be arrays")
+        return cls(value["scene_key"], deepcopy(dict(value.get("source", {}))),
+                   deepcopy(value.get("nodes", [])), deepcopy(value.get("edges", [])),
+                   value.get("coordinate_frame", "scene_world"), value.get("meters_per_unit", 1.0),
+                   value.get("up_axis", "Z"))

@@ -1,5 +1,6 @@
 """Isaac Sim viewport picking and topology overlay."""
 from __future__ import annotations
+import math
 from typing import Any, Callable
 
 OVERLAY_ROOT = "/World/TopologyAuthoringOverlay"
@@ -41,12 +42,27 @@ def _orient_z(prim, direction):
     )
     UsdGeom.Xformable(prim).AddOrientOp().Set(quatf)
 
+def _current_stage():
+    try:
+        import omni.usd
+    except ImportError:
+        return None
+    return omni.usd.get_context().get_stage()
+
 class TopologyOverlay:
     def __init__(self, document):
-        self.document=document; self.stage=None
-        try:
-            import omni.usd; self.stage=omni.usd.get_context().get_stage()
-        except ImportError: pass
+        self.document=document; self.stage=_current_stage()
+    def _remove_from_stage(self):
+        if self.stage is None:
+            return
+        prim=self.stage.GetPrimAtPath(OVERLAY_ROOT)
+        if prim.IsValid(): self.stage.RemovePrim(OVERLAY_ROOT)
+    def rebind_stage(self):
+        stage = _current_stage()
+        if stage is self.stage:
+            return
+        self._remove_from_stage()
+        self.stage = stage
     def rebuild(self):
         if self.stage is None: return
         from pxr import Gf, UsdGeom
@@ -77,9 +93,8 @@ class TopologyOverlay:
         if length<=1e-8:return
         d.Normalize(); tip=b-d*min(.35,length*.25); cone=UsdGeom.Cone.Define(self.stage,path); cone.CreateRadiusAttr().Set(.32); cone.CreateHeightAttr().Set(.7); cone.AddTranslateOp().Set(tip); _orient_z(cone.GetPrim(),d); _set_color(cone.GetPrim(),color)
     def destroy(self):
-        if self.stage is not None:
-            prim=self.stage.GetPrimAtPath(OVERLAY_ROOT)
-            if prim.IsValid(): self.stage.RemovePrim(OVERLAY_ROOT)
+        self._remove_from_stage()
+        self.stage = None
 
 class _TopologyClickGesture:
     """Ray-cast a viewport click and forward its world position."""
@@ -120,6 +135,14 @@ class _TopologyClickGesture:
         self.callback = callback
         self.gesture = _Gesture(self)
 
+    def destroy(self):
+        gesture = self.gesture
+        self.gesture = None
+        if gesture is not None:
+            gesture.owner = None
+        self.viewport_api = None
+        self.callback = None
+
 
 class _TopologyManipulator:
     def __init__(self, viewport_api: Any, on_left: Callable, on_right: Callable):
@@ -133,20 +156,40 @@ class _TopologyManipulator:
 
             def on_build(self):
                 self.root = sc.Transform()
-                left = _TopologyClickGesture(self.owner.viewport_api, self.owner.on_left, 0).gesture
-                right = _TopologyClickGesture(self.owner.viewport_api, self.owner.on_right, 1).gesture
+                self.owner._destroy_gestures()
+                self.owner._left_gesture = _TopologyClickGesture(
+                    self.owner.viewport_api, self.owner.on_left, 0
+                )
+                self.owner._right_gesture = _TopologyClickGesture(
+                    self.owner.viewport_api, self.owner.on_right, 1
+                )
                 with self.root:
-                    self.left_screen = sc.Screen(gesture=left)
-                    self.right_screen = sc.Screen(gesture=right)
+                    self.left_screen = sc.Screen(
+                        gesture=self.owner._left_gesture.gesture
+                    )
+                    self.right_screen = sc.Screen(
+                        gesture=self.owner._right_gesture.gesture
+                    )
 
             def destroy(self):
                 self.clear()
+                self.left_screen = None
+                self.right_screen = None
                 self.root = None
 
         self.viewport_api = viewport_api
         self.on_left = on_left
         self.on_right = on_right
+        self._left_gesture = None
+        self._right_gesture = None
         self._manipulator = _Manipulator(self)
+
+    def _destroy_gestures(self):
+        for name in ("_left_gesture", "_right_gesture"):
+            gesture = getattr(self, name, None)
+            setattr(self, name, None)
+            if gesture is not None:
+                gesture.destroy()
 
     @property
     def visible(self):
@@ -160,8 +203,14 @@ class _TopologyManipulator:
         self._manipulator.invalidate()
 
     def destroy(self):
-        self._manipulator.destroy()
-        self._manipulator = None
+        if self._manipulator is not None:
+            self._manipulator.destroy()
+            self._manipulator.owner = None
+            self._manipulator = None
+        self._destroy_gestures()
+        self.viewport_api = None
+        self.on_left = None
+        self.on_right = None
 
 
 class _TopologyViewportScene:
@@ -187,6 +236,7 @@ class _TopologyViewportScene:
         if self._manipulator is not None:
             self._owner.destroy()
             self._manipulator = None
+        self._owner = None
 
 
 class ViewportOverlay:
@@ -211,11 +261,13 @@ class ViewportOverlay:
         self.refresh()
 
     def _on_left(self, prim_path, world_position, *_args):
-        if world_position is None:
+        if not prim_path or world_position is None:
             return
         try:
             point = tuple(float(world_position[index]) for index in range(3))
         except (IndexError, TypeError, ValueError):
+            return
+        if not all(math.isfinite(value) for value in point):
             return
         self._on_left_callback(point, prim_path)
 
@@ -225,8 +277,24 @@ class ViewportOverlay:
     def refresh(self):
         self.overlay.rebuild()
 
+    def rebind_stage(self):
+        self.overlay.rebind_stage()
+
     def destroy(self):
         # Releasing the registration removes scene instances from viewports;
         # the USD overlay is explicitly removed from the authoring stage.
+        registration = self._registration
         self._registration = None
-        self.overlay.destroy()
+        overlay = self.overlay
+        self.overlay = None
+        try:
+            if registration is not None:
+                registration.destroy()
+        finally:
+            try:
+                if overlay is not None:
+                    overlay.destroy()
+            finally:
+                self._on_left_callback = None
+                self._on_right_callback = None
+                self.document = None

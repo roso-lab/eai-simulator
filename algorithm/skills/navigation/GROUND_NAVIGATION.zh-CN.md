@@ -17,6 +17,11 @@ Provider 保留每个任务的节点索引和 PID，只计算命令。executor �
 边字段为 `id`、`from`、`to`、`directed`；未声明方向的边为双向。
 位姿使用世界坐标中的米和弧度；拓扑与真实 root 位姿必须处于同一坐标系。
 
+`topology.py` 提供编辑工具和 Provider 共用的执行结构校验。显式坐标元数据必须
+为 `scene_world`、`meters_per_unit=1`、`up_axis=Z`；旧 host 的仅 nodes/edges
+映射继续按这个既有约定解释。错误元数据、空/重复 ID、非有限或非数值 XYZ、
+无效边与零 XY 长度边均拒绝；不增加避障、插点或自动生成路线。
+
 每次 start 或 replan 都从当前真实位姿重新选路：
 
 1. 按 XY 距离选择最近的 node；距离相同按 node ID 排序。
@@ -35,6 +40,10 @@ edge polyline、length 和 profile clearance 不参与选路或跟踪。
 
 相邻 node 默认可以直接通行，其位置、间距和通行条件由拓扑作者保证；
 没有自动节点间距限制。
+
+host 还需保证起始位置可以直接接入最近节点；现有 start/replan 保留“最近节点”
+接入规则，不增加到最近节点的距离门槛。该接入段不代表已通过拓扑边或碰撞校验，
+场景应把机器人放在已定义路线的起点/通行区域，不能借此推断任意离图位置可达。
 
 弯道必须用中间节点表达。例如，道路从 A 经拐角 B 到 C，需建立
 `A → B → C`。仅给 `A → C` 的 edge polyline 添加弯点时，
@@ -164,6 +173,12 @@ root 位姿、模拟时间、命令确认和错误类型留在 private_evidence�
 不断增长的轨迹。
 SkillPlan.status=planned 只表示命令已编译；navigation_state=succeeded 表示
 基于可信位姿的节点跟踪到达，不替代外部 evaluator 的任务物理成功判断。
+
+每次 start/replan 的私有 `route_selection.route_graph_digest` 固定本次使用的
+节点/绑定/有向边图，节点和边的数组重排不改变摘要；它不含装饰折线、profile 或
+来源资产，不等同于完整拓扑产品摘要。任务 host 应另外冻结产品摘要与场景身份，
+使用 `tools.topology_authoring.load_product(..., expected_digest=...)` 校验后注入。
+地面导航不自行读取可变文件，运行证据不能仅依赖产品路径。
 
 HeteroCoord 本次迁移提供通用节点 PID 和执行适配。City 产品加载器、City native
 执行器及其地图来源校验仍属于源分支；此分支没有这些模块，也不复用源分支的
