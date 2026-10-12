@@ -98,6 +98,9 @@ def validate_ground_topology(document: Any) -> list[str]:
             errors.append(f"invalid node position: {node_id}")
         else:
             nodes[node_id] = row["position_xyz"]
+        heading = row.get("heading_rad")
+        if heading is not None and (version != 2 or not finite_number(heading) or abs(heading) > math.pi):
+            errors.append(f"node heading requires v2 normalized radians in [-pi, pi]: {node_id}")
         refs = row.get("target_refs", [])
         if (not isinstance(refs, (list, tuple)) or
                 any(not isinstance(ref, str) or not ref.strip() or ":" not in ref for ref in refs)):
@@ -198,6 +201,8 @@ def route_graph_digest(document: Any) -> str:
             original = by_id[row["id"]]
             row.update(level_id=original.get("level_id"), label=original.get("label", ""),
                        aliases=sorted(set(original.get("aliases", []))))
+            if original.get("heading_rad") is not None:
+                row["heading_rad"] = float(original["heading_rad"])
         by_id = {row["id"]: row for row in data["edges"]}
         for row in payload["edges"]:
             original = by_id[row["id"]]

@@ -14,6 +14,7 @@ TRAVERSAL_MODES = frozenset({"walk", "stairs", "ramp"})
 class PendingNode:
     position_xyz: list[float]
     support_ref: str | None = None
+    heading_rad: float | None = None
 
 
 @dataclass
@@ -41,6 +42,14 @@ def _strings(value: Iterable[str], label: str) -> list[str]:
     if any(not isinstance(item, str) or not item.strip() for item in items):
         raise ValueError(f"{label} must contain nonempty strings")
     return sorted(set(items))
+
+
+def _heading(value: float | None) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise ValueError("heading must be finite radians or null")
+    return math.atan2(math.sin(value), math.cos(value))
 
 
 def _level_id(value: str | None) -> str | None:
@@ -181,7 +190,7 @@ class TopologyDocument:
 
     def add_node(self, position: Sequence[float], *, kind="custom", node_id=None,
                  target_refs: Iterable[str] = (), source_ref=None, locked=False,
-                 level_id=None, label="", aliases: Iterable[str] = ()) -> str:
+                 level_id=None, label="", aliases: Iterable[str] = (), heading_rad=None) -> str:
         node_id = self._next_id(self.nodes, "node:") if node_id is None else node_id
         if not isinstance(node_id, str) or not node_id.strip():
             raise ValueError("node id must be a nonempty string")
@@ -190,7 +199,8 @@ class TopologyDocument:
         point = _point(position)
         refs = sorted(set(map(str, target_refs)))
         node_level, node_label, node_aliases = _node_metadata(level_id, label, aliases)
-        if self.version == 1 and (node_level is not None or node_label or node_aliases):
+        heading = _heading(heading_rad)
+        if self.version == 1 and (node_level is not None or node_label or node_aliases or heading is not None):
             raise ValueError("multilevel node metadata requires topology version 2")
         if self.version == 2:
             duplicate_refs = {
@@ -205,24 +215,31 @@ class TopologyDocument:
                "target_refs": refs, "source_ref": source_ref, "locked": bool(locked)}
         if self.version == 2:
             row.update({"level_id": node_level, "label": node_label, "aliases": node_aliases})
+            if heading is not None:
+                row["heading_rad"] = heading
         self._record()
         self.nodes.append(row)
         return str(node_id)
 
-    def begin_node_preview(self, position: Sequence[float], *, support_ref: str | None = None) -> None:
+    def begin_node_preview(self, position: Sequence[float], *, support_ref: str | None = None,
+                           heading_rad=None) -> None:
+        point, heading = _point(position), _heading(heading_rad)
+        if self.version == 1 and heading is not None:
+            raise ValueError("node heading requires topology version 2")
         self.pending_edge = None
         self.selected_node_id = None
         self.selected_edge_id = None
-        self.pending_node = PendingNode(_point(position), support_ref)
+        self.pending_node = PendingNode(point, support_ref, heading)
 
     def confirm_node_preview(self, *, kind: str = "custom", target_refs: Iterable[str] = (),
-                             level_id=None, label="", aliases: Iterable[str] = ()) -> str:
+                             level_id=None, label="", aliases: Iterable[str] = (), heading_rad=None) -> str:
         if self.pending_node is None:
             raise ValueError("no node preview is active")
         pending = self.pending_node
         node_id = self.add_node(pending.position_xyz, kind=kind, target_refs=target_refs,
                                 source_ref=pending.support_ref, level_id=level_id,
-                                label=label, aliases=aliases)
+                                label=label, aliases=aliases,
+                                heading_rad=pending.heading_rad if heading_rad is None else heading_rad)
         self.pending_node = None
         self.selected_node_id = node_id
         self.selected_edge_id = None
@@ -316,6 +333,19 @@ class TopologyDocument:
         node_level, node_label, node_aliases = _node_metadata(level_id, label, aliases)
         self._record()
         node.update({"level_id": node_level, "label": node_label, "aliases": node_aliases})
+
+    def set_node_heading(self, node_id: str, heading_rad: float | None) -> None:
+        if self.version != 2:
+            raise ValueError("node heading requires topology version 2")
+        node = self.node(node_id)
+        if node.get("locked"):
+            raise ValueError("locked node cannot be edited")
+        heading = _heading(heading_rad)
+        self._record()
+        if heading is None:
+            node.pop("heading_rad", None)
+        else:
+            node["heading_rad"] = heading
 
     def add_edge(self, from_id: str, to_id: str, polyline: Sequence[Sequence[float]], *,
                  edge_id=None, directed=False, kind="custom_connection", source_ref=None,

@@ -22,6 +22,7 @@ python -m pytest --rootdir="$PWD" -q -p no:cacheprovider \
   tools/validation/test_topology_authoring_ui.py \
   tools/validation/test_topology_multilevel_authoring.py \
   tools/validation/test_topology_surfaces.py \
+  tools/validation/test_topology_pose_ui.py \
   tools/validation/test_simulator_gui_shutdown.py
 git diff --check
 ```

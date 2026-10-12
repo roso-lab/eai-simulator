@@ -208,6 +208,35 @@ An unreachable or capability-incompatible route is not admitted.
 
 ## Deployment diagnostic
 
+### English landmarks and authored heading
+
+Use the existing editor to name points, for example `pantry_1f` and
+`meeting_room_2f`. Labels/aliases belong to the topology and do not require
+predeclared external semantic targets; their stable node ID is the execution
+fallback. External target bindings still require the source's target inventory.
+Duplicate names need an explicit level filter.
+The **Named Landmarks** list shows saved names and levels. **Select** activates
+the corresponding floor and node; **Origin / Destination** insert its stable
+node ID into the route query so duplicate labels remain unambiguous.
+
+Enter XYZ in metres and choose **Typed Node Preview**, or click a support surface.
+Enter optional heading degrees (+X=0, +Y=90) or choose **Pick Heading** followed by
+a second viewport point. Only the second point's XY direction affects yaw.
+The node's `heading_rad` is serialized in normalized radians; labels, position,
+level, aliases and heading survive save/reload and undo/redo.
+
+Route exports contain `route_headings_rad` aligned with `route_points_m` and a
+terminal `target_heading_rad`. A constrained terminal heading is also emitted as
+`skill_parameters.target_yaw`. Intermediate headings are metadata; execution
+aligns only at the destination, rechecking position and support height throughout
+the turn. Missing heading keeps position-only arrival. Version 1 is unchanged.
+A same-node semantic query does not certify heading arrival: the execution
+provider must read the actual robot pose, including after a pre-start hold.
+
+The upstream fixed JSON format will be supplied by the user later. No natural
+language parser or new task-input schema is introduced; existing explicit
+origin/destination resolver parameters remain the integration boundary.
+
 Model integration starts with `landmark_inventory(document)`. A model selects
 authored origin/destination references, then `resolve_landmark_route` returns
 ordered XYZ points, `target_ref` and `skill_parameters` for the existing

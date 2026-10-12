@@ -1,5 +1,78 @@
 # 多楼层工作流：2026-10-12 原生验证
 
+## 英文地点、XYZ 与终点朝向追加验证
+
+复用本工具新增可选 `heading_rad`、XYZ/角度输入、视口第二点定向以及
+**Named Landmarks** 地点列表。英文 label/alias、楼层、坐标和朝向随地图保存；
+上层固定 JSON 格式由用户后续确定，本轮未添加自然语言解析或正式任务定义。
+
+追加完整回归 **717 passed, 1 skipped in 33.93s**，最终界面改动后相关 61 项
+再验通过；独立核心审查修复后 64 项通过。命令见 [VALIDATION.md](VALIDATION.md)。
+补充覆盖开始前 hold 不得改写 v2 朝向、仅凭地点查询不得认定朝向到达、v1 清单
+兼容、预览移动保留朝向以及跨楼层地点选择。
+
+实际 Isaac Sim 5.1 GUI 检查产物保留于忽略目录 `tmp/semantic_pose/`：
+
+| 检查 | 实测证据 |
+| --- | --- |
+| 编辑器 | 真实 Kit 回调设置 XYZ、90°方向、英文名称/别名，保存/加载、路线导出、选择已标记地点；原场景摘要未变 |
+| 方向显示 | 原生 USD 世界变换确认箭头不重复平移；单节点路线显示终点箭头，隐藏楼层不显示其箭头 |
+| Go2 `go2-01` / 最终 `go2-02` | 从 `pantry_1f` 到 `meeting_room_2f`，上行 12 级实体台阶后对齐世界 +Y，两次 physical_pass=true，进程 exit 0 |
+| 终点支持高度 | 1.200000048 m，目标 1.2 m |
+| 位置 / 方向误差 | XY 0.086585 m；yaw 0.087657 rad（约 5.02°），设定容差 0.10 rad |
+| 停车 / 姿态 | 平面速度 0.000511 m/s；竖直方向余弦 0.999331；终态零命令已执行 |
+| 过程记录 | 884 个样本，终点有 105 个纯转向命令样本；每次 187 条有效高度射线；输入摘要未变 |
+
+已实际检查 GUI 截图及机器人最终近景。编辑器操作通过真实回调进行，不包含
+OS 鼠标投递认证。原始结果见 `editor-04/result.json`、`go2-02/result.json`；
+数据是临时台阶上的诊断，不是 office 楼梯验收、正式任务成功率或下楼认证。
+
+本轮拓扑产品摘要：
+`ab198061ca61ee6b458b4419556fc75163c2406e2907aa2a9198b08b2c82cc06`。
+最终导航使用 `editor-03/topology.json`；后续 `editor-04` 仅检查界面，产品摘要相同。
+
+### 本机打开编辑器
+
+```bash
+cd /home/pupil/eai-simulator-worktrees/experiment-analysis-framework
+source /home/pupil/miniconda3/etc/profile.d/conda.sh
+conda activate env_isaaclab
+python -m tools.topology_authoring.author \
+  --scene-key three_levels_diagnostic \
+  --adapter tools.topology_authoring.adapters.usd_scene:UsdSceneAdapter \
+  --asset-root tmp/multilevel/three-levels \
+  --output-root tmp/semantic_pose/editor-04
+```
+
+点击 **Load Draft** 加载已验证的地点。**Named Landmarks** 中可选择地点或
+设为起终点；**Node Properties** 编辑已有点，**Preview** 创建新点。
+**Pick Heading** 后点击方向点；角度框留空表示不约束，0°=+X、90°=+Y。
+在 **Landmark Route Preview** 填写 `pantry_1f`、`meeting_room_2f`，能力填
+`walk,stairs`，然后预览并导出。输入框或地点列表没有显示时向下滚动。
+
+若需编辑 office，使用本文末尾的 office 编辑器命令；流程完全相同。
+
+### 本机复验 Go2 上楼并定向
+
+在同一环境及工作目录中运行：
+
+```bash
+export EAI_USD_ROOT=/home/pupil/eai-simulator/usd
+export EAI_CONTROLLER_ROOT=/home/pupil/eai-simulator/source/EAI_assets/EAI_assets/controller
+export PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs
+python -m tools.topology_authoring.deploy \
+  --scene-key three_levels_diagnostic \
+  --asset-root tmp/multilevel/three-levels \
+  --topology tmp/semantic_pose/editor-04/topology.json \
+  --origin pantry_1f --destination meeting_room_2f \
+  --controller GO2_MIXED_STAIRS_CFG \
+  --speed .5 --node-radius .18 --timeout 70 --max-steps 4500 \
+  --output-root tmp/semantic_pose/gui-user-01 --hold-gui
+```
+
+每次复验使用新的输出目录。`--hold-gui` 在到达后持续给零速度并保留窗口。
+以下保留此前三层上行与 office 检查记录，其数据与本轮朝向验证分开。
+
 本轮验证的是通用的楼层/地标编辑、XYZ 路线解析和现有 ground-navigation skill
 接入。具体 office 描述、路线、临时台阶 USD、截图和测量结果均保留在忽略的
 `tmp/multilevel/`，不作为正式实验任务、合同或论文成功率数据。

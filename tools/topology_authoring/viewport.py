@@ -47,7 +47,7 @@ def project_click(viewport_api, pixel, callback):
     viewport_api.request_query(pixel, callback, query_name="eai.topology_authoring.pick")
 
 def draw_overlay(stage, document, *, active_level_id=None, route_points_m=(),
-                 route_node_ids=()):
+                 route_node_ids=(), route_headings_rad=()):
     del stage
     node_ids = visible_node_ids(document, active_level_id)
     return {"nodes": [dict(id=n["id"], position=n["position_xyz"], locked=n.get("locked", False),
@@ -59,12 +59,16 @@ def draw_overlay(stage, document, *, active_level_id=None, route_points_m=(),
                            traversal_mode=e.get("traversal_mode", "walk"))
                       for e in visible_edges(document, active_level_id)],
             "pending_node": getattr(document.pending_node, "position_xyz", None),
-            "pending_edge": document.pending_edge.preview_polyline_xyz if document.pending_edge else None,
-            "selected_node": document.selected_node_id,
-            "selected_edge": document.selected_edge_id,
+            "node_headings_rad": {n["id"]: n.get("heading_rad") for n in document.nodes
+                                  if n.get("heading_rad") is not None and n["id"] in node_ids},
+            "pending_heading_rad": getattr(document.pending_node, "heading_rad", None),
+            "pending_edge": document.pending_edge.preview_polyline_xyz if getattr(document, "pending_edge", None) else None,
+            "selected_node": getattr(document, "selected_node_id", None),
+            "selected_edge": getattr(document, "selected_edge_id", None),
             "active_level_id": active_level_id,
             "route_points_m": [list(point) for point in route_points_m],
-            "route_node_ids": list(route_node_ids)}
+            "route_node_ids": list(route_node_ids),
+            "route_headings_rad": list(route_headings_rad)}
 
 def _set_color(prim, value):
     from pxr import Gf, UsdGeom
@@ -104,11 +108,13 @@ class TopologyOverlay:
         self.active_level_id = None
         self.route_points_m = ()
         self.route_node_ids = ()
+        self.route_headings_rad = ()
     def set_active_level(self, level_id):
         self.active_level_id = level_id
-    def set_route_preview(self, points, node_ids=()):
+    def set_route_preview(self, points, node_ids=(), headings=()):
         self.route_points_m = tuple(tuple(float(value) for value in point) for point in points)
         self.route_node_ids = tuple(node_ids)
+        self.route_headings_rad = tuple(headings)
     def _remove_from_stage(self):
         if self.stage is None:
             return
@@ -134,6 +140,11 @@ class TopologyOverlay:
             sphere.CreateRadiusAttr().Set(.06 if self.document.version == 2 else .42); sphere.AddTranslateOp().Set(Gf.Vec3d(*node["position_xyz"]))
             color = (.95, .06, .05) if node["id"] == self.document.selected_node_id else (.08, .85, .18)
             _set_color(sphere.GetPrim(), color)
+            if node.get("heading_rad") is not None:
+                self._draw_heading_arrow(
+                    f"{OVERLAY_ROOT}/Headings/H{i:05d}",
+                    node["position_xyz"], node["heading_rad"], color,
+                )
         traversal_colors = {"walk": (.08, .85, .18), "stairs": (.95, .55, .06),
                             "ramp": (.12, .55, .95)}
         for i,edge in enumerate(visible_edges(self.document, self.active_level_id)):
@@ -142,6 +153,8 @@ class TopologyOverlay:
             self._draw_edge(f"{OVERLAY_ROOT}/Edges/E{i:05d}",edge["polyline_xyz"],edge.get("directed",False),color)
         if self.document.pending_node:
             sphere=UsdGeom.Sphere.Define(self.stage,f"{OVERLAY_ROOT}/Preview/Node"); sphere.CreateRadiusAttr().Set(.075 if self.document.version == 2 else .5); sphere.AddTranslateOp().Set(Gf.Vec3d(*self.document.pending_node.position_xyz)); _set_color(sphere.GetPrim(),(.95,.06,.05))
+            if getattr(self.document.pending_node, "heading_rad", None) is not None:
+                self._draw_heading_arrow(f"{OVERLAY_ROOT}/Preview/Heading", self.document.pending_node.position_xyz, self.document.pending_node.heading_rad, (.95,.06,.05))
         if self.document.pending_edge and self.document.pending_edge.preview_polyline_xyz:
             self._draw_edge(f"{OVERLAY_ROOT}/Preview/Edge",self.document.pending_edge.preview_polyline_xyz,self.document.pending_edge.directed,(.95,.06,.05))
         if len(self.route_points_m) >= 2:
@@ -154,6 +167,13 @@ class TopologyOverlay:
             elif self.active_level_id is None:
                 self._draw_edge(f"{OVERLAY_ROOT}/Route/Path", self.route_points_m, True,
                                 (.05, .85, .95))
+        if self.route_headings_rad and len(self.route_headings_rad) == len(self.route_points_m):
+            terminal = self.route_headings_rad[-1]
+            target_visible = (self.active_level_id is None or
+                              (len(self.route_node_ids) == len(self.route_points_m) and
+                               self.route_node_ids[-1] in visible_ids))
+            if terminal is not None and target_visible:
+                self._draw_heading_arrow(f"{OVERLAY_ROOT}/Route/TargetHeading", self.route_points_m[-1], terminal, (.05, .85, .95))
     def _draw_edge(self,path,points,directed,color):
         from pxr import Gf, UsdGeom
         curve=UsdGeom.BasisCurves.Define(self.stage,path); curve.CreateTypeAttr().Set(UsdGeom.Tokens.linear); curve.CreateCurveVertexCountsAttr().Set([len(points)]); curve.CreatePointsAttr().Set([Gf.Vec3f(*p) for p in points]); curve.CreateWidthsAttr().Set([.025 if self.document.version == 2 else .16]); _set_color(curve.GetPrim(),color)
@@ -166,6 +186,10 @@ class TopologyOverlay:
         if length<=1e-8:return
         scale = .18 if self.document.version == 2 else 1.0
         d.Normalize(); tip=b-d*min(.35*scale,length*.25); cone=UsdGeom.Cone.Define(self.stage,path); cone.CreateRadiusAttr().Set(.32*scale); cone.CreateHeightAttr().Set(.7*scale); cone.AddTranslateOp().Set(tip); _orient_z(cone.GetPrim(),d); _set_color(cone.GetPrim(),color)
+    def _draw_heading_arrow(self, path, origin, heading, color):
+        length = .18 if self.document.version == 2 else .5
+        end = [origin[0] + length * math.cos(heading), origin[1] + length * math.sin(heading), origin[2]]
+        self._draw_arrow(path, origin, end, color)
     def destroy(self):
         self._remove_from_stage()
         self.stage = None
@@ -355,8 +379,8 @@ class ViewportOverlay:
         self.overlay.set_active_level(level_id)
         self.refresh()
 
-    def set_route_preview(self, points, node_ids=()):
-        self.overlay.set_route_preview(points, node_ids)
+    def set_route_preview(self, points, node_ids=(), headings=()):
+        self.overlay.set_route_preview(points, node_ids, headings)
         self.refresh()
 
     def rebind_stage(self):

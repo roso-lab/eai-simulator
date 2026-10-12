@@ -211,7 +211,7 @@ def test_route_preview_and_export_use_resolver_output(tmp_path):
     shown = []
 
     class Overlay:
-        def set_route_preview(self, points, node_ids):
+        def set_route_preview(self, points, node_ids, headings=()):
             shown.append((points, node_ids))
 
     window = TopologyAuthoringWindow.__new__(TopologyAuthoringWindow)
@@ -247,7 +247,7 @@ def test_failed_or_stale_route_preview_is_removed(tmp_path):
     shown = []
 
     class Overlay:
-        def set_route_preview(self, points, node_ids):
+        def set_route_preview(self, points, node_ids, headings=()):
             shown.append((points, node_ids))
 
         def refresh(self):
@@ -288,7 +288,7 @@ def test_route_preview_contains_optional_overlay_failure(tmp_path):
     document = multilevel_document()
 
     class BrokenOverlay:
-        def set_route_preview(self, _points, _node_ids):
+        def set_route_preview(self, _points, _node_ids, _headings=()):
             raise RuntimeError("stage is unavailable")
 
         def refresh(self):

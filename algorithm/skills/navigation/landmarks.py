@@ -24,7 +24,8 @@ def landmark_inventory(document: Any) -> list[dict[str, Any]]:
     data = _data(document)
     return [{"node_id": row["id"], "refs": list(row.get("target_refs", [])),
              "label": row.get("label", ""), "aliases": list(row.get("aliases", [])),
-             "level_id": row.get("level_id"), "position_xyz": list(row["position_xyz"])}
+             "level_id": row.get("level_id"), "position_xyz": list(row["position_xyz"]),
+             **({"heading_rad": row.get("heading_rad")} if data.get("version") == 2 else {})}
             for row in sorted(data["nodes"], key=lambda row: row["id"])
             if row.get("target_refs") or row.get("label") or row.get("aliases")]
 
@@ -75,5 +76,10 @@ def resolve_landmark_route(
                   coordinate_frame="scene_world", meters_per_unit=1, up_axis="Z")
     if result["admitted"]:
         result["skill_parameters"] = {"origin_ref": start, "route_graph_digest": result["route_graph_digest"]}
+        if result.get("target_heading_rad") is not None:
+            result["skill_parameters"]["target_yaw"] = result["target_heading_rad"]
+            # The declared origin supplies no measured robot orientation.
+            # Only the execution provider may certify heading arrival.
+            result["already_at_target"] = False
         result["target_ref"] = target
     return result

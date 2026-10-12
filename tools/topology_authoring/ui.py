@@ -242,6 +242,13 @@ class TopologyAuthoringWindow:
         self._pending_node_kind = "custom"
         self._pending_traversal_mode = "walk"
         self._pending_controller_capabilities = ()
+        self._heading_pick_active = False
+        self._pose_x_model = None
+        self._pose_y_model = None
+        self._pose_z_model = None
+        self._pose_heading_model = None
+        self._node_label_model = None
+        self._node_aliases_model = None
         self._route_preview = None
         self._route_origin_model = None
         self._route_destination_model = None
@@ -266,12 +273,21 @@ class TopologyAuthoringWindow:
         self._route_origin_model = ui.SimpleStringModel("")
         self._route_destination_model = ui.SimpleStringModel("")
         self._route_capabilities_model = ui.SimpleStringModel("walk")
+        self._pose_x_model = ui.SimpleFloatModel(0.0)
+        self._pose_y_model = ui.SimpleFloatModel(0.0)
+        self._pose_z_model = ui.SimpleFloatModel(0.0)
+        self._pose_heading_model = ui.SimpleStringModel("")
+        self._node_label_model = ui.SimpleStringModel("")
+        self._node_aliases_model = ui.SimpleStringModel("")
         with self.window.frame:
             with ui.ScrollingFrame(
                 horizontal_scrollbar_policy=ui.ScrollBarPolicy.SCROLLBAR_ALWAYS_OFF,
                 vertical_scrollbar_policy=ui.ScrollBarPolicy.SCROLLBAR_ALWAYS_ON
-            ):
-                with ui.VStack(height=0, width=ui.Fraction(1), spacing=7, style={"margin": 10}):
+            ) as scroll_frame:
+                self._scroll_frame = scroll_frame
+                # A generic margin style propagates to every nested widget in
+                # Kit, making the authoring controls several screens tall.
+                with ui.VStack(height=0, width=ui.Fraction(1), spacing=7):
                     ui.Label(f"Topology Authoring  |  {self.source.scene_key}", height=30, style={"font_size": 19})
                     self.status = ui.Label(
                         "Click empty ground to preview a node. Confirm it, then click a node to start an edge.",
@@ -302,6 +318,23 @@ class TopologyAuthoringWindow:
                                 ui.Button("Confirm Node", width=0, clicked_fn=self.confirm_node)
                                 ui.Button("Confirm Edge", width=0, clicked_fn=self.confirm_edge)
                                 ui.Button("Clear Selection", width=0, clicked_fn=self.clear_selection)
+                            if self.document.version == 2:
+                                ui.Label("New node pose: XYZ metres; heading is optional degrees (+X=0, +Y=90)", word_wrap=True)
+                                with ui.HStack(height=28, spacing=4):
+                                    for label, model in (("X", self._pose_x_model), ("Y", self._pose_y_model), ("Z", self._pose_z_model)):
+                                        ui.Label(label, width=16)
+                                        ui.FloatField(model, width=72)
+                                    ui.Label("heading°", width=58)
+                                    ui.StringField(self._pose_heading_model, width=72)
+                                with ui.HStack(height=28, spacing=4):
+                                    ui.Button("Typed Node Preview", width=0, clicked_fn=self.begin_typed_node_preview)
+                                    ui.Button("Pick Heading", width=0, clicked_fn=self.begin_heading_pick)
+                                ui.Label("Label and aliases are saved directly; external target bindings are optional.", word_wrap=True)
+                                with ui.HStack(height=28, spacing=4):
+                                    ui.Label("Label", width=42)
+                                    ui.StringField(self._node_label_model, width=145)
+                                    ui.Label("Aliases", width=48)
+                                    ui.StringField(self._node_aliases_model, width=145)
                             with ui.HStack(height=28, spacing=5):
                                 ui.Button("One-way", width=0, clicked_fn=lambda: self.set_pending_direction(True))
                                 ui.Button("Two-way", width=0, clicked_fn=lambda: self.set_pending_direction(False))
@@ -315,7 +348,7 @@ class TopologyAuthoringWindow:
                                     for mode in ("walk", "stairs", "ramp"):
                                         ui.Button(mode.title(), width=0,
                                                   clicked_fn=lambda value=mode: self.set_pending_traversal(value))
-                    for builder in (self._build_level_controls, self._build_selection,
+                    for builder in (self._build_level_controls, self._build_landmarks, self._build_selection,
                                     self._build_node_properties, self._build_edge_properties,
                                     self._build_target_properties, self._build_route_preview):
                         frame = ui.Frame(height=0)
@@ -327,6 +360,72 @@ class TopologyAuthoringWindow:
     @staticmethod
     def _format_point(point):
         return "(" + ", ".join(f"{float(value):.2f}" for value in point) + ")"
+
+    @staticmethod
+    def _heading_degrees(value):
+        return "" if value is None else f"{math.degrees(float(value)):.3f}"
+
+    @staticmethod
+    def _parse_heading_degrees(value):
+        raw = str(value).strip()
+        if not raw:
+            return None
+        degrees = float(raw)
+        if not math.isfinite(degrees):
+            raise ValueError("heading must be finite degrees")
+        radians = math.radians(degrees)
+        return math.atan2(math.sin(radians), math.cos(radians))
+
+    def _set_pose_models(self, point, heading=None):
+        for model, value in zip((getattr(self, "_pose_x_model", None), getattr(self, "_pose_y_model", None), getattr(self, "_pose_z_model", None)), point):
+            if model is not None:
+                model.set_value(float(value))
+        if getattr(self, "_pose_heading_model", None) is not None:
+            self._pose_heading_model.as_string = self._heading_degrees(heading)
+
+    def _parse_heading(self):
+        model = getattr(self, "_pose_heading_model", None)
+        return self._parse_heading_degrees(
+            model.as_string if model is not None else ""
+        )
+
+    def begin_typed_node_preview(self):
+        if not self._require_stage_ready():
+            return
+        try:
+            point = [self._pose_x_model.as_float, self._pose_y_model.as_float, self._pose_z_model.as_float]
+            self.document.begin_node_preview(point, heading_rad=self._parse_heading())
+            self._heading_pick_active = False
+            self._set_status("Typed red node preview ready; confirm it or pick a heading from the viewport.")
+        except (AttributeError, TypeError, ValueError) as exc:
+            self._set_status(f"Pose preview failed: {exc}")
+        self._refresh()
+
+    def begin_heading_pick(self):
+        if not self._require_stage_ready():
+            return
+        if self.document.pending_node is None and self.document.selected_node_id is None:
+            self._set_status("Create or select a node before picking its heading")
+            return
+        if self.document.pending_node is None:
+            self.document.cancel_edge_preview()
+        self._heading_pick_active = True
+        self._set_status("Click a second point in the viewport to set the node heading")
+
+    def _set_heading_from_point(self, position):
+        node = self.document.pending_node
+        origin = node.position_xyz if node is not None else self.document.node(self.document.selected_node_id)["position_xyz"]
+        dx, dy = float(position[0]) - float(origin[0]), float(position[1]) - float(origin[1])
+        if math.hypot(dx, dy) <= 1e-9:
+            raise ValueError("heading point must differ in XY from node")
+        heading = math.atan2(dy, dx)
+        if node is not None:
+            node.heading_rad = heading
+        else:
+            self.document.set_node_heading(self.document.selected_node_id, heading)
+        self._heading_pick_active = False
+        self._set_pose_models(origin, heading)
+        self._set_status(f"Heading set to {math.degrees(heading):.1f} degrees")
 
     def _normalize_active_level(self):
         if self.document.version != 2 or not self.document.levels:
@@ -358,6 +457,7 @@ class TopologyAuthoringWindow:
             self._set_status(f"Unknown level: {level_id}")
             return
         self.document.cancel_preview()
+        self._heading_pick_active = False
         self.active_level_id = level_id
         try:
             self._apply_active_level_view()
@@ -409,11 +509,54 @@ class TopologyAuthoringWindow:
                     if self.document.version == 2:
                         ui.Label(f"Level: {row.get('level_id') or 'transition/unassigned'}")
                         ui.Label(f"Label: {row.get('label') or '(none)'}")
+                        ui.Label(f"Aliases: {', '.join(row.get('aliases', ())) or '(none)'}")
+                        heading = row.get("heading_rad")
+                        ui.Label(f"Heading: {self._heading_degrees(heading) or '(unconstrained)'}°")
                 else:
                     ui.Label(f"From: {row['from']}    To: {row['to']}")
                     ui.Label(f"Direction: {'one-way' if row.get('directed') else 'two-way'}")
                     if self.document.version == 2:
                         ui.Label(f"Traversal: {row.get('traversal_mode', 'walk')}")
+
+    def _build_landmarks(self):
+        if self.document.version != 2:
+            return
+        from algorithm.skills.navigation.landmarks import landmark_inventory
+
+        ui = self._ui
+        with ui.CollapsableFrame("Named Landmarks", collapsed=False, height=0):
+            with ui.VStack(height=0, spacing=4):
+                for row in landmark_inventory(self.document):
+                    with ui.HStack(height=28, spacing=4):
+                        ui.Label(f"{row['label'] or row['node_id']} [{row['level_id'] or 'transition'}]",
+                                 tooltip=row['node_id'])
+                        for label, role in (("Select", None), ("Origin", "origin"), ("Destination", "destination")):
+                            ui.Button(label, width=80,
+                                      clicked_fn=lambda node_id=row['node_id'], value=role:
+                                          self.use_landmark(node_id, value))
+
+    def use_landmark(self, node_id, route_role=None):
+        if not self._require_stage_ready():
+            return
+        try:
+            node = self.document.node(node_id)
+            if route_role is None:
+                self.set_active_level(node.get("level_id"))
+                self.document.select_node(node_id)
+                self._set_pose_models(node["position_xyz"], node.get("heading_rad"))
+                self._node_label_model.as_string = node.get("label", "")
+                self._node_aliases_model.as_string = ", ".join(node.get("aliases", ()))
+            elif route_role in {"origin", "destination"}:
+                # IDs stay unambiguous even when different floors share a label.
+                model = self._route_origin_model if route_role == "origin" else self._route_destination_model
+                model.as_string = node_id
+                self._discard_route_preview()
+            else:
+                raise ValueError("unknown landmark route role")
+            self._set_status(f"{route_role or 'Selected'}: {node.get('label') or node_id}")
+        except (AttributeError, KeyError, TypeError, ValueError) as exc:
+            self._set_status(f"Landmark selection failed: {exc}")
+        self._refresh()
 
     def _build_node_properties(self):
         ui = self._ui
@@ -435,6 +578,12 @@ class TopologyAuthoringWindow:
                     ui.Button("Apply Move", clicked_fn=lambda: self._apply_node_move(models))
                     ui.Button("Delete Node", clicked_fn=self.delete_selected_node)
                 if self.document.version == 2:
+                    heading_model = ui.SimpleStringModel(self._heading_degrees(node.get("heading_rad")))
+                    with ui.HStack(height=28, spacing=4):
+                        ui.Label("Heading°", width=64)
+                        ui.StringField(heading_model, width=100)
+                        ui.Button("Apply", width=60,
+                                   clicked_fn=lambda m=heading_model: self._apply_selected_heading(m))
                     level_model = ui.SimpleStringModel(node.get("level_id") or "")
                     label_model = ui.SimpleStringModel(node.get("label", ""))
                     aliases_model = ui.SimpleStringModel(", ".join(node.get("aliases", ())))
@@ -477,6 +626,18 @@ class TopologyAuthoringWindow:
             self._set_status("Node metadata updated")
         except (AttributeError, TypeError, ValueError, KeyError) as exc:
             self._set_status(f"Metadata update failed: {exc}")
+        self._refresh()
+
+    def _apply_selected_heading(self, model):
+        if not self._require_stage_ready():
+            return
+        try:
+            heading = self._parse_heading_degrees(model.as_string)
+            self.document.set_node_heading(self.document.selected_node_id, heading)
+            self._heading_pick_active = False
+            self._set_status("Node heading updated")
+        except (AttributeError, TypeError, ValueError, KeyError) as exc:
+            self._set_status(f"Heading update failed: {exc}")
         self._refresh()
 
     def _build_edge_properties(self):
@@ -644,7 +805,7 @@ class TopologyAuthoringWindow:
             if self._overlay is not None:
                 setter = getattr(self._overlay, "set_route_preview", None)
                 if callable(setter):
-                    setter(route["route_points_m"], route["topology_node_ids"])
+                    setter(route["route_points_m"], route["topology_node_ids"], route.get("route_headings_rad", ()))
             self._set_status(
                 f"Route preview ready: {len(route['topology_node_ids'])} nodes")
             self._refresh()
@@ -679,7 +840,7 @@ class TopologyAuthoringWindow:
             setter = getattr(self._overlay, "set_route_preview", None)
             if callable(setter):
                 try:
-                    setter((), ())
+                    setter((), (), ())
                 except (AttributeError, RuntimeError, TypeError, ValueError):
                     pass
 
@@ -771,9 +932,21 @@ class TopologyAuthoringWindow:
     def on_viewport_click(self, position, _prim_path=None):
         if not self._require_stage_ready():
             return
+        if self._heading_pick_active:
+            try:
+                # Heading clicks intentionally use the raw world-space pick;
+                # projecting the second point to support can collapse a valid
+                # direction on stacked or sloped geometry.
+                self._set_heading_from_point(position)
+            except (AttributeError, KeyError, TypeError, ValueError) as exc:
+                self._set_status(f"Heading failed: {exc}")
+            self._refresh()
+            return
         position = self.adapter.project_to_support_surface(position, self.source)
         if self.document.pending_node is not None:
-            self.document.begin_node_preview(position)
+            heading = self.document.pending_node.heading_rad
+            self.document.begin_node_preview(position, heading_rad=heading)
+            self._set_pose_models(position, heading)
             self._set_status("Red node preview moved. Confirm Node or right-click to cancel.")
         elif self.document.pending_edge is not None:
             hit = self._nearest_node(position)
@@ -796,6 +969,7 @@ class TopologyAuthoringWindow:
             else:
                 self.document.begin_node_preview(position)
                 self._set_status("Red node preview. Confirm Node or right-click to cancel.")
+                self._set_pose_models(position)
         self._refresh()
 
     def confirm_node(self):
@@ -810,9 +984,12 @@ class TopologyAuthoringWindow:
                 node_id = self.document.confirm_node_preview(
                     kind=kind,
                     level_id=level_id,
+                    label=self._node_label_model.as_string if self._node_label_model is not None else "",
+                    aliases=_csv_strings(self._node_aliases_model.as_string) if self._node_aliases_model is not None else (),
                 )
             else:
                 node_id = self.document.confirm_node_preview()
+            self._heading_pick_active = False
             self._set_status(f"Node {node_id} committed")
         except ValueError as exc:
             self._set_status(str(exc))
@@ -892,6 +1069,7 @@ class TopologyAuthoringWindow:
             node_id = self.document.selected_node_id
             self.document.remove_node(node_id)
             self.document.cancel_preview()
+            self._heading_pick_active = False
             self._set_status(f"Deleted node {node_id}")
         except (KeyError, ValueError) as exc:
             self._set_status(str(exc))
@@ -904,17 +1082,20 @@ class TopologyAuthoringWindow:
             edge_id = self.document.selected_edge_id
             self.document.remove_edge(edge_id)
             self.document.cancel_preview()
+            self._heading_pick_active = False
             self._set_status(f"Deleted edge {edge_id}")
         except (KeyError, ValueError) as exc:
             self._set_status(str(exc))
         self._refresh()
 
     def clear_selection(self):
+        self._heading_pick_active = False
         self.document.cancel_preview()
         self._set_status("Selection cleared")
         self._refresh()
 
     def cancel_preview(self):
+        self._heading_pick_active = False
         self.document.cancel_preview()
         self._set_status("Preview cancelled")
         self._refresh()
@@ -922,6 +1103,7 @@ class TopologyAuthoringWindow:
     def undo(self):
         if not self._require_stage_ready():
             return
+        self._heading_pick_active = False
         self.document.undo()
         try:
             self._apply_active_level_view()
@@ -935,6 +1117,7 @@ class TopologyAuthoringWindow:
     def redo(self):
         if not self._require_stage_ready():
             return
+        self._heading_pick_active = False
         self.document.redo()
         try:
             self._apply_active_level_view()
@@ -972,6 +1155,7 @@ class TopologyAuthoringWindow:
             if self._overlay:
                 self._overlay.rebind_stage()
             self.document.replace_content(document)
+            self._heading_pick_active = False
             self.source = source
             self.active_level_id = (
                 document.levels[0]["id"]
@@ -1084,6 +1268,7 @@ class TopologyAuthoringWindow:
             if loaded.scene_key != self.document.scene_key:
                 raise ValueError("draft scene differs from source")
             self.document.replace_content(loaded)
+            self._heading_pick_active = False
             self.active_level_id = (
                 loaded.levels[0]["id"]
                 if loaded.version == 2 and loaded.levels else None
@@ -1143,6 +1328,10 @@ class TopologyAuthoringWindow:
             self._route_destination_model = None
             self._route_capabilities_model = None
             self._route_preview = None
+            self._scroll_frame = None
+            self._pose_x_model = self._pose_y_model = self._pose_z_model = None
+            self._pose_heading_model = None
+            self._node_label_model = self._node_aliases_model = None
             self._ui = None
             if window is not None:
                 frame = getattr(window, "frame", None)

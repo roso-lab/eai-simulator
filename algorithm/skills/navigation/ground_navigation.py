@@ -60,6 +60,7 @@ class GroundTrackingConfig:
     turn_threshold_rad: float = math.pi / 6.0
     node_radius_m: float = 0.30
     integral_limit_rad_s: float = 1.0
+    heading_tolerance_rad: float = 0.10
 
     def __post_init__(self) -> None:
         for name in self.__dataclass_fields__:
@@ -68,6 +69,8 @@ class GroundTrackingConfig:
                 raise SkillContractError(f"{name} is invalid")
         if self.turn_threshold_rad > math.pi:
             raise SkillContractError("turn threshold must not exceed pi")
+        if self.heading_tolerance_rad > math.pi:
+            raise SkillContractError("heading tolerance must not exceed pi")
 
 
 @dataclass
@@ -76,14 +79,18 @@ class NodeRouteTracker:
     route_points_m: Sequence[Sequence[float]]
     config: GroundTrackingConfig = field(default_factory=GroundTrackingConfig)
     height_aware: bool = False
+    final_heading_rad: float | None = None
     node_index: int = field(default=0, init=False)
     integral: float = field(default=0.0, init=False)
     previous_error: float | None = field(default=None, init=False)
+    aligning_heading: bool = field(default=False, init=False)
 
     def __post_init__(self) -> None:
         self.route_points_m = tuple(_xyz(point) for point in self.route_points_m)
         if not self.route_points_m:
             raise SkillContractError("node route must not be empty")
+        if self.final_heading_rad is not None:
+            self.final_heading_rad = normalize_angle(_number(self.final_heading_rad, "final heading"))
 
     @property
     def arrived(self) -> bool:
@@ -102,6 +109,9 @@ class NodeRouteTracker:
                 break
             if self.height_aware and abs(pose.support_z_m - target[2]) > LEVEL_HEIGHT_TOLERANCE_M:
                 break
+            if (self.node_index == len(self.route_points_m)-1 and self.final_heading_rad is not None
+                    and abs(normalize_angle(self.final_heading_rad-pose.yaw_rad)) > self.config.heading_tolerance_rad):
+                break
             self.node_index += 1
             self.reset_pid()
         return self.arrived
@@ -111,13 +121,21 @@ class NodeRouteTracker:
         if dt <= 0:
             raise SkillContractError("dt_s must be positive")
         if self.advance_nodes(pose):
+            self.aligning_heading = False
             return [0.0, 0.0, 0.0]
         target = self.route_points_m[self.node_index]
         if (self.height_aware and math.dist(pose.position_m[:2], target[:2]) < 0.05
                 and abs(pose.support_z_m - target[2]) > LEVEL_HEIGHT_TOLERANCE_M):
             raise SkillContractError("target XY reached at the wrong support height")
-        error = normalize_angle(math.atan2(target[1] - pose.position_m[1],
-                                            target[0] - pose.position_m[0]) - pose.yaw_rad)
+        align = (self.final_heading_rad is not None and self.node_index == len(self.route_points_m)-1
+                 and math.dist(pose.position_m[:2], target[:2]) <= self.config.node_radius_m
+                 and (not self.height_aware or abs(pose.support_z_m-target[2]) <= LEVEL_HEIGHT_TOLERANCE_M))
+        if align != self.aligning_heading:
+            self.reset_pid()
+        self.aligning_heading = align
+        desired_heading = self.final_heading_rad if align else math.atan2(
+            target[1]-pose.position_m[1], target[0]-pose.position_m[0])
+        error = normalize_angle(desired_heading - pose.yaw_rad)
         limit = self.config.integral_limit_rad_s
         self.integral = max(-limit, min(limit, self.integral + error * dt))
         derivative = (0.0 if self.previous_error is None
@@ -126,7 +144,7 @@ class NodeRouteTracker:
         angular = self.config.kp * error + self.config.ki * self.integral + self.config.kd * derivative
         angular = max(-self.config.max_yaw_rate_rad_s,
                       min(self.config.max_yaw_rate_rad_s, angular))
-        linear = (0.0 if abs(error) > self.config.turn_threshold_rad
+        linear = (0.0 if align or abs(error) > self.config.turn_threshold_rad
                   else self.config.cruise_speed_m_s)
         return [linear, 0.0, angular]
 
@@ -226,8 +244,11 @@ def select_node_route(document: Any, pose: GroundPose, *,
         best[node_id] = (length, path)
         if node_id in targets:
             points = [list(nodes[item]) for item in path]
+            node_rows = {row["id"]:row for row in rows}
+            headings = [node_rows[item].get("heading_rad") for item in path]
             return {"admitted": True, "route_points_m": points,
                     **({"height_aware": True, "controller_capabilities": sorted(capabilities),
+                        "route_headings_rad": headings, "target_heading_rad": headings[-1],
                         "route_level_ids": [next(row for row in rows if row["id"] == item).get("level_id") for item in path],
                         "traversal_modes": [next(edge for edge in edges if edge["id"] == item)["traversal_mode"] for item in traversed]}
                        if multilevel else {}),
@@ -235,7 +256,9 @@ def select_node_route(document: Any, pose: GroundPose, *,
                     "topology_node_ids": list(path), "topology_edge_ids": list(traversed),
                     "route_length_m": length,
                     "already_at_target": len(path) == 1 and
-                    math.dist(pose.position_m[:2], points[-1][:2]) <= node_radius_m and at_height(points[-1])}
+                    math.dist(pose.position_m[:2], points[-1][:2]) <= node_radius_m and at_height(points[-1])
+                    and (not multilevel or headings[-1] is None or
+                         abs(normalize_angle(headings[-1]-pose.yaw_rad)) <= GroundTrackingConfig().heading_tolerance_rad)}
         for neighbor, edge_id, distance in sorted(adjacency[node_id]):
             if neighbor not in best:
                 heapq.heappush(queue, (length + distance, neighbor,
@@ -271,6 +294,8 @@ def _validate_observation(request: SkillRequest, observation: Mapping[str, Any] 
 @dataclass
 class _GroundTask:
     request: SkillRequest
+    initial_target_yaw: float | None = None
+    height_aware: bool = False
     status: str = "pending"
     execution_state: str = "holding"
     safe_action: str = "hold"
@@ -319,7 +344,9 @@ class GroundNavigationProvider:
             raise SkillContractError("ground navigation task already exists")
         _validate_observation(request, observation, motion=False)
         self._tasks[task_id] = _GroundTask(
-            request=request, world_state_seq=request.parameters["world_state_seq"])
+            request=request, world_state_seq=request.parameters["world_state_seq"],
+            initial_target_yaw=request.parameters.get("target_yaw"),
+            height_aware=topology_fields(observation.get("topology", {})).get("version") == 2)
         return self.response(task_id)
 
     def control(self, value: SkillRequest | Mapping[str, Any], *,
@@ -340,6 +367,12 @@ class GroundNavigationProvider:
         intent = request.parameters.get("intent", "start")
         try:
             _validate_observation(request, observation, motion=intent in {"start", "continue", "replan"})
+            task.height_aware = (task.height_aware or
+                                topology_fields(observation.get("topology", {})).get("version") == 2)
+            # Dispatch/hold may precede topology availability. Preserve the
+            # dispatch value separately so an intervening hold cannot rebase it.
+            if task.height_aware and request.parameters.get("target_yaw") != task.initial_target_yaw:
+                raise SkillContractError("ground navigation target_yaw does not match the task")
             task.request = request
             task.world_state_seq = request.parameters["world_state_seq"]
             if intent in {"hold", "stop"}:
@@ -372,7 +405,9 @@ class GroundNavigationProvider:
                         self._finish(task, "failed", "route_unreachable")
                         return self.response(task_id)
                     task.tracker = NodeRouteTracker(selected["route_points_m"], self.tracking_config,
-                                                   height_aware=selected.get("height_aware", False))
+                        height_aware=selected.get("height_aware", False),
+                        final_heading_rad=(request.parameters.get("target_yaw", selected.get("target_heading_rad"))
+                                           if selected.get("height_aware") else None))
                 command = task.tracker.step(pose, dt_s=dt_s)
                 if task.tracker.arrived:
                     self._finish(task, "succeeded", "arrived")
@@ -445,6 +480,9 @@ class GroundNavigationProvider:
         evidence = deepcopy(task.private_evidence)
         if task.tracker is not None:
             evidence["node_index"] = task.tracker.node_index
+            if task.tracker.final_heading_rad is not None:
+                evidence["target_heading_rad"] = task.tracker.final_heading_rad
+                evidence["aligning_heading"] = task.tracker.aligning_heading
         return GroundNavigationResponse(state, plan, evidence)
 
 

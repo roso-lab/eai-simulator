@@ -12,7 +12,7 @@ import json
 import math
 from pathlib import Path
 
-from algorithm.skills.navigation.ground_navigation import GroundNavigationProvider, GroundTrackingConfig
+from algorithm.skills.navigation.ground_navigation import GroundNavigationProvider, GroundTrackingConfig, normalize_angle
 from algorithm.skills.navigation.landmarks import resolve_landmark_route
 from task.executors.ground_navigation import GroundNavigationExecutor, read_ground_pose
 from tools.topology_authoring.adapters.usd_scene import UsdSceneAdapter
@@ -266,11 +266,15 @@ def run(args):
         distance=math.dist(pose.position_m[:2],end[:2])
         support_error=abs(support("go2_1")-end[2])
         speed=float(torch.linalg.vector_norm(robot.data.root_lin_vel_w[0,:2]).item())
+        heading=route.get("target_heading_rad")
+        yaw_error=None if heading is None else abs(normalize_angle(pose.yaw_rad-heading))
         report.update(navigation_state=dict(response.state),final_position_m=list(pose.position_m),
             final_xy_error_m=distance,final_support_height_error_m=support_error,final_speed_m_s=speed,
+            final_yaw_rad=pose.yaw_rad,final_heading_error_rad=yaw_error,
             upright_cosine=upright,zero_command_applied=response.private_evidence.get("zero_command_applied"),
             physical_pass=(response.state["status"]=="succeeded" and distance<=args.node_radius+.05
                            and support_error<=.20 and speed<.12 and upright>.8
+                           and (yaw_error is None or yaw_error<=provider.tracking_config.heading_tolerance_rad+.03)
                            and "settle_error" not in report and "motion_failure" not in report))
         report["inputs_unchanged"]=(adapter.source_digests(source)==document.source and
             all(hashlib.sha256(Path(path).read_bytes()).hexdigest()==digest for path,digest in runtime_inputs.items()))

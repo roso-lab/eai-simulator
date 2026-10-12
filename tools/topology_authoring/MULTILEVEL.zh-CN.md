@@ -148,6 +148,40 @@ All Levels 模式确认时，其 `level_id` 为 `null`。相邻楼层视图仍�
 `walk`、`stairs` 或 `ramp`，并填写额外控制器能力。若上下行并非都可执行，应
 使用单向边。
 
+### 自定义英文地点与朝向
+
+仍使用本工具 `tools/topology_authoring`，不需要另开一个地图工程。
+例如在 1F 标记 `pantry_1f`，在 2F 标记 `meeting_room_2f`。Label 和 Aliases
+直接保存在地图节点里，即使场景描述没有预登记 semantic_targets 也可查询。
+外部 target ref 绑定继续受场景权威清单校验，作者自定义地点使用稳定 node ID
+作为执行标识。重复名称必须显式指定楼层；建议使用带楼层后缀的唯一英文名称。
+**Named Landmarks** 列表展示已标记地点及楼层：**Select** 切到对应楼层并选中，
+**Origin / Destination** 把稳定节点 ID 填入路线查询，避免重名歧义。
+
+在 XYZ 输入框填写世界坐标（米），点击 **Typed Node Preview** 创建预览；
+也可先在视口点选支持面。选择对应楼层并填写 Label / Aliases 后确认节点。
+朝向输入以度表示：0° 朝世界 +X，90° 朝 +Y；留空不约束朝向。点击
+**Pick Heading** 后，再在视口点击一个方向点，取两点的 XY 方向作为 yaw。
+方向点的 Z 不改变节点坐标。方向箭头和通路的单向/双向箭头含义不同。
+
+节点可选字段 `heading_rad` 以弧度保存（范围 [-π, π]），并参与地图摘要。
+XYZ、名称、楼层、别名和朝向均随 Save Draft / Generate 保存，重载后保留，
+朝向编辑支持 Undo / Redo。路线导出包含与 XYZ 一一对应的 `route_headings_rad`，
+终点朝向也放入 `skill_parameters.target_yaw`。中间点朝向只作为作者元数据，
+执行时仅在终点对齐朝向；如果转向中偏离位置容差，会重新跟踪终点位置。
+起终点相同的查询仍不证明机器人朝向已满足要求，必须由执行器读取真实位姿判定。
+
+上层任务将由用户后续确定的固定 JSON 输入对接；本工具不添加自然语言解析器，
+也不在本阶段规定该 JSON 格式。目前可直接通过英文起终点调用既有解析接口：
+
+```bash
+python -m tools.topology_authoring.route \
+  --topology /path/to/topology.json \
+  --origin pantry_1f --destination meeting_room_2f \
+  --capability walk --capability stairs \
+  --output tmp/route.json
+```
+
 执行器只跟随节点端点，不跟随装饰性 polyline 的弯折。楼梯和坡道必须放置足够
 的节点以形成真实 XY 前进，并把每个必要转弯编码到节点图中。平面地面控制器不
 接受纯竖直边。

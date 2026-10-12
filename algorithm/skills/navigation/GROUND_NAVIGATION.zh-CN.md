@@ -65,7 +65,10 @@ v = 0（abs(e) > turn_threshold）；否则 cruise_speed
 
 误差及微分中的角度差都归一化到 ±π。进入当前节点的 XY 距离阈值后依次
 切换 node，并清空 PID；最后一个 node 到达后生成零速度，navigation_state
-置为 succeeded。兼容接受 target_yaw，但不执行终点航向对齐，也不以 yaw 判定到达。
+置为 succeeded。版本 1 兼容接受 target_yaw，但不执行终点航向对齐。
+版本 2 的节点可带 heading_rad；到达终点位置和支持高度后再原地对齐该朝向，
+或请求显式给出的 target_yaw。默认角度容差 0.10 rad，转向过程中仍检查位置和
+支持高度；任务开始后不允许静默改变 target_yaw。未标记朝向时保持位置到达语义。
 
 默认参数通过内部 `GroundTrackingConfig` 调整，不增加公开请求字段：
 
