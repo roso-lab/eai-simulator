@@ -168,7 +168,12 @@ class PhysxAerialTransportBridge:
                     Sdf.CreatePrimInLayer(self._saved, spec_path.GetPrimPath())
                     Sdf.CopySpec(layer, spec_path, self._saved, spec_path)
                 b.collision_snapshot.append((str(prim.GetPath()), str(spec_path), had_spec))
-                attr.Set(False)
+                # A default cannot override time samples in the same layer.
+                # Keep their full spec in the backup, then author a constant.
+                for time in layer.ListTimeSamplesForPath(spec_path):
+                    layer.EraseTimeSample(spec_path, time)
+                if not attr.Set(False):
+                    raise RuntimeError("collision disable write failed")
         b.collision_disabled = True
 
     def _restore_collision(self, b):

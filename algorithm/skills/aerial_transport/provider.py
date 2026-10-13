@@ -127,20 +127,29 @@ class AerialPickPlaceProvider:
         intent = r.parameters["intent"]
         validate_observation(r, observation, motion=intent not in {"hold", "stop"})
         pose, drone_anchor, object_anchor, now = self._measure(observation)
-        task.evidence["observation_digest"] = digest({"root": pose.position_m, "orientation_wxyz": pose.orientation_wxyz,
-            "drone_anchor": drone_anchor, "object_anchor": object_anchor, "time_s": now,
-            "world_state_seq": r.parameters["world_state_seq"]})
         if now < task.last_time:
             raise SkillContractError("simulation time went backwards")
-        dt = now-task.last_time
-        task.last_time, task.request = now, r
-        # Apply confirmations before stop/hold: a preceding attach may already
-        # have succeeded in the executor, and must never be rolled back as free.
         ack = observation.get("confirmation")
         if ack is not None:
             expected = self._confirmation_id(task)
             if not isinstance(ack, Mapping) or task.phase not in MUTATIONS or ack.get("confirmation_id") != expected or ack.get("operation") != MUTATIONS[task.phase]:
                 raise SkillContractError("unexpected mutation confirmation")
+
+        # Charge the interval to the previous phase before a confirmation can
+        # reset its clock. A held interval is paused, including the resume tick.
+        dt = 0. if task.held else now-task.last_time
+        task.last_time, task.request = now, r
+        task.phase_elapsed += dt
+        task.total_elapsed += dt
+        duration = min((value["duration_s"] for value in (r.timing, r.budget) if value and "duration_s" in value), default=math.inf)
+        expired = task.phase_elapsed > r.parameters["phase_timeout_s"] or task.total_elapsed > duration
+        task.evidence["observation_digest"] = digest({"root": pose.position_m, "orientation_wxyz": pose.orientation_wxyz,
+            "drone_anchor": drone_anchor, "object_anchor": object_anchor, "time_s": now,
+            "world_state_seq": r.parameters["world_state_seq"]})
+
+        # Apply confirmations before stop/timeout/hold: a preceding attach may
+        # already have succeeded and must never be rolled back as free.
+        if ack is not None:
             if ack.get("applied") is not True:
                 return self.fail(key, RuntimeError("mutation rejected"))
             if task.phase == "attaching":
@@ -153,21 +162,16 @@ class AerialPickPlaceProvider:
         if intent == "stop":
             task.goal = pose.position_m
             return self._terminate(key, "cancelled", "stopped")
+        if expired:
+            task.goal = pose.position_m
+            return self.fail(key, TimeoutError(), reason_code="timeout")
         if intent == "hold":
             task.goal, task.held = pose.position_m, True
             task.profile = None
             task.reason = "holding"
             self._compile(task, mutations=False)
             return self.response(key)
-        if task.held:
-            task.held = False
-            dt = 0.
-        task.phase_elapsed += dt
-        task.total_elapsed += dt
-        duration = min((value["duration_s"] for value in (r.timing, r.budget) if value and "duration_s" in value), default=math.inf)
-        if task.phase_elapsed > r.parameters["phase_timeout_s"] or task.total_elapsed > duration:
-            task.goal = pose.position_m
-            return self.fail(key, TimeoutError(), reason_code="timeout")
+        task.held = False
         if task.phase == "pending":
             if intent == "continue":
                 task.goal = pose.position_m
