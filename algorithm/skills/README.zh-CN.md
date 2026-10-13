@@ -45,3 +45,7 @@ eai.transport.composite
 也不把 `planned` / `command_applied` 当作物理成功。
 
 G1 暂不支持，因此不在 registry 中，不应向上层声明 G1 搬运能力。
+
+`simulator_schema.py` 同时保留 benchmark adapter 使用的通用目标/速度导航、
+操作、检查、交接和外部 I/O 机器可读合同。新增或修改 Provider 边界前，先阅读
+[`SKILL_DEVELOPER_HANDOFF.zh-CN.md`](SKILL_DEVELOPER_HANDOFF.zh-CN.md)。

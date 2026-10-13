@@ -10,7 +10,8 @@
 
 The system layer answers **what the team should do**. The skill layer answers
 **how one robot executes an already assigned part**. EAI owns the controller
-contract and simulator stepping; `task/executors/` connects a skill plan to EAI.
+contract and simulator stepping; the benchmark adapter layer connects a skill
+plan to EAI.
 
 ## Canonical structure
 
@@ -84,8 +85,8 @@ providers are classified in `algorithm/skills/registry.py`:
 | EMOS internal skills | `algorithm/system/coordination/emos/brain/skills/` | EAI/Torch-dependent runtime used internally by EMOS; not a separate system algorithm |
 
 `source/EAI/EAI/controllers/` remains the only controller/action application
-contract. `task/executors/` owns the adapter from `SkillPlan` to that contract,
-and `task/evaluators/` owns physical evidence.
+contract. The adapter from `SkillPlan` to that contract lives behind
+`benchmark/adapters.py`, and the benchmark evaluator owns physical evidence.
 
 ## Decision-to-execution flow
 

@@ -249,8 +249,10 @@ class AssetStatus:
 
 
 def requirement_local_paths(requirement: AssetRequirement) -> tuple[Path, ...]:
-    root = controller_root() if requirement.kind is RequirementKind.CONTROLLER else usd_root()
-    paths = tuple(root / path for path in requirement.relative_paths)
+    if requirement.kind is RequirementKind.CONTROLLER:
+        paths = tuple(controller_root() / path for path in requirement.relative_paths)
+    else:
+        paths = tuple(resolve_local_asset_path(path) for path in requirement.relative_paths)
     if requirement.kind is RequirementKind.PAYLOAD:
         from EAI_assets.robots.ur5_robotiq import GRIPPER_ASSET_RELATIVE_PATH, default_robotiq_85_usd
 
@@ -418,13 +420,104 @@ def controller_root() -> Path:
 
 
 def asset_path(relative_path: str | os.PathLike[str]) -> str:
+    return str(resolve_local_asset_path(relative_path))
+
+
+def _scene_layout_aliases() -> tuple[tuple[Path, Path], ...]:
+    """Return local aliases for logical scene paths in imported scene packs.
+
+    The provider contract uses stable paths such as ``scene/factory`` while
+    this checkout keeps imported scenes under category folders and a portable
+    ``payload/scene`` subtree.  Resolve aliases only when the canonical path
+    is absent; this preserves provider downloads and older canonical packs.
+    """
+    root = usd_root()
+    scene_root = root / "scene"
+    aliases: list[tuple[Path, Path]] = []
+    if not scene_root.is_dir():
+        return ()
+    for manifest_path in sorted(scene_root.glob("**/manifest.json")):
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError, TypeError):
+            continue
+        source_scene = manifest.get("source_scene")
+        payload_scene = manifest.get("runtime", {}).get("payload_scene")
+        scene_name = manifest.get("scene_name")
+        payload = None
+        if isinstance(payload_scene, str):
+            candidate = (manifest_path.parent / payload_scene).resolve()
+            if candidate.is_file():
+                payload = candidate
+        logical = None
+        if isinstance(source_scene, str):
+            source = Path(source_scene)
+            if not source.is_absolute() and source.parts[:1] == ("usd",):
+                logical = Path(*source.parts[1:])
+        if payload is not None:
+            if logical is not None:
+                aliases.append((logical, payload.parent))
+            if isinstance(scene_name, str) and scene_name.strip():
+                aliases.append((Path("scene") / scene_name.strip(), payload.parent))
+        # Companion/sidecar dependencies may be selected by requirements even
+        # when they are not the runtime entry's parent directory.
+        for value in manifest.get("dependencies", {}).values():
+            if not isinstance(value, str) or not value.startswith("./"):
+                continue
+            candidate = (manifest_path.parent / value).resolve()
+            if candidate.is_dir():
+                if logical is not None:
+                    aliases.append((logical, candidate))
+                if isinstance(scene_name, str) and scene_name.strip():
+                    aliases.append((Path("scene") / scene_name.strip(), candidate))
+        # Several imported wrappers predate the runtime payload metadata but
+        # still carry a deterministic top-level entry file (room/factory_02).
+        if isinstance(scene_name, str) and scene_name.strip():
+            for suffix in (".usda", ".usd", ".usdc"):
+                if (manifest_path.parent / f"{scene_name.strip()}{suffix}").is_file():
+                    aliases.append((Path("scene") / scene_name.strip(), manifest_path.parent))
+                    break
+    # Explicit benchmark compatibility aliases.  These are intentionally
+    # narrow and point at the checked-in factory payload, without copying it.
+    factory_payload = (
+        scene_root / "Production and logistics" / "factory" /
+        "payload" / "scene" / "factory"
+    ).resolve()
+    if factory_payload.is_dir():
+        aliases.extend(((Path("scene/factory"), factory_payload),
+                        (Path("scene/factory_benchmark"), factory_payload)))
+    # Prefer the most specific alias and keep deterministic ordering.
+    unique: dict[tuple[str, str], tuple[Path, Path]] = {}
+    for logical, target in aliases:
+        unique[(logical.as_posix(), str(target))] = (logical, target)
+    return tuple(sorted(unique.values(), key=lambda item: (-len(item[0].parts), item[0].as_posix(), str(item[1]))))
+
+
+def resolve_local_asset_path(relative_path: str | os.PathLike[str]) -> Path:
+    """Resolve a provider-relative asset path against the local checkout.
+
+    Canonical paths win when present.  Imported category packs are consulted
+    only as a local fallback, so missing assets still use the canonical path
+    expected by the Hugging Face downloader.
+    """
     rel = Path(relative_path)
     if rel.is_absolute():
-        return str(rel)
+        return rel
     parts = rel.parts
     if parts and parts[0] == "usd":
         rel = Path(*parts[1:])
-    return str(usd_root() / rel)
+    canonical = usd_root() / rel
+    if canonical.exists():
+        return canonical
+    for logical, target in _scene_layout_aliases():
+        try:
+            suffix = rel.relative_to(logical)
+        except ValueError:
+            continue
+        candidate = target / suffix
+        if candidate.exists():
+            return candidate
+    return canonical
 
 
 def controller_path(relative_path: str | os.PathLike[str]) -> str:
@@ -1784,7 +1877,7 @@ def _is_local_controller_path(path: str) -> bool:
 def _normalize_local_usd_path(path: str) -> str:
     remote = _remote_path_for_local(path)
     rel = Path(*remote.parts[1:])
-    return str(usd_root() / rel)
+    return str(resolve_local_asset_path(rel))
 
 
 def _normalize_local_controller_path(path: str) -> str:

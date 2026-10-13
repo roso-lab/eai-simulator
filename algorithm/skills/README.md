@@ -35,3 +35,9 @@ See [the aerial transport guide](aerial_transport/AERIAL_PICK_PLACE.zh-CN.md).
 Pepper composite transport routes to `PEPPER_BOX_TRANSPORT_CFG`. G1 is deliberately not exposed
 as a supported skill. Provider planning and executor feedback never certify a
 physical outcome; only the external evaluator may do so.
+
+The machine-readable registry in `simulator_schema.py` also preserves the
+generic benchmark adapter contracts for goal/velocity navigation,
+manipulation, inspection, handoff and external I/O. See
+[`SKILL_DEVELOPER_HANDOFF.zh-CN.md`](SKILL_DEVELOPER_HANDOFF.zh-CN.md) before
+adding or changing a provider boundary.

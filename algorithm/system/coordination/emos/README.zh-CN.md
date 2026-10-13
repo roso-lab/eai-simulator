@@ -113,7 +113,7 @@ python -m py_compile \
 EMOS 不创建 Isaac 应用、不注册 Gym 任务、不发布 ROS topic；它在系统层只产生任务
 决策。`algorithm/system/coordination/emos/brain/skills/` 是 EMOS 内部使用的 Torch/EAI
 依赖 runtime，不是独立的系统算法入口。新的底层执行应在 `algorithm/skills/` 登记 provider，再由
-`task/executors/` 接入 EAI。
+benchmark adapter 接入 EAI。
 
 离线检查可以验证 Python 语法和数据解析；真实 LLM 请求、凭据、网络和 Isaac 集成
 需要相应环境。

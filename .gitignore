@@ -207,6 +207,9 @@ ros2_cmd_vel.json
 /docs/test-reports/
 test_*.py
 *_test.py
+!/benchmark/tests/
+!/benchmark/tests/**
+/benchmark/tests/__pycache__/
 !/tools/validation/test_topology_multilevel_authoring.py
 !/tools/validation/test_topology_surfaces.py
 !/tools/validation/test_topology_pose_ui.py
@@ -215,6 +218,7 @@ test_*.py
 !/source/EAI/test/test_restaurant_candidate_admission.py
 !/source/EAI/test/test_restaurant_route_admission.py
 !/source/EAI/test/test_restaurant_algorithm_episode.py
+!/source/EAI/test/test_asset_layout_local.py
 
 # Tracked lightweight tests for the asset-library showcase tool.
 !/tools/test_asset_library_showcase.py

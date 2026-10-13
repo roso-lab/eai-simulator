@@ -124,7 +124,7 @@ assignment output is a system-layer decision. The
 `algorithm/system/coordination/emos/brain/skills/` package is an EAI/Torch-dependent
 runtime used internally by EMOS; it is not a standalone system-algorithm entry point.
 New execution work must expose a skill provider through `algorithm/skills/` and connect
-it to EAI from `task/executors/`.
+it to EAI from the benchmark adapter layer.
 
 Offline checks can validate Python syntax and data parsing; real LLM requests, credentials,
 network access, and Isaac integration require their respective environments.

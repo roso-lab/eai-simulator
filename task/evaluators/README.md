@@ -1,4 +1,8 @@
-# Physical evaluators
+# Physical evaluators staging note
+
+The public evaluator boundary is `benchmark.adapters.EvidenceEvaluator` and
+the typed result is `benchmark.evidence.EvaluationReport`. Keep this directory
+as a migration marker; do not create a competing verdict schema here.
 
 Evaluator 只读取 EAI runtime 产生的物理证据、事件和 milestone，并返回可审计的
 verdict。计划、assignment 和进程退出码不能被当作物理成功。

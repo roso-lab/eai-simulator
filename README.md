@@ -21,8 +21,10 @@ task contract
     → independent physical evaluator
 ~~~
 
-- **Task layer** describes task graphs, robot capabilities, branches, replay
-  identifiers, and experiment metadata.
+- **Task layer** describes reusable task graphs, robot capabilities, and task
+  contracts.
+- **Benchmark layer** owns the paper protocol, run/branch identity, tick
+  runtime boundary, evidence ledger, and (later) D1-D6 metrics.
 - **System algorithms** decide task decomposition, robot allocation,
   coordination, communication, and replanning.
 - **Skills** produce paths, trajectories, controller commands, or ROS
@@ -50,10 +52,18 @@ algorithm/
 task/
   config/                    scene-independent task packages
   contracts.py               public task/robot/decision records
-  runner.py                  orchestration boundary; no Isaac app creation
-  executors/                 Assignment → Skill/EAI execution (in progress)
-  evaluators/                physical milestone evaluation (in progress)
-  replay/                    checkpoint and branch adapters (in progress)
+  runner.py                  legacy dependency-injected offline runner
+benchmark/
+  protocol.py                paper task identity, run keys, and branch roles
+  runtime.py                 session binding and tick-driven runtime shell
+  adapters.py                Skill/Evaluator/Replay protocol boundaries
+  evidence.py                branch-local evidence and hash-chained ledger
+  eai_adapter.py             command-driven EAI skill/executor bridge
+  p2.py                      external precedence/handoff evaluator
+  replay.py                  checkpoint/sham/paired branch gates
+  replay_backend.py          tools/physics_replay adapter with fail-closed fidelity
+  artifacts.py               branch-local JSON evidence/ledger artifacts
+  session.py                 live SimulatorSession composition helpers
 tools/
   scenario_generation/       optional concrete scenario authoring and admission
   validation/                repository, asset, and runtime quality gates
@@ -76,21 +86,31 @@ feedback, and coordination ledger. They must return decisions or plans without:
 
 Skill providers live under algorithm/skills/. They implement the execution
 method for an assignment but do not decide task ownership. The adapter from a
-SkillPlan to EAI controllers belongs in task/executors/.
+SkillPlan to EAI controllers belongs behind the benchmark adapter boundary.
 
 ## Current benchmark status
 
 The task and coordination contracts are implemented and can be tested without
-Isaac Sim. The following runtime pieces are deliberately separated and are
-still being completed:
+Isaac Sim. The current P2 vertical slice now includes:
 
-1. checkpoint restore and branch-aware scene binding;
-2. DecisionContext for observations, events, feedback, and communication state;
-3. assignment validation, capability matching, and prerequisite enforcement;
-4. DAG phase scheduling and multi-robot parallel execution;
-5. EAI Skill/controller executor;
-6. physical milestone evaluator and evidence ledger integration;
-7. deterministic replay and parallel-branch adapters.
+1. `RuntimeTaskBinding.from_session(...)` with roster, controller-profile and
+   session-identity snapshots;
+2. a command-driven EAI `SkillAdapter`/`TaskExecutor` using the public
+   `set_command` + `env.step` surface;
+3. external P2 precedence/release/handoff/accept evidence evaluation;
+4. checkpoint, sham and four-role paired-branch protocol gates;
+5. branch-local artifact persistence with ledger-chain verification;
+6. a thin `benchmark.session.run_session_episode(...)` composition root for
+   binding an open `SimulatorSession` to the complete P2 flow.
+7. sequential four-branch execution from one live checkpoint plus an
+   isolation-enforcing parallel scheduler in `benchmark/branch_execution.py`.
+
+DecisionContext expansion, replanning and D1-D6 metrics remain deliberately
+deferred. A real CPU/headless `EAI-Factory-Z1-v0` smoke now covers one branch
+and all four branch roles; its live restore is correctly classified as
+`physical_state_only`. Replay restore is not automatically treated as causal
+replay; a strict paired claim still requires the explicit fidelity and sham
+gates described in `benchmark/replay.py`.
 
 Until these pieces are connected, a run without an injected executor/evaluator
 must report:
@@ -142,20 +162,34 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
   -m pytest -q task/tests algorithm/common_coordination/tests
 ~~~
 
-The current contract suite passes four tests in the prepared environment.
+The original task/coordination contract suites are dependency-light; the
+combined benchmark contract command below is the preferred check after
+changes to the experiment boundary.
 Run the relevant scripts under [tools/validation](tools/validation/README.md)
 after changing setup, assets, interfaces, or documentation.
 
+The benchmark contract slice can be checked with:
+
+~~~bash
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
+  /home/pupil/miniconda3/envs/env_isaaclab/bin/python \
+  -m pytest -q benchmark task/tests algorithm/skills/tests algorithm/common_coordination/tests
+~~~
+
 ## Recommended development order
 
-1. Read [task/README.md](task/README.md) and
-   [task/HANDOFF.zh-CN.md](task/HANDOFF.zh-CN.md).
+1. Read [task/README.md](task/README.md), [task/HANDOFF.zh-CN.md](task/HANDOFF.zh-CN.md),
+   and [benchmark/README.md](benchmark/README.md).
 2. Run the dependency-free contract tests.
-3. Implement the executor, evaluator, and replay boundaries in task/.
-4. Validate one saved EAI environment with a single Isaac Sim smoke test.
-5. Connect one Fire Rescue task end to end.
-6. Add checkpoint branches, parallel execution, repeated trials, and then
-   cross-scene benchmark matrices.
+3. Validate one saved EAI environment with a single Isaac Sim smoke test using
+   `benchmark.session.run_session_episode(...)`, `RuntimeTaskBinding`,
+   `EaiTaskExecutor`, and an external evaluator.
+4. Connect one Fire Rescue task end to end through the existing EMOS
+   assignment adapter.
+5. Run the four checkpoint branches through
+   `benchmark.branch_execution.BranchExecutionScheduler`; use its parallel
+   mode only with isolated session/coordinator factories.
+6. Add repeated trials, D1-D6 metrics, and then cross-scene benchmark matrices.
 
 For optional scenario authoring, read
 [tools/scenario_generation/README.md](tools/scenario_generation/README.md).

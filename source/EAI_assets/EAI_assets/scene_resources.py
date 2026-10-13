@@ -88,7 +88,10 @@ def ensure_scene_resource(
         from EAI_assets import asset_resolver
 
     relative_paths = scene_resource_relative_paths(scene_key, resource)
-    local_paths = tuple(asset_resolver.usd_root() / relative_path for relative_path in relative_paths)
+    local_paths = tuple(
+        asset_resolver.resolve_local_asset_path(relative_path)
+        for relative_path in relative_paths
+    )
     asset_resolver.ensure_usd_files_for_paths([str(path) for path in local_paths])
     missing = tuple(path for path in local_paths if not path.is_file())
     if missing:

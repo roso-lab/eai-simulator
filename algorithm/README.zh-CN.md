@@ -8,7 +8,7 @@
    路径、轨迹、controller 命令或 ROS 传输事件。
 
 系统层回答“团队应该做什么”，Skill 层回答“单个机器人怎样执行已经分配的部分”。
-EAI 负责 controller 合同和仿真推进，`task/executors/` 负责把 skill plan 接到 EAI。
+EAI 负责 controller 合同和仿真推进，benchmark adapter 负责把 skill plan 接到 EAI。
 
 ## 规范结构
 
@@ -77,7 +77,7 @@ Skill provider 在任务分配之后接收 `SkillRequest`，返回包含
 | EMOS 内部 skills | `algorithm/system/coordination/emos/brain/skills/` | EMOS 内部使用的 EAI/Torch runtime，不是单独系统算法 |
 
 `source/EAI/EAI/controllers/` 仍是 controller/动作应用的唯一合同所有者。
-`task/executors/` 将 `SkillPlan` 适配到该合同，`task/evaluators/` 负责物理证据。
+benchmark adapter 将 `SkillPlan` 适配到该合同，benchmark evaluator 负责物理证据。
 
 ## 决策到执行的数据流
 

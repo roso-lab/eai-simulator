@@ -57,6 +57,10 @@ class SimulatorSkillSchema:
     def required_fields(self) -> frozenset[str]:
         return frozenset(field.name for field in self.fields if field.required)
 
+    @property
+    def command_types(self) -> frozenset[str]:
+        return frozenset(command.command_type for command in self.commands)
+
     def validate(self, request: SkillRequest) -> None:
         ground = self.skill_id == GROUND_NAVIGATION_SKILL_ID
         if request.skill_id != self.skill_id and not (ground and request.skill_id in GROUND_NAVIGATION_SKILL_IDS):
@@ -130,6 +134,19 @@ class SimulatorSkillSchema:
                     raise SimulatorSchemaError(f"ground navigation {name} is invalid")
             if "horizon_ticks" in parameters and type(parameters["horizon_ticks"]) is not int:
                 raise SimulatorSchemaError("horizon_ticks must be a positive integer")
+        if self.target_required and self.skill_id not in {
+            AERIAL_NAVIGATION_SKILL_ID,
+            GROUND_NAVIGATION_SKILL_ID,
+        }:
+            if request.target_ref is None and request.target_pose is None:
+                raise SimulatorSchemaError(
+                    f"{self.skill_id} requires target_ref or target_pose"
+                )
+            if request.target_pose is not None and self.kind is SkillKind.NAVIGATION:
+                if len(request.target_pose) != 3:
+                    raise SimulatorSchemaError(
+                        f"{self.skill_id} target_pose must be (x, y, z)"
+                    )
 
 
 def _validate_field(name: str, value: Any, spec: SimulatorFieldSpec) -> None:
@@ -173,6 +190,22 @@ def _validate_field(name: str, value: Any, spec: SimulatorFieldSpec) -> None:
     if spec.value_type == "single_robot":
         if not isinstance(value, (list, tuple)) or len(value) != 1 or not isinstance(value[0], str) or not value[0].strip():
             raise SimulatorSchemaError(f"{name} must contain one robot id")
+        return
+    if spec.value_type == "finite_vector":
+        if not isinstance(value, (list, tuple)) or not value:
+            raise SimulatorSchemaError(f"{name} must be a non-empty vector")
+        for item in value:
+            _validate_field(
+                name,
+                item,
+                SimulatorFieldSpec(name, "finite_number", required=True),
+            )
+        return
+    if spec.value_type == "string_list":
+        if not isinstance(value, (list, tuple)) or any(
+            not isinstance(item, str) or not item.strip() for item in value
+        ):
+            raise SimulatorSchemaError(f"{name} must be a list of non-empty strings")
         return
     raise SimulatorSchemaError(f"unsupported field type for {name}: {spec.value_type}")
 
@@ -235,6 +268,90 @@ SIMULATOR_SKILL_SCHEMAS: tuple[SimulatorSkillSchema, ...] = (
         target_required=True,
     ),
     SimulatorSkillSchema(
+        "eai.navigation.goal_position",
+        SkillKind.NAVIGATION,
+        fields=(
+            SimulatorFieldSpec("frame", "string", unit="m", frame="world"),
+            SimulatorFieldSpec("target_yaw", "finite_number", unit="rad", frame="world"),
+            SimulatorFieldSpec("horizon_ticks", "positive_int", unit="tick"),
+            SimulatorFieldSpec("command_name", "string"),
+        ),
+        commands=(
+            SimulatorCommandSpec(
+                "goal_position",
+                "base_env.set_command",
+                ("target_pose", "horizon_ticks"),
+            ),
+            SimulatorCommandSpec(
+                "goal_yaw",
+                "base_env.set_command",
+                ("target_yaw", "horizon_ticks"),
+            ),
+        ),
+        target_required=True,
+    ),
+    SimulatorSkillSchema(
+        "eai.navigation.velocity",
+        SkillKind.NAVIGATION,
+        fields=(
+            SimulatorFieldSpec("velocity", "finite_vector", required=True, unit="m/s,m/s,rad/s", frame="base"),
+            SimulatorFieldSpec("horizon_ticks", "positive_int", unit="tick"),
+        ),
+        commands=(SimulatorCommandSpec("velocity", "env.step", ("velocity", "horizon_ticks")),),
+    ),
+    SimulatorSkillSchema(
+        "eai.navigation.rotor_velocity",
+        SkillKind.NAVIGATION,
+        fields=(
+            SimulatorFieldSpec("rotor_velocity", "finite_vector", required=True, unit="normalized"),
+            SimulatorFieldSpec("horizon_ticks", "positive_int", unit="tick"),
+        ),
+        commands=(SimulatorCommandSpec("rotor_velocity", "env.step", ("rotor_velocity", "horizon_ticks")),),
+    ),
+    SimulatorSkillSchema(
+        "eai.manipulation.pose",
+        SkillKind.MANIPULATION,
+        fields=(
+            SimulatorFieldSpec("frame_id", "string", required=True, frame="world|base_link"),
+            SimulatorFieldSpec("position", "finite_vector", required=True, unit="m"),
+            SimulatorFieldSpec("orientation_xyzw", "finite_vector", required=True),
+            SimulatorFieldSpec("horizon_ticks", "positive_int", unit="tick"),
+        ),
+        commands=(SimulatorCommandSpec(
+            "manipulator_pose",
+            "ros2.omnigraph.target_pose",
+            ("frame_id", "position", "orientation_xyzw"),
+        ),),
+    ),
+    SimulatorSkillSchema(
+        "eai.manipulation.joint",
+        SkillKind.MANIPULATION,
+        fields=(
+            SimulatorFieldSpec("joint_names", "string_list", required=True),
+            SimulatorFieldSpec("joint_positions", "finite_vector", required=True, unit="rad"),
+            SimulatorFieldSpec("horizon_ticks", "positive_int", unit="tick"),
+        ),
+        commands=(SimulatorCommandSpec(
+            "joint_position",
+            "ros2.omnigraph.joint_command",
+            ("joint_names", "joint_positions"),
+        ),),
+    ),
+    SimulatorSkillSchema(
+        "eai.manipulation.gripper",
+        SkillKind.MANIPULATION,
+        fields=(
+            SimulatorFieldSpec("gripper_position", "finite_number", required=True, unit="rad"),
+            SimulatorFieldSpec("gripper_velocity", "finite_number", unit="rad/s"),
+            SimulatorFieldSpec("horizon_ticks", "positive_int", unit="tick"),
+        ),
+        commands=(SimulatorCommandSpec(
+            "gripper_position",
+            "articulation.set_joint_position_target",
+            ("gripper_position",),
+        ),),
+    ),
+    SimulatorSkillSchema(
         "eai.transport.composite",
         SkillKind.TRANSPORT,
         fields=(
@@ -259,6 +376,55 @@ SIMULATOR_SKILL_SCHEMAS: tuple[SimulatorSkillSchema, ...] = (
             ),
         ),
         composite=True,
+    ),
+    SimulatorSkillSchema(
+        "eai.inspection.scan",
+        SkillKind.INSPECTION,
+        fields=(
+            SimulatorFieldSpec("observation_ref", "string", required=True),
+            SimulatorFieldSpec("sensor_profile", "string", required=True),
+            SimulatorFieldSpec("dwell_ticks", "positive_int", unit="tick"),
+            SimulatorFieldSpec("coverage_requirement", "finite_number"),
+        ),
+        commands=(SimulatorCommandSpec(
+            "sensor_trigger",
+            "scene.sensor_adapter",
+            ("observation_ref", "sensor_profile", "dwell_ticks"),
+        ),),
+        composite=True,
+    ),
+    SimulatorSkillSchema(
+        "eai.coordination.handoff",
+        SkillKind.COORDINATION,
+        fields=(
+            SimulatorFieldSpec("robot_ids", "string_list", required=True),
+            SimulatorFieldSpec("phase", "string", required=True),
+            SimulatorFieldSpec("sync_tick", "positive_int", required=True, unit="tick"),
+            SimulatorFieldSpec("resource_ref", "string"),
+            SimulatorFieldSpec("handoff_ref", "string"),
+        ),
+        commands=(
+            SimulatorCommandSpec("handoff_request", "fleet.runtime", ("robot_ids", "phase", "sync_tick", "handoff_ref")),
+            SimulatorCommandSpec("handoff_accept", "fleet.runtime", ("robot_ids", "phase", "sync_tick", "handoff_ref")),
+            SimulatorCommandSpec("resource_release", "fleet.runtime", ("resource_ref", "sync_tick")),
+        ),
+        composite=True,
+    ),
+    SimulatorSkillSchema(
+        "eai.external_io.bridge",
+        SkillKind.EXTERNAL_IO,
+        fields=(
+            SimulatorFieldSpec("interface_id", "string", required=True),
+            SimulatorFieldSpec("message_type", "string", required=True),
+            SimulatorFieldSpec("payload", "finite_vector", required=True),
+            SimulatorFieldSpec("endpoint", "string"),
+            SimulatorFieldSpec("timeout_ticks", "positive_int", unit="tick"),
+        ),
+        commands=(
+            SimulatorCommandSpec("ros_twist", "ros2.cmd_vel_bridge", ("payload", "endpoint")),
+            SimulatorCommandSpec("nav_goal", "ros2.nav2_bridge", ("payload", "endpoint")),
+            SimulatorCommandSpec("joint_state", "ros2.omnigraph", ("payload", "endpoint")),
+        ),
     ),
 )
 
