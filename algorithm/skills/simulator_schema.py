@@ -99,10 +99,16 @@ class SimulatorSkillSchema:
             for name in ("timing", "budget"):
                 value = getattr(request, name)
                 if value is not None:
-                    if set(value) - {"duration_s"}:
-                        raise SimulatorSchemaError(f"aerial {name} accepts only duration_s")
-                    if "duration_s" in value:
-                        _validate_field("duration_s", value["duration_s"], SimulatorFieldSpec("duration_s", "positive_number", required=True))
+                    allowed = {"duration_s"}
+                    if self.skill_id == AERIAL_NAVIGATION_SKILL_ID and name == "timing":
+                        allowed.add("deadline_s")
+                    if set(value) - allowed:
+                        raise SimulatorSchemaError(f"aerial {name} accepts only {sorted(allowed)}")
+                    for field in allowed & set(value):
+                        _validate_field(field, value[field], SimulatorFieldSpec(field, "positive_number", required=True))
+            if (self.skill_id == AERIAL_NAVIGATION_SKILL_ID and "horizon_ticks" in parameters
+                    and type(parameters["horizon_ticks"]) is not int):
+                raise SimulatorSchemaError("horizon_ticks must be a positive integer")
         if ground:
             if request.skill_version != self.version:
                 raise SimulatorSchemaError("unsupported simulator Skill schema version")
@@ -179,8 +185,10 @@ SIMULATOR_SKILL_SCHEMAS: tuple[SimulatorSkillSchema, ...] = (
             SimulatorFieldSpec("world_state_seq", "nonnegative_int", required=True),
             SimulatorFieldSpec("frame", "string", enum_values=("world",)),
             SimulatorFieldSpec("mode", "string", enum_values=("goal",)),
+            SimulatorFieldSpec("target_yaw", "finite_number", unit="rad", description="Reserved; XYZ navigation does not align yaw."),
+            SimulatorFieldSpec("horizon_ticks", "positive_int", unit="tick"),
         ),
-        commands=(SimulatorCommandSpec("goal_position", "env.set_command -> EAI position controller -> env.step", ("target_pose", "frame")),),
+        commands=(SimulatorCommandSpec("goal_position", "env.set_command -> EAI position controller -> env.step", ("target_pose", "frame", "horizon_ticks")),),
         target_required=True,
     ),
     SimulatorSkillSchema(

@@ -12,6 +12,17 @@ uses the caller's existing EAI environment. It requires validated topology and
 world state, with no occupancy, costmap, DWA, OBB or collision queries.
 See [the navigation guide](navigation/GROUND_NAVIGATION.zh-CN.md).
 
+`algorithm.skills.navigation.AerialNavigationProvider` compiles world-space
+`goal_position` commands from manually authored XYZ nodes and directed edges.
+It supports dispatch, start, continue, hold, replan and stop without occupancy,
+voxel or collision queries. See the [aerial navigation guide](AERIAL_NAVIGATION.zh-CN.md)
+and run the [Iris GUI example](navigation/examples/aerial_topology_gui_demo.py):
+
+```bash
+conda run --no-capture-output -n env_isaaclab python \
+  algorithm/skills/navigation/examples/aerial_topology_gui_demo.py --device cuda:0
+```
+
 `AerialPickPlaceProvider` implements `eai.transport.aerial_pick_place` with authored
 XYZ navigation, a continuous vertical profile and mutation confirmations. The
 caller-owned `AerialPickPlaceExecutor` applies existing position controllers,

@@ -2,8 +2,15 @@
 
 `AerialNavigationProvider` implements pure authored XYZ node routing and world
 `goal_position` compilation. Aerial transport composes its route-selection and
-tracking primitives, with an additional precise anchor alignment gate. See the
-[aerial guide](../aerial_transport/AERIAL_PICK_PLACE.zh-CN.md).
+tracking primitives, with an additional precise anchor alignment gate.
+The pure provider keeps `plan(request, observation=...)` and explicit
+`dispatch` / `control` APIs; the host reads actual XYZ, applies world goals and
+reports controller failures. Dispatch compiles a measured-position hold without
+routing. See the [aerial navigation guide](../AERIAL_NAVIGATION.zh-CN.md) and
+[GUI example](examples/aerial_topology_gui_demo.py) for lifecycle controls,
+native pose traces, and a six-node forward/backward flight.
+The [aerial transport guide](../aerial_transport/AERIAL_PICK_PLACE.zh-CN.md)
+describes the separate pick/place state machine.
 
 ## Injected 2D planner adapter
 

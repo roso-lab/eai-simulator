@@ -11,6 +11,16 @@
 导航不使用全局栅格、局部代价地图、DWA、OBB 或碰撞查询。
 详见[地面导航中文说明](navigation/GROUND_NAVIGATION.zh-CN.md)。
 
+空中导航入口为 `algorithm.skills.navigation.AerialNavigationProvider`，
+采用人工 XYZ 拓扑、有向 Dijkstra 和逐节点 `goal_position`，支持创建任务、
+开始、继续、保持、重规划和停止。详见[空中导航中文说明](AERIAL_NAVIGATION.zh-CN.md)。
+可直接运行 [Iris GUI 演示](navigation/examples/aerial_topology_gui_demo.py) 观察实际轨迹：
+
+```bash
+conda run --no-capture-output -n env_isaaclab python \
+  algorithm/skills/navigation/examples/aerial_topology_gui_demo.py --device cuda:0
+```
+
 无人机搬运入口为 `algorithm.skills.aerial_transport.AerialPickPlaceProvider`，
 Skill ID 为 `eai.transport.aerial_pick_place`。人工 XYZ 导航、垂直梯形轨迹与
 确认驱动状态机由纯 Provider 编译；`task.executors.aerial_pick_place` 负责位置
