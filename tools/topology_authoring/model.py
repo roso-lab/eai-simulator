@@ -7,7 +7,8 @@ import math
 from typing import Any, Iterable, Mapping, Sequence
 
 PROFILES = {"ground_small": 0.8, "ground_large": 1.4}
-TRAVERSAL_MODES = frozenset({"walk", "stairs", "ramp"})
+AERIAL_PROFILES = {"aerial": 0.4}
+TRAVERSAL_MODES = frozenset({"walk", "stairs", "ramp", "fly"})
 
 
 @dataclass
@@ -119,12 +120,27 @@ class TopologyDocument:
     up_axis: str = "Z"
     version: int = 1
     levels: list[dict[str, Any]] = field(default_factory=list)
+    domain: str = "ground"
     _undo: list[dict[str, Any]] = field(default_factory=list, repr=False)
     _redo: list[dict[str, Any]] = field(default_factory=list, repr=False)
     pending_node: PendingNode | None = field(default=None, repr=False, compare=False)
     pending_edge: PendingEdge | None = field(default=None, repr=False, compare=False)
     selected_node_id: str | None = field(default=None, repr=False, compare=False)
     selected_edge_id: str | None = field(default=None, repr=False, compare=False)
+
+    def __post_init__(self):
+        if self.domain not in {"ground", "aerial"}:
+            raise ValueError("domain must be ground or aerial")
+        if self.domain == "aerial":
+            self.version = 2
+
+    @property
+    def profiles(self):
+        return AERIAL_PROFILES if self.domain == "aerial" else PROFILES
+
+    @property
+    def traversal_modes(self):
+        return ("fly",) if self.domain == "aerial" else ("walk", "stairs", "ramp")
 
     def _snapshot(self) -> dict[str, Any]:
         return {
@@ -147,7 +163,7 @@ class TopologyDocument:
     def replace_content(self, other: "TopologyDocument") -> None:
         """Commit a validated load as a new document/history boundary."""
         for name in ("scene_key", "source", "nodes", "edges", "coordinate_frame",
-                     "meters_per_unit", "up_axis", "version", "levels"):
+                     "meters_per_unit", "up_axis", "version", "levels", "domain"):
             setattr(self, name, deepcopy(getattr(other, name)))
         self._undo.clear()
         self._redo.clear()
@@ -362,7 +378,9 @@ class TopologyDocument:
             raise ValueError(f"duplicate edge id: {edge_id}")
         if from_id not in {n["id"] for n in self.nodes} or to_id not in {n["id"] for n in self.nodes}:
             raise ValueError("edge endpoint does not exist")
-        prof = deepcopy(dict(profiles or {k: {"clearance_m": v} for k, v in PROFILES.items()}))
+        prof = deepcopy(dict(profiles or {k: {"clearance_m": v} for k, v in self.profiles.items()}))
+        if self.domain == "aerial" and traversal_mode == "walk":
+            traversal_mode = "fly"
         traversal, capabilities = _traversal_metadata(
             traversal_mode, required_controller_capabilities)
         if self.version == 1 and (traversal != "walk" or capabilities):
@@ -453,7 +471,7 @@ class TopologyDocument:
         })
 
     def set_edge_profile(self, edge_id: str, profile: str, clearance_m: float) -> None:
-        if profile not in PROFILES:
+        if profile not in self.profiles:
             raise ValueError(f"unknown topology profile: {profile}")
         value = float(clearance_m)
         if not math.isfinite(value) or value <= 0:
@@ -487,6 +505,8 @@ class TopologyDocument:
                   "meters_per_unit": self.meters_per_unit, "up_axis": self.up_axis}
         if self.version == 2:
             result["levels"] = deepcopy(self.levels)
+        if self.domain != "ground":
+            result["domain"] = self.domain
         result.update({"source": dict(self.source), "nodes": deepcopy(self.nodes),
                        "edges": deepcopy(self.edges)})
         return result
@@ -500,11 +520,14 @@ class TopologyDocument:
             raise ValueError("invalid topology scene/source")
         if not isinstance(value.get("nodes", []), list) or not isinstance(value.get("edges", []), list):
             raise ValueError("topology nodes and edges must be arrays")
+        if value.get("domain") == "aerial" and value["version"] != 2:
+            raise ValueError("aerial authoring products require version 2")
         document = cls(
             value["scene_key"], deepcopy(dict(value.get("source", {}))),
             deepcopy(value.get("nodes", [])), deepcopy(value.get("edges", [])),
             value.get("coordinate_frame", "scene_world"),
             value.get("meters_per_unit", 1.0), value.get("up_axis", "Z"),
+            domain=value.get("domain", "ground"),
         )
         if value["version"] == 2:
             if "levels" not in value:

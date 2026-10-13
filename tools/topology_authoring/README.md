@@ -13,6 +13,16 @@ export and Go2 deployment, see [the multilevel workflow](MULTILEVEL.md).
 The bundled `UsdSceneAdapter` accepts a scene descriptor; scene data stays with
 the caller and does not become a benchmark task.
 
+For aerial routes, add `--domain aerial`. The same editor supports arbitrary
+world XYZ, English labels/aliases, optional heading metadata and directed `fly`
+edges. Drafts/products/previews are stored separately under
+`authoring/navigation/aerial/`. Aerial v2 products allow vertical edges and
+optional floor groups; ground constraints remain unchanged. Bundled air adapters
+check structure only, not obstacle clearance. Each bend must be a node. Yaw is
+saved but is not executed by the XYZ binding. See the
+[shared aerial runtime guide](../../algorithm/skills/AERIAL_RUNTIME.zh-CN.md)
+for source/graph identity, JSON landmarks, shared ticks and native checks.
+
 For any scene, use an adapter that only loads scene facts:
 
 ```bash

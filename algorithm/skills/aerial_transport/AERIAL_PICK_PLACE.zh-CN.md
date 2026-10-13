@@ -55,7 +55,9 @@ dispatch 时用真实物体位姿将抓取世界点转换为物体局部点，�
 PhysX 刚体位姿重建同一个点。原始 USD xform 不能替代实时位姿。
 
 默认无人机锚点为 host 解析出的无人机刚体原点；可通过 executor/bridge 的
-`drone_anchor_local_m` 指定固定的机体局部挂载点，例如烟测显式使用 `(0,0,-0.30)` m。
+`drone_anchor_local_m` 指定固定的机体局部挂载点，必须对应机器人实际结构。
+当前 Iris 接触诊断使用机腹中心网格表面 `(0,0,-0.04090353)` m 与箱顶连接，
+不再使用机体下方 30 cm 的虚拟悬空点。其他机器人由 host 提供自己的接触标定。
 host 需保证该点与模型几何相容，避免释放后物体和机体重叠，不自动推断模型尺寸。
 控制器 root 和该挂载点的
 实测偏移参与取物对齐；放置计算使用当前携带物体锚点与控制器 root 的偏移，
@@ -64,15 +66,23 @@ host 需保证该点与模型几何相容，避免释放后物体和机体重叠
 结束任务，不能把发过目标命令当成到达。
 
 关节连接当前物体世界锚点，双方完整 local position/rotation 都由实测位姿计算。
-先禁用关节，配置局部帧、body relationships、碰撞与 articulation exclusion，
-最后启用。世界支撑 body0 为空，body1 为物体。只删除本 bridge 创建的关节；
+先禁用关节，配置 body relationships、碰撞与 articulation exclusion，再用实测
+PhysX 位姿写入局部帧，最后启用。Kit 在关联刚体时会自动改写连接帧；Fabric 模式
+下 USD 位姿可能滞后，不能先写局部帧再关联刚体。世界支撑 body0 为空，body1 为物体。
+只删除本 bridge 创建的关节；
 不覆盖、重命名或删除别的 runtime 的关节，不移动物体来伪造抓取。
 
 仅对已有 `UsdPhysics.CollisionAPI` 的 prim 写入 `physics:collisionEnabled=False`。
+payload 根刚体之下不得再嵌套独立 `RigidBodyAPI`；这类层级会在任何碰撞写入前
+整体拒绝，因为 executor 的 object lease 只覆盖解析出的根刚体，不能越界修改
+另一个刚体拥有的 collider。普通非刚体子 prim 上已有的 CollisionAPI 仍随 payload
+一起备份、禁用和恢复。
 禁用前备份原编辑层的完整属性 spec，再清除该层已有的时间采样并写入常量 False，
 使默认值和数值时间查询都保持禁碰撞。恢复时复制原 spec（含时间采样和元数据），
 原来没有写入时移除本次覆盖，让参考/较弱层意见恢复。不给其他 prim 新增 CollisionAPI。
 质量、惯量、重力、刚体启用、阻尼和无人机碰撞均保持原样。
+实时 PhysX 读取器在 timeline STOP 时释放自有 native view，避免 Kit 卸载插件后
+仍析构原生缓冲；停止后的旧读取器不得用于新 session。
 payload 的真实质量会影响原位置控制器的承载能力；Skill 不代调控制器增益或载荷补偿。
 
 ## 3. 轨迹与默认值
@@ -88,9 +98,13 @@ executor 的真实模拟时间决定进度，固定 XY，只改变 Z；不进行
 | vertical_speed_m_s | 0.1 m/s，有限正数 |
 | vertical_acceleration_m_s2 | 0.5 m/s²，有限正数 |
 | phase_timeout_s | 60 模拟秒，有限正数 |
-| 连接 Z / XY 容差 | 均为 0.01 m，不接受公开改写 |
+| 连接 Z / XY 容差 | 默认 0.01 m；host 可用 connection_tolerance_m 收紧，不能放宽；不接受任务 JSON 改写 |
 | timing.duration_s / budget.duration_s | 可选总活动模拟秒预算，取较小值 |
 | executor timeout_s | 可选，从 dispatch 起算，包含 hold 时间 |
+
+真实接触诊断将 `connection_tolerance_m` 收紧至 0.002 m，实测机腹挂载点和箱顶
+同时满足门槛后才粘连。下降、粘连、垂直抬升、拓扑平移、下降放置、分离与撤离
+按状态机顺序执行；物理碰撞并非产生粘连的条件，锚点贴合才是。
 
 hold 保留阶段、路线、局部锚点与目标高度，向当前实测位置发送悬停命令。
 进入 hold 前的活动时间计入预算；hold 期间及恢复周期采样前的暂停时间不计入活动预算。
@@ -152,6 +166,8 @@ plan 首次建立任务并编译一个周期；dispatch 只排队并生成悬停
 FixedJoint、物体禁碰撞及 robot/object 租约，不自动丢弃物体。
 租约进入 quarantine，host 确认恢复条件后显式调用 `host_release`。
 恢复或悬停命令应用失败也保留占用，记录错误；不声称已经物理悬停。
+同一 ResourceManager 中任一 lease 已 quarantine 时，新的 dispatch、control 和
+settling 全部拒绝，避免未解决的共享场景被其他任务继续推进。
 
 ## 5. EAI 执行接入
 
@@ -172,6 +188,7 @@ executor = AerialPickPlaceExecutor(
     world_state_validator=validate_world_state,  # callback(seq, motion)
     reference_resolver=resolve_rigid_body,       # callback("robot" | "object", ref) → USD body path
     resource_manager=scene_resource_manager,    # 同一 scene 的 executor 共享一个 manager
+    quiescence_reader=measure_robot_and_object_stopped,  # 自定义 bridge 必须注入
     timeout_s=120.0,
     drone_anchor_local_m=(0.0, 0.0, -0.30),  # host 显式配置的挂载点
 )
@@ -179,7 +196,8 @@ queued = executor.dispatch(request)
 running = executor.control(request)
 continued = executor.control(replace(request, request_id="carry-1/continue",
     parameters={**request.parameters, "intent": "continue", "world_state_seq": next_seq}))
-# 终态持物任务仅由 host 恢复；quiescent=True 是 host 的明确恢复声明。
+# 终态持物或失败任务仅由 host 恢复；host_release 会重新实测静止，
+# quiescent=True 只是兼容断言，不能绕过测量。
 # executor.host_release("carry-1", quiescent=True)
 ```
 
@@ -195,10 +213,42 @@ continued = executor.control(replace(request, request_id="carry-1/continue",
 无人机刚体使用 articulation 首个 root link；存在歧义时必须注入 resolver。
 解析后的 object path 用作租约身份，避免不同符号引用同时占用同一物体。
 
-多机器人 host 可以通过 advance_hook 聚合动作，但回调必须同步实际应用并推进；
-只把动作排队不能当作确认。高层 Assignment 映射、异步合并步进 handle、
-持物恢复策略与外部 evaluator 属于 host；不要将 retained attachment 报为 quiescent
-或让通用 BoundSkill 自动释放租约。需要持续悬停时，host 应继续推进原位置控制器。
+共享 tick host 不通过 queue-only `advance_hook` 猜测应用结果，而使用两阶段接口：
+
+```python
+robot_body, object_body = executor.validate_request(request)  # 只读 preflight
+prepared = executor.prepare_dispatch(request, lease=cooperative_lease)
+actions[prepared.robot_id] = prepared.action
+env.step(actions)                         # 整个 scene 唯一一次共享 step
+response = executor.after_step(prepared)  # 必须看到 simulation time 严格增加
+
+# control 同样使用 prepare_control；若终态尚未静止则继续末端 hover，且不重复 mutation。
+while response.private_evidence.get("settling"):
+    prepared = executor.prepare_settle(response.state["task_id"])
+    env.step({prepared.robot_id: prepared.action})
+    response = executor.after_step(prepared)
+```
+
+任一时刻只允许一个 outstanding prepared step；host step 失败或被中断时必须调用
+`abort_prepared(prepared, error)`（等价于 `after_step(..., error=...)`）。USD mutation
+确认只在真实 step 后才交给 Provider；未推进的 hold/stop/terminal 也不得报告
+`command_applied=True` 或释放资源。正常、未附着终态若首步仍在运动，会在默认最多
+5 模拟秒内由 `prepare_settle` 重复 hover 并逐步测量；收敛后才清理，超限隔离。
+已附着终态、step 错误和 BaseException 立即隔离。
+
+`prepare_dispatch(..., lease=...)` 可接收 cooperative host 已从同一个 manager 获取的
+外部 lease。executor 会验证 exact lease identity、active 状态及 robot/object 覆盖；
+它可以 quarantine 外部 lease，但即使正常终态也不负责 release，最终释放仍由 owner
+完成。成功静止并 unbind 后私有证据 `ready_to_release=True`，供 cooperative owner
+生成 quiescent receipt；cleanup 失败不会设置该标志。省略 lease 时沿用 executor
+内部 acquire/release。原生 bridge 默认读取 robot
+与 object 的 live PhysX 线速度/角速度（阈值分别为 0.01 m/s、0.05 rad/s）；自定义
+bridge 若不能提供同等测量，必须注入 `quiescence_reader(task_id, robot_id)`，未知状态
+绝不视为静止。
+
+高层 Assignment 映射、持物恢复策略与外部 evaluator 属于 host；不要将 retained
+attachment 报为 quiescent 或让通用 BoundSkill 自动释放租约。需要持续悬停时，host
+应继续推进原位置控制器。
 
 ## 6. 输出与证据边界
 
@@ -212,7 +262,9 @@ metadata 记录 schema/provider/version、规范请求摘要、task ID 和 branc
 原生 joint 路径、局部锚点、路线节点、图摘要、模拟时间、真实位姿、执行确认和
 恢复错误留在 `private_evidence`。运行中返回当前执行样本与累计数量，终态返回
 完整轨迹。运行输出写入 tmp 或 host 指定目录，不提交为 maintained fixture。
-host 应冻结拓扑产品身份并校验场景来源，Provider 不自行读取可变地图文件。
+请求可携带 `route_graph_digest` 固定预期图身份；Provider 还会冻结首次实际选路的
+摘要，后续取/放路线和 replan 若看到不同图摘要即失败。host 仍应使用场景绑定的
+拓扑产品并校验来源；Provider 不自行读取可变地图文件。
 
 | 错误 | 处理 |
 |---|---|
@@ -227,10 +279,10 @@ host 应冻结拓扑产品身份并校验场景来源，Provider 不自行读取
 
 ## 7. 验证边界
 
-本分支不跟踪该 Skill 的测试与烟测脚本。轻量合同测试、OpenUSD 写入测试和
-Iris cycle / retained-stop 烟测曾随开发提交 `bb605fc3` 进入本分支历史并全部
-通过，随后按发布要求移除；host 需要复验时应从该提交取回脚本，或在自有环境
-中重建等价检查。运行时日志与 JSON 输出不属于源码。
+本分支跟踪纯 Provider、executor 合同和 OpenUSD 写入测试；运行时日志与 JSON
+输出不属于源码。测试覆盖 whole-scene quarantine、queue-only terminal、共享 tick、
+外部 lease、BaseException、bounded settling、路线摘要冻结及 nested rigid-body
+所有权边界。原生 Iris cycle / retained-stop 仍属于需要 Isaac/GPU 的独立诊断。
 
 预算计时和碰撞时间采样修复在临时目录增补 13 项预算/执行器回归与 5 项 OpenUSD
 回归；与现有及历史用例合计，轻量测试 333 项、OpenUSD 测试 9 项通过。

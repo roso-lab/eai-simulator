@@ -216,3 +216,12 @@ class UsdSceneAdapter:
                 except ValueError:
                     return ["node segment has no continuous support within 0.20 m of its XYZ path"]
         return []
+
+    def validate_aerial_polyline(self, polyline, clearance_m, source):
+        """Air points are explicit world XYZ, not support-surface samples.
+
+        Like authored ground links, acceptance is not a collision certificate.
+        The author/host must qualify the full flight corridor and payload.
+        """
+        from algorithm.skills.navigation.topology import finite_xyz
+        return [] if all(finite_xyz(point) for point in polyline) else ["invalid aerial XYZ segment"]

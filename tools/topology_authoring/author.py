@@ -42,14 +42,16 @@ def _read_semantic_map(path):
         return None
     return json.loads(path.read_text(encoding="utf-8"))
 
-def build_document(adapter, asset_root, semantic_map=None, *, requested_scene_key=None):
+def build_document(adapter, asset_root, semantic_map=None, *, requested_scene_key=None, domain="ground"):
     source = _with_semantic_map(adapter.load_source(Path(asset_root)), semantic_map)
     if requested_scene_key is not None and source.scene_key != requested_scene_key:
         raise ValueError(
             f"adapter source scene {source.scene_key!r} differs from requested "
             f"scene {requested_scene_key!r}"
         )
-    document = TopologyDocument(source.scene_key, adapter.source_digests(source))
+    if domain != "ground":
+        source = SceneSource(source.scene_key, source.asset_root, {**source.payload, "navigation_domain": domain})
+    document = TopologyDocument(source.scene_key, adapter.source_digests(source), domain=domain)
     if "levels" in source.payload:
         document.set_levels(source.payload["levels"])
         # Source-declared levels are the initial document state, not an author
@@ -66,6 +68,7 @@ def _headless(args):
         args.asset_root,
         semantic_map,
         requested_scene_key=args.scene_key,
+        domain=getattr(args, "domain", "ground"),
     )
     errors=validate_document(doc,adapter,source)
     print(json.dumps({"scene_key":source.scene_key,"nodes":len(doc.nodes),"edges":len(doc.edges),"validation_errors":errors},ensure_ascii=False,indent=2))
@@ -93,6 +96,7 @@ def _gui(args):
             args.asset_root,
             semantic_map,
             requested_scene_key=args.scene_key,
+            domain=getattr(args, "domain", "ground"),
         )
         errors = validate_document(doc, adapter, source)
         if errors:
@@ -132,6 +136,7 @@ def main(argv=None):
     p.add_argument("--asset-root", type=Path, required=True); p.add_argument("--output-root", type=Path, required=True)
     p.add_argument("--semantic-map", type=Path, help="optional participant semantic map for target binding")
     p.add_argument("--headless", action="store_true"); p.add_argument("--generate", type=Path)
+    p.add_argument("--domain", choices=("ground", "aerial"), default="ground")
     args=p.parse_args(argv)
     if args.scene_key and not args.asset_root.is_dir(): p.error(f"asset root does not exist: {args.asset_root}")
     return _headless(args) if args.headless else _gui(args)

@@ -28,6 +28,7 @@ from task.contracts import (
     TaskRunRequest,
 )
 from task.resources import (
+    InvalidResourceLeaseError,
     ResourceBusyError,
     ResourceLease,
     ResourceManager,
@@ -60,6 +61,7 @@ class CooperativeBinding:
     start: Callable[..., CooperativeHandle]
     validate: Callable[..., None]
     resources: tuple[str, ...] = ()
+    start_with_lease: bool = False
 
 
 class _ProtocolError(ValueError):
@@ -132,6 +134,7 @@ class CooperativeBatchExecutor:
         self._live: list[_Live] = []
         self._external_cancel_reason: str | None = None
         self._last_observation: WorldSnapshot | None = None
+        self._unsafe_reason: str | None = None
         self.ledger = EventLedger(schema_version="task.cooperative_runtime.v1")
 
     @property
@@ -389,32 +392,57 @@ class CooperativeBatchExecutor:
             )
             handle: Any = None
             try:
-                handle = item.binding.start(item.plan, scene=scene)
+                if item.binding.start_with_lease:
+                    handle = item.binding.start(item.plan, scene=scene, lease=item.lease)
+                else:
+                    handle = item.binding.start(item.plan, scene=scene)
                 self._validate_handle(handle)
+                self._validate_active_lease(item)
             except BaseException as exc:
+                cleanup_errors: list[str] = []
                 cancel_callback = getattr(handle, "cancel", None)
                 if callable(cancel_callback):
                     try:
                         cancel_callback(
                             f"cooperative start protocol failed: {type(exc).__name__}"
                         )
-                    except BaseException:
-                        pass
-                self._quarantine(
-                    item.lease,
-                    reason=f"start failed without quiescent receipt: {type(exc).__name__}",
-                )
+                    except BaseException as cleanup_exc:
+                        cleanup_errors.append(
+                            f"cancel callback failed: {type(cleanup_exc).__name__}: {cleanup_exc}"
+                        )
+                quarantined = False
+                try:
+                    quarantined = self._quarantine(
+                        item.lease,
+                        reason=f"start failed without quiescent receipt: {type(exc).__name__}",
+                    )
+                except BaseException as cleanup_exc:
+                    cleanup_errors.append(
+                        f"quarantine failed: {type(cleanup_exc).__name__}: {cleanup_exc}"
+                    )
+                if not quarantined:
+                    try:
+                        self._mark_scene_unsafe(
+                            f"start lost authenticated resource ownership: {type(exc).__name__}"
+                        )
+                    except BaseException as cleanup_exc:
+                        cleanup_errors.append(
+                            f"scene quarantine failed: {type(cleanup_exc).__name__}: {cleanup_exc}"
+                        )
+                message = f"{type(exc).__name__}: {exc}"
+                if cleanup_errors:
+                    message += "; " + "; ".join(cleanup_errors)
                 results[item.index] = self._update(
                     item.assignment,
                     DependencyOutcome.TERMINAL_FAILURE,
                     FailureCode.SAFE_STOP,
-                    f"{type(exc).__name__}: {exc}",
+                    message,
                 )
                 self.ledger.append(
                     "start_failed",
                     request_id=item.request.request_id,
                     lease_id=item.lease.lease_id,
-                    reason=f"{type(exc).__name__}: {exc}",
+                    reason=message,
                 )
                 if not isinstance(exc, Exception):
                     raise
@@ -465,6 +493,8 @@ class CooperativeBatchExecutor:
             raise TypeError("cooperative binding callbacks must be callable")
         if not isinstance(binding.resources, tuple):
             raise TypeError("cooperative binding resources must be a tuple")
+        if type(binding.start_with_lease) is not bool:
+            raise TypeError("cooperative start_with_lease must be an exact boolean")
         request = deepcopy(binding.request)
         if (
             request.robot_id != assignment.robot_id
@@ -565,6 +595,26 @@ class CooperativeBatchExecutor:
             # A failed command may leave a stale controller target. Rebuild the
             # whole action map on the next bounded cancellation attempt.
             if actions is not None and commands_valid:
+                for state in tuple(live):
+                    try:
+                        self._validate_active_lease(state.prepared)
+                    except Exception as exc:
+                        self._begin_cancel_for_exception(
+                            state,
+                            "resource lease validation",
+                            exc,
+                        )
+                        self._mark_scene_unsafe(
+                            "shared step blocked after resource ownership changed"
+                        )
+                        commands_valid = False
+                        break
+
+            if self._has_quarantine():
+                self._halt_quarantined(live, results)
+                return
+
+            if actions is not None and commands_valid:
                 try:
                     self.step(scene, actions)
                 except Exception as exc:
@@ -620,6 +670,7 @@ class CooperativeBatchExecutor:
                             code=FailureCode.INVALID_PLAN,
                             message=f"{type(exc).__name__}: {exc}",
                             replace_failure=True,
+                            preserve_callback_failure=True,
                         )
                         if self._has_quarantine():
                             self._halt_quarantined(live, results)
@@ -655,6 +706,7 @@ class CooperativeBatchExecutor:
             outcome=DependencyOutcome.RETRYABLE_FAILURE,
             code=FailureCode.EXECUTION_FAILURE,
             message=f"{operation} failed: {type(exc).__name__}: {exc}",
+            preserve_callback_failure=True,
         )
 
     def _begin_cancel(
@@ -666,6 +718,7 @@ class CooperativeBatchExecutor:
         code: FailureCode,
         message: str,
         replace_failure: bool = False,
+        preserve_callback_failure: bool = False,
     ) -> None:
         if state.cancelling and not replace_failure:
             return
@@ -684,7 +737,9 @@ class CooperativeBatchExecutor:
         )
         try:
             state.handle.cancel(reason)
-        except Exception as exc:
+        except BaseException as exc:
+            if not preserve_callback_failure:
+                raise
             state.failure_message += (
                 f"; cancel callback failed: {type(exc).__name__}: {exc}"
             )
@@ -752,17 +807,38 @@ class CooperativeBatchExecutor:
             cancel_attempts=state.cancel_attempts,
         )
 
-    def _quarantine(self, lease: ResourceLease, *, reason: str) -> None:
+    def _quarantine(self, lease: ResourceLease, *, reason: str) -> bool:
         try:
             self.resources.quarantine(lease, reason)
         except ResourceQuarantinedError:
             # A checkpoint failure may already have quarantined this lease.
             pass
+        except InvalidResourceLeaseError:
+            # A callback may already have released the authentic lease. It is
+            # unsafe, but must not be reported as retained quarantine.
+            return False
         if lease not in self._quarantined:
             self._quarantined.append(lease)
+        return True
 
     def _has_quarantine(self) -> bool:
-        return any(record['state'] == 'quarantined' for record in self.resources.snapshot()['leases'])
+        return self._unsafe_reason is not None or any(
+            record['state'] == 'quarantined'
+            for record in self.resources.snapshot()['leases']
+        )
+
+    def _mark_scene_unsafe(self, reason: str) -> None:
+        if self._unsafe_reason is None:
+            self._unsafe_reason = reason
+        try:
+            leases = self.resources.quarantine_active(reason)
+        except BaseException:
+            # The scene-level latch still forbids later steps. Cleanup failure
+            # must not replace the ownership error that triggered this path.
+            return
+        for lease in leases:
+            if lease not in self._quarantined:
+                self._quarantined.append(lease)
 
     def _halt_quarantined(self, live, results) -> None:
         # An unconfirmed controller may still move on any shared env.step.
@@ -775,13 +851,26 @@ class CooperativeBatchExecutor:
             results[state.prepared.index] = self._update(state.prepared.assignment,
                 DependencyOutcome.TERMINAL_FAILURE, FailureCode.SAFE_STOP,
                 'shared scene quarantined; further physical stepping prohibited')
-        leases = self.resources.quarantine_active('shared scene contains an unconfirmed controller')
+        reason = self._unsafe_reason or 'shared scene contains an unconfirmed controller'
+        try:
+            leases = self.resources.quarantine_active(reason)
+        except BaseException:
+            leases = ()
         for lease in leases:
             if lease not in self._quarantined:
                 self._quarantined.append(lease)
         live.clear()
 
     def _validate_receipt(self, state: _Live, receipt: Any) -> None:
+        try:
+            self._validate_active_lease(state.prepared)
+        except (InvalidResourceLeaseError, ResourceQuarantinedError) as exc:
+            self._mark_scene_unsafe(
+                "terminal receipt arrived without active resource ownership"
+            )
+            raise _ProtocolError(
+                f"cooperative receipt lost resource ownership: {exc}"
+            ) from exc
         if not isinstance(receipt, ExecutionReceipt):
             raise _ProtocolError("cooperative handle must return ExecutionReceipt or None")
         request = state.prepared.request
@@ -801,6 +890,19 @@ class CooperativeBatchExecutor:
                 raise _ProtocolError(
                     "cooperative start must return a command/after_step/cancel handle"
                 )
+
+    @staticmethod
+    def _required_resources(item: _Prepared) -> tuple[str, ...]:
+        return ("robot:" + item.request.robot_id, *item.binding.resources)
+
+    def _validate_active_lease(self, item: _Prepared) -> ResourceLease:
+        lease = item.lease
+        if lease is None:
+            raise InvalidResourceLeaseError("cooperative item has no resource lease")
+        return self.resources.validate_lease(
+            lease,
+            required_resources=self._required_resources(item),
+        )
 
     @staticmethod
     def _validate_batch_identities(
@@ -875,10 +977,20 @@ class CooperativeBatchExecutor:
                 continue
             if (item.request.request_id in self._consumed
                     or occupied[lease.lease_id] == "quarantined"):
-                self._quarantine(lease, reason=reason)
+                try:
+                    if not self._quarantine(lease, reason=reason):
+                        self._unsafe_reason = self._unsafe_reason or reason
+                except BaseException:
+                    self._unsafe_reason = self._unsafe_reason or reason
             else:
-                self.resources.release(lease)
-        self.ledger.append("batch_aborted", reason=reason)
+                try:
+                    self.resources.release(lease)
+                except BaseException:
+                    self._unsafe_reason = self._unsafe_reason or reason
+        try:
+            self.ledger.append("batch_aborted", reason=reason)
+        except BaseException:
+            pass
 
 
 __all__ = [

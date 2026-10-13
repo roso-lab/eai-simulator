@@ -17,8 +17,8 @@ SKILL_REGISTRY: tuple[dict[str, Any], ...] = (
         "module": "algorithm.skills.navigation.aerial_navigation", "schema_version": "simulator.skill.v1",
         "input_contract": "SkillRequest(target_ref | XYZ target_pose, intent, world_state_seq)",
         "output_contract": "SkillPlan(goal_position)",
-        "executor_owner": "host EAI goal_position route; node primitives composed by AerialPickPlaceExecutor",
-        "evaluator_owner": "external evidence evaluator", "status": "implemented_pure_provider",
+        "executor_owner": "task.executors.aerial_runtime.AerialSkillRuntime",
+        "evaluator_owner": "external evidence evaluator", "status": "implemented_shared_tick_binding",
     },
     {
         "skill_id": "eai.transport.aerial_pick_place",
@@ -27,7 +27,7 @@ SKILL_REGISTRY: tuple[dict[str, Any], ...] = (
         "module": "algorithm.skills.aerial_transport", "schema_version": "simulator.skill.v1",
         "input_contract": "SkillRequest(object/source/destination refs, world anchors, robot_ids, intent, world_state_seq)",
         "output_contract": "transport_state + SkillPlan(current-phase goal_position / transport_mutation)",
-        "executor_owner": "task.executors.aerial_pick_place.AerialPickPlaceExecutor",
+        "executor_owner": "task.executors.aerial_runtime.AerialSkillRuntime / AerialPickPlaceExecutor",
         "evaluator_owner": "external evidence evaluator", "status": "implemented_generic_executor",
     },
     {

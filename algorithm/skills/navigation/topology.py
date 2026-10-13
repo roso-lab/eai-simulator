@@ -32,7 +32,7 @@ def topology_fields(document: Any) -> Mapping[str, Any]:
     if isinstance(document, Mapping):
         return document
     return {name: getattr(document, name) for name in
-            ("nodes", "edges", "coordinate_frame", "meters_per_unit", "up_axis", "version", "levels")
+            ("nodes", "edges", "coordinate_frame", "meters_per_unit", "up_axis", "version", "levels", "domain")
             if hasattr(document, name)}
 
 
@@ -47,6 +47,19 @@ def _strings(value: Any) -> bool:
 
 
 def validate_ground_topology(document: Any) -> list[str]:
+    return _validate_topology(document, aerial=False)
+
+
+def validate_aerial_topology(document: Any) -> list[str]:
+    """Validate XYZ node products without applying ground support constraints."""
+    return _validate_topology(document, aerial=True)
+
+
+def validate_topology(document: Any) -> list[str]:
+    return _validate_topology(document, aerial=topology_fields(document).get("domain") == "aerial")
+
+
+def _validate_topology(document: Any, *, aerial: bool) -> list[str]:
     """Validate the shared executable subset; an empty authoring draft is valid.
 
     Legacy host-supplied node/edge mappings may omit coordinate metadata; their
@@ -54,13 +67,17 @@ def validate_ground_topology(document: Any) -> list[str]:
     """
     data = topology_fields(document)
     errors: list[str] = []
+    if data.get("domain", "ground") != ("aerial" if aerial else "ground"):
+        errors.append("topology domain differs from navigation domain")
+    if "schema" in data and data["schema"] != "eai.navigation.topology":
+        errors.append("unsupported topology schema")
     version = data.get("version", 1)
     if type(version) is not int or version not in (1, 2):
         errors.append("unsupported ground topology version")
     levels = {}
     if version == 2:
         rows = data.get("levels")
-        if not isinstance(rows, (list, tuple)) or not rows:
+        if not isinstance(rows, (list, tuple)) or (not rows and not aerial):
             errors.append("multilevel topology requires declared levels")
         else:
             for row in rows:
@@ -112,11 +129,11 @@ def validate_ground_topology(document: Any) -> list[str]:
                 bound_refs[ref] = node_id
         if version == 2:
             level_id = row.get("level_id")
-            if level_id is None and row.get("kind") == "transition":
+            if level_id is None and (aerial or row.get("kind") == "transition"):
                 pass
             elif not isinstance(level_id, str) or level_id not in levels:
                 errors.append(f"node requires a declared level or transition kind: {node_id}")
-            elif (node_id in nodes and
+            elif (not aerial and node_id in nodes and
                   abs(nodes[node_id][2] - levels[level_id]) > LEVEL_HEIGHT_TOLERANCE_M):
                 errors.append(f"node support height differs from declared level: {node_id}")
             if not isinstance(row.get("label", ""), str) or not _strings(row.get("aliases", [])):
@@ -135,7 +152,7 @@ def validate_ground_topology(document: Any) -> list[str]:
                 bands[level][0] = min(bands[level][0], nodes[node_id][2])
                 bands[level][1] = max(bands[level][1], nodes[node_id][2])
         ordered = sorted(bands.values())
-        if any(b[0]-a[1] <= 2*LEVEL_HEIGHT_TOLERANCE_M for a,b in zip(ordered,ordered[1:])):
+        if not aerial and any(b[0]-a[1] <= 2*LEVEL_HEIGHT_TOLERANCE_M for a,b in zip(ordered,ordered[1:])):
             errors.append("declared floor height bands overlap the support tolerance; use transition nodes")
     edge_ids = set()
     for index, edge in enumerate(edges):
@@ -151,17 +168,19 @@ def validate_ground_topology(document: Any) -> list[str]:
         if (not isinstance(first, str) or not isinstance(last, str)
                 or first not in node_ids or last not in node_ids or first == last):
             errors.append(f"invalid edge endpoints: {edge_id}")
-        elif first in nodes and last in nodes and math.dist(nodes[first][:2], nodes[last][:2]) <= 0:
-            errors.append(f"ground topology edge must have nonzero XY length: {edge_id}")
+        elif first in nodes and last in nodes:
+            a, b = nodes[first], nodes[last]
+            if math.dist(a if aerial else a[:2], b if aerial else b[:2]) <= 0:
+                errors.append(f"{'aerial topology edge must have nonzero XYZ' if aerial else 'ground topology edge must have nonzero XY'} length: {edge_id}")
         if type(edge.get("directed", False)) is not bool:
             errors.append(f"invalid edge direction: {edge_id}")
         if version == 2:
             mode = edge.get("traversal_mode")
-            if not isinstance(mode, str) or mode not in TRAVERSAL_MODES:
+            if not isinstance(mode, str) or mode not in ({"fly"} if aerial else TRAVERSAL_MODES):
                 errors.append(f"invalid edge traversal_mode: {edge_id}")
             if not _strings(edge.get("required_controller_capabilities", [])):
                 errors.append(f"invalid edge controller capabilities: {edge_id}")
-            if (mode == "walk" and isinstance(first, str) and isinstance(last, str)
+            if (not aerial and mode == "walk" and isinstance(first, str) and isinstance(last, str)
                     and first in nodes and last in nodes):
                 a, b = node_rows[first], node_rows[last]
                 if (a.get("level_id") is None or a.get("level_id") != b.get("level_id")

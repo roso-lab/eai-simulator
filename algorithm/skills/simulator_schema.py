@@ -29,6 +29,7 @@ class SimulatorFieldSpec:
     frame: str | None = None
     description: str = ""
     enum_values: tuple[str, ...] = ()
+    vector_size: int | None = None
 
 
 @dataclass(frozen=True)
@@ -62,6 +63,8 @@ class SimulatorSkillSchema:
         return frozenset(command.command_type for command in self.commands)
 
     def validate(self, request: SkillRequest) -> None:
+        if request.skill_version != self.version:
+            raise SimulatorSchemaError("unsupported simulator Skill schema version")
         ground = self.skill_id == GROUND_NAVIGATION_SKILL_ID
         if request.skill_id != self.skill_id and not (ground and request.skill_id in GROUND_NAVIGATION_SKILL_IDS):
             raise SimulatorSchemaError(
@@ -81,6 +84,17 @@ class SimulatorSkillSchema:
         for field in self.fields:
             if field.name in parameters:
                 _validate_field(field.name, parameters[field.name], field)
+        if "route_graph_digest" in parameters:
+            pin = parameters["route_graph_digest"]
+            if not isinstance(pin, str) or len(pin) != 64 or any(c not in "0123456789abcdef" for c in pin):
+                raise SimulatorSchemaError("route_graph_digest must be a SHA-256 hex digest")
+        if self.skill_id == "eai.manipulation.pose":
+            if math.hypot(*parameters["orientation_xyzw"]) <= 1e-12:
+                raise SimulatorSchemaError("orientation_xyzw must be nonzero")
+        if self.skill_id == "eai.manipulation.joint":
+            names = parameters["joint_names"]
+            if not names or len(names) != len(set(names)) or len(names) != len(parameters["joint_positions"]):
+                raise SimulatorSchemaError("joint_names must be unique and match joint_positions")
         if self.skill_id in {AERIAL_NAVIGATION_SKILL_ID, AERIAL_PICK_PLACE_SKILL_ID}:
             if request.skill_version != self.version:
                 raise SimulatorSchemaError("unsupported simulator Skill schema version")
@@ -142,6 +156,8 @@ class SimulatorSkillSchema:
                 raise SimulatorSchemaError(
                     f"{self.skill_id} requires target_ref or target_pose"
                 )
+            if request.target_ref is not None:
+                _validate_field("target_ref", request.target_ref, SimulatorFieldSpec("target_ref", "string", required=True))
             if request.target_pose is not None and self.kind is SkillKind.NAVIGATION:
                 if len(request.target_pose) != 3:
                     raise SimulatorSchemaError(
@@ -194,6 +210,8 @@ def _validate_field(name: str, value: Any, spec: SimulatorFieldSpec) -> None:
     if spec.value_type == "finite_vector":
         if not isinstance(value, (list, tuple)) or not value:
             raise SimulatorSchemaError(f"{name} must be a non-empty vector")
+        if spec.vector_size is not None and len(value) != spec.vector_size:
+            raise SimulatorSchemaError(f"{name} must contain {spec.vector_size} values")
         for item in value:
             _validate_field(
                 name,
@@ -220,6 +238,8 @@ SIMULATOR_SKILL_SCHEMAS: tuple[SimulatorSkillSchema, ...] = (
             SimulatorFieldSpec("mode", "string", enum_values=("goal",)),
             SimulatorFieldSpec("target_yaw", "finite_number", unit="rad", description="Reserved; XYZ navigation does not align yaw."),
             SimulatorFieldSpec("horizon_ticks", "positive_int", unit="tick"),
+            SimulatorFieldSpec("route_graph_digest", "string", description="Frozen executable graph identity."),
+            SimulatorFieldSpec("origin_ref", "string", description="Declared origin; measured start must be nearby."),
         ),
         commands=(SimulatorCommandSpec("goal_position", "env.set_command -> EAI position controller -> env.step", ("target_pose", "frame", "horizon_ticks")),),
         target_required=True,
@@ -241,6 +261,7 @@ SIMULATOR_SKILL_SCHEMAS: tuple[SimulatorSkillSchema, ...] = (
             SimulatorFieldSpec("vertical_acceleration_m_s2", "positive_number", unit="m/s²"),
             SimulatorFieldSpec("phase_timeout_s", "positive_number", unit="s"),
             SimulatorFieldSpec("handoff_ref", "string", description="Declared but unsupported."),
+            SimulatorFieldSpec("route_graph_digest", "string", description="Frozen executable graph identity."),
         ),
         commands=(
             SimulatorCommandSpec("goal_position", "env.set_command -> EAI position controller -> env.step", ("target_pose", "frame")),
@@ -271,7 +292,7 @@ SIMULATOR_SKILL_SCHEMAS: tuple[SimulatorSkillSchema, ...] = (
         "eai.navigation.goal_position",
         SkillKind.NAVIGATION,
         fields=(
-            SimulatorFieldSpec("frame", "string", unit="m", frame="world"),
+            SimulatorFieldSpec("frame", "string", unit="m", frame="world", enum_values=("world",)),
             SimulatorFieldSpec("target_yaw", "finite_number", unit="rad", frame="world"),
             SimulatorFieldSpec("horizon_ticks", "positive_int", unit="tick"),
             SimulatorFieldSpec("command_name", "string"),
@@ -294,7 +315,7 @@ SIMULATOR_SKILL_SCHEMAS: tuple[SimulatorSkillSchema, ...] = (
         "eai.navigation.velocity",
         SkillKind.NAVIGATION,
         fields=(
-            SimulatorFieldSpec("velocity", "finite_vector", required=True, unit="m/s,m/s,rad/s", frame="base"),
+            SimulatorFieldSpec("velocity", "finite_vector", required=True, unit="m/s,m/s,rad/s", frame="base", vector_size=3),
             SimulatorFieldSpec("horizon_ticks", "positive_int", unit="tick"),
         ),
         commands=(SimulatorCommandSpec("velocity", "env.step", ("velocity", "horizon_ticks")),),
@@ -312,9 +333,9 @@ SIMULATOR_SKILL_SCHEMAS: tuple[SimulatorSkillSchema, ...] = (
         "eai.manipulation.pose",
         SkillKind.MANIPULATION,
         fields=(
-            SimulatorFieldSpec("frame_id", "string", required=True, frame="world|base_link"),
-            SimulatorFieldSpec("position", "finite_vector", required=True, unit="m"),
-            SimulatorFieldSpec("orientation_xyzw", "finite_vector", required=True),
+            SimulatorFieldSpec("frame_id", "string", required=True, frame="world|base_link", enum_values=("world", "base_link")),
+            SimulatorFieldSpec("position", "finite_vector", required=True, unit="m", vector_size=3),
+            SimulatorFieldSpec("orientation_xyzw", "finite_vector", required=True, vector_size=4),
             SimulatorFieldSpec("horizon_ticks", "positive_int", unit="tick"),
         ),
         commands=(SimulatorCommandSpec(

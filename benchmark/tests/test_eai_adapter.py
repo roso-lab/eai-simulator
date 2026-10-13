@@ -148,3 +148,21 @@ def test_episode_runner_records_session_clock_at_step_boundary():
     )
     boundary = runner.step({})
     assert boundary.sim_time_s == 0.2
+
+
+def test_yaw_requires_declared_controller_and_applies_with_xyz_in_same_tick():
+    session = _session()
+    plan = CommandNavigationSkillAdapter().plan(SkillRequest(
+        "yaw", "eai.navigation.goal_position", "robot_a", target_pose=(1, 2, 3),
+        parameters={"target_yaw": 1.57, "horizon_ticks": 1}))
+    kwargs = dict(scene=session, plan=plan, step=lambda actions: session.env.actions.append(actions))
+    executor = EaiTaskExecutor(max_steps=1, tensor_factory=lambda values, device: list(values))
+    feedback = executor.execute(Assignment("yaw", "robot_a", "test"), SimpleNamespace(metadata={}), **kwargs)
+    assert feedback.failure_code is FailureCode.INVALID_PLAN
+    assert not session.base_env.commands and not session.env.actions
+    session.env_cfg.controllers["robot_a"].yaw_command_name = "goal_yaw"
+    feedback = executor.execute(Assignment("yaw", "robot_a", "test"), SimpleNamespace(metadata={}), **kwargs)
+    assert feedback.outcome == "command_applied"
+    assert [item[1] for item in session.base_env.commands] == ["goal_yaw", "goal_position"]
+    assert session.base_env.commands[0][2] == [[1.57], [1.57]]
+    assert len(session.env.actions) == 1

@@ -129,6 +129,30 @@ def test_release_is_idempotent_only_for_authentic_released_lease():
         manager.release(ResourceLease(lease.lease_id, lease.owner, lease.resources))
 
 
+def test_validate_lease_requires_exact_active_object_and_resource_coverage():
+    manager = ResourceManager()
+    lease = manager.acquire("worker-a", ["robot:r1", "object:box"])
+
+    assert manager.validate_lease(
+        lease,
+        required_resources=("robot:r1", "object:box"),
+    ) is lease
+    with pytest.raises(InvalidResourceLeaseError, match="does not cover"):
+        manager.validate_lease(lease, required_resources=("robot:r2",))
+    with pytest.raises(InvalidResourceLeaseError, match="not issued"):
+        manager.validate_lease(
+            ResourceLease(lease.lease_id, lease.owner, lease.resources),
+        )
+
+    manager.quarantine(lease, "runtime stop is unresolved")
+    with pytest.raises(ResourceQuarantinedError, match="quarantined"):
+        manager.validate_lease(lease)
+    manager.recover(lease, quiescent=True)
+    manager.release(lease)
+    with pytest.raises(InvalidResourceLeaseError, match="not active"):
+        manager.validate_lease(lease)
+
+
 def test_snapshot_is_detached_and_json_safe():
     manager = ResourceManager()
     lease = manager.acquire("worker-a", ["arm:r1", "robot:r1"])

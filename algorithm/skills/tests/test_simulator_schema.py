@@ -57,3 +57,18 @@ def test_manipulation_and_coordination_fields_are_explicit():
     handoff = simulator_skill_schema("eai.coordination.handoff")
     assert "handoff_request" in handoff.command_types
     assert handoff.composite is True
+
+
+@pytest.mark.parametrize("skill,parameters,extra", [
+    ("eai.navigation.goal_position", {"frame": "camera"}, {"target_pose": (1, 2, 3)}),
+    ("eai.navigation.goal_position", {}, {"target_pose": (1, 2, 3), "skill_version": "simulator.skill.v999"}),
+    ("eai.navigation.velocity", {"velocity": [1]}, {}),
+    ("eai.manipulation.pose", {"frame_id": "world", "position": [1], "orientation_xyzw": [0, 0, 0, 1]}, {}),
+    ("eai.manipulation.pose", {"frame_id": "camera", "position": [1, 2, 3], "orientation_xyzw": [0, 0, 0, 1]}, {}),
+    ("eai.manipulation.pose", {"frame_id": "world", "position": [1, 2, 3], "orientation_xyzw": [0, 0, 0, 0]}, {}),
+    ("eai.manipulation.joint", {"joint_names": ["a", "b"], "joint_positions": [1]}, {}),
+    ("eai.manipulation.joint", {"joint_names": ["a", "a"], "joint_positions": [1, 2]}, {}),
+])
+def test_fixed_shape_frame_version_and_joint_alignment(skill, parameters, extra):
+    with pytest.raises(SimulatorSchemaError):
+        validate_simulator_skill_request(SkillRequest("invalid", skill, "robot", parameters=parameters, **extra))

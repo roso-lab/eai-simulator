@@ -83,6 +83,12 @@ SkillRequest(
 
 ## 4. 当前已确认的 simulator/controller 动作面
 
+所有 schema 均严格检查版本、向量维数、声明的 frame；pose 四元数必须非零，
+joint_names 必须唯一且与位置向量等长。通用 goal executor 仅在 controller 明确
+声明 `yaw_command_name` 时发送 `[N,1]` 航向命令，并与 XYZ 同 tick 执行；否则在
+任何写入前拒绝带 `target_yaw` 的计划。空中持续技能使用
+[AerialSkillRuntime](AERIAL_RUNTIME.zh-CN.md)；当前 XYZ 绑定不支持航向执行。
+
 | 动作 | 输入 | 输出 command | 执行路径 |
 | --- | --- | --- | --- |
 | 移动目标 | `target_pose=(x,y,z)`、`frame=world`、可选 `target_yaw` | `goal_position`、可选 `goal_yaw` | `base_env.set_command(robot, "goal_position", tensor[N,3])` |

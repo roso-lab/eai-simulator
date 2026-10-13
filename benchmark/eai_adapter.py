@@ -15,6 +15,7 @@ from typing import Any, Callable, Mapping, Sequence
 from algorithm.common_coordination.contract import Assignment, ExecutionFeedback, FailureCode
 from algorithm.skills.contracts import SkillCommand, SkillPlan, SkillRequest
 from algorithm.skills.simulator_schema import SimulatorSchemaError, validate_simulator_skill_request
+from algorithm.skills.navigation.aerial_navigation import digest
 
 
 def _as_vector(value: Any) -> list[float] | None:
@@ -71,7 +72,6 @@ class CommandNavigationSkillAdapter:
         self.command_type = str(command_type)
 
     def plan(self, request: SkillRequest, *, observation: Mapping[str, Any] | None = None) -> SkillPlan:
-        del observation
         if request.skill_id != self.skill_id:
             return SkillPlan(
                 request_id=request.request_id,
@@ -119,6 +119,11 @@ class CommandNavigationSkillAdapter:
             commands=(SkillCommand(self.command_type, payload),),
             metadata={
                 "provider": "benchmark.eai_adapter.CommandNavigationSkillAdapter",
+                "provider_id": "benchmark.command_navigation", "provider_version": "1.1",
+                "request_digest": digest(request.to_mapping()),
+                "observation_digest": digest(observation) if observation is not None else None,
+                "task_id": request.task_id, "branch_context": request.branch_context,
+                "expected_external_outcome": "measured target pose arrival",
                 "schema_version": schema.version,
                 "command_route": schema.commands[0].route if schema.commands else "",
             },
@@ -283,6 +288,8 @@ class EaiTaskExecutor:
             return self._failure(assignment, f"skill plan status is {plan.status}", FailureCode.INVALID_PLAN)
         if not plan.commands:
             return self._failure(assignment, "skill plan has no commands", FailureCode.INVALID_PLAN)
+        if plan.robot_id != assignment.robot_id:
+            return self._failure(assignment, "plan robot differs from assignment", FailureCode.INVALID_PLAN)
         set_command = getattr(base_env, "set_command", None)
         if not callable(set_command):
             return self._failure(assignment, "base_env.set_command is unavailable", FailureCode.EXECUTION_FAILURE)
@@ -290,13 +297,24 @@ class EaiTaskExecutor:
         total_steps = 0
         last_time = 0.0
         try:
+            # Validate the whole plan before any controller write. In particular,
+            # an unsupported final yaw must not partially execute its XYZ goal.
+            prepared = []
             for command in plan.commands:
                 command_name, value = self._encode_command(command, assignment.robot_id, task, session)
                 horizon = self._horizon(command, task)
-                if total_steps + horizon > self.max_steps:
-                    raise _UnsupportedCommand(
-                        f"plan exceeds total step budget {self.max_steps}"
-                    )
+                yaw = command.payload.get("target_yaw")
+                yaw_name = None
+                if yaw is not None:
+                    yaw_name = self._yaw_command(session, assignment.robot_id)
+                    if command.command_type != "goal_position" or not yaw_name:
+                        raise _UnsupportedCommand("target_yaw requires an explicitly configured yaw_command_name")
+                    if isinstance(yaw, bool) or not isinstance(yaw, (float, int)) or not math.isfinite(yaw):
+                        raise _UnsupportedCommand("target_yaw must be finite radians")
+                prepared.append((command, command_name, value, horizon, yaw_name, yaw))
+            if sum(item[3] for item in prepared) > self.max_steps:
+                raise _UnsupportedCommand(f"plan exceeds total step budget {self.max_steps}")
+            for command, command_name, value, horizon, yaw_name, yaw in prepared:
                 encoded = None
                 if command.command_type != "noop":
                     encoded = self._to_tensor(
@@ -313,6 +331,9 @@ class EaiTaskExecutor:
                 else:
                     step_actions = self._neutral_actions(session)
                 if command.command_type != "noop" and command.command_type not in {"velocity", "command", "rotor_velocity"}:
+                    if yaw_name is not None:
+                        set_command(assignment.robot_id, yaw_name, self._to_tensor(
+                            [yaw], str(getattr(session, "device", "cpu")), int(getattr(session, "num_envs", 1) or 1)))
                     set_command(assignment.robot_id, command_name, encoded)
                 for _ in range(horizon):
                     # Pass a neutral action entry for every active agent.  The
@@ -367,6 +388,8 @@ class EaiTaskExecutor:
         elif not configured:
             raise _UnsupportedCommand(f"no controller command is configured for {robot_id}")
         if command.command_type in {"goal_position", "goal_pose", "position"}:
+            if payload.get("frame", "world") != "world":
+                raise _UnsupportedCommand("goal position requires world frame")
             value = payload.get("target_pose", payload.get("position", payload.get("goal_position")))
             if value is None and payload.get("target_ref") and self.target_resolver is not None:
                 value = self.target_resolver(str(payload["target_ref"]))
@@ -379,7 +402,26 @@ class EaiTaskExecutor:
         vector = _as_vector(value)
         if vector is None:
             raise _UnsupportedCommand("controller payload must be a finite numeric vector")
+        if command.command_type in {"goal_position", "goal_pose", "position", "velocity"} and len(vector) != 3:
+            raise _UnsupportedCommand("position/velocity requires three components")
+        if command.command_type == "rotor_velocity":
+            cfg = getattr(getattr(session, "env_cfg", None), "controllers", {}).get(robot_id)
+            cfg = cfg[0] if isinstance(cfg, (tuple, list)) and cfg else cfg
+            dim = cfg.get("action_dim") if isinstance(cfg, Mapping) else getattr(cfg, "action_dim", None)
+            mode = cfg.get("control_mode") if isinstance(cfg, Mapping) else getattr(cfg, "control_mode", None)
+            if mode != "rotor_velocity" or type(dim) is not int or dim != len(vector):
+                raise _UnsupportedCommand("rotor_velocity requires matching controller mode and action_dim")
         return str(configured), vector
+
+    @staticmethod
+    def _yaw_command(session: Any, robot_id: str) -> str | None:
+        entry = getattr(getattr(session, "env_cfg", None), "controllers", {}).get(robot_id)
+        configs = entry if isinstance(entry, (tuple, list)) else (entry,)
+        for config in configs:
+            name = config.get("yaw_command_name") if isinstance(config, Mapping) else getattr(config, "yaw_command_name", None)
+            if isinstance(name, str) and name.strip():
+                return name
+        return None
 
     @staticmethod
     def _configured_command(session: Any, robot_id: str) -> str | None:

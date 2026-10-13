@@ -22,7 +22,8 @@ def _with_semantic_map(source, semantic_map):
 
 
 def _new_document(adapter, source):
-    document = TopologyDocument(source.scene_key, adapter.source_digests(source))
+    document = TopologyDocument(source.scene_key, adapter.source_digests(source),
+                                domain=source.payload.get("navigation_domain", "ground"))
     if "levels" in source.payload:
         document.set_levels(source.payload["levels"])
         document._undo.clear()
@@ -240,7 +241,7 @@ class TopologyAuthoringWindow:
             if document.version == 2 and document.levels else None
         )
         self._pending_node_kind = "custom"
-        self._pending_traversal_mode = "walk"
+        self._pending_traversal_mode = document.traversal_modes[0]
         self._pending_controller_capabilities = ()
         self._heading_pick_active = False
         self._pose_x_model = None
@@ -272,7 +273,7 @@ class TopologyAuthoringWindow:
         ui = self._ui
         self._route_origin_model = ui.SimpleStringModel("")
         self._route_destination_model = ui.SimpleStringModel("")
-        self._route_capabilities_model = ui.SimpleStringModel("walk")
+        self._route_capabilities_model = ui.SimpleStringModel(self.document.traversal_modes[0])
         self._pose_x_model = ui.SimpleFloatModel(0.0)
         self._pose_y_model = ui.SimpleFloatModel(0.0)
         self._pose_z_model = ui.SimpleFloatModel(0.0)
@@ -345,7 +346,7 @@ class TopologyAuthoringWindow:
                                     ui.Button("Transition Node", width=0,
                                               clicked_fn=lambda: self.set_pending_node_kind("transition"))
                                 with ui.HStack(height=28, spacing=5):
-                                    for mode in ("walk", "stairs", "ramp"):
+                                    for mode in self.document.traversal_modes:
                                         ui.Button(mode.title(), width=0,
                                                   clicked_fn=lambda value=mode: self.set_pending_traversal(value))
                     for builder in (self._build_level_controls, self._build_landmarks, self._build_selection,
@@ -665,14 +666,14 @@ class TopologyAuthoringWindow:
                     ui.Label("Additional controller capabilities (comma-separated)")
                     ui.StringField(capabilities_model)
                     with ui.HStack(height=28, spacing=4):
-                        for mode in ("walk", "stairs", "ramp"):
+                        for mode in self.document.traversal_modes:
                             ui.Button(
                                 mode.title(), width=0,
                                 clicked_fn=lambda value=mode, model=capabilities_model:
                                     self.set_selected_traversal(value, model),
                             )
-                for profile in PROFILES:
-                    current = edge.get("profiles", {}).get(profile, {}).get("clearance_m", PROFILES[profile])
+                for profile in self.document.profiles:
+                    current = edge.get("profiles", {}).get(profile, {}).get("clearance_m", self.document.profiles[profile])
                     model = ui.SimpleFloatModel(float(current))
                     with ui.HStack(height=28, spacing=4):
                         ui.Label(f"{profile} clearance", width=145)
@@ -820,7 +821,7 @@ class TopologyAuthoringWindow:
         route = self.preview_route()
         if route is None:
             return None
-        path = self.output_root / "authoring/navigation/ground/route.preview.json"
+        path = self.output_root / f"authoring/navigation/{self.document.domain}/route.preview.json"
         try:
             _write_json_atomic(path, route)
         except (OSError, TypeError, ValueError) as exc:
@@ -849,7 +850,11 @@ class TopologyAuthoringWindow:
             try:
                 from algorithm.skills.navigation.topology import route_graph_digest
 
-                current_digest = route_graph_digest(self.document)
+                if self.document.domain == "aerial":
+                    from algorithm.skills.navigation.aerial_navigation import AerialPose, select_aerial_node_route
+                    current_digest = select_aerial_node_route(self.document.to_dict(), AerialPose((0, 0, 0)))["route_graph_digest"]
+                else:
+                    current_digest = route_graph_digest(self.document)
             except (ImportError, AttributeError, KeyError, TypeError, ValueError):
                 current_digest = None
             if current_digest != self._route_preview.get("route_graph_digest"):
@@ -942,7 +947,8 @@ class TopologyAuthoringWindow:
                 self._set_status(f"Heading failed: {exc}")
             self._refresh()
             return
-        position = self.adapter.project_to_support_surface(position, self.source)
+        if self.document.domain != "aerial":
+            position = self.adapter.project_to_support_surface(position, self.source)
         if self.document.pending_node is not None:
             heading = self.document.pending_node.heading_rad
             self.document.begin_node_preview(position, heading_rad=heading)
@@ -979,7 +985,7 @@ class TopologyAuthoringWindow:
             if self.document.version == 2:
                 kind = getattr(self, "_pending_node_kind", "custom")
                 level_id = getattr(self, "active_level_id", None)
-                if kind != "transition" and level_id is None:
+                if self.document.domain != "aerial" and kind != "transition" and level_id is None:
                     raise ValueError("select an active level before confirming a regular node")
                 node_id = self.document.confirm_node_preview(
                     kind=kind,
@@ -1021,7 +1027,7 @@ class TopologyAuthoringWindow:
         self._refresh()
 
     def set_pending_traversal(self, traversal_mode, capabilities=()):
-        if traversal_mode not in {"walk", "stairs", "ramp"}:
+        if traversal_mode not in self.document.traversal_modes:
             self._set_status(f"Unknown traversal mode: {traversal_mode}")
             return
         self._pending_traversal_mode = traversal_mode
@@ -1136,6 +1142,8 @@ class TopologyAuthoringWindow:
                 self.adapter.load_source(self.source.asset_root),
                 self.semantic_map,
             )
+            if self.document.domain == "aerial":
+                source = SceneSource(source.scene_key, source.asset_root, {**source.payload, "navigation_domain": "aerial"})
             if source.scene_key != self.document.scene_key:
                 raise ValueError(
                     f"reloaded source scene {source.scene_key!r} differs from "
@@ -1251,7 +1259,7 @@ class TopologyAuthoringWindow:
     def save_draft(self):
         from .product import save_draft
 
-        save_draft(self.output_root / "authoring/navigation/ground/topology.draft.json", self.document)
+        save_draft(self.output_root / f"authoring/navigation/{self.document.domain}/topology.draft.json", self.document)
         self._set_status("Draft saved")
 
     def load_draft(self):
@@ -1261,12 +1269,14 @@ class TopologyAuthoringWindow:
 
         try:
             loaded = load_product(
-                self.output_root / "authoring/navigation/ground/topology.draft.json",
+                self.output_root / f"authoring/navigation/{self.document.domain}/topology.draft.json",
                 self.adapter,
                 self.source,
             )
             if loaded.scene_key != self.document.scene_key:
                 raise ValueError("draft scene differs from source")
+            if loaded.domain != self.document.domain:
+                raise ValueError("draft navigation domain differs from editor")
             self.document.replace_content(loaded)
             self._heading_pick_active = False
             self.active_level_id = (
@@ -1290,7 +1300,7 @@ class TopologyAuthoringWindow:
             return
         try:
             generate_product(
-                self.output_root / "authoring/navigation/ground/topology.json",
+                self.output_root / f"authoring/navigation/{self.document.domain}/topology.json",
                 self.document,
                 self.adapter,
                 self.source,

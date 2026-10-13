@@ -6,6 +6,12 @@
 [多楼层工作流](MULTILEVEL.zh-CN.md)。内置 `UsdSceneAdapter` 读取场景描述文件；
 具体场景数据由调用方提供，不会自动成为正式实验任务。
 
+空中路线加 `--domain aerial`：支持任意世界 XYZ、纯垂直边、英文名称/别名及
+方向元数据；楼层为可选分组，连线使用 `fly`。草稿、地图和路线预览分别保存在
+`authoring/navigation/aerial/`，与地面产品分离。内置空中 adapter 只检查结构，
+不证明净空；每个拐点仍需建 node。heading 暂不用于 XYZ 飞行控制。地图冻结、
+固定 JSON 地点解析与共享执行见 [空中接入指南](../../algorithm/skills/AERIAL_RUNTIME.zh-CN.md)。
+
 启动 Isaac Sim 编辑器：
 
 ```bash

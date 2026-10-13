@@ -32,6 +32,10 @@ executor robot-type gate; cf2x and every other robot is rejected at dispatch.
 Attached cancellation retains the joint and resource lease for explicit host recovery.
 See [the aerial transport guide](aerial_transport/AERIAL_PICK_PLACE.zh-CN.md).
 
+The [shared aerial runtime guide](AERIAL_RUNTIME.zh-CN.md) connects these
+providers to task/benchmark execution: frozen authored maps, English landmarks,
+authenticated external leases, one host-owned physics tick and measured recovery.
+
 Pepper composite transport routes to `PEPPER_BOX_TRANSPORT_CFG`. G1 is deliberately not exposed
 as a supported skill. Provider planning and executor feedback never certify a
 physical outcome; only the external evaluator may do so.

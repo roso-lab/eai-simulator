@@ -175,6 +175,42 @@ class ResourceManager:
                 "resources": dict(sorted(self._resource_owners.items())),
             }
 
+    def validate_lease(
+        self,
+        lease: ResourceLease,
+        *,
+        required_resources: Iterable[str] = (),
+    ) -> ResourceLease:
+        """Authenticate an active lease and its required resource coverage.
+
+        This is a read-only capability check for runtimes that receive an
+        externally acquired lease. Matching public fields from another manager
+        are never sufficient; the exact manager-issued object must remain
+        active and own every requested resource.
+        """
+
+        if isinstance(required_resources, (str, bytes)):
+            raise ValueError("required_resources must be an iterable")
+        required = tuple(
+            self._validate_identifier(item, label="resource")
+            for item in required_resources
+        )
+        with self._lock:
+            record = self._authentic_record(lease)
+            if record.state == "quarantined":
+                raise ResourceQuarantinedError("lease is quarantined")
+            if record.state != "active":
+                raise InvalidResourceLeaseError("lease is not active")
+            missing = tuple(
+                resource for resource in required
+                if self._resource_owners.get(resource) != lease.lease_id
+            )
+            if missing:
+                raise InvalidResourceLeaseError(
+                    f"lease does not cover required resources: {list(missing)}"
+                )
+            return lease
+
     def quarantine_active(self, reason: str) -> tuple[ResourceLease, ...]:
         """Fail closed after a partial runtime restore; never release occupancy."""
         reason = self._validate_identifier(reason, label="quarantine reason")

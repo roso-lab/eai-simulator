@@ -1,4 +1,4 @@
-"""Serialization and validation of scene-bound, authored ground topologies."""
+"""Serialization and validation of scene-bound ground and aerial topologies."""
 from __future__ import annotations
 
 import hashlib
@@ -9,13 +9,13 @@ from pathlib import Path
 import tempfile
 from typing import Mapping
 
-from algorithm.skills.navigation.topology import finite_number, finite_xyz, validate_ground_topology
-from .model import PROFILES, TopologyDocument
+from algorithm.skills.navigation.topology import finite_number, finite_xyz, validate_topology
+from .model import TopologyDocument
 
 
 def validate_document(doc: TopologyDocument, adapter=None, source=None, *, require_targets=False,
                       node_only=False) -> list[str]:
-    errors = validate_ground_topology(doc)
+    errors = validate_topology(doc)
     if (not isinstance(doc.scene_key, str) or not doc.scene_key
             or doc.scene_key.strip() != doc.scene_key or doc.scene_key in {".", ".."}
             or "/" in doc.scene_key or "\\" in doc.scene_key):
@@ -95,7 +95,7 @@ def validate_document(doc: TopologyDocument, adapter=None, source=None, *, requi
             continue
         for profile, config in profiles.items():
             clearance = config.get("clearance_m") if isinstance(config, Mapping) else None
-            if profile not in PROFILES or not finite_number(clearance) or clearance <= 0:
+            if profile not in doc.profiles or not finite_number(clearance) or clearance <= 0:
                 if not node_only:
                     errors.append(f"invalid profile {profile}: {edge_id}")
                 continue
@@ -104,7 +104,13 @@ def validate_document(doc: TopologyDocument, adapter=None, source=None, *, requi
                 # use a decorative bend as evidence for straight-line passage.
                 segment = [nodes[start]["position_xyz"], nodes[end]["position_xyz"]]
                 try:
-                    problems = adapter.validate_polyline(segment, profile, source)
+                    if doc.domain == "aerial":
+                        validator = getattr(adapter, "validate_aerial_polyline", None)
+                        if validator is None:
+                            raise ValueError("adapter must explicitly support aerial segment validation")
+                        problems = validator(segment, clearance, source)
+                    else:
+                        problems = adapter.validate_polyline(segment, profile, source)
                     if not isinstance(problems, list) or any(not isinstance(item, str) for item in problems):
                         raise ValueError("adapter validation must return a list of errors")
                     errors.extend(f"{edge_id}: {item}" for item in problems)

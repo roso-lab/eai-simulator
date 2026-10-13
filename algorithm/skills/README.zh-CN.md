@@ -29,6 +29,9 @@ Skill ID 为 `eai.transport.aerial_pick_place`。人工 XYZ 导航、垂直梯�
 dispatch 即被拒绝。持物停止保留连接和租约。
 详见[无人机 Pick/Place 中文说明](aerial_transport/AERIAL_PICK_PLACE.zh-CN.md)。
 
+现有 task/benchmark 的持续执行接入见[空中统一运行指南](AERIAL_RUNTIME.zh-CN.md)：
+共享拓扑编辑器、英文地点 JSON、冻结输入、外部租约、单次共享物理步进与停止恢复。
+
 Pepper 搬运接口为：
 
 ```text

@@ -14,10 +14,21 @@ from typing import Mapping
 from ..contracts import SkillCommand, SkillContractError, SkillKind, SkillPlan, SkillRequest
 from ..simulator_schema import AERIAL_NAVIGATION_SKILL_ID, SimulatorSchemaError, validate_simulator_skill_request
 from ..aerial_transport.geometry import number, vector
+from .topology import validate_aerial_topology
 
 
 def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()).hexdigest()
+
+
+def request_identity(request):
+    """Fields fixed for a task; only control/snapshot envelopes may change."""
+    value = request.to_mapping()
+    for name in ("request_id", "simulator_snapshot"):
+        value.pop(name, None)
+    for name in ("intent", "world_state_seq"):
+        value["parameters"].pop(name, None)
+    return digest(value)
 
 
 def invalid_request_plan(value, skill_id, provider_id, provider_version, error):
@@ -48,10 +59,14 @@ class AerialPose:
         object.__setattr__(self, "yaw_rad", number(self.yaw_rad))
 
 
-def select_aerial_node_route(document, pose, *, target_refs=(), target_pose=None, node_radius_m=.30):
+def select_aerial_node_route(document, pose, *, target_refs=(), target_pose=None, node_radius_m=.30, origin_ref=None):
     """Dijkstra on authored directed edges, weighted by XYZ Euclidean length."""
     if not isinstance(document, Mapping):
         raise SkillContractError("aerial topology must be an object")
+    if "domain" in document or "schema" in document or "version" in document:
+        errors = validate_aerial_topology({"domain": "aerial", **document})
+        if errors:
+            raise SkillContractError("; ".join(errors))
     if number(node_radius_m) <= 0:
         raise SkillContractError("node_radius_m must be positive")
     for name in ("nodes", "edges"):
@@ -98,7 +113,7 @@ def select_aerial_node_route(document, pose, *, target_refs=(), target_pose=None
     if not nodes:
         return failure
     if target_refs:
-        targets = {node for node in nodes if set(refs[node]).intersection(target_refs)}
+        targets = {node for node in nodes if set((*refs[node], node)).intersection(target_refs)}
     elif target_pose is not None:
         point = vector(target_pose)
         nearest = min(nodes, key=lambda x: (math.dist(point, nodes[x]), x))
@@ -106,6 +121,11 @@ def select_aerial_node_route(document, pose, *, target_refs=(), target_pose=None
     else:
         targets = set()
     start = min(nodes, key=lambda x: (math.dist(pose.position_m, nodes[x]), x))
+    if origin_ref is not None:
+        starts = [node for node in nodes if origin_ref == node or origin_ref in refs[node]]
+        if len(starts) != 1 or math.dist(pose.position_m, nodes[starts[0]]) > node_radius_m:
+            return {**failure, "reason": "origin_not_reached"}
+        start = starts[0]
     # Sorting the queue by node ID and adjacency by node/edge ID keeps ties
     # stable without copying whole paths for every explored edge.
     queue, settled, previous = [(0., start)], set(), {}
@@ -223,7 +243,8 @@ class AerialNavigationProvider:
         self._tasks[key] = dict(request=r, terminal=False, status="pending", reason="awaiting_start",
                                 tracker=None, goal=pose.position_m, last_pose=pose.position_m,
                                 execution_state="holding", safe_action="hold", evidence={},
-                                started_s=now, last_time_s=now, elapsed_s=0.)
+                                started_s=now, last_time_s=now, elapsed_s=0.,
+                                identity=request_identity(r), route_graph_digest=None)
         return self.response(key)
 
     def control(self, value, *, observation=None, dt_s=.1):
@@ -232,9 +253,8 @@ class AerialNavigationProvider:
         if key not in self._tasks or self._tasks[key]["terminal"]:
             raise SkillContractError("aerial navigation task is not active")
         task = self._tasks[key]
-        old = task["request"]
-        if r.robot_id != old.robot_id or r.target_ref != old.target_ref or r.target_pose != old.target_pose:
-            raise SkillContractError("aerial navigation identity is immutable")
+        if request_identity(r) != task["identity"]:
+            raise SkillContractError("aerial navigation identity, parameters and budget are immutable")
         try:
             intent = r.parameters.get("intent", "start")
             validate_observation(r, observation, motion=intent not in {"hold", "stop"})
@@ -243,11 +263,17 @@ class AerialNavigationProvider:
                 raise SkillContractError("AerialPose is required")
             task.update(request=r, last_pose=pose.position_m, goal=pose.position_m,
                         execution_state="holding", safe_action="hold")
+            timed_out = self._timed_out(task, observation, dt_s)
+            task["evidence"]["observation_digest"] = digest({
+                "position_m": pose.position_m, "yaw_rad": pose.yaw_rad,
+                "world_state_seq": observation["world_state_seq"],
+                "simulation_time_s": observation.get("simulation_time_s"),
+            })
             if intent == "stop":
                 task.update(terminal=True, status="cancelled", reason="cancelled", safe_action="stop")
             elif intent == "hold":
                 task.update(status="pending", reason="system_hold")
-            elif self._timed_out(task, observation, dt_s):
+            elif timed_out:
                 return self.fail(key, TimeoutError(), reason_code="navigation_timeout")
             elif intent == "continue" and task["tracker"] is None:
                 task["reason"] = "awaiting_start"
@@ -255,7 +281,12 @@ class AerialNavigationProvider:
                 if intent in {"start", "replan"}:
                     route = select_aerial_node_route(observation.get("topology"), pose,
                         target_refs=[r.target_ref] if r.target_ref else (), target_pose=r.target_pose,
-                        node_radius_m=self.node_radius_m)
+                        node_radius_m=self.node_radius_m,
+                        origin_ref=r.parameters.get("origin_ref") if task["tracker"] is None else None)
+                    expected = task["route_graph_digest"] or r.parameters.get("route_graph_digest")
+                    if expected is not None and expected != route["route_graph_digest"]:
+                        raise SkillContractError("aerial route graph identity changed")
+                    task["route_graph_digest"] = route["route_graph_digest"]
                     task["evidence"]["route_selection"] = route
                     if not route["admitted"]:
                         return self.fail(key, SkillContractError("route_unreachable"), reason_code="route_unreachable")
@@ -320,6 +351,10 @@ class AerialNavigationProvider:
         plan = SkillPlan(r.request_id, self.skill_id, r.robot_id, commands,
                          metadata={"schema_version": r.skill_version, "provider_id": self.provider_id,
                                    "provider_version": self.provider_version, "request_digest": digest(r.to_mapping()),
+                                   "observation_digest": task["evidence"].get("observation_digest"),
+                                   "task_id": task_id, "branch_context": deepcopy(r.branch_context),
+                                   "route_graph_digest": task["route_graph_digest"],
+                                   "expected_external_outcome": "measured arrival at the authored target",
                                    "command_route": "env.set_command -> EAI position controller -> env.step", "physical_outcome": "unknown"})
         evidence = deepcopy(task["evidence"])
         evidence["node_index"] = task["tracker"].node_index if task["tracker"] else 0

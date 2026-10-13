@@ -52,6 +52,7 @@ class _Task:
     profile_elapsed: float = 0.
     vertical_xy: tuple | None = None
     vertical_target: float | None = None
+    route_graph_digest: str | None = None
     commands: tuple = ()
     evidence: dict = field(default_factory=dict)
 
@@ -72,7 +73,10 @@ class AerialPickPlaceProvider:
     provider_id = "aerial_pick_place.provider"
     provider_version = "1.0"
 
-    def __init__(self):
+    def __init__(self, *, connection_tolerance_m=Z_CONNECTION_TOLERANCE_M):
+        self.connection_tolerance_m = number(connection_tolerance_m, "connection tolerance")
+        if not 0 < self.connection_tolerance_m <= Z_CONNECTION_TOLERANCE_M:
+            raise SkillContractError("connection tolerance must be positive and at most 1 cm")
         self._tasks = {}
 
     @property
@@ -203,6 +207,10 @@ class AerialPickPlaceProvider:
             ref = p["source_ref"] if phase == "navigating_to_pick" else p["destination_ref"]
             if task.tracker is None or replan:
                 route = select_aerial_node_route(observation.get("topology"), AerialPose(root), target_refs=[ref])
+                expected = task.route_graph_digest or p.get("route_graph_digest")
+                if expected is not None and expected != route["route_graph_digest"]:
+                    raise SkillContractError("aerial route graph identity changed")
+                task.route_graph_digest = route["route_graph_digest"]
                 if not route["admitted"]:
                     raise SkillContractError("route_unreachable")
                 task.evidence["route_selection"] = route
@@ -215,7 +223,8 @@ class AerialPickPlaceProvider:
             offset = tuple((drone_anchor if phase == "navigating_to_pick" else object_anchor)[i]-root[i] for i in range(3))
             hover_z = task.tracker.route_points_m[-1][2]
             task.goal = anchor[0]-offset[0], anchor[1]-offset[1], hover_z
-            if math.dist(root, task.goal) > .01:
+            if (math.dist(root, task.goal) > .01
+                    or math.dist(root[:2], task.goal[:2]) > self.connection_tolerance_m):
                 return
             if drone_anchor[2] <= object_anchor[2] and phase == "navigating_to_pick":
                 raise SkillContractError("pick hover must be above the object anchor")
@@ -240,6 +249,12 @@ class AerialPickPlaceProvider:
             else:
                 task.vertical_target = task.hover_z
             task.vertical_xy = root[:2]
+            if phase in {"descending_to_pick", "descending_to_place"}:
+                target_anchor = object_anchor if phase == "descending_to_pick" else vector(p["place_anchor_world_m"])
+                moving_anchor = drone_anchor if phase == "descending_to_pick" else object_anchor
+                # Preserve the actual anchor destination, not the small
+                # residual hover-position error admitted by the router.
+                task.vertical_xy = tuple(root[i] + target_anchor[i] - moving_anchor[i] for i in range(2))
             if "descending" in phase and task.vertical_target > root[2]+.01:
                 raise SkillContractError("descent target is above current height")
         if task.profile is None:
@@ -252,11 +267,11 @@ class AerialPickPlaceProvider:
         task.evidence["vertical_sample"] = {"elapsed_s": task.profile_elapsed, "z_m": z, "velocity_m_s": velocity}
         done = task.profile_elapsed >= task.profile.duration_s
         if phase == "descending_to_pick":
-            reached = math.dist(drone_anchor[:2], object_anchor[:2]) <= XY_ALIGNMENT_TOLERANCE_M and abs(drone_anchor[2]-object_anchor[2]) <= Z_CONNECTION_TOLERANCE_M
+            reached = math.dist(drone_anchor[:2], object_anchor[:2]) <= self.connection_tolerance_m and abs(drone_anchor[2]-object_anchor[2]) <= self.connection_tolerance_m
             if done and reached:
                 self._phase(task, "attaching")
         elif phase == "descending_to_place":
-            reached = math.dist(object_anchor[:2], p["place_anchor_world_m"][:2]) <= XY_ALIGNMENT_TOLERANCE_M and abs(object_anchor[2]-p["place_anchor_world_m"][2]) <= .01
+            reached = math.dist(object_anchor[:2], p["place_anchor_world_m"][:2]) <= self.connection_tolerance_m and abs(object_anchor[2]-p["place_anchor_world_m"][2]) <= self.connection_tolerance_m
             if done and reached:
                 self._phase(task, "releasing")
         elif done and math.dist(root, task.goal) <= .01:
@@ -291,6 +306,7 @@ class AerialPickPlaceProvider:
         if hover_position is not None:
             task.goal = vector(hover_position)
         task.evidence["error_type"] = type(error).__name__
+        task.evidence["error_message"] = str(error)
         return self._terminate(task_id, "failed", reason_code)
 
     def response(self, task_id):
@@ -299,6 +315,7 @@ class AerialPickPlaceProvider:
         metadata = {"schema_version": r.skill_version, "provider_id": self.provider_id,
                     "provider_version": self.provider_version, "request_digest": digest(r.to_mapping()),
                     "observation_digest": task.evidence.get("observation_digest"),
+                    "route_graph_digest": task.route_graph_digest,
                     "command_route": "AerialPickPlaceExecutor -> EAI position controller / PhysxAerialTransportBridge",
                     "physical_outcome": "unknown", "task_id": task_id, "branch_context": deepcopy(r.branch_context)}
         plan = SkillPlan(r.request_id, self.skill_id, r.robot_id, task.commands, metadata=metadata)

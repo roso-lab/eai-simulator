@@ -124,15 +124,19 @@ def binding(
     resources=(),
     events=None,
     start=None,
+    start_with_lease=False,
 ):
     request_id = request_id or f"request:{assignment.task_id}"
     provider = Provider(events, assignment.task_id)
 
-    def start_handle(plan, *, scene):
+    def start_handle(plan, *, scene, lease=None):
         if events is not None:
             events.append(("start", assignment.task_id))
         if start is not None:
-            return start(plan, scene=scene)
+            kwargs = {"scene": scene}
+            if start_with_lease:
+                kwargs["lease"] = lease
+            return start(plan, **kwargs)
         return handle
 
     return CooperativeBinding(
@@ -141,6 +145,7 @@ def binding(
         start_handle,
         lambda **kwargs: None,
         tuple(resources),
+        start_with_lease=start_with_lease,
     )
 
 
@@ -431,6 +436,116 @@ def test_start_callback_quarantine_returns_safe_stop_without_starting_peer():
     assert first.cancel_reasons and first.polls == 0
     assert len(executor.quarantined_leases) == 2
     assert all(record["state"] == "quarantined" for record in resources.snapshot()["leases"])
+
+
+@pytest.mark.parametrize(
+    ("release_phase", "expected_steps"),
+    [("start", 0), ("command", 0), ("receipt", 1)],
+)
+def test_released_external_lease_blocks_step_or_receipt_acceptance(
+    release_phase,
+    expected_steps,
+):
+    resources = ResourceManager()
+
+    class ReleasingHandle(ScriptedHandle):
+        lease = None
+
+        def command(self):
+            action = super().command()
+            if release_phase == "command":
+                resources.release(self.lease)
+            return action
+
+        def after_step(self):
+            receipt = super().after_step()
+            if release_phase == "receipt":
+                resources.release(self.lease)
+            return receipt
+
+    handle = ReleasingHandle("request:left", "r1")
+
+    def start(plan, *, scene, lease):
+        handle.lease = lease
+        if release_phase == "start":
+            resources.release(lease)
+        return handle
+
+    steps = []
+    executor = executor_for(
+        {
+            "left": binding(
+                ASSIGNMENTS[0],
+                handle,
+                start=start,
+                start_with_lease=True,
+            )
+        },
+        step=lambda scene, actions: steps.append(dict(actions)),
+        neutral_actions=lambda scene: {},
+        resources=resources,
+    )
+
+    update = executor.execute(ASSIGNMENTS[0], TASKS[0], scene={})
+
+    assert update.dependency_outcome is DependencyOutcome.TERMINAL_FAILURE
+    assert update.feedback.failure_code is FailureCode.SAFE_STOP
+    assert len(steps) == expected_steps
+    assert resources.snapshot() == {"leases": [], "resources": {}}
+    assert executor.quarantined_leases == ()
+    with pytest.raises(RuntimeError, match="quarantined|ownership"):
+        executor.execute(ASSIGNMENTS[0], TASKS[0], scene={})
+
+
+@pytest.mark.parametrize("value", [None, 0, 1, "true"])
+def test_start_with_lease_requires_exact_boolean(value):
+    handle = ScriptedHandle("request:left", "r1")
+    invalid = replace(binding(ASSIGNMENTS[0], handle), start_with_lease=value)
+    executor = executor_for(
+        {"left": invalid},
+        step=lambda *args: pytest.fail("invalid binding must not step"),
+        neutral_actions=lambda scene: {},
+    )
+
+    update = executor.execute(ASSIGNMENTS[0], TASKS[0], scene={})
+
+    assert update.dependency_outcome is DependencyOutcome.TERMINAL_FAILURE
+    assert update.feedback.failure_code is FailureCode.INVALID_PLAN
+    assert "exact boolean" in update.feedback.message
+
+
+def test_cancel_baseexception_during_failure_recovery_preserves_trigger():
+    class FailingCancelHandle(ScriptedHandle):
+        command_calls = 0
+
+        def command(self):
+            self.command_calls += 1
+            if self.command_calls == 1:
+                raise RuntimeError("primary command failure")
+            return super().command()
+
+        def cancel(self, reason):
+            super().cancel(reason)
+            raise KeyboardInterrupt("cleanup interrupt")
+
+    handle = FailingCancelHandle(
+        "request:left",
+        "r1",
+        complete_on=99,
+        complete_after_cancel=True,
+    )
+    executor = executor_for(
+        {"left": binding(ASSIGNMENTS[0], handle)},
+        step=lambda scene, actions: None,
+        neutral_actions=lambda scene: {},
+    )
+
+    update = executor.execute(ASSIGNMENTS[0], TASKS[0], scene={})
+
+    assert update.dependency_outcome is DependencyOutcome.RETRYABLE_FAILURE
+    assert "primary command failure" in update.feedback.message
+    assert "cancel callback failed: KeyboardInterrupt: cleanup interrupt" in update.feedback.message
+    assert executor.resources.snapshot() == {"leases": [], "resources": {}}
 
 
 def test_wrong_receipt_stays_terminal_after_quiescent_cancel_confirmation():

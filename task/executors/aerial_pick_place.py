@@ -3,6 +3,8 @@ from copy import deepcopy
 from dataclasses import dataclass, field, replace
 import importlib
 import math
+import weakref
+from typing import Any, Mapping
 from uuid import uuid4
 
 from algorithm.skills.contracts import SkillContractError
@@ -10,7 +12,12 @@ from algorithm.skills.aerial_transport.provider import (AerialPickPlaceProvider,
     SUPPORTED_ROBOT_TYPES, normalize_aerial_pick_place_request)
 from algorithm.skills.aerial_transport.geometry import RigidPose, conjugate, number, vector
 from .ground_navigation import _vector, read_simulation_time
-from ..resources import ResourceManager
+from ..resources import (InvalidResourceLeaseError, ResourceLease,
+    ResourceManager, ResourceQuarantinedError)
+
+
+LINEAR_QUIESCENCE_TOLERANCE_M_S = .01
+ANGULAR_QUIESCENCE_TOLERANCE_RAD_S = .05
 
 
 def read_aerial_pose(env, robot_id):
@@ -24,8 +31,36 @@ class LivePhysxPoseReader:
     """Cache tensor views; never fall back to potentially stale USD xforms."""
     def __init__(self, env):
         self.env, self._views = env, {}
+        self._closed = False
+        timeline = importlib.import_module("omni.timeline")
+        ref = weakref.ref(self)
+        def stopped(event):
+            reader = ref()
+            if reader is not None:
+                reader.close()
+        self._stop_subscription = timeline.get_timeline_interface().get_timeline_event_stream().create_subscription_to_pop_by_type(
+            int(timeline.TimelineEventType.STOP), stopped, order=0)
+
+    def close(self):
+        """Drop native buffers before Kit unloads the PhysX plugin."""
+        self._closed = True
+        views, self._views = self._views, {}
+        failure = None
+        for sim, view in views.values():
+            view._backend = None
+            try:
+                sim.invalidate()
+            except BaseException as exc:
+                if failure is None:
+                    failure = exc
+            finally:
+                sim._backend = None
+        if failure is not None:
+            raise failure
 
     def __call__(self, path):
+        if self._closed:
+            raise SkillContractError("live PhysX reader belongs to a stopped session")
         if path not in self._views:
             module = importlib.import_module("omni.physics.tensors")
             sim = module.create_simulation_view("torch" if str(self.env.device).startswith("cuda") else "numpy")
@@ -35,6 +70,11 @@ class LivePhysxPoseReader:
             self._views[path] = sim, view
         transform = _vector(self._views[path][1].get_transforms(), 7)
         return RigidPose(transform[:3], (transform[6], *transform[3:6]))
+
+    def velocity(self, path):
+        # PhysX tensor velocities are linear XYZ followed by angular XYZ.
+        self(path)
+        return _vector(self._views[path][1].get_velocities(), 6)
 
 
 def flush_physx_transforms():
@@ -108,6 +148,19 @@ class PhysxAerialTransportBridge:
         return {"joint_path": b.attachment, "support_joint_path": b.support,
                 "object_anchor_local_m": b.object_anchor_local, "collision_disabled": b.collision_disabled}
 
+    def quiescent(self, task_id):
+        """Measure both leased bodies; absence of live velocity is an error."""
+        velocity = getattr(self._pose, "velocity", None)
+        if not callable(velocity):
+            raise SkillContractError("live rigid-body velocity reader is required for quiescence")
+        b = self._bindings[task_id]
+        samples = (velocity(b.robot_body), velocity(b.object_body))
+        return all(
+            max(abs(value) for value in sample[:3]) <= LINEAR_QUIESCENCE_TOLERANCE_M_S
+            and max(abs(value) for value in sample[3:]) <= ANGULAR_QUIESCENCE_TOLERANCE_RAD_S
+            for sample in samples
+        )
+
     def _joint(self, b, *, support):
         from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics
         self._flush()
@@ -120,25 +173,41 @@ class PhysxAerialTransportBridge:
             UsdGeom.Scope.Define(self.stage, self._scope)
             if self.stage.GetPrimAtPath(path):
                 raise SkillContractError("refusing to overwrite an existing joint")
+            # Record ownership before any native authoring callback can fail.
+            # Failed cleanup must leave a discoverable path for host recovery.
+            attribute = "support" if support else "attachment"
+            self._owned.add(path)
+            setattr(b, attribute, path)
             try:
                 joint = UsdPhysics.FixedJoint.Define(self.stage, path)
                 joint.CreateJointEnabledAttr().Set(False)
+                joint.CreateCollisionEnabledAttr().Set(False)
+                joint.CreateExcludeFromArticulationAttr().Set(True)
+                # Kit's joint authoring listener rewrites local frames when
+                # body relationships change, using USD (stale with Fabric).
+                # Bind bodies first, then overwrite those defaults with the
+                # measured PhysX frames while the joint is still disabled.
+                joint.CreateBody0Rel().SetTargets([] if support else [Sdf.Path(b.robot_body)])
+                joint.CreateBody1Rel().SetTargets([Sdf.Path(b.object_body)])
+                self._flush()
                 joint.CreateLocalPos0Attr().Set(Gf.Vec3f(*robot_pose.to_local(anchor)))
                 joint.CreateLocalPos1Attr().Set(Gf.Vec3f(*b.object_anchor_local))
                 for factory, pose in ((joint.CreateLocalRot0Attr, robot_pose), (joint.CreateLocalRot1Attr, object_pose)):
                     q = conjugate(pose.orientation_wxyz)
                     factory().Set(Gf.Quatf(q[0], Gf.Vec3f(*q[1:])))
-                joint.CreateCollisionEnabledAttr().Set(False)
-                joint.CreateExcludeFromArticulationAttr().Set(True)
-                joint.CreateBody0Rel().SetTargets([] if support else [Sdf.Path(b.robot_body)])
-                joint.CreateBody1Rel().SetTargets([Sdf.Path(b.object_body)])
                 self._flush()
                 joint.GetJointEnabledAttr().Set(True)
                 self._flush()
-            except Exception:
-                self.stage.RemovePrim(path)
+            except BaseException as exc:
+                try:
+                    if self.stage.GetPrimAtPath(path):
+                        self._remove(path)
+                    else:
+                        self._owned.discard(path)
+                    setattr(b, attribute, None)
+                except BaseException as cleanup_error:
+                    exc.add_note(f"owned joint cleanup pending at {path}: {cleanup_error}")
                 raise
-        self._owned.add(path)
         return path
 
     def _remove(self, path):
@@ -156,8 +225,14 @@ class PhysxAerialTransportBridge:
             return
         if b.support is None:
             raise SkillContractError("a world support is required before disabling collisions")
+        prims = list(Usd.PrimRange(self._body(b.object_body)))
+        # Descendant rigid bodies are independent ownership boundaries.  Reject
+        # the hierarchy before authoring any collision opinion because this
+        # binding leases only b.object_body.
+        if any(prim.HasAPI(UsdPhysics.RigidBodyAPI) for prim in prims[1:]):
+            raise SkillContractError("payload contains a nested rigid body")
         with Usd.EditContext(self.stage, self._edit_target):
-            for prim in Usd.PrimRange(self._body(b.object_body)):
+            for prim in prims:
                 if not prim.HasAPI(UsdPhysics.CollisionAPI):
                     continue
                 attr = UsdPhysics.CollisionAPI(prim).GetCollisionEnabledAttr()
@@ -253,26 +328,53 @@ def _default_action(env, robot, goal):
     return torch.tensor([list(goal)], dtype=torch.float32, device=env.device)
 
 
-class AerialPickPlaceExecutor:
-    """Control-cycle adapter. The host owns stepping order and physical verdicts.
+@dataclass(frozen=True)
+class PreparedAerialStep:
+    """One executor contribution to exactly one caller-owned physics step."""
 
-    advance_hook(actions) must APPLY and advance synchronously; a queue-only
-    hook is not an execution confirmation. Share resource_manager across all
-    executors using a scene. A retained terminal attachment requires explicit
-    host_release(task_id, quiescent=True) after the host establishes recovery.
+    task_id: str
+    robot_id: str
+    action: Any
+    response: Any
+    before_time_s: float
+    token: str
+    commands: tuple[Mapping, ...] = field(default=(), repr=False, compare=False)
+    pending_ack: Mapping | None = field(default=None, repr=False, compare=False)
+    preparation_errors: tuple[tuple[str, str], ...] = field(default=(), repr=False, compare=False)
+    settling: bool = False
+
+
+class AerialPickPlaceExecutor:
+    """Prepare/confirm adapter for a caller-owned EAI simulation step.
+
+    Preparation methods author controller goals and at most one owned USD
+    mutation, but never advance physics. The host merges prepared actions,
+    performs exactly one shared step, then calls after_step. The synchronous
+    dispatch/control wrappers use the same protocol with advance_hook.
+
+    Every executor in one scene must share a ResourceManager. Terminal release
+    requires both a real advancing step and measured robot/object quiescence.
     """
+
     def __init__(self, env, *, topology, world_state_validator, provider=None,
                  bridge=None, reference_resolver=None, pose_reader=None,
                  simulation_time_reader=None, action_factory=None, advance_hook=None,
-                 resource_manager=None, timeout_s=None, drone_anchor_local_m=(0., 0., 0.)):
+                 resource_manager=None, timeout_s=None, drone_anchor_local_m=(0., 0., 0.),
+                 quiescence_reader=None, terminal_settle_timeout_s=5., connection_tolerance_m=.01):
         if not callable(world_state_validator):
             raise SkillContractError("world_state_validator is required")
         if int(getattr(env, "num_envs", 1)) != 1:
             raise SkillContractError("aerial executor requires one environment")
         if timeout_s is not None and number(timeout_s) <= 0:
             raise SkillContractError("timeout_s must be positive")
+        if number(terminal_settle_timeout_s, "terminal settle timeout") <= 0:
+            raise SkillContractError("terminal_settle_timeout_s must be positive")
         self.env, self.topology, self.timeout_s = env, topology, timeout_s
-        self.provider = provider or AerialPickPlaceProvider()
+        self.terminal_settle_timeout_s = number(
+            terminal_settle_timeout_s, "terminal settle timeout")
+        if provider is not None and connection_tolerance_m != .01:
+            raise SkillContractError("configure connection tolerance on the injected provider")
+        self.provider = provider or AerialPickPlaceProvider(connection_tolerance_m=connection_tolerance_m)
         self.resources = resource_manager or ResourceManager()
         self._validate = world_state_validator
         self._pose = pose_reader or (lambda robot: read_aerial_pose(env, robot))
@@ -281,33 +383,44 @@ class AerialPickPlaceExecutor:
         self._advance = advance_hook or env.step
         if bridge is None:
             stage = importlib.import_module("omni.usd").get_context().get_stage()
-            bridge = PhysxAerialTransportBridge(stage, pose_reader=LivePhysxPoseReader(env),
-                drone_anchor_local_m=drone_anchor_local_m, flush_hook=flush_physx_transforms)
+            bridge = PhysxAerialTransportBridge(
+                stage, pose_reader=LivePhysxPoseReader(env),
+                drone_anchor_local_m=drone_anchor_local_m,
+                flush_hook=flush_physx_transforms)
         self.bridge = bridge
+        self._quiescence = quiescence_reader
         self._resolve = reference_resolver or self._default_reference
-        self._acks, self._leases, self._deadlines, self._samples, self._quarantined = {}, {}, {}, {}, set()
+        self._acks, self._leases, self._lease_owned = {}, {}, {}
+        self._deadlines, self._samples, self._quarantined = {}, {}, set()
+        self._settling, self._settle_elapsed = {}, {}
+        self._prepared = None
+
+    @property
+    def settling_task_ids(self):
+        return tuple(sorted(self._settling))
 
     def _default_reference(self, kind, ref):
         if kind == "object":
-            # An absolute body path is the only default object reference;
-            # symbolic host references require an explicit resolver.
             if not ref.startswith("/"):
                 raise SkillContractError("symbolic object_ref requires reference_resolver")
             return ref
         from pxr import UsdPhysics, Usd
-        # Articulations often have rotors as rigid links; select the explicitly
-        # declared root body via live articulation link_paths, never by bbox.
         view = getattr(self.env.scene[ref], "root_physx_view", None)
         paths = getattr(view, "link_paths", None)
         if paths and len(paths) == 1 and paths[0]:
             return str(paths[0][0])
-        root = self.env.scene[ref].cfg.prim_path.replace("{ENV_REGEX_NS}", "/World/envs/env_0")
-        # An unresolved regex path cannot be interpreted as a USD prim path.
+        root = self.env.scene[ref].cfg.prim_path.replace(
+            "{ENV_REGEX_NS}", "/World/envs/env_0")
         if any(token in root for token in (".*", "[", "]")):
             raise SkillContractError("robot body path requires reference_resolver")
-        candidates = [str(p.GetPath()) for p in Usd.PrimRange(self.bridge.stage.GetPrimAtPath(root)) if p.HasAPI(UsdPhysics.RigidBodyAPI)]
+        candidates = [
+            str(p.GetPath())
+            for p in Usd.PrimRange(self.bridge.stage.GetPrimAtPath(root))
+            if p.HasAPI(UsdPhysics.RigidBodyAPI)
+        ]
         if len(candidates) != 1:
-            raise SkillContractError("robot body is ambiguous; inject reference_resolver")
+            raise SkillContractError(
+                "robot body is ambiguous; inject reference_resolver")
         return candidates[0]
 
     def _observation(self, request, *, motion, include_ack=True):
@@ -315,151 +428,464 @@ class AerialPickPlaceExecutor:
         sequence = request.parameters["world_state_seq"]
         self._validate(sequence, motion)
         drone_anchor, object_anchor = self.bridge.measure(key)
-        observation = {"valid": True, "fresh": motion, "world_state_seq": sequence,
-                       "drone_pose": self._pose(request.robot_id), "simulation_time_s": number(self._time()),
-                       "drone_anchor_world_m": drone_anchor, "object_anchor_world_m": object_anchor}
+        observation = {
+            "valid": True,
+            "fresh": motion,
+            "world_state_seq": sequence,
+            "drone_pose": self._pose(request.robot_id),
+            "simulation_time_s": number(self._time()),
+            "drone_anchor_world_m": drone_anchor,
+            "object_anchor_world_m": object_anchor,
+        }
         if motion:
-            observation["topology"] = self.topology(request.robot_id) if callable(self.topology) else self.topology
+            observation["topology"] = (
+                self.topology(request.robot_id)
+                if callable(self.topology) else self.topology)
         if include_ack and key in self._acks:
             observation["confirmation"] = self._acks[key]
         return observation
 
-    def dispatch(self, value):
-        r = normalize_aerial_pick_place_request(value)
-        key = r.task_id or r.request_id
-        if key in self._leases:
-            raise SkillContractError("aerial executor task already exists")
+    def _require_scene_available(self):
+        if any(item["state"] == "quarantined"
+               for item in self.resources.snapshot()["leases"]):
+            raise ResourceQuarantinedError(
+                "scene contains a quarantined resource lease")
+
+    def _begin_prepare(self):
+        if self._prepared is not None:
+            raise SkillContractError(
+                "an aerial step is already prepared and must be confirmed or aborted")
+        self._require_scene_available()
+
+    def _validate_external_lease(self, lease, required):
+        if not isinstance(lease, ResourceLease):
+            raise InvalidResourceLeaseError(
+                "external lease was not issued by this manager")
+        record = self.resources._records.get(lease.lease_id)
+        if record is None or record.lease is not lease:
+            raise InvalidResourceLeaseError(
+                "external lease was not issued by this manager")
+        if record.state != "active":
+            raise ResourceQuarantinedError("external lease is not active")
+        missing = sorted(set(required)-set(lease.resources))
+        if missing:
+            raise InvalidResourceLeaseError(
+                f"external lease does not cover required resources: {missing}")
+
+    def _controller_resources(self, request):
         configs = getattr(self.env, "_controller_configs", {})
-        cfg = configs.get(r.robot_id)
+        cfg = configs.get(request.robot_id)
         if cfg is None:
             raise SkillContractError("a goal_position controller is required")
         robot_type = getattr(cfg, "robot_type", "Unknown")
         if robot_type not in SUPPORTED_ROBOT_TYPES:
-            raise SkillContractError("aerial pick/place supports only iris and pegasus position robots "
-                                     f"(controller robot_type one of {sorted(SUPPORTED_ROBOT_TYPES)}); got {robot_type!r}")
-        if cfg.command_name != "goal_position" or getattr(cfg, "control_mode", "position") != "position":
+            raise SkillContractError(
+                "aerial pick/place supports only iris and pegasus position robots "
+                f"(controller robot_type one of {sorted(SUPPORTED_ROBOT_TYPES)}); "
+                f"got {robot_type!r}")
+        if (cfg.command_name != "goal_position"
+                or getattr(cfg, "control_mode", "position") != "position"):
             raise SkillContractError("a goal_position controller is required")
-        robot_body, object_body = self._resolve("robot", r.robot_id), self._resolve("object", r.parameters["object_ref"])
-        lease = self.resources.acquire("aerial:"+key, ["robot:"+r.robot_id, "object:"+object_body])
+        robot_body = self._resolve("robot", request.robot_id)
+        object_body = self._resolve("object", request.parameters["object_ref"])
+        required = ("robot:"+request.robot_id, "object:"+object_body)
+        return robot_body, object_body, required
+
+    def validate_request(self, value):
+        """Resolve the two rigid bodies without binding or changing the scene."""
+        request = normalize_aerial_pick_place_request(value)
+        robot_body, object_body, _ = self._controller_resources(request)
+        return robot_body, object_body
+
+    def prepare_dispatch(self, value, *, lease=None):
+        self._begin_prepare()
+        request = normalize_aerial_pick_place_request(value)
+        key = request.task_id or request.request_id
+        if key in self._leases:
+            raise SkillContractError("aerial executor task already exists")
+        robot_body, object_body, required = self._controller_resources(request)
+        owned = lease is None
+        if owned:
+            lease = self.resources.acquire("aerial:"+key, required)
+        else:
+            self._validate_external_lease(lease, required)
+        self._leases[key], self._lease_owned[key], self._samples[key] = (
+            lease, owned, [])
         bound = False
         try:
-            self.bridge.bind(key, robot_body, object_body, r.parameters["pick_anchor_world_m"])
+            self.bridge.bind(
+                key, robot_body, object_body,
+                request.parameters["pick_anchor_world_m"])
             bound = True
-            observation = self._observation(r, motion=False)
-            response = self.provider.dispatch(r, observation=observation)
-        except Exception:
+            observation = self._observation(request, motion=False)
+            response = self.provider.dispatch(request, observation=observation)
+        except BaseException:
+            clean = True
             if bound:
-                self.bridge.unbind(key)
-            self.resources.release(lease)
+                try:
+                    self.bridge.unbind(key)
+                except BaseException:
+                    clean = False
+            if clean:
+                if owned:
+                    self.resources.release(lease)
+                self._leases.pop(key, None)
+                self._lease_owned.pop(key, None)
+                self._samples.pop(key, None)
+            else:
+                self._quarantine_task(
+                    key, "dispatch cleanup was interrupted or failed")
             raise
-        self._leases[key], self._samples[key] = lease, []
         if self.timeout_s is not None:
-            self._deadlines[key] = observation["simulation_time_s"]+self.timeout_s
-        return self._apply(response)
-
-    def control(self, value):
-        # Validate identity before reading/applying anything: a conflicting
-        # request must not cancel or operate on another task's resources.
-        r = self.provider.validate_identity(value)
-        key = r.task_id or r.request_id
+            self._deadlines[key] = (
+                observation["simulation_time_s"]+self.timeout_s)
         try:
-            observation = self._observation(r, motion=r.parameters["intent"] not in {"hold", "stop"})
-            if r.parameters["intent"] not in {"hold", "stop"} and observation["simulation_time_s"] >= self._deadlines.get(key, math.inf):
+            return self._prepare_or_fail(response)
+        except BaseException:
+            self._quarantine_task(
+                key, "aerial dispatch preparation was interrupted or failed")
+            raise
+
+    def dispatch(self, value):
+        return self._execute_prepared(self.prepare_dispatch(value))
+
+    def prepare_control(self, value):
+        self._begin_prepare()
+        request = self.provider.validate_identity(value)
+        key = request.task_id or request.request_id
+        try:
+            observation = self._observation(
+                request,
+                motion=request.parameters["intent"] not in {"hold", "stop"})
+            if (request.parameters["intent"] not in {"hold", "stop"}
+                    and observation["simulation_time_s"]
+                    >= self._deadlines.get(key, math.inf)):
                 raise TimeoutError("aerial execution window expired")
-            response = self.provider.control(r, observation=observation)
+            response = self.provider.control(request, observation=observation)
             self._acks.pop(key, None)
         except Exception as exc:
             response = self._fail(key, exc)
-        return self._apply(response)
+        except BaseException:
+            self._quarantine_task(
+                key, "aerial control preparation was interrupted")
+            raise
+        try:
+            return self._prepare_or_fail(response)
+        except BaseException:
+            self._quarantine_task(
+                key, "aerial control preparation was interrupted or failed")
+            raise
+
+    def control(self, value):
+        return self._execute_prepared(self.prepare_control(value))
+
+    def prepare_settle(self, task_id):
+        """Prepare another terminal hover tick without replaying a mutation."""
+        self._begin_prepare()
+        if task_id not in self._settling or task_id in self._quarantined:
+            raise SkillContractError(
+                "terminal task is not awaiting bounded settling")
+        return self._prepare_response(
+            self._settling[task_id], allow_mutation=False, settling=True)
 
     def _fail(self, key, error):
         try:
-            hover = self._pose(self.provider.response(key).plan.robot_id).position_m
+            hover = self._pose(
+                self.provider.response(key).plan.robot_id).position_m
         except Exception:
             hover = None
-        return self.provider.fail(key, error, attached=self.bridge.attached(key), hover_position=hover,
-                                  reason_code="timeout" if isinstance(error, TimeoutError) else "execution_failure")
+        return self.provider.fail(
+            key, error, attached=self.bridge.attached(key),
+            hover_position=hover,
+            reason_code=(
+                "timeout" if isinstance(error, TimeoutError)
+                else "execution_failure"))
 
-    def _send(self, response):
+    def _prepare_or_fail(self, response):
+        try:
+            return self._prepare_response(response)
+        except Exception as exc:
+            failed = self._fail(response.state["task_id"], exc)
+            return self._prepare_response(
+                failed,
+                preparation_errors=(
+                    ("execution_error_type", type(exc).__name__),))
+
+    def _prepare_response(self, response, *, allow_mutation=True,
+                          preparation_errors=(), settling=False):
         key, robot = response.state["task_id"], response.plan.robot_id
+        before = number(self._time())
+        pending_ack = None
+        applied_commands = []
         for command in response.plan.commands:
             if command.command_type == "goal_position":
                 goal = vector(command.payload["target_pose"])
-                self.env.set_command(robot, "goal_position", self._action(self.env, robot, goal))
+                self.env.set_command(
+                    robot, "goal_position",
+                    self._action(self.env, robot, goal))
+                applied_commands.append(command.to_mapping())
             elif command.command_type == "transport_mutation":
-                p = command.payload
-                ack = self.bridge.apply(key, p["operation"], p["confirmation_id"])
-                if (ack.get("applied") is not True or ack.get("operation") != p["operation"]
-                        or ack.get("confirmation_id") != p["confirmation_id"]):
+                if not allow_mutation:
+                    continue
+                if pending_ack is not None:
+                    raise SkillContractError(
+                        "only one transport mutation is allowed per cycle")
+                payload = command.payload
+                ack = self.bridge.apply(
+                    key, payload["operation"], payload["confirmation_id"])
+                if (ack.get("applied") is not True
+                        or ack.get("operation") != payload["operation"]
+                        or ack.get("confirmation_id")
+                        != payload["confirmation_id"]):
                     raise RuntimeError("bridge did not confirm mutation")
-                if p["operation"] != "rollback":
-                    self._acks[key] = ack
+                if payload["operation"] != "rollback":
+                    pending_ack = deepcopy(ack)
+                applied_commands.append(command.to_mapping())
             else:
                 raise SkillContractError("unsupported aerial command")
-        # Zero external XYZ lets the existing controller consume goal_position
-        # (including [0,0,0]) and calculate rotor actions normally.
-        before = number(self._time())
-        self._advance({robot: self._action(self.env, robot, (0., 0., 0.))})
-        if response.state["safe_action"] == "advance" and number(self._time()) <= before:
-            raise RuntimeError("advance_hook did not advance simulator time")
+        action = self._action(self.env, robot, (0., 0., 0.))
+        prepared = PreparedAerialStep(
+            task_id=key,
+            robot_id=robot,
+            action=action,
+            response=response,
+            before_time_s=before,
+            token=uuid4().hex,
+            commands=tuple(applied_commands),
+            pending_ack=pending_ack,
+            preparation_errors=tuple(preparation_errors),
+            settling=settling)
+        self._prepared = prepared
+        return prepared
 
-    def _apply(self, response):
-        key = response.state["task_id"]
-        applied, errors = False, {}
+    def _execute_prepared(self, prepared):
         try:
-            self._send(response)
-            applied = True
-        except Exception as exc:
+            self._advance({prepared.robot_id: prepared.action})
+        except BaseException as exc:
+            response = self.abort_prepared(prepared, exc)
+            if not isinstance(exc, Exception):
+                raise
+            return response
+        return self.after_step(prepared)
+
+    def abort_prepared(self, prepared, error):
+        """Record an unconfirmed/failed host step and quarantine ownership."""
+        if not isinstance(error, BaseException):
+            raise TypeError("error must be a BaseException")
+        return self.after_step(prepared, error=error)
+
+    def after_step(self, prepared, *, error=None):
+        if self._prepared is not prepared:
+            raise SkillContractError(
+                "prepared aerial step is stale or belongs to another cycle")
+        self._prepared = None
+        key = prepared.task_id
+        errors = dict(prepared.preparation_errors)
+        if error is not None:
+            response = self._fail(key, error)
+            errors["step_error_type"] = type(error).__name__
+            self._quarantine_task(
+                key, "aerial shared step failed or was interrupted")
+            return self._record(
+                response, applied=False, retained=True,
+                quiescent=False, settling=False, errors=errors,
+                commands=prepared.commands)
+        try:
+            now = number(self._time())
+        except BaseException as exc:
             response = self._fail(key, exc)
-            try:
-                self._send(response)
-                applied = True
-            except Exception as recovery:
-                errors["recovery_error_type"] = type(recovery).__name__
-        terminal = response.state["status"] in {"succeeded", "cancelled", "failed"}
+            errors["time_error_type"] = type(exc).__name__
+            self._quarantine_task(
+                key, "aerial shared step time confirmation failed")
+            if not isinstance(exc, Exception):
+                raise
+            return self._record(
+                response, applied=False, retained=True,
+                quiescent=False, settling=False, errors=errors,
+                commands=prepared.commands)
+        if now <= prepared.before_time_s:
+            failure = RuntimeError(
+                "shared step did not advance simulator time")
+            response = self._fail(key, failure)
+            errors["step_error_type"] = type(failure).__name__
+            self._quarantine_task(
+                key, "aerial shared step did not advance simulator time")
+            return self._record(
+                response, applied=False, retained=True,
+                quiescent=False, settling=False, errors=errors,
+                commands=prepared.commands)
+
+        if prepared.pending_ack is not None:
+            self._acks[key] = deepcopy(prepared.pending_ack)
+        response = prepared.response
+        terminal = response.state["status"] in {
+            "succeeded", "cancelled", "failed"}
+        retained, quiescent, settling, ready_to_release = True, None, False, False
+        settle_elapsed = 0.
         if terminal:
-            retained = self.bridge.attached(key) or not applied
-            if not retained:
-                try:
-                    self.bridge.unbind(key)
-                except Exception as exc:
-                    errors["cleanup_error_type"] = type(exc).__name__
-                    retained = True
-            if retained:
-                if key not in self._quarantined:
-                    self.resources.quarantine(self._leases[key], "aerial attachment or recovery requires host release")
-                    self._quarantined.add(key)
+            if self.bridge.attached(key):
+                self._quarantine_task(
+                    key, "terminal aerial task retains an attachment")
+                quiescent = False
             else:
-                self.resources.release(self._leases[key])
+                try:
+                    quiescent = self._read_quiescent(
+                        key, prepared.robot_id)
+                except BaseException as exc:
+                    errors["quiescence_error_type"] = type(exc).__name__
+                    if not isinstance(exc, Exception):
+                        self._quarantine_task(
+                            key, "terminal quiescence measurement was interrupted")
+                        raise
+                    quiescent = False
+                self._settle_elapsed[key] = (
+                    self._settle_elapsed.get(key, 0.)
+                    + now-prepared.before_time_s)
+                settle_elapsed = self._settle_elapsed[key]
+                if quiescent:
+                    retained = self._cleanup_quiescent(key, errors)
+                    ready_to_release = (
+                        not self._lease_owned[key]
+                        and self._lease_state(key) == "active")
+                    self._settling.pop(key, None)
+                    self._settle_elapsed.pop(key, None)
+                elif (self._settle_elapsed[key]
+                      >= self.terminal_settle_timeout_s):
+                    self._quarantine_task(
+                        key, "terminal aerial task did not settle in time")
+                else:
+                    self._settling[key] = response
+                    settling = True
+        return self._record(
+            response, applied=True, retained=retained,
+            quiescent=quiescent, settling=settling, errors=errors,
+            ready_to_release=ready_to_release,
+            commands=prepared.commands, settle_elapsed_s=settle_elapsed)
+
+    def _read_quiescent(self, key, robot):
+        if self._quiescence is None:
+            reader = getattr(self.bridge, "quiescent", None)
+            if not callable(reader):
+                raise SkillContractError(
+                    "quiescence_reader is required for a custom bridge")
+            value = reader(key)
         else:
-            retained = True
-        sample = {"command_applied": applied, "phase": response.state["phase"], "commands": [c.to_mapping() for c in response.plan.commands]}
+            value = self._quiescence(key, robot)
+        if type(value) is not bool:
+            raise SkillContractError(
+                "quiescence_reader must return an explicit boolean")
+        return value
+
+    def _lease_state(self, key):
+        lease = self._leases[key]
+        for item in self.resources.snapshot()["leases"]:
+            if item["lease_id"] == lease.lease_id:
+                return item["state"]
+        return "released"
+
+    def _quarantine_task(self, key, reason):
+        if key not in self._leases:
+            return
+        state = self._lease_state(key)
+        if state == "active":
+            self.resources.quarantine(self._leases[key], reason)
+        elif state != "quarantined":
+            raise InvalidResourceLeaseError(
+                "cannot quarantine a released aerial lease")
+        self._quarantined.add(key)
+        self._settling.pop(key, None)
+
+    def _cleanup_quiescent(self, key, errors):
+        try:
+            self.bridge.unbind(key)
+        except BaseException as exc:
+            errors["cleanup_error_type"] = type(exc).__name__
+            self._quarantine_task(
+                key, "aerial physical cleanup failed")
+            if not isinstance(exc, Exception):
+                raise
+            return True
+        if self._lease_owned[key]:
+            self.resources.release(self._leases[key])
+            return False
+        return True
+
+    def _record(self, response, *, applied, retained, quiescent,
+                settling, errors, ready_to_release=False, commands=None,
+                settle_elapsed_s=None):
+        key = response.state["task_id"]
+        sample = {
+            "command_applied": applied,
+            "phase": response.state["phase"],
+            "commands": deepcopy(list(commands)) if commands is not None else [
+                command.to_mapping() for command in response.plan.commands],
+        }
         try:
             sample["simulation_time_s"] = number(self._time())
-            sample["position_m"] = self._pose(response.plan.robot_id).position_m
+            sample["position_m"] = self._pose(
+                response.plan.robot_id).position_m
             sample.update(self.bridge.evidence(key))
             drone_anchor, object_anchor = self.bridge.measure(key)
-            sample["drone_anchor_world_m"], sample["object_anchor_world_m"] = drone_anchor, object_anchor
+            sample["drone_anchor_world_m"] = drone_anchor
+            sample["object_anchor_world_m"] = object_anchor
             if key in self._acks:
                 sample["confirmation"] = deepcopy(self._acks[key])
         except (KeyError, SkillContractError):
             pass
         self._samples[key].append(sample)
-        evidence = {**response.private_evidence, **errors, "command_applied": applied,
-                    "resources_retained": retained, "execution_sample_count": len(self._samples[key]),
-                    "execution_samples": deepcopy(self._samples[key] if terminal else self._samples[key][-1:])}
+        evidence = {
+            **response.private_evidence,
+            **errors,
+            "command_applied": applied,
+            "resources_retained": retained,
+            "external_lease": not self._lease_owned[key],
+            "quiescent": quiescent,
+            "settling": settling,
+            "ready_to_release": ready_to_release,
+            "settle_elapsed_s": (self._settle_elapsed.get(key, 0.)
+                                 if settle_elapsed_s is None
+                                 else settle_elapsed_s),
+            "execution_sample_count": len(self._samples[key]),
+            "execution_samples": deepcopy(
+                self._samples[key]
+                if response.state["status"] in {
+                    "succeeded", "cancelled", "failed"}
+                else self._samples[key][-1:]),
+        }
         return replace(response, private_evidence=evidence)
 
-    def host_release(self, task_id, *, quiescent):
-        """Explicit host recovery; no new control on a terminal task."""
-        if quiescent is not True or task_id not in self._quarantined:
-            raise SkillContractError("host recovery requires a retained lease and quiescent=True")
-        self.bridge.apply(task_id, "release", "host-release:"+task_id)
-        self.bridge.unbind(task_id)
-        self.resources.recover(self._leases[task_id], quiescent=True)
-        self.resources.release(self._leases[task_id])
+    def host_release(self, task_id, *, quiescent=None):
+        """Recover quarantined state after fresh measured quiescence."""
+        if quiescent is not None and type(quiescent) is not bool:
+            raise SkillContractError(
+                "quiescent compatibility assertion must be boolean")
+        if quiescent is False or task_id not in self._quarantined:
+            raise SkillContractError(
+                "host recovery requires a retained quarantined lease")
+        robot = self.provider.response(task_id).plan.robot_id
+        if self._read_quiescent(task_id, robot) is not True:
+            raise SkillContractError(
+                "host recovery requires measured quiescence")
+        try:
+            self.bridge.apply(
+                task_id, "release", "host-release:"+task_id)
+            self.bridge.unbind(task_id)
+        except BaseException:
+            raise
+        self.resources.recover(
+            self._leases[task_id], quiescent=True)
+        if self._lease_owned[task_id]:
+            self.resources.release(self._leases[task_id])
         self._quarantined.remove(task_id)
+        self._settling.pop(task_id, None)
+        self._settle_elapsed.pop(task_id, None)
         return self.provider.record_host_release(task_id)
 
 
-__all__ = ["AerialPickPlaceExecutor", "PhysxAerialTransportBridge", "LivePhysxPoseReader", "read_aerial_pose"]
+__all__ = [
+    "AerialPickPlaceExecutor",
+    "PreparedAerialStep",
+    "PhysxAerialTransportBridge",
+    "LivePhysxPoseReader",
+    "read_aerial_pose",
+]

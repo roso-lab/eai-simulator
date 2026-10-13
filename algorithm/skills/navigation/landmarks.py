@@ -9,11 +9,11 @@ from typing import Any, Mapping, Sequence
 
 from ..contracts import SkillContractError
 from .ground_navigation import GroundPose, select_node_route
-from .topology import topology_fields, validate_ground_topology
+from .topology import topology_fields, validate_topology
 
 
 def _data(document: Any) -> Mapping[str, Any]:
-    errors = validate_ground_topology(document)
+    errors = validate_topology(document)
     if errors:
         raise SkillContractError("invalid topology: " + "; ".join(errors))
     return topology_fields(document)
@@ -68,9 +68,19 @@ def resolve_landmark_route(
             raise SkillContractError("v1 landmark requires a bound target reference")
         return sorted(refs)[0] if refs else row["id"]
     start, target = stable_ref(origin, origin_ref), stable_ref(destination, destination_ref)
-    result = select_node_route(document,
-        GroundPose(tuple(origin["position_xyz"]), 0.0, support_z_m=origin["position_xyz"][2]),
-        origin_ref=start, target_refs=(target,), controller_capabilities=controller_capabilities)
+    if data.get("domain") == "aerial":
+        from .aerial_navigation import AerialPose, select_aerial_node_route
+        result = select_aerial_node_route(data, AerialPose(tuple(origin["position_xyz"])),
+                                         origin_ref=start, target_refs=(target,))
+        result["domain"] = "aerial"
+        # Heading remains authoring metadata until a flight controller declares
+        # an executable yaw capability; do not claim orientation alignment.
+        result["target_heading_rad"] = None
+        result["authored_heading_rad"] = destination.get("heading_rad")
+    else:
+        result = select_node_route(document,
+            GroundPose(tuple(origin["position_xyz"]), 0.0, support_z_m=origin["position_xyz"][2]),
+            origin_ref=start, target_refs=(target,), controller_capabilities=controller_capabilities)
     result.update(schema="eai.navigation.landmark_route", version=1,
                   origin_ref=start, destination_ref=target,
                   coordinate_frame="scene_world", meters_per_unit=1, up_axis="Z")
