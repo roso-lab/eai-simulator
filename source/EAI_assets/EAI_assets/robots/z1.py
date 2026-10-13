@@ -15,7 +15,7 @@ Z1_DEFAULT_JOINT_POS = {
     "joint4": 0.0,
     "joint5": 0.0,
     "joint6": 0.0,
-    "jointGripper": -0.35,
+    "jointGripper": -0.8,
 }
 Z1_ARM_ACTUATOR = {
     "effort_limit_sim": 60.0,

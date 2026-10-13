@@ -11,6 +11,10 @@
 导航不使用全局栅格、局部代价地图、DWA、OBB 或碰撞查询。
 详见[地面导航中文说明](navigation/GROUND_NAVIGATION.zh-CN.md)。
 
+理想化机械臂入口是面向 UR5 和 Z1 单环境柱坐标 pick/place 演示的私有 runtime。它使用模型专属
+yaw 关节、缩减平面 IK、回收姿态和无物理 follow proxy，不提供导航或 ROS2 pick/place action。
+详见[理想化机械臂中文说明](IDEALIZED_MANIPULATION.zh-CN.md)。
+
 空中导航入口为 `algorithm.skills.navigation.AerialNavigationProvider`，
 采用人工 XYZ 拓扑、有向 Dijkstra 和逐节点 `goal_position`，支持创建任务、
 开始、继续、保持、重规划和停止。详见[空中导航中文说明](AERIAL_NAVIGATION.zh-CN.md)。

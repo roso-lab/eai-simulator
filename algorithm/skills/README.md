@@ -12,6 +12,12 @@ uses the caller's existing EAI environment. It requires validated topology and
 world state, with no occupancy, costmap, DWA, OBB or collision queries.
 See [the navigation guide](navigation/GROUND_NAVIGATION.zh-CN.md).
 
+The idealized manipulator skill is a private single-environment runtime for UR5
+and Z1 cylindrical pick/place demonstrations. It uses model-specific yaw joints,
+reduced plane IK, recovery poses, and non-physical follow proxies; it does not
+provide navigation or a ROS2 pick/place action. See the
+[idealized manipulation guide](IDEALIZED_MANIPULATION.zh-CN.md).
+
 `algorithm.skills.navigation.AerialNavigationProvider` compiles world-space
 `goal_position` commands from manually authored XYZ nodes and directed edges.
 It supports dispatch, start, continue, hold, replan and stop without occupancy,

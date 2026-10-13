@@ -289,9 +289,16 @@ class MultiRobotDirectEnv(DirectMARLEnv):
             # For actions: infer from loaded controller or robot DOF
             try:
                 act_dim = None
+
+                # ``env.step`` receives external controller commands.  A
+                # controller may expose a command dimension that differs from
+                # the actuator/policy output dimension (for example, Agile
+                # G1 accepts 4 commands and emits 12 leg targets).
+                if hasattr(controller_cfg, 'command_dim'):
+                    act_dim = int(controller_cfg.command_dim)
                 
-                # Priority 1: Try to get from loaded controller (e.g., from model checkpoint)
-                if robot_name in self._controllers_dict:
+                # Priority 2: Try to get from loaded controller (e.g., from model checkpoint)
+                if act_dim is None and robot_name in self._controllers_dict:
                     controller_dict = self._controllers_dict[robot_name]
                     # For SKRL controllers, try to get action_dim from policy
                     if 'policy' in controller_dict:
@@ -314,7 +321,7 @@ class MultiRobotDirectEnv(DirectMARLEnv):
                                         act_dim = param.shape[0]
                                         break
                 
-                # Priority 2: Try to get from robot DOF (for non-RL controllers or fallback)
+                # Priority 3: Try to get from robot DOF (for non-RL controllers or fallback)
                 if act_dim is None and robot_name in self.scene.articulations:
                     robot = self.scene.articulations[robot_name]
                     if hasattr(robot, 'num_joints'):
@@ -323,7 +330,7 @@ class MultiRobotDirectEnv(DirectMARLEnv):
                         if act_dim == 20:
                             act_dim = None  # Don't use placeholder
                 
-                # Priority 3: Try to get from controller config if it has action_dim attribute
+                # Priority 4: Try to get from controller config if it has action_dim attribute
                 if act_dim is None and hasattr(controller_cfg, 'action_dim'):
                     act_dim = controller_cfg.action_dim
                 
@@ -549,6 +556,16 @@ class MultiRobotDirectEnv(DirectMARLEnv):
         if post is not None and callable(post):
             post(self)
 
+        # The idealized manipulation runtime is deliberately the last writer
+        # in the control pipeline.  It owns an arm only while a private
+        # move/pick/place command is active. In IDLE, Z1 continues to own only
+        # its fixed wrist and closed gripper targets.
+        manipulation_runtime = getattr(self, "_idealized_manipulation_runtime", None)
+        if manipulation_runtime is not None:
+            run_post_apply = getattr(manipulation_runtime, "run_post_apply", None)
+            if callable(run_post_apply):
+                run_post_apply(self)
+
     def _get_rewards(self) -> dict[str, torch.Tensor]:
         """Compute rewards for all agents."""
         return {agent: torch.zeros(self.num_envs, device=self.device) for agent in self.cfg.possible_agents}
@@ -563,6 +580,11 @@ class MultiRobotDirectEnv(DirectMARLEnv):
     
     def _reset_idx(self, env_ids: Sequence[int] | None) -> None:
         """Reset environments at specified indices."""
+        manipulation_runtime = getattr(self, "_idealized_manipulation_runtime", None)
+        if manipulation_runtime is not None:
+            reset_runtime = getattr(manipulation_runtime, "reset", None)
+            if callable(reset_runtime):
+                reset_runtime(env_ids)
         super()._reset_idx(env_ids)
         if env_ids is None:
             env_ids = torch.arange(self.num_envs, device=self.device)
