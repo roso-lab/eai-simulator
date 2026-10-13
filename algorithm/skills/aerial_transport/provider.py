@@ -13,6 +13,11 @@ from .trajectory import VerticalProfile
 
 Z_CONNECTION_TOLERANCE_M = .01
 XY_ALIGNMENT_TOLERANCE_M = .01
+# Declared capability: controller robot_type identifiers of the only robots
+# this skill supports (catalog keys iris and pegasus). The executor enforces
+# this set at dispatch, before binding any physical state; cf2x and every
+# other robot type are rejected there.
+SUPPORTED_ROBOT_TYPES = frozenset({"PegasusIris", "PegasusX4"})
 DEFAULTS = {"carry_mode": "fixed_joint", "frame": "world", "vertical_speed_m_s": .1,
             "vertical_acceleration_m_s2": .5, "phase_timeout_s": 60., "intent": "start"}
 MUTATIONS = {"supporting": "create_support", "disabling_collision": "disable_collision",

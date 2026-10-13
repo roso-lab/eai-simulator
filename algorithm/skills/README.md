@@ -16,6 +16,8 @@ See [the navigation guide](navigation/GROUND_NAVIGATION.zh-CN.md).
 XYZ navigation, a continuous vertical profile and mutation confirmations. The
 caller-owned `AerialPickPlaceExecutor` applies existing position controllers,
 temporary world support, owned FixedJoints and exact collision restoration.
+Only iris (`PegasusIris`) and pegasus (`PegasusX4`) position robots pass the
+executor robot-type gate; cf2x and every other robot is rejected at dispatch.
 Attached cancellation retains the joint and resource lease for explicit host recovery.
 See [the aerial transport guide](aerial_transport/AERIAL_PICK_PLACE.zh-CN.md).
 

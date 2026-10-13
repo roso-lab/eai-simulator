@@ -152,6 +152,9 @@ FixedJoint、物体禁碰撞及 robot/object 租约，不自动丢弃物体。
 调用者使用 `simulator.open_simulator_session(SimulatorLaunchConfig(...))` 创建环境；
 executor 不创建第二个 AppLauncher，不下载资产，不接管 session 关闭。
 默认仅支持一个模拟环境和 `goal_position` 位置控制器，直接转子控制模式拒绝。
+机型门槛仅放行 iris（控制器 `robot_type="PegasusIris"`）与 pegasus
+（`robot_type="PegasusX4"`）的位置机型；CF2X 及其他任何机型在 dispatch 绑定
+物理状态之前即被拒绝，错误信息列出实际检测到的 robot_type。
 
 ```python
 from dataclasses import replace
@@ -213,7 +216,8 @@ host 应冻结拓扑产品身份并校验场景来源，Provider 不自行读取
 | 碰撞恢复或悬停应用失败 | 私有证据记录错误，隔离租约，等待 host |
 
 不支持 handoff、多机协作抓取、批量环境、自动抓取点检测、避障、转子直接控制
-或自动 payload 补偿。注册条目独立于 Pepper，不能因此声明其他无人机资产都已验证。
+或自动 payload 补偿。技能仅面向 iris 与 pegasus 位置机型，CF2X 不能使用。
+注册条目独立于 Pepper，不能因此声明其他无人机资产都已验证。
 
 ## 7. 验证边界
 

@@ -6,7 +6,8 @@ import math
 from uuid import uuid4
 
 from algorithm.skills.contracts import SkillContractError
-from algorithm.skills.aerial_transport.provider import AerialPickPlaceProvider, normalize_aerial_pick_place_request
+from algorithm.skills.aerial_transport.provider import (AerialPickPlaceProvider,
+    SUPPORTED_ROBOT_TYPES, normalize_aerial_pick_place_request)
 from algorithm.skills.aerial_transport.geometry import RigidPose, conjugate, number, vector
 from .ground_navigation import _vector, read_simulation_time
 from ..resources import ResourceManager
@@ -325,7 +326,13 @@ class AerialPickPlaceExecutor:
             raise SkillContractError("aerial executor task already exists")
         configs = getattr(self.env, "_controller_configs", {})
         cfg = configs.get(r.robot_id)
-        if cfg is None or cfg.command_name != "goal_position" or getattr(cfg, "control_mode", "position") != "position":
+        if cfg is None:
+            raise SkillContractError("a goal_position controller is required")
+        robot_type = getattr(cfg, "robot_type", "Unknown")
+        if robot_type not in SUPPORTED_ROBOT_TYPES:
+            raise SkillContractError("aerial pick/place supports only iris and pegasus position robots "
+                                     f"(controller robot_type one of {sorted(SUPPORTED_ROBOT_TYPES)}); got {robot_type!r}")
+        if cfg.command_name != "goal_position" or getattr(cfg, "control_mode", "position") != "position":
             raise SkillContractError("a goal_position controller is required")
         robot_body, object_body = self._resolve("robot", r.robot_id), self._resolve("object", r.parameters["object_ref"])
         lease = self.resources.acquire("aerial:"+key, ["robot:"+r.robot_id, "object:"+object_body])

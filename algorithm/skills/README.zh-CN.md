@@ -14,7 +14,9 @@
 无人机搬运入口为 `algorithm.skills.aerial_transport.AerialPickPlaceProvider`，
 Skill ID 为 `eai.transport.aerial_pick_place`。人工 XYZ 导航、垂直梯形轨迹与
 确认驱动状态机由纯 Provider 编译；`task.executors.aerial_pick_place` 负责位置
-控制器、临时世界支撑、真实 FixedJoint 和精确碰撞恢复。持物停止保留连接和租约。
+控制器、临时世界支撑、真实 FixedJoint 和精确碰撞恢复。仅 iris（`PegasusIris`）
+与 pegasus（`PegasusX4`）的位置机型可通过执行器机型门槛；CF2X 及其他机型在
+dispatch 即被拒绝。持物停止保留连接和租约。
 详见[无人机 Pick/Place 中文说明](aerial_transport/AERIAL_PICK_PLACE.zh-CN.md)。
 
 Pepper 搬运接口为：
