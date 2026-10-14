@@ -34,7 +34,9 @@ class RigidPose:
     def __post_init__(self):
         object.__setattr__(self, "position_m", vector(self.position_m))
         q = vector(self.orientation_wxyz, 4)
-        norm = math.sqrt(sum(x*x for x in q))
+        norm = math.hypot(*q)
+        if not math.isfinite(norm):
+            raise SkillContractError("quaternion norm must be finite")
         if norm < 1e-12:
             raise SkillContractError("quaternion must be nonzero")
         object.__setattr__(self, "orientation_wxyz", tuple(x/norm for x in q))

@@ -1,10 +1,10 @@
-"""Procedural scene and seeded endpoint-only trials of the existing G1 skill."""
+"""Procedural paused-USD geometry probe using the retained G1 planner."""
 from pathlib import Path
 import json
 import math
 import numpy as np
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics, UsdShade
-from task.executors.g1_pick_place import G1PickPlaceSkill, GraspProfile, ObjectBinding, G1SkillError
+from task.executors.g1_manipulation.runtime import G1PickPlaceSkill, GraspProfile, ObjectBinding, G1SkillError
 from task.executors.g1_manipulation.geometry import world_matrix, set_world_matrix, object_local_size
 
 ROOT = Path(__file__).resolve().parents[2]

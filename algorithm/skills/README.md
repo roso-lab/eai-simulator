@@ -1,61 +1,9 @@
-# EAI low-level skills
+# EAI skills
 
-This package follows HeteroCoord's `simulator.skill.v1` boundary:
-`SkillRequest -> pure provider -> SkillPlan -> EAI executor -> controller ->
-external evaluator`.
+`eai.manipulation.pick_place` is the only public local pick/place skill. Its execution entry is `PickPlaceExecutor.execute(request) -> bool`; each request performs one `pick` or `place`, and the caller owns navigation and transport timing.
 
-Ground navigation is implemented by
-`algorithm.skills.navigation.GroundNavigationProvider`: authored node routing,
-heading PID, fixed cruise speed and distance-only node arrival. Native I/O is
-owned by `task.executors.ground_navigation.GroundNavigationExecutor`, which
-uses the caller's existing EAI environment. It requires validated topology and
-world state, with no occupancy, costmap, DWA, OBB or collision queries.
-See [the navigation guide](navigation/GROUND_NAVIGATION.zh-CN.md).
+The host creates a robot controller and a `PickPlaceAdapter`, registers it by `adapter.robot_id`, and supplies the existing physics step and simulation clock. The executor validates world coordinates, converts them to the sampled chassis frame, owns leases and the local state machine, and returns only the final boolean result. Arm, drone, Pepper and G1 adapters retain their robot-specific motion and feedback logic.
 
-The idealized manipulator skill is a private single-environment runtime for UR5
-and Z1 cylindrical pick/place demonstrations. It uses model-specific yaw joints,
-reduced plane IK, recovery poses, and non-physical follow proxies; it does not
-provide navigation or a ROS2 pick/place action. See the
-[idealized manipulation guide](IDEALIZED_MANIPULATION.zh-CN.md).
+Navigation remains provided by the independent ground and aerial navigation skills. It is never selected or started by PickPlace. The machine-readable registry contains navigation, local manipulation, inspection, coordination and external I/O contracts; deprecated complete transport skill IDs are not registered.
 
-`algorithm.skills.navigation.AerialNavigationProvider` compiles world-space
-`goal_position` commands from manually authored XYZ nodes and directed edges.
-It supports dispatch, start, continue, hold, replan and stop without occupancy,
-voxel or collision queries. See the [aerial navigation guide](AERIAL_NAVIGATION.zh-CN.md)
-and run the [Iris GUI example](navigation/examples/aerial_topology_gui_demo.py):
-
-```bash
-conda run --no-capture-output -n env_isaaclab python \
-  algorithm/skills/navigation/examples/aerial_topology_gui_demo.py --device cuda:0
-```
-
-`AerialPickPlaceProvider` implements `eai.transport.aerial_pick_place` with authored
-XYZ navigation, a continuous vertical profile and mutation confirmations. The
-caller-owned `AerialPickPlaceExecutor` applies existing position controllers,
-temporary world support, owned FixedJoints and exact collision restoration.
-Only iris (`PegasusIris`) and pegasus (`PegasusX4`) position robots pass the
-executor robot-type gate; cf2x and every other robot is rejected at dispatch.
-Attached cancellation retains the joint and resource lease for explicit host recovery.
-See [the aerial transport guide](aerial_transport/AERIAL_PICK_PLACE.zh-CN.md).
-
-The [shared aerial runtime guide](AERIAL_RUNTIME.zh-CN.md) connects these
-providers to task/benchmark execution: frozen authored maps, English landmarks,
-authenticated external leases, one host-owned physics tick and measured recovery.
-
-Pepper composite transport routes to `PEPPER_BOX_TRANSPORT_CFG`; task orchestration
-uses `PepperTransportHandle` with `PEPPER_BOX_TRANSPORT_TASK_CFG` and the caller's
-shared physics loop. See [the Pepper guide](pepper_transport/README.md).
-Arms, fixed-base calibrated G1 and Pepper also share `eai.manipulation.pick_place`:
-world XYZ requests, per-clone state and leases, and one caller-owned physics tick.
-G1 plans on a shadow USD stage and drives real articulation targets; the original
-paused USD adapter remains available for geometry checks. See
-[the integration guide](GRASP_SKILLS_INTEGRATION.zh-CN.md).
-G1 walking/box transport remains unsupported. Provider planning and executor
-feedback never certify a
-physical outcome; only the external evaluator may do so.
-
-The machine-readable registry in `simulator_schema.py` also preserves the
-generic benchmark adapter contracts for goal/velocity navigation,
-manipulation, inspection, handoff and external I/O. See
-[`SKILL_DEVELOPER_HANDOFF.zh-CN.md`](SKILL_DEVELOPER_HANDOFF.zh-CN.md) before
-adding or changing a provider boundary.
+See [the local PickPlace guide](pick_place/README.zh-CN.md) and [the robot addition guide](pick_place/ADDING_ROBOTS.zh-CN.md).

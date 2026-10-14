@@ -144,56 +144,13 @@ def planar_ik_spec_for_model(model_spec: Any) -> PlanarIkSpec:
     return PlanarIkSpec(model=model or "generic", yaw_joint_name=None, ik_joint_names=names)
 
 
-@dataclass(frozen=True)
-class CylindricalPose:
-    """A base-local target: forward reach, height and offset-plane direction."""
-
-    x_m: float
-    z_m: float
-    yaw_rad: float
-
-    def __post_init__(self) -> None:
-        x_m = _finite_float(self.x_m, "x_m")
-        z_m = _finite_float(self.z_m, "z_m")
-        yaw_rad = _finite_float(self.yaw_rad, "yaw_rad")
-        if x_m < 0.0:
-            raise ValueError("x_m must be non-negative")
-        object.__setattr__(self, "x_m", x_m)
-        object.__setattr__(self, "z_m", z_m)
-        object.__setattr__(self, "yaw_rad", (yaw_rad + math.pi) % (2.0 * math.pi) - math.pi)
-
-
-def _finite_vector(value: Sequence[float], length: int, name: str) -> tuple[float, ...]:
-    try:
-        value_length = len(value)
-    except (TypeError, AttributeError):
-        value_length = -1
-    if isinstance(value, (str, bytes)) or value_length != length:
-        raise ValueError(f"{name} must contain exactly {length} finite values")
-    try:
-        if any(isinstance(item, bool) for item in value):
-            raise ValueError(f"{name} must contain exactly {length} finite values")
-    except TypeError:
-        raise ValueError(f"{name} must contain exactly {length} finite values")
-    try:
-        parsed = tuple(float(item) for item in value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"{name} must contain exactly {length} finite values") from exc
-    if any(not math.isfinite(item) for item in parsed):
-        raise ValueError(f"{name} must contain exactly {length} finite values")
-    return parsed
-
-
-def _finite_float(value: float, name: str) -> float:
-    if isinstance(value, bool):
-        raise ValueError(f"{name} must be finite")
-    try:
-        parsed = float(value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"{name} must be finite") from exc
-    if not math.isfinite(parsed):
-        raise ValueError(f"{name} must be finite")
-    return parsed
+from EAI.manipulation_geometry import (
+    CylindricalPose, _finite_float, _finite_vector, _quat_conjugate,
+    _quat_multiply, _normalize_quaternion, _quat_rotate, wrap_angle_rad,
+    feasible_yaw_joint_target, normalize_cylindrical_pose, parse_cylindrical_pose,
+    cylindrical_to_local_position, local_position_to_cylindrical,
+    cylindrical_to_world_position,
+)
 
 
 def _positive_steps(value: int) -> int:
@@ -210,150 +167,6 @@ def _tensor_values(value: Any, length: int) -> tuple[float, ...]:
     if hasattr(value, "tolist"):
         value = value.tolist()
     return _finite_vector(value, length, "physics pose")
-
-
-def _quat_conjugate(quaternion: Sequence[float]) -> tuple[float, float, float, float]:
-    w, x, y, z = _finite_vector(quaternion, 4, "quaternion")
-    norm_sq = w * w + x * x + y * y + z * z
-    if norm_sq <= 1.0e-18:
-        raise ValueError("quaternion must be non-zero")
-    return (w / norm_sq, -x / norm_sq, -y / norm_sq, -z / norm_sq)
-
-
-def _quat_multiply(left: Sequence[float], right: Sequence[float]) -> tuple[float, float, float, float]:
-    lw, lx, ly, lz = _finite_vector(left, 4, "left quaternion")
-    rw, rx, ry, rz = _finite_vector(right, 4, "right quaternion")
-    return (
-        lw * rw - lx * rx - ly * ry - lz * rz,
-        lw * rx + lx * rw + ly * rz - lz * ry,
-        lw * ry - lx * rz + ly * rw + lz * rx,
-        lw * rz + lx * ry - ly * rx + lz * rw,
-    )
-
-
-def _normalize_quaternion(quaternion: Sequence[float], *, name: str = "quaternion") -> tuple[float, float, float, float]:
-    parsed = _finite_vector(quaternion, 4, name)
-    length = math.sqrt(sum(value * value for value in parsed))
-    if length <= 1.0e-12:
-        raise ValueError(f"{name} must be non-zero")
-    return tuple(value / length for value in parsed)
-
-
-def _quat_rotate(quaternion: Sequence[float], vector: Sequence[float]) -> tuple[float, float, float]:
-    q = _normalize_quaternion(quaternion, name="quaternion")
-    vx, vy, vz = _finite_vector(vector, 3, "vector")
-    rotated = _quat_multiply(_quat_multiply(q, (0.0, vx, vy, vz)), _quat_conjugate(q))
-    return (rotated[1], rotated[2], rotated[3])
-
-
-def wrap_angle_rad(angle_rad: float) -> float:
-    """Wrap a finite angle to ``[-pi, pi)``."""
-
-    angle = _finite_float(angle_rad, "yaw_rad")
-    return (angle + math.pi) % (2.0 * math.pi) - math.pi
-
-
-def feasible_yaw_joint_target(
-    plane_yaw_rad: float, current_joint_rad: float, lower_rad: float, upper_rad: float,
-    *, yaw_zero_rad: float = 0.0, yaw_sign: float = 1.0,
-) -> float:
-    """Choose the nearest equivalent yaw inside the actual joint interval.
-
-    A bounded Z1 shoulder may need the long route through zero. Wrapping its
-    error to the shortest angle would instead cross a physical joint stop.
-    """
-    values = _finite_vector(
-        (plane_yaw_rad, current_joint_rad, lower_rad, upper_rad, yaw_zero_rad, yaw_sign),
-        6, "yaw joint mapping",
-    )
-    yaw, current, low, high, zero, sign = values
-    if low > high or abs(sign) != 1.0:
-        raise ValueError("invalid yaw joint interval or direction")
-    raw = (wrap_angle_rad(yaw) - zero) / sign
-    period = 2.0 * math.pi
-    k_min = math.ceil((low - raw - 1.0e-8) / period)
-    k_max = math.floor((high - raw + 1.0e-8) / period)
-    if k_min > k_max:
-        raise ValueError("target plane yaw is outside the shoulder joint limits")
-    options = [min(high, max(low, raw + k * period)) for k in range(k_min, k_max + 1)]
-    return min(options, key=lambda q: (abs(q - current), abs(q)))
-
-
-def normalize_cylindrical_pose(value: CylindricalPose | Sequence[float], *, name: str = "pose") -> CylindricalPose:
-    """Validate a pose and normalize its azimuth."""
-
-    if isinstance(value, CylindricalPose):
-        raw = (value.x_m, value.z_m, value.yaw_rad)
-    else:
-        raw = _finite_vector(value, 3, name)
-    x_m, z_m, yaw_rad = _finite_vector(raw, 3, name)
-    if x_m < 0.0:
-        raise ValueError(f"{name}.x_m must be non-negative")
-    return CylindricalPose(x_m=x_m, z_m=z_m, yaw_rad=wrap_angle_rad(yaw_rad))
-
-
-# A descriptive alias is useful to callers that treat command parsing as a
-# separate interface boundary.
-parse_cylindrical_pose = normalize_cylindrical_pose
-
-
-def cylindrical_to_local_position(
-    pose: CylindricalPose | Sequence[float],
-    plane_offset_m: float,
-) -> tuple[float, float, float]:
-    """Convert a plane pose to a point in the articulation root frame."""
-
-    normalized = normalize_cylindrical_pose(pose)
-    offset = _finite_float(plane_offset_m, "plane_offset_m")
-    cos_yaw = math.cos(normalized.yaw_rad)
-    sin_yaw = math.sin(normalized.yaw_rad)
-    return (
-        normalized.x_m * cos_yaw - offset * sin_yaw,
-        normalized.x_m * sin_yaw + offset * cos_yaw,
-        normalized.z_m,
-    )
-
-
-def local_position_to_cylindrical(
-    position_base: Sequence[float],
-    plane_offset_m: float,
-    *,
-    fallback_yaw: float = 0.0,
-) -> CylindricalPose:
-    """Convert a root-local point to the offset-plane representation."""
-
-    px, py, pz = _finite_vector(position_base, 3, "position_base")
-    offset = _finite_float(plane_offset_m, "plane_offset_m")
-    radius_sq = px * px + py * py - offset * offset
-    if radius_sq < -1.0e-8:
-        raise ValueError("position is inside the plane-offset exclusion radius")
-    x = math.sqrt(max(0.0, radius_sq))
-    if x <= 1.0e-9 and abs(offset) <= 1.0e-9:
-        yaw = wrap_angle_rad(fallback_yaw)
-    else:
-        yaw = math.atan2(py, px) - math.atan2(offset, x)
-    return CylindricalPose(x, pz, yaw)
-
-
-def cylindrical_to_world_position(
-    pose: CylindricalPose | Sequence[float],
-    base_position_world: Sequence[float],
-    base_orientation_world_wxyz: Sequence[float],
-    plane_offset_m: float,
-) -> tuple[float, float, float]:
-    """Convert a root-local cylindrical pose to world coordinates.
-
-    ``base_orientation_world_wxyz`` is the manipulator articulation root's
-    world orientation as a ``(w, x, y, z)`` quaternion.
-    """
-
-    base = _finite_vector(base_position_world, 3, "base_position_world")
-    base_orientation_world = _finite_vector(
-        base_orientation_world_wxyz, 4, "base_orientation_world_wxyz"
-    )
-    local = cylindrical_to_local_position(pose, plane_offset_m)
-    rotated = _quat_rotate(base_orientation_world, local)
-    return tuple(base[index] + rotated[index] for index in range(3))
 
 
 @dataclass(frozen=True)
@@ -394,6 +207,7 @@ class HeldObject:
 
 class ManipulationPhase(str, Enum):
     IDLE = "idle"
+    PREPARE = "prepare"
     ROTATE = "rotate"
     RADIAL_APPROACH = "radial_approach"
     VERTICAL_APPROACH = "vertical_approach"
@@ -563,6 +377,70 @@ class IdealizedManipulationRuntime:
         self._physics_views: dict[tuple[str, str], tuple[Any | None, Any]] = {}
         self._gripper_collision_snapshots: dict[str, tuple[_AttributeSnapshot, ...]] = {}
         self._closed = False
+        self._retain_on_failure: set[str] = set()
+
+    def preserve_holding_on_failure(self, robot_name: str, *, env_id: int = 0) -> None:
+        """Opt in for local pick/place; legacy cleanup semantics stay intact."""
+        if self._dispatcher:
+            self._runtime_for_env(env_id).preserve_holding_on_failure(robot_name)
+            return
+        self._retain_on_failure.add(str(robot_name).strip())
+
+    def stop_retaining_object(self, robot_name: str, reason: str, *, env_id: int = 0) -> bool:
+        """Stop the trajectory, retaining a measured local carry pose.
+
+        A partial release or failed restoration is not a confirmed safe stop.
+        Its ownership records remain available for host recovery/reset.
+        """
+        if self._dispatcher:
+            return self._runtime_for_env(env_id).stop_retaining_object(robot_name, reason)
+        name = str(robot_name).strip()
+        state = self._states.setdefault(name, RobotManipulationState())
+        state.last_error = str(reason)
+        if state.release_started:
+            state.phase = ManipulationPhase.FAILED
+            state.operation = None
+            state.phase_goal = None
+            state.phase_axis = None
+            return False
+        binding = self._bindings.get(name)
+        if binding is not None and callable(getattr(binding.arm, "set_joint_position_target", None)):
+            # Stopping the planner alone leaves its last drive targets live.
+            # Freeze measured joints before relinquishing trajectory ownership.
+            ids, _ = binding.arm.find_joints(list(binding.model_spec.joint_names), preserve_order=True)
+            measured = binding.arm.data.joint_pos[:, list(ids)]
+            targets = measured.clone() if hasattr(measured, "clone") else measured.copy()
+            binding.arm.set_joint_position_target(targets, joint_ids=list(ids))
+            cache = getattr(self._env, "_eai_planar_ik_states", {})
+            cache.pop((name, str(binding.model_spec.model)), None)
+        if state.held is not None:
+            binding = self._binding(name)
+            position, orientation = self._end_effector_pose(binding)
+            base_position, base_orientation = self._base_pose(binding)
+            del base_position
+            pose = self._measured_plane_pose(binding, position)
+            state.command_pose = pose
+            state.initial_plane_yaw_rad = pose.yaw_rad
+            state.ee_orientation_relative_b_wxyz = _quat_multiply(_quat_conjugate(base_orientation), orientation)
+            if binding.yaw_joint_id is not None:
+                state.yaw_joint_target_rad = float(binding.arm.data.joint_pos[0, binding.yaw_joint_id])
+            cache = getattr(self._env, "_eai_planar_ik_states", {})
+            cache.pop((name, str(binding.model_spec.model)), None)
+            self._sync_follow_proxy(state.held, binding)
+            state.phase = ManipulationPhase.ATTACHED_HOLD
+        else:
+            if state.pending_isolation is not None:
+                self._restore_object_isolation(state.pending_isolation, remove_proxy=True)
+                self._object_owners.pop(state.pending_isolation.object_body_path, None)
+                state.pending_isolation = None
+            self._restore_gripper_collisions(name)
+            state.phase = ManipulationPhase.FAILED
+        state.operation = None
+        state.phase_goal = None
+        state.phase_axis = None
+        state.phase_steps = 0
+        state.settle_elapsed_s = 0.0
+        return True
 
     @staticmethod
     def _normalize_model_specs(model_specs: Mapping[str, Any | Sequence[Any]]) -> dict[str, tuple[Any, ...]]:
@@ -733,6 +611,16 @@ class IdealizedManipulationRuntime:
             return False
         current = state.command_pose
         assert current is not None
+        if name in self._retain_on_failure and self._binding(name).yaw_joint_id is not None:
+            # Local backends may enter from a normal controller's arbitrary
+            # wrist posture. Its current position may be unreachable with a
+            # downward tool (notably the high folded Z1 defaults). Establish
+            # the reference at the elevated recovery pose before ROTATE
+            # freezes the non-yaw joints; ordinary joint slew limits apply.
+            prepared = CylindricalPose(recovery.x_m, recovery.z_m, current.yaw_rad)
+            state.command_pose = prepared
+            self._set_phase(state, ManipulationPhase.PREPARE, prepared, None)
+            return True
         self._set_phase(state, ManipulationPhase.ROTATE,
                         CylindricalPose(current.x_m, current.z_m, grasp.yaw_rad), "yaw")
         return True
@@ -848,7 +736,10 @@ class IdealizedManipulationRuntime:
             if operation == "place" and state.phase == ManipulationPhase.ATTACHED_HOLD and state.command_pose is not None:
                 initial = state.command_pose
             else:
-                initial = self._measured_plane_pose(binding, ee_position)
+                initial = self._measured_plane_pose(
+                    binding, ee_position,
+                    allow_folded=operation == "pick" and robot_name in self._retain_on_failure,
+                )
         except (ValueError, RuntimeError) as exc:
             return self._reject(state, f"{operation} rejected: {exc}")
         plane_reference = binding.planar_spec.tool_orientation_plane_wxyz
@@ -955,6 +846,7 @@ class IdealizedManipulationRuntime:
 
     def _measured_plane_pose(
         self, binding: _ManipulatorBinding, position_w: Sequence[float],
+        *, allow_folded: bool = False,
     ) -> CylindricalPose:
         base_pos, base_quat = self._base_pose(binding)
         if binding.yaw_joint_id is None:
@@ -964,9 +856,12 @@ class IdealizedManipulationRuntime:
         yaw = spec.yaw_zero_rad + spec.yaw_sign * q
         local = _quat_rotate(_quat_conjugate(base_quat), tuple(position_w[i] - base_pos[i] for i in range(3)))
         x = math.cos(yaw) * local[0] + math.sin(yaw) * local[1]
-        if x < -1.0e-6:
+        if x < -1.0e-6 and not allow_folded:
             raise RuntimeError("arm is folded behind the positive plane; prepare it before starting a skill")
-        return CylindricalPose(max(0.0, x), local[2], yaw)
+        # PREPARE tolerates a folded wrist while it moves to the recovery pose.
+        # Absolute radius is only a temporary measurement; measured world
+        # position still gates arrival at the positive plane.
+        return CylindricalPose(abs(x) if allow_folded else max(0.0, x), local[2], yaw)
 
     def _step_yaw_joint(self, binding: _ManipulatorBinding, state: RobotManipulationState, dt: float) -> None:
         current = state.yaw_joint_target_rad
@@ -1146,7 +1041,9 @@ class IdealizedManipulationRuntime:
                 if state.held is not None:
                     self._sync_follow_proxy(state.held, binding)
                 measured_position, _ = self._end_effector_pose(binding)
-                measured = self._measured_plane_pose(binding, measured_position)
+                measured = self._measured_plane_pose(
+                    binding, measured_position, allow_folded=state.phase == ManipulationPhase.PREPARE,
+                )
                 state.phase_steps += 1
                 if state.phase == ManipulationPhase.GRASP:
                     if self._phase_reached(state, measured, binding) and self._gripper_at_target(binding, state):
@@ -1185,6 +1082,7 @@ class IdealizedManipulationRuntime:
             fixed_joint_ids=binding.fixed_joint_ids,
             rotate_only=state.phase == ManipulationPhase.ROTATE,
             max_delta_rad=max_delta, dls_lambda=damping,
+            integration_gain_s=1.0 if robot_name in self._retain_on_failure else 6.0,
         ):
             raise RuntimeError("planar IK is unavailable for the selected manipulator")
         self._hold_gripper(binding, state)
@@ -1220,6 +1118,14 @@ class IdealizedManipulationRuntime:
         binding.arm.set_joint_position_target(targets, joint_ids=ids)
 
     def _advance_phase(self, robot_name: str, binding: _ManipulatorBinding, state: RobotManipulationState) -> None:
+        if state.phase == ManipulationPhase.PREPARE:
+            current, target = state.command_pose, state.target_pose
+            if current is None or target is None:
+                self._fail(state, "prepare is missing a cylindrical target")
+                return
+            self._set_phase(state, ManipulationPhase.ROTATE,
+                            CylindricalPose(current.x_m, current.z_m, target.yaw_rad), "yaw")
+            return
         del robot_name, binding
         target = state.target_pose
         recovery = state.recovery_pose
@@ -1361,6 +1267,8 @@ class IdealizedManipulationRuntime:
         phase = state.phase
         if phase == ManipulationPhase.RELEASE:
             return open_position
+        if state.held is not None:
+            return closed_position
         if state.operation == "pick" and phase in (
             ManipulationPhase.GRASP,
             ManipulationPhase.LIFT,
@@ -1495,6 +1403,13 @@ class IdealizedManipulationRuntime:
 
     def _fail(self, state: RobotManipulationState, reason: str) -> None:
         name = next((robot for robot, candidate in self._states.items() if candidate is state), "")
+        if name in self._retain_on_failure:
+            try:
+                self.stop_retaining_object(name, reason)
+            except Exception as exc:
+                state.last_error = f"{reason}; safe stop pending: {exc}"
+                state.phase = ManipulationPhase.FAILED
+            return
         self._cleanup_object(name, state)
         self._restore_gripper_collisions(name)
         state.phase = ManipulationPhase.FAILED
@@ -1512,10 +1427,11 @@ class IdealizedManipulationRuntime:
         state.last_error = str(reason)
 
 
-    def _binding(self, robot_name: str) -> _ManipulatorBinding:
+    def _binding(self, robot_name: str, *, disable_collisions: bool = True) -> _ManipulatorBinding:
         cached = self._bindings.get(robot_name)
         if cached is not None:
-            self._disable_gripper_collisions(robot_name, cached)
+            if disable_collisions:
+                self._disable_gripper_collisions(robot_name, cached)
             return cached
         articulations = getattr(getattr(self._env, "scene", None), "articulations", {})
         arm = articulations.get(f"{robot_name}_arm")
@@ -1552,7 +1468,8 @@ class IdealizedManipulationRuntime:
                 resolve(planar_spec.ik_joint_names), resolve(planar_spec.fixed_joint_names),
                 robot_name,
             )
-            self._disable_gripper_collisions(robot_name, binding)
+            if disable_collisions:
+                self._disable_gripper_collisions(robot_name, binding)
             self._bindings[robot_name] = binding
             return binding
         raise RuntimeError(f"no compatible manipulator model spec for '{robot_name}'")

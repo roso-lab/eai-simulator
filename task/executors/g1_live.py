@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 from pxr import Gf, Usd, UsdPhysics
 
-from .g1_pick_place import G1PickPlaceSkill, GraspProfile, ObjectBinding
+from .g1_manipulation.runtime import G1PickPlaceSkill, GraspProfile, ObjectBinding
 from .g1_manipulation.geometry import world_matrix, set_world_matrix
 from .skills import ExecutionReceipt
 from task.contracts import DependencyOutcome
@@ -40,7 +40,7 @@ def matrix_pose(matrix, device):
 
 class G1LiveHandle:
     def __init__(self, plan, *, view, stage, robot_name, robot_path, objects,
-                 config=None, obstacles=(), settle_ticks=10):
+                 config=None, obstacles=(), settle_ticks=10, defer_start=True):
         from EAI.controllers.environment_view import environment_path
         self.plan, self.view, self.robot_name = plan, view, robot_name
         self.robot = view.scene.articulations[robot_name]
@@ -94,9 +94,8 @@ class G1LiveHandle:
         for ref, binding in bindings.items():
             obj = view.scene.rigid_objects[ref]
             set_world_matrix(shadow.GetPrimAtPath(binding.prim_path), pose_matrix(obj.data.root_pos_w[0], obj.data.root_quat_w[0]))
-        self.skill.start_plan(plan)
-        self.object = view.scene.rigid_objects[self.skill.object_ref]
-        self._initial_object = pose_matrix(self.object.data.root_pos_w[0], self.object.data.root_quat_w[0])
+        if not defer_start:
+            raise ValueError("G1LiveHandle is started by G1PickPlaceAdapter")
 
     def _body_id(self, name):
         ids, _ = self.robot.find_bodies([name], preserve_order=True)

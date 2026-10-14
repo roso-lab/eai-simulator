@@ -82,7 +82,7 @@ def main():
         report = {'seed':args.seed, 'fps':args.fps, 'resolution':[1920,1080], 'trials':[],
             'images':[], 'mode':'kinematic USD motion with ideal rigid attachment',
             'physical_grasp_verified':False, 'completed':False, 'source_sha256':{}}
-        for source in (Path(__file__), Path(__file__).with_name('scene.py'), ROOT / 'task/executors/g1_pick_place.py',
+        for source in (Path(__file__), Path(__file__).with_name('scene.py'), ROOT / 'task/executors/g1_manipulation/runtime.py',
                        *(ROOT / 'task/executors/g1_manipulation').glob('*.py')):
             report['source_sha256'][str(source.relative_to(ROOT))] = hashlib.sha256(source.read_bytes()).hexdigest()
         total_frames = 0

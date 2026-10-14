@@ -9,13 +9,13 @@ import math
 
 from algorithm.skills.contracts import SkillCommand, SkillContractError, SkillPlan, SkillRequest
 from algorithm.skills.aerial_transport.geometry import number
-from algorithm.skills.simulator_schema import AERIAL_NAVIGATION_SKILL_ID, AERIAL_PICK_PLACE_SKILL_ID
+from algorithm.skills.simulator_schema import AERIAL_NAVIGATION_SKILL_ID
 from algorithm.skills.navigation.aerial_navigation import AerialNavigationProvider, AerialPose, digest, normalize_request
 from algorithm.skills.navigation.aerial_topology import FrozenAerialTopology
 from algorithm.common_coordination.contract import FailureCode
 from task.contracts import DependencyOutcome
 from task.resources import ResourceManager
-from .aerial_pick_place import AerialPickPlaceExecutor, read_aerial_pose, _default_action
+from .aerial_pick_place import read_aerial_pose, _default_action
 from .ground_navigation import _vector, read_simulation_time
 from .cooperative import CooperativeBinding
 from .skills import ExecutionReceipt
@@ -31,8 +31,7 @@ class AerialSkillRuntime:
 
     def __init__(self, env, *, topology, source_reader, resources,
                  sequence_reader=None, pose_reader=None, time_reader=None,
-                 velocity_reader=None, action_factory=None, transport_factory=None,
-                 transport_options=None, settle_timeout_s=5.):
+                 velocity_reader=None, action_factory=None, settle_timeout_s=5.):
         if not isinstance(topology, FrozenAerialTopology) or not callable(source_reader):
             raise SkillContractError("frozen aerial product and live source_reader are required")
         if not isinstance(resources, ResourceManager):
@@ -50,10 +49,6 @@ class AerialSkillRuntime:
         self.sequence = sequence_reader or (lambda: env.sim.current_time_step_index)
         self.velocity = velocity_reader or self._velocity
         self.action = action_factory or _default_action
-        self.transport_factory = transport_factory or AerialPickPlaceExecutor
-        self.transport_options = dict(transport_options or {})
-        if set(self.transport_options) & {"resource_manager", "topology", "world_state_validator"}:
-            raise SkillContractError("transport options cannot override scene ownership")
         self.settle_timeout_s = settle_timeout_s
         self.handles = {}
 
@@ -79,14 +74,9 @@ class AerialSkillRuntime:
         if type(current) is not int or current < 0 or type(sequence) is not int or sequence != current:
             raise SkillContractError("request must use current measured world_state_seq")
 
-    def _transport(self):
-        return self.transport_factory(self.env, topology=self.topology.snapshot(),
-            world_state_validator=self.validate_sequence, resource_manager=self.resources,
-            **self.transport_options)
-
     def normalize(self, value):
         r = value if isinstance(value, SkillRequest) else SkillRequest.from_mapping(value)
-        if r.skill_id not in {AERIAL_NAVIGATION_SKILL_ID, AERIAL_PICK_PLACE_SKILL_ID}:
+        if r.skill_id != AERIAL_NAVIGATION_SKILL_ID:
             raise SkillContractError("unsupported aerial lifecycle skill")
         r = normalize_request(r, r.skill_id)
         expected = r.parameters.get("route_graph_digest")
@@ -122,11 +112,6 @@ class AerialSkillRuntime:
 
     def binding(self, value):
         r = self.normalize(value)
-        transport = self._transport() if r.skill_id == AERIAL_PICK_PLACE_SKILL_ID else None
-        resources = ()
-        if transport is not None:
-            _, object_body = transport.validate_request(r)
-            resources = ("object:" + object_body,)
         runtime = self
 
         class Compiler:
@@ -138,8 +123,6 @@ class AerialSkillRuntime:
         def validate(*, scene, request):
             runtime._require_scene(scene)
             runtime.validate(request)
-            if transport is not None:
-                transport.validate_request(request)
 
         def start(plan, *, scene, lease):
             runtime._require_scene(scene)
@@ -150,12 +133,11 @@ class AerialSkillRuntime:
             key = r.task_id or r.request_id
             if key in runtime.handles:
                 raise SkillContractError("aerial lifecycle task already started")
-            handle = (_TransportHandle(runtime, r, lease, transport) if transport is not None
-                      else _NavigationHandle(runtime, r, lease))
+            handle = _NavigationHandle(runtime, r, lease)
             runtime.handles[key] = handle
             return handle
 
-        return CooperativeBinding(r, Compiler(), start, validate, resources, start_with_lease=True)
+        return CooperativeBinding(r, Compiler(), start, validate, (), start_with_lease=True)
 
 
 class _Handle:
@@ -191,37 +173,6 @@ class _Handle:
         rows = self.runtime.resources.snapshot()["leases"]
         if any(row["lease_id"] == self.lease.lease_id and row["state"] == "active" for row in rows):
             self.runtime.resources.quarantine(self.lease, reason)
-
-
-class _TransportHandle(_Handle):
-    def __init__(self, runtime, request, lease, executor):
-        super().__init__(runtime, request, lease)
-        self.executor = executor
-        self.prepared = executor.prepare_dispatch(request, lease=lease)
-
-    def command(self):
-        self.runtime.check_scene()
-        if self.prepared is None:
-            key = self.request.task_id or self.request.request_id
-            if key in self.executor.settling_task_ids:
-                self.prepared = self.executor.prepare_settle(key)
-            else:
-                intent = "stop" if self.stopping else "start" if self.response.state["phase"] == "pending" else "continue"
-                self.prepared = self.executor.prepare_control(self.current_request(intent))
-        return self.prepared.action
-
-    def after_step(self):
-        prepared, self.prepared = self.prepared, None
-        self.response = self.executor.after_step(prepared)
-        if self.response.private_evidence.get("ready_to_release") is True:
-            return self.receipt()
-        return None
-
-    def cancel(self, reason):
-        self.stopping = True
-        if self.prepared is not None:
-            prepared, self.prepared = self.prepared, None
-            self.response = self.executor.abort_prepared(prepared, RuntimeError(reason))
 
 
 class _NavigationHandle(_Handle):

@@ -699,6 +699,7 @@ def apply_planar_end_effector_pose(
     rotate_only: bool = False,
     max_delta_rad: float = 0.10,
     dls_lambda: float = 0.02,
+    integration_gain_s: float = 6.0,
 ) -> bool:
     """Drive yaw directly, or solve x/z and tool orientation in its plane.
 
@@ -707,6 +708,8 @@ def apply_planar_end_effector_pose(
     shoulder rather than counter-rotating through wrist IK. The cache belongs
     exclusively to idealized manipulation and is removed by runtime.reset().
     """
+    if isinstance(integration_gain_s, bool) or not math.isfinite(integration_gain_s) or integration_gain_s <= 0:
+        return False
     from types import SimpleNamespace
 
     import torch
@@ -786,13 +789,13 @@ def apply_planar_end_effector_pose(
             ),
         ).squeeze(-1)
         measured = data.joint_pos[:, ik_ids]
-        # Integrate at 6/s from the preceding drive target. Replacing it with
+        # Integrate from the preceding drive target. Replacing it with
         # measured+correction each tick leaves a load-dependent steady error
         # (notably Z1 under gravity). The existing slew/limit guard bounds the
         # accumulated correction's speed and actual soft limits. A unit gain
         # per physics frame would make this outer loop oscillate on Z1.
         desired = targets[:, [index[i] for i in ik_ids]] + torch.clamp(
-            correction * min(1.0, 6.0 * dt), -max_delta_rad, max_delta_rad,
+            correction * min(1.0, integration_gain_s * dt), -max_delta_rad, max_delta_rad,
         )
         limits = data.soft_joint_pos_limits[:, ik_ids]
         desired = _slew_limit_joint_position_target(

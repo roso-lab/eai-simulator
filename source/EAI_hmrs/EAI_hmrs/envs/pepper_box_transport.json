@@ -6,7 +6,7 @@
     {
       "type": "pepper",
       "controller": {
-        "cfg": "PEPPER_BOX_TRANSPORT_CFG",
+        "cfg": "PEPPER_PICK_PLACE_CFG",
         "mode": "default"
       },
       "visual": {"x": 0.0, "y": 0.0},
