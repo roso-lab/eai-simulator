@@ -64,3 +64,15 @@ iris（`PegasusIris`）与 pegasus（`PegasusX4`）的位置控制器，CF2X 等
 隔离并保留连接和资源，直到 host 显式恢复；不可报告为可自动释放的 quiescent。
 高层 Assignment 映射和 evaluator 仍由 host 提供。
 详见 `algorithm/skills/aerial_transport/AERIAL_PICK_PLACE.zh-CN.md`。
+
+## G1 固定站位抓放
+
+`g1_pick_place.py` 提供 `G1PickPlaceSkill`，`g1_manipulation/` 保存 USD
+关节运动学、路径规划与 Inspire 握持标定。纯 Provider 编译两个世界 XYZ
+坐标后由 `start_plan` 接收，宿主以 `step(dt)` 推进动作；执行器不启动仿真。
+
+原 `G1PickPlaceSkill` 用于暂停 USD 几何验证。系统执行使用
+`ManipulationSkillRuntime` 与 `G1LiveHandle`：影子规划、真实关节目标、测得掌部
+门控，并提供共享步进、显式资源租约和停止回执。该统一运行入口也绑定机械臂和
+Pepper，各环境分别维护控制器状态。
+见 [三类抓放接入指南](../../algorithm/skills/GRASP_SKILLS_INTEGRATION.zh-CN.md)。

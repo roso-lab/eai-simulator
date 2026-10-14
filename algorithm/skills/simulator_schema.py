@@ -14,6 +14,7 @@ GROUND_NAVIGATION_SKILL_ID = "eai.navigation.ground_navigation"
 GROUND_NAVIGATION_SKILL_IDS = frozenset({GROUND_NAVIGATION_SKILL_ID, "ground_navigation"})
 AERIAL_NAVIGATION_SKILL_ID = "eai.navigation.aerial_navigation"
 AERIAL_PICK_PLACE_SKILL_ID = "eai.transport.aerial_pick_place"
+G1_PICK_PLACE_SKILL_ID = "eai.manipulation.g1_pick_place"
 
 
 class SimulatorSchemaError(ValueError):
@@ -127,6 +128,20 @@ class SimulatorSkillSchema:
             if (self.skill_id == AERIAL_NAVIGATION_SKILL_ID and "horizon_ticks" in parameters
                     and type(parameters["horizon_ticks"]) is not int):
                 raise SimulatorSchemaError("horizon_ticks must be a positive integer")
+        if self.skill_id == G1_PICK_PLACE_SKILL_ID:
+            if request.skill_version != self.version:
+                raise SimulatorSchemaError("unsupported simulator Skill schema version")
+            if request.target_ref is not None or request.target_pose is not None:
+                raise SimulatorSchemaError(
+                    "G1 pick/place uses pick_position and place_position parameters"
+                )
+            if any(name in parameters and parameters[name] is None
+                   for name in ("object_ref", "frame")):
+                raise SimulatorSchemaError("G1 optional parameters cannot be null")
+            if request.timing is not None:
+                raise SimulatorSchemaError("G1 pick/place does not accept timing")
+            if request.budget is not None:
+                raise SimulatorSchemaError("G1 pick/place does not accept budget")
         if ground:
             if request.skill_version != self.version:
                 raise SimulatorSchemaError("unsupported simulator Skill schema version")
@@ -330,6 +345,38 @@ SIMULATOR_SKILL_SCHEMAS: tuple[SimulatorSkillSchema, ...] = (
         commands=(SimulatorCommandSpec("rotor_velocity", "env.step", ("rotor_velocity", "horizon_ticks")),),
     ),
     SimulatorSkillSchema(
+        "eai.manipulation.pick_place",
+        SkillKind.MANIPULATION,
+        fields=(
+            SimulatorFieldSpec("object_ref", "string", required=True),
+            SimulatorFieldSpec("pick_position", "xyz", required=True, unit="m", frame="world"),
+            SimulatorFieldSpec("place_position", "xyz", required=True, unit="m", frame="world"),
+            SimulatorFieldSpec("frame", "string", enum_values=("world",)),
+        ),
+        commands=(SimulatorCommandSpec(
+            "pick_place", "task.executors.manipulation.ManipulationSkillRuntime",
+            ("object_ref", "pick_position", "place_position", "frame"),
+        ),),
+    ),
+    SimulatorSkillSchema(
+        G1_PICK_PLACE_SKILL_ID,
+        SkillKind.MANIPULATION,
+        fields=(
+            SimulatorFieldSpec("pick_position", "xyz", required=True, unit="m", frame="world",
+                               description="Object prim-origin center at pickup."),
+            SimulatorFieldSpec("place_position", "xyz", required=True, unit="m", frame="world",
+                               description="Object prim-origin center at placement."),
+            SimulatorFieldSpec("object_ref", "string"),
+            SimulatorFieldSpec("frame", "string", enum_values=("world",)),
+        ),
+        commands=(SimulatorCommandSpec(
+            "g1_pick_place",
+            "task.executors.g1_pick_place.G1PickPlaceSkill.start_plan",
+            ("pick_position", "place_position", "frame", "object_ref"),
+            "Start a caller-stepped fixed-base calibrated G1 right-hand plan.",
+        ),),
+    ),
+    SimulatorSkillSchema(
         "eai.manipulation.pose",
         SkillKind.MANIPULATION,
         fields=(
@@ -471,6 +518,7 @@ __all__ = [
     "AERIAL_PICK_PLACE_SKILL_ID",
     "GROUND_NAVIGATION_SKILL_ID",
     "GROUND_NAVIGATION_SKILL_IDS",
+    "G1_PICK_PLACE_SKILL_ID",
     "SIMULATOR_SKILL_SCHEMAS",
     "SIMULATOR_SKILL_SCHEMA_VERSION",
     "SimulatorCommandSpec",

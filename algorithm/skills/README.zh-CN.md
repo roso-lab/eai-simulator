@@ -51,7 +51,10 @@ eai.transport.composite
 `carry_mode` 均拒绝。Provider 不导入 Isaac Sim、Torch 或 ROS，不调用 controller，
 也不把 `planned` / `command_applied` 当作物理成功。
 
-G1 暂不支持，因此不在 registry 中，不应向上层声明 G1 搬运能力。
+机械臂、固定站位 G1 和 Pepper 共用 `eai.manipulation.pick_place` 世界 XYZ 接口，
+通过 `ManipulationSkillRuntime` 接入共享步进、并行环境和多机器人团队资源租约。
+G1 在影子 USD 中规划，通过实时关节目标执行；原暂停 USD 接口保留用于几何验证。
+详见 [三类抓放运行接入](GRASP_SKILLS_INTEGRATION.zh-CN.md)。
 
 `simulator_schema.py` 同时保留 benchmark adapter 使用的通用目标/速度导航、
 操作、检查、交接和外部 I/O 机器可读合同。新增或修改 Provider 边界前，先阅读

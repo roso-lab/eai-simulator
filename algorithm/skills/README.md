@@ -42,8 +42,16 @@ The [shared aerial runtime guide](AERIAL_RUNTIME.zh-CN.md) connects these
 providers to task/benchmark execution: frozen authored maps, English landmarks,
 authenticated external leases, one host-owned physics tick and measured recovery.
 
-Pepper composite transport routes to `PEPPER_BOX_TRANSPORT_CFG`. G1 is deliberately not exposed
-as a supported skill. Provider planning and executor feedback never certify a
+Pepper composite transport routes to `PEPPER_BOX_TRANSPORT_CFG`; task orchestration
+uses `PepperTransportHandle` with `PEPPER_BOX_TRANSPORT_TASK_CFG` and the caller's
+shared physics loop. See [the Pepper guide](pepper_transport/README.md).
+Arms, fixed-base calibrated G1 and Pepper also share `eai.manipulation.pick_place`:
+world XYZ requests, per-clone state and leases, and one caller-owned physics tick.
+G1 plans on a shadow USD stage and drives real articulation targets; the original
+paused USD adapter remains available for geometry checks. See
+[the integration guide](GRASP_SKILLS_INTEGRATION.zh-CN.md).
+G1 walking/box transport remains unsupported. Provider planning and executor
+feedback never certify a
 physical outcome; only the external evaluator may do so.
 
 The machine-readable registry in `simulator_schema.py` also preserves the

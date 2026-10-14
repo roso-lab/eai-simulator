@@ -84,6 +84,59 @@ class _FakeEnv:
         self.pose_writes = []
 
 
+class _BatchedFakeArm:
+    num_instances = 2
+    device = "cpu"
+
+    def __init__(self):
+        self.target_rows = np.zeros((2, 2), dtype=float)
+        self.data = SimpleNamespace(
+            body_pos_w=np.array([
+                [[0.0, 0.0, 0.0], [0.0, 0.0, 0.5]],
+                [[4.0, 0.0, 0.0], [4.0, 0.0, 0.5]],
+            ], dtype=float),
+            body_quat_w=np.tile(np.array([[[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]]]), (2, 1, 1)),
+            root_pos_w=np.array([[0.0, 0.0, 0.0], [4.0, 0.0, 0.0]], dtype=float),
+            root_quat_w=np.tile(np.array([[1.0, 0.0, 0.0, 0.0]]), (2, 1)),
+        )
+        self.root_physx_view = SimpleNamespace(link_paths=[
+            [f"/World/envs/env_{i}/robot_arm/base", f"/World/envs/env_{i}/robot_arm/tool"]
+            for i in range(2)
+        ])
+
+    def find_joints(self, names, preserve_order=True):
+        del preserve_order
+        return list(range(len(names))), []
+
+    def find_bodies(self, names, preserve_order=True):
+        del preserve_order
+        return ([1] if names == ["tool"] else []), []
+
+    def set_joint_position_target(self, target, *, joint_ids=None, env_ids=None):
+        rows = np.asarray(env_ids, dtype=int)
+        columns = list(joint_ids)
+        self.target_rows[np.ix_(rows, columns)] = np.asarray(target)
+
+
+class _BatchedFakeEnv:
+    num_envs = 2
+
+    def __init__(self):
+        self.arm = _BatchedFakeArm()
+        self.sim = SimpleNamespace(get_physics_dt=lambda: 0.5)
+        self.scene = SimpleNamespace(
+            articulations={"robot_arm": self.arm},
+            rigid_objects={},
+            extras={},
+            env_origins=np.array([[0.0, 0.0, 0.0], [4.0, 0.0, 0.0]], dtype=float),
+        )
+
+
+class _ValidPrim:
+    def IsValid(self):
+        return True
+
+
 class _FakeRuntime(manipulation.IdealizedManipulationRuntime):
     def _end_effector_pose(self, binding):
         del binding
@@ -752,6 +805,73 @@ def test_error_paths_for_batch_and_busy_and_missing_hold(monkeypatch):
     assert "busy" in (runtime.last_error("robot") or "")
     assert runtime.start_place("robot", (0.1, 0.2, 0.0)) is False
     assert "hold" in (runtime.last_error("robot") or "")
+
+
+def test_multi_environment_commands_write_only_selected_row(monkeypatch):
+    env = _BatchedFakeEnv()
+    runtime = manipulation.IdealizedManipulationRuntime(env, {"robot": _Spec()})
+    assert runtime.enabled
+    with pytest.raises(ValueError, match="env_id"):
+        runtime.start_move("robot", (0.8, 0.7, 0.0), env_id=2)
+    assert runtime.start_move("robot", (0.8, 0.7, 0.0), env_id=0)
+    assert runtime.start_move("robot", (0.6, 0.6, 0.0), env_id=1)
+    assert runtime.state("robot", env_id=0) == manipulation.ManipulationPhase.ROTATE
+    assert runtime.state("robot", env_id=1) == manipulation.ManipulationPhase.ROTATE
+
+    def write_env_target(self, robot_name, binding, state):
+        del robot_name
+        binding.arm.set_joint_position_target(
+            np.array([[state.target_pose.x_m, state.target_pose.z_m]]),
+            joint_ids=[0, 1], env_ids=[0],
+        )
+
+    monkeypatch.setattr(manipulation.IdealizedManipulationRuntime, "_drive_state", write_env_target)
+    runtime.run_post_apply()
+    assert env.arm.target_rows[0] == pytest.approx([0.8, 0.7])
+    assert env.arm.target_rows[1] == pytest.approx([0.6, 0.6])
+
+
+def test_multi_environment_pick_ownership_and_selective_reset(monkeypatch):
+    env = _BatchedFakeEnv()
+    runtime = manipulation.IdealizedManipulationRuntime(env, {"robot": _Spec()})
+    stage = SimpleNamespace(GetPrimAtPath=lambda _path: _ValidPrim())
+    monkeypatch.setattr(manipulation.IdealizedManipulationRuntime, "_stage", lambda self: stage)
+    monkeypatch.setattr(
+        manipulation.IdealizedManipulationRuntime,
+        "_rigid_body_pose",
+        lambda self, _path: ((0.8, 0.0, 0.2), (1.0, 0.0, 0.0, 0.0)),
+    )
+
+    def isolate(self, robot_name, object_body_path, position, orientation):
+        proxy_path = f"{object_body_path}/VisualFollow/{robot_name}_proxy"
+        self._owned_proxy_paths.add(proxy_path)
+        return manipulation._ObjectIsolation(
+            object_body_path, proxy_path, tuple(position), tuple(orientation),
+            (1.0, 1.0, 1.0), (),
+        )
+
+    monkeypatch.setattr(manipulation.IdealizedManipulationRuntime, "_isolate_object_for_follow", isolate)
+    monkeypatch.setattr(
+        manipulation.IdealizedManipulationRuntime,
+        "_restore_object_isolation",
+        lambda self, isolation, *, remove_proxy: self._owned_proxy_paths.discard(isolation.proxy_path),
+    )
+    pick_args = ("robot", "/World/envs/env_0/Object", (0.8, 0.2, 0.0))
+    assert runtime.start_pick(*pick_args, recovery_pose=(0.2, 0.8, 0.0), env_id=0)
+    assert runtime.start_pick(*pick_args, recovery_pose=(0.2, 0.8, 0.0), env_id=1)
+    row0, row1 = runtime._environment_runtimes
+    assert set(row0._object_owners) == {"/World/envs/env_0/Object"}
+    assert set(row1._object_owners) == {"/World/envs/env_1/Object"}
+    assert runtime.held_object("robot", env_id=0) is None
+    assert runtime.held_object("robot", env_id=1) is None
+
+    runtime.reset([1])
+    assert set(row0._object_owners) == {"/World/envs/env_0/Object"}
+    assert row1._object_owners == {}
+    assert runtime.state("robot", env_id=0) != manipulation.ManipulationPhase.IDLE
+    assert runtime.state("robot", env_id=1) == manipulation.ManipulationPhase.IDLE
+    with pytest.raises(ValueError, match="env_id"):
+        runtime.reset([2])
 
 
 def _make_usd_follow_fixture():

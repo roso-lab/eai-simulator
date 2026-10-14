@@ -458,6 +458,11 @@ class MultiRobotDirectEnv(DirectMARLEnv):
         will use the last action from self.actions_dict, which should be from the previous step.
         After computing new actions, we update self.actions_dict for the next step.
         """
+        # All task-owned backends authenticate before any controller mutation,
+        # including when another team member owns the outer env.step call.
+        for handle in getattr(self, '_active_manipulation_handles', {}).values():
+            if not handle.finished:
+                handle._validate()
         
         precomputed_actions = self._replay_precomputed_actions
         if precomputed_actions is not None:
@@ -498,9 +503,8 @@ class MultiRobotDirectEnv(DirectMARLEnv):
             # Let controller convert command to action
             # This handles both traditional controllers (command -> action) 
             # and RL controllers (command -> observation -> policy -> action)
-            action = controller_cfg.compute_action_from_command(
-                self, robot_name, command, controller_dict
-            )
+            from EAI.controllers.scalar_manipulation_controller import compute_scalar_action
+            action = compute_scalar_action(controller_cfg, self, robot_name, command, controller_dict)
             computed_actions[robot_name] = action
         
         # Store computed actions for application and next step's last_action
@@ -539,7 +543,8 @@ class MultiRobotDirectEnv(DirectMARLEnv):
             
             # Call controller's apply_action method
             # Controller handles how to apply actions (joint positions, forces, etc.)
-            controller_cfg.apply_action(self, robot_name, action, controller_dict)
+            from EAI.controllers.scalar_manipulation_controller import apply_scalar_action
+            apply_scalar_action(controller_cfg, self, robot_name, action, controller_dict)
 
         seen_aux_ids: set[int] = set()
         for robot_name in self.cfg.possible_agents:
@@ -566,6 +571,10 @@ class MultiRobotDirectEnv(DirectMARLEnv):
             if callable(run_post_apply):
                 run_post_apply(self)
 
+        g1_runtime = getattr(self, "_g1_manipulation_runtime", None)
+        if g1_runtime is not None:
+            g1_runtime.run_post_apply(self)
+
     def _get_rewards(self) -> dict[str, torch.Tensor]:
         """Compute rewards for all agents."""
         return {agent: torch.zeros(self.num_envs, device=self.device) for agent in self.cfg.possible_agents}
@@ -585,6 +594,18 @@ class MultiRobotDirectEnv(DirectMARLEnv):
             reset_runtime = getattr(manipulation_runtime, "reset", None)
             if callable(reset_runtime):
                 reset_runtime(env_ids)
+        generations = getattr(self, '_manipulation_reset_generation', [0] * self.num_envs)
+        for row in (range(self.num_envs) if env_ids is None else env_ids):
+            generations[int(row)] += 1
+        self._manipulation_reset_generation = generations
+        reset_rows = set(range(self.num_envs) if env_ids is None else map(int, env_ids))
+        active = getattr(self, '_active_manipulation_handles', {})
+        self._active_manipulation_handles = {
+            key: handle for key, handle in active.items() if key[0] not in reset_rows
+        }
+        g1_runtime = getattr(self, "_g1_manipulation_runtime", None)
+        if g1_runtime is not None:
+            g1_runtime.reset(env_ids)
         super()._reset_idx(env_ids)
         if env_ids is None:
             env_ids = torch.arange(self.num_envs, device=self.device)
@@ -607,7 +628,8 @@ class MultiRobotDirectEnv(DirectMARLEnv):
             reset = getattr(controller_cfg, "reset", None)
             controller_dict = self._controllers_dict.get(robot_name)
             if callable(reset) and controller_dict is not None:
-                reset(self, robot_name, controller_dict, env_ids)
+                from EAI.controllers.scalar_manipulation_controller import reset_scalar_controller
+                reset_scalar_controller(controller_cfg, self, robot_name, controller_dict, env_ids)
 
         self.actions_dict = {}
         for robot_name in self._controller_configs:
@@ -626,3 +648,10 @@ class MultiRobotDirectEnv(DirectMARLEnv):
         hook = getattr(self.cfg, "after_reset_idx_hook", None)
         if hook is not None and callable(hook):
             hook(self, env_ids)
+
+    def close(self):
+        for name in ('_g1_manipulation_runtime', '_idealized_manipulation_runtime'):
+            runtime = getattr(self, name, None)
+            if runtime is not None:
+                runtime.close()
+        super().close()

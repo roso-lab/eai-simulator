@@ -119,6 +119,8 @@ def apply_pepper_box_transport_action(
 
 @configclass
 class PepperBoxTransportControllerCfg(ControllerCfg):
+    # External base velocity command width differs from articulation DOF.
+    command_dim: int = 3
     skill_config: G1BoxGraspConfig = G1BoxGraspConfig(
         place_position=(0.20, 0.0, 0.62),
         min_side_offset_m=0.18,

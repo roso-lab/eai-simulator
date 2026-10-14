@@ -1,7 +1,7 @@
 """Public EAI skill registry.
 
 Only capabilities with a concrete provider and EAI execution route are listed.
-G1 box transport is intentionally absent because it is not supported.
+Unified manipulation binds arms, calibrated fixed-base G1 and Pepper transport.
 """
 
 from __future__ import annotations
@@ -10,6 +10,31 @@ from typing import Any
 
 
 SKILL_REGISTRY: tuple[dict[str, Any], ...] = (
+    {
+        "skill_id": "eai.manipulation.pick_place",
+        "provider_id": "pick_place.provider", "provider_version": "1.0",
+        "kind": "manipulation", "role": "world_xyz_pick_place",
+        "module": "algorithm.skills.pick_place", "schema_version": "simulator.skill.v1",
+        "input_contract": "SkillRequest(object_ref, pick_position XYZ, place_position XYZ, frame=world)",
+        "output_contract": "SkillPlan(pick_place)",
+        "executor_owner": "task.executors.manipulation.ManipulationSkillRuntime",
+        "evaluator_owner": "external evidence evaluator",
+        "status": "implemented_shared_tick_binding",
+        "scope": "UR5/Z1 arms, calibrated fixed-base G1, configured Pepper transport; per-environment robot/object leases",
+    },
+    {
+        "skill_id": "eai.manipulation.g1_pick_place",
+        "provider_id": "g1_pick_place.provider", "provider_version": "1.0",
+        "kind": "manipulation", "role": "fixed_base_world_xyz_pick_place",
+        "module": "algorithm.skills.g1_pick_place", "schema_version": "simulator.skill.v1",
+        "input_contract": "SkillRequest(pick_position XYZ, place_position XYZ, optional object_ref, frame=world)",
+        "output_contract": "SkillPlan(g1_pick_place)",
+        "executor_owner": "task.executors.manipulation.ManipulationSkillRuntime",
+        "evaluator_owner": "external evidence evaluator",
+        "runtime_owner": "task.executors.g1_live.G1LiveHandle",
+        "status": "implemented_shared_tick_binding",
+        "scope": "fixed-base calibrated Inspire right-hand USD ideal attachments",
+    },
     {
         "skill_id": "eai.navigation.aerial_navigation",
         "provider_id": "aerial_navigation.provider", "provider_version": "1.0",
@@ -104,8 +129,12 @@ SKILL_REGISTRY: tuple[dict[str, Any], ...] = (
         "cooperative_controller_cfg": "PEPPER_BOX_TRANSPORT_TASK_CFG",
         "module": "algorithm.skills.pepper_transport",
         "schema_version": "simulator.skill.v1",
-        "executor_owner": "EAI runtime",
-        "evaluator_owner": "external evidence evaluator",
+        "input_contract": "SkillRequest(object_ref, source_ref, destination_ref, carry_mode, optional horizon_ticks)",
+        "output_contract": "SkillPlan(pepper_transport_advance)",
+        "executor_owner": "algorithm.skills.pepper_transport.executor.PepperTransportExecutorAdapter",
+        "runtime_owner": "algorithm.skills.pepper_transport.runtime.PepperTransportHandle",
+        "evaluator_owner": "algorithm.skills.pepper_transport.evaluator.PepperTransportEvidenceEvaluator",
+        "scope": "Pepper box transport with bilateral ideal attachment and caller-owned physics stepping",
         "status": "implemented_pepper_only",
     },
 )

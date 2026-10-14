@@ -378,3 +378,9 @@ test_*.py
 !/tools/experiment_analysis/tests/
 !/tools/experiment_analysis/tests/**
 /tools/experiment_analysis/tests/__pycache__/
+
+# Calibrated G1 grasp profiles are runtime source data.
+!/task/executors/g1_manipulation/inspire_grips.json
+
+# Generated local demonstration media and audit outputs.
+/artifacts/

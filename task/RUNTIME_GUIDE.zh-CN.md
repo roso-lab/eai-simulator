@@ -195,3 +195,12 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q task/tests
 复用拒绝、错误回执和未确认停止的占用隔离。测试中的任务为通用协议 fixture。
 临时 Isaac 场景和结果只保存在 `tmp/`；后续阶段见
 [开发清单](DEVELOPMENT_TODO.zh-CN.md)。
+
+## 并行环境统一抓放
+
+通过 `task.executors.manipulation.ManipulationSkillRuntime` 将 Pepper 与机械臂、G1
+统一接入任务系统。机器人身份包含 env row，旧 Pepper 控制器每行独立加载并用
+局部坐标视图转换 clone origin，底层写入显式限定 env_ids。
+共享 executor 与 runtime 必须使用同一 ResourceManager。
+统一 XYZ 请求仍需匹配已有 Pepper 箱体和路线绑定。
+详见 `algorithm/skills/GRASP_SKILLS_INTEGRATION.zh-CN.md`。

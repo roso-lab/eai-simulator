@@ -22,6 +22,7 @@ from .ik_controller import (
     hold_gripper_position,
     resolve_end_effector_body_id,
 )
+from .environment_view import SingleEnvironmentView, environment_path, validate_env_id
 
 
 DEFAULT_POSITION_TOLERANCE_M = 0.05
@@ -498,6 +499,46 @@ class IdealizedManipulationRuntime:
         max_delta_rad: float = DEFAULT_MAX_DELTA_RAD,
         dls_lambda: float = DEFAULT_DLS_LAMBDA,
     ) -> None:
+        env_count = int(getattr(env, "num_envs", 1))
+        if env_count < 1:
+            raise ValueError("env.num_envs must be positive")
+        self._env = env
+        self._environment_runtimes: tuple[IdealizedManipulationRuntime, ...] = ()
+        self._environment_count = env_count
+        self._dispatcher = env_count > 1
+        if self._dispatcher:
+            options = dict(
+                attachment_mode=attachment_mode,
+                radial_speed_m_s=radial_speed_m_s,
+                vertical_speed_m_s=vertical_speed_m_s,
+                yaw_speed_rad_s=yaw_speed_rad_s,
+                max_delta_rad=max_delta_rad,
+                dls_lambda=dls_lambda,
+            )
+            self._environment_runtimes = tuple(
+                IdealizedManipulationRuntime(
+                    SingleEnvironmentView(env, env_id), model_specs, **options,
+                )
+                for env_id in range(env_count)
+            )
+            self._model_specs = self._normalize_model_specs(model_specs)
+            self._attachment_mode = str(attachment_mode).strip().lower()
+            self._radial_speed_m_s = _finite_float(radial_speed_m_s, "radial_speed_m_s")
+            self._vertical_speed_m_s = _finite_float(vertical_speed_m_s, "vertical_speed_m_s")
+            self._yaw_speed_rad_s = _finite_float(yaw_speed_rad_s, "yaw_speed_rad_s")
+            self._max_delta_rad = _finite_float(max_delta_rad, "max_delta_rad")
+            self._dls_lambda = _finite_float(dls_lambda, "dls_lambda")
+            self._enabled = all(runtime.enabled for runtime in self._environment_runtimes)
+            self._states = {}
+            self._bindings = {}
+            self._proxy_sequence = 0
+            self._owned_proxy_paths = set()
+            self._object_owners = {}
+            self._physics_views = {}
+            self._gripper_collision_snapshots = {}
+            self._closed = False
+            return
+
         self._env = env
         self._model_specs = self._normalize_model_specs(model_specs)
         mode = str(attachment_mode).strip().lower()
@@ -543,15 +584,32 @@ class IdealizedManipulationRuntime:
 
     @property
     def enabled(self) -> bool:
+        if self._dispatcher:
+            return not self._closed and all(runtime.enabled for runtime in self._environment_runtimes)
         return self._enabled and int(getattr(self._env, "num_envs", 1)) == 1 and not self._closed
 
-    def state(self, robot_name: str) -> ManipulationPhase:
+    def _runtime_for_env(self, env_id: int) -> IdealizedManipulationRuntime:
+        validate_env_id(self._env, env_id)
+        if self._dispatcher:
+            return self._environment_runtimes[env_id]
+        return self
+
+    def state(self, robot_name: str, *, env_id: int = 0) -> ManipulationPhase:
+        runtime = self._runtime_for_env(env_id)
+        if runtime is not self:
+            return runtime.state(robot_name)
         return self._states.get(str(robot_name).strip(), RobotManipulationState()).phase
 
-    def last_error(self, robot_name: str) -> str | None:
+    def last_error(self, robot_name: str, *, env_id: int = 0) -> str | None:
+        runtime = self._runtime_for_env(env_id)
+        if runtime is not self:
+            return runtime.last_error(robot_name)
         return self._states.get(str(robot_name).strip(), RobotManipulationState()).last_error
 
-    def held_object(self, robot_name: str) -> HeldObject | None:
+    def held_object(self, robot_name: str, *, env_id: int = 0) -> HeldObject | None:
+        runtime = self._runtime_for_env(env_id)
+        if runtime is not self:
+            return runtime.held_object(robot_name)
         return self._states.get(str(robot_name).strip(), RobotManipulationState()).held
 
     def start_move(
@@ -562,6 +620,7 @@ class IdealizedManipulationRuntime:
         tolerance_m: float = DEFAULT_POSITION_TOLERANCE_M,
         yaw_tolerance_rad: float = DEFAULT_YAW_TOLERANCE_RAD,
         phase_timeout_steps: int = DEFAULT_PHASE_TIMEOUT_STEPS,
+        env_id: int = 0,
     ) -> bool:
         """Move an empty arm through yaw, radius and height in that order.
 
@@ -570,6 +629,13 @@ class IdealizedManipulationRuntime:
         the reason in ``last_error``.
         """
 
+        runtime = self._runtime_for_env(env_id)
+        if runtime is not self:
+            return runtime.start_move(
+                robot_name, target_pose, tolerance_m=tolerance_m,
+                yaw_tolerance_rad=yaw_tolerance_rad,
+                phase_timeout_steps=phase_timeout_steps,
+            )
         name = str(robot_name).strip()
         state = self._states.setdefault(name, RobotManipulationState())
         if state.held is not None or state.phase == ManipulationPhase.ATTACHED_HOLD:
@@ -599,6 +665,7 @@ class IdealizedManipulationRuntime:
         yaw_tolerance_rad: float = DEFAULT_YAW_TOLERANCE_RAD,
         settle_duration_s: float = DEFAULT_ATTACHMENT_SETTLE_DURATION_S,
         phase_timeout_steps: int = DEFAULT_PHASE_TIMEOUT_STEPS,
+        env_id: int = 0,
     ) -> bool:
         """Pick a body, lift above it, retract, then report ATTACHED_HOLD.
 
@@ -607,6 +674,15 @@ class IdealizedManipulationRuntime:
         rejections return ``False`` and record the reason in ``last_error``.
         """
 
+        runtime = self._runtime_for_env(env_id)
+        if runtime is not self:
+            row_path = environment_path(object_body_path, env_id)
+            return runtime.start_pick(
+                robot_name, row_path, grasp_pose, recovery_pose=recovery_pose,
+                tolerance_m=tolerance_m, yaw_tolerance_rad=yaw_tolerance_rad,
+                settle_duration_s=settle_duration_s,
+                phase_timeout_steps=phase_timeout_steps,
+            )
         name = str(robot_name).strip()
         state = self._states.setdefault(name, RobotManipulationState())
         if not self.enabled:
@@ -670,6 +746,7 @@ class IdealizedManipulationRuntime:
         tolerance_m: float = DEFAULT_POSITION_TOLERANCE_M,
         yaw_tolerance_rad: float = DEFAULT_YAW_TOLERANCE_RAD,
         phase_timeout_steps: int = DEFAULT_PHASE_TIMEOUT_STEPS,
+        env_id: int = 0,
     ) -> bool:
         """Place the held body, release once, retract and return to recovery.
 
@@ -677,6 +754,13 @@ class IdealizedManipulationRuntime:
         return ``False`` and record the reason in ``last_error``.
         """
 
+        runtime = self._runtime_for_env(env_id)
+        if runtime is not self:
+            return runtime.start_place(
+                robot_name, place_pose, recovery_pose=recovery_pose,
+                tolerance_m=tolerance_m, yaw_tolerance_rad=yaw_tolerance_rad,
+                phase_timeout_steps=phase_timeout_steps,
+            )
         name = str(robot_name).strip()
         state = self._states.setdefault(name, RobotManipulationState())
         if not self.enabled:
@@ -1018,6 +1102,12 @@ class IdealizedManipulationRuntime:
         return target_position, target_orientation
 
     def run_post_apply(self, env: Any | None = None) -> None:
+        if self._dispatcher:
+            if env is not None and env is not self._env:
+                raise ValueError("multi-environment manipulation is bound to its shared environment")
+            for runtime in self._environment_runtimes:
+                runtime.run_post_apply()
+            return
         if env is not None:
             self._env = env
         if not self.enabled:
@@ -2193,6 +2283,35 @@ class IdealizedManipulationRuntime:
     def reset(self, _env_ids: Any | None = None) -> None:
         """Restore isolated source bodies, remove proxies and forget commands."""
 
+        if self._dispatcher:
+            if _env_ids is None:
+                selected = range(self._environment_count)
+            else:
+                values = _env_ids.tolist() if hasattr(_env_ids, "tolist") else _env_ids
+                if isinstance(values, int) and not isinstance(values, bool):
+                    values = [values]
+                if not isinstance(values, (tuple, list, set, range)):
+                    raise ValueError("env_ids must be a sequence of environment indices")
+                selected = []
+                for env_id in values:
+                    validate_env_id(self._env, env_id)
+                    if env_id not in selected:
+                        selected.append(env_id)
+            for env_id in selected:
+                self._environment_runtimes[env_id].reset()
+            return
+
+        if _env_ids is not None:
+            values = _env_ids.tolist() if hasattr(_env_ids, "tolist") else _env_ids
+            if isinstance(values, int) and not isinstance(values, bool):
+                values = [values]
+            if not isinstance(values, (tuple, list, set, range)):
+                raise ValueError("env_ids must be a sequence of environment indices")
+            for env_id in values:
+                validate_env_id(self._env, env_id)
+            if 0 not in values:
+                return
+
         for robot_name, state in tuple(self._states.items()):
             self._cleanup_object(robot_name, state)
             self._restore_gripper_collisions(robot_name)
@@ -2214,6 +2333,11 @@ class IdealizedManipulationRuntime:
 
     def close(self) -> None:
         if self._closed:
+            return
+        if self._dispatcher:
+            for runtime in self._environment_runtimes:
+                runtime.close()
+            self._closed = True
             return
         self.reset()
         self._closed = True

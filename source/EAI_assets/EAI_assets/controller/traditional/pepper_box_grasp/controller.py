@@ -83,6 +83,8 @@ def reset_pepper_box_grasp(env: Any, robot_name: str) -> None:
 class PepperBoxGraspControllerCfg(ControllerCfg):
     """Primary bottom-level controller for a fixed-base Pepper box transfer."""
 
+    command_dim: int = 1
+
     skill_config: G1BoxGraspConfig = G1BoxGraspConfig()
     auto_start: bool = True
 
