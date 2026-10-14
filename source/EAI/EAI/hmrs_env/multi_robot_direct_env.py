@@ -125,8 +125,8 @@ class MultiRobotDirectEnv(DirectMARLEnv):
         """Configure preloaded benchmark membership and controller admission.
 
         This API never spawns or removes an articulation. Inactive members are
-        held at their current authored pose until a verified join activates
-        them. Capability declarations are consulted on every control step, so
+        kept in the physical world with controller admission disabled until
+        a verified join activates them. Capability declarations are consulted on every control step, so
         disabling ``navigation_interface`` has an immediate physical control
         effect instead of being metadata-only.
         """
@@ -159,7 +159,7 @@ class MultiRobotDirectEnv(DirectMARLEnv):
             self.set_benchmark_agent_active(robot_name, robot_name in active)
 
     def set_benchmark_agent_active(self, robot_name: str, active: bool) -> None:
-        """Enable or park one already-loaded benchmark articulation."""
+        """Change admission for a preloaded body without rewriting physics state."""
         if robot_name not in self._controller_configs:
             raise KeyError(f"unknown benchmark controller '{robot_name}'")
         if type(active) is not bool:
@@ -169,6 +169,7 @@ class MultiRobotDirectEnv(DirectMARLEnv):
         if not active and robot_name not in self._benchmark_park_poses:
             robot = self.scene.articulations[robot_name]
             self._benchmark_park_poses[robot_name] = robot.data.root_state_w[:, :7].clone()
+        self.cancel_benchmark_commands(robot_name)
         self._benchmark_agent_active[robot_name] = active
         self.actions_dict.pop(robot_name, None)
         self._last_computed_actions.pop(robot_name, None)
@@ -184,7 +185,7 @@ class MultiRobotDirectEnv(DirectMARLEnv):
         """Replace the command-admission declaration for one controller.
 
         ``navigation_interface`` is the executable part of the declaration:
-        false pins the robot and suppresses controller/auxiliary output. The
+        false suppresses controller/auxiliary admission without resetting physics. The
         physical attachment, payload and sensor claims cannot change here.
         The declaration and monotonically increasing version are retained for
         exact readback by the benchmark transaction boundary.
@@ -208,6 +209,7 @@ class MultiRobotDirectEnv(DirectMARLEnv):
         current = self._benchmark_capability_versions.get(robot_name, 0)
         if type(capability_version) is not int or capability_version <= current:
             raise ValueError("capability version must increase monotonically")
+        self.cancel_benchmark_commands(robot_name)
         self._benchmark_capability_declarations[robot_name] = deepcopy(
             capability_declaration)
         self._benchmark_capability_versions[robot_name] = capability_version
@@ -250,19 +252,34 @@ class MultiRobotDirectEnv(DirectMARLEnv):
         return (self._benchmark_agent_active.get(robot_name, True)
                 and (declaration is None or declaration["navigation_interface"] is True))
 
+    def request_benchmark_stop(self, robot_name: str) -> None:
+        """Suppress admission and request registered braking without issuing an ACK."""
+        self.set_benchmark_agent_active(robot_name, False)
+
+    def cancel_benchmark_commands(self, robot_name: str) -> None:
+        """Invalidate stored commands and legacy fallbacks on both loss and restore."""
+        commands = getattr(self, "_commands_dict", {}).pop(robot_name, {})
+        for name in commands:
+            attr = f"_{name}_{robot_name}" if not name.startswith("_") else f"{name}_{robot_name}"
+            if hasattr(self, attr):
+                delattr(self, attr)
+        if not hasattr(self, "_benchmark_cancelled_agents"):
+            self._benchmark_cancelled_agents = set()
+        self._benchmark_cancelled_agents.add(robot_name)
+        self.actions_dict.pop(robot_name, None)
+        self._last_computed_actions.pop(robot_name, None)
+
     def _hold_benchmark_agent(self, robot_name: str) -> None:
-        robot = self.scene.articulations[robot_name]
-        pose = self._benchmark_park_poses.get(robot_name)
-        if pose is None:
-            pose = robot.data.root_state_w[:, :7].clone()
-            self._benchmark_park_poses[robot_name] = pose
-        env_ids = torch.arange(self.num_envs, device=self.device, dtype=torch.long)
-        velocity = torch.zeros((self.num_envs, 6), device=self.device)
-        robot.write_root_pose_to_sim(pose, env_ids=env_ids)
-        robot.write_root_velocity_to_sim(velocity, env_ids=env_ids)
-        joint_velocity = torch.zeros_like(robot.data.joint_vel)
-        robot.set_joint_velocity_target(joint_velocity, env_ids=env_ids)
-    
+        """Invoke a robot-specific stop adapter; never teleport or zero world velocity.
+
+        Suppressing admission alone is not a certified physical stop. A scene
+        adapter must supply appropriate braking/hover/payload retention control.
+        Its measured certificate is owned by the external evaluator.
+        """
+        stop = getattr(self, "_benchmark_stop_adapters", {}).get(robot_name)
+        if callable(stop):
+            stop(self, robot_name)
+
     def _update_spaces_with_actual_dims(self):
         """Update observation and action spaces with actual computed dimensions."""
         # For observations: compute once to get actual dimensions
@@ -406,6 +423,8 @@ class MultiRobotDirectEnv(DirectMARLEnv):
             command_name: Name of the command (e.g., "base_velocity", "goal_position")
             value: Command value tensor of shape (num_envs, command_dim)
         """
+        if not self._benchmark_control_enabled(robot_name):
+            raise RuntimeError(f"controller admission disabled for {robot_name}")
         # Initialize commands dictionary if it doesn't exist
         if not hasattr(self, '_commands_dict'):
             self._commands_dict = {}
@@ -430,11 +449,15 @@ class MultiRobotDirectEnv(DirectMARLEnv):
         Returns:
             Command value tensor or None if not found
         """
+        if not self._benchmark_control_enabled(robot_name):
+            return None
         # Try commands dictionary first
         if hasattr(self, '_commands_dict') and robot_name in self._commands_dict:
             if command_name in self._commands_dict[robot_name]:
                 return self._commands_dict[robot_name][command_name]
         
+        if robot_name in getattr(self, "_benchmark_cancelled_agents", set()):
+            return None
         # Try attribute with robot name suffix
         attr_name = f"_{command_name}_{robot_name}" if not command_name.startswith('_') else f"{command_name}_{robot_name}"
         if hasattr(self, attr_name):

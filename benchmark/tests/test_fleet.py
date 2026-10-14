@@ -37,7 +37,7 @@ def test_fleet_is_branch_scoped_and_audited():
     first, key = _runtime()
     first.start(SimpleNamespace(env_name="factory"), _binding())
     receipt = first.send(FleetMessage("m1", "robot-a", "robot-b", "handoff", 0, {"ref": "p2"}))
-    assert receipt.status is DeliveryStatus.DELIVERED
+    assert receipt.status is DeliveryStatus.QUEUED
     assert first.receive("robot-b")[0].payload == {"ref": "p2"}
     second, _ = _runtime(suffix="reference")
     second.start(SimpleNamespace(env_name="factory"), _binding())
@@ -73,18 +73,36 @@ def test_p2_coordination_events_are_audited_in_release_handoff_accept_order():
     runtime.close(tick=4)
 
 
-def test_member_exit_requests_safe_stop_and_close_is_idempotent():
+def test_member_exit_is_local_survivor_continues_and_close_never_auto_acks():
     runtime, _ = _runtime()
-    runtime.start(SimpleNamespace(env_name="factory"), _binding())
-    pending = runtime.member_exit("robot-a", tick=4)
-    assert pending.phase is SafeStopPhase.REQUESTED
-    # The exited member is no longer part of the active acknowledgement set.
-    stopped = runtime.acknowledge_safe_stop("robot-b", tick=5)
-    assert stopped.phase is SafeStopPhase.STOPPED
+    binding = _binding()
+    binding.robots += (SimpleNamespace(capability=RobotCapability("reserve", frozenset({"navigate"}), False)),)
+    runtime.start(SimpleNamespace(env_name="factory"), binding)
+    assert runtime.member_exit("robot-a", tick=4).phase is SafeStopPhase.REQUESTED
+    assert runtime.lifecycle is FleetLifecycle.RUNNING
+    receipt = runtime.send(FleetMessage("survive", "robot-b", "robot-b", "local", 5))
+    assert receipt.status is DeliveryStatus.QUEUED
+    runtime.member_join(FleetIdentity("reserve", runtime.session_identity, runtime.branch_key, frozenset({"navigate"})), tick=5)
+    with pytest.raises(KeyError):
+        runtime.member_join(FleetIdentity("new-body", runtime.session_identity, runtime.branch_key), tick=5)
     summary = runtime.close(tick=5)
+    assert set(summary.safe_stop_status["pending_robot_ids"]) == {"robot-a", "robot-b", "reserve"}
     assert summary is runtime.close(tick=99)
     with pytest.raises(RuntimeError):
         runtime.send(FleetMessage("m2", "robot-a", "robot-b", "stop", 6))
+
+
+def test_global_stop_requires_all_physical_members_and_measured_evidence():
+    runtime, _ = _runtime()
+    runtime.start(SimpleNamespace(), _binding())
+    runtime.member_exit("robot-a", tick=1)
+    runtime.request_safe_stop(tick=2)
+    with pytest.raises(ValueError):
+        runtime.acknowledge_safe_stop("robot-b", tick=3, evidence_hash="")
+    runtime.acknowledge_safe_stop("robot-b", tick=3, evidence_hash="measured-b")
+    assert runtime.lifecycle is FleetLifecycle.STOP_REQUESTED
+    runtime.acknowledge_safe_stop("robot-a", tick=3, evidence_hash="measured-a")
+    assert runtime.lifecycle is FleetLifecycle.STOPPED
 
 
 def test_scope_cannot_leak_across_branch_or_hidden_session_fields():
@@ -97,3 +115,30 @@ def test_scope_cannot_leak_across_branch_or_hidden_session_fields():
     assert "private" not in str(snapshot)
     with pytest.raises(ValueError):
         runtime.send(FleetMessage("bad", "robot-a", "robot-b", "observation", 0, session_identity="other"))
+
+
+def test_transport_delay_ttl_reconnection_and_logical_bit_accounting():
+    from benchmark.fleet import MessageRouter
+    router = MessageRouter(session_identity="s", branch_key="b", delay_ticks=2, ttl_ticks=5)
+    router.send(FleetMessage("m", "a", "b", "notice", 1, {}, session_identity="s", branch_key="b"))
+    assert router.receive("b", tick=2) == ()
+    router.set_link_available("a", "b", False)
+    assert router.receive("b", tick=3) == ()
+    router.set_link_available("a", "b", True)
+    assert router.receive("b", tick=6) == ()  # restore does not renew TTL
+    assert router.offered_bits == router.transmitted_bits > 0
+    with pytest.raises(ValueError, match="duplicate"):
+        router.send(FleetMessage("m", "a", "b", "notice", 7, {}, session_identity="s", branch_key="b"))
+
+
+def test_transport_bandwidth_loss_and_selective_consumption():
+    from benchmark.fleet import MessageRouter
+    router = MessageRouter(session_identity="s", branch_key="b", bits_per_tick=8)
+    for mid in ("notice", "assignment"):
+        router.send(FleetMessage(mid, "a", "b", mid, 0, {}, session_identity="s", branch_key="b"))
+    assert router.receive("b", tick=1) == ()
+    assert router.receive("b", tick=1000, message_id="assignment")[0].message_id == "assignment"
+    assert router.receive("b", tick=1000)[0].message_id == "notice"
+    lost = MessageRouter(session_identity="s", branch_key="b", loss_probability=1)
+    assert lost.send(FleetMessage("loss", "a", "b", "x", 0, {}, session_identity="s", branch_key="b")).status is DeliveryStatus.DROPPED
+    assert lost.receive("b") == ()

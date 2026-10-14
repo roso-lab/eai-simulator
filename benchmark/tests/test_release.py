@@ -1,108 +1,90 @@
-from __future__ import annotations
-
+from dataclasses import replace
 from types import SimpleNamespace
+import json
+import pytest
 
-from benchmark.experiment_plan import default_experiment_plan
+from benchmark.artifacts import BranchArtifactStore
+from benchmark.evidence import EvaluationReport, EvaluationStatus, EvidenceRecord, EvidenceStatus
 from benchmark.metrics import MetricRegistry, MetricStatus
-from benchmark.protocol import BranchRole
-from benchmark.release import ReleaseIndex, ReleaseStatus
+from benchmark.protocol import BranchRole, RunKey
+from benchmark.release import ReleaseIndex, ReleaseStatus, ReleaseError
 from benchmark.task_catalog import load_default_catalog
+from benchmark.tests.test_artifacts import _binding, _result
 
 
-def _artifact(digest: str = "artifact-1") -> SimpleNamespace:
-    return SimpleNamespace(
-        payload={
-            "artifact_digest": digest,
-            "run_key": {
-                "base_instance_id": "base-1",
-                "system_id": "EMOS-adapted-to-EAI",
-                "condition_id": "nominal",
-                "repeat_id": "r1",
-                "checkpoint_round": "first-eligible",
-                "branch_role": "fact",
-            },
-        }
-    )
+def setup_index(tmp_path, *, condition='nominal', history='history', system='system'):
+    catalog = load_default_catalog()
+    index = ReleaseIndex(catalog, plan_digest='plan')
+    key = RunKey('base', system, condition, 'r1', 'round', BranchRole.FACT, history)
+    evidence = EvidenceRecord('handoff', 'v1', EvidenceStatus.SATISFIED, 0, 'measured', 'actual-evidence')
+    result = replace(_result(key), evaluation=EvaluationReport(EvaluationStatus.SUCCESS, 'verified', (evidence,), 'test', 'v1'))
+    store = BranchArtifactStore(tmp_path)
+    store.write(result, binding=_binding())
+    artifact = store.read(key)
+    digest = index.add_artifact(artifact)
+    return index, artifact, dict(anchor_id='prod-p2-01', condition_id=condition, branch_role=key.branch_role,
+        base_instance_id=key.base_instance_id, repeat_id=key.repeat_id, system_id=system,
+        checkpoint_round=key.checkpoint_round, untreated_history_id=history, artifact_digest=digest)
 
 
-def test_release_index_preserves_pending_and_na_without_zero_fill() -> None:
-    plan = default_experiment_plan()
+def test_pending_and_na_remain_missing_without_inference(tmp_path):
+    index, artifact, fields = setup_index(tmp_path)
     registry = MetricRegistry()
-    index = ReleaseIndex(plan.catalog, metric_registry=registry, plan_digest="plan-1")
-    index.add_artifact(_artifact())
-    anchor = next(item for item in plan.catalog if item.anchor_id == "prod-p2-01")
-    observation = registry.make_observation(
-        "D3.p2_handoff_e2e",
-        status=MetricStatus.PENDING,
-        support_count=1,
-        metadata={"reason": "physical_evidence_required"},
-    )
-    index.add_observation(
-        observation,
-        anchor_id=anchor.anchor_id,
-        condition_id="nominal",
-        branch_role=BranchRole.FACT,
-        base_instance_id="base-1",
-        repeat_id="r1",
-        risk_set="P2 relation-eligible repeats",
-        artifact_digest="artifact-1",
-    )
-    report = index.finalize(expected_plan_digest="plan-1")
+    index.add_observation(registry.make_observation('D3.p2_handoff_e2e', status=MetricStatus.PENDING), **fields)
+    index.add_observation(registry.make_observation('D1.initial_plan_validity', status=MetricStatus.NA,
+                                                 na_reason='evidence_missing'), **fields)
+    report = index.finalize()
     assert report.status is ReleaseStatus.PENDING
-    assert report.records[0].observation.value is None
-    assert report.coverage["production/P2/common"]["pending"] == 1
+    assert all(r.observation.value is None for r in report.records)
+    assert report.inferentially_ready is False
 
 
-def test_release_index_admits_explicit_na_and_reports_missing_artifacts_as_gate() -> None:
-    catalog = load_default_catalog()
-    registry = MetricRegistry()
-    index = ReleaseIndex(catalog, metric_registry=registry, plan_digest="plan-1")
-    anchor = next(item for item in catalog if item.anchor_id == "prod-p2-01")
-    observation = registry.make_observation(
-        "D5.p2_transfer_gap",
-        status=MetricStatus.NA,
-        na_reason="common_anchor_uncertified",
-    )
-    index.add_observation(
-        observation,
-        anchor_id=anchor.anchor_id,
-        condition_id="production_to_service_p2",
-        branch_role=BranchRole.FACT,
-        base_instance_id="base-1",
-        repeat_id="r1",
-    )
-    report = index.finalize(expected_plan_digest="plan-1")
+def test_index_ready_is_only_index_qualification(tmp_path):
+    index, artifact, fields = setup_index(tmp_path)
+    observation = MetricRegistry().make_observation('D3.p2_handoff_e2e', status=MetricStatus.VALID,
+        value=1, denominator=1, evidence_hash='actual-evidence')
+    index.add_observation(observation, **fields)
+    report = index.finalize()
     assert report.status is ReleaseStatus.READY
-    assert report.records[0].observation.na_reason == "common_anchor_uncertified"
-    assert report.gates["artifacts_indexed"] is False
+    assert report.inferentially_ready is False
+    assert report.to_dict()['qualification'] == 'artifact_index_only'
+    with pytest.raises(ReleaseError, match='duplicate metric'):
+        index.add_observation(observation, **fields)
 
 
-def test_release_index_rejects_metric_strata_mismatch() -> None:
-    catalog = load_default_catalog()
-    registry = MetricRegistry()
-    index = ReleaseIndex(catalog, metric_registry=registry, plan_digest="plan-1")
-    anchor = next(item for item in catalog if item.anchor_id == "prod-p2-01")
-    observation = registry.make_observation(
-        "D3.p2_handoff_e2e",
-        status=MetricStatus.PENDING,
-    )
-    from benchmark.release import IndexedMetric, ReleaseError
+@pytest.mark.parametrize('field', ['base_instance_id', 'system_id', 'condition_id', 'repeat_id',
+                                  'checkpoint_round', 'untreated_history_id', 'branch_role'])
+def test_full_run_identity_required(tmp_path, field):
+    index, artifact, fields = setup_index(tmp_path)
+    fields[field] = BranchRole.SHAM if field == 'branch_role' else 'other'
+    with pytest.raises(ReleaseError, match='identity mismatch'):
+        index.add_observation(MetricRegistry().make_observation('D3.p2_handoff_e2e', status=MetricStatus.PENDING), **fields)
 
-    row = IndexedMetric(
-        observation=observation,
-        anchor_id=anchor.anchor_id,
-        domain="service",
-        primary_label=anchor.primary_label,
-        relation_signature=anchor.relation_signature,
-        p3_subtype=anchor.p3_subtype,
-        condition_id="nominal",
-        branch_role=BranchRole.FACT,
-        base_instance_id="base-1",
-        repeat_id="r1",
-    )
-    try:
-        index.add_metric(row)
-    except ReleaseError:
-        pass
-    else:
-        raise AssertionError("strata mismatch must be rejected")
+
+def test_only_verified_artifact_and_actual_evaluator_evidence_admitted(tmp_path):
+    index, artifact, fields = setup_index(tmp_path)
+    with pytest.raises(ReleaseError, match='StoredBranchArtifact'):
+        index.add_artifact(SimpleNamespace(payload=artifact.payload))
+    with pytest.raises(ReleaseError, match='absent'):
+        index.add_observation(MetricRegistry().make_observation('D3.p2_handoff_e2e', status=MetricStatus.VALID,
+            value=1, denominator=1, evidence_hash='invented'), **fields)
+    missing = {**fields, 'artifact_digest': 'unknown'}
+    with pytest.raises(ReleaseError, match='admitted verified'):
+        index.add_observation(MetricRegistry().make_observation('D3.p2_handoff_e2e', status=MetricStatus.NA,
+            na_reason='evidence_missing'), **missing)
+    payload = json.loads(artifact.path.read_text())
+    payload['evaluation']['reason'] = 'tampered'
+    artifact.path.write_text(json.dumps(payload))
+    fresh = ReleaseIndex(load_default_catalog(), plan_digest='plan')
+    with pytest.raises(ReleaseError, match='verification failed'):
+        fresh.add_artifact(artifact)
+
+
+def test_distinct_system_or_history_are_not_duplicate_metric_identity(tmp_path):
+    index, artifact, fields = setup_index(tmp_path / 'first')
+    other, artifact2, fields2 = setup_index(tmp_path / 'second', system='other', history='history-2')
+    index.add_artifact(artifact2)
+    obs = MetricRegistry().make_observation('D3.p2_handoff_e2e', status=MetricStatus.PENDING)
+    index.add_observation(obs, **fields)
+    index.add_observation(obs, **fields2)
+    assert len(index.records) == 2

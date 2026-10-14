@@ -106,6 +106,17 @@ class ExperimentCell:
     treatment_id: str
     strict_pair_required: bool
     evidence_required: tuple[str, ...]
+    generator_version: str = "task-anchor.v1"
+    base_seed: int = 0
+    slot: int = 0
+    initial_state_digest: str = ""
+    untreated_history_id: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.generator_version.strip():
+            raise ExperimentPlanError("generator version required")
+        if any(type(v) is not int or v < 0 for v in (self.base_seed, self.slot)):
+            raise ExperimentPlanError("base seed and slot must be nonnegative integers")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -119,6 +130,10 @@ class ExperimentCell:
             "treatment_id": self.treatment_id,
             "strict_pair_required": self.strict_pair_required,
             "evidence_required": list(self.evidence_required),
+            "generator_version": self.generator_version,
+            "base_seed": self.base_seed, "slot": self.slot,
+            "initial_state_digest": self.initial_state_digest,
+            "untreated_history_id": self.untreated_history_id,
         }
 
 
@@ -270,7 +285,7 @@ def _default_phases() -> tuple[PhaseSpec, ...]:
         PhaseSpec("phase1_nominal_organization", 1, "D1", "Nominal task organization", "all", (_condition("nominal", "nominal"),), ("D1.initial_plan_validity", "D1.correct_infeasible_declaration"), ("algorithm_decision", "oracle_certificate", "ledger"), ("oracle_status_registered", "capability_role_milestones_audited", "unsupported_cells_marked_NA"), "D1 separates deployable, infeasible and unverified oracle states."),
         PhaseSpec("phase2_communication", 2, "D2", "Communication adaptation", "all", (_condition("nominal_control", "nominal_control", branch_mode=BranchMode.PAIRED, branch_roles=paired), _condition("delay_lambda_0.5", "delay", treatment_id="communication-delay-v1", levels=(0.5,), branch_mode=BranchMode.PAIRED, branch_roles=paired), _condition("loss_lambda_0.5", "loss", treatment_id="communication-loss-v1", levels=(0.5,), branch_mode=BranchMode.PAIRED, branch_roles=paired), _condition("jitter_lambda_0.5", "jitter", treatment_id="communication-jitter-v1", levels=(0.5,), branch_mode=BranchMode.PAIRED, branch_roles=paired), _condition("burst_lambda_0.5", "burst_loss", treatment_id="communication-burst-v1", levels=(0.5,), branch_mode=BranchMode.PAIRED, branch_roles=paired), _condition("capacity_crossing", "capacity", treatment_id="communication-capacity-crossing-v1", levels=(0.25, 0.5, 0.75, 1.0), branch_mode=BranchMode.PAIRED, branch_roles=paired)), ("D2.success_retention", "D2.jitter_penalty", "D2.burst_penalty"), ("external_milestones", "terminal_predicate", "communication_trace", "checkpoint", "ledger"), ("paired_checkpoint_digest", "sham_calibration", "stress_success_retention_registered"), "Stress retention at normalized lambda=0.5 is the headline; all registered levels remain in the release index."),
         PhaseSpec("phase3_temporal_coordination", 3, "D3", "Temporal coordination and relation endpoints", "relation_eligible", (_condition("nominal_evidence", "nominal_evidence"),), ("D3.p2_handoff_e2e", "D3.p3j_e2e", "D3.p3s_uncovered_service", "D3.p4_mutex_violation"), ("external_milestones", "terminal_predicate", "resource_trace", "coverage_trace", "ledger"), ("relation_signature_preserved", "p3_subtype_preserved", "N/A_for_empty_relation_support"), "P2 is primary; P3-J, P3-S and P4 remain relation-specific endpoints."),
-        PhaseSpec("phase4_dynamic_reconfiguration", 4, "D4", "Dynamic reconfiguration and safe-stop", "all", (_condition("member_exit", "member_exit", treatment_id="member-exit-v1", branch_mode=BranchMode.EVENT), _condition("member_join", "member_join", treatment_id="member-join-v1", branch_mode=BranchMode.EVENT), _condition("capability_loss", "capability_loss", treatment_id="capability-loss-v1", branch_mode=BranchMode.EVENT), _condition("demand_expansion", "demand_expansion", treatment_id="demand-expansion-v1", branch_mode=BranchMode.EVENT), _condition("service_failure", "service_failure", treatment_id="service-failure-v1", branch_mode=BranchMode.EVENT), _condition("safe_stop", "safe_stop", treatment_id="safe-stop-v1", branch_mode=BranchMode.EVENT)), ("D4.recovery_cif",), ("reconfiguration_event", "external_milestones", "terminal_predicate", "safe_stop_certificate", "progress_trace", "ledger"), ("event_time_registered", "response_recovery_competing_risks", "safe_stop_counted_as_valid_evidence"), "Member exit is the primary panel; other event types remain retained factors and diagnostics."),
+        PhaseSpec("phase4_dynamic_reconfiguration", 4, "D4", "Dynamic reconfiguration and safe-stop", "all", (_condition("task_function_loss", "task_function_loss", treatment_id="task-function-loss-v2", branch_mode=BranchMode.EVENT), _condition("member_join", "member_join", treatment_id="member-join-v1", branch_mode=BranchMode.EVENT), _condition("capability_loss", "capability_loss", treatment_id="capability-loss-v1", branch_mode=BranchMode.EVENT), _condition("demand_expansion", "demand_expansion", treatment_id="demand-expansion-v1", branch_mode=BranchMode.EVENT), _condition("service_failure", "service_failure", treatment_id="service-failure-v1", branch_mode=BranchMode.EVENT), _condition("safe_stop", "safe_stop", treatment_id="safe-stop-v1", branch_mode=BranchMode.EVENT)), ("D4.recovery_cif",), ("reconfiguration_event", "external_milestones", "terminal_predicate", "safe_stop_certificate", "progress_trace", "ledger"), ("event_time_registered", "response_recovery_competing_risks", "safe_stop_counted_as_valid_evidence"), "Primary: persistent task-function loss without advance notice; onset notification follows nominal transport. Resource/notification/restoration axes are explicit event registrations. Other event types are diagnostics."),
         PhaseSpec("phase5_cross_scenario_transfer", 5, "D5", "Certified source-to-target transfer", "common_p2_source_target", (_condition("production_to_service_p2", "cross_scenario_transfer", treatment_id="transfer-p2-v1", branch_mode=BranchMode.PAIRED, branch_roles=paired, strict_pair_required=True, notes="Requires certified common-anchor pair and causal replay fidelity."),), ("D5.p2_transfer_gap",), ("fact_branch", "sham_calibration", "intervention_branch", "external_milestones", "ledger"), ("common_anchor_certified", "causal_replay", "strict_paired_status_valid"), "The current catalog is contract_only/planned, so this phase is expected to remain N/A until certification."),
         PhaseSpec("phase6_coordination_cost", 6, "D6", "Nominal coordination cost", "typical", (_condition("nominal_fact_cost", "nominal_fact_cost"),), ("D6.offered_bits",), ("communication_trace", "decision_trace", "runtime_trace", "progress_trace", "ledger"), ("fact_branch_only", "natural_units_recorded", "startup_and_UWI_retained"), "Offered bits is primary; the complete cost vector remains in every artifact."),
         PhaseSpec("phase7_release_audit", 7, None, "Release audit and inferential gates", "none", (), (), ("artifact_hash", "ledger_chain", "coverage_index", "risk_set_index", "N/A_index"), ("all_required_cells_indexed", "no_N/A_as_zero", "paired_blocks_clustered", "evidence_hashes_present"), "No new episode is launched in this phase."),

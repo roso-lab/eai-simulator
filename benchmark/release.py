@@ -15,7 +15,7 @@ import json
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
-from .artifacts import BranchArtifactStore
+from .artifacts import BranchArtifactStore, StoredBranchArtifact
 from .metrics import MetricObservation, MetricRegistry, MetricStatus
 from .protocol import BranchRole, RunKey
 from .task_catalog import TaskAnchor, catalog_digest
@@ -54,6 +54,9 @@ class IndexedMetric:
     support_ids: tuple[str, ...] = ()
     risk_set: str = ""
     artifact_digest: str = ""
+    system_id: str = ""
+    checkpoint_round: str = ""
+    untreated_history_id: str = ""
 
     def __post_init__(self) -> None:
         for name in ("anchor_id", "domain", "primary_label", "condition_id", "base_instance_id", "repeat_id"):
@@ -78,6 +81,8 @@ class IndexedMetric:
             "support_ids": list(self.support_ids),
             "risk_set": self.risk_set,
             "artifact_digest": self.artifact_digest,
+            "system_id": self.system_id, "checkpoint_round": self.checkpoint_round,
+            "untreated_history_id": self.untreated_history_id,
         }
 
 
@@ -97,11 +102,14 @@ class ReleaseReport:
 
     @property
     def inferentially_ready(self) -> bool:
-        return self.status is ReleaseStatus.READY and all(self.gates.values())
+        # This product proves indexing only. Qualification requires a separate
+        # registered-design/evaluator/physical/replay/precision release review.
+        return False
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "schema_version": "benchmark.release.v1",
+            "schema_version": "benchmark.release.v2",
+            "qualification": "artifact_index_only", "inferentially_ready": False,
             "status": self.status.value,
             "reason": self.reason,
             "catalog_digest": self.catalog_digest,
@@ -133,6 +141,7 @@ class ReleaseIndex:
         self._records: list[IndexedMetric] = []
         self._artifact_digests: set[str] = set()
         self._artifact_keys: set[str] = set()
+        self._artifacts: dict[str, StoredBranchArtifact] = {}
 
     @property
     def records(self) -> tuple[IndexedMetric, ...]:
@@ -147,20 +156,27 @@ class ReleaseIndex:
 
         if isinstance(artifact, (str, Path)):
             raise ReleaseError("read artifacts through BranchArtifactStore before indexing")
-        payload = getattr(artifact, "payload", None)
-        if not isinstance(payload, Mapping):
-            raise ReleaseError("artifact must expose a validated payload")
+        if not isinstance(artifact, StoredBranchArtifact):
+            raise ReleaseError("artifact must be a StoredBranchArtifact read through its store")
+        try:
+            verified = BranchArtifactStore(artifact.path.parent).read(artifact.run_key)
+        except (ValueError, OSError) as exc:
+            raise ReleaseError("artifact verification failed") from exc
+        if verified.path != artifact.path or verified.payload != artifact.payload:
+            raise ReleaseError("artifact changed since verification")
+        payload = verified.payload
         digest = str(payload.get("artifact_digest", ""))
         if not digest:
             raise ReleaseError("artifact_digest is required")
         run_key = payload.get("run_key")
         if not isinstance(run_key, Mapping):
             raise ReleaseError("artifact run_key is required")
-        key = "/".join(str(run_key.get(name, "")) for name in ("base_instance_id", "system_id", "condition_id", "repeat_id", "checkpoint_round", "branch_role"))
+        key = "/".join(str(run_key.get(name, "")) for name in ("base_instance_id", "system_id", "condition_id", "repeat_id", "checkpoint_round", "branch_role", "untreated_history_id"))
         if key in self._artifact_keys:
             raise ReleaseError(f"duplicate artifact run key: {key}")
         self._artifact_keys.add(key)
         self._artifact_digests.add(digest)
+        self._artifacts[digest] = verified
         return digest
 
     def add_artifact_by_key(self, store: BranchArtifactStore, run_key: RunKey) -> str:
@@ -177,16 +193,29 @@ class ReleaseIndex:
             raise ReleaseError("metric relation_signature does not match catalog anchor")
         if record.p3_subtype != anchor.p3_subtype:
             raise ReleaseError("metric p3_subtype does not match catalog anchor")
-        if record.artifact_digest and record.artifact_digest not in self._artifact_digests:
-            raise ReleaseError("metric references an artifact not admitted to this index")
+        if record.artifact_digest not in self._artifacts:
+            raise ReleaseError("metric requires an admitted verified artifact")
+        artifact = self._artifacts[record.artifact_digest]
+        key = artifact.run_key
+        if (record.base_instance_id, record.system_id, record.condition_id, record.repeat_id,
+            record.checkpoint_round, record.branch_role, record.untreated_history_id) != (
+            key.base_instance_id, key.system_id, key.condition_id, key.repeat_id,
+            key.checkpoint_round, key.branch_role, key.untreated_history_id):
+            raise ReleaseError("metric/artifact full run identity mismatch")
+        hashes = {str(e.get("evidence_hash", "")) for e in artifact.payload.get("evaluation", {}).get("evidence", ())}
+        if record.observation.status is MetricStatus.VALID and (
+            not record.observation.evidence_hash or record.observation.evidence_hash not in hashes):
+            raise ReleaseError("metric evidence is absent from artifact evaluator evidence")
+        if record.condition_id != spec.condition:
+            raise ReleaseError("metric condition does not match registered endpoint")
         if spec.relation is not None:
             relation_match = spec.relation in record.relation_signature
             if spec.relation in {"P3-J", "P3-S"}:
                 relation_match = record.p3_subtype == spec.relation and "P3" in record.relation_signature
             if not relation_match:
                 raise ReleaseError(f"metric {spec.metric_id} is not eligible for anchor {record.anchor_id}")
-        identity = (record.observation.metric_id, record.anchor_id, record.condition_id, record.branch_role, record.base_instance_id, record.repeat_id)
-        if any((item.observation.metric_id, item.anchor_id, item.condition_id, item.branch_role, item.base_instance_id, item.repeat_id) == identity for item in self._records):
+        identity = (record.observation.metric_id, record.anchor_id, record.condition_id, record.branch_role, record.base_instance_id, record.repeat_id, record.system_id, record.checkpoint_round, record.untreated_history_id)
+        if any((item.observation.metric_id, item.anchor_id, item.condition_id, item.branch_role, item.base_instance_id, item.repeat_id, item.system_id, item.checkpoint_round, item.untreated_history_id) == identity for item in self._records):
             raise ReleaseError("duplicate metric record identity")
         self._records.append(record)
 
@@ -202,6 +231,7 @@ class ReleaseIndex:
         support_ids: Iterable[str] = (),
         risk_set: str = "",
         artifact_digest: str = "",
+        system_id: str = "", checkpoint_round: str = "", untreated_history_id: str = "",
     ) -> IndexedMetric:
         anchor = self._anchors.get(anchor_id)
         if anchor is None:
@@ -220,6 +250,8 @@ class ReleaseIndex:
             support_ids=tuple(support_ids),
             risk_set=risk_set,
             artifact_digest=artifact_digest,
+            system_id=system_id, checkpoint_round=checkpoint_round,
+            untreated_history_id=untreated_history_id,
         )
         self.add_metric(record)
         return record
@@ -253,7 +285,7 @@ class ReleaseIndex:
             "missingness_explicit": all(item.observation.status is not MetricStatus.NA or bool(item.observation.na_reason) for item in self._records),
         }
         status = ReleaseStatus.INVALID if has_invalid else ReleaseStatus.PENDING if has_pending or not self._records else ReleaseStatus.READY
-        reason = "invalid_metric_record" if has_invalid else "pending_evidence_or_observation" if status is ReleaseStatus.PENDING else "release_index_ready"
+        reason = "invalid_metric_record" if has_invalid else "pending_evidence_or_observation" if status is ReleaseStatus.PENDING else "artifact_index_ready_qualification_pending"
         return ReleaseReport(status, reason, catalog_digest(self.catalog), self.plan_digest, self.artifact_digests, tuple(self._records), metric_counts, coverage, gates)
 
     def _report(self, status: ReleaseStatus, reason: str) -> ReleaseReport:

@@ -42,6 +42,14 @@ def run_session_episode(
     binding_metadata: Mapping[str, Any] | None = None,
     artifact_store: Any | None = None,
     artifact_metadata: Mapping[str, Any] | None = None,
+    orchestrated: bool = False,
+    replan: Any = None,
+    world_observation_provider: Any = None,
+    orchestration_limits: Any = None,
+    dependency_resolver: Any = None,
+    transport_options: Mapping[str, Any] | None = None,
+    event_scheduler: Any = None,
+    assignment_wait_ticks: int = 0,
 ) -> EpisodeResult:
     """Run one sequential episode against an existing ``SimulatorSession``.
 
@@ -62,10 +70,15 @@ def run_session_episode(
     # A session episode always gets one branch-scoped Fleet Runtime.  Passing
     # it into the runner makes the fleet events and algorithm/executor trace
     # share one tamper-evident branch ledger.
-    runner = EpisodeRunner(runtime, run_key=run_key, fleet=FleetRuntime(run_key))
+    runner = EpisodeRunner(runtime, run_key=run_key, fleet=FleetRuntime(run_key, transport_options=transport_options),
+                           event_scheduler=event_scheduler, assignment_wait_ticks=assignment_wait_ticks)
     effective_skill = skill or CommandNavigationSkillAdapter()
     effective_executor = executor or EaiTaskExecutor(session, max_steps=max_steps)
-    result = runner.run(
+    run = runner.run_orchestrated if orchestrated else runner.run
+    options = ({"replan": replan, "world_observation_provider": world_observation_provider,
+                "limits": orchestration_limits, "dependency_resolver": dependency_resolver}
+               if orchestrated else {})
+    result = run(
         binding,
         decision_provider=decision_provider,
         request_factory=request_factory,
@@ -75,6 +88,7 @@ def run_session_episode(
         scene=session,
         branch=branch,
         initial_observations=initial_observations,
+        **options,
     )
     if artifact_store is not None:
         artifact_store.write(result, binding=binding, branch=branch, metadata=artifact_metadata)

@@ -22,7 +22,7 @@ from .metrics import MetricObservation, MetricRegistry, MetricStatus
 from .release import ReleaseReport
 
 
-REDUCER_VERSION = "benchmark.reducer.v1"
+REDUCER_VERSION = "benchmark.reducer.v2"
 
 
 @dataclass(frozen=True)
@@ -164,14 +164,19 @@ def _quantile(values: Sequence[float], q: float) -> float | None:
 class MetricReducer:
     """Aggregate reduction records and produce paper-ready exports."""
 
-    def __init__(self, *, metric_registry: MetricRegistry | None = None, bootstrap_seed: int = 0, n_bootstrap: int = 2000):
+    def __init__(self, *, metric_registry: MetricRegistry | None = None, bootstrap_seed: int = 0, n_bootstrap: int = 2000,
+                 diagnostic: bool = False, expected_repeat_ids: Sequence[str] = ()):
+        self.diagnostic = diagnostic
+        self.expected_repeat_ids = tuple(expected_repeat_ids)
+        if diagnostic and (len(self.expected_repeat_ids) != 3 or len(set(self.expected_repeat_ids)) != 3):
+            raise ValueError("diagnostic reduction requires three explicit frozen repeat IDs")
         self.registry = metric_registry or MetricRegistry()
         self.bootstrap_seed = int(bootstrap_seed)
         self.n_bootstrap = max(0, int(n_bootstrap))
 
     @staticmethod
     def _release_ready(release: ReleaseReport | None) -> bool:
-        return release is None or release.inferentially_ready
+        return isinstance(release, ReleaseReport) and release.inferentially_ready
 
     def _eligible(self, record: ReductionRecord, release: ReleaseReport | None) -> tuple[bool, str | None]:
         try:
@@ -182,16 +187,15 @@ class MetricReducer:
             return False, "metric_spec_mismatch"
         if not record.valid_for_inference:
             return False, "record_not_valid_for_inference"
-        if not self._release_ready(release):
+        if not self.diagnostic and not self._release_ready(release):
             return False, "release_gate_failed"
         if not record.artifact_digest:
             return False, "artifact_missing"
         if spec.relation is not None and record.relation != spec.relation:
             return False, "relation_mismatch"
         expected = spec.condition
-        # condition_id may carry an experiment-qualified value, but should
-        # still contain the registered condition token.
-        if expected and expected not in record.condition_id:
+        # Endpoint conditions must match the registered token exactly.
+        if expected and expected != record.condition_id:
             return False, "condition_mismatch"
         if record.metric.status is not MetricStatus.VALID:
             return False, f"status_{record.metric.status.value}"
@@ -209,7 +213,7 @@ class MetricReducer:
                 result[metric_id] = (None, None)
                 continue
             if len(base_values) == 1:
-                result[metric_id] = (base_values[0], base_values[0])
+                result[metric_id] = (None, None)
                 continue
             samples = [mean(rng.choices(base_values, k=len(base_values))) for _ in range(n_resamples)]
             result[metric_id] = (_quantile(samples, 0.025), _quantile(samples, 0.975))
@@ -218,12 +222,14 @@ class MetricReducer:
     def bootstrap(self, records: Sequence[ReductionRecord], *, cluster_key: str = "base_instance_id", n_resamples: int | None = None, seed: int | None = None) -> dict[str, tuple[float | None, float | None]]:
         if cluster_key != "base_instance_id":
             raise ValueError("only base_instance_id cluster bootstrap is supported")
-        grouped: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
-        for record in records:
-            eligible, _ = self._eligible(record, None)
-            if eligible and record.metric.value is not None:
-                grouped[record.metric.metric_id][record.base_instance_id].append(float(record.metric.value))
-        return self._bootstrap_intervals(grouped, n_resamples=self.n_bootstrap if n_resamples is None else int(n_resamples), seed=self.bootstrap_seed if seed is None else int(seed))
+        # Use the same frozen-support and strata admission path as reduction.
+        reducer = MetricReducer(metric_registry=self.registry, diagnostic=self.diagnostic,
+                                expected_repeat_ids=self.expected_repeat_ids,
+                                n_bootstrap=self.n_bootstrap if n_resamples is None else int(n_resamples),
+                                bootstrap_seed=self.bootstrap_seed if seed is None else int(seed))
+        report = reducer.reduce(records)
+        return {metric.metric_id: (metric.ci_low, metric.ci_high)
+                for metric in report.metrics if metric.estimate is not None}
 
     def reduce(self, records: Sequence[ReductionRecord], *, release: ReleaseReport | None = None) -> ReductionReport:
         records = tuple(records)
@@ -244,6 +250,16 @@ class MetricReducer:
             elif reason:
                 exclusions[record.metric.metric_id][reason] += 1
 
+        for metric_id, bases in grouped.items():
+            strata = {(r.branch_role, r.condition_id, r.metadata.get("system_id"), r.metadata.get("checkpoint_round")) for r in all_by_metric[metric_id]}
+            if len(strata) > 1:
+                exclusions[metric_id]["mixed_strata"] += sum(len(rs) for rs in bases.values())
+                bases.clear()
+                continue
+            for base, repeats in list(bases.items()):
+                if set(repeats) != set(self.expected_repeat_ids):
+                    exclusions[metric_id]["registered_repeat_support_missing"] += 1
+                    del bases[base]
         ci = self._bootstrap_intervals(
             {metric_id: {base: [mean(values) for values in repeats.values() if values] for base, repeats in bases.items()} for metric_id, bases in grouped.items()},
             n_resamples=self.n_bootstrap,
@@ -286,6 +302,8 @@ class MetricReducer:
                 else:
                     status, reason = MetricStatus.NA, "empty_support"
             metadata = {
+                "qualification": "diagnostic_only" if self.diagnostic else "registered_release_required",
+                "inferentially_ready": False,
                 "dimension": spec.dimension,
                 "condition": spec.condition,
                 "relation": spec.relation,
@@ -295,7 +313,7 @@ class MetricReducer:
                 "repeat_count": valid_repeats,
             }
             reduced.append(ReducedMetric(metric_id, status, estimate, low, high, valid_repeats, denominator, risk_set_count, coverage, reason, dict(counter), metadata))
-        if release is None:
+        if not isinstance(release, ReleaseReport):
             catalog_digest = plan_digest = ""
             artifacts: tuple[str, ...] = tuple(sorted({record.artifact_digest for record in records if record.artifact_digest}))
         else:
@@ -316,7 +334,7 @@ class MetricReducer:
             writer.writeheader()
             for metric in report.metrics:
                 writer.writerow({field: metric.to_dict()[field] for field in fields})
-        lines = ["# D1–D6 reduced metrics", "", "| metric | status | estimate | 95% CI | support | denominator | risk set |", "|---|---:|---:|---:|---:|---:|---:|"]
+        lines = ["# D1–D6 diagnostic reductions (not publication qualified)", "", "| metric | status | estimate | 95% CI | support | denominator | risk set |", "|---|---:|---:|---:|---:|---:|---:|"]
         for metric in report.metrics:
             ci_text = "N/A" if metric.ci_low is None else f"[{metric.ci_low:.6g}, {metric.ci_high:.6g}]"
             estimate = "N/A" if metric.estimate is None else f"{metric.estimate:.6g}"

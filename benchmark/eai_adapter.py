@@ -227,6 +227,17 @@ class EaiSessionRuntime:
             result.update(external)
         return result
 
+    def observe_for_robot(self, robot_id: str) -> Mapping[str, Any]:
+        """Default local skill view; global evaluator sampling stays separate.
+
+        Additional local sensors/messages must be supplied by a registered
+        information adapter. Global evaluator annotations are not inherited.
+        """
+        if robot_id not in tuple(getattr(self.session, "possible_agents", ())):
+            raise ValueError("unknown observation recipient")
+        position = _robot_position(getattr(self.session, "base_env", None), robot_id)
+        return {"robots": {robot_id: {"position": position}}} if position is not None else {}
+
     def sim_time_s(self) -> float | None:
         """Read the public simulation clock when the environment exposes one."""
 
@@ -249,7 +260,15 @@ class EaiSessionRuntime:
 
 
 class EaiTaskExecutor:
-    """Apply ``SkillPlan`` commands through ``base_env.set_command`` and ticks."""
+    """Apply ``SkillPlan`` commands through ``base_env.set_command`` and ticks.
+
+    Command application is deliberately separate from controller release.  A
+    live integration may inject ``quiescence_adapter`` to stop the registered
+    controller and return measured readback evidence.  Without that adapter
+    the feedback remains ``command_applied`` without quiescence evidence, so
+    the benchmark runtime quarantines the lease instead of claiming a safe
+    release.
+    """
 
     def __init__(
         self,
@@ -259,6 +278,7 @@ class EaiTaskExecutor:
         command_name: str | None = None,
         target_resolver: Callable[[str], Sequence[float]] | None = None,
         tensor_factory: Callable[[Sequence[float], str], Any] | None = None,
+        quiescence_adapter: Callable[..., Mapping[str, Any]] | None = None,
     ) -> None:
         if max_steps <= 0:
             raise ValueError("max_steps must be positive")
@@ -267,6 +287,7 @@ class EaiTaskExecutor:
         self.command_name = command_name
         self.target_resolver = target_resolver
         self.tensor_factory = tensor_factory
+        self.quiescence_adapter = quiescence_adapter
 
     def execute(
         self,
@@ -348,6 +369,30 @@ class EaiTaskExecutor:
             return self._failure(assignment, str(exc), FailureCode.INVALID_PLAN)
         except Exception as exc:  # controller/runtime failures remain evidence, not success
             return self._failure(assignment, f"controller execution failed: {exc}", FailureCode.EXECUTION_FAILURE)
+        world_changes: dict[str, Any] = {"commands_applied": len(plan.commands), "steps": total_steps}
+        if self.quiescence_adapter is not None:
+            try:
+                receipt = self.quiescence_adapter(
+                    assignment=assignment,
+                    task=task,
+                    session=session,
+                    commands_applied=len(plan.commands),
+                    steps=total_steps,
+                )
+                if not isinstance(receipt, Mapping):
+                    raise TypeError("quiescence_adapter must return a mapping")
+                if receipt.get("quiescent") is not True or not str(receipt.get("evidence_hash", "")).strip():
+                    raise ValueError("quiescence_adapter must return quiescent=True and evidence_hash")
+                world_changes.update({
+                    "quiescent": True,
+                    "quiescence_evidence_hash": str(receipt["evidence_hash"]),
+                })
+            except Exception as exc:
+                return self._failure(
+                    assignment,
+                    f"controller quiescence readback failed: {exc}",
+                    FailureCode.EXECUTION_FAILURE,
+                )
         return ExecutionFeedback(
             task_id=assignment.task_id,
             robot_id=assignment.robot_id,
@@ -355,7 +400,7 @@ class EaiTaskExecutor:
             failure_code=FailureCode.NONE,
             message="command applied; physical outcome requires external evaluator",
             timestamp_s=last_time,
-            world_changes={"commands_applied": len(plan.commands), "steps": total_steps},
+            world_changes=world_changes,
         )
 
     def _resolve_session(self, scene: Any) -> Any:

@@ -171,3 +171,19 @@ the restore gate admits `restored` or `physical_state_only`; it can call
 `run_session_episode(..., branch=branch, artifact_store=...)`. For `parallel=True`
 the caller must provide `coordinator_factory(branch)` and each factory result
 must own an isolated session and branch-local artifact root.
+
+## Protocol repair and migration notes
+
+The current protocol uses versioned identity and keeps execution attempts separate from scientific units. New manifests use `base.v2` identity (generator version, anchor membership/initial-state digest, base seed and slot); system, condition, repeat, checkpoint, branch role and the actual untreated-history identifier live in the continuation `RunKey`. Existing manifests and artifacts are not rewritten. An empty `untreated_history_id` remains diagnostic/planning metadata and cannot qualify an inferential release.
+
+Fleet membership changes are scoped to the registered session. A local exit marks that identity inactive while survivors continue; a reserve can join only when its pre-registered capabilities and live articulation identity are read back unchanged. A partial membership operation or function loss requests a global safe stop. Stop acknowledgement requires a non-empty, identity-bound readback evidence hash, and closing an episode never fabricates an acknowledgement.
+
+Transport receipts distinguish queued, delayed, delivered and dropped messages. Assignment execution is admitted only after the assignment message is consumed by its intended robot. Delay, TTL, bandwidth, seeded loss and link outages are represented in logical ticks; this accounting is not a wire protocol or physical communication-cost qualification.
+
+The sequential runtime and the opt-in `run_orchestrated` entrypoint share one clock, ledger and assignment admission path. A predecessor releases a successor only after explicit dependency completion evidence. Replanning and live world observations are injected through adapter contracts; no second scheduler is introduced. The default EAI adapter applies controller commands but does not infer a physical outcome. To release a controller lease, callers must register `EaiTaskExecutor(..., quiescence_adapter=...)`; the adapter must stop/read back the registered controller and return `{"quiescent": True, "evidence_hash": "..."}`. Without this measured seam the runtime quarantines the lease.
+
+Dynamic availability events are monotonic and idempotent. Their operation callback must return matching event/robot/function/tick/dependency identities, an evidence hash, guard verification and world-preservation evidence. Partial operations request a global safe stop. The schedule snapshot is for audit only and is explicitly not strict replay qualification.
+
+Release and reduction are fail-closed. The release index verifies stored artifact and ledger hashes, binds every metric to the complete artifact identity and requires evidence membership. The formal analysis adapter reuses the frozen design/registration/collector/engine/bundle path and checks the paper policy (`K=3`, `N>=30`, coverage `>=0.8`) without inventing missing values. `READY` means index assembly is complete; inferential readiness stays false until the registered design, support, evaluator evidence and physical qualification are present. D5 source/target family transfer remains a separate, deferred identity and is not inferred from the four replay roles.
+
+These contracts improve the engineering boundary but do not establish GPU or physical qualification. Strict replay still requires complete state and sensor restoration, and physical stop/guard evidence must come from registered Isaac/robot adapters. Specific scene and task generator design remains deferred.

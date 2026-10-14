@@ -63,6 +63,49 @@ def test_navigation_skill_and_eai_executor_apply_bounded_command():
     assert all("robot_a" in action for action in session.env.actions)
 
 
+def test_executor_only_reports_quiescence_from_injected_readback_adapter():
+    session = _session()
+    plan = CommandNavigationSkillAdapter().plan(
+        SkillRequest("r-quiescent", "eai.navigation.goal_position", "robot_a",
+                     target_pose=(1, 2, 0.5), parameters={"horizon_ticks": 1})
+    )
+    calls = []
+
+    def readback(**kwargs):
+        calls.append(kwargs)
+        return {"quiescent": True, "evidence_hash": "measured-stop-1"}
+
+    feedback = EaiTaskExecutor(max_steps=1, quiescence_adapter=readback).execute(
+        Assignment("deliver", "robot_a", "test"),
+        SimpleNamespace(metadata={}),
+        scene=session,
+        plan=plan,
+        step=lambda actions: SimpleNamespace(sim_time_s=0.1),
+    )
+    assert feedback.world_changes["quiescent"] is True
+    assert feedback.world_changes["quiescence_evidence_hash"] == "measured-stop-1"
+    assert calls[0]["commands_applied"] == 1
+
+
+def test_executor_rejects_unmeasured_quiescence_receipt():
+    session = _session()
+    plan = CommandNavigationSkillAdapter().plan(
+        SkillRequest("r-no-quiescence", "eai.navigation.goal_position", "robot_a",
+                     target_pose=(1, 2, 0.5), parameters={"horizon_ticks": 1})
+    )
+    feedback = EaiTaskExecutor(
+        max_steps=1,
+        quiescence_adapter=lambda **kwargs: {"quiescent": True},
+    ).execute(
+        Assignment("deliver", "robot_a", "test"),
+        SimpleNamespace(metadata={}),
+        scene=session,
+        plan=plan,
+        step=lambda actions: SimpleNamespace(sim_time_s=0.1),
+    )
+    assert feedback.failure_code is FailureCode.EXECUTION_FAILURE
+
+
 def test_executor_fails_closed_for_unsupported_command_and_horizon():
     session = _session()
     adapter = CommandNavigationSkillAdapter()

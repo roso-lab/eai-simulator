@@ -9,7 +9,7 @@ eligible cell.
 
 The identity is split into three layers:
 
-* ``base_instance_id`` identifies the task/condition/repeat independent of a
+* ``base_instance_id`` identifies initial task/world/generator/seed/slot independent of a
   branch and checkpoint implementation;
 * ``RunKey`` identifies each fact/reference/sham/intervention branch;
 * the manifest digest identifies the complete immutable batch contract.
@@ -32,7 +32,7 @@ from .replay import PairedBranchPlan
 from .task_catalog import TaskAnchor
 
 
-BATCH_SCHEMA_VERSION = "emos-batch.v1"
+BATCH_SCHEMA_VERSION = "emos-batch.v2"
 BRANCH_ROLE_ORDER = (
     BranchRole.FACT,
     BranchRole.REFERENCE,
@@ -330,19 +330,13 @@ def _build_batch(
     anchor = anchors[0]
     anchor_digest = _anchor_digest(anchor, *anchors)
     base_payload = {
-        "schema_version": BATCH_SCHEMA_VERSION,
-        "system_id": plan.system_id,
-        "catalog_hash": plan.catalog_hash,
-        "phase_id": cell.phase_id,
-        "dimension": cell.dimension,
+        "schema_version": "benchmark.base.v2",
+        "generator_version": cell.generator_version,
         "anchor_id": cell.anchor_id,
         "anchor_digest": anchor_digest,
         "anchor_members": [item.anchor_id for item in anchors],
-        "condition_id": cell.condition_id,
-        "repeat_id": cell.repeat_id,
-        "checkpoint_round": cell.checkpoint_round,
-        "treatment_id": cell.treatment_id,
-        "strict_pair_required": cell.strict_pair_required,
+        "base_seed": cell.base_seed, "slot": cell.slot,
+        "initial_state_digest": cell.initial_state_digest,
     }
     base_digest = _canonical_digest(base_payload)
     base_instance_id = f"inst-{base_digest[:24]}"
@@ -367,7 +361,7 @@ def _build_batch(
             treatment = cell.treatment_id
         elif role is BranchRole.INTERVENTION:
             treatment = cell.treatment_id if cell.treatment_id != "none" else "control"
-        run_key = RunKey(*base_key_values, branch_role=role)
+        run_key = RunKey(*base_key_values, branch_role=role, untreated_history_id=cell.untreated_history_id)
         branches.append(BranchSpec(run_key, actual_checkpoint, treatment_id=treatment))
     if cell.strict_pair_required:
         try:
@@ -441,6 +435,10 @@ def _cell_from_payload(payload: Mapping[str, Any]) -> ExperimentCell:
             treatment_id=str(payload["treatment_id"]),
             strict_pair_required=bool(payload["strict_pair_required"]),
             evidence_required=tuple(str(item) for item in payload["evidence_required"]),
+            generator_version=str(payload["generator_version"]),
+            base_seed=payload["base_seed"], slot=payload["slot"],
+            initial_state_digest=str(payload["initial_state_digest"]),
+            untreated_history_id=str(payload["untreated_history_id"]),
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise BatchContractError("manifest contains an invalid cell") from exc

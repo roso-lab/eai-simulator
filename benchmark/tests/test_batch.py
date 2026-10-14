@@ -83,3 +83,25 @@ def test_strict_pair_manifest_retains_roles_and_gate() -> None:
     assert batch.strict_pair_gate["required"] is True
     assert batch.strict_pair_gate["status"] == "pending"
     assert batch.strict_pair_gate["required_roles"] == ["fact", "reference", "sham", "intervention"]
+
+
+def test_base_is_independent_of_treatment_system_repeat_and_checkpoint():
+    from dataclasses import replace
+    plan, cell = _plan_and_cell()
+    first = build_batch_identity(cell, plan=plan)
+    candidates = [c for c in plan.iter_cells() if c.anchor_id == cell.anchor_id]
+    assert any(c.repeat_id != cell.repeat_id for c in candidates)
+    assert any(c.condition_id != cell.condition_id for c in candidates)
+    for candidate in candidates:
+        assert build_batch_identity(candidate, plan=plan).base_instance_id == first.base_instance_id
+    for changed_plan in (replace(plan, system_id="another-system"), replace(plan, checkpoint_round="later")):
+        candidate = replace(cell, checkpoint_round=changed_plan.checkpoint_round)
+        assert build_batch_identity(candidate, plan=changed_plan).base_instance_id == first.base_instance_id
+    for changes in ({'base_seed': 19}, {'slot': 2}, {'initial_state_digest': 'actual-world'},
+                    {'generator_version': 'new-generator'}):
+        assert build_batch_identity(replace(cell, **changes), plan=plan).base_instance_id != first.base_instance_id
+    with_history = build_batch_identity(replace(cell, untreated_history_id='measured-history'), plan=plan)
+    assert with_history.base_instance_id == first.base_instance_id
+    assert with_history.base_run_key.untreated_history_id == 'measured-history'
+    assert resume_batch(with_history.manifest(), plan=plan).base_run_key.untreated_history_id == 'measured-history'
+    assert first.base_run_key.untreated_history_id == ''

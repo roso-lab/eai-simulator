@@ -10,10 +10,11 @@ milestone.  Every mutation is mirrored into the branch-local
 from __future__ import annotations
 
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 import hashlib
 import json
+import random
 from threading import RLock
 from typing import Any, Callable, Mapping, Sequence
 
@@ -33,6 +34,7 @@ class FleetLifecycle(str, Enum):
 
 
 class DeliveryStatus(str, Enum):
+    QUEUED = "queued"
     DELIVERED = "delivered"
     DELAYED = "delayed"
     DROPPED = "dropped"
@@ -230,6 +232,8 @@ class FleetAuditSummary:
     lock_count: int
     safe_stop_request_ids: tuple[str, ...]
     active_members: tuple[str, ...]
+    safe_stop_status: Mapping[str, Any] = field(default_factory=dict)
+    transport_accounting: Mapping[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -242,6 +246,8 @@ class FleetAuditSummary:
             "lock_count": self.lock_count,
             "safe_stop_request_ids": list(self.safe_stop_request_ids),
             "active_members": list(self.active_members),
+            "safe_stop_status": dict(self.safe_stop_status),
+            "transport_accounting": dict(self.transport_accounting),
         }
 
 
@@ -347,7 +353,7 @@ class FleetIdentityRegistry:
 class MessageRouter:
     """FIFO branch-local message router with typed delivery receipts."""
 
-    def __init__(self, *, session_identity: str, branch_key: str, audit: FleetAuditSink | None = None, max_queue: int = 256):
+    def __init__(self, *, session_identity: str, branch_key: str, audit: FleetAuditSink | None = None, max_queue: int = 256, delay_ticks: int = 0, ttl_ticks: int | None = None, bits_per_tick: int | None = None, loss_probability: float = 0.0, jitter_ticks: int = 0, seed: int = 0):
         self.session_identity = _required(session_identity, "session_identity")
         self.branch_key = _required(branch_key, "branch_key")
         if max_queue <= 0:
@@ -356,33 +362,103 @@ class MessageRouter:
         self.audit = audit
         self._queues: dict[str, deque[FleetMessage]] = {}
         self._closed = False
+        if any(type(v) is not int or v < 0 for v in (delay_ticks, jitter_ticks)):
+            raise ValueError("delay/jitter must be nonnegative ticks")
+        if ttl_ticks is not None and (type(ttl_ticks) is not int or ttl_ticks <= 0):
+            raise ValueError("TTL must be positive ticks")
+        if bits_per_tick is not None and (type(bits_per_tick) is not int or bits_per_tick <= 0):
+            raise ValueError("bandwidth must be positive bits per tick")
+        if not 0 <= loss_probability <= 1:
+            raise ValueError("loss probability must be in [0,1]")
+        self.delay_ticks, self.ttl_ticks = delay_ticks, ttl_ticks
+        self.bits_per_tick, self.loss_probability = bits_per_tick, float(loss_probability)
+        self.jitter_ticks = jitter_ticks
+        self._rng = random.Random(seed)
+        self._arrival: dict[str, int] = {}
+        self._expires: dict[str, int | None] = {}
+        self._seen: set[str] = set()
+        self._link_free: dict[tuple[str, str], int] = {}
+        self._disabled_links: set[tuple[str, str]] = set()
+        self.offered_bits = 0
+        self.transmitted_bits = 0
 
     def send(self, message: FleetMessage, *, active_receivers: Sequence[str] | None = None) -> DeliveryReceipt:
         if self._closed:
             return self._receipt(message, DeliveryStatus.REJECTED, "router_sealed")
         self._check_scope(message.session_identity, message.branch_key)
+        if message.message_id in self._seen:
+            raise ValueError("duplicate logical message id")
+        self._seen.add(message.message_id)
+        bits = len(json.dumps({"sender": message.sender_id, "receiver": message.receiver_id, "kind": message.kind, "payload": message.payload}, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")) * 8
+        self.offered_bits += bits
+        self._record("message_offered", message.tick, message, f"offered_bits={bits}")
         if active_receivers is not None and message.receiver_id not in set(active_receivers):
             return self._receipt(message, DeliveryStatus.REJECTED, "receiver_inactive")
+        link = (message.sender_id, message.receiver_id)
+        if link in self._disabled_links:
+            self._record("message_dropped", message.tick, message, "link_disabled")
+            return self._receipt(message, DeliveryStatus.DROPPED, "link_disabled")
         queue = self._queues.setdefault(message.receiver_id, deque())
         if len(queue) >= self.max_queue:
             receipt = self._receipt(message, DeliveryStatus.DROPPED, "receiver_queue_full")
             self._record("message_dropped", message.tick, message, receipt.status.value)
             return receipt
+        begin = max(message.tick, self._link_free.get(link, message.tick))
+        duration = (bits + self.bits_per_tick - 1) // self.bits_per_tick if self.bits_per_tick else 0
+        self._link_free[link] = begin + duration
+        self.transmitted_bits += bits
+        if self._rng.random() < self.loss_probability:
+            self._record("message_dropped", message.tick, message, "transmission_loss")
+            return self._receipt(message, DeliveryStatus.DROPPED, "transmission_loss")
+        arrival = begin + duration + self.delay_ticks + self._rng.randint(0, self.jitter_ticks)
+        self._arrival[message.message_id] = arrival
+        self._expires[message.message_id] = message.tick + self.ttl_ticks if self.ttl_ticks is not None else None
         queue.append(message)
-        receipt = self._receipt(message, DeliveryStatus.DELIVERED, "queued")
+        receipt = self._receipt(message, DeliveryStatus.DELAYED if arrival > message.tick else DeliveryStatus.QUEUED, "admitted")
         self._record("message_sent", message.tick, message, receipt.status.value)
         return receipt
 
-    def receive(self, receiver_id: str, *, max_items: int = 1, tick: int = 0) -> tuple[FleetMessage, ...]:
+    def receive(self, receiver_id: str, *, max_items: int = 1, tick: int = 0, message_id: str | None = None) -> tuple[FleetMessage, ...]:
         if self._closed:
             raise RuntimeError("message router is sealed")
         if max_items <= 0:
             raise ValueError("max_items must be positive")
         queue = self._queues.setdefault(_required(receiver_id, "receiver_id"), deque())
-        result = tuple(queue.popleft() for _ in range(min(max_items, len(queue))))
+        result = []
+        for _ in range(len(queue)):
+            message = queue.popleft()
+            expiry = self._expires[message.message_id]
+            if expiry is not None and tick >= expiry:
+                self._record("message_dropped", tick, message, "ttl_expired")
+            elif (message_id is None or message.message_id == message_id) and (message.sender_id, message.receiver_id) not in self._disabled_links and self._arrival[message.message_id] <= tick and len(result) < max_items:
+                result.append(message)
+            else:
+                queue.append(message)
         for message in result:
             self._record("message_received", tick, message, "received")
-        return result
+        return tuple(result)
+
+    def set_link_available(self, sender_id: str, receiver_id: str, available: bool) -> None:
+        if type(available) is not bool:
+            raise TypeError("link availability must be boolean")
+        link = (_required(sender_id, "sender_id"), _required(receiver_id, "receiver_id"))
+        if available:
+            self._disabled_links.discard(link)
+        else:
+            self._disabled_links.add(link)
+        # Queued messages retain their original age; restoration is no resend.
+
+    def snapshot(self) -> dict[str, Any]:
+        return {
+            "schema_version": "fleet.transport.v2",
+            "queues": {key: [message.__dict__.copy() for message in queue] for key, queue in self._queues.items()},
+            "arrival_ticks": dict(self._arrival), "expiry_ticks": dict(self._expires),
+            "seen_ids": sorted(self._seen), "rng_state": self._rng.getstate(),
+            "link_free": [[*key, value] for key, value in sorted(self._link_free.items())],
+            "disabled_links": [list(key) for key in sorted(self._disabled_links)],
+            "offered_bits": self.offered_bits, "transmitted_bits": self.transmitted_bits,
+            "policy": {"delay_ticks": self.delay_ticks, "ttl_ticks": self.ttl_ticks, "bits_per_tick": self.bits_per_tick, "loss_probability": self.loss_probability, "jitter_ticks": self.jitter_ticks},
+        }
 
     def close(self) -> None:
         self._closed = True
@@ -492,6 +568,7 @@ class SafeStopCoordinator:
         self._requested_tick: int | None = None
         self._reason = ""
         self._acknowledged: set[str] = set()
+        self._targets: tuple[str, ...] = ()
 
     def request(self, request: SafeStopRequest) -> SafeStopReceipt:
         if request.session_identity and request.session_identity != self.session_identity:
@@ -505,22 +582,27 @@ class SafeStopCoordinator:
             self._requested_tick = request.tick
             self._reason = request.reason
             self._phase = SafeStopPhase.REQUESTED
+            # Inactive bodies can still hold objects or occupy space.
+            self._targets = tuple(item.robot_id for item in self.members.snapshot())
             self._record("safe_stop_requested", request.tick, {"request_id": request.request_id, "source_id": request.source_id, "reason": request.reason})
         return self._receipt(request.tick)
 
-    def acknowledge(self, robot_id: str, *, tick: int) -> SafeStopReceipt:
+    def acknowledge(self, robot_id: str, *, tick: int, evidence_hash: str) -> SafeStopReceipt:
         if self._phase is SafeStopPhase.IDLE:
             raise RuntimeError("safe-stop has not been requested")
         identity = self.members.get(robot_id)
+        if identity.robot_id not in self._targets or tick < (self._requested_tick or 0):
+            raise ValueError("stop acknowledgement is outside the requested scope")
+        _required(evidence_hash, "stop readback evidence_hash")
         self._acknowledged.add(identity.robot_id)
-        self._record("safe_stop_acknowledged", tick, {"request_id": self._request_id, "robot_id": identity.robot_id})
-        if set(self.members.active_ids()).issubset(self._acknowledged):
+        self._record("safe_stop_acknowledged", tick, {"request_id": self._request_id, "robot_id": identity.robot_id, "evidence_hash": evidence_hash})
+        if set(self._targets).issubset(self._acknowledged):
             self._phase = SafeStopPhase.STOPPED
             self._record("safe_stop_stopped", tick, {"request_id": self._request_id, "acknowledged_robot_ids": sorted(self._acknowledged)})
         return self._receipt(tick)
 
     def status(self) -> SafeStopStatus:
-        pending = tuple(item for item in self.members.active_ids() if item not in self._acknowledged)
+        pending = tuple(item for item in self._targets if item not in self._acknowledged)
         return SafeStopStatus(self._phase, self._request_id, self._requested_tick, tuple(sorted(self._acknowledged)), pending, self._reason)
 
     def _receipt(self, tick: int) -> SafeStopReceipt:
@@ -543,7 +625,7 @@ class FleetSession:
 class FleetRuntime:
     """One mutable fleet service instance per ``RunKey``/branch."""
 
-    def __init__(self, run_key: RunKey, *, ledger: BranchLedger | None = None, max_message_queue: int = 256):
+    def __init__(self, run_key: RunKey, *, ledger: BranchLedger | None = None, max_message_queue: int = 256, transport_options: Mapping[str, Any] | None = None):
         self.run_key = run_key
         self.branch_key = run_key.as_string()
         self.ledger = ledger or BranchLedger(run_key)
@@ -561,6 +643,10 @@ class FleetRuntime:
         self.locks: TypedLockManager | None = None
         self.safe_stop: SafeStopCoordinator | None = None
         self.max_message_queue = max_message_queue
+        self.transport_options = dict(transport_options or {})
+        self._session: Any = None
+        self._disabled_functions: dict[str, set[str]] = {}
+        self._command_generations: dict[str, int] = {}
 
     def start(self, session: Any, binding: Any, branch: BranchSpec | None = None) -> FleetSession:
         with self._lock:
@@ -573,11 +659,12 @@ class FleetRuntime:
             if self.lifecycle is not FleetLifecycle.CREATED:
                 raise RuntimeError(f"fleet runtime cannot start from {self.lifecycle.value}")
             binding_identity = _required(getattr(binding, "session_identity", ""), "binding.session_identity")
+            self._session = getattr(session, "base_env", session)
             self.session_identity = binding_identity
             self.scene_id = str(getattr(binding, "scene_id", getattr(session, "env_name", "")) or "")
             self.audit = FleetAuditSink(self.ledger, session_identity=self.session_identity, branch_key=self.branch_key)
             self.identities = FleetIdentityRegistry(session_identity=self.session_identity, branch_key=self.branch_key, audit=self.audit)
-            self.router = MessageRouter(session_identity=self.session_identity, branch_key=self.branch_key, audit=self.audit, max_queue=self.max_message_queue)
+            self.router = MessageRouter(session_identity=self.session_identity, branch_key=self.branch_key, audit=self.audit, max_queue=self.max_message_queue, **self.transport_options)
             self.locks = TypedLockManager(session_identity=self.session_identity, branch_key=self.branch_key, audit=self.audit)
             self.safe_stop = SafeStopCoordinator(session_identity=self.session_identity, branch_key=self.branch_key, members=self.identities, audit=self.audit)
             for robot in tuple(getattr(binding, "robots", ())):
@@ -585,6 +672,8 @@ class FleetRuntime:
                 if capability is None:
                     continue
                 self.identities.register(FleetIdentity(capability.robot_id, self.session_identity, self.branch_key, capability.capabilities, capability.active, getattr(robot, "metadata", {})))
+                self._disabled_functions[capability.robot_id] = set()
+                self._command_generations[capability.robot_id] = 0
             self.lifecycle = FleetLifecycle.BOUND
             self._audit("runtime_bound", tick=0, source="fleet.runtime", payload={"scene_id": self.scene_id, "robot_ids": list(self.identities.active_ids())})
             self.lifecycle = FleetLifecycle.RUNNING
@@ -601,7 +690,7 @@ class FleetRuntime:
                 raise ValueError("message branch scope mismatch")
             scoped = FleetMessage(message.message_id, message.sender_id, message.receiver_id, message.kind, message.tick, message.payload, message.causal_parent, self.session_identity, self.branch_key)
             receipt = self.router.send(scoped, active_receivers=self.identities.active_ids())
-            if receipt.status in {DeliveryStatus.DELIVERED, DeliveryStatus.DELAYED}:
+            if receipt.status in {DeliveryStatus.QUEUED, DeliveryStatus.DELIVERED, DeliveryStatus.DELAYED}:
                 self._communication_count += 1
             return receipt
 
@@ -619,11 +708,20 @@ class FleetRuntime:
                 if self.locks is not None:
                     self.locks.expire(tick)
 
-    def receive(self, receiver_id: str, *, max_items: int = 1, tick: int = 0) -> tuple[FleetMessage, ...]:
+    def receive(self, receiver_id: str, *, max_items: int = 1, tick: int = 0, message_id: str | None = None) -> tuple[FleetMessage, ...]:
+        with self._lock:
+            self._require_running()
+            assert self.router is not None and self.identities is not None
+            if not self.identities.get(receiver_id).active:
+                return ()
+            return self.router.receive(receiver_id, max_items=max_items, tick=tick, message_id=message_id)
+
+    def set_link_available(self, sender_id: str, receiver_id: str, available: bool, *, tick: int) -> None:
         with self._lock:
             self._require_running()
             assert self.router is not None
-            return self.router.receive(receiver_id, max_items=max_items, tick=tick)
+            self.router.set_link_available(sender_id, receiver_id, available)
+            self._audit("link_availability", tick=tick, source="fleet.runtime", payload={"sender_id": sender_id, "receiver_id": receiver_id, "available": available})
 
     def handoff_request(
         self,
@@ -703,20 +801,86 @@ class FleetRuntime:
         with self._lock:
             self._require_running()
             assert self.identities is not None
-            scoped = FleetIdentity(identity.robot_id, self.session_identity, self.branch_key, identity.capabilities, identity.active, identity.metadata)
+            if identity.session_identity != self.session_identity or identity.branch_key != self.branch_key:
+                raise ValueError("join identity scope mismatch")
+            existing = self.identities.get(identity.robot_id)
+            if existing.active or not identity.active or identity.capabilities != existing.capabilities:
+                raise ValueError("join requires a pre-registered inactive reserve with unchanged capabilities")
+            self._set_member_physical_active(identity.robot_id, True, tick=tick)
+            scoped = replace(existing, active=True)
             self.identities.join(scoped, tick=tick)
+            self._command_generations[identity.robot_id] += 1
 
     def member_exit(self, robot_id: str, *, tick: int, reason: str = "member_exit") -> SafeStopReceipt:
         with self._lock:
             self._require_running()
-            assert self.identities is not None and self.safe_stop is not None
+            assert self.identities is not None
+            self.identities.get(robot_id)
+            self._set_member_physical_active(robot_id, False, tick=tick)
             self.identities.mark_inactive(robot_id, tick=tick, reason=reason)
-            request_id = f"safe-stop-{self.run_key.as_string()}-{tick}-{len(self._safe_stop_request_ids)}"
-            receipt = self.safe_stop.request(SafeStopRequest(request_id, "fleet.runtime", tick, reason, self.session_identity, self.branch_key))
-            if request_id not in self._safe_stop_request_ids:
-                self._safe_stop_request_ids.append(request_id)
-            self.lifecycle = FleetLifecycle.STOP_REQUESTED
-            return receipt
+            self._command_generations[robot_id] += 1
+            # A local withdrawal is neither a global stop nor a physical ACK.
+            return SafeStopReceipt(f"member-stop-{robot_id}-{tick}", SafeStopPhase.REQUESTED, tick, reason, (robot_id,), self.session_identity, self.branch_key)
+
+    def _set_member_physical_active(self, robot_id: str, active: bool, *, tick: int) -> None:
+        setter = getattr(self._session, "set_benchmark_agent_active", None)
+        if callable(setter):
+            reader = getattr(self._session, "read_benchmark_agent_state", None)
+            if not callable(reader) or reader(robot_id).get("present") is not True:
+                raise RuntimeError("membership requires a pre-existing physical articulation")
+            try:
+                setter(robot_id, active)
+                state = reader(robot_id)
+                if state.get("present") is not True or state.get("active") is not active:
+                    raise RuntimeError("membership physical readback mismatch")
+            except Exception:
+                self.request_safe_stop(tick=tick, reason="membership_operation_unverified")
+                raise
+
+    def set_function_available(self, robot_id: str, function: str, available: bool, *, tick: int) -> None:
+        """Admission state only; physical component adapters must act separately.
+
+        Never resets the world, messages, budgets or ownership. Every change
+        invalidates in-flight commands, including restoration.
+        """
+        with self._lock:
+            self._require_running()
+            assert self.identities is not None
+            identity = self.identities.get(robot_id)
+            if function not in identity.capabilities or type(available) is not bool:
+                raise ValueError("function must be registered and availability boolean")
+            cancel = getattr(self._session, "cancel_benchmark_commands", None)
+            if callable(cancel):
+                cancel(robot_id)
+            disabled = self._disabled_functions[robot_id]
+            if available:
+                disabled.discard(function)
+            else:
+                disabled.add(function)
+            self._command_generations[robot_id] += 1
+            self._audit("function_availability", tick=tick, source="fleet.runtime", payload={"robot_id": robot_id, "function": function, "available": available, "generation": self._command_generations[robot_id], "physical_verified": False})
+
+    def available_capabilities(self, robot_id: str) -> frozenset[str]:
+        assert self.identities is not None
+        identity = self.identities.get(robot_id)
+        return identity.capabilities - self._disabled_functions[robot_id] if identity.active else frozenset()
+
+    def command_generation(self, robot_id: str) -> int:
+        return self._command_generations[robot_id]
+
+    def _request_controller_stop(self, *, tick: int) -> None:
+        assert self.identities is not None
+        stop = getattr(self._session, "request_benchmark_stop", None)
+        for identity in self.identities.snapshot():
+            error = ""
+            if callable(stop):
+                try:
+                    stop(identity.robot_id)
+                except Exception as exc:
+                    error = f"{type(exc).__name__}: {exc}"
+            self._audit("controller_stop_requested", tick=tick, source="fleet.runtime",
+                        payload={"robot_id": identity.robot_id, "adapter_available": callable(stop), "adapter_error": error,
+                                 "physical_verified": False})
 
     def request_safe_stop(self, *, source_id: str = "fleet.runtime", tick: int = 0, reason: str = "requested") -> SafeStopReceipt:
         with self._lock:
@@ -728,14 +892,15 @@ class FleetRuntime:
             if request_id not in self._safe_stop_request_ids:
                 self._safe_stop_request_ids.append(request_id)
             self.lifecycle = FleetLifecycle.STOP_REQUESTED
+            self._request_controller_stop(tick=tick)
             return receipt
 
-    def acknowledge_safe_stop(self, robot_id: str, *, tick: int) -> SafeStopReceipt:
+    def acknowledge_safe_stop(self, robot_id: str, *, tick: int, evidence_hash: str) -> SafeStopReceipt:
         with self._lock:
             if self.lifecycle not in {FleetLifecycle.STOP_REQUESTED, FleetLifecycle.STOPPED}:
                 raise RuntimeError("safe-stop is not requested")
             assert self.safe_stop is not None
-            receipt = self.safe_stop.acknowledge(robot_id, tick=tick)
+            receipt = self.safe_stop.acknowledge(robot_id, tick=tick, evidence_hash=evidence_hash)
             if receipt.phase is SafeStopPhase.STOPPED:
                 self.lifecycle = FleetLifecycle.STOPPED
             return receipt
@@ -756,6 +921,9 @@ class FleetRuntime:
                 "locks": [state.__dict__.copy() for state in self.locks.snapshot()],
                 "safe_stop": self.safe_stop.status().__dict__.copy(),
                 "pending_messages": self.router.pending() if self.router is not None else 0,
+                "messages": self.router.snapshot() if self.router is not None else {},
+                "disabled_functions": {key: sorted(value) for key, value in self._disabled_functions.items()},
+                "command_generations": dict(self._command_generations),
             }
 
     def close(self, *, reason: str = "episode_complete", tick: int = 0) -> FleetAuditSummary:
@@ -778,15 +946,8 @@ class FleetRuntime:
                 if request_id not in self._safe_stop_request_ids:
                     self._safe_stop_request_ids.append(request_id)
                 self.lifecycle = FleetLifecycle.STOP_REQUESTED
-            if self.lifecycle is FleetLifecycle.STOP_REQUESTED:
-                assert self.safe_stop is not None and self.identities is not None
-                # Closing is the controller-facing stop boundary.  Any
-                # remaining active member is acknowledged here so the ledger
-                # distinguishes a requested stop from a fully stopped scope.
-                for robot_id in self.identities.active_ids():
-                    if robot_id not in self.safe_stop.status().acknowledged_robot_ids:
-                        self.safe_stop.acknowledge(robot_id, tick=tick)
-                self.lifecycle = FleetLifecycle.STOPPED
+                self._request_controller_stop(tick=tick)
+            # Sealing the audit never fabricates controller/physical readback.
             if self.router is not None:
                 self.router.close()
             self._audit("runtime_sealed", tick=tick, source="fleet.runtime", payload={"reason": reason})
@@ -794,7 +955,11 @@ class FleetRuntime:
             assert self.identities is not None and self.audit is not None
             active_members = self.identities.active_ids()
             self.ledger.seal()
-            self._summary = FleetAuditSummary(self.lifecycle, self.session_identity, self.branch_key, len(self.audit.events), self.ledger.digest(), self._communication_count, self._lock_count, tuple(self._safe_stop_request_ids), active_members)
+            self._summary = FleetAuditSummary(self.lifecycle, self.session_identity, self.branch_key, len(self.audit.events), self.ledger.digest(), self._communication_count, self._lock_count, tuple(self._safe_stop_request_ids), active_members, self.safe_stop.status().__dict__.copy(), {
+                "encoding": "canonical_logical_json_utf8_v1", "unit": "bits",
+                "offered_bits": self.router.offered_bits if self.router else 0,
+                "transmitted_bits": self.router.transmitted_bits if self.router else 0,
+                "wire_qualified": False})
             return self._summary
 
     def _audit(self, kind: str, *, tick: int, source: str, payload: Mapping[str, Any]) -> None:

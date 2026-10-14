@@ -292,10 +292,15 @@ class EpisodeRunner:
     provenance, leaving controller actions and physical verdicts to adapters.
     """
 
-    def __init__(self, runtime: StepRuntime, *, run_key: RunKey, fleet: FleetRuntime | None = None) -> None:
+    def __init__(self, runtime: StepRuntime, *, run_key: RunKey, fleet: FleetRuntime | None = None, event_scheduler: Any = None, assignment_wait_ticks: int = 0) -> None:
         self.runtime = runtime
         self.run_key = run_key
         self.fleet = fleet
+        self.event_scheduler = event_scheduler
+        if type(assignment_wait_ticks) is not int or assignment_wait_ticks < 0:
+            raise ValueError("assignment wait budget must be nonnegative ticks")
+        self.assignment_wait_ticks = assignment_wait_ticks
+        self._dispatch_sequence = 0
         self.ledger = fleet.ledger if fleet is not None else BranchLedger(run_key)
         if self.fleet is not None and self.fleet.run_key != self.run_key:
             raise ValueError("fleet runtime must use the EpisodeRunner branch ledger")
@@ -318,6 +323,10 @@ class EpisodeRunner:
     ) -> StepBoundary:
         """Advance one runtime step and record only provenance metadata."""
 
+        if self.event_scheduler is not None:
+            if self.fleet is None:
+                raise RuntimeError("dynamic events require the branch fleet")
+            self.event_scheduler.advance(self._tick, self.fleet)
         result = self.runtime.step(actions)
         del result  # Concrete adapters decide how to decode environment output.
         if sim_time_s is not None:
@@ -414,6 +423,92 @@ class EpisodeRunner:
             raise RuntimeError("episode did not produce a result")
         return result
 
+    def run_orchestrated(self, binding, *, decision_provider, request_factory, skill,
+                         executor, evaluator, scene, branch=None, replan=None,
+                         world_observation_provider=None, limits=None,
+                         dependency_resolver=None, initial_observations=()):
+        """Reuse task.TaskRunner for bounded DAG/replan scheduling on this clock.
+
+        Dependency progress needs an explicit measured resolver. Command
+        application alone leaves a task pending. Batch physics stepping remains
+        an executor extension; this adapter deliberately dispatches serially.
+        """
+        from task.runner import TaskRunner
+        from task.contracts import TaskRunRequest, ExecutionUpdate, DependencyOutcome
+        if self._started:
+            raise RuntimeError("EpisodeRunner instances are single-use")
+        if branch is not None and branch.run_key != self.run_key:
+            raise ValueError("branch run_key must match the episode run_key")
+        self._started = True
+        if self.fleet is not None:
+            self.fleet.start(scene, binding, branch)
+        records = []
+        owner = self
+
+        class Dispatch:
+            def execute(self, assignment, task, *, scene):
+                record = owner._dispatch_assignment(
+                    assignment, task, dispatch_id=len(records),
+                    request_factory=request_factory, skill=skill, executor=executor, scene=scene)
+                if record is None:
+                    feedback = ExecutionFeedback(assignment.task_id, assignment.robot_id,
+                        "not_dispatched", FailureCode.MILESTONE_UNVERIFIED,
+                        "assignment unavailable or not delivered")
+                    return ExecutionUpdate(feedback, DependencyOutcome.RETRYABLE_FAILURE)
+                records.append(record)
+                if dependency_resolver is not None:
+                    update = dependency_resolver(record, scene)
+                    if not isinstance(update, ExecutionUpdate) or update.feedback != record.feedback:
+                        raise ValueError("dependency resolver must preserve measured execution feedback")
+                    return update
+                changes = record.feedback.world_changes
+                completed = (record.feedback.failure_code is FailureCode.NONE and
+                             changes.get("dependency_completed") is True and
+                             bool(changes.get("dependency_evidence_hash")))
+                outcome = (DependencyOutcome.COMPLETED if completed else
+                           DependencyOutcome.TERMINAL_FAILURE if record.feedback.failure_code not in
+                           {FailureCode.NONE, FailureCode.MILESTONE_UNVERIFIED} else
+                           DependencyOutcome.RETRYABLE_FAILURE)
+                return ExecutionUpdate(record.feedback, outcome)
+
+        try:
+            self.ledger.append("episode_start", tick=self._tick, source="runtime", payload={
+                "task_id": binding.task.task_id, "contract_digest": binding.contract.digest(),
+                "mode": "task_orchestrated"})
+            result = TaskRunner(scene_provider=lambda _: scene,
+                                orchestration_executor=Dispatch(),
+                                observation_provider=world_observation_provider).run_orchestrated(
+                TaskRunRequest(binding.task, branch_id=self.run_key.branch_role.value,
+                               repeat_id=self.run_key.repeat_id), decision_provider,
+                replan=replan, limits=limits)
+            for event in result.ledger.events:
+                self.ledger.append("task_orchestration", tick=self._tick, source="task.runner", payload=event)
+            observations = tuple(dict(o) for o in initial_observations)
+            observations += tuple(dict(b.observations) for b in self._boundaries if b.observations)
+            evaluation = (evaluator.evaluate(task=binding.task, observations=observations, branch=branch)
+                          if evaluator is not None else EvaluationReport(
+                              EvaluationStatus.NOT_APPLICABLE, "physical_evidence_required",
+                              evaluator_id="none", evaluator_version="benchmark.runtime.v1"))
+            if not isinstance(evaluation, EvaluationReport):
+                raise TypeError("evaluator must return EvaluationReport")
+            for evidence in evaluation.evidence:
+                self.ledger.append("evidence", tick=evidence.tick, source="evaluator", payload={
+                    "predicate_id": evidence.predicate_id, "predicate_version": evidence.predicate_version,
+                    "status": evidence.status.value, "evidence_hash": evidence.evidence_hash,
+                    "reason": evidence.reason})
+            self.ledger.append("orchestration_terminal", tick=self._tick, source="task.runner",
+                               payload={"states": dict(result.task_states), "reason": result.termination_reason,
+                                        "rounds": result.rounds, "dispatches": result.dispatch_count})
+            self.ledger.append("terminal_verdict", tick=self._tick, source="evaluator",
+                               payload={"status": evaluation.status.value, "reason": evaluation.reason})
+        finally:
+            summary = self.fleet.close(tick=self._tick) if self.fleet is not None else None
+            if self.fleet is None:
+                self.ledger.seal()
+        return EpisodeResult(result.decision, tuple(records), evaluation, observations,
+                             self.ledger.digest(), self.ledger.events, self.ledger.schema_version,
+                             self.run_key, summary.to_dict() if summary else None)
+
     def _run_episode(
         self,
         binding: RuntimeTaskBinding,
@@ -475,103 +570,17 @@ class EpisodeRunner:
 
         task_by_id = {item.task_id: item for item in task.graph.tasks}
         executions: list[ExecutionRecord] = []
+        completed = set(task.metadata.get("completed_tasks", ()))
         for index, assignment in enumerate(decision.assignments):
             task_spec = task_by_id[assignment.task_id]
-            request = request_factory(assignment, task_spec, request_id=f"{self.run_key.as_string()}:{index}")
-            if self.fleet is not None:
-                self.fleet.send(
-                    FleetMessage(
-                        message_id=f"assignment-{request.request_id}",
-                        sender_id="brain",
-                        receiver_id=assignment.robot_id,
-                        kind="assignment",
-                        tick=self._tick,
-                        payload={"task_id": assignment.task_id, "request_id": request.request_id},
-                    )
-                )
-            self.ledger.append(
-                "skill_request",
-                tick=self._tick,
-                source="runtime",
-                payload={
-                    "request_id": request.request_id,
-                    "skill_id": request.skill_id,
-                    "robot_id": request.robot_id,
-                    "task_id": assignment.task_id,
-                },
-            )
-            observe = getattr(self.runtime, "observe", None)
-            skill_observation = observe() if callable(observe) else {}
-            plan = skill.plan(request, observation=skill_observation)
-            self._validate_plan(request, plan)
-            self.ledger.append(
-                "skill_plan",
-                tick=self._tick,
-                source="skill",
-                payload={
-                    "request_id": plan.request_id,
-                    "skill_id": plan.skill_id,
-                    "robot_id": plan.robot_id,
-                    "command_count": len(plan.commands),
-                    "status": plan.status,
-                },
-            )
-            start_tick = self._tick
-            lease_id = ""
-            if self.fleet is not None:
-                lease = self.fleet.acquire(
-                    LockRequest(
-                        request_id=f"execution-{request.request_id}",
-                        resource_id=f"robot:{assignment.robot_id}",
-                        owner_id=assignment.robot_id,
-                        lock_type="exclusive",
-                        purpose="controller_execution",
-                        tick=self._tick,
-                    )
-                )
-                lease_id = lease.lease_id
-                if lease.status is LockStatus.ACQUIRED:
-                    try:
-                        feedback = executor.execute(
-                            assignment,
-                            task_spec,
-                            scene=scene,
-                            plan=plan,
-                            step=self.step,
-                        )
-                    finally:
-                        self.fleet.release(lease_id, owner_id=assignment.robot_id, tick=self._tick)
-                else:
-                    feedback = ExecutionFeedback(
-                        task_id=assignment.task_id,
-                        robot_id=assignment.robot_id,
-                        outcome="execution_blocked",
-                        failure_code=FailureCode.INFEASIBLE_TEAM,
-                        message=f"fleet lease rejected: {lease.reason}",
-                    )
-            else:
-                feedback = executor.execute(
-                    assignment,
-                    task_spec,
-                    scene=scene,
-                    plan=plan,
-                    step=self.step,
-                )
-            if feedback.task_id != assignment.task_id or feedback.robot_id != assignment.robot_id:
-                raise ValueError("executor feedback identity does not match assignment")
-            end_tick = self._tick
-            executions.append(ExecutionRecord(assignment, request, plan, feedback, start_tick, end_tick))
-            self.ledger.append(
-                "execution_feedback",
-                tick=end_tick,
-                source="executor",
-                payload={
-                    "task_id": feedback.task_id,
-                    "robot_id": feedback.robot_id,
-                    "outcome": feedback.outcome,
-                    "failure_code": feedback.failure_code.value,
-                },
-            )
+            if set(task_spec.prerequisites) - completed:
+                self.ledger.append("dependency_blocked", tick=self._tick, source="runtime", payload={"task_id": assignment.task_id, "missing": sorted(set(task_spec.prerequisites) - completed)})
+                continue
+            record = self._dispatch_assignment(assignment, task_spec, dispatch_id=index, request_factory=request_factory, skill=skill, executor=executor, scene=scene)
+            if record is not None:
+                executions.append(record)
+                if record.feedback.failure_code is FailureCode.NONE and record.feedback.world_changes.get("dependency_completed") is True and record.feedback.world_changes.get("dependency_evidence_hash"):
+                    completed.add(assignment.task_id)
 
         observations = tuple(dict(item) for item in initial_observations)
         observations += tuple(dict(item.observations) for item in self._boundaries if item.observations)
@@ -623,6 +632,138 @@ class EpisodeRunner:
             ledger_schema_version=self.ledger.schema_version,
             run_key=self.run_key,
         )
+
+    def _dispatch_assignment(self, assignment, task_spec, *, dispatch_id, request_factory, skill, executor, scene):
+        """Admission, consumed assignment, controller lease and measured release."""
+        if self.event_scheduler is not None and self.fleet is not None:
+            self.event_scheduler.advance(self._tick, self.fleet)
+        dispatch_id = self._dispatch_sequence
+        self._dispatch_sequence += 1
+        request = request_factory(assignment, task_spec, request_id=f"{self.run_key.as_string()}:{dispatch_id}")
+        if self.fleet is not None:
+            if not set(task_spec.required_capabilities).issubset(self.fleet.available_capabilities(assignment.robot_id)):
+                self.ledger.append("assignment_unavailable", tick=self._tick, source="runtime", payload={"task_id": assignment.task_id, "robot_id": assignment.robot_id})
+                return None
+            receipt = self.fleet.send(
+                FleetMessage(
+                    message_id=f"assignment-{request.request_id}",
+                    sender_id="brain",
+                    receiver_id=assignment.robot_id,
+                    kind="assignment",
+                    tick=self._tick,
+                    payload={"task_id": assignment.task_id, "request_id": request.request_id},
+                )
+            )
+            delivered = ()
+            for waited in range(self.assignment_wait_ticks + 1):
+                delivered = self.fleet.receive(assignment.robot_id, tick=self._tick,
+                                               message_id=f"assignment-{request.request_id}")
+                if delivered or waited == self.assignment_wait_ticks:
+                    break
+                self.step({}, phase="assignment_wait")
+            if not set(task_spec.required_capabilities).issubset(self.fleet.available_capabilities(assignment.robot_id)):
+                return None
+            if not any(item.message_id == f"assignment-{request.request_id}" for item in delivered):
+                self.ledger.append("assignment_not_delivered", tick=self._tick, source="runtime", payload={"task_id": assignment.task_id, "status": receipt.status.value})
+                return None
+        self.ledger.append(
+            "skill_request",
+            tick=self._tick,
+            source="runtime",
+            payload={
+                "request_id": request.request_id,
+                "skill_id": request.skill_id,
+                "robot_id": request.robot_id,
+                "task_id": assignment.task_id,
+            },
+        )
+        observe = getattr(self.runtime, "observe", None)
+        legal_observe = getattr(self.runtime, "observe_for_robot", None)
+        skill_observation = legal_observe(assignment.robot_id) if callable(legal_observe) else (observe() if callable(observe) else {})
+        plan = skill.plan(request, observation=skill_observation)
+        self._validate_plan(request, plan)
+        self.ledger.append(
+            "skill_plan",
+            tick=self._tick,
+            source="skill",
+            payload={
+                "request_id": plan.request_id,
+                "skill_id": plan.skill_id,
+                "robot_id": plan.robot_id,
+                "command_count": len(plan.commands),
+                "status": plan.status,
+            },
+        )
+        generation = self.fleet.command_generation(assignment.robot_id) if self.fleet else None
+        def guarded_step(actions):
+            if self.event_scheduler is not None and self.fleet is not None:
+                self.event_scheduler.advance(self._tick, self.fleet)
+            if self.fleet is not None and (self.fleet.command_generation(assignment.robot_id) != generation or
+                    not set(task_spec.required_capabilities).issubset(self.fleet.available_capabilities(assignment.robot_id))):
+                raise RuntimeError("execution invalidated by current membership/function generation")
+            return self.step(actions)
+        start_tick = self._tick
+        lease_id = ""
+        if self.fleet is not None:
+            lease = self.fleet.acquire(
+                LockRequest(
+                    request_id=f"execution-{request.request_id}",
+                    resource_id=f"robot:{assignment.robot_id}",
+                    owner_id=assignment.robot_id,
+                    lock_type="exclusive",
+                    purpose="controller_execution",
+                    tick=self._tick,
+                )
+            )
+            lease_id = lease.lease_id
+            if lease.status is LockStatus.ACQUIRED:
+                try:
+                    feedback = executor.execute(
+                        assignment,
+                        task_spec,
+                        scene=scene,
+                        plan=plan,
+                        step=guarded_step,
+                    )
+                finally:
+                    if 'feedback' in locals() and isinstance(feedback, ExecutionFeedback) and (feedback.task_id, feedback.robot_id) == (assignment.task_id, assignment.robot_id) and feedback.world_changes.get("quiescent") is True and feedback.world_changes.get("quiescence_evidence_hash"):
+                        self.fleet.release(lease_id, owner_id=assignment.robot_id, tick=self._tick)
+                    else:
+                        self.ledger.append("controller_quarantined", tick=self._tick, source="runtime", payload={"robot_id": assignment.robot_id, "lease_id": lease_id, "reason": "quiescence_unverified"})
+            else:
+                feedback = ExecutionFeedback(
+                    task_id=assignment.task_id,
+                    robot_id=assignment.robot_id,
+                    outcome="execution_blocked",
+                    failure_code=FailureCode.INFEASIBLE_TEAM,
+                    message=f"fleet lease rejected: {lease.reason}",
+                )
+        else:
+            feedback = executor.execute(
+                assignment,
+                task_spec,
+                scene=scene,
+                plan=plan,
+                step=guarded_step,
+            )
+        if not isinstance(feedback, ExecutionFeedback):
+            raise TypeError("executor must return ExecutionFeedback")
+        if feedback.task_id != assignment.task_id or feedback.robot_id != assignment.robot_id:
+            raise ValueError("executor feedback identity does not match assignment")
+        end_tick = self._tick
+        record = ExecutionRecord(assignment, request, plan, feedback, start_tick, end_tick)
+        self.ledger.append(
+            "execution_feedback",
+            tick=end_tick,
+            source="executor",
+            payload={
+                "task_id": feedback.task_id,
+                "robot_id": feedback.robot_id,
+                "outcome": feedback.outcome,
+                "failure_code": feedback.failure_code.value,
+            },
+        )
+        return record
 
     @staticmethod
     def _validate_decision(task: EaiTaskPackage, decision: Any) -> None:
