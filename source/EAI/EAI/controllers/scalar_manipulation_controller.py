@@ -2,7 +2,7 @@
 from __future__ import annotations
 from .environment_view import SingleEnvironmentView
 
-SCALAR_CONTROLLERS = frozenset({'PepperBoxTransportControllerCfg', 'PepperBoxGraspControllerCfg'})
+SCALAR_CONTROLLERS = frozenset({'PepperPickPlaceControllerCfg', 'PepperBoxGraspControllerCfg'})
 
 
 def load_scalar_controller(cfg, robot_name, task_name, device, env):

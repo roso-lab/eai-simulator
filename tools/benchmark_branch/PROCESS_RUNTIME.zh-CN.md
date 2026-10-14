@@ -69,7 +69,7 @@ child 保留锁。worker 必须保留继承 FD，且不自行 daemonize 到新�
 
 ```bash
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q \
-  task/tests algorithm/skills/tests algorithm/skills/pepper_transport/pepper_transport_tests.py \
+  task/tests algorithm/skills/tests \
   tools/benchmark_branch/tests tools/physics_replay/tests/test_live.py
 ```
 

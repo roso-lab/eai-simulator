@@ -10,9 +10,9 @@ from typing import Mapping
 import json, math, hashlib
 import numpy as np
 from pxr import Usd, UsdGeom, UsdPhysics
-from .g1_manipulation.geometry import ObstacleBox, xyz, world_matrix, set_world_matrix, object_local_size
-from .g1_manipulation.kinematics import KinematicRobot
-from .g1_manipulation.planner import TransferPlanner
+from .geometry import ObstacleBox, xyz, world_matrix, set_world_matrix, object_local_size
+from .kinematics import KinematicRobot
+from .planner import TransferPlanner
 
 
 class G1SkillError(RuntimeError):
@@ -47,7 +47,7 @@ class GraspProfile:
 
     @classmethod
     def builtin(cls, name):
-        data = json.loads(Path(__file__).with_name('g1_manipulation').joinpath('inspire_grips.json').read_text())
+        data = json.loads(Path(__file__).with_name('inspire_grips.json').read_text())
         if data.get('schema_version') != 1 or data.get('coordinate_frame') != 'right_hand_base_link' or data.get('cylinder_axis_hand_base') != [0., 0., 1.]:
             raise ValueError('unsupported built-in grasp calibration schema/frame/axis')
         if name not in data['objects']:
@@ -144,7 +144,11 @@ class G1PickPlaceSkill:
                 if child.IsA(UsdPhysics.Joint) and UsdPhysics.Joint(child).GetJointEnabledAttr().Get():
                     raise G1SkillError('unsupported_capability', 'active physics joint; use a kinematic scene')
 
-    def start(self, pick_position, place_position, *, object_ref=None):
+    def start_pick(self, pick_position, *, object_ref=None):
+        """Prepare the local pickup trajectory without planning a transfer."""
+        return self.start(pick_position, pick_position, object_ref=object_ref, _local_pick=True)
+
+    def start(self, pick_position, place_position, *, object_ref=None, _local_pick=False):
         if self.status in ('running','holding') or self.attached:
             raise G1SkillError('busy', 'finish, resume, or cancel the current operation first')
         pick, place = xyz(pick_position, 'pick_position'), xyz(place_position, 'place_position')
@@ -195,7 +199,10 @@ class G1PickPlaceSkill:
         transfer = TransferPlanner(self.robot, profile, self.config, self.obstacles)
         # Use the measured origin at pickup; no pre-grasp object teleport.
         try:
-            transfer.prepare(obj[:3,3], place)
+            if _local_pick:
+                transfer.prepare_pick(obj[:3,3])
+            else:
+                transfer.prepare(obj[:3,3], place)
         except (RuntimeError, ValueError) as error:
             raise G1SkillError('infeasible', str(error)) from error
         self.transfer, self.object_ref, self.object_path = transfer, key, binding.prim_path
@@ -204,21 +211,6 @@ class G1PickPlaceSkill:
         self._elapsed = 0.;self.events = [];self.error = None
         self.status, self.phase, self.attached = 'running', 'prepare', False
         return self.receipt()
-
-    def start_plan(self, plan):
-        from algorithm.skills.g1_pick_place import G1PickPlaceProvider
-        from algorithm.skills.contracts import SkillRequest
-        if plan.robot_id != self.robot_id or len(plan.commands) != 1 or plan.status != 'planned':
-            raise G1SkillError('invalid_plan', 'plan must target this robot and contain one planned command')
-        cmd = plan.commands[0]
-        if cmd.command_type != 'g1_pick_place':
-            raise G1SkillError('invalid_plan', 'wrong command type')
-        request = SkillRequest(plan.request_id, plan.skill_id, plan.robot_id, parameters=cmd.payload)
-        validated = G1PickPlaceProvider().plan(request)
-        if validated.status != 'planned':
-            raise G1SkillError('invalid_plan', validated.metadata['reason'])
-        payload = validated.commands[0].payload
-        return self.start(payload['pick_position'], payload['place_position'], object_ref=payload.get('object_ref'))
 
     def _check_state(self):
         if not np.allclose(world_matrix(self.robot.root), self._root, atol=1e-7, rtol=0):

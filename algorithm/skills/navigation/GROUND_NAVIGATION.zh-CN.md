@@ -197,7 +197,6 @@ PYTHONPATH="$PWD:$PWD/source/EAI:$PWD/source/EAI_assets:$PWD/source/EAI_hmrs" \
 python -m pytest -q \
   algorithm/skills/tests/test_ground_navigation.py \
   algorithm/skills/tests/test_contracts.py \
-  algorithm/skills/pepper_transport/pepper_transport_tests.py \
   task/tests/test_ground_navigation_executor.py \
   task/tests/test_runner.py \
   -p no:cacheprovider

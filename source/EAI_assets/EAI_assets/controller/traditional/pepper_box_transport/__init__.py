@@ -1,5 +1,5 @@
-"""Autonomous Pepper table-to-table box transport controller."""
+"""Pepper local PickPlace controller."""
 
-from .controller import PEPPER_BOX_TRANSPORT_CFG, PepperBoxTransportControllerCfg
+from .controller import PEPPER_PICK_PLACE_CFG, PepperPickPlaceControllerCfg
 
-__all__ = ["PEPPER_BOX_TRANSPORT_CFG", "PepperBoxTransportControllerCfg"]
+__all__ = ["PEPPER_PICK_PLACE_CFG", "PepperPickPlaceControllerCfg"]

@@ -325,7 +325,7 @@ _CONTROLLER_PATHS = {
         "rl/rl_cfg/__init__.py",
         "rl/rl_cfg/g1_skrl_flat_ppo_cfg.yaml",
     ),
-    "PEPPER_BOX_TRANSPORT_CFG": (
+    "PEPPER_PICK_PLACE_CFG": (
         "traditional/pepper_box_transport/__init__.py",
         "traditional/pepper_box_transport/controller.py",
         "traditional/pepper_holonomic/__init__.py",
@@ -346,7 +346,6 @@ _CONTROLLER_PATHS = {
 }
 
 
-_CONTROLLER_PATHS["PEPPER_BOX_TRANSPORT_TASK_CFG"] = _CONTROLLER_PATHS["PEPPER_BOX_TRANSPORT_CFG"]
 
 
 def _add(

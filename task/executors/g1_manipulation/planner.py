@@ -19,6 +19,8 @@ class TransferPlanner:
         self.clearance = ArmClearance(robot, obstacles)
         self.min_clearance = math.inf
         self.names = ['waist_yaw_joint'] + robot.arm_joints('right', waist=False)
+        self._next = {'prepare':'approach','approach':'grasp','lift':'transfer','transfer':'lower',
+                      'lower':'release','withdraw':'return_ready','return_ready':'retract','retract':'done'}
 
     def prepare(self, pickup, place):
         saved = dict(self.robot.angles)
@@ -28,6 +30,64 @@ class TransferPlanner:
         finally:
             self.robot.angles = saved
             self.robot.last_receipt = saved_receipt
+
+    def prepare_pick(self, pickup):
+        """Plan only approach, closure and lift; no destination is required."""
+        saved, receipt = dict(self.robot.angles), self.robot.last_receipt
+        try:
+            self._paths, self._targets = {}, {}
+            root = np.asarray(UsdGeom.XformCache().GetLocalToWorldTransform(self.robot.root)).T
+            pickup = np.asarray(pickup) + self.object_point
+            ready = (root @ np.r_[self.config.ready_position_base, 1])[:3]
+            ready[2] = max(ready[2], pickup[2] + .04)
+            raised = pickup + np.array([0., 0., self.config.lift_height_m])
+            self.robot.angles.update(self.config.ik_seed)
+            result = self.robot.solve_ik('right', ready, offset=self.pocket,
+                target_axis=[0,0,-1], body_axis=2, names=self.names, iterations=200,
+                multistart=True, tolerance=self.config.position_tolerance_m,
+                orientation_tolerance_rad=.018, joint_bounds={'waist_yaw_joint':(-.35,.35)}, write=False)
+            if not result['reached']:
+                raise RuntimeError('Clearance-ready pose unreachable')
+            self._paths['prepare'] = [saved, dict(self.robot.angles)]
+            self._cartesian_paths(ready, [('approach', raised), ('grasp', pickup), ('lift', raised)])
+            self._compile_paths(saved)
+            self._next = {'prepare':'approach', 'approach':'grasp', 'lift':'holding'}
+        finally:
+            self.robot.angles, self.robot.last_receipt = saved, receipt
+
+    def prepare_place(self, target_grip, *, home):
+        """Start from the measured carry pose and finish with open fingers."""
+        saved, receipt = dict(self.robot.angles), self.robot.last_receipt
+        try:
+            self._paths, self._targets = {}, {}
+            target = np.asarray(target_grip)
+            current = self._grip()[:3, 3]
+            over = target.copy()
+            over[2] = max(current[2], target[2] + self.config.lift_height_m)
+            root = np.asarray(UsdGeom.XformCache().GetLocalToWorldTransform(self.robot.root)).T
+            ready = (root @ np.r_[self.config.ready_position_base, 1])[:3]
+            ready[2] = max(ready[2], target[2] + .04)
+            self._cartesian_paths(current, [('transfer', over), ('lower', target),
+                                           ('withdraw', over), ('return_ready', ready)])
+            self._paths['release'] = [self._paths['lower'][-1]] * 2
+            self._paths['retract'] = [dict(self.robot.angles), dict(home)]
+            self._compile_paths(saved, home=home, closing=False)
+            self._next = {'transfer':'lower', 'lower':'release', 'withdraw':'return_ready',
+                          'return_ready':'retract', 'retract':'done'}
+            self.phase, self.elapsed, self.attached = 'transfer', 0., True
+        finally:
+            self.robot.angles, self.robot.last_receipt = saved, receipt
+
+    def _cartesian_paths(self, previous, targets):
+        previous = np.asarray(previous)
+        for phase, target in targets:
+            target = np.asarray(target)
+            points = [dict(self.robot.angles)]
+            count = max(2, int(np.ceil(np.linalg.norm(target-previous)/self.config.waypoint_spacing_m))+1)
+            for u in np.linspace(0, 1, count)[1:]:
+                points.append(self._solve(previous*(1-u) + target*u))
+            self._paths[phase], self._targets[phase] = points, target
+            previous = target.copy()
 
     def acknowledge_attachment(self,attached):
         self.attached=bool(attached)
@@ -75,6 +135,11 @@ class TransferPlanner:
             prev=target.copy()
         self._paths['release']=[self._paths['lower'][-1]]*2
         self._paths['retract']=[dict(self.robot.angles),saved]
+        self._compile_paths(saved)
+        self.robot.angles=dict(saved)
+
+    def _compile_paths(self, saved, *, home=None, closing=True):
+        self._saved, self._home = dict(saved), dict(saved if home is None else home)
         self._durations={}
         self._arc={}
         self._close_duration=max(.7, 1.5*max(abs(v) for v in self.closed.values())/self.config.joint_speed_rad_s)
@@ -82,25 +147,26 @@ class TransferPlanner:
             lengths=[max(abs(b[n]-a[n]) for n in self.names) for a,b in zip(qs,qs[1:])]
             travel=sum(lengths)
             self._arc[phase]=np.r_[0.,np.cumsum(lengths)]
-            finger_travel=max(abs(saved[n]) for n in self.closed) if phase in ('prepare','retract') else 0.
+            rest = self._home if phase == 'retract' else saved
+            finger_travel=max(abs(rest[n]) for n in self.closed) if phase in ('prepare','retract') else 0.
             self._durations[phase]=max(.7,1.875*max(travel,finger_travel)/self.config.joint_speed_rad_s)
             for a,b in zip(qs,qs[1:]):
                 for u in np.linspace(0,1,max(8,int(np.ceil(max(abs(b[n]-a[n]) for n in self.names)/.025))+1)):
                     q={n:a[n]*(1-u)+b[n]*u for n in a}
-                    q.update(self._fingers(phase, u, saved))
+                    q.update(self._fingers(phase, u, rest))
                     margin,bad=self.clearance.measure(q)
                     self.min_clearance=min(self.min_clearance,margin)
                     if margin<self.config.clearance_m:raise RuntimeError('Arm path obstructed '+phase+' '+str(bad)+' clearance '+str(margin))
         # Closing fingers is a separate stationary sweep after descent.
-        for u in np.linspace(0, 1, 25):
+        for u in (np.linspace(0, 1, 25) if closing else ()):
             q = dict(self._paths['grasp'][-1])
             q.update({n: v*u for n,v in self.closed.items()})
             margin, bad = self.clearance.measure(q)
             self.min_clearance = min(self.min_clearance, margin)
             if margin < self.config.clearance_m:
                 raise RuntimeError('Finger closure obstructed '+str(bad))
-        self._durations['release']=max(.7,2.8125*max(abs(v) for v in self.closed.values())/self.config.joint_speed_rad_s)
-        self.robot.angles=dict(saved)
+        if 'release' in self._paths:
+            self._durations['release']=max(.7,2.8125*max(abs(v) for v in self.closed.values())/self.config.joint_speed_rad_s)
 
     def _fingers(self, phase, u, saved):
         if phase in ('lift', 'transfer', 'lower'):
@@ -116,7 +182,8 @@ class TransferPlanner:
     def step(self,dt,pickup_world,place_world):
         if not math.isfinite(dt) or dt<=0:raise ValueError('dt must be finite and positive')
         if self._paths is None:self.prepare(pickup_world,place_world)
-        if self.phase=='done':return {**self.robot.last_receipt,'phase':'done','next_phase':'done','request_attach':False,'request_release':False}
+        if self.phase in ('done', 'holding'):
+            return {**self.robot.last_receipt,'phase':self.phase,'next_phase':self.phase,'request_attach':False,'request_release':False}
         phase=self.phase;self.elapsed+=dt;duration=self._durations[phase];self._duration=duration
         motion=min(self.elapsed/duration,1.);u=motion**3*(10+motion*(-15+6*motion))
         qs=self._paths[phase];arc=self._arc[phase];distance=u*arc[-1]
@@ -129,14 +196,13 @@ class TransferPlanner:
         closure=closed*closed*(3-2*closed)
         command.update({n:v*closure for n,v in self.closed.items()})
         if phase in ('prepare', 'retract'):
-            command.update(self._fingers(phase, u, self._paths['prepare'][0]))
+            command.update(self._fingers(phase, u, self._home if phase == 'retract' else self._saved))
         self.robot.set_joint_positions(command)
         grip=self._grip();axis=float(math.acos(np.clip(-grip[2,2],-1,1)))
         target=self._targets.get(phase,grip[:3,3]);residual=float(np.linalg.norm(grip[:3,3]-target))
         attach=phase=='grasp' and self.elapsed>=duration+self._close_duration and residual<.006 and axis<.035
         release=phase=='release' and self.elapsed>=duration
-        nxt={'prepare':'approach','approach':'grasp','lift':'transfer','transfer':'lower','lower':'release','withdraw':'return_ready','return_ready':'retract','retract':'done'}
-        if self.elapsed>=duration and phase in nxt:self._advance(nxt[phase])
+        if self.elapsed>=duration and phase in self._next:self._advance(self._next[phase])
         body=self.robot.hand_body('right');hand=self.robot.body_world(body)
         receipt={'phase':phase,'next_phase':self.phase,'request_attach':attach,'request_release':release,
             'blocked':False,'palm_world_transform':hand.tolist(),'grip_world_transform':grip.tolist(),

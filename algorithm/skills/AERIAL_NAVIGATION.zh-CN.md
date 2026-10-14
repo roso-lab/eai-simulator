@@ -280,10 +280,10 @@ response = provider.fail(task_id, error, hover_position=current_measured_xyz)
 ## 7. 检查与排查
 
 ```bash
-python -B -c "from algorithm.skills.navigation import AerialNavigationProvider; from algorithm.skills.aerial_transport import AerialPickPlaceProvider"
+python -B -c "from algorithm.skills.navigation import AerialNavigationProvider"
 python -B algorithm/skills/navigation/examples/aerial_topology_gui_demo.py --help
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q -p no:cacheprovider \
-  algorithm/skills/tests/test_aerial_navigation.py
+  algorithm/skills/tests/test_navigation_provider.py
 ```
 
 - 飞机切过拐角：确认转弯处有真实 node；折线中间点不会进入命令序列。

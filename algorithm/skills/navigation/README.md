@@ -9,8 +9,9 @@ reports controller failures. Dispatch compiles a measured-position hold without
 routing. See the [aerial navigation guide](../AERIAL_NAVIGATION.zh-CN.md) and
 [GUI example](examples/aerial_topology_gui_demo.py) for lifecycle controls,
 native pose traces, and a six-node forward/backward flight.
-The [aerial transport guide](../aerial_transport/AERIAL_PICK_PLACE.zh-CN.md)
-describes the separate pick/place state machine.
+The [unified pick/place guide](../pick_place/ADDING_ROBOTS.zh-CN.md)
+describes the separate local manipulation state machine. Navigation remains
+caller-owned and is never started by that executor.
 
 ## Injected 2D planner adapter
 

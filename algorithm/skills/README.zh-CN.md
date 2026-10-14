@@ -1,61 +1,9 @@
-# EAI 底层 Skill
+# EAI 技能
 
-该目录采用 HeteroCoord 的 `simulator.skill.v1` 分层：高层分配产生
-`SkillRequest`，纯 Provider 编译 `SkillPlan`，EAI executor 调用 controller 并推进
-仿真，最终物理成败只由外部 evaluator 判断。
+`eai.manipulation.pick_place` 是唯一的局部取放公共技能。执行入口为 `PickPlaceExecutor.execute(request) -> bool`，每个请求只完成一次 `pick` 或 `place`；导航、运输路线和何时调用下一次 `place` 由调用者决定。
 
-地面导航入口为 `algorithm.skills.navigation.GroundNavigationProvider`，采用
-人工拓扑节点、有向 XY 最短路、航向 PID 和固定巡航速度，按距离依次切换节点。
-`task.executors.ground_navigation.GroundNavigationExecutor` 负责真实 root 位姿、
-模拟时间和 `env.step` 速度应用；调用者提供已校验拓扑及世界状态校验回调。
-导航不使用全局栅格、局部代价地图、DWA、OBB 或碰撞查询。
-详见[地面导航中文说明](navigation/GROUND_NAVIGATION.zh-CN.md)。
+宿主创建控制器和 `PickPlaceAdapter`，按 `adapter.robot_id` 注册，并注入已有物理循环与仿真时钟。Executor 负责请求校验、世界到采样底盘坐标的统一转换、资源租约、局部状态机、超时取消和安全停止，公开结果始终只有布尔值。机械臂、无人机、Pepper 和 G1 适配器保留各自的接近、抓取、抬升、释放、撤离及实测反馈。
 
-理想化机械臂入口是面向 UR5 和 Z1 单环境柱坐标 pick/place 演示的私有 runtime。它使用模型专属
-yaw 关节、缩减平面 IK、回收姿态和无物理 follow proxy，不提供导航或 ROS2 pick/place action。
-详见[理想化机械臂中文说明](IDEALIZED_MANIPULATION.zh-CN.md)。
+地面和空中导航是独立技能，由调用者显式选择。公共 registry 保留导航、局部操控、检查、协同和外部 I/O 合同，已废弃的完整搬运 skill ID 已移除。
 
-空中导航入口为 `algorithm.skills.navigation.AerialNavigationProvider`，
-采用人工 XYZ 拓扑、有向 Dijkstra 和逐节点 `goal_position`，支持创建任务、
-开始、继续、保持、重规划和停止。详见[空中导航中文说明](AERIAL_NAVIGATION.zh-CN.md)。
-可直接运行 [Iris GUI 演示](navigation/examples/aerial_topology_gui_demo.py) 观察实际轨迹：
-
-```bash
-conda run --no-capture-output -n env_isaaclab python \
-  algorithm/skills/navigation/examples/aerial_topology_gui_demo.py --device cuda:0
-```
-
-无人机搬运入口为 `algorithm.skills.aerial_transport.AerialPickPlaceProvider`，
-Skill ID 为 `eai.transport.aerial_pick_place`。人工 XYZ 导航、垂直梯形轨迹与
-确认驱动状态机由纯 Provider 编译；`task.executors.aerial_pick_place` 负责位置
-控制器、临时世界支撑、真实 FixedJoint 和精确碰撞恢复。仅 iris（`PegasusIris`）
-与 pegasus（`PegasusX4`）的位置机型可通过执行器机型门槛；CF2X 及其他机型在
-dispatch 即被拒绝。持物停止保留连接和租约。
-详见[无人机 Pick/Place 中文说明](aerial_transport/AERIAL_PICK_PLACE.zh-CN.md)。
-
-现有 task/benchmark 的持续执行接入见[空中统一运行指南](AERIAL_RUNTIME.zh-CN.md)：
-共享拓扑编辑器、英文地点 JSON、冻结输入、外部租约、单次共享物理步进与停止恢复。
-
-Pepper 搬运接口为：
-
-```text
-eai.transport.composite
-  → algorithm.skills.pepper_transport
-  → PEPPER_BOX_TRANSPORT_CFG
-  → EAI env.step
-  → PepperTransportEvidenceEvaluator
-```
-
-固定参数为 `object_ref`、`source_ref`、`destination_ref`、`carry_mode`，以及可选的
-`horizon_ticks`。未声明字段、非有限/非法预算、非 Pepper robot id 或不支持的
-`carry_mode` 均拒绝。Provider 不导入 Isaac Sim、Torch 或 ROS，不调用 controller，
-也不把 `planned` / `command_applied` 当作物理成功。
-
-机械臂、固定站位 G1 和 Pepper 共用 `eai.manipulation.pick_place` 世界 XYZ 接口，
-通过 `ManipulationSkillRuntime` 接入共享步进、并行环境和多机器人团队资源租约。
-G1 在影子 USD 中规划，通过实时关节目标执行；原暂停 USD 接口保留用于几何验证。
-详见 [三类抓放运行接入](GRASP_SKILLS_INTEGRATION.zh-CN.md)。
-
-`simulator_schema.py` 同时保留 benchmark adapter 使用的通用目标/速度导航、
-操作、检查、交接和外部 I/O 机器可读合同。新增或修改 Provider 边界前，先阅读
-[`SKILL_DEVELOPER_HANDOFF.zh-CN.md`](SKILL_DEVELOPER_HANDOFF.zh-CN.md)。
+参见[局部 PickPlace 指南](pick_place/README.zh-CN.md)和[机器人接入指南](pick_place/ADDING_ROBOTS.zh-CN.md)。
