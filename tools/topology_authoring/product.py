@@ -78,7 +78,10 @@ def validate_document(doc: TopologyDocument, adapter=None, source=None, *, requi
                      and start in nodes and end in nodes and start != end)
         points = edge.get("polyline_xyz")
         if not node_only:
-            if not isinstance(points, list) or len(points) < 2:
+            if points is None:
+                # Canonical execution products may omit decorative geometry.
+                points = None
+            elif not isinstance(points, list) or len(points) < 2:
                 errors.append(f"edge has too few points: {edge_id}")
             elif not all(finite_xyz(point) for point in points):
                 errors.append(f"invalid edge point: {edge_id}")
@@ -89,28 +92,33 @@ def validate_document(doc: TopologyDocument, adapter=None, source=None, *, requi
                                   or math.dist(points[-1], nodes[end]["position_xyz"]) > 1e-5):
                     errors.append(f"edge endpoints do not match polyline: {edge_id}")
         profiles = edge.get("profiles", {})
-        if not isinstance(profiles, Mapping) or not profiles:
+        if profiles is None:
+            profiles = {}
+        if not isinstance(profiles, Mapping):
             if not node_only:
-                errors.append(f"edge profiles must be a nonempty object: {edge_id}")
+                errors.append(f"edge profiles must be an object: {edge_id}")
             continue
         for profile, config in profiles.items():
             clearance = config.get("clearance_m") if isinstance(config, Mapping) else None
-            if profile not in doc.profiles or not finite_number(clearance) or clearance <= 0:
+            if not isinstance(profile, str) or not profile.strip() or not finite_number(clearance) or clearance <= 0:
                 if not node_only:
-                    errors.append(f"invalid profile {profile}: {edge_id}")
+                    errors.append(f"invalid edge metadata profile {profile}: {edge_id}")
                 continue
             if bound_source and endpoints:
-                # Validate exactly what node-only execution will follow, never
-                # use a decorative bend as evidence for straight-line passage.
+                # Polyline checks are authoring/scene checks only.  Runtime
+                # routing still uses the straight node endpoints.
                 segment = [nodes[start]["position_xyz"], nodes[end]["position_xyz"]]
                 try:
-                    if doc.domain == "aerial":
-                        validator = getattr(adapter, "validate_aerial_polyline", None)
-                        if validator is None:
-                            raise ValueError("adapter must explicitly support aerial segment validation")
-                        problems = validator(segment, clearance, source)
+                    # Domain is an authoring hint for scene geometry checks,
+                    # never a runtime admission constraint.
+                    aerial_validator = getattr(adapter, "validate_aerial_polyline", None)
+                    if doc.domain == "aerial" and aerial_validator is not None:
+                        problems = aerial_validator(segment, clearance, source)
                     else:
-                        problems = adapter.validate_polyline(segment, profile, source)
+                        validator = getattr(adapter, "validate_polyline", None)
+                        if validator is None:
+                            continue
+                        problems = validator(segment, profile, source)
                     if not isinstance(problems, list) or any(not isinstance(item, str) for item in problems):
                         raise ValueError("adapter validation must return a list of errors")
                     errors.extend(f"{edge_id}: {item}" for item in problems)

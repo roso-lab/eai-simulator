@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Any, Mapping, Sequence
 
 from ..contracts import SkillContractError
-from .ground_navigation import GroundPose, select_node_route
+from .node_route import NavigationPose, NavigationProfile, ground_navigation_profile, select_node_route
 from .topology import topology_fields, validate_topology
 
 
@@ -37,7 +37,9 @@ def resolve_landmark(document: Any, query: str, *, level_id: str | None = None) 
     rows = [row for row in data["nodes"] if level_id is None or row.get("level_id") == level_id]
     # An exact stable reference wins over free-text aliases, but never over a
     # second stable match. Authors cannot make an ambiguous ID executable.
-    matches = [row for row in rows if query == row["id"] or query in row.get("target_refs", [])]
+    matches = [row for row in rows if query == row["id"]]
+    if not matches:
+        matches = [row for row in rows if query in row.get("target_refs", [])]
     if not matches:
         key = query.strip().casefold()
         matches = [row for row in rows if key in {
@@ -49,8 +51,8 @@ def resolve_landmark(document: Any, query: str, *, level_id: str | None = None) 
 
 def resolve_landmark_route(
     document: Any, *, origin_ref: str, destination_ref: str,
-    controller_capabilities: Sequence[str] = ("walk",),
     origin_level_id: str | None = None, destination_level_id: str | None = None,
+    profile: NavigationProfile | None = None,
 ) -> dict[str, Any]:
     """Resolve a model goal and use the same router as the execution provider.
 
@@ -62,31 +64,27 @@ def resolve_landmark_route(
     destination = resolve_landmark(document, destination_ref, level_id=destination_level_id)
     def stable_ref(row, query):
         refs = row.get("target_refs", [])
-        if query in refs or (data.get("version",1)==2 and query==row["id"]):
+        if query in refs or query == row["id"]:
             return query
-        if not refs and data.get("version", 1) == 1:
-            raise SkillContractError("v1 landmark requires a bound target reference")
         return sorted(refs)[0] if refs else row["id"]
     start, target = stable_ref(origin, origin_ref), stable_ref(destination, destination_ref)
-    if data.get("domain") == "aerial":
-        from .aerial_navigation import AerialPose, select_aerial_node_route
-        result = select_aerial_node_route(data, AerialPose(tuple(origin["position_xyz"])),
-                                         origin_ref=start, target_refs=(target,))
-        result["domain"] = "aerial"
-        # Heading remains authoring metadata until a flight controller declares
-        # an executable yaw capability; do not claim orientation alignment.
-        result["target_heading_rad"] = None
-        result["authored_heading_rad"] = destination.get("heading_rad")
-    else:
-        result = select_node_route(document,
-            GroundPose(tuple(origin["position_xyz"]), 0.0, support_z_m=origin["position_xyz"][2]),
-            origin_ref=start, target_refs=(target,), controller_capabilities=controller_capabilities)
+    profile = profile or ground_navigation_profile()
+    result = select_node_route(
+        document, NavigationPose(tuple(origin["position_xyz"])), profile=profile,
+        origin_ref=start, target_ref=target,
+    )
+    result["domain"] = data.get("domain", "ground")
+    result["authored_heading_rad"] = destination.get("heading_rad")
     result.update(schema="eai.navigation.landmark_route", version=1,
                   origin_ref=start, destination_ref=target,
                   coordinate_frame="scene_world", meters_per_unit=1, up_axis="Z")
     if result["admitted"]:
+        rows = {row["id"]: row for row in data["nodes"]}
+        result["route_level_ids"] = [rows[node_id].get("level_id") for node_id in result["topology_node_ids"]]
+        result["route_headings_rad"] = [rows[node_id].get("heading_rad") for node_id in result["topology_node_ids"]]
+        result["already_at_target"] = False
         result["skill_parameters"] = {"origin_ref": start, "route_graph_digest": result["route_graph_digest"]}
-        if result.get("target_heading_rad") is not None:
+        if result.get("target_heading_rad") is not None and profile.supports_final_heading:
             result["skill_parameters"]["target_yaw"] = result["target_heading_rad"]
             # The declared origin supplies no measured robot orientation.
             # Only the execution provider may certify heading arrival.

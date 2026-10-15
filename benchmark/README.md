@@ -24,9 +24,9 @@ Current modules are deliberately flat:
 - `evidence.py`: branch-local evidence records and hash-chained ledger.
 - `emos.py`: EMOS assignment-only adapter; deterministic EMOS fallback by
   default, native policy callback by explicit injection.
-- `eai_adapter.py`: dependency-light bridge from `SimulatorSession` to a
-  command-driven navigation skill, neutral controller actions and bounded
-  environment stepping. It reports execution feedback only.
+- `eai_adapter.py`: dependency-light bridge from `SimulatorSession` to the
+  common topology-bound `NavigationExecutor`, registered controller adapters,
+  neutral actions and bounded host stepping. It reports execution feedback only.
 - `p2.py`: external-observation P2 evaluator for precedence, release, handoff
   and accept milestones, including receipt ordering and stable windows.
 - `replay.py`: checkpoint/sham/paired-branch protocol gates. It consumes the
@@ -77,8 +77,8 @@ Current modules are deliberately flat:
 
 The current vertical slice remains explicit about its execution boundary:
 `RuntimeTaskBinding.from_session(...)` snapshots a live session roster and
-controller metadata; `EaiSessionRuntime`/`EaiTaskExecutor` can drive a real
-session through its public `set_command`/`env.step` surface; and
+controller metadata; `EaiSessionRuntime`/`NavigationTaskExecutor` drive a real
+session through its bound common navigation executor and `env.step` surface; and
 `P2MilestoneEvaluator` is the only component allowed to produce a physical
 terminal verdict. A strict paired claim is admitted only after all four branch
 roles share one checkpoint digest, the backend reports `causal_replay`, and
@@ -180,7 +180,7 @@ Fleet membership changes are scoped to the registered session. A local exit mark
 
 Transport receipts distinguish queued, delayed, delivered and dropped messages. Assignment execution is admitted only after the assignment message is consumed by its intended robot. Delay, TTL, bandwidth, seeded loss and link outages are represented in logical ticks; this accounting is not a wire protocol or physical communication-cost qualification.
 
-The sequential runtime and the opt-in `run_orchestrated` entrypoint share one clock, ledger and assignment admission path. A predecessor releases a successor only after explicit dependency completion evidence. Replanning and live world observations are injected through adapter contracts; no second scheduler is introduced. The default EAI adapter applies controller commands but does not infer a physical outcome. To release a controller lease, callers must register `EaiTaskExecutor(..., quiescence_adapter=...)`; the adapter must stop/read back the registered controller and return `{"quiescent": True, "evidence_hash": "..."}`. Without this measured seam the runtime quarantines the lease.
+The sequential runtime and the opt-in `run_orchestrated` entrypoint share one clock, ledger and assignment admission path. A predecessor releases a successor only after explicit dependency completion evidence. Replanning and live world observations are injected through adapter contracts; no second scheduler is introduced. Default navigation requires `session.navigation_executor` with a bound topology and registered controller adapter. A native adapter command sink also exposes its current external action rows through `session.navigation_actions` (a mapping or zero-argument callback); these rows override the neutral baseline for the shared host tick. The benchmark drives dispatch, prepare, host tick and after-step without interpreting controller command types, and releases the fleet lease only after the common executor reports a non-quarantined, measured stopped-and-settled state.
 
 Dynamic availability events are monotonic and idempotent. Their operation callback must return matching event/robot/function/tick/dependency identities, an evidence hash, guard verification and world-preservation evidence. Partial operations request a global safe stop. The schedule snapshot is for audit only and is explicitly not strict replay qualification.
 

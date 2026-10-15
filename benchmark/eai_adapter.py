@@ -3,19 +3,31 @@
 The module intentionally avoids importing Isaac, Torch or ROS at import time.
 It can therefore be tested with fakes, while a real ``SimulatorSession`` is
 accepted at runtime.  The adapter applies controller commands and advances the
-environment; it never labels an assignment as physically successful.
+environment through the common navigation executor; it never labels an
+assignment as physically successful.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import math
 from typing import Any, Callable, Mapping, Sequence
 
 from algorithm.common_coordination.contract import Assignment, ExecutionFeedback, FailureCode
-from algorithm.skills.contracts import SkillCommand, SkillPlan, SkillRequest
-from algorithm.skills.simulator_schema import SimulatorSchemaError, validate_simulator_skill_request
-from algorithm.skills.navigation.aerial_navigation import digest
+from algorithm.skills.contracts import SkillContractError, SkillPlan, SkillRequest
+from algorithm.skills.navigation.node_route import NODE_ROUTE_SKILL_ID
+from task.executors.navigation import NavigationExecutor
+from task.resources import ResourceBusyError
+import hashlib
+import json
+
+
+def _digest(value: Any) -> str:
+    """Hash benchmark metadata without depending on a legacy navigation module."""
+
+    payload = json.dumps(value, sort_keys=True, separators=(",", ":"),
+                         allow_nan=False, default=str).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
 
 
 def _as_vector(value: Any) -> list[float] | None:
@@ -62,97 +74,91 @@ def _batch_value(value: Any, num_envs: int) -> Any:
     return value
 
 
-class CommandNavigationSkillAdapter:
-    """Translate one navigation request into an executor-facing goal command."""
+class NavigationSkillAdapter:
+    """Plan benchmark navigation through the shared topology-bound executor."""
 
-    skill_id = "eai.navigation.goal_position"
+    skill_id = NODE_ROUTE_SKILL_ID
 
-    def __init__(self, *, skill_id: str | None = None, command_type: str = "goal_position") -> None:
-        self.skill_id = str(skill_id or self.skill_id)
-        self.command_type = str(command_type)
+    def __init__(self, executor: NavigationExecutor) -> None:
+        if not isinstance(executor, NavigationExecutor):
+            raise TypeError("NavigationSkillAdapter requires NavigationExecutor")
+        self.executor = executor
+        self._requests: dict[str, SkillRequest] = {}
+        self._plan_digests: dict[str, str] = {}
 
     def plan(self, request: SkillRequest, *, observation: Mapping[str, Any] | None = None) -> SkillPlan:
-        if request.skill_id != self.skill_id:
-            return SkillPlan(
-                request_id=request.request_id,
-                skill_id=request.skill_id,
-                robot_id=request.robot_id,
-                status="unsupported_skill",
-                metadata={"expected_skill_id": self.skill_id},
-            )
+        del observation  # The registered adapter supplies the authoritative pose/sequence.
         try:
-            schema = validate_simulator_skill_request(request)
-        except SimulatorSchemaError as exc:
+            plan = self.executor.plan(request)
+        except (SkillContractError, TypeError, ValueError) as exc:
             return SkillPlan(
-                request_id=request.request_id,
-                skill_id=request.skill_id,
-                robot_id=request.robot_id,
+                request.request_id, request.skill_id, request.robot_id,
                 status="invalid_request",
-                metadata={
-                    "schema_version": "simulator.skill.v1",
-                    "reason": str(exc),
-                },
+                metadata={"reason": str(exc), "provider_id": "node_route.provider"},
             )
-        payload = dict(request.parameters)
-        if request.target_pose is not None:
-            payload.setdefault("target_pose", list(request.target_pose))
-        if request.target_ref is not None:
-            payload.setdefault("target_ref", request.target_ref)
-        horizon = payload.get("horizon_ticks")
-        if horizon is not None:
-            try:
-                if int(horizon) <= 0:
-                    raise ValueError
-                payload["horizon_ticks"] = int(horizon)
-            except (TypeError, ValueError):
-                return SkillPlan(
-                    request_id=request.request_id,
-                    skill_id=request.skill_id,
-                    robot_id=request.robot_id,
-                    status="invalid_request",
-                    metadata={"reason": "horizon_ticks must be positive"},
-                )
-        return SkillPlan(
-            request_id=request.request_id,
-            skill_id=request.skill_id,
-            robot_id=request.robot_id,
-            commands=(SkillCommand(self.command_type, payload),),
-            metadata={
-                "provider": "benchmark.eai_adapter.CommandNavigationSkillAdapter",
-                "provider_id": "benchmark.command_navigation", "provider_version": "1.1",
-                "request_digest": digest(request.to_mapping()),
-                "observation_digest": digest(observation) if observation is not None else None,
-                "task_id": request.task_id, "branch_context": request.branch_context,
-                "expected_external_outcome": "measured target pose arrival",
-                "schema_version": schema.version,
-                "command_route": schema.commands[0].route if schema.commands else "",
-            },
-        )
+        self._requests[request.request_id] = SkillRequest.from_mapping(request.to_mapping())
+        self._plan_digests[request.request_id] = _digest(plan.to_mapping())
+        return plan
+
+    def request_for(self, plan: SkillPlan) -> SkillRequest:
+        try:
+            request = self._requests[plan.request_id]
+        except KeyError as exc:
+            raise SkillContractError("navigation plan was not produced by this adapter") from exc
+        if (plan.skill_id, plan.robot_id) != (request.skill_id, request.robot_id):
+            raise SkillContractError("navigation plan identity differs from request")
+        if _digest(plan.to_mapping()) != self._plan_digests[plan.request_id]:
+            raise SkillContractError("navigation plan differs from provider output")
+        return SkillRequest.from_mapping(request.to_mapping())
 
 
 def navigation_request_factory(assignment: Assignment, task: Any, *, request_id: str) -> SkillRequest:
     """Build the concrete navigation request for a task graph assignment.
 
-    Task contracts may carry a numeric ``target_pose`` or a symbolic
-    ``target_ref``.  The latter is resolved by ``EaiTaskExecutor`` through its
-    explicit target resolver, keeping map/scene lookup outside the task graph.
+    Task contracts must carry a symbolic ``target_ref``.  The topology-bound
+    Provider resolves it; benchmark task metadata never contains a coordinate
+    goal.
     """
 
     metadata = dict(getattr(task, "metadata", {}) or {})
-    pose = metadata.get("target_pose")
-    if pose is None:
-        pose = metadata.get("goal_pose")
+    target_ref = getattr(task, "target_ref", None) or metadata.get("target_ref")
+    if not isinstance(target_ref, str) or not target_ref.strip():
+        raise ValueError("navigation task requires target_ref")
+    if metadata.get("target_pose") is not None or metadata.get("goal_pose") is not None:
+        raise ValueError("node-route tasks cannot contain target_pose")
     parameters = dict(metadata.get("skill_parameters", {}) or {})
-    if "horizon_ticks" in metadata:
-        parameters.setdefault("horizon_ticks", metadata["horizon_ticks"])
+    if "horizon_ticks" in metadata or "horizon_ticks" in parameters:
+        raise ValueError("node-route tasks cannot contain horizon_ticks")
+    skill_id = str(metadata.get("skill_id", NODE_ROUTE_SKILL_ID))
+    if skill_id != NODE_ROUTE_SKILL_ID:
+        raise ValueError(f"unsupported navigation skill id: {skill_id}")
+    parameters.setdefault("world_state_seq", 0)
+    parameters.setdefault("intent", "start")
     return SkillRequest(
         request_id=request_id,
-        skill_id=str(metadata.get("skill_id", "eai.navigation.goal_position")),
+        skill_id=NODE_ROUTE_SKILL_ID,
         robot_id=assignment.robot_id,
-        target_ref=getattr(task, "target_ref", None),
-        target_pose=tuple(pose) if pose is not None else None,
+        target_ref=target_ref,
+        task_id=assignment.task_id,
         parameters=parameters,
     )
+
+
+def bind_navigation_request_factory(
+    executor: NavigationExecutor,
+    factory: Callable[..., SkillRequest] = navigation_request_factory,
+) -> Callable[..., SkillRequest]:
+    """Bind request snapshots to each registered adapter's current sequence."""
+
+    def bound(assignment: Assignment, task: Any, *, request_id: str) -> SkillRequest:
+        request = factory(assignment, task, request_id=request_id)
+        observation = executor.adapter_for(request.robot_id).observe()
+        sequence = getattr(observation, "world_state_seq", None)
+        if type(sequence) is not int or sequence < 0:
+            raise SkillContractError("navigation adapter returned an invalid world_state_seq")
+        return replace(request, parameters={**request.parameters, "world_state_seq": sequence})
+
+    return bound
 
 
 @dataclass(frozen=True)
@@ -167,9 +173,9 @@ class EaiSessionRuntime:
         env = getattr(self.session, "env", None)
         if env is None or not callable(getattr(env, "step", None)):
             raise RuntimeError("session.env.step is unavailable")
-        # MultiRobotDirectEnv expects an action entry for every active agent;
-        # command-driven controllers read their actual goal from
-        # ``base_env.set_command`` while receiving a neutral action tensor.
+        # MultiRobotDirectEnv expects an action entry for every active agent.
+        # Registered adapter sinks may replace individual neutral rows through
+        # ``session.navigation_actions`` at the task-executor boundary.
         merged = dict(self.neutral_actions())
         merged.update(dict(actions))
         return env.step(merged)
@@ -259,275 +265,138 @@ class EaiSessionRuntime:
         return None
 
 
-class EaiTaskExecutor:
-    """Apply ``SkillPlan`` commands through ``base_env.set_command`` and ticks.
+class NavigationTaskExecutor:
+    """Drive the shared navigation executor through benchmark host ticks."""
 
-    Command application is deliberately separate from controller release.  A
-    live integration may inject ``quiescence_adapter`` to stop the registered
-    controller and return measured readback evidence.  Without that adapter
-    the feedback remains ``command_applied`` without quiescence evidence, so
-    the benchmark runtime quarantines the lease instead of claiming a safe
-    release.
-    """
-
-    def __init__(
-        self,
-        session: Any | None = None,
-        *,
-        max_steps: int = 1,
-        command_name: str | None = None,
-        target_resolver: Callable[[str], Sequence[float]] | None = None,
-        tensor_factory: Callable[[Sequence[float], str], Any] | None = None,
-        quiescence_adapter: Callable[..., Mapping[str, Any]] | None = None,
-    ) -> None:
-        if max_steps <= 0:
-            raise ValueError("max_steps must be positive")
-        self.session = session
-        self.max_steps = int(max_steps)
-        self.command_name = command_name
-        self.target_resolver = target_resolver
+    def __init__(self, skill: NavigationSkillAdapter, *, max_steps: int = 1,
+                 stop_steps: int = 8,
+                 tensor_factory: Callable[[Sequence[float], str], Any] | None = None,
+                 host_actions: Callable[[], Mapping[str, Any]] | Mapping[str, Any] | None = None) -> None:
+        if not isinstance(skill, NavigationSkillAdapter):
+            raise TypeError("NavigationTaskExecutor requires NavigationSkillAdapter")
+        if type(max_steps) is not int or max_steps <= 0:
+            raise ValueError("max_steps must be a positive integer")
+        if type(stop_steps) is not int or stop_steps <= 0:
+            raise ValueError("stop_steps must be a positive integer")
+        self.skill = skill
+        self.navigation = skill.executor
+        self.max_steps = max_steps
+        self.stop_steps = stop_steps
         self.tensor_factory = tensor_factory
-        self.quiescence_adapter = quiescence_adapter
+        self.host_actions = host_actions
 
-    def execute(
-        self,
-        assignment: Assignment,
-        task: Any,
-        *,
-        scene: Any,
-        plan: SkillPlan,
-        step: Callable[[Mapping[str, Any]], Any],
-    ) -> ExecutionFeedback:
-        try:
-            session = self._resolve_session(scene)
-        except Exception as exc:
-            return self._failure(assignment, str(exc), FailureCode.EXECUTION_FAILURE)
-        base_env = getattr(session, "base_env", None)
-        if base_env is None:
-            return self._failure(assignment, "session.base_env is unavailable", FailureCode.EXECUTION_FAILURE)
-        if plan.status not in {"planned", "ready"}:
-            return self._failure(assignment, f"skill plan status is {plan.status}", FailureCode.INVALID_PLAN)
-        if not plan.commands:
-            return self._failure(assignment, "skill plan has no commands", FailureCode.INVALID_PLAN)
+    def _host_actions(self, scene: Any) -> Mapping[str, Any]:
+        source = self.host_actions
+        if source is None:
+            source = getattr(scene, "navigation_actions", None)
+        value = source() if callable(source) else source
+        if value is None:
+            return {}
+        if not isinstance(value, Mapping):
+            raise TypeError("navigation host actions must be a mapping")
+        return dict(value)
+
+    def execute(self, assignment: Assignment, task: Any, *, scene: Any,
+                plan: SkillPlan, step: Callable[[Mapping[str, Any]], Any]) -> ExecutionFeedback:
+        del task
+        if plan.status not in {"planned", "completed"}:
+            return self._failure(assignment, plan.metadata.get("reason", f"skill plan status is {plan.status}"),
+                                 FailureCode.INVALID_PLAN)
         if plan.robot_id != assignment.robot_id:
             return self._failure(assignment, "plan robot differs from assignment", FailureCode.INVALID_PLAN)
-        set_command = getattr(base_env, "set_command", None)
-        if not callable(set_command):
-            return self._failure(assignment, "base_env.set_command is unavailable", FailureCode.EXECUTION_FAILURE)
+        try:
+            request = self.skill.request_for(plan)
+            if request.task_id is not None and request.task_id != assignment.task_id:
+                raise SkillContractError("navigation request task differs from assignment")
+            response = self.navigation.dispatch(request)
+        except ResourceBusyError as exc:
+            return self._failure(assignment, str(exc), FailureCode.EXECUTION_FAILURE)
+        except (SkillContractError, TypeError, ValueError) as exc:
+            return self._failure(assignment, str(exc), FailureCode.INVALID_PLAN)
 
-        total_steps = 0
+        key = str(response.state["task_id"])
+        ticks = 0
         last_time = 0.0
         try:
-            # Validate the whole plan before any controller write. In particular,
-            # an unsupported final yaw must not partially execute its XYZ goal.
-            prepared = []
-            for command in plan.commands:
-                command_name, value = self._encode_command(command, assignment.robot_id, task, session)
-                horizon = self._horizon(command, task)
-                yaw = command.payload.get("target_yaw")
-                yaw_name = None
-                if yaw is not None:
-                    yaw_name = self._yaw_command(session, assignment.robot_id)
-                    if command.command_type != "goal_position" or not yaw_name:
-                        raise _UnsupportedCommand("target_yaw requires an explicitly configured yaw_command_name")
-                    if isinstance(yaw, bool) or not isinstance(yaw, (float, int)) or not math.isfinite(yaw):
-                        raise _UnsupportedCommand("target_yaw must be finite radians")
-                prepared.append((command, command_name, value, horizon, yaw_name, yaw))
-            if sum(item[3] for item in prepared) > self.max_steps:
-                raise _UnsupportedCommand(f"plan exceeds total step budget {self.max_steps}")
-            for command, command_name, value, horizon, yaw_name, yaw in prepared:
-                encoded = None
-                if command.command_type != "noop":
-                    encoded = self._to_tensor(
-                        value,
-                        str(getattr(session, "device", "cpu")),
-                        int(getattr(session, "num_envs", 1) or 1),
+            while ticks < self.max_steps + self.stop_steps:
+                terminal = response.state["status"] != "pending"
+                if terminal and not self.navigation.needs_host_tick(key):
+                    break
+                if not self.navigation.needs_host_tick(key):
+                    if ticks >= self.max_steps:
+                        response = self.navigation.cancel(key, "benchmark navigation tick budget exhausted")
+                        break
+                    intent = "start" if ticks == 0 else "continue"
+                    request = replace(
+                        request,
+                        parameters={**request.parameters, "intent": intent,
+                                    "world_state_seq": response.state["world_state_seq"]},
                     )
-                if command.command_type in {"velocity", "command", "rotor_velocity"}:
-                    # These are controller action vectors.  MultiRobotDirectEnv
-                    # feeds the value through compute_action_from_command;
-                    # writing it only to command storage would be ignored by
-                    # the action loop and silently produce a neutral command.
-                    step_actions = {assignment.robot_id: encoded}
-                else:
-                    step_actions = self._neutral_actions(session)
-                if command.command_type != "noop" and command.command_type not in {"velocity", "command", "rotor_velocity"}:
-                    if yaw_name is not None:
-                        set_command(assignment.robot_id, yaw_name, self._to_tensor(
-                            [yaw], str(getattr(session, "device", "cpu")), int(getattr(session, "num_envs", 1) or 1)))
-                    set_command(assignment.robot_id, command_name, encoded)
-                for _ in range(horizon):
-                    # Pass a neutral action entry for every active agent.  The
-                    # MultiRobotDirectEnv controller loop only computes and
-                    # applies actions for agents present in this mapping;
-                    # ``set_command`` alone is not enough to advance a real
-                    # controller.
-                    boundary = step(step_actions)
-                    total_steps += 1
-                    last_time = float(getattr(boundary, "sim_time_s", last_time))
-        except _UnsupportedCommand as exc:
-            return self._failure(assignment, str(exc), FailureCode.INVALID_PLAN)
-        except Exception as exc:  # controller/runtime failures remain evidence, not success
-            return self._failure(assignment, f"controller execution failed: {exc}", FailureCode.EXECUTION_FAILURE)
-        world_changes: dict[str, Any] = {"commands_applied": len(plan.commands), "steps": total_steps}
-        if self.quiescence_adapter is not None:
+                    response = self.navigation.prepare(request)
+                    if not self.navigation.needs_host_tick(key):
+                        continue
+                actions = EaiSessionRuntime(scene, tensor_factory=self.tensor_factory).neutral_actions()
+                actions.update(self._host_actions(scene))
+                boundary = step(actions)
+                ticks += 1
+                last_time = float(getattr(boundary, "sim_time_s", last_time))
+                response = self.navigation.after_step(key)
+                if ticks >= self.max_steps and response.state["status"] == "pending":
+                    response = self.navigation.cancel(key, "benchmark navigation tick budget exhausted")
+                    break
+            else:
+                response = self.navigation.cancel(key, "benchmark navigation stop tick budget exhausted")
+        except Exception as exc:
             try:
-                receipt = self.quiescence_adapter(
-                    assignment=assignment,
-                    task=task,
-                    session=session,
-                    commands_applied=len(plan.commands),
-                    steps=total_steps,
-                )
-                if not isinstance(receipt, Mapping):
-                    raise TypeError("quiescence_adapter must return a mapping")
-                if receipt.get("quiescent") is not True or not str(receipt.get("evidence_hash", "")).strip():
-                    raise ValueError("quiescence_adapter must return quiescent=True and evidence_hash")
-                world_changes.update({
-                    "quiescent": True,
-                    "quiescence_evidence_hash": str(receipt["evidence_hash"]),
-                })
-            except Exception as exc:
-                return self._failure(
-                    assignment,
-                    f"controller quiescence readback failed: {exc}",
-                    FailureCode.EXECUTION_FAILURE,
-                )
+                response = self.navigation.cancel(key, f"benchmark navigation failed: {exc}")
+            except Exception:
+                pass
+            return self._failure(assignment, f"navigation execution failed: {exc}", FailureCode.EXECUTION_FAILURE)
+
+        evidence = dict(response.private_evidence)
+        controller = dict(evidence.get("controller_feedback", {}) or {})
+        quiescent = (
+            response.state.get("stop_confirmed") is True
+            and response.state.get("quarantined") is False
+            and controller.get("stopped") is True
+            and controller.get("settled") is True
+        )
+        completed = response.state["status"] == "completed" and quiescent
+        world_changes: dict[str, Any] = {
+            "steps": ticks,
+            "navigation_status": response.state["status"],
+            "route_graph_digest": response.state.get("route_graph_digest"),
+        }
+        if quiescent:
+            world_changes.update({
+                "quiescent": True,
+                "quiescence_evidence_hash": _digest({
+                    "request_id": request.request_id,
+                    "controller_feedback": controller,
+                    "execution_samples": evidence.get("execution_samples", ()),
+                }),
+            })
         return ExecutionFeedback(
-            task_id=assignment.task_id,
-            robot_id=assignment.robot_id,
-            outcome="command_applied",
-            failure_code=FailureCode.NONE,
-            message="command applied; physical outcome requires external evaluator",
+            assignment.task_id, assignment.robot_id,
+            outcome="command_applied" if completed else "execution_failed",
+            failure_code=FailureCode.NONE if completed else FailureCode.EXECUTION_FAILURE,
+            message=("navigation completed; physical outcome requires external evaluator"
+                     if completed else f"navigation ended with status {response.state['status']}"),
             timestamp_s=last_time,
             world_changes=world_changes,
         )
 
-    def _resolve_session(self, scene: Any) -> Any:
-        if scene is not None and hasattr(scene, "base_env") and hasattr(scene, "env"):
-            return scene
-        if self.session is not None:
-            return self.session
-        raise RuntimeError("an EAI SimulatorSession is required")
-
-    def _horizon(self, command: SkillCommand, task: Any) -> int:
-        value = command.payload.get("horizon_ticks")
-        if value is None:
-            metadata = getattr(task, "metadata", {}) or {}
-            value = metadata.get("horizon_ticks", self.max_steps)
-        try:
-            horizon = int(value)
-        except (TypeError, ValueError) as exc:
-            raise _UnsupportedCommand("horizon_ticks must be an integer") from exc
-        if horizon <= 0 or horizon > self.max_steps:
-            raise _UnsupportedCommand(f"horizon_ticks must be in [1, {self.max_steps}]")
-        return horizon
-
-    def _encode_command(self, command: SkillCommand, robot_id: str, task: Any, session: Any) -> tuple[str, list[float] | None]:
-        if command.command_type == "noop":
-            return "", None
-        payload = dict(command.payload)
-        configured = payload.get("command_name") or self.command_name or self._configured_command(session, robot_id)
-        if command.command_type == "rotor_velocity":
-            configured = configured or "rotor_velocity"
-        elif not configured:
-            raise _UnsupportedCommand(f"no controller command is configured for {robot_id}")
-        if command.command_type in {"goal_position", "goal_pose", "position"}:
-            if payload.get("frame", "world") != "world":
-                raise _UnsupportedCommand("goal position requires world frame")
-            value = payload.get("target_pose", payload.get("position", payload.get("goal_position")))
-            if value is None and payload.get("target_ref") and self.target_resolver is not None:
-                value = self.target_resolver(str(payload["target_ref"]))
-            if value is None:
-                raise _UnsupportedCommand("goal command requires target_pose or a target_resolver")
-        elif command.command_type in {"velocity", "command", "rotor_velocity"}:
-            value = payload.get("value", payload.get("velocity", payload.get("rotor_velocity")))
-        else:
-            raise _UnsupportedCommand(f"unsupported command_type: {command.command_type}")
-        vector = _as_vector(value)
-        if vector is None:
-            raise _UnsupportedCommand("controller payload must be a finite numeric vector")
-        if command.command_type in {"goal_position", "goal_pose", "position", "velocity"} and len(vector) != 3:
-            raise _UnsupportedCommand("position/velocity requires three components")
-        if command.command_type == "rotor_velocity":
-            cfg = getattr(getattr(session, "env_cfg", None), "controllers", {}).get(robot_id)
-            cfg = cfg[0] if isinstance(cfg, (tuple, list)) and cfg else cfg
-            dim = cfg.get("action_dim") if isinstance(cfg, Mapping) else getattr(cfg, "action_dim", None)
-            mode = cfg.get("control_mode") if isinstance(cfg, Mapping) else getattr(cfg, "control_mode", None)
-            if mode != "rotor_velocity" or type(dim) is not int or dim != len(vector):
-                raise _UnsupportedCommand("rotor_velocity requires matching controller mode and action_dim")
-        return str(configured), vector
-
-    @staticmethod
-    def _yaw_command(session: Any, robot_id: str) -> str | None:
-        entry = getattr(getattr(session, "env_cfg", None), "controllers", {}).get(robot_id)
-        configs = entry if isinstance(entry, (tuple, list)) else (entry,)
-        for config in configs:
-            name = config.get("yaw_command_name") if isinstance(config, Mapping) else getattr(config, "yaw_command_name", None)
-            if isinstance(name, str) and name.strip():
-                return name
-        return None
-
-    @staticmethod
-    def _configured_command(session: Any, robot_id: str) -> str | None:
-        env_cfg = getattr(session, "env_cfg", None)
-        controllers = getattr(env_cfg, "controllers", {}) or {}
-        entry = controllers.get(robot_id) if hasattr(controllers, "get") else None
-        configs = entry if isinstance(entry, (tuple, list)) else ((entry,) if entry is not None else ())
-        for config in configs:
-            for key in ("command_name", "position_command_name", "goal_position_command", "command"):
-                value = getattr(config, key, None)
-                if value is None and isinstance(config, Mapping):
-                    value = config.get(key)
-                if str(value or "").strip():
-                    return str(value).strip()
-            names = getattr(config, "command_names", None)
-            if names is None and isinstance(config, Mapping):
-                names = config.get("command_names")
-            if isinstance(names, (tuple, list)) and names:
-                return str(names[0])
-        return None
-
-    def _to_tensor(self, values: Sequence[float], device: str, num_envs: int = 1) -> Any:
-        if self.tensor_factory is not None:
-            return _batch_value(self.tensor_factory(values, device), max(1, num_envs))
-        try:
-            import torch
-
-            return torch.tensor([list(values)] * max(1, num_envs), dtype=torch.float32, device=device)
-        except (ImportError, RuntimeError, TypeError):
-            return [list(values) for _ in range(max(1, num_envs))]
-
-    def _neutral_actions(self, session: Any) -> Mapping[str, Any]:
-        return EaiSessionRuntime(
-            session,
-            tensor_factory=self.tensor_factory,
-        ).neutral_actions()
-
     @staticmethod
     def _failure(assignment: Assignment, message: str, code: FailureCode) -> ExecutionFeedback:
-        return ExecutionFeedback(
-            task_id=assignment.task_id,
-            robot_id=assignment.robot_id,
-            outcome="execution_failed",
-            failure_code=code,
-            message=message,
-        )
-
-
-class _UnsupportedCommand(RuntimeError):
-    pass
-
-
-NavigationSkillAdapter = CommandNavigationSkillAdapter
-IsaacTaskExecutor = EaiTaskExecutor
+        return ExecutionFeedback(assignment.task_id, assignment.robot_id,
+                                 outcome="execution_failed", failure_code=code,
+                                 message=str(message))
 
 
 __all__ = [
-    "CommandNavigationSkillAdapter",
     "EaiSessionRuntime",
-    "EaiTaskExecutor",
-    "IsaacTaskExecutor",
     "NavigationSkillAdapter",
+    "NavigationTaskExecutor",
+    "bind_navigation_request_factory",
     "navigation_request_factory",
 ]

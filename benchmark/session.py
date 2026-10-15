@@ -14,9 +14,10 @@ from task.contracts import EaiTaskPackage
 
 from .adapters import DecisionProvider, EvidenceEvaluator, SkillAdapter, SkillRequestFactory, TaskExecutor
 from .eai_adapter import (
-    CommandNavigationSkillAdapter,
     EaiSessionRuntime,
-    EaiTaskExecutor,
+    NavigationSkillAdapter,
+    NavigationTaskExecutor,
+    bind_navigation_request_factory,
     navigation_request_factory,
 )
 from .fleet import FleetRuntime
@@ -53,9 +54,10 @@ def run_session_episode(
 ) -> EpisodeResult:
     """Run one sequential episode against an existing ``SimulatorSession``.
 
-    The default skill/executor pair supports command-driven navigation.  A
-    caller can inject a different skill, executor, request factory or
-    observation provider while retaining the same runtime and ledger seams.
+    The default pair uses ``session.navigation_executor``, which must be a
+    topology-bound common ``NavigationExecutor`` with a registered adapter.
+    A caller can inject a different skill and executor pair while retaining
+    the same runtime and ledger seams.
     ``evaluator`` remains explicit because a missing evaluator must produce
     ``N/A`` rather than an inferred physical result.
     """
@@ -72,8 +74,22 @@ def run_session_episode(
     # share one tamper-evident branch ledger.
     runner = EpisodeRunner(runtime, run_key=run_key, fleet=FleetRuntime(run_key, transport_options=transport_options),
                            event_scheduler=event_scheduler, assignment_wait_ticks=assignment_wait_ticks)
-    effective_skill = skill or CommandNavigationSkillAdapter()
-    effective_executor = executor or EaiTaskExecutor(session, max_steps=max_steps)
+    if (skill is None) != (executor is None):
+        raise ValueError("skill and executor must be supplied together")
+    if skill is None:
+        navigation = getattr(session, "navigation_executor", None)
+        if navigation is None:
+            raise ValueError(
+                "default benchmark navigation requires session.navigation_executor "
+                "with bound topology and a registered controller adapter"
+            )
+        effective_skill = NavigationSkillAdapter(navigation)
+        effective_executor = NavigationTaskExecutor(effective_skill, max_steps=max_steps)
+        effective_request_factory = bind_navigation_request_factory(navigation, request_factory)
+    else:
+        effective_skill = skill
+        effective_executor = executor
+        effective_request_factory = request_factory
     run = runner.run_orchestrated if orchestrated else runner.run
     options = ({"replan": replan, "world_observation_provider": world_observation_provider,
                 "limits": orchestration_limits, "dependency_resolver": dependency_resolver}
@@ -81,7 +97,7 @@ def run_session_episode(
     result = run(
         binding,
         decision_provider=decision_provider,
-        request_factory=request_factory,
+        request_factory=effective_request_factory,
         skill=effective_skill,
         executor=effective_executor,
         evaluator=evaluator,

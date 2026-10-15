@@ -183,7 +183,7 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
 2. Run the dependency-free contract tests.
 3. Validate one saved EAI environment with a single Isaac Sim smoke test using
    `benchmark.session.run_session_episode(...)`, `RuntimeTaskBinding`,
-   `EaiTaskExecutor`, and an external evaluator.
+   `NavigationTaskExecutor`, and an external evaluator.
 4. Connect one Fire Rescue task end to end through the existing EMOS
    assignment adapter.
 5. Run the four checkpoint branches through

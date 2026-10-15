@@ -18,9 +18,8 @@ def main(argv=None):
     parser.add_argument("--destination")
     parser.add_argument("--origin-level")
     parser.add_argument("--destination-level")
-    parser.add_argument("--capability", action="append", default=None,
-                        help="Repeat for actual controller capabilities (default: walk)")
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--metric", choices=("xy", "xyz"), default="xy", help="Explicit planning distance metric")
     args = parser.parse_args(argv)
     if not args.list_landmarks and (not args.origin or not args.destination):
         parser.error("route export requires --origin and --destination")
@@ -33,10 +32,10 @@ def main(argv=None):
         if args.list_landmarks:
             result = {"landmarks": landmark_inventory(document)}
         else:
-            result = resolve_landmark_route(document, origin_ref=args.origin,
+            from algorithm.skills.navigation import NavigationProfile
+            result = resolve_landmark_route(document, profile=NavigationProfile(args.metric, supports_final_heading=args.metric == "xy"), origin_ref=args.origin,
                 destination_ref=args.destination, origin_level_id=args.origin_level,
-                destination_level_id=args.destination_level,
-                controller_capabilities=args.capability or ("walk",))
+                destination_level_id=args.destination_level)
     except (OSError, ValueError) as exc:
         parser.error(str(exc))
     payload = json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False) + "\n"

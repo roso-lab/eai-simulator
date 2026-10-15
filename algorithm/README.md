@@ -77,7 +77,7 @@ providers are classified in `algorithm/skills/registry.py`:
 
 | Skill provider | Planned provider path | Role |
 |---|---|---|
-| node/PID ground navigation | `algorithm/skills/navigation/ground_navigation.py` | authored-node routing and body velocity; implemented generic executor |
+| unified node navigation | `algorithm/skills/navigation/node_route.py` | target references, XY/XYZ routing; controller adapters via shared executor |
 | global 2D navigation | `algorithm/skills/navigation/global_planner/` | path and velocity generation |
 | db-CBS navigation | `algorithm/skills/navigation/multi_robot_navigation/` | multi-robot trajectory and collision avoidance |
 | Nav2 | `algorithm/skills/external_io/nav2/` | system-ROS goal/transport path |

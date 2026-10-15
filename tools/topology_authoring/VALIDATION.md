@@ -47,7 +47,7 @@ and temporary task are diagnostics, not reusable benchmark scenarios.
    that the empty document has a fresh history and a rebound overlay, then
    reload the saved draft. Inspect the actual rendered screenshots.
 3. Freeze the generated product digest, load that same product with the
-   adapter, and inject it into `GroundNavigationExecutor`. Open one EAI plane
+   adapter, and inject it into `NavigationExecutor`. Open one EAI plane
    session through `open_simulator_session`, using the Carter differential
    controller and CUDA physics. Read actual root poses and apply commands
    through `env.step`; do not teleport or replace the controller.

@@ -56,7 +56,7 @@ def draw_overlay(stage, document, *, active_level_id=None, route_points_m=(),
                       for n in document.nodes if n["id"] in node_ids],
             "edges": [dict(id=e["id"], points=e["polyline_xyz"], directed=e.get("directed", False),
                            locked=e.get("locked_geometry", False),
-                           traversal_mode=e.get("traversal_mode", "walk"))
+                           kind=e.get("kind", "custom_connection"))
                       for e in visible_edges(document, active_level_id)],
             "pending_node": getattr(document.pending_node, "position_xyz", None),
             "node_headings_rad": {n["id"]: n.get("heading_rad") for n in document.nodes
@@ -145,11 +145,8 @@ class TopologyOverlay:
                     f"{OVERLAY_ROOT}/Headings/H{i:05d}",
                     node["position_xyz"], node["heading_rad"], color,
                 )
-        traversal_colors = {"walk": (.08, .85, .18), "stairs": (.95, .55, .06),
-                            "ramp": (.12, .55, .95)}
         for i,edge in enumerate(visible_edges(self.document, self.active_level_id)):
-            color = ((.95, .06, .05) if edge["id"] == self.document.selected_edge_id
-                     else traversal_colors.get(edge.get("traversal_mode", "walk"), (.08, .85, .18)))
+            color = (.95, .06, .05) if edge["id"] == self.document.selected_edge_id else (.08, .85, .18)
             self._draw_edge(f"{OVERLAY_ROOT}/Edges/E{i:05d}",edge["polyline_xyz"],edge.get("directed",False),color)
         if self.document.pending_node:
             sphere=UsdGeom.Sphere.Define(self.stage,f"{OVERLAY_ROOT}/Preview/Node"); sphere.CreateRadiusAttr().Set(.075 if self.document.version == 2 else .5); sphere.AddTranslateOp().Set(Gf.Vec3d(*self.document.pending_node.position_xyz)); _set_color(sphere.GetPrim(),(.95,.06,.05))

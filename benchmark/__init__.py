@@ -25,11 +25,10 @@ from .protocol import (
 from .runtime import EpisodeResult, EpisodeRunner, ExecutionRecord, RuntimeTaskBinding, StepBoundary
 from .p2 import ExternalEvidenceEvaluator, P2MilestoneEvaluator, P2Observation
 from .eai_adapter import (
-    CommandNavigationSkillAdapter,
     EaiSessionRuntime,
-    EaiTaskExecutor,
-    IsaacTaskExecutor,
     NavigationSkillAdapter,
+    NavigationTaskExecutor,
+    bind_navigation_request_factory,
     navigation_request_factory,
 )
 from .replay import (
@@ -127,9 +126,7 @@ __all__ = [
     "RuntimeTaskBinding",
     "StepBoundary",
     "BranchExecutionStatus",
-    "CommandNavigationSkillAdapter",
     "EaiSessionRuntime",
-    "EaiTaskExecutor",
     "ExternalEvidenceEvaluator",
     "P2MilestoneEvaluator",
     "P2Observation",
@@ -144,8 +141,9 @@ __all__ = [
     "BranchExecutionResult",
     "BranchExecutionScheduler",
     "BranchResourceGate",
-    "IsaacTaskExecutor",
     "NavigationSkillAdapter",
+    "NavigationTaskExecutor",
+    "bind_navigation_request_factory",
     "navigation_request_factory",
     "open_and_run_session_episode",
     "run_session_episode",

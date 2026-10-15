@@ -30,13 +30,16 @@ assigned/unassigned 重叠、声明的 robot capability 和 feedback identity。
 ready 声明。历史 scenario-specific bridge 只是诊断适配器，不是当前通用运行时
 发布范围。
 
-## 地面导航 Skill
+## 统一节点导航 Skill
 
-`algorithm/skills/navigation/ground_navigation.py` 提供人工拓扑节点选路和航向
-PID Provider；`task/executors/ground_navigation.py` 在调用者线程读取真实位姿、
-发送底盘速度并负责超时、异常和终态停车。导航不依赖全局栅格、局部代价地图、
-DWA、OBB 或碰撞查询。接口、节点弯道表达规则和证据边界见
-`algorithm/skills/navigation/GROUND_NAVIGATION.zh-CN.md`。
+`algorithm/skills/navigation/node_route.py` 的 Provider 只接受 `target_ref`，绑定
+冻结拓扑并内部执行 Dijkstra，输出当前拓扑节点。地面 Profile 使用 XY，空中使用
+XYZ。`task/executors/navigation.py` 管理生命周期、lease、共享 host tick、序号、
+时间和安全停止；`navigation_backends.py` 的注册 Adapter 独立编译控制器命令。
+
+先对所有任务调用 `prepare()`，宿主统一推进一次物理 tick，再逐个调用
+`after_step()`。停止未确认时保留 quarantine。没有栅格、局部避障或运动模式筛选。
+接口见 `algorithm/skills/navigation/GROUND_NAVIGATION.zh-CN.md`。
 
 ## 最小验证
 

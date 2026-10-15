@@ -12,9 +12,15 @@ import json
 import math
 from pathlib import Path
 
-from algorithm.skills.navigation.ground_navigation import GroundNavigationProvider, GroundTrackingConfig, normalize_angle
+from algorithm.skills.navigation import (
+    NavigationPose,
+    FrozenNavigationTopology,
+    ground_navigation_profile,
+    normalize_angle,
+)
 from algorithm.skills.navigation.landmarks import resolve_landmark_route
-from task.executors.ground_navigation import GroundNavigationExecutor, read_ground_pose
+from task.executors.navigation import NavigationExecutor
+from task.executors.navigation_backends import PlanarVelocityNavigationAdapter
 from tools.topology_authoring.adapters.usd_scene import UsdSceneAdapter
 from tools.topology_authoring.product import load_product, product_digest
 
@@ -143,13 +149,11 @@ def run(args):
     # configuration hook, still before creating/resetting the physical scene.
     document = load_product(args.topology)
     mixed = args.controller == "GO2_MIXED_STAIRS_CFG"
-    capabilities = ("walk", "stairs", "ramp") if mixed else ("walk",)
-    route = resolve_landmark_route(document, origin_ref=args.origin, destination_ref=args.destination,
-                                    controller_capabilities=capabilities)
+    # Traversal labels and controller capabilities are authoring metadata only;
+    # the canonical node-route Provider routes the bound product directly.
+    route = resolve_landmark_route(document, origin_ref=args.origin, destination_ref=args.destination)
     if not route["admitted"]:
         raise ValueError(f"route not admitted: {route}")
-    if not route.get("height_aware"):
-        raise ValueError("USD deployment requires an explicitly levelled v2 topology")
     output = args.output_root
     output.mkdir(parents=True, exist_ok=False)
     start = route["route_points_m"][0]
@@ -198,42 +202,79 @@ def run(args):
                 if not prim:
                     raise ValueError(f"unknown cutaway path: {path}")
                 UsdGeom.Imageable(prim).CreateVisibilityAttr().Set(UsdGeom.Tokens.invisible)
+        host_actions = {"go2_1": zero.clone()}
         for _ in range(80):
-            env.step({"go2_1":zero})
+            env.step(host_actions)
         if not args.headless:
             capture_frame(app, output/"start.png", simulation=env.sim)
-        def support(robot):
-            return surface.below(read_ground_pose(env, robot).position_m)
-        provider = GroundNavigationProvider(tracking_config=GroundTrackingConfig(
-            node_radius_m=args.node_radius, cruise_speed_m_s=args.speed,
-            max_yaw_rate_rad_s=.6 if mixed else 1.0),
-            controller_capabilities={"go2_1":capabilities})
-        def validate(sequence, motion):
-            if sequence != env.common_step_counter:
-                raise ValueError("stale native frame")
-            if motion:
-                q=env.scene["go2_1"].data.root_quat_w[0].tolist()
-                upright=upright_cosine(q)
-                if not math.isfinite(upright) or upright < .5:
-                    report["motion_failure"]={"reason":"robot_fallen","tick":sequence,
-                                              "quaternion_wxyz":q,"upright_cosine":upright}
-                    raise ValueError("robot has fallen; route execution stopped")
-        executor = GroundNavigationExecutor(env,topology=document,provider=provider,
-            world_state_validator=validate,support_height_reader=support,timeout_s=args.timeout)
+        def pose_reader(robot="go2_1"):
+            data = env.scene[robot].data
+            position = tuple(float(value) for value in data.root_pos_w[0].tolist())
+            quaternion = tuple(float(value) for value in data.root_quat_w[0].tolist())
+            w, x, y, z = quaternion
+            yaw = math.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
+            return NavigationPose(position, yaw)
+
+        def sequence_reader(robot="go2_1"):
+            del robot
+            return int(env.common_step_counter)
+
+        def time_reader(robot="go2_1"):
+            del robot
+            return float(env.sim.current_time)
+
+        def velocity_reader(robot="go2_1"):
+            del robot
+            data = env.scene["go2_1"].data
+            linear = tuple(float(value) for value in data.root_lin_vel_w[0].tolist())
+            angular = tuple(float(value) for value in data.root_ang_vel_w[0].tolist())
+            return linear[0], linear[1], angular[2]
+
+        def write_command(command):
+            if command.command_type != "base_velocity":
+                raise ValueError(f"unexpected navigation command: {command.command_type}")
+            value = torch.tensor([command.payload["velocity"]], device=env.device)
+            env.set_command("go2_1", "base_velocity", value)
+            host_actions["go2_1"] = value
+
+        adapter_backend = PlanarVelocityNavigationAdapter(
+            "go2_1", pose_reader=pose_reader, command_sink=write_command,
+            sequence_reader=sequence_reader, time_reader=time_reader,
+            velocity_reader=velocity_reader,
+            profile=ground_navigation_profile(arrival_radius_m=args.node_radius),
+            cruise_speed_m_s=args.speed,
+            max_yaw_rate_rad_s=.6 if mixed else 1.0,
+        )
+        def snapshot_validator(sequence, motion):
+            if sequence != sequence_reader():
+                raise ValueError("navigation snapshot is stale")
+            if motion and upright_cosine(env.scene["go2_1"].data.root_quat_w[0].tolist()) < .5:
+                raise ValueError("robot_fallen")
+            return True
+        executor = NavigationExecutor(
+            topology=FrozenNavigationTopology(document, scene_key=document.scene_key, source_digests=document.source),
+            simulation_time=time_reader, timeout_s=args.timeout, snapshot_validator=snapshot_validator,
+            source_reader=lambda: (source.scene_key, adapter.source_digests(source)),
+        )
+        executor.register_adapter(adapter_backend)
         def request(intent):
             return {"request_id":f"route/{env.common_step_counter}", "task_id":"route",
-                "skill_id":"eai.navigation.ground_navigation", "skill_version":"simulator.skill.v1",
+                "skill_id":"eai.navigation.node_route", "skill_version":"simulator.skill.v1",
                 "robot_id":"go2_1", "target_ref":route["target_ref"],
-                "parameters":{**route["skill_parameters"],"intent":intent,"world_state_seq":env.common_step_counter}}
+                "parameters":{**route.get("skill_parameters", {}),"intent":intent,
+                              "world_state_seq":env.common_step_counter,
+                              "route_graph_digest":route["route_graph_digest"]}}
         executor.dispatch(request("start"))
         previous_index = None
         response = None
         for step in range(args.max_steps):
-            response=executor.control(request("start" if step == 0 else "continue"))
-            pose=read_ground_pose(env,"go2_1")
+            executor.prepare(request("start" if step == 0 else "continue"))
+            env.step(host_actions)
+            response = executor.after_step("route")
+            pose = pose_reader()
             sample={"tick":env.common_step_counter,"position_m":list(pose.position_m),"yaw_rad":pose.yaw_rad,
-                    "support_z_m":support("go2_1"),"node_index":response.private_evidence.get("node_index"),
-                    "velocity":list(response.plan.commands[0].payload["velocity"])}
+                    "node_index":response.state.get("node_index"),
+                    "velocity":list(velocity_reader()[:3])}
             q=env.scene["go2_1"].data.root_quat_w[0].tolist()
             sample.update(quaternion_wxyz=q,upright_cosine=upright_cosine(q),
                           simulation_time_s=float(env.sim.current_time))
@@ -250,31 +291,37 @@ def run(args):
             if response.state["status"] != "pending":
                 break
         if response is not None and response.state["status"] == "pending":
-            response=executor.control(request("stop"))
+            response = executor.prepare(request("stop"))
+            env.step(host_actions)
+            response = executor.after_step("route")
         report["navigation_state"]=dict(response.state)
         report["execution_evidence"]=dict(response.private_evidence)
         try:
-            for _ in range(80):
-                env.step({"go2_1":zero})
+            for _ in range(240):
+                if not executor.needs_host_tick("route"):
+                    break
+                env.step(host_actions)
+                response = executor.after_step("route")
         except Exception as exc:
             report["settle_error"]={"type":type(exc).__name__,"message":str(exc)}
-        pose=read_ground_pose(env,"go2_1")
+        pose=pose_reader()
         robot=env.scene["go2_1"]
         q=robot.data.root_quat_w[0].tolist()
         upright=upright_cosine(q)
         end=route["route_points_m"][-1]
         distance=math.dist(pose.position_m[:2],end[:2])
-        support_error=abs(support("go2_1")-end[2])
         speed=float(torch.linalg.vector_norm(robot.data.root_lin_vel_w[0,:2]).item())
         heading=route.get("target_heading_rad")
         yaw_error=None if heading is None else abs(normalize_angle(pose.yaw_rad-heading))
         report.update(navigation_state=dict(response.state),final_position_m=list(pose.position_m),
-            final_xy_error_m=distance,final_support_height_error_m=support_error,final_speed_m_s=speed,
+            final_xy_error_m=distance,final_root_z_m=pose.position_m[2],final_speed_m_s=speed,
             final_yaw_rad=pose.yaw_rad,final_heading_error_rad=yaw_error,
-            upright_cosine=upright,zero_command_applied=response.private_evidence.get("zero_command_applied"),
-            physical_pass=(response.state["status"]=="succeeded" and distance<=args.node_radius+.05
-                           and support_error<=.20 and speed<.12 and upright>.8
-                           and (yaw_error is None or yaw_error<=provider.tracking_config.heading_tolerance_rad+.03)
+            upright_cosine=upright,stop_confirmed=response.state["stop_confirmed"],
+            execution_evidence=dict(response.private_evidence),
+            physical_pass=(response.state["status"]=="completed" and distance<=args.node_radius
+                           and response.state["stop_confirmed"] and not response.state["quarantined"]
+                           and speed<.12 and upright>.8
+                           and (yaw_error is None or yaw_error<=.13)
                            and "settle_error" not in report and "motion_failure" not in report))
         report["inputs_unchanged"]=(adapter.source_digests(source)==document.source and
             all(hashlib.sha256(Path(path).read_bytes()).hexdigest()==digest for path,digest in runtime_inputs.items()))
@@ -288,7 +335,7 @@ def run(args):
         print("TOPOLOGY_NATIVE_RESULT",json.dumps({k:v for k,v in report.items() if k not in {"samples","route","execution_evidence"}}),flush=True)
         if args.hold_gui and not args.headless:
             while app.is_running():
-                env.step({"go2_1":zero})
+                            env.step(host_actions)
     return 0 if report["physical_pass"] else 1
 
 

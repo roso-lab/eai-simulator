@@ -241,8 +241,6 @@ class TopologyAuthoringWindow:
             if document.version == 2 and document.levels else None
         )
         self._pending_node_kind = "custom"
-        self._pending_traversal_mode = document.traversal_modes[0]
-        self._pending_controller_capabilities = ()
         self._heading_pick_active = False
         self._pose_x_model = None
         self._pose_y_model = None
@@ -253,7 +251,6 @@ class TopologyAuthoringWindow:
         self._route_preview = None
         self._route_origin_model = None
         self._route_destination_model = None
-        self._route_capabilities_model = None
         self.window = ui.Window("Topology Authoring", width=520, height=760)
         try:
             self._build()
@@ -273,7 +270,6 @@ class TopologyAuthoringWindow:
         ui = self._ui
         self._route_origin_model = ui.SimpleStringModel("")
         self._route_destination_model = ui.SimpleStringModel("")
-        self._route_capabilities_model = ui.SimpleStringModel(self.document.traversal_modes[0])
         self._pose_x_model = ui.SimpleFloatModel(0.0)
         self._pose_y_model = ui.SimpleFloatModel(0.0)
         self._pose_z_model = ui.SimpleFloatModel(0.0)
@@ -345,10 +341,6 @@ class TopologyAuthoringWindow:
                                               clicked_fn=lambda: self.set_pending_node_kind("custom"))
                                     ui.Button("Transition Node", width=0,
                                               clicked_fn=lambda: self.set_pending_node_kind("transition"))
-                                with ui.HStack(height=28, spacing=5):
-                                    for mode in self.document.traversal_modes:
-                                        ui.Button(mode.title(), width=0,
-                                                  clicked_fn=lambda value=mode: self.set_pending_traversal(value))
                     for builder in (self._build_level_controls, self._build_landmarks, self._build_selection,
                                     self._build_node_properties, self._build_edge_properties,
                                     self._build_target_properties, self._build_route_preview):
@@ -516,8 +508,6 @@ class TopologyAuthoringWindow:
                 else:
                     ui.Label(f"From: {row['from']}    To: {row['to']}")
                     ui.Label(f"Direction: {'one-way' if row.get('directed') else 'two-way'}")
-                    if self.document.version == 2:
-                        ui.Label(f"Traversal: {row.get('traversal_mode', 'walk')}")
 
     def _build_landmarks(self):
         if self.document.version != 2:
@@ -656,22 +646,6 @@ class TopologyAuthoringWindow:
                     ui.Button("Set One-way", clicked_fn=lambda: self.set_selected_direction(True))
                     ui.Button("Set Two-way", clicked_fn=lambda: self.set_selected_direction(False))
                     ui.Button("Delete Edge", clicked_fn=self.delete_selected_edge)
-                if self.document.version == 2:
-                    capabilities_model = ui.SimpleStringModel(
-                        ", ".join(edge.get("required_controller_capabilities", ())))
-                    ui.Label(
-                        f"Traversal: {edge.get('traversal_mode', 'walk')} "
-                        "(mode capability is implicit)"
-                    )
-                    ui.Label("Additional controller capabilities (comma-separated)")
-                    ui.StringField(capabilities_model)
-                    with ui.HStack(height=28, spacing=4):
-                        for mode in self.document.traversal_modes:
-                            ui.Button(
-                                mode.title(), width=0,
-                                clicked_fn=lambda value=mode, model=capabilities_model:
-                                    self.set_selected_traversal(value, model),
-                            )
                 for profile in self.document.profiles:
                     current = edge.get("profiles", {}).get(profile, {}).get("clearance_m", self.document.profiles[profile])
                     model = ui.SimpleFloatModel(float(current))
@@ -695,24 +669,6 @@ class TopologyAuthoringWindow:
             self._set_status(f"{profile} clearance updated")
         except (AttributeError, TypeError, ValueError, KeyError) as exc:
             self._set_status(f"Profile update failed: {exc}")
-        self._refresh()
-
-    def set_selected_traversal(self, traversal_mode, capabilities_model=None):
-        if not self._require_stage_ready():
-            return
-        try:
-            capabilities = (
-                _csv_strings(capabilities_model.as_string)
-                if capabilities_model is not None else ()
-            )
-            self.document.set_edge_traversal(
-                self.document.selected_edge_id,
-                traversal_mode,
-                capabilities,
-            )
-            self._set_status(f"Edge traversal set to {traversal_mode}")
-        except (AttributeError, TypeError, ValueError, KeyError) as exc:
-            self._set_status(f"Traversal update failed: {exc}")
         self._refresh()
 
     def _apply_polyline(self, model):
@@ -750,8 +706,6 @@ class TopologyAuthoringWindow:
                 ui.StringField(self._route_origin_model)
                 ui.Label("Destination ref or unambiguous label/alias")
                 ui.StringField(self._route_destination_model)
-                ui.Label("Controller capabilities (comma-separated)")
-                ui.StringField(self._route_capabilities_model)
                 with ui.HStack(height=28, spacing=4):
                     ui.Button("Preview Route", width=0, clicked_fn=self.preview_route)
                     ui.Button("Export Preview", width=0, clicked_fn=self.export_route_preview)
@@ -770,12 +724,11 @@ class TopologyAuthoringWindow:
         destination = self._route_destination_model.as_string.strip()
         if not origin or not destination:
             raise ValueError("origin and destination are required")
+        from algorithm.skills.navigation import NavigationProfile
         result = resolve_landmark_route(
-            self.document,
+            self.document, profile=NavigationProfile("xyz" if self.document.domain == "aerial" else "xy", supports_final_heading=self.document.domain != "aerial"),
             origin_ref=origin,
             destination_ref=destination,
-            controller_capabilities=_csv_strings(
-                self._route_capabilities_model.as_string),
         )
         if not isinstance(result, Mapping):
             raise ValueError("route resolver must return a mapping")
@@ -849,12 +802,9 @@ class TopologyAuthoringWindow:
         if isinstance(self._route_preview, Mapping):
             try:
                 from algorithm.skills.navigation.topology import route_graph_digest
-
-                if self.document.domain == "aerial":
-                    from algorithm.skills.navigation.aerial_navigation import AerialPose, select_aerial_node_route
-                    current_digest = select_aerial_node_route(self.document.to_dict(), AerialPose((0, 0, 0)))["route_graph_digest"]
-                else:
-                    current_digest = route_graph_digest(self.document)
+                # The graph identity is shared by ground and aerial products;
+                # metric semantics are selected by the runtime profile.
+                current_digest = route_graph_digest(self.document)
             except (ImportError, AttributeError, KeyError, TypeError, ValueError):
                 current_digest = None
             if current_digest != self._route_preview.get("route_graph_digest"):
@@ -1005,14 +955,7 @@ class TopologyAuthoringWindow:
         if not self._require_stage_ready():
             return
         try:
-            if self.document.version == 2:
-                edge_id = self.document.confirm_edge_preview(
-                    traversal_mode=getattr(self, "_pending_traversal_mode", "walk"),
-                    required_controller_capabilities=getattr(
-                        self, "_pending_controller_capabilities", ()),
-                )
-            else:
-                edge_id = self.document.confirm_edge_preview()
+            edge_id = self.document.confirm_edge_preview()
             self._set_status(f"Edge {edge_id} committed")
         except ValueError as exc:
             self._set_status(str(exc))
@@ -1024,15 +967,6 @@ class TopologyAuthoringWindow:
             return
         self._pending_node_kind = kind
         self._set_status(f"New node kind set to {kind}")
-        self._refresh()
-
-    def set_pending_traversal(self, traversal_mode, capabilities=()):
-        if traversal_mode not in self.document.traversal_modes:
-            self._set_status(f"Unknown traversal mode: {traversal_mode}")
-            return
-        self._pending_traversal_mode = traversal_mode
-        self._pending_controller_capabilities = tuple(capabilities)
-        self._set_status(f"New edge traversal set to {traversal_mode}")
         self._refresh()
 
     def set_pending_direction(self, directed):
@@ -1336,7 +1270,6 @@ class TopologyAuthoringWindow:
             self.object_summary = None
             self._route_origin_model = None
             self._route_destination_model = None
-            self._route_capabilities_model = None
             self._route_preview = None
             self._scroll_frame = None
             self._pose_x_model = self._pose_y_model = self._pose_z_model = None

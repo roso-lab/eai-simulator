@@ -38,10 +38,12 @@ class UsdSceneAdapter:
         if not Path(data["usd_path"]).is_file():
             raise ValueError("descriptor USD does not exist")
         from ..model import TopologyDocument
-        from algorithm.skills.navigation.topology import validate_ground_topology
+        from algorithm.skills.navigation.topology import validate_topology
         draft = TopologyDocument(self.scene_key)
-        draft.set_levels(data.get("levels"))
-        errors = validate_ground_topology(draft)
+        if not isinstance(data.get("levels"), list) or not data["levels"]:
+            raise ValueError("scene descriptor requires at least one support level")
+        draft.set_levels(data["levels"])
+        errors = validate_topology(draft)
         if errors:
             raise ValueError("; ".join(errors))
         def paths(value,label):

@@ -9,7 +9,22 @@ from uuid import uuid4
 
 from algorithm.skills.contracts import SkillContractError
 from algorithm.skills.aerial_transport.geometry import RigidPose, conjugate, number, vector
-from .ground_navigation import _vector
+
+
+def _vector(value, size):
+    """Read one finite vector without depending on a navigation executor."""
+    for method_name in ("detach", "cpu", "tolist"):
+        method = getattr(value, method_name, None)
+        if callable(method):
+            value = method()
+    if isinstance(value, (list, tuple)) and len(value) == 1 and isinstance(value[0], (list, tuple)):
+        value = value[0]
+    if not isinstance(value, (list, tuple)) or len(value) != size:
+        raise SkillContractError(f"aerial state must contain {size} values")
+    result = tuple(float(item) for item in value)
+    if not all(math.isfinite(item) for item in result):
+        raise SkillContractError("aerial state must be finite")
+    return result
 
 
 LINEAR_QUIESCENCE_TOLERANCE_M_S = .01

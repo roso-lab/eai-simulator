@@ -8,20 +8,18 @@ Adapters only load scene facts, semantic targets, and support-surface checks.
 Pass `--semantic-map release/maps/task_semantic_map.json` when the semantic map
 is stored in a prepared package rather than beside the source assets.
 
-For floor selection, stair/ramp connections, landmark labels, ordered XYZ route
-export and Go2 deployment, see [the multilevel workflow](MULTILEVEL.md).
+For optional floor grouping, landmark labels, ordered node-route export and Go2
+deployment, see [the multilevel workflow](MULTILEVEL.md).
 The bundled `UsdSceneAdapter` accepts a scene descriptor; scene data stays with
 the caller and does not become a benchmark task.
 
-For aerial routes, add `--domain aerial`. The same editor supports arbitrary
-world XYZ, English labels/aliases, optional heading metadata and directed `fly`
-edges. Drafts/products/previews are stored separately under
-`authoring/navigation/aerial/`. Aerial v2 products allow vertical edges and
-optional floor groups; ground constraints remain unchanged. Bundled air adapters
+For an aerial product, add `--domain aerial`. The same editor supports arbitrary
+world XYZ, English labels/aliases, optional heading metadata and directed edges.
+Drafts/products/previews are stored separately under
+`authoring/navigation/aerial/`. Ground and aerial products have the same JSON
+schema; their runtime profiles choose XY or XYZ semantics. Bundled adapters
 check structure only, not obstacle clearance. Each bend must be a node. Yaw is
-saved but is not executed by the XYZ binding. See the
-[shared aerial runtime guide](../../algorithm/skills/AERIAL_RUNTIME.zh-CN.md)
-for source/graph identity, JSON landmarks, shared ticks and native checks.
+passed to the Provider only when the selected controller profile supports it.
 
 For any scene, use an adapter that only loads scene facts:
 
@@ -49,15 +47,15 @@ clearance, and polyline editing. Drafts are written below
 `authoring/navigation/ground/`; `Generate` writes the executable `topology.json`
 only after validation.
 
-Products and the ground-navigation skill share the same executable contract:
+Products and the node-route Skill share the same executable contract:
 nonempty unique IDs, finite numeric XYZ (no booleans or numeric strings), valid
-directed endpoints, and nonzero XY edge length. Coordinates must be
+directed endpoints, including zero-length links under the chosen metric. Coordinates must be
 `scene_world`, metres (`meters_per_unit=1`), and Z-up. Scene-bound loading checks
 the scene key, current source digests, and every semantic binding, including
 when the scene's target inventory is empty. An empty draft may be saved/loaded;
 generation requires at least two nodes and an edge. Disconnected components and
 one-way unreachable routes remain valid authoring choices; the skill reports
-an unreachable request and sends zero velocity.
+an unreachable request; the Executor asks its adapter to stop.
 
 The adapter's `validate_polyline` receives the **two endpoint positions actually
 followed by ground navigation**, once per declared profile. Decorative edge
@@ -69,11 +67,11 @@ geometry, semantic targets or asset digests and cannot certify a real scene.
 For experiment integration, the caller freezes `product_digest(document)` with
 the scene/semantic inputs and adapter version in its task/asset identity, then
 calls `load_product(path, adapter, source, expected_digest=frozen_digest)` before
-injecting the document into `GroundNavigationExecutor`. The full product digest
+injecting the document into `NavigationExecutor`. The full product digest
 includes editing metadata. The skill separately records an order-independent
 `route_graph_digest` of nodes, bindings and directed edges in private route
 evidence; this does not replace source identity or a physical evaluator. Hosts
-must not silently swap maps during a run; explicit replan uses the supplied map.
+must not silently swap maps during a run; explicit replan keeps the bound map.
 
 Saving uses an atomic replacement and rejects nonfinite JSON. Reloaded drafts
 start a new undo/redo history. A failed scene reload preserves the document;
@@ -81,13 +79,14 @@ adapters should construct a replacement stage rather than mutate the currently
 attached stage in place. Headless validation errors return a nonzero exit code.
 Map validation and navigation arrival are not physical task-success verdicts.
 
-Ground navigation follows only nodes and edge direction. Version 1 uses XY
-distance; version 2 uses XYZ length and declared traversal capabilities, with
-measured support height for progress. It ignores edge polylines and profile clearance. Express
-each bend with an intermediate node and connect the nodes in order; changing
-an edge's polyline alone does not change the robot's path. Authors guarantee
-direct passage between adjacent nodes and choose spacing manually. The runtime
-imposes no automatic spacing limit and performs no obstacle avoidance.
+Navigation follows only nodes and edge direction. A ground profile uses XY
+distance and an aerial profile uses XYZ length; neither profile reads traversal
+labels or controller capabilities. Both ignore edge polylines and profile
+clearance at runtime. Express each bend with an intermediate node and connect
+the nodes in order; changing an edge's polyline alone does not change the
+robot's path. Authors guarantee direct passage between adjacent nodes and
+choose spacing manually. The runtime imposes no automatic spacing limit and
+performs no obstacle avoidance.
 The host must also guarantee direct access from the robot's initial position
 to the nearest start node; that existing start/replan connection is not an
 authored edge and is not certified by product validation.

@@ -69,7 +69,7 @@ Skill provider 在任务分配之后接收 `SkillRequest`，返回包含
 
 | Skill provider | 计划路径 | 职责 |
 |---|---|---|
-| node/PID 地面导航 | `algorithm/skills/navigation/ground_navigation.py` | 人工节点选路与底盘速度；已有通用执行适配 |
+| 统一节点导航 | `algorithm/skills/navigation/node_route.py` | 目标引用与 XY/XYZ 选路；公共 Executor 接入控制器 Adapter |
 | global 2D navigation | `algorithm/skills/navigation/global_planner/` | 路径和速度生成 |
 | db-CBS navigation | `algorithm/skills/navigation/multi_robot_navigation/` | 多机轨迹与碰撞规避 |
 | Nav2 | `algorithm/skills/external_io/nav2/` | system-ROS 目标/传输 |
