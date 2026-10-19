@@ -48,6 +48,10 @@ def _strings(value: Any) -> bool:
     )
 
 
+def _semantic_ids(value: Any) -> bool:
+    return (_strings(value) and len(value) == len(set(value)))
+
+
 def _semantic_navigation_errors(data: Mapping[str, Any], nodes: Mapping[str, Mapping[str, Any]],
                                edges: Mapping[str, Mapping[str, Any]]) -> list[str]:
     """Check the semantic fields that can change executable navigation.
@@ -85,20 +89,93 @@ def _semantic_navigation_errors(data: Mapping[str, Any], nodes: Mapping[str, Map
             seen.add(identifier)
             current[identifier] = row
         rows[collection] = current
+
+    level_rows = data.get("levels", ())
+    if not isinstance(level_rows, (list, tuple)):
+        level_rows = ()
+    levels = {row.get("id"): row for row in level_rows
+              if isinstance(row, Mapping) and isinstance(row.get("id"), str)}
+
+    def level_of(row: Mapping[str, Any], *, owner: Mapping[str, Any] | None = None) -> Any:
+        level = row.get("level_id")
+        if level is not None:
+            return level
+        if owner is None:
+            return None
+        level = owner.get("level_id")
+        if level is None:
+            region_id = owner.get("region_id")
+            if isinstance(region_id, str):
+                region = rows.get("regions", {}).get(region_id)
+                if region is not None:
+                    level = region.get("level_id")
+        return level
+
+    for collection, collection_rows in rows.items():
+        for identifier, row in collection_rows.items():
+            if not isinstance(row.get("kind"), str) or not row.get("kind", "").strip():
+                errors.append(f"invalid semantic kind: {identifier}")
+            if not isinstance(row.get("label", ""), str):
+                errors.append(f"invalid semantic label: {identifier}")
+            aliases = row.get("aliases", [])
+            if (not _semantic_ids(aliases)):
+                errors.append(f"invalid semantic aliases: {identifier}")
+            level_id = row.get("level_id")
+            if level_id is not None and (not isinstance(level_id, str) or level_id not in levels):
+                errors.append(f"unknown semantic level: {identifier}")
+
     for identifier, row in rows.get("regions", {}).items():
         entrances = row.get("entrance_node_ids", [])
-        if (not isinstance(entrances, (list, tuple))
-                or any(not isinstance(node_id, str) or node_id not in nodes for node_id in entrances)):
+        if not _semantic_ids(entrances):
             errors.append(f"invalid semantic region entrances: {identifier}")
+            continue
+        for node_id in entrances:
+            if node_id not in nodes:
+                errors.append(f"invalid semantic region entrances: {identifier}")
+            elif (row.get("level_id") is not None
+                  and nodes[node_id].get("level_id") != row.get("level_id")):
+                errors.append(f"semantic region entrance is on another level: {identifier}")
+
+    for identifier, row in rows.get("entities", {}).items():
+        position = row.get("position_xyz")
+        if position is not None and not finite_xyz(position):
+            errors.append(f"invalid semantic entity position: {identifier}")
+        region_id = row.get("region_id")
+        if region_id is not None:
+            region = rows.get("regions", {}).get(region_id) if isinstance(region_id, str) else None
+            if region is None:
+                errors.append(f"unknown semantic entity region: {identifier}")
+            elif (row.get("level_id") is not None and region.get("level_id") is not None
+                  and row.get("level_id") != region.get("level_id")):
+                errors.append(f"semantic entity floor differs from region: {identifier}")
+
     for identifier, row in rows.get("interaction_poses", {}).items():
+        owner_id = row.get("owner_id")
+        owner = (rows.get("regions", {}).get(owner_id)
+                 or rows.get("entities", {}).get(owner_id)) if isinstance(owner_id, str) else None
+        if owner is None:
+            errors.append(f"unknown semantic interaction owner: {identifier}")
+        elif (row.get("level_id") is not None and level_of(owner) is not None
+              and row.get("level_id") != level_of(owner)):
+            errors.append(f"semantic interaction floor differs from owner: {identifier}")
+        if not finite_xyz(row.get("position_xyz")):
+            errors.append(f"invalid semantic interaction position: {identifier}")
+        heading = row.get("heading_rad")
+        if heading is not None and (not finite_number(heading) or abs(float(heading)) > math.pi):
+            errors.append(f"invalid semantic interaction heading: {identifier}")
         node_id = row.get("node_id")
         if node_id is not None and (not isinstance(node_id, str) or node_id not in nodes):
             errors.append(f"unknown interaction navigation node: {identifier}")
+        elif node_id is not None:
+            floor = level_of(row, owner=owner)
+            if floor is not None and nodes[node_id].get("level_id") != floor:
+                errors.append(f"interaction navigation node is on another level: {identifier}")
+
     for identifier, row in rows.get("routes", {}).items():
         node_ids, edge_ids = row.get("node_ids"), row.get("edge_ids")
-        if (not isinstance(node_ids, (list, tuple)) or len(node_ids) < 2
+        if (not _semantic_ids(node_ids) or len(node_ids) < 2
                 or any(node_id not in nodes for node_id in node_ids)
-                or not isinstance(edge_ids, (list, tuple))
+                or not _semantic_ids(edge_ids)
                 or len(edge_ids) != len(node_ids) - 1
                 or any(edge_id not in edges for edge_id in edge_ids)):
             errors.append(f"invalid semantic route references: {identifier}")
@@ -109,6 +186,10 @@ def _semantic_navigation_errors(data: Mapping[str, Any], nodes: Mapping[str, Map
                     or (not edge.get("directed", False)
                         and edge.get("from") == last and edge.get("to") == first)):
                 errors.append(f"semantic route contradicts edge direction/connectivity: {identifier}")
+            elif (isinstance(row.get("kind"), str)
+                  and row.get("kind") in TRAVERSAL_MODES
+                  and edge.get("traversal_mode", "walk") != row.get("kind")):
+                errors.append(f"semantic route traversal differs from its kind: {identifier}")
     return sorted(set(errors))
 
 
@@ -327,8 +408,7 @@ def _canonical_graph(document: Any) -> dict[str, Any]:
     semantics = data.get("semantics")
     if isinstance(semantics, Mapping):
         # Region entrances and authored named routes are navigation bindings.
-        # Entity/interaction geometry is task data and intentionally does not
-        # invalidate an executable graph when it is edited later.
+        # Entity/interaction records remain independently versioned task data.
         semantic_payload = {}
         regions = semantics.get("regions", ())
         if isinstance(regions, (list, tuple)):

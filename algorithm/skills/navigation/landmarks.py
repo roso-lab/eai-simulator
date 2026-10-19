@@ -131,7 +131,8 @@ def _semantic_level(records: Mapping[str, tuple[str, Mapping[str, Any]]],
 
 
 def _semantic_heading(records: Mapping[str, tuple[str, Mapping[str, Any]]],
-                      identifier: str, *, seen: set[str] | None = None) -> Any:
+                      identifier: str, *, node_id: str | None = None,
+                      seen: set[str] | None = None) -> Any:
     """Return the most specific authored approach heading for a location."""
     if identifier not in records:
         return None
@@ -143,11 +144,19 @@ def _semantic_heading(records: Mapping[str, tuple[str, Mapping[str, Any]]],
     if row.get("heading_rad") is not None:
         return row.get("heading_rad")
     if _collection == "entities":
+        headings = []
         for pose_id, (kind, pose) in sorted(records.items()):
-            if kind == "interaction_poses" and pose.get("owner_id") == identifier:
+            if (kind == "interaction_poses" and pose.get("owner_id") == identifier
+                    and (node_id is None or pose.get("node_id") == node_id)):
                 heading = _semantic_heading(records, pose_id, seen=set(seen))
                 if heading is not None:
-                    return heading
+                    headings.append(heading)
+        if node_id is not None:
+            unique_headings = set(headings)
+            return next(iter(unique_headings)) if len(unique_headings) == 1 else None
+        if headings:
+            unique_headings = set(headings)
+            return next(iter(unique_headings)) if len(unique_headings) == 1 else None
     parent = row.get("owner_id") or row.get("region_id")
     return (_semantic_heading(records, parent, seen=seen)
             if isinstance(parent, str) else None)
@@ -310,16 +319,28 @@ def resolve_landmark_route(
         allowed_edge_ids=(destination_binding.get("record", {}).get("edge_ids")
                           if destination_binding.get("collection") == "routes" else None),
         controller_capabilities=capabilities,
-        target_heading_rad=destination_binding.get(
-            "heading_rad", destination_binding.get("record", {}).get("heading_rad")),
+        target_heading_rad=(
+            None if destination_binding.get("collection") == "entities"
+            else destination_binding.get(
+                "heading_rad", destination_binding.get("record", {}).get("heading_rad"))),
         target_is_semantic=destination_binding.get("collection") != "nodes",
         origin_is_semantic=origin_binding.get("collection") != "nodes",
     )
+    selected_semantic_heading = None
+    if result.get("admitted") and destination_binding.get("collection") == "entities":
+        records, _ = _semantic_records(data)
+        selected_node = result["topology_node_ids"][-1]
+        selected_semantic_heading = _semantic_heading(
+            records, destination_binding["id"], node_id=selected_node)
+        if selected_semantic_heading is not None:
+            result["target_heading_rad"] = selected_semantic_heading
     result["domain"] = data.get("domain", "ground")
     result["semantic_origin"] = {"id": origin_binding["id"], "collection": origin_binding["collection"]}
     result["semantic_destination"] = {"id": destination_binding["id"], "collection": destination_binding["collection"]}
     destination_record = destination_binding.get("record", {})
-    result["authored_heading_rad"] = destination_record.get("heading_rad")
+    result["authored_heading_rad"] = (selected_semantic_heading
+                                        if selected_semantic_heading is not None
+                                        else destination_record.get("heading_rad"))
     result.update(schema="eai.navigation.landmark_route", version=1,
                   origin_ref=origin_ref, destination_ref=destination_ref,
                   coordinate_frame="scene_world", meters_per_unit=1, up_axis="Z")

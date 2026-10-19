@@ -65,13 +65,13 @@ python -m tools.topology_authoring.author \
 }
 ```
 
-点击 Apply Record，再保存/生成。添加或调整该记录不改变已有 nodes/edges/levels 和导航 `route_graph_digest`；完整 `product_digest` 会变化，以便追踪地图修订。
+点击 Apply Record，再保存/生成。后补或调整对象、交互位置及其任务字段，不改变已有 nodes/edges/levels 和导航 `route_graph_digest`；完整 `product_digest` 会变化，以便追踪地图修订。区域入口和命名路线的节点/边绑定属于导航拓扑，会改变 `route_graph_digest`。
 
 ## 程序接口与边界
 
 `TopologyDocument` 提供 `upsert_semantic`、`remove_semantic`、`replace_semantics` 和 `add_waypoint_route`，共享撤销/重做和原子保存。`semantic_inventory` 返回分类清单，`resolve_semantic` 按稳定 ID/名称/别名解析并拒绝歧义，支持继承楼层过滤；`point_in_region` 检查是否在标注棱柱内。
 
-导航会先消费语义绑定，再在可执行图上选路：区域解析到入口节点；对象优先解析到所属交互位置的接近节点，否则使用所属区域入口；交互位置使用可选的接近节点；命名路线限定为其有序节点和边。运行时仍沿真实导航图执行，因此作者需要确定航点间距并保证直线段可通行。后补对象和交互位置的几何修改不会改变导航图摘要；修改区域入口或命名路线绑定会改变摘要。场景无关指数据和编辑接口通用；真实几何检查依赖 adapter。内置 USD adapter 适用静态、米制、Z 向上、三角化碰撞支持面；支持面连续性检查不等于完整机器人碰撞/净空认证。
+导航会先消费语义绑定，再在可执行图上选路：区域解析到入口节点；对象优先解析到所属交互位置的接近节点，否则使用所属区域入口；交互位置使用可选的接近节点；命名路线按声明的有序节点和边执行。运行时仍沿真实导航图执行，因此作者需要确定航点间距并保证直线段可通行。`route_graph_digest` 标识可执行拓扑及区域入口、命名路线绑定；对象和交互位置是独立版本化的任务语义，由完整 `product_digest` 追踪。场景无关指数据和编辑接口通用；真实几何检查依赖 adapter。内置 USD adapter 适用静态、米制、Z 向上、三角化碰撞支持面；支持面连续性检查不等于完整机器人碰撞/净空认证。
 
 相关回归测试在 `tools/validation/test_semantic_topology_authoring.py`，包含持久化、后补任务时路线不变、能力与方向、引用安全、原子失败与历史、三维绘制回调和 CLI 重开。原生 Kit 检查命令：
 
