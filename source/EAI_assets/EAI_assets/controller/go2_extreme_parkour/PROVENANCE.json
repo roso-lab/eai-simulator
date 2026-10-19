@@ -1,0 +1,26 @@
+[
+  {
+    "original_relative_path": "mdp/observations.py",
+    "bundled_path": "extreme_parkour_observations.py",
+    "original_sha256": "d704caf0fd48778cb414d5d37bc3a1f2511ea7ac8b2fece5f96d87c227ea145c",
+    "changes": "Relative imports adjusted to bundled file names; trailing whitespace removed."
+  },
+  {
+    "original_relative_path": "terrain/heightfield.py",
+    "bundled_path": "extreme_parkour_v1_heightfield.py",
+    "original_sha256": "1b71a476c926b60509e5cdb8ac467404fdee476080025dadfa47292c94bbf469",
+    "changes": "Relative imports adjusted to bundled file names only."
+  },
+  {
+    "original_relative_path": "terrain/geometry.py",
+    "bundled_path": "extreme_parkour_v1_geometry.py",
+    "original_sha256": "cb55b575c5b620cc88bef41c49c21ccb8cfca569684eaca7571ace9c6247c855",
+    "changes": "Relative imports adjusted to bundled file names only."
+  },
+  {
+    "original_relative_path": "mdp/commands.py",
+    "bundled_path": "commands.py",
+    "original_sha256": "59e9056b5a852f53ec9ceb3b026f8264a7604c576528b91083a7f77e70fe6980",
+    "changes": "Relative imports adjusted to bundled file names only."
+  }
+]

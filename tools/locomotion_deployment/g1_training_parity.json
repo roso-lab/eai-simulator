@@ -1,0 +1,10 @@
+{
+  "reference": "tools/g1_training/inference.py DwaqInference + original ActorCritic_DWAQ",
+  "cases": 30,
+  "batches": [
+    1,
+    4,
+    32
+  ],
+  "max_abs_error": 0.0
+}

@@ -1,0 +1,1113 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_id",
+    "schema_version",
+    "status",
+    "baseline_commit",
+    "scope_zh",
+    "experiment_policy",
+    "identity_policy",
+    "controller_selection",
+    "sources",
+    "exclusions",
+    "coverage",
+    "configuration_profiles",
+    "resumes"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schema_id": {
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "baseline_commit": {
+      "type": "string"
+    },
+    "scope_zh": {
+      "type": "string"
+    },
+    "experiment_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "camera_required",
+        "camera_optional",
+        "camera_is_default_robot_property",
+        "keyboard_control_enabled",
+        "navigation_io_enabled",
+        "enumerate_sensor_combinations",
+        "controller_profile_count_by_platform",
+        "resume_identity_axes"
+      ],
+      "properties": {
+        "camera_required": {
+          "type": "boolean"
+        },
+        "camera_optional": {
+          "type": "boolean"
+        },
+        "camera_is_default_robot_property": {
+          "type": "boolean"
+        },
+        "keyboard_control_enabled": {
+          "type": "boolean"
+        },
+        "navigation_io_enabled": {
+          "type": "boolean"
+        },
+        "enumerate_sensor_combinations": {
+          "type": "boolean"
+        },
+        "controller_profile_count_by_platform": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "carter",
+            "simple_car",
+            "pepper",
+            "go2",
+            "b2",
+            "m20",
+            "scout",
+            "mushr_v2",
+            "g1",
+            "cf2x",
+            "iris",
+            "pegasus",
+            "lite3",
+            "coco"
+          ],
+          "properties": {
+            "carter": {
+              "type": "number"
+            },
+            "simple_car": {
+              "type": "number"
+            },
+            "pepper": {
+              "type": "number"
+            },
+            "go2": {
+              "type": "number"
+            },
+            "b2": {
+              "type": "number"
+            },
+            "m20": {
+              "type": "number"
+            },
+            "scout": {
+              "type": "number"
+            },
+            "mushr_v2": {
+              "type": "number"
+            },
+            "g1": {
+              "type": "number"
+            },
+            "cf2x": {
+              "type": "number"
+            },
+            "iris": {
+              "type": "number"
+            },
+            "pegasus": {
+              "type": "number"
+            },
+            "lite3": {
+              "type": "number"
+            },
+            "coco": {
+              "type": "number"
+            }
+          }
+        },
+        "resume_identity_axes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "identity_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "arbitrary_pool",
+        "multiple_instances_per_configuration",
+        "mounted_arm_is_separate_member",
+        "standalone_ur5_is_separate_member",
+        "missing_values_are_unknown",
+        "runtime_publication_requires",
+        "configuration_change_zh"
+      ],
+      "properties": {
+        "arbitrary_pool": {
+          "type": "boolean"
+        },
+        "multiple_instances_per_configuration": {
+          "type": "boolean"
+        },
+        "mounted_arm_is_separate_member": {
+          "type": "boolean"
+        },
+        "standalone_ur5_is_separate_member": {
+          "type": "boolean"
+        },
+        "missing_values_are_unknown": {
+          "type": "boolean"
+        },
+        "runtime_publication_requires": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "configuration_change_zh": {
+          "type": "string"
+        }
+      }
+    },
+    "controller_selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "g1",
+        "pepper",
+        "go2",
+        "b2",
+        "policy_zh"
+      ],
+      "properties": {
+        "g1": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pepper": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "go2": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "b2": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "policy_zh": {
+          "type": "string"
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "path",
+          "sha256"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "exclusions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model",
+          "reason_zh"
+        ],
+        "properties": {
+          "model": {
+            "type": "string"
+          },
+          "reason_zh": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform_count",
+        "profile_count",
+        "legal_attachment_set_count",
+        "catalog_controller_variant_count",
+        "catalog_and_direct_variant_count",
+        "controller_import_registered_variant_count",
+        "legacy_unwired_variant_count",
+        "specialized_candidate_count",
+        "expanded_resume_count",
+        "profile_status_counts",
+        "expanded_status_counts",
+        "by_platform"
+      ],
+      "properties": {
+        "platform_count": {
+          "type": "number"
+        },
+        "profile_count": {
+          "type": "number"
+        },
+        "legal_attachment_set_count": {
+          "type": "number"
+        },
+        "catalog_controller_variant_count": {
+          "type": "number"
+        },
+        "catalog_and_direct_variant_count": {
+          "type": "number"
+        },
+        "controller_import_registered_variant_count": {
+          "type": "number"
+        },
+        "legacy_unwired_variant_count": {
+          "type": "number"
+        },
+        "specialized_candidate_count": {
+          "type": "number"
+        },
+        "expanded_resume_count": {
+          "type": "number"
+        },
+        "profile_status_counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "catalog_registered",
+            "registered_blocked",
+            "conditional",
+            "rejected",
+            "declared_unwired",
+            "pending_integration"
+          ],
+          "properties": {
+            "catalog_registered": {
+              "type": "number"
+            },
+            "registered_blocked": {
+              "type": "number"
+            },
+            "conditional": {
+              "type": "number"
+            },
+            "rejected": {
+              "type": "number"
+            },
+            "declared_unwired": {
+              "type": "number"
+            },
+            "pending_integration": {
+              "type": "number"
+            }
+          }
+        },
+        "expanded_status_counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "catalog_registered",
+            "registered_blocked",
+            "conditional",
+            "rejected",
+            "declared_unwired",
+            "pending_integration"
+          ],
+          "properties": {
+            "catalog_registered": {
+              "type": "number"
+            },
+            "registered_blocked": {
+              "type": "number"
+            },
+            "conditional": {
+              "type": "number"
+            },
+            "rejected": {
+              "type": "number"
+            },
+            "declared_unwired": {
+              "type": "number"
+            },
+            "pending_integration": {
+              "type": "number"
+            }
+          }
+        },
+        "by_platform": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "platform_type",
+              "attachment_sets",
+              "catalog_controller_count",
+              "direct_controller_count",
+              "expanded_resume_count"
+            ],
+            "properties": {
+              "platform_type": {
+                "type": "string"
+              },
+              "attachment_sets": {
+                "type": "number"
+              },
+              "catalog_controller_count": {
+                "type": "number"
+              },
+              "direct_controller_count": {
+                "type": "number"
+              },
+              "expanded_resume_count": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      }
+    },
+    "configuration_profiles": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/resume"
+      }
+    },
+    "resumes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/resume"
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://heterocoord.local/schema/robot_pool_resume_review.v1.json",
+  "$defs": {
+    "resume": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resume_id",
+        "profile_id",
+        "name_zh",
+        "record_type",
+        "identity",
+        "deployment",
+        "configuration",
+        "mobility",
+        "manipulation",
+        "sensing",
+        "skills",
+        "runtime_state",
+        "special_notes_zh",
+        "source_refs"
+      ],
+      "properties": {
+        "resume_id": {
+          "type": "string"
+        },
+        "profile_id": {
+          "type": "string"
+        },
+        "name_zh": {
+          "type": "string"
+        },
+        "record_type": {
+          "type": "string",
+          "enum": [
+            "configuration_profile",
+            "configuration_variant"
+          ]
+        },
+        "identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "platform_type",
+            "host_platform",
+            "configuration_role",
+            "robot_id",
+            "configuration_id",
+            "generation"
+          ],
+          "properties": {
+            "platform_type": {
+              "type": "string"
+            },
+            "host_platform": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "configuration_role": {
+              "type": "string"
+            },
+            "robot_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "configuration_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "generation": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            }
+          }
+        },
+        "deployment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "attachment_validation",
+            "catalog_error",
+            "controller_binding",
+            "selection_path",
+            "controller_maturity",
+            "known_instability_zh",
+            "fall_recovery",
+            "runtime_blockers_zh",
+            "reason_zh",
+            "evidence_scope_zh",
+            "runtime_qualified"
+          ],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "catalog_registered",
+                "registered_blocked",
+                "conditional",
+                "rejected",
+                "declared_unwired",
+                "pending_integration"
+              ]
+            },
+            "attachment_validation": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "catalog_error": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "controller_binding": {
+              "type": "string"
+            },
+            "selection_path": {
+              "type": "string"
+            },
+            "controller_maturity": {
+              "type": "string",
+              "enum": [
+                "standard",
+                "stable",
+                "experimental_unstable",
+                "deployment_baseline_limited"
+              ]
+            },
+            "known_instability_zh": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "fall_recovery": {
+              "type": "string",
+              "enum": [
+                "unknown",
+                "unsupported"
+              ]
+            },
+            "runtime_blockers_zh": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "reason_zh": {
+              "type": "string"
+            },
+            "evidence_scope_zh": {
+              "type": "string"
+            },
+            "runtime_qualified": {
+              "type": "boolean"
+            }
+          }
+        },
+        "configuration": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "motion_controller",
+            "controller_variant",
+            "manipulator_controller",
+            "external_manipulator",
+            "primary_manipulator",
+            "attachments",
+            "sensor_attachments",
+            "builtin_sensor_suite",
+            "default_sensor_suite",
+            "tools",
+            "mount_pose",
+            "asset_variant_zh"
+          ],
+          "properties": {
+            "motion_controller": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "controller_variant": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "manipulator_controller": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "external_manipulator": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "primary_manipulator": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "attachments": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "sensor_attachments": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "builtin_sensor_suite": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "default_sensor_suite": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "tools": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 0
+            },
+            "mount_pose": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "additionalProperties": false,
+              "required": [
+                "translation_m",
+                "rotation_wxyz",
+                "reference_frame"
+              ],
+              "properties": {
+                "translation_m": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                },
+                "rotation_wxyz": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 4,
+                  "maxItems": 4
+                },
+                "reference_frame": {
+                  "type": "string"
+                }
+              }
+            },
+            "asset_variant_zh": {
+              "type": "string"
+            }
+          }
+        },
+        "mobility": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "family",
+            "mode",
+            "domain",
+            "navigation_dimension",
+            "stationary_configuration",
+            "stairs",
+            "speed_limit_mps",
+            "min_turning_radius_m",
+            "holding_navigation",
+            "simultaneous_locomotion_manipulation"
+          ],
+          "properties": {
+            "family": {
+              "type": "string"
+            },
+            "mode": {
+              "type": "string"
+            },
+            "domain": {
+              "type": "string"
+            },
+            "navigation_dimension": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "stationary_configuration": {
+              "type": "boolean"
+            },
+            "stairs": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "ascent",
+                "descent",
+                "basis",
+                "display"
+              ],
+              "properties": {
+                "ascent": {
+                  "type": "string",
+                  "enum": [
+                    "supported",
+                    "unsupported",
+                    "unknown",
+                    "not_applicable"
+                  ]
+                },
+                "descent": {
+                  "type": "string",
+                  "enum": [
+                    "supported",
+                    "unsupported",
+                    "unknown",
+                    "not_applicable"
+                  ]
+                },
+                "basis": {
+                  "type": "string"
+                },
+                "display": {
+                  "type": "string"
+                }
+              }
+            },
+            "speed_limit_mps": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "min_turning_radius_m": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "holding_navigation": {
+              "type": "string"
+            },
+            "simultaneous_locomotion_manipulation": {
+              "type": "string"
+            }
+          }
+        },
+        "manipulation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "origin",
+            "arm_count",
+            "model",
+            "end_effector",
+            "execution_mode",
+            "payload_kg",
+            "max_pickplace_z_m",
+            "height_frame",
+            "height_limit_point",
+            "payload_mass_basis",
+            "min_pickplace_z_m",
+            "radial_workspace_m",
+            "arbitrary_object_orientation",
+            "limits_source"
+          ],
+          "properties": {
+            "origin": {
+              "type": "string",
+              "enum": [
+                "none",
+                "attached",
+                "integrated",
+                "primary_robot"
+              ]
+            },
+            "arm_count": {
+              "type": "number"
+            },
+            "model": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "end_effector": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "execution_mode": {
+              "type": "string"
+            },
+            "payload_kg": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "max_pickplace_z_m": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "height_frame": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "height_limit_point": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "payload_mass_basis": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "min_pickplace_z_m": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "radial_workspace_m": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "arbitrary_object_orientation": {
+              "type": "string"
+            },
+            "limits_source": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "sensing": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "camera_required",
+            "camera_is_default_robot_property",
+            "camera_present",
+            "camera_presence_basis",
+            "camera_model",
+            "camera_mount_pose",
+            "camera_integration_status",
+            "camera_source_meets_tool_gate",
+            "camera_publication",
+            "autonomous_perception_skill",
+            "note_zh"
+          ],
+          "properties": {
+            "camera_required": {
+              "type": "boolean",
+              "const": true
+            },
+            "camera_is_default_robot_property": {
+              "type": "boolean",
+              "const": true
+            },
+            "camera_present": {
+              "type": "boolean"
+            },
+            "camera_presence_basis": {
+              "type": "string",
+              "enum": [
+                "source_integrated",
+                "user_confirmed_default_with_builder_mount",
+                "required_pending_adaptation"
+              ]
+            },
+            "camera_model": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "camera_mount_pose": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "camera_integration_status": {
+              "type": "string",
+              "enum": [
+                "integrated",
+                "builder_registered_default",
+                "pending_adaptation"
+              ]
+            },
+            "camera_source_meets_tool_gate": {
+              "type": "boolean"
+            },
+            "camera_publication": {
+              "type": "string"
+            },
+            "autonomous_perception_skill": {
+              "type": "string"
+            },
+            "note_zh": {
+              "type": "string"
+            }
+          }
+        },
+        "skills": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "skill_id",
+              "support",
+              "availability",
+              "support_basis",
+              "backend",
+              "operations",
+              "requirements_zh",
+              "limitations_zh"
+            ],
+            "properties": {
+              "skill_id": {
+                "type": "string",
+                "enum": [
+                  "eai.navigation.node_route",
+                  "eai.manipulation.pick_place"
+                ]
+              },
+              "support": {
+                "type": "string",
+                "enum": [
+                  "supported",
+                  "unsupported",
+                  "unknown",
+                  "not_applicable"
+                ]
+              },
+              "availability": {
+                "type": "string",
+                "enum": [
+                  "pending_binding",
+                  "pending_configuration_validation",
+                  "pending_integration",
+                  "deployment_blocked",
+                  "not_supported",
+                  "provider_pending"
+                ]
+              },
+              "support_basis": {
+                "type": "string",
+                "enum": [
+                  "source_analysis",
+                  "user_confirmed_project_capability"
+                ]
+              },
+              "backend": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "operations": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "requirements_zh": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "limitations_zh": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "runtime_state": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "membership",
+            "health",
+            "battery_fraction",
+            "current_node",
+            "held_object_ref",
+            "available_skill_ids"
+          ],
+          "properties": {
+            "membership": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "health": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "battery_fraction": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "current_node": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "held_object_ref": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "available_skill_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "special_notes_zh": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

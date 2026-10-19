@@ -1,0 +1,142 @@
+{
+  "robot": "g1",
+  "steps": 250,
+  "num_envs": 2,
+  "physics_dt": 0.001,
+  "policy_dt": 0.02,
+  "robot_usd": "/home/airs/hetrocoord/usd/robot/g1/g1_29dof_with_inspire_rev_1_0.usd",
+  "joint_names": [
+    "left_hip_pitch_joint",
+    "right_hip_pitch_joint",
+    "waist_yaw_joint",
+    "left_hip_roll_joint",
+    "right_hip_roll_joint",
+    "waist_roll_joint",
+    "left_hip_yaw_joint",
+    "right_hip_yaw_joint",
+    "waist_pitch_joint",
+    "left_knee_joint",
+    "right_knee_joint",
+    "left_shoulder_pitch_joint",
+    "right_shoulder_pitch_joint",
+    "left_ankle_pitch_joint",
+    "right_ankle_pitch_joint",
+    "left_shoulder_roll_joint",
+    "right_shoulder_roll_joint",
+    "left_ankle_roll_joint",
+    "right_ankle_roll_joint",
+    "left_shoulder_yaw_joint",
+    "right_shoulder_yaw_joint",
+    "left_elbow_joint",
+    "right_elbow_joint",
+    "left_wrist_roll_joint",
+    "right_wrist_roll_joint",
+    "left_wrist_pitch_joint",
+    "right_wrist_pitch_joint",
+    "left_wrist_yaw_joint",
+    "right_wrist_yaw_joint",
+    "L_index_proximal_joint",
+    "L_middle_proximal_joint",
+    "L_pinky_proximal_joint",
+    "L_ring_proximal_joint",
+    "L_thumb_proximal_yaw_joint",
+    "R_index_proximal_joint",
+    "R_middle_proximal_joint",
+    "R_pinky_proximal_joint",
+    "R_ring_proximal_joint",
+    "R_thumb_proximal_yaw_joint",
+    "L_index_intermediate_joint",
+    "L_middle_intermediate_joint",
+    "L_pinky_intermediate_joint",
+    "L_ring_intermediate_joint",
+    "L_thumb_proximal_pitch_joint",
+    "R_index_intermediate_joint",
+    "R_middle_intermediate_joint",
+    "R_pinky_intermediate_joint",
+    "R_ring_intermediate_joint",
+    "R_thumb_proximal_pitch_joint",
+    "L_thumb_intermediate_joint",
+    "R_thumb_intermediate_joint",
+    "L_thumb_distal_joint",
+    "R_thumb_distal_joint"
+  ],
+  "action_shape": [
+    2,
+    29
+  ],
+  "body_joint_names": [
+    "left_hip_pitch_joint",
+    "left_hip_roll_joint",
+    "left_hip_yaw_joint",
+    "left_knee_joint",
+    "left_ankle_pitch_joint",
+    "left_ankle_roll_joint",
+    "right_hip_pitch_joint",
+    "right_hip_roll_joint",
+    "right_hip_yaw_joint",
+    "right_knee_joint",
+    "right_ankle_pitch_joint",
+    "right_ankle_roll_joint",
+    "waist_yaw_joint",
+    "waist_roll_joint",
+    "waist_pitch_joint",
+    "left_shoulder_pitch_joint",
+    "left_shoulder_roll_joint",
+    "left_shoulder_yaw_joint",
+    "left_elbow_joint",
+    "left_wrist_roll_joint",
+    "left_wrist_pitch_joint",
+    "left_wrist_yaw_joint",
+    "right_shoulder_pitch_joint",
+    "right_shoulder_roll_joint",
+    "right_shoulder_yaw_joint",
+    "right_elbow_joint",
+    "right_wrist_roll_joint",
+    "right_wrist_pitch_joint",
+    "right_wrist_yaw_joint"
+  ],
+  "start_xyz": [
+    [
+      0.0,
+      0.0,
+      0.8000000715255737
+    ],
+    [
+      0.0,
+      4.0,
+      0.8000000715255737
+    ]
+  ],
+  "end_xyz": [
+    [
+      2.245473623275757,
+      0.09827786684036255,
+      0.7440438270568848
+    ],
+    [
+      2.246955394744873,
+      4.095649719238281,
+      0.7441985607147217
+    ]
+  ],
+  "displacement_xyz": [
+    [
+      2.245473623275757,
+      0.09827786684036255,
+      -0.055956244468688965
+    ],
+    [
+      2.246955394744873,
+      0.09564971923828125,
+      -0.05580151081085205
+    ]
+  ],
+  "worst_projected_gravity_z": [
+    -0.9898141026496887,
+    -0.9898402094841003
+  ],
+  "height_rays": 187,
+  "ray_missing_values": 0,
+  "finite": true,
+  "scope": "Batched policy/USD integration smoke; not stairs or rough-terrain acceptance"
+}

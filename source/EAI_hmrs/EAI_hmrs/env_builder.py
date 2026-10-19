@@ -15,6 +15,7 @@ from EAI.hmrs_env import MultiRobotDirectEnvCfg
 from EAI.scenario_spec.benchmark_physics import benchmark_mount_profile
 from EAI.hmrs_env.env_diy import catalog as env_diy_catalog
 from EAI_assets.robots.b2 import B2_CFG
+from EAI_assets.asset_resolver import asset_path
 from EAI_assets.robots.carter import CARTER_CFG
 from EAI_assets.robots.simple_car import SIMPLE_CAR_CFG
 from EAI_assets.robots.coco import COCO_CFG
@@ -30,7 +31,6 @@ from EAI_assets.robots.pegasus import PEGASUS_IRIS_CFG, PEGASUS_X4_CFG
 from EAI_assets.robots.quadcopter import CRAZYFLIE_CFG
 from EAI_assets.robots.scout import SCOUT_CFG
 from EAI_assets.robots.mushr_v2 import MUSHR_V2_CFG, MUSHR_V2_RWD_CFG
-from EAI_assets.robots.unitree import G1_CFG
 from EAI_assets.robots.ur5_mount import (
     UR5_MOUNT_PROFILES,
     Ur5MountProfile,
@@ -45,7 +45,10 @@ from EAI_assets.robots.z1_mount import (
 )
 from EAI_assets.sensor.high_sensor import OrsusCfg, RealSenseD455Cfg
 from EAI_assets.sensor.low_sensor.octagon_aio_c01 import OctagonAioC01Cfg
-from EAI_hmrs.controller_loader import load_controller_attr
+from EAI_hmrs.controller_loader import (
+    _install_controller_namespaces,
+    load_controller_attr,
+)
 from EAI.hmrs_env.env_diy.flow import (
     AttachmentSelection,
     ControllerChoice,
@@ -60,6 +63,22 @@ from EAI.hmrs_env.env_diy.flow import (
 )
 
 
+# Install namespace packages before importing the portable bundles. Importing
+# ``EAI_assets.controller`` normally executes its legacy eager ``__init__`` and
+# pulls ROS/OmniGraph modules that are unrelated to these controllers.
+_install_controller_namespaces("g1_dwaq/integration.py")
+_install_controller_namespaces("go2_extreme_parkour/integration.py")
+from EAI_assets.controller.g1_dwaq.integration import G1_DWAQ_CFG
+from EAI_assets.controller.g1_dwaq.robot import make_robot_cfg as make_g1_dwaq_robot_cfg
+from EAI_assets.controller.go2_extreme_parkour.integration import (
+    GO2_EXTREME_PARKOUR_TEACHER_CFG,
+    sensor_configs as make_go2_extreme_parkour_sensor_configs,
+)
+from EAI_assets.controller.go2_extreme_parkour.robot import (
+    make_robot_cfg as make_go2_extreme_parkour_robot_cfg,
+)
+
+
 @dataclass(frozen=True)
 class SceneOption:
     key: str
@@ -68,6 +87,10 @@ class SceneOption:
     prim_path: str = "/World/InteractiveScene"
     spawn_pos: tuple[float, float, float] = (0.0, 0.0, 0.0)
     robot_spawn_origin: tuple[float, float] = (0.0, 0.0)
+    # Isaac Lab 5.1's RayCaster accepts exactly one Plane or Mesh prim.  This
+    # must name the actual scene collision surface, never an arbitrary first
+    # descendant or a proxy belonging to another scene.
+    raycast_collision_prim_path: str | None = None
 
 
 @dataclass(frozen=True)
@@ -107,7 +130,12 @@ DESERT_SCENE_Z_OFFSET = -4322.563
 HOSPITAL_SCENE_OFFSET = (-23.0896, 0.7555, -0.0010)
 HOSPITAL_ROBOT_SPAWN_ORIGIN = (1.175, 1.8)
 SCENE_OPTIONS = [
-    SceneOption("plane", "Plane flat ground", None),
+    SceneOption(
+        "plane",
+        "Plane flat ground",
+        None,
+        raycast_collision_prim_path="/World/ground",
+    ),
     SceneOption("warehouse", "Warehouse", ("EAI_assets.scene.warehouse", "WAREHOUSE_CFG")),
     SceneOption(
         "factory",
@@ -186,7 +214,6 @@ CONTROLLER_CFG_IMPORTS = {
     "SIMPLE_CAR_PLANAR_CFG": ("traditional/simple_car_planar/simple_car_planar.py", "SIMPLE_CAR_PLANAR_CFG"),
     "PEPPER_HOLONOMIC_CFG": ("traditional/pepper_holonomic/pepper_holonomic.py", "PEPPER_HOLONOMIC_CFG"),
     "PEPPER_PICK_PLACE_CFG": ("traditional/pepper_box_transport/controller.py", "PEPPER_PICK_PLACE_CFG"),
-    "GO2_VELOCITY_RSL_CFG": ("rl/go2_rsl_rl/go2_rsl_rl.py", "GO2_VELOCITY_RSL_CFG"),
     "GO2_MIXED_STAIRS_CFG": ("rl/go2_mixed_stairs/go2_mixed_stairs.py", "GO2_MIXED_STAIRS_CFG"),
     "B2_VELOCITY_RSL_CFG": ("rl/b2_rsl_rl/b2_rsl_rl.py", "B2_VELOCITY_RSL_CFG"),
     "B2_MIXED_STAIRS_CFG": ("rl/b2_rsl_rl/b2_rsl_rl.py", "B2_MIXED_STAIRS_CFG"),
@@ -197,7 +224,6 @@ CONTROLLER_CFG_IMPORTS = {
     "MUSHR_ACKERMANN_CFG": ("traditional/mushr_ackermann/mushr_ackermann.py", "MUSHR_ACKERMANN_CFG"),
     "MUSHR_RWD_ACKERMANN_CFG": ("traditional/mushr_ackermann/mushr_ackermann.py", "MUSHR_RWD_ACKERMANN_CFG"),
     "COCO_ACKERMANN_CFG": ("traditional/coco_ackermann/coco_ackermann.py", "COCO_ACKERMANN_CFG"),
-    "G1_SKRL_CFG": ("rl/g1_skrl/g1_skrl.py", "G1_SKRL_CFG"),
     "QUADCOPTER_GOAL_SKRL_CFG": ("rl/quadcopter_goal_skrl/quadcopter_goal_skrl.py", "QUADCOPTER_GOAL_SKRL_CFG"),
     "PEGASUS_IRIS_POSITION_CFG": ("traditional/pegasus_multirotor/pegasus_multirotor.py", "PEGASUS_IRIS_POSITION_CFG"),
     "PEGASUS_IRIS_ROTOR_CFG": ("traditional/pegasus_multirotor/pegasus_multirotor.py", "PEGASUS_IRIS_ROTOR_CFG"),
@@ -206,6 +232,30 @@ CONTROLLER_CFG_IMPORTS = {
     "UR5_IK_CFG": ("traditional/ur5_ik/ur5_ik.py", "UR5_IK_CFG"),
     "Z1_IK_CFG": ("traditional/z1_ik/z1_ik.py", "Z1_IK_CFG"),
 }
+
+# These portable bundles use package-relative imports and therefore cannot be
+# loaded through the legacy file-module loader, whose generated module names
+# have no package context.
+PORTABLE_CONTROLLER_CFGS = {
+    "G1_DWAQ_CFG": G1_DWAQ_CFG,
+    "GO2_EXTREME_PARKOUR_TEACHER_CFG": GO2_EXTREME_PARKOUR_TEACHER_CFG,
+}
+
+
+def _scene_raycast_collision_prim_path(scene: SceneOption) -> str:
+    """Return one scene-owned Plane/Mesh accepted by Isaac Lab's RayCaster."""
+    if scene.key == "factory":
+        # The Factory spawner builds this combined mesh from that scene's
+        # ground, stairs and upper landing. It is valid only for Factory.
+        return FACTORY_RAYCAST_PROXY_PRIM_PATH
+    if scene.raycast_collision_prim_path is not None:
+        return scene.raycast_collision_prim_path
+    raise ValueError(
+        f"DIY scene '{scene.key}' has no collaborator-verified single or combined "
+        "collision Plane/Mesh for a height scanner. Provide the exact scene-owned "
+        "collision prim path or a collaborator-authored combined mesh; the Factory "
+        "raycast proxy cannot be reused for another scene."
+    )
 
 
 ROBOT_OPTIONS = [
@@ -239,7 +289,7 @@ ROBOT_OPTIONS = [
         "pepper",
         "Pepper holonomic base",
         PEPPER_CFG,
-        "PEPPER_HOLONOMIC_CFG",
+        "PEPPER_PICK_PLACE_CFG",
         0.0,
         # Keep the navigation LiDAR fixed to the mobile base rather than the
         # articulated head so its planar TF remains stable while looking.
@@ -254,7 +304,7 @@ ROBOT_OPTIONS = [
         "go2",
         "Unitree Go2",
         GO2_CFG,
-        "GO2_VELOCITY_RSL_CFG",
+        "GO2_MIXED_STAIRS_CFG",
         0.4,
         "base",
         trunk_link="base",
@@ -271,7 +321,7 @@ ROBOT_OPTIONS = [
         "b2",
         "Unitree B2",
         B2_CFG,
-        "B2_VELOCITY_RSL_CFG",
+        "B2_MIXED_STAIRS_CFG",
         0.58,
         "base_link",
         trunk_link="base_link",
@@ -349,9 +399,11 @@ ROBOT_OPTIONS = [
     RobotOption(
         "g1",
         "Unitree G1",
-        G1_CFG,
-        "G1_SKRL_CFG",
-        0.74,
+        make_g1_dwaq_robot_cfg(
+            asset_path("robot/g1/g1_29dof_with_inspire_rev_1_0.usd")
+        ),
+        "G1_DWAQ_CFG",
+        0.8,
         lidar_mount_link="pelvis",
         lidar_offset=(0.0, 0.0, 0.72),
     ),
@@ -504,6 +556,20 @@ def build_interactive_env_cfg(
     *,
     scenario_data: dict[str, Any] | None = None,
 ) -> MultiRobotDirectEnvCfg:
+    uses_g1_dwaq = any(
+        selection.controller.cfg == "G1_DWAQ_CFG"
+        for _robot, selection in robot_selections
+    )
+    if uses_g1_dwaq and any(
+        selection.controller.cfg != "G1_DWAQ_CFG"
+        for _robot, selection in robot_selections
+    ):
+        raise ValueError(
+            "G1_DWAQ_CFG requires sim.dt=0.001 and decimation=20, while the "
+            "current heterogeneous runtime and Go2 controllers are qualified at "
+            "sim.dt=0.005 and decimation=4. Mixed G1 DWAQ fleets are blocked until "
+            "a collaborator supplies a multirate design or explicit requalification."
+        )
     attrs: dict[str, Any] = {"__annotations__": {}}
     controllers: dict[str, Any] = {}
     scene_spawn_cfg = _resolve_import_ref(scene.spawn_cfg)
@@ -554,6 +620,11 @@ def build_interactive_env_cfg(
         has_ur5 = any(attachment.type in {"ur5", "ur5_bare"} for attachment in selection.attachments)
         has_ur5_bare = any(attachment.type == "ur5_bare" for attachment in selection.attachments)
         has_z1 = any(attachment.type == "z1" for attachment in selection.attachments)
+        if has_ur5:
+            raise ValueError(
+                f"DIY robot '{name}' cannot carry UR5 or ur5_bare. HeteroCoord "
+                "uses UR5 + Robotiq 2F-85 only as a standalone robot."
+            )
         if has_ur5 and has_z1:
             raise ValueError(f"DIY robot '{name}' cannot attach both UR5 and Z1.")
         has_orsus = any(attachment.type == "orsus" for attachment in selection.attachments)
@@ -596,6 +667,10 @@ def build_interactive_env_cfg(
         selected_robot_cfg = robot.cfg
         if robot.key == "mushr_v2" and selection.controller.cfg == "MUSHR_RWD_ACKERMANN_CFG":
             selected_robot_cfg = MUSHR_V2_RWD_CFG
+        elif robot.key == "go2" and selection.controller.cfg == "GO2_EXTREME_PARKOUR_TEACHER_CFG":
+            selected_robot_cfg = make_go2_extreme_parkour_robot_cfg(
+                asset_path("robot/go2/go2.usd")
+            )
         base_cfg = (
             build_ur5_host_cfg(selected_robot_cfg, robot.ur5_mount_profile)
             if has_ur5 and robot.ur5_mount_profile is not None
@@ -620,6 +695,7 @@ def build_interactive_env_cfg(
                     f"DIY robot '{robot.key}' does not define a trunk link for "
                     "the mixed-stairs height scanner."
                 )
+            raycast_collision_prim_path = _scene_raycast_collision_prim_path(scene)
             attrs["__annotations__"][f"{name}_height_scanner"] = RayCasterCfg
             attrs[f"{name}_height_scanner"] = RayCasterCfg(
                 prim_path=f"{{ENV_REGEX_NS}}/{name}/{robot.trunk_link}",
@@ -627,8 +703,22 @@ def build_interactive_env_cfg(
                 ray_alignment="yaw",
                 pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6, 1.0]),
                 debug_vis=False,
-                mesh_prim_paths=[FACTORY_RAYCAST_PROXY_PRIM_PATH],
+                mesh_prim_paths=[raycast_collision_prim_path],
             )
+        elif selection.controller.cfg == "GO2_EXTREME_PARKOUR_TEACHER_CFG":
+            if robot.key != "go2":
+                raise ValueError(
+                    "GO2_EXTREME_PARKOUR_TEACHER_CFG can only control a Go2 robot."
+                )
+            raycast_collision_prim_path = _scene_raycast_collision_prim_path(scene)
+            parkour_sensors = make_go2_extreme_parkour_sensor_configs(
+                f"{{ENV_REGEX_NS}}/{name}",
+                (raycast_collision_prim_path,),
+            )
+            for sensor_suffix, sensor_cfg in parkour_sensors.items():
+                sensor_name = f"{name}_{sensor_suffix}"
+                attrs["__annotations__"][sensor_name] = type(sensor_cfg)
+                attrs[sensor_name] = sensor_cfg
 
         base_controller = _resolve_controller(selection.controller, fallback=robot.controller)
         robot_controllers: list[Any] = [base_controller]
@@ -658,13 +748,18 @@ def build_interactive_env_cfg(
 
         # Orsus spawn：检查是否有 orsus 硬件 + 是否开启 ROS 通道
         has_orsus = any(attachment.type == "orsus" for attachment in selection.attachments)
-        has_realsense = any(
+        explicit_realsense = any(
             attachment.type == "realsense_d455" for attachment in selection.attachments
         )
+        # In HeteroCoord the camera is part of the robot's default equipment.
+        # Every platform with a registered D455 mount receives it automatically;
+        # an explicitly selected Orsus replaces the default D455 unless D455 was
+        # explicitly requested as well.
+        has_realsense = explicit_realsense or bool(robot.realsense_mount_link and not has_orsus)
         navigation_io_enabled = any(
             attachment.type == "navigation_io" for attachment in selection.attachments
         )
-        camera_enabled = any(attachment.type == "camera" for attachment in selection.attachments)
+        camera_enabled = bool(robot.camera_mount_link or has_orsus or has_realsense)
         cmd_vel_enabled = any(
             attachment.type in {"navigation_io", "keyboard"}
             for attachment in selection.attachments
@@ -796,6 +891,13 @@ def build_interactive_env_cfg(
     InteractiveEaiEnvCfg = env_cls
     env_cfg = InteractiveEaiEnvCfg()
     env_cfg.task_name = "EAI-Interactive-v0"
+    if uses_g1_dwaq:
+        # The DWAQ checkpoint contract requires a 1 ms physics step and a
+        # 20 ms policy step. Only an all-G1 selection can currently satisfy it
+        # without changing another robot's published physics schedule.
+        env_cfg.sim.dt = 0.001
+        env_cfg.decimation = 20
+        env_cfg.sim.render_interval = env_cfg.decimation
     if uses_manipulator:
         env_cfg.after_reset_idx_hook = _interactive_after_reset_idx_hook
     return env_cfg
@@ -824,8 +926,15 @@ def _controller_cfg_by_name(name: str) -> Any:
 
 
 def _controller_attr_by_name(name: str, attr_override: str | None = None) -> Any:
+    if name in PORTABLE_CONTROLLER_CFGS:
+        if attr_override is not None:
+            raise ValueError(
+                f"Portable controller cfg '{name}' does not support attribute overrides."
+            )
+        return PORTABLE_CONTROLLER_CFGS[name]
     if name not in CONTROLLER_CFG_IMPORTS:
-        raise ValueError(f"Unknown controller cfg '{name}'. Available: {', '.join(CONTROLLER_CFG_IMPORTS)}")
+        available = (*CONTROLLER_CFG_IMPORTS, *PORTABLE_CONTROLLER_CFGS)
+        raise ValueError(f"Unknown controller cfg '{name}'. Available: {', '.join(available)}")
     relative_path, attr_name = CONTROLLER_CFG_IMPORTS[name]
     return load_controller_attr(relative_path, attr_override or attr_name)
 
