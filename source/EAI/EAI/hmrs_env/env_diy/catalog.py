@@ -127,14 +127,14 @@ Z1_DEPLOYMENT_STATUS = {
 _DEFAULT_CONTROLLER_CFG = {
     "carter": "CARTER_DIFF_CFG",
     "simple_car": "SIMPLE_CAR_PLANAR_CFG",
-    "pepper": "PEPPER_HOLONOMIC_CFG",
-    "go2": "GO2_VELOCITY_RSL_CFG",
-    "b2": "B2_VELOCITY_RSL_CFG",
+    "pepper": "PEPPER_PICK_PLACE_CFG",
+    "go2": "GO2_MIXED_STAIRS_CFG",
+    "b2": "B2_MIXED_STAIRS_CFG",
     "m20": "M20_ROUGH_RSL_CFG",
     "scout": "SCOUT_DIFF_CFG",
     "mushr_v2": "MUSHR_ACKERMANN_CFG",
     "coco": "COCO_ACKERMANN_CFG",
-    "g1": "G1_SKRL_CFG",
+    "g1": "G1_DWAQ_CFG",
     "cf2x": "QUADCOPTER_GOAL_SKRL_CFG",
     "iris": "PEGASUS_IRIS_POSITION_CFG",
     "pegasus": "PEGASUS_X4_POSITION_CFG",
@@ -144,9 +144,8 @@ _DEFAULT_CONTROLLER_CFG = {
 _CONTROLLER_CFG_NAMES = (
     "CARTER_DIFF_CFG",
     "SIMPLE_CAR_PLANAR_CFG",
-    "PEPPER_HOLONOMIC_CFG",
-    "GO2_VELOCITY_RSL_CFG",
     "GO2_MIXED_STAIRS_CFG",
+    "GO2_EXTREME_PARKOUR_TEACHER_CFG",
     "B2_VELOCITY_RSL_CFG",
     "B2_MIXED_STAIRS_CFG",
     "M20_ROUGH_RSL_CFG",
@@ -155,10 +154,7 @@ _CONTROLLER_CFG_NAMES = (
     "MUSHR_ACKERMANN_CFG",
     "MUSHR_RWD_ACKERMANN_CFG",
     "COCO_ACKERMANN_CFG",
-    "G1_SKRL_CFG",
-    "G1_BOX_GRASP_CFG",
-    "PEPPER_BOX_GRASP_CFG",
-    "G1_BOX_TRANSPORT_CFG",
+    "G1_DWAQ_CFG",
     "PEPPER_PICK_PLACE_CFG",
     "QUADCOPTER_GOAL_SKRL_CFG",
     "PEGASUS_IRIS_POSITION_CFG",
@@ -171,13 +167,10 @@ _CONTROLLER_CFG_NAMES = (
 )
 
 _CONTROLLER_CFG_ROBOTS = {
-    "G1_BOX_GRASP_CFG": ("g1",),
-    "PEPPER_BOX_GRASP_CFG": ("pepper",),
-    "G1_BOX_TRANSPORT_CFG": ("g1",),
-    "PEPPER_PICK_PLACE_CFG": ("pepper",),
     "M20_NAV_RSL_CFG": ("m20",),
-    "GO2_VELOCITY_RSL_CFG": ("go2",),
     "GO2_MIXED_STAIRS_CFG": ("go2",),
+    "GO2_EXTREME_PARKOUR_TEACHER_CFG": ("go2",),
+    "B2_VELOCITY_RSL_CFG": ("b2",),
     "B2_MIXED_STAIRS_CFG": ("b2",),
 }
 
@@ -280,7 +273,9 @@ def _attachment_entries() -> tuple[AttachmentCatalogEntry, ...]:
     lidar_hosts = (
         "carter", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3",
     )
-    ur5_hosts = ("carter", "go2", "b2", "m20", "scout", "lite3")
+    # HeteroCoord treats UR5 + Robotiq 2F-85 as a standalone robot. Mounted
+    # UR5 variants are excluded from every host robot's formal attachment pool.
+    ur5_hosts: tuple[str, ...] = ()
     z1_hosts = ("carter", "go2", "b2", "m20", "scout", "lite3")
     # RealSense D455 与 Orsus 一样是可解耦装载的传感器载荷；
     # pepper 头顶装载作为首轮验证宿主，其余沿用 Orsus 兼容宿主集合。
