@@ -1,10 +1,11 @@
 {
   "status": "pass",
-  "baseline_commit": "e8f97448a55feef76d9ec1ed993f01695580efc6",
+  "baseline_commit": "c635c778b673f883e9db67eedb458bfb60cdc13f",
   "checks": [
     "Draft 2020-12 schema, duplicate keys, unique profile/resume IDs",
     "exact 24 reviewed profiles and 23 legal experiment resumes",
     "one G1 identity using only G1_DWAQ_CFG with default grasp capability",
+    "G1 mixes with other robots under the unified sim.dt=0.001/decimation=20 fleet schedule; walk/grasp modes are skill-invoked and exclusive",
     "exactly two Go2 controller profiles: stable mixed-stairs and unstable experimental off-road",
     "standalone-only UR5 fixed to Robotiq 2F-85; no mounted UR5",
     "D455 defaults, built-in cameras, and explicit pending camera adaptation",
@@ -22,16 +23,16 @@
     "specialized_candidate_count": 2,
     "expanded_resume_count": 23,
     "profile_status_counts": {
-      "catalog_registered": 14,
-      "registered_blocked": 1,
+      "catalog_registered": 15,
+      "registered_blocked": 0,
       "conditional": 6,
       "rejected": 1,
       "declared_unwired": 0,
       "pending_integration": 2
     },
     "expanded_status_counts": {
-      "catalog_registered": 14,
-      "registered_blocked": 1,
+      "catalog_registered": 15,
+      "registered_blocked": 0,
       "conditional": 6,
       "rejected": 0,
       "declared_unwired": 0,
@@ -140,17 +141,17 @@
   },
   "limits": [
     "No renewed scene-specific stairs or rough-terrain qualification is claimed.",
-    "G1 and standalone UR5/Z1 camera adaptation remains pending.",
+    "G1 D455 forehead mount is builder-registered with a user-approved pitch calibration; its runtime image stream is not yet subscription-tested. Standalone UR5/Z1 camera adaptation remains pending.",
     "Mounted Z1 plus default D455 still requires collision and occlusion validation.",
     "Go2 Extreme Parkour remains a privileged Teacher and has no fall recovery.",
-    "All-G1 DWAQ uses .001/20; mixed G1/non-G1 fleets remain blocked pending a multirate design or requalification."
+    "G1 fleets, pure or mixed, run at sim.dt=0.001/decimation=20; bounded 5 s GPU runs show Go2/Carter at 1 ms substeps match their native 5 ms schedule (Go2 displacement within 1.1%, upright metrics equal); longer-duration qualification stays per experiment run."
   ],
   "artifacts_sha256": {
     "manipulator_capabilities.json": "90e290bb07775f384ad2b1cd089229997685f107b22a2de920e09e7e4dfc982f",
-    "generate_robot_pool.py": "7b59ec46894594f91efb0a430afd041f43b0d17aec78ab5068f7418536d91194",
-    "validate_robot_pool.py": "3b9f8b5c11678c2a13f604f4440c9f30e98f3e1a9df042f2c407879589074a37",
-    "robot_pool_resume.v1.json": "0eea07879447e82252c752713d5c028210df26d1287f3ccbc280db7d75c46737",
-    "robot_pool_resume.schema.json": "019f43c7a4d884167068564ca4162be0173d502aefd65175cc8d03c9fe2d0760",
-    "robot_pool_resume.zh-CN.md": "12d88cb33ba597d266828f1283ce39cdb37547f4421f9d80a0e922d317b23c19"
+    "generate_robot_pool.py": "74592e4e865b33d8c366d281fa579c85565eb5d085791c5c2a8b9ecea2f56332",
+    "validate_robot_pool.py": "c2d83959a34e0dfb198f391f74fed01eca3ff17e67b524fdc7efaf189bd5bb4b",
+    "robot_pool_resume.v1.json": "5e37b18fd434aa8ba123be887badf957095f855730bbdc2e80feb8765001340c",
+    "robot_pool_resume.schema.json": "a4c7592e8d69580ceef1755571071a2a36602661637490a754558ad16d899d81",
+    "robot_pool_resume.zh-CN.md": "72cb6e86d4def0d680e6844a6a08b6bf95d945a07e85fdaf6b65706ff3e5fb19"
   }
 }

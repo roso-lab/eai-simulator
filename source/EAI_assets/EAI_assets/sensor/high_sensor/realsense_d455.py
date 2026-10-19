@@ -37,7 +37,7 @@ from EAI_assets.sensor.high_sensor.orsus import (
 configure_ros_env()
 
 import omni.usd  # noqa: E402
-from pxr import Sdf  # noqa: E402
+from pxr import Gf, Sdf  # noqa: E402
 import isaaclab.sim as sim_utils  # noqa: E402
 import isaaclab.sim.utils as prim_utils  # noqa: E402
 from isaaclab.assets import AssetBaseCfg  # noqa: E402
@@ -200,6 +200,64 @@ def _disable_realsense_payload_physics(stage, sensor_root_path: str) -> tuple[bo
     return body_removed, collision_removed
 
 
+def _apply_realsense_shell_calibration(stage, sensor_root_path: str, cfg) -> bool:
+    """把宿主特定的外壳校准覆写到 D455 资产内部的 Visual 网格层。
+
+    仅覆盖 ``RealsenseD455/RSD455/Visual`` 的 translate / rotateXYZ / scale
+    三个局部变换操作；相机与 IMU 传感器 prim、挂载外参均不受影响。数值来源
+    是宿主机器人在 Isaac Sim GUI 中的手动标定（资产默认值之外的外壳微调），
+    三个字段任一为 None 即保持资产原样，因此默认配置完全无操作。
+    """
+    translate = getattr(cfg, "shell_translate", None)
+    rotate = getattr(cfg, "shell_rotate_euler", None)
+    scale = getattr(cfg, "shell_scale", None)
+    if translate is None and rotate is None and scale is None:
+        return False
+
+    shell_prim = None
+    shell_path = ""
+    for candidate in (
+        f"{sensor_root_path}/RealsenseD455/RSD455/Visual",
+        f"{sensor_root_path}/RSD455/Visual",
+    ):
+        prim = stage.GetPrimAtPath(candidate)
+        if prim.IsValid():
+            shell_prim, shell_path = prim, candidate
+            break
+    if shell_prim is None:
+        print(
+            "[RealsenseD455] ⚠️ Shell prim not found, calibration skipped: "
+            f"{sensor_root_path}/RealsenseD455/RSD455/Visual",
+            flush=True,
+        )
+        return False
+
+    overrides = {
+        "xformOp:translate": Gf.Vec3d(*translate) if translate is not None else None,
+        "xformOp:rotateXYZ": Gf.Vec3f(*rotate) if rotate is not None else None,
+        "xformOp:scale": Gf.Vec3f(*scale) if scale is not None else None,
+    }
+    applied = []
+    for op_name, value in overrides.items():
+        if value is None:
+            continue
+        attr = shell_prim.GetAttribute(op_name)
+        if not attr.IsValid():
+            print(
+                f"[RealsenseD455] ⚠️ Missing {op_name} on {shell_path}, skipped",
+                flush=True,
+            )
+            continue
+        attr.Set(value)
+        applied.append(op_name.partition(":")[2])
+    if applied:
+        print(
+            f"[RealsenseD455] ✅ Shell calibration ({', '.join(applied)}) -> {shell_path}",
+            flush=True,
+        )
+    return bool(applied)
+
+
 def spawn_realsense_d455(prim_path, cfg, translation, orientation):
     """自定义生成回调（对齐 Orsus 的 ``spawn_and_fix_orsus``）：
 
@@ -250,6 +308,8 @@ def spawn_realsense_d455(prim_path, cfg, translation, orientation):
                 flush=True,
             )
 
+        _apply_realsense_shell_calibration(stage, specific_path, cfg)
+
         camera_graph_count = _set_realsense_publish_graphs_active(
             stage,
             specific_path,
@@ -295,6 +355,11 @@ class RealSenseD455SpawnCfg(sim_utils.UsdFileCfg):
     enable_camera_publish: bool = True   # Camera 门控：rgb/depth/camera_info
     enable_imu_publish: bool = True      # Navigation I/O 门控：imu
     disable_physics: bool = True
+    # 宿主特定的外壳（Visual 网格）校准，坐标均在资产 RSD455 系；
+    # None = 保持资产原样。rotate 为 XYZ 欧拉角（度）。
+    shell_translate: tuple[float, float, float] | None = None
+    shell_rotate_euler: tuple[float, float, float] | None = None
+    shell_scale: tuple[float, float, float] | None = None
 
 
 @configclass
@@ -303,6 +368,9 @@ class RealSenseD455Cfg(AssetBaseCfg):
     enable_camera_publish: bool = True
     enable_imu_publish: bool = True
     disable_physics: bool = True
+    shell_translate: tuple[float, float, float] | None = None
+    shell_rotate_euler: tuple[float, float, float] | None = None
+    shell_scale: tuple[float, float, float] | None = None
     spawn = RealSenseD455SpawnCfg(
         usd_path=_REALSENSE_SOURCE_ASSET_PATH,
         func=spawn_realsense_d455,
@@ -316,3 +384,6 @@ class RealSenseD455Cfg(AssetBaseCfg):
         self.spawn.enable_camera_publish = self.enable_camera_publish
         self.spawn.enable_imu_publish = self.enable_imu_publish
         self.spawn.disable_physics = self.disable_physics
+        self.spawn.shell_translate = self.shell_translate
+        self.spawn.shell_rotate_euler = self.shell_rotate_euler
+        self.spawn.shell_scale = self.shell_scale

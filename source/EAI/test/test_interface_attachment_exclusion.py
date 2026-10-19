@@ -34,20 +34,24 @@ def _ids(attachments: list[str]) -> set[str]:
 
 
 def test_unscaled_ur5_deployment_gate_matches_runtime_matrix():
-    assert env_diy_catalog.manipulator_deployment_status("scout", "ur5")[0] == "conditional"
-    assert env_diy_catalog.manipulator_deployment_status("b2", "ur5")[0] == "conditional"
-    for host in ("go2", "m20", "lite3"):
+    # 2026-10 user policy: mounted UR5 is excluded on every host (UR5 is
+    # standalone-only with a fixed Robotiq 2F-85); historical per-host
+    # evidence stays queryable through manipulator_deployment_status.
+    for host in ("scout", "b2", "go2", "m20", "lite3", "carter"):
         status, reason = env_diy_catalog.manipulator_deployment_status(host, "ur5")
-        assert status == "rejected"
+        assert status in ("conditional", "rejected")
         assert reason
-        with pytest.raises(ValueError, match="rejected"):
+        with pytest.raises(ValueError, match="is not supported"):
             env_diy_catalog.validate_attachment_types(host, ["ur5"])
 
 
 def test_ur5_bare_uses_the_same_host_stability_gate():
-    assert env_diy_catalog.manipulator_deployment_status("scout", "ur5_bare")[0] == "conditional"
-    with pytest.raises(ValueError, match="rejected"):
-        env_diy_catalog.validate_attachment_types("go2", ["ur5_bare"])
+    for host in ("scout", "b2", "go2"):
+        status, reason = env_diy_catalog.manipulator_deployment_status(host, "ur5_bare")
+        assert status in ("conditional", "rejected")
+        assert reason
+        with pytest.raises(ValueError, match="is not supported"):
+            env_diy_catalog.validate_attachment_types(host, ["ur5_bare"])
 
 
 def test_z1_deployment_gate_requires_host_specific_evidence():
@@ -63,9 +67,11 @@ def test_z1_deployment_gate_requires_host_specific_evidence():
 def test_carter_ur5_rejected_with_documented_mechanism():
     status, reason = env_diy_catalog.manipulator_deployment_status("carter", "ur5")
     assert status == "rejected"
+    assert reason
     assert env_diy_catalog.validate_attachment_types("carter", ["z1"]) == ("z1",)
-    with pytest.raises(ValueError, match="rejected"):
+    with pytest.raises(ValueError, match="is not supported"):
         env_diy_catalog.validate_attachment_types("carter", ["ur5"])
+
 def test_mushr_never_declares_removed_builtin_camera_interfaces():
     for attachments in ([], ["camera"], ["Camera"]):
         ids = _ids(attachments)

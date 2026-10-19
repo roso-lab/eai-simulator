@@ -55,7 +55,25 @@ BUILTIN_CAMERA_MODELS = {
     'pegasus': 'builtin_monocular_camera',
 }
 DEFAULT_D455_ROBOTS = {
-    'carter', 'pepper', 'go2', 'b2', 'm20', 'scout', 'mushr_v2', 'coco', 'lite3',
+    'carter', 'pepper', 'go2', 'b2', 'm20', 'scout', 'mushr_v2', 'coco', 'lite3', 'g1',
+}
+G1_CAMERA_MOUNT = {
+    # 平移为 Unitree 官方 d435_joint;俯仰为 2026-10-19 用户批准的感知标定
+    # (官方 +47.6° 下视改为 +20° 下视):官方俯仰下 90.5°×90.5° 相机会拍满
+    # 自身头壳与胸腔,+20° 下视时头胸完全退出视锥,仅剩髋侧双手入镜。
+    'translation_m': [0.0576235, 0.01753, 0.41987],
+    'rotation_wxyz': [0.98480775301, 0.0, 0.17364817767, 0.0],
+    'reference_frame': 'torso_link',
+    'mounting': 'detachable_forehead_recess',
+    # Isaac Sim GUI 标定（2026-10-19）：D455 外壳（Visual 网格）在资产 RSD455
+    # 坐标系中的局部变换，使 0.7 倍外壳落座 G1 额头凹槽；仅外观校准，
+    # 不改变传感器 prim 位姿与上方挂点外参。
+    'visual_shell_calibration': {
+        'translate_m': [0.03212, 0.0187, 0.02007],
+        'rotate_xyz_deg': [85.5, 0.0, -90.0],
+        'scale': [0.7, 0.7, 0.7],
+        'reference_frame': 'rsd455_shell',
+    },
 }
 LABELS = {
     'carter': 'Carter 差速轮式机器人', 'simple_car': 'SimpleCar 平面移动机器人',
@@ -82,6 +100,7 @@ STATUS_ZH = {
     'pending_integration': '独立/专用配置待接入本次机器人池',
 }
 SUPPORT_ZH = {'supported': '支持', 'unsupported': '不支持',
+              'supported_unstable': '支持但不稳定',
               'unknown': '未确认', 'not_applicable': '不适用'}
 AVAIL_ZH = {'pending_binding': '待实例绑定', 'pending_configuration_validation': '待当前组合验证',
             'pending_integration': '待接入', 'deployment_blocked': '部署被阻止',
@@ -97,6 +116,7 @@ ORIGIN_ZH = {'none': '无', 'attached': '外挂', 'integrated': '原生集成', 
 STAIR_BASIS_ZH = {'fixed_base_or_aerial': '固定基座或空中配置，不使用地面楼梯能力',
                   'user_confirmed_current_project': '用户明确的当前项目限制',
                   'user_confirmed_stair_capable_controller': '用户确认当前稳定 Go2 控制器具备上楼能力；下楼尚未确认',
+                  'user_confirmed_unstable_g1_ascent': '用户确认 DWAQ G1 具备上楼能力但不稳定；历史长楼梯上行仅 19/32 成功，不构成可靠楼梯资格',
                   'experimental_policy_not_route_qualified': '实验性越野策略已接线，但运动不稳定且没有当前路线专项资格',
                   'historical_partial_not_qualification': '历史楼梯结果只部分成功，不构成可靠楼梯资格',
                   'draft_policy_for_current_plain_wheeled_configuration': '本稿对当前普通轮式配置采用的不支持策略',
@@ -149,8 +169,8 @@ def stairs(host, attached, fixed, controller):
         return dict(ascent='unknown', descent='unknown',
                     basis='experimental_policy_not_route_qualified', display='always')
     if host == 'g1' and controller == 'G1_DWAQ_CFG':
-        return dict(ascent='unknown', descent='unknown',
-                    basis='historical_partial_not_qualification', display='always')
+        return dict(ascent='supported_unstable', descent='unknown',
+                    basis='user_confirmed_unstable_g1_ascent', display='always')
     return dict(ascent='unknown', descent='unknown',
                 basis='loaded_configuration_requires_validation' if attached else 'no_route_specific_validation',
                 display='always' if attached else 'when_relevant')
@@ -228,16 +248,20 @@ def make_record(host, arm, controller, *, role='mobile_platform', attachments=No
         controller_variant = 'dwaq_locomotion'
         controller_maturity = 'deployment_baseline_limited'
         fall_recovery = 'unsupported'
-        status = 'registered_blocked'
-        reason = ('控制器和匹配资产已经注册；纯 G1 环境使用合同要求的 0.001 s × 20。'
-                  'G1 与其他机器人混合时缺少多速率方案或共同物理时序重验，构建器会明确拒绝。')
-        scope = '模型/适配器接线与纯 G1 配置时序已接入；混合机器人部署资格仍被阻止。'
+        reason = ('控制器和匹配资产已经注册；含 G1 的编队（纯 G1 或与其他机器人混合）统一使用 '
+                  'sim.dt=0.001、decimation=20 的 20 ms 策略周期，可参与多机团队实验。')
+        scope = ('模型/适配器接线与统一时序已接入；混合编队中非 G1 控制器的物理子步由 5 ms 细化为 '
+                 '1 ms（策略频率与模型不变），其运动稳定性以实际实验运行复验为准。')
         runtime_blockers += [
-            '纯 G1 使用 sim.dt=0.001、decimation=20；与任何非 G1 控制器的混合环境当前拒绝构建。',
-            'DWAQ 行走与固定基座 G1PickPlaceAdapter 的策略切换和关节写入仲裁尚未形成统一运行模式。',
+            '混合编队下非 G1 控制器物理子步为 1 ms：5 秒 GPU 有界实测中 Go2/Carter 的直立度与位移与原生 '
+            '5 ms 调度一致（Go2 位移差约 1.1%），更长时程与任务场景仍需按实验观察复验。',
         ]
-        notes += ['DWAQ 历史 School entrance 长楼梯上行仅 19/32 成功，不声明可靠楼梯能力。',
-                  '不包含跌倒恢复；切换策略或 episode 重置时必须清空五帧历史。']
+        notes += ['具备上楼能力但不稳定：历史 School entrance 长楼梯上行仅 19/32 成功，不声明可靠楼梯能力；下楼未验证。',
+                  '行走与抓取两种模式经 skill 调用互斥切换：抓取时不行走、行走时不抓取，两者可在同一实验流程中先后使用；'
+                  '切换或 episode 重置时必须清空 DWAQ 五帧历史并重置策略状态。',
+                  '真实 Isaac 已验证（GPU）：行走实例经互斥模式切换（挂起 DWAQ、钉扎基座、非驱动关节保持）'
+                  '完成行走-抓取-放置-再行走全流程，杆件落点误差 2.2 mm，抓取期间基座漂移小于 1e-4 m。',
+                  '不包含跌倒恢复。']
     if controller == 'MUSHR_RWD_ACKERMANN_CFG':
         notes.append('RWD 控制器选择不同底盘资产变体；不与默认 MuSHR 资产配置混为一个简历身份。')
     if controller == 'G1_BOX_GRASP_CFG':
@@ -298,9 +322,10 @@ def make_record(host, arm, controller, *, role='mobile_platform', attachments=No
         pp_support, pp_basis = 'supported', 'user_confirmed_project_capability'
         if host == 'g1':
             backend, operations = 'G1PickPlaceAdapter', ['pick', 'place']
-            pp_req = ['同一 G1 实例切换到经标定的抓放模式', 'Inspire 手、对象绑定与 G1LiveRuntime 接线']
-            pp_lim = ['行走与固定抓放当前使用不同的资产/运行方式，合并为同一机器人身份不等于可同时执行。',
-                      '抓放模式限已标定对象与直立轴向姿态；持物行走和边走边操作仍待验证。']
+            pp_req = ['同一 G1 实例经 skill 调用切换到经标定的抓放模式', 'Inspire 手、对象绑定与 G1LiveRuntime 接线']
+            pp_lim = ['行走与抓取由 skill 调用互斥切换，绝不并发：抓取时不行走、行走时不抓取；同一实验流程可先后使用两种模式。',
+                      '抓放模式限已标定对象与直立轴向姿态；持物行走和边走边操作不属于当前模式定义，仍待验证。',
+                      '行走实例的互斥切换抓放已在真实 Isaac 有界验证（杆件落点误差 2.2 mm）；接入公共 skill 分发链路仍待完成。']
             execution = 'calibrated_grasp_mode_pending_integration'
         else:
             operations = ['pick']
@@ -316,8 +341,9 @@ def make_record(host, arm, controller, *, role='mobile_platform', attachments=No
                        or pp_basis == 'user_confirmed_project_capability'
                        else 'pending_configuration_validation' if attached else 'pending_binding')
     if host == 'g1' and native and pp_support == 'supported':
-        # The locomotion timing blocker does not erase the separately available
-        # fixed-base grasp mode; unified mode arbitration is still pending.
+        # Modes are invoked through skill calls and are exclusive by design
+        # (grasp never walks, walk never grasps); wiring the calibrated grasp
+        # backend onto the walking G1 instance is the remaining work.
         pp_availability = 'pending_integration'
 
     sensors = [a for a in attachments if a in C.attachment_catalog() and C.attachment_catalog()[a].category == 'sensor']
@@ -400,7 +426,8 @@ def make_record(host, arm, controller, *, role='mobile_platform', attachments=No
                     'camera_presence_basis': ('source_integrated' if host in BUILTIN_CAMERA_MODELS
                                               else 'user_confirmed_default_with_builder_mount' if host in DEFAULT_D455_ROBOTS
                                               else 'required_pending_adaptation'),
-                    'camera_model': camera_model, 'camera_mount_pose': None,
+                    'camera_model': camera_model,
+                    'camera_mount_pose': copy.deepcopy(G1_CAMERA_MOUNT) if host == 'g1' else None,
                     'camera_integration_status': camera_status,
                     'camera_source_meets_tool_gate': camera_model is not None,
                     'camera_publication': 'pending_binding',
@@ -490,6 +517,19 @@ def record_schema(sample):
         properties={'translation_m': {'type': 'array', 'items': {'type': 'number'}, 'minItems': 3, 'maxItems': 3},
                     'rotation_wxyz': {'type': 'array', 'items': {'type': 'number'}, 'minItems': 4, 'maxItems': 4},
                     'reference_frame': {'type': 'string'}})
+    typ('sensing.camera_mount_pose', ['object', 'null'], additionalProperties=False,
+        required=['translation_m', 'rotation_wxyz', 'reference_frame', 'mounting', 'visual_shell_calibration'],
+        properties={'translation_m': {'type': 'array', 'items': {'type': 'number'}, 'minItems': 3, 'maxItems': 3},
+                    'rotation_wxyz': {'type': 'array', 'items': {'type': 'number'}, 'minItems': 4, 'maxItems': 4},
+                    'reference_frame': {'type': 'string'}, 'mounting': {'type': 'string'},
+                    'visual_shell_calibration': {
+                        'type': 'object', 'additionalProperties': False,
+                        'required': ['translate_m', 'rotate_xyz_deg', 'scale', 'reference_frame'],
+                        'properties': {
+                            'translate_m': {'type': 'array', 'items': {'type': 'number'}, 'minItems': 3, 'maxItems': 3},
+                            'rotate_xyz_deg': {'type': 'array', 'items': {'type': 'number'}, 'minItems': 3, 'maxItems': 3},
+                            'scale': {'type': 'array', 'items': {'type': 'number'}, 'minItems': 3, 'maxItems': 3},
+                            'reference_frame': {'type': 'string'}}}})
     enums = {
         'record_type': ['configuration_profile', 'configuration_variant'],
         'deployment.status': list(STATUS_ZH),
@@ -528,14 +568,22 @@ def render_zh(data):
              'Z1 载荷 3 kg、相对安装基座限高 0.798026 m。限高测量点与载荷是否含工具质量待你确认。**', '',
              'UR5 仅作为独立机器人，固定配备 Robotiq 2F-85；不提供裸臂或任何机器人搭载 UR5 的组合。'
              'Pepper 和 G1 默认具备抓取能力；Pepper 默认选用 PEPPER_PICK_PLACE_CFG。G1 只保留一个机器人身份，'
-             '其行走和标定抓放是同一机器人在不同运行模式下的能力，模式接线仍待统一。'
+             '其行走和标定抓放是同一机器人在不同运行模式下的能力：两种模式经 skill 调用互斥切换'
+             '（抓取时不行走、行走时不抓取），可在同一实验流程中先后使用；行走实例接通标定抓放后端仍待接入。'
              'Z1 独立配置作为有资产但待接入的候选列出。'
              'Kinova Gen3 按已有项目决定不进入正式池。未受目录支持的任意跨型号拼接、多外挂臂或双重登记均不纳入。', '',
+             'HeteroCoord 是多机团队实验：G1 可与任何其他机器人在同一环境混合部署。含 G1 的编队统一使用 '
+             'sim.dt=0.001、decimation=20（20 ms 策略周期）；所有控制器策略频率保持 50 Hz，'
+             '非 G1 机器人仅物理子步由 5 ms 细化为 1 ms。5 秒 GPU 有界实测中，混合编队内 G1/Go2/Carter '
+             '直立与位移正常，Go2 与其原生 5 ms 调度位移差约 1.1%；更长时程按实验观察复验。', '',
              'HeteroCoord 实验不使用键盘控制和 Navigation I/O 工具。相机是机器人默认属性，不作为可选开关。'
              'SimpleCar 与三类无人机使用内建相机；Carter、Pepper、Go2、B2、M20、Scout、MuSHR v2、Coco、Lite3 '
-             '默认装配 RealSense D455。G1 相机适配待后续完成；独立 UR5/Z1 的相机接线也尚未建立。'
+             '默认装配 RealSense D455。G1 现已默认挂载 D455（torso_link 额头凹槽可拆装位，'
+             '俯仰为用户批准的 +20° 下视标定，外壳经 GUI 校准；运行时图像流尚未实测订阅）；'
+             '独立 UR5/Z1 的相机接线尚未建立。'
              '除 Go2 外，每个平台只使用一个实验控制器：B2 为 `B2_MIXED_STAIRS_CFG`，'
-             'Pepper 为 `PEPPER_PICK_PLACE_CFG`，G1 已由 `G1_DWAQ_CFG` 完全替换旧 `G1_SKRL_CFG`。'
+             'Pepper 为 `PEPPER_PICK_PLACE_CFG`，G1 已由 `G1_DWAQ_CFG` 完全替换旧 `G1_SKRL_CFG`，'
+             '且 G1 具备上楼能力但不稳定（历史长楼梯上行 19/32，下楼未验证）。'
              'Go2 保留两份简历：`GO2_MIXED_STAIRS_CFG` 是正常稳定版本，'
              '`GO2_EXTREME_PARKOUR_TEACHER_CFG` 是运动不稳定的实验性越野版本。'
              '楼梯控制器的选择不自动确认携臂或持物状态的楼梯资格。', '',
@@ -610,7 +658,7 @@ def render_zh(data):
         lines.append(f'|`{rec["resume_id"]}`|`{rec["profile_id"]}`|{desc}|{STATUS_ZH[rec["deployment"]["status"]]}|')
     lines += ['', '## 需要审核的项目', '',
               '1. UR5/Z1 限高对应的点：物体原点、抓取点，还是末端执行器参考点；载荷是否包含夹具/工具质量。',
-              '2. Go2 稳定版已按用户确认标记可上楼、下楼仍待确认；Go2 越野版、B2、M20、G1 的路线专项资格继续审核。Lite3 已明确不支持上下楼。',
+              '2. Go2 稳定版已按用户确认标记可上楼、下楼仍待确认；G1 已按用户确认标记上楼能力但不稳定、下楼未验证；Go2 越野版、B2、M20 的路线专项资格继续审核。Lite3 已明确不支持上下楼。',
               '3. 目前静止通过的携臂组合，是否需要继续验证携臂移动、持物导航和楼梯；现稿不继承裸机资格。',
               '4. 独立 UR5 的实际安装坐标与对象限制（夹具固定为 Robotiq 2F-85）；独立 Z1 候选是否保留；Pepper/G1 的自有载荷、工作空间另填。',
               '5. 审核通过后再落地运行时 schema、注册与资格检查；本轮仅形成完整固定 JSON 和对应中文简历。', '']
@@ -699,7 +747,10 @@ def main():
                     for key, path in sources.items()] + [
                         {'source_id': 'user_lite3_stairs', 'path': 'user_confirmation', 'sha256': None},
                         {'source_id': 'user_pool_policy', 'path': 'user_confirmation: UR5 standalone with fixed Robotiq 2F-85; no mounted UR5; Pepper and G1 grasp by default', 'sha256': None},
-                        {'source_id': 'user_experiment_policy', 'path': 'user_confirmation: HeteroCoord has no keyboard or Navigation I/O tools; camera equipment is a default robot property; G1 movement and grasping share one robot identity', 'sha256': None}],
+                        {'source_id': 'user_experiment_policy', 'path': 'user_confirmation: HeteroCoord has no keyboard or Navigation I/O tools; camera equipment is a default robot property; G1 movement and grasping share one robot identity', 'sha256': None},
+                        {'source_id': 'user_mixed_fleet_timing', 'path': 'user_confirmation: HeteroCoord runs multi-robot team experiments; G1 must mix with other robots in one environment using the unified sim.dt=0.001/decimation=20 schedule', 'sha256': None},
+                        {'source_id': 'user_g1_unstable_stairs', 'path': 'user_confirmation: G1 DWAQ has stair-ascent capability but it is unstable; descent unverified', 'sha256': None},
+                        {'source_id': 'user_g1_exclusive_modes', 'path': 'user_confirmation: G1 walking and grasping policies are never used simultaneously (grasp without walking, walk without grasping); both may occur sequentially in one experiment flow, invoked as skills', 'sha256': None}],
         'exclusions': [{'model': 'kinova_gen3', 'reason_zh': '按已有用户决定不进入 Env DIY；保留资产不代表进入正式机器人池。'},
                        {'model': 'ur5_bare', 'reason_zh': '用户确认 UR5 固定配备 Robotiq 2F-85，不单独使用裸臂。'},
                        {'model': 'mounted_ur5', 'reason_zh': '用户确认所有机器人均不搭载 UR5；UR5 仅作为独立机器人。'},

@@ -3,7 +3,7 @@
   "schema_id": "heterocoord.robot_pool_resume_review",
   "schema_version": "1.3.0",
   "status": "review_draft_not_runtime_input",
-  "baseline_commit": "e8f97448a55feef76d9ec1ed993f01695580efc6",
+  "baseline_commit": "c635c778b673f883e9db67eedb458bfb60cdc13f",
   "scope_zh": "HeteroCoord实验配置池：14平台与单外挂Z1配对；除Go2的稳定/实验越野双版本外，每个平台一个实验控制器。相机是机器人默认属性，无键盘与Navigation I/O，不穷举传感器排列。UR5仅独立且固定配备Robotiq 2F-85；G1移动与抓放共用一个机器人身份。",
   "experiment_policy": {
     "camera_required": true,
@@ -68,12 +68,12 @@
     {
       "source_id": "catalog",
       "path": "/home/pupil/HeteroCoord/source/EAI/EAI/hmrs_env/env_diy/catalog.py",
-      "sha256": "5429dfdff3b7768a8547ff275733f9b5165e1e2998155aadbc5419c1d3ed74f0"
+      "sha256": "85b2c7b3352ce4d9ebc7a73b94fefe561fe39078a6f81d8a0bc60cf407b3f7ce"
     },
     {
       "source_id": "builder",
       "path": "/home/pupil/HeteroCoord/source/EAI_hmrs/EAI_hmrs/env_builder.py",
-      "sha256": "b4334caa820d62008d4d66eb7fe3d7504be11b72703a7e6dfbba420edd0a3a6a"
+      "sha256": "24fc8f8f355fb7e729ffd19a944e4c557b44f95aa3eea1945ea773fb3dcab148"
     },
     {
       "source_id": "skill_registry",
@@ -113,12 +113,12 @@
     {
       "source_id": "g1_fixed_backend",
       "path": "/home/pupil/HeteroCoord/task/executors/g1_live.py",
-      "sha256": "a3313f0b8db692b52d425421bfc660c9a3762dab9c8dbc1ddb96a8a2ba209108"
+      "sha256": "39f9155e2e2b5843c33f53cb90b2d1f854c3024d56b05fa0ab5dd449420724e0"
     },
     {
       "source_id": "g1_pick_place_backend",
       "path": "/home/pupil/HeteroCoord/task/executors/pick_place_backends/g1.py",
-      "sha256": "4bc320040af442d9f430b895842a002e9eda971697d06305394ac53c330a2039"
+      "sha256": "7a986572202d6e3a808de13c90263f18ecde96c41909794b1dbf82b73ee61ced"
     },
     {
       "source_id": "global_sim_timing",
@@ -184,6 +184,21 @@
       "source_id": "user_experiment_policy",
       "path": "user_confirmation: HeteroCoord has no keyboard or Navigation I/O tools; camera equipment is a default robot property; G1 movement and grasping share one robot identity",
       "sha256": null
+    },
+    {
+      "source_id": "user_mixed_fleet_timing",
+      "path": "user_confirmation: HeteroCoord runs multi-robot team experiments; G1 must mix with other robots in one environment using the unified sim.dt=0.001/decimation=20 schedule",
+      "sha256": null
+    },
+    {
+      "source_id": "user_g1_unstable_stairs",
+      "path": "user_confirmation: G1 DWAQ has stair-ascent capability but it is unstable; descent unverified",
+      "sha256": null
+    },
+    {
+      "source_id": "user_g1_exclusive_modes",
+      "path": "user_confirmation: G1 walking and grasping policies are never used simultaneously (grasp without walking, walk without grasping); both may occur sequentially in one experiment flow, invoked as skills",
+      "sha256": null
     }
   ],
   "exclusions": [
@@ -215,16 +230,16 @@
     "specialized_candidate_count": 2,
     "expanded_resume_count": 23,
     "profile_status_counts": {
-      "catalog_registered": 14,
-      "registered_blocked": 1,
+      "catalog_registered": 15,
+      "registered_blocked": 0,
       "conditional": 6,
       "rejected": 1,
       "declared_unwired": 0,
       "pending_integration": 2
     },
     "expanded_status_counts": {
-      "catalog_registered": 14,
-      "registered_blocked": 1,
+      "catalog_registered": 15,
+      "registered_blocked": 0,
       "conditional": 6,
       "rejected": 0,
       "declared_unwired": 0,
@@ -2638,7 +2653,7 @@
         "generation": null
       },
       "deployment": {
-        "status": "registered_blocked",
+        "status": "catalog_registered",
         "attachment_validation": true,
         "catalog_error": null,
         "controller_binding": "builder_import_registered",
@@ -2647,11 +2662,10 @@
         "known_instability_zh": null,
         "fall_recovery": "unsupported",
         "runtime_blockers_zh": [
-          "纯 G1 使用 sim.dt=0.001、decimation=20；与任何非 G1 控制器的混合环境当前拒绝构建。",
-          "DWAQ 行走与固定基座 G1PickPlaceAdapter 的策略切换和关节写入仲裁尚未形成统一运行模式。"
+          "混合编队下非 G1 控制器物理子步为 1 ms：5 秒 GPU 有界实测中 Go2/Carter 的直立度与位移与原生 5 ms 调度一致（Go2 位移差约 1.1%），更长时程与任务场景仍需按实验观察复验。"
         ],
-        "reason_zh": "控制器和匹配资产已经注册；纯 G1 环境使用合同要求的 0.001 s × 20。G1 与其他机器人混合时缺少多速率方案或共同物理时序重验，构建器会明确拒绝。",
-        "evidence_scope_zh": "模型/适配器接线与纯 G1 配置时序已接入；混合机器人部署资格仍被阻止。",
+        "reason_zh": "控制器和匹配资产已经注册；含 G1 的编队（纯 G1 或与其他机器人混合）统一使用 sim.dt=0.001、decimation=20 的 20 ms 策略周期，可参与多机团队实验。",
+        "evidence_scope_zh": "模型/适配器接线与统一时序已接入；混合编队中非 G1 控制器的物理子步由 5 ms 细化为 1 ms（策略频率与模型不变），其运动稳定性以实际实验运行复验为准。",
         "runtime_qualified": false
       },
       "configuration": {
@@ -2663,7 +2677,9 @@
         "attachments": [],
         "sensor_attachments": [],
         "builtin_sensor_suite": [],
-        "default_sensor_suite": [],
+        "default_sensor_suite": [
+          "realsense_d455"
+        ],
         "tools": [],
         "mount_pose": null,
         "asset_variant_zh": "按当前平台与控制器构建"
@@ -2675,9 +2691,9 @@
         "navigation_dimension": "xy",
         "stationary_configuration": false,
         "stairs": {
-          "ascent": "unknown",
+          "ascent": "supported_unstable",
           "descent": "unknown",
-          "basis": "historical_partial_not_qualification",
+          "basis": "user_confirmed_unstable_g1_ascent",
           "display": "always"
         },
         "speed_limit_mps": null,
@@ -2704,12 +2720,44 @@
       "sensing": {
         "camera_required": true,
         "camera_is_default_robot_property": true,
-        "camera_present": false,
-        "camera_presence_basis": "required_pending_adaptation",
-        "camera_model": null,
-        "camera_mount_pose": null,
-        "camera_integration_status": "pending_adaptation",
-        "camera_source_meets_tool_gate": false,
+        "camera_present": true,
+        "camera_presence_basis": "user_confirmed_default_with_builder_mount",
+        "camera_model": "realsense_d455",
+        "camera_mount_pose": {
+          "translation_m": [
+            0.0576235,
+            0.01753,
+            0.41987
+          ],
+          "rotation_wxyz": [
+            0.98480775301,
+            0.0,
+            0.17364817767,
+            0.0
+          ],
+          "reference_frame": "torso_link",
+          "mounting": "detachable_forehead_recess",
+          "visual_shell_calibration": {
+            "translate_m": [
+              0.03212,
+              0.0187,
+              0.02007
+            ],
+            "rotate_xyz_deg": [
+              85.5,
+              0.0,
+              -90.0
+            ],
+            "scale": [
+              0.7,
+              0.7,
+              0.7
+            ],
+            "reference_frame": "rsd455_shell"
+          }
+        },
+        "camera_integration_status": "builder_registered_default",
+        "camera_source_meets_tool_gate": true,
         "camera_publication": "pending_binding",
         "autonomous_perception_skill": "not_declared",
         "note_zh": "HeteroCoord 实验默认配备相机，不作为可选工具展开。型号、安装位姿与图像流待实例绑定；默认配备声明不代表已有目录相机来源门禁通过，也不自动产生识别、定位或语义理解技能。"
@@ -2718,7 +2766,7 @@
         {
           "skill_id": "eai.navigation.node_route",
           "support": "supported",
-          "availability": "deployment_blocked",
+          "availability": "pending_binding",
           "support_basis": "source_analysis",
           "backend": "NavigationControllerAdapter",
           "operations": [
@@ -2744,12 +2792,13 @@
             "place"
           ],
           "requirements_zh": [
-            "同一 G1 实例切换到经标定的抓放模式",
+            "同一 G1 实例经 skill 调用切换到经标定的抓放模式",
             "Inspire 手、对象绑定与 G1LiveRuntime 接线"
           ],
           "limitations_zh": [
-            "行走与固定抓放当前使用不同的资产/运行方式，合并为同一机器人身份不等于可同时执行。",
-            "抓放模式限已标定对象与直立轴向姿态；持物行走和边走边操作仍待验证。"
+            "行走与抓取由 skill 调用互斥切换，绝不并发：抓取时不行走、行走时不抓取；同一实验流程可先后使用两种模式。",
+            "抓放模式限已标定对象与直立轴向姿态；持物行走和边走边操作不属于当前模式定义，仍待验证。",
+            "行走实例的互斥切换抓放已在真实 Isaac 有界验证（杆件落点误差 2.2 mm）；接入公共 skill 分发链路仍待完成。"
           ]
         }
       ],
@@ -2763,8 +2812,10 @@
       },
       "special_notes_zh": [
         "项目默认具备抓取能力；DWAQ 行走策略控制 29 个身体关节并将 24 个 Inspire 手指保持为零，抓放需要切换到已标定抓放运行模式。",
-        "DWAQ 历史 School entrance 长楼梯上行仅 19/32 成功，不声明可靠楼梯能力。",
-        "不包含跌倒恢复；切换策略或 episode 重置时必须清空五帧历史。"
+        "具备上楼能力但不稳定：历史 School entrance 长楼梯上行仅 19/32 成功，不声明可靠楼梯能力；下楼未验证。",
+        "行走与抓取两种模式经 skill 调用互斥切换：抓取时不行走、行走时不抓取，两者可在同一实验流程中先后使用；切换或 episode 重置时必须清空 DWAQ 五帧历史并重置策略状态。",
+        "真实 Isaac 已验证（GPU）：行走实例经互斥模式切换（挂起 DWAQ、钉扎基座、非驱动关节保持）完成行走-抓取-放置-再行走全流程，杆件落点误差 2.2 mm，抓取期间基座漂移小于 1e-4 m。",
+        "不包含跌倒恢复。"
       ],
       "source_refs": [
         "catalog",
@@ -6309,7 +6360,7 @@
         "generation": null
       },
       "deployment": {
-        "status": "registered_blocked",
+        "status": "catalog_registered",
         "attachment_validation": true,
         "catalog_error": null,
         "controller_binding": "builder_import_registered",
@@ -6318,11 +6369,10 @@
         "known_instability_zh": null,
         "fall_recovery": "unsupported",
         "runtime_blockers_zh": [
-          "纯 G1 使用 sim.dt=0.001、decimation=20；与任何非 G1 控制器的混合环境当前拒绝构建。",
-          "DWAQ 行走与固定基座 G1PickPlaceAdapter 的策略切换和关节写入仲裁尚未形成统一运行模式。"
+          "混合编队下非 G1 控制器物理子步为 1 ms：5 秒 GPU 有界实测中 Go2/Carter 的直立度与位移与原生 5 ms 调度一致（Go2 位移差约 1.1%），更长时程与任务场景仍需按实验观察复验。"
         ],
-        "reason_zh": "控制器和匹配资产已经注册；纯 G1 环境使用合同要求的 0.001 s × 20。G1 与其他机器人混合时缺少多速率方案或共同物理时序重验，构建器会明确拒绝。",
-        "evidence_scope_zh": "模型/适配器接线与纯 G1 配置时序已接入；混合机器人部署资格仍被阻止。",
+        "reason_zh": "控制器和匹配资产已经注册；含 G1 的编队（纯 G1 或与其他机器人混合）统一使用 sim.dt=0.001、decimation=20 的 20 ms 策略周期，可参与多机团队实验。",
+        "evidence_scope_zh": "模型/适配器接线与统一时序已接入；混合编队中非 G1 控制器的物理子步由 5 ms 细化为 1 ms（策略频率与模型不变），其运动稳定性以实际实验运行复验为准。",
         "runtime_qualified": false
       },
       "configuration": {
@@ -6334,7 +6384,9 @@
         "attachments": [],
         "sensor_attachments": [],
         "builtin_sensor_suite": [],
-        "default_sensor_suite": [],
+        "default_sensor_suite": [
+          "realsense_d455"
+        ],
         "tools": [],
         "mount_pose": null,
         "asset_variant_zh": "按当前平台与控制器构建"
@@ -6346,9 +6398,9 @@
         "navigation_dimension": "xy",
         "stationary_configuration": false,
         "stairs": {
-          "ascent": "unknown",
+          "ascent": "supported_unstable",
           "descent": "unknown",
-          "basis": "historical_partial_not_qualification",
+          "basis": "user_confirmed_unstable_g1_ascent",
           "display": "always"
         },
         "speed_limit_mps": null,
@@ -6375,12 +6427,44 @@
       "sensing": {
         "camera_required": true,
         "camera_is_default_robot_property": true,
-        "camera_present": false,
-        "camera_presence_basis": "required_pending_adaptation",
-        "camera_model": null,
-        "camera_mount_pose": null,
-        "camera_integration_status": "pending_adaptation",
-        "camera_source_meets_tool_gate": false,
+        "camera_present": true,
+        "camera_presence_basis": "user_confirmed_default_with_builder_mount",
+        "camera_model": "realsense_d455",
+        "camera_mount_pose": {
+          "translation_m": [
+            0.0576235,
+            0.01753,
+            0.41987
+          ],
+          "rotation_wxyz": [
+            0.98480775301,
+            0.0,
+            0.17364817767,
+            0.0
+          ],
+          "reference_frame": "torso_link",
+          "mounting": "detachable_forehead_recess",
+          "visual_shell_calibration": {
+            "translate_m": [
+              0.03212,
+              0.0187,
+              0.02007
+            ],
+            "rotate_xyz_deg": [
+              85.5,
+              0.0,
+              -90.0
+            ],
+            "scale": [
+              0.7,
+              0.7,
+              0.7
+            ],
+            "reference_frame": "rsd455_shell"
+          }
+        },
+        "camera_integration_status": "builder_registered_default",
+        "camera_source_meets_tool_gate": true,
         "camera_publication": "pending_binding",
         "autonomous_perception_skill": "not_declared",
         "note_zh": "HeteroCoord 实验默认配备相机，不作为可选工具展开。型号、安装位姿与图像流待实例绑定；默认配备声明不代表已有目录相机来源门禁通过，也不自动产生识别、定位或语义理解技能。"
@@ -6389,7 +6473,7 @@
         {
           "skill_id": "eai.navigation.node_route",
           "support": "supported",
-          "availability": "deployment_blocked",
+          "availability": "pending_binding",
           "support_basis": "source_analysis",
           "backend": "NavigationControllerAdapter",
           "operations": [
@@ -6415,12 +6499,13 @@
             "place"
           ],
           "requirements_zh": [
-            "同一 G1 实例切换到经标定的抓放模式",
+            "同一 G1 实例经 skill 调用切换到经标定的抓放模式",
             "Inspire 手、对象绑定与 G1LiveRuntime 接线"
           ],
           "limitations_zh": [
-            "行走与固定抓放当前使用不同的资产/运行方式，合并为同一机器人身份不等于可同时执行。",
-            "抓放模式限已标定对象与直立轴向姿态；持物行走和边走边操作仍待验证。"
+            "行走与抓取由 skill 调用互斥切换，绝不并发：抓取时不行走、行走时不抓取；同一实验流程可先后使用两种模式。",
+            "抓放模式限已标定对象与直立轴向姿态；持物行走和边走边操作不属于当前模式定义，仍待验证。",
+            "行走实例的互斥切换抓放已在真实 Isaac 有界验证（杆件落点误差 2.2 mm）；接入公共 skill 分发链路仍待完成。"
           ]
         }
       ],
@@ -6434,8 +6519,10 @@
       },
       "special_notes_zh": [
         "项目默认具备抓取能力；DWAQ 行走策略控制 29 个身体关节并将 24 个 Inspire 手指保持为零，抓放需要切换到已标定抓放运行模式。",
-        "DWAQ 历史 School entrance 长楼梯上行仅 19/32 成功，不声明可靠楼梯能力。",
-        "不包含跌倒恢复；切换策略或 episode 重置时必须清空五帧历史。"
+        "具备上楼能力但不稳定：历史 School entrance 长楼梯上行仅 19/32 成功，不声明可靠楼梯能力；下楼未验证。",
+        "行走与抓取两种模式经 skill 调用互斥切换：抓取时不行走、行走时不抓取，两者可在同一实验流程中先后使用；切换或 episode 重置时必须清空 DWAQ 五帧历史并重置策略状态。",
+        "真实 Isaac 已验证（GPU）：行走实例经互斥模式切换（挂起 DWAQ、钉扎基座、非驱动关节保持）完成行走-抓取-放置-再行走全流程，杆件落点误差 2.2 mm，抓取期间基座漂移小于 1e-4 m。",
+        "不包含跌倒恢复。"
       ],
       "source_refs": [
         "catalog",

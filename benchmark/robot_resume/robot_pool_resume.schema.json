@@ -755,6 +755,7 @@
                   "enum": [
                     "supported",
                     "unsupported",
+                    "supported_unstable",
                     "unknown",
                     "not_applicable"
                   ]
@@ -764,6 +765,7 @@
                   "enum": [
                     "supported",
                     "unsupported",
+                    "supported_unstable",
                     "unknown",
                     "not_applicable"
                   ]
@@ -940,9 +942,80 @@
             },
             "camera_mount_pose": {
               "type": [
-                "string",
+                "object",
                 "null"
-              ]
+              ],
+              "additionalProperties": false,
+              "required": [
+                "translation_m",
+                "rotation_wxyz",
+                "reference_frame",
+                "mounting",
+                "visual_shell_calibration"
+              ],
+              "properties": {
+                "translation_m": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                },
+                "rotation_wxyz": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 4,
+                  "maxItems": 4
+                },
+                "reference_frame": {
+                  "type": "string"
+                },
+                "mounting": {
+                  "type": "string"
+                },
+                "visual_shell_calibration": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "translate_m",
+                    "rotate_xyz_deg",
+                    "scale",
+                    "reference_frame"
+                  ],
+                  "properties": {
+                    "translate_m": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 3,
+                      "maxItems": 3
+                    },
+                    "rotate_xyz_deg": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 3,
+                      "maxItems": 3
+                    },
+                    "scale": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 3,
+                      "maxItems": 3
+                    },
+                    "reference_frame": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
             },
             "camera_integration_status": {
               "type": "string",
@@ -994,6 +1067,7 @@
                 "enum": [
                   "supported",
                   "unsupported",
+                  "supported_unstable",
                   "unknown",
                   "not_applicable"
                 ]

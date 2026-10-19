@@ -2,7 +2,7 @@
 
 本稿是配置池设计：任务可以任取子集，也可以创建同配置的多个实例；不是要求每个场景同时放入所有机器人。
 
-代码基线：`e8f97448a55feef76d9ec1ed993f01695580efc6`。14 类平台，24 份核心配置简历，21 份平台/控制器/携臂合法配置，另加 2 份独立机械臂配置，共 23 条。
+代码基线：`c635c778b673f883e9db67eedb458bfb60cdc13f`。14 类平台，24 份核心配置简历，21 份平台/控制器/携臂合法配置，另加 2 份独立机械臂配置，共 23 条。
 
 核心审核条目还包含已拒绝的 Lite3 + Z1；该条只记录排除原因，不进入配置池。
 
@@ -12,9 +12,11 @@ JSON 中每条记录都具备同一套固定字段，未知值写 `null`。`conf
 
 **确认约束：Lite3 不能上楼、不能下楼；UR5 可作为独立机器人。UR5 载荷 5 kg、相对安装基座限高 0.824073 m；Z1 载荷 3 kg、相对安装基座限高 0.798026 m。限高测量点与载荷是否含工具质量待你确认。**
 
-UR5 仅作为独立机器人，固定配备 Robotiq 2F-85；不提供裸臂或任何机器人搭载 UR5 的组合。Pepper 和 G1 默认具备抓取能力；Pepper 默认选用 PEPPER_PICK_PLACE_CFG。G1 只保留一个机器人身份，其行走和标定抓放是同一机器人在不同运行模式下的能力，模式接线仍待统一。Z1 独立配置作为有资产但待接入的候选列出。Kinova Gen3 按已有项目决定不进入正式池。未受目录支持的任意跨型号拼接、多外挂臂或双重登记均不纳入。
+UR5 仅作为独立机器人，固定配备 Robotiq 2F-85；不提供裸臂或任何机器人搭载 UR5 的组合。Pepper 和 G1 默认具备抓取能力；Pepper 默认选用 PEPPER_PICK_PLACE_CFG。G1 只保留一个机器人身份，其行走和标定抓放是同一机器人在不同运行模式下的能力：两种模式经 skill 调用互斥切换（抓取时不行走、行走时不抓取），可在同一实验流程中先后使用；行走实例接通标定抓放后端仍待接入。Z1 独立配置作为有资产但待接入的候选列出。Kinova Gen3 按已有项目决定不进入正式池。未受目录支持的任意跨型号拼接、多外挂臂或双重登记均不纳入。
 
-HeteroCoord 实验不使用键盘控制和 Navigation I/O 工具。相机是机器人默认属性，不作为可选开关。SimpleCar 与三类无人机使用内建相机；Carter、Pepper、Go2、B2、M20、Scout、MuSHR v2、Coco、Lite3 默认装配 RealSense D455。G1 相机适配待后续完成；独立 UR5/Z1 的相机接线也尚未建立。除 Go2 外，每个平台只使用一个实验控制器：B2 为 `B2_MIXED_STAIRS_CFG`，Pepper 为 `PEPPER_PICK_PLACE_CFG`，G1 已由 `G1_DWAQ_CFG` 完全替换旧 `G1_SKRL_CFG`。Go2 保留两份简历：`GO2_MIXED_STAIRS_CFG` 是正常稳定版本，`GO2_EXTREME_PARKOUR_TEACHER_CFG` 是运动不稳定的实验性越野版本。楼梯控制器的选择不自动确认携臂或持物状态的楼梯资格。
+HeteroCoord 是多机团队实验：G1 可与任何其他机器人在同一环境混合部署。含 G1 的编队统一使用 sim.dt=0.001、decimation=20（20 ms 策略周期）；所有控制器策略频率保持 50 Hz，非 G1 机器人仅物理子步由 5 ms 细化为 1 ms。5 秒 GPU 有界实测中，混合编队内 G1/Go2/Carter 直立与位移正常，Go2 与其原生 5 ms 调度位移差约 1.1%；更长时程按实验观察复验。
+
+HeteroCoord 实验不使用键盘控制和 Navigation I/O 工具。相机是机器人默认属性，不作为可选开关。SimpleCar 与三类无人机使用内建相机；Carter、Pepper、Go2、B2、M20、Scout、MuSHR v2、Coco、Lite3 默认装配 RealSense D455。G1 现已默认挂载 D455（torso_link 额头凹槽可拆装位，俯仰为用户批准的 +20° 下视标定，外壳经 GUI 校准；运行时图像流尚未实测订阅）；独立 UR5/Z1 的相机接线尚未建立。除 Go2 外，每个平台只使用一个实验控制器：B2 为 `B2_MIXED_STAIRS_CFG`，Pepper 为 `PEPPER_PICK_PLACE_CFG`，G1 已由 `G1_DWAQ_CFG` 完全替换旧 `G1_SKRL_CFG`，且 G1 具备上楼能力但不稳定（历史长楼梯上行 19/32，下楼未验证）。Go2 保留两份简历：`GO2_MIXED_STAIRS_CFG` 是正常稳定版本，`GO2_EXTREME_PARKOUR_TEACHER_CFG` 是运动不稳定的实验性越野版本。楼梯控制器的选择不自动确认携臂或持物状态的楼梯资格。
 
 ## 平台与组合覆盖
 
@@ -527,7 +529,7 @@ HeteroCoord 实验不使用键盘控制和 Navigation I/O 工具。相机是机�
 
 配置 ID：`g1.no_external_arm.G1_DWAQ_CFG`。
 
-部署：**已注册，但运行时资格被阻止**。控制器和匹配资产已经注册；纯 G1 环境使用合同要求的 0.001 s × 20。G1 与其他机器人混合时缺少多速率方案或共同物理时序重验，构建器会明确拒绝。
+部署：**目录已注册，实例尚未绑定**。控制器和匹配资产已经注册；含 G1 的编队（纯 G1 或与其他机器人混合）统一使用 sim.dt=0.001、decimation=20 的 20 ms 策略周期，可参与多机团队实验。
 
 运动：双足 / 足式运动；运动控制器：`G1_DWAQ_CFG`；机械臂控制：`无独立外挂臂控制器`。
 
@@ -535,28 +537,28 @@ HeteroCoord 实验不使用键盘控制和 Navigation I/O 工具。相机是机�
 
 控制器版本：**DWAQ 行走版本**；成熟度：`deployment_baseline_limited`；跌倒恢复：不支持。
 
-运行时阻塞：纯 G1 使用 sim.dt=0.001、decimation=20；与任何非 G1 控制器的混合环境当前拒绝构建。；DWAQ 行走与固定基座 G1PickPlaceAdapter 的策略切换和关节写入仲裁尚未形成统一运行模式。
+运行时阻塞：混合编队下非 G1 控制器物理子步为 1 ms：5 秒 GPU 有界实测中 Go2/Carter 的直立度与位移与原生 5 ms 调度一致（Go2 位移差约 1.1%），更长时程与任务场景仍需按实验观察复验。
 
-相机：实验要求默认相机，但当前工程尚未完成该配置的相机适配。
+相机：默认配备 `realsense_d455`；安装位姿与图像流待实例绑定。
 
-楼梯：上楼=未确认，下楼=未确认；依据：历史楼梯结果只部分成功，不构成可靠楼梯资格。
+楼梯：上楼=支持但不稳定，下楼=未确认；依据：用户确认 DWAQ G1 具备上楼能力但不稳定；历史长楼梯上行仅 19/32 成功，不构成可靠楼梯资格。
 
 |技能|配置支持|能力依据|操作|实例可用性|后端|
 |---|---|---|---|---|---|
-|`eai.navigation.node_route`|支持|源码分析|navigate_to_node|部署被阻止|NavigationControllerAdapter|
+|`eai.navigation.node_route`|支持|源码分析|navigate_to_node|待实例绑定|NavigationControllerAdapter|
 |`eai.manipulation.pick_place`|支持|用户确认的项目能力|pick, place|待接入|G1PickPlaceAdapter|
 
 `eai.navigation.node_route` 的前提：实例导航适配器；该机器人可达的拓扑地图和目标节点；按当前配置过滤路径、净空和楼梯边。
 
 `eai.navigation.node_route` 的限制：公共 node_route 不自动校验楼梯资格，宿主必须在路线发布前过滤。
 
-`eai.manipulation.pick_place` 的前提：同一 G1 实例切换到经标定的抓放模式；Inspire 手、对象绑定与 G1LiveRuntime 接线。
+`eai.manipulation.pick_place` 的前提：同一 G1 实例经 skill 调用切换到经标定的抓放模式；Inspire 手、对象绑定与 G1LiveRuntime 接线。
 
-`eai.manipulation.pick_place` 的限制：行走与固定抓放当前使用不同的资产/运行方式，合并为同一机器人身份不等于可同时执行。；抓放模式限已标定对象与直立轴向姿态；持物行走和边走边操作仍待验证。
+`eai.manipulation.pick_place` 的限制：行走与抓取由 skill 调用互斥切换，绝不并发：抓取时不行走、行走时不抓取；同一实验流程可先后使用两种模式。；抓放模式限已标定对象与直立轴向姿态；持物行走和边走边操作不属于当前模式定义，仍待验证。；行走实例的互斥切换抓放已在真实 Isaac 有界验证（杆件落点误差 2.2 mm）；接入公共 skill 分发链路仍待完成。
 
-特殊说明：项目默认具备抓取能力；DWAQ 行走策略控制 29 个身体关节并将 24 个 Inspire 手指保持为零，抓放需要切换到已标定抓放运行模式。；DWAQ 历史 School entrance 长楼梯上行仅 19/32 成功，不声明可靠楼梯能力。；不包含跌倒恢复；切换策略或 episode 重置时必须清空五帧历史。
+特殊说明：项目默认具备抓取能力；DWAQ 行走策略控制 29 个身体关节并将 24 个 Inspire 手指保持为零，抓放需要切换到已标定抓放运行模式。；具备上楼能力但不稳定：历史 School entrance 长楼梯上行仅 19/32 成功，不声明可靠楼梯能力；下楼未验证。；行走与抓取两种模式经 skill 调用互斥切换：抓取时不行走、行走时不抓取，两者可在同一实验流程中先后使用；切换或 episode 重置时必须清空 DWAQ 五帧历史并重置策略状态。；真实 Isaac 已验证（GPU）：行走实例经互斥模式切换（挂起 DWAQ、钉扎基座、非驱动关节保持）完成行走-抓取-放置-再行走全流程，杆件落点误差 2.2 mm，抓取期间基座漂移小于 1e-4 m。；不包含跌倒恢复。
 
-证据范围：模型/适配器接线与纯 G1 配置时序已接入；混合机器人部署资格仍被阻止。
+证据范围：模型/适配器接线与统一时序已接入；混合编队中非 G1 控制器的物理子步由 5 ms 细化为 1 ms（策略频率与模型不变），其运动稳定性以实际实验运行复验为准。
 
 ### 17. CF2X 四旋翼机器人 / 无外挂臂
 
@@ -833,7 +835,7 @@ Orsus、独立 LiDAR、C01 三者互斥。Carter + Z1 不得再加 Orsus/LiDAR/C
 |`scout.SCOUT_DIFF_CFG.v0001`|`scout.no_external_arm.SCOUT_DIFF_CFG`|无外挂臂|目录已注册，实例尚未绑定|
 |`scout.SCOUT_DIFF_CFG.v0002`|`scout.z1.SCOUT_DIFF_CFG`|Z1 + Z1 夹具|附条件：仅有静止挂载证据|
 |`mushr_v2.MUSHR_ACKERMANN_CFG.v0001`|`mushr_v2.no_external_arm.MUSHR_ACKERMANN_CFG`|无外挂臂|目录已注册，实例尚未绑定|
-|`g1.G1_DWAQ_CFG.v0001`|`g1.no_external_arm.G1_DWAQ_CFG`|无外挂臂|已注册，但运行时资格被阻止|
+|`g1.G1_DWAQ_CFG.v0001`|`g1.no_external_arm.G1_DWAQ_CFG`|无外挂臂|目录已注册，实例尚未绑定|
 |`cf2x.QUADCOPTER_GOAL_SKRL_CFG.v0001`|`cf2x.no_external_arm.QUADCOPTER_GOAL_SKRL_CFG`|无外挂臂|目录已注册，实例尚未绑定|
 |`iris.PEGASUS_IRIS_POSITION_CFG.v0001`|`iris.no_external_arm.PEGASUS_IRIS_POSITION_CFG`|无外挂臂|目录已注册，实例尚未绑定|
 |`pegasus.PEGASUS_X4_POSITION_CFG.v0001`|`pegasus.no_external_arm.PEGASUS_X4_POSITION_CFG`|无外挂臂|目录已注册，实例尚未绑定|
@@ -845,7 +847,7 @@ Orsus、独立 LiDAR、C01 三者互斥。Carter + Z1 不得再加 Orsus/LiDAR/C
 ## 需要审核的项目
 
 1. UR5/Z1 限高对应的点：物体原点、抓取点，还是末端执行器参考点；载荷是否包含夹具/工具质量。
-2. Go2 稳定版已按用户确认标记可上楼、下楼仍待确认；Go2 越野版、B2、M20、G1 的路线专项资格继续审核。Lite3 已明确不支持上下楼。
+2. Go2 稳定版已按用户确认标记可上楼、下楼仍待确认；G1 已按用户确认标记上楼能力但不稳定、下楼未验证；Go2 越野版、B2、M20 的路线专项资格继续审核。Lite3 已明确不支持上下楼。
 3. 目前静止通过的携臂组合，是否需要继续验证携臂移动、持物导航和楼梯；现稿不继承裸机资格。
 4. 独立 UR5 的实际安装坐标与对象限制（夹具固定为 Robotiq 2F-85）；独立 Z1 候选是否保留；Pepper/G1 的自有载荷、工作空间另填。
 5. 审核通过后再落地运行时 schema、注册与资格检查；本轮仅形成完整固定 JSON 和对应中文简历。

@@ -279,7 +279,7 @@ def _attachment_entries() -> tuple[AttachmentCatalogEntry, ...]:
     z1_hosts = ("carter", "go2", "b2", "m20", "scout", "lite3")
     # RealSense D455 与 Orsus 一样是可解耦装载的传感器载荷；
     # pepper 头顶装载作为首轮验证宿主，其余沿用 Orsus 兼容宿主集合。
-    realsense_d455_hosts = ("pepper", "mushr_v2") + orsus_hosts
+    realsense_d455_hosts = ("pepper", "mushr_v2", "g1") + orsus_hosts
     return (
         AttachmentCatalogEntry(
             name="orsus",
@@ -358,7 +358,7 @@ def tool_catalog() -> dict[str, AttachmentCatalogEntry]:
             controller_cfg=None,
             supported_robots=(
                 "carter", "simple_car", "go2", "b2", "m20", "scout", "mushr_v2", "coco", "lite3",
-                "cf2x", "iris", "pegasus", "pepper",
+                "cf2x", "iris", "pegasus", "pepper", "g1",
             ),
             category="tool",
         ),

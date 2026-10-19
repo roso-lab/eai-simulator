@@ -39,13 +39,33 @@ def matrix_pose(matrix, device):
 
 
 class G1LiveHandle:
+    # Class defaults keep __new__-based gate fixtures working without __init__.
+    base_mode = 'fixed'
+    base_drift_tolerance_m = .015
+
     def __init__(self, plan, *, view, stage, robot_name, robot_path, objects,
-                 config=None, obstacles=(), settle_ticks=10, defer_start=True):
+                 config=None, obstacles=(), settle_ticks=10, defer_start=True,
+                 base_mode='fixed', base_drift_tolerance_m=.015):
         from EAI.controllers.environment_view import environment_path
+        self.base_mode = base_mode
+        self.base_drift_tolerance_m = float(base_drift_tolerance_m)
+        if self.base_mode not in ('fixed', 'stationary_floating'):
+            raise ValueError("base_mode must be 'fixed' or 'stationary_floating'")
+        if not (math.isfinite(self.base_drift_tolerance_m) and 0 < self.base_drift_tolerance_m):
+            raise ValueError('base drift tolerance must be positive and finite')
         self.plan, self.view, self.robot_name = plan, view, robot_name
         self.robot = view.scene.articulations[robot_name]
-        if not self.robot.is_fixed_base:
-            raise ValueError('G1 live manipulation requires a fixed articulation base')
+        if self.base_mode == 'fixed':
+            if not self.robot.is_fixed_base:
+                raise ValueError('G1 live manipulation requires a fixed articulation base')
+            if self.base_drift_tolerance_m > .015:
+                raise ValueError('fixed-base grip calibration allows at most 1.5 cm base drift')
+        elif self.robot.is_fixed_base:
+            raise ValueError(
+                "stationary_floating base_mode expects the walking (floating-base) "
+                "G1 instance; the calibrated fixed asset must use base_mode='fixed'")
+        if self.base_mode == 'stationary_floating' and self.base_drift_tolerance_m > .25:
+            raise ValueError('stationary grasp envelope must stay below 25 cm')
         self.cancel_reason, self.error, self.receipt = None, None, None
         self.stable_ticks, self.settle_ticks, self.elapsed = 0, settle_ticks, 0.
         self.attached = False
@@ -157,8 +177,12 @@ class G1LiveHandle:
             if self.elapsed > self.skill.config.timeout_s:
                 raise RuntimeError('live G1 trajectory timeout; ownership retained')
             root = self._body_pose(self.base_id) @ np.linalg.inv(self.skill.robot.base_local[next(iter(self.skill.robot.base_paths))])
-            if not np.allclose(root, self.root, atol=.015, rtol=0):
-                raise RuntimeError('fixed G1 base moved; ownership retained')
+            drift = float(np.linalg.norm(root[:3, 3] - self.root[:3, 3]))
+            if drift > self.base_drift_tolerance_m:
+                raise RuntimeError(
+                    f'G1 base moved {drift:.3f} m beyond the stationary grasp '
+                    f'envelope ({self.base_drift_tolerance_m} m); grasp and '
+                    'locomotion are exclusive modes; ownership retained')
             if self._target is not None:
                 error = max(abs(float(self.robot.data.joint_pos[0, self.joint_ids[n]]) - v) for n, v in self._target.items())
                 if not math.isfinite(error):

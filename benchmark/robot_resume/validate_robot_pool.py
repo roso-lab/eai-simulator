@@ -61,8 +61,15 @@ def main() -> None:
     assert g1_profiles[0]["manipulation"]["origin"] == "integrated"
     assert g1_profiles[0]["skills"][1]["support"] == "supported"
     assert g1_profiles[0]["deployment"]["fall_recovery"] == "unsupported"
-    assert g1_profiles[0]["deployment"]["status"] == "registered_blocked"
-    assert len(g1_profiles[0]["deployment"]["runtime_blockers_zh"]) == 2
+    assert g1_profiles[0]["deployment"]["status"] == "catalog_registered"
+    assert g1_profiles[0]["mobility"]["stairs"]["ascent"] == "supported_unstable"
+    assert g1_profiles[0]["mobility"]["stairs"]["descent"] == "unknown"
+    assert len(g1_profiles[0]["deployment"]["runtime_blockers_zh"]) == 1
+    assert g1_profiles[0]["sensing"]["camera_model"] == "realsense_d455"
+    assert g1_profiles[0]["sensing"]["camera_present"] is True
+    assert g1_profiles[0]["sensing"]["camera_integration_status"] == "builder_registered_default"
+    assert g1_profiles[0]["sensing"]["camera_mount_pose"]["rotation_wxyz"] == [
+        0.98480775301, 0.0, 0.17364817767, 0.0]
 
     expected_go2 = {"GO2_MIXED_STAIRS_CFG", "GO2_EXTREME_PARKOUR_TEACHER_CFG"}
     go2_profiles = _profiles(data, "go2")
@@ -93,7 +100,7 @@ def main() -> None:
     assert ur5[0]["configuration"]["attachments"] == []
 
     default_d455 = {"carter", "pepper", "go2", "b2", "m20", "scout",
-                    "mushr_v2", "coco", "lite3"}
+                    "mushr_v2", "coco", "lite3", "g1"}
     builtin_camera = {"simple_car", "cf2x", "iris", "pegasus"}
     for item in profiles + resumes:
         platform = item["identity"]["platform_type"]
@@ -131,6 +138,7 @@ def main() -> None:
             "Draft 2020-12 schema, duplicate keys, unique profile/resume IDs",
             "exact 24 reviewed profiles and 23 legal experiment resumes",
             "one G1 identity using only G1_DWAQ_CFG with default grasp capability",
+            "G1 mixes with other robots under the unified sim.dt=0.001/decimation=20 fleet schedule; walk/grasp modes are skill-invoked and exclusive",
             "exactly two Go2 controller profiles: stable mixed-stairs and unstable experimental off-road",
             "standalone-only UR5 fixed to Robotiq 2F-85; no mounted UR5",
             "D455 defaults, built-in cameras, and explicit pending camera adaptation",
@@ -140,10 +148,10 @@ def main() -> None:
         "counts": data["coverage"],
         "limits": [
             "No renewed scene-specific stairs or rough-terrain qualification is claimed.",
-            "G1 and standalone UR5/Z1 camera adaptation remains pending.",
+            "G1 D455 forehead mount is builder-registered with a user-approved pitch calibration; its runtime image stream is not yet subscription-tested. Standalone UR5/Z1 camera adaptation remains pending.",
             "Mounted Z1 plus default D455 still requires collision and occlusion validation.",
             "Go2 Extreme Parkour remains a privileged Teacher and has no fall recovery.",
-            "All-G1 DWAQ uses .001/20; mixed G1/non-G1 fleets remain blocked pending a multirate design or requalification.",
+            "G1 fleets, pure or mixed, run at sim.dt=0.001/decimation=20; bounded 5 s GPU runs show Go2/Carter at 1 ms substeps match their native 5 ms schedule (Go2 displacement within 1.1%, upright metrics equal); longer-duration qualification stays per experiment run.",
         ],
         "artifacts_sha256": {name: _sha256(OUT / name) for name in artifacts},
     }

@@ -76,6 +76,11 @@ class G1PickPlaceConfig:
     object_match_tolerance_m: float = .02
     max_step_s: float = .10
     timeout_s: float = 90.
+    # Minimum world-z component of the robot root for a grasp start. The
+    # calibrated fixed asset stands exactly upright (.999); a stationary
+    # walking-G1 binding may widen this to its measured standing lean while
+    # measured attach/release gates still own grasp correctness.
+    root_upright_min_z: float = .999
     ik_seed: Mapping[str, float] = field(default_factory=lambda: {
         'waist_yaw_joint': .023, 'right_shoulder_pitch_joint': -1.212,
         'right_shoulder_roll_joint': -.990, 'right_shoulder_yaw_joint': .066,
@@ -96,6 +101,10 @@ class G1PickPlaceConfig:
             raise ValueError('waypoint_spacing_m must be at least .002')
         if any(not isinstance(n, str) or isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) for n,v in self.ik_seed.items()):
             raise ValueError('ik_seed must contain finite numeric joint angles')
+        if not isinstance(self.root_upright_min_z, (int, float)) or isinstance(self.root_upright_min_z, bool) \
+                or not math.isfinite(self.root_upright_min_z) or not .9 <= self.root_upright_min_z <= 1.:
+            raise ValueError('root_upright_min_z must lie in [0.9, 1.0]')
+        object.__setattr__(self, 'root_upright_min_z', float(self.root_upright_min_z))
         object.__setattr__(self, 'ik_seed', dict(self.ik_seed))
 
 
@@ -171,7 +180,7 @@ class G1PickPlaceSkill:
         root = world_matrix(self.robot.root)
         if any(np.linalg.norm(p - root[:3,3]) > 1.5 for p in (pick, place)):
             raise G1SkillError('infeasible', 'target exceeds the fixed-base workspace')
-        if not np.allclose(root[:3,:3].T @ root[:3,:3], np.eye(3), atol=1e-4) or root[2,2] < .999:
+        if not np.allclose(root[:3,:3].T @ root[:3,:3], np.eye(3), atol=1e-4) or root[2,2] < self.config.root_upright_min_z:
             raise G1SkillError('unsupported_capability', 'G1 root must be upright and unscaled')
         profile = GraspProfile.builtin(binding.profile) if isinstance(binding.profile, str) else binding.profile
         if not isinstance(profile, GraspProfile):

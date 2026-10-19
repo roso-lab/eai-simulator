@@ -123,6 +123,13 @@ class RobotOption:
     camera_mount_link: str | None = None
     camera_offset: tuple[float, float, float] = (0.12, 0.0, 0.02)
     camera_rot: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
+    # D455 外壳校准（可选）：仅覆写资产内部 Visual 网格层的局部
+    # translate/rotateXYZ/scale，让外壳落座宿主的安装位；不影响相机/IMU
+    # 传感器 prim，也不改变上面的挂载外参。rotate 为 XYZ 欧拉角（度），
+    # 平移单位米，坐标系均为资产 RSD455 系。None = 资产原样。
+    realsense_shell_translate: tuple[float, float, float] | None = None
+    realsense_shell_rotate: tuple[float, float, float] | None = None
+    realsense_shell_scale: tuple[float, float, float] | None = None
     orsus_disable_physics: bool = False
 
 
@@ -406,6 +413,22 @@ ROBOT_OPTIONS = [
         0.8,
         lidar_mount_link="pelvis",
         lidar_offset=(0.0, 0.0, 0.72),
+        # Detachable RealSense mount in the recessed forehead camera bay.
+        # Translation follows Unitree's official G1 d435_joint relative to
+        # torso_link. Pitch is a 2026-10-19 user-approved perception
+        # calibration, not the official +47.6 deg down: at the official pitch
+        # the 90.5x90.5 deg asset camera stares into the robot's own head
+        # shell (4.5 cm) and chest (9.7 cm), blocking most of the depth/RGB
+        # frame. At +20 deg down the head and torso fully exit the frustum;
+        # only the hands at the hips remain in the bottom corners, as on the
+        # physical robot. w=cos(10 deg), y=sin(10 deg).
+        realsense_mount_link="torso_link",
+        realsense_offset=(0.0576235, 0.01753, 0.41987),
+        realsense_rot=(0.98480775301, 0.0, 0.17364817767, 0.0),
+        # 2026-10-19 Isaac Sim GUI 手动标定：0.7 倍 D455 外壳落座额头凹槽。
+        realsense_shell_translate=(0.03212, 0.0187, 0.02007),
+        realsense_shell_rotate=(85.5, 0.0, -90.0),
+        realsense_shell_scale=(0.7, 0.7, 0.7),
     ),
     RobotOption(
         "cf2x",
@@ -560,16 +583,6 @@ def build_interactive_env_cfg(
         selection.controller.cfg == "G1_DWAQ_CFG"
         for _robot, selection in robot_selections
     )
-    if uses_g1_dwaq and any(
-        selection.controller.cfg != "G1_DWAQ_CFG"
-        for _robot, selection in robot_selections
-    ):
-        raise ValueError(
-            "G1_DWAQ_CFG requires sim.dt=0.001 and decimation=20, while the "
-            "current heterogeneous runtime and Go2 controllers are qualified at "
-            "sim.dt=0.005 and decimation=4. Mixed G1 DWAQ fleets are blocked until "
-            "a collaborator supplies a multirate design or explicit requalification."
-        )
     attrs: dict[str, Any] = {"__annotations__": {}}
     controllers: dict[str, Any] = {}
     scene_spawn_cfg = _resolve_import_ref(scene.spawn_cfg)
@@ -813,6 +826,9 @@ def build_interactive_env_cfg(
                 enable_camera_publish=camera_enabled,
                 enable_imu_publish=navigation_io_enabled,
                 disable_physics=True,
+                shell_translate=robot.realsense_shell_translate,
+                shell_rotate_euler=robot.realsense_shell_rotate,
+                shell_scale=robot.realsense_shell_scale,
             )
 
         if has_octagon:
@@ -892,9 +908,15 @@ def build_interactive_env_cfg(
     env_cfg = InteractiveEaiEnvCfg()
     env_cfg.task_name = "EAI-Interactive-v0"
     if uses_g1_dwaq:
+        # Mixed heterogeneous fleets are first-class HeteroCoord experiments.
         # The DWAQ checkpoint contract requires a 1 ms physics step and a
-        # 20 ms policy step. Only an all-G1 selection can currently satisfy it
-        # without changing another robot's published physics schedule.
+        # 20 ms policy step. Every registered controller here already runs at
+        # a 20 ms policy cadence (0.005 x 4), so a fleet containing G1 keeps
+        # that cadence for everyone and refines the shared physics substep to
+        # 1 ms: non-G1 robots integrate with 20 x 1 ms substeps instead of
+        # 4 x 5 ms, while their policy rate, models and USD assets stay
+        # unchanged. Stability of non-G1 controllers at the refined substep
+        # is requalified per experiment run, not by this builder.
         env_cfg.sim.dt = 0.001
         env_cfg.decimation = 20
         env_cfg.sim.render_interval = env_cfg.decimation
