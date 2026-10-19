@@ -220,6 +220,9 @@ input[type="checkbox"] { width: auto; }
 .map-workspace { min-width: 0; position: relative; display: flex; flex-direction: column; background: var(--bg-map); }
 .isaac-panel { margin: 8px 12px 0; padding: 10px 12px; border: 1px solid rgba(178,128,255,.42); border-radius: 8px; background: rgba(67,37,103,.22); color: #eadfff; }
 .isaac-heading { display:flex; justify-content:space-between; gap:12px; font-size: 12px; }
+.web-sync-status { font-size: 11px; }
+.web-sync-status[data-state="ok"] { color: var(--accent-bright); }
+.web-sync-status[data-state="error"] { color: var(--red); }
 .isaac-selection { margin: 5px 0 8px; font: 11px/1.4 ui-monospace, monospace; white-space: pre-wrap; }
 .isaac-actions { display:flex; gap:6px; flex-wrap:wrap; }
 .isaac-actions .button { font-size: 11px; padding: 5px 8px; }

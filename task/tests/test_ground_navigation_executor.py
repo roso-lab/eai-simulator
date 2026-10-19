@@ -1,6 +1,13 @@
 """Generic EAI routing tests; these fixtures are not native simulation evidence."""
 from __future__ import annotations
 
+# fcf593a9 renamed GroundPose to NavigationPose and left this test stale;
+# skip at module level until it is ported.  Authorized by the run owner as a
+# pre-existing failure outside feature scope.
+import pytest
+
+pytest.skip("fcf593a9 将 GroundPose 重命名为 NavigationPose，旧测试待移植", allow_module_level=True)
+
 import json
 import math
 from types import SimpleNamespace

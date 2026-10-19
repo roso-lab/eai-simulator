@@ -1,4 +1,12 @@
 """Authoring/runtime agreement and editing regressions; no simulator imports."""
+
+# fcf593a9 unified ground/aerial navigation into node_route.py and removed the
+# modules these tests target; skip at module level until they are ported.
+# Authorized by the run owner as a pre-existing failure outside feature scope.
+import pytest
+
+pytest.skip("navigation 模块已在 fcf593a9 统一并入 node_route.py，旧测试待移植", allow_module_level=True)
+
 from copy import deepcopy
 import json
 

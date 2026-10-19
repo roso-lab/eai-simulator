@@ -19,6 +19,8 @@ import urllib.request
 import uuid
 from typing import Any, Callable, Iterable
 
+from .web_overlay import WEB_OVERLAY_ROOT
+
 
 class IsaacBridgeError(RuntimeError):
     """A context, USD, or transport contract error."""
@@ -333,6 +335,9 @@ class IsaacSelectionBridge:
                               "source_usd": self.source_usd, "timestamp": time.time()})
 
     def send_prim_selection(self, stage: Any, prim_paths: Iterable[str]) -> dict[str, Any]:
+        # Web overlay prims are browser-map visualization, never scene assets.
+        prim_paths = [path for path in prim_paths
+                      if not str(path).startswith(WEB_OVERLAY_ROOT)]
         return self._enqueue(prim_selection_payload(stage, prim_paths, source_usd=self.source_usd,
                                                      session_id=self.session_id, sequence=self._sequence + 1))
 
@@ -406,7 +411,10 @@ class IsaacSelectionBridge:
             return self.send_clear()
         selection = self._selection_context.get_selection() if self._selection_context else self._selection
         getter = getattr(selection, "get_selected_prim_paths", None)
-        paths = list(getter() if callable(getter) else ())
+        # Kit selects clicked overlay prims too; they must never reach the web
+        # editor as assets.  An overlay-only selection degrades to a clear.
+        paths = [path for path in (getter() if callable(getter) else ())
+                 if not str(path).startswith(WEB_OVERLAY_ROOT)]
         if not paths:
             return self.send_clear()
         return self.send_prim_selection(stage, paths)
@@ -450,6 +458,9 @@ class IsaacSelectionBridge:
     def _on_point_hit(self, prim_path: Any, world_position: Any, *_args: Any) -> None:
         """Consume Kit raycast callbacks: (prim_path, world_position)."""
         if not self._point_enabled:
+            return
+        # Overlay prims visualize the browser map; treat them as a miss.
+        if str(prim_path or "").startswith(WEB_OVERLAY_ROOT):
             return
         # A miss is not a point at the world origin. Kit may supply (0,0,0)
         # alongside an empty path for a miss.

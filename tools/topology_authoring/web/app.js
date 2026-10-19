@@ -11,7 +11,7 @@
     "recordSearch", "recordTabs", "recordList", "warningsSection", "warningsList",
     "modeTools", "modeHint", "cancelDraftBtn", "confirmPolygonBtn", "zoomOutBtn",
     "zoomInBtn", "fitBtn", "toggle3dBtn", "mapStage", "mapCanvas", "loadingLayer",
-    "isaacStatus", "isaacSelectionText", "isaacNodeBtn", "isaacEntityBtn", "isaacClearBtn",
+    "isaacStatus", "webSyncStatus", "isaacSelectionText", "isaacNodeBtn", "isaacEntityBtn", "isaacClearBtn",
     "cursorCoords", "xyzPanel", "xyzCanvas", "close3dBtn", "selectionType",
     "selectionTitle", "clearSelectionBtn", "emptyInspector", "inspectorForm",
     "stableIdGroup", "fieldId", "labelGroup", "fieldLabel", "kindGroup", "fieldKind",
@@ -47,7 +47,10 @@
     busy: false,
     xyzOpen: false,
     isaac: null,
-    isaacTimer: null
+    isaacTimer: null,
+    webSyncTimer: null,
+    webSyncSent: "none",
+    webSyncError: false
   };
 
   const collectionLabels = {
@@ -186,6 +189,29 @@
     drawMap();
   }
 
+  function webSelectionLabel(selection) {
+    const record = selection.kind === "node" ? nodeById(selection.id)
+      : selection.kind === "edge" ? edges().find((row) => row.id === selection.id) || null
+      : semanticById(selection.collection, selection.id);
+    return record && record.label || selection.id;
+  }
+
+  function renderWebSyncStatus(synced, failed = false) {
+    if (failed) {
+      els.webSyncStatus.textContent = "Isaac 高亮同步失败，稍后自动重试";
+      els.webSyncStatus.dataset.state = "error";
+    } else if (synced) {
+      els.webSyncStatus.textContent = `Isaac 叠加已高亮：${webSelectionLabel(synced)}`;
+      els.webSyncStatus.dataset.state = "ok";
+    } else if (state.webSyncSent === "none") {
+      els.webSyncStatus.textContent = "Isaac 叠加：未选中对象";
+      els.webSyncStatus.dataset.state = "idle";
+    } else {
+      els.webSyncStatus.textContent = "Isaac 叠加已清除高亮";
+      els.webSyncStatus.dataset.state = "clear";
+    }
+  }
+
   function followIsaacFloor(selection) {
     const targetLevel = selection && selection.level_id;
     if (!targetLevel || targetLevel === state.currentLevel || !levelById(targetLevel)) return;
@@ -219,6 +245,7 @@
 
   async function pollIsaacSelection() {
     if (state.openingProject) return;
+    if (state.webSyncError) syncWebSelection();
     const projectAtRequest = state.currentProjectId;
     const sceneAtRequest = state.server && state.server.scene_key;
     try {
@@ -253,6 +280,54 @@
     }});
     state.isaac = response.selection || null;
     renderIsaacSelection();
+  }
+
+  function webSelectionPayload() {
+    const selection = state.selection;
+    // Drafts are uncommitted editor state; the overlay only reflects revisions.
+    if (!state.server || !selection || selection.draft) return null;
+    if (selection.type === "node" || selection.type === "edge") {
+      return { kind: selection.type, collection: null, id: selection.id };
+    }
+    if (selection.type === "semantic") {
+      return { kind: "semantic", collection: selection.collection, id: selection.id };
+    }
+    return null;
+  }
+
+  async function syncWebSelection() {
+    if (!state.server) return;
+    const selection = webSelectionPayload();
+    const signature = JSON.stringify(selection);
+    if (signature === state.webSyncSent) return;
+    try {
+      // Selection is transient state without a revision, so bypass api() whose
+      // POST preflight would reject the body for lacking a revision field.
+      const response = await fetch("/api/web/selection", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csrf_token: state.server.csrf_token, selection })
+      });
+      if (!response.ok) throw new Error(`请求失败（HTTP ${response.status}）`);
+      state.webSyncSent = signature;
+      state.webSyncError = false;
+      renderWebSyncStatus(selection);
+    } catch (_) {
+      // The map server may be restarting; the Isaac poll retries this send.
+      state.webSyncError = true;
+      state.webSyncSent = "none";
+      renderWebSyncStatus(null, true);
+    }
+  }
+
+  function scheduleWebSelectionSync() {
+    // Debounce bursts of selection changes (record click plus floor follow)
+    // into one fire-and-forget send; never touch the busy lock or acceptState.
+    clearTimeout(state.webSyncTimer);
+    state.webSyncTimer = setTimeout(() => {
+      state.webSyncTimer = null;
+      syncWebSelection();
+    }, 300);
   }
 
   async function convertIsaac(kind) {
@@ -541,6 +616,7 @@
       const item = locateSelection(state.selection.type, state.selection.id, state.selection.collection);
       if (state.selection.type === "node" && item && item.level_id !== levelId) state.selection = null;
       if (state.selection.collection && item && recordLevel(item, state.selection.collection) !== levelId) state.selection = null;
+      scheduleWebSelectionSync();
     }
     renderFloors();
     renderRecords();
@@ -649,9 +725,11 @@
     renderRecords();
     renderInspector();
     drawMap();
+    scheduleWebSelectionSync();
   }
 
   function clearSelection(redraw = true) {
+    scheduleWebSelectionSync();
     state.selection = null;
     setHidden(els.emptyInspector, false);
     setHidden(els.inspectorForm, true);

@@ -73,6 +73,18 @@ bridge.stop()
 USD，`metersPerUnit` 会转换为地图使用的米制；Y-up 场景需先在 Isaac 中完成坐标
 转换。桥接接口本身不改变占据栅格，也不证明机器人可通行。
 
+### 网页选择的三维叠加与高亮
+
+通过 `launch.py` 联动启动时，Isaac 视口会把网页端已提交的节点、拓扑边、区域、
+物体和交互位姿绘制成三维叠加（根 prim `/SemanticMapOverlay`）：节点和边为绿色，
+区域为紫色线框，物体为黄色球，交互位姿为粉色球加朝向箭头。网页端当前选中的
+对象会以红色高亮；选中命名路线时高亮其全部成员节点和边。叠加图形只写入当前
+stage 的 session layer，不会写入或弄脏作者 USD 文件；每次网页提交编辑
+（revision 变化）后自动重建，未确认的草稿不会显示。网页通过内部端点
+`POST /api/web/selection` 防抖推送选中对象
+（`{"kind": "node"|"edge"|"semantic", "collection": …, "id": …}`，`null` 清除），
+该端点由编辑器自动调用，无需手工请求。
+
 office 测试场景以仓库的 `usd/` 目录为资产根目录，在 Isaac Sim 中打开相对路径：
 
 ```text

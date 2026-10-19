@@ -15,6 +15,7 @@ from urllib.parse import parse_qs, urlsplit
 from .map_project import MapProject, read_json
 from .product import _unique_object, _reject_constant
 from .scene_catalog import discover_scene_projects, scene_metadata, source_usd, resolve_scene
+from .web_overlay import _drop_stale_web_selection, compact_document_snapshot, normalize_web_selection
 
 
 def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_linked=False):
@@ -23,6 +24,8 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
     assets = Path(__file__).parent / "web"
     projects = {}
     isaac_selection = {"selection": None}
+    web_selection = {"selection": None}
+    snapshot_cache = {"key": None, "value": None}
     isaac_sequences = {}
     scene_generation = 0
     runtime = {"state": "loading" if isaac_linked else "disabled", "error": None,
@@ -65,10 +68,19 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
     def current_context():
         with lock:
             source = str(resolve_scene(project.manifest, asset_root)) if asset_root else source_usd(project.manifest)
+            # Every edit/undo/redo replaces the document and bumps revision;
+            # /api/open swaps the project and bumps scene_generation, so this
+            # key misses exactly when snapshot content actually moved.
+            cache_key = (id(project.document), project.revision, scene_generation)
+            if snapshot_cache["key"] != cache_key:
+                snapshot_cache["key"] = cache_key
+                snapshot_cache["value"] = compact_document_snapshot(project.document, project.revision)
             return {"scene_key": project.document.scene_key, "source_usd": source,
                     "source_path": scene_metadata(project.manifest)["source_path"],
                     "scene_generation": scene_generation, "runtime": dict(runtime),
-                    "levels": project.state().get("levels", []), "csrf_token": token}
+                    "levels": project.state().get("levels", []), "csrf_token": token,
+                    "web_selection": web_selection["selection"],
+                    "document_snapshot": snapshot_cache["value"]}
 
     def update_runtime(generation, status, error=None):
         with lock:
@@ -229,17 +241,29 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                             del isaac_sequences[next(iter(isaac_sequences))]
                         self.reply(200, {"selection": selection})
                         return
+                    elif route == "/api/web/selection":
+                        # Ephemeral browser selection: no revision gate, the
+                        # scene switch below rotates the token instead.
+                        selection = body.get("selection")
+                        if selection is not None:
+                            selection = normalize_web_selection(project.document, selection)
+                        web_selection["selection"] = selection
+                        self.reply(200, {"selection": selection})
+                        return
                     if type(body.get("revision")) is not int:
                         raise ValueError("expected editor revision is required")
                     if route == "/api/edit":
                         operation = body.pop("operation")
                         project.edit(operation, **body)
+                        _drop_stale_web_selection(project.document, web_selection)
                     elif route == "/api/save":
                         project.save(**body)
                     elif route == "/api/undo":
                         project.undo(**body)
+                        _drop_stale_web_selection(project.document, web_selection)
                     elif route == "/api/redo":
                         project.redo(**body)
+                        _drop_stale_web_selection(project.document, web_selection)
                     elif route == "/api/open":
                         project._expect(body["revision"])
                         if project.dirty and body.get("discard_unsaved") is not True:
@@ -251,6 +275,7 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                         project = replacement
                         token = secrets.token_urlsafe(32)
                         isaac_selection["selection"] = None
+                        web_selection["selection"] = None
                         scene_generation += 1
                         runtime.update(state="loading" if isaac_linked else "disabled", error=None,
                                        scene_key=project.document.scene_key, **scene_metadata(project.manifest))

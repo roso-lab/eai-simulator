@@ -7,6 +7,7 @@ from pathlib import Path
 import time
 
 from .isaac_bridge import IsaacSelectionBridge, IsaacSelectionWindow, assert_source_matches
+from .web_overlay import WebOverlayRenderer, build_overlay_specs
 
 
 def _disk_version(layer):
@@ -15,6 +16,13 @@ def _disk_version(layer):
         return stat.st_mtime_ns, stat.st_size
     except (OSError, AttributeError, ValueError):
         return None
+
+
+def _web_selection_token(selection):
+    """Comparable cursor identity for a web selection payload."""
+    if not selection:
+        return None
+    return (selection.get("kind"), selection.get("collection"), selection.get("id"))
 
 
 class IsaacMapSession:
@@ -31,6 +39,9 @@ class IsaacMapSession:
         self.window_factory = window_factory
         self.on_open = on_open
         self.bridge = self.window = self.task = None
+        self.overlay = None
+        self.overlay_revision = None
+        self.web_selection_key = None
         self.generation = None
         self.blocked_generation = None
         self.next_poll = 0
@@ -84,6 +95,14 @@ class IsaacMapSession:
         generation = request["scene_generation"]
         if generation != self.generation:
             self._stop_bridge()
+            # The overlay lives in the old stage's session layer; drop it
+            # eagerly (guarding the failed-_open residue) and zero the
+            # cursors so the new scene's first tick must rebuild.
+            if self.overlay is not None:
+                self.overlay.destroy()
+            self.overlay = None
+            self.overlay_revision = None
+            self.web_selection_key = None
             # Let the existing USD open finish before starting the next one.
             # Cancellation can leave Kit's native stage loader in flight.
             if self.task is not None and not self.task.done():
@@ -104,6 +123,32 @@ class IsaacMapSession:
                 self.report_status(generation, "error", status.get("last_error"))
             elif status["state"] == "connected":
                 self.report_status(generation, "ready")
+            self._update_overlay(request)
+
+    def _update_overlay(self, request):
+        """Rebuild prims on revision change; repaint highlight on selection change."""
+        # A failed renderer creation leaves overlay None; never let that break
+        # the 0.25 s heartbeat shared with the selection bridge.
+        if self.overlay is None:
+            return
+        snapshot = request.get("document_snapshot")
+        revision = snapshot.get("revision") if isinstance(snapshot, dict) else None
+        if revision != self.overlay_revision:
+            try:
+                self.overlay.rebuild(build_overlay_specs(snapshot))
+            except Exception as exc:
+                # Abandon this revision instead of retrying every 0.25 s; the
+                # next committed edit (fresh revision) may recover.
+                print(f"Semantic map overlay rebuild failed: {exc}", flush=True)
+                self.overlay_revision = revision
+                return
+            self.overlay_revision = revision
+            # Fresh prims carry base colors only; force highlight replay.
+            self.web_selection_key = None
+        token = _web_selection_token(request.get("web_selection"))
+        if token != self.web_selection_key:
+            self.overlay.highlight(request.get("web_selection"))
+            self.web_selection_key = token
 
     async def _open(self, request):
         generation = request["scene_generation"]
@@ -139,6 +184,8 @@ class IsaacMapSession:
             self.bridge.enable_point_picking(True)
             self.window = self.window_factory(self.bridge)
             self.window.show()
+            # First rebuild happens on the next tick (<=0.25 s); keep _open minimal.
+            self.overlay = WebOverlayRenderer(stage)
             self.report_status(generation, "ready")
         except Exception as exc:
             self._stop_bridge()
@@ -146,5 +193,8 @@ class IsaacMapSession:
 
     def close(self):
         self._stop_bridge()
+        if self.overlay is not None:
+            self.overlay.destroy()
+            self.overlay = None
         if self.task is not None and not self.task.done():
             self.task.cancel()
