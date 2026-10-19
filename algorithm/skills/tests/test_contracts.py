@@ -65,7 +65,7 @@ def test_request_context_roundtrips_without_narrowing_existing_pose_shapes(size)
 
 @pytest.mark.parametrize("status", ["planned", "degraded", "invalid_request", "unsupported_capability"])
 def test_plan_serialization_preserves_existing_statuses_and_defaults(status):
-    plan = SkillPlan("r", "eai.transport.composite", "pepper_1", status=status)
+    plan = SkillPlan("r", "eai.manipulation.pick_place", "pepper_1", status=status)
     assert plan.commands == ()
     assert json.loads(plan.to_json()) == plan.to_mapping()
     assert plan.to_mapping()["status"] == status
@@ -76,18 +76,14 @@ def _ground_request(**parameters):
                         target_ref="place:goal", parameters={"world_state_seq": 1, **parameters})
 
 
-def test_schema_lookup_and_validation_keep_existing_return_contract_and_pepper_schema():
+def test_schema_lookup_and_validation_keep_navigation_and_local_pick_place_contracts():
     ground = simulator_skill_schema("eai.navigation.ground_navigation")
     assert isinstance(ground, SimulatorSkillSchema)
     assert validate_simulator_skill_request(_ground_request()) is ground
     assert ground.commands[0].command_type == "base_velocity"
     assert simulator_skill_schema("ground_navigation") is ground
-    assert {item["skill_id"] for item in SKILL_REGISTRY} >= {
-        "eai.navigation.ground_navigation", "eai.transport.composite"}
-    request = SkillRequest("pepper", "eai.transport.composite", "pepper_1", parameters={
-        "object_ref": "box", "source_ref": "source", "destination_ref": "destination",
-        "carry_mode": "bilateral_ideal_attachment"})
-    assert validate_simulator_skill_request(request) is simulator_skill_schema("eai.transport.composite")
+    assert "eai.navigation.ground_navigation" in {item["skill_id"] for item in SKILL_REGISTRY}
+    assert "eai.transport.composite" not in {item["skill_id"] for item in SKILL_REGISTRY}
 
 
 @pytest.mark.parametrize("parameters", [

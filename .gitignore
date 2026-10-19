@@ -87,6 +87,7 @@ docker/artifacts/
 /.worktrees/
 /.superpowers/
 /docs/superpowers/
+.vscode/
 
 # Local agent and personal memory state
 /.agents/

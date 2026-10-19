@@ -239,6 +239,144 @@ def _advance_pick_to_hold(runtime):
     _advance(runtime, manipulation.ManipulationPhase.ATTACHED_HOLD)
 
 
+def test_unified_arm_boolean_place_after_external_base_motion(monkeypatch):
+    from algorithm.skills import PICK_PLACE_SKILL_ID, SkillRequest
+    from task.executors import PickPlaceExecutor
+    from task.executors.pick_place_backends import ArmPickPlaceAdapter
+    env, runtime = _runtime(monkeypatch)
+    # Real grasp offset is intentionally nonzero. The place input still
+    # describes the object origin, not the wrist.
+    backend = ArmPickPlaceAdapter("robot", runtime, grasp_offset_object_m=(0., 0., .06))
+    clock = [0.]
+    def tick():
+        runtime.run_post_apply()
+        clock[0] += .5
+    executor = PickPlaceExecutor(advance=tick, simulation_time=lambda: clock[0])
+    executor.register_adapter(backend)
+    def req(key, operation, target):
+        q = tuple(env.arm.data.root_quat_w[0])
+        return SkillRequest(key, PICK_PLACE_SKILL_ID, "robot", target_pose=target, parameters={
+            "operation": operation, "object_ref": "/World/Object", "world_state_seq": 0,
+            "simulation_time_s": clock[0], "base_position_world_m": tuple(env.arm.data.root_pos_w[0]),
+            "base_orientation_xyzw": (*q[1:], q[0]), "timeout_s": 100.})
+    assert executor.execute(req("pick", "pick", env.object_position)) is True
+    assert env.object_isolated and runtime.held_object("robot") is not None
+    env.arm.data.root_pos_w[0] = (1., .2, 0.)
+    env.arm.data.root_quat_w[0] = (math.sqrt(.5), 0., 0., math.sqrt(.5))
+    tick()
+    held_position = env.proxy_position
+    assert held_position[0] == pytest.approx(1.)
+    assert executor.execute(req("place", "place", (1., 1., .2))) is True
+    assert env.object_position == pytest.approx((1., 1., .2), abs=1e-5)
+    assert env.object_pose_writes == 1
+    assert not env.object_isolated
+    tick()
+    assert env.object_pose_writes == 1
+
+
+def test_opt_in_arm_failure_retains_follow_proxy(monkeypatch):
+    env, runtime = _runtime(monkeypatch)
+    runtime.preserve_holding_on_failure("robot")
+    assert runtime.start_pick("robot", "/World/Object", (.8, .2, 0.), recovery_pose=(.4, .5, 0.))
+    _advance_pick_to_hold(runtime)
+    runtime._fail(runtime._states["robot"], "injected holding failure")
+    assert runtime.state("robot") is manipulation.ManipulationPhase.ATTACHED_HOLD
+    assert runtime.held_object("robot") is not None
+    assert env.object_isolated and env.object_pose_writes == 0
+    env.arm.data.root_pos_w[0, 0] += .1
+    runtime.run_post_apply()
+    assert env.proxy_position is not None
+
+
+@pytest.mark.parametrize("position,orientation", [
+    ((.25, -.1, .1), (1., 0., 0., 0.)),
+    ((.2, -.2, .1), (.8, .2, .3, .1)),
+])
+def test_local_backend_uses_full_arm_mount_pose(monkeypatch, position, orientation):
+    from task.executors.pick_place_backends import ArmPickPlaceAdapter
+    from task.tests.test_pick_place import request
+    from algorithm.skills.pick_place import compile_request
+    from EAI.manipulation_geometry import cylindrical_to_world_position
+    env, runtime = _runtime(monkeypatch)
+    env.arm.data.root_pos_w[0] = position
+    env.arm.data.root_quat_w[0] = orientation
+    backend = ArmPickPlaceAdapter("robot", runtime, grasp_offset_object_m=(0., 0., .06))
+    target, _ = backend._target(compile_request(request(target=env.object_position)))
+    actual = cylindrical_to_world_position(target, position, orientation, 0.)
+    assert actual == pytest.approx((.8, 0., .26))
+
+
+def test_opt_in_arm_restore_failure_retains_pending_ownership(monkeypatch):
+    env, runtime = _runtime(monkeypatch)
+    runtime.preserve_holding_on_failure("robot")
+    assert runtime.start_pick("robot", "/World/Object", (.8, .2, 0.), recovery_pose=(.4, .5, 0.))
+    def fail(*_, **__):
+        raise RuntimeError("restore failed")
+    monkeypatch.setattr(runtime, "_restore_object_isolation", fail)
+    runtime._fail(runtime._states["robot"], "cancel before grasp")
+    assert env.object_isolated
+    assert runtime._states["robot"].pending_isolation is not None
+    assert runtime._object_owners["/World/Object"] == "robot"
+
+
+def test_empty_arm_cancel_freezes_actual_joint_targets_and_restores_object(monkeypatch):
+    env, runtime = _runtime(monkeypatch)
+    env.arm.data.joint_pos = np.array([[.2, -.4]])
+    env.arm.data.joint_pos_target = np.array([[1., 1.]])
+    def write(values, *, joint_ids):
+        env.arm.data.joint_pos_target[:, joint_ids] = values
+    env.arm.set_joint_position_target = write
+    runtime.preserve_holding_on_failure("robot")
+    assert runtime.start_pick("robot", "/World/Object", (.8, .2, 0.), recovery_pose=(.4, .5, 0.))
+    assert runtime.stop_retaining_object("robot", "cancel before attach") is True
+    assert np.allclose(env.arm.data.joint_pos_target, env.arm.data.joint_pos)
+    assert runtime.held_object("robot") is None
+    assert not env.object_isolated and env.object_pose_writes == 0
+
+
+def test_opt_in_partial_release_is_not_repeated(monkeypatch):
+    env, runtime = _runtime(monkeypatch)
+    runtime.preserve_holding_on_failure("robot")
+    assert runtime.start_pick("robot", "/World/Object", (.8, .2, 0.), recovery_pose=(.4, .5, 0.))
+    _advance_pick_to_hold(runtime)
+    assert runtime.start_place("robot", (.7, .2, 0.))
+    def fail(*_, **__):
+        raise RuntimeError("release restoration failed")
+    monkeypatch.setattr(runtime, "_restore_object_isolation", fail)
+    _advance(runtime, manipulation.ManipulationPhase.FAILED)
+    assert env.object_pose_writes == 1
+    assert runtime._states["robot"].release_started
+    for _ in range(5):
+        runtime.run_post_apply()
+    assert env.object_pose_writes == 1
+    assert runtime.stop_retaining_object("robot", "cancel") is False
+
+
+def test_unified_arm_released_object_drift_returns_false_without_releasing_twice(monkeypatch):
+    from task.executors import PickPlaceExecutor
+    from task.executors.pick_place_backends import ArmPickPlaceAdapter
+    from task.tests.test_pick_place import request
+    env, runtime = _runtime(monkeypatch)
+    backend = ArmPickPlaceAdapter("robot", runtime)
+    clock = [0.]
+    def tick():
+        runtime.run_post_apply()
+        clock[0] += .5
+        if (backend._command.operation == "place"
+                and runtime.state("robot") == manipulation.ManipulationPhase.IDLE):
+            env.object_position = (9., 0., .2)
+    executor = PickPlaceExecutor(advance=tick, simulation_time=lambda: clock[0])
+    executor.register_adapter(backend)
+    assert backend.feedback().grasp_state == "empty"
+    assert executor.execute(request(target=env.object_position)) is True
+    assert executor.execute(request("place", "place", target=(.6, 0., .2), time=clock[0])) is False
+    assert runtime.held_object("robot") is None
+    assert env.object_pose_writes == 1
+    assert not executor._resources.snapshot()["resources"]
+    runtime.run_post_apply()
+    assert env.object_pose_writes == 1
+
+
 def test_pose_validation_and_yaw_wrap():
     pose = manipulation.normalize_cylindrical_pose((1, 2, 3 * math.pi))
     assert pose == manipulation.CylindricalPose(1.0, 2.0, -math.pi)
@@ -323,6 +461,23 @@ def _planar_runtime(monkeypatch, model):
 
     monkeypatch.setattr(manipulation, "apply_planar_end_effector_pose", apply_plane)
     return env, runtime, calls
+
+
+@pytest.mark.parametrize("model", ("z1", "ur5"))
+def test_local_pick_unfolds_and_establishes_tool_reference_before_rotate(monkeypatch, model):
+    env, runtime, calls = _planar_runtime(monkeypatch, model)
+    binding = runtime._binding("robot")
+    env.ee_position = (-.2, binding.planar_spec.plane_offset_m, .5)
+    env.ee_orientation = (1., 0., 0., 0.)
+    runtime.preserve_holding_on_failure("robot")
+    assert runtime.start_pick("robot", "/World/Object", (.5, .2, .6), recovery_pose=(.2, .6, 0.))
+    assert runtime.state("robot") == manipulation.ManipulationPhase.PREPARE
+    _advance(runtime, manipulation.ManipulationPhase.ROTATE)
+    assert env.ee_position[0] > 0.
+    assert env.ee_orientation == pytest.approx(binding.planar_spec.tool_orientation_plane_wxyz)
+    assert calls and all(not call["rotate_only"] for call in calls)
+    _advance_pick_to_hold(runtime)
+    assert runtime.held_object("robot") is not None
 
 
 @pytest.mark.parametrize("model", ("ur5", "z1"))
@@ -610,6 +765,28 @@ def test_gripper_explicit_closed_target_does_not_hold_measured_open_angle():
     assert ik.hold_gripper_position(arm, spec, position_rad=0.0)
     assert targets[-1].item() == 0.0
     assert arm.data.joint_pos.item() == pytest.approx(-0.35)
+
+
+def test_z1_gripper_stays_closed_during_recovery_yaw_and_cancelled_holding(monkeypatch):
+    env, runtime = _runtime(monkeypatch)
+    runtime._model_specs["robot"] = (SimpleNamespace(
+        model="z1", joint_names=_Spec.joint_names, ee_body_names=_Spec.ee_body_names,
+        gripper_joint_name="jointGripper",
+        idealized_planar_ik_spec=manipulation.PlanarIkSpec("fake", None, _Spec.joint_names)),)
+    holding_commands = []
+    def hold(arm, model, *, position_rad=None):
+        if runtime.held_object("robot") is not None:
+            holding_commands.append((runtime.state("robot"), position_rad))
+        return True
+    monkeypatch.setattr(manipulation, "hold_gripper_position", hold)
+    runtime.preserve_holding_on_failure("robot")
+    assert runtime.start_pick("robot", "/World/Object", (.8, .2, .4), recovery_pose=(.2, .5, 0.))
+    _advance_pick_to_hold(runtime)
+    assert any(phase == manipulation.ManipulationPhase.ROTATE for phase, _ in holding_commands)
+    assert runtime.stop_retaining_object("robot", "cancel") is True
+    runtime.run_post_apply()
+    assert holding_commands and all(target == 0. for _, target in holding_commands)
+    assert env.object_isolated
 
 
 def test_pick_place_references_keep_speed_limits_across_phase_transitions(monkeypatch):

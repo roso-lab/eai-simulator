@@ -161,7 +161,7 @@ def test_clone_support_extra_is_rebound_to_concrete_row_path(monkeypatch):
     torch.testing.assert_close(position, torch.tensor([[1.0, 2.0, 3.0]]))
 
 
-class PepperBoxTransportControllerCfg:
+class PepperPickPlaceControllerCfg:
     def __init__(self):
         self.loaded = []
 
@@ -188,7 +188,7 @@ class PepperBoxTransportControllerCfg:
 
 def test_scalar_controller_owns_state_and_processes_each_row_independently():
     env, _ = _env()
-    cfg = PepperBoxTransportControllerCfg()
+    cfg = PepperPickPlaceControllerCfg()
     state = load_scalar_controller(cfg, "pepper", "task", "cpu", env)
 
     rows = state["environment_states"]
@@ -217,7 +217,7 @@ def test_scalar_controller_owns_state_and_processes_each_row_independently():
 
 def test_single_row_scalar_result_preserves_original_state_alias():
     env, _ = _env(num_envs=1)
-    cfg = PepperBoxTransportControllerCfg()
+    cfg = PepperPickPlaceControllerCfg()
 
     state = load_scalar_controller(cfg, "pepper", "task", "cpu", env)
 

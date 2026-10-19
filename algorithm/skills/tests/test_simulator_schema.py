@@ -11,7 +11,7 @@ from algorithm.skills.simulator_schema import (
 
 def test_registry_covers_six_skill_kinds_without_isaac_imports():
     kinds = {schema.kind.value for schema in SIMULATOR_SKILL_SCHEMAS}
-    assert kinds == {"navigation", "manipulation", "transport", "inspection", "coordination", "external_io"}
+    assert kinds == {"navigation", "manipulation", "inspection", "coordination", "external_io"}
     assert all(schema.version == "simulator.skill.v1" for schema in SIMULATOR_SKILL_SCHEMAS)
 
 
