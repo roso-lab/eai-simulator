@@ -1,0 +1,811 @@
+{
+  "scene_id": "production_minimarket",
+  "level_id": "1F",
+  "regions": [
+    {
+      "id": "production_minimarket-1F-building-floorplate",
+      "label": "single-story roofless pink-walled building with notched east edge (north-half east wall inset relative to south-half), open interior",
+      "kind": "floorplate",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.224,
+        0.221,
+        0.797,
+        0.667
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 粉色墙线矩形（u≈0.224-0.797, v≈0.221-0.667），东缘错位——北半段东墙在 u≈0.745-0.775，南半段东墙在 u≈0.775-0.795，分隔墙 (v≈0.395-0.415) 处外扩；1F-material-ne/se/sw: 无顶单层墙体、室内全可见；西、南、北墙连续，入口细节另列。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-lot-pavement-pad",
+      "label": "paved lot pad surrounding the building, with grass strips at west/north/south edges and brick boundary wall along north edge (grass strips inside bbox, see note)",
+      "kind": "terrain_pad",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.03,
+        0.113,
+        0.987,
+        0.948
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 灰白铺装面（u≈0.03-0.987, v≈0.113-0.948），bbox 西缘含西草带（u≈0.035-0.185，砖缘收边，带内 4 个深色树点另列 vegetation），南缘草带在 v≈0.948 以南未含；1F-material-ne/se/sw: 建筑四周铺装延续至画幅边缘，北缘砖墙（另列 object）在 v≈0.073-0.122；东缘 v≈0.60 以南见绿草条带斜穿（画幅右下）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-north-room-subspace",
+      "label": "north partitioned room with white storage rack rows, desk corner and west-wall shelving (function not inferred)",
+      "kind": "partitioned_subspace",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.237,
+        0.235,
+        0.745,
+        0.395
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 分隔墙（v≈0.395-0.415，全线连续粉色）以北的独立房间，内面 u≈0.237-0.745、v≈0.235-0.395，米色地砖；内含货架阵、西墙小货架、东北角桌椅（均另列 object）；1F-material-ne: 房间在分隔墙以北、白架+彩色货品清晰；1F-material-se: 越过分隔墙见房内白架与东北角桌椅；顶视与斜视均未在该房四壁辨出门洞（见 uncertainties）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-corner-room-subspace",
+      "label": "small pink-walled enclosed corner room at building south-east with white fixture-like objects (function not inferred)",
+      "kind": "partitioned_subspace",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.705,
+        0.608,
+        0.775,
+        0.648
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 东南角粉墙小间（西墙 u≈0.693-0.705，北墙 v≈0.595-0.608，东/南借用建筑外墙），内面 u≈0.705-0.775、v≈0.608-0.648；1F-material-se: 粉墙小间+内部白色器物同见；1F-material-sw: 小间西面见白色板状物（另列 door object）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    }
+  ],
+  "objects": [
+    {
+      "id": "production_minimarket-1F-west-counter-with-backbar",
+      "label": "double-run wooden counter with back-bar shelf along west wall, dark register-like device at north end, red/white goods on back-bar and under-counter shelf",
+      "kind": "counter",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.243,
+        0.4,
+        0.327,
+        0.655
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 双排木色台面（西贴墙排 u≈0.245-0.278、东排 u≈0.285-0.318，v≈0.40-0.655），北端 (u≈0.245-0.275, v≈0.415-0.447) 色深且东缘见蓝色小件，东缘 v≈0.45-0.47 与 v≈0.555-0.575 见小突起；1F-material-ne: 台面+背吧架（红白商品）+北端深色收银/显示器状设备清晰；1F-material-se: 台体东面+北端深色设备+台下红白盒状商品同见；1F-material-sw: 台面南段与红色器物同见；用途不作推断。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-shelf-island-nw",
+      "label": "double-sided white shelf island with blue-grey frame and colorful goods, south hall west-north position",
+      "kind": "shelf_units",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.37,
+        0.458,
+        0.447,
+        0.532
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 蓝灰边框白心矩形（u≈0.370-0.447, v≈0.458-0.532），中央见白色间隔线（双排背靠背读法）；1F-material-se/sw: 白色货架+彩色货品清晰；四座同型岛架成 2×2 阵（另列三座）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-shelf-island-ne",
+      "label": "double-sided white shelf island with blue-grey frame and colorful goods, south hall east-north position",
+      "kind": "shelf_units",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.473,
+        0.458,
+        0.552,
+        0.532
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 蓝灰边框白心矩形（u≈0.473-0.552, v≈0.458-0.532）；1F-material-se: 白架+彩盒货品同见；与西邻岛架间留通道。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-shelf-island-sw",
+      "label": "double-sided white shelf island with blue-grey frame and colorful goods, south hall west-south position",
+      "kind": "shelf_units",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.37,
+        0.543,
+        0.447,
+        0.617
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 蓝灰边框白心矩形（u≈0.370-0.447, v≈0.543-0.617）；1F-material-se: 同型白架彩品同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-shelf-island-se",
+      "label": "double-sided white shelf island with blue-grey frame and colorful goods, south hall east-south position",
+      "kind": "shelf_units",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.473,
+        0.543,
+        0.552,
+        0.617
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 蓝灰边框白心矩形（u≈0.473-0.552, v≈0.543-0.617）；1F-material-se: 同型白架彩品同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-black-table-north",
+      "label": "black flower-shaped table with 4-5 hexagonal stools, south hall center-east north position",
+      "kind": "table_chairs",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.585,
+        0.425,
+        0.695,
+        0.525
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 黑色八角桌面+四/五枚六角凳（N/S/E/W 向，u≈0.585-0.695, v≈0.425-0.525）；1F-material-se/sw: 黑桌黑凳同见，可透过南面玻璃看到。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-black-table-south",
+      "label": "black flower-shaped table with 3-4 hexagonal stools, south hall center-east south position",
+      "kind": "table_chairs",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.585,
+        0.545,
+        0.67,
+        0.66
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 黑色八角桌面+凳（u≈0.585-0.670, v≈0.545-0.660），东侧近厨房台无凳；1F-material-se/sw: 黑桌同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-dark-box-at-dividing-wall",
+      "label": "dark grey box-like object on floor against dividing wall south face, center-east (bin/cabinet unresolved)",
+      "kind": "fixture",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.523,
+        0.395,
+        0.558,
+        0.434
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 深灰方形物紧贴分隔墙南侧（u≈0.523-0.558, v≈0.395-0.434）；1F-material-se: 同位置见深色桶状物（带浅色箍/盖），桶/柜未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-storage-rack-rows",
+      "label": "three rows of white/grey storage racks with boxed colorful goods in north room (2-3 units per row, exact count unresolved)",
+      "kind": "rack_row",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.372,
+        0.233,
+        0.67,
+        0.37
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 三行淡白矩形（v≈0.235-0.262 / 0.29-0.318 / 0.34-0.368），每行 u≈0.375-0.443、0.453-0.523 两相邻列 + u≈0.598-0.668 独立列，中带通道（u≈0.525-0.595）；1F-material-ne/se/sw: 白/灰多层货架+黄色粉色盒装货品清晰，行/列读法与顶视自洽；组数按顶视判读约 6-9 组，精确数未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-long-white-counter",
+      "label": "long white-topped counter/bench along dividing wall north face inside north room, wedged east end",
+      "kind": "counter",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.258,
+        0.373,
+        0.737,
+        0.401
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 白色长条台（u≈0.258-0.737, v≈0.373-0.401）贴分隔墙北面，东端收敛为尖楔形（至 u≈0.735）；1F-material-ne: 白色台面东端楔形同见；台面上器物未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-colored-bins-trio",
+      "label": "three small labeled bins (purple/blue/red) on floor west of aisle in north room",
+      "kind": "baskets_or_boxes",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.296,
+        0.343,
+        0.38,
+        0.375
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 紫(0.298-0.325)/蓝(0.325-0.350)/红(0.350-0.378) 三色带白色标签小方块（v≈0.343-0.375）；1F-material-ne: 同组彩色小箱同见；置于长白台西段北侧地面。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-west-wall-shelving-group",
+      "label": "teal/green small shelving units with white shelves against west wall of north room, plus yellow/red/grey small items and broom-like tool nearby",
+      "kind": "shelf_units",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.237,
+        0.233,
+        0.268,
+        0.345
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 西墙内面青色条×2（u≈0.235-0.250, v≈0.26-0.34）+ 黄色方块 (0.245-0.265, 0.235-0.265) + 红/灰小件；1F-material-se: 青绿色小货架×2（白层板）贴西墙清晰，旁见扫帚状工具（对应顶视 u≈0.30-0.33, v≈0.26-0.30，弱迹）；西北内角另见白/灰小矩形（v≈0.233-0.245）并入本组注记。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-desk-workstation-ne",
+      "label": "tan desk with dark keyboard-like strip, white paper-like sheet and black swivel chair on column base at north room east end",
+      "kind": "desk",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.663,
+        0.227,
+        0.752,
+        0.377
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 棕色桌面（u≈0.695-0.748, v≈0.235-0.375）+ 深色键盘条 (0.695-0.735, 0.27-0.31) + 白色纸状物 (0.71-0.73, 0.25-0.27) + 黑色办公椅 (0.665-0.710, 0.28-0.333)；1F-material-se: 桌+黑椅同见（越墙俯视）；1F-material-nw: 北墙窗外可见桌与黑椅轮廓；用途不作推断。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-dark-cabinet-north-wall",
+      "label": "dark grey box against north wall between rack row east end and desk (cabinet/safe/printer unresolved)",
+      "kind": "cabinet",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.66,
+        0.227,
+        0.697,
+        0.265
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 深灰矩形贴北墙内侧（u≈0.660-0.697, v≈0.227-0.265），与货架东端、桌面西北角相邻/略压；1F-material-se: 东端地面深色立方状物同见；器形未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-white-appliance-boxes-east",
+      "label": "two white cabinet-like boxes with colored labels against east wall inner face, south hall (fridge/cabinet unresolved)",
+      "kind": "fixture",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.743,
+        0.398,
+        0.782,
+        0.512
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 两枚白色矩形箱贴东墙内面（u≈0.743-0.782，v≈0.398-0.455 与 0.455-0.512），各带彩色标签痕；1F-material-ne: 白色箱体+深色前脸同见；器形（冰箱/柜）未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-kitchenette-counter-east",
+      "label": "L-shaped wooden counter against east wall with white basin-like recess and dark diamond-shaped board, plus small white box on east end",
+      "kind": "counter",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.695,
+        0.498,
+        0.782,
+        0.598
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 木色 L 台（东臂 u≈0.735-0.775, v≈0.50-0.595；南臂 u≈0.695-0.775, v≈0.565-0.598）+ 白色槽状矩形 (0.70-0.745, 0.565-0.595) + 深灰菱形 (0.735-0.775, 0.55-0.595) + 东端白色小盒 (0.748-0.778, 0.538-0.575)；1F-material-ne/sw: 台体与白盒同见；菱形物为炉板/砧板/水槽未辨，用途不作推断。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-corner-room-fixtures",
+      "label": "two white bowl-and-tank-like fixtures against room north wall, small white square at south-west and dark grey square at north-east inside corner room",
+      "kind": "plumbing_fixtures",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.708,
+        0.594,
+        0.782,
+        0.65
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 两枚白色长圆器物并排（u≈0.712-0.745 / 0.752-0.778, v≈0.598-0.632）+ 小白方块 (0.712-0.730, 0.632-0.648) + 深灰小方块 (0.750-0.775, 0.585-0.615 贴北墙东段)；1F-material-se: 间内白色器物同见；按洁具形态判读（坐便器状），功能不作认证。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-corner-room-west-door-panel",
+      "label": "white door-like panel on west face of south-east corner room (door leaf vs fixed panel unresolved)",
+      "kind": "door",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.691,
+        0.61,
+        0.707,
+        0.65
+      ],
+      "evidence": {
+        "image": "evidence/2a251c82dee29459-1F-material-se.png",
+        "visual_note": "1F-material-se: 小间西面（朝中庭侧）见白色板状物，读作门扇；1F-material-sw: 同位置白色板状物同见；1F-material-top: 西墙条带 (u≈0.693-0.705) 在该段略淡；门扇/固定板未辨，洞口范围未验证，bounds 为墙条带近似。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-south-entrance",
+      "label": "south-wall door opening at center-west with grey mat inside and black mat outside",
+      "kind": "entrance",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.428,
+        0.612,
+        0.508,
+        0.698
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 南墙粉线在 u≈0.445-0.505 断开为门洞；内侧深灰垫 (0.428-0.492, 0.612-0.648)、外侧黑色垫 (0.428-0.492, 0.663-0.695)；1F-material-se: 白框玻璃门+黑垫同见；1F-material-sw: 双扇玻璃门+黑垫同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-south-glazing",
+      "label": "south-face white-framed dark glazing in multiple sections flanking the central door opening (pane boundaries not resolvable in top view)",
+      "kind": "glazed_panel",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.235,
+        0.647,
+        0.795,
+        0.666
+      ],
+      "evidence": {
+        "image": "evidence/2a251c82dee29459-1F-material-se.png",
+        "visual_note": "1F-material-se: 南立面白框深玻璃多段（西段一对、门东两大段）清晰；1F-material-sw: 西段窗+门东大玻璃段同见；1F-material-ne: 东段玻璃内面反光同见；1F-material-top: 投影为南墙条带（u≈0.235-0.795, v≈0.647-0.666），分格边界不可辨，bounds 为整段近似（中央门洞另列）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-south-east-opening",
+      "label": "possible second south-wall opening at east portion with dark door-like segment and dark mats inside/outside (unverified in obliques)",
+      "kind": "doorway",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.612,
+        0.626,
+        0.695,
+        0.698
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 南墙东段 (u≈0.615-0.665) 墙线呈灰暗（非鲜粉），内侧深灰垫 (0.615-0.662, 0.628-0.652)、外侧深灰垫 (0.643-0.692, 0.663-0.692)；斜视中该段被玻璃/墙面混读，开口未单独验证；bounds 为垫+墙段包络近似。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-north-wall-glazing",
+      "label": "north-wall white-framed dark glazing section at west-center (reads as 2-3 dark windows from outside and a white door-like panel from inside; window vs door unresolved)",
+      "kind": "glazed_panel",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.298,
+        0.22,
+        0.462,
+        0.238
+      ],
+      "evidence": {
+        "image": "evidence/016724aa16492e69-1F-material-nw.png",
+        "visual_note": "1F-material-nw: 北墙外立面见 2-3 扇白框深色玻璃（紧邻东北角以西段）；1F-material-se: 同段内面读作带灰框的白色门扇状板+黄色地面砖；1F-material-top: 北墙帽 (v≈0.222-0.235) 在该段连续粉色，玻璃不可辨；是窗是门未辨，bounds 由两斜视映射近似。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-dividing-wall-poster",
+      "label": "yellow-framed poster/board on dividing wall south face (hall side), east portion",
+      "kind": "wall_decals",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.598,
+        0.394,
+        0.678,
+        0.417
+      ],
+      "evidence": {
+        "image": "evidence/2a251c82dee29459-1F-material-se.png",
+        "visual_note": "1F-material-se: 分隔墙南面（白墙带）东段见黄色边框板/海报；1F-material-sw: 越过南面玻璃同见黄框物；1F-material-top: 投影为分隔墙条带 (v≈0.395-0.415)，bounds 为墙条带近似。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-east-wall-graphics",
+      "label": "mounted graphics on east wall exterior: black graffiti tag, blue-white poster, white paper sheets, small meter-like box and colored sticker (each identity unresolved)",
+      "kind": "wall_decals",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.773,
+        0.466,
+        0.8,
+        0.637
+      ],
+      "evidence": {
+        "image": "evidence/2a251c82dee29459-1F-material-se.png",
+        "visual_note": "1F-material-se: 东墙外面黑涂鸦+蓝白海报+白纸张+墙脚白色电表箱状小盒+彩色小贴纸同见；1F-material-ne: 涂鸦与蓝海报同见；1F-material-nw: 涂鸦与白纸同见；1F-material-top: 投影为东墙条带 (u≈0.775-0.795)，bounds 为墙条带近似（v≈0.466-0.637）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-west-wall-graphics",
+      "label": "mounted graphics on west wall exterior: black graffiti tag and white paper sheets",
+      "kind": "wall_decals",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.223,
+        0.493,
+        0.248,
+        0.637
+      ],
+      "evidence": {
+        "image": "evidence/016724aa16492e69-1F-material-nw.png",
+        "visual_note": "1F-material-nw: 西墙外面（中南段）黑涂鸦+下方白色纸张/张贴物清晰；1F-material-top: 投影为西墙条带 (u≈0.225-0.237)，bounds 为墙条带近似。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-north-wall-clutter",
+      "label": "clutter group at north wall exterior: white/lavender canopy-like cover, two dark bag-like items and silver ladder-like frame (each identity unresolved)",
+      "kind": "cluster",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.498,
+        0.182,
+        0.692,
+        0.236
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 白/淡紫覆盖物 (0.543-0.618, 0.183-0.228)、深色袋状物 (0.503-0.548, 0.188-0.228) 与 (0.628-0.688, 0.188-0.228)、细白斜痕 (0.515-0.535, 0.19-0.23)；1F-material-se: 银白梯状物清晰立于铺装上、旁为深色袋与白色覆盖物；1F-material-ne: 覆盖物+深色袋同见；梯子顶视痕迹与袋重叠，位置近似。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-white-stand-northwest",
+      "label": "white openwork stand/trellis with potted plant at north-west exterior, fainter pale continuation east (nature unresolved)",
+      "kind": "structure",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.233,
+        0.182,
+        0.442,
+        0.223
+      ],
+      "evidence": {
+        "image": "evidence/2a251c82dee29459-1F-material-se.png",
+        "visual_note": "1F-material-se: 建筑西北外见白色格架状物+白色盆器绿植；1F-material-top: 对应淡白矩形 (0.233-0.352, 0.183-0.222) 及两条白柱痕 (0.245-0.255, 0.20-0.235)，东段 (0.35-0.44) 仅余淡色痕迹；器形（花架/棚架/长凳）未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-grey-box-northeast",
+      "label": "small grey box at building north-east exterior corner",
+      "kind": "fixture",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.792,
+        0.229,
+        0.817,
+        0.261
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 东北角外小灰盒 (0.792-0.817, 0.229-0.261)；1F-material-ne: 东北外墙外侧灰色盒状物同见（空调外机/箱体未辨）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-east-wall-ladder",
+      "label": "silver ladder-like frame leaning against east wall north portion",
+      "kind": "structure",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.771,
+        0.408,
+        0.804,
+        0.477
+      ],
+      "evidence": {
+        "image": "evidence/cb3176773741302b-1F-material-ne.png",
+        "visual_note": "1F-material-ne: 银白色梯/架状物斜靠东墙（北段）清晰；1F-material-top: 东墙外小灰凸起 (0.775-0.80, 0.415-0.445) 为其足部候选，bounds 为近似；是梯是架未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-east-wall-grey-box",
+      "label": "small grey box against east wall exterior at v≈0.30 (identity unresolved)",
+      "kind": "fixture",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.773,
+        0.29,
+        0.802,
+        0.32
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 东墙外小灰矩形 (0.773-0.802, 0.29-0.32)；斜视对应位置未单独辨识（被墙线与梯架视野混叠）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-picnic-shelter-west",
+      "label": "white-framed picnic shelter over wooden table with benches, brick-edged planter strips at both ends, south plaza west position",
+      "kind": "canopy",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.287,
+        0.7,
+        0.437,
+        0.835
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 白框棚架轮廓 (0.287-0.437, 0.700-0.835)+木桌凳 (0.31-0.41, 0.735-0.80)+两端红棕色花槽条 (0.31-0.43, 0.700-0.728 / 0.795-0.830)；1F-material-sw: 白架+木桌凳+端部花槽（绿色灌木）清晰；顶视花槽呈红棕色调，灌木顶视不显。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-picnic-shelter-east",
+      "label": "white-framed picnic shelter over wooden table with benches, brick-edged planter strips at both ends, south plaza east position",
+      "kind": "canopy",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.453,
+        0.7,
+        0.6,
+        0.835
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 白框棚架轮廓 (0.453-0.600, 0.700-0.835)+木桌凳 (0.475-0.575, 0.735-0.80)+两端红棕色花槽条；1F-material-sw/se: 同型棚架+木桌凳同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-planter-pair-with-slab-southeast",
+      "label": "two brick-edged planters with green shrubs and white slab-like bench between them, south-east of building",
+      "kind": "planter",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.606,
+        0.696,
+        0.674,
+        0.835
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 北花槽 (0.612-0.668, 0.698-0.738) + 白色板凳状物 (0.615-0.665, 0.738-0.795) + 南花槽 (0.612-0.668, 0.795-0.833)；1F-material-sw: 两砖边花槽（黄绿灌木）+白板凳清晰；1F-material-se: 同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-curved-bench-southeast",
+      "label": "white curved bench-like object south-east of building corner",
+      "kind": "bench",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.762,
+        0.645,
+        0.85,
+        0.724
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 白色弧带 (0.762-0.850, 0.645-0.724)；1F-material-se/sw: 白色弧形凳清晰。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-curved-bench-east",
+      "label": "white curved bench-like object on pavement east of building",
+      "kind": "bench",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.84,
+        0.528,
+        0.91,
+        0.604
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 白色弧带 (0.840-0.910, 0.528-0.604)；1F-material-sw: 东侧第二白色弧形凳状物同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-white-slab-east-1",
+      "label": "white slab-like low bench/table on east pavement at v≈0.43-0.49 (identity unresolved)",
+      "kind": "bench",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.792,
+        0.43,
+        0.85,
+        0.49
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 白色矩形板 (0.792-0.850, 0.430-0.490)；1F-material-se: 东侧铺装上白色板状矮台同见；长凳/矮桌/板件未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-white-slab-east-2",
+      "label": "white slab-like low bench/table on east pavement at v≈0.50-0.58 (identity unresolved)",
+      "kind": "bench",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.79,
+        0.503,
+        0.854,
+        0.582
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 白色矩形板 (0.790-0.854, 0.503-0.582)；1F-material-se: 白色板状矮台同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-white-slab-east-3",
+      "label": "white slab-like low bench/table on east pavement at v≈0.27-0.34 (top-view evidence only)",
+      "kind": "bench",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.796,
+        0.27,
+        0.85,
+        0.34
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 白色矩形板 (0.796-0.850, 0.270-0.340)；斜视对应位置被北房东墙视线/树贴图遮挡，未单独辨识。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-hex-object-southwest",
+      "label": "white hexagonal object with tan/wood center at south-west exterior (planter/table/covered item unresolved)",
+      "kind": "fixture",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.22,
+        0.662,
+        0.266,
+        0.713
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 白色六角轮廓+木色六角心 (0.220-0.266, 0.662-0.713)；1F-material-nw: 同位置读作白色篷状物+深色球状物；1F-material-sw: 西南角外白色物同见；花坛/桌/覆盖物未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-wooden-slabs-southwest",
+      "label": "two small wooden slab-like objects on pavement at south-west exterior (bench/sign-board unresolved)",
+      "kind": "bench",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.241,
+        0.7,
+        0.272,
+        0.815
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 两枚木色小矩形 (0.243-0.270, 0.703-0.738) 与 (0.243-0.270, 0.777-0.813)，中间隔空；1F-material-se: 西南铺装上木凳状物同见；bounds 为两块包络。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-pines-west-strip",
+      "label": "four tall pines on west grass strip (dark trunk spots in top view, trees clearly visible in obliques)",
+      "kind": "vegetation",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.033,
+        0.273,
+        0.148,
+        0.778
+      ],
+      "evidence": {
+        "image": "evidence/b07f785b710e7a89-1F-material-sw.png",
+        "visual_note": "1F-material-sw: 西草带上 4 棵高松清晰；1F-material-top: 对应 4 个深色点 (0.115-0.135, 0.29-0.31)/(0.075-0.095, 0.465-0.485)/(0.115-0.135, 0.60-0.62)/(0.04-0.06, 0.745-0.765)，bounds 为四点包络；1F-material-ne/se: 树冠同样可见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_minimarket-1F-brick-boundary-wall-north",
+      "label": "long brick boundary wall along north edge of lot, on grass strip",
+      "kind": "wall",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.035,
+        0.073,
+        0.965,
+        0.122
+      ],
+      "evidence": {
+        "image": "evidence/bce17a4e80d5fd77-1F-material-top.png",
+        "visual_note": "1F-material-top: 砖墙横贯北缘 (u≈0.035-0.965, v≈0.073-0.122)，墙北为草带；1F-material-ne/se/sw/nw: 砖墙四斜视均见， NW 视角中段被树形贴图遮挡；墙上洞口未见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    }
+  ],
+  "stairs": {
+    "visible": false,
+    "confidence": "observed",
+    "notes": "五张图中均无楼梯、坡道或层间高差构件：建筑为无顶单层墙体，室内地坪与周边铺装齐平，顶视与四斜视自洽；场地内亦未见台阶（pergola/花槽均为贴地构件）。不涉及跨层路线；本记录不断言 vertical connector，不认证任何路线，任何路线提及均 robot_validated=false。"
+  },
+  "uncertainties": [
+    "朝向约定：顶视为坐标对齐正射，假设图面上=+Y=北、右=+X=东；方位词由四斜视与顶视自洽支持（南墙门洞、北缘砖墙、西草带松树等多锚点交叉验证）。",
+    "本记录不使用场景名推断任何功能：北房按『货架阵+办公桌角』记录、未写仓库/办公用途；东南小间按『洁具状物』记录、未认证为卫生间；木台未写收银/出品用途；各 label 均为像素级描述。",
+    "北墙白框深玻璃段 (u≈0.30-0.46)：NW 斜视读作 2-3 扇深色窗，SE 斜视同段内面读作白色门扇状板；窗/门未辨；顶视墙帽在该段连续粉色、玻璃不可辨，bounds 由两斜视映射近似。",
+    "分隔墙 (v≈0.395-0.415) 在顶视中全线连续粉色，未见门洞；北房与南厅之间的通道位置未确认（可能仅经北墙门窗进出，或存在被货架/墙帽遮挡的门洞）。",
+    "南墙东段第二开口 (u≈0.615-0.695)：顶视墙线该段灰暗且内外各有深色垫，读作带门扇的开口，但未在斜视中单独验证，范围近似。",
+    "细绿线：顶视 u≈0.357 处 1-2px 均匀绿线自 v≈0.23 贯穿至 v≈0.755（穿墙越铺装），疑为渲染接缝或线状构件，性质未辨，未立 object。",
+    "白色灯杆：NE/SE/SW 三斜视均见细高白杆（SW 可见横臂+灯头），顶视疑似细白线/影位于 (0.44-0.46, 0.84-0.93)，基点定位不确，未立 object。",
+    "SW 斜视见建筑西南角外贴墙的灌木/花箱状绿色物，顶视对应位置 (0.23-0.30, 0.60-0.67) 未辨出对应斑块，未立 object。",
+    "北房货架阵行/列数按顶视淡白矩形判读为 3 行×每行 2-3 组（约 6-9 组），斜视证实为白/灰多层货架+彩色盒装货品，精确组数与每格内容未辨。",
+    "多件器物身份未辨：北墙内侧深灰方箱（柜/保险箱/打印设备）、东墙内侧白色柜状箱×2（冰箱/柜）、厨房台角深灰菱形物（炉板/砧板/水槽）、西南外六角白物（花坛/桌/覆盖物）、东侧白色板状矮台×3（长凳/矮桌/板件）。",
+    "东侧白板 slab-3 (v≈0.27-0.34) 仅顶视证据；斜视对应位置被北房东墙视线与树形贴图遮挡。",
+    "NW 斜视中段被树形广告牌纹理大面积遮挡、NE 斜视右缘有巨树贴图、SE 斜视左缘亦受树冠影响——树木为相机朝向面片（billboard）渲染，个别视角遮挡严重，本记录 bounds 以顶视为主、斜视为辅交叉确认。",
+    "区域嵌套：lot-pavement-pad 的 bbox 西缘含西草带（u≈0.035-0.185，另列 pines-west-strip）、南缘止于 v≈0.948（以南草带未含）；building-floorplate 含 north-room-subspace 与 corner-room-subspace；若 builder 要求互斥区域请以子区域为准。",
+    "未做任何路线、地形或可通行性评估；本文件不认证任何机器人可行路线，任何路线提及均 robot_validated=false；证据绑定 artifacts/semantic-captures-v2-30/production_minimarket/ 的 5 张 Camera-Light 图片（top/ne/nw/se/sw）。"
+  ]
+}

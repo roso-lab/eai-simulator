@@ -2,9 +2,10 @@
 
 Ground and aerial navigation products use the same JSON representation.  A
 product is still owned by one map (``domain`` is authoring metadata), while the
-navigation profile chooses whether distances are measured in XY or XYZ.  Edge
-traversal labels and controller capabilities are deliberately ignored by the
-runtime; motion controllers decide how to execute a node-to-node command.
+navigation profile chooses whether distances are measured in XY or XYZ.
+Traversal labels and controller capabilities are executable admission
+constraints when a controller profile declares its capabilities; the motion
+adapter still decides how to execute each accepted node-to-node command.
 """
 from __future__ import annotations
 
@@ -16,6 +17,7 @@ from typing import Any, Mapping
 
 
 LEVEL_HEIGHT_TOLERANCE_M = 0.20
+TRAVERSAL_MODES = frozenset({"walk", "stairs", "ramp"})
 
 
 def finite_number(value: Any) -> bool:
@@ -35,7 +37,7 @@ def topology_fields(document: Any) -> Mapping[str, Any]:
         return document
     names = (
         "schema", "scene_key", "source", "nodes", "edges", "coordinate_frame",
-        "meters_per_unit", "up_axis", "version", "levels", "domain",
+        "meters_per_unit", "up_axis", "version", "levels", "domain", "semantics",
     )
     return {name: getattr(document, name) for name in names if hasattr(document, name)}
 
@@ -44,6 +46,70 @@ def _strings(value: Any) -> bool:
     return isinstance(value, (list, tuple)) and all(
         isinstance(item, str) and item.strip() for item in value
     )
+
+
+def _semantic_navigation_errors(data: Mapping[str, Any], nodes: Mapping[str, Mapping[str, Any]],
+                               edges: Mapping[str, Mapping[str, Any]]) -> list[str]:
+    """Check the semantic fields that can change executable navigation.
+
+    Full semantic record validation lives in the authoring package.  Runtime
+    navigation still needs a small, dependency-free guard so a malformed map
+    cannot silently fall back to a raw node target.
+    """
+    semantics = data.get("semantics")
+    if semantics is None:
+        return []
+    if (not isinstance(semantics, Mapping)
+            or semantics.get("schema") != "eai.scene.semantics"
+            or type(semantics.get("version")) is not int
+            or semantics.get("version") != 1):
+        return ["unsupported scene semantics"]
+    errors: list[str] = []
+    seen: set[str] = set()
+    collections = ("regions", "entities", "interaction_poses", "routes")
+    rows: dict[str, dict[str, Mapping[str, Any]]] = {}
+    for collection in collections:
+        values = semantics.get(collection)
+        if not isinstance(values, list):
+            errors.append(f"semantic {collection} must be an array")
+            rows[collection] = {}
+            continue
+        current: dict[str, Mapping[str, Any]] = {}
+        for row in values:
+            identifier = row.get("id") if isinstance(row, Mapping) else None
+            if not isinstance(identifier, str) or not identifier.strip():
+                errors.append(f"invalid {collection} record ID")
+                continue
+            if identifier in seen:
+                errors.append(f"duplicate semantic ID: {identifier}")
+            seen.add(identifier)
+            current[identifier] = row
+        rows[collection] = current
+    for identifier, row in rows.get("regions", {}).items():
+        entrances = row.get("entrance_node_ids", [])
+        if (not isinstance(entrances, (list, tuple))
+                or any(not isinstance(node_id, str) or node_id not in nodes for node_id in entrances)):
+            errors.append(f"invalid semantic region entrances: {identifier}")
+    for identifier, row in rows.get("interaction_poses", {}).items():
+        node_id = row.get("node_id")
+        if node_id is not None and (not isinstance(node_id, str) or node_id not in nodes):
+            errors.append(f"unknown interaction navigation node: {identifier}")
+    for identifier, row in rows.get("routes", {}).items():
+        node_ids, edge_ids = row.get("node_ids"), row.get("edge_ids")
+        if (not isinstance(node_ids, (list, tuple)) or len(node_ids) < 2
+                or any(node_id not in nodes for node_id in node_ids)
+                or not isinstance(edge_ids, (list, tuple))
+                or len(edge_ids) != len(node_ids) - 1
+                or any(edge_id not in edges for edge_id in edge_ids)):
+            errors.append(f"invalid semantic route references: {identifier}")
+            continue
+        for first, last, edge_id in zip(node_ids, node_ids[1:], edge_ids):
+            edge = edges[edge_id]
+            if not ((edge.get("from") == first and edge.get("to") == last)
+                    or (not edge.get("directed", False)
+                        and edge.get("from") == last and edge.get("to") == first)):
+                errors.append(f"semantic route contradicts edge direction/connectivity: {identifier}")
+    return sorted(set(errors))
 
 
 def validate_topology(document: Any, *, metric: str | None = None) -> list[str]:
@@ -134,6 +200,9 @@ def _validate_topology(document: Any) -> list[str]:
         level_id = row.get("level_id")
         if level_id is not None and (not isinstance(level_id, str) or level_id not in levels):
             errors.append(f"unknown node level: {node_id}")
+        elif (level_id is not None and finite_number(point[2])
+              and abs(float(point[2]) - levels[level_id]) > LEVEL_HEIGHT_TOLERANCE_M):
+            errors.append(f"node support height differs from declared level: {node_id}")
         if version == 2 and (not isinstance(row.get("label", ""), str)
                              or not _strings(row.get("aliases", []))):
             errors.append(f"invalid node landmark metadata: {node_id}")
@@ -161,6 +230,33 @@ def _validate_topology(document: Any) -> list[str]:
         if polyline is not None and (not isinstance(polyline, (list, tuple))
                                      or any(not finite_xyz(point) for point in polyline)):
             errors.append(f"invalid edge polyline: {edge_id}")
+        traversal_mode = edge.get("traversal_mode", "walk")
+        capabilities = edge.get("required_controller_capabilities", [])
+        if traversal_mode not in TRAVERSAL_MODES:
+            errors.append(f"invalid edge traversal_mode: {edge_id}")
+        if (not isinstance(capabilities, (list, tuple))
+                or any(not isinstance(item, str) or not item.strip() for item in capabilities)
+                or len(set(capabilities)) != len(capabilities)):
+            errors.append(f"invalid edge controller capabilities: {edge_id}")
+        if version != 2 and (traversal_mode != "walk" or capabilities):
+            errors.append(f"edge traversal metadata requires topology version 2: {edge_id}")
+        if (data.get("domain", "ground") == "ground" and first in nodes and last in nodes
+                and math.dist(nodes[first][:2], nodes[last][:2]) <= 1e-12):
+            errors.append(f"ground topology edge must have nonzero XY length: {edge_id}")
+        mode = edge.get("traversal_mode", "walk")
+        # Floor-crossing checks describe ground traversal.  Aerial v2 maps
+        # are also explicit XYZ graphs, but they do not need declared building
+        # levels for every waypoint and may use the default walk label for a
+        # free-flight edge.
+        if (data.get("domain", "ground") == "ground" and version == 2
+                and mode == "walk" and first in node_rows and last in node_rows):
+            first_level, last_level = node_rows[first].get("level_id"), node_rows[last].get("level_id")
+            if (first_level is None or last_level is None or first_level != last_level
+                    or abs(nodes[first][2] - nodes[last][2]) > LEVEL_HEIGHT_TOLERANCE_M):
+                errors.append(f"walk edge cannot cross levels or transitions: {edge_id}")
+    edge_rows = {edge["id"]: edge for edge in edges
+                 if isinstance(edge, Mapping) and isinstance(edge.get("id"), str)}
+    errors.extend(_semantic_navigation_errors(data, node_rows, edge_rows))
     return sorted(set(errors))
 
 
@@ -228,6 +324,28 @@ def _canonical_graph(document: Any) -> dict[str, Any]:
             "id": row["id"], "label": row.get("label", ""),
             "support_z_m": float(row["support_z_m"]),
         } for row in data.get("levels", ())), key=lambda item: item["id"])
+    semantics = data.get("semantics")
+    if isinstance(semantics, Mapping):
+        # Region entrances and authored named routes are navigation bindings.
+        # Entity/interaction geometry is task data and intentionally does not
+        # invalidate an executable graph when it is edited later.
+        semantic_payload = {}
+        regions = semantics.get("regions", ())
+        if isinstance(regions, (list, tuple)):
+            semantic_payload["regions"] = sorted(({
+                "id": row.get("id"),
+                "level_id": row.get("level_id"),
+                "entrance_node_ids": sorted(set(row.get("entrance_node_ids", ()))),
+            } for row in regions if isinstance(row, Mapping)), key=lambda item: item["id"])
+        routes = semantics.get("routes", ())
+        if isinstance(routes, (list, tuple)):
+            semantic_payload["routes"] = sorted(({
+                "id": row.get("id"), "kind": row.get("kind"),
+                "node_ids": list(row.get("node_ids", ())),
+                "edge_ids": list(row.get("edge_ids", ())),
+            } for row in routes if isinstance(row, Mapping)), key=lambda item: item["id"])
+        if semantic_payload:
+            payload["semantic_navigation_bindings"] = semantic_payload
     return payload
 
 
@@ -279,5 +397,5 @@ class FrozenNavigationTopology:
 __all__ = [
     "FrozenNavigationTopology", "LEVEL_HEIGHT_TOLERANCE_M",
     "finite_number", "finite_xyz", "route_graph_digest", "topology_fields",
-    "validate_topology",
+    "validate_topology", "TRAVERSAL_MODES",
 ]

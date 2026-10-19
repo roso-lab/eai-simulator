@@ -1,0 +1,1361 @@
+{
+  "scene_id": "service_restaurant",
+  "level_id": "1F",
+  "regions": [
+    {
+      "id": "service_restaurant-1F-building-floorplate",
+      "label": "single-story roofless building: brown exterior walls with white-framed openings, white-walled room zone west, open table hall east, low-parapet south terrace, low-walled east annex (function unknown)",
+      "kind": "floorplate",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.041,
+        0.07,
+        0.963,
+        0.925
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: 外墙暗线实测—西 u≈0.0417-0.0433(v 0.074-0.922 连续)、北 v≈0.0744-0.0756(西段实测;大厅段含白框洞口)、南 v≈0.9211-0.9244(u 0.043-0.861 横贯)、大厅东界 u≈0.850(v=0.35 扫线)至 u≈0.861(v 0.07-0.19 段)、附房东墙 u≈0.9606-0.9622、附房南北矮墙 v≈0.1933/0.5778;bounds 取外包络。1F-material-ne/nw/se/sw: 四斜视均为无顶单层——西侧白墙房间群、东侧成排桌大厅、南侧矮墙露台、东侧矮墙附房;ne 视中的白色大平面经 2x 放大核实为白墙房间群的内墙/地坪(带顶面小方形构件),不是屋面;全场景未见任何二层体块。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-west-room-zone",
+      "label": "west half: white-walled multi-room zone fitted with cooking-range-like, sink-like, cabinet and rack fixtures (function unknown)",
+      "kind": "room_zone",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.043,
+        0.074,
+        0.502,
+        0.922
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: 内部地坪与器具全可见;东界为浅顶面隔墙(西缘台面止于 u≈0.4994,大厅侧白台起于 u≈0.505,细暗边线 u≈0.4844/0.5039 与地砖缝同宽,顶面洗白),取 u=0.502;南界=南墙 v≈0.922;北界=北墙 v≈0.0744。1F-material-nw: 白色隔墙短肢划分多房间、黑顶灶台(炉头/烤箱前脸)、白色网架托盘架、高柜、水池单元清晰;1F-material-se/sw: 同区远/近景同见;se 视该东隔墙为棕褐色高墙含门洞(位置顶视未定位)。南带 v 0.62-0.92 家具另列 southwest-furniture-zone。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-east-table-hall",
+      "label": "east half: open hall with 14 teal-top rectangular tables with chairs in four rows (function unknown)",
+      "kind": "hall",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.502,
+        0.074,
+        0.858,
+        0.696
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: 青色桌面连通域实测 14 处—A 排 4 短桌(南北向,teal v 0.0789-0.1356)、B 排 4 长桌(南北向,teal v 0.20-0.3133)、C/D 排各 1 长桌+2 短桌(东西向,teal v 0.5067-0.5222/0.6378-0.6533);东界墙线 u 实测 0.850(v=0.35)-0.861(v 0.07-0.19),其间 u 0.852-0.869 为白板列带(另列),bound 取 0.858 近似;南界=大厅-露台隔墙细暗线 v≈0.6956-0.6967(顶面洗白);西界=隔墙 u≈0.502。1F-material-ne: 成排青顶桌椅、东北角盆栽、西缘白台与台上器物同见;1F-material-se: 同见。bounds 含桌椅簇。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-south-parapet-terrace",
+      "label": "south strip behind hall: low-parapet semi-open terrace with round cream-top tables, cream bench and unit columns (function unknown)",
+      "kind": "terrace",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.503,
+        0.696,
+        0.862,
+        0.922
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: 北界隔墙细暗线 v≈0.6956-0.6967(u 0.52-0.84 扫线连续);东界矮墙暗帽段 u≈0.8611(v 0.724-0.77/0.796-0.841/0.867-0.911);南界=南墙 v≈0.9211-0.9244。地坪与圆桌严重洗白,仅存 1px 淡迹(v≈0.711-0.726 一带)。1F-material-se: 低矮棕墙+白色分节栏杆(深色帽段)、米色圆桌、米色长凳清晰;1F-material-sw: 同见;1F-material-ne: 该露台位于大厅隔墙以南、因墙遮挡呈'抬高平台'观感,高差未验证(见 uncertainties)。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-east-annex",
+      "label": "east annex: low-walled rectangular structure with white/black tables, potted plant and benches (function unknown)",
+      "kind": "annex",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.87,
+        0.193,
+        0.963,
+        0.578
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: 西界 u≈0.870(v=0.35 扫线暗线)、东墙 u≈0.9606-0.9622(含暗帽段 v 0.196-0.282/0.247-0.443/0.472-0.55)、北矮墙 v≈0.1933、南矮墙 v≈0.5778(暗帽段 u 0.868-0.958)。1F-material-ne: 近景左下——矮墙白色分节栏杆、灰砖地坪、白长桌(北壁)、黑桌+白椅、盆栽、南壁白板条凳同见;1F-material-se: 右前景同群(白桌居中、黑桌偏西、盆栽、白凳靠东墙);与大厅之间 u 0.850-0.870 间隙带立白板列(另列)。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-southwest-furniture-zone",
+      "label": "south band of west zone: dark tabletop on pale surround with dark chair-like objects, reddish-brown table with white items, pale desk-like units, L-shaped pale unit, potted plants (function unknown)",
+      "kind": "furniture_zone",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.043,
+        0.62,
+        0.502,
+        0.922
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: 顶视全可见(斜视被南墙遮挡:sw 视仅见墙外白色门扇,se 视远景被挡),故本区及区内物件的 bounds/内容仅由顶视确证;含灶台排北缘(v 0.692-0.736,另列 object);北界 v=0.62 为近似分带线(无墙线证据,仅按内容物分布取)。嵌套于 west-room-zone。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    }
+  ],
+  "objects": [
+    {
+      "id": "service_restaurant-1F-north-units-strip",
+      "label": "units with dark fronts along north wall west portion (sink/appliance-like)",
+      "kind": "fixture_row",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.185,
+        0.074,
+        0.462,
+        0.107
+      ],
+      "evidence": {
+        "image": "evidence/59051070c335245d-1F-material-nw.png",
+        "sha256": "59051070c335245d29aaaf2b5e1747bf84fbd5a5d0b372e6a4503f2de7aec3fe",
+        "visual_note": "1F-material-top: 北墙线(v 0.0744-0.0756)南缘暗色前沿段实测 u 0.187-0.204/0.253-0.298/0.346-0.373/0.42-0.458,其南连接灰台面(连通灰斑 v 0.10-0.271);1F-material-nw: 北墙内侧见水池/器具类单元同见(逐段对应未验证)。u<0.185 段灰迹与墙影粘连未分列。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-counter-bars-a",
+      "label": "two parallel counter bars",
+      "kind": "counter",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.149,
+        0.163,
+        0.233,
+        0.277
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: 灰斑实测双平行条 u 0.1489-0.2333 × v 0.1633-0.1956 与 v 0.2444-0.2767;斜视对应位置未单独辨识,性质按台面形态判读。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-counter-blocks-2x2",
+      "label": "four counter blocks in 2x2 arrangement",
+      "kind": "counter",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.312,
+        0.194,
+        0.404,
+        0.261
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: 四块实测 u 0.3122-0.35/0.3661-0.4039 × v 0.1944-0.2233/0.2322-0.2611;nw 视中西部白色大台面群同见(对应近似)。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-counter-bars-long",
+      "label": "two long counter bars",
+      "kind": "counter",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.319,
+        0.319,
+        0.428,
+        0.381
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: 实测 v 0.32-0.3511(u 0.3267-0.4283)与 v 0.3589-0.38(u 0.3194-0.405);性质按台面形态判读。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-tall-cabinet-pair",
+      "label": "two tall cabinet-like units side by side",
+      "kind": "cabinet",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.226,
+        0.478,
+        0.259,
+        0.633
+      ],
+      "evidence": {
+        "image": "evidence/59051070c335245d-1F-material-nw.png",
+        "sha256": "59051070c335245d29aaaf2b5e1747bf84fbd5a5d0b372e6a4503f2de7aec3fe",
+        "visual_note": "1F-material-top: 实测 u 0.2261-0.2406/0.2444-0.2589 × v 0.4789-0.6322;1F-material-nw/sw: 该区成对高白柜同见(对应近似)。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-tall-units-2x2",
+      "label": "two pairs of tall unit blocks",
+      "kind": "cabinet",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.365,
+        0.463,
+        0.4,
+        0.623
+      ],
+      "evidence": {
+        "image": "evidence/59051070c335245d-1F-material-nw.png",
+        "sha256": "59051070c335245d29aaaf2b5e1747bf84fbd5a5d0b372e6a4503f2de7aec3fe",
+        "visual_note": "1F-material-top: 实测 u 0.3661-0.3806/0.3839-0.3989 × v 0.4644-0.54/0.5467-0.6222;1F-material-nw: 高白柜/双门柜群同见(对应近似)。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-narrow-unit",
+      "label": "tall narrow unit east of thin dark line",
+      "kind": "cabinet",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.318,
+        0.466,
+        0.334,
+        0.616
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: 实测 u 0.3189-0.3322 × v 0.4667-0.6144(两段 0.4667-0.5378/0.51-0.6144);性质未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-thin-dark-line",
+      "label": "thin (1-2px) dark north-south line fixture",
+      "kind": "line_fixture",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.316,
+        0.466,
+        0.32,
+        0.62
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: 实测 u 0.3167-0.3183 × v 0.4667-0.6189,宽仅 1-2px;玻璃隔断边线/地面缝线/线缆均可能,未辨;宽度远小于家具量级故单列存疑。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-sink-basin-units",
+      "label": "units with round basin-like marks (sink-like)",
+      "kind": "fixture",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.429,
+        0.469,
+        0.459,
+        0.616
+      ],
+      "evidence": {
+        "image": "evidence/59051070c335245d-1F-material-nw.png",
+        "sha256": "59051070c335245d29aaaf2b5e1747bf84fbd5a5d0b372e6a4503f2de7aec3fe",
+        "visual_note": "1F-material-top: 灰块 u 0.43-0.4433(v 0.47-0.6144 两段)+小块 u 0.4483-0.4578(v 0.5167-0.5433/0.5789-0.6044),顶视见圆形凹斑;1F-material-nw: 带龙头水池单元同见(对应近似)。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-rack-strip",
+      "label": "narrow rack/shelf strip with small items",
+      "kind": "rack_row",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.184,
+        0.375,
+        0.201,
+        0.621
+      ],
+      "evidence": {
+        "image": "evidence/28a32bebc3838812-1F-material-sw.png",
+        "sha256": "28a32bebc38388124ffcaad98d376308d59a4617d41823bf71fcc40ace5abec8",
+        "visual_note": "1F-material-top: 五段实测 u 0.1844-0.2 × v 0.3756-0.3956/0.4344-0.4478/0.4633-0.4978/0.5078-0.5422/0.5644-0.62;1F-material-nw/sw: 白色网架托盘架(分层、白色托盘)同见,逐段对应未验证。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-west-wall-unit",
+      "label": "unit attached to west wall",
+      "kind": "fixture",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.049,
+        0.549,
+        0.062,
+        0.608
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: 灰斑实测 u 0.05-0.0617 × v 0.55-0.6067;西墙暗线(v 0.074-0.64)粘连的其余暗斑未逐一分列(见 uncertainties)。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-pale-units-row",
+      "label": "pale counter units row near west wall south",
+      "kind": "counter",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.084,
+        0.561,
+        0.148,
+        0.642
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: 两段实测 u 0.0972-0.1306(v 0.5622-0.58)与 u 0.0839-0.1472(v 0.6133-0.6411);性质未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-cooktop-row",
+      "label": "dark-topped unit row (cooktop/range-like) along interior south edge of west rooms",
+      "kind": "appliance_row",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.27,
+        0.692,
+        0.467,
+        0.736
+      ],
+      "evidence": {
+        "image": "evidence/59051070c335245d-1F-material-nw.png",
+        "sha256": "59051070c335245d29aaaf2b5e1747bf84fbd5a5d0b372e6a4503f2de7aec3fe",
+        "visual_note": "1F-material-top: 暗顶单元实测 u 0.271-0.298/0.310-0.355/0.360-0.400/0.410-0.435/0.440-0.465 × v≈0.692-0.736;1F-material-nw: 黑顶灶台(多炉头+黑色烤箱前脸)清晰;1F-material-sw: 黑顶岛式灶台同见;sw 视南墙内侧另见深色长条(罩壳/搁板状),顶视仅 1px 线迹(v≈0.889, u≈0.15-0.45)未单列。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-small-dark-row",
+      "label": "row of three small dark items",
+      "kind": "item_row",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.19,
+        0.715,
+        0.25,
+        0.734
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: 实测 u 0.1933-0.2111/0.2139-0.2211/0.24-0.2478 × v 0.7167-0.7322;性质未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-stacked-units-column",
+      "label": "column of stacked cabinet-like units",
+      "kind": "cabinet",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.458,
+        0.774,
+        0.488,
+        0.908
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: 西南象限放大见竖向叠层小方格列(v≈0.775-0.905);v=0.868 扫线暗段 u 0.4661-0.4728/0.4783-0.48;性质未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-gray-counter",
+      "label": "gray counter unit with three dark protrusions on west edge",
+      "kind": "counter",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.428,
+        0.082,
+        0.455,
+        0.253
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top 4x 放大: 灰台实测 u 0.428-0.455 × v 0.082-0.23;西缘三个深色突出物 v≈0.148-0.16/0.188-0.20/0.228-0.244(龙头/器件状,未辨),台面暗色小方件 [0.450,0.2356,0.4544,0.2489];1F-material-ne: 对应台段+台上器物同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-desk-unit",
+      "label": "pale desk-like unit with small items",
+      "kind": "desk",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.112,
+        0.816,
+        0.148,
+        0.846
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: 白斑+灰色小件实测;西墙侧另有淡迹(u≈0.071-0.087, v≈0.838-0.860)未辨。仅顶视证据(斜视被南墙遮挡)。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-dark-table-set",
+      "label": "dark rectangular tabletop on pale surround (rug/mat-like) with dark chair-like objects",
+      "kind": "table_set",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.185,
+        0.81,
+        0.275,
+        0.892
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top 4x 放大: 深色桌面实测 [0.2244,0.8289,0.2561,0.8689];浅色围边(毯/垫状)u 0.185-0.273 × v 0.812-0.891;四周深色椅状小块(北 2、南 2、东侧 1)清晰;bounds 含毯与椅。仅顶视证据。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-maroon-table",
+      "label": "reddish-brown table-like unit with white items and dark seat-like objects south",
+      "kind": "table_set",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.317,
+        0.851,
+        0.359,
+        0.923
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top 4x 放大: 酒红面实测 [0.3194,0.8522,0.3406,0.9011]+暗色缘(u 至 0.358);面上白色盘状物×2;南侧暗/棕椅状物 u 0.325-0.355 × v 0.898-0.923。仅顶视证据。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-lshaped-unit",
+      "label": "L-shaped pale unit (sofa/counter-like) at south wall",
+      "kind": "fixture",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.153,
+        0.851,
+        0.238,
+        0.924
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top 4x 放大: 竖臂 u 0.155-0.187(v 0.852-0.897)+横臂 u 0.185-0.237(v 0.897-0.924,贴南墙);性质(沙发/台案)未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-plant-row-sw",
+      "label": "row of three potted plants (dark pots)",
+      "kind": "plant",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.3,
+        0.78,
+        0.315,
+        0.857
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: 绿冠/深盆交替实测 v 0.7822-0.8011/0.8078-0.8256/0.8333-0.8511(u≈0.3033-0.3122)。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-plant-sw-a",
+      "label": "potted plant at southwest corner",
+      "kind": "plant",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.042,
+        0.82,
+        0.052,
+        0.84
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: 绿冠实测 [0.0428,0.8211,0.0511,0.8389]。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-plant-sw-b",
+      "label": "potted plant with dark pot",
+      "kind": "plant",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.172,
+        0.821,
+        0.183,
+        0.84
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: 绿冠 [0.1733,0.8244,0.1806,0.8389]+深盆 [0.1739,0.8222,0.1817,0.8389]。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-colored-items",
+      "label": "tiny colored items cluster",
+      "kind": "items",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.259,
+        0.735,
+        0.285,
+        0.778
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top 4x 放大: 绿/红/黑色小方块群(u≈0.262-0.283, v≈0.737-0.775);性质未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-table-a1",
+      "label": "rectangular teal-top table with chairs (seat count unresolved)",
+      "kind": "table_chairs",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.573,
+        0.078,
+        0.615,
+        0.14
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: teal 桌面实测 [0.59,0.0789,0.5978,0.1356](南北向短桌),米色椅簇环绕(bounds=桌面±椅);1F-material-ne: 该排同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-table-a2",
+      "label": "rectangular teal-top table with chairs (seat count unresolved)",
+      "kind": "table_chairs",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.642,
+        0.078,
+        0.684,
+        0.14
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: teal 实测 [0.6594,0.0789,0.6672,0.1356];1F-material-ne: 同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-table-a3",
+      "label": "rectangular teal-top table with chairs (seat count unresolved)",
+      "kind": "table_chairs",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.714,
+        0.078,
+        0.756,
+        0.14
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: teal 实测 [0.7311,0.0789,0.7389,0.1356];1F-material-ne: 同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-table-a4",
+      "label": "rectangular teal-top table with chairs (seat count unresolved)",
+      "kind": "table_chairs",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.789,
+        0.078,
+        0.831,
+        0.14
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: teal 实测 [0.8056,0.078,0.8139,0.1356];1F-material-ne: 同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-table-b1",
+      "label": "rectangular teal-top table with chairs (seat count unresolved)",
+      "kind": "table_chairs",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.57,
+        0.19,
+        0.619,
+        0.323
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: teal 实测 [0.5906,0.20,0.5983,0.3133](南北向长桌);1F-material-ne: 该排同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-table-b2",
+      "label": "rectangular teal-top table with chairs (seat count unresolved)",
+      "kind": "table_chairs",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.639,
+        0.19,
+        0.689,
+        0.323
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: teal 实测 [0.66,0.20,0.6678,0.3133];1F-material-ne: 同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-table-b3",
+      "label": "rectangular teal-top table with chairs (seat count unresolved)",
+      "kind": "table_chairs",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.71,
+        0.19,
+        0.76,
+        0.323
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: teal 实测 [0.7311,0.20,0.7389,0.3133];1F-material-ne: 同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-table-b4",
+      "label": "rectangular teal-top table with chairs (seat count unresolved)",
+      "kind": "table_chairs",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.785,
+        0.19,
+        0.835,
+        0.323
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: teal 实测 [0.8061,0.20,0.8139,0.3133];1F-material-ne: 同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-table-c1",
+      "label": "rectangular teal-top table with chairs (seat count unresolved)",
+      "kind": "table_chairs",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.512,
+        0.489,
+        0.611,
+        0.54
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: teal 实测 [0.5189,0.5067,0.6044,0.5222](东西向长桌,两侧椅列);1F-material-se: 同见;顶视红线(v≈0.655)为标尺线,与本桌无涉。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-table-c2",
+      "label": "rectangular teal-top table with chairs (seat count unresolved)",
+      "kind": "table_chairs",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.703,
+        0.489,
+        0.754,
+        0.54
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: teal 实测 [0.71,0.5067,0.7467,0.5222];1F-material-se: 同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-table-c3",
+      "label": "rectangular teal-top table with chairs (seat count unresolved)",
+      "kind": "table_chairs",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.781,
+        0.488,
+        0.831,
+        0.539
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: teal 实测 [0.7878,0.5056,0.8239,0.5211];1F-material-se: 同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-table-d1",
+      "label": "rectangular teal-top table with chairs (seat count unresolved)",
+      "kind": "table_chairs",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.512,
+        0.62,
+        0.611,
+        0.671
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: teal 实测 [0.5189,0.6378,0.6039,0.6533];1F-material-se: 同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-table-d2",
+      "label": "rectangular teal-top table with chairs (seat count unresolved)",
+      "kind": "table_chairs",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.704,
+        0.62,
+        0.754,
+        0.671
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: teal 实测 [0.7106,0.6378,0.7472,0.6533];1F-material-se: 同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-table-d3",
+      "label": "rectangular teal-top table with chairs (seat count unresolved)",
+      "kind": "table_chairs",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.781,
+        0.62,
+        0.831,
+        0.671
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: teal 实测 [0.7878,0.6378,0.8244,0.6533];1F-material-se: 同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-service-counter",
+      "label": "white counter with small items along hall west edge (L-shaped: north-south arm + short east-west arm)",
+      "kind": "counter",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.46,
+        0.077,
+        0.527,
+        0.322
+      ],
+      "evidence": {
+        "image": "evidence/eefe0306940cfa32-1F-material-se.png",
+        "sha256": "eefe0306940cfa3217f89df4ed3242cd9065d78efe648b609ddd0f2e92099b17",
+        "visual_note": "1F-material-top 4x 放大: 南北臂 u 0.505-0.527(v 0.082-0.322)+东西臂 v 0.302-0.322(u 0.460-0.527),东西臂上两个白框方件 u 0.472-0.487/0.490-0.505;台面黄色/彩色小件列 v 0.228-0.302(u≈0.513-0.517);1F-material-se: 白台+台上密排器物清晰(画面中央);1F-material-ne: 同见。台面双圆层级架另列。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-tiered-stands",
+      "label": "two white tiered stand-like items (round in top view) on counter north end",
+      "kind": "fixture",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.511,
+        0.082,
+        0.521,
+        0.113
+      ],
+      "evidence": {
+        "image": "evidence/6ed439145d5b2c0c-1F-material-ne.png",
+        "sha256": "6ed439145d5b2c0c6107029145f6e20b47085061212f23a41b9e37fbed2dbe4c",
+        "visual_note": "1F-material-top 4x 放大: 双圆环实测 (0.512-0.52, v 0.083-0.095)与(0.512-0.52, v 0.100-0.112);1F-material-ne: 两个白色层级架状物同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-dark-item-counter",
+      "label": "small dark item (bin-like) on counter",
+      "kind": "item",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.511,
+        0.114,
+        0.519,
+        0.13
+      ],
+      "evidence": {
+        "image": "evidence/6ed439145d5b2c0c-1F-material-ne.png",
+        "sha256": "6ed439145d5b2c0c6107029145f6e20b47085061212f23a41b9e37fbed2dbe4c",
+        "visual_note": "1F-material-top 4x 放大: 暗色小方件 (u≈0.512-0.518, v≈0.115-0.128);1F-material-ne: 台北端见黑色圆筒状物(对应近似);性质未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-nw-oval-fixture",
+      "label": "white oval fixture at hall northwest corner",
+      "kind": "fixture",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.55,
+        0.083,
+        0.567,
+        0.114
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top 4x 放大: 白色椭圆斑(东缘越出放大视野,可能延伸至 u≈0.57);性质(圆台/盆状)未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-dark-item-floor-s",
+      "label": "small dark floor item near hall southwest area",
+      "kind": "item",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.448,
+        0.642,
+        0.455,
+        0.659
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: 近黑连通域实测 [0.4489,0.6433,0.4533,0.6578];性质未辨(垃圾桶状/阴影)。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-plant-hall-ne",
+      "label": "large potted plant at hall northeast corner",
+      "kind": "plant",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.834,
+        0.078,
+        0.859,
+        0.132
+      ],
+      "evidence": {
+        "image": "evidence/6ed439145d5b2c0c-1F-material-ne.png",
+        "sha256": "6ed439145d5b2c0c6107029145f6e20b47085061212f23a41b9e37fbed2dbe4c",
+        "visual_note": "1F-material-top: 绿冠多连通域合并 bbox [0.835-0.858, 0.078-0.132];1F-material-ne: 大厅东北角盆栽同见;另 (u≈0.805-0.814, v 0.079-0.088) 小绿斑未辨(见 uncertainties)。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-hall-north-items",
+      "label": "dark units and small green bits along hall north wall between tables",
+      "kind": "fixture_row",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.575,
+        0.078,
+        0.865,
+        0.116
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: 暗段实测 u 0.576-0.597/0.646-0.666/0.732-0.739/0.785-0.798/0.807-0.813/0.854-0.862(v 深至 0.111-0.113),绿斑 u≈0.589/0.659/0.731/0.739(v 0.10-0.116);1px 绿色细线现象见 uncertainties;性质未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-panels-south",
+      "label": "row of tall white partition panels on hall side of hall-terrace wall",
+      "kind": "panel_row",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.545,
+        0.678,
+        0.852,
+        0.697
+      ],
+      "evidence": {
+        "image": "evidence/eefe0306940cfa32-1F-material-se.png",
+        "sha256": "eefe0306940cfa3217f89df4ed3242cd9065d78efe648b609ddd0f2e92099b17",
+        "visual_note": "1F-material-top: 白带实测 v 0.678-0.697 × u 0.545-0.852,中段 u≈0.618-0.652 断口(另列 panel-gap);1F-material-se: 高白板立于墙的大厅侧、板顶高过墙顶,清晰;1F-material-ne: 自北侧同见(所见面/背未辨)。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-panels-east",
+      "label": "white partition panel strip along hall east boundary",
+      "kind": "panel_row",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.852,
+        0.44,
+        0.869,
+        0.66
+      ],
+      "evidence": {
+        "image": "evidence/eefe0306940cfa32-1F-material-se.png",
+        "sha256": "eefe0306940cfa3217f89df4ed3242cd9065d78efe648b609ddd0f2e92099b17",
+        "visual_note": "1F-material-top: 白带实测 u 0.852-0.869 × v 0.44-0.66(北段淡,未计入 bounds);1F-material-se: 大厅东缘白板同见;北段是否延续未验证。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-panel-gap",
+      "label": "gap in south panel row (doorway-like)",
+      "kind": "opening",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.616,
+        0.686,
+        0.654,
+        0.7
+      ],
+      "evidence": {
+        "image": "evidence/eefe0306940cfa32-1F-material-se.png",
+        "sha256": "eefe0306940cfa3217f89df4ed3242cd9065d78efe648b609ddd0f2e92099b17",
+        "visual_note": "1F-material-top: 白带断口实测 u≈0.618-0.652;隔墙细暗线(v≈0.6956)在 u=0.62 采样仍连续,断口在板列抑或墙体未辨;1F-material-se: 该处见门洞状开口。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-terrace-round-1",
+      "label": "round cream-top table with chairs (top-view outline faint)",
+      "kind": "table_chairs",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.595,
+        0.716,
+        0.645,
+        0.767
+      ],
+      "evidence": {
+        "image": "evidence/eefe0306940cfa32-1F-material-se.png",
+        "sha256": "eefe0306940cfa3217f89df4ed3242cd9065d78efe648b609ddd0f2e92099b17",
+        "visual_note": "1F-material-se: 米色圆桌(含周边椅)清晰可见(se 视 4 张之一);1F-material-top: 该位淡迹弱,顶视仅 1px 点线(v≈0.711-0.726),bounds 为近似。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-terrace-round-2",
+      "label": "round cream-top table with chairs (top-view outline faint)",
+      "kind": "table_chairs",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.666,
+        0.716,
+        0.714,
+        0.767
+      ],
+      "evidence": {
+        "image": "evidence/eefe0306940cfa32-1F-material-se.png",
+        "sha256": "eefe0306940cfa3217f89df4ed3242cd9065d78efe648b609ddd0f2e92099b17",
+        "visual_note": "1F-material-se: 圆桌同见;1F-material-top: 淡迹弱,bounds 近似。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-terrace-round-3",
+      "label": "round cream-top table with chairs (top-view outline faint)",
+      "kind": "table_chairs",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.735,
+        0.716,
+        0.784,
+        0.767
+      ],
+      "evidence": {
+        "image": "evidence/eefe0306940cfa32-1F-material-se.png",
+        "sha256": "eefe0306940cfa3217f89df4ed3242cd9065d78efe648b609ddd0f2e92099b17",
+        "visual_note": "1F-material-se/sw: 圆桌同见;1F-material-top: 淡迹弱,bounds 近似。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-terrace-round-4",
+      "label": "round cream-top table with chairs (top-view outline faint)",
+      "kind": "table_chairs",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.803,
+        0.716,
+        0.854,
+        0.767
+      ],
+      "evidence": {
+        "image": "evidence/eefe0306940cfa32-1F-material-se.png",
+        "sha256": "eefe0306940cfa3217f89df4ed3242cd9065d78efe648b609ddd0f2e92099b17",
+        "visual_note": "1F-material-se: 圆桌同见;1F-material-top: 淡迹弱,bounds 近似。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-terrace-round-5",
+      "label": "round cream-top table with chairs (top-view outline faint)",
+      "kind": "table_chairs",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.593,
+        0.812,
+        0.647,
+        0.864
+      ],
+      "evidence": {
+        "image": "evidence/eefe0306940cfa32-1F-material-se.png",
+        "sha256": "eefe0306940cfa3217f89df4ed3242cd9065d78efe648b609ddd0f2e92099b17",
+        "visual_note": "1F-material-se: 南排圆桌同见;1F-material-top: 淡迹(v 0.815-0.86 一带),bounds 近似。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-terrace-round-6",
+      "label": "round cream-top table with chairs (top-view outline faint)",
+      "kind": "table_chairs",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.671,
+        0.812,
+        0.72,
+        0.864
+      ],
+      "evidence": {
+        "image": "evidence/28a32bebc3838812-1F-material-sw.png",
+        "sha256": "28a32bebc38388124ffcaad98d376308d59a4617d41823bf71fcc40ace5abec8",
+        "visual_note": "1F-material-se/sw: 圆桌同见;1F-material-top: 淡迹,bounds 近似。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-terrace-round-7",
+      "label": "round cream-top table with chairs (top-view outline faint)",
+      "kind": "table_chairs",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.769,
+        0.812,
+        0.82,
+        0.864
+      ],
+      "evidence": {
+        "image": "evidence/28a32bebc3838812-1F-material-sw.png",
+        "sha256": "28a32bebc38388124ffcaad98d376308d59a4617d41823bf71fcc40ace5abec8",
+        "visual_note": "1F-material-se/sw: 圆桌同见;1F-material-top: 淡迹,bounds 近似;其南 v 0.865-0.908 带另有淡迹未确数(见 uncertainties)。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-terrace-bench",
+      "label": "long cream bench (bench-like) at terrace west end",
+      "kind": "bench",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.505,
+        0.71,
+        0.592,
+        0.748
+      ],
+      "evidence": {
+        "image": "evidence/eefe0306940cfa32-1F-material-se.png",
+        "sha256": "eefe0306940cfa3217f89df4ed3242cd9065d78efe648b609ddd0f2e92099b17",
+        "visual_note": "1F-material-se: 米色长凳(东西向)清晰;1F-material-top: 淡迹+u=0.56 扫线点迹(v 0.7167/0.7256);bounds 近似。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-terrace-units-west",
+      "label": "column of stacked unit-like divisions at terrace west edge",
+      "kind": "cabinet",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.504,
+        0.773,
+        0.537,
+        0.908
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top 4x 放大: 白色竖带+分节淡线(v≈0.82/0.86/0.895);性质未辨(柜列/板列);与西侧 stacked-units-column 同型。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-plant-terrace-ne",
+      "label": "potted plant(s) at terrace northeast area",
+      "kind": "plant",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.835,
+        0.656,
+        0.859,
+        0.708
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: 绿冠实测合并 [0.8356-0.8478, 0.6578-0.6911]+[0.845-0.8556, 0.6944-0.7067],可能两株相邻;1F-material-sw: 该处绿植同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-parapet-plants",
+      "label": "four small plants along south parapet",
+      "kind": "plant",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.6,
+        0.902,
+        0.868,
+        0.92
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top 4x 放大: 绿点实测 u≈0.607/0.697/0.777/0.857 × v 0.907-0.917。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-annex-white-table",
+      "label": "white rectangular table at annex north-center",
+      "kind": "table",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.896,
+        0.197,
+        0.929,
+        0.235
+      ],
+      "evidence": {
+        "image": "evidence/6ed439145d5b2c0c-1F-material-ne.png",
+        "sha256": "6ed439145d5b2c0c6107029145f6e20b47085061212f23a41b9e37fbed2dbe4c",
+        "visual_note": "1F-material-top: 白斑实测(u=0.91 行扫线 v 0.1911-0.2344);1F-material-ne: 白长桌靠附房北壁同见;1F-material-se: 白桌居中同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-annex-white-strip-w",
+      "label": "white slab furniture and small round item against annex west side",
+      "kind": "fixture",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.86,
+        0.233,
+        0.888,
+        0.325
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: 白条实测 u 0.872-0.886(v 0.235-0.322)+白椭圆 (0.861-0.872, 0.238-0.253);1F-material-ne: 附房西侧白凳/白桌状物同见;性质(凳/桌)未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-annex-white-strip-e",
+      "label": "white slab against annex east parapet",
+      "kind": "fixture",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.949,
+        0.233,
+        0.967,
+        0.325
+      ],
+      "evidence": {
+        "image": "evidence/5a589e1b3958db92-1F-material-top.png",
+        "sha256": "5a589e1b3958db92eeea3d74be7ab6b9156d37f7f407a78521aafdb99eb284d9",
+        "visual_note": "1F-material-top: 白条实测 u 0.952-0.965(v 0.235-0.322);1F-material-se: 东矮墙内侧白凳状物同见;性质未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-annex-black-table",
+      "label": "black rectangular table",
+      "kind": "table",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.871,
+        0.451,
+        0.888,
+        0.505
+      ],
+      "evidence": {
+        "image": "evidence/6ed439145d5b2c0c-1F-material-ne.png",
+        "sha256": "6ed439145d5b2c0c6107029145f6e20b47085061212f23a41b9e37fbed2dbe4c",
+        "visual_note": "1F-material-top: 近黑连通域实测 [0.8722,0.4522,0.8867,0.5044];1F-material-ne: 黑桌+白椅同见;1F-material-se: 黑桌同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-annex-plant",
+      "label": "potted plant at annex southwest area",
+      "kind": "plant",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.864,
+        0.516,
+        0.888,
+        0.568
+      ],
+      "evidence": {
+        "image": "evidence/6ed439145d5b2c0c-1F-material-ne.png",
+        "sha256": "6ed439145d5b2c0c6107029145f6e20b47085061212f23a41b9e37fbed2dbe4c",
+        "visual_note": "1F-material-top: 绿冠合并实测 [0.865,0.517,0.887,0.567];1F-material-ne: 盆栽同见(位于黑桌西南侧);1F-material-se: 同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-annex-benches",
+      "label": "white slat benches along annex south parapet",
+      "kind": "bench",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.866,
+        0.531,
+        0.945,
+        0.564
+      ],
+      "evidence": {
+        "image": "evidence/eefe0306940cfa32-1F-material-se.png",
+        "sha256": "eefe0306940cfa3217f89df4ed3242cd9065d78efe648b609ddd0f2e92099b17",
+        "visual_note": "1F-material-top: 两段白色板条实测(se 象限放大);1F-material-se: 白色板条凳靠南矮墙同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-windows-north",
+      "label": "white-framed window-like openings along north wall",
+      "kind": "wall_opening",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.2,
+        0.07,
+        0.826,
+        0.082
+      ],
+      "evidence": {
+        "image": "evidence/6ed439145d5b2c0c-1F-material-ne.png",
+        "sha256": "6ed439145d5b2c0c6107029145f6e20b47085061212f23a41b9e37fbed2dbe4c",
+        "visual_note": "1F-material-top: 大厅段白框洞口位置 u≈0.549-0.565/0.613-0.630/0.684-0.700/0.754-0.771/0.808-0.823(墙线亮断口);1F-material-ne: 北墙白框洞口同见;西 zone 段洞口顶视未逐一分辨(1F-material-nw 北墙见白框洞口);洞口为玻璃/开敞未辨;北墙 u 0.455-0.505 段呈木色(材料变化,未辨)。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-windows-south",
+      "label": "white-framed window-like openings along south wall west portion",
+      "kind": "wall_opening",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.06,
+        0.918,
+        0.5,
+        0.928
+      ],
+      "evidence": {
+        "image": "evidence/eefe0306940cfa32-1F-material-se.png",
+        "sha256": "eefe0306940cfa3217f89df4ed3242cd9065d78efe648b609ddd0f2e92099b17",
+        "visual_note": "1F-material-se/sw: 南墙西段白框洞口清晰可见;1F-material-top: 墙线细(v 0.9211-0.9244),洞口位置未逐一分辨;玻璃/开敞未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_restaurant-1F-doors-south",
+      "label": "two white door-like panels on exterior face of south wall",
+      "kind": "door",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.195,
+        0.902,
+        0.248,
+        0.93
+      ],
+      "evidence": {
+        "image": "evidence/28a32bebc3838812-1F-material-sw.png",
+        "sha256": "28a32bebc38388124ffcaad98d376308d59a4617d41823bf71fcc40ace5abec8",
+        "visual_note": "1F-material-sw: 南墙外面两扇白色门扇状板清晰(内开/外开、实板/玻璃未辨);1F-material-top: 该段墙线无明显断口。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    }
+  ],
+  "stairs": {
+    "visible": false,
+    "confidence": "observed",
+    "notes": "五张图(1F-material-top/ne/nw/se/sw)逐一检查:单层无顶建筑,未见任何楼梯、台阶、坡道或层间高差构件;露台与附房为矮墙(parapet)围合的同层地坪,与室内地坪的高差关系无证据(ne 视露台呈'抬高平台'观感,系隔墙遮挡与视角所致的解读,未验证)。本记录不声明任何 vertical connector,不认证跨层路线;任何基于本文件的路线生成结果一律 robot_validated=false。reviewer: ZCode GLM-5.3-Flash/max。"
+  },
+  "uncertainties": [
+    "朝向约定:顶视为坐标对齐正射,假设图面上=+Y=北、右=+X=东;四斜视机位按 NE/NW/SE/SW 方位假设;该自洽性由四斜视红/绿世界轴线走向与内容物三角定位支持(附房 ne 视近左/se 视近右、露台 ne 视远左/se 视近中等均与顶视坐标一致)。",
+    "所有 bounds_norm 均取自 1F-material-top 的归一化坐标(实测像素/1800x900,误差约±0.004);confidence=layout_inferred 的物件(露台圆桌)bounds 由顶视淡迹+斜视三角定位近似。",
+    "画布标尺线已排除、不作为场景内容:红色横线 v≈0.655、绿色纵线 u≈0.5422;另见 1px 宽绿色细线 u≈0.659/0.731/0.739/0.805(v≈0.08-0.29,大厅北半部)性质未辨(标尺细线/细杆/茎干),未单列;地砖缝线(周期≈0.0194 的 1px 暗线)亦非场景物件。",
+    "功能词限制:本记录未从场景名推断任何功能;cooking-range-like/sink-like/desk-like/counter 等标签均基于可见像素形态(炉头/烤箱前脸、圆形凹斑、桌形拓扑);各区域用途(备餐/就餐/办公等)不作判定。",
+    "露台圆桌确数:顶视洗白严重,记录 7 张(v≈0.716-0.767 排 4 张、v≈0.812-0.864 排 3 张);v 0.865-0.908 带另有淡迹(可能为第二排 3-4 张),u≈0.83-0.88 近东矮墙处亦见淡迹;斜视确证≥5 张;总数 7-12 张无法确数。",
+    "ne 视中露台呈'抬高平台'观感系大厅-露台隔墙遮挡所致;露台/附房地坪与室内地坪的高差关系未验证(se 视隔墙门洞处门槛未见明显高差,未定)。",
+    "大厅-露台隔墙门洞:se 视清晰可见,但顶视墙细线(v≈0.6956)在 u 0.52-0.84 采样点均连续,洞口精确位置未定位;panel-gap(u 0.616-0.654)为白板列断口,是否即门洞未辨。",
+    "西区内部白墙顶面洗白,房间划分仅斜视粗略可见,顶视不可辨;大厅东界墙线 u 在 0.850-0.861 间变化(v 0.07-0.19 段≈0.861、v=0.35 段≈0.850),与白板列带(u 0.852-0.869)、附房西矮墙(u≈0.870)的衔接关系未分辨。",
+    "西墙内侧多处暗斑与墙线粘连为单一连通域(u≈0.042-0.138, v 0.074-0.636),未逐一分列。",
+    "gray-counter 西缘三个深色突出物与台面暗色小方件、thin-dark-line(u≈0.317)、dark-item-floor-s、colored-items、pale-units-row、terrace-units-west、stacked-units-column、nw-oval-fixture、annex-white-strip-w/e 等的性质均未辨,已按 category_uncertain 或注记处理。",
+    "北墙 u 0.455-0.505 段呈木色(与两侧深色墙线不同),材料/构件未辨;南墙白色门扇(doors-south)的内外开与实板/玻璃未辨;大厅东墙是否开洞未证实。",
+    "区域嵌套:building-floorplate ⊃ west-room-zone ⊃ southwest-furniture-zone;east-table-hall/south-parapet-terrace/east-annex 相邻不重叠;若 builder 要求互斥区域,以子区域为准。",
+    "本记录只做像素级语义记录,不包含任何路线、地形或可通行性评估;本文件不认证任何机器人可行路线,任何路线提及均 robot_validated=false;证据绑定 artifacts/semantic-captures-v2-30/service_restaurant/ 的 5 张 Camera-Light 图片(SHA256 见各 evidence)。",
+    "本轮任务指定输出路径为 handoffs/flash-v2/production_service/service_restaurant-1F.json(production_service 目录,与并行 service 子轮目录不同)。"
+  ]
+}

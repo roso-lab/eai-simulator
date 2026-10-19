@@ -1,0 +1,348 @@
+{
+  "scene_id": "service_city_02",
+  "level_id": "ground",
+  "regions": [
+    {
+      "id": "service_city_02-ground-street-network",
+      "label": "light-paved street grid of 3 columns x 3 rows of blocks with tree-lined boulevards (~95-110px wide) and orange crosswalk zones at intersections, incl. a wide east-west boulevard between the middle and south rows",
+      "kind": "street_network",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.037,
+        0.036,
+        0.963,
+        0.963
+      ],
+      "evidence": {
+        "image": "evidence/318413acad015f7c-ground-material-top.png",
+        "sha256": "318413acad015f7cdf509cec855f8d94e5995ab6010b70ad84ed3797da06fb7e",
+        "visual_note": "ground-material-top: 街道为浅色铺装（亮于屋顶），网格由行道树绿带（饱和绿像素行，如 y≈446-462、842-858、932-953、1246-1262 横行与 x≈643-659、1101-1117 纵行）与交叉口橙色斑马线区（橙像素簇，如 (65,419)-(151,449)、(617,854)-(723,972)、(1113,1270)-(1144,1348)）界定；bounds 取橙/绿街道证据外接（x 65-1701, y 51-1348）；ground-material-ne/nw/se/sw: 四斜视同见浅色路面、橙色斑马线、行道树绿冠与灯杆。东西向干道（中排与南排之间 y≈820-965）明显宽于其他横街。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_02-ground-block-nw",
+      "label": "north-row west block, rounded-rect sidewalk outline; interior mostly light-toned (light roofs/open lot, composition unresolved)",
+      "kind": "city_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.079,
+        0.086,
+        0.362,
+        0.294
+      ],
+      "evidence": {
+        "image": "evidence/318413acad015f7c-ground-material-top.png",
+        "sha256": "318413acad015f7cdf509cec855f8d94e5995ab6010b70ad84ed3797da06fb7e",
+        "visual_note": "ground-material-top: 顶视 (140,120)-(640,412) 圆角矩形街区，内部以亮填充为主，仅两条暗迹 (210,194)-(258,406) 与 (253,182)-(357,226)；四斜视该方位见米色/白色窗格立面多层体块（浅色屋面与顶视亮填充一致）。bounds 取顶视轮廓亮区外接，边缘 ±10-15px。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_02-ground-block-nc",
+      "label": "north-row center block, rounded-rect sidewalk outline, mostly covered by one large dark-roofed complex",
+      "kind": "city_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.41,
+        0.086,
+        0.591,
+        0.329
+      ],
+      "evidence": {
+        "image": "evidence/318413acad015f7c-ground-material-top.png",
+        "sha256": "318413acad015f7cdf509cec855f8d94e5995ab6010b70ad84ed3797da06fb7e",
+        "visual_note": "ground-material-top: 顶视 (725,120)-(1045,460)，块内大片暗屋顶足迹 (750,165)-(1005,440)（n=9250）几乎占满街区，仅北缘一条亮带；ground-material-ne/nw: 对应黑色玻璃高塔群（部分带白色横带）。bounds 取顶视轮廓，边缘 ±10-15px。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_02-ground-block-ne",
+      "label": "north-row east block, rounded-rect sidewalk outline, mostly covered by one large dark-roofed complex",
+      "kind": "city_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.648,
+        0.086,
+        0.903,
+        0.294
+      ],
+      "evidence": {
+        "image": "evidence/318413acad015f7c-ground-material-top.png",
+        "sha256": "318413acad015f7cdf509cec855f8d94e5995ab6010b70ad84ed3797da06fb7e",
+        "visual_note": "ground-material-top: 顶视 (1145,120)-(1595,412)，块内暗屋顶足迹 (1162,185)-(1555,411)（n=9269）占满大部分；ground-material-ne: 该方位远侧见带白色横带的黑色玻璃塔群。bounds 取顶视轮廓，边缘 ±10-15px。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_02-ground-block-mw",
+      "label": "middle-row west block, rounded-rect sidewalk outline with courtyard/annular dark-roofed building",
+      "kind": "city_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.108,
+        0.35,
+        0.357,
+        0.586
+      ],
+      "evidence": {
+        "image": "evidence/318413acad015f7c-ground-material-top.png",
+        "sha256": "318413acad015f7cdf509cec855f8d94e5995ab6010b70ad84ed3797da06fb7e",
+        "visual_note": "ground-material-top: 顶视 (190,490)-(630,820)；块内暗屋顶呈环状/回字布置：东主体 (336,590)-(615,818)（n=6926）+ 西侧纵条 (286,600)-(329,807)，围绕中部亮院；北缘另有两条平行暗带 (190,470)-(629,496)、(295,499)-(629,520)（沿街种植带/裙房，归属未定）。ground-material-ne: 对应方位近景见白框黑玻璃、带内院的多层体块。bounds 取顶视轮廓，边缘 ±10-15px。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_02-ground-block-mc",
+      "label": "middle-row center block, rounded-rect sidewalk outline with one large octagonal-roof tower footprint",
+      "kind": "city_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.41,
+        0.375,
+        0.591,
+        0.589
+      ],
+      "evidence": {
+        "image": "evidence/318413acad015f7c-ground-material-top.png",
+        "sha256": "318413acad015f7cdf509cec855f8d94e5995ab6010b70ad84ed3797da06fb7e",
+        "visual_note": "ground-material-top: 顶视 (725,525)-(1045,825)；块内八边形暗屋顶足迹 (773,600)-(967,803)（n=16990，约 194x203px，切角明显）；ground-material-ne/nw/se/sw: 四视均见该方位一栋卡其/橄榄色幕墙高塔（另列 object）。bounds 取顶视轮廓，边缘 ±10-15px。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_02-ground-block-me",
+      "label": "middle-row east block, rounded-rect sidewalk outline, interior dominated by very dark roofs (black glass towers, footprint under-detected)",
+      "kind": "city_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.648,
+        0.396,
+        0.903,
+        0.593
+      ],
+      "evidence": {
+        "image": "evidence/318413acad015f7c-ground-material-top.png",
+        "sha256": "318413acad015f7cdf509cec855f8d94e5995ab6010b70ad84ed3797da06fb7e",
+        "visual_note": "ground-material-top: 顶视 (1145,555)-(1595,830)；块内暗区连片但低于屋顶检测阈值（val<150 的黑玻璃顶被排除），仅东侧检出窄条 (1343,614)-(1374,759) 与南缘 (1409,798)-(1539,829)；ground-material-sw/nw: 该方位见成对黑色玻璃高塔。bounds 取顶视轮廓，边缘 ±10-15px。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_02-ground-block-sw",
+      "label": "south-row west block, rounded-rect sidewalk outline almost fully covered by one mega dark-roofed building",
+      "kind": "city_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.108,
+        0.714,
+        0.357,
+        0.868
+      ],
+      "evidence": {
+        "image": "evidence/318413acad015f7c-ground-material-top.png",
+        "sha256": "318413acad015f7cdf509cec855f8d94e5995ab6010b70ad84ed3797da06fb7e",
+        "visual_note": "ground-material-top: 顶视 (190,1000)-(630,1215)；块内单个巨型暗屋顶足迹 (210,1000)-(629,1214)（n=28668）几乎占满整块；ground-material-ne/sw: 对应方位见大体量多层建筑群（米色窗格立面为主）。bounds 取顶视轮廓，边缘 ±10-15px。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_02-ground-block-sc",
+      "label": "south-row center block, rounded-rect sidewalk outline with large stepped-tower footprint",
+      "kind": "city_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.41,
+        0.679,
+        0.591,
+        0.889
+      ],
+      "evidence": {
+        "image": "evidence/318413acad015f7c-ground-material-top.png",
+        "sha256": "318413acad015f7cdf509cec855f8d94e5995ab6010b70ad84ed3797da06fb7e",
+        "visual_note": "ground-material-top: 顶视 (725,950)-(1045,1245)；块内暗屋顶足迹 (765,983)-(989,1239)（n=16543）+ 东缘纵条 (1015,950)-(1044,1244)；ground-material-ne: 该方位远中左见带退台的卡其色高塔（另列 object）。bounds 取顶视轮廓，边缘 ±10-15px。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_02-ground-block-se",
+      "label": "south-row east block, rounded-rect sidewalk outline with several separate dark-roofed volumes",
+      "kind": "city_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.648,
+        0.664,
+        0.903,
+        0.893
+      ],
+      "evidence": {
+        "image": "evidence/318413acad015f7c-ground-material-top.png",
+        "sha256": "318413acad015f7cdf509cec855f8d94e5995ab6010b70ad84ed3797da06fb7e",
+        "visual_note": "ground-material-top: 顶视 (1145,930)-(1595,1250)；块内多块独立暗屋顶：(1156,1085)-(1336,1236)（n=4514）、(1409,995)-(1534,1120)（n=1904）、(1343,1085)-(1395,1170)、(1541,996)-(1555,1213)；ground-material-se: 该方位近景见米色/白框多层体块群。bounds 取顶视轮廓，边缘 ±10-15px。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    }
+  ],
+  "objects": [
+    {
+      "id": "service_city_02-ground-octagon-roof-tower",
+      "label": "octagonal-roof curtain-wall tower at middle-row center block, khaki/olive glazed facade; function unknown",
+      "kind": "building",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.437,
+        0.429,
+        0.547,
+        0.574
+      ],
+      "evidence": {
+        "image": "evidence/4b0714d324e1ed55-ground-material-ne.png",
+        "sha256": "4b0714d324e1ed557a1e665b54b962920fbccf468124d0d466e265490fb0a64d",
+        "visual_note": "ground-material-top: 八边形暗屋顶足迹 (773,600)-(967,803)（切角清晰）；ground-material-ne: 画面中下部卡其/橄榄色幕墙高塔（卡其像素簇 (674,609)-(801,825)，n=10326）；ground-material-nw: (642,807)-(980,960) 近景右带 + (806,189)-(908,228) 远处；ground-material-se: (294,507)-(401,633) 近左 + (827,364)-(968,420) 远右；ground-material-sw: (923,546)-(1021,683)/(941,428)-(1051,479) 右侧。四视一致指向中央街区，存在性 observed；bounds 取顶视足迹外接框，整体 layout_inferred；用途不作判定。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_02-ground-khaki-stepped-tower",
+      "label": "stepped khaki/olive tower with setbacks at south-row center block; function unknown",
+      "kind": "building",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.433,
+        0.702,
+        0.56,
+        0.885
+      ],
+      "evidence": {
+        "image": "evidence/4b0714d324e1ed55-ground-material-ne.png",
+        "sha256": "4b0714d324e1ed557a1e665b54b962920fbccf468124d0d466e265490fb0a64d",
+        "visual_note": "ground-material-top: 大片暗屋顶足迹 (765,983)-(989,1239)；ground-material-ne: 远中左带退台卡其塔（卡其簇 (426,315)-(612,396)、(480,288)-(605,335)、(433,233)-(585,259)）；ground-material-nw: (806,189)-(908,228) 远右上；ground-material-se: (410,252)-(572,419) 多段远左；ground-material-sw: (919,663)-(1021,714) 近右。四视一致指向南中街区，存在性 observed；bounds 取顶视足迹外接框，整体 layout_inferred；用途不作判定。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_02-ground-black-glass-complex-nc",
+      "label": "black glass high-rise complex with white horizontal banding filling north-row center block; function unknown",
+      "kind": "building",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.424,
+        0.118,
+        0.569,
+        0.314
+      ],
+      "evidence": {
+        "image": "evidence/b30dfcbb4e4c88c2-ground-material-nw.png",
+        "sha256": "b30dfcbb4e4c88c274a47222180cf401b227a37628cfd99ce7a50735217eaaac",
+        "visual_note": "ground-material-top: 暗屋顶足迹 (750,165)-(1005,440)（n=9250）占满街区；ground-material-nw: 画面中部/右部大面积黑色玻璃塔群带白色横带（黑簇 (273,0)-(1066,671) 主体的中部）；ground-material-ne: 对应塔群顶部（黑簇 (593,58)-(1311,664) 内）；顶视足迹与该塔群对应关系由四视布局支持。bounds 取顶视足迹外接框，整体 layout_inferred；用途不作判定。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_02-ground-black-glass-complex-ne",
+      "label": "black glass high-rise complex filling north-row east block; function unknown",
+      "kind": "building",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.658,
+        0.132,
+        0.88,
+        0.294
+      ],
+      "evidence": {
+        "image": "evidence/4b0714d324e1ed55-ground-material-ne.png",
+        "sha256": "4b0714d324e1ed557a1e665b54b962920fbccf468124d0d466e265490fb0a64d",
+        "visual_note": "ground-material-top: 暗屋顶足迹 (1162,185)-(1555,411)（n=9269）；ground-material-ne: 远右黑色玻璃塔群带白色框带（黑簇 (593,58)-(1311,664) 的右段）；ground-material-nw: (1044,125)-(1399,603) 右侧黑簇。bounds 取顶视足迹外接框，整体 layout_inferred；用途不作判定。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_02-ground-courtyard-annular-building-mw",
+      "label": "annular/courtyard building with white-framed dark facades wrapping a bright court, middle-row west block; function unknown",
+      "kind": "building",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.162,
+        0.421,
+        0.348,
+        0.584
+      ],
+      "evidence": {
+        "image": "evidence/4b0714d324e1ed55-ground-material-ne.png",
+        "sha256": "4b0714d324e1ed557a1e665b54b962920fbccf468124d0d466e265490fb0a64d",
+        "visual_note": "ground-material-top: 环状暗屋顶布置——东主体 (336,590)-(615,818)（n=6926）+ 西纵条 (286,600)-(329,807)，围合中部亮院；ground-material-ne: 对应方位近景白框黑玻璃多层体块带内院；ground-material-nw: (421,818)-(761,1046) 近景黑簇含该体块。bounds 取顶视足迹合并外接框，整体 layout_inferred；用途不作判定。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_02-ground-mega-building-sw",
+      "label": "single mega dark-roofed building occupying almost the whole south-row west block; function unknown",
+      "kind": "building",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.119,
+        0.714,
+        0.356,
+        0.867
+      ],
+      "evidence": {
+        "image": "evidence/eaab7cc8f450b62a-ground-material-se.png",
+        "sha256": "eaab7cc8f450b62a384adbf95e19047156daf7ee0ecc2d94a9cb617751abc790",
+        "visual_note": "ground-material-top: 巨型暗屋顶足迹 (210,1000)-(629,1214)（n=28668）几乎占满整块；ground-material-se: 远左大片米色窗格多层体块；ground-material-ne: (266,901)-(442,1046) 近左黑簇与其相邻。bounds 取顶视足迹外接框，整体 layout_inferred；是否为单一体量还是贴邻建筑群顶视无法分辨；用途不作判定。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_02-ground-building-group-se",
+      "label": "group of separate mid-rise volumes at south-row east block; function unknown",
+      "kind": "building",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.654,
+        0.711,
+        0.88,
+        0.883
+      ],
+      "evidence": {
+        "image": "evidence/eaab7cc8f450b62a-ground-material-se.png",
+        "sha256": "eaab7cc8f450b62a384adbf95e19047156daf7ee0ecc2d94a9cb617751abc790",
+        "visual_note": "ground-material-top: 多块独立暗屋顶 (1156,1085)-(1336,1236)、(1409,995)-(1534,1120)、(1343,1085)-(1395,1170)、(1541,996)-(1555,1213)，合并外接为本框；ground-material-se: 近右米色/白框多层体块群同见。bounds 取顶视足迹合并外接框，整体 layout_inferred；各体块间是贴邻还是留缝顶视不可辨；用途不作判定。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_02-ground-black-tower-pair-me",
+      "label": "black glass tower complex at middle-row east block (roofs darker than footprint detection threshold; bounds = block envelope); function unknown",
+      "kind": "building",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.648,
+        0.396,
+        0.903,
+        0.593
+      ],
+      "evidence": {
+        "image": "evidence/d8d6ff33ab5b0677-ground-material-sw.png",
+        "sha256": "d8d6ff33ab5b067702db0b10862fa21ae1104313de098b9004d8b1b93cf138c2",
+        "visual_note": "ground-material-sw: 右侧成对黑色玻璃高塔（黑簇 (1027,307)-(1142,422) 及巨簇 (171,82)-(1094,879) 右段）；ground-material-nw: (984,458)-(1134,756) 近右黑簇；ground-material-top: 该街区暗区连片但低于 val>=150 足旗检测阈，仅窄条 (1343,614)-(1374,759) 检出，故 bounds 取街区包络而非足迹；整体 layout_inferred；用途不作判定。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    }
+  ],
+  "stairs": {
+    "visible": false,
+    "confidence": "observed",
+    "notes": "五张图（ground-material-top/ne/nw/se/sw）逐一检查：地面场景内未见任何楼梯/台阶/扶手/室外高差几何；所有建筑均自地面起立，场景为单一地平面。本记录不声明任何竖向连接，不存在跨层路线；若下游据此记录生成任何路线，一律 robot_validated=false（本文件不含任何可通行性认证）。reviewer: ZCode GLM-5.3-Flash/max。"
+  },
+  "uncertainties": [
+    "方位约定：本记录所有 north-row/south-row/west/east 等方位词均以顶视图面自身为准（v 小=图面北、u 大=图面东），不假设其与 USD 世界轴一致；斜视文件名 ne/nw/se/sw 为捕获管道命名。footprint 与斜视塔群的对应关系基于标准 rig 假设（四机位位于 NE/NW/SE/SW 方位看向场景中心、up=+Z、顶视 v 向下），该假设下四视三角定位自洽（卡其阶梯塔与八角顶塔的足迹匹配为最强证据），但若 rig 的顶视 v 轴反向，北/南两行的对象归属会互换——几何 bounds 不受影响。",
+    "顶视读图限制：街区人行道轮廓线很淡（未能在阈值上稳定检出），9 个街区矩形由亮填充范围 + 行道树/斑马线走廊推得，边缘 ±10-15px；网格不规则——三列的行高各自不同，中排与南排之间为一条明显更宽的东西向干道（y≈820-965）。",
+    "暗屋顶足迹检测阈为 150<=val<231：val<150 的黑玻璃屋顶检不出（block-me 尤其受影响，object 黑塔群只能取街区包络）；浅色屋面（block-nw 大部分）同样无足迹迹，街区内部构成（建筑 vs 空地）不能完全解析。",
+    "斜视中黑色玻璃塔群在图像空间连成巨型连通簇（如 ne (593,58)-(1311,664)、sw (171,82)-(1094,879)），单塔边界不可分；除已记录的 8 个 object 外，其余单塔未逐一定位。",
+    "白色横带/白框立面塔（ne 右侧、nw 右侧多栋）与米色窗格多层体块多栋未单列 object：顶视足迹无法与之一一对应。",
+    "行道树（绿带）与交叉口橙色斑马线区归入 street-network 区域未单列；个别绿色簇（如 (1275,0)-(1315,127)、(934,50)-(979,68) 位于图缘）可能是场外植被/边界的行道树，未验证。",
+    "object 的 bounds 均为顶视足迹（或街区包络）外接框：足迹外接框可能包含屋顶出檐/相邻贴邻建筑的合并（mega-building-sw、building-group-se 尤甚），未逐一分辨。",
+    "本记录只做像素级语义记录，不包含任何路线、地形或可通行性评估；任何基于本文件的路线生成结果均应视为 robot_validated=false。证据绑定 artifacts/semantic-captures-v2-30/service_city_02/ 的 5 张 Camera-Light 图片（SHA256 已写入各 evidence.sha256）。",
+    "输出文件按本轮任务指定路径 handoffs/flash-v2/production_service/service_city_02-ground.json；scene_id=service_city_02 与捕获目录名一致。"
+  ]
+}

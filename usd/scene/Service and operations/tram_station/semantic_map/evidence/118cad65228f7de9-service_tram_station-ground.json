@@ -1,0 +1,820 @@
+{
+  "scene_id": "service_tram_station",
+  "level_id": "ground",
+  "regions": [
+    {
+      "id": "service_tram_station-ground-street-network",
+      "label": "asphalt street network: three primary roads (full-width E-W road and two full-height N-S roads) plus a secondary perimeter grid, SE curved road and canvas-edge stubs; top view washes asphalt to near-white",
+      "kind": "street_network",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.0,
+        0.0,
+        1.0,
+        1.0
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 主路三条——东西向道路 y≈655-745 全宽（中段 x≈568-831 为高架甲板所覆，另列 region）、南北向道路 x≈306-366 与 x≈1042-1101 全高；次级横路：左列 y≈21-86/199-216/529-547/1349-1382（x 0-306），右列 y≈16-44/405-437/1235-1267（x 1101-1400）；次级纵路：左列 x≈105-122 全高、右列 x≈1183-1217（y 0-约745，南端止于东西主路，560-745 段未逐一核验）；东南角弯道自东缘 y≈1140-1240 弧线并入 y≈1235-1267 横路，其南侧 x≈1101-1160 另有南行路杆伸出南缘；各路均被画布边缘截断，界外连接未知。顶视沥青洗白为≥236 灰度；ground-material-ne/nw/se/sw 四斜视同见此路网为灰色沥青+白色边线（如 ne 视 (0,540)-(560,820) 裁剪内 X 形路口与多条灰路带）。bounds 取路网全集外接框（触及四缘）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-elevated-road-deck",
+      "label": "elevated E-W road deck (two carriageways with dashed lane lines on a shared median, pale parapets) crossing above the N-S rail corridor, embankment transitions at both ends",
+      "kind": "elevated_road",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.4057,
+        0.4679,
+        0.5936,
+        0.5343
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 灰色甲板连通域实测 x[568-831] y[655-748]（行剖面 y695-710 灰度带 568-831；西雨棚列剖面甲板带 y659-741+边缘梁），双路面各含白虚线（y≈677/718），中央分隔 y≈695-700，南北缘淡色护栏带；甲板横越轨道走廊并在走廊处形成下穿暗口。ground-material-ne: 甲板自左下 (555,650) 向右上延伸，可见白色柱墩与下穿阴影（3x 裁剪 (560,460)-(820,700) 内柱墩≈(650,565)-(670,605)），西端接草坡路堤 (540,600)-(650,690)；ground-material-sw: 同见甲板双路面、柱墩 (610,565)-(650,600) 与西端路堤 (550,560)-(650,660)；ground-material-nw/se 远景一致。东西两端甲板落回地面道路（顶视 x<568 与 x>831 为洗白路面）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-rail-corridor",
+      "label": "full-height N-S transit corridor: central gravel-textured strip flanked by hedge lines, station platforms astride it at mid-scene; double dark rail lines resolvable in SW oblique; mode not asserted",
+      "kind": "track_corridor",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.47,
+        0.0,
+        0.5286,
+        1.0
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 列剖面（y570-630/y780-840/y300-340/y1050-1090）显示走廊结构沿全高连续：中央浅灰砾石质感带 x≈686-713（质心粉线 x≈701）在 y0-1399 无中断（中性色判据逐行通过）；两侧绿篱/草缘线 x≈658-670 与 x≈725-737；站台纬度处走廊被雨棚与粉边站台覆盖（另列 platform regions，站台区走廊加宽至 x≈661-773）。ground-material-sw: 5x 裁剪 (760,510)-(980,640) 内站台以南走廊见两条平行暗色轨线（(820,595)→(975,690) 走向，轨间距约 8-10px）及浅色道床——轨道存在性由此直接可见；ground-material-ne: 下穿洞处走廊同见 (655,545)-(690,600)。轨距与单/双线未尽分辨；制式命名不作断言（不使用场景名推断），见 uncertainties。bounds 取篱间常宽段 x[658-740] 全高。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-station-platform-north",
+      "label": "north station platform pair: two light-blue barrel-roof canopies flanking the track strip, pink platform margins and end caps, red-dark base trim and support columns seen in obliques",
+      "kind": "transit_platform",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.4721,
+        0.3771,
+        0.5429,
+        0.4707
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 蓝色雨棚掩码（B-R>8）北段实测 x[666-734] y[549-658]：西棚 x666-686、东棚 x714-735，中间砾石带 x686-713；雨棚北端粉色端帽 y≈528-548，西粉边 x661-666、东粉边 x735-760；列剖面示蓝棚顶起 y549 止于甲板 658。ground-material-ne: 桥近侧见长蓝棚带红暗基座与支承柱（3x 裁剪 (560,460)-(820,700) 内 (620,555)-(800,610) 一带），顶棚弧面与棚下粉色站台清晰；ground-material-se: 同构远侧；ground-material-nw/sw: 一致。方位名（北/南）按顶视=正射、图面上=北的约定（见 uncertainties）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-station-platform-south",
+      "label": "south station platform pair: two light-blue barrel-roof canopies flanking the track strip, pink platform margins and end caps, mirror of the north pair about the deck centreline",
+      "kind": "transit_platform",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.4721,
+        0.5293,
+        0.5429,
+        0.6243
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 蓝色雨棚掩码南段实测 x[666-734] y[741-850]，与北段关于 y≈700 镜像（741↔659、850↔549，残差≤3px）；粉色端帽 y≈851-874、边带同北。ground-material-sw: 桥近侧长蓝棚（(620,555)-(760,605) 一带）带红暗基座、支承柱与粉色站台面层及黄色警示条影（5x 裁剪 (540,460)-(940,720)）；ground-material-ne: 远侧同见；nw/se 一致。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-station-apron-north",
+      "label": "paved pink-beige plaza around the north platforms hosting six small gray boxes (three west, three east) and crossed by two N-S white walkway bands along the platform flanks",
+      "kind": "paved_plaza",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.42,
+        0.3664,
+        0.5786,
+        0.47
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 站台纬度列剖面示粉米色铺装自 x≈588（西缘，含三个灰箱 x605-620）延至 x≈808（东缘外即草坪）；北界为 y488-500 步道带之南 513，南界为甲板北缘 655-658；铺装内白色步道带 x628-638 与 x761-771 纵贯（另列 walkway region，bounds 有意重叠）。6 个灰箱实测见 objects。ground-material-ne/nw 近景同见铺装、箱群与棚下地面。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-station-apron-south",
+      "label": "paved pink-beige plaza around the south platforms hosting six small gray boxes (three west, three east), mirror of the north apron",
+      "kind": "paved_plaza",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.42,
+        0.5314,
+        0.5786,
+        0.635
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 与北广场关于 y≈700 镜像（列剖面 y780-840 同构：粉边 x773-796、灰箱 x780-794 即南东箱列）；北界甲板南缘 744，南界 y886-908 步道带；灰色箱 6 座见 objects。ground-material-sw 近景清晰（5x 裁剪内站台东侧铺装与箱群）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-pedestrian-walkway-system",
+      "label": "white paved footpath system: four full-span E-W walkways (between the two primary N-S roads) plus two N-S walkway bands flanking the platforms; continuity across the track strip not resolvable in top view",
+      "kind": "walkway_network",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.2186,
+        0.3471,
+        0.7864,
+        0.65
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 四条东西向白色铺装带实测（白掩码 >40% 判据）x[306-1101]：y≈488-500、y≈628-646、y≈758-772、y≈886-908；带内铺装分格缝可见（条带裁剪 (300,470)-(1100,520) 显示连续白带，西段亮、中段略暗）；两条南北步道带 x≈628-638 与 x≈761-771（白掩码连续段 y492-639 与 y760-907），沿站台东西两侧连接四横带；外侧两横带（y488-500/886-908）在走廊 x656-740 处顶视连续但变暗（是否平交轨道未确证），内侧两横带与站台端部纬度重合、越轨段顶视不可分辨。ground-material-ne: 站台旁白色步道带同见（3x 裁剪 (700,490) 附近）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-field-nw",
+      "label": "tan bare-earth plot at center-west-north (level, treeless interior), bounded west by low wall with tree row on the outer lawn strip, south by pale access strip; function unknown",
+      "kind": "bare_earth_plot",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.3414,
+        0.0043,
+        0.4586,
+        0.2629
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 2x 裁剪 (280,0)-(680,440) 实测米色田体 x≈478-640、y≈6-368（顶缘 y0-5 为洗白路带截边），色值≈(235,222,196)；田内无地物；西缘外草坪条带 x≈330-478 上立行道树列 x≈428-478（另列 object），田/树界线即矮墙线（另列 object）；南缘 y368-438 为浅色带（东西向、x≈370-645，介于两道绿篱线之间，性质见 uncertainties）。ground-material-ne/nw: 斜视中该类米色田块平坦无植物，边线平直。用途不作判定（unknown_function）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-field-ne",
+      "label": "tan bare-earth plot at center-east-north, tree row and low wall on its outer (east) edge, mirror of field-nw; function unknown",
+      "kind": "bare_earth_plot",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.5307,
+        0.0029,
+        0.6464,
+        0.2643
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 2x 裁剪 (720,0)-(1120,440) 实测米色田体 x≈743-905、y≈4-370；东缘外草坪树列 x≈905-935（顶视显影较西侧淡，另列 object）；南缘浅色带 y368-438 东延至 x≈1040 主纵路。ground-material-ne/nw 斜视一致。用途不作判定。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-field-sw",
+      "label": "tan bare-earth plot at center-west-south, mirror of field-nw about the E-W road centreline; function unknown",
+      "kind": "bare_earth_plot",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.3414,
+        0.7386,
+        0.4586,
+        0.9971
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 与 field-nw 南北镜像（y=[1034,1396]，残差≤4px）；西缘树列 x≈428-478（y≈1067-1377）、矮墙线、南缘接画布截边。ground-material-se 近景左下大片米色田块与墙/树列同见（裁剪 (100,700)-(620,940)）。用途不作判定。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-field-se",
+      "label": "tan bare-earth plot at center-east-south, mirror of field-ne; function unknown",
+      "kind": "bare_earth_plot",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.5307,
+        0.7371,
+        0.6464,
+        0.9986
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 与 field-ne 南北镜像（y=[1032,1398]）；东缘树列 x≈905-935、北缘浅色带 y964-1034。ground-material-sw 右侧远景米色田块同见。用途不作判定。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-lawn-central-w",
+      "label": "large central-west lawn wrapping field-nw and its access strip, containing curved hedge-lined path connectors (S-curves) and scattered trees",
+      "kind": "lawn",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.2629,
+        0.0129,
+        0.4679,
+        0.4679
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 黄绿草坪（G-B≈78）连通包裹田块西/南两侧：西侧条带 x368-478（树列 x428-478 立于其上）、南侧 y438-655；内含 S 形深绿绿篱曲径（顶视 (430,500)-(610,620) 一带蜿蜒绿线，ground-material-ne (620,600)-(700,660) 同见曲径与两侧绿篱）及散生乔木淡影（未逐一单列，见 uncertainties）；东界走廊绿篱 x≈658、南界东西主路 y655、西界次纵路 x366。bounds 取草坪连通域外接框（含被包裹的田块/步道带空洞）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-lawn-central-e",
+      "label": "large central-east lawn wrapping field-ne and its access strip, mirror of lawn-central-w; S-curve hedge paths and scattered trees",
+      "kind": "lawn",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.5321,
+        0.0036,
+        0.7429,
+        0.4679
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 与 lawn-central-w 镜像：草坪包裹 field-ne 东/南两侧（东侧条带 x905-1040、南侧 y438-655），S 形绿篱曲径镜像同见 ((790,500)-(970,620) 一带)，散生乔木淡影；bounds 取连通域外接框。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-lawn-central-ws",
+      "label": "large central-west-south lawn wrapping field-sw and its access strip, mirror of lawn-central-w across the E-W road; S-curve hedge paths and scattered trees",
+      "kind": "lawn",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.2629,
+        0.5321,
+        0.4679,
+        0.9886
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 南北镜像同构（田块 y1034-1384、步道带 y964-1034、草坪包裹西/北两侧 y745-964 与 x368-478 条带）；S 形绿篱曲径 (430,760)-(610,900) 一带同见。bounds 取连通域外接框。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-lawn-central-es",
+      "label": "large central-east-south lawn wrapping field-se, mirror of lawn-central-e; S-curve hedge paths and scattered trees",
+      "kind": "lawn",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.5321,
+        0.5321,
+        0.7429,
+        0.9979
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 南北镜像同构；S 形绿篱曲径与散树淡影同见；bounds 取连通域外接框。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-lawn-west-a",
+      "label": "perimeter lawn block, west column north strip (between top-edge road band and y199-216 road)",
+      "kind": "lawn_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.0,
+        0.0614,
+        0.2186,
+        0.1421
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 左列路带实测（横带 y21-86/199-216）之间的草坪地块，内无地物；顶缘路带被画布上缘截断。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-lawn-west-b",
+      "label": "perimeter lawn block, west column outer (x0-105) between y216 and y529 roads",
+      "kind": "lawn_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.0,
+        0.1543,
+        0.075,
+        0.3779
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 左列外条带地块（纵路 x105-122 之西）；斜视见其上有散生乔木（ground-material-ne 左侧 (170,420)-(320,530) 大树群对应此带，顶视显影淡未单列）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-lawn-west-c",
+      "label": "perimeter lawn block, west column inner (x122-306) between y216 and y529 roads",
+      "kind": "lawn_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.0871,
+        0.1543,
+        0.2186,
+        0.3779
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 左列内地块（x105-122 与 x306-366 两纵路之间）；斜视见散生乔木淡影（未单列）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-lawn-west-d",
+      "label": "perimeter lawn block, west column outer strip between y529-547 road and E-W primary road",
+      "kind": "lawn_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.0,
+        0.3907,
+        0.075,
+        0.4779
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 左列外条带地块（y547-669，其南为东西主路在该列的 y669-730 段）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-lawn-west-e",
+      "label": "perimeter lawn block, west column inner strip between y529-547 road and E-W primary road",
+      "kind": "lawn_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.0871,
+        0.3907,
+        0.2186,
+        0.4779
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 左列内条带地块（y547-669）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-lawn-west-f",
+      "label": "large perimeter lawn block, west column south of the E-W primary road (single connected parcel down to the bottom road band)",
+      "kind": "lawn_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.0,
+        0.5214,
+        0.2186,
+        0.9636
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 左列主路以南单一连通草坪（草掩码连通域实测 x[8-304] y[732-1348]），其间无横路分割；散生乔木淡影见斜视（ground-material-ne/nw 左下）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-lawn-east-a",
+      "label": "perimeter lawn block, east column between y16-44 and y405-437 road bands, west of the x1183-1217 branch road",
+      "kind": "lawn_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.7864,
+        0.0314,
+        0.845,
+        0.2893
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 右列地块（x1042-1101 主纵路以东、x1183-1217 支纵路以西）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-lawn-east-b",
+      "label": "perimeter lawn block, east column east of the x1183-1217 branch road, cut by the canvas east edge",
+      "kind": "lawn_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.8693,
+        0.0414,
+        1.0,
+        0.2893
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 2x 裁剪 (1180,0)-(1400,560) 实测支纵路 x≈1183-1217 与顶横路 y≈22-58 之间的地块，东缘被画布截断。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-lawn-east-c",
+      "label": "perimeter lawn block, east column between y405-437 road band and E-W primary road, west of the branch road",
+      "kind": "lawn_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.7864,
+        0.3121,
+        0.845,
+        0.4679
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 右列地块（y437-655）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-lawn-east-d",
+      "label": "perimeter lawn block, east column east of the branch road between y405-437 and the E-W primary road, cut by canvas edge",
+      "kind": "lawn_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.8693,
+        0.3121,
+        1.0,
+        0.4679
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 右列地块（y437-655，东缘截边）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-lawn-east-e",
+      "label": "large perimeter lawn block, east column south of the E-W primary road; its SE corner is cut by the curved road merging into the y1235-1267 band",
+      "kind": "lawn_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.7864,
+        0.5321,
+        0.9943,
+        0.8821
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 右列主路以南连通草坪（草掩码 x[1104-1392] y[732-1232]），东南角被弯道（自东缘 y≈1140-1240 弧入 y1235-1267 横路）切角，弯道外侧另分出小块（草掩码 x[1304-1392] y[1052-1232]），其 bounds 并入本框、弯道在 street-network 注文记述。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-lawn-east-f",
+      "label": "perimeter lawn block, east column south of the y1235-1267 road band down to the canvas edge, with a southbound road stub (x≈1101-1160) at its west",
+      "kind": "lawn_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.8286,
+        0.905,
+        1.0,
+        1.0
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 2x 裁剪 (1020,900)-(1400,1400) 实测：y1267-1400 地块 x≈1160-1400，其西 x1101-1160 为南行路杆（白带伸出南缘）；bounds 取地块外接框。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    }
+  ],
+  "objects": [
+    {
+      "id": "service_tram_station-ground-rail-vehicle-north",
+      "label": "teal transit-style vehicle (light roof band, dark window strip, rounded ends) parked N-S on the east apron beside the north platforms; type (bus/tram car) and service state unknown",
+      "kind": "vehicle",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.5571,
+        0.3964,
+        0.5671,
+        0.4179
+      ],
+      "evidence": {
+        "image": "evidence/6b4c0e52df139db1-ground-material-ne.png",
+        "sha256": "6b4c0e52df139db155e1027d5686d6d6ebbccf80567ae3509e6cbef8cfcad95c",
+        "visual_note": "ground-material-ne: 5x 裁剪 (700,490)-(900,620) 内青蓝色车辆清晰 ((838,528)-(888,578))：白色车顶带、深色侧窗带、圆润端头，长轴沿走廊走向（N-S）；ground-material-sw: 同款车清晰 ((855,555)-(925,605))；ground-material-nw: 远景同见 ((700,505)-(745,545))；ground-material-se: 远景同见 ((715,485)-(750,505))。四视与顶视的对应：顶视东侧三箱的中箱（灰掩码 x[780-794] y[555-585]，南组镜像位 y[817-848]）——由 NE 近景三联箱次序（自桥向南=亭-车-屋）与 SW 近景次序交叉锁定；顶视该车顶盖读作浅灰（洗白），故 bounds 取顶视中箱外接框。类型（bus/有轨车）与是否可移动均不作判定。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-rail-vehicle-south",
+      "label": "teal transit-style vehicle parked N-S on the east apron beside the south platforms, mirror position of rail-vehicle-north; type and service state unknown",
+      "kind": "vehicle",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.5571,
+        0.5836,
+        0.5679,
+        0.6057
+      ],
+      "evidence": {
+        "image": "evidence/ecab79f74651c622-ground-material-sw.png",
+        "sha256": "ecab79f74651c6229fd796ec6015c28d7b2209be43a2810abef6d93fdc8c0e33",
+        "visual_note": "ground-material-sw: 5x 裁剪 (760,510)-(980,640) 内青蓝色车辆清晰 ((855,555)-(925,605))；ground-material-ne 近景同款 ((838,528)-(888,578))——两景分别对应南/北箱组（各视近组放大、远组缩小，与镜像布置自洽）；ground-material-nw/se 远景同见。顶视 bounds 取南东箱组中箱灰掩码 x[780-795] y[817-848]。类型不作判定。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-kiosk-north",
+      "label": "small white kiosk with red fascia band at the south end of the north-east box row; function unknown (ticket/retail/equipment)",
+      "kind": "kiosk",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.5571,
+        0.4271,
+        0.5671,
+        0.4471
+      ],
+      "evidence": {
+        "image": "evidence/6b4c0e52df139db1-ground-material-ne.png",
+        "sha256": "6b4c0e52df139db155e1027d5686d6d6ebbccf80567ae3509e6cbef8cfcad95c",
+        "visual_note": "ground-material-ne: 5x 裁剪 (700,490)-(900,620) 内红白小亭 ((793,518)-(832,558))：白色平顶亭体、檐下红色招牌带；ground-material-sw 近景同款 ((793,540)-(852,592))。与顶视对应：北东三箱南箱 x[780-794] y[598-626]（NE 视三联箱自桥向南次序=亭-车-屋，kiosk 位于南端）。用途不作判定（unknown_function）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-kiosk-south",
+      "label": "small white kiosk with red fascia band at the north end of the south-east box row; function unknown",
+      "kind": "kiosk",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.5571,
+        0.5564,
+        0.5671,
+        0.5729
+      ],
+      "evidence": {
+        "image": "evidence/ecab79f74651c622-ground-material-sw.png",
+        "sha256": "ecab79f74651c6229fd796ec6015c28d7b2209be43a2810abef6d93fdc8c0e33",
+        "visual_note": "ground-material-sw: 5x 裁剪 (760,510)-(980,640) 内红白小亭 ((793,540)-(852,592)) 位于南台东箱组北端；ground-material-ne 远景同款。顶视 bounds 取南东三箱北箱 x[780-794] y[779-802]（与北组 kiosk 镜像对称）。用途不作判定。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-cabin-east-north",
+      "label": "pale rounded-corner cabin at the north end of the north-east box row; function unknown",
+      "kind": "cabin",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.5571,
+        0.3686,
+        0.5679,
+        0.3864
+      ],
+      "evidence": {
+        "image": "evidence/6b4c0e52df139db1-ground-material-ne.png",
+        "sha256": "6b4c0e52df139db155e1027d5686d6d6ebbccf80567ae3509e6cbef8cfcad95c",
+        "visual_note": "ground-material-ne: 5x 裁剪内圆角小屋 ((893,552)-(940,602))（NE 视三联箱北端）；ground-material-sw 远景同款。顶视 bounds 取北东三箱北箱灰掩码 x[780-795] y[516-541]。用途不作判定。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-cabin-east-south",
+      "label": "pale rounded-corner cabin at the south end of the south-east box row; function unknown",
+      "kind": "cabin",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.5571,
+        0.615,
+        0.5671,
+        0.6336
+      ],
+      "evidence": {
+        "image": "evidence/ecab79f74651c622-ground-material-sw.png",
+        "sha256": "ecab79f74651c6229fd796ec6015c28d7b2209be43a2810abef6d93fdc8c0e33",
+        "visual_note": "ground-material-sw: 5x 裁剪内圆角小屋 ((925,575)-(985,625))；ground-material-ne 远景同款。顶视 bounds 取南东三箱南箱 x[780-794] y[861-887]（与北组镜像）。用途不作判定。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-cabins-west-north",
+      "label": "row of three plain gray-white cabins (small pitched/flat roofs) on the west apron beside the north platforms; function unknown",
+      "kind": "cabin",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.4321,
+        0.3686,
+        0.4429,
+        0.4457
+      ],
+      "evidence": {
+        "image": "evidence/6b4c0e52df139db1-ground-material-ne.png",
+        "sha256": "6b4c0e52df139db155e1027d5686d6d6ebbccf80567ae3509e6cbef8cfcad95c",
+        "visual_note": "ground-material-top: 灰掩码三箱 x[605-620]：y[516-542]/[554-587]/[601-624]（bounds 取三箱包络）；ground-material-ne: 3x 裁剪 (540,440)-(940,700) 内两座白墙深顶小屋清晰 ((595,485)-(655,530))，第三座相邻；ground-material-nw 同见。无红/青特色面（区别于东侧三联）。用途不作判定。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-cabins-west-south",
+      "label": "row of three plain gray-white cabins on the west apron beside the south platforms; function unknown",
+      "kind": "cabin",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.4321,
+        0.5593,
+        0.4429,
+        0.6336
+      ],
+      "evidence": {
+        "image": "evidence/ecab79f74651c622-ground-material-sw.png",
+        "sha256": "ecab79f74651c6229fd796ec6015c28d7b2209be43a2810abef6d93fdc8c0e33",
+        "visual_note": "ground-material-top: 灰掩码三箱 x[605-620]：y[783-799]/[818-843]/[862-887]（包络为 bounds）；ground-material-sw: 3x 裁剪内近景灰箱群 ((505,555)-(620,625) 一带) 同见；无特色色面。用途不作判定。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-field-wall-sw",
+      "label": "low light-gray wall along the west edge of field-sw, between the field and its outer tree row; confirmed in SE oblique, field assignment carries residual doubt",
+      "kind": "wall",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.3386,
+        0.7386,
+        0.3443,
+        0.9971
+      ],
+      "evidence": {
+        "image": "evidence/7e1699084a981cff-ground-material-se.png",
+        "sha256": "7e1699084a981cff86ca3bec51cbdbb104e571113417e360fe739a45f0b32d1b",
+        "visual_note": "ground-material-se: 2x 裁剪 (100,700)-(620,940) 内矮墙线清晰：浅灰细墙 ((140,690)-(620,860) 沿线) 带细微立柱痕，墙一侧为米色田体、另一侧草坪条带上立行道树（树冠覆过墙线，干基位于墙外侧）；按方位假设（顶视上=北、SE 机位）该近景左下田块推断为 field-sw、墙居其西缘——方位词受机位假设约束，见 uncertainties 残差说明。顶视 bounds 取田西缘细线 x[474-482] y[1034-1396]（顶视中该线淡，实测以田/草色界为准）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-field-wall-nw",
+      "label": "low wall along the west edge of field-nw (between field body and outer tree row), inferred from scene N-S mirror symmetry and the faint top-view boundary line",
+      "kind": "wall",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.3386,
+        0.0043,
+        0.3443,
+        0.2629
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 田/草色界 x≈478 处细淡线（2x 裁剪可辨但不醒目）；田缘矮墙的存在性由 SE 斜视直接证实（见 field-wall-sw），本段具体归属依场景南北镜像对称推定，故记 layout_inferred。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-field-wall-ne",
+      "label": "low wall along the east edge of field-ne, inferred from mirror symmetry (E-W mirror of field-wall-nw)",
+      "kind": "wall",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.6436,
+        0.0029,
+        0.6493,
+        0.2643
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 田东缘 x≈905 色界细线；归属由镜像对称推定，记 layout_inferred。ground-material-ne/nw 斜视远景见田缘边线但墙线本身不可分辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-field-wall-se",
+      "label": "low wall along the east edge of field-se, inferred from mirror symmetry (N-S mirror of field-wall-ne)",
+      "kind": "wall",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.6436,
+        0.7371,
+        0.6493,
+        0.9986
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 田东缘细线；归属由镜像对称推定，记 layout_inferred。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-tree-row-nw",
+      "label": "row of trees on the lawn strip west of field-nw (canopies overhang the field wall line); count and species not resolved",
+      "kind": "tree_row",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.3057,
+        0.0179,
+        0.3414,
+        0.2393
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 2x 裁剪内暗绿树冠团列 x≈428-478、y≈25-335（约 6-7 团，团径≈30-45px）；ground-material-ne/nw: 斜视中该树列清晰（大冠乔木行）。株数/树种不作判定。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-tree-row-ne",
+      "label": "row of trees on the lawn strip east of field-ne; fainter in top view than its western counterpart",
+      "kind": "tree_row",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.6464,
+        0.0179,
+        0.6679,
+        0.2393
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 树影团列 x≈905-935（显影较西侧淡，bounds 按与 tree-row-nw 的镜像对称取 y[25-335]，实测影团偏于 y100-330）；ground-material-ne: 斜视东缘树行清晰。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-tree-row-sw",
+      "label": "row of trees on the lawn strip west of field-sw (mirror of tree-row-nw)",
+      "kind": "tree_row",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.3057,
+        0.7621,
+        0.3414,
+        0.9836
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 树影团列 x≈428-478 y≈1067-1377；ground-material-se: 近景左下树行与墙同框清晰。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_tram_station-ground-tree-row-se",
+      "label": "row of trees on the lawn strip east of field-se (mirror of tree-row-ne)",
+      "kind": "tree_row",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.6464,
+        0.7621,
+        0.6679,
+        0.9836
+      ],
+      "evidence": {
+        "image": "evidence/9a98e5478a72d358-ground-material-top.png",
+        "sha256": "9a98e5478a72d3586f5209464ac979659923b235911dbda44f77cdc03cc2f164",
+        "visual_note": "ground-material-top: 树影团列；ground-material-sw: 远景右缘树行同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    }
+  ],
+  "stairs": {
+    "visible": false,
+    "confidence": "observed",
+    "notes": "五张图（ground-material-top/ne/nw/se/sw）逐一检查：场景内未见任何楼梯/台阶/踏步/扶手几何。存在的高差均为非台阶形态：东西向道路的高架甲板段（桥）、其柱墩与两端草坡路堤（道路坡道）、场地边缘道路的路堤式下降（斜视中灰路带渐隐下坡），均属道路/桥梁坡道而非台阶。站台与轨道、站台与广场之间顶视/斜视均为平接铺装，未见台阶或坡道刻画。因此本记录不声明任何竖向连接，不存在跨层路线；任何下游基于本文件生成的路线一律 robot_validated=false（本文件不含任何可通行性认证）。reviewer: ZCode GLM-5.3-Flash/max。"
+  },
+  "uncertainties": [
+    "朝向约定：顶视假设为坐标对齐正射（图面上=+Y=北、右=+X=东），四张斜视假设机位分别位于 NE/NW/SE/SW 45°仰角方位；所有方位词基于该假设，仅由四斜视与顶视的自洽性支持（SE 视中东南角弯道最近、NE/SW 视中甲板与站台透视关系等一致）。",
+    "顶视洗白：除蓝色雨棚（B-R>8 掩码实测 x[666-734]）与青色车辆外，路面/广场/田块均≥210 灰度，红色招牌带、黄色警示条等在顶视中不可检（红掩码 0px）；田块 (235,222,196) 与草坪 (215,214,136) 仅靠 G-B 差（26 vs 78）区分，田块边界±10px。",
+    "轨道走廊性质：中央砾石质感带 x686-713 全长连续，SW 斜视南段见双暗轨线，但其余区段（桥下、北段）轨线不可分辨；究为有轨/导向何种制式不作断言（不使用场景名推断），记 kind=track_corridor 仅指几何。顶视中央粉细线 x≈701 亦未解释（轨间标线？）。",
+    "步道越轨方式：四条东西向步道带中，外侧两条（y488-500/886-908）在走廊处顶视连续但变暗，内侧两条（y628-646/758-772）与站台端部纬度重合、越轨段顶视不可分辨；平交/立交无法判定。",
+    "两辆青色车辆：均停于东侧广场（各站台一枚，位置南北镜像）；顶视车顶读作浅灰（洗白），与东侧三联箱的对应（亭-车-屋次序）由 NE/SW 近景四视交叉锁定，但仍属跨视推理；车辆类型（bus/有轨车）、能否移动、是否场景道具均未知。",
+    "12 个灰色小体块（东西各 6）：西列 2×3 座灰白小屋无特色色面；东列 2 组各为圆角小屋+青色车辆+红白小亭；其具体功能（值班/售检票/设备/候车设施）全部 unknown_function，不作推断。",
+    "field-wall-sw 为斜视直接证实的一段矮墙，但'该墙属于哪块田'依赖机位方位假设（推断为 SW 田西缘，存残差）；其余三段田缘墙均由场景镜像对称推定，记 layout_inferred；墙是否闭合围合田块（仅单缘还是四缘）未确证。",
+    "田块南北缘的浅色带（y368-438/964-1034，x≈370-1040，介于两道绿篱线之间）：步行道、田间便道或田块未铺装边缘，无法区分，未单列 region（已在 field/walkway 注文中记述）。",
+    "S 形绿篱曲径（中央草坪内 4 处镜像）：绿篱与内侧铺装小径的界线在顶视不可分，未单列 object，其步行连通性未验证。",
+    "散生乔木：中央草坪与周边地块内多处淡影（顶视）与清晰树冠（斜视），因顶视无法逐株定位且数量多，未单列 object；仅田缘四行道树列成条记录。",
+    "场地边缘：各路带均被画布截断，界外连接未知；西缘东西向路带上疑是小桥涵阴影（ground-material-ne (300,540)-(420,585) 暗线），未确证未单列；右列支纵路 x1183-1217 南端止点（推定于东西主路）560-745 段未逐一核验。",
+    "本记录只做像素级语义记录，不包含任何路线、地形或可通行性评估；任何基于本文件的路线生成结果均应视为 robot_validated=false。证据绑定 artifacts/semantic-captures-v2-30/service_tram_station/ 的 5 张 Camera-Light 图片（SHA256 已写入各 evidence.sha256）。",
+    "本轮任务指定输出路径为 handoffs/flash-v2/production_service/service_tram_station-ground.json（与并行 service 子轮的 handoffs/flash-v2/service/ 目录不同）。"
+  ]
+}

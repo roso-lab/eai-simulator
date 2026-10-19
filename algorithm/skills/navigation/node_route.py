@@ -56,6 +56,7 @@ class NavigationProfile:
     metric: str
     arrival_radius_m: float = 0.30
     supports_final_heading: bool = False
+    controller_capabilities: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.metric not in {"xy", "xyz"}:
@@ -65,17 +66,33 @@ class NavigationProfile:
             raise SkillContractError("arrival_radius_m must be positive")
         if type(self.supports_final_heading) is not bool:
             raise SkillContractError("supports_final_heading must be boolean")
+        capabilities = self.controller_capabilities
+        if isinstance(capabilities, (str, bytes)):
+            raise SkillContractError("controller_capabilities must be a string sequence")
+        try:
+            capabilities = tuple(capabilities)
+        except TypeError as exc:
+            raise SkillContractError("controller_capabilities must be a string sequence") from exc
+        if any(not isinstance(item, str) or not item.strip() for item in capabilities):
+            raise SkillContractError("controller_capabilities must contain nonempty strings")
+        if len(set(capabilities)) != len(capabilities):
+            raise SkillContractError("controller_capabilities must be unique")
+        object.__setattr__(self, "controller_capabilities", tuple(sorted(capabilities)))
         object.__setattr__(self, "arrival_radius_m", radius)
 
 
 def ground_navigation_profile(*, arrival_radius_m: float = 0.30,
-                               supports_final_heading: bool = True) -> NavigationProfile:
-    return NavigationProfile("xy", arrival_radius_m, supports_final_heading)
+                               supports_final_heading: bool = True,
+                               controller_capabilities: Sequence[str] = ()) -> NavigationProfile:
+    return NavigationProfile("xy", arrival_radius_m, supports_final_heading,
+                             tuple(controller_capabilities))
 
 
 def aerial_navigation_profile(*, arrival_radius_m: float = 0.30,
-                               supports_final_heading: bool = False) -> NavigationProfile:
-    return NavigationProfile("xyz", arrival_radius_m, supports_final_heading)
+                               supports_final_heading: bool = False,
+                               controller_capabilities: Sequence[str] = ()) -> NavigationProfile:
+    return NavigationProfile("xyz", arrival_radius_m, supports_final_heading,
+                             tuple(controller_capabilities))
 
 
 @dataclass(frozen=True)
@@ -159,10 +176,31 @@ def _target_candidates(nodes: Mapping[str, Mapping[str, Any]], target_ref: str) 
             if target_ref in set(row.get("target_refs", ())) }
 
 
+def _semantic_binding(document: Any, query: str, *, role: str) -> Mapping[str, Any] | None:
+    """Resolve a semantic-map name without making the core graph depend on UI code."""
+    data = topology_fields(document)
+    if data.get("semantics") is None:
+        return None
+    try:
+        from .landmarks import resolve_landmark_binding
+        return resolve_landmark_binding(document, query, role=role)
+    except SkillContractError:
+        raise
+    except (ImportError, AttributeError, KeyError, TypeError, ValueError) as exc:
+        raise SkillContractError(f"invalid semantic navigation binding: {exc}") from exc
+
+
 def select_node_route(document: Any, pose: NavigationPose | Any, *,
                       profile: NavigationProfile,
                       target_ref: str,
-                      origin_ref: str | None = None) -> dict[str, Any]:
+                      origin_ref: str | None = None,
+                      controller_capabilities: Sequence[str] | None = None,
+                      target_node_ids: Sequence[str] | None = None,
+                      origin_node_ids: Sequence[str] | None = None,
+                      allowed_edge_ids: Sequence[str] | None = None,
+                      target_heading_rad: float | None = None,
+                      target_is_semantic: bool | None = None,
+                      origin_is_semantic: bool | None = None) -> dict[str, Any]:
     """Resolve a target reference and select a deterministic node route."""
     if not isinstance(profile, NavigationProfile):
         raise SkillContractError("navigation profile is required")
@@ -180,19 +218,59 @@ def select_node_route(document: Any, pose: NavigationPose | Any, *,
     base = {"admitted": False, "route_graph_digest": digest, "metric": profile.metric}
     if not nodes:
         return {**base, "reason": "topology_start_unconnected"}
-    candidates = _target_candidates(node_rows, target_ref)
+    target_binding = None
+    if target_node_ids is None:
+        try:
+            target_binding = _semantic_binding(document, target_ref, role="target")
+        except SkillContractError as exc:
+            if "ambiguous" in str(exc).casefold():
+                return {**base, "reason": "target_ambiguous", "target_ref": target_ref}
+            # An unresolved semantic query is a normal admission failure; raw
+            # target_refs still get the legacy resolver below.
+            target_binding = None
+        candidates = set(target_binding.get("node_ids", ())) if target_binding else _target_candidates(node_rows, target_ref)
+    else:
+        candidates = set(target_node_ids)
+    candidates &= set(nodes)
     if not candidates:
         return {**base, "reason": "target_unresolved", "target_ref": target_ref}
-    if len(candidates) > 1:
+    semantic_target = (target_binding is not None and target_binding.get("collection") != "nodes")
+    if target_is_semantic is not None:
+        semantic_target = bool(target_is_semantic)
+    if len(candidates) > 1 and not semantic_target:
         return {**base, "reason": "target_ambiguous", "target_ref": target_ref,
                 "candidate_node_ids": sorted(candidates)}
-    target = next(iter(candidates))
 
+    # A named semantic route is an authored corridor, not merely a label for
+    # its final node.  Preserve that contract for direct Provider calls as
+    # well as for the higher-level landmark route helper.
+    if (allowed_edge_ids is None and target_binding is not None
+            and target_binding.get("collection") == "routes"):
+        route_edges = target_binding.get("record", {}).get("edge_ids", ())
+        if isinstance(route_edges, (list, tuple)):
+            allowed_edge_ids = tuple(route_edges)
+
+    origin_binding = None
     if origin_ref is not None:
-        starts = _target_candidates(node_rows, origin_ref)
-        if len(starts) != 1:
-            return {**base, "reason": "origin_unresolved"}
-        start = next(iter(starts))
+        if origin_node_ids is None:
+            try:
+                origin_binding = _semantic_binding(document, origin_ref, role="origin")
+            except SkillContractError as exc:
+                if "ambiguous" in str(exc).casefold():
+                    return {**base, "reason": "origin_unresolved", "origin_ref": origin_ref}
+                origin_binding = None
+            starts = set(origin_binding.get("node_ids", ())) if origin_binding else _target_candidates(node_rows, origin_ref)
+        else:
+            starts = set(origin_node_ids)
+        starts &= set(nodes)
+        if not starts:
+            return {**base, "reason": "origin_unresolved", "origin_ref": origin_ref}
+        semantic_origin = (origin_binding is not None and origin_binding.get("collection") != "nodes")
+        if origin_is_semantic is not None:
+            semantic_origin = bool(origin_is_semantic)
+        if len(starts) > 1 and not semantic_origin:
+            return {**base, "reason": "origin_unresolved", "origin_ref": origin_ref}
+        start = min(starts, key=lambda node_id: (_metric_distance(pose.position_m, nodes[node_id], profile), node_id))
         if _metric_distance(pose.position_m, nodes[start], profile) > profile.arrival_radius_m:
             return {**base, "reason": "origin_not_reached", "start_node_id": start}
     else:
@@ -200,13 +278,34 @@ def select_node_route(document: Any, pose: NavigationPose | Any, *,
         if _metric_distance(pose.position_m, nodes[start], profile) > profile.arrival_radius_m:
             return {**base, "reason": "origin_not_reached", "start_node_id": start}
 
-    adjacency: dict[str, list[tuple[str, str, float]]] = {node_id: [] for node_id in nodes}
+    capabilities = (tuple(controller_capabilities)
+                    if controller_capabilities is not None
+                    else profile.controller_capabilities)
+    if isinstance(capabilities, (str, bytes)):
+        raise SkillContractError("controller_capabilities must be a string sequence")
+    if any(not isinstance(item, str) or not item.strip() for item in capabilities):
+        raise SkillContractError("controller_capabilities must contain nonempty strings")
+    if len(set(capabilities)) != len(capabilities):
+        raise SkillContractError("controller_capabilities must be unique")
+    capability_set = set(capabilities)
+    allowed = set(allowed_edge_ids) if allowed_edge_ids is not None else None
+    traversal_by_id = {edge.get("id"): edge.get("traversal_mode", "walk")
+                       for edge in edges if isinstance(edge, Mapping)}
+    adjacency: dict[str, list[tuple[str, str, float, str, tuple[str, ...]]]] = {node_id: [] for node_id in nodes}
     for edge in edges:
         first, last, edge_id = edge.get("from"), edge.get("to"), edge.get("id")
+        if first not in nodes or last not in nodes:
+            continue
+        if allowed is not None and edge_id not in allowed:
+            continue
+        mode = edge.get("traversal_mode", "walk")
+        required = tuple(dict.fromkeys((mode, *edge.get("required_controller_capabilities", ()))))
+        if controller_capabilities is not None and not set(required).issubset(capability_set):
+            continue
         distance = _metric_distance(nodes[first], nodes[last], profile)
-        adjacency[first].append((last, edge_id, distance))
+        adjacency[first].append((last, edge_id, distance, mode, required))
         if not edge.get("directed", False):
-            adjacency[last].append((first, edge_id, distance))
+            adjacency[last].append((first, edge_id, distance, mode, required))
 
     queue: list[tuple[float, tuple[str, ...], str, tuple[str, ...]]] = [(0.0, (start,), start, ())]
     best: dict[str, tuple[float, tuple[str, ...]]] = {}
@@ -217,16 +316,22 @@ def select_node_route(document: Any, pose: NavigationPose | Any, *,
                                   (abs(distance - prior[0]) <= 1e-12 and path >= prior[1])):
             continue
         best[node_id] = (distance, path)
-        if node_id == target:
+        if node_id in candidates:
             heading = node_rows[node_id].get("heading_rad")
+            if target_heading_rad is None and target_binding is not None:
+                target_heading_rad = target_binding.get("record", {}).get("heading_rad")
             return {
                 **base, "admitted": True, "target_ref": target_ref,
                 "route_points_m": [list(nodes[item]) for item in path],
                 "topology_node_ids": list(path), "topology_edge_ids": list(traversed),
-                "route_length_m": distance, "target_heading_rad": heading,
+                "route_length_m": distance,
+                "target_heading_rad": target_heading_rad if target_heading_rad is not None else heading,
                 "height_aware": profile.metric == "xyz",
+                "controller_capabilities": sorted(capability_set),
+                "traversal_modes": [traversal_by_id.get(edge_id, "walk")
+                                    for edge_id in traversed],
             }
-        for neighbor, edge_id, cost in sorted(adjacency[node_id], key=lambda item: (item[0], item[1])):
+        for neighbor, edge_id, cost, _mode, _required in sorted(adjacency[node_id], key=lambda item: (item[0], item[1])):
             if neighbor in path:
                 continue
             candidate_path = (*path, neighbor)
@@ -518,7 +623,9 @@ class NavigationProvider:
         if intent in {"start", "replan"}:
             selected = select_node_route(self._topology(topology), obs.pose, profile=task.profile,
                                          target_ref=request.target_ref,
-                                         origin_ref=request.parameters.get("origin_ref") if intent == "start" else None)
+                                         origin_ref=request.parameters.get("origin_ref") if intent == "start" else None,
+                                         controller_capabilities=(task.profile.controller_capabilities
+                                                                  if task.profile.controller_capabilities else None))
             expected = request.parameters.get("route_graph_digest")
             if expected is not None and expected != selected["route_graph_digest"]:
                 raise SkillContractError("topology differs from requested route_graph_digest")

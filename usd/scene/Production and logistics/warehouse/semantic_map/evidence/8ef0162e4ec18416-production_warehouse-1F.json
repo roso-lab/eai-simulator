@@ -1,0 +1,400 @@
+{
+  "scene_id": "production_warehouse",
+  "level_id": "1F",
+  "regions": [
+    {
+      "id": "production_warehouse-1F-main-volume",
+      "label": "single large roofed rectangular hall (footprint u≈0.038-0.962, v≈0.037-0.963): bright corrugated roof washed out in top view, thin dark perimeter edge line; both long walls carry 4-door clusters, north end a mid-height window band, south end a two-story glazed wall; no other wall openings resolvable",
+      "kind": "roofed_hall",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.038,
+        0.037,
+        0.962,
+        0.963
+      ],
+      "evidence": {
+        "image": "evidence/8efa77bf83046367-1F-material-top.png",
+        "visual_note": "1F-material-top: 白亮屋面大块体（西半 lum≈250、东半≈254），四周细暗边线（v=0.25/0.50/0.75 切片：左缘暗线 u≈0.032-0.036 lum 199-221，右缘 u≈0.963-0.966 lum 220；u=0.50 纵切片：北缘 v≈0.036-0.038、南缘 v≈0.956-0.963）；屋面纵向瓦楞棱线间距 Δu≈0.0156（阴影区可辨）；过曝严重，顶/地界线局部仅 2-6 lum 差；1F-material-ne/nw/se/sw: 四斜视均为同一完整屋面大厅，屋面除中央开口外无破洞。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse-1F-roof-opening",
+      "label": "large rectangular see-through zone at roof center (u≈0.157-0.843, v≈0.385-0.616): interior floor with fine neutral-gray grid texture visible from top; white truss frames span above it in all four obliques; open hole vs glazing unresolved",
+      "kind": "roof_opening",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.157,
+        0.385,
+        0.843,
+        0.616
+      ],
+      "evidence": {
+        "image": "evidence/8efa77bf83046367-1F-material-top.png",
+        "visual_note": "1F-material-top: 区内为中性灰细网格地面（网格线 lum 209-228, RGB≈[219,218,218]；格间地面 lum≈240-244），与屋面（250-254）及图幅外围蓝灰地面（218-236, RGB 偏蓝）均可区分，判读为透过屋顶开口看到室内地坪；四个网格子区由两条纵向亮带 u≈0.411-0.418、0.582-0.589 分隔（构件属性未辨），另两条分隔带与红色横轴线（v≈0.499-0.503）、绿色竖轴线（u≈0.4733-0.4756）重合，判读为视口轴线；1F-material-ne/nw/se/sw: 白色 X 撑桁架框架横跨该区上方，框架间隙可见室内暗部与黄褐色物体。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    }
+  ],
+  "objects": [
+    {
+      "id": "production_warehouse-1F-roof-truss-frame",
+      "label": "white steel truss frames (X-bracing plus perimeter members) spanning the roof opening; correspondence to the two longitudinal bright strips inside the opening is layout-level only",
+      "kind": "truss_frame",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.157,
+        0.385,
+        0.843,
+        0.616
+      ],
+      "evidence": {
+        "image": "evidence/8efa77bf83046367-1F-material-top.png",
+        "visual_note": "1F-material-ne/nw/se/sw: 白色桁架框架（X 撑+上下弦+周边框）在四张斜视中均横跨开口区上方，高出屋面；1F-material-top: 开口区内两条纵向亮带 u≈0.411-0.418、0.582-0.589 与桁架位置自洽，但为俯视投影级对应，未逐点验证。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse-1F-rooftop-glazed-structure-north",
+      "label": "raised glazed rooftop structure (skylight-like box) north of the roof opening; top edge line pixel-verified in top view, remaining edges approximate due to washout",
+      "kind": "rooftop_structure",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.42,
+        0.155,
+        0.58,
+        0.275
+      ],
+      "evidence": {
+        "image": "evidence/8efa77bf83046367-1F-material-top.png",
+        "visual_note": "1F-material-top: 仅顶边细暗线像素级确认（v≈0.1545-0.1571, u≈0.4222-0.5800, n≈296px 连续线），其余三边过曝仅余微弱色差，bounds 为近似；1F-material-ne: 开口区北侧见凸出屋面的分格玻璃盒；1F-material-nw: 同一凸出玻璃盒在开口区左侧再现，两视位置自洽（均在开口与北端之间）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse-1F-rooftop-glazed-structure-south",
+      "label": "raised glazed rooftop structure (skylight-like box) south of the roof opening, symmetric counterpart of the north one; edges very soft in top view, bounds largely from obliques and symmetry",
+      "kind": "rooftop_structure",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.41,
+        0.73,
+        0.585,
+        0.855
+      ],
+      "evidence": {
+        "image": "evidence/8efa77bf83046367-1F-material-top.png",
+        "visual_note": "1F-material-top: 四边均弱（行/列均值仅 1-3 lum 凹陷：行自 v≈0.729 起、列在 u≈0.404-0.416 与 u≈0.580-0.581），bounds 主要由斜视位置+与北盒对称性近似；1F-material-sw: 开口区南侧（近端）见凸出分格玻璃盒；1F-material-se: 同一玻璃盒在开口区左侧再现，两视位置自洽（均在开口与南端之间）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse-1F-rooftop-box-r1w",
+      "label": "small gray rooftop box, north pair west column (vent-like, function unknown)",
+      "kind": "rooftop_box",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.359,
+        0.093,
+        0.386,
+        0.103
+      ],
+      "evidence": {
+        "image": "evidence/8efa77bf83046367-1F-material-top.png",
+        "visual_note": "1F-material-top: 灰色小矩形 blob（RGB≈[240,239,239], 约 22×12px），与 r1e/n 列三盒成两列四行对称分布；1F-material-ne/nw/se/sw: 屋面散布同款小灰盒，与顶视 8 处为布局级对应（部分被开口/天窗遮挡）；功能未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse-1F-rooftop-box-r1e",
+      "label": "small gray rooftop box, north pair east column (vent-like, function unknown)",
+      "kind": "rooftop_box",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.701,
+        0.093,
+        0.728,
+        0.103
+      ],
+      "evidence": {
+        "image": "evidence/8efa77bf83046367-1F-material-top.png",
+        "visual_note": "1F-material-top: 灰色小矩形 blob（RGB≈[240,239,239], n=37 半分辨率像素，略被过曝削弱）；与 r1w 同行对称。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse-1F-rooftop-box-r2w",
+      "label": "small gray rooftop box, second row west column (vent-like, function unknown)",
+      "kind": "rooftop_box",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.359,
+        0.318,
+        0.386,
+        0.328
+      ],
+      "evidence": {
+        "image": "evidence/8efa77bf83046367-1F-material-top.png",
+        "visual_note": "1F-material-top: 灰色小矩形 blob（RGB≈[238,237,236]），紧邻开口区北缘（v≈0.385）之北。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse-1F-rooftop-box-r2e",
+      "label": "small gray rooftop box, second row east column (vent-like, function unknown)",
+      "kind": "rooftop_box",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.701,
+        0.318,
+        0.728,
+        0.328
+      ],
+      "evidence": {
+        "image": "evidence/8efa77bf83046367-1F-material-top.png",
+        "visual_note": "1F-material-top: 灰色小矩形 blob（RGB≈[240,239,239]），与 r2w 同行对称。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse-1F-rooftop-box-r3w",
+      "label": "small gray rooftop box, third row west column (vent-like, function unknown)",
+      "kind": "rooftop_box",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.359,
+        0.673,
+        0.386,
+        0.683
+      ],
+      "evidence": {
+        "image": "evidence/8efa77bf83046367-1F-material-top.png",
+        "visual_note": "1F-material-top: 灰色小矩形 blob（RGB≈[239,238,237]），紧邻开口区南缘（v≈0.616）之南。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse-1F-rooftop-box-r3e",
+      "label": "small gray rooftop box, third row east column (vent-like, function unknown)",
+      "kind": "rooftop_box",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.701,
+        0.673,
+        0.728,
+        0.683
+      ],
+      "evidence": {
+        "image": "evidence/8efa77bf83046367-1F-material-top.png",
+        "visual_note": "1F-material-top: 灰色小矩形 blob（RGB≈[240,239,238]），与 r3w 同行对称。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse-1F-rooftop-box-r4w",
+      "label": "small gray rooftop box, south pair west column (vent-like, function unknown)",
+      "kind": "rooftop_box",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.359,
+        0.899,
+        0.386,
+        0.909
+      ],
+      "evidence": {
+        "image": "evidence/8efa77bf83046367-1F-material-top.png",
+        "visual_note": "1F-material-top: 灰色小矩形 blob（RGB≈[239,239,237]）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse-1F-rooftop-box-r4e",
+      "label": "small gray rooftop box, south pair east column (vent-like, function unknown)",
+      "kind": "rooftop_box",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.701,
+        0.899,
+        0.728,
+        0.909
+      ],
+      "evidence": {
+        "image": "evidence/8efa77bf83046367-1F-material-top.png",
+        "visual_note": "1F-material-top: 灰色小矩形 blob（RGB≈[240,239,238]），与 r4w 同行对称。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse-1F-interior-group-west",
+      "label": "tan block cluster with small yellow/pale items beside and a pale strip on top, interior floor near west edge of the roof opening (rack/goods-like appearance, function unknown)",
+      "kind": "object_group",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.168,
+        0.462,
+        0.252,
+        0.535
+      ],
+      "evidence": {
+        "image": "evidence/8efa77bf83046367-1F-material-top.png",
+        "visual_note": "1F-material-top: 暖褐色主块（u≈0.1689-0.2222, v≈0.4712-0.5301, RGB≈[230,220,199], n=922 半分辨率像素）+ 东侧黄/淡色小件（u≈0.2311-0.2511, v≈0.4620-0.5340, 含黄色成分 RGB≈[236,219,159]）+ 顶部淡色横条（u≈0.1822-0.2156, v≈0.4620-0.4634）；仅经屋顶开口可见；1F-material-nw: 开口区西缘见黄色立状物体与之自洽；功能未辨，未依据场景名推断。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse-1F-interior-group-east",
+      "label": "tan block cluster of two to three blocks with a yellow item, interior floor near east edge of the roof opening (rack/goods-like appearance, function unknown)",
+      "kind": "object_group",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.719,
+        0.462,
+        0.801,
+        0.539
+      ],
+      "evidence": {
+        "image": "evidence/8efa77bf83046367-1F-material-top.png",
+        "visual_note": "1F-material-top: 暖褐色块两块（u≈0.7200-0.7511 与 u≈0.7578-0.7956, v≈0.5026-0.5380, RGB≈[229-232,216-223,192-205]）+ 北侧暖色块（u≈0.7467-0.8000, v≈0.4620-0.4974）+ 黄色小件（u≈0.7578-0.7644, v≈0.4647-0.4869, RGB≈[240,226,174]）；沿 v≈0.499-0.500 的淡粉色成分与红色视口轴线重合，已剔除不计；功能未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse-1F-green-item-1",
+      "label": "small dark-green round item on interior floor, west third of the roof opening centerline (sits on the red viewport axis line; function unknown)",
+      "kind": "small_item",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.32,
+        0.494,
+        0.338,
+        0.506
+      ],
+      "evidence": {
+        "image": "evidence/8efa77bf83046367-1F-material-top.png",
+        "visual_note": "1F-material-top: 深绿圆斑（RGB≈[111-139,128-154,72-106]，u≈0.3200-0.3378, v≈0.4948-0.5052，约 16×16px，被红轴线穿过分为 3 个连通块）；实心斑块非线状，按实体记录；斜视中不可分辨；功能未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse-1F-green-item-2",
+      "label": "small dark-green round item on interior floor, middle of the roof opening centerline (also on the green viewport axis line crossing; function unknown)",
+      "kind": "small_item",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.493,
+        0.494,
+        0.509,
+        0.506
+      ],
+      "evidence": {
+        "image": "evidence/8efa77bf83046367-1F-material-top.png",
+        "visual_note": "1F-material-top: 深绿圆斑（RGB≈[111-145,128-162,72-106]，u≈0.4933-0.5089, v≈0.4948-0.5052），恰在红/绿视口轴线交点附近；功能未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse-1F-green-item-3",
+      "label": "small dark-green round item on interior floor, east third of the roof opening centerline (sits on the red viewport axis line; function unknown)",
+      "kind": "small_item",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.662,
+        0.494,
+        0.682,
+        0.506
+      ],
+      "evidence": {
+        "image": "evidence/8efa77bf83046367-1F-material-top.png",
+        "visual_note": "1F-material-top: 深绿圆斑（RGB≈[106-141,123-160,72-95]，u≈0.6622-0.6822, v≈0.4948-0.5052）；功能未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse-1F-north-end-window-band",
+      "label": "mid-height horizontal window band across most of the north end wall, blue-tinted items visible behind glass (wall invisible in top view; bounds are wall-line projection)",
+      "kind": "window_band",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.15,
+        0.036,
+        0.85,
+        0.052
+      ],
+      "evidence": {
+        "image": "evidence/cffc500528157037-1F-material-nw.png",
+        "visual_note": "1F-material-nw: 近端短墙（画面左侧）中上部见横向窗带，带内蓝色调物品清晰；1F-material-ne: 同一带在近端短墙（画面右侧）再现，两相邻视角均可见，判读位于北端墙；1F-material-top: 有屋顶故墙体不可见，bounds 为北端墙线投影，u 0.15-0.85 为两斜视覆盖范围的宽松近似（layout_inferred）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse-1F-south-end-glazed-wall",
+      "label": "two-story glazed wall at south end (two stacked window bands), orange/white interior items visible behind glass; this end's roof reads lower than the main roof in obliques (office-end appearance); bounds are wall-line projection",
+      "kind": "glazed_wall",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.15,
+        0.947,
+        0.85,
+        0.963
+      ],
+      "evidence": {
+        "image": "evidence/96b44b4ea085939f-1F-material-se.png",
+        "visual_note": "1F-material-se: 近端短墙（画面左侧）两层通高玻璃窗带（上下两条），玻璃后可见橙/白色调物品与内部进深；1F-material-sw: 同一两层玻璃端墙（画面右侧）再现；1F-material-ne: 远端为低顶体块，与两层办公端一致；1F-material-top: 墙体不可见，bounds 为南端墙线投影（layout_inferred）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse-1F-east-wall-door-cluster",
+      "label": "four tall white panel doors in two adjacent pairs at ground level, near mid-length of one long wall (wall invisible in top view; bounds are wall-line projection with a generous along-wall envelope)",
+      "kind": "door_cluster",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.949,
+        0.46,
+        0.963,
+        0.78
+      ],
+      "evidence": {
+        "image": "evidence/96b44b4ea085939f-1F-material-se.png",
+        "visual_note": "1F-material-se: 右侧长墙见 4 扇高身白色平板门（两组相邻对，地面标高）；1F-material-ne: 同一侧长墙（画面左）再现同款 4 门；两视均为各相机近侧长墙，判读为东向长墙；1F-material-top: 墙体不可见，bounds 为东墙线投影，v 0.46-0.78 为两视读数的包络（视图间沿墙位置存在透视级不一致），layout_inferred。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse-1F-west-wall-door-cluster",
+      "label": "four tall white panel doors in two adjacent pairs at ground level, near mid-length of the opposite long wall (wall invisible in top view; bounds are wall-line projection with a generous along-wall envelope)",
+      "kind": "door_cluster",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.036,
+        0.46,
+        0.05,
+        0.78
+      ],
+      "evidence": {
+        "image": "evidence/ecc65fbd5727120a-1F-material-sw.png",
+        "visual_note": "1F-material-sw: 左侧长墙见同款 4 门（两组对）；1F-material-nw: 同一侧长墙（画面右）再现；判读为西向长墙；1F-material-top: 墙体不可见，bounds 为西墙线投影，v 0.46-0.78 包络，layout_inferred。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    }
+  ],
+  "stairs": {
+    "visible": false,
+    "confidence": "observed",
+    "notes": "五张 Camera-Light 图（top/ne/nw/se/sw）均未见任何楼梯几何（梯段、踏步条纹、栏杆、休息平台均无）。室内仅经屋顶开口与南北两端玻璃可见局部，其余被屋面完全遮挡，'未见'不等于'该层不存在楼梯'。本记录仅登记所见几何，不认证任何跨层路线或 vertical connector；任何路线提及均 robot_validated=false。"
+  },
+  "uncertainties": [
+    "朝向约定：顶视假设图面上=+Y=北、右=+X=东；'北端=横窗带端、南端=两层玻璃办公端'由四斜视与顶视的自洽性（近端归属、天窗南北对称）支持；若顶视上下翻转，南北标签互换，其余相对结构不变。",
+    "顶视严重过曝（washout）：屋面纹理与多数边界仅 1-6 lum 反差；北天窗矩形仅顶边线像素级确认（v≈0.1545-0.1571, u≈0.4222-0.5800），南天窗矩形四边均弱（行列均值凹陷 1-3 lum），两者 bounds 误差可达 ±0.01-0.02。",
+    "屋面开口是空洞还是玻璃带未辨（顶视能见内地坪网格说明其对顶相机透明）；开口区内两条纵向亮带 u≈0.411-0.418、0.582-0.589 的构件属性（桁架弦杆/玻璃肋/屋脊构件）未辨，与斜视桁架仅为布局级对应。",
+    "红色横线（v≈0.499-0.503）与绿色竖线（u≈0.4733-0.4756）贯穿全幅并延伸出墙外，判读为视口/世界坐标轴线，未记录为物体；三个绿点恰位于红轴线上且绿点 2 近轴线交点——按 16px 实心斑块记为实体，但其与轴线的对位关系存疑，存在为轴线附属标记的可能。",
+    "墙体特征（两组 4 门、北端窗带、南端两层玻璃）在顶视不可见（有屋顶），bounds 均为墙线投影+斜视布局推断（layout_inferred）；门群的沿墙位置在 ne/se 与 nw/sw 视图间存在透视级不一致，故取 v 0.46-0.78 宽松包络；窗带/玻璃端墙沿墙宽度取 u 0.15-0.85 宽松近似。",
+    "两组内部暖色物体簇与三个绿点仅经屋顶开口可见，功能未辨；开口未覆盖的内部区域完全不可见，本文件内部物体清单不完整。",
+    "南端（办公端）屋顶低于主屋面仅见于斜视轮廓（ne 远端低顶体块），顶视因过曝无法验证落差与分界线；顶视北缘 v≈0.042-0.060 的暗带（lum 246-247）与北部斜向浅灰带判读为阴影/过曝纹理，非屋顶高差，未记录。",
+    "北端窗带后蓝色调物品与南端玻璃后橙/白色调物品功能未辨，未单列 object。",
+    "斜视中屋面可见 6-8 个小灰盒与顶视 8 个（两列四行对称）为布局级对应，逐点对应未验证（斜视中部分被开口/天窗遮挡）。",
+    "楼梯：五图均未见楼梯几何，但室内大部被遮挡，不排除未見区域存在；不认证跨层路线，robot_validated=false。",
+    "未做任何路线、地形或可通行性评估；本文件不认证任何机器人可行路线，任何路线提及均 robot_validated=false；证据绑定 artifacts/semantic-captures-v2-30/production_warehouse/ 的 5 张 Camera-Light 图片。"
+  ]
+}

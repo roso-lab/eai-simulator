@@ -1,0 +1,29 @@
+{
+  "schema": "eai.semantic_map.revision",
+  "version": 1,
+  "revision": "5c7a4283d0de4f6ebd8745391211b0fe",
+  "scene_key": "service_land",
+  "levels": [
+    {
+      "level_id": "terrain",
+      "grid": "level-000-semantic-grid.npz",
+      "preview": "level-000-semantic-map.png",
+      "layer": "level-000-layer.png",
+      "extent_xy": [
+        -119.5,
+        291.0,
+        -124.0,
+        596.0
+      ]
+    }
+  ],
+  "files": {
+    "level-000-layer.png": "0a9a06b32c78a0e833e7c14a035b4aebaf7e2e244e323aaa1cf7f4f2c2045d8c",
+    "level-000-semantic-grid.npz": "da08c4568bbf326e796827a18d1579bdc5b7284f32efe4100bb411c7c71cca97",
+    "level-000-semantic-map.png": "8bcebf6ea91dbc5f9d7b315c66cb9c92b6297e4d01e0e5fccbfe8afb2c4be4c4",
+    "semantic-footprints.geojson": "e405d574c8d0c877574c29b965be58fd1e90642924f426eeec49d49074ea4817",
+    "semantic-footprints.json": "c936f5ad3714434c1cb8cf8c7ebb25d9c76abf7746678c06d35a2f116b58b818",
+    "topology.json": "ad0f2ba0db2bf5d1cbe1c71c97ea4e4654b9857f114d6650c104731a32ae5393"
+  },
+  "robot_validated": false
+}

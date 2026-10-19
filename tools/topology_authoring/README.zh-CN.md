@@ -1,6 +1,29 @@
 # 通用场景拓扑编辑器
 
-工具通过 `--adapter module:Class` 接收场景。所有场景都从空拓扑开始，工具不会自动读取道路、路口或道路中线生成节点和拓扑线。适配器只负责加载场景、语义目标、支持面投影和校验。使用 `--headless` 可在不启动 Isaac Sim 时检查适配器；语义地图不在资产目录时可传 `--semantic-map`。
+推荐从终端用一个入口启动 Isaac Sim 和地图网页：
+
+```bash
+cd <repository-root>
+python tools/topology_authoring/launch.py
+```
+
+本机默认打开 `http://127.0.0.1:8770/`，按 USD 三大分类 → 场景名选择，
+自动切换三维根场景并重新连接选点。无需粘贴 Script Editor 代码。
+配置、迁移参数和仅网页模式见 [统一地图工程工具](MAP_PROJECT.zh-CN.md)。
+
+联动入口默认启用 **Surface Point Mode**：在 Isaac 视口左键单击可观测表面，会将其
+世界坐标发送到浏览器。需要选择 prim 时切换到 **Asset Selection Mode**；两种模式下
+视口右键导航均保持可用。
+
+二维障碍物语义标注、拓扑设点及同步保存请使用
+[统一地图工程工具](MAP_PROJECT.zh-CN.md)：支持导入已有场景地图、浏览器编辑、
+语义增删、交互点和同版本 JSON/GeoJSON/栅格/PNG 导出。下面的 `author`
+是已有 Isaac Sim 原生三维编辑器入口。
+
+工具通过 `--adapter module:Class` 接收场景。首次创建从空拓扑开始；用 `--draft /path/to/topology.json` 可重新打开已有地图继续编辑。工具不会自动读取道路、路口或道路中线生成节点和拓扑线。适配器只负责加载场景、语义目标、支持面投影和校验。使用 `--headless` 可在不启动 Isaac Sim 时检查适配器；语义地图不在资产目录时可传 `--semantic-map`。
+
+房间/区域绘制、可扩展对象、后补交互位置和三维路线的统一设计与示例见
+[语义拓扑地图工作流](SEMANTIC_MAP.zh-CN.md)。
 
 可选楼层分组、关键点标注、有序节点路线导出和 Go2 部署见
 [多楼层工作流](MULTILEVEL.zh-CN.md)。内置 `UsdSceneAdapter` 读取场景描述文件；
@@ -11,6 +34,50 @@
 `authoring/navigation/aerial/`，与地面产品分离。两类产品 JSON schema 完全相同，
 运行时分别选择 XY 或 XYZ metric；内置 adapter 只检查结构，不证明净空。
 
+## Isaac Sim 联动选点
+
+浏览器编辑器可以接收 Isaac Sim 视口的当前选择。Isaac 负责真实三维对象、prim
+路径、世界坐标和包围盒；浏览器只显示紫色临时预览，点击转换按钮后才写入统一
+`MapProject`。选择本身不会自动创建语义记录。
+
+先启动地图服务（端口须与脚本一致）：
+
+```bash
+python -m tools.topology_authoring.map_server \
+  --project /absolute/path/to/map-project --port 8765
+```
+
+然后在 Isaac Sim Script Editor 执行：
+
+```python
+from tools.topology_authoring.isaac_bridge import IsaacSelectionBridge, IsaacSelectionWindow
+
+bridge = IsaacSelectionBridge("http://127.0.0.1:8765", scene_key="living_home_02").start()
+bridge.bind_selection()                 # 发送 Isaac 当前选中的 prim
+window = IsaacSelectionWindow(bridge)   # 可选：显示英文窗口，避免 Kit 字体乱码
+window.show()
+bridge.enable_point_picking(True)       # 默认联动入口已开启；手动桥接时可开启表面点选
+```
+
+回到浏览器后，地图工作区的“Isaac Sim 当前选择”面板会显示 prim 路径及 X/Y/Z。
+选择包含有效 `level_id` 时，浏览器会自动切换到对应楼层的二维底图，无需再手动点选楼层。
+“转为拓扑节点”适合导航接入点；“转为对象语义”适合桌子、门、设备等后续再
+补全的记录。填写名称、类别和所属区域后再保存。关闭 Isaac 或更换场景时执行：
+
+```python
+bridge.stop()
+```
+
+如果地图服务重启、切换场景或提示来源不匹配，必须显式执行
+`bridge.reconnect()`；桥接不会把选择静默发送到另一个场景。当前只接受 Z-up
+USD，`metersPerUnit` 会转换为地图使用的米制；Y-up 场景需先在 Isaac 中完成坐标
+转换。桥接接口本身不改变占据栅格，也不证明机器人可通行。
+
+office 测试场景以仓库的 `usd/` 目录为资产根目录，在 Isaac Sim 中打开相对路径：
+
+```text
+scene/Living and public space/office/office.usda
+```
 启动 Isaac Sim 编辑器：
 
 ```bash

@@ -1,0 +1,29 @@
+{
+  "schema": "eai.semantic_map.revision",
+  "version": 1,
+  "revision": "39a197bc1b7143419f941230de7fb200",
+  "scene_key": "living_home_02",
+  "levels": [
+    {
+      "level_id": "1F",
+      "grid": "level-000-semantic-grid.npz",
+      "preview": "level-000-semantic-map.png",
+      "layer": "level-000-layer.png",
+      "extent_xy": [
+        -6.4,
+        6.3999999999999995,
+        -7.0,
+        7.000000000000001
+      ]
+    }
+  ],
+  "files": {
+    "level-000-layer.png": "a5ff50f45c09e1ef5b56deee36f5d594f4fa88bce9077fc028ad1b772814e3dd",
+    "level-000-semantic-grid.npz": "d983a155d534c4830c2d9d96ee3adcb00f9576bc94af01f2fd1b61eba10b8615",
+    "level-000-semantic-map.png": "438cff5ba9d9e82ea137c3e4f966b2d65b5ebe27f3b38dcbb1b42decd25421d0",
+    "semantic-footprints.geojson": "be3f36123698189ab2daaac0a749906a6f60b9f5a56155b54f1288da594e87b7",
+    "semantic-footprints.json": "0ed45b22f5a7d70cab3d5e089648cca3873fd875d662384717a706223f8e20fe",
+    "topology.json": "35341c23595a30c20a95c0559f94c5fb91fa88a6474baee047e9e7786aa1bfcb"
+  },
+  "robot_validated": false
+}

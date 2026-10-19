@@ -6,8 +6,11 @@ commands are never accepted at the Skill boundary.
 
 `NavigationProvider` is bound to one frozen `TopologyDocument` product and one
 `NavigationProfile`. It resolves an exact node ID or a unique
-`node.target_refs` value, checks the measured start, and runs deterministic
-Dijkstra over directed node edges. The provider emits a single
+`node.target_refs` value, then consumes semantic regions, entities, interaction
+poses and named routes when those bindings are present. Regions choose entrance
+nodes, task poses choose approach nodes, and named routes constrain the edge
+sequence. The provider checks the measured start and runs deterministic Dijkstra
+over directed node edges. It emits a single
 `navigation_target` containing the authored node ID, index, XYZ and optional
 final heading. It does not import Isaac or know a controller command format.
 

@@ -42,6 +42,16 @@ def _read_semantic_map(path):
         return None
     return json.loads(path.read_text(encoding="utf-8"))
 
+def restore_document(document, path, adapter, source):
+    """Reopen either draft or generated map; both retain authoring annotations."""
+    if path is None:
+        return document
+    from tools.topology_authoring.product import load_product
+    loaded = load_product(path, adapter, source)
+    if loaded.scene_key != document.scene_key:
+        raise ValueError("reopened map scene differs from source")
+    return loaded
+
 def build_document(adapter, asset_root, semantic_map=None, *, requested_scene_key=None, domain="ground"):
     source = _with_semantic_map(adapter.load_source(Path(asset_root)), semantic_map)
     if requested_scene_key is not None and source.scene_key != requested_scene_key:
@@ -70,8 +80,13 @@ def _headless(args):
         requested_scene_key=args.scene_key,
         domain=getattr(args, "domain", "ground"),
     )
+    doc = restore_document(doc, getattr(args, "draft", None), adapter, source)
     errors=validate_document(doc,adapter,source)
-    print(json.dumps({"scene_key":source.scene_key,"nodes":len(doc.nodes),"edges":len(doc.edges),"validation_errors":errors},ensure_ascii=False,indent=2))
+    report = {"scene_key":source.scene_key,"nodes":len(doc.nodes),"edges":len(doc.edges),
+              "validation_errors":errors}
+    if doc.semantics is not None:
+        report["semantic_counts"] = {name:len(rows) for name,rows in doc.semantics.items() if isinstance(rows,list)}
+    print(json.dumps(report,ensure_ascii=False,indent=2))
     if args.generate:
         generate_product(Path(args.generate),doc,adapter,source)
     return 1 if errors else 0
@@ -103,6 +118,7 @@ def _gui(args):
             raise ValueError(
                 "source validation failed: " + "; ".join(errors)
             )
+        doc = restore_document(doc, getattr(args, "draft", None), adapter, source)
         adapter.load_stage(source)
         window=TopologyAuthoringWindow(
             doc,
@@ -135,6 +151,7 @@ def main(argv=None):
     p.add_argument("--scene-key", required=True); p.add_argument("--adapter", required=True)
     p.add_argument("--asset-root", type=Path, required=True); p.add_argument("--output-root", type=Path, required=True)
     p.add_argument("--semantic-map", type=Path, help="optional participant semantic map for target binding")
+    p.add_argument("--draft", type=Path, help="reopen an existing editable draft or generated topology.json")
     p.add_argument("--headless", action="store_true"); p.add_argument("--generate", type=Path)
     p.add_argument("--domain", choices=("ground", "aerial"), default="ground")
     args=p.parse_args(argv)

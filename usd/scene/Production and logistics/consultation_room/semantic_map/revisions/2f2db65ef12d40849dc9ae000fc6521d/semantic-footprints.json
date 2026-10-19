@@ -1,0 +1,5250 @@
+{
+  "schema": "eai.semantic_footprints",
+  "version": 1,
+  "scene_id": "production_consultation_room",
+  "project_revision": "2f2db65ef12d40849dc9ae000fc6521d",
+  "coordinate_frame": "scene_world",
+  "objects": [
+    {
+      "id": "production_consultation_room-1F-desk",
+      "kind": "desk",
+      "label": "long white desk with dark monitor, keyboard, mouse and small items",
+      "aliases": [],
+      "level_id": "1F",
+      "region_id": null,
+      "position_xyz": [
+        23.65,
+        3.45,
+        0.0
+      ],
+      "source_ref": null,
+      "properties": {
+        "confidence": "observed",
+        "evidence": {
+          "image": "evidence/83501003167e8386-1F-material-top.png",
+          "visual_note": {
+            "image": "evidence/83501003167e8386-1F-material-top.png",
+            "visual_note": "1F-material-top: 桌面+深色显示器（u≈0.355-0.45, v≈0.30-0.325）+键盘/鼠标/小件清晰；1F-material-nw: 桌与显示器、桌旁小推车同见；1F-material-se: 桌东端+黑托盘状物同见。",
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "reviewer": "ZCode GLM-5.3-Flash/max"
+        },
+        "position_source": "centroid_of_bound_occupied_cells",
+        "pose_status": "task_interactions_deferred",
+        "map_project": {
+          "mode": "base_instance",
+          "level_id": "1F",
+          "instance_id": 1
+        }
+      },
+      "feature_type": "object_instance",
+      "raster_id": 1,
+      "cell_count": 155,
+      "confidence": "observed",
+      "instance_id": 1,
+      "mask_rle_row_start_end": [
+        [
+          77,
+          16,
+          47
+        ],
+        [
+          78,
+          16,
+          47
+        ],
+        [
+          79,
+          16,
+          47
+        ],
+        [
+          80,
+          16,
+          47
+        ],
+        [
+          81,
+          16,
+          47
+        ]
+      ],
+      "footprint_geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              22.1,
+              3.2
+            ],
+            [
+              22.1,
+              3.3000000000000007
+            ],
+            [
+              22.1,
+              3.4000000000000004
+            ],
+            [
+              22.1,
+              3.5
+            ],
+            [
+              22.1,
+              3.5999999999999996
+            ],
+            [
+              22.1,
+              3.700000000000001
+            ],
+            [
+              25.2,
+              3.700000000000001
+            ],
+            [
+              25.2,
+              3.5999999999999996
+            ],
+            [
+              25.2,
+              3.5
+            ],
+            [
+              25.2,
+              3.4000000000000004
+            ],
+            [
+              25.2,
+              3.3000000000000007
+            ],
+            [
+              25.2,
+              3.2
+            ],
+            [
+              22.1,
+              3.2
+            ]
+          ]
+        ]
+      },
+      "raster_file": "level-000-semantic-grid.npz"
+    },
+    {
+      "id": "production_consultation_room-1F-blue-chair",
+      "kind": "chair",
+      "label": "blue office chair with armrests and star base, north of desk",
+      "aliases": [],
+      "level_id": "1F",
+      "region_id": null,
+      "position_xyz": [
+        23.944230769230767,
+        4.134615384615384,
+        0.0
+      ],
+      "source_ref": null,
+      "properties": {
+        "confidence": "observed",
+        "evidence": {
+          "image": "evidence/83501003167e8386-1F-material-top.png",
+          "visual_note": {
+            "image": "evidence/83501003167e8386-1F-material-top.png",
+            "visual_note": "1F-material-top: 蓝色座面+扶手+五星脚清晰（u≈0.395-0.50, v≈0.215-0.27）；1F-material-se: 蓝色椅背同见。",
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "reviewer": "ZCode GLM-5.3-Flash/max"
+        },
+        "position_source": "centroid_of_bound_occupied_cells",
+        "pose_status": "task_interactions_deferred",
+        "map_project": {
+          "mode": "base_instance",
+          "level_id": "1F",
+          "instance_id": 2
+        }
+      },
+      "feature_type": "object_instance",
+      "raster_id": 2,
+      "cell_count": 52,
+      "confidence": "observed",
+      "instance_id": 2,
+      "mask_rle_row_start_end": [
+        [
+          83,
+          30,
+          37
+        ],
+        [
+          84,
+          31,
+          39
+        ],
+        [
+          85,
+          31,
+          39
+        ],
+        [
+          86,
+          30,
+          39
+        ],
+        [
+          87,
+          30,
+          38
+        ],
+        [
+          88,
+          31,
+          38
+        ],
+        [
+          89,
+          32,
+          37
+        ]
+      ],
+      "footprint_geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              23.5,
+              3.8000000000000007
+            ],
+            [
+              23.5,
+              3.9000000000000004
+            ],
+            [
+              23.6,
+              3.9000000000000004
+            ],
+            [
+              23.6,
+              4.0
+            ],
+            [
+              23.6,
+              4.1
+            ],
+            [
+              23.5,
+              4.1
+            ],
+            [
+              23.5,
+              4.200000000000001
+            ],
+            [
+              23.5,
+              4.300000000000001
+            ],
+            [
+              23.6,
+              4.300000000000001
+            ],
+            [
+              23.6,
+              4.4
+            ],
+            [
+              23.7,
+              4.4
+            ],
+            [
+              23.7,
+              4.5
+            ],
+            [
+              24.2,
+              4.5
+            ],
+            [
+              24.2,
+              4.4
+            ],
+            [
+              24.3,
+              4.4
+            ],
+            [
+              24.3,
+              4.300000000000001
+            ],
+            [
+              24.3,
+              4.200000000000001
+            ],
+            [
+              24.4,
+              4.200000000000001
+            ],
+            [
+              24.4,
+              4.1
+            ],
+            [
+              24.4,
+              4.0
+            ],
+            [
+              24.4,
+              3.9000000000000004
+            ],
+            [
+              24.2,
+              3.9000000000000004
+            ],
+            [
+              24.2,
+              3.8000000000000007
+            ],
+            [
+              23.5,
+              3.8000000000000007
+            ]
+          ]
+        ]
+      },
+      "raster_file": "level-000-semantic-grid.npz"
+    },
+    {
+      "id": "production_consultation_room-1F-desk-side-cabinet",
+      "kind": "cabinet",
+      "label": "low white cabinet east of desk (teal-screen monitor seen beside it in ne view, top-view position unresolvable)",
+      "aliases": [],
+      "level_id": "1F",
+      "region_id": null,
+      "position_xyz": [
+        25.5,
+        3.5000000000000004,
+        0.0
+      ],
+      "source_ref": null,
+      "properties": {
+        "confidence": "observed",
+        "evidence": {
+          "image": "evidence/83501003167e8386-1F-material-top.png",
+          "visual_note": {
+            "image": "evidence/83501003167e8386-1F-material-top.png",
+            "visual_note": "1F-material-top: 桌东端独立白色矮柜带抽屉记号（u≈0.61-0.665, v≈0.27-0.32）；1F-material-ne: 其附近见青绿屏面显示器，顶视无法定位屏幕，归入本条备注。",
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "reviewer": "ZCode GLM-5.3-Flash/max"
+        },
+        "position_source": "centroid_of_bound_occupied_cells",
+        "pose_status": "task_interactions_deferred",
+        "map_project": {
+          "mode": "base_instance",
+          "level_id": "1F",
+          "instance_id": 3
+        }
+      },
+      "feature_type": "object_instance",
+      "raster_id": 3,
+      "cell_count": 24,
+      "confidence": "observed",
+      "instance_id": 3,
+      "mask_rle_row_start_end": [
+        [
+          77,
+          48,
+          52
+        ],
+        [
+          78,
+          48,
+          52
+        ],
+        [
+          79,
+          48,
+          52
+        ],
+        [
+          80,
+          48,
+          52
+        ],
+        [
+          81,
+          48,
+          52
+        ],
+        [
+          82,
+          48,
+          52
+        ]
+      ],
+      "footprint_geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              25.3,
+              3.2
+            ],
+            [
+              25.3,
+              3.3000000000000007
+            ],
+            [
+              25.3,
+              3.4000000000000004
+            ],
+            [
+              25.3,
+              3.5
+            ],
+            [
+              25.3,
+              3.5999999999999996
+            ],
+            [
+              25.3,
+              3.700000000000001
+            ],
+            [
+              25.3,
+              3.8000000000000007
+            ],
+            [
+              25.7,
+              3.8000000000000007
+            ],
+            [
+              25.7,
+              3.700000000000001
+            ],
+            [
+              25.7,
+              3.5999999999999996
+            ],
+            [
+              25.7,
+              3.5
+            ],
+            [
+              25.7,
+              3.4000000000000004
+            ],
+            [
+              25.7,
+              3.3000000000000007
+            ],
+            [
+              25.7,
+              3.2
+            ],
+            [
+              25.3,
+              3.2
+            ]
+          ]
+        ]
+      },
+      "raster_file": "level-000-semantic-grid.npz"
+    },
+    {
+      "id": "production_consultation_room-1F-west-glass-cabinets",
+      "kind": "cabinets",
+      "label": "two white cabinets with glass doors and shelved items, against west wall middle",
+      "aliases": [],
+      "level_id": "1F",
+      "region_id": null,
+      "position_xyz": [
+        21.15,
+        1.7000000000000008,
+        0.0
+      ],
+      "source_ref": null,
+      "properties": {
+        "confidence": "observed",
+        "evidence": {
+          "image": "evidence/83501003167e8386-1F-material-top.png",
+          "visual_note": {
+            "image": "evidence/83501003167e8386-1F-material-top.png",
+            "visual_note": "1F-material-top: 西墙内侧两个并排白色方块（u≈0.06-0.135, v≈0.375-0.52）；1F-material-ne: 两台玻璃门白柜（内搁小件）清晰；1F-material-se: 同柜他视角同见。",
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "reviewer": "ZCode GLM-5.3-Flash/max"
+        },
+        "position_source": "centroid_of_bound_occupied_cells",
+        "pose_status": "task_interactions_deferred",
+        "map_project": {
+          "mode": "base_instance",
+          "level_id": "1F",
+          "instance_id": 4
+        }
+      },
+      "feature_type": "object_instance",
+      "raster_id": 4,
+      "cell_count": 126,
+      "confidence": "observed",
+      "instance_id": 4,
+      "mask_rle_row_start_end": [
+        [
+          53,
+          3,
+          10
+        ],
+        [
+          54,
+          3,
+          10
+        ],
+        [
+          55,
+          3,
+          10
+        ],
+        [
+          56,
+          3,
+          10
+        ],
+        [
+          57,
+          3,
+          10
+        ],
+        [
+          58,
+          3,
+          10
+        ],
+        [
+          59,
+          3,
+          10
+        ],
+        [
+          60,
+          3,
+          10
+        ],
+        [
+          61,
+          3,
+          10
+        ],
+        [
+          62,
+          3,
+          10
+        ],
+        [
+          63,
+          3,
+          10
+        ],
+        [
+          64,
+          3,
+          10
+        ],
+        [
+          65,
+          3,
+          10
+        ],
+        [
+          66,
+          3,
+          10
+        ],
+        [
+          67,
+          3,
+          10
+        ],
+        [
+          68,
+          3,
+          10
+        ],
+        [
+          69,
+          3,
+          10
+        ],
+        [
+          70,
+          3,
+          10
+        ]
+      ],
+      "footprint_geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              20.8,
+              1.9000000000000004
+            ],
+            [
+              20.8,
+              2.0
+            ],
+            [
+              20.8,
+              2.1000000000000005
+            ],
+            [
+              20.8,
+              2.2
+            ],
+            [
+              20.8,
+              2.3000000000000007
+            ],
+            [
+              20.8,
+              2.4000000000000004
+            ],
+            [
+              20.8,
+              2.5
+            ],
+            [
+              20.8,
+              2.6000000000000005
+            ],
+            [
+              21.5,
+              2.6000000000000005
+            ],
+            [
+              21.5,
+              2.5
+            ],
+            [
+              21.5,
+              2.4000000000000004
+            ],
+            [
+              21.5,
+              2.3000000000000007
+            ],
+            [
+              21.5,
+              2.2
+            ],
+            [
+              21.5,
+              2.1000000000000005
+            ],
+            [
+              21.5,
+              2.0
+            ],
+            [
+              21.5,
+              1.9000000000000004
+            ],
+            [
+              21.5,
+              1.8000000000000007
+            ],
+            [
+              21.5,
+              1.7000000000000002
+            ],
+            [
+              21.5,
+              1.6000000000000005
+            ],
+            [
+              21.5,
+              1.5
+            ],
+            [
+              21.5,
+              1.4000000000000004
+            ],
+            [
+              21.5,
+              1.3000000000000007
+            ],
+            [
+              21.5,
+              1.2000000000000002
+            ],
+            [
+              21.5,
+              1.1000000000000005
+            ],
+            [
+              21.5,
+              1.0
+            ],
+            [
+              21.5,
+              0.9000000000000004
+            ],
+            [
+              21.5,
+              0.8000000000000007
+            ],
+            [
+              20.8,
+              0.8000000000000007
+            ],
+            [
+              20.8,
+              0.9000000000000004
+            ],
+            [
+              20.8,
+              1.0
+            ],
+            [
+              20.8,
+              1.1000000000000005
+            ],
+            [
+              20.8,
+              1.2000000000000002
+            ],
+            [
+              20.8,
+              1.3000000000000007
+            ],
+            [
+              20.8,
+              1.4000000000000004
+            ],
+            [
+              20.8,
+              1.5
+            ],
+            [
+              20.8,
+              1.6000000000000005
+            ],
+            [
+              20.8,
+              1.7000000000000002
+            ],
+            [
+              20.8,
+              1.8000000000000007
+            ],
+            [
+              20.8,
+              1.9000000000000004
+            ]
+          ]
+        ]
+      },
+      "raster_file": "level-000-semantic-grid.npz"
+    },
+    {
+      "id": "production_consultation_room-1F-west-blue-bin-cart",
+      "kind": "cart",
+      "label": "small white cart with blue bins, west wall south portion near SW corner",
+      "aliases": [],
+      "level_id": "1F",
+      "region_id": null,
+      "position_xyz": [
+        20.883333333333336,
+        -1.7916666666666663,
+        0.0
+      ],
+      "source_ref": null,
+      "properties": {
+        "confidence": "category_uncertain",
+        "evidence": {
+          "image": "evidence/83501003167e8386-1F-material-top.png",
+          "visual_note": {
+            "image": "evidence/83501003167e8386-1F-material-top.png",
+            "visual_note": "1F-material-top: 西墙南段小白块（u≈0.045-0.095, v≈0.715-0.775）；1F-material-ne: 西南角区域见带蓝色盒/屉的推车（轮式、2-3 层）；顶视块与斜视对应关系为近似。",
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "reviewer": "ZCode GLM-5.3-Flash/max"
+        },
+        "position_source": "centroid_of_bound_occupied_cells",
+        "pose_status": "task_interactions_deferred",
+        "map_project": {
+          "mode": "base_instance",
+          "level_id": "1F",
+          "instance_id": 5
+        }
+      },
+      "feature_type": "object_instance",
+      "raster_id": 5,
+      "cell_count": 24,
+      "confidence": "category_uncertain",
+      "instance_id": 5,
+      "mask_rle_row_start_end": [
+        [
+          24,
+          2,
+          6
+        ],
+        [
+          25,
+          2,
+          6
+        ],
+        [
+          26,
+          2,
+          6
+        ],
+        [
+          27,
+          2,
+          6
+        ],
+        [
+          28,
+          2,
+          6
+        ],
+        [
+          29,
+          2,
+          4
+        ],
+        [
+          30,
+          2,
+          4
+        ]
+      ],
+      "footprint_geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              20.7,
+              -2.0999999999999996
+            ],
+            [
+              20.7,
+              -2.0
+            ],
+            [
+              20.7,
+              -1.9
+            ],
+            [
+              20.7,
+              -1.7999999999999998
+            ],
+            [
+              20.7,
+              -1.6999999999999997
+            ],
+            [
+              20.7,
+              -1.5999999999999996
+            ],
+            [
+              20.7,
+              -1.5
+            ],
+            [
+              20.7,
+              -1.4
+            ],
+            [
+              20.9,
+              -1.4
+            ],
+            [
+              20.9,
+              -1.5
+            ],
+            [
+              20.9,
+              -1.5999999999999996
+            ],
+            [
+              21.1,
+              -1.5999999999999996
+            ],
+            [
+              21.1,
+              -1.6999999999999997
+            ],
+            [
+              21.1,
+              -1.7999999999999998
+            ],
+            [
+              21.1,
+              -1.9
+            ],
+            [
+              21.1,
+              -2.0
+            ],
+            [
+              21.1,
+              -2.0999999999999996
+            ],
+            [
+              20.7,
+              -2.0999999999999996
+            ]
+          ]
+        ]
+      },
+      "raster_file": "level-000-semantic-grid.npz"
+    },
+    {
+      "id": "production_consultation_room-1F-west-face-panel",
+      "kind": "panel",
+      "label": "flush white panel on west face middle (door leaf or wall patch; span coincides with interior cabinets, relationship unresolved)",
+      "aliases": [],
+      "level_id": "1F",
+      "region_id": null,
+      "position_xyz": [
+        20.78125,
+        0.9937500000000004,
+        0.0
+      ],
+      "source_ref": null,
+      "properties": {
+        "confidence": "category_uncertain",
+        "evidence": {
+          "image": "evidence/83501003167e8386-1F-material-top.png",
+          "visual_note": {
+            "image": "evidence/ac958ed18d2fd722-1F-material-sw.png",
+            "visual_note": "1F-material-sw: 西外墙面中部浅色矩形段（v≈0.45-0.55 投影）；1F-material-top: 该段墙线无断口；与室内玻璃柜 Span 的关系未辨。",
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "reviewer": "ZCode GLM-5.3-Flash/max"
+        },
+        "position_source": "centroid_of_bound_occupied_cells",
+        "pose_status": "task_interactions_deferred",
+        "map_project": {
+          "mode": "base_instance",
+          "level_id": "1F",
+          "instance_id": 7
+        }
+      },
+      "feature_type": "object_instance",
+      "raster_id": 6,
+      "cell_count": 16,
+      "confidence": "category_uncertain",
+      "instance_id": 6,
+      "mask_rle_row_start_end": [
+        [
+          50,
+          2,
+          4
+        ],
+        [
+          51,
+          2,
+          4
+        ],
+        [
+          52,
+          2,
+          5
+        ],
+        [
+          53,
+          2,
+          3
+        ],
+        [
+          54,
+          2,
+          3
+        ],
+        [
+          55,
+          2,
+          3
+        ],
+        [
+          56,
+          2,
+          3
+        ],
+        [
+          57,
+          2,
+          3
+        ],
+        [
+          58,
+          2,
+          3
+        ],
+        [
+          59,
+          2,
+          3
+        ],
+        [
+          60,
+          2,
+          3
+        ],
+        [
+          61,
+          2,
+          3
+        ]
+      ],
+      "footprint_geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              20.7,
+              0.9000000000000004
+            ],
+            [
+              20.7,
+              1.0
+            ],
+            [
+              20.7,
+              1.1000000000000005
+            ],
+            [
+              20.7,
+              1.2000000000000002
+            ],
+            [
+              20.7,
+              1.3000000000000007
+            ],
+            [
+              20.7,
+              1.4000000000000004
+            ],
+            [
+              20.7,
+              1.5
+            ],
+            [
+              20.7,
+              1.6000000000000005
+            ],
+            [
+              20.7,
+              1.7000000000000002
+            ],
+            [
+              20.8,
+              1.7000000000000002
+            ],
+            [
+              20.8,
+              1.6000000000000005
+            ],
+            [
+              20.8,
+              1.5
+            ],
+            [
+              20.8,
+              1.4000000000000004
+            ],
+            [
+              20.8,
+              1.3000000000000007
+            ],
+            [
+              20.8,
+              1.2000000000000002
+            ],
+            [
+              20.8,
+              1.1000000000000005
+            ],
+            [
+              20.8,
+              1.0
+            ],
+            [
+              20.8,
+              0.9000000000000004
+            ],
+            [
+              20.8,
+              0.8000000000000007
+            ],
+            [
+              21.0,
+              0.8000000000000007
+            ],
+            [
+              21.0,
+              0.7000000000000002
+            ],
+            [
+              20.9,
+              0.7000000000000002
+            ],
+            [
+              20.9,
+              0.6000000000000005
+            ],
+            [
+              20.9,
+              0.5
+            ],
+            [
+              20.7,
+              0.5
+            ],
+            [
+              20.7,
+              0.6000000000000005
+            ],
+            [
+              20.7,
+              0.7000000000000002
+            ],
+            [
+              20.7,
+              0.8000000000000007
+            ],
+            [
+              20.7,
+              0.9000000000000004
+            ]
+          ]
+        ]
+      },
+      "raster_file": "level-000-semantic-grid.npz"
+    },
+    {
+      "id": "production_consultation_room-1F-south-door",
+      "kind": "door",
+      "label": "south-wall door with dark glazed panel, leaf crossing wall line in top view",
+      "aliases": [],
+      "level_id": "1F",
+      "region_id": null,
+      "position_xyz": [
+        23.82272727272727,
+        -3.992424242424242,
+        0.0
+      ],
+      "source_ref": null,
+      "properties": {
+        "confidence": "observed",
+        "evidence": {
+          "image": "evidence/83501003167e8386-1F-material-top.png",
+          "visual_note": {
+            "image": "evidence/ac958ed18d2fd722-1F-material-sw.png",
+            "visual_note": "1F-material-sw: 南墙白色门扇带深色玻璃窗清晰；1F-material-top: 南墙 u≈0.395-0.46 断口+白色门扇矩形越墙线（v≈0.90-0.96）。",
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "reviewer": "ZCode GLM-5.3-Flash/max"
+        },
+        "position_source": "centroid_of_bound_occupied_cells",
+        "pose_status": "task_interactions_deferred",
+        "map_project": {
+          "mode": "base_instance",
+          "level_id": "1F",
+          "instance_id": 8
+        }
+      },
+      "feature_type": "object_instance",
+      "raster_id": 7,
+      "cell_count": 33,
+      "confidence": "observed",
+      "instance_id": 7,
+      "mask_rle_row_start_end": [
+        [
+          1,
+          30,
+          36
+        ],
+        [
+          2,
+          30,
+          36
+        ],
+        [
+          3,
+          30,
+          31
+        ],
+        [
+          5,
+          31,
+          36
+        ],
+        [
+          6,
+          31,
+          36
+        ],
+        [
+          7,
+          31,
+          36
+        ],
+        [
+          8,
+          31,
+          36
+        ]
+      ],
+      "footprint_geojson": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [
+                23.5,
+                -4.4
+              ],
+              [
+                23.5,
+                -4.3
+              ],
+              [
+                23.5,
+                -4.2
+              ],
+              [
+                23.5,
+                -4.1
+              ],
+              [
+                23.6,
+                -4.1
+              ],
+              [
+                23.6,
+                -4.2
+              ],
+              [
+                24.1,
+                -4.2
+              ],
+              [
+                24.1,
+                -4.3
+              ],
+              [
+                24.1,
+                -4.4
+              ],
+              [
+                23.5,
+                -4.4
+              ]
+            ]
+          ],
+          [
+            [
+              [
+                23.6,
+                -3.9
+              ],
+              [
+                23.6,
+                -3.8
+              ],
+              [
+                23.6,
+                -3.7
+              ],
+              [
+                23.6,
+                -3.6
+              ],
+              [
+                24.1,
+                -3.6
+              ],
+              [
+                24.1,
+                -3.7
+              ],
+              [
+                24.1,
+                -3.8
+              ],
+              [
+                24.1,
+                -3.9
+              ],
+              [
+                24.1,
+                -4.0
+              ],
+              [
+                23.6,
+                -4.0
+              ],
+              [
+                23.6,
+                -3.9
+              ]
+            ]
+          ]
+        ]
+      },
+      "raster_file": "level-000-semantic-grid.npz"
+    },
+    {
+      "id": "production_consultation_room-1F-north-blue-drawer-cabinet",
+      "kind": "cabinet",
+      "label": "tall white cabinet with columns of blue drawers, against north wall east portion (top-view gray block)",
+      "aliases": [],
+      "level_id": "1F",
+      "region_id": null,
+      "position_xyz": [
+        25.95,
+        5.700000000000001,
+        0.0
+      ],
+      "source_ref": null,
+      "properties": {
+        "confidence": "observed",
+        "evidence": {
+          "image": "evidence/83501003167e8386-1F-material-top.png",
+          "visual_note": {
+            "image": "evidence/83501003167e8386-1F-material-top.png",
+            "visual_note": "1F-material-top: 北墙内侧灰色矩形块（u≈0.60-0.79, v≈0.075-0.145）= 柜顶；1F-material-se: 白柜+两列蓝色抽屉清晰；1F-material-sw: 蓝屉白柜同见（其沿墙位置存在第二种读法，见 uncertainties）。",
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "reviewer": "ZCode GLM-5.3-Flash/max"
+        },
+        "position_source": "centroid_of_bound_occupied_cells",
+        "pose_status": "task_interactions_deferred",
+        "map_project": {
+          "mode": "base_instance",
+          "level_id": "1F",
+          "instance_id": 9
+        }
+      },
+      "feature_type": "object_instance",
+      "raster_id": 8,
+      "cell_count": 120,
+      "confidence": "observed",
+      "instance_id": 8,
+      "mask_rle_row_start_end": [
+        [
+          98,
+          47,
+          62
+        ],
+        [
+          99,
+          47,
+          62
+        ],
+        [
+          100,
+          47,
+          62
+        ],
+        [
+          101,
+          47,
+          62
+        ],
+        [
+          102,
+          47,
+          62
+        ],
+        [
+          103,
+          47,
+          62
+        ],
+        [
+          104,
+          47,
+          62
+        ],
+        [
+          105,
+          47,
+          62
+        ]
+      ],
+      "footprint_geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              25.2,
+              5.4
+            ],
+            [
+              25.2,
+              5.5
+            ],
+            [
+              25.2,
+              5.600000000000001
+            ],
+            [
+              25.2,
+              5.700000000000001
+            ],
+            [
+              25.2,
+              5.800000000000001
+            ],
+            [
+              25.2,
+              5.9
+            ],
+            [
+              25.2,
+              6.0
+            ],
+            [
+              25.2,
+              6.100000000000001
+            ],
+            [
+              26.7,
+              6.100000000000001
+            ],
+            [
+              26.7,
+              6.0
+            ],
+            [
+              26.7,
+              5.9
+            ],
+            [
+              26.7,
+              5.800000000000001
+            ],
+            [
+              26.7,
+              5.700000000000001
+            ],
+            [
+              26.7,
+              5.600000000000001
+            ],
+            [
+              26.7,
+              5.5
+            ],
+            [
+              26.7,
+              5.4
+            ],
+            [
+              26.7,
+              5.300000000000001
+            ],
+            [
+              25.2,
+              5.300000000000001
+            ],
+            [
+              25.2,
+              5.4
+            ]
+          ]
+        ]
+      },
+      "raster_file": "level-000-semantic-grid.npz"
+    },
+    {
+      "id": "production_consultation_room-1F-se-drawer-cart",
+      "kind": "cart",
+      "label": "dark multi-drawer cart, east wall south-middle interior",
+      "aliases": [],
+      "level_id": "1F",
+      "region_id": null,
+      "position_xyz": [
+        27.222727272727273,
+        -1.5954545454545455,
+        0.0
+      ],
+      "source_ref": null,
+      "properties": {
+        "confidence": "category_uncertain",
+        "evidence": {
+          "image": "evidence/83501003167e8386-1F-material-top.png",
+          "visual_note": {
+            "image": "evidence/ac196e5d8fd430b3-1F-material-se.png",
+            "visual_note": "1F-material-se: 黑色多屉小柜（3-4 层）近东墙清晰；1F-material-top: 对应带深色条纹白矩形（u≈0.815-0.885, v≈0.72-0.76）。",
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "reviewer": "ZCode GLM-5.3-Flash/max"
+        },
+        "position_source": "centroid_of_bound_occupied_cells",
+        "pose_status": "task_interactions_deferred",
+        "map_project": {
+          "mode": "base_instance",
+          "level_id": "1F",
+          "instance_id": 11
+        }
+      },
+      "feature_type": "object_instance",
+      "raster_id": 9,
+      "cell_count": 11,
+      "confidence": "category_uncertain",
+      "instance_id": 9,
+      "mask_rle_row_start_end": [
+        [
+          28,
+          65,
+          70
+        ],
+        [
+          29,
+          64,
+          70
+        ]
+      ],
+      "footprint_geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              27.5,
+              -1.6999999999999997
+            ],
+            [
+              27.0,
+              -1.6999999999999997
+            ],
+            [
+              27.0,
+              -1.5999999999999996
+            ],
+            [
+              26.9,
+              -1.5999999999999996
+            ],
+            [
+              26.9,
+              -1.5
+            ],
+            [
+              27.5,
+              -1.5
+            ],
+            [
+              27.5,
+              -1.5999999999999996
+            ],
+            [
+              27.5,
+              -1.6999999999999997
+            ]
+          ]
+        ]
+      },
+      "raster_file": "level-000-semantic-grid.npz"
+    },
+    {
+      "id": "production_consultation_room-1F-se-basin-like-square",
+      "kind": "fixture",
+      "label": "white square with circular mark, south-east area (basin/stool-like, classification unresolved)",
+      "aliases": [],
+      "level_id": "1F",
+      "region_id": null,
+      "position_xyz": [
+        26.849999999999998,
+        -2.4499999999999997,
+        0.0
+      ],
+      "source_ref": null,
+      "properties": {
+        "confidence": "category_uncertain",
+        "evidence": {
+          "image": "evidence/83501003167e8386-1F-material-top.png",
+          "visual_note": {
+            "image": "evidence/83501003167e8386-1F-material-top.png",
+            "visual_note": "1F-material-top: 白色方块+圆记号（u≈0.79-0.86, v≈0.775-0.83）；1F-material-sw: 东墙南段内侧白色柜台+黑色扁平物 nearby，圆记号物未单独辨识；器形未辨。",
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "reviewer": "ZCode GLM-5.3-Flash/max"
+        },
+        "position_source": "centroid_of_bound_occupied_cells",
+        "pose_status": "task_interactions_deferred",
+        "map_project": {
+          "mode": "base_instance",
+          "level_id": "1F",
+          "instance_id": 12
+        }
+      },
+      "feature_type": "object_instance",
+      "raster_id": 10,
+      "cell_count": 7,
+      "confidence": "category_uncertain",
+      "instance_id": 10,
+      "mask_rle_row_start_end": [
+        [
+          17,
+          63,
+          64
+        ],
+        [
+          18,
+          63,
+          64
+        ],
+        [
+          19,
+          63,
+          64
+        ],
+        [
+          20,
+          63,
+          64
+        ],
+        [
+          21,
+          63,
+          64
+        ],
+        [
+          22,
+          63,
+          64
+        ],
+        [
+          23,
+          63,
+          64
+        ]
+      ],
+      "footprint_geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              26.8,
+              -2.8
+            ],
+            [
+              26.8,
+              -2.7
+            ],
+            [
+              26.8,
+              -2.5999999999999996
+            ],
+            [
+              26.8,
+              -2.5
+            ],
+            [
+              26.8,
+              -2.4
+            ],
+            [
+              26.8,
+              -2.3
+            ],
+            [
+              26.8,
+              -2.1999999999999997
+            ],
+            [
+              26.8,
+              -2.0999999999999996
+            ],
+            [
+              26.9,
+              -2.0999999999999996
+            ],
+            [
+              26.9,
+              -2.1999999999999997
+            ],
+            [
+              26.9,
+              -2.3
+            ],
+            [
+              26.9,
+              -2.4
+            ],
+            [
+              26.9,
+              -2.5
+            ],
+            [
+              26.9,
+              -2.5999999999999996
+            ],
+            [
+              26.9,
+              -2.7
+            ],
+            [
+              26.9,
+              -2.8
+            ],
+            [
+              26.8,
+              -2.8
+            ]
+          ]
+        ]
+      },
+      "raster_file": "level-000-semantic-grid.npz"
+    },
+    {
+      "id": "production_consultation_room-1F-east-windows",
+      "kind": "windows",
+      "label": "window openings with dark frames on east face (3 openings)",
+      "aliases": [],
+      "level_id": "1F",
+      "region_id": null,
+      "position_xyz": [
+        27.75,
+        0.8000000000000003,
+        0.0
+      ],
+      "source_ref": null,
+      "properties": {
+        "confidence": "observed",
+        "evidence": {
+          "image": "evidence/83501003167e8386-1F-material-top.png",
+          "visual_note": {
+            "image": "evidence/f84f2574996cbfc3-1F-material-ne.png",
+            "visual_note": "1F-material-ne: 东立面 2-3 个深框窗洞清晰；1F-material-se: 东面三连窗同见；1F-material-top: 东墙线（u≈0.90-0.945）对应段变淡，v 范围近似。",
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "reviewer": "ZCode GLM-5.3-Flash/max"
+        },
+        "position_source": "centroid_of_bound_occupied_cells",
+        "pose_status": "task_interactions_deferred",
+        "map_project": {
+          "mode": "base_instance",
+          "level_id": "1F",
+          "instance_id": 14
+        }
+      },
+      "feature_type": "object_instance",
+      "raster_id": 11,
+      "cell_count": 138,
+      "confidence": "observed",
+      "instance_id": 11,
+      "mask_rle_row_start_end": [
+        [
+          30,
+          71,
+          74
+        ],
+        [
+          31,
+          71,
+          74
+        ],
+        [
+          32,
+          71,
+          74
+        ],
+        [
+          33,
+          71,
+          74
+        ],
+        [
+          34,
+          71,
+          74
+        ],
+        [
+          35,
+          71,
+          74
+        ],
+        [
+          36,
+          71,
+          74
+        ],
+        [
+          37,
+          71,
+          74
+        ],
+        [
+          38,
+          71,
+          74
+        ],
+        [
+          39,
+          71,
+          74
+        ],
+        [
+          40,
+          71,
+          74
+        ],
+        [
+          41,
+          71,
+          74
+        ],
+        [
+          42,
+          71,
+          74
+        ],
+        [
+          43,
+          71,
+          74
+        ],
+        [
+          44,
+          71,
+          74
+        ],
+        [
+          45,
+          71,
+          74
+        ],
+        [
+          46,
+          71,
+          74
+        ],
+        [
+          47,
+          71,
+          74
+        ],
+        [
+          48,
+          71,
+          74
+        ],
+        [
+          49,
+          71,
+          74
+        ],
+        [
+          50,
+          71,
+          74
+        ],
+        [
+          51,
+          71,
+          74
+        ],
+        [
+          52,
+          71,
+          74
+        ],
+        [
+          53,
+          71,
+          74
+        ],
+        [
+          54,
+          71,
+          74
+        ],
+        [
+          55,
+          71,
+          74
+        ],
+        [
+          56,
+          71,
+          74
+        ],
+        [
+          57,
+          71,
+          74
+        ],
+        [
+          58,
+          71,
+          74
+        ],
+        [
+          59,
+          71,
+          74
+        ],
+        [
+          60,
+          71,
+          74
+        ],
+        [
+          61,
+          71,
+          74
+        ],
+        [
+          62,
+          71,
+          74
+        ],
+        [
+          63,
+          71,
+          74
+        ],
+        [
+          64,
+          71,
+          74
+        ],
+        [
+          65,
+          71,
+          74
+        ],
+        [
+          66,
+          71,
+          74
+        ],
+        [
+          67,
+          71,
+          74
+        ],
+        [
+          68,
+          71,
+          74
+        ],
+        [
+          69,
+          71,
+          74
+        ],
+        [
+          70,
+          71,
+          74
+        ],
+        [
+          71,
+          71,
+          74
+        ],
+        [
+          72,
+          71,
+          74
+        ],
+        [
+          73,
+          71,
+          74
+        ],
+        [
+          74,
+          71,
+          74
+        ],
+        [
+          75,
+          71,
+          74
+        ]
+      ],
+      "footprint_geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              27.6,
+              1.1000000000000005
+            ],
+            [
+              27.6,
+              1.2000000000000002
+            ],
+            [
+              27.6,
+              1.3000000000000007
+            ],
+            [
+              27.6,
+              1.4000000000000004
+            ],
+            [
+              27.6,
+              1.5
+            ],
+            [
+              27.6,
+              1.6000000000000005
+            ],
+            [
+              27.6,
+              1.7000000000000002
+            ],
+            [
+              27.6,
+              1.8000000000000007
+            ],
+            [
+              27.6,
+              1.9000000000000004
+            ],
+            [
+              27.6,
+              2.0
+            ],
+            [
+              27.6,
+              2.1000000000000005
+            ],
+            [
+              27.6,
+              2.2
+            ],
+            [
+              27.6,
+              2.3000000000000007
+            ],
+            [
+              27.6,
+              2.4000000000000004
+            ],
+            [
+              27.6,
+              2.5
+            ],
+            [
+              27.6,
+              2.6000000000000005
+            ],
+            [
+              27.6,
+              2.7
+            ],
+            [
+              27.6,
+              2.8000000000000007
+            ],
+            [
+              27.6,
+              2.9000000000000004
+            ],
+            [
+              27.6,
+              3.0
+            ],
+            [
+              27.6,
+              3.1000000000000005
+            ],
+            [
+              27.9,
+              3.1000000000000005
+            ],
+            [
+              27.9,
+              3.0
+            ],
+            [
+              27.9,
+              2.9000000000000004
+            ],
+            [
+              27.9,
+              2.8000000000000007
+            ],
+            [
+              27.9,
+              2.7
+            ],
+            [
+              27.9,
+              2.6000000000000005
+            ],
+            [
+              27.9,
+              2.5
+            ],
+            [
+              27.9,
+              2.4000000000000004
+            ],
+            [
+              27.9,
+              2.3000000000000007
+            ],
+            [
+              27.9,
+              2.2
+            ],
+            [
+              27.9,
+              2.1000000000000005
+            ],
+            [
+              27.9,
+              2.0
+            ],
+            [
+              27.9,
+              1.9000000000000004
+            ],
+            [
+              27.9,
+              1.8000000000000007
+            ],
+            [
+              27.9,
+              1.7000000000000002
+            ],
+            [
+              27.9,
+              1.6000000000000005
+            ],
+            [
+              27.9,
+              1.5
+            ],
+            [
+              27.9,
+              1.4000000000000004
+            ],
+            [
+              27.9,
+              1.3000000000000007
+            ],
+            [
+              27.9,
+              1.2000000000000002
+            ],
+            [
+              27.9,
+              1.1000000000000005
+            ],
+            [
+              27.9,
+              1.0
+            ],
+            [
+              27.9,
+              0.9000000000000004
+            ],
+            [
+              27.9,
+              0.8000000000000007
+            ],
+            [
+              27.9,
+              0.7000000000000002
+            ],
+            [
+              27.9,
+              0.6000000000000005
+            ],
+            [
+              27.9,
+              0.5
+            ],
+            [
+              27.9,
+              0.40000000000000036
+            ],
+            [
+              27.9,
+              0.3000000000000007
+            ],
+            [
+              27.9,
+              0.20000000000000018
+            ],
+            [
+              27.9,
+              0.10000000000000053
+            ],
+            [
+              27.9,
+              0.0
+            ],
+            [
+              27.9,
+              -0.09999999999999964
+            ],
+            [
+              27.9,
+              -0.20000000000000018
+            ],
+            [
+              27.9,
+              -0.2999999999999998
+            ],
+            [
+              27.9,
+              -0.39999999999999947
+            ],
+            [
+              27.9,
+              -0.5
+            ],
+            [
+              27.9,
+              -0.5999999999999996
+            ],
+            [
+              27.9,
+              -0.6999999999999997
+            ],
+            [
+              27.9,
+              -0.7999999999999998
+            ],
+            [
+              27.9,
+              -0.8999999999999999
+            ],
+            [
+              27.9,
+              -1.0
+            ],
+            [
+              27.9,
+              -1.0999999999999996
+            ],
+            [
+              27.9,
+              -1.1999999999999997
+            ],
+            [
+              27.9,
+              -1.2999999999999998
+            ],
+            [
+              27.9,
+              -1.4
+            ],
+            [
+              27.9,
+              -1.5
+            ],
+            [
+              27.6,
+              -1.5
+            ],
+            [
+              27.6,
+              -1.4
+            ],
+            [
+              27.6,
+              -1.2999999999999998
+            ],
+            [
+              27.6,
+              -1.1999999999999997
+            ],
+            [
+              27.6,
+              -1.0999999999999996
+            ],
+            [
+              27.6,
+              -1.0
+            ],
+            [
+              27.6,
+              -0.8999999999999999
+            ],
+            [
+              27.6,
+              -0.7999999999999998
+            ],
+            [
+              27.6,
+              -0.6999999999999997
+            ],
+            [
+              27.6,
+              -0.5999999999999996
+            ],
+            [
+              27.6,
+              -0.5
+            ],
+            [
+              27.6,
+              -0.39999999999999947
+            ],
+            [
+              27.6,
+              -0.2999999999999998
+            ],
+            [
+              27.6,
+              -0.20000000000000018
+            ],
+            [
+              27.6,
+              -0.09999999999999964
+            ],
+            [
+              27.6,
+              0.0
+            ],
+            [
+              27.6,
+              0.10000000000000053
+            ],
+            [
+              27.6,
+              0.20000000000000018
+            ],
+            [
+              27.6,
+              0.3000000000000007
+            ],
+            [
+              27.6,
+              0.40000000000000036
+            ],
+            [
+              27.6,
+              0.5
+            ],
+            [
+              27.6,
+              0.6000000000000005
+            ],
+            [
+              27.6,
+              0.7000000000000002
+            ],
+            [
+              27.6,
+              0.8000000000000007
+            ],
+            [
+              27.6,
+              0.9000000000000004
+            ],
+            [
+              27.6,
+              1.0
+            ],
+            [
+              27.6,
+              1.1000000000000005
+            ]
+          ]
+        ]
+      },
+      "raster_file": "level-000-semantic-grid.npz"
+    },
+    {
+      "id": "production_consultation_room-1F-north-windows",
+      "kind": "windows",
+      "label": "window openings with dark frames on north face (2 openings)",
+      "aliases": [],
+      "level_id": "1F",
+      "region_id": null,
+      "position_xyz": [
+        23.900000000000002,
+        6.300000000000001,
+        0.0
+      ],
+      "source_ref": null,
+      "properties": {
+        "confidence": "observed",
+        "evidence": {
+          "image": "evidence/83501003167e8386-1F-material-top.png",
+          "visual_note": {
+            "image": "evidence/9cf2ec3c7d4f0b51-1F-material-nw.png",
+            "visual_note": "1F-material-nw: 北立面两个深框窗洞清晰；1F-material-top: 北墙线对应段变淡，u 范围为近似。",
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "reviewer": "ZCode GLM-5.3-Flash/max"
+        },
+        "position_source": "centroid_of_bound_occupied_cells",
+        "pose_status": "task_interactions_deferred",
+        "map_project": {
+          "mode": "base_instance",
+          "level_id": "1F",
+          "instance_id": 15
+        }
+      },
+      "feature_type": "object_instance",
+      "raster_id": 12,
+      "cell_count": 104,
+      "confidence": "observed",
+      "instance_id": 12,
+      "mask_rle_row_start_end": [
+        [
+          106,
+          21,
+          47
+        ],
+        [
+          107,
+          21,
+          47
+        ],
+        [
+          108,
+          21,
+          47
+        ],
+        [
+          109,
+          21,
+          47
+        ]
+      ],
+      "footprint_geojson": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              22.6,
+              6.100000000000001
+            ],
+            [
+              22.6,
+              6.200000000000001
+            ],
+            [
+              22.6,
+              6.300000000000001
+            ],
+            [
+              22.6,
+              6.4
+            ],
+            [
+              22.6,
+              6.5
+            ],
+            [
+              25.2,
+              6.5
+            ],
+            [
+              25.2,
+              6.4
+            ],
+            [
+              25.2,
+              6.300000000000001
+            ],
+            [
+              25.2,
+              6.200000000000001
+            ],
+            [
+              25.2,
+              6.100000000000001
+            ],
+            [
+              22.6,
+              6.100000000000001
+            ]
+          ]
+        ]
+      },
+      "raster_file": "level-000-semantic-grid.npz"
+    },
+    {
+      "id": "production_consultation_room-1F-south-windows",
+      "kind": "windows",
+      "label": "window openings with dark frames on south face (west and east portions, count unresolved)",
+      "aliases": [],
+      "level_id": "1F",
+      "region_id": null,
+      "position_xyz": [
+        24.145488721804515,
+        -4.259022556390977,
+        0.0
+      ],
+      "source_ref": null,
+      "properties": {
+        "confidence": "observed",
+        "evidence": {
+          "image": "evidence/83501003167e8386-1F-material-top.png",
+          "visual_note": {
+            "image": "evidence/ac958ed18d2fd722-1F-material-sw.png",
+            "visual_note": "1F-material-sw: 南立面东段深框窗洞；1F-material-se: 南立面西段深框窗洞；1F-material-top: 南墙线对应段变淡；外接框含门区（u≈0.395-0.46），洞口具体分组未辨。",
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "reviewer": "ZCode GLM-5.3-Flash/max"
+        },
+        "position_source": "centroid_of_bound_occupied_cells",
+        "pose_status": "task_interactions_deferred",
+        "map_project": {
+          "mode": "base_instance",
+          "level_id": "1F",
+          "instance_id": 16
+        }
+      },
+      "feature_type": "object_instance",
+      "raster_id": 13,
+      "cell_count": 133,
+      "confidence": "observed",
+      "instance_id": 13,
+      "mask_rle_row_start_end": [
+        [
+          1,
+          7,
+          30
+        ],
+        [
+          1,
+          36,
+          67
+        ],
+        [
+          2,
+          7,
+          30
+        ],
+        [
+          2,
+          36,
+          67
+        ],
+        [
+          3,
+          15,
+          30
+        ],
+        [
+          3,
+          63,
+          64
+        ],
+        [
+          4,
+          63,
+          64
+        ],
+        [
+          5,
+          36,
+          43
+        ],
+        [
+          5,
+          63,
+          64
+        ]
+      ],
+      "footprint_geojson": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [
+                21.2,
+                -4.2
+              ],
+              [
+                22.0,
+                -4.2
+              ],
+              [
+                22.0,
+                -4.1
+              ],
+              [
+                23.5,
+                -4.1
+              ],
+              [
+                23.5,
+                -4.2
+              ],
+              [
+                23.5,
+                -4.3
+              ],
+              [
+                23.5,
+                -4.4
+              ],
+              [
+                21.2,
+                -4.4
+              ],
+              [
+                21.2,
+                -4.3
+              ],
+              [
+                21.2,
+                -4.2
+              ]
+            ]
+          ],
+          [
+            [
+              [
+                24.1,
+                -4.2
+              ],
+              [
+                26.8,
+                -4.2
+              ],
+              [
+                26.8,
+                -4.1
+              ],
+              [
+                26.8,
+                -4.0
+              ],
+              [
+                26.8,
+                -3.9
+              ],
+              [
+                26.9,
+                -3.9
+              ],
+              [
+                26.9,
+                -4.0
+              ],
+              [
+                26.9,
+                -4.1
+              ],
+              [
+                26.9,
+                -4.2
+              ],
+              [
+                27.2,
+                -4.2
+              ],
+              [
+                27.2,
+                -4.3
+              ],
+              [
+                27.2,
+                -4.4
+              ],
+              [
+                24.1,
+                -4.4
+              ],
+              [
+                24.1,
+                -4.3
+              ],
+              [
+                24.1,
+                -4.2
+              ]
+            ]
+          ],
+          [
+            [
+              [
+                24.8,
+                -4.0
+              ],
+              [
+                24.1,
+                -4.0
+              ],
+              [
+                24.1,
+                -3.9
+              ],
+              [
+                24.8,
+                -3.9
+              ],
+              [
+                24.8,
+                -4.0
+              ]
+            ]
+          ]
+        ]
+      },
+      "raster_file": "level-000-semantic-grid.npz"
+    }
+  ],
+  "semantics": {
+    "schema": "eai.scene.semantics",
+    "version": 1,
+    "regions": [
+      {
+        "id": "production_consultation_room-1F-room-floorplate",
+        "kind": "floorplate",
+        "label": "single roofless room, pale-yellow walls, white tile floor, windows on east/north/south faces, doors on west/south walls",
+        "aliases": [],
+        "level_id": "1F",
+        "polygon_xyz": [
+          [
+            20.710044013513723,
+            -4.390537923327176,
+            0.0
+          ],
+          [
+            27.896975492049087,
+            -4.390537923327176,
+            0.0
+          ],
+          [
+            27.896975492049087,
+            6.580734332563011,
+            0.0
+          ],
+          [
+            20.710044013513723,
+            6.580734332563011,
+            0.0
+          ]
+        ],
+        "height_m": 1.8,
+        "entrance_node_ids": [],
+        "properties": {
+          "confidence": "observed",
+          "evidence": {
+            "image": "evidence/83501003167e8386-1F-material-top.png",
+            "visual_note": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": "1F-material-top: 墙线矩形（u≈0.04-0.94, v≈0.035-0.965），白色大块瓷砖地坪；1F-material-ne/nw/se/sw: 无顶单房间四斜视，北面西段外墙见黄色涂料晕斑（见 uncertainties），其余墙面浅黄/白；东/北/南面见窗洞，西/南墙见门。",
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            },
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "boundary_status": "editable_visual_selector",
+          "raster_region_id": 1,
+          "map_project": {
+            "mode": "base_region",
+            "level_id": "1F",
+            "region_id": 1,
+            "polygon_xyz": [
+              [
+                20.710044013513723,
+                -4.390537923327176,
+                0.0
+              ],
+              [
+                27.896975492049087,
+                -4.390537923327176,
+                0.0
+              ],
+              [
+                27.896975492049087,
+                6.580734332563011,
+                0.0
+              ],
+              [
+                20.710044013513723,
+                6.580734332563011,
+                0.0
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "production_consultation_room-1F-desk-zone",
+        "kind": "desk_zone",
+        "label": "work desk zone: long white desk with monitor/keyboard, blue office chair north of desk, low cabinet east of desk",
+        "aliases": [],
+        "level_id": "1F",
+        "polygon_xyz": [
+          [
+            22.06757551501485,
+            3.04161425001779,
+            0.0
+          ],
+          [
+            26.060315225312273,
+            3.04161425001779,
+            0.0
+          ],
+          [
+            26.060315225312273,
+            4.516247617744966,
+            0.0
+          ],
+          [
+            22.06757551501485,
+            4.516247617744966,
+            0.0
+          ]
+        ],
+        "height_m": 1.8,
+        "entrance_node_ids": [],
+        "properties": {
+          "confidence": "observed",
+          "evidence": {
+            "image": "evidence/83501003167e8386-1F-material-top.png",
+            "visual_note": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": "1F-material-top: 白色长桌（u≈0.22-0.60, v≈0.275-0.32）+桌上深色显示器/键盘/小件+北侧蓝色办公椅（u≈0.395-0.50, v≈0.215-0.27）+桌东端白色矮柜（u≈0.61-0.665）；1F-material-nw: 桌+显示器+桌旁小推车同见；1F-material-se: 蓝椅背与桌面同见。",
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            },
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "boundary_status": "editable_visual_selector",
+          "raster_region_id": 2,
+          "map_project": {
+            "mode": "base_region",
+            "level_id": "1F",
+            "region_id": 2,
+            "polygon_xyz": [
+              [
+                22.06757551501485,
+                3.04161425001779,
+                0.0
+              ],
+              [
+                26.060315225312273,
+                3.04161425001779,
+                0.0
+              ],
+              [
+                26.060315225312273,
+                4.516247617744966,
+                0.0
+              ],
+              [
+                22.06757551501485,
+                4.516247617744966,
+                0.0
+              ]
+            ]
+          }
+        }
+      }
+    ],
+    "entities": [
+      {
+        "id": "production_consultation_room-1F-desk",
+        "kind": "desk",
+        "label": "long white desk with dark monitor, keyboard, mouse and small items",
+        "aliases": [],
+        "level_id": "1F",
+        "region_id": null,
+        "position_xyz": [
+          23.65,
+          3.45,
+          0.0
+        ],
+        "source_ref": null,
+        "properties": {
+          "confidence": "observed",
+          "evidence": {
+            "image": "evidence/83501003167e8386-1F-material-top.png",
+            "visual_note": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": "1F-material-top: 桌面+深色显示器（u≈0.355-0.45, v≈0.30-0.325）+键盘/鼠标/小件清晰；1F-material-nw: 桌与显示器、桌旁小推车同见；1F-material-se: 桌东端+黑托盘状物同见。",
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            },
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "position_source": "centroid_of_bound_occupied_cells",
+          "pose_status": "task_interactions_deferred",
+          "map_project": {
+            "mode": "base_instance",
+            "level_id": "1F",
+            "instance_id": 1
+          },
+          "geometry_binding": {
+            "raster_file": "level-000-semantic-grid.npz",
+            "instance_id": 1,
+            "footprint_geojson": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    22.1,
+                    3.2
+                  ],
+                  [
+                    22.1,
+                    3.3000000000000007
+                  ],
+                  [
+                    22.1,
+                    3.4000000000000004
+                  ],
+                  [
+                    22.1,
+                    3.5
+                  ],
+                  [
+                    22.1,
+                    3.5999999999999996
+                  ],
+                  [
+                    22.1,
+                    3.700000000000001
+                  ],
+                  [
+                    25.2,
+                    3.700000000000001
+                  ],
+                  [
+                    25.2,
+                    3.5999999999999996
+                  ],
+                  [
+                    25.2,
+                    3.5
+                  ],
+                  [
+                    25.2,
+                    3.4000000000000004
+                  ],
+                  [
+                    25.2,
+                    3.3000000000000007
+                  ],
+                  [
+                    25.2,
+                    3.2
+                  ],
+                  [
+                    22.1,
+                    3.2
+                  ]
+                ]
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "production_consultation_room-1F-blue-chair",
+        "kind": "chair",
+        "label": "blue office chair with armrests and star base, north of desk",
+        "aliases": [],
+        "level_id": "1F",
+        "region_id": null,
+        "position_xyz": [
+          23.944230769230767,
+          4.134615384615384,
+          0.0
+        ],
+        "source_ref": null,
+        "properties": {
+          "confidence": "observed",
+          "evidence": {
+            "image": "evidence/83501003167e8386-1F-material-top.png",
+            "visual_note": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": "1F-material-top: 蓝色座面+扶手+五星脚清晰（u≈0.395-0.50, v≈0.215-0.27）；1F-material-se: 蓝色椅背同见。",
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            },
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "position_source": "centroid_of_bound_occupied_cells",
+          "pose_status": "task_interactions_deferred",
+          "map_project": {
+            "mode": "base_instance",
+            "level_id": "1F",
+            "instance_id": 2
+          },
+          "geometry_binding": {
+            "raster_file": "level-000-semantic-grid.npz",
+            "instance_id": 2,
+            "footprint_geojson": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    23.5,
+                    3.8000000000000007
+                  ],
+                  [
+                    23.5,
+                    3.9000000000000004
+                  ],
+                  [
+                    23.6,
+                    3.9000000000000004
+                  ],
+                  [
+                    23.6,
+                    4.0
+                  ],
+                  [
+                    23.6,
+                    4.1
+                  ],
+                  [
+                    23.5,
+                    4.1
+                  ],
+                  [
+                    23.5,
+                    4.200000000000001
+                  ],
+                  [
+                    23.5,
+                    4.300000000000001
+                  ],
+                  [
+                    23.6,
+                    4.300000000000001
+                  ],
+                  [
+                    23.6,
+                    4.4
+                  ],
+                  [
+                    23.7,
+                    4.4
+                  ],
+                  [
+                    23.7,
+                    4.5
+                  ],
+                  [
+                    24.2,
+                    4.5
+                  ],
+                  [
+                    24.2,
+                    4.4
+                  ],
+                  [
+                    24.3,
+                    4.4
+                  ],
+                  [
+                    24.3,
+                    4.300000000000001
+                  ],
+                  [
+                    24.3,
+                    4.200000000000001
+                  ],
+                  [
+                    24.4,
+                    4.200000000000001
+                  ],
+                  [
+                    24.4,
+                    4.1
+                  ],
+                  [
+                    24.4,
+                    4.0
+                  ],
+                  [
+                    24.4,
+                    3.9000000000000004
+                  ],
+                  [
+                    24.2,
+                    3.9000000000000004
+                  ],
+                  [
+                    24.2,
+                    3.8000000000000007
+                  ],
+                  [
+                    23.5,
+                    3.8000000000000007
+                  ]
+                ]
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "production_consultation_room-1F-desk-side-cabinet",
+        "kind": "cabinet",
+        "label": "low white cabinet east of desk (teal-screen monitor seen beside it in ne view, top-view position unresolvable)",
+        "aliases": [],
+        "level_id": "1F",
+        "region_id": null,
+        "position_xyz": [
+          25.5,
+          3.5000000000000004,
+          0.0
+        ],
+        "source_ref": null,
+        "properties": {
+          "confidence": "observed",
+          "evidence": {
+            "image": "evidence/83501003167e8386-1F-material-top.png",
+            "visual_note": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": "1F-material-top: 桌东端独立白色矮柜带抽屉记号（u≈0.61-0.665, v≈0.27-0.32）；1F-material-ne: 其附近见青绿屏面显示器，顶视无法定位屏幕，归入本条备注。",
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            },
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "position_source": "centroid_of_bound_occupied_cells",
+          "pose_status": "task_interactions_deferred",
+          "map_project": {
+            "mode": "base_instance",
+            "level_id": "1F",
+            "instance_id": 3
+          },
+          "geometry_binding": {
+            "raster_file": "level-000-semantic-grid.npz",
+            "instance_id": 3,
+            "footprint_geojson": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    25.3,
+                    3.2
+                  ],
+                  [
+                    25.3,
+                    3.3000000000000007
+                  ],
+                  [
+                    25.3,
+                    3.4000000000000004
+                  ],
+                  [
+                    25.3,
+                    3.5
+                  ],
+                  [
+                    25.3,
+                    3.5999999999999996
+                  ],
+                  [
+                    25.3,
+                    3.700000000000001
+                  ],
+                  [
+                    25.3,
+                    3.8000000000000007
+                  ],
+                  [
+                    25.7,
+                    3.8000000000000007
+                  ],
+                  [
+                    25.7,
+                    3.700000000000001
+                  ],
+                  [
+                    25.7,
+                    3.5999999999999996
+                  ],
+                  [
+                    25.7,
+                    3.5
+                  ],
+                  [
+                    25.7,
+                    3.4000000000000004
+                  ],
+                  [
+                    25.7,
+                    3.3000000000000007
+                  ],
+                  [
+                    25.7,
+                    3.2
+                  ],
+                  [
+                    25.3,
+                    3.2
+                  ]
+                ]
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "production_consultation_room-1F-west-glass-cabinets",
+        "kind": "cabinets",
+        "label": "two white cabinets with glass doors and shelved items, against west wall middle",
+        "aliases": [],
+        "level_id": "1F",
+        "region_id": null,
+        "position_xyz": [
+          21.15,
+          1.7000000000000008,
+          0.0
+        ],
+        "source_ref": null,
+        "properties": {
+          "confidence": "observed",
+          "evidence": {
+            "image": "evidence/83501003167e8386-1F-material-top.png",
+            "visual_note": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": "1F-material-top: 西墙内侧两个并排白色方块（u≈0.06-0.135, v≈0.375-0.52）；1F-material-ne: 两台玻璃门白柜（内搁小件）清晰；1F-material-se: 同柜他视角同见。",
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            },
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "position_source": "centroid_of_bound_occupied_cells",
+          "pose_status": "task_interactions_deferred",
+          "map_project": {
+            "mode": "base_instance",
+            "level_id": "1F",
+            "instance_id": 4
+          },
+          "geometry_binding": {
+            "raster_file": "level-000-semantic-grid.npz",
+            "instance_id": 4,
+            "footprint_geojson": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    20.8,
+                    1.9000000000000004
+                  ],
+                  [
+                    20.8,
+                    2.0
+                  ],
+                  [
+                    20.8,
+                    2.1000000000000005
+                  ],
+                  [
+                    20.8,
+                    2.2
+                  ],
+                  [
+                    20.8,
+                    2.3000000000000007
+                  ],
+                  [
+                    20.8,
+                    2.4000000000000004
+                  ],
+                  [
+                    20.8,
+                    2.5
+                  ],
+                  [
+                    20.8,
+                    2.6000000000000005
+                  ],
+                  [
+                    21.5,
+                    2.6000000000000005
+                  ],
+                  [
+                    21.5,
+                    2.5
+                  ],
+                  [
+                    21.5,
+                    2.4000000000000004
+                  ],
+                  [
+                    21.5,
+                    2.3000000000000007
+                  ],
+                  [
+                    21.5,
+                    2.2
+                  ],
+                  [
+                    21.5,
+                    2.1000000000000005
+                  ],
+                  [
+                    21.5,
+                    2.0
+                  ],
+                  [
+                    21.5,
+                    1.9000000000000004
+                  ],
+                  [
+                    21.5,
+                    1.8000000000000007
+                  ],
+                  [
+                    21.5,
+                    1.7000000000000002
+                  ],
+                  [
+                    21.5,
+                    1.6000000000000005
+                  ],
+                  [
+                    21.5,
+                    1.5
+                  ],
+                  [
+                    21.5,
+                    1.4000000000000004
+                  ],
+                  [
+                    21.5,
+                    1.3000000000000007
+                  ],
+                  [
+                    21.5,
+                    1.2000000000000002
+                  ],
+                  [
+                    21.5,
+                    1.1000000000000005
+                  ],
+                  [
+                    21.5,
+                    1.0
+                  ],
+                  [
+                    21.5,
+                    0.9000000000000004
+                  ],
+                  [
+                    21.5,
+                    0.8000000000000007
+                  ],
+                  [
+                    20.8,
+                    0.8000000000000007
+                  ],
+                  [
+                    20.8,
+                    0.9000000000000004
+                  ],
+                  [
+                    20.8,
+                    1.0
+                  ],
+                  [
+                    20.8,
+                    1.1000000000000005
+                  ],
+                  [
+                    20.8,
+                    1.2000000000000002
+                  ],
+                  [
+                    20.8,
+                    1.3000000000000007
+                  ],
+                  [
+                    20.8,
+                    1.4000000000000004
+                  ],
+                  [
+                    20.8,
+                    1.5
+                  ],
+                  [
+                    20.8,
+                    1.6000000000000005
+                  ],
+                  [
+                    20.8,
+                    1.7000000000000002
+                  ],
+                  [
+                    20.8,
+                    1.8000000000000007
+                  ],
+                  [
+                    20.8,
+                    1.9000000000000004
+                  ]
+                ]
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "production_consultation_room-1F-west-blue-bin-cart",
+        "kind": "cart",
+        "label": "small white cart with blue bins, west wall south portion near SW corner",
+        "aliases": [],
+        "level_id": "1F",
+        "region_id": null,
+        "position_xyz": [
+          20.883333333333336,
+          -1.7916666666666663,
+          0.0
+        ],
+        "source_ref": null,
+        "properties": {
+          "confidence": "category_uncertain",
+          "evidence": {
+            "image": "evidence/83501003167e8386-1F-material-top.png",
+            "visual_note": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": "1F-material-top: 西墙南段小白块（u≈0.045-0.095, v≈0.715-0.775）；1F-material-ne: 西南角区域见带蓝色盒/屉的推车（轮式、2-3 层）；顶视块与斜视对应关系为近似。",
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            },
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "position_source": "centroid_of_bound_occupied_cells",
+          "pose_status": "task_interactions_deferred",
+          "map_project": {
+            "mode": "base_instance",
+            "level_id": "1F",
+            "instance_id": 5
+          },
+          "geometry_binding": {
+            "raster_file": "level-000-semantic-grid.npz",
+            "instance_id": 5,
+            "footprint_geojson": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    20.7,
+                    -2.0999999999999996
+                  ],
+                  [
+                    20.7,
+                    -2.0
+                  ],
+                  [
+                    20.7,
+                    -1.9
+                  ],
+                  [
+                    20.7,
+                    -1.7999999999999998
+                  ],
+                  [
+                    20.7,
+                    -1.6999999999999997
+                  ],
+                  [
+                    20.7,
+                    -1.5999999999999996
+                  ],
+                  [
+                    20.7,
+                    -1.5
+                  ],
+                  [
+                    20.7,
+                    -1.4
+                  ],
+                  [
+                    20.9,
+                    -1.4
+                  ],
+                  [
+                    20.9,
+                    -1.5
+                  ],
+                  [
+                    20.9,
+                    -1.5999999999999996
+                  ],
+                  [
+                    21.1,
+                    -1.5999999999999996
+                  ],
+                  [
+                    21.1,
+                    -1.6999999999999997
+                  ],
+                  [
+                    21.1,
+                    -1.7999999999999998
+                  ],
+                  [
+                    21.1,
+                    -1.9
+                  ],
+                  [
+                    21.1,
+                    -2.0
+                  ],
+                  [
+                    21.1,
+                    -2.0999999999999996
+                  ],
+                  [
+                    20.7,
+                    -2.0999999999999996
+                  ]
+                ]
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "production_consultation_room-1F-west-face-panel",
+        "kind": "panel",
+        "label": "flush white panel on west face middle (door leaf or wall patch; span coincides with interior cabinets, relationship unresolved)",
+        "aliases": [],
+        "level_id": "1F",
+        "region_id": null,
+        "position_xyz": [
+          20.78125,
+          0.9937500000000004,
+          0.0
+        ],
+        "source_ref": null,
+        "properties": {
+          "confidence": "category_uncertain",
+          "evidence": {
+            "image": "evidence/83501003167e8386-1F-material-top.png",
+            "visual_note": {
+              "image": "evidence/ac958ed18d2fd722-1F-material-sw.png",
+              "visual_note": "1F-material-sw: 西外墙面中部浅色矩形段（v≈0.45-0.55 投影）；1F-material-top: 该段墙线无断口；与室内玻璃柜 Span 的关系未辨。",
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            },
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "position_source": "centroid_of_bound_occupied_cells",
+          "pose_status": "task_interactions_deferred",
+          "map_project": {
+            "mode": "base_instance",
+            "level_id": "1F",
+            "instance_id": 7
+          },
+          "geometry_binding": {
+            "raster_file": "level-000-semantic-grid.npz",
+            "instance_id": 6,
+            "footprint_geojson": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    20.7,
+                    0.9000000000000004
+                  ],
+                  [
+                    20.7,
+                    1.0
+                  ],
+                  [
+                    20.7,
+                    1.1000000000000005
+                  ],
+                  [
+                    20.7,
+                    1.2000000000000002
+                  ],
+                  [
+                    20.7,
+                    1.3000000000000007
+                  ],
+                  [
+                    20.7,
+                    1.4000000000000004
+                  ],
+                  [
+                    20.7,
+                    1.5
+                  ],
+                  [
+                    20.7,
+                    1.6000000000000005
+                  ],
+                  [
+                    20.7,
+                    1.7000000000000002
+                  ],
+                  [
+                    20.8,
+                    1.7000000000000002
+                  ],
+                  [
+                    20.8,
+                    1.6000000000000005
+                  ],
+                  [
+                    20.8,
+                    1.5
+                  ],
+                  [
+                    20.8,
+                    1.4000000000000004
+                  ],
+                  [
+                    20.8,
+                    1.3000000000000007
+                  ],
+                  [
+                    20.8,
+                    1.2000000000000002
+                  ],
+                  [
+                    20.8,
+                    1.1000000000000005
+                  ],
+                  [
+                    20.8,
+                    1.0
+                  ],
+                  [
+                    20.8,
+                    0.9000000000000004
+                  ],
+                  [
+                    20.8,
+                    0.8000000000000007
+                  ],
+                  [
+                    21.0,
+                    0.8000000000000007
+                  ],
+                  [
+                    21.0,
+                    0.7000000000000002
+                  ],
+                  [
+                    20.9,
+                    0.7000000000000002
+                  ],
+                  [
+                    20.9,
+                    0.6000000000000005
+                  ],
+                  [
+                    20.9,
+                    0.5
+                  ],
+                  [
+                    20.7,
+                    0.5
+                  ],
+                  [
+                    20.7,
+                    0.6000000000000005
+                  ],
+                  [
+                    20.7,
+                    0.7000000000000002
+                  ],
+                  [
+                    20.7,
+                    0.8000000000000007
+                  ],
+                  [
+                    20.7,
+                    0.9000000000000004
+                  ]
+                ]
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "production_consultation_room-1F-south-door",
+        "kind": "door",
+        "label": "south-wall door with dark glazed panel, leaf crossing wall line in top view",
+        "aliases": [],
+        "level_id": "1F",
+        "region_id": null,
+        "position_xyz": [
+          23.82272727272727,
+          -3.992424242424242,
+          0.0
+        ],
+        "source_ref": null,
+        "properties": {
+          "confidence": "observed",
+          "evidence": {
+            "image": "evidence/83501003167e8386-1F-material-top.png",
+            "visual_note": {
+              "image": "evidence/ac958ed18d2fd722-1F-material-sw.png",
+              "visual_note": "1F-material-sw: 南墙白色门扇带深色玻璃窗清晰；1F-material-top: 南墙 u≈0.395-0.46 断口+白色门扇矩形越墙线（v≈0.90-0.96）。",
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            },
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "position_source": "centroid_of_bound_occupied_cells",
+          "pose_status": "task_interactions_deferred",
+          "map_project": {
+            "mode": "base_instance",
+            "level_id": "1F",
+            "instance_id": 8
+          },
+          "geometry_binding": {
+            "raster_file": "level-000-semantic-grid.npz",
+            "instance_id": 7,
+            "footprint_geojson": {
+              "type": "MultiPolygon",
+              "coordinates": [
+                [
+                  [
+                    [
+                      23.5,
+                      -4.4
+                    ],
+                    [
+                      23.5,
+                      -4.3
+                    ],
+                    [
+                      23.5,
+                      -4.2
+                    ],
+                    [
+                      23.5,
+                      -4.1
+                    ],
+                    [
+                      23.6,
+                      -4.1
+                    ],
+                    [
+                      23.6,
+                      -4.2
+                    ],
+                    [
+                      24.1,
+                      -4.2
+                    ],
+                    [
+                      24.1,
+                      -4.3
+                    ],
+                    [
+                      24.1,
+                      -4.4
+                    ],
+                    [
+                      23.5,
+                      -4.4
+                    ]
+                  ]
+                ],
+                [
+                  [
+                    [
+                      23.6,
+                      -3.9
+                    ],
+                    [
+                      23.6,
+                      -3.8
+                    ],
+                    [
+                      23.6,
+                      -3.7
+                    ],
+                    [
+                      23.6,
+                      -3.6
+                    ],
+                    [
+                      24.1,
+                      -3.6
+                    ],
+                    [
+                      24.1,
+                      -3.7
+                    ],
+                    [
+                      24.1,
+                      -3.8
+                    ],
+                    [
+                      24.1,
+                      -3.9
+                    ],
+                    [
+                      24.1,
+                      -4.0
+                    ],
+                    [
+                      23.6,
+                      -4.0
+                    ],
+                    [
+                      23.6,
+                      -3.9
+                    ]
+                  ]
+                ]
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "production_consultation_room-1F-north-blue-drawer-cabinet",
+        "kind": "cabinet",
+        "label": "tall white cabinet with columns of blue drawers, against north wall east portion (top-view gray block)",
+        "aliases": [],
+        "level_id": "1F",
+        "region_id": null,
+        "position_xyz": [
+          25.95,
+          5.700000000000001,
+          0.0
+        ],
+        "source_ref": null,
+        "properties": {
+          "confidence": "observed",
+          "evidence": {
+            "image": "evidence/83501003167e8386-1F-material-top.png",
+            "visual_note": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": "1F-material-top: 北墙内侧灰色矩形块（u≈0.60-0.79, v≈0.075-0.145）= 柜顶；1F-material-se: 白柜+两列蓝色抽屉清晰；1F-material-sw: 蓝屉白柜同见（其沿墙位置存在第二种读法，见 uncertainties）。",
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            },
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "position_source": "centroid_of_bound_occupied_cells",
+          "pose_status": "task_interactions_deferred",
+          "map_project": {
+            "mode": "base_instance",
+            "level_id": "1F",
+            "instance_id": 9
+          },
+          "geometry_binding": {
+            "raster_file": "level-000-semantic-grid.npz",
+            "instance_id": 8,
+            "footprint_geojson": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    25.2,
+                    5.4
+                  ],
+                  [
+                    25.2,
+                    5.5
+                  ],
+                  [
+                    25.2,
+                    5.600000000000001
+                  ],
+                  [
+                    25.2,
+                    5.700000000000001
+                  ],
+                  [
+                    25.2,
+                    5.800000000000001
+                  ],
+                  [
+                    25.2,
+                    5.9
+                  ],
+                  [
+                    25.2,
+                    6.0
+                  ],
+                  [
+                    25.2,
+                    6.100000000000001
+                  ],
+                  [
+                    26.7,
+                    6.100000000000001
+                  ],
+                  [
+                    26.7,
+                    6.0
+                  ],
+                  [
+                    26.7,
+                    5.9
+                  ],
+                  [
+                    26.7,
+                    5.800000000000001
+                  ],
+                  [
+                    26.7,
+                    5.700000000000001
+                  ],
+                  [
+                    26.7,
+                    5.600000000000001
+                  ],
+                  [
+                    26.7,
+                    5.5
+                  ],
+                  [
+                    26.7,
+                    5.4
+                  ],
+                  [
+                    26.7,
+                    5.300000000000001
+                  ],
+                  [
+                    25.2,
+                    5.300000000000001
+                  ],
+                  [
+                    25.2,
+                    5.4
+                  ]
+                ]
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "production_consultation_room-1F-se-drawer-cart",
+        "kind": "cart",
+        "label": "dark multi-drawer cart, east wall south-middle interior",
+        "aliases": [],
+        "level_id": "1F",
+        "region_id": null,
+        "position_xyz": [
+          27.222727272727273,
+          -1.5954545454545455,
+          0.0
+        ],
+        "source_ref": null,
+        "properties": {
+          "confidence": "category_uncertain",
+          "evidence": {
+            "image": "evidence/83501003167e8386-1F-material-top.png",
+            "visual_note": {
+              "image": "evidence/ac196e5d8fd430b3-1F-material-se.png",
+              "visual_note": "1F-material-se: 黑色多屉小柜（3-4 层）近东墙清晰；1F-material-top: 对应带深色条纹白矩形（u≈0.815-0.885, v≈0.72-0.76）。",
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            },
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "position_source": "centroid_of_bound_occupied_cells",
+          "pose_status": "task_interactions_deferred",
+          "map_project": {
+            "mode": "base_instance",
+            "level_id": "1F",
+            "instance_id": 11
+          },
+          "geometry_binding": {
+            "raster_file": "level-000-semantic-grid.npz",
+            "instance_id": 9,
+            "footprint_geojson": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    27.5,
+                    -1.6999999999999997
+                  ],
+                  [
+                    27.0,
+                    -1.6999999999999997
+                  ],
+                  [
+                    27.0,
+                    -1.5999999999999996
+                  ],
+                  [
+                    26.9,
+                    -1.5999999999999996
+                  ],
+                  [
+                    26.9,
+                    -1.5
+                  ],
+                  [
+                    27.5,
+                    -1.5
+                  ],
+                  [
+                    27.5,
+                    -1.5999999999999996
+                  ],
+                  [
+                    27.5,
+                    -1.6999999999999997
+                  ]
+                ]
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "production_consultation_room-1F-se-basin-like-square",
+        "kind": "fixture",
+        "label": "white square with circular mark, south-east area (basin/stool-like, classification unresolved)",
+        "aliases": [],
+        "level_id": "1F",
+        "region_id": null,
+        "position_xyz": [
+          26.849999999999998,
+          -2.4499999999999997,
+          0.0
+        ],
+        "source_ref": null,
+        "properties": {
+          "confidence": "category_uncertain",
+          "evidence": {
+            "image": "evidence/83501003167e8386-1F-material-top.png",
+            "visual_note": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": "1F-material-top: 白色方块+圆记号（u≈0.79-0.86, v≈0.775-0.83）；1F-material-sw: 东墙南段内侧白色柜台+黑色扁平物 nearby，圆记号物未单独辨识；器形未辨。",
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            },
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "position_source": "centroid_of_bound_occupied_cells",
+          "pose_status": "task_interactions_deferred",
+          "map_project": {
+            "mode": "base_instance",
+            "level_id": "1F",
+            "instance_id": 12
+          },
+          "geometry_binding": {
+            "raster_file": "level-000-semantic-grid.npz",
+            "instance_id": 10,
+            "footprint_geojson": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    26.8,
+                    -2.8
+                  ],
+                  [
+                    26.8,
+                    -2.7
+                  ],
+                  [
+                    26.8,
+                    -2.5999999999999996
+                  ],
+                  [
+                    26.8,
+                    -2.5
+                  ],
+                  [
+                    26.8,
+                    -2.4
+                  ],
+                  [
+                    26.8,
+                    -2.3
+                  ],
+                  [
+                    26.8,
+                    -2.1999999999999997
+                  ],
+                  [
+                    26.8,
+                    -2.0999999999999996
+                  ],
+                  [
+                    26.9,
+                    -2.0999999999999996
+                  ],
+                  [
+                    26.9,
+                    -2.1999999999999997
+                  ],
+                  [
+                    26.9,
+                    -2.3
+                  ],
+                  [
+                    26.9,
+                    -2.4
+                  ],
+                  [
+                    26.9,
+                    -2.5
+                  ],
+                  [
+                    26.9,
+                    -2.5999999999999996
+                  ],
+                  [
+                    26.9,
+                    -2.7
+                  ],
+                  [
+                    26.9,
+                    -2.8
+                  ],
+                  [
+                    26.8,
+                    -2.8
+                  ]
+                ]
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "production_consultation_room-1F-east-windows",
+        "kind": "windows",
+        "label": "window openings with dark frames on east face (3 openings)",
+        "aliases": [],
+        "level_id": "1F",
+        "region_id": null,
+        "position_xyz": [
+          27.75,
+          0.8000000000000003,
+          0.0
+        ],
+        "source_ref": null,
+        "properties": {
+          "confidence": "observed",
+          "evidence": {
+            "image": "evidence/83501003167e8386-1F-material-top.png",
+            "visual_note": {
+              "image": "evidence/f84f2574996cbfc3-1F-material-ne.png",
+              "visual_note": "1F-material-ne: 东立面 2-3 个深框窗洞清晰；1F-material-se: 东面三连窗同见；1F-material-top: 东墙线（u≈0.90-0.945）对应段变淡，v 范围近似。",
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            },
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "position_source": "centroid_of_bound_occupied_cells",
+          "pose_status": "task_interactions_deferred",
+          "map_project": {
+            "mode": "base_instance",
+            "level_id": "1F",
+            "instance_id": 14
+          },
+          "geometry_binding": {
+            "raster_file": "level-000-semantic-grid.npz",
+            "instance_id": 11,
+            "footprint_geojson": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    27.6,
+                    1.1000000000000005
+                  ],
+                  [
+                    27.6,
+                    1.2000000000000002
+                  ],
+                  [
+                    27.6,
+                    1.3000000000000007
+                  ],
+                  [
+                    27.6,
+                    1.4000000000000004
+                  ],
+                  [
+                    27.6,
+                    1.5
+                  ],
+                  [
+                    27.6,
+                    1.6000000000000005
+                  ],
+                  [
+                    27.6,
+                    1.7000000000000002
+                  ],
+                  [
+                    27.6,
+                    1.8000000000000007
+                  ],
+                  [
+                    27.6,
+                    1.9000000000000004
+                  ],
+                  [
+                    27.6,
+                    2.0
+                  ],
+                  [
+                    27.6,
+                    2.1000000000000005
+                  ],
+                  [
+                    27.6,
+                    2.2
+                  ],
+                  [
+                    27.6,
+                    2.3000000000000007
+                  ],
+                  [
+                    27.6,
+                    2.4000000000000004
+                  ],
+                  [
+                    27.6,
+                    2.5
+                  ],
+                  [
+                    27.6,
+                    2.6000000000000005
+                  ],
+                  [
+                    27.6,
+                    2.7
+                  ],
+                  [
+                    27.6,
+                    2.8000000000000007
+                  ],
+                  [
+                    27.6,
+                    2.9000000000000004
+                  ],
+                  [
+                    27.6,
+                    3.0
+                  ],
+                  [
+                    27.6,
+                    3.1000000000000005
+                  ],
+                  [
+                    27.9,
+                    3.1000000000000005
+                  ],
+                  [
+                    27.9,
+                    3.0
+                  ],
+                  [
+                    27.9,
+                    2.9000000000000004
+                  ],
+                  [
+                    27.9,
+                    2.8000000000000007
+                  ],
+                  [
+                    27.9,
+                    2.7
+                  ],
+                  [
+                    27.9,
+                    2.6000000000000005
+                  ],
+                  [
+                    27.9,
+                    2.5
+                  ],
+                  [
+                    27.9,
+                    2.4000000000000004
+                  ],
+                  [
+                    27.9,
+                    2.3000000000000007
+                  ],
+                  [
+                    27.9,
+                    2.2
+                  ],
+                  [
+                    27.9,
+                    2.1000000000000005
+                  ],
+                  [
+                    27.9,
+                    2.0
+                  ],
+                  [
+                    27.9,
+                    1.9000000000000004
+                  ],
+                  [
+                    27.9,
+                    1.8000000000000007
+                  ],
+                  [
+                    27.9,
+                    1.7000000000000002
+                  ],
+                  [
+                    27.9,
+                    1.6000000000000005
+                  ],
+                  [
+                    27.9,
+                    1.5
+                  ],
+                  [
+                    27.9,
+                    1.4000000000000004
+                  ],
+                  [
+                    27.9,
+                    1.3000000000000007
+                  ],
+                  [
+                    27.9,
+                    1.2000000000000002
+                  ],
+                  [
+                    27.9,
+                    1.1000000000000005
+                  ],
+                  [
+                    27.9,
+                    1.0
+                  ],
+                  [
+                    27.9,
+                    0.9000000000000004
+                  ],
+                  [
+                    27.9,
+                    0.8000000000000007
+                  ],
+                  [
+                    27.9,
+                    0.7000000000000002
+                  ],
+                  [
+                    27.9,
+                    0.6000000000000005
+                  ],
+                  [
+                    27.9,
+                    0.5
+                  ],
+                  [
+                    27.9,
+                    0.40000000000000036
+                  ],
+                  [
+                    27.9,
+                    0.3000000000000007
+                  ],
+                  [
+                    27.9,
+                    0.20000000000000018
+                  ],
+                  [
+                    27.9,
+                    0.10000000000000053
+                  ],
+                  [
+                    27.9,
+                    0.0
+                  ],
+                  [
+                    27.9,
+                    -0.09999999999999964
+                  ],
+                  [
+                    27.9,
+                    -0.20000000000000018
+                  ],
+                  [
+                    27.9,
+                    -0.2999999999999998
+                  ],
+                  [
+                    27.9,
+                    -0.39999999999999947
+                  ],
+                  [
+                    27.9,
+                    -0.5
+                  ],
+                  [
+                    27.9,
+                    -0.5999999999999996
+                  ],
+                  [
+                    27.9,
+                    -0.6999999999999997
+                  ],
+                  [
+                    27.9,
+                    -0.7999999999999998
+                  ],
+                  [
+                    27.9,
+                    -0.8999999999999999
+                  ],
+                  [
+                    27.9,
+                    -1.0
+                  ],
+                  [
+                    27.9,
+                    -1.0999999999999996
+                  ],
+                  [
+                    27.9,
+                    -1.1999999999999997
+                  ],
+                  [
+                    27.9,
+                    -1.2999999999999998
+                  ],
+                  [
+                    27.9,
+                    -1.4
+                  ],
+                  [
+                    27.9,
+                    -1.5
+                  ],
+                  [
+                    27.6,
+                    -1.5
+                  ],
+                  [
+                    27.6,
+                    -1.4
+                  ],
+                  [
+                    27.6,
+                    -1.2999999999999998
+                  ],
+                  [
+                    27.6,
+                    -1.1999999999999997
+                  ],
+                  [
+                    27.6,
+                    -1.0999999999999996
+                  ],
+                  [
+                    27.6,
+                    -1.0
+                  ],
+                  [
+                    27.6,
+                    -0.8999999999999999
+                  ],
+                  [
+                    27.6,
+                    -0.7999999999999998
+                  ],
+                  [
+                    27.6,
+                    -0.6999999999999997
+                  ],
+                  [
+                    27.6,
+                    -0.5999999999999996
+                  ],
+                  [
+                    27.6,
+                    -0.5
+                  ],
+                  [
+                    27.6,
+                    -0.39999999999999947
+                  ],
+                  [
+                    27.6,
+                    -0.2999999999999998
+                  ],
+                  [
+                    27.6,
+                    -0.20000000000000018
+                  ],
+                  [
+                    27.6,
+                    -0.09999999999999964
+                  ],
+                  [
+                    27.6,
+                    0.0
+                  ],
+                  [
+                    27.6,
+                    0.10000000000000053
+                  ],
+                  [
+                    27.6,
+                    0.20000000000000018
+                  ],
+                  [
+                    27.6,
+                    0.3000000000000007
+                  ],
+                  [
+                    27.6,
+                    0.40000000000000036
+                  ],
+                  [
+                    27.6,
+                    0.5
+                  ],
+                  [
+                    27.6,
+                    0.6000000000000005
+                  ],
+                  [
+                    27.6,
+                    0.7000000000000002
+                  ],
+                  [
+                    27.6,
+                    0.8000000000000007
+                  ],
+                  [
+                    27.6,
+                    0.9000000000000004
+                  ],
+                  [
+                    27.6,
+                    1.0
+                  ],
+                  [
+                    27.6,
+                    1.1000000000000005
+                  ]
+                ]
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "production_consultation_room-1F-north-windows",
+        "kind": "windows",
+        "label": "window openings with dark frames on north face (2 openings)",
+        "aliases": [],
+        "level_id": "1F",
+        "region_id": null,
+        "position_xyz": [
+          23.900000000000002,
+          6.300000000000001,
+          0.0
+        ],
+        "source_ref": null,
+        "properties": {
+          "confidence": "observed",
+          "evidence": {
+            "image": "evidence/83501003167e8386-1F-material-top.png",
+            "visual_note": {
+              "image": "evidence/9cf2ec3c7d4f0b51-1F-material-nw.png",
+              "visual_note": "1F-material-nw: 北立面两个深框窗洞清晰；1F-material-top: 北墙线对应段变淡，u 范围为近似。",
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            },
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "position_source": "centroid_of_bound_occupied_cells",
+          "pose_status": "task_interactions_deferred",
+          "map_project": {
+            "mode": "base_instance",
+            "level_id": "1F",
+            "instance_id": 15
+          },
+          "geometry_binding": {
+            "raster_file": "level-000-semantic-grid.npz",
+            "instance_id": 12,
+            "footprint_geojson": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    22.6,
+                    6.100000000000001
+                  ],
+                  [
+                    22.6,
+                    6.200000000000001
+                  ],
+                  [
+                    22.6,
+                    6.300000000000001
+                  ],
+                  [
+                    22.6,
+                    6.4
+                  ],
+                  [
+                    22.6,
+                    6.5
+                  ],
+                  [
+                    25.2,
+                    6.5
+                  ],
+                  [
+                    25.2,
+                    6.4
+                  ],
+                  [
+                    25.2,
+                    6.300000000000001
+                  ],
+                  [
+                    25.2,
+                    6.200000000000001
+                  ],
+                  [
+                    25.2,
+                    6.100000000000001
+                  ],
+                  [
+                    22.6,
+                    6.100000000000001
+                  ]
+                ]
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "production_consultation_room-1F-south-windows",
+        "kind": "windows",
+        "label": "window openings with dark frames on south face (west and east portions, count unresolved)",
+        "aliases": [],
+        "level_id": "1F",
+        "region_id": null,
+        "position_xyz": [
+          24.145488721804515,
+          -4.259022556390977,
+          0.0
+        ],
+        "source_ref": null,
+        "properties": {
+          "confidence": "observed",
+          "evidence": {
+            "image": "evidence/83501003167e8386-1F-material-top.png",
+            "visual_note": {
+              "image": "evidence/ac958ed18d2fd722-1F-material-sw.png",
+              "visual_note": "1F-material-sw: 南立面东段深框窗洞；1F-material-se: 南立面西段深框窗洞；1F-material-top: 南墙线对应段变淡；外接框含门区（u≈0.395-0.46），洞口具体分组未辨。",
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            },
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "position_source": "centroid_of_bound_occupied_cells",
+          "pose_status": "task_interactions_deferred",
+          "map_project": {
+            "mode": "base_instance",
+            "level_id": "1F",
+            "instance_id": 16
+          },
+          "geometry_binding": {
+            "raster_file": "level-000-semantic-grid.npz",
+            "instance_id": 13,
+            "footprint_geojson": {
+              "type": "MultiPolygon",
+              "coordinates": [
+                [
+                  [
+                    [
+                      21.2,
+                      -4.2
+                    ],
+                    [
+                      22.0,
+                      -4.2
+                    ],
+                    [
+                      22.0,
+                      -4.1
+                    ],
+                    [
+                      23.5,
+                      -4.1
+                    ],
+                    [
+                      23.5,
+                      -4.2
+                    ],
+                    [
+                      23.5,
+                      -4.3
+                    ],
+                    [
+                      23.5,
+                      -4.4
+                    ],
+                    [
+                      21.2,
+                      -4.4
+                    ],
+                    [
+                      21.2,
+                      -4.3
+                    ],
+                    [
+                      21.2,
+                      -4.2
+                    ]
+                  ]
+                ],
+                [
+                  [
+                    [
+                      24.1,
+                      -4.2
+                    ],
+                    [
+                      26.8,
+                      -4.2
+                    ],
+                    [
+                      26.8,
+                      -4.1
+                    ],
+                    [
+                      26.8,
+                      -4.0
+                    ],
+                    [
+                      26.8,
+                      -3.9
+                    ],
+                    [
+                      26.9,
+                      -3.9
+                    ],
+                    [
+                      26.9,
+                      -4.0
+                    ],
+                    [
+                      26.9,
+                      -4.1
+                    ],
+                    [
+                      26.9,
+                      -4.2
+                    ],
+                    [
+                      27.2,
+                      -4.2
+                    ],
+                    [
+                      27.2,
+                      -4.3
+                    ],
+                    [
+                      27.2,
+                      -4.4
+                    ],
+                    [
+                      24.1,
+                      -4.4
+                    ],
+                    [
+                      24.1,
+                      -4.3
+                    ],
+                    [
+                      24.1,
+                      -4.2
+                    ]
+                  ]
+                ],
+                [
+                  [
+                    [
+                      24.8,
+                      -4.0
+                    ],
+                    [
+                      24.1,
+                      -4.0
+                    ],
+                    [
+                      24.1,
+                      -3.9
+                    ],
+                    [
+                      24.8,
+                      -3.9
+                    ],
+                    [
+                      24.8,
+                      -4.0
+                    ]
+                  ]
+                ]
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "interaction_poses": [],
+    "routes": [
+      {
+        "id": "route:production_consultation_room:1F:component-001:free-centerline",
+        "label": "自由空间避障中心线草稿",
+        "kind": "walk",
+        "aliases": [],
+        "node_ids": [
+          "node:production_consultation_room:1F:component-001:route-start",
+          "node:production_consultation_room:1F:component-001:route-end"
+        ],
+        "edge_ids": [
+          "route:production_consultation_room:1F:component-001:free-centerline:edge:0001"
+        ],
+        "properties": {
+          "status": "grid_collision_free_centerline_draft",
+          "robot_validated": false,
+          "resolution_m": 0.1,
+          "free_component_cells": 20,
+          "heightfield_profile_in_npz": false,
+          "warning": "No robot footprint, clearance or dynamics certification"
+        }
+      }
+    ],
+    "extensions": {
+      "vertical_connectors": []
+    }
+  },
+  "robot_validated": false,
+  "visual_review": {
+    "levels": {
+      "1F": {
+        "scene_id": "production_consultation_room",
+        "level_id": "1F",
+        "regions": [
+          {
+            "id": "production_consultation_room-1F-room-floorplate",
+            "label": "single roofless room, pale-yellow walls, white tile floor, windows on east/north/south faces, doors on west/south walls",
+            "kind": "floorplate",
+            "confidence": "observed",
+            "bounds_norm": [
+              0.04,
+              0.035,
+              0.94,
+              0.965
+            ],
+            "evidence": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": {
+                "image": "evidence/83501003167e8386-1F-material-top.png",
+                "visual_note": "1F-material-top: 墙线矩形（u≈0.04-0.94, v≈0.035-0.965），白色大块瓷砖地坪；1F-material-ne/nw/se/sw: 无顶单房间四斜视，北面西段外墙见黄色涂料晕斑（见 uncertainties），其余墙面浅黄/白；东/北/南面见窗洞，西/南墙见门。",
+                "reviewer": "ZCode GLM-5.3-Flash/max"
+              },
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            }
+          },
+          {
+            "id": "production_consultation_room-1F-desk-zone",
+            "label": "work desk zone: long white desk with monitor/keyboard, blue office chair north of desk, low cabinet east of desk",
+            "kind": "desk_zone",
+            "confidence": "observed",
+            "bounds_norm": [
+              0.21,
+              0.21,
+              0.71,
+              0.335
+            ],
+            "evidence": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": {
+                "image": "evidence/83501003167e8386-1F-material-top.png",
+                "visual_note": "1F-material-top: 白色长桌（u≈0.22-0.60, v≈0.275-0.32）+桌上深色显示器/键盘/小件+北侧蓝色办公椅（u≈0.395-0.50, v≈0.215-0.27）+桌东端白色矮柜（u≈0.61-0.665）；1F-material-nw: 桌+显示器+桌旁小推车同见；1F-material-se: 蓝椅背与桌面同见。",
+                "reviewer": "ZCode GLM-5.3-Flash/max"
+              },
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            }
+          },
+          {
+            "id": "production_consultation_room-1F-southeast-work-zone",
+            "label": "south-east work zone near east wall: white table with tray, drawer cart, basin-like square (constituent pieces faint in top view)",
+            "kind": "work_zone",
+            "confidence": "observed",
+            "bounds_norm": [
+              0.69,
+              0.59,
+              0.895,
+              0.835
+            ],
+            "evidence": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": {
+                "image": "evidence/83501003167e8386-1F-material-top.png",
+                "visual_note": "1F-material-top: 东南区（u≈0.69-0.895, v≈0.59-0.835）见白色矩形、带深色条纹矩形与带圆记号白色方块三个小构件；1F-material-ne: 透过东墙窗洞见白色台面+深色托盘；1F-material-se/sw: 东墙内侧白柜台+黑色扁平物+小件同见；单件分类未辨（见 objects）。",
+                "reviewer": "ZCode GLM-5.3-Flash/max"
+              },
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            }
+          }
+        ],
+        "objects": [
+          {
+            "id": "production_consultation_room-1F-desk",
+            "label": "long white desk with dark monitor, keyboard, mouse and small items",
+            "kind": "desk",
+            "confidence": "observed",
+            "bounds_norm": [
+              0.22,
+              0.275,
+              0.6,
+              0.325
+            ],
+            "evidence": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": {
+                "image": "evidence/83501003167e8386-1F-material-top.png",
+                "visual_note": "1F-material-top: 桌面+深色显示器（u≈0.355-0.45, v≈0.30-0.325）+键盘/鼠标/小件清晰；1F-material-nw: 桌与显示器、桌旁小推车同见；1F-material-se: 桌东端+黑托盘状物同见。",
+                "reviewer": "ZCode GLM-5.3-Flash/max"
+              },
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            }
+          },
+          {
+            "id": "production_consultation_room-1F-blue-chair",
+            "label": "blue office chair with armrests and star base, north of desk",
+            "kind": "chair",
+            "confidence": "observed",
+            "bounds_norm": [
+              0.395,
+              0.215,
+              0.5,
+              0.27
+            ],
+            "evidence": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": {
+                "image": "evidence/83501003167e8386-1F-material-top.png",
+                "visual_note": "1F-material-top: 蓝色座面+扶手+五星脚清晰（u≈0.395-0.50, v≈0.215-0.27）；1F-material-se: 蓝色椅背同见。",
+                "reviewer": "ZCode GLM-5.3-Flash/max"
+              },
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            }
+          },
+          {
+            "id": "production_consultation_room-1F-desk-side-cabinet",
+            "label": "low white cabinet east of desk (teal-screen monitor seen beside it in ne view, top-view position unresolvable)",
+            "kind": "cabinet",
+            "confidence": "observed",
+            "bounds_norm": [
+              0.61,
+              0.27,
+              0.665,
+              0.32
+            ],
+            "evidence": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": {
+                "image": "evidence/83501003167e8386-1F-material-top.png",
+                "visual_note": "1F-material-top: 桌东端独立白色矮柜带抽屉记号（u≈0.61-0.665, v≈0.27-0.32）；1F-material-ne: 其附近见青绿屏面显示器，顶视无法定位屏幕，归入本条备注。",
+                "reviewer": "ZCode GLM-5.3-Flash/max"
+              },
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            }
+          },
+          {
+            "id": "production_consultation_room-1F-west-glass-cabinets",
+            "label": "two white cabinets with glass doors and shelved items, against west wall middle",
+            "kind": "cabinets",
+            "confidence": "observed",
+            "bounds_norm": [
+              0.055,
+              0.37,
+              0.14,
+              0.525
+            ],
+            "evidence": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": {
+                "image": "evidence/83501003167e8386-1F-material-top.png",
+                "visual_note": "1F-material-top: 西墙内侧两个并排白色方块（u≈0.06-0.135, v≈0.375-0.52）；1F-material-ne: 两台玻璃门白柜（内搁小件）清晰；1F-material-se: 同柜他视角同见。",
+                "reviewer": "ZCode GLM-5.3-Flash/max"
+              },
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            }
+          },
+          {
+            "id": "production_consultation_room-1F-west-blue-bin-cart",
+            "label": "small white cart with blue bins, west wall south portion near SW corner",
+            "kind": "cart",
+            "confidence": "category_uncertain",
+            "bounds_norm": [
+              0.045,
+              0.715,
+              0.095,
+              0.775
+            ],
+            "evidence": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": {
+                "image": "evidence/83501003167e8386-1F-material-top.png",
+                "visual_note": "1F-material-top: 西墙南段小白块（u≈0.045-0.095, v≈0.715-0.775）；1F-material-ne: 西南角区域见带蓝色盒/屉的推车（轮式、2-3 层）；顶视块与斜视对应关系为近似。",
+                "reviewer": "ZCode GLM-5.3-Flash/max"
+              },
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            }
+          },
+          {
+            "id": "production_consultation_room-1F-west-door",
+            "label": "west-wall door, open into room, door leaf line visible in top view",
+            "kind": "door",
+            "confidence": "observed",
+            "bounds_norm": [
+              0.04,
+              0.615,
+              0.21,
+              0.7
+            ],
+            "evidence": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": {
+                "image": "evidence/9cf2ec3c7d4f0b51-1F-material-nw.png",
+                "visual_note": "1F-material-nw: 西墙中南部开放门洞、门内明亮地坪可见；1F-material-ne: 白色门扇（带窄窗与把手）开启倚墙清晰；1F-material-top: 西墙线 v≈0.615-0.70 断开+白色门扇线东伸至 u≈0.20。",
+                "reviewer": "ZCode GLM-5.3-Flash/max"
+              },
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            }
+          },
+          {
+            "id": "production_consultation_room-1F-west-face-panel",
+            "label": "flush white panel on west face middle (door leaf or wall patch; span coincides with interior cabinets, relationship unresolved)",
+            "kind": "panel",
+            "confidence": "category_uncertain",
+            "bounds_norm": [
+              0.04,
+              0.45,
+              0.075,
+              0.55
+            ],
+            "evidence": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": {
+                "image": "evidence/ac958ed18d2fd722-1F-material-sw.png",
+                "visual_note": "1F-material-sw: 西外墙面中部浅色矩形段（v≈0.45-0.55 投影）；1F-material-top: 该段墙线无断口；与室内玻璃柜 Span 的关系未辨。",
+                "reviewer": "ZCode GLM-5.3-Flash/max"
+              },
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            }
+          },
+          {
+            "id": "production_consultation_room-1F-south-door",
+            "label": "south-wall door with dark glazed panel, leaf crossing wall line in top view",
+            "kind": "door",
+            "confidence": "observed",
+            "bounds_norm": [
+              0.395,
+              0.895,
+              0.46,
+              0.965
+            ],
+            "evidence": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": {
+                "image": "evidence/ac958ed18d2fd722-1F-material-sw.png",
+                "visual_note": "1F-material-sw: 南墙白色门扇带深色玻璃窗清晰；1F-material-top: 南墙 u≈0.395-0.46 断口+白色门扇矩形越墙线（v≈0.90-0.96）。",
+                "reviewer": "ZCode GLM-5.3-Flash/max"
+              },
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            }
+          },
+          {
+            "id": "production_consultation_room-1F-north-blue-drawer-cabinet",
+            "label": "tall white cabinet with columns of blue drawers, against north wall east portion (top-view gray block)",
+            "kind": "cabinet",
+            "confidence": "observed",
+            "bounds_norm": [
+              0.6,
+              0.075,
+              0.79,
+              0.145
+            ],
+            "evidence": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": {
+                "image": "evidence/83501003167e8386-1F-material-top.png",
+                "visual_note": "1F-material-top: 北墙内侧灰色矩形块（u≈0.60-0.79, v≈0.075-0.145）= 柜顶；1F-material-se: 白柜+两列蓝色抽屉清晰；1F-material-sw: 蓝屉白柜同见（其沿墙位置存在第二种读法，见 uncertainties）。",
+                "reviewer": "ZCode GLM-5.3-Flash/max"
+              },
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            }
+          },
+          {
+            "id": "production_consultation_room-1F-se-work-table",
+            "label": "white work table with dark tray and small items, room south-east area",
+            "kind": "table",
+            "confidence": "category_uncertain",
+            "bounds_norm": [
+              0.7,
+              0.595,
+              0.8,
+              0.67
+            ],
+            "evidence": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": {
+                "image": "evidence/f84f2574996cbfc3-1F-material-ne.png",
+                "visual_note": "1F-material-ne: 透过东墙窗洞见白色台面+深色托盘+小件；1F-material-se: 同区白台同见；1F-material-top: 对应浅色矩形（u≈0.70-0.80, v≈0.595-0.67），轮廓较弱。",
+                "reviewer": "ZCode GLM-5.3-Flash/max"
+              },
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            }
+          },
+          {
+            "id": "production_consultation_room-1F-se-drawer-cart",
+            "label": "dark multi-drawer cart, east wall south-middle interior",
+            "kind": "cart",
+            "confidence": "category_uncertain",
+            "bounds_norm": [
+              0.815,
+              0.72,
+              0.885,
+              0.76
+            ],
+            "evidence": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": {
+                "image": "evidence/ac196e5d8fd430b3-1F-material-se.png",
+                "visual_note": "1F-material-se: 黑色多屉小柜（3-4 层）近东墙清晰；1F-material-top: 对应带深色条纹白矩形（u≈0.815-0.885, v≈0.72-0.76）。",
+                "reviewer": "ZCode GLM-5.3-Flash/max"
+              },
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            }
+          },
+          {
+            "id": "production_consultation_room-1F-se-basin-like-square",
+            "label": "white square with circular mark, south-east area (basin/stool-like, classification unresolved)",
+            "kind": "fixture",
+            "confidence": "category_uncertain",
+            "bounds_norm": [
+              0.79,
+              0.775,
+              0.86,
+              0.83
+            ],
+            "evidence": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": {
+                "image": "evidence/83501003167e8386-1F-material-top.png",
+                "visual_note": "1F-material-top: 白色方块+圆记号（u≈0.79-0.86, v≈0.775-0.83）；1F-material-sw: 东墙南段内侧白色柜台+黑色扁平物 nearby，圆记号物未单独辨识；器形未辨。",
+                "reviewer": "ZCode GLM-5.3-Flash/max"
+              },
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            }
+          },
+          {
+            "id": "production_consultation_room-1F-ne-small-unit",
+            "label": "small white square unit with dark mark, room north-east area east of desk (stand/stool/cabinet unresolved)",
+            "kind": "unit",
+            "confidence": "category_uncertain",
+            "bounds_norm": [
+              0.8,
+              0.275,
+              0.86,
+              0.315
+            ],
+            "evidence": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": {
+                "image": "evidence/83501003167e8386-1F-material-top.png",
+                "visual_note": "1F-material-top: 东北区白色小方块+深色记号（u≈0.80-0.86, v≈0.275-0.315）；斜视中未单独辨识。",
+                "reviewer": "ZCode GLM-5.3-Flash/max"
+              },
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            }
+          },
+          {
+            "id": "production_consultation_room-1F-east-windows",
+            "label": "window openings with dark frames on east face (3 openings)",
+            "kind": "windows",
+            "confidence": "observed",
+            "bounds_norm": [
+              0.9,
+              0.33,
+              0.945,
+              0.72
+            ],
+            "evidence": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": {
+                "image": "evidence/f84f2574996cbfc3-1F-material-ne.png",
+                "visual_note": "1F-material-ne: 东立面 2-3 个深框窗洞清晰；1F-material-se: 东面三连窗同见；1F-material-top: 东墙线（u≈0.90-0.945）对应段变淡，v 范围近似。",
+                "reviewer": "ZCode GLM-5.3-Flash/max"
+              },
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            }
+          },
+          {
+            "id": "production_consultation_room-1F-north-windows",
+            "label": "window openings with dark frames on north face (2 openings)",
+            "kind": "windows",
+            "confidence": "observed",
+            "bounds_norm": [
+              0.28,
+              0.03,
+              0.6,
+              0.075
+            ],
+            "evidence": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": {
+                "image": "evidence/9cf2ec3c7d4f0b51-1F-material-nw.png",
+                "visual_note": "1F-material-nw: 北立面两个深框窗洞清晰；1F-material-top: 北墙线对应段变淡，u 范围为近似。",
+                "reviewer": "ZCode GLM-5.3-Flash/max"
+              },
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            }
+          },
+          {
+            "id": "production_consultation_room-1F-south-windows",
+            "label": "window openings with dark frames on south face (west and east portions, count unresolved)",
+            "kind": "windows",
+            "confidence": "observed",
+            "bounds_norm": [
+              0.1,
+              0.925,
+              0.85,
+              0.97
+            ],
+            "evidence": {
+              "image": "evidence/83501003167e8386-1F-material-top.png",
+              "visual_note": {
+                "image": "evidence/ac958ed18d2fd722-1F-material-sw.png",
+                "visual_note": "1F-material-sw: 南立面东段深框窗洞；1F-material-se: 南立面西段深框窗洞；1F-material-top: 南墙线对应段变淡；外接框含门区（u≈0.395-0.46），洞口具体分组未辨。",
+                "reviewer": "ZCode GLM-5.3-Flash/max"
+              },
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            }
+          }
+        ],
+        "stairs": {
+          "visible": false,
+          "confidence": "observed",
+          "notes": "五张图中均无楼梯、坡道或层间高差构件：单层无顶房间，室内地坪平整。不涉及跨层路线；本记录不断言 vertical connector，不认证任何路线，任何路线提及均 robot_validated=false。"
+        },
+        "uncertainties": [
+          "朝向约定：顶视为坐标对齐正射，假设图面上=+Y=北、右=+X=东；方位词仅由四斜视与顶视自洽支持。",
+          "无顶单房间捕获，白色瓷砖地坪洗淡，东南区小构件与桌面小件在顶视中轮廓较弱，bounds 为近似。",
+          "墙面白色挂板/屏幕有 2-3 处 sighting：se 视角北墙西段、nw 视角南墙东段、sw 视角东墙北段，另 ne 视角南墙西中段见深色框显示屏——各自的贴墙位置跨视角不一致，无法在顶视定位；均属墙面悬挂件（非地面障碍），未单列 object。",
+          "蓝色抽屉高柜：顶视灰块对应北墙东段（u≈0.60-0.79）；sw 视角的蓝屉柜读法可能指向北墙中西段（是否存在第二台同款柜）未辨。",
+          "西墙：门洞 v≈0.615-0.70（门扇向内开，顶视见扇线东伸）与西外墙面中部白色平贴段 v≈0.45-0.55 并存；平贴段与室内玻璃柜 Span 重合，是门扇/墙面板/柜体关系未辨。",
+          "南墙：深色玻璃门（u≈0.395-0.46）+西、东两段窗洞；窗洞具体数量与分组未辨。",
+          "青绿屏面显示器（ne 视角，西柜/桌东矮柜附近）顶视无法定位，归入桌东矮柜备注。",
+          "东南区三小件（白台+深托盘、深色多屉柜、带圆记号白方块）与东北区白色小方块的器形/功能均未辨；未依据场景名推断任何功能。",
+          "北面西段外墙黄色涂料晕斑与西墙顶缘黄色条纹为涂料或捕获伪影，未记 object。",
+          "区域嵌套：desk-zone 与 southeast-work-zone 按设计嵌套于 room-floorplate 内；若 builder 要求互斥区域请以子区域为准。",
+          "未做任何路线、地形或可通行性评估；本文件不认证任何机器人可行路线，任何路线提及均 robot_validated=false；证据绑定 artifacts/semantic-captures-v2-30/production_consultation_room/ 的 5 张 Camera-Light 图片。"
+        ],
+        "review_source": "evidence/843b2a577e6f7bec-production_consultation_room-1F.json",
+        "coordinate_evidence": "evidence/83501003167e8386-1F-material-top.png"
+      }
+    }
+  }
+}

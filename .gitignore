@@ -213,6 +213,7 @@ test_*.py
 !/tools/validation/test_topology_multilevel_authoring.py
 !/tools/validation/test_topology_surfaces.py
 !/tools/validation/test_topology_pose_ui.py
+!/tools/validation/test_isaac_bridge.py
 !/source/EAI/test/test_restaurant_products.py
 !/source/EAI/test/test_restaurant_runtime_scene.py
 !/source/EAI/test/test_restaurant_candidate_admission.py
@@ -371,6 +372,13 @@ test_*.py
 !/usd/*/
 !/usd/*/.gitkeep
 
+# Editable, scene-local semantic map packages are maintained source data.  The
+# enclosing USD assets stay ignored; only each scene's semantic_map subtree is
+# versioned so collaborators receive maps without multi-gigabyte geometry.
+!/usd/scene/**/
+!/usd/scene/**/semantic_map/
+!/usd/scene/**/semantic_map/**
+
 # Local Codex planning state is never source.
 /.zcode/
 
@@ -381,6 +389,3 @@ test_*.py
 
 # Calibrated G1 grasp profiles are runtime source data.
 !/task/executors/g1_manipulation/inspire_grips.json
-
-# Generated local demonstration media and audit outputs.
-/artifacts/

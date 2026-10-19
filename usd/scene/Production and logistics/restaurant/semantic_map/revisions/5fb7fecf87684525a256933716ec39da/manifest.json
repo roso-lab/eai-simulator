@@ -1,0 +1,29 @@
+{
+  "schema": "eai.semantic_map.revision",
+  "version": 1,
+  "revision": "5fb7fecf87684525a256933716ec39da",
+  "scene_key": "production_restaurant",
+  "levels": [
+    {
+      "level_id": "1F",
+      "grid": "level-000-semantic-grid.npz",
+      "preview": "level-000-semantic-map.png",
+      "layer": "level-000-layer.png",
+      "extent_xy": [
+        877.5,
+        2683.5,
+        1495.5,
+        2581.5
+      ]
+    }
+  ],
+  "files": {
+    "level-000-layer.png": "ffd80eecf315b01e8b6afc66ea33696b039183dcde7b4a048b396c564be61754",
+    "level-000-semantic-grid.npz": "e6df5a966f1e1b731f5c113647e2d0e4dcdda9a59258b8a2af5f7b7af422d76b",
+    "level-000-semantic-map.png": "e9056cde6ecd08ecee6dad12c80e782f5e8482fdf891b63491250f078590495d",
+    "semantic-footprints.geojson": "8463ff32fb3298538a88448a9460e8372f7d5333a7ea6f4c146851e5752b5c82",
+    "semantic-footprints.json": "fb8f87d0434414738bb143a0ea6bd517ac8721fe0b51fa8d7979a1b112d301fe",
+    "topology.json": "bc3736de0c927e1b1474ec9bd8243ed85ed98c0f5b6842402da8fae1ef06c3b5"
+  },
+  "robot_validated": false
+}

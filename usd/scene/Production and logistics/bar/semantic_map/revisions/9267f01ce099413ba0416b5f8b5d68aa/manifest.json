@@ -1,0 +1,29 @@
+{
+  "schema": "eai.semantic_map.revision",
+  "version": 1,
+  "revision": "9267f01ce099413ba0416b5f8b5d68aa",
+  "scene_key": "production_bar",
+  "levels": [
+    {
+      "level_id": "1F",
+      "grid": "level-000-semantic-grid.npz",
+      "preview": "level-000-semantic-map.png",
+      "layer": "level-000-layer.png",
+      "extent_xy": [
+        -11.6,
+        12.200000000000001,
+        10.600000000000001,
+        38.3
+      ]
+    }
+  ],
+  "files": {
+    "level-000-layer.png": "8f37027783e1a3ad37f7824df1a0f9acc1ac56bae96f0fdd4d8ac9edc684e986",
+    "level-000-semantic-grid.npz": "67fefe9b0f2c647fee59721f9ac2a94ac8cfb4617c86720379f7c837b7b454b5",
+    "level-000-semantic-map.png": "3f04bd66cc00b707ddcf87e22c6f63149820c18b65e18c5406634d304f4aee95",
+    "semantic-footprints.geojson": "b3f5fe19d7d59c2eb4c4b01dd348fccbef2b8c520104253588ac2054bbba6c51",
+    "semantic-footprints.json": "7fa15caa8933321db7a8b2183f3260e2023d033c37a3a6b32abad9298a7f47b8",
+    "topology.json": "0e2be42f7b16df141435b6cc53a9442796b482fc64fb4d675d92006a1edc9f1d"
+  },
+  "robot_validated": false
+}

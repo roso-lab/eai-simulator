@@ -1,0 +1,536 @@
+{
+  "scene_id": "production_warehouse_02",
+  "level_id": "1F",
+  "regions": [
+    {
+      "id": "production_warehouse_02-1F-walled-yard",
+      "label": "walled open-air storage yard: tiled floor ringed by low stone/brick wall segments, plywood panel walls and metal picket fences; pallet racks, drums, props and one tall sign tower inside; one black sphere cluster sits outside the north edge",
+      "kind": "compound",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.17,
+        0.16,
+        0.962,
+        0.965
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 顶视 75 分位 lum=254 大面积过曝；内容包络西缘 u≈0.172（西列货架）、东缘 u≈0.962（细双排货架/灰边带前）、北缘 v≈0.168（北排货架顶）、南缘 v≈0.965（南向墙线 v≈0.955 之外）。可读墙体线仅 v≈0.855 长线（u 0.697-0.962）、v≈0.955 长线（u 0.490-0.639）、(0.797,0.318) 转角 L 线；1F-material-ne/nw/se/sw: 四斜视均见矮石墙+胶合板墙+铁栅围合，围合走向不完全闭合。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-north-rack-row",
+      "label": "north rack row: dashed row of wood-clad rack bays, three round drums, long thin dark element and one solid dark block along the yard's north edge",
+      "kind": "rack_row",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.255,
+        0.168,
+        0.6,
+        0.242
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 木色货架排虚线段（u≈0.26-0.44, v≈0.175-0.20）、三圆桶（u≈0.458-0.50, v≈0.180-0.208, 暗 l<215）、细长暗条（u≈0.495-0.565, v≈0.175-0.185）、实心暗块（u≈0.582-0.621, v≈0.184-0.230, n≈2005px）；1F-material-ne/nw: 北排货架背面与暗块同见，块体深棕近黑。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-nw-rack-cluster",
+      "label": "north-west rack cluster: yellow-green steel rack frame with three rails, diagonal rows of plywood/wood panels, west-edge rack column, thin curved line fragments",
+      "kind": "rack_cluster",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.172,
+        0.182,
+        0.47,
+        0.478
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 黄绿描边钢架框（u≈0.19-0.285, v≈0.185-0.30，内含三条横梁线，SE 沿边一条深色板+两段亮黄段）、斜置木板排（u≈0.24-0.42, v≈0.25-0.45）、西缘货架列（u≈0.175-0.20, v≈0.26-0.47）、细弧线（u≈0.268-0.278, v≈0.44-0.505）；1F-material-nw: 同区见黄色钢架与成排木架/板墙；1F-material-ne: 斜排木板顶面同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-central-storage-zone",
+      "label": "central storage zone: N-S plywood panel wall with small base blocks (sign tower at its south end), thin fence lines, small violet figure behind a gray box, curved thin line fragments",
+      "kind": "storage_zone",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.4,
+        0.275,
+        0.615,
+        0.52
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: N-S 木纹板墙（u≈0.405-0.437, v≈0.375-0.462，中部 v≈0.425 处双亮线分隔）、南端基座块（u≈0.408-0.454, v≈0.428-0.470）、细栅线（u≈0.4065, v 0.382-0.515 与横线 v≈0.382/0.515）、小玩偶+灰箱（u≈0.573-0.60, v≈0.272-0.315）、J 形细线（u≈0.435-0.47, v≈0.285-0.315）；1F-material-nw/se: 中央偏西见绿色面板高塔（见 sign-tower 条目）与散置货架。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-east-rack-zone",
+      "label": "east rack zone: gray metal rack towers and wood rack rows, forklift aisle, violet/green figure props, two thin double-row racks at NE corner, L-shaped low wall/fence corner",
+      "kind": "rack_zone",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.6,
+        0.155,
+        0.985,
+        0.505
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 灰色金属货架块群（u≈0.60-0.72, v≈0.175-0.24 与 u≈0.72-0.88, v≈0.25-0.40）、木架链（u≈0.64-0.70, v≈0.245-0.29）、叉车（u≈0.602-0.668, v≈0.393-0.443）、蓝紫/绿玩偶（u≈0.847-0.870 与 0.874-0.896, v≈0.33-0.39）、NE 角细双排（u≈0.905-0.955, v≈0.163-0.178 与 0.275-0.29）、L 转角墙线（u≈0.797, v 0.315-0.62 + 横臂 u 0.79-0.931 @v≈0.318）；1F-material-ne/se: 灰色金属塔架、木架与叉车/玩偶同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-es-rack-row-zone",
+      "label": "east-south rack row zone: very tall double-sided wood rack chain (tallest storage structure), four tan drums, pale sack pile, dark trolley, gray cabinets, yellow hydrant-like post, long wall line on its south side",
+      "kind": "rack_zone",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.615,
+        0.505,
+        0.965,
+        0.9
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 高货架链（u≈0.762-0.826, v≈0.505-0.852, n≈22900px，深棕分节+白色高光）、四浅桶（u≈0.740-0.778, v≈0.550-0.588）、浅色袋堆（u≈0.845-0.90, v≈0.555-0.585）、暗色小车（u≈0.905-0.935, v≈0.565-0.577）、双暗桶（u≈0.656-0.692, v≈0.732-0.758）、灰箱（u≈0.63-0.675, v≈0.71-0.76）、黄记号（u≈0.856-0.893, v≈0.534-0.546）、南墙线（v≈0.845-0.867, u 0.697-0.962）；1F-material-ne/se: 右侧高耸木货架列（红色斜撑记号）与袋堆同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-south-central-storage",
+      "label": "south-central storage: diagonal wood rack rows, dome-topped drum/cabinet with dark cross pattern on top, gray cabinet with white frame, wood block piles, two gray drums and one 2x2 dark drum group",
+      "kind": "storage_zone",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.38,
+        0.52,
+        0.635,
+        0.915
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 斜置木排（u≈0.545-0.585, v≈0.545-0.60）、暗十字/风车顶物（u≈0.520-0.574, v≈0.564-0.619, 暗 l<215）、灰箱+白框（u≈0.427-0.477, v≈0.578-0.631）、木块堆（u≈0.395-0.46, v≈0.75-0.87 与 u≈0.575-0.625, v≈0.60-0.65）、双灰桶（u≈0.45-0.475, v≈0.795-0.81）、2x2 暗桶（u≈0.441-0.484, v≈0.868-0.902）；1F-material-ne/sw: 圆顶鼓形物+灰柜同见（ne 视 (0.397-0.432, 0.436-0.460)，sw 视 (0.568-0.60, 0.449-0.474)）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-sw-storage-corner",
+      "label": "south-west storage corner: rack column with colorful figure cluster, gray boxes, long wood block row, thin curved line fragments, small dark machinery-like cluster",
+      "kind": "storage_corner",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.17,
+        0.478,
+        0.38,
+        0.905
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 货架列（u≈0.185-0.21, v≈0.72-0.80）、彩色玩偶簇（u≈0.204-0.248, v≈0.815-0.851, 红/粉/黄/绿像素）、灰箱（u≈0.265-0.30, v≈0.82-0.845 与 u≈0.345-0.375, v≈0.805-0.835）、木块横排（u≈0.185-0.31, v≈0.85-0.87）、暗色机状簇（u≈0.185-0.225, v≈0.545-0.575）、细弧线（u≈0.268-0.278, v≈0.478-0.505）；1F-material-nw/se: 该区货架与彩色道具部分可见（多数被前景墙遮挡）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-se-corner-strip",
+      "label": "south-east corner strip: glowing yellow ring with adjacent black wireframe frame, wood rack blocks, second wall line near the south boundary",
+      "kind": "corner_strip",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.6,
+        0.84,
+        0.78,
+        0.968
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 发光环+黑线框（u≈0.687-0.744, v≈0.901-0.941，环 u≈0.695-0.711 亮黄 n≈71px、线框 u≈0.711-0.737 暗）、木架块（u≈0.66-0.70, v≈0.845-0.875 与 u≈0.73-0.77, v≈0.87-0.90）、南界墙线（v≈0.945-0.967, u 0.490-0.639）；1F-material-se: 同位见发光黄色球体+黑色线框架（帧位 (0.30-0.335, 0.645-0.69)），发光明显。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    }
+  ],
+  "objects": [
+    {
+      "id": "production_warehouse_02-1F-forklift",
+      "label": "yellow counterbalance forklift with dark mast/forks on its west side and yellow cab core, parked in the central aisle (forks pointing west)",
+      "kind": "forklift",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.602,
+        0.393,
+        0.668,
+        0.443
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 暗色车体（l<215, u 0.600-0.669, v 0.392-0.438）+黄色驾驶舱核心（黄掩码 u 0.654-0.663, v 0.403-0.438, RGB R>170/G>140/B<120）；1F-material-se: 黄色叉车带暗色货叉与蓝色细节（帧位 (0.605-0.64, 0.47-0.51)）；1F-material-sw: 黄色平衡重叉车+桅杆+橙红轮毂清晰（帧位 (0.51-0.55, 0.40-0.45)），货叉朝西与顶视一致。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-sign-tower",
+      "label": "tall sign tower with white clock disc on top, yellow crown spikes around the disc base, green 'VALLEY TIME' banner strip, dark maroon south faces and green north face (function unresolved, decorative sign structure)",
+      "kind": "sign_tower",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.408,
+        0.428,
+        0.454,
+        0.47
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 塔基候选仅见南端基座块（u 0.408-0.454, v 0.428-0.470, l<242），与相邻胶合板墙段南端重叠、无法分离；1F-material-se: 白色钟盘（帧位 (0.475-0.53, 0.165-0.225)）+暗红板身+绿横幅 '…LLEY TIME'（(0.475-0.525, 0.235-0.26)）+东侧黄色小旗；1F-material-sw: 钟盘+黄冠刺+绿横幅 'VALLEY TIME'+暗红南面（(0.17-0.28, 0.20-0.44)）；1F-material-nw: 绿色面板北面（三段横分+顶部暗槽+底部绿色凹槽）+黄冠+灰'圆顶'（实为钟盘背面）（帧位 (0.47-0.55, 0.295-0.70)）。身份四斜视互证；顶视足迹为近似。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-plywood-wall-ns",
+      "label": "north-south plywood panel wall segment with horizontal wood grain and a mid division line, west of the sign tower",
+      "kind": "wall_segment",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.405,
+        0.375,
+        0.437,
+        0.464
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 木纹板条（u 0.4048-0.4369, v 0.3750-0.4643, n≈2246px, 横向纹理, v≈0.425 双亮线分隔）；1F-material-nw: 同区西侧成排胶合板墙板同见；其南端与 sign-tower 基座块重叠（见 uncertainties）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-figure-violet-east",
+      "label": "large blue-violet round figure prop with pale/white parts, standing in front of the gray metal rack towers (mascot-like, function unresolved)",
+      "kind": "figure_prop",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.845,
+        0.358,
+        0.872,
+        0.386
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 蓝紫体块（B-R>12 掩码 n=748, u 0.8470-0.8697, v 0.3600-0.3843）+浅色肢端；1F-material-se: 紫身白脸玩偶立于灰色高货架塔前（帧位 (0.765-0.795, 0.395-0.425)），同见豹纹暗箱于其侧（顶视未定位）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-figure-green-east",
+      "label": "small green figure prop with red/dark accents, north-east of the violet figure (mascot-like, function unresolved)",
+      "kind": "figure_prop",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.874,
+        0.332,
+        0.896,
+        0.358
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 绿掩码核心（G-R>25, n=55, u 0.8798-0.8911, v 0.3350-0.3500）+周边红/暗像素；1F-material-se: 绿身黄腹玩偶于紫玩偶侧（帧位 (0.767-0.772, 0.413-0.423)）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-figure-violet-north",
+      "label": "small blue-violet figure prop peeking from behind a gray box in the north-central area (partially occluded)",
+      "kind": "figure_prop",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.586,
+        0.282,
+        0.599,
+        0.306
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 蓝紫掩码（n=145, u 0.5892-0.5945, v 0.2850-0.3029），被前方灰箱（u≈0.573-0.60, v≈0.272-0.315）部分遮挡。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-figure-cluster-sw",
+      "label": "colorful figure/prop cluster with red, pink, yellow, green and dark parts in the south-west rack column (function unresolved)",
+      "kind": "figure_prop_cluster",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.204,
+        0.815,
+        0.248,
+        0.851
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 红掩码（R-G>60, n=100+34, u 0.2144-0.2278, v 0.8229-0.8386）+黄记号（u 0.2098-0.2138, v 0.8271-0.8336）+紫/粉/绿杂色像素，整体 l<242 包络 (0.2044-0.2472, 0.8150-0.8507)。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-black-sphere-cluster",
+      "label": "cluster of glossy black spheres outside the yard's north edge (function unresolved, no route implication)",
+      "kind": "unknown_cluster",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.654,
+        0.041,
+        0.679,
+        0.058
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 暗掩码（l<110, n=293+60px, u 0.6546-0.6787, v 0.0414-0.0579），位于北缘内容包络之外；1F-material-ne: 墙外地面黑球簇同见（帧位 (0.71-0.75, 0.74-0.79)）；1F-material-nw: 图左缘黑簇同见（帧位 (0.055-0.075, 0.575-0.60)）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-glow-ring-wireframe",
+      "label": "glowing yellow ring/disc with adjacent black wireframe frame near the south-east corner (marker or light source, function unresolved)",
+      "kind": "light_or_marker",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.687,
+        0.901,
+        0.745,
+        0.941
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 黄环（黄掩码 n=71, u 0.6947-0.7114, v 0.9086-0.9250，呈光晕状）+黑色线框（暗掩码多块, u 0.7108-0.7368, v 0.9114-0.9250）；1F-material-se: 同物为发光黄色球体+黑色线框架（帧位 (0.30-0.335, 0.645-0.69)），发光清晰可见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-drums-trio-north",
+      "label": "three round drums in a row on the north rack row (gray in top view; blue barrels of similar role seen in obliques elsewhere, color not resolvable here)",
+      "kind": "drums",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.458,
+        0.18,
+        0.5,
+        0.208
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 三个并排圆（暗 l<215, u 0.4576-0.5003, v 0.1800-0.2071），直径各≈0.011u；颜色在顶视中呈灰，无法辨色。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-drums-quad-south",
+      "label": "2x2 group of four dark drums south of the central wood block piles",
+      "kind": "drums",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.441,
+        0.868,
+        0.484,
+        0.902
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 四个暗圆 2x2 排布（暗 l<215, u 0.4395-0.4890, v 0.8600-0.9093 含阴影，圆体约 u 0.445-0.478 / v 0.875-0.897）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-drums-quad-east",
+      "label": "2x2 group of four pale tan drums east of the tall rack chain",
+      "kind": "drums",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.74,
+        0.55,
+        0.778,
+        0.588
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 四个浅褐圆 2x2（l<242, u 0.7375-0.7809, v 0.5479-0.5907, n≈1793px 含边缘），圆体约 (0.745-0.775, 0.555-0.585)。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-drums-pair-east-central",
+      "label": "pair of dark drums between the gray cabinets and the south-central wood blocks (possibly three, partially merged)",
+      "kind": "drums",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.656,
+        0.732,
+        0.692,
+        0.758
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 暗圆组（暗 l<215, u 0.6587-0.6987, v 0.7343-0.7564, n=66px），可见两个为主，东缘或含第三个小圆，未确证。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-dark-block-north",
+      "label": "solid dark block on the north rack row (dark brown, box/cabinet-like, function unresolved)",
+      "kind": "unknown_block",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.582,
+        0.184,
+        0.621,
+        0.23
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 实心暗块（暗 l<215, u 0.5818-0.6206, v 0.1836-0.2300, n=2005px）；1F-material-ne/nw: 北区见深棕近黑箱体状物同见（对应为近似）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-gray-cabinet-frame",
+      "label": "gray cabinet with white rim plus a small white ladder-like frame leaning against it, south of the yard center",
+      "kind": "unknown_equipment",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.427,
+        0.578,
+        0.478,
+        0.631
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 灰箱白缘（l<242, u 0.4275-0.4770, v 0.5779-0.6307, n≈1032px）+白框斜靠（u≈0.44-0.47, v≈0.595-0.615）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-dome-object-central",
+      "label": "dome-topped drum/cabinet with dark cross/pinwheel pattern on its top, among gray cabinets (function unresolved)",
+      "kind": "unknown_equipment",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.52,
+        0.564,
+        0.574,
+        0.62
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 暗十字/风车形顶（暗 l<215, u 0.5197-0.5738, v 0.5643-0.6193, n=1780px）；1F-material-ne: 圆顶鼓形物+灰柜同见（帧位 (0.397-0.432, 0.436-0.460)）；1F-material-sw: 同物（帧位 (0.568-0.60, 0.449-0.474)），十字顶与顶视暗十字对应为近似。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-yellow-post-east",
+      "label": "yellow hydrant-like post with dark cap near the east rack row (function unresolved; possibly the same object seen in NW and SW obliques)",
+      "kind": "post",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.854,
+        0.532,
+        0.894,
+        0.548
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 黄记号两小块（黄掩码 n=64, u 0.8564-0.8925, v 0.5336-0.5464）；1F-material-nw: 黄色栓状物+黑色扶栏（帧位 (0.575-0.605, 0.31-0.365)）；1F-material-sw: 黄色栓状物（帧位 (0.92-0.94, 0.47-0.52)）。两斜视所视或为同一物，顶视对应为近似。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-tall-rack-row-east",
+      "label": "very tall double-sided wood pallet rack chain (eight-odd bays with dark brown cladding and white highlights), the tallest storage structure in the yard",
+      "kind": "rack_row",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.762,
+        0.505,
+        0.826,
+        0.852
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 深棕分节长链（l<242, u 0.7649-0.8243, v 0.5050-0.8543, n≈18900-22900px 含邻块），节间白亮分隔；1F-material-se: 右侧高耸木货架列（红色斜撑记号，带木板/箱）同见；1F-material-ne: 同列远景同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-wall-corner-inner-ne",
+      "label": "L-shaped low wall/fence corner (thin line): E-W arm at v≈0.318 (u 0.79-0.931) meeting N-S arm at u≈0.797 (v 0.315-0.62)",
+      "kind": "wall_segment",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.789,
+        0.31,
+        0.932,
+        0.62
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 细墙线（l<242: 横臂 u 0.7896-0.9312 @v 0.310-0.329；纵臂 u 0.7909-0.8049, v 0.3150-0.6193）；转角于 (0.797, 0.318)；南段是否延伸入货架链之后未确证；1F-material-sw: 同区白色平板墙同见（对应为近似）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-wall-line-es",
+      "label": "long thin E-W wall/fence line south of the tall rack chain (v≈0.855)",
+      "kind": "wall_segment",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.697,
+        0.845,
+        0.962,
+        0.867
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 长直细线（l<242, u 0.6947-0.962, v 0.8450-0.8671）；1F-material-ne/se: 该区矮墙/条带同见（对应为近似）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_warehouse_02-1F-wall-line-south",
+      "label": "thin E-W wall/fence line near the south boundary (v≈0.955)",
+      "kind": "wall_segment",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.49,
+        0.945,
+        0.64,
+        0.967
+      ],
+      "evidence": {
+        "image": "evidence/80bdfbbdd8307db8-1F-material-top.png",
+        "visual_note": "1F-material-top: 长直细线（l<242, u 0.4896-0.6393, v 0.9450-0.9671）；两端是否延伸未确证；1F-material-se: 南向矮墙前景同见（对应为近似）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    }
+  ],
+  "stairs": {
+    "visible": false,
+    "confidence": "observed",
+    "notes": "五张图中均未辨识出楼梯、台阶或坡道几何：顶视无踏步条纹；四张斜视中货架均为地面式（含高层横梁但无可靠梯段），招牌塔与鼓形物无附属梯段可见。场景为单层露天库区，不涉及跨层路线；本记录不断言 vertical connector，不认证任何路线，任何路线提及均 robot_validated=false。"
+  },
+  "uncertainties": [
+    "顶视大面积过曝：75 分位 lum=254，北半区尤重；蓝桶、混凝土柱、部分墙线在顶视中不可见；所有 bounds 以可读像素为准，均为近似。",
+    "混凝土柱：四张斜视各见 2 根凹槽混凝土方柱（ne 帧位 x 0.337-0.372/0.512-0.542、se 0.275-0.31/0.44-0.48、nw 0.525-0.555/0.70-0.735、sw 0.44-0.478/0.63-0.665），总根数 2-4 无法唯一确定（各视角配对存在多解），且顶视过曝完全不可见，故未单列 object；柱区大致在中央 (u 0.36-0.78, v 0.40-0.52)。",
+    "VALLEY TIME 招牌塔：身份由 nw/se/sw 三斜视互证（钟盘+黄冠刺+绿横幅+暗红南面+绿色北面；nw 视角'灰圆顶'经比对确认为钟盘背面）；顶视足迹只能读到基座块 (0.408-0.454, 0.428-0.470)，与胶合板墙段南端重叠，二者分离未确证；ne 斜视右上 (0.795-0.81, 0.21-0.28) 另见薄椭圆盘缘（疑似盘/环侧缘），无法定位归属，未单独记录。",
+    "玩偶/吉祥物道具：顶视确认 3 处（蓝紫大玩偶+绿玩偶、北中小玩偶、西南彩色簇）；se/sw 斜视中另见至少一组紫+绿玩偶（叉车东北侧，顶视约 (0.68-0.71, 0.37-0.40) 但过曝无法确证）与豹纹暗箱，均未记 bounds。",
+    "蓝色桶：ne/se 斜视均见蓝色桶组（se 西侧两只+中侧一只组、ne 一只），顶视中蓝掩码仅见于玩偶道具，桶组过曝不可见；顶视四组灰/暗圆推读为桶/罐但颜色未辨，故 drums 条目均为 category_uncertain。",
+    "墙体围合：石墙/胶合板墙/铁栅均为矮墙，顶视仅三条线段可读（v≈0.855、v≈0.955、(0.797,0.318) L 线），完整围合走向未确证；walled-yard 区域 bounds 为内容包络近似，非实测墙线。",
+    "顶视过曝白斑中多处软边微亮圆形区（如 u≈0.66-0.72/v≈0.31-0.34、u≈0.62-0.68/v≈0.44-0.50）疑似渲染光斑/过曝伪影而非物体，未记录。",
+    "细小暗记号（u≈0.30/v≈0.477 '文'状、u≈0.787-0.791/v≈0.494-0.501 '5'状及其旁小点）过小无法辨识，未记录。",
+    "dome-object-central 的暗十字顶与斜视中圆顶鼓形物的对应为近似（双视角位置互洽但顶视纹理细节不足以确证）。",
+    "顶视黑网格线与世界坐标轴线（u≈0.4997 绿线、v≈0.5 红线）为视口/坐标元素，非场景物体，未记录。",
+    "未做任何路线、地形或可通行性评估；本文件不认证任何机器人可行路线，任何路线提及均 robot_validated=false；证据绑定 artifacts/semantic-captures-v2-30/production_warehouse_02/ 的 5 张 Camera-Light 图片（top/ne/nw/se/sw），未从场景名推断任何功能。"
+  ]
+}

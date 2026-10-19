@@ -1,0 +1,29 @@
+{
+  "schema": "eai.semantic_map.revision",
+  "version": 1,
+  "revision": "a9370d93ba1e4c43b3313f459bfff8c4",
+  "scene_key": "service_city_02",
+  "levels": [
+    {
+      "level_id": "ground",
+      "grid": "level-000-semantic-grid.npz",
+      "preview": "level-000-semantic-map.png",
+      "layer": "level-000-layer.png",
+      "extent_xy": [
+        -186.8,
+        63.40000000000001,
+        -130.0,
+        68.80000000000001
+      ]
+    }
+  ],
+  "files": {
+    "level-000-layer.png": "715c54171d6989f2b794eff285e412a9391c427cb8d3eb6a4a5eb6e66a5969e7",
+    "level-000-semantic-grid.npz": "8a683efde30a011737c4ca260ce0c5049fd94d522fbc6c1158cee9c6e9baee51",
+    "level-000-semantic-map.png": "f80ed0465ee6eecb0ac1178a41bd4d64b29a1610b27b7899a269612ce6ebdfe5",
+    "semantic-footprints.geojson": "ec1d0823d87cb781ebb5a23ece781e5de551e3661c051a81f583fa2358b62660",
+    "semantic-footprints.json": "55fa0ba9a65836ed7dc3102d34ec5a4792cf2ea36ca6254c3f72abb8c02a0c0b",
+    "topology.json": "0cb559f870eaacc5bb4e0d35cab33849388c87d65c48302851d725c0dba48866"
+  },
+  "robot_validated": false
+}

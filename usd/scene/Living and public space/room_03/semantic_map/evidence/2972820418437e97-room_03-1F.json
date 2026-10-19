@@ -1,0 +1,625 @@
+{
+  "scene_id": "room_03",
+  "level_id": "1F",
+  "regions": [
+    {
+      "id": "media_room_n",
+      "label": "媒体客厅(北)",
+      "kind": "living_room",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.315,
+        0.128,
+        0.61,
+        0.348
+      ],
+      "evidence": "顶视两张深青长沙发相对+圆形茶几+北墙矮柜;SW斜视同区见壁炉明火、沙发与圆几。"
+    },
+    {
+      "id": "kitchen_ne",
+      "label": "厨房(东北)",
+      "kind": "kitchen",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.61,
+        0.172,
+        0.955,
+        0.325
+      ],
+      "evidence": "顶视北墙连续厨台带多组器具,南侧另有台面带凳;SE/NW斜视均见白色厨台与物件。"
+    },
+    {
+      "id": "bedroom_west",
+      "label": "卧室(西)",
+      "kind": "bedroom",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.03,
+        0.34,
+        0.19,
+        0.62
+      ],
+      "evidence": "顶视灰毯X折大床+青色贵妃榻+青色长凳;SW/NE斜视左端对应青色坐具。"
+    },
+    {
+      "id": "bathroom_west",
+      "label": "卫生间(西南)",
+      "kind": "bathroom",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.033,
+        0.62,
+        0.19,
+        0.825
+      ],
+      "evidence": "顶视围合小室:椭圆白缸/盆、北缘台面、西南角白色洁具;类别细节未辨。"
+    },
+    {
+      "id": "dining_sw",
+      "label": "餐区(中南西)",
+      "kind": "dining_area",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.19,
+        0.34,
+        0.33,
+        0.71
+      ],
+      "evidence": "顶视深木长餐桌+白椅×8,南侧小方桌+深色椅×4;NE斜视远端见对应餐桌椅。"
+    },
+    {
+      "id": "lounge_center",
+      "label": "中央休息区",
+      "kind": "living_room",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.33,
+        0.345,
+        0.61,
+        0.71
+      ],
+      "evidence": "顶视两弧形青色沙发相对+白色圆几+图案毯+米色休闲椅;NW斜视见对应弧形沙发与墩。"
+    },
+    {
+      "id": "kitchenette_south",
+      "label": "南缘长厨台区",
+      "kind": "kitchen",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.19,
+        0.705,
+        0.61,
+        0.83
+      ],
+      "evidence": "顶视南墙两段白色长台面,上有小家电状物;未见明确灶/冰箱,厨台与操作台难辨。"
+    },
+    {
+      "id": "bedroom_wc",
+      "label": "卧室(中右)",
+      "kind": "bedroom",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.603,
+        0.3,
+        0.748,
+        0.568
+      ],
+      "evidence": "顶视白床+青色毯+双床头柜;NE斜视远端对应。"
+    },
+    {
+      "id": "sitting_room_e",
+      "label": "起居/梳妆间(右中,待确认)",
+      "kind": "living_room",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.748,
+        0.3,
+        0.837,
+        0.568
+      ],
+      "evidence": "顶视浅灰沙发+黄色件+圆镜状物+图案毯+小件;组合似起居或梳妆间,功能未定。"
+    },
+    {
+      "id": "tv_lounge_e",
+      "label": "电视休息区(东北角)",
+      "kind": "living_room",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.837,
+        0.3,
+        0.957,
+        0.568
+      ],
+      "evidence": "顶视沿东/南墙L型深青组合沙发+浅色毯;SE斜视近端见深青组合沙发。"
+    },
+    {
+      "id": "bedroom_south",
+      "label": "卧室(中南)",
+      "kind": "bedroom",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.583,
+        0.615,
+        0.737,
+        0.822
+      ],
+      "evidence": "顶视白床+图案毯+斜置青色贵妃榻+金点床头柜。"
+    },
+    {
+      "id": "bathroom_south",
+      "label": "卫生间(中南东)",
+      "kind": "bathroom",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.737,
+        0.612,
+        0.797,
+        0.822
+      ],
+      "evidence": "顶视窄间:白色洁具状件+深色柜状件+南部白色件;类别未辨。"
+    },
+    {
+      "id": "nook_se",
+      "label": "对座休闲区(东南)",
+      "kind": "living_room",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.797,
+        0.612,
+        0.957,
+        0.822
+      ],
+      "evidence": "顶视两深灰扶手椅相对+图案毯+中央矮件。"
+    }
+  ],
+  "objects": [
+    {
+      "id": "sofa_media_west",
+      "label": "深青长沙发(媒体室西)",
+      "kind": "sofa",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.358,
+        0.183,
+        0.412,
+        0.375
+      ],
+      "region_id": "media_room_n",
+      "evidence": "顶视长条深青沙发;SW斜视对应坐具。"
+    },
+    {
+      "id": "sofa_media_east",
+      "label": "深青长沙发(媒体室东)",
+      "kind": "sofa",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.543,
+        0.183,
+        0.587,
+        0.375
+      ],
+      "region_id": "media_room_n",
+      "evidence": "顶视长条深青沙发。"
+    },
+    {
+      "id": "coffee_table_media",
+      "label": "圆形茶几(含书物)",
+      "kind": "coffee_table",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.432,
+        0.238,
+        0.488,
+        0.307
+      ],
+      "region_id": "media_room_n",
+      "evidence": "顶视圆形桌面,上有书籍/托盘。"
+    },
+    {
+      "id": "console_media_north",
+      "label": "白色矮柜(媒体室北墙)",
+      "kind": "cabinet",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.425,
+        0.153,
+        0.505,
+        0.187
+      ],
+      "region_id": "media_room_n",
+      "evidence": "顶视北墙白色矮柜,上方有小件。"
+    },
+    {
+      "id": "poufs_pair",
+      "label": "灰色圆墩×2",
+      "kind": "ottoman",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.423,
+        0.377,
+        0.507,
+        0.427
+      ],
+      "region_id": "media_room_n",
+      "evidence": "顶视沙发南端两个方形墩。"
+    },
+    {
+      "id": "fireplace_tv",
+      "label": "壁炉+电视(媒体室,墙面未定)",
+      "kind": "fireplace",
+      "confidence": "observed_geometry_endpoint_unverified",
+      "bounds_norm": [
+        0.313,
+        0.2,
+        0.345,
+        0.3
+      ],
+      "region_id": "media_room_n",
+      "evidence": "SW斜视媒体室西墙见白色壁炉明火与上方电视,SE斜视亦见火光;顶视贴墙无独立投影,朝向/墙面未定。"
+    },
+    {
+      "id": "kitchen_counter_ne",
+      "label": "厨台(北墙,含器具)",
+      "kind": "kitchen_counter",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.61,
+        0.18,
+        0.935,
+        0.228
+      ],
+      "region_id": "kitchen_ne",
+      "evidence": "顶视北墙连续台面,多组圆形/白色器具。"
+    },
+    {
+      "id": "island_bar_ne",
+      "label": "中岛/吧台(含凳)",
+      "kind": "counter",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.71,
+        0.263,
+        0.84,
+        0.327
+      ],
+      "region_id": "kitchen_ne",
+      "evidence": "顶视厨房南半独立台面,西侧两白色凳状件。"
+    },
+    {
+      "id": "bed_west",
+      "label": "床(西卧)",
+      "kind": "bed",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.028,
+        0.423,
+        0.122,
+        0.563
+      ],
+      "region_id": "bedroom_west",
+      "evidence": "顶视灰毯X形折叠,枕头端隐约可见。"
+    },
+    {
+      "id": "chaise_teal_west",
+      "label": "青色贵妃榻(西卧东北)",
+      "kind": "chaise",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.14,
+        0.341,
+        0.194,
+        0.434
+      ],
+      "region_id": "bedroom_west",
+      "evidence": "顶视青色躺榻;SW斜视印证。"
+    },
+    {
+      "id": "bench_teal_west",
+      "label": "青色长凳(床东)",
+      "kind": "bench",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.096,
+        0.441,
+        0.129,
+        0.539
+      ],
+      "region_id": "bedroom_west",
+      "evidence": "顶视床与贵妃榻之间青色窄凳。"
+    },
+    {
+      "id": "shelf_west",
+      "label": "白色高架(西卧东墙)",
+      "kind": "shelf",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.158,
+        0.416,
+        0.194,
+        0.504
+      ],
+      "region_id": "bedroom_west",
+      "evidence": "顶视窄高白色架;NW斜视见白色格架。"
+    },
+    {
+      "id": "dining_table_8",
+      "label": "深木长餐桌+白椅×8",
+      "kind": "dining_table_set",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.208,
+        0.438,
+        0.302,
+        0.567
+      ],
+      "region_id": "dining_sw",
+      "evidence": "顶视深色桌面,四周8椅。"
+    },
+    {
+      "id": "table_small_4",
+      "label": "小方桌+深色椅×4",
+      "kind": "dining_table_set",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.213,
+        0.622,
+        0.307,
+        0.707
+      ],
+      "region_id": "dining_sw",
+      "evidence": "顶视白色小桌,四边各一深色椅。"
+    },
+    {
+      "id": "kitchenette_counter_s",
+      "label": "南缘长厨台(两段)",
+      "kind": "kitchen_counter",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.213,
+        0.708,
+        0.582,
+        0.828
+      ],
+      "region_id": "kitchenette_south",
+      "evidence": "顶视南墙两段白台面,中留通道口,台面有小家电状物。"
+    },
+    {
+      "id": "hex_shelf_sw",
+      "label": "六边形格架(疑酒架)",
+      "kind": "shelf",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.296,
+        0.718,
+        0.34,
+        0.787
+      ],
+      "region_id": "kitchenette_south",
+      "evidence": "NW/SE斜视见白色六边形格架;顶视对应位置为台面端部小件,对应关系未精确验证。"
+    },
+    {
+      "id": "sofas_curved_pair",
+      "label": "弧形青色沙发×2(含中间圆几)",
+      "kind": "sofa",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.331,
+        0.561,
+        0.437,
+        0.639
+      ],
+      "region_id": "lounge_center",
+      "evidence": "顶视两弧形沙发相对,中间白色圆几;NW斜视印证。"
+    },
+    {
+      "id": "lounge_chair_beige",
+      "label": "米色休闲椅",
+      "kind": "armchair",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.516,
+        0.6,
+        0.564,
+        0.65
+      ],
+      "region_id": "lounge_center",
+      "evidence": "顶视圆弧靠背休闲椅。"
+    },
+    {
+      "id": "bed_wc",
+      "label": "床(中右卧)",
+      "kind": "bed",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.606,
+        0.328,
+        0.702,
+        0.478
+      ],
+      "region_id": "bedroom_wc",
+      "evidence": "顶视白床,床头朝北,下衬青色毯。"
+    },
+    {
+      "id": "nightstands_wc",
+      "label": "床头柜×2(含灯具)",
+      "kind": "nightstand",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.601,
+        0.32,
+        0.715,
+        0.355
+      ],
+      "region_id": "bedroom_wc",
+      "evidence": "顶视床头两侧小柜与小件。"
+    },
+    {
+      "id": "sofa_gray_sitting",
+      "label": "浅灰沙发(右中室)",
+      "kind": "sofa",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.748,
+        0.308,
+        0.837,
+        0.367
+      ],
+      "region_id": "sitting_room_e",
+      "evidence": "顶视北缘浅灰沙发。"
+    },
+    {
+      "id": "yellow_item_sitting",
+      "label": "黄色椅/盖毯",
+      "kind": "chair",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.77,
+        0.37,
+        0.804,
+        0.414
+      ],
+      "region_id": "sitting_room_e",
+      "evidence": "顶视亮黄色小块,座椅或盖毯难辨。"
+    },
+    {
+      "id": "sectional_teal_e",
+      "label": "L型深青组合沙发(东南角室)",
+      "kind": "sofa",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.881,
+        0.32,
+        0.957,
+        0.532
+      ],
+      "region_id": "tv_lounge_e",
+      "evidence": "顶视沿东墙与南墙的L型深青组合沙发;SE斜视印证。"
+    },
+    {
+      "id": "bed_south",
+      "label": "床(中南卧)",
+      "kind": "bed",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.586,
+        0.63,
+        0.654,
+        0.767
+      ],
+      "region_id": "bedroom_south",
+      "evidence": "顶视白床,枕头朝北,衬图案毯。"
+    },
+    {
+      "id": "chaise_teal_south",
+      "label": "青色贵妃榻(斜置)",
+      "kind": "chaise",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.691,
+        0.685,
+        0.744,
+        0.779
+      ],
+      "region_id": "bedroom_south",
+      "evidence": "顶视东南角斜置青色躺榻。"
+    },
+    {
+      "id": "nightstands_south",
+      "label": "床头柜×2(金点灯具)",
+      "kind": "nightstand",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.651,
+        0.741,
+        0.704,
+        0.795
+      ],
+      "region_id": "bedroom_south",
+      "evidence": "顶视床尾东南侧两件带金色圆点小柜。"
+    },
+    {
+      "id": "toilet_south2",
+      "label": "白色洁具(疑马桶)",
+      "kind": "toilet",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.735,
+        0.613,
+        0.777,
+        0.662
+      ],
+      "region_id": "bathroom_south",
+      "evidence": "顶视北端白色洁具状件。"
+    },
+    {
+      "id": "vanity_south2",
+      "label": "深色柜(疑洗手柜)",
+      "kind": "vanity",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.738,
+        0.676,
+        0.77,
+        0.727
+      ],
+      "region_id": "bathroom_south",
+      "evidence": "顶视中部深色柜状件。"
+    },
+    {
+      "id": "armchair_se_west",
+      "label": "深灰扶手椅(西)",
+      "kind": "armchair",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.796,
+        0.636,
+        0.849,
+        0.705
+      ],
+      "region_id": "nook_se",
+      "evidence": "顶视深灰高背扶手椅,朝东。"
+    },
+    {
+      "id": "armchair_se_east",
+      "label": "深灰扶手椅(东)",
+      "kind": "armchair",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.881,
+        0.636,
+        0.934,
+        0.705
+      ],
+      "region_id": "nook_se",
+      "evidence": "顶视深灰高背扶手椅,朝西。"
+    },
+    {
+      "id": "coffee_table_se",
+      "label": "茶几/长凳(图案毯中)",
+      "kind": "coffee_table",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.846,
+        0.718,
+        0.907,
+        0.782
+      ],
+      "region_id": "nook_se",
+      "evidence": "顶视两椅之间浅色长方件。"
+    }
+  ],
+  "stairs": {
+    "visible": false,
+    "confidence": "category_uncertain",
+    "notes": "五张图(顶视+NE/NW/SW/SE)均未发现确定梯段、梯井或高差开口;个别白色层板状纹样经比对为家具/柜体,本层按无楼梯记录,墙体遮挡处无法完全排除。"
+  },
+  "uncertainties": [
+    "fireplace_tv朝向未定:SW斜视最清晰且与媒体室沙发相邻,倾向西墙;SE斜视亦见火光,或为南墙面/透过墙开口所见,顶视贴墙厚度未解析。",
+    "SW斜视媒体室一带见白色双开门(柜门或房门),顶视对应开口未定。",
+    "中部v0.568-0.615与v0.32-0.345墙带之间的通道为通行区,未单列区域。",
+    "island_bar_ne身份(中岛/吧台)与hex_shelf_sw在顶视中的精确对应未验证。",
+    "bathroom_west与bathroom_south的洁具类别在顶视分辨率下未定。",
+    "各床朝向按枕头/毯位置判读,西卧与中南卧枕头位置不典型,存在反向可能。",
+    "红/绿十字线为渲染标记线,非构件。"
+  ]
+}

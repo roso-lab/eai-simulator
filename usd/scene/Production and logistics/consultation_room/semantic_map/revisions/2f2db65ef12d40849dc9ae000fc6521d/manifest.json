@@ -1,0 +1,29 @@
+{
+  "schema": "eai.semantic_map.revision",
+  "version": 1,
+  "revision": "2f2db65ef12d40849dc9ae000fc6521d",
+  "scene_key": "production_consultation_room",
+  "levels": [
+    {
+      "level_id": "1F",
+      "grid": "level-000-semantic-grid.npz",
+      "preview": "level-000-semantic-map.png",
+      "layer": "level-000-layer.png",
+      "extent_xy": [
+        20.5,
+        28.3,
+        -4.5,
+        6.7
+      ]
+    }
+  ],
+  "files": {
+    "level-000-layer.png": "a260f5b3c632a308b3fd7afd386fe738fd604abfc1b083448135448b31d1bc48",
+    "level-000-semantic-grid.npz": "11239d810393ec82397ead9c9e22c9bcc96af25b3e1fa48341be7ec41cff8a11",
+    "level-000-semantic-map.png": "6680febec13ec67a0f45d0d1a811fb9c5c438b2ec955c88ffc9baab2dee179e8",
+    "semantic-footprints.geojson": "0cfc57e09f125e6b0b1143946fccf83bdca355d272db911faa983948cd898d80",
+    "semantic-footprints.json": "4a77412461ddfc8ff437de5896c8674fd5ea2ef41d2f6cba6e57313c96aeb862",
+    "topology.json": "61183e257b39437a6df91b639bc4e1fd51c003491fb656210b80d06dafab81b1"
+  },
+  "robot_validated": false
+}

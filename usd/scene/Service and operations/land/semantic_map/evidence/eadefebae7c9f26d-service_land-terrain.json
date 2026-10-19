@@ -1,0 +1,285 @@
+{
+  "scene_id": "service_land",
+  "level_id": "terrain",
+  "regions": [
+    {
+      "id": "service_land-terrain-island",
+      "label": "isolated ring/horseshoe-shaped elevated terrain mesa: grass arc S/W, white arc N, rocky scree arc SE, around a lower central floor; outer edges drop as cliffs to the flat ground",
+      "kind": "terrain_landform",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.0433,
+        0.7063,
+        0.62,
+        0.9577
+      ],
+      "evidence": {
+        "image": "evidence/577ad05c7151de18-terrain-material-top.png",
+        "sha256": "577ad05c7151de18c0a7bccd4a6dfc0141d8f8243b72f9f5ec105a6b232a170d",
+        "visual_note": "terrain-material-top: bounds 为草地/白色/碎石斑三类像素连通域的并集外接框（草 18097px、白 19708px、碎石 19861px，均已排除 u≈0.3044-0.3056 纵向绿标尺线与 v≈0.8048-0.8061 横向粉标尺线），含少量 <10px 边缘碎斑；岛体外接框外无其他地形类像素。terrain-material-ne/nw/se/sw 四斜视均见同一孤立台地：外缘以崖壁直落外围平地（nw 斜视台缘下见暗色崖面带），整体呈环/马蹄形，中央为灰色洼地；环状结构由四斜视一致支持。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_land-terrain-ground-plane",
+      "label": "flat grid-textured ground plane surrounding the terrain island, extending to the horizon / capture edges",
+      "kind": "ground_plane",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.0,
+        0.0,
+        1.0,
+        1.0
+      ],
+      "evidence": {
+        "image": "evidence/577ad05c7151de18-terrain-material-top.png",
+        "sha256": "577ad05c7151de18c0a7bccd4a6dfc0141d8f8243b72f9f5ec105a6b232a170d",
+        "visual_note": "terrain-material-top: 全图被规则灰色网格平面覆盖（实测底色 lum 中位 176、sat≤2，网格线偏暗 lum≈143-165），岛体之外无任何其他地物（全图细亮脊线检测仅见画布规则纹理方块，无曲线地物）。terrain-material-ne/nw/se/sw: 同一平面以透视网格延至地平线。该平面疑似模拟器默认 groundplane 而非场景创作内容（见 uncertainties）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_land-terrain-grass-plateau-w",
+      "label": "bright yellow-green grass plateau, west/southwest arc of the mesa",
+      "kind": "grass_terrain",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.0444,
+        0.7821,
+        0.3544,
+        0.8774
+      ],
+      "evidence": {
+        "image": "evidence/577ad05c7151de18-terrain-material-top.png",
+        "sha256": "577ad05c7151de18c0a7bccd4a6dfc0141d8f8243b72f9f5ec105a6b232a170d",
+        "visual_note": "terrain-material-top: 主草地连通域 11740px（px 40,1238-308,1388）+ 同台面上的第二草带 1348px（154,1300-318,1354）+ 西缘小带 592px（100,1250-140,1320），实测中位 RGB(198,191,112)（亮黄绿）；bounds 取三域并集。terrain-material-se: 该台地近景上部见黄绿草面及其上白色细条带与红色小点（另列 objects）；terrain-material-sw: 南弧草地近景，草面上见红橙色横条（(878-912,798-812)）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_land-terrain-olive-arm-s",
+      "label": "darker olive-green vegetated arm, south-center/southeast of the grass plateau, toward the ring's SE gap",
+      "kind": "vegetation_terrain",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.3489,
+        0.8553,
+        0.4989,
+        0.8964
+      ],
+      "evidence": {
+        "image": "evidence/577ad05c7151de18-terrain-material-top.png",
+        "sha256": "577ad05c7151de18c0a7bccd4a6dfc0141d8f8243b72f9f5ec105a6b232a170d",
+        "visual_note": "terrain-material-top: 独立草类连通域 4072px（px 314,1354-426,1418）+ 东侧细条 336px（440,1360-448,1404），实测中位 RGB(163,158,101)，比主草地（RGB 198,191,112）暗约一个色调档，其中 lum<150 的深橄榄部分占 2650px；bounds 取两域并集。terrain-material-sw: 对应南弧东段的深绿灌丛带与绕行小径；terrain-material-se: 近景下部深绿色斑块。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_land-terrain-white-plateau-n",
+      "label": "white/light-toned terrain massif, north arc of the mesa (material unresolved: snow-like / white rock / salt crust)",
+      "kind": "light_terrain",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.2333,
+        0.7063,
+        0.5789,
+        0.8446
+      ],
+      "evidence": {
+        "image": "evidence/577ad05c7151de18-terrain-material-top.png",
+        "sha256": "577ad05c7151de18c0a7bccd4a6dfc0141d8f8243b72f9f5ec105a6b232a170d",
+        "visual_note": "terrain-material-top: 白色台地由 5 个白域构成（6248/5268/1972/1776/1216px，px 210,1146-520,1336），实测中位 RGB(242,242,243)、sat≈3，各域之间为灰色路径带（另列 path region）；bounds 取并集。材质不可判定（见 uncertainties），label 仅作色调描述。terrain-material-sw: 白台近景，雪状白面上见蜿蜒灰径与成群深色小点；terrain-material-nw: 台地远观呈白垩色块；terrain-material-se: 白台东侧见灰色细带下坡。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_land-terrain-scree-mass-se",
+      "label": "large speckled rocky scree/boulder mass, southeast end of the mesa",
+      "kind": "rocky_terrain",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.4578,
+        0.8667,
+        0.6189,
+        0.9533
+      ],
+      "evidence": {
+        "image": "evidence/577ad05c7151de18-terrain-material-top.png",
+        "sha256": "577ad05c7151de18c0a7bccd4a6dfc0141d8f8243b72f9f5ec105a6b232a170d",
+        "visual_note": "terrain-material-top: 最大碎石连通域 6476px（px 412,1372-556,1508），暖灰斑驳纹理（中位 RGB(189,185,174)、局部 5x5 亮度标准差>7，区别于平滑白台）；terrain-material-sw: 近景右侧大型碎石坡/岩丘（(1155-1300,665-755)）；terrain-material-ne: 同丘远观于画面左端；terrain-material-nw: 远左上部岩丘同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_land-terrain-scree-ridge-ne",
+      "label": "rocky ridge/outcrop at the northeast shoulder of the white plateau",
+      "kind": "rocky_terrain",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.4244,
+        0.7126,
+        0.4967,
+        0.765
+      ],
+      "evidence": {
+        "image": "evidence/577ad05c7151de18-terrain-material-top.png",
+        "sha256": "577ad05c7151de18c0a7bccd4a6dfc0141d8f8243b72f9f5ec105a6b232a170d",
+        "visual_note": "terrain-material-top: 碎石类连通域 2248px（px 382,1128-446,1210），纹理与 SE 碎石丘同类；terrain-material-nw: 上部岩脊近观（(940-1050,420-465)）；terrain-material-ne: 画面中部岩脊同见。bounds 取顶视连通域外接框。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_land-terrain-interior-floor",
+      "label": "central gray floor/depression inside the ring, bounded by the white plateau (N/E), grass plateau (S/W) and scree (SE); floor level and openness unresolved",
+      "kind": "basin_interior",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.25,
+        0.7821,
+        0.4833,
+        0.8446
+      ],
+      "evidence": {
+        "image": "evidence/577ad05c7151de18-terrain-material-top.png",
+        "sha256": "577ad05c7151de18c0a7bccd4a6dfc0141d8f8243b72f9f5ec105a6b232a170d",
+        "visual_note": "terrain-material-top: 逐行/逐列类别扫描实测：y1240-1330 之间 x≈225-365 为持续灰带（lum 160-200、sat≤12），y1330 处向东延伸至 x≈432，介于白台（N/E）、草地（S/W）、碎石（SE）之间；底面部分像素与外围地平面灰度一致、部分偏亮（185-192），底面是否即地平面不可分。terrain-material-nw: 自北缘内望见环抱状洼地与暗色内壁；terrain-material-sw: 环内深色调盆地、内有之字形小径下坡（(855-880,690-715)）；terrain-material-se: 中部灰暗凹陷带同见。环内是封闭凹陷还是存在低鞍部开口未能判定（见 uncertainties），bounds 为扫描线实测的保守外接框。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_land-terrain-path-network",
+      "label": "winding gray path ribbons on the white plateau and descending its inner slope into the central floor",
+      "kind": "path_network",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.2956,
+        0.7202,
+        0.4856,
+        0.8446
+      ],
+      "evidence": {
+        "image": "evidence/577ad05c7151de18-terrain-material-top.png",
+        "sha256": "577ad05c7151de18c0a7bccd4a6dfc0141d8f8243b72f9f5ec105a6b232a170d",
+        "visual_note": "terrain-material-top: 白台面与内坡上 4 条带状灰色连通域（840/564/496/356px，带宽约 8-20px），正是它们把白色台面分割为 5 个白域；bounds 取并集（px 266,1140-436,1336）。terrain-material-sw: 白面上灰径清晰，并见沿内崖之字形下坡段（(855-880,690-715)）；terrain-material-se: 白台东侧灰色细带下坡（(330-390,600-720)）。注意：岛外地面经与画布纹理对照确认无地面路径（见 uncertainties）。路径坡度/可通行性未验证。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    }
+  ],
+  "objects": [
+    {
+      "id": "service_land-terrain-red-orange-object",
+      "label": "small red-orange object on the west grass plateau; function unknown",
+      "kind": "unknown_object",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.1267,
+        0.8402,
+        0.1411,
+        0.8484
+      ],
+      "region_id": "service_land-terrain-grass-plateau-w",
+      "evidence": {
+        "image": "evidence/577ad05c7151de18-terrain-material-top.png",
+        "sha256": "577ad05c7151de18c0a7bccd4a6dfc0141d8f8243b72f9f5ec105a6b232a170d",
+        "visual_note": "terrain-material-top: 草台上唯一饱和色物体，连通域 48px（px 114,1330-126,1342），中位 RGB(229,201,153)（橙-土黄色）；已排除 v≈0.805 粉标尺线干扰后仍独立成域。terrain-material-se: 草台上部红色小点近观（(113-120,562-570)）；terrain-material-sw: 南弧红橙色横条近观（(878-912,798-812)）。三视位置一致；功能未知（标记/设备/着色岩面均可能），不作推断。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_land-terrain-stepped-white-patches-w",
+      "label": "cluster of small white patches arranged in step-like rows on the southwest slope of the grass plateau (stairs vs terraces vs snow/rock patches unresolved)",
+      "kind": "stepped_structure",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.0822,
+        0.8225,
+        0.2344,
+        0.8608
+      ],
+      "region_id": "service_land-terrain-grass-plateau-w",
+      "evidence": {
+        "image": "evidence/577ad05c7151de18-terrain-material-top.png",
+        "sha256": "577ad05c7151de18c0a7bccd4a6dfc0141d8f8243b72f9f5ec105a6b232a170d",
+        "visual_note": "terrain-material-top: 西南坡上 11 个白色小斑块（单个 36-160px，呈两簇排列），bounds 取包络（px 74,1302-210,1362）。terrain-material-se: 同区近景呈 3-4 条平行浅色条带沿坡下降（(40-165,640-712)），似台阶/梯田剖面；terrain-material-sw: 近左见浅色条带（(715-805,740-800)）。是台阶、梯田、雪斑还是白岩层理无法分辨，category_uncertain，不认证为可通行台阶。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_land-terrain-rim-rock-outcrops-nw",
+      "label": "small rocky outcrops along the northwest-north rim of the white plateau / island west edge",
+      "kind": "rocky_outcrop",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.1244,
+        0.7266,
+        0.3678,
+        0.7795
+      ],
+      "evidence": {
+        "image": "evidence/577ad05c7151de18-terrain-material-top.png",
+        "sha256": "577ad05c7151de18c0a7bccd4a6dfc0141d8f8243b72f9f5ec105a6b232a170d",
+        "visual_note": "terrain-material-top: 3 个碎石类小露头（428px @112,1166-136,1232；336px @204,1150-256,1184；444px @286,1176-330,1198），bounds 取并集；西缘露头在顶视中呈弧形亮灰条。terrain-material-nw: 台地西北缘岩脊近观同见（上部左）；terrain-material-ne: 画面右缘岩脊/小暗结构（(650-662,432-458)）与之对应。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_land-terrain-white-slivers-se-slope",
+      "label": "thin white strips on the SE inner slope (candidate descending path, stepped structure, or rock/snow seam — unresolved)",
+      "kind": "unknown_structure",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.4822,
+        0.8377,
+        0.4922,
+        0.8786
+      ],
+      "evidence": {
+        "image": "evidence/577ad05c7151de18-terrain-material-top.png",
+        "sha256": "577ad05c7151de18c0a7bccd4a6dfc0141d8f8243b72f9f5ec105a6b232a170d",
+        "visual_note": "terrain-material-top: 6 条细白竖条（各 16-56px，宽 2-9px，px 434-442,1326-1390），是白色类中唯一落在 SE 内坡位置的结构。terrain-material-sw: 同区似见阶梯状白色小构造近景（(1135-1165,760-795)）；terrain-material-se: 东侧灰色细带下坡（(330-390,600-720)）。是下坡小径、台阶还是岩层/雪缝未定，category_uncertain。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_land-terrain-plateau-dark-dots",
+      "label": "scattered small dark dots on the white plateau (shrubs or small boulders, unresolved)",
+      "kind": "vegetation_or_debris_dots",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.2822,
+        0.7353,
+        0.5011,
+        0.8345
+      ],
+      "region_id": "service_land-terrain-white-plateau-n",
+      "evidence": {
+        "image": "evidence/577ad05c7151de18-terrain-material-top.png",
+        "sha256": "577ad05c7151de18c0a7bccd4a6dfc0141d8f8243b72f9f5ec105a6b232a170d",
+        "visual_note": "terrain-material-top: 13 个孤立深色小点（各 4-80px，9x9 环境圈内白色占比≥55%，排除崖缘阴影），包络 px 254,1164-450,1320；样本中心散布于白台中南部。terrain-material-sw: 白面上成群深色小点近观（(860-930,645-665) 等），疑似灌丛或碎岩；单点性质不可分，category_uncertain。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    }
+  ],
+  "stairs": {
+    "visible": true,
+    "confidence": "category_uncertain",
+    "notes": "五张图（terrain-material-top/ne/nw/se/sw）逐一检查：未发现可确证的楼梯（可分辨的踏面+踢面+扶手组合）。记录两处阶梯状候选几何（仅记录所见，不认证）：(1) 西南坡白色斑块群（object stepped-white-patches-w：顶视 u 0.082-0.234 / v 0.823-0.861；terrain-material-se (40-165,640-712) 呈 3-4 条平行条带的阶梯/梯田样剖面，terrain-material-sw 近左同见条带）；(2) SE 内坡细白条（object white-slivers-se-slope：顶视 u 0.482-0.492 / v 0.838-0.879；terrain-material-sw (1135-1165,760-795) 似阶梯状白色小构造）。两处均无法分辨踏面/踢面，不能排除梯田/岩层/雪斑；台面与内坡上的之字形灰色路径（path-network region）为坡面小径而非台阶。本记录不认证任何跨层路线或可通行性；若下游据此记录生成任何路线，一律 robot_validated=false。reviewer: ZCode GLM-5.3-Flash/max。"
+  },
+  "uncertainties": [
+    "朝向约定：顶视按 capture.json 的 image_to_world（图右=+X 东、图上=+Y 北、正射）；四张斜视按文件名机位（NE/NW/SE/SW、45° 俯角）做方位映射（NE 图右=西北、NW 图右=西南、SE 图右=东北、SW 图右=东南）。所有方位词仅由四斜视与顶视的自洽性支持，未经外部坐标验证。",
+    "白色台地材质不可判定：顶视实测 RGB≈(242,242,243)、sat≈3，为中性白色；雪、白垩/石灰岩、盐壳、浅色土均产生同样像素。label 仅用『白色/浅色调』，不作材质断言。",
+    "中央洼地的高程与封闭性未定：底面像素（lum 160-200、sat≤12）部分与外围地平面完全同灰度，且在顶视像素连通意义上与外部地面相连（环体 W 侧与 SE 侧存在类灰通道）；斜视显示 N/E/S 内缘有崖壁、底面低于环顶，但底面相对外围地面的高差无法从像素测定，是否存在低鞍部开口亦未定。",
+    "阶梯候选几何（stairs.notes 两处）均无法定性为楼梯：顶视单条带仅 8-20px 宽，斜视分辨率不足以分辨踏面/踢面；梯田、岩层理、雪斑为同等可能的解释。",
+    "红橙色小物体（object red-orange-object）功能未知；仅记录其位置、尺寸（约 6x6 m 等效，按顶视 0.489 m/px 折算）与颜色。",
+    "白台上 13 个深色小点（object plateau-dark-dots）：单点 4-80px，灌丛/碎岩/阴影不可分；斜视中成群出现，倾向植被但未确证。",
+    "SE 内坡细白条（object white-slivers-se-slope）：顶视宽仅 2-9px，下坡小径/台阶/岩缝三种解释并存。",
+    "岛体外地面无路径：预览判读中疑似的『南部环形小径』经数值复核为画布纹理（亮脊像素占比 17.7%，与纯画布对照窗口 20.1% 相同；全局细亮脊线检测在岛外仅见 20x20px、266px 栅格的规则纹理方块，无曲线连通域），已从记录中剔除。",
+    "岛外仅见一个 4px 白色小点（u 0.280, v 0.701，紧邻白台北缘）：漂浮粒子/飞鸟/模型碎屑，未单列 object。",
+    "岛体仅占捕获范围一小部分：顶视 900x1583px 对应约 440x774m，岛体约 254x195m（按 bounds 折算）；其余区域为空白网格地面。捕获范围之外是否还有低于渲染显著度的地形不可知。",
+    "外围网格地面疑似模拟器默认 groundplane 而非场景创作内容；其归属不影响本记录的像素描述。",
+    "环内 SE 侧内缘见暗色（lum<160）条带（顶视 x≈430-465, y≈1335-1385 一带）：内崖阴影或深色岩，宽度不足未单列。",
+    "斜视存在前景遮挡与透视压缩：环内北壁在部分视角被前景崖体遮挡；所有 bounds 以顶视正射为准，斜视仅用于存在性与形状佐证。",
+    "本记录只做像素级语义记录，不含任何路线、坡度或可通行性认证；任何基于本文件的路线生成结果均应视为 robot_validated=false。证据绑定 artifacts/semantic-captures-v2-30/service_land/ 的 5 张 Camera-Light 图片，SHA256 已独立复算（sha256sum）并写入各 evidence.sha256，与 capture.json 声明值一致。",
+    "本轮任务指定输出路径为 handoffs/flash-v2/production_service/service_land-terrain.json（与并行 service 子轮的 handoffs/flash-v2/service/ 目录不同），scene_id=service_land 取自捕获目录名，level_id=terrain 取自 capture.json。"
+  ]
+}

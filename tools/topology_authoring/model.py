@@ -5,11 +5,13 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 import math
 from typing import Any, Iterable, Mapping, Sequence
+from .semantics import SemanticAuthoringMixin
 
-# Clearance metadata remains useful to a scene validator, but it is not a
-# controller capability and is never used by the navigation router.  Ground
-# and aerial products deliberately expose the same authoring profile.
-PROFILES = {"default": 1.0}
+# Clearance metadata remains useful to a scene validator.  Semantic maps from
+# the authoring tool use the named ground profiles; the legacy default remains
+# valid for older HeteroCoord products and aerial maps.
+PROFILES = {"default": 1.0, "ground_small": 0.8, "ground_large": 1.4}
+TRAVERSAL_MODES = frozenset({"walk", "stairs", "ramp"})
 
 
 @dataclass
@@ -25,6 +27,8 @@ class PendingEdge:
     to_node_id: str | None = None
     preview_polyline_xyz: list[list[float]] = field(default_factory=list)
     directed: bool = False
+    traversal_mode: str = "walk"
+    required_controller_capabilities: list[str] = field(default_factory=list)
 
 
 def _point(value: Sequence[float]) -> list[float]:
@@ -69,6 +73,17 @@ def _node_metadata(level_id: str | None, label: str,
     return _level_id(level_id), label, _strings(aliases, "node aliases")
 
 
+def _traversal_metadata(
+    traversal_mode: str,
+    required_controller_capabilities: Iterable[str],
+) -> tuple[str, list[str]]:
+    if not isinstance(traversal_mode, str) or traversal_mode not in TRAVERSAL_MODES:
+        raise ValueError("traversal_mode must be walk, stairs or ramp")
+    capabilities = _strings(
+        required_controller_capabilities, "required_controller_capabilities")
+    return traversal_mode, capabilities
+
+
 def _normalize_levels(levels: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
     if not isinstance(levels, (list, tuple)):
         raise ValueError("levels must be an array")
@@ -97,7 +112,7 @@ def _normalize_levels(levels: Iterable[Mapping[str, Any]]) -> list[dict[str, Any
 
 
 @dataclass
-class TopologyDocument:
+class TopologyDocument(SemanticAuthoringMixin):
     scene_key: str
     source: dict[str, str] = field(default_factory=dict)
     nodes: list[dict[str, Any]] = field(default_factory=list)
@@ -105,9 +120,12 @@ class TopologyDocument:
     coordinate_frame: str = "scene_world"
     meters_per_unit: float = 1.0
     up_axis: str = "Z"
-    version: int = 2
+    # Legacy single-floor drafts remain v1 until a level declaration is made.
+    # Aerial authoring is inherently XYZ and starts on the v2 contract.
+    version: int = 1
     levels: list[dict[str, Any]] = field(default_factory=list)
     domain: str = "ground"
+    semantics: dict[str, Any] | None = None
     _undo: list[dict[str, Any]] = field(default_factory=list, repr=False)
     _redo: list[dict[str, Any]] = field(default_factory=list, repr=False)
     pending_node: PendingNode | None = field(default=None, repr=False, compare=False)
@@ -120,6 +138,8 @@ class TopologyDocument:
             raise ValueError("domain must be ground or aerial")
         if self.version not in {1, 2}:
             raise ValueError("version must be 1 or 2")
+        if self.domain == "aerial" and self.version == 1:
+            self.version = 2
 
     @property
     def profiles(self):
@@ -131,6 +151,7 @@ class TopologyDocument:
             "levels": deepcopy(self.levels),
             "nodes": deepcopy(self.nodes),
             "edges": deepcopy(self.edges),
+            "semantics": deepcopy(self.semantics),
         }
 
     def _restore_snapshot(self, state: Mapping[str, Any]) -> None:
@@ -138,6 +159,7 @@ class TopologyDocument:
         self.levels = deepcopy(state.get("levels", []))
         self.nodes = deepcopy(state["nodes"])
         self.edges = deepcopy(state["edges"])
+        self.semantics = deepcopy(state.get("semantics"))
 
     def _record(self) -> None:
         self._undo.append(self._snapshot())
@@ -146,7 +168,7 @@ class TopologyDocument:
     def replace_content(self, other: "TopologyDocument") -> None:
         """Commit a validated load as a new document/history boundary."""
         for name in ("scene_key", "source", "nodes", "edges", "coordinate_frame",
-                     "meters_per_unit", "up_axis", "version", "levels", "domain"):
+                     "meters_per_unit", "up_axis", "version", "levels", "domain", "semantics"):
             setattr(self, name, deepcopy(getattr(other, name)))
         self._undo.clear()
         self._redo.clear()
@@ -182,6 +204,7 @@ class TopologyDocument:
     def set_levels(self, levels: Iterable[Mapping[str, Any]]) -> None:
         """Atomically opt this document into the explicit multilevel contract."""
         normalized = _normalize_levels(levels)
+        self._check_semantic_graph_edit(levels=normalized)
         self._record()
         self.version = 2
         self.levels = normalized
@@ -261,13 +284,20 @@ class TopologyDocument:
         self.pending_edge.preview_polyline_xyz = points
 
     def confirm_edge_preview(self, *, directed: bool | None = None,
-                             profiles: Mapping[str, Mapping[str, float]] | None = None) -> str:
+                             profiles: Mapping[str, Mapping[str, float]] | None = None,
+                             traversal_mode: str | None = None,
+                             required_controller_capabilities: Iterable[str] | None = None) -> str:
         if self.pending_edge is None or self.pending_edge.to_node_id is None:
             raise ValueError("select a destination node before confirming the edge")
         pending = self.pending_edge
         edge_id = self.add_edge(pending.from_node_id, pending.to_node_id,
                                 pending.preview_polyline_xyz, directed=pending.directed if directed is None else directed,
-                                profiles=profiles)
+                                profiles=profiles,
+                                traversal_mode=pending.traversal_mode if traversal_mode is None else traversal_mode,
+                                required_controller_capabilities=(
+                                    pending.required_controller_capabilities
+                                    if required_controller_capabilities is None
+                                    else required_controller_capabilities))
         self.pending_edge = None
         self.selected_node_id = pending.to_node_id
         self.selected_edge_id = edge_id
@@ -300,6 +330,10 @@ class TopologyDocument:
     def bind_target(self, node_id: str, target_ref: str) -> None:
         node = self.node(node_id)
         ref = str(target_ref)
+        if self.version == 2 and any(
+                row["id"] != node_id and ref in row.get("target_refs", ())
+                for row in self.nodes):
+            raise ValueError(f"target reference already bound to another node: {ref}")
         self._record()
         refs = set(node.setdefault("target_refs", [])); refs.add(ref)
         node["target_refs"] = sorted(refs)
@@ -313,6 +347,10 @@ class TopologyDocument:
         if node.get("locked"):
             raise ValueError("locked node cannot be edited")
         node_level, node_label, node_aliases = _node_metadata(level_id, label, aliases)
+        candidate_nodes = deepcopy(self.nodes)
+        next(row for row in candidate_nodes if row["id"] == node_id).update(
+            level_id=node_level, label=node_label, aliases=node_aliases)
+        self._check_semantic_graph_edit(nodes=candidate_nodes)
         self._record()
         node.update({"level_id": node_level, "label": node_label, "aliases": node_aliases})
 
@@ -332,6 +370,7 @@ class TopologyDocument:
     def add_edge(self, from_id: str, to_id: str, polyline: Sequence[Sequence[float]], *,
                  edge_id=None, directed=False, kind="custom_connection", source_ref=None,
                  profiles: Mapping[str, Mapping[str, float]] | None = None,
+                 traversal_mode="walk", required_controller_capabilities=(),
                  locked_geometry=False) -> str:
         points = [_point(p) for p in polyline]
         edge_id = self._next_id(self.edges, "edge:") if edge_id is None else edge_id
@@ -344,10 +383,19 @@ class TopologyDocument:
         if from_id not in {n["id"] for n in self.nodes} or to_id not in {n["id"] for n in self.nodes}:
             raise ValueError("edge endpoint does not exist")
         prof = deepcopy(dict(profiles or {k: {"clearance_m": v} for k, v in self.profiles.items()}))
+        traversal, capabilities = _traversal_metadata(
+            traversal_mode, required_controller_capabilities)
+        if self.version == 1 and (traversal != "walk" or capabilities):
+            raise ValueError("edge traversal metadata requires topology version 2")
         row = {"id": str(edge_id), "kind": str(kind), "from": str(from_id),
                "to": str(to_id), "directed": bool(directed),
                "polyline_xyz": points, "profiles": prof,
                "source_ref": source_ref, "locked_geometry": bool(locked_geometry)}
+        if self.version == 2:
+            row.update({
+                "traversal_mode": traversal,
+                "required_controller_capabilities": capabilities,
+            })
         self._record()
         self.edges.append(row)
         return str(edge_id)
@@ -362,6 +410,12 @@ class TopologyDocument:
         node = self.node(node_id)
         if node.get("locked"):
             raise ValueError("locked node cannot be removed")
+        references = set(self.semantic_references(node_id=node_id))
+        for edge in self.edges:
+            if edge["from"] == node_id or edge["to"] == node_id:
+                references.update(self.semantic_references(edge_id=edge["id"]))
+        if references:
+            raise ValueError("update semantic bindings before deleting node: " + ", ".join(sorted(references)))
         self._record()
         self.nodes = [n for n in self.nodes if n["id"] != node_id]
         self.edges = [e for e in self.edges if e["from"] != node_id and e["to"] != node_id]
@@ -371,6 +425,9 @@ class TopologyDocument:
         edge = next((e for e in self.edges if e["id"] == edge_id), None)
         if edge is None: raise KeyError(edge_id)
         if edge.get("locked_geometry"): raise ValueError("locked edge cannot be removed")
+        references = self.semantic_references(edge_id=edge_id)
+        if references:
+            raise ValueError("update named route before deleting edge: " + ", ".join(references))
         self._record(); self.edges = [e for e in self.edges if e["id"] != edge_id]
         if self.selected_edge_id == edge_id:
             self.selected_edge_id = None
@@ -388,6 +445,9 @@ class TopologyDocument:
         points = [_point(point) for point in polyline]
         if len(points) < 2:
             raise ValueError("edge requires at least two points")
+        candidate_edges = deepcopy(self.edges)
+        next(row for row in candidate_edges if row["id"] == edge_id)["polyline_xyz"] = points
+        self._check_semantic_graph_edit(edges=candidate_edges)
         self._record(); edge["polyline_xyz"] = points
 
     def insert_edge_point(self, edge_id: str, index: int, position: Sequence[float]) -> None:
@@ -409,7 +469,27 @@ class TopologyDocument:
 
     def set_edge_direction(self, edge_id: str, directed: bool) -> None:
         edge = self.edge(edge_id)
+        candidate_edges = deepcopy(self.edges)
+        next(row for row in candidate_edges if row["id"] == edge_id)["directed"] = bool(directed)
+        self._check_semantic_graph_edit(edges=candidate_edges)
         self._record(); edge["directed"] = bool(directed)
+
+    def set_edge_traversal(self, edge_id: str, traversal_mode: str,
+                           required_controller_capabilities: Iterable[str] = ()) -> None:
+        if self.version != 2:
+            raise ValueError("edge traversal metadata requires topology version 2")
+        edge = self.edge(edge_id)
+        traversal, capabilities = _traversal_metadata(
+            traversal_mode, required_controller_capabilities)
+        candidate_edges = deepcopy(self.edges)
+        next(row for row in candidate_edges if row["id"] == edge_id).update(
+            traversal_mode=traversal, required_controller_capabilities=capabilities)
+        self._check_semantic_graph_edit(edges=candidate_edges)
+        self._record()
+        edge.update({
+            "traversal_mode": traversal,
+            "required_controller_capabilities": capabilities,
+        })
 
     def set_edge_profile(self, edge_id: str, profile: str, clearance_m: float) -> None:
         if profile not in self.profiles:
@@ -425,6 +505,15 @@ class TopologyDocument:
         if node.get("locked"): raise ValueError("locked node cannot move")
         old = list(node["position_xyz"])
         new = _point(position)
+        candidate_nodes, candidate_edges = deepcopy(self.nodes), deepcopy(self.edges)
+        next(row for row in candidate_nodes if row["id"] == node_id)["position_xyz"] = new
+        for edge in candidate_edges:
+            points = edge.get("polyline_xyz", [])
+            if edge.get("from") == node_id and points and points[0] == old:
+                points[0] = list(new)
+            if edge.get("to") == node_id and points and points[-1] == old:
+                points[-1] = list(new)
+        self._check_semantic_graph_edit(nodes=candidate_nodes, edges=candidate_edges)
         self._record(); node["position_xyz"] = new
         for edge in self.edges:
             points = edge.get("polyline_xyz", [])
@@ -449,6 +538,8 @@ class TopologyDocument:
             result["levels"] = deepcopy(self.levels)
         result.update({"source": dict(self.source), "nodes": deepcopy(self.nodes),
                        "edges": deepcopy(self.edges)})
+        if self.semantics is not None:
+            result["semantics"] = deepcopy(self.semantics)
         return result
 
     @classmethod
@@ -458,6 +549,8 @@ class TopologyDocument:
             raise ValueError("unsupported topology product")
         if not isinstance(value.get("scene_key"), str) or not isinstance(value.get("source", {}), Mapping):
             raise ValueError("invalid topology scene/source")
+        if value.get("domain", "ground") == "aerial" and value["version"] == 1:
+            raise ValueError("aerial topology requires version 2")
         if not isinstance(value.get("nodes", []), list) or not isinstance(value.get("edges", []), list):
             raise ValueError("topology nodes and edges must be arrays")
         document = cls(
@@ -469,6 +562,15 @@ class TopologyDocument:
             domain=value.get("domain", "ground"),
         )
         if value["version"] == 2:
-            document.levels = _normalize_levels(value.get("levels", []))
-        document._undo.clear(); document._redo.clear()
+            if "levels" not in value:
+                raise ValueError("version 2 topology requires levels")
+            document.set_levels(value["levels"])
+            document._undo.clear()
+            document._redo.clear()
+        else:
+            document._undo.clear(); document._redo.clear()
+        if "semantics" in value:
+            if not isinstance(value["semantics"], Mapping):
+                raise ValueError("semantics must be an object")
+            document.semantics = deepcopy(dict(value["semantics"]))
         return document

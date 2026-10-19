@@ -1,0 +1,186 @@
+{
+  "scene_id": "house",
+  "level_id": "1F",
+  "regions": [
+    {
+      "id": "room_west_north",
+      "label": "西翼北段(用途待确认)",
+      "kind": "room_unknown",
+      "confidence": "unknown_function",
+      "bounds_norm": [
+        0.39,
+        0.42,
+        0.465,
+        0.5
+      ],
+      "evidence": "顶视西翼北段：北墙根一排小件(疑厨卫 fixtures)+中部深色大矩形(见dark_bed_or_rug);斜视该翼为黑色外墙横窗体量；功能未知。"
+    },
+    {
+      "id": "room_west_south",
+      "label": "西翼南段(用途待确认)",
+      "kind": "room_unknown",
+      "confidence": "unknown_function",
+      "bounds_norm": [
+        0.39,
+        0.5,
+        0.465,
+        0.6
+      ],
+      "evidence": "顶视浅色家具轮廓+灰色卧榻；NW斜视见白色格架柜体，翼内另有暗区疑为内院/车库，未能证实。"
+    },
+    {
+      "id": "living_center",
+      "label": "起居区(中部开敞)",
+      "kind": "living_room",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.465,
+        0.472,
+        0.565,
+        0.6
+      ],
+      "evidence": "顶视中央两件黄色沙发+一件黄色高背件+散布小桌组；SE斜视开敞中央区清晰可见两张黄色沙发；空间与其他翼连通，边界为布局推断。"
+    },
+    {
+      "id": "block_northeast",
+      "label": "东北块(用途待确认)",
+      "kind": "room_unknown",
+      "confidence": "unknown_function",
+      "bounds_norm": [
+        0.48,
+        0.42,
+        0.56,
+        0.47
+      ],
+      "evidence": "顶视该块地板近空置；NW斜视其北立面有宽幅条纹板(疑车库门/卷帘)；功能未知。"
+    },
+    {
+      "id": "wing_east",
+      "label": "东翼长室(用途待确认)",
+      "kind": "room_unknown",
+      "confidence": "unknown_function",
+      "bounds_norm": [
+        0.555,
+        0.52,
+        0.615,
+        0.665
+      ],
+      "evidence": "顶视东翼长条空间近空置，南端另有白色块(疑带顶露台)；SE斜视对应前景黑色体量，带大窗与宽开口，内部昏暗，功能未知。"
+    }
+  ],
+  "objects": [
+    {
+      "id": "dark_bed_or_rug",
+      "label": "深色大矩形(疑双人床)",
+      "kind": "bed",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.414,
+        0.445,
+        0.452,
+        0.484
+      ],
+      "region_id": "room_west_north",
+      "evidence": "顶视深蓝黑矩形，北缘隐约两个浅色枕状块，东侧伴橙色小件；亦可能为地毯，未能定论。"
+    },
+    {
+      "id": "yellow_seat_north",
+      "label": "黄色高背件(单椅/柜，待定)",
+      "kind": "chair",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.462,
+        0.466,
+        0.479,
+        0.522
+      ],
+      "region_id": "living_center",
+      "evidence": "顶视黄色竖长条，位于起居区西北缘；高背椅、高柜或帘幕难辨。"
+    },
+    {
+      "id": "yellow_sofa_sw",
+      "label": "黄色沙发(西南)",
+      "kind": "sofa",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.46,
+        0.552,
+        0.477,
+        0.6
+      ],
+      "region_id": "living_center",
+      "evidence": "顶视亮黄色块；SE斜视中央区黄色沙发之一。"
+    },
+    {
+      "id": "yellow_sofa_se",
+      "label": "黄色沙发(东南)",
+      "kind": "sofa",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.542,
+        0.543,
+        0.558,
+        0.592
+      ],
+      "region_id": "living_center",
+      "evidence": "顶视亮黄色块；SE斜视中央区黄色沙发之一，与sw件相对/并排布置。"
+    },
+    {
+      "id": "gray_daybed_sw",
+      "label": "灰色卧榻/单人沙发",
+      "kind": "sofa",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.41,
+        0.555,
+        0.448,
+        0.592
+      ],
+      "region_id": "room_west_south",
+      "evidence": "顶视灰色矩形，尺寸近单人床或双人沙发，细节不可辨。"
+    },
+    {
+      "id": "shelving_unit_west",
+      "label": "白色格架柜体(西翼)",
+      "kind": "cabinet",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.395,
+        0.495,
+        0.425,
+        0.555
+      ],
+      "region_id": "room_west_south",
+      "evidence": "NW斜视西翼内见白色格架/置物墙；顶视对应位置仅浅色轮廓，对应关系未逐段验证。"
+    },
+    {
+      "id": "coffee_table_cluster",
+      "label": "中央矮桌/茶几组",
+      "kind": "table",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.49,
+        0.502,
+        0.552,
+        0.545
+      ],
+      "region_id": "living_center",
+      "evidence": "顶视两黄沙发之间散布小件，疑茶几或矮桌组；SE斜视沙发间似有矮桌，对应关系未验证。"
+    }
+  ],
+  "stairs": {
+    "visible": false,
+    "confidence": "category_uncertain",
+    "notes": "顶视与NW/SE斜视均显示单层平顶体量，未见楼梯段、高差开口或第二层结构；若存在夹层/阁楼，本组影像无法证实。"
+  },
+  "uncertainties": [
+    "顶视出图比例大，建筑仅占画面约22%×24%，室内家具边界精度约±0.005，小件未列。",
+    "场地为起伏草地，散布乔木约30株及多片灰色铺装区；乔木与铺装未逐株/逐片量化，室外2D障碍需从源资产另行提取；铺装边缘弥散，范围未验证。",
+    "dark_bed_or_rug深色矩形身份(床/地毯)未定，枕状浅块仅隐约可辨。",
+    "room_west_south内NW斜视所见暗区疑为内院/车库，顶视未能证实其开口与深度。",
+    "block_northeast北立面宽幅条纹板疑为车库门/卷帘，功能与开口朝向未验证。",
+    "wing_east内部昏暗，顶视近空置，功能未知；南端白块疑为带顶露台。",
+    "yellow_seat_north身份(座椅/高柜/帘幕)未定；三件黄色家具的相对布置仅SE斜视部分印证。",
+    "入户门位置未在任一斜视中确认。"
+  ]
+}

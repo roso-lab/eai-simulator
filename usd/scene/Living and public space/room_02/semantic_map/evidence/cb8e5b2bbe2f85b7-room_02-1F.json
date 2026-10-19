@@ -1,0 +1,488 @@
+{
+  "scene_id": "room_02",
+  "level_id": "1F",
+  "regions": [
+    {
+      "id": "living_nw",
+      "label": "客厅(西北)",
+      "kind": "living_room",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.05,
+        0.04,
+        0.41,
+        0.445
+      ],
+      "evidence": "顶视灰色L型大沙发+茶几+西侧深色电视竖件+圆边几+散叶盆栽;NE斜视同房间西墙见高位黑色平板电视与旁侧绿植;SW斜视见该区西/北墙灰色窗帘窗。"
+    },
+    {
+      "id": "kitchen_north",
+      "label": "厨房区(北缘)",
+      "kind": "kitchen",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.34,
+        0.04,
+        0.615,
+        0.16
+      ],
+      "evidence": "顶视北墙一排:深灰矮柜、白色台面(含深色方件,疑灶/水槽)、深灰高柜;SW斜视越过内墙顶见两个对应深色柜体;SE斜视见北墙深色高柜。"
+    },
+    {
+      "id": "dining_center_n",
+      "label": "餐桌区(中北)",
+      "kind": "dining_area",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.37,
+        0.16,
+        0.53,
+        0.31
+      ],
+      "evidence": "顶视矩形餐桌+4椅,桌上有花瓶;SW斜视经门洞见白色餐桌与桌面花瓶,相互印证。"
+    },
+    {
+      "id": "bathroom_ne",
+      "label": "卫生间(东北)",
+      "kind": "bathroom",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.6,
+        0.095,
+        0.79,
+        0.3
+      ],
+      "evidence": "顶视格纹砖地面,北墙双龙头洗手台,南侧马桶;四周墙体清晰。"
+    },
+    {
+      "id": "east_lounge",
+      "label": "东侧室(用途待确认)",
+      "kind": "room_unknown",
+      "confidence": "unknown_function",
+      "bounds_norm": [
+        0.795,
+        0.1,
+        0.955,
+        0.45
+      ],
+      "evidence": "顶视卫生间以东开敞空间,东墙有拉扣软包长凳/榻一件;功能(门厅/起居前区/卧室)未知。"
+    },
+    {
+      "id": "bedroom_sw",
+      "label": "卧室(西南)",
+      "kind": "bedroom",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.095,
+        0.455,
+        0.31,
+        0.775
+      ],
+      "evidence": "顶视大床(北端拉扣板、南端枕头、灰毯+绿色搭毯)+东南角床头柜(带植物)。"
+    },
+    {
+      "id": "closet_center",
+      "label": "衣帽/更衣间(中)",
+      "kind": "closet",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.41,
+        0.445,
+        0.57,
+        0.72
+      ],
+      "evidence": "顶视北缘挂衣架挂多件彩色衣物,南端曲木椅;NE与SW斜视均经门洞可见该批彩色挂衣,相互印证。"
+    },
+    {
+      "id": "office_se",
+      "label": "书房(中东南)",
+      "kind": "work_room",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.57,
+        0.445,
+        0.79,
+        0.7
+      ],
+      "evidence": "顶视深木色书桌(白色键盘、纸张)+白椅+白色书架(含书)+棕榈盆栽;NE斜视经门洞见白色桌面与物件。"
+    },
+    {
+      "id": "bathroom_south",
+      "label": "卫生间(中南)",
+      "kind": "bathroom",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.335,
+        0.72,
+        0.595,
+        0.947
+      ],
+      "evidence": "顶视格纹砖地面+西侧浴缸+东北马桶+南墙洗手台;墙体清晰。"
+    },
+    {
+      "id": "room_se",
+      "label": "空置区(东南,用途待确认)",
+      "kind": "room_unknown",
+      "confidence": "unknown_function",
+      "bounds_norm": [
+        0.595,
+        0.7,
+        0.955,
+        0.945
+      ],
+      "evidence": "顶视大片空置地面,数处淡圆形(地毯或光影);东段(u>0.79)北界墙线约v0.58较浅,端点未验证。"
+    }
+  ],
+  "objects": [
+    {
+      "id": "sofa_l_nw",
+      "label": "L型布艺沙发",
+      "kind": "sofa",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.065,
+        0.065,
+        0.315,
+        0.41
+      ],
+      "region_id": "living_nw",
+      "evidence": "顶视灰色L沙发,坐垫抱枕清晰;NE斜视该房内见其浅色靠背。"
+    },
+    {
+      "id": "tv_west",
+      "label": "平板电视(客厅西墙,高位)",
+      "kind": "tv",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.045,
+        0.155,
+        0.066,
+        0.36
+      ],
+      "region_id": "living_nw",
+      "evidence": "顶视沙发西侧贴墙深色长条;NE斜视确认西墙高位黑色平板电视。"
+    },
+    {
+      "id": "coffee_table_nw",
+      "label": "茶几",
+      "kind": "coffee_table",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.125,
+        0.185,
+        0.19,
+        0.315
+      ],
+      "region_id": "living_nw",
+      "evidence": "顶视白色/玻璃茶几,面上有物件。"
+    },
+    {
+      "id": "side_table_round",
+      "label": "圆边几",
+      "kind": "side_table",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.265,
+        0.299,
+        0.315,
+        0.363
+      ],
+      "region_id": "living_nw",
+      "evidence": "顶视米色圆几,沙发东南角。"
+    },
+    {
+      "id": "plant_living",
+      "label": "盆栽(客厅南)",
+      "kind": "plant",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.055,
+        0.335,
+        0.152,
+        0.433
+      ],
+      "region_id": "living_nw",
+      "evidence": "顶视散叶绿植;NE斜视电视旁亦见绿植冠部。"
+    },
+    {
+      "id": "cabinet_dark_n",
+      "label": "深灰矮柜(北墙)",
+      "kind": "cabinet",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.349,
+        0.044,
+        0.463,
+        0.107
+      ],
+      "region_id": "kitchen_north",
+      "evidence": "顶视北墙深灰矮柜;SW斜视越过墙顶见对应深色柜体。"
+    },
+    {
+      "id": "counter_kitchen",
+      "label": "厨台(深色方件为灶或水槽,未定)",
+      "kind": "kitchen_counter",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.458,
+        0.047,
+        0.53,
+        0.118
+      ],
+      "region_id": "kitchen_north",
+      "evidence": "顶视白色台面,上有一深色方块与圆形小件。"
+    },
+    {
+      "id": "tall_cabinet_dark",
+      "label": "深灰高柜(疑冰箱/衣柜)",
+      "kind": "refrigerator_or_tall_cabinet",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.549,
+        0.044,
+        0.608,
+        0.29
+      ],
+      "region_id": "kitchen_north",
+      "evidence": "顶视纵贯约0.24v的深灰高柜;SE/SW斜视均见对应深色柜体,门体细节未证实冰箱属性。"
+    },
+    {
+      "id": "dining_table_set",
+      "label": "餐桌+4椅",
+      "kind": "dining_table_set",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.389,
+        0.168,
+        0.515,
+        0.29
+      ],
+      "region_id": "dining_center_n",
+      "evidence": "顶视浅色餐桌,北端花瓶,南端两椅清晰;SW斜视经门洞见桌面花瓶。"
+    },
+    {
+      "id": "vanity_ne",
+      "label": "双盆洗手台(东北卫)",
+      "kind": "vanity",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.62,
+        0.105,
+        0.783,
+        0.158
+      ],
+      "region_id": "bathroom_ne",
+      "evidence": "顶视北墙长台,两个深色龙头。"
+    },
+    {
+      "id": "toilet_ne",
+      "label": "马桶(东北卫)",
+      "kind": "toilet",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.677,
+        0.206,
+        0.721,
+        0.264
+      ],
+      "region_id": "bathroom_ne",
+      "evidence": "顶视马桶圈+水箱,旁有小凳/篓。"
+    },
+    {
+      "id": "bench_east",
+      "label": "拉扣软包长凳/榻(东墙)",
+      "kind": "bench",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.896,
+        0.213,
+        0.947,
+        0.338
+      ],
+      "region_id": "east_lounge",
+      "evidence": "顶视东缘白色拉扣面长件,坐榻或床尾凳难辨。"
+    },
+    {
+      "id": "bed_sw",
+      "label": "双人床(南端枕头)",
+      "kind": "bed",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.095,
+        0.507,
+        0.265,
+        0.76
+      ],
+      "region_id": "bedroom_sw",
+      "evidence": "顶视灰毯大床,北端拉扣板,南端两只白枕,东缘绿色搭毯。"
+    },
+    {
+      "id": "side_table_bed",
+      "label": "床头柜(带植物)",
+      "kind": "nightstand",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.245,
+        0.713,
+        0.297,
+        0.777
+      ],
+      "region_id": "bedroom_sw",
+      "evidence": "顶视床东南角小柜,上有植物与小件。"
+    },
+    {
+      "id": "clothes_rack_center",
+      "label": "挂衣架(多彩衣物)",
+      "kind": "clothes_rack",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.42,
+        0.444,
+        0.568,
+        0.512
+      ],
+      "region_id": "closet_center",
+      "evidence": "顶视横杆挂teal/黑/白多件衣物;NE/SW斜视经门洞印证。"
+    },
+    {
+      "id": "rocking_chair",
+      "label": "曲木椅/摇椅",
+      "kind": "chair",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.421,
+        0.64,
+        0.471,
+        0.706
+      ],
+      "region_id": "closet_center",
+      "evidence": "顶视带弧形底的椅状件。"
+    },
+    {
+      "id": "bookshelf_office",
+      "label": "白色书架(含书)",
+      "kind": "bookshelf",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.559,
+        0.514,
+        0.606,
+        0.649
+      ],
+      "region_id": "office_se",
+      "evidence": "顶视白色格架,多层彩色书脊。"
+    },
+    {
+      "id": "chair_office_w",
+      "label": "白色椅状件(书架旁)",
+      "kind": "chair",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.589,
+        0.471,
+        0.638,
+        0.629
+      ],
+      "region_id": "office_se",
+      "evidence": "顶视白色长条椅状件,南北向,身份/朝向未定。"
+    },
+    {
+      "id": "desk_office",
+      "label": "书桌(深木色)",
+      "kind": "desk",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.615,
+        0.627,
+        0.746,
+        0.698
+      ],
+      "region_id": "office_se",
+      "evidence": "顶视深木桌面,白色键盘、鼠标、纸张、小植物;NE斜视经门洞见白色桌面物件。"
+    },
+    {
+      "id": "plant_office",
+      "label": "盆栽(书房北)",
+      "kind": "plant",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.685,
+        0.439,
+        0.797,
+        0.556
+      ],
+      "region_id": "office_se",
+      "evidence": "顶视棕榈状散叶绿植。"
+    },
+    {
+      "id": "clothes_rack_east",
+      "label": "挂衣架(多彩衣物)",
+      "kind": "clothes_rack",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.789,
+        0.499,
+        0.946,
+        0.571
+      ],
+      "evidence": "顶视东墙挂衣架,挂teal/黑/白多件衣物,与中衣帽间款式相同。"
+    },
+    {
+      "id": "bathtub_s",
+      "label": "浴缸(中南卫)",
+      "kind": "bathtub",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.345,
+        0.772,
+        0.416,
+        0.932
+      ],
+      "region_id": "bathroom_south",
+      "evidence": "顶视白色缸体,内缘圆角,西侧壁龛。"
+    },
+    {
+      "id": "toilet_s",
+      "label": "马桶(中南卫)",
+      "kind": "toilet",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.539,
+        0.697,
+        0.579,
+        0.761
+      ],
+      "region_id": "bathroom_south",
+      "evidence": "顶视马桶+水箱贴北墙。"
+    },
+    {
+      "id": "vanity_s",
+      "label": "洗手台/柜(中南卫南墙)",
+      "kind": "vanity",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.459,
+        0.863,
+        0.551,
+        0.94
+      ],
+      "region_id": "bathroom_south",
+      "evidence": "顶视南墙台面含圆形盆与深色小件;镜面顶视不可见。"
+    }
+  ],
+  "stairs": {
+    "visible": false,
+    "confidence": "category_uncertain",
+    "notes": "五张图(顶视+NW/NE/SW/SE斜视)均未见梯段、梯井或高差开口,本层按单层记录;若存在与其他楼层的竖向联系,本组影像无法证实。"
+  },
+  "uncertainties": [
+    "内墙多为奶油/灰绿色,顶视中仅外墙与部分内墙呈深色粗线,部分内墙端点未逐段验证。",
+    "counter_kitchen上的深色方件为灶台或水槽未定;无明确冰箱证据,tall_cabinet_dark身份未定。",
+    "east_lounge功能未知,bench_east为坐榻/床尾凳难辨。",
+    "room_se大面积空置,南/东墙线浅,范围端点未验证;地面淡圆形为地毯或光影未定。",
+    "chair_office_w身份与朝向未定,rocking_chair类型未定。",
+    "入户门未定:NW斜视西墙有一扇白色带把手门,NE斜视南立面中部亦见门形白板与把手状件,SW/SE斜视南/西立面另有白色门形/窗形板,均未能与顶视开口一一对应。",
+    "living_nw的灰窗帘见于SW斜视左端,属西墙或北墙窗未能区分。",
+    "红/绿十字线为渲染标记线,非构件。"
+  ]
+}

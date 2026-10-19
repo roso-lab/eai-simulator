@@ -46,8 +46,25 @@ def project_click(viewport_api, pixel, callback):
     if viewport_api is None: raise RuntimeError("viewport API is unavailable")
     viewport_api.request_query(pixel, callback, query_name="eai.topology_authoring.pick")
 
+def visible_semantics(document, active_level_id=None):
+    """Filter annotations by explicit or owner/region-inherited floor."""
+    from copy import deepcopy
+    from .semantics import empty_semantics
+    data = document.semantics or empty_semantics()
+    owners = {row["id"]: row for name in ("regions", "entities") for row in data[name]}
+    def level(row, seen=()):
+        if row.get("level_id") is not None:
+            return row["level_id"]
+        ref = row.get("owner_id") or row.get("region_id")
+        if ref in owners and ref not in seen:
+            return level(owners[ref], (*seen, ref))
+        return None
+    return {name: [deepcopy(row) for row in data[name]
+                   if active_level_id is None or level(row) in (None, active_level_id)]
+            for name in ("regions", "entities", "interaction_poses")}
+
 def draw_overlay(stage, document, *, active_level_id=None, route_points_m=(),
-                 route_node_ids=(), route_headings_rad=()):
+                 route_node_ids=(), route_headings_rad=(), semantic_preview=()):
     del stage
     node_ids = visible_node_ids(document, active_level_id)
     return {"nodes": [dict(id=n["id"], position=n["position_xyz"], locked=n.get("locked", False),
@@ -68,7 +85,9 @@ def draw_overlay(stage, document, *, active_level_id=None, route_points_m=(),
             "active_level_id": active_level_id,
             "route_points_m": [list(point) for point in route_points_m],
             "route_node_ids": list(route_node_ids),
-            "route_headings_rad": list(route_headings_rad)}
+            "route_headings_rad": list(route_headings_rad),
+            "semantics": visible_semantics(document, active_level_id),
+            "semantic_preview": [list(point) for point in semantic_preview]}
 
 def _set_color(prim, value):
     from pxr import Gf, UsdGeom
@@ -109,6 +128,9 @@ class TopologyOverlay:
         self.route_points_m = ()
         self.route_node_ids = ()
         self.route_headings_rad = ()
+        self.semantic_points = ()
+    def set_semantic_preview(self, points):
+        self.semantic_points = tuple(tuple(point) for point in points)
     def set_active_level(self, level_id):
         self.active_level_id = level_id
     def set_route_preview(self, points, node_ids=(), headings=()):
@@ -132,6 +154,32 @@ class TopologyOverlay:
         root=self.stage.GetPrimAtPath(OVERLAY_ROOT)
         if root.IsValid(): self.stage.RemovePrim(OVERLAY_ROOT)
         UsdGeom.Xform.Define(self.stage, OVERLAY_ROOT)
+        annotations = visible_semantics(self.document, self.active_level_id)
+        for index, region in enumerate(annotations["regions"]):
+            path = f"{OVERLAY_ROOT}/Regions/R{index:05d}"
+            points = region["polygon_xyz"]
+            bottom = [[p[0], p[1], p[2]+.035] for p in points]
+            top = [[p[0], p[1], p[2]+region["height_m"]] for p in points]
+            self._draw_line(path+"/Floor", [*bottom, bottom[0]], (.65, .25, .95))
+            self._draw_line(path+"/Top", [*top, top[0]], (.65, .25, .95))
+            for vertex, (a, b) in enumerate(zip(bottom, top)):
+                self._draw_line(path+f"/Side{vertex}", [a, b], (.65, .25, .95))
+        for collection, color in (("entities", (.95, .80, .15)), ("interaction_poses", (.95, .2, .65))):
+            for index, row in enumerate(annotations[collection]):
+                point = row.get("position_xyz")
+                if point is None:
+                    continue
+                path = f"{OVERLAY_ROOT}/{collection}/P{index:05d}"
+                sphere = UsdGeom.Sphere.Define(self.stage, path)
+                sphere.CreateRadiusAttr().Set(.07)
+                sphere.AddTranslateOp().Set(Gf.Vec3d(*point))
+                sphere.GetPrim().SetCustomDataByKey("semantic_id", row["id"])
+                _set_color(sphere.GetPrim(), color)
+                if row.get("heading_rad") is not None:
+                    self._draw_heading_arrow(f"{OVERLAY_ROOT}/SemanticHeadings/{collection}{index:05d}",
+                                             point, row["heading_rad"], color)
+        if len(getattr(self, "semantic_points", ())) > 1:
+            self._draw_line(f"{OVERLAY_ROOT}/Preview/Semantics", self.semantic_points, (.95, .1, .1))
         visible_ids = visible_node_ids(self.document, self.active_level_id)
         for i,node in enumerate(self.document.nodes):
             if node["id"] not in visible_ids:
@@ -171,9 +219,11 @@ class TopologyOverlay:
                                self.route_node_ids[-1] in visible_ids))
             if terminal is not None and target_visible:
                 self._draw_heading_arrow(f"{OVERLAY_ROOT}/Route/TargetHeading", self.route_points_m[-1], terminal, (.05, .85, .95))
-    def _draw_edge(self,path,points,directed,color):
+    def _draw_line(self,path,points,color):
         from pxr import Gf, UsdGeom
         curve=UsdGeom.BasisCurves.Define(self.stage,path); curve.CreateTypeAttr().Set(UsdGeom.Tokens.linear); curve.CreateCurveVertexCountsAttr().Set([len(points)]); curve.CreatePointsAttr().Set([Gf.Vec3f(*p) for p in points]); curve.CreateWidthsAttr().Set([.025 if self.document.version == 2 else .16]); _set_color(curve.GetPrim(),color)
+    def _draw_edge(self,path,points,directed,color):
+        self._draw_line(path,points,color)
         if len(points)>=2:
             if directed: self._draw_arrow(path+"/Arrow",points[-2],points[-1],color)
             else: self._draw_arrow(path+"/ArrowA",points[-2],points[-1],color); self._draw_arrow(path+"/ArrowB",points[1],points[0],color)
@@ -257,14 +307,14 @@ class _TopologyManipulator:
                 )
                 self.owner._right_gesture = _TopologyClickGesture(
                     self.owner.viewport_api, self.owner.on_right, 1
-                )
+                ) if self.owner.on_right is not None else None
                 with self.root:
                     self.left_screen = sc.Screen(
                         gesture=self.owner._left_gesture.gesture
                     )
                     self.right_screen = sc.Screen(
                         gesture=self.owner._right_gesture.gesture
-                    )
+                    ) if self.owner._right_gesture is not None else None
 
             def destroy(self):
                 self.clear()
@@ -379,6 +429,9 @@ class ViewportOverlay:
     def set_route_preview(self, points, node_ids=(), headings=()):
         self.overlay.set_route_preview(points, node_ids, headings)
         self.refresh()
+
+    def set_semantic_preview(self, points):
+        self.overlay.set_semantic_preview(points)
 
     def rebind_stage(self):
         self.overlay.rebind_stage()

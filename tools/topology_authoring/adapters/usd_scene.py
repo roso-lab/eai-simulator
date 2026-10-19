@@ -19,6 +19,7 @@ class UsdSceneAdapter:
         self._geometry_files = {}
         self._view_stage = None
         self._view_visibility = {}
+        self._authoring_levels = None
 
     def load_source(self, asset_root):
         from ..product import _unique_object, _reject_constant
@@ -145,8 +146,16 @@ class UsdSceneAdapter:
         self._geometry_files.clear()
         self._view_visibility.clear()
 
+    def set_authoring_levels(self, levels):
+        """Editor floor metadata without mutating source facts/digests."""
+        from copy import deepcopy
+        self._authoring_levels = deepcopy(levels)
+
+    def _levels(self, source):
+        return self._authoring_levels if self._authoring_levels is not None else source.payload["levels"]
+
     def set_active_level(self, level_id, source):
-        if level_id is not None and level_id not in {row["id"] for row in source.payload["levels"]}:
+        if level_id is not None and level_id not in {row["id"] for row in self._levels(source)}:
             raise ValueError("unknown active level")
         self.active_level_id = level_id
 
@@ -170,7 +179,7 @@ class UsdSceneAdapter:
             import numpy as np
             if isinstance(cut,bool) or not isinstance(cut,(int,float)) or not math.isfinite(cut):
                 raise ValueError("level cutaway height must be finite")
-            floor = next(row["support_z_m"] for row in source.payload["levels"] if row["id"] == level_id)
+            floor = next(row["support_z_m"] for row in self._levels(source) if row["id"] == level_id)
             if cut <= floor:
                 raise ValueError("cutaway height must be above level support")
             surface = self._geometry(source)
@@ -201,7 +210,7 @@ class UsdSceneAdapter:
     def project_to_support_surface(self, position, source):
         point = list(position)
         if self.active_level_id is not None:
-            point[2] = next(row["support_z_m"] for row in source.payload["levels"] if row["id"] == self.active_level_id)
+            point[2] = next(row["support_z_m"] for row in self._levels(source) if row["id"] == self.active_level_id)
         return self._geometry(source).nearest(point)
 
     def validate_polyline(self, polyline, profile, source):

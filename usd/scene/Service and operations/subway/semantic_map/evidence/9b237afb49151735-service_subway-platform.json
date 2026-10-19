@@ -1,0 +1,349 @@
+{
+  "scene_id": "service_subway",
+  "level_id": "platform",
+  "regions": [
+    {
+      "id": "service_subway-platform-vault-tube",
+      "label": "large curved vault tube (beige mottled material), J-shaped in top view: long N-S straight section then a 90-degree hook curving west at the south end; open arched portal at the south/hook end (interior floor visible through the arch), closed by a flat gray end wall at the north end; pale blue-gray floor stripes inside along the straight section",
+      "kind": "vaulted_tunnel",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.0378,
+        0.4695,
+        0.3267,
+        0.9618
+      ],
+      "evidence": {
+        "image": "evidence/6a040aeed19097b3-platform-material-top.png",
+        "sha256": "6a040aeed19097b3b79c57474f8e722b21ac0bb1c71cd680c239e495ff9677ce",
+        "visual_note": "platform-material-top: 米色暖调掩码（R>=G>=B、sat>=8、R-B>=10、lum 100-240，排除红色标尺线）主连通域 18125px（半分辨率），全分辨率外接框 px (34,700)-(293,1433)；管直线段宽约 120px（约 24.6 m，按 0.2052 m/px 折算），南端钩形西弯。platform-material-sw: 近景拱管南端为开放拱形断面，拱内浅蓝灰地面可见，管内地板沿纵向有浅蓝条纹；platform-material-ne: 管自远端钩形（左上）延伸至近处北端，终止于一块高出管内地面并带有暗色基线的灰色平端墙；platform-material-se: 同管左视，北端管缘见细深色立柱；platform-material-nw: 管位于画面右侧，钩形弯端朝右（西南），与顶视一致。四斜视与顶视对同一 J 形结构的形状、弯向、端部状态一致。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_subway-platform-central-hall-complex",
+      "label": "large light blue-gray structure complex in the north-center/east: a broad E-W wing whose walls and roof sections render semi-transparent (ground grid visible through them in obliques), containing an open-roofed white-walled hall section (ribbed apse-like arch feature, arched wall opening, thin white posts, dark mottled floor items inside), a white paneled podium at its NE corner carrying dark stair-like sloped runs with a white upper box and a lower white landing, one white flat roof section, and a thin white strip along the south edge",
+      "kind": "building_complex",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.4956,
+        0.0396,
+        0.9633,
+        0.2824
+      ],
+      "evidence": {
+        "image": "evidence/6a040aeed19097b3-platform-material-top.png",
+        "sha256": "6a040aeed19097b3b79c57474f8e722b21ac0bb1c71cd680c239e495ff9677ce",
+        "visual_note": "platform-material-top: 蓝白浅色掩码（B>=R、sat>=5、lum>=150）最大连通域 32103px（px (499,59)-(866,414)）+ 西侧凹块 3188px（(446,294)-(497,356)）+ 其下小块 819px（(448,358)-(468,404)），整体为一连片蓝灰填充结构（实测区域均值 lum≈210，高于画布≈201）；其上叠加深色梯级块与白色块（见 objects）。platform-material-ne: 该复合体近景——无顶白墙厅段（内见西壁拱形门洞、肋状半圆壁龛、细白柱、地面深色斑驳物件），东北角白色带板线台座上承载深色梯级样斜道与白色上箱；北侧大片半透明板（网格透见）。platform-material-sw: 台座+上箱+深色斜道侧面清晰，斜道具横向梯级纹理，向南下降至下层白色平台；platform-material-se: 复合体右侧视，深色斜道自白色上平台向南下降，北侧半透明墙透见网格；platform-material-nw: 复合体位于画面左端，白色体块与半透明段并见。半透明渲染属性本身见 uncertainties。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_subway-platform-glass-corridor-connector",
+      "label": "semi-transparent low structure connecting the hall complex west end to the vault tube north end: in top view it appears as a checkerboard field of faint bluish fragments (dithered transparency pattern); in obliques it reads as a broad tinted slab through which the ground grid is visible, with small white items beneath and a white portal frame near its east side",
+      "kind": "translucent_structure",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.2511,
+        0.2388,
+        0.5122,
+        0.4715
+      ],
+      "evidence": {
+        "image": "evidence/6a040aeed19097b3-platform-material-top.png",
+        "sha256": "6a040aeed19097b3b79c57474f8e722b21ac0bb1c71cd680c239e495ff9677ce",
+        "visual_note": "platform-material-top: 走廊带（x 190-460, y 330-710）内宽松蓝灰掩码（B>=R、sat>=4、lum 150-206）得到 82 个碎片，最大 7097px（(226,504)-(370,648)）与 5924px（(226,356)-(370,502)）呈约 48px 方格的棋盘交替排列，加 (421,357)-(460,417)、(372,541)-(460,565) 等小碎片与管北端 (226,650)-(311,697)、(226,699)-(298,702)，包络 px (226,356)-(460,702)；碎片间区域实测亮度与干净画布一致（mean 199.8-200.3 vs 200.6-201.5），无实心填充。platform-material-ne: 管北端与厅段之间大片灰蓝半透明板，地面网格透见，板东缘见白色门架（细柱+横梁）与板缘厚度面；platform-material-nw: 同板另侧视，网格透见，板上/下有白色小盒与白色门架；platform-material-se: 板中部透见白色小件。棋盘抖动图案为半透明表面渲染特征的解读见 uncertainties。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_subway-platform-ground-plane",
+      "label": "flat grid-textured ground plane extending to the capture edges everywhere outside the tube, hall complex and connector",
+      "kind": "ground_plane",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.0,
+        0.0,
+        1.0,
+        1.0
+      ],
+      "evidence": {
+        "image": "evidence/6a040aeed19097b3-platform-material-top.png",
+        "sha256": "6a040aeed19097b3b79c57474f8e722b21ac0bb1c71cd680c239e495ff9677ce",
+        "visual_note": "platform-material-top: 全图底为规则灰色网格平面（实测干净区 mean lum 200.6-201.5），除三个结构区外无任何其他地物（暗色连通域仅 616 个、>=12px 者全部位于厅复合体与管端，已逐一核对）；platform-material-ne/nw/se/sw: 同一平面以透视网格延至地平线。疑似模拟器默认 groundplane 而非场景创作内容（见 uncertainties）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    }
+  ],
+  "objects": [
+    {
+      "id": "service_subway-platform-tube-floor-stripes",
+      "label": "two thin parallel pale blue-gray floor stripes plus a paler band between them, running along the vault tube floor and following its curve, stopping where the south hook curve begins",
+      "kind": "floor_marking",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.2256,
+        0.4688,
+        0.2878,
+        0.8042
+      ],
+      "region_id": "service_subway-platform-vault-tube",
+      "evidence": {
+        "image": "evidence/6a040aeed19097b3-platform-material-top.png",
+        "sha256": "6a040aeed19097b3b79c57474f8e722b21ac0bb1c71cd680c239e495ff9677ce",
+        "visual_note": "platform-material-top: 两条窄浅蓝条纹连通域 3473px（x 203-209, y 702-1198）与 3085px（x 226-258, y 699-1198，含条纹间淡蓝色地面），横截面取样（y=750/900/1050/1150）显示 x≈205 与 x≈253-257 处像素 B>R（如 (195,200,204)），两侧管地板为米色；条纹沿管曲线延伸至 y≈1198 处截止，钩形段地板无条纹。platform-material-sw: 管内浅蓝灰条纹沿纵向前视清晰；platform-material-ne: 管地板条纹沿管向端墙延伸可见。功能未知（标线/铺装分带均可能），不作推断。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_subway-platform-tube-north-end-wall",
+      "label": "flat gray end wall closing the vault tube north end, standing higher than the tube floor, with a thin dark bar along its base at the tube end",
+      "kind": "end_wall",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.1889,
+        0.4661,
+        0.3233,
+        0.4722
+      ],
+      "region_id": "service_subway-platform-vault-tube",
+      "evidence": {
+        "image": "evidence/6a040aeed19097b3-platform-material-top.png",
+        "sha256": "6a040aeed19097b3b79c57474f8e722b21ac0bb1c71cd680c239e495ff9677ce",
+        "visual_note": "platform-material-top: 管北端 y 695-703 横条带（米色掩码在此截止），其上暗色条 60px（(195,698)-(211,701)）及 4px（(190,698)-(192,699)）为暗色基线；platform-material-ne: 管端灰色平端墙近观，墙面略透明（网格隐约透见），高出管内地面；platform-material-se: 端墙另侧视，端缘见深色物。bounds 为端墙在顶视的横条带足迹。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_subway-platform-dark-posts-tube-north-end",
+      "label": "thin dark post(s) at the vault tube north end rim (visible against the end wall in two obliques); identity with the top-view dark bar at the tube end unresolved",
+      "kind": "unknown_fixture",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.2111,
+        0.4681,
+        0.2356,
+        0.4708
+      ],
+      "region_id": "service_subway-platform-vault-tube",
+      "evidence": {
+        "image": "evidence/6a040aeed19097b3-platform-material-top.png",
+        "sha256": "6a040aeed19097b3b79c57474f8e722b21ac0bb1c71cd680c239e495ff9677ce",
+        "visual_note": "platform-material-se: 管北端缘细深色立柱近观（自管顶弧缘下延至地面，(618-632,490-545)），端缘另有深色小块（(555-575,480-500)）；platform-material-ne: 端墙左缘深色锯齿状竖条同见（(787-798,524-540)）；platform-material-sw: 管北端处深色小构件近景（(470-570,565-620)）。platform-material-top: 管端暗色条 (190,698)-(211,701) 为唯一对应候选，但顶视 3-4px 高的暗条与斜视立柱的同一性无法确证，bounds 取该暗条；category_uncertain。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_subway-platform-stair-like-runs-ne",
+      "label": "dark mottled sloped run(s) with transverse tread-like banding on the white podium at the hall complex NE corner, descending from the upper white box southward to a lower white landing; two E-W-separated dark strips in top view, two parallel runs with a white middle strip in the NE oblique",
+      "kind": "stair_like_structure",
+      "confidence": "observed_geometry_endpoint_unverified",
+      "bounds_norm": [
+        0.8611,
+        0.0369,
+        0.9567,
+        0.1683
+      ],
+      "region_id": "service_subway-platform-central-hall-complex",
+      "evidence": {
+        "image": "evidence/6a040aeed19097b3-platform-material-top.png",
+        "sha256": "6a040aeed19097b3b79c57474f8e722b21ac0bb1c71cd680c239e495ff9677ce",
+        "visual_note": "platform-material-top: 深色块二：暗色斑驳矩形（(790,160)-(845,250)，其内 lum<125 暗竖条 1178px (794,164)-(811,248)、152px (838,168)-(845,216)、100px (841,218)-(846,245) 等）+ 北侧暗色块一（(775,55)-(860,105)，含米色暖纹理 79px 碎片），bounds 取两块并集。platform-material-sw: 深色斜道侧面近观——自白色上箱南缘向南下降至下层平台，表面横向梯级纹理清晰（(600-665,362-418)）；platform-material-se: 同斜道另侧（(1210-1290,420-545)），横向条带与白色踏缘可辨；platform-material-ne: 两条并行深色斜道夹白色中间条（(980-1100,770-845)）。梯级计数与上下端点未完全可辨（见 stairs.notes），不认证可通行性。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_subway-platform-upper-white-box",
+      "label": "white box atop the NE podium: paneled top surface with two small circular marks (NE oblique), a dark mottled patch on its top at the north edge, and the stair-like run descending from its south edge",
+      "kind": "platform_box",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.8556,
+        0.0369,
+        0.9622,
+        0.108
+      ],
+      "region_id": "service_subway-platform-central-hall-complex",
+      "evidence": {
+        "image": "evidence/6a040aeed19097b3-platform-material-top.png",
+        "sha256": "6a040aeed19097b3b79c57474f8e722b21ac0bb1c71cd680c239e495ff9677ce",
+        "visual_note": "platform-material-top: 白色块（(770,105)-(865,160)，白色平顶带细板线）与其北缘暗色斑驳块一（(775,55)-(860,105)，顶部边缘不规则锯齿状），bounds 取并集 (770,55)-(865,160)。platform-material-ne: 台座顶面白色带板线、两个小圆形标记（(940-1140,60-330) 裁剪）；platform-material-sw: 白色上箱侧面近观，箱顶北缘暗色斑驳patch（(380-455,95-130) 裁剪），南缘接深色斜道。上箱用途未知。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_subway-platform-lower-white-landing",
+      "label": "white landing/platform at the foot of the stair-like run, connecting to the hall's lower level",
+      "kind": "landing_platform",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.8833,
+        0.1677,
+        0.94,
+        0.1918
+      ],
+      "region_id": "service_subway-platform-central-hall-complex",
+      "evidence": {
+        "image": "evidence/6a040aeed19097b3-platform-material-top.png",
+        "sha256": "6a040aeed19097b3b79c57474f8e722b21ac0bb1c71cd680c239e495ff9677ce",
+        "visual_note": "platform-material-top: 白色小块（(795,250)-(845,285)），位于暗色斜道块（y 160-250）正南；platform-material-sw: 斜道底端白色平台近观（(645-790,255-300) 裁剪），向南接入厅体低层部分。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_subway-platform-white-roof-section",
+      "label": "white flat roof-like section on the hall complex north edge, bordered by darker material",
+      "kind": "roof_section",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.6833,
+        0.1643,
+        0.7567,
+        0.1952
+      ],
+      "region_id": "service_subway-platform-central-hall-complex",
+      "evidence": {
+        "image": "evidence/6a040aeed19097b3-platform-material-top.png",
+        "sha256": "6a040aeed19097b3b79c57474f8e722b21ac0bb1c71cd680c239e495ff9677ce",
+        "visual_note": "platform-material-top: 厅北缘白色平块（(615,245)-(680,290)），四周为蓝灰填充；platform-material-ne: 对应位置见白色平顶嵌段、带暗色边框（(890-960,650-690)）。是完整屋顶板还是天窗盖板不可分，label 仅作形态描述。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_subway-platform-white-south-edge-strip",
+      "label": "thin white strip along the south edge of the hall complex south-center block (wall top or coping)",
+      "kind": "edge_strip",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.5967,
+        0.2783,
+        0.6978,
+        0.2824
+      ],
+      "region_id": "service_subway-platform-central-hall-complex",
+      "evidence": {
+        "image": "evidence/6a040aeed19097b3-platform-material-top.png",
+        "sha256": "6a040aeed19097b3b79c57474f8e722b21ac0bb1c71cd680c239e495ff9677ce",
+        "visual_note": "platform-material-top: 厅南中块（x 535-630, y 345-417）南缘细白条（(537,415)-(627,420)，实测裁剪 (320-590,555-570)）；整条仅约 5px 高，为该块南缘唯一亮色边线；具体是墙顶压顶、台阶缘还是照明带不可分，仅记录位置与形态。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_subway-platform-portal-frame",
+      "label": "white portal/gate frame (thin posts + beam) standing in the translucent structure near its east side; top-view candidate is a small white square at the hall east end, identity not proven",
+      "kind": "portal_frame",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.9367,
+        0.2113,
+        0.9511,
+        0.222
+      ],
+      "region_id": "service_subway-platform-central-hall-complex",
+      "evidence": {
+        "image": "evidence/6a040aeed19097b3-platform-material-top.png",
+        "sha256": "6a040aeed19097b3b79c57474f8e722b21ac0bb1c71cd680c239e495ff9677ce",
+        "visual_note": "platform-material-ne: 半透明板东端白色门架近观（细白柱+横梁，(1078-1115,603-653)）；platform-material-nw: 同一门架另侧视（(828-858,637-680)，含细柱与暗色细件）；platform-material-se: 半透明板中部透见白色细件。platform-material-top: 厅东端小白方块（(843,315)-(855,330)）为唯一顶视候选，与斜视门架的对应按两斜视的方位交叉定为 layout_inferred，同一性未确证。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_subway-platform-small-white-items-glass",
+      "label": "small white box-like items beneath/on the translucent connector and hall NW section (2-3 items, function unknown)",
+      "kind": "unknown_object",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.3056,
+        0.2388,
+        0.5122,
+        0.3796
+      ],
+      "region_id": "service_subway-platform-glass-corridor-connector",
+      "evidence": {
+        "image": "evidence/6a040aeed19097b3-platform-material-top.png",
+        "sha256": "6a040aeed19097b3b79c57474f8e722b21ac0bb1c71cd680c239e495ff9677ce",
+        "visual_note": "platform-material-ne: 半透明板下/上白色小盒近观（(837-853,568-583)、(835-852,628-643)、(973-997,610-627)）；platform-material-nw: 板西端白色小盒（(535-550,608-633)）与西南角白色带拱小构筑物（(498-563,710-770)）；platform-material-se: 板中部透见白色小件。platform-material-top: 连接走廊内顶视仅有棋盘碎片，单件白色小盒无独立顶视足迹（可能被透明表面淹没），bounds 取走廊碎片包络西段作保守估计；单件定位与数量均不确定，layout_inferred。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_subway-platform-west-wall-arch-features",
+      "label": "white arched features at the west part of the open-roofed hall: a large ribbed half-dome apse-like feature against the interior wall and an arched opening through the outer wall with beige interior visible beyond",
+      "kind": "arched_wall_feature",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.4956,
+        0.1945,
+        0.69,
+        0.269
+      ],
+      "region_id": "service_subway-platform-central-hall-complex",
+      "evidence": {
+        "image": "evidence/6a040aeed19097b3-platform-material-top.png",
+        "sha256": "6a040aeed19097b3b79c57474f8e722b21ac0bb1c71cd680c239e495ff9677ce",
+        "visual_note": "platform-material-ne: 无顶厅段西壁近观——肋状半圆壁龛（(767-817,767-813)）与西外墙拱形门洞（(710-737,770-813)，洞内见米色内部）。platform-material-top: 厅内部被蓝灰填充淹没，无对应可见特征；bounds 取厅体西-中部包络（斜视方位定位，NE 视特征位于楼体左段=西段，经楼梯块=东段=右段的自洽校验），沿楼体长轴存在约 ±1/3 楼长的定位模糊；layout_inferred。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_subway-platform-interior-white-posts",
+      "label": "thin white posts/columns inside the open-roofed hall section",
+      "kind": "column",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.6222,
+        0.1945,
+        0.7789,
+        0.269
+      ],
+      "region_id": "service_subway-platform-central-hall-complex",
+      "evidence": {
+        "image": "evidence/6a040aeed19097b3-platform-material-top.png",
+        "sha256": "6a040aeed19097b3b79c57474f8e722b21ac0bb1c71cd680c239e495ff9677ce",
+        "visual_note": "platform-material-ne: 厅内细白柱近观（(870-895,720-763)，两根以上细长白柱立于厅内地面）。platform-material-top: 顶视无独立足迹（填充淹没）；bounds 取厅体中段包络（斜视定位），layout_inferred。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_subway-platform-interior-dark-floor-items",
+      "label": "dark mottled items lying on the hall interior floor (two or three clusters, material/texture similar to the stair-like runs)",
+      "kind": "unknown_object",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.6667,
+        0.2012,
+        0.8444,
+        0.275
+      ],
+      "region_id": "service_subway-platform-central-hall-complex",
+      "evidence": {
+        "image": "evidence/6a040aeed19097b3-platform-material-top.png",
+        "sha256": "6a040aeed19097b3b79c57474f8e722b21ac0bb1c71cd680c239e495ff9677ce",
+        "visual_note": "platform-material-ne: 厅内地板深色斑驳物件近观（(807-857,780-807)、(883-917,777-793)），纹理与东北角斜道深色材质相近。platform-material-top: 厅内 y 285-420 范围 lum<125 暗色连通域仅一条细线 ((796,284)-(796,292))，物件无独立顶视足迹；bounds 取厅体中-东段包络（斜视定位），layout_inferred；性质（坐具/设备/装饰）未知。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    }
+  ],
+  "stairs": {
+    "visible": true,
+    "confidence": "observed_geometry_endpoint_unverified",
+    "notes": "五张图（platform-material-top/ne/nw/se/sw）逐一检查：厅复合体东北角（顶视 u 0.861-0.957 / v 0.037-0.168，object stair-like-runs-ne）存在带横向梯级纹理的深色斜道：sw 斜视 (600-665,362-418) 侧面显示斜道自白色上箱南缘向南下降至下层白色平台，se 斜视 (1210-1290,420-545) 同斜道另侧可见横向条带与白色踏缘，ne 斜视 (980-1100,770-845) 显示两条并行深色斜道夹白色中间条，顶视对应两块暗色斑驳矩形（(775,55)-(860,105) 与 (790,160)-(845,250)，后者含 lum<125 暗竖条）。梯级/踏面个体在现有分辨率下不可逐一分辨，踏步数、坡度、上下端点的完整连接关系未验证（上端没入上箱南缘，下端接下层平台）。本记录仅记录几何，不认证任何跨层路线或可通行性；若下游据此记录生成任何路线，一律 robot_validated=false。scene 为单层捕获（capture.json level=platform, floor_z=0.0）。reviewer: ZCode GLM-5.3-Flash/max。"
+  },
+  "uncertainties": [
+    "朝向约定：顶视按 capture.json 的 image_to_world（图右=+X、图下=-Y、正射，900x1491px 对应 184.65x305.91m，约 0.2052 m/px）；四斜视按文件名机位（NE/NW/SE/SW）经验自洽映射（各机位近景在图下、对角在图上；经管钩南端=各视远端、楼梯块=东北角近景、拱门/壁龛=楼体西段三重交叉验证）。所有方位词仅由五图自洽性支持，未经外部坐标验证。",
+    "像素唯一依据：所有 label 均为形态/材质描述，未从场景名推断任何功能；『vault tube / hall / stairs-like』等词仅描述几何形态。",
+    "厅复合体的墙面/顶面在斜视中呈半透明（地面网格透见），顶视呈均匀蓝灰填充：这是材质本身（玻璃类）还是捕获渲染属性无法从像素判定；据此厅内特征（壁龛、门洞、白柱、地面物件）在顶视无独立足迹。",
+    "顶视 bounds 的来源分级：管体、楼梯块、白箱、着陆台、白顶段、南缘白条、门架候选、管端墙/暗条均来自顶视实测连通域（observed）；拱门特征、白柱、厅内深色物件、白色小盒四项仅有斜视证据，bounds 为所在楼体/走廊的保守包络估计（layout_inferred，厅体长轴方向 ±1/3 楼长模糊），非实测足迹。",
+    "门架（portal-frame）与顶视厅东端小白方块 (843,315)-(855,330) 的同一性未确证；若非同一物，其顶视位置未知。",
+    "半透明连接结构的顶视棋盘碎片被解读为半透明表面的抖动渲染图案：碎片包络 (226,356)-(460,702) 是该结构足迹的估计而非精确边界；碎片间隙区域实测亮度与干净画布一致，结构为非实心。",
+    "楼梯样斜道：梯级个体不可分辨，踏步数/坡度/端点连接未验证；NE 斜视显示两条并行斜道而顶视暗色块呈 N-S 相叠布置，两条斜道与两块暗色矩形的对应关系未完全解析；不认证可通行性，任何由此生成的路线 robot_validated=false。",
+    "管北端暗条 (190,698)-(211,701) 与 se/ne/sw 三斜视中管端细深色立柱的同一性未确证（暗条仅 3-4px 高）；立柱功能未知。",
+    "管内地板双浅蓝条纹在 y≈1198（钩形弯起点）处截止，钩形段无条纹；条纹功能未知（标线/铺装分带/轨道缘均可能），不作推断。",
+    "管南端为开放拱形断面（sw 斜视近景确证），北端为灰色平端墙（ne 斜视确证，墙面略透明）；端墙高度、厚度仅能从斜视目测，未量化。",
+    "地面网格平面疑似模拟器默认 groundplane 而非场景创作内容；其归属不影响像素描述。",
+    "画布标尺线已排除：红色横线 v≈0.1737-0.1744（y 259-260）、绿色竖线 u≈0.6833（x 615，全高 1345px）；x=175/204/286 的青色像素列为管内浅蓝条纹/管缘而非标尺线（全部位于管 y 范围内）。",
+    "管体与厅复合体之间为大片空白网格地面（世界坐标间隔约 40-90 m），除半透明连接结构外无其他地物（暗色连通域逐一核对）；捕获范围外是否有未渲染内容不可知。",
+    "本记录只做像素级语义记录，不含任何路线、坡度或可通行性认证；任何基于本文件的路线生成结果均应视为 robot_validated=false。证据绑定 artifacts/semantic-captures-v2-30/service_subway/ 的 5 张 Camera-Light 图片，SHA256 已独立复算（sha256sum）并写入各 evidence.sha256，与 capture.json 声明值一致。",
+    "本轮任务指定输出路径为 handoffs/flash-v2/production_service/service_subway-platform.json；scene_id=service_subway、level_id=platform 均取自 capture.json 与捕获目录名。"
+  ]
+}

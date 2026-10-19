@@ -1,0 +1,828 @@
+{
+  "scene_id": "production_factory",
+  "level_id": "1F",
+  "regions": [
+    {
+      "id": "production_factory-1F-room-floorplate",
+      "label": "large roofless walled enclosure, pale panel walls with embedded piers, white marble-vein floor; wall-band openings at SW corner and east-wall south end",
+      "kind": "floorplate",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.036,
+        0.035,
+        0.963,
+        0.965
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 墙线矩形（u≈0.036-0.963, v≈0.035-0.965），墙带浅灰（lum≈209-228）内嵌深色墙墩与暖色墙段，室内白色大理石纹地坪（lum≈245-252）；1F-material-ne/nw/se/sw: 四斜视均为高墙无顶壳体，墙面板缝/竖向纹理清晰，室内大部被近墙遮挡。北墙带直查无地面亮度断口（u≈0.355-0.380 处 lum 226-228 为浅色墙体非开口）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-north-fixture-strip",
+      "label": "fixture strip along north wall: teal rounded-square fixture, white unit with two round marks, dark round fixture, warm ring circle (functions unresolved)",
+      "kind": "fixture_strip",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.29,
+        0.034,
+        0.63,
+        0.13
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 北墙内侧一排器物（青绿圆角方块 u≈0.308-0.330、白体双圆记号单元 u≈0.465-0.558、深灰圆 u≈0.441-0.463、暖橙环圆 u≈0.574-0.597）；分组按沿墙邻接关系推断，单件语义见 objects。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-west-equipment-zone",
+      "label": "two dark gray boxes near west wall, north half (appliance/cabinet-like, function unresolved)",
+      "kind": "equipment_zone",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.05,
+        0.05,
+        0.17,
+        0.37
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 西墙内侧北段两个深灰方块（u≈0.118-0.150 v≈0.121-0.199 与 u≈0.115-0.147 v≈0.281-0.357，lum≈183-228），其间及其余为白亮地坪；器形/功能未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-nw-desk-zone",
+      "label": "north-west desk zone: pale desk with black office chair, faint white table, thin yellow strip south of them",
+      "kind": "desk_zone",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.16,
+        0.32,
+        0.36,
+        0.43
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 黑色办公椅（u≈0.213-0.234, v≈0.338-0.361）+浅色桌（u≈0.188-0.250, v≈0.362-0.398，桌面有深色小件）+东侧淡白桌（u≈0.288-0.337, v≈0.358-0.402）+南侧细黄条（u≈0.064-0.290, v≈0.405-0.424）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-sw-rack-zone",
+      "label": "south-west rack zone: two long pale rack/shelf rows with periodic cross-frames and one tan box",
+      "kind": "rack_zone",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.05,
+        0.52,
+        0.3,
+        0.93
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 两排长条淡灰货架（u≈0.078-0.124 与 u≈0.238-0.278，v≈0.537-0.915），沿 v 向约每 0.08 有深色横框（lum 223-231 vs 框间 235-239）；1F-material-ne: 蓝灰色钢制立柱框架成排高出墙顶线可见；两排西北端 B 排南段有木色箱体。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-stair-zone",
+      "label": "staircase zone center-south: ~11-12 treads against east-side partition wall, thin dark rail on west side",
+      "kind": "stair_zone",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.48,
+        0.6,
+        0.635,
+        0.85
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 踏步条纹 v≈0.632-0.802（u 向剖面 0.516-0.613，明暗交替 lum 232-251），西侧细深色栏杆线 u≈0.494-0.502（v≈0.68-0.76 明显），东侧紧贴隔墙（u≈0.614-0.630），南端 v≈0.804 起为平地。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-se-office-zone",
+      "label": "south-east partitioned zone: wooden table, strip cluster, desk/chair groups along partition and east wall (use unresolved)",
+      "kind": "furniture_zone",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.614,
+        0.545,
+        0.95,
+        0.965
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 隔墙（u≈0.614-0.630, v≈0.545-0.965）+两段北向墙段围合的东南区：木色桌（u≈0.633-0.667, v≈0.561-0.589）、白色细条簇（u≈0.648-0.672, v≈0.600-0.645）、2 椅+淡桌面（v≈0.70-0.85）、东墙边 2 桌 2 椅（u≈0.866-0.918, v≈0.62-0.78）、南部长桌+2 椅（u≈0.652-0.848, v≈0.828-0.918）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    }
+  ],
+  "objects": [
+    {
+      "id": "production_factory-1F-north-wall",
+      "label": "north perimeter wall: pale panel band, dark piers at u≈0.33/0.59, warm-dark segments at u≈0.43-0.50/0.69-0.70/0.74-0.76, no floor-bright gaps",
+      "kind": "wall",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.036,
+        0.034,
+        0.963,
+        0.053
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 北墙带 v≈0.036-0.053（lum 209-217），深色墙墩 u≈0.329-0.343、0.587-0.600（v≈0.037-0.051，lum<150），暖深色墙段 u≈0.431-0.499、0.685-0.704、0.744-0.763（v≈0.038-0.050，lum≈171-174，RGB≈180,176,164）；逐列扫描无地面亮度断口；1F-material-ne/nw: 北墙高耸、面板竖缝清晰。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-south-wall",
+      "label": "south perimeter wall: pale panel band, dark piers at u≈0.11/0.34/0.60, warm-dark segments at u≈0.44-0.51/0.69-0.71/0.75-0.77, floor-bright break at west end (see sw-corner-opening)",
+      "kind": "wall",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.036,
+        0.947,
+        0.963,
+        0.965
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 南墙带 v≈0.948-0.963；深色墙墩 u≈0.107-0.111、0.336-0.350、0.595-0.607；暖深色墙段 u≈0.438-0.506、0.692-0.712、0.751-0.770；西端 u≈0.048-0.108 墙带呈地面亮度（246-252）= 断口（单列 sw-corner-opening）；另 u≈0.206-0.208、0.424-0.428 有 2-4px 细微亮缝，未辨。1F-material-se/sw: 南墙高墙面板纹理清晰。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-west-wall",
+      "label": "west perimeter wall: pale panel band, dark piers at v≈0.39/0.65, warm-dark segments at v≈0.28-0.30/0.49-0.56, floor-bright break at south end (see sw-corner-opening)",
+      "kind": "wall",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.036,
+        0.034,
+        0.053,
+        0.965
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 西墙带 u≈0.037-0.052；深色墙墩 v≈0.391-0.404、0.651-0.665；暖深色墙段 v≈0.284-0.304、0.492-0.561；南端 v≈0.90-0.945 墙带呈地面亮度（246-252）= 断口（单列 sw-corner-opening）。1F-material-nw/sw: 西墙高墙清晰。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-east-wall",
+      "label": "east perimeter wall: pale panel band, dark piers at v≈0.40/0.66, warm-dark segments at v≈0.29-0.31/0.50-0.53, floor-bright break at south end (see east-south-opening)",
+      "kind": "wall",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.948,
+        0.034,
+        0.963,
+        0.965
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 东墙带 u≈0.949-0.962；深色墙墩 v≈0.396-0.409、0.656-0.671；暖深色墙段 v≈0.290-0.309、0.498-0.529；南端 v≈0.92-0.945 墙带呈地面亮度 = 断口（单列 east-south-opening）。1F-material-ne/se: 东墙高墙清晰。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-sw-corner-opening",
+      "label": "L-shaped wall-band absence at SW corner: west wall absent v≈0.90-0.945 and south wall absent u≈0.048-0.108, with dark strip v≈0.905-0.915 at inner edge (door/open-corner unresolved)",
+      "kind": "wall_opening",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.036,
+        0.898,
+        0.11,
+        0.965
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 西墙带 v≈0.90-0.945 与南墙带 u≈0.048-0.108 均呈地面亮度（lum 246-252，他处墙带 209-228）；区内 v≈0.905-0.915、u≈0.055-0.095 有深色横条（lum≈211）——门扇/门槛/墙端未辨；门洞与开敞角落关系未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-east-south-opening",
+      "label": "wall-band break near SE corner: east wall absent v≈0.92-0.945, dark strip v≈0.905-0.915 just inside (door leaf/threshold unresolved)",
+      "kind": "wall_opening",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.9,
+        0.904,
+        0.965,
+        0.946
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 东墙带 v≈0.92-0.945 呈地面亮度（248-250），其北 v≈0.905-0.915、u≈0.90-0.94 有深色横条（lum≈210）；南墙带在 u>0.85 为浅色墙体（220-228）非断口；是门洞还是墙端缺口未辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-teal-square-fixture-n",
+      "label": "teal rounded-square fixture with gray interior, against north wall west portion (tub/container-like, classification unresolved)",
+      "kind": "fixture",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.308,
+        0.058,
+        0.33,
+        0.085
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 青绿描边圆角方块（teal 掩码 RGB≈210,217,218，边框偏深 158-186）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-teal-square-fixture-e",
+      "label": "second teal rounded-square fixture, same appearance as north one, east area north of wall segment (classification unresolved)",
+      "kind": "fixture",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.834,
+        0.513,
+        0.857,
+        0.539
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 青绿描边圆角方块（u≈0.834-0.857, v≈0.513-0.539，含边框深色成分），紧邻墙段 n2 北侧；与北墙同款器物外观一致。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-white-round-unit",
+      "label": "white unit with two round marks (red-rim circle and teal-marked circle), against north wall (basin-like, function unresolved)",
+      "kind": "fixture",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.465,
+        0.052,
+        0.558,
+        0.1
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 白色单元（u≈0.465-0.558, v≈0.052-0.100，剖面 lum 215-237）内含红缘圆（u≈0.502-0.526, v≈0.051-0.076）与青绿记号圆（u≈0.540-0.550, v≈0.068-0.079）；形似水槽/盆单位但功能未确认。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-dark-round-fixture",
+      "label": "dark gray round fixture with lighter ring, south-west of white round unit (classification unresolved)",
+      "kind": "fixture",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.441,
+        0.095,
+        0.463,
+        0.119
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 深灰圆形（lum<150 核心，meanRGB≈197，外圈稍亮）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-warm-ring-circle",
+      "label": "pale warm/orange ring circle east of white round unit, against north wall (classification unresolved)",
+      "kind": "fixture",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.574,
+        0.056,
+        0.597,
+        0.081
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 暖色调圆环（meanRGB≈246,235,222，环缘含偏红像素 r>g+25）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-dark-gray-box-w1",
+      "label": "dark gray box near west wall, v≈0.12-0.20 (appliance/cabinet-like, function unresolved)",
+      "kind": "box",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.118,
+        0.121,
+        0.15,
+        0.199
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 深灰矩形（lum≈183-228，上段更深）；周边为白亮地坪（250-252）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-dark-gray-box-w2",
+      "label": "second dark gray box near west wall, v≈0.28-0.36 (appliance/cabinet-like, function unresolved)",
+      "kind": "box",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.115,
+        0.281,
+        0.147,
+        0.357
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 深灰矩形（lum≈183-228），与 w1 同款外观、间距约 0.08。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-nw-desk",
+      "label": "pale desk with small dark items, NW area",
+      "kind": "desk",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.188,
+        0.362,
+        0.25,
+        0.398
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 桌面（lum 215-238 vs 地坪 249-251）+深色小件（u≈0.190-0.200、0.215-0.228）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-nw-chair",
+      "label": "black office chair north of NW desk",
+      "kind": "chair",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.213,
+        0.338,
+        0.234,
+        0.361
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 黑色圆形椅背+座面（lum<150，meanRGB≈108,105,102）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-nw-white-table",
+      "label": "faint white table east of NW desk (edges weak, classification unresolved)",
+      "kind": "table",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.288,
+        0.358,
+        0.337,
+        0.402
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 北/南缘弱可见（v≈0.360 lum 231、v≈0.400 lum 243），面内 247-248 与地坪难分。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-yellow-strip",
+      "label": "long thin yellow strip with thicker end blobs, west-center floor (tape/level/cable-like, classification unresolved)",
+      "kind": "strip",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.064,
+        0.405,
+        0.29,
+        0.424
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 黄色细长条（RGB≈227,204,116，n=356px），东西向横贯 u≈0.064-0.290，两端稍粗。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-rack-row-a",
+      "label": "west long rack/shelf row: pale deck with periodic darker cross-frames (steel-blue uprights seen above wall line in ne oblique)",
+      "kind": "rack_row",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.078,
+        0.537,
+        0.124,
+        0.915
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 长条淡灰排（v 剖面 231-239，交叉框处 223-231，约每 0.08 一道）；1F-material-ne: 蓝灰色钢框架（meanRGB≈52,101,133，图像 u≈0.44-0.56, v≈0.27-0.34）成排高出墙顶线，与顶视两排货架的位置对应为布局级近似（见 uncertainties）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-rack-row-b",
+      "label": "second long rack/shelf row east of row a, same construction, tan box on its south end",
+      "kind": "rack_row",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.238,
+        0.537,
+        0.278,
+        0.915
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 与 A 排同构（剖面 232-239，交叉框 209-215）；南段 v≈0.834-0.881 有木色箱体（单列 wooden-crate）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-wooden-crate",
+      "label": "tan/wooden box with light contents sitting on rack row b south end (contents unresolved)",
+      "kind": "box",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.241,
+        0.834,
+        0.269,
+        0.881
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 木色矩形（meanRGB≈227,215,196，tan 掩码 n≈2548px），叠于 B 排南段。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-faint-rectangle",
+      "label": "faint rectangle outline center-south floor, east of rack zone (low table or floor marking, unresolved)",
+      "kind": "outline",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.383,
+        0.587,
+        0.462,
+        0.637
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 北缘 v≈0.590（lum 230）、南缘 v≈0.635（lum 206-210）、东缘 u≈0.460（lum 227-241）弱可见；西缘未检出（u≈0.383 为目视估计）；斜视中不可见（墙体遮挡）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-staircase",
+      "label": "straight staircase, ~11-12 treads, west rail, east side against partition wall; direction of ascent and upper termination not determinable from top view",
+      "kind": "staircase",
+      "confidence": "observed_geometry_endpoint_unverified",
+      "bounds_norm": [
+        0.516,
+        0.632,
+        0.613,
+        0.802
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 踏步明暗条纹 v≈0.632-0.802（周期≈0.014-0.016，约 11-12 级），u≈0.516-0.613；西侧细深色栏杆 u≈0.494-0.502（v≈0.68-0.76 段 lum 178）；东侧紧贴隔墙；南端 v≈0.804 起平地；本记录仅登记所见几何，无 world registration/端点证据，不断言跨层路线；任何路线提及均 robot_validated=false。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-partition-wall",
+      "label": "interior partition wall running south from wall segment n1 to south wall, stairs on its west face (north portion reads weaker, unresolved)",
+      "kind": "wall",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.614,
+        0.545,
+        0.63,
+        0.965
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 竖向暗带 u≈0.614-0.630 贯通 v≈0.545-0.965（南段 lum 215-228，北段 v 0.55-0.65 仅 230-236 偏弱）；楼梯紧贴其西侧。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-wall-segment-n1",
+      "label": "interior wall segment west portion of SE-zone north boundary, joins partition wall",
+      "kind": "wall",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.618,
+        0.545,
+        0.748,
+        0.565
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 横向暗带 v≈0.545-0.565（lum 214-223），西端接隔墙，东端 u≈0.748 止。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-wall-segment-n2",
+      "label": "interior wall segment east portion of SE-zone north boundary, reaches east wall; floor-bright gap u≈0.748-0.828 between it and segment n1 (opening/door unresolved)",
+      "kind": "wall",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.828,
+        0.545,
+        0.948,
+        0.565
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 横向暗带 v≈0.545-0.565（lum 214-222）东达东墙；与 n1 之间 u≈0.748-0.828 为连续地面亮度（246-250）= 开口；青绿方块器物在其北侧（u≈0.834-0.857）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-wooden-table-se",
+      "label": "small wooden table at SE-zone north-west corner, against partition wall",
+      "kind": "table",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.633,
+        0.561,
+        0.667,
+        0.589
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 木色矩形（meanRGB≈214,197,172，tan 掩码 n≈1789px）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-white-strip-cluster",
+      "label": "cluster of thin white strips south of wooden table (papers/books-like, classification unresolved)",
+      "kind": "cluster",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.648,
+        0.6,
+        0.672,
+        0.645
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 竖向细白条成排（u 剖面 233-243，v 剖面 216-222），约 0.024×0.045。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-se-chair-1",
+      "label": "black office chair, SE zone middle-west",
+      "kind": "chair",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.67,
+        0.707,
+        0.69,
+        0.731
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 黑色椅背+座面（lum<150，meanRGB≈128,125,123）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-se-desk-1",
+      "label": "faint pale desk surface south of SE chair 1 (surface weak, unresolved)",
+      "kind": "desk",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.635,
+        0.713,
+        0.672,
+        0.762
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 微弱浅灰区（lum 241-245 vs 地坪 249-251），边界弱。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-se-chair-2",
+      "label": "black office chair, SE zone middle, south of chair 1",
+      "kind": "chair",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.669,
+        0.79,
+        0.688,
+        0.815
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 黑色椅背+座面（lum<150，meanRGB≈123,120,117）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-se-desk-2",
+      "label": "faint pale desk surface south of SE chair 2 (surface weak, unresolved)",
+      "kind": "desk",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.635,
+        0.815,
+        0.72,
+        0.845
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 微弱浅灰区（lum 235-244），边界弱。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-east-desk-1",
+      "label": "pale desk against east wall, north unit (v≈0.62-0.69)",
+      "kind": "desk",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.888,
+        0.622,
+        0.918,
+        0.688
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 浅灰桌面（lum 237-238 vs 地坪 247-249），v≈0.690-0.698 处与南桌间有窄亮缝。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-east-chair-1",
+      "label": "black office chair west of east desk 1",
+      "kind": "chair",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.868,
+        0.638,
+        0.888,
+        0.663
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 黑色椅背（lum 124-179 @v 0.63-0.66 剖面）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-east-desk-2",
+      "label": "pale desk against east wall, south unit (v≈0.70-0.78), small dark item on its east part",
+      "kind": "desk",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.888,
+        0.698,
+        0.918,
+        0.78
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 浅灰桌面（lum 234-241）+桌面东缘深色小件（u≈0.901-0.902, v≈0.713-0.729，lum≈95，显示器/瓶状未辨）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-east-chair-2",
+      "label": "black office chair west of east desk 2",
+      "kind": "chair",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.866,
+        0.712,
+        0.888,
+        0.736
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 黑色椅背（lum<150，meanRGB≈114,111,108）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-long-desk-south",
+      "label": "long pale desk along SE-zone south, west end near partition, with small items (dark item pair on east part, small item at west end)",
+      "kind": "desk",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.652,
+        0.828,
+        0.848,
+        0.918
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 长条浅灰桌面（lum 234-245 vs 地坪 249-251）；桌面东部深色小件两处（u≈0.852-0.870, v≈0.892-0.912）、西端小件（u≈0.660-0.670, v≈0.865-0.900，lum≈201）、中部青灰小件（单列 teal-item）；两把黑椅在其北侧（单列 south-chair）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-south-chair-1",
+      "label": "black office chair at long desk north side, west position",
+      "kind": "chair",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.782,
+        0.859,
+        0.805,
+        0.884
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 黑色椅背+座面（lum≈131-196 @v 0.865-0.895 剖面 u 0.785-0.805）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-south-chair-2",
+      "label": "black office chair at long desk north side, east position",
+      "kind": "chair",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.846,
+        0.857,
+        0.869,
+        0.883
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 黑色椅背+座面（lum 126-148 @v 0.865-0.895 剖面 u 0.850-0.870）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-teal-item-long-desk",
+      "label": "small teal-gray item on long desk middle (classification unresolved)",
+      "kind": "item",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.704,
+        0.895,
+        0.726,
+        0.909
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 青灰小件（teal 掩码 RGB≈225,227,224）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_factory-1F-yellow-item-south",
+      "label": "tiny yellow item on floor between staircase and partition, near south wall (classification unresolved)",
+      "kind": "item",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.519,
+        0.936,
+        0.53,
+        0.939
+      ],
+      "evidence": {
+        "image": "evidence/4ce56bd082fc3d4d-1F-material-top.png",
+        "visual_note": "1F-material-top: 黄色小点（RGB≈227,204,116 一类，n=76px，u≈0.519-0.530, v≈0.936-0.939）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    }
+  ],
+  "stairs": {
+    "visible": true,
+    "confidence": "observed_geometry_endpoint_unverified",
+    "notes": "顶视中楼梯几何清晰：踏步条纹 v≈0.632-0.802（约 11-12 级，明暗交替），u≈0.516-0.613，西侧细栏杆 u≈0.494-0.502，东侧紧贴隔墙 u≈0.614-0.630，南端 v≈0.804 起为平地。仅登记所见几何：上行方向、上下端点与上层衔接均无 world registration/端点证据，不输出跨层路线；本文件不认证任何 vertical connector，任何路线提及均 robot_validated=false。斜视图因高墙遮挡均不可见楼梯。"
+  },
+  "uncertainties": [
+    "朝向约定：顶视为坐标对齐正射，假设图面上=+Y=北、右=+X=东；方位词仅由四斜视与顶视自洽支持。",
+    "图内贯穿全幅的红色横线（v≈0.497）与绿色竖线（u≈0.500）延伸出墙外至图缘，判读为视口/世界坐标轴线，非场景物体，未记录。",
+    "墙带外缘之外的灰白横竖线（v≈0.0395/0.9553、u≈0.0883/0.9117 段）为视口网格线，未记录。",
+    "墙体开口：仅西南角（西墙 v≈0.90-0.945 + 南墙 u≈0.048-0.108 呈地面亮度）与东南角（东墙 v≈0.92-0.945）两处可信断口；北墙浅色区（如 u≈0.355-0.380, lum 226-228）直查为墙体非开口；门/洞/敞开角关系未辨。",
+    "两处断口内缘的深色横条（v≈0.905-0.915：SW u≈0.055-0.095、SE u≈0.90-0.94）——门扇/门槛/墙端未辨，未单列 object。",
+    "墙带内暖深色墙段（北墙 u≈0.431-0.499/0.685-0.704/0.744-0.763，南墙 u≈0.438-0.506/0.692-0.712/0.751-0.770，西墙 v≈0.284-0.304/0.492-0.561，东墙 v≈0.290-0.309/0.498-0.529，lum≈171-174，RGB≈180,176,164）功能未辨（柱/门框/辊门均可能），已并入四墙 object 备注。",
+    "ne 斜视蓝灰钢框架（图像 u≈0.44-0.56, v≈0.27-0.34）与顶视两排货架的对应为布局级推断：顶视全区无饱和蓝色像素，框架位于画面纵深中央与顶视西南象限自洽，nw/se/sw 视角被高墙遮挡未见——跨视对应未逐点验证。",
+    "se 斜视近画面中央墙顶线上方见一小白色盒状物，推测为北墙白色圆形单元的远观，未逐点验证。",
+    "隔墙北段（v≈0.545-0.65）读数偏弱（230-236 vs 南段 215-228），是矮墙、半墙还是同墙材质差异未辨。",
+    "墙段 n1 与 n2 之间 u≈0.748-0.828 的地面亮度断口（进入东南区的开口）是门洞还是缺口未辨。",
+    "se-desk-1/2 与 nw-white-table、faint-rectangle 等淡色面边界极弱（与地坪差 4-14 lum），存在与否及器形均未确证。",
+    "北墙器物组（青绿方块、白体双圆、深灰圆、暖橙环）与西墙两个深灰方块的功能均未辨；未依据场景名推断任何功能。",
+    "南墙 u≈0.206-0.208、0.424-0.428 两处 2-4px 细微亮缝与东墙零星单点亮缝，未辨（可能是纹理）。",
+    "未做任何路线、地形或可通行性评估；本文件不认证任何机器人可行路线，任何路线提及均 robot_validated=false；证据绑定 artifacts/semantic-captures-v2-30/production_factory/ 的 5 张 Camera-Light 图片。"
+  ]
+}

@@ -1,0 +1,887 @@
+{
+  "schema": "eai.navigation.topology",
+  "version": 2,
+  "scene_key": "production_restaurant",
+  "coordinate_frame": "scene_world",
+  "meters_per_unit": 1.0,
+  "up_axis": "Z",
+  "levels": [
+    {
+      "id": "1F",
+      "label": "一层（待清点）",
+      "support_z_m": 0.0
+    }
+  ],
+  "source": {
+    "usd_layer_0000": "80a3047d52ec899bb0bbf73639dbc64cad6f67b41e8e0a3375024da87d96fbd1",
+    "usd_layer_0001": "2a019848c360ce81a772f4264c4d283c22896291babaa782df98525afb2180ca",
+    "usd_layer_0002": "95e8d042eb3c8fbaaa8fc876776370aea09ab4d0b9362c30e746b1319bac4bd8",
+    "usd_layer_0003": "4bb5d7b9137e64979a185f8a054e2abfea424464d4539fd53ecd899262be4c92",
+    "usd_layer_0004": "87ec7df9554ded9cbb72f1c3eb8e28a50787af59d309a6d312cc37437bc21923",
+    "usd_layer_0005": "27c76f1c9a6b256dddae7bd8c91a1a9ac5e7f2857111d4ebefc1fc4fe0e31de4",
+    "usd_layer_0006": "5e1a217e1372ef58ebc0fb889ac898360c9f145d3aa9a4dd0488b45b40a7424a",
+    "usd_layer_0007": "500478fd960d5a6f678a3c4fce02b3b279d411f4309c5785ec08177d6a7edd38",
+    "usd_layer_0008": "28a1ed9fb62b889847b29916e1685f23ca8965f4be4312c5506f27ffa9fdfab1",
+    "usd_layer_0009": "7115d25719609b6f99df56ce33d438b3bbd1514d4f031369b3984414d3d7cf7d",
+    "usd_layer_0010": "27525a4f538abc10b96fa4d96cb242d336859501c44c34be9a3f7cd9012b6c90",
+    "usd_layer_0011": "111ea510e6a3d0fa03efed107efe4387107eb767eec9eff3daafad1c500b0728",
+    "usd_layer_0012": "245b6dfe2f8cdf91ceb4d47d76266d1417f668b0f6da697724b99c90cb8c0aab",
+    "usd_layer_0013": "b1f36bb8ce353706dedb9d9dc095d6855bc7c970c82c0a83bfa8e91b19192bcf",
+    "usd_layer_0014": "2f7266930e9b645e6d8feb8a1f72225b47f35bb702a2a393c4d922ae87b9dede",
+    "usd_layer_0015": "a29ce9adaf054b613cdfc8d7207fc2bb1ed2a235d8a998a41453bb381df18604",
+    "usd_layer_0016": "73bd17de60cf8f2189e3928e7bd197e41ab9b045682f3307a234353a553e7e99",
+    "usd_layer_0017": "8b697ba46a41bf9d8d42ee144f990d17d42cbad7f09408a7bac62518583be606",
+    "usd_layer_0018": "50365b9c7149fc9dd000758a126981778caa82c94d3b6e6c783cd1c8259d13fa",
+    "usd_layer_0019": "4989a5ec77286fa45ae29922182513da7b6f60b5fd0b0f6e2f66ba9af5bd3f51",
+    "usd_layer_0020": "1ec9baec42993908767673954a66937db41378ab445bdabec79c3e18b24fe2f8",
+    "usd_layer_0021": "14c25b5a512845cba99a3e5274a8e60d9ea234c4b90fedb6618d9018d5ba914f",
+    "usd_layer_0022": "85858cf6b159a56ff9582474c185e1c4fdaea3d63b5d1d801c648a343b535053",
+    "usd_layer_0023": "327d2adc764432a4139124220342de37ea85404be57eaf22172279770ef2bae7",
+    "usd_layer_0024": "0667628e7b5d4811119ff2e28b77ba8f8c3428ce7255db8ae36911c694f43006",
+    "usd_layer_0025": "08f556f406878901b64d26ae1606d4db30fb930238e7a2f17189d62e75112c1b",
+    "usd_layer_0026": "d41d70fa742ffa182bd30a4bb1ba0ea24798b41b9a0a9f5f0d9a3bdc143cb7c2",
+    "usd_layer_0027": "819a80c227e9c211f999aa9b43b001fd6dcfa3efd69b212f97b6282e03f4680f",
+    "usd_layer_0028": "ff7b543e0210a4264e658b4ff8362950abddcf21fa612275a2d82a87467fdfce",
+    "usd_layer_0029": "727b7b0a139c8a846359893b38a4df682cb3c0f1ba6441fb2d61ffbdec158ed6",
+    "usd_layer_0030": "d5e29ef35d63a187369440707df46cda61d019785699d956d3d844031ad9fdc8",
+    "usd_layer_0031": "d0c55ffc913022330db709dcbddbc8f93f8edcc6abdda7f78726f1a6ae60edfc",
+    "usd_layer_0032": "1d8eff5ebe5be3b294a70f1b5801923e9cc764a575228d2676ab0d710305e352",
+    "usd_layer_0033": "fa5a0cbcdbe3b82fc38ca345026426510b74cdc8a0a8b1f5dbed514bb3888738",
+    "usd_layer_0034": "757aa5ff55f17761376eea6cf10aef75cd92878fd64400d0fb252fec74001b07",
+    "usd_layer_0035": "d4bc2fb7d38e6a4735dacebbaf4e7208675fd1354301fe012173e0ce25feb6d2",
+    "usd_layer_0036": "83ef5494a4d1897d5b48c8f30dc9d9cb52794f265a21cc525755377101a35eeb",
+    "usd_layer_0037": "9aac7532a6a7864472141208ef65a71e9ce8409f89c23a3ac498ec8c72393527",
+    "usd_layer_0038": "923967a991a0a5e8f178636ca3be193693ff8ff3aa545eceb0a1b0500b739dda",
+    "usd_layer_0039": "ee676feb6fa242507943ad64e671f280586dafac67e3b11fe8af6d8b9dc9bc14",
+    "usd_layer_0040": "735f8dd7dceeed5e9896b8c74c32a2a7030399506274c62bd37e3d2d626dc4db",
+    "usd_layer_0041": "daafefb31f12dcaab1e820595f0e619c0b40623435d99fd3153b1471b4fc4093",
+    "usd_layer_0042": "e0106538a1d72a0208710ae0a1960ea9d7f27cafcf197b30fd7418dedbd1e849",
+    "usd_layer_0043": "d14dc6cc1c28d18464f8f5e4e504ec43f34d7225746287972e999e195766cf99",
+    "usd_layer_0044": "99e3d001029ae6cdfd3d5828e4c2fa34d7d6ac76d60e3e760458b4cae850fa72",
+    "usd_layer_0045": "618470672c40d18b93adbbcdecf69aea98931ebc4d5e1f8d13e7a77ee67e653b",
+    "usd_layer_0046": "5bfc1610dc87e00929b774b1fb1b4acc1ec3a0eaf3de4c3ff77e6f2a54092fc1",
+    "usd_layer_0047": "834b141c161647a4ae94498e37fae25cb47503206c1a13fd41d474d5cef03297",
+    "usd_layer_0048": "b659547e2913070db856344fc9f6819770f346b56564bf4a6bdda3b6c45c883c",
+    "usd_layer_0049": "292153dd165783d541180f8f312d73e03d8c8c9074c114cb3b78a40a19186f3c",
+    "usd_layer_0050": "e051471e6e4a00b1c3d2bdde1d3e62d84ebbb4dff448dc6e8ebc8d3fc96bf720",
+    "usd_layer_0051": "e1f81f350323b203daaeaf32b6509dad799402aabed42e860ddb34d98606283d",
+    "usd_layer_0052": "415b9b136e2b7868adbecbb4da9b724620d27683d51b6345de38a419b5790f88",
+    "usd_layer_0053": "8df93f5bcf02236d4715d7a13313aedfcd8e0d2f37b105ad6981b59c5dd6fdad",
+    "usd_layer_0054": "dddc6f8a1dd158647ca7c99ce15b9afa00c9d594ca54eacf4302bb8b4e8732ea",
+    "usd_layer_0055": "3b37706a5f9f9a022e8658ccad4ff7abc17761a0ef1aaf03b759be4346cd16f8",
+    "usd_layer_0056": "d92666faa340bc8e33fff9b82f826724297a5f07c13ab4c30659ae51871ca3df",
+    "usd_layer_0057": "092ca503905e23a1d7acf2ff5335346cdde65002d882b266ebeb2d97293724b2",
+    "usd_layer_0058": "9a5f3e8bc2e4c2e7d81435a4653fe394cda9298856d85ed8e0bef64749ab8ca4",
+    "usd_layer_0059": "c4c1051e095e77a279d23b04bab4ae4389a2352c2eab6324db7f2670bb9ad891",
+    "usd_layer_0060": "e41c87768dc498d687dd41f013291f726ef72fdf27a657c99d58aa780db1eedd",
+    "usd_layer_0061": "115cc4ec4221b408e18ae3a2bd985347e11fc8683ad40f9f581d055490065161",
+    "usd_layer_0062": "25ee8099f4a026cf769757c2b2e22b9a96a1b765ea8da9628e8e952b0df3efd2",
+    "usd_layer_0063": "71ad7f6c263bfc4aa85d25502f11cdace820a4fbe9bb4c4c02021dec6d0aa8b3",
+    "usd_layer_0064": "6678c523154394fa138393ecb565332d15548d80e8640879aaf0d973a0673c20",
+    "usd_layer_0065": "fe7dd7f6bd692532e8b6a20947f89ed87c67b42c1fbc51627d4b78780cffaf8c"
+  },
+  "nodes": [
+    {
+      "id": "node:production_restaurant:unresolved:start",
+      "kind": "unresolved_anchor",
+      "position_xyz": [
+        1779.0,
+        2038.5,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "路线起点待确认",
+      "aliases": []
+    },
+    {
+      "id": "node:production_restaurant:unresolved:end",
+      "kind": "unresolved_anchor",
+      "position_xyz": [
+        1782.0,
+        2038.5,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "路线终点待确认",
+      "aliases": []
+    }
+  ],
+  "edges": [
+    {
+      "id": "route:production_restaurant:unresolved-draft:edge:0001",
+      "kind": "custom_connection",
+      "from": "node:production_restaurant:unresolved:start",
+      "to": "node:production_restaurant:unresolved:end",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          1779.0,
+          2038.5,
+          0.0
+        ],
+        [
+          1782.0,
+          2038.5,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    }
+  ],
+  "semantics": {
+    "schema": "eai.scene.semantics",
+    "version": 1,
+    "regions": [],
+    "entities": [
+      {
+        "id": "production_restaurant-1F-north-door-set-mid-east",
+        "kind": "door",
+        "label": "cream double door leaves in north curtain wall mid-east stretch (one set with two leaves or two sets unresolved)",
+        "aliases": [],
+        "level_id": "1F",
+        "region_id": null,
+        "position_xyz": [
+          2316.422552166934,
+          2572.922552166934,
+          0.0
+        ],
+        "source_ref": null,
+        "properties": {
+          "confidence": "category_uncertain",
+          "evidence": {
+            "image": "evidence/521d347acf0d341c-1F-material-top.png",
+            "visual_note": {
+              "image": "evidence/de7c4dae8b76a109-1F-material-ne.png",
+              "visual_note": "1F-material-ne: 北墙中部偏东见两片相邻奶油色门扇矩形（间隔约一扇宽，可能为同一双开门的两扇，也可能为两组门）；1F-material-nw: 北墙见两组奶油门扇（其间夹一根白柱），投影解算与 ne 视角互有 ±0.1u 级偏差；1F-material-top: 无墙线可校准，bounds 为宽区间近似。",
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            },
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "position_source": "centroid_of_bound_occupied_cells",
+          "pose_status": "task_interactions_deferred",
+          "map_project": {
+            "mode": "base_instance",
+            "level_id": "1F",
+            "instance_id": 2
+          },
+          "geometry_binding": {
+            "raster_file": "level-000-semantic-grid.npz",
+            "instance_id": 1,
+            "footprint_geojson": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    2680.5,
+                    2530.5
+                  ],
+                  [
+                    2680.5,
+                    2532.0
+                  ],
+                  [
+                    2680.5,
+                    2533.5
+                  ],
+                  [
+                    2680.5,
+                    2535.0
+                  ],
+                  [
+                    2680.5,
+                    2536.5
+                  ],
+                  [
+                    2680.5,
+                    2538.0
+                  ],
+                  [
+                    2680.5,
+                    2539.5
+                  ],
+                  [
+                    2680.5,
+                    2541.0
+                  ],
+                  [
+                    2680.5,
+                    2542.5
+                  ],
+                  [
+                    2680.5,
+                    2544.0
+                  ],
+                  [
+                    2680.5,
+                    2545.5
+                  ],
+                  [
+                    2680.5,
+                    2547.0
+                  ],
+                  [
+                    2680.5,
+                    2548.5
+                  ],
+                  [
+                    2680.5,
+                    2550.0
+                  ],
+                  [
+                    2680.5,
+                    2551.5
+                  ],
+                  [
+                    2680.5,
+                    2553.0
+                  ],
+                  [
+                    2680.5,
+                    2554.5
+                  ],
+                  [
+                    2680.5,
+                    2556.0
+                  ],
+                  [
+                    2680.5,
+                    2557.5
+                  ],
+                  [
+                    2680.5,
+                    2559.0
+                  ],
+                  [
+                    2680.5,
+                    2560.5
+                  ],
+                  [
+                    2680.5,
+                    2562.0
+                  ],
+                  [
+                    2680.5,
+                    2563.5
+                  ],
+                  [
+                    2680.5,
+                    2565.0
+                  ],
+                  [
+                    2680.5,
+                    2566.5
+                  ],
+                  [
+                    2680.5,
+                    2568.0
+                  ],
+                  [
+                    2680.5,
+                    2569.5
+                  ],
+                  [
+                    2680.5,
+                    2571.0
+                  ],
+                  [
+                    2680.5,
+                    2572.5
+                  ],
+                  [
+                    2680.5,
+                    2574.0
+                  ],
+                  [
+                    2680.5,
+                    2575.5
+                  ],
+                  [
+                    2680.5,
+                    2577.0
+                  ],
+                  [
+                    2680.5,
+                    2578.5
+                  ],
+                  [
+                    1855.5,
+                    2578.5
+                  ],
+                  [
+                    1855.5,
+                    2580.0
+                  ],
+                  [
+                    2682.0,
+                    2580.0
+                  ],
+                  [
+                    2682.0,
+                    2578.5
+                  ],
+                  [
+                    2682.0,
+                    2577.0
+                  ],
+                  [
+                    2682.0,
+                    2575.5
+                  ],
+                  [
+                    2682.0,
+                    2574.0
+                  ],
+                  [
+                    2682.0,
+                    2572.5
+                  ],
+                  [
+                    2682.0,
+                    2571.0
+                  ],
+                  [
+                    2682.0,
+                    2569.5
+                  ],
+                  [
+                    2682.0,
+                    2568.0
+                  ],
+                  [
+                    2682.0,
+                    2566.5
+                  ],
+                  [
+                    2682.0,
+                    2565.0
+                  ],
+                  [
+                    2682.0,
+                    2563.5
+                  ],
+                  [
+                    2682.0,
+                    2562.0
+                  ],
+                  [
+                    2682.0,
+                    2560.5
+                  ],
+                  [
+                    2682.0,
+                    2559.0
+                  ],
+                  [
+                    2682.0,
+                    2557.5
+                  ],
+                  [
+                    2682.0,
+                    2556.0
+                  ],
+                  [
+                    2682.0,
+                    2554.5
+                  ],
+                  [
+                    2682.0,
+                    2553.0
+                  ],
+                  [
+                    2682.0,
+                    2551.5
+                  ],
+                  [
+                    2682.0,
+                    2550.0
+                  ],
+                  [
+                    2682.0,
+                    2548.5
+                  ],
+                  [
+                    2682.0,
+                    2547.0
+                  ],
+                  [
+                    2682.0,
+                    2545.5
+                  ],
+                  [
+                    2682.0,
+                    2544.0
+                  ],
+                  [
+                    2682.0,
+                    2542.5
+                  ],
+                  [
+                    2682.0,
+                    2541.0
+                  ],
+                  [
+                    2682.0,
+                    2539.5
+                  ],
+                  [
+                    2682.0,
+                    2538.0
+                  ],
+                  [
+                    2682.0,
+                    2536.5
+                  ],
+                  [
+                    2682.0,
+                    2535.0
+                  ],
+                  [
+                    2682.0,
+                    2533.5
+                  ],
+                  [
+                    2682.0,
+                    2532.0
+                  ],
+                  [
+                    2682.0,
+                    2530.5
+                  ],
+                  [
+                    2682.0,
+                    2529.0
+                  ],
+                  [
+                    2682.0,
+                    2527.5
+                  ],
+                  [
+                    2682.0,
+                    2526.0
+                  ],
+                  [
+                    2682.0,
+                    2524.5
+                  ],
+                  [
+                    2682.0,
+                    2523.0
+                  ],
+                  [
+                    2682.0,
+                    2521.5
+                  ],
+                  [
+                    2682.0,
+                    2520.0
+                  ],
+                  [
+                    2682.0,
+                    2518.5
+                  ],
+                  [
+                    2682.0,
+                    2517.0
+                  ],
+                  [
+                    2682.0,
+                    2515.5
+                  ],
+                  [
+                    2682.0,
+                    2514.0
+                  ],
+                  [
+                    2682.0,
+                    2512.5
+                  ],
+                  [
+                    2682.0,
+                    2511.0
+                  ],
+                  [
+                    2682.0,
+                    2509.5
+                  ],
+                  [
+                    2682.0,
+                    2508.0
+                  ],
+                  [
+                    2682.0,
+                    2506.5
+                  ],
+                  [
+                    2682.0,
+                    2505.0
+                  ],
+                  [
+                    2682.0,
+                    2503.5
+                  ],
+                  [
+                    2682.0,
+                    2502.0
+                  ],
+                  [
+                    2682.0,
+                    2500.5
+                  ],
+                  [
+                    2682.0,
+                    2499.0
+                  ],
+                  [
+                    2682.0,
+                    2497.5
+                  ],
+                  [
+                    2682.0,
+                    2496.0
+                  ],
+                  [
+                    2682.0,
+                    2494.5
+                  ],
+                  [
+                    2682.0,
+                    2493.0
+                  ],
+                  [
+                    2682.0,
+                    2491.5
+                  ],
+                  [
+                    2682.0,
+                    2490.0
+                  ],
+                  [
+                    2682.0,
+                    2488.5
+                  ],
+                  [
+                    2682.0,
+                    2487.0
+                  ],
+                  [
+                    2682.0,
+                    2485.5
+                  ],
+                  [
+                    2682.0,
+                    2484.0
+                  ],
+                  [
+                    2682.0,
+                    2482.5
+                  ],
+                  [
+                    2682.0,
+                    2481.0
+                  ],
+                  [
+                    2682.0,
+                    2479.5
+                  ],
+                  [
+                    2682.0,
+                    2478.0
+                  ],
+                  [
+                    2682.0,
+                    2476.5
+                  ],
+                  [
+                    2682.0,
+                    2475.0
+                  ],
+                  [
+                    2682.0,
+                    2473.5
+                  ],
+                  [
+                    2682.0,
+                    2472.0
+                  ],
+                  [
+                    2682.0,
+                    2470.5
+                  ],
+                  [
+                    2680.5,
+                    2470.5
+                  ],
+                  [
+                    2680.5,
+                    2472.0
+                  ],
+                  [
+                    2680.5,
+                    2473.5
+                  ],
+                  [
+                    2680.5,
+                    2475.0
+                  ],
+                  [
+                    2680.5,
+                    2476.5
+                  ],
+                  [
+                    2680.5,
+                    2478.0
+                  ],
+                  [
+                    2680.5,
+                    2479.5
+                  ],
+                  [
+                    2680.5,
+                    2481.0
+                  ],
+                  [
+                    2680.5,
+                    2482.5
+                  ],
+                  [
+                    2680.5,
+                    2484.0
+                  ],
+                  [
+                    2680.5,
+                    2485.5
+                  ],
+                  [
+                    2680.5,
+                    2487.0
+                  ],
+                  [
+                    2680.5,
+                    2488.5
+                  ],
+                  [
+                    2680.5,
+                    2490.0
+                  ],
+                  [
+                    2680.5,
+                    2491.5
+                  ],
+                  [
+                    2680.5,
+                    2493.0
+                  ],
+                  [
+                    2680.5,
+                    2494.5
+                  ],
+                  [
+                    2680.5,
+                    2496.0
+                  ],
+                  [
+                    2680.5,
+                    2497.5
+                  ],
+                  [
+                    2680.5,
+                    2499.0
+                  ],
+                  [
+                    2680.5,
+                    2500.5
+                  ],
+                  [
+                    2680.5,
+                    2502.0
+                  ],
+                  [
+                    2680.5,
+                    2503.5
+                  ],
+                  [
+                    2680.5,
+                    2505.0
+                  ],
+                  [
+                    2680.5,
+                    2506.5
+                  ],
+                  [
+                    2680.5,
+                    2508.0
+                  ],
+                  [
+                    2680.5,
+                    2509.5
+                  ],
+                  [
+                    2680.5,
+                    2511.0
+                  ],
+                  [
+                    2680.5,
+                    2512.5
+                  ],
+                  [
+                    2680.5,
+                    2514.0
+                  ],
+                  [
+                    2680.5,
+                    2515.5
+                  ],
+                  [
+                    2680.5,
+                    2517.0
+                  ],
+                  [
+                    2680.5,
+                    2518.5
+                  ],
+                  [
+                    2680.5,
+                    2520.0
+                  ],
+                  [
+                    2680.5,
+                    2521.5
+                  ],
+                  [
+                    2680.5,
+                    2523.0
+                  ],
+                  [
+                    2680.5,
+                    2524.5
+                  ],
+                  [
+                    2680.5,
+                    2526.0
+                  ],
+                  [
+                    2680.5,
+                    2527.5
+                  ],
+                  [
+                    2680.5,
+                    2529.0
+                  ],
+                  [
+                    2680.5,
+                    2530.5
+                  ]
+                ]
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "production_restaurant-1F-south-wall-east-openings",
+        "kind": "wall_opening",
+        "label": "three gaps in the pierced east section of the enclosure south wall (doorways vs glazed bays unresolved)",
+        "aliases": [],
+        "level_id": "1F",
+        "region_id": null,
+        "position_xyz": [
+          2330.25,
+          1497.75,
+          0.0
+        ],
+        "source_ref": null,
+        "properties": {
+          "confidence": "category_uncertain",
+          "evidence": {
+            "image": "evidence/521d347acf0d341c-1F-material-top.png",
+            "visual_note": {
+              "image": "evidence/521d347acf0d341c-1F-material-top.png",
+              "visual_note": "1F-material-top: 南横墙 y558-566 东段（x1028-1326）呈实体短垛与断口交替，断口 x1028-1074、x1132-1179、x1237-1283（各宽约 46px）；断口内为浅色（门洞/玻璃带未辨）；西段（x476-1028）连续实体。",
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            },
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "position_source": "centroid_of_bound_occupied_cells",
+          "pose_status": "task_interactions_deferred",
+          "map_project": {
+            "mode": "base_instance",
+            "level_id": "1F",
+            "instance_id": 19
+          },
+          "geometry_binding": {
+            "raster_file": "level-000-semantic-grid.npz",
+            "instance_id": 2,
+            "footprint_geojson": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    2607.0,
+                    1497.0
+                  ],
+                  [
+                    2607.0,
+                    1498.5
+                  ],
+                  [
+                    2053.5,
+                    1498.5
+                  ],
+                  [
+                    2053.5,
+                    1497.0
+                  ],
+                  [
+                    2607.0,
+                    1497.0
+                  ]
+                ]
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "interaction_poses": [],
+    "routes": [
+      {
+        "id": "route:production_restaurant:unresolved-draft",
+        "label": "路线草稿待几何/视觉证据确认",
+        "kind": "walk",
+        "aliases": [],
+        "node_ids": [
+          "node:production_restaurant:unresolved:start",
+          "node:production_restaurant:unresolved:end"
+        ],
+        "edge_ids": [
+          "route:production_restaurant:unresolved-draft:edge:0001"
+        ],
+        "properties": {
+          "status": "unresolved_no_routeable_component",
+          "robot_validated": false,
+          "warning": "Placeholder anchors are not a traversability claim"
+        }
+      }
+    ],
+    "extensions": {
+      "vertical_connectors": []
+    }
+  }
+}

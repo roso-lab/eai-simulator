@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>语义拓扑地图编辑器</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">拓</div>
+      <div>
+        <h1>语义拓扑地图编辑器</h1>
+        <p id="sceneSubtitle">正在连接本地地图服务…</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div id="projectPickerWrap" class="scene-picker hidden">
+        <label class="project-picker category-picker">
+          <span>分类</span>
+          <select id="categoryPicker" aria-label="分类"></select>
+        </label>
+        <label class="project-picker">
+          <span>场景</span>
+          <select id="projectPicker" aria-label="场景" title="选择场景会同时打开地图并联动 Isaac Sim"></select>
+        </label>
+        <span id="sceneSyncStatus" class="scene-sync-status" role="status" aria-live="polite">正在连接…</span>
+      </div>
+      <span id="dirtyBadge" class="status-badge saved">已保存</span>
+      <span id="revisionBadge" class="revision-badge">修订 —</span>
+      <button id="undoBtn" class="button subtle" type="button" title="撤销上一步">撤销</button>
+      <button id="redoBtn" class="button subtle" type="button" title="重做上一步">重做</button>
+      <button id="saveBtn" class="button primary" type="button">保存并导出</button>
+    </div>
+  </header>
+
+  <div id="errorBanner" class="banner error hidden" role="alert">
+    <span id="errorText"></span>
+    <button id="closeErrorBtn" type="button" aria-label="关闭错误">×</button>
+  </div>
+  <div id="noticeBanner" class="banner notice hidden" role="status"></div>
+
+  <main class="workspace">
+    <aside class="side-panel left-panel">
+      <section class="panel-section scene-card">
+        <div class="section-heading">
+          <h2>场景与楼层</h2>
+          <span id="projectPath" class="muted mono" title="项目文件路径"></span>
+        </div>
+        <div id="floorList" class="floor-list" role="listbox" aria-label="楼层"></div>
+      </section>
+
+      <section class="panel-section">
+        <h2>显示内容</h2>
+        <label class="toggle-row locked-toggle" title="占用与语义颜色由服务端合成为同一底图">
+          <input type="checkbox" checked disabled>
+          <span>二维占用与语义底图</span>
+          <small>已烘焙</small>
+        </label>
+        <label class="toggle-row"><input id="showRegions" type="checkbox" checked><span>语义区域轮廓与标签</span></label>
+        <label class="toggle-row"><input id="showObstacles" type="checkbox" checked><span>障碍物标签</span></label>
+        <label class="toggle-row"><input id="showGraph" type="checkbox" checked><span>拓扑节点与边</span></label>
+        <label class="toggle-row"><input id="showInteractions" type="checkbox" checked><span>交互点</span></label>
+        <label class="toggle-row"><input id="showRoutes" type="checkbox" checked><span>命名路线</span></label>
+        <p class="hint warning-hint">绿色路线和拓扑边是可编辑草稿，并不代表机器人已完成净空、动力学或楼梯验证。</p>
+      </section>
+
+      <section class="panel-section records-section">
+        <div class="section-heading">
+          <h2>记录</h2>
+          <span id="recordCount" class="count-pill">0</span>
+        </div>
+        <label class="search-box">
+          <span aria-hidden="true">⌕</span>
+          <input id="recordSearch" type="search" placeholder="搜索 ID 或名称">
+        </label>
+        <div id="recordTabs" class="record-tabs" role="tablist">
+          <button type="button" data-filter="all" class="active">全部</button>
+          <button type="button" data-filter="nodes">节点</button>
+          <button type="button" data-filter="edges">边</button>
+          <button type="button" data-filter="regions">区域</button>
+          <button type="button" data-filter="entities">物体</button>
+          <button type="button" data-filter="interaction_poses">交互</button>
+          <button type="button" data-filter="routes">路线</button>
+        </div>
+        <div id="recordList" class="record-list"></div>
+      </section>
+
+      <section id="warningsSection" class="panel-section warnings-section hidden">
+        <h2>几何与数据提示</h2>
+        <ul id="warningsList"></ul>
+      </section>
+    </aside>
+
+    <section class="map-workspace" aria-label="地图工作区">
+      <div class="tool-strip" role="toolbar" aria-label="地图工具">
+        <div class="tool-group" id="modeTools">
+          <button class="tool active" type="button" data-mode="select" title="选择地图元素">选择</button>
+          <button class="tool" type="button" data-mode="add-node" title="在地图上添加拓扑节点">加节点</button>
+          <button class="tool" type="button" data-mode="add-edge" title="依次点击两个节点添加边；可跨楼层">连边</button>
+          <button class="tool" type="button" data-mode="add-region" title="逐点绘制语义区域">画区域</button>
+          <button class="tool" type="button" data-mode="bind-obstacle" title="逐点圈选真实占用格并绑定障碍语义">标障碍</button>
+          <button class="tool" type="button" data-mode="add-interaction" title="添加抓取、放置或观察点">加交互点</button>
+        </div>
+        <div class="tool-spacer"></div>
+        <span id="modeHint" class="mode-hint">选择元素查看和编辑属性</span>
+        <button id="cancelDraftBtn" class="button danger-ghost hidden" type="button">取消绘制</button>
+        <button id="confirmPolygonBtn" class="button primary hidden" type="button">完成多边形</button>
+        <button id="zoomOutBtn" class="icon-button" type="button" title="缩小">−</button>
+        <button id="zoomInBtn" class="icon-button" type="button" title="放大">＋</button>
+        <button id="fitBtn" class="button subtle" type="button">适配视图</button>
+        <button id="toggle3dBtn" class="button subtle" type="button">全楼层 XYZ</button>
+      </div>
+
+      <section id="isaacPanel" class="isaac-panel" aria-label="Isaac Sim 当前选择">
+        <div class="isaac-heading"><strong>Isaac Sim 当前选择</strong><span id="isaacStatus" class="muted">未连接</span></div>
+        <div id="isaacSelectionText" class="isaac-selection muted">在 Isaac Sim 发送一个对象或视口点，地图会显示紫色预览。</div>
+        <div class="isaac-actions">
+          <button id="isaacNodeBtn" class="button subtle" type="button" disabled>转为拓扑节点</button>
+          <button id="isaacEntityBtn" class="button subtle" type="button" disabled>转为对象语义</button>
+          <button id="isaacClearBtn" class="button danger-ghost" type="button">清除预览</button>
+        </div>
+      </section>
+
+      <div id="mapStage" class="map-stage">
+        <canvas id="mapCanvas" aria-label="二维语义地图"></canvas>
+        <div id="loadingLayer" class="loading-layer"><span class="spinner"></span><span>加载地图…</span></div>
+        <div class="map-legend" aria-label="图例">
+          <span><i class="swatch occupied"></i>导航障碍</span>
+          <span><i class="swatch semantic-only"></i>仅语义障碍</span>
+          <span><i class="swatch free"></i>可通行/支撑</span>
+          <span><i class="swatch unknown"></i>未知</span>
+          <span><i class="swatch route"></i>拓扑/路线草稿</span>
+        </div>
+        <div id="cursorCoords" class="cursor-coords">X — · Y —</div>
+      </div>
+
+      <section id="xyzPanel" class="xyz-panel hidden" aria-label="全楼层三维拓扑概览">
+        <div class="xyz-header">
+          <div>
+            <strong>全楼层 XYZ 概览</strong>
+            <span>斜投影仅用于理解层级和跨层关系，编辑仍在二维楼层视图完成。</span>
+          </div>
+          <button id="close3dBtn" class="icon-button" type="button" aria-label="关闭">×</button>
+        </div>
+        <canvas id="xyzCanvas"></canvas>
+      </section>
+    </section>
+
+    <aside class="side-panel inspector-panel">
+      <section class="panel-section inspector-title">
+        <div>
+          <span id="selectionType" class="eyebrow">未选择</span>
+          <h2 id="selectionTitle">属性检查器</h2>
+        </div>
+        <button id="clearSelectionBtn" class="icon-button hidden" type="button" aria-label="取消选择">×</button>
+      </section>
+
+      <div id="emptyInspector" class="empty-inspector">
+        <div class="empty-icon">⌖</div>
+        <p>在地图或左侧列表中选择记录，或使用上方工具创建新元素。</p>
+      </div>
+
+      <form id="inspectorForm" class="inspector-form hidden" novalidate>
+        <div id="stableIdGroup" class="field-group">
+          <label for="fieldId">稳定 ID</label>
+          <input id="fieldId" class="mono" type="text" readonly>
+          <small>已有 ID 不会在编辑时静默改名。</small>
+        </div>
+        <div id="labelGroup" class="field-group">
+          <label for="fieldLabel">名称</label>
+          <input id="fieldLabel" type="text" autocomplete="off">
+        </div>
+        <div id="kindGroup" class="field-group">
+          <label for="fieldKind">类型</label>
+          <input id="fieldKind" type="text" autocomplete="off">
+        </div>
+        <div id="levelGroup" class="field-group">
+          <label for="fieldLevel">楼层</label>
+          <select id="fieldLevel"></select>
+        </div>
+        <fieldset id="coordinateGroup" class="coordinate-grid">
+          <legend>世界坐标（米）</legend>
+          <label>X<input id="fieldX" type="number" step="0.01"></label>
+          <label>Y<input id="fieldY" type="number" step="0.01"></label>
+          <label>Z<input id="fieldZ" type="number" step="0.01"></label>
+        </fieldset>
+        <div id="headingGroup" class="field-group">
+          <label for="fieldHeading">朝向（弧度，可空）</label>
+          <input id="fieldHeading" type="number" step="0.01" min="-3.141593" max="3.141593">
+        </div>
+        <div id="ownerGroup" class="field-group">
+          <label for="fieldOwner">所属区域/物体</label>
+          <select id="fieldOwner"></select>
+        </div>
+        <div id="regionGroup" class="field-group">
+          <label for="fieldRegion">所属区域（可空）</label>
+          <select id="fieldRegion"></select>
+        </div>
+        <div id="heightGroup" class="field-group">
+          <label for="fieldHeight">区域高度（米）</label>
+          <input id="fieldHeight" type="number" step="0.1" min="0.01">
+        </div>
+        <div id="edgeGroup" class="edge-fields">
+          <div class="field-group"><label for="fieldFrom">起点节点</label><input id="fieldFrom" class="mono" readonly></div>
+          <div class="field-group"><label for="fieldTo">终点节点</label><input id="fieldTo" class="mono" readonly></div>
+          <label class="toggle-row"><input id="fieldDirected" type="checkbox"><span>有向边</span></label>
+          <div class="field-group">
+            <label for="fieldTraversal">通行方式</label>
+            <select id="fieldTraversal"><option value="walk">步行</option><option value="stairs">楼梯</option><option value="ramp">坡道</option></select>
+          </div>
+        </div>
+        <div id="interactionKindGroup" class="field-group">
+          <label for="fieldInteractionKind">交互类型</label>
+          <select id="fieldInteractionKind"><option value="grasp">抓取</option><option value="place">放置</option><option value="observe">观察</option></select>
+        </div>
+        <div id="aliasesGroup" class="field-group">
+          <label for="fieldAliases">别名（每行一个）</label>
+          <textarea id="fieldAliases" rows="2"></textarea>
+        </div>
+
+        <details id="advancedDetails" class="advanced-json">
+          <summary>高级记录 JSON</summary>
+          <p>完整替换当前语义记录；修改时保留未知属性。JSON 必须是有效对象，稳定 ID 不可改变。</p>
+          <textarea id="fieldJson" class="mono" rows="12" spellcheck="false"></textarea>
+        </details>
+
+        <div class="inspector-actions">
+          <button id="deleteBtn" class="button danger" type="button">删除</button>
+          <button id="applyBtn" class="button primary" type="submit">应用修改</button>
+        </div>
+      </form>
+
+      <section class="panel-section contract-note">
+        <h2>数据边界</h2>
+        <p>编辑语义标签不会改变几何栅格。障碍多边形会由服务端裁剪到真实语义障碍单元；导航障碍和高处语义障碍分层保留，空选择或与现有绑定重叠会被拒绝。</p>
+        <p>跨层边应连接明确的 transition 节点并标注 stairs/ramp。工具不会自动推断跨层可通行性。</p>
+      </section>
+    </aside>
+  </main>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

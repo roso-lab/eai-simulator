@@ -10,12 +10,15 @@ import tempfile
 from typing import Mapping
 
 from algorithm.skills.navigation.topology import finite_number, finite_xyz, validate_topology
-from .model import TopologyDocument
+from .model import PROFILES, TRAVERSAL_MODES, TopologyDocument
+from .semantics import validate_semantics
 
 
 def validate_document(doc: TopologyDocument, adapter=None, source=None, *, require_targets=False,
                       node_only=False) -> list[str]:
-    errors = validate_topology(doc)
+    # Navigation remains the executable contract; semantic annotations add
+    # cross references and floor/route constraints on top of that graph.
+    errors = validate_topology(doc) + validate_semantics(doc)
     if (not isinstance(doc.scene_key, str) or not doc.scene_key
             or doc.scene_key.strip() != doc.scene_key or doc.scene_key in {".", ".."}
             or "/" in doc.scene_key or "\\" in doc.scene_key):
@@ -98,11 +101,24 @@ def validate_document(doc: TopologyDocument, adapter=None, source=None, *, requi
             if not node_only:
                 errors.append(f"edge profiles must be an object: {edge_id}")
             continue
+        traversal_mode = edge.get("traversal_mode", "walk")
+        capabilities = edge.get("required_controller_capabilities", [])
+        if doc.version == 2:
+            if traversal_mode not in TRAVERSAL_MODES:
+                errors.append(f"invalid edge traversal_mode: {edge_id}")
+            if (not isinstance(capabilities, (list, tuple))
+                    or any(not isinstance(item, str) or not item.strip() for item in capabilities)
+                    or len(set(capabilities)) != len(capabilities)):
+                errors.append(f"invalid edge controller capabilities: {edge_id}")
+        elif traversal_mode != "walk" or capabilities:
+            errors.append(f"edge traversal metadata requires topology version 2: {edge_id}")
         for profile, config in profiles.items():
             clearance = config.get("clearance_m") if isinstance(config, Mapping) else None
-            if not isinstance(profile, str) or not profile.strip() or not finite_number(clearance) or clearance <= 0:
+            if (profile not in PROFILES or not finite_number(clearance)
+                    or clearance <= 0):
                 if not node_only:
-                    errors.append(f"invalid edge metadata profile {profile}: {edge_id}")
+                    errors.append(
+                        f"invalid profile {profile} (invalid edge metadata profile): {edge_id}")
                 continue
             if bound_source and endpoints:
                 # Polyline checks are authoring/scene checks only.  Runtime

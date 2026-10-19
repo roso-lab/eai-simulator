@@ -1,0 +1,148 @@
+{
+  "scene_id": "school",
+  "level_id": "3F",
+  "regions": [
+    {
+      "id": "reg_main_hall",
+      "label": "主厅大开间",
+      "kind": "room",
+      "confidence": "unknown_function",
+      "bounds_norm": [
+        0.187,
+        0.215,
+        0.564,
+        0.677
+      ],
+      "evidence": "顶视中央大片细网格地面开间，占3F主体面积，内部仅见极淡成排虚线轮廓，无明确功能标识，学校场景下用途（教室/活动室/阅览）无法确认。"
+    },
+    {
+      "id": "reg_north_corridor",
+      "label": "北侧走廊带",
+      "kind": "corridor",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.2,
+        0.08,
+        0.564,
+        0.214
+      ],
+      "evidence": "主体北缘连续浅色长条带，横贯主厅以北，形态符合走廊/边道布局。"
+    },
+    {
+      "id": "reg_east_strip",
+      "label": "东侧深灰条带",
+      "kind": "unknown_area",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.607,
+        0.086,
+        0.686,
+        0.627
+      ],
+      "evidence": "顶视主体以东的均匀深灰窄条带，与主厅亮度不同；可能是更低屋面、邻翼或阴影区，是否属于3F楼面无法确认。"
+    },
+    {
+      "id": "reg_south_corridors",
+      "label": "南侧走廊延伸",
+      "kind": "corridor",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.357,
+        0.668,
+        0.468,
+        0.745
+      ],
+      "evidence": "主厅南缘向南通出的浅色窄条延伸，形态符合走廊/出入口通道。"
+    },
+    {
+      "id": "reg_south_shaft",
+      "label": "南侧窄塔状延伸",
+      "kind": "unknown_area",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.461,
+        0.664,
+        0.511,
+        0.823
+      ],
+      "evidence": "南缘一条更窄的塔状延伸（顶视窄矩形凸出），形似楼梯间/电梯井核心筒的外轮廓，但内部结构不可见，功能未验证。"
+    },
+    {
+      "id": "reg_east_connector",
+      "label": "东南窄连条",
+      "kind": "corridor",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.568,
+        0.618,
+        0.593,
+        0.727
+      ],
+      "evidence": "顶视中南侧一条南北向窄条，位于主体与球场标线之间；可能是地面通道或3F连桥，高度归属未验证。"
+    }
+  ],
+  "objects": [
+    {
+      "id": "obj_north_platform",
+      "label": "深边框矩形平台/台面",
+      "kind": "fixed_facility",
+      "confidence": "unknown_function",
+      "bounds_norm": [
+        0.325,
+        0.232,
+        0.418,
+        0.291
+      ],
+      "evidence": "主厅北部靠墙处深色描边、浅色填充的矩形，顶视似大型台面/桌台或带栏板封闭核心；内部不可见，功能不明。"
+    },
+    {
+      "id": "obj_west_thin_line",
+      "label": "西缘细长深色构件",
+      "kind": "partition",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.201,
+        0.343,
+        0.207,
+        0.446
+      ],
+      "evidence": "主厅西侧南北向细深色线段，可能为隔墙残段、栏杆或立式白板，形态过细无法定类。"
+    },
+    {
+      "id": "obj_faint_furniture_rows",
+      "label": "厅内淡色成排轮廓带",
+      "kind": "furniture_zone",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.229,
+        0.255,
+        0.536,
+        0.468
+      ],
+      "evidence": "主厅内散布成排极淡白色虚线/小矩形轮廓，疑似桌椅或设备俯视轮廓，渲染过淡无法逐个辨识或计数。"
+    },
+    {
+      "id": "obj_court_markings",
+      "label": "球场标线（疑似篮球场）",
+      "kind": "court_marking",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.521,
+        0.723,
+        0.639,
+        0.968
+      ],
+      "evidence": "顶视右下方清晰白色球场线：矩形边线、中圈与两端弧线，符合篮球场标线；该区域无楼板底色、网格背景透出，疑为地面标线而非3F设施，层面归属未确认。"
+    }
+  ],
+  "stairs": [],
+  "uncertainties": [
+    "五个视图中均未发现可辨识的楼梯梯段或踏步条纹，3F竖向交通位置未知；顶视深边框矩形(obj_north_platform)与南侧窄塔状延伸(reg_south_shaft)不能排除为楼梯间/核心筒，但内部不可见，其世界端点与物理路线均未验证。",
+    "顶视东侧深灰条带(reg_east_strip)高度归属不明（3F楼面/更低屋面/邻翼），直接影响3F东边界判定。",
+    "主厅内淡色成排轮廓(obj_faint_furniture_rows)过淡，家具类型、数量与排布只能判定为疑似，无法作为可靠障碍清单。",
+    "球场标线(obj_court_markings)按像素判定疑似地面层标线而非3F层面设施，未确认。",
+    "NE/SW/SE三个斜视大面积过曝发白，仅能确认多层体量、窗列与中央庭院式缺口，室内细节与楼板开洞均不可辨。",
+    "NE/NW斜视屋顶上可见数个1-3像素级彩色小点（疑似小型设备或杂物），尺寸过小无法定类，未列入objects。",
+    "顶视最北侧横贯画面的浅色横带可能属于邻区/其他建筑，与3F的关系未验证，未纳入regions。"
+  ]
+}

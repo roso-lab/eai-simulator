@@ -11,6 +11,7 @@ from typing import Mapping
 from .adapter import SceneSource
 from .model import PROFILES, TopologyDocument
 from .viewport import visible_edges, visible_node_ids
+from .semantic_ui import SemanticWindowMixin
 
 
 def _with_semantic_map(source, semantic_map):
@@ -218,7 +219,7 @@ def _capture_usd_stage():
     )
 
 
-class TopologyAuthoringWindow:
+class TopologyAuthoringWindow(SemanticWindowMixin):
     """Viewport-first editor with explicit selection and property panels."""
 
     def __init__(self, document, adapter, source, output_root: Path, *, semantic_map=None):
@@ -251,7 +252,13 @@ class TopologyAuthoringWindow:
         self._route_preview = None
         self._route_origin_model = None
         self._route_destination_model = None
-        self.window = ui.Window("Topology Authoring", width=520, height=760)
+        self._route_capabilities_model = None
+        self._edge_capabilities_model = None
+        self._pending_edge_capabilities_model = None
+        self._pending_traversal_mode = "walk"
+        self._pending_edge_capabilities = ()
+        self._semantic_drawing = None
+        self.window = ui.Window("Semantic Topology Authoring", width=560, height=850)
         try:
             self._build()
             from .viewport import ViewportOverlay
@@ -270,12 +277,32 @@ class TopologyAuthoringWindow:
         ui = self._ui
         self._route_origin_model = ui.SimpleStringModel("")
         self._route_destination_model = ui.SimpleStringModel("")
+        if self._route_capabilities_model is None:
+            self._route_capabilities_model = ui.SimpleStringModel("")
         self._pose_x_model = ui.SimpleFloatModel(0.0)
         self._pose_y_model = ui.SimpleFloatModel(0.0)
         self._pose_z_model = ui.SimpleFloatModel(0.0)
         self._pose_heading_model = ui.SimpleStringModel("")
         self._node_label_model = ui.SimpleStringModel("")
         self._node_aliases_model = ui.SimpleStringModel("")
+        self._edge_capabilities_model = ui.SimpleStringModel("")
+        if self._pending_edge_capabilities_model is None:
+            self._pending_edge_capabilities_model = ui.SimpleStringModel("")
+        # Frames outside the scroll view may build lazily; callbacks need models now.
+        if getattr(self, "_semantic_record_model", None) is None:
+            self._semantic_record_model = ui.SimpleStringModel("")
+        if getattr(self, "_levels_json_model", None) is None:
+            self._levels_json_model = ui.SimpleStringModel(json.dumps(self.document.levels or [
+                {"id": "ground", "label": "Ground", "support_z_m": 0.0}], ensure_ascii=False))
+        for name, default in (("_semantic_id_model", "region:room_1"),
+                ("_semantic_label_model", "Room"), ("_semantic_kind_model", "room"),
+                ("_region_height_model", "2.5"), ("_region_entrances_model", ""),
+                ("_draw_route_start_model", ""), ("_draw_route_end_model", ""),
+                ("_draw_route_capabilities_model", "")):
+            if getattr(self, name, None) is None:
+                setattr(self, name, ui.SimpleStringModel(default))
+        if getattr(self, "_draw_route_directed_model", None) is None:
+            self._draw_route_directed_model = ui.SimpleBoolModel(False)
         with self.window.frame:
             with ui.ScrollingFrame(
                 horizontal_scrollbar_policy=ui.ScrollBarPolicy.SCROLLBAR_ALWAYS_OFF,
@@ -341,7 +368,16 @@ class TopologyAuthoringWindow:
                                               clicked_fn=lambda: self.set_pending_node_kind("custom"))
                                     ui.Button("Transition Node", width=0,
                                               clicked_fn=lambda: self.set_pending_node_kind("transition"))
-                    for builder in (self._build_level_controls, self._build_landmarks, self._build_selection,
+                                with ui.HStack(height=28, spacing=5):
+                                    for mode in ("walk", "stairs", "ramp"):
+                                        ui.Button(mode.title(), width=0,
+                                                  clicked_fn=lambda value=mode: self.set_pending_traversal(value))
+                                with ui.HStack(height=28, spacing=4):
+                                    ui.Label("Edge capabilities", width=110)
+                                    ui.StringField(self._pending_edge_capabilities_model)
+                    for builder in (self._build_level_editor, self._build_level_controls,
+                                    self._build_semantic_controls, self._build_semantic_records,
+                                    self._build_landmarks, self._build_selection,
                                     self._build_node_properties, self._build_edge_properties,
                                     self._build_target_properties, self._build_route_preview):
                         frame = ui.Frame(height=0)
@@ -383,6 +419,7 @@ class TopologyAuthoringWindow:
         )
 
     def begin_typed_node_preview(self):
+        self._semantic_drawing = None
         if not self._require_stage_ready():
             return
         try:
@@ -431,6 +468,9 @@ class TopologyAuthoringWindow:
 
     def _apply_active_level_view(self):
         self._normalize_active_level()
+        callback = getattr(self.adapter, "set_authoring_levels", None)
+        if callable(callback):
+            callback(self.document.levels)
         for name in ("set_active_level", "set_level_view"):
             callback = getattr(self.adapter, name, None)
             if callable(callback):
@@ -450,6 +490,7 @@ class TopologyAuthoringWindow:
             self._set_status(f"Unknown level: {level_id}")
             return
         self.document.cancel_preview()
+        self._semantic_drawing = None
         self._heading_pick_active = False
         self.active_level_id = level_id
         try:
@@ -518,22 +559,32 @@ class TopologyAuthoringWindow:
         with ui.CollapsableFrame("Named Landmarks", collapsed=False, height=0):
             with ui.VStack(height=0, spacing=4):
                 for row in landmark_inventory(self.document):
+                    semantic_id = row.get("semantic_id")
+                    query = semantic_id or row["node_id"]
+                    label = row.get("label") or query
+                    location = ",".join(row.get("node_ids", ())) if semantic_id else row["node_id"]
                     with ui.HStack(height=28, spacing=4):
-                        ui.Label(f"{row['label'] or row['node_id']} [{row['level_id'] or 'transition'}]",
-                                 tooltip=row['node_id'])
+                        ui.Label(f"{label} [{row.get('level_id') or 'transition'}]",
+                                 tooltip=location)
                         for label, role in (("Select", None), ("Origin", "origin"), ("Destination", "destination")):
                             ui.Button(label, width=80,
-                                      clicked_fn=lambda node_id=row['node_id'], value=role:
-                                          self.use_landmark(node_id, value))
+                                      clicked_fn=lambda ref=query, value=role:
+                                          self.use_landmark(ref, value))
 
     def use_landmark(self, node_id, route_role=None):
         if not self._require_stage_ready():
             return
         try:
-            node = self.document.node(node_id)
+            from algorithm.skills.navigation.landmarks import resolve_landmark_binding
+            binding = resolve_landmark_binding(self.document, node_id)
+            node_ids = tuple(binding.get("node_ids", ()))
+            if not node_ids:
+                raise ValueError("semantic location has no navigation entrance")
+            node = self.document.node(node_ids[0])
             if route_role is None:
-                self.set_active_level(node.get("level_id"))
-                self.document.select_node(node_id)
+                level = binding.get("record", {}).get("level_id") or node.get("level_id")
+                self.set_active_level(level)
+                self.document.select_node(node_ids[0])
                 self._set_pose_models(node["position_xyz"], node.get("heading_rad"))
                 self._node_label_model.as_string = node.get("label", "")
                 self._node_aliases_model.as_string = ", ".join(node.get("aliases", ()))
@@ -544,7 +595,7 @@ class TopologyAuthoringWindow:
                 self._discard_route_preview()
             else:
                 raise ValueError("unknown landmark route role")
-            self._set_status(f"{route_role or 'Selected'}: {node.get('label') or node_id}")
+            self._set_status(f"{route_role or 'Selected'}: {binding.get('label') or node_id}")
         except (AttributeError, KeyError, TypeError, ValueError) as exc:
             self._set_status(f"Landmark selection failed: {exc}")
         self._refresh()
@@ -646,6 +697,20 @@ class TopologyAuthoringWindow:
                     ui.Button("Set One-way", clicked_fn=lambda: self.set_selected_direction(True))
                     ui.Button("Set Two-way", clicked_fn=lambda: self.set_selected_direction(False))
                     ui.Button("Delete Edge", clicked_fn=self.delete_selected_edge)
+                if self.document.version == 2:
+                    mode = edge.get("traversal_mode", "walk")
+                    ui.Label(f"Traversal: {mode}")
+                    with ui.HStack(height=28, spacing=4):
+                        for value in ("walk", "stairs", "ramp"):
+                            ui.Button(value.title(), width=0,
+                                      clicked_fn=lambda selected=value: self._apply_selected_traversal(selected))
+                    capability_model = ui.SimpleStringModel(
+                        ", ".join(edge.get("required_controller_capabilities", ())))
+                    with ui.HStack(height=28, spacing=4):
+                        ui.Label("Controller capabilities", width=145)
+                        ui.StringField(capability_model)
+                        ui.Button("Apply", width=60,
+                                  clicked_fn=lambda m=capability_model: self._apply_selected_traversal(mode, m))
                 for profile in self.document.profiles:
                     current = edge.get("profiles", {}).get(profile, {}).get("clearance_m", self.document.profiles[profile])
                     model = ui.SimpleFloatModel(float(current))
@@ -682,6 +747,21 @@ class TopologyAuthoringWindow:
             self._set_status(f"Polyline update failed: {exc}")
         self._refresh()
 
+    def _apply_selected_traversal(self, traversal_mode, capability_model=None):
+        if not self._require_stage_ready():
+            return
+        try:
+            edge = self.document.edge(self.document.selected_edge_id)
+            capabilities = (edge.get("required_controller_capabilities", ())
+                            if capability_model is None else
+                            _csv_strings(capability_model.as_string))
+            self.document.set_edge_traversal(
+                self.document.selected_edge_id, traversal_mode, capabilities)
+            self._set_status("Edge traversal constraints updated")
+        except (AttributeError, TypeError, ValueError, KeyError) as exc:
+            self._set_status(f"Traversal update failed: {exc}")
+        self._refresh()
+
     def _build_target_properties(self):
         ui = self._ui
         with ui.CollapsableFrame("Semantic Target Bindings", collapsed=True, height=0):
@@ -706,6 +786,8 @@ class TopologyAuthoringWindow:
                 ui.StringField(self._route_origin_model)
                 ui.Label("Destination ref or unambiguous label/alias")
                 ui.StringField(self._route_destination_model)
+                ui.Label("Controller capabilities (comma-separated; optional)")
+                ui.StringField(self._route_capabilities_model)
                 with ui.HStack(height=28, spacing=4):
                     ui.Button("Preview Route", width=0, clicked_fn=self.preview_route)
                     ui.Button("Export Preview", width=0, clicked_fn=self.export_route_preview)
@@ -725,10 +807,15 @@ class TopologyAuthoringWindow:
         if not origin or not destination:
             raise ValueError("origin and destination are required")
         from algorithm.skills.navigation import NavigationProfile
+        capabilities = _csv_strings(
+            getattr(self, "_route_capabilities_model", None).as_string
+            if getattr(self, "_route_capabilities_model", None) is not None else ""
+        )
         result = resolve_landmark_route(
             self.document, profile=NavigationProfile("xyz" if self.document.domain == "aerial" else "xy", supports_final_heading=self.document.domain != "aerial"),
             origin_ref=origin,
             destination_ref=destination,
+            controller_capabilities=capabilities or None,
         )
         if not isinstance(result, Mapping):
             raise ValueError("route resolver must return a mapping")
@@ -810,6 +897,9 @@ class TopologyAuthoringWindow:
             if current_digest != self._route_preview.get("route_graph_digest"):
                 self._discard_route_preview()
         if self._overlay:
+            setter = getattr(self._overlay, "set_semantic_preview", None)
+            if callable(setter):
+                setter(self.semantic_preview())
             self._overlay.refresh()
         for frame in self._frames:
             frame.rebuild()
@@ -887,6 +977,8 @@ class TopologyAuthoringWindow:
     def on_viewport_click(self, position, _prim_path=None):
         if not self._require_stage_ready():
             return
+        if self.semantic_drawing_click(position):
+            return
         if self._heading_pick_active:
             try:
                 # Heading clicks intentionally use the raw world-space pick;
@@ -955,7 +1047,13 @@ class TopologyAuthoringWindow:
         if not self._require_stage_ready():
             return
         try:
-            edge_id = self.document.confirm_edge_preview()
+            edge_id = self.document.confirm_edge_preview(
+                traversal_mode=getattr(self, "_pending_traversal_mode", "walk"),
+                required_controller_capabilities=_csv_strings(
+                    self._pending_edge_capabilities_model.as_string
+                    if getattr(self, "_pending_edge_capabilities_model", None) is not None else ""
+                ) or getattr(self, "_pending_edge_capabilities", ()),
+            )
             self._set_status(f"Edge {edge_id} committed")
         except ValueError as exc:
             self._set_status(str(exc))
@@ -977,6 +1075,37 @@ class TopologyAuthoringWindow:
             self._set_status("Preview direction updated")
         else:
             self._set_status("Start an edge preview first")
+        self._refresh()
+
+    def set_pending_traversal(self, traversal_mode, required_controller_capabilities=()):
+        """Set the traversal contract for the edge currently being drawn.
+
+        The semantic editor uses the same edge contract as the navigation
+        editor.  Keeping this state on the preview prevents a UI selection
+        from mutating an already committed route.
+        """
+        if traversal_mode not in {"walk", "stairs", "ramp"}:
+            self._set_status(f"Unknown traversal mode: {traversal_mode}")
+            return
+        capabilities = required_controller_capabilities
+        if isinstance(capabilities, str):
+            capabilities = _csv_strings(capabilities)
+        try:
+            capabilities = tuple(capabilities)
+        except TypeError:
+            self._set_status("Controller capabilities must be strings")
+            return
+        if any(not isinstance(item, str) or not item.strip() for item in capabilities):
+            self._set_status("Controller capabilities must be nonempty strings")
+            return
+        self._pending_traversal_mode = traversal_mode
+        self._pending_edge_capabilities = tuple(sorted(set(capabilities)))
+        if self.document.pending_edge is not None:
+            self.document.pending_edge.traversal_mode = traversal_mode
+            self.document.pending_edge.required_controller_capabilities = list(self._pending_edge_capabilities)
+        self._set_status(
+            f"Pending edge traversal set to {traversal_mode}"
+            + (f" ({', '.join(self._pending_edge_capabilities)})" if self._pending_edge_capabilities else ""))
         self._refresh()
 
     def set_selected_direction(self, directed):
@@ -1029,12 +1158,14 @@ class TopologyAuthoringWindow:
         self._refresh()
 
     def clear_selection(self):
+        self._semantic_drawing = None
         self._heading_pick_active = False
         self.document.cancel_preview()
         self._set_status("Selection cleared")
         self._refresh()
 
     def cancel_preview(self):
+        self._semantic_drawing = None
         self._heading_pick_active = False
         self.document.cancel_preview()
         self._set_status("Preview cancelled")
@@ -1044,7 +1175,9 @@ class TopologyAuthoringWindow:
         if not self._require_stage_ready():
             return
         self._heading_pick_active = False
+        self._semantic_drawing = None
         self.document.undo()
+        self._reset_semantic_record_editor()
         try:
             self._apply_active_level_view()
         except (AttributeError, RuntimeError, TypeError, ValueError) as exc:
@@ -1058,7 +1191,9 @@ class TopologyAuthoringWindow:
         if not self._require_stage_ready():
             return
         self._heading_pick_active = False
+        self._semantic_drawing = None
         self.document.redo()
+        self._reset_semantic_record_editor()
         try:
             self._apply_active_level_view()
         except (AttributeError, RuntimeError, TypeError, ValueError) as exc:
@@ -1084,6 +1219,9 @@ class TopologyAuthoringWindow:
                     f"current scene {self.document.scene_key!r}"
                 )
             document = _new_document(self.adapter, source)
+            # Semantic authoring must survive reloading the same scene asset.
+            if self.document.semantics is not None:
+                document = type(self.document).from_dict(self.document.to_dict())
             from .product import validate_document
 
             errors = validate_document(document, self.adapter, source)
@@ -1097,6 +1235,8 @@ class TopologyAuthoringWindow:
             if self._overlay:
                 self._overlay.rebind_stage()
             self.document.replace_content(document)
+            self._reset_semantic_record_editor()
+            self._semantic_drawing = None
             self._heading_pick_active = False
             self.source = source
             self.active_level_id = (
@@ -1143,7 +1283,7 @@ class TopologyAuthoringWindow:
             return
         if restore_point is not None:
             restore_point.release()
-        self._set_status("Source reloaded; topology reset to empty")
+        self._set_status("Source reloaded; semantic map retained" if document.semantics is not None else "Source reloaded; topology reset to empty")
         self._refresh()
 
     def _release_inactive_restored_stages(self):
@@ -1212,6 +1352,10 @@ class TopologyAuthoringWindow:
             if loaded.domain != self.document.domain:
                 raise ValueError("draft navigation domain differs from editor")
             self.document.replace_content(loaded)
+            self._reset_semantic_record_editor()
+            self._semantic_drawing = None
+            if getattr(self, "_levels_json_model", None) is not None:
+                self._levels_json_model.as_string = json.dumps(loaded.levels, ensure_ascii=False)
             self._heading_pick_active = False
             self.active_level_id = (
                 loaded.levels[0]["id"]
@@ -1229,7 +1373,7 @@ class TopologyAuthoringWindow:
             return
         from .product import generate_product
 
-        if self.document.pending_node or self.document.pending_edge:
+        if self.document.pending_node or self.document.pending_edge or getattr(self, "_semantic_drawing", None):
             self._set_status("Confirm or cancel the red preview before generating")
             return
         try:

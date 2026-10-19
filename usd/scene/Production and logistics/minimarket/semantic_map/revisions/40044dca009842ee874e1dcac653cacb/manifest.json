@@ -1,0 +1,29 @@
+{
+  "schema": "eai.semantic_map.revision",
+  "version": 1,
+  "revision": "40044dca009842ee874e1dcac653cacb",
+  "scene_key": "production_minimarket",
+  "levels": [
+    {
+      "level_id": "1F",
+      "grid": "level-000-semantic-grid.npz",
+      "preview": "level-000-semantic-map.png",
+      "layer": "level-000-layer.png",
+      "extent_xy": [
+        -12.200000000000001,
+        22.099999999999998,
+        -23.1,
+        15.099999999999998
+      ]
+    }
+  ],
+  "files": {
+    "level-000-layer.png": "b3ee74d72e98b47fc3d915ce0b800b5d95f066b42931c3a585cab739510b5f3c",
+    "level-000-semantic-grid.npz": "7201bf10c119d53ca0447059ebc71c30328b29cabfd7c2be70c820006dfc2a2a",
+    "level-000-semantic-map.png": "066f7ff5fd9431ee9302e70a3f81cc61237f3a6b726d387a4c01754e7bf415c2",
+    "semantic-footprints.geojson": "efe55914a03f8ebda532bda5ea70fa622c2e3eb433dceca17ed28b1cf73248a3",
+    "semantic-footprints.json": "7fbcfb6e13e916c6178afedda5e68949dfdc207b6c57ebe7385cd07eb44fb880",
+    "topology.json": "7fe7a3574e4f73461ffa5c6661bee25d95aefa3e445de51847b3079e16916331"
+  },
+  "robot_validated": false
+}

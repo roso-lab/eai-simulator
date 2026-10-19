@@ -1,0 +1,59 @@
+{
+  "schema": "eai.semantic_map.revision",
+  "version": 1,
+  "revision": "67d540f75ac74abf888a41eeed46c78b",
+  "scene_key": "living_office",
+  "levels": [
+    {
+      "level_id": "1F",
+      "grid": "level-000-semantic-grid.npz",
+      "preview": "level-000-semantic-map.png",
+      "layer": "level-000-layer.png",
+      "extent_xy": [
+        -3.1,
+        3.1,
+        -3.7,
+        3.7
+      ]
+    },
+    {
+      "level_id": "2F",
+      "grid": "level-001-semantic-grid.npz",
+      "preview": "level-001-semantic-map.png",
+      "layer": "level-001-layer.png",
+      "extent_xy": [
+        -3.1,
+        3.1,
+        -3.7,
+        3.7
+      ]
+    },
+    {
+      "level_id": "3F",
+      "grid": "level-002-semantic-grid.npz",
+      "preview": "level-002-semantic-map.png",
+      "layer": "level-002-layer.png",
+      "extent_xy": [
+        -3.1,
+        3.1,
+        -3.7,
+        3.7
+      ]
+    }
+  ],
+  "files": {
+    "level-000-layer.png": "0c165c04e8660bd7b36b14d38d7113ae55b20a0240a85d8d9a73936d6edc2d46",
+    "level-000-semantic-grid.npz": "5ab229715097c453f9ff6b00fab23eea6813284509e984c86c55f777183c3735",
+    "level-000-semantic-map.png": "43f9af1626cac114f9a6eda5a2d8418d5f824aa741ab4f9bfa0ac56249d46e3f",
+    "level-001-layer.png": "b0daf484d08ad34d57a1d3b5b9c37efcc6da25fc6ea16096dc152b2ce9b49b08",
+    "level-001-semantic-grid.npz": "cd0766a6b71b9167a673872cb87b70fe77694a0f6bb0b592a3f20aa4ace7367e",
+    "level-001-semantic-map.png": "cc29296ff1b81869669bee96f88116058224274f7a7c517f57cf211dcf20ab04",
+    "level-002-layer.png": "64ab6a777ac033dc40c51c826db88d4ef6a70cd3127290596c7edabf0d7976f2",
+    "level-002-semantic-grid.npz": "8b2775b6f2ab12c3fd462777b7614669fbfe8be432e2c3345987c1462a27f972",
+    "level-002-semantic-map.png": "ead7ad430d2be7f8d7fce4a20da8c6cd6b176b5b6fc8c2d3757237235feb6a4a",
+    "semantic-footprints.geojson": "3a7f500b137a654239bcb44e4f49a1fedf474584515e6719cc9b5233fc430933",
+    "semantic-footprints.json": "411fdd7c0b91080fb1af394e8d3efcc82dcac35074281a96199fae5078f01ef4",
+    "topology.json": "85bb2d12e039e16df82cc446e76a14a2f72b9a2a55702a03766286bffd2325b9"
+  },
+  "robot_validated": false
+}

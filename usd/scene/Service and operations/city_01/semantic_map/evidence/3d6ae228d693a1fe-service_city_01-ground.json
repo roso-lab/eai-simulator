@@ -1,0 +1,332 @@
+{
+  "scene_id": "service_city_01",
+  "level_id": "ground",
+  "regions": [
+    {
+      "id": "service_city_01-ground-street-network",
+      "label": "asphalt street network with pale-yellow center dashes and white crossings, spanning the whole ground incl. peripheral stubs and rounded/looped dead-end endings",
+      "kind": "street_network",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.038,
+        0.037,
+        0.962,
+        0.963
+      ],
+      "evidence": {
+        "image": "evidence/7fb4ac991b06ae4d-ground-material-top.png",
+        "sha256": "7fb4ac991b06ae4da1ed1bc8848feeede0933b0dfad86ba7f17edce9c295df2f",
+        "visual_note": "ground-material-top: 灰色沥青带（灰度 200-236）连成单一连通网，内嵌淡黄中心虚线（实测 RGB≈(240,235,210)，是全图唯一饱和地物）与白色横向斑马线短杆；bounds 取路网连通域外接框，路网延伸至纸面边缘的空地杆端（西北 u≈0.054/v≈0.759 杆端、北部 u≈0.32/v≈0.07 环形端、东部 u≈0.95 杆端、南部 u≈0.61/v≈0.94 圆头端）一并包含；ground-material-ne/nw/se/sw 四斜视同见此路网，斜视中东/东南侧见大片铺装广场与环形回路（u≈0.85-0.96, v≈0.2-0.5 一带灰区），其性质归入本网络未单列。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_01-ground-block-w01",
+      "label": "largest light-toned enclosed block, west edge center (white flat roofs and/or open lot, composition unresolved)",
+      "kind": "city_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.119,
+        0.403,
+        0.294,
+        0.525
+      ],
+      "evidence": {
+        "image": "evidence/7fb4ac991b06ae4d-ground-material-top.png",
+        "sha256": "7fb4ac991b06ae4da1ed1bc8848feeede0933b0dfad86ba7f17edce9c295df2f",
+        "visual_note": "ground-material-top: 西缘中部最大浅色围合地块（连通域 22005px），四周为路网灰带；顶视内浅色区是否为白色平顶屋面群与开敞空地不可分（见 uncertainties）。ground-material-sw: 该方位近景左侧见青色玻璃楼与蓝色玻璃楼群（另列 objects）；ground-material-ne/nw: 对应远处西侧体块。bounds 取顶视连通域外接框。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_01-ground-block-nw02",
+      "label": "light-toned enclosed block, west-northwest (white flat roofs and/or open lot, composition unresolved)",
+      "kind": "city_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.139,
+        0.304,
+        0.26,
+        0.399
+      ],
+      "evidence": {
+        "image": "evidence/7fb4ac991b06ae4d-ground-material-top.png",
+        "sha256": "7fb4ac991b06ae4da1ed1bc8848feeede0933b0dfad86ba7f17edce9c295df2f",
+        "visual_note": "ground-material-top: 西北象限浅色围合地块（9513px），位于 block-w01 以北路网对侧；ground-material-ne: 对应远右（西北向）白/灰色体块群；bounds 取顶视连通域外接框。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_01-ground-block-cw03",
+      "label": "light-toned enclosed block, center-west (white flat roofs and/or open lot, composition unresolved)",
+      "kind": "city_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.303,
+        0.394,
+        0.487,
+        0.514
+      ],
+      "evidence": {
+        "image": "evidence/7fb4ac991b06ae4d-ground-material-top.png",
+        "sha256": "7fb4ac991b06ae4da1ed1bc8848feeede0933b0dfad86ba7f17edce9c295df2f",
+        "visual_note": "ground-material-top: 中西部浅色围合地块（14346px），与 block-w01 隔 u≈0.30 纵路相邻；ground-material-nw: 该带近景见白墙矮排房（灰平顶）；bounds 取顶视连通域外接框。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_01-ground-block-cn04",
+      "label": "tall narrow light-toned enclosed block, north-center",
+      "kind": "city_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.484,
+        0.291,
+        0.6,
+        0.45
+      ],
+      "evidence": {
+        "image": "evidence/7fb4ac991b06ae4d-ground-material-top.png",
+        "sha256": "7fb4ac991b06ae4da1ed1bc8848feeede0933b0dfad86ba7f17edce9c295df2f",
+        "visual_note": "ground-material-top: 北中部窄长浅色地块（2925px，纵贯 v≈0.29-0.45）；ground-material-ne/nw: 该方位远处见高层白塔群（未单列，见 uncertainties）；bounds 取顶视连通域外接框。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_01-ground-block-ce05",
+      "label": "small light-toned enclosed block, center-east-north",
+      "kind": "city_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.611,
+        0.414,
+        0.665,
+        0.461
+      ],
+      "evidence": {
+        "image": "evidence/7fb4ac991b06ae4d-ground-material-top.png",
+        "sha256": "7fb4ac991b06ae4da1ed1bc8848feeede0933b0dfad86ba7f17edce9c295df2f",
+        "visual_note": "ground-material-top: 中部偏东北的小浅色地块（2169px）；ground-material-ne: 对应中右远处白/青体块带；bounds 取顶视连通域外接框。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_01-ground-block-ce06",
+      "label": "light-toned enclosed block, center-east (white flat roofs and/or open lot, composition unresolved)",
+      "kind": "city_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.555,
+        0.495,
+        0.696,
+        0.602
+      ],
+      "evidence": {
+        "image": "evidence/7fb4ac991b06ae4d-ground-material-top.png",
+        "sha256": "7fb4ac991b06ae4da1ed1bc8848feeede0933b0dfad86ba7f17edce9c295df2f",
+        "visual_note": "ground-material-top: 中东部浅色围合地块（8442px）；ground-material-se: 该方位近景中央为青色玻璃高层楼群（另列 object），楼前/楼后见白墙矮排房；bounds 取顶视连通域外接框。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_01-ground-block-c07",
+      "label": "light-toned enclosed block, center (white flat roofs and/or open lot, composition unresolved)",
+      "kind": "city_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.408,
+        0.514,
+        0.552,
+        0.639
+      ],
+      "evidence": {
+        "image": "evidence/7fb4ac991b06ae4d-ground-material-top.png",
+        "sha256": "7fb4ac991b06ae4da1ed1bc8848feeede0933b0dfad86ba7f17edce9c295df2f",
+        "visual_note": "ground-material-top: 正中浅色围合地块（13266px）；ground-material-sw/nw: 中部白墙多层体块与矮排房同见；bounds 取顶视连通域外接框。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_01-ground-block-cws08",
+      "label": "light-toned enclosed block, center-west-south (white flat roofs and/or open lot, composition unresolved)",
+      "kind": "city_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.334,
+        0.529,
+        0.425,
+        0.636
+      ],
+      "evidence": {
+        "image": "evidence/7fb4ac991b06ae4d-ground-material-top.png",
+        "sha256": "7fb4ac991b06ae4da1ed1bc8848feeede0933b0dfad86ba7f17edce9c295df2f",
+        "visual_note": "ground-material-top: 中西南部浅色围合地块（4725px）；ground-material-sw: 该方位中左见蓝玻璃板楼群（另列 object 候选包络）；bounds 取顶视连通域外接框。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_01-ground-block-se09",
+      "label": "light-toned enclosed block, center-east-south (white flat roofs and/or open lot, composition unresolved)",
+      "kind": "city_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.617,
+        0.609,
+        0.705,
+        0.675
+      ],
+      "evidence": {
+        "image": "evidence/7fb4ac991b06ae4d-ground-material-top.png",
+        "sha256": "7fb4ac991b06ae4da1ed1bc8848feeede0933b0dfad86ba7f17edce9c295df2f",
+        "visual_note": "ground-material-top: 中东南部浅色围合地块（3762px）；ground-material-se: 该方位近景中央偏右见深灰/棕色小体量楼群（另列 object 候选包络）；bounds 取顶视连通域外接框。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_01-ground-block-cs10",
+      "label": "light-toned enclosed block, center-south incl. small triangular parcel with dark patches in obliques",
+      "kind": "city_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.41,
+        0.654,
+        0.535,
+        0.711
+      ],
+      "evidence": {
+        "image": "evidence/7fb4ac991b06ae4d-ground-material-top.png",
+        "sha256": "7fb4ac991b06ae4da1ed1bc8848feeede0933b0dfad86ba7f17edce9c295df2f",
+        "visual_note": "ground-material-top: 中南部浅色围合地块（5958px），其西南侧路网围出三角形小地块；ground-material-ne: 画面左中见深色雕花立面小楼与米色方块（顶视该处无独立色迹，见 uncertainties）；bounds 取顶视连通域外接框。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_01-ground-block-s11",
+      "label": "light-toned enclosed block, south-center (white flat roofs and/or open lot, composition unresolved)",
+      "kind": "city_block",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.518,
+        0.748,
+        0.583,
+        0.857
+      ],
+      "evidence": {
+        "image": "evidence/7fb4ac991b06ae4d-ground-material-top.png",
+        "sha256": "7fb4ac991b06ae4da1ed1bc8848feeede0933b0dfad86ba7f17edce9c295df2f",
+        "visual_note": "ground-material-top: 南中部窄长浅色地块（6390px）；ground-material-ne/sw: 南带成排白墙灰平顶矮排房同见；bounds 取顶视连通域外接框。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    }
+  ],
+  "objects": [
+    {
+      "id": "service_city_01-ground-teal-glass-complex-east",
+      "label": "teal glass curtain-wall mid/high-rise complex at center-east; function unknown",
+      "kind": "building",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.555,
+        0.495,
+        0.696,
+        0.602
+      ],
+      "evidence": {
+        "image": "evidence/8a8e1e7c29dffac8-ground-material-se.png",
+        "sha256": "8a8e1e7c29dffac8bfb8512a59506ae5d2f698a3915dff9f3f0a282930b8e08d",
+        "visual_note": "ground-material-se: 画面中央青色玻璃楼群（像素框 659,504-791,566 及 616,388-665,413 远处部分）清晰，多栋拼接、玻璃幕墙分格可见；ground-material-ne: 同群现于左侧中距（511,464-601,540）；ground-material-nw: 远处上中（656,425-732,459）；ground-material-sw: 远右（799,467-860,501）。四视一致三角定位至中东部，存在性 observed；顶视中该楼群屋面洗白无独立轮廓，bounds 取所在 block-ce06 顶视外接框，故整体记 layout_inferred；用途（住宅/办公/商业等）不作判定。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_01-ground-teal-glass-complex-west",
+      "label": "teal glass curtain-wall mid-rise complex at west edge center; function unknown",
+      "kind": "building",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.119,
+        0.403,
+        0.294,
+        0.525
+      ],
+      "evidence": {
+        "image": "evidence/c58095125d56fa12-ground-material-sw.png",
+        "sha256": "c58095125d56fa129987d51dc83408fc5e53934dac09e5562ee0a6027d81ebdc",
+        "visual_note": "ground-material-sw: 近左青色玻璃楼群（247,498-344,568）清晰；ground-material-nw: 近右（758,636-855,699）；ground-material-ne: 远右（1010,457-1114,501）；ground-material-se: 远处上中（616,388-665,413）。四视一致指向西缘中部（同时邻近 SW/NW 两机位近区），存在性 observed；顶视无独立轮廓，bounds 取 block-w01 顶视外接框，整体记 layout_inferred；用途不作判定。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_01-ground-blue-glass-slab",
+      "label": "blue glass slab building(s) at center-west-south, southeast of the west teal complex; function unknown",
+      "kind": "building",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.334,
+        0.529,
+        0.425,
+        0.636
+      ],
+      "evidence": {
+        "image": "evidence/61eadd917c983c9c-ground-material-nw.png",
+        "sha256": "61eadd917c983c9c6e305ba6befbeaec63f23d13847087f94f1e813049e8dbb2",
+        "visual_note": "ground-material-nw: 中右蓝色玻璃板楼（893,550-981,592、888,638-1010,680 等多框）；ground-material-sw: 中左同楼群（321,591-435,639 等多框）；ground-material-se: 远处上中左（483,447-552,465）；ground-material-ne: 仅远右细条（897,418-905,468）。与西侧青楼群的相对位置（青在其西北、蓝在其东南/更近 SW 机位）四视自洽，三角定位至中西南部；顶视无独立轮廓，bounds 取 block-cws08 顶视外接框，整体记 layout_inferred；用途不作判定。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_01-ground-pink-courtyard-building",
+      "label": "pink low-rise building with open courtyard at northwest-central fine-grid area; function unknown",
+      "kind": "building",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.27,
+        0.2,
+        0.358,
+        0.267
+      ],
+      "evidence": {
+        "image": "evidence/61eadd917c983c9c-ground-material-nw.png",
+        "sha256": "61eadd917c983c9c6e305ba6befbeaec63f23d13847087f94f1e813049e8dbb2",
+        "visual_note": "ground-material-nw: 中下粉色环状/回字形低层建筑（538,680-624,733，中庭浅色）及其东南白色圆柱体小构筑物；ground-material-se: 远处上中同楼（745,424-795,446）；ground-material-sw: 中左（317,494-360,526）；ground-material-ne: 右侧中距（1079,549-1143,586）及中右粉色小块（813,471-851,483、749,543-787,550）。四视一致指向北中部偏西的细网格小街区；顶视中该处仅有浅色围合斑（无彩色迹、环状检测结果与细网格混淆），bounds 取该顶视浅色斑外接框，属候选包络，整体记 layout_inferred；用途不作判定。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "service_city_01-ground-dark-ornate-cluster",
+      "label": "dark gray/brown small-building cluster with ornate facades at center-east-south; function unknown",
+      "kind": "building",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.617,
+        0.609,
+        0.705,
+        0.675
+      ],
+      "evidence": {
+        "image": "evidence/8a8e1e7c29dffac8-ground-material-se.png",
+        "sha256": "8a8e1e7c29dffac8bfb8512a59506ae5d2f698a3915dff9f3f0a282930b8e08d",
+        "visual_note": "ground-material-se: 近景中央深灰/棕色小体量楼群（约 640,615-730,660，带内院与装饰性立面分格）；ground-material-ne: 左中同类深色楼与米色方块（425,505-475,560）；ground-material-sw: 右侧深色楼（930,530-975,565）及其东南青/米色小块（1050,595-1160,645）；ground-material-nw: 未见（被前景遮挡或过远）。三角定位至中东南部；顶视完全洗白无任何色迹，bounds 取 block-se09 顶视外接框，整体记 layout_inferred；用途不作判定。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    }
+  ],
+  "stairs": {
+    "visible": false,
+    "confidence": "observed",
+    "notes": "五张图（ground-material-top/ne/nw/se/sw）逐一检查：地面场景内未见任何楼梯/台阶/扶手/高差几何；所有建筑均自地面起立，场景为单一地平面（road/parcel 灰度连续）。因此本记录不声明任何竖向连接，也不存在跨层路线；若下游据此记录生成任何路线，一律 robot_validated=false（本文件不含任何可通行性认证）。reviewer: ZCode GLM-5.3-Flash/max。"
+  },
+  "uncertainties": [
+    "朝向约定：顶视假设为坐标对齐正射（图面上=+Y=北、右=+X=东），四张斜视假设机位分别位于 NE/NW/SE/SW 45°仰角方位；所有方位词基于该假设，仅由四斜视与顶视的自洽性支持。",
+    "顶视洗白：除道路淡黄中心虚线（实测 RGB≈(240,235,210)，全图唯一饱和地物）外，所有建筑屋面/地块均≥200 灰度，无独立建筑轮廓；红/绿细线（u≈0.825 纵线、v≈0.233 横线）为画布标尺线，非场景内容，已排除。",
+    "顶视中 236-250 灰度的浅色连通域（本记录 11 个 city_block）无法区分是白色平顶屋面群还是开敞空地，也不能排除一个连通域合并多栋相邻建筑；小粒径浅色斑（<1500px，如西北部 u≈0.27-0.42/v≈0.15-0.28 细网格小街区群）未逐一单列。",
+    "建筑 object 的 bounds 均为所在候选街区的顶视外接框（layout_inferred），存在 ±1 街区不确定性：西侧青楼群可能位于 block-nw02 而非 block-w01；蓝玻璃楼可能位于 block-c07 而非 block-cws08；粉色回字楼可能位于 block-nw02 一带而非所记浅色斑；深色雕花楼群可能位于 block-cs10/南侧而非 block-se09。",
+    "斜视中另见多栋 8-12 层白色（部分带竖向条纹/退台）塔楼与古典立面多层楼，分布遍及北/中/东部；因顶视无轮廓且相互相似，无法逐栋三角定位，故未单列 object（仅可断言北中部 block-cn04 方向存在高塔群）。",
+    "粉色像素在多个方位出现（NW 视图右下角近景 (1080,989)-(1293,1094) 两簇、SW 视图最左缘 (0,587)-(73,606)、SW 视图右中 (1053,612)-(1083,631)）：是同一粉色建筑的多个可见面、多栋粉色建筑还是沿街雨棚/招牌，未能分辨；SW 视图右中一簇与四视主三角定位矛盾，存疑未记录。",
+    "NW 视图中粉色回字楼东南侧的白色圆柱体小构筑物（约 (635,690)-(660,745)）酷似筒仓/水塔，顶视无对应可辨轮廓，未单列。",
+    "疑似小型环岛/中央岛：顶视 (0.785,0.534) 处 r≈22px 环形灰带评分最高，另有 (0.625,0.235)、(0.816,0.240) 两处白色凹口，均未能与斜视一一对应证实，未单列 region。",
+    "street-network 外接框含延伸至纸面边缘的空地杆端；杆端尽头多为圆头/环形收尾（疑似断头路调头端），其交通属性（可通行/装饰）未验证。",
+    "本记录只做像素级语义记录，不包含任何路线、地形或可通行性评估；任何基于本文件的路线生成结果均应视为 robot_validated=false。证据绑定 artifacts/semantic-captures-v2-30/service_city_01/ 的 5 张 Camera-Light 图片（SHA256 已写入各 evidence.sha256）。",
+    "本轮任务指定输出路径为 handoffs/flash-v2/production_service/service_city_01-ground.json（与并行 service 子轮的 handoffs/flash-v2/service/ 目录不同，后者当前为空，无冲突）。"
+  ]
+}

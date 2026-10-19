@@ -1,0 +1,486 @@
+{
+  "scene_id": "production_bar",
+  "level_id": "1F",
+  "regions": [
+    {
+      "id": "production_bar-1F-main-hall-floorplate",
+      "label": "main single-story hall floorplate, brick/stone walls with gray plinth, roofless cutaway",
+      "kind": "floorplate",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.12,
+        0.085,
+        0.68,
+        0.95
+      ],
+      "evidence": {
+        "image": "evidence/1313e0880c61a32b-1F-material-top.png",
+        "visual_note": "1F-material-top: 四周墙线与角部灰色壁柱方块勾出矩形平面，北墙线约 v=0.085（其上有红棕色外贴构件，u≈0.32-0.40），南墙约 v=0.95（拱形大门条带凸出至 v≈0.97）；1F-material-ne/nw/se/sw 四斜视均为砖墙+灰色勒脚、无顶盖剖切；内部功能分区另列子区域（嵌套见 uncertainties）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_bar-1F-east-white-annex",
+      "label": "white-walled roofless annex on east side containing sanitary fixtures (washroom-like)",
+      "kind": "annex",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.7,
+        0.145,
+        0.95,
+        0.55
+      ],
+      "evidence": {
+        "image": "evidence/6985d6353c6ea987-1F-material-ne.png",
+        "visual_note": "1F-material-ne: 画面左下前景为白色无顶附属建筑，内见白色壁挂器具一排、带镜洗手台与白色隔间墙；1F-material-se: 右前景同一白色体块，含白门与隔间；1F-material-nw: 远处左上露出其白墙；1F-material-top: 白色轮廓洗白，器具呈圆点排布（u≈0.72-0.95, v≈0.15-0.52），以此定 bounds；与主厅之间是贴建还是留窄缝未分辨。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_bar-1F-north-booth-row",
+      "label": "row of booth seats (tufted bench backs) with wooden tables along north-center",
+      "kind": "seating_row",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.34,
+        0.245,
+        0.635,
+        0.335
+      ],
+      "evidence": {
+        "image": "evidence/1313e0880c61a32b-1F-material-top.png",
+        "visual_note": "1F-material-top: 北中部一排深色板条（椅背）与棕色桌面交替，约 4-5 组，v≈0.25-0.33；1F-material-ne: 对应拉扣软包卡座与木桌清晰可见；桌椅轮廓以顶视取界。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_bar-1F-west-booth-row",
+      "label": "booth seats with tables along west wall, planters at north end",
+      "kind": "seating_row",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.125,
+        0.36,
+        0.235,
+        0.625
+      ],
+      "evidence": {
+        "image": "evidence/1313e0880c61a32b-1F-material-top.png",
+        "visual_note": "1F-material-top: 西墙内侧纵向一组桌椅（棕桌面+深色板条），北端两只绿色花箱（v≈0.365-0.395）；1F-material-sw/nw: 西侧卡座与木栅栏隔断同见；bounds 取顶视桌椅外接。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_bar-1F-south-patterned-seating-zone",
+      "label": "south zone with ornate patterned floor, booth row along west edge, tables and props",
+      "kind": "seating_zone",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.125,
+        0.68,
+        0.7,
+        0.95
+      ],
+      "evidence": {
+        "image": "evidence/1313e0880c61a32b-1F-material-top.png",
+        "visual_note": "1F-material-top: 南部大面积米棕花纹地坪（花纹边界清晰 u≈0.13-0.70, v≈0.68-0.955），西缘一列卡座桌椅（v≈0.71-0.935），区内另有木箱、木桶、白色矩形物（另列 object）；1F-material-se/sw: 花纹地面与卡座同见。吧台南臂穿过本区，属家具与地坪分层。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_bar-1F-bar-service-zone",
+      "label": "central service counter zone: J-shaped bar counter with stools, back-bar equipment row",
+      "kind": "service_zone",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.4,
+        0.415,
+        0.67,
+        0.86
+      ],
+      "evidence": {
+        "image": "evidence/1313e0880c61a32b-1F-material-top.png",
+        "visual_note": "1F-material-top: J 形深木吧台（竖段 u≈0.455-0.505, v≈0.46-0.83；北臂与南臂另见）及西侧/南侧圆凳群；台后设备带（白操作台/绿色冷藏柜/拱形酒瓶陈列）位于其东北侧；1F-material-nw/sw: 吧台、铜栏杆、圆凳、酒瓶拱柜、绿框冷藏柜、白色操作台清晰；bounds 取台+凳+后场设备外接。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_bar-1F-nw-plank-corner",
+      "label": "NW corner platform: plank flooring, L-shaped wooden counter, potted plant, wooden railing; function unknown",
+      "kind": "counter_corner",
+      "confidence": "unknown_function",
+      "bounds_norm": [
+        0.125,
+        0.245,
+        0.3,
+        0.36
+      ],
+      "evidence": {
+        "image": "evidence/1313e0880c61a32b-1F-material-top.png",
+        "visual_note": "1F-material-top: 西北角木地板纹（条状 plank）上一 L 形木构台与绿植；1F-material-ne: 同角石纹墙面上有内嵌亮灯酒瓶陈列柜，台周见木栏杆；1F-material-nw: 近景木高栅栏即该角围栏；1F-material-sw: 左侧石纹墙体与围栏同见。构件均为像素可见，用途（迎宾/寄存/角吧等）不作判定。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_bar-1F-stair-zone",
+      "label": "wooden staircase with balustrade inside hall, center-north-west; footprint approximate",
+      "kind": "stair_zone",
+      "confidence": "layout_inferred",
+      "bounds_norm": [
+        0.34,
+        0.335,
+        0.5,
+        0.415
+      ],
+      "evidence": {
+        "image": "evidence/6985d6353c6ea987-1F-material-ne.png",
+        "visual_note": "1F-material-ne: 台面中央偏右木楼梯+木栏清晰，阶向上朝画面右后（N/NW），顶端有带栏平台；1F-material-se: 同楼梯居画面上方中央，阶向上朝远端（NW），基部见盆栽；1F-material-top: 该区域浅木色被洗白，仅隐约线条，故 bounds 由两斜视布局反推，非逐级量测。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    }
+  ],
+  "objects": [
+    {
+      "id": "production_bar-1F-bar-counter",
+      "label": "J-shaped dark wood bar counter with brass rail",
+      "kind": "counter",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.455,
+        0.455,
+        0.635,
+        0.85
+      ],
+      "evidence": {
+        "image": "evidence/1313e0880c61a32b-1F-material-top.png",
+        "visual_note": "1F-material-top: 竖段 u≈0.455-0.505, v≈0.46-0.83，北臂 u≈0.455-0.525, v≈0.46-0.505，南臂 u≈0.505-0.635, v≈0.795-0.845；1F-material-nw/sw: 深木吧台+黄铜扶栏、台面酒瓶清晰，外形与顶视一致。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_bar-1F-bar-stools",
+      "label": "wooden bar stools along west and south sides of counter (~8-10)",
+      "kind": "stools",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.405,
+        0.475,
+        0.645,
+        0.865
+      ],
+      "evidence": {
+        "image": "evidence/1313e0880c61a32b-1F-material-top.png",
+        "visual_note": "1F-material-top: 吧台竖段西侧一列圆凳（u≈0.415-0.43，v≈0.49-0.72）与南臂南侧一排（v≈0.845-0.86）；1F-material-nw/sw: 圆凳四腿木座可见；顶视取外接。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_bar-1F-back-bar-row",
+      "label": "back-bar equipment row: arched illuminated bottle display, green-front beverage fridge, white working counter (internal order unresolved)",
+      "kind": "back_bar",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.44,
+        0.415,
+        0.665,
+        0.72
+      ],
+      "evidence": {
+        "image": "evidence/d85f533ca1c3ab82-1F-material-nw.png",
+        "visual_note": "1F-material-nw: 拱形砖龛内亮灯酒瓶陈列、绿框玻璃门冷藏柜、白色带抽操作台三者并排于吧台后；1F-material-sw: 同组自另一侧可见；1F-material-top: 白色操作台对应白色矩形（u≈0.56-0.64, v≈0.445-0.625），但三者的南北排序与顶视对应存在冲突（见 uncertainties），故整组取外接框，未逐件定界。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_bar-1F-annex-vanity-mirror",
+      "label": "long white vanity counter with round basins and wall mirror, annex north side",
+      "kind": "vanity_counter",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.72,
+        0.155,
+        0.905,
+        0.225
+      ],
+      "evidence": {
+        "image": "evidence/1313e0880c61a32b-1F-material-top.png",
+        "visual_note": "1F-material-top: 附属建筑北带白色长台，台面一列圆形盆点（约 8-10 个）；1F-material-ne: 大镜面（深框）+ 台上圆盆可见；1F-material-se: 镜与盆同见。bounds 取顶视台体外接。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_bar-1F-annex-fixture-rows",
+      "label": "rows of white round fixtures in annex south half (urinal/WC/basin classification unresolved; 2x6 round grid included)",
+      "kind": "plumbing_fixtures",
+      "confidence": "category_uncertain",
+      "bounds_norm": [
+        0.74,
+        0.3,
+        0.95,
+        0.52
+      ],
+      "evidence": {
+        "image": "evidence/6985d6353c6ea987-1F-material-ne.png",
+        "visual_note": "1F-material-ne: 白墙上一排壁挂白色器具（形似小便器，未定种）；1F-material-top: 南半带两排×6 灰色圆点栅格（u≈0.74-0.90, v≈0.31-0.36）与其南 another 圆点行（u≈0.83-0.95, v≈0.44-0.50），器具类型（便器/盆/杯架）顶视不可辨，整体按 category_uncertain 记录。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_bar-1F-south-entrance-door",
+      "label": "arched dark-red double entrance door with glazed arch, south facade west portion",
+      "kind": "door",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.165,
+        0.945,
+        0.24,
+        0.97
+      ],
+      "evidence": {
+        "image": "evidence/2b7dbd19f41158cb-1F-material-se.png",
+        "visual_note": "1F-material-se: 远左下拱形深红双开门（拱部镶玻璃）位于南墙西段；1F-material-sw: 近右同一大门与门前地坪；1F-material-top: 南墙外凸红棕条带 u≈0.165-0.24 与之对应。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_bar-1F-south-windows",
+      "label": "red-framed windows along south facade, two groups",
+      "kind": "window",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.3,
+        0.945,
+        0.655,
+        0.97
+      ],
+      "evidence": {
+        "image": "evidence/1313e0880c61a32b-1F-material-top.png",
+        "visual_note": "1F-material-top: 南墙外侧两条红棕色窗台条带（u≈0.31-0.45 与 0.55-0.65），合并为一个外接框；1F-material-se/sw: 红框多格窗可见。西/北立面同款窗因顶视不可定位未单列（见 uncertainties）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_bar-1F-west-facade-door",
+      "label": "brown wooden exterior door at south end of west facade",
+      "kind": "door",
+      "confidence": "observed_geometry_endpoint_unverified",
+      "bounds_norm": [
+        0.105,
+        0.685,
+        0.135,
+        0.76
+      ],
+      "evidence": {
+        "image": "evidence/d85f533ca1c3ab82-1F-material-nw.png",
+        "visual_note": "1F-material-nw: 近右长墙（西墙）南端棕色木门清晰；顶视该段墙线洗白，bounds 由斜视位置沿墙投影近似，端点未验证。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_bar-1F-wooden-crates",
+      "label": "two X-braced wooden crates on south patterned floor",
+      "kind": "crates",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.545,
+        0.855,
+        0.63,
+        0.925
+      ],
+      "evidence": {
+        "image": "evidence/1313e0880c61a32b-1F-material-top.png",
+        "visual_note": "1F-material-top: 两只斜撑木箱轮廓清晰（u≈0.55-0.62, v≈0.865-0.92）；1F-material-nw: 木箱与木桶同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_bar-1F-barrel-nw-booth-corner",
+      "label": "round wooden barrel near north booth row west end",
+      "kind": "barrel",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.31,
+        0.25,
+        0.34,
+        0.28
+      ],
+      "evidence": {
+        "image": "evidence/1313e0880c61a32b-1F-material-top.png",
+        "visual_note": "1F-material-top: 圆形棕桶顶视轮廓（圆心 ≈(0.325,0.265)）；1F-material-nw/sw: 木桶同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_bar-1F-barrel-se",
+      "label": "round wooden barrel at southeast of patterned floor",
+      "kind": "barrel",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.695,
+        0.86,
+        0.735,
+        0.905
+      ],
+      "evidence": {
+        "image": "evidence/1313e0880c61a32b-1F-material-top.png",
+        "visual_note": "1F-material-top: 圆形棕桶顶视轮廓（圆心 ≈(0.715,0.885)），位于花纹地坪东缘附近。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_bar-1F-planters-west-row",
+      "label": "two green planter boxes at north end of west booth row",
+      "kind": "planter",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.145,
+        0.355,
+        0.24,
+        0.4
+      ],
+      "evidence": {
+        "image": "evidence/1313e0880c61a32b-1F-material-top.png",
+        "visual_note": "1F-material-top: 西列卡座北端两块绿色花箱（v≈0.365-0.395）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_bar-1F-plant-nw-counter",
+      "label": "potted plant on NW L-shaped counter",
+      "kind": "plant",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.235,
+        0.26,
+        0.275,
+        0.3
+      ],
+      "evidence": {
+        "image": "evidence/1313e0880c61a32b-1F-material-top.png",
+        "visual_note": "1F-material-top: L 形木台上绿色株冠（u≈0.24-0.27, v≈0.27-0.29）；1F-material-nw: 盆栽绿植同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_bar-1F-planters-south-exterior",
+      "label": "green planter boxes along south exterior wall (outside face)",
+      "kind": "planter",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.37,
+        0.93,
+        0.63,
+        0.955
+      ],
+      "evidence": {
+        "image": "evidence/1313e0880c61a32b-1F-material-top.png",
+        "visual_note": "1F-material-top: 南墙外侧两段绿色条状花箱（u≈0.375-0.445 与 0.55-0.625），合并外接；1F-material-se: 立面花箱同见。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_bar-1F-plant-stair-base",
+      "label": "potted plant at stair base (east side)",
+      "kind": "plant",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.47,
+        0.385,
+        0.505,
+        0.42
+      ],
+      "evidence": {
+        "image": "evidence/2b7dbd19f41158cb-1F-material-se.png",
+        "visual_note": "1F-material-se: 楼梯基部东侧绿植盆栽；1F-material-top: 对应橙棕圆点（圆心 ≈(0.485,0.40)），另一相邻圆点 (≈0.585,0.40) 盆栽/圆凳未辨（见 uncertainties）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_bar-1F-white-panel-south",
+      "label": "white rectangular object standing on south patterned floor (table/panel/door unresolved)",
+      "kind": "unknown",
+      "confidence": "unknown_function",
+      "bounds_norm": [
+        0.575,
+        0.7,
+        0.63,
+        0.79
+      ],
+      "evidence": {
+        "image": "evidence/1313e0880c61a32b-1F-material-top.png",
+        "visual_note": "1F-material-top: 花纹地坪上的白色矩形（北侧伴一细黑线段）；斜视中对应白面体块，功能（白桌/立板/门扇）不可辨，按 unknown_function 记录。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_bar-1F-nw-l-counter",
+      "label": "L-shaped wooden counter on NW plank platform",
+      "kind": "counter",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.13,
+        0.25,
+        0.285,
+        0.35
+      ],
+      "evidence": {
+        "image": "evidence/1313e0880c61a32b-1F-material-top.png",
+        "visual_note": "1F-material-top: 木地板上的 L 形木构台两臂清晰；1F-material-nw/ne: 木台与亮灯酒瓶柜同角同见；用途未判定（区域已标 unknown_function）。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_bar-1F-nw-corner-railing",
+      "label": "wooden railing enclosing NW plank platform corner",
+      "kind": "railing",
+      "confidence": "observed",
+      "bounds_norm": [
+        0.12,
+        0.245,
+        0.3,
+        0.36
+      ],
+      "evidence": {
+        "image": "evidence/d85f533ca1c3ab82-1F-material-nw.png",
+        "visual_note": "1F-material-nw: 近景高木栅栏围合该角；1F-material-ne: 亮灯酒瓶柜下方木栏同见；1F-material-sw: 左侧围栏同见；顶视围栏线洗白，bounds 与所在角区一致。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    },
+    {
+      "id": "production_bar-1F-west-partition-fence",
+      "label": "tall wooden slat partition fence separating west booth row from central floor",
+      "kind": "partition_fence",
+      "confidence": "observed_geometry_endpoint_unverified",
+      "bounds_norm": [
+        0.24,
+        0.36,
+        0.265,
+        0.71
+      ],
+      "evidence": {
+        "image": "evidence/fd7fcf582f7590f9-1F-material-sw.png",
+        "visual_note": "1F-material-sw: 中左高木条隔断、其后（西）为卡座；1F-material-nw: 同隔断近景；1F-material-top: 对应位置仅见浅色细线与端部弧形板（u≈0.25, v≈0.62-0.70），两端点未验证。",
+        "reviewer": "ZCode GLM-5.3-Flash/max"
+      }
+    }
+  ],
+  "stairs": {
+    "visible": true,
+    "confidence": "observed",
+    "notes": "木楼梯及木栏杆在 1F-material-ne（画面中央偏右）与 1F-material-se（上方中央）中清晰可见：直跑梯段带木扶手，向上朝 N/NW，顶端接一带栏平台，1F-material-sw 中亦见栏杆局部。顶视中梯段被洗白，footprint 由两斜视布局反推（区域 production_bar-1F-stair-zone，layout_inferred）。任何视角均未见梯段上端终结；descriptor 中本场景仅 1F，楼梯通往夹层/平台还是装饰构件未定。本记录不断言任何 vertical connector，也不认证任何路线可通行。"
+  },
+  "uncertainties": [
+    "朝向约定：顶视为坐标对齐正射，假设图面上=+Y=北、右=+X=东；所有方位词（南/北/东/西）均基于该假设，仅由四张斜视与顶视自洽支持。",
+    "顶视洗白：浅木楼梯、浅色地板与白色附属建筑在顶视中大面积过曝，楼梯 footprint、西隔断端点、部分墙线为 layout_inferred，非逐像素量测。",
+    "楼梯上端终结点任何视角均不可见；descriptor 无 2F，是否服务夹层/平台未定，未输出任何跨层连接。",
+    "附属建筑内部：壁挂白色器具排（形似小便器）、南半带 2×6 圆点栅格及其南圆点行的具体器具类型（便器/盆/杯架）不可辨；附属建筑与主厅是贴建（共用东墙）还是留窄缝未分辨。",
+    "吧台后场设备带（拱形酒瓶陈列/绿框冷藏柜/白色操作台）在 1F-material-nw 与顶视中的南北排序对应冲突，整组记录、未逐件定界；顶视白色矩形（u≈0.56-0.64, v≈0.445-0.625）暂对应白色操作台。",
+    "墙面装饰未单列 object：深蓝色板（其中一块似有 BAR 字样）、画框肖像、石纹墙上的亮灯酒瓶陈列柜、西/北立面红框窗、西墙中段白色补丁块——顶视无法定位其贴墙位置，仅南立面窗已记录。",
+    "北墙中段：1F-material-nw 内墙侧见两扇并排白色平贴门板；顶视北墙外侧面 u≈0.32-0.40 有红棕色构件——是拱门/雨棚/招牌的对应关系未验证。",
+    "两个小圆点（≈(0.485,0.40) 与 (0.585,0.40)）为盆栽或圆凳未辨；前者已按楼梯基部盆栽记录（1F-material-se 可见绿植），后者未记录。",
+    "南花纹地坪上的白色矩形（u≈0.575-0.63, v≈0.70-0.79）为桌/板/门未辨，按 unknown_function 记录。",
+    "主厅西墙线在顶视中于 u≈0.05-0.12 之间不可分辨，region 西界取与壁柱一致的 u≈0.12；北墙线 v≈0.085 上红棕色外贴构件性质未定。",
+    "区域嵌套：main-hall-floorplate 的 bounds 按设计包含各功能子区域（地板层级+功能分区两层）；若 builder 要求区域互斥，请以子区域为准并舍弃 floorplate 区域。",
+    "未做任何路线、地形或可通行性评估；本文件不认证任何机器人可行路线；证据绑定 artifacts/semantic-captures-v2-30/production_bar/ 的 5 张 Camera-Light 图片。"
+  ]
+}

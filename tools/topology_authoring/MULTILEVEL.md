@@ -24,7 +24,10 @@ Place a descriptor next to the scene assets:
 ```
 
 Optional `semantic_targets` bind external references. Labels and aliases may
-also be authored directly on nodes. Optional `level_view_hide_paths` and
+also be authored directly on nodes. Semantic regions, entities, interaction
+poses and named routes are resolved by the same navigation router; their
+entrance and route bindings are part of the executable map contract. Optional
+`level_view_hide_paths` and
 `level_view_cut_z_m` change the editing view only. The USD adapter accepts
 static collision triangle meshes, rejecting moving or animated support.
 
