@@ -1,0 +1,1772 @@
+--- git status ---
+On branch master
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   scripts/rsl_rl/__pycache__/cli_args.cpython-311.pyc
+	modified:   scripts/rsl_rl/play.py
+	modified:   scripts/rsl_rl/train.py
+	modified:   source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/__init__.py
+	modified:   source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/agents/rsl_rl_ppo_cfg.py
+	modified:   source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/mdp/__init__.py
+	modified:   source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/mdp/rewards.py
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	scripts/rsl_rl/play_reference_dense.py
+	scripts/rsl_rl/play_reference_moe.py
+	scripts/rsl_rl/reference_dense_vecenv_wrapper.py
+	scripts/rsl_rl/train_reference_dense.py
+	scripts/rsl_rl/train_reference_moe.py
+	scripts/visualize_go2_extreme_parkour_v1_terrain.py
+	scripts/visualize_go2_parkour_terrain.py
+	source/go2_parkour/go2_parkour/assets/
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/aer_env_cfg.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/agents/extreme_parkour_teacher_ppo_cfg.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/agents/extreme_parkour_teacher_rl.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/agents/extreme_parkour_v1_teacher_ppo_cfg.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/agents/moe_aer_ppo_cfg.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/agents/moe_rl_ppo_cfg.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/agents/moe_student_ppo_cfg.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/agents/moe_teacher_ppo_cfg.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/agents/paper_moe_rl_ppo_cfg.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/agents/paper_moe_v1_ppo_cfg.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/agents/reference_custom_dense_ppo_cfg.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/agents/reference_dense_ppo_cfg.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/agents/reference_moe_ppo_cfg.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/agents/reference_paper_moe_ppo_cfg.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/extreme_parkour_env_cfg.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/extreme_parkour_roughness.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/extreme_parkour_v1_env_cfg.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/extreme_parkour_v1_geometry.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/extreme_parkour_v1_terrain_cfg.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/go2_gap_env_cfg.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/go2_velocity_env_cfg.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/mdp/commands.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/mdp/curriculums.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/mdp/extreme_parkour_heightfield.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/mdp/extreme_parkour_observations.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/mdp/extreme_parkour_v1_heightfield.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/mdp/observations.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/mdp/paper_moe_v1.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/mdp/terminations.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/paper_moe_v1_env_cfg.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/reference_custom_dense_env_cfg.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/reference_custom_terrain_cfg.py
+	source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/reference_dense_env_cfg.py
+
+no changes added to commit (use "git add" and/or "git commit -a") 
+
+
+--- git diff ---
+diff --git a/scripts/rsl_rl/__pycache__/cli_args.cpython-311.pyc b/scripts/rsl_rl/__pycache__/cli_args.cpython-311.pyc
+index fb6d7a6..ed5cfa6 100644
+Binary files a/scripts/rsl_rl/__pycache__/cli_args.cpython-311.pyc and b/scripts/rsl_rl/__pycache__/cli_args.cpython-311.pyc differ
+diff --git a/scripts/rsl_rl/play.py b/scripts/rsl_rl/play.py
+index cbddd67..5c33c94 100644
+--- a/scripts/rsl_rl/play.py
++++ b/scripts/rsl_rl/play.py
+@@ -8,7 +8,13 @@
+ """Launch Isaac Sim Simulator first."""
+ 
+ import argparse
++import copy
++import csv
++import json
+ import sys
++from pathlib import Path
++
++import numpy as np
+ 
+ from isaaclab.app import AppLauncher
+ 
+@@ -34,6 +40,30 @@ parser.add_argument(
+     help="Use the pre-trained checkpoint from Nucleus.",
+ )
+ parser.add_argument("--real-time", action="store_true", default=False, help="Run in real-time, if possible.")
++parser.add_argument(
++    "--diagnose-gait",
++    action="store_true",
++    default=False,
++    help="Record per-foot support and per-joint telemetry, then exit after --diagnostic-steps.",
++)
++parser.add_argument(
++    "--diagnostic-steps",
++    type=int,
++    default=2000,
++    help="Number of control steps to record when --diagnose-gait is enabled.",
++)
++parser.add_argument(
++    "--diagnostic-env-id",
++    type=int,
++    default=0,
++    help="Vectorized environment index to record when --diagnose-gait is enabled.",
++)
++parser.add_argument(
++    "--diagnostic-output",
++    type=str,
++    default=None,
++    help="Optional output directory for gait diagnostics. Defaults below the checkpoint directory.",
++)
+ # append RSL-RL cli arguments
+ cli_args.add_rsl_rl_args(parser)
+ # append AppLauncher cli args
+@@ -60,6 +90,11 @@ import gymnasium as gym
+ import torch
+ from rsl_rl.runners import DistillationRunner, OnPolicyRunner
+ 
++from go2_parkour.tasks.manager_based.go2_parkour.agents.moe_rl_ppo_cfg import MoEOnPolicyRunner
++from go2_parkour.tasks.manager_based.go2_parkour.agents.extreme_parkour_teacher_rl import (
++    ExtremeParkourOnPolicyRunner,
++)
++
+ from isaaclab.envs import (
+     DirectMARLEnv,
+     DirectMARLEnvCfg,
+@@ -80,6 +115,223 @@ from isaaclab_tasks.utils.hydra import hydra_task_config
+ import go2_parkour.tasks  # noqa: F401
+ 
+ 
++class _CustomActorOnnxExporter(torch.nn.Module):
++    """ONNX wrapper for actors that expose their input dimension explicitly.
++
++    Isaac Lab's stock exporter reads ``actor[0].in_features``, which only
++    works for ``nn.Sequential`` actors.  The parkour teacher uses a custom
++    module because it contains sparse-MoE routing, so it exposes ``input_dim``
++    instead.
++    """
++
++    def __init__(self, actor: torch.nn.Module, normalizer: torch.nn.Module | None):
++        super().__init__()
++        self.actor = copy.deepcopy(actor)
++        self.normalizer = copy.deepcopy(normalizer) if normalizer is not None else torch.nn.Identity()
++
++    def forward(self, obs: torch.Tensor) -> torch.Tensor:
++        return self.actor(self.normalizer(obs))
++
++
++def _export_policy_onnx(policy: torch.nn.Module, normalizer: torch.nn.Module | None, path: str, filename: str) -> None:
++    """Export custom actors without relying on Isaac Lab's Sequential-only assumption."""
++
++    actor = getattr(policy, "actor", None)
++    input_dim = getattr(actor, "input_dim", None)
++    if input_dim is None:
++        export_policy_as_onnx(policy, normalizer=normalizer, path=path, filename=filename)
++        return
++    if policy.is_recurrent:
++        raise NotImplementedError("Custom ONNX export with input_dim does not support recurrent policies.")
++
++    exporter = _CustomActorOnnxExporter(actor, normalizer).to("cpu").eval()
++    obs = torch.zeros(1, input_dim)
++    torch.onnx.export(
++        exporter,
++        obs,
++        os.path.join(path, filename),
++        export_params=True,
++        opset_version=18,
++        input_names=["obs"],
++        output_names=["actions"],
++        dynamic_axes={},
++    )
++
++
++class _GaitDiagnosticRecorder:
++    """Capture a compact, single-environment gait trace during policy playback.
++
++    This is deliberately a playback-only utility: it reads simulator state but
++    never modifies actions, rewards, observations, or environment settings.
++    """
++
++    def __init__(self, env, env_id: int, step_dt: float, output_dir: Path):
++        self.env = env
++        self.env_id = env_id
++        self.step_dt = float(step_dt)
++        self.output_dir = output_dir
++        self.records: dict[str, list[np.ndarray]] = {
++            "contact": [],
++            "foot_force_w": [],
++            "foot_pos_w": [],
++            "joint_pos": [],
++            "joint_vel": [],
++            "joint_torque": [],
++            "action": [],
++            "root_pos_w": [],
++            "root_lin_vel_b": [],
++            "done": [],
++        }
++
++        scene = env.scene
++        self.asset = scene["robot"]
++        self.contact_sensor = scene["contact_forces"]
++        self.terrain = getattr(scene, "terrain", None)
++        self.foot_ids, foot_names = self.contact_sensor.find_bodies([".*_foot"])
++        self.foot_ids = list(self.foot_ids)
++        self.foot_names = list(foot_names)
++        if len(self.foot_ids) != 4:
++            raise ValueError(
++                "Gait diagnosis expects exactly four bodies matching '.*_foot', "
++                f"but resolved {len(self.foot_ids)}: {self.foot_names}."
++            )
++        if not 0 <= env_id < env.num_envs:
++            raise ValueError(f"--diagnostic-env-id must be in [0, {env.num_envs - 1}], got {env_id}.")
++
++        self.action_term_name, self.action_joint_names = self._resolve_action_joint_names()
++        print("[INFO] Gait diagnostic resolved:")
++        print(f"  environment index: {self.env_id}")
++        print(f"  robot joint order: {list(self.asset.joint_names)}")
++        print(f"  action term: {self.action_term_name}")
++        print(f"  action joint order: {self.action_joint_names}")
++        print(f"  foot body order: {self.foot_names}")
++
++    def _resolve_action_joint_names(self) -> tuple[str, list[str]]:
++        """Best-effort action-order lookup, retained in metadata for auditability."""
++        try:
++            manager = self.env.action_manager
++            term_names = list(manager.active_terms)
++            if len(term_names) != 1:
++                return f"<expected one action term, got {term_names}>", []
++            term_name = term_names[0]
++            term = manager.get_term(term_name)
++            joint_ids = getattr(term, "joint_ids", None)
++            if joint_ids is None:
++                return term_name, []
++            if hasattr(joint_ids, "tolist"):
++                joint_ids = joint_ids.tolist()
++            return term_name, [self.asset.joint_names[index] for index in joint_ids]
++        except (AttributeError, KeyError, TypeError, IndexError) as error:
++            return f"<unavailable: {error}>", []
++
++    @staticmethod
++    def _cpu_array(value: torch.Tensor) -> np.ndarray:
++        return value.detach().to("cpu").numpy().copy()
++
++    def capture(self, actions: torch.Tensor) -> None:
++        """Record the state immediately before the associated action is stepped."""
++        idx = self.env_id
++        forces_w = self.contact_sensor.data.net_forces_w[idx, self.foot_ids]
++        contact = torch.linalg.vector_norm(forces_w, dim=-1) > 1.0
++        self.records["contact"].append(self._cpu_array(contact))
++        self.records["foot_force_w"].append(self._cpu_array(forces_w))
++        self.records["foot_pos_w"].append(self._cpu_array(self.asset.data.body_pos_w[idx, self.foot_ids]))
++        self.records["joint_pos"].append(self._cpu_array(self.asset.data.joint_pos[idx]))
++        self.records["joint_vel"].append(self._cpu_array(self.asset.data.joint_vel[idx]))
++        self.records["joint_torque"].append(self._cpu_array(self.asset.data.applied_torque[idx]))
++        self.records["action"].append(self._cpu_array(actions[idx]))
++        self.records["root_pos_w"].append(self._cpu_array(self.asset.data.root_pos_w[idx]))
++        self.records["root_lin_vel_b"].append(self._cpu_array(self.asset.data.root_lin_vel_b[idx]))
++        # Terrain IDs are essential context when comparing traces: a gait
++        # segment on a gap should not be judged by the same load criterion as
++        # an unobstructed walking segment.
++        if self.terrain is not None and hasattr(self.terrain, "terrain_types"):
++            self.records.setdefault("terrain_type", []).append(self._cpu_array(self.terrain.terrain_types[idx]))
++        if self.terrain is not None and hasattr(self.terrain, "terrain_levels"):
++            self.records.setdefault("terrain_level", []).append(self._cpu_array(self.terrain.terrain_levels[idx]))
++
++    def record_done(self, dones: torch.Tensor) -> None:
++        self.records["done"].append(np.asarray(bool(dones[self.env_id].item()), dtype=np.bool_))
++
++    def write(self) -> Path:
++        if not self.records["contact"]:
++            raise RuntimeError("No gait diagnostic samples were captured.")
++
++        self.output_dir.mkdir(parents=True, exist_ok=True)
++        arrays = {name: np.stack(values) for name, values in self.records.items()}
++        arrays["time_s"] = np.arange(len(arrays["contact"]), dtype=np.float64) * self.step_dt
++        raw_path = self.output_dir / "gait_trace.npz"
++        np.savez_compressed(raw_path, **arrays)
++
++        metadata = {
++            "environment_index": self.env_id,
++            "step_dt_s": self.step_dt,
++            "samples": int(arrays["contact"].shape[0]),
++            "contact_force_threshold_n": 1.0,
++            "foot_body_names": self.foot_names,
++            "robot_joint_names": list(self.asset.joint_names),
++            "action_term": self.action_term_name,
++            "action_joint_names": self.action_joint_names,
++            "raw_trace": raw_path.name,
++        }
++        with (self.output_dir / "metadata.json").open("w", encoding="utf-8") as file:
++            json.dump(metadata, file, ensure_ascii=False, indent=2)
++
++        # Integrate upward force over time.  This exposes a foot that makes
++        # binary contact but contributes almost no support impulse.
++        upward_force = np.maximum(arrays["foot_force_w"][..., 2], 0.0)
++        contact = arrays["contact"].astype(bool)
++        done = arrays["done"].astype(bool)
++        summary_path = self.output_dir / "foot_summary.csv"
++        with summary_path.open("w", newline="", encoding="utf-8") as file:
++            writer = csv.DictWriter(
++                file,
++                fieldnames=(
++                    "foot",
++                    "contact_duty_factor",
++                    "mean_upward_force_n",
++                    "mean_upward_force_when_contact_n",
++                    "upward_impulse_ns",
++                    "stance_segments",
++                    "mean_stance_duration_s",
++                    "median_stance_duration_s",
++                ),
++            )
++            writer.writeheader()
++            for foot_index, foot_name in enumerate(self.foot_names):
++                durations = self._stance_durations(contact[:, foot_index], done)
++                in_contact_forces = upward_force[contact[:, foot_index], foot_index]
++                writer.writerow(
++                    {
++                        "foot": foot_name,
++                        "contact_duty_factor": float(contact[:, foot_index].mean()),
++                        "mean_upward_force_n": float(upward_force[:, foot_index].mean()),
++                        "mean_upward_force_when_contact_n": float(in_contact_forces.mean())
++                        if len(in_contact_forces)
++                        else 0.0,
++                        "upward_impulse_ns": float(upward_force[:, foot_index].sum() * self.step_dt),
++                        "stance_segments": len(durations),
++                        "mean_stance_duration_s": float(np.mean(durations)) if durations else 0.0,
++                        "median_stance_duration_s": float(np.median(durations)) if durations else 0.0,
++                    }
++                )
++        return self.output_dir
++
++    def _stance_durations(self, contacts: np.ndarray, dones: np.ndarray) -> list[float]:
++        durations: list[float] = []
++        current = 0.0
++        for is_contact, is_done in zip(contacts, dones, strict=True):
++            if is_contact:
++                current += self.step_dt
++            if not is_contact or is_done:
++                if current > 0.0:
++                    durations.append(current)
++                    current = 0.0
++        if current > 0.0:
++            durations.append(current)
++        return durations
++
++
+ @hydra_task_config(args_cli.task, args_cli.agent)
+ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agent_cfg: RslRlBaseRunnerCfg):
+     """Play with RSL-RL agent."""
+@@ -134,8 +386,15 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
+         print_dict(video_kwargs, nesting=4)
+         env = gym.wrappers.RecordVideo(env, **video_kwargs)
+ 
+-    # wrap around environment for rsl-rl
+-    env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
++    # Reference Dense environments are provided by the sibling project and
++    # require its custom wrapper.  Detect them by their loaded class module so
++    # normal Go2 v0/v1 playback never imports ``parkour_isaaclab``.
++    if type(env.unwrapped).__module__.startswith("parkour_isaaclab."):
++        from reference_dense_vecenv_wrapper import ReferenceParkourRslRlVecEnvWrapper
++
++        env = ReferenceParkourRslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
++    else:
++        env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
+ 
+     print(f"[INFO]: Loading model checkpoint from: {resume_path}")
+     # load previously trained model
+@@ -143,6 +402,10 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
+         runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=None, device=agent_cfg.device)
+     elif agent_cfg.class_name == "DistillationRunner":
+         runner = DistillationRunner(env, agent_cfg.to_dict(), log_dir=None, device=agent_cfg.device)
++    elif agent_cfg.class_name == "MoEOnPolicyRunner":
++        runner = MoEOnPolicyRunner(env, agent_cfg.to_dict(), log_dir=None, device=agent_cfg.device)
++    elif agent_cfg.class_name == "ExtremeParkourOnPolicyRunner":
++        runner = ExtremeParkourOnPolicyRunner(env, agent_cfg.to_dict(), log_dir=None, device=agent_cfg.device)
+     else:
+         raise ValueError(f"Unsupported runner class: {agent_cfg.class_name}")
+     runner.load(resume_path)
+@@ -170,13 +433,32 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
+     # export policy to onnx/jit
+     export_model_dir = os.path.join(os.path.dirname(resume_path), "exported")
+     export_policy_as_jit(policy_nn, normalizer=normalizer, path=export_model_dir, filename="policy.pt")
+-    export_policy_as_onnx(policy_nn, normalizer=normalizer, path=export_model_dir, filename="policy.onnx")
++    _export_policy_onnx(policy_nn, normalizer=normalizer, path=export_model_dir, filename="policy.onnx")
+ 
+     dt = env.unwrapped.step_dt
+ 
+     # reset environment
+     obs = env.get_observations()
+     timestep = 0
++    gait_recorder = None
++    if args_cli.diagnose_gait:
++        if args_cli.diagnostic_steps <= 0:
++            raise ValueError("--diagnostic-steps must be positive when --diagnose-gait is enabled.")
++        if args_cli.diagnostic_output is None:
++            diagnostic_dir = Path(log_dir) / "gait_diagnostics" / Path(resume_path).stem
++        else:
++            diagnostic_dir = Path(args_cli.diagnostic_output).expanduser().resolve()
++        gait_recorder = _GaitDiagnosticRecorder(
++            env.unwrapped,
++            env_id=args_cli.diagnostic_env_id,
++            step_dt=dt,
++            output_dir=diagnostic_dir,
++        )
++        print(
++            f"[INFO] Recording {args_cli.diagnostic_steps} gait-diagnostic control steps. "
++            f"Results will be saved to: {diagnostic_dir.resolve()}"
++        )
++
+     # simulate environment
+     while simulation_app.is_running():
+         start_time = time.time()
+@@ -184,10 +466,20 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
+         with torch.inference_mode():
+             # agent stepping
+             actions = policy(obs)
++            if gait_recorder is not None:
++                gait_recorder.capture(actions)
+             # env stepping
+             obs, _, dones, _ = env.step(actions)
++            if gait_recorder is not None:
++                gait_recorder.record_done(dones)
+             # reset recurrent states for episodes that have terminated
+             policy_nn.reset(dones)
++        if gait_recorder is not None:
++            timestep += 1
++            if timestep >= args_cli.diagnostic_steps:
++                saved_dir = gait_recorder.write().resolve()
++                print(f"[INFO] Gait diagnostic complete. Saved files to: {saved_dir}")
++                break
+         if args_cli.video:
+             timestep += 1
+             # Exit the play loop after recording one video
+diff --git a/scripts/rsl_rl/train.py b/scripts/rsl_rl/train.py
+index 8f0ad81..98a96a4 100644
+--- a/scripts/rsl_rl/train.py
++++ b/scripts/rsl_rl/train.py
+@@ -27,6 +27,12 @@ parser.add_argument(
+ )
+ parser.add_argument("--seed", type=int, default=None, help="Seed used for the environment")
+ parser.add_argument("--max_iterations", type=int, default=None, help="RL Policy training iterations.")
++parser.add_argument(
++    "--teacher_checkpoint",
++    type=str,
++    default=None,
++    help="Absolute path to a trained Go2-MoE-Parkour-Teacher-v0 model_*.pt checkpoint.",
++)
+ parser.add_argument(
+     "--distributed", action="store_true", default=False, help="Run training with multiple GPUs or nodes."
+ )
+@@ -41,7 +47,7 @@ AppLauncher.add_app_launcher_args(parser)
+ args_cli, hydra_args = parser.parse_known_args()
+ 
+ # always enable cameras to record video
+-if args_cli.video:
++if args_cli.video or (args_cli.task is not None and args_cli.task.split(":")[-1] == "Go2-MoE-Parkour-Student-v0"):
+     args_cli.enable_cameras = True
+ 
+ # clear out sys.argv for Hydra
+@@ -84,6 +90,12 @@ import gymnasium as gym
+ import torch
+ from rsl_rl.runners import DistillationRunner, OnPolicyRunner
+ 
++from go2_parkour.tasks.manager_based.go2_parkour.agents.moe_rl_ppo_cfg import MoEOnPolicyRunner
++from go2_parkour.tasks.manager_based.go2_parkour.agents.moe_student_ppo_cfg import VisualMoEDistillationRunner
++from go2_parkour.tasks.manager_based.go2_parkour.agents.extreme_parkour_teacher_rl import (
++    ExtremeParkourOnPolicyRunner,
++)
++
+ from isaaclab.envs import (
+     DirectMARLEnv,
+     DirectMARLEnvCfg,
+@@ -91,6 +103,8 @@ from isaaclab.envs import (
+     ManagerBasedRLEnvCfg,
+     multi_agent_to_single_agent,
+ )
++# 用于接受命令行传入的本地 teacher checkpoint 绝对路径。
++from isaaclab.utils.assets import retrieve_file_path
+ from isaaclab.utils.dict import print_dict
+ from isaaclab.utils.io import dump_yaml
+ 
+@@ -111,6 +125,67 @@ torch.backends.cudnn.deterministic = False
+ torch.backends.cudnn.benchmark = False
+ 
+ 
++def _maybe_create_student_finetune_checkpoint(
++    resume_path: str, runner: OnPolicyRunner, log_dir: str
++) -> tuple[str, bool]:
++    """将蒸馏 student checkpoint 转为 recurrent PPO 可继续微调的格式。
++
++    蒸馏 checkpoint 中的 student 模块名为 ``memory_s``、``student``；
++    recurrent PPO actor 的模块名则为 ``memory_a``、``actor``。转换时只复制
++    student actor 参数，critic 保持随机初始化，后续由 PPO 奖励训练得到。
++    """
++    loaded_dict = torch.load(resume_path, weights_only=False, map_location="cpu")
++    source_state = loaded_dict.get("model_state_dict", {})
++    # 仅当 checkpoint 确实来自 student 蒸馏，且当前 PPO 策略是循环 actor 时才转换。
++    has_distilled_student = any(key.startswith("memory_s.") for key in source_state) and any(
++        key.startswith("student.") for key in source_state
++    )
++    target_state = runner.alg.policy.state_dict()
++    expects_recurrent_actor = any(key.startswith("memory_a.") for key in target_state) and any(
++        key.startswith("actor.") for key in target_state
++    )
++    if not (has_distilled_student and expects_recurrent_actor):
++        return resume_path, True
++
++    print("[INFO]: 检测到蒸馏 student checkpoint，使用其权重初始化 recurrent PPO actor。")
++    adapted_state = {key: value.clone() for key, value in target_state.items()}
++    # 将蒸馏网络的参数前缀改为 PPO actor 使用的前缀。
++    for source_prefix, target_prefix in (("memory_s.", "memory_a."), ("student.", "actor.")):
++        for source_key, source_value in source_state.items():
++            if not source_key.startswith(source_prefix):
++                continue
++            target_key = target_prefix + source_key[len(source_prefix) :]
++            if target_key not in adapted_state:
++                raise KeyError(f"Converted key is not present in PPO policy: {target_key}")
++            if adapted_state[target_key].shape != source_value.shape:
++                raise ValueError(
++                    f"Shape mismatch for {target_key}: PPO {tuple(adapted_state[target_key].shape)} vs "
++                    f"distilled {tuple(source_value.shape)}"
++                )
++            adapted_state[target_key] = source_value.clone()
++
++    # 如果动作分布噪声参数形状一致，也一并继承。
++    for std_key in ("std", "log_std"):
++        if std_key in source_state and std_key in adapted_state and source_state[std_key].shape == adapted_state[std_key].shape:
++            adapted_state[std_key] = source_state[std_key].clone()
++
++    os.makedirs(log_dir, exist_ok=True)
++    adapted_path = os.path.join(log_dir, "student_finetune_init_from_distill.pt")
++    torch.save(
++        {
++            "model_state_dict": adapted_state,
++            "iter": 0,
++            "infos": {
++                "source_distillation_checkpoint": resume_path,
++                "note": "PPO actor initialized from distilled student; PPO critic initialized from current policy.",
++            },
++        },
++        adapted_path,
++    )
++    print(f"[INFO]: 已写入可供 PPO 微调的 student checkpoint：{adapted_path}")
++    return adapted_path, False
++
++
+ @hydra_task_config(args_cli.task, args_cli.agent)
+ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agent_cfg: RslRlBaseRunnerCfg):
+     """Train with RSL-RL agent."""
+@@ -120,6 +195,10 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
+     agent_cfg.max_iterations = (
+         args_cli.max_iterations if args_cli.max_iterations is not None else agent_cfg.max_iterations
+     )
++    if args_cli.teacher_checkpoint is not None:
++        if not hasattr(agent_cfg, "teacher_checkpoint"):
++            raise ValueError("--teacher_checkpoint is only valid for the visual MoE Student task.")
++        agent_cfg.teacher_checkpoint = os.path.abspath(os.path.expanduser(args_cli.teacher_checkpoint))
+ 
+     # set the environment seed
+     # note: certain randomizations occur in the environment initialization so we set the seed here
+@@ -175,7 +254,14 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
+ 
+     # save resume path before creating a new log_dir
+     if agent_cfg.resume or agent_cfg.algorithm.class_name == "Distillation":
+-        resume_path = get_checkpoint_path(log_root_path, agent_cfg.load_run, agent_cfg.load_checkpoint)
++        # 蒸馏时 --checkpoint 应指向已经完成 PPO 训练的 teacher（model_*.pt）。
++        # 若它是存在的绝对路径，直接加载，teacher 和 student 日志目录即可分开。
++        checkpoint_path = os.path.abspath(os.path.expanduser(agent_cfg.load_checkpoint))
++        if os.path.isfile(checkpoint_path):
++            resume_path = retrieve_file_path(checkpoint_path)
++        else:
++            # 普通 PPO resume 或未传绝对路径时，仍沿用原来的日志目录搜索规则。
++            resume_path = get_checkpoint_path(log_root_path, agent_cfg.load_run, agent_cfg.load_checkpoint)
+ 
+     # wrap for video recording
+     if args_cli.video:
+@@ -199,15 +285,37 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
+         runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=log_dir, device=agent_cfg.device)
+     elif agent_cfg.class_name == "DistillationRunner":
+         runner = DistillationRunner(env, agent_cfg.to_dict(), log_dir=log_dir, device=agent_cfg.device)
++    elif agent_cfg.class_name == "MoEOnPolicyRunner":
++        runner = MoEOnPolicyRunner(env, agent_cfg.to_dict(), log_dir=log_dir, device=agent_cfg.device)
++    elif agent_cfg.class_name == "VisualMoEDistillationRunner":
++        runner = VisualMoEDistillationRunner(env, agent_cfg.to_dict(), log_dir=log_dir, device=agent_cfg.device)
++    elif agent_cfg.class_name == "ExtremeParkourOnPolicyRunner":
++        runner = ExtremeParkourOnPolicyRunner(env, agent_cfg.to_dict(), log_dir=log_dir, device=agent_cfg.device)
+     else:
+         raise ValueError(f"Unsupported runner class: {agent_cfg.class_name}")
+     # write git state to logs
+     runner.add_git_repo_to_log(__file__)
++    if agent_cfg.class_name == "VisualMoEDistillationRunner":
++        teacher_checkpoint = agent_cfg.teacher_checkpoint
++        if not teacher_checkpoint:
++            raise ValueError(
++                "Visual Student training requires --teacher_checkpoint /absolute/path/to/teacher/model_*.pt"
++            )
++        if not os.path.isfile(teacher_checkpoint):
++            raise FileNotFoundError(f"Teacher checkpoint does not exist: {teacher_checkpoint}")
++        runner.load_teacher(teacher_checkpoint)
+     # load the checkpoint
+-    if agent_cfg.resume or agent_cfg.algorithm.class_name == "Distillation":
++    if agent_cfg.class_name != "VisualMoEDistillationRunner" and (
++        agent_cfg.resume or agent_cfg.algorithm.class_name == "Distillation"
++    ):
+         print(f"[INFO]: Loading model checkpoint from: {resume_path}")
+-        # load previously trained model
+-        runner.load(resume_path)
++        # DistillationRunner 会把 PPO checkpoint 的 actor 权重加载到固定 teacher；
++        # student 则保持新建并在后续 runner.learn() 中学习模仿 teacher。
++        load_optimizer = True
++        if agent_cfg.class_name == "OnPolicyRunner":
++            # 仅普通 PPO 的“蒸馏后微调”场景需要参数名转换；初始蒸馏不进入此分支。
++            resume_path, load_optimizer = _maybe_create_student_finetune_checkpoint(resume_path, runner, log_dir)
++        runner.load(resume_path, load_optimizer=load_optimizer)
+ 
+     # dump the configuration into log-directory
+     dump_yaml(os.path.join(log_dir, "params", "env.yaml"), env_cfg)
+diff --git a/source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/__init__.py b/source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/__init__.py
+index c9614c4..985a84e 100644
+--- a/source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/__init__.py
++++ b/source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/__init__.py
+@@ -20,4 +20,340 @@ gym.register(
+         "env_cfg_entry_point": f"{__name__}.go2_parkour_env_cfg:Go2ParkourEnvCfg",
+         "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:PPORunnerCfg",
+     },
+-)
+\ No newline at end of file
++)
++
++gym.register(
++    # 普通PPO训练环境
++    id="Go2-Velocity-v0",
++    entry_point="isaaclab.envs:ManagerBasedRLEnv",
++    disable_env_checker=True,
++    kwargs={
++        "env_cfg_entry_point": f"{__name__}.go2_velocity_env_cfg:Go2VelocityEnvCfg",
++        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:PPORunnerCfg",
++    },
++)
++
++gym.register(
++    id="Go2-Velocity-Play-v0",
++    entry_point="isaaclab.envs:ManagerBasedRLEnv",
++    disable_env_checker=True,
++    kwargs={
++        "env_cfg_entry_point": f"{__name__}.go2_velocity_env_cfg:Go2VelocityEnvCfg_PLAY",
++        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:PPORunnerCfg",
++    },
++)
++
++gym.register(
++    id="Go2-Velocity-Aer-v0",
++    # 环境计算逻辑在 AERManagerBasedRLEnv 中实现
++    entry_point= f"{__name__}.aer_env_cfg:AERManagerBasedRLEnv",
++    disable_env_checker=True,
++    kwargs={
++        "env_cfg_entry_point": f"{__name__}.go2_velocity_env_cfg:Go2VelocityEnvCfg",
++        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:PPORunnerCfg",
++    },
++)
++
++gym.register(
++    id="Go2-Velocity-Aer-Play-v0",
++    # 环境计算逻辑在 AERManagerBasedRLEnv 中实现
++    entry_point= f"{__name__}.aer_env_cfg:AERManagerBasedRLEnv",
++    disable_env_checker=True,
++    kwargs={
++        "env_cfg_entry_point": f"{__name__}.go2_velocity_env_cfg:Go2VelocityEnvCfg_PLAY",
++        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:PPORunnerCfg",
++    },
++)
++
++gym.register(
++    id="Go2-Velocity-Distill-v0",
++    # 学生模仿教师策略
++    entry_point= f"{__name__}.aer_env_cfg:AERManagerBasedRLEnv",
++    disable_env_checker=True,
++    kwargs={
++        "env_cfg_entry_point": f"{__name__}.go2_velocity_env_cfg:Go2VelocityEnvCfg",
++        # CTS主要改变的是网络结构，环境配置不变
++        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:DistillationRunnerCfg",
++    },
++)
++
++gym.register(
++    id="Go2-Velocity-Distill-Play-v0",
++    # 学生模仿教师策略
++    entry_point= f"{__name__}.aer_env_cfg:AERManagerBasedRLEnv",
++    disable_env_checker=True,
++    kwargs={
++        "env_cfg_entry_point": f"{__name__}.go2_velocity_env_cfg:Go2VelocityEnvCfg_PLAY",
++        # CTS主要改变的是网络结构，环境配置不变
++        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:DistillationRunnerCfg",
++    },
++)
++
++
++gym.register(
++    id="Go2-MoE-Parkour-v0",
++    # 学生模仿教师策略  计算奖励，计算节省力。重写了原来的奖励计算方式
++    entry_point=f"{__name__}.aer_env_cfg:AERManagerBasedRLEnv",
++    disable_env_checker=True,
++    kwargs={
++        # 训练go2的环境配置
++        "env_cfg_entry_point": f"{__name__}.go2_gap_env_cfg:Go2GapEnvCfg",
++        # 修改了网络，加入了moe、gru
++        "rsl_rl_cfg_entry_point": f"{agents.__name__}.moe_aer_ppo_cfg:MoEAERPPORunnerCfg",
++    },
++)
++
++gym.register(
++    id="Go2-MoE-Parkour-Play-v0",
++    entry_point=f"{__name__}.aer_env_cfg:AERManagerBasedRLEnv",
++    disable_env_checker=True,
++    kwargs={
++        "env_cfg_entry_point": f"{__name__}.go2_gap_env_cfg:Go2GapEnvCfg_PLAY",
++        "rsl_rl_cfg_entry_point": f"{agents.__name__}.moe_aer_ppo_cfg:MoEAERPPORunnerCfg",
++    },
++)
++
++
++# Two-stage visual parkour training.  The teacher receives the privileged
++# height scanner; the student receives the front depth camera and distills the
++# frozen teacher's actions.  They intentionally share the same terrain task.
++gym.register(
++    id="Go2-MoE-Parkour-Teacher-v0",
++    entry_point=f"{__name__}.aer_env_cfg:ReferenceParkourManagerBasedRLEnv",
++    disable_env_checker=True,
++    kwargs={
++        "env_cfg_entry_point": f"{__name__}.go2_gap_env_cfg:Go2GapTeacherEnvCfg",
++        "rsl_rl_cfg_entry_point": f"{agents.__name__}.moe_teacher_ppo_cfg:MoETeacherPPORunnerCfg",
++    },
++)
++
++gym.register(
++    id="Go2-MoE-Parkour-Teacher-Play-v0",
++    entry_point=f"{__name__}.aer_env_cfg:ReferenceParkourManagerBasedRLEnv",
++    disable_env_checker=True,
++    kwargs={
++        "env_cfg_entry_point": f"{__name__}.go2_gap_env_cfg:Go2GapTeacherEnvCfg_PLAY",
++        "rsl_rl_cfg_entry_point": f"{agents.__name__}.moe_aer_ppo_cfg:MoETeacherPPORunnerCfg",
++    },
++)
++
++gym.register(
++    id="Go2-MoE-Parkour-Student-v0",
++    entry_point=f"{__name__}.aer_env_cfg:AERManagerBasedRLEnv",
++    disable_env_checker=True,
++    kwargs={
++        "env_cfg_entry_point": f"{__name__}.go2_gap_env_cfg:Go2GapStudentEnvCfg",
++        "rsl_rl_cfg_entry_point": f"{agents.__name__}.moe_aer_ppo_cfg:MoEVisualStudentDistillationRunnerCfg",
++    },
++)
++
++
++# Local Isaac Lab port of the Extreme Parkour state Teacher.  It deliberately
++# keeps this project's Go2 asset and five-track mesh terrain while reproducing
++# the original 753-D RMA observation/network/reward protocol.
++gym.register(
++    id="Go2-Extreme-Parkour-Teacher-v0",
++    # 环境运行包装器，不是网络
++    entry_point=f"{__name__}.aer_env_cfg:ReferenceParkourManagerBasedRLEnv",
++    disable_env_checker=True,
++    kwargs={
++        # 环境配置：地形、观测、奖励、命令、终止、随机化、课程学习
++        "env_cfg_entry_point": f"{__name__}.extreme_parkour_env_cfg:ExtremeParkourTeacherEnvCfg",
++        # 训练配置入口
++        "rsl_rl_cfg_entry_point": (
++            f"{agents.__name__}.extreme_parkour_teacher_ppo_cfg:ExtremeParkourTeacherPPORunnerCfg"
++        ),
++    },
++)
++
++gym.register(
++    id="Go2-Extreme-Parkour-Teacher-Play-v0",
++    entry_point=f"{__name__}.aer_env_cfg:ReferenceParkourManagerBasedRLEnv",
++    disable_env_checker=True,
++    kwargs={
++        "env_cfg_entry_point": f"{__name__}.extreme_parkour_env_cfg:ExtremeParkourTeacherEnvCfg_PLAY",
++        "rsl_rl_cfg_entry_point": (
++            f"{agents.__name__}.extreme_parkour_teacher_ppo_cfg:ExtremeParkourTeacherPPORunnerCfg"
++        ),
++    },
++)
++
++# Redesigned terrain kept separate from v0: bounded linear flat roughness,
++# continuous Extreme-Parkour steps, wider gaps/hurdles, and alternating ramps.
++gym.register(
++    id="Go2-Extreme-Parkour-Teacher-v1",
++    entry_point=f"{__name__}.aer_env_cfg:ReferenceParkourManagerBasedRLEnv",
++    disable_env_checker=True,
++    kwargs={
++        "env_cfg_entry_point": (
++            f"{__name__}.extreme_parkour_v1_env_cfg:ExtremeParkourV1TeacherEnvCfg"
++        ),
++        "rsl_rl_cfg_entry_point": (
++            f"{agents.__name__}.extreme_parkour_v1_teacher_ppo_cfg:"
++            "ExtremeParkourV1TeacherPPORunnerCfg"
++        ),
++    },
++)
++
++gym.register(
++    id="Go2-Extreme-Parkour-Teacher-Play-v1",
++    entry_point=f"{__name__}.aer_env_cfg:ReferenceParkourManagerBasedRLEnv",
++    disable_env_checker=True,
++    kwargs={
++        "env_cfg_entry_point": (
++            f"{__name__}.extreme_parkour_v1_env_cfg:ExtremeParkourV1TeacherEnvCfg_PLAY"
++        ),
++        "rsl_rl_cfg_entry_point": (
++            f"{agents.__name__}.extreme_parkour_v1_teacher_ppo_cfg:"
++            "ExtremeParkourV1TeacherPPORunnerCfg"
++        ),
++    },
++)
++
++gym.register(
++    id="Go2-Reference-Dense-Teacher-Play-v0",
++    entry_point="parkour_isaaclab.envs:ParkourManagerBasedRLEnv",
++    disable_env_checker=True,
++    kwargs={
++        "env_cfg_entry_point": (
++            f"{__name__}.reference_dense_env_cfg:Go2ReferenceDenseTeacherEnvCfg_PLAY"
++        ),
++        "rsl_rl_cfg_entry_point": (
++            f"{agents.__name__}.reference_dense_ppo_cfg:Go2ReferenceDenseTeacherPPORunnerCfg"
++        ),
++    },
++)
++
++
++# Experiment C0: keep the complete Reference Dense task and PPO setup, while
++# adapting only this project's five custom terrain geometries to the Reference
++# terrain/waypoint metadata contract.
++gym.register(
++    id="Go2-Reference-Custom-Dense-Teacher-v0",
++    entry_point="parkour_isaaclab.envs:ParkourManagerBasedRLEnv",
++    disable_env_checker=True,
++    kwargs={
++        "env_cfg_entry_point": (
++            f"{__name__}.reference_custom_dense_env_cfg:Go2ReferenceCustomDenseTeacherEnvCfg"
++        ),
++        "rsl_rl_cfg_entry_point": (
++            f"{agents.__name__}.reference_custom_dense_ppo_cfg:"
++            "Go2ReferenceCustomDenseTeacherPPORunnerCfg"
++        ),
++    },
++)
++
++gym.register(
++    id="Go2-Reference-Custom-Dense-Teacher-Play-v0",
++    entry_point="parkour_isaaclab.envs:ParkourManagerBasedRLEnv",
++    disable_env_checker=True,
++    kwargs={
++        "env_cfg_entry_point": (
++            f"{__name__}.reference_custom_dense_env_cfg:Go2ReferenceCustomDenseTeacherEnvCfg_PLAY"
++        ),
++        "rsl_rl_cfg_entry_point": (
++            f"{agents.__name__}.reference_custom_dense_ppo_cfg:"
++            "Go2ReferenceCustomDenseTeacherPPORunnerCfg"
++        ),
++    },
++)
++
++
++# Experiment B: exact same reference environment as the Dense baseline.  The
++# agent entry point alone selects the 16-expert Top-4 sparse-MoE actor.
++gym.register(
++    id="Go2-Reference-MoE-Teacher-v0",
++    entry_point="parkour_isaaclab.envs:ParkourManagerBasedRLEnv",
++    disable_env_checker=True,
++    kwargs={
++        "env_cfg_entry_point": f"{__name__}.reference_dense_env_cfg:Go2ReferenceDenseTeacherEnvCfg",
++        "rsl_rl_cfg_entry_point": (
++            f"{agents.__name__}.reference_moe_ppo_cfg:Go2ReferenceMoETeacherPPORunnerCfg"
++        ),
++    },
++)
++
++gym.register(
++    id="Go2-Reference-MoE-Teacher-Play-v0",
++    entry_point="parkour_isaaclab.envs:ParkourManagerBasedRLEnv",
++    disable_env_checker=True,
++    kwargs={
++        "env_cfg_entry_point": (
++            f"{__name__}.reference_dense_env_cfg:Go2ReferenceDenseTeacherEnvCfg_PLAY"
++        ),
++        "rsl_rl_cfg_entry_point": (
++            f"{agents.__name__}.reference_moe_ppo_cfg:Go2ReferenceMoETeacherPPORunnerCfg"
++        ),
++    },
++)
++
++
++# Experiment D0: the original Reference terrain/environment with a separate
++# paper-style noisy Top-4/16 MoE actor.  Environment semantics remain exactly
++# those of experiment A; only the actor and its MoE auxiliary loss differ.
++gym.register(
++    id="Go2-Reference-Paper-MoE-Teacher-v0",
++    entry_point="parkour_isaaclab.envs:ParkourManagerBasedRLEnv",
++    disable_env_checker=True,
++    kwargs={
++        "env_cfg_entry_point": f"{__name__}.reference_dense_env_cfg:Go2ReferenceDenseTeacherEnvCfg",
++        "rsl_rl_cfg_entry_point": (
++            f"{agents.__name__}.reference_paper_moe_ppo_cfg:Go2ReferencePaperMoETeacherPPORunnerCfg"
++        ),
++    },
++)
++
++gym.register(
++    id="Go2-Reference-Paper-MoE-Teacher-Play-v0",
++    entry_point="parkour_isaaclab.envs:ParkourManagerBasedRLEnv",
++    disable_env_checker=True,
++    kwargs={
++        "env_cfg_entry_point": (
++            f"{__name__}.reference_dense_env_cfg:Go2ReferenceDenseTeacherEnvCfg_PLAY"
++        ),
++        "rsl_rl_cfg_entry_point": (
++            f"{agents.__name__}.reference_paper_moe_ppo_cfg:Go2ReferencePaperMoETeacherPPORunnerCfg"
++        ),
++    },
++)
++
++
++# Complete single-run implementation: paper-sized MoE, actor-only observation
++# noise, regularized online adaptation, progressive domain randomization, and
++# gait regularization.  It is isolated from every earlier ablation task.
++gym.register(
++    id="Go2-Paper-MoE-V1-Teacher-v0",
++    entry_point=f"{__name__}.aer_env_cfg:ReferenceParkourManagerBasedRLEnv",
++    disable_env_checker=True,
++    kwargs={
++        "env_cfg_entry_point": f"{__name__}.paper_moe_v1_env_cfg:PaperMoEV1TeacherEnvCfg",
++        "rsl_rl_cfg_entry_point": (
++            f"{agents.__name__}.paper_moe_v1_ppo_cfg:PaperMoEV1TeacherPPORunnerCfg"
++        ),
++    },
++)
++
++gym.register(
++    id="Go2-Paper-MoE-V1-Teacher-Play-v0",
++    entry_point=f"{__name__}.aer_env_cfg:ReferenceParkourManagerBasedRLEnv",
++    disable_env_checker=True,
++    kwargs={
++        "env_cfg_entry_point": f"{__name__}.paper_moe_v1_env_cfg:PaperMoEV1TeacherEnvCfg_PLAY",
++        "rsl_rl_cfg_entry_point": (
++            f"{agents.__name__}.paper_moe_v1_ppo_cfg:PaperMoEV1TeacherPPORunnerCfg"
++        ),
++    },
++)
++
++gym.register(
++    id="Go2-Reference-Dense-Teacher-v0",
++    entry_point="parkour_isaaclab.envs:ParkourManagerBasedRLEnv",
++    disable_env_checker=True,
++    kwargs={
++        "env_cfg_entry_point": f"{__name__}.reference_dense_env_cfg:Go2ReferenceDenseTeacherEnvCfg",
++        "rsl_rl_cfg_entry_point": (
++            f"{agents.__name__}.reference_dense_ppo_cfg:Go2ReferenceDenseTeacherPPORunnerCfg"
++        ),
++    },
++)
++
+diff --git a/source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/agents/rsl_rl_ppo_cfg.py b/source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/agents/rsl_rl_ppo_cfg.py
+index 4556af6..dd10d76 100644
+--- a/source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/agents/rsl_rl_ppo_cfg.py
++++ b/source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/agents/rsl_rl_ppo_cfg.py
+@@ -5,28 +5,33 @@
+ 
+ from isaaclab.utils import configclass
+ 
+-from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, RslRlPpoAlgorithmCfg
++from isaaclab_rl.rsl_rl import (
++    RslRlDistillationAlgorithmCfg,
++    RslRlDistillationRunnerCfg,
++    RslRlDistillationStudentTeacherRecurrentCfg,
++    RslRlOnPolicyRunnerCfg,
++    RslRlPpoActorCriticCfg,
++    RslRlPpoAlgorithmCfg,
++)
+ 
+ 
+ @configclass
+ class PPORunnerCfg(RslRlOnPolicyRunnerCfg):
+-    num_steps_per_env = 16
+-    max_iterations = 150
+-    save_interval = 50
+-    experiment_name = "cartpole_direct"
++    num_steps_per_env = 24
++    max_iterations = 1000
++    save_interval = 200
++    experiment_name = "go2_parkour"
+     policy = RslRlPpoActorCriticCfg(
+         init_noise_std=1.0,
+-        actor_obs_normalization=False,
+-        critic_obs_normalization=False,
+-        actor_hidden_dims=[32, 32],
+-        critic_hidden_dims=[32, 32],
++        actor_hidden_dims=[512, 256, 128],
++        critic_hidden_dims=[512, 256, 128],
+         activation="elu",
+     )
+     algorithm = RslRlPpoAlgorithmCfg(
+         value_loss_coef=1.0,
+         use_clipped_value_loss=True,
+         clip_param=0.2,
+-        entropy_coef=0.005,
++        entropy_coef=0.01,
+         num_learning_epochs=5,
+         num_mini_batches=4,
+         learning_rate=1.0e-3,
+@@ -35,4 +40,63 @@ class PPORunnerCfg(RslRlOnPolicyRunnerCfg):
+         lam=0.95,
+         desired_kl=0.01,
+         max_grad_norm=1.0,
+-    )
+\ No newline at end of file
++    )
++
++@configclass
++class DistillationRunnerCfg(RslRlDistillationRunnerCfg):
++    """Distill the full-observation teacher into a recurrent deployable student."""
++    """将全观测教师策略蒸馏为可部署的循环学生策略。"""
++
++    # 每个环境每次采集 24 个控制步。
++    num_steps_per_env = 24
++    # 总蒸馏迭代次数。
++    max_iterations = 1000
++    save_interval = 200
++    # 蒸馏后的 student 保存到这里
++    experiment_name = "go2_distill"
++    # RSL-RL 的观测组映射：
++    # policy 是“学生策略”的输入组，这里取环境 observations.student。
++    # teacher 是“教师策略”的输入组，这里取环境 observations.policy。
++    obs_groups = {
++        "policy": ["student"],
++        "teacher": ["policy"],
++    }
++    # 教师：
++    # 当前完整观测 → MLP → 动作
++
++    # 学生：
++    # 当前有限观测 + 历史隐藏状态 → 单层GRU → MLP → 动作
++    policy = RslRlDistillationStudentTeacherRecurrentCfg(
++        # 学生输出动作的初始探索噪声。
++        init_noise_std=0.1,
++        # 是否对学生 / 教师观测分别做在线归一化。
++        student_obs_normalization=False,
++        teacher_obs_normalization=False,
++        # 学生 GRU 输出后接的 MLP：GRU hidden → 512 → 256 → 128 → action。
++        student_hidden_dims=[512, 256, 128],
++        # 教师 MLP：teacher observation → 512 → 256 → 128 → action。
++        # 必须与待加载 PPO teacher checkpoint 的 actor 网络结构一致。
++        teacher_hidden_dims=[512, 256, 128],
++        activation="elu",
++        # 学生使用 GRU 保存历史信息。
++        rnn_type="gru",
++        # 学生 GRU 的隐藏状态维度。
++        # 这影响 student 网络大小；teacher_recurrent=False 时，它不影响教师输入维度。
++        rnn_hidden_dim=247,
++        # 单层 GRU。
++        rnn_num_layers=1,
++        # 教师保持非循环 MLP，便于直接加载 PPO actor 权重。
++        teacher_recurrent=False,
++    )
++    algorithm = RslRlDistillationAlgorithmCfg(
++        # 每批 rollout 数据重复训练两轮。
++        num_learning_epochs=2,
++        # 学生网络的学习率。
++        learning_rate=1.0e-3,
++        # GRU 反向传播跨越的时间长度。
++        gradient_length=24,
++        # 梯度裁剪阈值。
++        max_grad_norm=1.0,
++        # 学生动作与教师动作之间的回归损失。
++        loss_type="huber",
++    )
+diff --git a/source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/mdp/__init__.py b/source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/mdp/__init__.py
+index 966d4a3..fddbdb1 100644
+--- a/source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/mdp/__init__.py
++++ b/source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/mdp/__init__.py
+@@ -8,3 +8,9 @@
+ from isaaclab.envs.mdp import *  # noqa: F401, F403
+ 
+ from .rewards import *  # noqa: F401, F403
++from .commands import *  # noqa: F401, F403
++from .curriculums import *  # noqa: F401, F403
++from .observations import *  # noqa: F401, F403
++from .extreme_parkour_observations import *  # noqa: F401, F403
++from .terminations import *  # noqa: F401, F403
++from .paper_moe_v1 import *  # noqa: F401, F403
+diff --git a/source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/mdp/rewards.py b/source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/mdp/rewards.py
+index 5500089..65d0c6e 100644
+--- a/source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/mdp/rewards.py
++++ b/source/go2_parkour/go2_parkour/tasks/manager_based/go2_parkour/mdp/rewards.py
+@@ -5,13 +5,16 @@
+ 
+ from __future__ import annotations
+ 
++from collections.abc import Sequence
+ from typing import TYPE_CHECKING
+ 
+ import torch
+ 
+ from isaaclab.assets import Articulation
+-from isaaclab.managers import SceneEntityCfg
+-from isaaclab.utils.math import wrap_to_pi
++from isaaclab.envs import mdp as isaaclab_mdp
++from isaaclab.managers import ManagerTermBase, RewardTermCfg, SceneEntityCfg
++from isaaclab.sensors import ContactSensor, RayCaster
++from isaaclab.utils.math import quat_apply, wrap_to_pi, yaw_quat
+ 
+ if TYPE_CHECKING:
+     from isaaclab.envs import ManagerBasedRLEnv
+@@ -25,3 +28,656 @@ def joint_pos_target_l2(env: ManagerBasedRLEnv, target: float, asset_cfg: SceneE
+     joint_pos = wrap_to_pi(asset.data.joint_pos[:, asset_cfg.joint_ids])
+     # compute the reward
+     return torch.sum(torch.square(joint_pos - target), dim=1)
++
++
++def _goal_direction_projection(
++    env: ManagerBasedRLEnv,
++    goal_command_name: str,
++    velocity_command_name: str,
++    asset_cfg: SceneEntityCfg,
++) -> tuple[torch.Tensor, torch.Tensor]:
++    """Return velocity projected along the current body-frame waypoint yaw."""
++
++    asset: Articulation = env.scene[asset_cfg.name]
++    # ParkourWaypointCommand emits [current_yaw_error, next_yaw_error].  The
++    # velocity task needs the current target direction reconstructed from its
++    # first scalar; treating the two errors as an XY vector is incorrect.
++    current_yaw_error = env.command_manager.get_command(goal_command_name)[:, 0]
++    goal_direction_b = torch.stack((torch.cos(current_yaw_error), torch.sin(current_yaw_error)), dim=-1)
++    projected_velocity = torch.sum(goal_direction_b * asset.data.root_lin_vel_b[:, :2], dim=1)
++    command_speed = env.command_manager.get_command(velocity_command_name)[:, 0]
++    return projected_velocity, command_speed
++
++
++def tracking_goal_velocity(
++    env: ManagerBasedRLEnv,
++    goal_command_name: str = "parkour_waypoint",
++    velocity_command_name: str = "base_velocity",
++    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
++) -> torch.Tensor:
++    """Reward velocity projected along the current target direction.
++
++    This is the Parkour goal-velocity reward: matching the commanded speed in
++    the target direction yields one, standing yields zero, and moving away is
++    negative.  The target direction is supplied by the goal command, not a
++    jump cue or a fixed post-gap travel distance.
++    """
++
++    projected_velocity, command_speed = _goal_direction_projection(
++        env, goal_command_name, velocity_command_name, asset_cfg
++    )
++    active = command_speed > 1.0e-6
++    reward = torch.minimum(projected_velocity, command_speed) / command_speed.clamp_min(1.0e-6)
++    return torch.where(active, reward, torch.zeros_like(reward))
++
++
++def goal_direction_stall_penalty(
++    env: ManagerBasedRLEnv,
++    goal_command_name: str = "parkour_waypoint",
++    velocity_command_name: str = "base_velocity",
++    minimum_speed_ratio: float = 0.5,
++    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
++) -> torch.Tensor:
++    """Penalize insufficient velocity along the current target direction."""
++
++    if not 0.0 < minimum_speed_ratio <= 1.0:
++        raise ValueError("minimum_speed_ratio must be in (0, 1].")
++    projected_velocity, command_speed = _goal_direction_projection(
++        env, goal_command_name, velocity_command_name, asset_cfg
++    )
++    active = command_speed > 1.0e-6
++    speed_ratio = projected_velocity / command_speed.clamp_min(1.0e-6)
++    shortfall = ((minimum_speed_ratio - speed_ratio) / minimum_speed_ratio).clamp(0.0, 1.0)
++    return torch.where(active, shortfall, torch.zeros_like(shortfall))
++
++
++def tracking_goal_yaw(
++    env: ManagerBasedRLEnv,
++    goal_command_name: str = "parkour_waypoint",
++    velocity_command_name: str = "base_velocity",
++) -> torch.Tensor:
++    """Exponentially reward aligning the base heading to the current waypoint.
++
++    This is the yaw objective used by both Extreme Parkour reference
++    implementations.  The waypoint command already wraps the angle; wrapping
++    once more here keeps the reward continuous at the +/-pi boundary.
++    """
++
++    yaw_error = env.command_manager.get_command(goal_command_name)[:, 0]
++    forward_command = env.command_manager.get_command(velocity_command_name)[:, 0] > 1.0e-6
++    reward = torch.exp(-torch.abs(wrap_to_pi(yaw_error)))
++    return torch.where(forward_command, reward, torch.zeros_like(reward))
++
++
++def track_backward_lin_vel_xy_exp(
++    env: ManagerBasedRLEnv,
++    std: float,
++    command_name: str,
++    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
++) -> torch.Tensor:
++    """Reward signed velocity tracking only for negative forward-axis commands."""
++
++    reward = isaaclab_mdp.track_lin_vel_xy_exp(env, std, command_name, asset_cfg)
++    is_backward_command = env.command_manager.get_command(command_name)[:, 0] < -1.0e-6
++    return reward * is_backward_command
++
++def energy_new_actual(
++    env: ManagerBasedRLEnv,
++    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
++    sigma_lin: float = 1000.0,
++    sigma_ang: float = 500.0,
++    clip_lin: float = 0.2,
++    clip_ang: float = 0.2,
++) -> torch.Tensor:
++    """Energy regularization reward from joint mechanical power normalized by base speed."""
++    asset: Articulation = env.scene[asset_cfg.name]
++    joint_vel = asset.data.joint_vel
++    joint_torque = asset.data.applied_torque
++    energy = torch.sum(torch.abs(joint_vel * joint_torque), dim=1)
++
++    base_lin_vel_x = asset.data.root_lin_vel_b[:, 0]
++    base_ang_vel_z = asset.data.root_ang_vel_b[:, 2]
++    denom = (
++        sigma_lin * torch.clamp(torch.abs(base_lin_vel_x), min=clip_lin)
++        + sigma_ang * torch.clamp(torch.abs(base_ang_vel_z), min=clip_ang)
++    )
++    return torch.exp(-energy / denom)
++
++
++def _jump_relaxation(env: ManagerBasedRLEnv, command_name: str, jump_scale: float) -> torch.Tensor:
++    """Return one while walking and ``jump_scale`` while a jump is commanded."""
++    if not 0.0 <= jump_scale <= 1.0:
++        raise ValueError("jump_scale must be in [0, 1].")
++    jump = env.command_manager.get_command(command_name).squeeze(-1).clamp(0.0, 1.0)
++    return 1.0 - (1.0 - jump_scale) * jump
++
++
++def jump_gated_energy_new_actual(
++    env: ManagerBasedRLEnv,
++    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
++    sigma_lin: float = 1000.0,
++    sigma_ang: float = 500.0,
++    clip_lin: float = 0.2,
++    clip_ang: float = 0.2,
++    command_name: str = "jump",
++    jump_scale: float = 0.1,
++) -> torch.Tensor:
++    """Keep energy reward neutral during a commanded jump instead of suppressing it.
++
++    ``energy_new_actual`` is a positive reward: one means low energy use.  A
++    jump requires high instantaneous power, so its value is blended towards
++    one while the explicit jump cue is active.  This does not relax torque or
++    joint-limit safety constraints.
++    """
++    energy_reward = energy_new_actual(env, asset_cfg, sigma_lin, sigma_ang, clip_lin, clip_ang)
++    relaxation = _jump_relaxation(env, command_name, jump_scale)
++    return relaxation * energy_reward + (1.0 - relaxation)
++
++
++def jump_gated_flat_orientation_l2(
++    env: ManagerBasedRLEnv,
++    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
++    command_name: str = "jump",
++    jump_scale: float = 0.25,
++) -> torch.Tensor:
++    """Reduce, but never remove, the flat-body penalty during a jump."""
++    return isaaclab_mdp.flat_orientation_l2(env, asset_cfg) * _jump_relaxation(env, command_name, jump_scale)
++
++
++def jump_gated_hip_joint_deviation_l1(
++    env: ManagerBasedRLEnv,
++    asset_cfg: SceneEntityCfg,
++    command_name: str = "jump",
++    jump_scale: float = 0.1,
++) -> torch.Tensor:
++    """Allow a larger hip swing during a jump while retaining a weak prior."""
++    return isaaclab_mdp.joint_deviation_l1(env, asset_cfg) * _jump_relaxation(env, command_name, jump_scale)
++
++
++def jump_gated_action_rate_l2(
++    env: ManagerBasedRLEnv,
++    command_name: str = "jump",
++    jump_scale: float = 0.2,
++) -> torch.Tensor:
++    """Permit the rapid action change needed for take-off only near a gap."""
++    return isaaclab_mdp.action_rate_l2(env) * _jump_relaxation(env, command_name, jump_scale)
++
++
++def finite_ray_base_height_l2(
++    env: ManagerBasedRLEnv,
++    target_height: float,
++    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
++    sensor_cfg: SceneEntityCfg = SceneEntityCfg("height_scanner"),
++) -> torch.Tensor:
++    """Track base clearance using valid height rays only.
++
++    A ray cast over a true gap returns ``inf``.  The standard Isaac Lab
++    reward averages every ray and consequently becomes NaN there.  Masking
++    misses retains the useful stair-height signal while making the term
++    neutral only when *all* rays miss (the robot is fully above a gap).
++    """
++    asset: Articulation = env.scene[asset_cfg.name]
++    sensor: RayCaster = env.scene.sensors[sensor_cfg.name]
++    hit_heights = sensor.data.ray_hits_w[..., 2]
++    valid_hits = torch.isfinite(hit_heights)
++    hit_count = valid_hits.sum(dim=1)
++    terrain_height = torch.where(valid_hits, hit_heights, 0.0).sum(dim=1) / hit_count.clamp_min(1)
++    # If all rays miss, there is no local ground-height target to follow.
++    terrain_height = torch.where(hit_count > 0, terrain_height, asset.data.root_pos_w[:, 2] - target_height)
++    return torch.square(asset.data.root_pos_w[:, 2] - (terrain_height + target_height))
++
++
++def jump_gated_finite_ray_base_height_l2(
++    env: ManagerBasedRLEnv,
++    target_height: float,
++    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
++    sensor_cfg: SceneEntityCfg = SceneEntityCfg("height_scanner"),
++    command_name: str = "jump",
++    jump_scale: float = 0.2,
++) -> torch.Tensor:
++    """Keep stable clearance on stairs without discouraging take-off."""
++    height_error = finite_ray_base_height_l2(env, target_height, asset_cfg, sensor_cfg)
++    return height_error * _jump_relaxation(env, command_name, jump_scale)
++
++
++def gap_gated_finite_ray_base_height_l2(
++    env: ManagerBasedRLEnv,
++    target_height: float,
++    terrain_type_range: tuple[int, int],
++    gap_scale: float,
++    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
++    sensor_cfg: SceneEntityCfg = SceneEntityCfg("height_scanner"),
++) -> torch.Tensor:
++    """Relax clearance tracking on real gap columns without a jump command."""
++
++    if not 0.0 <= gap_scale <= 1.0:
++        raise ValueError("gap_scale must be in [0, 1].")
++    height_error = finite_ray_base_height_l2(env, target_height, asset_cfg, sensor_cfg)
++    first_column, last_column = terrain_type_range
++    terrain_types = env.scene.terrain.terrain_types
++    is_gap = (terrain_types >= first_column) & (terrain_types <= last_column)
++    return height_error * torch.where(is_gap, gap_scale, 1.0)
++
++
++def jump_airborne(
++    env: ManagerBasedRLEnv,
++    sensor_cfg: SceneEntityCfg,
++    command_name: str = "jump",
++    min_forward_speed: float = 0.15,
++    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
++) -> torch.Tensor:
++    """Reward a controlled four-foot flight while the internal gap cue is active."""
++    contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
++    asset: Articulation = env.scene[asset_cfg.name]
++    all_feet_airborne = torch.all(contact_sensor.data.current_air_time[:, sensor_cfg.body_ids] > 0.0, dim=1)
++    moving_forward = asset.data.root_lin_vel_b[:, 0].clamp_min(0.0) / min_forward_speed
++    moving_forward = moving_forward.clamp_max(1.0)
++    jump_active = env.command_manager.get_command(command_name).squeeze(-1).clamp(0.0, 1.0)
++    return all_feet_airborne.float() * moving_forward * jump_active
++
++
++def gap_outward_velocity(
++    env: ManagerBasedRLEnv,
++    command_name: str = "jump",
++    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
++) -> torch.Tensor:
++    """Reward outward velocity from the central platform during a gap approach.
++
++    This is direction-independent, matching the random reset yaw and the
++    four-sided MeshGap terrain.  It gives PPO a dense signal that standing at
++    the edge is worse than committing to the crossing.
++    """
++    asset: Articulation = env.scene[asset_cfg.name]
++    offset_xy = asset.data.root_pos_w[:, :2] - env.scene.env_origins[:, :2]
++    direction = offset_xy / torch.linalg.vector_norm(offset_xy, dim=1, keepdim=True).clamp_min(0.10)
++    outward_velocity = torch.sum(asset.data.root_lin_vel_w[:, :2] * direction, dim=1).clamp_min(0.0)
++    jump_active = env.command_manager.get_command(command_name).squeeze(-1).clamp(0.0, 1.0)
++    return outward_velocity * jump_active
++
++
++class GapWaypointProgress(ManagerTermBase):
++    """Reward progress toward a hidden waypoint placed beyond the gap.
++
++    The waypoint is deliberately reward-only: it is not exposed in either
++    teacher or student observations, and no visual marker is spawned.
++    """
++
++    def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRLEnv):
++        super().__init__(cfg, env)
++        self._active = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
++        self._goal_pos_w = torch.zeros(env.num_envs, 2, device=env.device)
++        self._previous_distance = torch.zeros(env.num_envs, device=env.device)
++
++    def reset(self, env_ids=None) -> None:
++        if env_ids is None:
++            self._active[:] = False
++            self._previous_distance[:] = 0.0
++        else:
++            self._active[env_ids] = False
++            self._previous_distance[env_ids] = 0.0
++
++    def __call__(
++        self,
++        env: ManagerBasedRLEnv,
++        command_name: str = "jump",
++        goal_axis_distance: float = 3.0,
++        max_progress_speed: float = 1.5,
++        asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
++    ) -> torch.Tensor:
++        """Return distance reduction per second after the jump approach begins."""
++        asset: Articulation = env.scene[asset_cfg.name]
++        jump_active = env.command_manager.get_command(command_name).squeeze(-1) > 0.5
++        new_goal = jump_active & ~self._active
++
++        if torch.any(new_goal):
++            # 中文：用起跳前的机身朝向决定目标点在哪一侧，因而四个方向的 gap 都适用。
++            local_forward = torch.zeros_like(asset.data.root_pos_w)
++            local_forward[:, 0] = 1.0
++            forward_xy = quat_apply(yaw_quat(asset.data.root_quat_w), local_forward)[:, :2]
++            forward_xy /= torch.linalg.vector_norm(forward_xy, dim=1, keepdim=True).clamp_min(1.0e-6)
++
++            # 中文：目标点的 x 或 y 坐标距中心 3 m，落在最宽 0.4 m gap 外约 1 m 的实地上。
++            # 采用 max(|x|, |y|) 归一化后，斜着走时也不会把目标点放到方形地形外面。
++            to_goal = forward_xy * (
++                goal_axis_distance / forward_xy.abs().max(dim=1, keepdim=True).values.clamp_min(1.0e-6)
++            )
++            self._goal_pos_w[new_goal] = env.scene.env_origins[new_goal, :2] + to_goal[new_goal]
++            initial_distance = torch.linalg.vector_norm(
++                asset.data.root_pos_w[new_goal, :2] - self._goal_pos_w[new_goal], dim=1
++            )
++            self._previous_distance[new_goal] = initial_distance
++            self._active[new_goal] = True
++
++        current_distance = torch.linalg.vector_norm(asset.data.root_pos_w[:, :2] - self._goal_pos_w, dim=1)
++        # 中文：每一步只奖励“比上一帧更靠近目标点”的距离；后退会得到负值，原地则为零。
++        progress = (self._previous_distance - current_distance) / env.step_dt
++        self._previous_distance[self._active] = current_distance[self._active]
++        return torch.where(self._active, progress.clamp(-max_progress_speed, max_progress_speed), 0.0)
++
++
++class GapCrossingSuccess(ManagerTermBase):
++    """Emit one reward pulse when an episode first reaches the outer gap ring."""
++
++    def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRLEnv):
++        super().__init__(cfg, env)
++        self._rewarded = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
++
++    def reset(self, env_ids=None) -> None:
++        if env_ids is None:
++            self._rewarded[:] = False
++        else:
++            self._rewarded[env_ids] = False
++
++    def __call__(
++        self,
++        env: ManagerBasedRLEnv,
++        command_name: str = "jump",
++        outer_ring_distance: float = 2.0,
++        minimum_root_height: float = 0.18,
++        asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
++    ) -> torch.Tensor:
++        asset: Articulation = env.scene[asset_cfg.name]
++        offset_xy = (asset.data.root_pos_w[:, :2] - env.scene.env_origins[:, :2]).abs()
++        # MeshGapTerrainCfg is square: max(|x|, |y|) identifies arrival beyond
++        # the central platform plus the widest 0.4 m gap.
++        reached_outer_ring = offset_xy.max(dim=1).values >= outer_ring_distance
++        safely_above_terrain = asset.data.root_pos_w[:, 2] >= env.scene.env_origins[:, 2] + minimum_root_height
++        jump_active = env.command_manager.get_command(command_name).squeeze(-1) > 0.5
++        newly_crossed = reached_outer_ring & safely_above_terrain & jump_active & ~self._rewarded
++        self._rewarded |= newly_crossed
++        # RewardManager multiplies every term by step_dt, so divide here to make
++        # this a true one-off bonus rather than a 20-ms sliver of reward.
++        return newly_crossed.float() / env.step_dt
++
++
++class GapPostCrossVelocityTracking(ManagerTermBase):
++    """Keep rewarding the current velocity command after a successful gap crossing.
++
++    The term becomes active on the first safe landing outside a commanded gap
++    and remains active for the rest of that episode.  It deliberately has no
++    fixed distance or speed target: the target is always the current
++    ``base_velocity`` command.
++    """
++
++    def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRLEnv):
++        super().__init__(cfg, env)
++        self._crossed = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
++
++    def reset(self, env_ids=None) -> None:
++        if env_ids is None:
++            self._crossed[:] = False
++        else:
++            self._crossed[env_ids] = False
++
++    def __call__(
++        self,
++        env: ManagerBasedRLEnv,
++        command_name: str = "base_velocity",
++        jump_command_name: str = "jump",
++        std: float = 0.5,
++        outer_ring_distance: float = 2.0,
++        minimum_root_height: float = 0.18,
++        asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
++    ) -> torch.Tensor:
++        asset: Articulation = env.scene[asset_cfg.name]
++        offset_xy = (asset.data.root_pos_w[:, :2] - env.scene.env_origins[:, :2]).abs()
++        reached_outer_ring = offset_xy.max(dim=1).values >= outer_ring_distance
++        safely_above_terrain = asset.data.root_pos_w[:, 2] >= env.scene.env_origins[:, 2] + minimum_root_height
++        jump_active = env.command_manager.get_command(jump_command_name).squeeze(-1) > 0.5
++        self._crossed |= reached_outer_ring & safely_above_terrain & jump_active
++
++        velocity_tracking = isaaclab_mdp.track_lin_vel_xy_exp(
++            env, std=std, command_name=command_name, asset_cfg=asset_cfg
++        )
++        return self._crossed.float() * velocity_tracking
++
++
++def feet_slip(
++    env: ManagerBasedRLEnv,
++    sensor_cfg: SceneEntityCfg,
++    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
++) -> torch.Tensor:
++    """Penalize foot horizontal velocity while the foot is in contact."""
++    contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
++    asset: Articulation = env.scene[asset_cfg.name]
++    contacts = contact_sensor.data.net_forces_w_history[:, :, sensor_cfg.body_ids, :].norm(dim=-1).max(dim=1)[0] > 1.0
++    feet_vel_xy = asset.data.body_lin_vel_w[:, asset_cfg.body_ids, :2]
++    return torch.sum(contacts * torch.sum(torch.square(feet_vel_xy), dim=-1), dim=1)
++
++
++def joint_deviation_l2(
++    env: ManagerBasedRLEnv,
++    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
++) -> torch.Tensor:
++    """Squared deviation of selected joints from their default pose.
++
++    This is the all-joint pose prior used by the reference Parkour task.  It
++    makes a permanently folded front thigh/calf costly even if that leg is not
++    currently bearing load.
++    """
++
++    asset: Articulation = env.scene[asset_cfg.name]
++    joint_error = asset.data.joint_pos[:, asset_cfg.joint_ids] - asset.data.default_joint_pos[:, asset_cfg.joint_ids]
++    return torch.sum(torch.square(joint_error), dim=1)
++
++
++def action_rate_l2_norm(env: ManagerBasedRLEnv) -> torch.Tensor:
++    """L2 norm (not squared L2) of the action difference between two steps."""
++
++    action_delta = env.action_manager.action - env.action_manager.prev_action
++    return torch.linalg.vector_norm(action_delta, dim=1)
++
++
++def feet_stumble(
++    env: ManagerBasedRLEnv,
++    sensor_cfg: SceneEntityCfg,
++) -> torch.Tensor:
++    """Return one when a selected foot has a severe lateral impact.
++
++    This matches the reference condition ``||F_xy|| > 4 * |F_z|`` and is a
++    collision penalty, unlike ``feet_slip`` which continuously discourages a
++    load-bearing foot from remaining on the ground.
++    """
++
++    contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
++    net_forces = contact_sensor.data.net_forces_w[:, sensor_cfg.body_ids]
++    tangential_force = torch.linalg.vector_norm(net_forces[..., :2], dim=-1)
++    vertical_force = torch.abs(net_forces[..., 2])
++    return torch.any(tangential_force > 4.0 * vertical_force, dim=1).to(dtype=net_forces.dtype)
++
++
++class ExtremeParkourDofAcc(ManagerTermBase):
++    """Policy-step joint-acceleration penalty used by Isaaclab_Parkour.
++
++    The reference IsaacLab port does not use Isaac Lab's ``joint_acc`` buffer:
++    that buffer is updated on every 5 ms physics step.  Instead it records the
++    joint velocity once per 20 ms policy step and evaluates
++    ``sum(((qdot_t - qdot_{t-1}) / policy_dt)^2)``.  Keeping this history in
++    the reward term makes the Teacher objective match that implementation.
++    """
++
++    def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRLEnv):
++        super().__init__(cfg, env)
++        self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
++        asset: Articulation = env.scene[self.asset_cfg.name]
++        self.previous_joint_vel = torch.zeros(
++            env.num_envs, asset.num_joints, device=env.device, dtype=asset.data.joint_vel.dtype
++        )
++        self.policy_dt = env.step_dt
++
++    def reset(self, env_ids: Sequence[int] | None = None) -> None:
++        if env_ids is None:
++            self.previous_joint_vel.zero_()
++        else:
++            self.previous_joint_vel[env_ids] = 0.0
++
++    def __call__(self, env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg) -> torch.Tensor:
++        asset: Articulation = env.scene[asset_cfg.name]
++        current_joint_vel = asset.data.joint_vel
++        penalty = torch.sum(torch.square((current_joint_vel - self.previous_joint_vel) / self.policy_dt), dim=1)
++        self.previous_joint_vel.copy_(current_joint_vel)
++        return penalty
++
++
++class ExtremeParkourDeltaTorques(ManagerTermBase):
++    """Reference ``delta_torques`` penalty with a reset-safe torque history.
++
++    The original task penalizes ``sum((tau_t - tau_{t-1})^2)``.  This stateful
++    term keeps the previous applied torque per parallel environment, rather
++    than reusing an action-rate approximation.
++    """
++
++    def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRLEnv):
++        super().__init__(cfg, env)
++        self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
++        asset: Articulation = env.scene[self.asset_cfg.name]
++        self.previous_torque = torch.zeros(env.num_envs, asset.num_joints, device=env.device)
++
++    def reset(self, env_ids: Sequence[int] | None = None) -> None:
++        if env_ids is None:
++            self.previous_torque.zero_()
++        else:
++            self.previous_torque[env_ids] = 0.0
++
++    def __call__(self, env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg) -> torch.Tensor:
++        asset: Articulation = env.scene[asset_cfg.name]
++        current_torque = asset.data.applied_torque
++        penalty = torch.sum(torch.square(current_torque - self.previous_torque), dim=1)
++        self.previous_torque.copy_(current_torque)
++        return penalty
++
++
++def extreme_parkour_collision(
++    env: ManagerBasedRLEnv,
++    sensor_cfg: SceneEntityCfg,
++) -> torch.Tensor:
++    """Count base/calf/thigh contacts using the original 0.1 N threshold."""
++
++    contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
++    forces = contact_sensor.data.net_forces_w_history[:, 0, sensor_cfg.body_ids]
++    return torch.sum((torch.linalg.vector_norm(forces, dim=-1) > 0.1).to(forces.dtype), dim=1)
++
++
++def _extreme_parkour_is_flat(env: ManagerBasedRLEnv) -> torch.Tensor:
++    """Return the local five-track task's flat-terrain mask."""
++
++    # ``PARKOUR_TERRAINS_CFG`` assigns eight consecutive columns to each
++    # terrain type; columns 0--7 are the flat reference terrain.
++    return env.scene.terrain.terrain_types < 8
++
++
++def extreme_parkour_lin_vel_z(
++    env: ManagerBasedRLEnv,
++    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
++) -> torch.Tensor:
++    """Original vertical-velocity penalty: half weight off flat terrain."""
++
++    asset: Articulation = env.scene[asset_cfg.name]
++    penalty = torch.square(asset.data.root_lin_vel_b[:, 2])
++    penalty[~_extreme_parkour_is_flat(env)] *= 0.5
++    return penalty
++
++
++def extreme_parkour_orientation(
++    env: ManagerBasedRLEnv,
++    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
++) -> torch.Tensor:
++    """Original orientation penalty, active only on flat terrain."""
++
++    asset: Articulation = env.scene[asset_cfg.name]
++    penalty = torch.sum(torch.square(asset.data.projected_gravity_b[:, :2]), dim=1)
++    penalty[~_extreme_parkour_is_flat(env)] = 0.0
++    return penalty
++
++
++class ExtremeParkourFeetEdge(ManagerTermBase):
++    """Penalize contacting a height discontinuity on the local mesh tracks.
++
++    The legacy task reads a raster ``x_edge_mask``.  The local terrain is
++    generated from analytic meshes, so the equivalent mask is evaluated from
++    the same box/gap/hurdle/pad boundaries at each foot position.
++    """
++
++    def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRLEnv):
++        super().__init__(cfg, env)
++        self.asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
++        self.sensor_cfg: SceneEntityCfg = cfg.params["sensor_cfg"]
++        self.edge_width = float(cfg.params.get("edge_width", 0.08))
++        self.asset: Articulation = env.scene[self.asset_cfg.name]
++        self.contact_sensor: ContactSensor = env.scene.sensors[self.sensor_cfg.name]
++
++    def reset(self, env_ids: Sequence[int] | None = None) -> None:
++        # No history is owned by this term; contact history belongs to the sensor.
++        pass
++
++    def __call__(
++        self,
++        env: ManagerBasedRLEnv,
++        asset_cfg: SceneEntityCfg,
++        sensor_cfg: SceneEntityCfg,
++        edge_width: float = 0.08,
++    ) -> torch.Tensor:
++        # Terrain origins are the safe reset origins at (x=1, y=2) in each
++        # 18 x 4 m local tile.  Convert world foot positions back to mesh
++        # coordinates before checking its analytic discontinuity boundaries.
++        feet_w = self.asset.data.body_pos_w[:, self.asset_cfg.body_ids, :2]
++        feet_local = feet_w - env.scene.terrain.env_origins[:, None, :2]
++        x = feet_local[..., 0] + 1.0
++        y = feet_local[..., 1] + 2.0
++        width = float(edge_width)
++        near_edge = torch.zeros_like(x, dtype=torch.bool)
++
++        terrain_kind = torch.div(env.scene.terrain.terrain_types, 8, rounding_mode="floor")
++        difficulty = env.scene.terrain.terrain_levels.to(x.dtype) / 9.0
++
++        # Steps: six 1.35 m boxes with 0.35 m discontinuities between them.
++        is_box = terrain_kind == 1
++        for index in range(6):
++            x_min = 3.0 + 1.70 * index
++            x_max = x_min + 1.35
++            near_edge |= is_box[:, None] & ((x - x_min).abs() <= width)
++            near_edge |= is_box[:, None] & ((x - x_max).abs() <= width)
++
++        # Gaps: both trench lips are height discontinuities.  Width and landing
++        # length vary with curriculum difficulty exactly as the terrain does.
++        is_gap = terrain_kind == 2
++        gap_width = 0.10 + 0.70 * difficulty
++        landing_length = 1.50 - 0.25 * difficulty
++        x_cursor = torch.full_like(difficulty, 2.50)
++        for _ in range(6):
++            gap_start = x_cursor
++            gap_end = gap_start + gap_width
++            near_edge |= is_gap[:, None] & ((x - gap_start[:, None]).abs() <= width)
++            near_edge |= is_gap[:, None] & ((x - gap_end[:, None]).abs() <= width)
++            x_cursor = gap_end + landing_length
++
++        # Hurdles are transverse raised boxes.
++        is_hurdle = terrain_kind == 3
++        for center in (3.5, 5.7, 7.9, 10.1, 12.3, 14.5):
++            near_edge |= is_hurdle[:, None] & ((x - (center - 0.08)).abs() <= width)
++            near_edge |= is_hurdle[:, None] & ((x - (center + 0.08)).abs() <= width)
++
++        # Stones: include both longitudinal and lateral pad edges.
++        is_pads = terrain_kind == 4
++        pad_length = 1.00 - 0.40 * difficulty
++        pad_gap = 0.15 + 0.55 * difficulty
++        lateral_offset = 0.10 + 0.55 * difficulty
++        x_cursor = 2.0 + pad_gap
++        for index in range(6):
++            x_min = x_cursor
++            x_max = x_min + pad_length
++            center_y = 2.0 + (lateral_offset if index % 2 == 0 else -lateral_offset)
++            y_min = center_y - 0.5
++            y_max = center_y + 0.5
++            near_edge |= is_pads[:, None] & ((x - x_min[:, None]).abs() <= width)
++            near_edge |= is_pads[:, None] & ((x - x_max[:, None]).abs() <= width)
++            near_edge |= is_pads[:, None] & ((y - y_min[:, None]).abs() <= width)
++            near_edge |= is_pads[:, None] & ((y - y_max[:, None]).abs() <= width)
++            x_cursor = x_max + pad_gap
++
++        forces = self.contact_sensor.data.net_forces_w_history[:, :, self.sensor_cfg.body_ids]
++        current_contact = torch.linalg.vector_norm(forces[:, 0], dim=-1) > 2.0
++        previous_contact = torch.linalg.vector_norm(forces[:, -1], dim=-1) > 2.0
++        contact = current_contact | previous_contact
++        active = env.scene.terrain.terrain_levels > 3
++        return (active[:, None] & contact & near_edge).sum(dim=1).to(dtype=feet_w.dtype)
