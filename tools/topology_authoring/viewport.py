@@ -454,3 +454,456 @@ class ViewportOverlay:
                 self._on_left_callback = None
                 self._on_right_callback = None
                 self.document = None
+
+
+def ray_plane_intersection(origin, direction, plane_z, *, epsilon=1e-9):
+    """Intersect a world ray with a horizontal editing plane."""
+    origin = tuple(float(value) for value in origin)
+    direction = tuple(float(value) for value in direction)
+    if len(origin) != 3 or len(direction) != 3 or not all(
+            math.isfinite(value) for value in (*origin, *direction, float(plane_z))):
+        return None
+    if abs(direction[2]) <= epsilon:
+        return None
+    distance = (float(plane_z) - origin[2]) / direction[2]
+    if distance < 0:
+        return None
+    return tuple(origin[index] + distance * direction[index] for index in range(3))
+
+
+def ray_axis_intersection(origin, direction, axis_origin, axis):
+    """Return the closest point on an XYZ gizmo axis to a world ray."""
+    origin = tuple(float(value) for value in origin)
+    direction = tuple(float(value) for value in direction)
+    axis_origin = tuple(float(value) for value in axis_origin)
+    axis_vector = {"x": (1.0, 0.0, 0.0), "y": (0.0, 1.0, 0.0),
+                   "z": (0.0, 0.0, 1.0)}.get(axis)
+    if axis_vector is None:
+        return None
+    dot = sum(direction[i] * axis_vector[i] for i in range(3))
+    ray_norm = sum(value * value for value in direction)
+    denominator = ray_norm - dot * dot
+    if abs(denominator) <= 1e-10:
+        return None
+    delta = tuple(axis_origin[i] - origin[i] for i in range(3))
+    ray_parameter = (sum(delta[i] * direction[i] for i in range(3))
+                     - sum(delta[i] * axis_vector[i] for i in range(3)) * dot) / denominator
+    axis_parameter = sum((origin[i] + ray_parameter * direction[i] - axis_origin[i])
+                         * axis_vector[i] for i in range(3))
+    return tuple(axis_origin[i] + axis_parameter * axis_vector[i] for i in range(3))
+
+
+def _matrix_transform(transform, point):
+    if callable(transform):
+        return transform(point)
+    method = getattr(transform, "Transform", None)
+    if callable(method):
+        try:
+            from pxr import Gf
+            return method(Gf.Vec3d(*point))
+        except ImportError:
+            return method(point)
+    raise TypeError("viewport transform is not callable")
+
+
+def viewport_ray(viewport_api, mouse_ndc, *, meters_per_unit=1.0):
+    """Build a metric world ray from a scene-gesture NDC coordinate."""
+    ndc_to_world = getattr(viewport_api, "ndc_to_world", None)
+    if ndc_to_world is None:
+        world_to_ndc = getattr(viewport_api, "world_to_ndc", None)
+        inverse = getattr(world_to_ndc, "GetInverse", None)
+        if callable(inverse):
+            ndc_to_world = inverse()
+    if ndc_to_world is None:
+        return None
+    mouse = (float(mouse_ndc[0]), float(mouse_ndc[1]))
+    near = _matrix_transform(ndc_to_world, (mouse[0], mouse[1], -1.0))
+    far = _matrix_transform(ndc_to_world, (mouse[0], mouse[1], 1.0))
+    scale = float(meters_per_unit)
+    if not math.isfinite(scale) or scale <= 0:
+        raise ValueError("meters_per_unit must be a positive finite number")
+    origin = tuple(float(near[index]) * scale for index in range(3))
+    far = tuple(float(far[index]) * scale for index in range(3))
+    delta = tuple(far[index] - origin[index] for index in range(3))
+    length = math.sqrt(sum(value * value for value in delta))
+    if length <= 1e-12:
+        return None
+    return origin, tuple(value / length for value in delta)
+
+
+def world_to_viewport_pixel(viewport_api, point, *, meters_per_unit=1.0):
+    """Project a metric world point into the viewport texture in pixels."""
+    transform = getattr(viewport_api, "world_to_ndc", None)
+    if transform is None:
+        return None
+    scale = float(meters_per_unit)
+    if not math.isfinite(scale) or scale <= 0:
+        raise ValueError("meters_per_unit must be a positive finite number")
+    # Topology payloads and HTTP edits are always metres.  USD camera
+    # transforms consume stage units, so convert only at this viewport edge.
+    stage_point = tuple(float(value) / scale for value in point)
+    ndc = _matrix_transform(transform, stage_point)
+    pixel, _query_viewport = viewport_api.map_ndc_to_texture_pixel(
+        (float(ndc[0]), float(ndc[1])))
+    if pixel is None:
+        return None
+    return float(pixel[0]), float(pixel[1])
+
+
+def _screen_segment_distance(point, first, last):
+    dx, dy = last[0] - first[0], last[1] - first[1]
+    denominator = dx * dx + dy * dy
+    ratio = (max(0.0, min(1.0, ((point[0] - first[0]) * dx
+                                + (point[1] - first[1]) * dy) / denominator))
+             if denominator else 0.0)
+    projected = (first[0] + ratio * dx, first[1] + ratio * dy)
+    return math.hypot(point[0] - projected[0], point[1] - projected[1]), ratio
+
+
+def _screen_polygon_contains(point, polygon):
+    inside = False
+    for index, current in enumerate(polygon):
+        previous = polygon[index - 1]
+        if ((current[1] > point[1]) != (previous[1] > point[1])
+                and point[0] < ((previous[0] - current[0])
+                                * (point[1] - current[1])
+                                / ((previous[1] - current[1]) or 1e-12)
+                                + current[0])):
+            inside = not inside
+    return inside
+
+
+def nearest_projected_hit(snapshot, viewport_api, mouse_ndc, *,
+                          selection=None, active_level=None, domain="ground",
+                          tolerance_px=14.0, meters_per_unit=1.0):
+    """Pick stable topology IDs by projected geometry, never USD curve raycasts."""
+    pixel, _query = viewport_api.map_ndc_to_texture_pixel(mouse_ndc)
+    if pixel is None:
+        return None
+    cursor = (float(pixel[0]), float(pixel[1]))
+    candidates = []
+    visible_node_ids = {
+        row.get("id") for row in snapshot.get("nodes") or []
+        if active_level is None or row.get("level_id") in (None, active_level)
+    }
+
+    selected_node = None
+    if selection and selection.get("kind") == "node":
+        selected_node = next((row for row in snapshot.get("nodes") or []
+                              if row.get("id") == selection.get("id")), None)
+    if (domain == "aerial" and selected_node
+            and selected_node.get("edit_mode", "3d") == "3d"):
+        origin = selected_node.get("position_xyz")
+        origin_pixel = world_to_viewport_pixel(
+            viewport_api, origin, meters_per_unit=meters_per_unit)
+        if origin_pixel is not None:
+            for axis, delta in (("x", (.45, 0, 0)), ("y", (0, .45, 0)),
+                                ("z", (0, 0, .45))):
+                endpoint = [origin[index] + delta[index] for index in range(3)]
+                endpoint_pixel = world_to_viewport_pixel(
+                    viewport_api, endpoint, meters_per_unit=meters_per_unit)
+                if endpoint_pixel is not None:
+                    distance, _ratio = _screen_segment_distance(
+                        cursor, origin_pixel, endpoint_pixel)
+                    if distance <= tolerance_px:
+                        candidates.append((distance - 3.0, {
+                            "kind": "gizmo", "axis": axis,
+                            "id": selected_node["id"], "position_xyz": list(origin),
+                        }))
+
+    selected_region = None
+    if (selection and selection.get("kind") == "semantic"
+            and selection.get("collection") == "regions"):
+        selected_region = selection.get("id")
+    for region in (snapshot.get("semantics") or {}).get("regions") or []:
+        if active_level is not None and region.get("level_id") not in (None, active_level):
+            continue
+        points = region.get("polygon_xyz") or []
+        projected = [world_to_viewport_pixel(
+            viewport_api, point, meters_per_unit=meters_per_unit) for point in points]
+        if any(point is None for point in projected):
+            continue
+        if region.get("id") == selected_region:
+            for index, point in enumerate(projected):
+                distance = math.hypot(cursor[0] - point[0], cursor[1] - point[1])
+                if distance <= tolerance_px:
+                    candidates.append((distance - 2.0, {
+                        "kind": "region-vertex", "id": region["id"],
+                        "index": index, "position_xyz": list(points[index]),
+                    }))
+        for index, first in enumerate(projected):
+            last = projected[(index + 1) % len(projected)]
+            distance, ratio = _screen_segment_distance(cursor, first, last)
+            if distance <= tolerance_px:
+                source, target = points[index], points[(index + 1) % len(points)]
+                ray = viewport_ray(
+                    viewport_api, mouse_ndc, meters_per_unit=meters_per_unit)
+                plane_hit = (ray_plane_intersection(ray[0], ray[1], source[2])
+                             if ray is not None else None)
+                candidates.append((distance, {
+                    "kind": "region-boundary", "id": region["id"],
+                    "index": index,
+                    # The server performs the authoritative edge projection.
+                    # A ray/plane hit preserves the actual click under a
+                    # perspective camera; screen-space interpolation does not.
+                    "position_xyz": (list(plane_hit) if plane_hit is not None else
+                                     [source[axis] + ratio * (target[axis] - source[axis])
+                                      for axis in range(3)]),
+                }))
+        if projected and _screen_polygon_contains(cursor, projected):
+            candidates.append((tolerance_px + 3.0, {
+                "kind": "region", "id": region["id"],
+            }))
+
+    for node in snapshot.get("nodes") or []:
+        if active_level is not None and node.get("level_id") not in (None, active_level):
+            continue
+        point = world_to_viewport_pixel(
+            viewport_api, node.get("position_xyz"),
+            meters_per_unit=meters_per_unit)
+        if point is None:
+            continue
+        distance = math.hypot(cursor[0] - point[0], cursor[1] - point[1])
+        if distance <= tolerance_px:
+            candidates.append((distance - 1.0, {
+                "kind": "node", "id": node["id"],
+                "position_xyz": list(node["position_xyz"]),
+            }))
+
+    for edge in snapshot.get("edges") or []:
+        if (active_level is not None
+                and (edge.get("from") not in visible_node_ids
+                     and edge.get("to") not in visible_node_ids)):
+            continue
+        points = edge.get("polyline_xyz") or []
+        projected = [world_to_viewport_pixel(
+            viewport_api, point, meters_per_unit=meters_per_unit) for point in points]
+        if len(projected) < 2 or any(point is None for point in projected):
+            continue
+        distance = min(_screen_segment_distance(cursor, projected[index],
+                                                projected[index + 1])[0]
+                       for index in range(len(projected) - 1))
+        if distance <= tolerance_px:
+            candidates.append((distance + 1.0, {"kind": "edge", "id": edge["id"]}))
+    return min(candidates, key=lambda row: row[0])[1] if candidates else None
+
+
+class _TopologyEditorGesture:
+    """Full-screen native DragGesture forwarding NDC samples to the controller."""
+
+    def __init__(self, viewport_api, controller):
+        from omni.ui import scene as sc
+
+        class _Gesture(sc.DragGesture):
+            def __init__(self, owner):
+                # Explicit unmodified left-button binding leaves Alt+left and
+                # all right-button gestures available to viewport navigation.
+                super().__init__(mouse_button=0, modifiers=0,
+                                 name="eai.topology_authoring.drag")
+                self.owner = owner
+
+            def _send(self, phase):
+                payload = getattr(self.sender, "gesture_payload", None)
+                mouse = getattr(payload, "mouse", None)
+                if mouse is not None:
+                    self.owner.handle(phase, mouse)
+
+            def on_began(self):
+                self._send("began")
+
+            def on_changed(self):
+                self._send("changed")
+
+            def on_ended(self):
+                if self.state == sc.GestureState.CANCELED:
+                    # Kit reports a click-only DragGesture as canceled after
+                    # on_began.  Endpoint and polygon clicks author their
+                    # draft during on_began, so preserve those drafts.  Only
+                    # cancel when an actual transform drag is in progress.
+                    self.owner.cancel_from_scene()
+                else:
+                    self._send("ended")
+
+        self.viewport_api = viewport_api
+        self.controller = controller
+        self.gesture = _Gesture(self)
+        self._drag_target = None
+
+    def cancel_from_scene(self):
+        if self.controller.gesture is not None:
+            self.controller.cancel_gesture()
+        self._drag_target = None
+
+    def _world_point(self, mouse_ndc, target=None):
+        ray = viewport_ray(
+            self.viewport_api, mouse_ndc,
+            meters_per_unit=self.controller.meters_per_unit)
+        if ray is None:
+            return None
+        if target and target.get("kind") == "gizmo":
+            return ray_axis_intersection(ray[0], ray[1], target["position_xyz"],
+                                         target["axis"])
+        z = (target or {}).get("position_xyz", [0, 0, self.controller.active_z()])[2]
+        return ray_plane_intersection(ray[0], ray[1], z)
+
+    def handle(self, phase, mouse_ndc):
+        context = self.controller.context or {}
+        if phase == "began":
+            hit = nearest_projected_hit(
+                self.controller.snapshot, self.viewport_api, mouse_ndc,
+                selection=self.controller.selection,
+                active_level=context.get("active_level"),
+                domain=context.get("active_domain", "ground"),
+                meters_per_unit=self.controller.meters_per_unit,
+            )
+            self._drag_target = hit
+            point = self._world_point(mouse_ndc, hit)
+            if (hit and hit["kind"] == "gizmo"
+                    and context.get("editor_tool") == "add-edge"):
+                # A selected aerial 3D node's axis handles rank ahead of its
+                # node marker.  In edge mode the whole gizmo denotes that
+                # node endpoint; it must never start a transform drag.
+                self.controller.select({"kind": "node", "collection": None,
+                                        "id": hit["id"]})
+                self.controller.activate_node_for_edge(hit["id"])
+                self._drag_target = None
+                return
+            if hit and hit["kind"] in {"gizmo", "node", "region-vertex"}:
+                if hit["kind"] == "node":
+                    self.controller.select({"kind": "node", "collection": None,
+                                            "id": hit["id"]})
+                    if context.get("editor_tool") == "add-edge":
+                        self.controller.activate_node_for_edge(hit["id"])
+                        self._drag_target = None
+                        return
+                elif hit["kind"] == "region-vertex":
+                    self.controller.select({"kind": "semantic", "collection": "regions",
+                                            "id": hit["id"]})
+                target = ({"kind": "node", "id": hit["id"]} if hit["kind"] in {"node", "gizmo"}
+                          else {"kind": "region-vertex", "id": hit["id"],
+                                "index": hit["index"]})
+                if point is not None:
+                    self.controller.begin_drag(target, point,
+                                               axis=hit.get("axis"))
+                return
+            if hit:
+                if hit["kind"] == "edge":
+                    self.controller.select({"kind": "edge", "collection": None,
+                                            "id": hit["id"]})
+                elif hit["kind"] in {"region", "region-boundary"}:
+                    self.controller.select({"kind": "semantic", "collection": "regions",
+                                            "id": hit["id"]})
+                    if hit["kind"] == "region-boundary":
+                        self.controller.set_boundary_candidate({
+                            **hit,
+                            "identity": self.controller.dispatcher.client.identity(),
+                        })
+                return
+            point = self._world_point(mouse_ndc)
+            if point is None:
+                return
+            tool = context.get("editor_tool", "add-node")
+            if tool == "add-node":
+                self.controller.add_node(point)
+            elif tool == "add-region":
+                close = False
+                if len(self.controller.region_draft) >= 3:
+                    first = world_to_viewport_pixel(
+                        self.viewport_api, self.controller.region_draft[0],
+                        meters_per_unit=self.controller.meters_per_unit)
+                    pixel, _query = self.viewport_api.map_ndc_to_texture_pixel(mouse_ndc)
+                    close = (first is not None and pixel is not None
+                             and math.hypot(first[0] - float(pixel[0]),
+                                            first[1] - float(pixel[1])) <= 14.0)
+                if close:
+                    self.controller.finish_region()
+                else:
+                    self.controller.add_region_point(point)
+        elif phase == "changed" and self.controller.gesture is not None:
+            point = self._world_point(mouse_ndc, self._drag_target)
+            if point is not None:
+                self.controller.update_drag(point)
+        elif phase == "ended":
+            if self.controller.gesture is not None:
+                self.controller.end_drag()
+            self._drag_target = None
+
+    def destroy(self):
+        if self.gesture is not None:
+            self.gesture.owner = None
+        self.gesture = None
+        self.viewport_api = None
+        self.controller = None
+
+
+class _TopologyEditorViewportScene:
+    def __init__(self, viewport_desc, controller):
+        from omni.ui import scene as sc
+        viewport_api = (viewport_desc.get("viewport_api")
+                        if hasattr(viewport_desc, "get")
+                        else getattr(viewport_desc, "viewport_api", None))
+
+        class _Manipulator(sc.Manipulator):
+            def __init__(self, owner):
+                super().__init__()
+                self.owner = owner
+                self.transform = None
+                self.screen = None
+
+            def on_build(self):
+                self.owner._gesture = _TopologyEditorGesture(
+                    self.owner.viewport_api, self.owner.controller)
+                # Scene objects are reference owned.  Retain the parent
+                # transform as well as the Screen or Kit collects the entire
+                # gesture surface immediately after on_build returns.
+                self.transform = sc.Transform()
+                with self.transform:
+                    self.screen = sc.Screen(gesture=self.owner._gesture.gesture)
+
+        self.viewport_api = viewport_api
+        self.controller = controller
+        self._gesture = None
+        self._manipulator = _Manipulator(self)
+
+    @property
+    def visible(self):
+        return bool(self._manipulator and self._manipulator.visible)
+
+    @visible.setter
+    def visible(self, value):
+        if self._manipulator is not None:
+            self._manipulator.visible = bool(value)
+
+    def destroy(self):
+        if self._gesture is not None:
+            self._gesture.destroy()
+            self._gesture = None
+        if self._manipulator is not None:
+            self._manipulator.owner = None
+            self._manipulator.screen = None
+            self._manipulator.transform = None
+            self._manipulator = None
+        self.viewport_api = None
+        self.controller = None
+
+
+class TopologyEditorViewport:
+    """Register the native stable-ID topology DragGesture in every viewport."""
+
+    def __init__(self, controller):
+        self.controller = controller
+        self._registration = None
+        try:
+            from omni.kit.viewport.registry import RegisterScene
+            self._registration = RegisterScene(
+                lambda desc: _TopologyEditorViewportScene(desc, controller),
+                "eai.topology_authoring.editor",
+            )
+        except (ImportError, AttributeError, RuntimeError, TypeError) as exc:
+            raise RuntimeError(f"Isaac topology editor viewport is unavailable: {exc}") from exc
+
+    def destroy(self):
+        registration, self._registration = self._registration, None
+        if registration is not None:
+            registration.destroy()
+        self.controller = None

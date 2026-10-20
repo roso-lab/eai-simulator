@@ -528,7 +528,7 @@ class NavigationProvider:
             raise SkillContractError("navigation task already exists")
         selected = self._profile(profile)
         document = self._topology()
-        errors = validate_topology(document)
+        errors = validate_topology(document, metric=selected.metric)
         if errors:
             raise SkillContractError("invalid navigation topology: " + "; ".join(errors))
         obs = _observation(observation) if observation is not None else None
@@ -603,6 +603,10 @@ class NavigationProvider:
         task.last_pose, task.world_state_seq = obs.pose, seq
         if intent in {"hold", "stop"}:
             task.last_time_s = obs.simulation_time_s
+        if intent == "replan":
+            errors = validate_topology(self._topology(topology), metric=task.profile.metric)
+            if errors:
+                raise SkillContractError("invalid navigation topology: " + "; ".join(errors))
         if task.route_graph_digest is not None and route_graph_digest(self._topology(topology)) != task.route_graph_digest:
             raise SkillContractError("navigation route graph identity changed")
         if intent in {"start", "continue", "replan"} and self._timeout(task, request, obs):

@@ -1,4 +1,4 @@
-"""Editable map projects: one document, immutable geometry, atomic derived revisions.
+"""Editable ground/aerial graphs, shared regions and atomic derived revisions.
 
 This module deliberately needs no Isaac/Kit imports. Geometry comes from a measured
 grid package; semantic edits never turn occupied or unknown cells into free space.
@@ -165,14 +165,25 @@ class MapProject:
     def __init__(self, root):
         self.root = Path(root).resolve()
         self.manifest = read_json(self.root / "project.json")
-        if self.manifest.get("schema") != SCHEMA or self.manifest.get("version") != 1:
+        if self.manifest.get("schema") != SCHEMA or self.manifest.get("version") not in {1, 2}:
             raise ValueError("unsupported map project")
         current = child(self.root, self.manifest["current_revision"])
         export = read_json(current / "manifest.json")
         for name, digest in export["files"].items():
             if sha256(child(current, name)) != digest:
                 raise ValueError(f"revision file changed outside tool: {name}")
-        self.document = load_product(current / "topology.json")
+        products = export.get("navigation_products")
+        if products is not None:
+            if not isinstance(products, dict) or set(products) != {"ground", "aerial"}:
+                raise ValueError("revision must contain ground and aerial navigation products")
+            if any(name not in export["files"] for name in products.values()):
+                raise ValueError("navigation products must be covered by revision digests")
+            self.documents = {domain: load_product(child(current, name)) for domain, name in products.items()}
+            if any(doc.domain != domain for domain, doc in self.documents.items()):
+                raise ValueError("navigation product domain differs from manifest")
+            self.document = self.documents["ground"]
+        else:
+            self.document = load_product(current / "topology.json")
         self.grids = {}
         for entry in self.manifest["base_grids"]:
             path = child(self.root, entry["file"])
@@ -182,13 +193,57 @@ class MapProject:
         self._initialize()
         self._manifest_digest = sha256(self.root / "project.json")
         self.saved_revision = self.manifest["current_revision"]
-        self._saved_document = self.document.to_dict()
+        self._saved_document = self._snapshot()
 
     def _initialize(self):
+        if not hasattr(self, "documents"):
+            original = self.document
+            other_domain = "aerial" if original.domain == "ground" else "ground"
+            other = TopologyDocument(original.scene_key, deepcopy(original.source), domain=other_domain)
+            other.set_levels(original.levels)
+            other.semantics = empty_semantics()
+            for region in (original.semantics or empty_semantics())["regions"]:
+                copy = deepcopy(region)
+                copy["entrance_node_ids"] = []
+                other.semantics["regions"].append(copy)
+            self.documents = {original.domain: original, other_domain: other}
+        self.document = self.documents["ground"]
         self.revision = 0
         self._undo, self._redo = [], []
         self._derived = None
-        self._check(self.document)
+        self._check_all(self.documents)
+
+    def document_for(self, domain="ground"):
+        if domain not in ("ground", "aerial"):
+            raise ValueError("domain must be ground or aerial")
+        return self.documents[domain]
+
+    def _snapshot(self):
+        return {domain: doc.to_dict() for domain, doc in self.documents.items()}
+
+    def _restore(self, snapshot):
+        self.documents = {domain: TopologyDocument.from_dict(value) for domain, value in snapshot.items()}
+        self.document = self.documents["ground"]
+        self._derived = None
+
+    def _check_all(self, documents):
+        common = None
+        ground_derived = None
+        for domain in ("ground", "aerial"):
+            doc = documents[domain]
+            if doc.domain != domain or doc.scene_key != self.document.scene_key:
+                raise ValueError("navigation graph scene/domain differs from project")
+            if doc.source != documents["ground"].source or doc.levels != documents["ground"].levels:
+                raise ValueError("navigation graphs must share source identity and levels")
+            derived = self._check(doc)
+            if domain == "ground":
+                ground_derived = derived
+            regions = [{k: v for k, v in row.items() if k != "entrance_node_ids"}
+                       for row in (doc.semantics or empty_semantics())["regions"]]
+            if common is not None and regions != common:
+                raise ValueError("ground and aerial shared regions differ")
+            common = regions
+        return ground_derived
 
     @classmethod
     def _create(cls, root, doc, grids, provenance):
@@ -273,7 +328,7 @@ class MapProject:
 
     @property
     def dirty(self):
-        return self.document.to_dict() != self._saved_document
+        return self._snapshot() != self._saved_document
 
     def _check(self, doc):
         errors = validate_document(doc)
@@ -345,10 +400,10 @@ class MapProject:
         if revision is not None and (type(revision) is not int or revision != self.revision):
             raise ValueError("stale editor revision; reload state before editing")
 
-    def edit(self, operation, *, revision=None, **args):
+    def edit(self, operation, *, revision=None, domain="ground", **args):
         self._expect(revision)
-        candidate = TopologyDocument.from_dict(self.document.to_dict())
-        # The browser is the authoring authority. Delete atomically together
+        candidate = TopologyDocument.from_dict(self.document_for(domain).to_dict())
+        # Both clients share this transaction authority. Delete atomically together
         # with dependent bindings; leave the strict document API unchanged.
         if operation in {"remove_node", "remove_edge", "clear_topology"}:
             nodes = ({row["id"] for row in candidate.nodes} if operation == "clear_topology"
@@ -390,16 +445,24 @@ class MapProject:
         if operation == "add_node":
             candidate.add_node(args["position_xyz"], level_id=args.get("level_id"),
                                label=args.get("label", ""), kind=args.get("kind", "custom"),
-                               heading_rad=args.get("heading_rad"), source_ref=args.get("source_ref"))
+                               heading_rad=args.get("heading_rad"), source_ref=args.get("source_ref"),
+                               edit_mode=args.get("edit_mode"))
         elif operation == "move_node":
             candidate.move_node(args["id"], args["position_xyz"])
+        elif operation == "move_node_xy":
+            xy = args["position_xy"]
+            if not isinstance(xy, (list, tuple)) or len(xy) != 2:
+                raise ValueError("position_xy must contain two finite coordinates")
+            candidate.move_node(args["id"], [*xy, candidate.node(args["id"])["position_xyz"][2]])
         elif operation == "update_node":
             row = candidate.node(args["id"])
             if row.get("locked"):
                 raise ValueError("locked node cannot be edited")
-            for field in ("label", "level_id", "kind", "heading_rad"):
+            for field in ("label", "level_id", "kind", "heading_rad", "edit_mode"):
                 if field in args:
                     row[field] = args[field]
+            if "position_xyz" in args:
+                candidate.move_node(args["id"], args["position_xyz"])
         elif operation == "remove_node":
             candidate.remove_node(args["id"])
         elif operation == "clear_topology":
@@ -428,6 +491,41 @@ class MapProject:
             record = deepcopy(args["record"])
             # Old exported geometry is derivative, never authoritative after edits.
             candidate.upsert_semantic(args["collection"], record)
+        elif operation == "update_region":
+            record = next((row for row in (candidate.semantics or empty_semantics())["regions"]
+                           if row["id"] == args["id"]), None)
+            if record is None:
+                raise ValueError("unknown region id: " + str(args["id"]))
+            record = deepcopy(record)
+            for field in ("label", "kind", "height_m"):
+                if field in args:
+                    record[field] = deepcopy(args[field])
+            candidate.upsert_semantic("regions", record)
+        elif operation in {"insert_region_vertex", "move_region_vertex"}:
+            record = next((row for row in (candidate.semantics or empty_semantics())["regions"]
+                           if row["id"] == args["id"]), None)
+            if record is None:
+                raise ValueError("unknown region id: " + str(args["id"]))
+            record = deepcopy(record)
+            points, index = record["polygon_xyz"], args["index"]
+            if type(index) is not int or not 0 <= index < len(points):
+                raise ValueError("invalid region vertex index")
+            if operation == "insert_region_vertex":
+                value = args["position_xyz"]
+                if (not isinstance(value, (list, tuple)) or len(value) != 3 or
+                        any(type(v) not in (int, float) or not math.isfinite(v) for v in value)):
+                    raise ValueError("position_xyz must contain three finite coordinates")
+                a, b = points[index], points[(index + 1) % len(points)]
+                dx, dy = b[0] - a[0], b[1] - a[1]
+                t = max(0., min(1., ((value[0]-a[0])*dx + (value[1]-a[1])*dy) / (dx*dx+dy*dy)))
+                points.insert(index + 1, [a[0]+t*dx, a[1]+t*dy, a[2]])
+            else:
+                xy = args["position_xy"]
+                if (not isinstance(xy, (list, tuple)) or len(xy) != 2 or
+                        any(type(v) not in (int, float) or not math.isfinite(v) for v in xy)):
+                    raise ValueError("position_xy must contain two finite coordinates")
+                points[index] = [*xy, points[index][2]]
+            candidate.upsert_semantic("regions", record)
         elif operation == "remove_semantic":
             candidate.remove_semantic(args["collection"], args["id"])
         elif operation == "bind_obstacle":
@@ -452,29 +550,49 @@ class MapProject:
             candidate.upsert_semantic("entities", record)
         else:
             raise ValueError(f"unknown edit operation: {operation}")
-        derived = self._check(candidate)
-        self._undo.append(self.document.to_dict())
+        candidates = {key: TopologyDocument.from_dict(doc.to_dict()) for key, doc in self.documents.items()}
+        candidates[domain] = candidate
+        shared_edit = (operation in {"update_region", "insert_region_vertex", "move_region_vertex"} or
+                       operation in {"upsert_semantic", "remove_semantic"} and args.get("collection") == "regions")
+        if shared_edit:
+            other = candidates["aerial" if domain == "ground" else "ground"]
+            other.semantics = other.semantics or empty_semantics()
+            old_regions = {row["id"]: row for row in other.semantics["regions"]}
+            replacements = []
+            for row in (candidate.semantics or empty_semantics())["regions"]:
+                record = deepcopy(row)
+                record["entrance_node_ids"] = deepcopy(old_regions.get(row["id"], {}).get("entrance_node_ids", []))
+                replacements.append(record)
+            removed = set(old_regions) - {row["id"] for row in replacements}
+            for row in other.semantics["entities"]:
+                if row.get("region_id") in removed:
+                    row.setdefault("level_id", old_regions[row["region_id"]].get("level_id"))
+                    row.pop("region_id", None)
+            other.semantics["interaction_poses"] = [row for row in other.semantics["interaction_poses"]
+                                                   if row.get("owner_id") not in removed]
+            other.semantics["regions"] = replacements
+        derived = self._check_all(candidates)
+        self._undo.append(self._snapshot())
         self._undo = self._undo[-100:]
         self._redo.clear()
-        self.document, self._derived = candidate, derived
+        self.documents, self._derived = candidates, derived
+        self.document = candidates["ground"]
         self.revision += 1
 
     def undo(self, *, revision=None):
         self._expect(revision)
         if not self._undo:
             return
-        self._redo.append(self.document.to_dict())
-        self.document = TopologyDocument.from_dict(self._undo.pop())
-        self._derived = None
+        self._redo.append(self._snapshot())
+        self._restore(self._undo.pop())
         self.revision += 1
 
     def redo(self, *, revision=None):
         self._expect(revision)
         if not self._redo:
             return
-        self._undo.append(self.document.to_dict())
-        self.document = TopologyDocument.from_dict(self._redo.pop())
-        self._derived = None
+        self._undo.append(self._snapshot())
+        self._restore(self._redo.pop())
         self.revision += 1
 
     def layer_image(self, lid, derived=None):
@@ -492,7 +610,8 @@ class MapProject:
             rgb[mask] = color(row["id"])
         return Image.fromarray(rgb[::-1].copy())
 
-    def state(self):
+    def state(self, domain="ground"):
+        document = self.document_for(domain)
         levels = []
         for level in self.document.levels:
             grid = self.grids[level["id"]]
@@ -506,7 +625,8 @@ class MapProject:
             if not np.any(self.grids[level["id"]]["state"] == 0):
                 warnings.append(f"{level['id']}：底图没有已知自由格，几何仍需确认。")
         return {"revision": self.revision, "dirty": self.dirty, "scene_key": self.document.scene_key,
-                "project_path": str(self.root), "document": self.document.to_dict(), "levels": levels,
+                "project_path": str(self.root), "document": document.to_dict(), "levels": levels,
+                "domains": ["ground", "aerial"],
                 "warnings": warnings, "saved_revision": self.saved_revision,
                 "can_undo": bool(self._undo), "can_redo": bool(self._redo)}
 
@@ -612,6 +732,13 @@ class MapProject:
                 export_doc.node(edge["from"])["position_xyz"], export_doc.node(edge["to"])["position_xyz"]]},
                 "properties": {**deepcopy(edge), "feature_type": "topology_edge", "robot_validated": False}})
         save_draft(destination / "topology.json", export_doc)
+        aerial = TopologyDocument.from_dict(self.documents["aerial"].to_dict())
+        aerial.semantics = aerial.semantics or empty_semantics()
+        entrances = {row["id"]: row.get("entrance_node_ids", []) for row in aerial.semantics["regions"]}
+        aerial.semantics["regions"] = [
+            {**deepcopy(row), "entrance_node_ids": deepcopy(entrances.get(row["id"], []))}
+            for row in semantics["regions"]]
+        save_draft(destination / "topology-aerial.json", aerial)
         write_json(destination / "semantic-footprints.geojson", {"type": "FeatureCollection", "features": features})
         write_json(destination / "semantic-footprints.json", {
             "schema": "eai.semantic_footprints", "version": 1, "scene_id": export_doc.scene_key,
@@ -619,8 +746,9 @@ class MapProject:
             "semantics": semantics, "robot_validated": False,
             "visual_review": self.manifest.get("provenance", {}).get("semantic-footprints.json", {}).get("visual_review", {})})
         files = {path.name: sha256(path) for path in sorted(destination.iterdir()) if path.is_file()}
-        write_json(destination / "manifest.json", {"schema": "eai.semantic_map.revision", "version": 1,
+        write_json(destination / "manifest.json", {"schema": "eai.semantic_map.revision", "version": 2,
                    "revision": revision_id, "scene_key": export_doc.scene_key, "levels": level_info,
+                   "navigation_products": {"ground": "topology.json", "aerial": "topology-aerial.json"},
                    "files": files, "robot_validated": False})
         for path in destination.iterdir():
             with path.open("rb") as stream:
@@ -630,11 +758,11 @@ class MapProject:
             os.fsync(fd)
         finally:
             os.close(fd)
-        return export_doc
+        return {"ground": export_doc, "aerial": aerial}
 
     def save(self, *, revision=None):
         self._expect(revision)
-        derived = self._check(self.document)
+        derived = self._check_all(self.documents)
         with (self.root / ".write.lock").open("a") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
             manifest_path = self.root / "project.json"
@@ -646,14 +774,16 @@ class MapProject:
                     raise ValueError("base geometry changed outside tool")
             revision_id = uuid.uuid4().hex
             relative = f"revisions/{revision_id}"
-            export_doc = self._export(self.root / relative, revision_id, derived)
-            manifest = {**self.manifest, "current_revision": relative}
+            exports = self._export(self.root / relative, revision_id, derived)
+            manifest = {**self.manifest, "version": 2, "current_revision": relative,
+                        "navigation_products": {"ground": "topology.json", "aerial": "topology-aerial.json"}}
             write_json(manifest_path, manifest)
             self.manifest = manifest
             self.saved_revision = relative
             self._manifest_digest = sha256(manifest_path)
-            self.document = export_doc
-            self._saved_document = export_doc.to_dict()
+            self.documents = exports
+            self.document = exports["ground"]
+            self._saved_document = self._snapshot()
             self._derived = derived
             self.revision += 1
         return self.root / relative

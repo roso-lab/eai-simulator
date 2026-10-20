@@ -28,6 +28,9 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
     snapshot_cache = {"key": None, "value": None}
     isaac_sequences = {}
     scene_generation = 0
+    context_generation = 0
+    editor = {"active_domain": "ground", "editor_tool": "add-node",
+              "active_level": project.document.levels[0]["id"] if project.document.levels else None}
     runtime = {"state": "loading" if isaac_linked else "disabled", "error": None,
                "scene_key": project.document.scene_key, **scene_metadata(project.manifest)}
     if catalog is not None:
@@ -71,13 +74,15 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
             # Every edit/undo/redo replaces the document and bumps revision;
             # /api/open swaps the project and bumps scene_generation, so this
             # key misses exactly when snapshot content actually moved.
-            cache_key = (id(project.document), project.revision, scene_generation)
+            document = project.document_for(editor["active_domain"])
+            cache_key = (id(document), project.revision, scene_generation, context_generation)
             if snapshot_cache["key"] != cache_key:
                 snapshot_cache["key"] = cache_key
-                snapshot_cache["value"] = compact_document_snapshot(project.document, project.revision)
+                snapshot_cache["value"] = compact_document_snapshot(document, project.revision)
             return {"scene_key": project.document.scene_key, "source_usd": source,
                     "source_path": scene_metadata(project.manifest)["source_path"],
                     "scene_generation": scene_generation, "runtime": dict(runtime),
+                    "context_generation": context_generation, "revision": project.revision, **editor,
                     "levels": project.state().get("levels", []), "csrf_token": token,
                     "web_selection": web_selection["selection"],
                     "document_snapshot": snapshot_cache["value"]}
@@ -110,8 +115,28 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
             return origin is None or origin in {"http://"+host for host in allowed}
 
         def state(self):
-            return {**project.state(), "csrf_token": token, "isaac_runtime": dict(runtime),
+            return {**project.state(editor["active_domain"]), "csrf_token": token, "isaac_runtime": dict(runtime),
+                    "scene_generation": scene_generation, "context_generation": context_generation, **editor,
+                    "web_selection": web_selection["selection"],
                     "source_path": scene_metadata(project.manifest)["source_path"]}
+
+        def check_context(self, body):
+            # Legacy callers without a context remain bound to the ground graph.
+            # New clients always carry the complete identity captured at gesture start.
+            for field, expected in (("scene_key", project.document.scene_key),
+                                    ("scene_generation", scene_generation),
+                                    ("context_generation", context_generation)):
+                if field in body and (body[field] != expected or type(body[field]) is not type(expected)):
+                    raise ValueError(f"stale editor {field}; refresh context before editing")
+            if "domain" in body and body["domain"] != editor["active_domain"]:
+                raise ValueError("stale editor domain; refresh context before editing")
+
+        def pop_context(self, body):
+            self.check_context(body)
+            domain = body.pop("domain", "ground")
+            for field in ("scene_key", "scene_generation", "context_generation"):
+                body.pop(field, None)
+            return domain
 
         def isaac_context(self):
             return current_context()
@@ -123,6 +148,9 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
             url = urlsplit(self.path)
             try:
                 if url.path == "/api/state":
+                    with lock:
+                        self.reply(200, self.state())
+                elif url.path == "/api/editor/context":
                     with lock:
                         self.reply(200, self.state())
                 elif url.path == "/api/isaac/context":
@@ -154,7 +182,7 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                 self.reply(400, {"error": str(exc)})
 
         def do_POST(self):
-            nonlocal project, token, isaac_selection, scene_generation
+            nonlocal project, token, isaac_selection, scene_generation, context_generation
             if not self.local_request():
                 self.reply(403, {"error": "local same-origin access required"})
                 return
@@ -169,7 +197,35 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                         self.reply(403, {"error": "editor token required"})
                         return
                     route = urlsplit(self.path).path
+                    if route == "/api/editor/context":
+                        # This endpoint has no legacy clients. Context switches
+                        # must compare the identity of the state being replaced.
+                        for field, expected_type in (("revision", int), ("scene_key", str),
+                                                     ("scene_generation", int), ("context_generation", int)):
+                            if type(body.get(field)) is not expected_type:
+                                raise ValueError(f"expected editor {field} is required")
+                        # domain is the requested destination on this endpoint.
+                        context_body = {key: value for key, value in body.items() if key != "domain"}
+                        self.check_context(context_body)
+                        project._expect(body.get("revision"))
+                        domain = body.get("active_domain", body.get("domain", editor["active_domain"]))
+                        project.document_for(domain)
+                        tool = body.get("tool", body.get("editor_tool", editor["editor_tool"]))
+                        if tool not in {"add-node", "add-edge", "add-region"}:
+                            raise ValueError("editor tool must be add-node, add-edge or add-region")
+                        level = body.get("level_id", body.get("active_level", editor["active_level"]))
+                        if level not in {row["id"] for row in project.document.levels} and not (level is None and not project.document.levels):
+                            raise ValueError("unknown editor level")
+                        changed = domain != editor["active_domain"] or level != editor["active_level"] or tool != editor["editor_tool"]
+                        editor.update(active_domain=domain, editor_tool=tool, active_level=level)
+                        if changed:
+                            context_generation += 1
+                            web_selection["selection"] = None
+                            isaac_selection["selection"] = None
+                        self.reply(200, self.state())
+                        return
                     if route == "/api/isaac/selection":
+                        self.check_context(body)
                         scene_key = body.get("scene_key")
                         if scene_key != project.document.scene_key:
                             raise ValueError("Isaac selection scene_key does not match current project")
@@ -242,28 +298,30 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                         self.reply(200, {"selection": selection})
                         return
                     elif route == "/api/web/selection":
+                        self.check_context(body)
                         # Ephemeral browser selection: no revision gate, the
                         # scene switch below rotates the token instead.
                         selection = body.get("selection")
                         if selection is not None:
-                            selection = normalize_web_selection(project.document, selection)
+                            selection = normalize_web_selection(project.document_for(editor["active_domain"]), selection)
                         web_selection["selection"] = selection
                         self.reply(200, {"selection": selection})
                         return
+                    domain = self.pop_context(body)
                     if type(body.get("revision")) is not int:
                         raise ValueError("expected editor revision is required")
                     if route == "/api/edit":
                         operation = body.pop("operation")
-                        project.edit(operation, **body)
-                        _drop_stale_web_selection(project.document, web_selection)
+                        project.edit(operation, domain=domain, **body)
+                        _drop_stale_web_selection(project.document_for(editor["active_domain"]), web_selection)
                     elif route == "/api/save":
                         project.save(**body)
                     elif route == "/api/undo":
                         project.undo(**body)
-                        _drop_stale_web_selection(project.document, web_selection)
+                        _drop_stale_web_selection(project.document_for(editor["active_domain"]), web_selection)
                     elif route == "/api/redo":
                         project.redo(**body)
-                        _drop_stale_web_selection(project.document, web_selection)
+                        _drop_stale_web_selection(project.document_for(editor["active_domain"]), web_selection)
                     elif route == "/api/open":
                         project._expect(body["revision"])
                         if project.dirty and body.get("discard_unsaved") is not True:
@@ -277,6 +335,9 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                         isaac_selection["selection"] = None
                         web_selection["selection"] = None
                         scene_generation += 1
+                        context_generation += 1
+                        editor.update(active_domain="ground", editor_tool="add-node",
+                                      active_level=project.document.levels[0]["id"] if project.document.levels else None)
                         runtime.update(state="loading" if isaac_linked else "disabled", error=None,
                                        scene_key=project.document.scene_key, **scene_metadata(project.manifest))
                     else:

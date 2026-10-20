@@ -8,6 +8,111 @@ remain host responsibilities. No formal scene/task contract is introduced.
 The later version 2 multilevel implementation and Go2 stair validation are
 recorded separately in [MULTILEVEL_VALIDATION.md](MULTILEVEL_VALIDATION.md).
 
+## Linked dual-graph editor — 2026-10-20
+
+The linked entry now has ground/aerial documents, shared regions and per-node
+2.5D/3D editing modes. The tests below use the current `node_route` interface.
+Several older tests still import the removed `ground_navigation` or `provider`
+modules; those historical suites do not collect against the current API.
+
+From the repository root, use Python with numpy, Pillow, shapely and pytest:
+
+```bash
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q \
+  tools/validation/test_topology_editing_project.py \
+  tools/validation/test_topology_domain_navigation.py \
+  tools/validation/test_topology_editing_clients.py \
+  tools/validation/test_isaac_bridge.py \
+  tools/validation/test_web_isaac_overlay.py \
+  tools/validation/test_web_isaac_overlay_link.py \
+  tools/validation/test_topology_authoring.py \
+  tools/validation/test_topology_authoring_ui.py \
+  tools/validation/test_semantic_topology_authoring.py \
+  tools/validation/test_topology_multilevel_authoring.py \
+  tools/validation/test_topology_pose_ui.py \
+  tools/validation/test_topology_surfaces.py \
+  tools/validation/test_topology_route_contract.py
+node --check tools/topology_authoring/web/app.js
+git diff --check
+```
+
+The real USD overlay tests require `pxr`; they skip when it is unavailable.
+Use an Isaac/OpenUSD Python with the same dependencies to run them, and run
+`tools/validation/test_topology_surfaces.py` in that environment as well.
+
+The final focused groups ran in a temporary Python 3.12 environment inheriting
+the installed Isaac/OpenUSD runtime: **204 passed, 2 skipped** (138 backend,
+authoring and navigation; 36 client/bridge; 30 overlay/session). Both skips are
+historical navigation checks marked for API migration. JavaScript syntax,
+`git diff --check` and read-only launcher bindings for all 30 scenes passed.
+
+The project tests cover isolated graph edits, mixed node modes, unchanged route
+digests for mode-only edits, shared region geometry and per-graph entrances,
+closed-edge insertion, invalid polygons, complete undo/redo, migration and
+failed-save preservation. Region property patches preserve aliases, custom
+properties and references. Native lifecycle tests cover graph/floor changes at
+the same revision and invalidation of input on disconnect/reconnect. Real USD
+checks compare world transforms for metre/centimetre stages and verify that
+overlay rebuilds and previews leave the authored layer content unchanged.
+
+Actual Chrome/CDP canvas interactions covered node creation/properties/drag,
+Esc, region closure/insertion/drag/invalid rollback, edge preview and direction,
+shared regions with isolated graphs, conflict/manual retry, mode and selection
+sync, scene switching and reconnection. A response-loss check confirmed that
+an already-committed create cannot be repeated through the uncertain-draft UI.
+Static screenshots were sent as real image attachments to GLM-5.3-Flash/max;
+the final layout shows all three tools, both node-mode controls and the legend.
+These browser checks do not establish native Isaac mouse delivery.
+
+A strict Chrome↔Kit run used a temporary metre/Z-up stage and local HTTP
+service. Chrome changed the same aerial node to `2.5d`, Z=2.5 and a new label;
+actual Kit mouse drag then changed its XY, retained Z=2.5 and left the node
+count unchanged. The webpage inspector displayed the returned XY 203 ms after
+the test detected the authoritative revision. This is one observed local run,
+not a bound on every update. A preceding missed-node attempt is retained as
+failed evidence and is not counted as successful synchronization.
+
+Native acceptance ran on Isaac Sim 6.1 / RTX 5080, using a temporary metre/Z-up
+USD, temporary project, actual Kit viewport gesture registration and local HTTP
+service. `omni.kit.ui_test` delivered real mouse and keyboard input. The run
+observed:
+
+| Operation | Observed result |
+| --- | --- |
+| Aerial 3D height handle | Real Z-axis hit and drag changed Z from 2 to 2.3571495; XY stayed fixed |
+| Ground edge | Real endpoint clicks retained an uncommitted stairs preview; confirmation submitted one edge, direction changed, deletion removed it |
+| Region creation and insertion | Real clicks closed at the first point; the native `Add point here` menu hit the last-to-first edge (index 3) and inserted a fifth vertex |
+| Region vertex drag | Real handle drag committed once; an intersecting drag returned 400 and preserved revision and valid polygon |
+| Esc and camera | Keyboard Esc cleared drafts without an edit; Alt-left, right and middle input changed the camera and caused no topology input or revision |
+| Layer isolation | Preview frames and final overlays lived in the session layer; authored layer text and USD file SHA-256 stayed identical |
+
+Edge confirmation, direction and deletion in this matrix invoked the native
+panel's controller callbacks; viewport picking, Z/vertex dragging, closure,
+boundary-menu selection, Esc and camera navigation used actual input delivery.
+The separate Chrome↔Kit run above covers real 2.5D dragging and return to the
+webpage. These are editor and synchronization checks on temporary fixtures;
+they do not add a physical navigation or obstacle-avoidance algorithm.
+
+Native testing exposed Kit ending a non-dragging `DragGesture` click as
+`CANCELED`. The wrapper now cancels only active transform drags on that path,
+preserving edge endpoints, boundary candidates and submitted-edit conflict
+evidence. Explicit Esc still cancels the draft. The final client regression
+covers this distinction.
+
+GLM-5.3-Flash/max also inspected actual full-window screenshots for selected
+3D, 2.5D and region-menu states. The complete native panel, visible scene
+geometry, corresponding axis handles and insertion menu passed static layout
+review. Kit still displayed transient attribute/primvar status warnings; the
+malformed single-point curve warning was fixed and absent in the final matrix.
+The renderer tests and native layer/file comparisons remained green.
+
+Local evidence for this run is retained under
+`/home/ljy/Documents/Codex/agent-team/workspaces/topology-editing-20261020/artifacts/`:
+`root/` contains the final pytest logs, Chrome scripts/results and closing-edge
+native matrix; `team_engineer/` contains the native harnesses, synchronization
+result and full-window screenshots. These diagnostics use temporary projects
+and do not modify scene-local map products.
+
 ## Repeatable lightweight checks
 
 From the repository root, using the prepared `env_isaaclab` Python:

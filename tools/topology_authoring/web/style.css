@@ -138,6 +138,18 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 /* ---------- floor list ---------- */
 
 .floor-list { display: grid; gap: 8px; }
+.domain-toggle {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 12px;
+  padding: 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--field);
+}
+.domain-toggle button {
+  min-height: 34px; border: 1px solid transparent; border-radius: 7px;
+  color: var(--muted); background: transparent; font-weight: 600;
+}
+.domain-toggle button:hover { color: var(--text); background: var(--panel-3); }
+.domain-toggle button.active {
+  color: var(--accent-bright); border-color: var(--accent-border); background: var(--accent-soft);
+}
 .floor-item {
   width: 100%; display: grid; grid-template-columns: auto 1fr auto; gap: 2px 10px; align-items: center;
   text-align: left; padding: 10px 12px; color: var(--text); border: 1px solid var(--line);
@@ -217,7 +229,7 @@ input[type="checkbox"] { width: auto; }
 
 /* ---------- map workspace ---------- */
 
-.map-workspace { min-width: 0; position: relative; display: flex; flex-direction: column; background: var(--bg-map); }
+.map-workspace { min-width: 0; min-height: 0; overflow: hidden; position: relative; display: flex; flex-direction: column; background: var(--bg-map); }
 .isaac-panel { margin: 8px 12px 0; padding: 10px 12px; border: 1px solid rgba(178,128,255,.42); border-radius: 8px; background: rgba(67,37,103,.22); color: #eadfff; }
 .isaac-heading { display:flex; justify-content:space-between; gap:12px; font-size: 12px; }
 .web-sync-status { font-size: 11px; }
@@ -235,6 +247,9 @@ input[type="checkbox"] { width: auto; }
 .tool:hover { background: var(--panel-3); }
 .tool.active { color: var(--accent-bright); border-color: var(--accent-border); background: var(--accent-soft); font-weight: 700; }
 .tool-spacer { flex: 1; }
+.new-node-mode { display: flex; align-items: center; gap: 6px; font-size: 12px; white-space: nowrap; }
+.new-node-mode select { width: 80px; padding: 4px; }
+#pendingDraftBanner .button { font-size: 12px; margin-left: 0; }
 .mode-hint {
   max-width: 270px; padding: 5px 11px; color: #b9c8d8; font-size: 12px; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap; border-left: 3px solid var(--accent); border-radius: 4px;

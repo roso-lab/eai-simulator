@@ -121,23 +121,30 @@ def _encoded_size(value):
 def compact_document_snapshot(document, revision):
     """Project a TopologyDocument onto the geometry fields the overlay draws.
 
-    Strips profiles/properties/aliases/kind and similar heavy fields; only the
-    drawing payload and stable ids survive.  Pathological documents are capped
-    (semantics first, then edges; nodes always stay) and flagged truncated.
+    Strips profiles/properties/aliases and similar heavy fields; only drawing
+    data, editable summary fields, and stable ids survive.  Pathological
+    documents are capped (semantics first, then edges; nodes always stay) and
+    flagged truncated.
     """
     nodes = []
     for row in document.nodes:
         node = {"id": row.get("id"), "position_xyz": _copy_point(row.get("position_xyz")),
-                "level_id": row.get("level_id"), "label": row.get("label", "")}
+                "level_id": row.get("level_id"), "label": row.get("label", ""),
+                "kind": row.get("kind", "custom")}
+        if row.get("edit_mode") is not None:
+            node["edit_mode"] = row["edit_mode"]
         heading = row.get("heading_rad")
         if heading is not None:
             node["heading_rad"] = heading
         nodes.append(node)
-    edges = [{"id": row.get("id"),
+    edges = [{"id": row.get("id"), "from": row.get("from"), "to": row.get("to"),
               "polyline_xyz": [_copy_point(point) for point in row.get("polyline_xyz") or []],
-              "directed": bool(row.get("directed", False))} for row in document.edges]
+              "directed": bool(row.get("directed", False)),
+              "traversal_mode": row.get("traversal_mode", "walk")}
+             for row in document.edges]
     source = document.semantics or {}
-    regions = [{"id": row.get("id"),
+    regions = [{"id": row.get("id"), "label": row.get("label", ""),
+                "kind": row.get("kind", "room"),
                 "polygon_xyz": [_copy_point(point) for point in row.get("polygon_xyz") or []],
                 "height_m": row.get("height_m"), "level_id": row.get("level_id")}
                for row in source.get("regions") or []]
@@ -196,7 +203,7 @@ def _heading_arrow_spec(path, origin, heading, length, scale, color, category, k
     return _arrow_spec(path, origin, end, scale, color, category, key)
 
 
-def build_overlay_specs(snapshot):
+def build_overlay_specs(snapshot, *, active_level=None):
     """Plan overlay prims as plain data (floats/lists/strs only, no Kit).
 
     Deterministic for a given snapshot: paths follow viewport.py's naming
@@ -214,8 +221,14 @@ def build_overlay_specs(snapshot):
     heading_length = .18 if compact else .5
     prims = []
     route_members = {}
+    visible_node_ids = {
+        row.get("id") for row in snapshot.get("nodes") or []
+        if active_level is None or row.get("level_id") in (None, active_level)
+    }
 
     for index, row in enumerate(snapshot.get("nodes") or []):
+        if row.get("id") not in visible_node_ids:
+            continue
         position = _finite_point(row.get("position_xyz"))
         if position is None:
             continue
@@ -231,6 +244,10 @@ def build_overlay_specs(snapshot):
                 heading_length, arrow_scale, NODE_COLOR, "node", identifier))
 
     for index, row in enumerate(snapshot.get("edges") or []):
+        if (active_level is not None
+                and (row.get("from") not in visible_node_ids
+                     and row.get("to") not in visible_node_ids)):
+            continue
         points = [_finite_point(point) for point in row.get("polyline_xyz") or []]
         if len(points) < 2 or any(point is None for point in points):
             continue
@@ -250,6 +267,8 @@ def build_overlay_specs(snapshot):
 
     semantics = snapshot.get("semantics") or {}
     for index, row in enumerate(semantics.get("regions") or []):
+        if active_level is not None and row.get("level_id") not in (None, active_level):
+            continue
         polygon = [_finite_point(point) for point in row.get("polygon_xyz") or []]
         height = _finite_scalar(row.get("height_m"))
         if height is None or height <= 0 or len(polygon) < 3 or any(
@@ -270,6 +289,8 @@ def build_overlay_specs(snapshot):
     for collection, category, color in (("entities", "entity", ENTITY_COLOR),
                                         ("interaction_poses", "pose", POSE_COLOR)):
         for index, row in enumerate(semantics.get(collection) or []):
+            if active_level is not None and row.get("level_id") not in (None, active_level):
+                continue
             position = _finite_point(row.get("position_xyz"))
             if position is None:
                 continue
@@ -305,21 +326,31 @@ class WebOverlayRenderer:
         self._by_key = {}
         self._route_members = {}
         self._highlighted = frozenset()
+        self._editor_state_token = None
+        self._preview_hidden = set()
 
     def rebuild(self, specs):
-        from pxr import Usd, UsdGeom
+        from pxr import Gf, Usd, UsdGeom
         stage = self.stage
+        meters_per_unit = float(UsdGeom.GetStageMetersPerUnit(stage))
+        if not math.isfinite(meters_per_unit) or meters_per_unit <= 0:
+            raise ValueError("USD metersPerUnit must be positive and finite")
         with Usd.EditContext(stage, stage.GetSessionLayer()):
             root = stage.GetPrimAtPath(WEB_OVERLAY_ROOT)
             if root.IsValid():
                 stage.RemovePrim(WEB_OVERLAY_ROOT)
-            UsdGeom.Xform.Define(stage, WEB_OVERLAY_ROOT)
+            root_xform = UsdGeom.Xform.Define(stage, WEB_OVERLAY_ROOT)
+            if meters_per_unit != 1.0:
+                factor = 1.0 / meters_per_unit
+                root_xform.AddScaleOp().Set(Gf.Vec3d(factor, factor, factor))
             self._by_key = {}
             for spec in specs.get("prims", ()):
                 self._define(spec)
         self._route_members = specs.get("route_members") or {}
         # Fresh prims carry base colors only; the caller replays highlight.
         self._highlighted = frozenset()
+        self._editor_state_token = None
+        self._preview_hidden = set()
 
     def _define(self, spec):
         from pxr import Gf, UsdGeom
@@ -334,6 +365,9 @@ class WebOverlayRenderer:
             schema.CreateCurveVertexCountsAttr().Set([len(spec["points"])])
             schema.CreatePointsAttr().Set([Gf.Vec3f(*point) for point in spec["points"]])
             schema.CreateWidthsAttr().Set([float(spec["width"])])
+            set_interpolation = getattr(schema, "SetWidthsInterpolation", None)
+            if callable(set_interpolation):
+                set_interpolation(getattr(UsdGeom.Tokens, "constant", "constant"))
         elif spec["shape"] == "cone":
             schema = UsdGeom.Cone.Define(self.stage, path)
             schema.CreateRadiusAttr().Set(float(spec["radius"]))
@@ -396,6 +430,146 @@ class WebOverlayRenderer:
             return frozenset({(category, identifier)}) if category else frozenset()
         return frozenset()
 
+    def editor_state(self, *, snapshot, domain, selection=None, preview=None,
+                     region_draft=()):
+        """Draw transient handles/gizmo in the session layer only."""
+        if self.stage is None:
+            return
+        token = json.dumps(
+            {"snapshot_revision": snapshot.get("revision"), "domain": domain,
+             "selection": selection, "preview": preview,
+             "region_draft": list(region_draft)},
+            sort_keys=True, separators=(",", ":"), allow_nan=False)
+        if token == getattr(self, "_editor_state_token", None):
+            return
+        self._editor_state_token = token
+        from pxr import Usd, UsdGeom
+        root_path = f"{WEB_OVERLAY_ROOT}/Editor"
+        stage = self.stage
+        with Usd.EditContext(stage, stage.GetSessionLayer()):
+            root = stage.GetPrimAtPath(root_path)
+            if root.IsValid():
+                stage.RemovePrim(root_path)
+            UsdGeom.Xform.Define(stage, root_path)
+            nodes = {row.get("id"): row for row in snapshot.get("nodes") or []}
+            regions = {row.get("id"): row for row in
+                       (snapshot.get("semantics") or {}).get("regions") or []}
+            preview_geometry = {"version": snapshot.get("version", 2),
+                                "nodes": [], "edges": [], "semantics": {"regions": []}}
+            hidden_keys = set()
+            if preview and preview.get("kind") == "node":
+                identifier = preview.get("id")
+                hidden_keys.add(("node", identifier))
+                for edge in snapshot.get("edges") or []:
+                    if identifier not in (edge.get("from"), edge.get("to")):
+                        continue
+                    points = [list(point) for point in edge.get("polyline_xyz") or []]
+                    if len(points) < 2:
+                        continue
+                    if edge.get("from") == identifier:
+                        points[0] = list(preview["position_xyz"])
+                    if edge.get("to") == identifier:
+                        points[-1] = list(preview["position_xyz"])
+                    preview_geometry["edges"].append({**edge, "polyline_xyz": points})
+                    hidden_keys.add(("edge", edge.get("id")))
+            elif preview and preview.get("kind") == "region-vertex":
+                region = regions.get(preview.get("id"))
+                if region and 0 <= preview.get("index", -1) < len(region["polygon_xyz"]):
+                    points = [list(point) for point in region["polygon_xyz"]]
+                    points[preview["index"]] = list(preview["position_xyz"])
+                    preview_geometry["semantics"]["regions"].append({
+                        **region, "polygon_xyz": points})
+                    hidden_keys.add(("region", region.get("id")))
+            self._preview_visibility(hidden_keys)
+            for spec in build_overlay_specs(preview_geometry)["prims"]:
+                self._define({**spec,
+                              "path": spec["path"].replace(
+                                  WEB_OVERLAY_ROOT, f"{root_path}/Geometry", 1),
+                              "color": list(HIGHLIGHT_COLOR),
+                              "category": None, "key": None})
+            if preview and preview.get("kind") == "edge":
+                points = [_finite_point(point) for point in preview.get("points") or []]
+                if len(points) >= 2 and all(point is not None for point in points):
+                    self._define({
+                        "path": f"{root_path}/EdgeDraft", "shape": "polyline",
+                        "points": points, "width": .03,
+                        "color": list(HIGHLIGHT_COLOR), "category": None, "key": None,
+                    })
+                    if preview.get("directed"):
+                        arrow = _arrow_spec(
+                            f"{root_path}/EdgeDraftArrow", points[-2], points[-1],
+                            .16, HIGHLIGHT_COLOR, None, None)
+                        if arrow is not None:
+                            self._define(arrow)
+            if selection and selection.get("kind") == "node":
+                node = nodes.get(selection.get("id"))
+                if node is not None:
+                    position = list(node["position_xyz"])
+                    if preview and preview.get("kind") == "node" and preview.get("id") == node.get("id"):
+                        position = list(preview["position_xyz"])
+                    self._define({
+                        "path": f"{root_path}/SelectedNode", "shape": "sphere",
+                        "position": position, "radius": .085,
+                        "color": list(HIGHLIGHT_COLOR), "category": None, "key": None,
+                    })
+                    if domain == "aerial" and node.get("edit_mode", "3d") == "3d":
+                        for axis, delta, color in (
+                            ("X", (.45, 0, 0), (1.0, .15, .12)),
+                            ("Y", (0, .45, 0), (.18, 1.0, .25)),
+                            ("Z", (0, 0, .45), (.2, .5, 1.0)),
+                        ):
+                            endpoint = [position[index] + delta[index] for index in range(3)]
+                            self._define({
+                                "path": f"{root_path}/Gizmo/{axis}", "shape": "polyline",
+                                "points": [position, endpoint], "width": .018,
+                                "color": list(color), "category": None, "key": None,
+                            })
+                            cone = _arrow_spec(
+                                f"{root_path}/Gizmo/{axis}Tip", position, endpoint,
+                                .12, color, None, None)
+                            if cone is not None:
+                                self._define(cone)
+            if (selection and selection.get("kind") == "semantic"
+                    and selection.get("collection") == "regions"):
+                region = regions.get(selection.get("id"))
+                if region is not None:
+                    points = [list(point) for point in region.get("polygon_xyz") or []]
+                    if (preview and preview.get("kind") == "region-vertex"
+                            and preview.get("id") == region.get("id")
+                            and 0 <= preview.get("index", -1) < len(points)):
+                        points[preview["index"]] = list(preview["position_xyz"])
+                    for index, point in enumerate(points):
+                        self._define({
+                            "path": f"{root_path}/RegionHandles/V{index:05d}",
+                            "shape": "sphere", "position": point, "radius": .055,
+                            "color": list(HIGHLIGHT_COLOR), "category": None, "key": None,
+                        })
+            draft = [list(point) for point in region_draft]
+            if len(draft) == 1:
+                self._define({
+                    "path": f"{root_path}/RegionDraft", "shape": "sphere",
+                    "position": draft[0], "radius": .055,
+                    "color": list(REGION_COLOR), "category": None, "key": None,
+                })
+            elif len(draft) >= 2:
+                self._define({
+                    "path": f"{root_path}/RegionDraft", "shape": "polyline",
+                    "points": draft, "width": .025,
+                    "color": list(REGION_COLOR), "category": None, "key": None,
+                })
+
+    def _preview_visibility(self, hidden_keys):
+        """Replace only the previewed overlay geometry and restore it on cancel."""
+        from pxr import UsdGeom
+        for key in self._preview_hidden | hidden_keys:
+            visibility = (UsdGeom.Tokens.invisible if key in hidden_keys
+                          else UsdGeom.Tokens.inherited)
+            for path, _color in self._by_key.get(key, ()):
+                prim = self.stage.GetPrimAtPath(path)
+                if prim.IsValid():
+                    UsdGeom.Imageable(prim).CreateVisibilityAttr().Set(visibility)
+        self._preview_hidden = hidden_keys
+
     def destroy(self):
         if self.stage is None:
             return
@@ -408,6 +582,8 @@ class WebOverlayRenderer:
         self._by_key = {}
         self._route_members = {}
         self._highlighted = frozenset()
+        self._editor_state_token = None
+        self._preview_hidden = set()
 
 
 __all__ = ["WEB_OVERLAY_ROOT", "HIGHLIGHT_COLOR", "WebOverlayRenderer",

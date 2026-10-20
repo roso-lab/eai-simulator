@@ -14,7 +14,7 @@ from algorithm.skills.navigation import (
     NavigationResponse, NavigationTarget, normalize_navigation_request,
 )
 from algorithm.skills.navigation.topology import (
-    FrozenNavigationTopology, route_graph_digest, topology_fields,
+    FrozenNavigationTopology, route_graph_digest, topology_fields, validate_topology,
 )
 from task.resources import ResourceLease, ResourceManager, ResourceQuarantinedError
 from .navigation_backends import NavigationControllerAdapter
@@ -160,6 +160,9 @@ class NavigationExecutor:
         adapter = self.adapter_for(request.robot_id)
         adapter.validate(request)
         topology = self.topology_for(request.robot_id)
+        errors = validate_topology(self._document(topology), metric=adapter.profile.metric)
+        if errors:
+            raise SkillContractError("invalid navigation topology: " + "; ".join(errors))
         self._source_validate(topology)
         digest = route_graph_digest(self._document(topology))
         if request.parameters.get("route_graph_digest", digest) != digest:

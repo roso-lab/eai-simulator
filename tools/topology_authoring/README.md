@@ -7,15 +7,17 @@ python tools/topology_authoring/launch.py --catalog /path/to/map-catalog --scene
 ```
 
 Select the USD category, then scene name in the webpage to open the exact root
-USD and reconnect selection automatically. Camera Light is enabled. The local
+USD and reconnect the editor automatically. Camera Light is enabled.
 Launching without arguments discovers the scene-local maps below `usd/scene/`.
 `--check` validates all bindings without Kit. No Script Editor paste is needed.
 Standalone `map_server` below does not control Isaac scene loading.
 
-The linked Isaac viewport starts in **Surface Point Mode**: left-click an
-observed surface to send its world-space point to the browser. Use **Asset
-Selection Mode** when selecting a prim instead. Right-click viewport navigation
-continues to work in either mode.
+The **Isaac Topology Editor** window provides Point, Edge and Region tools.
+Left-click edits; Alt+left, middle and right mouse navigation remain available.
+New nodes start on the current floor plane; edit Z in properties afterward.
+Selected aerial 3D nodes expose XYZ handles, while 2.5D nodes drag on their
+current height plane. The legacy surface-selection bridge remains available
+for script integrations and should not be enabled alongside native dragging.
 
 For a single editable project containing occupancy, semantic obstacle labels and
 topology, use `python -m tools.topology_authoring.map_project` and the local browser
@@ -68,7 +70,8 @@ only after validation.
 
 Products and the ground-navigation skill share the same executable contract:
 nonempty unique IDs, finite numeric XYZ (no booleans or numeric strings), valid
-directed endpoints, and nonzero XY edge length. Coordinates must be
+directed endpoints and nonzero XY length for ground edges. Aerial edges may be
+vertical. Coordinates must be
 `scene_world`, metres (`meters_per_unit=1`), and Z-up. Scene-bound loading checks
 the scene key, current source digests, and every semantic binding, including
 when the scene's target inventory is empty. An empty draft may be saved/loaded;
@@ -86,7 +89,7 @@ geometry, semantic targets or asset digests and cannot certify a real scene.
 For experiment integration, the caller freezes `product_digest(document)` with
 the scene/semantic inputs and adapter version in its task/asset identity, then
 calls `load_product(path, adapter, source, expected_digest=frozen_digest)` before
-injecting the document into `GroundNavigationExecutor`. The full product digest
+injecting the document into `NavigationExecutor`. The full product digest
 includes editing metadata. The skill separately records an order-independent
 `route_graph_digest` of nodes, bindings and directed edges in private route
 evidence; this does not replace source identity or a physical evaluator. Hosts
@@ -98,16 +101,30 @@ adapters should construct a replacement stage rather than mutate the currently
 attached stage in place. Headless validation errors return a nonzero exit code.
 Map validation and navigation arrival are not physical task-success verdicts.
 
-Ground navigation follows only nodes and edge direction. Version 1 uses XY
-distance; version 2 uses XYZ length and declared traversal capabilities, with
-measured support height for progress. It ignores edge polylines and profile clearance. Express
+Ground navigation follows nodes and edge direction using XY distance; aerial
+navigation uses XYZ distance. The topology domain must match the profile at
+admission and route selection. It ignores edge polylines and profile clearance. Express
 each bend with an intermediate node and connect the nodes in order; changing
 an edge's polyline alone does not change the robot's path. Authors guarantee
 direct passage between adjacent nodes and choose spacing manually. The runtime
 imposes no automatic spacing limit and performs no obstacle avoidance.
-The host must also guarantee direct access from the robot's initial position
-to the nearest start node; that existing start/replan connection is not an
-authored edge and is not certified by product validation.
+The measured start/replan pose must already be within the nearest node's
+arrival radius; otherwise routing returns `origin_not_reached`. It does not
+automatically drive to the nearest node or edge.
+
+The linked web and Isaac editor has three tools: points, edges and regions.
+Ground and aerial graphs share regions and base maps, with independent nodes
+and edges. Each aerial node has an optional `edit_mode` (`2.5d` or `3d`, default
+`3d`). A 2.5D drag preserves that node's Z; explicit height input remains
+available. A 3D node also exposes an Isaac height handle. Both modes use XYZ
+for navigation and may be connected to each other.
+
+Select a closed region to drag its vertices or click a boundary and choose
+Add point. Edits preserve its horizontal base plane. Drags preview locally and
+commit once on release, sharing one undo history and revision stream between
+both clients. Revisions export `topology.json` (ground) and
+`topology-aerial.json`, with both paths recorded in the manifest. Old projects
+upgrade on save; their previous revisions and legacy semantic records remain.
 
 See [validation commands, native procedure and limits](VALIDATION.md) for the
 authoring-to-execution checks.

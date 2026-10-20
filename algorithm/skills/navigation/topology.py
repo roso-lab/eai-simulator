@@ -198,7 +198,12 @@ def validate_topology(document: Any, *, metric: str | None = None) -> list[str]:
     try:
         if metric is not None and metric not in {"xy", "xyz"}:
             raise ValueError("topology metric must be xy or xyz")
-        return _validate_topology(document)
+        errors = _validate_topology(document)
+        if metric is not None:
+            expected = "aerial" if metric == "xyz" else "ground"
+            if topology_fields(document).get("domain", "ground") != expected:
+                errors.append(f"navigation domain does not match {metric} profile (expected {expected})")
+        return errors
     except (AttributeError, TypeError, ValueError):
         return ["topology product must be an object"]
 
@@ -260,6 +265,8 @@ def _validate_topology(document: Any) -> list[str]:
         if node_id in nodes:
             errors.append(f"duplicate/invalid node id: {node_id!r}")
         point = row.get("position_xyz")
+        if "edit_mode" in row and (domain != "aerial" or row["edit_mode"] not in ("2.5d", "3d")):
+            errors.append(f"invalid node edit_mode: {node_id}")
         if not finite_xyz(point):
             errors.append(f"invalid node position: {node_id}")
             continue
@@ -281,7 +288,7 @@ def _validate_topology(document: Any) -> list[str]:
         level_id = row.get("level_id")
         if level_id is not None and (not isinstance(level_id, str) or level_id not in levels):
             errors.append(f"unknown node level: {node_id}")
-        elif (level_id is not None and finite_number(point[2])
+        elif (data.get("domain", "ground") == "ground" and level_id is not None and finite_number(point[2])
               and abs(float(point[2]) - levels[level_id]) > LEVEL_HEIGHT_TOLERANCE_M):
             errors.append(f"node support height differs from declared level: {node_id}")
         if version == 2 and (not isinstance(row.get("label", ""), str)

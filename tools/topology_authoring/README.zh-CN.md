@@ -7,17 +7,28 @@ cd <repository-root>
 python tools/topology_authoring/launch.py
 ```
 
-本机默认打开 `http://127.0.0.1:8770/`，按 USD 三大分类 → 场景名选择，
-自动切换三维根场景并重新连接选点。无需粘贴 Script Editor 代码。
+默认打开 `http://127.0.0.1:8766/`，按 USD 三大分类 → 场景名选择，
+自动切换三维根场景并连接编辑器。无需粘贴 Script Editor 代码。
 配置、迁移参数和仅网页模式见 [统一地图工程工具](MAP_PROJECT.zh-CN.md)。
 
-联动入口默认启用 **Surface Point Mode**：在 Isaac 视口左键单击可观测表面，会将其
-世界坐标发送到浏览器。需要选择 prim 时切换到 **Asset Selection Mode**；两种模式下
-视口右键导航均保持可用。
+联动编辑界面提供“点、连线、绘制区域”三种工具，并可切换独立的地面图和空中图。
+两图共享区域和底图，节点与连线分别保存；切图不会移动或复制已有节点。
+空中节点属性中的 `2.5D` 使拖动只修改 XY、保留当前 Z，仍可手动输入高度；
+`3D` 允许使用 Isaac 的高度手柄修改 Z。每个节点独立保存模式，默认 `3D`；
+不同模式的节点可以连线，空中导航始终使用 XYZ 距离。
 
-二维障碍物语义标注、拓扑设点及同步保存请使用
+闭合区域选中后显示顶点手柄，拖动可修改轮廓；点击边并选择“在此加点”可插入顶点，
+包括首尾闭合边。区域保持水平底面和独立高度。拖动期间本端预览，松手后提交并同步，
+每次拖动或插点可一次撤销。网页和 Isaac 的编辑都通过同一服务端修订提交；冲突时
+保留待处理草稿并刷新，不自动覆盖另一端修改。旧物体、交互点和命名路线保留在数据中。
+
+Isaac 的 **Isaac Topology Editor** 面板提供相同三种工具。左键编辑，Alt+左键、
+中键和右键用于相机导航；新节点在当前楼层平面创建，随后可在属性中输入 Z。
+选择 3D 空中节点后可拖动 XYZ 手柄，选择 2.5D 节点后在其当前高度平面拖动。
+
+双图、区域编辑及同步保存请使用
 [统一地图工程工具](MAP_PROJECT.zh-CN.md)：支持导入已有场景地图、浏览器编辑、
-语义增删、交互点和同版本 JSON/GeoJSON/栅格/PNG 导出。下面的 `author`
+Python/CLI 语义编辑和同版本 JSON/GeoJSON/栅格/PNG 导出。下面的 `author`
 是已有 Isaac Sim 原生三维编辑器入口。
 
 工具通过 `--adapter module:Class` 接收场景。首次创建从空拓扑开始；用 `--draft /path/to/topology.json` 可重新打开已有地图继续编辑。工具不会自动读取道路、路口或道路中线生成节点和拓扑线。适配器只负责加载场景、语义目标、支持面投影和校验。使用 `--headless` 可在不启动 Isaac Sim 时检查适配器；语义地图不在资产目录时可传 `--semantic-map`。
@@ -34,11 +45,11 @@ python tools/topology_authoring/launch.py
 `authoring/navigation/aerial/`，与地面产品分离。两类产品 JSON schema 完全相同，
 运行时分别选择 XY 或 XYZ metric；内置 adapter 只检查结构，不证明净空。
 
-## Isaac Sim 联动选点
+## 兼容选择桥接接口
 
-浏览器编辑器可以接收 Isaac Sim 视口的当前选择。Isaac 负责真实三维对象、prim
-路径、世界坐标和包围盒；浏览器只显示紫色临时预览，点击转换按钮后才写入统一
-`MapProject`。选择本身不会自动创建语义记录。
+现有 `IsaacSelectionBridge` API 保留给脚本集成，可发送 prim 路径、世界坐标和
+包围盒。精简后的联动网页直接编辑拓扑，不再提供旧“当前选择”转换面板。
+需要旧选择数据的调用方可以读取 `/api/isaac/selection`；选择本身不会创建语义记录。
 
 先启动地图服务（端口须与脚本一致）：
 
@@ -56,13 +67,10 @@ bridge = IsaacSelectionBridge("http://127.0.0.1:8765", scene_key="living_home_02
 bridge.bind_selection()                 # 发送 Isaac 当前选中的 prim
 window = IsaacSelectionWindow(bridge)   # 可选：显示英文窗口，避免 Kit 字体乱码
 window.show()
-bridge.enable_point_picking(True)       # 默认联动入口已开启；手动桥接时可开启表面点选
+bridge.enable_point_picking(True)       # 仅手动选择桥接需要；不要与联动拖拽同时启用
 ```
 
-回到浏览器后，地图工作区的“Isaac Sim 当前选择”面板会显示 prim 路径及 X/Y/Z。
-选择包含有效 `level_id` 时，浏览器会自动切换到对应楼层的二维底图，无需再手动点选楼层。
-“转为拓扑节点”适合导航接入点；“转为对象语义”适合桌子、门、设备等后续再
-补全的记录。填写名称、类别和所属区域后再保存。关闭 Isaac 或更换场景时执行：
+联动编辑器的楼层由两端共享的楼层选择控制。关闭手动桥接或更换场景时执行：
 
 ```python
 bridge.stop()
@@ -79,8 +87,8 @@ USD，`metersPerUnit` 会转换为地图使用的米制；Y-up 场景需先在 I
 物体和交互位姿绘制成三维叠加（根 prim `/SemanticMapOverlay`）：节点和边为绿色，
 区域为紫色线框，物体为黄色球，交互位姿为粉色球加朝向箭头。网页端当前选中的
 对象会以红色高亮；选中命名路线时高亮其全部成员节点和边。叠加图形只写入当前
-stage 的 session layer，不会写入或弄脏作者 USD 文件；每次网页提交编辑
-（revision 变化）后自动重建，未确认的草稿不会显示。网页通过内部端点
+stage 的 session layer，不会写入作者 USD 文件；提交编辑或切换图后自动重建。
+本端未提交的拖拽与绘制预览也仅存在于 session layer，提交后才同步到另一端。网页通过内部端点
 `POST /api/web/selection` 防抖推送选中对象
 （`{"kind": "node"|"edge"|"semantic", "collection": …, "id": …}`，`null` 清除），
 该端点由编辑器自动调用，无需手工请求。
@@ -120,11 +128,12 @@ Profile 使用 XYZ 距离；运行时不读取 traversal label 或 controller ca
 `A → 拐角B → C`。仅修改 `A → C` 的折线点不会改变实际运动路径。
 相邻节点之间的直接通行条件和间距由作者保证，运行时没有自动节点间距限制，
 也不避障或让行；模拟器物理碰撞正常保留。
-host 需保证机器人起始位置到最近节点可直接接入；该既有 start/replan 接入段
-不是拓扑边，产品校验不证明任意离图位置可达。
+start/replan 要求机器人已在最近节点的到达半径内，否则返回 `origin_not_reached`。
+运行时不会自动驶向最近节点或边。地面图必须配合 XY profile，空中图必须配合 XYZ
+profile；类型不匹配时拒绝任务。任意离图位置的接入需要调用方单独处理。
 
 产品与 node-route Skill 共用执行结构校验：ID 必须非空且唯一，XYZ 为有限数值（不接受 bool
-或数字字符串），边的端点和方向有效，允许在所选 metric 下为零长度的连接。坐标固定为 `scene_world`、
+或数字字符串），边的端点和方向有效，地面边具有非零 XY 长度，空中边可以为垂直连接。坐标固定为 `scene_world`、
 米（`meters_per_unit=1`）、Z 向上，不静默转换坐标。带 adapter/source 加载还核对
 场景身份、当前来源摘要和每个语义绑定；权威目标清单为空时不能保留悬空绑定。
 空草稿可以保存、加载；生成产品至少需要两个节点及一条边。不要求全图强连通，

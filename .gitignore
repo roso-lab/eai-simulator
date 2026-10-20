@@ -215,6 +215,11 @@ test_*.py
 !/tools/validation/test_topology_surfaces.py
 !/tools/validation/test_topology_pose_ui.py
 !/tools/validation/test_isaac_bridge.py
+!/tools/validation/test_topology_editing_project.py
+!/tools/validation/test_topology_domain_navigation.py
+!/tools/validation/test_topology_editing_clients.py
+!/tools/validation/test_web_isaac_overlay.py
+!/tools/validation/test_web_isaac_overlay_link.py
 !/source/EAI/test/test_restaurant_products.py
 !/source/EAI/test/test_restaurant_runtime_scene.py
 !/source/EAI/test/test_restaurant_candidate_admission.py
