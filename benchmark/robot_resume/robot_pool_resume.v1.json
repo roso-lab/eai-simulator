@@ -199,6 +199,11 @@
       "source_id": "user_g1_exclusive_modes",
       "path": "user_confirmation: G1 walking and grasping policies are never used simultaneously (grasp without walking, walk without grasping); both may occur sequentially in one experiment flow, invoked as skills",
       "sha256": null
+    },
+    {
+      "source_id": "user_drone_payload_limits",
+      "path": "user_confirmation: 3DR Iris payload 425 g; Pegasus research quadrotor payload 2 kg",
+      "sha256": null
     }
   ],
   "exclusions": [
@@ -3053,7 +3058,7 @@
         "model": null,
         "end_effector": null,
         "execution_mode": "aerial_owned_fixed_joint",
-        "payload_kg": null,
+        "payload_kg": 0.425,
         "max_pickplace_z_m": null,
         "height_frame": null,
         "height_limit_point": null,
@@ -3061,7 +3066,7 @@
         "min_pickplace_z_m": null,
         "radial_workspace_m": null,
         "arbitrary_object_orientation": "unsupported",
-        "limits_source": null
+        "limits_source": "user_drone_payload_limits"
       },
       "sensing": {
         "camera_required": true,
@@ -3112,7 +3117,7 @@
           ],
           "limitations_zh": [
             "物理 FixedJoint 挂接/释放，不代表机械手抓取。",
-            "不控制任意物体姿态；飞行负载上限未知。"
+            "不控制任意物体姿态；飞行载重上限为 425 克（0.425 kg），来源为用户确认。"
           ]
         }
       ],
@@ -3125,7 +3130,7 @@
         "available_skill_ids": []
       },
       "special_notes_zh": [
-        "飞行能力与地面楼梯通行无关；飞行净空、负载和姿态约束需单独确认。"
+        "飞行能力与地面楼梯通行无关；实际挂载下的飞行净空、负载适配和姿态约束仍需验证。"
       ],
       "source_refs": [
         "catalog",
@@ -3137,7 +3142,8 @@
         "drone_backend",
         "navigation_backend",
         "user_pool_policy",
-        "user_experiment_policy"
+        "user_experiment_policy",
+        "user_drone_payload_limits"
       ]
     },
     {
@@ -3209,7 +3215,7 @@
         "model": null,
         "end_effector": null,
         "execution_mode": "aerial_owned_fixed_joint",
-        "payload_kg": null,
+        "payload_kg": 2,
         "max_pickplace_z_m": null,
         "height_frame": null,
         "height_limit_point": null,
@@ -3217,7 +3223,7 @@
         "min_pickplace_z_m": null,
         "radial_workspace_m": null,
         "arbitrary_object_orientation": "unsupported",
-        "limits_source": null
+        "limits_source": "user_drone_payload_limits"
       },
       "sensing": {
         "camera_required": true,
@@ -3268,7 +3274,7 @@
           ],
           "limitations_zh": [
             "物理 FixedJoint 挂接/释放，不代表机械手抓取。",
-            "不控制任意物体姿态；飞行负载上限未知。"
+            "不控制任意物体姿态；飞行载重上限为 2 kg，来源为用户确认。"
           ]
         }
       ],
@@ -3281,7 +3287,7 @@
         "available_skill_ids": []
       },
       "special_notes_zh": [
-        "飞行能力与地面楼梯通行无关；飞行净空、负载和姿态约束需单独确认。"
+        "飞行能力与地面楼梯通行无关；实际挂载下的飞行净空、负载适配和姿态约束仍需验证。"
       ],
       "source_refs": [
         "catalog",
@@ -3293,7 +3299,8 @@
         "drone_backend",
         "navigation_backend",
         "user_pool_policy",
-        "user_experiment_policy"
+        "user_experiment_policy",
+        "user_drone_payload_limits"
       ]
     },
     {
@@ -6760,7 +6767,7 @@
         "model": null,
         "end_effector": null,
         "execution_mode": "aerial_owned_fixed_joint",
-        "payload_kg": null,
+        "payload_kg": 0.425,
         "max_pickplace_z_m": null,
         "height_frame": null,
         "height_limit_point": null,
@@ -6768,7 +6775,7 @@
         "min_pickplace_z_m": null,
         "radial_workspace_m": null,
         "arbitrary_object_orientation": "unsupported",
-        "limits_source": null
+        "limits_source": "user_drone_payload_limits"
       },
       "sensing": {
         "camera_required": true,
@@ -6819,7 +6826,7 @@
           ],
           "limitations_zh": [
             "物理 FixedJoint 挂接/释放，不代表机械手抓取。",
-            "不控制任意物体姿态；飞行负载上限未知。"
+            "不控制任意物体姿态；飞行载重上限为 425 克（0.425 kg），来源为用户确认。"
           ]
         }
       ],
@@ -6832,7 +6839,7 @@
         "available_skill_ids": []
       },
       "special_notes_zh": [
-        "飞行能力与地面楼梯通行无关；飞行净空、负载和姿态约束需单独确认。"
+        "飞行能力与地面楼梯通行无关；实际挂载下的飞行净空、负载适配和姿态约束仍需验证。"
       ],
       "source_refs": [
         "catalog",
@@ -6844,7 +6851,8 @@
         "drone_backend",
         "navigation_backend",
         "user_pool_policy",
-        "user_experiment_policy"
+        "user_experiment_policy",
+        "user_drone_payload_limits"
       ]
     },
     {
@@ -6916,7 +6924,7 @@
         "model": null,
         "end_effector": null,
         "execution_mode": "aerial_owned_fixed_joint",
-        "payload_kg": null,
+        "payload_kg": 2,
         "max_pickplace_z_m": null,
         "height_frame": null,
         "height_limit_point": null,
@@ -6924,7 +6932,7 @@
         "min_pickplace_z_m": null,
         "radial_workspace_m": null,
         "arbitrary_object_orientation": "unsupported",
-        "limits_source": null
+        "limits_source": "user_drone_payload_limits"
       },
       "sensing": {
         "camera_required": true,
@@ -6975,7 +6983,7 @@
           ],
           "limitations_zh": [
             "物理 FixedJoint 挂接/释放，不代表机械手抓取。",
-            "不控制任意物体姿态；飞行负载上限未知。"
+            "不控制任意物体姿态；飞行载重上限为 2 kg，来源为用户确认。"
           ]
         }
       ],
@@ -6988,7 +6996,7 @@
         "available_skill_ids": []
       },
       "special_notes_zh": [
-        "飞行能力与地面楼梯通行无关；飞行净空、负载和姿态约束需单独确认。"
+        "飞行能力与地面楼梯通行无关；实际挂载下的飞行净空、负载适配和姿态约束仍需验证。"
       ],
       "source_refs": [
         "catalog",
@@ -7000,7 +7008,8 @@
         "drone_backend",
         "navigation_backend",
         "user_pool_policy",
-        "user_experiment_policy"
+        "user_experiment_policy",
+        "user_drone_payload_limits"
       ]
     },
     {
