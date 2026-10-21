@@ -1,0 +1,21 @@
+{
+  "schema": "eai.semantic_footprints",
+  "version": 1,
+  "scene_id": "service_subway",
+  "project_revision": "a1f2716d709d477fbf84f88e27456ce3",
+  "coordinate_frame": "scene_world",
+  "objects": [],
+  "semantics": {
+    "schema": "eai.scene.semantics",
+    "version": 1,
+    "regions": [],
+    "entities": [],
+    "interaction_poses": [],
+    "routes": [],
+    "extensions": {
+      "vertical_connectors": []
+    }
+  },
+  "robot_validated": false,
+  "visual_review": {}
+}

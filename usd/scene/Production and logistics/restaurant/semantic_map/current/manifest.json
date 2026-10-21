@@ -1,0 +1,36 @@
+{
+  "schema": "eai.semantic_map.revision",
+  "version": 2,
+  "revision": "e53b8b1e7e4e456696f07942cc8685e1",
+  "scene_key": "production_restaurant",
+  "levels": [
+    {
+      "level_id": "1F",
+      "grid": "level-000-semantic-grid.npz",
+      "preview": "level-000-semantic-map.png",
+      "layer": "level-000-layer.png",
+      "extent_xy": [
+        877.5,
+        2683.5,
+        1495.5,
+        2581.5
+      ]
+    }
+  ],
+  "navigation_products": {
+    "ground": "topology.json",
+    "aerial": "topology-aerial.json"
+  },
+  "semantic_point_product": "semantic-points.json",
+  "files": {
+    "level-000-layer.png": "f4808ef58edd2551ac07fc9365dd0719d117b8484f8d59e3471305fb8b7a77ed",
+    "level-000-semantic-grid.npz": "e82a49c497b2988ddf6f4daff65fba8b9c323920f85cbeb5f5aaf98907355f4e",
+    "level-000-semantic-map.png": "7a1a506dd3545733810166f36f81207bff091d9d3086a5c6633f00022d239c3e",
+    "semantic-footprints.geojson": "0d78a1d91dce6a75b31895014f162425e64dc6116e9835b7c4d71b3becc02597",
+    "semantic-footprints.json": "09d0a6d86cd50aa6afe7fdee4c96809acd1f40b68da048967e2790a7e7f4469e",
+    "semantic-points.json": "191aa15552314f01dd5fd5864a14bddd1c275e22621702efd522b2fbf143173c",
+    "topology-aerial.json": "721b0dd3d6466ac0ca1364b341acb2682f92011bf3631f19c16461f2c161aec3",
+    "topology.json": "875b1658a724215316bf386f5e2ebe4cabc662403cbc25842c947fd7f732ffd9"
+  },
+  "robot_validated": false
+}

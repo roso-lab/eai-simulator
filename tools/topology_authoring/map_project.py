@@ -1,4 +1,4 @@
-"""Editable ground/aerial graphs, shared regions and atomic derived revisions.
+"""Editable ground/aerial graphs, independent semantic points and atomic current saves.
 
 This module deliberately needs no Isaac/Kit imports. Geometry comes from a measured
 grid package; semantic edits never turn occupied or unknown cells into free space.
@@ -6,6 +6,7 @@ grid package; semantic edits never turn occupied or unknown cells into free spac
 from __future__ import annotations
 
 import argparse
+import ctypes
 from copy import deepcopy
 import fcntl
 import hashlib
@@ -13,6 +14,7 @@ import io
 import json
 import math
 import os
+import shutil
 from pathlib import Path
 import tempfile
 from urllib.parse import quote
@@ -26,6 +28,8 @@ from shapely.ops import unary_union
 from .model import TopologyDocument
 from .product import load_product, save_draft, validate_document, _unique_object, _reject_constant
 from .semantics import empty_semantics, polygon_error, semantic_level
+from .semantic_points import SCHEMA as POINT_SCHEMA, validate_points, edit_points, coordinates
+from .scene_catalog import scene_metadata
 
 SCHEMA = "eai.semantic_map.project"
 COLORS = [(38, 132, 180), (216, 139, 43), (139, 100, 190), (44, 153, 126),
@@ -48,6 +52,10 @@ def sha256(path):
 def write_json(path, value):
     """Serialize before touching destination, then atomic replace and fsync."""
     payload = json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
+    _write_text(path, payload)
+
+
+def _write_text(path, payload):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = None
@@ -68,6 +76,71 @@ def write_json(path, value):
     finally:
         if temporary is not None:
             temporary.unlink(missing_ok=True)
+
+
+def _sync_directory(path):
+    fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def _exchange_directories(first, second):
+    """Linux rename exchange keeps the fixed directory continuously readable."""
+    libc = ctypes.CDLL(None, use_errno=True)
+    rename = libc.renameat2
+    rename.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+    rename.restype = ctypes.c_int
+    if rename(-100, os.fsencode(first), -100, os.fsencode(second), 2) != 0:
+        error = ctypes.get_errno()
+        raise OSError(error, os.strerror(error), str(second))
+
+
+def _recover_publication(root, *, rollback=False):
+    """Finish a committed save or roll back an interrupted one, under EX lock."""
+    journal_path = root / ".save-transaction.json"
+    if not journal_path.exists():
+        return
+    journal = read_json(journal_path)
+    if rollback and not journal.get("rollback"):
+        # Persist intent before restoring either directory or index. Recovery
+        # must continue rollback even if the new index was already written.
+        journal["rollback"] = True
+        write_json(journal_path, journal)
+    rollback = rollback or journal.get("rollback", False)
+    token = journal["save_id"]
+    if not isinstance(token, str) or len(token) != 32 or any(c not in "0123456789abcdef" for c in token):
+        raise ValueError("invalid map save transaction")
+    pending = root / f".pending-save-{token}"
+    current = root / "current"
+    manifest_path = root / "project.json"
+    published = read_json(manifest_path) if manifest_path.exists() else {}
+    current_export = read_json(current / "manifest.json") if current.exists() else {}
+    if not rollback and published.get("save_id") == token:
+        if current_export.get("revision") != token:
+            raise ValueError("committed map package differs from save transaction")
+        # Only the committed package is authoritative. Deletion is retried on
+        # the next open/save if interrupted, never reported as a failed commit.
+        revisions = root / "revisions"
+        if revisions.exists():
+            shutil.rmtree(revisions)
+    else:
+        if current_export.get("revision") == token:
+            if journal["had_current"]:
+                _exchange_directories(pending, current)
+            else:
+                shutil.rmtree(current)
+            _sync_directory(root)
+        old_text = journal["old_manifest_text"]
+        if old_text is None:
+            manifest_path.unlink(missing_ok=True)
+        elif not manifest_path.exists() or manifest_path.read_text(encoding="utf-8") != old_text:
+            _write_text(manifest_path, old_text)
+    if pending.exists():
+        shutil.rmtree(pending)
+    journal_path.unlink()
+    _sync_directory(root)
 
 
 def child(root, relative):
@@ -157,13 +230,19 @@ def color(identifier):
 class MapProject:
     """Transactional commands shared by CLI, browser and Python callers.
 
-    `project.json` is the only commit pointer. Published revisions are immutable;
-    failed exports leave the previous pointer untouched. A second process cannot
-    overwrite a revision saved after it opened the project.
+    ``current/`` is the single published package. Its complete directory is
+    atomically exchanged, with a journal covering the project index update.
+    Readers share the writer lock so they never observe a mixed transaction.
     """
 
     def __init__(self, root):
         self.root = Path(root).resolve()
+        with (self.root / ".write.lock").open("a") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            _recover_publication(self.root)
+            self._load()
+
+    def _load(self):
         self.manifest = read_json(self.root / "project.json")
         if self.manifest.get("schema") != SCHEMA or self.manifest.get("version") not in {1, 2}:
             raise ValueError("unsupported map project")
@@ -184,6 +263,22 @@ class MapProject:
             self.document = self.documents["ground"]
         else:
             self.document = load_product(current / "topology.json")
+        point_product = export.get("semantic_point_product")
+        if (self.manifest.get("semantic_point_product") is not None
+                and self.manifest["semantic_point_product"] != point_product):
+            raise ValueError("semantic point product differs from project index")
+        self.semantic_points = []
+        if point_product is not None:
+            if point_product not in export["files"]:
+                raise ValueError("semantic points must be covered by revision digests")
+            payload = read_json(child(current, point_product))
+            if (payload.get("schema") != POINT_SCHEMA or payload.get("version") != 1
+                    or payload.get("scene_key") != self.manifest["scene_key"]
+                    or payload.get("coordinate_frame") != "scene_world"
+                    or type(payload.get("meters_per_unit")) not in (int, float)
+                    or payload["meters_per_unit"] != 1 or payload.get("up_axis") != "Z"):
+                raise ValueError("unsupported or mismatched semantic point product")
+            self.semantic_points = payload["points"]
         self.grids = {}
         for entry in self.manifest["base_grids"]:
             path = child(self.root, entry["file"])
@@ -193,9 +288,13 @@ class MapProject:
         self._initialize()
         self._manifest_digest = sha256(self.root / "project.json")
         self.saved_revision = self.manifest["current_revision"]
+        self._export_digest = sha256(current / "manifest.json")
         self._saved_document = self._snapshot()
 
     def _initialize(self):
+        if not hasattr(self, "semantic_points"):
+            self.semantic_points = []
+        validate_points(self.semantic_points, scene_metadata(self.manifest)["source_path"])
         if not hasattr(self, "documents"):
             original = self.document
             other_domain = "aerial" if original.domain == "ground" else "ground"
@@ -219,10 +318,12 @@ class MapProject:
         return self.documents[domain]
 
     def _snapshot(self):
-        return {domain: doc.to_dict() for domain, doc in self.documents.items()}
+        return {**{domain: doc.to_dict() for domain, doc in self.documents.items()},
+                "semantic_points": deepcopy(self.semantic_points)}
 
     def _restore(self, snapshot):
-        self.documents = {domain: TopologyDocument.from_dict(value) for domain, value in snapshot.items()}
+        self.documents = {domain: TopologyDocument.from_dict(snapshot[domain]) for domain in ("ground", "aerial")}
+        self.semantic_points = deepcopy(snapshot.get("semantic_points", []))
         self.document = self.documents["ground"]
         self._derived = None
 
@@ -257,6 +358,7 @@ class MapProject:
                             "up_axis": "Z", "base_grids": [], "provenance": provenance}
         project.saved_revision = None
         project._manifest_digest = None
+        project._export_digest = None
         project._saved_document = None
         project._initialize()  # Validate before creating any directory.
         (root / "base").mkdir(parents=True)
@@ -330,6 +432,32 @@ class MapProject:
     def dirty(self):
         return self._snapshot() != self._saved_document
 
+    @property
+    def product_digest(self):
+        """Identity of all authored project data; view settings are session-only."""
+        return hashlib.sha256(json.dumps(self._snapshot(), sort_keys=True, separators=(",", ":"),
+                                         allow_nan=False).encode()).hexdigest()
+
+    def clear_legacy_semantics(self):
+        """One recoverable transaction; never discard the graph behind old routes."""
+        counts = {domain: {key: len((doc.semantics or empty_semantics())[key])
+                           for key in ("regions", "entities", "interaction_poses", "routes")}
+                  for domain, doc in self.documents.items()}
+        if not any(n for groups in counts.values() for n in groups.values()):
+            return counts
+        candidates = {key: TopologyDocument.from_dict(doc.to_dict()) for key, doc in self.documents.items()}
+        for doc in candidates.values():
+            previous = doc.semantics or empty_semantics()
+            doc.semantics = {**deepcopy(previous), **{key: [] for key in counts[doc.domain]}}
+        derived = self._check_all(candidates)
+        self._undo.append(self._snapshot())
+        self._undo = self._undo[-100:]
+        self._redo.clear()
+        self.documents, self._derived = candidates, derived
+        self.document = candidates["ground"]
+        self.revision += 1
+        return counts
+
     def _check(self, doc):
         errors = validate_document(doc)
         if errors:
@@ -402,6 +530,18 @@ class MapProject:
 
     def edit(self, operation, *, revision=None, domain="ground", **args):
         self._expect(revision)
+        self.document_for(domain)
+        if operation in {"add_semantic_point", "update_semantic_point", "move_semantic_point_xy",
+                         "move_semantic_point", "remove_semantic_point", "bind_semantic_point",
+                         "unbind_semantic_point"}:
+            points = edit_points(self.semantic_points, operation, args,
+                                 scene_metadata(self.manifest)["source_path"])
+            self._undo.append(self._snapshot())
+            self._undo = self._undo[-100:]
+            self._redo.clear()
+            self.semantic_points = points
+            self.revision += 1
+            return
         candidate = TopologyDocument.from_dict(self.document_for(domain).to_dict())
         # Both clients share this transaction authority. Delete atomically together
         # with dependent bindings; leave the strict document API unchanged.
@@ -443,7 +583,8 @@ class MapProject:
                         if level is not None:
                             row["level_id"] = level
         if operation == "add_node":
-            candidate.add_node(args["position_xyz"], level_id=args.get("level_id"),
+            candidate.add_node(args["position_xyz"],
+                               level_id=args.get("level_id") if domain == "ground" else None,
                                label=args.get("label", ""), kind=args.get("kind", "custom"),
                                heading_rad=args.get("heading_rad"), source_ref=args.get("source_ref"),
                                edit_mode=args.get("edit_mode"))
@@ -454,6 +595,27 @@ class MapProject:
             if not isinstance(xy, (list, tuple)) or len(xy) != 2:
                 raise ValueError("position_xy must contain two finite coordinates")
             candidate.move_node(args["id"], [*xy, candidate.node(args["id"])["position_xyz"][2]])
+        elif operation == "translate_edge_xy":
+            dx, dy = coordinates(args["delta_xy"], 2)
+            edge = candidate.edge(args["id"])
+            moved_ids = {edge["from"], edge["to"]}
+            if any(candidate.node(n).get("locked") for n in moved_ids) or any(
+                    e.get("locked_geometry") for e in candidate.edges
+                    if e["from"] in moved_ids or e["to"] in moved_ids):
+                raise ValueError("locked node or edge cannot move")
+            for node in candidate.nodes:
+                if node["id"] in moved_ids:
+                    node["position_xyz"] = [node["position_xyz"][0]+dx,
+                                            node["position_xyz"][1]+dy, node["position_xyz"][2]]
+            for row in candidate.edges:
+                points = row["polyline_xyz"]
+                if row["id"] == edge["id"]:
+                    row["polyline_xyz"] = [[p[0]+dx, p[1]+dy, p[2]] for p in points]
+                else:
+                    if row["from"] in moved_ids:
+                        points[0] = list(candidate.node(row["from"])["position_xyz"])
+                    if row["to"] in moved_ids:
+                        points[-1] = list(candidate.node(row["to"])["position_xyz"])
         elif operation == "update_node":
             row = candidate.node(args["id"])
             if row.get("locked"):
@@ -595,18 +757,18 @@ class MapProject:
         self._restore(self._redo.pop())
         self.revision += 1
 
-    def layer_image(self, lid, derived=None):
+    def layer_image(self, lid, derived=None, *, geometry_only=False):
         grid = self.grids[lid]
         layers = derived or self._derived or self.derive()
         layer = layers[lid]
         rgb = np.full((*grid["state"].shape, 3), [201, 210, 220], dtype=np.uint8)
         rgb[grid["state"] == 0] = [248, 250, 252]
-        for row, mask in layer["regions"]:
+        for row, mask in ([] if geometry_only else layer["regions"]):
             rgb[mask & (grid["state"] == 0)] = (np.array(color(row["id"]))*.20 + 255*.80).astype(np.uint8)
         semantic_only = grid["semantic_occupied"] & ~grid["occupied"]
         rgb[semantic_only] = [111, 124, 140]
         rgb[grid["occupied"] | (grid["state"] == 1)] = [61, 72, 85]
-        for row, mask in layer["entities"]:
+        for row, mask in ([] if geometry_only else layer["entities"]):
             rgb[mask] = color(row["id"])
         return Image.fromarray(rgb[::-1].copy())
 
@@ -621,11 +783,15 @@ class MapProject:
                            "image_url": "/api/layer?level=" + quote(level["id"], safe="") + f"&revision={self.revision}"})
         warnings = ["路线为人工/几何草稿，尚未验证机器人净空、动力学和楼梯通行能力。",
                     "深灰为导航障碍，灰蓝为仅用于语义标注的高处/非导航障碍；修改语义不会改变几何栅格。"]
+        if getattr(self, "storage_warning", None):
+            warnings.append(self.storage_warning)
         for level in levels:
             if not np.any(self.grids[level["id"]]["state"] == 0):
                 warnings.append(f"{level['id']}：底图没有已知自由格，几何仍需确认。")
         return {"revision": self.revision, "dirty": self.dirty, "scene_key": self.document.scene_key,
                 "project_path": str(self.root), "document": document.to_dict(), "levels": levels,
+                "documents": {key: value.to_dict() for key, value in self.documents.items()},
+                "semantic_points": deepcopy(self.semantic_points), "product_digest": self.product_digest,
                 "domains": ["ground", "aerial"],
                 "warnings": warnings, "saved_revision": self.saved_revision,
                 "can_undo": bool(self._undo), "can_redo": bool(self._redo)}
@@ -739,16 +905,22 @@ class MapProject:
             {**deepcopy(row), "entrance_node_ids": deepcopy(entrances.get(row["id"], []))}
             for row in semantics["regions"]]
         save_draft(destination / "topology-aerial.json", aerial)
+        write_json(destination / "semantic-points.json", {
+            "schema": POINT_SCHEMA, "version": 1, "scene_key": export_doc.scene_key,
+            "coordinate_frame": "scene_world", "meters_per_unit": 1, "up_axis": "Z",
+            "points": deepcopy(self.semantic_points)})
         write_json(destination / "semantic-footprints.geojson", {"type": "FeatureCollection", "features": features})
         write_json(destination / "semantic-footprints.json", {
             "schema": "eai.semantic_footprints", "version": 1, "scene_id": export_doc.scene_key,
             "project_revision": revision_id, "coordinate_frame": "scene_world", "objects": objects,
             "semantics": semantics, "robot_validated": False,
-            "visual_review": self.manifest.get("provenance", {}).get("semantic-footprints.json", {}).get("visual_review", {})})
+            "visual_review": (self.manifest.get("provenance", {}).get("semantic-footprints.json", {}).get("visual_review", {})
+                              if semantics["regions"] or semantics["entities"] else {})})
         files = {path.name: sha256(path) for path in sorted(destination.iterdir()) if path.is_file()}
         write_json(destination / "manifest.json", {"schema": "eai.semantic_map.revision", "version": 2,
                    "revision": revision_id, "scene_key": export_doc.scene_key, "levels": level_info,
                    "navigation_products": {"ground": "topology.json", "aerial": "topology-aerial.json"},
+                   "semantic_point_product": "semantic-points.json",
                    "files": files, "robot_validated": False})
         for path in destination.iterdir():
             with path.open("rb") as stream:
@@ -761,10 +933,13 @@ class MapProject:
         return {"ground": export_doc, "aerial": aerial}
 
     def save(self, *, revision=None):
+        """Publish one complete current package; keep revision tokens for conflicts."""
         self._expect(revision)
+        validate_points(self.semantic_points, scene_metadata(self.manifest)["source_path"])
         derived = self._check_all(self.documents)
         with (self.root / ".write.lock").open("a") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
+            _recover_publication(self.root)
             manifest_path = self.root / "project.json"
             actual = sha256(manifest_path) if manifest_path.exists() else None
             if actual != self._manifest_digest:
@@ -772,21 +947,58 @@ class MapProject:
             for entry in self.manifest["base_grids"]:
                 if sha256(child(self.root, entry["file"])) != entry["sha256"]:
                     raise ValueError("base geometry changed outside tool")
-            revision_id = uuid.uuid4().hex
-            relative = f"revisions/{revision_id}"
-            exports = self._export(self.root / relative, revision_id, derived)
-            manifest = {**self.manifest, "version": 2, "current_revision": relative,
+            if self.saved_revision is not None:
+                old_package = child(self.root, self.saved_revision)
+                if sha256(old_package / "manifest.json") != self._export_digest:
+                    raise ValueError("project changed in another process; reopen before saving")
+                for name, digest in read_json(old_package / "manifest.json")["files"].items():
+                    if sha256(child(old_package, name)) != digest:
+                        raise ValueError(f"saved product changed outside tool: {name}")
+
+            token = uuid.uuid4().hex
+            pending = self.root / f".pending-save-{token}"
+            current = self.root / "current"
+            journal_path = self.root / ".save-transaction.json"
+            manifest = {**self.manifest, "version": 2, "current_revision": "current",
+                        "save_id": token, "semantic_point_product": "semantic-points.json",
                         "navigation_products": {"ground": "topology.json", "aerial": "topology-aerial.json"}}
-            write_json(manifest_path, manifest)
+            try:
+                exports = self._export(pending, token, derived)
+                # All fallible serialization/validation finishes before touching
+                # current. The durable journal restores exact old index bytes.
+                write_json(journal_path, {"save_id": token, "had_current": current.exists(),
+                    "old_manifest_text": manifest_path.read_text(encoding="utf-8")
+                    if manifest_path.exists() else None})
+                if current.exists():
+                    _exchange_directories(pending, current)
+                else:
+                    os.replace(pending, current)
+                _sync_directory(self.root)
+                write_json(manifest_path, manifest)
+            except Exception:
+                if journal_path.exists():
+                    _recover_publication(self.root, rollback=True)
+                elif pending.exists():
+                    shutil.rmtree(pending)
+                raise
+
             self.manifest = manifest
-            self.saved_revision = relative
+            self.saved_revision = "current"
             self._manifest_digest = sha256(manifest_path)
+            self._export_digest = sha256(current / "manifest.json")
             self.documents = exports
             self.document = exports["ground"]
             self._saved_document = self._snapshot()
             self._derived = derived
             self.revision += 1
-        return self.root / relative
+            self.storage_warning = None
+            try:
+                _recover_publication(self.root)
+            except OSError as error:
+                # The commit is already durable. Keep its journal and retry
+                # removal on reopen rather than falsely reporting a failed save.
+                self.storage_warning = f"Saved; old package cleanup pending: {error}"
+        return current
 
 
 def main(argv=None):

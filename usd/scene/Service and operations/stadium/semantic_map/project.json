@@ -1,6 +1,6 @@
 {
   "schema": "eai.semantic_map.project",
-  "version": 1,
+  "version": 2,
   "scene_key": "service_stadium",
   "coordinate_frame": "scene_world",
   "meters_per_unit": 1,
@@ -4560,5 +4560,11 @@
       ]
     }
   },
-  "current_revision": "revisions/1b5b81eea428446a9db12a02b87f9262"
+  "current_revision": "current",
+  "semantic_point_product": "semantic-points.json",
+  "navigation_products": {
+    "ground": "topology.json",
+    "aerial": "topology-aerial.json"
+  },
+  "save_id": "a5827ac6f1194f629c6dd565520fd18b"
 }

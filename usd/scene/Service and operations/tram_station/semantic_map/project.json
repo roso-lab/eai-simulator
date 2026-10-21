@@ -1,6 +1,6 @@
 {
   "schema": "eai.semantic_map.project",
-  "version": 1,
+  "version": 2,
   "scene_key": "service_tram_station",
   "coordinate_frame": "scene_world",
   "meters_per_unit": 1,
@@ -27034,5 +27034,11 @@
       ]
     }
   },
-  "current_revision": "revisions/4a93921acb0345d685f41b958056c8e9"
+  "current_revision": "current",
+  "semantic_point_product": "semantic-points.json",
+  "navigation_products": {
+    "ground": "topology.json",
+    "aerial": "topology-aerial.json"
+  },
+  "save_id": "f4767ba9231b4c86bb4d9f00a1f43630"
 }

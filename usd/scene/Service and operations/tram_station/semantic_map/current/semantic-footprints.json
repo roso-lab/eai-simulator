@@ -1,0 +1,21 @@
+{
+  "schema": "eai.semantic_footprints",
+  "version": 1,
+  "scene_id": "service_tram_station",
+  "project_revision": "f4767ba9231b4c86bb4d9f00a1f43630",
+  "coordinate_frame": "scene_world",
+  "objects": [],
+  "semantics": {
+    "schema": "eai.scene.semantics",
+    "version": 1,
+    "regions": [],
+    "entities": [],
+    "interaction_poses": [],
+    "routes": [],
+    "extensions": {
+      "vertical_connectors": []
+    }
+  },
+  "robot_validated": false,
+  "visual_review": {}
+}

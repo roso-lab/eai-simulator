@@ -1,0 +1,31 @@
+{
+  "schema": "eai.navigation.topology",
+  "version": 2,
+  "scene_key": "service_stadium",
+  "coordinate_frame": "scene_world",
+  "meters_per_unit": 1.0,
+  "up_axis": "Z",
+  "domain": "aerial",
+  "levels": [
+    {
+      "id": "ground",
+      "label": "地面层（待清点）",
+      "support_z_m": 0.0
+    }
+  ],
+  "source": {
+    "usd_layer_0000": "2d8883bcb14b1f122068735087de548dd5354f791d8b43bde5e7a7033f799302",
+    "usd_layer_0001": "2422ac6900a3511927d9cbf53b149632e685e4d90f96df5133fca8d4a114335f"
+  },
+  "nodes": [],
+  "edges": [],
+  "semantics": {
+    "schema": "eai.scene.semantics",
+    "version": 1,
+    "regions": [],
+    "entities": [],
+    "interaction_poses": [],
+    "routes": [],
+    "extensions": {}
+  }
+}

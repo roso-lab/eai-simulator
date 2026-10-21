@@ -1,0 +1,56 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            14.100000000000001,
+            4.45,
+            0.0
+          ],
+          [
+            14.3,
+            4.45,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:production_coffee_shop:unresolved-draft:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:production_coffee_shop:unresolved:start",
+        "to": "node:production_coffee_shop:unresolved:end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            14.100000000000001,
+            4.45,
+            0.0
+          ],
+          [
+            14.3,
+            4.45,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    }
+  ]
+}

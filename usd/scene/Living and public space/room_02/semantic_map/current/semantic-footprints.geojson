@@ -1,0 +1,5870 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -13.85,
+            4.1499999999999995,
+            0.0
+          ],
+          [
+            -13.75,
+            4.05,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:living_room_02:1F:component-001:route-start",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0001",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -13.85,
+            4.1499999999999995,
+            0.0
+          ],
+          [
+            -13.75,
+            4.05,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -13.75,
+            4.05,
+            0.0
+          ],
+          [
+            -13.75,
+            0.9500000000000002,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0002",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0001",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0002",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -13.75,
+            4.05,
+            0.0
+          ],
+          [
+            -13.75,
+            0.9500000000000002,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -13.75,
+            0.9500000000000002,
+            0.0
+          ],
+          [
+            -12.15,
+            -0.6500000000000004,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0003",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0002",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0003",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -13.75,
+            0.9500000000000002,
+            0.0
+          ],
+          [
+            -12.15,
+            -0.6500000000000004,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -12.15,
+            -0.6500000000000004,
+            0.0
+          ],
+          [
+            -12.15,
+            -2.25,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0004",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0003",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0004",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -12.15,
+            -0.6500000000000004,
+            0.0
+          ],
+          [
+            -12.15,
+            -2.25,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -12.15,
+            -2.25,
+            0.0
+          ],
+          [
+            -11.05,
+            -2.25,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0005",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0004",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0005",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -12.15,
+            -2.25,
+            0.0
+          ],
+          [
+            -11.05,
+            -2.25,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -11.05,
+            -2.25,
+            0.0
+          ],
+          [
+            -9.149999999999999,
+            -4.15,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0006",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0005",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0006",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -11.05,
+            -2.25,
+            0.0
+          ],
+          [
+            -9.149999999999999,
+            -4.15,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -9.149999999999999,
+            -4.15,
+            0.0
+          ],
+          [
+            -4.149999999999999,
+            -4.15,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0007",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0006",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0007",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -9.149999999999999,
+            -4.15,
+            0.0
+          ],
+          [
+            -4.149999999999999,
+            -4.15,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -4.149999999999999,
+            -4.15,
+            0.0
+          ],
+          [
+            -4.049999999999999,
+            -4.05,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0008",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0007",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0008",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -4.149999999999999,
+            -4.15,
+            0.0
+          ],
+          [
+            -4.049999999999999,
+            -4.05,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -4.049999999999999,
+            -4.05,
+            0.0
+          ],
+          [
+            -3.9499999999999993,
+            -4.05,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0009",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0008",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0009",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -4.049999999999999,
+            -4.05,
+            0.0
+          ],
+          [
+            -3.9499999999999993,
+            -4.05,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.9499999999999993,
+            -4.05,
+            0.0
+          ],
+          [
+            -3.8499999999999996,
+            -3.95,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0010",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0009",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0010",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -3.9499999999999993,
+            -4.05,
+            0.0
+          ],
+          [
+            -3.8499999999999996,
+            -3.95,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.8499999999999996,
+            -3.95,
+            0.0
+          ],
+          [
+            -3.6499999999999986,
+            -3.95,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0011",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0010",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0011",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -3.8499999999999996,
+            -3.95,
+            0.0
+          ],
+          [
+            -3.6499999999999986,
+            -3.95,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.6499999999999986,
+            -3.95,
+            0.0
+          ],
+          [
+            -3.549999999999999,
+            -3.85,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0012",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0011",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0012",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -3.6499999999999986,
+            -3.95,
+            0.0
+          ],
+          [
+            -3.549999999999999,
+            -3.85,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.549999999999999,
+            -3.85,
+            0.0
+          ],
+          [
+            -3.4499999999999993,
+            -3.85,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0013",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0012",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0013",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -3.549999999999999,
+            -3.85,
+            0.0
+          ],
+          [
+            -3.4499999999999993,
+            -3.85,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.4499999999999993,
+            -3.85,
+            0.0
+          ],
+          [
+            -3.3499999999999996,
+            -3.75,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0014",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0013",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0014",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -3.4499999999999993,
+            -3.85,
+            0.0
+          ],
+          [
+            -3.3499999999999996,
+            -3.75,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.3499999999999996,
+            -3.75,
+            0.0
+          ],
+          [
+            -3.25,
+            -3.75,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0015",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0014",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0015",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -3.3499999999999996,
+            -3.75,
+            0.0
+          ],
+          [
+            -3.25,
+            -3.75,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.25,
+            -3.75,
+            0.0
+          ],
+          [
+            -3.1499999999999986,
+            -3.6500000000000004,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0016",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0015",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0016",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -3.25,
+            -3.75,
+            0.0
+          ],
+          [
+            -3.1499999999999986,
+            -3.6500000000000004,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.1499999999999986,
+            -3.6500000000000004,
+            0.0
+          ],
+          [
+            -3.049999999999999,
+            -3.6500000000000004,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0017",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0016",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0017",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -3.1499999999999986,
+            -3.6500000000000004,
+            0.0
+          ],
+          [
+            -3.049999999999999,
+            -3.6500000000000004,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.049999999999999,
+            -3.6500000000000004,
+            0.0
+          ],
+          [
+            -2.9499999999999993,
+            -3.55,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0018",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0017",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0018",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -3.049999999999999,
+            -3.6500000000000004,
+            0.0
+          ],
+          [
+            -2.9499999999999993,
+            -3.55,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -2.9499999999999993,
+            -3.55,
+            0.0
+          ],
+          [
+            -2.8499999999999996,
+            -3.55,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0019",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0018",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0019",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -2.9499999999999993,
+            -3.55,
+            0.0
+          ],
+          [
+            -2.8499999999999996,
+            -3.55,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -2.8499999999999996,
+            -3.55,
+            0.0
+          ],
+          [
+            -2.75,
+            -3.45,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0020",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0019",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0020",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -2.8499999999999996,
+            -3.55,
+            0.0
+          ],
+          [
+            -2.75,
+            -3.45,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -2.75,
+            -3.45,
+            0.0
+          ],
+          [
+            -2.549999999999999,
+            -3.45,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0021",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0020",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0021",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -2.75,
+            -3.45,
+            0.0
+          ],
+          [
+            -2.549999999999999,
+            -3.45,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -2.549999999999999,
+            -3.45,
+            0.0
+          ],
+          [
+            -2.4499999999999993,
+            -3.35,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0022",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0021",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0022",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -2.549999999999999,
+            -3.45,
+            0.0
+          ],
+          [
+            -2.4499999999999993,
+            -3.35,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -2.4499999999999993,
+            -3.35,
+            0.0
+          ],
+          [
+            -2.3499999999999996,
+            -3.35,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0023",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0022",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0023",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -2.4499999999999993,
+            -3.35,
+            0.0
+          ],
+          [
+            -2.3499999999999996,
+            -3.35,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -2.3499999999999996,
+            -3.35,
+            0.0
+          ],
+          [
+            -2.25,
+            -3.25,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0024",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0023",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0024",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -2.3499999999999996,
+            -3.35,
+            0.0
+          ],
+          [
+            -2.25,
+            -3.25,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -2.25,
+            -3.25,
+            0.0
+          ],
+          [
+            -2.1499999999999986,
+            -3.25,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0025",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0024",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0025",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -2.25,
+            -3.25,
+            0.0
+          ],
+          [
+            -2.1499999999999986,
+            -3.25,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -2.1499999999999986,
+            -3.25,
+            0.0
+          ],
+          [
+            -2.049999999999999,
+            -3.15,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0026",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0025",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0026",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -2.1499999999999986,
+            -3.25,
+            0.0
+          ],
+          [
+            -2.049999999999999,
+            -3.15,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -2.049999999999999,
+            -3.15,
+            0.0
+          ],
+          [
+            -1.9499999999999993,
+            -3.15,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0027",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0026",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0027",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -2.049999999999999,
+            -3.15,
+            0.0
+          ],
+          [
+            -1.9499999999999993,
+            -3.15,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -1.9499999999999993,
+            -3.15,
+            0.0
+          ],
+          [
+            -1.8499999999999996,
+            -3.0500000000000003,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0028",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0027",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0028",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -1.9499999999999993,
+            -3.15,
+            0.0
+          ],
+          [
+            -1.8499999999999996,
+            -3.0500000000000003,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -1.8499999999999996,
+            -3.0500000000000003,
+            0.0
+          ],
+          [
+            -1.75,
+            -3.0500000000000003,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0029",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0028",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0029",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -1.8499999999999996,
+            -3.0500000000000003,
+            0.0
+          ],
+          [
+            -1.75,
+            -3.0500000000000003,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -1.75,
+            -3.0500000000000003,
+            0.0
+          ],
+          [
+            -1.6499999999999986,
+            -2.95,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0030",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0029",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0030",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -1.75,
+            -3.0500000000000003,
+            0.0
+          ],
+          [
+            -1.6499999999999986,
+            -2.95,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -1.6499999999999986,
+            -2.95,
+            0.0
+          ],
+          [
+            -1.4499999999999993,
+            -2.95,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0031",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0030",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0031",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -1.6499999999999986,
+            -2.95,
+            0.0
+          ],
+          [
+            -1.4499999999999993,
+            -2.95,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -1.4499999999999993,
+            -2.95,
+            0.0
+          ],
+          [
+            -1.3499999999999996,
+            -2.85,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0032",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0031",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0032",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -1.4499999999999993,
+            -2.95,
+            0.0
+          ],
+          [
+            -1.3499999999999996,
+            -2.85,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -1.3499999999999996,
+            -2.85,
+            0.0
+          ],
+          [
+            -1.25,
+            -2.85,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0033",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0032",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0033",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -1.3499999999999996,
+            -2.85,
+            0.0
+          ],
+          [
+            -1.25,
+            -2.85,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -1.25,
+            -2.85,
+            0.0
+          ],
+          [
+            -1.1499999999999986,
+            -2.75,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0034",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0033",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0034",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -1.25,
+            -2.85,
+            0.0
+          ],
+          [
+            -1.1499999999999986,
+            -2.75,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -1.1499999999999986,
+            -2.75,
+            0.0
+          ],
+          [
+            -1.049999999999999,
+            -2.75,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0035",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0034",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0035",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -1.1499999999999986,
+            -2.75,
+            0.0
+          ],
+          [
+            -1.049999999999999,
+            -2.75,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -1.049999999999999,
+            -2.75,
+            0.0
+          ],
+          [
+            -0.9499999999999993,
+            -2.65,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0036",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0035",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0036",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -1.049999999999999,
+            -2.75,
+            0.0
+          ],
+          [
+            -0.9499999999999993,
+            -2.65,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -0.9499999999999993,
+            -2.65,
+            0.0
+          ],
+          [
+            -0.8499999999999996,
+            -2.65,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0037",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0036",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0037",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -0.9499999999999993,
+            -2.65,
+            0.0
+          ],
+          [
+            -0.8499999999999996,
+            -2.65,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -0.8499999999999996,
+            -2.65,
+            0.0
+          ],
+          [
+            -0.75,
+            -2.55,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0038",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0037",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0038",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -0.8499999999999996,
+            -2.65,
+            0.0
+          ],
+          [
+            -0.75,
+            -2.55,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -0.75,
+            -2.55,
+            0.0
+          ],
+          [
+            -0.5499999999999989,
+            -2.55,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0039",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0038",
+        "to": "route:living_room_02:1F:component-001:free-centerline:point:0039",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -0.75,
+            -2.55,
+            0.0
+          ],
+          [
+            -0.5499999999999989,
+            -2.55,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -0.5499999999999989,
+            -2.55,
+            0.0
+          ],
+          [
+            -0.4499999999999993,
+            -2.45,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-001:free-centerline:edge:0040",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-001:free-centerline:point:0039",
+        "to": "node:living_room_02:1F:component-001:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -0.5499999999999989,
+            -2.55,
+            0.0
+          ],
+          [
+            -0.4499999999999993,
+            -2.45,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -8.05,
+            -3.85,
+            0.0
+          ],
+          [
+            -8.05,
+            -3.45,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:living_room_02:1F:component-002:route-start",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0001",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -8.05,
+            -3.85,
+            0.0
+          ],
+          [
+            -8.05,
+            -3.45,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -8.05,
+            -3.45,
+            0.0
+          ],
+          [
+            -7.949999999999999,
+            -3.35,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0002",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0001",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0002",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -8.05,
+            -3.45,
+            0.0
+          ],
+          [
+            -7.949999999999999,
+            -3.35,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -7.949999999999999,
+            -3.35,
+            0.0
+          ],
+          [
+            -7.949999999999999,
+            -3.15,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0003",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0002",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0003",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -7.949999999999999,
+            -3.35,
+            0.0
+          ],
+          [
+            -7.949999999999999,
+            -3.15,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -7.949999999999999,
+            -3.15,
+            0.0
+          ],
+          [
+            -7.85,
+            -3.0500000000000003,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0004",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0003",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0004",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -7.949999999999999,
+            -3.15,
+            0.0
+          ],
+          [
+            -7.85,
+            -3.0500000000000003,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -7.85,
+            -3.0500000000000003,
+            0.0
+          ],
+          [
+            -7.85,
+            -2.35,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0005",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0004",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0005",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -7.85,
+            -3.0500000000000003,
+            0.0
+          ],
+          [
+            -7.85,
+            -2.35,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -7.85,
+            -2.35,
+            0.0
+          ],
+          [
+            -7.75,
+            -2.25,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0006",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0005",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0006",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -7.85,
+            -2.35,
+            0.0
+          ],
+          [
+            -7.75,
+            -2.25,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -7.75,
+            -2.25,
+            0.0
+          ],
+          [
+            -7.75,
+            -1.75,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0007",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0006",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0007",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -7.75,
+            -2.25,
+            0.0
+          ],
+          [
+            -7.75,
+            -1.75,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -7.75,
+            -1.75,
+            0.0
+          ],
+          [
+            -7.55,
+            -1.5499999999999998,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0008",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0007",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0008",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -7.75,
+            -1.75,
+            0.0
+          ],
+          [
+            -7.55,
+            -1.5499999999999998,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -7.55,
+            -1.5499999999999998,
+            0.0
+          ],
+          [
+            -7.55,
+            -1.25,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0009",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0008",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0009",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -7.55,
+            -1.5499999999999998,
+            0.0
+          ],
+          [
+            -7.55,
+            -1.25,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -7.55,
+            -1.25,
+            0.0
+          ],
+          [
+            -7.35,
+            -1.0499999999999998,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0010",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0009",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0010",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -7.55,
+            -1.25,
+            0.0
+          ],
+          [
+            -7.35,
+            -1.0499999999999998,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -7.35,
+            -1.0499999999999998,
+            0.0
+          ],
+          [
+            -7.35,
+            -0.4500000000000002,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0011",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0010",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0011",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -7.35,
+            -1.0499999999999998,
+            0.0
+          ],
+          [
+            -7.35,
+            -0.4500000000000002,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -7.35,
+            -0.4500000000000002,
+            0.0
+          ],
+          [
+            -7.6499999999999995,
+            -0.14999999999999947,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0012",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0011",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0012",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -7.35,
+            -0.4500000000000002,
+            0.0
+          ],
+          [
+            -7.6499999999999995,
+            -0.14999999999999947,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -7.6499999999999995,
+            -0.14999999999999947,
+            0.0
+          ],
+          [
+            -7.6499999999999995,
+            -0.04999999999999982,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0013",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0012",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0013",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -7.6499999999999995,
+            -0.14999999999999947,
+            0.0
+          ],
+          [
+            -7.6499999999999995,
+            -0.04999999999999982,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -7.6499999999999995,
+            -0.04999999999999982,
+            0.0
+          ],
+          [
+            -8.95,
+            1.25,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0014",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0013",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0014",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -7.6499999999999995,
+            -0.04999999999999982,
+            0.0
+          ],
+          [
+            -8.95,
+            1.25,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -8.95,
+            1.25,
+            0.0
+          ],
+          [
+            -8.95,
+            1.5499999999999998,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0015",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0014",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0015",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -8.95,
+            1.25,
+            0.0
+          ],
+          [
+            -8.95,
+            1.5499999999999998,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -8.95,
+            1.5499999999999998,
+            0.0
+          ],
+          [
+            -8.55,
+            1.9500000000000002,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0016",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0015",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0016",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -8.95,
+            1.5499999999999998,
+            0.0
+          ],
+          [
+            -8.55,
+            1.9500000000000002,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -8.55,
+            1.9500000000000002,
+            0.0
+          ],
+          [
+            -8.35,
+            1.9500000000000002,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0017",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0016",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0017",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -8.55,
+            1.9500000000000002,
+            0.0
+          ],
+          [
+            -8.35,
+            1.9500000000000002,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -8.35,
+            1.9500000000000002,
+            0.0
+          ],
+          [
+            -8.25,
+            2.05,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0018",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0017",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0018",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -8.35,
+            1.9500000000000002,
+            0.0
+          ],
+          [
+            -8.25,
+            2.05,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -8.25,
+            2.05,
+            0.0
+          ],
+          [
+            -8.149999999999999,
+            2.05,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0019",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0018",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0019",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -8.25,
+            2.05,
+            0.0
+          ],
+          [
+            -8.149999999999999,
+            2.05,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -8.149999999999999,
+            2.05,
+            0.0
+          ],
+          [
+            -8.05,
+            2.1500000000000004,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0020",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0019",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0020",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -8.149999999999999,
+            2.05,
+            0.0
+          ],
+          [
+            -8.05,
+            2.1500000000000004,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -8.05,
+            2.1500000000000004,
+            0.0
+          ],
+          [
+            -7.949999999999999,
+            2.1500000000000004,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0021",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0020",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0021",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -8.05,
+            2.1500000000000004,
+            0.0
+          ],
+          [
+            -7.949999999999999,
+            2.1500000000000004,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -7.949999999999999,
+            2.1500000000000004,
+            0.0
+          ],
+          [
+            -7.85,
+            2.25,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0022",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0021",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0022",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -7.949999999999999,
+            2.1500000000000004,
+            0.0
+          ],
+          [
+            -7.85,
+            2.25,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -7.85,
+            2.25,
+            0.0
+          ],
+          [
+            -7.6499999999999995,
+            2.25,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0023",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0022",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0023",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -7.85,
+            2.25,
+            0.0
+          ],
+          [
+            -7.6499999999999995,
+            2.25,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -7.6499999999999995,
+            2.25,
+            0.0
+          ],
+          [
+            -7.55,
+            2.3500000000000005,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0024",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0023",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0024",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -7.6499999999999995,
+            2.25,
+            0.0
+          ],
+          [
+            -7.55,
+            2.3500000000000005,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -7.55,
+            2.3500000000000005,
+            0.0
+          ],
+          [
+            -7.449999999999999,
+            2.3500000000000005,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0025",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0024",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0025",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -7.55,
+            2.3500000000000005,
+            0.0
+          ],
+          [
+            -7.449999999999999,
+            2.3500000000000005,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -7.449999999999999,
+            2.3500000000000005,
+            0.0
+          ],
+          [
+            -7.35,
+            2.45,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0026",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0025",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0026",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -7.449999999999999,
+            2.3500000000000005,
+            0.0
+          ],
+          [
+            -7.35,
+            2.45,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -7.35,
+            2.45,
+            0.0
+          ],
+          [
+            -3.8499999999999996,
+            2.45,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0027",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0026",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0027",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -7.35,
+            2.45,
+            0.0
+          ],
+          [
+            -3.8499999999999996,
+            2.45,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.8499999999999996,
+            2.45,
+            0.0
+          ],
+          [
+            -3.3499999999999996,
+            2.95,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0028",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0027",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0028",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -3.8499999999999996,
+            2.45,
+            0.0
+          ],
+          [
+            -3.3499999999999996,
+            2.95,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.3499999999999996,
+            2.95,
+            0.0
+          ],
+          [
+            -3.3499999999999996,
+            3.3500000000000005,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0029",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0028",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0029",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -3.3499999999999996,
+            2.95,
+            0.0
+          ],
+          [
+            -3.3499999999999996,
+            3.3500000000000005,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.3499999999999996,
+            3.3500000000000005,
+            0.0
+          ],
+          [
+            -3.4499999999999993,
+            3.3500000000000005,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0030",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0029",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0030",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -3.3499999999999996,
+            3.3500000000000005,
+            0.0
+          ],
+          [
+            -3.4499999999999993,
+            3.3500000000000005,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.4499999999999993,
+            3.3500000000000005,
+            0.0
+          ],
+          [
+            -4.25,
+            4.1499999999999995,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0031",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0030",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0031",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -3.4499999999999993,
+            3.3500000000000005,
+            0.0
+          ],
+          [
+            -4.25,
+            4.1499999999999995,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -4.25,
+            4.1499999999999995,
+            0.0
+          ],
+          [
+            -5.049999999999999,
+            4.1499999999999995,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0032",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0031",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0032",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -4.25,
+            4.1499999999999995,
+            0.0
+          ],
+          [
+            -5.049999999999999,
+            4.1499999999999995,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -5.049999999999999,
+            4.1499999999999995,
+            0.0
+          ],
+          [
+            -5.25,
+            3.95,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0033",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0032",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0033",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -5.049999999999999,
+            4.1499999999999995,
+            0.0
+          ],
+          [
+            -5.25,
+            3.95,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -5.25,
+            3.95,
+            0.0
+          ],
+          [
+            -5.25,
+            3.8500000000000005,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0034",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0033",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0034",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -5.25,
+            3.95,
+            0.0
+          ],
+          [
+            -5.25,
+            3.8500000000000005,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -5.25,
+            3.8500000000000005,
+            0.0
+          ],
+          [
+            -5.35,
+            3.750000000000001,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0035",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0034",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0035",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -5.25,
+            3.8500000000000005,
+            0.0
+          ],
+          [
+            -5.35,
+            3.750000000000001,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -5.35,
+            3.750000000000001,
+            0.0
+          ],
+          [
+            -5.35,
+            3.6499999999999995,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0036",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0035",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0036",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -5.35,
+            3.750000000000001,
+            0.0
+          ],
+          [
+            -5.35,
+            3.6499999999999995,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -5.35,
+            3.6499999999999995,
+            0.0
+          ],
+          [
+            -5.449999999999999,
+            3.55,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0037",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0036",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0037",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -5.35,
+            3.6499999999999995,
+            0.0
+          ],
+          [
+            -5.449999999999999,
+            3.55,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -5.449999999999999,
+            3.55,
+            0.0
+          ],
+          [
+            -5.449999999999999,
+            3.45,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0038",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0037",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0038",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -5.449999999999999,
+            3.55,
+            0.0
+          ],
+          [
+            -5.449999999999999,
+            3.45,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -5.449999999999999,
+            3.45,
+            0.0
+          ],
+          [
+            -5.549999999999999,
+            3.3500000000000005,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0039",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0038",
+        "to": "route:living_room_02:1F:component-002:free-centerline:point:0039",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -5.449999999999999,
+            3.45,
+            0.0
+          ],
+          [
+            -5.549999999999999,
+            3.3500000000000005,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -5.549999999999999,
+            3.3500000000000005,
+            0.0
+          ],
+          [
+            -5.549999999999999,
+            3.250000000000001,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-002:free-centerline:edge:0040",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-002:free-centerline:point:0039",
+        "to": "node:living_room_02:1F:component-002:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -5.549999999999999,
+            3.3500000000000005,
+            0.0
+          ],
+          [
+            -5.549999999999999,
+            3.250000000000001,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -8.85,
+            5.05,
+            0.0
+          ],
+          [
+            -8.55,
+            5.05,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-003:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:living_room_02:1F:component-003:route-start",
+        "to": "route:living_room_02:1F:component-003:free-centerline:point:0001",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -8.85,
+            5.05,
+            0.0
+          ],
+          [
+            -8.55,
+            5.05,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -8.55,
+            5.05,
+            0.0
+          ],
+          [
+            -8.25,
+            5.3500000000000005,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-003:free-centerline:edge:0002",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-003:free-centerline:point:0001",
+        "to": "route:living_room_02:1F:component-003:free-centerline:point:0002",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -8.55,
+            5.05,
+            0.0
+          ],
+          [
+            -8.25,
+            5.3500000000000005,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -8.25,
+            5.3500000000000005,
+            0.0
+          ],
+          [
+            -7.85,
+            5.3500000000000005,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-003:free-centerline:edge:0003",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-003:free-centerline:point:0002",
+        "to": "route:living_room_02:1F:component-003:free-centerline:point:0003",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -8.25,
+            5.3500000000000005,
+            0.0
+          ],
+          [
+            -7.85,
+            5.3500000000000005,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -7.85,
+            5.3500000000000005,
+            0.0
+          ],
+          [
+            -7.75,
+            5.45,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-003:free-centerline:edge:0004",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-003:free-centerline:point:0003",
+        "to": "node:living_room_02:1F:component-003:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -7.85,
+            5.3500000000000005,
+            0.0
+          ],
+          [
+            -7.75,
+            5.45,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -1.4499999999999993,
+            1.1500000000000004,
+            0.0
+          ],
+          [
+            -1.4499999999999993,
+            4.95,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-004:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:living_room_02:1F:component-004:route-start",
+        "to": "node:living_room_02:1F:component-004:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -1.4499999999999993,
+            1.1500000000000004,
+            0.0
+          ],
+          [
+            -1.4499999999999993,
+            4.95,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -12.65,
+            2.25,
+            0.0
+          ],
+          [
+            -12.65,
+            5.55,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-005:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:living_room_02:1F:component-005:route-start",
+        "to": "node:living_room_02:1F:component-005:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -12.65,
+            2.25,
+            0.0
+          ],
+          [
+            -12.65,
+            5.55,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -8.85,
+            5.650000000000001,
+            0.0
+          ],
+          [
+            -5.85,
+            5.650000000000001,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-006:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:living_room_02:1F:component-006:route-start",
+        "to": "node:living_room_02:1F:component-006:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -8.85,
+            5.650000000000001,
+            0.0
+          ],
+          [
+            -5.85,
+            5.650000000000001,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -11.85,
+            -2.05,
+            0.0
+          ],
+          [
+            -9.149999999999999,
+            -2.05,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-007:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:living_room_02:1F:component-007:route-start",
+        "to": "node:living_room_02:1F:component-007:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -11.85,
+            -2.05,
+            0.0
+          ],
+          [
+            -9.149999999999999,
+            -2.05,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -11.75,
+            5.3500000000000005,
+            0.0
+          ],
+          [
+            -10.25,
+            5.3500000000000005,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-008:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:living_room_02:1F:component-008:route-start",
+        "to": "node:living_room_02:1F:component-008:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -11.75,
+            5.3500000000000005,
+            0.0
+          ],
+          [
+            -10.25,
+            5.3500000000000005,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -6.25,
+            -1.1500000000000004,
+            0.0
+          ],
+          [
+            -6.25,
+            1.25,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-009:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:living_room_02:1F:component-009:route-start",
+        "to": "node:living_room_02:1F:component-009:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -6.25,
+            -1.1500000000000004,
+            0.0
+          ],
+          [
+            -6.25,
+            1.25,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -5.65,
+            -1.35,
+            0.0
+          ],
+          [
+            -3.6499999999999986,
+            -1.35,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-010:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:living_room_02:1F:component-010:route-start",
+        "to": "node:living_room_02:1F:component-010:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -5.65,
+            -1.35,
+            0.0
+          ],
+          [
+            -3.6499999999999986,
+            -1.35,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -5.549999999999999,
+            4.95,
+            0.0
+          ],
+          [
+            -3.6499999999999986,
+            4.95,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-011:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:living_room_02:1F:component-011:route-start",
+        "to": "node:living_room_02:1F:component-011:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -5.549999999999999,
+            4.95,
+            0.0
+          ],
+          [
+            -3.6499999999999986,
+            4.95,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -5.949999999999999,
+            -3.85,
+            0.0
+          ],
+          [
+            -5.949999999999999,
+            -3.75,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-012:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:living_room_02:1F:component-012:route-start",
+        "to": "route:living_room_02:1F:component-012:free-centerline:point:0001",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -5.949999999999999,
+            -3.85,
+            0.0
+          ],
+          [
+            -5.949999999999999,
+            -3.75,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -5.949999999999999,
+            -3.75,
+            0.0
+          ],
+          [
+            -6.05,
+            -3.6500000000000004,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-012:free-centerline:edge:0002",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-012:free-centerline:point:0001",
+        "to": "route:living_room_02:1F:component-012:free-centerline:point:0002",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -5.949999999999999,
+            -3.75,
+            0.0
+          ],
+          [
+            -6.05,
+            -3.6500000000000004,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -6.05,
+            -3.6500000000000004,
+            0.0
+          ],
+          [
+            -6.05,
+            -3.55,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-012:free-centerline:edge:0003",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-012:free-centerline:point:0002",
+        "to": "route:living_room_02:1F:component-012:free-centerline:point:0003",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -6.05,
+            -3.6500000000000004,
+            0.0
+          ],
+          [
+            -6.05,
+            -3.55,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -6.05,
+            -3.55,
+            0.0
+          ],
+          [
+            -6.1499999999999995,
+            -3.45,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-012:free-centerline:edge:0004",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-012:free-centerline:point:0003",
+        "to": "route:living_room_02:1F:component-012:free-centerline:point:0004",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -6.05,
+            -3.55,
+            0.0
+          ],
+          [
+            -6.1499999999999995,
+            -3.45,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -6.1499999999999995,
+            -3.45,
+            0.0
+          ],
+          [
+            -6.1499999999999995,
+            -3.35,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-012:free-centerline:edge:0005",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-012:free-centerline:point:0004",
+        "to": "node:living_room_02:1F:component-012:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -6.1499999999999995,
+            -3.45,
+            0.0
+          ],
+          [
+            -6.1499999999999995,
+            -3.35,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.3499999999999996,
+            0.04999999999999982,
+            0.0
+          ],
+          [
+            -1.6499999999999986,
+            0.04999999999999982,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-013:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:living_room_02:1F:component-013:route-start",
+        "to": "node:living_room_02:1F:component-013:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -3.3499999999999996,
+            0.04999999999999982,
+            0.0
+          ],
+          [
+            -1.6499999999999986,
+            0.04999999999999982,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -5.549999999999999,
+            -0.5499999999999998,
+            0.0
+          ],
+          [
+            -5.75,
+            -0.5499999999999998,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-014:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:living_room_02:1F:component-014:route-start",
+        "to": "route:living_room_02:1F:component-014:free-centerline:point:0001",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -5.549999999999999,
+            -0.5499999999999998,
+            0.0
+          ],
+          [
+            -5.75,
+            -0.5499999999999998,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -5.75,
+            -0.5499999999999998,
+            0.0
+          ],
+          [
+            -5.75,
+            -1.0499999999999998,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-014:free-centerline:edge:0002",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-014:free-centerline:point:0001",
+        "to": "route:living_room_02:1F:component-014:free-centerline:point:0002",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -5.75,
+            -0.5499999999999998,
+            0.0
+          ],
+          [
+            -5.75,
+            -1.0499999999999998,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -5.75,
+            -1.0499999999999998,
+            0.0
+          ],
+          [
+            -5.85,
+            -1.0499999999999998,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-014:free-centerline:edge:0003",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-014:free-centerline:point:0002",
+        "to": "route:living_room_02:1F:component-014:free-centerline:point:0003",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -5.75,
+            -1.0499999999999998,
+            0.0
+          ],
+          [
+            -5.85,
+            -1.0499999999999998,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -5.85,
+            -1.0499999999999998,
+            0.0
+          ],
+          [
+            -5.949999999999999,
+            -1.1500000000000004,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-014:free-centerline:edge:0004",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-014:free-centerline:point:0003",
+        "to": "route:living_room_02:1F:component-014:free-centerline:point:0004",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -5.85,
+            -1.0499999999999998,
+            0.0
+          ],
+          [
+            -5.949999999999999,
+            -1.1500000000000004,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -5.949999999999999,
+            -1.1500000000000004,
+            0.0
+          ],
+          [
+            -6.05,
+            -1.1500000000000004,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-014:free-centerline:edge:0005",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-014:free-centerline:point:0004",
+        "to": "node:living_room_02:1F:component-014:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -5.949999999999999,
+            -1.1500000000000004,
+            0.0
+          ],
+          [
+            -6.05,
+            -1.1500000000000004,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -8.149999999999999,
+            -1.25,
+            0.0
+          ],
+          [
+            -8.149999999999999,
+            -0.34999999999999964,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-015:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:living_room_02:1F:component-015:route-start",
+        "to": "node:living_room_02:1F:component-015:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -8.149999999999999,
+            -1.25,
+            0.0
+          ],
+          [
+            -8.149999999999999,
+            -0.34999999999999964,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -1.4499999999999993,
+            0.15000000000000036,
+            0.0
+          ],
+          [
+            -1.4499999999999993,
+            0.8500000000000005,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-016:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:living_room_02:1F:component-016:route-start",
+        "to": "node:living_room_02:1F:component-016:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -1.4499999999999993,
+            0.15000000000000036,
+            0.0
+          ],
+          [
+            -1.4499999999999993,
+            0.8500000000000005,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -8.85,
+            -2.05,
+            0.0
+          ],
+          [
+            -8.25,
+            -2.05,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-017:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:living_room_02:1F:component-017:route-start",
+        "to": "node:living_room_02:1F:component-017:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -8.85,
+            -2.05,
+            0.0
+          ],
+          [
+            -8.25,
+            -2.05,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -12.65,
+            1.5499999999999998,
+            0.0
+          ],
+          [
+            -12.65,
+            2.05,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-018:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:living_room_02:1F:component-018:route-start",
+        "to": "node:living_room_02:1F:component-018:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -12.65,
+            1.5499999999999998,
+            0.0
+          ],
+          [
+            -12.65,
+            2.05,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -6.25,
+            -3.0500000000000003,
+            0.0
+          ],
+          [
+            -6.25,
+            -2.95,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-019:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:living_room_02:1F:component-019:route-start",
+        "to": "route:living_room_02:1F:component-019:free-centerline:point:0001",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -6.25,
+            -3.0500000000000003,
+            0.0
+          ],
+          [
+            -6.25,
+            -2.95,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -6.25,
+            -2.95,
+            0.0
+          ],
+          [
+            -6.1499999999999995,
+            -2.85,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-019:free-centerline:edge:0002",
+        "kind": "custom_connection",
+        "from": "route:living_room_02:1F:component-019:free-centerline:point:0001",
+        "to": "node:living_room_02:1F:component-019:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -6.25,
+            -2.95,
+            0.0
+          ],
+          [
+            -6.1499999999999995,
+            -2.85,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -8.149999999999999,
+            -1.85,
+            0.0
+          ],
+          [
+            -8.149999999999999,
+            -1.4500000000000002,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-020:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:living_room_02:1F:component-020:route-start",
+        "to": "node:living_room_02:1F:component-020:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -8.149999999999999,
+            -1.85,
+            0.0
+          ],
+          [
+            -8.149999999999999,
+            -1.4500000000000002,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -8.149999999999999,
+            0.8500000000000005,
+            0.0
+          ],
+          [
+            -8.149999999999999,
+            1.25,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-021:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:living_room_02:1F:component-021:route-start",
+        "to": "node:living_room_02:1F:component-021:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -8.149999999999999,
+            0.8500000000000005,
+            0.0
+          ],
+          [
+            -8.149999999999999,
+            1.25,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -9.45,
+            5.650000000000001,
+            0.0
+          ],
+          [
+            -9.05,
+            5.650000000000001,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-022:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:living_room_02:1F:component-022:route-start",
+        "to": "node:living_room_02:1F:component-022:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -9.45,
+            5.650000000000001,
+            0.0
+          ],
+          [
+            -9.05,
+            5.650000000000001,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.3499999999999996,
+            5.05,
+            0.0
+          ],
+          [
+            -3.049999999999999,
+            5.05,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-023:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:living_room_02:1F:component-023:route-start",
+        "to": "node:living_room_02:1F:component-023:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -3.3499999999999996,
+            5.05,
+            0.0
+          ],
+          [
+            -3.049999999999999,
+            5.05,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -11.95,
+            0.9500000000000002,
+            0.0
+          ],
+          [
+            -11.95,
+            1.25,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-024:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:living_room_02:1F:component-024:route-start",
+        "to": "node:living_room_02:1F:component-024:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -11.95,
+            0.9500000000000002,
+            0.0
+          ],
+          [
+            -11.95,
+            1.25,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -7.85,
+            -1.1500000000000004,
+            0.0
+          ],
+          [
+            -7.949999999999999,
+            -1.0499999999999998,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:living_room_02:1F:component-025:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:living_room_02:1F:component-025:route-start",
+        "to": "node:living_room_02:1F:component-025:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -7.85,
+            -1.1500000000000004,
+            0.0
+          ],
+          [
+            -7.949999999999999,
+            -1.0499999999999998,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 {
   "schema": "eai.semantic_map.project",
-  "version": 1,
+  "version": 2,
   "scene_key": "living_home_02",
   "coordinate_frame": "scene_world",
   "meters_per_unit": 1,
@@ -7012,5 +7012,11 @@
       ]
     }
   },
-  "current_revision": "revisions/39a197bc1b7143419f941230de7fb200"
+  "current_revision": "current",
+  "semantic_point_product": "semantic-points.json",
+  "navigation_products": {
+    "ground": "topology.json",
+    "aerial": "topology-aerial.json"
+  },
+  "save_id": "1125de5612214e7aa5bd7a7fa48bd769"
 }

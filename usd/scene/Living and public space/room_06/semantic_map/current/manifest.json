@@ -1,0 +1,51 @@
+{
+  "schema": "eai.semantic_map.revision",
+  "version": 2,
+  "revision": "8bf1f975419f484c85d7f0f7586289f9",
+  "scene_key": "living_room_06",
+  "levels": [
+    {
+      "level_id": "1F",
+      "grid": "level-000-semantic-grid.npz",
+      "preview": "level-000-semantic-map.png",
+      "layer": "level-000-layer.png",
+      "extent_xy": [
+        -8.9,
+        13.500000000000002,
+        -7.3,
+        7.600000000000001
+      ]
+    },
+    {
+      "level_id": "2F",
+      "grid": "level-001-semantic-grid.npz",
+      "preview": "level-001-semantic-map.png",
+      "layer": "level-001-layer.png",
+      "extent_xy": [
+        -8.9,
+        13.500000000000002,
+        -7.3,
+        7.600000000000001
+      ]
+    }
+  ],
+  "navigation_products": {
+    "ground": "topology.json",
+    "aerial": "topology-aerial.json"
+  },
+  "semantic_point_product": "semantic-points.json",
+  "files": {
+    "level-000-layer.png": "896e103d53aa3d00fa56c6af6d522ce86dedacba60612cfb0150ee8b6f34cd7e",
+    "level-000-semantic-grid.npz": "4a75770749210b1c3ffc98ea438de9bde755c4f28c9079c482595dbc528673af",
+    "level-000-semantic-map.png": "067802111ae42e8a29ac996dc8c06974798564dd16b4f235b6a491c9c25398d7",
+    "level-001-layer.png": "875a25374647d4967c6dec728140ab548572968d6607381749b9025d8a84a2e2",
+    "level-001-semantic-grid.npz": "6be019d06028587e4663b09df9df3e360137d45de76b9e50a3b732babf0bb86b",
+    "level-001-semantic-map.png": "9a7ea74dbcc5576d748ba6dcf2b523f6f95c02db8d58fb1091e1ac28c75a1b57",
+    "semantic-footprints.geojson": "b3049ad7a1062091e169bd352424d59721a26b8b6229942aef26d11b0c6a96e1",
+    "semantic-footprints.json": "7195e6fec964c91ef030671a98cc4ce6cd53324009b4dff3fe2caed69d580120",
+    "semantic-points.json": "79b84ceb43d675a05fd65a6b21a9ee782a2b8f0680f150ee0683ab5e3e60f442",
+    "topology-aerial.json": "6f60e210f8802ee80a109e2391bac1de961a4a07a1cf6f48b1b7e6d50dbf44dc",
+    "topology.json": "a0c0e1921dd83815b571a5d7558dc4c36f5c842761bbdb45df26e2040546fa9f"
+  },
+  "robot_validated": false
+}

@@ -1,6 +1,6 @@
 {
   "schema": "eai.semantic_map.project",
-  "version": 1,
+  "version": 2,
   "scene_key": "service_ruined_city",
   "coordinate_frame": "scene_world",
   "meters_per_unit": 1,
@@ -29403,5 +29403,11 @@
       ]
     }
   },
-  "current_revision": "revisions/69ddc32e71074e3bb367ddd482011045"
+  "current_revision": "current",
+  "semantic_point_product": "semantic-points.json",
+  "navigation_products": {
+    "ground": "topology.json",
+    "aerial": "topology-aerial.json"
+  },
+  "save_id": "16f364b3924e4ccaa4f34f84322b36d2"
 }

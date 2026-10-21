@@ -1,0 +1,362 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -102.5,
+            -52.5,
+            109.0
+          ],
+          [
+            -102.5,
+            -47.5,
+            109.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:service_forest:terrain:component-001:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:service_forest:terrain:component-001:route-start",
+        "to": "route:service_forest:terrain:component-001:free-centerline:point:0001",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -102.5,
+            -52.5,
+            109.0
+          ],
+          [
+            -102.5,
+            -47.5,
+            109.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -102.5,
+            -47.5,
+            109.0
+          ],
+          [
+            -107.5,
+            -42.5,
+            109.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:service_forest:terrain:component-001:free-centerline:edge:0002",
+        "kind": "custom_connection",
+        "from": "route:service_forest:terrain:component-001:free-centerline:point:0001",
+        "to": "route:service_forest:terrain:component-001:free-centerline:point:0002",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -102.5,
+            -47.5,
+            109.0
+          ],
+          [
+            -107.5,
+            -42.5,
+            109.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -107.5,
+            -42.5,
+            109.0
+          ],
+          [
+            -107.5,
+            -37.5,
+            109.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:service_forest:terrain:component-001:free-centerline:edge:0003",
+        "kind": "custom_connection",
+        "from": "route:service_forest:terrain:component-001:free-centerline:point:0002",
+        "to": "node:service_forest:terrain:component-001:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -107.5,
+            -42.5,
+            109.0
+          ],
+          [
+            -107.5,
+            -37.5,
+            109.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -112.5,
+            -92.5,
+            109.0
+          ],
+          [
+            -112.5,
+            -82.5,
+            109.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:service_forest:terrain:component-002:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:service_forest:terrain:component-002:route-start",
+        "to": "node:service_forest:terrain:component-002:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -112.5,
+            -92.5,
+            109.0
+          ],
+          [
+            -112.5,
+            -82.5,
+            109.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -107.5,
+            17.5,
+            109.0
+          ],
+          [
+            -107.5,
+            12.5,
+            109.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:service_forest:terrain:component-003:free-centerline:edge:0001",
+        "kind": "custom_connection",
+        "from": "node:service_forest:terrain:component-003:route-start",
+        "to": "route:service_forest:terrain:component-003:free-centerline:point:0001",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -107.5,
+            17.5,
+            109.0
+          ],
+          [
+            -107.5,
+            12.5,
+            109.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -107.5,
+            12.5,
+            109.0
+          ],
+          [
+            -102.5,
+            12.5,
+            109.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:service_forest:terrain:component-003:free-centerline:edge:0002",
+        "kind": "custom_connection",
+        "from": "route:service_forest:terrain:component-003:free-centerline:point:0001",
+        "to": "route:service_forest:terrain:component-003:free-centerline:point:0002",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -107.5,
+            12.5,
+            109.0
+          ],
+          [
+            -102.5,
+            12.5,
+            109.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -102.5,
+            12.5,
+            109.0
+          ],
+          [
+            -102.5,
+            7.5,
+            109.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route:service_forest:terrain:component-003:free-centerline:edge:0003",
+        "kind": "custom_connection",
+        "from": "route:service_forest:terrain:component-003:free-centerline:point:0002",
+        "to": "node:service_forest:terrain:component-003:route-end",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            -102.5,
+            12.5,
+            109.0
+          ],
+          [
+            -102.5,
+            7.5,
+            109.0
+          ]
+        ],
+        "profiles": {
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
+    }
+  ]
+}

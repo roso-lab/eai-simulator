@@ -1,0 +1,46 @@
+{
+  "schema": "eai.navigation.topology",
+  "version": 2,
+  "scene_key": "living_school",
+  "coordinate_frame": "scene_world",
+  "meters_per_unit": 1.0,
+  "up_axis": "Z",
+  "domain": "aerial",
+  "levels": [
+    {
+      "id": "1F",
+      "label": "一层",
+      "support_z_m": 0.45
+    },
+    {
+      "id": "2F",
+      "label": "二层",
+      "support_z_m": 4.35
+    },
+    {
+      "id": "3F",
+      "label": "三层",
+      "support_z_m": 7.95
+    },
+    {
+      "id": "4F",
+      "label": "四层",
+      "support_z_m": 11.55
+    }
+  ],
+  "source": {
+    "usd_layer_0000": "fa5d4a4ad0f5b76155c2fe8948a6fb1eca32fe41727f679640f76e82297cc0ea",
+    "usd_layer_0001": "0e3fd1f843b91363d0c50ead45bb405d0e2bc7c6db57d7a385902addd57117ad"
+  },
+  "nodes": [],
+  "edges": [],
+  "semantics": {
+    "schema": "eai.scene.semantics",
+    "version": 1,
+    "regions": [],
+    "entities": [],
+    "interaction_poses": [],
+    "routes": [],
+    "extensions": {}
+  }
+}

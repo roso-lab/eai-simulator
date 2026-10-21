@@ -1,0 +1,31 @@
+{
+  "schema": "eai.navigation.topology",
+  "version": 2,
+  "scene_key": "production_warehouse_02",
+  "coordinate_frame": "scene_world",
+  "meters_per_unit": 1.0,
+  "up_axis": "Z",
+  "domain": "aerial",
+  "levels": [
+    {
+      "id": "1F",
+      "label": "主支撑层（待清点）",
+      "support_z_m": 0.0
+    }
+  ],
+  "source": {
+    "usd_layer_0000": "68d51454522f95827231372d2dc6cc065e6828dd0b9612f9ea8c350dca0b3c62",
+    "usd_layer_0001": "f8d39725f488d4483879d7e3bd7b297edace5ff16b06b268393227237f2195b9"
+  },
+  "nodes": [],
+  "edges": [],
+  "semantics": {
+    "schema": "eai.scene.semantics",
+    "version": 1,
+    "regions": [],
+    "entities": [],
+    "interaction_poses": [],
+    "routes": [],
+    "extensions": {}
+  }
+}

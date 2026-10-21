@@ -1,6 +1,6 @@
 {
   "schema": "eai.semantic_map.project",
-  "version": 1,
+  "version": 2,
   "scene_key": "living_school",
   "coordinate_frame": "scene_world",
   "meters_per_unit": 1,
@@ -102380,5 +102380,11 @@
       ]
     }
   },
-  "current_revision": "revisions/b2d0fad8b7314c058cb002fa4d976b37"
+  "current_revision": "current",
+  "semantic_point_product": "semantic-points.json",
+  "navigation_products": {
+    "ground": "topology.json",
+    "aerial": "topology-aerial.json"
+  },
+  "save_id": "c185fa43feae4eb5afaf64760b83bd9c"
 }

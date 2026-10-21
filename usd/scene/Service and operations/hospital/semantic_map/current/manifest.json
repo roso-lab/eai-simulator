@@ -1,0 +1,36 @@
+{
+  "schema": "eai.semantic_map.revision",
+  "version": 2,
+  "revision": "03c93fbb6e7e4ebe94cc2613b354aeb3",
+  "scene_key": "service_hospital",
+  "levels": [
+    {
+      "level_id": "1F",
+      "grid": "level-000-semantic-grid.npz",
+      "preview": "level-000-semantic-map.png",
+      "layer": "level-000-layer.png",
+      "extent_xy": [
+        22.1,
+        67.39999999999999,
+        -1.1,
+        30.400000000000002
+      ]
+    }
+  ],
+  "navigation_products": {
+    "ground": "topology.json",
+    "aerial": "topology-aerial.json"
+  },
+  "semantic_point_product": "semantic-points.json",
+  "files": {
+    "level-000-layer.png": "9e95257ceb3080e02eeabf0364958088724e2de684b4504e3dc1cba99fa6764d",
+    "level-000-semantic-grid.npz": "4eec9d6d8f14add726aeb1bb4c27d6ef78729ea705f94101540a0f5b5502b1c8",
+    "level-000-semantic-map.png": "46581da92c3156dac9ab90bbe6b8b0a400bd479a3fa3b54429c30ac31d6793cd",
+    "semantic-footprints.geojson": "3516f6aad0b62aa681d6d0c818e914b4ed4549d1fa90d51d81757099a0ee1214",
+    "semantic-footprints.json": "83d2e20b5aacc0acbe4958e50ab21bb2a61c956e6befab04a2ff78d070e847d3",
+    "semantic-points.json": "8d8f2ebba41abef3cef924cbed3066b674ea3a26e794ed475b0105c9f874fd64",
+    "topology-aerial.json": "2409a9b90c27d4f1bc5a40685e2f939b93a8180849a63517c29a67fb23cc3fd3",
+    "topology.json": "b256de30623336017c1cf84adedf10949dd6a2db3ff7f9be3fb054902c17b68e"
+  },
+  "robot_validated": false
+}

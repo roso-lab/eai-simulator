@@ -1,6 +1,6 @@
 {
   "schema": "eai.semantic_map.project",
-  "version": 1,
+  "version": 2,
   "scene_key": "service_hospital",
   "coordinate_frame": "scene_world",
   "meters_per_unit": 1,
@@ -19585,5 +19585,11 @@
       ]
     }
   },
-  "current_revision": "revisions/2afe643b1b29450ba61a8c42cdf027cd"
+  "current_revision": "current",
+  "semantic_point_product": "semantic-points.json",
+  "navigation_products": {
+    "ground": "topology.json",
+    "aerial": "topology-aerial.json"
+  },
+  "save_id": "03c93fbb6e7e4ebe94cc2613b354aeb3"
 }

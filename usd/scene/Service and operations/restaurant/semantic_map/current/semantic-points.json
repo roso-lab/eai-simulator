@@ -1,0 +1,9 @@
+{
+  "schema": "eai.semantic_points",
+  "version": 1,
+  "scene_key": "service_restaurant",
+  "coordinate_frame": "scene_world",
+  "meters_per_unit": 1,
+  "up_axis": "Z",
+  "points": []
+}

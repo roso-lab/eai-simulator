@@ -1,0 +1,4447 @@
+{
+  "schema": "eai.navigation.topology",
+  "version": 2,
+  "scene_key": "service_ruined_city",
+  "coordinate_frame": "scene_world",
+  "meters_per_unit": 1.0,
+  "up_axis": "Z",
+  "domain": "ground",
+  "levels": [
+    {
+      "id": "ground",
+      "label": "地面层（待清点）",
+      "support_z_m": 0.0
+    }
+  ],
+  "source": {
+    "usd_layer_0000": "46282d704e510e4b3c5506170ddf3607691bee94a65e8605a2b5009c0f975fa5"
+  },
+  "nodes": [
+    {
+      "id": "node:service_ruined_city:ground:component-001:route-start",
+      "kind": "custom",
+      "position_xyz": [
+        8.250000000000002,
+        24.75,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "几何路线起点",
+      "aliases": []
+    },
+    {
+      "id": "node:service_ruined_city:ground:component-001:route-end",
+      "kind": "custom",
+      "position_xyz": [
+        -6.15,
+        -8.25,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "几何路线终点",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0001",
+      "kind": "custom",
+      "position_xyz": [
+        8.15,
+        24.650000000000006,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0002",
+      "kind": "custom",
+      "position_xyz": [
+        5.049999999999999,
+        24.650000000000006,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0003",
+      "kind": "custom",
+      "position_xyz": [
+        4.65,
+        24.25,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0004",
+      "kind": "custom",
+      "position_xyz": [
+        1.4499999999999993,
+        24.25,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0005",
+      "kind": "custom",
+      "position_xyz": [
+        1.3499999999999996,
+        24.150000000000006,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0006",
+      "kind": "custom",
+      "position_xyz": [
+        1.25,
+        24.150000000000006,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0007",
+      "kind": "custom",
+      "position_xyz": [
+        1.1500000000000004,
+        24.050000000000004,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0008",
+      "kind": "custom",
+      "position_xyz": [
+        1.1500000000000004,
+        23.950000000000003,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0009",
+      "kind": "custom",
+      "position_xyz": [
+        1.049999999999999,
+        23.85,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0010",
+      "kind": "custom",
+      "position_xyz": [
+        1.049999999999999,
+        19.450000000000003,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0011",
+      "kind": "custom",
+      "position_xyz": [
+        0.4499999999999993,
+        18.85,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0012",
+      "kind": "custom",
+      "position_xyz": [
+        0.4499999999999993,
+        8.65,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0013",
+      "kind": "custom",
+      "position_xyz": [
+        0.5499999999999989,
+        8.549999999999999,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0014",
+      "kind": "custom",
+      "position_xyz": [
+        0.5499999999999989,
+        6.450000000000001,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0015",
+      "kind": "custom",
+      "position_xyz": [
+        0.4499999999999993,
+        6.35,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0016",
+      "kind": "custom",
+      "position_xyz": [
+        0.4499999999999993,
+        6.15,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0017",
+      "kind": "custom",
+      "position_xyz": [
+        0.34999999999999964,
+        6.050000000000001,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0018",
+      "kind": "custom",
+      "position_xyz": [
+        0.34999999999999964,
+        -0.8499999999999996,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0019",
+      "kind": "custom",
+      "position_xyz": [
+        -0.8499999999999996,
+        -2.05,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0020",
+      "kind": "custom",
+      "position_xyz": [
+        -5.3500000000000005,
+        -2.05,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0021",
+      "kind": "custom",
+      "position_xyz": [
+        -5.3500000000000005,
+        -6.550000000000001,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0022",
+      "kind": "custom",
+      "position_xyz": [
+        -5.450000000000001,
+        -6.65,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0023",
+      "kind": "custom",
+      "position_xyz": [
+        -5.450000000000001,
+        -6.75,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0024",
+      "kind": "custom",
+      "position_xyz": [
+        -5.550000000000001,
+        -6.85,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0025",
+      "kind": "custom",
+      "position_xyz": [
+        -5.550000000000001,
+        -6.95,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0026",
+      "kind": "custom",
+      "position_xyz": [
+        -5.65,
+        -7.050000000000001,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0027",
+      "kind": "custom",
+      "position_xyz": [
+        -5.65,
+        -7.25,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0028",
+      "kind": "custom",
+      "position_xyz": [
+        -5.750000000000001,
+        -7.35,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0029",
+      "kind": "custom",
+      "position_xyz": [
+        -5.750000000000001,
+        -7.45,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0030",
+      "kind": "custom",
+      "position_xyz": [
+        -5.8500000000000005,
+        -7.550000000000001,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0031",
+      "kind": "custom",
+      "position_xyz": [
+        -5.8500000000000005,
+        -7.65,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0032",
+      "kind": "custom",
+      "position_xyz": [
+        -5.950000000000001,
+        -7.75,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0033",
+      "kind": "custom",
+      "position_xyz": [
+        -5.950000000000001,
+        -7.8500000000000005,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0034",
+      "kind": "custom",
+      "position_xyz": [
+        -6.050000000000001,
+        -7.95,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0035",
+      "kind": "custom",
+      "position_xyz": [
+        -6.050000000000001,
+        -8.05,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:point:0036",
+      "kind": "custom",
+      "position_xyz": [
+        -6.15,
+        -8.15,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:service_ruined_city:ground:component-002:route-start",
+      "kind": "custom",
+      "position_xyz": [
+        -6.15,
+        26.550000000000004,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "几何路线起点",
+      "aliases": []
+    },
+    {
+      "id": "node:service_ruined_city:ground:component-002:route-end",
+      "kind": "custom",
+      "position_xyz": [
+        8.250000000000002,
+        41.45,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "几何路线终点",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:point:0001",
+      "kind": "custom",
+      "position_xyz": [
+        -6.050000000000001,
+        26.650000000000006,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:point:0002",
+      "kind": "custom",
+      "position_xyz": [
+        -6.050000000000001,
+        29.750000000000007,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:point:0003",
+      "kind": "custom",
+      "position_xyz": [
+        -5.450000000000001,
+        30.35,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:point:0004",
+      "kind": "custom",
+      "position_xyz": [
+        -5.450000000000001,
+        40.75000000000001,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:point:0005",
+      "kind": "custom",
+      "position_xyz": [
+        -5.3500000000000005,
+        40.85,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:point:0006",
+      "kind": "custom",
+      "position_xyz": [
+        6.950000000000001,
+        40.85,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:point:0007",
+      "kind": "custom",
+      "position_xyz": [
+        7.049999999999999,
+        40.95,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:point:0008",
+      "kind": "custom",
+      "position_xyz": [
+        7.250000000000002,
+        40.95,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:point:0009",
+      "kind": "custom",
+      "position_xyz": [
+        7.35,
+        41.050000000000004,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:point:0010",
+      "kind": "custom",
+      "position_xyz": [
+        7.450000000000001,
+        41.050000000000004,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:point:0011",
+      "kind": "custom",
+      "position_xyz": [
+        7.549999999999999,
+        41.150000000000006,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:point:0012",
+      "kind": "custom",
+      "position_xyz": [
+        7.65,
+        41.150000000000006,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:point:0013",
+      "kind": "custom",
+      "position_xyz": [
+        7.750000000000002,
+        41.25000000000001,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:point:0014",
+      "kind": "custom",
+      "position_xyz": [
+        7.85,
+        41.25000000000001,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:point:0015",
+      "kind": "custom",
+      "position_xyz": [
+        7.950000000000001,
+        41.35,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:point:0016",
+      "kind": "custom",
+      "position_xyz": [
+        8.15,
+        41.35,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:service_ruined_city:ground:component-003:route-start",
+      "kind": "custom",
+      "position_xyz": [
+        3.8499999999999996,
+        1.8499999999999996,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "几何路线起点",
+      "aliases": []
+    },
+    {
+      "id": "node:service_ruined_city:ground:component-003:route-end",
+      "kind": "custom",
+      "position_xyz": [
+        8.250000000000002,
+        1.25,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "几何路线终点",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-003:free-centerline:point:0001",
+      "kind": "custom",
+      "position_xyz": [
+        6.950000000000001,
+        1.8499999999999996,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-003:free-centerline:point:0002",
+      "kind": "custom",
+      "position_xyz": [
+        7.049999999999999,
+        1.75,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-003:free-centerline:point:0003",
+      "kind": "custom",
+      "position_xyz": [
+        7.250000000000002,
+        1.75,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-003:free-centerline:point:0004",
+      "kind": "custom",
+      "position_xyz": [
+        7.35,
+        1.6500000000000004,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-003:free-centerline:point:0005",
+      "kind": "custom",
+      "position_xyz": [
+        7.450000000000001,
+        1.6500000000000004,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-003:free-centerline:point:0006",
+      "kind": "custom",
+      "position_xyz": [
+        7.549999999999999,
+        1.5500000000000007,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-003:free-centerline:point:0007",
+      "kind": "custom",
+      "position_xyz": [
+        7.65,
+        1.5500000000000007,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-003:free-centerline:point:0008",
+      "kind": "custom",
+      "position_xyz": [
+        7.750000000000002,
+        1.450000000000001,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-003:free-centerline:point:0009",
+      "kind": "custom",
+      "position_xyz": [
+        7.85,
+        1.450000000000001,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-003:free-centerline:point:0010",
+      "kind": "custom",
+      "position_xyz": [
+        7.950000000000001,
+        1.3499999999999996,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-003:free-centerline:point:0011",
+      "kind": "custom",
+      "position_xyz": [
+        8.049999999999999,
+        1.3499999999999996,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-003:free-centerline:point:0012",
+      "kind": "custom",
+      "position_xyz": [
+        8.15,
+        1.25,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:service_ruined_city:ground:component-004:route-start",
+      "kind": "custom",
+      "position_xyz": [
+        4.450000000000001,
+        35.050000000000004,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "几何路线起点",
+      "aliases": []
+    },
+    {
+      "id": "node:service_ruined_city:ground:component-004:route-end",
+      "kind": "custom",
+      "position_xyz": [
+        8.250000000000002,
+        34.45,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "几何路线终点",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-004:free-centerline:point:0001",
+      "kind": "custom",
+      "position_xyz": [
+        6.950000000000001,
+        35.050000000000004,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-004:free-centerline:point:0002",
+      "kind": "custom",
+      "position_xyz": [
+        7.049999999999999,
+        34.95,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-004:free-centerline:point:0003",
+      "kind": "custom",
+      "position_xyz": [
+        7.65,
+        34.95,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-004:free-centerline:point:0004",
+      "kind": "custom",
+      "position_xyz": [
+        8.15,
+        34.45,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:service_ruined_city:ground:component-005:route-start",
+      "kind": "custom",
+      "position_xyz": [
+        -5.550000000000001,
+        19.15,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "几何路线起点",
+      "aliases": []
+    },
+    {
+      "id": "node:service_ruined_city:ground:component-005:route-end",
+      "kind": "custom",
+      "position_xyz": [
+        -5.3500000000000005,
+        26.35,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "几何路线终点",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-005:free-centerline:point:0001",
+      "kind": "custom",
+      "position_xyz": [
+        -5.550000000000001,
+        25.950000000000003,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-005:free-centerline:point:0002",
+      "kind": "custom",
+      "position_xyz": [
+        -5.450000000000001,
+        26.050000000000004,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-005:free-centerline:point:0003",
+      "kind": "custom",
+      "position_xyz": [
+        -5.450000000000001,
+        26.25,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:service_ruined_city:ground:component-006:route-start",
+      "kind": "custom",
+      "position_xyz": [
+        8.250000000000002,
+        31.150000000000006,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "几何路线起点",
+      "aliases": []
+    },
+    {
+      "id": "node:service_ruined_city:ground:component-006:route-end",
+      "kind": "custom",
+      "position_xyz": [
+        5.35,
+        31.650000000000006,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "几何路线终点",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-006:free-centerline:point:0001",
+      "kind": "custom",
+      "position_xyz": [
+        7.65,
+        31.150000000000006,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-006:free-centerline:point:0002",
+      "kind": "custom",
+      "position_xyz": [
+        7.450000000000001,
+        31.35,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-006:free-centerline:point:0003",
+      "kind": "custom",
+      "position_xyz": [
+        6.749999999999998,
+        31.35,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-006:free-centerline:point:0004",
+      "kind": "custom",
+      "position_xyz": [
+        6.65,
+        31.450000000000003,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-006:free-centerline:point:0005",
+      "kind": "custom",
+      "position_xyz": [
+        5.749999999999998,
+        31.450000000000003,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-006:free-centerline:point:0006",
+      "kind": "custom",
+      "position_xyz": [
+        5.65,
+        31.550000000000004,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-006:free-centerline:point:0007",
+      "kind": "custom",
+      "position_xyz": [
+        5.450000000000001,
+        31.550000000000004,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:service_ruined_city:ground:component-007:route-start",
+      "kind": "custom",
+      "position_xyz": [
+        -7.550000000000001,
+        24.25,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "几何路线起点",
+      "aliases": []
+    },
+    {
+      "id": "node:service_ruined_city:ground:component-007:route-end",
+      "kind": "custom",
+      "position_xyz": [
+        -8.25,
+        24.75,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "几何路线终点",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-007:free-centerline:point:0001",
+      "kind": "custom",
+      "position_xyz": [
+        -7.650000000000001,
+        24.35,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-007:free-centerline:point:0002",
+      "kind": "custom",
+      "position_xyz": [
+        -7.750000000000001,
+        24.35,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-007:free-centerline:point:0003",
+      "kind": "custom",
+      "position_xyz": [
+        -8.05,
+        24.650000000000006,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-007:free-centerline:point:0004",
+      "kind": "custom",
+      "position_xyz": [
+        -8.150000000000002,
+        24.650000000000006,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:service_ruined_city:ground:component-008:route-start",
+      "kind": "custom",
+      "position_xyz": [
+        8.35,
+        4.85,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "几何路线起点",
+      "aliases": []
+    },
+    {
+      "id": "node:service_ruined_city:ground:component-008:route-end",
+      "kind": "custom",
+      "position_xyz": [
+        8.549999999999999,
+        5.85,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "几何路线终点",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-008:free-centerline:point:0001",
+      "kind": "custom",
+      "position_xyz": [
+        8.35,
+        5.450000000000001,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-008:free-centerline:point:0002",
+      "kind": "custom",
+      "position_xyz": [
+        8.549999999999999,
+        5.65,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:service_ruined_city:ground:component-009:route-start",
+      "kind": "custom",
+      "position_xyz": [
+        -5.250000000000001,
+        21.65,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "几何路线起点",
+      "aliases": []
+    },
+    {
+      "id": "node:service_ruined_city:ground:component-009:route-end",
+      "kind": "custom",
+      "position_xyz": [
+        -5.250000000000001,
+        22.050000000000004,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "ground",
+      "label": "几何路线终点",
+      "aliases": []
+    }
+  ],
+  "edges": [
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0001",
+      "kind": "custom_connection",
+      "from": "node:service_ruined_city:ground:component-001:route-start",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0001",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          8.250000000000002,
+          24.75,
+          0.0
+        ],
+        [
+          8.15,
+          24.650000000000006,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0002",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0001",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0002",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          8.15,
+          24.650000000000006,
+          0.0
+        ],
+        [
+          5.049999999999999,
+          24.650000000000006,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0003",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0002",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0003",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          5.049999999999999,
+          24.650000000000006,
+          0.0
+        ],
+        [
+          4.65,
+          24.25,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0004",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0003",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0004",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          4.65,
+          24.25,
+          0.0
+        ],
+        [
+          1.4499999999999993,
+          24.25,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0005",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0004",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0005",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          1.4499999999999993,
+          24.25,
+          0.0
+        ],
+        [
+          1.3499999999999996,
+          24.150000000000006,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0006",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0005",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0006",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          1.3499999999999996,
+          24.150000000000006,
+          0.0
+        ],
+        [
+          1.25,
+          24.150000000000006,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0007",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0006",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0007",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          1.25,
+          24.150000000000006,
+          0.0
+        ],
+        [
+          1.1500000000000004,
+          24.050000000000004,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0008",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0007",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0008",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          1.1500000000000004,
+          24.050000000000004,
+          0.0
+        ],
+        [
+          1.1500000000000004,
+          23.950000000000003,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0009",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0008",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0009",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          1.1500000000000004,
+          23.950000000000003,
+          0.0
+        ],
+        [
+          1.049999999999999,
+          23.85,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0010",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0009",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0010",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          1.049999999999999,
+          23.85,
+          0.0
+        ],
+        [
+          1.049999999999999,
+          19.450000000000003,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0011",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0010",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0011",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          1.049999999999999,
+          19.450000000000003,
+          0.0
+        ],
+        [
+          0.4499999999999993,
+          18.85,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0012",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0011",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0012",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          0.4499999999999993,
+          18.85,
+          0.0
+        ],
+        [
+          0.4499999999999993,
+          8.65,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0013",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0012",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0013",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          0.4499999999999993,
+          8.65,
+          0.0
+        ],
+        [
+          0.5499999999999989,
+          8.549999999999999,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0014",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0013",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0014",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          0.5499999999999989,
+          8.549999999999999,
+          0.0
+        ],
+        [
+          0.5499999999999989,
+          6.450000000000001,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0015",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0014",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0015",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          0.5499999999999989,
+          6.450000000000001,
+          0.0
+        ],
+        [
+          0.4499999999999993,
+          6.35,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0016",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0015",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0016",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          0.4499999999999993,
+          6.35,
+          0.0
+        ],
+        [
+          0.4499999999999993,
+          6.15,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0017",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0016",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0017",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          0.4499999999999993,
+          6.15,
+          0.0
+        ],
+        [
+          0.34999999999999964,
+          6.050000000000001,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0018",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0017",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0018",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          0.34999999999999964,
+          6.050000000000001,
+          0.0
+        ],
+        [
+          0.34999999999999964,
+          -0.8499999999999996,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0019",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0018",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0019",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          0.34999999999999964,
+          -0.8499999999999996,
+          0.0
+        ],
+        [
+          -0.8499999999999996,
+          -2.05,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0020",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0019",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0020",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -0.8499999999999996,
+          -2.05,
+          0.0
+        ],
+        [
+          -5.3500000000000005,
+          -2.05,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0021",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0020",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0021",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -5.3500000000000005,
+          -2.05,
+          0.0
+        ],
+        [
+          -5.3500000000000005,
+          -6.550000000000001,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0022",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0021",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0022",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -5.3500000000000005,
+          -6.550000000000001,
+          0.0
+        ],
+        [
+          -5.450000000000001,
+          -6.65,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0023",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0022",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0023",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -5.450000000000001,
+          -6.65,
+          0.0
+        ],
+        [
+          -5.450000000000001,
+          -6.75,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0024",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0023",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0024",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -5.450000000000001,
+          -6.75,
+          0.0
+        ],
+        [
+          -5.550000000000001,
+          -6.85,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0025",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0024",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0025",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -5.550000000000001,
+          -6.85,
+          0.0
+        ],
+        [
+          -5.550000000000001,
+          -6.95,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0026",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0025",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0026",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -5.550000000000001,
+          -6.95,
+          0.0
+        ],
+        [
+          -5.65,
+          -7.050000000000001,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0027",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0026",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0027",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -5.65,
+          -7.050000000000001,
+          0.0
+        ],
+        [
+          -5.65,
+          -7.25,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0028",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0027",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0028",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -5.65,
+          -7.25,
+          0.0
+        ],
+        [
+          -5.750000000000001,
+          -7.35,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0029",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0028",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0029",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -5.750000000000001,
+          -7.35,
+          0.0
+        ],
+        [
+          -5.750000000000001,
+          -7.45,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0030",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0029",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0030",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -5.750000000000001,
+          -7.45,
+          0.0
+        ],
+        [
+          -5.8500000000000005,
+          -7.550000000000001,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0031",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0030",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0031",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -5.8500000000000005,
+          -7.550000000000001,
+          0.0
+        ],
+        [
+          -5.8500000000000005,
+          -7.65,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0032",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0031",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0032",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -5.8500000000000005,
+          -7.65,
+          0.0
+        ],
+        [
+          -5.950000000000001,
+          -7.75,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0033",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0032",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0033",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -5.950000000000001,
+          -7.75,
+          0.0
+        ],
+        [
+          -5.950000000000001,
+          -7.8500000000000005,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0034",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0033",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0034",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -5.950000000000001,
+          -7.8500000000000005,
+          0.0
+        ],
+        [
+          -6.050000000000001,
+          -7.95,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0035",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0034",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0035",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -6.050000000000001,
+          -7.95,
+          0.0
+        ],
+        [
+          -6.050000000000001,
+          -8.05,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0036",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0035",
+      "to": "route:service_ruined_city:ground:component-001:free-centerline:point:0036",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -6.050000000000001,
+          -8.05,
+          0.0
+        ],
+        [
+          -6.15,
+          -8.15,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-001:free-centerline:edge:0037",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-001:free-centerline:point:0036",
+      "to": "node:service_ruined_city:ground:component-001:route-end",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -6.15,
+          -8.15,
+          0.0
+        ],
+        [
+          -6.15,
+          -8.25,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:edge:0001",
+      "kind": "custom_connection",
+      "from": "node:service_ruined_city:ground:component-002:route-start",
+      "to": "route:service_ruined_city:ground:component-002:free-centerline:point:0001",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -6.15,
+          26.550000000000004,
+          0.0
+        ],
+        [
+          -6.050000000000001,
+          26.650000000000006,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:edge:0002",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-002:free-centerline:point:0001",
+      "to": "route:service_ruined_city:ground:component-002:free-centerline:point:0002",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -6.050000000000001,
+          26.650000000000006,
+          0.0
+        ],
+        [
+          -6.050000000000001,
+          29.750000000000007,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:edge:0003",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-002:free-centerline:point:0002",
+      "to": "route:service_ruined_city:ground:component-002:free-centerline:point:0003",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -6.050000000000001,
+          29.750000000000007,
+          0.0
+        ],
+        [
+          -5.450000000000001,
+          30.35,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:edge:0004",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-002:free-centerline:point:0003",
+      "to": "route:service_ruined_city:ground:component-002:free-centerline:point:0004",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -5.450000000000001,
+          30.35,
+          0.0
+        ],
+        [
+          -5.450000000000001,
+          40.75000000000001,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:edge:0005",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-002:free-centerline:point:0004",
+      "to": "route:service_ruined_city:ground:component-002:free-centerline:point:0005",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -5.450000000000001,
+          40.75000000000001,
+          0.0
+        ],
+        [
+          -5.3500000000000005,
+          40.85,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:edge:0006",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-002:free-centerline:point:0005",
+      "to": "route:service_ruined_city:ground:component-002:free-centerline:point:0006",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -5.3500000000000005,
+          40.85,
+          0.0
+        ],
+        [
+          6.950000000000001,
+          40.85,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:edge:0007",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-002:free-centerline:point:0006",
+      "to": "route:service_ruined_city:ground:component-002:free-centerline:point:0007",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          6.950000000000001,
+          40.85,
+          0.0
+        ],
+        [
+          7.049999999999999,
+          40.95,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:edge:0008",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-002:free-centerline:point:0007",
+      "to": "route:service_ruined_city:ground:component-002:free-centerline:point:0008",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          7.049999999999999,
+          40.95,
+          0.0
+        ],
+        [
+          7.250000000000002,
+          40.95,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:edge:0009",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-002:free-centerline:point:0008",
+      "to": "route:service_ruined_city:ground:component-002:free-centerline:point:0009",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          7.250000000000002,
+          40.95,
+          0.0
+        ],
+        [
+          7.35,
+          41.050000000000004,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:edge:0010",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-002:free-centerline:point:0009",
+      "to": "route:service_ruined_city:ground:component-002:free-centerline:point:0010",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          7.35,
+          41.050000000000004,
+          0.0
+        ],
+        [
+          7.450000000000001,
+          41.050000000000004,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:edge:0011",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-002:free-centerline:point:0010",
+      "to": "route:service_ruined_city:ground:component-002:free-centerline:point:0011",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          7.450000000000001,
+          41.050000000000004,
+          0.0
+        ],
+        [
+          7.549999999999999,
+          41.150000000000006,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:edge:0012",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-002:free-centerline:point:0011",
+      "to": "route:service_ruined_city:ground:component-002:free-centerline:point:0012",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          7.549999999999999,
+          41.150000000000006,
+          0.0
+        ],
+        [
+          7.65,
+          41.150000000000006,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:edge:0013",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-002:free-centerline:point:0012",
+      "to": "route:service_ruined_city:ground:component-002:free-centerline:point:0013",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          7.65,
+          41.150000000000006,
+          0.0
+        ],
+        [
+          7.750000000000002,
+          41.25000000000001,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:edge:0014",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-002:free-centerline:point:0013",
+      "to": "route:service_ruined_city:ground:component-002:free-centerline:point:0014",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          7.750000000000002,
+          41.25000000000001,
+          0.0
+        ],
+        [
+          7.85,
+          41.25000000000001,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:edge:0015",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-002:free-centerline:point:0014",
+      "to": "route:service_ruined_city:ground:component-002:free-centerline:point:0015",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          7.85,
+          41.25000000000001,
+          0.0
+        ],
+        [
+          7.950000000000001,
+          41.35,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:edge:0016",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-002:free-centerline:point:0015",
+      "to": "route:service_ruined_city:ground:component-002:free-centerline:point:0016",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          7.950000000000001,
+          41.35,
+          0.0
+        ],
+        [
+          8.15,
+          41.35,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-002:free-centerline:edge:0017",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-002:free-centerline:point:0016",
+      "to": "node:service_ruined_city:ground:component-002:route-end",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          8.15,
+          41.35,
+          0.0
+        ],
+        [
+          8.250000000000002,
+          41.45,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-003:free-centerline:edge:0001",
+      "kind": "custom_connection",
+      "from": "node:service_ruined_city:ground:component-003:route-start",
+      "to": "route:service_ruined_city:ground:component-003:free-centerline:point:0001",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          3.8499999999999996,
+          1.8499999999999996,
+          0.0
+        ],
+        [
+          6.950000000000001,
+          1.8499999999999996,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-003:free-centerline:edge:0002",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-003:free-centerline:point:0001",
+      "to": "route:service_ruined_city:ground:component-003:free-centerline:point:0002",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          6.950000000000001,
+          1.8499999999999996,
+          0.0
+        ],
+        [
+          7.049999999999999,
+          1.75,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-003:free-centerline:edge:0003",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-003:free-centerline:point:0002",
+      "to": "route:service_ruined_city:ground:component-003:free-centerline:point:0003",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          7.049999999999999,
+          1.75,
+          0.0
+        ],
+        [
+          7.250000000000002,
+          1.75,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-003:free-centerline:edge:0004",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-003:free-centerline:point:0003",
+      "to": "route:service_ruined_city:ground:component-003:free-centerline:point:0004",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          7.250000000000002,
+          1.75,
+          0.0
+        ],
+        [
+          7.35,
+          1.6500000000000004,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-003:free-centerline:edge:0005",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-003:free-centerline:point:0004",
+      "to": "route:service_ruined_city:ground:component-003:free-centerline:point:0005",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          7.35,
+          1.6500000000000004,
+          0.0
+        ],
+        [
+          7.450000000000001,
+          1.6500000000000004,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-003:free-centerline:edge:0006",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-003:free-centerline:point:0005",
+      "to": "route:service_ruined_city:ground:component-003:free-centerline:point:0006",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          7.450000000000001,
+          1.6500000000000004,
+          0.0
+        ],
+        [
+          7.549999999999999,
+          1.5500000000000007,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-003:free-centerline:edge:0007",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-003:free-centerline:point:0006",
+      "to": "route:service_ruined_city:ground:component-003:free-centerline:point:0007",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          7.549999999999999,
+          1.5500000000000007,
+          0.0
+        ],
+        [
+          7.65,
+          1.5500000000000007,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-003:free-centerline:edge:0008",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-003:free-centerline:point:0007",
+      "to": "route:service_ruined_city:ground:component-003:free-centerline:point:0008",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          7.65,
+          1.5500000000000007,
+          0.0
+        ],
+        [
+          7.750000000000002,
+          1.450000000000001,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-003:free-centerline:edge:0009",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-003:free-centerline:point:0008",
+      "to": "route:service_ruined_city:ground:component-003:free-centerline:point:0009",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          7.750000000000002,
+          1.450000000000001,
+          0.0
+        ],
+        [
+          7.85,
+          1.450000000000001,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-003:free-centerline:edge:0010",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-003:free-centerline:point:0009",
+      "to": "route:service_ruined_city:ground:component-003:free-centerline:point:0010",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          7.85,
+          1.450000000000001,
+          0.0
+        ],
+        [
+          7.950000000000001,
+          1.3499999999999996,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-003:free-centerline:edge:0011",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-003:free-centerline:point:0010",
+      "to": "route:service_ruined_city:ground:component-003:free-centerline:point:0011",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          7.950000000000001,
+          1.3499999999999996,
+          0.0
+        ],
+        [
+          8.049999999999999,
+          1.3499999999999996,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-003:free-centerline:edge:0012",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-003:free-centerline:point:0011",
+      "to": "route:service_ruined_city:ground:component-003:free-centerline:point:0012",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          8.049999999999999,
+          1.3499999999999996,
+          0.0
+        ],
+        [
+          8.15,
+          1.25,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-003:free-centerline:edge:0013",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-003:free-centerline:point:0012",
+      "to": "node:service_ruined_city:ground:component-003:route-end",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          8.15,
+          1.25,
+          0.0
+        ],
+        [
+          8.250000000000002,
+          1.25,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-004:free-centerline:edge:0001",
+      "kind": "custom_connection",
+      "from": "node:service_ruined_city:ground:component-004:route-start",
+      "to": "route:service_ruined_city:ground:component-004:free-centerline:point:0001",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          4.450000000000001,
+          35.050000000000004,
+          0.0
+        ],
+        [
+          6.950000000000001,
+          35.050000000000004,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-004:free-centerline:edge:0002",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-004:free-centerline:point:0001",
+      "to": "route:service_ruined_city:ground:component-004:free-centerline:point:0002",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          6.950000000000001,
+          35.050000000000004,
+          0.0
+        ],
+        [
+          7.049999999999999,
+          34.95,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-004:free-centerline:edge:0003",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-004:free-centerline:point:0002",
+      "to": "route:service_ruined_city:ground:component-004:free-centerline:point:0003",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          7.049999999999999,
+          34.95,
+          0.0
+        ],
+        [
+          7.65,
+          34.95,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-004:free-centerline:edge:0004",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-004:free-centerline:point:0003",
+      "to": "route:service_ruined_city:ground:component-004:free-centerline:point:0004",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          7.65,
+          34.95,
+          0.0
+        ],
+        [
+          8.15,
+          34.45,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-004:free-centerline:edge:0005",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-004:free-centerline:point:0004",
+      "to": "node:service_ruined_city:ground:component-004:route-end",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          8.15,
+          34.45,
+          0.0
+        ],
+        [
+          8.250000000000002,
+          34.45,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-005:free-centerline:edge:0001",
+      "kind": "custom_connection",
+      "from": "node:service_ruined_city:ground:component-005:route-start",
+      "to": "route:service_ruined_city:ground:component-005:free-centerline:point:0001",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -5.550000000000001,
+          19.15,
+          0.0
+        ],
+        [
+          -5.550000000000001,
+          25.950000000000003,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-005:free-centerline:edge:0002",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-005:free-centerline:point:0001",
+      "to": "route:service_ruined_city:ground:component-005:free-centerline:point:0002",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -5.550000000000001,
+          25.950000000000003,
+          0.0
+        ],
+        [
+          -5.450000000000001,
+          26.050000000000004,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-005:free-centerline:edge:0003",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-005:free-centerline:point:0002",
+      "to": "route:service_ruined_city:ground:component-005:free-centerline:point:0003",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -5.450000000000001,
+          26.050000000000004,
+          0.0
+        ],
+        [
+          -5.450000000000001,
+          26.25,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-005:free-centerline:edge:0004",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-005:free-centerline:point:0003",
+      "to": "node:service_ruined_city:ground:component-005:route-end",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -5.450000000000001,
+          26.25,
+          0.0
+        ],
+        [
+          -5.3500000000000005,
+          26.35,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-006:free-centerline:edge:0001",
+      "kind": "custom_connection",
+      "from": "node:service_ruined_city:ground:component-006:route-start",
+      "to": "route:service_ruined_city:ground:component-006:free-centerline:point:0001",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          8.250000000000002,
+          31.150000000000006,
+          0.0
+        ],
+        [
+          7.65,
+          31.150000000000006,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-006:free-centerline:edge:0002",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-006:free-centerline:point:0001",
+      "to": "route:service_ruined_city:ground:component-006:free-centerline:point:0002",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          7.65,
+          31.150000000000006,
+          0.0
+        ],
+        [
+          7.450000000000001,
+          31.35,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-006:free-centerline:edge:0003",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-006:free-centerline:point:0002",
+      "to": "route:service_ruined_city:ground:component-006:free-centerline:point:0003",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          7.450000000000001,
+          31.35,
+          0.0
+        ],
+        [
+          6.749999999999998,
+          31.35,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-006:free-centerline:edge:0004",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-006:free-centerline:point:0003",
+      "to": "route:service_ruined_city:ground:component-006:free-centerline:point:0004",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          6.749999999999998,
+          31.35,
+          0.0
+        ],
+        [
+          6.65,
+          31.450000000000003,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-006:free-centerline:edge:0005",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-006:free-centerline:point:0004",
+      "to": "route:service_ruined_city:ground:component-006:free-centerline:point:0005",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          6.65,
+          31.450000000000003,
+          0.0
+        ],
+        [
+          5.749999999999998,
+          31.450000000000003,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-006:free-centerline:edge:0006",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-006:free-centerline:point:0005",
+      "to": "route:service_ruined_city:ground:component-006:free-centerline:point:0006",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          5.749999999999998,
+          31.450000000000003,
+          0.0
+        ],
+        [
+          5.65,
+          31.550000000000004,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-006:free-centerline:edge:0007",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-006:free-centerline:point:0006",
+      "to": "route:service_ruined_city:ground:component-006:free-centerline:point:0007",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          5.65,
+          31.550000000000004,
+          0.0
+        ],
+        [
+          5.450000000000001,
+          31.550000000000004,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-006:free-centerline:edge:0008",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-006:free-centerline:point:0007",
+      "to": "node:service_ruined_city:ground:component-006:route-end",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          5.450000000000001,
+          31.550000000000004,
+          0.0
+        ],
+        [
+          5.35,
+          31.650000000000006,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-007:free-centerline:edge:0001",
+      "kind": "custom_connection",
+      "from": "node:service_ruined_city:ground:component-007:route-start",
+      "to": "route:service_ruined_city:ground:component-007:free-centerline:point:0001",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -7.550000000000001,
+          24.25,
+          0.0
+        ],
+        [
+          -7.650000000000001,
+          24.35,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-007:free-centerline:edge:0002",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-007:free-centerline:point:0001",
+      "to": "route:service_ruined_city:ground:component-007:free-centerline:point:0002",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -7.650000000000001,
+          24.35,
+          0.0
+        ],
+        [
+          -7.750000000000001,
+          24.35,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-007:free-centerline:edge:0003",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-007:free-centerline:point:0002",
+      "to": "route:service_ruined_city:ground:component-007:free-centerline:point:0003",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -7.750000000000001,
+          24.35,
+          0.0
+        ],
+        [
+          -8.05,
+          24.650000000000006,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-007:free-centerline:edge:0004",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-007:free-centerline:point:0003",
+      "to": "route:service_ruined_city:ground:component-007:free-centerline:point:0004",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -8.05,
+          24.650000000000006,
+          0.0
+        ],
+        [
+          -8.150000000000002,
+          24.650000000000006,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-007:free-centerline:edge:0005",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-007:free-centerline:point:0004",
+      "to": "node:service_ruined_city:ground:component-007:route-end",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -8.150000000000002,
+          24.650000000000006,
+          0.0
+        ],
+        [
+          -8.25,
+          24.75,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-008:free-centerline:edge:0001",
+      "kind": "custom_connection",
+      "from": "node:service_ruined_city:ground:component-008:route-start",
+      "to": "route:service_ruined_city:ground:component-008:free-centerline:point:0001",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          8.35,
+          4.85,
+          0.0
+        ],
+        [
+          8.35,
+          5.450000000000001,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-008:free-centerline:edge:0002",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-008:free-centerline:point:0001",
+      "to": "route:service_ruined_city:ground:component-008:free-centerline:point:0002",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          8.35,
+          5.450000000000001,
+          0.0
+        ],
+        [
+          8.549999999999999,
+          5.65,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-008:free-centerline:edge:0003",
+      "kind": "custom_connection",
+      "from": "route:service_ruined_city:ground:component-008:free-centerline:point:0002",
+      "to": "node:service_ruined_city:ground:component-008:route-end",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          8.549999999999999,
+          5.65,
+          0.0
+        ],
+        [
+          8.549999999999999,
+          5.85,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_ruined_city:ground:component-009:free-centerline:edge:0001",
+      "kind": "custom_connection",
+      "from": "node:service_ruined_city:ground:component-009:route-start",
+      "to": "node:service_ruined_city:ground:component-009:route-end",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -5.250000000000001,
+          21.65,
+          0.0
+        ],
+        [
+          -5.250000000000001,
+          22.050000000000004,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    }
+  ],
+  "semantics": {
+    "schema": "eai.scene.semantics",
+    "version": 1,
+    "regions": [],
+    "entities": [],
+    "interaction_poses": [],
+    "routes": [],
+    "extensions": {
+      "vertical_connectors": []
+    }
+  }
+}
