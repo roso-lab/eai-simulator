@@ -1,6 +1,6 @@
 /* 语义拓扑地图编辑器 — dark control-room theme.
    Class hooks are consumed by app.js: status-badge saved/dirty, floor-item active,
-   record-item, record-symbol node/edge/region/entity/interaction/route,
+   record-item, record-symbol node/edge/semantic_point,
    record-copy, record-empty, tool active, record-tabs active, hidden. */
 
 :root {
@@ -138,18 +138,23 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 /* ---------- floor list ---------- */
 
 .floor-list { display: grid; gap: 8px; }
-.domain-toggle {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 12px;
+.layer-toggle {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 12px;
   padding: 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--field);
 }
-.domain-toggle button {
+.layer-toggle button {
   min-height: 34px; border: 1px solid transparent; border-radius: 7px;
-  color: var(--muted); background: transparent; font-weight: 600;
+  color: var(--muted); background: transparent; font-size: 12px; font-weight: 600;
 }
-.domain-toggle button:hover { color: var(--text); background: var(--panel-3); }
-.domain-toggle button.active {
+.layer-toggle button:hover { color: var(--text); background: var(--panel-3); }
+.layer-toggle button.active {
   color: var(--accent-bright); border-color: var(--accent-border); background: var(--accent-soft);
 }
+.compact-field { margin: 0 0 12px; }
+.compact-field > span { color: var(--text-2); font-size: 12px; font-weight: 600; }
+.visibility-section .section-heading > span { font-size: 10.5px; }
+.visibility-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 7px; }
+.type-visibility { margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--line); }
 .floor-item {
   width: 100%; display: grid; grid-template-columns: auto 1fr auto; gap: 2px 10px; align-items: center;
   text-align: left; padding: 10px 12px; color: var(--text); border: 1px solid var(--line);
@@ -216,10 +221,7 @@ input[type="checkbox"] { width: auto; }
 }
 .record-symbol.node { background: #7fd7c2; }
 .record-symbol.edge { background: #5fe0ac; }
-.record-symbol.region { background: #c3a5ef; }
-.record-symbol.entity { background: #f0a96e; }
-.record-symbol.interaction { background: #f4d469; }
-.record-symbol.route { background: #7ade8a; }
+.record-symbol.semantic_point { background: #f0a96e; }
 .record-copy { min-width: 0; }
 .record-copy strong, .record-copy span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .record-copy strong { font-size: 12.5px; font-weight: 600; color: var(--text); }
@@ -249,6 +251,7 @@ input[type="checkbox"] { width: auto; }
 .tool-spacer { flex: 1; }
 .new-node-mode { display: flex; align-items: center; gap: 6px; font-size: 12px; white-space: nowrap; }
 .new-node-mode select { width: 80px; padding: 4px; }
+.new-node-mode input { width: 72px; padding: 4px 6px; }
 #pendingDraftBanner .button { font-size: 12px; margin-left: 0; }
 .mode-hint {
   max-width: 270px; padding: 5px 11px; color: #b9c8d8; font-size: 12px; overflow: hidden;
@@ -278,6 +281,9 @@ input[type="checkbox"] { width: auto; }
 .swatch.free { background: #f8fafc; }
 .swatch.unknown { background: #c9d2dc; }
 .swatch.route { background: #27c995; border-color: rgba(39, 201, 149, .5); }
+.swatch.ground { background: #2dd4a7; border-color: rgba(45, 212, 167, .5); }
+.swatch.aerial { background: #6ab5ff; border-color: rgba(106, 181, 255, .5); }
+.swatch.semantic-point { background: #f0965a; border-color: rgba(240, 150, 90, .5); border-radius: 50%; }
 .cursor-coords {
   position: absolute; right: 12px; bottom: 12px; padding: 6px 10px; border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, .1); color: #d6e1ec; background: rgba(13, 19, 27, .88);
@@ -327,6 +333,15 @@ textarea { resize: vertical; line-height: 1.5; }
 .advanced-json summary:hover { color: var(--text); }
 .advanced-json p { margin: 0; padding: 0 12px 9px; color: var(--muted); font-size: 11px; line-height: 1.6; }
 .advanced-json textarea { min-height: 200px; border: 0; border-top: 1px solid var(--line); border-radius: 0 0 10px 10px; font-size: 11.5px; }
+.binding-card { margin: 14px 0; padding: 12px; border: 1px solid rgba(94, 169, 255, .35); border-radius: 10px; background: rgba(94, 169, 255, .07); }
+.binding-heading, .binding-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.binding-heading strong { color: var(--text-2); font-size: 12px; }
+.binding-status { padding: 2px 7px; border: 1px solid var(--line); border-radius: 99px; color: var(--muted); font-size: 10.5px; }
+.binding-status[data-status="valid"] { color: var(--accent-bright); border-color: var(--accent-border); }
+.binding-status[data-status="invalid"] { color: #ffa4ab; border-color: rgba(240, 113, 120, .45); }
+.binding-path { margin: 9px 0 5px; color: #bdd9f8; font-size: 11px; overflow-wrap: anywhere; }
+.binding-hint { margin-bottom: 10px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+.binding-actions .button { min-width: 0; padding: 0 9px; font-size: 11px; }
 .inspector-actions {
   position: sticky; bottom: 0; display: flex; gap: 10px; margin: 6px -16px -16px; padding: 12px 16px;
   border-top: 1px solid var(--line); background: rgba(20, 27, 38, .94); backdrop-filter: blur(6px);

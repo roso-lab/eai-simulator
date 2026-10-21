@@ -183,9 +183,12 @@ class IsaacSelectionBridge:
         self.scene_key: str | None = scene_key
         self.source_usd: str | None = None
         self.csrf_token: str | None = None
+        self._context_identity: dict[str, Any] = {}
         self.session_id = str(uuid.uuid4())
         self._sequence = 0
         self._pending: deque[dict[str, Any]] = deque(maxlen=1)
+        self._inflight_selection: dict[str, Any] | None = None
+        self._last_acknowledged_selection: dict[str, Any] | None = None
         self._condition = threading.Condition()
         self._stop = threading.Event()
         self._reconnect = False
@@ -201,6 +204,10 @@ class IsaacSelectionBridge:
         self._stage_open_event_type: int | None = None
         self._point_registration = None
         self._point_enabled = False
+        # Native Prim selection is only meaningful during explicit semantic
+        # point binding.  The integrated topology editor disables it so Kit's
+        # selection events cannot race or overwrite topology selection.
+        self._asset_selection_enabled = True
 
     def start(self) -> "IsaacSelectionBridge":
         with self._condition:
@@ -229,11 +236,15 @@ class IsaacSelectionBridge:
             self._state = "stopped"
             self._worker = None
             self._pending.clear()
+            self._inflight_selection = None
+            self._last_acknowledged_selection = None
 
     def reconnect(self) -> None:
         with self._condition:
             self.csrf_token = None
             self._pending.clear()
+            self._inflight_selection = None
+            self._last_acknowledged_selection = None
             self._last_error = None
             self._reconnect = True
             self._blocked = False
@@ -245,8 +256,49 @@ class IsaacSelectionBridge:
     def status(self) -> dict[str, Any]:
         with self._condition:
             return BridgeStatus(self._state, self.scene_key, self.source_usd,
-                                bool(self._pending), self._sequence, self.session_id,
+                                bool(self._pending or self._inflight_selection),
+                                self._sequence, self.session_id,
                                 self._last_error).to_dict()
+
+    def acknowledged_selection_cursor(self) -> dict[str, Any] | None:
+        """Return the idle, server-confirmed single-Prim selection cursor."""
+        with self._condition:
+            if (self._state != "connected" or self._pending
+                    or self._inflight_selection is not None):
+                return None
+            selected = self._last_acknowledged_selection
+            if not isinstance(selected, dict) or selected.get("scene_key") != self.scene_key:
+                return None
+            if (selected.get("session_id") != self.session_id
+                    or (self.source_usd is not None
+                        and selected.get("source_usd") != self.source_usd)):
+                return None
+            for key in ("scene_generation", "context_generation"):
+                expected = self._context_identity.get(key)
+                if expected is not None and selected.get(key) != expected:
+                    return None
+            if (selected.get("selection_kind") != "prim"
+                    or len(selected.get("prim_paths") or []) != 1):
+                return None
+            return json.loads(json.dumps(selected))
+
+    def update_context(self, context: dict[str, Any]) -> None:
+        """Refresh the identity captured with the next main-thread selection."""
+        if not isinstance(context, dict):
+            return
+        scene = context.get("scene_key")
+        if self.requested_scene_key is not None and scene != self.requested_scene_key:
+            return
+        with self._condition:
+            if isinstance(scene, str) and scene:
+                self.scene_key = scene
+            source = context.get("source_usd")
+            if isinstance(source, str) and source:
+                self.source_usd = source
+            self._context_identity = {
+                key: context.get(key) for key in (
+                    "scene_generation", "context_generation", "active_domain",
+                    "active_layer")}
 
     def _url(self, path: str) -> str:
         return self.server_url + path
@@ -259,6 +311,17 @@ class IsaacSelectionBridge:
         try:
             with self.request_opener(request, timeout=self.request_timeout) as response:
                 raw = response.read()
+        except urllib.error.HTTPError as exc:
+            try:
+                error_raw = exc.read()
+                error_payload = json.loads(error_raw.decode("utf-8"))
+                message = (error_payload.get("error") or error_payload.get("message")
+                           if isinstance(error_payload, dict) else None)
+            except (OSError, ValueError, UnicodeDecodeError):
+                message = None
+            error = IsaacBridgeError(message or f"Isaac bridge HTTP {exc.code}")
+            error.status = int(exc.code)
+            raise error from exc
         except (urllib.error.URLError, OSError, TimeoutError) as exc:
             raise IsaacBridgeError(f"Isaac bridge transport failed: {exc}") from exc
         try:
@@ -281,9 +344,14 @@ class IsaacSelectionBridge:
             raise IsaacBridgeError("Isaac context has no csrf_token")
         with self._condition:
             self.scene_key, self.source_usd, self.csrf_token = scene, context.get("source_usd"), token
+            self._context_identity = {
+                key: context.get(key) for key in (
+                    "scene_generation", "context_generation", "active_domain",
+                    "active_layer")}
 
     def _run(self) -> None:
         while not self._stop.is_set():
+            posting_selection = False
             try:
                 with self._condition:
                     while self._blocked and not self._stop.is_set() and not self._reconnect:
@@ -306,13 +374,36 @@ class IsaacSelectionBridge:
                         continue
                     payload = self._pending.pop()
                     token = self.csrf_token
-                payload = dict(payload, csrf_token=token, scene_key=self.scene_key)
+                    payload = dict(payload, csrf_token=token)
+                    self._inflight_selection = payload
+                posting_selection = True
                 response = self._request("POST", "/api/isaac/selection", payload)
                 if "error" in response:
                     raise IsaacBridgeError(str(response["error"]))
+                acknowledged = response.get("selection")
+                if not isinstance(acknowledged, dict):
+                    acknowledged = payload
+                with self._condition:
+                    self._last_acknowledged_selection = json.loads(
+                        json.dumps(acknowledged))
+                    self._inflight_selection = None
+                    self._condition.notify_all()
             except IsaacBridgeError as exc:
+                if posting_selection and getattr(exc, "status", None) == 409:
+                    # A context switch can race with the old selection already
+                    # dequeued by this worker. The server rejects that one-shot
+                    # cursor; discard it and keep the bridge available for the
+                    # next selection carrying the updated native identity.
+                    with self._condition:
+                        self._state = "connected"
+                        self._last_error = None
+                        self._blocked = False
+                        self._inflight_selection = None
+                        self._condition.notify_all()
+                    continue
                 with self._condition:
                     self._state, self._last_error = "error", str(exc)
+                    self._inflight_selection = None
                     # A failed context or publish is never silently remapped or
                     # retried against a potentially different scene.  The user
                     # must explicitly press reconnect.
@@ -324,7 +415,10 @@ class IsaacSelectionBridge:
             if not self._worker or not self._worker.is_alive():
                 raise IsaacBridgeError("Isaac selection bridge is not connected")
             self._sequence += 1
-            payload = dict(payload, session_id=self.session_id, sequence=self._sequence)
+            identity = {key: value for key, value in self._context_identity.items()
+                        if value is not None}
+            payload = dict(payload, session_id=self.session_id, sequence=self._sequence,
+                           scene_key=self.scene_key, **identity)
             self._pending.clear()
             self._pending.append(payload)
             self._condition.notify_all()
@@ -394,7 +488,8 @@ class IsaacSelectionBridge:
         try:
             if kind in self._stage_clear_event_types:
                 self.send_clear()
-            elif kind == self._selection_event_type and self._point_enabled:
+            elif kind == self._selection_event_type and (
+                    self._point_enabled or not self._asset_selection_enabled):
                 # Kit also selects the hit prim. Its bounding-box snapshot must
                 # never replace the exact surface hit, regardless of event order.
                 return
@@ -404,9 +499,29 @@ class IsaacSelectionBridge:
             with self._condition:
                 self._last_error = str(exc)
 
+    def set_asset_selection_enabled(self, enabled: bool) -> bool:
+        """Allow native USD Prim selection only for binding workflows."""
+        enabled = bool(enabled)
+        if enabled == self._asset_selection_enabled:
+            return enabled
+        self._asset_selection_enabled = enabled
+        if not enabled:
+            # Invalidate any previously bindable cursor immediately. This is
+            # local state as well as a server clear, so a stale Prim cannot be
+            # bound after returning to topology editing.
+            with self._condition:
+                self._last_acknowledged_selection = None
+            try:
+                self.send_clear()
+            except IsaacBridgeError:
+                pass
+        return enabled
+
     def send_current_selection(self) -> dict[str, Any]:
         if self._selection is None:
             raise IsaacBridgeError("Isaac selection is not bound")
+        if not self._asset_selection_enabled:
+            return self.send_clear()
         stage = self._bound_stage()
         if stage is None:
             return self.send_clear()
@@ -418,7 +533,12 @@ class IsaacSelectionBridge:
                  if not str(path).startswith(WEB_OVERLAY_ROOT)]
         if not paths:
             return self.send_clear()
-        return self.send_prim_selection(stage, paths)
+        try:
+            return self.send_prim_selection(stage, paths)
+        except IsaacBridgeError:
+            # A deleted/invalid prim or stale overlay hit must invalidate the
+            # authoritative cursor rather than leave the previous object bindable.
+            return self.send_clear()
 
     def _bound_stage(self) -> Any:
         stage = self._selection_context.get_stage() if self._selection_context else self._current_stage()
@@ -553,11 +673,13 @@ class IsaacAuthoringClient:
         if not isinstance(context, dict) or any(key not in context for key in required):
             raise IsaacBridgeError("Isaac authoring context is incomplete")
         self.context = {key: context[key] for key in required}
+        self.context["active_layer"] = context.get(
+            "active_layer", context["active_domain"])
 
     def identity(self) -> dict[str, Any]:
         if self.context is None:
             raise IsaacBridgeError("Isaac authoring context is not loaded")
-        return {
+        identity = {
             "revision": self.context["revision"],
             "csrf_token": self.context["csrf_token"],
             "scene_key": self.context["scene_key"],
@@ -565,6 +687,9 @@ class IsaacAuthoringClient:
             "context_generation": self.context["context_generation"],
             "domain": self.context["active_domain"],
         }
+        if self.context.get("active_layer") is not None:
+            identity["active_layer"] = self.context["active_layer"]
+        return identity
 
     def request(self, path: str, extra: dict[str, Any] | None = None, *,
                 identity: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -604,16 +729,19 @@ class IsaacAuthoringClient:
         return self.request("/api/edit", {"operation": operation, **args},
                             identity=_identity)
 
-    def set_context(self, *, domain: str | None = None, tool: str | None = None,
-                    level_id: str | None = None,
-                    _identity: dict[str, Any] | None = None) -> dict[str, Any]:
-        current = self.context or {}
-        extra = {"active_domain": domain or current.get("active_domain")}
-        if tool is not None:
-            extra["tool"] = tool
-        if level_id is not None:
-            extra["level_id"] = level_id
-        return self.request("/api/editor/context", extra, identity=_identity)
+    def set_context(self, *, _identity: dict[str, Any] | None = None,
+                    **fields: Any) -> dict[str, Any]:
+        """Update editor context using the contract's public field names.
+
+        The legacy domain/tool/level_id aliases remain accepted by the server;
+        native callers use active_layer/editor_tool/active_level directly.
+        """
+        return self.request("/api/editor/context", fields, identity=_identity)
+
+    def report_bindings(self, statuses: dict[str, dict[str, str]], *,
+                        _identity: dict[str, Any] | None = None) -> dict[str, Any]:
+        return self.request("/api/isaac/bindings", {"statuses": statuses},
+                            identity=_identity)
 
     def select(self, selection: dict[str, Any] | None, *,
                _identity: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -639,18 +767,20 @@ class IsaacEditDispatcher:
         self._future: Future | None = None
         self._tag: Any = None
 
+    def _start(self, tag, method, args, kwargs):
+        self._tag = tag
+        self._future = self._executor.submit(getattr(self.client, method), *args, **kwargs)
+
     @property
     def pending(self) -> bool:
-        return self._future is not None and not self._future.done()
+        # A completed worker result still owns the single-flight slot until
+        # the Kit main thread drains and applies it to controller state.
+        return self._future is not None
 
     def submit(self, tag: Any, method: str, *args: Any, **kwargs: Any) -> bool:
         if self._future is not None:
-            if not self._future.done():
-                return False
             return False
-        function = getattr(self.client, method)
-        self._tag = tag
-        self._future = self._executor.submit(function, *args, **kwargs)
+        self._start(tag, method, args, kwargs)
         return True
 
     def drain(self):
@@ -659,9 +789,10 @@ class IsaacEditDispatcher:
             return None
         tag, self._tag, self._future = self._tag, None, None
         try:
-            return tag, future.result(), None
+            result = (tag, future.result(), None)
         except Exception as exc:
-            return tag, None, exc
+            result = (tag, None, exc)
+        return result
 
     def close(self) -> None:
         self._executor.shutdown(wait=False, cancel_futures=True)
@@ -677,70 +808,109 @@ def _edge_selection(identifier: str) -> dict[str, Any]:
     return {"kind": "edge", "collection": None, "id": identifier}
 
 
-def _region_selection(identifier: str) -> dict[str, Any]:
-    return {"kind": "semantic", "collection": "regions", "id": identifier}
-
-
 _PRESERVE_LEVEL = object()
 
 
 class IsaacTopologyController:
-    """Native editor state machine; viewport math lives in viewport.py."""
+    """Unified native editor for navigation graphs and semantic points."""
 
-    TOOLS = ("add-node", "add-edge", "add-region")
+    TOOLS = ("add-node", "add-edge", "add-semantic-point")
+    LAYERS = ("ground", "aerial", "semantic_points")
+    MODES = ("2.5d", "3d")
 
     def __init__(self, dispatcher: IsaacEditDispatcher):
         self.dispatcher = dispatcher
         self.context: dict[str, Any] | None = None
         self.snapshot: dict[str, Any] = {}
+        self.document_snapshots: dict[str, dict[str, Any]] = {}
+        self.semantic_points: list[dict[str, Any]] = []
         self.selection: dict[str, Any] | None = None
         self.edge_start: str | None = None
         self.edge_end: str | None = None
         self.edge_identity: dict[str, Any] | None = None
-        self.region_draft: list[list[float]] = []
-        self.region_identity: dict[str, Any] | None = None
         self.gesture: dict[str, Any] | None = None
         self.preview: dict[str, Any] | None = None
         self.directed = False
         self.new_edge_traversal_mode = "walk"
-        self.new_node_edit_mode = "3d"
-        self.boundary_candidate: dict[str, Any] | None = None
-        self.on_boundary_menu: Callable[[dict[str, Any] | None], None] | None = None
+        self.new_point_settings = {
+            "aerial": {"z": 1.5, "edit_mode": "3d"},
+            "semantic_points": {"z": 1.5, "edit_mode": "3d"},
+        }
         self.retry_request: dict[str, Any] | None = None
+        self.pending_edit: dict[str, Any] | None = None
         self._active_edit: dict[str, Any] | None = None
         self.result_serial = 0
         self.last_result_tag: Any = None
         self.last_result_succeeded = False
         self.selection_dirty = False
         self.last_error: str | None = None
+        self.edit_status = "idle"
         self.on_change: Callable[[], None] | None = None
-        # Topology coordinates remain metres; viewport.py converts at the
-        # camera boundary for stages authored in another linear unit.
+        self.object_selection_mode = False
+        self.interaction_generation = 0
+        self.on_object_selection_mode: Callable[[bool], None] | None = None
+        self.isaac_selection_cursor_provider: Callable[[], dict[str, Any] | None] | None = None
         self.meters_per_unit = 1.0
+
+    @property
+    def active_layer(self) -> str:
+        context = self.context or {}
+        return context.get("active_layer", context.get("active_domain", "ground"))
+
+    @property
+    def active_domain(self) -> str:
+        return (self.context or {}).get("active_domain", "ground")
 
     def update_context(self, context: dict[str, Any]) -> None:
         previous = None if self.context is None else (
             self.context.get("scene_key"), self.context.get("scene_generation"),
             self.context.get("context_generation"), self.context.get("csrf_token"),
-            self.context.get("active_domain"), self.context.get("active_level"),
+            self.active_layer, self.context.get("active_level"),
+            self.context.get("reference_level"),
         )
+        next_layer = context.get("active_layer", context.get("active_domain", "ground"))
         current = (
             context.get("scene_key"), context.get("scene_generation"),
             context.get("context_generation"), context.get("csrf_token"),
-            context.get("active_domain"), context.get("active_level"),
+            next_layer, context.get("active_level"), context.get("reference_level"),
         )
-        context_changed = previous is not None and previous != current
-        if context_changed:
-            self.cancel_gesture(clear_region=True)
+        if previous is not None and previous != current:
+            same_scene = previous[:2] == current[:2]
+            self.cancel_gesture(preserve_retry=same_scene)
+            self.pending_edit = None
             self.selection_dirty = False
+        if self.object_selection_mode and self.context is not None and any(
+                self.context.get(key) != context.get(key) for key in
+                ("scene_key", "scene_generation", "active_layer", "editor_tool")):
+            self.set_object_selection_mode(False)
         self.context = context
-        if context.get("active_domain") != "ground":
+        self.document_snapshots = dict(
+            context.get("document_snapshots") or context.get("documents") or {})
+        if not self.document_snapshots:
+            active = context.get("active_domain", "ground")
+            self.document_snapshots[active] = (
+                context.get("document_snapshot") or context.get("document") or {})
+        nav_layer = next_layer if next_layer in {"ground", "aerial"} else self.active_domain
+        self.snapshot = (self.document_snapshots.get(nav_layer)
+                         or context.get("document_snapshot")
+                         or context.get("document") or {})
+        self.semantic_points = json.loads(json.dumps(context.get("semantic_points") or []))
+        supplied_settings = context.get("new_point_settings") or {}
+        for layer in ("aerial", "semantic_points"):
+            values = supplied_settings.get(layer) or {}
+            try:
+                z = float(values.get("z", self.new_point_settings[layer]["z"]))
+            except (TypeError, ValueError):
+                z = self.new_point_settings[layer]["z"]
+            mode = values.get("edit_mode", self.new_point_settings[layer]["edit_mode"])
+            if math.isfinite(z) and mode in self.MODES:
+                self.new_point_settings[layer] = {"z": z, "edit_mode": mode}
+        if self.active_layer != "ground":
             self.new_edge_traversal_mode = "walk"
-        self.snapshot = context.get("document_snapshot") or {}
         self.dispatcher.client.update_context(context)
         incoming = context.get("web_selection")
         if (incoming != self.selection and self.gesture is None
-                and (context_changed or not self.selection_dirty)):
+                and (previous != current or not self.selection_dirty)):
             self.selection = incoming
             self.selection_dirty = False
         self._changed()
@@ -761,76 +931,161 @@ class IsaacTopologyController:
                 "kwargs": json.loads(json.dumps(call_kwargs)),
             }
             self.retry_request = None
+            self.pending_edit = None
+            self.last_error = None
+            self.edit_status = "submitting"
+        elif self.dispatcher.pending:
+            # Selection/context writes are single-flight. Keep the complete
+            # frozen edit instead of dropping it when the user drags the
+            # selected marker immediately after clicking it.
+            self.pending_edit = {
+                "tag": tag, "operation": operation,
+                "kwargs": json.loads(json.dumps(call_kwargs)),
+            }
+            self.edit_status = "submitting"
+            self._changed()
+            return True
         return submitted
 
-    def retry_conflict(self) -> bool:
-        """Retry a definite 409 only after an explicit user action."""
-        request = self.retry_request
-        if request is None:
+    def flush_pending_edit(self) -> bool:
+        request = self.pending_edit
+        if request is None or self.dispatcher.pending:
             return False
-        kwargs = json.loads(json.dumps(request["kwargs"]))
-        kwargs["_identity"] = self.dispatcher.client.identity()
         submitted = self.dispatcher.submit(
-            request["tag"], "edit", request["operation"], **kwargs)
-        if submitted:
-            self._active_edit = {
-                "tag": request["tag"], "operation": request["operation"],
-                "kwargs": json.loads(json.dumps(kwargs)),
-            }
-            self.retry_request = None
-            self.last_error = None
-            self._changed()
-        return submitted
+            request["tag"], "edit", request["operation"], **request["kwargs"])
+        if not submitted:
+            return False
+        self._active_edit = {
+            "tag": request["tag"], "operation": request["operation"],
+            "kwargs": json.loads(json.dumps(request["kwargs"])),
+        }
+        self.pending_edit = None
+        self.retry_request = None
+        self.last_error = None
+        self.edit_status = "submitting"
+        self._changed()
+        return True
+
+    def _submit_context(self, tag: Any, **fields: Any) -> bool:
+        return self.dispatcher.submit(
+            ("context", tag), "set_context", **fields,
+            _identity=self.dispatcher.client.identity())
 
     def nodes(self) -> list[dict[str, Any]]:
         return list(self.snapshot.get("nodes") or [])
+
+    def edges(self) -> list[dict[str, Any]]:
+        return list(self.snapshot.get("edges") or [])
 
     def node(self, identifier: str) -> dict[str, Any] | None:
         return next((row for row in self.nodes() if row.get("id") == identifier), None)
 
     def edge(self, identifier: str) -> dict[str, Any] | None:
-        return next((row for row in self.snapshot.get("edges") or []
+        return next((row for row in self.edges() if row.get("id") == identifier), None)
+
+    def semantic_point(self, identifier: str) -> dict[str, Any] | None:
+        return next((row for row in self.semantic_points
                      if row.get("id") == identifier), None)
 
-    def regions(self) -> list[dict[str, Any]]:
-        return list((self.snapshot.get("semantics") or {}).get("regions") or [])
-
-    def region(self, identifier: str) -> dict[str, Any] | None:
-        return next((row for row in self.regions() if row.get("id") == identifier), None)
+    def point_for_selection(self, selection: dict[str, Any] | None = None):
+        selection = selection or self.selection
+        if not selection:
+            return None
+        if selection.get("kind") == "node":
+            return self.node(selection.get("id"))
+        if selection.get("kind") == "semantic_point":
+            return self.semantic_point(selection.get("id"))
+        return None
 
     def active_z(self) -> float:
+        if self.active_layer in self.new_point_settings:
+            return float(self.new_point_settings[self.active_layer]["z"])
         level_id = (self.context or {}).get("active_level")
         for row in (self.context or {}).get("levels") or []:
             if row.get("id") == level_id:
                 return float(row.get("support_z_m", 0.0))
         return 0.0
 
-    def set_tool(self, tool: str) -> bool:
-        if tool not in self.TOOLS:
-            raise IsaacBridgeError("editor tool must be add-node, add-edge or add-region")
-        return self.dispatcher.submit(("context", tool), "set_context",
-                                      domain=(self.context or {}).get("active_domain"),
-                                      tool=tool, level_id=(self.context or {}).get("active_level"),
-                                      _identity=self.dispatcher.client.identity())
+    def set_active_layer(self, layer: str) -> bool:
+        if layer not in self.LAYERS:
+            raise IsaacBridgeError("active_layer must be ground, aerial or semantic_points")
+        if self.object_selection_mode:
+            self.set_object_selection_mode(False)
+        self.cancel_gesture()
+        return self._submit_context(layer, active_layer=layer)
 
     def set_domain(self, domain: str) -> bool:
         if domain not in {"ground", "aerial"}:
             raise IsaacBridgeError("domain must be ground or aerial")
-        return self.dispatcher.submit(("context", domain), "set_context", domain=domain,
-                                      tool=(self.context or {}).get("editor_tool"),
-                                      level_id=(self.context or {}).get("active_level"),
-                                      _identity=self.dispatcher.client.identity())
+        return self.set_active_layer(domain)
+
+    def set_tool(self, tool: str) -> bool:
+        if tool not in self.TOOLS:
+            raise IsaacBridgeError(
+                "editor tool must be add-node, add-edge or add-semantic-point")
+        if self.object_selection_mode:
+            self.set_object_selection_mode(False)
+        self.cancel_gesture()
+        return self._submit_context(tool, editor_tool=tool)
 
     def set_level(self, level_id: str) -> bool:
-        return self.dispatcher.submit(("context", level_id), "set_context",
-                                      domain=(self.context or {}).get("active_domain"),
-                                      tool=(self.context or {}).get("editor_tool"),
-                                      level_id=level_id,
-                                      _identity=self.dispatcher.client.identity())
+        if self.active_layer != "ground":
+            return False
+        return self._submit_context(level_id, active_level=level_id)
+
+    def set_reference_level(self, level_id: str | None) -> bool:
+        return self._submit_context(("reference-level", level_id),
+                                    reference_level=level_id)
+
+    def set_layer_visible(self, layer: str, visible: bool) -> bool:
+        if layer not in self.LAYERS:
+            raise IsaacBridgeError("unknown visible layer")
+        values = dict((self.context or {}).get("visible_layers") or {})
+        values.update({name: bool(values.get(name, True)) for name in self.LAYERS})
+        values[layer] = bool(visible)
+        return self._submit_context(("visible-layer", layer), visible_layers=values)
+
+    def set_type_visible(self, kind: str, visible: bool) -> bool:
+        if kind not in {"nodes", "edges", "semantic_points"}:
+            raise IsaacBridgeError("unknown visible type")
+        values = dict((self.context or {}).get("visible_types") or {})
+        for name in ("nodes", "edges", "semantic_points"):
+            values[name] = bool(values.get(name, True))
+        values[kind] = bool(visible)
+        return self._submit_context(("visible-type", kind), visible_types=values)
+
+    def set_new_point_z(self, layer: str, z: float) -> bool:
+        if layer not in self.new_point_settings:
+            raise IsaacBridgeError("new point settings support aerial and semantic_points")
+        value = float(z)
+        if not math.isfinite(value):
+            raise IsaacBridgeError("new point Z must be finite")
+        settings = json.loads(json.dumps(self.new_point_settings))
+        settings[layer]["z"] = value
+        submitted = self._submit_context(("new-z", layer), new_point_settings=settings)
+        if submitted:
+            self.new_point_settings = settings
+            self._changed()
+        return submitted
+
+    def set_new_point_edit_mode(self, layer: str, mode: str) -> bool:
+        if layer not in self.new_point_settings or mode not in self.MODES:
+            raise IsaacBridgeError("new point mode must be 2.5d or 3d")
+        settings = json.loads(json.dumps(self.new_point_settings))
+        settings[layer]["edit_mode"] = mode
+        submitted = self._submit_context(("new-mode", layer), new_point_settings=settings)
+        if submitted:
+            self.new_point_settings = settings
+            self._changed()
+        return submitted
+
+    # Compatibility name used by callers predating the independent settings.
+    def set_new_node_edit_mode(self, mode: str) -> bool:
+        return self.set_new_point_edit_mode("aerial", mode)
 
     def set_directed(self, value: bool) -> None:
         self.directed = bool(value)
-        if self.preview and self.preview.get("kind") == "edge":
+        if self.preview and self.preview.get("kind") == "edge-draft":
             self.preview["directed"] = self.directed
         if self.selection and self.selection.get("kind") == "edge":
             edge = self.edge(self.selection["id"]) or {}
@@ -840,37 +1095,35 @@ class IsaacTopologyController:
                 traversal_mode=edge.get("traversal_mode", "walk"))
         self._changed()
 
-    def set_selected_edit_mode(self, mode: str) -> bool:
-        if mode not in {"2.5d", "3d"}:
-            raise IsaacBridgeError("edit_mode must be 2.5d or 3d")
-        if ((self.context or {}).get("active_domain") != "aerial"
-                or not self.selection or self.selection.get("kind") != "node"
-                or self.node(self.selection["id"]) is None):
-            return False
-        return self._submit_frozen_edit(
-            ("node-edit-mode", self.selection["id"]), "update_node",
-            id=self.selection["id"], edit_mode=mode)
-
-    def set_new_node_edit_mode(self, mode: str) -> None:
-        if mode not in {"2.5d", "3d"}:
-            raise IsaacBridgeError("edit_mode must be 2.5d or 3d")
-        self.new_node_edit_mode = mode
-        self._changed()
-
     def set_new_edge_traversal_mode(self, mode: str) -> bool:
         if mode not in {"walk", "stairs", "ramp"}:
             raise IsaacBridgeError("traversal_mode must be walk, stairs or ramp")
-        if (self.context or {}).get("active_domain") != "ground" and mode != "walk":
+        if self.active_layer != "ground" and mode != "walk":
             self.new_edge_traversal_mode = "walk"
             self.last_error = "stairs and ramp edge creation are ground-only"
             self._changed()
             return False
         self.new_edge_traversal_mode = mode
         self.last_error = None
-        if self.preview and self.preview.get("kind") == "edge":
+        if self.preview and self.preview.get("kind") == "edge-draft":
             self.preview["traversal_mode"] = mode
         self._changed()
         return True
+
+    def set_selected_edit_mode(self, mode: str) -> bool:
+        if mode not in self.MODES:
+            raise IsaacBridgeError("edit_mode must be 2.5d or 3d")
+        point = self.point_for_selection()
+        if point is None:
+            return False
+        kind = self.selection.get("kind")
+        if kind == "node" and ((self.context or {}).get("editor_tool") == "add-edge"
+                                or self.active_layer != "aerial"):
+            return False
+        operation = "update_node" if kind == "node" else "update_semantic_point"
+        return self._submit_frozen_edit(
+            ("edit-mode", kind, point["id"]), operation,
+            id=point["id"], edit_mode=mode)
 
     def set_selected_node_properties(self, position_xyz: Iterable[float], *,
                                      label: str = "", kind: str = "custom",
@@ -878,80 +1131,69 @@ class IsaacTopologyController:
                                      _identity: dict[str, Any] | None = None) -> bool:
         if not self.selection or self.selection.get("kind") != "node":
             return False
+        if (self.context or {}).get("editor_tool") == "add-edge":
+            return False
         node = self.node(self.selection["id"])
         if node is None:
             return False
-        if level_id is _PRESERVE_LEVEL:
-            selected_level = node.get("level_id")
-        else:
-            selected_level = level_id
-            known_levels = {row.get("id") for row in
-                            (self.context or {}).get("levels") or []}
-            if selected_level is not None and selected_level not in known_levels:
-                return False
-        args = {
-            "id": node["id"],
-            "position_xyz": list(_finite_xyz(list(position_xyz))),
-            "label": str(label).strip(),
-            "kind": str(kind).strip() or "custom",
-            "level_id": selected_level,
-        }
-        if (self.context or {}).get("active_domain") == "aerial":
+        args = {"id": node["id"], "position_xyz": list(_finite_xyz(position_xyz)),
+                "label": str(label).strip(), "kind": str(kind).strip() or "custom"}
+        if self.active_layer == "aerial":
             args["edit_mode"] = node.get("edit_mode", "3d")
-        return self._submit_frozen_edit(
-            ("node-properties", node["id"]), "update_node",
-            identity=_identity, **args)
+        else:
+            selected_level = (node.get("level_id") if level_id is _PRESERVE_LEVEL
+                              else level_id)
+            known = {row.get("id") for row in (self.context or {}).get("levels") or []}
+            if selected_level is not None and selected_level not in known:
+                return False
+            args["level_id"] = selected_level
+        return self._submit_frozen_edit(("node-properties", node["id"]),
+                                        "update_node", identity=_identity, **args)
 
-    def set_selected_region_properties(self, *, label: str = "", kind: str = "room",
-                                       height_m: float = 2.5,
-                                       _identity: dict[str, Any] | None = None) -> bool:
-        if (not self.selection or self.selection.get("kind") != "semantic"
-                or self.selection.get("collection") != "regions"):
+    def set_selected_semantic_point_properties(
+            self, position_xyz: Iterable[float], *, label: str = "",
+            kind: str = "custom", description: str = "",
+            aliases: Iterable[str] = (), properties: dict[str, Any] | None = None,
+            _identity: dict[str, Any] | None = None) -> bool:
+        if not self.selection or self.selection.get("kind") != "semantic_point":
             return False
-        region = self.region(self.selection["id"])
-        try:
-            height = float(height_m)
-        except (TypeError, ValueError):
-            return False
-        if region is None or not math.isfinite(height) or height <= 0:
+        point = self.semantic_point(self.selection["id"])
+        if point is None or not isinstance(properties or {}, dict):
             return False
         return self._submit_frozen_edit(
-            ("region-properties", region["id"]), "update_region",
-            identity=_identity, id=region["id"], label=str(label).strip(),
-            kind=str(kind).strip() or "room", height_m=height)
+            ("semantic-point-properties", point["id"]), "update_semantic_point",
+            identity=_identity, id=point["id"],
+            position_xyz=list(_finite_xyz(position_xyz)),
+            label=str(label).strip(), kind=str(kind).strip() or "custom",
+            description=str(description),
+            aliases=[str(value).strip() for value in aliases if str(value).strip()],
+            properties=json.loads(json.dumps(properties or {})),
+            edit_mode=point.get("edit_mode", "3d"))
 
     def set_selected_z(self, z: float) -> bool:
-        if not self.selection or self.selection.get("kind") != "node":
+        point = self.point_for_selection()
+        value = float(z)
+        if point is None or not math.isfinite(value):
             return False
-        node = self.node(self.selection["id"])
-        if node is None or not math.isfinite(float(z)):
+        if (self.selection.get("kind") == "node"
+                and (self.context or {}).get("editor_tool") == "add-edge"):
             return False
-        position = list(node["position_xyz"])
-        position[2] = float(z)
+        position = list(point["position_xyz"])
+        position[2] = value
+        semantic = self.selection.get("kind") == "semantic_point"
         return self._submit_frozen_edit(
-            ("node-z", node["id"]), "move_node",
-            id=node["id"], position_xyz=position)
+            ("point-z", point["id"]),
+            "move_semantic_point" if semantic else "move_node",
+            id=point["id"], position_xyz=position)
 
     def select(self, selection: dict[str, Any] | None) -> None:
         self.selection = selection
-        self.clear_boundary_candidate()
         self.selection_dirty = True
         self._changed()
 
-    def set_boundary_candidate(self, candidate: dict[str, Any]) -> None:
-        self.boundary_candidate = json.loads(json.dumps(candidate))
-        if self.on_boundary_menu is not None:
-            self.on_boundary_menu(self.boundary_candidate)
-        self._changed()
-
-    def clear_boundary_candidate(self) -> None:
-        had_candidate = self.boundary_candidate is not None
-        self.boundary_candidate = None
-        if had_candidate and self.on_boundary_menu is not None:
-            self.on_boundary_menu(None)
-
     def flush_selection(self) -> bool:
-        if not self.selection_dirty or self.dispatcher.pending or self.gesture is not None:
+        if (not self.selection_dirty or self.dispatcher.pending
+                or self.gesture is not None or self.pending_edit is not None):
             return False
         submitted = self.dispatcher.submit(
             ("selection", self.selection), "select", self.selection,
@@ -961,36 +1203,46 @@ class IsaacTopologyController:
         return submitted
 
     def add_node(self, point: Iterable[float]) -> bool:
-        position = list(_finite_xyz(list(point)))
-        domain = (self.context or {}).get("active_domain")
+        if self.object_selection_mode or self.active_layer not in {"ground", "aerial"}:
+            return False
+        position = list(_finite_xyz(point))
+        args = {"position_xyz": position, "label": "", "kind": "custom"}
+        if self.active_layer == "aerial":
+            args["edit_mode"] = self.new_point_settings["aerial"]["edit_mode"]
+        else:
+            args["level_id"] = (self.context or {}).get("active_level")
+        return self._submit_frozen_edit(("add-node", position), "add_node", **args)
+
+    def add_semantic_point(self, point: Iterable[float]) -> bool:
+        if self.object_selection_mode or self.active_layer != "semantic_points":
+            return False
+        position = list(_finite_xyz(point))
+        settings = self.new_point_settings["semantic_points"]
         return self._submit_frozen_edit(
-            ("add-node", position), "add_node", position_xyz=position,
-            level_id=(self.context or {}).get("active_level"), label="", kind="custom",
-            edit_mode=self.new_node_edit_mode if domain == "aerial" else None)
+            ("add-semantic-point", position), "add_semantic_point",
+            position_xyz=position, edit_mode=settings["edit_mode"], label="",
+            kind="custom", description="", aliases=[], properties={})
 
     def activate_node_for_edge(self, identifier: str) -> None:
+        if self.active_layer not in {"ground", "aerial"}:
+            return
         if self.edge_start is None:
-            self.edge_start = identifier
-            self.edge_end = None
+            self.edge_start, self.edge_end = identifier, None
             self.edge_identity = self.dispatcher.client.identity()
             self.select(_node_selection(identifier))
         elif identifier == self.edge_start:
             self.last_error = "edge endpoints must differ"
         else:
-            start_node, end_node = self.node(self.edge_start), self.node(identifier)
-            if start_node is None or end_node is None:
+            start, end = self.node(self.edge_start), self.node(identifier)
+            if start is None or end is None:
                 self.last_error = "edge endpoint no longer exists"
             else:
                 self.edge_end = identifier
-                mode = (self.new_edge_traversal_mode
-                        if (self.context or {}).get("active_domain") == "ground"
-                        else "walk")
+                mode = self.new_edge_traversal_mode if self.active_layer == "ground" else "walk"
                 self.preview = {
-                    "kind": "edge", "from": self.edge_start, "to": identifier,
-                    "directed": self.directed,
-                    "traversal_mode": mode,
-                    "points": [list(start_node["position_xyz"]),
-                               list(end_node["position_xyz"])],
+                    "kind": "edge-draft", "from": self.edge_start, "to": identifier,
+                    "directed": self.directed, "traversal_mode": mode,
+                    "points": [list(start["position_xyz"]), list(end["position_xyz"])],
                 }
                 self.last_error = None
         self._changed()
@@ -998,176 +1250,205 @@ class IsaacTopologyController:
     def finish_edge(self) -> bool:
         if self.edge_start is None or self.edge_end is None:
             return False
-        submitted = self._submit_frozen_edit(
+        return self._submit_frozen_edit(
             ("add-edge", self.edge_start, self.edge_end), "add_edge",
-            identity=self.edge_identity,
-            from_id=self.edge_start, to_id=self.edge_end, directed=self.directed,
+            identity=self.edge_identity, from_id=self.edge_start,
+            to_id=self.edge_end, directed=self.directed,
             traversal_mode=(self.new_edge_traversal_mode
-                            if (self.context or {}).get("active_domain") == "ground"
-                            else "walk"))
-        self._changed()
-        return submitted
-
-    def add_region_point(self, point: Iterable[float]) -> None:
-        value = list(_finite_xyz(list(point)))
-        if not self.region_draft:
-            self.region_identity = self.dispatcher.client.identity()
-        self.region_draft.append(value)
-        self._changed()
-
-    def finish_region(self) -> bool:
-        if len(self.region_draft) < 3:
-            return False
-        identifier = f"region:{uuid.uuid4()}"
-        record = {
-            "id": identifier, "label": "", "kind": "room",
-            "level_id": (self.context or {}).get("active_level"),
-            "polygon_xyz": clone_points(self.region_draft),
-            "height_m": 2.5, "aliases": [], "properties": {},
-            "entrance_node_ids": [],
-        }
-        submitted = self._submit_frozen_edit(
-            ("add-region", identifier), "upsert_semantic",
-            identity=self.region_identity, collection="regions", record=record)
-        self._changed()
-        return submitted
+                            if self.active_layer == "ground" else "walk"))
 
     def delete_selected(self) -> bool:
-        selection = self.selection
-        if not selection:
+        if not self.selection:
             return False
-        kind, identifier = selection.get("kind"), selection.get("id")
-        if kind == "node":
-            args = ("remove_node",)
-            kwargs = {"id": identifier}
-        elif kind == "edge":
-            args = ("remove_edge",)
-            kwargs = {"id": identifier}
-        elif kind == "semantic" and selection.get("collection") == "regions":
-            args = ("remove_semantic",)
-            kwargs = {"collection": "regions", "id": identifier}
+        kind, identifier = self.selection.get("kind"), self.selection.get("id")
+        if kind == "node" and (self.context or {}).get("editor_tool") == "add-edge":
+            return False
+        operations = {"node": "remove_node", "edge": "remove_edge",
+                      "semantic_point": "remove_semantic_point"}
+        operation = operations.get(kind)
+        return bool(operation and self._submit_frozen_edit(
+            ("delete", kind, identifier), operation, id=identifier))
+
+    def set_object_selection_mode(self, enabled: bool) -> bool:
+        enabled = bool(enabled)
+        if enabled == self.object_selection_mode:
+            return enabled
+        self.cancel_gesture()
+        self.object_selection_mode = enabled
+        if self.on_object_selection_mode is not None:
+            self.on_object_selection_mode(enabled)
+        self._changed()
+        return enabled
+
+    def bind_selected_semantic_point(self) -> bool:
+        if not self.selection or self.selection.get("kind") != "semantic_point":
+            return False
+        if self.isaac_selection_cursor_provider is not None:
+            selected = self.isaac_selection_cursor_provider()
+            if selected is None:
+                self.last_error = (
+                    "Isaac object selection is not confirmed yet; wait for selection sync")
+                self._changed()
+                return False
         else:
+            selected = (self.context or {}).get("isaac_selection") or {}
+        session_id = selected.get("session_id")
+        sequence = selected.get("sequence")
+        if not isinstance(session_id, str) or type(sequence) is not int:
+            self.last_error = "Select one current-scene Isaac prim before binding"
+            self._changed()
             return False
         return self._submit_frozen_edit(
-            ("delete", kind, identifier), args[0], **kwargs)
+            ("bind-semantic-point", self.selection["id"]), "bind_semantic_point",
+            id=self.selection["id"], selection_session_id=session_id,
+            selection_sequence=sequence)
+
+    def binding_cursor_ready(self) -> bool:
+        if self.isaac_selection_cursor_provider is not None:
+            return self.isaac_selection_cursor_provider() is not None
+        selected = (self.context or {}).get("isaac_selection") or {}
+        return (isinstance(selected.get("session_id"), str)
+                and type(selected.get("sequence")) is int)
+
+    def unbind_selected_semantic_point(self) -> bool:
+        if not self.selection or self.selection.get("kind") != "semantic_point":
+            return False
+        return self._submit_frozen_edit(
+            ("unbind-semantic-point", self.selection["id"]),
+            "unbind_semantic_point", id=self.selection["id"])
 
     def undo(self) -> bool:
-        return self.dispatcher.submit(
-            ("undo",), "undo", _identity=self.dispatcher.client.identity())
+        return self.dispatcher.submit(("undo",), "undo",
+                                      _identity=self.dispatcher.client.identity())
 
     def redo(self) -> bool:
-        return self.dispatcher.submit(
-            ("redo",), "redo", _identity=self.dispatcher.client.identity())
+        return self.dispatcher.submit(("redo",), "redo",
+                                      _identity=self.dispatcher.client.identity())
 
     def save(self) -> bool:
-        return self.dispatcher.submit(
-            ("save",), "save", _identity=self.dispatcher.client.identity())
+        return self.dispatcher.submit(("save",), "save",
+                                      _identity=self.dispatcher.client.identity())
 
-    def cancel_gesture(self, *, clear_region: bool = False) -> None:
+    def cancel_gesture(self, *, preserve_retry: bool = False, **_compat: Any) -> None:
+        self.interaction_generation += 1
         self.gesture = None
         self.preview = None
-        self.edge_start = None
-        self.edge_end = None
+        self.edge_start = self.edge_end = None
         self.edge_identity = None
-        self.retry_request = None
+        if not preserve_retry:
+            self.retry_request = None
         self._active_edit = None
-        self.clear_boundary_candidate()
-        if clear_region:
-            self.region_draft = []
-            self.region_identity = None
+        self.pending_edit = None
+        self.edit_status = "idle"
         self._changed()
 
-    def begin_drag(self, target: dict[str, Any], point: Iterable[float],
-                   *, axis: str | None = None) -> None:
+    def begin_drag(self, target: dict[str, Any], point: Iterable[float], *,
+                   axis: str | None = None) -> None:
+        kind, identifier = target.get("kind"), target.get("id")
         original = None
-        if target.get("kind") == "node":
-            node = self.node(target.get("id"))
-            if node is not None:
-                original = list(_finite_xyz(list(node["position_xyz"])))
-        elif target.get("kind") == "region-vertex":
-            region = self.region(target.get("id"))
-            index = target.get("index")
-            if (region is not None and type(index) is int
-                    and 0 <= index < len(region.get("polygon_xyz") or [])):
-                original = list(_finite_xyz(list(region["polygon_xyz"][index])))
+        if kind in {"node", "semantic-point"}:
+            record = (self.node(identifier) if kind == "node"
+                      else self.semantic_point(identifier))
+            if record is not None:
+                original = list(_finite_xyz(record["position_xyz"]))
+        elif kind == "edge":
+            edge = self.edge(identifier)
+            if edge is not None:
+                original = [list(_finite_xyz(value))
+                            for value in edge.get("polyline_xyz") or []]
         if original is None:
             return
         self.gesture = {
-            "target": dict(target),
-            "start": list(_finite_xyz(list(point))),
-            "original_position": original,
-            "axis": axis,
+            "target": json.loads(json.dumps(target)), "axis": axis,
             "identity": self.dispatcher.client.identity(),
+            "grab_point": list(_finite_xyz(point)), "original": original,
         }
         self.preview = None
+        self._changed()
 
     def update_drag(self, point: Iterable[float]) -> None:
         if self.gesture is None:
             return
-        target = self.gesture["target"]
-        value = list(_finite_xyz(list(point)))
-        start = self.gesture["start"]
-        original = self.gesture["original_position"]
-        delta = [value[index] - start[index] for index in range(3)]
-        if target["kind"] == "node":
-            axis = self.gesture.get("axis")
-            position = list(original)
-            if axis in ("x", "y", "z"):
-                index = "xyz".index(axis)
-                position[index] = original[index] + delta[index]
-            else:
-                position[0] = original[0] + delta[0]
-                position[1] = original[1] + delta[1]
-            self.preview = {"kind": "node", "id": target["id"], "position_xyz": position}
-        elif target["kind"] == "region-vertex":
-            self.preview = {"kind": "region-vertex", "id": target["id"],
-                            "index": target["index"],
-                            "position_xyz": [original[0] + delta[0],
-                                             original[1] + delta[1], original[2]]}
+        value = list(_finite_xyz(point))
+        gesture, target = self.gesture, self.gesture["target"]
+        delta = [value[i] - gesture["grab_point"][i] for i in range(3)]
+        if target["kind"] == "edge":
+            points = [[p[0] + delta[0], p[1] + delta[1], p[2]]
+                      for p in gesture["original"]]
+            edge = self.edge(target["id"]) or {}
+            associated = []
+            for node_id in dict.fromkeys((edge.get("from"), edge.get("to"))):
+                node = self.node(node_id)
+                if node is not None:
+                    source = node["position_xyz"]
+                    associated.append({"id": node_id,
+                                       "position_xyz": [source[0] + delta[0],
+                                                        source[1] + delta[1], source[2]]})
+            self.preview = {"kind": "edge", "id": target["id"],
+                            "delta_xy": delta[:2], "points": points,
+                            "associated_nodes": associated}
+        else:
+            original = gesture["original"]
+            position = [original[i] + delta[i] for i in range(3)]
+            record = (self.node(target["id"]) if target["kind"] == "node"
+                      else self.semantic_point(target["id"])) or {}
+            axis = gesture.get("axis")
+            if axis:
+                for index, name in enumerate("xyz"):
+                    if name != axis:
+                        position[index] = original[index]
+            elif record.get("edit_mode", "3d") == "2.5d":
+                position[2] = original[2]
+            self.preview = {"kind": target["kind"], "id": target["id"],
+                            "position_xyz": position}
         self._changed()
 
     def end_drag(self) -> bool:
-        preview, gesture, self.gesture = self.preview, self.gesture, None
-        if not preview:
+        if self.gesture is None:
+            return False
+        if self.preview is None:
+            # A press/release that never crosses Kit's drag threshold has no
+            # authored transform. End the interaction without submitting an
+            # edit, while preserving the point/edge selection made on press.
+            self.gesture = None
             self.preview = None
             self._changed()
             return False
-        if preview["kind"] == "node":
-            node = self.node(preview["id"]) or {}
-            full_xyz = (self.context or {}).get("active_domain") == "aerial" and (
-                node.get("edit_mode", "3d") == "3d" and
-                preview["position_xyz"][2] != node.get("position_xyz", [0, 0, 0])[2])
-            operation = "move_node" if full_xyz else "move_node_xy"
-            kwargs = ({"position_xyz": preview["position_xyz"]} if full_xyz
-                      else {"position_xy": preview["position_xyz"][:2]})
-            submitted = self._submit_frozen_edit(
-                ("move-node", preview["id"]), operation,
-                identity=gesture["identity"], id=preview["id"], **kwargs)
-        else:
-            submitted = self._submit_frozen_edit(
-                ("move-region-vertex", preview["id"], preview["index"]),
-                "move_region_vertex", identity=gesture["identity"],
-                id=preview["id"], index=preview["index"],
-                position_xy=preview["position_xyz"][:2])
-        self._changed()
-        return submitted
-
-    def insert_region_vertex(self, identifier: str, index: int,
-                             point: Iterable[float]) -> bool:
+        gesture, preview = self.gesture, self.preview
+        kind, identifier = preview["kind"], preview["id"]
+        if kind == "edge":
+            return self._submit_frozen_edit(
+                ("translate-edge", identifier), "translate_edge_xy",
+                identity=gesture["identity"], id=identifier,
+                delta_xy=preview["delta_xy"])
+        record = (self.node(identifier) if kind == "node"
+                  else self.semantic_point(identifier)) or {}
+        mode = record.get("edit_mode", "3d")
+        semantic = kind == "semantic-point"
+        operation = (("move_semantic_point_xy" if semantic else "move_node_xy")
+                     if mode == "2.5d" and gesture.get("axis") is None
+                     else ("move_semantic_point" if semantic else "move_node"))
+        kwargs = ({"position_xy": preview["position_xyz"][:2]}
+                  if operation.endswith("_xy") else
+                  {"position_xyz": preview["position_xyz"]})
         return self._submit_frozen_edit(
-            ("insert-region-vertex", identifier, index), "insert_region_vertex",
-            identity=(self.boundary_candidate or {}).get("identity"),
-            id=identifier, index=index,
-            position_xyz=list(_finite_xyz(list(point))))
+            ("move-semantic-point" if semantic else "move-node", identifier),
+            operation, identity=gesture["identity"], id=identifier, **kwargs)
 
-    def add_boundary_vertex(self) -> bool:
-        value = self.boundary_candidate
-        if not value:
+    def retry_conflict(self) -> bool:
+        request = self.retry_request
+        if request is None:
             return False
-        submitted = self.insert_region_vertex(
-            value["id"], value["index"], value["position_xyz"])
+        kwargs = json.loads(json.dumps(request["kwargs"]))
+        kwargs["_identity"] = self.dispatcher.client.identity()
+        submitted = self.dispatcher.submit(
+            request["tag"], "edit", request["operation"], **kwargs)
         if submitted:
-            self.clear_boundary_candidate()
+            self._active_edit = {**request, "kwargs": json.loads(json.dumps(kwargs))}
+            self.retry_request = None
+            self.last_error = None
+            self.edit_status = "submitting"
+            self._changed()
         return submitted
 
     def handle_result(self, result) -> None:
@@ -1180,148 +1461,86 @@ class IsaacTopologyController:
         request = (self._active_edit if self._active_edit is not None
                    and self._active_edit.get("tag") == tag else None)
         self._active_edit = None
+        edit_tag = bool(tag and tag[0] in {
+            "add-node", "add-edge", "add-semantic-point", "move-node",
+            "move-semantic-point", "translate-edge", "node-properties",
+            "semantic-point-properties", "node-edit-mode", "point-z",
+            "bind-semantic-point", "unbind-semantic-point", "delete"})
         if error is not None:
             self.last_error = str(error)
-            # A stale write leaves the explicitly authored edge/polygon draft
-            # visible for inspection. Transport/disconnect failures cancel all
-            # interaction state because their frozen identity is no longer safe.
-            self.gesture = None
-            if getattr(error, "status", None) == 409:
-                self.retry_request = request
+            if edit_tag:
+                # A failed edit must never leave the session-layer preview in
+                # place.  The next overlay frame therefore reads the unchanged
+                # authoritative snapshot and puts the marker back where the
+                # server last accepted it.
+                self.interaction_generation += 1
+                self.gesture = None
+                self.preview = None
+                self.pending_edit = None
+                self.edge_start = self.edge_end = None
+                self.edge_identity = None
+                if getattr(error, "status", None) == 409:
+                    self.retry_request = request
+                    self.edit_status = "retry"
+                else:
+                    self.retry_request = None
+                    self.edit_status = "failed"
             else:
-                self.retry_request = None
-                self.cancel_gesture(clear_region=True)
+                # Selection/context synchronization can be in flight when a
+                # drag ends. Keep that frozen drag request alive across a
+                # selection error; dropping it would leave only the local
+                # session-layer preview and silently lose the user edit.
+                if self.pending_edit is None:
+                    self.retry_request = None
+                    self.edit_status = "failed"
+                else:
+                    self.edit_status = "submitting"
         else:
             self.last_error = None
             self.retry_request = None
-            if isinstance(payload, dict) and payload.get("document"):
-                # Write responses carry the full active document. Convert it
-                # into the same shape used by the 250 ms compact context feed.
-                document = payload["document"]
-                compact = {
-                    "revision": payload.get("revision"),
-                    "version": document.get("version", 2),
-                    "nodes": json.loads(json.dumps(document.get("nodes") or [])),
-                    "edges": json.loads(json.dumps(document.get("edges") or [])),
-                    "semantics": {
-                        "regions": json.loads(json.dumps(
-                            (document.get("semantics") or {}).get("regions") or []))
-                    },
-                }
-                self.update_context({**(self.context or {}), **payload,
-                                     "document_snapshot": compact})
-            if tag and tag[0] == "selection":
-                self.selection = tag[1]
-                self.selection_dirty = False
-            elif tag and tag[0] == "add-edge":
-                self.edge_start = None
-                self.edge_end = None
+            successful_edit = edit_tag
+            if tag and tag[0] == "add-edge":
+                self.edge_start = self.edge_end = None
                 self.edge_identity = None
                 self.preview = None
-            elif tag and tag[0] == "add-region":
-                self.region_draft = []
-                self.region_identity = None
-            elif tag and tag[0] in {"move-node", "move-region-vertex"}:
+            elif tag and tag[0] in {"move-node", "move-semantic-point", "translate-edge"}:
+                self.gesture = None
                 self.preview = None
-            elif tag and tag[0] == "insert-region-vertex":
-                self.clear_boundary_candidate()
+            if isinstance(payload, dict):
+                fresh = payload.get("context") or payload.get("state")
+                if isinstance(fresh, dict) and "context_generation" in fresh:
+                    self.update_context(fresh)
+            if successful_edit:
+                # update_context() may clear the interaction state when the
+                # response carries a newer revision. Restore the user-visible
+                # terminal state after that authoritative refresh.
+                self.edit_status = "synced"
         self._changed()
 
 
-def clone_points(points: Iterable[Iterable[float]]) -> list[list[float]]:
-    return [[float(value) for value in point] for point in points]
-
-
 class IsaacTopologyWindow:
-    """Compact native controls for all topology editor operations."""
+    """Native controls for independent graph and semantic-point layers."""
 
     def __init__(self, controller: IsaacTopologyController,
                  title: str = "Isaac Topology Editor"):
-        self.controller = controller
-        self.title = title
-        self._window = None
-        self._status = None
+        self.controller, self.title = controller, title
+        self._window = self._scroll_frame = self._status = None
         self._node_label_model = self._node_kind_model = None
         self._node_level_model = None
         self._node_xyz_models = []
-        self._region_label_model = self._region_kind_model = None
-        self._region_height_model = None
-        self._property_token = None
-        self._property_identity = None
-        self._property_revision = None
-        self._property_dirty = False
-        self._property_setting = False
+        self._semantic_label_model = self._semantic_kind_model = None
+        self._semantic_description_model = self._semantic_aliases_model = None
+        self._semantic_properties_model = None
+        self._semantic_xyz_models = []
+        self._new_z_models = {}
+        self._property_token = self._property_identity = self._property_revision = None
+        self._property_dirty = self._property_setting = False
         self._seen_result_serial = controller.result_serial
         self._model_subscriptions = []
         self._input = self._keyboard = self._key_subscription = None
-        self._boundary_menu = self._boundary_menu_item = None
-
-    def refresh(self) -> None:
-        if self._status is None:
-            return
-        context = self.controller.context or {}
-        selection = self.controller.selection
-        selected = selection.get("id") if selection else "none"
-        selected_node = (self.controller.node(selection.get("id"))
-                         if selection and selection.get("kind") == "node" else None)
-        mode = (f" | node {selected_node.get('edit_mode', '3d')}"
-                if selected_node is not None
-                and context.get("active_domain") == "aerial" else "")
-        error = f" | {self.controller.last_error}" if self.controller.last_error else ""
-        self._status.text = (
-            f"{context.get('active_domain', '?')} | {context.get('editor_tool', '?')} | "
-            f"{context.get('active_level', '?')} | selected {selected} | "
-            f"new edge {self.controller.new_edge_traversal_mode} | "
-            f"new aerial {self.controller.new_node_edit_mode}{mode}{error}"
-        )
-        if self.controller.result_serial != self._seen_result_serial:
-            self._seen_result_serial = self.controller.result_serial
-            tag = self.controller.last_result_tag
-            if (self.controller.last_result_succeeded and tag
-                    and tag[0] in {"node-properties", "region-properties"}):
-                self._property_dirty = False
-                self._property_revision = None
-        token = (context.get("scene_key"), context.get("scene_generation"),
-                 context.get("context_generation"),
-                 None if selection is None else (
-                     selection.get("kind"), selection.get("collection"), selection.get("id")))
-        revision = self.controller.snapshot.get("revision")
-        if (token == self._property_token
-                and (self._property_dirty or revision == self._property_revision)):
-            return
-        if token != self._property_token:
-            self._property_dirty = False
-        self._property_token = token
-        self._property_revision = revision
-        self._property_identity = self.controller.dispatcher.client.identity()
-        self._property_setting = True
-        try:
-            if selection and selection.get("kind") == "node":
-                node = self.controller.node(selection.get("id"))
-                if node is not None:
-                    self._set_model(self._node_label_model, node.get("label", ""))
-                    self._set_model(self._node_kind_model, node.get("kind", "custom"))
-                    self._set_model(self._node_level_model, node.get("level_id") or "")
-                    for model, value in zip(self._node_xyz_models,
-                                            node.get("position_xyz", ())):
-                        self._set_model(model, float(value))
-            elif (selection and selection.get("kind") == "semantic"
-                  and selection.get("collection") == "regions"):
-                region = self.controller.region(selection.get("id"))
-                if region is not None:
-                    self._set_model(self._region_label_model, region.get("label", ""))
-                    self._set_model(self._region_kind_model, region.get("kind", "room"))
-                    self._set_model(self._region_height_model,
-                                    float(region.get("height_m", 2.5)))
-        finally:
-            self._property_setting = False
-
-    def _mark_property_dirty(self, *_args):
-        if self._property_setting:
-            return
-        if not self._property_dirty:
-            self._property_identity = self.controller.dispatcher.client.identity()
-        self._property_dirty = True
+        self._level_controls = self._node_property_controls = self._node_level_controls = None
+        self._start_object_selection_button = self._end_object_selection_button = None
+        self._bind_object_button = None
 
     @staticmethod
     def _set_model(model, value):
@@ -1332,138 +1551,327 @@ class IsaacTopologyWindow:
     def _string(model, fallback=""):
         return model.get_value_as_string() if model is not None else fallback
 
+    def refresh(self):
+        if self._status is None:
+            return
+        context, selection = self.controller.context or {}, self.controller.selection
+        selected = selection.get("id") if selection else "none"
+        point = self.controller.point_for_selection(selection)
+        mode = f" | selected mode {point.get('edit_mode', '3d')}" if point else ""
+        binding = ""
+        if selection and selection.get("kind") == "semantic_point":
+            value = (context.get("binding_status") or {}).get(selection.get("id"), "unverified")
+            binding = f" | binding {value}"
+        error = f" | {self.controller.last_error}" if self.controller.last_error else ""
+        object_mode = " | Isaac object selection" if self.controller.object_selection_mode else ""
+        if self.controller.retry_request is not None:
+            edit_state = " | 存在待重试草稿"
+        elif self.controller.edit_status == "failed":
+            edit_state = " | 提交失败，已回退"
+        elif (self.controller.preview is not None
+              and self.controller.edit_status != "submitting"):
+            edit_state = " | 预览中"
+        elif (self.controller.edit_status == "submitting"
+              or self.controller.pending_edit is not None
+              or self.controller._active_edit is not None):
+            edit_state = " | 提交中"
+        elif self.controller.edit_status == "synced":
+            edit_state = " | 已同步到网页"
+        else:
+            edit_state = ""
+        self._status.text = (
+            f"layer {self.controller.active_layer} | tool {context.get('editor_tool', '?')} | "
+            f"floor {context.get('active_level', '?')} | reference "
+            f"{context.get('reference_level') or 'none'} | selected "
+            f"{selected}{mode}{binding}{object_mode}{edit_state}{error}")
+        if self._level_controls is not None:
+            self._level_controls.visible = self.controller.active_layer == "ground"
+        if self._node_property_controls is not None:
+            self._node_property_controls.enabled = bool(
+                selection and selection.get("kind") == "node"
+                and context.get("editor_tool") != "add-edge")
+        if self._node_level_controls is not None:
+            self._node_level_controls.visible = self.controller.active_layer == "ground"
+        if self._start_object_selection_button is not None:
+            self._start_object_selection_button.enabled = not self.controller.object_selection_mode
+        if self._end_object_selection_button is not None:
+            self._end_object_selection_button.enabled = self.controller.object_selection_mode
+        if self._bind_object_button is not None:
+            self._bind_object_button.enabled = bool(
+                selection and selection.get("kind") == "semantic_point"
+                and self.controller.binding_cursor_ready())
+        if self.controller.result_serial != self._seen_result_serial:
+            self._seen_result_serial = self.controller.result_serial
+            if self.controller.last_result_succeeded:
+                self._property_dirty = False
+                self._property_revision = None
+        token = (context.get("scene_key"), context.get("scene_generation"),
+                 context.get("context_generation"),
+                 None if selection is None else
+                 (selection.get("kind"), selection.get("id")))
+        revision = context.get("revision")
+        if token == self._property_token and (self._property_dirty or revision == self._property_revision):
+            return
+        if token != self._property_token:
+            self._property_dirty = False
+        self._property_token, self._property_revision = token, revision
+        self._property_identity = self.controller.dispatcher.client.identity()
+        self._property_setting = True
+        try:
+            if selection and selection.get("kind") == "node":
+                node = self.controller.node(selection.get("id"))
+                if node:
+                    self._set_model(self._node_label_model, node.get("label", ""))
+                    self._set_model(self._node_kind_model, node.get("kind", "custom"))
+                    self._set_model(self._node_level_model, node.get("level_id") or "")
+                    for model, value in zip(self._node_xyz_models, node.get("position_xyz", ())):
+                        self._set_model(model, float(value))
+            elif selection and selection.get("kind") == "semantic_point":
+                point = self.controller.semantic_point(selection.get("id"))
+                if point:
+                    self._set_model(self._semantic_label_model, point.get("label", ""))
+                    self._set_model(self._semantic_kind_model, point.get("kind", "custom"))
+                    self._set_model(self._semantic_description_model,
+                                    point.get("description", ""))
+                    self._set_model(self._semantic_aliases_model,
+                                    ", ".join(point.get("aliases") or []))
+                    self._set_model(self._semantic_properties_model,
+                                    json.dumps(point.get("properties") or {}, sort_keys=True))
+                    for model, value in zip(self._semantic_xyz_models,
+                                            point.get("position_xyz", ())):
+                        self._set_model(model, float(value))
+            for layer, model in self._new_z_models.items():
+                self._set_model(model, self.controller.new_point_settings[layer]["z"])
+        finally:
+            self._property_setting = False
+
+    def _mark_property_dirty(self, *_args):
+        if self._property_setting:
+            return
+        if not self._property_dirty:
+            self._property_identity = self.controller.dispatcher.client.identity()
+        self._property_dirty = True
+
     def _apply_node_properties(self):
-        kwargs = {}
-        if self._node_level_model is not None:
-            value = self._string(self._node_level_model).strip()
-            kwargs["level_id"] = value or None
+        level = self._string(self._node_level_model).strip()
         self.controller.set_selected_node_properties(
             [model.get_value_as_float() for model in self._node_xyz_models],
             label=self._string(self._node_label_model),
             kind=self._string(self._node_kind_model, "custom"),
-            _identity=self._property_identity, **kwargs)
+            level_id=level or None, _identity=self._property_identity)
 
-    def _apply_region_properties(self):
-        self.controller.set_selected_region_properties(
-            label=self._string(self._region_label_model),
-            kind=self._string(self._region_kind_model, "room"),
-            height_m=self._region_height_model.get_value_as_float(),
-            _identity=self._property_identity,
-        )
+    def _apply_semantic_properties(self):
+        raw = self._string(self._semantic_properties_model, "{}").strip() or "{}"
+        try:
+            properties = json.loads(raw)
+            if not isinstance(properties, dict):
+                raise ValueError("properties must be an object")
+        except (TypeError, ValueError) as exc:
+            self.controller.last_error = f"Invalid properties JSON: {exc}"
+            self.controller._changed()
+            return
+        aliases = [value.strip() for value in
+                   self._string(self._semantic_aliases_model).split(",") if value.strip()]
+        self.controller.set_selected_semantic_point_properties(
+            [model.get_value_as_float() for model in self._semantic_xyz_models],
+            label=self._string(self._semantic_label_model),
+            kind=self._string(self._semantic_kind_model, "custom"),
+            description=self._string(self._semantic_description_model),
+            aliases=aliases, properties=properties, _identity=self._property_identity)
+
+    def _apply_new_z(self, layer):
+        self.controller.set_new_point_z(layer, self._new_z_models[layer].get_value_as_float())
 
     def show(self):
         try:
             import omni.ui as ui
         except ImportError as exc:
             raise IsaacBridgeError("omni.ui is unavailable") from exc
-        self._window = ui.Window(self.title, width=520, height=760)
+        self._window = ui.Window(self.title, width=560, height=820)
         with self._window.frame:
-            with ui.VStack(spacing=6, height=0):
-                ui.Label("Graph")
-                with ui.HStack(height=32):
-                    ui.Button("Ground", clicked_fn=lambda: self.controller.set_domain("ground"))
-                    ui.Button("Aerial", clicked_fn=lambda: self.controller.set_domain("aerial"))
-                ui.Label("Tools (selection is implicit)")
-                with ui.HStack(height=32):
-                    ui.Button("Point", clicked_fn=lambda: self.controller.set_tool("add-node"))
-                    ui.Button("Edge", clicked_fn=lambda: self.controller.set_tool("add-edge"))
-                    ui.Button("Region", clicked_fn=lambda: self.controller.set_tool("add-region"))
-                ui.Label("Level")
-                with ui.HStack(height=32):
-                    for level in (self.controller.context or {}).get("levels") or []:
-                        ui.Button(
-                            str(level.get("label") or level.get("id")),
-                            clicked_fn=lambda identifier=level.get("id"):
-                                self.controller.set_level(identifier),
-                        )
-                with ui.HStack(height=32):
-                    ui.Button("Confirm edge", clicked_fn=self.controller.finish_edge)
-                    ui.Button("Finish region", clicked_fn=self.controller.finish_region)
-                    ui.Button("Add boundary point", clicked_fn=self.controller.add_boundary_vertex)
-                    ui.Button("Cancel / Esc", clicked_fn=lambda: self.controller.cancel_gesture(clear_region=True))
-                with ui.HStack(height=32):
-                    ui.Button("Undirected", clicked_fn=lambda: self.controller.set_directed(False))
-                    ui.Button("Directed", clicked_fn=lambda: self.controller.set_directed(True))
-                    ui.Button("Delete", clicked_fn=self.controller.delete_selected)
-                with ui.HStack(height=32):
-                    ui.Label("New ground edge")
-                    ui.Button("Walk", clicked_fn=lambda:
-                              self.controller.set_new_edge_traversal_mode("walk"))
-                    ui.Button("Stairs", clicked_fn=lambda:
-                              self.controller.set_new_edge_traversal_mode("stairs"))
-                    ui.Button("Ramp", clicked_fn=lambda:
-                              self.controller.set_new_edge_traversal_mode("ramp"))
-                with ui.HStack(height=32):
-                    ui.Label("New aerial node")
-                    ui.Button("2.5D", clicked_fn=lambda: self.controller.set_new_node_edit_mode("2.5d"))
-                    ui.Button("3D", clicked_fn=lambda: self.controller.set_new_node_edit_mode("3d"))
-                with ui.HStack(height=32):
-                    ui.Button("Node 2.5D", clicked_fn=lambda: self.controller.set_selected_edit_mode("2.5d"))
-                    ui.Button("Node 3D", clicked_fn=lambda: self.controller.set_selected_edit_mode("3d"))
-                ui.Label("Selected node properties")
-                with ui.HStack(height=32):
-                    ui.Label("Name", width=48)
-                    node_label = ui.StringField()
-                    self._node_label_model = node_label.model
-                    ui.Label("Kind", width=42)
-                    node_kind = ui.StringField()
-                    self._node_kind_model = node_kind.model
-                with ui.HStack(height=32):
-                    self._node_xyz_models = []
-                    for axis in "XYZ":
-                        ui.Label(axis, width=18)
-                        field = ui.FloatField()
-                        self._node_xyz_models.append(field.model)
-                with ui.HStack(height=32):
-                    ui.Label("Level (blank = Unbound)", width=150)
-                    node_level = ui.StringField()
-                    self._node_level_model = node_level.model
-                    ui.Button("Apply node", clicked_fn=self._apply_node_properties)
-                ui.Label("Selected region properties")
-                with ui.HStack(height=32):
-                    ui.Label("Name", width=48)
-                    region_label = ui.StringField()
-                    self._region_label_model = region_label.model
-                    ui.Label("Kind", width=42)
-                    region_kind = ui.StringField()
-                    self._region_kind_model = region_kind.model
-                with ui.HStack(height=32):
-                    ui.Label("Height", width=48)
-                    region_height = ui.FloatField()
-                    self._region_height_model = region_height.model
-                    ui.Button("Apply region", clicked_fn=self._apply_region_properties)
-                with ui.HStack(height=32):
-                    ui.Button("Undo", clicked_fn=self.controller.undo)
-                    ui.Button("Redo", clicked_fn=self.controller.redo)
-                    ui.Button("Retry conflict", clicked_fn=self.controller.retry_conflict)
-                    ui.Button("Save", clicked_fn=self.controller.save)
-                ui.Label("Aerial 3D nodes use the XYZ gizmo; 2.5D drags preserve Z.")
-                self._status = ui.Label("")
-        models = [self._node_label_model, self._node_kind_model, self._node_level_model,
-                  *self._node_xyz_models, self._region_label_model,
-                  self._region_kind_model, self._region_height_model]
+            self._scroll_frame = ui.ScrollingFrame(
+                horizontal_scrollbar_policy=ui.ScrollBarPolicy.SCROLLBAR_ALWAYS_OFF,
+                vertical_scrollbar_policy=ui.ScrollBarPolicy.SCROLLBAR_AS_NEEDED)
+            with self._scroll_frame:
+                with ui.VStack(spacing=5, height=0, width=ui.Fraction(1)):
+                    ui.Label("Active layer")
+                    with ui.HStack(height=30, width=ui.Fraction(1)):
+                        ui.Button("Ground", width=0, clicked_fn=lambda:
+                                  self.controller.set_active_layer("ground"))
+                        ui.Button("Aerial", width=0, clicked_fn=lambda:
+                                  self.controller.set_active_layer("aerial"))
+                        ui.Button("Semantic points", width=0, clicked_fn=lambda:
+                                  self.controller.set_active_layer("semantic_points"))
+                    ui.Label("Visible layers / hit types")
+                    with ui.HStack(height=30, width=ui.Fraction(1)):
+                        for layer, label in (("ground", "Ground"), ("aerial", "Aerial"),
+                                             ("semantic_points", "Semantic")):
+                            ui.Button(label, width=0, clicked_fn=lambda name=layer:
+                                      self.controller.set_layer_visible(
+                                          name, not bool(((self.controller.context or {}).get(
+                                              "visible_layers") or {}).get(name, True))))
+                    with ui.HStack(height=30, width=ui.Fraction(1)):
+                        for kind, label in (("nodes", "Nodes"), ("edges", "Edges"),
+                                            ("semantic_points", "Semantic points")):
+                            ui.Button(label, width=0, clicked_fn=lambda name=kind:
+                                      self.controller.set_type_visible(
+                                          name, not bool(((self.controller.context or {}).get(
+                                              "visible_types") or {}).get(name, True))))
+                    ui.Label("Tools")
+                    with ui.HStack(height=30, width=ui.Fraction(1)):
+                        ui.Button("Point", width=0, clicked_fn=lambda:
+                                  self.controller.set_tool("add-node"))
+                        ui.Button("Edge", width=0, clicked_fn=lambda:
+                                  self.controller.set_tool("add-edge"))
+                        ui.Button("Semantic point", width=0, clicked_fn=lambda:
+                                  self.controller.set_tool("add-semantic-point"))
+                    self._level_controls = ui.VStack(spacing=3, height=0,
+                                                     width=ui.Fraction(1))
+                    with self._level_controls:
+                        ui.Label("Working floor")
+                        with ui.HStack(height=30, width=ui.Fraction(1)):
+                            for level in (self.controller.context or {}).get("levels") or []:
+                                identifier = level.get("id")
+                                label = str(level.get("label") or identifier)
+                                ui.Button(label, width=0, clicked_fn=lambda value=identifier:
+                                          self.controller.set_level(value))
+                    ui.Label("Reference basemap")
+                    with ui.HStack(height=30, width=ui.Fraction(1)):
+                        for level in (self.controller.context or {}).get("levels") or []:
+                            identifier = level.get("id")
+                            label = str(level.get("label") or identifier)
+                            ui.Button(f"Ref {label}", width=0,
+                                      clicked_fn=lambda value=identifier:
+                                      self.controller.set_reference_level(value))
+                        ui.Button("Ref none", width=0, clicked_fn=lambda:
+                                  self.controller.set_reference_level(None))
+                    with ui.HStack(height=30, width=ui.Fraction(1)):
+                        ui.Button("Confirm edge", width=0,
+                                  clicked_fn=self.controller.finish_edge)
+                        ui.Button("Cancel / Esc", width=0,
+                                  clicked_fn=self.controller.cancel_gesture)
+                        ui.Button("Delete", width=0,
+                                  clicked_fn=self.controller.delete_selected)
+                    with ui.HStack(height=30, width=ui.Fraction(1)):
+                        self._start_object_selection_button = ui.Button(
+                            "Start Isaac object selection", width=0, clicked_fn=lambda:
+                            self.controller.set_object_selection_mode(True))
+                        self._end_object_selection_button = ui.Button(
+                            "End Isaac object selection", width=0, clicked_fn=lambda:
+                            self.controller.set_object_selection_mode(False))
+                    with ui.HStack(height=30, width=ui.Fraction(1)):
+                        ui.Button("Undirected", width=0,
+                                  clicked_fn=lambda: self.controller.set_directed(False))
+                        ui.Button("Directed", width=0,
+                                  clicked_fn=lambda: self.controller.set_directed(True))
+                        ui.Button("Walk", width=0, clicked_fn=lambda:
+                                  self.controller.set_new_edge_traversal_mode("walk"))
+                        ui.Button("Stairs", width=0, clicked_fn=lambda:
+                                  self.controller.set_new_edge_traversal_mode("stairs"))
+                        ui.Button("Ramp", width=0, clicked_fn=lambda:
+                                  self.controller.set_new_edge_traversal_mode("ramp"))
+                    for layer, label in (("aerial", "New aerial"),
+                                         ("semantic_points", "New semantic")):
+                        with ui.HStack(height=30, width=ui.Fraction(1)):
+                            ui.Label(label, width=110)
+                            field = ui.FloatField(width=100)
+                            self._new_z_models[layer] = field.model
+                            ui.Button("Apply Z", width=0, clicked_fn=lambda value=layer:
+                                      self._apply_new_z(value))
+                            ui.Button("2.5D", width=0, clicked_fn=lambda value=layer:
+                                      self.controller.set_new_point_edit_mode(value, "2.5d"))
+                            ui.Button("3D", width=0, clicked_fn=lambda value=layer:
+                                      self.controller.set_new_point_edit_mode(value, "3d"))
+                    with ui.HStack(height=30, width=ui.Fraction(1)):
+                        ui.Label("Selected mode", width=110)
+                        ui.Button("2.5D", width=0, clicked_fn=lambda:
+                                  self.controller.set_selected_edit_mode("2.5d"))
+                        ui.Button("3D", width=0, clicked_fn=lambda:
+                                  self.controller.set_selected_edit_mode("3d"))
+                    self._node_property_controls = ui.VStack(
+                        spacing=3, height=0, width=ui.Fraction(1))
+                    with self._node_property_controls:
+                        ui.Label("Selected navigation point")
+                        with ui.HStack(height=30, width=ui.Fraction(1), spacing=4):
+                            ui.Label("Name", width=45)
+                            node_label = ui.StringField(width=210)
+                            self._node_label_model = node_label.model
+                            ui.Label("Kind", width=40)
+                            node_kind = ui.StringField(width=210)
+                            self._node_kind_model = node_kind.model
+                        with ui.HStack(height=30, width=ui.Fraction(1), spacing=4):
+                            self._node_xyz_models = []
+                            for axis in "XYZ":
+                                ui.Label(axis, width=15)
+                                field = ui.FloatField(width=145)
+                                self._node_xyz_models.append(field.model)
+                        self._node_level_controls = ui.HStack(
+                            height=30, width=ui.Fraction(1), spacing=4)
+                        with self._node_level_controls:
+                            ui.Label("Level", width=45)
+                            node_level = ui.StringField(width=ui.Fraction(1))
+                            self._node_level_model = node_level.model
+                        with ui.HStack(height=30, width=ui.Fraction(1)):
+                            ui.Button("Apply navigation point", width=0,
+                                      clicked_fn=self._apply_node_properties)
+                    ui.Label("Selected semantic point")
+                    with ui.HStack(height=30, width=ui.Fraction(1), spacing=4):
+                        ui.Label("Name", width=45)
+                        semantic_label = ui.StringField(width=210)
+                        self._semantic_label_model = semantic_label.model
+                        ui.Label("Kind", width=40)
+                        semantic_kind = ui.StringField(width=210)
+                        self._semantic_kind_model = semantic_kind.model
+                    with ui.HStack(height=30, width=ui.Fraction(1), spacing=4):
+                        self._semantic_xyz_models = []
+                        for axis in "XYZ":
+                            ui.Label(axis, width=15)
+                            field = ui.FloatField(width=145)
+                            self._semantic_xyz_models.append(field.model)
+                    with ui.HStack(height=30, width=ui.Fraction(1), spacing=4):
+                        ui.Label("Description", width=75)
+                        value = ui.StringField(width=ui.Fraction(1))
+                        self._semantic_description_model = value.model
+                    with ui.HStack(height=30, width=ui.Fraction(1), spacing=4):
+                        ui.Label("Aliases", width=75)
+                        value = ui.StringField(width=ui.Fraction(1))
+                        self._semantic_aliases_model = value.model
+                    with ui.HStack(height=30, width=ui.Fraction(1), spacing=4):
+                        ui.Label("Properties JSON", width=100)
+                        value = ui.StringField(width=ui.Fraction(1))
+                        self._semantic_properties_model = value.model
+                        ui.Button("Apply semantic", width=120,
+                                  clicked_fn=self._apply_semantic_properties)
+                    with ui.HStack(height=30, width=ui.Fraction(1)):
+                        self._bind_object_button = ui.Button(
+                            "Bind selected Isaac object", width=0,
+                            clicked_fn=self.controller.bind_selected_semantic_point)
+                        ui.Button("Unbind object", width=0,
+                                  clicked_fn=self.controller.unbind_selected_semantic_point)
+                    with ui.HStack(height=30, width=ui.Fraction(1)):
+                        ui.Button("Undo", width=0, clicked_fn=self.controller.undo)
+                        ui.Button("Redo", width=0, clicked_fn=self.controller.redo)
+                        ui.Button("Retry conflict", width=0,
+                                  clicked_fn=self.controller.retry_conflict)
+                        ui.Button("Save", width=0, clicked_fn=self.controller.save)
+                    ui.Label(
+                        "Reference layers are visible guides; only the active layer is editable.",
+                        width=ui.Fraction(1), height=0, word_wrap=True)
+                    self._status = ui.Label(
+                        "", width=ui.Fraction(1), height=0, word_wrap=True)
+        models = [self._node_label_model, self._node_kind_model,
+                  self._node_level_model, *self._node_xyz_models,
+                  self._semantic_label_model, self._semantic_kind_model,
+                  self._semantic_description_model, self._semantic_aliases_model,
+                  self._semantic_properties_model, *self._semantic_xyz_models,
+                  *self._new_z_models.values()]
         self._model_subscriptions = [
             (model, model.add_value_changed_fn(self._mark_property_dirty))
-            for model in models if model is not None
-        ]
+            for model in models if model is not None]
         self._bind_escape()
-        self.controller.on_boundary_menu = self._show_boundary_menu
         self.controller.on_change = self.refresh
         self.refresh()
         return self._window
-
-    def _show_boundary_menu(self, candidate):
-        if candidate is None:
-            if self._boundary_menu is not None:
-                self._boundary_menu.visible = False
-            return
-        import omni.ui as ui
-        if self._boundary_menu is None:
-            self._boundary_menu = ui.Menu("Region boundary")
-            with self._boundary_menu:
-                self._boundary_menu_item = ui.MenuItem(
-                    "Add point here", triggered_fn=self.controller.add_boundary_vertex)
-        self._boundary_menu.show()
 
     def _bind_escape(self):
         try:
@@ -1471,13 +1879,15 @@ class IsaacTopologyWindow:
             import omni.appwindow
             self._input = carb.input.acquire_input_interface()
             self._keyboard = omni.appwindow.get_default_app_window().get_keyboard()
-
             def on_key(event):
-                if (event.type == carb.input.KeyboardEventType.KEY_PRESS
-                        and event.input == carb.input.KeyboardInput.ESCAPE):
-                    self.controller.cancel_gesture(clear_region=True)
+                if event.type == carb.input.KeyboardEventType.KEY_PRESS:
+                    if event.input == carb.input.KeyboardInput.ESCAPE:
+                        self.controller.cancel_gesture()
+                    elif (event.input == carb.input.KeyboardInput.ENTER
+                          and self.controller.edge_end is not None
+                          and not self.controller.object_selection_mode):
+                        self.controller.finish_edge()
                 return True
-
             self._key_subscription = self._input.subscribe_to_keyboard_events(
                 self._keyboard, on_key)
         except (ImportError, AttributeError, RuntimeError):
@@ -1485,8 +1895,6 @@ class IsaacTopologyWindow:
 
     def destroy(self):
         self.controller.on_change = None
-        if self.controller.on_boundary_menu == self._show_boundary_menu:
-            self.controller.on_boundary_menu = None
         for model, subscription in self._model_subscriptions:
             try:
                 model.remove_value_changed_fn(subscription)
@@ -1500,23 +1908,13 @@ class IsaacTopologyWindow:
             except (AttributeError, RuntimeError):
                 pass
         self._input = self._keyboard = self._key_subscription = None
-        if self._boundary_menu is not None:
-            self._boundary_menu.destroy()
-        self._boundary_menu = self._boundary_menu_item = None
         if self._window is not None:
             self._window.destroy()
             self._window = None
-        self._status = None
-        self._node_label_model = self._node_kind_model = None
-        self._node_level_model = None
-        self._node_xyz_models = []
-        self._region_label_model = self._region_kind_model = None
-        self._region_height_model = None
-        self._property_token = None
-        self._property_identity = None
-        self._property_revision = None
-        self._property_dirty = False
-        self._property_setting = False
+        self._scroll_frame = self._status = None
+        self._level_controls = self._node_property_controls = self._node_level_controls = None
+        self._start_object_selection_button = self._end_object_selection_button = None
+        self._bind_object_button = None
 
 
 __all__ = [

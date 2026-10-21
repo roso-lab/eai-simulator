@@ -10,12 +10,14 @@ import secrets
 import threading
 import math
 import time
+from copy import deepcopy
 from urllib.parse import parse_qs, urlsplit
 
 from .map_project import MapProject, read_json
 from .product import _unique_object, _reject_constant
 from .scene_catalog import discover_scene_projects, scene_metadata, source_usd, resolve_scene
-from .web_overlay import _drop_stale_web_selection, compact_document_snapshot, normalize_web_selection
+from .web_overlay import compact_document_snapshot, normalize_web_selection
+from .semantic_points import valid_object_path
 
 
 def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_linked=False):
@@ -27,10 +29,20 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
     web_selection = {"selection": None}
     snapshot_cache = {"key": None, "value": None}
     isaac_sequences = {}
+    binding_reports = {}
+    binding_report_time = 0.0
     scene_generation = 0
     context_generation = 0
-    editor = {"active_domain": "ground", "editor_tool": "add-node",
-              "active_level": project.document.levels[0]["id"] if project.document.levels else None}
+    def default_editor(value):
+        first = value.document.levels[0]["id"] if value.document.levels else None
+        return {"active_domain": "ground", "active_layer": "ground", "last_navigation_layer": "ground",
+                "editor_tool": "add-node", "active_level": first, "reference_level": first,
+                "visible_layers": {"ground": True, "aerial": False, "semantic_points": False},
+                "visible_types": {"nodes": True, "edges": True, "semantic_points": True},
+                "new_point_settings": {key: {"z": 1.5, "edit_mode": "3d"}
+                                       for key in ("aerial", "semantic_points")}}
+    editor = default_editor(project)
+    scene_editors = {}
     runtime = {"state": "loading" if isaac_linked else "disabled", "error": None,
                "scene_key": project.document.scene_key, **scene_metadata(project.manifest)}
     if catalog is not None:
@@ -85,7 +97,62 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                     "context_generation": context_generation, "revision": project.revision, **editor,
                     "levels": project.state().get("levels", []), "csrf_token": token,
                     "web_selection": web_selection["selection"],
-                    "document_snapshot": snapshot_cache["value"]}
+                    "document_snapshot": snapshot_cache["value"],
+                    "document_snapshots": {domain: compact_document_snapshot(doc, project.revision)
+                                           for domain, doc in project.documents.items()},
+                    "semantic_points": deepcopy(project.semantic_points),
+                    "isaac_selection": isaac_selection["selection"], "binding_status": binding_status()}
+
+    def binding_status():
+        fresh = runtime["state"] == "ready" and time.monotonic() - binding_report_time < 3
+        return {point["id"]: (binding_reports.get(point["id"], {}).get("status", "unverified")
+                if fresh and binding_reports.get(point["id"], {}).get("prim_path") ==
+                    (point.get("isaac_binding") or {}).get("prim_path") else "unverified")
+                for point in project.semantic_points}
+
+    def normalize_selection(selection):
+        if selection is None:
+            return None
+        if not isinstance(selection, dict):
+            raise ValueError("selection must be an object or null")
+        layer = editor["active_layer"]
+        if not editor["visible_layers"][layer]:
+            raise ValueError("hidden layers cannot be selected")
+        if isinstance(selection, dict) and selection.get("kind") == "semantic_point":
+            if (layer != "semantic_points" or selection.get("collection") is not None
+                    or not editor["visible_types"]["semantic_points"] or not any(
+                    point["id"] == selection.get("id") for point in project.semantic_points)):
+                raise ValueError("semantic point is outside the current layer")
+            return {"kind": "semantic_point", "collection": None, "id": selection["id"]}
+        if layer == "semantic_points":
+            raise ValueError("navigation selection is outside the current layer")
+        if selection.get("domain", editor["active_domain"]) != editor["active_domain"]:
+            raise ValueError("selection is outside the current navigation graph")
+        document = project.document_for(editor["active_domain"])
+        selected = normalize_web_selection(document, selection)
+        if selected and selected["kind"] not in ("node", "edge"):
+            raise ValueError("legacy semantic selection is unavailable in the unified editor")
+        if selected and editor["editor_tool"] == "add-node" and selected["kind"] != "node":
+            raise ValueError("point tool only selects nodes")
+        if selected:
+            if not editor["visible_types"]["nodes" if selected["kind"] == "node" else "edges"]:
+                raise ValueError("hidden objects cannot be selected")
+            def on_floor(node):
+                return layer != "ground" or node.get("level_id") in (None, editor["active_level"])
+            if selected["kind"] == "node":
+                visible = on_floor(document.node(selected["id"]))
+            else:
+                edge = document.edge(selected["id"])
+                visible = on_floor(document.node(edge["from"])) or on_floor(document.node(edge["to"]))
+            if not visible:
+                raise ValueError("selection is outside the current ground floor")
+        return selected
+
+    def drop_selection():
+        try:
+            web_selection["selection"] = normalize_selection(web_selection["selection"])
+        except (ValueError, KeyError):
+            web_selection["selection"] = None
 
     def update_runtime(generation, status, error=None):
         with lock:
@@ -118,6 +185,7 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
             return {**project.state(editor["active_domain"]), "csrf_token": token, "isaac_runtime": dict(runtime),
                     "scene_generation": scene_generation, "context_generation": context_generation, **editor,
                     "web_selection": web_selection["selection"],
+                    "isaac_selection": isaac_selection["selection"], "binding_status": binding_status(),
                     "source_path": scene_metadata(project.manifest)["source_path"]}
 
         def check_context(self, body):
@@ -130,11 +198,13 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                     raise ValueError(f"stale editor {field}; refresh context before editing")
             if "domain" in body and body["domain"] != editor["active_domain"]:
                 raise ValueError("stale editor domain; refresh context before editing")
+            if "active_layer" in body and body["active_layer"] != editor["active_layer"]:
+                raise ValueError("stale editor layer; refresh context before editing")
 
         def pop_context(self, body):
             self.check_context(body)
             domain = body.pop("domain", "ground")
-            for field in ("scene_key", "scene_generation", "context_generation"):
+            for field in ("scene_key", "scene_generation", "context_generation", "active_layer"):
                 body.pop(field, None)
             return domain
 
@@ -168,7 +238,7 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                 elif url.path == "/api/layer":
                     lid = parse_qs(url.query)["level"][0]
                     with lock:
-                        image = project.layer_image(lid)
+                        image = project.layer_image(lid, geometry_only=parse_qs(url.query).get("geometry_only") == ["1"])
                         data = io.BytesIO()
                         image.save(data, format="PNG")
                     self.reply(200, data.getvalue(), "image/png")
@@ -182,7 +252,7 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                 self.reply(400, {"error": str(exc)})
 
         def do_POST(self):
-            nonlocal project, token, isaac_selection, scene_generation, context_generation
+            nonlocal project, token, isaac_selection, scene_generation, context_generation, binding_report_time
             if not self.local_request():
                 self.reply(403, {"error": "local same-origin access required"})
                 return
@@ -205,24 +275,97 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                             if type(body.get(field)) is not expected_type:
                                 raise ValueError(f"expected editor {field} is required")
                         # domain is the requested destination on this endpoint.
-                        context_body = {key: value for key, value in body.items() if key != "domain"}
+                        context_body = {key: value for key, value in body.items() if key not in {"domain", "active_layer"}}
                         self.check_context(context_body)
                         project._expect(body.get("revision"))
                         domain = body.get("active_domain", body.get("domain", editor["active_domain"]))
                         project.document_for(domain)
                         tool = body.get("tool", body.get("editor_tool", editor["editor_tool"]))
-                        if tool not in {"add-node", "add-edge", "add-region"}:
-                            raise ValueError("editor tool must be add-node, add-edge or add-region")
+                        if tool not in {"add-node", "add-edge", "add-semantic-point"}:
+                            raise ValueError("editor tool must be add-node, add-edge or add-semantic-point")
                         level = body.get("level_id", body.get("active_level", editor["active_level"]))
                         if level not in {row["id"] for row in project.document.levels} and not (level is None and not project.document.levels):
                             raise ValueError("unknown editor level")
-                        changed = domain != editor["active_domain"] or level != editor["active_level"] or tool != editor["editor_tool"]
-                        editor.update(active_domain=domain, editor_tool=tool, active_level=level)
+                        candidate = deepcopy(editor)
+                        layer = body.get("active_layer")
+                        # active_layer is also carried in the frozen identity.
+                        # An explicit tool change must override that old value.
+                        if tool != editor["editor_tool"]:
+                            if tool == "add-semantic-point":
+                                layer = "semantic_points"
+                            elif editor["active_layer"] == "semantic_points" and layer in (None, "semantic_points"):
+                                layer = editor["last_navigation_layer"]
+                        if domain != editor["active_domain"] and layer == editor["active_layer"]:
+                            layer = domain
+                        if layer is None:
+                            if "tool" in body or "editor_tool" in body:
+                                layer = ("semantic_points" if tool == "add-semantic-point" else
+                                         editor["last_navigation_layer"] if editor["active_layer"] == "semantic_points" else domain)
+                            elif domain != editor["active_domain"]:
+                                layer = domain
+                            else:
+                                layer = editor["active_layer"]
+                        if layer not in {"ground", "aerial", "semantic_points"}:
+                            raise ValueError("unknown editor layer")
+                        if layer == "semantic_points":
+                            tool = "add-semantic-point"
+                        else:
+                            domain = layer
+                            if tool == "add-semantic-point":
+                                tool = "add-node"
+                            candidate["last_navigation_layer"] = layer
+                        candidate.update(active_layer=layer, active_domain=domain, editor_tool=tool, active_level=level)
+                        reference = body.get("reference_level", candidate["reference_level"])
+                        if reference is not None and reference not in {row["id"] for row in project.document.levels}:
+                            raise ValueError("unknown reference level")
+                        candidate["reference_level"] = reference
+                        if layer != editor["active_layer"] and "visible_layers" not in body:
+                            candidate["visible_layers"] = {key: key == layer for key in candidate["visible_layers"]}
+                        for setting in ("visible_layers", "visible_types"):
+                            if setting in body:
+                                changes = body[setting]
+                                if (not isinstance(changes, dict) or set(changes) - set(candidate[setting])
+                                        or any(type(v) is not bool for v in changes.values())):
+                                    raise ValueError("invalid visibility settings")
+                                candidate[setting].update(changes)
+                        if "new_point_settings" in body:
+                            changes = body["new_point_settings"]
+                            if not isinstance(changes, dict) or set(changes) - {"aerial", "semantic_points"}:
+                                raise ValueError("invalid point settings")
+                            for key, values in changes.items():
+                                if not isinstance(values, dict) or set(values) - {"z", "edit_mode"}:
+                                    raise ValueError("invalid new point settings")
+                                candidate["new_point_settings"][key].update(values)
+                                settings = candidate["new_point_settings"][key]
+                                if (type(settings["z"]) not in (int, float) or not math.isfinite(settings["z"])
+                                        or settings["edit_mode"] not in {"2.5d", "3d"}):
+                                    raise ValueError("new point height must be finite and edit mode valid")
+                        changed = candidate != editor
+                        editor.update(candidate)
                         if changed:
                             context_generation += 1
                             web_selection["selection"] = None
                             isaac_selection["selection"] = None
                         self.reply(200, self.state())
+                        return
+                    if route == "/api/isaac/bindings":
+                        self.check_context(body)
+                        statuses = body.get("statuses")
+                        if not isinstance(statuses, dict):
+                            raise ValueError("binding statuses must be an object")
+                        valid = {p["id"]: p.get("isaac_binding") for p in project.semantic_points}
+                        updates = {}
+                        for identifier, report in statuses.items():
+                            binding = valid.get(identifier)
+                            if (not binding or not isinstance(report, dict)
+                                    or report.get("prim_path") != binding["prim_path"]
+                                    or report.get("status") not in {"valid", "invalid"}):
+                                raise ValueError("stale or invalid binding report")
+                            updates[identifier] = dict(report)
+                        binding_reports.clear()
+                        binding_reports.update(updates)
+                        binding_report_time = time.monotonic()
+                        self.reply(200, {"ok": True})
                         return
                     if route == "/api/isaac/selection":
                         self.check_context(body)
@@ -282,6 +425,8 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                             if below:
                                 level_id = max(below, key=lambda row: row["support_z_m"])["id"]
                         selection = {"scene_key": scene_key, "source_usd": source,
+                                     "scene_generation": body.get("scene_generation"),
+                                     "context_generation": body.get("context_generation"),
                                      "prim_paths": body.get("prim_paths", []),
                                      "position_xyz": [float(v) for v in point],
                                      "level_id": level_id, "selection_kind": kind,
@@ -302,8 +447,7 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                         # Ephemeral browser selection: no revision gate, the
                         # scene switch below rotates the token instead.
                         selection = body.get("selection")
-                        if selection is not None:
-                            selection = normalize_web_selection(project.document_for(editor["active_domain"]), selection)
+                        selection = normalize_selection(selection)
                         web_selection["selection"] = selection
                         self.reply(200, {"selection": selection})
                         return
@@ -312,16 +456,51 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                         raise ValueError("expected editor revision is required")
                     if route == "/api/edit":
                         operation = body.pop("operation")
+                        semantic_operations = {"add_semantic_point", "update_semantic_point", "move_semantic_point_xy",
+                                               "move_semantic_point", "remove_semantic_point", "bind_semantic_point",
+                                               "unbind_semantic_point"}
+                        allowed = semantic_operations | {"add_node", "update_node", "move_node_xy", "move_node",
+                                                         "remove_node", "add_edge", "update_edge", "remove_edge",
+                                                         "translate_edge_xy"}
+                        if operation not in allowed:
+                            raise ValueError("operation is unavailable in the unified editor")
+                        operations_by_tool = {
+                            "add-node": {"add_node", "update_node", "move_node_xy", "move_node", "remove_node"},
+                            "add-edge": {"add_edge", "update_edge", "remove_edge", "translate_edge_xy"},
+                            "add-semantic-point": semantic_operations,
+                        }
+                        if operation not in operations_by_tool[editor["editor_tool"]]:
+                            raise ValueError("operation is outside the active editor tool")
+                        semantic_operation = operation in semantic_operations
+                        if semantic_operation != (editor["active_layer"] == "semantic_points"):
+                            raise ValueError("operation is outside the active editor layer")
+                        if "isaac_binding" in body or "binding" in body:
+                            raise ValueError("use validated Isaac binding selection")
+                        if operation == "bind_semantic_point":
+                            selection = isaac_selection["selection"]
+                            if (not selection or selection["selection_kind"] != "prim"
+                                    or runtime["state"] != "ready"
+                                    or selection.get("scene_generation") != scene_generation
+                                    or selection.get("context_generation") != context_generation
+                                    or len(selection["prim_paths"]) != 1
+                                    or selection["session_id"] != body.pop("selection_session_id", None)
+                                    or selection["sequence"] != body.pop("selection_sequence", None)
+                                    or abs(time.time() - selection["timestamp"]) > 30
+                                    or selection.get("bbox_min_xyz") is None
+                                    or not valid_object_path(selection["prim_paths"][0])):
+                                raise ValueError("stale or invalid single Isaac object selection")
+                            body["binding"] = {"source_usd": scene_metadata(project.manifest)["source_path"],
+                                               "prim_path": selection["prim_paths"][0]}
                         project.edit(operation, domain=domain, **body)
-                        _drop_stale_web_selection(project.document_for(editor["active_domain"]), web_selection)
+                        drop_selection()
                     elif route == "/api/save":
                         project.save(**body)
                     elif route == "/api/undo":
                         project.undo(**body)
-                        _drop_stale_web_selection(project.document_for(editor["active_domain"]), web_selection)
+                        drop_selection()
                     elif route == "/api/redo":
                         project.redo(**body)
-                        _drop_stale_web_selection(project.document_for(editor["active_domain"]), web_selection)
+                        drop_selection()
                     elif route == "/api/open":
                         project._expect(body["revision"])
                         if project.dirty and body.get("discard_unsaved") is not True:
@@ -330,14 +509,17 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                         if asset_root:
                             resolve_scene(replacement.manifest, asset_root)
                         replacement.revision = project.revision + 1
+                        scene_editors[str(project.root)] = deepcopy(editor)
                         project = replacement
                         token = secrets.token_urlsafe(32)
                         isaac_selection["selection"] = None
                         web_selection["selection"] = None
                         scene_generation += 1
                         context_generation += 1
-                        editor.update(active_domain="ground", editor_tool="add-node",
-                                      active_level=project.document.levels[0]["id"] if project.document.levels else None)
+                        editor.clear()
+                        editor.update(deepcopy(scene_editors.get(str(project.root), default_editor(project))))
+                        binding_reports.clear()
+                        binding_report_time = 0
                         runtime.update(state="loading" if isaac_linked else "disabled", error=None,
                                        scene_key=project.document.scene_key, **scene_metadata(project.manifest))
                     else:

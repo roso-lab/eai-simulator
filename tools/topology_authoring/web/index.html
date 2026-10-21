@@ -26,26 +26,41 @@
   </header>
   <div id="errorBanner" class="banner error hidden" role="alert"><span id="errorText"></span><button id="closeErrorBtn" type="button">×</button></div>
   <div id="noticeBanner" class="banner notice hidden" role="status"></div>
-  <div id="pendingDraftBanner" class="banner notice hidden" role="status"><span id="pendingDraftText">有待处理的编辑草稿。确认当前状态后可重新提交。</span><button id="retryDraftBtn" class="button" type="button">重新提交草稿</button><button id="discardDraftBtn" class="button" type="button">丢弃草稿</button></div>
+  <div id="pendingDraftBanner" class="banner notice hidden" role="status"><span id="pendingDraftText">有待处理的编辑草稿。确认当前图层后可重新提交。</span><button id="retryDraftBtn" class="button" type="button">重新提交草稿</button><button id="discardDraftBtn" class="button" type="button">丢弃草稿</button></div>
 
   <main class="workspace">
     <aside class="side-panel left-panel">
       <section class="panel-section scene-card">
-        <div class="section-heading"><h2>图与楼层</h2><span id="projectPath" class="muted mono"></span></div>
-        <div id="domainToggle" class="domain-toggle" role="group" aria-label="拓扑图">
-          <button type="button" data-domain="ground">地面图</button>
-          <button type="button" data-domain="aerial">空中图</button>
+        <div class="section-heading"><h2>编辑图层</h2><span id="projectPath" class="muted mono"></span></div>
+        <div id="layerToggle" class="layer-toggle" role="group" aria-label="编辑图层">
+          <button type="button" data-layer="ground">地面</button>
+          <button type="button" data-layer="aerial">空中</button>
+          <button type="button" data-layer="semantic_points">语义点</button>
         </div>
-        <div id="floorList" class="floor-list" role="listbox" aria-label="楼层"></div>
+        <label class="field-group compact-field"><span>参考底图</span><select id="referenceLevel"><option value="">无底图</option></select></label>
+        <div id="floorList" class="floor-list" role="listbox" aria-label="地面工作楼层"></div>
+      </section>
+      <section class="panel-section visibility-section">
+        <div class="section-heading"><h2>显示</h2><span class="muted">仅活动图层可选择</span></div>
+        <div class="visibility-grid">
+          <label class="toggle-row"><input id="showGround" type="checkbox"><span>地面图层</span></label>
+          <label class="toggle-row"><input id="showAerial" type="checkbox"><span>空中图层</span></label>
+          <label class="toggle-row"><input id="showSemanticPoints" type="checkbox"><span>语义点图层</span></label>
+        </div>
+        <div class="visibility-grid type-visibility">
+          <label class="toggle-row"><input id="showNodes" type="checkbox"><span>节点</span></label>
+          <label class="toggle-row"><input id="showEdges" type="checkbox"><span>边</span></label>
+          <label class="toggle-row"><input id="showPointType" type="checkbox"><span>语义点</span></label>
+        </div>
       </section>
       <section class="panel-section records-section">
-        <div class="section-heading"><h2>拓扑与区域</h2><span id="recordCount" class="count-pill">0</span></div>
-        <label class="search-box"><span>⌕</span><input id="recordSearch" type="search" placeholder="搜索 ID 或名称"></label>
+        <div class="section-heading"><h2>当前图层记录</h2><span id="recordCount" class="count-pill">0</span></div>
+        <label class="search-box"><span>⌕</span><input id="recordSearch" type="search" placeholder="搜索 ID、名称或类型"></label>
         <div id="recordTabs" class="record-tabs" role="tablist">
           <button type="button" data-filter="all" class="active">全部</button>
           <button type="button" data-filter="nodes">节点</button>
           <button type="button" data-filter="edges">边</button>
-          <button type="button" data-filter="regions">区域</button>
+          <button type="button" data-filter="semantic_points">语义点</button>
         </div>
         <div id="recordList" class="record-list"></div>
       </section>
@@ -55,45 +70,52 @@
     <section class="map-workspace" aria-label="地图工作区">
       <div class="tool-strip" role="toolbar" aria-label="地图工具">
         <div class="tool-group" id="modeTools">
-          <button class="tool active" type="button" data-mode="add-node">点</button>
+          <button class="tool active" type="button" data-mode="add-node">节点</button>
           <button class="tool" type="button" data-mode="add-edge">边</button>
-          <button class="tool" type="button" data-mode="add-region">区域</button>
+          <button class="tool" type="button" data-mode="add-semantic-point">语义点</button>
         </div>
-        <label id="newNodeModeGroup" class="new-node-mode hidden">新节点<select id="newNodeMode"><option value="3d">3D</option><option value="2.5d">2.5D</option></select></label>
+        <label id="newPointZGroup" class="new-node-mode hidden">新点 Z<input id="newPointZ" type="number" value="1.5" step="0.1"></label>
+        <label id="newPointModeGroup" class="new-node-mode hidden">模式<select id="newPointMode"><option value="3d">3D</option><option value="2.5d">2.5D</option></select></label>
         <label id="newEdgeTraversalGroup" class="new-node-mode hidden">通行<select id="newEdgeTraversal"><option value="walk">步行</option><option value="stairs">楼梯</option><option value="ramp">坡道</option></select></label>
-        <span id="modeHint" class="mode-hint">空白处添加节点；点击已有元素可选择</span>
+        <span id="modeHint" class="mode-hint">空白处添加节点；拖动已有元素修改位置</span>
         <div class="tool-spacer"></div>
         <button id="cancelDraftBtn" class="button danger-ghost hidden" type="button">取消</button>
-        <button id="confirmPolygonBtn" class="button primary hidden" type="button">完成区域</button>
         <button id="confirmEdgeBtn" class="button primary hidden" type="button">确认连线</button>
-        <button id="zoomOutBtn" class="icon-button" type="button">−</button>
-        <button id="zoomInBtn" class="icon-button" type="button">＋</button>
+        <button id="zoomOutBtn" class="icon-button" type="button" aria-label="缩小">−</button>
+        <button id="zoomInBtn" class="icon-button" type="button" aria-label="放大">＋</button>
         <button id="fitBtn" class="button subtle" type="button">适配</button>
       </div>
       <div id="mapStage" class="map-stage">
         <canvas id="mapCanvas" aria-label="二维语义地图"></canvas>
         <div id="loadingLayer" class="loading-layer"><span class="spinner"></span><span>加载地图…</span></div>
-        <div class="map-legend"><span><i class="swatch occupied"></i>导航障碍</span><span><i class="swatch semantic-only"></i>语义障碍</span><span><i class="swatch free"></i>可通行</span><span><i class="swatch route"></i>当前图</span></div>
+        <div class="map-legend"><span><i class="swatch occupied"></i>导航障碍</span><span><i class="swatch free"></i>可通行</span><span><i class="swatch ground"></i>地面</span><span><i class="swatch aerial"></i>空中</span><span><i class="swatch semantic-point"></i>语义点</span></div>
         <div id="cursorCoords" class="cursor-coords">X — · Y —</div>
       </div>
     </section>
 
     <aside class="side-panel inspector-panel">
       <section class="panel-section inspector-title"><div><span id="selectionType" class="eyebrow">未选择</span><h2 id="selectionTitle">属性检查器</h2></div><button id="clearSelectionBtn" class="icon-button hidden" type="button">×</button></section>
-      <div id="emptyInspector" class="empty-inspector"><div class="empty-icon">⌖</div><p>三种工具同时承担创建和选择。拖动节点或区域顶点时，本地预览会在释放后写入一次编辑。</p></div>
+      <div id="emptyInspector" class="empty-inspector"><div class="empty-icon">⌖</div><p>选择活动图层中的节点、边或语义点。拖动操作先在本地预览，释放后只提交一次。</p></div>
       <form id="inspectorForm" class="inspector-form hidden" novalidate>
         <div class="field-group"><label for="fieldId">稳定 ID</label><input id="fieldId" class="mono" readonly></div>
         <div id="labelGroup" class="field-group"><label for="fieldLabel">名称</label><input id="fieldLabel" autocomplete="off"></div>
         <div id="kindGroup" class="field-group"><label for="fieldKind">类型</label><input id="fieldKind" autocomplete="off"></div>
         <div id="levelGroup" class="field-group"><label for="fieldLevel">楼层</label><select id="fieldLevel"></select></div>
         <fieldset id="coordinateGroup" class="coordinate-grid"><legend>世界坐标（米）</legend><label>X<input id="fieldX" type="number" step="0.01"></label><label>Y<input id="fieldY" type="number" step="0.01"></label><label>Z<input id="fieldZ" type="number" step="0.01"></label></fieldset>
-        <div id="editModeGroup" class="field-group"><label for="fieldEditMode">空中节点编辑模式</label><select id="fieldEditMode"><option value="3d">3D</option><option value="2.5d">2.5D（拖动仅改 XY）</option></select></div>
-        <div id="heightGroup" class="field-group"><label for="fieldHeight">区域高度（米）</label><input id="fieldHeight" type="number" step="0.1" min="0.01"></div>
-        <div id="vertexGroup" class="field-group hidden"><label>区域边界</label><button id="addVertexBtn" class="button subtle hidden" type="button">在所选边上添加点</button><small id="vertexHint">点击边界后可插入投影点；拖动顶点仅修改 XY 并保留区域平面 Z。</small></div>
+        <div id="editModeGroup" class="field-group"><label for="fieldEditMode">编辑模式</label><select id="fieldEditMode"><option value="3d">3D</option><option value="2.5d">2.5D（画布拖动仅改 XY）</option></select></div>
+        <div id="descriptionGroup" class="field-group"><label for="fieldDescription">描述</label><textarea id="fieldDescription" rows="3"></textarea></div>
+        <div id="aliasesGroup" class="field-group"><label for="fieldAliases">别名</label><input id="fieldAliases" placeholder="用逗号分隔" autocomplete="off"></div>
+        <details id="propertiesGroup" class="advanced-json"><summary>自定义属性 JSON</summary><p>请输入 JSON 对象。</p><textarea id="fieldProperties" spellcheck="false">{}</textarea></details>
         <div id="edgeGroup" class="edge-fields hidden"><div class="field-group"><label>起点</label><input id="fieldFrom" class="mono" readonly></div><div class="field-group"><label>终点</label><input id="fieldTo" class="mono" readonly></div><label class="toggle-row"><input id="fieldDirected" type="checkbox"><span>有向边</span></label><div class="field-group"><label for="fieldTraversal">通行方式</label><select id="fieldTraversal"><option value="walk">平面</option><option value="stairs">楼梯</option><option value="ramp">坡道</option></select></div></div>
+        <section id="bindingGroup" class="binding-card hidden">
+          <div class="binding-heading"><strong>Isaac 绑定</strong><span id="bindingStatus" class="binding-status">未绑定</span></div>
+          <div id="bindingPath" class="binding-path mono">—</div>
+          <div id="isaacSelectionHint" class="binding-hint">请先在 Isaac 中选择一个 Prim。</div>
+          <div class="binding-actions"><button id="bindCurrentBtn" class="button subtle" type="button">绑定当前 Isaac 选择</button><button id="unbindBtn" class="button danger-ghost" type="button">解除绑定</button></div>
+        </section>
         <div class="inspector-actions"><button id="deleteBtn" class="button danger" type="button">删除</button><button id="applyBtn" class="button primary" type="submit">应用修改</button></div>
       </form>
-      <section class="panel-section contract-note"><h2>编辑规则</h2><p>地面图与空中图由上方切换器同步到网页和 Isaac。空中节点默认使用 3D；2.5D 拖动保持 Z，但仍可在坐标框中明确输入 Z。</p><p>Esc 取消当前拖动或绘制；Ctrl/Cmd+Z 撤销一次已提交编辑。</p></section>
+      <section class="panel-section contract-note"><h2>编辑规则</h2><p>地面节点按工作楼层筛选；空中节点与语义点始终显示全部高度。可见的参考图层不可被误选。</p><p>Esc 取消当前拖动或连线草稿；Ctrl/Cmd+Z 撤销一次已提交编辑。</p></section>
     </aside>
   </main>
   <script src="/app.js"></script>

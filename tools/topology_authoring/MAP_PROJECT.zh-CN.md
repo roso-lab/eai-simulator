@@ -65,60 +65,73 @@ python -m tools.topology_authoring.map_server \
 
 ## 编辑
 
-联动界面只保留点、连线和绘制区域三种工具，点击已有元素即可选择。
-地面图和空中图共享场景、楼层、底图与区域；切换图不会迁移节点或连线。
-已有对象、交互点和命名路线仍保存在各自原图的数据中，可通过 Python/CLI 编辑。
+统一入口提供点、边、语义点三种工具；当前工具只编辑对应类型。连线工具可选择节点
+作为端点，但不修改节点属性。图层分为地面拓扑、空中拓扑和项目共享的语义点。
+参考图层通过显示开关开启，不参与当前工具命中。区域及旧语义类型已退出统一编辑入口。
 
-- 点：点击空白处新建，拖动修改 XY，属性面板可输入 XYZ、名称与类型。地面图
-  保留真实 Z，可用于楼层、楼梯和坡道；楼梯中间点可用 `transition` 和空楼层。
-- 空中节点默认 `3d`，点工具可选择新建默认模式，已有节点可独立切换 `2.5d`／`3d`。
-  2.5D 拖动保持该节点当前 Z，仍可在属性中输入高度；3D 在 Isaac 可使用 XYZ 手柄。
-  切换模式保留 ID、坐标及引用，不同模式的节点可以连线。网页画布始终拖动 XY。
-- 连线：依次选择当前图中的两个节点，预览后确认；属性可修改单向／双向，支持删除。
-  地面连线可选步行、楼梯或坡道；跨楼层或含未绑定楼层过渡点的边使用楼梯／坡道。
-  移动节点会同步更新关联边的端点。
-- 区域：逐点绘制，点击首点或“完成区域”闭合。选择区域后可直接拖动顶点；
-  点击任意边（含闭合边）再选“在此加点”，在该边投影位置插点。底面 Z 在拖动时
-  保持不变，区域高度单独修改。重复顶点、自交及零面积会被拒绝并保留有效版本。
-- 一次拖动松手提交一次事务，对应一次撤销；Esc 取消预览或绘制。支持撤销、重做、
-  缩放和保存，撤销历史仅存在当前进程。换场景前保存或明确放弃未保存修改。
+地面图按工作楼层显示，保留实际 XYZ；楼梯或坡道的过渡节点可不绑定楼层。
+空中节点和语义点始终显示所有高度，参考底图选择不筛选点。新点高度默认 Z=1.5 米，
+空中节点与语义点分别记忆新建高度和默认模式。新点不绑定地面楼层；旧空中节点的楼层
+元数据兼容保留，但不参与显示过滤。
 
-两端共用当前图、工具、楼层和选择。编辑通过 `/api/edit` 提交，携带图域、场景身份、
-上下文代次和预期修订；`/api/editor/context` 更新当前图和工具。并发修订或过期手势
-返回 409，客户端刷新权威状态并保留待处理草稿，需确认后重新操作。断连、换图或
-换场景会使旧手势失效。Isaac 的叠加与拖动预览写入 session layer。
+每点支持 `2.5d`／`3d`。2.5D 拖动只改 XY、保持该点 Z；属性始终允许显式输入 Z。
+3D 在 Isaac 中提供 XYZ 手柄，网页始终在 XY 画布拖动。切换模式不移动点或改变引用。
+边工具依次选两个当前导航图节点，预览后确认。拖动整条边在 XY 平移两端节点及整条
+折线，其他关联边只更新受影响端点；各点 Z 不变。地面跨层边使用楼梯／坡道。
 
-地面机器人绑定 `ground` 产品并使用 XY 距离；空中机器人绑定 `aerial` 产品并使用
-XYZ 距离。2.5D 是编辑模式，不改变空中导航的高度判断。错误图域绑定会被拒绝。
-机器人须已在最近节点的到达半径内，否则返回 `origin_not_reached`；工具不自动接入离图起点。
+语义点字段为稳定 ID、`position_xyz`、`label`、`kind`、`description`、`aliases`、
+`properties`、`edit_mode` 和可选 `isaac_binding`。绑定记录场景相对 USD 路径与一个
+Prim 路径。点和物体的坐标独立：任意一方移动不带动另一方。Isaac 中先开始物体选取，
+选择单个有效物体，再确认绑定；网页绑定 Isaac 当前单物体选择。切场景、旧选择序号、
+多选及叠加图元均不能绑定。绑定可更换或解除；物体路径不存在显示失效，断连显示未验证。
+语义点不是导航节点，不参与连线、最近点匹配或路径搜索。
+
+一次拖动松手提交一个事务，可一次撤销。Esc 取消预览；两端共享工具、图层、选择、
+可见性及新点设置。显示设置按场景保留于当前服务会话，不写入导航产品。请求携带
+场景身份、上下文代次、活动图层、图域及预期修订。过期请求返回 409，客户端保留草稿
+供明确重试；换图、断连和换场景取消旧手势。Isaac 预览及叠加只写 session layer。
+
+地面导航使用 ground/XY，空中导航使用 aerial/XYZ；2.5D 只影响编辑操作。
+机器人必须已在最近节点到达半径内，否则返回 `origin_not_reached`，不会自动接入离图起点。
 
 ## 保存与产物
 
 ```text
-project.json                  唯一索引，current_revision 指向最新完整修订
+project.json                  唯一索引，current_revision 固定为 current
 base/                         原始几何与标签参考栅格，带摘要
-revisions/<revision-id>/
-  topology.json               地面图：语义、节点、边、交互位置
-  topology-aerial.json        空中图：独立节点、边及导航引用，共享区域
-  semantic-footprints.json    对象掩码、语义和原始视觉观察
-  semantic-footprints.geojson 语义轮廓、点和实际拓扑边
-  level-000-semantic-grid.npz 原始几何 + 当前 instance_id / region_id
-  level-000-layer.png         与界面一致的颜色底图
-  level-000-semantic-map.png  带标签和拓扑线的预览
-  manifest.json              两图 navigation_products 映射、楼层、修订 ID、SHA-256
+current/
+  topology.json               地面节点和边
+  topology-aerial.json        空中节点和边
+  semantic-points.json        独立共享语义点
+  semantic-footprints.json    兼容语义导出，清理后旧集合为空
+  semantic-footprints.geojson 拓扑边的兼容 GeoJSON
+  level-000-semantic-grid.npz 几何及当前实例/区域栅格
+  level-000-layer.png         几何底图
+  level-000-semantic-map.png  拓扑预览
+  manifest.json              navigation_products、semantic_point_product 及 SHA-256
 ```
 
-楼层按序编号，真实 ID 在修订 manifest 中。轮廓保留孔洞和不连续部分；GeoJSON
-使用场景局部米制坐标，**不是经纬度**。语义操作不改变占据、支持和未知格。
+manifest 沿用版本 2 并增加 `semantic_point_product` 文件映射。旧工程没有该字段时
+加载为空语义点集合，首次保存增加第三份产品。完整工程摘要包含语义点；两图的
+`route_graph_digest` 不受语义点编辑或 2.5D／3D 模式切换影响。
 
-工程与修订 manifest 使用版本 2，`navigation_products` 明确映射两图文件；区域属性
-与几何在两图内一致，`entrance_node_ids` 按图隔离。预览和语义栅格使用地面图。
-旧工程按原 `domain` 加载，缺省归地面，另一图初始化为空；首次保存升级索引。
-保存先生成包含两图和共享派生文件的完整目录，最后原子替换工程指针。
-失败保存不影响原版本，旧修订保留。撤销与重做覆盖两图和区域的完整事务。
-界面修订号防止旧请求覆盖新修改，磁盘锁和索引摘要防止另一进程覆盖新保存。
-打开时校验导出文件和底图摘要。不要直接改派生文件，应通过工程接口保存。
-失败保存的未引用目录保留供排错，工具不自动删除历史。
+保存先完整生成三份数据与派生文件，随后在写锁内原子交换 `current/` 并更新索引。
+失败时旧目录和旧索引保持有效；工程级撤销/重做覆盖两份图和共享语义点。
+磁盘锁及索引摘要拒绝覆盖另一进程的新保存。旧 `revisions/` 工程首次成功保存时迁移到
+`current/` 并删除旧目录；不要直接修改派生文件。
+
+## 清理已移除的数据
+
+先预演，确认逐图统计后使用 `--apply` 覆盖当前包：
+
+```bash
+python -m tools.topology_authoring.cleanup --asset-root usd --report /tmp/map-cleanup-preview.json
+python -m tools.topology_authoring.cleanup --asset-root usd --apply --report /tmp/map-cleanup-applied.json
+```
+
+命令清空当前两图的 `regions/entities/interaction_poses/routes`，重建旧标注派生文件。
+所有节点、边、独立语义点、几何底图和作者 USD 保留。不自动将旧物体转换为
+语义点。每图单独原子覆盖并报告迁移前后保存标识；重复执行不会生成无效保存。
 
 ## Python 与命令接口
 
@@ -135,15 +148,19 @@ revision_directory = project.save()
 ```
 
 统一 `edit` 缺省操作地面图，通过 `domain='aerial'` 操作空中图。
-支持 `add_node/move_node/move_node_xy/update_node/remove_node`、
-`add_edge/update_edge/remove_edge`、`upsert_semantic/remove_semantic`、`bind_obstacle`。
-`move_node_xy(id, position_xy)` 由服务端保留 Z，`move_node(id, position_xyz)` 可显式修改 Z。
-`insert_region_vertex(id, index, position_xyz)` 的 index 是起始边顶点，插入在其后，
-包括最后一条闭合边；`move_region_vertex(id, index, position_xy)` 保持底面高度。
-`update_region(id, label?, kind?, height_m?)` 只修改指定属性，保留原有引用和自定义信息。
-语义集合为 `regions/entities/interaction_poses/routes`，记录格式沿用
-[语义拓扑协议](SEMANTIC_MAP.zh-CN.md)。`upsert_semantic` 整条替换，更新时保留原属性。
-`bind_obstacle` 参数为 `id,label,kind,level_id,polygon_xy,region_id`。
+导航操作支持 `add_node/move_node/move_node_xy/update_node/remove_node`、
+`add_edge/update_edge/remove_edge/translate_edge_xy`。
+`move_node_xy` 保留 Z；`translate_edge_xy(id, delta_xy)` 一次移动边和端点。
+
+语义点通过 `add_semantic_point/update_semantic_point/move_semantic_point_xy/`、
+`move_semantic_point/remove_semantic_point/bind_semantic_point/unbind_semantic_point` 编辑。
+Python API 的绑定参数是已验证的 `binding`；HTTP 绑定必须提交最新 Isaac 选择的
+`selection_session_id`、`selection_sequence`，不接收调用方直接写入的物体路径。
+
+`/api/editor/context` 接收 `active_layer`、`editor_tool`、`active_level`、
+`reference_level`、`visible_layers`、`visible_types` 和 `new_point_settings`；
+`/api/edit` 保留导航 `domain=ground|aerial`，语义点不创建第三种导航域。
+旧区域/物体操作仅为历史 Python/CLI 兼容保留，统一 HTTP 界面拒绝这些操作。
 
 相同操作可以写入含 `operation` 和参数的 JSON 文件：
 
@@ -157,7 +174,7 @@ python -m tools.topology_authoring.map_project create \
 ```
 
 新建时可用 `--levels /path/to/levels.json` 指定楼层数组。空底图全部标为未知，
-仍可标注点、区域和路线，但不能凭空绑定障碍物。新 USD 的几何采集使用既有
+仍可标注节点、连线和语义点，但不能凭空绑定障碍物。新 USD 的几何采集使用既有
 捕获/栅格流程，编辑工具不从单张图片推测未观测几何。
 
 ## 边界

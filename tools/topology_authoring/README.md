@@ -12,18 +12,38 @@ Launching without arguments discovers the scene-local maps below `usd/scene/`.
 `--check` validates all bindings without Kit. No Script Editor paste is needed.
 Standalone `map_server` below does not control Isaac scene loading.
 
-The **Isaac Topology Editor** window provides Point, Edge and Region tools.
+The **Isaac Topology Editor** provides Point, Edge and Semantic Point tools,
+with separate ground, aerial and semantic point layers. Only the active tool's
+objects are editable; visibility controls show other layers as references.
+Regions are removed from this unified editor. Aerial nodes and semantic points
+show all heights independently of the selected reference basemap. Their creation
+height defaults to world Z=1.5 m. Each supports 2.5D (XY drag preserving Z) and
+3D (Isaac XYZ handles); properties always allow explicit Z edits.
+
+Semantic points store world XYZ, label, kind, description, aliases, JSON
+properties and an optional binding to one Isaac object prim. Bindings record
+identity only: points and objects move independently. Start object picking in
+the native panel, select one scene object, then confirm; the web inspector can
+bind the current Isaac selection. Missing objects show an invalid binding;
+without a live Isaac connection it remains unverified.
+
+Drag an edge to translate its endpoints and full polyline in XY, updating all
+incident endpoints. Release submits one undoable transaction; Esc cancels.
 Left-click edits; Alt+left, middle and right mouse navigation remain available.
-New nodes start on the current floor plane; edit Z in properties afterward.
-Selected aerial 3D nodes expose XYZ handles, while 2.5D nodes drag on their
-current height plane. The legacy surface-selection bridge remains available
-for script integrations and should not be enabled alongside native dragging.
+Overlays and previews use only the session layer. The legacy surface-selection
+bridge remains available for scripts and should not be enabled alongside native
+dragging. The separate `author.py` workflow below remains compatible.
+The native panel scrolls to binding, undo and save controls. On Linux with Noto
+Sans CJK installed, the launcher registers Chinese glyphs before Kit starts so
+names, descriptions, aliases and floor labels display correctly.
+
+For room_06, use `python tools/topology_authoring/launch.py --scene living_room_06`.
 
 For a single editable project containing occupancy, semantic obstacle labels and
 topology, use `python -m tools.topology_authoring.map_project` and the local browser
 editor `python -m tools.topology_authoring.map_server --project DIR`. See the
 [unified map workflow](MAP_PROJECT.zh-CN.md) for import, catalog browsing, editing,
-atomic revisions and synchronized JSON/GeoJSON/NPZ/PNG exports.
+fixed-current atomic saves and synchronized JSON/GeoJSON/NPZ/PNG exports.
 
 `tools/topology_authoring` provides a scene-adapter based topology editor. Run
 `python tools/topology_authoring/author.py --help`. Use `--headless` to check
@@ -112,19 +132,25 @@ The measured start/replan pose must already be within the nearest node's
 arrival radius; otherwise routing returns `origin_not_reached`. It does not
 automatically drive to the nearest node or edge.
 
-The linked web and Isaac editor has three tools: points, edges and regions.
-Ground and aerial graphs share regions and base maps, with independent nodes
-and edges. Each aerial node has an optional `edit_mode` (`2.5d` or `3d`, default
+The linked web and Isaac editor has three tools: points, edges and semantic points.
+Ground and aerial graphs share base maps, with independent nodes and edges.
+Semantic points occupy their own project-level layer and do not participate in
+navigation. Each aerial node has an optional `edit_mode` (`2.5d` or `3d`, default
 `3d`). A 2.5D drag preserves that node's Z; explicit height input remains
 available. A 3D node also exposes an Isaac height handle. Both modes use XYZ
 for navigation and may be connected to each other.
 
-Select a closed region to drag its vertices or click a boundary and choose
-Add point. Edits preserve its horizontal base plane. Drags preview locally and
-commit once on release, sharing one undo history and revision stream between
-both clients. Revisions export `topology.json` (ground) and
-`topology-aerial.json`, with both paths recorded in the manifest. Old projects
-upgrade on save; their previous revisions and legacy semantic records remain.
+Semantic points store independent XYZ coordinates, semantic attributes, editing
+mode and an optional current-scene single-Prim binding. Aerial nodes and semantic
+points remain visible at all heights when the reference floor changes. Whole-edge
+drags translate the edge and both endpoints in XY while preserving every Z.
+Drags preview locally and commit once on release, sharing one undo history and
+revision stream between both clients. Each save overwrites the fixed `current/`
+package containing `topology.json` (ground), `topology-aerial.json` and
+`semantic-points.json`, with paths and digests recorded in the manifest. Old
+projects upgrade on first save and their `revisions/` directory is removed.
+The cleanup command in [the project guide](MAP_PROJECT.zh-CN.md) removes retired
+regions, objects, interaction poses and named routes from the current package.
 
 See [validation commands, native procedure and limits](VALIDATION.md) for the
 authoring-to-execution checks.

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import io
 import sys
 import time
 import types
+import urllib.error
 from pathlib import Path
 
 import pytest
@@ -212,6 +214,116 @@ def test_transport_fetches_context_and_posts_latest_selection_without_blocking()
     assert posts[-1]["sequence"] == 2
 
 
+def test_acknowledged_cursor_waits_for_post_and_matches_current_context():
+    post_started = threading.Event()
+    release_post = threading.Event()
+    post_count = 0
+
+    def opener(request, timeout):
+        nonlocal post_count
+        if request.get_method() == "GET":
+            return _Response({"scene_key": "office", "source_usd": "/tmp/office.usd",
+                              "csrf_token": "token", "scene_generation": 1,
+                              "context_generation": 1, "active_domain": "aerial",
+                              "active_layer": "aerial"})
+        post_count += 1
+        body = json.loads(request.data)
+        if post_count == 1:
+            post_started.set()
+            release_post.wait(1.0)
+        return _Response({"selection": body})
+
+    bridge = IsaacSelectionBridge("http://127.0.0.1:9999", "office", opener=opener)
+    bridge.start()
+    try:
+        deadline = time.time() + 1.0
+        while bridge.status()["state"] != "connected" and time.time() < deadline:
+            time.sleep(0.01)
+        bridge._enqueue({"selection_kind": "prim", "prim_paths": ["/World/Desk"],
+                         "position_xyz": [1, 2, 3], "source_usd": "/tmp/office.usd",
+                         "up_axis": "Z", "timestamp": 1})
+        assert post_started.wait(1.0)
+        assert bridge.status()["pending"]
+        assert bridge.acknowledged_selection_cursor() is None
+        release_post.set()
+        deadline = time.time() + 1.0
+        cursor = None
+        while cursor is None and time.time() < deadline:
+            cursor = bridge.acknowledged_selection_cursor()
+            time.sleep(0.01)
+        assert cursor["sequence"] == 1
+        assert cursor["context_generation"] == 1
+
+        bridge.update_context({"scene_key": "office", "scene_generation": 1,
+                               "context_generation": 2, "active_domain": "aerial",
+                               "active_layer": "aerial"})
+        assert bridge.acknowledged_selection_cursor() is None
+        bridge._enqueue({"selection_kind": "prim", "prim_paths": ["/World/Desk"],
+                         "position_xyz": [1, 2, 3], "source_usd": "/tmp/office.usd",
+                         "up_axis": "Z", "timestamp": 2})
+        assert bridge.acknowledged_selection_cursor() is None
+        deadline = time.time() + 1.0
+        cursor = None
+        while cursor is None and time.time() < deadline:
+            cursor = bridge.acknowledged_selection_cursor()
+            time.sleep(0.01)
+        assert cursor["sequence"] == 2
+        assert cursor["context_generation"] == 2
+    finally:
+        release_post.set()
+        bridge.stop()
+
+
+def test_stale_selection_409_is_discarded_and_fresh_identity_can_publish():
+    requests = []
+    post_count = 0
+
+    def opener(request, timeout):
+        nonlocal post_count
+        body = json.loads(request.data) if request.data else None
+        requests.append((request.get_method(), body, timeout))
+        if request.get_method() == "GET":
+            return _Response({"scene_key": "office", "source_usd": "/tmp/office.usd",
+                              "levels": [], "csrf_token": "token",
+                              "scene_generation": 1, "context_generation": 1,
+                              "active_domain": "ground", "active_layer": "ground"})
+        post_count += 1
+        if post_count == 1:
+            raise urllib.error.HTTPError(
+                request.full_url, 409, "stale selection", {},
+                io.BytesIO(json.dumps({"error": "stale context"}).encode()))
+        return _Response({"selection": body})
+
+    bridge = IsaacSelectionBridge("http://127.0.0.1:9999", "office", opener=opener)
+    bridge.start()
+    deadline = time.time() + 1.0
+    while bridge.status()["state"] != "connected" and time.time() < deadline:
+        time.sleep(0.01)
+    assert bridge.status()["state"] == "connected"
+    bridge._enqueue({"selection_kind": "point", "position_xyz": [1, 2, 3],
+                     "prim_paths": [], "source_usd": "/tmp/office.usd", "up_axis": "Z"})
+    deadline = time.time() + 1.0
+    while post_count < 1 and time.time() < deadline:
+        time.sleep(0.01)
+    bridge.update_context({"scene_key": "office", "scene_generation": 1,
+                           "context_generation": 2, "active_domain": "aerial",
+                           "active_layer": "aerial"})
+    bridge._enqueue({"selection_kind": "point", "position_xyz": [4, 5, 6],
+                     "prim_paths": [], "source_usd": "/tmp/office.usd", "up_axis": "Z"})
+    deadline = time.time() + 1.0
+    while post_count < 2 and time.time() < deadline:
+        time.sleep(0.01)
+    status = bridge.status()
+    bridge.stop()
+    posts = [body for method, body, _timeout in requests if method == "POST"]
+    assert len(posts) == 2
+    assert posts[0]["position_xyz"] == [1, 2, 3]
+    assert posts[1]["position_xyz"] == [4, 5, 6]
+    assert posts[1]["context_generation"] == 2
+    assert status["state"] == "connected"
+    assert status["last_error"] is None
+
+
 def test_context_scene_mismatch_does_not_silently_remap():
     def opener(request, timeout):
         return _Response({"scene_key": "warehouse", "source_usd": None,
@@ -343,3 +455,24 @@ def test_native_surface_hits_on_same_asset_preserve_xyz_and_ignore_prim_events(t
     bridge._point_enabled = False
     bridge._on_point_hit("/World/Stairs", (5, 6, 7))
     assert len(sent) == 2
+
+
+def test_topology_mode_blocks_native_asset_selection_and_invalidates_cursor(monkeypatch):
+    bridge = IsaacSelectionBridge()
+    sent = []
+    monkeypatch.setattr(bridge, "send_clear", lambda: sent.append("clear") or {})
+    bridge._last_acknowledged_selection = {"selection_kind": "prim", "prim_paths": ["/World/Desk"]}
+
+    assert bridge.set_asset_selection_enabled(False) is False
+    assert bridge._last_acknowledged_selection is None
+    assert sent == ["clear"]
+
+    # A late Kit selection event is consumed while topology editing is active;
+    # it must not publish a scene object to the binding endpoint.
+    bridge._selection_event_type = 7
+    bridge._asset_selection_enabled = False
+    monkeypatch.setattr(bridge, "send_current_selection", lambda: sent.append("prim"))
+    bridge._on_stage_event(types.SimpleNamespace(type=7))
+    assert sent == ["clear"]
+
+    assert bridge.set_asset_selection_enabled(True) is True

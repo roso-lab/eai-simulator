@@ -478,8 +478,8 @@ def test_web_selection_roundtrip_and_validation(tmp_path):
         code, body = _post(url + "/api/web/selection", {
             "csrf_token": token,
             "selection": {"kind": "semantic", "collection": "entities", "id": "e1"}})
-        assert code == 200 and body["selection"]["collection"] == "entities"
-        assert json.load(urlopen(url + "/api/isaac/context"))["web_selection"]["id"] == "e1"
+        assert code == 400 and body["error"]
+        assert json.load(urlopen(url + "/api/isaac/context"))["web_selection"]["id"] == "node:0001"
 
         for selection in ({"kind": "semantic", "collection": "entities", "id": "missing"},
                           {"kind": "node", "collection": None, "id": "node:9999"},
@@ -501,7 +501,7 @@ def test_web_selection_roundtrip_and_validation(tmp_path):
             headers={"Origin": "http://evil.example"})
         assert code == 403 and body["error"] == "local same-origin access required"
         # Rejected payloads never touch the stored selection.
-        assert json.load(urlopen(url + "/api/isaac/context"))["web_selection"]["id"] == "e1"
+        assert json.load(urlopen(url + "/api/isaac/context"))["web_selection"]["id"] == "node:0001"
 
         code, body = _post(url + "/api/web/selection", {"csrf_token": token, "selection": None})
         assert code == 200 and body == {"selection": None}
@@ -716,7 +716,8 @@ def test_tick_rebuilds_when_domain_or_level_changes_without_revision_change():
     holder["payload"]["active_level"] = "L2"
     _tick(session)
     assert len(renderer.rebuilds) == 3
-    assert session.overlay_context_key == (5, "aerial", "L2")
+    assert session.overlay_context_key[0] == (("aerial", 5),)
+    assert session.overlay_context_key[1:4] == (None, "L2", None)
 
 
 def test_tick_selection_only_change_calls_highlight_without_rebuild():
@@ -812,7 +813,7 @@ def test_normalize_web_selection_accepts_route_kinds():
                                             "id": "missing"})
 
 
-@pytest.mark.parametrize("draft_kind", ["node", "edge", "region"])
+@pytest.mark.parametrize("draft_kind", ["node", "edge", "semantic_point"])
 def test_disconnect_and_reconnect_invalidate_native_input(draft_kind, monkeypatch):
     payload = {**_context(None), "revision": 5, "csrf_token": "token", "scene_key": "office",
                "context_generation": 0, "active_domain": "ground", "active_level": "ground",
@@ -843,11 +844,12 @@ def test_disconnect_and_reconnect_invalidate_native_input(draft_kind, monkeypatc
         elif draft_kind == "edge":
             controller.activate_node_for_edge("node:0001")
         else:
-            controller.add_region_point([.1, .2, 0])
+            controller.begin_drag({"kind": "semantic-point", "id": "point:0001"}, [0, 0, 0])
+            controller.update_drag([.1, .2, 0])
 
     def assert_cleared():
         assert controller.gesture is None and controller.preview is None
-        assert controller.edge_start is None and controller.region_draft == []
+        assert controller.edge_start is None
 
     begin_input()
     connection.update(state="error", last_error="disconnected")
@@ -873,8 +875,7 @@ def test_local_drag_preview_renders_between_authority_polls():
     session.editor_controller = SimpleNamespace(
         snapshot=_BASE_SNAPSHOT, context={"active_domain": "aerial"},
         selection={"kind": "node", "id": "node:0001"},
-        preview={"kind": "node", "id": "node:0001", "position_xyz": [1, 2, 3]},
-        region_draft=[])
+        preview={"kind": "node", "id": "node:0001", "position_xyz": [1, 2, 3]})
     session.next_poll = float("inf")
 
     def unexpected_poll():
@@ -910,7 +911,7 @@ def test_real_usd_overlay_uses_scene_units_and_preserves_author_layer(meters_per
         renderer.rebuild(build_overlay_specs(snapshot))
         renderer.editor_state(
             snapshot=snapshot, domain="aerial",
-            selection={"kind": "node", "id": "node:0001"}, preview=None, region_draft=[])
+            selection={"kind": "node", "id": "node:0001"}, preview=None)
         node = stage.GetPrimAtPath(WEB_OVERLAY_ROOT + "/Nodes/N00000")
         position = UsdGeom.XformCache().GetLocalToWorldTransform(node).ExtractTranslation()
         assert list(position) == pytest.approx([value / meters_per_unit for value in (1, 2, 3)])
@@ -947,25 +948,10 @@ def test_real_usd_drag_preview_updates_complete_geometry_and_cancels_cleanly():
     assert UsdGeom.Imageable(stage.GetPrimAtPath(
         WEB_OVERLAY_ROOT + "/Nodes/N00001")).ComputeVisibility() == UsdGeom.Tokens.invisible
 
-    selection = {"kind": "semantic", "collection": "regions", "id": "r1"}
-    renderer.editor_state(snapshot=snapshot, domain="ground", selection=selection,
-        preview={"kind": "region-vertex", "id": "r1", "index": 1,
-                 "position_xyz": [3, 0, 0]})
-    assert UsdGeom.Imageable(stage.GetPrimAtPath(
-        WEB_OVERLAY_ROOT + "/Edges/E00000")).ComputeVisibility() == UsdGeom.Tokens.inherited
-    assert not stage.GetPrimAtPath(editor + "/Geometry/Edges/E00000").IsValid()
-    floor = UsdGeom.BasisCurves(stage.GetPrimAtPath(
-        editor + "/Geometry/Regions/R00000/Floor"))
-    top = UsdGeom.BasisCurves(stage.GetPrimAtPath(
-        editor + "/Geometry/Regions/R00000/Top"))
-    assert list(floor.GetPointsAttr().Get()[1]) == pytest.approx([3, 0, .035])
-    assert list(top.GetPointsAttr().Get()[1]) == pytest.approx([3, 0, 2.5])
+    renderer.editor_state(snapshot=snapshot, domain="ground", selection=node_selection,
+                          preview=None)
     assert UsdGeom.Imageable(stage.GetPrimAtPath(WEB_OVERLAY_ROOT +
-        "/Regions/R00000/Floor")).ComputeVisibility() == UsdGeom.Tokens.invisible
-
-    renderer.editor_state(snapshot=snapshot, domain="ground", selection=selection, preview=None)
-    assert UsdGeom.Imageable(stage.GetPrimAtPath(WEB_OVERLAY_ROOT +
-        "/Regions/R00000/Floor")).ComputeVisibility() == UsdGeom.Tokens.inherited
+        "/Edges/E00000")).ComputeVisibility() == UsdGeom.Tokens.inherited
     assert not stage.GetPrimAtPath(editor + "/Geometry").IsValid()
     assert snapshot == original
     assert stage.GetRootLayer().ExportToString() == before

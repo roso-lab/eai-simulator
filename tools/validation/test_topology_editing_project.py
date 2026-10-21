@@ -80,8 +80,11 @@ def test_ground_floor_and_height_properties_commit_together(tmp_path):
 
 def test_regions_shared_insert_closing_edge_move_and_atomic_undo(project):
     project.edit("upsert_semantic", collection="regions", record=region())
-    for domain in ("ground", "aerial"):
-        project.edit("add_node", domain=domain, position_xyz=[0, 0, 0], level_id="ground")
+    project.edit("add_node", position_xyz=[0, 0, 0], level_id="ground")
+    # Legacy cross-domain region fixture: construct the historical aerial
+    # node directly on its document so the test does not exercise the unified
+    # editor's aerial level binding rules.
+    project.document_for("aerial").add_node([0, 0, 0], node_id="node:0001", level_id="ground")
     aerial = deepcopy(project.document_for("aerial").semantics["regions"][0])
     aerial["entrance_node_ids"] = ["node:0001"]
     project.edit("upsert_semantic", domain="aerial", collection="regions", record=aerial)
@@ -123,7 +126,7 @@ def test_region_property_patch_preserves_metadata_and_domain_references(project)
     record = region()
     record["aliases"] = ["Work area"]
     project.edit("upsert_semantic", collection="regions", record=record)
-    project.edit("add_node", domain="aerial", position_xyz=[0, 0, 2], level_id="ground")
+    project.document_for("aerial").add_node([0, 0, 2], node_id="node:0001", level_id="ground")
     aerial = deepcopy(project.document_for("aerial").semantics["regions"][0])
     aerial["entrance_node_ids"] = ["node:0001"]
     project.edit("upsert_semantic", domain="aerial", collection="regions", record=aerial)

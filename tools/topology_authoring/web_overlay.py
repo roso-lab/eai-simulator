@@ -25,6 +25,10 @@ NODE_COLOR = (0.08, 0.85, 0.18)
 REGION_COLOR = (0.65, 0.25, 0.95)
 ENTITY_COLOR = (0.95, 0.80, 0.15)
 POSE_COLOR = (0.95, 0.2, 0.65)
+GROUND_COLOR = (0.08, 0.85, 0.18)
+AERIAL_COLOR = (0.05, 0.75, 0.95)
+SEMANTIC_POINT_COLOR = (0.95, 0.75, 0.08)
+REFERENCE_FACTOR = .45
 
 WEB_SELECTION_KINDS = ("node", "edge", "semantic")
 MAX_SNAPSHOT_BYTES = 1_048_576
@@ -203,7 +207,8 @@ def _heading_arrow_spec(path, origin, heading, length, scale, color, category, k
     return _arrow_spec(path, origin, end, scale, color, category, key)
 
 
-def build_overlay_specs(snapshot, *, active_level=None):
+def build_overlay_specs(snapshot, *, active_level=None, layer="ground",
+                        color=None, visible_types=None, reference=False):
     """Plan overlay prims as plain data (floats/lists/strs only, no Kit).
 
     Deterministic for a given snapshot: paths follow viewport.py's naming
@@ -221,29 +226,32 @@ def build_overlay_specs(snapshot, *, active_level=None):
     heading_length = .18 if compact else .5
     prims = []
     route_members = {}
+    enabled = {"nodes": True, "edges": True, **(visible_types or {})}
+    base_color = tuple(color or NODE_COLOR)
+    layer_root = WEB_OVERLAY_ROOT
     visible_node_ids = {
         row.get("id") for row in snapshot.get("nodes") or []
         if active_level is None or row.get("level_id") in (None, active_level)
     }
 
-    for index, row in enumerate(snapshot.get("nodes") or []):
+    for index, row in enumerate(snapshot.get("nodes") or [] if enabled["nodes"] else []):
         if row.get("id") not in visible_node_ids:
             continue
         position = _finite_point(row.get("position_xyz"))
         if position is None:
             continue
         identifier = row.get("id")
-        prims.append({"path": f"{WEB_OVERLAY_ROOT}/Nodes/N{index:05d}",
+        prims.append({"path": f"{layer_root}/Nodes/N{index:05d}",
                       "category": "node", "key": identifier, "shape": "sphere",
                       "position": position, "radius": node_radius,
-                      "color": list(NODE_COLOR)})
+                      "color": list(base_color)})
         heading = _finite_scalar(row.get("heading_rad"))
         if heading is not None:
             prims.append(_heading_arrow_spec(
-                f"{WEB_OVERLAY_ROOT}/Headings/H{index:05d}", position, heading,
-                heading_length, arrow_scale, NODE_COLOR, "node", identifier))
+                f"{layer_root}/Headings/H{index:05d}", position, heading,
+                heading_length, arrow_scale, base_color, "node", identifier))
 
-    for index, row in enumerate(snapshot.get("edges") or []):
+    for index, row in enumerate(snapshot.get("edges") or [] if enabled["edges"] else []):
         if (active_level is not None
                 and (row.get("from") not in visible_node_ids
                      and row.get("to") not in visible_node_ids)):
@@ -252,16 +260,16 @@ def build_overlay_specs(snapshot, *, active_level=None):
         if len(points) < 2 or any(point is None for point in points):
             continue
         identifier = row.get("id")
-        path = f"{WEB_OVERLAY_ROOT}/Edges/E{index:05d}"
+        path = f"{layer_root}/Edges/E{index:05d}"
         prims.append({"path": path, "category": "edge", "key": identifier,
                       "shape": "polyline", "points": points, "width": line_width,
-                      "color": list(NODE_COLOR)})
+                      "color": list(base_color)})
         segments = ([(path + "/Arrow", points[-2], points[-1])] if row.get("directed")
                    else [(path + "/ArrowA", points[-2], points[-1]),
                          (path + "/ArrowB", points[1], points[0])])
         for arrow_path, start, end in segments:
             spec = _arrow_spec(arrow_path, start, end, arrow_scale,
-                               NODE_COLOR, "edge", identifier)
+                               base_color, "edge", identifier)
             if spec is not None:
                 prims.append(spec)
 
@@ -285,9 +293,9 @@ def build_overlay_specs(snapshot, *, active_level=None):
             prims.append({"path": f"{path}/{name}", "category": "region",
                           "key": identifier, "shape": "polyline", "points": points,
                           "width": line_width, "color": list(REGION_COLOR)})
-
-    for collection, category, color in (("entities", "entity", ENTITY_COLOR),
-                                        ("interaction_poses", "pose", POSE_COLOR)):
+    for collection, category, semantic_color in (
+            ("entities", "entity", ENTITY_COLOR),
+            ("interaction_poses", "pose", POSE_COLOR)):
         for index, row in enumerate(semantics.get(collection) or []):
             if active_level is not None and row.get("level_id") not in (None, active_level):
                 continue
@@ -297,19 +305,68 @@ def build_overlay_specs(snapshot, *, active_level=None):
             identifier = row.get("id")
             prims.append({"path": f"{WEB_OVERLAY_ROOT}/{collection}/P{index:05d}",
                           "category": category, "key": identifier, "shape": "sphere",
-                          "position": position, "radius": .07, "color": list(color)})
+                          "position": position, "radius": .07,
+                          "color": list(semantic_color)})
             heading = _finite_scalar(row.get("heading_rad"))
             if heading is not None:
                 prims.append(_heading_arrow_spec(
                     f"{WEB_OVERLAY_ROOT}/SemanticHeadings/{collection}{index:05d}",
                     position, heading, heading_length, arrow_scale,
-                    color, category, identifier))
-
+                    semantic_color, category, identifier))
     for row in semantics.get("routes") or []:
         route_members[row.get("id")] = (
-            [{"category": "node", "id": node_id} for node_id in row.get("node_ids") or []]
-            + [{"category": "edge", "id": edge_id} for edge_id in row.get("edge_ids") or []])
+            [{"category": "node", "id": value} for value in row.get("node_ids") or []]
+            + [{"category": "edge", "id": value} for value in row.get("edge_ids") or []])
     return {"root": WEB_OVERLAY_ROOT, "prims": prims, "route_members": route_members}
+
+
+def build_unified_overlay_specs(document_snapshots, semantic_points, *,
+                                active_layer="ground", active_level=None,
+                                reference_level=None, visible_layers=None,
+                                visible_types=None):
+    """Plan all visible independent layers; reference layers are never hit targets."""
+    visible_layers = {"ground": True, "aerial": True, "semantic_points": True,
+                      **(visible_layers or {})}
+    visible_types = {"nodes": True, "edges": True, "semantic_points": True,
+                     **(visible_types or {})}
+    prims = []
+    for layer in ("ground", "aerial"):
+        if not visible_layers[layer]:
+            continue
+        snapshot = (document_snapshots or {}).get(layer) or {}
+        level = (active_level if active_layer == "ground" and layer == "ground"
+                 else reference_level if layer == "ground" else None)
+        planned = build_overlay_specs(
+            snapshot, active_level=level, layer=layer,
+            visible_types=visible_types)
+        base = GROUND_COLOR if layer == "ground" else AERIAL_COLOR
+        if layer != active_layer:
+            base = tuple(value * REFERENCE_FACTOR for value in base)
+        prefix = f"{WEB_OVERLAY_ROOT}/Layers/{'Ground' if layer == 'ground' else 'Aerial'}"
+        for spec in planned["prims"]:
+            # Unified native overlay contains graph primitives only. Legacy
+            # semantic specs remain available to compatibility callers above.
+            if spec.get("category") not in {"node", "edge"}:
+                continue
+            prims.append({**spec,
+                          "path": spec["path"].replace(WEB_OVERLAY_ROOT, prefix, 1),
+                          "category": f"{layer}:{spec['category']}",
+                          "color": list(base)})
+    if visible_layers["semantic_points"] and visible_types["semantic_points"]:
+        color = SEMANTIC_POINT_COLOR
+        if active_layer != "semantic_points":
+            color = tuple(value * REFERENCE_FACTOR for value in color)
+        for index, row in enumerate(semantic_points or []):
+            position = _finite_point(row.get("position_xyz"))
+            if position is None:
+                continue
+            prims.append({
+                "path": f"{WEB_OVERLAY_ROOT}/Layers/SemanticPoints/P{index:05d}",
+                "category": "semantic_point", "key": row.get("id"),
+                "shape": "sphere", "position": position, "radius": .075,
+                "color": list(color),
+            })
+    return {"root": WEB_OVERLAY_ROOT, "prims": prims, "route_members": {}}
 
 
 class WebOverlayRenderer:
@@ -384,10 +441,10 @@ class WebOverlayRenderer:
             self._by_key.setdefault((category, key), []).append(
                 (path, tuple(spec["color"])))
 
-    def highlight(self, web_selection):
+    def highlight(self, web_selection, active_layer=None):
         """Repaint only displayColor for the selection's prims (None clears)."""
         from pxr import Usd
-        target = self._selection_keys(web_selection)
+        target = self._selection_keys(web_selection, active_layer=active_layer)
         if target and not any(key in self._by_key for key in target):
             # Unknown ids (truncated or deleted rows): a safe no-op that keeps
             # the current paint instead of silently dropping it.
@@ -411,15 +468,19 @@ class WebOverlayRenderer:
             return
         _set_color(prim, color)
 
-    def _selection_keys(self, web_selection):
+    def _selection_keys(self, web_selection, active_layer=None):
         if not web_selection:
             return frozenset()
         kind = web_selection.get("kind")
         identifier = web_selection.get("id")
         if kind == "node":
-            return frozenset({("node", identifier)})
+            category = f"{active_layer}:node" if active_layer else "node"
+            return frozenset({(category, identifier)})
         if kind == "edge":
-            return frozenset({("edge", identifier)})
+            category = f"{active_layer}:edge" if active_layer else "edge"
+            return frozenset({(category, identifier)})
+        if kind == "semantic_point":
+            return frozenset({("semantic_point", identifier)})
         if kind == "semantic":
             collection = web_selection.get("collection")
             if collection == "routes":
@@ -431,14 +492,15 @@ class WebOverlayRenderer:
         return frozenset()
 
     def editor_state(self, *, snapshot, domain, selection=None, preview=None,
-                     region_draft=()):
-        """Draw transient handles/gizmo in the session layer only."""
+                     semantic_points=(), active_layer=None):
+        """Draw transient active-layer point/edge previews in the session layer."""
         if self.stage is None:
             return
+        layer = active_layer or domain
         token = json.dumps(
             {"snapshot_revision": snapshot.get("revision"), "domain": domain,
              "selection": selection, "preview": preview,
-             "region_draft": list(region_draft)},
+             "semantic_points": semantic_points, "active_layer": layer},
             sort_keys=True, separators=(",", ":"), allow_nan=False)
         if token == getattr(self, "_editor_state_token", None):
             return
@@ -452,42 +514,61 @@ class WebOverlayRenderer:
                 stage.RemovePrim(root_path)
             UsdGeom.Xform.Define(stage, root_path)
             nodes = {row.get("id"): row for row in snapshot.get("nodes") or []}
-            regions = {row.get("id"): row for row in
-                       (snapshot.get("semantics") or {}).get("regions") or []}
+            semantic_by_id = {row.get("id"): row for row in semantic_points or []}
             preview_geometry = {"version": snapshot.get("version", 2),
-                                "nodes": [], "edges": [], "semantics": {"regions": []}}
+                                "nodes": [], "edges": []}
             hidden_keys = set()
-            if preview and preview.get("kind") == "node":
+            if preview and preview.get("kind") in {"node", "semantic-point"}:
                 identifier = preview.get("id")
-                hidden_keys.add(("node", identifier))
+                if preview["kind"] == "node":
+                    hidden_keys.add((f"{layer}:node", identifier))
+                    for edge in snapshot.get("edges") or []:
+                        if identifier not in (edge.get("from"), edge.get("to")):
+                            continue
+                        points = [list(point) for point in edge.get("polyline_xyz") or []]
+                        if len(points) < 2:
+                            continue
+                        if edge.get("from") == identifier:
+                            points[0] = list(preview["position_xyz"])
+                        if edge.get("to") == identifier:
+                            points[-1] = list(preview["position_xyz"])
+                        preview_geometry["edges"].append({**edge, "polyline_xyz": points})
+                        hidden_keys.add((f"{layer}:edge", edge.get("id")))
+                else:
+                    hidden_keys.add(("semantic_point", identifier))
+            elif preview and preview.get("kind") == "edge":
+                moved_nodes = {node.get("id"): list(node.get("position_xyz") or [])
+                               for node in preview.get("associated_nodes") or []}
+                for node in preview.get("associated_nodes") or []:
+                    hidden_keys.add((f"{layer}:node", node.get("id")))
+                    preview_geometry["nodes"].append({
+                        "id": node.get("id"), "position_xyz": node.get("position_xyz"),
+                        "level_id": None,
+                    })
                 for edge in snapshot.get("edges") or []:
-                    if identifier not in (edge.get("from"), edge.get("to")):
-                        continue
                     points = [list(point) for point in edge.get("polyline_xyz") or []]
-                    if len(points) < 2:
-                        continue
-                    if edge.get("from") == identifier:
-                        points[0] = list(preview["position_xyz"])
-                    if edge.get("to") == identifier:
-                        points[-1] = list(preview["position_xyz"])
+                    if edge.get("id") == preview.get("id"):
+                        points = [list(point) for point in preview.get("points") or []]
+                    else:
+                        touched = False
+                        if points and edge.get("from") in moved_nodes:
+                            points[0] = moved_nodes[edge.get("from")]
+                            touched = True
+                        if points and edge.get("to") in moved_nodes:
+                            points[-1] = moved_nodes[edge.get("to")]
+                            touched = True
+                        if not touched:
+                            continue
+                    hidden_keys.add((f"{layer}:edge", edge.get("id")))
                     preview_geometry["edges"].append({**edge, "polyline_xyz": points})
-                    hidden_keys.add(("edge", edge.get("id")))
-            elif preview and preview.get("kind") == "region-vertex":
-                region = regions.get(preview.get("id"))
-                if region and 0 <= preview.get("index", -1) < len(region["polygon_xyz"]):
-                    points = [list(point) for point in region["polygon_xyz"]]
-                    points[preview["index"]] = list(preview["position_xyz"])
-                    preview_geometry["semantics"]["regions"].append({
-                        **region, "polygon_xyz": points})
-                    hidden_keys.add(("region", region.get("id")))
             self._preview_visibility(hidden_keys)
-            for spec in build_overlay_specs(preview_geometry)["prims"]:
+            for spec in build_overlay_specs(preview_geometry, layer=layer)["prims"]:
                 self._define({**spec,
                               "path": spec["path"].replace(
                                   WEB_OVERLAY_ROOT, f"{root_path}/Geometry", 1),
                               "color": list(HIGHLIGHT_COLOR),
                               "category": None, "key": None})
-            if preview and preview.get("kind") == "edge":
+            if preview and preview.get("kind") == "edge-draft":
                 points = [_finite_point(point) for point in preview.get("points") or []]
                 if len(points) >= 2 and all(point is not None for point in points):
                     self._define({
@@ -501,18 +582,21 @@ class WebOverlayRenderer:
                             .16, HIGHLIGHT_COLOR, None, None)
                         if arrow is not None:
                             self._define(arrow)
-            if selection and selection.get("kind") == "node":
-                node = nodes.get(selection.get("id"))
-                if node is not None:
-                    position = list(node["position_xyz"])
-                    if preview and preview.get("kind") == "node" and preview.get("id") == node.get("id"):
+            if selection and selection.get("kind") in {"node", "semantic_point"}:
+                kind = selection.get("kind")
+                record = (nodes.get(selection.get("id")) if kind == "node"
+                          else semantic_by_id.get(selection.get("id")))
+                if record is not None:
+                    position = list(record["position_xyz"])
+                    preview_kind = "node" if kind == "node" else "semantic-point"
+                    if preview and preview.get("kind") == preview_kind and preview.get("id") == record.get("id"):
                         position = list(preview["position_xyz"])
                     self._define({
-                        "path": f"{root_path}/SelectedNode", "shape": "sphere",
+                        "path": f"{root_path}/SelectedPoint", "shape": "sphere",
                         "position": position, "radius": .085,
                         "color": list(HIGHLIGHT_COLOR), "category": None, "key": None,
                     })
-                    if domain == "aerial" and node.get("edit_mode", "3d") == "3d":
+                    if record.get("edit_mode", "3d") == "3d":
                         for axis, delta, color in (
                             ("X", (.45, 0, 0), (1.0, .15, .12)),
                             ("Y", (0, .45, 0), (.18, 1.0, .25)),
@@ -529,34 +613,6 @@ class WebOverlayRenderer:
                                 .12, color, None, None)
                             if cone is not None:
                                 self._define(cone)
-            if (selection and selection.get("kind") == "semantic"
-                    and selection.get("collection") == "regions"):
-                region = regions.get(selection.get("id"))
-                if region is not None:
-                    points = [list(point) for point in region.get("polygon_xyz") or []]
-                    if (preview and preview.get("kind") == "region-vertex"
-                            and preview.get("id") == region.get("id")
-                            and 0 <= preview.get("index", -1) < len(points)):
-                        points[preview["index"]] = list(preview["position_xyz"])
-                    for index, point in enumerate(points):
-                        self._define({
-                            "path": f"{root_path}/RegionHandles/V{index:05d}",
-                            "shape": "sphere", "position": point, "radius": .055,
-                            "color": list(HIGHLIGHT_COLOR), "category": None, "key": None,
-                        })
-            draft = [list(point) for point in region_draft]
-            if len(draft) == 1:
-                self._define({
-                    "path": f"{root_path}/RegionDraft", "shape": "sphere",
-                    "position": draft[0], "radius": .055,
-                    "color": list(REGION_COLOR), "category": None, "key": None,
-                })
-            elif len(draft) >= 2:
-                self._define({
-                    "path": f"{root_path}/RegionDraft", "shape": "polyline",
-                    "points": draft, "width": .025,
-                    "color": list(REGION_COLOR), "category": None, "key": None,
-                })
 
     def _preview_visibility(self, hidden_keys):
         """Replace only the previewed overlay geometry and restore it on cancel."""
@@ -564,7 +620,10 @@ class WebOverlayRenderer:
         for key in self._preview_hidden | hidden_keys:
             visibility = (UsdGeom.Tokens.invisible if key in hidden_keys
                           else UsdGeom.Tokens.inherited)
-            for path, _color in self._by_key.get(key, ()):
+            entries = self._by_key.get(key)
+            if entries is None and isinstance(key[0], str) and ":" in key[0]:
+                entries = self._by_key.get((key[0].split(":", 1)[1], key[1]))
+            for path, _color in entries or ():
                 prim = self.stage.GetPrimAtPath(path)
                 if prim.IsValid():
                     UsdGeom.Imageable(prim).CreateVisibilityAttr().Set(visibility)
@@ -587,5 +646,6 @@ class WebOverlayRenderer:
 
 
 __all__ = ["WEB_OVERLAY_ROOT", "HIGHLIGHT_COLOR", "WebOverlayRenderer",
-           "build_overlay_specs", "compact_document_snapshot",
+           "build_overlay_specs", "build_unified_overlay_specs",
+           "compact_document_snapshot",
            "normalize_web_selection"]
