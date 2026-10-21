@@ -43,9 +43,50 @@ def build_z1_actuators() -> dict[str, ImplicitActuatorCfg]:
         ),
     }
 
+
+def _set_z1_force_drives(stage, prim_path: str) -> None:
+    """Use force position drives for a standalone Z1 instance.
+
+    The checked-in Z1 asset is shared with mounted configurations and authors
+    acceleration drives.  Override only the spawned standalone instance so
+    changing this control policy cannot mutate the shared USD or mounted Z1s.
+    """
+    for joint_name in Z1_JOINT_NAMES:
+        joint = stage.GetPrimAtPath(f"{prim_path}/joints/{joint_name}")
+        if not joint.IsValid():
+            raise RuntimeError(f"Z1 drive joint does not exist: {joint.GetPath()}")
+        drive_type = joint.GetAttribute("drive:angular:physics:type")
+        if not drive_type.IsValid():
+            raise RuntimeError(f"Z1 drive type attribute does not exist: {joint.GetPath()}")
+        drive_type.Set("force")
+
+
+def spawn_standalone_z1(
+    prim_path: str,
+    cfg: sim_utils.UsdFileCfg,
+    translation=None,
+    orientation=None,
+) -> None:
+    """Spawn Z1 and override only its six arm drives to force mode."""
+    stage = sim_utils.get_current_stage()
+    base_cfg = sim_utils.UsdFileCfg(
+        usd_path=cfg.usd_path,
+        rigid_props=cfg.rigid_props,
+        articulation_props=cfg.articulation_props,
+        activate_contact_sensors=cfg.activate_contact_sensors,
+    )
+    sim_utils.spawn_from_usd(
+        prim_path,
+        base_cfg,
+        translation=translation,
+        orientation=orientation,
+    )
+    _set_z1_force_drives(stage, prim_path)
+
 Z1_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
         usd_path=usd_path,
+        func=spawn_standalone_z1,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,
             retain_accelerations=False,
