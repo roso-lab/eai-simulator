@@ -49,7 +49,14 @@ pkill -9 -f omni.telemetry.transmitter
 
 验收：actual physics device、GPU UUID、物理结果、clean shutdown、telemetry cleanup 同时存在。任一缺失只能标为 diagnostic。
 
-当前结果：已有 GPU task body 运行，但 `session_close_observed=false`，所以 `paper_score_eligible=false`；不能进入 G2 正式 qualification。
+当前结果（2026-10-21 G1 复验）：项目内 Factory 导航探针在 `cuda:0` 上完成，实际物理设备为
+`cuda:0`，GPU UUID 为 `GPU-aa40060e-cb9d-b04a-e70c-4c91cbb67fb0`；三个 EAI 包均解析自
+`/home/pupil/HeteroCoord/source/`，独立导航评价和子进程返回码均通过。Isaac/Kit 在 native
+`app.close()` 后可能直接终止子进程，因而子收据来不及回写 `session_close_observed`；监督器现改为
+读取项目内原子关闭 marker，并确认 cleanup callbacks 完成、app close 已请求且无清理错误。G1
+监督收据：`artifacts/project_runtime/gpu_navigation_20261021_r3/supervisor.json`。
+遥测清理命令已执行且无残留：`pkill -9 -f omni.telemetry.transmitter`。该结果仍只属于
+single-scene GPU diagnostic evidence，`paper_score_eligible=false`，不能进入 G2 正式 qualification。
 
 ### G2：三路 shared-session qualification
 
@@ -95,3 +102,10 @@ pkill -9 -f omni.telemetry.transmitter
 - 论文镜像：`/home/pupil/CVPR2026_Template` HEAD、`overleaf-old/main` 和远端 `main` 均为 `1f329494e755523692f5f96c8e0889c6cec15a82`。
 - P1/R7 active-vs-pending crash regression：相关 Tool tests **219 passed, 1 skipped**；新增 focused tests **54 passed**。
 - 这些测试没有启动 Isaac/Kit/GPU，不能替代 G1–G3 的真实收据。
+
+## G1 阶段反思与 handoff
+
+- 本阶段首次完成了项目内真实 GPU 物理路径的最小闭环：设备身份、项目来源、独立评价、进程返回码、关闭边界和遥测清理均有监督层证据。
+- 发现并修正了一个证据层问题：native Kit 关闭后子进程不能可靠回写结果，因此不能只读取子收据判断 clean shutdown；监督器必须读取独立的项目内关闭 marker。
+- 这次修正只改善收据完整性，不改变任何资格门；单场景成功不能替代三路 restore、isolated audit、shared crash 归因和完整 GPU manifest。
+- 下一阶段 handoff：优先完成 R7 watchdog 与 `vectorized_executor` 的 collector-owned 接线，再设计真实 shared-session GPU differential；在此之前不运行 G2 正式资格流程。
