@@ -18,7 +18,7 @@
 | 批次 | 目录/内容 | 当前处理 | 进入条件 |
 | --- | --- | --- | --- |
 | A | `benchmark/*_v3.py`、`benchmark/fixtures/`、对应 v3 测试 | 保留本地 | 逐模块所有权确认、完整回归、论文基准检查 |
-| B | `tools/benchmark_branch/` 的 vectorized、recovery、shutdown watchdog 及测试 | 保留本地 | 修复 timeout sticky 终态、observer 时序、cleanup failure、fresh import 后形成完整依赖闭包 |
+| B | `tools/benchmark_branch/` 的 vectorized、recovery、shutdown watchdog 及测试 | 保留本地 | timeout sticky 已修复并通过回归；仍需 observer 时序、cleanup failure、fresh import 和完整依赖闭包审查 |
 | C | `tools/project_runtime.py`、`tools/run_tests.py`、`tools/validation/project_local_*`、`task/tests/test_navigation_measurement.py` | 保留本地 | 项目边界与 GPU 运行入口复核；不得把 CPU 诊断升级为正式资格 |
 | D | `requirements-dev.txt` 与 `tools/physics_replay/validation/cache_benchmark.py` | 保留本地 | 明确依赖用途和安装影响后单独提交 |
 | E | `artifacts/` | 不提交整目录 | 仅在单个收据被明确登记、可重算且获批准时单独选取 |
@@ -41,12 +41,18 @@ tracked dirty 文件（包括 `README.md`、`BENCHMARK.md`、runtime、navigatio
 删除前需确认其中没有未保存的用户材料。确认后再逐个精确删除，并清理相应 worktree
 登记；本轮不执行删除。
 
-## 当前 R7 阻断
+## 当前 R7 状态
 
-独立审查发现：watchdog 在 shutdown 已超时后，如果 shutdown 函数或 deferred observer
-随后抛异常，可能把更严格的 `shutdown_timeout` 覆盖成 `unknown-record`。该终态优先级
-必须保持 sticky；修复完成并补测试前，R7 不形成可推送提交。工具 worktree 的旧版本还
-不能作为主工程 R7 的完成依据，后续修改只进入 `/home/pupil/HeteroCoord`。
+主工程 watchdog 已修复：shutdown 已超时后，shutdown 函数异常、deferred observer 异常、
+非法结果和身份错配均保持 `shutdown_timeout`；timeout 快照与终态收据写入共用锁，避免
+慢磁盘下丢失异常元数据。定向测试 61 项、benchmark_branch 全量 226 项通过（1 项跳过）。
+工具 worktree 的旧版本仍不能作为主工程 R7 的完成依据，后续修改只进入
+`/home/pupil/HeteroCoord`。
+
+R7 仍不形成可推送提交：向量化、recovery、executor、validation、store、package import
+和测试之间存在完整依赖闭包，且部分 tracked 文件混有前序 dirty 修改。需要完成逐文件
+所有权审查、fresh import、cleanup failure 和 paired terminal receipt 检查后，再决定
+cohesive commit 边界。
 
 ## 推送顺序
 
