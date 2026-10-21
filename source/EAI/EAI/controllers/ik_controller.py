@@ -121,12 +121,40 @@ def resolve_end_effector_body_id(arm: Any, body_names: Sequence[str]) -> int | N
         try:
             body_ids, _ = arm.find_bodies([str(body_name)], preserve_order=True)
         except (AttributeError, TypeError, ValueError):
-            continue
+            return None
         try:
             if len(body_ids):
                 return int(body_ids[0])
         except (TypeError, IndexError, ValueError):
             continue
+    return None
+
+
+def resolve_jacobian_row(arm: Any, ee_body_id: int, body_names: Sequence[str], *, row_count: int | None = None) -> int | None:
+    """Return the Jacobian row that PhysX assigns to the end-effector body.
+
+    ``link_paths`` includes the root link. Fixed-base Jacobians omit its six
+    rows; floating-base Jacobians include them. Resolve the live link first,
+    then account for that omission rather than treating link indices as rows.
+    """
+
+    view = getattr(arm, "root_physx_view", None)
+    link_paths = getattr(view, "link_paths", None)
+    if not link_paths:
+        return None
+    first_instance = link_paths[0] if len(link_paths) else ()
+    if isinstance(first_instance, (str, bytes)):
+        first_instance = link_paths
+    names = [str(path).rsplit("/", 1)[-1] for path in first_instance]
+    offset = 1 if bool(getattr(arm, "is_fixed_base", False)) else 0
+    if row_count is not None:
+        offset = len(names) - row_count
+        if offset not in (0, 1):
+            return None
+    for body_name in body_names:
+        if body_name in names:
+            row = names.index(body_name) - offset
+            return row if row >= 0 else None
     return None
 
 
@@ -396,6 +424,61 @@ def _slew_limit_joint_position_target(
     return desired
 
 
+def _bounded_dls_delta(jacobian, error, lower, upper, damping):
+    """Box-constrained DLS using a small batched active-set solve.
+
+    Clipping an unconstrained IK solution leaves the other joints solving for
+    motion the limited joint cannot make. Re-solve those joints against the
+    remaining task error, releasing bounds when their KKT sign is incorrect.
+    Bounds are joint displacements relative to the measured configuration.
+    """
+    import torch
+
+    jt = jacobian.transpose(-1, -2)
+    count = jacobian.shape[-1]
+    hessian = jt @ jacobian + float(damping) ** 2 * torch.eye(
+        count, device=jacobian.device, dtype=jacobian.dtype)
+    rhs = (jt @ error.unsqueeze(-1)).squeeze(-1)
+    delta = torch.linalg.solve(hessian, rhs.unsqueeze(-1)).squeeze(-1)
+    active = torch.where(delta < lower, -1, torch.where(delta > upper, 1, 0))
+    delta = delta.clamp(min=lower, max=upper)
+    done = torch.zeros(delta.shape[0], device=delta.device, dtype=torch.bool)
+    tolerance = 1.e-6 if delta.dtype == torch.float32 else 1.e-10
+    for _ in range(8 * count + 8):
+        free = active == 0
+        fixed = torch.where(free, torch.zeros_like(delta), delta)
+        matrix = hessian * free.unsqueeze(-1) * free.unsqueeze(-2)
+        matrix = matrix + torch.diag_embed((~free).to(delta.dtype))
+        residual = rhs - (hessian @ fixed.unsqueeze(-1)).squeeze(-1)
+        candidate = fixed + torch.linalg.solve(
+            matrix, (residual * free).unsqueeze(-1)).squeeze(-1)
+        direction = candidate - delta
+        crosses_lower = free & (candidate < lower - tolerance)
+        crosses_upper = free & (candidate > upper + tolerance)
+        crosses = crosses_lower | crosses_upper
+        safe_direction = torch.where(direction.abs() > tolerance, direction, torch.ones_like(direction))
+        fraction = torch.where(crosses_lower, (lower - delta) / safe_direction,
+                               torch.where(crosses_upper, (upper - delta) / safe_direction,
+                                           torch.ones_like(delta)))
+        alpha, hit = fraction.clamp(0., 1.).min(dim=-1)
+        next_delta = (delta + alpha.unsqueeze(-1) * direction).clamp(min=lower, max=upper)
+        delta = torch.where(done.unsqueeze(-1), delta, next_delta)
+        blocked = crosses.any(dim=-1) & ~done
+        hit_mask = torch.nn.functional.one_hot(hit, count).bool() & blocked.unsqueeze(-1)
+        active = torch.where(hit_mask, torch.where(direction < 0, -1, 1), active)
+
+        gradient = (hessian @ delta.unsqueeze(-1)).squeeze(-1) - rhs
+        violation = torch.where(active < 0, -gradient, torch.where(active > 0, gradient, 0.))
+        worst, release = violation.max(dim=-1)
+        release_mask = (torch.nn.functional.one_hot(release, count).bool()
+                        & (~blocked & ~done & (worst > tolerance)).unsqueeze(-1))
+        active = torch.where(release_mask, 0, active)
+        done = done | (~blocked & (worst <= tolerance))
+        if bool(done.all()):
+            break
+    return delta
+
+
 def apply_end_effector_pose(
     env: Any,
     arm: Any,
@@ -426,6 +509,7 @@ def apply_end_effector_pose(
     import torch
     from isaaclab.controllers import DifferentialIKController, DifferentialIKControllerCfg
     from isaaclab.utils.math import (
+        compute_pose_error,
         matrix_from_quat,
         quat_inv,
         subtract_frame_transforms,
@@ -511,19 +595,21 @@ def apply_end_effector_pose(
             return False
         columns = fallback_columns
 
-    jacobian_link_count = int(jacobians.shape[1])
-    body_count = int(getattr(arm, "num_bodies", 0) or 0)
-    if body_count > 0 and jacobian_link_count == body_count:
-        row = ee_id
-    elif body_count > 0 and jacobian_link_count == body_count - 1:
-        row = ee_id - 1
-    else:
-        row = ee_id if not bool(getattr(arm, "is_fixed_base", True)) else ee_id - 1
-    if row < 0 or row >= jacobian_link_count:
-        alternate_row = ee_id if row == ee_id - 1 else ee_id - 1
-        if alternate_row < 0 or alternate_row >= jacobian_link_count:
-            return False
-        row = alternate_row
+    row = resolve_jacobian_row(arm, ee_id, model_spec.ee_body_names, row_count=int(jacobians.shape[1]))
+    if row is None:
+        jacobian_link_count = int(jacobians.shape[1])
+        body_count = int(getattr(arm, "num_bodies", 0) or 0)
+        if body_count > 0 and jacobian_link_count == body_count:
+            row = ee_id
+        elif body_count > 0 and jacobian_link_count == body_count - 1:
+            row = ee_id - 1
+        else:
+            row = ee_id if not bool(getattr(arm, "is_fixed_base", True)) else ee_id - 1
+        if row < 0 or row >= jacobian_link_count:
+            alternate_row = ee_id if row == ee_id - 1 else ee_id - 1
+            if alternate_row < 0 or alternate_row >= jacobian_link_count:
+                return False
+            row = alternate_row
     jacobian = jacobians[:, row, :, columns].clone()
 
     # DifferentialIK consumes the Jacobian in the same root-aligned coordinates
@@ -562,12 +648,22 @@ def apply_end_effector_pose(
     controller.set_command(torch.cat((target_pos_b, target_quat_b), dim=-1))
     joint_pos = arm.data.joint_pos[:, joint_ids]
     desired = controller.compute(ee_pos_b, ee_quat_b, jacobian, joint_pos)
+    limits = arm.data.soft_joint_pos_limits[:, joint_ids]
+    limited = ((desired < limits[..., 0]) | (desired > limits[..., 1])).any(dim=-1)
+    if bool(limited.any()):
+        position_error, rotation_error = compute_pose_error(
+            ee_pos_b[limited], ee_quat_b[limited], target_pos_b[limited], target_quat_b[limited],
+            rot_error_type="axis_angle")
+        correction = _bounded_dls_delta(
+            jacobian[limited], torch.cat((position_error, rotation_error), dim=-1),
+            limits[limited, :, 0] - joint_pos[limited],
+            limits[limited, :, 1] - joint_pos[limited], dls_lambda)
+        desired[limited] = joint_pos[limited] + correction
     desired = joint_pos + torch.clamp(
         desired - joint_pos,
         -float(max_delta_rad),
         float(max_delta_rad),
     )
-    limits = arm.data.soft_joint_pos_limits[:, joint_ids]
     desired = torch.maximum(torch.minimum(desired, limits[..., 1]), limits[..., 0])
     desired = _slew_limit_joint_position_target(
         env,
@@ -758,7 +854,11 @@ def apply_planar_end_effector_pose(
         dof_offset = int(jacobians.shape[-1]) - int(arm.num_joints)
         if dof_offset not in (0, 6):
             return False
-        row = ee_id if jacobians.shape[1] == arm.num_bodies else ee_id - 1
+        # PhysX merges fixed-joint links, so match the live link paths first;
+        # the historical count heuristics only serve views without link_paths.
+        row = resolve_jacobian_row(arm, ee_id, model_spec.ee_body_names, row_count=int(jacobians.shape[1]))
+        if row is None:
+            row = ee_id if jacobians.shape[1] == arm.num_bodies else ee_id - 1
         if row < 0 or row >= jacobians.shape[1]:
             return False
         jacobian_w = jacobians[:, row, :, [i + dof_offset for i in ik_ids]]
@@ -809,7 +909,12 @@ def apply_planar_end_effector_pose(
     if bool(torch.any(targets < limits[..., 0] - 1.0e-6)) or bool(torch.any(targets > limits[..., 1] + 1.0e-6)):
         return False
     owner.targets = targets.detach().clone()
-    arm.set_joint_position_target(targets, joint_ids=arm_ids)
+    # Write the full-width target buffer: IsaacLab's subset advanced-indexing
+    # write has been observed to drop position targets on some CPU PhysX
+    # builds, leaving the affected joints tracking a stale stream.
+    full_targets = data.joint_pos_target.clone()
+    full_targets[:, arm_ids] = targets
+    arm.set_joint_position_target(full_targets)
     return True
 
 

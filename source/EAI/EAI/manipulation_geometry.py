@@ -215,3 +215,168 @@ def cylindrical_to_world_position(
     local = cylindrical_to_local_position(pose, plane_offset_m)
     rotated = _quat_rotate(base_orientation_world, local)
     return tuple(base[index] + rotated[index] for index in range(3))
+
+
+def _quat_angle_rad(left: Sequence[float], right: Sequence[float]) -> float:
+    left_q = _normalize_quaternion(left)
+    right_q = _normalize_quaternion(right)
+    dot = abs(sum(a * b for a, b in zip(left_q, right_q)))
+    return 2.0 * math.acos(min(1.0, dot))
+
+
+def _quat_slerp(
+    start: Sequence[float],
+    goal: Sequence[float],
+    fraction: float,
+) -> tuple[float, float, float, float]:
+    """Shortest-arc spherical interpolation between wxyz quaternions."""
+    start_q = _normalize_quaternion(start)
+    goal_q = _normalize_quaternion(goal)
+    dot = sum(a * b for a, b in zip(start_q, goal_q))
+    if dot < 0.0:
+        goal_q = tuple(-value for value in goal_q)
+        dot = -dot
+    fraction = min(1.0, max(0.0, float(fraction)))
+    if dot >= 1.0 - 1.0e-9:
+        blended = tuple(
+            start_q[index] + fraction * (goal_q[index] - start_q[index])
+            for index in range(4)
+        )
+        return _normalize_quaternion(blended)
+    theta_0 = math.acos(min(1.0, dot))
+    sin_theta_0 = math.sin(theta_0)
+    weight_start = math.sin((1.0 - fraction) * theta_0) / sin_theta_0
+    weight_goal = math.sin(fraction * theta_0) / sin_theta_0
+    return _normalize_quaternion(tuple(
+        weight_start * start_q[index] + weight_goal * goal_q[index]
+        for index in range(4)
+    ))
+
+
+def _shortest_arc_quaternion(
+    from_axis: Sequence[float], to_axis: Sequence[float],
+) -> tuple[float, float, float, float]:
+    """Unit wxyz quaternion rotating unit vector ``from_axis`` onto ``to_axis``."""
+    dot = sum(from_axis[index] * to_axis[index] for index in range(3))
+    if dot >= 1.0 - 1.0e-12:
+        return (1.0, 0.0, 0.0, 0.0)
+    if dot <= -1.0 + 1.0e-12:
+        # Antiparallel: rotate pi about any axis orthogonal to ``from_axis``.
+        seed = (1.0, 0.0, 0.0) if abs(from_axis[0]) < 0.9 else (0.0, 1.0, 0.0)
+        ortho = (
+            seed[1] * from_axis[2] - seed[2] * from_axis[1],
+            seed[2] * from_axis[0] - seed[0] * from_axis[2],
+            seed[0] * from_axis[1] - seed[1] * from_axis[0],
+        )
+        norm = math.sqrt(sum(value * value for value in ortho))
+        ortho = tuple(value / norm for value in ortho)
+        return (0.0, ortho[0], ortho[1], ortho[2])
+    axis = (
+        from_axis[1] * to_axis[2] - from_axis[2] * to_axis[1],
+        from_axis[2] * to_axis[0] - from_axis[0] * to_axis[2],
+        from_axis[0] * to_axis[1] - from_axis[1] * to_axis[0],
+    )
+    return _normalize_quaternion((1.0 + dot, axis[0], axis[1], axis[2]))
+
+
+def cartesian_place_contact_pose(
+    relative_object_position_ee: Sequence[float],
+    current_ee_orientation_wxyz: Sequence[float],
+    approach_direction_w: Sequence[float],
+    target_object_position_w: Sequence[float],
+    *, tool_axis_ee: Sequence[float] = (0.0, 0.0, 1.0),
+) -> tuple[tuple[float, float, float], tuple[float, float, float, float]]:
+    """Solve the end-effector contact pose that lands the object origin.
+
+    The outward tool axis (local +Z by default) is swung onto ``-approach`` with the
+    shortest rotation from the measured grasp orientation, so the free yaw
+    about the approach axis stays as close to the carried pose as possible.
+    """
+    approach = _finite_vector(approach_direction_w, 3, "approach_direction_w")
+    norm = math.sqrt(sum(value * value for value in approach))
+    if norm <= 1.0e-9:
+        raise ValueError("approach_direction_w must be nonzero")
+    approach = tuple(value / norm for value in approach)
+    target = _finite_vector(target_object_position_w, 3, "target_object_position_w")
+    current = _normalize_quaternion(current_ee_orientation_wxyz, name="current_ee_orientation_wxyz")
+    relative = _finite_vector(relative_object_position_ee, 3, "relative_object_position_ee")
+    tool_axis = tuple(-value for value in approach)
+    current_tool = _quat_rotate(current, tool_axis_ee)
+    swing = _shortest_arc_quaternion(current_tool, tool_axis)
+    contact_orientation = _normalize_quaternion(
+        _quat_multiply(swing, current), name="contact_orientation_wxyz",
+    )
+    offset = _quat_rotate(contact_orientation, relative)
+    contact_position = tuple(target[index] - offset[index] for index in range(3))
+    return contact_position, contact_orientation
+
+
+@dataclass(frozen=True)
+class GraspToolFrame:
+    """Finger grasp centre relative to the IK body; TCP +Z points outward."""
+
+    position_ee_m: tuple = (0.0, 0.0, 0.0)
+    orientation_ee_wxyz: tuple = (1.0, 0.0, 0.0, 0.0)
+    open_position_rad: float | None = None
+    closed_position_rad: float | None = None
+    width_m: float = 0.0
+    depth_m: float = 0.0
+
+    def wrist_pose(self, tcp_position_w, tcp_orientation_wxyz):
+        orientation = _normalize_quaternion(_quat_multiply(
+            tcp_orientation_wxyz, _quat_conjugate(self.orientation_ee_wxyz)))
+        offset = _quat_rotate(orientation, self.position_ee_m)
+        return tuple(tcp_position_w[i] - offset[i] for i in range(3)), orientation
+
+    def tcp_pose(self, wrist_position_w, wrist_orientation_wxyz):
+        offset = _quat_rotate(wrist_orientation_wxyz, self.position_ee_m)
+        return (tuple(wrist_position_w[i] + offset[i] for i in range(3)),
+                _normalize_quaternion(_quat_multiply(wrist_orientation_wxyz, self.orientation_ee_wxyz)))
+
+
+def gripper_grasp_tool(model: str, width_m: float = .05, depth_m: float = .05) -> GraspToolFrame:
+    """Asset-derived geometry, not a hardware calibration.
+
+    Robotiq pads extend along wrist +Z; Z1 fingers extend along link06 +X.
+    Robotiq's aperture curve is from the unscaled mounted asset. Z1's moving
+    pad rotates around (0.100, 0, 0), above the fixed pad at z=-0.009 m.
+    """
+    if model not in ('ur5', 'z1'):
+        return GraspToolFrame()
+    width = _finite_float(width_m, 'grasp width')
+    depth = _finite_float(depth_m, 'grasp depth')
+    if not 0.005 <= width <= .083 or not 0.005 <= depth <= .10:
+        raise ValueError('object dimensions exceed the calibrated gripper opening')
+    if model == 'ur5':
+        def gap(q):
+            return .01277649 - .08685988 * math.sin(q) + .07432034 * math.cos(q)
+        low, high = 0.0, .8
+        for _ in range(40):
+            middle = (low + high) / 2
+            if gap(middle) > width:
+                low = middle
+            else:
+                high = middle
+        return GraspToolFrame((0., 0., .15), (0., 1., 0., 0.), 0., (low + high) / 2, width, depth)
+    # Stop at the nearest object corner, rather than driving the curved jaw
+    # through the object to its empty-gripper mechanical limit.
+    # The fixed finger ends at x=.200 m. A centre at .180 m inserts the
+    # thick underside too deeply when tilted toward a support plane. Use a
+    # tip grip 5 mm behind the end; recompute aperture at the actual corner.
+    grasp_x = .195
+    lever = grasp_x - depth / 2 - .10
+    low, high = -1.5, 0.0
+    for _ in range(40):
+        middle = (low + high) / 2
+        gap = .009 - lever * math.tan(middle) - .009 / math.cos(middle)
+        if gap > width:
+            low = middle
+        else:
+            high = middle
+    closed = (low + high) / 2
+    opened = min(-.8, closed - .25)
+    if opened < -1.55:
+        raise ValueError('object leaves insufficient Z1 opening clearance')
+    half = math.sqrt(.5)
+    return GraspToolFrame((grasp_x, 0., -.009 + width / 2), (half, 0., -half, 0.),
+                          opened, closed, width, depth)
