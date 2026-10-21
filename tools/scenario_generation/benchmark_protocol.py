@@ -26,12 +26,12 @@ from typing import Any, Iterable
 
 if __package__ in (None, ""):
     import common
-    from warehouse_benchmark import protocol_scope_metadata, validate_protocol_scope
+    from protocol_scope import protocol_scope_metadata, validate_protocol_scope
+    from project_provenance import execution_code_provenance, validate_execution_provenance
 else:
     from . import common
-    from .warehouse_benchmark import protocol_scope_metadata, validate_protocol_scope
-
-from demo.benchmark.provenance import execution_code_provenance, validate_execution_provenance
+    from .protocol_scope import protocol_scope_metadata, validate_protocol_scope
+    from .project_provenance import execution_code_provenance, validate_execution_provenance
 
 
 PROTOCOL_SCHEMA = 2
