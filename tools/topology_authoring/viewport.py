@@ -797,6 +797,28 @@ class _TopologyEditorGesture:
 
     def _pick(self, mouse_ndc):
         context = self.controller.context or {}
+        if getattr(self.controller, "navigation_binding_mode", False):
+            pixel, _ = self.viewport_api.map_ndc_to_texture_pixel(mouse_ndc)
+            hits = []
+            for domain in ("ground", "aerial"):
+                hit = nearest_projected_hit(
+                    self.controller.document_snapshots.get(domain, {}), self.viewport_api,
+                    mouse_ndc, selection=None,
+                    active_level=context.get("active_level"), domain=domain,
+                    active_layer=domain, semantic_points=(),
+                    visible_layers=context.get("visible_layers"),
+                    visible_types={"nodes": True, "edges": False, "semantic_points": False},
+                    editor_tool="add-node", meters_per_unit=self.controller.meters_per_unit)
+                if hit is not None and pixel is not None:
+                    projected = world_to_viewport_pixel(self.viewport_api, hit.get("position_xyz"),
+                                                        meters_per_unit=self.controller.meters_per_unit)
+                    if projected is not None:
+                        hits.append((math.hypot(float(pixel[0])-projected[0], float(pixel[1])-projected[1]), domain, hit))
+            if hits:
+                _, domain, hit = min(hits, key=lambda row: row[0])
+                hit["domain"] = domain
+                return hit
+            return None
         return nearest_projected_hit(
             self.controller.snapshot, self.viewport_api, mouse_ndc,
             selection=self.controller.selection,
@@ -836,6 +858,11 @@ class _TopologyEditorGesture:
                 # click release or drag threshold.
                 if hit:
                     selection = self._selection(hit)
+                    if getattr(self.controller, "navigation_binding_mode", False) and selection["kind"] == "node":
+                        self.controller.toggle_navigation_binding(hit.get("domain", self.controller.active_domain), hit["id"])
+                        self._press = self._drag_target = None
+                        self._last_mouse = None
+                        return
                     self.controller.select(selection)
             return
         press = getattr(self, "_press", None)
@@ -845,7 +872,8 @@ class _TopologyEditorGesture:
         hit = press["hit"]
         if phase == "click":
             if not self._moved:
-                if hit:
+                if hit and not (getattr(self.controller, "navigation_binding_mode", False)
+                                and hit.get("kind") == "node"):
                     selection = self._selection(hit)
                     self.controller.select(selection)
                     if tool == "add-edge" and selection["kind"] == "node":

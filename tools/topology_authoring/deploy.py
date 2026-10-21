@@ -25,6 +25,22 @@ from tools.topology_authoring.adapters.usd_scene import UsdSceneAdapter
 from tools.topology_authoring.product import load_product, product_digest
 
 
+def load_project_semantic_points(topology_path):
+    """Load the sibling project semantic-point product when available.
+
+    Diagnostic callers may still pass a standalone topology product; in that
+    case the empty collection preserves the legacy node/landmark behavior.
+    """
+    path = Path(topology_path).resolve().parent / "semantic-points.json"
+    if not path.is_file():
+        return []
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    points = payload.get("points") if isinstance(payload, dict) else None
+    if not isinstance(points, list):
+        raise ValueError("semantic-points.json must contain a points array")
+    return points
+
+
 def scene_hook(adapter, source, *, mixed_stairs=False, ray_origin_offset_m=0.25,
                topology_path=None, expected_product_digest=None, input_receipt=None):
     """Install static scene and a truthful sensor mesh before environment reset.
@@ -148,10 +164,12 @@ def run(args):
     # Pure preflight here; asset geometry/source validation runs in the post-app
     # configuration hook, still before creating/resetting the physical scene.
     document = load_product(args.topology)
+    semantic_points = load_project_semantic_points(args.topology)
     mixed = args.controller == "GO2_MIXED_STAIRS_CFG"
     # Traversal labels and controller capabilities are authoring metadata only;
     # the canonical node-route Provider routes the bound product directly.
-    route = resolve_landmark_route(document, origin_ref=args.origin, destination_ref=args.destination)
+    route = resolve_landmark_route(document, origin_ref=args.origin, destination_ref=args.destination,
+                                   semantic_points=semantic_points)
     if not route["admitted"]:
         raise ValueError(f"route not admitted: {route}")
     output = args.output_root
@@ -253,6 +271,7 @@ def run(args):
             return True
         executor = NavigationExecutor(
             topology=FrozenNavigationTopology(document, scene_key=document.scene_key, source_digests=document.source),
+            semantic_points=semantic_points,
             simulation_time=time_reader, timeout_s=args.timeout, snapshot_validator=snapshot_validator,
             source_reader=lambda: (source.scene_key, adapter.source_digests(source)),
         )

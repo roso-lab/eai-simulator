@@ -28,7 +28,8 @@ from shapely.ops import unary_union
 from .model import TopologyDocument
 from .product import load_product, save_draft, validate_document, _unique_object, _reject_constant
 from .semantics import empty_semantics, polygon_error, semantic_level
-from .semantic_points import SCHEMA as POINT_SCHEMA, validate_points, edit_points, coordinates
+from .semantic_points import (SCHEMA as POINT_SCHEMA, validate_points, edit_points,
+                               coordinates, normalize_navigation_bindings)
 from .scene_catalog import scene_metadata
 
 SCHEMA = "eai.semantic_map.project"
@@ -248,6 +249,9 @@ class MapProject:
             raise ValueError("unsupported map project")
         current = child(self.root, self.manifest["current_revision"])
         export = read_json(current / "manifest.json")
+        if (self.manifest.get("semantic_binding_digest") is not None
+                and self.manifest["semantic_binding_digest"] != export.get("semantic_binding_digest")):
+            raise ValueError("semantic binding digest differs from project index")
         for name, digest in export["files"].items():
             if sha256(child(current, name)) != digest:
                 raise ValueError(f"revision file changed outside tool: {name}")
@@ -272,7 +276,7 @@ class MapProject:
             if point_product not in export["files"]:
                 raise ValueError("semantic points must be covered by revision digests")
             payload = read_json(child(current, point_product))
-            if (payload.get("schema") != POINT_SCHEMA or payload.get("version") != 1
+            if (payload.get("schema") != POINT_SCHEMA or payload.get("version") not in {1, 2}
                     or payload.get("scene_key") != self.manifest["scene_key"]
                     or payload.get("coordinate_frame") != "scene_world"
                     or type(payload.get("meters_per_unit")) not in (int, float)
@@ -344,7 +348,18 @@ class MapProject:
             if common is not None and regions != common:
                 raise ValueError("ground and aerial shared regions differ")
             common = regions
+        self._check_semantic_bindings(documents)
         return ground_derived
+
+    def _check_semantic_bindings(self, documents=None, points=None):
+        documents = documents or self.documents
+        points = self.semantic_points if points is None else points
+        nodes = {domain: {row["id"] for row in documents[domain].nodes}
+                 for domain in ("ground", "aerial")}
+        for point in points:
+            for binding in normalize_navigation_bindings(point.get("navigation_bindings", [])):
+                if binding["node_id"] not in nodes[binding["domain"]]:
+                    raise ValueError(f"semantic point {point['id']} binds unknown {binding['domain']} node: {binding['node_id']}")
 
     @classmethod
     def _create(cls, root, doc, grids, provenance):
@@ -436,6 +451,14 @@ class MapProject:
     def product_digest(self):
         """Identity of all authored project data; view settings are session-only."""
         return hashlib.sha256(json.dumps(self._snapshot(), sort_keys=True, separators=(",", ":"),
+                                         allow_nan=False).encode()).hexdigest()
+
+    @property
+    def semantic_binding_digest(self):
+        rows = [{"id": point["id"], "navigation_bindings": normalize_navigation_bindings(
+                    point.get("navigation_bindings", []))}
+                for point in sorted(self.semantic_points, key=lambda row: row["id"])]
+        return hashlib.sha256(json.dumps(rows, sort_keys=True, separators=(",", ":"),
                                          allow_nan=False).encode()).hexdigest()
 
     def clear_legacy_semantics(self):
@@ -533,9 +556,10 @@ class MapProject:
         self.document_for(domain)
         if operation in {"add_semantic_point", "update_semantic_point", "move_semantic_point_xy",
                          "move_semantic_point", "remove_semantic_point", "bind_semantic_point",
-                         "unbind_semantic_point"}:
+                         "unbind_semantic_point", "set_semantic_point_navigation_bindings"}:
             points = edit_points(self.semantic_points, operation, args,
                                  scene_metadata(self.manifest)["source_path"])
+            self._check_semantic_bindings(points=points)
             self._undo.append(self._snapshot())
             self._undo = self._undo[-100:]
             self._redo.clear()
@@ -551,6 +575,14 @@ class MapProject:
             edges = {row["id"] for row in candidate.edges
                      if operation == "clear_topology" or row["from"] in nodes or row["to"] in nodes
                      or operation == "remove_edge" and row["id"] == args["id"]}
+            if nodes:
+                for point in self.semantic_points:
+                    bound = {(row["domain"], row["node_id"])
+                             for row in point.get("navigation_bindings", [])}
+                    blocked = sorted((domain, node_id) for node_id in nodes
+                                     if (domain, node_id) in bound)
+                    if blocked:
+                        raise ValueError(f"cannot delete node referenced by semantic point {point['id']}; unbind first")
             semantics = candidate.semantics
             if semantics:
                 semantics["routes"] = [row for row in semantics["routes"]
@@ -792,6 +824,7 @@ class MapProject:
                 "project_path": str(self.root), "document": document.to_dict(), "levels": levels,
                 "documents": {key: value.to_dict() for key, value in self.documents.items()},
                 "semantic_points": deepcopy(self.semantic_points), "product_digest": self.product_digest,
+                "semantic_binding_digest": self.semantic_binding_digest,
                 "domains": ["ground", "aerial"],
                 "warnings": warnings, "saved_revision": self.saved_revision,
                 "can_undo": bool(self._undo), "can_redo": bool(self._redo)}
@@ -906,7 +939,7 @@ class MapProject:
             for row in semantics["regions"]]
         save_draft(destination / "topology-aerial.json", aerial)
         write_json(destination / "semantic-points.json", {
-            "schema": POINT_SCHEMA, "version": 1, "scene_key": export_doc.scene_key,
+            "schema": POINT_SCHEMA, "version": 2, "scene_key": export_doc.scene_key,
             "coordinate_frame": "scene_world", "meters_per_unit": 1, "up_axis": "Z",
             "points": deepcopy(self.semantic_points)})
         write_json(destination / "semantic-footprints.geojson", {"type": "FeatureCollection", "features": features})
@@ -921,6 +954,7 @@ class MapProject:
                    "revision": revision_id, "scene_key": export_doc.scene_key, "levels": level_info,
                    "navigation_products": {"ground": "topology.json", "aerial": "topology-aerial.json"},
                    "semantic_point_product": "semantic-points.json",
+                   "semantic_binding_digest": self.semantic_binding_digest,
                    "files": files, "robot_validated": False})
         for path in destination.iterdir():
             with path.open("rb") as stream:
@@ -961,6 +995,7 @@ class MapProject:
             journal_path = self.root / ".save-transaction.json"
             manifest = {**self.manifest, "version": 2, "current_revision": "current",
                         "save_id": token, "semantic_point_product": "semantic-points.json",
+                        "semantic_binding_digest": self.semantic_binding_digest,
                         "navigation_products": {"ground": "topology.json", "aerial": "topology-aerial.json"}}
             try:
                 exports = self._export(pending, token, derived)

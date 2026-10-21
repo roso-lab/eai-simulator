@@ -1,9 +1,52 @@
 {
   "schema": "eai.semantic_points",
-  "version": 1,
+  "version": 2,
   "scene_key": "living_room_06",
   "coordinate_frame": "scene_world",
   "meters_per_unit": 1,
   "up_axis": "Z",
-  "points": []
+  "points": [
+    {
+      "id": "semantic:327a5282d7c5463789482c874a17e34e",
+      "position_xyz": [
+        -0.8518,
+        -2.63834,
+        0.4
+      ],
+      "label": "",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "edit_mode": "3d",
+      "isaac_binding": null,
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0003"
+        }
+      ]
+    },
+    {
+      "id": "semantic:882ddebe457944e9b6c1ba40d2531366",
+      "position_xyz": [
+        2.406745405393511,
+        -0.5570527579130734,
+        2.841803485796631
+      ],
+      "label": "",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "edit_mode": "3d",
+      "isaac_binding": null,
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0020"
+        }
+      ]
+    }
+  ]
 }

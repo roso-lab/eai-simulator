@@ -10,7 +10,7 @@ from .navigation import (
     NavigationObservation, NavigationPose, NavigationProfile,
     NavigationProvider, NavigationResponse, NavigationTarget, NodeRouteTracker,
     aerial_navigation_profile, ground_navigation_profile,
-    normalize_navigation_request, route_graph_digest, select_node_route,
+    normalize_navigation_request, route_graph_digest, select_node_route, semantic_binding_digest,
     validate_topology,
 )
 from .registry import SKILL_REGISTRY, skill_records
@@ -30,7 +30,7 @@ __all__ = [
     "SkillRequest", "SimulatorCommandSpec", "SimulatorFieldSpec",
     "SimulatorSchemaError", "SimulatorSkillSchema", "aerial_navigation_profile",
     "ground_navigation_profile", "normalize_navigation_request", "route_graph_digest",
-    "select_node_route", "simulator_skill_schema", "skill_records",
+    "select_node_route", "semantic_binding_digest", "simulator_skill_schema", "skill_records",
     "validate_simulator_skill_request",
     "validate_topology",
 ]

@@ -23,22 +23,6 @@
   },
   "nodes": [
     {
-      "id": "node:0001",
-      "kind": "custom",
-      "position_xyz": [
-        -0.8518,
-        -2.6383425233628275,
-        0.7
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "edit_mode": "3d",
-      "level_id": "1F",
-      "label": "",
-      "aliases": []
-    },
-    {
       "id": "node:0002",
       "kind": "custom",
       "position_xyz": [
@@ -440,40 +424,6 @@
           -0.8518,
           -2.6383425233628275,
           3.7
-        ]
-      ],
-      "profiles": {
-        "default": {
-          "clearance_m": 1.0
-        },
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "edge:0002",
-      "kind": "custom_connection",
-      "from": "node:0001",
-      "to": "node:0003",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -0.8518,
-          -2.6383425233628275,
-          0.7
-        ],
-        [
-          -0.8518,
-          -2.6383425233628275,
-          1.5
         ]
       ],
       "profiles": {

@@ -1,7 +1,7 @@
 {
   "schema": "eai.semantic_map.revision",
   "version": 2,
-  "revision": "8bf1f975419f484c85d7f0f7586289f9",
+  "revision": "d471be5423da493e8c19d7b4a60d85c3",
   "scene_key": "living_room_06",
   "levels": [
     {
@@ -34,6 +34,7 @@
     "aerial": "topology-aerial.json"
   },
   "semantic_point_product": "semantic-points.json",
+  "semantic_binding_digest": "2d128e923a1a935e0c8a704dd44849580a63a48db74cff7ac45cbcc7e314539c",
   "files": {
     "level-000-layer.png": "896e103d53aa3d00fa56c6af6d522ce86dedacba60612cfb0150ee8b6f34cd7e",
     "level-000-semantic-grid.npz": "4a75770749210b1c3ffc98ea438de9bde755c4f28c9079c482595dbc528673af",
@@ -42,9 +43,9 @@
     "level-001-semantic-grid.npz": "6be019d06028587e4663b09df9df3e360137d45de76b9e50a3b732babf0bb86b",
     "level-001-semantic-map.png": "9a7ea74dbcc5576d748ba6dcf2b523f6f95c02db8d58fb1091e1ac28c75a1b57",
     "semantic-footprints.geojson": "b3049ad7a1062091e169bd352424d59721a26b8b6229942aef26d11b0c6a96e1",
-    "semantic-footprints.json": "7195e6fec964c91ef030671a98cc4ce6cd53324009b4dff3fe2caed69d580120",
-    "semantic-points.json": "79b84ceb43d675a05fd65a6b21a9ee782a2b8f0680f150ee0683ab5e3e60f442",
-    "topology-aerial.json": "6f60e210f8802ee80a109e2391bac1de961a4a07a1cf6f48b1b7e6d50dbf44dc",
+    "semantic-footprints.json": "b37591c8de84935e08ac768c3e8324a01d6320abf6d54b8a3fd9f87fc4b94203",
+    "semantic-points.json": "200e288688ff29f7ce2a0df80a0f5e2f2c40d0a6c313e1d53f6de17805f0c475",
+    "topology-aerial.json": "55fa2e9e3a6261a7ea4f37912d644f516f9186f91dcc636f47dd4b832b265412",
     "topology.json": "a0c0e1921dd83815b571a5d7558dc4c36f5c842761bbdb45df26e2040546fa9f"
   },
   "robot_validated": false

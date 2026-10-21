@@ -201,6 +201,7 @@ class IsaacMapSession:
                 self.editor_controller.handle_result(result)
                 # A drag that ended while selection/context synchronization was
                 # in flight is submitted immediately after that request drains.
+                self.editor_controller.flush_pending_context()
                 self.editor_controller.flush_pending_edit()
                 self.editor_controller.flush_selection()
                 # The request sampled at the start of this tick may predate the

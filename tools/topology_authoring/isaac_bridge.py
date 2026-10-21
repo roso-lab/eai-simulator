@@ -838,11 +838,14 @@ class IsaacTopologyController:
         }
         self.retry_request: dict[str, Any] | None = None
         self.pending_edit: dict[str, Any] | None = None
+        self.pending_context: dict[str, Any] | None = None
         self._active_edit: dict[str, Any] | None = None
         self.result_serial = 0
         self.last_result_tag: Any = None
         self.last_result_succeeded = False
         self.selection_dirty = False
+        self.navigation_binding_mode = False
+        self.navigation_binding_draft: list[dict[str, str]] | None = None
         self.last_error: str | None = None
         self.edit_status = "idle"
         self.on_change: Callable[[], None] | None = None
@@ -877,7 +880,10 @@ class IsaacTopologyController:
         if previous is not None and previous != current:
             same_scene = previous[:2] == current[:2]
             self.cancel_gesture(preserve_retry=same_scene)
+            self.navigation_binding_mode = False
+            self.navigation_binding_draft = None
             self.pending_edit = None
+            self.pending_context = None
             self.selection_dirty = False
         if self.object_selection_mode and self.context is not None and any(
                 self.context.get(key) != context.get(key) for key in
@@ -895,6 +901,15 @@ class IsaacTopologyController:
                          or context.get("document_snapshot")
                          or context.get("document") or {})
         self.semantic_points = json.loads(json.dumps(context.get("semantic_points") or []))
+        context_binding_mode = context.get("binding_target_mode") == "semantic_navigation"
+        context_binding_id = context.get("binding_target_id")
+        if context_binding_mode and context_binding_id:
+            self.navigation_binding_mode = True
+            self.navigation_binding_draft = json.loads(json.dumps(
+                context.get("binding_target_draft") or []))
+        elif context.get("binding_target_mode") is not None:
+            self.navigation_binding_mode = False
+            self.navigation_binding_draft = None
         supplied_settings = context.get("new_point_settings") or {}
         for layer in ("aerial", "semantic_points"):
             values = supplied_settings.get(layer) or {}
@@ -913,6 +928,11 @@ class IsaacTopologyController:
                 and (previous != current or not self.selection_dirty)):
             self.selection = incoming
             self.selection_dirty = False
+        if (self.navigation_binding_mode
+                and (not self.selection or self.selection.get("kind") != "semantic_point"
+                     or self.selection.get("id") != context.get("binding_target_id"))):
+            self.navigation_binding_mode = False
+            self.navigation_binding_draft = None
         self._changed()
 
     def _changed(self) -> None:
@@ -967,9 +987,29 @@ class IsaacTopologyController:
         return True
 
     def _submit_context(self, tag: Any, **fields: Any) -> bool:
-        return self.dispatcher.submit(
-            ("context", tag), "set_context", **fields,
+        request = {"tag": ("context", tag), "fields": json.loads(json.dumps(fields)),
+                   "identity": self.dispatcher.client.identity()}
+        submitted = self.dispatcher.submit(
+            request["tag"], "set_context", **request["fields"],
+            _identity=request["identity"])
+        if not submitted:
+            self.pending_context = request
+            self._changed()
+            return True
+        self.pending_context = None
+        return submitted
+
+    def flush_pending_context(self) -> bool:
+        request = self.pending_context
+        if request is None or self.dispatcher.pending:
+            return False
+        submitted = self.dispatcher.submit(
+            request["tag"], "set_context", **request["fields"],
             _identity=self.dispatcher.client.identity())
+        if submitted:
+            self.pending_context = None
+            self._changed()
+        return submitted
 
     def nodes(self) -> list[dict[str, Any]]:
         return list(self.snapshot.get("nodes") or [])
@@ -1169,6 +1209,61 @@ class IsaacTopologyController:
             aliases=[str(value).strip() for value in aliases if str(value).strip()],
             properties=json.loads(json.dumps(properties or {})),
             edit_mode=point.get("edit_mode", "3d"))
+
+    def begin_navigation_binding(self) -> bool:
+        """Enter a transient cross-domain node-pick mode for the selected point."""
+        if not self.selection or self.selection.get("kind") != "semantic_point":
+            return False
+        point = self.semantic_point(self.selection["id"])
+        if point is None:
+            return False
+        self.navigation_binding_mode = True
+        self.navigation_binding_draft = json.loads(json.dumps(point.get("navigation_bindings", [])))
+        self.cancel_gesture(preserve_retry=True)
+        self._submit_context(("navigation-binding-mode", point["id"]),
+                             binding_target_mode="semantic_navigation",
+                             binding_target_id=point["id"],
+                             binding_target_draft=self.navigation_binding_draft)
+        self._changed()
+        return True
+
+    def cancel_navigation_binding(self) -> None:
+        self.navigation_binding_mode = False
+        self.navigation_binding_draft = None
+        self._submit_context(("navigation-binding-mode",), binding_target_mode=None,
+                             binding_target_id=None, binding_target_draft=None)
+        self._changed()
+
+    def toggle_navigation_binding(self, domain: str, node_id: str) -> bool:
+        if not self.navigation_binding_mode or domain not in {"ground", "aerial"}:
+            return False
+        if not any(row.get("id") == node_id for row in (self.document_snapshots.get(domain, {}).get("nodes") or [])):
+            return False
+        draft = list(self.navigation_binding_draft or [])
+        key = (domain, node_id)
+        if any((row.get("domain"), row.get("node_id")) == key for row in draft):
+            draft = [row for row in draft if (row.get("domain"), row.get("node_id")) != key]
+        else:
+            draft.append({"domain": domain, "node_id": node_id})
+        self.navigation_binding_draft = sorted(draft, key=lambda row: (row["domain"], row["node_id"]))
+        point_id = self.selection.get("id") if self.selection else None
+        if point_id:
+            self._submit_context(("navigation-binding-draft", point_id),
+                                 binding_target_mode="semantic_navigation",
+                                 binding_target_id=point_id,
+                                 binding_target_draft=self.navigation_binding_draft)
+        self._changed()
+        return True
+
+    def commit_navigation_bindings(self) -> bool:
+        if not self.navigation_binding_mode or not self.selection or self.selection.get("kind") != "semantic_point":
+            return False
+        point_id = self.selection.get("id")
+        submitted = self._submit_frozen_edit(
+            ("semantic-navigation-bindings", point_id),
+            "set_semantic_point_navigation_bindings", id=point_id,
+            bindings=json.loads(json.dumps(self.navigation_binding_draft or [])))
+        return submitted
 
     def set_selected_z(self, z: float) -> bool:
         point = self.point_for_selection()
@@ -1465,7 +1560,8 @@ class IsaacTopologyController:
             "add-node", "add-edge", "add-semantic-point", "move-node",
             "move-semantic-point", "translate-edge", "node-properties",
             "semantic-point-properties", "node-edit-mode", "point-z",
-            "bind-semantic-point", "unbind-semantic-point", "delete"})
+            "bind-semantic-point", "unbind-semantic-point", "semantic-navigation-bindings",
+            "unbind-semantic-point", "delete"})
         if error is not None:
             self.last_error = str(error)
             if edit_tag:
@@ -1506,6 +1602,9 @@ class IsaacTopologyController:
             elif tag and tag[0] in {"move-node", "move-semantic-point", "translate-edge"}:
                 self.gesture = None
                 self.preview = None
+            elif tag and tag[0] == "semantic-navigation-bindings":
+                self.navigation_binding_mode = False
+                self.navigation_binding_draft = None
             if isinstance(payload, dict):
                 fresh = payload.get("context") or payload.get("state")
                 if isinstance(fresh, dict) and "context_generation" in fresh:
@@ -1561,7 +1660,14 @@ class IsaacTopologyWindow:
         binding = ""
         if selection and selection.get("kind") == "semantic_point":
             value = (context.get("binding_status") or {}).get(selection.get("id"), "unverified")
-            binding = f" | binding {value}"
+            point = self.controller.semantic_point(selection.get("id")) or {}
+            count = len(self.controller.navigation_binding_draft
+                         if self.controller.navigation_binding_mode
+                         and self.controller.navigation_binding_draft is not None
+                         else point.get("navigation_bindings", []))
+            binding = f" | Isaac binding {value} | navigation bindings {count}"
+            if self.controller.navigation_binding_mode:
+                binding += " (pick mode)"
         error = f" | {self.controller.last_error}" if self.controller.last_error else ""
         object_mode = " | Isaac object selection" if self.controller.object_selection_mode else ""
         if self.controller.retry_request is not None:
@@ -1849,6 +1955,13 @@ class IsaacTopologyWindow:
                         ui.Button("Unbind object", width=0,
                                   clicked_fn=self.controller.unbind_selected_semantic_point)
                     with ui.HStack(height=30, width=ui.Fraction(1)):
+                        ui.Button("Pick navigation nodes", width=0,
+                                  clicked_fn=self.controller.begin_navigation_binding)
+                        ui.Button("Apply navigation bindings", width=0,
+                                  clicked_fn=self.controller.commit_navigation_bindings)
+                        ui.Button("Cancel picks", width=0,
+                                  clicked_fn=self.controller.cancel_navigation_binding)
+                    with ui.HStack(height=30, width=ui.Fraction(1)):
                         ui.Button("Undo", width=0, clicked_fn=self.controller.undo)
                         ui.Button("Redo", width=0, clicked_fn=self.controller.redo)
                         ui.Button("Retry conflict", width=0,
@@ -1882,7 +1995,10 @@ class IsaacTopologyWindow:
             def on_key(event):
                 if event.type == carb.input.KeyboardEventType.KEY_PRESS:
                     if event.input == carb.input.KeyboardInput.ESCAPE:
-                        self.controller.cancel_gesture()
+                        if self.controller.navigation_binding_mode:
+                            self.controller.cancel_navigation_binding()
+                        else:
+                            self.controller.cancel_gesture()
                     elif (event.input == carb.input.KeyboardInput.ENTER
                           and self.controller.edge_end is not None
                           and not self.controller.object_selection_mode):

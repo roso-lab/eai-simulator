@@ -10924,5 +10924,6 @@
     "aerial": "topology-aerial.json"
   },
   "semantic_point_product": "semantic-points.json",
-  "save_id": "8bf1f975419f484c85d7f0f7586289f9"
+  "save_id": "d471be5423da493e8c19d7b4a60d85c3",
+  "semantic_binding_digest": "2d128e923a1a935e0c8a704dd44849580a63a48db74cff7ac45cbcc7e314539c"
 }

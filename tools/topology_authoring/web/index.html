@@ -112,6 +112,13 @@
           <div id="bindingPath" class="binding-path mono">—</div>
           <div id="isaacSelectionHint" class="binding-hint">请先在 Isaac 中选择一个 Prim。</div>
           <div class="binding-actions"><button id="bindCurrentBtn" class="button subtle" type="button">绑定当前 Isaac 选择</button><button id="unbindBtn" class="button danger-ghost" type="button">解除绑定</button></div>
+          <div class="navigation-binding-card">
+            <div class="binding-heading"><strong>导航点绑定</strong><span id="navigationBindingStatus" class="binding-status">未绑定</span></div>
+            <p class="binding-hint">可跨地面/空中图绑定多个节点；导航时按机器人图域和可达路线代价选择。</p>
+            <label class="search-box"><span>⌕</span><input id="navigationBindingSearch" type="search" placeholder="搜索节点 ID、名称或图域"></label>
+            <div id="navigationBindingList" class="binding-node-list"></div>
+            <div class="binding-actions"><button id="pickNavigationBtn" class="button subtle" type="button">地图拾取</button><button id="clearNavigationBtn" class="button danger-ghost" type="button">清空</button><button id="applyNavigationBtn" class="button primary" type="button">应用绑定</button></div>
+          </div>
         </section>
         <div class="inspector-actions"><button id="deleteBtn" class="button danger" type="button">删除</button><button id="applyBtn" class="button primary" type="submit">应用修改</button></div>
       </form>

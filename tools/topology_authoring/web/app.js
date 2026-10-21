@@ -17,7 +17,8 @@
     "fieldY", "fieldZ", "editModeGroup", "fieldEditMode", "descriptionGroup", "fieldDescription",
     "aliasesGroup", "fieldAliases", "propertiesGroup", "fieldProperties", "edgeGroup", "fieldFrom",
     "fieldTo", "fieldDirected", "fieldTraversal", "bindingGroup", "bindingStatus", "bindingPath",
-    "isaacSelectionHint", "bindCurrentBtn", "unbindBtn", "deleteBtn", "applyBtn", "pendingDraftBanner",
+    "isaacSelectionHint", "bindCurrentBtn", "unbindBtn", "navigationBindingStatus", "navigationBindingSearch",
+    "navigationBindingList", "pickNavigationBtn", "clearNavigationBtn", "applyNavigationBtn", "deleteBtn", "applyBtn", "pendingDraftBanner",
     "pendingDraftText", "retryDraftBtn", "discardDraftBtn"
   ].forEach((id) => { els[id] = $(id); });
 
@@ -35,7 +36,7 @@
     inspectorDraft: null, disconnected: false, preview: null, drag: null, edgeStartId: null,
     edgeEndId: null, edgeIdentity: null, zoom: 1, panX: 0, panY: 0, layerImage: null,
     layerImageKey: null, layerToken: 0, pollTimer: null, polling: false, writing: false, selectionSent: "null",
-    suppressSelectionPush: false
+    suppressSelectionPush: false, navigationBindingDraft: null, bindingPickMode: false
   };
   const hints = {
     "add-node": "空白处添加节点；点击已有节点选择并拖动",
@@ -116,13 +117,17 @@
   }
   function acceptState(fresh, options = {}) {
     if (!fresh || typeof fresh !== "object") throw new Error("服务端状态无效");
-    const oldKey = contextKey(state.server), previous = state.selection, previousLayer = state.activeLayer;
+    const oldKey = contextKey(state.server), previous = state.selection, previousLayer = state.activeLayer, previousRevision = state.server && state.server.revision;
     state.server = fresh; state.activeLayer = fresh.active_layer || state.activeLayer || "ground"; state.activeDomain = fresh.active_domain || (state.activeLayer === "aerial" ? "aerial" : "ground"); state.currentLevel = fresh.active_level || (levels()[0] && levels()[0].id) || null; state.referenceLevel = Object.prototype.hasOwnProperty.call(fresh, "reference_level") ? fresh.reference_level : state.referenceLevel;
+    const revisionChanged = previousRevision != null && fresh.revision !== previousRevision;
     const changed = Boolean(oldKey && oldKey !== contextKey(fresh));
-    if (changed || previousLayer !== state.activeLayer) { state.inspectorDraft = null; state.selectionSent = JSON.stringify(fresh.web_selection || null); cancelGesture(); if (previousLayer !== state.activeLayer) { state.filter = "all"; [...els.recordTabs.querySelectorAll("[data-filter]")].forEach((item) => item.classList.toggle("active", item.dataset.filter === "all")); } }
+    if (revisionChanged) { state.navigationBindingDraft = null; state.bindingPickMode = false; }
+    if (changed || previousLayer !== state.activeLayer) { state.inspectorDraft = null; state.navigationBindingDraft = null; state.bindingPickMode = false; state.selectionSent = JSON.stringify(fresh.web_selection || null); cancelGesture(); if (previousLayer !== state.activeLayer) { state.filter = "all"; [...els.recordTabs.querySelectorAll("[data-filter]")].forEach((item) => item.classList.toggle("active", item.dataset.filter === "all")); } }
     let next = selectionFromServer(fresh.web_selection);
     if (!changed && previous && recordFor(previous) && (state.inspectorDraft || !next && options.preserveSelection)) next = previous;
     if (!state.drag) state.selection = next;
+    if (fresh.binding_target_mode === "semantic_navigation" && fresh.binding_target_id === (state.selection && state.selection.id)) state.bindingPickMode = true;
+    else if (fresh.binding_target_mode !== "semantic_navigation") state.bindingPickMode = false;
     renderAll();
   }
   function renderAll() {
@@ -163,13 +168,52 @@
   }
   function renderWarnings() { const warnings = state.server && state.server.warnings || []; hidden(els.warningsSection, !warnings.length); els.warningsList.textContent = ""; warnings.forEach((warning) => { const li = document.createElement("li"); li.textContent = warning; els.warningsList.appendChild(li); }); }
   function setGroup(element, show) { hidden(element, !show); }
+  function navigationCandidates() {
+    const query = (els.navigationBindingSearch.value || "").trim().toLowerCase();
+    const result = [];
+    for (const domain of ["ground", "aerial"]) for (const node of nodes(domain)) {
+      const text = `${domain} ${node.id} ${node.label || ""} ${(node.aliases || []).join(" ")}`.toLowerCase();
+      if (!query || text.includes(query)) result.push({ domain, node });
+    }
+    return result;
+  }
+  function renderNavigationBindings(record) {
+    if (!els.navigationBindingList) return;
+    const current = state.navigationBindingDraft && state.navigationBindingDraft.id === record.id
+      ? state.navigationBindingDraft.bindings : (record.navigation_bindings || []);
+    if (!state.navigationBindingDraft || state.navigationBindingDraft.id !== record.id) state.navigationBindingDraft = { id: record.id, bindings: clone(current) };
+    const keys = new Set(current.map((row) => `${row.domain}:${row.node_id}`));
+    els.navigationBindingStatus.textContent = `${current.length} 个绑定`;
+    els.navigationBindingList.textContent = "";
+    const candidates = navigationCandidates();
+    candidates.forEach(({ domain, node }) => {
+      const label = document.createElement("label"); label.className = "toggle-row binding-node-option";
+      const input = document.createElement("input"); input.type = "checkbox"; input.checked = keys.has(`${domain}:${node.id}`); input.dataset.domain = domain; input.dataset.nodeId = node.id;
+      const text = document.createElement("span"); text.textContent = `${domain === "ground" ? "地面" : "空中"} · ${node.id} · ${node.label || "无名节点"} · 存在`;
+      label.append(input, text); els.navigationBindingList.appendChild(label);
+    });
+    const candidateKeys = new Set(candidates.map(({ domain, node }) => `${domain}:${node.id}`));
+    current.filter((row) => !candidateKeys.has(`${row.domain}:${row.node_id}`)).forEach((row) => {
+      const label = document.createElement("label"); label.className = "toggle-row binding-node-option stale";
+      const input = document.createElement("input"); input.type = "checkbox"; input.checked = true; input.disabled = true;
+      const text = document.createElement("span"); text.textContent = `${row.domain === "ground" ? "地面" : "空中"} · ${row.node_id} · 不存在`;
+      label.append(input, text); els.navigationBindingList.appendChild(label);
+    });
+    els.navigationBindingList.querySelectorAll("input").forEach((input) => input.addEventListener("change", () => {
+      const key = `${input.dataset.domain}:${input.dataset.nodeId}`;
+      const draft = state.navigationBindingDraft.bindings.filter((row) => `${row.domain}:${row.node_id}` !== key);
+      if (input.checked) draft.push({ domain: input.dataset.domain, node_id: input.dataset.nodeId });
+      state.navigationBindingDraft.bindings = draft.sort((a, b) => `${a.domain}:${a.node_id}`.localeCompare(`${b.domain}:${b.node_id}`));
+      els.navigationBindingStatus.textContent = `${draft.length} 个绑定`;
+    }));
+  }
   function renderInspector() {
     const record = recordFor(); hidden(els.emptyInspector, Boolean(record)); hidden(els.inspectorForm, !record); hidden(els.clearSelectionBtn, !record); if (!record) { els.selectionType.textContent = "未选择"; els.selectionTitle.textContent = "属性检查器"; return; }
     const type = state.selection.type, point = type === "semantic_point" ? previewPoint(record) : type === "node" ? (state.preview && state.preview.kind === "node" && state.preview.id === record.id ? state.preview.position : record.position_xyz) : null;
     els.fieldId.value = record.id; els.fieldLabel.value = record.label || ""; els.fieldKind.value = record.kind || ""; els.fieldLevel.value = record.level_id || ""; setGroup(els.labelGroup, type !== "edge"); setGroup(els.kindGroup, type !== "edge"); setGroup(els.levelGroup, type === "node" && state.activeDomain === "ground"); setGroup(els.coordinateGroup, type !== "edge"); setGroup(els.editModeGroup, type === "node" && state.activeDomain === "aerial" || type === "semantic_point"); setGroup(els.descriptionGroup, type === "semantic_point"); setGroup(els.aliasesGroup, type === "semantic_point"); setGroup(els.propertiesGroup, type === "semantic_point"); setGroup(els.edgeGroup, type === "edge"); setGroup(els.bindingGroup, type === "semantic_point");
     if (type === "node" || type === "semantic_point") { [els.fieldX.value, els.fieldY.value, els.fieldZ.value] = point.map((value) => String(Number(value))); els.fieldEditMode.value = record.edit_mode || "3d"; }
     if (type === "edge") { els.fieldFrom.value = record.from; els.fieldTo.value = record.to; els.fieldDirected.checked = Boolean(record.directed); els.fieldTraversal.value = state.activeDomain === "aerial" ? "walk" : record.traversal_mode || "walk"; els.fieldTraversal.disabled = state.activeDomain === "aerial"; }
-    if (type === "semantic_point") { els.fieldDescription.value = record.description || ""; els.fieldAliases.value = (record.aliases || []).join(", "); els.fieldProperties.value = JSON.stringify(record.properties || {}, null, 2); const binding = record.isaac_binding || {}, bound = Boolean(binding.prim_path), status = bound ? state.server && state.server.binding_status && state.server.binding_status[record.id] || "unverified" : "none"; els.bindingStatus.textContent = !bound ? "未绑定" : status === "valid" ? "有效" : status === "unverified" ? "待验证" : "无效"; els.bindingStatus.dataset.status = status; els.bindingPath.textContent = binding.prim_path || "—"; const selected = state.server && state.server.isaac_selection, bindable = selected && selected.selection_kind === "prim" && selected.session_id && selected.sequence != null && selected.prim_paths && selected.prim_paths.length === 1; els.isaacSelectionHint.textContent = selected && selected.prim_paths && selected.prim_paths.length ? `当前选择：${selected.prim_paths.join(", ")}` : "请先在 Isaac 中选择一个 Prim。"; els.bindCurrentBtn.disabled = !bindable; els.unbindBtn.disabled = !bound; }
+    if (type === "semantic_point") { els.fieldDescription.value = record.description || ""; els.fieldAliases.value = (record.aliases || []).join(", "); els.fieldProperties.value = JSON.stringify(record.properties || {}, null, 2); const binding = record.isaac_binding || {}, bound = Boolean(binding.prim_path), status = bound ? state.server && state.server.binding_status && state.server.binding_status[record.id] || "unverified" : "none"; els.bindingStatus.textContent = !bound ? "未绑定" : status === "valid" ? "有效" : status === "unverified" ? "待验证" : "无效"; els.bindingStatus.dataset.status = status; els.bindingPath.textContent = binding.prim_path || "—"; const selected = state.server && state.server.isaac_selection, bindable = selected && selected.selection_kind === "prim" && selected.session_id && selected.sequence != null && selected.prim_paths && selected.prim_paths.length === 1; els.isaacSelectionHint.textContent = selected && selected.prim_paths && selected.prim_paths.length ? `当前选择：${selected.prim_paths.join(", ")}` : "请先在 Isaac 中选择一个 Prim。"; els.bindCurrentBtn.disabled = !bindable; els.unbindBtn.disabled = !bound; els.pickNavigationBtn.textContent = state.bindingPickMode ? "结束拾取" : "地图拾取"; renderNavigationBindings(record); }
     els.selectionType.textContent = type === "node" ? (state.activeDomain === "aerial" ? "空中节点" : "地面节点") : type === "edge" ? "拓扑边" : "语义点"; els.selectionTitle.textContent = record.label || record.id;
     const endpointOnly = type === "node" && state.server && state.server.editor_tool === "add-edge";
     [els.fieldLabel, els.fieldKind, els.fieldLevel, els.fieldX, els.fieldY, els.fieldZ, els.fieldEditMode,
@@ -181,11 +225,11 @@
   }
   function captureInspector() { const record = recordFor(); if (!record || !state.selection) return; if (!state.inspectorDraft) state.inspectorDraft = { selection: clone(state.selection), record: clone(record), identity: identity() }; state.inspectorDraft.values = {}; for (const key of ["fieldLabel", "fieldKind", "fieldLevel", "fieldX", "fieldY", "fieldZ", "fieldEditMode", "fieldDescription", "fieldAliases", "fieldProperties", "fieldTraversal"]) state.inspectorDraft.values[key] = els[key].value; state.inspectorDraft.values.fieldDirected = els.fieldDirected.checked; }
   function updateToolUI() { const mode = state.server && state.server.editor_tool || "add-node", pointSettings = mode === "add-semantic-point" || mode === "add-node" && state.activeDomain === "aerial"; [...els.modeTools.querySelectorAll("[data-mode]")].forEach((button) => button.classList.toggle("active", button.dataset.mode === mode)); els.modeHint.textContent = state.edgeEndId ? "连线预览已就绪，点击确认连线" : state.edgeStartId ? `已选择起点 ${state.edgeStartId}，请选择终点` : hints[mode] || hints["add-node"]; hidden(els.cancelDraftBtn, !(state.edgeStartId || state.edgeEndId || state.preview)); hidden(els.confirmEdgeBtn, !state.edgeEndId); hidden(els.newPointZGroup, !pointSettings); hidden(els.newPointModeGroup, !pointSettings); hidden(els.newEdgeTraversalGroup, !(mode === "add-edge" && state.activeDomain === "ground")); }
-  async function setContext(changes) { if (!state.server) return; const activeLayer = changes.active_layer || state.activeLayer, activeDomain = activeLayer === "aerial" ? "aerial" : activeLayer === "ground" ? "ground" : state.activeDomain; const body = identity({ active_layer: activeLayer, active_domain: changes.active_domain || activeDomain, tool: changes.tool || state.server.editor_tool, level_id: changes.level_id || state.currentLevel }); for (const key of ["reference_level", "visible_layers", "visible_types", "new_point_settings"]) if (Object.prototype.hasOwnProperty.call(changes, key)) body[key] = changes[key]; await write("/api/editor/context", body); }
+  async function setContext(changes) { if (!state.server) return; const activeLayer = changes.active_layer || state.activeLayer, activeDomain = activeLayer === "aerial" ? "aerial" : activeLayer === "ground" ? "ground" : state.activeDomain; const body = identity({ active_layer: activeLayer, active_domain: changes.active_domain || activeDomain, tool: changes.tool || state.server.editor_tool, level_id: changes.level_id || state.currentLevel }); for (const key of ["reference_level", "visible_layers", "visible_types", "new_point_settings", "binding_target_mode", "binding_target_id", "binding_target_draft"]) if (Object.prototype.hasOwnProperty.call(changes, key)) body[key] = changes[key]; await write("/api/editor/context", body); }
   function selectionPayload() { const value = state.selection; if (!value) return null; if (value.type === "semantic_point") return { kind: "semantic_point", collection: null, id: value.id }; return { kind: value.type, collection: null, id: value.id, domain: value.domain || state.activeDomain }; }
   async function pushSelection() { if (!state.server || state.suppressSelectionPush) return; const selection = selectionPayload(), signature = JSON.stringify(selection); if (signature === state.selectionSent) return; try { await request("/api/web/selection", { method: "POST", body: identity({ selection }) }); state.selectionSent = signature; } catch (error) { if (!(error instanceof ConflictError)) showError(error); } }
-  function select(value, { push = true } = {}) { if (JSON.stringify(value) !== JSON.stringify(state.selection)) state.inspectorDraft = null; state.selection = value; renderRecords(); renderInspector(); draw(); if (push) pushSelection(); }
-  function clearSelection(push = true) { select(null, { push }); }
+  function select(value, { push = true } = {}) { if (state.bindingPickMode && (!value || value.type !== "semantic_point" || !state.selection || value.id !== state.selection.id)) { state.bindingPickMode = false; if (els.pickNavigationBtn) els.pickNavigationBtn.textContent = "地图拾取"; setContext({ binding_target_mode: null, binding_target_id: null, binding_target_draft: null }).catch(showError); } if (JSON.stringify(value) !== JSON.stringify(state.selection)) state.inspectorDraft = null; state.selection = value; renderRecords(); renderInspector(); draw(); if (push) pushSelection(); }
+  function clearSelection(push = true) { state.bindingPickMode = false; if (els.pickNavigationBtn) els.pickNavigationBtn.textContent = "地图拾取"; setContext({ binding_target_mode: null, binding_target_id: null, binding_target_draft: null }).catch(showError); select(null, { push }); }
   function currentExtent() { const level = levels().find((row) => row.id === (state.referenceLevel || state.currentLevel)); return level && level.extent_xy || [-10, 10, -10, 10]; }
   function canvasMetrics() { const rect = els.mapCanvas.getBoundingClientRect(), dpr = globalThis.devicePixelRatio || 1, width = Math.max(1, Math.round(rect.width * dpr)), height = Math.max(1, Math.round(rect.height * dpr)); if (els.mapCanvas.width !== width || els.mapCanvas.height !== height) { els.mapCanvas.width = width; els.mapCanvas.height = height; } return { rect, dpr, width, height }; }
   function transform() { const metrics = canvasMetrics(), [xmin, xmax, ymin, ymax] = currentExtent().map(Number), scale = Math.min(metrics.width / Math.max(.001, xmax - xmin), metrics.height / Math.max(.001, ymax - ymin)) * .92 * state.zoom; return { ...metrics, scale, cx: metrics.width / 2 + state.panX * metrics.dpr, cy: metrics.height / 2 + state.panY * metrics.dpr, mx: (xmin + xmax) / 2, my: (ymin + ymax) / 2 }; }
@@ -207,6 +251,12 @@
   function hitTest(clientX, clientY) {
     const world = screenToWorld(clientX, clientY), t = transform(), tolerance = 10 * t.dpr / t.scale;
     const mode = state.server && state.server.editor_tool || "add-node";
+    if (state.bindingPickMode) {
+      for (const domain of ["ground", "aerial"]) for (const node of nodes(domain).slice().reverse()) {
+        if (visibleNode(node, domain) && Math.hypot(world[0] - previewNode(node, domain)[0], world[1] - previewNode(node, domain)[1]) <= tolerance) return { type: "node", id: node.id, domain, record: node };
+      }
+      return null;
+    }
     if (state.activeLayer === "semantic_points" || mode === "add-semantic-point") { for (const point of semanticPoints().slice().reverse()) { if (!layerVisible("semantic_points") || !typeVisible("semantic_points")) continue; if (Math.hypot(world[0] - previewPoint(point)[0], world[1] - previewPoint(point)[1]) <= tolerance) return { type: "semantic_point", id: point.id, record: point }; } return null; }
     for (const node of nodes(state.activeDomain).slice().reverse()) { if (!visibleNode(node)) continue; const point = previewNode(node); if (Math.hypot(world[0] - point[0], world[1] - point[1]) <= tolerance) return { type: "node", id: node.id, record: node }; }
     if (mode !== "add-edge") return null;
@@ -265,6 +315,34 @@
   async function deleteSelection() { const value = state.selection; if (!value || !toolAllows(value.type) || value.type === "node" && state.server.editor_tool === "add-edge") return; const operation = value.type === "node" ? "remove_node" : value.type === "edge" ? "remove_edge" : "remove_semantic_point"; const fresh = await edit(operation, { id: value.id }, "已删除；可撤销恢复"); if (fresh) clearSelection(); }
   async function bindCurrent() { const value = state.selection, selected = state.server && state.server.isaac_selection; if (!value || value.type !== "semantic_point") return; if (!selected || !selected.session_id || selected.sequence == null || !selected.prim_paths || selected.prim_paths.length !== 1) { showError("需要一个最新且唯一的 Isaac Prim 选择"); return; } const fresh = await edit("bind_semantic_point", { id: value.id, selection_session_id: selected.session_id, selection_sequence: selected.sequence }, "已绑定当前 Isaac 选择"); if (fresh) renderInspector(); }
   async function unbind() { const value = state.selection; if (!value || value.type !== "semantic_point") return; const fresh = await edit("unbind_semantic_point", { id: value.id }, "已解除 Isaac 绑定"); if (fresh) renderInspector(); }
+  async function applyNavigationBindings() {
+    const value = state.selection, draft = state.navigationBindingDraft;
+    if (!value || value.type !== "semantic_point" || !draft || draft.id !== value.id) return;
+    const fresh = await edit("set_semantic_point_navigation_bindings", { id: value.id, bindings: draft.bindings }, "导航点绑定已更新");
+    if (fresh) { state.navigationBindingDraft = null; renderInspector(); }
+  }
+  function clearNavigationBindings() {
+    if (!state.navigationBindingDraft) return;
+    state.navigationBindingDraft.bindings = [];
+    renderNavigationBindings(recordFor());
+    if (state.bindingPickMode && state.selection && state.selection.type === "semantic_point") {
+      setContext({ binding_target_mode: "semantic_navigation", binding_target_id: state.selection.id,
+        binding_target_draft: [] }).catch(showError);
+    }
+  }
+  function toggleNavigationPick() {
+    cancelGesture();
+    const record = recordFor();
+    if (!record || !state.selection || state.selection.type !== "semantic_point") return;
+    state.bindingPickMode = !state.bindingPickMode;
+    els.pickNavigationBtn.textContent = state.bindingPickMode ? "结束拾取" : "地图拾取";
+    const draft = state.navigationBindingDraft && state.navigationBindingDraft.id === record.id
+      ? state.navigationBindingDraft.bindings : (record.navigation_bindings || []);
+    setContext(state.bindingPickMode
+      ? { binding_target_mode: "semantic_navigation", binding_target_id: record.id, binding_target_draft: clone(draft) }
+      : { binding_target_mode: null, binding_target_id: null, binding_target_draft: null }).catch(showError);
+    notice(state.bindingPickMode ? "绑定拾取模式：点击地面或空中节点加入/移除" : "已退出绑定拾取模式");
+  }
   function onPointerDown(event) {
     if (!state.server || state.disconnected || state.writing) return;
     const world = screenToWorld(event.clientX, event.clientY);
@@ -277,6 +355,15 @@
         pan: [state.panX, state.panY], moved: false
       };
       els.mapCanvas.setPointerCapture(event.pointerId);
+      return;
+    }
+    if (state.bindingPickMode && hit && hit.type === "node") {
+      const point = recordFor(); if (!point || !state.navigationBindingDraft) return;
+      const key = `${hit.domain}:${hit.id}`, existing = state.navigationBindingDraft.bindings.some((row) => `${row.domain}:${row.node_id}` === key);
+      state.navigationBindingDraft.bindings = existing ? state.navigationBindingDraft.bindings.filter((row) => `${row.domain}:${row.node_id}` !== key) : [...state.navigationBindingDraft.bindings, { domain: hit.domain, node_id: hit.id }];
+      renderNavigationBindings(point); draw();
+      setContext({ binding_target_mode: "semantic_navigation", binding_target_id: point.id,
+        binding_target_draft: clone(state.navigationBindingDraft.bindings) }).catch(showError);
       return;
     }
     if (hit && hit.type === "node" && mode === "add-edge") { edgeNode(hit.record); return; }
@@ -408,8 +495,8 @@
     els.closeErrorBtn.addEventListener("click", clearError); els.layerToggle.addEventListener("click", (event) => { const button = event.target.closest("[data-layer]"); if (!button) return; setContext({ active_layer: button.dataset.layer }).catch(showError); }); els.floorList.addEventListener("click", (event) => { const button = event.target.closest("[data-level]"); if (button) setContext({ active_layer: "ground", active_domain: "ground", level_id: button.dataset.level }).catch(showError); }); els.referenceLevel.addEventListener("change", () => setContext({ reference_level: els.referenceLevel.value || null }).catch(showError));
     [[els.showGround, "layer:ground"], [els.showAerial, "layer:aerial"], [els.showSemanticPoints, "layer:semantic_points"], [els.showNodes, "type:nodes"], [els.showEdges, "type:edges"], [els.showPointType, "type:semantic_points"]].forEach(([input, type]) => input.addEventListener("change", () => setVisibility(type, input.checked)));
     els.modeTools.addEventListener("click", (event) => { const button = event.target.closest("[data-mode]"); if (button) { const mode = button.dataset.mode; const activeLayer = mode === "add-semantic-point" ? "semantic_points" : state.activeLayer === "semantic_points" ? state.activeDomain : state.activeLayer; setContext({ tool: mode, active_layer: activeLayer }).catch(showError); } }); els.recordSearch.addEventListener("input", renderRecords); els.recordTabs.addEventListener("click", (event) => { const button = event.target.closest("[data-filter]"); if (!button) return; state.filter = button.dataset.filter; [...els.recordTabs.querySelectorAll("[data-filter]")].forEach((item) => item.classList.toggle("active", item === button)); renderRecords(); }); els.recordList.addEventListener("click", (event) => { const button = event.target.closest("[data-id]"); if (button && toolAllows(button.dataset.type)) select({ type: button.dataset.type, id: button.dataset.id, ...(button.dataset.type !== "semantic_point" ? { domain: state.activeDomain } : {}) }); });
-    const safePointSettings = () => { try { syncPointSettings(); } catch (error) { showError(error); } }; els.newPointZ.addEventListener("change", safePointSettings); els.newPointMode.addEventListener("change", safePointSettings); els.inspectorForm.addEventListener("submit", (event) => applyInspector(event).catch(showError)); els.inspectorForm.addEventListener("input", captureInspector); els.inspectorForm.addEventListener("change", captureInspector); els.deleteBtn.addEventListener("click", deleteSelection); els.bindCurrentBtn.addEventListener("click", bindCurrent); els.unbindBtn.addEventListener("click", unbind); els.clearSelectionBtn.addEventListener("click", () => clearSelection()); els.cancelDraftBtn.addEventListener("click", cancelGesture); els.confirmEdgeBtn.addEventListener("click", confirmEdge); els.retryDraftBtn.addEventListener("click", retryPending); els.discardDraftBtn.addEventListener("click", () => { state.pendingEdit = null; state.inspectorDraft = null; cancelGesture(); renderPending(); renderInspector(); }); els.projectPicker.addEventListener("change", () => openProject(els.projectPicker.value)); els.categoryPicker.addEventListener("change", () => { renderProjectOptions(); if (els.projectPicker.value !== state.currentProjectId) openProject(els.projectPicker.value); }); els.undoBtn.addEventListener("click", () => write("/api/undo", {}, "已撤销")); els.redoBtn.addEventListener("click", () => write("/api/redo", {}, "已重做")); els.saveBtn.addEventListener("click", () => write("/api/save", {}, "已保存并导出")); els.fitBtn.addEventListener("click", () => { state.zoom = 1; state.panX = 0; state.panY = 0; draw(); }); els.zoomInBtn.addEventListener("click", () => { state.zoom = Math.min(10, state.zoom * 1.25); draw(); }); els.zoomOutBtn.addEventListener("click", () => { state.zoom = Math.max(.2, state.zoom * .8); draw(); }); els.mapCanvas.addEventListener("pointerdown", onPointerDown); els.mapCanvas.addEventListener("pointermove", onPointerMove); els.mapCanvas.addEventListener("pointerup", onPointerUp); els.mapCanvas.addEventListener("pointercancel", () => { state.drag = null; state.preview = null; draw(); }); els.mapCanvas.addEventListener("contextmenu", (event) => event.preventDefault()); els.mapCanvas.addEventListener("wheel", (event) => { event.preventDefault(); state.zoom = Math.max(.2, Math.min(10, state.zoom * (event.deltaY < 0 ? 1.12 : .89))); draw(); }, { passive: false }); new ResizeObserver(draw).observe(els.mapStage);
-    globalThis.addEventListener("keydown", (event) => { const modifier = event.ctrlKey || event.metaKey; if (modifier && event.key.toLowerCase() === "s") { event.preventDefault(); els.saveBtn.click(); } else if (modifier && event.key.toLowerCase() === "z") { event.preventDefault(); (event.shiftKey ? els.redoBtn : els.undoBtn).click(); } else if (modifier && event.key.toLowerCase() === "y") { event.preventDefault(); els.redoBtn.click(); } else if (event.key === "Escape") { event.preventDefault(); cancelGesture(); } else if (event.key === "Enter" && state.edgeEndId) { event.preventDefault(); confirmEdge(); } });
+    const safePointSettings = () => { try { syncPointSettings(); } catch (error) { showError(error); } }; els.newPointZ.addEventListener("change", safePointSettings); els.newPointMode.addEventListener("change", safePointSettings); els.inspectorForm.addEventListener("submit", (event) => applyInspector(event).catch(showError)); els.inspectorForm.addEventListener("input", captureInspector); els.inspectorForm.addEventListener("change", captureInspector); els.deleteBtn.addEventListener("click", deleteSelection); els.bindCurrentBtn.addEventListener("click", bindCurrent); els.unbindBtn.addEventListener("click", unbind); els.navigationBindingSearch.addEventListener("input", () => { const record = recordFor(); if (record && state.selection.type === "semantic_point") renderNavigationBindings(record); }); els.applyNavigationBtn.addEventListener("click", () => applyNavigationBindings().catch(showError)); els.clearNavigationBtn.addEventListener("click", clearNavigationBindings); els.pickNavigationBtn.addEventListener("click", toggleNavigationPick); els.clearSelectionBtn.addEventListener("click", () => clearSelection()); els.cancelDraftBtn.addEventListener("click", cancelGesture); els.confirmEdgeBtn.addEventListener("click", confirmEdge); els.retryDraftBtn.addEventListener("click", retryPending); els.discardDraftBtn.addEventListener("click", () => { state.pendingEdit = null; state.inspectorDraft = null; cancelGesture(); renderPending(); renderInspector(); }); els.projectPicker.addEventListener("change", () => openProject(els.projectPicker.value)); els.categoryPicker.addEventListener("change", () => { renderProjectOptions(); if (els.projectPicker.value !== state.currentProjectId) openProject(els.projectPicker.value); }); els.undoBtn.addEventListener("click", () => write("/api/undo", {}, "已撤销")); els.redoBtn.addEventListener("click", () => write("/api/redo", {}, "已重做")); els.saveBtn.addEventListener("click", () => write("/api/save", {}, "已保存并导出")); els.fitBtn.addEventListener("click", () => { state.zoom = 1; state.panX = 0; state.panY = 0; draw(); }); els.zoomInBtn.addEventListener("click", () => { state.zoom = Math.min(10, state.zoom * 1.25); draw(); }); els.zoomOutBtn.addEventListener("click", () => { state.zoom = Math.max(.2, state.zoom * .8); draw(); }); els.mapCanvas.addEventListener("pointerdown", onPointerDown); els.mapCanvas.addEventListener("pointermove", onPointerMove); els.mapCanvas.addEventListener("pointerup", onPointerUp); els.mapCanvas.addEventListener("pointercancel", () => { state.drag = null; state.preview = null; draw(); }); els.mapCanvas.addEventListener("contextmenu", (event) => event.preventDefault()); els.mapCanvas.addEventListener("wheel", (event) => { event.preventDefault(); state.zoom = Math.max(.2, Math.min(10, state.zoom * (event.deltaY < 0 ? 1.12 : .89))); draw(); }, { passive: false }); new ResizeObserver(draw).observe(els.mapStage);
+    globalThis.addEventListener("keydown", (event) => { const modifier = event.ctrlKey || event.metaKey; if (modifier && event.key.toLowerCase() === "s") { event.preventDefault(); els.saveBtn.click(); } else if (modifier && event.key.toLowerCase() === "z") { event.preventDefault(); (event.shiftKey ? els.redoBtn : els.undoBtn).click(); } else if (modifier && event.key.toLowerCase() === "y") { event.preventDefault(); els.redoBtn.click(); } else if (event.key === "Escape") { event.preventDefault(); cancelGesture(); state.bindingPickMode = false; if (els.pickNavigationBtn) els.pickNavigationBtn.textContent = "地图拾取"; setContext({ binding_target_mode: null, binding_target_id: null, binding_target_draft: null }).catch(showError); } else if (event.key === "Enter" && state.edgeEndId) { event.preventDefault(); confirmEdge(); } });
   }
   async function loadProjects() { try { const payload = await request("/api/projects"); state.projects = payload.projects || []; state.currentProjectId = payload.current_id || null; hidden(els.projectPickerWrap, state.projects.length < 2); const categories = [...new Set(state.projects.map((row) => row.category || "场景"))]; els.categoryPicker.textContent = ""; categories.forEach((value) => { const option = document.createElement("option"); option.value = value; option.textContent = value; els.categoryPicker.appendChild(option); }); const current = state.projects.find((row) => row.id === state.currentProjectId); if (current) els.categoryPicker.value = current.category || "场景"; renderProjectOptions(); } catch (_) { hidden(els.projectPickerWrap, true); } }
   function renderProjectOptions() { els.projectPicker.textContent = ""; state.projects.filter((row) => (row.category || "场景") === els.categoryPicker.value).forEach((row) => { const option = document.createElement("option"); option.value = row.id; option.textContent = row.display_name || row.scene_key || row.id; els.projectPicker.appendChild(option); }); if ([...els.projectPicker.options].some((option) => option.value === state.currentProjectId)) els.projectPicker.value = state.currentProjectId; }

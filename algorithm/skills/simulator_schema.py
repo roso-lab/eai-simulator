@@ -121,6 +121,11 @@ def _validate_node_route_request(request: SkillRequest, parameters: dict[str, An
         if (not isinstance(digest, str) or len(digest) != 64
                 or any(char not in "0123456789abcdef" for char in digest)):
             raise SimulatorSchemaError("route_graph_digest must be a SHA-256 hex digest")
+    if "semantic_binding_digest" in parameters:
+        digest = parameters["semantic_binding_digest"]
+        if (not isinstance(digest, str) or len(digest) != 64
+                or any(char not in "0123456789abcdef" for char in digest)):
+            raise SimulatorSchemaError("semantic_binding_digest must be a SHA-256 hex digest")
     for name, value in (("timing", request.timing), ("budget", request.budget)):
         if value is None:
             continue
@@ -219,6 +224,7 @@ SIMULATOR_SKILL_SCHEMAS: tuple[SimulatorSkillSchema, ...] = (
             SimulatorFieldSpec("world_state_seq", "nonnegative_int", required=True),
             SimulatorFieldSpec("target_yaw", "finite_number", unit="rad"),
             SimulatorFieldSpec("route_graph_digest", "string", description="Frozen executable graph identity."),
+            SimulatorFieldSpec("semantic_binding_digest", "string", description="Frozen semantic-point navigation bindings."),
             SimulatorFieldSpec("origin_ref", "string", description="Declared origin; measured start must be nearby."),
         ),
         commands=(SimulatorCommandSpec(

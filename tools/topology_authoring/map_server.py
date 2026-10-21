@@ -37,6 +37,8 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
         first = value.document.levels[0]["id"] if value.document.levels else None
         return {"active_domain": "ground", "active_layer": "ground", "last_navigation_layer": "ground",
                 "editor_tool": "add-node", "active_level": first, "reference_level": first,
+                "binding_target_mode": None, "binding_target_id": None,
+                "binding_target_draft": None,
                 "visible_layers": {"ground": True, "aerial": False, "semantic_points": False},
                 "visible_types": {"nodes": True, "edges": True, "semantic_points": True},
                 "new_point_settings": {key: {"z": 1.5, "edit_mode": "3d"}
@@ -100,7 +102,8 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                     "document_snapshot": snapshot_cache["value"],
                     "document_snapshots": {domain: compact_document_snapshot(doc, project.revision)
                                            for domain, doc in project.documents.items()},
-                    "semantic_points": deepcopy(project.semantic_points),
+                    "semantic_points": public_semantic_points(),
+                    "semantic_binding_digest": project.semantic_binding_digest,
                     "isaac_selection": isaac_selection["selection"], "binding_status": binding_status()}
 
     def binding_status():
@@ -109,6 +112,38 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                 if fresh and binding_reports.get(point["id"], {}).get("prim_path") ==
                     (point.get("isaac_binding") or {}).get("prim_path") else "unverified")
                 for point in project.semantic_points}
+
+    def public_semantic_points():
+        # Empty bindings are omitted on the wire for compatibility with v1
+        # clients; persisted v2 products retain the explicit array.
+        rows = deepcopy(project.semantic_points)
+        for row in rows:
+            if not row.get("navigation_bindings"):
+                row.pop("navigation_bindings", None)
+        return rows
+
+    def normalize_binding_draft(value):
+        if value is None:
+            return None
+        if not isinstance(value, list):
+            raise ValueError("binding target draft must be an array")
+        nodes = {domain: {row["id"] for row in project.document_for(domain).nodes}
+                 for domain in ("ground", "aerial")}
+        result, seen = [], set()
+        for row in value:
+            if not isinstance(row, dict) or set(row) != {"domain", "node_id"}:
+                raise ValueError("invalid binding target draft item")
+            domain, node_id = row["domain"], row["node_id"]
+            if domain not in nodes or not isinstance(node_id, str) or not node_id.strip():
+                raise ValueError("invalid binding target draft node")
+            key = (domain, node_id)
+            if key in seen:
+                raise ValueError("duplicate binding target draft node")
+            if node_id not in nodes[domain]:
+                raise ValueError("binding target draft references an unknown node")
+            seen.add(key)
+            result.append({"domain": domain, "node_id": node_id})
+        return sorted(result, key=lambda row: (row["domain"], row["node_id"]))
 
     def normalize_selection(selection):
         if selection is None:
@@ -182,7 +217,9 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
             return origin is None or origin in {"http://"+host for host in allowed}
 
         def state(self):
-            return {**project.state(editor["active_domain"]), "csrf_token": token, "isaac_runtime": dict(runtime),
+            payload = project.state(editor["active_domain"])
+            payload["semantic_points"] = public_semantic_points()
+            return {**payload, "csrf_token": token, "isaac_runtime": dict(runtime),
                     "scene_generation": scene_generation, "context_generation": context_generation, **editor,
                     "web_selection": web_selection["selection"],
                     "isaac_selection": isaac_selection["selection"], "binding_status": binding_status(),
@@ -340,9 +377,39 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                                 if (type(settings["z"]) not in (int, float) or not math.isfinite(settings["z"])
                                         or settings["edit_mode"] not in {"2.5d", "3d"}):
                                     raise ValueError("new point height must be finite and edit mode valid")
+                        # Navigation-node binding is a transient session mode.
+                        # Keep it in the shared editor context so web and Isaac
+                        # show the same draft, while clearing it on any actual
+                        # tool/layer/scene editing-context switch.
+                        binding_mode = body.get("binding_target_mode", candidate.get("binding_target_mode"))
+                        binding_id = body.get("binding_target_id", candidate.get("binding_target_id"))
+                        binding_draft = body.get("binding_target_draft", candidate.get("binding_target_draft"))
+                        if binding_mode not in (None, "semantic_navigation"):
+                            raise ValueError("invalid binding target mode")
+                        if binding_mode is None:
+                            binding_id, binding_draft = None, None
+                        else:
+                            if layer != "semantic_points" or tool != "add-semantic-point":
+                                raise ValueError("navigation binding mode requires the semantic point layer")
+                            if not isinstance(binding_id, str) or not any(
+                                    row["id"] == binding_id for row in project.semantic_points):
+                                raise ValueError("navigation binding mode requires a selected semantic point")
+                            binding_draft = normalize_binding_draft(binding_draft or [])
+                        candidate.update(binding_target_mode=binding_mode,
+                                        binding_target_id=binding_id,
+                                        binding_target_draft=binding_draft)
+                        context_identity_changed = any(
+                            candidate.get(key) != editor.get(key)
+                            for key in ("active_domain", "active_layer", "last_navigation_layer",
+                                        "editor_tool", "active_level", "reference_level",
+                                        "visible_layers", "visible_types", "new_point_settings"))
+                        if context_identity_changed:
+                            candidate.update(binding_target_mode=None,
+                                            binding_target_id=None,
+                                            binding_target_draft=None)
                         changed = candidate != editor
                         editor.update(candidate)
-                        if changed:
+                        if context_identity_changed:
                             context_generation += 1
                             web_selection["selection"] = None
                             isaac_selection["selection"] = None
@@ -449,6 +516,13 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                         selection = body.get("selection")
                         selection = normalize_selection(selection)
                         web_selection["selection"] = selection
+                        if editor.get("binding_target_mode") == "semantic_navigation":
+                            selected_id = selection.get("id") if selection and selection.get("kind") == "semantic_point" else None
+                            if selected_id != editor.get("binding_target_id"):
+                                editor.update(binding_target_mode=None,
+                                              binding_target_id=None,
+                                              binding_target_draft=None)
+                                context_generation += 1
                         self.reply(200, {"selection": selection})
                         return
                     domain = self.pop_context(body)
@@ -458,7 +532,7 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                         operation = body.pop("operation")
                         semantic_operations = {"add_semantic_point", "update_semantic_point", "move_semantic_point_xy",
                                                "move_semantic_point", "remove_semantic_point", "bind_semantic_point",
-                                               "unbind_semantic_point"}
+                                               "unbind_semantic_point", "set_semantic_point_navigation_bindings"}
                         allowed = semantic_operations | {"add_node", "update_node", "move_node_xy", "move_node",
                                                          "remove_node", "add_edge", "update_edge", "remove_edge",
                                                          "translate_edge_xy"}
@@ -492,6 +566,10 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                             body["binding"] = {"source_usd": scene_metadata(project.manifest)["source_path"],
                                                "prim_path": selection["prim_paths"][0]}
                         project.edit(operation, domain=domain, **body)
+                        if operation == "set_semantic_point_navigation_bindings" and editor.get("binding_target_mode"):
+                            editor.update(binding_target_mode=None, binding_target_id=None,
+                                         binding_target_draft=None)
+                            context_generation += 1
                         drop_selection()
                     elif route == "/api/save":
                         project.save(**body)
@@ -509,7 +587,11 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                         if asset_root:
                             resolve_scene(replacement.manifest, asset_root)
                         replacement.revision = project.revision + 1
-                        scene_editors[str(project.root)] = deepcopy(editor)
+                        saved_editor = deepcopy(editor)
+                        saved_editor.update(binding_target_mode=None,
+                                            binding_target_id=None,
+                                            binding_target_draft=None)
+                        scene_editors[str(project.root)] = saved_editor
                         project = replacement
                         token = secrets.token_urlsafe(32)
                         isaac_selection["selection"] = None
@@ -518,6 +600,8 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                         context_generation += 1
                         editor.clear()
                         editor.update(deepcopy(scene_editors.get(str(project.root), default_editor(project))))
+                        editor.update(binding_target_mode=None, binding_target_id=None,
+                                      binding_target_draft=None)
                         binding_reports.clear()
                         binding_report_time = 0
                         runtime.update(state="loading" if isaac_linked else "disabled", error=None,

@@ -388,3 +388,6 @@ textarea { resize: vertical; line-height: 1.5; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation-duration: .01ms !important; }
 }
+.navigation-binding-card { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(148,163,184,.2); }
+.binding-node-list { max-height: 180px; overflow: auto; margin: 8px 0; display: grid; gap: 4px; }
+.binding-node-option { padding: 4px 0; }

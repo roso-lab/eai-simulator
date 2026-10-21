@@ -4,6 +4,7 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass, field, replace
 import math
+import inspect
 from threading import RLock
 from typing import Any, Callable, Mapping
 from uuid import uuid4
@@ -12,6 +13,7 @@ from algorithm.skills.contracts import SkillContractError, SkillPlan, SkillReque
 from algorithm.skills.navigation import (
     NavigationFeedback, NavigationObservation, NavigationProfile, NavigationProvider,
     NavigationResponse, NavigationTarget, normalize_navigation_request,
+    semantic_binding_digest,
 )
 from algorithm.skills.navigation.topology import (
     FrozenNavigationTopology, route_graph_digest, topology_fields, validate_topology,
@@ -65,7 +67,8 @@ class NavigationExecutor:
                  snapshot_validator: Callable[[int, bool], Any] | None = None,
                  source_reader: Callable[[], Any] | None = None,
                  timeout_s: float | None = None, stop_timeout_s: float = 5.0,
-                 max_stop_ticks: int = 240):
+                 max_stop_ticks: int = 240,
+                 semantic_points: Any | None = None):
         if topology is None:
             raise SkillContractError("navigation topology is required")
         for name, callback in (("advance", advance), ("simulation_time", simulation_time),
@@ -79,6 +82,13 @@ class NavigationExecutor:
         if type(max_stop_ticks) is not int or max_stop_ticks <= 0:
             raise SkillContractError("max_stop_ticks must be a positive integer")
         self.topology = topology
+        if semantic_points is not None and not callable(semantic_points) and hasattr(semantic_points, "semantic_points"):
+            project = semantic_points
+            semantic_points = lambda: getattr(project, "semantic_points")
+        if semantic_points is not None and not callable(semantic_points):
+            if not isinstance(semantic_points, (list, tuple)):
+                raise SkillContractError("semantic_points must be a sequence or reader")
+        self._semantic_points = semantic_points if semantic_points is not None else []
         self._advance, self._time = advance, simulation_time
         self._resources = resources if resources is not None else ResourceManager()
         self._snapshot_validator, self._source_reader = snapshot_validator, source_reader
@@ -128,6 +138,29 @@ class NavigationExecutor:
         if value is None:
             raise SkillContractError("robot has no bound navigation topology")
         return value if isinstance(value, FrozenNavigationTopology) else deepcopy(topology_fields(value))
+
+    def semantic_points_for(self, robot_id: str) -> list[Mapping[str, Any]]:
+        if callable(self._semantic_points):
+            reader = self._semantic_points
+            try:
+                signature = inspect.signature(reader)
+            except (TypeError, ValueError):
+                value = reader(robot_id)
+            else:
+                try:
+                    signature.bind(robot_id)
+                except TypeError:
+                    signature.bind()
+                    value = reader()
+                else:
+                    value = reader(robot_id)
+        else:
+            value = self._semantic_points
+        if value is None:
+            return []
+        if not isinstance(value, (list, tuple)):
+            raise SkillContractError("semantic_points reader must return a sequence")
+        return deepcopy(list(value))
 
     @staticmethod
     def _document(topology: Any) -> Mapping[str, Any]:
@@ -180,7 +213,10 @@ class NavigationExecutor:
         """Pure planning: no lease, command write or simulator advance."""
         request = normalize_navigation_request(value)
         adapter, topology, observation = self._admit(request)
-        return NavigationProvider(topology, profile=adapter.profile).plan(request, observation=observation)
+        return NavigationProvider(
+            topology, profile=adapter.profile,
+            semantic_points=self.semantic_points_for(request.robot_id),
+        ).plan(request, observation=observation)
 
     def dispatch(self, value: SkillRequest | Mapping[str, Any]) -> NavigationResponse:
         request = normalize_navigation_request(value)
@@ -192,7 +228,10 @@ class NavigationExecutor:
             # All fallible clock/source validation precedes lease acquisition.
             lease = self._resources.acquire(self._owner + ":" + key, ("robot:" + request.robot_id,))
             try:
-                provider = NavigationProvider(topology, profile=adapter.profile)
+                provider = NavigationProvider(
+                    topology, profile=adapter.profile,
+                    semantic_points=self.semantic_points_for(request.robot_id),
+                )
                 response = provider.dispatch(request, observation=observation)
                 adapter.hold(observation)
             except Exception:
@@ -234,6 +273,8 @@ class NavigationExecutor:
         current = self.topology_for(task.request.robot_id)
         if route_graph_digest(self._document(current)) != route_graph_digest(self._document(task.topology)):
             raise SkillContractError("navigation route graph identity changed")
+        if semantic_binding_digest(self.semantic_points_for(task.request.robot_id)) != task.provider.semantic_binding_digest:
+            raise SkillContractError("semantic bindings changed; recreate or refresh navigation task")
 
     @staticmethod
     def _target(response: NavigationResponse) -> NavigationTarget:
@@ -274,7 +315,10 @@ class NavigationExecutor:
             if task.deadline is not None and motion and observation.simulation_time_s >= task.deadline:
                 task.response = task.provider.fail(key, "navigation timeout", reason_code="timeout")
             else:
-                task.response = task.provider.control(request, observation=observation)
+                task.response = task.provider.control(
+                    request, observation=observation,
+                    semantic_points=self.semantic_points_for(request.robot_id),
+                )
             task.last_time, task.world_state_seq = observation.simulation_time_s, observation.world_state_seq
             if task.response.state["status"] != "pending":
                 self._begin_stop(task, observation.simulation_time_s)
@@ -346,7 +390,10 @@ class NavigationExecutor:
                 if task.deadline is not None and observation.simulation_time_s >= task.deadline:
                     task.response = task.provider.fail(key, "navigation timeout", reason_code="timeout")
                 else:
-                    task.response = task.provider.control(continuation, observation=observation)
+                    task.response = task.provider.control(
+                        continuation, observation=observation,
+                        semantic_points=self.semantic_points_for(request.robot_id),
+                    )
                 if task.response.state["status"] != "pending":
                     self._begin_stop(task, observation.simulation_time_s)
             self._feedback(task, feedback)
