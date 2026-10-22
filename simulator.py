@@ -294,7 +294,7 @@ def _selection_requires_omnigraph(selection_data: dict[str, Any] | None) -> bool
     if not selection_data:
         return False
     graph_attachments = {
-        "orsus", "realsense_d455", "lidar", "camera", "ur5", "ur5_bare", "z1",
+        "orsus", "realsense_d455", "lidar", "camera", "ur5", "ur5_bare", "z1", "d1",
         "navigation_io",
     }
     aerial_types = {"cf2x", "iris", "pegasus"}
@@ -374,6 +374,7 @@ def _validate_payload_mount_compatibility(
     display_names = {
         "ur5": "UR5",
         "z1": "Z1",
+        "d1": "D1",
         "orsus": "Orsus",
         "lidar": "LiDAR",
     }
@@ -1563,18 +1564,19 @@ def manipulator_attachment_robot_models(
             }
             enabled.update((agent_name, model) for model in ("ur5", "ur5_bare") if model in attachment_types)
             enabled.update((agent_name, "z1") for model in ("z1",) if model in attachment_types)
+            enabled.update((agent_name, "d1") for model in ("d1",) if model in attachment_types)
 
     controllers = getattr(env_cfg, "controllers", {}) if env_cfg is not None else {}
     for agent_name, entry in controllers.items():
         configs = entry if isinstance(entry, (tuple, list)) else (entry,)
         identities = tuple(f"{type(config).__module__}.{type(config).__name__}".lower() for config in configs)
-        for model in ("ur5", "ur5_bare", "z1"):
+        for model in ("ur5", "ur5_bare", "z1", "d1"):
             if any(model in identity for identity in identities):
                 enabled.add((agent_name, model))
     return tuple(
         (agent_name, model)
         for agent_name in possible_agents
-        for model in ("ur5", "ur5_bare", "z1")
+        for model in ("ur5", "ur5_bare", "z1", "d1")
         if (agent_name, model) in enabled
     )
 
@@ -1602,11 +1604,13 @@ def _setup_manipulator_graph_manager(
 
     ur5_module = importlib.import_module("EAI.hmrs_ros.ur5_omnigraph")
     from EAI.hmrs_ros.z1_omnigraph import Z1_MODEL_SPEC
+    from EAI.hmrs_ros.d1_omnigraph import D1_MODEL_SPEC
 
     model_specs = {
         "ur5": ur5_module.UR5_MODEL_SPEC,
         "ur5_bare": getattr(ur5_module, "UR5_BARE_MODEL_SPEC", ur5_module.UR5_MODEL_SPEC),
         "z1": Z1_MODEL_SPEC,
+        "d1": D1_MODEL_SPEC,
     }
     manager = get_manipulator_graph_manager(base_env)
     created_manager = manager is None

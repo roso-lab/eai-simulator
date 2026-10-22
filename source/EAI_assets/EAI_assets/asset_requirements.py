@@ -168,6 +168,7 @@ _PAYLOAD_PATHS = {
     ),
     "ur5_bare": ("payloads/manipulators/ur5/ur5-noroot.usd",),
     "z1": ("payloads/manipulators/z1/z1_description.usda",),
+    "d1": ("payloads/manipulators/d1/d1.usd",),
     "orsus": (
         "payloads/sensors/orsus/Orsus_fix_type.usd",
         "payloads/sensors/orsus/orsus_mid360_rtx.usda",
@@ -253,6 +254,12 @@ _CONTROLLER_PATHS = {
         "traditional/manipulator_ik/manipulator_ik.py",
         "traditional/z1_ik/__init__.py",
         "traditional/z1_ik/z1_ik.py",
+    ),
+    "D1_IK_CFG": (
+        "traditional/manipulator_ik/__init__.py",
+        "traditional/manipulator_ik/manipulator_ik.py",
+        "traditional/d1_ik/__init__.py",
+        "traditional/d1_ik/d1_ik.py",
     ),
     # ── RSL (ONNX) controllers ───────────────────────────────────────────
     "GO2_VELOCITY_RSL_CFG": (

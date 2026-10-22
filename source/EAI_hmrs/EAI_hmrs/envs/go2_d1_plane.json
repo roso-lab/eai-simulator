@@ -1,0 +1,27 @@
+{
+  "robots": [
+    {
+      "attachments": [
+        {
+          "controller": {
+            "cfg": "D1_IK_CFG",
+            "mode": "default"
+          },
+          "type": "d1"
+        }
+      ],
+      "controller": {
+        "cfg": "GO2_MIXED_STAIRS_CFG",
+        "mode": "default"
+      },
+      "type": "go2",
+      "visual": {
+        "x": 0.0,
+        "y": 0.0
+      }
+    }
+  ],
+  "scene_key": "plane",
+  "task_name": "go2_d1_plane",
+  "version": 1
+}

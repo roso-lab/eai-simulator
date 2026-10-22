@@ -99,10 +99,22 @@ PAYLOAD_MOUNT_CONFLICTS = (
     ("carter", "ur5", "octagon_aio_c01"),
     ("go2", "ur5", "orsus"),
     ("go2", "z1", "orsus"),
+    ("go2", "d1", "z1"),
+    ("go2", "d1", "ur5"),
+    ("carter", "d1", "z1"),
+    ("carter", "d1", "ur5"),
+    ("b2", "d1", "z1"),
+    ("b2", "d1", "ur5"),
+    ("m20", "d1", "z1"),
+    ("m20", "d1", "ur5"),
+    ("scout", "d1", "z1"),
+    ("scout", "d1", "ur5"),
+    ("lite3", "d1", "z1"),
+    ("lite3", "d1", "ur5"),
 )
 
 # Attachment types that occupy the single manipulator slot of a host robot.
-MANIPULATOR_TYPES = ("ur5", "ur5_bare", "z1")
+MANIPULATOR_TYPES = ("ur5", "ur5_bare", "z1", "d1")
 
 # Results from the unscaled UR5 + Robotiq 2F-85 stationary mount matrix.
 # ``conditional`` means the evidence is limited to the stationary fixture.
@@ -164,6 +176,7 @@ _CONTROLLER_CFG_NAMES = (
     "LITE3_VELOCITY_RSL_CFG",
     "UR5_IK_CFG",
     "Z1_IK_CFG",
+    "D1_IK_CFG",
 )
 
 _CONTROLLER_CFG_ROBOTS = {
@@ -276,7 +289,13 @@ def _attachment_entries() -> tuple[AttachmentCatalogEntry, ...]:
     # HeteroCoord treats UR5 + Robotiq 2F-85 as a standalone robot. Mounted
     # UR5 variants are excluded from every host robot's formal attachment pool.
     ur5_hosts: tuple[str, ...] = ()
-    z1_hosts = ("carter", "go2", "b2", "m20", "scout", "lite3")
+    # 2026-10-22 装配政策：go2 与 lite3 仅可装 D1（不再放行 Z1；lite3 的 Z1
+    # 物理筛查结论保留在 Z1_DEPLOYMENT_STATUS 作为历史证据）；其余原 Z1 宿主
+    # 在保留 Z1 资格的同时放开 D1（单机械臂槽互斥）。
+    z1_hosts = ("carter", "b2", "m20", "scout")
+    # D1 目前仅 go2 有已验证的挂载外参；carter/b2/m20/scout 复用各自 Z1 挂点，
+    # lite3 按 TORSO 背部高度取值，其余宿主待物理筛选后再放开。
+    d1_hosts = ("carter", "go2", "b2", "m20", "scout", "lite3")
     # RealSense D455 与 Orsus 一样是可解耦装载的传感器载荷；
     # pepper 头顶装载作为首轮验证宿主，其余沿用 Orsus 兼容宿主集合。
     realsense_d455_hosts = ("pepper", "mushr_v2", "g1") + orsus_hosts
@@ -341,6 +360,13 @@ def _attachment_entries() -> tuple[AttachmentCatalogEntry, ...]:
             asset_cfg="MountedZ1ArmCfg",
             controller_cfg="Z1_IK_CFG",
             supported_robots=z1_hosts,
+            category="manipulator",
+        ),
+        AttachmentCatalogEntry(
+            name="d1",
+            asset_cfg="MountedD1ArmCfg",
+            controller_cfg="D1_IK_CFG",
+            supported_robots=d1_hosts,
             category="manipulator",
         ),
     )
@@ -473,6 +499,7 @@ def validate_attachment_types(robot_type: str, attachment_types: list[str] | tup
             display_names = {
                 "ur5": "UR5",
                 "z1": "Z1",
+                "d1": "D1",
                 "orsus": "Orsus",
                 "lidar": "LiDAR",
                 "octagon_aio_c01": "OCTAGON-AIO-C01",

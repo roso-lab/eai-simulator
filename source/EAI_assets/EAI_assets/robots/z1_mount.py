@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from contextlib import nullcontext
 from dataclasses import dataclass
 from functools import partial
 
@@ -9,13 +8,7 @@ from isaaclab.assets import ArticulationCfg
 from isaaclab.utils import configclass
 
 from EAI_assets.asset_resolver import asset_path
-from EAI_assets.robots.manipulator_mount import (
-    create_excluded_fixed_joint,
-    deactivate_root_joint,
-    find_articulation_root,
-    find_first_valid_child,
-    scale_articulation_mass,
-)
+from EAI_assets.robots.manipulator_mount import spawn_mounted_arm_instance
 from EAI_assets.robots.z1 import (
     Z1_ARM_ACTUATOR,
     Z1_DEFAULT_JOINT_POS,
@@ -61,75 +54,21 @@ def _set_z1_force_drives(stage, arm_path: str) -> None:
 
 
 def _spawn_mounted_z1_instance(stage, *, host_path: str, arm_path: str, cfg: sim_utils.UsdFileCfg, profile: Z1MountProfile) -> str:
-    from pxr import Gf, UsdGeom, UsdPhysics
-    base_cfg = sim_utils.UsdFileCfg(
-        usd_path=cfg.usd_path,
-        articulation_props=sim_utils.ArticulationRootPropertiesCfg(
-            enabled_self_collisions=profile.enable_self_collisions,
-            fix_root_link=False,
-            solver_position_iteration_count=64,
-            solver_velocity_iteration_count=4,
-        ),
-        activate_contact_sensors=False,
+    return spawn_mounted_arm_instance(
+        stage,
+        host_path=host_path,
+        arm_path=arm_path,
+        cfg=cfg,
+        mount_body_path=profile.mount_body_path,
+        mount_position=profile.mount_position,
+        mount_rotation=profile.mount_rotation,
+        mass_scale=profile.mass_scale,
+        enable_self_collisions=profile.enable_self_collisions,
+        root_joint_names=("root_joint", "joints/base_static_joint"),
+        base_link_names=("link00", "base_link", "base"),
+        set_force_drives=_set_z1_force_drives,
+        label="Z1",
     )
-    mount_rotation = Gf.Quatd(profile.mount_rotation[0], Gf.Vec3d(*profile.mount_rotation[1:]))
-    host_body_path = f"{host_path}/{profile.mount_body_path}"
-    host_body = stage.GetPrimAtPath(host_body_path)
-    if not host_body.IsValid():
-        raise RuntimeError(f"{host_path}: mount body does not exist: {host_body_path}")
-    joint_path = None
-    try:
-        host_world = UsdGeom.Xformable(host_body).ComputeLocalToWorldTransform(0)
-        anchor_world = host_world.Transform(Gf.Vec3d(*profile.mount_position))
-        arm_rotation = host_world.ExtractRotationQuat() * mount_rotation
-        stage_scope = (
-            sim_utils.use_stage(stage)
-            if callable(getattr(sim_utils, "use_stage", None))
-            else nullcontext()
-        )
-        with stage_scope:
-            sim_utils.spawn_from_usd(
-                arm_path,
-                base_cfg,
-                translation=tuple(anchor_world),
-                orientation=(arm_rotation.GetReal(), *arm_rotation.GetImaginary()),
-            )
-        deactivate_root_joint(
-            stage,
-            arm_path,
-            joint_names=("root_joint", "joints/base_static_joint"),
-        )
-        world_prim = stage.GetPrimAtPath(f"{arm_path}/world")
-        if world_prim.IsValid():
-            stage.GetPrimAtPath(f"{arm_path}/world").SetActive(False)
-        _set_z1_force_drives(stage, arm_path)
-        scale_articulation_mass(stage, arm_path, profile.mass_scale)
-        z1_base_path = find_first_valid_child(stage, arm_path, ("link00", "base_link", "base"))
-        if z1_base_path is None:
-            raise RuntimeError(f"{host_path}: Z1 base link does not exist under {arm_path}")
-        UsdPhysics.ArticulationRootAPI.Apply(stage.GetPrimAtPath(z1_base_path))
-        sim_utils.modify_articulation_root_properties(
-            z1_base_path, base_cfg.articulation_props, stage=stage
-        )
-        host_root = find_articulation_root(stage, host_body_path)
-        if host_root is None:
-            raise RuntimeError(f"{host_path}: host articulation root not found")
-        joint_path = f"{host_root}/arm_fixed_joint_{host_path.rsplit('/', 1)[-1]}"
-        create_excluded_fixed_joint(
-            stage,
-            joint_path,
-            host_body_path=host_body_path,
-            arm_body_path=z1_base_path,
-            mount_position=profile.mount_position,
-            mount_rotation=profile.mount_rotation,
-        )
-        return z1_base_path
-    except Exception:
-        if joint_path and stage.GetPrimAtPath(joint_path).IsValid():
-            stage.RemovePrim(joint_path)
-        if stage.GetPrimAtPath(arm_path).IsValid():
-            stage.RemovePrim(arm_path)
-        raise
 
 
 def spawn_mounted_z1_single_host(

@@ -709,7 +709,7 @@ def interactive_selection_from_dict(data: dict[str, Any]) -> InteractiveSelectio
             if attachment_type in catalog.MANIPULATOR_TYPES:
                 attachment_controller = _controller_from_dict(
                     attachment.get("controller"),
-                    default_cfg="UR5_IK_CFG" if attachment_type in {"ur5", "ur5_bare"} else "Z1_IK_CFG",
+                    default_cfg="UR5_IK_CFG" if attachment_type in {"ur5", "ur5_bare"} else "Z1_IK_CFG" if attachment_type == "z1" else "D1_IK_CFG",
                 )
             attachments.append(AttachmentSelection(attachment_type, attachment_controller))
         robots.append(

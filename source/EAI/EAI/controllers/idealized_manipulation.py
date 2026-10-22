@@ -46,6 +46,37 @@ DEFAULT_UR5_GRIPPER_CLOSED_POSITION_RAD = 0.8
 DEFAULT_Z1_GRIPPER_OPEN_POSITION_RAD = -0.8
 DEFAULT_Z1_GRIPPER_CLOSED_POSITION_RAD = 0.0
 DEFAULT_Z1_GRIPPER_COLLISION_BODY_NAMES = ("gripperStator", "gripperMover")
+# D1's gripper is a mirrored prismatic finger pair (Joint7_1 in [0, 0.03] m,
+# Joint7_2 in [-0.03, 0] m), so the single radian-valued gripper fields on
+# PlanarIkSpec cannot describe both finger targets.  The D1 branch therefore
+# drives the fingers with the closure mapping in
+# ``EAI.hmrs_ros.d1_omnigraph.d1_gripper_targets`` (0.0 open, 1.0 closed).
+DEFAULT_D1_GRIPPER_OPEN_CLOSURE = 0.0
+DEFAULT_D1_GRIPPER_CLOSED_CLOSURE = 1.0
+DEFAULT_D1_GRIPPER_STROKE_M = 0.03
+DEFAULT_D1_GRIPPER_POSITION_TOLERANCE_M = 0.005
+# Finger-centre TCP on Link6 (asset-measured): pads span local z 0.064..0.126 m
+# around a ~0.077 m opening and the wrist housing ends at local z 0.077 m, so
+# 0.105 m keeps a 5 cm cube clear of the housing while both pads straddle it.
+DEFAULT_D1_TCP_OFFSET_M = 0.105
+DEFAULT_D1_MAX_OPENING_M = 0.077
+
+
+def _d1_gripper_targets(closure01: float) -> tuple[float, float]:
+    """Per-finger stroke targets for D1's mirrored prismatic fingers.
+
+    Delegates to ``EAI.hmrs_ros.d1_omnigraph.d1_gripper_targets`` (0.0 open,
+    1.0 closed).  The import stays lazy because this module also loads inside
+    lightweight non-Isaac test harnesses; the mirrored fallback below keeps the
+    documented mapping when the ROS package is unavailable.
+    """
+    try:
+        from EAI.hmrs_ros.d1_omnigraph import d1_gripper_targets
+    except ImportError:
+        closure = float(closure01)
+        stroke = DEFAULT_D1_GRIPPER_STROKE_M * (1.0 - closure)
+        return (stroke, -stroke)
+    return d1_gripper_targets(closure01)
 
 
 @dataclass(frozen=True)
@@ -151,6 +182,20 @@ def planar_ik_spec_for_model(model_spec: Any) -> PlanarIkSpec:
             gripper_open_position_rad=DEFAULT_Z1_GRIPPER_OPEN_POSITION_RAD,
             gripper_closed_position_rad=DEFAULT_Z1_GRIPPER_CLOSED_POSITION_RAD,
             gripper_collision_body_names=DEFAULT_Z1_GRIPPER_COLLISION_BODY_NAMES,
+        )
+    if model == "d1":
+        # D1 mirrors the Z1 chain layout: Joint1 is the base yaw, Joint6 is
+        # the wrist roll, and Joint2..Joint5 carry the planar pitch geometry
+        # (0.27 m upper arm, 0.14 m forearm).  The gripper fields stay unset
+        # because D1's mirrored meter-valued fingers need the closure mapping
+        # documented next to DEFAULT_D1_GRIPPER_OPEN_CLOSURE.
+        return PlanarIkSpec(
+            model=model,
+            yaw_joint_name="Joint1",
+            ik_joint_names=("Joint2", "Joint3", "Joint4", "Joint5"),
+            fixed_joint_names=("Joint6",),
+            plane_offset_m=0.0,
+            tool_orientation_plane_wxyz=(math.sqrt(0.5), 0.0, math.sqrt(0.5), 0.0),
         )
     names = tuple(str(name) for name in getattr(model_spec, "joint_names", ()))
     return PlanarIkSpec(model=model or "generic", yaw_joint_name=None, ik_joint_names=names)
@@ -1905,13 +1950,23 @@ class IdealizedManipulationRuntime:
     @staticmethod
     def _gripper_target(binding: _ManipulatorBinding, state: RobotManipulationState) -> float | None:
         model = str(getattr(binding.model_spec, "model", "")).strip().lower()
-        if model not in {"ur5", "z1"}:
+        if model not in {"ur5", "z1", "d1"}:
             return None
-        if not getattr(binding.model_spec, "gripper_joint_name", None):
+        if model == "d1":
+            if not getattr(binding.model_spec, "gripper_joint_names", None):
+                return None
+        elif not getattr(binding.model_spec, "gripper_joint_name", None):
             return None
         spec = binding.planar_spec
-        open_position = spec.gripper_open_position_rad
-        closed_position = spec.gripper_closed_position_rad
+        if model == "d1":
+            # The single radian-valued fields cannot describe D1's mirrored
+            # meter-valued fingers, so open/closed carry the closure
+            # coefficient (0.0 open, 1.0 closed) on this branch.
+            open_position = DEFAULT_D1_GRIPPER_OPEN_CLOSURE
+            closed_position = DEFAULT_D1_GRIPPER_CLOSED_CLOSURE
+        else:
+            open_position = spec.gripper_open_position_rad
+            closed_position = spec.gripper_closed_position_rad
         if state.grasp_tool is not None:
             open_position = state.grasp_tool.open_position_rad
             closed_position = state.grasp_tool.closed_position_rad
@@ -1946,6 +2001,25 @@ class IdealizedManipulationRuntime:
         target = self._gripper_target(binding, state)
         if target is None:
             return True
+        if str(getattr(binding.model_spec, "model", "")).strip().lower() == "d1":
+            names = tuple(getattr(binding.model_spec, "gripper_joint_names", ()) or ())
+            if not names:
+                return False
+            try:
+                gripper_ids, _ = binding.arm.find_joints(list(names), preserve_order=True)
+                if len(gripper_ids) != len(names):
+                    return False
+                measured = getattr(getattr(binding.arm, "data", None), "joint_pos", None)
+                if measured is None:
+                    return True
+                wanted = _d1_gripper_targets(target)
+                return all(
+                    abs(float(measured[0, int(gripper_id)]) - goal)
+                    <= DEFAULT_D1_GRIPPER_POSITION_TOLERANCE_M
+                    for gripper_id, goal in zip(gripper_ids, wanted)
+                )
+            except (AttributeError, IndexError, TypeError, ValueError):
+                return False
         gripper_name = getattr(binding.model_spec, "gripper_joint_name", None)
         if not gripper_name:
             return False
@@ -1965,6 +2039,9 @@ class IdealizedManipulationRuntime:
 
     def _hold_gripper(self, binding: _ManipulatorBinding, state: RobotManipulationState) -> None:
         gripper_position = self._gripper_target(binding, state)
+        if str(getattr(binding.model_spec, "model", "")).strip().lower() == "d1":
+            self._hold_d1_gripper(binding, state, gripper_position)
+            return
         if gripper_position is not None:
             # Use the same stage-driven open/close sequence as Z1, with a
             # physics-rate target ramp so Robotiq's fingers visibly animate.
@@ -1988,6 +2065,47 @@ class IdealizedManipulationRuntime:
             binding.arm, binding.model_spec, position_rad=gripper_position,
         ):
             raise RuntimeError("configured gripper joint is unavailable")
+
+    def _hold_d1_gripper(self, binding: _ManipulatorBinding, state: RobotManipulationState, closure_target: float | None) -> None:
+        """Animate D1's mirrored prismatic fingers by closure coefficient.
+
+        ``gripper_command_rad`` carries the 0..1 closure (not radians) on this
+        branch; the ramp therefore seeds from the measured stroke of the first
+        finger instead of the meter-valued joint itself.  The measured arrival
+        gate in :meth:`_gripper_at_target` still checks final finger strokes.
+        """
+        names = tuple(getattr(binding.model_spec, "gripper_joint_names", ()) or ())
+        if not names:
+            raise RuntimeError("configured gripper joint is unavailable")
+        gripper_ids, _ = binding.arm.find_joints(list(names), preserve_order=True)
+        if not gripper_ids or len(gripper_ids) != len(names):
+            raise RuntimeError("configured gripper joint is unavailable")
+        measured = getattr(getattr(binding.arm, "data", None), "joint_pos", None)
+        if closure_target is None:
+            if not hold_gripper_position(binding.arm, binding.model_spec):
+                raise RuntimeError("configured gripper joint is unavailable")
+            return
+        if state.gripper_goal_rad != closure_target or state.gripper_command_rad is None:
+            current = float(closure_target)
+            if measured is not None:
+                stroke = float(measured[0, int(gripper_ids[0])])
+                current = min(1.0, max(0.0, 1.0 - stroke / DEFAULT_D1_GRIPPER_STROKE_M))
+            state.gripper_command_rad = current
+            state.gripper_goal_rad = closure_target
+        scale = 1.0 if state.cartesian is None else state.cartesian.motion_speed_scale
+        step = (DEFAULT_GRIPPER_ANIMATION_SPEED_RAD_S * scale
+                * self._physics_step_duration_s())
+        state.gripper_command_rad += max(-step, min(step, closure_target - state.gripper_command_rad))
+        stroke, mirrored = _d1_gripper_targets(state.gripper_command_rad)
+        if measured is None:
+            binding.arm.set_joint_position_target((stroke, mirrored), joint_ids=list(gripper_ids))
+            return
+        import torch
+
+        wanted = torch.tensor([[stroke, mirrored]], device=measured.device, dtype=measured.dtype)
+        limits = binding.arm.data.soft_joint_pos_limits[:, list(gripper_ids)]
+        wanted = torch.maximum(torch.minimum(wanted, limits[..., 1]), limits[..., 0])
+        binding.arm.set_joint_position_target(wanted, joint_ids=list(gripper_ids))
 
     def _create_follow_attachment(
         self,
@@ -2155,6 +2273,28 @@ class IdealizedManipulationRuntime:
         binding = self._binding(robot_name, disable_collisions=False)
         model = binding.model_spec.model
         joint = getattr(binding.model_spec, 'gripper_joint_name', None)
+        if model == 'd1':
+            from pxr import UsdGeom
+            stage = self._stage()
+            prim = stage.GetPrimAtPath(object_path)
+            cache = UsdGeom.BBoxCache(0, ['default', 'render', 'proxy'])
+            bounds = cache.ComputeUntransformedBound(prim).ComputeAlignedRange()
+            if bounds.IsEmpty():
+                raise ValueError('cannot determine object dimensions for gripper opening')
+            matrix = UsdGeom.XformCache().GetLocalToWorldTransform(prim)
+            points = [_quat_rotate(_quat_conjugate(tcp_orientation_wxyz),
+                      tuple(matrix.Transform(bounds.GetCorner(i)))) for i in range(8)]
+            extents = [max(p[i] for p in points) - min(p[i] for p in points) for i in range(3)]
+            # At contact the tool axis opposes the approach, so the opening is
+            # the object's TCP-frame Y extent and the depth its Z extent.
+            width, depth = extents[1], extents[2]
+            if not 0.005 <= width <= DEFAULT_D1_MAX_OPENING_M:
+                raise ValueError('object dimensions exceed the D1 gripper opening')
+            return GraspToolFrame(
+                (0.0, 0.0, DEFAULT_D1_TCP_OFFSET_M), (0., 1., 0., 0.),
+                DEFAULT_D1_GRIPPER_OPEN_CLOSURE, DEFAULT_D1_GRIPPER_CLOSED_CLOSURE,
+                width, depth,
+            )
         if (model, joint) not in (('ur5', 'finger_joint'), ('z1', 'jointGripper')):
             return GraspToolFrame()
         from pxr import UsdGeom

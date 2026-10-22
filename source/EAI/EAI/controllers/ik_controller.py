@@ -921,9 +921,39 @@ def apply_planar_end_effector_pose(
 def hold_gripper_position(
     arm: Any, model_spec: Any, *, position_rad: float | None = None,
 ) -> bool:
-    """Hold an optional gripper at its measured or explicitly requested angle."""
+    """Hold an optional gripper at its measured or explicitly requested angle.
+
+    Specs exposing ``gripper_joint_names`` (for example a mirrored two-finger
+    gripper) hold every finger at its own measured value, so opposite stroke
+    signs stay correct.  An explicit ``position_rad`` still applies to such
+    specs, but as one shared target clamped per finger against each finger's
+    own limits.
+    """
 
     import torch
+
+    gripper_names = tuple(getattr(model_spec, "gripper_joint_names", None) or ())
+    if gripper_names:
+        gripper_ids, _ = arm.find_joints(list(gripper_names), preserve_order=True)
+        try:
+            gripper_ids = [int(value) for value in gripper_ids]
+        except (TypeError, ValueError):
+            return False
+        if not gripper_ids or len(gripper_ids) != len(gripper_names):
+            return False
+        current = arm.data.joint_pos[:, gripper_ids]
+        if position_rad is not None:
+            try:
+                position = float(position_rad)
+            except (TypeError, ValueError):
+                return False
+            if not math.isfinite(position):
+                return False
+            current = torch.full_like(current, position)
+        limits = arm.data.soft_joint_pos_limits[:, gripper_ids]
+        current = torch.maximum(torch.minimum(current, limits[..., 1]), limits[..., 0])
+        arm.set_joint_position_target(current, joint_ids=gripper_ids)
+        return True
 
     gripper_name = getattr(model_spec, "gripper_joint_name", None)
     if not gripper_name:

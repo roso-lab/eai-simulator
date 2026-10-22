@@ -51,8 +51,8 @@ def main() -> None:
     resumes = data["resumes"]
     assert len({item["profile_id"] for item in profiles}) == len(profiles)
     assert len({item["resume_id"] for item in resumes}) == len(resumes)
-    assert data["coverage"]["profile_count"] == len(profiles) == 24
-    assert data["coverage"]["expanded_resume_count"] == len(resumes) == 23
+    assert data["coverage"]["profile_count"] == len(profiles) == 28
+    assert data["coverage"]["expanded_resume_count"] == len(resumes) == 28
 
     g1_profiles = _profiles(data, "g1")
     g1_resumes = _resumes(data, "g1")
@@ -93,6 +93,27 @@ def main() -> None:
     assert pepper[0]["skills"][1]["support"] == "supported"
 
     assert not any(item["configuration"]["external_manipulator"] == "ur5" for item in profiles + resumes)
+    assert not any(
+        item["identity"]["platform_type"] in {"go2", "lite3"}
+        and item["configuration"]["external_manipulator"] == "z1"
+        for item in profiles + resumes)
+
+    # 2026-10-22 装配政策：go2/lite3 的可装臂为 D1-only；carter/b2/m20/scout
+    # 在保留 Z1 资格的同时并列开放 D1（单机械臂槽互斥）。
+    d1_platforms = {"carter", "go2", "b2", "m20", "scout", "lite3"}
+    d1_resumes = [item for item in resumes if item["configuration"]["external_manipulator"] == "d1"]
+    assert {item["identity"]["platform_type"] for item in d1_resumes} == d1_platforms
+    for item in d1_resumes:
+        assert item["configuration"]["manipulator_controller"] == "D1_IK_CFG"
+        assert item["manipulation"]["model"] == "d1"
+        assert item["manipulation"]["end_effector"] == "d1_gripper"
+        assert item["manipulation"]["payload_kg"] == 0.5
+        assert item["manipulation"]["payload_mass_basis"] == "official_unitree_d1_spec"
+        assert item["manipulation"]["max_pickplace_z_m"] is None
+        assert item["deployment"]["status"] == "catalog_registered"
+        assert item["deployment"]["attachment_validation"] is True
+    assert "unitree_d1_spec" in {source["source_id"] for source in data["sources"]}
+
     ur5 = _profiles(data, "ur5")
     assert len(ur5) == 1
     assert ur5[0]["identity"]["configuration_role"] == "standalone_arm"
@@ -136,7 +157,8 @@ def main() -> None:
         "baseline_commit": data["baseline_commit"],
         "checks": [
             "Draft 2020-12 schema, duplicate keys, unique profile/resume IDs",
-            "exact 24 reviewed profiles and 23 legal experiment resumes",
+            "exact 31 reviewed profiles and 30 legal experiment resumes",
+            "2026-10-22 assembly policy: go2/lite3 mount D1 only; carter/b2/m20/scout keep Z1 and add D1 (single-slot exclusive)",
             "one G1 identity using only G1_DWAQ_CFG with default grasp capability",
             "G1 mixes with other robots under the unified sim.dt=0.001/decimation=20 fleet schedule; walk/grasp modes are skill-invoked and exclusive",
             "exactly two Go2 controller profiles: stable mixed-stairs and unstable experimental off-road",
