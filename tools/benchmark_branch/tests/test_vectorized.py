@@ -258,6 +258,15 @@ def test_shared_native_failure_retains_completed_methods_and_blocks_reuse(tmp_pa
     assert len(store.read_ledger("episodes")) == 4
     assert store.read_ledger("episodes")[0]["status"] == "method_timeout"
     assert scheduler.snapshot().active_scenes == 0
+    queued = [row for row in store.read_ledger("resources")
+              if row.get("kind") == "vector_branch_queued"]
+    assert len(queued) == 4
+    assert all(row["execution_phase"] == "queued" and row["binding_present"] is False
+               for row in queued)
+    assert sum(row.get("execution_phase") == "in_flight"
+               for row in store.read_ledger("episodes")) == 3
+    assert sum(row.get("status") == "method_timeout"
+               for row in store.read_ledger("episodes")) == 1
 
 
 def test_serial_backend_cannot_silently_ignore_shared_mode(tmp_path):
@@ -304,6 +313,30 @@ def test_partial_slot_open_retains_lease_until_confirmed_scene_close(tmp_path, s
                      if row.get("kind") == "shared_session_shutdown"]
     assert len(shutdown_rows) == 1
     assert shutdown_rows[0]["shutdown_status"] == "unknown-record"
+
+
+def test_second_slot_bind_failure_distinguishes_admitted_from_queued(tmp_path):
+    class SecondBindFails(NumpyVectorBackend):
+        def open_slot(self, session, binding, *args, **kwargs):
+            value = super().open_slot(session, binding, *args, **kwargs)
+            if binding.environment_slot == 1:
+                raise RuntimeError("second admitted slot failed during bind")
+            return value
+
+    result, store, _, scheduler = execute(tmp_path, backend=SecondBindFails())
+    episodes = store.read_ledger("episodes")
+    queued = [row for row in store.read_ledger("resources")
+              if row.get("kind") == "vector_branch_queued"]
+    assert len(episodes) == 2
+    assert len(queued) == 6
+    assert {row["branch_id"] for row in episodes}.isdisjoint(
+        {row["branch_id"] for row in queued}
+    )
+    assert all(row["execution_phase"] == "in_flight" for row in episodes)
+    assert all(row["binding_present"] is True for row in episodes)
+    assert all(row["execution_phase"] == "queued" for row in queued)
+    assert result["queued"] == 6
+    assert scheduler.snapshot().active_scenes == 0
 
 
 def test_partial_scene_open_retains_scene_capacity(tmp_path):

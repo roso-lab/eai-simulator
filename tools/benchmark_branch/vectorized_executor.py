@@ -14,9 +14,8 @@ from .vectorized import IsolationError, PARTICIPANTS, SCHEMA, VectorizedSession
 from .shutdown_watchdog import (
     FORMAL_QUALIFICATION_GATES,
     SHARED_EXECUTION_MODEL,
+    SharedSessionShutdownCollector,
     _issue_collector_observation,
-    _DeferredCollectorObservationCapability,
-    shutdown_with_watchdog,
     validate_shared_session_receipt,
 )
 
@@ -74,20 +73,21 @@ def _finalize_shared_shutdown(
     *, store, backend, session, session_id, candidates, scene_closed,
     shutdown_fn, cleanup_state, scene_close_error=None, timeout_s=20.0,
 ):
-    """Persist one collector-owned shutdown receipt per bound branch.
-
-    When a trusted observer exists, the watchdog invokes ``shutdown_fn`` so
-    the native close is inside the timeout/exception boundary.  If the
-    observer is missing, the watchdog deliberately refuses to invoke the
-    shutdown function; this helper then performs the conservative cleanup
-    once and records ``unknown-record`` for every candidate.
-    """
+    """Close one shared session once, then fan out sticky branch receipts."""
 
     observer_factory = getattr(backend, "collect_shutdown_observation", None)
     receipts = []
     output_root = store.root / "shutdown"
     output_root.mkdir(parents=True, exist_ok=True)
-    shutdown_attempted = False
+    session_identity = {"shared_session_id": session_id,
+                        "execution_model": SHARED_EXECUTION_MODEL,
+                        "process_failure_scope": "shared_session"}
+    collector = SharedSessionShutdownCollector(
+        session_id,
+        (lambda: observer_factory(session, dict(session_identity)))
+        if callable(observer_factory) else None,
+    )
+    normalized_candidates = []
     for candidate in candidates:
         if len(candidate) == 2:
             job, equivalence = candidate
@@ -95,70 +95,52 @@ def _finalize_shared_shutdown(
         else:
             job, equivalence, binding = candidate
         report = _shutdown_report(equivalence, job=job, binding=binding)
-        capability = None
-        observer_error = ""
-        if callable(observer_factory):
-            capability = _DeferredCollectorObservationCapability(
-                lambda identity: observer_factory(session, dict(identity))
-            )
-        elif not scene_closed:
-            observer_error = (
-                "scene close did not complete"
-                + (f": {scene_close_error}" if scene_close_error else "")
-            )
-        else:
-            observer_error = "backend lacks collector-owned shutdown observer"
-
+        collector_report = {**report, **_unqualified_fields()}
+        if isinstance(equivalence, Mapping):
+            try:
+                collector.register(job.branch_id, collector_report, equivalence)
+            except (TypeError, ValueError, RuntimeError):
+                # The branch remains explicitly untrusted; its receipt is
+                # emitted after the single session close and cannot affect
+                # other branches.
+                pass
+        normalized_candidates.append((job, collector_report, binding))
+    session_output = output_root / f"{session_id.replace('/', '_')}.json"
+    session_status = collector.close_once(shutdown_fn, session_output, timeout_s=timeout_s)
+    cleanup_state["closed"] = bool(cleanup_state.get("closed") or session_status == "clean")
+    if session_status != "clean" and not cleanup_state.get("error"):
+        cleanup_state["error"] = (
+            collector.close_fields.get("shutdown_exception")
+            or collector.close_fields.get("shutdown_return_error")
+            or session_status
+        )
+    for job, report, binding in normalized_candidates:
         safe_branch = job.branch_id.replace("/", "_").replace("#", "_")
         output = output_root / f"{safe_branch}.json"
         try:
-            shutdown_attempted = shutdown_attempted or capability is not None
-            status = shutdown_with_watchdog(
-                report,
-                output,
-                shutdown_fn,
-                timeout_s=timeout_s,
-                process_observer=capability,
-            )
+            status = collector.finalize_branch(job.branch_id, report, output)
         except BaseException as exc:
-            # The watchdog may have durably recorded a stricter terminal state
-            # (notably shutdown_timeout) before propagating the close error.
-            # Re-read that receipt instead of replacing it with a caller-side
-            # generic unknown status, keeping the ledger and branch receipt
-            # consistent.
-            status = "unknown-record"
-            try:
-                persisted_status = json.loads(output.read_text(encoding="utf-8")).get("shutdown_status")
-            except (OSError, ValueError, TypeError):
-                persisted_status = None
-            if isinstance(persisted_status, str) and persisted_status.strip():
-                status = persisted_status
-            observer_error = (f"{observer_error}; " if observer_error else "") + \
-                f"{type(exc).__name__}: {exc}"
-        persisted = json.loads(output.read_text(encoding="utf-8"))
-        if observer_error:
-            persisted["collector_observer_error"] = observer_error
-            output.write_text(json.dumps(persisted, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            status = session_status if session_status != "clean" else "unknown-record"
+            _persist = {**report, "shutdown_status": status,
+                        "collector_observer_error": f"{type(exc).__name__}: {exc}",
+                        **_unqualified_fields()}
+            output.write_text(json.dumps(_persist, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         receipt = {
             "kind": "shared_session_shutdown",
             "shared_session_id": session_id,
             "shutdown_status": status,
             "shutdown_receipt_path": str(output.relative_to(store.root)),
             "collector_observer_present": callable(observer_factory),
-            "collector_observer_verified": status == "clean",
+            "collector_observer_verified": status == "clean" and callable(observer_factory),
+            "session_shutdown_receipt_path": str(session_output.relative_to(store.root)),
+            "session_shutdown_status": session_status,
         }
-        if observer_error:
-            receipt["collector_observer_error"] = observer_error
+        if session_status != "clean":
+            receipt["session_shutdown_error"] = collector.close_fields
         store.append("resources", receipt, job=job, sync=True)
         receipts.append({"branch_id": job.branch_id, **receipt})
-    if not cleanup_state.get("closed") and not shutdown_attempted:
-        try:
-            shutdown_fn()
-        except BaseException as exc:
-            cleanup_state["error"] = f"{type(exc).__name__}: {exc}"
-        scene_closed = bool(cleanup_state.get("closed"))
     if not receipts:
-        aggregate = "unknown-record" if not scene_closed else "clean"
+        aggregate = session_status
     elif any(item["shutdown_status"] == "pair-invalid" for item in receipts):
         aggregate = "pair-invalid"
     elif any(item["shutdown_status"] != "clean" for item in receipts):
@@ -169,6 +151,7 @@ def _finalize_shared_shutdown(
         shutdown_status=aggregate,
         shutdown_receipts=receipts,
         shutdown_observer_present=callable(observer_factory),
+        session_shutdown_receipt_path=str(session_output.relative_to(store.root)),
         **_unqualified_fields(),
     )
     return aggregate, receipts
@@ -407,7 +390,7 @@ def run_vectorized(executor, jobs, checkpoint):
         store.append(ledger, row, job=job, event=ledger == "events",
                      sync=ledger in {"resources", "episodes", "checkpoints", "events"})
 
-    def terminal(job, binding, value):
+    def terminal(job, binding, value, *, persist=True):
         row = dict(value)
         if type(row.get("completed")) is not bool or not isinstance(row.get("status"), str):
             row = {"status": "missing_response", "completed": False,
@@ -431,8 +414,10 @@ def run_vectorized(executor, jobs, checkpoint):
             except (ValueError, OSError, TypeError, KeyError) as exc:
                 row.update(status="not_evaluable", completed=False, physical_success=None,
                            evaluator_error=str(exc))
-        emit("episodes", row, job=job, binding=binding)
+        if persist:
+            emit("episodes", row, job=job, binding=binding)
         results[job.branch_id] = row
+        return row
 
     grouped = {}
     for job in jobs:
@@ -442,6 +427,8 @@ def run_vectorized(executor, jobs, checkpoint):
         shutdown_candidates = []
         leases = {}
         bound_jobs = {}
+        deferred_terminals = {}
+        admitted_jobs = {}
         # ``active`` is the only authoritative set of branches that were in
         # flight when a shared-session step failed.  It is initialized outside
         # the wave loop so failures during bind/open still have a defined
@@ -494,8 +481,10 @@ def run_vectorized(executor, jobs, checkpoint):
                         raise
                     leases[job.branch_id] = lease
                     pending.pop(0)
+                    admitted_jobs[job.branch_id] = (job, None)
                     binding, receipt = manager.bind(job, slot, checkpoint)
                     bound_jobs[binding] = job
+                    admitted_jobs[job.branch_id] = (job, binding)
                     # This must happen after the independent slot restore and
                     # readback performed by bind, and before the binding can be
                     # admitted to the first shared physics step.
@@ -546,6 +535,7 @@ def run_vectorized(executor, jobs, checkpoint):
                     job = bound_jobs[binding]
                     manager.close(binding)
                     scheduler.release_branch(leases.pop(job.branch_id), status=results[job.branch_id]["status"])
+                    admitted_jobs.pop(job.branch_id, None)
             receipts.append(manager.isolation_receipt())
         except BaseException as exc:
             # A native batch exception or isolation violation has session scope.
@@ -556,25 +546,14 @@ def run_vectorized(executor, jobs, checkpoint):
             # contains queued jobs (including later paired blocks); assigning
             # them an unknown terminal record would falsely claim they were
             # in flight and would destroy the registered retry boundary.
-            affected_jobs = list(active.values())
-            if not affected_jobs:
-                # Restore/equivalence failures can happen immediately after
-                # bind, before the binding is added to ``active``.  Such a
-                # bound job is still an admitted infrastructure failure, but
-                # jobs remaining in ``pending`` are not.
-                affected_jobs = [
-                    job for binding, job in bound_jobs.items()
-                    if getattr(binding, "environment_slot", None) in getattr(manager, "bindings", {})
-                    and job.branch_id not in results
-                ]
-            if not affected_jobs and current_job is not None and manager is not None:
-                # ``VectorizedSession.bind`` can leave a native slot allocated
-                # before raising.  The returned binding is therefore absent
-                # from ``bound_jobs``; recover only this concrete current job
-                # from the manager's owned bindings, never from queued jobs.
-                if any(item.branch_id == current_job.branch_id
-                       for item in getattr(manager, "bindings", {}).values()):
-                    affected_jobs = [current_job]
+            # Admission, rather than the current ``active`` batch alone, is
+            # authoritative here.  A second slot can fail during bind after a
+            # first slot entered the wave; both are admitted, while untouched
+            # items in ``pending`` remain queued and receive no episode row.
+            affected_jobs = [
+                job for job, _ in admitted_jobs.values()
+                if job.branch_id not in results
+            ]
             paired_crash_groups = {
                 str(job.metadata.get("paired_block_rerun", {}).get("block_id") or job.pair_group_id)
                 for job in affected_jobs
@@ -588,6 +567,8 @@ def run_vectorized(executor, jobs, checkpoint):
                     (key for key, value in bound_jobs.items() if value.branch_id == job.branch_id),
                     None,
                 )
+                if binding is None:
+                    binding = admitted_jobs.get(job.branch_id, (None, None))[1]
                 if binding is None and manager is not None:
                     binding = next(
                         (item for item in getattr(manager, "bindings", {}).values()
@@ -632,12 +613,25 @@ def run_vectorized(executor, jobs, checkpoint):
             for job in affected_jobs:
                 if job.branch_id not in results:
                     binding = next((key for key, value in bound_jobs.items() if value.branch_id == job.branch_id), None)
+                    if binding is None:
+                        binding = admitted_jobs.get(job.branch_id, (None, None))[1]
+                    if binding is None and manager is not None:
+                        binding = next(
+                            (item for item in getattr(manager, "bindings", {}).values()
+                             if item.branch_id == job.branch_id),
+                            None,
+                        )
                     paired = isinstance(job.metadata.get("paired_block_rerun"), Mapping)
-                    terminal(job, binding, {"status": paired_status if paired else "infrastructure_invalid", "completed": False,
-                                           "physical_success": None, "infrastructure_reason": "vectorized_session_failure",
-                                           "failure_class": "infrastructure", "error": str(exc),
-                                           "execution_phase": "in_flight",
-                                           "binding_present": binding is not None})
+                    row = terminal(
+                        job, binding,
+                        {"status": paired_status if paired else "infrastructure_invalid", "completed": False,
+                         "physical_success": None, "infrastructure_reason": "vectorized_session_failure",
+                         "failure_class": "infrastructure", "error": str(exc),
+                         "execution_phase": "in_flight" if binding is not None else "admitted",
+                         "binding_present": binding is not None},
+                        persist=False,
+                    )
+                    deferred_terminals[job.branch_id] = (job, binding, row)
         finally:
             scene_closed = False
             scene_close_error = None
@@ -672,9 +666,10 @@ def run_vectorized(executor, jobs, checkpoint):
                 cleanup_state["closed"] = True
                 return "clean"
 
+            shutdown_receipts = []
             if shutdown_candidates:
                 try:
-                    _finalize_shared_shutdown(
+                    _, shutdown_receipts = _finalize_shared_shutdown(
                         store=store,
                         backend=backend,
                         session=session,
@@ -690,7 +685,23 @@ def run_vectorized(executor, jobs, checkpoint):
                     cleanup_state["error"] = f"{type(exc).__name__}: {exc}"
             elif session is not None:
                 try:
-                    close_scene_once()
+                    # Even a scene that fails before its first branch bind is
+                    # closed through the same collector-owned session
+                    # watchdog.  There are no branch receipts to fan out, but
+                    # the native close and post-close lifecycle must still be
+                    # exactly-once and durably classified.
+                    _finalize_shared_shutdown(
+                        store=store,
+                        backend=backend,
+                        session=session,
+                        session_id=session_id,
+                        candidates=(),
+                        scene_closed=False,
+                        shutdown_fn=close_scene_once,
+                        cleanup_state=cleanup_state,
+                        scene_close_error=scene_close_error,
+                        timeout_s=executor.timeout_s or 20.0,
+                    )
                 except BaseException as exc:
                     cleanup_state["error"] = f"{type(exc).__name__}: {exc}"
             elif scene_lease is not None and not opening:
@@ -698,6 +709,25 @@ def run_vectorized(executor, jobs, checkpoint):
 
             scene_closed = bool(cleanup_state["closed"])
             scene_close_error = cleanup_state.get("error")
+            shutdown_by_branch = {
+                item["branch_id"]: item for item in shutdown_receipts
+                if isinstance(item, Mapping) and item.get("branch_id")
+            }
+            for branch_id, (job, binding, row) in deferred_terminals.items():
+                shutdown = shutdown_by_branch.get(branch_id, {})
+                finalized = {
+                    **row,
+                    "shutdown_status": shutdown.get("shutdown_status", "unknown-record"),
+                    "session_shutdown_status": shutdown.get(
+                        "session_shutdown_status", "unknown-record"
+                    ),
+                    "shutdown_receipt_path": shutdown.get("shutdown_receipt_path", ""),
+                    "collector_observer_verified": shutdown.get(
+                        "collector_observer_verified", False
+                    ),
+                }
+                emit("episodes", finalized, job=job, binding=binding)
+                results[branch_id] = finalized
             if not scene_closed and scene_close_error:
                 scheduler.halt_admission(f"vectorized scene cleanup failed: {scene_close_error}")
                 emit("resources", {"kind": "vector_session_error", "shared_session_id": session_id,

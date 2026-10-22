@@ -143,6 +143,256 @@ class _DeferredCollectorObservationCapability:
         return capability._consume(report)
 
 
+class SharedSessionShutdownCollector:
+    """Own one shared session's close, post-close observation, and fan-out.
+
+    Native shutdown is a session-scoped event.  It must execute exactly once;
+    a timeout or exception therefore applies to every branch that belonged to
+    the session.  Restore-equivalence receipts are frozen here before close,
+    while the backend observer is allowed to report only session-terminal
+    provenance after close.  This prevents a backend callback from self-
+    reporting branch identity or restore evidence.
+    """
+
+    __slots__ = (
+        "session_id", "_observer", "_registrations", "_closed",
+        "_close_status", "_close_fields", "_observation",
+        "_observation_error", "_observe_attempted", "_lock",
+        "_close_in_progress", "_close_done",
+    )
+
+    def __init__(self, session_id: str, observer: Callable[[], Mapping[str, Any]] | None):
+        if not isinstance(session_id, str) or not session_id.strip():
+            raise ValueError("shared-session collector requires a session id")
+        if observer is not None and not callable(observer):
+            raise TypeError("shared-session collector observer must be callable")
+        self.session_id = session_id
+        self._observer = observer
+        self._registrations: dict[str, dict[str, Any]] = {}
+        self._closed = False
+        self._close_status: str | None = None
+        self._close_fields: dict[str, Any] = {}
+        self._observation: dict[str, Any] | None = None
+        self._observation_error: str | None = None
+        self._observe_attempted = False
+        self._lock = threading.RLock()
+        self._close_in_progress = False
+        self._close_done = threading.Event()
+
+    @property
+    def observer_present(self) -> bool:
+        return self._observer is not None
+
+    @property
+    def close_fields(self) -> dict[str, Any]:
+        return deepcopy(self._close_fields)
+
+    def register(self, branch_id: str, report: Mapping[str, Any],
+                 equivalence: Mapping[str, Any]) -> None:
+        if not isinstance(branch_id, str) or not branch_id.strip():
+            raise ValueError("collector registration requires a branch id")
+        frozen = validate_shared_session_receipt(equivalence)
+        if frozen.get("shared_session_id") != self.session_id:
+            raise ValueError("collector registration belongs to another session")
+        # Reuse the capability identity check now, before native close can
+        # invalidate live slot state.
+        _observation_identity(report, {"equivalence_receipt": frozen})
+        with self._lock:
+            if self._close_status is not None:
+                raise RuntimeError("collector registration is closed")
+            if branch_id in self._registrations:
+                raise ValueError("duplicate collector branch registration")
+            self._registrations[branch_id] = {
+                "report": deepcopy(dict(report)),
+                "equivalence_receipt": deepcopy(dict(frozen)),
+            }
+
+    def close_once(self, shutdown_fn: Callable[[], str], output: Path, *,
+                   timeout_s: float) -> str:
+        """Run native close once and durably latch its session-wide result."""
+        if timeout_s <= 0:
+            raise ValueError("shutdown watchdog timeout must be positive")
+        with self._lock:
+            if self._close_status is not None:
+                return self._close_status
+            if self._close_in_progress:
+                waiter = True
+            else:
+                # Claim the close operation while still holding the lock.
+                # Other callers wait for this owner instead of invoking the
+                # native session close a second time.
+                self._close_in_progress = True
+                waiter = False
+
+        if waiter:
+            self._close_done.wait()
+            with self._lock:
+                return self._close_status or "unknown-record"
+
+        report = _force_unqualified({
+            "diagnostic_body_completed": True,
+            "execution_model": SHARED_EXECUTION_MODEL,
+            "process_failure_scope": "shared_session",
+            "shared_session_id": self.session_id,
+            "shutdown_status": "shutdown_started",
+        })
+        _atomic_write_json(output, report)
+        timeout_state = {"triggered": False}
+
+        def mark_timeout() -> None:
+            with self._lock:
+                timeout_state["triggered"] = True
+                report.update(_force_unqualified({
+                    "shutdown_status": "shutdown_timeout",
+                    "shutdown_timeout_s": float(timeout_s),
+                }))
+                _atomic_write_json(output, report)
+
+        try:
+            timer = threading.Timer(float(timeout_s), mark_timeout)
+            timer.daemon = True
+            timer.start()
+            returned_status: Any = None
+            close_error: str | None = None
+            try:
+                returned_status = shutdown_fn()
+            except BaseException as exc:
+                close_error = f"{type(exc).__name__}: {exc}"
+            finally:
+                timer.cancel()
+
+            with self._lock:
+                if timeout_state["triggered"]:
+                    status = "shutdown_timeout"
+                    fields: dict[str, Any] = {"shutdown_timeout_s": float(timeout_s)}
+                    if close_error:
+                        fields["shutdown_exception"] = close_error
+                elif close_error:
+                    status = "unknown-record"
+                    fields = {"shutdown_exception": close_error}
+                elif returned_status != "clean":
+                    status = "unknown-record"
+                    fields = {"shutdown_return_error":
+                              f"invalid shutdown status returned: {returned_status!r}"}
+                else:
+                    status = "clean"
+                    fields = {}
+                    self._closed = True
+                self._close_status = status
+                self._close_fields = fields
+                report.update(_force_unqualified({"shutdown_status": status, **fields}))
+                _atomic_write_json(output, report)
+                return status
+        except BaseException as exc:
+            # A collector write/serialization failure is itself terminal and
+            # must unblock concurrent callers with a sticky fail-closed state.
+            status = "unknown-record"
+            fields = {"shutdown_exception": f"{type(exc).__name__}: {exc}"}
+            with self._lock:
+                self._close_status = status
+                self._close_fields = fields
+                self._closed = False
+                try:
+                    report.update(_force_unqualified({"shutdown_status": status, **fields}))
+                    _atomic_write_json(output, report)
+                except BaseException:
+                    pass
+            return status
+        finally:
+            with self._lock:
+                self._close_in_progress = False
+                self._close_done.set()
+
+    def _observe_once(self) -> dict[str, Any]:
+        with self._lock:
+            if self._close_status != "clean" or not self._closed:
+                raise _UntrustedObservation("collector observation requires confirmed close")
+            if self._observe_attempted:
+                if self._observation_error:
+                    raise _UntrustedObservation(self._observation_error)
+                return deepcopy(self._observation or {})
+            self._observe_attempted = True
+            if self._observer is None:
+                self._observation_error = "backend lacks collector-owned shutdown observer"
+                raise _UntrustedObservation(self._observation_error)
+            try:
+                observed = self._observer()
+                if not isinstance(observed, Mapping):
+                    raise TypeError("post-close observation is not a mapping")
+                value = deepcopy(dict(observed))
+                forbidden = (set(_CAPABILITY_IDENTITY_KEYS) - {"shared_session_id"}) | {
+                    "branch_id", "equivalence_receipt", "experiment_identity",
+                    "participant_digests", "restore_receipt",
+                }
+                injected = sorted(forbidden.intersection(value))
+                if injected:
+                    raise ValueError(
+                        "post-close observer may not self-report branch evidence: "
+                        + ", ".join(injected)
+                    )
+                if (value.get("shared_session") is not True
+                        or value.get("process_terminal") is not True
+                        or value.get("shared_session_id") != self.session_id
+                        or value.get("execution_model") != SHARED_EXECUTION_MODEL
+                        or value.get("process_failure_scope") != "shared_session"
+                        or not isinstance(value.get("observer_id"), str)
+                        or not value["observer_id"].strip()):
+                    raise ValueError("post-close session observation is incomplete")
+                self._observation = value
+                return deepcopy(value)
+            except BaseException as exc:
+                self._observation_error = f"{type(exc).__name__}: {exc}"
+                raise
+
+    def finalize_branch(self, branch_id: str, report: Mapping[str, Any],
+                        output: Path) -> str:
+        """Fan out the latched session result with collector-frozen identity."""
+        payload = _force_unqualified(dict(report))
+        with self._lock:
+            close_status = self._close_status or "unknown-record"
+            close_fields = deepcopy(self._close_fields)
+            registration = deepcopy(self._registrations.get(branch_id))
+        if close_status != "clean":
+            return _persist_status(payload, output, close_status, **close_fields)
+        if registration is None:
+            return _persist_status(
+                payload, output, "unknown-record",
+                observer_error="collector has no frozen branch equivalence registration",
+            )
+        if registration["report"] != dict(report):
+            return _persist_status(
+                payload, output, "pair-invalid",
+                observer_error="collector branch report differs from frozen registration",
+            )
+        try:
+            observed = self._observe_once()
+            observed["equivalence_receipt"] = registration["equivalence_receipt"]
+            capability = _issue_collector_observation(report, observed)
+            validated = _validate_collector_observation(report, capability._consume(report))
+            payload.update(validated)
+        except _UntrustedObservation as exc:
+            return _persist_status(
+                payload, output, "unknown-record",
+                observer_error=f"{type(exc).__name__}: {exc}",
+            )
+        except _ObservedIdentityMismatch as exc:
+            return _persist_status(
+                payload, output, "pair-invalid",
+                observer_error=f"{type(exc).__name__}: {exc}",
+            )
+        except (TypeError, ValueError) as exc:
+            return _persist_status(
+                payload, output, "pair-invalid",
+                equivalence_error=f"{type(exc).__name__}: {exc}",
+            )
+        except Exception as exc:
+            return _persist_status(
+                payload, output, "unknown-record",
+                observer_error=f"{type(exc).__name__}: {exc}",
+            )
+        return _persist_status(payload, output, "clean")
+
+
 def _issue_collector_observation(report: Mapping[str, Any], observed: Mapping[str, Any]) -> _CollectorObservationCapability:
     """Issue a capability inside the collector trust boundary.
 
@@ -423,6 +673,7 @@ def shutdown_with_watchdog(
 __all__ = [
     "FORMAL_QUALIFICATION_GATES",
     "SHARED_EXECUTION_MODEL",
+    "SharedSessionShutdownCollector",
     "shutdown_with_watchdog",
     "validate_shared_session_receipt",
 ]

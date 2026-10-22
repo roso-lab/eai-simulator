@@ -1,5 +1,6 @@
 from dataclasses import replace
 import json
+import threading
 import time
 
 import pytest
@@ -356,24 +357,11 @@ def test_production_path_accepts_only_backend_owned_post_close_observer(tmp_path
             # the deferred collector capability.  It is invoked after
             # close_scene, so the caller cannot inject a report receipt.
             self.observed_after_close.append(not session["slots"])
-            value = receipt()
-            value.update({
-                "shared_session_id": identity["shared_session_id"],
-                "block_id": identity["block_id"],
-                "pair_group_id": identity["pair_group_id"],
-                "checkpoint_digest": identity["checkpoint_digest"],
-                "environment_slot": identity["environment_slot"],
-                "slot_generation": identity["slot_generation"],
-                "slot_token": identity["slot_token"],
-                "expected_slot_generation": identity["slot_generation"],
-                "experiment_identity": {
-                    "run_id": identity["run_id"],
-                    "base_instance_id": identity["base_instance_id"],
-                    "pair_group_id": identity["pair_group_id"],
-                },
-            })
             return {"shared_session": True, "process_terminal": True,
-                    "observer_id": "backend-owned", "equivalence_receipt": value}
+                    "observer_id": "backend-owned",
+                    "shared_session_id": identity["shared_session_id"],
+                    "execution_model": SHARED_EXECUTION_MODEL,
+                    "process_failure_scope": "shared_session"}
 
     backend = ObservedBackend(horizon=1)
     result, store, _ = execute(tmp_path, backend=backend)
@@ -384,7 +372,7 @@ def test_production_path_accepts_only_backend_owned_post_close_observer(tmp_path
     assert all(row["collector_observer_verified"] is True for row in shutdown_rows)
     assert store.manifest["shutdown_status"] == "clean"
     assert store.manifest["shutdown_observer_present"] is True
-    assert backend.observed_after_close == [True, True, True, True]
+    assert backend.observed_after_close == [True]
     assert all(result[key] is False for key in FORMAL_QUALIFICATION_GATES)
 
 
@@ -405,21 +393,105 @@ def test_post_close_observer_is_not_used_when_scene_cleanup_fails(tmp_path):
     assert all(result[key] is False for key in FORMAL_QUALIFICATION_GATES)
 
 
-def test_vectorized_ledger_preserves_watchdog_timeout_when_close_raises(monkeypatch, tmp_path):
-    def timeout_then_raise(report, output, shutdown_fn, **kwargs):
-        persisted = {**report, "shutdown_status": "shutdown_timeout"}
-        persisted.update({key: False for key in FORMAL_QUALIFICATION_GATES})
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(json.dumps(persisted) + "\n", encoding="utf-8")
-        raise RuntimeError("late scene close failure")
+def test_vectorized_ledger_preserves_session_timeout_when_close_raises(tmp_path):
+    class SlowCloseBackend(NumpyVectorBackend):
+        def close_scene(self, session):
+            time.sleep(0.04)
+            raise RuntimeError("late scene close failure")
 
-    monkeypatch.setattr(vectorized_executor, "shutdown_with_watchdog", timeout_then_raise)
-    result, store, _ = execute(tmp_path, backend=NumpyVectorBackend(horizon=1))
+    result, store, _ = execute(tmp_path, backend=SlowCloseBackend(horizon=1))
     shutdown_rows = [row for row in store.read_ledger("resources")
                      if row.get("kind") == "shared_session_shutdown"]
     assert len(shutdown_rows) == 4
-    assert {row["shutdown_status"] for row in shutdown_rows} == {"shutdown_timeout"}
+    assert {row["shutdown_status"] for row in shutdown_rows} == {"unknown-record"}
+    assert {row["session_shutdown_status"] for row in shutdown_rows} == {"unknown-record"}
     assert all(result[key] is False for key in FORMAL_QUALIFICATION_GATES)
+
+
+def test_shared_session_close_and_post_close_observer_are_each_called_once(tmp_path):
+    class CountingBackend(NumpyVectorBackend):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.close_calls = 0
+            self.observer_calls = 0
+
+        def close_scene(self, session):
+            self.close_calls += 1
+            return super().close_scene(session)
+
+        def collect_shutdown_observation(self, session, identity):
+            self.observer_calls += 1
+            return {
+                "shared_session": True,
+                "process_terminal": True,
+                "observer_id": "counting-backend",
+                "shared_session_id": identity["shared_session_id"],
+                "execution_model": SHARED_EXECUTION_MODEL,
+                "process_failure_scope": "shared_session",
+            }
+
+    backend = CountingBackend(horizon=1)
+    result, store, _ = execute(tmp_path, backend=backend)
+    rows = [row for row in store.read_ledger("resources")
+            if row.get("kind") == "shared_session_shutdown"]
+    assert backend.close_calls == 1
+    assert backend.observer_calls == 1
+    assert {row["shutdown_status"] for row in rows} == {"clean"}
+    assert {row["session_shutdown_status"] for row in rows} == {"clean"}
+    assert result["shutdown_status"] == "clean"
+
+
+def test_collector_close_once_is_exactly_once_under_concurrent_callers(tmp_path):
+    from tools.benchmark_branch.shutdown_watchdog import SharedSessionShutdownCollector
+
+    collector = SharedSessionShutdownCollector("session-concurrent", None)
+    output = tmp_path / "session.json"
+    calls = 0
+    calls_lock = threading.Lock()
+    barrier = threading.Barrier(2)
+
+    def shutdown():
+        nonlocal calls
+        with calls_lock:
+            calls += 1
+        time.sleep(0.03)
+        return "clean"
+
+    results = []
+
+    def invoke():
+        barrier.wait()
+        results.append(collector.close_once(shutdown, output, timeout_s=1.0))
+
+    threads = [threading.Thread(target=invoke) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert calls == 1
+    assert results == ["clean", "clean"]
+    assert collector.close_fields == {}
+
+
+def test_shared_session_close_failure_is_sticky_and_not_retried(tmp_path):
+    class FailingCloseBackend(NumpyVectorBackend):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.close_calls = 0
+
+        def close_scene(self, session):
+            self.close_calls += 1
+            raise RuntimeError("permanent close failure")
+
+    backend = FailingCloseBackend(horizon=1)
+    result, store, _ = execute(tmp_path, backend=backend)
+    rows = [row for row in store.read_ledger("resources")
+            if row.get("kind") == "shared_session_shutdown"]
+    assert backend.close_calls == 1
+    assert {row["shutdown_status"] for row in rows} == {"unknown-record"}
+    assert {row["session_shutdown_status"] for row in rows} == {"unknown-record"}
+    assert result["shutdown_status"] == "unknown-record"
 
 
 def test_equivalence_rejection_prevents_any_shared_step(monkeypatch, tmp_path):
