@@ -392,7 +392,7 @@ class NavigationExecutor:
                 else:
                     task.response = task.provider.control(
                         continuation, observation=observation,
-                        semantic_points=self.semantic_points_for(request.robot_id),
+                        semantic_points=self.semantic_points_for(task.request.robot_id),
                     )
                 if task.response.state["status"] != "pending":
                     self._begin_stop(task, observation.simulation_time_s)
