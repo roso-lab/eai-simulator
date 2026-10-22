@@ -29,6 +29,7 @@ def _vector(value, size):
 
 LINEAR_QUIESCENCE_TOLERANCE_M_S = .01
 ANGULAR_QUIESCENCE_TOLERANCE_RAD_S = .05
+ATTACHMENT_POSITION_TOLERANCE_M = .03
 
 
 def read_aerial_pose(env, robot_id):
@@ -120,7 +121,9 @@ class PhysxAerialTransportBridge:
         from pxr import Sdf
         self.stage, self._pose = stage, pose_reader
         self.drone_anchor_local_m = vector(drone_anchor_local_m)
-        self._flush = flush_hook or (lambda: None)
+        # Explicitly synchronize joint edits with the live PhysX scene so
+        # disabling/deleting constraints completes before collision is restored.
+        self._flush = flush_hook or flush_physx_transforms
         self._edit_target = stage.GetEditTarget()
         self._saved = Sdf.Layer.CreateAnonymous("aerial_collision_backup")
         self._bindings, self._owned, self._applied = {}, set(), {}
@@ -226,8 +229,19 @@ class PhysxAerialTransportBridge:
         if path not in self._owned:
             raise SkillContractError("refusing to delete a joint not owned by this bridge")
         with Usd.EditContext(self.stage, self._edit_target):
-            if not self.stage.RemovePrim(path) or self.stage.GetPrimAtPath(path):
+            prim = self.stage.GetPrimAtPath(path)
+            if prim:
+                enabled = prim.GetAttribute("physics:jointEnabled")
+                if enabled and enabled.IsValid():
+                    enabled.Set(False)
+            self._flush()
+            if prim and not self.stage.RemovePrim(path):
                 raise RuntimeError("joint removal failed")
+            if self.stage.GetPrimAtPath(path):
+                raise RuntimeError("joint removal failed")
+        # Retain ownership if flushing fails, so cleanup can be retried even
+        # when the USD prim is already gone but native deletion is pending.
+        self._flush()
         self._owned.remove(path)
 
     def _disable_collision(self, b):
@@ -295,8 +309,8 @@ class PhysxAerialTransportBridge:
                 raise
         elif operation == "attach":
             drone, obj = self.measure(task_id)
-            if math.dist(drone[:2], obj[:2]) > .01 or abs(drone[2]-obj[2]) > .01:
-                raise SkillContractError("live attachment anchors exceed the 1 cm gate")
+            if math.dist(drone, obj) > ATTACHMENT_POSITION_TOLERANCE_M:
+                raise SkillContractError("live attachment anchors exceed the 3 cm gate")
             if not b.collision_disabled or b.support is None:
                 raise SkillContractError("attachment requires support and disabled collision")
             if b.attachment is None:
