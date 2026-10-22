@@ -491,7 +491,7 @@ def run_isaac(args: argparse.Namespace, data: Mapping[str, Any]) -> dict[str, An
     output = args.output_dir
     output.mkdir(parents=True, exist_ok=True)
     evidence: dict[str, Any] = {
-        "schema": "eai.demo.room06_iris_semantic_transport", "version": 3,
+        "schema": "eai.demo.room06_iris_semantic_transport", "version": 4,
         "scene": args.scene, "trials_requested": args.trials, "seed_ignored": args.seed,
         "fixed_starts": [{"id": n["id"], "position_xyz": n["position_xyz"]} for n in starts],
         "high_semantic_id": data["high"]["id"], "low_semantic_id": data["low"]["id"],
@@ -520,6 +520,23 @@ def run_isaac(args: argparse.Namespace, data: Mapping[str, Any]) -> dict[str, An
         robot_id = session.possible_agents[0]
         robot = env.scene[robot_id]
         box = env.scene["semantic_transport_box"]
+        controller = env.cfg.controllers[robot_id]
+        if isinstance(controller, (list, tuple)):
+            controller = controller[0]
+        controller_module = sys.modules[type(controller).__module__]
+        controller_directory = Path(controller_module.__file__).resolve().parent
+        evidence["controller"] = {
+            "class": type(controller).__module__ + "." + type(controller).__name__,
+            "configuration": {name: _jsonable(getattr(controller, name)) for name in (
+                "robot_type", "control_mode", "command_name", "mass", "gravity",
+                "position_gain", "velocity_gain", "integral_gain", "integral_limit",
+                "attitude_gain", "angular_rate_gain", "rotor_positions",
+                "rotor_constants", "min_rotor_velocities", "max_rotor_velocities")},
+            "source_hashes": {str(path): _sha256(path) for path in
+                              sorted(controller_directory.glob("*.py"))},
+            "target_submission": "env.set_command(robot_id, goal_position, world_xyz)",
+        }
+        _write_json(output / "evidence.json", evidence)
         import omni.usd
         stage = omni.usd.get_context().get_stage()
         robot_body = f"/World/envs/env_0/{robot_id}/body"
@@ -571,11 +588,22 @@ def run_isaac(args: argparse.Namespace, data: Mapping[str, Any]) -> dict[str, An
         topology = FrozenNavigationTopology(data["topology"], scene_key=args.scene,
                                             source_digests=data["topology"].get("source", {}))
 
+        pick_backend = None
+
         def advance_one_tick():
             if not session.simulation_app.is_running() or (
                     gui_state is not None and not gui_state["window"].visible):
                 raise RuntimeError("GUI closed by user")
             env.step(actions)
+            if pick_backend is not None and world_seq() % 250 == 0:
+                record = pick_backend.execution_record()
+                if record["phase"] not in {"idle", "holding"}:
+                    progress = {"simulation_time_s": sim_time(), "execution": record,
+                                "velocity": velocity_reader(),
+                                "controller_goal": _jsonable(env.get_command(robot_id, "goal_position")),
+                                "rotor_command": _jsonable(env.actions_dict.get(robot_id))}
+                    print("ROOM06_MANIPULATION: " + json.dumps(_jsonable(progress)), flush=True)
+                    _write_json(output / "manipulation-progress.json", progress)
 
         pose_reader_live = LivePhysxPoseReader(env)
         from pxr import Usd
@@ -593,14 +621,13 @@ def run_isaac(args: argparse.Namespace, data: Mapping[str, Any]) -> dict[str, An
             write_goal(start["position_xyz"])
 
         def stop_motion():
-            write_goal(pose_reader().position_m)
+            # The backend stops writing before the executor retires its lease.
+            # Success retains its final target; cancellation has already
+            # submitted a measured hover target through the same writer.
             return True
 
         def object_pose(path):
             return pose_reader_live(path)
-
-        def write_pick_goal(goal):
-            write_goal(goal)
 
         return_targets = {}
 
@@ -617,7 +644,7 @@ def run_isaac(args: argparse.Namespace, data: Mapping[str, Any]) -> dict[str, An
                     drone_anchor_local_m=(0., 0., -.20))
             backend = DronePickPlaceAdapter(
                 robot_id, bridge, robot_body=robot_body, object_pose=object_pose,
-                robot_pose=lambda: read_aerial_pose(env, robot_id), write_goal=write_pick_goal,
+                robot_pose=lambda: read_aerial_pose(env, robot_id), write_goal=write_goal,
                 stop_motion=stop_motion, simulation_time=sim_time, robot_type="PegasusIris",
                 return_target_reader=lambda command: return_targets[command.request_id])
             executor = PickPlaceExecutor(advance=advance_one_tick, simulation_time=sim_time,
@@ -752,6 +779,8 @@ def run_isaac(args: argparse.Namespace, data: Mapping[str, Any]) -> dict[str, An
                 break
             finally:
                 trial["final_robot_position"] = _pose_to_json(read_aerial_pose(env, robot_id))
+                trial["final_robot_velocity"] = list(velocity_reader())
+                trial["final_controller_goal"] = _jsonable(env.get_command(robot_id, "goal_position"))
                 trial["final_object_position"] = _pose_to_json(pose_reader_live(box_path))
                 _write_json(output / "evidence.json", evidence)
         evidence["success"] = len(evidence["trials"]) == args.trials and all(t["success"] for t in evidence["trials"])

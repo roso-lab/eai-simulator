@@ -58,7 +58,7 @@ if picked:
 | 后端 | 实际控制与挂接 | 宿主接入 |
 | --- | --- | --- |
 | `ArmPickPlaceAdapter` | UR5/Z1 柱坐标、IK、follow proxy；用 live arm root 处理安装外参，用实际 EE→物体偏移求解原点放置 | 传入现有 `IdealizedManipulationRuntime`；宿主原有 `run_post_apply` 持续驱动，首次局部抓取在回收位姿建立工具姿态，以较慢的 IK 积分避免振荡 |
-| `DronePickPlaceAdapter` | 局部对齐、平滑下降、FixedJoint 挂接、抬升、释放、撤离；末段测量速度确认稳定 | 传入现有 `PhysxAerialTransportBridge`、实时位姿/时钟、目标写入和交还写入权回调；支持 PegasusIris/PegasusX4 的位置控制 |
+| `DronePickPlaceAdapter` | 生成对齐、下降、撤离及返回的固定阶段目标，使用 FixedJoint 挂接／释放及实测完成判定 | 传入现有 `PhysxAerialTransportBridge`、实时位姿/时钟及共享目标写入回调；PegasusIris/PegasusX4 的原位置控制器负责飞行控制 |
 | `PepperPickPlaceAdapter` | 双臂测量到达门控、随实测双手维持物体、释放与回收 | 在现有 Pepper composite controller 安装 `local_pick_place` delegate；每个物理步只执行一次双臂控制，底盘命令直接来自外部 |
 | `G1PickPlaceAdapter` | Inspire 右手标定、影子 stage 规划、真实关节目标、实测掌部挂接与释放；pick 独立抬升后保持，place 才规划调用者选定的目标 | 传入共享 env/stage、`robot_name`、`robot_path` 与标定 `ObjectBinding`；通过宿主 `G1LiveRuntime` 物理钩子持续驱动。当前仅支持固定基座、直立轴向物体，不提供 G1 行走控制 |
 
@@ -67,6 +67,8 @@ UR5/Z1 后端可以注入 `reachable` 使用测量得到的能力范围；没有
 G1 后端复用合并提交的资产哈希、物体尺寸与握持标定检查。绑定时检查固定 articulation，路径仅在影子 stage 计算；真正挂接须实测掌部、闭合手指到达，pick 须实测完成抬升及关节稳定，place 须实测物体原点到达、释放、回收并稳定。取消冻结实测关节且保持已有连接，不继续原自动搬运路线。固定站位的调用者可以选择不导航，再提供另一个可达世界放置点。
 
 新机器人只需实现协议并注册，不修改公共状态机。隔离后的机器人身份可以使用 `env_0/robot_name`；机械臂/Pepper 后端通过 `robot_name`、`env_id` 映射到现有的每行原生控制器。对同一现场的所有调用者必须共享 `ResourceManager` 和相同规范机器人/物体键。
+
+无人机后端可配置 `return_target_reader(command)`，由宿主按请求 ID 提供此前导航实际选中节点的世界 XYZ。后端在任何物理修改前读取、校验并冻结坐标；抓取或释放后先垂直撤离到 `max(接触时机体 Z + clearance_m, 返回 Z)`，再平移，必要时下降。返回误差不超过 3 cm 且连续五次满足实测速度稳定条件后才交还控制并报告完成。该阶段计入原操作超时和取消机制；失败保留实际持物/释放状态，详细阶段可从后端 `execution_record()` 查看。未配置该回调时仍执行原有固定高度撤离。后端不读取拓扑、不选择节点、不调用导航；通用请求、状态机与 Executor 接口保持不变。
 
 物体租约从 pick 开始保留到确认 place 清理完成；机器人运动租约仅在操作执行期间占用，便于外部导航接管。未知状态、停止失败或部分释放不会自动解除挂接。宿主必须尊重租约，不在操作期间另行向同一控制器写入命令。`cancel()` 或 `execute(..., cancelled=callback)` 取消正在执行的操作；取消仍遵守实际持物状态。
 
@@ -192,15 +194,19 @@ Iris 和 X4 共用 `DronePickPlaceAdapter`，差别主要是飞行器参数和�
 pick 的过程是：
 
 ```text
-上方对齐 → 临时支撑物体 → 平滑下降
+上方对齐 → 临时支撑物体 → 提交下降目标
 → 用实时 PhysX 位姿确认挂接点对准
 → 创建 FixedJoint → 删除临时支撑
 → 上升并确认稳定 → HOLDING
 ```
 
-后端在 `before_step` 写入位置目标，在 `after_step` 用实际位置和速度判断阶段。原 Pegasus 飞控接收位置目标、实测位置/速度/姿态，计算推力、姿态和力矩，再生成旋翼控制量；它不是直接瞬移无人机根位姿。持物期间后端不再持续写抓取位置，FixedJoint 保留，飞控可以悬停或执行调用者的新导航目标。
+后端在阶段进入时确定固定的世界 XYZ，在 `before_step` 原样提交该目标，在 `after_step` 用实际位置和速度判断阶段。导航和取放共用宿主的 `env.set_command(robot_id, "goal_position", world_xyz)` 入口。Pegasus 原位置控制器接收位置目标和实测状态，计算姿态、推力及旋翼控制量。取放后端不生成速度轨迹、插值或额外控制回路；宿主只通过正常的 `env.step()` 驱动仿真。持物期间 FixedJoint 保留，后端停止写入，后续导航使用同一个位置控制器。
 
-place 会使用当前无人机位置、当前物体位置和目标物体原点做补偿，下降末段还会按实测误差修正；随后删除挂接、恢复碰撞、上升撤离，并确认物体没有明显漂移。错误发生在已经挂接之后时，连接会保留，避免布尔失败导致物体凭空掉落。无人机“对齐”是直接位置目标，没有路径搜索和避障，所以接近路线仍由外部调用者负责。
+对齐、挂接、放置及最终返回使用 **3 cm 的三维欧氏距离**门限，阶段需连续 5 个采样满足条件；挂接物理桥接使用相同的 3 cm 门限。最终返回还检查无人机和物体两个刚体，各轴实测线速度绝对值不超过 **0.01 m/s**、各轴角速度绝对值不超过 **0.05 rad/s**。这些门限只用于完成判定；后端不按轨迹时长等待，也没有垂直速度或加速度规划参数。
+
+配置返回目标时，垂直撤离先检查高度，XY 偏差留给随后的平移阶段，最终返回检查完整 XYZ 和速度。宿主需校准 `drone_anchor_local_m`，确保载荷在恢复碰撞时位于机体碰撞边界之外；room_06 的 10 cm 方块使用 Iris 机体下方 20 cm 的安装点。飞控采用 `pegasus_multirotor` 原始质量、增益、控制律及原有积分和旋翼限幅。大幅位置阶跃的响应由该控制器决定；无法完成时保留真实失败结果。
+
+place 在阶段进入时根据机体与物体的实际几何偏移计算机体位置目标，阶段内保持目标不变；随后删除挂接、恢复碰撞、上升撤离，并确认物体没有明显漂移。成功时保留最后的目标并停止本操作写入；取消或超时时，后端先提交实测位置作为悬停目标，再调用 `stop_motion()` 确认交还写入权。该回调本身不替换目标。错误发生在已经挂接之后时保留连接；物体已释放但返回失败时记录真实释放状态。接近路线仍由外部调用者负责。
 
 代码入口：[无人机后端](../../../task/executors/pick_place_backends/drone.py)、[实时位姿与物理挂接](../../../task/executors/aerial_pick_place.py)、[Pegasus 飞控](../../../source/EAI_assets/EAI_assets/controller/traditional/pegasus_multirotor/controller.py)。
 
