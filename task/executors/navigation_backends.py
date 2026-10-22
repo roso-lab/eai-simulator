@@ -6,6 +6,7 @@ or :class:`NavigationExecutor`.
 """
 from __future__ import annotations
 
+from copy import deepcopy
 import math
 import inspect
 from typing import Any, Callable, Mapping, Protocol, runtime_checkable
@@ -127,6 +128,38 @@ class PlanarVelocityNavigationAdapter:
     @property
     def last_command(self) -> SkillCommand | None:
         return self._last_command
+
+    def measurement_snapshot(self) -> dict[str, Any]:
+        """Return declared controller-adapter state without reading hardware."""
+
+        command = None if self._last_command is None else self._last_command.to_mapping()
+        return deepcopy({
+            "schema_version": "navigation.planar_adapter.measurement.v1",
+            "robot_id": self.robot_id,
+            "profile": {
+                "metric": self.profile.metric,
+                "arrival_radius_m": self.profile.arrival_radius_m,
+                "supports_final_heading": self.profile.supports_final_heading,
+                "controller_capabilities": list(self.profile.controller_capabilities),
+            },
+            "configuration": {
+                "cruise_speed_m_s": self.cruise_speed_m_s,
+                "max_yaw_rate_rad_s": self.max_yaw_rate_rad_s,
+                "turn_threshold_rad": self.turn_threshold_rad,
+                "stable_ticks": self._stable_ticks,
+                "pose_reader_configured": True,
+                "sequence_reader_configured": self._sequence_reader is not None,
+                "time_reader_configured": self._time_reader is not None,
+                "command_sink_configured": self._command_sink is not None,
+                "velocity_reader_configured": self._velocity_reader is not None,
+                "stopped_reader_configured": self._stopped_reader is not None,
+            },
+            "state": {
+                "stop_requested": self._stop_requested,
+                "stable_count": self._stable_count,
+                "last_command": command,
+            },
+        })
 
     def _write(self, command: SkillCommand) -> None:
         self._last_command = command

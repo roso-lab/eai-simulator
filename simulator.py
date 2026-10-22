@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from contextlib import contextmanager
 from dataclasses import MISSING, dataclass, field, replace
 from pathlib import Path
@@ -723,44 +724,66 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parent
 
 
-def _module_is_from_repo(module: object, repo_root: Path) -> bool:
-    raw_file = getattr(module, "__file__", None)
-    if raw_file:
-        try:
-            return Path(raw_file).resolve().is_relative_to(repo_root)
-        except OSError:
-            return False
-    raw_path = getattr(module, "__path__", None)
-    if raw_path:
-        for item in raw_path:
-            try:
-                if Path(item).resolve().is_relative_to(repo_root):
-                    return True
-            except OSError:
-                continue
-    return False
+def _session_close_marker_path() -> Path | None:
+    """Resolve the optional project-local marker used by supervised probes."""
+
+    raw = os.environ.get("HETEROCOORD_SESSION_CLOSE_MARKER", "").strip()
+    if not raw:
+        return None
+    path = Path(raw).expanduser().resolve()
+    if not path.is_relative_to(_repo_root().resolve()):
+        print(f"[EAI Simulator] Warning: refusing external session-close marker: {path}")
+        return None
+    return path
 
 
-def _remove_external_repo_packages(repo_root: Path) -> None:
-    for package_name in ("EAI", "EAI_assets", "EAI_hmrs"):
-        module = sys.modules.get(package_name)
-        if module is None or _module_is_from_repo(module, repo_root):
-            continue
-        for module_name in tuple(sys.modules):
-            if module_name == package_name or module_name.startswith(f"{package_name}."):
-                sys.modules.pop(module_name, None)
+def _write_session_close_marker(
+    path: Path | None,
+    *,
+    status: str,
+    cleanup_errors: list[dict[str, str]],
+    app_close_requested: bool,
+    app_close_returned: bool,
+    error: str = "",
+) -> None:
+    """Durably record the close boundary before native Kit can terminate Python."""
+
+    if path is None:
+        return
+    payload = {
+        "schema": "heterocoord.session_close.v1",
+        "status": str(status),
+        "cleanup_callbacks_complete": not cleanup_errors,
+        "cleanup_errors": list(cleanup_errors),
+        "app_close_requested": bool(app_close_requested),
+        "app_close_returned": bool(app_close_returned),
+        "error": str(error),
+        "recorded_at_ns": time.time_ns(),
+    }
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+        temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        temporary.replace(path)
+    except Exception as exc:
+        # A marker is supporting evidence; failure to write it must not mask
+        # the native close exception or alter simulator cleanup semantics.
+        print(f"[EAI Simulator] Warning: session-close marker write failed: {exc}")
 
 
-def _ensure_repo_sources_on_path() -> None:
-    repo_root = _repo_root()
-    _remove_external_repo_packages(repo_root)
-    for rel in ("source/EAI", "source/EAI_assets", "source/EAI_hmrs"):
-        path = repo_root / rel
-        if path.is_dir():
-            path_text = str(path)
-            if path_text in sys.path:
-                sys.path.remove(path_text)
-            sys.path.insert(0, path_text)
+def _ensure_repo_sources_on_path(*, enforce_cwd: bool = False) -> None:
+    """Enter the complete HeteroCoord runtime boundary before EAI imports.
+
+    Source precedence alone is insufficient: a process may already contain
+    live classes from another checkout while later imports resolve locally.
+    The shared project bootstrap therefore owns source, asset and output
+    provenance and rejects an already-loaded external EAI package instead of
+    deleting it from ``sys.modules`` and creating a mixed object graph.
+    """
+
+    from tools.project_runtime import activate_project_runtime
+
+    activate_project_runtime(enforce_cwd=enforce_cwd)
 
 def _load_asset_resolver():
     module_path = _repo_root() / "source" / "EAI_assets" / "EAI_assets" / "asset_resolver.py"
@@ -2086,6 +2109,24 @@ def _session_env_init_args(config: SimulatorLaunchConfig) -> SimpleNamespace:
     )
 
 
+def _resolve_project_session_inputs(
+    config: SimulatorLaunchConfig,
+    *, caller_cwd: Path | None = None,
+) -> SimulatorLaunchConfig:
+    """Freeze path-valued session inputs before the runtime changes cwd."""
+
+    if config.scenario_file is None:
+        return config
+    base = Path.cwd() if caller_cwd is None else Path(caller_cwd)
+    scenario = Path(config.scenario_file).expanduser()
+    if not scenario.is_absolute():
+        scenario = base / scenario
+    resolved = scenario.resolve()
+    if not resolved.is_relative_to(_repo_root().resolve()):
+        raise ValueError("scenario_file must resolve inside HeteroCoord")
+    return replace(config, scenario_file=str(resolved))
+
+
 def _app_launcher_args(
     config: SimulatorLaunchConfig,
     selection_data: dict[str, Any] | None = None,
@@ -2151,7 +2192,11 @@ def _app_launcher_args(
 def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorSession]:
     """Open Isaac Sim and an EAI environment for programmatic callers."""
 
-    _ensure_repo_sources_on_path()
+    config = _resolve_project_session_inputs(config)
+    # This is the experiment boundary: direct callers get the same cwd and
+    # provenance guarantees as ``tools/project_runtime.py exec``.  Lower-level
+    # import/resource helpers keep their caller cwd by using the default.
+    _ensure_repo_sources_on_path(enforce_cwd=True)
     if config.resolved_env_name is not None:
         env_name = config.resolved_env_name
         selection_data = config.selection_data
@@ -2217,6 +2262,7 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
     realsense_imu_manager = None
     simulation_clock_manager = None
     orsus_cleanup = None
+    session_close_marker = _session_close_marker_path()
     try:
         from EAI_assets.sensor.high_sensor.orsus import (
             close_orsus_ros_resources,
@@ -2324,6 +2370,7 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         sys.stderr.flush()
         raise
     finally:
+        cleanup_errors: list[dict[str, str]] = []
         try:
             cleanup_callbacks = (
                 _close_witness_cameras if _WITNESS_CAMERAS else None,
@@ -2342,6 +2389,10 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
                 try:
                     cleanup_callback()
                 except Exception as exc:
+                    cleanup_errors.append({
+                        "callback": getattr(cleanup_callback, "__name__", type(cleanup_callback).__name__),
+                        "error": f"{type(exc).__name__}: {exc}",
+                    })
                     print(f"[EAI Simulator] Cleanup warning: {exc}")
         finally:
             if owns_simulation_app:
@@ -2353,7 +2404,41 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
                     try:
                         _prepare_replicator_for_app_close()
                     finally:
-                        simulation_app.close()
+                        marker_status = "cleanup_failed" if cleanup_errors else "app_close_requested"
+                        _write_session_close_marker(
+                            session_close_marker,
+                            status=marker_status,
+                            cleanup_errors=cleanup_errors,
+                            app_close_requested=True,
+                            app_close_returned=False,
+                        )
+                        try:
+                            simulation_app.close()
+                        except BaseException as exc:
+                            _write_session_close_marker(
+                                session_close_marker,
+                                status="app_close_failed",
+                                cleanup_errors=cleanup_errors,
+                                app_close_requested=True,
+                                app_close_returned=False,
+                                error=f"{type(exc).__name__}: {exc}",
+                            )
+                            raise
+                        _write_session_close_marker(
+                            session_close_marker,
+                            status="app_close_returned",
+                            cleanup_errors=cleanup_errors,
+                            app_close_requested=True,
+                            app_close_returned=True,
+                        )
+            else:
+                _write_session_close_marker(
+                    session_close_marker,
+                    status="context_released",
+                    cleanup_errors=cleanup_errors,
+                    app_close_requested=False,
+                    app_close_returned=False,
+                )
 
 
 def main() -> None:

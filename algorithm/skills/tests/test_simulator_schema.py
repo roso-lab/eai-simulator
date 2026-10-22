@@ -15,40 +15,38 @@ def test_registry_covers_six_skill_kinds_without_isaac_imports():
     assert all(schema.version == "simulator.skill.v1" for schema in SIMULATOR_SKILL_SCHEMAS)
 
 
-def test_goal_navigation_accepts_fixed_target_and_declared_parameters():
+def test_node_route_accepts_authored_target_and_declared_parameters():
     request = SkillRequest(
         "req-1",
-        "eai.navigation.goal_position",
+        "eai.navigation.node_route",
         "robot_a",
-        target_pose=(1.0, 2.0, 0.5),
-        parameters={"horizon_ticks": 2, "frame": "world"},
+        target_ref="node:goal",
+        parameters={"world_state_seq": 2, "intent": "start"},
     )
     schema = validate_simulator_skill_request(request)
-    assert "goal_position" in schema.command_types
+    assert schema.command_types == {"navigation_target"}
 
 
-def test_goal_navigation_rejects_undeclared_or_wrong_pose_fields():
+def test_node_route_rejects_undeclared_fields_and_direct_coordinates():
     with pytest.raises(SimulatorSchemaError, match="undeclared"):
         validate_simulator_skill_request(
-            SkillRequest("req-2", "eai.navigation.goal_position", "robot_a", target_pose=(1, 2, 3), parameters={"speed": 1.0})
+            SkillRequest("req-2", "eai.navigation.node_route", "robot_a", target_ref="node:goal",
+                         parameters={"world_state_seq": 2, "speed": 1.0})
         )
-    with pytest.raises(SimulatorSchemaError, match="target_pose"):
+    with pytest.raises(SimulatorSchemaError, match="target_ref only"):
         validate_simulator_skill_request(
-            SkillRequest("req-3", "eai.navigation.goal_position", "robot_a", target_pose=(1, 2), parameters={})
+            SkillRequest("req-3", "eai.navigation.node_route", "robot_a", target_pose=(1, 2, 3),
+                         parameters={"world_state_seq": 2})
         )
 
 
-def test_velocity_schema_requires_vector_and_rotor_schema_has_env_step_route():
-    with pytest.raises(SimulatorSchemaError, match="required"):
-        validate_simulator_skill_request(SkillRequest("req-4", "eai.navigation.velocity", "robot_a"))
-    request = SkillRequest(
-        "req-5",
-        "eai.navigation.rotor_velocity",
-        "cf2x_1",
-        parameters={"rotor_velocity": [0.1, 0.2, 0.3, 0.4], "horizon_ticks": 1},
-    )
-    schema = validate_simulator_skill_request(request)
-    assert schema.commands[0].route == "env.step"
+def test_retired_controller_specific_navigation_schemas_are_not_public_skills():
+    for retired in (
+        "eai.navigation.goal_position", "eai.navigation.velocity",
+        "eai.navigation.rotor_velocity", "eai.navigation.ground_navigation",
+    ):
+        with pytest.raises(SimulatorSchemaError, match="unknown"):
+            validate_simulator_skill_request(SkillRequest("retired", retired, "robot_a"))
 
 
 def test_manipulation_and_coordination_fields_are_explicit():
@@ -60,9 +58,9 @@ def test_manipulation_and_coordination_fields_are_explicit():
 
 
 @pytest.mark.parametrize("skill,parameters,extra", [
-    ("eai.navigation.goal_position", {"frame": "camera"}, {"target_pose": (1, 2, 3)}),
-    ("eai.navigation.goal_position", {}, {"target_pose": (1, 2, 3), "skill_version": "simulator.skill.v999"}),
-    ("eai.navigation.velocity", {"velocity": [1]}, {}),
+    ("eai.navigation.node_route", {"world_state_seq": 1, "frame": "camera"}, {"target_ref": "node:a"}),
+    ("eai.navigation.node_route", {"world_state_seq": 1}, {"target_ref": "node:a", "skill_version": "simulator.skill.v999"}),
+    ("eai.navigation.node_route", {"world_state_seq": True}, {"target_ref": "node:a"}),
     ("eai.manipulation.pose", {"frame_id": "world", "position": [1], "orientation_xyzw": [0, 0, 0, 1]}, {}),
     ("eai.manipulation.pose", {"frame_id": "camera", "position": [1, 2, 3], "orientation_xyzw": [0, 0, 0, 1]}, {}),
     ("eai.manipulation.pose", {"frame_id": "world", "position": [1, 2, 3], "orientation_xyzw": [0, 0, 0, 0]}, {}),

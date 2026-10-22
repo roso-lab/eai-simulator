@@ -419,6 +419,34 @@ def _request_identity(request: SkillRequest) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()).hexdigest()
 
 
+def _profile_snapshot(profile: NavigationProfile | None) -> dict[str, Any] | None:
+    if profile is None:
+        return None
+    return {
+        "metric": profile.metric,
+        "arrival_radius_m": profile.arrival_radius_m,
+        "supports_final_heading": profile.supports_final_heading,
+        "controller_capabilities": list(profile.controller_capabilities),
+    }
+
+
+def _pose_snapshot(pose: NavigationPose | None) -> dict[str, Any] | None:
+    if pose is None:
+        return None
+    return {"position_m": list(pose.position_m), "yaw_rad": pose.yaw_rad}
+
+
+def _target_snapshot(target: NavigationTarget | None) -> dict[str, Any] | None:
+    if target is None:
+        return None
+    return {
+        "node_id": target.node_id,
+        "position_m": list(target.position_m),
+        "node_index": target.node_index,
+        "heading_rad": target.heading_rad,
+    }
+
+
 def _observation(value: NavigationObservation | Mapping[str, Any] | None) -> NavigationObservation:
     if isinstance(value, NavigationObservation):
         if not value.valid:
@@ -480,6 +508,55 @@ class NavigationProvider:
     @property
     def active_task_ids(self) -> tuple[str, ...]:
         return tuple(sorted(key for key, task in self._tasks.items() if not task.terminal))
+
+    def measurement_snapshot(self) -> dict[str, Any]:
+        """Return detached, JSON-safe declared state without providing restore."""
+
+        topology = None if self.topology is None else self._topology()
+        tasks = {}
+        for task_id in sorted(self._tasks):
+            task = self._tasks[task_id]
+            tracker = None
+            if task.tracker is not None:
+                tracker = {
+                    "route_points_m": [list(point) for point in task.tracker.route_points_m],
+                    "node_ids": list(task.tracker.node_ids),
+                    "final_heading_rad": task.tracker.final_heading_rad,
+                    "heading_tolerance_rad": task.tracker.heading_tolerance_rad,
+                    "node_index": task.tracker.node_index,
+                    "arrived": task.tracker.arrived,
+                    "target": _target_snapshot(task.tracker.target),
+                }
+            tasks[task_id] = {
+                "request": task.request.to_mapping(),
+                "profile": _profile_snapshot(task.profile),
+                "task_id": task.task_id,
+                "world_state_seq": task.world_state_seq,
+                "request_identity": task.identity,
+                "status": task.status,
+                "execution_state": task.execution_state,
+                "safe_action": task.safe_action,
+                "reason_code": task.reason_code,
+                "tracker": tracker,
+                "route_graph_digest": task.route_graph_digest,
+                "current_target": _target_snapshot(task.current_target),
+                "last_pose": _pose_snapshot(task.last_pose),
+                "private_evidence": deepcopy(task.private_evidence),
+                "terminal": task.terminal,
+                "started_s": task.started_s,
+                "last_time_s": task.last_time_s,
+            }
+        snapshot = {
+            "schema_version": "navigation.provider.measurement.v1",
+            "provider_id": self.provider_id,
+            "provider_version": self.provider_version,
+            "profile": _profile_snapshot(self.profile),
+            "topology": deepcopy(topology),
+            "topology_digest": None if topology is None else route_graph_digest(topology),
+            "active_task_ids": list(self.active_task_ids),
+            "tasks": tasks,
+        }
+        return json.loads(json.dumps(snapshot, sort_keys=True, allow_nan=False))
 
     def _topology(self, supplied: Any | None = None) -> Any:
         value = supplied if supplied is not None else self.topology

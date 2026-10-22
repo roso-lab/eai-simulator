@@ -10,6 +10,11 @@ from algorithm.common_coordination.contract import (
 from task.contracts import AlgorithmDecision, EaiTaskPackage, RobotState
 
 from benchmark.evidence import EvaluationReport, EvaluationStatus
+from benchmark.eai_adapter import (
+    CommandNavigationSkillAdapter,
+    EaiTaskExecutor,
+    command_navigation_request_factory,
+)
 from benchmark.artifacts import BranchArtifactStore
 from benchmark.protocol import BranchRole, ProtocolContract, RunKey
 from benchmark.session import run_session_episode
@@ -107,6 +112,9 @@ def test_run_session_episode_wires_binding_runtime_executor_and_evaluator(tmp_pa
         run_key=RunKey("base", "system", "condition", "repeat", "round", BranchRole.FACT),
         decision_provider=decide,
         evaluator=Evaluator(),
+        request_factory=command_navigation_request_factory,
+        skill=CommandNavigationSkillAdapter(),
+        executor=EaiTaskExecutor(max_steps=1),
         initial_observations=({"physical": "sample"},),
         artifact_store=artifact_store,
     )

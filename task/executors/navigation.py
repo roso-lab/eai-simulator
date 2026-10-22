@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass, field, replace
+import json
 import math
 from threading import RLock
 from typing import Any, Callable, Mapping
@@ -65,7 +66,7 @@ class NavigationExecutor:
                  snapshot_validator: Callable[[int, bool], Any] | None = None,
                  source_reader: Callable[[], Any] | None = None,
                  timeout_s: float | None = None, stop_timeout_s: float = 5.0,
-                 max_stop_ticks: int = 240):
+                 max_stop_ticks: int = 240, owner_id: str | None = None):
         if topology is None:
             raise SkillContractError("navigation topology is required")
         for name, callback in (("advance", advance), ("simulation_time", simulation_time),
@@ -78,6 +79,8 @@ class NavigationExecutor:
             raise SkillContractError("stop_timeout_s must be positive")
         if type(max_stop_ticks) is not int or max_stop_ticks <= 0:
             raise SkillContractError("max_stop_ticks must be a positive integer")
+        if owner_id is not None and (not isinstance(owner_id, str) or not owner_id.strip()):
+            raise SkillContractError("owner_id must be a nonempty string")
         self.topology = topology
         self._advance, self._time = advance, simulation_time
         self._resources = resources if resources is not None else ResourceManager()
@@ -86,7 +89,7 @@ class NavigationExecutor:
         self._max_stop_ticks = max_stop_ticks
         self._adapters: dict[str, NavigationControllerAdapter] = {}
         self._tasks: dict[str, _Task] = {}
-        self._owner = "navigation:" + uuid4().hex
+        self._owner = owner_id if owner_id is not None else "navigation:" + uuid4().hex
         self._lock = RLock()
 
     @property
@@ -96,6 +99,109 @@ class NavigationExecutor:
     @property
     def active_task_ids(self) -> tuple[str, ...]:
         return tuple(sorted(key for key, task in self._tasks.items() if not task.retired))
+
+    def measurement_snapshot(self) -> dict[str, Any]:
+        """Return declared runtime state without observing or commanding robots.
+
+        The snapshot is an exact-reexecution measurement surface, not a
+        checkpoint or restore API.  External callback internals, controller
+        hidden state and simulator state remain outside this declaration.
+        """
+
+        with self._lock:
+            topology_callable = callable(self.topology)
+            topology_binding: dict[str, Any]
+            if topology_callable:
+                topology_binding = {
+                    "kind": "callable",
+                    "callable": True,
+                    "topology": None,
+                    "topology_digest": None,
+                    "topology_by_robot": None,
+                }
+            elif isinstance(self.topology, Mapping) and "nodes" not in self.topology:
+                by_robot = {}
+                for robot_id in sorted(self.topology):
+                    topology = self._document(self.topology[robot_id])
+                    by_robot[robot_id] = {
+                        "topology": deepcopy(topology),
+                        "topology_digest": route_graph_digest(topology),
+                    }
+                topology_binding = {
+                    "kind": "static_by_robot",
+                    "callable": False,
+                    "topology": None,
+                    "topology_digest": None,
+                    "topology_by_robot": by_robot,
+                }
+            else:
+                topology = self._document(self.topology)
+                topology_binding = {
+                    "kind": "static",
+                    "callable": False,
+                    "topology": deepcopy(topology),
+                    "topology_digest": route_graph_digest(topology),
+                    "topology_by_robot": None,
+                }
+            adapters = {}
+            for robot_id in sorted(self._adapters):
+                adapter = self._adapters[robot_id]
+                reader = getattr(adapter, "measurement_snapshot", None)
+                adapters[robot_id] = {
+                    "measurement_supported": callable(reader),
+                    "measurement": reader() if callable(reader) else None,
+                }
+            tasks = {}
+            for task_id in sorted(self._tasks):
+                task = self._tasks[task_id]
+                topology = self._document(task.topology)
+                tasks[task_id] = {
+                    "request": task.request.to_mapping(),
+                    "provider": task.provider.measurement_snapshot(),
+                    "adapter_robot_id": task.adapter.robot_id,
+                    "lease": {
+                        "lease_id": task.lease.lease_id,
+                        "owner": task.lease.owner,
+                        "resources": list(task.lease.resources),
+                    },
+                    "response": {
+                        "state": deepcopy(dict(task.response.state)),
+                        "plan": task.response.plan.to_mapping(),
+                        "private_evidence": deepcopy(dict(task.response.private_evidence)),
+                    },
+                    "topology": deepcopy(topology),
+                    "topology_digest": route_graph_digest(topology),
+                    "last_time": task.last_time,
+                    "world_state_seq": task.world_state_seq,
+                    "deadline": task.deadline,
+                    "prepared": task.prepared,
+                    "prepared_intent": task.prepared_intent,
+                    "stop_pending": task.stop_pending,
+                    "stop_since": task.stop_since,
+                    "stop_ticks": task.stop_ticks,
+                    "retired": task.retired,
+                    "quarantined": task.quarantined,
+                    "execution_samples": deepcopy(task.samples),
+                }
+            snapshot = {
+                "schema_version": "navigation.executor.measurement.v1",
+                "owner_id": self._owner,
+                "configuration": {
+                    "timeout_s": self._timeout_s,
+                    "stop_timeout_s": self._stop_timeout_s,
+                    "max_stop_ticks": self._max_stop_ticks,
+                    "advance_callback_configured": self._advance is not None,
+                    "simulation_time_callback_configured": self._time is not None,
+                    "snapshot_validator_configured": self._snapshot_validator is not None,
+                    "source_reader_configured": self._source_reader is not None,
+                },
+                "topology_binding": topology_binding,
+                "active_task_ids": list(self.active_task_ids),
+                "adapters": adapters,
+                "tasks": tasks,
+                "resources": self._resources.measurement_snapshot(),
+            }
+            return json.loads(json.dumps(snapshot, sort_keys=True, allow_nan=False))
 
     def needs_host_tick(self, task_id: str) -> bool:
         return self._task(task_id).prepared

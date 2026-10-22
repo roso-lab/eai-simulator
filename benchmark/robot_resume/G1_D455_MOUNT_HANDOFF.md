@@ -19,8 +19,8 @@ G1 额头凹槽可拆装 D455(挂载 + 外壳校准 + 俯仰标定)已在 codex 
 - untracked `benchmark/robot_resume/` 是**旧版生成器**的产物(G1_SKRL 时代),**一律不要拷贝到主仓库**。
 - worktree 运行 Isaac Sim 需要:
   ```bash
-  export EAI_USD_ROOT=/home/pupil/eai-simulator/usd
-  export EAI_CONTROLLER_ROOT=/home/pupil/eai-simulator/source/EAI_assets/EAI_assets/controller
+  export EAI_USD_ROOT=/home/pupil/HeteroCoord/usd
+  export EAI_CONTROLLER_ROOT=/home/pupil/HeteroCoord/source/EAI_assets/EAI_assets/controller
   export EAI_ASSETS_AUTO_DOWNLOAD=0
   ```
   (否则卡 HuggingFace 下载,GUI 不出现。)

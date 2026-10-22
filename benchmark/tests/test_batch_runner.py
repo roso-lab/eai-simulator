@@ -10,6 +10,11 @@ from benchmark.batch_runner import BatchEpisodeRunner
 from benchmark.artifacts import BranchArtifactStore
 from benchmark.batch import build_batch_identity
 from benchmark.experiment_plan import default_experiment_plan
+from benchmark.eai_adapter import (
+    CommandNavigationSkillAdapter,
+    EaiTaskExecutor,
+    command_navigation_request_factory,
+)
 from benchmark.protocol import ProtocolContract
 from benchmark.queue import BatchExecutionQueue, QueueBranchStatus
 from benchmark.release import ReleaseIndex, ReleaseStatus
@@ -75,6 +80,14 @@ def _batch():
     return plan, build_batch_identity(cell, plan=plan)
 
 
+def _diagnostic_adapter(_session, _task, _branch):
+    return (
+        command_navigation_request_factory,
+        CommandNavigationSkillAdapter(),
+        EaiTaskExecutor(max_steps=1),
+    )
+
+
 def test_batch_episode_runner_connects_queue_session_artifact_and_release(tmp_path):
     plan, batch = _batch()
     queue = BatchExecutionQueue(tmp_path / "queue.json", plan=plan)
@@ -104,6 +117,7 @@ def test_batch_episode_runner_connects_queue_session_artifact_and_release(tmp_pa
         decision_provider_factory=lambda _task, _branch: _decision,
         max_steps=1,
         resource_gate=Gate(),
+        execution_adapter_factory=_diagnostic_adapter,
     )
     assert len(report.branches) == 1
     assert report.branches[0].branch.status is QueueBranchStatus.COMPLETED
@@ -122,6 +136,7 @@ def test_batch_episode_runner_connects_queue_session_artifact_and_release(tmp_pa
         contract_factory=lambda anchor, _branch: anchor.to_protocol_contract(),
         decision_provider_factory=lambda _task, _branch: _decision,
         max_steps=1,
+        execution_adapter_factory=_diagnostic_adapter,
     )
     assert resumed.artifact_digests == report.artifact_digests
 
@@ -142,6 +157,7 @@ def test_batch_episode_runner_records_session_failure_without_fake_artifact(tmp_
         contract_factory=lambda anchor, _branch: anchor.to_protocol_contract(),
         decision_provider_factory=lambda _task, _branch: _decision,
         max_steps=1,
+        execution_adapter_factory=_diagnostic_adapter,
     )
     assert len(report.failed) == 1
     assert "session unavailable" in report.failed[0].branch.error
@@ -165,6 +181,7 @@ def test_batch_episode_runner_executes_four_branches_but_keeps_strict_pair_unsup
         contract_factory=lambda anchor, _branch: anchor.to_protocol_contract(),
         decision_provider_factory=lambda _task, _branch: _decision,
         max_steps=1,
+        execution_adapter_factory=_diagnostic_adapter,
     )
     assert len(report.branches) == 4
     assert all(item.branch.status is QueueBranchStatus.COMPLETED for item in report.branches)

@@ -15,6 +15,7 @@ from typing import Any, Callable, ContextManager, Iterable, Mapping
 
 from task.contracts import EaiTaskPackage
 
+from .adapters import SkillAdapter, SkillRequestFactory, TaskExecutor
 from .artifacts import BranchArtifactStore, StoredBranchArtifact
 from .batch import ExperimentBatch
 from .evidence import EvaluationStatus
@@ -34,6 +35,10 @@ DecisionProviderFactory = Callable[[EaiTaskPackage, BranchSpec], Any]
 EvaluatorFactory = Callable[[ProtocolContract, BranchSpec], Any | None]
 MetricRecordsFactory = Callable[[ExperimentBatch, BranchSpec, StoredBranchArtifact], Iterable[IndexedMetric]]
 BranchPreparer = Callable[[ExperimentBatch, BranchSpec], None]
+ExecutionAdapterFactory = Callable[
+    [Any, EaiTaskPackage, BranchSpec],
+    tuple[SkillRequestFactory, SkillAdapter, TaskExecutor],
+]
 
 
 @dataclass(frozen=True)
@@ -109,6 +114,7 @@ class BatchEpisodeRunner:
         artifact_metadata_factory: Callable[[ExperimentBatch, BranchSpec, Any], Mapping[str, Any]] | None = None,
         stop_on_error: bool = True,
         resource_gate: BranchResourceGate | None = None,
+        execution_adapter_factory: ExecutionAdapterFactory | None = None,
     ) -> BatchRunReport:
         """Execute pending branches and return validated artifacts.
 
@@ -152,6 +158,15 @@ class BatchEpisodeRunner:
                 observations = tuple(initial_observations(batch, branch)) if initial_observations is not None else ()
                 context = session_factory(batch, branch)
                 with context if hasattr(context, "__enter__") and hasattr(context, "__exit__") else nullcontext(context) as session:
+                    adapter_options = {}
+                    if execution_adapter_factory is not None:
+                        request_factory, skill, executor = execution_adapter_factory(
+                            session, task, branch)
+                        adapter_options = {
+                            "request_factory": request_factory,
+                            "skill": skill,
+                            "executor": executor,
+                        }
                     result = run_session_episode(
                         session,
                         task,
@@ -169,6 +184,7 @@ class BatchEpisodeRunner:
                             if artifact_metadata_factory is not None
                             else {"batch_manifest_digest": batch.manifest_digest}
                         ),
+                        **adapter_options,
                     )
                 resource_status = "completed"
             finally:
@@ -242,6 +258,7 @@ __all__ = [
     "ContractFactory",
     "DecisionProviderFactory",
     "EvaluatorFactory",
+    "ExecutionAdapterFactory",
     "MetricRecordsFactory",
     "SessionFactory",
     "TaskFactory",

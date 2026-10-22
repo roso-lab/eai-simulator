@@ -135,6 +135,7 @@ class TaskAnchor:
     certification_status: str = "planned"
     oracle_status: str = "not_yet_certified"
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    obligation_subtypes: Mapping[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> "TaskAnchor":
@@ -147,8 +148,13 @@ class TaskAnchor:
             raise CatalogError(f"invalid relation_signature: {relation!r}")
         p3 = value.get("p3_subtype")
         p3 = None if p3 in (None, "", "null") else _text(p3, "p3_subtype")
-        if "P3" in relation and p3 not in P3_SUBTYPES:
-            raise CatalogError("P3 contracts require p3_subtype P3-J or P3-S")
+        subtypes = value.get("obligation_subtypes", {})
+        if not isinstance(subtypes, Mapping) or any(key not in value.get("obligations", ()) or subtype not in P3_SUBTYPES for key, subtype in subtypes.items()):
+            raise CatalogError("obligation subtypes must bind registered obligations to P3-J/P3-S")
+        if "P3" in relation and p3 not in P3_SUBTYPES and not subtypes:
+            raise CatalogError("P3 contracts require obligation subtypes or a legacy P3-J/P3-S label")
+        if "P3" not in relation and subtypes:
+            raise CatalogError("only P3 obligations have subtypes")
         if "P3" not in relation and p3 is not None:
             raise CatalogError("p3_subtype is only valid for P3 contracts")
         common_kind = _text(value.get("typical_or_common", ""), "typical_or_common")
@@ -173,6 +179,7 @@ class TaskAnchor:
             p3_subtype=p3,
             objective=_text(value.get("objective"), "objective"),
             obligations=_tuple_text(value.get("obligations", ()), "obligations"),
+            obligation_subtypes=dict(subtypes),
             required_capabilities=_tuple_text(value.get("required_capabilities", ()), "required_capabilities"),
             roles=_tuple_text(value.get("roles", ()), "roles"),
             milestones=_tuple_text(value.get("milestones", ()), "milestones"),
@@ -220,6 +227,7 @@ class TaskAnchor:
         return {
             "relation_signature": list(self.canonical_signature),
             "p3_subtype": self.p3_subtype,
+            "obligation_subtypes": dict(self.obligation_subtypes),
             "obligations": list(self.obligations),
             "required_capabilities": list(self.required_capabilities),
             "roles": list(self.roles),
@@ -238,6 +246,7 @@ class TaskAnchor:
         """
 
         from .protocol import ProtocolContract
+        from .oracle_clock_v3 import seconds_to_ticks
 
         return ProtocolContract(
             contract_id=self.anchor_id,
@@ -248,8 +257,9 @@ class TaskAnchor:
             observation_schema=observation_schema,
             difficulty=f"L{self.difficulty_tier}",
             p3_subtype=self.p3_subtype,
+            obligation_subtypes=self.obligation_subtypes,
             milestones=self.milestones,
-            horizon_ticks=round(self.horizon_s / 0.02),
+            horizon_ticks=seconds_to_ticks(self.horizon_s, rounding="floor"),
             metadata={
                 "scene_key": self.scene_key,
                 "scene_anchor": self.scene_anchor,
@@ -277,6 +287,7 @@ class TaskAnchor:
             "primary_label": self.primary_label,
             "relation_signature": list(self.relation_signature),
             "p3_subtype": self.p3_subtype,
+            "obligation_subtypes": dict(self.obligation_subtypes),
             "objective": self.objective,
             "obligations": list(self.obligations),
             "required_capabilities": list(self.required_capabilities),

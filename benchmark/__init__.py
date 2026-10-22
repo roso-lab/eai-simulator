@@ -106,6 +106,46 @@ from .fleet import (
     TypedLockManager,
 )
 from .reducer import REDUCER_VERSION, MetricReducer, ReducedMetric, ReductionRecord, ReductionReport
+from .scorebook_v3 import SCOREBOOK_VERSION, ScoreSpecV3, ScorebookError, ScorebookV3, default_scorebook_v3
+from .composition_v3 import COMPOSITION_SCHEMA_VERSION, CompositionManifestV1, build_composition_manifest
+from .records_v3 import (
+    RECORDS_SCHEMA_VERSION,
+    AdaptationAttemptV3,
+    Branch as BranchV3,
+    CalibrationRecordV3,
+    CheckRecordV3,
+    ContractRecordV3,
+    DynamicItemOutcomeV3,
+    IdentityV3,
+    MetricResultV3,
+    ObligationOutcomeV3,
+    RecordStatus,
+    ResourceTraceV3,
+)
+from .oracle_v3 import OracleCertificateV3, OracleFinding, OracleStatus, make_oracle_certificate
+from .skill_qualification_v3 import SkillQualificationStatus, SkillQualificationV3, SkillTrack, follow_proxy_diagnostic
+from .transport_v3 import SharedChannelV3, SharedFrame
+from .observation_v3 import ObservationProjectorV3, ObservationRightsV3
+from .replay_state_v3 import ReplayStateRegistryV3, SnapshotParticipantV3
+from .metrics_v3 import MetricV3Error, ScoreResultV3, d1_score, d2_score, d3_score, d4_score, d5_score, d6_score, missing_weight_range, weighted_hoeffding_half_width
+from .release_v3 import EvidenceBundleV3, ReleaseGateV3, ReleaseV3Error, assess_release, read_bundle, write_bundle
+from .formal_matrix_v3 import BaselineQualificationV3, FormalCaseV3, baseline_release_status, formal_case_status
+from .dynamic_v3 import (
+    AffectedWorkClosureV3,
+    DynamicDispositionV3,
+    DynamicEventDispositionV3,
+    PhysicalFunctionLossAdapterV3,
+    PhysicalFunctionLossResultV3,
+    WorkItemV3,
+    dynamic_item_outcomes_v3,
+    freeze_affected_work_closure,
+    score_d4_outcomes_v3,
+    make_dynamic_event_disposition_v3,
+)
+from .deployment_gate_v3 import DeploymentGateV3, assess_deployment_v3
+from .physical_evidence_v3 import PhysicalEvidenceCertificateV3
+from .artifact_verifier_v3 import ArtifactVerificationError, ArtifactVerificationReceiptV3, ArtifactVerificationStatus, ArtifactVerificationV3, verify_artifact_manifest_v3
+from .diagnostic_evidence_v3 import DIAGNOSTIC_SCHEMA, DiagnosticEvidenceError, DiagnosticEvidenceV3, read_diagnostic_evidence_v3
 
 __all__ = [
     "BranchLedger",
@@ -215,4 +255,80 @@ __all__ = [
     "ReducedMetric",
     "ReductionRecord",
     "ReductionReport",
+    "SCOREBOOK_VERSION",
+    "ScoreSpecV3",
+    "ScorebookError",
+    "ScorebookV3",
+    "default_scorebook_v3",
+    "COMPOSITION_SCHEMA_VERSION",
+    "CompositionManifestV1",
+    "build_composition_manifest",
+    "RECORDS_SCHEMA_VERSION",
+    "AdaptationAttemptV3",
+    "BranchV3",
+    "CalibrationRecordV3",
+    "CheckRecordV3",
+    "ContractRecordV3",
+    "DynamicItemOutcomeV3",
+    "IdentityV3",
+    "MetricResultV3",
+    "ObligationOutcomeV3",
+    "RecordStatus",
+    "ResourceTraceV3",
+    "OracleCertificateV3",
+    "OracleFinding",
+    "OracleStatus",
+    "make_oracle_certificate",
+    "SkillQualificationStatus",
+    "SkillQualificationV3",
+    "SkillTrack",
+    "follow_proxy_diagnostic",
+    "SharedChannelV3",
+    "SharedFrame",
+    "ObservationProjectorV3",
+    "ObservationRightsV3",
+    "ReplayStateRegistryV3",
+    "SnapshotParticipantV3",
+    "MetricV3Error",
+    "ScoreResultV3",
+    "d1_score",
+    "d2_score",
+    "d3_score",
+    "d4_score",
+    "d5_score",
+    "d6_score",
+    "missing_weight_range",
+    "weighted_hoeffding_half_width",
+    "EvidenceBundleV3",
+    "ReleaseGateV3",
+    "ReleaseV3Error",
+    "assess_release",
+    "write_bundle",
+    "read_bundle",
+    "BaselineQualificationV3",
+    "FormalCaseV3",
+    "baseline_release_status",
+    "formal_case_status",
+    "AffectedWorkClosureV3",
+    "DynamicDispositionV3",
+    "DynamicEventDispositionV3",
+    "PhysicalFunctionLossAdapterV3",
+    "PhysicalFunctionLossResultV3",
+    "WorkItemV3",
+    "dynamic_item_outcomes_v3",
+    "freeze_affected_work_closure",
+    "score_d4_outcomes_v3",
+    "make_dynamic_event_disposition_v3",
+    "DeploymentGateV3",
+    "assess_deployment_v3",
+    "PhysicalEvidenceCertificateV3",
+    "ArtifactVerificationError",
+    "ArtifactVerificationReceiptV3",
+    "ArtifactVerificationStatus",
+    "ArtifactVerificationV3",
+    "verify_artifact_manifest_v3",
+    "DIAGNOSTIC_SCHEMA",
+    "DiagnosticEvidenceError",
+    "DiagnosticEvidenceV3",
+    "read_diagnostic_evidence_v3",
 ]

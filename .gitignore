@@ -130,6 +130,10 @@ tests/
 .isaac-lab-docker-history
 ros2_cmd_vel.json
 *.json
+!/benchmark/fixtures/
+!/benchmark/fixtures/*.json
+!/benchmark/fixtures/**/
+!/benchmark/fixtures/**/*.json
 !/demo/benchmark/task_coverage_matrix.json
 !/demo/benchmark/modality_matrix.json
 !/demo/benchmark/second_mission_weights.json
@@ -208,6 +212,8 @@ ros2_cmd_vel.json
 /docs/test-reports/
 test_*.py
 *_test.py
+!/tools/tests/
+!/tools/tests/test_run_tests.py
 !/benchmark/tests/
 !/benchmark/tests/**
 /benchmark/tests/__pycache__/
