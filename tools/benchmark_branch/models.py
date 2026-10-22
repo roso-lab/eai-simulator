@@ -159,8 +159,9 @@ class BranchJob:
             self,
             branch_id=f"{base}#attempt-{int(attempt)}",
             attempt=int(attempt),
-            # Retry is an execution attempt, not a new statistical base
-            # instance.  Reducers cluster repeats by this stable id.
+            # Mechanical identity transform, not permission to retry. Measured
+            # callers must first pass registered same-checkpoint recovery.
+            # A fresh-process retry needs a NEW upstream base/pair identity.
             base_instance_id=self.base_instance_id,
         )
 

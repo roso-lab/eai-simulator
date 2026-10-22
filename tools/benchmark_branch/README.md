@@ -60,13 +60,14 @@ shows Cartesian expansion. It is a protocol example, not a physical scene test.
 | Backend | Ownership and counting |
 | --- | --- |
 | `isolated_parallel` (default) | Fresh process per branch; bounded queue; parent writes canonical ledgers |
-| `shared_session` | One adapter-owned scene session; each active branch needs a distinct environment slot and mutable state |
+| `shared_session` (recommended vectorized path) | One managed vectorized scene session; each active branch owns a distinct environment slot and all branches advance through one batch call |
 
-The shared adapter can reuse static assets. Physics state, controllers, task
-state, queues, RNGs and outputs must remain isolated. A simulator process crash
-can affect the whole shared scene; this is a weaker fault boundary than one
-process per branch. `job.slot` identifies an experimental pair; it is not a
-physical environment index. Store the latter separately as `environment_slot`.
+The shared path requires the managed `vectorized_session` contract, versioned
+participant state, generation-fenced slot tokens, copied controls, inactive-slot
+readback, and fresh-process differential qualification for native physics. Static
+assets may be reused. A simulator process crash can affect the whole shared
+scene; `process_failure_scope` is therefore `shared_session`. `job.slot`
+identifies an experimental pair; it is not a physical environment index.
 
 `requested_max_workers`, `admitted_max_workers`, `requested_shared_envs`,
 `admitted_shared_envs` and `observed_peak_branch_workers` describe different
@@ -155,3 +156,12 @@ These checks cover planning, persistence, process overlap, failure/resume,
 restore mismatch, corruption detection, shared slot bookkeeping and scheduler
 lifecycle. Optional scene-plugin tests are skipped when the upstream package is
 absent. This suite does not start Isaac or certify full GPU mission acceptance.
+
+## Registered recovery and bounded execution
+
+Measured resume retains method failures and only retries infrastructure losses under a frozen
+`job.metadata.registered_recovery` rule. Checkpoint, random stream and registered participant
+readback must match before steps. Generic fresh-process retries require new upstream instance
+registration; synthetic protocol retries keep their existing behavior. Runtime cleanup precedes
+lease release, uncertain cleanup halts admission, and `max_workers` applies across all scenes.
+See [the integration contract](OPTIMIZATION_20261020.zh-CN.md) for fields and limitations.

@@ -257,7 +257,7 @@ class BranchRunStore:
         # for validation and aggregation.  Fresh-process workers already own
         # their branch/ledger.jsonl, so they do not use this mirror.
         if job is not None and (self.manifest.get("execution_mode") == "shared_session"
-                                or self.manifest.get("execution_backend") == "session_backend"):
+                or self.manifest.get("execution_backend") in {"session_backend", "vectorized_session"}):
             self.append_branch_ledger(job, ledger, payload, sync=sync)
         return payload
 

@@ -197,6 +197,21 @@ class ReplayScheduler:
         self._preflights: dict[str, DeviceEvidence] = {}
         self._scene_devices: dict[str, DeviceEvidence] = {}
         self._branch_scene_leases: dict[str, str] = {}
+        self._admission_halted: str | None = None
+
+    def halt_admission(self, reason: str) -> None:
+        """Wake and reject waiting/new callers after uncertain runtime cleanup.
+
+        Existing leases remain owned until their runtime is closed. The
+        scheduler is deliberately not resettable: a caller must establish a
+        clean runtime before constructing a new scheduler.
+        """
+        with self._condition:
+            if self._admission_halted is None:
+                self._admission_halted = str(reason) or "runtime cleanup unconfirmed"
+                self._audit(self._base_audit(event="admission_halted", lease_id="", scene_id="",
+                                             diagnostics=(self._admission_halted,)))
+            self._condition.notify_all()
 
     @staticmethod
     def _next_slot(occupied: Any) -> int:
@@ -364,6 +379,8 @@ class ReplayScheduler:
             queued = False
 
             def ready() -> bool:
+                if self._admission_halted:
+                    raise CapacityDenied(f"admission halted: {self._admission_halted}")
                 return self._admission_reason(scene=True, reservation=reservation) is None
 
             def queue_event() -> None:
@@ -412,6 +429,12 @@ class ReplayScheduler:
             queued = False
 
             def ready() -> bool:
+                if self._admission_halted:
+                    raise CapacityDenied(f"admission halted: {self._admission_halted}")
+                if scene.lease_id not in self._scenes:
+                    raise CapacityDenied("scene lease was released while waiting")
+                if any(item.branch_key == branch_key for item in self._branches.values()):
+                    raise ValueError(f"branch_key is already active: {branch_key}")
                 return self._branch_admission_reason(scene, reservation) is None
 
             def queue_event() -> None:

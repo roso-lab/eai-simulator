@@ -20,6 +20,7 @@ from .initialization import FRESH, receipt_mode, validate_initialization_job, ve
 from .resources import ResourceProbe, resource_row
 from .store import BranchRunStore
 from .session import backend_method
+from .recovery import decide_recovery, recovery_registration, verify_recovery_readback, METHOD_TERMINALS, is_method_outcome
 
 
 @dataclass(frozen=True)
@@ -269,6 +270,8 @@ class BranchExecutor:
         records_lock = __import__("threading").RLock()
         scene_results: list[dict[str, Any]] = []
         peak_state = {"value": 0}
+        active_runtime_ids: set[int] = set()
+        branch_slots = __import__("threading").BoundedSemaphore(self.requested_max_workers)
 
         def append_scheduler_audit(row: Mapping[str, Any]) -> None:
             # Resource/audit rows do not carry benchmark identity.  Keep the
@@ -280,14 +283,28 @@ class BranchExecutor:
             completed = failed = 0
             scene_lease = None
             session = None
-            active_runtime_ids: set[int] = set()
+            scene_open_attempted = False
+            retained_leases = []
             try:
                 scene_lease = self.scheduler.acquire_scene(
                     scene_id, reservation=scene_reservation,
                     requested_device=self.requested_device, wait=True,
                     timeout_s=self.timeout_s,
                 )
-                session = backend.open_scene(scene_id, scheduler=self.scheduler)
+                scene_open_attempted = True
+                try:
+                    session = backend.open_scene(scene_id, scheduler=self.scheduler)
+                    if session is None:
+                        raise RuntimeError("SessionBackend.open_scene returned no session")
+                except BaseException as exc:
+                    # An open may allocate native resources before failing.
+                    # Without a handle, shutdown cannot be confirmed.
+                    self.scheduler.halt_admission(f"scene open left uncertain ownership: {exc}")
+                    self.store.append("resources", {
+                        "kind": "session_open_error", "scene_id": scene_id,
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }, sync=True)
+                    raise
                 warmup = backend_method(backend, "warmup")
                 if warmup is not None:
                     warmup(session, ticks=self.warmup_ticks)
@@ -310,7 +327,7 @@ class BranchExecutor:
                         failed += 1
                     return {"scene_id": scene_id, "completed": 0, "failed": len(scene_jobs),
                             "preflight": evidence.__dict__}
-                def run_branch(job: BranchJob) -> bool:
+                def execute_branch(job: BranchJob) -> bool:
                     """Run one isolated branch runtime inside this scene.
 
                     A scene session may contain many independent branch slots.
@@ -324,12 +341,40 @@ class BranchExecutor:
 
                     branch_lease = None
                     branch_runtime = None
+                    close_attempted = False
+                    cleanup_failed = False
+                    release_status = "aborted"
+                    release_reason = "branch execution failed"
+                    result = {}
+
+                    def close_runtime() -> None:
+                        nonlocal close_attempted, cleanup_failed, branch_runtime
+                        if branch_runtime is None or close_attempted:
+                            return
+                        close_attempted = True
+                        try:
+                            backend.close_branch(branch_runtime)
+                        except BaseException as exc:
+                            cleanup_failed = True
+                            self.scheduler.halt_admission(f"branch cleanup failed: {exc}")
+                            self.store.append("resources", {
+                                "kind": "branch_close_error", "scene_id": scene_id,
+                                "branch_id": job.branch_id,
+                                "error": f"{type(exc).__name__}: {exc}",
+                            }, job=job, sync=True)
+                            raise
+                        else:
+                            with records_lock:
+                                active_runtime_ids.discard(id(branch_runtime))
+                            branch_runtime = None
+
                     started = time.time_ns()
                     deadline = time.monotonic() + self.timeout_s if self.timeout_s is not None else None
                     receipt = {"heartbeat": False, "first_tick": None,
                                "last_tick": None, "restore_passed": None,
-                               "initialization_passed": None}
+                               "initialization_passed": None, "recovery_passed": False}
                     fresh = receipt_mode(job) == FRESH
+                    recovering = job.execution_scope in MEASURED_SCOPES and job.attempt > 0
                     try:
                         branch_lease = self.scheduler.acquire_branch(
                             scene_lease, branch_key=job.branch_id,
@@ -354,12 +399,23 @@ class BranchExecutor:
                             "warmup_ticks": self.warmup_ticks,
                             "episode_start_time_ns": started,
                         }, job=job, sync=True)
-                        branch_runtime = backend.open_branch(session, job, lease=branch_lease)
-                        if branch_runtime is None:
-                            raise RuntimeError("SessionBackend.open_branch returned no branch runtime")
+                        try:
+                            branch_runtime = backend.open_branch(session, job, lease=branch_lease)
+                            if branch_runtime is None:
+                                raise RuntimeError("SessionBackend.open_branch returned no branch runtime")
+                        except BaseException as exc:
+                            cleanup_failed = True
+                            self.scheduler.halt_admission(f"branch open left uncertain ownership: {exc}")
+                            self.store.append("resources", {
+                                "kind": "branch_open_error", "scene_id": scene_id,
+                                "branch_id": job.branch_id,
+                                "error": f"{type(exc).__name__}: {exc}",
+                            }, job=job, sync=True)
+                            raise
                         runtime_identity = id(branch_runtime)
                         with records_lock:
                             if runtime_identity in active_runtime_ids:
+                                branch_runtime = None  # owned by another active branch
                                 raise RuntimeError(
                                     "SessionBackend returned one mutable branch runtime for multiple active branches"
                                 )
@@ -375,12 +431,20 @@ class BranchExecutor:
                             if ledger == "metrics" and row.get("kind") == "heartbeat":
                                 receipt["heartbeat"] = True
                             if ledger == "steps" and row.get("simulator_step") is not None:
+                                if recovering and receipt["recovery_passed"] is not True:
+                                    raise ValueError("registered recovery requires checkpoint and random-stream readback before steps")
                                 if fresh and receipt["initialization_passed"] is not True:
                                     raise ValueError("branch steps require passed initialization")
                                 step = int(row["simulator_step"])
                                 receipt["first_tick"] = step if receipt["first_tick"] is None else min(receipt["first_tick"], step)
                                 receipt["last_tick"] = step if receipt["last_tick"] is None else max(receipt["last_tick"], step)
                             if ledger == "checkpoints" and row.get("restore_passed") is not None:
+                                if recovering:
+                                    receipt["recovery_passed"] = verify_recovery_readback(job, row)
+                                    if not receipt["recovery_passed"]:
+                                        row["recovery_passed"] = False
+                                        self.store.append(ledger, row, job=job, sync=True)
+                                        raise ValueError("registered recovery readback mismatch")
                                 if fresh:
                                     raise ValueError("fresh initialization cannot emit a restore receipt")
                                 receipt["restore_passed"] = (
@@ -399,10 +463,15 @@ class BranchExecutor:
                             raise TimeoutError("session branch exceeded cooperative execution deadline")
                         result = dict(result) if isinstance(result, Mapping) else {}
                         status = str(result.get("status", "missing_response"))
-                        branch_completed = bool(result.get("completed", False))
-                        if not result or "completed" not in result or "status" not in result:
+                        if status in METHOD_TERMINALS:
+                            result.setdefault("method_status", status)
+                            result.setdefault("method_completed", False)
+                        branch_completed = result.get("completed") is True
+                        if (not result or type(result.get("completed")) is not bool
+                                or not isinstance(result.get("status"), str) or not result["status"].strip()):
                             status = "missing_response"
                             branch_completed = False
+                            result.update(method_status="missing_response", method_completed=False)
                         execution_scope = str(self.store.manifest.get("execution_scope") or self.plan.execution_scope)
                         if execution_scope in MEASURED_SCOPES:
                             heartbeat = receipt["heartbeat"]
@@ -410,7 +479,8 @@ class BranchExecutor:
                             last_tick = receipt["last_tick"]
                             restore_passed = receipt["restore_passed"]
                             initial_state_passed = receipt["initialization_passed"] if fresh else restore_passed
-                            if not heartbeat or first_tick is None or last_tick is None or initial_state_passed is not True:
+                            if (not heartbeat or first_tick is None or last_tick is None or initial_state_passed is not True
+                                    or (recovering and not receipt["recovery_passed"])):
                                 status = "infrastructure_invalid"
                                 branch_completed = False
                                 result["physical_success"] = None
@@ -442,12 +512,7 @@ class BranchExecutor:
                                         result["evaluator_error"] = str(exc)
                         # Cleanup is part of the branch lifecycle, not a best-
                         # effort action after a completed receipt/lease release.
-                        close_branch = backend_method(backend, "close_branch")
-                        if close_branch is not None:
-                            close_branch(branch_runtime)
-                        with records_lock:
-                            active_runtime_ids.discard(id(branch_runtime))
-                        branch_runtime = None
+                        close_runtime()
                         episode = {
                             "status": status, "completed": branch_completed,
                             "outcome": result.get("outcome", result),
@@ -473,16 +538,16 @@ class BranchExecutor:
                             if field in result:
                                 episode[field] = result[field]
                         self.store.append("episodes", episode, job=job, sync=True)
-                        self.scheduler.release_branch(
-                            branch_lease, status="completed" if branch_completed else status,
-                        )
-                        branch_lease = None
+                        release_status = "completed" if branch_completed else status
+                        release_reason = ""
                         return branch_completed
                     except BaseException as exc:
                         init_invalid = fresh and receipt["initialization_passed"] is not True
                         self.store.append("episodes", {
                             "status": "infrastructure_invalid" if init_invalid else "method_timeout" if isinstance(exc, TimeoutError) else "crashed", "completed": False,
                             "physical_success": None,
+                            **{key: result[key] for key in ("method_status", "method_completed", "method_outcome")
+                               if isinstance(result, Mapping) and key in result},
                             **({"infrastructure_reason": "missing_runtime_receipt"} if init_invalid else {}),
                             "error": f"{type(exc).__name__}: {exc}",
                             "worker_instance_id": (
@@ -495,26 +560,27 @@ class BranchExecutor:
                             "episode_start_time_ns": started,
                             "episode_end_time_ns": time.time_ns(),
                         }, job=job, sync=True)
-                        if branch_lease is not None:
-                            self.scheduler.release_branch(
-                                branch_lease, status="aborted",
-                                reason=f"{type(exc).__name__}: {exc}",
-                            )
+                        release_reason = f"{type(exc).__name__}: {exc}"
                         return False
                     finally:
-                        if branch_runtime is not None:
-                            with records_lock:
-                                active_runtime_ids.discard(id(branch_runtime))
-                            close_branch = backend_method(backend, "close_branch")
-                            if close_branch is not None:
-                                try:
-                                    close_branch(branch_runtime)
-                                except BaseException as close_exc:
-                                    self.store.append("resources", {
-                                        "kind": "branch_close_error", "scene_id": scene_id,
-                                        "branch_id": job.branch_id,
-                                        "error": f"{type(close_exc).__name__}: {close_exc}",
-                                    }, job=job, sync=True)
+                        try:
+                            close_runtime()
+                        except BaseException:
+                            pass  # already recorded; capacity remains owned
+                        if branch_lease is not None:
+                            if cleanup_failed:
+                                with records_lock:
+                                    retained_leases.append(branch_lease)
+                            else:
+                                self.scheduler.release_branch(
+                                    branch_lease, status=release_status, reason=release_reason,
+                                )
+
+                def run_branch(job: BranchJob) -> bool:
+                    # max_workers is a collector-wide limit, not multiplied
+                    # by the number of resident scenes. Hold it through close.
+                    with branch_slots:
+                        return execute_branch(job)
 
                 # Admit/run branch slots concurrently within one scene-owned
                 # session.  The scheduler remains authoritative when global
@@ -546,28 +612,35 @@ class BranchExecutor:
                 return {"scene_id": scene_id, "completed": completed,
                         "failed": failed, "error": str(exc)}
             finally:
+                scene_closed = not scene_open_attempted
                 if session is not None:
-                    close_scene = backend_method(backend, "close_scene")
-                    if close_scene is not None:
-                        try:
-                            close_scene(session)
-                        except BaseException as close_exc:
-                            completed = 0
-                            failed = len(scene_jobs)
-                            self.store.append("resources", {
-                                "kind": "session_close_error", "scene_id": scene_id,
-                                "error": f"{type(close_exc).__name__}: {close_exc}",
-                            }, sync=True)
-                if scene_lease is not None:
                     try:
+                        backend.close_scene(session)
+                        scene_closed = True
+                    except BaseException as close_exc:
+                        completed = 0
+                        failed = len(scene_jobs)
+                        self.scheduler.halt_admission(f"scene cleanup failed: {close_exc}")
+                        self.store.append("resources", {
+                            "kind": "session_close_error", "scene_id": scene_id,
+                            "error": f"{type(close_exc).__name__}: {close_exc}",
+                        }, sync=True)
+                if scene_closed and scene_lease is not None:
+                    try:
+                        # Successful whole-session shutdown also disposes of
+                        # runtimes whose individual close failed. Until then
+                        # their reservations must not be reused.
+                        for lease in retained_leases:
+                            self.scheduler.release_branch(lease, status="aborted",
+                                                          reason="released after scene shutdown")
                         self.scheduler.release_scene(
-                            scene_lease,
-                            status="completed" if failed == 0 else "aborted",
+                            scene_lease, status="completed" if failed == 0 else "aborted",
                             reason="session branch failure" if failed else "",
                         )
                     except BaseException as release_exc:
                         completed = 0
                         failed = len(scene_jobs)
+                        self.scheduler.halt_admission(f"lease release failed: {release_exc}")
                         self.store.append("resources", {
                             "kind": "scene_lease_release_error", "scene_id": scene_id,
                             "lease_id": scene_lease.lease_id,
@@ -579,7 +652,9 @@ class BranchExecutor:
             for scene_id, scene_jobs in grouped.items():
                 scene_results.append(run_scene(scene_id, scene_jobs))
         else:
-            with ThreadPoolExecutor(max_workers=max(1, len(grouped))) as pool:
+            scene_workers = max(1, min(len(grouped), self.requested_max_workers,
+                                       self.scheduler.capacity.max_parallel_scenes))
+            with ThreadPoolExecutor(max_workers=scene_workers) as pool:
                 futures = [pool.submit(run_scene, scene_id, scene_jobs)
                            for scene_id, scene_jobs in grouped.items()]
                 for future in as_completed(futures):
@@ -592,10 +667,25 @@ class BranchExecutor:
             append_scheduler_audit(audit)
         completed = sum(item["completed"] for item in scene_results)
         failed = sum(item["failed"] for item in scene_results)
+        executed_counts = {"scheduled": len(jobs), "completed": completed, "failed": failed}
+        if self.plan.execution_scope in MEASURED_SCOPES:
+            latest = {}
+            for row in self.store.read_ledger("episodes"):
+                logical = row.get("logical_branch_id")
+                if logical and (logical not in latest or int(row.get("attempt", 0)) >= int(latest[logical].get("attempt", 0))):
+                    latest[logical] = row
+            scheduled = {job.logical_branch_id for job in jobs}
+            retained = [row for logical, row in latest.items() if logical not in scheduled]
+            retained_completed = sum(row.get("completed") is True for row in retained)
+            completed += retained_completed
+            failed += len(retained) - retained_completed
+        final_snapshot = self.scheduler.snapshot()
         self.store.update_manifest(
             execution_backend="session_backend", scheduler_integrated=True,
-            requested=len(jobs), resident=0, active=0, completed=completed,
-            failed=failed, queued=0,
+            requested=(self.plan.logical_branch_count if self.plan.execution_scope in MEASURED_SCOPES else len(jobs)),
+            resident=final_snapshot.active_branches,
+            active=final_snapshot.active_branches, active_scenes=final_snapshot.active_scenes,
+            completed=completed, failed=failed, queued=0, last_execution=executed_counts,
             observed_peak_branch_workers=peak_state["value"],
             infrastructure_status="valid" if failed == 0 else "invalid_or_failed",
         )
@@ -608,8 +698,8 @@ class BranchExecutor:
             "run_id": self.store.run_id,
             "execution_backend": "session_backend",
             "scheduler_integrated": True,
-            "logical_branches": len(jobs), "completed": completed,
-            "failed": failed, "queued": 0,
+            "logical_branches": self.plan.logical_branch_count, "completed": completed,
+            "failed": failed, "queued": 0, "last_execution": executed_counts,
             "observed_peak_branch_workers": peak_state["value"],
             "active": snapshot.active_branches,
             "scene_results": scene_results,
@@ -644,20 +734,40 @@ class BranchExecutor:
     def _jobs_to_run(self) -> list[BranchJob]:
         jobs = list(self.plan.jobs())
         existing_attempts: dict[str, int] = {}
-        done: set[str] = set()
+        episodes: dict[str, list[dict[str, Any]]] = {}
         for row in self.store.read_ledger("branch_manifest"):
             logical = str(row.get("logical_branch_id") or str(row.get("branch_id", "")).split("#attempt-", 1)[0])
             existing_attempts[logical] = max(existing_attempts.get(logical, -1), int(row.get("attempt", 0)))
         for row in self.store.read_ledger("episodes"):
             logical = str(row.get("logical_branch_id") or str(row.get("branch_id", "")).split("#attempt-", 1)[0])
-            if bool(row.get("completed")) and int(row.get("attempt", 0)) >= existing_attempts.get(logical, 0):
-                done.add(logical)
+            episodes.setdefault(logical, []).append(row)
         result = []
+        decisions = []
         for job in jobs:
-            if job.logical_branch_id in done:
+            recovery_registration(job)  # reject malformed frozen rules before opening a runtime
+            last_attempt = existing_attempts.get(job.logical_branch_id, -1)
+            if last_attempt < 0:
+                if job.execution_scope in MEASURED_SCOPES and job.attempt != 0:
+                    raise ValueError("new measured runs require attempt zero and upstream base-instance registration")
+                result.append(job)
                 continue
-            attempt = existing_attempts.get(job.logical_branch_id, -1) + 1
-            result.append(job.with_attempt(attempt) if attempt else job)
+            history = episodes.get(job.logical_branch_id, [])
+            prior = next((row for row in reversed(history)
+                          if int(row.get("attempt", 0)) == last_attempt), None)
+            # Do not let later cleanup/infra records turn an earlier method
+            # failure in the same logical branch into a retry opportunity.
+            if job.execution_scope in MEASURED_SCOPES:
+                method = next((row for row in history
+                               if is_method_outcome(row)), None)
+                if method is not None:
+                    prior = {**method, "completed": False}
+            decision = decide_recovery(job, prior, next_attempt=last_attempt + 1)
+            decisions.append({"logical_branch_id": job.logical_branch_id,
+                              "prior_attempt": last_attempt, "retry": decision.retry,
+                              "reason": decision.reason})
+            if decision.retry:
+                result.append(job.with_attempt(last_attempt + 1))
+        self.store.update_manifest(resume_decisions=decisions)
         return result
 
     def _run_shared_session(self, jobs: list[BranchJob], checkpoint: CheckpointArtifact) -> dict[str, Any]:
@@ -832,6 +942,18 @@ class BranchExecutor:
         # observed resident/active counts.
         self.store.update_manifest(timeout_s=self.timeout_s, resource_limit=dict(self.resource_limit))
         requested_scope = str(self.store.manifest.get("execution_scope") or self.plan.execution_scope)
+        shared = self.store.manifest.get("execution_mode") == "shared_session"
+        if shared and requested_scope == "measured":
+            reason = ("formal vectorized measured execution requires a revised paper protocol and "
+                      "native backend differential qualification; use measured_diagnostic during integration")
+            self.store.update_manifest(status="rejected", collector_status="rejected",
+                                       inference_status="unsupported", rejection_reason=reason)
+            self.store.finish()
+            raise ValueError(reason)
+        if shared and self.session_backend is not None:
+            from .vectorized import SCHEMA as VECTOR_SCHEMA
+            if getattr(self.session_backend, "vectorized_contract", None) != VECTOR_SCHEMA:
+                raise ValueError("shared_session requires a managed vectorized backend; serial session fallback is forbidden")
         supported_scopes = _supported_execution_scopes(self.adapter)
         if requested_scope not in supported_scopes:
             reason = (
@@ -854,6 +976,8 @@ class BranchExecutor:
             raise ValueError(reason)
         for job in self.plan.jobs():
             validate_initialization_job(job, session_backend=self.session_backend is not None)
+            if shared and receipt_mode(job) == FRESH:
+                raise ValueError("vectorized branches require checkpoint restoration, not fresh initialization")
         if requested_scope == "measured":
             from .benchmark_bridge import benchmark_job_errors
             errors = [error for job in self.plan.jobs() for error in benchmark_job_errors(job)]
@@ -868,6 +992,15 @@ class BranchExecutor:
                                            rejection_reason="formal measured requires CUDA")
                 self.store.finish()
                 raise ValueError("formal measured requires CUDA; use measured_diagnostic for CPU diagnostics")
+        jobs = self._jobs_to_run()
+        if not jobs:
+            # A no-op must not clear previously unconfirmed runtime ownership.
+            self.store.update_manifest(queued=0)
+            self.store.finish()
+            report = dict(self.store.manifest)
+            report.update({"run_id": self.store.run_id, "logical_branches": self.plan.logical_branch_count,
+                           "pair_slots": self.plan.pair_slots, "results": []})
+            return report
         contract = _call(self.adapter, "validate_contract", self.plan, default=True)
         if isinstance(contract, Mapping) and not bool(contract.get("passed", True)):
             raise ValueError(f"task contract rejected: {contract}")
@@ -904,7 +1037,6 @@ class BranchExecutor:
             scene_build_order_digest=str(metadata.get("scene_build_order_digest", "")),
             skill_adapter_version=str(metadata.get("skill_adapter_version", "")),
         )
-        jobs = self._jobs_to_run()
         resolved_jobs: list[BranchJob] = []
         for job in jobs:
             updated = replace(job,
@@ -926,15 +1058,12 @@ class BranchExecutor:
             self.store.append("checkpoints", {"checkpoint_id": checkpoint.checkpoint_id, "simulator_step": 0,
                                                "sim_time_s": 0.0, "snapshot_digest": checkpoint.digest,
                                                "snapshot_schema": checkpoint.schema, "base_checkpoint": True,
+                                               **({"vector_checkpoint_state": checkpoint.state}
+                                                  if shared and self.session_backend is not None else {}),
                                                "metadata": dict(checkpoint.metadata)})
-        if not jobs:
-            self.store.update_manifest(active=0, queued=0)
-            self.store.finish()
-            report = dict(self.store.manifest)
-            report.update({"run_id": self.store.run_id, "logical_branches": self.plan.logical_branch_count,
-                           "pair_slots": self.plan.pair_slots, "results": []})
-            return report
-
+        if shared and self.session_backend is not None:
+            from .vectorized_executor import run_vectorized
+            return run_vectorized(self, jobs, checkpoint)
         if self.session_backend is not None or self.scheduler is not None:
             return self._run_session_backend(jobs, checkpoint)
 

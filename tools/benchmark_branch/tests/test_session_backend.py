@@ -1,5 +1,6 @@
 import threading
 import time
+import pytest
 
 from tools.benchmark_branch import BranchExecutor, BranchPlan, BranchRunStore, DummyAdapter
 from tools.physics_replay.execution.scheduler import (
@@ -196,3 +197,213 @@ def test_session_backend_can_overlap_32_branch_slots_across_two_scenes(tmp_path)
     episodes = store.read_ledger("episodes")
     assert len({row["worker_instance_id"] for row in episodes}) == 32
     assert validate_run(tmp_path / "run")["status"] == "passed"
+
+
+def test_exception_cleanup_keeps_lease_until_runtime_closed(tmp_path):
+    scheduler = _scheduler()
+
+    class Backend(_SessionBackend):
+        execution_affinity = "caller_thread"
+
+        def run_branch(self, runtime, job, *, emit):
+            raise RuntimeError("execution failed")
+
+        def close_branch(self, runtime):
+            assert scheduler.snapshot().active_branches == 1
+            self.closed.append(runtime["branch_id"])
+
+    plan = BranchPlan(slots=1)
+    store = BranchRunStore.create(tmp_path, plan)
+    backend = Backend()
+    result = BranchExecutor(plan, DummyAdapter(), store, session_backend=backend,
+                            scheduler=scheduler).run()
+    assert result["failed"] == 4
+    assert scheduler.snapshot().active_branches == 0
+    assert len(backend.closed) == 5
+
+
+def test_cleanup_failure_stops_queued_work_and_only_scene_shutdown_releases(tmp_path):
+    scheduler = ReplayScheduler(ReplayCapacity(1, 1, 1), device_probe=lambda session, request: {
+        "actual_physics_device": "cuda:0", "controller_device": "cuda:0", "gpu_uuid": "test"})
+
+    class Backend(_SessionBackend):
+        def __init__(self):
+            super().__init__()
+            self.opens = self.closes = 0
+
+        def open_branch(self, session, job, *, lease):
+            self.opens += 1
+            return super().open_branch(session, job, lease=lease)
+
+        def close_branch(self, runtime):
+            self.closes += 1
+            raise RuntimeError("native cleanup failed")
+
+        def close_scene(self, session):
+            assert scheduler.snapshot().active_branches == 1
+            super().close_scene(session)
+
+    plan = BranchPlan(slots=1)
+    store = BranchRunStore.create(tmp_path, plan)
+    backend = Backend()
+    result = BranchExecutor(plan, DummyAdapter(), store, max_workers=4,
+                            session_backend=backend, scheduler=scheduler).run()
+    assert result["failed"] == 4
+    assert backend.opens == backend.closes == 1
+    assert scheduler.snapshot().active_branches == 0
+    assert scheduler.snapshot().active_scenes == 0
+    assert validate_run(tmp_path)["status"] == "failed"
+
+
+def test_failed_scene_shutdown_retains_capacity_in_manifest(tmp_path):
+    class Backend(_SessionBackend):
+        execution_affinity = "caller_thread"
+
+        def close_branch(self, runtime):
+            raise RuntimeError("branch close failed")
+
+        def close_scene(self, session):
+            raise RuntimeError("scene close failed")
+
+    plan = BranchPlan(slots=1)
+    store = BranchRunStore.create(tmp_path, plan)
+    scheduler = _scheduler()
+    result = BranchExecutor(plan, DummyAdapter(), store, session_backend=Backend(), scheduler=scheduler).run()
+    assert result["failed"] == 4
+    assert result["active"] == store.manifest["active"] == 1
+    assert scheduler.snapshot().active_scenes == 1
+
+
+@pytest.mark.parametrize("missing_handle", [False, True])
+@pytest.mark.parametrize("scene_close_fails", [False, True])
+def test_partial_branch_open_quarantines_until_scene_shutdown(tmp_path, missing_handle, scene_close_fails):
+    scheduler = _scheduler()
+
+    class Backend(_SessionBackend):
+        def __init__(self):
+            super().__init__()
+            self.opens = 0
+            self.native_active = False
+
+        def open_branch(self, session, job, *, lease):
+            assert not self.native_active
+            self.opens += 1
+            self.native_active = True
+            if missing_handle:
+                return None
+            raise RuntimeError("partial branch allocation")
+
+        def close_branch(self, runtime):
+            pytest.fail("no handle returned; individual close is impossible")
+
+        def close_scene(self, session):
+            assert scheduler.snapshot().active_branches == 1
+            if scene_close_fails:
+                raise RuntimeError("scene shutdown failed")
+            self.native_active = False
+            super().close_scene(session)
+
+    plan = BranchPlan(slots=1)
+    store = BranchRunStore.create(tmp_path, plan)
+    backend = Backend()
+    result = BranchExecutor(plan, DummyAdapter(), store, max_workers=1,
+                            session_backend=backend, scheduler=scheduler).run()
+    assert result["failed"] == 4
+    assert backend.opens == 1
+    assert backend.native_active == scene_close_fails
+    assert scheduler.snapshot().active_branches == int(scene_close_fails)
+    assert scheduler.snapshot().active_scenes == int(scene_close_fails)
+    assert store.manifest["active"] == int(scene_close_fails)
+    assert any(row.get("kind") == "branch_open_error" for row in store.read_ledger("resources"))
+
+
+@pytest.mark.parametrize("missing_handle", [False, True])
+def test_partial_scene_open_retains_scene_capacity_and_stops_admission(tmp_path, missing_handle):
+    class Backend(_SessionBackend):
+        def open_scene(self, scene_id, *, scheduler):
+            self.open_sessions += 1
+            if missing_handle:
+                return None
+            raise RuntimeError("partial scene allocation")
+
+        def close_scene(self, session):
+            pytest.fail("no session handle returned")
+
+    plan = BranchPlan(scenes=("a", "b"), slots=1)
+    store = BranchRunStore.create(tmp_path, plan)
+    scheduler = _scheduler()
+    backend = Backend()
+    result = BranchExecutor(plan, DummyAdapter(), store, max_workers=1,
+                            session_backend=backend, scheduler=scheduler).run()
+    assert result["failed"] == 8
+    assert backend.open_sessions == 1
+    assert scheduler.snapshot().active_scenes == store.manifest["active_scenes"] == 1
+    assert scheduler.snapshot().active_branches == 0
+    assert any(row.get("kind") == "session_open_error" for row in store.read_ledger("resources"))
+
+
+def test_max_workers_is_global_across_resident_scenes(tmp_path):
+    plan = BranchPlan(scenes=("a", "b"), slots=2)
+    store = BranchRunStore.create(tmp_path, plan)
+    backend = _SessionBackend()
+    result = BranchExecutor(plan, DummyAdapter(), store, max_workers=3,
+                            session_backend=backend, scheduler=_scheduler()).run()
+    assert result["completed"] == 16
+    assert backend.peak_sessions == 2
+    assert 1 < backend.peak_branches <= 3
+    assert result["observed_peak_branch_workers"] <= 3
+
+
+def test_method_failure_fields_survive_cleanup_failure(tmp_path):
+    class Backend(_SessionBackend):
+        execution_affinity = "caller_thread"
+
+        def run_branch(self, runtime, job, *, emit):
+            return {"status": "method_timeout", "completed": False,
+                    "method_status": "method_timeout", "method_completed": False,
+                    "method_outcome": "timeout"}
+
+        def close_branch(self, runtime):
+            raise RuntimeError("cleanup error after method timeout")
+
+    plan = BranchPlan(slots=1)
+    store = BranchRunStore.create(tmp_path, plan)
+    BranchExecutor(plan, DummyAdapter(), store, session_backend=Backend(), scheduler=_scheduler()).run()
+    first = store.read_ledger("episodes")[0]
+    assert first["method_status"] == "method_timeout"
+    assert first["method_completed"] is False
+    assert first["method_outcome"] == "timeout"
+    assert "cleanup error" in first["error"]
+
+
+def test_duplicate_runtime_across_scenes_is_not_closed_by_rejected_branch(tmp_path):
+    from dataclasses import replace
+
+    class Backend(_SessionBackend):
+        def __init__(self):
+            super().__init__()
+            self.shared = {}
+            self.open_barrier = threading.Barrier(2)
+            self.runtime_closes = 0
+
+        def open_branch(self, session, job, *, lease):
+            self.open_barrier.wait(timeout=2)
+            return self.shared
+
+        def run_branch(self, runtime, job, *, emit):
+            time.sleep(0.1)
+            return {"status": "completed", "completed": True}
+
+        def close_branch(self, runtime):
+            self.runtime_closes += 1
+
+    plan = BranchPlan(run_id="shared-object", scenes=("a", "b"), slots=1)
+    jobs = plan.jobs()
+    plan = replace(plan, explicit_jobs=(jobs[0], jobs[4]))
+    store = BranchRunStore.create(tmp_path, plan)
+    backend = Backend()
+    result = BranchExecutor(plan, DummyAdapter(), store, max_workers=2,
+                            session_backend=backend, scheduler=_scheduler()).run()
+    assert result["completed"] == result["failed"] == 1
+    assert backend.runtime_closes == 1
+    assert any("multiple active branches" in row.get("error", "") for row in store.read_ledger("episodes"))

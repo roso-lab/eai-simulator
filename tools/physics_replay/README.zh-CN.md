@@ -1,5 +1,13 @@
 # 物理回放工具
 
+> Reader cache is bounded by default: 2 segments and 64 MiB of decompressed arrays.
+> Configure `max_cached_segments` / `max_cache_bytes`, inspect `cache_info`, or call
+> `clear_cache()`. Integrity audits re-read disk artifacts. This bounds retained
+> array bytes, not peak RSS. Historical `demo.fire_rescue` acceptance commands
+> require that external package; it is not bundled in the current tool branch.
+> See [tool integration and recovery rules](../benchmark_branch/OPTIMIZATION_20261020.zh-CN.md).
+
+
 ## 从初始场景重建（独立于原生快照）
 
 新增 `reconstruction.py`：任务先从起点记录未中断的原始过程，之后在**独立新进程**

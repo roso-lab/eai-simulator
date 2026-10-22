@@ -10,6 +10,7 @@ from .contracts import (CHECKPOINT_FIELDS, METHOD_FAILURES, OUTCOME_STATUSES,
                         STEP_FIELDS, TaskContract, evaluator_result)
 from .executor import BranchExecutor, BranchWorker, WorkerResult
 from .session import EmitRow, SessionBackend
+from .vectorized import IsolationError, SlotBinding, SlotChannel, SlotSnapshot, VectorizedSession
 from .runtime import RuntimeComponents
 from .eai_session import EaiSessionBackend, probe_eai_devices, CudaResourceProbe
 from .evidence import write_evaluator_evidence, verify_evaluator_evidence
@@ -26,6 +27,7 @@ __all__ = [
     "branch_plan_from_batch", "validate_jobs_against_batch", "benchmark_job_errors",
     "BranchExecutor", "BranchWorker", "WorkerResult",
     "SessionBackend", "EmitRow",
+    "IsolationError", "SlotBinding", "SlotChannel", "SlotSnapshot", "VectorizedSession",
     "RuntimeComponents", "EaiSessionBackend", "probe_eai_devices", "CudaResourceProbe",
     "write_evaluator_evidence", "verify_evaluator_evidence",
     "TaskContract", "evaluator_result", "OUTCOME_STATUSES", "METHOD_FAILURES",

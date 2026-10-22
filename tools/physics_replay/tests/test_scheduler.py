@@ -277,3 +277,31 @@ def test_fake_worker_smoke_has_overlapping_independent_sessions():
     assert s.snapshot().active_scenes == 0
     assert s.snapshot().active_branches == 0
     assert sum(row["event"] == "branch_started" for row in s.audits) == 4
+
+
+def test_halt_admission_wakes_waiter_and_keeps_existing_lease():
+    s = scheduler(ReplayCapacity(1, 1, 1, 1000, 1000))
+    scene = admit_scene(s)
+    lease = s.acquire_branch(scene, branch_key="first", reservation=ResourceReservation(10), requested_device="cuda:0")
+    failures = []
+    started = threading.Event()
+
+    def waiting():
+        started.set()
+        try:
+            s.acquire_branch(scene, branch_key="next", reservation=ResourceReservation(10), requested_device="cuda:0")
+        except CapacityDenied as exc:
+            failures.append(str(exc))
+
+    thread = threading.Thread(target=waiting, daemon=True)
+    thread.start()
+    assert started.wait(1)
+    s.halt_admission("unconfirmed cleanup")
+    thread.join(1)
+    assert not thread.is_alive()
+    assert failures and "unconfirmed cleanup" in failures[0]
+    assert s.snapshot().active_branches == 1
+    s.release_branch(lease)
+    s.release_scene(scene)
+    with pytest.raises(CapacityDenied, match="halted"):
+        admit_scene(s)

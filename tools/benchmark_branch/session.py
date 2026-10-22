@@ -22,6 +22,14 @@ class SessionBackend(Protocol):
     ``completed`` and ``status``.  Missing or ambiguous responses are recorded
     as ``missing_response`` by the collector; process exit is never treated as
     physical success.
+
+    Open calls must return non-null handles. If an open raises or returns no
+    handle, native allocations may remain: the collector retains capacity and
+    halts admission. ``close_scene`` must dispose of all scene-owned resources,
+    including partial branch allocations and branches whose close failed;
+    successful return is the collector's proof that these leases can release.
+    A failed scene open has no handle and requires external cleanup before a
+    new scheduler is constructed. Missing close methods are cleanup failures.
     """
 
     def open_scene(self, scene_id: str, *, scheduler: Any) -> Any: ...
