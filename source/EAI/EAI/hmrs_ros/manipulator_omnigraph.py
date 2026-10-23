@@ -13,6 +13,16 @@ class ManipulatorModelSpec:
     joint_names: tuple[str, ...]
     ee_body_names: tuple[str, ...]
     gripper_joint_name: str | None = None
+    gripper_joint_names: tuple[str, ...] = ()
+
+    @property
+    def all_gripper_joints(self) -> tuple[str, ...]:
+        """Every commanded gripper joint, single- or multi-joint specs alike."""
+        if self.gripper_joint_names:
+            return self.gripper_joint_names
+        if self.gripper_joint_name is not None:
+            return (self.gripper_joint_name,)
+        return ()
 
     def __post_init__(self) -> None:
         model = sanitize_ros_name_component(self.model).lower()
@@ -34,6 +44,12 @@ class ManipulatorModelSpec:
             if not gripper_name:
                 raise ValueError("gripper joint name cannot be empty")
             object.__setattr__(self, "gripper_joint_name", gripper_name)
+        gripper_names = tuple(str(name).strip() for name in self.gripper_joint_names)
+        if any(not name for name in gripper_names):
+            raise ValueError("gripper joint names cannot be empty")
+        if len(set(gripper_names)) != len(gripper_names):
+            raise ValueError("gripper joint names must be unique")
+        object.__setattr__(self, "gripper_joint_names", gripper_names)
 
 
 @dataclass(frozen=True)

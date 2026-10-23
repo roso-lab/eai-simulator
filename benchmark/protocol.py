@@ -61,6 +61,7 @@ class ProtocolContract:
     horizon_ticks: int | None = None
     initial_state_digest: str = ""
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    obligation_subtypes: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         for name in ("contract_id", "version", "domain", "primary_label", "observation_schema"):
@@ -75,6 +76,9 @@ class ProtocolContract:
         if self.p3_subtype is not None:
             object.__setattr__(self, "p3_subtype", _required(self.p3_subtype, "p3_subtype"))
         object.__setattr__(self, "metadata", dict(self.metadata))
+        if any(not str(key).strip() or subtype not in {"P3-J", "P3-S"} for key, subtype in self.obligation_subtypes.items()) or (self.obligation_subtypes and "P3" not in relations):
+            raise ProtocolError("obligation subtypes require registered P3 obligations")
+        object.__setattr__(self, "obligation_subtypes", dict(self.obligation_subtypes))
 
     def to_dict(self) -> dict[str, Any]:
         result = asdict(self)

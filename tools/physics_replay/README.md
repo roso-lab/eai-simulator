@@ -1,5 +1,13 @@
 # Physics Replay Tool
 
+> Reader cache is bounded by default: 2 segments and 64 MiB of decompressed arrays.
+> Configure `max_cached_segments` / `max_cache_bytes`, inspect `cache_info`, or call
+> `clear_cache()`. Integrity audits re-read disk artifacts. This bounds retained
+> array bytes, not peak RSS. Historical `demo.fire_rescue` acceptance commands
+> require that external package; it is not bundled in the current tool branch.
+> See [tool integration and recovery rules](../benchmark_branch/OPTIMIZATION_20261020.zh-CN.md).
+
+
 `physics_replay` records selected Isaac Sim state and restores checkpoints in
 the same simulator process. It lives under `tools/physics_replay/` and uses an
 existing `open_simulator_session()` instead of creating a second application.

@@ -159,6 +159,16 @@ _ROBOT_PATHS = {
         "robot/lite3/configuration/Lite3_robot.usd",
         "robot/lite3/configuration/Lite3_sensor.usd",
     ),
+    # PhysX-native MJCF conversion only; the archived Newton USDs
+    # (microduck_walk.usd / microduck_allcollisions.usd) are reference files
+    # and are not required at runtime.  The runnable velstand.onnx lives in
+    # the controller requirement below.
+    "microduck": (
+        "robot/microduck/microduck_mjcf.usd",
+        "robot/microduck/manifest.json",
+        "robot/microduck/LICENSE",
+        "robot/microduck/ATTRIBUTION.txt",
+    ),
 }
 
 _PAYLOAD_PATHS = {
@@ -168,6 +178,7 @@ _PAYLOAD_PATHS = {
     ),
     "ur5_bare": ("payloads/manipulators/ur5/ur5-noroot.usd",),
     "z1": ("payloads/manipulators/z1/z1_description.usda",),
+    "d1": ("payloads/manipulators/d1/d1.usd",),
     "orsus": (
         "payloads/sensors/orsus/Orsus_fix_type.usd",
         "payloads/sensors/orsus/orsus_mid360_rtx.usda",
@@ -254,6 +265,12 @@ _CONTROLLER_PATHS = {
         "traditional/z1_ik/__init__.py",
         "traditional/z1_ik/z1_ik.py",
     ),
+    "D1_IK_CFG": (
+        "traditional/manipulator_ik/__init__.py",
+        "traditional/manipulator_ik/manipulator_ik.py",
+        "traditional/d1_ik/__init__.py",
+        "traditional/d1_ik/d1_ik.py",
+    ),
     # ── RSL (ONNX) controllers ───────────────────────────────────────────
     "GO2_VELOCITY_RSL_CFG": (
         "rl/go2_rsl_rl/__init__.py",
@@ -291,6 +308,12 @@ _CONTROLLER_PATHS = {
         "rl/lite3_rsl_rl/__init__.py",
         "rl/lite3_rsl_rl/lite3_rsl_rl.py",
         "rl/lite3_rsl_rl/model/policy.onnx",
+    ),
+    "MICRODUCK_VELSTAND_CFG": (
+        "rl/microduck_velstand/__init__.py",
+        "rl/microduck_velstand/microduck_velstand.py",
+        "rl/microduck_velstand/model/velstand.onnx",
+        "rl/microduck_velstand/model/manifest.json",
     ),
     # ── SKRL controllers ─────────────────────────────────────────────────
     "G1_SKRL_CFG": (

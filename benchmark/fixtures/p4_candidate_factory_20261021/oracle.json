@@ -1,0 +1,68 @@
+{
+  "schema": "heterocoord.p4_candidate_oracle_evidence.v1",
+  "instance_id": "prod-p4-01-instance-candidate-20261021",
+  "anchor_id": "prod-p4-01",
+  "package_sha256": "901e558b84ee266d57c64c9fe205af41778b4cd24f55369a10febdf44aa9cb55",
+  "catalog_sha256": "a2ba1a596d0e61435d700186215ead74fec78ed77e0969e70943fcd49b84b6ef",
+  "scenario_sha256": "b5fe1573a29112c0d8f20b578d05bbf1f7220d705bc99cb9c3f1f7aa5b63dc11",
+  "contract_digest": "bd08de7bf6b80a2f09afbf26a0d126b73a7d0ec103b1459395ce9fc73fd11128",
+  "solver": {
+    "backend_id": "bounded-explicit-contract-v3",
+    "max_candidates": 100000,
+    "max_seconds": 5.0,
+    "status": "deployable",
+    "explored": 1,
+    "complete": true,
+    "reasons": []
+  },
+  "independent_checker": {
+    "backend_id": "bounded-independent-flat-checker-v1",
+    "policy": "flat-team-role-participant-tick-v1",
+    "status": "accepted",
+    "reasons": []
+  },
+  "witness": {
+    "schema": "heterocoord.canonical_deployment.v3",
+    "contract_digest": "bd08de7bf6b80a2f09afbf26a0d126b73a7d0ec103b1459395ce9fc73fd11128",
+    "z": {"carter_1": 1, "carter_2": 1},
+    "u": {
+      "reserve_dock": {"carter_1": 1, "carter_2": 0},
+      "load_a": {"carter_1": 1, "carter_2": 0},
+      "release_dock": {"carter_1": 1, "carter_2": 0},
+      "load_b": {"carter_1": 0, "carter_2": 1}
+    },
+    "v": {
+      "carter_1": {"loader_a": 1, "loader_b": 0},
+      "carter_2": {"loader_a": 0, "loader_b": 1}
+    },
+    "role_links": {
+      "reserve_dock": {"carter_1": "loader_a"},
+      "load_a": {"carter_1": "loader_a"},
+      "release_dock": {"carter_1": "loader_a"},
+      "load_b": {"carter_2": "loader_b"}
+    },
+    "tau_o": {"reserve_dock": 0, "load_a": 10, "release_dock": 110, "load_b": 120},
+    "tau_rv": {
+      "reserve_dock": {"carter_1": 0},
+      "load_a": {"carter_1": 10},
+      "release_dock": {"carter_1": 110},
+      "load_b": {"carter_2": 120}
+    },
+    "b": {"load_a|load_b": {"forward": 1, "reverse": 0}},
+    "handoffs": {
+      "payload_handoff_a_to_b": {
+        "release_tick": 110,
+        "acceptance_tick": 120,
+        "from_robot": "carter_1",
+        "to_robot": "carter_2"
+      }
+    }
+  },
+  "qualification": {
+    "candidate_contract_only": true,
+    "formal_measured_qualified": false,
+    "native_full_state_qualified": false,
+    "process_isolation_qualified": false,
+    "paper_score_eligible": false
+  }
+}

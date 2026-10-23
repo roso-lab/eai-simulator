@@ -1,0 +1,190 @@
+{
+  "schema": "heterocoord.catalog_contract_mapping.v1",
+  "mapping_profile": "prod-p4-01.catalog-contract.v1",
+  "paper_commit": "1f329494e755523692f5f96c8e0889c6cec15a82",
+  "instance_id": "prod-p4-01-instance-candidate-20261021",
+  "anchor_id": "prod-p4-01",
+  "scene_key": "factory",
+  "source_digests": {
+    "catalog_sha256": "a2ba1a596d0e61435d700186215ead74fec78ed77e0969e70943fcd49b84b6ef",
+    "scenario_sha256": "b5fe1573a29112c0d8f20b578d05bbf1f7220d705bc99cb9c3f1f7aa5b63dc11",
+    "contract_sha256": "d5f79af4eab7d1e49831f78abc435e49b3302261630d6f360060ae9b8e977159",
+    "package_sha256": "f65312f99a6d2a17c7797a2ef44782da551fc539e0d5c459cb41f355d7d34cab",
+    "canonical_contract_digest": "bd08de7bf6b80a2f09afbf26a0d126b73a7d0ec103b1459395ce9fc73fd11128",
+    "robot_resume_sha256": "a9e5f2beb51e29f126045adb95279f372b5b3f76c4b91aade0a3f9422c50aef8"
+  },
+  "claims": [
+    {
+      "claim_id": "anchor.anchor_id",
+      "catalog_field": "anchor_id",
+      "catalog_value": "prod-p4-01",
+      "predicate": "package_anchor_equals",
+      "target": {"anchor_id": "prod-p4-01"}
+    },
+    {
+      "claim_id": "anchor.scene_key",
+      "catalog_field": "scene_key",
+      "catalog_value": "factory",
+      "predicate": "package_and_scenario_scene_equals",
+      "target": {"scene_key": "factory"}
+    },
+    {
+      "claim_id": "anchor.scene_anchor",
+      "catalog_field": "scene_anchor",
+      "catalog_value": "shared_dock_queue",
+      "predicate": "scenario_scene_anchor_equals",
+      "target": {"scene_anchor": "shared_dock_queue"}
+    },
+    {
+      "claim_id": "anchor.horizon_s",
+      "catalog_field": "horizon_s",
+      "catalog_value": 190.0,
+      "predicate": "exact_tick_horizon",
+      "target": {"tick_dt_s": 0.02, "rounding": "floor", "horizon_ticks": 9500}
+    },
+    {
+      "claim_id": "obligations.reserve_dock",
+      "catalog_field": "obligations",
+      "catalog_value": "reserve_dock",
+      "predicate": "obligation_present",
+      "target": {"obligation_id": "reserve_dock"}
+    },
+    {
+      "claim_id": "obligations.load_a",
+      "catalog_field": "obligations",
+      "catalog_value": "load_a",
+      "predicate": "obligation_present",
+      "target": {"obligation_id": "load_a"}
+    },
+    {
+      "claim_id": "obligations.release_dock",
+      "catalog_field": "obligations",
+      "catalog_value": "release_dock",
+      "predicate": "obligation_present",
+      "target": {"obligation_id": "release_dock"}
+    },
+    {
+      "claim_id": "obligations.load_b",
+      "catalog_field": "obligations",
+      "catalog_value": "load_b",
+      "predicate": "obligation_present",
+      "target": {"obligation_id": "load_b"}
+    },
+    {
+      "claim_id": "roles.loader_a",
+      "catalog_field": "roles",
+      "catalog_value": "loader_a",
+      "predicate": "exact_obligation_role_occurrences",
+      "target": {
+        "role": "loader_a",
+        "obligation_ids": ["reserve_dock", "load_a", "release_dock"]
+      }
+    },
+    {
+      "claim_id": "roles.loader_b",
+      "catalog_field": "roles",
+      "catalog_value": "loader_b",
+      "predicate": "exact_obligation_role_occurrences",
+      "target": {"role": "loader_b", "obligation_ids": ["load_b"]}
+    },
+    {
+      "claim_id": "required_capabilities.mobile_base",
+      "catalog_field": "required_capabilities",
+      "catalog_value": "mobile_base",
+      "predicate": "exact_obligation_capability_occurrences",
+      "target": {
+        "capability": "mobile_base",
+        "obligation_ids": ["reserve_dock", "load_a", "release_dock", "load_b"]
+      }
+    },
+    {
+      "claim_id": "required_capabilities.payload_transport",
+      "catalog_field": "required_capabilities",
+      "catalog_value": "payload_transport",
+      "predicate": "exact_obligation_capability_occurrences",
+      "target": {
+        "capability": "payload_transport",
+        "obligation_ids": ["reserve_dock", "load_a", "release_dock", "load_b"]
+      }
+    },
+    {
+      "claim_id": "milestones.assigned",
+      "catalog_field": "milestones",
+      "catalog_value": "assigned",
+      "predicate": "selected_team_available",
+      "target": {
+        "team_bounds": {"min": 2, "max": 2},
+        "robot_ids": ["carter_1", "carter_2"]
+      }
+    },
+    {
+      "claim_id": "milestones.reserved",
+      "catalog_field": "milestones",
+      "catalog_value": "reserved",
+      "predicate": "obligation_completion",
+      "target": {"obligation_id": "reserve_dock"}
+    },
+    {
+      "claim_id": "milestones.load_a_complete",
+      "catalog_field": "milestones",
+      "catalog_value": "load_a_complete",
+      "predicate": "obligation_completion",
+      "target": {"obligation_id": "load_a"}
+    },
+    {
+      "claim_id": "milestones.released",
+      "catalog_field": "milestones",
+      "catalog_value": "released",
+      "predicate": "obligation_completion",
+      "target": {"obligation_id": "release_dock"}
+    },
+    {
+      "claim_id": "milestones.load_b_complete",
+      "catalog_field": "milestones",
+      "catalog_value": "load_b_complete",
+      "predicate": "obligation_completion",
+      "target": {"obligation_id": "load_b"}
+    },
+    {
+      "claim_id": "milestones.accepted",
+      "catalog_field": "milestones",
+      "catalog_value": "accepted",
+      "predicate": "all_obligations_completion",
+      "target": {
+        "obligation_ids": ["reserve_dock", "load_a", "release_dock", "load_b"]
+      }
+    },
+    {
+      "claim_id": "temporal_constraints.load_a_and_load_b_cannot_overlap_dock",
+      "catalog_field": "temporal_constraints",
+      "catalog_value": "load_a_and_load_b_cannot_overlap_dock",
+      "predicate": "unit_capacity_mutex_pair",
+      "target": {
+        "mutex_pair": ["load_a", "load_b"],
+        "resource_id": "dock_slot",
+        "capacity": 1
+      }
+    },
+    {
+      "claim_id": "temporal_constraints.release_before_load_b",
+      "catalog_field": "temporal_constraints",
+      "catalog_value": "release_before_load_b",
+      "predicate": "exact_temporal_edge",
+      "target": {
+        "edge_id": "release_before_load_b",
+        "kind": "precedence",
+        "before": "release_dock",
+        "after": "load_b",
+        "min_lag": 0,
+        "max_lag": 0
+      }
+    },
+    {
+      "claim_id": "resource_constraints.dock_capacity_one",
+      "catalog_field": "resource_constraints",
+      "catalog_value": "dock_capacity_one",
+      "predicate": "exact_resource_capacity",
+      "target": {"resource_id": "dock_slot", "capacity": 1}
+    }
+  ]
+}

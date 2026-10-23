@@ -152,6 +152,7 @@ def test_extra_step_invalidates_verification(tmp_path, monkeypatch):
     ["--release-at-checkpoint"], ["--live-speed", "nan"], ["--seed", "-1"],
 ])
 def test_acceptance_cli_rejects_invalid_configuration_without_isaac(tmp_path, monkeypatch, arguments):
+    pytest.importorskip("demo", reason="optional external Fire Rescue acceptance CLI is not bundled")
     from demo.fire_rescue.checks import reconstruct_physics
 
     monkeypatch.setattr("sys.argv", ["reconstruct_physics", "--output", str(tmp_path / "run"), *arguments])
@@ -165,6 +166,7 @@ def test_supervisor_does_not_accept_kit_exit_zero_after_worker_error(tmp_path, m
     import json
     from pathlib import Path
     from types import SimpleNamespace
+    pytest.importorskip("demo", reason="optional external Fire Rescue acceptance CLI is not bundled")
     from demo.fire_rescue.checks import reconstruct_physics
 
     def run(command, **kwargs):

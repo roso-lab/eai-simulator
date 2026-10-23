@@ -11,9 +11,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from algorithm.skills.navigation.aerial_navigation import AerialNavigationProvider, AerialPose
+from algorithm.skills.navigation import (
+    FrozenNavigationTopology, NavigationPose, NavigationProvider,
+    aerial_navigation_profile,
+)
 from algorithm.skills.navigation.landmarks import landmark_inventory, resolve_landmark_route
-from algorithm.skills.navigation.topology import validate_ground_topology
+from algorithm.skills.navigation.topology import validate_topology
 from algorithm.skills.contracts import SkillRequest
 from tools.topology_authoring.model import TopologyDocument
 from tools.topology_authoring.product import generate_product, load_product, product_digest, validate_document
@@ -34,7 +37,7 @@ def test_aerial_roundtrip_semantics_vertical_route_and_measured_origin(tmp_path)
     adapter = EmptyTopologyAdapter("plane")
     source = adapter.load_source(tmp_path)
     assert validate_document(doc, adapter, source) == []
-    assert validate_ground_topology(doc)
+    assert validate_topology(doc) == []
     path = generate_product(tmp_path / "air.json", doc, adapter, source)
     loaded = load_product(path, adapter, source, expected_digest=product_digest(doc))
     assert loaded.to_dict() == doc.to_dict()
@@ -42,10 +45,13 @@ def test_aerial_roundtrip_semantics_vertical_route_and_measured_origin(tmp_path)
     route = resolve_landmark_route(loaded, origin_ref="loading", destination_ref="meeting")
     assert route["route_points_m"] == [[0, 0, 1], [0, 0, 3]]
     assert not resolve_landmark_route(loaded, origin_ref="meeting", destination_ref="loading")["admitted"]
-    request = SkillRequest("air", "eai.navigation.aerial_navigation", "iris", target_ref=route["target_ref"],
+    request = SkillRequest("air", "eai.navigation.node_route", "iris", target_ref=route["target_ref"],
         parameters={**route["skill_parameters"], "world_state_seq": 1})
-    p = AerialNavigationProvider()
-    obs = {"valid": True, "fresh": True, "world_state_seq": 1, "pose": AerialPose((10, 0, 1)), "topology": loaded.to_dict()}
+    p = NavigationProvider(loaded, profile=aerial_navigation_profile(
+        controller_capabilities=("walk",),
+    ))
+    obs = {"valid": True, "fresh": True, "world_state_seq": 1,
+           "pose": NavigationPose((10, 0, 1))}
     p.dispatch(request, observation=obs)
     assert p.control(request, observation=obs).state["status"] == "failed"
 
@@ -67,7 +73,7 @@ def test_unknown_domain_and_zero_air_edge_fail_closed():
         TopologyDocument.from_dict(data)
     doc = air_document()
     doc.nodes[1]["position_xyz"] = [0, 0, 1]
-    assert any("nonzero XYZ" in e for e in validate_document(doc))
+    assert any("edge endpoints do not match polyline" in e for e in validate_document(doc))
 
 
 def test_aerial_product_does_not_silently_upgrade_invalid_version():
@@ -78,26 +84,22 @@ def test_aerial_product_does_not_silently_upgrade_invalid_version():
 
 
 def test_frozen_product_isolated_and_source_binding_required():
-    from algorithm.skills.navigation.aerial_topology import FrozenAerialTopology
     data = air_document().to_dict()
-    frozen = FrozenAerialTopology(data, scene_key="plane", source_digests={})
+    frozen = FrozenNavigationTopology(data, scene_key="plane", source_digests={})
     data["nodes"][0]["position_xyz"][0] = 100
     copy = frozen.snapshot()
     copy["nodes"].clear()
     assert frozen.snapshot()["nodes"][0]["position_xyz"] == [0, 0, 1]
-    with pytest.raises(ValueError, match="source changed"):
-        frozen.validate_source("plane", {"new": "a" * 64})
-    missing_schema = air_document().to_dict()
-    missing_schema.pop("schema")
-    with pytest.raises(ValueError, match="explicit v2 aerial"):
-        FrozenAerialTopology(missing_schema, scene_key="plane", source_digests={})
-    for field in ("coordinate_frame", "meters_per_unit", "up_axis"):
-        missing = air_document().to_dict()
-        missing.pop(field)
-        with pytest.raises(ValueError, match="explicit world"):
-            FrozenAerialTopology(missing, scene_key="plane", source_digests={})
-    with pytest.raises(ValueError, match="connected nodes"):
-        FrozenAerialTopology(TopologyDocument("plane", domain="aerial").to_dict(), scene_key="plane", source_digests={})
+    changed_source = air_document().to_dict()
+    changed_source["source"] = {"new": "a" * 64}
+    with pytest.raises(ValueError, match="source inventory"):
+        FrozenNavigationTopology(changed_source, scene_key="plane", source_digests={})
+    changed_scene = air_document().to_dict()
+    changed_scene["scene_key"] = "other"
+    with pytest.raises(ValueError, match="another scene"):
+        FrozenNavigationTopology(changed_scene, scene_key="plane", source_digests={})
+    with pytest.raises(ValueError, match="nodes and edges"):
+        FrozenNavigationTopology(TopologyDocument("plane", domain="aerial").to_dict(), scene_key="plane", source_digests={})
 
 
 def test_aerial_ui_saves_loads_and_exports_only_in_its_domain(tmp_path):
@@ -116,7 +118,7 @@ def test_aerial_ui_saves_loads_and_exports_only_in_its_domain(tmp_path):
     window._apply_active_level_view = lambda: None
     window._route_origin_model = SimpleNamespace(as_string="loading")
     window._route_destination_model = SimpleNamespace(as_string="meeting")
-    window._route_capabilities_model = SimpleNamespace(as_string="fly")
+    window._route_capabilities_model = SimpleNamespace(as_string="walk")
     window.save_draft()
     window.document.nodes[0]["label"] = "changed"
     window.load_draft()

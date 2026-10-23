@@ -34,7 +34,7 @@ OS 鼠标投递认证。原始结果见 `editor-04/result.json`、`go2-02/result
 ### 本机打开编辑器
 
 ```bash
-cd /home/pupil/eai-simulator-worktrees/experiment-analysis-framework
+cd /home/pupil/HeteroCoord
 source /home/pupil/miniconda3/etc/profile.d/conda.sh
 conda activate env_isaaclab
 python -m tools.topology_authoring.author \
@@ -57,8 +57,8 @@ python -m tools.topology_authoring.author \
 在同一环境及工作目录中运行：
 
 ```bash
-export EAI_USD_ROOT=/home/pupil/eai-simulator/usd
-export EAI_CONTROLLER_ROOT=/home/pupil/eai-simulator/source/EAI_assets/EAI_assets/controller
+export EAI_USD_ROOT=/home/pupil/HeteroCoord/usd
+export EAI_CONTROLLER_ROOT=/home/pupil/HeteroCoord/source/EAI_assets/EAI_assets/controller
 export PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs
 python -m tools.topology_authoring.deploy \
   --scene-key three_levels_diagnostic \
@@ -137,9 +137,9 @@ RL 的更广泛地形能力需另行资格验证。来源摘要、支持面连�
 在已激活的 `env_isaaclab` 终端中运行：
 
 ```bash
-cd /home/pupil/eai-simulator-worktrees/experiment-analysis-framework
-export EAI_USD_ROOT=/home/pupil/eai-simulator/usd
-export EAI_CONTROLLER_ROOT=/home/pupil/eai-simulator/source/EAI_assets/EAI_assets/controller
+cd /home/pupil/HeteroCoord
+export EAI_USD_ROOT=/home/pupil/HeteroCoord/usd
+export EAI_CONTROLLER_ROOT=/home/pupil/HeteroCoord/source/EAI_assets/EAI_assets/controller
 export PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs
 python -m tools.topology_authoring.deploy \
   --scene-key three_levels_diagnostic \

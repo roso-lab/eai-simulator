@@ -145,6 +145,46 @@ def _validate_pick_place_request(request: SkillRequest, parameters: dict[str, An
     for name in ("base_orientation_xyzw", "orientation_xyzw"):
         if name in parameters and math.hypot(*parameters[name]) <= 1e-12:
             raise SimulatorSchemaError(f"{name} must be nonzero")
+    extension_fields = {
+        "grasp_pose_object", "approach_direction_world",
+        "pregrasp_distance_m", "retreat_distance_m", "approach_speed_m_s",
+    }
+    mode = parameters.get("approach_mode")
+    has_cartesian_fields = bool(extension_fields.intersection(parameters))
+    if mode is None:
+        mode = "cartesian_pose" if has_cartesian_fields else "vertical_legacy"
+    elif mode not in {"vertical_legacy", "cartesian_pose"}:
+        raise SimulatorSchemaError(
+            "approach_mode must be 'vertical_legacy' or 'cartesian_pose'"
+        )
+    if mode == "vertical_legacy" and extension_fields.intersection(parameters):
+        raise SimulatorSchemaError(
+            "cartesian approach fields require approach_mode='cartesian_pose'"
+        )
+    if mode == "cartesian_pose":
+        required = {"grasp_pose_object", "approach_direction_world",
+                    "pregrasp_distance_m", "retreat_distance_m",
+                    "approach_speed_m_s"}
+        missing = sorted(required - set(parameters))
+        if missing:
+            raise SimulatorSchemaError(
+                f"cartesian_pose approach is missing required fields: {missing}"
+            )
+        grasp = parameters["grasp_pose_object"]
+        if not isinstance(grasp, dict) or set(grasp) != {"position_m", "orientation_xyzw"}:
+            raise SimulatorSchemaError(
+                "grasp_pose_object must contain position_m and orientation_xyzw"
+            )
+        _validate_field("grasp_pose_object.position_m", grasp["position_m"],
+                       SimulatorFieldSpec("position_m", "xyz"))
+        _validate_field("grasp_pose_object.orientation_xyzw", grasp["orientation_xyzw"],
+                       SimulatorFieldSpec("orientation_xyzw", "finite_vector", vector_size=4))
+        if math.hypot(*grasp["orientation_xyzw"]) <= 1e-12:
+            raise SimulatorSchemaError("grasp_pose_object.orientation_xyzw must be nonzero")
+        direction = parameters["approach_direction_world"]
+        norm = math.sqrt(sum(float(value) ** 2 for value in direction))
+        if norm <= 1e-12:
+            raise SimulatorSchemaError("approach_direction_world must be nonzero")
     if parameters["simulation_time_s"] < 0:
         raise SimulatorSchemaError("simulation_time_s must be nonnegative")
     if request.timing is not None or request.budget is not None:
@@ -197,6 +237,10 @@ def _validate_field(name: str, value: Any, spec: SimulatorFieldSpec) -> None:
                 or any(not isinstance(item, str) or not item.strip() for item in value)):
             raise SimulatorSchemaError(f"{name} must be a list of nonempty strings")
         return
+    if spec.value_type == "object":
+        if not isinstance(value, dict):
+            raise SimulatorSchemaError(f"{name} must be an object")
+        return
     raise SimulatorSchemaError(f"unsupported field type for {name}: {spec.value_type}")
 
 
@@ -210,6 +254,12 @@ SIMULATOR_SKILL_SCHEMAS: tuple[SimulatorSkillSchema, ...] = (
             SimulatorFieldSpec("base_orientation_xyzw", "finite_vector", required=True, vector_size=4),
             SimulatorFieldSpec("orientation_xyzw", "finite_vector", vector_size=4),
             SimulatorFieldSpec("grasp_offset_object_m", "finite_vector", vector_size=3),
+            SimulatorFieldSpec("approach_mode", "string", enum_values=("vertical_legacy", "cartesian_pose")),
+            SimulatorFieldSpec("grasp_pose_object", "object"),
+            SimulatorFieldSpec("approach_direction_world", "finite_vector", vector_size=3),
+            SimulatorFieldSpec("pregrasp_distance_m", "positive_number", unit="m"),
+            SimulatorFieldSpec("retreat_distance_m", "positive_number", unit="m"),
+            SimulatorFieldSpec("approach_speed_m_s", "positive_number", unit="m/s"),
             SimulatorFieldSpec("world_state_seq", "nonnegative_int", required=True),
             SimulatorFieldSpec("simulation_time_s", "finite_number", required=True),
             SimulatorFieldSpec("timeout_s", "positive_number"),

@@ -36,6 +36,13 @@ class PickPlaceCommand:
     # through unchanged; an adapter owns the robot/tool installation
     # transform that turns it into a controller target.
     grasp_offset_object_m: tuple[float, float, float] | None = None
+    approach_mode: str = "vertical_legacy"
+    grasp_pose_object_position_m: tuple[float, float, float] | None = None
+    grasp_pose_object_orientation_wxyz: tuple[float, float, float, float] | None = None
+    approach_direction_world_m: tuple[float, float, float] | None = None
+    pregrasp_distance_m: float | None = None
+    retreat_distance_m: float | None = None
+    approach_speed_m_s: float | None = None
 
     @property
     def target_position_world_m(self):

@@ -30,6 +30,7 @@ from EAI_assets.robots.pepper import PEPPER_CFG
 from EAI_assets.robots.pegasus import PEGASUS_IRIS_CFG, PEGASUS_X4_CFG
 from EAI_assets.robots.quadcopter import CRAZYFLIE_CFG
 from EAI_assets.robots.scout import SCOUT_CFG
+from EAI_assets.robots.microduck import MICRODUCK_CFG, MICRODUCK_INIT_ROOT_Z
 from EAI_assets.robots.mushr_v2 import MUSHR_V2_CFG, MUSHR_V2_RWD_CFG
 from EAI_assets.robots.ur5_mount import (
     UR5_MOUNT_PROFILES,
@@ -42,6 +43,11 @@ from EAI_assets.robots.z1_mount import (
     Z1_MOUNT_PROFILES,
     Z1MountProfile,
     build_mounted_z1_asset_cfg,
+)
+from EAI_assets.robots.d1_mount import (
+    D1_MOUNT_PROFILES,
+    D1MountProfile,
+    build_mounted_d1_asset_cfg,
 )
 from EAI_assets.sensor.high_sensor import OrsusCfg, RealSenseD455Cfg
 from EAI_assets.sensor.low_sensor.octagon_aio_c01 import OctagonAioC01Cfg
@@ -107,6 +113,7 @@ class RobotOption:
     trunk_link: str | None = None
     ur5_mount_profile: Ur5MountProfile | None = None
     z1_mount_profile: Z1MountProfile | None = None
+    d1_mount_profile: D1MountProfile | None = None
     orsus_offset: tuple[float, float, float] = (0.026, 0.0, 0.0)
     lidar_mount_link: str | None = None
     # RealSense D455 挂载点（可解耦装载）。D455 彩色相机在资产本地坐标系中
@@ -227,6 +234,7 @@ CONTROLLER_CFG_IMPORTS = {
     "M20_ROUGH_RSL_CFG": ("rl/m20_rough_rsl/m20_rough_rsl.py", "M20_ROUGH_RSL_CFG"),
     "M20_NAV_RSL_CFG": ("rl/m20_nav_rsl/m20_nav_rsl.py", "M20_NAV_RSL_CFG"),
     "LITE3_VELOCITY_RSL_CFG": ("rl/lite3_rsl_rl/lite3_rsl_rl.py", "LITE3_VELOCITY_RSL_CFG"),
+    "MICRODUCK_VELSTAND_CFG": ("rl/microduck_velstand/microduck_velstand.py", "MICRODUCK_VELSTAND_CFG"),
     "SCOUT_DIFF_CFG": ("traditional/scout_diff/scout_diff.py", "SCOUT_DIFF_CFG"),
     "MUSHR_ACKERMANN_CFG": ("traditional/mushr_ackermann/mushr_ackermann.py", "MUSHR_ACKERMANN_CFG"),
     "MUSHR_RWD_ACKERMANN_CFG": ("traditional/mushr_ackermann/mushr_ackermann.py", "MUSHR_RWD_ACKERMANN_CFG"),
@@ -241,6 +249,7 @@ CONTROLLER_CFG_IMPORTS = {
     "PEGASUS_X4_ROTOR_CFG": ("traditional/pegasus_multirotor/pegasus_multirotor.py", "PEGASUS_X4_ROTOR_CFG"),
     "UR5_IK_CFG": ("traditional/ur5_ik/ur5_ik.py", "UR5_IK_CFG"),
     "Z1_IK_CFG": ("traditional/z1_ik/z1_ik.py", "Z1_IK_CFG"),
+    "D1_IK_CFG": ("traditional/d1_ik/d1_ik.py", "D1_IK_CFG"),
 }
 
 # These portable bundles use package-relative imports and therefore cannot be
@@ -277,6 +286,7 @@ ROBOT_OPTIONS = [
         0.2,
         "Carter/Orsus_chassis_link",
         z1_mount_profile=Z1_MOUNT_PROFILES["carter"],
+        d1_mount_profile=D1_MOUNT_PROFILES["carter"],
         ur5_mount_profile=UR5_MOUNT_PROFILES["carter"],
         orsus_offset=(0.026, 0.0, 0.418),
         lidar_mount_link="Carter/Orsus_chassis_link",
@@ -320,6 +330,7 @@ ROBOT_OPTIONS = [
         trunk_link="base",
         ur5_mount_profile=UR5_MOUNT_PROFILES["go2"],
         z1_mount_profile=Z1_MOUNT_PROFILES["go2"],
+        d1_mount_profile=D1_MOUNT_PROFILES["go2"],
         lidar_mount_link="base",
         lidar_offset=(0.22631, -0.003, 0.136534),
         lidar_rot=(1.0, 0.0, 0.0, 0.0),
@@ -337,6 +348,7 @@ ROBOT_OPTIONS = [
         trunk_link="base_link",
         ur5_mount_profile=UR5_MOUNT_PROFILES["b2"],
         z1_mount_profile=Z1_MOUNT_PROFILES["b2"],
+        d1_mount_profile=D1_MOUNT_PROFILES["b2"],
         orsus_offset=(0.36723, 0.0, 0.223494),
         lidar_mount_link="base_link",
         lidar_offset=(0.36723, 0.0, 0.2902),
@@ -353,6 +365,7 @@ ROBOT_OPTIONS = [
         orsus_mount_link="base_link",
         ur5_mount_profile=UR5_MOUNT_PROFILES["m20"],
         z1_mount_profile=Z1_MOUNT_PROFILES["m20"],
+        d1_mount_profile=D1_MOUNT_PROFILES["m20"],
         orsus_offset=(0.29718, 0.0, 0.07994),
         lidar_mount_link="base_link",
         lidar_offset=(0.29718, 0.0, 0.121437),
@@ -369,6 +382,7 @@ ROBOT_OPTIONS = [
         orsus_mount_link="base_link",
         ur5_mount_profile=UR5_MOUNT_PROFILES["scout"],
         z1_mount_profile=Z1_MOUNT_PROFILES["scout"],
+        d1_mount_profile=D1_MOUNT_PROFILES["scout"],
         orsus_offset=(0.24749, 0.0, 0.11309),
         lidar_mount_link="base_link",
         lidar_offset=(0.24749, 0.0, 0.160402),
@@ -478,12 +492,25 @@ ROBOT_OPTIONS = [
         orsus_mount_link="TORSO",
         ur5_mount_profile=UR5_MOUNT_PROFILES["lite3"],
         z1_mount_profile=Z1_MOUNT_PROFILES["lite3"],
+        d1_mount_profile=D1_MOUNT_PROFILES["lite3"],
         orsus_offset=(0.16669, 0.0, 0.06773),
         lidar_mount_link="TORSO",
         lidar_offset=(0.16669, 0.0, 0.114523),
         realsense_mount_link="TORSO",
         realsense_offset=(0.20559, 0.0, 0.08015),
         realsense_rot=(1.0, 0.0, 0.0, 0.0),
+    ),
+    RobotOption(
+        # Payload-free biped: the 0.7 kg XL330 walker carries no mounts, so
+        # every sensor/manipulator hook stays unset and the attachment catalog
+        # rejects payloads for it.  default_z 0.125 is the official-adjacent
+        # spawn height; the EAI spawn settles at z≈0.117 (see
+        # EAI_assets.robots.microduck).
+        "microduck",
+        "MicroDuck biped",
+        MICRODUCK_CFG,
+        "MICRODUCK_VELSTAND_CFG",
+        MICRODUCK_INIT_ROOT_Z,
     ),
 ]
 
@@ -636,6 +663,7 @@ def build_interactive_env_cfg(
         has_ur5 = any(attachment.type in {"ur5", "ur5_bare"} for attachment in selection.attachments)
         has_ur5_bare = any(attachment.type == "ur5_bare" for attachment in selection.attachments)
         has_z1 = any(attachment.type == "z1" for attachment in selection.attachments)
+        has_d1 = any(attachment.type == "d1" for attachment in selection.attachments)
         if has_ur5:
             raise ValueError(
                 f"DIY robot '{name}' cannot carry UR5 or ur5_bare. HeteroCoord "
@@ -643,6 +671,8 @@ def build_interactive_env_cfg(
             )
         if has_ur5 and has_z1:
             raise ValueError(f"DIY robot '{name}' cannot attach both UR5 and Z1.")
+        if has_z1 and has_d1:
+            raise ValueError(f"DIY robot '{name}' cannot attach both Z1 and D1.")
         has_orsus = any(attachment.type == "orsus" for attachment in selection.attachments)
         has_lidar = any(attachment.type == "lidar" for attachment in selection.attachments)
         has_octagon = any(
@@ -665,6 +695,7 @@ def build_interactive_env_cfg(
             display_names = {
                 "ur5": "UR5",
                 "z1": "Z1",
+                "d1": "D1",
                 "orsus": "Orsus",
                 "lidar": "LiDAR",
                 "octagon_aio_c01": "OCTAGON-AIO-C01",
@@ -673,13 +704,15 @@ def build_interactive_env_cfg(
                 f"DIY robot '{name}' cannot attach both "
                 f"{display_names[manipulator]} and {display_names[sensor]}."
             )
-        uses_manipulator = uses_manipulator or has_ur5 or has_z1
+        uses_manipulator = uses_manipulator or has_ur5 or has_z1 or has_d1
         if robot.cfg is None:
             raise ValueError(f"DIY robot '{robot.key}' does not have an articulation cfg.")
         if has_ur5 and robot.ur5_mount_profile is None:
             raise ValueError(f"DIY robot '{robot.key}' does not define a UR5 mount profile.")
         if has_z1 and robot.z1_mount_profile is None:
             raise ValueError(f"DIY robot '{robot.key}' does not define a Z1 mount profile.")
+        if has_d1 and robot.d1_mount_profile is None:
+            raise ValueError(f"DIY robot '{robot.key}' does not define a D1 mount profile.")
         selected_robot_cfg = robot.cfg
         if robot.key == "mushr_v2" and selection.controller.cfg == "MUSHR_RWD_ACKERMANN_CFG":
             selected_robot_cfg = MUSHR_V2_RWD_CFG
@@ -759,6 +792,14 @@ def build_interactive_env_cfg(
             )
             z1_attachment = next(attachment for attachment in selection.attachments if attachment.type == "z1")
             robot_controllers.append(_resolve_controller(z1_attachment.controller, fallback="Z1_IK_CFG"))
+        elif has_d1 and robot.d1_mount_profile is not None:
+            attrs["__annotations__"][f"{name}_arm"] = ArticulationCfg
+            attrs[f"{name}_arm"] = build_mounted_d1_asset_cfg(
+                f"{{ENV_REGEX_NS}}/{name}_arm",
+                benchmark_mount_profile(robot.d1_mount_profile) if scenario_data is not None else robot.d1_mount_profile,
+            )
+            d1_attachment = next(attachment for attachment in selection.attachments if attachment.type == "d1")
+            robot_controllers.append(_resolve_controller(d1_attachment.controller, fallback="D1_IK_CFG"))
 
         controllers[name] = tuple(robot_controllers) if len(robot_controllers) > 1 else robot_controllers[0]
 

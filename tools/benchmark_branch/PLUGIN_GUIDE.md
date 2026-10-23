@@ -59,13 +59,13 @@ The default executor starts one fresh process per branch. Never reuse mutable
 simulator, controller, task, queue, RNG, checkpoint restore or output objects
 across branches. Each worker must identify its PID/session and branch directory.
 
-A plugin may implement `run_shared_session(jobs, checkpoint, emit, *, num_envs,
-timeout_s)` for one scene-owned simulator process with vectorized environments.
-Only static scene assets may be shared. Assign every active branch a distinct
-environment slot, mutable state, controller state, queues, RNG namespace and
-ledger identity. Report `slot_isolation_validated` and
-`cross_slot_contact_count`; report `observed_peak_branch_workers` from actual
-active slots. The collector treats adapter capacity as a limit, not evidence.
+The recommended shared path is the managed `vectorized_session` backend.
+Implement the methods in `VECTORIZED_SHARED_SESSION.zh-CN.md`; the executable
+NumPy example illustrates their signatures. The legacy `run_shared_session`
+callback remains for synthetic compatibility only. The collector now owns the
+batch loop, slot generations, state/readback checks and offline IO validation.
+Native physics still requires fresh-process differential qualification;
+adapter declarations and capacity limits are not proof.
 
 For two physical scenes, create two plugin instances/runs and use a supervisor
 that admits both through one `ReplayScheduler`. Keep scene processes and output

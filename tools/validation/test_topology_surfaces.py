@@ -167,24 +167,30 @@ def test_deployment_hook_defers_usd_loading_until_after_application_start():
 
 def test_fallen_posture_terminates_existing_executor_with_zero_command():
     from tools.topology_authoring.deploy import upright_cosine
-    from task.tests.test_ground_navigation_executor import _Env
+    from task.tests.test_ground_navigation_executor import _Harness, _current_request
     from algorithm.skills.tests.test_ground_navigation import _request, _topology
-    from task.executors.ground_navigation import GroundNavigationExecutor
-    env = _Env()
-    def validate(sequence,motion):
-        if motion and upright_cosine(env.scene["carter_1"].data.root_quat_w[0]) < .5:
+    from task.executors.navigation import NavigationExecutor
+    harness = _Harness()
+    orientation = {"value": [1, 0, 0, 0]}
+    def validate(sequence, motion):
+        del sequence
+        if motion and upright_cosine(orientation["value"]) < .5:
             raise ValueError("robot_fallen")
-    executor=GroundNavigationExecutor(env,topology=_topology(),world_state_validator=validate,
-        action_factory=lambda _env,_robot,velocity:[list(velocity)])
-    executor.dispatch(_request())
-    executor.control(_request())
-    env.scene["carter_1"].data.root_quat_w=[[0,2,0,0]]
-    failed=executor.control(_request("continue"))
+        return True
+    executor = NavigationExecutor(
+        topology=_topology(), advance=harness.advance,
+        simulation_time=lambda: harness.time_s, snapshot_validator=validate,
+    )
+    executor.register_adapter(harness.adapter)
+    executor.dispatch(_current_request(harness))
+    executor.step(_current_request(harness))
+    orientation["value"] = [0, 2, 0, 0]
+    failed = executor.prepare(_current_request(harness, "continue"))
     assert failed.state["status"] == "failed"
-    assert failed.private_evidence["zero_command_applied"]
-    assert env.commands[-1][1] == [0,0,0]
+    assert failed.state["stop_confirmed"]
+    assert harness.commands[-1].payload["velocity"] == [0, 0, 0]
     with pytest.raises(ValueError):
-        upright_cosine([0,0,0,0])
+        upright_cosine([0, 0, 0, 0])
 
 
 @pytest.mark.parametrize("capture_fails", [False, True])

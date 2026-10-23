@@ -109,7 +109,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m tools.benchmark_branch")
     sub = parser.add_subparsers(dest="command", required=True)
     plan_parser = sub.add_parser("plan"); plan_parser.add_argument("--config", required=True); plan_parser.add_argument("--output")
-    run_parser = sub.add_parser("run"); run_parser.add_argument("--config", required=True); run_parser.add_argument("--slots", type=int); run_parser.add_argument("--arms", nargs="+", choices=BRANCH_ROLES); run_parser.add_argument("--max-workers", type=int, default=32); run_parser.add_argument("--execution-mode", default="isolated_parallel"); run_parser.add_argument("--execution-scope", choices=EXECUTION_SCOPES); run_parser.add_argument("--timeout", type=float); run_parser.add_argument("--output", required=True); run_parser.add_argument("--queue-size", type=int); run_parser.add_argument("--resume", action="store_true")
+    run_parser = sub.add_parser("run"); run_parser.add_argument("--config", required=True); run_parser.add_argument("--slots", type=int); run_parser.add_argument("--arms", nargs="+", choices=BRANCH_ROLES); run_parser.add_argument("--max-workers", type=int, default=32); run_parser.add_argument("--execution-mode", choices=("isolated_parallel", "shared_session")); run_parser.add_argument("--execution-scope", choices=EXECUTION_SCOPES); run_parser.add_argument("--timeout", type=float); run_parser.add_argument("--output", required=True); run_parser.add_argument("--queue-size", type=int); run_parser.add_argument("--resume", action="store_true")
     resume_parser = sub.add_parser("resume"); resume_parser.add_argument("--run-dir", required=True); resume_parser.add_argument("--max-workers", type=int)
     for command in ("validate", "summarize"): sub.add_parser(command).add_argument("--run-dir", required=True)
     export_parser = sub.add_parser("export"); export_parser.add_argument("--run-dir", required=True); export_parser.add_argument("--format", choices=("jsonl", "parquet"), default="jsonl"); export_parser.add_argument("--output")
@@ -128,7 +128,7 @@ def main(argv: list[str] | None = None) -> int:
         scope = args.execution_scope or str(config.get("execution_scope", plan.execution_scope))
         if scope != plan.execution_scope: plan = BranchPlan.from_mapping({**plan.row(), "execution_scope": scope})
         store = BranchRunStore.create(args.output, plan, requested_max_workers=args.max_workers,
-                                      execution_mode=args.execution_mode, execution_scope=scope,
+                                      execution_mode=args.execution_mode or config.get("execution_mode", "isolated_parallel"), execution_scope=scope,
                                       resource_budget=config.get("resource_budget"), adapter=str(config.get("adapter", "dummy")),
                                       adapter_kwargs=config.get("adapter_kwargs", {}))
         if config.get("shared_session_envs") is not None:

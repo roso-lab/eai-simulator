@@ -34,7 +34,7 @@ def _arm_host_summary():
     from EAI.hmrs_env.env_diy import catalog
 
     hosts = {}
-    for arm in ("ur5", "z1"):
+    for arm in ("ur5", "z1", "d1"):
         entry = catalog.attachment_entry(arm)
         hosts[arm] = sorted(entry.supported_robots)
     return hosts
@@ -97,7 +97,8 @@ def manifest(occupancy=None, *, scene_key="factory"):
             "Payload capacities are unknown, not inferred from robot family or capability scores",
             "A mounted manipulator is necessary but does not prove a working grasp or transport skill",
             "Use prerequisite IDs to describe a DAG; do not assert task or physical success",
-            f"Manipulator hosts are strict: ur5 only on {arm_hosts['ur5']}; z1 only on {arm_hosts['z1']}. "
-            "Check each robot's own attachments list; carter for example takes z1, never ur5",
+            f"Manipulator hosts are strict: ur5 only on {arm_hosts['ur5']}; z1 only on {arm_hosts['z1']}; "
+            f"d1 only on {arm_hosts['d1']}. "
+            "Check each robot's own attachments list; carter for example takes z1 or d1, never ur5",
         ],
     }

@@ -31,15 +31,27 @@ tools/             安装、验证和 ROS 运维工具
 ```bash
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate env_isaaclab
-python simulator.py --env EAI-Factory-Z1-v0 --headless
+python tools/project_runtime.py doctor
+python tools/project_runtime.py exec -- \
+  python simulator.py --env EAI-Factory-Z1-v0 --headless
 ```
 
 任务层的无仿真合同检查：
 
 ```bash
-PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
-  python -m pytest -q task/tests
+python tools/run_tests.py --profile contract -q task/tests
 ```
+
+项目测试统一通过 `tools/run_tests.py` 启动。`contract` 和 `isaac`
+profile 会在 pytest 初始化前关闭第三方插件自动发现，避免 IsaacLab 环境
+中的 ROS/ament 插件污染普通合同测试；需要 `launch_testing` 的测试必须显式
+使用 `--profile ros`。普通 Python 若未安装 pytest，运行器会明确报告并指向
+`requirements-dev.txt`，不会静默切换解释器。
+
+`simulator.open_simulator_session(...)` 本身也会进入同一项目边界：相对场景
+输入先按调用者工作目录冻结，随后源码、USD、控制器、实验产物和临时目录统一限制
+在当前 HeteroCoord。若当前进程已经载入其他 checkout 的 EAI 包，入口会直接拒绝，
+不会卸载活对象后继续形成混合运行时。
 
 任务运行器不会把算法分配当作物理成功。没有注入 EAI `SkillExecutor` 或独立
 evaluator 时，结果必须是 `N/A`，原因是 `physical_evidence_required`。

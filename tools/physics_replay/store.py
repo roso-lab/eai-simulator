@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 from typing import Any
 import zipfile
+from collections import OrderedDict
 
 import numpy as np
 
@@ -259,7 +260,9 @@ class EpisodeWriter:
 class EpisodeReader:
     """Read and validate an episode written by :class:`EpisodeWriter`."""
 
-    def __init__(self, root: str | Path, *, verify_checksums: bool = True):
+    def __init__(self, root: str | Path, *, verify_checksums: bool = True,
+                 max_cached_segments: int = 2,
+                 max_cache_bytes: int = 64 * 1024 * 1024):
         self.root = Path(root)
         try:
             manifest_payload = json.loads((self.root / "manifest.json").read_text(encoding="utf-8"))
@@ -273,7 +276,38 @@ class EpisodeReader:
             raise ValueError("unsupported replay index format version")
         self.index = index_payload
         self.verify_checksums = bool(verify_checksums)
-        self._segment_cache: dict[str, dict[str, np.ndarray]] = {}
+        for name, value in (("max_cached_segments", max_cached_segments), ("max_cache_bytes", max_cache_bytes)):
+            if type(value) is not int or value < 0:
+                raise ValueError(f"{name} must be a non-negative integer")
+        self.max_cached_segments = max_cached_segments
+        self.max_cache_bytes = max_cache_bytes
+        # Replay episodes can contain thousands of compressed segments.  The
+        # old unbounded cache retained every decompressed array for the life
+        # of a run, which made long validation/replay jobs grow with episode
+        # length. One oversized segment is still loaded for a read, but is
+        # never retained. Budgets bound cached array bytes, not peak RSS.
+        self._segment_cache: OrderedDict[str, dict[str, np.ndarray]] = OrderedDict()
+        self._cache_signatures: dict[str, tuple[Any, ...]] = {}
+        self._cache_bytes = 0
+        self._cache_hits = self._cache_misses = self._cache_evictions = 0
+
+    @property
+    def cache_info(self) -> dict[str, int]:
+        return {"segments": len(self._segment_cache), "bytes": self._cache_bytes,
+                "max_segments": self.max_cached_segments, "max_bytes": self.max_cache_bytes,
+                "hits": self._cache_hits, "misses": self._cache_misses,
+                "evictions": self._cache_evictions}
+
+    def clear_cache(self) -> None:
+        self._segment_cache.clear()
+        self._cache_signatures.clear()
+        self._cache_bytes = 0
+
+    def _evict(self, filename: str) -> None:
+        arrays = self._segment_cache.pop(filename)
+        self._cache_bytes -= sum(value.nbytes for value in arrays.values())
+        self._cache_signatures.pop(filename, None)
+        self._cache_evictions += 1
 
     @property
     def state_keys(self) -> tuple[str, ...]:
@@ -295,22 +329,39 @@ class EpisodeReader:
     def applied_action_keys(self) -> tuple[str, ...]:
         return tuple(self.manifest.metadata.get("applied_action_keys", ()))
 
-    def _load_segment(self, segment: dict[str, Any]) -> dict[str, np.ndarray]:
+    def _load_segment(self, segment: dict[str, Any], *, revalidate: bool = False) -> dict[str, np.ndarray]:
         filename = str(segment["file"])
-        if filename in self._segment_cache:
-            return self._segment_cache[filename]
         path = self.root / "segments" / filename
         if not path.is_file():
+            if filename in self._segment_cache:
+                self._evict(filename)
             raise ValueError(f"replay segment is missing: {path}")
+        stat = path.stat()
+        signature = (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns,
+                     json.dumps(segment, sort_keys=True))
+        if filename in self._segment_cache:
+            if not revalidate and self._cache_signatures[filename] == signature:
+                self._cache_hits += 1
+                self._segment_cache.move_to_end(filename)
+                return self._segment_cache[filename]
+            self._evict(filename)
+        self._cache_misses += 1
         if self.verify_checksums and _sha256(path) != str(segment["sha256"]):
             raise ValueError(f"replay segment checksum mismatch: {path}")
         try:
             with np.load(path, allow_pickle=False) as loaded:
-                arrays = {name: loaded[name].copy() for name in loaded.files}
+                arrays = {name: loaded[name] for name in loaded.files}
         except (OSError, ValueError, KeyError, zipfile.BadZipFile) as exc:
             raise ValueError(f"cannot load replay segment {path}: {exc}") from exc
         self._validate_segment_arrays(segment, arrays)
-        self._segment_cache[filename] = arrays
+        size = sum(value.nbytes for value in arrays.values())
+        if self.max_cached_segments and size <= self.max_cache_bytes:
+            while self._segment_cache and (len(self._segment_cache) >= self.max_cached_segments
+                                           or self._cache_bytes + size > self.max_cache_bytes):
+                self._evict(next(iter(self._segment_cache)))
+            self._segment_cache[filename] = arrays
+            self._cache_signatures[filename] = signature
+            self._cache_bytes += size
         return arrays
 
     def _validate_segment_arrays(
@@ -390,7 +441,9 @@ class EpisodeReader:
         for segment in segments:
             if not isinstance(segment, dict):
                 raise ValueError("replay index contains a malformed segment entry")
-            arrays = self._load_segment(segment)
+            # An explicit integrity audit must read the artifact again, even
+            # when a valid copy was cached before it was changed on disk.
+            arrays = self._load_segment(segment, revalidate=True)
             frame_count += len(arrays["step_index"])
         expected = self.manifest.metadata.get("frame_count")
         if expected is not None and int(expected) != frame_count:

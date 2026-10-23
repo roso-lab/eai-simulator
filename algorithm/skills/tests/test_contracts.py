@@ -72,17 +72,19 @@ def test_plan_serialization_preserves_existing_statuses_and_defaults(status):
 
 
 def _ground_request(**parameters):
-    return SkillRequest("r", "eai.navigation.ground_navigation", "carter_1",
+    return SkillRequest("r", "eai.navigation.node_route", "carter_1",
                         target_ref="place:goal", parameters={"world_state_seq": 1, **parameters})
 
 
-def test_schema_lookup_and_validation_keep_navigation_and_local_pick_place_contracts():
-    ground = simulator_skill_schema("eai.navigation.ground_navigation")
+def test_schema_lookup_and_validation_keep_node_route_and_local_pick_place_contracts():
+    ground = simulator_skill_schema("eai.navigation.node_route")
     assert isinstance(ground, SimulatorSkillSchema)
     assert validate_simulator_skill_request(_ground_request()) is ground
-    assert ground.commands[0].command_type == "base_velocity"
-    assert simulator_skill_schema("ground_navigation") is ground
-    assert "eai.navigation.ground_navigation" in {item["skill_id"] for item in SKILL_REGISTRY}
+    assert ground.commands[0].command_type == "navigation_target"
+    assert "eai.navigation.node_route" in {item["skill_id"] for item in SKILL_REGISTRY}
+    for retired in ("ground_navigation", "eai.navigation.ground_navigation"):
+        with pytest.raises(SimulatorSchemaError, match="unknown"):
+            simulator_skill_schema(retired)
     assert "eai.transport.composite" not in {item["skill_id"] for item in SKILL_REGISTRY}
 
 

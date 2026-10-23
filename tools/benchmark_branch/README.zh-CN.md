@@ -77,16 +77,16 @@ job 与已登记 run ID 或 execution scope 不一致的输入，不会替换上
 `scene_key` 同时打开多个 scene session；各 scene 的 branch 会由同一个 scheduler
 统一准入。backend 仍需自行提供每个场景的合同、checkpoint 和 Isaac session。
 
-## 两种执行方式
+## 执行方式
 
 | 模式 | 状态和故障隔离 |
 | --- | --- |
 | `isolated_parallel`（默认） | 每分支新进程、独立 runtime/session/RNG/输出；父进程通过有界队列写总账 |
-| `shared_session` | 一个场景由一个 adapter 管理 simulator session；分支占用独立环境槽位，共用只读静态资产 |
+| `shared_session`（推荐向量化路径） | 一个场景由一个 `vectorized_session` 管理模拟器会话；分支占用独立环境槽位，共用只读静态资产，并通过一次批量推进同时执行 |
 
-共享模式由插件实现 `run_shared_session()`。分支之间必须隔离可变物理状态、控制器、
-任务状态、消息队列、随机流和 restore 状态，并验证跨环境碰撞过滤。共享进程崩溃可能
-影响整个场景，不能声称拥有“每分支独立进程”的故障隔离能力。
+共享模式不再推荐任意 `run_shared_session()` 回调；必须实现受管理的向量化后端契约。
+它会检查十二类版本化状态、槽位代次令牌、消息/随机流/回溯、动作和批量输出归属，
+并要求差分认证覆盖原生物理内核。共享进程崩溃可能影响整个场景，不能声称拥有“每分支独立进程”的故障隔离能力。详细接口见 [VECTORIZED_SHARED_SESSION.zh-CN.md](VECTORIZED_SHARED_SESSION.zh-CN.md)。
 `job.slot` 是实验配对编号；`environment_slot` 才是当前波次的物理环境槽位。
 
 纯 Python 的共享接口检查：
@@ -131,7 +131,9 @@ EMOS 已验收；完整 authored horizon 也不等于 evaluator 确认完整物�
 | `observations` | 传感器帧引用、hash 和观测消费；与 evaluator 真值分开 |
 
 父进程统一写总账；生命周期边界 fsync，高频记录先 flush、关闭时 fsync。
-`resume` 为未完成分支追加新 attempt，旧行保留。插件必须能够重建相同的冻结 checkpoint；
+`resume` 保留完成及方法失败结果；实测分支只按冻结的基础设施恢复登记追加 attempt，旧行保留。
+协议合成测试维持便利重试。详细规则见 [工具优化与主系统接入](OPTIMIZATION_20261020.zh-CN.md)。
+插件必须能够重建相同的冻结 checkpoint；
 采集器不会替插件序列化任意 simulator 隐状态。resume 重载冻结的 runtime factory、
 timeout 和 resource_limit；scheduler 容量及预留策略由该 factory 负责重建。
 
@@ -157,7 +159,8 @@ scene lease → open_scene → warm-up → scheduler.preflight
 ```
 
 接口定义在 [session.py](session.py)。多个 `scene_key` 会由独立 session 线程并发处理，
-每个 scene 内的 branch 也按 `max_branches_per_scene` 并发运行；实际容量仍由同一个
+每个 scene 内的 branch 也按 `max_branches_per_scene` 并发运行，所有 scene 合计不超过
+collector 的 `max_workers`；实际容量仍由同一个
 `ReplayScheduler` 控制。`run_branch` 必须返回明确的
 `completed` 和 `status`；缺失响应记为 `missing_response`。GPU preflight 失败会保留
 `infrastructure_invalid` 原始 episode，`physical_success` 保持 `null`，不会取得 branch

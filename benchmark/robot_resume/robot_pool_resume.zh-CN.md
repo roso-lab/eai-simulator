@@ -601,6 +601,8 @@ HeteroCoord 实验不使用键盘控制和 Navigation I/O 工具。相机是机�
 
 相机：默认配备 `builtin_monocular_camera`；安装位姿与图像流待实例绑定。
 
+载重能力：425 克（0.425 kg）（3DR Iris，用户确认）。
+
 楼梯：上楼=不适用，下楼=不适用；依据：固定基座或空中配置，不使用地面楼梯能力。
 
 |技能|配置支持|能力依据|操作|实例可用性|后端|
@@ -614,9 +616,9 @@ HeteroCoord 实验不使用键盘控制和 Navigation I/O 工具。相机是机�
 
 `eai.manipulation.pick_place` 的前提：PegasusIris/PegasusX4 的 goal_position 接线；Owned FixedJoint 运输桥与实例适配器注册；对象/飞行锚点、净空与飞行负载验证。
 
-`eai.manipulation.pick_place` 的限制：物理 FixedJoint 挂接/释放，不代表机械手抓取。；不控制任意物体姿态；飞行负载上限未知。
+`eai.manipulation.pick_place` 的限制：物理 FixedJoint 挂接/释放，不代表机械手抓取。；不控制任意物体姿态；飞行载重上限为 425 克（0.425 kg），来源为用户确认。
 
-特殊说明：飞行能力与地面楼梯通行无关；飞行净空、负载和姿态约束需单独确认。
+特殊说明：飞行能力与地面楼梯通行无关；实际挂载下的飞行净空、负载适配和姿态约束仍需验证。
 
 证据范围：源码接线与声明；本简历未新增物理验证。
 
@@ -632,6 +634,8 @@ HeteroCoord 实验不使用键盘控制和 Navigation I/O 工具。相机是机�
 
 相机：默认配备 `builtin_monocular_camera`；安装位姿与图像流待实例绑定。
 
+载重能力：2 kg（Pegasus research quadrotor，用户确认）。
+
 楼梯：上楼=不适用，下楼=不适用；依据：固定基座或空中配置，不使用地面楼梯能力。
 
 |技能|配置支持|能力依据|操作|实例可用性|后端|
@@ -645,9 +649,9 @@ HeteroCoord 实验不使用键盘控制和 Navigation I/O 工具。相机是机�
 
 `eai.manipulation.pick_place` 的前提：PegasusIris/PegasusX4 的 goal_position 接线；Owned FixedJoint 运输桥与实例适配器注册；对象/飞行锚点、净空与飞行负载验证。
 
-`eai.manipulation.pick_place` 的限制：物理 FixedJoint 挂接/释放，不代表机械手抓取。；不控制任意物体姿态；飞行负载上限未知。
+`eai.manipulation.pick_place` 的限制：物理 FixedJoint 挂接/释放，不代表机械手抓取。；不控制任意物体姿态；飞行载重上限为 2 kg，来源为用户确认。
 
-特殊说明：飞行能力与地面楼梯通行无关；飞行净空、负载和姿态约束需单独确认。
+特殊说明：飞行能力与地面楼梯通行无关；实际挂载下的飞行净空、负载适配和姿态约束仍需验证。
 
 证据范围：源码接线与声明；本简历未新增物理验证。
 

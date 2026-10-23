@@ -50,7 +50,7 @@ retained `crashed`, `completed=false`, `method_outcome=method_failure` alongside
 the independent nested evaluator's `physical_success=true`.
 
 Commands actually run (repository root, `env_isaaclab` Python; worker environment
-used `EAI_USD_ROOT=/home/pupil/eai-simulator/usd` and
+used `EAI_USD_ROOT=/home/pupil/HeteroCoord/usd` and
 `PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs`):
 
 ```bash

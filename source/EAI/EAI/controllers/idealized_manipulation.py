@@ -37,9 +37,46 @@ DEFAULT_DLS_LAMBDA = 0.02
 DEFAULT_ATTACHMENT_MODE = "follow"
 DEFAULT_TOOL_ORIENTATION_TOLERANCE_RAD = 0.05
 DEFAULT_GRIPPER_POSITION_TOLERANCE_RAD = 0.02
+DEFAULT_CARTESIAN_SPEED_M_S = 0.05
+DEFAULT_GRIPPER_ANIMATION_SPEED_RAD_S = 0.8
+DEFAULT_CARTESIAN_ARRIVAL_DWELL_S = 0.51
+DEFAULT_CARTESIAN_STABLE_LINEAR_SPEED_M_S = 0.01
+DEFAULT_UR5_GRIPPER_OPEN_POSITION_RAD = 0.0
+DEFAULT_UR5_GRIPPER_CLOSED_POSITION_RAD = 0.8
 DEFAULT_Z1_GRIPPER_OPEN_POSITION_RAD = -0.8
 DEFAULT_Z1_GRIPPER_CLOSED_POSITION_RAD = 0.0
 DEFAULT_Z1_GRIPPER_COLLISION_BODY_NAMES = ("gripperStator", "gripperMover")
+# D1's gripper is a mirrored prismatic finger pair (Joint7_1 in [0, 0.03] m,
+# Joint7_2 in [-0.03, 0] m), so the single radian-valued gripper fields on
+# PlanarIkSpec cannot describe both finger targets.  The D1 branch therefore
+# drives the fingers with the closure mapping in
+# ``EAI.hmrs_ros.d1_omnigraph.d1_gripper_targets`` (0.0 open, 1.0 closed).
+DEFAULT_D1_GRIPPER_OPEN_CLOSURE = 0.0
+DEFAULT_D1_GRIPPER_CLOSED_CLOSURE = 1.0
+DEFAULT_D1_GRIPPER_STROKE_M = 0.03
+DEFAULT_D1_GRIPPER_POSITION_TOLERANCE_M = 0.005
+# Finger-centre TCP on Link6 (asset-measured): pads span local z 0.064..0.126 m
+# around a ~0.077 m opening and the wrist housing ends at local z 0.077 m, so
+# 0.105 m keeps a 5 cm cube clear of the housing while both pads straddle it.
+DEFAULT_D1_TCP_OFFSET_M = 0.105
+DEFAULT_D1_MAX_OPENING_M = 0.077
+
+
+def _d1_gripper_targets(closure01: float) -> tuple[float, float]:
+    """Per-finger stroke targets for D1's mirrored prismatic fingers.
+
+    Delegates to ``EAI.hmrs_ros.d1_omnigraph.d1_gripper_targets`` (0.0 open,
+    1.0 closed).  The import stays lazy because this module also loads inside
+    lightweight non-Isaac test harnesses; the mirrored fallback below keeps the
+    documented mapping when the ROS package is unavailable.
+    """
+    try:
+        from EAI.hmrs_ros.d1_omnigraph import d1_gripper_targets
+    except ImportError:
+        closure = float(closure01)
+        stroke = DEFAULT_D1_GRIPPER_STROKE_M * (1.0 - closure)
+        return (stroke, -stroke)
+    return d1_gripper_targets(closure01)
 
 
 @dataclass(frozen=True)
@@ -127,6 +164,12 @@ def planar_ik_spec_for_model(model_spec: Any) -> PlanarIkSpec:
             ),
             plane_offset_m=0.10915,
             tool_orientation_plane_wxyz=(0.0, math.sqrt(0.5), -math.sqrt(0.5), 0.0),
+            gripper_open_position_rad=(
+                DEFAULT_UR5_GRIPPER_OPEN_POSITION_RAD if model == "ur5" else None
+            ),
+            gripper_closed_position_rad=(
+                DEFAULT_UR5_GRIPPER_CLOSED_POSITION_RAD if model == "ur5" else None
+            ),
         )
     if model == "z1":
         return PlanarIkSpec(
@@ -140,6 +183,20 @@ def planar_ik_spec_for_model(model_spec: Any) -> PlanarIkSpec:
             gripper_closed_position_rad=DEFAULT_Z1_GRIPPER_CLOSED_POSITION_RAD,
             gripper_collision_body_names=DEFAULT_Z1_GRIPPER_COLLISION_BODY_NAMES,
         )
+    if model == "d1":
+        # D1 mirrors the Z1 chain layout: Joint1 is the base yaw, Joint6 is
+        # the wrist roll, and Joint2..Joint5 carry the planar pitch geometry
+        # (0.27 m upper arm, 0.14 m forearm).  The gripper fields stay unset
+        # because D1's mirrored meter-valued fingers need the closure mapping
+        # documented next to DEFAULT_D1_GRIPPER_OPEN_CLOSURE.
+        return PlanarIkSpec(
+            model=model,
+            yaw_joint_name="Joint1",
+            ik_joint_names=("Joint2", "Joint3", "Joint4", "Joint5"),
+            fixed_joint_names=("Joint6",),
+            plane_offset_m=0.0,
+            tool_orientation_plane_wxyz=(math.sqrt(0.5), 0.0, math.sqrt(0.5), 0.0),
+        )
     names = tuple(str(name) for name in getattr(model_spec, "joint_names", ()))
     return PlanarIkSpec(model=model or "generic", yaw_joint_name=None, ik_joint_names=names)
 
@@ -150,6 +207,8 @@ from EAI.manipulation_geometry import (
     feasible_yaw_joint_target, normalize_cylindrical_pose, parse_cylindrical_pose,
     cylindrical_to_local_position, local_position_to_cylindrical,
     cylindrical_to_world_position,
+    _quat_angle_rad, _quat_slerp, _shortest_arc_quaternion,
+    cartesian_place_contact_pose,
 )
 
 
@@ -211,12 +270,41 @@ class ManipulationPhase(str, Enum):
     ROTATE = "rotate"
     RADIAL_APPROACH = "radial_approach"
     VERTICAL_APPROACH = "vertical_approach"
+    PREGRASP = "pregrasp"
+    APPROACH = "approach"
     GRASP = "grasp"
     LIFT = "lift"
     RETRACT = "retract"
     ATTACHED_HOLD = "attached_hold"
     RELEASE = "release"
     FAILED = "failed"
+
+
+@dataclass
+class CartesianPlan:
+    """World-frame SE(3) waypoints for one arbitrary-approach operation.
+
+    ``approach_direction_w`` is the unit vector from the pregrasp point toward
+    the contact point.  The tool axis convention is end-effector local +Z
+    pointing away from the object, so at contact ``R_ee @ ez == -approach``.
+    The reference pose is the rate-limited waypoint the differential IK
+    tracks; it is advanced once per physics tick.
+    """
+
+    approach_direction_w: tuple[float, float, float]
+    contact_position_w: tuple[float, float, float]
+    contact_orientation_wxyz: tuple[float, float, float, float]
+    pregrasp_position_w: tuple[float, float, float]
+    retreat_position_w: tuple[float, float, float]
+    approach_speed_m_s: float = DEFAULT_CARTESIAN_SPEED_M_S
+    motion_speed_scale: float = 1.0
+    arrival_dwell_s: float = DEFAULT_CARTESIAN_ARRIVAL_DWELL_S
+    orientation_tolerance_rad: float = DEFAULT_TOOL_ORIENTATION_TOLERANCE_RAD
+    reference_position_w: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    reference_orientation_wxyz: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
+    phase_start_position_w: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    phase_start_orientation_wxyz: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
+    phase_distance_m: float = 0.0
 
 
 @dataclass
@@ -235,6 +323,7 @@ class RobotManipulationState:
     yaw_joint_target_rad: float | None = None
     yaw_joint_goal_rad: float | None = None
     arrival_joint_sample: tuple[float, ...] | None = None
+    arrival_tcp_position_w: tuple[float, float, float] | None = None
     tolerance_m: float = DEFAULT_POSITION_TOLERANCE_M
     yaw_tolerance_rad: float = DEFAULT_YAW_TOLERANCE_RAD
     phase_timeout_steps: int = DEFAULT_PHASE_TIMEOUT_STEPS
@@ -246,6 +335,13 @@ class RobotManipulationState:
     settle_elapsed_s: float = 0.0
     release_started: bool = False
     last_error: str | None = None
+    cartesian: CartesianPlan | None = None
+    cartesian_goal_position_w: tuple[float, float, float] | None = None
+    cartesian_goal_orientation_wxyz: tuple[float, float, float, float] | None = None
+    gripper_command_rad: float | None = None
+    gripper_goal_rad: float | None = None
+    grasp_tool: Any = None
+    payload_collision_filter: Any = None
 
 
 @dataclass(frozen=True)
@@ -416,16 +512,32 @@ class IdealizedManipulationRuntime:
         if state.held is not None:
             binding = self._binding(name)
             position, orientation = self._end_effector_pose(binding)
-            base_position, base_orientation = self._base_pose(binding)
-            del base_position
-            pose = self._measured_plane_pose(binding, position)
-            state.command_pose = pose
-            state.initial_plane_yaw_rad = pose.yaw_rad
-            state.ee_orientation_relative_b_wxyz = _quat_multiply(_quat_conjugate(base_orientation), orientation)
-            if binding.yaw_joint_id is not None:
-                state.yaw_joint_target_rad = float(binding.arm.data.joint_pos[0, binding.yaw_joint_id])
-            cache = getattr(self._env, "_eai_planar_ik_states", {})
-            cache.pop((name, str(binding.model_spec.model)), None)
+            if state.cartesian is not None:
+                # An arbitrary-approach hold may be folded anywhere in the
+                # workspace; freeze the measured pose instead of projecting it
+                # onto the cylindrical plane.
+                plan = state.cartesian
+                orientation = _normalize_quaternion(orientation)
+                plan.reference_position_w = tuple(position)
+                plan.reference_orientation_wxyz = orientation
+                plan.phase_start_position_w = tuple(position)
+                plan.phase_start_orientation_wxyz = orientation
+                plan.phase_distance_m = 0.0
+                plan.retreat_position_w = tuple(position)
+                plan.contact_orientation_wxyz = orientation
+                state.cartesian_goal_position_w = tuple(position)
+                state.cartesian_goal_orientation_wxyz = orientation
+            else:
+                base_position, base_orientation = self._base_pose(binding)
+                del base_position
+                pose = self._measured_plane_pose(binding, position)
+                state.command_pose = pose
+                state.initial_plane_yaw_rad = pose.yaw_rad
+                state.ee_orientation_relative_b_wxyz = _quat_multiply(_quat_conjugate(base_orientation), orientation)
+                if binding.yaw_joint_id is not None:
+                    state.yaw_joint_target_rad = float(binding.arm.data.joint_pos[0, binding.yaw_joint_id])
+                cache = getattr(self._env, "_eai_planar_ik_states", {})
+                cache.pop((name, str(binding.model_spec.model)), None)
             self._sync_follow_proxy(state.held, binding)
             state.phase = ManipulationPhase.ATTACHED_HOLD
         else:
@@ -434,6 +546,7 @@ class IdealizedManipulationRuntime:
                 self._object_owners.pop(state.pending_isolation.object_body_path, None)
                 state.pending_isolation = None
             self._restore_gripper_collisions(name)
+            self._restore_payload_contact(state)
             state.phase = ManipulationPhase.FAILED
         state.operation = None
         state.phase_goal = None
@@ -683,6 +796,385 @@ class IdealizedManipulationRuntime:
         if recovery.x_m > target.x_m:
             raise ValueError("recovery_pose.x_m must be less than or equal to the target x_m")
 
+    def start_pick_cartesian(
+        self,
+        robot_name: str,
+        object_body_path: str,
+        *,
+        contact_position_w: Sequence[float],
+        contact_orientation_wxyz: Sequence[float],
+        approach_direction_w: Sequence[float],
+        pregrasp_distance_m: float,
+        retreat_distance_m: float,
+        approach_speed_m_s: float = DEFAULT_CARTESIAN_SPEED_M_S,
+        motion_speed_scale: float = 1.0,
+        arrival_dwell_s: float = DEFAULT_CARTESIAN_ARRIVAL_DWELL_S,
+        tolerance_m: float = DEFAULT_POSITION_TOLERANCE_M,
+        orientation_tolerance_rad: float = DEFAULT_TOOL_ORIENTATION_TOLERANCE_RAD,
+        settle_duration_s: float = DEFAULT_ATTACHMENT_SETTLE_DURATION_S,
+        phase_timeout_steps: int = DEFAULT_PHASE_TIMEOUT_STEPS,
+        env_id: int = 0,
+    ) -> bool:
+        """Pick along an arbitrary world-frame approach direction.
+
+        The waypoints are pregrasp → contact → retreat, all expressed in world
+        coordinates.  Invalid argument values raise ``ValueError``; runtime
+        rejections return ``False`` and record the reason in ``last_error``.
+        """
+
+        runtime = self._runtime_for_env(env_id)
+        if runtime is not self:
+            row_path = environment_path(object_body_path, env_id)
+            return runtime.start_pick_cartesian(
+                robot_name, row_path,
+                contact_position_w=contact_position_w,
+                contact_orientation_wxyz=contact_orientation_wxyz,
+                approach_direction_w=approach_direction_w,
+                pregrasp_distance_m=pregrasp_distance_m,
+                retreat_distance_m=retreat_distance_m,
+                approach_speed_m_s=approach_speed_m_s,
+                motion_speed_scale=motion_speed_scale,
+                arrival_dwell_s=arrival_dwell_s,
+                tolerance_m=tolerance_m,
+                orientation_tolerance_rad=orientation_tolerance_rad,
+                settle_duration_s=settle_duration_s,
+                phase_timeout_steps=phase_timeout_steps,
+            )
+        plan = self._validate_cartesian_geometry(
+            contact_position_w, contact_orientation_wxyz, approach_direction_w,
+            pregrasp_distance_m, retreat_distance_m, approach_speed_m_s,
+            orientation_tolerance_rad, motion_speed_scale, arrival_dwell_s,
+        )
+        name = str(robot_name).strip()
+        state = self._states.setdefault(name, RobotManipulationState())
+        if not self.enabled:
+            return self._reject(state, "idealized manipulation requires num_envs=1")
+        if state.held is not None:
+            return self._reject(state, "pick rejected: robot already holds an object")
+        if state.phase not in (ManipulationPhase.IDLE, ManipulationPhase.FAILED):
+            return self._reject(state, "manipulation command rejected: robot is busy")
+        object_path = str(object_body_path).strip()
+        if not object_path.startswith("/"):
+            raise ValueError("object_body_path must be an absolute USD prim path")
+        if self._object_owners.get(object_path) not in (None, name):
+            return self._reject(state, "pick rejected: object is already held by another robot")
+        try:
+            stage = self._stage()
+            prim = stage.GetPrimAtPath(object_path)
+            if not prim or not prim.IsValid():
+                return self._reject(state, f"pick rejected: object does not exist: {object_path}")
+        except (RuntimeError, AttributeError, TypeError):
+            # Lightweight unit-test doubles may not provide a USD stage; the
+            # follow isolation step performs the authoritative live check.
+            pass
+        try:
+            object_position, object_orientation = self._rigid_body_pose(object_path)
+        except Exception as exc:
+            return self._reject(state, f"pick rejected: object pose is unavailable: {exc}")
+        started = self._begin_cartesian(
+            "pick", name, plan, object_body_path=object_path,
+            tolerance_m=tolerance_m, phase_timeout_steps=phase_timeout_steps,
+            settle_duration_s=settle_duration_s,
+        )
+        if not started:
+            return False
+        try:
+            isolation = self._isolate_object_for_follow(name, object_path, object_position, object_orientation)
+            state.pending_isolation = isolation
+            self._object_owners[object_path] = name
+        except Exception as exc:
+            retained = getattr(exc, "isolation", None)
+            if isinstance(retained, _ObjectIsolation):
+                state.pending_isolation = retained
+            state.phase = ManipulationPhase.FAILED
+            state.last_error = f"pick rejected: follow isolation failed: {exc}"
+            return False
+        self._set_cartesian_phase(
+            state, ManipulationPhase.PREGRASP,
+            plan.pregrasp_position_w, plan.contact_orientation_wxyz,
+        )
+        try:
+            self._prepare_folded_cartesian_pick(name, state)
+        except Exception as exc:
+            self._fail(state, f"pick preparation failed: {exc}")
+            return False
+        return True
+
+    def _prepare_folded_cartesian_pick(self, robot_name: str, state: RobotManipulationState) -> None:
+        """Unfold Z1 in its measured shoulder plane before full-pose IK.
+
+        A folded wrist starts behind the shoulder. A direct lateral Cartesian
+        path can select the opposite yaw branch and stick at the joint limit.
+        The nominal forward ready pose is local to the articulation base;
+        ordinary planar joint drives and measured arrival gates perform it.
+        """
+        binding = self._binding(robot_name)
+        if binding.model_spec.model != "z1" or binding.yaw_joint_id is None:
+            return
+        position, _ = self._end_effector_pose(binding)
+        base_position, base_orientation = self._base_pose(binding)
+        local = _quat_rotate(_quat_conjugate(base_orientation),
+                             tuple(position[i] - base_position[i] for i in range(3)))
+        yaw_joint = float(binding.arm.data.joint_pos[0, binding.yaw_joint_id])
+        spec = binding.planar_spec
+        yaw = spec.yaw_zero_rad + spec.yaw_sign * yaw_joint
+        if math.cos(yaw) * local[0] + math.sin(yaw) * local[1] > 0.0:
+            return
+        prepared = CylindricalPose(0.25, 0.20, yaw)
+        state.command_pose = prepared
+        state.initial_plane_yaw_rad = yaw
+        state.initial_yaw_joint_rad = yaw_joint
+        state.yaw_joint_target_rad = yaw_joint
+        state.yaw_tolerance_rad = DEFAULT_YAW_TOLERANCE_RAD
+        yaw_quat = (math.cos(yaw / 2), 0.0, 0.0, math.sin(yaw / 2))
+        state.ee_orientation_relative_b_wxyz = _quat_multiply(yaw_quat, spec.tool_orientation_plane_wxyz)
+        self._set_phase(state, ManipulationPhase.PREPARE, prepared, None)
+
+    def start_place_cartesian(
+        self,
+        robot_name: str,
+        *,
+        target_object_position_w: Sequence[float],
+        approach_direction_w: Sequence[float],
+        pregrasp_distance_m: float,
+        retreat_distance_m: float,
+        approach_speed_m_s: float = DEFAULT_CARTESIAN_SPEED_M_S,
+        motion_speed_scale: float = 1.0,
+        arrival_dwell_s: float = DEFAULT_CARTESIAN_ARRIVAL_DWELL_S,
+        tolerance_m: float = DEFAULT_POSITION_TOLERANCE_M,
+        orientation_tolerance_rad: float = DEFAULT_TOOL_ORIENTATION_TOLERANCE_RAD,
+        phase_timeout_steps: int = DEFAULT_PHASE_TIMEOUT_STEPS,
+        env_id: int = 0,
+    ) -> bool:
+        """Place the held body's origin via an arbitrary approach direction.
+
+        The contact orientation keeps the carried object relative pose and
+        swings the tool axis onto ``-approach`` with the shortest rotation.
+        Invalid argument values raise ``ValueError``; runtime rejections
+        return ``False`` and record the reason in ``last_error``.
+        """
+
+        runtime = self._runtime_for_env(env_id)
+        if runtime is not self:
+            return runtime.start_place_cartesian(
+                robot_name,
+                target_object_position_w=target_object_position_w,
+                approach_direction_w=approach_direction_w,
+                pregrasp_distance_m=pregrasp_distance_m,
+                retreat_distance_m=retreat_distance_m,
+                approach_speed_m_s=approach_speed_m_s,
+                motion_speed_scale=motion_speed_scale,
+                arrival_dwell_s=arrival_dwell_s,
+                tolerance_m=tolerance_m,
+                orientation_tolerance_rad=orientation_tolerance_rad,
+                phase_timeout_steps=phase_timeout_steps,
+            )
+        plan = self._validate_cartesian_geometry(
+            None, None, approach_direction_w,
+            pregrasp_distance_m, retreat_distance_m, approach_speed_m_s,
+            orientation_tolerance_rad, motion_speed_scale, arrival_dwell_s,
+        )
+        name = str(robot_name).strip()
+        state = self._states.setdefault(name, RobotManipulationState())
+        if not self.enabled:
+            return self._reject(state, "idealized manipulation requires num_envs=1")
+        if state.held is None:
+            return self._reject(state, "place rejected: robot does not hold an object")
+        if state.phase != ManipulationPhase.ATTACHED_HOLD:
+            return self._reject(state, "place rejected: robot is not in ATTACHED_HOLD")
+        target = _finite_vector(target_object_position_w, 3, "target_object_position_w")
+        try:
+            binding = self._binding(name)
+            _, ee_orientation = self._end_effector_pose(binding)
+        except Exception as exc:
+            return self._reject(state, f"place rejected: {exc}")
+        contact_position, contact_orientation = cartesian_place_contact_pose(
+            state.held.relative_object_position_ee, ee_orientation,
+            plan.approach_direction_w, target,
+            tool_axis_ee=((0., 0., 1.) if state.grasp_tool is None else
+                          _quat_rotate(state.grasp_tool.orientation_ee_wxyz, (0., 0., 1.))),
+        )
+        plan.contact_position_w = contact_position
+        plan.contact_orientation_wxyz = contact_orientation
+        pregrasp = tuple(
+            contact_position[index] - pregrasp_distance_m * plan.approach_direction_w[index]
+            for index in range(3)
+        )
+        retreat = tuple(
+            contact_position[index] - retreat_distance_m * plan.approach_direction_w[index]
+            for index in range(3)
+        )
+        plan.pregrasp_position_w = pregrasp
+        plan.retreat_position_w = retreat
+        started = self._begin_cartesian(
+            "place", name, plan, object_body_path=state.held.object_body_path,
+            tolerance_m=tolerance_m, phase_timeout_steps=phase_timeout_steps,
+        )
+        if not started:
+            return False
+        self._set_cartesian_phase(
+            state, ManipulationPhase.PREGRASP,
+            plan.pregrasp_position_w, plan.contact_orientation_wxyz,
+        )
+        return True
+
+    @staticmethod
+    def _validate_cartesian_geometry(
+        contact_position_w: Sequence[float] | None,
+        contact_orientation_wxyz: Sequence[float] | None,
+        approach_direction_w: Sequence[float],
+        pregrasp_distance_m: float,
+        retreat_distance_m: float,
+        approach_speed_m_s: float,
+        orientation_tolerance_rad: float,
+        motion_speed_scale: float = 1.0,
+        arrival_dwell_s: float = DEFAULT_CARTESIAN_ARRIVAL_DWELL_S,
+    ) -> CartesianPlan:
+        direction = _finite_vector(approach_direction_w, 3, "approach_direction_w")
+        norm = math.sqrt(sum(value * value for value in direction))
+        if norm <= 1.0e-9:
+            raise ValueError("approach_direction_w must be nonzero")
+        direction = tuple(value / norm for value in direction)
+        pregrasp_distance = _finite_float(pregrasp_distance_m, "pregrasp_distance_m")
+        retreat_distance = _finite_float(retreat_distance_m, "retreat_distance_m")
+        speed = _finite_float(approach_speed_m_s, "approach_speed_m_s")
+        speed_scale = _finite_float(motion_speed_scale, "motion_speed_scale")
+        dwell = _finite_float(arrival_dwell_s, "arrival_dwell_s")
+        orientation_tolerance = _finite_float(
+            orientation_tolerance_rad, "orientation_tolerance_rad",
+        )
+        if pregrasp_distance <= 0.0 or retreat_distance < pregrasp_distance:
+            raise ValueError(
+                "cartesian distances require 0 < pregrasp_distance_m <= retreat_distance_m"
+            )
+        if speed <= 0.0:
+            raise ValueError("approach_speed_m_s must be positive")
+        if speed_scale <= 0.0:
+            raise ValueError("motion_speed_scale must be positive")
+        if dwell < 0.5:
+            raise ValueError("arrival_dwell_s must be at least 0.5 seconds")
+        if orientation_tolerance <= 0.0:
+            raise ValueError("orientation_tolerance_rad must be positive")
+        plan = CartesianPlan(
+            approach_direction_w=direction,
+            contact_position_w=(0.0, 0.0, 0.0),
+            contact_orientation_wxyz=(1.0, 0.0, 0.0, 0.0),
+            pregrasp_position_w=(0.0, 0.0, 0.0),
+            retreat_position_w=(0.0, 0.0, 0.0),
+            approach_speed_m_s=speed * speed_scale,
+            motion_speed_scale=speed_scale,
+            arrival_dwell_s=dwell,
+            orientation_tolerance_rad=orientation_tolerance,
+        )
+        if contact_position_w is not None:
+            plan.contact_position_w = _finite_vector(contact_position_w, 3, "contact_position_w")
+            plan.contact_orientation_wxyz = _normalize_quaternion(
+                contact_orientation_wxyz, name="contact_orientation_wxyz",
+            )
+            plan.pregrasp_position_w = tuple(
+                plan.contact_position_w[index] - pregrasp_distance * direction[index]
+                for index in range(3)
+            )
+            plan.retreat_position_w = tuple(
+                plan.contact_position_w[index] - retreat_distance * direction[index]
+                for index in range(3)
+            )
+        return plan
+
+    def _begin_cartesian(
+        self,
+        operation: str,
+        robot_name: str,
+        plan: CartesianPlan,
+        *,
+        object_body_path: str | None = None,
+        tolerance_m: float,
+        phase_timeout_steps: int,
+        settle_duration_s: float = DEFAULT_ATTACHMENT_SETTLE_DURATION_S,
+    ) -> bool:
+        if not robot_name:
+            raise ValueError("robot_name cannot be empty")
+        state = self._states.setdefault(robot_name, RobotManipulationState())
+        if not self.enabled:
+            return self._reject(state, "idealized manipulation requires num_envs=1")
+        can_start_place = operation == "place" and state.phase == ManipulationPhase.ATTACHED_HOLD and state.held is not None
+        if state.phase not in (ManipulationPhase.IDLE, ManipulationPhase.FAILED) and not can_start_place:
+            return self._reject(state, "manipulation command rejected: robot is busy")
+        tolerance = _finite_float(tolerance_m, "tolerance_m")
+        timeout = _positive_steps(phase_timeout_steps)
+        settle = _finite_float(settle_duration_s, "settle_duration_s")
+        if tolerance <= 0.0:
+            raise ValueError("tolerance_m must be positive")
+        if settle < 0.0:
+            raise ValueError("settle_duration_s must be non-negative")
+        try:
+            binding = self._binding(robot_name)
+            ee_position, ee_orientation = self._end_effector_pose(binding)
+        except Exception as exc:
+            return self._reject(state, f"{operation} rejected: {exc}")
+        # Trajectory ownership moves to the full-pose differential IK; drop any
+        # stale planar integrator state so a later cylindrical command re-seeds.
+        cache = getattr(self._env, "_eai_planar_ik_states", {})
+        cache.pop((robot_name, str(binding.model_spec.model)), None)
+        state.phase = ManipulationPhase.IDLE
+        state.operation = operation
+        if operation == "pick":
+            state.grasp_tool = None
+        state.target_pose = None
+        state.recovery_pose = None
+        state.phase_goal = None
+        state.phase_axis = None
+        state.rotation_stage = "initial"
+        state.command_pose = None
+        state.ee_orientation_relative_b_wxyz = None
+        state.initial_plane_yaw_rad = None
+        state.initial_yaw_joint_rad = None
+        state.yaw_joint_target_rad = None
+        state.yaw_joint_goal_rad = None
+        state.arrival_joint_sample = None
+        state.arrival_tcp_position_w = None
+        state.tolerance_m = tolerance
+        state.phase_timeout_steps = timeout
+        state.phase_steps = 0
+        state.object_body_path = object_body_path
+        state.settle_duration_s = settle
+        state.settle_elapsed_s = 0.0
+        state.release_started = False
+        state.last_error = None
+        state.pending_isolation = None
+        state.cartesian = plan
+        state.cartesian_goal_position_w = None
+        state.cartesian_goal_orientation_wxyz = None
+        plan.reference_position_w = tuple(ee_position)
+        plan.reference_orientation_wxyz = tuple(_normalize_quaternion(ee_orientation))
+        plan.phase_start_position_w = tuple(ee_position)
+        plan.phase_start_orientation_wxyz = plan.reference_orientation_wxyz
+        plan.phase_distance_m = 0.0
+        return True
+
+    def _set_cartesian_phase(
+        self,
+        state: RobotManipulationState,
+        phase: ManipulationPhase,
+        goal_position_w: Sequence[float],
+        goal_orientation_wxyz: Sequence[float],
+    ) -> None:
+        plan = state.cartesian
+        if plan is None:
+            raise RuntimeError("cartesian phase requires a cartesian plan")
+        goal_position = _finite_vector(goal_position_w, 3, "cartesian_goal_position_w")
+        goal_orientation = _normalize_quaternion(goal_orientation_wxyz, name="cartesian_goal_orientation_wxyz")
+        state.phase = phase
+        state.cartesian_goal_position_w = goal_position
+        state.cartesian_goal_orientation_wxyz = goal_orientation
+        plan.phase_start_position_w = tuple(plan.reference_position_w)
+        plan.phase_start_orientation_wxyz = tuple(plan.reference_orientation_wxyz)
+        plan.phase_distance_m = math.dist(plan.reference_position_w, goal_position)
+        state.phase_steps = 0
+        state.settle_elapsed_s = 0.0
+        state.arrival_joint_sample = None
+        state.arrival_tcp_position_w = None
+
     def _begin(
         self,
         operation: str,
@@ -769,6 +1261,8 @@ class IdealizedManipulationRuntime:
                 return self._reject(state, f"{operation} rejected: {exc}")
         state.phase = ManipulationPhase.IDLE
         state.operation = operation
+        if operation == "pick":
+            state.grasp_tool = None
         state.target_pose = target_pose
         state.recovery_pose = recovery_pose
         state.phase_goal = None
@@ -961,6 +1455,11 @@ class IdealizedManipulationRuntime:
         position, orientation = self._end_effector_pose(binding)
         if math.dist(position, target_position) > state.tolerance_m:
             return False
+        if state.grasp_tool is not None:
+            actual_tcp, _ = state.grasp_tool.tcp_pose(position, orientation)
+            target_tcp, _ = state.grasp_tool.tcp_pose(target_position, target_orientation)
+            if math.dist(actual_tcp, target_tcp) > state.tolerance_m:
+                return False
         dot = abs(sum(a * b for a, b in zip(_normalize_quaternion(orientation), target_orientation)))
         return 2.0 * math.acos(min(1.0, dot)) <= DEFAULT_TOOL_ORIENTATION_TOLERANCE_RAD
 
@@ -1011,7 +1510,7 @@ class IdealizedManipulationRuntime:
         for robot_name, state in tuple(self._states.items()):
             if state.phase in (ManipulationPhase.IDLE, ManipulationPhase.FAILED):
                 binding = self._bindings.get(robot_name)
-                if binding is not None and binding.model_spec.model == "z1":
+                if binding is not None and binding.model_spec.model in {"z1", "ur5"}:
                     try:
                         self._hold_fixed_joints(robot_name, binding, state)
                         self._hold_gripper(binding, state)
@@ -1021,9 +1520,17 @@ class IdealizedManipulationRuntime:
             try:
                 binding = self._binding(robot_name)
                 if state.phase == ManipulationPhase.ATTACHED_HOLD:
-                    self._drive_state(robot_name, binding, state)
+                    if state.cartesian is not None:
+                        plan = state.cartesian
+                        self._drive(robot_name, binding,
+                                    plan.reference_position_w, plan.reference_orientation_wxyz, state)
+                    else:
+                        self._drive_state(robot_name, binding, state)
                     if state.held is not None:
                         self._sync_follow_proxy(state.held, binding)
+                    continue
+                if state.cartesian is not None and state.phase != ManipulationPhase.PREPARE:
+                    self._step_cartesian(robot_name, binding, state, dt)
                     continue
                 if state.command_pose is None or state.phase_goal is None:
                     self._fail(state, "manipulation phase is missing cylindrical pose state")
@@ -1119,6 +1626,19 @@ class IdealizedManipulationRuntime:
 
     def _advance_phase(self, robot_name: str, binding: _ManipulatorBinding, state: RobotManipulationState) -> None:
         if state.phase == ManipulationPhase.PREPARE:
+            if state.cartesian is not None:
+                plan = state.cartesian
+                position, orientation = self._end_effector_pose(binding)
+                plan.reference_position_w = tuple(position)
+                plan.reference_orientation_wxyz = tuple(_normalize_quaternion(orientation))
+                cache = getattr(self._env, "_eai_planar_ik_states", {})
+                cache.pop((robot_name, str(binding.model_spec.model)), None)
+                state.command_pose = None
+                state.phase_goal = None
+                state.ee_orientation_relative_b_wxyz = None
+                self._set_cartesian_phase(state, ManipulationPhase.PREGRASP,
+                                          plan.pregrasp_position_w, plan.contact_orientation_wxyz)
+                return
             current, target = state.command_pose, state.target_pose
             if current is None or target is None:
                 self._fail(state, "prepare is missing a cylindrical target")
@@ -1177,6 +1697,166 @@ class IdealizedManipulationRuntime:
         elif state.phase == ManipulationPhase.ROTATE and state.rotation_stage == "recovery":
             self._finish_idle(state)
 
+    def _step_cartesian(self, robot_name: str, binding: _ManipulatorBinding, state: RobotManipulationState, dt: float) -> None:
+        plan = state.cartesian
+        if plan is None or state.cartesian_goal_position_w is None or state.cartesian_goal_orientation_wxyz is None:
+            self._fail(state, "cartesian phase is missing its waypoint")
+            return
+        try:
+            goal_position = state.cartesian_goal_position_w
+            goal_orientation = state.cartesian_goal_orientation_wxyz
+            if state.phase in (ManipulationPhase.PREGRASP, ManipulationPhase.APPROACH, ManipulationPhase.LIFT):
+                remaining = math.dist(plan.reference_position_w, goal_position)
+                if remaining > 0.0:
+                    step = min(remaining, plan.approach_speed_m_s * dt)
+                    scale = step / remaining
+                    plan.reference_position_w = tuple(
+                        plan.reference_position_w[index]
+                        + (goal_position[index] - plan.reference_position_w[index]) * scale
+                        for index in range(3)
+                    )
+                    fraction = 1.0 - (remaining - step) / max(plan.phase_distance_m, 1.0e-9)
+                    plan.reference_orientation_wxyz = _quat_slerp(
+                        plan.phase_start_orientation_wxyz, goal_orientation, fraction,
+                    )
+            self._drive(robot_name, binding, plan.reference_position_w, plan.reference_orientation_wxyz, state)
+            if state.held is not None:
+                self._sync_follow_proxy(state.held, binding)
+            measured_position, measured_orientation = self._end_effector_pose(binding)
+            state.phase_steps += 1
+            reached = self._cartesian_reached(state, binding, measured_position, measured_orientation, dt)
+            if state.phase == ManipulationPhase.GRASP:
+                if reached and self._gripper_at_target(binding, state):
+                    state.settle_elapsed_s += dt
+                    if state.settle_elapsed_s + 1.0e-12 >= state.settle_duration_s:
+                        self._attach_after_grasp(robot_name, binding, state)
+                elif state.settle_elapsed_s > 0.0:
+                    state.settle_elapsed_s = 0.0
+            elif state.phase == ManipulationPhase.RELEASE:
+                if reached and self._gripper_at_target(binding, state):
+                    state.settle_elapsed_s += dt
+                    if state.settle_elapsed_s + 1.0e-12 >= state.settle_duration_s:
+                        self._release_after_place(robot_name, binding, state)
+                elif state.settle_elapsed_s > 0.0:
+                    state.settle_elapsed_s = 0.0
+            elif reached:
+                self._advance_cartesian_phase(robot_name, state)
+            if state.phase not in (ManipulationPhase.IDLE, ManipulationPhase.ATTACHED_HOLD, ManipulationPhase.FAILED) and state.phase_steps >= state.phase_timeout_steps:
+                self._fail(state, f"{state.operation or 'manipulation'} timed out in {state.phase.value}")
+        except Exception as exc:
+            self._fail(state, f"{state.operation or 'manipulation'} failed: {exc}")
+
+    def _cartesian_reached(
+        self,
+        state: RobotManipulationState,
+        binding: _ManipulatorBinding,
+        measured_position_w: Sequence[float],
+        measured_orientation_wxyz: Sequence[float],
+        dt: float,
+    ) -> bool:
+        plan = state.cartesian
+        goal = state.cartesian_goal_position_w
+        goal_orientation = state.cartesian_goal_orientation_wxyz
+        if plan is None or goal is None or goal_orientation is None:
+            return False
+        # The rate-limited reference must finish before the measured arm is
+        # judged; otherwise the residual distance becomes an instantaneous
+        # target jump at GRASP/RELEASE.
+        if math.dist(plan.reference_position_w, goal) > 1.0e-9:
+            state.settle_elapsed_s = 0.0
+            return False
+        if math.dist(measured_position_w, goal) > state.tolerance_m:
+            state.settle_elapsed_s = 0.0
+            return False
+        if _quat_angle_rad(measured_orientation_wxyz, goal_orientation) > plan.orientation_tolerance_rad:
+            state.settle_elapsed_s = 0.0
+            return False
+        if state.grasp_tool is not None:
+            actual_tcp, _ = state.grasp_tool.tcp_pose(measured_position_w, measured_orientation_wxyz)
+            target_tcp, _ = state.grasp_tool.tcp_pose(goal, goal_orientation)
+            if math.dist(actual_tcp, target_tcp) > state.tolerance_m:
+                state.settle_elapsed_s = 0.0
+                return False
+        else:
+            actual_tcp = tuple(measured_position_w)
+        previous_tcp = state.arrival_tcp_position_w
+        state.arrival_tcp_position_w = tuple(actual_tcp)
+        if previous_tcp is None:
+            state.settle_elapsed_s = 0.0
+            return False
+        if math.dist(previous_tcp, actual_tcp) / max(dt, 1.0e-12) > DEFAULT_CARTESIAN_STABLE_LINEAR_SPEED_M_S:
+            state.settle_elapsed_s = 0.0
+            return False
+        sample = self._cartesian_joint_sample(binding)
+        if sample is not None:
+            previous = state.arrival_joint_sample
+            state.arrival_joint_sample = sample
+            if previous is None or len(previous) != len(sample):
+                state.settle_elapsed_s = 0.0
+                return False
+            step_limit = 0.02 * dt
+            if any(abs(a - b) > step_limit for a, b in zip(sample, previous)):
+                state.settle_elapsed_s = 0.0
+                return False
+        if state.phase in (ManipulationPhase.PREGRASP, ManipulationPhase.LIFT):
+            state.settle_elapsed_s += dt
+            return state.settle_elapsed_s + 1.0e-12 >= plan.arrival_dwell_s
+        return True
+
+    @staticmethod
+    def _cartesian_joint_sample(binding: _ManipulatorBinding) -> tuple[float, ...] | None:
+        """Measured arm joints, or None for lightweight doubles without data."""
+        joint_pos = getattr(getattr(binding.arm, "data", None), "joint_pos", None)
+        if joint_pos is None:
+            return None
+        ids = []
+        for joint_id in (binding.yaw_joint_id,) + binding.ik_joint_ids + binding.fixed_joint_ids:
+            if joint_id is not None and joint_id not in ids:
+                ids.append(joint_id)
+        try:
+            return tuple(float(joint_pos[0, joint_id]) for joint_id in ids)
+        except (AttributeError, IndexError, TypeError, ValueError):
+            return None
+
+    def _advance_cartesian_phase(self, robot_name: str, state: RobotManipulationState) -> None:
+        plan = state.cartesian
+        if plan is None:
+            self._fail(state, "cartesian phase transition is missing its plan")
+            return
+        del robot_name
+        if state.operation == "pick":
+            if state.phase == ManipulationPhase.PREGRASP:
+                self._set_cartesian_phase(
+                    state, ManipulationPhase.APPROACH,
+                    plan.contact_position_w, plan.contact_orientation_wxyz,
+                )
+            elif state.phase == ManipulationPhase.APPROACH:
+                self._set_cartesian_phase(
+                    state, ManipulationPhase.GRASP,
+                    plan.contact_position_w, plan.contact_orientation_wxyz,
+                )
+            elif state.phase == ManipulationPhase.LIFT:
+                state.phase = ManipulationPhase.ATTACHED_HOLD
+                state.cartesian_goal_position_w = plan.retreat_position_w
+                state.cartesian_goal_orientation_wxyz = plan.contact_orientation_wxyz
+                state.phase_steps = 0
+                state.arrival_joint_sample = None
+                state.arrival_tcp_position_w = None
+            return
+        if state.operation == "place":
+            if state.phase == ManipulationPhase.PREGRASP:
+                self._set_cartesian_phase(
+                    state, ManipulationPhase.APPROACH,
+                    plan.contact_position_w, plan.contact_orientation_wxyz,
+                )
+            elif state.phase == ManipulationPhase.APPROACH:
+                self._set_cartesian_phase(
+                    state, ManipulationPhase.RELEASE,
+                    plan.contact_position_w, plan.contact_orientation_wxyz,
+                )
+            elif state.phase == ManipulationPhase.LIFT:
+                self._finish_idle(state)
+
     def _attach_after_grasp(self, robot_name: str, binding: _ManipulatorBinding, state: RobotManipulationState) -> None:
         if state.object_body_path is None or state.pending_isolation is None:
             self._fail(state, "pick cannot attach without isolated object state")
@@ -1188,6 +1868,12 @@ class IdealizedManipulationRuntime:
         state.held = held
         state.pending_isolation = None
         self._object_owners[held.object_body_path] = robot_name
+        if state.cartesian is not None:
+            self._set_cartesian_phase(
+                state, ManipulationPhase.LIFT,
+                state.cartesian.retreat_position_w, state.cartesian.contact_orientation_wxyz,
+            )
+            return
         target = state.target_pose
         recovery = state.recovery_pose
         if target is None or recovery is None:
@@ -1197,25 +1883,35 @@ class IdealizedManipulationRuntime:
 
     def _release_after_place(self, robot_name: str, binding: _ManipulatorBinding, state: RobotManipulationState) -> None:
         held = state.held
-        recovery = state.recovery_pose
-        target = state.target_pose
-        if held is None or recovery is None or target is None:
-            self._fail(state, "place cannot release without held and recovery state")
+        if held is None:
+            self._fail(state, "place cannot release without a held object")
             return
         state.release_started = True
+        self._filter_payload_during_retreat(binding, state)
         self._release_follow_attachment(held, binding)
         state.release_started = False
         if self._object_owners.get(held.object_body_path) == robot_name:
             self._object_owners.pop(held.object_body_path, None)
         state.held = None
+        if state.cartesian is not None:
+            self._set_cartesian_phase(
+                state, ManipulationPhase.LIFT,
+                state.cartesian.retreat_position_w, state.cartesian.contact_orientation_wxyz,
+            )
+            return
+        recovery = state.recovery_pose
+        target = state.target_pose
+        if recovery is None or target is None:
+            self._fail(state, "place cannot release without held and recovery state")
+            return
         self._set_phase(state, ManipulationPhase.LIFT, CylindricalPose(target.x_m, recovery.z_m, target.yaw_rad), "z")
 
-    @staticmethod
-    def _finish_idle(state: RobotManipulationState) -> None:
+    def _finish_idle(self, state: RobotManipulationState) -> None:
         # Both reachable call sites (move completion, place completion after
         # RELEASE cleared the held object) arrive with nothing carried; a held
         # object left in IDLE would freeze its proxy updates.
         assert state.held is None
+        self._restore_payload_contact(state)
         state.phase = ManipulationPhase.IDLE
         state.operation = None
         state.phase_goal = None
@@ -1228,6 +1924,9 @@ class IdealizedManipulationRuntime:
         state.settle_elapsed_s = 0.0
         state.release_started = False
         state.last_error = None
+        state.cartesian = None
+        state.cartesian_goal_position_w = None
+        state.cartesian_goal_orientation_wxyz = None
 
     def _drive(
         self,
@@ -1250,13 +1949,27 @@ class IdealizedManipulationRuntime:
 
     @staticmethod
     def _gripper_target(binding: _ManipulatorBinding, state: RobotManipulationState) -> float | None:
-        if str(getattr(binding.model_spec, "model", "")).strip().lower() != "z1":
+        model = str(getattr(binding.model_spec, "model", "")).strip().lower()
+        if model not in {"ur5", "z1", "d1"}:
             return None
-        if not getattr(binding.model_spec, "gripper_joint_name", None):
+        if model == "d1":
+            if not getattr(binding.model_spec, "gripper_joint_names", None):
+                return None
+        elif not getattr(binding.model_spec, "gripper_joint_name", None):
             return None
         spec = binding.planar_spec
-        open_position = spec.gripper_open_position_rad
-        closed_position = spec.gripper_closed_position_rad
+        if model == "d1":
+            # The single radian-valued fields cannot describe D1's mirrored
+            # meter-valued fingers, so open/closed carry the closure
+            # coefficient (0.0 open, 1.0 closed) on this branch.
+            open_position = DEFAULT_D1_GRIPPER_OPEN_CLOSURE
+            closed_position = DEFAULT_D1_GRIPPER_CLOSED_CLOSURE
+        else:
+            open_position = spec.gripper_open_position_rad
+            closed_position = spec.gripper_closed_position_rad
+        if state.grasp_tool is not None:
+            open_position = state.grasp_tool.open_position_rad
+            closed_position = state.grasp_tool.closed_position_rad
         if open_position is None:
             open_position = DEFAULT_Z1_GRIPPER_OPEN_POSITION_RAD
         if closed_position is None:
@@ -1288,6 +2001,25 @@ class IdealizedManipulationRuntime:
         target = self._gripper_target(binding, state)
         if target is None:
             return True
+        if str(getattr(binding.model_spec, "model", "")).strip().lower() == "d1":
+            names = tuple(getattr(binding.model_spec, "gripper_joint_names", ()) or ())
+            if not names:
+                return False
+            try:
+                gripper_ids, _ = binding.arm.find_joints(list(names), preserve_order=True)
+                if len(gripper_ids) != len(names):
+                    return False
+                measured = getattr(getattr(binding.arm, "data", None), "joint_pos", None)
+                if measured is None:
+                    return True
+                wanted = _d1_gripper_targets(target)
+                return all(
+                    abs(float(measured[0, int(gripper_id)]) - goal)
+                    <= DEFAULT_D1_GRIPPER_POSITION_TOLERANCE_M
+                    for gripper_id, goal in zip(gripper_ids, wanted)
+                )
+            except (AttributeError, IndexError, TypeError, ValueError):
+                return False
         gripper_name = getattr(binding.model_spec, "gripper_joint_name", None)
         if not gripper_name:
             return False
@@ -1307,10 +2039,73 @@ class IdealizedManipulationRuntime:
 
     def _hold_gripper(self, binding: _ManipulatorBinding, state: RobotManipulationState) -> None:
         gripper_position = self._gripper_target(binding, state)
+        if str(getattr(binding.model_spec, "model", "")).strip().lower() == "d1":
+            self._hold_d1_gripper(binding, state, gripper_position)
+            return
+        if gripper_position is not None:
+            # Use the same stage-driven open/close sequence as Z1, with a
+            # physics-rate target ramp so Robotiq's fingers visibly animate.
+            # The measured arrival gate still checks the final open/closed
+            # angle, never an intermediate animation target.
+            if state.gripper_goal_rad != gripper_position or state.gripper_command_rad is None:
+                ids, _ = binding.arm.find_joints(
+                    [str(binding.model_spec.gripper_joint_name)], preserve_order=True)
+                measured = getattr(getattr(binding.arm, "data", None), "joint_pos", None)
+                if measured is not None and ids:
+                    state.gripper_command_rad = float(measured[0, int(ids[0])])
+                else:
+                    state.gripper_command_rad = gripper_position
+                state.gripper_goal_rad = gripper_position
+            scale = 1.0 if state.cartesian is None else state.cartesian.motion_speed_scale
+            step = (DEFAULT_GRIPPER_ANIMATION_SPEED_RAD_S * scale
+                    * self._physics_step_duration_s())
+            state.gripper_command_rad += max(-step, min(step, gripper_position - state.gripper_command_rad))
+            gripper_position = state.gripper_command_rad
         if not hold_gripper_position(
             binding.arm, binding.model_spec, position_rad=gripper_position,
         ):
             raise RuntimeError("configured gripper joint is unavailable")
+
+    def _hold_d1_gripper(self, binding: _ManipulatorBinding, state: RobotManipulationState, closure_target: float | None) -> None:
+        """Animate D1's mirrored prismatic fingers by closure coefficient.
+
+        ``gripper_command_rad`` carries the 0..1 closure (not radians) on this
+        branch; the ramp therefore seeds from the measured stroke of the first
+        finger instead of the meter-valued joint itself.  The measured arrival
+        gate in :meth:`_gripper_at_target` still checks final finger strokes.
+        """
+        names = tuple(getattr(binding.model_spec, "gripper_joint_names", ()) or ())
+        if not names:
+            raise RuntimeError("configured gripper joint is unavailable")
+        gripper_ids, _ = binding.arm.find_joints(list(names), preserve_order=True)
+        if not gripper_ids or len(gripper_ids) != len(names):
+            raise RuntimeError("configured gripper joint is unavailable")
+        measured = getattr(getattr(binding.arm, "data", None), "joint_pos", None)
+        if closure_target is None:
+            if not hold_gripper_position(binding.arm, binding.model_spec):
+                raise RuntimeError("configured gripper joint is unavailable")
+            return
+        if state.gripper_goal_rad != closure_target or state.gripper_command_rad is None:
+            current = float(closure_target)
+            if measured is not None:
+                stroke = float(measured[0, int(gripper_ids[0])])
+                current = min(1.0, max(0.0, 1.0 - stroke / DEFAULT_D1_GRIPPER_STROKE_M))
+            state.gripper_command_rad = current
+            state.gripper_goal_rad = closure_target
+        scale = 1.0 if state.cartesian is None else state.cartesian.motion_speed_scale
+        step = (DEFAULT_GRIPPER_ANIMATION_SPEED_RAD_S * scale
+                * self._physics_step_duration_s())
+        state.gripper_command_rad += max(-step, min(step, closure_target - state.gripper_command_rad))
+        stroke, mirrored = _d1_gripper_targets(state.gripper_command_rad)
+        if measured is None:
+            binding.arm.set_joint_position_target((stroke, mirrored), joint_ids=list(gripper_ids))
+            return
+        import torch
+
+        wanted = torch.tensor([[stroke, mirrored]], device=measured.device, dtype=measured.dtype)
+        limits = binding.arm.data.soft_joint_pos_limits[:, list(gripper_ids)]
+        wanted = torch.maximum(torch.minimum(wanted, limits[..., 1]), limits[..., 0])
+        binding.arm.set_joint_position_target(wanted, joint_ids=list(gripper_ids))
 
     def _create_follow_attachment(
         self,
@@ -1400,6 +2195,48 @@ class IdealizedManipulationRuntime:
                 self._owned_proxy_paths.discard(pending.proxy_path)
             self._object_owners.pop(pending.object_body_path, None)
             state.pending_isolation = None
+        self._restore_payload_contact(state)
+
+    def _filter_payload_during_retreat(self, binding, state):
+        """Restore table support at release without the opening jaw kicking it.
+
+        Only source-object/robot pairs are temporarily excluded. Environment
+        contacts remain enabled and the original relationship is restored
+        after retreat, on empty stop, or reset.
+        """
+        if state.grasp_tool is None or state.held is None or state.payload_collision_filter is not None:
+            return
+        from pxr import UsdPhysics, Sdf
+        prim = self._stage().GetPrimAtPath(state.held.object_body_path)
+        had_api = prim.HasAPI(UsdPhysics.FilteredPairsAPI)
+        relation = prim.GetRelationship('physics:filteredPairs')
+        had_opinion = bool(relation and relation.HasAuthoredTargets())
+        old_targets = list(relation.GetTargets()) if relation else []
+        api = UsdPhysics.FilteredPairsAPI.Apply(prim)
+        relation = api.CreateFilteredPairsRel()
+        state.payload_collision_filter = (str(prim.GetPath()), had_api, had_opinion, old_targets)
+        paths = binding.arm.root_physx_view.link_paths[0]
+        relation.SetTargets(list(dict.fromkeys(old_targets + [Sdf.Path(p) for p in paths])))
+        self._flush_physx_transforms()
+
+    def _restore_payload_contact(self, state):
+        saved = state.payload_collision_filter
+        if saved is None:
+            return
+        from pxr import UsdPhysics
+        path, had_api, had_opinion, targets = saved
+        prim = self._stage().GetPrimAtPath(path)
+        if not prim or not prim.IsValid():
+            raise RuntimeError('payload disappeared before contact-filter restoration')
+        relation = prim.GetRelationship('physics:filteredPairs')
+        if had_opinion:
+            relation.SetTargets(targets)
+        else:
+            relation.ClearTargets(True)
+        if not had_api:
+            prim.RemoveAPI(UsdPhysics.FilteredPairsAPI)
+        self._flush_physx_transforms()
+        state.payload_collision_filter = None
 
     def _fail(self, state: RobotManipulationState, reason: str) -> None:
         name = next((robot for robot, candidate in self._states.items() if candidate is state), "")
@@ -1425,7 +2262,59 @@ class IdealizedManipulationRuntime:
         state.settle_elapsed_s = 0.0
         state.release_started = False
         state.last_error = str(reason)
+        state.cartesian = None
+        state.cartesian_goal_position_w = None
+        state.cartesian_goal_orientation_wxyz = None
 
+
+    def grasp_tool_for_object(self, robot_name, object_path, tcp_orientation_wxyz):
+        """Compute finger geometry from the live object's projected bounds."""
+        from EAI.manipulation_geometry import GraspToolFrame, gripper_grasp_tool
+        binding = self._binding(robot_name, disable_collisions=False)
+        model = binding.model_spec.model
+        joint = getattr(binding.model_spec, 'gripper_joint_name', None)
+        if model == 'd1':
+            from pxr import UsdGeom
+            stage = self._stage()
+            prim = stage.GetPrimAtPath(object_path)
+            cache = UsdGeom.BBoxCache(0, ['default', 'render', 'proxy'])
+            bounds = cache.ComputeUntransformedBound(prim).ComputeAlignedRange()
+            if bounds.IsEmpty():
+                raise ValueError('cannot determine object dimensions for gripper opening')
+            matrix = UsdGeom.XformCache().GetLocalToWorldTransform(prim)
+            points = [_quat_rotate(_quat_conjugate(tcp_orientation_wxyz),
+                      tuple(matrix.Transform(bounds.GetCorner(i)))) for i in range(8)]
+            extents = [max(p[i] for p in points) - min(p[i] for p in points) for i in range(3)]
+            # At contact the tool axis opposes the approach, so the opening is
+            # the object's TCP-frame Y extent and the depth its Z extent.
+            width, depth = extents[1], extents[2]
+            if not 0.005 <= width <= DEFAULT_D1_MAX_OPENING_M:
+                raise ValueError('object dimensions exceed the D1 gripper opening')
+            return GraspToolFrame(
+                (0.0, 0.0, DEFAULT_D1_TCP_OFFSET_M), (0., 1., 0., 0.),
+                DEFAULT_D1_GRIPPER_OPEN_CLOSURE, DEFAULT_D1_GRIPPER_CLOSED_CLOSURE,
+                width, depth,
+            )
+        if (model, joint) not in (('ur5', 'finger_joint'), ('z1', 'jointGripper')):
+            return GraspToolFrame()
+        from pxr import UsdGeom
+        stage = self._stage()
+        prim = stage.GetPrimAtPath(object_path)
+        cache = UsdGeom.BBoxCache(0, ['default', 'render', 'proxy'])
+        bounds = cache.ComputeUntransformedBound(prim).ComputeAlignedRange()
+        if bounds.IsEmpty():
+            raise ValueError('cannot determine object dimensions for gripper opening')
+        matrix = UsdGeom.XformCache().GetLocalToWorldTransform(prim)
+        points = [_quat_rotate(_quat_conjugate(tcp_orientation_wxyz),
+                  tuple(matrix.Transform(bounds.GetCorner(i)))) for i in range(8)]
+        extents = [max(p[i] for p in points) - min(p[i] for p in points) for i in range(3)]
+        return gripper_grasp_tool(model, extents[1 if model == 'ur5' else 0], extents[2])
+
+    def configure_grasp_tool(self, robot_name, tool):
+        state = self._states[robot_name]
+        if state.operation != 'pick' or state.held is not None:
+            raise RuntimeError('grasp tool can only be configured before attaching a pick')
+        state.grasp_tool = tool if tool.open_position_rad is not None else None
 
     def _binding(self, robot_name: str, *, disable_collisions: bool = True) -> _ManipulatorBinding:
         cached = self._bindings.get(robot_name)
@@ -1544,6 +2433,11 @@ class IdealizedManipulationRuntime:
     def _disable_gripper_collisions(self, robot_name: str, binding: _ManipulatorBinding) -> None:
         """Disable Z1 gripper collision geometry for this skill instance."""
 
+        # The unified backend isolates the source object before approach.
+        # It must retain finger/environment contacts, including the table.
+        # Preserve the old scalar-controller behaviour for other callers.
+        if robot_name in self._retain_on_failure:
+            return
         if not binding.planar_spec.gripper_collision_body_names:
             return
         if robot_name in self._gripper_collision_snapshots:
@@ -2262,9 +3156,13 @@ class IdealizedManipulationRuntime:
 
 __all__ = [
     "CylindricalPose",
+    "CartesianPlan",
     "DEFAULT_ATTACHMENT_MODE",
     "DEFAULT_ATTACHMENT_SETTLE_DURATION_S",
+    "DEFAULT_CARTESIAN_SPEED_M_S",
     "DEFAULT_GRIPPER_POSITION_TOLERANCE_RAD",
+    "DEFAULT_UR5_GRIPPER_CLOSED_POSITION_RAD",
+    "DEFAULT_UR5_GRIPPER_OPEN_POSITION_RAD",
     "DEFAULT_PHASE_TIMEOUT_STEPS",
     "DEFAULT_POSITION_TOLERANCE_M",
     "DEFAULT_RADIAL_SPEED_M_S",
@@ -2280,6 +3178,7 @@ __all__ = [
     "ManipulationPhase",
     "RobotManipulationState",
     "PlanarIkSpec",
+    "cartesian_place_contact_pose",
     "cylindrical_to_local_position",
     "cylindrical_to_world_position",
     "local_position_to_cylindrical",

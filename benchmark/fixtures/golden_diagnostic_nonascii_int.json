@@ -1,0 +1,54 @@
+{
+  "candidate_path": "/home/pupil/Documents/Codex/agent-team/workspaces/heterocoord-tool-qualification-round2-20261020/artifacts/p5-real-isaaclab-20261020-retry/isaaclab-vectorized-smoke.json",
+  "evidence_digest": "f43ee7e722152dc6afde02e343e233e3042ba25a684761f2236f17cee9b6620b",
+  "evidence_scope": "diagnostic_only",
+  "exact_equivalence": false,
+  "experiment_identity": {
+    "base_instance_id": "\u5b9e\u4f8b-\u57fa\u7ebf",
+    "branch_id": "golden/nonascii/reference",
+    "branch_type": "reference",
+    "checkpoint_round": "checkpoint-int",
+    "condition_id": "\u6761\u4ef6-\u03b1",
+    "random_key_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "repeat_id": "r1",
+    "run_id": "golden-nonascii-int-20261021",
+    "slot": 0,
+    "slot_generation": 1,
+    "snapshot_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+    "system_id": "\u7cfb\u7edf-\u03b2",
+    "untreated_history_id": "history-int"
+  },
+  "experiment_identity_digest": "a556c6d371973d09f68fe4ede98f56847f4c420aa374cbe3d8385920af09d008",
+  "extra_branch_ids": [],
+  "field_max_errors": {"step[0].observation": 0},
+  "max_numeric_error": 0,
+  "missing_branch_ids": [],
+  "numeric_equivalence": true,
+  "process_failure_scope": "shared_session",
+  "provenance": {
+    "command": "fixture",
+    "cwd": "/home/pupil/HeteroCoord",
+    "diagnostic_body_completed": true,
+    "exit_code": 0,
+    "interpreter": "python",
+    "output_digest": "sha256:5d24d5ac10329ed6dba7d685e1200da92b37d68bb79e835b29e1b65a41069071",
+    "output_path": "/home/pupil/Documents/Codex/agent-team/workspaces/heterocoord-tool-qualification-round2-20261020/artifacts/p5-real-isaaclab-20261020-retry/isaaclab-vectorized-smoke.json",
+    "process_failure_scope": "shared_session",
+    "shutdown_status": "clean"
+  },
+  "provenance_digest": "df01152498e882fe68dee2238ed951777577b2d5f83044ffcacf40d7916c97f6",
+  "qualification_flags": {
+    "formal_measured_qualified": false,
+    "native_full_state_qualified": false,
+    "process_isolation_qualified": false
+  },
+  "qualification_status": "diagnostic_only",
+  "rankable": false,
+  "reference_paths": [
+    "/home/pupil/Documents/Codex/agent-team/workspaces/heterocoord-tool-qualification-round2-20261020/artifacts/p5-fresh-reference-20261020/trace-compare-reference-branch.json"
+  ],
+  "schema": "heterocoord.diagnostic_trace_evidence.v1",
+  "shutdown_status": "clean",
+  "structural_mismatches": {},
+  "tolerance": 1
+}

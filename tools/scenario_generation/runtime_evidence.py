@@ -76,7 +76,7 @@ def import_execution_attempt(attempt: Mapping[str, Any], *, scenario_sha256: str
     tier = validation.get("tier")
     if tier not in {"navigation_execution_validated", "kinematic_execution_validated"}:
         raise ValueError("execution report must declare a supported E6 tier")
-    from demo.benchmark.provenance import validate_execution_provenance
+    from .project_provenance import validate_execution_provenance
     from EAI.scenario_spec.benchmark_physics import has_current_mass_audit
 
     provenance = validate_execution_provenance(attempt, check_runtime_files=True)

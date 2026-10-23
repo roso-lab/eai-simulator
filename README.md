@@ -137,29 +137,73 @@ environment without adding untracked weights or USD files to the repository.
 
 ## Quick start
 
-From the repository root:
+From the repository root, use the project bootstrap so the shared Conda
+environment cannot resolve EAI from another editable checkout:
 
 ~~~bash
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate env_isaaclab
 
-python -m pip show EAI EAI_assets EAI_hmrs
-python simulator.py --env EAI-Factory-Z1-v0 --headless
+python tools/project_runtime.py doctor
+python tools/project_runtime.py exec -- \
+  python simulator.py --env EAI-Factory-Z1-v0 --headless
 ~~~
 
-The first command is a package check. The simulator command is an integration
-smoke test and may require locally available or provider-managed assets. Do not
-run it merely to execute the dependency-free unit tests.
+The doctor verifies that `EAI`, `EAI_assets`, and `EAI_hmrs` all come from this
+checkout. The bootstrap forces the local `source/`, `usd/`, controller and
+artifact roots only for the child process; it does not rewrite the shared
+Conda environment. It also disables implicit asset downloads, so a missing
+local dependency fails closed.
+
+For a bounded single-scene attachment diagnostic with a JSON receipt:
+
+~~~bash
+python tools/project_runtime.py exec -- python \
+  tools/validation/project_local_scene_smoke.py \
+  --env EAI-Factory-Z1-v0 --steps 8 --device cpu \
+  --output artifacts/project_runtime/single_scene_smoke.json
+~~~
+
+This receipt proves local import provenance, scene construction and measured
+physics stepping only. It is not physical-skill qualification and does not
+establish any D1--D6 result.
+
+For a bounded command/controller/pose-evaluator diagnostic:
+
+~~~bash
+python tools/project_runtime.py exec -- python \
+  tools/validation/project_local_command_loop.py \
+  --env EAI-Factory-Z1-v0 --device cpu \
+  --output artifacts/project_runtime/command_loop.json
+~~~
+
+That receipt proves only a short diagnostic command path and independently
+measured endpoint/stop predicates. It is neither formal topology navigation
+nor a controller/skill qualification, and it is never paper-score eligible.
 
 ## Lightweight checks
 
-These checks do not require launching Isaac Sim:
+These checks do not require launching Isaac Sim. Use the project test runner;
+it disables unrelated third-party pytest plugin discovery before pytest starts.
+This is important because the IsaacLab environment also contains ROS/ament
+pytest entry points.
 
 ~~~bash
 cd /home/pupil/HeteroCoord
-PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
-  /home/pupil/miniconda3/envs/env_isaaclab/bin/python \
-  -m pytest -q task/tests algorithm/common_coordination/tests
+/home/pupil/miniconda3/envs/env_isaaclab/bin/python \
+  tools/run_tests.py --profile contract -q task/tests algorithm/common_coordination/tests
+~~~
+
+Check the active interpreter and discovered plugins without running tests:
+
+~~~bash
+python tools/run_tests.py --diagnose
+~~~
+
+ROS/launch_testing integration is an explicit separate profile:
+
+~~~bash
+python tools/run_tests.py --profile ros tools/ros2/tests
 ~~~
 
 The original task/coordination contract suites are dependency-light; the
@@ -171,9 +215,8 @@ after changing setup, assets, interfaces, or documentation.
 The benchmark contract slice can be checked with:
 
 ~~~bash
-PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
-  /home/pupil/miniconda3/envs/env_isaaclab/bin/python \
-  -m pytest -q benchmark task/tests algorithm/skills/tests algorithm/common_coordination/tests
+/home/pupil/miniconda3/envs/env_isaaclab/bin/python \
+  tools/run_tests.py --profile isaac -q benchmark task/tests algorithm/skills/tests algorithm/common_coordination/tests
 ~~~
 
 ## Recommended development order

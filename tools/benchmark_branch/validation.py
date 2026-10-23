@@ -9,11 +9,12 @@ from pathlib import Path
 import time
 from typing import Any, Mapping
 
-from .models import BRANCH_ROLES, IDENTITY_FIELDS, SCHEMA_VERSION, MEASURED_SCOPES, BranchJob
+from .models import BRANCH_ROLES, IDENTITY_FIELDS, SCHEMA_VERSION, MEASURED_SCOPES, BranchJob, BranchPlan
 from .evidence import verify_evaluator_evidence
 from .initialization import FRESH, receipt_mode, validate_initialization_job, verify_initialization_receipt
 from .benchmark_bridge import benchmark_job_errors
 from .store import LEDGERS, verify_seal
+from .recovery import decide_recovery, is_method_outcome, recovery_registration, verify_recovery_readback
 
 
 STATUS_RISK = {
@@ -158,6 +159,42 @@ def validate_run(run_dir: str | Path, *, write: bool = True) -> dict[str, Any]:
     # Session backends emit actual step rows; summary metrics are optional.
     stepped_branches = {str(row["branch_id"]) for row in rows["steps"]
                         if row.get("branch_id") and row.get("simulator_step") is not None}
+    if manifest.get("execution_scope") in MEASURED_SCOPES:
+        try:
+            frozen_jobs = {job.logical_branch_id: job for job in BranchPlan.from_mapping(plan).jobs()}
+            for identity in branch_rows:
+                current = BranchJob.from_mapping(identity)
+                frozen = frozen_jobs[current.logical_branch_id]
+                registration = recovery_registration(frozen)
+                if current.metadata.get("registered_recovery") != frozen.metadata.get("registered_recovery"):
+                    raise ValueError("registered recovery differs from frozen plan")
+                if current.attempt == 0:
+                    continue
+                previous = [row for row in rows["episodes"]
+                            if row.get("logical_branch_id") == current.logical_branch_id
+                            and int(row.get("attempt", 0)) < current.attempt]
+                prior = next((row for row in reversed(previous)
+                              if int(row.get("attempt", 0)) == current.attempt - 1), None)
+                method = next((row for row in previous if is_method_outcome(row)), None)
+                if method is not None:
+                    prior = {**method, "completed": False}
+                decision = decide_recovery(frozen, prior, next_attempt=current.attempt)
+                if not registration or not decision.retry:
+                    raise ValueError(f"unregistered rerun {current.branch_id}: {decision.reason}")
+                for field in ("base_instance_id", "pair_group_id", "repeat_id", "pair_seed",
+                              "checkpoint_digest", "rng_namespace", "communication_rng_namespace"):
+                    if getattr(current, field) != getattr(frozen, field):
+                        raise ValueError(f"recovery identity changed: {field}")
+                if current.branch_id in stepped_branches:
+                    receipts = [row for row in rows["checkpoints"]
+                                if row.get("branch_id") == current.branch_id
+                                and ("recovery_registration_id" in row or "recovery_mode" in row)]
+                    steps = [row for row in rows["steps"] if row.get("branch_id") == current.branch_id]
+                    if (len(receipts) != 1 or not verify_recovery_readback(current, receipts[0])
+                            or any(receipts[0].get("recorded_at", "") > row.get("recorded_at", "") for row in steps)):
+                        raise ValueError(f"recovery lacks prior checkpoint/random-stream readback: {current.branch_id}")
+        except (ValueError, TypeError, KeyError) as exc:
+            errors.append(f"invalid registered recovery: {exc}")
     first_tick_branches.update(stepped_branches)
     last_tick_branches.update(stepped_branches)
     overlap_detected = False
@@ -204,8 +241,16 @@ def validate_run(run_dir: str | Path, *, write: bool = True) -> dict[str, Any]:
     if missing_worker_identity:
         errors.append(f"missing worker identity: {missing_worker_identity[:5]}")
     execution_backend = str(manifest.get("execution_backend") or "")
+    vectorized_backend = execution_backend == "vectorized_session"
     shared_backend = str(manifest.get("execution_mode") or "") == "shared_session"
-    session_backend = execution_backend == "session_backend"
+    session_backend = execution_backend in {"session_backend", "vectorized_session"}
+    vector_errors = []
+    if vectorized_backend:
+        from .vectorized_validation import validate_vectorized
+        vector_errors = validate_vectorized(manifest, {
+            name: [{**row, "_vector_ledger": name} for row in values]
+            for name, values in rows.items()})
+        errors.extend(vector_errors)
     fresh_branches = set()
     for branch_id, identity in branch_identity.items():
         try:
@@ -247,9 +292,9 @@ def validate_run(run_dir: str | Path, *, write: bool = True) -> dict[str, Any]:
         if session_backend and manifest.get("scheduler_integrated") is not True:
             errors.append("session backend did not record scheduler integration")
         if len(shared_sessions) != 1:
-            if shared_backend:
+            if shared_backend and not vectorized_backend:
                 errors.append("shared session identity is missing or split across branches")
-        if shared_backend:
+        if shared_backend and not vectorized_backend:
             slot_workers: dict[int, str] = {}
             for name in ("episodes", "steps", "events"):
                 for row in rows[name]:
@@ -264,7 +309,7 @@ def validate_run(run_dir: str | Path, *, write: bool = True) -> dict[str, Any]:
                     old = slot_workers.setdefault(slot, worker)
                     if old and worker and old != worker:
                         errors.append(f"slot {slot} changed worker ownership")
-        if shared_backend and manifest.get("slot_isolation_validated") is not True:
+        if shared_backend and not vectorized_backend and manifest.get("slot_isolation_validated") is not True:
             errors.append("shared-session slot isolation was not validated")
         # Shared-session collection has one parent writer, but every logical
         # branch must still retain an independently inspectable append-only
@@ -312,6 +357,13 @@ def validate_run(run_dir: str | Path, *, write: bool = True) -> dict[str, Any]:
             )
             fingerprints = {tuple(str(row.get(field, "")) for field in pair_fields) for row in members}
             if len(fingerprints) != 1: reason = "paired identity mismatch"
+        if not reason:
+            incomplete_statuses = {"unknown-record", "pair-invalid", "infrastructure_invalid"}
+            blocked = [str(episodes.get(str(row.get("logical_branch_id")), {}).get("status"))
+                       for row in members
+                       if str(episodes.get(str(row.get("logical_branch_id")), {}).get("status")) in incomplete_statuses]
+            if blocked:
+                reason = blocked[0] if blocked[0] in {"unknown-record", "pair-invalid"} else "infrastructure_incomplete"
         if not reason and any(str(row.get("branch_id")) in restore_failures for row in members): reason = "restore mismatch"
         if not reason:
             sham = next((episodes.get(str(row.get("logical_branch_id"))) for row in members if row.get("branch_type") == "sham"), None)
@@ -342,6 +394,7 @@ def validate_run(run_dir: str | Path, *, write: bool = True) -> dict[str, Any]:
     # calibration.  Never expose this diagnostic as a paper-valid paired
     # claim; benchmark.PairedBranchCoordinator remains the authority.
     result = {
+        "vectorized_isolation_validated": vectorized_backend and not vector_errors,
         "schema": f"{SCHEMA_VERSION}.validation.v1", "run_id": manifest.get("run_id"),
         "status": "passed" if not errors else "failed", "errors": errors, "warnings": warnings,
         "metrics": {

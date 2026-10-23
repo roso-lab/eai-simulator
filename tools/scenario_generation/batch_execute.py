@@ -21,14 +21,17 @@ from uuid import uuid4
 if __package__ in (None, ""):
     import common
     from execute_episode import execution_contract
+    from project_provenance import (
+        canonical_sha256, capture_request, execution_code_provenance, file_sha256,
+        runtime_options, validate_execution_provenance,
+    )
 else:
     from . import common
     from .execute_episode import execution_contract
-
-from demo.benchmark.provenance import (
-    canonical_sha256, capture_request, execution_code_provenance, file_sha256,
-    runtime_options, validate_execution_provenance,
-)
+    from .project_provenance import (
+        canonical_sha256, capture_request, execution_code_provenance, file_sha256,
+        runtime_options, validate_execution_provenance,
+    )
 
 
 EXECUTION_TIERS = {
@@ -217,6 +220,12 @@ def run_executor(instance_path: Path, report_path: Path, *, steps: int, timeout_
                  inventory_message_delay_s: float = 60.0,
                  inventory_dispatch_policy: str = "immediate",
                  inventory_dispatch_wait_s: float = 65.0) -> tuple[dict, dict | None]:
+    # ``run_executor`` is also imported directly by historical callers.  Keep
+    # the unavailable-backend check inside this public boundary so a direct
+    # call cannot delete an existing report or start a subprocess.  The
+    # current backend is absent independently of scenario contents; a future
+    # versioned backend must replace this probe with its real contract load.
+    execution_contract({}, transport_mode=transport_mode)
     report_path.unlink(missing_ok=True)
     command = [
         sys.executable, "-u", str(common.REPO_ROOT / "tools" / "scenario_generation" / "execute_episode.py"),

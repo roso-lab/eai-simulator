@@ -532,6 +532,16 @@ class TypedLockManager:
     def snapshot(self) -> tuple[LockState, ...]:
         return tuple(self._locks[key] for key in sorted(self._locks))
 
+    def measurement_snapshot(self) -> dict[str, Any]:
+        """Detached fresh-process comparison channels, not a restore payload.
+
+        The allocation counter affects future lease identities even when all
+        current locks have been released, so occupancy alone is insufficient.
+        """
+        return {"schema": "typed_locks.measurement.v1", "counter": self._counter,
+                "session_identity": self.session_identity, "branch_key": self.branch_key,
+                "locks": [state.__dict__.copy() for state in self.snapshot()]}
+
     @staticmethod
     def _conflicts(requested: str, existing: str, same_owner: bool) -> bool:
         requested = requested.lower()
@@ -640,6 +650,7 @@ class FleetRuntime:
         self.audit: FleetAuditSink | None = None
         self.identities: FleetIdentityRegistry | None = None
         self.router: MessageRouter | None = None
+        self.shared_channel: Any = None
         self.locks: TypedLockManager | None = None
         self.safe_stop: SafeStopCoordinator | None = None
         self.max_message_queue = max_message_queue
@@ -664,7 +675,21 @@ class FleetRuntime:
             self.scene_id = str(getattr(binding, "scene_id", getattr(session, "env_name", "")) or "")
             self.audit = FleetAuditSink(self.ledger, session_identity=self.session_identity, branch_key=self.branch_key)
             self.identities = FleetIdentityRegistry(session_identity=self.session_identity, branch_key=self.branch_key, audit=self.audit)
-            self.router = MessageRouter(session_identity=self.session_identity, branch_key=self.branch_key, audit=self.audit, max_queue=self.max_message_queue, **self.transport_options)
+            transport_mode = str(self.transport_options.get("mode", "legacy"))
+            if transport_mode == "shared_v3":
+                from .transport_v3 import SharedChannelV3
+                self.shared_channel = SharedChannelV3(
+                    bits_per_tick=int(self.transport_options.get("bits_per_tick", 1)),
+                    max_queue_bits=int(self.transport_options.get("max_queue_bits", self.max_message_queue * 8192)),
+                    delay_ticks=int(self.transport_options.get("delay_ticks", 0)),
+                    ttl_ticks=self.transport_options.get("ttl_ticks"),
+                    loss_probability=float(self.transport_options.get("loss_probability", 0.0)),
+                    seed=int(self.transport_options.get("seed", 0)),
+                )
+                self.router = None
+            else:
+                legacy_options = {key: value for key, value in self.transport_options.items() if key != "mode"}
+                self.router = MessageRouter(session_identity=self.session_identity, branch_key=self.branch_key, audit=self.audit, max_queue=self.max_message_queue, **legacy_options)
             self.locks = TypedLockManager(session_identity=self.session_identity, branch_key=self.branch_key, audit=self.audit)
             self.safe_stop = SafeStopCoordinator(session_identity=self.session_identity, branch_key=self.branch_key, members=self.identities, audit=self.audit)
             for robot in tuple(getattr(binding, "robots", ())):
@@ -683,13 +708,21 @@ class FleetRuntime:
     def send(self, message: FleetMessage) -> DeliveryReceipt:
         with self._lock:
             self._require_running()
-            assert self.router is not None and self.identities is not None
+            assert self.identities is not None
             if message.session_identity and message.session_identity != self.session_identity:
                 raise ValueError("message session scope mismatch")
             if message.branch_key and message.branch_key != self.branch_key:
                 raise ValueError("message branch scope mismatch")
             scoped = FleetMessage(message.message_id, message.sender_id, message.receiver_id, message.kind, message.tick, message.payload, message.causal_parent, self.session_identity, self.branch_key)
-            receipt = self.router.send(scoped, active_receivers=self.identities.active_ids())
+            if self.shared_channel is not None:
+                if scoped.receiver_id not in self.identities.active_ids():
+                    return DeliveryReceipt(scoped.message_id, scoped.receiver_id, DeliveryStatus.REJECTED, scoped.tick, reason="receiver_inactive", session_identity=self.session_identity, branch_key=self.branch_key)
+                frame = self.shared_channel.submit(message_id=scoped.message_id, sender_id=scoped.sender_id, receiver_id=scoped.receiver_id, kind=scoped.kind, payload=scoped.payload, tick=scoped.tick)
+                status = DeliveryStatus.DROPPED if frame.status.startswith("dropped") else DeliveryStatus.QUEUED
+                receipt = DeliveryReceipt(scoped.message_id, scoped.receiver_id, status, scoped.tick, reason=frame.status, session_identity=self.session_identity, branch_key=self.branch_key)
+            else:
+                assert self.router is not None
+                receipt = self.router.send(scoped, active_receivers=self.identities.active_ids())
             if receipt.status in {DeliveryStatus.QUEUED, DeliveryStatus.DELIVERED, DeliveryStatus.DELAYED}:
                 self._communication_count += 1
             return receipt
@@ -707,18 +740,26 @@ class FleetRuntime:
                 )
                 if self.locks is not None:
                     self.locks.expire(tick)
+                if self.shared_channel is not None:
+                    self.shared_channel.advance(tick)
 
     def receive(self, receiver_id: str, *, max_items: int = 1, tick: int = 0, message_id: str | None = None) -> tuple[FleetMessage, ...]:
         with self._lock:
             self._require_running()
-            assert self.router is not None and self.identities is not None
+            assert self.identities is not None
             if not self.identities.get(receiver_id).active:
                 return ()
+            if self.shared_channel is not None:
+                frames = self.shared_channel.receive(receiver_id=receiver_id, tick=tick, max_items=max_items, message_id=message_id)
+                return tuple(FleetMessage(frame.message_id, frame.sender_id, frame.receiver_id, frame.kind, frame.submitted_tick, frame.payload, session_identity=self.session_identity, branch_key=self.branch_key) for frame in frames)
+            assert self.router is not None
             return self.router.receive(receiver_id, max_items=max_items, tick=tick, message_id=message_id)
 
     def set_link_available(self, sender_id: str, receiver_id: str, available: bool, *, tick: int) -> None:
         with self._lock:
             self._require_running()
+            if self.shared_channel is not None:
+                raise RuntimeError("link availability is not a v3 shared-medium operation")
             assert self.router is not None
             self.router.set_link_available(sender_id, receiver_id, available)
             self._audit("link_availability", tick=tick, source="fleet.runtime", payload={"sender_id": sender_id, "receiver_id": receiver_id, "available": available})
@@ -920,8 +961,8 @@ class FleetRuntime:
                 ],
                 "locks": [state.__dict__.copy() for state in self.locks.snapshot()],
                 "safe_stop": self.safe_stop.status().__dict__.copy(),
-                "pending_messages": self.router.pending() if self.router is not None else 0,
-                "messages": self.router.snapshot() if self.router is not None else {},
+                "pending_messages": self.router.pending() if self.router is not None else (len(self.shared_channel._queue) if self.shared_channel is not None else 0),
+                "messages": self.router.snapshot() if self.router is not None else (self.shared_channel.snapshot() if self.shared_channel is not None else {}),
                 "disabled_functions": {key: sorted(value) for key, value in self._disabled_functions.items()},
                 "command_generations": dict(self._command_generations),
             }
@@ -957,9 +998,10 @@ class FleetRuntime:
             self.ledger.seal()
             self._summary = FleetAuditSummary(self.lifecycle, self.session_identity, self.branch_key, len(self.audit.events), self.ledger.digest(), self._communication_count, self._lock_count, tuple(self._safe_stop_request_ids), active_members, self.safe_stop.status().__dict__.copy(), {
                 "encoding": "canonical_logical_json_utf8_v1", "unit": "bits",
-                "offered_bits": self.router.offered_bits if self.router else 0,
-                "transmitted_bits": self.router.transmitted_bits if self.router else 0,
-                "wire_qualified": False})
+                "offered_bits": self.router.offered_bits if self.router else (self.shared_channel.submitted_bits if self.shared_channel else 0),
+                "transmitted_bits": self.router.transmitted_bits if self.router else (self.shared_channel.transmitted_bits if self.shared_channel else 0),
+                "delivered_bits": self.shared_channel.delivered_bits if self.shared_channel else 0,
+                "wire_qualified": self.shared_channel is not None})
             return self._summary
 
     def _audit(self, kind: str, *, tick: int, source: str, payload: Mapping[str, Any]) -> None:

@@ -55,13 +55,18 @@ def test_ur5_bare_uses_the_same_host_stability_gate():
 
 
 def test_z1_deployment_gate_requires_host_specific_evidence():
-    for host in ("scout", "b2", "go2", "m20", "carter"):
+    # 2026-10-22 装配政策后，Z1 只放行 carter/b2/m20/scout；go2 与 lite3 改为
+    # D1-only（不再出现在 z1 宿主集合）。历史物理筛查证据仍可通过
+    # manipulator_deployment_status 查询。
+    for host in ("scout", "b2", "m20", "carter"):
         assert env_diy_catalog.manipulator_deployment_status(host, "z1")[0] == "conditional"
-    status, reason = env_diy_catalog.manipulator_deployment_status("lite3", "z1")
-    assert status == "rejected"
-    assert reason
-    with pytest.raises(ValueError, match="rejected"):
-        env_diy_catalog.validate_attachment_types("lite3", ["z1"])
+    assert env_diy_catalog.validate_attachment_types("carter", ["z1"]) == ("z1",)
+    for host in ("go2", "lite3"):
+        status, reason = env_diy_catalog.manipulator_deployment_status(host, "z1")
+        assert status in ("conditional", "rejected")
+        assert reason
+        with pytest.raises(ValueError, match="is not supported"):
+            env_diy_catalog.validate_attachment_types(host, ["z1"])
 
 
 def test_carter_ur5_rejected_with_documented_mechanism():
