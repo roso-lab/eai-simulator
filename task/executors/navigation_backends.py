@@ -291,11 +291,15 @@ class WorldPositionNavigationAdapter:
             return _call(self._stopped_reader, self.robot_id) is True
         if self._velocity_reader is not None:
             velocity = _vector(_call(self._velocity_reader, self.robot_id), (3, 6))
-            linear_ok = math.sqrt(sum(item * item for item in velocity[:3])) <= 0.04
+            linear_ok = math.sqrt(sum(item * item for item in velocity[:3])) <= self.profile.stop_linear_speed_m_s
             angular_ok = (len(velocity) == 3 or
-                          math.sqrt(sum(item * item for item in velocity[3:])) <= 0.10)
+                          math.sqrt(sum(item * item for item in velocity[3:])) <= self.profile.stop_angular_speed_rad_s)
             return linear_ok and angular_ok
         return False
+
+    def stop_diagnostics(self) -> dict[str, float]:
+        return {"linear_speed_limit_m_s": self.profile.stop_linear_speed_m_s,
+                "angular_speed_limit_rad_s": self.profile.stop_angular_speed_rad_s}
 
     def after_step(self) -> NavigationFeedback:
         stopped = self._stopped()

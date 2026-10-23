@@ -57,6 +57,8 @@ class NavigationProfile:
     arrival_radius_m: float = 0.30
     supports_final_heading: bool = False
     controller_capabilities: tuple[str, ...] = ()
+    stop_linear_speed_m_s: float = 0.04
+    stop_angular_speed_rad_s: float = 0.10
 
     def __post_init__(self) -> None:
         if self.metric not in {"xy", "xyz"}:
@@ -64,6 +66,10 @@ class NavigationProfile:
         radius = _finite(self.arrival_radius_m, "arrival_radius_m")
         if radius <= 0:
             raise SkillContractError("arrival_radius_m must be positive")
+        linear_limit = _finite(self.stop_linear_speed_m_s, "stop_linear_speed_m_s")
+        angular_limit = _finite(self.stop_angular_speed_rad_s, "stop_angular_speed_rad_s")
+        if linear_limit <= 0 or angular_limit <= 0:
+            raise SkillContractError("stop speed limits must be positive")
         if type(self.supports_final_heading) is not bool:
             raise SkillContractError("supports_final_heading must be boolean")
         capabilities = self.controller_capabilities
@@ -79,20 +85,28 @@ class NavigationProfile:
             raise SkillContractError("controller_capabilities must be unique")
         object.__setattr__(self, "controller_capabilities", tuple(sorted(capabilities)))
         object.__setattr__(self, "arrival_radius_m", radius)
+        object.__setattr__(self, "stop_linear_speed_m_s", linear_limit)
+        object.__setattr__(self, "stop_angular_speed_rad_s", angular_limit)
 
 
 def ground_navigation_profile(*, arrival_radius_m: float = 0.30,
                                supports_final_heading: bool = True,
-                               controller_capabilities: Sequence[str] = ()) -> NavigationProfile:
+                               controller_capabilities: Sequence[str] = (),
+                               stop_linear_speed_m_s: float = 0.04,
+                               stop_angular_speed_rad_s: float = 0.10) -> NavigationProfile:
     return NavigationProfile("xy", arrival_radius_m, supports_final_heading,
-                             tuple(controller_capabilities))
+                             tuple(controller_capabilities), stop_linear_speed_m_s,
+                             stop_angular_speed_rad_s)
 
 
 def aerial_navigation_profile(*, arrival_radius_m: float = 0.30,
                                supports_final_heading: bool = False,
-                               controller_capabilities: Sequence[str] = ()) -> NavigationProfile:
+                               controller_capabilities: Sequence[str] = (),
+                               stop_linear_speed_m_s: float = 0.04,
+                               stop_angular_speed_rad_s: float = 0.10) -> NavigationProfile:
     return NavigationProfile("xyz", arrival_radius_m, supports_final_heading,
-                             tuple(controller_capabilities))
+                             tuple(controller_capabilities), stop_linear_speed_m_s,
+                             stop_angular_speed_rad_s)
 
 
 @dataclass(frozen=True)

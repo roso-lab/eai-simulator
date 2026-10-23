@@ -469,6 +469,12 @@ class NavigationExecutor:
                  "quarantined": task.quarantined}
         evidence = {**deepcopy(task.response.private_evidence), "execution_samples": deepcopy(task.samples),
                     "execution_sample_count": len(task.samples), "lease_id": task.lease.lease_id}
+        profile = task.adapter.profile
+        evidence["stop_policy"] = {
+            "arrival_radius_m": profile.arrival_radius_m,
+            "stop_linear_speed_m_s": profile.stop_linear_speed_m_s,
+            "stop_angular_speed_rad_s": profile.stop_angular_speed_rad_s,
+        }
         return replace(task.response, state=state, private_evidence=evidence)
 
     def response(self, task_id: str) -> NavigationResponse:

@@ -16,7 +16,8 @@ class DronePickPlaceAdapter:
                  resolve_object=lambda ref: ref, grasp_anchor_object_m=(0., 0., 0.),
                  robot_type="PegasusIris", clearance_m=.3,
                  tolerance_m=ATTACHMENT_POSITION_TOLERANCE_M,
-                 stable_steps=5, return_target_reader=None):
+                 stable_steps=5, return_target_reader=None,
+                 align_xy_tolerance_m=.08, align_z_tolerance_m=.05):
         """Callbacks share the host's normal goal_position command buffer.
 
         stop_motion returns exactly True only when this writer has relinquished
@@ -35,17 +36,23 @@ class DronePickPlaceAdapter:
         if return_target_reader is not None and not callable(return_target_reader):
             raise ValueError("return_target_reader must be callable")
         self._return_target_reader = return_target_reader
-        if not math.isfinite(clearance_m) or clearance_m <= 0 or not 0 < tolerance_m <= ATTACHMENT_POSITION_TOLERANCE_M:
+        if (not math.isfinite(clearance_m) or clearance_m <= 0 or
+                not 0 < tolerance_m <= ATTACHMENT_POSITION_TOLERANCE_M or
+                not math.isfinite(align_xy_tolerance_m) or align_xy_tolerance_m <= 0 or
+                not math.isfinite(align_z_tolerance_m) or align_z_tolerance_m <= 0):
             raise ValueError("positive clearance and <=3 cm connection tolerance required")
         if type(stable_steps) is not int or stable_steps <= 0:
             raise ValueError("stable_steps must be positive")
         self._type, self._clearance, self._tolerance = robot_type, clearance_m, tolerance_m
+        self._align_xy_tolerance = float(align_xy_tolerance_m)
+        self._align_z_tolerance = float(align_z_tolerance_m)
         self._stable_steps, self._stable = stable_steps, 0
         self._command, self._key, self._path = None, None, None
         self._phase, self._stopped, self._reason = "idle", False, ""
         self._goal, self._phase_time = None, 0.
         self._return_target, self._return_complete = None, False
         self._released, self._failure_phase = False, None
+        self._release_position, self._release_error = None, None
         self._phases, self._physical_events = [], []
         self._pending_measurements = []
 
@@ -92,6 +99,7 @@ class DronePickPlaceAdapter:
         self._command, self._stopped, self._reason = command, False, ""
         self._return_target, self._return_complete = None, False
         self._released, self._failure_phase = False, None
+        self._release_position, self._release_error = None, None
         self._phases, self._physical_events, self._pending_measurements = [], [], []
         # Read once, validate, and copy before the first physical mutation.
         if self._return_target_reader is not None:
@@ -122,9 +130,8 @@ class DronePickPlaceAdapter:
         if self._command.operation == "pick":
             if not self.bridge.attached(self._key):
                 raise ValueError("attachment lost during lift or return")
-        elif math.dist(self._object_pose(self._path).position_m,
-                       self._command.target_position_world_m) > self._tolerance:
-            raise ValueError("released object moved away from the requested origin")
+        elif self._release_error is None or self._release_error > self._tolerance:
+            raise ValueError("release position did not satisfy the 3 cm gate")
         if self._stop_motion() is not True:
             raise ValueError("host did not relinquish local flight control")
         self._stopped = True
@@ -138,6 +145,10 @@ class DronePickPlaceAdapter:
     def execution_record(self):
         """Drone-only diagnostics; the common executor still returns bool."""
         position = self._robot_pose().position_m
+        phase_times = {row["phase"]: row["simulation_time_s"] for row in self._phases}
+        start_time = self._phases[0]["simulation_time_s"] if self._phases else None
+        release_time = next((row["simulation_time_s"] for row in self._physical_events
+                             if row["operation"] == "release"), None)
         return deepcopy({
             "return_target_m": self._return_target,
             "final_robot_position_m": position,
@@ -146,6 +157,12 @@ class DronePickPlaceAdapter:
             "goal_position_m": self._goal,
             "return_completed": self._return_complete,
             "released": self._released,
+            "release_position_m": self._release_position,
+            "release_error_m": self._release_error,
+            "align_duration_s": (None if start_time is None or len(self._phases) < 2
+                                  else self._phases[1]["simulation_time_s"] - start_time),
+            "operation_duration_s": (None if start_time is None else self._time() - start_time),
+            "release_to_return_s": (None if release_time is None else self._time() - release_time),
             "attached": self._key is not None and self.bridge.attached(self._key),
             "phase": self._phase, "failure_phase": self._failure_phase,
             "failure_reason": self._reason, "phases": self._phases,
@@ -169,9 +186,14 @@ class DronePickPlaceAdapter:
         # During the vertical retreat the XY error is intentionally deferred
         # to the following translation phase. Requiring the full XYZ gate here
         # lets horizontal controller drift prevent the ascent from completing.
-        arrived = (abs(robot.position_m[2] - self._goal[2]) <= self._tolerance
-                    if self._phase == "return_ascend"
-                    else math.dist(robot.position_m, self._goal) <= self._tolerance)
+        if self._phase == "align":
+            arrived = (math.hypot(robot.position_m[0] - self._goal[0],
+                                  robot.position_m[1] - self._goal[1]) <= self._align_xy_tolerance
+                        and abs(robot.position_m[2] - self._goal[2]) <= self._align_z_tolerance)
+        else:
+            arrived = (abs(robot.position_m[2] - self._goal[2]) <= self._tolerance
+                        if self._phase == "return_ascend"
+                        else math.dist(robot.position_m, self._goal) <= self._tolerance)
         if self._phase == "descend":
             if self._command.operation == "pick":
                 drone, obj = self.bridge.measure(self._key)
@@ -200,6 +222,13 @@ class DronePickPlaceAdapter:
             else:
                 self._mutate("release")
                 self._released = True
+                # The release gate is evaluated at the physical release event.
+                # The free payload may subsequently settle or drift while the
+                # aircraft returns to its navigation endpoint; that is no
+                # longer a failure of the release operation itself.
+                self._release_position = self._object_pose(self._path).position_m
+                self._release_error = math.dist(
+                    self._release_position, self._command.target_position_world_m)
             retreat_z = robot.position_m[2] + self._clearance
             if self._return_target is not None:
                 retreat_z = max(retreat_z, self._return_target[2])

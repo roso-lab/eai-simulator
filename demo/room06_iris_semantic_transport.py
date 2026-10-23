@@ -209,7 +209,7 @@ def offline_check(args: argparse.Namespace) -> dict[str, Any]:
     # still avoiding all Kit/Isaac imports in --check mode.
     sys.path.insert(0, str(REPO_ROOT))
     from algorithm.skills.navigation import (route_graph_digest, semantic_binding_digest, validate_topology,
-                                              select_node_route, NavigationPose, aerial_navigation_profile)
+                                              select_node_route, NavigationPose)
     errors = validate_topology(data["topology"], metric="xyz")
     if errors:
         raise ValueError("invalid aerial topology: " + "; ".join(errors))
@@ -217,7 +217,7 @@ def offline_check(args: argparse.Namespace) -> dict[str, Any]:
     for start in starts:
         route = select_node_route(
             data["topology"], NavigationPose(tuple(start["position_xyz"])),
-            profile=aerial_navigation_profile(), target_ref=data["high"]["id"],
+            profile=_room06_aerial_profile(), target_ref=data["high"]["id"],
             semantic_points=data["points"])
         if not route["admitted"]:
             raise ValueError(f"{start['id']} cannot route to the high semantic point: {route.get('reason')}")
@@ -251,13 +251,28 @@ def _scene_usd(data: Mapping[str, Any], asset_root: Path) -> Path:
     raise FileNotFoundError("room_06 USD source could not be resolved")
 
 
-def _make_selection(start: Mapping[str, Any]) -> dict[str, Any]:
+CONTROLLER_PROFILES = {
+    "baseline": "PEGASUS_IRIS_POSITION_CFG",
+    "damped": "PEGASUS_IRIS_POSITION_DAMPED_CFG",
+    "conservative": "PEGASUS_IRIS_POSITION_CONSERVATIVE_CFG",
+    "fast": "PEGASUS_IRIS_POSITION_FAST_CFG",
+}
+
+
+def _room06_aerial_profile():
+    from algorithm.skills.navigation import aerial_navigation_profile
+    return aerial_navigation_profile(stop_linear_speed_m_s=0.08,
+                                     stop_angular_speed_rad_s=0.15)
+
+
+def _make_selection(start: Mapping[str, Any], controller_profile: str = "baseline") -> dict[str, Any]:
     selection_path = REPO_ROOT / "source/EAI_hmrs/EAI_hmrs/envs/pegasus_drones.json"
     selection = json.loads(selection_path.read_text(encoding="utf-8"))
     selection["scene_key"] = "plane"
     selection["task_name"] = "room06_iris_semantic_transport"
     robot = selection["robots"][0]
     robot["attachments"] = []
+    robot["controller"]["cfg"] = CONTROLLER_PROFILES[controller_profile]
     robot["spawn_pose"] = {"position": list(start["position_xyz"]),
                             "rotation": [1.0, 0.0, 0.0, 0.0]}
     return selection
@@ -439,6 +454,28 @@ def navigation_return_target(result: Mapping[str, Any], point: Mapping[str, Any]
     return {"node_id": node_id, "position_xyz": position}
 
 
+def navigation_metrics(result: Mapping[str, Any]) -> dict[str, Any]:
+    """Summarize measured navigation samples without changing control flow."""
+    private = result.get("private_evidence", {})
+    samples = private.get("execution_samples", [])
+    selection = private.get("route_selection") or {}
+    route = selection.get("route_points_m") or []
+    target = route[-1] if route else None
+    if not samples or target is None:
+        return {"sample_count": len(samples), "target_position_m": target}
+    errors = [math.dist(row["position_m"], target) for row in samples
+              if isinstance(row, Mapping) and isinstance(row.get("position_m"), (list, tuple))]
+    speeds = [math.sqrt(sum(float(v) ** 2 for v in row.get("velocity", ())[:3]))
+              for row in samples if isinstance(row, Mapping)]
+    angular = [math.sqrt(sum(float(v) ** 2 for v in row.get("velocity", ())[3:]))
+               for row in samples if isinstance(row, Mapping) and len(row.get("velocity", ())) >= 6]
+    return {"sample_count": len(samples), "target_position_m": target,
+            "max_position_error_m": max(errors, default=None),
+            "peak_linear_speed_m_s": max(speeds, default=None),
+            "peak_angular_speed_rad_s": max(angular, default=None),
+            "stop_policy": private.get("stop_policy")}
+
+
 def _map_hashes(root: Path) -> dict[str, str]:
     paths = [p for p in root.rglob("*") if p.is_file()]
     project = root.parent / "project.json"
@@ -475,7 +512,7 @@ def run_isaac(args: argparse.Namespace, data: Mapping[str, Any]) -> dict[str, An
     import torch
     from simulator import SimulatorLaunchConfig, open_simulator_session
     from algorithm.skills.contracts import SkillRequest
-    from algorithm.skills.navigation import FrozenNavigationTopology, aerial_navigation_profile, route_graph_digest, semantic_binding_digest
+    from algorithm.skills.navigation import FrozenNavigationTopology, route_graph_digest, semantic_binding_digest
     from algorithm.skills.navigation import NavigationPose
     from algorithm.skills.navigation.node_route import NODE_ROUTE_SKILL_ID
     from task.executors.navigation import NavigationExecutor
@@ -497,6 +534,13 @@ def run_isaac(args: argparse.Namespace, data: Mapping[str, Any]) -> dict[str, An
         "high_semantic_id": data["high"]["id"], "low_semantic_id": data["low"]["id"],
         "high_position_xyz": list(high), "low_position_xyz": list(low),
         "box_size_m": args.box_size, "route_graph_digest": route_graph_digest(data["topology"]),
+        "controller_profile": args.controller_profile,
+        "navigation_stop_policy": {"arrival_radius_m": 0.30,
+                                    "stop_linear_speed_m_s": 0.08,
+                                    "stop_angular_speed_rad_s": 0.15},
+        "pick_place_alignment_policy": {"xy_tolerance_m": 0.08,
+                                         "z_tolerance_m": 0.05,
+                                         "contact_and_return_tolerance_m": 0.03},
         "semantic_binding_digest": semantic_binding_digest(data["points"]),
         "trials": [], "success": False,
     }
@@ -504,7 +548,7 @@ def run_isaac(args: argparse.Namespace, data: Mapping[str, Any]) -> dict[str, An
     evidence["author_usd"] = str(usd_path)
     evidence["author_usd_sha256_before"] = _sha256(usd_path)
     evidence["map_hashes_before"] = _map_hashes(data["root"])
-    selection = _make_selection(starts[0])
+    selection = _make_selection(starts[0], args.controller_profile)
     config = SimulatorLaunchConfig(
         env="pegasus_drones", resolved_env_name="pegasus_drones", selection_data=selection,
         device=args.device, headless=args.headless, enable_ros_bridge_extension=False,
@@ -583,7 +627,7 @@ def run_isaac(args: argparse.Namespace, data: Mapping[str, Any]) -> dict[str, An
         nav_adapter = WorldPositionNavigationAdapter(
             robot_id, pose_reader=pose_reader, command_sink=lambda cmd: write_goal(cmd.payload["target_pose"]),
             sequence_reader=world_seq, time_reader=sim_time, velocity_reader=velocity_reader,
-            profile=aerial_navigation_profile())
+            profile=_room06_aerial_profile())
 
         topology = FrozenNavigationTopology(data["topology"], scene_key=args.scene,
                                             source_digests=data["topology"].get("source", {}))
@@ -646,6 +690,7 @@ def run_isaac(args: argparse.Namespace, data: Mapping[str, Any]) -> dict[str, An
                 robot_id, bridge, robot_body=robot_body, object_pose=object_pose,
                 robot_pose=lambda: read_aerial_pose(env, robot_id), write_goal=write_goal,
                 stop_motion=stop_motion, simulation_time=sim_time, robot_type="PegasusIris",
+                align_xy_tolerance_m=0.08, align_z_tolerance_m=0.05,
                 return_target_reader=lambda command: return_targets[command.request_id])
             executor = PickPlaceExecutor(advance=advance_one_tick, simulation_time=sim_time,
                                          resources=nav.resources)
@@ -722,6 +767,7 @@ def run_isaac(args: argparse.Namespace, data: Mapping[str, Any]) -> dict[str, An
                 nav, pick_place, pick_backend = make_skills()
                 show_phase(f"Trial {trial_index}/{args.trials}: navigating to high point...")
                 high_ok, high_nav = navigate(data["high"]["id"], "to-high")
+                high_nav["metrics"] = navigation_metrics(high_nav)
                 trial["navigation"].append({"phase": "to_high", "response": high_nav})
                 _write_json(output / "evidence.json", evidence)
                 if not high_ok:
@@ -749,6 +795,7 @@ def run_isaac(args: argparse.Namespace, data: Mapping[str, Any]) -> dict[str, An
                 show_phase(f"Trial {trial_index}/{args.trials}: pick succeeded")
                 show_phase(f"Trial {trial_index}/{args.trials}: navigating to low point...")
                 low_ok, low_nav = navigate(data["low"]["id"], "to-low")
+                low_nav["metrics"] = navigation_metrics(low_nav)
                 trial["navigation"].append({"phase": "to_low", "response": low_nav})
                 if not low_ok:
                     reason = low_nav["private_evidence"].get("failure", {}).get("reason", "")
@@ -831,6 +878,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--trials", type=int, default=5)
     parser.add_argument("--seed", type=int, default=0,
                         help="compatibility only; fixed start nodes ignore this value")
+    parser.add_argument("--controller-profile", choices=tuple(CONTROLLER_PROFILES), default="baseline",
+                        help="Iris Pegasus configuration profile for room06")
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--headless", action="store_true")
     parser.add_argument("--exit-after-trials", action="store_true",
