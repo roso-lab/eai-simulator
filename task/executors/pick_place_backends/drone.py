@@ -1,10 +1,11 @@
-"""Local flight/grasp adapter using the existing owned FixedJoint bridge."""
+"""Pick/place phase targets for the host's Pegasus position controller."""
 import math
+from copy import deepcopy
 from uuid import uuid4
 
 from algorithm.skills.aerial_transport.geometry import rotate, vector
-from algorithm.skills.aerial_transport.trajectory import VerticalProfile
 from algorithm.skills.pick_place import BackendFeedback
+from task.executors.aerial_pick_place import ATTACHMENT_POSITION_TOLERANCE_M
 
 SUPPORTED_ROBOT_TYPES = frozenset({"PegasusIris", "PegasusX4"})
 
@@ -13,27 +14,47 @@ class DronePickPlaceAdapter:
     def __init__(self, robot_id, bridge, *, robot_body, robot_pose, object_pose,
                  write_goal, stop_motion, simulation_time,
                  resolve_object=lambda ref: ref, grasp_anchor_object_m=(0., 0., 0.),
-                 robot_type="PegasusIris", clearance_m=.3, tolerance_m=.008,
-                 stable_steps=5):
+                 robot_type="PegasusIris", clearance_m=.3,
+                 tolerance_m=ATTACHMENT_POSITION_TOLERANCE_M,
+                 stable_steps=5, return_target_reader=None,
+                 align_xy_tolerance_m=.08, align_z_tolerance_m=.05):
         """Callbacks share the host's normal goal_position command buffer.
 
         stop_motion returns exactly True only when this writer has relinquished
-        the buffer. The host keeps its last hover goal until navigation changes
-        it. FixedJoints persist independently of the local skill writer.
+        the buffer without replacing the last goal. Cancellation first writes
+        the measured position as a hover target. FixedJoints persist
+        independently of the local skill writer. Each phase submits a fixed
+        world XYZ goal; Pegasus owns all flight dynamics and control.
+        Optional return_target_reader(command) supplies world XYZ only. Its
+        value is frozen before binding bodies; no navigation/map logic runs
+        here. Recovery and return share the operation's timeout and lease.
         """
         self.robot_id, self.bridge, self._body = robot_id, bridge, robot_body
         self._robot_pose, self._object_pose = robot_pose, object_pose
         self._write_goal, self._stop_motion, self._time = write_goal, stop_motion, simulation_time
         self._resolve, self._anchor = resolve_object, vector(grasp_anchor_object_m)
-        if not math.isfinite(clearance_m) or clearance_m <= 0 or not 0 < tolerance_m <= .01:
-            raise ValueError("positive clearance and <=1 cm connection tolerance required")
+        if return_target_reader is not None and not callable(return_target_reader):
+            raise ValueError("return_target_reader must be callable")
+        self._return_target_reader = return_target_reader
+        if (not math.isfinite(clearance_m) or clearance_m <= 0 or
+                not 0 < tolerance_m <= ATTACHMENT_POSITION_TOLERANCE_M or
+                not math.isfinite(align_xy_tolerance_m) or align_xy_tolerance_m <= 0 or
+                not math.isfinite(align_z_tolerance_m) or align_z_tolerance_m <= 0):
+            raise ValueError("positive clearance and <=3 cm connection tolerance required")
         if type(stable_steps) is not int or stable_steps <= 0:
             raise ValueError("stable_steps must be positive")
         self._type, self._clearance, self._tolerance = robot_type, clearance_m, tolerance_m
+        self._align_xy_tolerance = float(align_xy_tolerance_m)
+        self._align_z_tolerance = float(align_z_tolerance_m)
         self._stable_steps, self._stable = stable_steps, 0
         self._command, self._key, self._path = None, None, None
         self._phase, self._stopped, self._reason = "idle", False, ""
-        self._goal, self._profile, self._phase_time = None, None, 0.
+        self._goal, self._phase_time = None, 0.
+        self._return_target, self._return_complete = None, False
+        self._released, self._failure_phase = False, None
+        self._release_position, self._release_error = None, None
+        self._phases, self._physical_events = [], []
+        self._pending_measurements = []
 
     def resource_key(self, object_ref):
         path = self._resolve(object_ref)
@@ -62,19 +83,27 @@ class DronePickPlaceAdapter:
         return tuple(anchor[i] - offset[i] for i in range(3))
 
     def _root_for_object(self):
-        # The object target is frozen in world. Use live attachment geometry
-        # to compensate controller tilt, never re-interpret it in moving base.
+        # Convert the object-origin target to a root target once at phase
+        # entry. Flight feedback belongs to the Pegasus controller.
         robot, obj = self._robot_pose(), self._object_pose(self._path)
         target = self._command.target_position_world_m
         return tuple(robot.position_m[i] + target[i] - obj.position_m[i] for i in range(3))
 
-    def _enter(self, phase, goal, *, vertical=False):
-        self._phase, self._goal, self._stable = phase, goal, 0
+    def _enter(self, phase, goal):
+        self._phase, self._goal, self._stable = phase, vector(goal), 0
         self._phase_time = self._time()
-        self._profile = VerticalProfile(self._robot_pose().position_m[2], goal[2]) if vertical else None
+        self._phases.append({"phase": phase, "simulation_time_s": self._phase_time,
+                             "goal_position_m": self._goal})
 
     def start(self, command):
         self._command, self._stopped, self._reason = command, False, ""
+        self._return_target, self._return_complete = None, False
+        self._released, self._failure_phase = False, None
+        self._release_position, self._release_error = None, None
+        self._phases, self._physical_events, self._pending_measurements = [], [], []
+        # Read once, validate, and copy before the first physical mutation.
+        if self._return_target_reader is not None:
+            self._return_target = vector(self._return_target_reader(command))
         self._path = self._resolve(command.object_ref)
         if command.operation == "pick":
             obj = self._object_pose(self._path)
@@ -90,29 +119,81 @@ class DronePickPlaceAdapter:
         self._enter("align", (goal[0], goal[1], max(self._robot_pose().position_m[2], goal[2] + self._clearance)))
 
     def _mutate(self, operation):
+        event = {"operation": operation, "simulation_time_s": self._time(),
+                 "robot_before_m": self._robot_pose().position_m,
+                 "object_before_m": self._object_pose(self._path).position_m}
         self.bridge.apply(self._key, operation, self._command.request_id + ":" + operation)
+        self._physical_events.append(event)
+        self._pending_measurements.append(event)
+
+    def _finish(self):
+        if self._command.operation == "pick":
+            if not self.bridge.attached(self._key):
+                raise ValueError("attachment lost during lift or return")
+        elif self._release_error is None or self._release_error > self._tolerance:
+            raise ValueError("release position did not satisfy the 3 cm gate")
+        if self._stop_motion() is not True:
+            raise ValueError("host did not relinquish local flight control")
+        self._stopped = True
+        self._return_complete = self._return_target is not None
+        if self._command.operation == "pick":
+            self._phase = "holding"
+        else:
+            self.bridge.unbind(self._key)
+            self._key, self._path, self._phase = None, None, "idle"
+
+    def execution_record(self):
+        """Drone-only diagnostics; the common executor still returns bool."""
+        position = self._robot_pose().position_m
+        phase_times = {row["phase"]: row["simulation_time_s"] for row in self._phases}
+        start_time = self._phases[0]["simulation_time_s"] if self._phases else None
+        release_time = next((row["simulation_time_s"] for row in self._physical_events
+                             if row["operation"] == "release"), None)
+        return deepcopy({
+            "return_target_m": self._return_target,
+            "final_robot_position_m": position,
+            "return_error_m": (None if self._return_target is None else
+                               math.dist(position, self._return_target)),
+            "goal_position_m": self._goal,
+            "return_completed": self._return_complete,
+            "released": self._released,
+            "release_position_m": self._release_position,
+            "release_error_m": self._release_error,
+            "align_duration_s": (None if start_time is None or len(self._phases) < 2
+                                  else self._phases[1]["simulation_time_s"] - start_time),
+            "operation_duration_s": (None if start_time is None else self._time() - start_time),
+            "release_to_return_s": (None if release_time is None else self._time() - release_time),
+            "attached": self._key is not None and self.bridge.attached(self._key),
+            "phase": self._phase, "failure_phase": self._failure_phase,
+            "failure_reason": self._reason, "phases": self._phases,
+            "physical_events": self._physical_events,
+            "stable_samples": self._stable,
+        })
 
     def before_step(self):
         if self._stopped or self._phase in {"holding", "idle"}:
             return
-        goal = self._goal
-        if self._profile is not None:
-            z, _ = self._profile.sample(self._time() - self._phase_time)
-            goal = goal[0], goal[1], z
-        if self._phase == "descend" and self._command.operation == "place":
-            live = self._root_for_object()
-            # Preserve the smooth vertical profile until its end; final
-            # settling uses the actual object-origin error.
-            goal = (live[0], live[1], live[2] if self._time()-self._phase_time >= self._profile.duration_s else goal[2])
-        self._write_goal(goal)
+        self._write_goal(self._goal)
 
     def after_step(self):
         if self._stopped or self._phase in {"holding", "idle"}:
             return
         robot = self._robot_pose()
-        arrived = math.dist(robot.position_m, self._goal) <= self._tolerance
-        if self._profile is not None:
-            arrived = arrived and self._time() - self._phase_time >= self._profile.duration_s
+        for event in self._pending_measurements:
+            event.update({"robot_after_tick_m": robot.position_m,
+                          "object_after_tick_m": self._object_pose(self._path).position_m})
+        self._pending_measurements.clear()
+        # During the vertical retreat the XY error is intentionally deferred
+        # to the following translation phase. Requiring the full XYZ gate here
+        # lets horizontal controller drift prevent the ascent from completing.
+        if self._phase == "align":
+            arrived = (math.hypot(robot.position_m[0] - self._goal[0],
+                                  robot.position_m[1] - self._goal[1]) <= self._align_xy_tolerance
+                        and abs(robot.position_m[2] - self._goal[2]) <= self._align_z_tolerance)
+        else:
+            arrived = (abs(robot.position_m[2] - self._goal[2]) <= self._tolerance
+                        if self._phase == "return_ascend"
+                        else math.dist(robot.position_m, self._goal) <= self._tolerance)
         if self._phase == "descend":
             if self._command.operation == "pick":
                 drone, obj = self.bridge.measure(self._key)
@@ -120,9 +201,10 @@ class DronePickPlaceAdapter:
             else:
                 arrived = math.dist(self._object_pose(self._path).position_m,
                                     self._command.target_position_world_m) <= self._tolerance
-            arrived = arrived and self._time() - self._phase_time >= self._profile.duration_s
         self._stable = self._stable + 1 if arrived else 0
-        if self._phase == "ascend" and not self.bridge.quiescent(self._key):
+        final_return = (self._phase == "return_descend" or
+                        (self._phase == "return_translate" and self._goal == self._return_target))
+        if (self._phase == "ascend" or final_return) and not self.bridge.quiescent(self._key):
             self._stable = 0
         if self._stable < self._stable_steps:
             return
@@ -130,29 +212,39 @@ class DronePickPlaceAdapter:
             if self._command.operation == "pick":
                 self._mutate("create_support")
                 self._mutate("disable_collision")
-            self._enter("descend", self._release_root, vertical=True)
+            goal = (self._release_root if self._command.operation == "pick"
+                    else self._root_for_object())
+            self._enter("descend", goal)
         elif self._phase == "descend":
             if self._command.operation == "pick":
                 self._mutate("attach")
                 self._mutate("remove_support")
             else:
                 self._mutate("release")
-            self._enter("ascend", (robot.position_m[0], robot.position_m[1],
-                                    robot.position_m[2] + self._clearance), vertical=True)
+                self._released = True
+                # The release gate is evaluated at the physical release event.
+                # The free payload may subsequently settle or drift while the
+                # aircraft returns to its navigation endpoint; that is no
+                # longer a failure of the release operation itself.
+                self._release_position = self._object_pose(self._path).position_m
+                self._release_error = math.dist(
+                    self._release_position, self._command.target_position_world_m)
+            retreat_z = robot.position_m[2] + self._clearance
+            if self._return_target is not None:
+                retreat_z = max(retreat_z, self._return_target[2])
+            self._enter("ascend" if self._return_target is None else "return_ascend",
+                        (robot.position_m[0], robot.position_m[1], retreat_z))
         elif self._phase == "ascend":
-            if self._stop_motion() is not True:
-                raise ValueError("host did not relinquish local flight control")
-            self._stopped = True
-            if self._command.operation == "pick":
-                if not self.bridge.attached(self._key):
-                    raise ValueError("attachment lost during lift")
-                self._phase = "holding"
+            self._finish()
+        elif self._phase == "return_ascend":
+            self._enter("return_translate", (*self._return_target[:2], self._goal[2]))
+        elif self._phase == "return_translate":
+            if self._goal[2] > self._return_target[2]:
+                self._enter("return_descend", self._return_target)
             else:
-                if math.dist(self._object_pose(self._path).position_m,
-                             self._command.target_position_world_m) > .035:
-                    raise ValueError("released object moved away from the requested origin")
-                self.bridge.unbind(self._key)
-                self._key, self._path, self._phase = None, None, "idle"
+                self._finish()
+        elif self._phase == "return_descend":
+            self._finish()
 
     def feedback(self):
         attached = self._key is not None and self.bridge.attached(self._key)
@@ -164,7 +256,11 @@ class DronePickPlaceAdapter:
             ready=complete, stopped=self._stopped, clean=clean, reason=self._reason)
 
     def request_stop(self, reason):
+        if not self._reason:
+            self._failure_phase = self._phase
         self._reason = reason
+        if not self._stopped:
+            self._write_goal(self._robot_pose().position_m)
         self._stopped = self._stop_motion() is True
         if self._key is not None and not self.bridge.attached(self._key):
             self._mutate("rollback")

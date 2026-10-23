@@ -43,25 +43,7 @@ if picked:
                        latest_base_xyz, latest_base_xyzw, latest_sequence)
 ```
 
-坐标单位为米，线上四元数顺序为 **xyzw**，后端内部为 wxyz。技能计算 `p_base = Rᵀ(p_world - t)`；可选 `orientation_xyzw` 表示物体最终世界姿态，也转换到采样底盘坐标系。UR5/Z1 的外部请求固定使用 Cartesian 抓取，必须同时提供 `grasp_pose_object`、`approach_direction_world`、`pregrasp_distance_m`、`retreat_distance_m` 和 `approach_speed_m_s`。安装外参和工具变换仍由适配器/控制器负责；当前四个内置后端均不支持任意物体姿态。
-
-统一合同会校验抓取帧、单位接近方向、
-四元数和距离；编译结果会把接近方向归一化。UR5/Z1 机械臂后端已实现该模式：运行时
-以 SE(3) 路径点（pregrasp → contact → retreat）推进全姿态阻尼 IK，阶段为
-`PREGRASP → APPROACH → GRASP/RELEASE → LIFT → ATTACHED_HOLD/IDLE`，并按实测末端
-位置/姿态误差、关节稳定和夹爪到位门控。工具轴约定为末端局部 +Z 在接触点背离物体
-（即 `R_ee @ ez ≈ -approach`），抓取帧与接近方向不一致、或同时给出
-`grasp_offset_object_m` 时会被显式拒绝；`orientation_xyzw`（物体最终姿态）仍不被
-机械臂支持。适配器可选注入 `reachable_cartesian(position, orientation)` 做可达性
-预检。`grasp_offset_object_m` 已从 UR5/Z1 接口删除；带该字段的机械臂请求会被拒绝。
-Drone、Pepper、G1 仍可在共享内部合同中使用 `vertical_legacy` 和旧偏移字段，这些字段不再是
-UR5/Z1 或本验证脚本的用户选择项。
-
-UR5 的 Robotiq 夹爪沿用 Z1 的阶段适配：接近时张开，`GRASP` 闭合，
-抬升和持物期间保持闭合，`RELEASE` 张开，结束后保持张开。
-运行时以 0.8 rad/s 渐变关节目标（UR5 为 0 → 0.8 → 0 rad，Z1 为
--0.8 → 0 → -0.8 rad），由物理关节驱动形成可见动画。
-挂接和释放仍等待实测夹爪到位并稳定，不按动画计时直接宣告成功。
+坐标单位为米，线上四元数顺序为 **xyzw**，后端内部为 wxyz。技能计算 `p_base = Rᵀ(p_world - t)`；可选 `orientation_xyzw` 表示物体最终世界姿态，也转换到采样底盘坐标系。可选 `grasp_offset_object_m` 是物体原点到抓取点的物体局部坐标偏移，原样传给适配器；安装外参和工具变换仍由适配器/控制器负责。后端必须明确支持该姿态，否则返回 `False`，不能忽略。当前四个内置后端均不支持任意物体姿态。
 
 `target_pose` 在 pick 时是物体原点当前世界位置，在 place 时是同一物体原点最终世界位置。接触点、物体尺寸、安装外参、腕部偏移由后端处理。世界目标在操作开始时锁定，不随底盘移动漂移。默认拒绝超过 0.5 秒或来自未来的采样时间；宿主可以配置容许时差，并通过 `snapshot_validator` 验证语义地图版本与现场绑定。
 
@@ -76,7 +58,7 @@ UR5 的 Robotiq 夹爪沿用 Z1 的阶段适配：接近时张开，`GRASP` 闭�
 | 后端 | 实际控制与挂接 | 宿主接入 |
 | --- | --- | --- |
 | `ArmPickPlaceAdapter` | UR5/Z1 柱坐标、IK、follow proxy；用 live arm root 处理安装外参，用实际 EE→物体偏移求解原点放置 | 传入现有 `IdealizedManipulationRuntime`；宿主原有 `run_post_apply` 持续驱动，首次局部抓取在回收位姿建立工具姿态，以较慢的 IK 积分避免振荡 |
-| `DronePickPlaceAdapter` | 局部对齐、平滑下降、FixedJoint 挂接、抬升、释放、撤离；末段测量速度确认稳定 | 传入现有 `PhysxAerialTransportBridge`、实时位姿/时钟、目标写入和交还写入权回调；支持 PegasusIris/PegasusX4 的位置控制 |
+| `DronePickPlaceAdapter` | 生成对齐、下降、撤离及返回的固定阶段目标，使用 FixedJoint 挂接／释放及实测完成判定 | 传入现有 `PhysxAerialTransportBridge`、实时位姿/时钟及共享目标写入回调；PegasusIris/PegasusX4 的原位置控制器负责飞行控制 |
 | `PepperPickPlaceAdapter` | 双臂测量到达门控、随实测双手维持物体、释放与回收 | 在现有 Pepper composite controller 安装 `local_pick_place` delegate；每个物理步只执行一次双臂控制，底盘命令直接来自外部 |
 | `G1PickPlaceAdapter` | Inspire 右手标定、影子 stage 规划、真实关节目标、实测掌部挂接与释放；pick 独立抬升后保持，place 才规划调用者选定的目标 | 传入共享 env/stage、`robot_name`、`robot_path` 与标定 `ObjectBinding`；通过宿主 `G1LiveRuntime` 物理钩子持续驱动。当前仅支持固定基座、直立轴向物体，不提供 G1 行走控制 |
 
@@ -85,6 +67,8 @@ UR5/Z1 后端可以注入 `reachable` 使用测量得到的能力范围；没有
 G1 后端复用合并提交的资产哈希、物体尺寸与握持标定检查。绑定时检查固定 articulation，路径仅在影子 stage 计算；真正挂接须实测掌部、闭合手指到达，pick 须实测完成抬升及关节稳定，place 须实测物体原点到达、释放、回收并稳定。取消冻结实测关节且保持已有连接，不继续原自动搬运路线。固定站位的调用者可以选择不导航，再提供另一个可达世界放置点。
 
 新机器人只需实现协议并注册，不修改公共状态机。隔离后的机器人身份可以使用 `env_0/robot_name`；机械臂/Pepper 后端通过 `robot_name`、`env_id` 映射到现有的每行原生控制器。对同一现场的所有调用者必须共享 `ResourceManager` 和相同规范机器人/物体键。
+
+无人机后端可配置 `return_target_reader(command)`，由宿主按请求 ID 提供此前导航实际选中节点的世界 XYZ。后端在任何物理修改前读取、校验并冻结坐标；抓取或释放后先垂直撤离到 `max(接触时机体 Z + clearance_m, 返回 Z)`，再平移，必要时下降。返回误差不超过 3 cm 且连续五次满足实测速度稳定条件后才交还控制并报告完成。该阶段计入原操作超时和取消机制；失败保留实际持物/释放状态，详细阶段可从后端 `execution_record()` 查看。未配置该回调时仍执行原有固定高度撤离。后端不读取拓扑、不选择节点、不调用导航；通用请求、状态机与 Executor 接口保持不变。
 
 物体租约从 pick 开始保留到确认 place 清理完成；机器人运动租约仅在操作执行期间占用，便于外部导航接管。未知状态、停止失败或部分释放不会自动解除挂接。宿主必须尊重租约，不在操作期间另行向同一控制器写入命令。`cancel()` 或 `execute(..., cancelled=callback)` 取消正在执行的操作；取消仍遵守实际持物状态。
 
@@ -129,11 +113,6 @@ flowchart TD
 | `parameters.timeout_s` | 本次操作的仿真时间预算，默认 60 秒 |
 | `parameters.orientation_xyzw` | 可选目标物体世界姿态，必须由后端明确支持 |
 | `parameters.grasp_offset_object_m` | 可选物体原点到抓取点的局部 XYZ 偏移，单位米 |
-| `parameters.approach_mode` | 默认 `vertical_legacy`；UR5/Z1 可显式选择已实现的 `cartesian_pose`，受工作空间和关节限位约束 |
-| `parameters.grasp_pose_object` | 任意角度扩展的物体局部的夹指中心 TCP 帧，+Z 背离物体 |
-| `parameters.approach_direction_world` | 任意角度扩展的世界接近方向，编译时归一化 |
-| `parameters.pregrasp_distance_m` / `retreat_distance_m` | 任意角度扩展的预抓取/撤离距离，单位米 |
-| `parameters.approach_speed_m_s` | 任意角度扩展的接近速度，单位米/秒 |
 
 `target_pose` 表示物体原点的位置。pick 时它是物体当前的世界坐标，place 时它是物体原点最终应到达的世界坐标。它不是桌面位置、抓取点或末端执行器位置。物体尺寸、抓取点、安装外参、腕部偏移和工具姿态由具体后端计算。
 
@@ -193,8 +172,6 @@ IDLE → PICKING → HOLDING → PLACING → IDLE
 
 #### UR5 和 Z1：机械臂后端
 
-公共抓取位姿表示夹指中心 TCP。UR5 将腕部 +Z 方向 150 mm 的夹持中心转换为 IK 腕部目标，纠正此前手指朝上和物体靠腕部跟随的问题；Z1 按沿 link06 +X 的夹指和单侧固定指计算中心。夹爪闭合角由物体在夹持坐标系中的投影尺寸决定，50 mm 方块的 Robotiq 闭合约 0.376 rad，不再无条件闭合到 0.8 rad。超出标定开口的尺寸会明确拒绝。
-
 两种机械臂共用 `ArmPickPlaceAdapter`，但使用各自的关节、夹爪和安装配置。后端先从真实机械臂安装根读取世界位姿，处理机械臂相对于底盘的平移和旋转；然后把物体原点、物体姿态和抓取偏移转换成末端目标。
 
 pick 的实际阶段通常是：
@@ -204,7 +181,7 @@ pick 的实际阶段通常是：
 → 抬升 → 收回 → 保持持物
 ```
 
-place 会使用抓取后保存的“末端到物体”实际偏移，反推末端应到的位置，使最终落到目标位置的是物体原点。柱坐标目标再交给现有 `IdealizedManipulationRuntime`，运行时通过共享平面 IK 输出关节位置目标；宿主的 `run_post_apply` 在每个物理 tick 继续驱动。阶段完成同时检查参考轨迹、实测末端和关节误差、工具姿态与稳定性，不能只按时间到点判断。UR5（带 `ur5` 资产）和 Z1 会确认夹爪实际到达开/关位置并稳定；`ur5_bare` 保持无夹爪路径。UR5/Z1 pick 在物体碰撞已由 follow 隔离关闭后同时检查腕部和夹指中心的 5 mm 接近到位门控，place 仍保留原有物体原点误差校验。
+place 会使用抓取后保存的“末端到物体”实际偏移，反推末端应到的位置，使最终落到目标位置的是物体原点。柱坐标目标再交给现有 `IdealizedManipulationRuntime`，运行时通过共享平面 IK 输出关节位置目标；宿主的 `run_post_apply` 在每个物理 tick 继续驱动。阶段完成同时检查参考轨迹、实测末端和关节误差、工具姿态与稳定性，不能只按时间到点判断。Z1 还会确认夹爪实际到达开/关位置并稳定。
 
 机械臂当前采用 follow proxy：开始 pick 时创建物体视觉副本，原物体暂时隔离碰撞和重力；持物期间副本跟着实测末端移动，原刚体可能仍停留在原位置；place 释放时再把原刚体写到副本的最终位置、恢复属性并删除副本。因此，语义地图在持物期间不能只读原物体 root 推断当前位置，应读取持物绑定或用“末端位姿 + 保存的物体偏移”计算。
 
@@ -217,15 +194,19 @@ Iris 和 X4 共用 `DronePickPlaceAdapter`，差别主要是飞行器参数和�
 pick 的过程是：
 
 ```text
-上方对齐 → 临时支撑物体 → 平滑下降
+上方对齐 → 临时支撑物体 → 提交下降目标
 → 用实时 PhysX 位姿确认挂接点对准
 → 创建 FixedJoint → 删除临时支撑
 → 上升并确认稳定 → HOLDING
 ```
 
-后端在 `before_step` 写入位置目标，在 `after_step` 用实际位置和速度判断阶段。原 Pegasus 飞控接收位置目标、实测位置/速度/姿态，计算推力、姿态和力矩，再生成旋翼控制量；它不是直接瞬移无人机根位姿。持物期间后端不再持续写抓取位置，FixedJoint 保留，飞控可以悬停或执行调用者的新导航目标。
+后端在阶段进入时确定固定的世界 XYZ，在 `before_step` 原样提交该目标，在 `after_step` 用实际位置和速度判断阶段。导航和取放共用宿主的 `env.set_command(robot_id, "goal_position", world_xyz)` 入口。Pegasus 原位置控制器接收位置目标和实测状态，计算姿态、推力及旋翼控制量。取放后端不生成速度轨迹、插值或额外控制回路；宿主只通过正常的 `env.step()` 驱动仿真。持物期间 FixedJoint 保留，后端停止写入，后续导航使用同一个位置控制器。
 
-place 会使用当前无人机位置、当前物体位置和目标物体原点做补偿，下降末段还会按实测误差修正；随后删除挂接、恢复碰撞、上升撤离，并确认物体没有明显漂移。错误发生在已经挂接之后时，连接会保留，避免布尔失败导致物体凭空掉落。无人机“对齐”是直接位置目标，没有路径搜索和避障，所以接近路线仍由外部调用者负责。
+对齐、挂接、放置及最终返回使用 **3 cm 的三维欧氏距离**门限，阶段需连续 5 个采样满足条件；挂接物理桥接使用相同的 3 cm 门限。最终返回还检查无人机和物体两个刚体，各轴实测线速度绝对值不超过 **0.01 m/s**、各轴角速度绝对值不超过 **0.05 rad/s**。这些门限只用于完成判定；后端不按轨迹时长等待，也没有垂直速度或加速度规划参数。
+
+配置返回目标时，垂直撤离先检查高度，XY 偏差留给随后的平移阶段，最终返回检查完整 XYZ 和速度。宿主需校准 `drone_anchor_local_m`，确保载荷在恢复碰撞时位于机体碰撞边界之外；room_06 的 10 cm 方块使用 Iris 机体下方 20 cm 的安装点。飞控采用 `pegasus_multirotor` 原始质量、增益、控制律及原有积分和旋翼限幅。大幅位置阶跃的响应由该控制器决定；无法完成时保留真实失败结果。
+
+place 在阶段进入时根据机体与物体的实际几何偏移计算机体位置目标，阶段内保持目标不变；随后删除挂接、恢复碰撞、上升撤离，并确认物体没有明显漂移。成功时保留最后的目标并停止本操作写入；取消或超时时，后端先提交实测位置作为悬停目标，再调用 `stop_motion()` 确认交还写入权。该回调本身不替换目标。错误发生在已经挂接之后时保留连接；物体已释放但返回失败时记录真实释放状态。接近路线仍由外部调用者负责。
 
 代码入口：[无人机后端](../../../task/executors/pick_place_backends/drone.py)、[实时位姿与物理挂接](../../../task/executors/aerial_pick_place.py)、[Pegasus 飞控](../../../source/EAI_assets/EAI_assets/controller/traditional/pegasus_multirotor/controller.py)。
 
@@ -289,24 +270,13 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q \
   source/EAI/test/test_idealized_manipulation_runtime.py \
   source/EAI/test/test_environment_view.py
 
-# 在可用的 Isaac Python 环境运行；当前重建的宿主仅支持 arm。
-python tools/validation/unified_pick_place_smoke.py --backend arm --arm ur5 --approach-degrees 15 --trials 10 --report /tmp/unified-ur5-cartesian-10.json
-python tools/validation/unified_pick_place_smoke.py --backend arm --arm z1 --approach-degrees 15 --object-position .25 -.08 .475 --trials 10 --report /tmp/unified-z1-cartesian-10.json
-# 录制实际 Isaac 画面；支撑面保持不透明。
-python tools/validation/unified_pick_place_smoke.py --arm ur5 --trials 1 --report /tmp/ur5-animation.json --video /tmp/ur5-animation.mp4
+# 在可用的 Isaac Python 环境运行；每个进程只创建一个宿主仿真。
+python tools/validation/unified_pick_place_smoke.py --backend drone --trials 10 --report /tmp/unified-iris-10.json
+python tools/validation/unified_pick_place_smoke.py --backend drone --drone pegasus --trials 10 --report /tmp/unified-x4-10.json
+python tools/validation/unified_pick_place_smoke.py --backend pepper --trials 10 --report /tmp/unified-pepper-10.json
+python tools/validation/unified_pick_place_smoke.py --backend arm --arm ur5 --trials 10 --report /tmp/unified-ur5-10.json
+python tools/validation/unified_pick_place_smoke.py --backend arm --arm z1 --trials 10 --report /tmp/unified-z1-10.json
+python tools/validation/unified_pick_place_smoke.py --backend g1 --trials 10 --report /tmp/unified-g1-10.json
 ```
-
-角度以竖直向下为零，正角度朝世界 +X 倾斜；示例角度是对应测试场景的选择，
-不表示全部角度都可达。UR5 使用 Robotiq 2F-85；pick 的接近位置门限为 5 mm。
-验收场景保留机械臂与桌面的碰撞，源物体在 pick 时隔离、place 后恢复动力学与桌面支撑。
-释放至撤离完成期间只过滤本次物体与机械臂的碰撞对，随后恢复原过滤关系。
-宿主初始化必须同步关节状态和驱动目标；仅写关节状态会向初始零驱动目标运动。
-从首个物理步开始检测全部机械臂网格包围盒与桌面的间距，穿透、起始漂移、
-碰撞未恢复都会使验收失败。当前桌面外沿避开固定基座及肩部，不等于通用障碍规划。
-起始穿桌修复与完整轨迹验收见 [无穿桌复测记录](../../../tools/validation/PICK_PLACE_NO_PENETRATION_20261020.zh-CN.md)。
-当前夹取几何修复、实际录像和边界失败见 [TCP 修复记录](../../../tools/validation/PICK_PLACE_TCP_FIX_20261020.zh-CN.md)。
-不同距离、高度和横向位置的 112 个用例矩阵及 Z1 折叠姿态修复见
-[工作空间验收记录](../../../tools/validation/PICK_PLACE_WORKSPACE_VALIDATION_20261020.zh-CN.md)。
-其他后端的历史验收见原验证记录；当前重建脚本不能复现其旧命令。
 
 轻量测试覆盖坐标转换、安装外参、布尔结果、重复请求、非法输入、错误反馈、取消、超时、持物保留、外部导航、单次释放和回收。Isaac 报告应记录控制器、适配器、资产哈希、实际抬升、持续持物、释放、撤离和资源清空证据。

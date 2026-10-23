@@ -57,6 +57,8 @@ class NavigationProfile:
     arrival_radius_m: float = 0.30
     supports_final_heading: bool = False
     controller_capabilities: tuple[str, ...] = ()
+    stop_linear_speed_m_s: float = 0.04
+    stop_angular_speed_rad_s: float = 0.10
 
     def __post_init__(self) -> None:
         if self.metric not in {"xy", "xyz"}:
@@ -64,6 +66,10 @@ class NavigationProfile:
         radius = _finite(self.arrival_radius_m, "arrival_radius_m")
         if radius <= 0:
             raise SkillContractError("arrival_radius_m must be positive")
+        linear_limit = _finite(self.stop_linear_speed_m_s, "stop_linear_speed_m_s")
+        angular_limit = _finite(self.stop_angular_speed_rad_s, "stop_angular_speed_rad_s")
+        if linear_limit <= 0 or angular_limit <= 0:
+            raise SkillContractError("stop speed limits must be positive")
         if type(self.supports_final_heading) is not bool:
             raise SkillContractError("supports_final_heading must be boolean")
         capabilities = self.controller_capabilities
@@ -79,20 +85,28 @@ class NavigationProfile:
             raise SkillContractError("controller_capabilities must be unique")
         object.__setattr__(self, "controller_capabilities", tuple(sorted(capabilities)))
         object.__setattr__(self, "arrival_radius_m", radius)
+        object.__setattr__(self, "stop_linear_speed_m_s", linear_limit)
+        object.__setattr__(self, "stop_angular_speed_rad_s", angular_limit)
 
 
 def ground_navigation_profile(*, arrival_radius_m: float = 0.30,
                                supports_final_heading: bool = True,
-                               controller_capabilities: Sequence[str] = ()) -> NavigationProfile:
+                               controller_capabilities: Sequence[str] = (),
+                               stop_linear_speed_m_s: float = 0.04,
+                               stop_angular_speed_rad_s: float = 0.10) -> NavigationProfile:
     return NavigationProfile("xy", arrival_radius_m, supports_final_heading,
-                             tuple(controller_capabilities))
+                             tuple(controller_capabilities), stop_linear_speed_m_s,
+                             stop_angular_speed_rad_s)
 
 
 def aerial_navigation_profile(*, arrival_radius_m: float = 0.30,
                                supports_final_heading: bool = False,
-                               controller_capabilities: Sequence[str] = ()) -> NavigationProfile:
+                               controller_capabilities: Sequence[str] = (),
+                               stop_linear_speed_m_s: float = 0.04,
+                               stop_angular_speed_rad_s: float = 0.10) -> NavigationProfile:
     return NavigationProfile("xyz", arrival_radius_m, supports_final_heading,
-                             tuple(controller_capabilities))
+                             tuple(controller_capabilities), stop_linear_speed_m_s,
+                             stop_angular_speed_rad_s)
 
 
 @dataclass(frozen=True)
@@ -190,6 +204,53 @@ def _semantic_binding(document: Any, query: str, *, role: str) -> Mapping[str, A
         raise SkillContractError(f"invalid semantic navigation binding: {exc}") from exc
 
 
+def semantic_binding_digest(semantic_points: Sequence[Mapping[str, Any]] | None) -> str:
+    """Stable digest for project-level semantic-point navigation bindings."""
+    rows = []
+    point_ids = set()
+    for point in semantic_points or ():
+        if not isinstance(point, Mapping) or not isinstance(point.get("id"), str):
+            raise SkillContractError("invalid semantic point record")
+        if point["id"] in point_ids:
+            raise SkillContractError("duplicate semantic point ID")
+        point_ids.add(point["id"])
+        bindings = point.get("navigation_bindings", [])
+        if not isinstance(bindings, (list, tuple)):
+            raise SkillContractError("semantic point navigation_bindings must be an array")
+        normalized = []
+        seen = set()
+        for binding in bindings:
+            if not isinstance(binding, Mapping) or binding.get("domain") not in {"ground", "aerial"} \
+                    or not isinstance(binding.get("node_id"), str) or not binding["node_id"].strip():
+                raise SkillContractError("invalid semantic point navigation binding")
+            key = (binding["domain"], binding["node_id"])
+            if key in seen:
+                raise SkillContractError("duplicate semantic point navigation binding")
+            seen.add(key)
+            normalized.append({"domain": key[0], "node_id": key[1]})
+        rows.append({"id": point["id"], "navigation_bindings": sorted(
+            normalized, key=lambda row: (row["domain"], row["node_id"]))})
+    rows.sort(key=lambda row: row["id"])
+    return hashlib.sha256(json.dumps(rows, sort_keys=True, separators=(",", ":"),
+                                         allow_nan=False).encode()).hexdigest()
+
+
+def _project_semantic_binding(semantic_points, query: str, *, domain: str) -> Mapping[str, Any] | None:
+    matches = [point for point in (semantic_points or ())
+               if isinstance(point, Mapping) and point.get("id") == query]
+    if not matches:
+        return None
+    if len(matches) > 1:
+        raise SkillContractError(f"ambiguous semantic point: {query!r}")
+    point = matches[0]
+    bindings = [item["node_id"] for item in point.get("navigation_bindings", [])
+                if isinstance(item, Mapping) and item.get("domain") == domain]
+    return {"id": query, "collection": "semantic_points", "record": deepcopy(dict(point)),
+            "node_ids": tuple(bindings), "label": point.get("label", ""),
+            "aliases": tuple(point.get("aliases", ())), "query": query,
+            "has_domain_bindings": bool(bindings)}
+
+
 def select_node_route(document: Any, pose: NavigationPose | Any, *,
                       profile: NavigationProfile,
                       target_ref: str,
@@ -200,7 +261,8 @@ def select_node_route(document: Any, pose: NavigationPose | Any, *,
                       allowed_edge_ids: Sequence[str] | None = None,
                       target_heading_rad: float | None = None,
                       target_is_semantic: bool | None = None,
-                      origin_is_semantic: bool | None = None) -> dict[str, Any]:
+                      origin_is_semantic: bool | None = None,
+                      semantic_points: Sequence[Mapping[str, Any]] | None = None) -> dict[str, Any]:
     """Resolve a target reference and select a deterministic node route."""
     if not isinstance(profile, NavigationProfile):
         raise SkillContractError("navigation profile is required")
@@ -214,25 +276,59 @@ def select_node_route(document: Any, pose: NavigationPose | Any, *,
     node_rows = {row["id"]: row for row in rows}
     nodes = {node_id: _xyz(row["position_xyz"], "node position")
              for node_id, row in node_rows.items()}
+    if semantic_points is not None:
+        expected_domain = "aerial" if profile.metric == "xyz" else "ground"
+        for point in semantic_points:
+            for binding in (point.get("navigation_bindings", []) if isinstance(point, Mapping) else ()):
+                if (not isinstance(binding, Mapping) or binding.get("domain") not in {"ground", "aerial"}
+                        or not isinstance(binding.get("node_id"), str)
+                        or not binding["node_id"].strip()):
+                    raise SkillContractError("invalid semantic point navigation binding")
+                if binding["domain"] == expected_domain and binding["node_id"] not in node_rows:
+                    raise SkillContractError("semantic point navigation binding references unknown node")
     digest = route_graph_digest(document)
-    base = {"admitted": False, "route_graph_digest": digest, "metric": profile.metric}
+    semantic_digest = semantic_binding_digest(semantic_points) if semantic_points is not None else None
+    base = {"admitted": False, "route_graph_digest": digest, "metric": profile.metric,
+            "domain": topology_fields(document).get("domain", "ground")}
+    if semantic_digest is not None:
+        base["semantic_binding_digest"] = semantic_digest
     if not nodes:
+        empty_domain_binding = _project_semantic_binding(
+            semantic_points, target_ref, domain="aerial" if profile.metric == "xyz" else "ground")
+        if empty_domain_binding is not None:
+            return {**base, "reason": ("semantic_target_no_binding_for_domain"
+                                        if not empty_domain_binding.get("has_domain_bindings")
+                                        else "semantic_target_unreachable"),
+                    "target_ref": target_ref}
         return {**base, "reason": "topology_start_unconnected"}
     target_binding = None
-    if target_node_ids is None:
+    project_binding = _project_semantic_binding(
+        semantic_points, target_ref, domain="aerial" if profile.metric == "xyz" else "ground")
+    if project_binding is not None and target_ref in node_rows:
+        return {**base, "reason": "target_ambiguous", "target_ref": target_ref}
+    if target_node_ids is None or project_binding is not None:
+        if project_binding is not None:
+            target_binding = project_binding
         try:
-            target_binding = _semantic_binding(document, target_ref, role="target")
+            if target_binding is None:
+                target_binding = _semantic_binding(document, target_ref, role="target")
         except SkillContractError as exc:
             if "ambiguous" in str(exc).casefold():
                 return {**base, "reason": "target_ambiguous", "target_ref": target_ref}
             # An unresolved semantic query is a normal admission failure; raw
             # target_refs still get the legacy resolver below.
             target_binding = None
+        if target_binding is not None and target_binding.get("collection") == "semantic_points":
+            if not target_binding.get("has_domain_bindings"):
+                return {**base, "reason": "semantic_target_no_binding_for_domain", "target_ref": target_ref,
+                        "domain": "aerial" if profile.metric == "xyz" else "ground"}
         candidates = set(target_binding.get("node_ids", ())) if target_binding else _target_candidates(node_rows, target_ref)
     else:
         candidates = set(target_node_ids)
     candidates &= set(nodes)
     if not candidates:
+        if target_binding is not None and target_binding.get("collection") == "semantic_points":
+            return {**base, "reason": "semantic_target_unreachable", "target_ref": target_ref}
         return {**base, "reason": "target_unresolved", "target_ref": target_ref}
     semantic_target = (target_binding is not None and target_binding.get("collection") != "nodes")
     if target_is_semantic is not None:
@@ -309,6 +405,8 @@ def select_node_route(document: Any, pose: NavigationPose | Any, *,
 
     queue: list[tuple[float, tuple[str, ...], str, tuple[str, ...]]] = [(0.0, (start,), start, ())]
     best: dict[str, tuple[float, tuple[str, ...]]] = {}
+    evaluated_candidates = []
+    candidate_routes = []
     while queue:
         distance, path, node_id, traversed = heapq.heappop(queue)
         prior = best.get(node_id)
@@ -317,20 +415,15 @@ def select_node_route(document: Any, pose: NavigationPose | Any, *,
             continue
         best[node_id] = (distance, path)
         if node_id in candidates:
+            evaluated_candidates.append({"node_id": node_id, "route_length_m": distance,
+                                         "reachable": True})
             heading = node_rows[node_id].get("heading_rad")
-            if target_heading_rad is None and target_binding is not None:
-                target_heading_rad = target_binding.get("record", {}).get("heading_rad")
-            return {
-                **base, "admitted": True, "target_ref": target_ref,
+            candidate_routes.append({
+                "node_id": node_id, "path": path, "traversed": traversed,
                 "route_points_m": [list(nodes[item]) for item in path],
-                "topology_node_ids": list(path), "topology_edge_ids": list(traversed),
                 "route_length_m": distance,
                 "target_heading_rad": target_heading_rad if target_heading_rad is not None else heading,
-                "height_aware": profile.metric == "xyz",
-                "controller_capabilities": sorted(capability_set),
-                "traversal_modes": [traversal_by_id.get(edge_id, "walk")
-                                    for edge_id in traversed],
-            }
+            })
         for neighbor, edge_id, cost, _mode, _required in sorted(adjacency[node_id], key=lambda item: (item[0], item[1])):
             if neighbor in path:
                 continue
@@ -341,7 +434,24 @@ def select_node_route(document: Any, pose: NavigationPose | Any, *,
                     abs(candidate_distance - old[0]) <= 1e-12 and candidate_path < old[1]):
                 heapq.heappush(queue, (candidate_distance, candidate_path, neighbor,
                                        (*traversed, edge_id)))
-    return {**base, "reason": "route_unreachable", "target_ref": target_ref}
+    if candidate_routes:
+        selected = min(candidate_routes, key=lambda route: (route["route_length_m"], route["node_id"]))
+        traversed = selected["traversed"]
+        return {**base, "admitted": True, "target_ref": target_ref,
+                "selected_node_id": selected["node_id"],
+                "route_points_m": selected["route_points_m"],
+                "topology_node_ids": list(selected["path"]), "topology_edge_ids": list(traversed),
+                "route_length_m": selected["route_length_m"],
+                "target_heading_rad": selected["target_heading_rad"],
+                "height_aware": profile.metric == "xyz",
+                "controller_capabilities": sorted(capability_set),
+                "traversal_modes": [traversal_by_id.get(edge_id, "walk") for edge_id in traversed],
+                "candidate_evaluations": evaluated_candidates}
+    return {**base, "reason": "semantic_target_unreachable" if semantic_target else "route_unreachable",
+            "target_ref": target_ref,
+            **({"candidate_evaluations": [{"node_id": node_id, "reachable": False}
+                                            for node_id in sorted(candidates)]}
+               if semantic_target else {})}
 
 
 @dataclass
@@ -419,34 +529,6 @@ def _request_identity(request: SkillRequest) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()).hexdigest()
 
 
-def _profile_snapshot(profile: NavigationProfile | None) -> dict[str, Any] | None:
-    if profile is None:
-        return None
-    return {
-        "metric": profile.metric,
-        "arrival_radius_m": profile.arrival_radius_m,
-        "supports_final_heading": profile.supports_final_heading,
-        "controller_capabilities": list(profile.controller_capabilities),
-    }
-
-
-def _pose_snapshot(pose: NavigationPose | None) -> dict[str, Any] | None:
-    if pose is None:
-        return None
-    return {"position_m": list(pose.position_m), "yaw_rad": pose.yaw_rad}
-
-
-def _target_snapshot(target: NavigationTarget | None) -> dict[str, Any] | None:
-    if target is None:
-        return None
-    return {
-        "node_id": target.node_id,
-        "position_m": list(target.position_m),
-        "node_index": target.node_index,
-        "heading_rad": target.heading_rad,
-    }
-
-
 def _observation(value: NavigationObservation | Mapping[str, Any] | None) -> NavigationObservation:
     if isinstance(value, NavigationObservation):
         if not value.valid:
@@ -475,6 +557,7 @@ class _NavigationTask:
     reason_code: str = "awaiting_start"
     tracker: NodeRouteTracker | None = None
     route_graph_digest: str | None = None
+    semantic_binding_digest: str | None = None
     current_target: NavigationTarget | None = None
     last_pose: NavigationPose | None = None
     private_evidence: dict[str, Any] = field(default_factory=dict)
@@ -499,64 +582,18 @@ class NavigationProvider:
     provider_id = "node_route.provider"
     provider_version = "2.0"
 
-    def __init__(self, topology: Any | None = None, *, profile: NavigationProfile | None = None):
+    def __init__(self, topology: Any | None = None, *, profile: NavigationProfile | None = None,
+                 semantic_points: Sequence[Mapping[str, Any]] | None = None):
         self.topology = (topology if isinstance(topology, FrozenNavigationTopology)
                          else deepcopy(topology_fields(topology)) if topology is not None else None)
         self.profile = profile
+        self.semantic_points = deepcopy(list(semantic_points or []))
+        self.semantic_binding_digest = semantic_binding_digest(self.semantic_points)
         self._tasks: dict[str, _NavigationTask] = {}
 
     @property
     def active_task_ids(self) -> tuple[str, ...]:
         return tuple(sorted(key for key, task in self._tasks.items() if not task.terminal))
-
-    def measurement_snapshot(self) -> dict[str, Any]:
-        """Return detached, JSON-safe declared state without providing restore."""
-
-        topology = None if self.topology is None else self._topology()
-        tasks = {}
-        for task_id in sorted(self._tasks):
-            task = self._tasks[task_id]
-            tracker = None
-            if task.tracker is not None:
-                tracker = {
-                    "route_points_m": [list(point) for point in task.tracker.route_points_m],
-                    "node_ids": list(task.tracker.node_ids),
-                    "final_heading_rad": task.tracker.final_heading_rad,
-                    "heading_tolerance_rad": task.tracker.heading_tolerance_rad,
-                    "node_index": task.tracker.node_index,
-                    "arrived": task.tracker.arrived,
-                    "target": _target_snapshot(task.tracker.target),
-                }
-            tasks[task_id] = {
-                "request": task.request.to_mapping(),
-                "profile": _profile_snapshot(task.profile),
-                "task_id": task.task_id,
-                "world_state_seq": task.world_state_seq,
-                "request_identity": task.identity,
-                "status": task.status,
-                "execution_state": task.execution_state,
-                "safe_action": task.safe_action,
-                "reason_code": task.reason_code,
-                "tracker": tracker,
-                "route_graph_digest": task.route_graph_digest,
-                "current_target": _target_snapshot(task.current_target),
-                "last_pose": _pose_snapshot(task.last_pose),
-                "private_evidence": deepcopy(task.private_evidence),
-                "terminal": task.terminal,
-                "started_s": task.started_s,
-                "last_time_s": task.last_time_s,
-            }
-        snapshot = {
-            "schema_version": "navigation.provider.measurement.v1",
-            "provider_id": self.provider_id,
-            "provider_version": self.provider_version,
-            "profile": _profile_snapshot(self.profile),
-            "topology": deepcopy(topology),
-            "topology_digest": None if topology is None else route_graph_digest(topology),
-            "active_task_ids": list(self.active_task_ids),
-            "tasks": tasks,
-        }
-        return json.loads(json.dumps(snapshot, sort_keys=True, allow_nan=False))
 
     def _topology(self, supplied: Any | None = None) -> Any:
         value = supplied if supplied is not None else self.topology
@@ -587,6 +624,7 @@ class NavigationProvider:
             "reason_code": task.reason_code,
             "world_state_seq": task.world_state_seq,
             "route_graph_digest": task.route_graph_digest,
+            "semantic_binding_digest": task.semantic_binding_digest,
             "node_index": None if task.tracker is None else task.tracker.node_index,
             "target_node_id": None if target is None else target.node_id,
             "metric": task.profile.metric,
@@ -605,7 +643,7 @@ class NavigationProvider:
             raise SkillContractError("navigation task already exists")
         selected = self._profile(profile)
         document = self._topology()
-        errors = validate_topology(document)
+        errors = validate_topology(document, metric=selected.metric)
         if errors:
             raise SkillContractError("invalid navigation topology: " + "; ".join(errors))
         obs = _observation(observation) if observation is not None else None
@@ -615,6 +653,10 @@ class NavigationProvider:
             raise SkillContractError("navigation profile does not support final heading")
         task = _NavigationTask(request, selected, task_id, request.parameters["world_state_seq"], _request_identity(request))
         task.route_graph_digest = route_graph_digest(document)
+        task.semantic_binding_digest = self.semantic_binding_digest
+        expected_semantic = request.parameters.get("semantic_binding_digest")
+        if expected_semantic is not None and expected_semantic != task.semantic_binding_digest:
+            raise SkillContractError("semantic bindings differ from requested semantic_binding_digest")
         if request.parameters.get("route_graph_digest", task.route_graph_digest) != task.route_graph_digest:
             raise SkillContractError("topology differs from requested route_graph_digest")
         if obs is not None:
@@ -651,17 +693,20 @@ class NavigationProvider:
 
     def control(self, value: SkillRequest | Mapping[str, Any], *,
                 observation: NavigationObservation | Mapping[str, Any] | None = None,
-                topology: Any | None = None) -> NavigationResponse:
+                topology: Any | None = None,
+                semantic_points: Sequence[Mapping[str, Any]] | None = None) -> NavigationResponse:
         request = _request_value(value)
         task = self._get_task(request)
         try:
-            return self._control(request, task, observation=observation, topology=topology)
+            return self._control(request, task, observation=observation, topology=topology,
+                                 semantic_points=semantic_points)
         except (SkillContractError, ValueError, TypeError) as exc:
             return self.fail(task.task_id, str(exc), reason_code="invalid_state")
 
     def _control(self, request: SkillRequest, task: _NavigationTask, *,
                  observation: NavigationObservation | Mapping[str, Any] | None,
-                 topology: Any | None) -> NavigationResponse:
+                 topology: Any | None,
+                 semantic_points: Sequence[Mapping[str, Any]] | None = None) -> NavigationResponse:
         if request.robot_id != task.request.robot_id or request.target_ref != task.request.target_ref:
             raise SkillContractError("navigation request does not match task")
         if _request_identity(request) != task.identity:
@@ -680,6 +725,13 @@ class NavigationProvider:
         task.last_pose, task.world_state_seq = obs.pose, seq
         if intent in {"hold", "stop"}:
             task.last_time_s = obs.simulation_time_s
+        if intent == "replan":
+            errors = validate_topology(self._topology(topology), metric=task.profile.metric)
+            if errors:
+                raise SkillContractError("invalid navigation topology: " + "; ".join(errors))
+        current_semantic_points = self.semantic_points if semantic_points is None else list(semantic_points)
+        if semantic_binding_digest(current_semantic_points) != task.semantic_binding_digest:
+            raise SkillContractError("semantic bindings changed; recreate or refresh navigation task")
         if task.route_graph_digest is not None and route_graph_digest(self._topology(topology)) != task.route_graph_digest:
             raise SkillContractError("navigation route graph identity changed")
         if intent in {"start", "continue", "replan"} and self._timeout(task, request, obs):
@@ -702,7 +754,8 @@ class NavigationProvider:
                                          target_ref=request.target_ref,
                                          origin_ref=request.parameters.get("origin_ref") if intent == "start" else None,
                                          controller_capabilities=(task.profile.controller_capabilities
-                                                                  if task.profile.controller_capabilities else None))
+                                                                  if task.profile.controller_capabilities else None),
+                                         semantic_points=current_semantic_points)
             expected = request.parameters.get("route_graph_digest")
             if expected is not None and expected != selected["route_graph_digest"]:
                 raise SkillContractError("topology differs from requested route_graph_digest")
@@ -767,4 +820,5 @@ __all__ = [
     "NavigationResponse", "NavigationTarget", "NodeRouteTracker",
     "aerial_navigation_profile", "ground_navigation_profile",
     "normalize_navigation_request", "normalize_angle", "select_node_route",
+    "semantic_binding_digest",
 ]

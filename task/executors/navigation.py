@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass, field, replace
-import json
 import math
+import inspect
 from threading import RLock
 from typing import Any, Callable, Mapping
 from uuid import uuid4
@@ -13,9 +13,10 @@ from algorithm.skills.contracts import SkillContractError, SkillPlan, SkillReque
 from algorithm.skills.navigation import (
     NavigationFeedback, NavigationObservation, NavigationProfile, NavigationProvider,
     NavigationResponse, NavigationTarget, normalize_navigation_request,
+    semantic_binding_digest,
 )
 from algorithm.skills.navigation.topology import (
-    FrozenNavigationTopology, route_graph_digest, topology_fields,
+    FrozenNavigationTopology, route_graph_digest, topology_fields, validate_topology,
 )
 from task.resources import ResourceLease, ResourceManager, ResourceQuarantinedError
 from .navigation_backends import NavigationControllerAdapter
@@ -66,7 +67,8 @@ class NavigationExecutor:
                  snapshot_validator: Callable[[int, bool], Any] | None = None,
                  source_reader: Callable[[], Any] | None = None,
                  timeout_s: float | None = None, stop_timeout_s: float = 5.0,
-                 max_stop_ticks: int = 240, owner_id: str | None = None):
+                 max_stop_ticks: int = 240,
+                 semantic_points: Any | None = None):
         if topology is None:
             raise SkillContractError("navigation topology is required")
         for name, callback in (("advance", advance), ("simulation_time", simulation_time),
@@ -79,9 +81,14 @@ class NavigationExecutor:
             raise SkillContractError("stop_timeout_s must be positive")
         if type(max_stop_ticks) is not int or max_stop_ticks <= 0:
             raise SkillContractError("max_stop_ticks must be a positive integer")
-        if owner_id is not None and (not isinstance(owner_id, str) or not owner_id.strip()):
-            raise SkillContractError("owner_id must be a nonempty string")
         self.topology = topology
+        if semantic_points is not None and not callable(semantic_points) and hasattr(semantic_points, "semantic_points"):
+            project = semantic_points
+            semantic_points = lambda: getattr(project, "semantic_points")
+        if semantic_points is not None and not callable(semantic_points):
+            if not isinstance(semantic_points, (list, tuple)):
+                raise SkillContractError("semantic_points must be a sequence or reader")
+        self._semantic_points = semantic_points if semantic_points is not None else []
         self._advance, self._time = advance, simulation_time
         self._resources = resources if resources is not None else ResourceManager()
         self._snapshot_validator, self._source_reader = snapshot_validator, source_reader
@@ -89,7 +96,7 @@ class NavigationExecutor:
         self._max_stop_ticks = max_stop_ticks
         self._adapters: dict[str, NavigationControllerAdapter] = {}
         self._tasks: dict[str, _Task] = {}
-        self._owner = owner_id if owner_id is not None else "navigation:" + uuid4().hex
+        self._owner = "navigation:" + uuid4().hex
         self._lock = RLock()
 
     @property
@@ -99,109 +106,6 @@ class NavigationExecutor:
     @property
     def active_task_ids(self) -> tuple[str, ...]:
         return tuple(sorted(key for key, task in self._tasks.items() if not task.retired))
-
-    def measurement_snapshot(self) -> dict[str, Any]:
-        """Return declared runtime state without observing or commanding robots.
-
-        The snapshot is an exact-reexecution measurement surface, not a
-        checkpoint or restore API.  External callback internals, controller
-        hidden state and simulator state remain outside this declaration.
-        """
-
-        with self._lock:
-            topology_callable = callable(self.topology)
-            topology_binding: dict[str, Any]
-            if topology_callable:
-                topology_binding = {
-                    "kind": "callable",
-                    "callable": True,
-                    "topology": None,
-                    "topology_digest": None,
-                    "topology_by_robot": None,
-                }
-            elif isinstance(self.topology, Mapping) and "nodes" not in self.topology:
-                by_robot = {}
-                for robot_id in sorted(self.topology):
-                    topology = self._document(self.topology[robot_id])
-                    by_robot[robot_id] = {
-                        "topology": deepcopy(topology),
-                        "topology_digest": route_graph_digest(topology),
-                    }
-                topology_binding = {
-                    "kind": "static_by_robot",
-                    "callable": False,
-                    "topology": None,
-                    "topology_digest": None,
-                    "topology_by_robot": by_robot,
-                }
-            else:
-                topology = self._document(self.topology)
-                topology_binding = {
-                    "kind": "static",
-                    "callable": False,
-                    "topology": deepcopy(topology),
-                    "topology_digest": route_graph_digest(topology),
-                    "topology_by_robot": None,
-                }
-            adapters = {}
-            for robot_id in sorted(self._adapters):
-                adapter = self._adapters[robot_id]
-                reader = getattr(adapter, "measurement_snapshot", None)
-                adapters[robot_id] = {
-                    "measurement_supported": callable(reader),
-                    "measurement": reader() if callable(reader) else None,
-                }
-            tasks = {}
-            for task_id in sorted(self._tasks):
-                task = self._tasks[task_id]
-                topology = self._document(task.topology)
-                tasks[task_id] = {
-                    "request": task.request.to_mapping(),
-                    "provider": task.provider.measurement_snapshot(),
-                    "adapter_robot_id": task.adapter.robot_id,
-                    "lease": {
-                        "lease_id": task.lease.lease_id,
-                        "owner": task.lease.owner,
-                        "resources": list(task.lease.resources),
-                    },
-                    "response": {
-                        "state": deepcopy(dict(task.response.state)),
-                        "plan": task.response.plan.to_mapping(),
-                        "private_evidence": deepcopy(dict(task.response.private_evidence)),
-                    },
-                    "topology": deepcopy(topology),
-                    "topology_digest": route_graph_digest(topology),
-                    "last_time": task.last_time,
-                    "world_state_seq": task.world_state_seq,
-                    "deadline": task.deadline,
-                    "prepared": task.prepared,
-                    "prepared_intent": task.prepared_intent,
-                    "stop_pending": task.stop_pending,
-                    "stop_since": task.stop_since,
-                    "stop_ticks": task.stop_ticks,
-                    "retired": task.retired,
-                    "quarantined": task.quarantined,
-                    "execution_samples": deepcopy(task.samples),
-                }
-            snapshot = {
-                "schema_version": "navigation.executor.measurement.v1",
-                "owner_id": self._owner,
-                "configuration": {
-                    "timeout_s": self._timeout_s,
-                    "stop_timeout_s": self._stop_timeout_s,
-                    "max_stop_ticks": self._max_stop_ticks,
-                    "advance_callback_configured": self._advance is not None,
-                    "simulation_time_callback_configured": self._time is not None,
-                    "snapshot_validator_configured": self._snapshot_validator is not None,
-                    "source_reader_configured": self._source_reader is not None,
-                },
-                "topology_binding": topology_binding,
-                "active_task_ids": list(self.active_task_ids),
-                "adapters": adapters,
-                "tasks": tasks,
-                "resources": self._resources.measurement_snapshot(),
-            }
-            return json.loads(json.dumps(snapshot, sort_keys=True, allow_nan=False))
 
     def needs_host_tick(self, task_id: str) -> bool:
         return self._task(task_id).prepared
@@ -235,6 +139,29 @@ class NavigationExecutor:
             raise SkillContractError("robot has no bound navigation topology")
         return value if isinstance(value, FrozenNavigationTopology) else deepcopy(topology_fields(value))
 
+    def semantic_points_for(self, robot_id: str) -> list[Mapping[str, Any]]:
+        if callable(self._semantic_points):
+            reader = self._semantic_points
+            try:
+                signature = inspect.signature(reader)
+            except (TypeError, ValueError):
+                value = reader(robot_id)
+            else:
+                try:
+                    signature.bind(robot_id)
+                except TypeError:
+                    signature.bind()
+                    value = reader()
+                else:
+                    value = reader(robot_id)
+        else:
+            value = self._semantic_points
+        if value is None:
+            return []
+        if not isinstance(value, (list, tuple)):
+            raise SkillContractError("semantic_points reader must return a sequence")
+        return deepcopy(list(value))
+
     @staticmethod
     def _document(topology: Any) -> Mapping[str, Any]:
         return topology.snapshot() if isinstance(topology, FrozenNavigationTopology) else topology_fields(topology)
@@ -266,6 +193,9 @@ class NavigationExecutor:
         adapter = self.adapter_for(request.robot_id)
         adapter.validate(request)
         topology = self.topology_for(request.robot_id)
+        errors = validate_topology(self._document(topology), metric=adapter.profile.metric)
+        if errors:
+            raise SkillContractError("invalid navigation topology: " + "; ".join(errors))
         self._source_validate(topology)
         digest = route_graph_digest(self._document(topology))
         if request.parameters.get("route_graph_digest", digest) != digest:
@@ -283,7 +213,10 @@ class NavigationExecutor:
         """Pure planning: no lease, command write or simulator advance."""
         request = normalize_navigation_request(value)
         adapter, topology, observation = self._admit(request)
-        return NavigationProvider(topology, profile=adapter.profile).plan(request, observation=observation)
+        return NavigationProvider(
+            topology, profile=adapter.profile,
+            semantic_points=self.semantic_points_for(request.robot_id),
+        ).plan(request, observation=observation)
 
     def dispatch(self, value: SkillRequest | Mapping[str, Any]) -> NavigationResponse:
         request = normalize_navigation_request(value)
@@ -295,7 +228,10 @@ class NavigationExecutor:
             # All fallible clock/source validation precedes lease acquisition.
             lease = self._resources.acquire(self._owner + ":" + key, ("robot:" + request.robot_id,))
             try:
-                provider = NavigationProvider(topology, profile=adapter.profile)
+                provider = NavigationProvider(
+                    topology, profile=adapter.profile,
+                    semantic_points=self.semantic_points_for(request.robot_id),
+                )
                 response = provider.dispatch(request, observation=observation)
                 adapter.hold(observation)
             except Exception:
@@ -337,6 +273,8 @@ class NavigationExecutor:
         current = self.topology_for(task.request.robot_id)
         if route_graph_digest(self._document(current)) != route_graph_digest(self._document(task.topology)):
             raise SkillContractError("navigation route graph identity changed")
+        if semantic_binding_digest(self.semantic_points_for(task.request.robot_id)) != task.provider.semantic_binding_digest:
+            raise SkillContractError("semantic bindings changed; recreate or refresh navigation task")
 
     @staticmethod
     def _target(response: NavigationResponse) -> NavigationTarget:
@@ -377,7 +315,10 @@ class NavigationExecutor:
             if task.deadline is not None and motion and observation.simulation_time_s >= task.deadline:
                 task.response = task.provider.fail(key, "navigation timeout", reason_code="timeout")
             else:
-                task.response = task.provider.control(request, observation=observation)
+                task.response = task.provider.control(
+                    request, observation=observation,
+                    semantic_points=self.semantic_points_for(request.robot_id),
+                )
             task.last_time, task.world_state_seq = observation.simulation_time_s, observation.world_state_seq
             if task.response.state["status"] != "pending":
                 self._begin_stop(task, observation.simulation_time_s)
@@ -449,7 +390,10 @@ class NavigationExecutor:
                 if task.deadline is not None and observation.simulation_time_s >= task.deadline:
                     task.response = task.provider.fail(key, "navigation timeout", reason_code="timeout")
                 else:
-                    task.response = task.provider.control(continuation, observation=observation)
+                    task.response = task.provider.control(
+                        continuation, observation=observation,
+                        semantic_points=self.semantic_points_for(task.request.robot_id),
+                    )
                 if task.response.state["status"] != "pending":
                     self._begin_stop(task, observation.simulation_time_s)
             self._feedback(task, feedback)
@@ -525,6 +469,12 @@ class NavigationExecutor:
                  "quarantined": task.quarantined}
         evidence = {**deepcopy(task.response.private_evidence), "execution_samples": deepcopy(task.samples),
                     "execution_sample_count": len(task.samples), "lease_id": task.lease.lease_id}
+        profile = task.adapter.profile
+        evidence["stop_policy"] = {
+            "arrival_radius_m": profile.arrival_radius_m,
+            "stop_linear_speed_m_s": profile.stop_linear_speed_m_s,
+            "stop_angular_speed_rad_s": profile.stop_angular_speed_rad_s,
+        }
         return replace(task.response, state=state, private_evidence=evidence)
 
     def response(self, task_id: str) -> NavigationResponse:
