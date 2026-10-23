@@ -30,6 +30,7 @@ from EAI_assets.robots.pepper import PEPPER_CFG
 from EAI_assets.robots.pegasus import PEGASUS_IRIS_CFG, PEGASUS_X4_CFG
 from EAI_assets.robots.quadcopter import CRAZYFLIE_CFG
 from EAI_assets.robots.scout import SCOUT_CFG
+from EAI_assets.robots.microduck import MICRODUCK_CFG, MICRODUCK_INIT_ROOT_Z
 from EAI_assets.robots.mushr_v2 import MUSHR_V2_CFG, MUSHR_V2_RWD_CFG
 from EAI_assets.robots.ur5_mount import (
     UR5_MOUNT_PROFILES,
@@ -227,6 +228,7 @@ CONTROLLER_CFG_IMPORTS = {
     "M20_ROUGH_RSL_CFG": ("rl/m20_rough_rsl/m20_rough_rsl.py", "M20_ROUGH_RSL_CFG"),
     "M20_NAV_RSL_CFG": ("rl/m20_nav_rsl/m20_nav_rsl.py", "M20_NAV_RSL_CFG"),
     "LITE3_VELOCITY_RSL_CFG": ("rl/lite3_rsl_rl/lite3_rsl_rl.py", "LITE3_VELOCITY_RSL_CFG"),
+    "MICRODUCK_VELSTAND_CFG": ("rl/microduck_velstand/microduck_velstand.py", "MICRODUCK_VELSTAND_CFG"),
     "SCOUT_DIFF_CFG": ("traditional/scout_diff/scout_diff.py", "SCOUT_DIFF_CFG"),
     "MUSHR_ACKERMANN_CFG": ("traditional/mushr_ackermann/mushr_ackermann.py", "MUSHR_ACKERMANN_CFG"),
     "MUSHR_RWD_ACKERMANN_CFG": ("traditional/mushr_ackermann/mushr_ackermann.py", "MUSHR_RWD_ACKERMANN_CFG"),
@@ -484,6 +486,18 @@ ROBOT_OPTIONS = [
         realsense_mount_link="TORSO",
         realsense_offset=(0.20559, 0.0, 0.08015),
         realsense_rot=(1.0, 0.0, 0.0, 0.0),
+    ),
+    RobotOption(
+        # Payload-free biped: the 0.7 kg XL330 walker carries no mounts, so
+        # every sensor/manipulator hook stays unset and the attachment catalog
+        # rejects payloads for it.  default_z 0.125 is the official-adjacent
+        # spawn height; the EAI spawn settles at z≈0.117 (see
+        # EAI_assets.robots.microduck).
+        "microduck",
+        "MicroDuck biped",
+        MICRODUCK_CFG,
+        "MICRODUCK_VELSTAND_CFG",
+        MICRODUCK_INIT_ROOT_Z,
     ),
 ]
 

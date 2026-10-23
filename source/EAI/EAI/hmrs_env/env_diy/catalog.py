@@ -44,6 +44,7 @@ ROBOT_KEYS = (
     "pegasus",
     "lite3",
     "coco",
+    "microduck",
 )
 
 ROBOT_LABELS = {
@@ -61,6 +62,7 @@ ROBOT_LABELS = {
     "iris": "Pegasus 3DR Iris",
     "pegasus": "Pegasus research quadrotor",
     "lite3": "DeepRobotics Lite3",
+    "microduck": "MicroDuck biped (XL330)",
 }
 
 TOOL_LABELS = {
@@ -151,6 +153,8 @@ _DEFAULT_CONTROLLER_CFG = {
     "iris": "PEGASUS_IRIS_POSITION_CFG",
     "pegasus": "PEGASUS_X4_POSITION_CFG",
     "lite3": "LITE3_VELOCITY_RSL_CFG",
+    # MicroDuck 裸足式机器人：不进入任何挂件宿主集合（无传感器/机械臂挂载）。
+    "microduck": "MICRODUCK_VELSTAND_CFG",
 }
 
 _CONTROLLER_CFG_NAMES = (
@@ -177,6 +181,7 @@ _CONTROLLER_CFG_NAMES = (
     "UR5_IK_CFG",
     "Z1_IK_CFG",
     "D1_IK_CFG",
+    "MICRODUCK_VELSTAND_CFG",
 )
 
 _CONTROLLER_CFG_ROBOTS = {

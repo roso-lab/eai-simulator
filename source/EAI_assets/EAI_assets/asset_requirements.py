@@ -159,6 +159,16 @@ _ROBOT_PATHS = {
         "robot/lite3/configuration/Lite3_robot.usd",
         "robot/lite3/configuration/Lite3_sensor.usd",
     ),
+    # PhysX-native MJCF conversion only; the archived Newton USDs
+    # (microduck_walk.usd / microduck_allcollisions.usd) are reference files
+    # and are not required at runtime.  The runnable velstand.onnx lives in
+    # the controller requirement below.
+    "microduck": (
+        "robot/microduck/microduck_mjcf.usd",
+        "robot/microduck/manifest.json",
+        "robot/microduck/LICENSE",
+        "robot/microduck/ATTRIBUTION.txt",
+    ),
 }
 
 _PAYLOAD_PATHS = {
@@ -298,6 +308,12 @@ _CONTROLLER_PATHS = {
         "rl/lite3_rsl_rl/__init__.py",
         "rl/lite3_rsl_rl/lite3_rsl_rl.py",
         "rl/lite3_rsl_rl/model/policy.onnx",
+    ),
+    "MICRODUCK_VELSTAND_CFG": (
+        "rl/microduck_velstand/__init__.py",
+        "rl/microduck_velstand/microduck_velstand.py",
+        "rl/microduck_velstand/model/velstand.onnx",
+        "rl/microduck_velstand/model/manifest.json",
     ),
     # ── SKRL controllers ─────────────────────────────────────────────────
     "G1_SKRL_CFG": (

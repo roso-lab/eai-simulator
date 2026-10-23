@@ -1,0 +1,19 @@
+{
+  "robots": [
+    {
+      "attachments": [],
+      "controller": {
+        "cfg": "MICRODUCK_VELSTAND_CFG",
+        "mode": "default"
+      },
+      "type": "microduck",
+      "visual": {
+        "x": 0.0,
+        "y": 0.0
+      }
+    }
+  ],
+  "scene_key": "plane",
+  "task_name": "microduck_plane",
+  "version": 1
+}
