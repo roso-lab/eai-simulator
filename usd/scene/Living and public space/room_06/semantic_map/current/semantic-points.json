@@ -13,7 +13,7 @@
         -2.63834,
         0.4
       ],
-      "label": "",
+      "label": "layer1_sofa1",
       "kind": "custom",
       "description": "",
       "aliases": [],
@@ -24,6 +24,10 @@
         {
           "domain": "aerial",
           "node_id": "node:0003"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0005"
         }
       ]
     },
@@ -34,7 +38,7 @@
         -0.5570527579130734,
         2.841803485796631
       ],
-      "label": "",
+      "label": "layer2_sofa1",
       "kind": "custom",
       "description": "",
       "aliases": [],
@@ -45,6 +49,47 @@
         {
           "domain": "aerial",
           "node_id": "node:0020"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0033"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0034"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0035"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0036"
+        }
+      ]
+    },
+    {
+      "id": "semantic:5ddc54e3311f4cec9c2fc5f618eb502b",
+      "position_xyz": [
+        5.0708568162195355,
+        2.398550679491269,
+        0.2705061298629292
+      ],
+      "label": "layer1_sofa2",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "edit_mode": "3d",
+      "isaac_binding": null,
+      "navigation_bindings": [
+        {
+          "domain": "aerial",
+          "node_id": "node:0007"
+        },
+        {
+          "domain": "ground",
+          "node_id": "node:0003"
         }
       ]
     }
