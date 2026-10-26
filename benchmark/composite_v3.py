@@ -1,4 +1,4 @@
-"""Paper-0b006d4 composite coordination score.
+"""Current-paper composite coordination score.
 
 The composite is an auxiliary release value built only after D1--D6 have
 their own result/status.  It never opens a qualification gate and preserves
@@ -10,8 +10,8 @@ from dataclasses import asdict
 from typing import Mapping, Sequence
 
 from .metrics_v3 import ScoreResultV3
+from .scorebook_v3 import PAPER_COMMIT
 
-PAPER_COMMIT = "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44"
 DIMENSIONS = ("D1", "D2", "D3", "D4", "D5", "D6")
 
 

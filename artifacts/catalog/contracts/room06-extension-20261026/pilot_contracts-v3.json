@@ -2,15 +2,15 @@
   "binding_decision_sha256": "fcb6e32eed2715692cf2abb146fc27f4945743bd0dbb623c79511f7ab2bd3c36",
   "binding_sources": [
     {
-      "path": "/home/pupil/HeteroCoord/benchmark/docs/anchor_drafts/BINDING_DECISION_SHEET_20261024.zh-CN.md",
+      "path": "benchmark/docs/anchor_drafts/BINDING_DECISION_SHEET_20261024.zh-CN.md",
       "sha256": "fcb6e32eed2715692cf2abb146fc27f4945743bd0dbb623c79511f7ab2bd3c36"
     },
     {
-      "path": "/home/pupil/HeteroCoord/benchmark/docs/anchor_drafts/room_06.draft.zh-CN.md",
+      "path": "benchmark/docs/anchor_drafts/room_06.draft.zh-CN.md",
       "sha256": "5609cad13e5183eb6d38f031d1f2859ecc33b5471616036ff1dcd6d40c3ff775"
     },
     {
-      "path": "/home/pupil/HeteroCoord/benchmark/docs/progress/PREDICATE_BINDING_20261023.zh-CN.md",
+      "path": "benchmark/docs/progress/PREDICATE_BINDING_20261023.zh-CN.md",
       "sha256": "289eb7ed62591e577ce55f3ca1c61b9d3a608cafb720b4a224ae436e2954e490"
     }
   ],
@@ -139,7 +139,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -692,7 +692,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -1407,7 +1407,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -2111,7 +2111,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -2826,7 +2826,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -3445,7 +3445,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -4139,7 +4139,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -4740,7 +4740,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -5458,7 +5458,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -6191,7 +6191,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -6769,7 +6769,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -7484,7 +7484,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -8079,7 +8079,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -8677,7 +8677,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -9249,7 +9249,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -9823,7 +9823,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -10508,7 +10508,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -11263,7 +11263,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -11838,7 +11838,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -12415,7 +12415,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -13026,7 +13026,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -13625,7 +13625,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -14301,7 +14301,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -14918,7 +14918,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -15515,7 +15515,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -16163,7 +16163,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -16529,7 +16529,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -16885,7 +16885,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -17324,7 +17324,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -17697,7 +17697,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -18063,7 +18063,7 @@
         "schema_version": "heterocoord-oracle-input.v1",
         "status": "not_yet_certified"
       },
-      "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+      "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
       "physical_feasibility_witness": {
         "status": "pending",
         "witness_refs": []
@@ -18324,8 +18324,8 @@
     "cf839ec8",
     "0b6890c0"
   ],
-  "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
-  "pilot_selection_sha256": "a3775286bfe33c0ae7dfaec35412e582339371058d6ecd8e98173207500c05e0",
+  "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
+  "pilot_selection_sha256": "2c17574c65cafc35ce4be1e63789fcf5537582083dd0a9f54bc05874744f8a2b",
   "safety_class_anchors": [
     "prod-t-01",
     "prod-t-03",
@@ -18335,7 +18335,7 @@
     "liv-t-04"
   ],
   "schema_version": "heterocoord-pilot-contract-set.v1",
-  "source_catalog": "/home/pupil/HeteroCoord/benchmark/task_catalog.json",
-  "source_catalog_sha256": "3ddaf15614ecbc83b75c64d8c5b728d8e27c737c033602e2177f75143b917959",
+  "source_catalog": "benchmark/task_catalog.json",
+  "source_catalog_sha256": "75fecc97e5d97b6736b9ade13d6a8527e0fb8dc5faee84403fdd31c1feecf1b6",
   "status": "candidate_contract_only"
 }

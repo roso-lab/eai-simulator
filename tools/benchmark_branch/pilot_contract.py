@@ -618,6 +618,8 @@ def build_author_approved_draft_contract_set(
 def validate_pilot_contract_set(document: Mapping[str, Any]) -> None:
     if document.get("schema_version") != "heterocoord-pilot-contract-set.v1":
         raise PilotContractError("unsupported contract-set schema")
+    if document.get("status") != "candidate_contract_only":
+        raise PilotContractError("contract set must remain candidate_contract_only")
     contracts = document.get("contracts")
     if not isinstance(contracts, list) or not contracts:
         raise PilotContractError("contracts must be a non-empty list")
@@ -738,3 +740,26 @@ def validate_pilot_contract_set(document: Mapping[str, Any]) -> None:
                         or "pending" in str(candidates.get("source", ""))
                         or predicate.get("time_window", {}).get("source") != "author_approved_pair_registry"):
                     raise PilotContractError(f"{anchor_id}: stale pending binding marker for {pid}")
+
+
+def validate_pilot_contract(contract: Mapping[str, Any]) -> None:
+    """Validate one selected contract with the same rules as a full release.
+
+    A selected contract has no authority merely because a caller recomputed its
+    digest.  Wrapping it in the minimum contract-set envelope keeps the exact
+    generated binding checks in one place and prevents the runtime seam from
+    drifting away from release validation.
+    """
+
+    if not isinstance(contract, Mapping):
+        raise PilotContractError("selected contract must be an object")
+    validate_pilot_contract_set(
+        {
+            "schema_version": "heterocoord-pilot-contract-set.v1",
+            "status": "candidate_contract_only",
+            "paper_sha": contract.get("paper_sha"),
+            "candidate_count": 1,
+            "oracle_source_commits": list(ORACLE_SOURCE_COMMITS),
+            "contracts": [contract],
+        }
+    )

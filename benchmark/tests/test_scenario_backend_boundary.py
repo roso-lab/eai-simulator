@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import sys
 from pathlib import Path
 
@@ -16,14 +17,23 @@ from tools.project_runtime import activate_project_runtime
 activate_project_runtime(enforce_cwd=False)
 
 from EAI.scenario_spec.benchmark_physics import BENCHMARK_PHYSICS_CONTRACT
-from tools.scenario_generation import (
-    batch_execute,
-    benchmark_protocol,
-    execute_episode,
-    project_provenance,
-    protocol_scope,
-    runtime_evidence,
-)
+
+
+def _demo_modules(module_names) -> frozenset[str]:
+    return frozenset(
+        name for name in module_names if name == "demo" or name.startswith("demo.")
+    )
+
+
+_DEMO_MODULES_BEFORE_SCENARIO_GENERATION = _demo_modules(sys.modules)
+importlib.import_module("tools.scenario_generation")
+batch_execute = importlib.import_module("tools.scenario_generation.batch_execute")
+benchmark_protocol = importlib.import_module("tools.scenario_generation.benchmark_protocol")
+execute_episode = importlib.import_module("tools.scenario_generation.execute_episode")
+project_provenance = importlib.import_module("tools.scenario_generation.project_provenance")
+protocol_scope = importlib.import_module("tools.scenario_generation.protocol_scope")
+runtime_evidence = importlib.import_module("tools.scenario_generation.runtime_evidence")
+_DEMO_MODULES_AFTER_SCENARIO_GENERATION = _demo_modules(sys.modules)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -62,13 +72,22 @@ def _self_declared_attempt() -> dict:
 def test_batch_helpers_import_without_legacy_demo_and_preflight_fails_closed():
     for module in (batch_execute, benchmark_protocol, execute_episode, project_provenance, protocol_scope):
         assert Path(module.__file__).resolve().is_relative_to(PROJECT_ROOT)
-    assert "demo" not in sys.modules
+    assert (
+        _DEMO_MODULES_AFTER_SCENARIO_GENERATION
+        - _DEMO_MODULES_BEFORE_SCENARIO_GENERATION
+    ) == frozenset()
 
     contract, reason = batch_execute.preflight_executor(
         {"phase_graph": {"nodes": []}}, transport_mode="none"
     )
     assert contract is None
     assert reason == execute_episode.BACKEND_ERROR
+
+
+def test_demo_import_delta_detects_new_legacy_module():
+    before = _demo_modules({"demo", "demo.preexisting", "other"})
+    after = _demo_modules({"demo", "demo.preexisting", "demo.new_import", "other"})
+    assert after - before == frozenset({"demo.new_import"})
 
 
 def test_execution_contract_rejects_before_any_scenario_launch():

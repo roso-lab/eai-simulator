@@ -3,13 +3,13 @@
   "instance_id": "prod-p4-01-instance-candidate-20261021",
   "scene_key": "factory",
   "scene_anchor": "shared_dock_queue",
-  "source_root": "/home/pupil/HeteroCoord/source",
-  "usd_root": "/home/pupil/HeteroCoord/usd",
+  "source_root": "source",
+  "usd_root": "usd",
   "scene_identity": {
     "backend": "project-local-eai",
-    "eai_root": "/home/pupil/HeteroCoord/source/EAI",
-    "assets_root": "/home/pupil/HeteroCoord/source/EAI_assets",
-    "hmrs_root": "/home/pupil/HeteroCoord/source/EAI_hmrs",
+    "eai_root": "source/EAI",
+    "assets_root": "source/EAI_assets",
+    "hmrs_root": "source/EAI_hmrs",
     "scene_descriptor": "factory/shared_dock_queue"
   },
   "initial_state": {

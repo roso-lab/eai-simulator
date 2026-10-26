@@ -12,6 +12,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .scorebook_v3 import PAPER_COMMIT
+
 
 SCHEMA = "heterocoord.canonical_contract_artifact.v1"
 
@@ -76,6 +78,8 @@ def load_canonical_contract_artifact(
         raise ContractArtifactError("canonical manifest schema or fields are invalid")
     if data["status"] != "bound_pending_replay":
         raise ContractArtifactError("canonical contract artifact must remain pending replay")
+    if data["paper_sha"] != PAPER_COMMIT:
+        raise ContractArtifactError("canonical contract artifact paper identity is stale")
     if data["certification"] != {
         "case_certified": False,
         "paper_score_eligible": False,
@@ -91,6 +95,19 @@ def load_canonical_contract_artifact(
     if _sha256(catalog) != data["source_catalog_sha256"]:
         raise ContractArtifactError("source catalog digest mismatch")
     artifact_data = _json(artifact)
+    if artifact_data.get("paper_sha") != data["paper_sha"]:
+        raise ContractArtifactError("contract projection paper identity differs from manifest")
+    try:
+        from tools.benchmark_branch.pilot_contract import (
+            PilotContractError,
+            validate_pilot_contract_set,
+        )
+
+        validate_pilot_contract_set(artifact_data)
+    except (ImportError, PilotContractError) as exc:
+        raise ContractArtifactError(
+            f"contract projection failed full pending-contract validation: {exc}"
+        ) from exc
     contracts = artifact_data.get("contracts")
     if not isinstance(contracts, list) or len(contracts) != data["anchor_count"]:
         raise ContractArtifactError("canonical contract count mismatch")

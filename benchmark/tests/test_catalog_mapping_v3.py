@@ -36,26 +36,8 @@ def _copy_fixture(tmp_path: Path) -> dict[str, Path]:
         )
         shutil.copyfile(source, target)
         paths[name] = target
-    scenario = json.loads(paths["scenario.json"].read_text(encoding="utf-8"))
-    scenario["source_root"] = str(tmp_path / "source")
-    scenario["usd_root"] = str(tmp_path / "usd")
-    scenario["scene_identity"]["eai_root"] = str(tmp_path / "source" / "EAI")
-    scenario["scene_identity"]["assets_root"] = str(tmp_path / "source" / "EAI_assets")
-    scenario["scene_identity"]["hmrs_root"] = str(tmp_path / "source" / "EAI_hmrs")
-    scenario_raw = json.dumps(scenario, sort_keys=True, separators=(",", ":")) + "\n"
-    paths["scenario.json"].write_text(scenario_raw, encoding="utf-8")
-    package = json.loads(paths["package.json"].read_text(encoding="utf-8"))
-    package["scenario_sha256"] = hashlib.sha256(scenario_raw.encode()).hexdigest()
-    package_raw = json.dumps(package, sort_keys=True, separators=(",", ":")) + "\n"
-    paths["package.json"].write_text(package_raw, encoding="utf-8")
-    _rewrite_mapping(
-        paths["catalog_contract_mapping.json"],
-        lambda value: value["source_digests"].update(
-            scenario_sha256=hashlib.sha256(scenario_raw.encode()).hexdigest(),
-            package_sha256=hashlib.sha256(package_raw.encode()).hexdigest(),
-            robot_resume_sha256=hashlib.sha256(paths["robot_pool_resume.v1.json"].read_bytes()).hexdigest(),
-        ),
-    )
+    for relative in ("source/EAI", "source/EAI_assets", "source/EAI_hmrs", "usd"):
+        (tmp_path / relative).mkdir(parents=True, exist_ok=True)
     return paths
 
 
@@ -116,22 +98,15 @@ def test_prod_p4_mapping_is_source_bound_and_receipt_is_deterministic(tmp_path):
 
 def test_checked_in_fixture_receipt_is_frozen_exactly():
     base = FIXTURE
-    scenario = json.loads((base / "scenario.json").read_text(encoding="utf-8"))
-    bound_source_root = Path(scenario["source_root"]).resolve()
-    if not bound_source_root.is_relative_to(REPO_ROOT):
-        pytest.skip(
-            "checked-in receipt is bound to its authored source tree; "
-            "run this byte-freeze assertion from that tree"
-        )
     mapping = base / "catalog_contract_mapping.json"
     result = verify_catalog_mapping(
-        mapping,
+        mapping.relative_to(REPO_ROOT),
         expected_mapping_sha256=hashlib.sha256(mapping.read_bytes()).hexdigest(),
-        catalog_path=base / "catalog.json",
-        scenario_path=base / "scenario.json",
-        contract_path=base / "contract.json",
-        package_path=base / "package.json",
-        robot_resume_path=REPO_ROOT / "benchmark/robot_resume/robot_pool_resume.v1.json",
+        catalog_path=(base / "catalog.json").relative_to(REPO_ROOT),
+        scenario_path=(base / "scenario.json").relative_to(REPO_ROOT),
+        contract_path=(base / "contract.json").relative_to(REPO_ROOT),
+        package_path=(base / "package.json").relative_to(REPO_ROOT),
+        robot_resume_path=Path("benchmark/robot_resume/robot_pool_resume.v1.json"),
         # Resolve the repository root from this test file so the frozen-fixture
         # assertion remains valid in clean worktrees and CI checkouts.
         project_root=Path(__file__).resolve().parents[2],
@@ -295,11 +270,24 @@ def test_mapping_rejects_stale_paper_commit_and_source_digest(tmp_path):
         (lambda value: value["scene_identity"].update(backend="external-eai"), "backend must"),
         (lambda value: value["scene_identity"].update(scene_descriptor="factory/other"), "scene_descriptor"),
         (lambda value: value.update(source_root="/tmp/source"), "source_root"),
-        (lambda value: value["scene_identity"].update(assets_root="/home/pupil/HeteroCoord/source/other"), "assets_root"),
+        (lambda value: value.update(source_root="../source"), "source_root"),
+        (lambda value: value["scene_identity"].update(assets_root="source/other"), "assets_root"),
     ],
 )
 def test_mapping_rejects_digest_consistent_scenario_semantic_mutations(tmp_path, mutation, message):
     paths = _copy_fixture(tmp_path)
     _rewrite_scenario_and_bind_digests(paths, mutation)
     with pytest.raises(ValueError, match=message):
+        _verify(paths)
+
+
+def test_mapping_rejects_project_relative_symlink_escape(tmp_path):
+    paths = _copy_fixture(tmp_path)
+    external = tmp_path.parent / "external-source"
+    external.mkdir(exist_ok=True)
+    (tmp_path / "source-link").symlink_to(external, target_is_directory=True)
+    _rewrite_scenario_and_bind_digests(
+        paths, lambda value: value.update(source_root="source-link")
+    )
+    with pytest.raises(ValueError, match="source_root must resolve inside the project"):
         _verify(paths)

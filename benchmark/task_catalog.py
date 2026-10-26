@@ -137,6 +137,7 @@ class TaskAnchor:
     terminal_value: str
     certification_status: str = "planned"
     oracle_status: str = "not_yet_certified"
+    difficulty_certification_status: str = "difficulty_certification_pending"
     metadata: Mapping[str, Any] = field(default_factory=dict)
     obligation_subtypes: Mapping[str, str] = field(default_factory=dict)
 
@@ -195,6 +196,10 @@ class TaskAnchor:
             terminal_value=_text(value.get("terminal_value"), "terminal_value"),
             certification_status=_text(value.get("certification_status", "planned"), "certification_status"),
             oracle_status=_text(value.get("oracle_status", "not_yet_certified"), "oracle_status"),
+            difficulty_certification_status=_text(
+                value.get("difficulty_certification_status", "difficulty_certification_pending"),
+                "difficulty_certification_status",
+            ),
             metadata=dict(value.get("metadata", {})),
         )
 
@@ -215,6 +220,12 @@ class TaskAnchor:
             raise CatalogError("factor_support contains an unknown metric dimension")
         if self.terminal_value not in {"material_flow", "accountable_continuity", "access_safety_privacy"}:
             raise CatalogError(f"unknown terminal_value: {self.terminal_value}")
+        # Existing catalog bins were manually authored before the dac7b94
+        # contract-only derivation and pilot/fresh certification existed.
+        # They remain usable as legacy authoring hints, but cannot self-assert
+        # certification without a separately verified receipt integration.
+        if self.difficulty_certification_status != "difficulty_certification_pending":
+            raise CatalogError("TaskAnchor difficulty certification must remain pending until receipt integration")
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     @property
@@ -276,6 +287,7 @@ class TaskAnchor:
                 "terminal_value": self.terminal_value,
                 "certification_status": self.certification_status,
                 "oracle_status": self.oracle_status,
+                "difficulty_certification_status": self.difficulty_certification_status,
             },
         )
 
@@ -306,6 +318,7 @@ class TaskAnchor:
             "terminal_value": self.terminal_value,
             "certification_status": self.certification_status,
             "oracle_status": self.oracle_status,
+            "difficulty_certification_status": self.difficulty_certification_status,
             "metadata": dict(self.metadata),
         }
 
@@ -325,6 +338,13 @@ def validate_catalog(entries: Iterable[TaskAnchor], *, expected_total: int | Non
     slots = [(item.domain, item.scene_anchor) for item in catalog]
     if len(set(slots)) != len(slots):
         raise CatalogError("scene_anchor slots must be unique within each domain")
+    preliminary_common_tiers: dict[str, set[int]] = {}
+    for item in catalog:
+        if item.common_anchor_id is not None:
+            preliminary_common_tiers.setdefault(item.common_anchor_id, set()).add(item.difficulty_tier)
+    mismatched = sorted(common_id for common_id, tiers in preliminary_common_tiers.items() if len(tiers) != 1)
+    if mismatched:
+        raise CatalogError(f"common anchor {mismatched[0]} has a difficulty tier mismatch")
     by_domain = {domain: tuple(item for item in catalog if item.domain == domain) for domain in DOMAINS}
     for domain, items in by_domain.items():
         baseline_items = tuple(item for item in items if item not in extensions)
@@ -347,6 +367,8 @@ def validate_catalog(entries: Iterable[TaskAnchor], *, expected_total: int | Non
             raise CatalogError(f"common anchor {common_id} changes its obligation/capability contract")
         if len({item.primary_label for item in items}) != 1:
             raise CatalogError(f"common anchor {common_id} changes its primary label")
+        if len({item.difficulty_tier for item in items}) != 1:
+            raise CatalogError(f"common anchor {common_id} has a difficulty tier mismatch")
         for item in items:
             if item.primary_label not in COMMON_CELLS[item.domain]:
                 raise CatalogError(f"common anchor {common_id} is in unsupported cell {item.domain}/{item.primary_label}")
@@ -426,6 +448,10 @@ def catalog_report(entries: Iterable[TaskAnchor]) -> dict[str, Any]:
         },
         "cells": cells,
         "difficulty_tiers": {domain: sorted({item.difficulty_tier for item in catalog if item.domain == domain}) for domain in DOMAINS},
+        "difficulty_certification": {
+            status: sum(item.difficulty_certification_status == status for item in catalog)
+            for status in sorted({item.difficulty_certification_status for item in catalog})
+        },
         "catalog_digest": catalog_digest(catalog),
     }
 

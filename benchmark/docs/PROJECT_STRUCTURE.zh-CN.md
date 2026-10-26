@@ -1,9 +1,14 @@
 # HeteroCoord 工程结构与提交边界
 
-更新日期：2026-10-24
+更新日期：2026-10-27
 
 本文只描述当前工程的目录职责、执行边界和提交策略，不改变运行逻辑，也不是论文正文。
-论文冻结权威 ref 为 `overleaf-old/main@0b006d4efcd25d5160d4b0a6e75cddd9e5265e44`；本地论文 checkout 仍为历史 `72b6a3b…`，不作为最新语义权威。当前工程仅完成身份迁移，语义迁移仍 pending。
+论文冻结权威 ref 为
+`overleaf-old/main@dac7b94207a2683d494bdb388fc48533c9219bdf`。scorebook、composite、
+31 锚点目录/合同、map-ready 编排与 P4 fixture 的当前发布面均绑定该身份。论文的
+contract-only difficulty 原始量、固定分箱以及 pilot/fresh 认证契约已经实现；生产用
+certification registries、真实 pilot/fresh 运行和物理/GPU 收据仍为 pending，不能据此打开
+任何正式资格门。
 
 ## 1. 目录职责
 

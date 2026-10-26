@@ -1,14 +1,16 @@
 {
   "schema": "heterocoord.canonical_contract_artifact.v1",
   "status": "bound_pending_replay",
-  "paper_sha": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+  "paper_sha": "dac7b94207a2683d494bdb388fc48533c9219bdf",
   "source_catalog": "benchmark/task_catalog.json",
-  "source_catalog_sha256": "3ddaf15614ecbc83b75c64d8c5b728d8e27c737c033602e2177f75143b917959",
+  "source_catalog_sha256": "75fecc97e5d97b6736b9ade13d6a8527e0fb8dc5faee84403fdd31c1feecf1b6",
   "contract_artifact": "artifacts/catalog/contracts/room06-extension-20261026/pilot_contracts-v3.json",
-  "contract_artifact_sha256": "799d50e2d0710bc01f1949a86d6b10f084f9b4bf90e20b7f372f02a34ecad724",
+  "contract_artifact_sha256": "53b6bcaf565147624b4c310b942b0f98ec6faad1d00bb7bd891b2fcb4ce235dc",
   "anchor_count": 31,
   "baseline_anchor_count": 30,
-  "extension_anchor_ids": ["liv-t-04"],
+  "extension_anchor_ids": [
+    "liv-t-04"
+  ],
   "scope": "30 baseline anchors plus the author-approved liv-t-04 room_06 extension; six historical pilot contracts are included in this projection",
   "certification": {
     "case_certified": false,
