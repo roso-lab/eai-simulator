@@ -1,9 +1,12 @@
-"""Fail-closed, CPU-only orchestration from frozen map inputs to paper seams.
+"""Fail-closed orchestration from frozen map inputs to paper seams.
 
 This module deliberately composes existing versioned boundaries.  It does not
 run Isaac, infer evaluator facts, reuse an artifact directory, or open a formal
 qualification gate.  A caller must provide a new output directory, an explicit
-binding and the exact plan bytes whose digest the binding names.
+binding and the exact plan bytes whose digest the binding names.  A simulator
+may hand back JSON terminal material; this module only reconstructs the
+benchmark-owned job value and an evaluator class already registered by the
+case manifest.  It never deserializes arbitrary Python objects.
 """
 
 from __future__ import annotations
@@ -225,12 +228,6 @@ def _terminal_chain(
     plan: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Seal explicitly supplied terminal material and optionally run results."""
-
-    if set(value) == {"__terminal_cli_not_serializable__"}:
-        raise ValueError(
-            "terminal_cli_not_serializable: JSON cannot carry live BranchJob, "
-            "evaluator and runtime objects; use the Python API"
-        )
     allowed = {"terminals", "parameters", "production"}
     if set(value) - allowed or not {"terminals", "parameters"}.issubset(value):
         raise ValueError(
@@ -244,6 +241,12 @@ def _terminal_chain(
     if not isinstance(parameters, Mapping):
         raise ValueError("terminal parameters must be an object")
     catalog_digest = _catalog_matches_binding(catalog, binding)
+
+    terminals = _normalize_terminals(
+        terminals,
+        case_manifest=case_manifest,
+        plan=plan,
+    )
 
     # Kept lazy so the audit/manifest dry-run works on checkouts where the
     # terminal runner is awaiting the already-reviewed remote integration.
@@ -313,6 +316,137 @@ def _terminal_chain(
     return result
 
 
+def _registered_evaluator(
+    case_manifest: Mapping[str, Any], plan: Mapping[str, Any]
+) -> Any:
+    """Instantiate only the evaluator named by the validated case manifest."""
+
+    evaluator_binding = case_manifest.get("evaluator")
+    if not isinstance(evaluator_binding, Mapping):
+        raise ValueError("case manifest evaluator binding is missing")
+    evaluator_id = evaluator_binding.get("evaluator_id")
+    evaluator_version = evaluator_binding.get("evaluator_version")
+
+    from .evaluator.room06_livt04 import (
+        EVALUATOR_ID,
+        EVALUATOR_VERSION,
+        Room06LivT04Evaluator,
+    )
+
+    if (evaluator_id, evaluator_version) != (EVALUATOR_ID, EVALUATOR_VERSION):
+        raise ValueError(
+            "case manifest evaluator is not registered for serialized terminal input: "
+            f"{evaluator_id}@{evaluator_version}"
+        )
+    obligation_binding = plan.get("oracle_obligation_binding")
+    if not isinstance(obligation_binding, Mapping):
+        raise ValueError(
+            "serialized terminal input requires plan.oracle_obligation_binding"
+        )
+    return Room06LivT04Evaluator(
+        case_manifest=case_manifest,
+        obligation_binding=obligation_binding,
+    )
+
+
+def _normalize_terminals(
+    terminals: Sequence[Mapping[str, Any]],
+    *,
+    case_manifest: Mapping[str, Any],
+    plan: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    """Rehydrate JSON jobs without widening the executable trust boundary.
+
+    Live Python callers may continue to supply an explicit evaluator object.
+    JSON callers omit it; the evaluator is selected from a closed registry by
+    the already validated manifest identity.
+    """
+
+    from dataclasses import fields
+    from tools.benchmark_branch.models import BranchJob
+
+    job_fields = {field.name for field in fields(BranchJob)}
+    required = {"job", "runtime", "evaluator_result"}
+    allowed = required | {"evaluator", "label", "receipt_id"}
+    normalized: list[dict[str, Any]] = []
+    for index, raw_item in enumerate(terminals):
+        if not isinstance(raw_item, Mapping):
+            raise ValueError(f"terminal_payload.terminals[{index}] must be an object")
+        if not required.issubset(raw_item) or set(raw_item) - allowed:
+            raise ValueError(
+                f"terminal_payload.terminals[{index}] must contain "
+                "job/runtime/evaluator_result and only registered optional fields"
+            )
+        item = dict(raw_item)
+        serialized_job = isinstance(item["job"], Mapping)
+        if serialized_job:
+            unknown = sorted(set(item["job"]) - job_fields)
+            if unknown:
+                raise ValueError(
+                    f"terminal_payload.terminals[{index}].job has unsupported fields: {unknown}"
+                )
+            try:
+                item["job"] = BranchJob.from_mapping(item["job"])
+            except (TypeError, ValueError, KeyError) as exc:
+                raise ValueError(
+                    f"terminal_payload.terminals[{index}].job is invalid: {exc}"
+                ) from exc
+            if not isinstance(item["runtime"], Mapping):
+                raise ValueError(
+                    f"terminal_payload.terminals[{index}].runtime must be a JSON object"
+                )
+            runtime_payload = item["runtime"].get(
+                "room06_livt04", item["runtime"]
+            )
+            if not isinstance(runtime_payload, Mapping) or not isinstance(
+                runtime_payload.get("episode"), Mapping
+            ):
+                raise ValueError(
+                    f"terminal_payload.terminals[{index}].runtime must contain an explicit episode"
+                )
+            episode = runtime_payload["episode"]
+            expected_identity = {
+                "condition_id": item["job"].condition_id,
+                "branch": item["job"].branch_type,
+                "repeat_id": item["job"].repeat_id,
+                "system_id": item["job"].system_id,
+                "base_instance_id": item["job"].base_instance_id,
+            }
+            for key, expected in expected_identity.items():
+                if episode.get(key) != expected:
+                    raise ValueError(
+                        f"terminal_payload.terminals[{index}].runtime.episode.{key} "
+                        "does not match the serialized BranchJob"
+                    )
+        elif not isinstance(item["job"], BranchJob):
+            raise ValueError(
+                f"terminal_payload.terminals[{index}].job must be a BranchJob or mapping"
+            )
+
+        if not isinstance(item["evaluator_result"], Mapping):
+            raise ValueError(
+                f"terminal_payload.terminals[{index}].evaluator_result must be an object"
+            )
+        evaluator = item.get("evaluator")
+        if evaluator is None:
+            evaluator = _registered_evaluator(case_manifest, plan)
+            item["evaluator"] = evaluator
+        else:
+            manifest_evaluator = case_manifest.get("evaluator")
+            if not isinstance(manifest_evaluator, Mapping) or (
+                getattr(evaluator, "evaluator_id", None),
+                getattr(evaluator, "evaluator_version", None),
+            ) != (
+                manifest_evaluator.get("evaluator_id"),
+                manifest_evaluator.get("evaluator_version"),
+            ):
+                raise ValueError(
+                    f"terminal_payload.terminals[{index}].evaluator does not match case manifest"
+                )
+        normalized.append(item)
+    return normalized
+
+
 def run_map_ready_case(
     *,
     semantic_root: str | Path,
@@ -324,7 +458,7 @@ def run_map_ready_case(
     output_dir: str | Path,
     paper_commit: str | None = None,
     emos_input: Mapping[str, Any] | str | Path | None = None,
-    terminal_payload: Mapping[str, Any] | None = None,
+    terminal_payload: Mapping[str, Any] | str | Path | None = None,
 ) -> dict[str, Any]:
     """Execute the map-ready seam and write one immutable execution receipt.
 
@@ -436,10 +570,18 @@ def run_map_ready_case(
 
         if terminal_payload is None:
             receipt["status"] = "ready_for_terminal_python_api"
-            receipt["next_action"].append("ready_for_terminal_python_api")
+            receipt["next_action"].extend([
+                "provide_serialized_terminal_payload_or_python_api",
+                "ready_for_terminal_python_api",
+            ])
         else:
+            terminal_value, terminal_digest, terminal_digest_kind = _load_object(
+                terminal_payload, "terminal_payload"
+            )
+            receipt["inputs"]["terminal_payload_digest"] = terminal_digest
+            receipt["inputs"]["terminal_payload_digest_kind"] = terminal_digest_kind
             receipt["terminal"] = _terminal_chain(
-                terminal_payload,
+                terminal_value,
                 output_root=output,
                 case_manifest=manifest,
                 binding=binding_value,
@@ -454,15 +596,9 @@ def run_map_ready_case(
                 receipt["next_action"].append("provide_explicit_fixed_panel_production_inputs")
     except (ImportError, KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
         detail = str(exc)
-        code = "TERMINAL_CLI_NOT_SERIALIZABLE" if detail.startswith("terminal_cli_not_serializable:") else "MAP_READY_EXECUTION_FAILED"
+        code = "MAP_READY_EXECUTION_FAILED"
         receipt["failures"].append({"code": code, "detail": detail})
-        if code == "TERMINAL_CLI_NOT_SERIALIZABLE":
-            receipt["next_action"].extend([
-                "terminal_cli_not_serializable",
-                "ready_for_terminal_python_api",
-            ])
-        else:
-            receipt["next_action"].append("correct_explicit_inputs_and_use_a_new_output_directory")
+        receipt["next_action"].append("correct_explicit_inputs_and_use_a_new_output_directory")
 
     if receipt["paper_aligned"] is not True:
         receipt["next_action"].append("paper_alignment_pending")
@@ -487,13 +623,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--emos-input", type=Path)
     parser.add_argument("--terminal-payload", type=Path)
     args = parser.parse_args(argv)
-    # JSON cannot safely reconstruct the live BranchJob/evaluator/runtime
-    # objects required by the terminal runner.  Preserve the option only to
-    # produce an explicit fail-closed receipt; never deserialize executable
-    # Python objects from it.
-    terminal = None if args.terminal_payload is None else {
-        "__terminal_cli_not_serializable__": str(args.terminal_payload.resolve())
-    }
     try:
         receipt = run_map_ready_case(
             semantic_root=args.semantic_root,
@@ -505,7 +634,7 @@ def main(argv: list[str] | None = None) -> int:
             output_dir=args.output_dir,
             paper_commit=args.paper_commit,
             emos_input=args.emos_input,
-            terminal_payload=terminal,
+            terminal_payload=args.terminal_payload,
         )
     except MapReadyCaseError as exc:
         parser.error(str(exc))

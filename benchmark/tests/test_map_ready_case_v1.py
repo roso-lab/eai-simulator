@@ -1,13 +1,21 @@
 from __future__ import annotations
 
+from dataclasses import asdict
 import json
 from pathlib import Path
 
 import pytest
 
 from benchmark import map_ready_case_v1 as orchestrator
+from benchmark.case_manifest_v1 import bind_case_manifest
 from benchmark.map_ready_case_v1 import MapReadyCaseError, run_map_ready_case
 from benchmark.records_v3 import canonical_digest
+from benchmark.evaluator.room06_livt04 import (
+    EVALUATOR_ID,
+    EVALUATOR_VERSION,
+    build_diagnostic_runtime_fixture,
+)
+from tools.benchmark_branch.models import BranchJob
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -395,7 +403,198 @@ def test_existing_output_directory_is_never_overwritten(tmp_path: Path) -> None:
     assert not (output / "execution_receipt.json").exists()
 
 
-def test_cli_json_terminal_is_fail_closed_without_results(
+def test_serialized_terminal_rehydrates_only_registered_job_and_evaluator() -> None:
+    plan = {
+        "oracle_obligation_binding": {
+            "schema": "heterocoord.oracle-obligation-binding.v1",
+            "anchor_id": "liv-t-04",
+            "obligations": [],
+        }
+    }
+    case = {
+        "task_id": "liv-t-04",
+        "anchor_id": "liv-t-04",
+        "scene": {
+            "scene_id": "room_06",
+            "horizon": 15000,
+            "entity_ids": ["book_batch_01", "heavy_object"],
+            "zone_ids": [],
+        },
+        "evaluator": {
+            "evaluator_id": EVALUATOR_ID,
+            "evaluator_version": EVALUATOR_VERSION,
+        },
+    }
+    terminal = {
+        "job": {
+            "run_id": "room06-measured-run",
+            "system_id": "emos-zero",
+            "scene_key": "room_06",
+            "task_id": "liv-t-04",
+            "condition_id": "C0",
+            "slot": 0,
+            "branch_type": "fact",
+            "branch_id": "room06-r1",
+            "pair_group_id": "room06-r1",
+            "repeat_id": "r1",
+            "execution_scope": "measured",
+        },
+        "runtime": {
+            "room06_livt04": {
+                "episode": {
+                    "condition_id": "C0",
+                    "branch": "fact",
+                    "repeat_id": "r1",
+                    "system_id": "emos-zero",
+                    "base_instance_id": "room06-r1/base",
+                }
+            }
+        },
+        "evaluator_result": {"status": "valid_terminal"},
+    }
+
+    normalized = orchestrator._normalize_terminals(
+        [terminal], case_manifest=case, plan=plan
+    )
+    assert isinstance(normalized[0]["job"], BranchJob)
+    assert normalized[0]["job"].execution_scope == "measured"
+    assert normalized[0]["evaluator"].evaluator_id == EVALUATOR_ID
+
+    terminal["job"]["caller_python_class"] = "arbitrary.module:Class"
+    with pytest.raises(ValueError, match="unsupported fields"):
+        orchestrator._normalize_terminals([terminal], case_manifest=case, plan=plan)
+
+    del terminal["job"]["caller_python_class"]
+    terminal["runtime"]["room06_livt04"]["episode"]["condition_id"] = "C1"
+    with pytest.raises(ValueError, match="does not match the serialized BranchJob"):
+        orchestrator._normalize_terminals([terminal], case_manifest=case, plan=plan)
+
+
+def test_serialized_terminal_runs_registered_evaluator_to_case_readiness(
+    tmp_path: Path,
+) -> None:
+    obligation_binding = {
+        "schema": "heterocoord.oracle-obligation-binding.v1",
+        "anchor_id": "liv-t-04",
+        "obligations": [{
+            "obligation_id": "relay",
+            "relation": "P2",
+            "predicate_ids": ["upper_shelf_delivery_after_transition_handoff"],
+        }],
+    }
+    catalog = {"anchors": ["liv-t-04"]}
+    plan = {"seed": 20261027, "oracle_obligation_binding": obligation_binding}
+    case = bind_case_manifest({
+        "schema": "heterocoord.case-manifest.v1",
+        "case_id": "room06-livt04-serialized-diagnostic",
+        "task_id": "liv-t-04",
+        "anchor_id": "liv-t-04",
+        "domain": "living_public",
+        "relation_signature": ["P2", "P3-J"],
+        "base_instance_id": "room06-serialized-r1/base",
+        "scene": {
+            "scene_id": "room_06",
+            "scene_digest": "1" * 64,
+            "semantic_map_digest": "2" * 64,
+            "topology_digest": "3" * 64,
+            "frame": "world",
+            "units": "meters+ticks",
+            "entity_ids": ["book_batch_01", "heavy_object"],
+            "zone_ids": [],
+            "horizon": 15000,
+            "tau_stable": 25,
+        },
+        "robot_pool": {
+            "pool_id": "diagnostic-pool",
+            "roster_digest": "4" * 64,
+            "robots": [{
+                "robot_id": robot_id,
+                "asset_digest": "5" * 64,
+                "capability_digest": "6" * 64,
+                "initial_state_digest": "7" * 64,
+            } for robot_id in ("carrier-0", "carrier-1")],
+        },
+        "contract": {
+            "contract_digest": "8" * 64,
+            "oracle_id": "liv-t-04-oracle-v3",
+            "contract_revision": "diagnostic-2026-10-27",
+        },
+        "catalog_digest": canonical_digest(catalog),
+        "plan_digest": canonical_digest(plan),
+        "replay": {
+            "serializer_version": "diagnostic-v1",
+            "rng_stream_key": "room06-serialized-diagnostic",
+            "checkpoint_schema": "diagnostic-v1",
+        },
+        "evaluator": {
+            "evaluator_id": EVALUATOR_ID,
+            "evaluator_version": EVALUATOR_VERSION,
+        },
+    })
+    job = BranchJob(
+        run_id="room06-serialized-run",
+        system_id="emos-zero",
+        scene_key="room_06",
+        task_id="liv-t-04",
+        condition_id="C0",
+        slot=0,
+        branch_type="fact",
+        branch_id="room06-serialized-r1",
+        pair_group_id="room06-serialized-r1",
+        repeat_id="r1",
+        execution_scope="measured_diagnostic",
+    )
+    runtime = build_diagnostic_runtime_fixture()
+    runtime["episode"].update({
+        "system_id": job.system_id,
+        "base_instance_id": job.base_instance_id,
+    })
+    terminal_payload = json.loads(json.dumps({
+        "terminals": [{
+            "job": asdict(job),
+            "runtime": runtime,
+            "evaluator_result": {
+                "status": "valid_terminal",
+                "completed": True,
+                "physical_success": True,
+                "terminal_predicate": True,
+                "safety_predicate": True,
+                "feasibility_predicate": True,
+            },
+        }],
+        "parameters": {"alpha": 0.05},
+    }))
+
+    result = orchestrator._terminal_chain(
+        terminal_payload,
+        output_root=tmp_path,
+        case_manifest=case,
+        binding={"catalog_digest": canonical_digest(catalog)},
+        catalog=catalog,
+        plan=plan,
+    )
+
+    assert result["status"] == "terminal_sealed"
+    assert result["readiness"]["case_receipt_ready"] is True
+    assert result["readiness"]["paper_support_ready"] is False
+    assert result["formal_gates"] == orchestrator.FORMAL_GATES
+    assert len(list((tmp_path / "terminal_evidence" / "evidence").glob("*.json"))) == 1
+
+
+def test_serialized_terminal_rejects_unregistered_manifest_evaluator() -> None:
+    with pytest.raises(ValueError, match="not registered"):
+        orchestrator._registered_evaluator(
+            {
+                "evaluator": {
+                    "evaluator_id": "caller.module:Evaluator",
+                    "evaluator_version": "v1",
+                }
+            },
+            {"oracle_obligation_binding": {}},
+        )
+
+
+def test_cli_loads_json_terminal_for_registered_sealing_chain(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     plan = {"schema": "explicit-plan.v1", "runs": ["r1"]}
@@ -411,7 +610,8 @@ def test_cli_json_terminal_is_fail_closed_without_results(
     binding_path.write_text(json.dumps(binding), encoding="utf-8")
     catalog_path.write_text(json.dumps(catalog), encoding="utf-8")
     contract_path.write_text(json.dumps(contract), encoding="utf-8")
-    terminal_path.write_text(json.dumps({"terminals": []}), encoding="utf-8")
+    terminal_payload = {"terminals": [{"explicit": "runtime-material"}], "parameters": {}}
+    terminal_path.write_text(json.dumps(terminal_payload), encoding="utf-8")
     monkeypatch.setattr(
         orchestrator,
         "audit_case_inputs",
@@ -430,6 +630,17 @@ def test_cli_json_terminal_is_fail_closed_without_results(
             "manifest_digest": "3" * 64,
         },
     )
+    terminal_calls = []
+
+    def fake_terminal_chain(value, **kwargs):
+        terminal_calls.append((value, kwargs))
+        assert value == terminal_payload
+        return {
+            "status": "terminal_sealed",
+            "formal_gates": dict(orchestrator.FORMAL_GATES),
+        }
+
+    monkeypatch.setattr(orchestrator, "_terminal_chain", fake_terminal_chain)
     output = tmp_path / "cli-terminal-attempt"
     exit_code = orchestrator.main([
         "--semantic-root", str(tmp_path / "map"),
@@ -442,11 +653,11 @@ def test_cli_json_terminal_is_fail_closed_without_results(
         "--terminal-payload", str(terminal_path),
     ])
 
-    assert exit_code == 2
+    assert exit_code == 0
     receipt = json.loads((output / "execution_receipt.json").read_text())
-    assert receipt["status"] == "failed_closed"
-    assert receipt["failures"][0]["code"] == "TERMINAL_CLI_NOT_SERIALIZABLE"
-    assert "terminal_cli_not_serializable" in receipt["next_action"]
-    assert "ready_for_terminal_python_api" in receipt["next_action"]
-    assert not (output / "terminal_evidence").exists()
+    assert receipt["status"] == "terminal_sealed"
+    assert receipt["failures"] == []
+    assert receipt["inputs"]["terminal_payload_digest_kind"] == "file_sha256"
+    assert len(terminal_calls) == 1
+    assert terminal_calls[0][1]["case_manifest"]["manifest_digest"] == "3" * 64
     assert not (output / "production_results").exists()
