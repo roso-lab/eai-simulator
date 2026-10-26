@@ -24,8 +24,12 @@ from .task_catalog import TaskAnchor, validate_catalog
 SCHEMA = "heterocoord.catalog_contract_mapping.v1"
 RECEIPT_SCHEMA = "heterocoord.catalog_contract_mapping_receipt.v1"
 PROFILE = "prod-p4-01.catalog-contract.v1"
-DEFAULT_ROBOT_RESUME_PATH = Path(
-    "/home/pupil/HeteroCoord/benchmark/robot_resume/robot_pool_resume.v1.json"
+# Keep the default inside the checkout that owns this module.  A fixed host
+# path makes otherwise content-addressed catalog checks fail in clean
+# worktrees/CI and is unrelated to the mapping's semantic identity.
+DEFAULT_ROBOT_RESUME_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "benchmark/robot_resume/robot_pool_resume.v1.json"
 )
 MAX_INPUT_BYTES = 8 * 1024 * 1024
 
