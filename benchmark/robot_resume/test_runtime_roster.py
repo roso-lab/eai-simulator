@@ -61,4 +61,3 @@ def test_skill_change_same_version_is_noop_and_malformed_rejected():
     assert affected_entries(doc, {current["skill_id"]: current["provider_version"]}) == []
     with pytest.raises(ValueError):
         parse_changes(["not-a-version"])
-
