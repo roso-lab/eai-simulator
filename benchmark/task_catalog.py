@@ -35,6 +35,7 @@ DIFFICULTY_DIMENSIONS = (
 )
 METRIC_DIMENSIONS = tuple(f"D{i}" for i in range(1, 7))
 SCENE_KEYS = frozenset(("factory", "factory_benchmark", "warehouse_nvd", "restaurant", "city", "modern_house_nvd"))
+SCENE_KEYS = SCENE_KEYS | {"warehouse", "house", "restaurant_svc", "restaurant_prod", "pending_reassignment", "room_06"}
 PRIMARY_TIE_BREAK = {"P1": 1, "P4": 2, "P2": 3, "P3": 4}
 
 # Table S2: a common anchor is admissible in these domain/primitive cells;
@@ -44,6 +45,8 @@ COMMON_CELLS = {
     "service": frozenset(("P1", "P2", "P3")),
     "living_public": frozenset(("P2", "P3", "P4")),
 }
+CATALOG_SCHEMA_VERSION = "paper-task-catalog.v2"
+CONTRACT_VERSION = "C-P2-02-quarantine-marked-v2"
 
 
 def _text(value: Any, name: str) -> str:
@@ -184,7 +187,8 @@ class TaskAnchor:
             roles=_tuple_text(value.get("roles", ()), "roles"),
             milestones=_tuple_text(value.get("milestones", ()), "milestones"),
             temporal_constraints=_tuple_text(value.get("temporal_constraints", ()), "temporal_constraints"),
-            resource_constraints=_tuple_text(value.get("resource_constraints", ()), "resource_constraints"),
+            resource_constraints=(() if value.get("resource_constraints") == [] else
+                                  _tuple_text(value.get("resource_constraints", ()), "resource_constraints")),
             difficulty=DifficultyVector.from_mapping(value.get("difficulty_vector", {})),
             horizon_s=float(value.get("horizon_s", 0)),
             factor_support=_tuple_text(value.get("factor_support", ()), "factor_support"),
@@ -306,10 +310,13 @@ class TaskAnchor:
         }
 
 
-def validate_catalog(entries: Iterable[TaskAnchor], *, expected_total: int = 30) -> tuple[TaskAnchor, ...]:
+def validate_catalog(entries: Iterable[TaskAnchor], *, expected_total: int | None = None) -> tuple[TaskAnchor, ...]:
     """Validate the complete 3-domain, Table-S2-constrained catalog."""
 
     catalog = tuple(entries)
+    extensions = tuple(item for item in catalog if item.anchor_id == "liv-t-04")
+    if expected_total is None:
+        expected_total = 30 + len(extensions)
     if len(catalog) != expected_total:
         raise CatalogError(f"expected {expected_total} anchors, found {len(catalog)}")
     ids = [item.anchor_id for item in catalog]
@@ -320,7 +327,8 @@ def validate_catalog(entries: Iterable[TaskAnchor], *, expected_total: int = 30)
         raise CatalogError("scene_anchor slots must be unique within each domain")
     by_domain = {domain: tuple(item for item in catalog if item.domain == domain) for domain in DOMAINS}
     for domain, items in by_domain.items():
-        if len(items) != 10:
+        baseline_items = tuple(item for item in items if item not in extensions)
+        if len(baseline_items) != 10:
             raise CatalogError(f"domain {domain} must contain 10 anchors, found {len(items)}")
         if {item.difficulty_tier for item in items} != {1, 2, 3, 4}:
             raise CatalogError(f"domain {domain} must cover all four difficulty tiers")
@@ -360,10 +368,24 @@ def validate_catalog(entries: Iterable[TaskAnchor], *, expected_total: int = 30)
 def load_catalog(path: str | Path) -> tuple[TaskAnchor, ...]:
     source = Path(path)
     data = json.loads(source.read_text(encoding="utf-8"))
+    if data.get("schema_version") != CATALOG_SCHEMA_VERSION:
+        raise CatalogError("unsupported catalog schema_version")
+    if data.get("contract_version") != CONTRACT_VERSION:
+        raise CatalogError("unsupported catalog contract_version")
     raw_entries = data.get("anchors") if isinstance(data, Mapping) else None
     if not isinstance(raw_entries, list):
         raise CatalogError("catalog JSON must contain an anchors list")
-    return validate_catalog(tuple(TaskAnchor.from_mapping(item) for item in raw_entries))
+    # Include top-level version identity in every canonical entry so changing
+    # the contract cannot silently preserve the old catalog digest.
+    entries = []
+    for item in raw_entries:
+        enriched = dict(item)
+        metadata = dict(enriched.get("metadata", {}))
+        metadata.update({"catalog_schema_version": data["schema_version"],
+                         "contract_version": data["contract_version"]})
+        enriched["metadata"] = metadata
+        entries.append(TaskAnchor.from_mapping(enriched))
+    return validate_catalog(tuple(entries))
 
 
 def default_catalog_path() -> Path:

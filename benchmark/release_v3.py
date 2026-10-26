@@ -13,6 +13,7 @@ from .dynamic_v3 import DynamicDispositionV3, DynamicEventDispositionV3
 from .physical_evidence_v3 import PhysicalEvidenceCertificateV3
 from .artifact_verifier_v3 import ArtifactVerificationReceiptV3
 from .statistical_evidence_v3 import StatisticalEvidenceV3
+from .scorebook_v3 import default_scorebook_v3
 
 
 class ReleaseV3Error(ValueError):
@@ -48,6 +49,8 @@ class EvidenceBundleV3:
             raise ReleaseV3Error("bundle must contain exactly D1 through D6 in order")
         if self.physical_evidence is not None and not isinstance(self.physical_evidence, PhysicalEvidenceCertificateV3):
             raise ReleaseV3Error("physical_evidence must be PhysicalEvidenceCertificateV3 or None")
+        if self.scorebook_digest != default_scorebook_v3().digest():
+            raise ReleaseV3Error("bundle scorebook is stale")
 
     def to_dict(self) -> dict[str, Any]:
         return {

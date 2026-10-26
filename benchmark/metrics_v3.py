@@ -39,6 +39,18 @@ class ScoreResultV3:
             raise MetricV3Error(f"invalid result status: {self.status}")
         if self.status == "valid" and self.point is None:
             raise MetricV3Error("valid result needs point")
+        if self.point is not None:
+            point = _finite(self.point, "point")
+            if not 0.0 <= point <= 100.0:
+                raise MetricV3Error("point must lie in [0,100]")
+            object.__setattr__(self, "point", point)
+        for name in ("lower", "upper"):
+            bound = getattr(self, name)
+            if bound is not None:
+                bound = _finite(bound, name)
+                if not 0.0 <= bound <= 100.0:
+                    raise MetricV3Error(f"{name} must lie in [0,100]")
+                object.__setattr__(self, name, bound)
         if self.status == "range" and (self.lower is None or self.upper is None or self.lower > self.upper):
             raise MetricV3Error("range result needs ordered bounds")
 

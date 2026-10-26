@@ -1,5 +1,6 @@
 {
-  "schema_version": "paper-task-catalog.v1",
+  "schema_version": "paper-task-catalog.v2",
+  "contract_version": "C-P2-02-quarantine-marked-v2",
   "tick_dt_s": 0.02,
   "repeats": 3,
   "difficulty_contract": {
@@ -15,6 +16,41 @@
   },
   "common_anchor_policy": {"target_groups": 9, "certification_status": "planned", "strict_pair_orientation": "production_to_service"},
   "anchors": [
+    {
+      "anchor_id": "liv-t-04",
+      "domain": "living_public",
+      "scene_key": "room_06",
+      "scene_anchor": "room06_cross_floor_books_and_joint_heavy_carry",
+      "family": "material_transfer",
+      "typical_or_common": "typical",
+      "common_anchor_id": null,
+      "primary_label": "P3",
+      "relation_signature": ["P2", "P3"],
+      "p3_subtype": "P3-J",
+      "objective": "Relay books from the first-floor bookshelf to the three upstairs bookshelves, then jointly carry the case-bound heavy object.",
+      "obligations": ["relay_books", "handoff_at_transition", "carry_heavy_jointly"],
+      "required_capabilities": ["mobile_base", "payload_transport"],
+      "roles": ["courier", "carrier_left", "carrier_right"],
+      "milestones": ["assigned", "relay_started", "relay_complete", "heavy_carry_complete", "accepted"],
+      "temporal_constraints": ["upper_shelf_delivery_after_transition_handoff", "heavy_carry_joint_hold", "relay_and_carry_within_horizon"],
+      "resource_constraints": [],
+      "difficulty_vector": {"dependency_depth": 0, "coordination_width": 0, "capability_scarcity": 0, "contention": 0, "hazard": 0, "communication_demand": 0, "branching_load": 0, "uncertainty": 0},
+      "horizon_s": 300,
+      "factor_support": ["D1", "D2", "D3", "D6"],
+      "terminal_value": "material_flow",
+      "certification_status": "planned",
+      "oracle_status": "not_yet_certified",
+      "metadata": {
+        "authoring_extension": true,
+        "difficulty_binding_status": "pending_not_calibrated_zero_placeholders",
+        "authority": "benchmark/docs/anchor_drafts/room_06.draft.zh-CN.md",
+        "semantic_point_names": ["floor1-bookshelf", "floor2-bookshelf-1", "floor2-bookshelf-2", "floor2-bookshelf-3"],
+        "object_identity_source": "required_case_binding",
+        "stairs_role_requirement": "courier_on_stairs_requires_verified_stair_capability",
+        "skill_single_carrier_lift_prohibition": "pending_user_skill_configuration",
+        "handoff_location": "topology_transition_node"
+      }
+    },
     {
       "anchor_id": "prod-p1-01",
       "domain": "production",
@@ -43,7 +79,7 @@
     {
       "anchor_id": "prod-p1-02",
       "domain": "production",
-      "scene_key": "warehouse_nvd",
+      "scene_key": "warehouse",
       "scene_anchor": "warehouse_putaway_and_audit",
       "family": "replenishment",
       "typical_or_common": "common",
@@ -93,7 +129,7 @@
     {
       "anchor_id": "prod-p2-02",
       "domain": "production",
-      "scene_key": "warehouse_nvd",
+      "scene_key": "warehouse",
       "scene_anchor": "inspection_to_quarantine_handoff",
       "family": "inspection",
       "typical_or_common": "common",
@@ -105,7 +141,7 @@
       "obligations": ["inspect_package", "mark_quarantine", "accept_chain_of_custody"],
       "required_capabilities": ["mobile_base", "barcode_scan", "inspection_camera"],
       "roles": ["inspector", "quarantine_operator"],
-      "milestones": ["assigned", "inspection_complete", "released", "accepted", "closed"],
+      "milestones": ["assigned", "inspection_complete", "quarantine_marked", "released", "accepted", "closed"],
       "temporal_constraints": ["mark_after_inspection", "accept_after_release"],
       "resource_constraints": ["one_quarantine_bay"],
       "difficulty_vector": {"dependency_depth": 2, "coordination_width": 1, "capability_scarcity": 2, "contention": 1, "hazard": 1, "communication_demand": 2, "branching_load": 1, "uncertainty": 1},
@@ -118,7 +154,7 @@
     {
       "anchor_id": "prod-p2-03",
       "domain": "production",
-      "scene_key": "factory_benchmark",
+      "scene_key": "factory",
       "scene_anchor": "urgent_dispatch_handoff",
       "family": "urgent_dispatch",
       "typical_or_common": "common",
@@ -168,7 +204,7 @@
     {
       "anchor_id": "prod-p4-02",
       "domain": "production",
-      "scene_key": "warehouse_nvd",
+      "scene_key": "warehouse",
       "scene_anchor": "shared_scan_station",
       "family": "quality_quarantine",
       "typical_or_common": "common",
@@ -193,7 +229,7 @@
     {
       "anchor_id": "prod-t-01",
       "domain": "production",
-      "scene_key": "factory_benchmark",
+      "scene_key": "factory",
       "scene_anchor": "robotic_joint_pallet_carry",
       "family": "joint_pallet_task",
       "typical_or_common": "typical",
@@ -218,7 +254,7 @@
     {
       "anchor_id": "prod-t-02",
       "domain": "production",
-      "scene_key": "warehouse_nvd",
+      "scene_key": "warehouse",
       "scene_anchor": "continuous_cycle_count",
       "family": "cycle_count",
       "typical_or_common": "typical",
@@ -269,7 +305,7 @@
     {
       "anchor_id": "svc-p1-01",
       "domain": "service",
-      "scene_key": "city",
+      "scene_key": "pending_reassignment",
       "scene_anchor": "facility_patrol_and_log",
       "family": "facility_service",
       "typical_or_common": "common",
@@ -294,7 +330,7 @@
     {
       "anchor_id": "svc-p1-02",
       "domain": "service",
-      "scene_key": "restaurant",
+      "scene_key": "restaurant_svc",
       "scene_anchor": "table_reset_and_audit",
       "family": "facility_service",
       "typical_or_common": "common",
@@ -319,7 +355,7 @@
     {
       "anchor_id": "svc-p2-01",
       "domain": "service",
-      "scene_key": "city",
+      "scene_key": "pending_reassignment",
       "scene_anchor": "facility_maintenance_transfer",
       "family": "maintenance_handoff",
       "typical_or_common": "common",
@@ -344,7 +380,7 @@
     {
       "anchor_id": "svc-p2-02",
       "domain": "service",
-      "scene_key": "restaurant",
+      "scene_key": "restaurant_svc",
       "scene_anchor": "incident_to_response_transfer",
       "family": "incident_response",
       "typical_or_common": "common",
@@ -356,7 +392,7 @@
       "obligations": ["inspect_package", "mark_quarantine", "accept_chain_of_custody"],
       "required_capabilities": ["mobile_base", "barcode_scan", "inspection_camera"],
       "roles": ["inspector", "quarantine_operator"],
-      "milestones": ["assigned", "inspection_complete", "released", "accepted", "closed"],
+      "milestones": ["assigned", "inspection_complete", "quarantine_marked", "released", "accepted", "closed"],
       "temporal_constraints": ["mark_after_inspection", "accept_after_release"],
       "resource_constraints": ["one_quarantine_bay"],
       "difficulty_vector": {"dependency_depth": 2, "coordination_width": 1, "capability_scarcity": 2, "contention": 1, "hazard": 1, "communication_demand": 2, "branching_load": 1, "uncertainty": 1},
@@ -369,7 +405,7 @@
     {
       "anchor_id": "svc-p2-03",
       "domain": "service",
-      "scene_key": "warehouse_nvd",
+      "scene_key": "warehouse",
       "scene_anchor": "urgent_service_queue_transfer",
       "family": "service_queue",
       "typical_or_common": "common",
@@ -394,7 +430,7 @@
     {
       "anchor_id": "svc-p3-01",
       "domain": "service",
-      "scene_key": "restaurant",
+      "scene_key": "restaurant_svc",
       "scene_anchor": "two_operator_assistance",
       "family": "coupled_service",
       "typical_or_common": "common",
@@ -419,7 +455,7 @@
     {
       "anchor_id": "svc-p3-02",
       "domain": "service",
-      "scene_key": "city",
+      "scene_key": "pending_reassignment",
       "scene_anchor": "continuous_facility_coverage",
       "family": "cleaning_coverage",
       "typical_or_common": "common",
@@ -444,7 +480,7 @@
     {
       "anchor_id": "svc-t-01",
       "domain": "service",
-      "scene_key": "restaurant",
+      "scene_key": "restaurant_svc",
       "scene_anchor": "single_service_queue",
       "family": "service_queue",
       "typical_or_common": "typical",
@@ -469,7 +505,7 @@
     {
       "anchor_id": "svc-t-02",
       "domain": "service",
-      "scene_key": "city",
+      "scene_key": "pending_reassignment",
       "scene_anchor": "maintenance_queue_with_handoff",
       "family": "maintenance_handoff",
       "typical_or_common": "typical",
@@ -494,7 +530,7 @@
     {
       "anchor_id": "svc-t-03",
       "domain": "service",
-      "scene_key": "warehouse_nvd",
+      "scene_key": "warehouse",
       "scene_anchor": "coverage_with_power_inspection",
       "family": "infrastructure_inspection",
       "typical_or_common": "typical",
@@ -520,7 +556,7 @@
     {
       "anchor_id": "liv-p2-01",
       "domain": "living_public",
-      "scene_key": "modern_house_nvd",
+      "scene_key": "house",
       "scene_anchor": "home_delivery_handoff",
       "family": "delivery",
       "typical_or_common": "common",
@@ -545,7 +581,7 @@
     {
       "anchor_id": "liv-p2-02",
       "domain": "living_public",
-      "scene_key": "city",
+      "scene_key": "pending_reassignment",
       "scene_anchor": "medication_handoff",
       "family": "medication_handoff",
       "typical_or_common": "common",
@@ -557,7 +593,7 @@
       "obligations": ["inspect_package", "mark_quarantine", "accept_chain_of_custody"],
       "required_capabilities": ["mobile_base", "barcode_scan", "inspection_camera"],
       "roles": ["inspector", "quarantine_operator"],
-      "milestones": ["assigned", "inspection_complete", "released", "accepted", "closed"],
+      "milestones": ["assigned", "inspection_complete", "quarantine_marked", "released", "accepted", "closed"],
       "temporal_constraints": ["mark_after_inspection", "accept_after_release"],
       "resource_constraints": ["one_quarantine_bay"],
       "difficulty_vector": {"dependency_depth": 2, "coordination_width": 1, "capability_scarcity": 2, "contention": 1, "hazard": 1, "communication_demand": 2, "branching_load": 1, "uncertainty": 1},
@@ -570,7 +606,7 @@
     {
       "anchor_id": "liv-p2-03",
       "domain": "living_public",
-      "scene_key": "restaurant",
+      "scene_key": "restaurant_svc",
       "scene_anchor": "event_supply_handoff",
       "family": "supply_distribution",
       "typical_or_common": "common",
@@ -595,7 +631,7 @@
     {
       "anchor_id": "liv-p3-01",
       "domain": "living_public",
-      "scene_key": "modern_house_nvd",
+      "scene_key": "house",
       "scene_anchor": "assisted_transfer",
       "family": "assisted_transfer",
       "typical_or_common": "common",
@@ -620,7 +656,7 @@
     {
       "anchor_id": "liv-p3-02",
       "domain": "living_public",
-      "scene_key": "city",
+      "scene_key": "pending_reassignment",
       "scene_anchor": "public_coverage_service",
       "family": "public_coverage",
       "typical_or_common": "common",
@@ -645,7 +681,7 @@
     {
       "anchor_id": "liv-p4-01",
       "domain": "living_public",
-      "scene_key": "city",
+      "scene_key": "pending_reassignment",
       "scene_anchor": "shared_access_corridor",
       "family": "shared_access",
       "typical_or_common": "common",
@@ -670,7 +706,7 @@
     {
       "anchor_id": "liv-p4-02",
       "domain": "living_public",
-      "scene_key": "modern_house_nvd",
+      "scene_key": "house",
       "scene_anchor": "shared_room_setup",
       "family": "event_setup",
       "typical_or_common": "common",
@@ -695,7 +731,7 @@
     {
       "anchor_id": "liv-t-01",
       "domain": "living_public",
-      "scene_key": "modern_house_nvd",
+      "scene_key": "house",
       "scene_anchor": "room_assistance_parallel",
       "family": "room_assistance",
       "typical_or_common": "typical",
@@ -720,7 +756,7 @@
     {
       "anchor_id": "liv-t-02",
       "domain": "living_public",
-      "scene_key": "city",
+      "scene_key": "pending_reassignment",
       "scene_anchor": "evacuation_route_handoff",
       "family": "evacuation",
       "typical_or_common": "typical",
@@ -745,7 +781,7 @@
     {
       "anchor_id": "liv-t-03",
       "domain": "living_public",
-      "scene_key": "restaurant",
+      "scene_key": "restaurant_svc",
       "scene_anchor": "privacy_preserving_supply_access",
       "family": "privacy_patrol",
       "typical_or_common": "typical",
