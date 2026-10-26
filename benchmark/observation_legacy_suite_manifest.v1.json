@@ -1,0 +1,171 @@
+{
+  "schema": "heterocoord.observation.legacy_suite_manifest.v1",
+  "source": {
+    "branch": "feature/benchmark-ondemand-vision",
+    "path": "source/EAI/test/test_benchmark_goal_camera_tools.py",
+    "line_count": 926,
+    "sha256": "698948870980ca3c6ca9afbb7ef49ad048bbbc1191ca2c6fd748439fb14f6567"
+  },
+  "adapted_test_files": [
+    "algorithm/skills/tests/test_observation_camera.py",
+    "benchmark/tests/test_observation_host_episode.py",
+    "benchmark/tests/test_observation_metering_chain.py",
+    "benchmark/tests/test_observation_resurrection.py"
+  ],
+  "test_mapping": {
+    "test_no_opt_in_zero_requests_zero_frames_zero_link_bytes": {
+      "test": "test_no_opt_in_zero_requests_zero_frames_zero_link_bytes",
+      "file": "benchmark/tests/test_observation_host_episode.py"
+    },
+    "test_single_request_one_frame_with_hash_clock_pose_calibration": {
+      "test": "test_single_request_one_frame_with_hash_clock_pose_calibration",
+      "file": "benchmark/tests/test_observation_host_episode.py"
+    },
+    "test_p1_late_frame_after_timeout_is_suppressed_but_bytes_kept": {
+      "test": "test_p1_late_frame_after_timeout_is_suppressed_but_bytes_kept",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_p1_runner_idle_wakes_at_camera_deadline_not_fixed_step": {
+      "test": "test_p1_runner_idle_wakes_at_camera_deadline_not_fixed_step",
+      "file": "benchmark/tests/test_observation_host_episode.py"
+    },
+    "test_duplicate_request_id_rejected": {
+      "test": "test_duplicate_request_id_rejected",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_unknown_sensor_and_permission_errors": {
+      "test": "test_unknown_sensor_and_permission_errors",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_resolution_budget_quality_deadline_and_unsupported_field": {
+      "test": "test_resolution_budget_quality_deadline_and_unsupported_field",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_busy_backpressure": {
+      "test": "test_busy_backpressure",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_cancel_before_capture": {
+      "test": "test_cancel_before_capture",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_cache_hit_still_remeters_bytes": {
+      "test": "test_cache_hit_still_remeters_bytes",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_p1_oversized_frame_not_cached_and_fails_terminal": {
+      "test": "test_p1_oversized_frame_not_cached_and_fails_terminal",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_p1_inactive_robot_emits_terminal_cancel": {
+      "test": "test_p1_inactive_robot_emits_terminal_cancel",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_p1_inactive_after_publish_suppresses_late_frame": {
+      "test": "test_p1_inactive_after_publish_suppresses_late_frame",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_p1_backend_close_destroys_owned_product": {
+      "test": "test_p1_backend_close_destroys_owned_product",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_p1_external_owner_blocks_destroy": {
+      "test": "test_p1_external_owner_blocks_destroy",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_p1_idle_timeout_releases_on_later_tick": {
+      "test": "test_p1_idle_timeout_releases_on_later_tick",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_p1_capture_failure_cleans_owned_product": {
+      "test": "test_p1_capture_failure_cleans_owned_product",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_member_join_requires_predeclared_catalog": {
+      "test": "test_member_join_requires_predeclared_catalog",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_p1_hidden_join_identity_not_in_public_profile": {
+      "test": "test_p1_hidden_join_identity_not_in_public_profile",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_p1_bandwidth_limited_queue_jumps_windows_within_turn_budget": {
+      "test": "test_p1_bandwidth_limited_queue_jumps_windows_within_turn_budget",
+      "file": "benchmark/tests/test_observation_host_episode.py"
+    },
+    "test_p1_destroy_failure_keeps_delivered_frame": {
+      "test": "test_p1_destroy_failure_keeps_delivered_frame",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_p1_episode_budget_rejects_over_budget_deadline": {
+      "test": "test_p1_episode_budget_rejects_over_budget_deadline",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_p1_close_finalizes_pending_beyond_budget": {
+      "test": "test_p1_close_finalizes_pending_beyond_budget",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_p2_publish_failure_does_not_leave_cache": {
+      "test": "test_p2_publish_failure_does_not_leave_cache",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_p2_payload_ref_rejected_by_telemetry": {
+      "test": "test_p2_payload_ref_rejected_by_telemetry",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_p1_host_member_join_delivers_profile_delta": {
+      "test": "test_p1_host_member_join_delivers_profile_delta",
+      "file": "benchmark/tests/test_observation_host_episode.py"
+    },
+    "test_p1_host_member_join_observation_fallback_without_hook": {
+      "test": "test_p1_host_member_join_observation_fallback_without_hook",
+      "file": "benchmark/tests/test_observation_host_episode.py"
+    },
+    "test_p1_finalize_rejects_submit_cancel_and_activation": {
+      "test": "test_p1_finalize_rejects_submit_cancel_and_activation",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_p1_close_terminalizes_orphaned_nonterminal_rows": {
+      "test": "test_p1_close_terminalizes_orphaned_nonterminal_rows",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_p2_cleanup_retry_after_destroy_failure": {
+      "test": "test_p2_cleanup_retry_after_destroy_failure",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_p2_cleanup_stays_pending_while_destroy_keeps_failing": {
+      "test": "test_p2_cleanup_stays_pending_while_destroy_keeps_failing",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_episode_teardown_clears_cache": {
+      "test": "test_episode_teardown_clears_cache",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_idle_destroy_rebuild_warmup_and_shared_owner": {
+      "test": "test_idle_destroy_rebuild_warmup_and_shared_owner",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    },
+    "test_pose_tools_coexist": {
+      "test": "test_camera_tools_coexist_on_shared_communication_runtime",
+      "file": "benchmark/tests/test_observation_host_episode.py"
+    },
+    "test_formal_runner_archives_camera_report": {
+      "test": "test_driver_archives_camera_report",
+      "file": "benchmark/tests/test_observation_host_episode.py"
+    },
+    "test_tool_teardown_error_preserves_scoring_archive": {
+      "test": "test_tool_teardown_error_preserves_scoring_archive",
+      "file": "benchmark/tests/test_observation_host_episode.py"
+    },
+    "test_pending_render_cleanup_is_archived_even_without_raised_close": {
+      "test": "test_pending_render_cleanup_is_archived_even_without_raised_close",
+      "file": "benchmark/tests/test_observation_host_episode.py"
+    },
+    "test_catalog_declares_ondemand_capability_without_activation": {
+      "test": "test_registry_declares_ondemand_capability_without_activation",
+      "file": "algorithm/skills/tests/test_observation_camera.py"
+    }
+  },
+  "missing": [],
+  "notes": "The old host-specific tests are mapped to ObservationEpisodeDriver; all mappings are static CPU assertions and do not claim Gate C."
+}
