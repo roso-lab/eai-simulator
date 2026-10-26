@@ -21,6 +21,19 @@ Goal 继续保持 `active`。工程已经具备“输入审计 → case manifest
 4. 对真实 receipt 逐字段检查：终局状态、缺事件 fail-closed、联合持有区间、截止期、身份集合、义务 ledger、artifact bytes 与 manifest digest；不允许以进程退出码或 EMOS 决策代替 evaluator 事实。
 5. CPU 闭环通过后，才冻结 native CUDA manifest 和命令哈希，执行 A/B/C 三路真实 GPU；三路证据完成前所有正式 gate 继续为 `false`。
 
+## 真实 evaluator 的最小接入契约
+
+通用运行层已经具备 `collect_receipt_material(runtime, job)`、内容寻址
+`write_terminal_receipt_evidence(...)`、`receipt_bridge_v1.build_raw_receipt_from_artifact(...)`
+和 `production_results_v1.run_production_case_from_artifacts(...)`。地图接入后剩余的不是再写一个通用分数函数，而是为 `liv-t-04` 提供任务特定 evaluator adapter：
+
+- `episode`：终局 `status/condition_id/branch/repeat_id/checkpoint_id` 及 evaluator version；
+- `streams`：`milestones/task_events/zone_intervals/hold_intervals/identity_records/integrity_confirmed`；其中联合承托使用逻辑持有区间，不读取物理接触；
+- `facts`：evaluator-owned `d1/base_task_success/d4_items/d6`，可选 `d5_attempt`，再由注册 oracle 归约 obligation 与安全/截止期成功条件；
+- evaluator 必须从实际 task runtime 读取上述事实并提交 evidence，不能从 `completed`、进程退出、锁服务 grant/deny 或 caller score 推断成功。
+
+因此，最终地图到位后只需补齐 room_06 task runtime/evaluator 的这一个外部输入边界；通用 receipt、oracle、结果计算和 replay 链无需重新设计。
+
 ## 仍然是硬缺口
 
 - 协作者最终语义地图尚未交付到 `current`。
