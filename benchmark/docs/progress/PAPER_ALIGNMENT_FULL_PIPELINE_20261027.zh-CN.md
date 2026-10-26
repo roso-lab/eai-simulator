@@ -169,3 +169,24 @@ schema mismatch 和 oracle 测试文件缺失均属于提交时序造成的旧�
 
 当前仍未被代码自动解决的外部输入是 evaluator-owned terminal material、真实
 GPU physics/device readback、D2 C0–C3 与 D5/D6 的完整统计目录；正式资格门保持关闭。
+
+## H. 2026-10-27 Goal 续推进：终局收据自动接缝与直接 GPU 策略
+
+本轮复盘确认：`tools/benchmark_branch/receipt_material.py` 已定义
+`collect_receipt_material()` / `write_terminal_receipt_evidence()`，但 branch
+executor 仍只落生命周期、步骤和观察日志，尚未在终局自动调用 evaluator 的显式
+`receipt_material` hook。这是地图接入后从真实运行进入 receipt bridge 的最后一个
+工程接缝，已列为当前工程实现任务；缺少 hook 或材料无效时必须 fail-closed，禁止以
+进程退出、`completed`、lock grant 或 caller score 伪造科学事实。
+
+GPU 采用论文所需的真实 CUDA 路径直接推进。按用户最新裁决，ToDesk/普通显示共驻
+进程不再作为公开 benchmark 的普通 admission blocker，也不执行针对 ToDesk 的
+kill；仅保留 requested device、actual physics/device readback、GPU UUID 和每路
+checkpoint/session 证据的一致性要求。CPU fallback、缺 readback 或缺 terminal
+receipt 仍只能进入 diagnostic-only，不能升级为论文物理证据。
+
+下一阶段停止条件保持不变：最终地图审计与 manifest 通过后，至少完成一个
+`room_06 × liv-t-04` 的真实 evaluator terminal artifact → receipt bridge →
+oracle/obligation → case readiness → D1–D6/export/replay 纵向闭环；在 D2–D6
+完整矩阵和真实设备证据齐备前，`physical_qualified`、`rankable`、
+`paper_score_eligible` 继续为 `false`。
