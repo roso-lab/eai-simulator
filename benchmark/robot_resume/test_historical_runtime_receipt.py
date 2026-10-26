@@ -104,11 +104,15 @@ def test_authority_decision_accepts_ruling_variant_only_by_name():
     # The ruling decision is an explicit user acceptance carried by the same
     # contract; an unknown decision string stays rejected (root=None skips the
     # file/commit recheck, isolating the authority branch).
+    from historical_runtime_receipt import canonical_sha256
+    asset_sources = []
+    capability_input = {}
+    initial_state = {}
     row = {"instance_id": "hc-rt-002", "source_resume_id": "x", "profile_id": "p",
            "admission_class": "pool", "platform_type": "carter", "configuration_role": "mobile_platform",
-           "asset_binding": {"asset_digest": "1" * 64},
-           "capability_binding": {"capability_digest": "2" * 64},
-           "initial_state_binding": {"initial_state_digest": "3" * 64}}
+           "asset_binding": {"asset_sources": asset_sources, "asset_digest": canonical_sha256(asset_sources)},
+           "capability_binding": {"source_input": capability_input, "capability_digest": canonical_sha256(capability_input)},
+           "initial_state_binding": {"initial_state": initial_state, "initial_state_digest": canonical_sha256(initial_state)}}
     source = {"path": "benchmark/robot_resume/RUNTIME_RULING_20261026.zh-CN.md",
               "sha256": "a" * 64, "source_commit": "b" * 40,
               "record_locator": "ruling list", "content_assertions": ["hc-rt-002"]}

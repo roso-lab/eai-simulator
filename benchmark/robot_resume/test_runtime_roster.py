@@ -61,3 +61,10 @@ def test_skill_change_same_version_is_noop_and_malformed_rejected():
     assert affected_entries(doc, {current["skill_id"]: current["provider_version"]}) == []
     with pytest.raises(ValueError):
         parse_changes(["not-a-version"])
+
+
+def test_generated_digest_is_derived_from_bound_payloads():
+    doc, _, _ = build()
+    for row in doc["robots"]:
+        assert row["capability_binding"]["capability_digest"] == __import__("generate_runtime_roster")._digest(row["capability_binding"]["source_input"])
+        assert row["initial_state_binding"]["initial_state_digest"] == __import__("generate_runtime_roster")._digest(row["initial_state_binding"]["initial_state"])

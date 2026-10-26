@@ -52,7 +52,7 @@ PYTHONDONTWRITEBYTECODE=1 python -m pytest -q -p no:cacheprovider \
 
 1. 真实 evaluator 尚未为 room_06 × liv-t-04 产生第一份 terminal artifact/receipt；当前通过的是生产代码路径的 CPU fixture 验收，不是正式实验数据。
 2. 固定 panel package、重复层级、D4 closure、D5 sham/intervention、D6 独立 calibration 的真实支持尚未齐全。
-3. 机器人历史证据目前严格定位到 15/27；其余 12 台保持 unknown，不得置 `runtime_qualified=true`。
+3. 机器人池行级运行时资格现为 27/27：15 台来自可追溯历史集成收据，12 台来自出题人逐台点名的用户裁决收据。该状态只影响 `runtime_qualified`，不打开 physical/ranking/paper gates；任何未列入裁决名单的实例仍 fail-closed。
 4. physical/statistical/release 证据未闭合，所有正式门继续 false。
 
 ## 发布策略

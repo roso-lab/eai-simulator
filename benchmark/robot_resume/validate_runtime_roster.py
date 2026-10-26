@@ -68,6 +68,17 @@ def main(argv: list[str] | None = None) -> None:
             path = ROOT / asset["path"]
             assert path.is_file(), path
             assert _sha256(path) == asset["sha256"], asset["path"]
+        assert r["asset_binding"]["asset_digest"] == hashlib.sha256(
+            json.dumps(r["asset_binding"]["asset_sources"], ensure_ascii=False,
+                       sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        capability_input = r["capability_binding"]["source_input"]
+        assert r["capability_binding"]["capability_digest"] == hashlib.sha256(
+            json.dumps(capability_input, ensure_ascii=False, sort_keys=True,
+                       separators=(",", ":")).encode()).hexdigest()
+        initial_state = r["initial_state_binding"]["initial_state"]
+        assert r["initial_state_binding"]["initial_state_digest"] == hashlib.sha256(
+            json.dumps(initial_state, ensure_ascii=False, sort_keys=True,
+                       separators=(",", ":")).encode()).hexdigest()
     assert restrictions == {
         "GO2_OFFROAD_MOTION_UNSTABLE": 2,
         "G1_WALK_GRASP_MODE_EXCLUSIVE_AND_STAIRS_UNSTABLE": 1,

@@ -184,6 +184,14 @@ def validate_receipt(receipt: Mapping[str, Any], *, roster_row: Mapping[str, Any
         for key, value in expected.items():
             if row[key] != value:
                 raise RuntimeReceiptError(f"{key} does not match roster")
+        computed = {
+            "asset_digest": canonical_sha256(roster_row.get("asset_binding", {}).get("asset_sources")),
+            "capability_digest": canonical_sha256(roster_row.get("capability_binding", {}).get("source_input")),
+            "initial_state_digest": canonical_sha256(roster_row.get("initial_state_binding", {}).get("initial_state")),
+        }
+        for key, value in computed.items():
+            if value != expected[key]:
+                raise RuntimeReceiptError(f"{key} does not match its bound payload")
     arm_required = row["configuration_role"] == "standalone_arm"
     if arm_required and status == "qualified":
         if manipulation is None:

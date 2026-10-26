@@ -28,6 +28,11 @@ SCHEMA = "heterocoord.historical_runtime_qualification_receipt.v1"
 HISTORICAL_DECISION = "user_historical_integration_accepted"
 RULING_DECISION = "user_runtime_unknown_ruling_accepted"
 DECISIONS = frozenset({HISTORICAL_DECISION, RULING_DECISION})
+RULING_INSTANCE_IDS = frozenset({
+    "hc-rt-002", "hc-rt-003", "hc-rt-008", "hc-rt-011", "hc-rt-013",
+    "hc-rt-015", "hc-rt-016", "hc-rt-017", "hc-rt-019", "hc-rt-022",
+    "hc-rt-023", "hc-rt-024",
+})
 STATUS = frozenset({"qualified", "failed", "blocked_missing_evidence", "rejected"})
 CHECK_NAMES = ("integration_record", "functional_record", "configuration_binding")
 HEX = frozenset("0123456789abcdef")
@@ -163,6 +168,8 @@ def validate_historical_receipt(
     authority = _mapping(row["authority"], "authority")
     if authority.get("decision") not in DECISIONS or not _text(authority.get("decision_date"), "authority.decision_date"):
         raise HistoricalReceiptError("historical receipt lacks explicit user decision authority")
+    if authority.get("decision") == RULING_DECISION and row["instance_id"] not in RULING_INSTANCE_IDS:
+        raise HistoricalReceiptError("user ruling receipt instance is outside the approved twelve")
     scope = _mapping(row["platform_scope"], "platform_scope")
     if scope.get("platform_type") != row["platform_type"] or scope.get("configuration_role") != row["configuration_role"]:
         raise HistoricalReceiptError("platform_scope does not match receipt identity")
@@ -202,6 +209,14 @@ def validate_historical_receipt(
         for key, value in expected.items():
             if row[key] != value:
                 raise HistoricalReceiptError(f"{key} does not match roster")
+        computed = {
+            "asset_digest": canonical_sha256(roster_row.get("asset_binding", {}).get("asset_sources")),
+            "capability_digest": canonical_sha256(roster_row.get("capability_binding", {}).get("source_input")),
+            "initial_state_digest": canonical_sha256(roster_row.get("initial_state_binding", {}).get("initial_state")),
+        }
+        for key, value in computed.items():
+            if value != expected[key]:
+                raise HistoricalReceiptError(f"{key} does not match its bound payload")
     if canonical_sha256({key: value for key, value in row.items() if key != "receipt_digest"}) != row["receipt_digest"]:
         raise HistoricalReceiptError("historical receipt_digest seal mismatch")
     row["sources"] = sources
@@ -232,4 +247,4 @@ def make_historical_receipt(*, roster_row: Mapping[str, Any], receipt_id: str,
 
 
 __all__ = ["CHECK_NAMES", "HistoricalReceiptError", "SCHEMA", "canonical_sha256",
-           "make_historical_receipt", "validate_historical_receipt"]
+           "make_historical_receipt", "validate_historical_receipt", "RULING_INSTANCE_IDS"]
