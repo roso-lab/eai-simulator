@@ -11,7 +11,8 @@ from benchmark.catalog_mapping_v3 import RECEIPT_SCHEMA, verify_catalog_mapping
 from benchmark.canonical_deployment_v3 import from_mapping
 
 
-FIXTURE = Path("benchmark/fixtures/p4_candidate_factory_20261021")
+REPO_ROOT = Path(__file__).resolve().parents[2]
+FIXTURE = REPO_ROOT / "benchmark/fixtures/p4_candidate_factory_20261021"
 FILES = (
     "catalog.json",
     "scenario.json",
@@ -28,7 +29,11 @@ def _copy_fixture(tmp_path: Path) -> dict[str, Path]:
     paths = {}
     for name in FILES:
         target = tmp_path / name
-        source = (FIXTURE / name) if name != "robot_pool_resume.v1.json" else Path("benchmark/robot_resume/robot_pool_resume.v1.json")
+        source = (
+            (FIXTURE / name)
+            if name != "robot_pool_resume.v1.json"
+            else REPO_ROOT / "benchmark/robot_resume/robot_pool_resume.v1.json"
+        )
         shutil.copyfile(source, target)
         paths[name] = target
     scenario = json.loads(paths["scenario.json"].read_text(encoding="utf-8"))
