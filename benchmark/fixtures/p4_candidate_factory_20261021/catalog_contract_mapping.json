@@ -1,7 +1,7 @@
 {
   "schema": "heterocoord.catalog_contract_mapping.v1",
   "mapping_profile": "prod-p4-01.catalog-contract.v1",
-  "paper_commit": "1f329494e755523692f5f96c8e0889c6cec15a82",
+  "paper_commit": "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
   "instance_id": "prod-p4-01-instance-candidate-20261021",
   "anchor_id": "prod-p4-01",
   "scene_key": "factory",
@@ -9,9 +9,9 @@
     "catalog_sha256": "a2ba1a596d0e61435d700186215ead74fec78ed77e0969e70943fcd49b84b6ef",
     "scenario_sha256": "b5fe1573a29112c0d8f20b578d05bbf1f7220d705bc99cb9c3f1f7aa5b63dc11",
     "contract_sha256": "d5f79af4eab7d1e49831f78abc435e49b3302261630d6f360060ae9b8e977159",
-    "package_sha256": "f65312f99a6d2a17c7797a2ef44782da551fc539e0d5c459cb41f355d7d34cab",
+    "package_sha256": "eb17e4197e5dcfa41a22c23cfbb7bfb6e1030d6048961f8020df27d6029d71e9",
     "canonical_contract_digest": "bd08de7bf6b80a2f09afbf26a0d126b73a7d0ec103b1459395ce9fc73fd11128",
-    "robot_resume_sha256": "a9e5f2beb51e29f126045adb95279f372b5b3f76c4b91aade0a3f9422c50aef8"
+    "robot_resume_sha256": "8316238b18ec78c4b606f033da1abdeb4a65eab5e2e5a3b19a1a8a28a9441343"
   },
   "claims": [
     {
