@@ -1,0 +1,76 @@
+{
+  "schema": "heterocoord.historical_runtime_qualification_receipt.v1",
+  "receipt_id": "hc-rt-014.historical.20261026",
+  "instance_id": "hc-rt-014",
+  "source_resume_id": "scout.SCOUT_DIFF_CFG.v0001",
+  "profile_id": "scout.no_external_arm.SCOUT_DIFF_CFG",
+  "admission_class": "pool",
+  "platform_type": "scout",
+  "configuration_role": "mobile_platform",
+  "asset_digest": "f3ce32f579683a194ae0ab1cddc7b6228c5565f6d382de39400772f374d44d41",
+  "capability_digest": "07507430f4d97077550688cf102efff283550a2845d990c3f00ee005b693364f",
+  "initial_state_digest": "0ae4ef435fe9f821b154c98bcfad568bbf145408a5015b008d557333e067a074",
+  "authority": {
+    "decision": "user_historical_integration_accepted",
+    "decision_date": "2026-10-26",
+    "scope": "existing smoke, calibration, diagnostic and integration results may establish roster runtime qualification; formal physical/ranking/paper gates stay false"
+  },
+  "platform_scope": {
+    "platform_type": "scout",
+    "configuration_role": "mobile_platform",
+    "motion_controller": "SCOUT_DIFF_CFG",
+    "manipulator_controller": null,
+    "external_manipulator": null,
+    "limitations": []
+  },
+  "sources": [
+    {
+      "path": "tools/scenario_generation/ARM_DEPLOYMENT_ROADMAP.zh-CN.md",
+      "sha256": "2507d2e562825f64dcf0b0cb7fe831aca87eec03fc6f8efe0fa90fed6a903591",
+      "source_commit": "c840ac1a35a901a998f197d60ad9ff00de4afc1d",
+      "record_locator": "runtime mount/base matrices, lines 115-180",
+      "content_assertions": [
+        "Scout | 52.0000 / 73.9189 | pass | pass",
+        "Scout 接触报告"
+      ]
+    }
+  ],
+  "checks": {
+    "integration_record": {
+      "status": "passed",
+      "source_refs": [
+        "0"
+      ],
+      "details": {
+        "recorded": "Scout runtime diagnostics recorded passing motion/support checks."
+      }
+    },
+    "functional_record": {
+      "status": "passed",
+      "source_refs": [
+        "0"
+      ],
+      "details": {
+        "recorded": "Scout runtime diagnostics recorded passing motion/support checks."
+      }
+    },
+    "configuration_binding": {
+      "status": "passed",
+      "source_refs": [
+        "0"
+      ],
+      "details": {
+        "binding": "exact instance/platform/configuration scope"
+      }
+    }
+  },
+  "status": "qualified",
+  "runtime_qualified": true,
+  "failure": null,
+  "formal_gates": {
+    "physical_qualified": false,
+    "rankable": false,
+    "paper_score_eligible": false
+  },
+  "receipt_digest": "08f65fe6e485b89f53be0a0d6567e0e58b2573a638994a67caf2a50125e40d60"
+}

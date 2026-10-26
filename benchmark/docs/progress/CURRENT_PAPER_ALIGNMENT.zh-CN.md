@@ -1,4 +1,11 @@
-# 当前论文与工程对齐进展
+# 当前论文与工程对齐进展（历史记录）
+
+> **基线说明（2026-10-24）**：本文档原按 `1f329494e755523692f5f96c8e0889c6cec15a82`
+> 编写，仅保留为历史差异记录。当前冻结的权威 Overleaf ref 是
+> `overleaf-old/main@0b006d4efcd25d5160d4b0a6e75cddd9e5265e44`；本地论文工作树仍在
+> `72b6a3b975ae83743dc1d447b99edd728cb1dcdc`，不得把它误称为最新权威基线。
+> 当前语义迁移状态仍为 `migrated_identity_semantics_pending`，详见
+> [论文语义迁移审计](PAPER_SEMANTIC_MIGRATION_AUDIT_20261024.zh-CN.md)。
 
 论文基准：`1f329494e755523692f5f96c8e0889c6cec15a82`（Overleaf old remote 于 2026-10-21 15:45 更新）。此前工程基线 `75ceff6`、`bb82b7b` 与 `af12f6d` 已过时。
 工程目录：`/home/pupil/HeteroCoord`。日期：2026-10-21。

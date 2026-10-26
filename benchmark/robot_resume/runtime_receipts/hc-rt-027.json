@@ -1,0 +1,78 @@
+{
+  "schema": "heterocoord.historical_runtime_qualification_receipt.v1",
+  "receipt_id": "hc-rt-027.historical.20261026",
+  "instance_id": "hc-rt-027",
+  "source_resume_id": "microduck.MICRODUCK_VELSTAND_CFG.v0001",
+  "profile_id": "microduck.no_external_arm.MICRODUCK_VELSTAND_CFG",
+  "admission_class": "pool",
+  "platform_type": "microduck",
+  "configuration_role": "mobile_platform",
+  "asset_digest": "0541ae4535c493f6416c553d284335df0f1e9ea7f758e679d54a6c50a6692c73",
+  "capability_digest": "4a49db5b4278320f18ec65631b8de4e2a6423f2703db671627ffde90144440e6",
+  "initial_state_digest": "17658eb76eba80ed35074e11062325ab1a40af6664eff57f9b39ec139427a83c",
+  "authority": {
+    "decision": "user_historical_integration_accepted",
+    "decision_date": "2026-10-26",
+    "scope": "existing smoke, calibration, diagnostic and integration results may establish roster runtime qualification; formal physical/ranking/paper gates stay false"
+  },
+  "platform_scope": {
+    "platform_type": "microduck",
+    "configuration_role": "mobile_platform",
+    "motion_controller": "MICRODUCK_VELSTAND_CFG",
+    "manipulator_controller": null,
+    "external_manipulator": null,
+    "limitations": []
+  },
+  "sources": [
+    {
+      "path": "tools/validation/mobile_microduck_smoke.py",
+      "sha256": "9e4f064ceae28b1edcc20f1336c1bf64b94c0692de5194df0c4cebf59a9e63d3",
+      "source_commit": "f51164de6b01016c88a368ec5bdf55aa6962cb5b",
+      "record_locator": "commit f51164de recorded EAI-session smoke 12/12",
+      "content_assertions": [
+        "Stage-5 smoke",
+        "MicroDuck",
+        "stand/walk/turn",
+        "SUMMARY"
+      ]
+    }
+  ],
+  "checks": {
+    "integration_record": {
+      "status": "passed",
+      "source_refs": [
+        "0"
+      ],
+      "details": {
+        "recorded": "MicroDuck commit records EAI-session smoke 12/12 for stand/walk/turn."
+      }
+    },
+    "functional_record": {
+      "status": "passed",
+      "source_refs": [
+        "0"
+      ],
+      "details": {
+        "recorded": "MicroDuck commit records EAI-session smoke 12/12 for stand/walk/turn."
+      }
+    },
+    "configuration_binding": {
+      "status": "passed",
+      "source_refs": [
+        "0"
+      ],
+      "details": {
+        "binding": "exact instance/platform/configuration scope"
+      }
+    }
+  },
+  "status": "qualified",
+  "runtime_qualified": true,
+  "failure": null,
+  "formal_gates": {
+    "physical_qualified": false,
+    "rankable": false,
+    "paper_score_eligible": false
+  },
+  "receipt_digest": "ea64fb941ad27cb16b8ac95527933b467ee7fc0052c76022e5f532d300459704"
+}

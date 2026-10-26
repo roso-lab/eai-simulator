@@ -1,0 +1,76 @@
+{
+  "schema": "heterocoord.historical_runtime_qualification_receipt.v1",
+  "receipt_id": "hc-rt-012.historical.20261026",
+  "instance_id": "hc-rt-012",
+  "source_resume_id": "m20.M20_ROUGH_RSL_CFG.v0001",
+  "profile_id": "m20.no_external_arm.M20_ROUGH_RSL_CFG",
+  "admission_class": "pool",
+  "platform_type": "m20",
+  "configuration_role": "mobile_platform",
+  "asset_digest": "b018e65f245dd2c5b3a40a473a347530c9ac9896053112c365f81386f73d9f0e",
+  "capability_digest": "faa2298280fe2d8c0b978dc35c9f8f22034798c3df2a4fde3ccb1a021389ebbf",
+  "initial_state_digest": "c5b939751f8e95213015c700f31312e29dd22d89a2224338f9a062c99c327af2",
+  "authority": {
+    "decision": "user_historical_integration_accepted",
+    "decision_date": "2026-10-26",
+    "scope": "existing smoke, calibration, diagnostic and integration results may establish roster runtime qualification; formal physical/ranking/paper gates stay false"
+  },
+  "platform_scope": {
+    "platform_type": "m20",
+    "configuration_role": "mobile_platform",
+    "motion_controller": "M20_ROUGH_RSL_CFG",
+    "manipulator_controller": null,
+    "external_manipulator": null,
+    "limitations": []
+  },
+  "sources": [
+    {
+      "path": "tools/scenario_generation/ARM_DEPLOYMENT_ROADMAP.zh-CN.md",
+      "sha256": "2507d2e562825f64dcf0b0cb7fe831aca87eec03fc6f8efe0fa90fed6a903591",
+      "source_commit": "c840ac1a35a901a998f197d60ad9ff00de4afc1d",
+      "record_locator": "runtime mount/base matrices, lines 115-180",
+      "content_assertions": [
+        "m20 | 裸 | pass",
+        "倾角 0.001"
+      ]
+    }
+  ],
+  "checks": {
+    "integration_record": {
+      "status": "passed",
+      "source_refs": [
+        "0"
+      ],
+      "details": {
+        "recorded": "M20 bare-host runtime diagnostic passed in the recorded matrix."
+      }
+    },
+    "functional_record": {
+      "status": "passed",
+      "source_refs": [
+        "0"
+      ],
+      "details": {
+        "recorded": "M20 bare-host runtime diagnostic passed in the recorded matrix."
+      }
+    },
+    "configuration_binding": {
+      "status": "passed",
+      "source_refs": [
+        "0"
+      ],
+      "details": {
+        "binding": "exact instance/platform/configuration scope"
+      }
+    }
+  },
+  "status": "qualified",
+  "runtime_qualified": true,
+  "failure": null,
+  "formal_gates": {
+    "physical_qualified": false,
+    "rankable": false,
+    "paper_score_eligible": false
+  },
+  "receipt_digest": "08401463988fa6ced4037f1257b127964f89f44c8981783c7b63d70f47d965e9"
+}
