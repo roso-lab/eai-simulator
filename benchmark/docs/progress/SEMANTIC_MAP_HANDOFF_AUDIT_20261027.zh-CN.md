@@ -45,6 +45,12 @@ PY
 目录中的 `.write.lock` 修改时间为 2026-10-23；只读进程检查未发现当前 topology
 authoring 进程，但锁归属仍由协作者确认，本线不自行清理。
 
+使用已推送的历史证据转正名册
+`benchmark/robot_resume/robot_runtime_roster.v1.promoted.json`（27/27
+`runtime_qualified=true`）重新执行 builder preflight 后，失败项只剩上述 5 项地图
+缺口；机器人池不再是当前 room_06 manifest 阻塞源。命令返回码为 2，审计报告成功
+写出，`case-manifest.json` 不存在，符合 fail-closed 约束。
+
 ## 放行条件
 
 协作者交付完整地图并解除写入后，必须重新记录最终 `save_id`/revision 链和所有产品
