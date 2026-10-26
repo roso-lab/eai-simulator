@@ -67,3 +67,36 @@ case_input_audit_v2.1
 
 在此之前，所有 room_06 结果只能是输入诊断或 `measured_unqualified`，正式资格门保持
 `false`。
+
+## 2026-10-27 后续复审：当前远端地图已通过输入门
+
+上面的失败记录保留为历史审计，不代表当前远端 `HeteroCoord` 最新状态。基于
+`origin/HeteroCoord@46b358e6`（其中包含 `room_06` 地图修订
+`d9872563938c42fd85f43efa3dab3c0b`）重新运行同一 v2.1 审计，结果为
+`case_ready=true`，失败列表为空。当前审计确认：
+
+- 12 个语义点均有非空唯一命名与有效 ground/aerial 导航绑定；
+- ground topology 为 50 个节点、63 条边；
+- `save_id → manifest.revision → semantic-footprints.project_revision` 链一致；
+- `semantic_binding_digest` 链一致；
+- 任务要求的四个交互点已存在：`floor1-bookshelf`、`floor2-bookshelf-1/2/3`；
+- promoted runtime roster 为 27/27，所选 case 的三台机器人均带有历史运行时资格收据。
+
+在同一隔离 worktree 中使用用户已确认的 case binding
+`artifacts/case-room06-livt04-20261027/binding.json` 重建 manifest，结果通过
+`validate_case_manifest`：
+
+```text
+case_id=room06-livt04-20261027
+task_id=liv-t-04
+scene_id=living_room_06
+semantic_map_digest=6e4fed64cd43a6daa53bba4ba5edbcc072186dcc5b020989ff5eb2ed6bd1db1b
+roster_digest=1357626ae7c880eac7e0036fd823302442add297222983cd52d4cf2855569cd2
+robots=3
+object_bindings=heterocoord.task-object-bindings.v1
+```
+
+这一步只证明“最终地图 → 审计 → case manifest”输入接缝已打开，不产生 evaluator
+终局事实，也不改变 `measured_unqualified` 与三项 formal gate 全部为 `false` 的边界。
+下一步可以直接进入 EMOS dry-run 和真实 evaluator terminal receipt；若协作者继续更新
+地图，必须重新记录 save-id 链与 digest 后再生成 manifest。

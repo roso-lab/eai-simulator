@@ -151,3 +151,21 @@ schema mismatch 和 oracle 测试文件缺失均属于提交时序造成的旧�
 该运行的 scope 明确为 `synthetic_diagnostic_fixture`，报告注明 D5 的
 `excluded_families_below_case_floor`，三项 formal gate 全为 `false`。这证明论文
 计算、统计汇总、导出与 replay 接缝已能独立闭合，但不替代真实 evaluator receipt。
+
+### G. 当前远端地图复审与首个 case 输入闭合（2026-10-27）
+
+远端 `HeteroCoord@46b358e6` 中的 `room_06/current` 已不再是前述不完整写入状态。
+按同一 v2.1 审计命令复审通过：12 个语义点、50 个 ground 节点、63 条边，save-id
+链和 semantic-binding digest 均一致，`liv-t-04` 所需四个书架点全部可解析。
+使用 promoted 27 台名册和已确认的 task-generated object binding 重建并验证
+`room06-livt04-20261027` manifest 也已通过；该结果只代表输入闭合，不代表物理或论文
+数据。明日完整地图接入后的最短路径因此固定为：
+
+```text
+最终地图审计 → manifest 重建 → EMOS initialize/decision dry-run
+→ evaluator terminal artifact/receipt → oracle/obligation reduction
+→ fixed panel projection → D1–D6 → export/replay
+```
+
+当前仍未被代码自动解决的外部输入是 evaluator-owned terminal material、真实
+GPU physics/device readback、D2 C0–C3 与 D5/D6 的完整统计目录；正式资格门保持关闭。
