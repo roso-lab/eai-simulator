@@ -94,13 +94,28 @@ GPU 运行按论文方法直接请求真实 CUDA 设备。ToDesk 或其他显示
 
 ### C. 当前并行工作
 
-- `production_results_e2e_contract`：Sol 正在补一条小型 evaluator-owned synthetic
-  E2E 回归，覆盖 receipt → panel → D1–D6 → export/replay；它用于验证工程接缝，
-  不升级正式数据。
+- `production_results_e2e_contract`：已完成小型 evaluator-owned synthetic E2E 回归，
+  覆盖 receipt → panel → D1–D6 → export/replay；它用于验证工程接缝，不升级正式数据。
 - ZCode：只读执行论文数据链专项回归、编译和 artifact 存在性检查；不改代码、不启动
   GPU。
 - 主线程：负责地图 handoff、EMOS case dry-run、真实 evaluator receipt 接口和最终
   科学边界审查。
+
+## 2026-10-27 整合推送收尾
+
+为避让主工作树的用户脏改动，本阶段在独立 worktree
+`/tmp/heterocoord-integration-20261027.Eaao00` 基于 `origin/HeteroCoord@75ce5811`
+完成选择性整合：
+
+- `6a572017`：production/EMOS 与 endpoint-specific panel receipt seam；
+- `ee39bbed`：D6 per-instance calibration；
+- `c37d3e1c`：oracle predicate regression test。
+
+ZCode 在最终 HEAD `c37d3e1c` 上复核：production seam `6 passed`，D6/results/panel/
+EMOS/oracle-reduction 核心套件 `55 passed`，compileall、`git diff --check`、干净
+status 均通过；随后非强制快进推送至 `origin/HeteroCoord`。首轮出现的 calibration
+schema mismatch 和 oracle 测试文件缺失均属于提交时序造成的旧状态，已在固定 HEAD
+复核中消失。正式资格门未改变，仍全部为 `false`。
 
 ### D. 停止/升级条件
 
