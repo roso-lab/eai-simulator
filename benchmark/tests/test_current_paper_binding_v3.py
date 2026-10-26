@@ -7,8 +7,9 @@ from benchmark.scorebook_v3 import PAPER_COMMIT, default_scorebook_v3
 from benchmark.formal_matrix_v3 import BaselineQualificationV3
 
 
-CURRENT_PAPER = "1f329494e755523692f5f96c8e0889c6cec15a82"
+CURRENT_PAPER = "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44"
 STALE_PAPERS = (
+    "1f329494e755523692f5f96c8e0889c6cec15a82",
     "75ceff6f55202b6b1a31b2e2e0f6de56023940fd",
     "bb82b7bdb1352f1633bc405f41595a4affc79567",
     "af12f6d0d435a41b61f67b591487d63aade0f41c",
