@@ -182,13 +182,16 @@ def test_full_ruling_registration_end_to_end_27_of_27(tmp_path):
     clone = tmp_path / "clone"
     subprocess.run(["git", "clone", "--local", "--quiet", str(ROOT), str(clone)],
                    check=True, capture_output=True)
-    # Overlay the current robot_resume working files: most of them are
-    # untracked in the source repository and therefore absent from the clone.
+    # Overlay the current robot_resume working files.  Once the machinery is
+    # published they already exist in HEAD, the overlay is a no-op and the
+    # snapshot commit below is allowed to be empty -- the ruling record bytes
+    # stay reachable through either form of the commit.
     shutil.copytree(HERE, clone / "benchmark" / "robot_resume", dirs_exist_ok=True,
                     ignore=shutil.ignore_patterns("__pycache__"))
     _git(clone, "add", "-A", "benchmark/robot_resume")
     _git(clone, "-c", "user.email=scratch@test.local", "-c", "user.name=scratch",
-         "commit", "-qm", "robot_resume: 2026-10-26 runtime ruling snapshot")
+         "commit", "-q", "--allow-empty", "-m",
+         "robot_resume: 2026-10-26 runtime ruling snapshot")
     ruling_commit = _git(clone, "rev-parse", "HEAD").stdout.strip()
 
     out = tmp_path / "artifacts"
