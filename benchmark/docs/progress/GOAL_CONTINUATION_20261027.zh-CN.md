@@ -64,3 +64,13 @@ final semantic-map/current
   编译、批量审计和证据提取，不裁决语义、不修改源码、不启动 GPU；
 - 不覆盖协作者地图、不 reset/clean 用户脏工作树、不修改论文正文；
 - 只有真实 terminal receipt 和完整统计支持目录闭合后，才讨论正式论文表格或资格。
+
+## 收尾环境与结果链复核
+
+在 `env_isaaclab` 中，`torch=2.7.0+cu128` 与 `lark` 均可导入。论文结果链现有四个
+测试文件（`test_production_results_v1.py`、`test_paper_panel_v1.py`、
+`test_results_pipeline_v3.py`、`test_emos.py`）共 `48 passed`；五个核心模块
+`compileall` exit 0。仓库最新结果报告和历史运行时报告均显示
+`physical_qualified=False`、`rankable=False`、`paper_score_eligible=False`。
+不存在同名的 `test_statistical_evidence_v3.py`，该缺失已记录为命令入口差异而非代码
+失败，未通过重命名或替换测试掩盖。
