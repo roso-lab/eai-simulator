@@ -11,6 +11,7 @@ Goal 继续保持 `active`。工程已经具备“输入审计 → case manifest
 - 当前工作树 `room_06/semantic_map/current` 的 `save_id=d471be5423da493e8c19d7b4a60d85c3` 仍是协作者未完成写入：拓扑为空、书架语义点缺失。因此禁止用它重建正式 manifest，也禁止启动真实 GPU。
 - 接受快照配合历史证据转正后的 27 台名册，使用 `artifacts/robot-runtime-historical-20261027-r3/robot_runtime_roster.promoted.v1.json`（digest `33d92468c48bd1631fdc034d2d4fb01858294bce573308b1b7dd6542062836f4`）重新构建 manifest，与保存的 `artifacts/case-room06-livt04-20261027/case-manifest.json` 字节一致：manifest digest `ded55b75f3d6e3d73924e913984e3300fc0dfb5b040aaffb6841514a7cc5fbbb`。
 - 该复现只证明 builder/审计器确定性和历史名册输入一致性；接受快照和 synthetic/CPU receipt 均不升级 physical、rankable 或 paper-score gate。
+- ZCode 在 `env_isaaclab` 完成最终地图接入前专项回归：审计/物体绑定 `30 passed`，论文计算链（production results、results pipeline、paper panel、current paper binding）`52 passed`，五个生产模块 `compileall_exit=0`；未启动 GPU/Isaac/Kit，源码、测试、catalog、地图和 artifacts 均未修改。
 
 ## 地图交接后立即执行的顺序
 
