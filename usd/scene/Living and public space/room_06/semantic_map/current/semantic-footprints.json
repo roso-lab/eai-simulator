@@ -2,7 +2,7 @@
   "schema": "eai.semantic_footprints",
   "version": 1,
   "scene_id": "living_room_06",
-  "project_revision": "b5757b73c7244ce095833606d919714d",
+  "project_revision": "d9872563938c42fd85f43efa3dab3c0b",
   "coordinate_frame": "scene_world",
   "objects": [],
   "semantics": {

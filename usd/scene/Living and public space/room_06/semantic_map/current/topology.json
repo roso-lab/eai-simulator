@@ -756,6 +756,21 @@
       "level_id": "1F",
       "label": "",
       "aliases": []
+    },
+    {
+      "id": "node:0055",
+      "kind": "custom",
+      "position_xyz": [
+        1.1810922384487548,
+        2.9038166752741836,
+        0.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
     }
   ],
   "edges": [
@@ -2848,6 +2863,40 @@
         [
           -2.194814456033682,
           0.7390781060220363,
+          0.0
+        ]
+      ],
+      "profiles": {
+        "default": {
+          "clearance_m": 1.0
+        },
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0070",
+      "kind": "custom_connection",
+      "from": "node:0055",
+      "to": "node:0013",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          1.1810922384487548,
+          2.9038166752741836,
+          0.0
+        ],
+        [
+          0.8794400092397099,
+          1.7830847137874217,
           0.0
         ]
       ],
