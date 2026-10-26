@@ -141,3 +141,13 @@ schema mismatch 和 oracle 测试文件缺失均属于提交时序造成的旧�
 候选 fixture 放在测试目录，避免发布测试依赖被 `.gitignore` 忽略的运行时 artifact。
 该提交只完成输入与合同接缝，不改变真实 evaluator receipt、GPU readback 或正式资格门；
 三项 gate 仍保持 `false`。
+
+### F. 结果计算链独立验收（2026-10-27）
+
+在不依赖语义地图和 GPU 的隔离临时目录中，重新执行
+`build_synthetic_fixture → compute_results → export_results → verify_export`。
+导出成功并通过内容寻址 replay 校验；`metrics.csv`/`metrics.md` 均包含 D1–D6，
+诊断值为 D1=80.5、D2=75.0、D3=78.3333、D4=80.0、D5=91.1111、D6=50.0。
+该运行的 scope 明确为 `synthetic_diagnostic_fixture`，报告注明 D5 的
+`excluded_families_below_case_floor`，三项 formal gate 全为 `false`。这证明论文
+计算、统计汇总、导出与 replay 接缝已能独立闭合，但不替代真实 evaluator receipt。
