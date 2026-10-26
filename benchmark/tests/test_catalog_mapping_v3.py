@@ -119,7 +119,9 @@ def test_checked_in_fixture_receipt_is_frozen_exactly():
         scenario_path=base / "scenario.json",
         contract_path=base / "contract.json",
         package_path=base / "package.json",
-        project_root=Path("/home/pupil/HeteroCoord"),
+        # Resolve the repository root from this test file so the frozen-fixture
+        # assertion remains valid in clean worktrees and CI checkouts.
+        project_root=Path(__file__).resolve().parents[2],
     )
     assert result.receipt_bytes() == (base / "catalog_contract_mapping_receipt.json").read_bytes()
 
