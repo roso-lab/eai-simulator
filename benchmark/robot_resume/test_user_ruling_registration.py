@@ -123,6 +123,23 @@ def test_tampered_ruling_record_fails_receipt_validation(tmp_path):
             hist.validate_historical_receipt(receipt, roster_row=rows["hc-rt-002"], root=scratch)
 
 
+def test_user_ruling_receipt_cannot_be_retargeted_to_unlisted_instance(tmp_path):
+    scratch, commit = _scratch_repo(tmp_path)
+    rows = _rows()
+    with _scratch_modules(scratch) as (_hist, _rt, reg):
+        ctx = reg._ruling_context(commit, RULING_RECORD)
+        receipt = _build_ruling_receipt(reg, scratch, ctx, rows["hc-rt-002"])
+        receipt["instance_id"] = "hc-rt-001"
+        receipt["source_resume_id"] = rows["hc-rt-001"]["source_resume_id"]
+        receipt["asset_digest"] = rows["hc-rt-001"]["asset_binding"]["asset_digest"]
+        receipt["capability_digest"] = rows["hc-rt-001"]["capability_binding"]["capability_digest"]
+        receipt["initial_state_digest"] = rows["hc-rt-001"]["initial_state_binding"]["initial_state_digest"]
+        from historical_runtime_receipt import canonical_sha256, HistoricalReceiptError
+        receipt["receipt_digest"] = canonical_sha256({k: v for k, v in receipt.items() if k != "receipt_digest"})
+        with pytest.raises(HistoricalReceiptError, match="outside the approved twelve"):
+            _hist.validate_historical_receipt(receipt, roster_row=rows["hc-rt-001"], root=scratch)
+
+
 def test_ruling_commit_without_record_bytes_fails_closed(tmp_path):
     # The commit exists, the record exists, but the commit's blob differs from
     # the working-tree bytes: provenance must be refused, not assumed.
