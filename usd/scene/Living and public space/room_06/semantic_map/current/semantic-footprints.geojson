@@ -3348,6 +3348,60 @@
         "feature_type": "topology_edge",
         "robot_validated": false
       }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            1.1810922384487548,
+            2.9038166752741836,
+            0.0
+          ],
+          [
+            0.8794400092397099,
+            1.7830847137874217,
+            0.0
+          ]
+        ]
+      },
+      "properties": {
+        "id": "edge:0070",
+        "kind": "custom_connection",
+        "from": "node:0055",
+        "to": "node:0013",
+        "directed": false,
+        "polyline_xyz": [
+          [
+            1.1810922384487548,
+            2.9038166752741836,
+            0.0
+          ],
+          [
+            0.8794400092397099,
+            1.7830847137874217,
+            0.0
+          ]
+        ],
+        "profiles": {
+          "default": {
+            "clearance_m": 1.0
+          },
+          "ground_small": {
+            "clearance_m": 0.8
+          },
+          "ground_large": {
+            "clearance_m": 1.4
+          }
+        },
+        "source_ref": null,
+        "locked_geometry": false,
+        "traversal_mode": "walk",
+        "required_controller_capabilities": [],
+        "feature_type": "topology_edge",
+        "robot_validated": false
+      }
     }
   ]
 }
