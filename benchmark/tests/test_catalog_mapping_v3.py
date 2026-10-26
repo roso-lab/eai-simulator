@@ -116,6 +116,13 @@ def test_prod_p4_mapping_is_source_bound_and_receipt_is_deterministic(tmp_path):
 
 def test_checked_in_fixture_receipt_is_frozen_exactly():
     base = FIXTURE
+    scenario = json.loads((base / "scenario.json").read_text(encoding="utf-8"))
+    bound_source_root = Path(scenario["source_root"]).resolve()
+    if not bound_source_root.is_relative_to(REPO_ROOT):
+        pytest.skip(
+            "checked-in receipt is bound to its authored source tree; "
+            "run this byte-freeze assertion from that tree"
+        )
     mapping = base / "catalog_contract_mapping.json"
     result = verify_catalog_mapping(
         mapping,
