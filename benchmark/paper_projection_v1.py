@@ -197,7 +197,11 @@ def _project_d5(package: Mapping[str, Any], binding: Mapping[str, Any]) -> dict[
 
 
 def _project_d6(package: Mapping[str, Any], binding: Mapping[str, Any]) -> dict[str, Any]:
-    _exact_keys(binding, {"reference_bits", "reference_time", "runs"}, "D6 binding")
+    new_schema = "calibration" in binding
+    if new_schema:
+        _exact_keys(binding, {"calibration", "runs"}, "D6 binding")
+    else:
+        _exact_keys(binding, {"reference_bits", "reference_time", "runs"}, "D6 binding")
     structured = package.get("structured")
     if not isinstance(structured, Mapping) or not isinstance(structured.get("d6"), Mapping):
         raise PaperProjectionNotReady("D6:structured-runs-required")
@@ -207,6 +211,47 @@ def _project_d6(package: Mapping[str, Any], binding: Mapping[str, Any]) -> dict[
     runs = source.get("runs")
     if not isinstance(runs, list) or len(runs) != len(binding["runs"]):
         raise PaperProjectionNotReady("D6:run-directory-missing-or-count-mismatch")
+    if new_schema:
+        calibration = binding["calibration"]
+        if not isinstance(calibration, list) or not calibration:
+            raise PaperProjectionError("D6 calibration table must be a non-empty list")
+        by_instance: dict[str, Mapping[str, Any]] = {}
+        for index, row in enumerate(calibration):
+            if not isinstance(row, Mapping) or set(row) != {"instance_id", "reference_bits", "reference_time"}:
+                raise PaperProjectionError(f"D6 calibration row {index} is invalid")
+            instance_id = row["instance_id"]
+            if not isinstance(instance_id, str) or not instance_id.strip():
+                raise PaperProjectionError(f"D6 calibration row {index} has invalid instance_id")
+            if instance_id in by_instance:
+                raise PaperProjectionError(f"D6 calibration duplicate instance_id: {instance_id}")
+            by_instance[instance_id] = row
+            _finite(row["reference_bits"], f"D6.calibration[{index}].reference_bits", minimum=0.0)
+            _finite(row["reference_time"], f"D6.calibration[{index}].reference_time", minimum=0.0)
+        source_calibration = source.get("calibration")
+        if source_calibration != calibration:
+            raise PaperProjectionError("D6 structured calibration is not bound to the projection")
+        binding_run_instances = []
+        for index, row in enumerate(binding["runs"]):
+            if not isinstance(row, Mapping) or set(row) != {"instance_id"}:
+                raise PaperProjectionError(f"D6 binding run {index} is invalid")
+            instance_id = row["instance_id"]
+            if not isinstance(instance_id, str) or not instance_id.strip():
+                raise PaperProjectionError(f"D6 binding run {index} has invalid instance_id")
+            binding_run_instances.append(instance_id)
+        projected_runs = []
+        for index, row in enumerate(runs):
+            if not isinstance(row, Mapping) or set(row) != {"instance_id", "success", "bits", "time"} or type(row["success"]) is not bool:
+                raise PaperProjectionError(f"D6 structured run {index} is invalid")
+            if row["instance_id"] != binding_run_instances[index]:
+                raise PaperProjectionError(f"D6 structured run {index} instance_id does not match binding")
+            if row["instance_id"] not in by_instance:
+                raise PaperProjectionError(f"D6 run {index} has no calibration for instance {row['instance_id']}")
+            _finite(row["bits"], f"D6.runs[{index}].bits", minimum=0.0)
+            _finite(row["time"], f"D6.runs[{index}].time", minimum=0.0)
+            projected_runs.append(deepcopy(dict(row)))
+        if {row["instance_id"] for row in projected_runs} != set(by_instance):
+            raise PaperProjectionError("D6 running instances do not match calibration table")
+        return {"expected_count": len(projected_runs), "calibration": deepcopy(calibration), "runs": projected_runs}
     for index, row in enumerate(runs):
         if not isinstance(row, Mapping) or set(row) != {"success", "bits", "time"} or type(row["success"]) is not bool:
             raise PaperProjectionError(f"D6 structured run {index} is invalid")

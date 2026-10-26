@@ -595,7 +595,11 @@ def normalize_receipts(
             _require_exact(d6, {"success", "bits", "time"}, "facts.d6")
             if type(d6["success"]) is not bool:
                 raise ReceiptAdapterError("D6 success must be boolean")
-            d6_runs.append({"success": d6["success"], "bits": _finite(d6["bits"], "D6.bits", minimum=0.0), "time": _finite(d6["time"], "D6.time", minimum=0.0)})
+            # Keep the base-instance identity alongside the measured values.
+            # The paper-ready D6 schema uses this identity to select the
+            # corresponding independent calibration median; the legacy global
+            # fixture strips it again below.
+            d6_runs.append({"instance_id": row["identity"]["base_instance_id"], "success": d6["success"], "bits": _finite(d6["bits"], "D6.bits", minimum=0.0), "time": _finite(d6["time"], "D6.time", minimum=0.0)})
         oracle_summaries.append(_oracle_summary(row))
 
     if any(not condition_success[key] for key in _D2_CONDITIONS):
@@ -609,12 +613,40 @@ def normalize_receipts(
     if calibration is None:
         raise ReceiptAdapterError("D6 requires an independent calibration reference")
     calibration = _mapping(calibration, "calibration")
-    _require_exact(calibration, {"reference_bits", "reference_time", "calibration_digest"}, "calibration")
-    _digest(calibration["calibration_digest"], "calibration.calibration_digest")
-    reference_bits = _finite(calibration["reference_bits"], "calibration.reference_bits", minimum=0.0)
-    reference_time = _finite(calibration["reference_time"], "calibration.reference_time", minimum=0.0)
-    if reference_bits == 0 or reference_time == 0:
-        raise ReceiptAdapterError("D6 calibration reference must be positive")
+    _digest(calibration.get("calibration_digest"), "calibration.calibration_digest")
+    per_instance_calibration = "calibration" in calibration
+    calibration_rows: list[dict[str, Any]] = []
+    if per_instance_calibration:
+        _require_exact(calibration, {"calibration", "calibration_digest"}, "calibration")
+        rows_value = calibration["calibration"]
+        if not isinstance(rows_value, list) or not rows_value:
+            raise ReceiptAdapterError("calibration.calibration must be a non-empty instance table")
+        seen_instances: set[str] = set()
+        for index, item in enumerate(rows_value):
+            item = _mapping(item, f"calibration.calibration[{index}]")
+            _require_exact(item, {"instance_id", "reference_bits", "reference_time"}, f"calibration.calibration[{index}")
+            instance_id = _text(item["instance_id"], f"calibration.calibration[{index}].instance_id")
+            if instance_id in seen_instances:
+                raise ReceiptAdapterError(f"duplicate D6 calibration instance_id: {instance_id}")
+            seen_instances.add(instance_id)
+            reference_bits = _finite(item["reference_bits"], f"calibration.calibration[{index}].reference_bits", minimum=0.0)
+            reference_time = _finite(item["reference_time"], f"calibration.calibration[{index}].reference_time", minimum=0.0)
+            if reference_bits == 0 or reference_time == 0:
+                raise ReceiptAdapterError("D6 per-instance calibration references must be positive")
+            calibration_rows.append({"instance_id": instance_id, "reference_bits": reference_bits, "reference_time": reference_time})
+        measured_instances = {str(run["instance_id"]) for run in d6_runs}
+        calibration_instances = {row["instance_id"] for row in calibration_rows}
+        if measured_instances != calibration_instances:
+            missing = sorted(calibration_instances - measured_instances)
+            unknown = sorted(measured_instances - calibration_instances)
+            raise ReceiptAdapterError(f"D6 runs do not match per-instance calibration (missing={missing}, unknown={unknown})")
+        reference_bits = reference_time = None
+    else:
+        _require_exact(calibration, {"reference_bits", "reference_time", "calibration_digest"}, "calibration")
+        reference_bits = _finite(calibration["reference_bits"], "calibration.reference_bits", minimum=0.0)
+        reference_time = _finite(calibration["reference_time"], "calibration.reference_time", minimum=0.0)
+        if reference_bits == 0 or reference_time == 0:
+            raise ReceiptAdapterError("D6 calibration reference must be positive")
 
     anchor_ids = []
     for item in catalog["anchors"]:
@@ -635,9 +667,9 @@ def normalize_receipts(
         "seed": int(parameters.get("seed", plan["seed"])),
         "resamples": int(parameters.get("resamples", 2000)),
         "d5_min_cases": int(parameters.get("d5_min_cases", 30)),
-        "d6_reference_bits": reference_bits,
-        "d6_reference_time": reference_time,
     }
+    if not per_instance_calibration:
+        base_parameters.update({"d6_reference_bits": reference_bits, "d6_reference_time": reference_time})
     dimensions = {
         "D1": {
             "validity": _mean(d1_rows, "validity"),
@@ -649,7 +681,12 @@ def normalize_receipts(
         "D3": {key.lower(): sum(d3_values[key]) / len(d3_values[key]) for key in _D3_RELATIONS},
         "D4": {"expected_count": len(d4_items), "items": d4_items},
         "D5": {"min_cases_per_family": base_parameters["d5_min_cases"], "families": d5_families},
-        "D6": {"expected_count": len(d6_runs), "reference_bits": reference_bits, "reference_time": reference_time, "runs": d6_runs},
+        "D6": (
+            {"expected_count": len(d6_runs), "calibration": calibration_rows, "runs": d6_runs}
+            if per_instance_calibration
+            else {"expected_count": len(d6_runs), "reference_bits": reference_bits, "reference_time": reference_time,
+                  "runs": [{key: value for key, value in run.items() if key != "instance_id"} for run in d6_runs]}
+        ),
     }
     payload: dict[str, Any] = {
         "schema": PIPELINE_SCHEMA,

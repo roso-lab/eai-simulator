@@ -21,7 +21,7 @@ import sys
 from typing import Any, Mapping
 
 from .composite_v3 import composite_profile_range, composite_score
-from .metrics_v3 import d1_score, d2_score, d3_score, d4_score, d5_score, d6_score
+from .metrics_v3 import ScoreResultV3, d1_score, d2_score, d3_score, d4_score, d5_score, d6_score
 from .records_v3 import canonical_digest
 from .scorebook_v3 import PAPER_COMMIT, default_scorebook_v3
 
@@ -102,14 +102,22 @@ def _validate_payload(payload: Mapping[str, Any]) -> None:
     dimensions = payload["dimensions"]
     if not isinstance(dimensions, Mapping) or set(dimensions) != set(DIMENSIONS):
         raise ResultsPipelineError("dimensions must contain exactly D1 through D6")
-    _validate_dimensions(dimensions)
+    _validate_dimensions(dimensions, scope=payload["scope"])
     params = payload["parameters"]
     if dimensions["D5"]["min_cases_per_family"] != params["d5_min_cases"]:
         raise ResultsPipelineError("D5 case floor is not bound to parameters")
-    if not math.isclose(float(dimensions["D6"]["reference_bits"]), float(params["d6_reference_bits"]), rel_tol=0.0, abs_tol=0.0):
-        raise ResultsPipelineError("D6 reference_bits is not bound to parameters")
-    if not math.isclose(float(dimensions["D6"]["reference_time"]), float(params["d6_reference_time"]), rel_tol=0.0, abs_tol=0.0):
-        raise ResultsPipelineError("D6 reference_time is not bound to parameters")
+    d6 = dimensions["D6"]
+    # The frozen synthetic fixture predates the paper's per-instance
+    # calibration table.  Keep its global pair bound to parameters for
+    # deterministic backwards compatibility; measured/new D6 dimensions are
+    # validated against their explicit instance table below instead.
+    if "calibration" not in d6:
+        if "d6_reference_bits" not in params or "d6_reference_time" not in params:
+            raise ResultsPipelineError("legacy D6 dimensions require global calibration parameters")
+        if not math.isclose(float(d6["reference_bits"]), float(params["d6_reference_bits"]), rel_tol=0.0, abs_tol=0.0):
+            raise ResultsPipelineError("D6 reference_bits is not bound to parameters")
+        if not math.isclose(float(d6["reference_time"]), float(params["d6_reference_time"]), rel_tol=0.0, abs_tol=0.0):
+            raise ResultsPipelineError("D6 reference_time is not bound to parameters")
     if payload.get("scope") not in ALLOWED_SCOPES:
         raise ResultsPipelineError(f"scope must be one of {sorted(ALLOWED_SCOPES)}")
     provenance_digests = ("case_manifest_digest", "scene_digest", "semantic_map_digest", "topology_digest", "roster_digest", "contract_digest", "artifact_manifest_digest", "paper_projection_digest")
@@ -134,23 +142,27 @@ def _real(value: Any, name: str, *, minimum: float | None = None, maximum: float
 
 def _exact_keys(value: Mapping[str, Any], required: set[str], name: str, optional: set[str] | None = None) -> None:
     allowed = required | (optional or set())
-    if set(value) != allowed or not required.issubset(value):
+    if set(value) - allowed or not required.issubset(value):
         raise ResultsPipelineError(f"{name} schema mismatch")
 
 
 def _validate_parameters(parameters: Mapping[str, Any]) -> None:
-    required = {"alpha", "seed", "resamples", "d5_min_cases", "d6_reference_bits", "d6_reference_time"}
-    _exact_keys(parameters, required, "parameters")
+    required = {"alpha", "seed", "resamples", "d5_min_cases"}
+    optional = {"d6_reference_bits", "d6_reference_time"}
+    _exact_keys(parameters, required, "parameters", optional=optional)
     alpha = _real(parameters["alpha"], "parameters.alpha", minimum=0.0, maximum=1.0)
     if alpha in (0.0, 1.0) or type(parameters["seed"]) is not int or type(parameters["resamples"]) is not int or parameters["resamples"] < 0:
         raise ResultsPipelineError("parameters seed/resamples are invalid")
     if type(parameters["d5_min_cases"]) is not int or parameters["d5_min_cases"] < 1:
         raise ResultsPipelineError("parameters.d5_min_cases is invalid")
-    _real(parameters["d6_reference_bits"], "parameters.d6_reference_bits", minimum=0.0)
-    _real(parameters["d6_reference_time"], "parameters.d6_reference_time", minimum=0.0)
+    if ("d6_reference_bits" in parameters) != ("d6_reference_time" in parameters):
+        raise ResultsPipelineError("legacy D6 parameters must provide both global references")
+    if "d6_reference_bits" in parameters:
+        _real(parameters["d6_reference_bits"], "parameters.d6_reference_bits", minimum=0.0)
+        _real(parameters["d6_reference_time"], "parameters.d6_reference_time", minimum=0.0)
 
 
-def _validate_dimensions(dimensions: Mapping[str, Any]) -> None:
+def _validate_dimensions(dimensions: Mapping[str, Any], *, scope: str = "synthetic_diagnostic_fixture") -> None:
     d1 = dimensions["D1"]
     if not isinstance(d1, Mapping):
         raise ResultsPipelineError("D1 must be an object")
@@ -217,16 +229,52 @@ def _validate_dimensions(dimensions: Mapping[str, Any]) -> None:
     d6 = dimensions["D6"]
     if not isinstance(d6, Mapping):
         raise ResultsPipelineError("D6 must be an object")
-    _exact_keys(d6, {"expected_count", "reference_bits", "reference_time", "runs"}, "D6")
+    if "calibration" not in d6:
+        if scope != "synthetic_diagnostic_fixture":
+            raise ResultsPipelineError("D6 global calibration is diagnostic-only; measured inputs require per-instance calibration")
+        _exact_keys(d6, {"expected_count", "reference_bits", "reference_time", "runs"}, "D6")
+        if type(d6["expected_count"]) is not int or d6["expected_count"] < 0 or not isinstance(d6["runs"], list):
+            raise ResultsPipelineError("D6 expected_count/runs are invalid")
+        _real(d6["reference_bits"], "D6.reference_bits", minimum=0.0)
+        _real(d6["reference_time"], "D6.reference_time", minimum=0.0)
+        for index, row in enumerate(d6["runs"]):
+            if not isinstance(row, Mapping) or set(row) != {"success", "bits", "time"} or type(row["success"]) is not bool:
+                raise ResultsPipelineError(f"D6.runs[{index}] schema is invalid")
+            _real(row["bits"], f"D6.runs[{index}].bits", minimum=0.0)
+            _real(row["time"], f"D6.runs[{index}].time", minimum=0.0)
+        return
+    _exact_keys(d6, {"expected_count", "calibration", "runs"}, "D6")
     if type(d6["expected_count"]) is not int or d6["expected_count"] < 0 or not isinstance(d6["runs"], list):
         raise ResultsPipelineError("D6 expected_count/runs are invalid")
-    _real(d6["reference_bits"], "D6.reference_bits", minimum=0.0)
-    _real(d6["reference_time"], "D6.reference_time", minimum=0.0)
+    calibration = d6["calibration"]
+    if not isinstance(calibration, list) or not calibration:
+        raise ResultsPipelineError("D6.calibration must be a non-empty instance table")
+    calibration_ids: set[str] = set()
+    for index, row in enumerate(calibration):
+        if not isinstance(row, Mapping) or set(row) != {"instance_id", "reference_bits", "reference_time"}:
+            raise ResultsPipelineError(f"D6.calibration[{index}] schema is invalid")
+        instance_id = row["instance_id"]
+        if not isinstance(instance_id, str) or not instance_id.strip():
+            raise ResultsPipelineError(f"D6.calibration[{index}].instance_id is invalid")
+        if instance_id in calibration_ids:
+            raise ResultsPipelineError(f"D6 calibration duplicate instance_id: {instance_id}")
+        calibration_ids.add(instance_id)
+        _real(row["reference_bits"], f"D6.calibration[{index}].reference_bits", minimum=0.0)
+        _real(row["reference_time"], f"D6.calibration[{index}].reference_time", minimum=0.0)
+    run_ids: set[str] = set()
     for index, row in enumerate(d6["runs"]):
-        if not isinstance(row, Mapping) or set(row) != {"success", "bits", "time"} or type(row["success"]) is not bool:
+        if not isinstance(row, Mapping) or set(row) != {"instance_id", "success", "bits", "time"} or type(row["success"]) is not bool:
             raise ResultsPipelineError(f"D6.runs[{index}] schema is invalid")
+        instance_id = row["instance_id"]
+        if not isinstance(instance_id, str) or not instance_id.strip():
+            raise ResultsPipelineError(f"D6.runs[{index}].instance_id is invalid")
+        run_ids.add(instance_id)
         _real(row["bits"], f"D6.runs[{index}].bits", minimum=0.0)
         _real(row["time"], f"D6.runs[{index}].time", minimum=0.0)
+    if run_ids != calibration_ids:
+        missing = sorted(calibration_ids - run_ids)
+        unknown = sorted(run_ids - calibration_ids)
+        raise ResultsPipelineError(f"D6 running instances do not match calibration (missing={missing}, unknown={unknown})")
 
 
 def _synthetic_dimensions() -> dict[str, Any]:
@@ -333,7 +381,7 @@ def compute_results(payload: Mapping[str, Any]) -> dict[str, Any]:
     d5_spec = dimensions["D5"]
     d5 = d5_score(d5_spec["families"], min_cases_per_family=d5_spec.get("min_cases_per_family", params.get("d5_min_cases", 30)))
     d6_spec = dimensions["D6"]
-    d6 = d6_score(d6_spec["runs"], reference_bits=d6_spec["reference_bits"], reference_time=d6_spec["reference_time"], expected_count=d6_spec.get("expected_count"))
+    d6 = _compute_d6(d6_spec)
     scores = (d1, d2, d3, d4, d5, d6)
     d5_families = dimensions["D5"]["families"]
     support_meta = {
@@ -375,6 +423,47 @@ def compute_results(payload: Mapping[str, Any]) -> dict[str, Any]:
         if key in payload:
             report["provenance"][key] = payload[key]
     return report
+
+
+def _compute_d6(spec: Mapping[str, Any]) -> ScoreResultV3:
+    """Compute D6 with a fixed reference median for each running instance.
+
+    ``metrics_v3.d6_score`` remains the scalar estimator for the frozen
+    diagnostic fixture.  The paper contract aggregates repeat rows within an
+    instance and then gives each instance equal weight; applying a single
+    global reference to all rows would silently change that estimand.
+    """
+
+    if "calibration" not in spec:
+        return d6_score(
+            spec["runs"],
+            reference_bits=spec["reference_bits"],
+            reference_time=spec["reference_time"],
+            expected_count=spec.get("expected_count"),
+        )
+    calibration = {row["instance_id"]: row for row in spec["calibration"]}
+    grouped: dict[str, list[Mapping[str, Any]]] = {instance_id: [] for instance_id in calibration}
+    for row in spec["runs"]:
+        grouped[row["instance_id"]].append(row)
+    instance_results = []
+    for instance_id, rows in grouped.items():
+        result = d6_score(
+            rows,
+            reference_bits=calibration[instance_id]["reference_bits"],
+            reference_time=calibration[instance_id]["reference_time"],
+        )
+        instance_results.append(result)
+    if any(result.status != "valid" for result in instance_results):
+        failed = next(result for result in instance_results if result.status != "valid")
+        return ScoreResultV3("D6", failed.status, None, reason=failed.reason or "instance_calibration_not_ready")
+    point = sum(float(result.point) for result in instance_results) / len(instance_results)
+    success_rate = sum(float(result.components.get("success_rate", 0.0)) for result in instance_results) / len(instance_results)
+    return ScoreResultV3(
+        "D6",
+        "valid",
+        point,
+        components={"success_rate": success_rate, "instance_count": float(len(instance_results))},
+    )
 
 
 def _sanity_checks(scores, composite: Mapping[str, Any], profile_range: Mapping[str, Any], dimensions: Mapping[str, Any]) -> dict[str, Any]:
@@ -571,7 +660,16 @@ def verify_export(destination: str | Path) -> dict[str, Any]:
         # verifiable as historical artifacts; all new exports include it.
         if "sanity_checks" not in persisted_report:
             recomputed.pop("sanity_checks", None)
-        if recomputed != persisted_report:
+        # Interpreter version is provenance, not a scientific input.  Permit
+        # replay in a different supported environment while requiring every
+        # paper value, status, gate and digest to remain identical.
+        persisted_for_compare = json.loads(json.dumps(persisted_report))
+        recomputed_for_compare = json.loads(json.dumps(recomputed))
+        for value in (persisted_for_compare, recomputed_for_compare):
+            estimator = value.get("provenance", {}).get("estimator", {})
+            if isinstance(estimator, dict):
+                estimator.pop("python", None)
+        if recomputed_for_compare != persisted_for_compare:
             raise ResultsPipelineError("report does not match replay input")
     return manifest
 
