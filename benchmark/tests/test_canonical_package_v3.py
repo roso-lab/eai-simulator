@@ -160,7 +160,7 @@ def test_json_duplicate_keys_are_not_silently_discarded(tmp_path):
 
 def test_inventory_reports_missing_machine_contract_without_certifying_anchors():
     report = catalog_input_inventory(catalog_path="benchmark/task_catalog.json")
-    assert report["anchor_count"] == 30
+    assert report["anchor_count"] == 31
     assert all(row["certification_status"] == "planned" for row in report["anchors"])
     assert all("frozen_robot_pool_and_capability_matrix" in row["required_instance_inputs"] for row in report["anchors"])
 

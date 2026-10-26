@@ -107,7 +107,7 @@ class DifficultyVector:
 
 @dataclass(frozen=True)
 class TaskAnchor:
-    """One of the thirty paper scene anchors.
+    """One baseline paper scene anchor or an explicitly registered extension.
 
     ``contract_semantics`` is deliberately independent from ``objective`` and
     ``scene_anchor``.  Common anchors must preserve the former while allowing
