@@ -212,13 +212,16 @@ class TopologyDocument(SemanticAuthoringMixin):
 
     def add_node(self, position: Sequence[float], *, kind="custom", node_id=None,
                  target_refs: Iterable[str] = (), source_ref=None, locked=False,
-                 level_id=None, label="", aliases: Iterable[str] = (), heading_rad=None) -> str:
+                 level_id=None, label="", aliases: Iterable[str] = (), heading_rad=None,
+                 edit_mode: str | None = None) -> str:
         node_id = self._next_id(self.nodes, "node:") if node_id is None else node_id
         if not isinstance(node_id, str) or not node_id.strip():
             raise ValueError("node id must be a nonempty string")
         if any(row["id"] == node_id for row in self.nodes):
             raise ValueError(f"duplicate node id: {node_id}")
         point = _point(position)
+        if edit_mode is not None and (self.domain != "aerial" or edit_mode not in ("2.5d", "3d")):
+            raise ValueError("edit_mode must be 2.5d or 3d on an aerial node")
         refs = sorted(set(map(str, target_refs)))
         node_level, node_label, node_aliases = _node_metadata(level_id, label, aliases)
         heading = _heading(heading_rad)
@@ -226,6 +229,8 @@ class TopologyDocument(SemanticAuthoringMixin):
             raise ValueError("multilevel node metadata requires topology version 2")
         row = {"id": str(node_id), "kind": str(kind), "position_xyz": point,
                "target_refs": refs, "source_ref": source_ref, "locked": bool(locked)}
+        if self.domain == "aerial":
+            row["edit_mode"] = edit_mode or "3d"
         if self.version == 2:
             row.update({"level_id": node_level, "label": node_label, "aliases": node_aliases})
             if heading is not None:

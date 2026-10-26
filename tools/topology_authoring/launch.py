@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import importlib.machinery
 import json
 import signal
 from pathlib import Path
 import sys
+import tempfile
 import threading
+import types
 import webbrowser
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -54,6 +57,71 @@ def initial_project(args):
             if read_json(path / "project.json")["scene_key"] == args.scene:
                 return MapProject(path)
     raise ValueError(f"Scene {args.scene!r} is not in the map catalog or usd/scene")
+
+
+def isaac_font_args(cache_dir: Path):
+    """Register Chinese glyphs before Kit builds its first UI font atlas."""
+    font = Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc")
+    if not font.is_file():
+        return []
+    # A per-widget font style creates a separate Latin-only atlas in Kit 5.1.
+    # Its documented startup glyph configuration supports both field values and
+    # buttons without replacing the user's persisted appearance preferences.
+    ranges = ((0x20, 0x24F), (0x2000, 0x206F), (0x3000, 0x303F),
+              (0x3400, 0x4DBF), (0x4E00, 0x9FFF), (0xFF00, 0xFFEF))
+    glyphs = Path(cache_dir) / "cjk-glyphs.txt"
+    glyphs.write_text("\n".join(
+        "".join(chr(code) for code in range(first, last + 1))
+        for first, last in ranges), encoding="utf-8")
+    return [f"--/app/font/customFontPath={font}",
+            f"--/app/font/customRegionFiles={json.dumps([str(glyphs)])}"]
+
+
+def isaac_startup_args(cache_dir: Path):
+    """Return editor-only Kit settings."""
+    return isaac_font_args(cache_dir)
+
+
+def install_isaac_semantics_namespace_shim() -> None:
+    """Make Kit's split ``semantics.schema.*`` extensions importable.
+
+    The two Isaac extensions intentionally use namespace packages (neither
+    ships ``semantics/__init__.py``).  Kit 5.1's fast importer can return a
+    namespace spec with no regular fallback for that layout, which then fails
+    while importing the extension module.  Registering the two namespace
+    packages with their real extension directories keeps the normal fast
+    importer and does not modify Isaac's installed files.
+    """
+    import isaacsim
+
+    ext_root = Path(isaacsim.__file__).resolve().parent / "extscache"
+    semantics_paths = sorted(
+        str(path / "semantics")
+        for path in ext_root.glob("semantics.schema.*")
+        if (path / "semantics").is_dir()
+    )
+    schema_paths = sorted(
+        str(path / "semantics" / "schema")
+        for path in ext_root.glob("semantics.schema.*")
+        if (path / "semantics" / "schema").is_dir()
+    )
+    if not semantics_paths or not schema_paths:
+        return
+
+    def register(name: str, paths: list[str]) -> None:
+        module = sys.modules.get(name)
+        if module is None:
+            module = types.ModuleType(name)
+            sys.modules[name] = module
+        module.__path__ = paths
+        module.__package__ = name
+        module.__spec__ = importlib.machinery.ModuleSpec(
+            name, loader=None, is_package=True,
+        )
+        module.__spec__.submodule_search_locations = paths
+
+    register("semantics", semantics_paths)
+    register("semantics.schema", schema_paths)
 
 
 async def configure_view(stage):
@@ -105,7 +173,7 @@ def main(argv=None):
     thread.start()
     url = f"http://127.0.0.1:{server.server_port}/"
     print(f"Semantic map editor: {url}", flush=True)
-    app = session = None
+    app = session = font_cache = None
     stopping = False
     def stop_requested(_signum, _frame):
         nonlocal stopping
@@ -114,8 +182,11 @@ def main(argv=None):
     signal.signal(signal.SIGINT, stop_requested)
     try:
         from isaacsim import SimulationApp
+        install_isaac_semantics_namespace_shim()
+        font_cache = tempfile.TemporaryDirectory(prefix="topology-ui-fonts-")
         app = SimulationApp({"headless": args.headless, "fast_shutdown": False,
-                             "width": 1600, "height": 1000})
+                             "width": 1600, "height": 1000,
+                             "extra_args": isaac_startup_args(Path(font_cache.name))})
         import omni.usd
         import carb.settings
         # Viewport RTX preferences belong to this editor session, not the USD.
@@ -141,6 +212,8 @@ def main(argv=None):
             from simulator import _prepare_gui_for_app_close
             _prepare_gui_for_app_close(app)
             app.close()
+        if font_cache:
+            font_cache.cleanup()
 
 
 if __name__ == "__main__":

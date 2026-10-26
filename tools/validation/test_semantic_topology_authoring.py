@@ -205,7 +205,7 @@ def test_malformed_route_kind_is_a_validation_error(kind):
 
 
 @pytest.mark.parametrize("action", [
-    lambda doc: doc.move_node("a", [0,0,1]),
+    lambda doc: doc.move_node("a", [0,0,float("nan")]),
     lambda doc: doc.set_node_metadata("a", level_id="upper", label="A", aliases=[]),
     lambda doc: doc.set_levels([{"id":"ground", "label":"Ground", "support_z_m":1}, {"id":"upper", "label":"Upper", "support_z_m":2}]),
     lambda doc: doc.set_edge_polyline(doc.edges[0]["id"], [[9,9,9],[10,10,10]]),
@@ -226,6 +226,23 @@ def test_graph_edits_cannot_break_reloadable_semantic_map(action):
     with pytest.raises(ValueError):
         action(doc)
     assert doc.to_dict() == before and doc._redo == redo
+
+
+def test_ground_visual_height_edit_keeps_semantic_annotations_reloadable(tmp_path):
+    doc = document()
+    stairs(doc)
+    doc.upsert_semantic("entities", entity())
+    doc.upsert_semantic("interaction_poses", pose())
+    annotations = deepcopy(doc.semantics)
+    before = doc.to_dict()
+    doc.move_node("a", [0, 0, 1])
+    assert not validate_document(doc)
+    assert doc.node("a")["level_id"] == "ground"
+    assert doc.semantics == annotations
+    path = generate_product(tmp_path / "topology.json", doc)
+    assert load_product(path).to_dict() == doc.to_dict()
+    assert doc.undo()
+    assert doc.to_dict() == before
 
 
 def test_owner_floor_consistency_includes_inherited_approach_floor():

@@ -25,7 +25,7 @@ def build_topology():
     for index, position in enumerate(NODE_POSITIONS):
         refs = ["place:start"] if index == 0 else ["place:finish"] if index == 5 else []
         nodes.append({"id": f"n{index}", "position_xyz": list(position), "target_refs": refs})
-    return {"schema": "eai.navigation.topology", "version": 1, "scene_key": "plane",
+    return {"schema": "eai.navigation.topology", "version": 2, "domain": "aerial", "levels": [], "scene_key": "plane",
             "coordinate_frame": "scene_world", "meters_per_unit": 1., "up_axis": "Z",
             "nodes": nodes,
             "edges": [{"id": f"e{index}", "from": f"n{index}", "to": f"n{index + 1}",

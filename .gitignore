@@ -221,6 +221,13 @@ test_*.py
 !/tools/validation/test_topology_surfaces.py
 !/tools/validation/test_topology_pose_ui.py
 !/tools/validation/test_isaac_bridge.py
+!/tools/validation/test_topology_editing_project.py
+!/tools/validation/test_semantic_points_project.py
+!/tools/validation/test_topology_domain_navigation.py
+!/tools/validation/test_topology_editing_clients.py
+!/tools/validation/test_web_isaac_overlay.py
+!/tools/validation/test_web_isaac_overlay_link.py
+/usd/scene/**/semantic_map/.write.lock
 !/source/EAI/test/test_restaurant_products.py
 !/source/EAI/test/test_restaurant_runtime_scene.py
 !/source/EAI/test/test_restaurant_candidate_admission.py
@@ -385,6 +392,9 @@ test_*.py
 !/usd/scene/**/
 !/usd/scene/**/semantic_map/
 !/usd/scene/**/semantic_map/**
+/usd/scene/**/semantic_map/.write.lock
+/usd/scene/**/semantic_map/.pending-*
+/usd/scene/**/semantic_map/.save-transaction.json
 
 # Local Codex planning state is never source.
 /.zcode/
@@ -396,3 +406,4 @@ test_*.py
 
 # Calibrated G1 grasp profiles are runtime source data.
 !/task/executors/g1_manipulation/inspire_grips.json
+!/tools/validation/test_topology_current_storage.py

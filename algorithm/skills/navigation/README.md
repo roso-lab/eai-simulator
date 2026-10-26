@@ -14,9 +14,22 @@ over directed node edges. It emits a single
 `navigation_target` containing the authored node ID, index, XYZ and optional
 final heading. It does not import Isaac or know a controller command format.
 
+When a project-level `semantic_points` collection is supplied to
+`select_node_route` or `NavigationProvider`, a stable semantic point ID resolves
+to its `navigation_bindings`. Candidates are filtered to the provider's graph
+domain and the shortest reachable route is selected. Missing or unreachable
+bindings fail closed with `semantic_target_no_binding_for_domain` or
+`semantic_target_unreachable`.
+
 Ground and aerial products use the same JSON schema, but each robot loads its
 own map product. A ground profile measures start matching, edge length,
-arrival and route length in XY. An aerial profile measures them in XYZ. Edge
+arrival and route length in XY. An aerial profile measures them in XYZ. The map
+domain is checked at admission and route selection: XY requires `ground`,
+XYZ requires `aerial` (legacy products without a domain default to ground).
+An aerial node's optional `edit_mode` (`2.5d`/`3d`) only controls editor
+gestures; both modes retain XYZ navigation semantics. The measured origin must
+already be within the nearest node's arrival radius, or admission returns
+`origin_not_reached`; there is no automatic off-graph connection. Edge
 polylines and traversal metadata are authoring data; the runtime only uses
 node endpoints and directed edges.
 

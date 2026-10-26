@@ -163,7 +163,8 @@ def _semantic_heading(records: Mapping[str, tuple[str, Mapping[str, Any]]],
 
 
 def resolve_landmark_binding(document: Any, query: str, *, level_id: str | None = None,
-                             role: str = "target") -> dict[str, Any]:
+                             role: str = "target", semantic_points: Sequence[Mapping[str, Any]] | None = None,
+                             domain: str | None = None) -> dict[str, Any]:
     """Return a normalized node binding for a node or semantic location."""
     if role not in {"origin", "target"}:
         raise SkillContractError("landmark role must be origin or target")
@@ -171,6 +172,23 @@ def resolve_landmark_binding(document: Any, query: str, *, level_id: str | None 
     if not isinstance(query, str) or not query.strip():
         raise SkillContractError("landmark query must be a nonempty identifier or label")
     query = query.strip()
+    if semantic_points is not None:
+        matches = [row for row in semantic_points if isinstance(row, Mapping) and row.get("id") == query]
+        if len(matches) > 1:
+            raise SkillContractError(f"ambiguous landmark: {query!r}")
+        if matches:
+            if any(isinstance(row, Mapping) and row.get("id") == query
+                   for row in data.get("nodes", ())):
+                raise SkillContractError(f"ambiguous landmark: {query!r}")
+            point = matches[0]
+            if domain not in (None, "ground", "aerial"):
+                raise SkillContractError("domain must be ground or aerial")
+            bindings = [item for item in point.get("navigation_bindings", [])
+                        if domain is None or item.get("domain") == domain]
+            return {"id": query, "collection": "semantic_points", "record": deepcopy(dict(point)),
+                    "node_ids": tuple(item["node_id"] for item in bindings),
+                    "navigation_bindings": deepcopy(bindings), "label": point.get("label", ""),
+                    "aliases": tuple(point.get("aliases", ())), "query": query}
     all_node_rows = {row.get("id"): row for row in data.get("nodes", ())
                      if isinstance(row, Mapping) and isinstance(row.get("id"), str)}
     rows = list(all_node_rows.values())
@@ -259,9 +277,12 @@ def landmark_inventory(document: Any) -> list[dict[str, Any]]:
     return result
 
 
-def resolve_landmark(document: Any, query: str, *, level_id: str | None = None) -> Mapping[str, Any]:
+def resolve_landmark(document: Any, query: str, *, level_id: str | None = None,
+                     semantic_points: Sequence[Mapping[str, Any]] | None = None,
+                     domain: str | None = None) -> Mapping[str, Any]:
     """Resolve a node, external target, or semantic map record."""
-    binding = resolve_landmark_binding(document, query, level_id=level_id)
+    binding = resolve_landmark_binding(document, query, level_id=level_id,
+                                       semantic_points=semantic_points, domain=domain)
     row = dict(binding["record"])
     if binding["collection"] != "nodes":
         row.update({"collection": binding["collection"],
@@ -288,18 +309,24 @@ def resolve_landmark_route(
     origin_level_id: str | None = None, destination_level_id: str | None = None,
     profile: NavigationProfile | None = None,
     controller_capabilities: Sequence[str] | None = None,
+    semantic_points: Sequence[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Resolve semantic locations and run the execution router."""
     data = _data(document)
+    navigation_domain = data.get("domain", "ground")
     origin_binding = resolve_landmark_binding(document, origin_ref,
-                                               level_id=origin_level_id, role="origin")
-    destination_binding = resolve_landmark_binding(document, destination_ref,
-                                                    level_id=destination_level_id, role="target")
+                                               level_id=origin_level_id, role="origin",
+                                               semantic_points=semantic_points,
+                                               domain=navigation_domain)
+    destination_binding = resolve_landmark_binding(
+        document, destination_ref, level_id=destination_level_id, role="target",
+        semantic_points=semantic_points, domain=navigation_domain,
+    )
     origin_nodes = tuple(origin_binding.get("node_ids", ()))
     destination_nodes = tuple(destination_binding.get("node_ids", ()))
     if not origin_nodes:
         raise SkillContractError(f"origin has no navigation entrance: {origin_ref!r}")
-    if not destination_nodes:
+    if not destination_nodes and destination_binding.get("collection") != "semantic_points":
         raise SkillContractError(f"destination has no navigation entrance: {destination_ref!r}")
     nodes = {row["id"]: row for row in data.get("nodes", ())}
     origin_point = nodes[origin_nodes[0]]["position_xyz"]
@@ -315,7 +342,7 @@ def resolve_landmark_route(
     result = select_node_route(
         document, NavigationPose(tuple(origin_point)), profile=selected_profile,
         origin_ref=origin_ref, target_ref=destination_ref,
-        origin_node_ids=origin_nodes, target_node_ids=destination_nodes,
+        origin_node_ids=origin_nodes, target_node_ids=(destination_nodes or None),
         allowed_edge_ids=(destination_binding.get("record", {}).get("edge_ids")
                           if destination_binding.get("collection") == "routes" else None),
         controller_capabilities=capabilities,
@@ -325,7 +352,11 @@ def resolve_landmark_route(
                 "heading_rad", destination_binding.get("record", {}).get("heading_rad"))),
         target_is_semantic=destination_binding.get("collection") != "nodes",
         origin_is_semantic=origin_binding.get("collection") != "nodes",
+        semantic_points=semantic_points,
     )
+    if semantic_points is not None:
+        from .node_route import semantic_binding_digest
+        result["semantic_binding_digest"] = semantic_binding_digest(semantic_points)
     selected_semantic_heading = None
     if result.get("admitted") and destination_binding.get("collection") == "entities":
         records, _ = _semantic_records(data)
@@ -355,6 +386,8 @@ def resolve_landmark_route(
             "origin_ref": origin_ref,
             "route_graph_digest": result["route_graph_digest"],
         }
+        if semantic_points is not None:
+            result["skill_parameters"]["semantic_binding_digest"] = result["semantic_binding_digest"]
         target_heading = result.get("target_heading_rad")
         if target_heading is not None and selected_profile.supports_final_heading:
             result["skill_parameters"]["target_yaw"] = target_heading
