@@ -125,3 +125,19 @@ schema mismatch 和 oracle 测试文件缺失均属于提交时序造成的旧�
 - 任何路径需要修改论文正文或覆盖协作者目录：停止并记录，不自行扩大范围。
 - 正式 gates (`physical_qualified`, `rankable`, `paper_score_eligible`) 在完整矩阵、
   真实设备和统计支持齐备前始终为 `false`。
+
+## E. 远端最新整合（2026-10-27，`03f8b898`）
+
+远端已先推进 topology authoring/map 工具（`f712a331`）。在该最新基线上，补齐并推送
+输入层的可发布接缝：
+
+- `benchmark/case_manifest_builder_v1.py`：把已审计语义地图、27 台运行时名册、合同、
+  任务级 object binding 和 replay 元数据组装为一个 fail-closed case manifest；
+- `tools/benchmark_branch/generate_anchor_contracts.py`：按拍板底稿与 room_06 扩展源重
+  生成 24 锚点合同投影，并保留来源摘要与非资格状态；
+- room_06 合同/oracle、manifest object binding 回归及自包含 pilot candidate fixture。
+
+最新基线上的输入层专项为 `48 passed`，并通过 `compileall` 与 `git diff --check`。
+候选 fixture 放在测试目录，避免发布测试依赖被 `.gitignore` 忽略的运行时 artifact。
+该提交只完成输入与合同接缝，不改变真实 evaluator receipt、GPU readback 或正式资格门；
+三项 gate 仍保持 `false`。
