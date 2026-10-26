@@ -395,18 +395,65 @@ def build_case_manifest(
         raise CaseManifestBuildError(str(exc)) from exc
 
 
+def _write_json(path: Path, value: Mapping[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _preflight_report(
+    *, semantic_root: Path, robot_pool_path: Path, binding: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Return a non-authorizing input report for CLI/audit evidence.
+
+    The report is deliberately available even when a required upstream file is
+    missing or malformed.  It lets an operator archive the fail-closed reason
+    without turning a failed preflight into a partial manifest.
+    """
+
+    try:
+        return audit_case_inputs(
+            semantic_root,
+            robot_pool_path,
+            semantic_requirements=binding.get("semantic_requirements"),
+        )
+    except CaseInputAuditError as exc:
+        return {
+            "schema": "heterocoord.case-input-audit.v1",
+            "case_ready": False,
+            "failures": [str(exc)],
+            "semantic_root": str(Path(semantic_root).resolve()),
+            "robot_pool_path": str(Path(robot_pool_path).resolve()),
+        }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--semantic-root", required=True, type=Path)
     parser.add_argument("--robot-pool", required=True, type=Path)
     parser.add_argument("--binding", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument(
+        "--audit-output",
+        type=Path,
+        help="optional path for the non-authorizing input audit report",
+    )
     args = parser.parse_args(argv)
     try:
         binding = _load_json(args.binding, "binding specification")
+        if args.audit_output is not None:
+            _write_json(
+                args.audit_output,
+                _preflight_report(
+                    semantic_root=args.semantic_root,
+                    robot_pool_path=args.robot_pool,
+                    binding=binding,
+                ),
+            )
         result = build_case_manifest(semantic_root=args.semantic_root, robot_pool_path=args.robot_pool, binding=binding)
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        _write_json(args.output, result)
     except (CaseManifestBuildError, OSError) as exc:
         parser.error(str(exc))
     return 0

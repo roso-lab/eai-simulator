@@ -347,3 +347,35 @@ def test_manifest_rejects_extra_object_binding_fields() -> None:
 
     with pytest.raises(CaseManifestError, match="scene.object_bindings schema mismatch"):
         bind_case_manifest(_manifest(scene))
+
+
+def test_builder_cli_archives_fail_closed_preflight(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    binding_path = tmp_path / "binding.json"
+    binding_path.write_text(json.dumps(_binding()), encoding="utf-8")
+    audit_path = tmp_path / "evidence" / "input-audit.json"
+    output_path = tmp_path / "case-manifest.json"
+    monkeypatch.setattr(
+        builder,
+        "audit_case_inputs",
+        lambda *args, **kwargs: {
+            "schema": "heterocoord.case-input-audit.v1",
+            "case_ready": False,
+            "failures": ["semantic map is still being edited"],
+        },
+    )
+
+    with pytest.raises(SystemExit) as excinfo:
+        builder.main([
+            "--semantic-root", str(tmp_path / "semantic_map"),
+            "--robot-pool", str(tmp_path / "pool.json"),
+            "--binding", str(binding_path),
+            "--output", str(output_path),
+            "--audit-output", str(audit_path),
+        ])
+
+    assert excinfo.value.code == 2
+    assert json.loads(audit_path.read_text(encoding="utf-8"))["case_ready"] is False
+    assert "semantic map is still being edited" in json.loads(
+        audit_path.read_text(encoding="utf-8")
+    )["failures"]
+    assert not output_path.exists()
