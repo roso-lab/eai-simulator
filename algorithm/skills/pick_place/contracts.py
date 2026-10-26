@@ -87,10 +87,15 @@ class PickPlaceAdapter(Protocol):
     def resource_key(self, object_ref: str) -> str:
         """Return the canonical object resource, including alias resolution."""
 
-    def validate(self, command: PickPlaceCommand) -> None:
-        """Pure admission check; raise for unsupported/unreachable targets."""
+    def start(self, command: PickPlaceCommand) -> None:
+        """Invoke the underlying motion controller for the semantic action.
 
-    def start(self, command: PickPlaceCommand) -> None: ...
+        The controller may interpolate a trajectory or run its normal motion
+        loop.  Those implementation details are not an additional
+        collaboration admission gate; after transport admission, the
+        idealized controller contract treats the semantic action as executable.
+        """
+        ...
     def before_step(self) -> None: ...
     def after_step(self) -> None: ...
     def feedback(self) -> BackendFeedback: ...

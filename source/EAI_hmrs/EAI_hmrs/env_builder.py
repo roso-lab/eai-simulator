@@ -5,7 +5,7 @@ import importlib
 from typing import Any
 
 import isaaclab.sim as sim_utils
-from isaaclab.assets import ArticulationCfg, AssetBaseCfg
+from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sensors import RayCasterCfg, patterns
 from isaaclab.terrains import TerrainImporterCfg
@@ -235,6 +235,7 @@ SCENE_OPTIONS = [
 
 
 CONTROLLER_CFG_IMPORTS = {
+    "GO2_VELOCITY_RSL_CFG": ("rl/go2_rsl_rl/go2_rsl_rl.py", "GO2_VELOCITY_RSL_CFG"),
     "CARTER_DIFF_CFG": ("traditional/carter_diff/carter_diff.py", "CARTER_DIFF_CFG"),
     "SIMPLE_CAR_PLANAR_CFG": ("traditional/simple_car_planar/simple_car_planar.py", "SIMPLE_CAR_PLANAR_CFG"),
     "PEPPER_HOLONOMIC_CFG": ("traditional/pepper_holonomic/pepper_holonomic.py", "PEPPER_HOLONOMIC_CFG"),
@@ -952,6 +953,34 @@ def build_interactive_env_cfg(
         from EAI_hmrs.scenario_builder import add_scenario_entities
 
         add_scenario_entities(attrs, scenario_data["composition"])
+    # Explicit local collision demonstration used by the GUI smoke run.  The
+    # cubes are ordinary rigid objects with collision enabled; production
+    # scenes are unchanged unless this opt-in environment variable is set.
+    import os
+    if os.environ.get("EAI_DEMO_COLLISION", "").strip() == "1":
+        for cube_name, position, color in (
+            ("demo_cube_a", (1.5, 0.0, 0.35), (0.85, 0.15, 0.1)),
+            ("demo_cube_b", (0.0, 1.5, 0.35), (0.1, 0.25, 0.85)),
+        ):
+            attrs["__annotations__"][cube_name] = RigidObjectCfg
+            attrs[cube_name] = RigidObjectCfg(
+                prim_path=f"{{ENV_REGEX_NS}}/{cube_name}",
+                spawn=sim_utils.CuboidCfg(
+                    size=(0.7, 0.7, 0.7),
+                    visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=color),
+                    rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                        rigid_body_enabled=True, kinematic_enabled=False, disable_gravity=False
+                    ),
+                    mass_props=sim_utils.MassPropertiesCfg(mass=2.0),
+                    collision_props=sim_utils.CollisionPropertiesCfg(collision_enabled=True),
+                    physics_material=sim_utils.RigidBodyMaterialCfg(
+                        static_friction=0.8, dynamic_friction=0.6,
+                        restitution=0.0, friction_combine_mode="average",
+                        restitution_combine_mode="average",
+                    ),
+                ),
+                init_state=RigidObjectCfg.InitialStateCfg(pos=position),
+            )
     scene_cls = configclass(type("InteractiveEaiSceneCfg", (InteractiveSceneCfg,), attrs))
     env_attrs = {
         "__annotations__": {"scene": scene_cls},

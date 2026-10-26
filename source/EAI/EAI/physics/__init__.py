@@ -15,6 +15,11 @@ from .aerial_sensors import (
     aerial_sensor_topic_names,
     selection_requires_aerial_camera,
 )
+from .robot_collision import (
+    install_robot_robot_collision_filter,
+    robot_collision_filter_pairs,
+    robot_entity_roots,
+)
 
 __all__ = [
     "AerialSensorModel",
@@ -26,4 +31,7 @@ __all__ = [
     "aerial_sensor_specs_from_selection",
     "aerial_sensor_topic_names",
     "selection_requires_aerial_camera",
+    "install_robot_robot_collision_filter",
+    "robot_collision_filter_pairs",
+    "robot_entity_roots",
 ]

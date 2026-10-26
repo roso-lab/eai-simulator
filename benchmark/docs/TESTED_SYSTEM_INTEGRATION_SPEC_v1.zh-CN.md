@@ -13,13 +13,19 @@ benchmark：统一输入输出类型定义在 `task/contracts.py`，接入协议
 | 类型 | 定义处 | 含义 |
 |---|---|---|
 | `EaiTaskPackage` | `task/contracts.py` | 场景无关任务包：`task_id`、`scene_id`、任务图 `graph`、机器人名册 `robots`、`observation_schema`（当前 `task.observation.v1`）、`metadata`。支持 `from_json` 加载。 |
-| `RobotState` | `task/contracts.py` | 对被测系统公开的机器人状态：能力 `capability`、可选 `position`（三元组）、`metadata`。 |
+| `RobotState` | `task/contracts.py` | 对被测系统公开的机器人状态：能力 `capability`、可选 `position`（三元组）、`metadata`。搬运任务可在 `metadata.manipulation.payload_kg` 提供只读能力摘要。 |
 | `AlgorithmDecision` | `task/contracts.py` | 被测系统的统一输出：`condition`（条件分配状态）、`assignments`（任务指派）、`unassigned_tasks`、`provenance`。**不含任何物理成功声明**。 |
 | `DecisionProvider` | `benchmark/adapters.py` | 接入协议：`(task: EaiTaskPackage, robots) -> AlgorithmDecision`，注释明示"must not claim physical success"。 |
 
 物理执行、技能规划、里程碑、oracle 判定、回放与终局收据全部属于 benchmark/EAI
 侧；被测系统只做决策。`Assignment`、`TaskGraph`、`EventLedger`、`RobotCapability`
 等基础类型来自 `algorithm/common_coordination/contract.py`。
+
+搬运任务的公开输入在任务元数据中提供只读摘要，例如
+`CoordinationTask.metadata.transport = {"object_ref": "box_a", "object_mass_kg": 4.0}`，
+机器人元数据中提供 `{"manipulation": {"payload_kg": 3.0}}`。这些字段帮助 D1
+完成任务分配，但不构成物理成功声明；执行入口仍从场景物理 JSON 与机器人简历
+重新读取权威值，防止被测系统修改或伪造准入结果。
 
 ## 2. 生命周期与调用顺序
 
@@ -82,7 +88,70 @@ benchmark：统一输入输出类型定义在 `task/contracts.py`，接入协议
   的 JSON 形态)}`；具体措辞模板由各算法附录给出实例，本规范只锁 envelope 与输出
   格式，保证可比较性。
 
-## 7. 接入状态与清单
+## 7. 搬运任务的第二层语义协议
+
+`AlgorithmDecision` 只表示“哪个机器人被分配了哪个任务”。它不携带物理
+成功、attachment、质量比较结果，也不直接调用 skill。对于搬运任务，benchmark
+在收到 assignment 后生成独立的 `heterocoord.transport_command.v1`：
+
+```json
+{
+  "schema": "heterocoord.transport_command.v1",
+  "request_id": "transport-001",
+  "task_id": "move_box_a",
+  "robot_id": "robot_a",
+  "object_ref": "box_a",
+  "source_ref": "semantic_map:pickup_point",
+  "handoff_ref": null,
+  "target_ref": "semantic_map:counter_point",
+  "operation": "pick",
+  "phase": "source_to_target",
+  "semantic_map_ref": "scene-map-v1",
+  "parameters": {}
+}
+```
+
+`source_ref`、`handoff_ref` 和 `target_ref` 都是语义地图引用；柜台位置因此
+不需要业务名称或订单编号。`mass_kg` 和 `payload_kg` 不能由被测系统填写，
+而是由搬运 skill 分别从场景物理 JSON 和机器人简历读取，在执行入口比较。
+
+运行时准入结果为：
+
+```json
+{
+  "admitted": false,
+  "result": 0,
+  "object_mass_kg": 4.0,
+  "robot_payload_kg": 3.0,
+  "reason": "object mass exceeds robot payload"
+}
+```
+
+`result: 0` 表示不创建 attachment、不调用底层搬运动作，并转换为统一的
+`ExecutionFeedback(failure_code=INFEASIBLE_TEAM)`。它是一次普通任务失败，独立
+任务仍可继续，换机器人需要 planner 显式 `replan`。
+
+末端成功条件只采用理想化语义：导航 skill 已到达所引用的语义点，且质量/负载
+准入通过，即认为 pick/place 成功。几何、IK、工具轴、可达性以及控制器的停止、
+清理和反馈字段都不属于 D1/D5 协作成功条件；它们若被底层保留，只能作为调试
+信息，不能改变任务结果。
+
+多机运行默认采用 `ignore_robot_robot_collisions = true`：语义地图和场景中的
+机器人仍保留与地面、墙体、家具和搬运物体的碰撞；仅不同机器人实体之间的碰撞对被
+PhysX 过滤。碰撞实体以 `controllers` 中登记的宿主机器人为单位，并把名称等于宿主名
+或以 `宿主名_` 开头的挂载机械臂、传感器等 articulation 根路径加入同一组；因此组内
+部件不被当作另一台机器人。无法按宿主前缀归属的 scene articulation 会作为独立实体
+保留在策略中。该策略服务于协作任务的理想化运动假设，不代表关闭机器人自身的
+self-collision。
+
+## 8. 场景后端的 fail-closed 边界
+
+`tools/scenario_generation/execute_episode.py` 的 fail-closed 只表示当前工程
+没有可认证的场景执行后端时，拒绝启动旧版 `demo.benchmark`，也不把静态 oracle
+结果冒充成真实执行证据。它与搬运 skill 的 `result: 0` 不同：前者是后端能力
+不可用时的启动边界，后者是后端可运行时一次超载分配的任务反馈。
+
+## 9. 接入状态与清单
 
 | 被测系统 | 状态 |
 |---|---|

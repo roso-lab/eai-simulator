@@ -1668,6 +1668,191 @@ def _setup_simulation_clock_manager(base_env: Any):
     return ensure_simulation_clock_manager(base_env)
 
 
+def _register_three_way_concordance_evaluator(base_env: Any) -> Any | None:
+    """Register the native diagnostic evaluator only under an explicit contract."""
+
+    if os.environ.get("EAI_THREE_WAY_CONCORDANCE", "").strip() != "1":
+        return None
+    if hasattr(base_env, "three_way_concordance_evaluator"):
+        raise RuntimeError("three-way concordance evaluator is already registered")
+    from tools.validation.three_way_evaluator import build_from_environment
+
+    provider = build_from_environment(base_env)
+    base_env.three_way_concordance_evaluator = provider
+    return provider
+
+
+def _register_factory_native_shared_slot_runtime(session: SimulatorSession) -> Any | None:
+    """Attach the production C-route runtime only for the explicit shared route.
+
+    A and B also enable the three-way evaluator, but use one environment and
+    must not be forced through the same-session slot contract.  The second
+    guard is therefore route-specific; once selected, every missing native
+    owner or isolation surface is an admission error rather than a fallback.
+    """
+
+    if os.environ.get("EAI_THREE_WAY_SHARED_SLOT", "").strip() != "1":
+        return None
+    if os.environ.get("EAI_THREE_WAY_CONCORDANCE", "").strip() != "1":
+        raise RuntimeError(
+            "shared-slot registration requires the three-way concordance contract"
+        )
+    from tools.physics_replay.factory_native_owners import (
+        install_factory_native_owner_graph,
+    )
+    from tools.physics_replay.factory_native_registration import (
+        register_factory_native_production_runtime,
+    )
+
+    install_factory_native_owner_graph(session)
+    return register_factory_native_production_runtime(session)
+
+
+def _prime_factory_native_shared_slot_buffers(base_env: Any) -> None:
+    """Create live batch rows required before native owner registration.
+
+    ``MultiRobotDirectEnv`` intentionally allocates ``_commands_dict`` and
+    computed-action caches on the first control step.  Isaac Lab's
+    ``DirectMARLEnv`` also creates reward/termination dictionaries only after
+    the first step, while an A-route checkpoint necessarily contains them.
+    The shared-session owner graph must be installed before that step, so it
+    needs real live rows for both families.  Priming calls the environment's
+    own pure reward/done evaluators and creates registered zero-hold command
+    rows; it does not advance simulation or invoke a controller.  The one
+    task-owned computed-action cache is allocated from the evaluator's explicit
+    binding rather than guessed from ``action_spaces``.  Checkpoint restore
+    then overwrites the target slot.
+    """
+
+    if os.environ.get("EAI_THREE_WAY_SHARED_SLOT", "").strip() != "1":
+        return
+    import torch
+    from tools.physics_replay.agent_checkpoint_schema import (
+        resolve_agent_checkpoint_schema,
+    )
+
+    capacity = getattr(base_env, "num_envs", None)
+    agents = tuple(getattr(base_env, "possible_agents", ()))
+    if type(capacity) is not int or capacity < 2 or not agents:
+        raise RuntimeError("shared-slot buffer priming requires a vectorized agent environment")
+    device = getattr(base_env, "device", "cpu")
+    command_registry = getattr(base_env, "_commands_dict", None)
+    if not isinstance(command_registry, dict):
+        base_env._commands_dict = {}
+        command_registry = base_env._commands_dict
+    actions = getattr(base_env, "actions_dict", None)
+    if not isinstance(actions, dict):
+        base_env.actions_dict = {}
+        actions = base_env.actions_dict
+    last_actions = getattr(base_env, "_last_computed_actions", None)
+    if not isinstance(last_actions, dict):
+        base_env._last_computed_actions = {}
+        last_actions = base_env._last_computed_actions
+
+    reward_reader = getattr(base_env, "_get_rewards", None)
+    done_reader = getattr(base_env, "_get_dones", None)
+    if not callable(reward_reader) or not callable(done_reader):
+        raise RuntimeError(
+            "shared-slot buffer priming requires native reward/done evaluators"
+        )
+
+    reward_rows = reward_reader()
+    done_rows = done_reader()
+    if (not isinstance(done_rows, tuple) or len(done_rows) != 2):
+        raise RuntimeError("shared-slot done evaluator returned a malformed pair")
+    terminated_rows, time_out_rows = done_rows
+
+    def validate_agent_rows(value: Any, label: str, *, boolean: bool) -> dict[str, Any]:
+        if not isinstance(value, dict) or set(value) != set(agents):
+            raise RuntimeError(f"shared-slot {label} rows do not cover all agents")
+        for agent, row in value.items():
+            shape = tuple(int(item) for item in getattr(row, "shape", ()))
+            dtype = getattr(row, "dtype", None)
+            if not shape or shape[0] != capacity:
+                raise RuntimeError(
+                    f"shared-slot {label} row for {agent} is not batch-indexed"
+                )
+            if boolean and dtype is not torch.bool:
+                raise RuntimeError(
+                    f"shared-slot {label} row for {agent} is not boolean"
+                )
+            if not boolean and not (getattr(dtype, "is_floating_point", False)):
+                raise RuntimeError(
+                    f"shared-slot {label} row for {agent} is not floating-point"
+                )
+        return value
+
+    # These are the actual DirectMARLEnv state attributes captured by
+    # EnvironmentBuffersComponent on A.  Bind the same owner-visible schema
+    # before constructing C's _AlgorithmSlotComponent.
+    base_env.reward_dict = validate_agent_rows(
+        reward_rows, "reward", boolean=False,
+    )
+    base_env.terminated_dict = validate_agent_rows(
+        terminated_rows, "termination", boolean=True,
+    )
+    base_env.time_out_dict = validate_agent_rows(
+        time_out_rows, "timeout", boolean=True,
+    )
+
+    try:
+        schema = resolve_agent_checkpoint_schema(base_env)
+    except ValueError as exc:
+        raise RuntimeError(str(exc)) from exc
+    if schema is None or schema[0] != capacity:
+        raise RuntimeError("shared-slot agent checkpoint schema is unavailable")
+
+    specs = {spec.agent: spec for spec in schema[1]}
+    for spec in schema[1]:
+        agent = spec.agent
+        command_name = spec.command_name
+        command_dim = spec.command_dim
+        if agent not in command_registry or command_name not in command_registry[agent]:
+            base_env.set_command(
+                agent, command_name,
+                torch.zeros((capacity, command_dim), device=device, dtype=torch.float32),
+            )
+
+    evaluator = getattr(base_env, "three_way_concordance_evaluator", None)
+    binding_reader = getattr(evaluator, "controller_checkpoint_binding", None)
+    if not callable(binding_reader):
+        raise RuntimeError("shared-slot evaluator lacks a controller checkpoint binding")
+    binding = binding_reader()
+    if not isinstance(binding, dict) or set(binding) != {
+        "agent", "command_name", "command_dim", "action_dim",
+    }:
+        raise RuntimeError("shared-slot controller checkpoint binding is malformed")
+    agent = binding["agent"]
+    if agent not in specs:
+        raise RuntimeError("shared-slot controller checkpoint agent is not configured")
+    spec = specs[agent]
+    if (binding["command_name"] != spec.command_name
+            or binding["command_dim"] != spec.command_dim
+            or type(binding["action_dim"]) is not int
+            or binding["action_dim"] <= 0):
+        raise RuntimeError("shared-slot controller checkpoint binding differs from the live command schema")
+    expected_shape = (capacity, binding["action_dim"])
+    for registry, label in (
+        (actions, "actions_dict"),
+        (last_actions, "_last_computed_actions"),
+    ):
+        unknown = sorted(set(registry) - {agent})
+        if unknown:
+            raise RuntimeError(
+                f"shared-slot {label} has unregistered controller cache keys: {unknown}"
+            )
+        if agent not in registry:
+            registry[agent] = torch.zeros(
+                expected_shape, device=device, dtype=torch.float32,
+            )
+        row = registry[agent]
+        if (tuple(int(item) for item in getattr(row, "shape", ())) != expected_shape
+                or not getattr(getattr(row, "dtype", None), "is_floating_point", False)):
+            raise RuntimeError(
+                f"shared-slot {label} row differs from the evaluator binding"
+            )
+
+
 def _setup_aerial_sensor_manager(
     *,
     base_env: Any,
@@ -2070,6 +2255,20 @@ def _initialize_env_cfg(env_cfg: Any, args: argparse.Namespace) -> None:
     env_cfg.scene.num_envs = args.num_envs
     env_cfg.sim.device = args.device
     env_cfg.seed = args.seed
+    # The shared-session C route requires every AssetBaseCfg payload to have a
+    # real per-environment prim before native owner registration.  With
+    # replicate_physics=True Isaac clones the source environment only after
+    # custom AssetBase spawn callbacks have run; the custom Orsus/RealSense
+    # callbacks consequently see env_0 only and no env_1 sensor prim exists.
+    # Disable physics replication for this route so InteractiveScene clones
+    # the env xforms first and invokes each payload callback against all real
+    # environment parents.  A/B do not set this route flag and retain the
+    # normal homogeneous-scene fast path.
+    if os.environ.get("EAI_THREE_WAY_SHARED_SLOT", "").strip() == "1":
+        scene = getattr(env_cfg, "scene", None)
+        if scene is None:
+            raise RuntimeError("shared-slot route requires an interactive scene configuration")
+        scene.replicate_physics = False
 
 
 def _load_env_cfg(env_name: str, selection_data: dict[str, Any] | None):
@@ -2368,6 +2567,11 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
             selection_data=selection_data,
             possible_agents=possible_agents,
         )
+        collision_report = getattr(base_env, "robot_robot_collision_filter_report", None)
+        if collision_report is not None:
+            print(f"[EAI Simulator] collision filter report: {collision_report}")
+        _register_three_way_concordance_evaluator(base_env)
+        _prime_factory_native_shared_slot_buffers(base_env)
         # Re-apply log silencing after scene setup: native plugins can
         # (re-)register their carb logging source while the stage loads,
         # which resets per-source thresholds.
@@ -2414,7 +2618,7 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
             _setup_witness_camera(base_env, possible_agents, witness_namespace)
 
 
-        yield SimulatorSession(
+        session = SimulatorSession(
             simulation_app=simulation_app,
             env=env,
             base_env=base_env,
@@ -2425,6 +2629,8 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
             num_envs=config.num_envs,
             device=config.device,
         )
+        _register_factory_native_shared_slot_runtime(session)
+        yield session
     except BaseException:
         # Kit's native shutdown may terminate the process before an outer
         # caller can report this exception. Preserve the original failure
@@ -2674,9 +2880,10 @@ def main() -> None:
                     daemon=True,
                 ).start()
             last_snapshot_heartbeat = 0.0
+            demo_collision = os.environ.get("EAI_DEMO_COLLISION", "").strip() == "1"
+            if demo_collision:
+                print("[EAI Simulator] collision demo active: persistent initial velocity; robot↔robot filtered; robot↔cube enabled")
             while session.simulation_app.is_running():
-                import time
-
                 now = time.monotonic()
                 if now - last_snapshot_heartbeat >= 2.0:
                     from EAI.interface_catalog.snapshot import refresh_snapshot
@@ -2707,6 +2914,17 @@ def main() -> None:
                     yaw_command_names=yaw_command_names,
                     robot_types=robot_types,
                 )
+                if demo_collision:
+                    # The collision demo configs place two robots at (-3, 0)
+                    # and (0, -3), with the second facing +Y. Both pass
+                    # through the origin; their mutual contact is filtered
+                    # while each remains collidable with the demo cubes.
+                    speed = 0.65
+                    for robot_name in ("carter_1", "carter_2", "go2_1", "pepper_1"):
+                        if robot_name in robot_commands:
+                            robot_commands[robot_name][:, 0] = speed
+                            robot_commands[robot_name][:, 1] = 0.0
+                            robot_commands[robot_name][:, 2] = 0.0
                 if manipulator_manager is not None:
                     manipulator_manager.apply_gripper_commands(base_env)
                 actions = {
