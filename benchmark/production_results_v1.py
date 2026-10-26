@@ -47,6 +47,7 @@ def build_paper_panel_package(
     *,
     receipts: Sequence[Mapping[str, Any]],
     panel_bindings: Mapping[str, Mapping[str, Any]],
+    endpoint_receipts: Mapping[str, Sequence[Mapping[str, Any]]] | None = None,
     bootstrap_resamples: int = 0,
     bootstrap_seed: int = 0,
     structured: Mapping[str, Any] | None = None,
@@ -61,12 +62,42 @@ def build_paper_panel_package(
     """
 
     try:
-        package = build_panel_estimates_from_receipts(
-            receipts,
-            panel_bindings,
-            bootstrap_resamples=bootstrap_resamples,
-            bootstrap_seed=bootstrap_seed,
-        )
+        if endpoint_receipts is None:
+            package = build_panel_estimates_from_receipts(
+                receipts,
+                panel_bindings,
+                bootstrap_resamples=bootstrap_resamples,
+                bootstrap_seed=bootstrap_seed,
+            )
+        else:
+            if not isinstance(endpoint_receipts, Mapping):
+                raise ProductionRunError("endpoint_receipts must be an object keyed by panel endpoint")
+            expected = set(panel_bindings)
+            actual = set(endpoint_receipts)
+            if actual != expected:
+                missing = sorted(expected - actual)
+                unknown = sorted(actual - expected)
+                raise ProductionRunError(
+                    f"endpoint_receipts keys must match panel_bindings (missing={missing}, unknown={unknown})"
+                )
+            endpoints: dict[str, Any] = {}
+            for endpoint, binding in panel_bindings.items():
+                subset = endpoint_receipts[endpoint]
+                if isinstance(subset, (str, bytes)) or not isinstance(subset, Sequence):
+                    raise ProductionRunError(f"endpoint_receipts[{endpoint}] must be a receipt sequence")
+                endpoint_package = build_panel_estimates_from_receipts(
+                    subset,
+                    {endpoint: binding},
+                    bootstrap_resamples=bootstrap_resamples,
+                    bootstrap_seed=bootstrap_seed,
+                )
+                endpoints[endpoint] = endpoint_package["endpoints"][endpoint]
+            package = {
+                "schema": "heterocoord.paper-panel-package.v1",
+                "panel_version": "paper-panel-v1",
+                "status": "ready",
+                "endpoints": endpoints,
+            }
     except (PanelAggregationError, TypeError, ValueError) as exc:
         raise ProductionRunError(f"paper panel construction failed: {exc}") from exc
     package["formal_gates"] = {
@@ -94,6 +125,7 @@ def run_production_case(
     artifact_root: str | Path,
     output: str | Path,
     panel_bindings: Mapping[str, Mapping[str, Any]] | None = None,
+    panel_endpoint_receipts: Mapping[str, Sequence[Mapping[str, Any]]] | None = None,
     panel_bootstrap_resamples: int = 0,
     panel_bootstrap_seed: int = 0,
     panel_projection_binding: Mapping[str, Any] | None = None,
@@ -137,6 +169,7 @@ def run_production_case(
             panel_package = build_paper_panel_package(
                 receipts=receipts,
                 panel_bindings=panel_bindings,
+                endpoint_receipts=panel_endpoint_receipts,
                 bootstrap_resamples=panel_bootstrap_resamples,
                 bootstrap_seed=panel_bootstrap_seed,
                 structured=panel_structured,
@@ -185,6 +218,7 @@ def run_production_case_from_artifacts(
     artifact_root: str | Path,
     output: str | Path,
     panel_bindings: Mapping[str, Mapping[str, Any]] | None = None,
+    panel_endpoint_receipts: Mapping[str, Sequence[Mapping[str, Any]]] | None = None,
     panel_bootstrap_resamples: int = 0,
     panel_bootstrap_seed: int = 0,
     panel_projection_binding: Mapping[str, Any] | None = None,
@@ -253,6 +287,7 @@ def run_production_case_from_artifacts(
         artifact_root=artifact_root,
         output=output,
         panel_bindings=panel_bindings,
+        panel_endpoint_receipts=panel_endpoint_receipts,
         panel_bootstrap_resamples=panel_bootstrap_resamples,
         panel_bootstrap_seed=panel_bootstrap_seed,
         panel_projection_binding=panel_projection_binding,
@@ -277,6 +312,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--artifact-root", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--panel-bindings", type=Path, help="registered fixed-panel bindings JSON")
+    parser.add_argument(
+        "--panel-endpoint-receipts",
+        type=Path,
+        help="JSON object mapping each fixed-panel endpoint to its own receipt sequence",
+    )
     parser.add_argument("--panel-bootstrap-resamples", type=int, default=0)
     parser.add_argument("--panel-bootstrap-seed", type=int, default=0)
     parser.add_argument("--panel-projection-binding", type=Path, help="registered binding that makes the fixed panel authoritative")
@@ -290,6 +330,9 @@ def main(argv: list[str] | None = None) -> int:
             artifact_root=args.artifact_root,
             output=args.output,
             panel_bindings=_load_json(args.panel_bindings) if args.panel_bindings else None,
+            panel_endpoint_receipts=(
+                _load_json(args.panel_endpoint_receipts) if args.panel_endpoint_receipts else None
+            ),
             panel_bootstrap_resamples=args.panel_bootstrap_resamples,
             panel_bootstrap_seed=args.panel_bootstrap_seed,
             panel_projection_binding=_load_json(args.panel_projection_binding) if args.panel_projection_binding else None,
