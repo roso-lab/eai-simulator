@@ -28,7 +28,8 @@ def add_point(p, **kwargs):
     p.edit("add_semantic_point", id="s1", position_xyz=[0, 0, 1.5], kind="seat", **kwargs)
 
 
-def test_points_preserve_modes_coordinates_semantics_binding_and_graph_identity(project):
+def test_points_preserve_modes_coordinates_navigation_bindings_and_graph_identity(project):
+    project.edit("add_node", position_xyz=[0, 0, 0], level_id="1F")
     before = {d: route_graph_digest(doc) for d, doc in project.documents.items()}
     digest = project.product_digest
     add_point(project, label="Chair", description="Sitting place", aliases=["seat"], properties={"action": "sit"})
@@ -38,14 +39,15 @@ def test_points_preserve_modes_coordinates_semantics_binding_and_graph_identity(
     assert project.semantic_points[0]["position_xyz"] == [1, 2, 1.5]
     project.edit("update_semantic_point", id="s1", position_xyz=[1, 2, 6])
     saved = project._snapshot()
-    project.edit("bind_semantic_point", id="s1", binding={
-        "source_usd": "scene/Test/scene/scene.usda", "prim_path": "/World/Chair"})
+    project.edit("set_semantic_point_navigation_bindings", id="s1",
+                 bindings=[{"domain": "ground", "node_id": "node:0001"}])
     bound = deepcopy(project.semantic_points[0])
     project.undo()
     assert project._snapshot() == saved
     project.redo()
     project.edit("update_semantic_point", id="s1", edit_mode="3d")
     assert project.semantic_points[0]["position_xyz"] == bound["position_xyz"]
+    assert project.semantic_points[0]["navigation_bindings"] == bound["navigation_bindings"]
     project.save()
     reopened = MapProject(project.root)
     assert reopened._snapshot() == project._snapshot()
@@ -55,7 +57,61 @@ def test_points_preserve_modes_coordinates_semantics_binding_and_graph_identity(
     project.edit("remove_semantic_point", id="s1")
     assert not project.semantic_points
     project.undo()
-    assert project.semantic_points[0]["isaac_binding"]["prim_path"] == "/World/Chair"
+    assert project.semantic_points[0]["navigation_bindings"] == bound["navigation_bindings"]
+
+
+@pytest.mark.parametrize("version", [1, 2])
+@pytest.mark.parametrize("binding", [None, {
+    "source_usd": "old/missing.usda", "prim_path": "/World/RemovedChair"}])
+def test_legacy_isaac_binding_is_dropped_on_load_and_save(project, version, binding):
+    project.edit("add_node", position_xyz=[0, 0, 0], level_id="1F")
+    project.edit("add_node", domain="aerial", position_xyz=[0, 0, 2])
+    add_point(project, label="Chair", aliases=["seat"], properties={"color": "oak"})
+    if version == 2:
+        project.edit("set_semantic_point_navigation_bindings", id="s1", bindings=[
+            {"domain": domain, "node_id": "node:0001"} for domain in ("ground", "aerial")])
+    project.save()
+    expected = project._snapshot()
+    digest, product_digest = project.semantic_binding_digest, project.product_digest
+    graphs = {d: route_graph_digest(doc) for d, doc in project.documents.items()}
+    revision = project.root / project.saved_revision
+    payload = read_json(revision / "semantic-points.json")
+    payload["version"] = version
+    payload["points"][0]["isaac_binding"] = binding
+    if version == 1:
+        payload["points"][0].pop("navigation_bindings")
+    (revision / "semantic-points.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    manifest = read_json(revision / "manifest.json")
+    manifest["files"]["semantic-points.json"] = sha256(revision / "semantic-points.json")
+    (revision / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    reopened = MapProject(project.root)
+    assert "isaac_binding" not in reopened.semantic_points[0]
+    assert reopened._snapshot() == expected
+    assert reopened.semantic_binding_digest == digest
+    assert reopened.product_digest == product_digest
+    assert {d: route_graph_digest(doc) for d, doc in reopened.documents.items()} == graphs
+    assert read_json(revision / "semantic-points.json")["points"][0]["isaac_binding"] == binding
+    reopened.save()
+    payload = read_json(reopened.root / reopened.saved_revision / "semantic-points.json")
+    assert "isaac_binding" not in payload["points"][0]
+    assert MapProject(project.root)._snapshot() == expected
+
+
+@pytest.mark.parametrize("operation, args", [
+    ("bind_semantic_point", {"binding": {"prim_path": "/World/Chair"}}),
+    ("unbind_semantic_point", {}),
+    ("update_semantic_point", {"isaac_binding": None}),
+    ("add_semantic_point", {"isaac_binding": None, "position_xyz": [0, 0, 1]}),
+])
+def test_retired_isaac_edits_do_not_mutate_project(project, operation, args):
+    add_point(project)
+    before, revision, history = project._snapshot(), project.revision, len(project._undo)
+    with pytest.raises(ValueError):
+        project.edit(operation, id="s1", **args)
+    assert project._snapshot() == before
+    assert project.revision == revision and len(project._undo) == history
 
 
 @pytest.mark.parametrize("patch", [
@@ -222,34 +278,27 @@ def test_http_tools_cannot_modify_reference_types_or_edge_endpoints(api):
     assert request("/api/state")[1]["revision"] == state["revision"]
 
 
-def test_http_binding_authority_rejects_stale_cross_scene_multiselect_and_overlay(api):
+def test_http_rejects_isaac_binding_and_accepts_navigation_binding(api):
     request, server = api
     _,state = request("/api/state")
+    state = switch(request, state, active_layer="ground", tool="add-node")
+    _,state = request("/api/edit", {**identity(state), "operation":"add_node",
+                                     "position_xyz":[0,0,0], "level_id":"1F"})
     state = switch(request,state,tool="add-semantic-point")
     _,state = request("/api/edit",{**identity(state),"operation":"add_semantic_point","id":"s1","position_xyz":[0,0,1]})
-    server.update_isaac_runtime(state["scene_generation"], "ready")
-    def selection(seq=1,paths=None,source=None):
-        return {**identity(state),"selection_kind":"prim","session_id":"kit","sequence":seq,
-                "timestamp":__import__('time').time(),"prim_paths":paths or ["/World/Chair"],
-                "position_xyz":[1,2,3],"bbox_min_xyz":[0,1,2],"bbox_max_xyz":[2,3,4],
-                "source_usd":source or "scene/Test/scene/scene.usda"}
-    assert request("/api/isaac/selection",selection(source="wrong.usda"))[0] == 400
-    assert request("/api/isaac/selection",selection())[0] == 200
-    bind = {**identity(state),"operation":"bind_semantic_point","id":"s1","selection_session_id":"kit","selection_sequence":0}
-    assert request("/api/edit",bind)[0] == 409
-    bind["selection_sequence"] = 1
-    code,state = request("/api/edit",bind)
-    assert code == 200 and state["semantic_points"][0]["isaac_binding"]["prim_path"] == "/World/Chair"
-    assert request("/api/isaac/selection",selection())[0] == 409
-    assert request("/api/isaac/selection",selection(2,["/World/A","/World/B"]))[0] == 200
-    bind.update(identity(state),selection_sequence=2)
-    assert request("/api/edit",bind)[0] == 409
-    assert request("/api/isaac/selection",selection(3,["/SemanticMapOverlay/Fake"]))[0] == 200
-    bind["selection_sequence"] = 3
-    assert request("/api/edit",bind)[0] == 409
-    server.update_isaac_runtime(state["scene_generation"],"ready")
-    report = {**identity(state),"statuses":{"s1":{"prim_path":"/World/Chair","status":"invalid"}}}
-    assert request("/api/isaac/bindings",report)[0] == 200
-    assert request("/api/state")[1]["binding_status"]["s1"] == "invalid"
-    server.update_isaac_runtime(state["scene_generation"],"error","disconnected")
-    assert request("/api/state")[1]["binding_status"]["s1"] == "unverified"
+    bind = {**identity(state),"operation":"bind_semantic_point","id":"s1",
+            "binding":{"source_usd":"scene/Test/scene/scene.usda","prim_path":"/World/Chair"}}
+    assert request("/api/edit",bind)[0] == 400
+    assert request("/api/edit", {**identity(state), "operation":"unbind_semantic_point", "id":"s1"})[0] == 400
+    assert request("/api/edit", {**identity(state), "operation":"update_semantic_point",
+                                 "id":"s1", "isaac_binding":None})[0] == 400
+    assert request("/api/isaac/bindings", {**identity(state), "statuses":{}})[0] == 404
+    code,state = request("/api/edit", {**identity(state),
+        "operation":"set_semantic_point_navigation_bindings", "id":"s1",
+        "bindings":[{"domain":"ground","node_id":"node:0001"}]})
+    assert code == 200
+    assert state["semantic_points"][0]["navigation_bindings"] == [
+        {"domain":"ground", "node_id":"node:0001"}]
+    assert "isaac_selection" not in state and "binding_status" not in state
+    assert "isaac_selection" not in server.isaac_context()
+    assert "binding_status" not in server.isaac_context()

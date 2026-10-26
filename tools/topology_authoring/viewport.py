@@ -840,9 +840,6 @@ class _TopologyEditorGesture:
     def handle(self, phase, mouse_ndc):
         if self.controller is None:
             return
-        if self.controller.object_selection_mode:
-            self._press = self._drag_target = None
-            return
         context = self.controller.context or {}
         tool = context.get("editor_tool", "add-node")
         if phase == "began":
@@ -975,8 +972,8 @@ class _TopologyEditorViewportScene:
         # Kit's ObjectClick and Selection manipulators run independently of
         # the scene gesture surface.  Keep their disable handle alive while
         # this editor is active so a topology click cannot also select a USD
-        # prim.  The handle is deliberately scoped per viewport and released
-        # when object-binding mode hides the editor.
+        # prim. The handle is deliberately scoped per viewport and released
+        # when the topology editor is disabled.
         self._selection_disable_handle = None
         self._manipulator = _Manipulator(self)
 

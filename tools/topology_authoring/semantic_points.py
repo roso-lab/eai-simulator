@@ -1,28 +1,20 @@
 """Project annotations in world metres, independent of both navigation graphs."""
 from copy import deepcopy
 import math
-from pathlib import PurePosixPath
 import uuid
 
 SCHEMA = "eai.semantic_points"
 FIELDS = {"id", "position_xyz", "label", "kind", "description", "aliases",
-          "properties", "edit_mode", "isaac_binding", "navigation_bindings"}
+          "properties", "edit_mode", "navigation_bindings"}
 
 
-def is_editor_prim(path):
-    """Editor geometry is never an asset a semantic point can bind to."""
-    roots = ("/SemanticMapOverlay", "/World/TopologyAuthoringOverlay",
-             "/TopologyAuthoring", "/TopologyOverlay", "/__EAI")
-    return isinstance(path, str) and any(
-        path == root or path.startswith(root + "/") for root in roots)
-
-
-def valid_object_path(path):
-    if (not isinstance(path, str) or len(path) > 4096 or not path.startswith("/")
-            or path == "/" or is_editor_prim(path) or any(
-                c in path for c in (".", "{", "}", " ", "\t", "\n", "\r"))):
-        return False
-    return all(part and part not in {".", ".."} for part in path.split("/")[1:])
+def migrate_points(points):
+    """Drop retired Isaac object bindings while loading legacy products."""
+    if not isinstance(points, list):
+        return points
+    return [{key: deepcopy(value) for key, value in point.items()
+             if key != "isaac_binding"} if isinstance(point, dict) else point
+            for point in points]
 
 
 def coordinates(value, size=3):
@@ -92,29 +84,20 @@ def validate_points(points, source_path=None):
         if point.get("edit_mode", "3d") not in ("2.5d", "3d"):
             raise ValueError("semantic edit_mode must be 2.5d or 3d")
         point["navigation_bindings"] = normalize_navigation_bindings(point.get("navigation_bindings", []))
-        binding = point.get("isaac_binding")
-        if binding is not None:
-            if not isinstance(binding, dict) or set(binding) != {"source_usd", "prim_path"}:
-                raise ValueError("invalid Isaac binding")
-            source, prim = binding["source_usd"], binding["prim_path"]
-            if (not isinstance(source, str) or not source or "\\" in source
-                    or PurePosixPath(source).is_absolute() or ".." in PurePosixPath(source).parts
-                    or source_path is not None and source != source_path):
-                raise ValueError("Isaac binding must reference this scene's relative USD path")
-            if not valid_object_path(prim):
-                raise ValueError("Isaac binding must reference an object prim")
     return points
 
 
 def edit_points(points, operation, args, source_path=None):
+    if "isaac_binding" in args or "binding" in args:
+        raise ValueError("Isaac object bindings are no longer supported")
     result = deepcopy(points)
     if operation == "add_semantic_point":
         record = {"id": args.get("id") or "semantic:" + uuid.uuid4().hex,
                   "position_xyz": coordinates(args.get("position_xyz")),
                   "label": "", "kind": "custom", "description": "", "aliases": [],
-                  "properties": {}, "edit_mode": "3d", "isaac_binding": None,
+                  "properties": {}, "edit_mode": "3d",
                   "navigation_bindings": []}
-        for name in FIELDS - {"id", "isaac_binding", "position_xyz", "navigation_bindings"}:
+        for name in FIELDS - {"id", "position_xyz", "navigation_bindings"}:
             if name in args:
                 record[name] = deepcopy(args[name])
         result.append(record)
@@ -123,7 +106,7 @@ def edit_points(points, operation, args, source_path=None):
         if record is None:
             raise ValueError("unknown semantic point")
         if operation == "update_semantic_point":
-            for name in FIELDS - {"id", "isaac_binding", "navigation_bindings"}:
+            for name in FIELDS - {"id", "navigation_bindings"}:
                 if name in args:
                     record[name] = deepcopy(args[name])
         elif operation == "move_semantic_point_xy":
@@ -132,12 +115,8 @@ def edit_points(points, operation, args, source_path=None):
             record["position_xyz"] = coordinates(args.get("position_xyz"))
         elif operation == "remove_semantic_point":
             result.remove(record)
-        elif operation == "bind_semantic_point":
-            record["isaac_binding"] = deepcopy(args["binding"])
-        elif operation == "unbind_semantic_point":
-            record["isaac_binding"] = None
         elif operation == "set_semantic_point_navigation_bindings":
             record["navigation_bindings"] = normalize_navigation_bindings(args.get("bindings", []))
         else:
             raise ValueError("unknown semantic point operation")
-    return validate_points(result, source_path)
+    return validate_points(result)

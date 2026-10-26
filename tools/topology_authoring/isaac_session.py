@@ -11,7 +11,6 @@ from .isaac_bridge import (
     IsaacAuthoringClient,
     IsaacEditDispatcher,
     IsaacSelectionBridge,
-    IsaacSelectionWindow,
     IsaacTopologyController,
     IsaacTopologyWindow,
     _stage_axis_and_scale,
@@ -37,10 +36,11 @@ def _web_selection_token(selection):
 
 
 class IsaacMapSession:
-    """Serialize stage opens and bind selections only to the latest map request."""
+    """Serialize stage opens and topology edits to the latest map request."""
 
     def __init__(self, context, server_url, read_context, report_status, *,
-                 bridge_factory=IsaacSelectionBridge, window_factory=IsaacSelectionWindow,
+                 bridge_factory=IsaacSelectionBridge,
+                 window_factory=None,
                  authoring_client_factory=IsaacAuthoringClient,
                  editor_window_factory=IsaacTopologyWindow,
                  editor_view_factory=TopologyEditorViewport, on_open=None):
@@ -49,16 +49,12 @@ class IsaacMapSession:
         self.read_context = read_context
         self.report_status = report_status
         self.bridge_factory = bridge_factory
-        self.window_factory = window_factory
         self.on_open = on_open
         self.authoring_client_factory = authoring_client_factory
         self.editor_window_factory = editor_window_factory
         self.editor_view_factory = editor_view_factory
-        self.bridge = self.window = self.task = None
+        self.bridge = self.task = None
         self.editor_client = self.editor_dispatcher = self.editor_controller = None
-        self.binding_dispatcher = None
-        self.binding_status_token = None
-        self.binding_status_time = 0.0
         self.editor_window = self.editor_view = None
         self.overlay = None
         self.overlay_revision = None
@@ -84,15 +80,7 @@ class IsaacMapSession:
             self.editor_dispatcher = None
         self.editor_controller = None
         self.editor_client = None
-        if self.binding_dispatcher is not None:
-            self.binding_dispatcher.close()
-            self.binding_dispatcher = None
-        self.binding_status_token = None
-        self.binding_status_time = 0.0
-        if self.window:
-            self.window.destroy()
-            self.window = None
-        elif self.bridge:
+        if self.bridge:
             self.bridge.stop()
         self.bridge = None
         self._bridge_error_active = False
@@ -211,9 +199,6 @@ class IsaacMapSession:
                         "move-node", "move-semantic-point", "translate-edge"}:
                     request = self.read_context()
                     self.editor_controller.update_context(request)
-                if self.binding_dispatcher is not None:
-                    self.binding_dispatcher.drain()
-                    self._report_binding_validity(request)
             self._update_overlay(request)
 
     def _update_overlay(self, request):
@@ -286,34 +271,6 @@ class IsaacMapSession:
                     (self.editor_controller.context or {}).get("active_domain", "ground")),
             )
 
-    def _report_binding_validity(self, request):
-        """Report actual current-stage prim validity without touching author layers."""
-        if self.binding_dispatcher is None or self.binding_dispatcher.pending:
-            return
-        stage = self.context.get_stage()
-        if stage is None:
-            return
-        self.binding_dispatcher.client.update_context(request)
-        statuses = {}
-        for point in request.get("semantic_points") or []:
-            binding = point.get("isaac_binding") or {}
-            path = binding.get("prim_path")
-            if not isinstance(path, str) or not path:
-                continue
-            prim = stage.GetPrimAtPath(path)
-            status = "valid" if prim is not None and prim.IsValid() else "invalid"
-            statuses[point.get("id")] = {"prim_path": path, "status": status}
-        identity = self.editor_controller.dispatcher.client.identity()
-        token = (json.dumps(statuses, sort_keys=True), tuple(sorted(identity.items())))
-        now = time.monotonic()
-        if token == self.binding_status_token and now - self.binding_status_time < 1.0:
-            return
-        if self.binding_dispatcher.submit(
-                ("binding-status",), "report_bindings", statuses,
-                _identity=identity):
-            self.binding_status_token = token
-            self.binding_status_time = now
-
     async def _open(self, request):
         generation = request["scene_generation"]
         try:
@@ -342,55 +299,25 @@ class IsaacMapSession:
             if self.read_context()["scene_generation"] != generation:
                 return
             self.bridge = self.bridge_factory(self.server_url, scene_key=request["scene_key"])
-            # Establish the expected identity before bind's first snapshot.
+            # Establish the expected identity before the first topology snapshot.
             self.bridge.source_usd = request["source_usd"]
             self.bridge.start()
-            # Do this before the first selection snapshot so a Prim selected
-            # in the startup stage is never published as a bindable object.
+            # Topology editing always owns pointer input; do not pick assets.
             set_asset_selection_enabled = getattr(
                 self.bridge, "set_asset_selection_enabled", None)
             if callable(set_asset_selection_enabled):
                 set_asset_selection_enabled(False)
-            self.bridge.bind_selection(context=self.context)
             self._clear_native_selection()
             # Topology manipulation uses a full-screen scene DragGesture and
             # stable projected IDs. The legacy physics raycast picker remains
             # available on IsaacSelectionBridge but is not part of this editor.
             self.editor_client = self.authoring_client_factory(self.server_url)
             self.editor_dispatcher = IsaacEditDispatcher(self.editor_client)
-            self.binding_dispatcher = IsaacEditDispatcher(
-                self.authoring_client_factory(self.server_url))
             self.editor_controller = IsaacTopologyController(self.editor_dispatcher)
             self.editor_controller.meters_per_unit = meters_per_unit
             self.editor_controller.update_context(request)
-            cursor_provider = getattr(
-                self.bridge, "acknowledged_selection_cursor", None)
-            if callable(cursor_provider):
-                self.editor_controller.isaac_selection_cursor_provider = cursor_provider
-            self.binding_dispatcher.client.update_context(request)
             self.editor_view = self.editor_view_factory(self.editor_controller)
-            def set_object_selection_mode(enabled):
-                try:
-                    self.editor_view.set_enabled(not enabled)
-                    # Native USD picking is reserved for the explicit
-                    # semantic-point binding flow. During normal point/edge/
-                    # semantic-point editing it must be disabled, otherwise
-                    # Kit's ObjectClick manipulator can select scene assets
-                    # on the same mouse release as the topology gesture.
-                    set_asset_selection_enabled = getattr(
-                        self.bridge, "set_asset_selection_enabled", None)
-                    if callable(set_asset_selection_enabled):
-                        set_asset_selection_enabled(bool(enabled))
-                    if enabled:
-                        self.bridge.send_clear()
-                    else:
-                        self._clear_native_selection()
-                        self.bridge.send_current_selection()
-                except Exception as exc:
-                    self.editor_controller.last_error = str(exc)
-            self.editor_controller.on_object_selection_mode = set_object_selection_mode
-            # Start in topology-edit mode. Binding mode opts back into native
-            # Prim picking explicitly through the controller button.
+            # Navigation binding picks use the same topology input handlers.
             self.editor_window = self.editor_window_factory(self.editor_controller)
             self.editor_window.show()
             # First rebuild happens on the next tick (<=0.25 s); keep _open minimal.

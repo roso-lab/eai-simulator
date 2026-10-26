@@ -738,11 +738,6 @@ class IsaacAuthoringClient:
         """
         return self.request("/api/editor/context", fields, identity=_identity)
 
-    def report_bindings(self, statuses: dict[str, dict[str, str]], *,
-                        _identity: dict[str, Any] | None = None) -> dict[str, Any]:
-        return self.request("/api/isaac/bindings", {"statuses": statuses},
-                            identity=_identity)
-
     def select(self, selection: dict[str, Any] | None, *,
                _identity: dict[str, Any] | None = None) -> dict[str, Any]:
         return self.request("/api/web/selection", {"selection": selection},
@@ -849,10 +844,7 @@ class IsaacTopologyController:
         self.last_error: str | None = None
         self.edit_status = "idle"
         self.on_change: Callable[[], None] | None = None
-        self.object_selection_mode = False
         self.interaction_generation = 0
-        self.on_object_selection_mode: Callable[[bool], None] | None = None
-        self.isaac_selection_cursor_provider: Callable[[], dict[str, Any] | None] | None = None
         self.meters_per_unit = 1.0
 
     @property
@@ -885,10 +877,6 @@ class IsaacTopologyController:
             self.pending_edit = None
             self.pending_context = None
             self.selection_dirty = False
-        if self.object_selection_mode and self.context is not None and any(
-                self.context.get(key) != context.get(key) for key in
-                ("scene_key", "scene_generation", "active_layer", "editor_tool")):
-            self.set_object_selection_mode(False)
         self.context = context
         self.document_snapshots = dict(
             context.get("document_snapshots") or context.get("documents") or {})
@@ -1049,8 +1037,6 @@ class IsaacTopologyController:
     def set_active_layer(self, layer: str) -> bool:
         if layer not in self.LAYERS:
             raise IsaacBridgeError("active_layer must be ground, aerial or semantic_points")
-        if self.object_selection_mode:
-            self.set_object_selection_mode(False)
         self.cancel_gesture()
         return self._submit_context(layer, active_layer=layer)
 
@@ -1063,8 +1049,6 @@ class IsaacTopologyController:
         if tool not in self.TOOLS:
             raise IsaacBridgeError(
                 "editor tool must be add-node, add-edge or add-semantic-point")
-        if self.object_selection_mode:
-            self.set_object_selection_mode(False)
         self.cancel_gesture()
         return self._submit_context(tool, editor_tool=tool)
 
@@ -1298,7 +1282,7 @@ class IsaacTopologyController:
         return submitted
 
     def add_node(self, point: Iterable[float]) -> bool:
-        if self.object_selection_mode or self.active_layer not in {"ground", "aerial"}:
+        if self.active_layer not in {"ground", "aerial"}:
             return False
         position = list(_finite_xyz(point))
         args = {"position_xyz": position, "label": "", "kind": "custom"}
@@ -1309,7 +1293,7 @@ class IsaacTopologyController:
         return self._submit_frozen_edit(("add-node", position), "add_node", **args)
 
     def add_semantic_point(self, point: Iterable[float]) -> bool:
-        if self.object_selection_mode or self.active_layer != "semantic_points":
+        if self.active_layer != "semantic_points":
             return False
         position = list(_finite_xyz(point))
         settings = self.new_point_settings["semantic_points"]
@@ -1363,54 +1347,6 @@ class IsaacTopologyController:
         operation = operations.get(kind)
         return bool(operation and self._submit_frozen_edit(
             ("delete", kind, identifier), operation, id=identifier))
-
-    def set_object_selection_mode(self, enabled: bool) -> bool:
-        enabled = bool(enabled)
-        if enabled == self.object_selection_mode:
-            return enabled
-        self.cancel_gesture()
-        self.object_selection_mode = enabled
-        if self.on_object_selection_mode is not None:
-            self.on_object_selection_mode(enabled)
-        self._changed()
-        return enabled
-
-    def bind_selected_semantic_point(self) -> bool:
-        if not self.selection or self.selection.get("kind") != "semantic_point":
-            return False
-        if self.isaac_selection_cursor_provider is not None:
-            selected = self.isaac_selection_cursor_provider()
-            if selected is None:
-                self.last_error = (
-                    "Isaac object selection is not confirmed yet; wait for selection sync")
-                self._changed()
-                return False
-        else:
-            selected = (self.context or {}).get("isaac_selection") or {}
-        session_id = selected.get("session_id")
-        sequence = selected.get("sequence")
-        if not isinstance(session_id, str) or type(sequence) is not int:
-            self.last_error = "Select one current-scene Isaac prim before binding"
-            self._changed()
-            return False
-        return self._submit_frozen_edit(
-            ("bind-semantic-point", self.selection["id"]), "bind_semantic_point",
-            id=self.selection["id"], selection_session_id=session_id,
-            selection_sequence=sequence)
-
-    def binding_cursor_ready(self) -> bool:
-        if self.isaac_selection_cursor_provider is not None:
-            return self.isaac_selection_cursor_provider() is not None
-        selected = (self.context or {}).get("isaac_selection") or {}
-        return (isinstance(selected.get("session_id"), str)
-                and type(selected.get("sequence")) is int)
-
-    def unbind_selected_semantic_point(self) -> bool:
-        if not self.selection or self.selection.get("kind") != "semantic_point":
-            return False
-        return self._submit_frozen_edit(
-            ("unbind-semantic-point", self.selection["id"]),
-            "unbind_semantic_point", id=self.selection["id"])
 
     def undo(self) -> bool:
         return self.dispatcher.submit(("undo",), "undo",
@@ -1638,8 +1574,6 @@ class IsaacTopologyWindow:
         self._model_subscriptions = []
         self._input = self._keyboard = self._key_subscription = None
         self._level_controls = self._node_property_controls = self._node_level_controls = None
-        self._start_object_selection_button = self._end_object_selection_button = None
-        self._bind_object_button = None
 
     @staticmethod
     def _set_model(model, value):
@@ -1659,17 +1593,15 @@ class IsaacTopologyWindow:
         mode = f" | selected mode {point.get('edit_mode', '3d')}" if point else ""
         binding = ""
         if selection and selection.get("kind") == "semantic_point":
-            value = (context.get("binding_status") or {}).get(selection.get("id"), "unverified")
             point = self.controller.semantic_point(selection.get("id")) or {}
             count = len(self.controller.navigation_binding_draft
                          if self.controller.navigation_binding_mode
                          and self.controller.navigation_binding_draft is not None
                          else point.get("navigation_bindings", []))
-            binding = f" | Isaac binding {value} | navigation bindings {count}"
+            binding = f" | navigation bindings {count}"
             if self.controller.navigation_binding_mode:
                 binding += " (pick mode)"
         error = f" | {self.controller.last_error}" if self.controller.last_error else ""
-        object_mode = " | Isaac object selection" if self.controller.object_selection_mode else ""
         if self.controller.retry_request is not None:
             edit_state = " | 存在待重试草稿"
         elif self.controller.edit_status == "failed":
@@ -1689,7 +1621,7 @@ class IsaacTopologyWindow:
             f"layer {self.controller.active_layer} | tool {context.get('editor_tool', '?')} | "
             f"floor {context.get('active_level', '?')} | reference "
             f"{context.get('reference_level') or 'none'} | selected "
-            f"{selected}{mode}{binding}{object_mode}{edit_state}{error}")
+            f"{selected}{mode}{binding}{edit_state}{error}")
         if self._level_controls is not None:
             self._level_controls.visible = self.controller.active_layer == "ground"
         if self._node_property_controls is not None:
@@ -1698,14 +1630,6 @@ class IsaacTopologyWindow:
                 and context.get("editor_tool") != "add-edge")
         if self._node_level_controls is not None:
             self._node_level_controls.visible = self.controller.active_layer == "ground"
-        if self._start_object_selection_button is not None:
-            self._start_object_selection_button.enabled = not self.controller.object_selection_mode
-        if self._end_object_selection_button is not None:
-            self._end_object_selection_button.enabled = self.controller.object_selection_mode
-        if self._bind_object_button is not None:
-            self._bind_object_button.enabled = bool(
-                selection and selection.get("kind") == "semantic_point"
-                and self.controller.binding_cursor_ready())
         if self.controller.result_serial != self._seen_result_serial:
             self._seen_result_serial = self.controller.result_serial
             if self.controller.last_result_succeeded:
@@ -1859,13 +1783,6 @@ class IsaacTopologyWindow:
                         ui.Button("Delete", width=0,
                                   clicked_fn=self.controller.delete_selected)
                     with ui.HStack(height=30, width=ui.Fraction(1)):
-                        self._start_object_selection_button = ui.Button(
-                            "Start Isaac object selection", width=0, clicked_fn=lambda:
-                            self.controller.set_object_selection_mode(True))
-                        self._end_object_selection_button = ui.Button(
-                            "End Isaac object selection", width=0, clicked_fn=lambda:
-                            self.controller.set_object_selection_mode(False))
-                    with ui.HStack(height=30, width=ui.Fraction(1)):
                         ui.Button("Undirected", width=0,
                                   clicked_fn=lambda: self.controller.set_directed(False))
                         ui.Button("Directed", width=0,
@@ -1949,12 +1866,6 @@ class IsaacTopologyWindow:
                         ui.Button("Apply semantic", width=120,
                                   clicked_fn=self._apply_semantic_properties)
                     with ui.HStack(height=30, width=ui.Fraction(1)):
-                        self._bind_object_button = ui.Button(
-                            "Bind selected Isaac object", width=0,
-                            clicked_fn=self.controller.bind_selected_semantic_point)
-                        ui.Button("Unbind object", width=0,
-                                  clicked_fn=self.controller.unbind_selected_semantic_point)
-                    with ui.HStack(height=30, width=ui.Fraction(1)):
                         ui.Button("Pick navigation nodes", width=0,
                                   clicked_fn=self.controller.begin_navigation_binding)
                         ui.Button("Apply navigation bindings", width=0,
@@ -2000,8 +1911,7 @@ class IsaacTopologyWindow:
                         else:
                             self.controller.cancel_gesture()
                     elif (event.input == carb.input.KeyboardInput.ENTER
-                          and self.controller.edge_end is not None
-                          and not self.controller.object_selection_mode):
+                          and self.controller.edge_end is not None):
                         self.controller.finish_edge()
                 return True
             self._key_subscription = self._input.subscribe_to_keyboard_events(
@@ -2029,8 +1939,6 @@ class IsaacTopologyWindow:
             self._window = None
         self._scroll_frame = self._status = None
         self._level_controls = self._node_property_controls = self._node_level_controls = None
-        self._start_object_selection_button = self._end_object_selection_button = None
-        self._bind_object_button = None
 
 
 __all__ = [

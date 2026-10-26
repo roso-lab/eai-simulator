@@ -337,9 +337,6 @@ textarea { resize: vertical; line-height: 1.5; }
 .binding-heading, .binding-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .binding-heading strong { color: var(--text-2); font-size: 12px; }
 .binding-status { padding: 2px 7px; border: 1px solid var(--line); border-radius: 99px; color: var(--muted); font-size: 10.5px; }
-.binding-status[data-status="valid"] { color: var(--accent-bright); border-color: var(--accent-border); }
-.binding-status[data-status="invalid"] { color: #ffa4ab; border-color: rgba(240, 113, 120, .45); }
-.binding-path { margin: 9px 0 5px; color: #bdd9f8; font-size: 11px; overflow-wrap: anywhere; }
 .binding-hint { margin-bottom: 10px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
 .binding-actions .button { min-width: 0; padding: 0 9px; font-size: 11px; }
 .inspector-actions {
@@ -388,6 +385,5 @@ textarea { resize: vertical; line-height: 1.5; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation-duration: .01ms !important; }
 }
-.navigation-binding-card { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(148,163,184,.2); }
 .binding-node-list { max-height: 180px; overflow: auto; margin: 8px 0; display: grid; gap: 4px; }
 .binding-node-option { padding: 4px 0; }

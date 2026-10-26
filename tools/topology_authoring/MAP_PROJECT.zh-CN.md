@@ -80,12 +80,9 @@ python -m tools.topology_authoring.map_server \
 折线，其他关联边只更新受影响端点；各点 Z 不变。地面跨层边使用楼梯／坡道。
 
 语义点字段为稳定 ID、`position_xyz`、`label`、`kind`、`description`、`aliases`、
-`properties`、`edit_mode`、可选 `isaac_binding` 和 `navigation_bindings`。后者是任意数量
+`properties`、`edit_mode` 和 `navigation_bindings`。后者是任意数量
 的 `{domain: ground|aerial, node_id}`，按图域和节点 ID 规范化排序并校验节点存在；同一
-语义点可跨地面/空中图绑定。绑定记录场景相对 USD 路径与一个
-Prim 路径。点和物体的坐标独立：任意一方移动不带动另一方。Isaac 中先开始物体选取，
-选择单个有效物体，再确认绑定；网页绑定 Isaac 当前单物体选择。切场景、旧选择序号、
-多选及叠加图元均不能绑定。绑定可更换或解除；物体路径不存在显示失效，断连显示未验证。
+语义点可跨地面/空中图绑定。绑定只引用导航图节点，不引用 USD 或 Isaac Prim。
 语义点不是导航节点，不参与连线或直接最近点匹配；导航请求命中稳定语义点 ID 后，按
 机器人绑定图域过滤 `navigation_bindings`，以当前图的可达路线代价选择最短节点。没有
 当前图绑定或候选均不可达时失败，不跨图域、不回退语义点坐标。
@@ -160,10 +157,9 @@ revision_directory = project.save()
 `move_node_xy` 保留 Z；`translate_edge_xy(id, delta_xy)` 一次移动边和端点。
 
 语义点通过 `add_semantic_point/update_semantic_point/move_semantic_point_xy/`、
-`move_semantic_point/remove_semantic_point/bind_semantic_point/unbind_semantic_point` 编辑；
+`move_semantic_point/remove_semantic_point` 编辑；
 导航绑定使用原子操作 `set_semantic_point_navigation_bindings`，传空数组表示全部解绑。
-Python API 的绑定参数是已验证的 `binding`；HTTP 绑定必须提交最新 Isaac 选择的
-`selection_session_id`、`selection_sequence`，不接收调用方直接写入的物体路径。
+旧语义点产品中的 `isaac_binding` 在读取时自动丢弃，下一次保存会导出不含该字段的新产品。
 
 `/api/editor/context` 接收 `active_layer`、`editor_tool`、`active_level`、
 `reference_level`、`visible_layers`、`visible_types` 和 `new_point_settings`；

@@ -17,7 +17,6 @@ from .map_project import MapProject, read_json
 from .product import _unique_object, _reject_constant
 from .scene_catalog import discover_scene_projects, scene_metadata, source_usd, resolve_scene
 from .web_overlay import compact_document_snapshot, normalize_web_selection
-from .semantic_points import valid_object_path
 
 
 def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_linked=False):
@@ -29,8 +28,6 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
     web_selection = {"selection": None}
     snapshot_cache = {"key": None, "value": None}
     isaac_sequences = {}
-    binding_reports = {}
-    binding_report_time = 0.0
     scene_generation = 0
     context_generation = 0
     def default_editor(value):
@@ -103,19 +100,10 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                     "document_snapshots": {domain: compact_document_snapshot(doc, project.revision)
                                            for domain, doc in project.documents.items()},
                     "semantic_points": public_semantic_points(),
-                    "semantic_binding_digest": project.semantic_binding_digest,
-                    "isaac_selection": isaac_selection["selection"], "binding_status": binding_status()}
-
-    def binding_status():
-        fresh = runtime["state"] == "ready" and time.monotonic() - binding_report_time < 3
-        return {point["id"]: (binding_reports.get(point["id"], {}).get("status", "unverified")
-                if fresh and binding_reports.get(point["id"], {}).get("prim_path") ==
-                    (point.get("isaac_binding") or {}).get("prim_path") else "unverified")
-                for point in project.semantic_points}
+                    "semantic_binding_digest": project.semantic_binding_digest}
 
     def public_semantic_points():
-        # Empty bindings are omitted on the wire for compatibility with v1
-        # clients; persisted v2 products retain the explicit array.
+        # Empty navigation bindings remain omitted for existing v1 clients.
         rows = deepcopy(project.semantic_points)
         for row in rows:
             if not row.get("navigation_bindings"):
@@ -222,7 +210,6 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
             return {**payload, "csrf_token": token, "isaac_runtime": dict(runtime),
                     "scene_generation": scene_generation, "context_generation": context_generation, **editor,
                     "web_selection": web_selection["selection"],
-                    "isaac_selection": isaac_selection["selection"], "binding_status": binding_status(),
                     "source_path": scene_metadata(project.manifest)["source_path"]}
 
         def check_context(self, body):
@@ -289,7 +276,7 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                 self.reply(400, {"error": str(exc)})
 
         def do_POST(self):
-            nonlocal project, token, isaac_selection, scene_generation, context_generation, binding_report_time
+            nonlocal project, token, isaac_selection, scene_generation, context_generation
             if not self.local_request():
                 self.reply(403, {"error": "local same-origin access required"})
                 return
@@ -415,25 +402,6 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                             isaac_selection["selection"] = None
                         self.reply(200, self.state())
                         return
-                    if route == "/api/isaac/bindings":
-                        self.check_context(body)
-                        statuses = body.get("statuses")
-                        if not isinstance(statuses, dict):
-                            raise ValueError("binding statuses must be an object")
-                        valid = {p["id"]: p.get("isaac_binding") for p in project.semantic_points}
-                        updates = {}
-                        for identifier, report in statuses.items():
-                            binding = valid.get(identifier)
-                            if (not binding or not isinstance(report, dict)
-                                    or report.get("prim_path") != binding["prim_path"]
-                                    or report.get("status") not in {"valid", "invalid"}):
-                                raise ValueError("stale or invalid binding report")
-                            updates[identifier] = dict(report)
-                        binding_reports.clear()
-                        binding_reports.update(updates)
-                        binding_report_time = time.monotonic()
-                        self.reply(200, {"ok": True})
-                        return
                     if route == "/api/isaac/selection":
                         self.check_context(body)
                         scene_key = body.get("scene_key")
@@ -531,8 +499,8 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                     if route == "/api/edit":
                         operation = body.pop("operation")
                         semantic_operations = {"add_semantic_point", "update_semantic_point", "move_semantic_point_xy",
-                                               "move_semantic_point", "remove_semantic_point", "bind_semantic_point",
-                                               "unbind_semantic_point", "set_semantic_point_navigation_bindings"}
+                                               "move_semantic_point", "remove_semantic_point",
+                                               "set_semantic_point_navigation_bindings"}
                         allowed = semantic_operations | {"add_node", "update_node", "move_node_xy", "move_node",
                                                          "remove_node", "add_edge", "update_edge", "remove_edge",
                                                          "translate_edge_xy"}
@@ -548,23 +516,6 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                         semantic_operation = operation in semantic_operations
                         if semantic_operation != (editor["active_layer"] == "semantic_points"):
                             raise ValueError("operation is outside the active editor layer")
-                        if "isaac_binding" in body or "binding" in body:
-                            raise ValueError("use validated Isaac binding selection")
-                        if operation == "bind_semantic_point":
-                            selection = isaac_selection["selection"]
-                            if (not selection or selection["selection_kind"] != "prim"
-                                    or runtime["state"] != "ready"
-                                    or selection.get("scene_generation") != scene_generation
-                                    or selection.get("context_generation") != context_generation
-                                    or len(selection["prim_paths"]) != 1
-                                    or selection["session_id"] != body.pop("selection_session_id", None)
-                                    or selection["sequence"] != body.pop("selection_sequence", None)
-                                    or abs(time.time() - selection["timestamp"]) > 30
-                                    or selection.get("bbox_min_xyz") is None
-                                    or not valid_object_path(selection["prim_paths"][0])):
-                                raise ValueError("stale or invalid single Isaac object selection")
-                            body["binding"] = {"source_usd": scene_metadata(project.manifest)["source_path"],
-                                               "prim_path": selection["prim_paths"][0]}
                         project.edit(operation, domain=domain, **body)
                         if operation == "set_semantic_point_navigation_bindings" and editor.get("binding_target_mode"):
                             editor.update(binding_target_mode=None, binding_target_id=None,
@@ -602,8 +553,6 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                         editor.update(deepcopy(scene_editors.get(str(project.root), default_editor(project))))
                         editor.update(binding_target_mode=None, binding_target_id=None,
                                       binding_target_draft=None)
-                        binding_reports.clear()
-                        binding_report_time = 0
                         runtime.update(state="loading" if isaac_linked else "disabled", error=None,
                                        scene_key=project.document.scene_key, **scene_metadata(project.manifest))
                     else:

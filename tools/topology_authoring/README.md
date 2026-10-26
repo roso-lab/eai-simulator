@@ -9,7 +9,7 @@ python tools/topology_authoring/launch.py --catalog /path/to/map-catalog --scene
 Select the USD category, then scene name in the webpage to open the exact root
 USD and reconnect the editor automatically. Camera Light is enabled.
 Launching without arguments discovers the scene-local maps below `usd/scene/`.
-`--check` validates all bindings without Kit. No Script Editor paste is needed.
+`--check` validates all map and navigation bindings without Kit. No Script Editor paste is needed.
 Standalone `map_server` below does not control Isaac scene loading.
 
 The **Isaac Topology Editor** provides Point, Edge and Semantic Point tools,
@@ -21,11 +21,10 @@ height defaults to world Z=1.5 m. Each supports 2.5D (XY drag preserving Z) and
 3D (Isaac XYZ handles); properties always allow explicit Z edits.
 
 Semantic points store world XYZ, label, kind, description, aliases, JSON
-properties and an optional binding to one Isaac object prim. Bindings record
-identity only: points and objects move independently. Start object picking in
-the native panel, select one scene object, then confirm; the web inspector can
-bind the current Isaac selection. Missing objects show an invalid binding;
-without a live Isaac connection it remains unverified.
+properties and optional bindings to ground/aerial navigation nodes. They are
+portable map annotations and do not reference Isaac objects or require an Isaac
+connection. Navigation bindings are edited from the web inspector or native
+topology panel and remain independent from scene asset paths.
 
 Drag an edge to translate its endpoints and full polyline in XY, updating all
 incident endpoints. Release submits one undoable transaction; Esc cancels.
@@ -33,7 +32,7 @@ Left-click edits; Alt+left, middle and right mouse navigation remain available.
 Overlays and previews use only the session layer. The legacy surface-selection
 bridge remains available for scripts and should not be enabled alongside native
 dragging. The separate `author.py` workflow below remains compatible.
-The native panel scrolls to binding, undo and save controls. On Linux with Noto
+The native panel scrolls to navigation binding, undo and save controls. On Linux with Noto
 Sans CJK installed, the launcher registers Chinese glyphs before Kit starts so
 names, descriptions, aliases and floor labels display correctly.
 

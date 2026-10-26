@@ -29,7 +29,7 @@ from .model import TopologyDocument
 from .product import load_product, save_draft, validate_document, _unique_object, _reject_constant
 from .semantics import empty_semantics, polygon_error, semantic_level
 from .semantic_points import (SCHEMA as POINT_SCHEMA, validate_points, edit_points,
-                               coordinates, normalize_navigation_bindings)
+                               coordinates, normalize_navigation_bindings, migrate_points)
 from .scene_catalog import scene_metadata
 
 SCHEMA = "eai.semantic_map.project"
@@ -282,7 +282,7 @@ class MapProject:
                     or type(payload.get("meters_per_unit")) not in (int, float)
                     or payload["meters_per_unit"] != 1 or payload.get("up_axis") != "Z"):
                 raise ValueError("unsupported or mismatched semantic point product")
-            self.semantic_points = payload["points"]
+            self.semantic_points = migrate_points(payload["points"])
         self.grids = {}
         for entry in self.manifest["base_grids"]:
             path = child(self.root, entry["file"])
@@ -298,7 +298,7 @@ class MapProject:
     def _initialize(self):
         if not hasattr(self, "semantic_points"):
             self.semantic_points = []
-        validate_points(self.semantic_points, scene_metadata(self.manifest)["source_path"])
+        validate_points(self.semantic_points)
         if not hasattr(self, "documents"):
             original = self.document
             other_domain = "aerial" if original.domain == "ground" else "ground"
@@ -455,6 +455,7 @@ class MapProject:
 
     @property
     def semantic_binding_digest(self):
+        """Identity of semantic-point navigation bindings (legacy public name)."""
         rows = [{"id": point["id"], "navigation_bindings": normalize_navigation_bindings(
                     point.get("navigation_bindings", []))}
                 for point in sorted(self.semantic_points, key=lambda row: row["id"])]
@@ -555,10 +556,9 @@ class MapProject:
         self._expect(revision)
         self.document_for(domain)
         if operation in {"add_semantic_point", "update_semantic_point", "move_semantic_point_xy",
-                         "move_semantic_point", "remove_semantic_point", "bind_semantic_point",
-                         "unbind_semantic_point", "set_semantic_point_navigation_bindings"}:
-            points = edit_points(self.semantic_points, operation, args,
-                                 scene_metadata(self.manifest)["source_path"])
+                         "move_semantic_point", "remove_semantic_point",
+                         "set_semantic_point_navigation_bindings"}:
+            points = edit_points(self.semantic_points, operation, args)
             self._check_semantic_bindings(points=points)
             self._undo.append(self._snapshot())
             self._undo = self._undo[-100:]
@@ -969,7 +969,7 @@ class MapProject:
     def save(self, *, revision=None):
         """Publish one complete current package; keep revision tokens for conflicts."""
         self._expect(revision)
-        validate_points(self.semantic_points, scene_metadata(self.manifest)["source_path"])
+        validate_points(self.semantic_points)
         derived = self._check_all(self.documents)
         with (self.root / ".write.lock").open("a") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)

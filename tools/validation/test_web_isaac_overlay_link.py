@@ -147,7 +147,7 @@ def test_context_serves_document_snapshot_and_web_selection(tmp_path):
         assert context["semantic_points"] == [{
             "id": "semantic:0001", "position_xyz": [0.25, 0.25, 0.5],
             "label": "Desk", "kind": "furniture", "description": "",
-            "aliases": [], "properties": {}, "edit_mode": "3d", "isaac_binding": None}]
+            "aliases": [], "properties": {}, "edit_mode": "3d"}]
 
         dumped = json.dumps(snapshot)
         for heavy in ("profiles", "properties", "aliases", "entrance_node_ids", "source_ref"):

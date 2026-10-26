@@ -35,15 +35,13 @@ JavaScript syntax, changed Python compilation, `git diff --check` and launcher
 binding checks for all 30 scenes also passed.
 
 The focused coverage includes independent semantic-point persistence and graph
-digests; complete project undo/redo and failed-save rollback; exact single-Prim
-binding identity; graph/tool/visibility isolation; mixed edit modes; whole-edge
-translation with shared endpoints; and context, disconnect and conflict handling.
-Native regression checks also cover a completed HTTP future remaining occupied
-until main-thread drain, edit-response document aliases, empty-click cancellation,
-and hidden-layer picking. A semantic binding uses the bridge's latest confirmed
-selection only when both its queue and in-flight request are empty. While a new
-selection is awaiting confirmation the native Bind button stays disabled; the
-server still requires the exact scene, context, session and selection sequence.
+digests; complete project undo/redo and failed-save rollback; graph/tool/visibility
+isolation; mixed edit modes; whole-edge translation with shared endpoints; and
+context, disconnect and conflict handling. Native regression checks also cover a
+completed HTTP future remaining occupied until main-thread drain, edit-response
+document aliases, empty-click cancellation, and hidden-layer picking. Semantic
+points now keep navigation-node bindings only; historical Isaac object-binding
+acceptance below describes the retired implementation.
 
 Actual browser interaction used an isolated copy of room_06. It verified
 all-height aerial display across reference-floor changes, explicit Z and mode
@@ -65,7 +63,7 @@ USD, with an isolated project copy and live local HTTP server. The installed
 | Aerial 3D and 2.5D | Height handle changed Z from 1.5 to 2.6375201; subsequent planar dragging preserved Z exactly; explicit height input changed Z to 2.25 |
 | Edge | Real endpoint clicks formed a preview, confirmation created the edge, and whole-edge mouse dragging translated its nodes/polyline |
 | Semantic point | Viewport click created the point; real height-handle dragging changed Z from 1.5 to 2.4018725 |
-| Isaac binding | Object-selection mode accepted an actual single scene Mesh selection without creating a point; binding was accepted and reported valid |
+| Isaac binding (historical, retired) | Object-selection mode accepted an actual single scene Mesh selection without creating a point; binding was accepted and reported valid |
 | Camera | Alt-left, right and middle navigation changed the camera with no topology revision |
 | Author layers | Session overlay existed; room_06 root-layer text and authored USD SHA-256 remained identical |
 
@@ -413,7 +411,7 @@ GUI，服务端状态为 ready，确认空中图两个节点可见，并通过�
 不是场景加载模式改变了数据。普通点、边和语义点编辑期间，viewport 通过
 `omni.kit.viewport.utility.disable_selection(..., disable_click=True)` 禁用原生
 Prim 点击和框选，桥接层同时忽略并清空迟到的 USD selection，启动后也清除遗留选择。
-进入语义点绑定 Isaac 物体时才恢复原生选择；退出绑定立即清空并重新启用拓扑输入。
+当时仅在绑定 Isaac 物体时恢复原生选择；该流程现已退役，拓扑编辑始终使用拓扑拾取。
 
 回归验证：Isaac 桥接、拓扑手势和 overlay 共 76 项通过；Isaac Sim 5.1 headless
 启动 `living_room_06` 正常到达 app ready，未出现 semantics 扩展导入错误，作者 USD

@@ -39,8 +39,7 @@ def _context(*, active_layer="aerial", revision=4, generation=2):
     semantic = [
         {"id": "s1", "position_xyz": [4., 1., 1.5], "edit_mode": "3d",
          "label": "Desk", "kind": "furniture", "description": "target",
-         "aliases": ["table"], "properties": {"color": "oak"},
-         "isaac_binding": {"source_usd": "scene.usda", "prim_path": "/World/Desk"}},
+         "aliases": ["table"], "properties": {"color": "oak"}, "navigation_bindings": []},
         {"id": "s2", "position_xyz": [6., 1., 2.5], "edit_mode": "2.5d",
          "label": "Lamp", "kind": "fixture", "description": "",
          "aliases": [], "properties": {}}]
@@ -58,10 +57,7 @@ def _context(*, active_layer="aerial", revision=4, generation=2):
                                    "semantic_points": {"z": 2.5, "edit_mode": "2.5d"}},
             "document_snapshots": {"ground": ground, "aerial": aerial},
             "document_snapshot": ground if domain == "ground" else aerial,
-            "semantic_points": semantic, "web_selection": None,
-            "isaac_selection": {"session_id": "kit-session", "sequence": 7,
-                                "prim_paths": ["/World/Desk"]},
-            "binding_status": {"s1": "valid"}}
+            "semantic_points": semantic, "web_selection": None}
 
 
 class _Response:
@@ -94,14 +90,34 @@ class _Viewport:
     def map_ndc_to_texture_pixel(point): return point, None
 
 
-def test_authoring_identity_includes_active_layer_and_binding_report_shape():
+def test_authoring_identity_includes_active_layer_and_navigation_bindings():
     calls = []
     client = IsaacAuthoringClient(opener=lambda request, timeout:
                                   calls.append(json.loads(request.data)) or _Response({"ok": True}))
     client.update_context(_context(active_layer="semantic_points"))
-    client.report_bindings({"s1": {"prim_path": "/World/Desk", "status": "valid"}})
+    bindings = [{"domain": "ground", "node_id": "g1"}]
+    client.edit("set_semantic_point_navigation_bindings", id="s1", bindings=bindings)
     assert calls[-1]["active_layer"] == "semantic_points"
-    assert calls[-1]["statuses"]["s1"] == {"prim_path": "/World/Desk", "status": "valid"}
+    assert calls[-1]["bindings"] == bindings
+
+
+def test_native_navigation_binding_without_isaac_selection():
+    dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
+    controller.update_context(_context(active_layer="semantic_points"))
+    controller.select({"kind": "semantic_point", "collection": None, "id": "s1"})
+    assert controller.begin_navigation_binding()
+    assert controller.toggle_navigation_binding("ground", "g1")
+    assert controller.toggle_navigation_binding("aerial", "n2")
+    assert not controller.toggle_navigation_binding("aerial", "missing")
+    assert controller.commit_navigation_bindings()
+    args, kwargs = dispatcher.calls[-1]
+    assert args[2] == "set_semantic_point_navigation_bindings"
+    assert kwargs["bindings"] == [
+        {"domain": "aerial", "node_id": "n2"}, {"domain": "ground", "node_id": "g1"}]
+    assert controller.toggle_navigation_binding("aerial", "n2")
+    assert controller.toggle_navigation_binding("ground", "g1")
+    assert controller.commit_navigation_bindings()
+    assert dispatcher.calls[-1][1]["bindings"] == []
 
 
 def test_context_controls_send_contract_fields_and_independent_defaults():
@@ -368,7 +384,7 @@ def test_ground_mode_and_edge_endpoint_mutations_are_rejected():
     assert len(dispatcher.calls) == call_count
 
 
-def test_semantic_point_add_properties_modes_delete_and_binding_use_frozen_identity():
+def test_semantic_point_add_properties_modes_and_delete_use_frozen_identity():
     dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
     controller.update_context(_context(active_layer="semantic_points"))
     assert controller.add_semantic_point([3, 4, 2.5])
@@ -382,42 +398,8 @@ def test_semantic_point_add_properties_modes_delete_and_binding_use_frozen_ident
     assert args[2] == "update_semantic_point"
     assert kwargs["aliases"] == ["table"] and kwargs["properties"] == {"a": 1}
     assert controller.set_selected_edit_mode("2.5d")
-    assert controller.bind_selected_semantic_point()
-    assert dispatcher.calls[-1][1]["selection_session_id"] == "kit-session"
-    assert dispatcher.calls[-1][1]["selection_sequence"] == 7
-    assert controller.unbind_selected_semantic_point()
-    assert dispatcher.calls[-1][0][2] == "unbind_semantic_point"
     assert controller.delete_selected()
     assert dispatcher.calls[-1][0][2] == "remove_semantic_point"
-
-
-def test_binding_requires_authoritative_selection_cursor():
-    dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
-    context = _context(active_layer="semantic_points"); context["isaac_selection"] = None
-    controller.update_context(context)
-    controller.select({"kind": "semantic_point", "collection": None, "id": "s1"})
-    assert not controller.bind_selected_semantic_point()
-    assert "Select one" in controller.last_error
-
-
-def test_binding_waits_for_bridge_acknowledged_cursor():
-    dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
-    controller.update_context(_context(active_layer="semantic_points"))
-    controller.select({"kind": "semantic_point", "collection": None, "id": "s1"})
-    cursor = [None]
-    controller.isaac_selection_cursor_provider = lambda: cursor[0]
-    call_count = len(dispatcher.calls)
-    assert not controller.binding_cursor_ready()
-    assert not controller.bind_selected_semantic_point()
-    assert "not confirmed" in controller.last_error
-    assert len(dispatcher.calls) == call_count
-
-    cursor[0] = {"selection_kind": "prim", "prim_paths": ["/World/Desk"],
-                 "session_id": "confirmed-session", "sequence": 18}
-    assert controller.binding_cursor_ready()
-    assert controller.bind_selected_semantic_point()
-    assert dispatcher.calls[-1][1]["selection_session_id"] == "confirmed-session"
-    assert dispatcher.calls[-1][1]["selection_sequence"] == 18
 
 
 def test_semantic_point_25d_and_3d_axis_drag_freeze_grab_delta():
@@ -548,37 +530,6 @@ def test_gesture_routes_semantic_click_without_region_paths(monkeypatch):
     assert not dispatcher.calls
     assert picker_kwargs[0]["visible_layers"] == controller.context["visible_layers"]
     assert not hasattr(controller, "region_draft")
-
-
-def test_object_selection_mode_cancels_topology_and_pauses_authoring(monkeypatch):
-    dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
-    controller.update_context(_context())
-    controller.activate_node_for_edge("n1")
-    controller.begin_drag({"kind": "node", "id": "n1"}, [0., 0., 2.])
-    changes = []
-    controller.on_object_selection_mode = changes.append
-    assert controller.set_object_selection_mode(True)
-    assert changes == [True]
-    assert controller.edge_start is None and controller.gesture is None
-    assert controller.preview is None
-    assert not controller.add_node([3., 4., 5.])
-    semantic = _context(active_layer="semantic_points")
-    controller.update_context(semantic)
-    assert not controller.object_selection_mode
-    assert changes == [True, False]
-    controller.set_object_selection_mode(True)
-    assert not controller.add_semantic_point([3., 4., 5.])
-
-    monkeypatch.setattr(
-        "tools.topology_authoring.viewport.nearest_projected_hit",
-        lambda *_args, **_kwargs: pytest.fail("topology picking must be paused"))
-    gesture = object.__new__(_TopologyEditorGesture)
-    gesture.controller, gesture.viewport_api = controller, object()
-    gesture._drag_target = {"kind": "node", "id": "n1"}
-    gesture.handle("began", [0., 0.])
-    assert gesture._drag_target is None
-    assert not controller.set_object_selection_mode(False)
-    assert changes == [True, False, True, False]
 
 
 def test_topology_viewport_enablement_updates_retained_scenes():
@@ -790,7 +741,7 @@ def test_empty_drag_never_creates_and_endpoint_clicks_wait_for_confirmation():
     assert len(dispatcher.calls) == 1 and dispatcher.calls[0][0][2] == "add_edge"
 
 
-def test_escape_and_tool_switch_invalidate_held_pointer_and_exit_binding():
+def test_escape_and_tool_switch_invalidate_held_pointer():
     dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
     controller.update_context(_context())
     pointer = _pointer(controller, {(0., 0.): {
@@ -800,7 +751,9 @@ def test_escape_and_tool_switch_invalidate_held_pointer_and_exit_binding():
     pointer.handle("changed", (30., 0.))
     pointer.handle("ended", (30., 0.))
     assert not dispatcher.calls and controller.gesture is None
-    modes = []; controller.on_object_selection_mode = modes.append
-    controller.set_object_selection_mode(True)
-    controller.set_tool("add-node")  # Same toolbar button must also exit binding.
-    assert not controller.object_selection_mode and modes == [True, False]
+    pointer.handle("began", (0., 0.))
+    controller.set_tool("add-node")
+    count = len(dispatcher.calls)
+    pointer.handle("changed", (30., 0.))
+    pointer.handle("ended", (30., 0.))
+    assert len(dispatcher.calls) == count and controller.gesture is None
