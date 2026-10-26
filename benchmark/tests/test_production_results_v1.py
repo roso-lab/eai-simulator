@@ -7,6 +7,7 @@ it is not a qualification or paper-data fixture.
 
 from __future__ import annotations
 
+from copy import deepcopy
 import hashlib
 import json
 
@@ -20,6 +21,16 @@ from benchmark.receipt_producer_v1 import build_raw_receipt
 from benchmark.records_v3 import canonical_digest
 from benchmark.receipt_adapter_v3 import normalize_receipts
 from benchmark.results_pipeline_v3 import compute_results, export_results, verify_export
+from benchmark.d4_first_event_v1 import (
+    FACT_KEY as D4_FACT_KEY,
+    OBSERVATION_SCHEMA as D4_OBSERVATION_SCHEMA,
+    PLAN_KEY as D4_PLAN_KEY,
+    REGISTRATION_SCHEMA as D4_REGISTRATION_SCHEMA,
+    VERSION as D4_VERSION,
+)
+from benchmark.receipt_adapter_v3 import ReceiptAdapterError
+from benchmark.results_pipeline_v3 import ResultsPipelineError
+from benchmark.case_readiness_v1 import audit_case_receipts
 
 
 ANCHOR = "liv-p2-01"
@@ -152,15 +163,45 @@ def _panel_binding(endpoint: str, value_path: str, *, condition: str | None = No
     }
 
 
-def _build_fixture(tmp_path):
+def _build_fixture(tmp_path, *, with_d4_first_event: bool = False):
     tmp_path.mkdir(parents=True, exist_ok=True)
     catalog = {"anchors": [ANCHOR]}
     plan = {"seed": 20261027, "oracle_obligation_binding": ORACLE_BINDING}
+    if with_d4_first_event:
+        registration_base = {
+            "schema": D4_REGISTRATION_SCHEMA,
+            "version": D4_VERSION,
+            "panels": [{
+                "panel_id": "d4-task-loss",
+                "registration_id": "d4-task-loss-v1",
+                "system_id": "diagnostic-system",
+                "event_id": "task-function-loss",
+                "condition_id": "task_function_loss",
+                "onset_tick": 100,
+                "horizon_tick": 200,
+                "evaluator_stride_ticks": 5,
+                "cells": [{
+                    "cell_id": "diagnostic-cell",
+                    "weight": 1.0,
+                    "response_required": True,
+                    "response_deadline_tick": 130,
+                    "expected_trajectories": [
+                        {"base_instance_id": BASE, "repeat_id": repeat}
+                        for repeat in REPEATS
+                    ],
+                }],
+            }],
+        }
+        plan[D4_PLAN_KEY] = {
+            **registration_base,
+            "registration_digest": canonical_digest(registration_base),
+        }
     parameters = {"alpha": 0.05, "resamples": 0, "d5_min_cases": 1}
     case = _case(catalog, plan)
 
     artifact_manifest = {}
-    for condition in CONDITIONS:
+    receipt_conditions = (*CONDITIONS, "task_function_loss") if with_d4_first_event else CONDITIONS
+    for condition in receipt_conditions:
         for repeat in REPEATS:
             label = f"evidence-{condition}-{repeat}"
             payload = json.dumps(
@@ -175,10 +216,38 @@ def _build_fixture(tmp_path):
 
     manifest_digest = canonical_digest(artifact_manifest)
     receipts = []
-    for condition in CONDITIONS:
+    for condition in receipt_conditions:
         for repeat in REPEATS:
             label = f"evidence-{condition}-{repeat}"
             digest = artifact_manifest[label]["sha256"]
+            facts = (
+                _facts()
+                if condition in {"C0", "task_function_loss"}
+                else {key: value for key, value in _facts().items() if key != "d5_attempt"}
+            )
+            if condition == "task_function_loss":
+                facts = deepcopy(facts)
+                facts[D4_FACT_KEY] = {
+                    "schema": D4_OBSERVATION_SCHEMA,
+                    "registration_id": "d4-task-loss-v1",
+                    "panel_id": "d4-task-loss",
+                    "cell_id": "diagnostic-cell",
+                    "event_id": "task-function-loss",
+                    "event_eligible": True,
+                    "eligibility_evidence_digest": hashlib.sha256(f"eligible-{repeat}".encode()).hexdigest(),
+                    "response": {
+                        "tick": 120,
+                        "evidence_digest": hashlib.sha256(f"response-{repeat}".encode()).hexdigest(),
+                    },
+                    "work_confirmation": {
+                        "tick": 115,
+                        "evidence_digest": hashlib.sha256(f"work-{repeat}".encode()).hexdigest(),
+                    },
+                    "terminal": None,
+                    "safety": {"flag": False, "evidence_digest": None},
+                    "observed_through_tick": 200,
+                    "timeline_digest": hashlib.sha256(f"timeline-{repeat}".encode()).hexdigest(),
+                }
             receipts.append(
                 build_raw_receipt(
                     case_manifest=case,
@@ -198,11 +267,7 @@ def _build_fixture(tmp_path):
                         "artifact_manifest_digest": manifest_digest,
                     },
                     streams=_streams(),
-                    facts=(
-                        _facts()
-                        if condition == "C0"
-                        else {key: value for key, value in _facts().items() if key != "d5_attempt"}
-                    ),
+                    facts=facts,
                     receipt_id=f"receipt-{condition}-{repeat}",
                 )
             )
@@ -210,7 +275,8 @@ def _build_fixture(tmp_path):
     # The projection owns the D6 binding.  Its digest is embedded in the
     # evaluator-owned structured section before the panel package is sealed.
     calibration_rows = [{"instance_id": BASE, "reference_bits": 100.0, "reference_time": 1.0}]
-    d6_runs = [{"instance_id": BASE} for _ in receipts]
+    primary_receipts = [row for row in receipts if row["identity"]["condition_id"] in CONDITIONS]
+    d6_runs = [{"instance_id": BASE} for _ in primary_receipts]
     d6_binding = {"calibration": calibration_rows, "runs": d6_runs}
     structured = {
         "d6": {
@@ -218,7 +284,7 @@ def _build_fixture(tmp_path):
             "calibration": calibration_rows,
             "runs": [
                 {"instance_id": BASE, "success": True, "bits": 120.0, "time": 1.2}
-                for _ in receipts
+                for _ in primary_receipts
             ],
         }
     }
@@ -292,6 +358,14 @@ def _merge_endpoint_packages(receipts, panel_bindings, structured):
     return package
 
 
+def _reseal_receipt(receipt: dict) -> None:
+    envelope = deepcopy(receipt)
+    envelope["evaluator"].pop("evidence_hash", None)
+    receipt["evaluator"]["evidence_hash"] = hashlib.sha256(
+        json.dumps(envelope, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    ).hexdigest()
+
+
 def test_production_results_e2e_is_content_addressed_and_replayable(tmp_path):
     fixture = _build_fixture(tmp_path / "evidence")
     evidence_root = tmp_path / "evidence"
@@ -347,7 +421,7 @@ def test_one_shot_runner_exposes_fixed_panel_directory_shape_gap(tmp_path):
 
 def test_one_shot_runner_accepts_endpoint_receipt_directories(tmp_path):
     """The production seam can consume disjoint fixed-panel receipt sets."""
-    fixture = _build_fixture(tmp_path / "evidence")
+    fixture = _build_fixture(tmp_path / "evidence", with_d4_first_event=True)
     evidence_root = tmp_path / "evidence"
     output = tmp_path / "one-shot-output"
     receipts, calibration, case, artifacts, panel_bindings, projection_binding, structured = fixture
@@ -390,4 +464,131 @@ def test_one_shot_runner_accepts_endpoint_receipt_directories(tmp_path):
         "paper_score_eligible": False,
         "physical_qualified": False,
     }
+    assert result["d4_first_event_diagnostics"] is not None
+    assert result["d4_first_event_diagnostics"] == result["report"]["d4_first_event_diagnostics"]
+    assert (output / "d4_first_event_diagnostics.json").is_file()
     assert (output / "paper_panel_package.json").is_file()
+
+
+def test_registered_d4_diagnostics_are_replayable_and_do_not_change_primary_scores(tmp_path):
+    baseline = _build_fixture(tmp_path / "baseline-evidence")
+    mixed = _build_fixture(tmp_path / "mixed-evidence", with_d4_first_event=True)
+    baseline_receipts, calibration, baseline_case, baseline_artifacts, _, _, _ = baseline
+    receipts, mixed_calibration, case, artifacts, panel_bindings, projection_binding, structured = mixed
+
+    baseline_payload = normalize_receipts(
+        baseline_receipts,
+        calibration=calibration,
+        case_manifest=baseline_case,
+        artifact_manifest=baseline_artifacts,
+        artifact_root=tmp_path / "baseline-evidence",
+        require_artifact_evidence=True,
+        scope="measured_unqualified",
+    )
+    mixed_payload = normalize_receipts(
+        receipts,
+        calibration=mixed_calibration,
+        case_manifest=case,
+        artifact_manifest=artifacts,
+        artifact_root=tmp_path / "mixed-evidence",
+        require_artifact_evidence=True,
+        scope="measured_unqualified",
+    )
+    assert mixed_payload["dimensions"] == baseline_payload["dimensions"]
+    assert mixed_payload["d4_first_event"]["panels"][0]["response"]["cause_counts"]["resp"] == 3
+    assert mixed_payload["d4_first_event"]["panels"][0]["work_confirmation"]["cause_counts"]["resume"] == 3
+
+    readiness = audit_case_receipts(
+        receipts,
+        case_manifest=case,
+        artifact_manifest=artifacts,
+        artifact_root=tmp_path / "mixed-evidence",
+    )
+    assert readiness["d4_first_event_registered"] is True
+    assert readiness["d4_first_event_eligible_trajectory_count"] == 3
+    assert readiness["d4_first_event_excluded_trajectory_count"] == 0
+    assert "PAPER_D4_FIRST_EVENT_DIAGNOSTICS_MISSING" not in {
+        item["code"] for item in readiness["paper_gaps"]
+    }
+
+    baseline_readiness = audit_case_receipts(
+        baseline_receipts,
+        case_manifest=baseline_case,
+        artifact_manifest=baseline_artifacts,
+        artifact_root=tmp_path / "baseline-evidence",
+    )
+    assert "PAPER_D4_FIRST_EVENT_DIAGNOSTICS_MISSING" in {
+        item["code"] for item in baseline_readiness["paper_gaps"]
+    }
+
+    baseline_report = compute_results(baseline_payload)
+    mixed_report = compute_results(mixed_payload)
+    assert mixed_report["dimensions"] == baseline_report["dimensions"]
+    assert mixed_report["composite"] == baseline_report["composite"]
+    assert mixed_report["formal_gates"] == {
+        "rankable": False,
+        "paper_score_eligible": False,
+        "physical_qualified": False,
+    }
+
+    panel_package = _merge_endpoint_packages(receipts, panel_bindings, structured)
+    projection_binding["paper_panel_package_digest"] = panel_package["package_digest"]
+    projection = project_panel_package(panel_package, projection_binding)
+    projected = apply_panel_projection(mixed_payload, projection)
+    assert projected["d4_first_event"] == mixed_payload["d4_first_event"]
+    projected_report = compute_results(projected)
+    assert projected_report["d4_first_event_diagnostics"] == mixed_payload["d4_first_event"]
+
+    output = tmp_path / "d4-output"
+    export_results(projected_report, output, input_payload=projected)
+    assert (output / "d4_first_event_diagnostics.json").is_file()
+    verify_export(output)
+
+    diagnostics_path = output / "d4_first_event_diagnostics.json"
+    diagnostics = json.loads(diagnostics_path.read_text(encoding="utf-8"))
+    diagnostics["panels"][0]["response"]["cif"]["resp"] = 0.0
+    diagnostics_path.write_text(json.dumps(diagnostics, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    manifest_path = output / "output_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["files"][diagnostics_path.name] = {
+        "sha256": hashlib.sha256(diagnostics_path.read_bytes()).hexdigest(),
+        "size_bytes": diagnostics_path.stat().st_size,
+    }
+    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    with pytest.raises(ResultsPipelineError, match="do not match replay input"):
+        verify_export(output)
+
+
+def test_registered_d4_condition_widening_remains_fail_closed(tmp_path):
+    fixture = _build_fixture(tmp_path / "evidence", with_d4_first_event=True)
+    receipts, calibration, case, artifacts, *_ = fixture
+
+    unknown = deepcopy(next(row for row in receipts if row["identity"]["condition_id"] == "C0"))
+    unknown["receipt_id"] = "receipt-unknown-r1"
+    unknown["identity"]["condition_id"] = "unknown_fifth_condition"
+    _reseal_receipt(unknown)
+    with pytest.raises(ReceiptAdapterError, match="unsupported receipt conditions"):
+        normalize_receipts(
+            [*receipts, unknown],
+            calibration=calibration,
+            case_manifest=case,
+            artifact_manifest=artifacts,
+            artifact_root=tmp_path / "evidence",
+            require_artifact_evidence=True,
+            scope="measured_unqualified",
+        )
+
+    missing = deepcopy(receipts)
+    registered = next(row for row in missing if row["identity"]["condition_id"] == "task_function_loss")
+    registered["facts"].pop(D4_FACT_KEY)
+    _reseal_receipt(registered)
+    with pytest.raises(ReceiptAdapterError, match="exact roster is incomplete"):
+        normalize_receipts(
+            missing,
+            calibration=calibration,
+            case_manifest=case,
+            artifact_manifest=artifacts,
+            artifact_root=tmp_path / "evidence",
+            require_artifact_evidence=True,
+            scope="measured_unqualified",
+        )

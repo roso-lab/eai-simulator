@@ -24,6 +24,7 @@ from .composite_v3 import composite_profile_range, composite_score
 from .metrics_v3 import ScoreResultV3, d1_score, d2_score, d3_score, d4_score, d5_score, d6_score
 from .records_v3 import canonical_digest
 from .scorebook_v3 import PAPER_COMMIT, default_scorebook_v3
+from .d4_first_event_v1 import D4FirstEventError, validate_package as validate_d4_first_event_package
 
 
 PIPELINE_SCHEMA = "heterocoord.results-pipeline.v1"
@@ -55,6 +56,8 @@ def _input_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     for key in ("case_manifest_digest", "scene_digest", "semantic_map_digest", "topology_digest", "roster_digest", "contract_digest", "artifact_manifest_digest", "paper_projection_digest", "oracle_id", "evaluator_id"):
         if key in payload:
             result[key] = payload[key]
+    if "d4_first_event" in payload:
+        result["d4_first_event"] = payload["d4_first_event"]
     return result
 
 
@@ -67,7 +70,7 @@ def _result_dict(result, *, support_count: int, denominator: int) -> dict[str, A
     return value
 
 
-def _validate_payload(payload: Mapping[str, Any]) -> None:
+def _validate_payload(payload: Mapping[str, Any]) -> dict[str, Any] | None:
     if not isinstance(payload, Mapping):
         raise ResultsPipelineError("input package must be an object")
     missing = REQUIRED_KEYS - set(payload)
@@ -127,6 +130,19 @@ def _validate_payload(payload: Mapping[str, Any]) -> None:
     for key in ("oracle_id", "evaluator_id"):
         if key in payload and (not isinstance(payload[key], str) or not payload[key].strip()):
             raise ResultsPipelineError(f"{key} must be non-empty text")
+    d4_first_event = payload.get("d4_first_event")
+    if d4_first_event is None:
+        return None
+    receipt_digests = payload.get("receipt_digests")
+    if not isinstance(receipt_digests, list) or not receipt_digests:
+        raise ResultsPipelineError("D4 first-event diagnostics require source receipt_digests")
+    try:
+        return validate_d4_first_event_package(
+            d4_first_event,
+            receipt_digests=receipt_digests,
+        )
+    except D4FirstEventError as exc:
+        raise ResultsPipelineError(f"invalid D4 first-event diagnostics: {exc}") from exc
 
 
 def _real(value: Any, name: str, *, minimum: float | None = None, maximum: float | None = None) -> float:
@@ -370,7 +386,7 @@ def build_negative_fixtures() -> dict[str, dict[str, Any]]:
 def compute_results(payload: Mapping[str, Any]) -> dict[str, Any]:
     """Compute all dimensions from one validated normalized input package."""
 
-    _validate_payload(payload)
+    d4_first_event = _validate_payload(payload)
     dimensions = payload["dimensions"]
     params = payload["parameters"]
     d1 = d1_score(**dimensions["D1"])
@@ -419,6 +435,8 @@ def compute_results(payload: Mapping[str, Any]) -> dict[str, Any]:
         "profile_range": profile_range,
         "sanity_checks": sanity_checks,
     }
+    if d4_first_event is not None:
+        report["d4_first_event_diagnostics"] = d4_first_event
     for key in ("case_manifest_digest", "scene_digest", "semantic_map_digest", "topology_digest", "roster_digest", "contract_digest", "artifact_manifest_digest", "paper_projection_digest", "oracle_id", "evaluator_id"):
         if key in payload:
             report["provenance"][key] = payload[key]
@@ -574,10 +592,18 @@ def export_results(
         input_path = destination / "input_package.json"
         input_path.write_text(json.dumps(input_payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         outputs.append(input_path)
+    merged_additional: dict[str, Any] = {}
+    if "d4_first_event_diagnostics" in report:
+        merged_additional["d4_first_event_diagnostics.json"] = report["d4_first_event_diagnostics"]
     if additional_json is not None:
         if not isinstance(additional_json, Mapping):
             raise ResultsPipelineError("additional_json must be a mapping")
         for filename, value in additional_json.items():
+            if filename in merged_additional:
+                raise ResultsPipelineError(f"additional JSON output is reserved: {filename}")
+            merged_additional[filename] = value
+    if merged_additional:
+        for filename, value in merged_additional.items():
             if not isinstance(filename, str) or not filename.endswith(".json") or not filename or "/" in filename or "\\" in filename or filename in {".", ".."}:
                 raise ResultsPipelineError(f"unsafe additional JSON filename: {filename}")
             path = destination / filename
@@ -616,6 +642,11 @@ def _validate_report(report: Mapping[str, Any], *, require_sanity: bool = True) 
     sanity = report.get("sanity_checks")
     if require_sanity and (not isinstance(sanity, Mapping) or sanity.get("status") != "pass" or not isinstance(sanity.get("checks"), list) or not sanity["checks"] or not all(isinstance(item, Mapping) and item.get("passed") is True for item in sanity["checks"])):
         raise ResultsPipelineError("report scientific sanity checks are incomplete")
+    if "d4_first_event_diagnostics" in report:
+        try:
+            validate_d4_first_event_package(report["d4_first_event_diagnostics"])
+        except D4FirstEventError as exc:
+            raise ResultsPipelineError(f"report D4 first-event diagnostics are invalid: {exc}") from exc
 
 
 def verify_export(destination: str | Path) -> dict[str, Any]:
@@ -671,6 +702,17 @@ def verify_export(destination: str | Path) -> dict[str, Any]:
                 estimator.pop("python", None)
         if recomputed_for_compare != persisted_for_compare:
             raise ResultsPipelineError("report does not match replay input")
+        if "d4_first_event" in input_payload:
+            diagnostics_name = "d4_first_event_diagnostics.json"
+            if diagnostics_name not in manifest["files"]:
+                raise ResultsPipelineError("output manifest omits D4 first-event diagnostics")
+            diagnostics_path = destination / diagnostics_name
+            try:
+                persisted_diagnostics = json.loads(diagnostics_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as exc:
+                raise ResultsPipelineError("D4 first-event diagnostics are unreadable") from exc
+            if persisted_diagnostics != recomputed.get("d4_first_event_diagnostics"):
+                raise ResultsPipelineError("D4 first-event diagnostics do not match replay input")
     return manifest
 
 

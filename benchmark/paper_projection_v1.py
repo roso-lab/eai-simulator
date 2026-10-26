@@ -337,6 +337,8 @@ def apply_panel_projection(normalized: Mapping[str, Any], projection: Mapping[st
     for key in ("case_manifest_digest", "scene_digest", "semantic_map_digest", "topology_digest", "roster_digest", "contract_digest", "artifact_manifest_digest", "paper_projection_digest", "oracle_id", "evaluator_id"):
         if key in result:
             identity[key] = result[key]
+    if "d4_first_event" in result:
+        identity["d4_first_event"] = result["d4_first_event"]
     result["input_digest"] = canonical_digest(identity)
     return result
 

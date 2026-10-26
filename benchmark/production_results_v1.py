@@ -202,6 +202,7 @@ def run_production_case(
         "output_files": [str(path) for path in output_files],
         "paper_panel_package": panel_package,
         "paper_projection": panel_projection,
+        "d4_first_event_diagnostics": report.get("d4_first_event_diagnostics"),
         "report": report,
     }
 

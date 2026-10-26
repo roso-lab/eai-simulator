@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import hashlib
 
 import pytest
 
@@ -12,6 +13,13 @@ from benchmark.evaluator.room06_livt04 import (
     EVALUATOR_VERSION,
     Room06LivT04Evaluator,
     build_diagnostic_runtime_fixture,
+)
+from benchmark.d4_first_event_v1 import (
+    FACT_KEY as D4_FACT_KEY,
+    OBSERVATION_SCHEMA as D4_OBSERVATION_SCHEMA,
+    PLAN_KEY as D4_PLAN_KEY,
+    REGISTRATION_SCHEMA as D4_REGISTRATION_SCHEMA,
+    VERSION as D4_VERSION,
 )
 
 
@@ -40,6 +48,89 @@ def _job() -> BranchJob:
         repeat_id="r1",
         execution_scope="measured_diagnostic",
     )
+
+
+def _d4_job() -> BranchJob:
+    job = _job()
+    return BranchJob(
+        run_id=job.run_id,
+        system_id=job.system_id,
+        scene_key=job.scene_key,
+        task_id=job.task_id,
+        condition_id="task_function_loss",
+        slot=job.slot,
+        branch_type=job.branch_type,
+        branch_id="room06-diagnostic-d4-r1",
+        pair_group_id="room06-diagnostic-d4-r1",
+        repeat_id=job.repeat_id,
+        execution_scope=job.execution_scope,
+    )
+
+
+def _sha(label: str) -> str:
+    return hashlib.sha256(label.encode()).hexdigest()
+
+
+def _d4_plan() -> dict:
+    registration = {
+        "schema": D4_REGISTRATION_SCHEMA,
+        "version": D4_VERSION,
+        "panels": [{
+            "panel_id": "room06-task-loss",
+            "registration_id": "room06-task-loss-v1",
+            "system_id": "emos-zero",
+            "event_id": "task-function-loss",
+            "condition_id": "task_function_loss",
+            "onset_tick": 100,
+            "horizon_tick": 200,
+            "evaluator_stride_ticks": 5,
+            "cells": [{
+                "cell_id": "room06-diagnostic-cell",
+                "weight": 1.0,
+                "response_required": True,
+                "response_deadline_tick": 130,
+                "expected_trajectories": [{
+                    "base_instance_id": "room06-livt04-diagnostic/base",
+                    "repeat_id": "r1",
+                }],
+            }],
+        }],
+    }
+    registration["registration_digest"] = canonical_digest({
+        key: value for key, value in registration.items() if key != "registration_digest"
+    })
+    return {"seed": 20261027, "oracle_obligation_binding": BOUNDING, D4_PLAN_KEY: registration}
+
+
+class _ExplicitMaterialEvaluator:
+    @staticmethod
+    def collect_receipt_material(runtime, job):
+        return runtime
+
+
+def _d4_material(*, include_observation: bool = True) -> dict:
+    job = _d4_job()
+    runtime = build_diagnostic_runtime_fixture()
+    runtime["episode"]["condition_id"] = job.condition_id
+    material = Room06LivT04Evaluator().collect_receipt_material(runtime, job)
+    material["episode"]["system_id"] = job.system_id
+    if include_observation:
+        material["facts"][D4_FACT_KEY] = {
+            "schema": D4_OBSERVATION_SCHEMA,
+            "registration_id": "room06-task-loss-v1",
+            "panel_id": "room06-task-loss",
+            "cell_id": "room06-diagnostic-cell",
+            "event_id": "task-function-loss",
+            "event_eligible": True,
+            "eligibility_evidence_digest": _sha("eligible"),
+            "response": {"tick": 120, "evidence_digest": _sha("response")},
+            "work_confirmation": {"tick": 115, "evidence_digest": _sha("work")},
+            "terminal": None,
+            "safety": {"flag": False, "evidence_digest": None},
+            "observed_through_tick": 200,
+            "timeline_digest": _sha("timeline"),
+        }
+    return material
 
 
 def _case(catalog: dict, plan: dict) -> dict:
@@ -144,6 +235,66 @@ def test_seal_does_not_infer_missing_evaluator_verdict(tmp_path: Path) -> None:
                 "evaluator": Room06LivT04Evaluator(),
                 "runtime": build_diagnostic_runtime_fixture(),
                 "evaluator_result": {"status": "valid_terminal"},
+            }],
+            artifact_root=tmp_path,
+            case_manifest=_case(catalog, plan),
+            catalog=catalog,
+            plan=plan,
+            parameters={},
+        )
+
+
+def test_terminal_material_passes_explicit_d4_observation_without_inference(tmp_path: Path) -> None:
+    catalog = {"anchors": ["liv-t-04"]}
+    plan = _d4_plan()
+    case = _case(catalog, plan)
+    sealed = seal_terminal_artifacts(
+        terminals=[{
+            "job": _d4_job(),
+            "evaluator": _ExplicitMaterialEvaluator(),
+            "runtime": _d4_material(),
+            "evaluator_result": {
+                "status": "valid_terminal",
+                "completed": True,
+                "physical_success": True,
+                "terminal_predicate": True,
+                "safety_predicate": True,
+                "feasibility_predicate": True,
+            },
+        }],
+        artifact_root=tmp_path,
+        case_manifest=case,
+        catalog=catalog,
+        plan=plan,
+        parameters={"alpha": 0.05},
+    )
+    assert sealed["receipts"][0]["facts"][D4_FACT_KEY]["response"]["tick"] == 120
+    assert sealed["readiness"]["d4_first_event_registered"] is True
+    assert sealed["readiness"]["d4_first_event_eligible_trajectory_count"] == 1
+    assert sealed["formal_gates"] == {
+        "rankable": False,
+        "paper_score_eligible": False,
+        "physical_qualified": False,
+    }
+
+
+def test_terminal_registration_rejects_missing_explicit_d4_observation(tmp_path: Path) -> None:
+    catalog = {"anchors": ["liv-t-04"]}
+    plan = _d4_plan()
+    with pytest.raises(TerminalCaseRunnerError, match="exact roster is incomplete"):
+        seal_terminal_artifacts(
+            terminals=[{
+                "job": _d4_job(),
+                "evaluator": _ExplicitMaterialEvaluator(),
+                "runtime": _d4_material(include_observation=False),
+                "evaluator_result": {
+                    "status": "valid_terminal",
+                    "completed": True,
+                    "physical_success": True,
+                    "terminal_predicate": True,
+                    "safety_predicate": True,
+                    "feasibility_predicate": True,
+                },
             }],
             artifact_root=tmp_path,
             case_manifest=_case(catalog, plan),

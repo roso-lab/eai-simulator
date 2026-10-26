@@ -40,6 +40,11 @@ from .scorebook_v3 import PAPER_COMMIT, default_scorebook_v3
 from .case_manifest_v1 import CaseManifestError, validate_case_manifest
 from .oracle_obligation_v1 import ObligationReductionError, reduce_obligations
 from .artifact_verifier_v3 import ArtifactVerificationStatus, verify_artifact_manifest_v3
+from .d4_first_event_v1 import (
+    D4FirstEventError,
+    reduce_receipts as reduce_d4_first_events,
+    registration_condition_ids,
+)
 
 
 RAW_RECEIPT_SCHEMA = "heterocoord.raw-evaluator-receipt.v1"
@@ -542,12 +547,24 @@ def normalize_receipts(
                 raise ReceiptAdapterError(f"receipt[{index}] evaluator version does not match case manifest")
         _validate_case_observation_bindings(rows, case)
         for row in rows:
-            _validate_oracle_success_consistency(row)
-            _validate_oracle_obligation_consistency(row)
+            if row["identity"]["condition_id"] in _D2_CONDITIONS:
+                _validate_oracle_success_consistency(row)
+                _validate_oracle_obligation_consistency(row)
     if any(row["evaluator"]["status"] in {"infrastructure_invalid", "crashed"} for row in rows):
         raise ReceiptAdapterError("infrastructure-invalid receipt cannot be normalized")
     if any(row["evaluator"]["status"] not in {"valid_terminal", "safe_stop", "team_state_infeasible"} for row in rows):
         raise ReceiptAdapterError("method failure remains an outcome and needs a paired reducer before normalization")
+
+    try:
+        d4_conditions = registration_condition_ids(plan)
+        d4_first_event = reduce_d4_first_events(rows)
+    except D4FirstEventError as exc:
+        raise ReceiptAdapterError(f"D4 first-event reduction failed: {exc}") from exc
+
+    allowed_conditions = set(_D2_CONDITIONS) | set(d4_conditions)
+    unknown_conditions = sorted({row["identity"]["condition_id"] for row in rows} - allowed_conditions)
+    if unknown_conditions:
+        raise ReceiptAdapterError(f"unsupported receipt conditions: {unknown_conditions}")
 
     d1_rows = []
     d3_values: dict[str, list[float]] = {key: [] for key in _D3_RELATIONS}
@@ -558,14 +575,18 @@ def normalize_receipts(
     oracle_summaries = []
     for row in rows:
         facts = row["facts"]
+        condition = row["identity"]["condition_id"]
+        # A receipt admitted only by the frozen D4 registration is a
+        # supporting-diagnostic trajectory.  It must not alter any primary
+        # D1--D6 estimator input.  Registered observations carried by a C0--C3
+        # receipt still coexist with the ordinary primary row.
+        if condition not in _D2_CONDITIONS:
+            continue
         d1 = _mapping(facts.get("d1"), "facts.d1")
         _require_exact(d1, {"validity", "organization", "infeasible", "complete_plan"}, "facts.d1")
         if type(d1["complete_plan"]) is not bool:
             raise ReceiptAdapterError("facts.d1.complete_plan must be boolean")
         d1_rows.append(d1)
-        condition = row["identity"]["condition_id"]
-        if condition not in _D2_CONDITIONS:
-            raise ReceiptAdapterError(f"unsupported D2 condition: {condition}")
         if type(facts.get("success")) is not bool:
             raise ReceiptAdapterError("facts.success must be an evaluator-owned boolean")
         condition_success[condition].append(1.0 if facts["success"] else 0.0)
@@ -703,6 +724,8 @@ def normalize_receipts(
         "calibration_digest": calibration["calibration_digest"],
         "adapter_version": ADAPTER_VERSION,
     }
+    if d4_first_event is not None:
+        payload["d4_first_event"] = d4_first_event
     if case is not None:
         payload["case_manifest_digest"] = case["manifest_digest"]
         payload["scene_digest"] = case["scene"]["scene_digest"]
@@ -723,6 +746,8 @@ def normalize_receipts(
         "dimensions": payload["dimensions"],
         "pipeline_version": PIPELINE_VERSION,
     }
+    if "d4_first_event" in payload:
+        input_identity["d4_first_event"] = payload["d4_first_event"]
     for key in ("case_manifest_digest", "scene_digest", "semantic_map_digest", "topology_digest", "roster_digest", "contract_digest", "artifact_manifest_digest", "oracle_id", "evaluator_id"):
         if key in payload:
             input_identity[key] = payload[key]

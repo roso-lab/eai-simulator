@@ -24,6 +24,11 @@ from .receipt_adapter_v3 import (
     _validate_receipt,
     _verify_external_evidence,
 )
+from .d4_first_event_v1 import (
+    D4FirstEventError,
+    reduce_receipts as reduce_d4_first_events,
+    registration_condition_ids,
+)
 
 
 READINESS_SCHEMA = "heterocoord.case-receipt-readiness.v1"
@@ -118,18 +123,31 @@ def audit_case_receipts(
     try:
         _validate_case_observation_bindings(rows, case)
         for row in rows:
-            _validate_oracle_success_consistency(row)
-            _validate_oracle_obligation_consistency(row)
+            if row["identity"]["condition_id"] in PAPER_CONDITIONS:
+                _validate_oracle_success_consistency(row)
+                _validate_oracle_obligation_consistency(row)
     except (ReceiptAdapterError, TypeError, ValueError, KeyError) as exc:
         raise CaseReadinessError(f"case oracle receipt validation failed: {exc}") from exc
+
+    try:
+        d4_conditions = registration_condition_ids(plan)
+        d4_first_event = reduce_d4_first_events(rows)
+    except D4FirstEventError as exc:
+        raise CaseReadinessError(f"D4 first-event evidence is invalid: {exc}") from exc
+
+    allowed_conditions = set(PAPER_CONDITIONS) | set(d4_conditions)
+    unknown_conditions = sorted({row["identity"]["condition_id"] for row in rows} - allowed_conditions)
+    if unknown_conditions:
+        raise CaseReadinessError(f"unregistered receipt conditions: {unknown_conditions}")
 
     conditions = sorted({row["identity"]["condition_id"] for row in rows})
     repeats = sorted({row["identity"]["repeat_id"] for row in rows})
     branches = sorted({row["identity"]["branch"] for row in rows})
-    relations = sorted({item["key"] for row in rows for item in _obligation_rows(row)})
-    d4_count = sum(len(row["facts"].get("d4_items", [])) for row in rows)
-    d5_count = sum(1 for row in rows if row["facts"].get("d5_attempt") is not None)
-    d6_count = sum(1 for row in rows if row["facts"].get("d6") is not None)
+    primary_rows = [row for row in rows if row["identity"]["condition_id"] in PAPER_CONDITIONS]
+    relations = sorted({item["key"] for row in primary_rows for item in _obligation_rows(row)})
+    d4_count = sum(len(row["facts"].get("d4_items", [])) for row in primary_rows)
+    d5_count = sum(1 for row in primary_rows if row["facts"].get("d5_attempt") is not None)
+    d6_count = sum(1 for row in primary_rows if row["facts"].get("d6") is not None)
     required_conditions = list(dict.fromkeys(required_paper_conditions))
     required_relations = list(dict.fromkeys(required_paper_relations))
     missing_conditions = [item for item in required_conditions if item not in conditions]
@@ -141,6 +159,8 @@ def audit_case_receipts(
         paper_gaps.append({"code": "PAPER_D3_RELATION_SUPPORT_MISSING", "values": missing_relations})
     if d4_count == 0:
         paper_gaps.append({"code": "PAPER_D4_CLOSURE_SUPPORT_MISSING"})
+    if d4_first_event is None:
+        paper_gaps.append({"code": "PAPER_D4_FIRST_EVENT_DIAGNOSTICS_MISSING"})
     if d5_count == 0:
         paper_gaps.append({"code": "PAPER_D5_ATTEMPT_SUPPORT_MISSING"})
     if d6_count == 0:
@@ -175,6 +195,23 @@ def audit_case_receipts(
         "case_relation_signature": list(case["relation_signature"]),
         "observed_obligation_relations": relations,
         "d4_item_count": d4_count,
+        "d4_first_event_registered": d4_first_event is not None,
+        "d4_first_event_eligible_trajectory_count": (
+            sum(
+                cell["eligible_trajectory_count"]
+                for panel in d4_first_event["panels"]
+                for cell in panel["cells"]
+            )
+            if d4_first_event is not None else 0
+        ),
+        "d4_first_event_excluded_trajectory_count": (
+            sum(
+                cell["excluded_trajectory_count"]
+                for panel in d4_first_event["panels"]
+                for cell in panel["cells"]
+            )
+            if d4_first_event is not None else 0
+        ),
         "d5_attempt_count": d5_count,
         "d6_run_count": d6_count,
         "paper_gaps": paper_gaps,
