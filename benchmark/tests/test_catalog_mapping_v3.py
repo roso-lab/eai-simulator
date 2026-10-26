@@ -124,6 +124,7 @@ def test_checked_in_fixture_receipt_is_frozen_exactly():
         scenario_path=base / "scenario.json",
         contract_path=base / "contract.json",
         package_path=base / "package.json",
+        robot_resume_path=REPO_ROOT / "benchmark/robot_resume/robot_pool_resume.v1.json",
         # Resolve the repository root from this test file so the frozen-fixture
         # assertion remains valid in clean worktrees and CI checkouts.
         project_root=Path(__file__).resolve().parents[2],
