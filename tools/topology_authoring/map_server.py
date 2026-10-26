@@ -17,6 +17,7 @@ from .map_project import MapProject, read_json
 from .product import _unique_object, _reject_constant
 from .scene_catalog import discover_scene_projects, scene_metadata, source_usd, resolve_scene
 from .web_overlay import compact_document_snapshot, normalize_web_selection
+from .road_builder import plan_navigation_road
 
 
 def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_linked=False):
@@ -38,8 +39,11 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                 "binding_target_draft": None,
                 "visible_layers": {"ground": True, "aerial": False, "semantic_points": False},
                 "visible_types": {"nodes": True, "edges": True, "semantic_points": True},
-                "new_point_settings": {key: {"z": 1.5, "edit_mode": "3d"}
-                                       for key in ("aerial", "semantic_points")}}
+                "new_point_settings": {
+                    "ground": {"z": value.document.levels[0]["support_z_m"]
+                               if first is not None else 0.0},
+                    **{key: {"z": 1.5, "edit_mode": "3d"}
+                       for key in ("aerial", "semantic_points")}}}
     editor = default_editor(project)
     scene_editors = {}
     runtime = {"state": "loading" if isaac_linked else "disabled", "error": None,
@@ -305,8 +309,13 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                         domain = body.get("active_domain", body.get("domain", editor["active_domain"]))
                         project.document_for(domain)
                         tool = body.get("tool", body.get("editor_tool", editor["editor_tool"]))
-                        if tool not in {"add-node", "add-edge", "add-semantic-point"}:
-                            raise ValueError("editor tool must be add-node, add-edge or add-semantic-point")
+                        if tool not in {"add-node", "add-edge", "add-semantic-point", "build-ground-road", "delete-ground-edge", "build-aerial-road", "delete-aerial-edge"}:
+                            raise ValueError("unknown editor tool")
+                        required_layer = ("ground" if tool in {"build-ground-road", "delete-ground-edge"}
+                                          else "aerial" if tool in {"build-aerial-road", "delete-aerial-edge"}
+                                          else None)
+                        if required_layer and body.get("active_layer", editor["active_layer"]) != required_layer:
+                            raise ValueError(f"{required_layer} road tools require the {required_layer} layer")
                         level = body.get("level_id", body.get("active_level", editor["active_level"]))
                         if level not in {row["id"] for row in project.document.levels} and not (level is None and not project.document.levels):
                             raise ValueError("unknown editor level")
@@ -339,6 +348,10 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                                 tool = "add-node"
                             candidate["last_navigation_layer"] = layer
                         candidate.update(active_layer=layer, active_domain=domain, editor_tool=tool, active_level=level)
+                        if level != editor["active_level"]:
+                            candidate["new_point_settings"]["ground"]["z"] = next(
+                                (row["support_z_m"] for row in project.document.levels
+                                 if row["id"] == level), 0.0)
                         reference = body.get("reference_level", candidate["reference_level"])
                         if reference is not None and reference not in {row["id"] for row in project.document.levels}:
                             raise ValueError("unknown reference level")
@@ -354,15 +367,16 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                                 candidate[setting].update(changes)
                         if "new_point_settings" in body:
                             changes = body["new_point_settings"]
-                            if not isinstance(changes, dict) or set(changes) - {"aerial", "semantic_points"}:
+                            if not isinstance(changes, dict) or set(changes) - {"ground", "aerial", "semantic_points"}:
                                 raise ValueError("invalid point settings")
                             for key, values in changes.items():
-                                if not isinstance(values, dict) or set(values) - {"z", "edit_mode"}:
+                                allowed = {"z"} if key == "ground" else {"z", "edit_mode"}
+                                if not isinstance(values, dict) or set(values) - allowed:
                                     raise ValueError("invalid new point settings")
                                 candidate["new_point_settings"][key].update(values)
                                 settings = candidate["new_point_settings"][key]
                                 if (type(settings["z"]) not in (int, float) or not math.isfinite(settings["z"])
-                                        or settings["edit_mode"] not in {"2.5d", "3d"}):
+                                        or key != "ground" and settings["edit_mode"] not in {"2.5d", "3d"}):
                                     raise ValueError("new point height must be finite and edit mode valid")
                         # Navigation-node binding is a transient session mode.
                         # Keep it in the shared editor context so web and Isaac
@@ -496,6 +510,16 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                     domain = self.pop_context(body)
                     if type(body.get("revision")) is not int:
                         raise ValueError("expected editor revision is required")
+                    if route == "/api/road/preview":
+                        if editor["editor_tool"] not in {"build-ground-road", "build-aerial-road"} or editor["active_layer"] != editor["active_domain"]:
+                            raise ValueError("road preview requires an active navigation road tool")
+                        plan = plan_navigation_road(project.document_for(editor["active_domain"]), body["start_xyz"], body["end_xyz"],
+                            level_id=editor["active_level"] if editor["active_domain"] == "ground" else None,
+                            snap_radius_m=body.get("snap_radius_m", 0.0),
+                            disable_snap=body.get("disable_snap", False),
+                            connect_intersections=body.get("connect_intersections", True))
+                        self.reply(200, {key: value for key, value in plan.items() if key != "document"})
+                        return
                     if route == "/api/edit":
                         operation = body.pop("operation")
                         semantic_operations = {"add_semantic_point", "update_semantic_point", "move_semantic_point_xy",
@@ -503,19 +527,28 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                                                "set_semantic_point_navigation_bindings"}
                         allowed = semantic_operations | {"add_node", "update_node", "move_node_xy", "move_node",
                                                          "remove_node", "add_edge", "update_edge", "remove_edge",
-                                                         "translate_edge_xy"}
+                                                         "translate_edge_xy", "build_ground_road", "build_aerial_road"}
                         if operation not in allowed:
                             raise ValueError("operation is unavailable in the unified editor")
                         operations_by_tool = {
                             "add-node": {"add_node", "update_node", "move_node_xy", "move_node", "remove_node"},
                             "add-edge": {"add_edge", "update_edge", "remove_edge", "translate_edge_xy"},
                             "add-semantic-point": semantic_operations,
+                            "build-ground-road": {"build_ground_road"},
+                            "delete-ground-edge": {"remove_edge"},
+                            "build-aerial-road": {"build_aerial_road"},
+                            "delete-aerial-edge": {"remove_edge"},
                         }
                         if operation not in operations_by_tool[editor["editor_tool"]]:
                             raise ValueError("operation is outside the active editor tool")
                         semantic_operation = operation in semantic_operations
                         if semantic_operation != (editor["active_layer"] == "semantic_points"):
                             raise ValueError("operation is outside the active editor layer")
+                        required_layer = ("ground" if editor["editor_tool"] in {"build-ground-road", "delete-ground-edge"}
+                                          else "aerial" if editor["editor_tool"] in {"build-aerial-road", "delete-aerial-edge"}
+                                          else None)
+                        if required_layer and editor["active_layer"] != required_layer:
+                            raise ValueError(f"{required_layer} road tools require the {required_layer} layer")
                         project.edit(operation, domain=domain, **body)
                         if operation == "set_semantic_point_navigation_bindings" and editor.get("binding_target_mode"):
                             editor.update(binding_target_mode=None, binding_target_id=None,

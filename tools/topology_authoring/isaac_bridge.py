@@ -809,7 +809,8 @@ _PRESERVE_LEVEL = object()
 class IsaacTopologyController:
     """Unified native editor for navigation graphs and semantic points."""
 
-    TOOLS = ("add-node", "add-edge", "add-semantic-point")
+    TOOLS = ("add-node", "add-edge", "add-semantic-point", "build-ground-road", "delete-ground-edge",
+             "build-aerial-road", "delete-aerial-edge")
     LAYERS = ("ground", "aerial", "semantic_points")
     MODES = ("2.5d", "3d")
 
@@ -824,10 +825,15 @@ class IsaacTopologyController:
         self.edge_end: str | None = None
         self.edge_identity: dict[str, Any] | None = None
         self.gesture: dict[str, Any] | None = None
+        self.road_draft: dict[str, Any] | None = None
+        self.road_free_snap = False
+        self._road_last_point: list[float] | None = None
+        self._road_end_z: float | None = None
         self.preview: dict[str, Any] | None = None
         self.directed = False
         self.new_edge_traversal_mode = "walk"
         self.new_point_settings = {
+            "ground": {"z": 0.0},
             "aerial": {"z": 1.5, "edit_mode": "3d"},
             "semantic_points": {"z": 1.5, "edit_mode": "3d"},
         }
@@ -840,6 +846,7 @@ class IsaacTopologyController:
         self.last_result_succeeded = False
         self.selection_dirty = False
         self.navigation_binding_mode = False
+        self.navigation_binding_target_id: str | None = None
         self.navigation_binding_draft: list[dict[str, str]] | None = None
         self.last_error: str | None = None
         self.edit_status = "idle"
@@ -872,8 +879,11 @@ class IsaacTopologyController:
         if previous is not None and previous != current:
             same_scene = previous[:2] == current[:2]
             self.cancel_gesture(preserve_retry=same_scene)
-            self.navigation_binding_mode = False
-            self.navigation_binding_draft = None
+            same_binding_context = same_scene and previous[4:6] == current[4:6]
+            if not same_binding_context:
+                self.navigation_binding_mode = False
+                self.navigation_binding_target_id = None
+                self.navigation_binding_draft = None
             self.pending_edit = None
             self.pending_context = None
             self.selection_dirty = False
@@ -893,12 +903,21 @@ class IsaacTopologyController:
         context_binding_id = context.get("binding_target_id")
         if context_binding_mode and context_binding_id:
             self.navigation_binding_mode = True
+            self.navigation_binding_target_id = context_binding_id
             self.navigation_binding_draft = json.loads(json.dumps(
                 context.get("binding_target_draft") or []))
-        elif context.get("binding_target_mode") is not None:
+        else:
             self.navigation_binding_mode = False
-            self.navigation_binding_draft = None
         supplied_settings = context.get("new_point_settings") or {}
+        # Older contexts do not publish ground settings. Fall back to the
+        # floor height on initial connection and floor/scene switches.
+        if previous is None or previous[:2] != current[:2] or previous[5] != current[5]:
+            self.new_point_settings["ground"] = {"z": next(
+                (float(row["support_z_m"]) for row in context.get("levels") or []
+                 if row.get("id") == context.get("active_level")), 0.0)}
+        ground_z = (supplied_settings.get("ground") or {}).get("z")
+        if type(ground_z) in (int, float) and math.isfinite(ground_z):
+            self.new_point_settings["ground"] = {"z": float(ground_z)}
         for layer in ("aerial", "semantic_points"):
             values = supplied_settings.get(layer) or {}
             try:
@@ -916,10 +935,11 @@ class IsaacTopologyController:
                 and (previous != current or not self.selection_dirty)):
             self.selection = incoming
             self.selection_dirty = False
-        if (self.navigation_binding_mode
+        if (self.navigation_binding_target_id
                 and (not self.selection or self.selection.get("kind") != "semantic_point"
-                     or self.selection.get("id") != context.get("binding_target_id"))):
+                     or self.selection.get("id") != self.navigation_binding_target_id)):
             self.navigation_binding_mode = False
+            self.navigation_binding_target_id = None
             self.navigation_binding_draft = None
         self._changed()
 
@@ -1048,8 +1068,17 @@ class IsaacTopologyController:
     def set_tool(self, tool: str) -> bool:
         if tool not in self.TOOLS:
             raise IsaacBridgeError(
-                "editor tool must be add-node, add-edge or add-semantic-point")
+                "unknown editor tool")
+        target_layer = ("ground" if tool in {"build-ground-road", "delete-ground-edge"}
+                        else "aerial" if tool in {"build-aerial-road", "delete-aerial-edge"}
+                        else None)
+        if target_layer and self.active_layer != target_layer:
+            if not self.set_active_layer(target_layer):
+                return False
         self.cancel_gesture()
+        if target_layer:
+            return self._submit_context(tool, editor_tool=tool, active_layer=target_layer,
+                                        active_domain=target_layer)
         return self._submit_context(tool, editor_tool=tool)
 
     def set_level(self, level_id: str) -> bool:
@@ -1079,25 +1108,25 @@ class IsaacTopologyController:
         return self._submit_context(("visible-type", kind), visible_types=values)
 
     def set_new_point_z(self, layer: str, z: float) -> bool:
-        if layer not in self.new_point_settings:
-            raise IsaacBridgeError("new point settings support aerial and semantic_points")
+        if layer not in {"ground", "aerial", "semantic_points"}:
+            raise IsaacBridgeError("unknown point layer")
         value = float(z)
         if not math.isfinite(value):
             raise IsaacBridgeError("new point Z must be finite")
         settings = json.loads(json.dumps(self.new_point_settings))
         settings[layer]["z"] = value
-        submitted = self._submit_context(("new-z", layer), new_point_settings=settings)
+        submitted = self._submit_context(("new-z", layer), new_point_settings={layer: settings[layer]})
         if submitted:
             self.new_point_settings = settings
             self._changed()
         return submitted
 
     def set_new_point_edit_mode(self, layer: str, mode: str) -> bool:
-        if layer not in self.new_point_settings or mode not in self.MODES:
+        if layer not in {"aerial", "semantic_points"} or mode not in self.MODES:
             raise IsaacBridgeError("new point mode must be 2.5d or 3d")
         settings = json.loads(json.dumps(self.new_point_settings))
         settings[layer]["edit_mode"] = mode
-        submitted = self._submit_context(("new-mode", layer), new_point_settings=settings)
+        submitted = self._submit_context(("new-mode", layer), new_point_settings={layer: settings[layer]})
         if submitted:
             self.new_point_settings = settings
             self._changed()
@@ -1202,7 +1231,9 @@ class IsaacTopologyController:
         if point is None:
             return False
         self.navigation_binding_mode = True
-        self.navigation_binding_draft = json.loads(json.dumps(point.get("navigation_bindings", [])))
+        if self.navigation_binding_target_id != point["id"] or self.navigation_binding_draft is None:
+            self.navigation_binding_draft = json.loads(json.dumps(point.get("navigation_bindings", [])))
+        self.navigation_binding_target_id = point["id"]
         self.cancel_gesture(preserve_retry=True)
         self._submit_context(("navigation-binding-mode", point["id"]),
                              binding_target_mode="semantic_navigation",
@@ -1211,8 +1242,20 @@ class IsaacTopologyController:
         self._changed()
         return True
 
+    def finish_navigation_binding(self) -> bool:
+        """Leave map picking while keeping the pending bindings for review/apply."""
+        if not self.navigation_binding_mode or self.navigation_binding_target_id is None:
+            return False
+        self.navigation_binding_mode = False
+        self._submit_context(("navigation-binding-mode", self.navigation_binding_target_id),
+                             binding_target_mode=None, binding_target_id=None,
+                             binding_target_draft=None)
+        self._changed()
+        return True
+
     def cancel_navigation_binding(self) -> None:
         self.navigation_binding_mode = False
+        self.navigation_binding_target_id = None
         self.navigation_binding_draft = None
         self._submit_context(("navigation-binding-mode",), binding_target_mode=None,
                              binding_target_id=None, binding_target_draft=None)
@@ -1232,6 +1275,7 @@ class IsaacTopologyController:
         self.navigation_binding_draft = sorted(draft, key=lambda row: (row["domain"], row["node_id"]))
         point_id = self.selection.get("id") if self.selection else None
         if point_id:
+            self.navigation_binding_target_id = point_id
             self._submit_context(("navigation-binding-draft", point_id),
                                  binding_target_mode="semantic_navigation",
                                  binding_target_id=point_id,
@@ -1240,7 +1284,9 @@ class IsaacTopologyController:
         return True
 
     def commit_navigation_bindings(self) -> bool:
-        if not self.navigation_binding_mode or not self.selection or self.selection.get("kind") != "semantic_point":
+        if (not self.selection or self.selection.get("kind") != "semantic_point"
+                or self.navigation_binding_draft is None
+                or self.navigation_binding_target_id != self.selection.get("id")):
             return False
         point_id = self.selection.get("id")
         submitted = self._submit_frozen_edit(
@@ -1266,6 +1312,14 @@ class IsaacTopologyController:
             id=point["id"], position_xyz=position)
 
     def select(self, selection: dict[str, Any] | None) -> None:
+        if (self.navigation_binding_target_id
+                and (not selection or selection.get("kind") != "semantic_point"
+                     or selection.get("id") != self.navigation_binding_target_id)):
+            self.navigation_binding_mode = False
+            self.navigation_binding_target_id = None
+            self.navigation_binding_draft = None
+            self._submit_context(("navigation-binding-mode",), binding_target_mode=None,
+                                 binding_target_id=None, binding_target_draft=None)
         self.selection = selection
         self.selection_dirty = True
         self._changed()
@@ -1291,6 +1345,46 @@ class IsaacTopologyController:
         else:
             args["level_id"] = (self.context or {}).get("active_level")
         return self._submit_frozen_edit(("add-node", position), "add_node", **args)
+
+    def preview_road(self, start: Iterable[float], end: Iterable[float], *,
+                     connect_intersections: bool = True) -> dict[str, Any]:
+        from .road_builder import plan_navigation_road
+        if self.active_layer not in {"ground", "aerial"}:
+            raise IsaacBridgeError("road construction requires a navigation layer")
+        domain = self.active_layer
+        snapshot = self.document_snapshots.get(domain, self.snapshot)
+        return {key: value for key, value in plan_navigation_road(
+            snapshot, list(_finite_xyz(start)), list(_finite_xyz(end)),
+            level_id=(self.context or {}).get("active_level") if domain == "ground" else None,
+            snap_radius_m=0.0,
+            disable_snap=self.road_free_snap,
+            connect_intersections=connect_intersections).items() if key != "document"}
+
+    def preview_ground_road(self, start: Iterable[float], end: Iterable[float], *,
+                            connect_intersections: bool = True) -> dict[str, Any]:
+        if self.active_layer != "ground":
+            raise IsaacBridgeError("road construction is only available on ground")
+        return self.preview_road(start, end, connect_intersections=connect_intersections)
+
+    def build_road(self, start: Iterable[float], end: Iterable[float], *,
+                   connect_intersections: bool = True) -> bool:
+        if self.active_layer not in {"ground", "aerial"}:
+            return False
+        domain = self.active_layer
+        operation = "build_ground_road" if domain == "ground" else "build_aerial_road"
+        args = dict(start_xyz=list(_finite_xyz(start)), end_xyz=list(_finite_xyz(end)),
+            snap_radius_m=0.0,
+            disable_snap=self.road_free_snap,
+            connect_intersections=connect_intersections)
+        if domain == "ground":
+            args["level_id"] = (self.context or {}).get("active_level")
+        return self._submit_frozen_edit(("build-road", domain, tuple(start), tuple(end)), operation, **args)
+
+    def build_ground_road(self, start: Iterable[float], end: Iterable[float], *,
+                          connect_intersections: bool = True) -> bool:
+        if self.active_layer != "ground":
+            return False
+        return self.build_road(start, end, connect_intersections=connect_intersections)
 
     def add_semantic_point(self, point: Iterable[float]) -> bool:
         if self.active_layer != "semantic_points":
@@ -1363,6 +1457,9 @@ class IsaacTopologyController:
     def cancel_gesture(self, *, preserve_retry: bool = False, **_compat: Any) -> None:
         self.interaction_generation += 1
         self.gesture = None
+        self.road_draft = None
+        self._road_end_z = None
+        self._road_last_point = None
         self.preview = None
         self.edge_start = self.edge_end = None
         self.edge_identity = None
@@ -1428,7 +1525,8 @@ class IsaacTopologyController:
                 for index, name in enumerate("xyz"):
                     if name != axis:
                         position[index] = original[index]
-            elif record.get("edit_mode", "3d") == "2.5d":
+            elif (target["kind"] == "node" and self.active_layer == "ground"
+                  or record.get("edit_mode", "3d") == "2.5d"):
                 position[2] = original[2]
             self.preview = {"kind": target["kind"], "id": target["id"],
                             "position_xyz": position}
@@ -1436,6 +1534,19 @@ class IsaacTopologyController:
 
     def end_drag(self) -> bool:
         if self.gesture is None:
+            return False
+        if self.gesture.get("target", {}).get("kind") == "road":
+            gesture, preview = self.gesture, self.preview
+            self.gesture = None
+            if preview and preview.get("kind") == "road-draft":
+                self.road_draft = {"start_xyz": gesture["original"], "end_xyz": preview["position_xyz"],
+                                   "identity": gesture["identity"], "disable_snap": self.road_free_snap,
+                                   "domain": self.active_layer}
+                self.preview = None
+                self._changed()
+                return True
+            self.preview = None
+            self._changed()
             return False
         if self.preview is None:
             # A press/release that never crosses Kit's drag threshold has no
@@ -1457,7 +1568,8 @@ class IsaacTopologyController:
         mode = record.get("edit_mode", "3d")
         semantic = kind == "semantic-point"
         operation = (("move_semantic_point_xy" if semantic else "move_node_xy")
-                     if mode == "2.5d" and gesture.get("axis") is None
+                     if (mode == "2.5d" or not semantic and self.active_layer == "ground")
+                     and gesture.get("axis") is None
                      else ("move_semantic_point" if semantic else "move_node"))
         kwargs = ({"position_xy": preview["position_xyz"][:2]}
                   if operation.endswith("_xy") else
@@ -1465,6 +1577,75 @@ class IsaacTopologyController:
         return self._submit_frozen_edit(
             ("move-semantic-point" if semantic else "move-node", identifier),
             operation, identity=gesture["identity"], id=identifier, **kwargs)
+
+    def update_road_drag(self, point: Iterable[float], *, disable_axis_snap=None) -> None:
+        if not self.gesture or self.gesture.get("target", {}).get("kind") != "road":
+            return
+        from .road_builder import plan_navigation_road
+        start = self.gesture["original"]
+        end = list(_finite_xyz(point))
+        if self.active_layer == "aerial" and self._road_end_z is not None:
+            end[2] = self._road_end_z
+        if disable_axis_snap is None:
+            disable_axis_snap = self.road_free_snap
+        if not disable_axis_snap:
+            angle = math.atan2(abs(end[1]-start[1]), abs(end[0]-start[0]))
+            if angle <= math.pi/18:
+                end[1] = start[1]
+            elif math.pi/2-angle <= math.pi/18:
+                end[0] = start[0]
+        try:
+            domain = self.active_layer
+            snapshot = self.document_snapshots.get(domain, self.snapshot)
+            self._road_last_point = end
+            plan = plan_navigation_road(snapshot, start, end,
+                level_id=(self.context or {}).get("active_level") if domain == "ground" else None,
+                snap_radius_m=0.0,
+                disable_snap=self.road_free_snap)
+            self.preview = {"kind": "road-draft", "position_xyz": plan["end"], "points": [plan["start"], *plan["crossings"], plan["end"]]}
+        except (ValueError, KeyError):
+            self.preview = {"kind": "road-draft", "position_xyz": end, "points": [start, end], "invalid": True}
+        self._changed()
+
+    def adjust_road_end_height(self, delta: float) -> bool:
+        if (self.active_layer != "aerial" or self.gesture is None
+                or self.gesture.get("target", {}).get("kind") != "road"
+                or self._road_last_point is None):
+            return False
+        value = self._road_end_z if self._road_end_z is not None else self.gesture["original"][2]
+        self._road_end_z = float(value) + float(delta)
+        self.update_road_drag(self._road_last_point, disable_axis_snap=self.road_free_snap)
+        return True
+
+    def adjust_aerial_road_start_height(self, delta: float) -> bool:
+        if (self.active_layer != "aerial"
+                or (self.context or {}).get("editor_tool") != "build-aerial-road"
+                or self.gesture is not None):
+            return False
+        current = self.new_point_settings["aerial"]["z"]
+        return self.set_new_point_z("aerial", float(current) + float(delta))
+
+    def confirm_road(self, *, connect_intersections=True) -> bool:
+        draft = self.road_draft
+        if not draft:
+            return False
+        domain = draft.get("domain", self.active_layer)
+        operation = "build_ground_road" if domain == "ground" else "build_aerial_road"
+        args = dict(identity=draft["identity"], start_xyz=draft["start_xyz"], end_xyz=draft["end_xyz"],
+            snap_radius_m=0.0,
+            disable_snap=draft.get("disable_snap", False),
+            connect_intersections=connect_intersections)
+        if domain == "ground":
+            args["level_id"] = (self.context or {}).get("active_level")
+        submitted = self._submit_frozen_edit(("build-road", domain), operation, **args)
+        if submitted:
+            self.road_draft = None
+        return submitted
+
+    def confirm_ground_road(self, *, connect_intersections=True) -> bool:
+        if self.road_draft and self.road_draft.get("domain", self.active_layer) != "ground":
+            return False
+        return self.confirm_road(connect_intersections=connect_intersections)
 
     def retry_conflict(self) -> bool:
         request = self.retry_request
@@ -1540,6 +1721,7 @@ class IsaacTopologyController:
                 self.preview = None
             elif tag and tag[0] == "semantic-navigation-bindings":
                 self.navigation_binding_mode = False
+                self.navigation_binding_target_id = None
                 self.navigation_binding_draft = None
             if isinstance(payload, dict):
                 fresh = payload.get("context") or payload.get("state")
@@ -1595,12 +1777,14 @@ class IsaacTopologyWindow:
         if selection and selection.get("kind") == "semantic_point":
             point = self.controller.semantic_point(selection.get("id")) or {}
             count = len(self.controller.navigation_binding_draft
-                         if self.controller.navigation_binding_mode
+                         if self.controller.navigation_binding_target_id == selection.get("id")
                          and self.controller.navigation_binding_draft is not None
                          else point.get("navigation_bindings", []))
             binding = f" | navigation bindings {count}"
             if self.controller.navigation_binding_mode:
-                binding += " (pick mode)"
+                binding += " (connecting)"
+            elif self.controller.navigation_binding_draft is not None:
+                binding += " (draft; apply to save)"
         error = f" | {self.controller.last_error}" if self.controller.last_error else ""
         if self.controller.retry_request is not None:
             edit_state = " | 存在待重试草稿"
@@ -1617,11 +1801,17 @@ class IsaacTopologyWindow:
             edit_state = " | 已同步到网页"
         else:
             edit_state = ""
+        road_height = ""
+        if self.controller.active_layer == "aerial" and context.get("editor_tool") == "build-aerial-road":
+            if self.controller.gesture is not None and self.controller._road_end_z is not None:
+                road_height = f" | road end Z {self.controller._road_end_z:.2f} m"
+            else:
+                road_height = f" | road start Z {self.controller.new_point_settings['aerial']['z']:.2f} m"
         self._status.text = (
             f"layer {self.controller.active_layer} | tool {context.get('editor_tool', '?')} | "
             f"floor {context.get('active_level', '?')} | reference "
             f"{context.get('reference_level') or 'none'} | selected "
-            f"{selected}{mode}{binding}{edit_state}{error}")
+            f"{selected}{mode}{binding}{road_height}{edit_state}{error}")
         if self._level_controls is not None:
             self._level_controls.visible = self.controller.active_layer == "ground"
         if self._node_property_controls is not None:
@@ -1753,6 +1943,14 @@ class IsaacTopologyWindow:
                                   self.controller.set_tool("add-node"))
                         ui.Button("Edge", width=0, clicked_fn=lambda:
                                   self.controller.set_tool("add-edge"))
+                        ui.Button("Build road", width=0, clicked_fn=lambda:
+                                  self.controller.set_tool("build-ground-road"))
+                        ui.Button("Delete edge", width=0, clicked_fn=lambda:
+                                  self.controller.set_tool("delete-ground-edge"))
+                        ui.Button("Build aerial road", width=0, clicked_fn=lambda:
+                                  self.controller.set_tool("build-aerial-road"))
+                        ui.Button("Delete aerial edge", width=0, clicked_fn=lambda:
+                                  self.controller.set_tool("delete-aerial-edge"))
                         ui.Button("Semantic point", width=0, clicked_fn=lambda:
                                   self.controller.set_tool("add-semantic-point"))
                     self._level_controls = ui.VStack(spacing=3, height=0,
@@ -1778,6 +1976,12 @@ class IsaacTopologyWindow:
                     with ui.HStack(height=30, width=ui.Fraction(1)):
                         ui.Button("Confirm edge", width=0,
                                   clicked_fn=self.controller.finish_edge)
+                        ui.Button("Connect intersections", width=0,
+                                  clicked_fn=lambda: self.controller.confirm_road(connect_intersections=True))
+                        ui.Button("No intersections", width=0,
+                                  clicked_fn=lambda: self.controller.confirm_road(connect_intersections=False))
+                        ui.Button("Cancel road", width=0,
+                                  clicked_fn=self.controller.cancel_gesture)
                         ui.Button("Cancel / Esc", width=0,
                                   clicked_fn=self.controller.cancel_gesture)
                         ui.Button("Delete", width=0,
@@ -1793,7 +1997,9 @@ class IsaacTopologyWindow:
                                   self.controller.set_new_edge_traversal_mode("stairs"))
                         ui.Button("Ramp", width=0, clicked_fn=lambda:
                                   self.controller.set_new_edge_traversal_mode("ramp"))
-                    for layer, label in (("aerial", "New aerial"),
+                    ui.Label("Ground Z is visual only; navigation uses XY and edge properties.")
+                    for layer, label in (("ground", "New ground Z"),
+                                         ("aerial", "New aerial"),
                                          ("semantic_points", "New semantic")):
                         with ui.HStack(height=30, width=ui.Fraction(1)):
                             ui.Label(label, width=110)
@@ -1801,10 +2007,11 @@ class IsaacTopologyWindow:
                             self._new_z_models[layer] = field.model
                             ui.Button("Apply Z", width=0, clicked_fn=lambda value=layer:
                                       self._apply_new_z(value))
-                            ui.Button("2.5D", width=0, clicked_fn=lambda value=layer:
-                                      self.controller.set_new_point_edit_mode(value, "2.5d"))
-                            ui.Button("3D", width=0, clicked_fn=lambda value=layer:
-                                      self.controller.set_new_point_edit_mode(value, "3d"))
+                            if layer != "ground":
+                                ui.Button("2.5D", width=0, clicked_fn=lambda value=layer:
+                                          self.controller.set_new_point_edit_mode(value, "2.5d"))
+                                ui.Button("3D", width=0, clicked_fn=lambda value=layer:
+                                          self.controller.set_new_point_edit_mode(value, "3d"))
                     with ui.HStack(height=30, width=ui.Fraction(1)):
                         ui.Label("Selected mode", width=110)
                         ui.Button("2.5D", width=0, clicked_fn=lambda:
@@ -1865,12 +2072,17 @@ class IsaacTopologyWindow:
                         self._semantic_properties_model = value.model
                         ui.Button("Apply semantic", width=120,
                                   clicked_fn=self._apply_semantic_properties)
+                    ui.Label(
+                        "Select a semantic point, connect it to ground or aerial nodes by clicking them, then apply the draft.",
+                        width=ui.Fraction(1), height=0, word_wrap=True)
                     with ui.HStack(height=30, width=ui.Fraction(1)):
-                        ui.Button("Pick navigation nodes", width=0,
+                        ui.Button("Connect navigation nodes", width=0,
                                   clicked_fn=self.controller.begin_navigation_binding)
-                        ui.Button("Apply navigation bindings", width=0,
+                        ui.Button("Finish connecting", width=0,
+                                  clicked_fn=self.controller.finish_navigation_binding)
+                        ui.Button("Apply bindings", width=0,
                                   clicked_fn=self.controller.commit_navigation_bindings)
-                        ui.Button("Cancel picks", width=0,
+                        ui.Button("Discard draft", width=0,
                                   clicked_fn=self.controller.cancel_navigation_binding)
                     with ui.HStack(height=30, width=ui.Fraction(1)):
                         ui.Button("Undo", width=0, clicked_fn=self.controller.undo)
@@ -1904,10 +2116,28 @@ class IsaacTopologyWindow:
             self._input = carb.input.acquire_input_interface()
             self._keyboard = omni.appwindow.get_default_app_window().get_keyboard()
             def on_key(event):
+                page_up = getattr(carb.input.KeyboardInput, "PAGE_UP", None)
+                page_down = getattr(carb.input.KeyboardInput, "PAGE_DOWN", None)
+                if event.type == carb.input.KeyboardEventType.KEY_PRESS:
+                    if event.input == page_up:
+                        if not self.controller.adjust_road_end_height(.1):
+                            self.controller.adjust_aerial_road_start_height(.1)
+                    elif event.input == page_down:
+                        if not self.controller.adjust_road_end_height(-.1):
+                            self.controller.adjust_aerial_road_start_height(-.1)
+                if event.input == carb.input.KeyboardInput.C:
+                    if event.type == carb.input.KeyboardEventType.KEY_PRESS:
+                        self.controller.road_free_snap = True
+                    elif event.type == carb.input.KeyboardEventType.KEY_RELEASE:
+                        self.controller.road_free_snap = False
+                    if (self.controller.gesture and self.controller._road_last_point is not None):
+                        self.controller.update_road_drag(
+                            self.controller._road_last_point,
+                            disable_axis_snap=self.controller.road_free_snap)
                 if event.type == carb.input.KeyboardEventType.KEY_PRESS:
                     if event.input == carb.input.KeyboardInput.ESCAPE:
                         if self.controller.navigation_binding_mode:
-                            self.controller.cancel_navigation_binding()
+                            self.controller.finish_navigation_binding()
                         else:
                             self.controller.cancel_gesture()
                     elif (event.input == carb.input.KeyboardInput.ENTER

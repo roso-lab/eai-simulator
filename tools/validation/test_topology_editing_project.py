@@ -11,6 +11,7 @@ from algorithm.skills.navigation.topology import route_graph_digest
 from tools.topology_authoring.map_project import MapProject, read_json, sha256, write_json
 from tools.topology_authoring.map_server import make_server
 from tools.topology_authoring.product import product_digest
+from tools.topology_authoring.road_builder import plan_ground_road, plan_navigation_road
 
 
 @pytest.fixture
@@ -76,6 +77,56 @@ def test_ground_floor_and_height_properties_commit_together(tmp_path):
     assert project.document.node("node:0001")["position_xyz"] == [0, 0, 3]
     project.undo()
     assert project._snapshot() == before
+
+
+def test_ground_visual_height_survives_edits_history_and_export(project):
+    aerial_before = project.document_for("aerial").to_dict()
+    points_before = deepcopy(project.semantic_points)
+    for point in ([0, 0, 1.5], [1, 0, 3], [1, 1, -2]):
+        project.edit("add_node", position_xyz=point, level_id="ground")
+    for first, last in (("node:0001", "node:0002"), ("node:0002", "node:0003")):
+        project.edit("add_edge", from_id=first, to_id=last)
+    project.edit("update_node", id="node:0001", position_xyz=[0, 0, 2.5])
+    assert project.document.edges[0]["polyline_xyz"][0] == [0, 0, 2.5]
+    project.edit("move_node_xy", id="node:0001", position_xy=[-.5, .5])
+    assert project.document.nodes[0]["position_xyz"] == [-.5, .5, 2.5]
+    project.document.edges[0]["polyline_xyz"].insert(1, [0, .25, 4])
+    before = project._snapshot()
+    project.edit("translate_edge_xy", id="edge:0001", delta_xy=[.25, -.25])
+    doc = project.document
+    assert doc.nodes[0]["position_xyz"] == [-.25, .25, 2.5]
+    assert doc.nodes[1]["position_xyz"] == [1.25, -.25, 3]
+    assert doc.nodes[2]["position_xyz"] == [1, 1, -2]
+    assert doc.edges[0]["polyline_xyz"] == [[-.25, .25, 2.5], [.25, 0, 4], [1.25, -.25, 3]]
+    assert doc.edges[1]["polyline_xyz"][0] == [1.25, -.25, 3]
+    after = project._snapshot()
+    project.undo()
+    assert project._snapshot() == before
+    project.redo()
+    assert project._snapshot() == after
+    project.save()
+    restored = MapProject(project.root)
+    assert restored._snapshot() == after
+    assert restored.document_for("aerial").to_dict() == aerial_before
+    assert restored.semantic_points == points_before
+    geojson = read_json(project.root / "current" / "semantic-footprints.geojson")
+    edges = [row for row in geojson["features"] if row["properties"]["feature_type"] == "topology_edge"]
+    assert edges[0]["geometry"]["coordinates"] == [[-.25, .25, 2.5], [1.25, -.25, 3]]
+
+
+@pytest.mark.parametrize("patch", [
+    {"position_xyz": [0, 0, float("nan")]},
+    {"position_xyz": [0, 0, float("inf")]},
+    {"position_xyz": [0, 0, True]},
+    {"level_id": "missing"},
+])
+def test_invalid_ground_height_or_floor_is_atomic(project, patch):
+    project.edit("add_node", position_xyz=[0, 0, 2], level_id="ground")
+    before, revision, history = project._snapshot(), project.revision, len(project._undo)
+    with pytest.raises(ValueError):
+        project.edit("update_node", id="node:0001", **patch)
+    assert project._snapshot() == before
+    assert project.revision == revision and len(project._undo) == history
 
 
 def test_regions_shared_insert_closing_edge_move_and_atomic_undo(project):
@@ -168,6 +219,152 @@ def test_failed_export_keeps_saved_pointer_and_live_documents(project, monkeypat
     assert not MapProject(project.root).document_for("aerial").nodes
 
 
+def test_ground_road_connects_same_plane_crossing_atomically_and_undoes(project):
+    project.edit("add_node", position_xyz=[-2, 0, 0], level_id="ground")
+    project.edit("add_node", position_xyz=[2, 0, 0], level_id="ground")
+    project.edit("add_edge", from_id="node:0001", to_id="node:0002")
+    before_revision = project.revision
+    project.edit("build_ground_road", start_xyz=[0, -2, 0], end_xyz=[0, 2, 0],
+                 level_id="ground", snap_radius_m=0, connect_intersections=True)
+    assert project.revision == before_revision + 1
+    assert len(project.document.nodes) == 5
+    crossing = next(node for node in project.document.nodes if node["position_xyz"] == [0, 0, 0])
+    assert sum(crossing["id"] in (edge["from"], edge["to"]) for edge in project.document.edges) == 4
+    assert project.document.edges[0]["id"] == "edge:0001"
+    committed = project._snapshot()
+    project.undo()
+    assert len(project.document.edges) == 1
+    project.redo()
+    assert project._snapshot() == committed
+
+
+def test_ground_road_splits_multiple_existing_edges_without_reusing_ids(project):
+    for y in (-1, 1):
+        project.edit("add_node", position_xyz=[-2, y, 0], level_id="ground")
+        project.edit("add_node", position_xyz=[2, y, 0], level_id="ground")
+        first = f"node:{len(project.document.nodes)-1:04d}"
+        last = f"node:{len(project.document.nodes):04d}"
+        project.edit("add_edge", from_id=first, to_id=last)
+    project.edit("build_ground_road", start_xyz=[0, -2, 0], end_xyz=[0, 2, 0],
+                 level_id="ground", snap_radius_m=0, connect_intersections=True)
+    edge_ids = [edge["id"] for edge in project.document.edges]
+    assert len(edge_ids) == len(set(edge_ids))
+    assert len(edge_ids) == 7
+    assert len([node for node in project.document.nodes
+                if node["position_xyz"][0] == 0 and node["position_xyz"][1] in (-1, 1)]) == 2
+
+
+def test_ground_road_no_connect_and_cross_plane_isolation(project):
+    project.edit("add_node", position_xyz=[-2, 0, 1], level_id="ground")
+    project.edit("add_node", position_xyz=[2, 0, 1], level_id="ground")
+    project.edit("add_edge", from_id="node:0001", to_id="node:0002")
+    no_connect = plan_ground_road(project.document, [0, -2, 0], [0, 2, 0],
+                                  level_id="ground", connect_intersections=False)
+    assert len(no_connect["crossings"]) == 0
+    assert len(no_connect["document"]["edges"]) == 2
+    isolated = plan_ground_road(project.document, [0, -2, 0], [0, 2, 0],
+                                level_id="ground", connect_intersections=True)
+    assert len(isolated["crossings"]) == 0
+    assert len(isolated["document"]["edges"]) == 2
+
+
+def test_ground_road_rejects_overlap_and_locked_intersection_without_mutation(project):
+    project.edit("add_node", position_xyz=[-2, 0, 0], level_id="ground")
+    project.edit("add_node", position_xyz=[2, 0, 0], level_id="ground")
+    project.edit("add_edge", from_id="node:0001", to_id="node:0002")
+    project.document.edges[0]["locked_geometry"] = True
+    before, revision, history = project._snapshot(), project.revision, len(project._undo)
+    with pytest.raises(ValueError, match="锁定边"):
+        project.edit("build_ground_road", start_xyz=[0, -2, 0], end_xyz=[0, 2, 0],
+                     level_id="ground", snap_radius_m=0)
+    assert project._snapshot() == before and project.revision == revision
+    assert len(project._undo) == history
+    with pytest.raises(ValueError, match="共线重叠"):
+        project.edit("build_ground_road", start_xyz=[-1, 0, 0], end_xyz=[1, 0, 0],
+                     level_id="ground", snap_radius_m=0)
+
+
+def test_aerial_road_connects_interpolated_height_crossings_and_roundtrips(project):
+    project.edit("add_node", domain="aerial", position_xyz=[-2, 0, 1.0])
+    project.edit("add_node", domain="aerial", position_xyz=[2, 0, 1.0])
+    project.edit("add_edge", domain="aerial", from_id="node:0001", to_id="node:0002")
+    before = project.revision
+    plan = plan_navigation_road(project.document_for("aerial"), [0, -2, 1.0], [0, 2, 1.0])
+    assert plan["crossings"] == [[0.0, 0.0, 1.0]]
+    project.edit("build_aerial_road", domain="aerial", start_xyz=[0, -2, 1.0],
+                 end_xyz=[0, 2, 1.0], connect_intersections=True)
+    assert project.revision == before + 1
+    assert len(project.document_for("aerial").nodes) == 5
+    crossing = next(node for node in project.document_for("aerial").nodes
+                    if node["position_xyz"] == [0.0, 0.0, 1.0])
+    assert sum(crossing["id"] in (edge["from"], edge["to"])
+               for edge in project.document_for("aerial").edges) == 4
+    committed = project._snapshot()
+    project.undo()
+    assert len(project.document_for("aerial").edges) == 1
+    project.redo()
+    assert project._snapshot() == committed
+    project.save()
+    assert MapProject(project.root)._snapshot() == committed
+
+
+@pytest.mark.parametrize(("road_z", "should_connect"), [(1.1, True), (1.101, False)])
+def test_aerial_road_uses_point_one_meter_height_tolerance(project, road_z, should_connect):
+    project.edit("add_node", domain="aerial", position_xyz=[-2, 0, 1.0])
+    project.edit("add_node", domain="aerial", position_xyz=[2, 0, 1.0])
+    project.edit("add_edge", domain="aerial", from_id="node:0001", to_id="node:0002")
+    plan = plan_navigation_road(project.document_for("aerial"), [0, -2, road_z],
+                               [0, 2, road_z], snap_radius_m=.5)
+    assert bool(plan["crossings"]) is should_connect
+    snap_plan = plan_navigation_road(project.document_for("aerial"), [.01, .02, road_z],
+                                    [1, 1, road_z], snap_radius_m=.05)
+    snap = snap_plan["snap"]["start"]
+    assert (snap["edge_id"] is not None) is should_connect
+
+
+def test_aerial_road_http_preview_commit_and_delete_tool_are_domain_scoped(project):
+    project.edit("add_node", domain="aerial", position_xyz=[-2, 0, 1.0])
+    project.edit("add_node", domain="aerial", position_xyz=[2, 0, 1.0])
+    project.edit("add_edge", domain="aerial", from_id="node:0001", to_id="node:0002")
+    server = make_server(project, 0)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    url = f"http://127.0.0.1:{server.server_port}"
+    try:
+        _, state = request(url + "/api/state")
+        ident = identity(state)
+        bad_tool = {**ident, "active_layer": "ground", "active_domain": "ground",
+                    "tool": "build-aerial-road"}
+        code, _ = request(url + "/api/editor/context", bad_tool)
+        assert code == 400
+        context = {**ident, "active_layer": "aerial", "active_domain": "aerial",
+                   "tool": "build-aerial-road"}
+        code, state = request(url + "/api/editor/context", context)
+        assert code == 200 and state["editor_tool"] == "build-aerial-road"
+        ident = identity(state)
+        code, preview = request(url + "/api/road/preview", {**ident,
+            "start_xyz": [0, -2, 1], "end_xyz": [0, 2, 1], "snap_radius_m": 0})
+        assert code == 200 and preview["crossings"] == [[0.0, 0.0, 1.0]]
+        code, committed = request(url + "/api/edit", {**ident, "operation": "build_aerial_road",
+            "start_xyz": [0, -2, 1], "end_xyz": [0, 2, 1], "connect_intersections": True})
+        assert code == 200 and committed["revision"] == state["revision"] + 1
+        ident = identity(committed)
+        context = {**ident, "active_layer": "aerial", "active_domain": "aerial",
+                   "tool": "delete-aerial-edge"}
+        code, state = request(url + "/api/editor/context", context)
+        assert code == 200 and state["editor_tool"] == "delete-aerial-edge"
+        ident = identity(state)
+        edge_id = state["document"]["edges"][-1]["id"]
+        code, deleted = request(url + "/api/edit", {**ident, "operation": "remove_edge", "id": edge_id})
+        assert code == 200
+        assert len(deleted["document"]["nodes"]) == 5
+        assert all(row["id"] != edge_id for row in deleted["document"]["edges"])
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
 @pytest.mark.parametrize("domain", ["ground", "aerial"])
 def test_legacy_single_graph_upgrade_preserves_original_domain(project, domain):
     current = project.root / project.saved_revision
@@ -233,6 +430,41 @@ def test_http_domain_switch_invalidates_gesture_and_revision_conflicts(project):
         _, context = request(url + "/api/isaac/context")
         assert context["active_domain"] == "aerial" and context["web_selection"]["id"] == "node:0001"
         assert context["document_snapshot"]["nodes"][0]["edit_mode"] == "2.5d"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+def test_http_ground_road_preview_is_read_only_and_commit_requires_road_tool(project):
+    project.edit("add_node", position_xyz=[-2, 0, 0], level_id="ground")
+    project.edit("add_node", position_xyz=[2, 0, 0], level_id="ground")
+    project.edit("add_edge", from_id="node:0001", to_id="node:0002")
+    revision, snapshot = project.revision, project._snapshot()
+    server = make_server(project, 0)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    url = f"http://127.0.0.1:{server.server_port}"
+    try:
+        _, state = request(url + "/api/state")
+        ident = identity(state)
+        code, _ = request(url + "/api/edit", {**ident, "operation": "build_ground_road",
+            "start_xyz": [0, -2, 0], "end_xyz": [0, 2, 0], "level_id": "ground"})
+        assert code == 400
+        context = {**ident, "active_layer": "ground", "active_domain": "ground",
+                   "tool": "build-ground-road", "level_id": "ground"}
+        code, state = request(url + "/api/editor/context", context)
+        assert code == 200
+        ident = identity(state)
+        code, preview = request(url + "/api/road/preview", {**ident,
+            "start_xyz": [0, -2, 0], "end_xyz": [0, 2, 0], "snap_radius_m": 0})
+        assert code == 200 and len(preview["crossings"]) == 1
+        assert project.revision == revision and project._snapshot() == snapshot
+        code, committed = request(url + "/api/edit", {**ident, "operation": "build_ground_road",
+            "start_xyz": [0, -2, 0], "end_xyz": [0, 2, 0], "level_id": "ground",
+            "snap_radius_m": 0, "connect_intersections": True})
+        assert code == 200 and committed["revision"] == revision + 1
+        assert len(project.document.nodes) == 5 and len(project.document.edges) == 4
     finally:
         server.shutdown()
         server.server_close()

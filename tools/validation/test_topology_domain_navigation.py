@@ -1,5 +1,6 @@
 """Current node_route API: aerial editor modes never erase altitude semantics."""
 from copy import deepcopy
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
@@ -8,6 +9,7 @@ from algorithm.skills.contracts import SkillContractError
 from algorithm.skills.navigation import NavigationObservation, NavigationPose, NavigationProvider, NodeRouteTracker, aerial_navigation_profile, ground_navigation_profile, select_node_route
 from algorithm.skills.navigation.topology import validate_topology
 from task.executors.navigation import NavigationExecutor
+from task.executors.navigation_backends import PlanarVelocityNavigationAdapter
 from tools.topology_authoring.model import TopologyDocument
 
 
@@ -61,6 +63,55 @@ def test_ground_cross_floor_route_keeps_xyz_with_xy_distance():
     assert selected["admitted"] and selected["topology_node_ids"] == ["start", "stair", "goal"]
     assert selected["route_points_m"] == [[0, 0, 0], [1, 0, 1.5], [2, 0, 3]]
     assert selected["route_length_m"] == pytest.approx(2)
+
+
+@pytest.mark.parametrize("mode", ["walk", "ramp", "stairs"])
+def test_ground_visual_z_does_not_change_route_matching_cost_or_arrival(mode):
+    doc = TopologyDocument("office")
+    doc.set_levels([{"id": "ground", "label": "Ground", "support_z_m": 0}])
+    for node_id, point in (("a", [0, 0, 100]), ("z", [0, 0, -50]),
+                           ("short", [1, 0, -100]), ("detour", [0, 2, 0]),
+                           ("goal", [2, 0, 50])):
+        doc.add_node(point, node_id=node_id, level_id="ground")
+    for first, last in (("a", "short"), ("short", "goal"), ("a", "detour"), ("detour", "goal")):
+        doc.add_edge(first, last, [doc.node(first)["position_xyz"], doc.node(last)["position_xyz"]],
+            directed=True, traversal_mode=mode,
+            required_controller_capabilities=["stair_capable"] if mode == "stairs" else [])
+    profile = ground_navigation_profile(controller_capabilities=["stair_capable"])
+    assert not validate_topology(doc, metric="xy")
+    route = select_node_route(doc, NavigationPose((0, 0, -50)), profile=profile, target_ref="goal",
+                             controller_capabilities=[mode, "stair_capable"])
+    assert route["admitted"] and route["topology_node_ids"] == ["a", "short", "goal"]
+    assert route["route_length_m"] == pytest.approx(2)
+    assert route["route_points_m"] == [[0, 0, 100], [1, 0, -100], [2, 0, 50]]
+    tracker = NodeRouteTracker(route["route_points_m"], profile, route["topology_node_ids"])
+    assert tracker.advance(NavigationPose((0, 0, -50))).node_id == "short"
+    assert tracker.advance(NavigationPose((1, 0, 77))).node_id == "goal"
+    assert tracker.advance(NavigationPose((2, 0, -77))) is None and tracker.arrived
+    flattened = deepcopy(doc.to_dict())
+    for node in flattened["nodes"]:
+        node["position_xyz"][2] = 0
+    flat_route = select_node_route(flattened, NavigationPose((0, 0, 0)), profile=profile, target_ref="goal")
+    assert flat_route["topology_node_ids"] == route["topology_node_ids"]
+    assert flat_route["route_length_m"] == route["route_length_m"]
+    reverse = select_node_route(doc, NavigationPose((2, 0, -500)), profile=profile, target_ref="a")
+    assert not reverse["admitted"]
+    if mode == "stairs":
+        blocked = select_node_route(doc, NavigationPose((0, 0, 0)),
+            profile=ground_navigation_profile(), target_ref="goal", controller_capabilities=["walk", "stairs"])
+        assert not blocked["admitted"]
+
+
+def test_ground_controller_commands_ignore_visual_target_and_robot_z():
+    adapter = PlanarVelocityNavigationAdapter("ground", pose_reader=lambda: None)
+    tracker = NodeRouteTracker([[2, 0, 99]], ground_navigation_profile(), ["goal"])
+    target = tracker.advance(NavigationPose((0, 0, 0)))
+    commands = []
+    for target_z, pose_z in ((99, 0), (-99, 100)):
+        observation = NavigationObservation(NavigationPose((0, 0, pose_z)), 1)
+        adapter.apply_navigation_target(replace(target, position_m=(2, 0, target_z)), observation)
+        commands.append(adapter.last_command)
+    assert commands[0] == commands[1]
 
 
 def test_replan_explicitly_rejects_wrong_domain():

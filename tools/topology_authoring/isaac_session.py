@@ -220,6 +220,9 @@ class IsaacMapSession:
             json.dumps(request.get("visible_layers"), sort_keys=True),
             json.dumps(request.get("visible_types"), sort_keys=True),
             json.dumps(request.get("semantic_points"), sort_keys=True),
+            request.get("binding_target_id"),
+            request.get("binding_target_mode"),
+            json.dumps(request.get("binding_target_draft"), sort_keys=True),
         )
         if overlay_key != self.overlay_context_key:
             try:
@@ -229,7 +232,10 @@ class IsaacMapSession:
                     active_level=request.get("active_level"),
                     reference_level=request.get("reference_level"),
                     visible_layers=request.get("visible_layers"),
-                    visible_types=request.get("visible_types")))
+                    visible_types=request.get("visible_types"),
+                    binding_target_id=request.get("binding_target_id"),
+                    binding_target_draft=request.get("binding_target_draft"),
+                    binding_mode=request.get("binding_target_mode") == "semantic_navigation"))
             except Exception as exc:
                 # Abandon this revision instead of retrying every 0.25 s; the
                 # next committed edit (fresh revision) may recover.

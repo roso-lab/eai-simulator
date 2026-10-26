@@ -323,7 +323,8 @@ def build_overlay_specs(snapshot, *, active_level=None, layer="ground",
 def build_unified_overlay_specs(document_snapshots, semantic_points, *,
                                 active_layer="ground", active_level=None,
                                 reference_level=None, visible_layers=None,
-                                visible_types=None):
+                                visible_types=None, binding_target_id=None,
+                                binding_target_draft=None, binding_mode=False):
     """Plan all visible independent layers; reference layers are never hit targets."""
     visible_layers = {"ground": True, "aerial": True, "semantic_points": True,
                       **(visible_layers or {})}
@@ -352,6 +353,17 @@ def build_unified_overlay_specs(document_snapshots, semantic_points, *,
                           "path": spec["path"].replace(WEB_OVERLAY_ROOT, prefix, 1),
                           "category": f"{layer}:{spec['category']}",
                           "color": list(base)})
+    if binding_mode and binding_target_id:
+        bound = {(row.get("domain"), row.get("node_id"))
+                 for row in binding_target_draft or []
+                 if row.get("domain") in {"ground", "aerial"}
+                 and isinstance(row.get("node_id"), str)}
+        for spec in prims:
+            if spec.get("category") not in {"ground:node", "aerial:node"}:
+                continue
+            layer, _category = spec["category"].split(":", 1)
+            spec["color"] = ([1.0, .76, .25] if (layer, spec.get("key")) in bound
+                             else [.025, .035, .045])
     if visible_layers["semantic_points"] and visible_types["semantic_points"]:
         color = SEMANTIC_POINT_COLOR
         if active_layer != "semantic_points":

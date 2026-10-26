@@ -26,6 +26,7 @@ from shapely.geometry import box, mapping
 from shapely.ops import unary_union
 
 from .model import TopologyDocument
+from .road_builder import plan_navigation_road
 from .product import load_product, save_draft, validate_document, _unique_object, _reject_constant
 from .semantics import empty_semantics, polygon_error, semantic_level
 from .semantic_points import (SCHEMA as POINT_SCHEMA, validate_points, edit_points,
@@ -567,6 +568,15 @@ class MapProject:
             self.revision += 1
             return
         candidate = TopologyDocument.from_dict(self.document_for(domain).to_dict())
+        if operation in {"build_ground_road", "build_aerial_road"}:
+            expected_domain = "ground" if operation == "build_ground_road" else "aerial"
+            if domain != expected_domain:
+                raise ValueError(f"{operation} is only available for {expected_domain} topology")
+            plan = plan_navigation_road(candidate, args["start_xyz"], args["end_xyz"],
+                level_id=args.get("level_id"), snap_radius_m=args.get("snap_radius_m", 0.0),
+                disable_snap=args.get("disable_snap", False),
+                connect_intersections=args.get("connect_intersections", True))
+            candidate = TopologyDocument.from_dict(plan["document"])
         # Both clients share this transaction authority. Delete atomically together
         # with dependent bindings; leave the strict document API unchanged.
         if operation in {"remove_node", "remove_edge", "clear_topology"}:
@@ -614,7 +624,9 @@ class MapProject:
                         row.pop("region_id", None)
                         if level is not None:
                             row["level_id"] = level
-        if operation == "add_node":
+        if operation in {"build_ground_road", "build_aerial_road"}:
+            pass
+        elif operation == "add_node":
             candidate.add_node(args["position_xyz"],
                                level_id=args.get("level_id") if domain == "ground" else None,
                                label=args.get("label", ""), kind=args.get("kind", "custom"),

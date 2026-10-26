@@ -584,6 +584,8 @@ def nearest_projected_hit(snapshot, viewport_api, mouse_ndc, *,
         return None
     cursor = (float(pixel[0]), float(pixel[1]))
     candidates = []
+    road_tools = {"build-ground-road", "delete-ground-edge", "build-aerial-road", "delete-aerial-edge"}
+    pick_tolerance = 10.0 if editor_tool in road_tools else tolerance_px
     layer = active_layer or domain
     if not bool((visible_layers or {}).get(layer, True)):
         return None
@@ -591,7 +593,7 @@ def nearest_projected_hit(snapshot, viewport_api, mouse_ndc, *,
                **(visible_types or {})}
     if editor_tool == "add-node":
         enabled["edges"] = False
-    elif editor_tool == "add-edge":
+    elif editor_tool in road_tools | {"add-edge"}:
         enabled["semantic_points"] = False
     elif editor_tool == "add-semantic-point":
         enabled["nodes"] = enabled["edges"] = False
@@ -648,8 +650,8 @@ def nearest_projected_hit(snapshot, viewport_api, mouse_ndc, *,
         if point is None:
             continue
         distance = math.hypot(cursor[0] - point[0], cursor[1] - point[1])
-        if distance <= tolerance_px:
-            candidates.append((distance - tolerance_px - 4.0, {
+        if distance <= pick_tolerance:
+            candidates.append((distance - pick_tolerance - 4.0, {
                 "kind": "node", "id": node["id"],
                 "position_xyz": list(node["position_xyz"]),
             }))
@@ -664,12 +666,18 @@ def nearest_projected_hit(snapshot, viewport_api, mouse_ndc, *,
             viewport_api, point, meters_per_unit=meters_per_unit) for point in points]
         if len(projected) < 2 or any(point is None for point in projected):
             continue
-        distance = min(_screen_segment_distance(cursor, projected[index],
-                                                projected[index + 1])[0]
-                       for index in range(len(projected) - 1))
-        if distance <= tolerance_px:
+        nearest = min((_screen_segment_distance(cursor, projected[index],
+                                                 projected[index + 1])[0], index,
+                       _screen_segment_distance(cursor, projected[index],
+                                                projected[index + 1])[1])
+                      for index in range(len(projected) - 1))
+        distance, segment_index, ratio = nearest
+        if distance <= pick_tolerance:
+            first, last = points[segment_index], points[segment_index + 1]
+            projected_position = [first[index] + ratio * (last[index] - first[index])
+                                  for index in range(3)]
             candidates.append((distance + 1.0, {"kind": "edge", "id": edge["id"],
-                                               "position_xyz": list(points[0])}))
+                                               "position_xyz": projected_position}))
     if layer == "semantic_points" and enabled["semantic_points"]:
         for point_row in semantic_points:
             point = world_to_viewport_pixel(
@@ -807,7 +815,8 @@ class _TopologyEditorGesture:
                     active_level=context.get("active_level"), domain=domain,
                     active_layer=domain, semantic_points=(),
                     visible_layers=context.get("visible_layers"),
-                    visible_types={"nodes": True, "edges": False, "semantic_points": False},
+                    visible_types={"nodes": (context.get("visible_types") or {}).get("nodes", True),
+                                   "edges": False, "semantic_points": False},
                     editor_tool="add-node", meters_per_unit=self.controller.meters_per_unit)
                 if hit is not None and pixel is not None:
                     projected = world_to_viewport_pixel(self.viewport_api, hit.get("position_xyz"),
@@ -845,7 +854,9 @@ class _TopologyEditorGesture:
         if phase == "began":
             self._last_mouse = tuple(mouse_ndc)
             if getattr(self, "_press", None) is None or self._press.get("released"):
-                hit = self._pick(mouse_ndc)
+                is_road_tool = tool in {"build-ground-road", "build-aerial-road"}
+                hit = (None if is_road_tool and self.controller.road_free_snap
+                       else self._pick(mouse_ndc))
                 self._drag_target = hit
                 self._press = {"ndc": tuple(mouse_ndc), "hit": hit,
                                "context": self._context_key()}
@@ -869,13 +880,19 @@ class _TopologyEditorGesture:
         hit = press["hit"]
         if phase == "click":
             if not self._moved:
+                if tool in {"delete-ground-edge", "delete-aerial-edge"} and hit and hit.get("kind") == "edge":
+                    self.controller._submit_frozen_edit(("delete", "edge", hit["id"]), "remove_edge", id=hit["id"])
+                    self.controller.select(None)
+                    self._press = self._drag_target = None
+                    self._last_mouse = None
+                    return
                 if hit and not (getattr(self.controller, "navigation_binding_mode", False)
                                 and hit.get("kind") == "node"):
                     selection = self._selection(hit)
                     self.controller.select(selection)
                     if tool == "add-edge" and selection["kind"] == "node":
                         self.controller.activate_node_for_edge(hit["id"])
-                else:
+                elif tool not in {"build-ground-road", "delete-ground-edge", "build-aerial-road", "delete-aerial-edge"}:
                     point = self._world_point(mouse_ndc)
                     visible = context.get("visible_layers") or {}
                     types = context.get("visible_types") or {}
@@ -899,6 +916,20 @@ class _TopologyEditorGesture:
                         current[0]-first[0], current[1]-first[1]) < self.DRAG_THRESHOLD_PX:
                     return
                 self._moved = True
+                if tool in {"build-ground-road", "build-aerial-road"} and self.controller.active_layer in {"ground", "aerial"}:
+                    hit_is_start_snap = bool(hit and hit.get("kind") in {"node", "edge"})
+                    if (hit_is_start_snap and self.controller.active_layer == "aerial"
+                            and abs(hit["position_xyz"][2] - self.controller.active_z()) > .10):
+                        hit_is_start_snap = False
+                    start = (list(hit.get("position_xyz")) if hit_is_start_snap
+                             else self._world_point(press["ndc"]))
+                    if start is not None:
+                        if not hit_is_start_snap:
+                            start[2] = self.controller.active_z()
+                        self.controller._road_end_z = start[2]
+                        self.controller._road_last_point = list(start)
+                        self.controller.gesture = {"target": {"kind": "road"}, "identity": self.controller.dispatcher.client.identity(), "original": list(start)}
+                    return
                 if hit is None:
                     return  # Moving over empty space never authors a point.
                 selection = self._selection(hit)
@@ -913,15 +944,39 @@ class _TopologyEditorGesture:
                      else selection["kind"], "id": hit["id"]}, start,
                     axis=hit.get("axis"))
             if self.controller.gesture is not None:
-                point = self._world_point(mouse_ndc, hit)
+                is_road_tool = tool in {"build-ground-road", "build-aerial-road"}
+                endpoint_hit = (None if is_road_tool and self.controller.road_free_snap
+                                else self._pick(mouse_ndc))
+                point = (list(endpoint_hit["position_xyz"]) if is_road_tool
+                         and endpoint_hit and endpoint_hit.get("kind") in {"node", "edge"}
+                         else self._world_point(mouse_ndc, hit))
+                if is_road_tool and point is not None and self.controller.active_layer == "aerial":
+                    if endpoint_hit and abs(endpoint_hit["position_xyz"][2] - self.controller._road_end_z) > .10:
+                        point = self._world_point(mouse_ndc, hit)
+                    point[2] = self.controller._road_end_z
                 if point is not None:
-                    self.controller.update_drag(point)
+                    if is_road_tool:
+                        self.controller.update_road_drag(point)
+                    else:
+                        self.controller.update_drag(point)
         elif phase == "ended" and self._moved:
             self._last_mouse = tuple(mouse_ndc)
             if self.controller.gesture is not None:
-                point = self._world_point(mouse_ndc, hit)
+                is_road_tool = tool in {"build-ground-road", "build-aerial-road"}
+                endpoint_hit = (None if is_road_tool and self.controller.road_free_snap
+                                else self._pick(mouse_ndc))
+                point = (list(endpoint_hit["position_xyz"]) if is_road_tool
+                         and endpoint_hit and endpoint_hit.get("kind") in {"node", "edge"}
+                         else self._world_point(mouse_ndc, hit))
+                if is_road_tool and point is not None and self.controller.active_layer == "aerial":
+                    if endpoint_hit and abs(endpoint_hit["position_xyz"][2] - self.controller._road_end_z) > .10:
+                        point = self._world_point(mouse_ndc, hit)
+                    point[2] = self.controller._road_end_z
                 if point is not None:
-                    self.controller.update_drag(point)
+                    if is_road_tool:
+                        self.controller.update_road_drag(point)
+                    else:
+                        self.controller.update_drag(point)
                 self.controller.end_drag()
             # Leave the moved flag set until the next press so a late click
             # callback from this same release cannot author a second command.

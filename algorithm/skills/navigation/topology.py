@@ -288,9 +288,9 @@ def _validate_topology(document: Any) -> list[str]:
         level_id = row.get("level_id")
         if level_id is not None and (not isinstance(level_id, str) or level_id not in levels):
             errors.append(f"unknown node level: {node_id}")
-        elif (data.get("domain", "ground") == "ground" and level_id is not None and finite_number(point[2])
-              and abs(float(point[2]) - levels[level_id]) > LEVEL_HEIGHT_TOLERANCE_M):
-            errors.append(f"node support height differs from declared level: {node_id}")
+        # Ground node Z is authoring/visualization data.  The level still
+        # identifies the node's floor, while ground navigation deliberately
+        # uses only XY geometry.
         if version == 2 and (not isinstance(row.get("label", ""), str)
                              or not _strings(row.get("aliases", []))):
             errors.append(f"invalid node landmark metadata: {node_id}")
@@ -339,8 +339,7 @@ def _validate_topology(document: Any) -> list[str]:
         if (data.get("domain", "ground") == "ground" and version == 2
                 and mode == "walk" and first in node_rows and last in node_rows):
             first_level, last_level = node_rows[first].get("level_id"), node_rows[last].get("level_id")
-            if (first_level is None or last_level is None or first_level != last_level
-                    or abs(nodes[first][2] - nodes[last][2]) > LEVEL_HEIGHT_TOLERANCE_M):
+            if (first_level is None or last_level is None or first_level != last_level):
                 errors.append(f"walk edge cannot cross levels or transitions: {edge_id}")
     edge_rows = {edge["id"]: edge for edge in edges
                  if isinstance(edge, Mapping) and isinstance(edge.get("id"), str)}

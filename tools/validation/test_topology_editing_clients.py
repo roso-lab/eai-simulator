@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 import sys
 import threading
 import time
@@ -120,6 +121,60 @@ def test_native_navigation_binding_without_isaac_selection():
     assert dispatcher.calls[-1][1]["bindings"] == []
 
 
+def test_navigation_binding_can_finish_map_pick_and_apply_draft_later():
+    dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
+    controller.update_context(_context(active_layer="semantic_points"))
+    controller.select({"kind": "semantic_point", "collection": None, "id": "s1"})
+    assert controller.begin_navigation_binding()
+    assert controller.toggle_navigation_binding("ground", "g1")
+    assert controller.toggle_navigation_binding("aerial", "n2")
+    assert controller.finish_navigation_binding()
+    assert not controller.navigation_binding_mode
+    assert controller.navigation_binding_draft == [
+        {"domain": "aerial", "node_id": "n2"},
+        {"domain": "ground", "node_id": "g1"}]
+    assert controller.commit_navigation_bindings()
+    assert dispatcher.calls[-1][0][2] == "set_semantic_point_navigation_bindings"
+    assert dispatcher.calls[-1][1]["bindings"] == controller.navigation_binding_draft
+
+
+def test_changing_selection_discards_navigation_binding_draft():
+    dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
+    controller.update_context(_context(active_layer="semantic_points"))
+    controller.select({"kind": "semantic_point", "collection": None, "id": "s1"})
+    assert controller.begin_navigation_binding()
+    assert controller.toggle_navigation_binding("ground", "g1")
+    controller.select({"kind": "semantic_point", "collection": None, "id": "s2"})
+    assert not controller.navigation_binding_mode
+    assert controller.navigation_binding_draft is None
+    assert dispatcher.calls[-1][1]["binding_target_mode"] is None
+
+
+def test_native_binding_pick_searches_ground_and_aerial_snapshots(monkeypatch):
+    import tools.topology_authoring.viewport as viewport_module
+
+    controller = SimpleNamespace(
+        navigation_binding_mode=True,
+        context={"visible_layers": {"ground": True, "aerial": True},
+                 "active_level": "ground"},
+        document_snapshots={"ground": {"domain": "ground"},
+                            "aerial": {"domain": "aerial"}},
+        meters_per_unit=1.0,
+    )
+    monkeypatch.setattr(viewport_module, "nearest_projected_hit",
+        lambda snapshot, *_args, **_kwargs: {
+            "kind": "node", "id": snapshot["domain"],
+            "position_xyz": [1.0, 0.0, 0.0] if snapshot["domain"] == "ground" else [0.0, 0.0, 0.0]})
+    monkeypatch.setattr(viewport_module, "world_to_viewport_pixel",
+                        lambda _api, point, **_kwargs: [point[0], point[1]])
+    gesture = object.__new__(_TopologyEditorGesture)
+    gesture.controller = controller
+    gesture.viewport_api = _Viewport()
+    hit = gesture._pick((0.0, 0.0))
+    assert hit["domain"] == "aerial"
+    assert hit["id"] == "aerial"
+
+
 def test_context_controls_send_contract_fields_and_independent_defaults():
     dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
     controller.update_context(_context())
@@ -136,6 +191,114 @@ def test_context_controls_send_contract_fields_and_independent_defaults():
     assert sent[4]["visible_types"]["edges"] is False
     assert sent[5]["new_point_settings"]["semantic_points"]["z"] == 4.25
     assert sent[6]["new_point_settings"]["aerial"]["edit_mode"] == "2.5d"
+
+
+def test_aerial_road_tool_height_controls_and_commit():
+    dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
+    ground = _context(active_layer="ground")
+    controller.update_context(ground)
+    assert controller.set_tool("build-aerial-road")
+    assert dispatcher.calls[-1][1]["editor_tool"] == "build-aerial-road"
+    assert dispatcher.calls[-1][1]["active_layer"] == "aerial"
+
+    aerial = _context(active_layer="aerial")
+    aerial["editor_tool"] = "build-aerial-road"
+    aerial_doc = {"domain": "aerial", "version": 2, "nodes": [], "edges": [], "semantics": {}}
+    aerial["document_snapshots"]["aerial"] = aerial_doc
+    aerial["document_snapshot"] = aerial_doc
+    controller.update_context(aerial)
+    assert controller.adjust_aerial_road_start_height(.1)
+    assert controller.new_point_settings["aerial"]["z"] == 1.6
+    assert dispatcher.calls[-1][1]["new_point_settings"]["aerial"]["z"] == 1.6
+    assert controller.adjust_aerial_road_start_height(-.1)
+    assert controller.new_point_settings["aerial"]["z"] == 1.5
+    controller._road_end_z = 2.0
+    controller.gesture = {"target": {"kind": "road"}, "original": [0., 0., 2.],
+                          "identity": controller.dispatcher.client.identity()}
+    assert not controller.adjust_aerial_road_start_height(.1)
+    controller.update_road_drag([1., 1., 20.])
+    assert controller.preview["position_xyz"] == [1., 1., 2.]
+    assert controller.adjust_road_end_height(.1)
+    assert controller.preview["position_xyz"] == [1., 1., 2.1]
+    assert controller.new_point_settings["aerial"]["z"] == 1.5
+    assert controller.end_drag()
+    assert controller.road_draft["start_xyz"] == [0., 0., 2.]
+    assert controller.road_draft["end_xyz"] == [1., 1., 2.1]
+    assert controller.confirm_road(connect_intersections=False)
+    assert dispatcher.calls[-1][0][2] == "build_aerial_road"
+    assert dispatcher.calls[-1][1]["start_xyz"] == [0., 0., 2.]
+    assert dispatcher.calls[-1][1]["end_xyz"] == [1., 1., 2.1]
+
+
+def test_ground_height_context_creation_properties_and_planar_drag():
+    dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
+    context = _context(active_layer="ground")
+    context["levels"][0]["support_z_m"] = 3
+    context["document_snapshots"]["ground"]["nodes"][0]["position_xyz"][2] = 4.5
+    controller.update_context(context)
+    assert controller.active_z() == 3
+    assert controller.set_new_point_z("ground", 4.5)
+    assert dispatcher.calls[-1][1]["new_point_settings"] == {"ground": {"z": 4.5}}
+    assert controller.active_z() == 4.5
+    assert controller.new_point_settings["aerial"] == {"z": 1.5, "edit_mode": "3d"}
+    assert controller.new_point_settings["semantic_points"] == {"z": 2.5, "edit_mode": "2.5d"}
+    with pytest.raises(IsaacBridgeError):
+        controller.set_new_point_edit_mode("ground", "3d")
+    assert controller.add_node([1, 2, controller.active_z()])
+    assert dispatcher.calls[-1][1]["position_xyz"] == [1, 2, 4.5]
+    assert dispatcher.calls[-1][1]["level_id"] == "ground"
+    assert "edit_mode" not in dispatcher.calls[-1][1]
+    controller.select({"kind": "node", "id": "g1"})
+    assert controller.set_selected_node_properties([0, 2, 6], level_id="ground")
+    assert dispatcher.calls[-1][1]["position_xyz"] == [0, 2, 6]
+    controller.begin_drag({"kind": "node", "id": "g1"}, [0, 2, 4.5])
+    controller.update_drag([1, 3, 99])
+    assert controller.preview["position_xyz"] == [1, 3, 4.5]
+    assert controller.end_drag()
+    assert dispatcher.calls[-1][0][2] == "move_node_xy"
+    assert dispatcher.calls[-1][1]["position_xy"] == [1, 3]
+    context = deepcopy(context)
+    context["levels"].append({"id": "upper", "support_z_m": 8})
+    context["active_level"] = "upper"
+    controller.update_context(context)
+    assert controller.active_z() == 8
+    fresh = _context(active_layer="ground", generation=3)
+    fresh["new_point_settings"]["ground"] = {"z": 2.25}
+    controller.update_context(fresh)
+    assert controller.active_z() == 2.25
+
+
+def test_ground_viewport_creation_plane_uses_default_or_custom_height(monkeypatch):
+    from tools.topology_authoring import viewport
+    controller = IsaacTopologyController(_Dispatcher())
+    context = _context(active_layer="ground")
+    context["levels"][0]["support_z_m"] = 3
+    controller.update_context(context)
+    scene = SimpleNamespace(viewport_api=_Viewport(), controller=controller)
+    monkeypatch.setattr(viewport, "viewport_ray", lambda *_args, **_kwargs: ((1, 2, 10), (0, 0, -1)))
+    assert _TopologyEditorGesture._world_point(scene, (0, 0)) == pytest.approx((1, 2, 3))
+    controller.set_new_point_z("ground", 4.5)
+    assert _TopologyEditorGesture._world_point(scene, (0, 0)) == pytest.approx((1, 2, 4.5))
+    # Existing nodes drag in their own plane, regardless of the new-node Z.
+    assert _TopologyEditorGesture._world_point(
+        scene, (0, 0), {"position_xyz": [1, 2, 6]}) == pytest.approx((1, 2, 6))
+
+
+def test_ground_overlay_keeps_visual_z_and_filters_by_level():
+    context = _context(active_layer="ground")
+    snapshot = context["document_snapshots"]["ground"]
+    snapshot["nodes"][0]["position_xyz"][2] = 1.5
+    snapshot["nodes"].extend([
+        {"id": "g2", "position_xyz": [1, 2, 3], "level_id": "ground"},
+        {"id": "other", "position_xyz": [0, 0, 1.5], "level_id": "upper"}])
+    snapshot["edges"] = [{"id": "stairs", "from": "g1", "to": "g2",
+        "polyline_xyz": [[0, 2, 1.5], [1, 2, 3]], "directed": True}]
+    specs = build_unified_overlay_specs(context["document_snapshots"], [], active_layer="ground",
+        active_level="ground", visible_layers={"ground": True, "aerial": False, "semantic_points": False})
+    nodes = {row["key"]: row["position"] for row in specs["prims"] if row.get("shape") == "sphere"}
+    assert nodes == {"g1": [0, 2, 1.5], "g2": [1, 2, 3]}
+    edge = next(row for row in specs["prims"] if row.get("shape") == "polyline")
+    assert edge["points"] == [[0, 2, 1.5], [1, 2, 3]]
 
 
 def test_result_state_with_web_document_keys_refreshes_native_data_immediately():
@@ -616,6 +779,23 @@ def test_unified_overlay_has_three_layers_and_no_region_specs():
     ground = next(row for row in specs["prims"] if "/Layers/Ground/Nodes/" in row["path"])
     aerial = next(row for row in specs["prims"] if "/Layers/Aerial/Nodes/" in row["path"])
     assert sum(ground["color"]) < sum(aerial["color"])
+
+
+def test_unified_overlay_highlights_only_current_navigation_binding_draft():
+    context = _context()
+    specs = build_unified_overlay_specs(
+        context["document_snapshots"], context["semantic_points"],
+        active_layer="semantic_points", binding_mode=True,
+        binding_target_id="s1",
+        binding_target_draft=[{"domain": "ground", "node_id": "g1"},
+                              {"domain": "aerial", "node_id": "n2"}])
+    ground = next(row for row in specs["prims"]
+                  if "/Layers/Ground/Nodes/" in row["path"])
+    aerial_nodes = [row for row in specs["prims"]
+                    if "/Layers/Aerial/Nodes/" in row["path"]]
+    assert ground["color"] == pytest.approx([1.0, .76, .25])
+    assert next(row for row in aerial_nodes if row["key"] == "n2")["color"] == pytest.approx([1.0, .76, .25])
+    assert next(row for row in aerial_nodes if row["key"] == "n1")["color"] == pytest.approx([.025, .035, .045])
 
 
 class _ValueModel:

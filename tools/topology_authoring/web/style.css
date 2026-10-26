@@ -111,12 +111,23 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 /* ---------- banners ---------- */
 
-.banner { min-height: 40px; flex: none; padding: 9px 18px; display: flex; align-items: center; justify-content: center; gap: 10px; border-bottom: 1px solid; font-size: 13px; }
+.notification-slot {
+  height: 96px; flex: 0 0 96px; min-height: 96px; padding: 2px 0;
+  display: flex; flex-direction: column; gap: 4px; overflow: hidden;
+}
+.banner { min-height: 44px; flex: 0 0 44px; padding: 2px 12px; display: flex; align-items: center; justify-content: center; gap: 10px; border-bottom: 1px solid; font-size: 13px; }
 .banner.error { color: #ffd9dc; background: #40212b; border-color: #6e3441; }
 .banner.error::before { content: "⚠"; }
 .banner.notice { color: #cdeaff; background: #16303f; border-color: #27576f; }
-.banner button { margin-left: auto; border: 0; color: inherit; background: transparent; font-size: 20px; border-radius: 6px; }
+.banner > span { min-width: 0; }
+.banner button { flex: none; margin-left: auto; border: 0; color: inherit; background: transparent; font-size: 20px; border-radius: 6px; }
 .banner button:hover { background: rgba(255, 255, 255, .08); }
+.banner.error { justify-content: flex-start; }
+.banner.error > span { flex: 1; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
+.banner .button { min-height: 32px; padding: 0 9px; border: 1px solid currentColor; border-radius: 5px; background: rgba(255, 255, 255, .04); font-size: 12px; }
+.pending-draft-banner { justify-content: flex-start; }
+.pending-draft-banner > span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pending-draft-banner .button + .button { margin-left: 0; }
 
 /* ---------- workspace layout ---------- */
 
@@ -250,6 +261,7 @@ input[type="checkbox"] { width: auto; }
 .tool.active { color: var(--accent-bright); border-color: var(--accent-border); background: var(--accent-soft); font-weight: 700; }
 .tool-spacer { flex: 1; }
 .new-node-mode { display: flex; align-items: center; gap: 6px; font-size: 12px; white-space: nowrap; }
+.road-height-status { flex: none; color: #ffe29a; font-size: 12px; font-variant-numeric: tabular-nums; }
 .new-node-mode select { width: 80px; padding: 4px; }
 .new-node-mode input { width: 72px; padding: 4px 6px; }
 #pendingDraftBanner .button { font-size: 12px; margin-left: 0; }
@@ -259,6 +271,10 @@ input[type="checkbox"] { width: auto; }
   background: rgba(255, 255, 255, .04);
 }
 .map-stage { min-height: 0; flex: 1; position: relative; overflow: hidden; }
+#roadBuildMenu { position: absolute; z-index: 4; display: flex; gap: 4px; padding: 5px; border: 1px solid #718397; border-radius: 6px; background: #17212c; box-shadow: var(--shadow); }
+#roadBuildMenu.hidden { display: none; }
+#roadBuildMenu button { padding: 6px 9px; color: var(--text); border: 1px solid #405264; border-radius: 4px; background: #202d3a; cursor: pointer; white-space: nowrap; }
+#roadBuildMenu button:hover { border-color: var(--accent); }
 #mapCanvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
 .loading-layer {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 10px;
@@ -358,6 +374,13 @@ textarea { resize: vertical; line-height: 1.5; }
 }
 @media (max-width: 960px) {
   body { overflow: auto; display: block; }
+  .notification-slot { height: 132px; min-height: 132px; }
+  .banner { min-height: 40px; flex-basis: 40px; }
+  .banner.error { min-height: 44px; flex-basis: 44px; }
+  .pending-draft-banner { flex-wrap: wrap; align-content: center; }
+  .pending-draft-banner { min-height: 78px; flex-basis: 78px; }
+  .pending-draft-banner > span { flex: 1 1 100%; }
+  .pending-draft-banner .button { flex: 1 1 auto; }
   .app-header { height: auto; min-height: var(--header-h); align-items: flex-start; flex-direction: column; gap: 10px; padding: 10px; }
   .brand { min-width: 0; }
   .header-actions { width: 100%; flex-wrap: wrap; justify-content: flex-start; }
@@ -376,6 +399,9 @@ textarea { resize: vertical; line-height: 1.5; }
 }
 
 @media (max-width: 560px) {
+  .pending-draft-banner { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 3px 6px; padding: 3px 8px; }
+  .pending-draft-banner > span { grid-column: 1 / -1; }
+  .pending-draft-banner .button { width: 100%; min-width: 0; padding: 0 4px; font-size: 11px; }
   .scene-picker { grid-template-columns: minmax(0, 1fr); }
   .project-picker select { flex: 1; }
   .brand p { max-width: calc(100vw - 80px); }

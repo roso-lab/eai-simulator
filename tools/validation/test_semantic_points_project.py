@@ -228,6 +228,43 @@ def switch(request, state, **changes):
     return fresh
 
 
+def test_ground_new_height_defaults_resets_and_isolates_other_layers(api):
+    request, _ = api
+    _, state = request("/api/state")
+    assert state["new_point_settings"]["ground"] == {"z": 0}
+    state = switch(request, state, new_point_settings={"ground": {"z": 1.25}})
+    independent = deepcopy(state["new_point_settings"])
+    state = switch(request, state, reference_level="2F")
+    assert state["new_point_settings"] == independent
+    state = switch(request, state, active_layer="aerial")
+    state = switch(request, state, new_point_settings={"aerial": {"z": 7, "edit_mode": "2.5d"}})
+    state = switch(request, state, active_layer="semantic_points")
+    state = switch(request, state, new_point_settings={"semantic_points": {"z": 8}})
+    state = switch(request, state, active_layer="ground")
+    assert state["new_point_settings"]["ground"]["z"] == 1.25
+    state = switch(request, state, level_id="2F")
+    assert state["new_point_settings"] == {
+        "ground": {"z": 3}, "aerial": {"z": 7, "edit_mode": "2.5d"},
+        "semantic_points": {"z": 8, "edit_mode": "3d"}}
+    state = switch(request, state, new_point_settings={"ground": {"z": 4.5}})
+    code, state = request("/api/edit", {**identity(state), "operation": "add_node",
+        "position_xyz": [0, 0, state["new_point_settings"]["ground"]["z"]], "level_id": "2F"})
+    assert code == 200, state
+    code, state = request("/api/edit", {**identity(state), "operation": "update_node",
+        "id": "node:0001", "position_xyz": [0, 0, 6]})
+    assert code == 200, state
+    assert state["documents"]["ground"]["nodes"][0]["position_xyz"] == [0, 0, 6]
+    assert state["documents"]["ground"]["nodes"][0]["level_id"] == "2F"
+    for invalid in ({"z": True}, {"z": "bad"}, {"edit_mode": "3d"}):
+        code, _ = request("/api/editor/context", {
+            **identity(state), "new_point_settings": {"ground": invalid}})
+        assert code == 400
+    _, unchanged = request("/api/state")
+    assert unchanged["new_point_settings"] == state["new_point_settings"]
+    state = switch(request, unchanged, level_id="1F")
+    assert state["new_point_settings"]["ground"] == {"z": 0}
+
+
 def test_http_layers_type_isolation_modes_context_and_region_rejection(api):
     request, server = api
     _, state = request("/api/state")
