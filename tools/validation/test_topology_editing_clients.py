@@ -768,12 +768,12 @@ def test_topology_viewport_input_toggle_owns_native_selection_lifetime(monkeypat
     scene.viewport_api = "viewport-1"
     scene._selection_disable_handle = None
     scene.set_input_enabled(True)
-    assert handles == [("viewport-1", True)]
-    handle = scene._selection_disable_handle
+    assert handles == []
+    assert scene._selection_disable_handle is None
     scene.set_input_enabled(False)
     assert scene._selection_disable_handle is None
     scene.set_input_enabled(True)
-    assert len(handles) == 2 and scene._selection_disable_handle is not handle
+    assert handles == []
 
 
 def test_topology_drag_uses_non_preemptible_gesture_manager(monkeypatch):

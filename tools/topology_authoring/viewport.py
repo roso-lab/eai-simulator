@@ -761,8 +761,11 @@ class _TopologyEditorGesture:
         self._last_mouse = None
 
     def cancel_from_scene(self):
-        # A click-only DragGesture is canceled by Kit; the ClickGesture still
-        # owns the press. Cancel only actual movement, never the pending click.
+        # Kit cancels DragGesture for a short press in some viewport builds.
+        # Complete that press here so point creation does not depend on the
+        # companion ClickGesture receiving its release callback. The press is
+        # consumed by handle("click"), which also prevents a late ClickGesture
+        # callback from creating a duplicate point.
         if self._moved:
             # Some Kit viewport versions report the editor DragGesture as
             # canceled when the native selection gesture releases the same
@@ -783,7 +786,9 @@ class _TopologyEditorGesture:
             self._drag_target = None
             self._last_mouse = None
         elif self._press is not None:
-            self._press["released"] = True
+            mouse = self._last_mouse or self._press.get("ndc")
+            if mouse is not None:
+                self.handle("click", mouse)
 
     def _world_point(self, mouse_ndc, target=None):
         ray = viewport_ray(
@@ -1056,20 +1061,16 @@ class _TopologyEditorViewportScene:
             self._manipulator.visible = bool(value)
 
     def set_input_enabled(self, enabled: bool) -> None:
-        """Toggle native USD picking together with the topology surface."""
-        enabled = bool(enabled)
-        if enabled and self._selection_disable_handle is None:
-            try:
-                from omni.kit.viewport.utility import disable_selection
-                self._selection_disable_handle = disable_selection(
-                    self.viewport_api, disable_click=True)
-            except (ImportError, AttributeError, RuntimeError, TypeError):
-                # Older Kit builds may not ship the utility extension. The
-                # custom gesture still works; retaining this fallback keeps
-                # startup compatible while newer builds get full isolation.
-                self._selection_disable_handle = False
-        elif not enabled and self._selection_disable_handle is not None:
-            self._selection_disable_handle = None
+        """Toggle the custom topology surface without disabling viewport clicks.
+
+        Native Prim selection is already disabled by IsaacSelectionBridge. The
+        viewport utility's ``disable_click=True`` also suppresses the scene
+        gesture on several Kit releases, which makes empty-space point clicks
+        disappear. Keep this hook for lifecycle compatibility and let the
+        gesture manager own pointer input.
+        """
+        del enabled
+        self._selection_disable_handle = None
 
     def destroy(self):
         if self._gesture is not None:
