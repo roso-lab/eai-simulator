@@ -763,15 +763,7 @@ def produce_statistical_reports(request: Mapping[str, Any], *, root: str | Path)
         for path, data in outputs:
             _write_new(path, data)
             created.append(path)
-    except BaseException:
-        for path in reversed(created):
-            try:
-                path.unlink()
-            except FileNotFoundError:
-                pass
-        raise
-    # Belt and braces: the artifacts must be consumable by the index layer.
-    try:
+        # Belt and braces: the artifacts must be consumable by the index layer.
         validate_statistical_report_binding(
             binding_manifest,
             root=root_path,
@@ -779,8 +771,23 @@ def produce_statistical_reports(request: Mapping[str, Any], *, root: str | Path)
             condition_register=condition_register,
             required_directory=required_directory,
         )
-    except PaperResultIndexError as exc:  # pragma: no cover - producer bug guard
-        _fail(f"produced artifacts failed downstream revalidation: {exc}")
+    except PaperResultIndexError as exc:
+        failure = StatisticalReportProducerError(
+            f"produced artifacts failed downstream revalidation: {exc}"
+        )
+        for path in reversed(created):
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                pass
+        raise failure from exc
+    except BaseException:
+        for path in reversed(created):
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                pass
+        raise
     return {
         "schema": PRODUCE_RESULT_SCHEMA,
         "paper_commit": PAPER_COMMIT,

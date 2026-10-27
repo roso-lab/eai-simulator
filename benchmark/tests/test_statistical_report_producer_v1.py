@@ -891,6 +891,31 @@ def test_failed_request_leaves_no_partial_output(tmp_path: Path):
     assert not list((world["root"] / "evidence").rglob("report.json"))
 
 
+def test_downstream_revalidation_failure_rolls_back_new_outputs(
+    tmp_path: Path, monkeypatch
+):
+    world = _build_world(tmp_path)
+    destinations = [
+        *(world["root"] / entry["report_path"] for entry in world["request"]["entries"]),
+        world["root"] / world["request"]["binding_manifest_path"],
+        world["root"] / world["request"]["report_set_path"],
+    ]
+
+    def reject_downstream(*_args, **_kwargs):
+        raise PaperResultIndexError("injected downstream rejection")
+
+    monkeypatch.setattr(
+        "benchmark.statistical_report_producer_v1.validate_statistical_report_binding",
+        reject_downstream,
+    )
+    with pytest.raises(
+        StatisticalReportProducerError,
+        match="produced artifacts failed downstream revalidation",
+    ):
+        produce_statistical_reports(world["request"], root=world["root"])
+    assert all(not path.exists() for path in destinations)
+
+
 # --------------------------------------------------------------------------
 # Estimate and support mapping units (real reducer outputs only).
 # --------------------------------------------------------------------------
