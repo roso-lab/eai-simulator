@@ -30,6 +30,11 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from benchmark.d4_first_event_v1 import (
+    D4FirstEventError,
+    FACT_KEY as D4_FIRST_EVENT_FACT_KEY,
+    validate_observation,
+)
 from tools.benchmark_branch.receipt_material import (
     ReceiptMaterialError,
     assemble_oracle_receipt_material,
@@ -51,7 +56,8 @@ REQUIRED_STREAM_KEYS = frozenset({
 REQUIRED_BASE_FACT_KEYS = frozenset({"d1", "base_task_success", "d4_items", "d6"})
 OPTIONAL_BASE_FACT_KEYS = frozenset({"d5_attempt", "safety_predicate",
                                     "safe_stop_certificate_digest",
-                                    "infeasibility_proof_hash"})
+                                    "infeasibility_proof_hash",
+                                    D4_FIRST_EVENT_FACT_KEY})
 
 # This binding is deliberately only a diagnostic fixture.  A production run
 # must provide the frozen plan binding from its case/plan artifact; keeping a
@@ -225,7 +231,18 @@ def _check_base_facts(base_facts: Mapping[str, Any]) -> dict[str, Any]:
         )
     if type(base_facts["base_task_success"]) is not bool:
         raise Room06LivT04EvaluatorError("base_facts.base_task_success must be boolean")
-    return dict(base_facts)
+    result = dict(base_facts)
+    if D4_FIRST_EVENT_FACT_KEY in base_facts:
+        try:
+            result[D4_FIRST_EVENT_FACT_KEY] = validate_observation(
+                _mapping(
+                    base_facts[D4_FIRST_EVENT_FACT_KEY],
+                    f"base_facts.{D4_FIRST_EVENT_FACT_KEY}",
+                )
+            )
+        except D4FirstEventError as exc:
+            raise Room06LivT04EvaluatorError(str(exc)) from exc
+    return result
 
 
 def _payload(runtime: Any) -> Mapping[str, Any]:
@@ -305,6 +322,21 @@ class Room06LivT04Evaluator:
         self._check_job(job)
         payload = _payload(runtime)
         episode = dict(_mapping(payload["episode"], "episode"))
+        job_system_id = _text(
+            getattr(job, "system_id", None), "branch job system_id"
+        )
+        for key in ("condition_id", "repeat_id"):
+            expected = _text(getattr(job, key, None), f"branch job {key}")
+            actual = _text(episode.get(key), f"episode.{key}")
+            if actual != expected:
+                raise Room06LivT04EvaluatorError(
+                    f"episode {key} disagrees with the branch job"
+                )
+        if episode.get("system_id", job_system_id) != job_system_id:
+            raise Room06LivT04EvaluatorError(
+                "episode system_id disagrees with the branch job"
+            )
+        episode["system_id"] = job_system_id
         if episode.get("evaluator_version", EVALUATOR_VERSION) != EVALUATOR_VERSION:
             raise Room06LivT04EvaluatorError("episode evaluator_version mismatch")
         episode["evaluator_version"] = EVALUATOR_VERSION

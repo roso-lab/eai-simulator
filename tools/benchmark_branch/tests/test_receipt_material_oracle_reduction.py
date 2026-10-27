@@ -3,6 +3,10 @@ import hashlib
 
 import pytest
 
+from benchmark.d4_first_event_v1 import (
+    FACT_KEY as D4_FIRST_EVENT_FACT_KEY,
+    OBSERVATION_SCHEMA as D4_OBSERVATION_SCHEMA,
+)
 from benchmark.case_manifest_v1 import (
     TASK_OBJECT_BINDINGS_SCHEMA,
     bind_case_manifest,
@@ -52,6 +56,24 @@ def _base():
             "base_task_success": True, "d4_items": [], "d6": {"bits": 1.0, "time": 1.0}}
 
 
+def _d4_observation():
+    return {
+        "schema": D4_OBSERVATION_SCHEMA,
+        "registration_id": "room06-loss-v1",
+        "panel_id": "room06-loss",
+        "cell_id": "room06-cell",
+        "event_id": "task-function-loss",
+        "event_eligible": True,
+        "eligibility_evidence_digest": "1" * 64,
+        "response": {"tick": 120, "evidence_digest": "2" * 64},
+        "work_confirmation": {"tick": 115, "evidence_digest": "3" * 64},
+        "terminal": None,
+        "safety": {"flag": False, "evidence_digest": None},
+        "observed_through_tick": 200,
+        "timeline_digest": "4" * 64,
+    }
+
+
 def test_terminal_material_derives_obligation_and_safety_success_from_streams():
     material = assemble_oracle_receipt_material(
         episode={"status": "valid_terminal", "condition_id": "C0", "branch": "fact",
@@ -61,6 +83,37 @@ def test_terminal_material_derives_obligation_and_safety_success_from_streams():
     assert material["facts"]["obligations"] == [{"relation": "P2", "outcome": "completed"}]
     assert material["facts"]["success"] is True
     assert material["facts"]["d6"]["success"] is True
+
+
+def test_terminal_material_preserves_detached_d4_diagnostic_without_primary_items():
+    base = _base()
+    observation = _d4_observation()
+    base[D4_FIRST_EVENT_FACT_KEY] = observation
+    material = assemble_oracle_receipt_material(
+        episode={"status": "valid_terminal", "condition_id": "task_function_loss",
+                 "branch": "fact", "repeat_id": "r1", "checkpoint_id": "cp"},
+        streams=_streams(), base_facts=base, anchor_id="liv-t-04",
+        obligation_binding=BOUNDING,
+    )
+    observation["response"]["tick"] = 199
+
+    assert material["facts"][D4_FIRST_EVENT_FACT_KEY]["response"]["tick"] == 120
+    assert material["facts"][D4_FIRST_EVENT_FACT_KEY]["work_confirmation"]["tick"] == 115
+    assert material["facts"]["d4_items"] == []
+
+
+def test_terminal_material_rejects_malformed_d4_diagnostic():
+    base = _base()
+    observation = _d4_observation()
+    observation["response"]["tick"] = 201
+    base[D4_FIRST_EVENT_FACT_KEY] = observation
+    with pytest.raises(ReceiptMaterialError, match="exceeds observation coverage"):
+        assemble_oracle_receipt_material(
+            episode={"status": "valid_terminal", "condition_id": "task_function_loss",
+                     "branch": "fact", "repeat_id": "r1", "checkpoint_id": "cp"},
+            streams=_streams(), base_facts=base, anchor_id="liv-t-04",
+            obligation_binding=BOUNDING,
+        )
 
 
 def test_deadline_or_hold_violation_forces_success_false():

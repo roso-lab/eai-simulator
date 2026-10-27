@@ -672,6 +672,7 @@ def test_streams_are_consumed_by_existing_oracle_receipt_schema():
 
     episode = {
         "status": "valid_terminal",
+        "system_id": "emos-zero",
         "condition_id": "C0",
         "branch": "fact",
         "repeat_id": "r1",
@@ -718,8 +719,14 @@ def test_streams_are_consumed_by_existing_oracle_receipt_schema():
             "obligation_binding": obligation_binding,
             "runtime_binding": evidence["runtime_binding"],
         },
-        SimpleNamespace(task_id="liv-t-04", scene_key="room_06"),
-    )
+            SimpleNamespace(
+                task_id="liv-t-04",
+                scene_key="room_06",
+                system_id="emos-zero",
+                condition_id="C0",
+                repeat_id="r1",
+            ),
+        )
 
     assert material["facts"]["success"] is True
     assert evaluator_material == {

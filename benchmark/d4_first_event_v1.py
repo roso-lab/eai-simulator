@@ -320,6 +320,26 @@ def _validate_observation(value: Mapping[str, Any], name: str) -> dict[str, Any]
     }
 
 
+def validate_observation(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate and JSON-detach one evaluator-owned first-event observation.
+
+    Registration-window and roster checks require the frozen plan and remain
+    in :func:`reduce_receipts`.  This public boundary enforces every
+    observation-local invariant, including that no recorded event lies beyond
+    the declared observation coverage.
+    """
+
+    observation = _validate_observation(value, "D4 first-event observation")
+    observed_through = observation["observed_through_tick"]
+    for event_name in ("response", "work_confirmation", "terminal"):
+        event = observation[event_name]
+        if event is not None and event["tick"] > observed_through:
+            raise D4FirstEventError(
+                f"D4 first-event {event_name} exceeds observation coverage"
+            )
+    return deepcopy(observation)
+
+
 def _registration_index(registration: Mapping[str, Any]) -> dict[tuple[str, str, str, str, str, str], tuple[Mapping[str, Any], Mapping[str, Any]]]:
     result = {}
     for panel in registration["panels"]:
@@ -748,5 +768,6 @@ def validate_package(value: Mapping[str, Any], *, receipt_digests: Sequence[str]
 __all__ = [
     "REGISTRATION_SCHEMA", "OBSERVATION_SCHEMA", "PACKAGE_SCHEMA", "VERSION",
     "PLAN_KEY", "FACT_KEY", "D4FirstEventError", "validate_registration",
-    "registration_condition_ids", "reduce_receipts", "validate_package",
+    "validate_observation", "registration_condition_ids", "reduce_receipts",
+    "validate_package",
 ]

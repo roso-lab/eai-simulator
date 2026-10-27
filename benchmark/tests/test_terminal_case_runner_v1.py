@@ -21,6 +21,7 @@ from benchmark.d4_first_event_v1 import (
     PLAN_KEY as D4_PLAN_KEY,
     REGISTRATION_SCHEMA as D4_REGISTRATION_SCHEMA,
     VERSION as D4_VERSION,
+    reduce_receipts as reduce_d4_first_events,
 )
 
 
@@ -108,20 +109,12 @@ def _d4_plan() -> dict:
     }
 
 
-class _ExplicitMaterialEvaluator:
-    @staticmethod
-    def collect_receipt_material(runtime, job):
-        return runtime
-
-
-def _d4_material(*, include_observation: bool = True) -> dict:
+def _d4_runtime(*, include_observation: bool = True) -> dict:
     job = _d4_job()
     runtime = build_diagnostic_runtime_fixture()
     runtime["episode"]["condition_id"] = job.condition_id
-    material = Room06LivT04Evaluator().collect_receipt_material(runtime, job)
-    material["episode"]["system_id"] = job.system_id
     if include_observation:
-        material["facts"][D4_FACT_KEY] = {
+        runtime["base_facts"][D4_FACT_KEY] = {
             "schema": D4_OBSERVATION_SCHEMA,
             "registration_id": "room06-task-loss-v1",
             "panel_id": "room06-task-loss",
@@ -136,7 +129,7 @@ def _d4_material(*, include_observation: bool = True) -> dict:
             "observed_through_tick": 200,
             "timeline_digest": _sha("timeline"),
         }
-    return material
+    return runtime
 
 
 def _case(catalog: dict, plan: dict) -> dict:
@@ -265,8 +258,8 @@ def test_terminal_material_passes_explicit_d4_observation_without_inference(tmp_
     sealed = seal_terminal_artifacts(
         terminals=[{
             "job": _d4_job(),
-            "evaluator": _ExplicitMaterialEvaluator(),
-            "runtime": _d4_material(),
+            "evaluator": Room06LivT04Evaluator(),
+            "runtime": _d4_runtime(),
             "evaluator_result": {
                 "status": "valid_terminal",
                 "completed": True,
@@ -282,7 +275,24 @@ def test_terminal_material_passes_explicit_d4_observation_without_inference(tmp_
         plan=plan,
         parameters={"alpha": 0.05},
     )
-    assert sealed["receipts"][0]["facts"][D4_FACT_KEY]["response"]["tick"] == 120
+    receipt = sealed["receipts"][0]
+    envelope = sealed["evaluator_envelopes"][0]
+    assert receipt["identity"]["system_id"] == "emos-zero"
+    assert receipt["identity"]["base_instance_id"] == case["base_instance_id"]
+    assert receipt["facts"][D4_FACT_KEY]["response"]["tick"] == 120
+    assert receipt["facts"]["d4_items"] == []
+    assert receipt["facts"]["source_evidence_hash"] == envelope["evidence_hash"]
+    assert (
+        receipt["evaluator"]["artifact_manifest_digest"]
+        == sealed["artifact_manifest_digest"]
+    )
+    diagnostic = reduce_d4_first_events(sealed["receipts"])
+    assert diagnostic is not None
+    cell = diagnostic["panels"][0]["cells"][0]
+    assert cell["response_trajectories"][0]["cause"] == "resp"
+    assert cell["response_trajectories"][0]["selected_tick"] == 120
+    assert cell["work_confirmation_trajectories"][0]["cause"] == "resume"
+    assert cell["work_confirmation_trajectories"][0]["selected_tick"] == 115
     assert sealed["readiness"]["d4_first_event_registered"] is True
     assert sealed["readiness"]["d4_first_event_eligible_trajectory_count"] == 1
     assert sealed["formal_gates"] == {
@@ -299,8 +309,8 @@ def test_terminal_registration_rejects_missing_explicit_d4_observation(tmp_path:
         seal_terminal_artifacts(
             terminals=[{
                 "job": _d4_job(),
-                "evaluator": _ExplicitMaterialEvaluator(),
-                "runtime": _d4_material(include_observation=False),
+                "evaluator": Room06LivT04Evaluator(),
+                "runtime": _d4_runtime(include_observation=False),
                 "evaluator_result": {
                     "status": "valid_terminal",
                     "completed": True,

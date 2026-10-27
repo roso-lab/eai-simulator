@@ -4,6 +4,10 @@ from types import SimpleNamespace
 
 import pytest
 
+from benchmark.d4_first_event_v1 import (
+    FACT_KEY as D4_FIRST_EVENT_FACT_KEY,
+    OBSERVATION_SCHEMA as D4_OBSERVATION_SCHEMA,
+)
 from benchmark.evaluator.room06_livt04 import (
     DIAGNOSTIC_RUNTIME_BINDING,
     EVALUATOR_VERSION,
@@ -26,7 +30,31 @@ BOUNDING = {
 
 
 def _job():
-    return SimpleNamespace(task_id="liv-t-04", scene_key="room_06")
+    return SimpleNamespace(
+        task_id="liv-t-04",
+        scene_key="room_06",
+        system_id="emos-zero",
+        condition_id="C0",
+        repeat_id="r1",
+    )
+
+
+def _d4_observation():
+    return {
+        "schema": D4_OBSERVATION_SCHEMA,
+        "registration_id": "room06-loss-v1",
+        "panel_id": "room06-loss",
+        "cell_id": "room06-cell",
+        "event_id": "task-function-loss",
+        "event_eligible": True,
+        "eligibility_evidence_digest": "1" * 64,
+        "response": {"tick": 120, "evidence_digest": "2" * 64},
+        "work_confirmation": {"tick": 115, "evidence_digest": "3" * 64},
+        "terminal": None,
+        "safety": {"flag": False, "evidence_digest": None},
+        "observed_through_tick": 200,
+        "timeline_digest": "4" * 64,
+    }
 
 
 def _runtime(*, late=False, holds=2, integrity=True):
@@ -74,9 +102,64 @@ def _runtime(*, late=False, holds=2, integrity=True):
 def test_collects_explicit_material_and_reduces_oracle_facts():
     material = Room06LivT04Evaluator().collect_receipt_material(_runtime(), _job())
     assert material["episode"]["evaluator_version"] == EVALUATOR_VERSION
+    assert material["episode"]["system_id"] == "emos-zero"
     assert material["facts"]["obligations"] == [{"relation": "P2", "outcome": "completed"}]
     assert material["facts"]["success"] is True
     assert material["facts"]["d6"]["success"] is True
+
+
+def test_episode_cannot_override_branch_job_system_identity():
+    runtime = _runtime()
+    runtime["episode"]["system_id"] = "another-system"
+
+    with pytest.raises(
+        Room06LivT04EvaluatorError,
+        match="system_id disagrees with the branch job",
+    ):
+        Room06LivT04Evaluator().collect_receipt_material(runtime, _job())
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [("condition_id", "another-condition"), ("repeat_id", "r2")],
+)
+def test_episode_condition_and_repeat_must_match_branch_job(key, value):
+    runtime = _runtime()
+    runtime["episode"][key] = value
+
+    with pytest.raises(
+        Room06LivT04EvaluatorError,
+        match=rf"episode {key} disagrees with the branch job",
+    ):
+        Room06LivT04Evaluator().collect_receipt_material(runtime, _job())
+
+
+def test_direct_evaluator_validates_detaches_and_preserves_d4_observation():
+    runtime = _runtime()
+    observation = _d4_observation()
+    runtime["base_facts"][D4_FIRST_EVENT_FACT_KEY] = observation
+    material = Room06LivT04Evaluator().collect_receipt_material(runtime, _job())
+    observation["response"]["tick"] = 199
+
+    assert material["facts"][D4_FIRST_EVENT_FACT_KEY]["response"]["tick"] == 120
+    assert material["facts"][D4_FIRST_EVENT_FACT_KEY]["work_confirmation"]["tick"] == 115
+    assert material["facts"]["d4_items"] == []
+
+
+@pytest.mark.parametrize("mutation", ["extra", "missing", "coverage"])
+def test_direct_evaluator_rejects_malformed_d4_observation(mutation):
+    runtime = _runtime()
+    observation = _d4_observation()
+    if mutation == "extra":
+        observation["latency"] = 5
+    elif mutation == "missing":
+        del observation["work_confirmation"]
+    else:
+        observation["observed_through_tick"] = 119
+    runtime["base_facts"][D4_FIRST_EVENT_FACT_KEY] = observation
+
+    with pytest.raises(Room06LivT04EvaluatorError):
+        Room06LivT04Evaluator().collect_receipt_material(runtime, _job())
 
 
 @pytest.mark.parametrize("kwargs", [{"late": True}, {"holds": 1}])

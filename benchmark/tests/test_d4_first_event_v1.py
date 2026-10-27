@@ -15,6 +15,7 @@ from benchmark.d4_first_event_v1 import (
     VERSION,
     reduce_receipts,
     registration_condition_ids,
+    validate_observation,
     validate_package,
     validate_registration,
 )
@@ -133,6 +134,25 @@ def _receipt(
 
 def _cell(package: dict, index: int = 0) -> dict:
     return package["panels"][0]["cells"][index]
+
+
+def test_public_observation_validator_detaches_and_checks_local_coverage() -> None:
+    source = _observation(
+        response=_event(120, "response"),
+        work=_event(115, "work"),
+    )
+    validated = validate_observation(source)
+    source["response"]["tick"] = 199
+    assert validated["response"]["tick"] == 120
+    assert validated["work_confirmation"]["tick"] == 115
+
+    with pytest.raises(D4FirstEventError, match="exceeds observation coverage"):
+        validate_observation(
+            _observation(
+                response=_event(120, "response"),
+                observed_through=119,
+            )
+        )
 
 
 def test_independent_work_confirmation_can_precede_response() -> None:

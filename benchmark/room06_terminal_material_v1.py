@@ -21,7 +21,11 @@ from collections.abc import Mapping
 from copy import deepcopy
 from typing import Any
 
-from .d4_first_event_v1 import D4FirstEventError, _validate_observation
+from .d4_first_event_v1 import (
+    D4FirstEventError,
+    FACT_KEY as D4_FIRST_EVENT_FACT_KEY,
+    validate_observation,
+)
 from .evaluator.room06_livt04 import EVALUATOR_VERSION
 from .room06_runtime_preflight_v1 import FORMAL_GATES, TASK_SETUP_SCHEMA
 from .room06_task_runtime_v1 import (
@@ -710,20 +714,11 @@ def _normalize_runtime_evidence(value: Any) -> tuple[dict[str, Any], bool]:
 
 def _normalize_d4_observation(value: Any) -> dict[str, Any]:
     try:
-        observation = _validate_observation(
-            _mapping(value, "d4_first_event_observation"),
-            "d4_first_event_observation",
+        return validate_observation(
+            _mapping(value, "d4_first_event_observation")
         )
     except (D4FirstEventError, Room06TerminalMaterialError) as exc:
         raise Room06TerminalMaterialError(str(exc)) from exc
-    observed_through = observation["observed_through_tick"]
-    for event_name in ("response", "work_confirmation", "terminal"):
-        event = observation[event_name]
-        if event is not None and event["tick"] > observed_through:
-            raise Room06TerminalMaterialError(
-                f"D4 {event_name} exceeds observation coverage"
-            )
-    return observation
 
 
 def assemble_room06_terminal_payload(
@@ -739,9 +734,9 @@ def assemble_room06_terminal_payload(
 
     The returned mapping itself can be passed to
     ``Room06LivT04Evaluator.collect_receipt_material``.  The registered D4
-    first-event observation is retained as evaluator metadata; it is distinct
-    from the D4 primary-score ``d4_items`` list and is therefore never copied
-    into that list.
+    first-event observation is retained as an evaluator-owned base fact; it is
+    distinct from the D4 primary-score ``d4_items`` list and is therefore
+    never copied into that list.
     """
 
     normalized_evidence, base_task_success = _normalize_runtime_evidence(
@@ -761,10 +756,10 @@ def assemble_room06_terminal_payload(
             "base_task_success": base_task_success,
             "d4_items": [],
             "d6": normalized_d6,
+            D4_FIRST_EVENT_FACT_KEY: normalized_d4,
         },
         "obligation_binding": normalized_binding,
         "runtime_binding": deepcopy(normalized_evidence["runtime_binding"]),
-        "d4_first_event_observation": normalized_d4,
         "runtime_evidence_digest": evidence_digest,
         "runtime_state": normalized_evidence["runtime_state"],
         "assembler_schema": ASSEMBLER_SCHEMA,

@@ -23,6 +23,11 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from benchmark.d4_first_event_v1 import (
+    D4FirstEventError,
+    FACT_KEY as D4_FIRST_EVENT_FACT_KEY,
+    validate_observation,
+)
 from .evidence import write_evaluator_evidence
 from .models import BranchJob
 from .oracle_predicates import (
@@ -63,7 +68,7 @@ def assemble_oracle_receipt_material(
     required = {"d1", "base_task_success", "d4_items", "d6"}
     optional = {
         "d5_attempt", "safety_predicate", "safe_stop_certificate_digest",
-        "infeasibility_proof_hash",
+        "infeasibility_proof_hash", D4_FIRST_EVENT_FACT_KEY,
     }
     if set(base_facts) - (required | optional) or not required.issubset(base_facts):
         raise ReceiptMaterialError("base_facts schema mismatch")
@@ -115,6 +120,16 @@ def assemble_oracle_receipt_material(
     }
     if "d5_attempt" in base_facts:
         facts["d5_attempt"] = base_facts["d5_attempt"]
+    if D4_FIRST_EVENT_FACT_KEY in base_facts:
+        try:
+            facts[D4_FIRST_EVENT_FACT_KEY] = validate_observation(
+                _mapping(
+                    base_facts[D4_FIRST_EVENT_FACT_KEY],
+                    f"base_facts.{D4_FIRST_EVENT_FACT_KEY}",
+                )
+            )
+        except D4FirstEventError as exc:
+            raise ReceiptMaterialError(str(exc)) from exc
     for key in ("safety_predicate", "safe_stop_certificate_digest", "infeasibility_proof_hash"):
         if key in base_facts:
             facts[key] = base_facts[key]
@@ -205,6 +220,16 @@ def validate_receipt_material(value: Mapping[str, Any]) -> dict[str, Any]:
         raise ReceiptMaterialError("receipt_material.facts.d4_items must be a list")
     if not isinstance(facts["d6"], Mapping):
         raise ReceiptMaterialError("receipt_material.facts.d6 must be an object")
+    if D4_FIRST_EVENT_FACT_KEY in facts:
+        try:
+            facts[D4_FIRST_EVENT_FACT_KEY] = validate_observation(
+                _mapping(
+                    facts[D4_FIRST_EVENT_FACT_KEY],
+                    f"receipt_material.facts.{D4_FIRST_EVENT_FACT_KEY}",
+                )
+            )
+        except D4FirstEventError as exc:
+            raise ReceiptMaterialError(str(exc)) from exc
 
     return {
         "episode": episode,

@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from benchmark.d4_first_event_v1 import FACT_KEY as D4_FIRST_EVENT_FACT_KEY
 from benchmark.evaluator.room06_livt04 import (
     EVALUATOR_VERSION,
     Room06LivT04Evaluator,
@@ -257,7 +258,13 @@ def _assemble(evidence=None, **overrides):
 
 
 def _job():
-    return SimpleNamespace(task_id="liv-t-04", scene_key="room_06")
+    return SimpleNamespace(
+        task_id="liv-t-04",
+        scene_key="room_06",
+        system_id="emos-zero",
+        condition_id="C0",
+        repeat_id="r1",
+    )
 
 
 @pytest.mark.parametrize(
@@ -276,7 +283,10 @@ def test_terminal_states_derive_base_success_and_evaluator_final_success(
     assert payload["base_facts"]["base_task_success"] is expected_base
     assert payload["assembler_schema"] == ASSEMBLER_SCHEMA
     assert payload["formal_gates"] == FORMAL_GATES
-    assert payload["d4_first_event_observation"] == _d4()
+    assert payload["base_facts"][D4_FIRST_EVENT_FACT_KEY] == _d4()
+    assert D4_FIRST_EVENT_FACT_KEY not in {
+        key for key in payload if key != "base_facts"
+    }
     assert payload["base_facts"]["d4_items"] == []
     material = Room06LivT04Evaluator(
         obligation_binding=OBLIGATION_BINDING,
@@ -288,6 +298,8 @@ def test_terminal_states_derive_base_success_and_evaluator_final_success(
         "bits": 99_216,
         "time": 7.74,
     }
+    assert material["facts"][D4_FIRST_EVENT_FACT_KEY] == _d4()
+    assert material["facts"]["d4_items"] == []
 
 
 def test_output_is_json_detached_and_digest_bound_to_normalized_evidence():
@@ -306,7 +318,7 @@ def test_output_is_json_detached_and_digest_bound_to_normalized_evidence():
         obligation_binding=binding,
     )
     expected_streams = deepcopy(payload["streams"])
-    expected_d4 = deepcopy(payload["d4_first_event_observation"])
+    expected_d4 = deepcopy(payload["base_facts"][D4_FIRST_EVENT_FACT_KEY])
     expected_binding = deepcopy(payload["obligation_binding"])
     evidence["streams"]["milestones"].clear()
     episode["condition_id"] = "mutated"
@@ -316,7 +328,7 @@ def test_output_is_json_detached_and_digest_bound_to_normalized_evidence():
     binding["obligations"].clear()
 
     assert payload["streams"] == expected_streams
-    assert payload["d4_first_event_observation"] == expected_d4
+    assert payload["base_facts"][D4_FIRST_EVENT_FACT_KEY] == expected_d4
     assert payload["obligation_binding"] == expected_binding
     assert payload["episode"]["condition_id"] == "C0"
     assert payload["base_facts"]["d1"]["validity"] == 1.0
@@ -572,13 +584,15 @@ def test_d4_response_and_work_confirmation_may_be_explicitly_unobserved():
     d4["response"] = None
     d4["work_confirmation"] = None
     payload = _assemble(d4_first_event_observation=d4)
-    assert payload["d4_first_event_observation"]["response"] is None
-    assert payload["d4_first_event_observation"]["work_confirmation"] is None
+    observation = payload["base_facts"][D4_FIRST_EVENT_FACT_KEY]
+    assert observation["response"] is None
+    assert observation["work_confirmation"] is None
 
 
-def test_evaluator_consumes_payload_directly_but_keeps_d4_diagnostic_separate():
+def test_evaluator_consumes_payload_and_preserves_d4_diagnostic_as_separate_fact():
     payload = _assemble()
     material = Room06LivT04Evaluator().collect_receipt_material(payload, _job())
     assert material["facts"]["success"] is True
     assert material["facts"]["d4_items"] == []
-    assert "d4_first_event_observation" not in material["facts"]
+    assert material["facts"][D4_FIRST_EVENT_FACT_KEY] == _d4()
+    assert D4_FIRST_EVENT_FACT_KEY not in material["facts"]["d4_items"]
