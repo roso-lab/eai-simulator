@@ -2,7 +2,7 @@
 
 ## 当前基线
 
-- 本地 `HeteroCoord` 与 `origin/HeteroCoord` 均为 `d88fc940`，工作树干净。
+- 本地 `HeteroCoord` 与 `origin/HeteroCoord` 均为 `b05fadc2`，工作树在本次接缝改动提交前保持干净。
 - 本轮已执行 `git fetch origin HeteroCoord`；远端没有待拉取提交。
 - 后续工程开发、受影响测试和推送统一以 `HeteroCoord` 为基线。其他分支保留为历史审计源，不再作为并行主线。
 - `physical_qualified`、`rankable`、`paper_score_eligible` 继续保持 `false`。
@@ -31,6 +31,17 @@ GPU 工作树 `codex/room06-real-gpu-vertical-20261027` 比当前主线落后 36
 | `paper-difficulty-dac7b94` | 旧论文 SHA `dac7b942` 的未提交改动；主线已含 `difficulty_contract_v1` 和当前论文身份；主线受影响集复验 `40 passed` | 保留原工作树，禁止覆盖；待需要时按当前 `PAPER_COMMIT` 做小补丁 |
 | `semantic-map-tool-release` / `tool` | 基于旧线的大量 vectorized/recovery 改动，包含重复地图和旧运行时接口 | 不整合；使用主线现有 topology authoring/shared-session 代码 |
 
+## 本轮补齐的主线缺口
+
+GPU probe 已能在 simulator context 内生成明确的 `terminal_payload`，但此前没有
+一个只做结构包装的 handoff seam。新增
+`benchmark/room06_gpu_receipt_seam_v1.py`，要求调用方显式提供 `BranchJob`、
+`evaluator_result` 和 `parameters`，只把 probe 已组装的 payload 包装为
+`map_ready_case_v1` 的 `terminals` 输入；缺字段、场景/任务身份不符或任一 formal gate
+非 false 均 fail-closed。该 seam 不从进程状态、scene readback 或 GPU report 推导
+成功/资格事实，测试位于
+`benchmark/tests/test_room06_gpu_receipt_seam_v1.py`。
+
 ## 规则与下一步
 
 主线只接受两种输入：
@@ -38,4 +49,4 @@ GPU 工作树 `codex/room06-real-gpu-vertical-20261027` 比当前主线落后 36
 1. 基于 `HeteroCoord` 的已提交代码，带受影响测试证据；
 2. 明确标记为 `diagnostic-only` 的运行证据，绑定 manifest、输入摘要和失败原因。
 
-未提交的 GPU、语义地图和旧论文工作树不再作为开发基线。接入完整语义地图后，下一条主线任务是补正式场景的 object/robot resolver，接通 receipt/ledger，再用 room06 × liv-t-04 做首个真实 case；日常只跑受影响集，推送前跑一次全量套件。
+未提交的 GPU、语义地图和旧论文工作树不再作为开发基线。接入完整语义地图后，下一条主线任务是更新真实 transition-node/map digest，由该 seam 将 GPU terminal payload 直接送入 `map_ready_case_v1`，再继续 object/robot resolver、receipt/ledger 与 room06 × liv-t-04 首个真实 case；日常只跑受影响集，推送前跑一次全量套件。
