@@ -2,7 +2,7 @@
   "generated_at": "2026-10-27T20:21:02",
   "generated_from": {
     "file": "source/EAI_hmrs/EAI_hmrs/env_builder.py",
-    "sha256": "55e20d025d15e35dea5c19370e94bb539d427e281dfc4750029a1469bbb93ae8"
+    "sha256": "bb7fe82711e1de7528d6cd13683bdeb5e3fe5cdb580ebe74e6bfacc5dcf13810"
   },
   "patch_semantics": "resume sensing.camera_mount_pose ← camera_registration mount link/offset/rot; resume sensing.camera_publication ← camera_publication_patch; applied by the robot-resume owner, not by this tool",
   "registrations": [
