@@ -89,6 +89,34 @@ def test_resolver_indexes_authored_json_collections():
     assert resolver.check(_command()).admitted is True
 
 
+def test_runtime_roster_binds_instance_to_source_resume_payload():
+    resolver = TransportAdmissionResolver.from_runtime_roster_documents(
+        {"objects": [{"id": "box-a", "mass_kg": 2.5}]},
+        {"robots": [{
+            "instance_id": "hc-rt-006",
+            "source_resume_id": "resume-a",
+            "manipulation": {"payload_kg": 99},  # must not override the source
+        }]},
+        {"resumes": [{
+            "resume_id": "resume-a",
+            "manipulation": {"payload_kg": 3.0},
+        }]},
+    )
+    command = _command(robot_id="hc-rt-006")
+    assert resolver.check(command).admitted is True
+    assert resolver.records[-1]["robot_id"] == "hc-rt-006"
+    assert resolver.records[-1]["robot_payload_kg"] == pytest.approx(3.0)
+
+
+def test_runtime_roster_missing_source_resume_fails_closed():
+    with pytest.raises(ValueError, match="source resume is unavailable"):
+        TransportAdmissionResolver.from_runtime_roster_documents(
+            {"objects": [{"id": "box-a", "mass_kg": 2.5}]},
+            {"robots": [{"instance_id": "hc-rt-006", "source_resume_id": "missing"}]},
+            {"resumes": [{"resume_id": "other", "manipulation": {"payload_kg": 3.0}}]},
+        )
+
+
 def test_pick_place_executor_short_circuits_before_backend_on_failed_admission():
     class Adapter:
         robot_id = "robot-a"

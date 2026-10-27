@@ -237,6 +237,70 @@ class TransportAdmissionResolver:
                   ("robot_id", "resume_id", "profile_id", "id")),
         )
 
+    @classmethod
+    def from_runtime_roster_documents(
+        cls,
+        scene_document: Mapping[str, Any],
+        runtime_roster_document: Mapping[str, Any],
+        resume_document: Mapping[str, Any],
+    ) -> "TransportAdmissionResolver":
+        """Bind promoted instance IDs to authoritative resume capabilities.
+
+        The promoted roster intentionally stores identity/fingerprint fields,
+        while payload limits remain in the source resume.  This method makes
+        that provenance explicit and rejects missing or ambiguous source
+        records instead of accepting a caller-supplied payload.
+        """
+        if not isinstance(runtime_roster_document, Mapping) or not isinstance(resume_document, Mapping):
+            raise ValueError("runtime roster and resume documents must be objects")
+        roster_rows = runtime_roster_document.get("robots")
+        resume_rows = resume_document.get("resumes")
+        if not isinstance(roster_rows, list) or not roster_rows:
+            raise ValueError("runtime roster robots must be a non-empty list")
+        if not isinstance(resume_rows, list) or not resume_rows:
+            raise ValueError("resume document resumes must be a non-empty list")
+        by_resume: dict[str, Mapping[str, Any]] = {}
+        for row in resume_rows:
+            if not isinstance(row, Mapping):
+                raise ValueError("resume rows must be objects")
+            resume_id = row.get("resume_id")
+            if not isinstance(resume_id, str) or not resume_id.strip():
+                raise ValueError("resume rows require resume_id")
+            if resume_id in by_resume:
+                raise ValueError(f"duplicate source resume_id: {resume_id}")
+            by_resume[resume_id] = row
+
+        bound_rows: list[dict[str, Any]] = []
+        seen_instances: set[str] = set()
+        for index, roster_row in enumerate(roster_rows):
+            if not isinstance(roster_row, Mapping):
+                raise ValueError(f"runtime roster row {index} must be an object")
+            instance_id = roster_row.get("instance_id", roster_row.get("robot_id"))
+            source_resume_id = roster_row.get("source_resume_id")
+            if not isinstance(instance_id, str) or not instance_id.strip():
+                raise ValueError(f"runtime roster row {index} requires instance_id")
+            if instance_id in seen_instances:
+                raise ValueError(f"duplicate runtime instance_id: {instance_id}")
+            seen_instances.add(instance_id)
+            if not isinstance(source_resume_id, str) or not source_resume_id.strip():
+                raise ValueError(f"runtime roster row {index} requires source_resume_id")
+            source = by_resume.get(source_resume_id)
+            if source is None:
+                raise ValueError(f"source resume is unavailable: {source_resume_id}")
+            manipulation = source.get("manipulation")
+            if not isinstance(manipulation, Mapping):
+                raise ValueError(f"source resume lacks manipulation record: {source_resume_id}")
+            bound_rows.append({
+                "robot_id": instance_id,
+                "instance_id": instance_id,
+                "source_resume_id": source_resume_id,
+                "manipulation": dict(manipulation),
+                "capability_binding": roster_row.get("capability_binding"),
+                "asset_binding": roster_row.get("asset_binding"),
+                "initial_state_binding": roster_row.get("initial_state_binding"),
+            })
+        return cls.from_json_documents(scene_document, {"robots": bound_rows})
+
     def check(self, command: TransportCommand) -> TransportAdmissionResult:
         object_record = self.objects.get(command.object_ref)
         robot_record = self.robots.get(command.robot_id)
