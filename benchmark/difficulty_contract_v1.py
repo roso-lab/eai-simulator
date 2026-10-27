@@ -1,4 +1,4 @@
-"""Contract-only difficulty tiers and pre-release validation for paper dac7b94.
+"""Contract-only difficulty tiers bound to the current scorebook paper identity.
 
 No simulator, solver result, condition assignment, or candidate outcome is an
 input to this module.  Raw components are recomputed from a content-bound base

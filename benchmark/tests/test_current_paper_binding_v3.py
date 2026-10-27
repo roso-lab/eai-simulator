@@ -15,7 +15,7 @@ from benchmark.formal_matrix_v3 import BaselineQualificationV3
 from benchmark.task_catalog import load_default_catalog
 
 
-CURRENT_PAPER = "dac7b94207a2683d494bdb388fc48533c9219bdf"
+CURRENT_PAPER = "383acc19657a0fd7ebd881a5ac2bb0e03f8c38c8"
 STALE_PAPERS = (
     "1f329494e755523692f5f96c8e0889c6cec15a82",
     "75ceff6f55202b6b1a31b2e2e0f6de56023940fd",
@@ -23,6 +23,7 @@ STALE_PAPERS = (
     "af12f6d0d435a41b61f67b591487d63aade0f41c",
     "07dcd4000e836f7e40178bb6df8fed985e6dadd0",
     "0b006d4efcd25d5160d4b0a6e75cddd9e5265e44",
+    "dac7b94207a2683d494bdb388fc48533c9219bdf",
 )
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 P4_FIXTURE = PROJECT_ROOT / "benchmark/fixtures/p4_candidate_factory_20261021"
@@ -119,11 +120,24 @@ def test_formal_readiness_no_longer_blocks_on_resolved_d3_partition():
 
 
 def test_baseline_qualification_needs_nonempty_unique_condition_coverage():
-    import hashlib
+    from algorithm.heterocoord.registry import primary_registry_records
+
     digests = tuple(hashlib.sha256(label.encode()).hexdigest()
                     for label in ("system", "task", "team", "budget", "observation", "manifest"))
-    values = ("baseline", "source", "adapter", "checkpoint", "qualified", "observation")
+    record = primary_registry_records()[0]
+    values = (record["algorithm_id"], "source", "adapter", "checkpoint", "qualified", "observation")
     assert not BaselineQualificationV3(*values, ()).rankable
     assert not BaselineQualificationV3(*values, ("C0", "C0")).rankable
     assert not BaselineQualificationV3(*values, ("C0",)).rankable
-    assert BaselineQualificationV3(*values, ("C0",), *digests).rankable
+    assert not BaselineQualificationV3(*values, ("C0",), *digests).rankable
+    assert not BaselineQualificationV3(
+        *values,
+        ("C0",),
+        *digests,
+        record["job_system_id"],
+        record["comparison_condition_id"],
+        record["information_rights_group"],
+        record["code_version"],
+        record["source_version"],
+        record["model_version"],
+    ).rankable

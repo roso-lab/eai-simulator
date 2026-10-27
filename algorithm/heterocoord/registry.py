@@ -8,8 +8,50 @@ into a physical success, and it records missing source/checkpoint evidence as
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
+
+
+PRIMARY_SYSTEM_COLUMNS: tuple[str, ...] = (
+    "FMC-ATA",
+    "BT-capabilities",
+    "Gosrich-et-al",
+    "HARL-HAPPO",
+    "TeamWeaver-adapted-to-EAI",
+    "EMOS",
+)
+
+IMPLEMENTATION_REGISTER_REQUIRED_FIELDS: tuple[str, ...] = (
+    "algorithm_id",
+    "code_version",
+    "source_version",
+    "model_version",
+    "adapter_version",
+    "cognition_configuration",
+    "training_access",
+    "runtime_information",
+    "supplied_decomposition",
+    "supported_task_subset",
+    "supported_disturbances",
+    "comparison_group",
+    "comparison_condition_id",
+    "information_rights",
+    "information_rights_group",
+    "developer_relationship",
+    "changed_components",
+    "actor_identities",
+    "action_encoding",
+    "admissible_task_subset",
+    "semantic_model",
+    "world_graph",
+    "solver",
+    "replanning_policy",
+    "budget_accounting",
+    "registration_status",
+    "paper_column_coverage_status",
+    "comparison_condition_status",
+)
 
 
 _RAW_REGISTRY: tuple[dict[str, Any], ...] = (
@@ -83,7 +125,7 @@ _RAW_REGISTRY: tuple[dict[str, Any], ...] = (
     },
     {
         "algorithm_id": "Qrainbow",
-        "paper_scope": "table_3_4_primary",
+        "paper_scope": "additional_candidate",
         "source_reference": "RA-L 2024 / 10.1109/LRA.2023.3328448",
         "official_repo": None,
         "source_commit": None,
@@ -185,7 +227,7 @@ _RAW_REGISTRY: tuple[dict[str, Any], ...] = (
     },
     {
         "algorithm_id": "TeamWeaver-adapted-to-EAI",
-        "paper_scope": "existing_eai_extra",
+        "paper_scope": "table_3_4_primary",
         "source_reference": "TeamWeaver paper and existing EAI benchmark integration",
         "official_repo": None,
         "source_commit": None,
@@ -196,7 +238,7 @@ _RAW_REGISTRY: tuple[dict[str, Any], ...] = (
         "checkpoint": "not_applicable_classical_planner",
         "training_access": "not_applicable",
         "supported_primitives": ["heterogeneous_capability", "precedence", "replanning"],
-        "unsupported_dimensions": ["paper_table_3_4_primary_comparison"],
+        "unsupported_dimensions": ["nonempty_history_reconstruction", "task_graph_prerequisites", "physical_qualification"],
         "physical_executor_owner": "eai_runtime",
         "status": "existing_adapter_ready",
     },
@@ -272,6 +314,97 @@ _SYSTEM_ROLES: dict[str, str] = {
 }
 
 
+_PRIMARY_REGISTER_OVERRIDES: dict[str, dict[str, Any]] = {
+    "FMC-ATA": {
+        "job_system_id": "FMC-ATA",
+        "adapter_version": "N/A_no_current_generic_EAI_adapter",
+        "supplied_decomposition": "not_applicable_system_owned_market_tasks",
+        "comparison_group": "complete_coordination_system",
+        "information_rights_group": "N/A_pending_frozen_information_rights",
+        "information_rights": "N/A_pending_frozen_information_rights",
+        "comparison_condition_id": "paper-condition.v1::complete-coordination",
+        "registration_status": "source_only",
+        "paper_column_coverage_status": "legacy_scenario_only",
+        "comparison_condition_status": "pending",
+    },
+    "BT-capabilities": {
+        "job_system_id": "BT-capabilities",
+        "adapter_version": "N/A_no_current_generic_EAI_adapter",
+        "supplied_decomposition": "required_registered_mission_tree",
+        "comparison_group": "methods_given_task_decomposition",
+        "information_rights_group": "N/A_pending_frozen_information_rights",
+        "information_rights": "N/A_pending_frozen_information_rights",
+        "comparison_condition_id": "paper-condition.v1::supplied-decomposition",
+        "registration_status": "source_only",
+        "paper_column_coverage_status": "legacy_scenario_only",
+        "comparison_condition_status": "pending",
+    },
+    "Gosrich-et-al": {
+        "job_system_id": "Gosrich-et-al",
+        "adapter_version": "N/A_official_source_unavailable",
+        "supplied_decomposition": "N/A_pending_reproduction",
+        "comparison_group": "complete_coordination_system",
+        "information_rights_group": "N/A_pending_frozen_information_rights",
+        "information_rights": "N/A_pending_frozen_information_rights",
+        "comparison_condition_id": "paper-condition.v1::complete-coordination",
+        "registration_status": "unavailable",
+        "paper_column_coverage_status": "none",
+        "comparison_condition_status": "pending",
+    },
+    "HARL-HAPPO": {
+        "job_system_id": "HARL-HAPPO",
+        "adapter_version": "N/A_no_in_tree_EAI_adapter",
+        "supplied_decomposition": "not_applicable_policy_owned",
+        "comparison_group": "heterogeneous_learned_policy",
+        "information_rights_group": "N/A_pending_frozen_information_rights",
+        "information_rights": "N/A_pending_frozen_information_rights",
+        "comparison_condition_id": "paper-condition.v1::heterogeneous-learned-policy",
+        "registration_status": "unavailable",
+        "paper_column_coverage_status": "none",
+        "comparison_condition_status": "pending",
+    },
+    "TeamWeaver-adapted-to-EAI": {
+        "job_system_id": "TeamWeaver-adapted-to-EAI",
+        "source_version": "workspace_source_release_digest_required",
+        "model_version": "not_applicable_classical_planner",
+        "adapter_version": "benchmark.teamweaver.contract-adapter.v1",
+        "cognition_configuration": "optional_LLM_semantic_decomposition_plus_DynamicFactoryAllocator",
+        "runtime_information": "CPU_Gurobi_or_SciPy_allocator; physical_runtime_not_qualified",
+        "supplied_decomposition": "system_generated_when_enabled; registered_task_package_otherwise",
+        "supported_task_subset": ["bounded_allocation_without_prerequisites"],
+        "supported_disturbances": ["N/A_nonempty_history_reconstruction_rejected"],
+        "comparison_group": "complete_coordination_system",
+        "information_rights_group": "N/A_pending_frozen_information_rights",
+        "information_rights": "N/A_pending_frozen_information_rights",
+        "comparison_condition_id": "paper-condition.v1::complete-coordination",
+        "registration_status": "bounded_adapter_connected",
+        "paper_column_coverage_status": "bounded_no_history_or_prerequisites",
+        "comparison_condition_status": "pending",
+        "changed_components": "uniform_contract_input_output_adapter_only; TeamWeaver_algorithm_unchanged",
+        "actor_identities": "EAI_robot_id_preserved_as_TeamWeaver_RobotState.name",
+        "action_encoding": "typed_task_id_to_robot_name_assignment",
+        "admissible_task_subset": "no_prerequisite_edges; empty_H_r_initialization_only",
+        "semantic_model": "FactoryTaskSpec_required_capabilities_duration_priority",
+        "world_graph": "N/A_not_consumed_by_contract_adapter",
+        "solver": "DynamicFactoryAllocator_Gurobi_with_SciPy_fallback",
+        "replanning_policy": "N/A_not_exposed_by_contract_adapter",
+        "budget_accounting": "required_not_yet_bound_to_formal_computation_and_message_budgets",
+    },
+    "EMOS": {
+        "job_system_id": "EMOS-adapted-to-EAI",
+        "adapter_version": "benchmark.emos.v1",
+        "supplied_decomposition": "system_generated_embodiment_aware_plan",
+        "comparison_group": "privileged_reference",
+        "information_rights_group": "N/A_pending_ideal_geometry_rights_registration",
+        "information_rights": "N/A_pending_ideal_geometry_rights_registration",
+        "comparison_condition_id": "paper-condition.v1::privileged-reference",
+        "registration_status": "bounded_adapter_connected",
+        "paper_column_coverage_status": "bounded_zero_system",
+        "comparison_condition_status": "pending",
+    },
+}
+
+
 def _annotate_system_record(record: dict[str, Any]) -> dict[str, Any]:
     """Add the layer contract without changing source/checkpoint metadata."""
 
@@ -290,16 +423,177 @@ def _annotate_system_record(record: dict[str, Any]) -> dict[str, Any]:
             "executor_owner": "task.executors -> EAI controller/skill",
             "physical_success_owner": "task.evaluators -> EAI runtime",
             "published_runtime_readiness": "not_established_by_registry",
+            "job_system_id": algorithm_id,
+            "code_version": str(result.get("source_commit") or "workspace_release_digest_required"),
+            "source_version": str(result.get("source_commit") or "N/A_no_registered_source_version"),
+            "model_version": str(result.get("checkpoint") or "N/A_no_registered_model_version"),
+            "adapter_version": "N/A_adapter_version_not_registered",
+            "cognition_configuration": str(result.get("model_or_api") or "N/A_not_registered"),
+            "runtime_information": "N/A_runtime_not_qualified",
+            "supplied_decomposition": "N/A_not_registered",
+            "supported_task_subset": list(result.get("supported_primitives") or ["N/A_not_registered"]),
+            "supported_disturbances": ["N/A_not_registered"],
+            "comparison_group": "additional_candidate_not_in_primary_panel",
+            "comparison_condition_id": f"paper-condition.v1::{algorithm_id}",
+            "information_rights": "N/A_not_registered",
+            "information_rights_group": "N/A_not_registered",
+            "developer_relationship": "N/A_not_registered",
+            "changed_components": "N/A_not_registered",
+            "actor_identities": "N/A_not_registered",
+            "action_encoding": "N/A_not_registered",
+            "admissible_task_subset": "N/A_not_registered",
+            "semantic_model": "N/A_not_registered",
+            "world_graph": "N/A_not_registered",
+            "solver": "N/A_not_registered",
+            "replanning_policy": "N/A_not_registered",
+            "budget_accounting": "N/A_not_registered",
+            "registration_status": "candidate_inventory_only",
+            "paper_column_coverage_status": "none",
+            "comparison_condition_status": "not_applicable",
         }
     )
+    result.update(_PRIMARY_REGISTER_OVERRIDES.get(algorithm_id, {}))
     return result
 
 
 # Keep the public tuple name used by existing tests and manifests, while making
 # the system/skill boundary machine-readable for new tooling.
+_ANNOTATED_REGISTRY = tuple(_annotate_system_record(item) for item in _RAW_REGISTRY)
+_REGISTRY_BY_ID = {item["algorithm_id"]: item for item in _ANNOTATED_REGISTRY}
 REGISTRY: tuple[dict[str, Any], ...] = tuple(
-    _annotate_system_record(item) for item in _RAW_REGISTRY
+    _REGISTRY_BY_ID[algorithm_id] for algorithm_id in PRIMARY_SYSTEM_COLUMNS
+) + tuple(
+    item for item in _ANNOTATED_REGISTRY
+    if item["algorithm_id"] not in PRIMARY_SYSTEM_COLUMNS
 )
+
+
+def primary_system_columns() -> tuple[str, ...]:
+    """Return the paper's exact, ordered six result columns."""
+
+    return PRIMARY_SYSTEM_COLUMNS
+
+
+def primary_registry_records() -> tuple[dict[str, Any], ...]:
+    """Return defensive copies in manuscript column order."""
+
+    return tuple(dict(_REGISTRY_BY_ID[item]) for item in PRIMARY_SYSTEM_COLUMNS)
+
+
+def _registered_value(value: Any) -> bool:
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, (list, tuple)):
+        return bool(value) and all(isinstance(item, str) and item.strip() for item in value)
+    return value is not None
+
+
+def validate_implementation_register(
+    records: Iterable[Mapping[str, Any]] = REGISTRY,
+) -> tuple[str, ...]:
+    """Validate exact primary membership and the paper-required register fields."""
+
+    rows = tuple(dict(item) for item in records)
+    ids = tuple(str(item.get("algorithm_id", "")) for item in rows)
+    if not all(ids) or len(set(ids)) != len(ids):
+        raise ValueError("implementation register requires unique algorithm_id values")
+    for item in rows:
+        missing = [
+            name for name in IMPLEMENTATION_REGISTER_REQUIRED_FIELDS
+            if name not in item or not _registered_value(item[name])
+        ]
+        if missing:
+            raise ValueError(
+                f"implementation register {item['algorithm_id']} has missing fields: {missing}"
+            )
+        if item.get("published_runtime_readiness") != "not_established_by_registry":
+            raise ValueError("implementation registry cannot establish runtime readiness")
+    primary = tuple(
+        item["algorithm_id"] for item in rows
+        if item.get("paper_scope") == "table_3_4_primary"
+    )
+    if primary != PRIMARY_SYSTEM_COLUMNS:
+        raise ValueError("primary implementation register must match manuscript column order")
+    return primary
+
+
+def primary_condition_record(
+    system_id: str,
+    comparison_condition_id: str,
+    information_rights_group: str,
+) -> dict[str, Any]:
+    """Resolve one paper-rankable job/baseline identity or fail closed."""
+
+    matches = [
+        item for item in primary_registry_records()
+        if item["job_system_id"] == system_id
+        and item["comparison_condition_id"] == comparison_condition_id
+        and item["information_rights_group"] == information_rights_group
+    ]
+    if len(matches) != 1:
+        raise ValueError("unregistered primary comparison identity")
+    return matches[0]
+
+
+def implementation_condition_complete(record: Mapping[str, Any]) -> bool:
+    """Return whether a register row is complete enough for formal evidence."""
+
+    unresolved_tokens = (
+        "N/A", "pending", "not_registered", "release_digest_required",
+        "not_yet", "not_qualified",
+    )
+
+    def resolved(value: Any) -> bool:
+        if isinstance(value, str):
+            return bool(value.strip()) and not any(token in value for token in unresolved_tokens)
+        if isinstance(value, (list, tuple)):
+            return bool(value) and all(resolved(item) for item in value)
+        return value is not None
+
+    return bool(
+        record.get("registration_status") == "complete"
+        and record.get("paper_column_coverage_status") == "full"
+        and record.get("comparison_condition_status") == "frozen"
+        and all(resolved(record.get(name)) for name in IMPLEMENTATION_REGISTER_REQUIRED_FIELDS)
+    )
+
+
+def validate_primary_job_identity(
+    job: Mapping[str, Any] | Any,
+    *,
+    records: Iterable[Mapping[str, Any]] = REGISTRY,
+    require_complete: bool = True,
+) -> dict[str, Any]:
+    """Validate paper-job identity without constraining diagnostic BranchJob use."""
+
+    rows = tuple(dict(item) for item in records)
+    validate_implementation_register(rows)
+    system_id = job.get("system_id") if isinstance(job, Mapping) else getattr(job, "system_id", None)
+    metadata = job.get("metadata") if isinstance(job, Mapping) else getattr(job, "metadata", None)
+    if not isinstance(metadata, Mapping):
+        raise ValueError("paper job requires implementation identity metadata")
+    matches = [
+        item for item in rows
+        if item.get("paper_scope") == "table_3_4_primary"
+        and item.get("job_system_id") == system_id
+    ]
+    if len(matches) != 1:
+        raise ValueError("paper job system_id is not a primary registered implementation")
+    record = matches[0]
+    bindings = {
+        "comparison_condition_id": "comparison_condition_id",
+        "information_rights_group": "information_rights_group",
+        "code_version": "code_version",
+        "source_version": "source_version",
+        "model_version": "model_version",
+        "adapter_version": "adapter_version",
+    }
+    for metadata_name, record_name in bindings.items():
+        if metadata.get(metadata_name) != record.get(record_name):
+            raise ValueError(f"paper job {metadata_name} does not match implementation register")
+    if require_complete and not implementation_condition_complete(record):
+        raise ValueError("paper job implementation condition is incomplete")
+    return dict(record)
 
 
 def registry_records() -> list[dict[str, Any]]:

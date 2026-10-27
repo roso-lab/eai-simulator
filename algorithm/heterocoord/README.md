@@ -1,15 +1,44 @@
 # HeteroCoord provenance registry
 
-`registry.py` records the six algorithms that are columns in the source paper
-Table 3/4 plus separately labelled candidates. It is a provenance inventory,
-not a runtime readiness registry. Every record therefore carries
+`registry.py` records the exact ordered six result columns in paper
+`383acc19657a0fd7ebd881a5ac2bb0e03f8c38c8` plus separately labelled
+candidates. It is a provenance and implementation-condition inventory, not a
+runtime readiness registry. Every record therefore carries
 `published_runtime_readiness="not_established_by_registry"`.
 
 The six primary entries are FMC-ATA, BT capabilities, Gosrich et al.,
-HARL:HAPPO, Qrainbow, and EMOS. Other entries remain separate candidates or an
-existing EAI extra. Missing source, integration code, or weights stays explicit
-`N/A`; the registry never substitutes a different algorithm, an unrecorded
-self-trained policy, or a fixed dispatch and labels it as the original method.
+HARL:HAPPO, TeamWeaver adapted to EAI, and EMOS, in that order. Qrainbow remains
+an additional literature candidate; it is not renamed or silently reused as
+TeamWeaver. Missing source, integration code, model, information rights, runtime
+qualification, or weights stays explicit `N/A`; the registry never substitutes
+a different algorithm, an unrecorded self-trained policy, or a fixed dispatch
+and labels it as the original method.
+
+## Paper implementation register
+
+`PRIMARY_SYSTEM_COLUMNS` is the sole ordered-column API. Each registry row also
+records source/code/model and adapter versions, cognition/training/runtime
+configuration, supplied decomposition, task and disturbance scope, comparison
+condition, information-rights group, adaptation components, actor/action
+encoding, semantic/world models, solver, replanning, and budget accounting.
+`validate_implementation_register()` rejects a missing field or primary-roster
+drift. `primary_condition_record()` resolves the complete runtime system,
+comparison-condition, and information-rights identity; arbitrary diagnostic
+identities do not become paper-rankable.
+
+The current register intentionally leaves unresolved information rights and
+unqualified runtimes as `N/A`. A complete six-row structural roster can only
+pass the formal baseline gate when each row supplies independent physical and
+artifact qualification evidence; the registry itself never supplies it.
+
+## TeamWeaver boundary
+
+The TeamWeaver column names the EAI-adapted implementation. Its uniform adapter
+does not modify `algorithm/system/coordination/TeamWeaver/`. Non-empty history
+reconstruction and task graphs with `prerequisites` remain fail-closed, and
+computation/message budget binding plus full physical runtime qualification
+remain pending. The adapter therefore establishes bounded connectivity, not
+paper-wide or physical qualification.
 
 ## HARL-HAPPO boundary
 

@@ -26,7 +26,7 @@ from .scorebook_v3 import PAPER_COMMIT as ENGINEERING_PAPER_COMMIT
 
 ORCHESTRATOR_SCHEMA = "heterocoord.map-ready-case-execution.v1"
 ORCHESTRATOR_VERSION = "map-ready-case-v1"
-TARGET_PAPER_COMMIT = "dac7b94207a2683d494bdb388fc48533c9219bdf"
+TARGET_PAPER_COMMIT = ENGINEERING_PAPER_COMMIT
 FORMAL_GATES = {
     "rankable": False,
     "paper_score_eligible": False,

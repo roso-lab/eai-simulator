@@ -17,6 +17,7 @@ from typing import Any
 
 from .case_manifest_builder_v1 import CaseManifestBuildError, build_case_manifest
 from .records_v3 import canonical_digest
+from .scorebook_v3 import PAPER_COMMIT
 from .room06_runtime_preflight_v1 import (
     FORMAL_GATES,
     Room06RuntimePreflightError,
@@ -28,7 +29,7 @@ PACKAGE_SCHEMA = "heterocoord.room06-fixed-package.v1"
 PLAN_SCHEMA = "heterocoord.room06-fixed-plan.v1"
 DEPLOYMENT_SCHEMA = "heterocoord.room06-deployment-state.v1"
 TASK_SETUP_SCHEMA = "heterocoord.room06-task-setup.v1"
-PAPER_SHA = "dac7b94207a2683d494bdb388fc48533c9219bdf"
+PAPER_SHA = PAPER_COMMIT
 TASK_ID = "liv-t-04"
 SCENE_KEY = "room_06"
 HORIZON_TICKS = 15_000

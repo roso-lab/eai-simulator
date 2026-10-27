@@ -1,9 +1,11 @@
 # 当前论文与工程对齐进展
 
 > **当前权威覆盖（2026-10-27）**：冻结论文 ref 已更新为
-> `overleaf-old/main@dac7b94207a2683d494bdb388fc48533c9219bdf`。scorebook、composite、
+> `overleaf-old/main@383acc19657a0fd7ebd881a5ac2bb0e03f8c38c8`。scorebook、composite、
 > task catalog、31 锚点合同、map-ready 编排以及 P4 package/mapping/receipt 的当前发布面
-> 均使用该身份，并显式拒绝旧 `0b006d4…` 身份。论文新增的八个 contract-only difficulty
+> 均使用该身份，并显式拒绝旧 `dac7b94…` 及更早身份。论文主结果列现固定为
+> FMC-ATA、BT capabilities、Gosrich et al.、HARL:HAPPO、TeamWeaver、EMOS；Qrainbow
+> 保留为非主列候选。论文新增的八个 contract-only difficulty
 > 原始量、固定分箱、外部冻结 roster/common-pair registry 和可重算 pilot/fresh 认证契约
 > 已在代码中实现；生产 certification registry 工件、真实 pilot/fresh 观测、物理资格和
 > GPU 运行尚未形成，因此所有目录 difficulty 状态仍为
