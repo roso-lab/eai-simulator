@@ -18,9 +18,18 @@ from benchmark.paper_release_manifest_v1 import (
 from benchmark.paper_result_index_v1 import (
     FORMAL_GATES_FALSE,
     INDEX_MANIFEST_SCHEMA,
+    STATISTICAL_EVENT_LEDGER_SCHEMA,
+    STATISTICAL_BINDING_SCHEMA,
+    STATISTICAL_INPUT_SCHEMA,
     STATISTICAL_REPORT_SCHEMA,
     canonical_json_bytes,
+    encode_reducer_output,
     result_key_digest,
+    reducer_implementation_digest,
+    reducer_method_for_score,
+    reducer_payload_digest,
+    reducer_run_links,
+    statistical_input_digest,
 )
 
 
@@ -63,14 +72,14 @@ def support() -> dict:
         "generated_base_instances": 10,
         "infrastructure_valid_base_instances": 10,
         "metric_eligible_base_instances": 10,
-        "paired_instances": 10,
-        "common_support_instances": 10,
+        "paired_instances": {"status": "observed", "value": 1},
+        "common_support_instances": {"status": "observed", "value": 1},
         "planned_coverage_fraction": 1.0,
         "observed_coverage_fraction": 1.0,
         "repeated_trajectories": 30,
-        "event_count": 10,
-        "competing_event_count": 0,
-        "censoring_count": 0,
+        "event_count": {"status": "observed", "value": 1},
+        "competing_event_count": {"status": "observed", "value": 0},
+        "censoring_count": {"status": "observed", "value": 0},
         "numerator": 8,
         "denominator": 10,
     }
@@ -107,14 +116,65 @@ def release_fixture(
             score_id = f"D{dimension}"
             result_identity = identity(score_id, implementation_id)
             key = result_key_digest(result_identity)
-            input_digest = hashlib.sha256(f"input-{implementation_id}-{score_id}".encode()).hexdigest()
             report_path = f"evidence/{implementation_id}/{score_id}/report.json"
             input_path = f"evidence/{implementation_id}/{score_id}/input.json"
-            ledger_path = f"evidence/{implementation_id}/{score_id}/ledger.bin"
-            write_json(root, input_path, {"schema": "heterocoord.statistical-input.v1", "paper_commit": PAPER, "score_id": score_id, "input_digest": input_digest})
-            ledger = root / ledger_path
-            ledger.parent.mkdir(parents=True, exist_ok=True)
-            ledger.write_bytes(f"sealed-{implementation_id}-{score_id}\n".encode())
+            ledger_path = f"evidence/{implementation_id}/{score_id}/ledger.json"
+            payload = {
+                "runs": [{
+                    "run_id": f"{implementation_id}-{score_id}-run",
+                    "instance_id": f"{implementation_id}-{score_id}-instance",
+                    "repeat_id": "1", "evidence_digest": "registered-evidence",
+                    "values": [0.8], "status": "observed",
+                }],
+                "inference": {"alpha": 0.05, "resamples": 100},
+            }
+            method = reducer_method_for_score(score_id)
+            implementation_digest = reducer_implementation_digest(score_id)
+            payload_digest = reducer_payload_digest(payload)
+            instance_id = payload["runs"][0]["instance_id"]
+            run_id = payload["runs"][0]["run_id"]
+            write_json(root, ledger_path, {
+                "schema": STATISTICAL_EVENT_LEDGER_SCHEMA,
+                "paper_commit": PAPER,
+                "score_id": score_id,
+                "implementation_id": implementation_id,
+                "comparison_condition_id": "condition-1",
+                "outcome_id": score_id,
+                "estimator_version": "estimator-v1",
+                "result_key_digest": key,
+                "evidence_scope": "paper_result_candidate",
+                "reducer_method": method,
+                "reducer_implementation_digest": implementation_digest,
+                "reducer_payload_digest": payload_digest,
+                "run_links": reducer_run_links(payload),
+                "support_registry": {
+                    "pairing": {"status": "available", "paired_instance_ids": [instance_id]},
+                    "common_support": {"status": "available", "common_support_instance_ids": [instance_id]},
+                    "events": {"status": "available", "event_run_ids": [run_id], "competing_event_run_ids": [], "censoring_run_ids": []},
+                },
+            })
+            ledger_ref = ref(root, ledger_path)
+            reducer_input_digest = hashlib.sha256(f"reducer-{implementation_id}-{score_id}".encode()).hexdigest()
+            input_value = {
+                "schema": STATISTICAL_INPUT_SCHEMA,
+                "paper_commit": PAPER,
+                "score_id": score_id,
+                "implementation_id": implementation_id,
+                "comparison_condition_id": "condition-1",
+                "outcome_id": score_id,
+                "estimator_version": "estimator-v1",
+                "result_key_digest": key,
+                "evidence_scope": "paper_result_candidate",
+                "reducer_method": method,
+                "reducer_implementation_digest": implementation_digest,
+                "reducer_payload": payload,
+                "reducer_payload_digest": payload_digest,
+                "reducer_input_digest": reducer_input_digest,
+                "event_ledger_ref": ledger_ref,
+            }
+            input_value["input_digest"] = statistical_input_digest(input_value)
+            input_digest = input_value["input_digest"]
+            write_json(root, input_path, input_value)
             write_json(root, report_path, {
                 "schema": STATISTICAL_REPORT_SCHEMA,
                 "paper_commit": PAPER,
@@ -130,7 +190,16 @@ def release_fixture(
                 "formal_gates": dict(FORMAL_GATES_FALSE),
                 "estimate": {"status": "valid", "point": 80.0, "lower": 75.0, "upper": 85.0, "interval_method": "cluster_percentile", "reason": "observed_estimate"},
                 "support": support(),
-                "event_ledger_digest": hashlib.sha256(ledger.read_bytes()).hexdigest(),
+                "event_ledger_digest": ledger_ref["sha256"],
+                "reducer_method": method,
+                "reducer_implementation_digest": implementation_digest,
+                "reducer_payload_digest": payload_digest,
+                "reducer_input_digest": reducer_input_digest,
+                "reducer_output": encode_reducer_output({
+                    "score_id": score_id, "paper_commit": PAPER,
+                    "scorebook_digest": scorebook_digest,
+                    "input_digest": reducer_input_digest, "status": "valid",
+                }),
             })
             report_ref = ref(root, report_path)
             bindings.append({
@@ -144,12 +213,12 @@ def release_fixture(
                 "expected_input_digest": input_digest,
                 "report_ref": report_ref,
                 "input_ref": ref(root, input_path),
-                "event_ledger_ref": ref(root, ledger_path),
+                "event_ledger_ref": ledger_ref,
             })
             report_set.append({"result_key_digest": key, "report_ref": report_ref})
     binding_path = "manifests/statistical-report-binding.v1.json"
     write_json(root, binding_path, {
-        "schema": "heterocoord.statistical-report-binding.v1",
+        "schema": STATISTICAL_BINDING_SCHEMA,
         "paper_commit": PAPER,
         "scorebook_digest": scorebook_digest,
         "bindings": bindings,
@@ -292,7 +361,7 @@ def test_input_identity_mismatch_is_rejected(tmp_path: Path):
     (tmp_path / input_path).write_bytes(canonical_json_bytes(input_value))
     binding["bindings"][0]["input_ref"] = ref(tmp_path, input_path)
     binding_path.write_bytes(canonical_json_bytes(binding))
-    with pytest.raises(PaperReleaseManifestError, match="input identity mismatch"):
+    with pytest.raises(PaperReleaseManifestError, match="input digest identity mismatch"):
         build_paper_release_manifest(root=tmp_path, paper_commit=PAPER, dependencies=dependencies, destination=tmp_path / "release.json")
 
 

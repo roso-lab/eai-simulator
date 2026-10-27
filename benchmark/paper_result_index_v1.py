@@ -21,11 +21,13 @@ from typing import Any, Iterable, Mapping, Sequence
 
 IMPLEMENTATION_REGISTER_SCHEMA = "heterocoord.implementation-register.v1"
 CONDITION_REGISTER_SCHEMA = "heterocoord.comparison-condition-register.v1"
-REQUIRED_DIRECTORY_SCHEMA = "heterocoord.required-result-directory.v1"
-STATISTICAL_BINDING_SCHEMA = "heterocoord.statistical-report-binding.v1"
-STATISTICAL_REPORT_SCHEMA = "heterocoord.statistical-report.v1"
-ROW_SCHEMA = "heterocoord.paper-result-row.v1"
-INDEX_MANIFEST_SCHEMA = "heterocoord.paper-result-index-manifest.v1"
+REQUIRED_DIRECTORY_SCHEMA = "heterocoord.required-result-directory.v2"
+STATISTICAL_BINDING_SCHEMA = "heterocoord.statistical-report-binding.v2"
+STATISTICAL_REPORT_SCHEMA = "heterocoord.statistical-report.v2"
+STATISTICAL_INPUT_SCHEMA = "heterocoord.statistical-input.v2"
+STATISTICAL_EVENT_LEDGER_SCHEMA = "heterocoord.statistical-event-ledger.v1"
+ROW_SCHEMA = "heterocoord.paper-result-row.v2"
+INDEX_MANIFEST_SCHEMA = "heterocoord.paper-result-index-manifest.v2"
 CELL_MAP_SCHEMA = "heterocoord.manuscript-cell-map.v1"
 
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
@@ -82,18 +84,20 @@ EXECUTION_FIELDS = {
     "initialization_configuration_digest",
     "execution_audit_version",
 }
-SUPPORT_COUNT_FIELDS = {
+BASE_SUPPORT_COUNT_FIELDS = {
     "generated_base_instances",
     "infrastructure_valid_base_instances",
     "metric_eligible_base_instances",
+    "repeated_trajectories",
+}
+TAGGED_SUPPORT_COUNT_FIELDS = {
     "paired_instances",
     "common_support_instances",
-    "repeated_trajectories",
     "event_count",
     "competing_event_count",
     "censoring_count",
 }
-SUPPORT_FIELDS = SUPPORT_COUNT_FIELDS | {
+SUPPORT_FIELDS = BASE_SUPPORT_COUNT_FIELDS | TAGGED_SUPPORT_COUNT_FIELDS | {
     "planned_coverage_fraction",
     "observed_coverage_fraction",
     "numerator",
@@ -173,6 +177,46 @@ STATISTICAL_REPORT_FIELDS = {
     "estimate",
     "support",
     "event_ledger_digest",
+    "reducer_method",
+    "reducer_implementation_digest",
+    "reducer_payload_digest",
+    "reducer_input_digest",
+    "reducer_output",
+}
+
+STATISTICAL_INPUT_FIELDS = {
+    "schema",
+    "paper_commit",
+    "score_id",
+    "implementation_id",
+    "comparison_condition_id",
+    "outcome_id",
+    "estimator_version",
+    "result_key_digest",
+    "evidence_scope",
+    "reducer_method",
+    "reducer_implementation_digest",
+    "reducer_payload",
+    "reducer_payload_digest",
+    "reducer_input_digest",
+    "event_ledger_ref",
+    "input_digest",
+}
+EVENT_LEDGER_FIELDS = {
+    "schema",
+    "paper_commit",
+    "score_id",
+    "implementation_id",
+    "comparison_condition_id",
+    "outcome_id",
+    "estimator_version",
+    "result_key_digest",
+    "evidence_scope",
+    "reducer_method",
+    "reducer_implementation_digest",
+    "reducer_payload_digest",
+    "run_links",
+    "support_registry",
 }
 
 
@@ -248,6 +292,107 @@ def canonical_digest(value: Any) -> str:
     return hashlib.sha256(canonical_json_bytes(value)).hexdigest()
 
 
+REDUCER_METHODS = {
+    "D1": "benchmark.organization_v3.organization_report_from_payload",
+    "D2": "benchmark.analysis_v3.analyze_dimension",
+    "D3": "benchmark.relations_v3.d3_relation_report",
+    "D4": "benchmark.analysis_v3.analyze_dimension",
+    "D5": "benchmark.analysis_v3.analyze_dimension+benchmark.fixed_catalog_v3.FixedCatalogV3.analyze",
+    "D6": "benchmark.analysis_v3.analyze_dimension+benchmark.fixed_catalog_v3.FixedCatalogV3.analyze",
+}
+
+
+def reducer_method_for_score(score_id: str) -> str:
+    try:
+        return REDUCER_METHODS[score_id]
+    except KeyError as exc:
+        raise PaperResultIndexError("statistical score_id is outside D1-D6") from exc
+
+
+def reducer_implementation_digest(score_id: str) -> str:
+    reducer_files = {
+        "D1": ("organization_v3.py",),
+        "D2": ("analysis_v3.py", "statistics_v3.py"),
+        "D3": ("relations_v3.py", "statistics_v3.py"),
+        "D4": ("analysis_v3.py", "statistics_v3.py"),
+        "D5": ("analysis_v3.py", "fixed_catalog_v3.py", "statistics_v3.py"),
+        "D6": ("analysis_v3.py", "fixed_catalog_v3.py", "statistics_v3.py"),
+    }
+    try:
+        names = ("statistical_report_producer_v1.py", *reducer_files[score_id])
+    except KeyError as exc:
+        raise PaperResultIndexError("statistical score_id is outside D1-D6") from exc
+    root = Path(__file__).resolve().parent
+    sources = []
+    for name in names:
+        path = root / name
+        if path.is_symlink() or not path.is_file():
+            raise PaperResultIndexError(f"reducer implementation source is unavailable: {name}")
+        sources.append({"path": f"benchmark/{name}", "sha256": hashlib.sha256(path.read_bytes()).hexdigest()})
+    return canonical_digest(sources)
+
+
+def reducer_payload_digest(payload: Mapping[str, Any]) -> str:
+    if not isinstance(payload, Mapping):
+        raise PaperResultIndexError("reducer_payload must be an object")
+    return canonical_digest(payload)
+
+
+def statistical_input_digest(value: Mapping[str, Any]) -> str:
+    if not isinstance(value, Mapping):
+        raise PaperResultIndexError("statistical input must be an object")
+    unsigned = dict(value)
+    unsigned.pop("input_digest", None)
+    return canonical_digest(unsigned)
+
+
+def _encode_nonfinite(value: Any) -> Any:
+    if isinstance(value, float) and not math.isfinite(value):
+        if math.isnan(value):
+            label = "nan"
+        else:
+            label = "positive_infinity" if value > 0 else "negative_infinity"
+        return {"__heterocoord_nonfinite__": label}
+    if isinstance(value, Mapping):
+        return {key: _encode_nonfinite(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_encode_nonfinite(item) for item in value]
+    return value
+
+
+def encode_reducer_output(value: Mapping[str, Any]) -> Mapping[str, Any]:
+    if not isinstance(value, Mapping):
+        raise PaperResultIndexError("reducer output must be an object")
+    return {"encoding": "heterocoord.tagged-nonfinite-json.v1", "value": _encode_nonfinite(value)}
+
+
+def _decode_nonfinite(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        if set(value) == {"__heterocoord_nonfinite__"}:
+            label = value["__heterocoord_nonfinite__"]
+            if label == "nan":
+                return float("nan")
+            if label == "positive_infinity":
+                return float("inf")
+            if label == "negative_infinity":
+                return float("-inf")
+            raise PaperResultIndexError("stored reducer output has an invalid nonfinite tag")
+        return {key: _decode_nonfinite(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_decode_nonfinite(item) for item in value]
+    return value
+
+
+def decode_reducer_output(value: Mapping[str, Any]) -> Mapping[str, Any]:
+    _exact_keys(value, {"encoding", "value"}, "statistical report reducer_output")
+    if value["encoding"] != "heterocoord.tagged-nonfinite-json.v1" or not isinstance(value["value"], Mapping):
+        raise PaperResultIndexError("statistical report reducer_output encoding is invalid")
+    decoded = _decode_nonfinite(value["value"])
+    if not isinstance(decoded, Mapping):  # pragma: no cover - guarded above
+        raise PaperResultIndexError("decoded reducer output must be an object")
+    return decoded
+
+
 def _validate_tagged(value: Any, name: str) -> None:
     if not isinstance(value, Mapping):
         raise PaperResultIndexError(f"{name} must be a tagged object")
@@ -290,8 +435,23 @@ def _validate_execution(execution: Mapping[str, Any]) -> None:
 
 def _validate_support(support: Mapping[str, Any]) -> None:
     _exact_keys(support, SUPPORT_FIELDS, "support")
-    for field in SUPPORT_COUNT_FIELDS:
+    for field in BASE_SUPPORT_COUNT_FIELDS:
         _integer(support[field], f"support.{field}")
+    tagged_counts: dict[str, int | None] = {}
+    for field in TAGGED_SUPPORT_COUNT_FIELDS:
+        value = support[field]
+        if not isinstance(value, Mapping):
+            raise PaperResultIndexError(f"support.{field} must be a tagged count")
+        status = value.get("status")
+        if status == "observed":
+            _exact_keys(value, {"status", "value"}, f"support.{field}")
+            tagged_counts[field] = _integer(value["value"], f"support.{field}.value")
+        elif status in {"unavailable", "not_applicable"}:
+            _exact_keys(value, {"status", "reason"}, f"support.{field}")
+            _text(value["reason"], f"support.{field}.reason")
+            tagged_counts[field] = None
+        else:
+            raise PaperResultIndexError(f"support.{field}.status is invalid")
     _real(support["planned_coverage_fraction"], "support.planned_coverage_fraction", minimum=0, maximum=1)
     _real(support["observed_coverage_fraction"], "support.observed_coverage_fraction", minimum=0, maximum=1)
     numerator = _real(support["numerator"], "support.numerator", minimum=0)
@@ -303,8 +463,10 @@ def _validate_support(support: Mapping[str, Any]) -> None:
     eligible = support["metric_eligible_base_instances"]
     if not 0 <= eligible <= infrastructure <= generated:
         raise PaperResultIndexError("support base-instance counts are not nested")
-    if support["paired_instances"] > generated or support["common_support_instances"] > generated:
-        raise PaperResultIndexError("support paired/common counts exceed generated count")
+    for field in ("paired_instances", "common_support_instances"):
+        count = tagged_counts[field]
+        if count is not None and count > generated:
+            raise PaperResultIndexError("support paired/common counts exceed generated count")
 
 
 def _validate_estimate(estimate: Mapping[str, Any]) -> None:
@@ -317,6 +479,7 @@ def _validate_estimate(estimate: Mapping[str, Any]) -> None:
     expected = {
         "observed": "valid",
         "observed_range": "range",
+        "not_estimable": "na",
         "missing": "incomplete",
         "unsupported": "na",
         "incomplete": "incomplete",
@@ -374,9 +537,9 @@ def _validate_evidence(evidence: Mapping[str, Any], state: str) -> None:
     ledger = evidence["event_ledger_digest"]
     if ledger is not None:
         _sha256(ledger, "evidence.event_ledger_digest")
-    if state in {"observed", "observed_range"}:
+    if state in {"observed", "observed_range", "not_estimable"}:
         if scope != "paper_result_candidate" or ledger is None or evidence["input_ref"] is None or evidence["report_ref"] is None:
-            raise PaperResultIndexError("observed evidence must be fully content-addressed paper evidence")
+            raise PaperResultIndexError("produced evidence must be fully content-addressed paper evidence")
     elif scope == "paper_result_candidate" and evidence["report_ref"] is None:
         raise PaperResultIndexError("paper_result_candidate scope requires a report_ref")
 
@@ -643,8 +806,150 @@ def _json_object(data: bytes, name: str) -> Mapping[str, Any]:
     return value
 
 
+def reducer_run_links(payload: Mapping[str, Any]) -> list[dict[str, str]]:
+    runs = payload.get("runs")
+    if not isinstance(runs, list) or not runs:
+        raise PaperResultIndexError("reducer_payload must contain a non-empty runs list")
+    links: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for index, row in enumerate(runs):
+        if not isinstance(row, Mapping):
+            raise PaperResultIndexError(f"reducer_payload.runs[{index}] must be an object")
+        instance_id = _text(row.get("instance_id"), f"reducer_payload.runs[{index}].instance_id")
+        repeat_id = _text(row.get("repeat_id"), f"reducer_payload.runs[{index}].repeat_id")
+        raw_run_id = row.get("run_id")
+        run_id = _text(raw_run_id, f"reducer_payload.runs[{index}].run_id") if raw_run_id is not None else f"{instance_id}/{repeat_id}"
+        if run_id in seen:
+            raise PaperResultIndexError("reducer_payload run identities must be unique")
+        seen.add(run_id)
+        links.append({
+            "run_id": run_id,
+            "instance_id": instance_id,
+            "repeat_id": repeat_id,
+            "evidence_digest": _text(row.get("evidence_digest"), f"reducer_payload.runs[{index}].evidence_digest"),
+        })
+    return links
+
+
+def _validate_registry_state(value: Any, name: str, *, available_fields: set[str]) -> str:
+    if not isinstance(value, Mapping):
+        raise PaperResultIndexError(f"{name} must be an object")
+    status = value.get("status")
+    if status == "available":
+        _exact_keys(value, {"status", *available_fields}, name)
+        return status
+    if status in {"unavailable", "not_applicable"}:
+        _exact_keys(value, {"status", "reason"}, name)
+        _text(value["reason"], f"{name}.reason")
+        return status
+    raise PaperResultIndexError(f"{name}.status is invalid")
+
+
+def _validate_id_list(value: Any, name: str, *, allowed: set[str]) -> None:
+    if not isinstance(value, list) or any(not isinstance(item, str) or not item for item in value):
+        raise PaperResultIndexError(f"{name} must be a list of non-empty identifiers")
+    if value != sorted(set(value)):
+        raise PaperResultIndexError(f"{name} must be unique and sorted")
+    if not set(value) <= allowed:
+        raise PaperResultIndexError(f"{name} refers to identities outside the frozen reducer payload")
+
+
+def validate_statistical_input(
+    value: Mapping[str, Any], *, binding: Mapping[str, Any]
+) -> Mapping[str, Any]:
+    _exact_keys(value, STATISTICAL_INPUT_FIELDS, "statistical input")
+    if value["schema"] != STATISTICAL_INPUT_SCHEMA:
+        raise PaperResultIndexError("unsupported statistical input schema")
+    if value["evidence_scope"] != "paper_result_candidate":
+        raise PaperResultIndexError("statistical input is not explicitly scoped as paper_result_candidate")
+    expected = {
+        "score_id": binding["score_id"],
+        "implementation_id": binding["implementation_id"],
+        "comparison_condition_id": binding["comparison_condition_id"],
+        "outcome_id": binding["outcome_id"],
+        "estimator_version": binding["estimator_version"],
+        "result_key_digest": binding["result_key_digest"],
+    }
+    if any(value[field] != expected_value for field, expected_value in expected.items()):
+        raise PaperResultIndexError("statistical input full result identity mismatch")
+    if value["reducer_method"] != reducer_method_for_score(value["score_id"]):
+        raise PaperResultIndexError("statistical input reducer method does not match score_id")
+    if value["reducer_implementation_digest"] != reducer_implementation_digest(value["score_id"]):
+        raise PaperResultIndexError("statistical input reducer implementation digest mismatch")
+    payload_digest = reducer_payload_digest(value["reducer_payload"])
+    if value["reducer_payload_digest"] != payload_digest:
+        raise PaperResultIndexError("statistical input reducer_payload_digest mismatch")
+    _sha256(value["reducer_input_digest"], "statistical input reducer_input_digest")
+    _validate_file_ref_shape(value["event_ledger_ref"], "statistical input event_ledger_ref")
+    if value["event_ledger_ref"] != binding["event_ledger_ref"]:
+        raise PaperResultIndexError("statistical input event-ledger reference mismatch")
+    digest = statistical_input_digest(value)
+    if value["input_digest"] != digest or binding["expected_input_digest"] != digest:
+        raise PaperResultIndexError("statistical input digest identity mismatch")
+    return value
+
+
+def validate_statistical_event_ledger(
+    ledger: Mapping[str, Any], *, binding: Mapping[str, Any], input_object: Mapping[str, Any]
+) -> Mapping[str, Any]:
+    _exact_keys(ledger, EVENT_LEDGER_FIELDS, "statistical event ledger")
+    if ledger["schema"] != STATISTICAL_EVENT_LEDGER_SCHEMA:
+        raise PaperResultIndexError("unsupported statistical event-ledger schema")
+    expected = {
+        "paper_commit": input_object["paper_commit"],
+        "score_id": binding["score_id"],
+        "implementation_id": binding["implementation_id"],
+        "comparison_condition_id": binding["comparison_condition_id"],
+        "outcome_id": binding["outcome_id"],
+        "estimator_version": binding["estimator_version"],
+        "result_key_digest": binding["result_key_digest"],
+        "evidence_scope": input_object["evidence_scope"],
+        "reducer_method": input_object["reducer_method"],
+        "reducer_implementation_digest": input_object["reducer_implementation_digest"],
+        "reducer_payload_digest": input_object["reducer_payload_digest"],
+    }
+    if any(ledger[field] != expected_value for field, expected_value in expected.items()):
+        raise PaperResultIndexError("statistical event ledger identity/input linkage mismatch")
+    expected_links = reducer_run_links(input_object["reducer_payload"])
+    if ledger["run_links"] != expected_links:
+        raise PaperResultIndexError("statistical event ledger run links do not match reducer payload")
+    registry = ledger["support_registry"]
+    _exact_keys(registry, {"pairing", "common_support", "events"}, "statistical event ledger support_registry")
+    instance_ids = {item["instance_id"] for item in expected_links}
+    run_ids = {item["run_id"] for item in expected_links}
+    pairing = registry["pairing"]
+    if _validate_registry_state(
+        pairing,
+        "statistical event ledger support_registry.pairing",
+        available_fields={"paired_instance_ids"},
+    ) == "available":
+        _validate_id_list(pairing["paired_instance_ids"], "paired_instance_ids", allowed=instance_ids)
+    common = registry["common_support"]
+    if _validate_registry_state(
+        common,
+        "statistical event ledger support_registry.common_support",
+        available_fields={"common_support_instance_ids"},
+    ) == "available":
+        _validate_id_list(common["common_support_instance_ids"], "common_support_instance_ids", allowed=instance_ids)
+        if pairing["status"] == "available" and not set(common["common_support_instance_ids"]) <= set(pairing["paired_instance_ids"]):
+            raise PaperResultIndexError("common support must be a subset of paired support")
+    events = registry["events"]
+    if _validate_registry_state(
+        events,
+        "statistical event ledger support_registry.events",
+        available_fields={"event_run_ids", "competing_event_run_ids", "censoring_run_ids"},
+    ) == "available":
+        for field in ("event_run_ids", "competing_event_run_ids", "censoring_run_ids"):
+            _validate_id_list(events[field], field, allowed=run_ids)
+        event_sets = [set(events[field]) for field in ("event_run_ids", "competing_event_run_ids", "censoring_run_ids")]
+        if any(event_sets[i] & event_sets[j] for i in range(3) for j in range(i + 1, 3)):
+            raise PaperResultIndexError("event, competing-event and censoring registries must be disjoint")
+    return ledger
+
+
 def _validate_statistical_report(
-    report: Mapping[str, Any], *, binding: Mapping[str, Any], paper_commit: str, scorebook_digest: str
+    report: Mapping[str, Any], *, binding: Mapping[str, Any], paper_commit: str,
+    scorebook_digest: str, input_object: Mapping[str, Any], ledger_object: Mapping[str, Any]
 ) -> None:
     _exact_keys(report, STATISTICAL_REPORT_FIELDS, "statistical report")
     if report["schema"] != STATISTICAL_REPORT_SCHEMA:
@@ -666,15 +971,54 @@ def _validate_statistical_report(
     }
     if any(report[field] != value for field, value in expected.items()):
         raise PaperResultIndexError("statistical report identity/provenance mismatch")
+    if report["reducer_method"] != input_object["reducer_method"]:
+        raise PaperResultIndexError("statistical report reducer method mismatch")
+    if report["reducer_implementation_digest"] != input_object["reducer_implementation_digest"]:
+        raise PaperResultIndexError("statistical report reducer implementation mismatch")
+    if report["reducer_payload_digest"] != input_object["reducer_payload_digest"]:
+        raise PaperResultIndexError("statistical report reducer payload mismatch")
+    if report["reducer_input_digest"] != input_object["reducer_input_digest"]:
+        raise PaperResultIndexError("statistical report reducer input digest mismatch")
+    if not isinstance(report["reducer_output"], Mapping):
+        raise PaperResultIndexError("statistical report reducer_output must be an object")
+    reducer_output = decode_reducer_output(report["reducer_output"])
+    reducer_expected = {
+        "score_id": binding["score_id"],
+        "paper_commit": paper_commit,
+        "scorebook_digest": scorebook_digest,
+        "input_digest": report["reducer_input_digest"],
+    }
+    if any(reducer_output.get(field) != value for field, value in reducer_expected.items()):
+        raise PaperResultIndexError("stored reducer output identity mismatch")
     _validate_support(report["support"])
+    registry = ledger_object["support_registry"]
+    registry_fields = {
+        "paired_instances": (registry["pairing"], "paired_instance_ids"),
+        "common_support_instances": (registry["common_support"], "common_support_instance_ids"),
+        "event_count": (registry["events"], "event_run_ids"),
+        "competing_event_count": (registry["events"], "competing_event_run_ids"),
+        "censoring_count": (registry["events"], "censoring_run_ids"),
+    }
+    for support_field, (source, ids_field) in registry_fields.items():
+        expected_count = (
+            {"status": "observed", "value": len(source[ids_field])}
+            if source["status"] == "available"
+            else {"status": source["status"], "reason": source["reason"]}
+        )
+        if report["support"][support_field] != expected_count:
+            raise PaperResultIndexError(f"statistical report {support_field} disagrees with authoritative ledger registry")
     raw = report["estimate"]
     _exact_keys(raw, {"status", "point", "lower", "upper", "interval_method", "reason"}, "statistical report estimate")
     status = raw["status"]
     _text(raw["reason"], "statistical report estimate.reason")
+    if reducer_output.get("status") != status:
+        raise PaperResultIndexError("stored reducer output status disagrees with projected estimate")
     if status == "valid":
         estimate = {"entry_state": "observed", **raw}
     elif status == "range":
         estimate = {"entry_state": "observed_range", **raw}
+    elif status == "na":
+        estimate = {"entry_state": "not_estimable", **raw}
     elif status in {"unstable", "incomplete"}:
         estimate = {
             "entry_state": "incomplete", "status": "incomplete", "point": None,
@@ -745,13 +1089,22 @@ def validate_statistical_report_binding(
         _, ledger_data = _safe_file(root_path, binding["event_ledger_ref"]["path"], expected=binding["event_ledger_ref"])
         report = _json_object(report_data, "statistical report")
         input_object = _json_object(input_data, "statistical input")
-        if input_object.get("input_digest") != binding["expected_input_digest"]:
-            raise PaperResultIndexError("statistical input digest identity mismatch")
+        ledger_object = _json_object(ledger_data, "statistical event ledger")
+        if canonical_json_bytes(input_object) != input_data:
+            raise PaperResultIndexError("statistical input is not canonical JSON")
+        if canonical_json_bytes(ledger_object) != ledger_data:
+            raise PaperResultIndexError("statistical event ledger is not canonical JSON")
+        if input_object.get("paper_commit") != binding_manifest["paper_commit"]:
+            raise PaperResultIndexError("statistical input paper commit mismatch")
+        validate_statistical_input(input_object, binding=binding)
+        validate_statistical_event_ledger(ledger_object, binding=binding, input_object=input_object)
         _validate_statistical_report(
             report,
             binding=binding,
             paper_commit=binding_manifest["paper_commit"],
             scorebook_digest=scorebook_digest,
+            input_object=input_object,
+            ledger_object=ledger_object,
         )
         if report["event_ledger_digest"] != hashlib.sha256(ledger_data).hexdigest():
             raise PaperResultIndexError("event-ledger digest does not match bound bytes")
@@ -800,6 +1153,8 @@ def build_result_rows(
                 if not entry["allow_range_display"]:
                     raise PaperResultIndexError("observed_range is not allowed for this registered result key")
                 estimate = {"entry_state": "observed_range", **raw}
+            elif raw["status"] == "na":
+                estimate = {"entry_state": "not_estimable", **raw}
             else:
                 estimate = {
                     "entry_state": "incomplete", "status": "incomplete", "point": None,
@@ -869,7 +1224,7 @@ def _safe_destination(root: str | Path, destination: str | Path) -> Path:
 def _validate_row_disposition(row: Mapping[str, Any], entry: Mapping[str, Any]) -> None:
     state = row["estimate"]["entry_state"]
     allowed_states = {
-        "required": {"missing", "incomplete", "observed", "observed_range"},
+        "required": {"missing", "incomplete", "not_estimable", "observed", "observed_range"},
         "unsupported": {"unsupported"},
         "structural_na": {"structural_na"},
     }[entry["disposition"]]

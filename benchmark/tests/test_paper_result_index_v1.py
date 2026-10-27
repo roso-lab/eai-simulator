@@ -16,14 +16,22 @@ from benchmark.paper_result_index_v1 import (
     REQUIRED_DIRECTORY_SCHEMA,
     ROW_SCHEMA,
     STATISTICAL_BINDING_SCHEMA,
+    STATISTICAL_EVENT_LEDGER_SCHEMA,
+    STATISTICAL_INPUT_SCHEMA,
     STATISTICAL_REPORT_SCHEMA,
     build_result_rows,
     canonical_json_bytes,
     canonical_jsonl_bytes,
     canonical_digest,
+    encode_reducer_output,
     read_result_index,
     resolve_manuscript_cell,
     result_key_digest,
+    reducer_implementation_digest,
+    reducer_method_for_score,
+    reducer_payload_digest,
+    reducer_run_links,
+    statistical_input_digest,
     validate_manuscript_cell_map,
     validate_required_directory,
     validate_result_row,
@@ -113,14 +121,14 @@ def support() -> dict:
         "generated_base_instances": 10,
         "infrastructure_valid_base_instances": 9,
         "metric_eligible_base_instances": 8,
-        "paired_instances": 8,
-        "common_support_instances": 8,
+        "paired_instances": {"status": "observed", "value": 8},
+        "common_support_instances": {"status": "observed", "value": 8},
         "planned_coverage_fraction": 1.0,
         "observed_coverage_fraction": 0.8,
         "repeated_trajectories": 24,
-        "event_count": 4,
-        "competing_event_count": 1,
-        "censoring_count": 2,
+        "event_count": {"status": "observed", "value": 4},
+        "competing_event_count": {"status": "observed", "value": 1},
+        "censoring_count": {"status": "observed", "value": 2},
         "numerator": 6,
         "denominator": 8,
     }
@@ -177,16 +185,79 @@ def write_json(root: Path, relative: str, value: dict) -> None:
 
 def bound_report(root: Path, *, status: str = "valid", diagnostic: bool = False) -> dict:
     key_digest = result_key_digest(identity())
-    input_digest = "e" * 64
-    write_json(root, "evidence/input.json", {"input_digest": input_digest, "payload": "registered"})
-    ledger = b"sealed event ledger\n"
-    (root / "evidence/ledger.bin").write_bytes(ledger)
+    payload = {
+        "runs": [
+            {
+                "run_id": f"run-{index}", "instance_id": f"instance-{index}",
+                "repeat_id": "repeat-1", "evidence_digest": f"evidence-{index}",
+                "values": [0.75], "status": "observed",
+            }
+            for index in range(10)
+        ],
+        "stratum_weights": {"cell": 1.0},
+        "inference": {"alpha": 0.05, "resamples": 100},
+    }
+    method = reducer_method_for_score("D2")
+    implementation_digest = reducer_implementation_digest("D2")
+    payload_digest = reducer_payload_digest(payload)
+    ledger_value = {
+        "schema": STATISTICAL_EVENT_LEDGER_SCHEMA,
+        "paper_commit": PAPER,
+        "score_id": "D2",
+        "implementation_id": "impl-1",
+        "comparison_condition_id": "condition-1",
+        "outcome_id": "D2.nominal",
+        "estimator_version": "estimator-v1",
+        "result_key_digest": key_digest,
+        "evidence_scope": "paper_result_candidate",
+        "reducer_method": method,
+        "reducer_implementation_digest": implementation_digest,
+        "reducer_payload_digest": payload_digest,
+        "run_links": reducer_run_links(payload),
+        "support_registry": {
+            "pairing": {"status": "available", "paired_instance_ids": [f"instance-{index}" for index in range(8)]},
+            "common_support": {"status": "available", "common_support_instance_ids": [f"instance-{index}" for index in range(8)]},
+            "events": {
+                "status": "available", "event_run_ids": [f"run-{index}" for index in range(4)],
+                "competing_event_run_ids": ["run-4"], "censoring_run_ids": ["run-5", "run-6"],
+            },
+        },
+    }
+    write_json(root, "evidence/ledger.json", ledger_value)
+    ledger_ref = ref(root, "evidence/ledger.json")
+    reducer_input_digest = "e" * 64
+    input_value = {
+        "schema": STATISTICAL_INPUT_SCHEMA,
+        "paper_commit": PAPER,
+        "score_id": "D2",
+        "implementation_id": "impl-1",
+        "comparison_condition_id": "condition-1",
+        "outcome_id": "D2.nominal",
+        "estimator_version": "estimator-v1",
+        "result_key_digest": key_digest,
+        "evidence_scope": "paper_result_candidate",
+        "reducer_method": method,
+        "reducer_implementation_digest": implementation_digest,
+        "reducer_payload": payload,
+        "reducer_payload_digest": payload_digest,
+        "reducer_input_digest": reducer_input_digest,
+        "event_ledger_ref": ledger_ref,
+    }
+    input_value["input_digest"] = statistical_input_digest(input_value)
+    input_digest = input_value["input_digest"]
+    write_json(root, "evidence/input.json", input_value)
     if status == "valid":
         estimate = {"status": "valid", "point": 75.0, "lower": 70.0, "upper": 80.0, "interval_method": "cluster_percentile", "reason": "observed_estimate"}
     elif status == "range":
         estimate = {"status": "range", "point": None, "lower": 60.0, "upper": 80.0, "interval_method": "identification_range", "reason": "observed_partial_identification"}
+    elif status == "na":
+        estimate = {"status": "na", "point": None, "lower": None, "upper": None, "interval_method": None, "reason": "zero_opportunity"}
     else:
         estimate = {"status": status, "point": 99.0, "lower": 98.0, "upper": 100.0, "interval_method": "diagnostic_only", "reason": "numerical_instability"}
+    reducer_output = {
+        "score_id": "D2", "paper_commit": PAPER, "scorebook_digest": HEX,
+        "input_digest": reducer_input_digest, "status": status,
+    }
     report = {
         "schema": "heterocoord.results-pipeline.v1" if diagnostic else STATISTICAL_REPORT_SCHEMA,
         "paper_commit": PAPER,
@@ -202,7 +273,12 @@ def bound_report(root: Path, *, status: str = "valid", diagnostic: bool = False)
         "formal_gates": dict(FORMAL_GATES_FALSE),
         "estimate": estimate,
         "support": support(),
-        "event_ledger_digest": hashlib.sha256(ledger).hexdigest(),
+        "event_ledger_digest": ledger_ref["sha256"],
+        "reducer_method": method,
+        "reducer_implementation_digest": implementation_digest,
+        "reducer_payload_digest": payload_digest,
+        "reducer_input_digest": reducer_input_digest,
+        "reducer_output": encode_reducer_output(reducer_output),
     }
     write_json(root, "evidence/report.json", report)
     binding = {
@@ -216,7 +292,7 @@ def bound_report(root: Path, *, status: str = "valid", diagnostic: bool = False)
         "expected_input_digest": input_digest,
         "report_ref": ref(root, "evidence/report.json"),
         "input_ref": ref(root, "evidence/input.json"),
-        "event_ledger_ref": ref(root, "evidence/ledger.bin"),
+        "event_ledger_ref": ledger_ref,
     }
     return {
         "schema": STATISTICAL_BINDING_SCHEMA,
@@ -313,6 +389,16 @@ def test_unstable_discards_numbers_and_becomes_incomplete(tmp_path: Path):
     }
 
 
+def test_post_run_na_is_distinct_from_registered_absence(tmp_path: Path):
+    row = build_rows(tmp_path, bindings=bound_report(tmp_path, status="na"))[0]
+    assert row["estimate"] == {
+        "entry_state": "not_estimable", "status": "na", "point": None,
+        "lower": None, "upper": None, "interval_method": None,
+        "reason": "zero_opportunity",
+    }
+    assert row["evidence"]["source_scope"] == "paper_result_candidate"
+
+
 def test_results_pipeline_and_diagnostic_only_are_never_paper_evidence(tmp_path: Path):
     with pytest.raises(PaperResultIndexError, match="not a statistical paper report"):
         build_rows(tmp_path, bindings=bound_report(tmp_path, diagnostic=True))
@@ -322,6 +408,18 @@ def test_binding_recomputes_report_bytes_and_rejects_stale_digest(tmp_path: Path
     bindings = bound_report(tmp_path)
     (tmp_path / "evidence/report.json").write_bytes(b"{}\n")
     with pytest.raises(PaperResultIndexError, match="does not match bytes"):
+        build_rows(tmp_path, bindings=bindings)
+
+
+def test_report_support_cannot_disagree_with_authoritative_ledger(tmp_path: Path):
+    bindings = bound_report(tmp_path)
+    item = bindings["bindings"][0]
+    report_path = tmp_path / item["report_ref"]["path"]
+    report = json.loads(report_path.read_bytes())
+    report["support"]["paired_instances"]["value"] = 0
+    report_path.write_bytes(canonical_json_bytes(report))
+    item["report_ref"] = ref(tmp_path, item["report_ref"]["path"])
+    with pytest.raises(PaperResultIndexError, match="disagrees with authoritative ledger registry"):
         build_rows(tmp_path, bindings=bindings)
 
 

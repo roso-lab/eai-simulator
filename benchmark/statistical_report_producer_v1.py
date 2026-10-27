@@ -1,4 +1,4 @@
-"""Authority-backed producer of heterocoord.statistical-report.v1 artifacts.
+"""Authority-backed producer of heterocoord.statistical-report.v2 artifacts.
 
 This module assembles paper statistical reports by feeding frozen
 evaluator-owned inputs to the authoritative D1--D6 reducers and packaging
@@ -6,84 +6,19 @@ their outputs.  It never re-implements a formula, never grants a formal gate,
 and never consumes ``metrics.csv``, ``results_pipeline`` output, caller
 self-reported point/interval values, or synthetic/diagnostic-scoped inputs.
 
-Adjudications recorded by the coordinator (verified against the code, both
-perspectives retained):
+Formal candidate inputs contain the complete reducer payload, method identity,
+reducer-side digest and content-addressed event-ledger reference.  The ledger
+is canonical structured JSON that links every run/evidence record to the full
+result identity and payload digest.  Reducer inference settings therefore
+cannot change without changing the frozen input digest.
 
-(a) Scorebook digest dual convention.  The release-manifest layer computes
-    ``sha256(canonical_json_bytes(scorebook).rstrip(b"\\n"))``
-    (paper_release_manifest_v1._validate_dependency_semantics, the L229
-    expression), while the reducers embed ``default_scorebook_v3().digest()``,
-    which hashes canonical JSON *without* a trailing newline
-    (scorebook_v3.ScorebookV3.digest).  Because ``canonical_json_bytes`` is
-    exactly ``json.dumps(..., sort_keys=True, separators=(",", ":"),
-    ensure_ascii=False)`` plus one ``"\\n"``, the two conventions coincide on
-    any canonical scorebook; this is asserted on the default scorebook by
-    ``test_scorebook_digest_conventions_agree``.  This producer writes the
-    release-side digest into every report and binding and *fails closed* if
-    the recomputed release-side digest differs from the authoritative
-    reducer-side digest instead of silently picking one.
-
-(b) Reducer ``status="na"`` handling.  Verified directly in
-    paper_result_index_v1._validate_statistical_report (L671--685): the raw
-    estimate status is accepted only for ``valid``, ``range``, ``unstable``
-    and ``incomplete``; every other value, including ``na``, hits the
-    ``else: raise`` branch ("statistical report status is invalid").  There is
-    no na->na mapping downstream.  Therefore this producer fail-closes on
-    reducer ``status="na"``: NA semantics belong to the required-result
-    directory's ``unsupported``/``structural_na`` dispositions and must never
-    be fabricated as a report.  Accepted statuses map verbatim:
-    valid->valid (entry_state observed), range->range (observed_range),
-    unstable/incomplete->incomplete after index-layer normalization.
-
-(c) Support mapping (13 validator fields, "prefer omission to invention":
-    a count field is written as 0 exactly when the authority reducer output
-    publishes no authoritative count of that kind for the dimension -- the 0
-    records "no authoritative number exists to copy", not an observed zero;
-    every number below is read off the authority reducer output or the frozen
-    request roster itself, never invented):
-
-    D1 (organization_report): coverage table summed over feasibility classes
-      and registered cells: generated_base_instances=sum(planned),
-      infrastructure_valid_base_instances=sum(infrastructure_valid),
-      metric_eligible_base_instances=sum(retained_instances),
-      repeated_trajectories=scheduled_runs.  D1 runs do carry evaluator event
-      logs (OrganizationEventV3: candidate/commit/declaration/dispatch/
-      safe_stop) that the first-commit scorer consumes, but the reducer
-      output publishes no event, competing-event or censoring counts (and the
-      roster has no paired-block or common-support mechanism), so
-      paired_instances=common_support_instances=event_count=
-      competing_event_count=censoring_count=0: no authoritative number exists
-      to copy.
-      planned_coverage_fraction=infra/generated,
-      observed_coverage_fraction=eligible/generated, numerator=eligible,
-      denominator=generated.
-
-    D2/D4 (analyze_dimension): base instances are the frozen three-repeat
-      roster groups: generated=#instances in the request run directory,
-      infrastructure_valid=#instances with no run status in
-      UNKNOWN_RUN_STATUSES, metric_eligible=#instances whose repeats are all
-      ``observed``, paired_instances=#instances carrying pair-invalid runs,
-      repeated_trajectories=scheduled_runs.  The D2/D4 reducer output
-      publishes no common-support or event/censoring counts -> those fields
-      are 0 (absent, not observed).  Coverage fractions and
-      numerator/denominator follow the D1 convention (infra/generated,
-      eligible/generated).
-
-    D3 (d3_relation_report): the reducer exposes no infrastructure/metric
-      split, only known-vs-unknown relation values, so
-      infrastructure_valid=metric_eligible=#instances whose repeats have no
-      unknown (None) relation value, generated=#instances,
-      repeated_trajectories=scheduled_runs; the D3 reducer output publishes
-      no paired/common/event counts -> 0 (absent, not observed); same
-      coverage-fraction convention.
-
-    D5/D6 (analyze_dimension + FixedCatalogV3.analyze): generated=#distinct
-      instance identities in the frozen catalog, infrastructure_valid=
-      metric_eligible=#instances with no unknown value across their three
-      catalog repeats, repeated_trajectories=scheduled_runs (equal to the
-      catalog's scheduled_attempts); the D5/D6 reducer output publishes no
-      paired/common/event counts -> 0 (absent, not observed); same
-      coverage-fraction convention.
+Reports retain the original reducer output as well as the paper projection.
+Legitimate post-run ``status="na"`` results keep their support and reason and
+continue through the index as ``not_estimable``; malformed inputs, ledgers and
+reducer contracts still fail closed.  Pair/common/event counts are tagged as
+observed, unavailable or not-applicable, so absence of an authoritative count
+is never encoded as a fabricated zero.  Known ``method_failure`` outcomes stay
+inside the metric-eligible denominator when the reducer consumes their values.
 
 Fail-closed contract: every check below runs before a single output byte is
 written; a rejection leaves the tree untouched.  Writes are O_EXCL
@@ -112,21 +47,23 @@ from .paper_result_index_v1 import (
     STATISTICAL_REPORT_SCHEMA,
     PaperResultIndexError,
     canonical_json_bytes,
+    encode_reducer_output,
     result_key_digest,
     validate_condition_register,
     validate_identity,
-    validate_implementation_register,
     validate_required_directory,
+    validate_statistical_event_ledger,
+    validate_statistical_input,
     validate_statistical_report_binding,
 )
 from .scorebook_v3 import PAPER_COMMIT, default_scorebook_v3
 
 
-REQUEST_SCHEMA = "heterocoord.statistical-report-request.v1"
-PRODUCE_RESULT_SCHEMA = "heterocoord.statistical-report-produce-result.v1"
-REPORT_SET_SCHEMA = "heterocoord.statistical-report-set.v1"
+REQUEST_SCHEMA = "heterocoord.statistical-report-request.v2"
+PRODUCE_RESULT_SCHEMA = "heterocoord.statistical-report-produce-result.v2"
+REPORT_SET_SCHEMA = "heterocoord.statistical-report-set.v2"
 SCORE_IDS = frozenset(f"D{i}" for i in range(1, 7))
-REDUCER_STATUSES = ("valid", "range", "unstable", "incomplete")
+REDUCER_STATUSES = ("valid", "range", "unstable", "incomplete", "na")
 REQUEST_FIELDS = {
     "schema",
     "paper_commit",
@@ -146,7 +83,6 @@ ENTRY_FIELDS = {
     "outcome_id",
     "estimator_version",
     "expected_input_digest",
-    "reducer_payload",
     "input_ref",
     "event_ledger_ref",
     "report_path",
@@ -154,7 +90,7 @@ ENTRY_FIELDS = {
 FILE_REF_FIELDS = {"path", "size", "sha256"}
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
 FORBIDDEN_PATH_TOKENS = ("metrics.csv", "results_pipeline")
-FORBIDDEN_SCOPE_PREFIXES = ("synthetic", "measured_")
+FORBIDDEN_SCOPE_PREFIXES = ("synthetic",)
 FORBIDDEN_SCOPE_SUBSTRING = "diagnostic"
 
 
@@ -229,14 +165,14 @@ def _json_object(data: bytes, name: str) -> Mapping[str, Any]:
 
 
 def _screen_scope(value: Any, name: str) -> None:
-    """Reject synthetic/diagnostic/measured scopes wherever a scope key hides."""
+    """Reject synthetic/diagnostic payloads without rejecting measured raw evidence."""
 
     if isinstance(value, Mapping):
         for key, item in value.items():
-            if key == "scope" and isinstance(item, str):
+            if key in {"scope", "evidence_scope", "source_scope"} and isinstance(item, str):
                 lowered = item.strip().lower()
                 if lowered.startswith(FORBIDDEN_SCOPE_PREFIXES) or FORBIDDEN_SCOPE_SUBSTRING in lowered:
-                    _fail(f"{name} carries forbidden scope {item!r}: synthetic, measured_* or diagnostic evidence cannot become a paper statistical report")
+                    _fail(f"{name} carries forbidden scope {item!r}: synthetic or diagnostic evidence cannot become a paper statistical report")
             _screen_scope(item, name)
     elif isinstance(value, list):
         for item in value:
@@ -359,21 +295,19 @@ def _reducer_reason(report: Mapping[str, Any], status: str) -> str:
     reason = report.get("reason")
     if isinstance(reason, str) and reason.strip():
         return reason
+    if status == "na" and report.get("nominal") == 0:
+        return "zero_nominal_reference_rate"
     return f"{status}_reducer_estimate"
 
 
 def estimate_from_report(score_id: str, report: Mapping[str, Any]) -> dict[str, Any]:
-    """Map a reducer status onto the six raw report-estimate fields.
-
-    Ruling (b): ``na`` fail-closes; the index layer's ``else`` branch rejects
-    it, so NA must be expressed by the required-result directory instead.
-    """
+    """Map an authoritative reducer status onto the raw report estimate."""
     status = report.get("status")
     if status == "na":
-        _fail(
-            f"{score_id} reducer returned status 'na': NA semantics belong to the "
-            "required-result directory (unsupported/structural_na) and cannot be fabricated as a paper statistical report"
-        )
+        return {
+            "status": "na", "point": None, "lower": None, "upper": None,
+            "interval_method": None, "reason": _reducer_reason(report, "na"),
+        }
     if status not in REDUCER_STATUSES:
         _fail(f"{score_id} reducer returned unsupported status {status!r}")
     if status in {"unstable", "incomplete"}:
@@ -440,8 +374,9 @@ def _instance_rows(runs: Sequence[Mapping[str, Any]]) -> dict[str, list[Mapping[
 
 
 def _support_counts(
-    *, generated: int, infrastructure: int, eligible: int, paired: int,
-    trajectories: int, **_extra: int,
+    *, generated: int, infrastructure: int, eligible: int,
+    trajectories: int, paired: Mapping[str, Any], common: Mapping[str, Any],
+    events: Mapping[str, Any], competing: Mapping[str, Any], censoring: Mapping[str, Any],
 ) -> dict[str, Any]:
     if not 0 <= eligible <= infrastructure <= generated:
         _fail("derived support counts are not nested; refusing to invent an ordering")
@@ -449,12 +384,12 @@ def _support_counts(
         "generated_base_instances": generated,
         "infrastructure_valid_base_instances": infrastructure,
         "metric_eligible_base_instances": eligible,
-        "paired_instances": paired,
-        "common_support_instances": 0,
+        "paired_instances": dict(paired),
+        "common_support_instances": dict(common),
         "repeated_trajectories": trajectories,
-        "event_count": 0,
-        "competing_event_count": 0,
-        "censoring_count": 0,
+        "event_count": dict(events),
+        "competing_event_count": dict(competing),
+        "censoring_count": dict(censoring),
         "planned_coverage_fraction": _fraction(infrastructure, generated),
         "observed_coverage_fraction": _fraction(eligible, generated),
         "numerator": eligible,
@@ -462,7 +397,46 @@ def _support_counts(
     }
 
 
-def _d1_support(report: Mapping[str, Any]) -> dict[str, Any]:
+def _observed_count(value: int) -> dict[str, Any]:
+    return {"status": "observed", "value": value}
+
+
+def _count_state(status: str, reason: str) -> dict[str, Any]:
+    return {"status": status, "reason": reason}
+
+
+def _registry_counts(
+    registry: Mapping[str, Any] | None, *, pairing_default: str, common_default: str,
+    events_default: str,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
+    if registry is None:
+        pairing = {"status": pairing_default, "reason": "pairing does not apply to this estimator" if pairing_default == "not_applicable" else "authoritative pairing roster is not available"}
+        common_support = {"status": common_default, "reason": "common support does not apply to this estimator" if common_default == "not_applicable" else "authoritative common-support roster is not available"}
+        events = {"status": events_default, "reason": "event counts do not apply to this estimator" if events_default == "not_applicable" else "authoritative event ledger classification is not available"}
+    else:
+        pairing = registry["pairing"]
+        common_support = registry["common_support"]
+        events = registry["events"]
+    if pairing["status"] == "available":
+        paired = _observed_count(len(pairing["paired_instance_ids"]))
+    else:
+        paired = _count_state(pairing["status"], pairing["reason"])
+    if common_support["status"] == "available":
+        common = _observed_count(len(common_support["common_support_instance_ids"]))
+    else:
+        common = _count_state(common_support["status"], common_support["reason"])
+    if events["status"] == "available":
+        event = _observed_count(len(events["event_run_ids"]))
+        competing = _observed_count(len(events["competing_event_run_ids"]))
+        censoring = _observed_count(len(events["censoring_run_ids"]))
+    else:
+        event = _count_state(events["status"], events["reason"])
+        competing = _count_state(events["status"], events["reason"])
+        censoring = _count_state(events["status"], events["reason"])
+    return paired, common, event, competing, censoring
+
+
+def _d1_support(report: Mapping[str, Any], registry: Mapping[str, Any] | None) -> dict[str, Any]:
     coverage = report.get("coverage")
     if not isinstance(coverage, Mapping) or not coverage:
         _fail("D1 reducer report has no coverage table")
@@ -476,32 +450,39 @@ def _d1_support(report: Mapping[str, Any]) -> dict[str, Any]:
             planned += int(row["planned"])
             infra += int(row["infrastructure_valid"])
             retained += int(row["retained_instances"])
+    counts = _registry_counts(registry, pairing_default="not_applicable", common_default="not_applicable", events_default="not_applicable")
     return _support_counts(
         generated=planned, infrastructure=infra, eligible=retained,
-        paired=0, trajectories=int(report["scheduled_runs"]),
+        trajectories=int(report["scheduled_runs"]),
+        paired=counts[0], common=counts[1], events=counts[2], competing=counts[3], censoring=counts[4],
     )
 
 
-def _scheduled_support(report: Mapping[str, Any], runs: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+def _scheduled_support(
+    report: Mapping[str, Any], runs: Sequence[Mapping[str, Any]], registry: Mapping[str, Any] | None,
+    *, events_default: str,
+) -> dict[str, Any]:
     if int(report["scheduled_runs"]) != len(runs):
         _fail("reducer scheduled_runs disagrees with the frozen request roster")
     grouped = _instance_rows(runs)
-    infrastructure = eligible = paired = 0
+    infrastructure = eligible = 0
     for rows in grouped.values():
         statuses = [row.get("status", "observed") for row in rows]
         if not any(status in UNKNOWN_RUN_STATUSES for status in statuses):
             infrastructure += 1
-        if all(status == "observed" for status in statuses):
+        if all(status in {"observed", "method_failure"} for status in statuses):
             eligible += 1
-        if any(status == "pair-invalid" for status in statuses):
-            paired += 1
+    counts = _registry_counts(registry, pairing_default="unavailable", common_default="unavailable", events_default=events_default)
     return _support_counts(
         generated=len(grouped), infrastructure=infrastructure, eligible=eligible,
-        paired=paired, trajectories=len(runs),
+        trajectories=len(runs), paired=counts[0], common=counts[1], events=counts[2],
+        competing=counts[3], censoring=counts[4],
     )
 
 
-def _relation_support(report: Mapping[str, Any], runs: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+def _relation_support(
+    report: Mapping[str, Any], runs: Sequence[Mapping[str, Any]], registry: Mapping[str, Any] | None
+) -> dict[str, Any]:
     if int(report["scheduled_runs"]) != len(runs):
         _fail("reducer scheduled_runs disagrees with the frozen request roster")
     grouped = _instance_rows(runs)
@@ -514,14 +495,18 @@ def _relation_support(report: Mapping[str, Any], runs: Sequence[Mapping[str, Any
                 complete = False
         if complete:
             known += 1
+    counts = _registry_counts(registry, pairing_default="not_applicable", common_default="unavailable", events_default="not_applicable")
+    common = _observed_count(known) if registry is None else counts[1]
     return _support_counts(
         generated=len(grouped), infrastructure=known, eligible=known,
-        paired=0, trajectories=len(runs),
+        trajectories=len(runs), paired=counts[0], common=common, events=counts[2],
+        competing=counts[3], censoring=counts[4],
     )
 
 
 def _fixed_catalog_support(
-    report: Mapping[str, Any], runs: Sequence[Mapping[str, Any]], payload: Mapping[str, Any]
+    report: Mapping[str, Any], runs: Sequence[Mapping[str, Any]], payload: Mapping[str, Any],
+    registry: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
     if int(report["scheduled_runs"]) != len(runs):
         _fail("reducer scheduled_runs disagrees with the frozen request roster")
@@ -538,21 +523,30 @@ def _fixed_catalog_support(
             for row in rows
         ):
             known += 1
+    counts = _registry_counts(registry, pairing_default="not_applicable", common_default="unavailable", events_default="not_applicable")
+    common = _observed_count(known) if registry is None else counts[1]
     return _support_counts(
         generated=generated, infrastructure=known, eligible=known,
-        paired=0, trajectories=len(runs),
+        trajectories=len(runs), paired=counts[0], common=common, events=counts[2],
+        competing=counts[3], censoring=counts[4],
     )
 
 
-def support_from_report(score_id: str, report: Mapping[str, Any], payload: Mapping[str, Any]) -> dict[str, Any]:
+def support_from_report(
+    score_id: str, report: Mapping[str, Any], payload: Mapping[str, Any],
+    support_registry: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     """Honest 13-field support mapping; see the dimension table in the docstring."""
     if score_id == "D1":
-        return _d1_support(report)
+        return _d1_support(report, support_registry)
     if score_id == "D3":
-        return _relation_support(report, list(payload.get("runs", ())))
+        return _relation_support(report, list(payload.get("runs", ())), support_registry)
     if score_id in {"D5", "D6"}:
-        return _fixed_catalog_support(report, list(payload.get("runs", ())), payload)
-    return _scheduled_support(report, list(payload.get("runs", ())))
+        return _fixed_catalog_support(report, list(payload.get("runs", ())), payload, support_registry)
+    return _scheduled_support(
+        report, list(payload.get("runs", ())), support_registry,
+        events_default="unavailable" if score_id == "D4" else "not_applicable",
+    )
 
 
 # --------------------------------------------------------------------------
@@ -605,13 +599,33 @@ def _validated_entry(
     _, input_data = _read_verified(context["root"], entry["input_ref"], f"{name}.input_ref")
     _, ledger_data = _read_verified(context["root"], entry["event_ledger_ref"], f"{name}.event_ledger_ref")
     input_object = _json_object(input_data, f"{name} statistical input")
-    if input_object.get("input_digest") != expected_input_digest:
-        _fail(f"{name} input.json input_digest does not match expected_input_digest")
-    payload = entry["reducer_payload"]
-    if not isinstance(payload, Mapping):
-        _fail(f"{name} reducer_payload must be an object")
+    ledger_object = _json_object(ledger_data, f"{name} statistical event ledger")
+    if canonical_json_bytes(input_object) != input_data:
+        _fail(f"{name} statistical input must be canonical JSON")
+    if canonical_json_bytes(ledger_object) != ledger_data:
+        _fail(f"{name} statistical event ledger must be canonical JSON")
+    if input_object.get("paper_commit") != PAPER_COMMIT:
+        _fail(f"{name} statistical input binds a different paper commit")
+    binding = {
+        "result_key_digest": key_digest,
+        "identity": identity,
+        "implementation_id": identity["implementation_id"],
+        "comparison_condition_id": identity["comparison_condition_id"],
+        "score_id": score_id,
+        "outcome_id": identity["outcome_id"],
+        "estimator_version": identity["estimator_version"],
+        "expected_input_digest": expected_input_digest,
+        "report_ref": None,
+        "input_ref": dict(entry["input_ref"]),
+        "event_ledger_ref": dict(entry["event_ledger_ref"]),
+    }
+    try:
+        validate_statistical_input(input_object, binding=binding)
+        validate_statistical_event_ledger(ledger_object, binding=binding, input_object=input_object)
+    except PaperResultIndexError as exc:
+        _fail(f"{name} frozen statistical input/ledger is invalid: {exc}")
+    payload = input_object["reducer_payload"]
     _screen_scope(payload, f"{name} reducer_payload")
-    _screen_scope(input_object, f"{name} input.json")
     try:
         report = dispatch_reducer(score_id, payload)
     except StatisticalReportProducerError:
@@ -624,10 +638,10 @@ def _validated_entry(
         _fail(f"{name} reducer report binds a different paper commit")
     if report.get("scorebook_digest") != context["scorebook_digest"]:
         _fail(f"{name} reducer scorebook_digest disagrees with the release-side scorebook digest")
-    if report.get("input_digest") != expected_input_digest:
-        _fail(f"{name} reducer input_digest disagrees with the frozen input bytes digest")
+    if report.get("input_digest") != input_object["reducer_input_digest"]:
+        _fail(f"{name} reducer input_digest disagrees with the bound reducer_input_digest")
     estimate = estimate_from_report(score_id, report)
-    support = support_from_report(score_id, report, payload)
+    support = support_from_report(score_id, report, payload, ledger_object["support_registry"])
     statistical_report = {
         "schema": STATISTICAL_REPORT_SCHEMA,
         "paper_commit": PAPER_COMMIT,
@@ -644,21 +658,13 @@ def _validated_entry(
         "estimate": estimate,
         "support": support,
         "event_ledger_digest": hashlib.sha256(ledger_data).hexdigest(),
+        "reducer_method": input_object["reducer_method"],
+        "reducer_implementation_digest": input_object["reducer_implementation_digest"],
+        "reducer_payload_digest": input_object["reducer_payload_digest"],
+        "reducer_input_digest": input_object["reducer_input_digest"],
+        "reducer_output": encode_reducer_output(report),
     }
     _exact_keys(statistical_report, set(STATISTICAL_REPORT_FIELDS), f"{name} statistical report")
-    binding = {
-        "result_key_digest": key_digest,
-        "identity": identity,
-        "implementation_id": identity["implementation_id"],
-        "comparison_condition_id": identity["comparison_condition_id"],
-        "score_id": score_id,
-        "outcome_id": identity["outcome_id"],
-        "estimator_version": identity["estimator_version"],
-        "expected_input_digest": expected_input_digest,
-        "report_ref": None,
-        "input_ref": dict(entry["input_ref"]),
-        "event_ledger_ref": dict(entry["event_ledger_ref"]),
-    }
     _exact_keys(binding, set(BINDING_ENTRY_FIELDS), f"{name} binding entry")
     return {
         "key_digest": key_digest,

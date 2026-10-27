@@ -30,12 +30,21 @@ from benchmark.paper_result_index_v1 import (
     CONDITION_REGISTER_SCHEMA,
     IMPLEMENTATION_REGISTER_SCHEMA,
     REQUIRED_DIRECTORY_SCHEMA,
+    STATISTICAL_EVENT_LEDGER_SCHEMA,
+    STATISTICAL_INPUT_SCHEMA,
     STATISTICAL_REPORT_FIELDS,
     PaperResultIndexError,
     _validate_statistical_report,
     build_result_rows,
     canonical_json_bytes,
+    encode_reducer_output,
     result_key,
+    result_key_digest,
+    reducer_implementation_digest,
+    reducer_method_for_score,
+    reducer_payload_digest,
+    reducer_run_links,
+    statistical_input_digest,
     write_result_index,
 )
 from benchmark.records_v3 import IdentityV3, ObligationOutcomeV3
@@ -258,6 +267,90 @@ def _system_payloads(*, d2_range: bool, d3_instances: int, d5_unknown: bool) -> 
     }
 
 
+def _support_registry(score_id: str, payload: dict) -> dict:
+    links = reducer_run_links(payload)
+    instance_ids = sorted({item["instance_id"] for item in links})
+    by_instance: dict[str, list[dict]] = {}
+    for row in payload["runs"]:
+        by_instance.setdefault(row["instance_id"], []).append(row)
+    known = sorted(
+        instance_id for instance_id, rows in by_instance.items()
+        if all(row.get("status", "observed") in {"observed", "method_failure"} for row in rows)
+    )
+    if score_id in {"D2", "D4"}:
+        pairing = {"status": "available", "paired_instance_ids": known}
+        common = {"status": "available", "common_support_instance_ids": known}
+    else:
+        pairing = {"status": "not_applicable", "reason": "estimator has no paired-instance design"}
+        common = (
+            {"status": "available", "common_support_instance_ids": known}
+            if score_id in {"D3", "D5", "D6"}
+            else {"status": "not_applicable", "reason": "estimator has no common-support comparison"}
+        )
+    events = (
+        {
+            "status": "available",
+            "event_run_ids": [],
+            "competing_event_run_ids": [],
+            "censoring_run_ids": [],
+        }
+        if score_id == "D4"
+        else {"status": "not_applicable", "reason": "estimator has no event-time outcome"}
+    )
+    return {"pairing": pairing, "common_support": common, "events": events}
+
+
+def _write_frozen_entry_inputs(root: Path, entry: dict, payload: dict, report: dict) -> dict:
+    identity = entry["identity"]
+    score_id = entry["score_id"]
+    method = reducer_method_for_score(score_id)
+    implementation_digest = reducer_implementation_digest(score_id)
+    payload_digest = reducer_payload_digest(payload)
+    registry = _support_registry(score_id, payload)
+    ledger_path = entry["event_ledger_ref"]["path"]
+    ledger = {
+        "schema": STATISTICAL_EVENT_LEDGER_SCHEMA,
+        "paper_commit": PAPER_COMMIT,
+        "score_id": score_id,
+        "implementation_id": identity["implementation_id"],
+        "comparison_condition_id": identity["comparison_condition_id"],
+        "outcome_id": identity["outcome_id"],
+        "estimator_version": identity["estimator_version"],
+        "result_key_digest": result_key_digest(identity),
+        "evidence_scope": "paper_result_candidate",
+        "reducer_method": method,
+        "reducer_implementation_digest": implementation_digest,
+        "reducer_payload_digest": payload_digest,
+        "run_links": reducer_run_links(payload),
+        "support_registry": registry,
+    }
+    _write_json(root, ledger_path, ledger)
+    entry["event_ledger_ref"] = _ref(root, ledger_path)
+    input_path = entry["input_ref"]["path"]
+    input_value = {
+        "schema": STATISTICAL_INPUT_SCHEMA,
+        "paper_commit": PAPER_COMMIT,
+        "score_id": score_id,
+        "implementation_id": identity["implementation_id"],
+        "comparison_condition_id": identity["comparison_condition_id"],
+        "outcome_id": identity["outcome_id"],
+        "estimator_version": identity["estimator_version"],
+        "result_key_digest": result_key_digest(identity),
+        "evidence_scope": "paper_result_candidate",
+        "reducer_method": method,
+        "reducer_implementation_digest": implementation_digest,
+        "reducer_payload": payload,
+        "reducer_payload_digest": payload_digest,
+        "reducer_input_digest": report["input_digest"],
+        "event_ledger_ref": entry["event_ledger_ref"],
+    }
+    input_value["input_digest"] = statistical_input_digest(input_value)
+    _write_json(root, input_path, input_value)
+    entry["input_ref"] = _ref(root, input_path)
+    entry["expected_input_digest"] = input_value["input_digest"]
+    return registry
+
+
 # --------------------------------------------------------------------------
 # World builder: registers, directory, frozen inputs, request manifest.
 # --------------------------------------------------------------------------
@@ -280,34 +373,25 @@ def _build_world(tmp_path: Path) -> dict:
         for score_id in ("D1", "D2", "D3", "D4", "D5", "D6"):
             payload = payloads[score_id]
             report = dispatch_reducer(score_id, payload)
-            support = support_from_report(score_id, report, payload)
             identity = _identity(implementation_id, condition_id, f"{score_id}.nominal")
             relative_base = f"evidence/{implementation_id}/{score_id}"
             input_path = f"{relative_base}/input.json"
-            ledger_path = f"{relative_base}/ledger.bin"
-            input_value = {
-                "schema": "heterocoord.statistical-input.v1",
-                "paper_commit": PAPER_COMMIT,
-                "score_id": score_id,
-                "input_digest": report["input_digest"],
-            }
-            _write_json(root, input_path, input_value)
-            ledger = root / ledger_path
-            ledger.parent.mkdir(parents=True, exist_ok=True)
-            ledger.write_bytes(f"event-ledger-{implementation_id}-{score_id}\n".encode())
-            request_entries.append({
+            ledger_path = f"{relative_base}/ledger.json"
+            entry = {
                 "identity": identity,
                 "score_id": score_id,
                 "implementation_id": implementation_id,
                 "comparison_condition_id": condition_id,
                 "outcome_id": identity["outcome_id"],
                 "estimator_version": identity["estimator_version"],
-                "expected_input_digest": report["input_digest"],
-                "reducer_payload": payload,
-                "input_ref": _ref(root, input_path),
-                "event_ledger_ref": _ref(root, ledger_path),
+                "expected_input_digest": "0" * 64,
+                "input_ref": {"path": input_path, "size": 0, "sha256": "0" * 64},
+                "event_ledger_ref": {"path": ledger_path, "size": 0, "sha256": "0" * 64},
                 "report_path": f"{relative_base}/report.json",
-            })
+            }
+            registry = _write_frozen_entry_inputs(root, entry, payload, report)
+            request_entries.append(entry)
+            support = support_from_report(score_id, report, payload, registry)
             directory_entries.append({
                 "identity": identity,
                 "execution": _execution(implementation_id),
@@ -363,6 +447,24 @@ def _produced_binding(world: dict) -> dict:
     return json.loads((world["root"] / "manifests/statistical-report-binding.v1.json").read_bytes())
 
 
+def _frozen_payload(world: dict, entry: dict) -> dict:
+    return json.loads((world["root"] / entry["input_ref"]["path"]).read_bytes())["reducer_payload"]
+
+
+def _replace_entry_payload(world: dict, entry: dict, payload: dict) -> dict:
+    report = dispatch_reducer(entry["score_id"], payload)
+    registry = _write_frozen_entry_inputs(world["root"], entry, payload, report)
+    key = result_key_digest(entry["identity"])
+    directory_entry = next(
+        item for item in world["directory"]["entries"]
+        if result_key_digest(item["identity"]) == key
+    )
+    directory_entry["support"] = support_from_report(entry["score_id"], report, payload, registry)
+    _write_json(world["root"], "registers/required-result-directory.json", world["directory"])
+    world["request"]["required_directory_ref"] = _ref(world["root"], "registers/required-result-directory.json")
+    return report
+
+
 # --------------------------------------------------------------------------
 # Happy path: 12 result keys through producer -> index -> release manifest.
 # --------------------------------------------------------------------------
@@ -382,9 +484,13 @@ def test_producer_index_release_round_trip_with_twelve_result_keys(tmp_path: Pat
     }
     for item in binding["bindings"]:
         report = json.loads((world["root"] / item["report_ref"]["path"]).read_bytes())
+        input_object = json.loads((world["root"] / item["input_ref"]["path"]).read_bytes())
+        ledger_object = json.loads((world["root"] / item["event_ledger_ref"]["path"]).read_bytes())
         assert set(report) == set(STATISTICAL_REPORT_FIELDS)
         _validate_statistical_report(
-            report, binding=item, paper_commit=PAPER_COMMIT, scorebook_digest=binding["scorebook_digest"]
+            report, binding=item, paper_commit=PAPER_COMMIT,
+            scorebook_digest=binding["scorebook_digest"], input_object=input_object,
+            ledger_object=ledger_object,
         )
     rows = build_result_rows(
         implementation_register=world["implementations"],
@@ -552,7 +658,7 @@ def test_wrong_paper_commit_is_refused(tmp_path: Path):
 def test_input_digest_mismatch_is_refused(tmp_path: Path):
     world = _build_world(tmp_path)
     world["request"]["entries"][0]["expected_input_digest"] = "f" * 64
-    with pytest.raises(StatisticalReportProducerError, match="input_digest does not match expected_input_digest"):
+    with pytest.raises(StatisticalReportProducerError, match="input digest identity mismatch"):
         produce_statistical_reports(world["request"], root=world["root"])
 
 
@@ -565,35 +671,128 @@ def test_event_ledger_byte_mismatch_is_refused(tmp_path: Path):
         produce_statistical_reports(world["request"], root=world["root"])
 
 
-def test_reducer_na_status_fails_closed(tmp_path: Path):
+def test_arbitrary_bytes_cannot_be_resealed_as_event_ledger(tmp_path: Path):
+    world = _build_world(tmp_path)
+    entry = world["request"]["entries"][0]
+    ledger_path = world["root"] / entry["event_ledger_ref"]["path"]
+    ledger_path.write_bytes(b"ordinary string, not a semantic ledger\n")
+    entry["event_ledger_ref"] = _ref(world["root"], entry["event_ledger_ref"]["path"])
+    input_path = world["root"] / entry["input_ref"]["path"]
+    input_value = json.loads(input_path.read_bytes())
+    input_value["event_ledger_ref"] = entry["event_ledger_ref"]
+    input_value["input_digest"] = statistical_input_digest(input_value)
+    input_path.write_bytes(canonical_json_bytes(input_value))
+    entry["input_ref"] = _ref(world["root"], entry["input_ref"]["path"])
+    entry["expected_input_digest"] = input_value["input_digest"]
+    with pytest.raises(StatisticalReportProducerError, match="not strict JSON"):
+        produce_statistical_reports(world["request"], root=world["root"])
+
+
+def test_event_ledger_wrong_implementation_link_is_refused(tmp_path: Path):
+    world = _build_world(tmp_path)
+    entry = world["request"]["entries"][0]
+    ledger_path = world["root"] / entry["event_ledger_ref"]["path"]
+    ledger = json.loads(ledger_path.read_bytes())
+    ledger["implementation_id"] = "impl-b"
+    ledger_path.write_bytes(canonical_json_bytes(ledger))
+    entry["event_ledger_ref"] = _ref(world["root"], entry["event_ledger_ref"]["path"])
+    input_path = world["root"] / entry["input_ref"]["path"]
+    input_value = json.loads(input_path.read_bytes())
+    input_value["event_ledger_ref"] = entry["event_ledger_ref"]
+    input_value["input_digest"] = statistical_input_digest(input_value)
+    input_path.write_bytes(canonical_json_bytes(input_value))
+    entry["input_ref"] = _ref(world["root"], entry["input_ref"]["path"])
+    entry["expected_input_digest"] = input_value["input_digest"]
+    with pytest.raises(StatisticalReportProducerError, match="identity/input linkage mismatch"):
+        produce_statistical_reports(world["request"], root=world["root"])
+
+
+def test_inference_change_changes_frozen_input_digest(tmp_path: Path):
+    world = _build_world(tmp_path)
+    entry = _entry_for(world, score_id="D4")
+    original = entry["expected_input_digest"]
+    payload = _frozen_payload(world, entry)
+    payload["inference"]["alpha"] = 0.1
+    report = _replace_entry_payload(world, entry, payload)
+    assert report["input_digest"] == json.loads(
+        (world["root"] / entry["input_ref"]["path"]).read_bytes()
+    )["reducer_input_digest"]
+    assert entry["expected_input_digest"] != original
+
+
+def test_wrong_reducer_implementation_digest_is_refused(tmp_path: Path):
+    world = _build_world(tmp_path)
+    entry = _entry_for(world, score_id="D4")
+    ledger_path = world["root"] / entry["event_ledger_ref"]["path"]
+    ledger = json.loads(ledger_path.read_bytes())
+    ledger["reducer_implementation_digest"] = "f" * 64
+    ledger_path.write_bytes(canonical_json_bytes(ledger))
+    entry["event_ledger_ref"] = _ref(world["root"], entry["event_ledger_ref"]["path"])
+    input_path = world["root"] / entry["input_ref"]["path"]
+    input_value = json.loads(input_path.read_bytes())
+    input_value["reducer_implementation_digest"] = "f" * 64
+    input_value["event_ledger_ref"] = entry["event_ledger_ref"]
+    input_value["input_digest"] = statistical_input_digest(input_value)
+    input_path.write_bytes(canonical_json_bytes(input_value))
+    entry["input_ref"] = _ref(world["root"], entry["input_ref"]["path"])
+    entry["expected_input_digest"] = input_value["input_digest"]
+    with pytest.raises(StatisticalReportProducerError, match="reducer implementation digest mismatch"):
+        produce_statistical_reports(world["request"], root=world["root"])
+
+
+def test_report_retains_raw_reducer_output_and_method(tmp_path: Path):
+    world = _build_world(tmp_path)
+    produce_statistical_reports(world["request"], root=world["root"])
+    item = _produced_binding(world)["bindings"][0]
+    stored = json.loads((world["root"] / item["report_ref"]["path"]).read_bytes())
+    frozen = json.loads((world["root"] / item["input_ref"]["path"]).read_bytes())
+    recomputed = dispatch_reducer(item["score_id"], frozen["reducer_payload"])
+    assert stored["reducer_method"] == frozen["reducer_method"]
+    assert stored["reducer_implementation_digest"] == frozen["reducer_implementation_digest"]
+    assert stored["reducer_output"] == encode_reducer_output(recomputed)
+    assert stored["reducer_payload_digest"] == reducer_payload_digest(frozen["reducer_payload"])
+
+
+def test_reducer_na_status_is_one_honest_not_estimable_key(tmp_path: Path):
     world = _build_world(tmp_path)
     entry = _entry_for(world, score_id="D2")
     payload = _d2_na_payload()
-    report = dispatch_reducer("D2", payload)
+    report = _replace_entry_payload(world, entry, payload)
     assert report["status"] == "na"  # real reducer output: zero nominal reference rate
-    entry["reducer_payload"] = payload
-    entry["expected_input_digest"] = report["input_digest"]
-    input_path = world["root"] / entry["input_ref"]["path"]
-    input_value = json.loads(input_path.read_bytes())
-    input_value["input_digest"] = report["input_digest"]
-    input_path.write_bytes(canonical_json_bytes(input_value))
-    entry["input_ref"] = _ref(world["root"], entry["input_ref"]["path"])
-    with pytest.raises(StatisticalReportProducerError, match="status 'na'"):
-        produce_statistical_reports(world["request"], root=world["root"])
-    assert not (world["root"] / "manifests/statistical-report-binding.v1.json").exists()
+    summary = produce_statistical_reports(world["request"], root=world["root"])
+    assert summary["report_count"] == 12
+    rows = build_result_rows(
+        implementation_register=world["implementations"],
+        condition_register=world["conditions"],
+        required_directory=world["directory"],
+        statistical_report_binding=_produced_binding(world),
+        root=world["root"],
+    )
+    row = next(item for item in rows if item["identity"] == entry["identity"])
+    assert row["estimate"] == {
+        "entry_state": "not_estimable", "status": "na", "point": None,
+        "lower": None, "upper": None, "interval_method": None,
+        "reason": "zero_nominal_reference_rate",
+    }
+    assert row["support"]["generated_base_instances"] == 1
+    assert sum(item["estimate"]["entry_state"] == "not_estimable" for item in rows) == 1
 
 
-def test_index_layer_rejects_na_report_status_directly(tmp_path: Path):
-    # Ruling (b) code fact: the index layer accepts only valid/range/unstable/incomplete.
+def test_index_layer_rejects_fabricated_na_numbers(tmp_path: Path):
     world = _build_world(tmp_path)
     produce_statistical_reports(world["request"], root=world["root"])
     binding = _produced_binding(world)
     item = binding["bindings"][0]
     report = json.loads((world["root"] / item["report_ref"]["path"]).read_bytes())
     report["estimate"]["status"] = "na"
-    with pytest.raises(PaperResultIndexError, match="status is invalid"):
+    report["reducer_output"]["value"]["status"] = "na"
+    input_object = json.loads((world["root"] / item["input_ref"]["path"]).read_bytes())
+    ledger_object = json.loads((world["root"] / item["event_ledger_ref"]["path"]).read_bytes())
+    with pytest.raises(PaperResultIndexError, match="must not contain numerical"):
         _validate_statistical_report(
-            report, binding=item, paper_commit=PAPER_COMMIT, scorebook_digest=binding["scorebook_digest"]
+            report, binding=item, paper_commit=PAPER_COMMIT,
+            scorebook_digest=binding["scorebook_digest"], input_object=input_object,
+            ledger_object=ledger_object,
         )
 
 
@@ -606,7 +805,10 @@ def test_duplicate_result_key_is_refused(tmp_path: Path):
 
 def test_synthetic_scope_in_payload_is_refused(tmp_path: Path):
     world = _build_world(tmp_path)
-    world["request"]["entries"][0]["reducer_payload"]["scope"] = "synthetic_engineering_fixture"
+    entry = world["request"]["entries"][0]
+    payload = _frozen_payload(world, entry)
+    payload["scope"] = "synthetic_engineering_fixture"
+    _replace_entry_payload(world, entry, payload)
     with pytest.raises(StatisticalReportProducerError, match="forbidden scope 'synthetic_engineering_fixture'"):
         produce_statistical_reports(world["request"], root=world["root"])
 
@@ -616,11 +818,38 @@ def test_diagnostic_scope_in_input_json_is_refused(tmp_path: Path):
     entry = world["request"]["entries"][0]
     input_path = world["root"] / entry["input_ref"]["path"]
     input_value = json.loads(input_path.read_bytes())
-    input_value["scope"] = "diagnostic_only"
+    input_value["evidence_scope"] = "diagnostic_only"
+    input_value["input_digest"] = statistical_input_digest(input_value)
     input_path.write_bytes(canonical_json_bytes(input_value))
     entry["input_ref"] = _ref(world["root"], entry["input_ref"]["path"])
-    with pytest.raises(StatisticalReportProducerError, match="forbidden scope 'diagnostic_only'"):
+    entry["expected_input_digest"] = input_value["input_digest"]
+    with pytest.raises(StatisticalReportProducerError, match="not explicitly scoped as paper_result_candidate"):
         produce_statistical_reports(world["request"], root=world["root"])
+
+
+def test_missing_scope_does_not_default_to_paper_candidate(tmp_path: Path):
+    world = _build_world(tmp_path)
+    entry = world["request"]["entries"][0]
+    input_path = world["root"] / entry["input_ref"]["path"]
+    input_value = json.loads(input_path.read_bytes())
+    input_value.pop("evidence_scope")
+    input_value["input_digest"] = statistical_input_digest(input_value)
+    input_path.write_bytes(canonical_json_bytes(input_value))
+    entry["input_ref"] = _ref(world["root"], entry["input_ref"]["path"])
+    entry["expected_input_digest"] = input_value["input_digest"]
+    with pytest.raises(StatisticalReportProducerError, match="schema mismatch"):
+        produce_statistical_reports(world["request"], root=world["root"])
+
+
+def test_measured_raw_payload_is_not_rejected_for_upstream_gate_state(tmp_path: Path):
+    world = _build_world(tmp_path)
+    entry = world["request"]["entries"][0]
+    payload = _frozen_payload(world, entry)
+    payload["scope"] = "measured_raw_evidence"
+    payload["upstream_formal_gates"] = {"physical": False, "statistical": False}
+    _replace_entry_payload(world, entry, payload)
+    result = produce_statistical_reports(world["request"], root=world["root"])
+    assert result["formal_gates"] == {key: False for key in result["formal_gates"]}
 
 
 @pytest.mark.parametrize("path", ["results_pipeline/impl-a/input.json", "evidence/impl-a/metrics.csv"])
@@ -712,7 +941,7 @@ def test_range_interval_method_is_pinned_by_index_layer(tmp_path: Path):
     produce_statistical_reports(world["request"], root=world["root"])
     binding = _produced_binding(world)
     entry = _entry_for(world, score_id="D5", implementation_id="impl-b")
-    reducer_report = dispatch_reducer("D5", entry["reducer_payload"])
+    reducer_report = dispatch_reducer("D5", _frozen_payload(world, entry))
     assert reducer_report["status"] == "range"
     assert reducer_report["method"] == "fixed_catalog_weighted_hoeffding"
     item = next(
@@ -723,25 +952,54 @@ def test_range_interval_method_is_pinned_by_index_layer(tmp_path: Path):
     assert report["estimate"]["status"] == "range"
     assert report["estimate"]["interval_method"] == "identification_range"
     report["estimate"]["interval_method"] = reducer_report["method"]
+    input_object = json.loads((world["root"] / item["input_ref"]["path"]).read_bytes())
+    ledger_object = json.loads((world["root"] / item["event_ledger_ref"]["path"]).read_bytes())
     with pytest.raises(PaperResultIndexError, match="identification_range"):
         _validate_statistical_report(
-            report, binding=item, paper_commit=PAPER_COMMIT, scorebook_digest=binding["scorebook_digest"]
+            report, binding=item, paper_commit=PAPER_COMMIT,
+            scorebook_digest=binding["scorebook_digest"], input_object=input_object,
+            ledger_object=ledger_object,
         )
 
 
 def test_support_counts_reflect_d2_unknown_and_paired_roster():
     payload = _d2_payload(residual_unknown=True)
     report = dispatch_reducer("D2", payload)
-    support = support_from_report("D2", report, payload)
+    support = support_from_report("D2", report, payload, _support_registry("D2", payload))
     assert support["generated_base_instances"] == 30
     assert support["infrastructure_valid_base_instances"] == 29
     assert support["metric_eligible_base_instances"] == 29
-    assert support["paired_instances"] == 1
+    assert support["paired_instances"] == {"status": "observed", "value": 29}
+    assert support["common_support_instances"] == {"status": "observed", "value": 29}
     assert support["repeated_trajectories"] == 90
     assert support["numerator"] == 29 and support["denominator"] == 30
     assert support["observed_coverage_fraction"] == pytest.approx(29 / 30)
-    assert support["event_count"] == support["competing_event_count"] == support["censoring_count"] == 0
-    assert support["common_support_instances"] == 0
+    assert support["event_count"]["status"] == "not_applicable"
+    assert support["competing_event_count"]["status"] == "not_applicable"
+    assert support["censoring_count"]["status"] == "not_applicable"
+
+
+def test_method_failure_with_known_values_remains_metric_eligible():
+    payload = _d2_payload(residual_unknown=False)
+    payload["runs"][0]["status"] = "method_failure"
+    report = dispatch_reducer("D2", payload)
+    assert report["method_failures"] == 1
+    support = support_from_report("D2", report, payload, _support_registry("D2", payload))
+    assert support["infrastructure_valid_base_instances"] == 30
+    assert support["metric_eligible_base_instances"] == 30
+    assert support["denominator"] == 30
+
+
+def test_unavailable_not_applicable_and_real_zero_counts_are_distinct():
+    d2_payload = _d2_payload(residual_unknown=False)
+    d2_support = support_from_report("D2", dispatch_reducer("D2", d2_payload), d2_payload)
+    assert d2_support["paired_instances"]["status"] == "unavailable"
+    assert d2_support["event_count"]["status"] == "not_applicable"
+    d4_payload = _d4_payload()
+    d4_support = support_from_report(
+        "D4", dispatch_reducer("D4", d4_payload), d4_payload, _support_registry("D4", d4_payload)
+    )
+    assert d4_support["event_count"] == {"status": "observed", "value": 0}
 
 
 def test_d1_support_sums_frozen_coverage_table():

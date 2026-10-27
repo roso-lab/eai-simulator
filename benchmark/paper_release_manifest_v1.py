@@ -27,11 +27,13 @@ from .paper_result_index_v1 import (
     _sha256,
     _text,
     _validate_statistical_report,
+    validate_statistical_event_ledger,
+    validate_statistical_input,
 )
 
 
-RELEASE_MANIFEST_SCHEMA = "heterocoord.paper-release-manifest.v1"
-STATISTICAL_REPORT_SET_SCHEMA = "heterocoord.statistical-report-set.v1"
+RELEASE_MANIFEST_SCHEMA = "heterocoord.paper-release-manifest.v2"
+STATISTICAL_REPORT_SET_SCHEMA = "heterocoord.statistical-report-set.v2"
 REQUIRED_ROLES = frozenset({
     "paper_commit",
     "scorebook",
@@ -140,7 +142,7 @@ def _collect_bound_evidence(
 ) -> dict[str, Mapping[str, Any]]:
     binding = _json_dependency(root, dependency_entries["statistical_report_binding"], "statistical_report_binding")
     _exact_keys(binding, {"schema", "paper_commit", "scorebook_digest", "bindings"}, "statistical report binding")
-    if binding["schema"] != "heterocoord.statistical-report-binding.v1" or binding["paper_commit"] != paper_commit:
+    if binding["schema"] != "heterocoord.statistical-report-binding.v2" or binding["paper_commit"] != paper_commit:
         raise PaperReleaseManifestError("statistical report binding identity mismatch")
     if binding["scorebook_digest"] != scorebook_digest:
         raise PaperReleaseManifestError("statistical binding scorebook digest mismatch")
@@ -182,17 +184,28 @@ def _collect_bound_evidence(
         if report_identity in seen_report_refs:
             raise PaperReleaseManifestError("one statistical report cannot bind multiple result keys")
         seen_report_refs.add(report_identity)
+        input_object = _json_dependency(root, item["input_ref"], f"statistical input {item['score_id']}")
+        ledger_object = _json_dependency(root, item["event_ledger_ref"], f"statistical event ledger {item['score_id']}")
+        if input_object.get("paper_commit") != paper_commit:
+            raise PaperReleaseManifestError("statistical input paper commit mismatch")
+        try:
+            validate_statistical_input(input_object, binding=item)
+            validate_statistical_event_ledger(ledger_object, binding=item, input_object=input_object)
+        except PaperResultIndexError as exc:
+            raise PaperReleaseManifestError(str(exc)) from exc
         report = _json_dependency(root, item["report_ref"], f"statistical report {item['score_id']}")
         _exact_keys(report, STATISTICAL_REPORT_FIELDS, f"statistical report {item['score_id']}")
-        _validate_statistical_report(
-            report,
-            binding=item,
-            paper_commit=paper_commit,
-            scorebook_digest=scorebook_digest,
-        )
-        input_object = _json_dependency(root, item["input_ref"], f"statistical input {item['score_id']}")
-        if input_object.get("input_digest") != item["expected_input_digest"]:
-            raise PaperReleaseManifestError("statistical input identity mismatch")
+        try:
+            _validate_statistical_report(
+                report,
+                binding=item,
+                paper_commit=paper_commit,
+                scorebook_digest=scorebook_digest,
+                input_object=input_object,
+                ledger_object=ledger_object,
+            )
+        except PaperResultIndexError as exc:
+            raise PaperReleaseManifestError(str(exc)) from exc
         if report["event_ledger_digest"] != item["event_ledger_ref"]["sha256"]:
             raise PaperReleaseManifestError("statistical report event-ledger digest mismatch")
         identity = item["identity"]
