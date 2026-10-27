@@ -1041,8 +1041,13 @@ class _TopologyEditorViewportScene:
                 # gesture surface immediately after on_build returns.
                 self.transform = sc.Transform()
                 with self.transform:
+                    # Screen expects Kit gesture instances. The editor keeps
+                    # small owner wrappers around those instances so it can
+                    # route callbacks into the controller; passing the
+                    # wrappers themselves silently creates a non-interactive
+                    # screen in current Kit releases.
                     self.screen = sc.Screen(gesture=[g for g in
-                                                     (self.owner._gesture.click_gesture,
+                                                     (self.owner._gesture.click_gesture.gesture,
                                                       self.owner._gesture.gesture) if g is not None])
 
         self.viewport_api = viewport_api
