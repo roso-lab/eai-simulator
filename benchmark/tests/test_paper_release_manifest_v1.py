@@ -38,9 +38,9 @@ def ref(root: Path, relative: str) -> dict:
     return {"path": relative, "size": len(data), "sha256": hashlib.sha256(data).hexdigest()}
 
 
-def identity(score_id: str) -> dict:
+def identity(score_id: str, implementation_id: str = "impl-1") -> dict:
     value = {
-        "implementation_id": "impl-1",
+        "implementation_id": implementation_id,
         "comparison_condition_id": "condition-1",
         "task_family": "aggregate",
         "domain": "aggregate",
@@ -76,7 +76,12 @@ def support() -> dict:
     }
 
 
-def release_fixture(root: Path) -> dict[str, str]:
+def release_fixture(
+    root: Path,
+    *,
+    implementations: tuple[str, ...] = ("impl-1",),
+    dimensions: tuple[int, ...] = (1, 2, 3, 4, 5, 6),
+) -> dict[str, str]:
     (root / "paper-commit.txt").write_text(PAPER + "\n", encoding="utf-8")
     (root / "paper-result-index.v1.jsonl").write_text("{}\n", encoding="utf-8")
     ordinary_roles = REQUIRED_ROLES - {
@@ -97,50 +102,51 @@ def release_fixture(root: Path) -> dict[str, str]:
     scorebook_digest = hashlib.sha256((root / paths["scorebook"]).read_bytes().rstrip(b"\n")).hexdigest()
     bindings = []
     report_set = []
-    for index in range(1, 7):
-        score_id = f"D{index}"
-        result_identity = identity(score_id)
-        key = result_key_digest(result_identity)
-        input_digest = hashlib.sha256(f"input-{score_id}".encode()).hexdigest()
-        report_path = f"evidence/{score_id}/report.json"
-        input_path = f"evidence/{score_id}/input.json"
-        ledger_path = f"evidence/{score_id}/ledger.bin"
-        write_json(root, input_path, {"schema": "heterocoord.statistical-input.v1", "paper_commit": PAPER, "score_id": score_id, "input_digest": input_digest})
-        ledger = root / ledger_path
-        ledger.parent.mkdir(parents=True, exist_ok=True)
-        ledger.write_bytes(f"sealed-{score_id}\n".encode())
-        write_json(root, report_path, {
-            "schema": STATISTICAL_REPORT_SCHEMA,
-            "paper_commit": PAPER,
-            "scorebook_digest": scorebook_digest,
-            "input_digest": input_digest,
-            "implementation_id": "impl-1",
-            "comparison_condition_id": "condition-1",
-            "result_key_digest": key,
-            "score_id": score_id,
-            "outcome_id": score_id,
-            "estimator_version": "estimator-v1",
-            "evidence_scope": "paper_result_candidate",
-            "formal_gates": dict(FORMAL_GATES_FALSE),
-            "estimate": {"status": "valid", "point": 80.0, "lower": 75.0, "upper": 85.0, "interval_method": "cluster_percentile", "reason": "observed_estimate"},
-            "support": support(),
-            "event_ledger_digest": hashlib.sha256(ledger.read_bytes()).hexdigest(),
-        })
-        report_ref = ref(root, report_path)
-        bindings.append({
-            "result_key_digest": key,
-            "identity": result_identity,
-            "implementation_id": "impl-1",
-            "comparison_condition_id": "condition-1",
-            "score_id": score_id,
-            "outcome_id": score_id,
-            "estimator_version": "estimator-v1",
-            "expected_input_digest": input_digest,
-            "report_ref": report_ref,
-            "input_ref": ref(root, input_path),
-            "event_ledger_ref": ref(root, ledger_path),
-        })
-        report_set.append({"score_id": score_id, "report_ref": report_ref})
+    for implementation_id in implementations:
+        for dimension in dimensions:
+            score_id = f"D{dimension}"
+            result_identity = identity(score_id, implementation_id)
+            key = result_key_digest(result_identity)
+            input_digest = hashlib.sha256(f"input-{implementation_id}-{score_id}".encode()).hexdigest()
+            report_path = f"evidence/{implementation_id}/{score_id}/report.json"
+            input_path = f"evidence/{implementation_id}/{score_id}/input.json"
+            ledger_path = f"evidence/{implementation_id}/{score_id}/ledger.bin"
+            write_json(root, input_path, {"schema": "heterocoord.statistical-input.v1", "paper_commit": PAPER, "score_id": score_id, "input_digest": input_digest})
+            ledger = root / ledger_path
+            ledger.parent.mkdir(parents=True, exist_ok=True)
+            ledger.write_bytes(f"sealed-{implementation_id}-{score_id}\n".encode())
+            write_json(root, report_path, {
+                "schema": STATISTICAL_REPORT_SCHEMA,
+                "paper_commit": PAPER,
+                "scorebook_digest": scorebook_digest,
+                "input_digest": input_digest,
+                "implementation_id": implementation_id,
+                "comparison_condition_id": "condition-1",
+                "result_key_digest": key,
+                "score_id": score_id,
+                "outcome_id": score_id,
+                "estimator_version": "estimator-v1",
+                "evidence_scope": "paper_result_candidate",
+                "formal_gates": dict(FORMAL_GATES_FALSE),
+                "estimate": {"status": "valid", "point": 80.0, "lower": 75.0, "upper": 85.0, "interval_method": "cluster_percentile", "reason": "observed_estimate"},
+                "support": support(),
+                "event_ledger_digest": hashlib.sha256(ledger.read_bytes()).hexdigest(),
+            })
+            report_ref = ref(root, report_path)
+            bindings.append({
+                "result_key_digest": key,
+                "identity": result_identity,
+                "implementation_id": implementation_id,
+                "comparison_condition_id": "condition-1",
+                "score_id": score_id,
+                "outcome_id": score_id,
+                "estimator_version": "estimator-v1",
+                "expected_input_digest": input_digest,
+                "report_ref": report_ref,
+                "input_ref": ref(root, input_path),
+                "event_ledger_ref": ref(root, ledger_path),
+            })
+            report_set.append({"result_key_digest": key, "report_ref": report_ref})
     binding_path = "manifests/statistical-report-binding.v1.json"
     write_json(root, binding_path, {
         "schema": "heterocoord.statistical-report-binding.v1",
@@ -162,7 +168,7 @@ def release_fixture(root: Path) -> dict[str, str]:
         "schema": INDEX_MANIFEST_SCHEMA,
         "paper_commit": PAPER,
         "index": {"path": Path(result_entry["path"]).name, "size": result_entry["size"], "sha256": result_entry["sha256"]},
-        "row_count": 6,
+        "row_count": len(bindings),
         "required_directory_digest": ref(root, paths["required_result_directory"])["sha256"],
         "formal_gates": dict(FORMAL_GATES_FALSE),
     })
@@ -183,6 +189,27 @@ def test_release_manifest_round_trip_binds_all_nested_evidence(tmp_path: Path):
     assert manifest["schema"] == RELEASE_MANIFEST_SCHEMA
     assert manifest["formal_gates"] == FORMAL_GATES_FALSE
     assert len(manifest["bound_evidence"]) == 18
+    assert verify_paper_release_manifest(destination, root=tmp_path) == manifest
+
+
+def test_release_manifest_supports_multi_system_matrix(tmp_path: Path):
+    dependencies = release_fixture(tmp_path, implementations=("impl-1", "impl-2"))
+    destination = tmp_path / "paper-release-manifest.v1.json"
+    manifest = build_paper_release_manifest(
+        root=tmp_path,
+        paper_commit=PAPER,
+        dependencies=dependencies,
+        destination=destination,
+    )
+    assert len(manifest["bound_evidence"]) == 36
+    bound_keys = list(manifest["bound_evidence"])
+    report_roles = {key.split(":", 1)[1] for key in bound_keys if key.startswith("report:")}
+    per_system = {
+        implementation: {result_key_digest(identity(f"D{i}", implementation)) for i in range(1, 7)}
+        for implementation in ("impl-1", "impl-2")
+    }
+    assert per_system["impl-1"].isdisjoint(per_system["impl-2"])
+    assert report_roles == per_system["impl-1"] | per_system["impl-2"]
     assert verify_paper_release_manifest(destination, root=tmp_path) == manifest
 
 
@@ -225,7 +252,7 @@ def test_nested_report_mutation_is_detected(tmp_path: Path):
     dependencies = release_fixture(tmp_path)
     destination = tmp_path / "release.json"
     build_paper_release_manifest(root=tmp_path, paper_commit=PAPER, dependencies=dependencies, destination=destination)
-    report = tmp_path / "evidence/D4/report.json"
+    report = tmp_path / "evidence/impl-1/D4/report.json"
     report.write_bytes(report.read_bytes() + b" ")
     with pytest.raises(PaperReleaseManifestError, match="does not match bytes"):
         verify_paper_release_manifest(destination, root=tmp_path)
@@ -279,13 +306,117 @@ def test_result_index_and_index_manifest_identity_mismatch_is_rejected(tmp_path:
         build_paper_release_manifest(root=tmp_path, paper_commit=PAPER, dependencies=dependencies, destination=tmp_path / "release.json")
 
 
-def test_statistical_report_set_must_be_exact_d1_through_d6(tmp_path: Path):
+def test_report_set_missing_result_key_is_rejected(tmp_path: Path):
     dependencies = release_fixture(tmp_path)
     report_set_path = tmp_path / dependencies["statistical_reports"]
     report_set = json.loads(report_set_path.read_text())
     report_set["reports"].pop()
     report_set_path.write_bytes(canonical_json_bytes(report_set))
-    with pytest.raises(PaperReleaseManifestError, match="exactly six"):
+    with pytest.raises(PaperReleaseManifestError, match="disagree"):
+        build_paper_release_manifest(root=tmp_path, paper_commit=PAPER, dependencies=dependencies, destination=tmp_path / "release.json")
+
+
+def test_report_set_extra_result_key_is_rejected(tmp_path: Path):
+    dependencies = release_fixture(tmp_path)
+    report_set_path = tmp_path / dependencies["statistical_reports"]
+    report_set = json.loads(report_set_path.read_text())
+    report_set["reports"].append({"result_key_digest": "f" * 64, "report_ref": deepcopy(report_set["reports"][0]["report_ref"])})
+    report_set_path.write_bytes(canonical_json_bytes(report_set))
+    with pytest.raises(PaperReleaseManifestError, match="disagree"):
+        build_paper_release_manifest(root=tmp_path, paper_commit=PAPER, dependencies=dependencies, destination=tmp_path / "release.json")
+
+
+def test_report_set_duplicate_result_key_is_rejected(tmp_path: Path):
+    dependencies = release_fixture(tmp_path)
+    report_set_path = tmp_path / dependencies["statistical_reports"]
+    report_set = json.loads(report_set_path.read_text())
+    report_set["reports"].append(deepcopy(report_set["reports"][0]))
+    report_set_path.write_bytes(canonical_json_bytes(report_set))
+    with pytest.raises(PaperReleaseManifestError, match="duplicate result keys"):
+        build_paper_release_manifest(root=tmp_path, paper_commit=PAPER, dependencies=dependencies, destination=tmp_path / "release.json")
+
+
+def test_binding_duplicate_result_key_is_rejected(tmp_path: Path):
+    dependencies = release_fixture(tmp_path)
+    binding_path = tmp_path / dependencies["statistical_report_binding"]
+    binding = json.loads(binding_path.read_text())
+    binding["bindings"].append(deepcopy(binding["bindings"][0]))
+    binding_path.write_bytes(canonical_json_bytes(binding))
+    with pytest.raises(PaperReleaseManifestError, match="duplicate result keys"):
+        build_paper_release_manifest(root=tmp_path, paper_commit=PAPER, dependencies=dependencies, destination=tmp_path / "release.json")
+
+
+def test_bindings_missing_a_dimension_is_rejected(tmp_path: Path):
+    dependencies = release_fixture(tmp_path, dimensions=(1, 2, 3, 4, 6))
+    with pytest.raises(PaperReleaseManifestError, match="cover D1-D6"):
+        build_paper_release_manifest(root=tmp_path, paper_commit=PAPER, dependencies=dependencies, destination=tmp_path / "release.json")
+
+
+def test_self_consistent_binding_with_score_id_outside_d1_d6_is_rejected(tmp_path: Path):
+    dependencies = release_fixture(tmp_path)
+    binding_path = tmp_path / dependencies["statistical_report_binding"]
+    binding = json.loads(binding_path.read_text())
+    report_set_path = tmp_path / dependencies["statistical_reports"]
+    report_set = json.loads(report_set_path.read_text())
+    scorebook_digest = hashlib.sha256((tmp_path / dependencies["scorebook"]).read_bytes().rstrip(b"\n")).hexdigest()
+    # A seventh, otherwise fully self-consistent binding labelled D7.
+    result_identity = identity("D7")
+    key = result_key_digest(result_identity)
+    input_digest = hashlib.sha256(b"input-impl-1-D7").hexdigest()
+    input_path = "evidence/impl-1/D7/input.json"
+    ledger_path = "evidence/impl-1/D7/ledger.bin"
+    report_path = "evidence/impl-1/D7/report.json"
+    write_json(tmp_path, input_path, {"schema": "heterocoord.statistical-input.v1", "paper_commit": PAPER, "score_id": "D7", "input_digest": input_digest})
+    (tmp_path / ledger_path).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / ledger_path).write_bytes(b"sealed-impl-1-D7\n")
+    write_json(tmp_path, report_path, {
+        "schema": STATISTICAL_REPORT_SCHEMA,
+        "paper_commit": PAPER,
+        "scorebook_digest": scorebook_digest,
+        "input_digest": input_digest,
+        "implementation_id": "impl-1",
+        "comparison_condition_id": "condition-1",
+        "result_key_digest": key,
+        "score_id": "D7",
+        "outcome_id": "D7",
+        "estimator_version": "estimator-v1",
+        "evidence_scope": "paper_result_candidate",
+        "formal_gates": dict(FORMAL_GATES_FALSE),
+        "estimate": {"status": "valid", "point": 80.0, "lower": 75.0, "upper": 85.0, "interval_method": "cluster_percentile", "reason": "observed_estimate"},
+        "support": support(),
+        "event_ledger_digest": hashlib.sha256((tmp_path / ledger_path).read_bytes()).hexdigest(),
+    })
+    report_ref = ref(tmp_path, report_path)
+    binding["bindings"].append({
+        "result_key_digest": key,
+        "identity": result_identity,
+        "implementation_id": "impl-1",
+        "comparison_condition_id": "condition-1",
+        "score_id": "D7",
+        "outcome_id": "D7",
+        "estimator_version": "estimator-v1",
+        "expected_input_digest": input_digest,
+        "report_ref": report_ref,
+        "input_ref": ref(tmp_path, input_path),
+        "event_ledger_ref": ref(tmp_path, ledger_path),
+    })
+    binding_path.write_bytes(canonical_json_bytes(binding))
+    report_set["reports"].append({"result_key_digest": key, "report_ref": report_ref})
+    report_set_path.write_bytes(canonical_json_bytes(report_set))
+    with pytest.raises(PaperReleaseManifestError, match="outside D1-D6"):
+        build_paper_release_manifest(root=tmp_path, paper_commit=PAPER, dependencies=dependencies, destination=tmp_path / "release.json")
+
+
+def test_report_set_legacy_score_id_entry_is_rejected(tmp_path: Path):
+    dependencies = release_fixture(tmp_path)
+    report_set_path = tmp_path / dependencies["statistical_reports"]
+    report_set = json.loads(report_set_path.read_text())
+    report_set["reports"][0] = {
+        "score_id": "D1",
+        "report_ref": report_set["reports"][0]["report_ref"],
+    }
+    report_set_path.write_bytes(canonical_json_bytes(report_set))
+    with pytest.raises(PaperReleaseManifestError, match="entry schema mismatch"):
         build_paper_release_manifest(root=tmp_path, paper_commit=PAPER, dependencies=dependencies, destination=tmp_path / "release.json")
 
 

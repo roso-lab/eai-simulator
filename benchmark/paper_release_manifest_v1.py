@@ -151,11 +151,8 @@ def _collect_bound_evidence(
     if set(report_set) != {"schema", "paper_commit", "reports"} or report_set["schema"] != STATISTICAL_REPORT_SET_SCHEMA or report_set["paper_commit"] != paper_commit:
         raise PaperReleaseManifestError("statistical report set identity mismatch")
     reports = report_set["reports"]
-    if not isinstance(reports, list) or len(reports) != 6:
-        raise PaperReleaseManifestError("statistical report set must contain exactly six D1-D6 reports")
-    expected_scores = {f"D{i}" for i in range(1, 7)}
-    if {item.get("score_id") for item in reports if isinstance(item, Mapping)} != expected_scores:
-        raise PaperReleaseManifestError("statistical report set must contain unique D1-D6 score IDs")
+    if not isinstance(reports, list):
+        raise PaperReleaseManifestError("statistical report set must contain a list of reports")
     report_refs: dict[str, Mapping[str, Any]] = {}
     bound: dict[str, Mapping[str, Any]] = {}
     seen_report_refs: set[tuple[str, int, str]] = set()
@@ -163,6 +160,10 @@ def _collect_bound_evidence(
         _exact_keys(item, BINDING_ENTRY_FIELDS, f"bindings[{index}]")
         key = item["result_key_digest"]
         _sha256(key, f"bindings[{index}].result_key_digest")
+        if key in report_refs:
+            raise PaperReleaseManifestError("statistical bindings contain duplicate result keys")
+        if item["score_id"] not in {f"D{i}" for i in range(1, 7)}:
+            raise PaperReleaseManifestError("statistical binding score_id is outside D1-D6")
         validate_identity(item["identity"])
         if result_key_digest(item["identity"]) != key:
             raise PaperReleaseManifestError("statistical binding result-key digest is stale")
@@ -198,15 +199,24 @@ def _collect_bound_evidence(
         for field in ("implementation_id", "comparison_condition_id", "outcome_id", "estimator_version"):
             if identity.get(field) != item[field]:
                 raise PaperReleaseManifestError("statistical binding full result identity mismatch")
-        if item["score_id"] in report_refs:
-            raise PaperReleaseManifestError("statistical bindings contain duplicate score IDs")
-        report_refs[item["score_id"]] = item["report_ref"]
-    if set(report_refs) != expected_scores:
-        raise PaperReleaseManifestError("statistical bindings must bind exactly one report for D1-D6")
-    for item in reports:
-        if not isinstance(item, Mapping) or set(item) != {"score_id", "report_ref"}:
+        report_refs[key] = item["report_ref"]
+    expected_scores = {f"D{i}" for i in range(1, 7)}
+    # Per-system completeness is enforced by the required-result directory and
+    # the result-index layer; the release layer only checks global D1-D6 coverage.
+    if not expected_scores.issubset({item["score_id"] for item in bindings}):
+        raise PaperReleaseManifestError("statistical bindings must cover D1-D6 score IDs")
+    set_report_refs: dict[str, Mapping[str, Any]] = {}
+    for index, item in enumerate(reports):
+        if not isinstance(item, Mapping) or set(item) != {"result_key_digest", "report_ref"}:
             raise PaperReleaseManifestError("statistical report set entry schema mismatch")
-        if item["report_ref"] != report_refs[item["score_id"]]:
+        key = _sha256(item["result_key_digest"], f"reports[{index}].result_key_digest")
+        if key in set_report_refs:
+            raise PaperReleaseManifestError("statistical report set contains duplicate result keys")
+        set_report_refs[key] = item["report_ref"]
+    if set(set_report_refs) != set(report_refs):
+        raise PaperReleaseManifestError("statistical report set and binding manifest disagree")
+    for key, reference in set_report_refs.items():
+        if reference != report_refs[key]:
             raise PaperReleaseManifestError("statistical report set and binding manifest disagree")
     return bound
 
