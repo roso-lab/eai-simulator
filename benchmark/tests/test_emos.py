@@ -1,7 +1,9 @@
 from algorithm.common_coordination.contract import Assignment, ExecutionFeedback
 from algorithm.skills.contracts import SkillCommand, SkillPlan, SkillRequest
 from benchmark.evidence import EvaluationReport, EvaluationStatus, EvidenceRecord, EvidenceStatus
-from benchmark.emos import EmosDecisionAdapter, package_from_fire_rescue_request
+import pytest
+
+from benchmark.emos import EmosDecisionAdapter, emos_fallback_assign, package_from_fire_rescue_request
 from benchmark.protocol import BranchRole, ProtocolContract, RunKey
 from benchmark.runtime import EpisodeRunner, RuntimeTaskBinding
 from task.fixtures.fire_rescue import build_fire_rescue_assignment_request
@@ -118,3 +120,45 @@ def test_emos_decision_enters_runtime_but_external_evidence_owns_verdict() -> No
     )
     assert result.evaluation.status is EvaluationStatus.UNKNOWN
     assert any(event.kind == "terminal_verdict" for event in runner.ledger.events)
+
+
+def test_emos_initialize_binds_history_observation_and_metered_endpoint() -> None:
+    request = build_fire_rescue_assignment_request()
+    package = package_from_fire_rescue_request(request)
+    calls = []
+
+    def endpoint(payload):
+        calls.append(payload)
+        return emos_fallback_assign(request)
+
+    adapter = EmosDecisionAdapter(
+        request,
+        model_endpoint=endpoint,
+        require_initialize=True,
+    )
+    with pytest.raises(RuntimeError, match="must be initialized"):
+        adapter(package, package.robots)
+
+    history = {
+        "task_description": request.task_description,
+        "subtask_positions": dict(request.subtask_positions),
+        "completed_extinguisher": list(request.completed_extinguisher),
+        "completed_rescue": list(request.completed_rescue),
+    }
+    observation = {"robot_positions": dict(request.robot_positions), "tick": 0}
+    initialized = adapter.initialize(history, observation)
+    assert initialized.robot_positions == request.robot_positions
+    assert calls and calls[0]["robot_ids"] == sorted(request.robot_positions)
+    assert set(calls[0]) == {"history", "observation", "scenario_id", "robot_ids"}
+
+    decision = adapter(package, package.robots)
+    assert decision.assignments
+    assert decision.provenance["initialized"] is True
+    assert decision.provenance["model_endpoint"] is True
+
+
+def test_emos_initialize_rejects_roster_mismatch_fail_closed() -> None:
+    request = build_fire_rescue_assignment_request()
+    adapter = EmosDecisionAdapter(request, require_initialize=True)
+    with pytest.raises(ValueError, match="roster mismatch"):
+        adapter.initialize({}, {"robot_positions": {"unexpected": (0.0, 0.0, 0.0)}})
