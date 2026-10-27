@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from benchmark.evaluator.room06_livt04 import (
+    DIAGNOSTIC_RUNTIME_BINDING,
     EVALUATOR_VERSION,
     Room06LivT04Evaluator,
     Room06LivT04EvaluatorError,
@@ -50,7 +51,8 @@ def _runtime(*, late=False, holds=2, integrity=True):
             ],
             "task_events": [
                 {"name": "transition_handoff_observed",
-                 "subject": "topology_transition_node", "tick": 2},
+                 "subject": DIAGNOSTIC_RUNTIME_BINDING["transition_handoff_node_id"],
+                 "tick": 2},
                 {"name": "bilateral_support_established",
                  "subject": "heavy_object", "tick": 10},
             ],
@@ -65,6 +67,7 @@ def _runtime(*, late=False, holds=2, integrity=True):
             "d6": {"bits": 10.0, "time": 1.0},
         },
         "obligation_binding": BOUNDING,
+        "runtime_binding": dict(DIAGNOSTIC_RUNTIME_BINDING),
     }
 
 
@@ -110,6 +113,40 @@ def test_rejects_derived_success_supplied_by_caller():
     runtime["base_facts"]["success"] = True
     with pytest.raises(Room06LivT04EvaluatorError, match="derived success"):
         Room06LivT04Evaluator().collect_receipt_material(runtime, _job())
+
+
+def test_transition_event_must_match_frozen_real_node():
+    runtime = _runtime()
+    runtime["streams"]["task_events"][0]["subject"] = "topology_transition_node"
+    with pytest.raises(Room06LivT04EvaluatorError, match="frozen real transition node"):
+        Room06LivT04Evaluator().collect_receipt_material(runtime, _job())
+
+    runtime = _runtime()
+    frozen = dict(DIAGNOSTIC_RUNTIME_BINDING)
+    frozen["transition_handoff_node_id"] = "node:handoff"
+    with pytest.raises(Room06LivT04EvaluatorError, match="disagrees with the frozen plan"):
+        Room06LivT04Evaluator(runtime_binding=frozen).collect_receipt_material(
+            runtime, _job()
+        )
+
+
+def test_case_bound_evaluator_requires_plan_runtime_binding():
+    case = {
+        "task_id": "liv-t-04",
+        "anchor_id": "liv-t-04",
+        "scene": {
+            "scene_id": "room_06",
+            "horizon": 15000,
+            "entity_ids": ["book_batch_01", "heavy_object"],
+            "zone_ids": [],
+        },
+        "evaluator": {
+            "evaluator_id": "heterocoord.evaluator.room06-livt04",
+            "evaluator_version": EVALUATOR_VERSION,
+        },
+    }
+    with pytest.raises(Room06LivT04EvaluatorError, match="requires frozen"):
+        Room06LivT04Evaluator(case_manifest=case, obligation_binding=BOUNDING)
 
 
 def test_diagnostic_fixture_uses_same_generic_receipt_hook():

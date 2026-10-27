@@ -377,9 +377,15 @@ def _registered_evaluator(
         raise ValueError(
             "serialized terminal input requires plan.oracle_obligation_binding"
         )
+    runtime_binding = plan.get("room06_runtime_binding")
+    if not isinstance(runtime_binding, Mapping):
+        raise ValueError(
+            "serialized terminal input requires plan.room06_runtime_binding"
+        )
     return Room06LivT04Evaluator(
         case_manifest=case_manifest,
         obligation_binding=obligation_binding,
+        runtime_binding=runtime_binding,
     )
 
 

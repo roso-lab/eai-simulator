@@ -14,6 +14,7 @@ from benchmark.case_partial_results_v1 import (
     verify_partial_export,
 )
 from benchmark.evaluator.room06_livt04 import (
+    DIAGNOSTIC_RUNTIME_BINDING,
     EVALUATOR_ID,
     EVALUATOR_VERSION,
     Room06LivT04Evaluator,
@@ -111,7 +112,11 @@ def _case(catalog: dict, plan: dict) -> dict:
 
 def _sealed(tmp_path: Path) -> tuple[dict, dict, dict, dict]:
     catalog = {"anchors": ["liv-t-04"]}
-    plan = {"seed": 20261027, "oracle_obligation_binding": OBLIGATION_BINDING}
+    plan = {
+        "seed": 20261027,
+        "oracle_obligation_binding": OBLIGATION_BINDING,
+        "room06_runtime_binding": dict(DIAGNOSTIC_RUNTIME_BINDING),
+    }
     parameters = {"alpha": 0.05, "seed": 20261027, "resamples": 0, "d5_min_cases": 30}
     case = _case(catalog, plan)
     sealed = seal_terminal_artifacts(
@@ -121,6 +126,7 @@ def _sealed(tmp_path: Path) -> tuple[dict, dict, dict, dict]:
                 "evaluator": Room06LivT04Evaluator(
                     case_manifest=case,
                     obligation_binding=OBLIGATION_BINDING,
+                    runtime_binding=DIAGNOSTIC_RUNTIME_BINDING,
                 ),
                 "runtime": {
                     **build_diagnostic_runtime_fixture(),

@@ -9,6 +9,7 @@ from benchmark.case_manifest_v1 import bind_case_manifest
 from tools.benchmark_branch.models import BranchJob, canonical_digest
 from benchmark.terminal_case_runner_v1 import TerminalCaseRunnerError, seal_terminal_artifacts
 from benchmark.evaluator.room06_livt04 import (
+    DIAGNOSTIC_RUNTIME_BINDING,
     EVALUATOR_ID,
     EVALUATOR_VERSION,
     Room06LivT04Evaluator,
@@ -99,7 +100,12 @@ def _d4_plan() -> dict:
     registration["registration_digest"] = canonical_digest({
         key: value for key, value in registration.items() if key != "registration_digest"
     })
-    return {"seed": 20261027, "oracle_obligation_binding": BOUNDING, D4_PLAN_KEY: registration}
+    return {
+        "seed": 20261027,
+        "oracle_obligation_binding": BOUNDING,
+        "room06_runtime_binding": dict(DIAGNOSTIC_RUNTIME_BINDING),
+        D4_PLAN_KEY: registration,
+    }
 
 
 class _ExplicitMaterialEvaluator:
@@ -190,7 +196,11 @@ def _case(catalog: dict, plan: dict) -> dict:
 
 def test_seal_terminal_artifact_builds_readiness_and_preserves_gates(tmp_path: Path) -> None:
     catalog = {"anchors": ["liv-t-04"]}
-    plan = {"seed": 20261027, "oracle_obligation_binding": BOUNDING}
+    plan = {
+        "seed": 20261027,
+        "oracle_obligation_binding": BOUNDING,
+        "room06_runtime_binding": dict(DIAGNOSTIC_RUNTIME_BINDING),
+    }
     case = _case(catalog, plan)
     result = {
         "status": "valid_terminal",
@@ -227,7 +237,11 @@ def test_seal_terminal_artifact_builds_readiness_and_preserves_gates(tmp_path: P
 
 def test_seal_does_not_infer_missing_evaluator_verdict(tmp_path: Path) -> None:
     catalog = {"anchors": ["liv-t-04"]}
-    plan = {"seed": 20261027, "oracle_obligation_binding": BOUNDING}
+    plan = {
+        "seed": 20261027,
+        "oracle_obligation_binding": BOUNDING,
+        "room06_runtime_binding": dict(DIAGNOSTIC_RUNTIME_BINDING),
+    }
     with pytest.raises(TerminalCaseRunnerError, match="terminal evidence sealing failed"):
         seal_terminal_artifacts(
             terminals=[{

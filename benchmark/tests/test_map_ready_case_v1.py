@@ -11,6 +11,7 @@ from benchmark.case_manifest_v1 import bind_case_manifest
 from benchmark.map_ready_case_v1 import MapReadyCaseError, run_map_ready_case
 from benchmark.records_v3 import canonical_digest
 from benchmark.evaluator.room06_livt04 import (
+    DIAGNOSTIC_RUNTIME_BINDING,
     EVALUATOR_ID,
     EVALUATOR_VERSION,
     build_diagnostic_runtime_fixture,
@@ -409,7 +410,8 @@ def test_serialized_terminal_rehydrates_only_registered_job_and_evaluator() -> N
             "schema": "heterocoord.oracle-obligation-binding.v1",
             "anchor_id": "liv-t-04",
             "obligations": [],
-        }
+        },
+        "room06_runtime_binding": dict(DIAGNOSTIC_RUNTIME_BINDING),
     }
     case = {
         "task_id": "liv-t-04",
@@ -483,7 +485,11 @@ def test_serialized_terminal_runs_registered_evaluator_to_case_readiness(
         }],
     }
     catalog = {"anchors": ["liv-t-04"]}
-    plan = {"seed": 20261027, "oracle_obligation_binding": obligation_binding}
+    plan = {
+        "seed": 20261027,
+        "oracle_obligation_binding": obligation_binding,
+        "room06_runtime_binding": dict(DIAGNOSTIC_RUNTIME_BINDING),
+    }
     case = bind_case_manifest({
         "schema": "heterocoord.case-manifest.v1",
         "case_id": "room06-livt04-serialized-diagnostic",
@@ -592,7 +598,11 @@ def test_serialized_terminal_exports_partial_measured_results(tmp_path: Path) ->
             "predicate_ids": ["upper_shelf_delivery_after_transition_handoff"],
         }],
     }
-    plan = {"seed": 20261027, "oracle_obligation_binding": obligation_binding}
+    plan = {
+        "seed": 20261027,
+        "oracle_obligation_binding": obligation_binding,
+        "room06_runtime_binding": dict(DIAGNOSTIC_RUNTIME_BINDING),
+    }
     case = bind_case_manifest({
         "schema": "heterocoord.case-manifest.v1",
         "case_id": "room06-livt04-partial",
@@ -750,6 +760,34 @@ def test_serialized_terminal_rejects_unregistered_manifest_evaluator() -> None:
                 }
             },
             {"oracle_obligation_binding": {}},
+        )
+
+
+def test_serialized_terminal_requires_frozen_runtime_binding() -> None:
+    case = {
+        "task_id": "liv-t-04",
+        "anchor_id": "liv-t-04",
+        "scene": {
+            "scene_id": "room_06",
+            "horizon": 15000,
+            "entity_ids": ["book_batch_01", "heavy_object"],
+            "zone_ids": [],
+        },
+        "evaluator": {
+            "evaluator_id": EVALUATOR_ID,
+            "evaluator_version": EVALUATOR_VERSION,
+        },
+    }
+    with pytest.raises(ValueError, match="plan.room06_runtime_binding"):
+        orchestrator._registered_evaluator(
+            case,
+            {
+                "oracle_obligation_binding": {
+                    "schema": "heterocoord.oracle-obligation-binding.v1",
+                    "anchor_id": "liv-t-04",
+                    "obligations": [],
+                }
+            },
         )
 
 

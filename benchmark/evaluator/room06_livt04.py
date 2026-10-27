@@ -16,7 +16,8 @@ Expected runtime payload (the key may be supplied directly or under
                     "task_events", "identity_records", "integrity_confirmed"},
         "base_facts": {"d1", "base_task_success", "d4_items", "d6",
                        optional "d5_attempt"},
-        "obligation_binding": <frozen plan.oracle_obligation_binding>
+        "obligation_binding": <frozen plan.oracle_obligation_binding>,
+        "runtime_binding": <frozen plan.room06_runtime_binding>
     }
 
 ``base_facts.base_task_success`` is the only task-level success input.  The
@@ -36,11 +37,13 @@ from tools.benchmark_branch.receipt_material import (
 
 
 EVALUATOR_ID = "heterocoord.evaluator.room06-livt04"
-EVALUATOR_VERSION = "room06-livt04-evaluator-v1"
+EVALUATOR_VERSION = "room06-livt04-evaluator-v2"
 ANCHOR_ID = "liv-t-04"
 SCENE_IDS = frozenset({"room_06", "living_room_06"})
 HORIZON_TICKS = 15_000
 ENTITY_IDS = frozenset({"book_batch_01", "heavy_object"})
+RUNTIME_BINDING_SCHEMA = "heterocoord.room06-runtime-binding.v1"
+_HEX = frozenset("0123456789abcdef")
 REQUIRED_STREAM_KEYS = frozenset({
     "zone_intervals", "hold_intervals", "milestones", "task_events",
     "identity_records", "integrity_confirmed",
@@ -63,6 +66,14 @@ DIAGNOSTIC_OBLIGATION_BINDING = {
         "relation": "P2",
         "predicate_ids": ["upper_shelf_delivery_after_transition_handoff"],
     }],
+}
+
+DIAGNOSTIC_RUNTIME_BINDING = {
+    "schema": RUNTIME_BINDING_SCHEMA,
+    "anchor_id": ANCHOR_ID,
+    "scene_id": "room_06",
+    "transition_handoff_node_id": "diagnostic:transition-node",
+    "runtime_binding_digest": "d" * 64,
 }
 
 
@@ -88,7 +99,50 @@ def _tick(value: Any, name: str) -> int:
     return value
 
 
-def _check_streams(streams: Mapping[str, Any]) -> dict[str, Any]:
+def _digest(value: Any, name: str) -> str:
+    value = _text(value, name)
+    if len(value) != 64 or any(char not in _HEX for char in value):
+        raise Room06LivT04EvaluatorError(f"{name} must be a lowercase SHA-256")
+    return value
+
+
+def _check_runtime_binding(value: Any) -> dict[str, str]:
+    binding = _mapping(value, "runtime_binding")
+    required = {
+        "schema", "anchor_id", "scene_id", "transition_handoff_node_id",
+        "runtime_binding_digest",
+    }
+    if set(binding) != required:
+        raise Room06LivT04EvaluatorError("runtime_binding schema mismatch")
+    if binding.get("schema") != RUNTIME_BINDING_SCHEMA:
+        raise Room06LivT04EvaluatorError("unsupported runtime_binding schema")
+    if binding.get("anchor_id") != ANCHOR_ID:
+        raise Room06LivT04EvaluatorError("runtime_binding must target liv-t-04")
+    if binding.get("scene_id") not in SCENE_IDS:
+        raise Room06LivT04EvaluatorError("runtime_binding scene must identify room_06")
+    node_id = _text(
+        binding.get("transition_handoff_node_id"),
+        "runtime_binding.transition_handoff_node_id",
+    )
+    if node_id == "topology_transition_node":
+        raise Room06LivT04EvaluatorError(
+            "runtime_binding must use a real transition node id, not a placeholder"
+        )
+    return {
+        "schema": RUNTIME_BINDING_SCHEMA,
+        "anchor_id": ANCHOR_ID,
+        "scene_id": str(binding["scene_id"]),
+        "transition_handoff_node_id": node_id,
+        "runtime_binding_digest": _digest(
+            binding.get("runtime_binding_digest"),
+            "runtime_binding.runtime_binding_digest",
+        ),
+    }
+
+
+def _check_streams(
+    streams: Mapping[str, Any], *, transition_handoff_node_id: str
+) -> dict[str, Any]:
     if set(streams) != REQUIRED_STREAM_KEYS:
         raise Room06LivT04EvaluatorError(
             "room_06 streams schema must contain exactly "
@@ -145,9 +199,12 @@ def _check_streams(streams: Mapping[str, Any]) -> dict[str, Any]:
         name = _text(row["name"], "task_event.name")
         subject = _text(row["subject"], "task_event.subject")
         _tick(row["tick"], "task_event.tick")
-        if name == "transition_handoff_observed" and subject != "topology_transition_node":
+        if (
+            name == "transition_handoff_observed"
+            and subject != transition_handoff_node_id
+        ):
             raise Room06LivT04EvaluatorError(
-                "transition_handoff_observed must identify topology_transition_node"
+                "transition_handoff_observed must identify the frozen real transition node"
             )
         if name == "bilateral_support_established" and subject != "heavy_object":
             raise Room06LivT04EvaluatorError(
@@ -175,10 +232,14 @@ def _payload(runtime: Any) -> Mapping[str, Any]:
     root = _mapping(runtime, "runtime")
     candidate = root.get("room06_livt04", root)
     candidate = _mapping(candidate, "runtime.room06_livt04")
-    required = {"episode", "streams", "base_facts", "obligation_binding"}
+    required = {
+        "episode", "streams", "base_facts", "obligation_binding",
+        "runtime_binding",
+    }
     if not required.issubset(candidate):
         raise Room06LivT04EvaluatorError(
-            "runtime must expose explicit episode, streams, base_facts and obligation_binding"
+            "runtime must expose explicit episode, streams, base_facts, "
+            "obligation_binding and runtime_binding"
         )
     return candidate
 
@@ -190,13 +251,22 @@ class Room06LivT04Evaluator:
     evaluator_version = EVALUATOR_VERSION
 
     def __init__(self, *, case_manifest: Mapping[str, Any] | None = None,
-                 obligation_binding: Mapping[str, Any] | None = None) -> None:
+                 obligation_binding: Mapping[str, Any] | None = None,
+                 runtime_binding: Mapping[str, Any] | None = None) -> None:
         self.case_manifest = dict(case_manifest) if case_manifest is not None else None
         self.obligation_binding = (
             dict(obligation_binding) if obligation_binding is not None else None
         )
+        self.runtime_binding = (
+            _check_runtime_binding(runtime_binding)
+            if runtime_binding is not None else None
+        )
         if self.case_manifest is not None:
             self._check_case_manifest(self.case_manifest)
+            if self.runtime_binding is None:
+                raise Room06LivT04EvaluatorError(
+                    "case-bound evaluator requires frozen room06_runtime_binding"
+                )
 
     @staticmethod
     def _check_case_manifest(case: Mapping[str, Any]) -> None:
@@ -238,7 +308,18 @@ class Room06LivT04Evaluator:
         if episode.get("evaluator_version", EVALUATOR_VERSION) != EVALUATOR_VERSION:
             raise Room06LivT04EvaluatorError("episode evaluator_version mismatch")
         episode["evaluator_version"] = EVALUATOR_VERSION
-        streams = _check_streams(_mapping(payload["streams"], "streams"))
+        payload_runtime_binding = _check_runtime_binding(payload["runtime_binding"])
+        runtime_binding = self.runtime_binding or payload_runtime_binding
+        if payload_runtime_binding != runtime_binding:
+            raise Room06LivT04EvaluatorError(
+                "runtime runtime_binding disagrees with the frozen plan binding"
+            )
+        streams = _check_streams(
+            _mapping(payload["streams"], "streams"),
+            transition_handoff_node_id=runtime_binding[
+                "transition_handoff_node_id"
+            ],
+        )
         base_facts = _check_base_facts(_mapping(payload["base_facts"], "base_facts"))
         binding = payload.get("obligation_binding") or self.obligation_binding
         if not isinstance(binding, Mapping):
@@ -305,7 +386,9 @@ def build_diagnostic_runtime_fixture(
             "task_events": [
                 {
                     "name": "transition_handoff_observed",
-                    "subject": "topology_transition_node",
+                    "subject": DIAGNOSTIC_RUNTIME_BINDING[
+                        "transition_handoff_node_id"
+                    ],
                     "tick": 2,
                 },
                 {
@@ -329,6 +412,7 @@ def build_diagnostic_runtime_fixture(
             "d6": {"bits": 10.0, "time": 1.0},
         },
         "obligation_binding": DIAGNOSTIC_OBLIGATION_BINDING,
+        "runtime_binding": DIAGNOSTIC_RUNTIME_BINDING,
     }
 
 
@@ -338,7 +422,9 @@ __all__ = [
     "ANCHOR_ID",
     "HORIZON_TICKS",
     "ENTITY_IDS",
+    "RUNTIME_BINDING_SCHEMA",
     "DIAGNOSTIC_OBLIGATION_BINDING",
+    "DIAGNOSTIC_RUNTIME_BINDING",
     "Room06LivT04Evaluator",
     "Room06LivT04EvaluatorError",
     "build_diagnostic_runtime_fixture",
