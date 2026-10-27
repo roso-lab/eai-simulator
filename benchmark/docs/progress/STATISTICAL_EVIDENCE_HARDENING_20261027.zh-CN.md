@@ -39,4 +39,4 @@
 - ZCode GLM-5.3/max 独立复验同一提交：`91 passed in 21.60s`，退出码 0；
 - 主审查事务修复后，单文件 focused：`42 passed in 22.98s`，退出码 0（比原提交该文件新增 1 个回滚反例）。
 
-推送边界前仍需在集成提交上执行一次三文件 focused 与一次仓库约定的全量回归；不重复运行多轮全量。
+集成提交上的三文件 focused 为 `92 passed / 0 failed / 0 errors / 0 skipped`，退出码 0。推送边界只执行了一次仓库全量：`1046 passed / 1 failed / 0 errors / 0 skipped`；唯一失败是 room_06 场景注册改动后，相机注册派生清单仍绑定旧 `env_builder.py` 摘要。清单摘要更新后仅复验该失败项，结果 `1 passed`、退出码 0；未为制造“一次全绿”叙述而重复其余 1046 项。

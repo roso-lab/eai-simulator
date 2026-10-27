@@ -43,6 +43,8 @@ PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
 
 结果：退出码 `0`，`120 passed / 0 failed / 0 errors / 0 skipped`。此前直接导入 Kit 依赖导致的 `carb` 环境假失败已改为对当前 worktree 构建器做 AST 契约检查；没有通过切换到错误 editable install 掩盖问题。
 
+推送边界全量同时暴露了一个派生工件接缝：本阶段向 `env_builder.py` 加入 room_06 后，`benchmark/observation_camera_registration_patch.v1.json` 的相机注册内容仍与实时提取一致，但 `generated_from.sha256` 还是旧源摘要。已将它更新为当前构建器摘要 `55e20d025d15e35dea5c19370e94bb539d427e281dfc4750029a1469bbb93ae8`；唯一失败项复验为 `1 passed`。该修复不改变机器人相机注册值。
+
 ## 明确未完成
 
 - 未证明场景能在 Isaac/PhysX 中成功加载并稳定步进；
