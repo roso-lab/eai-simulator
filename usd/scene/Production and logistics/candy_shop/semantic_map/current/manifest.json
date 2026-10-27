@@ -1,0 +1,36 @@
+{
+  "schema": "eai.semantic_map.revision",
+  "version": 2,
+  "revision": "bdf0acde22a542e19d698e459ba6723b",
+  "scene_key": "production_candy_shop",
+  "levels": [
+    {
+      "level_id": "1F",
+      "grid": "level-000-semantic-grid.npz",
+      "preview": "level-000-semantic-map.png",
+      "layer": "level-000-layer.png",
+      "extent_xy": [
+        -5.4,
+        5.3999999999999995,
+        -5.4,
+        5.3999999999999995
+      ]
+    }
+  ],
+  "navigation_products": {
+    "ground": "topology.json",
+    "aerial": "topology-aerial.json"
+  },
+  "semantic_point_product": "semantic-points.json",
+  "files": {
+    "level-000-layer.png": "400a753bd1d461cf6d3df390deef334ac703f5cafa83c7807f23bdff2f07b989",
+    "level-000-semantic-grid.npz": "a656035d9645d6dea81495abe66de5e25d08028debbeee2d2dbdc2ed3022e659",
+    "level-000-semantic-map.png": "2e27a640bf15cb64247f69244818899f6e40c453a38a360239512217bcc2a993",
+    "semantic-footprints.geojson": "e6c9e2c4cf66782a7f3f34b1a146e218e1adc2164c3ce09454f1276b74ee7fa0",
+    "semantic-footprints.json": "31cf2ac7ff62ebea892e875206dbdeae877fe918a169554322e2d992865a292e",
+    "semantic-points.json": "0c11734b8a4eb873854b5e9a93028e06ceedc9268ab2e8febec51e1d4f3fe21c",
+    "topology-aerial.json": "2fb8c14376daa33fab89eca6531cd5f759b99dbe313d990cb0f1a7cf35761985",
+    "topology.json": "9a06d217c33cbf56fe466a298ca1e96111d2b3560328d297c734a5b38c6dfd07"
+  },
+  "robot_validated": false
+}

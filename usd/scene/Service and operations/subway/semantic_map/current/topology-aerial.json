@@ -1,0 +1,30 @@
+{
+  "schema": "eai.navigation.topology",
+  "version": 2,
+  "scene_key": "service_subway",
+  "coordinate_frame": "scene_world",
+  "meters_per_unit": 1.0,
+  "up_axis": "Z",
+  "domain": "aerial",
+  "levels": [
+    {
+      "id": "platform",
+      "label": "站台层（待清点）",
+      "support_z_m": 0.0
+    }
+  ],
+  "source": {
+    "usd_layer_0000": "1ef32a4b292e8d9fa2ae549ca7cfc8a9301694574b6a8d8352697a9ecc5310c1"
+  },
+  "nodes": [],
+  "edges": [],
+  "semantics": {
+    "schema": "eai.scene.semantics",
+    "version": 1,
+    "regions": [],
+    "entities": [],
+    "interaction_poses": [],
+    "routes": [],
+    "extensions": {}
+  }
+}

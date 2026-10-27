@@ -1,0 +1,36 @@
+{
+  "schema": "eai.semantic_map.revision",
+  "version": 2,
+  "revision": "a1f2716d709d477fbf84f88e27456ce3",
+  "scene_key": "service_subway",
+  "levels": [
+    {
+      "level_id": "platform",
+      "grid": "level-000-semantic-grid.npz",
+      "preview": "level-000-semantic-map.png",
+      "layer": "level-000-layer.png",
+      "extent_xy": [
+        -119.5,
+        50.0,
+        -238.5,
+        18.5
+      ]
+    }
+  ],
+  "navigation_products": {
+    "ground": "topology.json",
+    "aerial": "topology-aerial.json"
+  },
+  "semantic_point_product": "semantic-points.json",
+  "files": {
+    "level-000-layer.png": "b59bf3ed78f6da10c4ca15d4424844f1912f557ad78fd49327f4c316a723ac51",
+    "level-000-semantic-grid.npz": "0a745dac313d910231d30e9d5f72113a9eaefbca9425899ad65cade2cb201f2e",
+    "level-000-semantic-map.png": "cd728a5045c48f20896172580f7f5a3cfa3f63b1393dee1b63ee7d7d8dbdca8a",
+    "semantic-footprints.geojson": "7ff8d6e723e9fbe2b69339a401befefd19acf1743418a2e778fc512c938b5e2b",
+    "semantic-footprints.json": "df52576959dfa5892e72820547bd9bcbbe73cc0685174b443ef8f8d43ba8b0d8",
+    "semantic-points.json": "213fc8e5c1c48eb19700f79efa9f2a640c606d6bfa6a774e50e8d1d64ed85f6b",
+    "topology-aerial.json": "da0e6229e9325f1da4e46021ef53bc6b6aaca017f4c402075a671d81432d271c",
+    "topology.json": "38be80063e5dbcd249f9a0330c48643d29144c965bfe64e7a9d93bb1d2d7b991"
+  },
+  "robot_validated": false
+}

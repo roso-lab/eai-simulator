@@ -121,6 +121,45 @@ def test_native_navigation_binding_without_isaac_selection():
     assert dispatcher.calls[-1][1]["bindings"] == []
 
 
+def test_navigation_binding_keeps_semantic_selection_when_navigation_object_is_clicked():
+    dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
+    controller.update_context(_context(active_layer="semantic_points"))
+    controller.select({"kind": "semantic_point", "collection": None, "id": "s1"})
+    assert controller.begin_navigation_binding()
+    before = controller.selection.copy()
+    controller.select({"kind": "node", "collection": None, "id": "g1"})
+    assert controller.selection == before
+    assert controller.navigation_binding_mode
+
+
+def test_native_binding_pick_exposes_hidden_navigation_layers(monkeypatch):
+    import tools.topology_authoring.viewport as viewport_module
+
+    controller = SimpleNamespace(
+        navigation_binding_mode=True,
+        context={"visible_layers": {"ground": False, "aerial": False},
+                 "active_level": "ground"},
+        document_snapshots={"ground": {"domain": "ground"},
+                            "aerial": {"domain": "aerial"}},
+        meters_per_unit=1.0,
+    )
+    calls = []
+
+    def pick(snapshot, *_args, **kwargs):
+        calls.append((snapshot["domain"], kwargs["visible_layers"]))
+        return {"kind": "node", "id": snapshot["domain"],
+                "position_xyz": [0.0, 0.0, 0.0]}
+
+    monkeypatch.setattr(viewport_module, "nearest_projected_hit", pick)
+    monkeypatch.setattr(viewport_module, "world_to_viewport_pixel",
+                        lambda _api, point, **_kwargs: [point[0], point[1]])
+    gesture = object.__new__(_TopologyEditorGesture)
+    gesture.controller = controller
+    gesture.viewport_api = _Viewport()
+    gesture._pick((0.0, 0.0))
+    assert calls and all(layers["ground"] and layers["aerial"] for _, layers in calls)
+
+
 def test_navigation_binding_can_finish_map_pick_and_apply_draft_later():
     dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
     controller.update_context(_context(active_layer="semantic_points"))
@@ -465,6 +504,24 @@ def test_successful_move_refreshes_authoritative_snapshot_and_clears_preview():
     assert controller.edit_status == "synced"
 
 
+def test_drag_result_does_not_replace_dirty_native_selection_with_stale_web_selection():
+    dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
+    context = _context(active_layer="aerial")
+    controller.update_context(context)
+    controller.select({"kind": "node", "collection": None, "id": "n1"})
+    controller.begin_drag({"kind": "node", "id": "n1"}, [0., 0., 2.])
+    controller.update_drag([1., 2., 8.])
+    assert controller.end_drag()
+    tag = dispatcher.calls[-1][0][0]
+    fresh = _context(active_layer="aerial", revision=5, generation=3)
+    fresh["document_snapshots"]["aerial"]["nodes"][0]["position_xyz"] = [1., 2., 8.]
+    fresh["document_snapshot"] = fresh["document_snapshots"]["aerial"]
+    fresh["web_selection"] = None
+    controller.handle_result((tag, {"state": fresh}, None))
+    assert controller.selection == {"kind": "node", "collection": None, "id": "n1"}
+    assert controller.selection_dirty
+
+
 def test_selection_failure_does_not_drop_drag_waiting_behind_single_flight_request():
     class BusyDispatcher(_Dispatcher):
         def submit(self, *args, **kwargs):
@@ -542,10 +599,25 @@ def test_ground_mode_and_edge_endpoint_mutations_are_rejected():
         [1., 2., 3.], label="blocked", kind="waypoint")
     assert not controller.delete_selected()
     assert len(dispatcher.calls) == call_count
-
     assert not controller.set_level("ground")
     assert len(dispatcher.calls) == call_count
 
+
+def test_isaac_selection_items_replace_single_selection_and_clear_on_empty_box():
+    dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
+    controller.update_context(_context(active_layer="aerial"))
+    controller.set_selection_items([
+        {"kind": "node", "id": "n1"},
+        {"kind": "edge", "id": "e1"},
+    ])
+    assert controller.selection == {"kind": "node", "id": "n1"}
+    assert controller.delete_selected()
+    assert dispatcher.calls[-1][0][2] == "remove_selection"
+    controller.select({"kind": "node", "id": "n2"})
+    assert controller.selection_items == [{"kind": "node", "id": "n2"}]
+    controller.set_selection_items([])
+    assert controller.selection is None
+    assert controller.selection_items == []
 
 def test_semantic_point_add_properties_modes_and_delete_use_frozen_identity():
     dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
@@ -798,6 +870,17 @@ def test_unified_overlay_highlights_only_current_navigation_binding_draft():
     assert next(row for row in aerial_nodes if row["key"] == "n1")["color"] == pytest.approx([.025, .035, .045])
 
 
+def test_binding_overlay_exposes_navigation_layers_hidden_by_semantic_editing():
+    context = _context()
+    specs = build_unified_overlay_specs(
+        context["document_snapshots"], context["semantic_points"],
+        active_layer="semantic_points",
+        visible_layers={"ground": False, "aerial": False, "semantic_points": True},
+        binding_mode=True, binding_target_id="s1", binding_target_draft=[])
+    assert any("/Layers/Ground/Nodes/" in row["path"] for row in specs["prims"])
+    assert any("/Layers/Aerial/Nodes/" in row["path"] for row in specs["prims"])
+
+
 class _ValueModel:
     def __init__(self, value=""): self.value = value
     def set_value(self, value): self.value = value
@@ -883,6 +966,21 @@ def test_direct_drag_keeps_grab_offset_and_commits_once_on_release():
     assert args[2] == "move_node_xy" and kwargs["position_xy"] == [12., 10.]
 
 
+def test_ground_drag_preserves_custom_visualization_height():
+    dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
+    context = _context(active_layer="ground")
+    context["document_snapshots"]["ground"]["nodes"][0]["position_xyz"] = [0., 2., 4.5]
+    context["document_snapshot"] = context["document_snapshots"]["ground"]
+    controller.update_context(context)
+    pointer = _pointer(controller, {(20., 0.): {
+        "kind": "node", "id": "g1", "position_xyz": [0., 2., 4.5]}})
+    pointer.handle("began", (20., 0.))
+    pointer.handle("changed", (30., 10.))
+    pointer.handle("ended", (30., 10.))
+    assert dispatcher.calls[-1][0][2] == "move_node_xy"
+    assert dispatcher.calls[-1][1]["position_xy"] == [10., 12.]
+
+
 def test_canceled_kit_drag_commits_last_sampled_position_once():
     dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
     controller.update_context(_context())
@@ -919,6 +1017,38 @@ def test_empty_drag_never_creates_and_endpoint_clicks_wait_for_confirmation():
     assert not dispatcher.calls
     assert controller.finish_edge()
     assert len(dispatcher.calls) == 1 and dispatcher.calls[0][0][2] == "add_edge"
+
+
+def test_edge_endpoints_are_fixed_on_press_when_click_release_is_canceled():
+    dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
+    context = _context(active_layer="aerial"); context["editor_tool"] = "add-edge"
+    controller.update_context(context)
+    pointer = _pointer(controller, {
+        (0., 0.): {"kind": "node", "id": "n1", "position_xyz": [0., 0., 2.]},
+        (20., 0.): {"kind": "node", "id": "n2", "position_xyz": [2., 0., 2.]}})
+    pointer.handle("began", (0., 0.))
+    assert controller.edge_start == "n1" and controller.edge_end is None
+    pointer.cancel_from_scene()
+    pointer.handle("began", (20., 0.))
+    assert (controller.edge_start, controller.edge_end) == ("n1", "n2")
+    assert controller.preview["kind"] == "edge-draft"
+    assert controller.finish_edge()
+    assert dispatcher.calls[-1][0][2] == "add_edge"
+
+
+def test_edge_preview_survives_context_refresh_before_confirmation():
+    dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
+    context = _context(active_layer="aerial"); context["editor_tool"] = "add-edge"
+    controller.update_context(context)
+    controller.activate_node_for_edge("n1")
+    controller.activate_node_for_edge("n2")
+    refreshed = deepcopy(context)
+    refreshed["context_generation"] += 1
+    controller.update_context(refreshed)
+    assert (controller.edge_start, controller.edge_end) == ("n1", "n2")
+    assert controller.preview and controller.preview["kind"] == "edge-draft"
+    assert controller.finish_edge()
+    assert dispatcher.calls[-1][0][2] == "add_edge"
 
 
 def test_escape_and_tool_switch_invalidate_held_pointer():

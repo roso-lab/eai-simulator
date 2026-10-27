@@ -330,6 +330,12 @@ def build_unified_overlay_specs(document_snapshots, semantic_points, *,
                       **(visible_layers or {})}
     visible_types = {"nodes": True, "edges": True, "semantic_points": True,
                      **(visible_types or {})}
+    if binding_mode:
+        # Binding is a deliberate cross-layer inspection mode. Keep the
+        # semantic layer active but expose both navigation graphs for the
+        # highlighted/dimmed node overlay and native viewport picking.
+        visible_layers["ground"] = True
+        visible_layers["aerial"] = True
     prims = []
     for layer in ("ground", "aerial"):
         if not visible_layers[layer]:
@@ -504,15 +510,17 @@ class WebOverlayRenderer:
         return frozenset()
 
     def editor_state(self, *, snapshot, domain, selection=None, preview=None,
-                     semantic_points=(), active_layer=None):
+                     semantic_points=(), active_layer=None, selection_items=(),
+                     box_preview=None):
         """Draw transient active-layer point/edge previews in the session layer."""
         if self.stage is None:
             return
         layer = active_layer or domain
         token = json.dumps(
             {"snapshot_revision": snapshot.get("revision"), "domain": domain,
-             "selection": selection, "preview": preview,
-             "semantic_points": semantic_points, "active_layer": layer},
+             "selection": selection, "selection_items": selection_items, "preview": preview,
+             "semantic_points": semantic_points, "active_layer": layer,
+             "box_preview": box_preview},
             sort_keys=True, separators=(",", ":"), allow_nan=False)
         if token == getattr(self, "_editor_state_token", None):
             return
@@ -526,6 +534,9 @@ class WebOverlayRenderer:
                 stage.RemovePrim(root_path)
             UsdGeom.Xform.Define(stage, root_path)
             nodes = {row.get("id"): row for row in snapshot.get("nodes") or []}
+            selected_items = list(selection_items or [])
+            if not selected_items and selection:
+                selected_items = [selection]
             semantic_by_id = {row.get("id"): row for row in semantic_points or []}
             preview_geometry = {"version": snapshot.get("version", 2),
                                 "nodes": [], "edges": []}
@@ -574,6 +585,14 @@ class WebOverlayRenderer:
                     hidden_keys.add((f"{layer}:edge", edge.get("id")))
                     preview_geometry["edges"].append({**edge, "polyline_xyz": points})
             self._preview_visibility(hidden_keys)
+            if box_preview and len(box_preview) >= 4:
+                points = [_finite_point(point) for point in box_preview]
+                if all(point is not None for point in points):
+                    self._define({
+                        "path": f"{root_path}/SelectionBox", "shape": "polyline",
+                        "points": points, "width": .012,
+                        "color": [0.35, 0.75, 1.0], "category": None, "key": None,
+                    })
             for spec in build_overlay_specs(preview_geometry, layer=layer)["prims"]:
                 self._define({**spec,
                               "path": spec["path"].replace(
@@ -625,6 +644,19 @@ class WebOverlayRenderer:
                                 .12, color, None, None)
                             if cone is not None:
                                 self._define(cone)
+            for item in selected_items:
+                kind, identifier = item.get("kind"), item.get("id")
+                record = nodes.get(identifier) if kind == "node" else semantic_by_id.get(identifier)
+                if kind == "edge":
+                    edge = next((row for row in snapshot.get("edges") or [] if row.get("id") == identifier), None)
+                    if edge:
+                        points = [_finite_point(point) for point in edge.get("polyline_xyz") or []]
+                        if len(points) >= 2 and all(point is not None for point in points):
+                            self._define({"path": f"{root_path}/SelectedEdge/{identifier.replace(':', '_')}", "shape": "polyline", "points": points, "width": .045, "color": list(HIGHLIGHT_COLOR), "category": None, "key": None})
+                elif record is not None:
+                    position = _finite_point(record.get("position_xyz"))
+                    if position is not None:
+                        self._define({"path": f"{root_path}/SelectedItems/{identifier.replace(':', '_')}", "shape": "sphere", "position": position, "radius": .095, "color": list(HIGHLIGHT_COLOR), "category": None, "key": None})
 
     def _preview_visibility(self, hidden_keys):
         """Replace only the previewed overlay geometry and restore it on cancel."""

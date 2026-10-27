@@ -556,6 +556,63 @@ class MapProject:
     def edit(self, operation, *, revision=None, domain="ground", **args):
         self._expect(revision)
         self.document_for(domain)
+        if operation == "remove_selection":
+            items = args.get("items")
+            if not isinstance(items, list) or not items:
+                raise ValueError("remove_selection items must be a non-empty array")
+            seen = set()
+            nodes = set()
+            edges = set()
+            semantic_ids = set()
+            for item in items:
+                if not isinstance(item, dict) or item.get("kind") not in {"node", "edge", "semantic_point"}:
+                    raise ValueError("invalid selection item")
+                kind, identifier = item["kind"], item.get("id")
+                if not isinstance(identifier, str) or not identifier or (kind, identifier) in seen:
+                    raise ValueError("duplicate or invalid selection item")
+                seen.add((kind, identifier))
+                if kind == "node": nodes.add(identifier)
+                elif kind == "edge": edges.add(identifier)
+                else: semantic_ids.add(identifier)
+            if semantic_ids and (nodes or edges):
+                raise ValueError("selection items must belong to one editor layer")
+            if semantic_ids:
+                point_ids = {row["id"] for row in self.semantic_points}
+                unknown = semantic_ids - point_ids
+                if unknown:
+                    raise ValueError(f"unknown semantic point id: {sorted(unknown)[0]}")
+                points = [row for row in self.semantic_points if row["id"] not in semantic_ids]
+                self._check_semantic_bindings(points=points)
+                self._undo.append(self._snapshot()); self._undo = self._undo[-100:]; self._redo.clear()
+                self.semantic_points = points; self.revision += 1
+                return
+            candidate = TopologyDocument.from_dict(self.document_for(domain).to_dict())
+            known_nodes = {row["id"] for row in candidate.nodes}
+            known_edges = {row["id"] for row in candidate.edges}
+            if nodes - known_nodes or edges - known_edges:
+                raise ValueError("selection contains an unknown topology object")
+            dependent_edges = {row["id"] for row in candidate.edges
+                               if row["id"] in edges or row["from"] in nodes or row["to"] in nodes}
+            for point in self.semantic_points:
+                bound = {(row["domain"], row["node_id"])
+                         for row in point.get("navigation_bindings", [])}
+                blocked = sorted((domain, node_id) for node_id in nodes
+                                 if (domain, node_id) in bound)
+                if blocked:
+                    raise ValueError(f"cannot delete node referenced by semantic point {point['id']}; unbind first")
+            if candidate.semantics:
+                candidate.semantics["routes"] = [row for row in candidate.semantics["routes"]
+                    if not (set(row["node_ids"]) & nodes or set(row["edge_ids"]) & dependent_edges)]
+                for row in candidate.semantics["regions"]:
+                    row["entrance_node_ids"] = [n for n in row.get("entrance_node_ids", []) if n not in nodes]
+                for row in candidate.semantics["interaction_poses"]:
+                    if row.get("node_id") in nodes: row.pop("node_id", None)
+            for identifier in sorted(dependent_edges): candidate.remove_edge(identifier)
+            for identifier in sorted(nodes): candidate.remove_node(identifier)
+            self._undo.append(self._snapshot()); self._undo = self._undo[-100:]; self._redo.clear()
+            self.documents[domain] = candidate
+            self.revision += 1
+            return
         if operation in {"add_semantic_point", "update_semantic_point", "move_semantic_point_xy",
                          "move_semantic_point", "remove_semantic_point",
                          "set_semantic_point_navigation_bindings"}:

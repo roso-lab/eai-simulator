@@ -1,0 +1,36 @@
+{
+  "schema": "eai.semantic_map.revision",
+  "version": 2,
+  "revision": "16f364b3924e4ccaa4f34f84322b36d2",
+  "scene_key": "service_ruined_city",
+  "levels": [
+    {
+      "level_id": "ground",
+      "grid": "level-000-semantic-grid.npz",
+      "preview": "level-000-semantic-map.png",
+      "layer": "level-000-layer.png",
+      "extent_xy": [
+        -12.200000000000001,
+        10.1,
+        -9.4,
+        42.6
+      ]
+    }
+  ],
+  "navigation_products": {
+    "ground": "topology.json",
+    "aerial": "topology-aerial.json"
+  },
+  "semantic_point_product": "semantic-points.json",
+  "files": {
+    "level-000-layer.png": "2e1561100b764235a68f85d2d1732a957893b3899f93d55df1dcd864e14f5436",
+    "level-000-semantic-grid.npz": "300e3a11995548472d9c69d0a48a2ed6d0d3a0430ec48e9cd47fd266da402595",
+    "level-000-semantic-map.png": "a9ff242bc0b93b5f38814d4390777658cdf2375f7bfee361d3ea37dd89c6e790",
+    "semantic-footprints.geojson": "a5aadfdc914fd323b2bae0635a3ac3a7941c3a43a00eccc961b8bc8584dedbc2",
+    "semantic-footprints.json": "7e921346f7af3047e2ed53a6e1783787b6349b61a5e3fc3e04e8b745cce35a36",
+    "semantic-points.json": "aa970aa126768336e354833160b5f378dfacc4ebc0a16e3802666407ff904990",
+    "topology-aerial.json": "95e110133608ccc671ca7da6343ee13c4c9e5125e672166a936c65e3b04a0dba",
+    "topology.json": "850b21b890540a7a614548bd85ae33357438f4d3d85669427d74f695f5f23f6c"
+  },
+  "robot_validated": false
+}

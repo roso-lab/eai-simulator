@@ -1,6 +1,6 @@
 {
   "schema": "eai.semantic_map.project",
-  "version": 1,
+  "version": 2,
   "scene_key": "production_restaurant",
   "coordinate_frame": "scene_world",
   "meters_per_unit": 1,
@@ -2022,5 +2022,11 @@
       ]
     }
   },
-  "current_revision": "revisions/5fb7fecf87684525a256933716ec39da"
+  "current_revision": "current",
+  "semantic_point_product": "semantic-points.json",
+  "navigation_products": {
+    "ground": "topology.json",
+    "aerial": "topology-aerial.json"
+  },
+  "save_id": "e53b8b1e7e4e456696f07942cc8685e1"
 }

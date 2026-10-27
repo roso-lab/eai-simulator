@@ -1,0 +1,30 @@
+{
+  "schema": "eai.navigation.topology",
+  "version": 2,
+  "scene_key": "living_room_05",
+  "coordinate_frame": "scene_world",
+  "meters_per_unit": 1.0,
+  "up_axis": "Z",
+  "domain": "aerial",
+  "levels": [
+    {
+      "id": "1F",
+      "label": "一层",
+      "support_z_m": 0.0
+    }
+  ],
+  "source": {
+    "usd_layer_0000": "36ce86a4d5dd57f468a607d0e2e496d40abcd1a938878668d2bfc1f5618b8939"
+  },
+  "nodes": [],
+  "edges": [],
+  "semantics": {
+    "schema": "eai.scene.semantics",
+    "version": 1,
+    "regions": [],
+    "entities": [],
+    "interaction_poses": [],
+    "routes": [],
+    "extensions": {}
+  }
+}

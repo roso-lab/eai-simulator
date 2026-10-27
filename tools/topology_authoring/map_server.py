@@ -496,6 +496,20 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                         # Ephemeral browser selection: no revision gate, the
                         # scene switch below rotates the token instead.
                         selection = body.get("selection")
+                        if (editor.get("binding_target_mode") == "semantic_navigation"
+                                and isinstance(selection, dict)
+                                and selection.get("kind") in {"node", "edge"}):
+                            # Binding picks are transient navigation targets;
+                            # keep the semantic point as the authoritative
+                            # editor selection while the draft is active.
+                            current = web_selection.get("selection")
+                            if not (current and current.get("kind") == "semantic_point"
+                                    and current.get("id") == editor.get("binding_target_id")):
+                                current = {"kind": "semantic_point", "collection": None,
+                                           "id": editor.get("binding_target_id")}
+                            if current.get("id") == editor.get("binding_target_id"):
+                                self.reply(200, {"selection": current})
+                                return
                         selection = normalize_selection(selection)
                         web_selection["selection"] = selection
                         if editor.get("binding_target_mode") == "semantic_navigation":
@@ -527,21 +541,24 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                                                "set_semantic_point_navigation_bindings"}
                         allowed = semantic_operations | {"add_node", "update_node", "move_node_xy", "move_node",
                                                          "remove_node", "add_edge", "update_edge", "remove_edge",
-                                                         "translate_edge_xy", "build_ground_road", "build_aerial_road"}
+                                                         "translate_edge_xy", "build_ground_road", "build_aerial_road",
+                                                         "remove_selection"}
                         if operation not in allowed:
                             raise ValueError("operation is unavailable in the unified editor")
                         operations_by_tool = {
-                            "add-node": {"add_node", "update_node", "move_node_xy", "move_node", "remove_node"},
+                            "add-node": {"add_node", "update_node", "move_node_xy", "move_node", "remove_node", "remove_selection"},
                             "add-edge": {"add_edge", "update_edge", "remove_edge", "translate_edge_xy"},
-                            "add-semantic-point": semantic_operations,
+                            "add-semantic-point": semantic_operations | {"remove_selection"},
                             "build-ground-road": {"build_ground_road"},
-                            "delete-ground-edge": {"remove_edge"},
+                            "delete-ground-edge": {"remove_edge", "remove_selection"},
                             "build-aerial-road": {"build_aerial_road"},
-                            "delete-aerial-edge": {"remove_edge"},
+                            "delete-aerial-edge": {"remove_edge", "remove_selection"},
                         }
                         if operation not in operations_by_tool[editor["editor_tool"]]:
                             raise ValueError("operation is outside the active editor tool")
                         semantic_operation = operation in semantic_operations
+                        if operation == "remove_selection":
+                            semantic_operation = editor["active_layer"] == "semantic_points"
                         if semantic_operation != (editor["active_layer"] == "semantic_points"):
                             raise ValueError("operation is outside the active editor layer")
                         required_layer = ("ground" if editor["editor_tool"] in {"build-ground-road", "delete-ground-edge"}

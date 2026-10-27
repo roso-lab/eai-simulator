@@ -5,8 +5,7 @@ from .node_route import (
     NavigationPose, NavigationProfile, NavigationProvider, NavigationResponse,
     NavigationTarget, NodeRouteTracker, aerial_navigation_profile,
     ground_navigation_profile, normalize_navigation_request, normalize_angle,
-    select_node_route,
-    semantic_binding_digest,
+    select_node_route, semantic_binding_digest,
 )
 from .topology import (
     FrozenNavigationTopology, TRAVERSAL_MODES, route_graph_digest, validate_topology,

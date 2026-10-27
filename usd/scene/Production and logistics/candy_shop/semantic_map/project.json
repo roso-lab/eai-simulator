@@ -1,6 +1,6 @@
 {
   "schema": "eai.semantic_map.project",
-  "version": 1,
+  "version": 2,
   "scene_key": "production_candy_shop",
   "coordinate_frame": "scene_world",
   "meters_per_unit": 1,
@@ -3052,5 +3052,11 @@
       ]
     }
   },
-  "current_revision": "revisions/468cb5075e544c048ac69bf5f52c90c1"
+  "current_revision": "current",
+  "semantic_point_product": "semantic-points.json",
+  "navigation_products": {
+    "ground": "topology.json",
+    "aerial": "topology-aerial.json"
+  },
+  "save_id": "bdf0acde22a542e19d698e459ba6723b"
 }

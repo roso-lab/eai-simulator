@@ -1,0 +1,21 @@
+{
+  "schema": "eai.semantic_footprints",
+  "version": 1,
+  "scene_id": "service_ruined_city",
+  "project_revision": "16f364b3924e4ccaa4f34f84322b36d2",
+  "coordinate_frame": "scene_world",
+  "objects": [],
+  "semantics": {
+    "schema": "eai.scene.semantics",
+    "version": 1,
+    "regions": [],
+    "entities": [],
+    "interaction_poses": [],
+    "routes": [],
+    "extensions": {
+      "vertical_connectors": []
+    }
+  },
+  "robot_validated": false,
+  "visual_review": {}
+}

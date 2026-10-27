@@ -1,0 +1,36 @@
+{
+  "schema": "eai.semantic_map.revision",
+  "version": 2,
+  "revision": "4b9b449206b744a6b5cecc7983ffc60d",
+  "scene_key": "service_land",
+  "levels": [
+    {
+      "level_id": "terrain",
+      "grid": "level-000-semantic-grid.npz",
+      "preview": "level-000-semantic-map.png",
+      "layer": "level-000-layer.png",
+      "extent_xy": [
+        -119.5,
+        291.0,
+        -124.0,
+        596.0
+      ]
+    }
+  ],
+  "navigation_products": {
+    "ground": "topology.json",
+    "aerial": "topology-aerial.json"
+  },
+  "semantic_point_product": "semantic-points.json",
+  "files": {
+    "level-000-layer.png": "60c9483b61345a40e000679698f5c32337cca43eba3effe866852d969687d2b4",
+    "level-000-semantic-grid.npz": "40523307d9a55790e08fc50ccefd579b3326729a6af3d6b7227100884a349d1f",
+    "level-000-semantic-map.png": "c75cf1fc3a2af1c146e35b4a2eec05914e07bd71227c67fbb0056f080c1b73c0",
+    "semantic-footprints.geojson": "48e0faa18ecf7b730f996acd2f91b8a0b068effceea309aeb54cc7ffb8ab5044",
+    "semantic-footprints.json": "80fb7f518aa894ff8337a78378b317c301de6ae7c5df00832bab83f737f20c56",
+    "semantic-points.json": "9efc964add13b40e3949fc8768abef86d767e75c235f60e5d2467cfa8fc2b2ab",
+    "topology-aerial.json": "6b7185e681f4a24f248c627548c6fc6a2b4409cb0cb71172c69ff90b4953d2d0",
+    "topology.json": "c0533708f7eef07a2f475788304a08175485ac6431258b1ae90405b4d389c900"
+  },
+  "robot_validated": false
+}

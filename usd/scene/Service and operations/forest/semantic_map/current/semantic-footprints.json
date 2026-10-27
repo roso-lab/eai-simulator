@@ -1,0 +1,21 @@
+{
+  "schema": "eai.semantic_footprints",
+  "version": 1,
+  "scene_id": "service_forest",
+  "project_revision": "558acd1ac41846109c91735c6fd382ea",
+  "coordinate_frame": "scene_world",
+  "objects": [],
+  "semantics": {
+    "schema": "eai.scene.semantics",
+    "version": 1,
+    "regions": [],
+    "entities": [],
+    "interaction_poses": [],
+    "routes": [],
+    "extensions": {
+      "vertical_connectors": []
+    }
+  },
+  "robot_validated": false,
+  "visual_review": {}
+}

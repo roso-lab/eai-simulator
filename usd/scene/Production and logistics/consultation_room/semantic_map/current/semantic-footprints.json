@@ -1,0 +1,21 @@
+{
+  "schema": "eai.semantic_footprints",
+  "version": 1,
+  "scene_id": "production_consultation_room",
+  "project_revision": "3786535b6bd84f57bef1daa32665513f",
+  "coordinate_frame": "scene_world",
+  "objects": [],
+  "semantics": {
+    "schema": "eai.scene.semantics",
+    "version": 1,
+    "regions": [],
+    "entities": [],
+    "interaction_poses": [],
+    "routes": [],
+    "extensions": {
+      "vertical_connectors": []
+    }
+  },
+  "robot_validated": false,
+  "visual_review": {}
+}

@@ -759,10 +759,15 @@ class _TopologyEditorGesture:
         self._drag_target = None
         self._moved = False
         self._last_mouse = None
+        self._box_start = None
+        self._box_end = None
 
     def cancel_from_scene(self):
-        # A click-only DragGesture is canceled by Kit; the ClickGesture still
-        # owns the press. Cancel only actual movement, never the pending click.
+        # Kit cancels DragGesture for a short press in some viewport builds.
+        # Complete that press here so point creation does not depend on the
+        # companion ClickGesture receiving its release callback. The press is
+        # consumed by handle("click"), which also prevents a late ClickGesture
+        # callback from creating a duplicate point.
         if self._moved:
             # Some Kit viewport versions report the editor DragGesture as
             # canceled when the native selection gesture releases the same
@@ -775,15 +780,26 @@ class _TopologyEditorGesture:
                 point = (self._world_point(self._last_mouse, self._drag_target)
                          if self._last_mouse is not None else None)
                 if point is not None:
-                    self.controller.update_drag(point)
-                    self.controller.end_drag()
+                    self._complete_drag(point)
                 else:
                     self.controller.cancel_gesture()
             self._press = None
             self._drag_target = None
             self._last_mouse = None
         elif self._press is not None:
-            self._press["released"] = True
+            mouse = self._last_mouse or self._press.get("ndc")
+            if mouse is not None:
+                self.handle("click", mouse)
+
+    def _complete_drag(self, point):
+        """Apply the last sampled point through the matching editor path once."""
+        if self.controller.gesture is None:
+            return False
+        if self.controller.gesture.get("target", {}).get("kind") == "road":
+            self.controller.update_road_drag(point)
+        else:
+            self.controller.update_drag(point)
+        return self.controller.end_drag()
 
     def _world_point(self, mouse_ndc, target=None):
         ray = viewport_ray(
@@ -808,13 +824,18 @@ class _TopologyEditorGesture:
         if getattr(self.controller, "navigation_binding_mode", False):
             pixel, _ = self.viewport_api.map_ndc_to_texture_pixel(mouse_ndc)
             hits = []
+            binding_layers = dict(context.get("visible_layers") or {})
+            # Binding mode is an explicit cross-layer operation. Keep the
+            # semantic layer active while exposing both navigation graphs for
+            # picking, even when switching into semantic editing hid them.
+            binding_layers.update(ground=True, aerial=True)
             for domain in ("ground", "aerial"):
                 hit = nearest_projected_hit(
                     self.controller.document_snapshots.get(domain, {}), self.viewport_api,
                     mouse_ndc, selection=None,
                     active_level=context.get("active_level"), domain=domain,
                     active_layer=domain, semantic_points=(),
-                    visible_layers=context.get("visible_layers"),
+                    visible_layers=binding_layers,
                     visible_types={"nodes": (context.get("visible_types") or {}).get("nodes", True),
                                    "edges": False, "semantic_points": False},
                     editor_tool="add-node", meters_per_unit=self.controller.meters_per_unit)
@@ -840,6 +861,48 @@ class _TopologyEditorGesture:
             editor_tool=context.get("editor_tool", "add-node"),
             meters_per_unit=self.controller.meters_per_unit)
 
+    def _box_select(self, start_ndc, end_ndc):
+        first, _ = self.viewport_api.map_ndc_to_texture_pixel(start_ndc)
+        last, _ = self.viewport_api.map_ndc_to_texture_pixel(end_ndc)
+        if first is None or last is None:
+            return []
+        left, right = sorted((float(first[0]), float(last[0])))
+        top, bottom = sorted((float(first[1]), float(last[1])))
+        context = self.controller.context or {}
+        layer = self.controller.active_layer
+        result = []
+        if layer == "semantic_points":
+            for row in self.controller.semantic_points:
+                point = world_to_viewport_pixel(self.viewport_api, row.get("position_xyz"), meters_per_unit=self.controller.meters_per_unit)
+                if point and left <= point[0] <= right and top <= point[1] <= bottom:
+                    result.append({"kind": "semantic_point", "id": row["id"]})
+            return result
+        domain = self.controller.active_domain
+        snapshot = self.controller.document_snapshots.get(domain, self.controller.snapshot)
+        visible = {row.get("id") for row in snapshot.get("nodes") or []
+                   if snapshot.get("version", 1) != 2 or context.get("active_level") is None
+                   or row.get("level_id") in (None, context.get("active_level"))}
+        for row in snapshot.get("nodes") or []:
+            point = world_to_viewport_pixel(self.viewport_api, row.get("position_xyz"), meters_per_unit=self.controller.meters_per_unit)
+            if row.get("id") in visible and point and left <= point[0] <= right and top <= point[1] <= bottom:
+                result.append({"kind": "node", "id": row["id"]})
+        edges = [edge for edge in snapshot.get("edges") or []
+                 if edge.get("from") in visible or edge.get("to") in visible]
+        for edge in edges:
+            points = edge.get("polyline_xyz") or []
+            projected = [world_to_viewport_pixel(self.viewport_api, point, meters_per_unit=self.controller.meters_per_unit) for point in points]
+            if len(projected) > 1 and all(point and left <= point[0] <= right and top <= point[1] <= bottom for point in projected):
+                result.append({"kind": "edge", "id": edge["id"]})
+        return result
+
+    def _box_world_preview(self, start_ndc, end_ndc):
+        """Project the transient screen rectangle onto the active edit plane."""
+        sx, sy = start_ndc
+        ex, ey = end_ndc
+        corners = ((sx, sy), (ex, sy), (ex, ey), (sx, ey), (sx, sy))
+        points = [self._world_point(corner) for corner in corners]
+        return points if all(point is not None for point in points) else None
+
     @staticmethod
     def _selection(hit):
         kind = hit.get("target_kind", "node") if hit["kind"] == "gizmo" else hit["kind"]
@@ -861,6 +924,7 @@ class _TopologyEditorGesture:
                 self._press = {"ndc": tuple(mouse_ndc), "hit": hit,
                                "context": self._context_key()}
                 self._moved = False
+                self._box_start = self._box_end = None
                 # Select on press so Kit's competing selection gesture cannot
                 # swallow a direct node click. Authoring still waits for the
                 # click release or drag threshold.
@@ -872,6 +936,14 @@ class _TopologyEditorGesture:
                         self._last_mouse = None
                         return
                     self.controller.select(selection)
+                    # Endpoint selection must not depend on ClickGesture's
+                    # release callback. Kit may cancel that gesture when its
+                    # native selection recognizer shares the same press, so
+                    # fix add-edge endpoints at press time and let the click
+                    # phase only provide a compatibility fallback.
+                    if tool == "add-edge" and selection["kind"] == "node":
+                        self.controller.activate_node_for_edge(hit["id"])
+                        self._press["edge_activated"] = True
             return
         press = getattr(self, "_press", None)
         if press is None or press["context"] != self._context_key():
@@ -890,7 +962,8 @@ class _TopologyEditorGesture:
                                 and hit.get("kind") == "node"):
                     selection = self._selection(hit)
                     self.controller.select(selection)
-                    if tool == "add-edge" and selection["kind"] == "node":
+                    if (tool == "add-edge" and selection["kind"] == "node"
+                            and not press.get("edge_activated")):
                         self.controller.activate_node_for_edge(hit["id"])
                 elif tool not in {"build-ground-road", "delete-ground-edge", "build-aerial-road", "delete-aerial-edge"}:
                     point = self._world_point(mouse_ndc)
@@ -931,6 +1004,11 @@ class _TopologyEditorGesture:
                         self.controller.gesture = {"target": {"kind": "road"}, "identity": self.controller.dispatcher.client.identity(), "original": list(start)}
                     return
                 if hit is None:
+                    if tool in {"add-node", "add-semantic-point"}:
+                        self._box_start = tuple(press["ndc"])
+                        self._box_end = tuple(mouse_ndc)
+                        self.controller.set_box_preview(
+                            self._box_world_preview(self._box_start, self._box_end))
                     return  # Moving over empty space never authors a point.
                 selection = self._selection(hit)
                 if tool == "add-edge" and selection["kind"] == "node":
@@ -959,9 +1037,16 @@ class _TopologyEditorGesture:
                         self.controller.update_road_drag(point)
                     else:
                         self.controller.update_drag(point)
+            elif self._box_start is not None:
+                self._box_end = tuple(mouse_ndc)
+                self.controller.set_box_preview(
+                    self._box_world_preview(self._box_start, self._box_end))
         elif phase == "ended" and self._moved:
             self._last_mouse = tuple(mouse_ndc)
-            if self.controller.gesture is not None:
+            if self._box_start is not None and self._box_end is not None:
+                self.controller.set_selection_items(self._box_select(self._box_start, self._box_end))
+                self.controller.set_box_preview(None)
+            elif self.controller.gesture is not None:
                 is_road_tool = tool in {"build-ground-road", "build-aerial-road"}
                 endpoint_hit = (None if is_road_tool and self.controller.road_free_snap
                                 else self._pick(mouse_ndc))
@@ -973,15 +1058,13 @@ class _TopologyEditorGesture:
                         point = self._world_point(mouse_ndc, hit)
                     point[2] = self.controller._road_end_z
                 if point is not None:
-                    if is_road_tool:
-                        self.controller.update_road_drag(point)
-                    else:
-                        self.controller.update_drag(point)
-                self.controller.end_drag()
+                    self._complete_drag(point)
             # Leave the moved flag set until the next press so a late click
             # callback from this same release cannot author a second command.
             self._press = self._drag_target = None
             self._last_mouse = None
+            self._box_start = self._box_end = None
+            self.controller.set_box_preview(None)
 
     def destroy(self):
         for gesture in (self.gesture, self.click_gesture):
@@ -990,6 +1073,9 @@ class _TopologyEditorGesture:
         self.gesture = self.click_gesture = None
         self._press = self._drag_target = None
         self._last_mouse = None
+        self._box_start = self._box_end = None
+        if self.controller is not None:
+            self.controller.set_box_preview(None)
         self.viewport_api = self.controller = None
 
 
@@ -1050,9 +1136,6 @@ class _TopologyEditorViewportScene:
                 self._selection_disable_handle = disable_selection(
                     self.viewport_api, disable_click=True)
             except (ImportError, AttributeError, RuntimeError, TypeError):
-                # Older Kit builds may not ship the utility extension. The
-                # custom gesture still works; retaining this fallback keeps
-                # startup compatible while newer builds get full isolation.
                 self._selection_disable_handle = False
         elif not enabled and self._selection_disable_handle is not None:
             self._selection_disable_handle = None

@@ -8,7 +8,8 @@ root; it discovers this map automatically:
 python tools/topology_authoring/launch.py --scene production_consultation_room
 ```
 
-`project.json` points to the current complete revision. Edit only through the
-map tool, which writes a new revision atomically. `base/` contains the immutable
-geometry grids used by every revision. `evidence/` preserves historical visual
-observations referenced by the migrated revision; it is not USD content.
+`project.json.current_revision` points to the fixed `current/` directory. Edit
+through the map tool, which atomically replaces its complete contents on save
+without accumulating revision folders. `base/` contains immutable geometry
+reference grids. `evidence/` preserves earlier visual observations; it is not
+USD content. Logical revision numbers still protect concurrent edits.

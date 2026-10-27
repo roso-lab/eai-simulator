@@ -1,0 +1,30 @@
+{
+  "schema": "eai.navigation.topology",
+  "version": 2,
+  "scene_key": "service_forest",
+  "coordinate_frame": "scene_world",
+  "meters_per_unit": 1.0,
+  "up_axis": "Z",
+  "domain": "aerial",
+  "levels": [
+    {
+      "id": "terrain",
+      "label": "起伏地形（待清点）",
+      "support_z_m": 109.0
+    }
+  ],
+  "source": {
+    "usd_layer_0000": "5e524d3732b4dbb72b73222dd71399bf268762ea785407289d9e4973fab1bded"
+  },
+  "nodes": [],
+  "edges": [],
+  "semantics": {
+    "schema": "eai.scene.semantics",
+    "version": 1,
+    "regions": [],
+    "entities": [],
+    "interaction_poses": [],
+    "routes": [],
+    "extensions": {}
+  }
+}

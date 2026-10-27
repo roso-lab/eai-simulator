@@ -1,0 +1,401 @@
+{
+  "schema": "eai.navigation.topology",
+  "version": 2,
+  "scene_key": "service_forest",
+  "coordinate_frame": "scene_world",
+  "meters_per_unit": 1.0,
+  "up_axis": "Z",
+  "domain": "ground",
+  "levels": [
+    {
+      "id": "terrain",
+      "label": "起伏地形（待清点）",
+      "support_z_m": 109.0
+    }
+  ],
+  "source": {
+    "usd_layer_0000": "5e524d3732b4dbb72b73222dd71399bf268762ea785407289d9e4973fab1bded"
+  },
+  "nodes": [
+    {
+      "id": "node:service_forest:terrain:component-001:route-start",
+      "kind": "custom",
+      "position_xyz": [
+        -102.5,
+        -52.5,
+        109.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "terrain",
+      "label": "几何路线起点",
+      "aliases": []
+    },
+    {
+      "id": "node:service_forest:terrain:component-001:route-end",
+      "kind": "custom",
+      "position_xyz": [
+        -107.5,
+        -37.5,
+        109.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "terrain",
+      "label": "几何路线终点",
+      "aliases": []
+    },
+    {
+      "id": "route:service_forest:terrain:component-001:free-centerline:point:0001",
+      "kind": "custom",
+      "position_xyz": [
+        -102.5,
+        -47.5,
+        109.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "terrain",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_forest:terrain:component-001:free-centerline:point:0002",
+      "kind": "custom",
+      "position_xyz": [
+        -107.5,
+        -42.5,
+        109.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "terrain",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:service_forest:terrain:component-002:route-start",
+      "kind": "custom",
+      "position_xyz": [
+        -112.5,
+        -92.5,
+        109.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "terrain",
+      "label": "几何路线起点",
+      "aliases": []
+    },
+    {
+      "id": "node:service_forest:terrain:component-002:route-end",
+      "kind": "custom",
+      "position_xyz": [
+        -112.5,
+        -82.5,
+        109.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "terrain",
+      "label": "几何路线终点",
+      "aliases": []
+    },
+    {
+      "id": "node:service_forest:terrain:component-003:route-start",
+      "kind": "custom",
+      "position_xyz": [
+        -107.5,
+        17.5,
+        109.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "terrain",
+      "label": "几何路线起点",
+      "aliases": []
+    },
+    {
+      "id": "node:service_forest:terrain:component-003:route-end",
+      "kind": "custom",
+      "position_xyz": [
+        -102.5,
+        7.5,
+        109.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "terrain",
+      "label": "几何路线终点",
+      "aliases": []
+    },
+    {
+      "id": "route:service_forest:terrain:component-003:free-centerline:point:0001",
+      "kind": "custom",
+      "position_xyz": [
+        -107.5,
+        12.5,
+        109.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "terrain",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "route:service_forest:terrain:component-003:free-centerline:point:0002",
+      "kind": "custom",
+      "position_xyz": [
+        -102.5,
+        12.5,
+        109.0
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "terrain",
+      "label": "",
+      "aliases": []
+    }
+  ],
+  "edges": [
+    {
+      "id": "route:service_forest:terrain:component-001:free-centerline:edge:0001",
+      "kind": "custom_connection",
+      "from": "node:service_forest:terrain:component-001:route-start",
+      "to": "route:service_forest:terrain:component-001:free-centerline:point:0001",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -102.5,
+          -52.5,
+          109.0
+        ],
+        [
+          -102.5,
+          -47.5,
+          109.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_forest:terrain:component-001:free-centerline:edge:0002",
+      "kind": "custom_connection",
+      "from": "route:service_forest:terrain:component-001:free-centerline:point:0001",
+      "to": "route:service_forest:terrain:component-001:free-centerline:point:0002",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -102.5,
+          -47.5,
+          109.0
+        ],
+        [
+          -107.5,
+          -42.5,
+          109.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_forest:terrain:component-001:free-centerline:edge:0003",
+      "kind": "custom_connection",
+      "from": "route:service_forest:terrain:component-001:free-centerline:point:0002",
+      "to": "node:service_forest:terrain:component-001:route-end",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -107.5,
+          -42.5,
+          109.0
+        ],
+        [
+          -107.5,
+          -37.5,
+          109.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_forest:terrain:component-002:free-centerline:edge:0001",
+      "kind": "custom_connection",
+      "from": "node:service_forest:terrain:component-002:route-start",
+      "to": "node:service_forest:terrain:component-002:route-end",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -112.5,
+          -92.5,
+          109.0
+        ],
+        [
+          -112.5,
+          -82.5,
+          109.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_forest:terrain:component-003:free-centerline:edge:0001",
+      "kind": "custom_connection",
+      "from": "node:service_forest:terrain:component-003:route-start",
+      "to": "route:service_forest:terrain:component-003:free-centerline:point:0001",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -107.5,
+          17.5,
+          109.0
+        ],
+        [
+          -107.5,
+          12.5,
+          109.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_forest:terrain:component-003:free-centerline:edge:0002",
+      "kind": "custom_connection",
+      "from": "route:service_forest:terrain:component-003:free-centerline:point:0001",
+      "to": "route:service_forest:terrain:component-003:free-centerline:point:0002",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -107.5,
+          12.5,
+          109.0
+        ],
+        [
+          -102.5,
+          12.5,
+          109.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "route:service_forest:terrain:component-003:free-centerline:edge:0003",
+      "kind": "custom_connection",
+      "from": "route:service_forest:terrain:component-003:free-centerline:point:0002",
+      "to": "node:service_forest:terrain:component-003:route-end",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -102.5,
+          12.5,
+          109.0
+        ],
+        [
+          -102.5,
+          7.5,
+          109.0
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    }
+  ],
+  "semantics": {
+    "schema": "eai.scene.semantics",
+    "version": 1,
+    "regions": [],
+    "entities": [],
+    "interaction_poses": [],
+    "routes": [],
+    "extensions": {
+      "vertical_connectors": []
+    }
+  }
+}

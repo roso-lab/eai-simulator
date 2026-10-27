@@ -1,0 +1,30 @@
+{
+  "schema": "eai.navigation.topology",
+  "version": 2,
+  "scene_key": "service_ruined_city",
+  "coordinate_frame": "scene_world",
+  "meters_per_unit": 1.0,
+  "up_axis": "Z",
+  "domain": "aerial",
+  "levels": [
+    {
+      "id": "ground",
+      "label": "地面层（待清点）",
+      "support_z_m": 0.0
+    }
+  ],
+  "source": {
+    "usd_layer_0000": "46282d704e510e4b3c5506170ddf3607691bee94a65e8605a2b5009c0f975fa5"
+  },
+  "nodes": [],
+  "edges": [],
+  "semantics": {
+    "schema": "eai.scene.semantics",
+    "version": 1,
+    "regions": [],
+    "entities": [],
+    "interaction_poses": [],
+    "routes": [],
+    "extensions": {}
+  }
+}
