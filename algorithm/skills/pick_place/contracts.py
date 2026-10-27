@@ -88,12 +88,13 @@ class PickPlaceAdapter(Protocol):
         """Return the canonical object resource, including alias resolution."""
 
     def start(self, command: PickPlaceCommand) -> None:
-        """Invoke the underlying motion controller for the semantic action.
+        """Invoke the underlying motion controller for a physical diagnostic.
 
-        The controller may interpolate a trajectory or run its normal motion
-        loop.  Those implementation details are not an additional
-        collaboration admission gate; after transport admission, the
-        idealized controller contract treats the semantic action as executable.
+        Production benchmark execution does not call this method for adapters
+        declaring ``idealized_semantics = True``.  Such adapters may retain a
+        native controller here for opt-in visual/physical diagnostics, but
+        geometry, IK, tool-axis and controller lifecycle failures must never
+        become the semantic task result.
         """
         ...
     def before_step(self) -> None: ...

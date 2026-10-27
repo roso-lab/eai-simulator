@@ -5,9 +5,10 @@
 当前工程与此前设计的**总体分层已经明确，但真实场景执行后端仍未闭合**。本轮已补上
 benchmark-owned 的 `TransportCommand` 和运行时质量/负载准入边界；`PickPlaceExecutor`
 现在只保留理想化末端成功语义，并在任何资源租约、backend.start 或 attachment 之前
-执行准入。仍未完成的是把具体场景 resolver 和 `ExecutionFeedback` 生产适配器接到
-正式场景 runtime，同时删除各物理 adapter `start()` 内会把几何问题转成协作失败的
-旧准入分支。底层 controller 的运动计算和调用本身必须保留。
+执行准入。具体场景 resolver 和 `ExecutionFeedback` 生产适配器仍待接到正式场景
+runtime；已完成的 adapter 边界修正是：Arm/G1/Pepper 公开
+`idealized_semantics = True`，生产 executor 不调用其旧几何/IK `start()`，只把这些
+路径保留为显式诊断入口。底层 controller 的运动计算和调用本身仍可由诊断运行触发。
 
 多机器人碰撞策略也已按当前设计固定：`MultiRobotDirectEnvCfg` 的
 `ignore_robot_robot_collisions` 默认值为 `True`。环境第一次 reset 时为每个环境实例
@@ -32,8 +33,8 @@ benchmark-owned 的 `TransportCommand` 和运行时质量/负载准入边界；`
 | 超载时不建立粘连 | admission 位于资源租约和 `backend.start()` 之前；`task/tests/test_transport.py` 验证超载返回 0 | **已实现（单元边界）** | 需要场景 runtime 集成证据 |
 | 失败记录但 episode 不被错误打断 | `TaskRunner.run_orchestrated()` 会记录 `ExecutionUpdate`，将失败节点设为 `failed`，阻塞其后继；独立 ready 节点仍可继续。换机器人需要显式 `replan` | 已实现（调度层） | 续跑语义存在，但不是自动换机器人 |
 | 导航与取放分离 | `NavigationExecutor`/`NavigationTaskExecutor` 与 `PickPlaceExecutor` 是两套接口；pick/place 注释明确由调用者负责导航 | 已实现 | 与设计一致 |
-| 理想化抓取/放置 | `PickPlaceExecutor` 以及统一 `SkillTaskExecutor` 对 `eai.manipulation.pick_place` 只保留语义点到达 + transport admission 的成功定义；底层 controller 仍负责运动 | **执行器已按新语义判定** | 需删除 adapter 中把 controller 几何问题转成协作失败的旧准入分支 |
-| 到达正确末端语义点即可成功 | executor 不再把几何、IK、工具轴、可达性或 `ready/stopped/clean` 作为业务成功条件 | **已对齐执行器边界** | controller 仍被调用，但其内部运动计算不能再成为 D1/D5 协作谓词 |
+| 理想化抓取/放置 | `PickPlaceExecutor` 以及统一 `SkillTaskExecutor` 对 `eai.manipulation.pick_place` 只保留语义点到达 + transport admission 的成功定义；Arm/G1/Pepper adapter 通过 `idealized_semantics` 跳过旧几何 `start()` | **已对齐执行器与 adapter 边界** | 物理路径只可作为显式诊断 |
+| 到达正确末端语义点即可成功 | executor 不再把几何、IK、工具轴、可达性或 `ready/stopped/clean` 作为业务成功条件；理想化 adapter 直接生成逻辑持有/释放反馈 | **已对齐** | 诊断失败只能记录，不得改变 D1/D5 协作谓词 |
 | 当前场景执行后端可执行搬运 DAG | `tools/scenario_generation/execute_episode.py` 明确 fail-closed；测试标注 legacy `demo.benchmark` 后端不在当前工程 | **未实现** | 目前没有可认证的场景搬运运行链 |
 
 ## 关键证据
@@ -81,5 +82,5 @@ benchmark-owned 的 `TransportCommand` 和运行时质量/负载准入边界；`
 1. 由场景 runtime 注入 `object_ref → physics.mass_kg` 与 `robot_id → manipulation.payload_kg` 的 resolver，接到 `PickPlaceExecutor(transport_admission=...)`。
 2. 把 admission 结果包装为 `ExecutionFeedback(failure_code=INFEASIBLE_TEAM)` 并写入统一 ledger；`TransportAdmissionResolver.records` 已提供准入证据字段。
 3. 增加最小闭环测试：物体 4 kg，机器人 A 3 kg，机器人 B 5 kg；A 返回 `false/0` 且无粘连，B 可继续；A 失败后独立任务继续，替代 B 只有在显式 replan 时接管。
-4. 逐个把具体 arm backend 的几何/反馈检查降级为底层诊断，不再让它们改变 D1/D5 的理想化协作谓词。
+4. 将正式场景 resolver 接入后补充端到端 receipt 证据；具体 arm backend 已降级为显式诊断路径。
 5. 在上述测试通过并有真实运行证据后，再把 D5 范例绑定到这条机制；在此之前 D5 文档只能标为设计候选。

@@ -31,5 +31,7 @@
 ## 尚未宣称完成的接缝
 
 - `TransportAdmissionResolver` 尚需由正式场景 runtime 注入 object/robot resolver，并把结果接入生产 `ExecutionUpdate`/episode ledger。
-- 具体 arm backend 的 `start()` 内仍可能保留物理几何路径；它们不得改变 D1/D5 理想化协作结果，需继续按适配器逐个降级为诊断。
+- Arm/G1/Pepper adapter 已声明 `idealized_semantics = True`；生产 `PickPlaceExecutor`
+  不再调用其旧几何/IK `start()`，逻辑持有/释放由 executor 生成。原 `start()` 仅保留
+  为显式诊断路径，诊断失败不会改变 D1/D5 协作结果。
 - 语义地图工具测试通过不等于各场景地图已经输入闭合；正式资格门与认证 flags 继续保持 `false`。

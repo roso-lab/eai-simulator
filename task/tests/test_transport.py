@@ -154,3 +154,41 @@ def test_pick_place_keeps_controller_call_but_ignores_geometry_lifecycle_flags()
     executor.register_adapter(Adapter())
     assert executor.execute(request) is True
     assert calls == [("controller.start", "box-a")]
+
+
+def test_idealized_manipulator_does_not_run_legacy_geometry_backend():
+    """Semantic transport succeeds even when the physical arm path rejects geometry."""
+    calls = []
+
+    class Adapter:
+        robot_id = "robot-a"
+        idealized_semantics = True
+        resource_key = lambda self, ref: "object:" + ref
+        validate = lambda self, command: (_ for _ in ()).throw(AssertionError("validate called"))
+
+        def start(self, command):
+            calls.append("legacy-start")
+            raise ValueError("unreachable Cartesian target")
+
+        before_step = lambda self: (_ for _ in ()).throw(AssertionError("stepped"))
+        after_step = lambda self: (_ for _ in ()).throw(AssertionError("stepped"))
+        feedback = lambda self: (_ for _ in ()).throw(AssertionError("feedback called"))
+        request_stop = lambda self, reason: calls.append(("stop", reason))
+
+    request = SkillRequest(
+        "req-idealized", PICK_PLACE_SKILL_ID, "robot-a", target_pose=(0.0, 0.0, 0.0),
+        parameters={
+            "operation": "pick", "object_ref": "box-a",
+            "base_position_world_m": (0.0, 0.0, 0.0),
+            "base_orientation_xyzw": (0.0, 0.0, 0.0, 1.0),
+            "world_state_seq": 0, "simulation_time_s": 0.0,
+        },
+    )
+    executor = PickPlaceExecutor(
+        advance=lambda: (_ for _ in ()).throw(AssertionError("advanced")),
+        simulation_time=lambda: 0.0,
+        transport_admission=lambda command: True,
+    )
+    executor.register_adapter(Adapter())
+    assert executor.execute(request) is True
+    assert calls == []
