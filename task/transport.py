@@ -13,7 +13,7 @@ belong to this contract.  Locations are semantic-map references.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Sequence
 
 from algorithm.common_coordination.contract import ExecutionFeedback, FailureCode
 
@@ -195,14 +195,41 @@ class TransportAdmissionResolver:
     values from the tested system's command.
     """
 
-    def __init__(self, objects: Mapping[str, Mapping[str, Any]], robots: Mapping[str, Mapping[str, Any]]):
+    def __init__(
+        self,
+        objects: Mapping[str, Mapping[str, Any]],
+        robots: Mapping[str, Mapping[str, Any]],
+        *,
+        allowed_robot_ids: Sequence[str] | None = None,
+    ):
+        if not isinstance(objects, Mapping) or not isinstance(robots, Mapping):
+            raise TypeError("objects and robots must be mappings")
+        if allowed_robot_ids is not None:
+            if isinstance(allowed_robot_ids, (str, bytes)):
+                raise TypeError("allowed_robot_ids must be a sequence of IDs")
+            if any(not isinstance(value, str) or not value.strip() for value in allowed_robot_ids):
+                raise TypeError("allowed_robot_ids must contain non-empty string IDs")
+            normalized = tuple(
+                value.strip() for value in allowed_robot_ids
+            )
+            if not normalized or len(set(normalized)) != len(normalized):
+                raise ValueError("allowed_robot_ids must contain unique non-empty IDs")
+            allowed = frozenset(normalized)
+        else:
+            allowed = None
         self.objects = objects
         self.robots = robots
+        self.allowed_robot_ids = allowed
         self.records: list[dict[str, Any]] = []
 
     @classmethod
-    def from_json_documents(cls, scene_document: Mapping[str, Any],
-                            robot_document: Mapping[str, Any]) -> "TransportAdmissionResolver":
+    def from_json_documents(
+        cls,
+        scene_document: Mapping[str, Any],
+        robot_document: Mapping[str, Any],
+        *,
+        allowed_robot_ids: Sequence[str] | None = None,
+    ) -> "TransportAdmissionResolver":
         """Build indexes from the authored scene and robot-resume JSON shapes."""
         def index(document: Mapping[str, Any], collections: tuple[str, ...], keys: tuple[str, ...]):
             rows: list[Mapping[str, Any]] = []
@@ -235,6 +262,7 @@ class TransportAdmissionResolver:
                   ("id", "ref", "object_ref")),
             index(robot_document, ("resumes", "configuration_profiles", "robots"),
                   ("robot_id", "resume_id", "profile_id", "id")),
+            allowed_robot_ids=allowed_robot_ids,
         )
 
     @classmethod
@@ -243,6 +271,8 @@ class TransportAdmissionResolver:
         scene_document: Mapping[str, Any],
         runtime_roster_document: Mapping[str, Any],
         resume_document: Mapping[str, Any],
+        *,
+        allowed_robot_ids: Sequence[str] | None = None,
     ) -> "TransportAdmissionResolver":
         """Bind promoted instance IDs to authoritative resume capabilities.
 
@@ -270,8 +300,23 @@ class TransportAdmissionResolver:
                 raise ValueError(f"duplicate source resume_id: {resume_id}")
             by_resume[resume_id] = row
 
+        if allowed_robot_ids is not None:
+            if isinstance(allowed_robot_ids, (str, bytes)):
+                raise TypeError("allowed_robot_ids must be a sequence of IDs")
+            if any(not isinstance(value, str) or not value.strip() for value in allowed_robot_ids):
+                raise TypeError("allowed_robot_ids must contain non-empty string IDs")
+            selected = tuple(
+                value.strip() for value in allowed_robot_ids
+            )
+            if not selected or len(set(selected)) != len(selected):
+                raise ValueError("allowed_robot_ids must contain unique non-empty IDs")
+            selected_ids = frozenset(selected)
+        else:
+            selected_ids = None
+
         bound_rows: list[dict[str, Any]] = []
         seen_instances: set[str] = set()
+        selected_seen: set[str] = set()
         for index, roster_row in enumerate(roster_rows):
             if not isinstance(roster_row, Mapping):
                 raise ValueError(f"runtime roster row {index} must be an object")
@@ -282,9 +327,15 @@ class TransportAdmissionResolver:
             if instance_id in seen_instances:
                 raise ValueError(f"duplicate runtime instance_id: {instance_id}")
             seen_instances.add(instance_id)
+            if selected_ids is not None and instance_id in selected_ids:
+                selected_seen.add(instance_id)
             if not isinstance(source_resume_id, str) or not source_resume_id.strip():
                 raise ValueError(f"runtime roster row {index} requires source_resume_id")
             source = by_resume.get(source_resume_id)
+            if selected_ids is not None and instance_id not in selected_ids:
+                # The full promoted roster is allowed as an input, but only
+                # the case-selected instances become resolver records.
+                continue
             if source is None:
                 raise ValueError(f"source resume is unavailable: {source_resume_id}")
             capability_binding = roster_row.get("capability_binding")
@@ -308,14 +359,29 @@ class TransportAdmissionResolver:
                 "asset_binding": roster_row.get("asset_binding"),
                 "initial_state_binding": roster_row.get("initial_state_binding"),
             })
-        return cls.from_json_documents(scene_document, {"robots": bound_rows})
+        if selected_ids is not None and selected_seen != set(selected_ids):
+            missing = sorted(set(selected_ids) - selected_seen)
+            raise ValueError(f"selected runtime instances are missing from roster: {missing}")
+        selected_for_resolver = selected if selected_ids is not None else None
+        return cls.from_json_documents(
+            scene_document,
+            {"robots": bound_rows},
+            allowed_robot_ids=selected_for_resolver,
+        )
 
     def check(self, command: TransportCommand) -> TransportAdmissionResult:
         object_record = self.objects.get(command.object_ref)
         robot_record = self.robots.get(command.robot_id)
         mass = _mass_from_record(object_record) if isinstance(object_record, Mapping) else None
         payload = _payload_from_record(robot_record) if isinstance(robot_record, Mapping) else None
-        if mass is None:
+        if self.allowed_robot_ids is not None and command.robot_id not in self.allowed_robot_ids:
+            result = TransportAdmissionResult(
+                False,
+                mass,
+                payload,
+                "robot is outside the selected runtime roster",
+            )
+        elif mass is None:
             result = TransportAdmissionResult(False, None, payload, "object mass_kg is unavailable")
         elif payload is None:
             result = TransportAdmissionResult(False, mass, None, "robot payload_kg is unavailable")

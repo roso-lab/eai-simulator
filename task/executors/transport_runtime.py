@@ -58,7 +58,15 @@ class TransportOrchestrationExecutor:
 
     @classmethod
     def from_json_documents(cls, scene_document: Mapping[str, Any], robot_document: Mapping[str, Any], **kwargs: Any) -> "TransportOrchestrationExecutor":
-        return cls(TransportAdmissionResolver.from_json_documents(scene_document, robot_document), **kwargs)
+        allowed_robot_ids = kwargs.pop("allowed_robot_ids", None)
+        return cls(
+            TransportAdmissionResolver.from_json_documents(
+                scene_document,
+                robot_document,
+                allowed_robot_ids=allowed_robot_ids,
+            ),
+            **kwargs,
+        )
 
     @classmethod
     def from_runtime_roster_documents(
@@ -76,10 +84,12 @@ class TransportOrchestrationExecutor:
         executor can be bound to a run; no tested-system command can override
         those records.
         """
+        allowed_robot_ids = kwargs.pop("allowed_robot_ids", None)
         resolver = TransportAdmissionResolver.from_runtime_roster_documents(
             scene_document,
             runtime_roster_document,
             resume_document,
+            allowed_robot_ids=allowed_robot_ids,
         )
         return cls(resolver, **kwargs)
 
