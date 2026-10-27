@@ -46,6 +46,7 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 env_isaaclab/bin/python -m pytest -q \
 - evaluator-owned terminal receipt 仍需从真实 observer/skill-session source 生成；GPU probe → `map_ready_case_v1` 的显式包装接缝已由 `benchmark/room06_gpu_receipt_seam_v1.py` 提供，但它只接受调用方显式给出的 `BranchJob`、evaluator result 与 parameters，不推导科学事实；
 - task runner 现在已把 executor ledger 以 digest-bound opaque snapshot 接入 orchestration ledger；它仍不会替代 `Room06ObservationBridge`/`TerminalCaseRunner` 的 evaluator-owned receipt material；
 - 当前主线 room_06 map revision `d9872563938c42fd85f43efa3dab3c0b` 具备 12 个命名语义点，但 `topology.json` 仍无跨层 edge/transition 节点，且 manifest 明确 `robot_validated=false`；因此 preflight 会按设计 fail-closed，尚不能冻结并运行第一个真实 case；
+- 2026-10-28 复核指纹：`manifest.json=4cf7f69268ec5ac2b749e3e20b8159cd7f6dc67fb313c7032233ff62d3177b57`，`topology.json=1b7a0081289a0726dc8bfcf07763e986ff0992f2d6a0208c34b8cbc167bf8176`；当前 topology 为 50 nodes/63 edges，cross-floor edges=0，transition candidates=0。使用现有 runtime-preflight 输入执行得到 `BLOCKED: ground topology has no real cross-floor edge`，未启动 Isaac；
 - 完整语义地图交付后，需重新生成 map digest、绑定 transition node、跑 `audit_room06_runtime_preflight`，再把真实 observer source 注册到 `SimulatorLaunchConfig.room06_runtime_hook_source_factory`；
 - diagnostic GPU 结果继续保持 `diagnostic-only`，`physical_qualified`、`rankable`、`paper_score_eligible` 及认证 flags 全部为 `false`；
 - 推送边界再执行全量回归，日常小步不重复全量套件。
