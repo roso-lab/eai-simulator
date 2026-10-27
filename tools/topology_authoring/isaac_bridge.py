@@ -878,9 +878,27 @@ class IsaacTopologyController:
         )
         if previous is not None and previous != current:
             same_scene = previous[:2] == current[:2]
+            preserve_edge = (
+                self.edge_start is not None
+                and same_scene
+                and previous[4:] == current[4:]
+                and previous[4] in {"ground", "aerial"}
+                and context.get("editor_tool") == "add-edge"
+            )
+            edge_state = (self.edge_start, self.edge_end, self.edge_identity,
+                          json.loads(json.dumps(self.preview))
+                          if self.preview and self.preview.get("kind") == "edge-draft"
+                          else None)
             preserve_local_selection = bool(
                 self.selection_dirty and same_scene and previous[4] == current[4])
             self.cancel_gesture(preserve_retry=same_scene)
+            if preserve_edge:
+                self.edge_start, self.edge_end, self.edge_identity, preview = edge_state
+                if self.node(self.edge_start) is None or (
+                        self.edge_end is not None and self.node(self.edge_end) is None):
+                    self.edge_start = self.edge_end = self.edge_identity = None
+                else:
+                    self.preview = preview
             same_binding_context = same_scene and previous[4:6] == current[4:6]
             if not same_binding_context:
                 self.navigation_binding_mode = False

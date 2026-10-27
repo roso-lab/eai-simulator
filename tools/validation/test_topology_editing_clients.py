@@ -1010,6 +1010,21 @@ def test_edge_endpoints_are_fixed_on_press_when_click_release_is_canceled():
     assert dispatcher.calls[-1][0][2] == "add_edge"
 
 
+def test_edge_preview_survives_context_refresh_before_confirmation():
+    dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
+    context = _context(active_layer="aerial"); context["editor_tool"] = "add-edge"
+    controller.update_context(context)
+    controller.activate_node_for_edge("n1")
+    controller.activate_node_for_edge("n2")
+    refreshed = deepcopy(context)
+    refreshed["context_generation"] += 1
+    controller.update_context(refreshed)
+    assert (controller.edge_start, controller.edge_end) == ("n1", "n2")
+    assert controller.preview and controller.preview["kind"] == "edge-draft"
+    assert controller.finish_edge()
+    assert dispatcher.calls[-1][0][2] == "add_edge"
+
+
 def test_escape_and_tool_switch_invalidate_held_pointer():
     dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
     controller.update_context(_context())
