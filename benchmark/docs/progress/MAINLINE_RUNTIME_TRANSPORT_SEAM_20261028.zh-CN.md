@@ -43,7 +43,7 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 env_isaaclab/bin/python -m pytest -q \
 
 ## 未完成与下一接缝
 
-- evaluator-owned terminal receipt 仍需从真实 observer/skill-session source 生成并接入现有 receipt material 链；
+- evaluator-owned terminal receipt 仍需从真实 observer/skill-session source 生成；GPU probe → `map_ready_case_v1` 的显式包装接缝已由 `benchmark/room06_gpu_receipt_seam_v1.py` 提供，但它只接受调用方显式给出的 `BranchJob`、evaluator result 与 parameters，不推导科学事实；
 - task runner 现在已把 executor ledger 以 digest-bound opaque snapshot 接入 orchestration ledger；它仍不会替代 `Room06ObservationBridge`/`TerminalCaseRunner` 的 evaluator-owned receipt material；
 - 当前主线 room_06 map revision `d9872563938c42fd85f43efa3dab3c0b` 具备 12 个命名语义点，但 `topology.json` 仍无跨层 edge/transition 节点，且 manifest 明确 `robot_validated=false`；因此 preflight 会按设计 fail-closed，尚不能冻结并运行第一个真实 case；
 - 完整语义地图交付后，需重新生成 map digest、绑定 transition node、跑 `audit_room06_runtime_preflight`，再把真实 observer source 注册到 `SimulatorLaunchConfig.room06_runtime_hook_source_factory`；
