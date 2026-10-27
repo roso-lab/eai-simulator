@@ -9,12 +9,18 @@ import pytest
 from algorithm.common_coordination.contract import AlgorithmCondition, Assignment
 from benchmark.room06_transport_runtime_v1 import (
     Room06TransportRuntimeError,
+    bind_orchestration_ledger_provenance,
     bind_room06_transport_runtime,
+)
+from benchmark.evaluator.room06_livt04 import (
+    Room06LivT04Evaluator,
+    build_diagnostic_runtime_fixture,
 )
 from task.contracts import EaiTaskPackage, RobotState, TaskRunRequest
 from task.contracts import AlgorithmDecision
 from algorithm.common_coordination.contract import RobotCapability, CoordinationTask, TaskGraph
 from task.transport import TransportCommand
+from tools.benchmark_branch.models import BranchJob
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -138,4 +144,71 @@ def test_room06_binding_rejects_tampered_package_digest():
     with pytest.raises(Room06TransportRuntimeError, match="package_digest"):
         bind_room06_transport_runtime(
             package, runtime_roster_document=roster, resume_document=resumes,
+        )
+
+
+def test_room06_transport_ledger_provenance_reaches_receipt_identity_records():
+    roster = json.loads(ROSTER_PATH.read_text(encoding="utf-8"))
+    resumes = json.loads(RESUME_PATH.read_text(encoding="utf-8"))
+    binding = bind_room06_transport_runtime(
+        _package(), runtime_roster_document=roster, resume_document=resumes,
+        execute_command=lambda *_: True,
+    )
+    task = _transport_task()
+    package = EaiTaskPackage(
+        task_id="liv-t-04",
+        scene_id="room_06",
+        graph=TaskGraph(tasks=(task,), source="room06-ledger-test"),
+        robots=tuple(
+            RobotState(RobotCapability(robot_id, frozenset({"transport"})))
+            for robot_id in SELECTED
+        ),
+    )
+    decision = AlgorithmDecision(
+        condition=AlgorithmCondition(
+            algorithm_id="room06-ledger-test",
+            source_reference="test",
+            implementation="fixture",
+            execution_scope="assignment_only",
+            planner="fixture",
+        ),
+        assignments=(Assignment("move-heavy", "hc-rt-025", "room06-ledger-test"),),
+    )
+    from task.runner import TaskRunner
+
+    result = TaskRunner(orchestration_executor=binding.executor).run_orchestrated(
+        TaskRunRequest(package), lambda *_: decision
+    )
+    payload = build_diagnostic_runtime_fixture()
+    bound = bind_orchestration_ledger_provenance(payload, result)
+    job = BranchJob(
+        run_id="room06-ledger-test",
+        system_id="emos-zero",
+        scene_key="room_06",
+        task_id="liv-t-04",
+        condition_id="C0",
+        slot=0,
+        branch_type="fact",
+        branch_id="room06-ledger-test-r1",
+        pair_group_id="room06-ledger-test-r1",
+        repeat_id="r1",
+        execution_scope="measured_diagnostic",
+    )
+    material = Room06LivT04Evaluator().collect_receipt_material(bound, job)
+    reference = material["streams"]["identity_records"]["orchestration_ledger"]
+    assert reference["schema"] == "heterocoord.orchestration-ledger-ref.v1"
+    assert reference["digest"] == result.ledger.digest()
+    assert reference["event_count"] == len(result.ledger.events)
+
+
+def test_room06_transport_ledger_provenance_rejects_tampering():
+    payload = build_diagnostic_runtime_fixture()
+    with pytest.raises(Room06TransportRuntimeError, match="digest"):
+        bind_orchestration_ledger_provenance(
+            payload,
+            {
+                "schema_version": "task.orchestration.v1",
+                "events": [],
+                "digest": "0" * 64,
+            },
         )

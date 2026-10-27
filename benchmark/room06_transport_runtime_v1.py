@@ -20,6 +20,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 import math
+from copy import deepcopy
 from typing import Any
 
 from task.executors.transport_runtime import TransportOrchestrationExecutor
@@ -29,10 +30,75 @@ ROOM06_TRANSPORT_BINDING_SCHEMA = "heterocoord.room06-transport-runtime-binding.
 FIXED_PACKAGE_SCHEMA = "heterocoord.room06-fixed-package.v1"
 TASK_SETUP_SCHEMA = "heterocoord.room06-task-setup.v1"
 TASK_ID = "liv-t-04"
+ORCHESTRATION_LEDGER_REF_SCHEMA = "heterocoord.orchestration-ledger-ref.v1"
 
 
 class Room06TransportRuntimeError(ValueError):
     """Raised when a room-06 package cannot form an authoritative binding."""
+
+
+def _ledger_ref(value: Any) -> dict[str, Any]:
+    """Validate an explicit orchestration ledger and return its provenance ref.
+
+    The ledger is runtime provenance only.  Its events are never interpreted as
+    evaluator facts; the digest merely lets a receipt identify the scheduler
+    record that accompanied the observed episode.
+    """
+
+    candidate = value
+    if isinstance(candidate, Mapping) and "ledger" in candidate:
+        candidate = candidate["ledger"]
+    elif not isinstance(candidate, Mapping) and hasattr(candidate, "ledger"):
+        candidate = getattr(candidate, "ledger")
+    if isinstance(candidate, Mapping):
+        schema_version = candidate.get("schema_version")
+        events = candidate.get("events")
+        declared_digest = candidate.get("digest")
+    else:
+        schema_version = getattr(candidate, "schema_version", None)
+        events = getattr(candidate, "events", None)
+        digest_method = getattr(candidate, "digest", None)
+        declared_digest = digest_method() if callable(digest_method) else None
+    if not isinstance(schema_version, str) or not schema_version.strip():
+        raise Room06TransportRuntimeError(
+            "orchestration ledger schema_version must be non-empty text"
+        )
+    if isinstance(events, tuple):
+        events = list(events)
+    if not isinstance(events, list) or any(not isinstance(item, Mapping) for item in events):
+        raise Room06TransportRuntimeError(
+            "orchestration ledger events must be a list of objects"
+        )
+    if not isinstance(declared_digest, str) or len(declared_digest) != 64 or any(
+        char not in "0123456789abcdef" for char in declared_digest
+    ):
+        raise Room06TransportRuntimeError(
+            "orchestration ledger digest must be a lowercase SHA-256"
+        )
+    detached_events = [dict(item) for item in events]
+    try:
+        preimage = json.dumps(
+            {"schema_version": schema_version, "events": detached_events},
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise Room06TransportRuntimeError(
+            "orchestration ledger is not finite canonical JSON"
+        ) from exc
+    actual_digest = hashlib.sha256(preimage).hexdigest()
+    if actual_digest != declared_digest:
+        raise Room06TransportRuntimeError(
+            "orchestration ledger digest does not bind its events"
+        )
+    return {
+        "schema": ORCHESTRATION_LEDGER_REF_SCHEMA,
+        "schema_version": schema_version,
+        "digest": declared_digest,
+        "event_count": len(detached_events),
+    }
 
 
 def _mapping(value: Any, name: str) -> Mapping[str, Any]:
@@ -224,9 +290,61 @@ def bind_room06_transport_runtime(
     )
 
 
+def bind_orchestration_ledger_provenance(
+    runtime_payload: Mapping[str, Any],
+    orchestration_result: Any,
+) -> dict[str, Any]:
+    """Attach a digest-only scheduler reference to room06 receipt streams.
+
+    ``runtime_payload`` is the evaluator-facing payload produced by
+    ``assemble_room06_terminal_payload`` (or the equivalent nested
+    ``room06_livt04`` object).  Only ``streams.identity_records`` is extended;
+    milestones, holds, success inputs and formal gates are untouched.  A
+    mismatched existing reference or a tampered ledger fails closed.
+    """
+
+    if not isinstance(runtime_payload, Mapping):
+        raise Room06TransportRuntimeError("runtime_payload must be an object")
+    try:
+        detached = json.loads(
+            json.dumps(
+                runtime_payload,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+            )
+        )
+    except (TypeError, ValueError) as exc:
+        raise Room06TransportRuntimeError(
+            "runtime_payload must be finite canonical JSON"
+        ) from exc
+    candidate = detached.get("room06_livt04", detached)
+    if not isinstance(candidate, dict):
+        raise Room06TransportRuntimeError("runtime_payload.room06_livt04 must be an object")
+    streams = candidate.get("streams")
+    if not isinstance(streams, dict):
+        raise Room06TransportRuntimeError("runtime_payload streams must be an object")
+    identity_records = streams.get("identity_records")
+    if not isinstance(identity_records, dict):
+        raise Room06TransportRuntimeError(
+            "runtime_payload streams.identity_records must be an object"
+        )
+    reference = _ledger_ref(orchestration_result)
+    existing = identity_records.get("orchestration_ledger")
+    if existing is not None and existing != reference:
+        raise Room06TransportRuntimeError(
+            "runtime_payload orchestration ledger reference disagrees with result"
+        )
+    identity_records["orchestration_ledger"] = reference
+    return detached
+
+
 __all__ = [
+    "ORCHESTRATION_LEDGER_REF_SCHEMA",
     "ROOM06_TRANSPORT_BINDING_SCHEMA",
     "Room06TransportBinding",
     "Room06TransportRuntimeError",
+    "bind_orchestration_ledger_provenance",
     "bind_room06_transport_runtime",
 ]

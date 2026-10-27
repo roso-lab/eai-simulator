@@ -16,8 +16,12 @@ fail-closed。
 - `benchmark/room06_transport_runtime_v1.py` 将已验证的 room06 fixed package、promoted
   roster 和 source resume 绑定为 `Room06TransportBinding`；executor ledger 只记录运行时
   provenance，不冒充 evaluator-owned receipt material；
+- `bind_orchestration_ledger_provenance()` 将 `TaskRunner` 返回的 orchestration ledger
+  以 schema/version/digest/event-count 引用写入 receipt streams 的
+  `identity_records.orchestration_ledger`。它只绑定调度 provenance，不把 ledger 事件解释
+  成里程碑、持有、success 或任何论文事实；ledger 篡改和已有引用冲突均 fail-closed；
 - `benchmark/tests/test_room06_transport_runtime_v1.py` 覆盖选中实例边界、source resume
-  负载权威性、executor ledger 接缝和 package digest 篡改拒绝。
+  负载权威性、executor ledger → receipt identity 接缝和 package/ledger digest 篡改拒绝。
 
 ## GPU 脏工作树处置
 
@@ -43,7 +47,8 @@ task/tests/test_transport.py task/tests/test_transport_runtime.py \
 benchmark/tests/test_room06_transport_runtime_v1.py
 ```
 
-结果：21 passed；`git diff --check` 通过。`env_isaaclab` 当前提供 `torch 2.7.0+cu128`
+结果：受影响 room06/transport/receipt 集 151 passed；`git diff --check` 通过。
+`env_isaaclab` 当前提供 `torch 2.7.0+cu128`
 与 `lark 1.3.1`。
 
 推送前仍按主线规则跑一次 benchmark 全量。语义地图 preflight 仍需真实跨层拓扑边与
