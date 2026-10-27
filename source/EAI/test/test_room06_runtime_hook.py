@@ -6,11 +6,36 @@ from types import SimpleNamespace
 import pytest
 
 from EAI.room06_runtime_hook import (
+    CallbackRoom06RuntimeHookSource,
     HOOK_CAPTURE_SCHEMA,
     HOOK_SOURCE_SCHEMA,
     Room06RuntimeHookError,
     collect_room06_runtime_hook,
 )
+
+
+def test_callback_source_wrapper_requires_explicit_callbacks_and_preserves_identity():
+    bindings = lambda **kwargs: dict(PATHS)
+    collector = lambda **kwargs: {"assignment": _assignment(), "terminal_inputs": _terminal_inputs()}
+    source = CallbackRoom06RuntimeHookSource(
+        object_path_bindings=bindings, collect_room06=collector
+    )
+    assert source.schema == HOOK_SOURCE_SCHEMA
+    assert source.object_path_bindings(package=_package()) == PATHS
+    assert source.collect_room06(package=_package()) == {
+        "assignment": _assignment(), "terminal_inputs": _terminal_inputs()
+    }
+
+
+@pytest.mark.parametrize("name", ["object_path_bindings", "collect_room06"])
+def test_callback_source_wrapper_rejects_missing_callback(name):
+    kwargs = {
+        "object_path_bindings": lambda **_: dict(PATHS),
+        "collect_room06": lambda **_: {"assignment": _assignment(), "terminal_inputs": _terminal_inputs()},
+    }
+    kwargs[name] = None
+    with pytest.raises(TypeError, match="callback must be callable"):
+        CallbackRoom06RuntimeHookSource(**kwargs)
 from tools.validation.room06_livt04_gpu_probe import normalize_runtime_hook_capture
 
 

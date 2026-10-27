@@ -58,6 +58,32 @@ class Room06RuntimeHookError(RuntimeError):
     """Raised when the live observer/readback chain is incomplete."""
 
 
+class CallbackRoom06RuntimeHookSource:
+    """Explicit registration wrapper for a host-owned room06 observer.
+
+    The wrapper contains no task semantics and never fabricates observations.
+    Hosts provide the USD object binding reader and the skill-session collector
+    as separate callbacks; :func:`collect_room06_runtime_hook` continues to
+    enforce all identity, hold, event, and terminal-input invariants.
+    """
+
+    schema = HOOK_SOURCE_SCHEMA
+
+    def __init__(self, *, object_path_bindings: Any, collect_room06: Any) -> None:
+        if not callable(object_path_bindings):
+            raise TypeError("object_path_bindings callback must be callable")
+        if not callable(collect_room06):
+            raise TypeError("collect_room06 callback must be callable")
+        self._object_path_bindings = object_path_bindings
+        self._collect_room06 = collect_room06
+
+    def object_path_bindings(self, **kwargs: Any) -> Any:
+        return self._object_path_bindings(**kwargs)
+
+    def collect_room06(self, **kwargs: Any) -> Any:
+        return self._collect_room06(**kwargs)
+
+
 def _text(value: Any, name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise Room06RuntimeHookError(f"{name} must be non-empty text")
@@ -467,6 +493,7 @@ def collect_room06_runtime_hook(
 __all__ = [
     "HOOK_CAPTURE_SCHEMA",
     "HOOK_SOURCE_SCHEMA",
+    "CallbackRoom06RuntimeHookSource",
     "OBSERVED_SKILL_EVENT_SCHEMA",
     "Room06RuntimeHookCollector",
     "Room06RuntimeHookError",

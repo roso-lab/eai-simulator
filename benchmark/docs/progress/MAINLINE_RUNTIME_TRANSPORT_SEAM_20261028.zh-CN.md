@@ -26,6 +26,7 @@
 6. 支持 `from_json_documents()`，使正式场景 object/robot resolver 可直接注入，不依赖 Isaac/Kit；
 7. 该层只提供调度反馈，不生成 evaluator-owned receipt material，也不打开任何正式资格门。
 8. `TaskRunner` 在终止前把 executor ledger 作为带 schema/digest 的不透明事件快照写入 orchestration ledger，避免 runtime provenance 与调度结果脱节；快照不被解释为科学事实。
+9. `EAI.room06_runtime_hook.CallbackRoom06RuntimeHookSource` 提供显式 observer-source 注册包装器；它只转发 host 的 USD object binding reader 与 skill-session collector，所有事件/持有/终局完整性仍由既有 collector fail-closed 校验。
 
 ## 验证
 
