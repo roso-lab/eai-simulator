@@ -2,7 +2,9 @@
 
 ## 当前基线
 
-- 本地 `HeteroCoord` 与 `origin/HeteroCoord` 均为 `66207f73`，工作树干净。
+- 本文记录的收敛基线为 `66207f73`；随后主线已推进到 `c1ba1e41`，并补齐
+  GPU probe → map-ready terminal payload 的可选显式 handoff。该增量在本轮验收后
+  单独提交，不能与历史 GPU 工作树的诊断产物混同。
 - 本轮已执行 `git fetch origin HeteroCoord`；远端没有待拉取提交。
 - 后续工程开发、受影响测试和推送统一以 `HeteroCoord` 为基线。其他分支保留为历史审计源，不再作为并行主线。
 - `physical_qualified`、`rankable`、`paper_score_eligible` 继续保持 `false`。
@@ -16,6 +18,16 @@ GPU 工作树 `codex/room06-real-gpu-vertical-20261027` 比当前主线落后 47
 3. 语义地图导出物、`.write.lock`、临时日志和未完成脚本；它们缺少完整依赖闭合与受影响回归，整树推送会混入重复地图和旧接口。
 
 因此 GPU 工作树不能直接推送，不是因为 ToDesk，也不是因为某个共驻 GPU 进程。ToDesk 未被终止；本次审计没有启动 GPU 或 telemetry transmitter。GPU 证据应按单次 run manifest 和失败原因继续留在 artifacts，待真实运行完成后再单独登记。
+
+当前主线新增的两文件增量属于源码接线，不是运行证据：
+
+- `tools/validation/room06_livt04_gpu_probe.py`：真实 probe 在调用方同时提供
+  `BranchJob`、`evaluator_result`、`parameters` 时，显式生成
+  `map_ready_terminal_payload`；缺任一字段在模拟器启动前 fail-closed。
+- `tools/validation/test_room06_livt04_gpu_probe.py`：覆盖不完整 handoff 不得启动模拟器。
+
+该增量的受影响集为 31 passed；推送前 benchmark 全量为 1055 passed。它仍不打开任何
+正式资格门，也不把 GPU diagnostic-only 结果升级为论文证据。
 
 ## 已审查的分支处置
 

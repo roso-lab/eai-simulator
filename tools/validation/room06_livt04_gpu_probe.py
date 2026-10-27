@@ -1006,7 +1006,17 @@ def run_full_task(
     *,
     capture_writer: Callable[[Mapping[str, Any]], None] | None = None,
     report_writer: Callable[[Mapping[str, Any]], None] | None = None,
+    terminal_job: Any | None = None,
+    evaluator_result: Mapping[str, Any] | None = None,
+    parameters: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
+    handoff_values = (terminal_job, evaluator_result, parameters)
+    if any(value is not None for value in handoff_values) and not all(
+        value is not None for value in handoff_values
+    ):
+        raise Room06GpuProbeError(
+            "terminal_job, evaluator_result and parameters must be supplied together"
+        )
     from simulator import open_simulator_session
 
     request = prepared["request"]
@@ -1068,6 +1078,20 @@ def run_full_task(
             **evidence,
             "formal_gates": dict(FORMAL_GATES),
         }
+        if terminal_job is not None:
+            from benchmark.room06_gpu_receipt_seam_v1 import build_terminal_payload
+
+            try:
+                report["map_ready_terminal_payload"] = build_terminal_payload(
+                    gpu_report=report,
+                    job=terminal_job,
+                    evaluator_result=evaluator_result,
+                    parameters=parameters,
+                )
+            except (TypeError, ValueError) as exc:
+                raise Room06GpuProbeError(
+                    f"map-ready terminal handoff failed: {exc}"
+                ) from exc
         canonical_json_bytes(report)
         if report_writer is not None:
             report_writer(report)

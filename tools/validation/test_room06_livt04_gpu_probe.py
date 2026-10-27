@@ -62,6 +62,17 @@ def _write_request(tmp_path: Path, value: dict) -> tuple[Path, str]:
     return path, _sha(path)
 
 
+def test_full_task_rejects_partial_map_ready_handoff_before_simulator(monkeypatch):
+    def should_not_import(*_args, **_kwargs):
+        raise AssertionError("simulator must not start for an incomplete handoff")
+
+    monkeypatch.setitem(sys.modules, "simulator", SimpleNamespace(
+        open_simulator_session=should_not_import
+    ))
+    with pytest.raises(probe.Room06GpuProbeError, match="must be supplied together"):
+        probe.run_full_task({}, terminal_job={})
+
+
 def _preflight_refs(tmp_path: Path) -> tuple[Path, dict]:
     artifact = tmp_path / "semantic-map"
     current = artifact / "current"
