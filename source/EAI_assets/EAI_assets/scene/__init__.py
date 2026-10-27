@@ -23,6 +23,7 @@ _EXPORTS = {
         "MODERN_HOUSE_NVD_CFG",
     ),
     "FACTORY_BENCHMARK_CFG": ("EAI_assets.scene.benchmark", "FACTORY_BENCHMARK_CFG"),
+    "ROOM06_CFG": ("EAI_assets.scene.room06", "ROOM06_CFG"),
 }
 
 __all__ = sorted(_EXPORTS)

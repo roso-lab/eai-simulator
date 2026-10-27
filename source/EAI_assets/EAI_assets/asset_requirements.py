@@ -96,6 +96,7 @@ _SCENE_PATHS = {
     # Converted HSSD room lives outside the provider tree by absolute local
     # path; no provider download is declared for it.
     "hssd_room1": (),
+    "room_06": ("scene/room_06/room_06.usda",),
 }
 
 _ROBOT_PATHS = {

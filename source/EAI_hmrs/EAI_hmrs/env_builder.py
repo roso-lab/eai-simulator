@@ -26,6 +26,7 @@ from EAI_assets.robots.deeprobotics import (
 from EAI_assets.robots.go2 import GO2_CFG
 from EAI_assets.scene.factory_runtime import FACTORY_RAYCAST_PROXY_PRIM_PATH
 from EAI_assets.scene.hssd_room1 import HSSD_ROOM1_CFG
+from EAI_assets.scene.room06_runtime import ROOM06_RAYCAST_PROXY_PRIM_PATH
 from EAI_assets.robots.pepper import PEPPER_CFG
 from EAI_assets.robots.pegasus import PEGASUS_IRIS_CFG, PEGASUS_X4_CFG
 from EAI_assets.robots.quadcopter import CRAZYFLIE_CFG
@@ -219,6 +220,16 @@ SCENE_OPTIONS = [
         # 0.35) from the clearance map. Uncompensated origins embed the robot
         # in the west wall and PhysX ejects it out of the apartment.
         robot_spawn_origin=(-6.16, 0.35),
+    ),
+    SceneOption(
+        "room_06",
+        "Room 06 multi-level benchmark",
+        ("EAI_assets.scene.room06", "ROOM06_CFG"),
+        prim_path="/World/Room06",
+        # The first generic slot lands at the scene author's verified Go2
+        # start (2.33, 0.17); case packages may override every spawn pose.
+        robot_spawn_origin=(5.33, 0.17),
+        raycast_collision_prim_path=ROOM06_RAYCAST_PROXY_PRIM_PATH,
     ),
 ]
 

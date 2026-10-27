@@ -44,6 +44,9 @@ SCENE_RESOURCE_PATHS: Mapping[str, Mapping[str, tuple[str, ...]]] = {
     "city": {},
     "restaurant": {},
     "restaurant_benchmark": {},
+    # Multi-level semantic products are consumed by the benchmark preflight,
+    # not by the legacy single-image occupancy-map API.
+    "room_06": {},
     "factory_benchmark": {
         OCCUPANCY_MAP: (
             "scene/factory_benchmark/factory_map.yaml",
