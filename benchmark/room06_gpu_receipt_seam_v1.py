@@ -98,6 +98,10 @@ def build_terminal_payload(
             "terminal_payload formal gates must remain closed"
         )
     evaluator = _mapping(evaluator_result, "evaluator_result")
+    if not evaluator:
+        raise Room06GpuReceiptSeamError(
+            "evaluator_result must contain an explicit evaluator verdict"
+        )
     params = _mapping(parameters, "parameters")
 
     terminal_job = _job_mapping(job)

@@ -110,3 +110,13 @@ def test_does_not_infer_evaluator_result_from_gpu_report() -> None:
         "status": "explicit-verdict",
         "success": False,
     }
+
+
+def test_rejects_empty_evaluator_result() -> None:
+    with pytest.raises(Room06GpuReceiptSeamError, match="explicit evaluator verdict"):
+        build_terminal_payload(
+            gpu_report=_report(),
+            job=_job(),
+            evaluator_result={},
+            parameters={},
+        )
