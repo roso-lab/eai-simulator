@@ -4,7 +4,14 @@ from dataclasses import asdict
 
 import pytest
 
-from benchmark.evaluator.room06_livt04 import build_diagnostic_runtime_fixture
+from benchmark.evaluator.room06_livt04 import (
+    DIAGNOSTIC_OBLIGATION_BINDING,
+    DIAGNOSTIC_RUNTIME_BINDING,
+    EVALUATOR_ID,
+    EVALUATOR_VERSION,
+    build_diagnostic_runtime_fixture,
+)
+from benchmark.map_ready_case_v1 import _normalize_terminals
 from benchmark.room06_gpu_receipt_seam_v1 import (
     FORMAL_GATES,
     Room06GpuReceiptSeamError,
@@ -65,6 +72,45 @@ def test_wraps_explicit_payload_for_map_ready_case() -> None:
         "status": "valid_terminal",
         "success": True,
     }
+
+
+def test_output_is_accepted_by_registered_map_ready_evaluator() -> None:
+    job = _job()
+    result = build_terminal_payload(
+        gpu_report=_report(),
+        job=job,
+        evaluator_result={"status": "valid_terminal", "success": True},
+        parameters={},
+    )
+    episode = result["terminals"][0]["runtime"]["room06_livt04"]["episode"]
+    episode.update({
+        "system_id": job.system_id,
+        "base_instance_id": job.base_instance_id,
+    })
+    case_manifest = {
+        "task_id": "liv-t-04",
+        "anchor_id": "liv-t-04",
+        "scene": {
+            "scene_id": "room_06",
+            "horizon": 15_000,
+            "entity_ids": ["book_batch_01", "heavy_object"],
+            "zone_ids": [],
+        },
+        "evaluator": {
+            "evaluator_id": EVALUATOR_ID,
+            "evaluator_version": EVALUATOR_VERSION,
+        },
+    }
+    normalized = _normalize_terminals(
+        result["terminals"],
+        case_manifest=case_manifest,
+        plan={
+            "oracle_obligation_binding": DIAGNOSTIC_OBLIGATION_BINDING,
+            "room06_runtime_binding": DIAGNOSTIC_RUNTIME_BINDING,
+        },
+    )
+    assert normalized[0]["job"] == job
+    assert normalized[0]["evaluator"].evaluator_id == EVALUATOR_ID
 
 
 @pytest.mark.parametrize(
