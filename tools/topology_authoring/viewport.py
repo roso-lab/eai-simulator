@@ -778,8 +778,7 @@ class _TopologyEditorGesture:
                 point = (self._world_point(self._last_mouse, self._drag_target)
                          if self._last_mouse is not None else None)
                 if point is not None:
-                    self.controller.update_drag(point)
-                    self.controller.end_drag()
+                    self._complete_drag(point)
                 else:
                     self.controller.cancel_gesture()
             self._press = None
@@ -789,6 +788,16 @@ class _TopologyEditorGesture:
             mouse = self._last_mouse or self._press.get("ndc")
             if mouse is not None:
                 self.handle("click", mouse)
+
+    def _complete_drag(self, point):
+        """Apply the last sampled point through the matching editor path once."""
+        if self.controller.gesture is None:
+            return False
+        if self.controller.gesture.get("target", {}).get("kind") == "road":
+            self.controller.update_road_drag(point)
+        else:
+            self.controller.update_drag(point)
+        return self.controller.end_drag()
 
     def _world_point(self, mouse_ndc, target=None):
         ray = viewport_ray(
@@ -992,11 +1001,7 @@ class _TopologyEditorGesture:
                         point = self._world_point(mouse_ndc, hit)
                     point[2] = self.controller._road_end_z
                 if point is not None:
-                    if is_road_tool:
-                        self.controller.update_road_drag(point)
-                    else:
-                        self.controller.update_drag(point)
-                self.controller.end_drag()
+                    self._complete_drag(point)
             # Leave the moved flag set until the next press so a late click
             # callback from this same release cannot author a second command.
             self._press = self._drag_target = None

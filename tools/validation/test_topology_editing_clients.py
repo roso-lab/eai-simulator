@@ -940,6 +940,21 @@ def test_direct_drag_keeps_grab_offset_and_commits_once_on_release():
     assert args[2] == "move_node_xy" and kwargs["position_xy"] == [12., 10.]
 
 
+def test_ground_drag_preserves_custom_visualization_height():
+    dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
+    context = _context(active_layer="ground")
+    context["document_snapshots"]["ground"]["nodes"][0]["position_xyz"] = [0., 2., 4.5]
+    context["document_snapshot"] = context["document_snapshots"]["ground"]
+    controller.update_context(context)
+    pointer = _pointer(controller, {(20., 0.): {
+        "kind": "node", "id": "g1", "position_xyz": [0., 2., 4.5]}})
+    pointer.handle("began", (20., 0.))
+    pointer.handle("changed", (30., 10.))
+    pointer.handle("ended", (30., 10.))
+    assert dispatcher.calls[-1][0][2] == "move_node_xy"
+    assert dispatcher.calls[-1][1]["position_xy"] == [10., 12.]
+
+
 def test_canceled_kit_drag_commits_last_sampled_position_once():
     dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
     controller.update_context(_context())
