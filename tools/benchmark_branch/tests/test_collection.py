@@ -9,6 +9,93 @@ from tools.benchmark_branch import BranchExecutor, BranchPlan, BranchRunStore, D
 from tools.benchmark_branch.validation import summarize_run, validate_run
 
 
+class MeasuredTerminalAdapter(DummyAdapter):
+    """Spawn-safe explicit evaluator fixture for isolated worker tests."""
+
+    supported_execution_scopes = {"measured", "measured_diagnostic"}
+    evaluator_version = "isolated-terminal-fixture.v1"
+
+    def finish_episode(self, runtime, job):
+        return {
+            "status": "valid_terminal",
+            "completed": True,
+            "physical_success": True,
+            "terminal_predicate": True,
+            "safety_predicate": True,
+            "feasibility_predicate": True,
+            # Evidence identity belongs to the writer, not this method row.
+            "evaluator_version": "caller-must-not-own-version",
+            "evidence_refs": [f"dummy://{job.branch_id}/forged"],
+            "score": 1.0,
+        }
+
+    def collect_receipt_material(self, runtime, job):
+        return {
+            "episode": {
+                "status": "valid_terminal",
+                "condition_id": job.condition_id,
+                # The executor does not derive this from branch_type; the
+                # evaluator supplies a value accepted by receipt_producer_v1.
+                "branch": "fact",
+                "repeat_id": job.repeat_id,
+                "checkpoint_id": "diagnostic-checkpoint",
+                "evaluator_version": self.evaluator_version,
+            },
+            "streams": {
+                "zone_intervals": [],
+                "hold_intervals": [],
+                "milestones": [{"label": "terminal", "tick": runtime["step"]}],
+                "task_events": [],
+                "identity_records": {"fixture": "isolated-worker"},
+                "integrity_confirmed": True,
+            },
+            "facts": {
+                "d1": {"fixture": True},
+                "success": True,
+                "obligations": [],
+                "d4_items": [],
+                "d6": {"success": True, "bits": 1, "time": 1.0},
+            },
+        }
+
+
+class TamperedTerminalIdentityAdapter(MeasuredTerminalAdapter):
+    """Returns valid-shaped material bound to the wrong branch identity."""
+
+    def collect_receipt_material(self, runtime, job):
+        material = super().collect_receipt_material(runtime, job)
+        material["episode"]["condition_id"] = "foreign-condition"
+        return material
+
+
+class MissingTerminalHookAdapter(DummyAdapter):
+    """Claims success at method level but has no evaluator material hook."""
+
+    supported_execution_scopes = {"measured_diagnostic"}
+
+    def finish_episode(self, runtime, job):
+        return {
+            "status": "valid_terminal",
+            "completed": True,
+            "physical_success": True,
+            "terminal_predicate": True,
+            "safety_predicate": True,
+            "feasibility_predicate": True,
+            "evaluator_version": "forged-method-version",
+            "evidence_refs": [f"dummy://{job.branch_id}/forged"],
+            "score": 999.0,
+        }
+
+
+class UnserializableMissingTerminalHookAdapter(MissingTerminalHookAdapter):
+    """Adds an opaque value that must never be copied into an episode row."""
+
+    def finish_episode(self, runtime, job):
+        result = super().finish_episode(runtime, job)
+        result["opaque"] = object()
+        return result
+
+
 def _run(tmp_path: Path, *, slots=2, workers=8, adapter=None):
     plan = BranchPlan(scene_key="test", task_id="task", system_id="system", slots=slots)
     store = BranchRunStore.create(tmp_path, plan, requested_max_workers=workers,
@@ -34,6 +121,158 @@ def test_dummy_run_has_ledgers_and_valid_pairing(tmp_path):
     assert len(list((root / "branches").iterdir())) == 8
     summary = summarize_run(root)
     assert summary["validation_status"] == "passed"
+    episodes = [json.loads(line) for line in (root / "episodes.jsonl").read_text().splitlines()]
+    assert all("evidence_refs" not in row for row in episodes)
+    assert all(row["outcome"]["evidence_refs"][0].startswith("dummy://") for row in episodes)
+
+
+def test_isolated_measured_worker_seals_explicit_terminal_material(tmp_path):
+    plan = BranchPlan(
+        scene_key="test", task_id="task", system_id="system", slots=1,
+        arms=("fact",), execution_scope="measured_diagnostic",
+    )
+    store = BranchRunStore.create(
+        tmp_path, plan, requested_max_workers=1,
+        execution_scope="measured_diagnostic", adapter="measured-terminal-fixture",
+    )
+    adapter = MeasuredTerminalAdapter(
+        steps=1, evaluator_version="isolated-terminal-fixture.v1",
+    )
+    result = BranchExecutor(
+        store.plan, adapter, store,
+        max_workers=1, start_method="spawn",
+    ).run()
+
+    # Worker completion describes the method process; scientific evaluability
+    # is carried independently by the terminal episode/evidence envelope.
+    assert result["completed"] == 1
+    assert result["failed"] == 0
+    episode = json.loads((tmp_path / "episodes.jsonl").read_text().strip())
+    assert episode["status"] == "valid_terminal"
+    assert episode["completed"] is True
+    assert episode["physical_success"] is True
+    assert episode["evaluator_version"] == adapter.evaluator_version
+    assert episode["evaluator_verdict"]["evidence_hash"] == episode["evidence_hash"]
+    assert episode["method_diagnostic"] == {
+        "result_type": "dict", "status": "valid_terminal", "completed": True,
+    }
+    assert "score" not in episode["outcome"]
+    assert not episode["evidence_refs"][0].startswith("dummy://")
+    evidence_path = tmp_path / episode["evidence_refs"][0]
+    assert evidence_path.is_file()
+    assert evidence_path.parent == tmp_path / "evidence"
+    artifact = json.loads(evidence_path.read_text())
+    material_episode = artifact["observations"]["receipt_material"]["episode"]
+    assert material_episode["branch"] == "fact"
+    assert material_episode["checkpoint_id"] == "diagnostic-checkpoint"
+    assert material_episode["system_id"] == store.plan.system_id
+    assert material_episode["base_instance_id"] == store.plan.jobs()[0].base_instance_id
+    assert validate_run(tmp_path)["status"] == "passed"
+
+
+def test_isolated_measured_worker_missing_hook_is_not_evaluable(tmp_path):
+    plan = BranchPlan(
+        scene_key="test", task_id="task", system_id="system", slots=1,
+        arms=("fact",), execution_scope="measured_diagnostic",
+    )
+    store = BranchRunStore.create(
+        tmp_path, plan, requested_max_workers=1,
+        execution_scope="measured_diagnostic", adapter="missing-terminal-hook",
+    )
+    result = BranchExecutor(
+        store.plan, MissingTerminalHookAdapter(steps=1), store,
+        max_workers=1, start_method="spawn",
+    ).run()
+
+    assert result["completed"] == 1
+    assert result["failed"] == 0
+    episode = json.loads((tmp_path / "episodes.jsonl").read_text().strip())
+    assert episode["status"] == "not_evaluable"
+    assert episode["completed"] is False
+    assert episode["physical_success"] is None
+    assert "collect_receipt_material" in episode["evaluator_error"]
+    assert "evidence_refs" not in episode
+    assert not (tmp_path / "evidence").exists()
+    report = validate_run(tmp_path)
+    assert report["status"] == "passed"
+    assert report["metrics"]["runtime_failed"] == 1
+
+
+def test_isolated_measured_worker_rejects_tampered_material_identity(tmp_path):
+    plan = BranchPlan(
+        scene_key="test", task_id="task", system_id="system", slots=1,
+        arms=("fact",), execution_scope="measured_diagnostic",
+    )
+    store = BranchRunStore.create(
+        tmp_path, plan, requested_max_workers=1,
+        execution_scope="measured_diagnostic", adapter="tampered-terminal-identity",
+    )
+    adapter = TamperedTerminalIdentityAdapter(
+        steps=1, evaluator_version="isolated-terminal-fixture.v1",
+    )
+    result = BranchExecutor(
+        store.plan, adapter, store, max_workers=1, start_method="spawn",
+    ).run()
+
+    assert result["completed"] == 1
+    episode = json.loads((tmp_path / "episodes.jsonl").read_text().strip())
+    assert episode["status"] == "not_evaluable"
+    assert episode["completed"] is False
+    assert episode["physical_success"] is None
+    assert "condition_id disagrees" in episode["evaluator_error"]
+    assert "evidence_refs" not in episode
+    assert not (tmp_path / "evidence").exists()
+    assert validate_run(tmp_path)["status"] == "passed"
+
+
+def test_isolated_measured_worker_sanitizes_unserializable_failure(tmp_path):
+    plan = BranchPlan(
+        scene_key="test", task_id="task", system_id="system", slots=1,
+        arms=("fact",), execution_scope="measured_diagnostic",
+    )
+    store = BranchRunStore.create(
+        tmp_path, plan, requested_max_workers=1,
+        execution_scope="measured_diagnostic", adapter="opaque-missing-hook",
+    )
+    result = BranchExecutor(
+        store.plan, UnserializableMissingTerminalHookAdapter(steps=1), store,
+        max_workers=1, start_method="spawn",
+    ).run()
+
+    assert result["completed"] == 1
+    assert result["failed"] == 0
+    episode = json.loads((tmp_path / "episodes.jsonl").read_text().strip())
+    assert episode["status"] == "not_evaluable"
+    assert episode["completed"] is False
+    assert episode["physical_success"] is None
+    assert "collect_receipt_material" in episode["evaluator_error"]
+    assert episode["method_diagnostic"] == {
+        "result_type": "dict", "status": "valid_terminal", "completed": True,
+    }
+    assert "opaque" not in episode["outcome"]
+    assert not (tmp_path / "evidence").exists()
+    assert validate_run(tmp_path)["status"] == "passed"
+
+
+def test_formal_measured_still_requires_session_backend_and_scheduler(tmp_path):
+    plan = BranchPlan(slots=1, execution_scope="measured")
+    store = BranchRunStore.create(tmp_path, plan, execution_scope="measured")
+    with pytest.raises(ValueError, match="formal measured execution requires"):
+        BranchExecutor(plan, MeasuredTerminalAdapter(steps=1), store).run()
+
+
+def test_measured_diagnostic_rejects_half_configured_session(tmp_path):
+    plan = BranchPlan(
+        slots=1, arms=("fact",), execution_scope="measured_diagnostic",
+    )
+    store = BranchRunStore.create(
+        tmp_path, plan, execution_scope="measured_diagnostic",
+    )
+    with pytest.raises(ValueError, match="supplied together"):
+        BranchExecutor(
+            plan, MeasuredTerminalAdapter(steps=1), store,
+            session_backend=object(), scheduler=None,
+        ).run()
 
 
 def test_thirty_two_branch_workers_overlap_and_keep_distinct_sessions(tmp_path):
