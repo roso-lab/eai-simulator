@@ -249,3 +249,66 @@ def test_verifier_rejects_rehashed_nested_identity_or_provenance(tmp_path, monke
     tampered["package_digest"] = package.canonical_digest({k: v for k, v in tampered.items() if k != "package_digest"})
     with pytest.raises(package.Room06FixedPackageError, match="duplicate"):
         package.verify_room06_fixed_package(tampered)
+
+
+@pytest.mark.parametrize(
+    ("label", "mutate", "message"),
+    (
+        (
+            "readiness formal gates",
+            lambda value: value["readiness"].__setitem__(
+                "formal_gates", {key: True for key in package.FORMAL_GATES}
+            ),
+            "fixed package formal gates",
+        ),
+        (
+            "plan formal gates",
+            lambda value: value["plan"].__setitem__(
+                "formal_gates", {key: True for key in package.FORMAL_GATES}
+            ),
+            "plan formal gates",
+        ),
+        (
+            "preflight formal gates",
+            lambda value: value["preflight"].__setitem__(
+                "formal_gates", {key: True for key in package.FORMAL_GATES}
+            ),
+            "preflight formal gates",
+        ),
+        (
+            "case receipt readiness",
+            lambda value: value["readiness"].__setitem__("case_receipt_ready", True),
+            "receipt/paper readiness",
+        ),
+        (
+            "paper support readiness",
+            lambda value: value["readiness"].__setitem__("paper_support_ready", True),
+            "receipt/paper readiness",
+        ),
+    ),
+)
+def test_verifier_rejects_rehashed_open_gates_or_readiness(
+    tmp_path, monkeypatch, label, mutate, message
+):
+    """Caller cannot self-authorize any formal/readiness flag by rehashing."""
+
+    usd, roster, binding, setup, deployment, catalog, artifact, scene_digest = _inputs(tmp_path)
+    _patch_upstreams(monkeypatch, scene_digest)
+    result = package.build_room06_fixed_package(
+        semantic_root=tmp_path / "map",
+        scene_usd=usd,
+        robot_roster=roster,
+        preflight_binding=binding,
+        task_setup=setup,
+        deployment_state=deployment,
+        catalog=catalog,
+        contract_artifact=artifact,
+        diagnostic_inputs=True,
+    )
+    tampered = copy.deepcopy(result)
+    mutate(tampered)
+    tampered["package_digest"] = package.canonical_digest(
+        {key: value for key, value in tampered.items() if key != "package_digest"}
+    )
+    with pytest.raises(package.Room06FixedPackageError, match=message):
+        package.verify_room06_fixed_package(tampered)
