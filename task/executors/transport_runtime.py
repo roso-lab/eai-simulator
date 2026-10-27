@@ -60,6 +60,29 @@ class TransportOrchestrationExecutor:
     def from_json_documents(cls, scene_document: Mapping[str, Any], robot_document: Mapping[str, Any], **kwargs: Any) -> "TransportOrchestrationExecutor":
         return cls(TransportAdmissionResolver.from_json_documents(scene_document, robot_document), **kwargs)
 
+    @classmethod
+    def from_runtime_roster_documents(
+        cls,
+        scene_document: Mapping[str, Any],
+        runtime_roster_document: Mapping[str, Any],
+        resume_document: Mapping[str, Any],
+        **kwargs: Any,
+    ) -> "TransportOrchestrationExecutor":
+        """Construct the production executor from a promoted roster and source resumes.
+
+        Instance identity comes from the promoted runtime roster, while
+        capability/payload values come only from the matching source resume.
+        The resolver performs the provenance and duplicate checks before this
+        executor can be bound to a run; no tested-system command can override
+        those records.
+        """
+        resolver = TransportAdmissionResolver.from_runtime_roster_documents(
+            scene_document,
+            runtime_roster_document,
+            resume_document,
+        )
+        return cls(resolver, **kwargs)
+
     def bind_run(self, request: TaskRunRequest) -> None:
         if self._run_bound:
             raise ValueError("create a fresh transport executor for each task run/branch")

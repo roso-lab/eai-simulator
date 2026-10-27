@@ -126,3 +126,36 @@ def test_forged_command_mass_is_ignored_by_json_constructor():
     forged.metadata["transport"]["parameters"] = {"mass_kg": 0.1}
     update = executor.execute(_assignment(), forged, scene={})
     assert update.feedback.failure_code is FailureCode.INFEASIBLE_TEAM
+
+
+def test_runtime_roster_constructor_binds_source_resume_before_ledger():
+    executor = TransportOrchestrationExecutor.from_runtime_roster_documents(
+        {"objects": [{"id": "box", "mass_kg": 3.0}]},
+        {"robots": [{
+            "instance_id": "hc-rt-010",
+            "source_resume_id": "resume-a",
+            "capability_binding": {
+                "source_input": {"source_resume_id": "resume-a"}
+            },
+        }]},
+        {"resumes": [{
+            "resume_id": "resume-a",
+            "manipulation": {"payload_kg": 3.0},
+        }]},
+        execute_command=lambda *_: True,
+    )
+    executor.bind_run(TaskRunRequest(_package()))
+    assignment = Assignment("move", "hc-rt-010", source="transport-fixture")
+    update = executor.execute(assignment, _task(), scene={})
+
+    assert update.dependency_outcome is DependencyOutcome.COMPLETED
+    admission = next(
+        event for event in executor.ledger.events
+        if event["kind"] == "transport_admission"
+    )
+    assert admission["payload"]["robot_payload_kg"] == 3.0
+    command = next(
+        event for event in executor.ledger.events
+        if event["kind"] == "transport_command_bound"
+    )
+    assert command["payload"]["robot_id"] == "hc-rt-010"
