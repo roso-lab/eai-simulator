@@ -1,11 +1,11 @@
 {
   "schema": "heterocoord.canonical_contract_artifact.v1",
   "status": "bound_pending_replay",
-  "paper_sha": "383acc19657a0fd7ebd881a5ac2bb0e03f8c38c8",
+  "paper_sha": "0ffd470fecdf5b4bdad82dbd9c23c439198b43d3",
   "source_catalog": "benchmark/task_catalog.json",
   "source_catalog_sha256": "75fecc97e5d97b6736b9ade13d6a8527e0fb8dc5faee84403fdd31c1feecf1b6",
   "contract_artifact": "artifacts/catalog/contracts/room06-extension-20261026/pilot_contracts-v3.json",
-  "contract_artifact_sha256": "79e7f0dcff70076191cefe540a99be220022d4f3e598ad577d4daf87e302a378",
+  "contract_artifact_sha256": "dc206ee8f218b1243b3bca24a3be5d2721cf9af5f06ce122311c72ad8ce4680d",
   "anchor_count": 31,
   "baseline_anchor_count": 30,
   "extension_anchor_ids": [

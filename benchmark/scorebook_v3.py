@@ -18,7 +18,7 @@ SCOREBOOK_VERSION = "heterocoord.scorebook.v3"
 # The scorebook is bound to the current Overleaf export.  A stale commit here
 # makes every registration artifact look internally consistent while actually
 # describing an older estimand, so this identity is intentionally explicit.
-PAPER_COMMIT = "383acc19657a0fd7ebd881a5ac2bb0e03f8c38c8"
+PAPER_COMMIT = "0ffd470fecdf5b4bdad82dbd9c23c439198b43d3"
 
 
 class ScorebookError(ValueError):

@@ -15,8 +15,9 @@ from benchmark.formal_matrix_v3 import BaselineQualificationV3
 from benchmark.task_catalog import load_default_catalog
 
 
-CURRENT_PAPER = "383acc19657a0fd7ebd881a5ac2bb0e03f8c38c8"
+CURRENT_PAPER = "0ffd470fecdf5b4bdad82dbd9c23c439198b43d3"
 STALE_PAPERS = (
+    "383acc19657a0fd7ebd881a5ac2bb0e03f8c38c8",
     "1f329494e755523692f5f96c8e0889c6cec15a82",
     "75ceff6f55202b6b1a31b2e2e0f6de56023940fd",
     "bb82b7bdb1352f1633bc405f41595a4affc79567",

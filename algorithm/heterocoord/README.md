@@ -1,12 +1,12 @@
 # HeteroCoord provenance registry
 
 `registry.py` records the exact ordered six result columns in paper
-`383acc19657a0fd7ebd881a5ac2bb0e03f8c38c8` plus separately labelled
+`0ffd470fecdf5b4bdad82dbd9c23c439198b43d3` plus separately labelled
 candidates. It is a provenance and implementation-condition inventory, not a
 runtime readiness registry. Every record therefore carries
 `published_runtime_readiness="not_established_by_registry"`.
 
-The six primary entries are FMC-ATA, BT capabilities, Gosrich et al.,
+The six primary entries are FMC-ATA, BT capabilities, SADCHER,
 HARL:HAPPO, TeamWeaver adapted to EAI, and EMOS, in that order. Qrainbow remains
 an additional literature candidate; it is not renamed or silently reused as
 TeamWeaver. Missing source, integration code, model, information rights, runtime
