@@ -121,6 +121,34 @@ def test_native_navigation_binding_without_isaac_selection():
     assert dispatcher.calls[-1][1]["bindings"] == []
 
 
+def test_native_binding_pick_exposes_hidden_navigation_layers(monkeypatch):
+    import tools.topology_authoring.viewport as viewport_module
+
+    controller = SimpleNamespace(
+        navigation_binding_mode=True,
+        context={"visible_layers": {"ground": False, "aerial": False},
+                 "active_level": "ground"},
+        document_snapshots={"ground": {"domain": "ground"},
+                            "aerial": {"domain": "aerial"}},
+        meters_per_unit=1.0,
+    )
+    calls = []
+
+    def pick(snapshot, *_args, **kwargs):
+        calls.append((snapshot["domain"], kwargs["visible_layers"]))
+        return {"kind": "node", "id": snapshot["domain"],
+                "position_xyz": [0.0, 0.0, 0.0]}
+
+    monkeypatch.setattr(viewport_module, "nearest_projected_hit", pick)
+    monkeypatch.setattr(viewport_module, "world_to_viewport_pixel",
+                        lambda _api, point, **_kwargs: [point[0], point[1]])
+    gesture = object.__new__(_TopologyEditorGesture)
+    gesture.controller = controller
+    gesture.viewport_api = _Viewport()
+    gesture._pick((0.0, 0.0))
+    assert calls and all(layers["ground"] and layers["aerial"] for _, layers in calls)
+
+
 def test_navigation_binding_can_finish_map_pick_and_apply_draft_later():
     dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
     controller.update_context(_context(active_layer="semantic_points"))
@@ -814,6 +842,17 @@ def test_unified_overlay_highlights_only_current_navigation_binding_draft():
     assert ground["color"] == pytest.approx([1.0, .76, .25])
     assert next(row for row in aerial_nodes if row["key"] == "n2")["color"] == pytest.approx([1.0, .76, .25])
     assert next(row for row in aerial_nodes if row["key"] == "n1")["color"] == pytest.approx([.025, .035, .045])
+
+
+def test_binding_overlay_exposes_navigation_layers_hidden_by_semantic_editing():
+    context = _context()
+    specs = build_unified_overlay_specs(
+        context["document_snapshots"], context["semantic_points"],
+        active_layer="semantic_points",
+        visible_layers={"ground": False, "aerial": False, "semantic_points": True},
+        binding_mode=True, binding_target_id="s1", binding_target_draft=[])
+    assert any("/Layers/Ground/Nodes/" in row["path"] for row in specs["prims"])
+    assert any("/Layers/Aerial/Nodes/" in row["path"] for row in specs["prims"])
 
 
 class _ValueModel:

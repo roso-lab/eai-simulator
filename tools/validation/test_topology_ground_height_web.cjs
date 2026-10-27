@@ -205,6 +205,13 @@ test("semantic binding controls and copy describe explicit map connection mode",
   assert.match(app, /bound \? "#ffd166"/);
 });
 
+test("semantic binding mode keeps the semantic layer active while exposing both navigation graphs", () => {
+  const app = readFileSync(join(__dirname, "../topology_authoring/web/app.js"), "utf8");
+  assert.match(app, /bindingNodeVisible/);
+  assert.match(app, /state\.bindingPickMode \? bindingNodeVisible/);
+  assert.match(app, /if \(!layerVisible\(domain\) && !state\.bindingPickMode\) continue/);
+});
+
 test("notification slot keeps fixed desktop and narrow-screen space", () => {
   const html = readFileSync(join(__dirname, "../topology_authoring/web/index.html"), "utf8");
   const css = readFileSync(join(__dirname, "../topology_authoring/web/style.css"), "utf8");

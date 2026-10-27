@@ -808,13 +808,18 @@ class _TopologyEditorGesture:
         if getattr(self.controller, "navigation_binding_mode", False):
             pixel, _ = self.viewport_api.map_ndc_to_texture_pixel(mouse_ndc)
             hits = []
+            binding_layers = dict(context.get("visible_layers") or {})
+            # Binding mode is an explicit cross-layer operation. Keep the
+            # semantic layer active while exposing both navigation graphs for
+            # picking, even when switching into semantic editing hid them.
+            binding_layers.update(ground=True, aerial=True)
             for domain in ("ground", "aerial"):
                 hit = nearest_projected_hit(
                     self.controller.document_snapshots.get(domain, {}), self.viewport_api,
                     mouse_ndc, selection=None,
                     active_level=context.get("active_level"), domain=domain,
                     active_layer=domain, semantic_points=(),
-                    visible_layers=context.get("visible_layers"),
+                    visible_layers=binding_layers,
                     visible_types={"nodes": (context.get("visible_types") or {}).get("nodes", True),
                                    "edges": False, "semantic_points": False},
                     editor_tool="add-node", meters_per_unit=self.controller.meters_per_unit)

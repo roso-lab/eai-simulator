@@ -339,3 +339,29 @@ def test_http_rejects_isaac_binding_and_accepts_navigation_binding(api):
     assert "isaac_selection" not in state and "binding_status" not in state
     assert "isaac_selection" not in server.isaac_context()
     assert "binding_status" not in server.isaac_context()
+
+
+def test_navigation_binding_context_stays_on_semantic_layer(api):
+    request, _server = api
+    _, state = request("/api/state")
+    state = switch(request, state, active_layer="ground", tool="add-node")
+    _, state = request("/api/edit", {**identity(state), "operation": "add_node",
+                                      "position_xyz": [0, 0, 0], "level_id": "1F"})
+    state = switch(request, state, active_layer="aerial", tool="add-node")
+    _, state = request("/api/edit", {**identity(state), "operation": "add_node",
+                                      "position_xyz": [0, 0, 2]})
+    state = switch(request, state, active_layer="semantic_points", tool="add-semantic-point")
+    _, state = request("/api/edit", {**identity(state), "operation": "add_semantic_point",
+                                      "id": "s1", "position_xyz": [1, 1, 1]})
+    state = switch(request, state,
+                   binding_target_mode="semantic_navigation",
+                   binding_target_id="s1",
+                   binding_target_draft=[{"domain": "ground", "node_id": "node:0001"},
+                                         {"domain": "aerial", "node_id": "node:0001"}])
+    assert state["active_layer"] == "semantic_points"
+    assert state["active_domain"] == "aerial"
+    assert state["binding_target_mode"] == "semantic_navigation"
+    assert state["binding_target_id"] == "s1"
+    assert state["binding_target_draft"] == [
+        {"domain": "aerial", "node_id": "node:0001"},
+        {"domain": "ground", "node_id": "node:0001"}]

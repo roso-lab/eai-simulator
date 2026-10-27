@@ -330,6 +330,12 @@ def build_unified_overlay_specs(document_snapshots, semantic_points, *,
                       **(visible_layers or {})}
     visible_types = {"nodes": True, "edges": True, "semantic_points": True,
                      **(visible_types or {})}
+    if binding_mode:
+        # Binding is a deliberate cross-layer inspection mode. Keep the
+        # semantic layer active but expose both navigation graphs for the
+        # highlighted/dimmed node overlay and native viewport picking.
+        visible_layers["ground"] = True
+        visible_layers["aerial"] = True
     prims = []
     for layer in ("ground", "aerial"):
         if not visible_layers[layer]:
