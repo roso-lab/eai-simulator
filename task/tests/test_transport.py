@@ -117,6 +117,22 @@ def test_runtime_roster_missing_source_resume_fails_closed():
         )
 
 
+def test_runtime_roster_source_identity_mismatch_fails_closed():
+    with pytest.raises(ValueError, match="disagrees with capability binding"):
+        TransportAdmissionResolver.from_runtime_roster_documents(
+            {"objects": [{"id": "box-a", "mass_kg": 2.5}]},
+            {"robots": [{
+                "instance_id": "hc-rt-006",
+                "source_resume_id": "resume-a",
+                "capability_binding": {"source_input": {"source_resume_id": "resume-b"}},
+            }]},
+            {"resumes": [
+                {"resume_id": "resume-a", "manipulation": {"payload_kg": 3.0}},
+                {"resume_id": "resume-b", "manipulation": {"payload_kg": 8.0}},
+            ]},
+        )
+
+
 def test_pick_place_executor_short_circuits_before_backend_on_failed_admission():
     class Adapter:
         robot_id = "robot-a"

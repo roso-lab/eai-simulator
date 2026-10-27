@@ -287,6 +287,15 @@ class TransportAdmissionResolver:
             source = by_resume.get(source_resume_id)
             if source is None:
                 raise ValueError(f"source resume is unavailable: {source_resume_id}")
+            capability_binding = roster_row.get("capability_binding")
+            if isinstance(capability_binding, Mapping):
+                source_input = capability_binding.get("source_input")
+                if isinstance(source_input, Mapping):
+                    declared_source = source_input.get("source_resume_id")
+                    if declared_source != source_resume_id:
+                        raise ValueError(
+                            f"runtime roster source_resume_id disagrees with capability binding: {instance_id}"
+                        )
             manipulation = source.get("manipulation")
             if not isinstance(manipulation, Mapping):
                 raise ValueError(f"source resume lacks manipulation record: {source_resume_id}")
@@ -295,7 +304,7 @@ class TransportAdmissionResolver:
                 "instance_id": instance_id,
                 "source_resume_id": source_resume_id,
                 "manipulation": dict(manipulation),
-                "capability_binding": roster_row.get("capability_binding"),
+                "capability_binding": capability_binding,
                 "asset_binding": roster_row.get("asset_binding"),
                 "initial_state_binding": roster_row.get("initial_state_binding"),
             })
