@@ -32,7 +32,7 @@
   const state = {
     server: null, projects: [], currentProjectId: null, activeLayer: "ground", activeDomain: "ground",
     currentLevel: null, referenceLevel: null, filter: "all", selection: null, pendingEdit: null,
-    inspectorDraft: null, disconnected: false, preview: null, drag: null, edgeStartId: null,
+    inspectorDraft: null, disconnected: false, preview: null, drag: null, box: null, selectionItems: [], edgeStartId: null,
     edgeEndId: null, edgeIdentity: null, zoom: 1, panX: 0, panY: 0, layerImage: null,
     layerImageKey: null, layerToken: 0, pollTimer: null, polling: false, writing: false, selectionSent: "null",
     suppressSelectionPush: false, navigationBindingDraft: null, bindingPickMode: false,
@@ -120,7 +120,10 @@
         : isRoadDeleteTool(mode) ? type === "edge"
         : type === "node";
   const contextKey = (value) => value ? `${value.scene_key}:${value.scene_generation}:${value.context_generation}:${value.active_layer}:${value.active_domain}:${value.active_level}` : "";
-  function cancelGesture() { state.preview = null; state.drag = null; state.roadDraft = null; state.roadPlan = null; state.edgeStartId = null; state.edgeEndId = null; state.edgeIdentity = null; hidden(els.roadBuildMenu, true); updateToolUI(); draw(); }
+  function cancelGesture() { state.preview = null; state.drag = null; state.box = null; state.roadDraft = null; state.roadPlan = null; state.edgeStartId = null; state.edgeEndId = null; state.edgeIdentity = null; hidden(els.roadBuildMenu, true); updateToolUI(); draw(); }
+  function selectionItems() { return state.selectionItems.length ? state.selectionItems : (state.selection ? [{ type: state.selection.type, id: state.selection.id, ...(state.selection.domain ? { domain: state.selection.domain } : {}) }] : []); }
+  function setSelectionItems(items) { state.selectionItems = items; state.selection = items[0] || null; renderRecords(); renderInspector(); draw(); }
+  function isTextTarget(target) { return target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT" || target.isContentEditable); }
   function renderPending() {
     const pending = state.pendingEdit;
     els.pendingDraftText.textContent = pending && pending.uncertain ? "提交结果未知，请核对当前数据。草稿已保留。" : "有待处理的编辑草稿。确认当前图层后可重新提交。";
@@ -250,6 +253,11 @@
     }));
   }
   function renderInspector() {
+    if (state.selectionItems.length > 1) {
+      hidden(els.emptyInspector, false); hidden(els.inspectorForm, true); hidden(els.clearSelectionBtn, false);
+      els.selectionType.textContent = "多选"; els.selectionTitle.textContent = `已选择 ${state.selectionItems.length} 个对象`;
+      return;
+    }
     const record = recordFor(); hidden(els.emptyInspector, Boolean(record)); hidden(els.inspectorForm, !record); hidden(els.clearSelectionBtn, !record); if (!record) { els.selectionType.textContent = "未选择"; els.selectionTitle.textContent = "属性检查器"; return; }
     const type = state.selection.type, point = type === "semantic_point" ? previewPoint(record) : type === "node" ? (state.preview && state.preview.kind === "node" && state.preview.id === record.id ? state.preview.position : record.position_xyz) : null;
     els.fieldId.value = record.id; els.fieldLabel.value = record.label || ""; els.fieldKind.value = record.kind || ""; els.fieldLevel.value = record.level_id || ""; setGroup(els.labelGroup, type !== "edge"); setGroup(els.kindGroup, type !== "edge"); setGroup(els.levelGroup, type === "node" && state.activeDomain === "ground"); setGroup(els.coordinateGroup, type !== "edge"); setGroup(els.editModeGroup, type === "node" && state.activeDomain === "aerial" || type === "semantic_point"); setGroup(els.descriptionGroup, type === "semantic_point"); setGroup(els.aliasesGroup, type === "semantic_point"); setGroup(els.propertiesGroup, type === "semantic_point"); setGroup(els.edgeGroup, type === "edge"); setGroup(els.bindingGroup, type === "semantic_point");
@@ -280,14 +288,14 @@
     }
     if (changed && !samePoint) state.navigationBindingDraft = null;
     if (changed) state.inspectorDraft = null;
-    state.selection = value; renderRecords(); renderInspector(); draw();
+    state.selection = value; state.selectionItems = value ? [{ type: value.type, id: value.id, ...(value.domain ? { domain: value.domain } : {}) }] : []; renderRecords(); renderInspector(); draw();
     if (push) pushSelection();
   }
   function clearSelection(push = true) {
     state.bindingPickMode = false; state.navigationBindingDraft = null;
     if (els.pickNavigationBtn) els.pickNavigationBtn.textContent = "连接导航点";
     setContext({ binding_target_mode: null, binding_target_id: null, binding_target_draft: null }).catch(showError);
-    select(null, { push });
+    state.selectionItems = []; select(null, { push });
   }
   function currentExtent() { const level = levels().find((row) => row.id === (state.referenceLevel || state.currentLevel)); return level && level.extent_xy || [-10, 10, -10, 10]; }
   function canvasMetrics() { const rect = els.mapCanvas.getBoundingClientRect(), dpr = globalThis.devicePixelRatio || 1, width = Math.max(1, Math.round(rect.width * dpr)), height = Math.max(1, Math.round(rect.height * dpr)); if (els.mapCanvas.width !== width || els.mapCanvas.height !== height) { els.mapCanvas.width = width; els.mapCanvas.height = height; } return { rect, dpr, width, height }; }
@@ -332,6 +340,26 @@
     for (const edge of edges(state.activeDomain).slice().reverse()) { if (!visibleEdge(edge)) continue; const a = nodeById(edge.from, state.activeDomain), b = nodeById(edge.to, state.activeDomain); const line = edge.polyline_xyz && edge.polyline_xyz.length > 1 ? edge.polyline_xyz : [a && a.position_xyz, b && b.position_xyz].filter(Boolean); for (let index = 0; index + 1 < line.length; index++) if (distanceSegment(world, line[index], line[index + 1]).distance <= tolerance) return { type: "edge", id: edge.id, record: edge }; }
     return null;
   }
+  function boxSelection(start, end) {
+    const t = transform(), sx = (value) => (value - t.rect.left) * t.dpr, sy = (value) => (value - t.rect.top) * t.dpr;
+    const left = Math.min(sx(start[0]), sx(end[0])), right = Math.max(sx(start[0]), sx(end[0]));
+    const top = Math.min(sy(start[1]), sy(end[1])), bottom = Math.max(sy(start[1]), sy(end[1]));
+    const inside = (point) => { const p = worldToScreen(point, t); return p[0] >= left && p[0] <= right && p[1] >= top && p[1] <= bottom; };
+    const result = [];
+    if (state.activeLayer === "semantic_points") {
+      for (const point of semanticPoints()) if (inside(previewPoint(point))) result.push({ type: "semantic_point", id: point.id });
+      return result;
+    }
+    const domain = state.activeDomain;
+    for (const node of nodes(domain)) if (visibleNode(node, domain) && inside(previewNode(node, domain))) result.push({ type: "node", id: node.id, domain });
+    for (const edge of edges(domain)) {
+      if (!visibleEdge(edge, domain)) continue;
+      const a = nodeById(edge.from, domain), b = nodeById(edge.to, domain);
+      const line = edge.polyline_xyz && edge.polyline_xyz.length > 1 ? edge.polyline_xyz : [a && a.position_xyz, b && b.position_xyz].filter(Boolean);
+      if (line.length > 1 && line.every(inside)) result.push({ type: "edge", id: edge.id, domain });
+    }
+    return result;
+  }
   function drawPath(context, points, t) { if (!points.length) return; context.beginPath(); points.forEach((point, index) => { const screen = worldToScreen(point, t); if (index) context.lineTo(...screen); else context.moveTo(...screen); }); }
   function draw() {
     if (!state.server) return; const t = transform(), context = els.mapCanvas.getContext("2d"); context.clearRect(0, 0, t.width, t.height); context.fillStyle = "#080d13"; context.fillRect(0, 0, t.width, t.height);
@@ -339,10 +367,12 @@
     const bindingKeys = new Set(state.bindingPickMode && state.selection && state.selection.type === "semantic_point"
       && state.navigationBindingDraft && state.navigationBindingDraft.id === state.selection.id
       ? state.navigationBindingDraft.bindings.map((row) => `${row.domain}:${row.node_id}`) : []);
-    for (const domain of ["ground", "aerial"]) { if (!layerVisible(domain) && !state.bindingPickMode) continue; for (const edge of edges(domain)) { if (!visibleEdge(edge, domain) && !state.bindingPickMode) continue; const a = nodeById(edge.from, domain), b = nodeById(edge.to, domain); if (!a || !b) continue; let line = edge.polyline_xyz && edge.polyline_xyz.length > 1 ? clone(edge.polyline_xyz) : [a.position_xyz, b.position_xyz]; if (state.preview && state.preview.kind === "edge" && state.preview.id === edge.id && domain === state.activeDomain) line = line.map((point) => [point[0] + state.preview.delta[0], point[1] + state.preview.delta[1], point[2]]); else { line[0] = previewNode(a, domain); line[line.length - 1] = previewNode(b, domain); } drawPath(context, line, t); const selected = state.selection && state.selection.type === "edge" && state.selection.id === edge.id && state.selection.domain === domain; context.strokeStyle = selected ? "#e8fff8" : domain === "aerial" ? "#6ab5ff" : "#2dd4a7"; context.lineWidth = (selected ? 4 : 2.5) * t.dpr; context.stroke(); }
-      for (const node of nodes(domain)) { if (!(state.bindingPickMode ? bindingNodeVisible(node, domain) : visibleNode(node, domain))) continue; const point = worldToScreen(previewNode(node, domain), t), selected = state.selection && state.selection.type === "node" && state.selection.id === node.id && state.selection.domain === domain, bound = bindingKeys.has(`${domain}:${node.id}`); context.globalAlpha = state.bindingPickMode && !bound ? .28 : 1; context.beginPath(); context.arc(point[0], point[1], (bound || selected ? 7 : 5) * t.dpr, 0, Math.PI * 2); context.fillStyle = bound ? "#ffd166" : selected ? "#fff" : domain === "aerial" ? "#6ab5ff" : "#43dfb8"; context.fill(); context.strokeStyle = bound ? "#fff4cc" : "#07150f"; context.lineWidth = (bound ? 2.5 : 2) * t.dpr; context.stroke(); context.globalAlpha = 1; }
+    const selectedKeys = new Set(selectionItems().map((item) => `${item.type}:${item.id}:${item.domain || ""}`));
+    for (const domain of ["ground", "aerial"]) { if (!layerVisible(domain) && !state.bindingPickMode) continue; for (const edge of edges(domain)) { if (!visibleEdge(edge, domain) && !state.bindingPickMode) continue; const a = nodeById(edge.from, domain), b = nodeById(edge.to, domain); if (!a || !b) continue; let line = edge.polyline_xyz && edge.polyline_xyz.length > 1 ? clone(edge.polyline_xyz) : [a.position_xyz, b.position_xyz]; if (state.preview && state.preview.kind === "edge" && state.preview.id === edge.id && domain === state.activeDomain) line = line.map((point) => [point[0] + state.preview.delta[0], point[1] + state.preview.delta[1], point[2]]); else { line[0] = previewNode(a, domain); line[line.length - 1] = previewNode(b, domain); } drawPath(context, line, t); const selected = selectedKeys.has(`edge:${edge.id}:${domain}`); context.strokeStyle = selected ? "#e8fff8" : domain === "aerial" ? "#6ab5ff" : "#2dd4a7"; context.lineWidth = (selected ? 4 : 2.5) * t.dpr; context.stroke(); }
+      for (const node of nodes(domain)) { if (!(state.bindingPickMode ? bindingNodeVisible(node, domain) : visibleNode(node, domain))) continue; const point = worldToScreen(previewNode(node, domain), t), selected = selectedKeys.has(`node:${node.id}:${domain}`), bound = bindingKeys.has(`${domain}:${node.id}`); context.globalAlpha = state.bindingPickMode && !bound ? .28 : 1; context.beginPath(); context.arc(point[0], point[1], (bound || selected ? 7 : 5) * t.dpr, 0, Math.PI * 2); context.fillStyle = bound ? "#ffd166" : selected ? "#fff" : domain === "aerial" ? "#6ab5ff" : "#43dfb8"; context.fill(); context.strokeStyle = bound ? "#fff4cc" : "#07150f"; context.lineWidth = (bound ? 2.5 : 2) * t.dpr; context.stroke(); context.globalAlpha = 1; }
     }
-    if (layerVisible("semantic_points") && typeVisible("semantic_points")) for (const point of semanticPoints()) { const screen = worldToScreen(previewPoint(point), t), selected = state.selection && state.selection.type === "semantic_point" && state.selection.id === point.id; context.beginPath(); context.arc(screen[0], screen[1], (selected ? 8 : 6) * t.dpr, 0, Math.PI * 2); context.fillStyle = selected ? "#fff" : "#f0965a"; context.fill(); context.strokeStyle = "#3b1b0b"; context.lineWidth = 2 * t.dpr; context.stroke(); }
+    if (layerVisible("semantic_points") && typeVisible("semantic_points")) for (const point of semanticPoints()) { const screen = worldToScreen(previewPoint(point), t), selected = selectedKeys.has(`semantic_point:${point.id}:`); context.beginPath(); context.arc(screen[0], screen[1], (selected ? 8 : 6) * t.dpr, 0, Math.PI * 2); context.fillStyle = selected ? "#fff" : "#f0965a"; context.fill(); context.strokeStyle = "#3b1b0b"; context.lineWidth = 2 * t.dpr; context.stroke(); }
+    if (state.box) { const x = Math.min(state.box.start[0], state.box.end[0]), y = Math.min(state.box.start[1], state.box.end[1]), w = Math.abs(state.box.end[0] - state.box.start[0]), h = Math.abs(state.box.end[1] - state.box.start[1]); context.fillStyle = "rgba(80,180,255,.15)"; context.fillRect(x - t.rect.left, y - t.rect.top, w, h); context.strokeStyle = "#9bdcff"; context.setLineDash([6, 4]); context.strokeRect(x - t.rect.left, y - t.rect.top, w, h); context.setLineDash([]); }
     if (state.edgeStartId && state.edgeEndId) { const a = nodeById(state.edgeStartId), b = nodeById(state.edgeEndId); if (a && b) { drawPath(context, [previewNode(a), previewNode(b)], t); context.strokeStyle = "#ffe5a0"; context.lineWidth = 3 * t.dpr; context.setLineDash([7 * t.dpr, 4 * t.dpr]); context.stroke(); context.setLineDash([]); } }
     if (state.roadPlan) { const points = [state.roadPlan.start, ...(state.roadPlan.crossings || []), state.roadPlan.end]; drawPath(context, points, t); context.strokeStyle = "#ffe29a"; context.lineWidth = 3 * t.dpr; context.setLineDash([8*t.dpr, 5*t.dpr]); context.stroke(); context.setLineDash([]); for (const point of state.roadPlan.crossings || []) { const p = worldToScreen(point, t); context.beginPath(); context.arc(p[0], p[1], 5*t.dpr, 0, Math.PI*2); context.fillStyle = "#fff0b5"; context.fill(); } }
   }
@@ -426,7 +456,7 @@
     else fresh = await edit("update_semantic_point", { id: record.id, position_xyz: [finite(els.fieldX.value, "X"), finite(els.fieldY.value, "Y"), finite(els.fieldZ.value, "Z")], edit_mode: els.fieldEditMode.value, label: els.fieldLabel.value.trim(), kind: els.fieldKind.value.trim() || "custom", description: els.fieldDescription.value, aliases: [...new Set(els.fieldAliases.value.split(",").map((value) => value.trim()).filter(Boolean))], properties: parseProperties() }, "语义点属性已更新", expected);
     if (fresh) { state.inspectorDraft = null; renderInspector(); }
   }
-  async function deleteSelection() { const value = state.selection; if (!value || !toolAllows(value.type) || value.type === "node" && state.server.editor_tool === "add-edge") return; const operation = value.type === "node" ? "remove_node" : value.type === "edge" ? "remove_edge" : "remove_semantic_point"; const fresh = await edit(operation, { id: value.id }, "已删除；可撤销恢复"); if (fresh) clearSelection(); }
+  async function deleteSelection() { const items = selectionItems(); if (!items.length || state.server.editor_tool === "add-edge") return; const fresh = await edit("remove_selection", { items: items.map((item) => ({ kind: item.type, id: item.id })) }, "已删除；可撤销恢复"); if (fresh) { state.selectionItems = []; clearSelection(); } }
   async function applyNavigationBindings() {
     const value = state.selection, draft = state.navigationBindingDraft;
     if (!value || value.type !== "semantic_point" || !draft || draft.id !== value.id) return;
@@ -530,8 +560,11 @@
       els.mapCanvas.setPointerCapture(event.pointerId);
       return;
     }
-    if (mode === "add-node") createNode(world).catch(showError);
-    else if (mode === "add-semantic-point") createSemanticPoint(world).catch(showError);
+    if (mode === "add-node" || mode === "add-semantic-point") {
+      state.box = { start: [event.clientX, event.clientY], end: [event.clientX, event.clientY] };
+      state.drag = { kind: "box", screenStart: [event.clientX, event.clientY], moved: false, world };
+      els.mapCanvas.setPointerCapture(event.pointerId);
+    }
     else if (mode === "add-edge") showError("边工具需要点击已有节点");
   }
   function onPointerMove(event) {
@@ -552,6 +585,11 @@
       if (!state.roadDraft.moved) return;
       state.roadDraft.screenEnd = [event.clientX, event.clientY];
       refreshRoadPlan(world).catch(showError); return;
+    }
+    if (state.drag.kind === "box") {
+      state.box.end = [event.clientX, event.clientY];
+      draw();
+      return;
     }
     const delta = [
       world[0] - state.drag.worldStart[0],
@@ -578,6 +616,17 @@
     const drag = state.drag;
     const preview = state.preview;
     state.drag = null;
+    if (drag && drag.kind === "box") {
+      if (!drag.moved) {
+        state.box = null;
+        if (state.activeLayer === "semantic_points") createSemanticPoint(drag.world).catch(showError);
+        else createNode(drag.world).catch(showError);
+      } else {
+        const items = boxSelection(drag.screenStart, [event.clientX, event.clientY]);
+        setSelectionItems(items);
+      }
+      state.box = null; draw(); return;
+    }
     if (drag && drag.kind === "road") {
       if (drag.moved && event) await refreshRoadPlan(screenToWorld(event.clientX, event.clientY));
       if (!drag.moved || !state.roadPlan || !state.roadDraft) { cancelGesture(); return; }
@@ -651,7 +700,7 @@
     els.roadBuildMenu.addEventListener("click", (event) => { const button = event.target.closest("[data-road-choice]"); if (button) chooseRoadBuild(button.dataset.roadChoice).catch(showError); });
     els.recordSearch.addEventListener("input", renderRecords); els.recordTabs.addEventListener("click", (event) => { const button = event.target.closest("[data-filter]"); if (!button) return; state.filter = button.dataset.filter; [...els.recordTabs.querySelectorAll("[data-filter]")].forEach((item) => item.classList.toggle("active", item === button)); renderRecords(); }); els.recordList.addEventListener("click", (event) => { const button = event.target.closest("[data-id]"); if (button && toolAllows(button.dataset.type)) select({ type: button.dataset.type, id: button.dataset.id, ...(button.dataset.type !== "semantic_point" ? { domain: state.activeDomain } : {}) }); });
     const safePointSettings = () => { try { syncPointSettings(); } catch (error) { showError(error); } }; els.newPointZ.addEventListener("change", safePointSettings); els.newPointMode.addEventListener("change", safePointSettings); els.inspectorForm.addEventListener("submit", (event) => applyInspector(event).catch(showError)); els.inspectorForm.addEventListener("input", captureInspector); els.inspectorForm.addEventListener("change", captureInspector); els.deleteBtn.addEventListener("click", deleteSelection); els.navigationBindingSearch.addEventListener("input", () => { const record = recordFor(); if (record && state.selection.type === "semantic_point") renderNavigationBindings(record); }); els.applyNavigationBtn.addEventListener("click", () => applyNavigationBindings().catch(showError)); els.clearNavigationBtn.addEventListener("click", clearNavigationBindings); els.pickNavigationBtn.addEventListener("click", toggleNavigationPick); els.clearSelectionBtn.addEventListener("click", () => clearSelection()); els.cancelDraftBtn.addEventListener("click", cancelGesture); els.confirmEdgeBtn.addEventListener("click", confirmEdge); els.retryDraftBtn.addEventListener("click", retryPending); els.discardDraftBtn.addEventListener("click", () => { state.pendingEdit = null; state.inspectorDraft = null; cancelGesture(); renderPending(); renderInspector(); }); els.projectPicker.addEventListener("change", () => openProject(els.projectPicker.value)); els.categoryPicker.addEventListener("change", () => { renderProjectOptions(); if (els.projectPicker.value !== state.currentProjectId) openProject(els.projectPicker.value); }); els.undoBtn.addEventListener("click", () => write("/api/undo", {}, "已撤销")); els.redoBtn.addEventListener("click", () => write("/api/redo", {}, "已重做")); els.saveBtn.addEventListener("click", () => write("/api/save", {}, "已保存并导出")); els.fitBtn.addEventListener("click", () => { state.zoom = 1; state.panX = 0; state.panY = 0; draw(); }); els.zoomInBtn.addEventListener("click", () => { state.zoom = Math.min(10, state.zoom * 1.25); draw(); }); els.zoomOutBtn.addEventListener("click", () => { state.zoom = Math.max(.2, state.zoom * .8); draw(); }); els.mapCanvas.addEventListener("pointerdown", onPointerDown); els.mapCanvas.addEventListener("pointermove", onPointerMove); els.mapCanvas.addEventListener("pointerup", onPointerUp); els.mapCanvas.addEventListener("pointercancel", () => { state.drag = null; state.preview = null; draw(); }); els.mapCanvas.addEventListener("contextmenu", (event) => event.preventDefault()); els.mapCanvas.addEventListener("wheel", (event) => { event.preventDefault(); state.zoom = Math.max(.2, Math.min(10, state.zoom * (event.deltaY < 0 ? 1.12 : .89))); draw(); }, { passive: false }); new ResizeObserver(draw).observe(els.mapStage);
-    globalThis.addEventListener("keydown", (event) => { const modifier = event.ctrlKey || event.metaKey; if (event.key === "PageUp" || event.key === "PageDown") { const delta = event.key === "PageUp" ? state.roadHeightStep : -state.roadHeightStep; const adjusted = state.drag && state.drag.kind === "road" ? adjustRoadEndHeight(delta) : adjustAerialRoadStartHeight(delta); if (adjusted) event.preventDefault(); } else if (event.key.toLowerCase() === "c" && !event.repeat) { state.cHeld = true; if (state.roadDraft && state.roadDraft.screenEnd) refreshRoadPlan(screenToWorld(...state.roadDraft.screenEnd)); } else if (modifier && event.key.toLowerCase() === "s") { event.preventDefault(); els.saveBtn.click(); } else if (modifier && event.key.toLowerCase() === "z") { event.preventDefault(); (event.shiftKey ? els.redoBtn : els.undoBtn).click(); } else if (modifier && event.key.toLowerCase() === "y") { event.preventDefault(); els.redoBtn.click(); } else if (event.key === "Escape") { event.preventDefault(); cancelGesture(); state.bindingPickMode = false; if (els.pickNavigationBtn) els.pickNavigationBtn.textContent = "地图拾取"; setContext({ binding_target_mode: null, binding_target_id: null, binding_target_draft: null }).catch(showError); } else if (event.key === "Enter" && state.edgeEndId) { event.preventDefault(); confirmEdge(); } });
+    globalThis.addEventListener("keydown", (event) => { const modifier = event.ctrlKey || event.metaKey; if ((event.key === "Delete" || event.key === "Backspace") && !isTextTarget(event.target)) { event.preventDefault(); deleteSelection().catch(showError); } else if (event.key === "PageUp" || event.key === "PageDown") { const delta = event.key === "PageUp" ? state.roadHeightStep : -state.roadHeightStep; const adjusted = state.drag && state.drag.kind === "road" ? adjustRoadEndHeight(delta) : adjustAerialRoadStartHeight(delta); if (adjusted) event.preventDefault(); } else if (event.key.toLowerCase() === "c" && !event.repeat) { state.cHeld = true; if (state.roadDraft && state.roadDraft.screenEnd) refreshRoadPlan(screenToWorld(...state.roadDraft.screenEnd)); } else if (modifier && event.key.toLowerCase() === "s") { event.preventDefault(); els.saveBtn.click(); } else if (modifier && event.key.toLowerCase() === "z") { event.preventDefault(); (event.shiftKey ? els.redoBtn : els.undoBtn).click(); } else if (modifier && event.key.toLowerCase() === "y") { event.preventDefault(); els.redoBtn.click(); } else if (event.key === "Escape") { event.preventDefault(); cancelGesture(); state.bindingPickMode = false; if (els.pickNavigationBtn) els.pickNavigationBtn.textContent = "地图拾取"; setContext({ binding_target_mode: null, binding_target_id: null, binding_target_draft: null }).catch(showError); } else if (event.key === "Enter" && state.edgeEndId) { event.preventDefault(); confirmEdge(); } });
     globalThis.addEventListener("keyup", (event) => { if (event.key.toLowerCase() === "c") { state.cHeld = false; if (state.roadDraft && state.roadDraft.screenEnd) refreshRoadPlan(screenToWorld(...state.roadDraft.screenEnd)); } });
     globalThis.addEventListener("blur", () => { state.cHeld = false; cancelGesture(); });
   }

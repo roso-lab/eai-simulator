@@ -541,21 +541,24 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                                                "set_semantic_point_navigation_bindings"}
                         allowed = semantic_operations | {"add_node", "update_node", "move_node_xy", "move_node",
                                                          "remove_node", "add_edge", "update_edge", "remove_edge",
-                                                         "translate_edge_xy", "build_ground_road", "build_aerial_road"}
+                                                         "translate_edge_xy", "build_ground_road", "build_aerial_road",
+                                                         "remove_selection"}
                         if operation not in allowed:
                             raise ValueError("operation is unavailable in the unified editor")
                         operations_by_tool = {
-                            "add-node": {"add_node", "update_node", "move_node_xy", "move_node", "remove_node"},
+                            "add-node": {"add_node", "update_node", "move_node_xy", "move_node", "remove_node", "remove_selection"},
                             "add-edge": {"add_edge", "update_edge", "remove_edge", "translate_edge_xy"},
-                            "add-semantic-point": semantic_operations,
+                            "add-semantic-point": semantic_operations | {"remove_selection"},
                             "build-ground-road": {"build_ground_road"},
-                            "delete-ground-edge": {"remove_edge"},
+                            "delete-ground-edge": {"remove_edge", "remove_selection"},
                             "build-aerial-road": {"build_aerial_road"},
-                            "delete-aerial-edge": {"remove_edge"},
+                            "delete-aerial-edge": {"remove_edge", "remove_selection"},
                         }
                         if operation not in operations_by_tool[editor["editor_tool"]]:
                             raise ValueError("operation is outside the active editor tool")
                         semantic_operation = operation in semantic_operations
+                        if operation == "remove_selection":
+                            semantic_operation = editor["active_layer"] == "semantic_points"
                         if semantic_operation != (editor["active_layer"] == "semantic_points"):
                             raise ValueError("operation is outside the active editor layer")
                         required_layer = ("ground" if editor["editor_tool"] in {"build-ground-road", "delete-ground-edge"}

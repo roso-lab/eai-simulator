@@ -821,6 +821,7 @@ class IsaacTopologyController:
         self.document_snapshots: dict[str, dict[str, Any]] = {}
         self.semantic_points: list[dict[str, Any]] = []
         self.selection: dict[str, Any] | None = None
+        self.selection_items: list[dict[str, Any]] = []
         self.edge_start: str | None = None
         self.edge_end: str | None = None
         self.edge_identity: dict[str, Any] | None = None
@@ -1462,16 +1463,32 @@ class IsaacTopologyController:
                             if self.active_layer == "ground" else "walk"))
 
     def delete_selected(self) -> bool:
-        if not self.selection:
+        items = list(self.selection_items)
+        if not items and self.selection:
+            items = [{"kind": self.selection.get("kind"), "id": self.selection.get("id")}]
+        if not items:
             return False
-        kind, identifier = self.selection.get("kind"), self.selection.get("id")
-        if kind == "node" and (self.context or {}).get("editor_tool") == "add-edge":
+        if (self.context or {}).get("editor_tool") == "add-edge":
             return False
-        operations = {"node": "remove_node", "edge": "remove_edge",
-                      "semantic_point": "remove_semantic_point"}
-        operation = operations.get(kind)
-        return bool(operation and self._submit_frozen_edit(
-            ("delete", kind, identifier), operation, id=identifier))
+        if len(items) == 1:
+            kind, identifier = items[0]["kind"], items[0]["id"]
+            operation = {"node": "remove_node", "edge": "remove_edge",
+                         "semantic_point": "remove_semantic_point"}.get(kind)
+            if operation:
+                return self._submit_frozen_edit(("delete", kind, identifier), operation, id=identifier)
+        return self._submit_frozen_edit(("delete-selection", tuple(
+            (item.get("kind"), item.get("id")) for item in items)),
+            "remove_selection", items=items)
+
+    def set_selection_items(self, items: Iterable[dict[str, Any]]) -> None:
+        self.selection_items = [
+            {"kind": row["kind"], "id": row["id"]}
+            for row in items if isinstance(row, dict)
+            and row.get("kind") in {"node", "edge", "semantic_point"}
+            and isinstance(row.get("id"), str)]
+        if self.selection_items:
+            self.selection = dict(self.selection_items[0])
+        self._changed()
 
     def undo(self) -> bool:
         return self.dispatcher.submit(("undo",), "undo",
@@ -1492,6 +1509,7 @@ class IsaacTopologyController:
         self._road_end_z = None
         self._road_last_point = None
         self.preview = None
+        self.selection_items = []
         self.edge_start = self.edge_end = None
         self.edge_identity = None
         if not preserve_retry:
@@ -1709,7 +1727,7 @@ class IsaacTopologyController:
             "move-semantic-point", "translate-edge", "node-properties",
             "semantic-point-properties", "node-edit-mode", "point-z",
             "bind-semantic-point", "unbind-semantic-point", "semantic-navigation-bindings",
-            "unbind-semantic-point", "delete"})
+            "unbind-semantic-point", "delete", "delete-selection"})
         if error is not None:
             self.last_error = str(error)
             if edit_tag:
@@ -1746,6 +1764,10 @@ class IsaacTopologyController:
             if tag and tag[0] == "add-edge":
                 self.edge_start = self.edge_end = None
                 self.edge_identity = None
+                self.preview = None
+            elif tag and tag[0] == "delete-selection":
+                self.selection = None
+                self.selection_items = []
                 self.preview = None
             elif tag and tag[0] in {"move-node", "move-semantic-point", "translate-edge"}:
                 self.gesture = None
@@ -2149,7 +2171,11 @@ class IsaacTopologyWindow:
             def on_key(event):
                 page_up = getattr(carb.input.KeyboardInput, "PAGE_UP", None)
                 page_down = getattr(carb.input.KeyboardInput, "PAGE_DOWN", None)
+                delete_key = getattr(carb.input.KeyboardInput, "DELETE", None)
                 if event.type == carb.input.KeyboardEventType.KEY_PRESS:
+                    if event.input == delete_key:
+                        self.controller.delete_selected()
+                        return True
                     if event.input == page_up:
                         if not self.controller.adjust_road_end_height(.1):
                             self.controller.adjust_aerial_road_start_height(.1)
