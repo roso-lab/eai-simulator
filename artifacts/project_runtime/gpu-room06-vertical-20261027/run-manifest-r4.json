@@ -1,0 +1,43 @@
+{
+  "schema": "heterocoord.room06-gpu-probe-run-manifest.v1",
+  "created_at": "2026-10-27T22:38:00+08:00",
+  "supersedes_for_scene_retry": "run-manifest-r3.json",
+  "purpose": "Refrozen diagnostic-only room_06 CUDA scene load after sealing report inside simulator context",
+  "source": {
+    "git_commit": "e5a95666e030d4abe1d30e5f1a340cd5754cc6ed",
+    "driver_sha256": "b8caad5e6999f480301fba3770102b1e14b8796db3d385a7a2ead26ac3338507",
+    "test_sha256": "039e0eb371b1c92bf13b8a5395c1a6fddd4afffbdd17efdbe6451a67c2212bba",
+    "focused_validation": "ZCode GLM-5.3/max: py_compile exit 0; focused pytest pending final report"
+  },
+  "runtime_asset_overlay": {
+    "source": "/home/pupil/HeteroCoord/usd (read-only copy into isolated worktree)",
+    "robot_directory_sha256": "d3c4b7a9eb8451c4f82cdc91af136618edb840bf5193f13ef3e01692f8270ee",
+    "payloads_directory_sha256": "7df35e71d81a528216c2d3d6a270ae1882acf1254513177a4731abab6e35cd3a",
+    "room06_bundle_sha256": "4e722b0c68154b28a40aa4d5191def95363e7730cdb77c0d77af017706633659",
+    "room06_usd_sha256": "e67affcbd6d67941feb8bc7728d6be4cd74ad63d414a8b65db771337b76e300a"
+  },
+  "gpu_preflight": {
+    "uuid": "GPU-aa40060e-cb9d-b04a-e70c-4c91cbb67fb0",
+    "compute_app_inventory_before": [],
+    "memory_free_before_mib_observed": 22037,
+    "display_process_policy": "co-resident display services are not admission blockers; do not kill ToDesk",
+    "telemetry_cleanup_target": "omni.telemetry.transmitter"
+  },
+  "input": {
+    "path": "/tmp/heterocoord-room06-real-gpu-MTFYKn/artifacts/project_runtime/gpu-room06-vertical-20261027/inputs/scene-load-probe-input.json",
+    "file_sha256": "5de8bed393313f23a8b50ac9aaa656cf29e38910a60a8a3ebc71620fe94f85f4",
+    "input_digest": "a6fe00b11f392c67bef5f8c45519437b65aa0d0cc6e447a26b141c573386bdf6"
+  },
+  "run": {
+    "run_id": "run-05-scene-load-diagnostic",
+    "expected": "real CUDA scene load, 64 finite steps and finite time readback; diagnostic-only report sealed before native close",
+    "command_sha256": "664184cf928a471d71bceaac700e7b50fbfcb69b2d553d8e925b977660d46243",
+    "command": "/home/pupil/miniconda3/envs/env_isaaclab/bin/python tools/project_runtime.py exec -- /home/pupil/miniconda3/envs/env_isaaclab/bin/python -u tools/validation/room06_livt04_gpu_probe.py --input /tmp/heterocoord-room06-real-gpu-MTFYKn/artifacts/project_runtime/gpu-room06-vertical-20261027/inputs/scene-load-probe-input.json --input-sha256 5de8bed393313f23a8b50ac9aaa656cf29e38910a60a8a3ebc71620fe94f85f4 --output-dir /tmp/heterocoord-room06-real-gpu-MTFYKn/artifacts/project_runtime/gpu-room06-vertical-20261027/run-05-scene-load-diagnostic --scene-load-diagnostic-only"
+  },
+  "formal_gates": {
+    "runtime_qualified": false,
+    "physical_qualified": false,
+    "rankable": false,
+    "paper_score_eligible": false
+  }
+}

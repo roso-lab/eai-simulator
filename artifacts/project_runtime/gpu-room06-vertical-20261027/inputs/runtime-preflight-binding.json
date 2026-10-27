@@ -1,0 +1,44 @@
+{
+  "schema": "heterocoord.room06-runtime-preflight-input.v1",
+  "scene_key": "living_room_06",
+  "scene_asset_digest": "e67affcbd6d67941feb8bc7728d6be4cd74ad63d414a8b65db771337b76e300a",
+  "semantic_map_identity": {
+    "save_id": "d9872563938c42fd85f43efa3dab3c0b",
+    "semantic_binding_digest": "4b47e8a2bbdf4ac4dac9519c550eb793c3c6269edfc1f3b2a16170c09a97fb01",
+    "topology_digest": "1b7a0081289a0726dc8bfcf07763e986ff0992f2d6a0208c34b8cbc167bf8176"
+  },
+  "transition_handoff_node_id": "node:0001",
+  "selected_robot_ids": [
+    "hc-rt-006",
+    "hc-rt-020",
+    "hc-rt-021"
+  ],
+  "cross_floor_robot_ids": [
+    "hc-rt-006"
+  ],
+  "robot_roster_digest": "1357626ae7c880eac7e0036fd823302442add297222983cd52d4cf2855569cd2",
+  "task_object_bindings": {
+    "schema": "heterocoord.task-object-bindings.v1",
+    "scene_digest": "e67affcbd6d67941feb8bc7728d6be4cd74ad63d414a8b65db771337b76e300a",
+    "objects": [
+      {
+        "entity_id": "book_batch_01",
+        "origin": "task_generated",
+        "definition_ref": "task-setup:liv-t-04/book_batch_01",
+        "definition_digest": "d9c152c7bf82544a0aed215b421410f38a057ba2a99d5d7eadb3ee2852d54c87"
+      },
+      {
+        "entity_id": "heavy_object",
+        "origin": "task_generated",
+        "definition_ref": "task-setup:liv-t-04/heavy_object",
+        "definition_digest": "67eb46a2e4fe3eca9d5a3bd11b6ea7347a47a84cbacedd372f67ba3466e202e5"
+      }
+    ]
+  },
+  "formal_gates": {
+    "runtime_qualified": false,
+    "physical_qualified": false,
+    "rankable": false,
+    "paper_score_eligible": false
+  }
+}

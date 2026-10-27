@@ -1,0 +1,19 @@
+{
+  "schema": "heterocoord.room06-gpu-probe-run-failure.v1",
+  "run_id": "run-04-scene-load-diagnostic",
+  "status": "diagnostic_only",
+  "simulator_started": true,
+  "scene_constructed": true,
+  "physics_started_on": "cuda:0",
+  "evidence_envelope_emitted": false,
+  "failure_code": "native_close_preempted_post_context_report",
+  "reason": "The CUDA scene reached normal 64-step execution, but SimulationApp.close() raised SystemExit(0) while leaving the simulator context, before the original post-context report write executed.",
+  "repair_summary": "Move scene/full-task report sealing into the live simulator context before native close; retain fail-closed missing-report detection.",
+  "retry_output_dir": "run-05-scene-load-diagnostic",
+  "formal_gates": {
+    "runtime_qualified": false,
+    "physical_qualified": false,
+    "rankable": false,
+    "paper_score_eligible": false
+  }
+}

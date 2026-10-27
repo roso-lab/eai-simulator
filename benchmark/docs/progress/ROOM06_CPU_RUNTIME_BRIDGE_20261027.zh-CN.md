@@ -52,4 +52,34 @@ PYTHONPATH=.:source/EAI:source/EAI_assets:source/EAI_hmrs \
 - 未产出真实 terminal receipt、production result 或论文统计样本；
 - 未将 CPU/静态结果升级为 GPU、物理或论文资格证据。
 
-GPU 恢复后的下一步是冻结一个隔离的 `room_06 × liv-t-04` 最小纵向探针，真实加载场景、驱动 observer bridge 至终局，再把 terminal material 接入现有 receipt/production 链。任何失败都保留原始证据，不静默重跑。
+## 真实 GPU 场景诊断（2026-10-27）
+
+用户重新开放 GPU 后，在隔离 worktree
+`/tmp/heterocoord-room06-real-gpu-MTFYKn` 上按 `run-manifest-r4.json` 执行了
+一次新的 `run-05-scene-load-diagnostic`。执行前 compute-app inventory 为空，
+可用显存约 22037 MiB；ToDesk/显示共驻不作为阻断，也未触碰 ToDesk；清理命令只针对
+`omni.telemetry.transmitter`。
+
+ZCode GLM-5.3/max 只读复验最新生命周期修复：`py_compile` 退出 0，
+`test_room06_livt04_gpu_probe.py` 为 **22 passed in 0.17s**，退出 0。
+
+真实 CUDA 运行结果：Isaac/PhysX 在 `cuda:0` 启动，场景构建了 77 个 collision mesh
+（raycast proxy 41416 点、29917 三角形），完成 64 步有限读回；
+`report.json` 已在 simulator context 内、native close 前封存。关键结果：
+
+- `status=diagnostic_only`，`schema=heterocoord.room06-scene-load-diagnostic.v1`；
+- UUID `GPU-aa40060e-cb9d-b04a-e70c-4c91cbb67fb0` 精确匹配；
+- `/World/Room06`、`physics_dt=0.005`、`simulation_time=0.3299999926`；
+- 无 task/terminal/receipt/qualification 字段，四个正式门仍全为 `false`；
+- 运行后 telemetry 清理完成，磁盘约 508 GiB 可用、内存约 232 GiB 可用，compute inventory 为空。
+
+`run-04` 的原始失败没有覆盖：其 `run_failure.json` 记录 simulator 已启动、场景与
+CUDA 物理已建立，但 native close 抢先终止了 context 外 report 写入；修复是把 report
+写入移入 context 内，重试输出目录为 `run-05-scene-load-diagnostic`。
+
+因此，当前已证明的是“真实 GPU 场景加载与有限步进诊断”，不是 `liv-t-04` 成功、
+机器人/技能资格或论文统计数据。完整任务仍受真实跨层 topology edge 与生产
+`room06_runtime_hook_source` 注册缺口约束；缺口不能由诊断结果补造。
+
+GPU 恢复后的下一步是把真实 observer/skill-session source 注册到生产 runner，
+然后再冻结并执行最小任务纵向探针；任何失败继续保留原始证据，不静默重跑。

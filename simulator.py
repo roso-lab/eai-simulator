@@ -1072,6 +1072,10 @@ class SimulatorLaunchConfig:
     resolved_env_name: str | None = None
     selection_data: dict[str, Any] | None = None
     env_cfg_hook: Callable[[Any], None] | None = None
+    # Optional explicit production room_06 observer-source factory.  The
+    # factory is the only supported registration seam for the room06 probe;
+    # no source is inferred from generic skill receipts or controller state.
+    room06_runtime_hook_source_factory: Callable[..., Any] | None = None
     existing_simulation_app: Any | None = None
     scenario_file: str | None = None
     # Explicit in-process aerial sensor backend. ``disabled`` keeps aerial
@@ -2088,6 +2092,55 @@ def _apply_env_cfg_hook(env_cfg: Any, config: SimulatorLaunchConfig) -> None:
         config.env_cfg_hook(env_cfg)
 
 
+def _register_room06_runtime_hook_source(
+    *,
+    base_env: Any,
+    env_cfg: Any,
+    config: SimulatorLaunchConfig,
+    env_name: str,
+    selection_data: dict[str, Any] | None,
+    possible_agents: list[str],
+) -> None:
+    """Attach an explicitly supplied room06 observer source to the live env.
+
+    This is deliberately a registration seam only.  A real task runner must
+    provide the factory and the observer-owned completed-event semantics;
+    generic executor ledgers are never adapted here.  For non-room06 sessions
+    the helper is a no-op.  For room06, an explicitly requested but invalid
+    factory/source fails closed before the session is yielded.
+    """
+    scene_key = str((selection_data or {}).get("scene_key", "")).strip().lower()
+    if scene_key != "room_06" and str(env_name).strip().lower() != "room_06":
+        return
+    factory = getattr(config, "room06_runtime_hook_source_factory", None)
+    if factory is None:
+        factory = getattr(env_cfg, "room06_runtime_hook_source_factory", None)
+    if factory is None:
+        return
+    if not callable(factory):
+        raise TypeError("room06 runtime hook source factory must be callable")
+    source = factory(
+        base_env=base_env,
+        env_cfg=env_cfg,
+        env_name=env_name,
+        selection_data=selection_data,
+        possible_agents=tuple(possible_agents),
+    )
+    schema = "heterocoord.eai-room06-runtime-hook-source.v1"
+    if source is None or getattr(source, "schema", None) != schema:
+        raise RuntimeError(
+            "explicit room06 runtime hook factory did not return a valid "
+            f"{schema} source"
+        )
+    if not callable(getattr(source, "object_path_bindings", None)):
+        raise RuntimeError("room06 runtime hook source lacks object_path_bindings")
+    if not callable(getattr(source, "collect_room06", None)):
+        raise RuntimeError("room06 runtime hook source lacks collect_room06")
+    if getattr(base_env, "room06_runtime_hook_source", None) is not None:
+        raise RuntimeError("room06 runtime hook source was already registered")
+    base_env.room06_runtime_hook_source = source
+
+
 def _session_preflight_args(config: SimulatorLaunchConfig) -> SimpleNamespace:
     return SimpleNamespace(
         env=None if config.scenario_file else config.env,
@@ -2307,6 +2360,14 @@ def open_simulator_session(config: SimulatorLaunchConfig) -> Iterator[SimulatorS
         if requires_simulation_clock:
             simulation_clock_manager = _setup_simulation_clock_manager(base_env)
         env.reset()
+        _register_room06_runtime_hook_source(
+            base_env=base_env,
+            env_cfg=env_cfg,
+            config=config,
+            env_name=env_name,
+            selection_data=selection_data,
+            possible_agents=possible_agents,
+        )
         # Re-apply log silencing after scene setup: native plugins can
         # (re-)register their carb logging source while the stage loads,
         # which resets per-source thresholds.

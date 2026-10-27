@@ -1,0 +1,451 @@
+[
+  {
+    "scene_id": "room_06",
+    "level_id": "1F",
+    "regions": [
+      {
+        "id": "r1f_nook",
+        "label": "small round-table seating nook",
+        "kind": "functional_zone",
+        "confidence": "category_uncertain",
+        "bounds_norm": [
+          0.27,
+          0.165,
+          0.41,
+          0.3
+        ],
+        "evidence": "1F顶视左上角：一张深色圆桌配2-3把白椅及一盆栽；具体用途（休闲/非正式用餐）无法从图像确认。"
+      },
+      {
+        "id": "r1f_dining",
+        "label": "dining zone (long table with ~10 chairs)",
+        "kind": "functional_zone",
+        "confidence": "observed",
+        "bounds_norm": [
+          0.27,
+          0.3,
+          0.42,
+          0.462
+        ],
+        "evidence": "1F顶视：白色长方餐桌，南北两排各约5把深色座椅。"
+      },
+      {
+        "id": "r1f_kitchen",
+        "label": "counter / breakfast-bar zone",
+        "kind": "functional_zone",
+        "confidence": "observed",
+        "bounds_norm": [
+          0.455,
+          0.055,
+          0.565,
+          0.462
+        ],
+        "evidence": "1F顶视中部竖向长条台面（米色台面），台面上有深色方块；NE斜视图确认台面、黑色灶状/槽状物体及台面一侧一排高凳。"
+      },
+      {
+        "id": "r1f_lounge_ne",
+        "label": "lounge with L-shaped sofa",
+        "kind": "functional_zone",
+        "confidence": "observed",
+        "bounds_norm": [
+          0.548,
+          0.185,
+          0.725,
+          0.462
+        ],
+        "evidence": "1F顶视右上部：白色地毯上L形沙发、深色圆形茶几及两盆绿植。"
+      },
+      {
+        "id": "r1f_lounge_south",
+        "label": "large sectional lounge",
+        "kind": "functional_zone",
+        "confidence": "observed",
+        "bounds_norm": [
+          0.248,
+          0.532,
+          0.468,
+          0.856
+        ],
+        "evidence": "1F顶视中南部：大面积白色地毯上U形组合沙发、深色方形茶几、脚凳和一把角椅。"
+      },
+      {
+        "id": "r1f_open_floor",
+        "label": "open circulation floor",
+        "kind": "circulation",
+        "confidence": "layout_inferred",
+        "bounds_norm": [
+          0.47,
+          0.462,
+          0.72,
+          0.905
+        ],
+        "evidence": "1F顶视中南部大片无家具木纹地面，推断为通行/开放区域。"
+      }
+    ],
+    "objects": [
+      {
+        "id": "o1f_counter",
+        "label": "long counter block",
+        "kind": "fixture",
+        "confidence": "observed",
+        "bounds_norm": [
+          0.463,
+          0.058,
+          0.528,
+          0.455
+        ],
+        "evidence": "顶视竖向台面条带贯穿北墙至中部；斜视图（NE）见连续台面。"
+      },
+      {
+        "id": "o1f_appliance",
+        "label": "dark cooktop/sink-like square on counter",
+        "kind": "appliance",
+        "confidence": "observed",
+        "bounds_norm": [
+          0.477,
+          0.361,
+          0.498,
+          0.394
+        ],
+        "evidence": "顶视台面上的深色方形嵌入物；NE斜视对应位置见黑色台面器件。"
+      },
+      {
+        "id": "o1f_stools",
+        "label": "row of ~4-5 stools at counter",
+        "kind": "furniture",
+        "confidence": "observed_geometry_endpoint_unverified",
+        "bounds_norm": [
+          0.525,
+          0.3,
+          0.56,
+          0.44
+        ],
+        "evidence": "NE斜视清楚可见台面一侧一排深色高凳；顶视对应位置仅隐约，世界坐标端点未定位，bounds为近似。"
+      },
+      {
+        "id": "o1f_dining_table",
+        "label": "dining table",
+        "kind": "furniture",
+        "confidence": "observed",
+        "bounds_norm": [
+          0.285,
+          0.311,
+          0.415,
+          0.456
+        ],
+        "evidence": "顶视白色长方桌面清晰。"
+      },
+      {
+        "id": "o1f_dining_chairs",
+        "label": "cluster of ~10 dining chairs",
+        "kind": "furniture",
+        "confidence": "observed",
+        "bounds_norm": [
+          0.303,
+          0.325,
+          0.4,
+          0.447
+        ],
+        "evidence": "顶视桌两侧两排深色方形椅面，各约5把。"
+      },
+      {
+        "id": "o1f_nook_table",
+        "label": "round table (dark top)",
+        "kind": "furniture",
+        "confidence": "observed",
+        "bounds_norm": [
+          0.327,
+          0.203,
+          0.393,
+          0.301
+        ],
+        "evidence": "顶视深色圆形桌面。"
+      },
+      {
+        "id": "o1f_nook_chairs",
+        "label": "2-3 chairs at round table",
+        "kind": "furniture",
+        "confidence": "observed",
+        "bounds_norm": [
+          0.293,
+          0.183,
+          0.407,
+          0.262
+        ],
+        "evidence": "顶视圆桌周围白椅。"
+      },
+      {
+        "id": "o1f_sofa_ne",
+        "label": "L-shaped sofa",
+        "kind": "furniture",
+        "confidence": "observed",
+        "bounds_norm": [
+          0.583,
+          0.214,
+          0.71,
+          0.405
+        ],
+        "evidence": "顶视两段白色沙发呈L形（一段横向、一段纵向）。"
+      },
+      {
+        "id": "o1f_coffee_ne",
+        "label": "round coffee table (dark)",
+        "kind": "furniture",
+        "confidence": "observed",
+        "bounds_norm": [
+          0.592,
+          0.311,
+          0.653,
+          0.376
+        ],
+        "evidence": "顶视沙发环绕的深色八角/圆几。"
+      },
+      {
+        "id": "o1f_sofa_south",
+        "label": "U-shaped sectional sofa",
+        "kind": "furniture",
+        "confidence": "observed",
+        "bounds_norm": [
+          0.266,
+          0.557,
+          0.462,
+          0.849
+        ],
+        "evidence": "顶视三段白色组合沙发围合；SW/SE斜视亦可见大体量沙发组。"
+      },
+      {
+        "id": "o1f_coffee_south",
+        "label": "square coffee table (dark)",
+        "kind": "furniture",
+        "confidence": "observed",
+        "bounds_norm": [
+          0.331,
+          0.661,
+          0.394,
+          0.736
+        ],
+        "evidence": "顶视组合沙发中央深色方几。"
+      },
+      {
+        "id": "o1f_ottoman",
+        "label": "ottoman / low seat",
+        "kind": "furniture",
+        "confidence": "observed",
+        "bounds_norm": [
+          0.397,
+          0.749,
+          0.454,
+          0.823
+        ],
+        "evidence": "顶视沙发东南角白色方凳。"
+      },
+      {
+        "id": "o1f_shell_west",
+        "label": "large ovoid shell (west)",
+        "kind": "structure",
+        "confidence": "unknown_function",
+        "bounds_norm": [
+          0.033,
+          0.275,
+          0.42,
+          0.925
+        ],
+        "evidence": "顶视及多张斜视均见巨大白色蛋形壳体贴邻建筑西侧，顶部隆起；用途无法判断。"
+      },
+      {
+        "id": "o1f_shell_east",
+        "label": "large ovoid shell (east)",
+        "kind": "structure",
+        "confidence": "unknown_function",
+        "bounds_norm": [
+          0.714,
+          0.275,
+          0.965,
+          0.925
+        ],
+        "evidence": "顶视及NW/SW斜视均见巨大白色蛋形壳体贴邻建筑东侧；用途无法判断。"
+      }
+    ],
+    "stairs": [],
+    "uncertainties": [
+      "10张1F/2F视图中均未清晰看到楼梯踏步或梯段；2F有家具和护栏说明必然存在垂直交通，但楼梯位置与几何无法标注，任何上下楼路线均未经物理验证。",
+      "两个巨大蛋形壳体与楼板边缘的重叠/相接关系不明，可能仅贴邻也可能局部覆盖楼板边缘，对2D代价地图影响范围不确定。",
+      "1F顶视楼板东西两缘各有一排等间距小暗色短划（约y0.39-0.83），功能不明（壁挂件或上层构件透视），未逐个标注。",
+      "斜视图中北/东侧幕墙处可见白色窗帘，顶视无法定位其footprint，未列入objects。",
+      "屋顶隐藏渲染使1F斜视图中混入上层护栏与幕墙竖框，层级归属已按顶视区分，但斜视证据不做1F/2F归属依据。",
+      "顶视中的红色水平线与蓝/绿色竖线为视口辅助轴线，非场景物体。"
+    ]
+  },
+  {
+    "scene_id": "room_06",
+    "level_id": "2F",
+    "regions": [
+      {
+        "id": "r2f_lounge",
+        "label": "lounge with sectional and round table",
+        "kind": "functional_zone",
+        "confidence": "observed",
+        "bounds_norm": [
+          0.42,
+          0.41,
+          0.62,
+          0.68
+        ],
+        "evidence": "2F顶视中央组合沙发（带棕/褐色靠垫）环绕深灰圆桌；SW/SE斜视同见。NE斜视显示该区紧邻带矮墙+栏杆的洞口边缘。"
+      },
+      {
+        "id": "r2f_north_band",
+        "label": "north band with bed-like and cabinet-like items",
+        "kind": "functional_zone",
+        "confidence": "category_uncertain",
+        "bounds_norm": [
+          0.23,
+          0.15,
+          0.75,
+          0.42
+        ],
+        "evidence": "2F顶视北带整体呈半透明：旋转的白色垫状物（床?）、北缘长条矮柜/桌类、西缘米色矮凳。该带是2F实体楼板还是下层透视无法从图像判定，功能推测（睡眠/储物）不作断言。"
+      },
+      {
+        "id": "r2f_edge_walkway",
+        "label": "void-edge walkway with guardrail",
+        "kind": "circulation",
+        "confidence": "layout_inferred",
+        "bounds_norm": [
+          0.65,
+          0.4,
+          0.755,
+          0.67
+        ],
+        "evidence": "SE斜视可见带栏杆的高架走道，栏杆下方悬空；顶视东缘对应条带。走道完整范围由楼板边缘推断。"
+      },
+      {
+        "id": "r2f_open_floor",
+        "label": "open floor (plate/void split unresolved)",
+        "kind": "circulation",
+        "confidence": "layout_inferred",
+        "bounds_norm": [
+          0.23,
+          0.42,
+          0.69,
+          0.85
+        ],
+        "evidence": "2F顶视中南大片空地；哪些部分为实板、哪些为1F上方洞口无法从图像分辨。"
+      }
+    ],
+    "objects": [
+      {
+        "id": "o2f_sofa",
+        "label": "sectional sofa with cushions",
+        "kind": "furniture",
+        "confidence": "observed",
+        "bounds_norm": [
+          0.434,
+          0.426,
+          0.6,
+          0.665
+        ],
+        "evidence": "2F顶视清晰的组合沙发，多个棕/褐色靠垫；SW斜视同见。"
+      },
+      {
+        "id": "o2f_table",
+        "label": "round table (dark gray)",
+        "kind": "furniture",
+        "confidence": "observed",
+        "bounds_norm": [
+          0.491,
+          0.543,
+          0.57,
+          0.612
+        ],
+        "evidence": "2F顶视沙发环绕的深灰圆桌；SW/NE斜视同见。"
+      },
+      {
+        "id": "o2f_guardrail",
+        "label": "guardrail along void edge (posts + handrail)",
+        "kind": "fixture",
+        "confidence": "observed",
+        "bounds_norm": [
+          0.69,
+          0.415,
+          0.752,
+          0.665
+        ],
+        "evidence": "NE/SE斜视可见矮墙上加深色立柱及扶手，下方悬空；顶视东缘对应条带。仅确认此局部段，全长未知。"
+      },
+      {
+        "id": "o2f_textiles",
+        "label": "hanging fabric items on railing",
+        "kind": "unknown",
+        "confidence": "unknown_function",
+        "bounds_norm": [
+          0.705,
+          0.432,
+          0.748,
+          0.648
+        ],
+        "evidence": "2F顶视东缘竖向织物状条带；SW斜视同位置见垂挂织物（毛巾/布帘类），用途不明。"
+      },
+      {
+        "id": "o2f_bedlike",
+        "label": "rotated white pad (bed-like)",
+        "kind": "furniture",
+        "confidence": "category_uncertain",
+        "bounds_norm": [
+          0.392,
+          0.222,
+          0.467,
+          0.319
+        ],
+        "evidence": "2F顶视北带半透明旋转方形白垫，形似床/地垫，层级归属与类别均不确定。"
+      },
+      {
+        "id": "o2f_cabinet_row",
+        "label": "long low cabinet/shelf row along north edge",
+        "kind": "furniture",
+        "confidence": "category_uncertain",
+        "bounds_norm": [
+          0.434,
+          0.245,
+          0.737,
+          0.297
+        ],
+        "evidence": "2F顶视北缘长条带竖向分隔（柜/桌/架类）；SE斜视对应位置见矮柜台面及一个深色器件状物体。半透明区域，类别不确定。"
+      },
+      {
+        "id": "o2f_bench_west",
+        "label": "small beige low bench/cabinet",
+        "kind": "furniture",
+        "confidence": "category_uncertain",
+        "bounds_norm": [
+          0.271,
+          0.322,
+          0.324,
+          0.368
+        ],
+        "evidence": "2F顶视西缘米色小矩形，位于半透明带内。"
+      },
+      {
+        "id": "o2f_wall_grid",
+        "label": "grid-like wall panel (shelf/picture grid)",
+        "kind": "fixture",
+        "confidence": "observed_geometry_endpoint_unverified",
+        "bounds_norm": [
+          0.42,
+          0.42,
+          0.47,
+          0.5
+        ],
+        "evidence": "SW斜视墙面可见方格状板（书架/照片格）；为竖向墙面物体，顶视无法定位footprint，bounds为近似，世界端点未验证。"
+      }
+    ],
+    "stairs": [],
+    "uncertainties": [
+      "所有视图中均未看到楼梯踏步/梯段；2F家具齐全且有护栏和高架走道说明垂直交通必然存在，但其位置、起点终点均无法从本组图像确定，未经物理验证。",
+      "2F顶视整体过曝/半透明，北带物品（bed-like、长柜、矮凳）可能实为下层透视，归属层级不确定，可能存在漏检小件。",
+      "2F楼板哪些区域为实板、哪些为1F上方的洞口无法从顶视分辨；guardrail仅确认东缘局部段，洞口完整范围未知。",
+      "SE斜视中高架走道向画面外侧延伸的端部被墙体/蛋形壳体遮挡，走道端点及可能的楼梯接口未验证。",
+      "东缘织物条带（o2f_textiles）与guardrail在顶视投影重叠，二者边界为估测。"
+    ]
+  }
+]

@@ -1,0 +1,29 @@
+{
+  "schema": "heterocoord.run-failure.v1",
+  "run_id": "run-03-scene-load-diagnostic",
+  "occurred_at": "2026-10-27T21:09:15+08:00",
+  "simulator_started": true,
+  "scene_constructed": true,
+  "physics_started_on": "cuda:0",
+  "observed_process_exit_code": 0,
+  "evidence_envelope_emitted": false,
+  "failure_class": "infrastructure_gpu_uuid_output_compatibility",
+  "reason": "PyTorch returned torch._C._CUuuid for device properties.uuid. The probe accepted only bytes or str and rejected the canonical UUID-bearing object before physics stepping evidence could be emitted.",
+  "scene_construction_observation": {
+    "raycast_source_meshes": 77,
+    "raycast_points": 41416,
+    "raycast_triangles": 29917,
+    "embedded_physics_scene_deactivated": "/World/Room06/PhysicsScene"
+  },
+  "original_command_sha256": "c11f1d7941f91f06b5ab766fbbca598f784ae955502d2f90a073f603e2b48eff",
+  "preserved_log": "/home/pupil/miniconda3/envs/env_isaaclab/lib/python3.11/site-packages/isaacsim/kit/logs/Kit/Isaac-Sim/5.1/kit_20261027_210904.log",
+  "fix_summary": "Normalize PyTorch str, bytes, or _CUuuid values only when their textual form is a canonical UUID; add the NVIDIA GPU- prefix and compare with the frozen expected UUID. Arbitrary objects and malformed values remain fail-closed.",
+  "retry_output_dir": "run-04-scene-load-diagnostic",
+  "authorization_basis": "User authorized GPU use and directed same-class environment/output compatibility defects to be fixed and continued without repeated permission requests; the failed attempt remains preserved and is not overwritten.",
+  "formal_gates": {
+    "runtime_qualified": false,
+    "physical_qualified": false,
+    "rankable": false,
+    "paper_score_eligible": false
+  }
+}
