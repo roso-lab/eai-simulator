@@ -228,11 +228,11 @@ def _terminal_chain(
     plan: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Seal explicitly supplied terminal material and optionally run results."""
-    allowed = {"terminals", "parameters", "production"}
+    allowed = {"terminals", "parameters", "production", "partial"}
     if set(value) - allowed or not {"terminals", "parameters"}.issubset(value):
         raise ValueError(
             "terminal_payload must contain terminals and parameters; "
-            "production is optional"
+            "production or partial is optional"
         )
     terminals = value["terminals"]
     if isinstance(terminals, (str, bytes)) or not isinstance(terminals, Sequence) or not terminals:
@@ -240,6 +240,23 @@ def _terminal_chain(
     parameters = value["parameters"]
     if not isinstance(parameters, Mapping):
         raise ValueError("terminal parameters must be an object")
+    production_requested = "production" in value
+    partial_requested = "partial" in value
+    if production_requested and partial_requested:
+        raise ValueError(
+            "terminal_payload.production and terminal_payload.partial are mutually exclusive"
+        )
+    production = value.get("production")
+    partial = value.get("partial")
+    if production_requested and not isinstance(production, Mapping):
+        raise ValueError("terminal_payload.production must be an object")
+    if partial_requested:
+        if not isinstance(partial, Mapping):
+            raise ValueError("terminal_payload.partial must be an object")
+        if set(partial) - {"calibration"}:
+            raise ValueError(
+                "terminal_payload.partial may contain only optional calibration"
+            )
     catalog_digest = _catalog_matches_binding(catalog, binding)
 
     terminals = _normalize_terminals(
@@ -272,11 +289,28 @@ def _terminal_chain(
         "readiness": sealed["readiness"],
         "formal_gates": dict(FORMAL_GATES),
     }
-    production = value.get("production")
-    if production is None:
+    if not production_requested and not partial_requested:
         return result
-    if not isinstance(production, Mapping):
-        raise ValueError("terminal_payload.production must be an object")
+    if partial_requested:
+        from .case_partial_results_v1 import run_partial_case
+
+        partial_report = run_partial_case(
+            receipts=sealed["receipts"],
+            case_manifest=case_manifest,
+            artifact_manifest=sealed["artifact_manifest"],
+            artifact_root=sealed["artifact_root"],
+            calibration=partial.get("calibration"),
+            output=output_root / "partial_results",
+        )
+        _require_closed_gates(partial_report, "partial result")
+        result.update({
+            "status": "partial_results_verified",
+            "partial": partial_report,
+            "replay_verified": True,
+            "formal_gates": dict(FORMAL_GATES),
+        })
+        return result
+
     required = {"calibration", "panel_bindings", "panel_projection_binding"}
     optional = {
         "panel_endpoint_receipts", "panel_bootstrap_resamples",
@@ -591,9 +625,16 @@ def run_map_ready_case(
             if receipt["terminal"]["status"] == "production_results_verified":
                 receipt["status"] = "production_results_verified"
                 receipt["next_action"].append("formal_release_matrix_pending")
+            elif receipt["terminal"]["status"] == "partial_results_verified":
+                receipt["status"] = "partial_results_verified"
+                receipt["next_action"].append(
+                    "complete_registered_matrix_for_paper_results"
+                )
             else:
                 receipt["status"] = "terminal_sealed"
-                receipt["next_action"].append("provide_explicit_fixed_panel_production_inputs")
+                receipt["next_action"].append(
+                    "select_partial_export_or_provide_explicit_fixed_panel_production_inputs"
+                )
     except (ImportError, KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
         detail = str(exc)
         code = "MAP_READY_EXECUTION_FAILED"

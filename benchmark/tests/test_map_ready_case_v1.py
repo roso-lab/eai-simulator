@@ -581,6 +581,165 @@ def test_serialized_terminal_runs_registered_evaluator_to_case_readiness(
     assert len(list((tmp_path / "terminal_evidence" / "evidence").glob("*.json"))) == 1
 
 
+def test_serialized_terminal_exports_partial_measured_results(tmp_path: Path) -> None:
+    catalog = {"anchors": ["liv-t-04"]}
+    obligation_binding = {
+        "schema": "heterocoord.oracle-obligation-binding.v1",
+        "anchor_id": "liv-t-04",
+        "obligations": [{
+            "obligation_id": "relay",
+            "relation": "P2",
+            "predicate_ids": ["upper_shelf_delivery_after_transition_handoff"],
+        }],
+    }
+    plan = {"seed": 20261027, "oracle_obligation_binding": obligation_binding}
+    case = bind_case_manifest({
+        "schema": "heterocoord.case-manifest.v1",
+        "case_id": "room06-livt04-partial",
+        "task_id": "liv-t-04",
+        "anchor_id": "liv-t-04",
+        "domain": "living_public",
+        "relation_signature": ["P2", "P3-J"],
+        "base_instance_id": "room06-partial-r1/base",
+        "scene": {
+            "scene_id": "room_06",
+            "scene_digest": "1" * 64,
+            "semantic_map_digest": "2" * 64,
+            "topology_digest": "3" * 64,
+            "frame": "world",
+            "units": "meters+ticks",
+            "entity_ids": ["book_batch_01", "heavy_object"],
+            "zone_ids": [],
+            "horizon": 15000,
+            "tau_stable": 25,
+        },
+        "robot_pool": {
+            "pool_id": "diagnostic-pool",
+            "roster_digest": "4" * 64,
+            "robots": [{
+                "robot_id": robot_id,
+                "asset_digest": "5" * 64,
+                "capability_digest": "6" * 64,
+                "initial_state_digest": "7" * 64,
+            } for robot_id in ("carrier-0", "carrier-1")],
+        },
+        "contract": {
+            "contract_digest": "8" * 64,
+            "oracle_id": "liv-t-04-oracle-v3",
+            "contract_revision": "diagnostic-2026-10-27",
+        },
+        "catalog_digest": canonical_digest(catalog),
+        "plan_digest": canonical_digest(plan),
+        "replay": {
+            "serializer_version": "diagnostic-v1",
+            "rng_stream_key": "room06-partial",
+            "checkpoint_schema": "diagnostic-v1",
+        },
+        "evaluator": {
+            "evaluator_id": EVALUATOR_ID,
+            "evaluator_version": EVALUATOR_VERSION,
+        },
+    })
+    job = BranchJob(
+        run_id="room06-partial-run",
+        system_id="emos-zero",
+        scene_key="room_06",
+        task_id="liv-t-04",
+        condition_id="C0",
+        slot=0,
+        branch_type="fact",
+        branch_id="room06-partial-r1",
+        pair_group_id="room06-partial-r1",
+        repeat_id="r1",
+        execution_scope="measured_diagnostic",
+    )
+    runtime = build_diagnostic_runtime_fixture()
+    runtime["episode"].update({
+        "system_id": job.system_id,
+        "base_instance_id": job.base_instance_id,
+    })
+    terminal_payload = json.loads(json.dumps({
+        "terminals": [{
+            "job": asdict(job),
+            "runtime": runtime,
+            "evaluator_result": {
+                "status": "valid_terminal",
+                "completed": True,
+                "physical_success": True,
+                "terminal_predicate": True,
+                "safety_predicate": True,
+                "feasibility_predicate": True,
+            },
+        }],
+        "parameters": {"alpha": 0.05},
+        "partial": {
+            "calibration": {
+                "calibration": [{
+                    "instance_id": case["base_instance_id"],
+                    "reference_bits": 10.0,
+                    "reference_time": 1.0,
+                }],
+                "calibration_digest": "a" * 64,
+            },
+        },
+    }))
+
+    result = orchestrator._terminal_chain(
+        terminal_payload,
+        output_root=tmp_path,
+        case_manifest=case,
+        binding={"catalog_digest": canonical_digest(catalog)},
+        catalog=catalog,
+        plan=plan,
+    )
+
+    assert result["status"] == "partial_results_verified"
+    assert result["partial"]["scope"] == "measured_unqualified"
+    assert result["partial"]["qualification"] == "measured_unqualified"
+    assert result["partial"]["formal_gates"] == orchestrator.FORMAL_GATES
+    assert result["partial"]["report"]["composite"]["point"] is None
+    assert result["replay_verified"] is True
+    assert (tmp_path / "partial_results" / "output_manifest.json").is_file()
+    assert not (tmp_path / "production_results").exists()
+
+
+def test_terminal_partial_and_production_are_mutually_exclusive(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        orchestrator._terminal_chain(
+            {
+                "terminals": [{"not": "evaluated"}],
+                "parameters": {},
+                "partial": {},
+                "production": {},
+            },
+            output_root=tmp_path,
+            case_manifest={},
+            binding={},
+            catalog={},
+            plan={},
+        )
+    assert not (tmp_path / "terminal_evidence").exists()
+
+
+def test_terminal_partial_rejects_unknown_configuration_before_sealing(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="only optional calibration"):
+        orchestrator._terminal_chain(
+            {
+                "terminals": [{"not": "evaluated"}],
+                "parameters": {},
+                "partial": {"paper_score_eligible": True},
+            },
+            output_root=tmp_path,
+            case_manifest={},
+            binding={},
+            catalog={},
+            plan={},
+        )
+    assert not (tmp_path / "terminal_evidence").exists()
+
+
 def test_serialized_terminal_rejects_unregistered_manifest_evaluator() -> None:
     with pytest.raises(ValueError, match="not registered"):
         orchestrator._registered_evaluator(
@@ -661,3 +820,62 @@ def test_cli_loads_json_terminal_for_registered_sealing_chain(
     assert len(terminal_calls) == 1
     assert terminal_calls[0][1]["case_manifest"]["manifest_digest"] == "3" * 64
     assert not (output / "production_results").exists()
+
+
+def test_map_ready_receipt_propagates_partial_results_status(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = {"schema": "explicit-plan.v1", "runs": ["r1"]}
+    catalog = _catalog()
+    contract = _contract()
+    binding = _binding(plan, catalog, contract)
+    monkeypatch.setattr(
+        orchestrator,
+        "audit_case_inputs",
+        lambda *_args, **_kwargs: {
+            "case_ready": True,
+            "failures": [],
+            "semantic_map": {},
+            "robot_pool": {"pool_digest": "2" * 64},
+        },
+    )
+    monkeypatch.setattr(
+        orchestrator,
+        "build_case_manifest",
+        lambda **_kwargs: {
+            "case_id": binding["case_id"],
+            "manifest_digest": "3" * 64,
+        },
+    )
+    monkeypatch.setattr(
+        orchestrator,
+        "_terminal_chain",
+        lambda *_args, **_kwargs: {
+            "status": "partial_results_verified",
+            "partial": {
+                "scope": "measured_unqualified",
+                "formal_gates": dict(orchestrator.FORMAL_GATES),
+            },
+            "formal_gates": dict(orchestrator.FORMAL_GATES),
+        },
+    )
+    output = tmp_path / "partial-status-attempt"
+
+    result = run_map_ready_case(
+        semantic_root=tmp_path / "map",
+        robot_pool=tmp_path / "pool.json",
+        binding=binding,
+        catalog=catalog,
+        contract_artifact=contract,
+        plan=plan,
+        terminal_payload={"terminals": [{}], "parameters": {}, "partial": {}},
+        output_dir=output,
+    )
+
+    assert result["status"] == "partial_results_verified"
+    assert result["failures"] == []
+    assert result["next_action"] == [
+        "complete_registered_matrix_for_paper_results"
+    ]
+    assert result["formal_gates"] == orchestrator.FORMAL_GATES
+    assert json.loads((output / "execution_receipt.json").read_text()) == result
