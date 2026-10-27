@@ -2,14 +2,14 @@
 
 ## 当前基线
 
-- 本地 `HeteroCoord` 与 `origin/HeteroCoord` 均为 `b05fadc2`，工作树在本次接缝改动提交前保持干净。
+- 本地 `HeteroCoord` 与 `origin/HeteroCoord` 均为 `66207f73`，工作树干净。
 - 本轮已执行 `git fetch origin HeteroCoord`；远端没有待拉取提交。
 - 后续工程开发、受影响测试和推送统一以 `HeteroCoord` 为基线。其他分支保留为历史审计源，不再作为并行主线。
 - `physical_qualified`、`rankable`、`paper_score_eligible` 继续保持 `false`。
 
 ## GPU 脏改动的性质
 
-GPU 工作树 `codex/room06-real-gpu-vertical-20261027` 比当前主线落后 36 个提交，且没有领先主线的新提交。其工作树中的未提交内容包括：
+GPU 工作树 `codex/room06-real-gpu-vertical-20261027` 比当前主线落后 47 个提交，且没有领先主线的新提交。其工作树中的未提交内容包括：
 
 1. room06 GPU hook/probe 的旧基线副本；对应功能已由主线的新注册接缝和生产前置代码吸收。
 2. `artifacts/project_runtime/gpu-room06-vertical-*`、`gpu-three-way-*` 下的 manifest、checkpoint、`run_failure.json`、stdout/stderr 和诊断报告；这些是 diagnostic-only 运行证据，不能当作源码提交，也不能升级资格。
