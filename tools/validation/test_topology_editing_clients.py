@@ -465,6 +465,24 @@ def test_successful_move_refreshes_authoritative_snapshot_and_clears_preview():
     assert controller.edit_status == "synced"
 
 
+def test_drag_result_does_not_replace_dirty_native_selection_with_stale_web_selection():
+    dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
+    context = _context(active_layer="aerial")
+    controller.update_context(context)
+    controller.select({"kind": "node", "collection": None, "id": "n1"})
+    controller.begin_drag({"kind": "node", "id": "n1"}, [0., 0., 2.])
+    controller.update_drag([1., 2., 8.])
+    assert controller.end_drag()
+    tag = dispatcher.calls[-1][0][0]
+    fresh = _context(active_layer="aerial", revision=5, generation=3)
+    fresh["document_snapshots"]["aerial"]["nodes"][0]["position_xyz"] = [1., 2., 8.]
+    fresh["document_snapshot"] = fresh["document_snapshots"]["aerial"]
+    fresh["web_selection"] = None
+    controller.handle_result((tag, {"state": fresh}, None))
+    assert controller.selection == {"kind": "node", "collection": None, "id": "n1"}
+    assert controller.selection_dirty
+
+
 def test_selection_failure_does_not_drop_drag_waiting_behind_single_flight_request():
     class BusyDispatcher(_Dispatcher):
         def submit(self, *args, **kwargs):

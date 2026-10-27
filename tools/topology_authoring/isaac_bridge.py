@@ -878,6 +878,8 @@ class IsaacTopologyController:
         )
         if previous is not None and previous != current:
             same_scene = previous[:2] == current[:2]
+            preserve_local_selection = bool(
+                self.selection_dirty and same_scene and previous[4] == current[4])
             self.cancel_gesture(preserve_retry=same_scene)
             same_binding_context = same_scene and previous[4:6] == current[4:6]
             if not same_binding_context:
@@ -886,7 +888,7 @@ class IsaacTopologyController:
                 self.navigation_binding_draft = None
             self.pending_edit = None
             self.pending_context = None
-            self.selection_dirty = False
+            self.selection_dirty = preserve_local_selection
         self.context = context
         self.document_snapshots = dict(
             context.get("document_snapshots") or context.get("documents") or {})
@@ -931,8 +933,13 @@ class IsaacTopologyController:
             self.new_edge_traversal_mode = "walk"
         self.dispatcher.client.update_context(context)
         incoming = context.get("web_selection")
+        # A native click/drag marks the local selection dirty before the
+        # browser/authority has acknowledged it.  An edit response can carry
+        # the previous web selection (often null); adopting that stale value
+        # would clear the node the user just dragged and prevent the pending
+        # selection acknowledgement from being flushed on the next tick.
         if (incoming != self.selection and self.gesture is None
-                and (previous != current or not self.selection_dirty)):
+                and not self.selection_dirty):
             self.selection = incoming
             self.selection_dirty = False
         if (self.navigation_binding_target_id
