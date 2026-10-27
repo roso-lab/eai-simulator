@@ -20,6 +20,9 @@ fail-closed。
   以 schema/version/digest/event-count 引用写入 receipt streams 的
   `identity_records.orchestration_ledger`。它只绑定调度 provenance，不把 ledger 事件解释
   成里程碑、持有、success 或任何论文事实；ledger 篡改和已有引用冲突均 fail-closed；
+- `room06_gpu_receipt_seam_v1.build_terminal_payload()` 与 GPU probe 的
+  `run_full_task()` 接受同一份显式 orchestration result，将上述 provenance 传入
+  map-ready terminal payload；不提供时保持旧行为，绝不从 GPU 状态推断 ledger；
 - `benchmark/tests/test_room06_transport_runtime_v1.py` 覆盖选中实例边界、source resume
   负载权威性、executor ledger → receipt identity 接缝和 package/ledger digest 篡改拒绝。
 

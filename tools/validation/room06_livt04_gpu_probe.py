@@ -1009,6 +1009,7 @@ def run_full_task(
     terminal_job: Any | None = None,
     evaluator_result: Mapping[str, Any] | None = None,
     parameters: Mapping[str, Any] | None = None,
+    orchestration_result: Any | None = None,
 ) -> dict[str, Any]:
     handoff_values = (terminal_job, evaluator_result, parameters)
     if any(value is not None for value in handoff_values) and not all(
@@ -1016,6 +1017,12 @@ def run_full_task(
     ):
         raise Room06GpuProbeError(
             "terminal_job, evaluator_result and parameters must be supplied together"
+        )
+    if orchestration_result is not None and not all(
+        value is not None for value in handoff_values
+    ):
+        raise Room06GpuProbeError(
+            "orchestration_result requires terminal_job, evaluator_result and parameters"
         )
     from simulator import open_simulator_session
 
@@ -1087,6 +1094,7 @@ def run_full_task(
                     job=terminal_job,
                     evaluator_result=evaluator_result,
                     parameters=parameters,
+                    orchestration_result=orchestration_result,
                 )
             except (TypeError, ValueError) as exc:
                 raise Room06GpuProbeError(

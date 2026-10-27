@@ -18,6 +18,7 @@ from benchmark.room06_gpu_receipt_seam_v1 import (
     build_terminal_payload,
 )
 from tools.benchmark_branch.models import BranchJob
+from algorithm.common_coordination.contract import EventLedger
 
 
 def _job() -> BranchJob:
@@ -111,6 +112,27 @@ def test_output_is_accepted_by_registered_map_ready_evaluator() -> None:
     )
     assert normalized[0]["job"] == job
     assert normalized[0]["evaluator"].evaluator_id == EVALUATOR_ID
+
+
+def test_optional_orchestration_ledger_is_bound_as_provenance_only() -> None:
+    ledger = EventLedger(schema_version="task.orchestration.v1")
+    ledger.append("transport_admission", admitted=True)
+    result = build_terminal_payload(
+        gpu_report=_report(),
+        job=_job(),
+        evaluator_result={"status": "valid_terminal", "success": True},
+        parameters={},
+        orchestration_result=ledger,
+    )
+    records = result["terminals"][0]["runtime"]["room06_livt04"]["streams"][
+        "identity_records"
+    ]
+    assert records["orchestration_ledger"] == {
+        "schema": "heterocoord.orchestration-ledger-ref.v1",
+        "schema_version": "task.orchestration.v1",
+        "digest": ledger.digest(),
+        "event_count": 1,
+    }
 
 
 @pytest.mark.parametrize(

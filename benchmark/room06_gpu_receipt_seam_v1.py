@@ -16,6 +16,8 @@ from typing import Any
 
 from tools.benchmark_branch.models import BranchJob
 
+from .room06_transport_runtime_v1 import bind_orchestration_ledger_provenance
+
 
 FORMAL_GATES = {
     "rankable": False,
@@ -68,6 +70,7 @@ def build_terminal_payload(
     job: BranchJob | Mapping[str, Any],
     evaluator_result: Mapping[str, Any],
     parameters: Mapping[str, Any],
+    orchestration_result: Any | None = None,
 ) -> dict[str, Any]:
     """Wrap explicit terminal material for ``map_ready_case_v1``.
 
@@ -75,7 +78,8 @@ def build_terminal_payload(
     ``terminal_payload``.  No field is reconstructed from ``status``, process
     exit, or ``scene_readback``.  The evaluator result remains an explicit
     caller-owned verdict and is passed through unchanged apart from a JSON
-    detach.
+    detach.  If supplied, ``orchestration_result`` contributes only a
+    digest-bound provenance reference under ``streams.identity_records``.
     """
 
     report = _mapping(gpu_report, "gpu_report")
@@ -106,6 +110,15 @@ def build_terminal_payload(
 
     terminal_job = _job_mapping(job)
     runtime = {"room06_livt04": deepcopy(dict(payload))}
+    if orchestration_result is not None:
+        try:
+            runtime = bind_orchestration_ledger_provenance(
+                runtime, orchestration_result
+            )
+        except (TypeError, ValueError) as exc:
+            raise Room06GpuReceiptSeamError(
+                f"orchestration ledger provenance binding failed: {exc}"
+            ) from exc
     # Canonical JSON detach catches accidental non-serialisable live objects
     # before the downstream artifact writer is invoked.
     try:
