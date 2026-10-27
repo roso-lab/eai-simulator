@@ -109,6 +109,10 @@ def test_runner_propagates_transport_admission_failure_and_keeps_independent_tas
     )
     assert result.task_states == {"move": "failed", "inspect": "completed"}
     assert result.feedback[0].failure_code is FailureCode.INFEASIBLE_TEAM
+    runtime_event = next(event for event in result.ledger.events if event["kind"] == "executor_ledger")
+    assert runtime_event["payload"]["schema_version"] == "task.transport_runtime.v1"
+    assert runtime_event["payload"]["digest"] == executor.ledger.digest()
+    assert any(item["kind"] == "transport_admission" for item in runtime_event["payload"]["events"])
 
 
 def test_forged_command_mass_is_ignored_by_json_constructor():

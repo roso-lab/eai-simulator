@@ -540,6 +540,22 @@ class TaskRunner:
             "scheduler_termination": termination_reason,
             "task_states": dict(states),
         }
+        # Executor-owned runtime provenance must travel with the scheduler
+        # ledger.  This is an opaque, digest-bound snapshot: the runner never
+        # interprets executor events as evaluator facts or success evidence.
+        executor_ledger = getattr(self.orchestration_executor, "ledger", None)
+        if executor_ledger is not None:
+            events = getattr(executor_ledger, "events", None)
+            digest = getattr(executor_ledger, "digest", None)
+            schema_version = getattr(executor_ledger, "schema_version", None)
+            if not isinstance(events, tuple) or not callable(digest):
+                raise TypeError("executor ledger must expose events, digest(), and schema_version")
+            ledger.append(
+                "executor_ledger",
+                schema_version=str(schema_version),
+                digest=str(digest()),
+                events=[dict(event) for event in events],
+            )
         ledger.append(
             "scheduler_terminated",
             reason=termination_reason,

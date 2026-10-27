@@ -25,6 +25,7 @@
 5. `transport_command_bound`、`transport_admission`、`transport_navigation`、`transport_started`、`transport_returned/failed` 写入 append-only ledger；
 6. 支持 `from_json_documents()`，使正式场景 object/robot resolver 可直接注入，不依赖 Isaac/Kit；
 7. 该层只提供调度反馈，不生成 evaluator-owned receipt material，也不打开任何正式资格门。
+8. `TaskRunner` 在终止前把 executor ledger 作为带 schema/digest 的不透明事件快照写入 orchestration ledger，避免 runtime provenance 与调度结果脱节；快照不被解释为科学事实。
 
 ## 验证
 
@@ -41,6 +42,8 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 env_isaaclab/bin/python -m pytest -q \
 ## 未完成与下一接缝
 
 - evaluator-owned terminal receipt 仍需从真实 observer/skill-session source 生成并接入现有 receipt material 链；
-- room_06 的真实跨层 topology edge 与物体/机器人语义地图到位后，才能冻结并运行第一个真实 case；
+- task runner 现在已把 executor ledger 以 digest-bound opaque snapshot 接入 orchestration ledger；它仍不会替代 `Room06ObservationBridge`/`TerminalCaseRunner` 的 evaluator-owned receipt material；
+- 当前主线 room_06 map revision `d9872563938c42fd85f43efa3dab3c0b` 具备 12 个命名语义点，但 `topology.json` 仍无跨层 edge/transition 节点，且 manifest 明确 `robot_validated=false`；因此 preflight 会按设计 fail-closed，尚不能冻结并运行第一个真实 case；
+- 完整语义地图交付后，需重新生成 map digest、绑定 transition node、跑 `audit_room06_runtime_preflight`，再把真实 observer source 注册到 `SimulatorLaunchConfig.room06_runtime_hook_source_factory`；
 - diagnostic GPU 结果继续保持 `diagnostic-only`，`physical_qualified`、`rankable`、`paper_score_eligible` 及认证 flags 全部为 `false`；
 - 推送边界再执行全量回归，日常小步不重复全量套件。
