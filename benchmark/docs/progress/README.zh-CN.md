@@ -1,11 +1,6 @@
 # HeteroCoord 工程进度文档索引
 
-这些文档记录工程阶段、验收证据和未闭合条件，不是论文正文，也不替代运行收据。当前
-冻结的权威论文 ref 为
-`overleaf-old/main@dac7b94207a2683d494bdb388fc48533c9219bdf`。当前发布身份与
-contract-only difficulty 语义已经工程实现；生产 certification registries、真实运行与
-物理/GPU 证据仍为 pending，正式资格门保持关闭。历史文档内的旧 SHA 只描述当时阶段，
-不得覆盖本页的当前权威 ref。
+这些文档记录工程阶段、验收证据和未闭合条件，不是论文正文，也不替代运行收据。当前冻结的权威论文 ref 为 `overleaf-old/main@0b006d4efcd25d5160d4b0a6e75cddd9e5265e44`；本地论文工作树 `72b6a3b…` 是尚未切换的历史 checkout。工程身份已迁移，语义迁移仍 pending。
 
 工程目录职责和提交边界见 [工程结构说明](../PROJECT_STRUCTURE.zh-CN.md)。
 本轮整理和待提交批次见 [工程整理计划](ENGINEERING_CLEANUP_PLAN_20261021.zh-CN.md)。
@@ -13,7 +8,7 @@ contract-only difficulty 语义已经工程实现；生产 certification registr
 ## 读取顺序
 
 1. [2026-10-23 阶段收尾](STAGE_CLOSEOUT_20261023.zh-CN.md)：查看受监督原生 source seam、失败证据、修复验收和当前七个 gate。
-2. [后续任务规划与阶段性收尾](FOLLOWUP_TASK_PLAN_20261022.zh-CN.md)：这是以 `72b6a3b` 编写的历史规划；执行时以 `dac7b942…` 当前发布身份和最新语义迁移审计为准。
+2. [后续任务规划与阶段性收尾](FOLLOWUP_TASK_PLAN_20261022.zh-CN.md)：这是以 `72b6a3b` 编写的历史规划；执行时以 `0b006d4…` 冻结收据和最新语义迁移审计为准。
 3. [当前论文对齐](CURRENT_PAPER_ALIGNMENT.zh-CN.md)：确认论文版本、协议差异和正式门状态；其中旧 SHA 说明仅作历史参考。
 4. [论文 72b6a3b 实施阶段](PAPER_72B6A3_IMPLEMENTATION.zh-CN.md)：查看 P0–P2 新状态所有权和初始化合同。
 5. [P0–P5 总进度](P0_P5_IMPLEMENTATION.zh-CN.md)：查看各阶段已完成和未完成的工程边界。
@@ -34,6 +29,8 @@ contract-only difficulty 语义已经工程实现；生产 certification registr
 - [P3 protocol/statistics](P3_PROTOCOL_STATISTICS_PROGRESS.zh-CN.md)
 - [P4/P5 evidence closure](P4_P5_EVIDENCE_CLOSURE_20261021.zh-CN.md)
 - [D1–D6 结果计算与输出闭环](RESULTS_PIPELINE_V3_20261025.zh-CN.md)
+- [被测系统接入规范 v1（算法无关，../TESTED_SYSTEM_INTEGRATION_SPEC_v1.zh-CN.md）](../TESTED_SYSTEM_INTEGRATION_SPEC_v1.zh-CN.md)
+- [EMOS 适配器附录 v1（零号实现）](../EMOS_BENCHMARK_INTEGRATION_SPEC_v1.zh-CN.md)
 
 ### 本地运行、恢复与资源
 
