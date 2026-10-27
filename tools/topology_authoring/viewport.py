@@ -872,6 +872,14 @@ class _TopologyEditorGesture:
                         self._last_mouse = None
                         return
                     self.controller.select(selection)
+                    # Endpoint selection must not depend on ClickGesture's
+                    # release callback. Kit may cancel that gesture when its
+                    # native selection recognizer shares the same press, so
+                    # fix add-edge endpoints at press time and let the click
+                    # phase only provide a compatibility fallback.
+                    if tool == "add-edge" and selection["kind"] == "node":
+                        self.controller.activate_node_for_edge(hit["id"])
+                        self._press["edge_activated"] = True
             return
         press = getattr(self, "_press", None)
         if press is None or press["context"] != self._context_key():
@@ -890,7 +898,8 @@ class _TopologyEditorGesture:
                                 and hit.get("kind") == "node"):
                     selection = self._selection(hit)
                     self.controller.select(selection)
-                    if tool == "add-edge" and selection["kind"] == "node":
+                    if (tool == "add-edge" and selection["kind"] == "node"
+                            and not press.get("edge_activated")):
                         self.controller.activate_node_for_edge(hit["id"])
                 elif tool not in {"build-ground-road", "delete-ground-edge", "build-aerial-road", "delete-aerial-edge"}:
                     point = self._world_point(mouse_ndc)

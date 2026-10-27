@@ -939,6 +939,23 @@ def test_empty_drag_never_creates_and_endpoint_clicks_wait_for_confirmation():
     assert len(dispatcher.calls) == 1 and dispatcher.calls[0][0][2] == "add_edge"
 
 
+def test_edge_endpoints_are_fixed_on_press_when_click_release_is_canceled():
+    dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
+    context = _context(active_layer="aerial"); context["editor_tool"] = "add-edge"
+    controller.update_context(context)
+    pointer = _pointer(controller, {
+        (0., 0.): {"kind": "node", "id": "n1", "position_xyz": [0., 0., 2.]},
+        (20., 0.): {"kind": "node", "id": "n2", "position_xyz": [2., 0., 2.]}})
+    pointer.handle("began", (0., 0.))
+    assert controller.edge_start == "n1" and controller.edge_end is None
+    pointer.cancel_from_scene()
+    pointer.handle("began", (20., 0.))
+    assert (controller.edge_start, controller.edge_end) == ("n1", "n2")
+    assert controller.preview["kind"] == "edge-draft"
+    assert controller.finish_edge()
+    assert dispatcher.calls[-1][0][2] == "add_edge"
+
+
 def test_escape_and_tool_switch_invalidate_held_pointer():
     dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
     controller.update_context(_context())
