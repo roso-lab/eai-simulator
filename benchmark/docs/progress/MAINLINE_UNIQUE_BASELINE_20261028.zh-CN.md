@@ -2,7 +2,7 @@
 
 ## 当前基线
 
-- 本地 `HeteroCoord` 与 `origin/HeteroCoord` 均为 `7e78ef04`，工作树干净。
+- 本地 `HeteroCoord` 与 `origin/HeteroCoord` 均为 `d88fc940`，工作树干净。
 - 本轮已执行 `git fetch origin HeteroCoord`；远端没有待拉取提交。
 - 后续工程开发、受影响测试和推送统一以 `HeteroCoord` 为基线。其他分支保留为历史审计源，不再作为并行主线。
 - `physical_qualified`、`rankable`、`paper_score_eligible` 继续保持 `false`。
