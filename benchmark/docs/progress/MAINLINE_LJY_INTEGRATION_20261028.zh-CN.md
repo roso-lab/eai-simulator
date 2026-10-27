@@ -23,6 +23,7 @@
 | EMOS/production/room06 evaluator | 31 passed |
 | room06 input audit/task runtime/evaluator | 82 passed |
 | topology authoring 与 Web/Isaac bridge | 107 passed（`env_isaaclab`） |
+| benchmark 全量（推送边界） | 1047 passed，0 failed，0 errors，0 skipped（`env_isaaclab`） |
 | compile/diff | `compileall` 与 `git diff --check` 通过 |
 
 运行环境：语义地图专项使用 `/home/pupil/miniconda3/envs/env_isaaclab/bin/python`；该环境提供 `torch 2.7.0+cu128`、`lark 1.3.1`、`shapely 2.1.2`。默认 Python 缺 `shapely`，不作为代码失败处理。
