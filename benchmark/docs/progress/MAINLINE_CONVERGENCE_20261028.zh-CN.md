@@ -2,7 +2,8 @@
 
 ## 收敛结果
 
-- 本地 `HeteroCoord` 已收敛到 `origin/HeteroCoord@518427c3`，工作树干净，后续主线开发只在该分支进行。
+- 本地 `HeteroCoord` 已收敛到 `origin/HeteroCoord@2a1942e1`，工作树干净，后续主线开发只在该分支进行。
+- 本次“唯一主线”处置的逐项分支判定见 `MAINLINE_UNIQUE_BASELINE_20261028.zh-CN.md`。
 - 收敛前的本地提交链保存在标签 `backup/HeteroCoord-pre-convergence-20261028`。
 - 收敛前主工作树的跟踪改动和未跟踪文件保存在 `stash@{0}`（消息：`pre-mainline-convergence-20261028-root-worktree`）。恢复点不作为发布分支，也不进入资格证据。
 
