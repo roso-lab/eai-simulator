@@ -1041,13 +1041,8 @@ class _TopologyEditorViewportScene:
                 # gesture surface immediately after on_build returns.
                 self.transform = sc.Transform()
                 with self.transform:
-                    # Screen expects Kit gesture instances. The editor keeps
-                    # small owner wrappers around those instances so it can
-                    # route callbacks into the controller; passing the
-                    # wrappers themselves silently creates a non-interactive
-                    # screen in current Kit releases.
                     self.screen = sc.Screen(gesture=[g for g in
-                                                     (self.owner._gesture.click_gesture.gesture,
+                                                     (self.owner._gesture.click_gesture,
                                                       self.owner._gesture.gesture) if g is not None])
 
         self.viewport_api = viewport_api
@@ -1071,16 +1066,17 @@ class _TopologyEditorViewportScene:
             self._manipulator.visible = bool(value)
 
     def set_input_enabled(self, enabled: bool) -> None:
-        """Toggle the custom topology surface without disabling viewport clicks.
-
-        Native Prim selection is already disabled by IsaacSelectionBridge. The
-        viewport utility's ``disable_click=True`` also suppresses the scene
-        gesture on several Kit releases, which makes empty-space point clicks
-        disappear. Keep this hook for lifecycle compatibility and let the
-        gesture manager own pointer input.
-        """
-        del enabled
-        self._selection_disable_handle = None
+        """Toggle native USD picking together with the topology surface."""
+        enabled = bool(enabled)
+        if enabled and self._selection_disable_handle is None:
+            try:
+                from omni.kit.viewport.utility import disable_selection
+                self._selection_disable_handle = disable_selection(
+                    self.viewport_api, disable_click=True)
+            except (ImportError, AttributeError, RuntimeError, TypeError):
+                self._selection_disable_handle = False
+        elif not enabled and self._selection_disable_handle is not None:
+            self._selection_disable_handle = None
 
     def destroy(self):
         if self._gesture is not None:
