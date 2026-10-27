@@ -895,6 +895,14 @@ class _TopologyEditorGesture:
                 result.append({"kind": "edge", "id": edge["id"]})
         return result
 
+    def _box_world_preview(self, start_ndc, end_ndc):
+        """Project the transient screen rectangle onto the active edit plane."""
+        sx, sy = start_ndc
+        ex, ey = end_ndc
+        corners = ((sx, sy), (ex, sy), (ex, ey), (sx, ey), (sx, sy))
+        points = [self._world_point(corner) for corner in corners]
+        return points if all(point is not None for point in points) else None
+
     @staticmethod
     def _selection(hit):
         kind = hit.get("target_kind", "node") if hit["kind"] == "gizmo" else hit["kind"]
@@ -999,6 +1007,8 @@ class _TopologyEditorGesture:
                     if tool in {"add-node", "add-semantic-point"}:
                         self._box_start = tuple(press["ndc"])
                         self._box_end = tuple(mouse_ndc)
+                        self.controller.set_box_preview(
+                            self._box_world_preview(self._box_start, self._box_end))
                     return  # Moving over empty space never authors a point.
                 selection = self._selection(hit)
                 if tool == "add-edge" and selection["kind"] == "node":
@@ -1029,10 +1039,13 @@ class _TopologyEditorGesture:
                         self.controller.update_drag(point)
             elif self._box_start is not None:
                 self._box_end = tuple(mouse_ndc)
+                self.controller.set_box_preview(
+                    self._box_world_preview(self._box_start, self._box_end))
         elif phase == "ended" and self._moved:
             self._last_mouse = tuple(mouse_ndc)
             if self._box_start is not None and self._box_end is not None:
                 self.controller.set_selection_items(self._box_select(self._box_start, self._box_end))
+                self.controller.set_box_preview(None)
             elif self.controller.gesture is not None:
                 is_road_tool = tool in {"build-ground-road", "build-aerial-road"}
                 endpoint_hit = (None if is_road_tool and self.controller.road_free_snap
@@ -1051,6 +1064,7 @@ class _TopologyEditorGesture:
             self._press = self._drag_target = None
             self._last_mouse = None
             self._box_start = self._box_end = None
+            self.controller.set_box_preview(None)
 
     def destroy(self):
         for gesture in (self.gesture, self.click_gesture):
@@ -1060,6 +1074,8 @@ class _TopologyEditorGesture:
         self._press = self._drag_target = None
         self._last_mouse = None
         self._box_start = self._box_end = None
+        if self.controller is not None:
+            self.controller.set_box_preview(None)
         self.viewport_api = self.controller = None
 
 

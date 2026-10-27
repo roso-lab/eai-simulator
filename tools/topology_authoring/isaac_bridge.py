@@ -822,6 +822,9 @@ class IsaacTopologyController:
         self.semantic_points: list[dict[str, Any]] = []
         self.selection: dict[str, Any] | None = None
         self.selection_items: list[dict[str, Any]] = []
+        # Screen-space box selection is transient; the viewport converts it
+        # to world points for the session overlay while the pointer is held.
+        self.box_preview: list[list[float]] | None = None
         self.edge_start: str | None = None
         self.edge_end: str | None = None
         self.edge_identity: dict[str, Any] | None = None
@@ -1353,6 +1356,7 @@ class IsaacTopologyController:
             self._submit_context(("navigation-binding-mode",), binding_target_mode=None,
                                  binding_target_id=None, binding_target_draft=None)
         self.selection = selection
+        self.selection_items = ([dict(selection)] if selection else [])
         self.selection_dirty = True
         self._changed()
 
@@ -1488,6 +1492,13 @@ class IsaacTopologyController:
             and isinstance(row.get("id"), str)]
         if self.selection_items:
             self.selection = dict(self.selection_items[0])
+        else:
+            self.selection = None
+        self._changed()
+
+    def set_box_preview(self, points: Iterable[Iterable[float]] | None) -> None:
+        self.box_preview = (None if points is None else
+                            [list(_finite_xyz(point)) for point in points])
         self._changed()
 
     def undo(self) -> bool:
@@ -1510,6 +1521,7 @@ class IsaacTopologyController:
         self._road_last_point = None
         self.preview = None
         self.selection_items = []
+        self.box_preview = None
         self.edge_start = self.edge_end = None
         self.edge_identity = None
         if not preserve_retry:

@@ -599,10 +599,25 @@ def test_ground_mode_and_edge_endpoint_mutations_are_rejected():
         [1., 2., 3.], label="blocked", kind="waypoint")
     assert not controller.delete_selected()
     assert len(dispatcher.calls) == call_count
-
     assert not controller.set_level("ground")
     assert len(dispatcher.calls) == call_count
 
+
+def test_isaac_selection_items_replace_single_selection_and_clear_on_empty_box():
+    dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
+    controller.update_context(_context(active_layer="aerial"))
+    controller.set_selection_items([
+        {"kind": "node", "id": "n1"},
+        {"kind": "edge", "id": "e1"},
+    ])
+    assert controller.selection == {"kind": "node", "id": "n1"}
+    assert controller.delete_selected()
+    assert dispatcher.calls[-1][0][2] == "remove_selection"
+    controller.select({"kind": "node", "id": "n2"})
+    assert controller.selection_items == [{"kind": "node", "id": "n2"}]
+    controller.set_selection_items([])
+    assert controller.selection is None
+    assert controller.selection_items == []
 
 def test_semantic_point_add_properties_modes_and_delete_use_frozen_identity():
     dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)

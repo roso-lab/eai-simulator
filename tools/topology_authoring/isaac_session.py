@@ -273,6 +273,7 @@ class IsaacMapSession:
                 preview=self.editor_controller.preview,
                 semantic_points=getattr(self.editor_controller, "semantic_points", ()),
                 selection_items=getattr(self.editor_controller, "selection_items", ()),
+                box_preview=getattr(self.editor_controller, "box_preview", None),
                 active_layer=getattr(
                     self.editor_controller, "active_layer",
                     (self.editor_controller.context or {}).get("active_domain", "ground")),

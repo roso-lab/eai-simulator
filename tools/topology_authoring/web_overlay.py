@@ -510,7 +510,8 @@ class WebOverlayRenderer:
         return frozenset()
 
     def editor_state(self, *, snapshot, domain, selection=None, preview=None,
-                     semantic_points=(), active_layer=None, selection_items=()):
+                     semantic_points=(), active_layer=None, selection_items=(),
+                     box_preview=None):
         """Draw transient active-layer point/edge previews in the session layer."""
         if self.stage is None:
             return
@@ -518,7 +519,8 @@ class WebOverlayRenderer:
         token = json.dumps(
             {"snapshot_revision": snapshot.get("revision"), "domain": domain,
              "selection": selection, "selection_items": selection_items, "preview": preview,
-             "semantic_points": semantic_points, "active_layer": layer},
+             "semantic_points": semantic_points, "active_layer": layer,
+             "box_preview": box_preview},
             sort_keys=True, separators=(",", ":"), allow_nan=False)
         if token == getattr(self, "_editor_state_token", None):
             return
@@ -583,6 +585,14 @@ class WebOverlayRenderer:
                     hidden_keys.add((f"{layer}:edge", edge.get("id")))
                     preview_geometry["edges"].append({**edge, "polyline_xyz": points})
             self._preview_visibility(hidden_keys)
+            if box_preview and len(box_preview) >= 4:
+                points = [_finite_point(point) for point in box_preview]
+                if all(point is not None for point in points):
+                    self._define({
+                        "path": f"{root_path}/SelectionBox", "shape": "polyline",
+                        "points": points, "width": .012,
+                        "color": [0.35, 0.75, 1.0], "category": None, "key": None,
+                    })
             for spec in build_overlay_specs(preview_geometry, layer=layer)["prims"]:
                 self._define({**spec,
                               "path": spec["path"].replace(
