@@ -2,7 +2,7 @@
 
 ## 当前基线
 
-- 本地 `HeteroCoord` 与 `origin/HeteroCoord` 均为 `9602e561`，工作树干净。
+- 本地 `HeteroCoord` 与 `origin/HeteroCoord` 均为 `7e78ef04`，工作树干净。
 - 本轮已执行 `git fetch origin HeteroCoord`；远端没有待拉取提交。
 - 后续工程开发、受影响测试和推送统一以 `HeteroCoord` 为基线。其他分支保留为历史审计源，不再作为并行主线。
 - `physical_qualified`、`rankable`、`paper_score_eligible` 继续保持 `false`。
@@ -28,7 +28,7 @@ GPU 工作树 `codex/room06-real-gpu-vertical-20261027` 比当前主线落后 36
 | `codex/stat-report-producers-v1` | `11b6f03e` 已被主线 `dfd75ecc` 等后续修订 supersede | 以主线版本为准 |
 | `codex/d4-dual-first-event-dac7b94` | 主线已有 `a467e60c` 及 `ddb9f688` 修订 | 以主线版本为准 |
 | `codex/paper-alignment-*` | room06 fixed package 与论文身份已有更新版本 | 以主线版本为准 |
-| `paper-difficulty-dac7b94` | 旧论文 SHA `dac7b942` 的未提交改动；主线已含 `difficulty_contract_v1` 和当前论文身份 | 保留原工作树，禁止覆盖；待需要时按当前 `PAPER_COMMIT` 做小补丁 |
+| `paper-difficulty-dac7b94` | 旧论文 SHA `dac7b942` 的未提交改动；主线已含 `difficulty_contract_v1` 和当前论文身份；主线受影响集复验 `40 passed` | 保留原工作树，禁止覆盖；待需要时按当前 `PAPER_COMMIT` 做小补丁 |
 | `semantic-map-tool-release` / `tool` | 基于旧线的大量 vectorized/recovery 改动，包含重复地图和旧运行时接口 | 不整合；使用主线现有 topology authoring/shared-session 代码 |
 
 ## 规则与下一步
