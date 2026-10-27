@@ -496,6 +496,20 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                         # Ephemeral browser selection: no revision gate, the
                         # scene switch below rotates the token instead.
                         selection = body.get("selection")
+                        if (editor.get("binding_target_mode") == "semantic_navigation"
+                                and isinstance(selection, dict)
+                                and selection.get("kind") in {"node", "edge"}):
+                            # Binding picks are transient navigation targets;
+                            # keep the semantic point as the authoritative
+                            # editor selection while the draft is active.
+                            current = web_selection.get("selection")
+                            if not (current and current.get("kind") == "semantic_point"
+                                    and current.get("id") == editor.get("binding_target_id")):
+                                current = {"kind": "semantic_point", "collection": None,
+                                           "id": editor.get("binding_target_id")}
+                            if current.get("id") == editor.get("binding_target_id"):
+                                self.reply(200, {"selection": current})
+                                return
                         selection = normalize_selection(selection)
                         web_selection["selection"] = selection
                         if editor.get("binding_target_mode") == "semantic_navigation":

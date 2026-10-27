@@ -121,6 +121,17 @@ def test_native_navigation_binding_without_isaac_selection():
     assert dispatcher.calls[-1][1]["bindings"] == []
 
 
+def test_navigation_binding_keeps_semantic_selection_when_navigation_object_is_clicked():
+    dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
+    controller.update_context(_context(active_layer="semantic_points"))
+    controller.select({"kind": "semantic_point", "collection": None, "id": "s1"})
+    assert controller.begin_navigation_binding()
+    before = controller.selection.copy()
+    controller.select({"kind": "node", "collection": None, "id": "g1"})
+    assert controller.selection == before
+    assert controller.navigation_binding_mode
+
+
 def test_native_binding_pick_exposes_hidden_navigation_layers(monkeypatch):
     import tools.topology_authoring.viewport as viewport_module
 

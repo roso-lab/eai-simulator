@@ -314,6 +314,7 @@
       for (const domain of ["ground", "aerial"]) for (const node of nodes(domain).slice().reverse()) {
         if (bindingNodeVisible(node, domain) && Math.hypot(world[0] - previewNode(node, domain)[0], world[1] - previewNode(node, domain)[1]) <= tolerance) return { type: "node", id: node.id, domain, record: node };
       }
+      // Edges remain visible for orientation but are never binding targets.
       return null;
     }
     if (isRoadDeleteTool(mode)) {
@@ -502,6 +503,7 @@
       renderNavigationBindings(recordFor()); draw();
       return;
     }
+    if (state.bindingPickMode) return;
     if (hit && hit.type === "node" && mode === "add-edge") { edgeNode(hit.record); return; }
     if (hit && (hit.type === "node" || hit.type === "semantic_point")) {
       select({

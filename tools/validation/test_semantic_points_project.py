@@ -365,3 +365,12 @@ def test_navigation_binding_context_stays_on_semantic_layer(api):
     assert state["binding_target_draft"] == [
         {"domain": "aerial", "node_id": "node:0001"},
         {"domain": "ground", "node_id": "node:0001"}]
+    code, selected = request("/api/web/selection", {
+        **identity(state), "selection": {"kind": "node", "collection": None,
+                                          "id": "node:0001", "domain": "aerial"}})
+    assert code == 200
+    assert selected["selection"]["kind"] == "semantic_point"
+    assert selected["selection"]["id"] == "s1"
+    _, state = request("/api/state")
+    assert state["active_layer"] == "semantic_points"
+    assert state["binding_target_mode"] == "semantic_navigation"

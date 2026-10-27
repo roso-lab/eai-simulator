@@ -1337,6 +1337,12 @@ class IsaacTopologyController:
             id=point["id"], position_xyz=position)
 
     def select(self, selection: dict[str, Any] | None) -> None:
+        # Navigation binding owns map picks while the semantic point remains
+        # selected. A navigation node/edge hit must never replace that
+        # selection or cause the editor to leave the semantic layer.
+        if (self.navigation_binding_mode and selection
+                and selection.get("kind") in {"node", "edge"}):
+            return
         if (self.navigation_binding_target_id
                 and (not selection or selection.get("kind") != "semantic_point"
                      or selection.get("id") != self.navigation_binding_target_id)):
