@@ -1,9 +1,186 @@
 {
   "schema": "eai.semantic_points",
-  "version": 1,
+  "version": 2,
   "scene_key": "service_city_01",
   "coordinate_frame": "scene_world",
   "meters_per_unit": 1,
   "up_axis": "Z",
-  "points": []
+  "points": [
+    {
+      "id": "semantic:940a388c4a5e46eb9c1fde889e9f5914",
+      "position_xyz": [
+        -67.9,
+        -60.6,
+        0.054
+      ],
+      "label": "street-west-stub-end",
+      "kind": "custom",
+      "description": "西侧街道盲端圆头（路网最西端，几何中心线点集西部极值附近）。建议稿待用户裁决；来源=USD 三角形级地形起伏栅格 v1。",
+      "aliases": [],
+      "properties": {
+        "source": "usd-triangle-relief-raster-v1"
+      },
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "route:service_city_01:ground:component-001:free-centerline:point:0157"
+        }
+      ]
+    },
+    {
+      "id": "semantic:c3f2e0ca87b14f23ad090c0349464a49",
+      "position_xyz": [
+        -18.3,
+        -83.6,
+        0.0
+      ],
+      "label": "street-south-loop-end",
+      "kind": "custom",
+      "description": "南侧街道圆头端（路网最南端，拓扑节点 y 最小值处）。建议稿待用户裁决；来源=USD 三角形级地形起伏栅格 v1。",
+      "aliases": [],
+      "properties": {
+        "source": "usd-triangle-relief-raster-v1"
+      },
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "route:service_city_01:ground:component-001:free-centerline:point:0045"
+        }
+      ]
+    },
+    {
+      "id": "semantic:8dadaa06bd2b4aff965235f2269d06fd",
+      "position_xyz": [
+        12.85,
+        -24.75,
+        0.0
+      ],
+      "label": "street-east-stub-end",
+      "kind": "custom",
+      "description": "东侧街道端点（路网最东端，component-001 路线起点）。建议稿待用户裁决；来源=USD 三角形级地形起伏栅格 v1。",
+      "aliases": [],
+      "properties": {
+        "source": "usd-triangle-relief-raster-v1"
+      },
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:service_city_01:ground:component-001:route-start"
+        }
+      ]
+    },
+    {
+      "id": "semantic:4138cda9f7b340f085db0b425469129c",
+      "position_xyz": [
+        -43.0,
+        20.5,
+        1.31
+      ],
+      "label": "street-north-causeway-loop",
+      "kind": "custom",
+      "description": "北段高架路（高程 1.0-1.3 m 台地路）北端环岛，台面地标（地面机器人默认不可达，需坡道证据）。建议稿待用户裁决；来源=USD 三角形级地形起伏栅格 v1。",
+      "aliases": [],
+      "properties": {
+        "source": "usd-triangle-relief-raster-v1"
+      },
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:service_city_01:ground:component-001:route-end"
+        }
+      ]
+    },
+    {
+      "id": "semantic:1de669f3a3b94578b649faa7c7e5c1fd",
+      "position_xyz": [
+        -5.05,
+        -49.95,
+        0.0
+      ],
+      "label": "crossroad-central",
+      "kind": "custom",
+      "description": "中东部主干交叉口（z=0 街网中离障碍最远的开阔交汇格）。建议稿待用户裁决；来源=USD 三角形级地形起伏栅格 v1。",
+      "aliases": [],
+      "properties": {
+        "source": "usd-triangle-relief-raster-v1"
+      },
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "route:service_city_01:ground:component-001:free-centerline:point:0030"
+        }
+      ]
+    },
+    {
+      "id": "semantic:1656219abb7047039deda1e53a12efc1",
+      "position_xyz": [
+        -39.95,
+        -66.45,
+        0.0
+      ],
+      "label": "crossroad-southwest",
+      "kind": "custom",
+      "description": "西南象限主干交叉口（盒内离障碍最远自由格，脚本计算）。建议稿待用户裁决；来源=USD 三角形级地形起伏栅格 v1。",
+      "aliases": [],
+      "properties": {
+        "source": "usd-triangle-relief-raster-v1"
+      },
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "route:service_city_01:ground:component-001:free-centerline:point:0051"
+        }
+      ]
+    },
+    {
+      "id": "semantic:b949a841191043e4a492251ec9e3c2ba",
+      "position_xyz": [
+        4.0,
+        -17.0,
+        2.282
+      ],
+      "label": "plaza-east-pavilions",
+      "kind": "custom",
+      "description": "东广场亭列台地（高程约 2.2 m 的柱廊平顶建筑群地标，视觉证据 u≈0.85-0.96 一带）。建议稿待用户裁决；来源=USD 三角形级地形起伏栅格 v1。",
+      "aliases": [],
+      "properties": {
+        "source": "usd-triangle-relief-raster-v1"
+      },
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:service_city_01:ground:component-001:route-start"
+        }
+      ]
+    },
+    {
+      "id": "semantic:48413f06bee14fbf8e8691f05c7091da",
+      "position_xyz": [
+        -53.05,
+        -41.95,
+        0.0
+      ],
+      "label": "block-w01-front",
+      "kind": "custom",
+      "description": "西缘最大街区 w01 临街开敞前沿（街区内部成分为白色平顶群或空场，视觉证据未定，点位在临街开敞侧）。建议稿待用户裁决；来源=USD 三角形级地形起伏栅格 v1。",
+      "aliases": [],
+      "properties": {
+        "source": "usd-triangle-relief-raster-v1"
+      },
+      "edit_mode": "3d",
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "route:service_city_01:ground:component-001:free-centerline:point:0161"
+        }
+      ]
+    }
+  ]
 }
