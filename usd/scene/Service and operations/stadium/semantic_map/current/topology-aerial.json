@@ -14,15 +14,309 @@
     }
   ],
   "source": {
-    "usd_layer_0000": "2d8883bcb14b1f122068735087de548dd5354f791d8b43bde5e7a7033f799302",
-    "usd_layer_0001": "2422ac6900a3511927d9cbf53b149632e685e4d90f96df5133fca8d4a114335f"
+    "usd_layer_0000": "7a70786de18d06f052d0f2f5d65f542ff7deb5ce6aa77bcd3817973c1386f771",
+    "usd_layer_0001": "2d8883bcb14b1f122068735087de548dd5354f791d8b43bde5e7a7033f799302",
+    "usd_layer_0002": "8e618587db558802f2bd0671058d49f3f627b133264a68447c54bf821ef3ce9d"
   },
   "nodes": [],
   "edges": [],
   "semantics": {
     "schema": "eai.scene.semantics",
     "version": 1,
-    "regions": [],
+    "regions": [
+      {
+        "id": "service_stadium-ground-roof-canopy",
+        "kind": "roof",
+        "label": "ring-shaped paneled roof canopy forming the outermost band of the bowl; outer edge coincides with the stadium silhouette, seating rows remain visible inside its inner edge",
+        "aliases": [],
+        "level_id": "ground",
+        "polygon_xyz": [
+          [
+            -103.64395671605045,
+            -86.5447915009082,
+            0.0
+          ],
+          [
+            101.34772918996666,
+            -86.9722582148669,
+            0.0
+          ],
+          [
+            101.66136124385639,
+            81.49847593630967,
+            0.0
+          ],
+          [
+            -103.33032466216072,
+            81.92594265026837,
+            0.0
+          ]
+        ],
+        "height_m": 18.0,
+        "entrance_node_ids": [],
+        "properties": {
+          "confidence": "observed",
+          "evidence": {
+            "image": "evidence/47e99bc6219b2784-ground-material-top.png",
+            "visual_note": {
+              "image": "evidence/47e99bc6219b2784-ground-material-top.png",
+              "sha256": "47e99bc6219b278417f08c3c737424ac2d331287a11fbc3deeee5c8e421fe92d",
+              "visual_note": "ground-material-top: 顶视最外环为灰蓝色面板顶棚，外缘即体育场轮廓外接框（u 0.039-0.960 / v 0.041-0.959，由 v=0.50 行与 u=0.50 列的非白行程实测，圆角矩形）；顶棚内缝在四向中心颜色剖面实测：西 u≈0.1475-0.1541、东 u≈0.846-0.853、北 v≈0.2157-0.2243（南按对称估计 v≈0.776-0.784）；内缝以内直接露出浅蓝灰座位带，顶视未见顶棚覆盖座位排。ground-material-ne/nw/se/sw: 同一环状顶棚斜视清晰，同心面板分格与内侧檐口可见。bounds 取顶视轮廓外接框。",
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            },
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "boundary_status": "editable_visual_selector",
+          "raster_region_id": 1,
+          "map_project": {
+            "mode": "base_region",
+            "level_id": "ground",
+            "region_id": 1,
+            "polygon_xyz": [
+              [
+                -103.64395671605045,
+                -86.5447915009082,
+                0.0
+              ],
+              [
+                101.34772918996666,
+                -86.9722582148669,
+                0.0
+              ],
+              [
+                101.66136124385639,
+                81.49847593630967,
+                0.0
+              ],
+              [
+                -103.33032466216072,
+                81.92594265026837,
+                0.0
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "service_stadium-ground-seating-bowl",
+        "kind": "grandstand",
+        "label": "concentric tiered seating bowl of pale blue-grey seat rows with radial aisle gaps between seat blocks; dark band along its inner rim listed separately",
+        "aliases": [],
+        "level_id": "ground",
+        "polygon_xyz": [
+          [
+            -77.9856380924608,
+            -53.19765090245868,
+            0.0
+          ],
+          [
+            76.03634523757594,
+            -53.518831104477584,
+            0.0
+          ],
+          [
+            76.22527609356834,
+            47.96735188637278,
+            0.0
+          ],
+          [
+            -77.79670723646841,
+            48.28853208839168,
+            0.0
+          ]
+        ],
+        "height_m": 18.0,
+        "entrance_node_ids": [],
+        "properties": {
+          "confidence": "observed",
+          "evidence": {
+            "image": "evidence/47e99bc6219b2784-ground-material-top.png",
+            "visual_note": {
+              "image": "evidence/47e99bc6219b2784-ground-material-top.png",
+              "sha256": "47e99bc6219b278417f08c3c737424ac2d331287a11fbc3deeee5c8e421fe92d",
+              "visual_note": "ground-material-top: 座位环外缘（顶棚内缝外沿）西 u≈0.154 / 东 u≈0.846 / 北 v≈0.224 / 南 v≈0.777，内缘西 u≈0.238 / 东 u≈0.764 / 北 v≈0.295 / 南 v≈0.706（RGB 颜色剖面蓝灰带起止实测）；环带内细条纹座位排与规律放射状过道间隙清晰，西带过道间距≈0.0276u，并见更深色同心分带线（西带 v≈0.468/0.515/0.563）。ground-material-ne/nw/se/sw: 斜视中碗盆多排高差与放射过道同见，内缘与场地之间有连贯深色带（另列 object）。bounds 取顶视环带外接框（环形区域，包络含中空场地）。",
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            },
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "boundary_status": "editable_visual_selector",
+          "raster_region_id": 2,
+          "map_project": {
+            "mode": "base_region",
+            "level_id": "ground",
+            "region_id": 2,
+            "polygon_xyz": [
+              [
+                -77.9856380924608,
+                -53.19765090245868,
+                0.0
+              ],
+              [
+                76.03634523757594,
+                -53.518831104477584,
+                0.0
+              ],
+              [
+                76.22527609356834,
+                47.96735188637278,
+                0.0
+              ],
+              [
+                -77.79670723646841,
+                48.28853208839168,
+                0.0
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "service_stadium-ground-playing-pitch",
+        "kind": "sports_field",
+        "label": "green football pitch with light-dark mowing checkerboard, white marking network and surrounding lighter green apron",
+        "aliases": [],
+        "level_id": "ground",
+        "polygon_xyz": [
+          [
+            -59.1082093415519,
+            -39.638181505741755,
+            0.0
+          ],
+          [
+            57.20954858948451,
+            -39.88073753691961,
+            0.0
+          ],
+          [
+            57.34818898977695,
+            34.591401807903324,
+            0.0
+          ],
+          [
+            -58.96956894125946,
+            34.83395783908118,
+            0.0
+          ]
+        ],
+        "height_m": 18.0,
+        "entrance_node_ids": [],
+        "properties": {
+          "confidence": "observed",
+          "evidence": {
+            "image": "evidence/47e99bc6219b2784-ground-material-top.png",
+            "visual_note": {
+              "image": "evidence/47e99bc6219b2784-ground-material-top.png",
+              "sha256": "47e99bc6219b278417f08c3c737424ac2d331287a11fbc3deeee5c8e421fe92d",
+              "visual_note": "ground-material-top: 绿色连通域外接框 px(429,416)-(1368,984)（1797x1400）；白线网络亮线剖面实测：球门线 u≈0.269/0.7385，边线 v≈0.3004/0.6714，中线 u≈0.5025，中圈圆心(0.5035,0.4855)半径≈0.044u 含中心点，大禁区线 u≈0.3472/0.6599（v 0.3693-0.6028），小禁区线 u≈0.2947/0.7126（v 0.4329-0.5397），草面明暗棋盘格清晰。ground-material-ne/nw/se/sw: 绿色场地斜视同见，斜视中场地远侧见顶棚/看台投影暗斑。bounds 取顶视绿色域外接框。",
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            },
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "boundary_status": "editable_visual_selector",
+          "raster_region_id": 3,
+          "map_project": {
+            "mode": "base_region",
+            "level_id": "ground",
+            "region_id": 3,
+            "polygon_xyz": [
+              [
+                -59.1082093415519,
+                -39.638181505741755,
+                0.0
+              ],
+              [
+                57.20954858948451,
+                -39.88073753691961,
+                0.0
+              ],
+              [
+                57.34818898977695,
+                34.591401807903324,
+                0.0
+              ],
+              [
+                -58.96956894125946,
+                34.83395783908118,
+                0.0
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "service_stadium-ground-exterior-fascia-band",
+        "kind": "facade",
+        "label": "white perimeter fascia wall band below the roof edge carrying gold lettering, crest badges and a large mural (all listed as objects); hidden under the roof overhang in the top view",
+        "aliases": [],
+        "level_id": "ground",
+        "polygon_xyz": [
+          [
+            -103.64395671605045,
+            -86.5447915009082,
+            0.0
+          ],
+          [
+            101.34772918996666,
+            -86.9722582148669,
+            0.0
+          ],
+          [
+            101.66136124385639,
+            81.49847593630967,
+            0.0
+          ],
+          [
+            -103.33032466216072,
+            81.92594265026837,
+            0.0
+          ]
+        ],
+        "height_m": 18.0,
+        "entrance_node_ids": [],
+        "properties": {
+          "confidence": "observed",
+          "evidence": {
+            "image": "evidence/47e99bc6219b2784-ground-material-top.png",
+            "visual_note": {
+              "image": "evidence/13b2af78e4f788ee-ground-material-ne.png",
+              "sha256": "13b2af78e4f788ee3abac5dbef28e1d208a9efee1d90614df53db54151cf6ca1",
+              "visual_note": "ground-material-ne/nw/se/sw: 四斜视均见白色外墙上带，上有金色 'SLNA FC' 字样、盾形队徽与大幅球员彩绘，环绕可见各立面；ground-material-top: 顶视中被顶棚外缘遮挡，墙带无独立像素（顶视场内 0 个暗色<95 连通域、无高饱和连通域），仅以外轮廓边缘为包络，故 bounds 取顶视轮廓外接框（包络非墙带实际几何）。",
+              "reviewer": "ZCode GLM-5.3-Flash/max"
+            },
+            "reviewer": "ZCode GLM-5.3-Flash/max"
+          },
+          "boundary_status": "editable_visual_selector",
+          "raster_region_id": 4,
+          "map_project": {
+            "mode": "base_region",
+            "level_id": "ground",
+            "region_id": 4,
+            "polygon_xyz": [
+              [
+                -103.64395671605045,
+                -86.5447915009082,
+                0.0
+              ],
+              [
+                101.34772918996666,
+                -86.9722582148669,
+                0.0
+              ],
+              [
+                101.66136124385639,
+                81.49847593630967,
+                0.0
+              ],
+              [
+                -103.33032466216072,
+                81.92594265026837,
+                0.0
+              ]
+            ]
+          }
+        }
+      }
+    ],
     "entities": [],
     "interaction_poses": [],
     "routes": [],
