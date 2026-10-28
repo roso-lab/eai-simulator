@@ -469,3 +469,33 @@ def test_http_ground_road_preview_is_read_only_and_commit_requires_road_tool(pro
         server.shutdown()
         server.server_close()
         thread.join()
+
+
+@pytest.mark.parametrize("domain", ["ground", "aerial"])
+@pytest.mark.parametrize("kind", ["node", "edge"])
+def test_selection_deletion_survives_save_export_reload_and_history(project, domain, kind):
+    for position in ([0, 0, 0], [1, 0, 0]):
+        project.edit("add_node", domain=domain, position_xyz=position,
+                     **({"level_id": "ground"} if domain == "ground" else {}))
+    project.edit("add_edge", domain=domain, from_id="node:0001", to_id="node:0002")
+    project.save()
+    before = project._snapshot()
+    revision = project.revision
+    project.edit("remove_selection", domain=domain,
+                 items=[{"kind": kind, "id": f"{kind}:0001"}])
+    assert project.revision == revision + 1
+    deleted = project._snapshot()
+    assert len(deleted[domain]["nodes"]) == (1 if kind == "node" else 2)
+    assert not deleted[domain]["edges"]
+    project.save()
+    assert project._snapshot() == deleted
+    assert project.document is project.document_for("ground")
+    assert MapProject(project.root)._snapshot() == deleted
+    filename = "topology.json" if domain == "ground" else "topology-aerial.json"
+    assert read_json(project.root / "current" / filename)["nodes"] == deleted[domain]["nodes"]
+    project.undo()
+    assert project._snapshot() == before
+    project.redo()
+    assert project._snapshot() == deleted
+    project.save()
+    assert MapProject(project.root)._snapshot() == deleted

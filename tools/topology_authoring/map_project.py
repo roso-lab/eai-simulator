@@ -613,6 +613,9 @@ class MapProject:
             for identifier in sorted(nodes): candidate.remove_node(identifier)
             self._undo.append(self._snapshot()); self._undo = self._undo[-100:]; self._redo.clear()
             self.documents[domain] = candidate
+            # Keep the legacy ground alias used by export/preview in sync with
+            # the authoritative per-domain document after selection deletion.
+            self.document = self.documents["ground"]
             self.revision += 1
             return
         if operation in {"add_semantic_point", "update_semantic_point", "remove_semantic_point",
