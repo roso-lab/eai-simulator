@@ -65,7 +65,7 @@ python -m tools.topology_authoring.map_server \
 
 ## 编辑
 
-统一入口提供点、边、语义点三种工具；当前工具只编辑对应类型。连线工具可选择节点
+统一入口提供导航点、边和语义管理工具；当前工具只编辑对应类型。连线工具可选择节点
 作为端点，但不修改节点属性。图层分为地面拓扑、空中拓扑和项目共享的语义点。
 参考图层通过显示开关开启，不参与当前工具命中。区域及旧语义类型已退出统一编辑入口。
 
@@ -74,17 +74,17 @@ python -m tools.topology_authoring.map_server \
 可视化；改高度不会改变楼层归属。切换工作楼层时，新建地面节点高度恢复为该楼层
 的支撑高度；切换参考底图或图层不重置该值。保存、导出和 Isaac 叠加保留实际 XYZ。
 地面节点及整边的 XY 拖动保留已有 Z；楼梯或坡道的过渡节点仍可不绑定楼层。
-空中节点和语义点始终显示所有高度，参考底图选择不筛选点。新点高度默认 Z=1.5 米，
-空中节点与语义点分别记忆新建高度和默认模式。新点不绑定地面楼层；旧空中节点的楼层
+空中节点始终显示所有高度，参考底图选择不筛选点。新点高度默认 Z=1.5 米，
+空中节点记忆新建高度和默认模式。新点不绑定地面楼层；旧空中节点的楼层
 元数据兼容保留，但不参与显示过滤。
 
-空中节点和语义点支持 `2.5d`／`3d`。2.5D 拖动只改 XY、保持该点 Z；属性始终允许显式输入 Z。
+空中节点支持 `2.5d`／`3d`。2.5D 拖动只改 XY、保持该点 Z；属性始终允许显式输入 Z。
 3D 在 Isaac 中提供 XYZ 手柄，网页始终在 XY 画布拖动。切换模式不移动点或改变引用。
 边工具依次选两个当前导航图节点，预览后确认。拖动整条边在 XY 平移两端节点及整条
 折线，其他关联边只更新受影响端点；各点 Z 不变。地面跨层边使用楼梯／坡道。
 
-语义点字段为稳定 ID、`position_xyz`、`label`、`kind`、`description`、`aliases`、
-`properties`、`edit_mode` 和 `navigation_bindings`。后者是任意数量
+语义记录字段为稳定 ID、`label`、`kind`、`description`、`aliases`、
+`properties` 和 `navigation_bindings`，不保存坐标或编辑模式。后者是任意数量
 的 `{domain: ground|aerial, node_id}`，按图域和节点 ID 规范化排序并校验节点存在；同一
 语义点可跨地面/空中图绑定。绑定只引用导航图节点，不引用 USD 或 Isaac Prim。
 语义点不是导航节点，不参与连线或直接最近点匹配；导航请求命中稳定语义点 ID 后，按
@@ -110,7 +110,7 @@ base/                         原始几何与标签参考栅格，带摘要
 current/
   topology.json               地面节点和边
   topology-aerial.json        空中节点和边
-  semantic-points.json        独立共享语义点（schema version 2）
+  semantic-points.json        独立共享语义点（schema version 3）
   semantic-footprints.json    兼容语义导出，清理后旧集合为空
   semantic-footprints.geojson 拓扑边的兼容 GeoJSON
   level-000-semantic-grid.npz 几何及当前实例/区域栅格
@@ -163,10 +163,12 @@ revision_directory = project.save()
 `add_edge/update_edge/remove_edge/translate_edge_xy`。
 `move_node_xy` 保留 Z；`translate_edge_xy(id, delta_xy)` 一次移动边和端点。
 
-语义点通过 `add_semantic_point/update_semantic_point/move_semantic_point_xy/`、
-`move_semantic_point/remove_semantic_point` 编辑；
+语义属性通过 `update_semantic_point/remove_semantic_point` 编辑；
+从导航节点创建使用 `create_node_annotation(node_id, ...)`，一次创建并绑定，支持单步撤销。
+HTTP 导航图层操作语义时必须提供 `annotation_node_id`，服务端校验当前图域和楼层。
+语义管理列表可以编辑、解绑和删除；坐标及移动操作被拒绝。
 导航绑定使用原子操作 `set_semantic_point_navigation_bindings`，传空数组表示全部解绑。
-旧语义点产品中的 `isaac_binding` 在读取时自动丢弃，下一次保存会导出不含该字段的新产品。
+旧版产品经过文件完整性校验后，读取时丢弃 `position_xyz`、`edit_mode` 和 `isaac_binding`；下一次保存写出 v3。未绑定记录保留，不自动推断绑定。
 
 `/api/editor/context` 接收 `active_layer`、`editor_tool`、`active_level`、
 `reference_level`、`visible_layers`、`visible_types` 和 `new_point_settings`；

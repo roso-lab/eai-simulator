@@ -1,5 +1,28 @@
 # Topology authoring and node-route validation
 
+## Nonspatial node annotations — 2026-10-28
+
+Semantic product v3 omits position_xyz and edit_mode. Legacy v1/v2 products
+are integrity checked before migration; IDs, attributes and navigation bindings
+survive load/save. New annotation creation and its first binding are one undoable
+transaction. Web and Isaac now expose node-first annotation editing.
+
+Validation in the tool worktree:
+
+- Topology, navigation, bridge, storage and overlay Python suite: 233 passed,
+  5 skipped; 5 surface tests failed solely on missing pxr imports.
+- Final focused annotation/client/navigation/overlay regression: 104 passed,
+  3 skipped after removing retired spatial submission paths.
+- Web handler tests: 13 passed, including atomic creation payloads and preserving
+  other node bindings on bind/unbind.
+- Python compilation, JavaScript syntax and git diff whitespace checks passed.
+
+No real Isaac Kit GUI session was exercised. The native controls, selection
+and dispatch paths were checked with test doubles; real viewport interaction
+still requires an Isaac installation. Historical reports below describe the
+older spatial semantic-point editor. Consumers of v3 semantic products must
+resolve navigation_bindings instead of reading a semantic position_xyz.
+
 ## Current unified editor: independent semantic points — 2026-10-20
 
 The current linked editor provides Point, Edge and Semantic Point tools, with

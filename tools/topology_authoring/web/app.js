@@ -18,7 +18,10 @@
     "aliasesGroup", "fieldAliases", "propertiesGroup", "fieldProperties", "edgeGroup", "fieldFrom",
     "fieldTo", "fieldDirected", "fieldTraversal", "bindingGroup", "navigationBindingStatus", "navigationBindingSearch",
     "navigationBindingList", "pickNavigationBtn", "clearNavigationBtn", "applyNavigationBtn", "deleteBtn", "applyBtn", "pendingDraftBanner",
-    "pendingDraftText", "retryDraftBtn", "discardDraftBtn"
+    "pendingDraftText", "retryDraftBtn", "discardDraftBtn",
+    "nodeAnnotations", "annotationSearch", "annotationChoice", "annotationNew", "annotationEdit",
+    "annotationBind", "annotationUnbind", "annotationForm", "annotationLabel", "annotationKind",
+    "annotationDescription", "annotationAliases", "annotationProperties", "annotationCancel"
   ].forEach((id) => { els[id] = $(id); });
 
   class ConflictError extends Error {}
@@ -38,12 +41,12 @@
     suppressSelectionPush: false, navigationBindingDraft: null, bindingPickMode: false,
     pointSettingsKey: null, roadDraft: null, roadPlan: null, roadRequest: 0, cHeld: false,
     roadHeightStep: 0.1,
-    errorMessage: null, noticeMessage: null
+    errorMessage: null, noticeMessage: null, annotationDraft: null
   };
   const hints = {
     "add-node": "空白处添加节点；点击已有节点选择并拖动",
     "add-edge": "依次点击两个节点连边；点击已有边选择并拖动",
-    "add-semantic-point": "空白处添加语义点；选中后可连接地面和空中导航节点",
+    "add-semantic-point": "从列表管理语义；在导航图层选择节点后新建或绑定语义",
     "build-ground-road": "按住左键拖动修路；松开后选择连接方式。按住 C 暂停吸附",
     "delete-ground-edge": "点击地面边删除，保留端点节点",
     "build-aerial-road": "按下左键前用 PageUp/PageDown 调整起点 Z；拖动时调整终点 Z，C 暂停吸附",
@@ -142,6 +145,7 @@
     if (!fresh || typeof fresh !== "object") throw new Error("服务端状态无效");
     const previousServer = state.server, oldKey = contextKey(previousServer), previous = state.selection, previousLayer = state.activeLayer, previousRevision = previousServer && previousServer.revision;
     state.server = fresh; state.activeLayer = fresh.active_layer || state.activeLayer || "ground"; state.activeDomain = fresh.active_domain || (state.activeLayer === "aerial" ? "aerial" : "ground"); state.currentLevel = fresh.active_level || (levels()[0] && levels()[0].id) || null; state.referenceLevel = Object.prototype.hasOwnProperty.call(fresh, "reference_level") ? fresh.reference_level : state.referenceLevel;
+    if (oldKey !== contextKey(fresh)) state.annotationDraft = null;
     const revisionChanged = previousRevision != null && fresh.revision !== previousRevision;
     const changed = Boolean(oldKey && oldKey !== contextKey(fresh));
     const pendingBindings = state.navigationBindingDraft;
@@ -154,7 +158,7 @@
     if (changed || previousLayer !== state.activeLayer) { state.inspectorDraft = null; state.navigationBindingDraft = keepBindingDraft ? pendingBindings : null; state.bindingPickMode = false; state.selectionSent = JSON.stringify(fresh.web_selection || null); cancelGesture(); if (previousLayer !== state.activeLayer) { state.filter = "all"; [...els.recordTabs.querySelectorAll("[data-filter]")].forEach((item) => item.classList.toggle("active", item.dataset.filter === "all")); } }
     let next = selectionFromServer(fresh.web_selection);
     if (!changed && previous && recordFor(previous) && (state.inspectorDraft || !next && options.preserveSelection)) next = previous;
-    if (!state.drag) state.selection = next;
+    if (!state.drag) { if (JSON.stringify(next) !== JSON.stringify(previous)) state.annotationDraft = null; state.selection = next; }
     if (fresh.binding_target_mode === "semantic_navigation" && fresh.binding_target_id === (state.selection && state.selection.id)) {
       state.bindingPickMode = true;
       state.navigationBindingDraft = { id: fresh.binding_target_id, bindings: clone(fresh.binding_target_draft || []) };
@@ -252,19 +256,83 @@
       draw();
     }));
   }
+  function annotationNode() {
+    return state.selection && state.selection.type === "node" && state.server.editor_tool === "add-node"
+      ? { domain: state.selection.domain || state.activeDomain, node_id: state.selection.id } : null;
+  }
+  function renderNodeAnnotations() {
+    const node = annotationNode();
+    hidden(els.nodeAnnotations, !node);
+    hidden(els.annotationForm, !state.annotationDraft);
+    if (!node) return;
+    const selected = els.annotationChoice.value, query = els.annotationSearch.value.toLowerCase();
+    els.annotationChoice.replaceChildren();
+    for (const row of semanticPoints()) {
+      if (!([row.id, row.label, row.kind, ...(row.aliases || [])].join(" ").toLowerCase().includes(query))) continue;
+      const option = document.createElement("option");
+      option.value = row.id;
+      const bound = (row.navigation_bindings || []).some(b => b.domain === node.domain && b.node_id === node.node_id);
+      option.textContent = (bound ? "已绑定 · " : "") + (row.label || row.id) + " · " + row.kind;
+      els.annotationChoice.appendChild(option);
+    }
+    if (semanticPoints().some(p => p.id === selected)) els.annotationChoice.value = selected;
+  }
+  function startAnnotation(isNew) {
+    const node = annotationNode(), row = isNew ? {} : pointById(els.annotationChoice.value);
+    if (!node || !row) return;
+    state.annotationDraft = { node, id: row.id || null, identity: identity() };
+    els.annotationLabel.value = row.label || "";
+    els.annotationKind.value = row.kind || "custom";
+    els.annotationDescription.value = row.description || "";
+    els.annotationAliases.value = (row.aliases || []).join(", ");
+    els.annotationProperties.value = JSON.stringify(row.properties || {}, null, 2);
+    hidden(els.annotationForm, false);
+  }
+  async function saveAnnotation(event) {
+    event.preventDefault();
+    const draft = state.annotationDraft;
+    if (!draft || JSON.stringify(annotationNode()) !== JSON.stringify(draft.node)) return;
+    const properties = JSON.parse(els.annotationProperties.value || "{}");
+    if (!properties || Array.isArray(properties) || typeof properties !== "object") throw new Error("属性必须是 JSON 对象");
+    const fields = { label: els.annotationLabel.value.trim(), kind: els.annotationKind.value.trim() || "custom",
+      description: els.annotationDescription.value, aliases: [...new Set(els.annotationAliases.value.split(",").map(s => s.trim()).filter(Boolean))],
+      properties, annotation_node_id: draft.node.node_id };
+    const fresh = await edit(draft.id ? "update_semantic_point" : "create_node_annotation",
+      { ...fields, ...(draft.id ? { id: draft.id } : { node_id: draft.node.node_id }) }, "语义信息已保存", draft.identity);
+    if (fresh) { state.annotationDraft = null; renderInspector(); }
+  }
+  async function bindAnnotation(remove) {
+    const node = annotationNode(), row = pointById(els.annotationChoice.value);
+    if (!node || !row) return;
+    const bindings = (row.navigation_bindings || []).filter(b => !(b.domain === node.domain && b.node_id === node.node_id));
+    if (!remove) bindings.push(node);
+    await edit("set_semantic_point_navigation_bindings",
+      { id: row.id, bindings, annotation_node_id: node.node_id }, remove ? "已解除当前节点绑定" : "已绑定语义");
+  }
+  function bindAnnotationEvents() {
+    els.annotationSearch.addEventListener("input", renderNodeAnnotations);
+    els.annotationNew.addEventListener("click", () => startAnnotation(true));
+    els.annotationEdit.addEventListener("click", () => startAnnotation(false));
+    els.annotationBind.addEventListener("click", () => bindAnnotation(false).catch(showError));
+    els.annotationUnbind.addEventListener("click", () => bindAnnotation(true).catch(showError));
+    els.annotationCancel.addEventListener("click", () => { state.annotationDraft = null; hidden(els.annotationForm, true); });
+    els.annotationForm.addEventListener("submit", event => saveAnnotation(event).catch(showError));
+  }
   function renderInspector() {
+    renderNodeAnnotations();
     if (state.selectionItems.length > 1) {
       hidden(els.emptyInspector, false); hidden(els.inspectorForm, true); hidden(els.clearSelectionBtn, false);
       els.selectionType.textContent = "多选"; els.selectionTitle.textContent = `已选择 ${state.selectionItems.length} 个对象`;
       return;
     }
     const record = recordFor(); hidden(els.emptyInspector, Boolean(record)); hidden(els.inspectorForm, !record); hidden(els.clearSelectionBtn, !record); if (!record) { els.selectionType.textContent = "未选择"; els.selectionTitle.textContent = "属性检查器"; return; }
-    const type = state.selection.type, point = type === "semantic_point" ? previewPoint(record) : type === "node" ? (state.preview && state.preview.kind === "node" && state.preview.id === record.id ? state.preview.position : record.position_xyz) : null;
-    els.fieldId.value = record.id; els.fieldLabel.value = record.label || ""; els.fieldKind.value = record.kind || ""; els.fieldLevel.value = record.level_id || ""; setGroup(els.labelGroup, type !== "edge"); setGroup(els.kindGroup, type !== "edge"); setGroup(els.levelGroup, type === "node" && state.activeDomain === "ground"); setGroup(els.coordinateGroup, type !== "edge"); setGroup(els.editModeGroup, type === "node" && state.activeDomain === "aerial" || type === "semantic_point"); setGroup(els.descriptionGroup, type === "semantic_point"); setGroup(els.aliasesGroup, type === "semantic_point"); setGroup(els.propertiesGroup, type === "semantic_point"); setGroup(els.edgeGroup, type === "edge"); setGroup(els.bindingGroup, type === "semantic_point");
-    if (type === "node" || type === "semantic_point") { [els.fieldX.value, els.fieldY.value, els.fieldZ.value] = point.map((value) => String(Number(value))); els.fieldEditMode.value = record.edit_mode || "3d"; }
+    const type = state.selection.type, point = type === "semantic_point" ? null : type === "node" ? (state.preview && state.preview.kind === "node" && state.preview.id === record.id ? state.preview.position : record.position_xyz) : null;
+    els.fieldId.value = record.id; els.fieldLabel.value = record.label || ""; els.fieldKind.value = record.kind || ""; els.fieldLevel.value = record.level_id || ""; setGroup(els.labelGroup, type !== "edge"); setGroup(els.kindGroup, type !== "edge"); setGroup(els.levelGroup, type === "node" && state.activeDomain === "ground"); setGroup(els.coordinateGroup, type === "node"); setGroup(els.editModeGroup, type === "node" && state.activeDomain === "aerial"); setGroup(els.descriptionGroup, type === "semantic_point"); setGroup(els.aliasesGroup, type === "semantic_point"); setGroup(els.propertiesGroup, type === "semantic_point"); setGroup(els.edgeGroup, type === "edge"); setGroup(els.bindingGroup, type === "semantic_point");
+    if (type === "node") { [els.fieldX.value, els.fieldY.value, els.fieldZ.value] = point.map((value) => String(Number(value))); els.fieldEditMode.value = record.edit_mode || "3d"; }
     if (type === "edge") { els.fieldFrom.value = record.from; els.fieldTo.value = record.to; els.fieldDirected.checked = Boolean(record.directed); els.fieldTraversal.value = state.activeDomain === "aerial" ? "walk" : record.traversal_mode || "walk"; els.fieldTraversal.disabled = state.activeDomain === "aerial"; }
     if (type === "semantic_point") { els.fieldDescription.value = record.description || ""; els.fieldAliases.value = (record.aliases || []).join(", "); els.fieldProperties.value = JSON.stringify(record.properties || {}, null, 2); els.pickNavigationBtn.textContent = state.bindingPickMode ? "结束连接" : "连接导航点"; renderNavigationBindings(record); }
-    els.selectionType.textContent = type === "node" ? (state.activeDomain === "aerial" ? "空中节点" : "地面节点") : type === "edge" ? "拓扑边" : "语义点"; els.selectionTitle.textContent = record.label || record.id;
+    els.selectionType.textContent = type === "node" ? (state.activeDomain === "aerial" ? "空中节点" : "地面节点") : type === "edge" ? "拓扑边" : "语义点"; els.selectionTitle.textContent = (record.label || record.id) + (type === "semantic_point" && !(record.navigation_bindings || []).length ? " · 未绑定语义" : "");
+    hidden(els.pickNavigationBtn, true);
     const endpointOnly = type === "node" && state.server && state.server.editor_tool === "add-edge";
     [els.fieldLabel, els.fieldKind, els.fieldLevel, els.fieldX, els.fieldY, els.fieldZ, els.fieldEditMode,
       els.fieldDescription, els.fieldAliases, els.fieldProperties, els.fieldDirected, els.fieldTraversal]
@@ -274,7 +342,7 @@
     const draft = state.inspectorDraft; if (draft && draft.selection.type === type && draft.selection.id === record.id) for (const [key, value] of Object.entries(draft.values)) { if (key === "fieldDirected") els[key].checked = value; else els[key].value = value; }
   }
   function captureInspector() { const record = recordFor(); if (!record || !state.selection) return; if (!state.inspectorDraft) state.inspectorDraft = { selection: clone(state.selection), record: clone(record), identity: identity() }; state.inspectorDraft.values = {}; for (const key of ["fieldLabel", "fieldKind", "fieldLevel", "fieldX", "fieldY", "fieldZ", "fieldEditMode", "fieldDescription", "fieldAliases", "fieldProperties", "fieldTraversal"]) state.inspectorDraft.values[key] = els[key].value; state.inspectorDraft.values.fieldDirected = els.fieldDirected.checked; }
-  function updateToolUI() { const mode = state.server && state.server.editor_tool || "add-node", pointSettings = mode === "add-semantic-point" || mode === "add-node" || isRoadTool(mode); [...els.modeTools.querySelectorAll("[data-mode]")].forEach((button) => { button.classList.toggle("active", button.dataset.mode === mode); const groundTool = button.dataset.mode === "build-ground-road" || button.dataset.mode === "delete-ground-edge", aerialTool = button.dataset.mode === "build-aerial-road" || button.dataset.mode === "delete-aerial-edge"; if (groundTool || aerialTool) hidden(button, state.activeLayer !== (groundTool ? "ground" : "aerial")); }); els.modeHint.textContent = state.bindingPickMode ? "连接模式：点击地面或空中导航节点加入/移除绑定；完成后应用绑定" : state.edgeEndId ? "连线预览已就绪，点击确认连线" : state.edgeStartId ? `已选择起点 ${state.edgeStartId}，请选择终点` : hints[mode] || hints["add-node"]; const showRoadHeight = mode === "build-aerial-road" && state.roadDraft; hidden(els.roadHeightStatus, !showRoadHeight); if (showRoadHeight) els.roadHeightStatus.textContent = `终点 Z ${state.roadDraft.endZ.toFixed(2)} m`; hidden(els.cancelDraftBtn, !(state.edgeStartId || state.edgeEndId || state.preview || state.roadDraft)); hidden(els.confirmEdgeBtn, !state.edgeEndId); hidden(els.newPointZGroup, !pointSettings); hidden(els.newPointModeGroup, !pointSettings || state.activeLayer === "ground"); hidden(els.newEdgeTraversalGroup, !(mode === "add-edge" && state.activeDomain === "ground")); }
+  function updateToolUI() { const mode = state.server && state.server.editor_tool || "add-node", pointSettings = mode === "add-node" || isRoadTool(mode); [...els.modeTools.querySelectorAll("[data-mode]")].forEach((button) => { button.classList.toggle("active", button.dataset.mode === mode); const groundTool = button.dataset.mode === "build-ground-road" || button.dataset.mode === "delete-ground-edge", aerialTool = button.dataset.mode === "build-aerial-road" || button.dataset.mode === "delete-aerial-edge"; if (groundTool || aerialTool) hidden(button, state.activeLayer !== (groundTool ? "ground" : "aerial")); }); els.modeHint.textContent = state.bindingPickMode ? "连接模式：点击地面或空中导航节点加入/移除绑定；完成后应用绑定" : state.edgeEndId ? "连线预览已就绪，点击确认连线" : state.edgeStartId ? `已选择起点 ${state.edgeStartId}，请选择终点` : hints[mode] || hints["add-node"]; const showRoadHeight = mode === "build-aerial-road" && state.roadDraft; hidden(els.roadHeightStatus, !showRoadHeight); if (showRoadHeight) els.roadHeightStatus.textContent = `终点 Z ${state.roadDraft.endZ.toFixed(2)} m`; hidden(els.cancelDraftBtn, !(state.edgeStartId || state.edgeEndId || state.preview || state.roadDraft)); hidden(els.confirmEdgeBtn, !state.edgeEndId); hidden(els.newPointZGroup, !pointSettings); hidden(els.newPointModeGroup, !pointSettings || state.activeLayer === "ground"); hidden(els.newEdgeTraversalGroup, !(mode === "add-edge" && state.activeDomain === "ground")); }
   async function setContext(changes) { if (!state.server) return; const activeLayer = changes.active_layer || state.activeLayer, activeDomain = activeLayer === "aerial" ? "aerial" : activeLayer === "ground" ? "ground" : state.activeDomain; const body = identity({ active_layer: activeLayer, active_domain: changes.active_domain || activeDomain, tool: changes.tool || state.server.editor_tool, level_id: changes.level_id || state.currentLevel }); for (const key of ["reference_level", "visible_layers", "visible_types", "new_point_settings", "binding_target_mode", "binding_target_id", "binding_target_draft"]) if (Object.prototype.hasOwnProperty.call(changes, key)) body[key] = changes[key]; await write("/api/editor/context", body); }
   function selectionPayload() { const value = state.selection; if (!value) return null; if (value.type === "semantic_point") return { kind: "semantic_point", collection: null, id: value.id }; return { kind: value.type, collection: null, id: value.id, domain: value.domain || state.activeDomain }; }
   async function pushSelection() { if (!state.server || state.suppressSelectionPush) return; const selection = selectionPayload(), signature = JSON.stringify(selection); if (signature === state.selectionSent) return; try { await request("/api/web/selection", { method: "POST", body: identity({ selection }) }); state.selectionSent = signature; } catch (error) { if (!(error instanceof ConflictError)) showError(error); } }
@@ -287,7 +355,7 @@
       setContext({ binding_target_mode: null, binding_target_id: null, binding_target_draft: null }).catch(showError);
     }
     if (changed && !samePoint) state.navigationBindingDraft = null;
-    if (changed) state.inspectorDraft = null;
+    if (changed) { state.inspectorDraft = null; state.annotationDraft = null; }
     state.selection = value; state.selectionItems = value ? [{ type: value.type, id: value.id, ...(value.domain ? { domain: value.domain } : {}) }] : []; renderRecords(); renderInspector(); draw();
     if (push) pushSelection();
   }
@@ -310,10 +378,7 @@
     }
     return node.position_xyz;
   }
-  function previewPoint(point) {
-    return state.preview && state.preview.kind === "semantic_point" && state.preview.id === point.id
-      ? state.preview.position : point.position_xyz;
-  }
+
   function distanceSegment(point, a, b) { const dx = b[0] - a[0], dy = b[1] - a[1], length = dx * dx + dy * dy, ratio = length ? Math.max(0, Math.min(1, ((point[0] - a[0]) * dx + (point[1] - a[1]) * dy) / length)) : 0, projection = [a[0] + ratio * dx, a[1] + ratio * dy]; return { distance: Math.hypot(point[0] - projection[0], point[1] - projection[1]), projection }; }
   function hitTest(clientX, clientY) {
     const world = screenToWorld(clientX, clientY), t = transform(), tolerance = 10 * t.dpr / t.scale;
@@ -334,7 +399,7 @@
       }
       return null;
     }
-    if (state.activeLayer === "semantic_points" || mode === "add-semantic-point") { for (const point of semanticPoints().slice().reverse()) { if (!layerVisible("semantic_points") || !typeVisible("semantic_points")) continue; if (Math.hypot(world[0] - previewPoint(point)[0], world[1] - previewPoint(point)[1]) <= tolerance) return { type: "semantic_point", id: point.id, record: point }; } return null; }
+    if (state.activeLayer === "semantic_points" || mode === "add-semantic-point") return null;
     for (const node of nodes(state.activeDomain).slice().reverse()) { if (!visibleNode(node)) continue; const point = previewNode(node); if (Math.hypot(world[0] - point[0], world[1] - point[1]) <= tolerance) return { type: "node", id: node.id, record: node }; }
     if (mode !== "add-edge" && !isRoadTool(mode) && !isRoadDeleteTool(mode)) return null;
     for (const edge of edges(state.activeDomain).slice().reverse()) { if (!visibleEdge(edge)) continue; const a = nodeById(edge.from, state.activeDomain), b = nodeById(edge.to, state.activeDomain); const line = edge.polyline_xyz && edge.polyline_xyz.length > 1 ? edge.polyline_xyz : [a && a.position_xyz, b && b.position_xyz].filter(Boolean); for (let index = 0; index + 1 < line.length; index++) if (distanceSegment(world, line[index], line[index + 1]).distance <= tolerance) return { type: "edge", id: edge.id, record: edge }; }
@@ -346,10 +411,7 @@
     const top = Math.min(sy(start[1]), sy(end[1])), bottom = Math.max(sy(start[1]), sy(end[1]));
     const inside = (point) => { const p = worldToScreen(point, t); return p[0] >= left && p[0] <= right && p[1] >= top && p[1] <= bottom; };
     const result = [];
-    if (state.activeLayer === "semantic_points") {
-      for (const point of semanticPoints()) if (inside(previewPoint(point))) result.push({ type: "semantic_point", id: point.id });
-      return result;
-    }
+    if (state.activeLayer === "semantic_points") return [];
     const domain = state.activeDomain;
     for (const node of nodes(domain)) if (visibleNode(node, domain) && inside(previewNode(node, domain))) result.push({ type: "node", id: node.id, domain });
     for (const edge of edges(domain)) {
@@ -367,11 +429,11 @@
     const bindingKeys = new Set(state.bindingPickMode && state.selection && state.selection.type === "semantic_point"
       && state.navigationBindingDraft && state.navigationBindingDraft.id === state.selection.id
       ? state.navigationBindingDraft.bindings.map((row) => `${row.domain}:${row.node_id}`) : []);
+    const annotated = new Set(semanticPoints().flatMap(p => (p.navigation_bindings || []).map(b => `${b.domain}:${b.node_id}`)));
     const selectedKeys = new Set(selectionItems().map((item) => `${item.type}:${item.id}:${item.domain || ""}`));
     for (const domain of ["ground", "aerial"]) { if (!layerVisible(domain) && !state.bindingPickMode) continue; for (const edge of edges(domain)) { if (!visibleEdge(edge, domain) && !state.bindingPickMode) continue; const a = nodeById(edge.from, domain), b = nodeById(edge.to, domain); if (!a || !b) continue; let line = edge.polyline_xyz && edge.polyline_xyz.length > 1 ? clone(edge.polyline_xyz) : [a.position_xyz, b.position_xyz]; if (state.preview && state.preview.kind === "edge" && state.preview.id === edge.id && domain === state.activeDomain) line = line.map((point) => [point[0] + state.preview.delta[0], point[1] + state.preview.delta[1], point[2]]); else { line[0] = previewNode(a, domain); line[line.length - 1] = previewNode(b, domain); } drawPath(context, line, t); const selected = selectedKeys.has(`edge:${edge.id}:${domain}`); context.strokeStyle = selected ? "#e8fff8" : domain === "aerial" ? "#6ab5ff" : "#2dd4a7"; context.lineWidth = (selected ? 4 : 2.5) * t.dpr; context.stroke(); }
-      for (const node of nodes(domain)) { if (!(state.bindingPickMode ? bindingNodeVisible(node, domain) : visibleNode(node, domain))) continue; const point = worldToScreen(previewNode(node, domain), t), selected = selectedKeys.has(`node:${node.id}:${domain}`), bound = bindingKeys.has(`${domain}:${node.id}`); context.globalAlpha = state.bindingPickMode && !bound ? .28 : 1; context.beginPath(); context.arc(point[0], point[1], (bound || selected ? 7 : 5) * t.dpr, 0, Math.PI * 2); context.fillStyle = bound ? "#ffd166" : selected ? "#fff" : domain === "aerial" ? "#6ab5ff" : "#43dfb8"; context.fill(); context.strokeStyle = bound ? "#fff4cc" : "#07150f"; context.lineWidth = (bound ? 2.5 : 2) * t.dpr; context.stroke(); context.globalAlpha = 1; }
+      for (const node of nodes(domain)) { if (!(state.bindingPickMode ? bindingNodeVisible(node, domain) : visibleNode(node, domain))) continue; const point = worldToScreen(previewNode(node, domain), t), selected = selectedKeys.has(`node:${node.id}:${domain}`), bound = bindingKeys.has(`${domain}:${node.id}`); context.globalAlpha = state.bindingPickMode && !bound ? .28 : 1; context.beginPath(); context.arc(point[0], point[1], (bound || selected ? 7 : 5) * t.dpr, 0, Math.PI * 2); context.fillStyle = bound || annotated.has(`${domain}:${node.id}`) ? "#ffd166" : selected ? "#fff" : domain === "aerial" ? "#6ab5ff" : "#43dfb8"; context.fill(); context.strokeStyle = bound ? "#fff4cc" : "#07150f"; context.lineWidth = (bound ? 2.5 : 2) * t.dpr; context.stroke(); context.globalAlpha = 1; }
     }
-    if (layerVisible("semantic_points") && typeVisible("semantic_points")) for (const point of semanticPoints()) { const screen = worldToScreen(previewPoint(point), t), selected = selectedKeys.has(`semantic_point:${point.id}:`); context.beginPath(); context.arc(screen[0], screen[1], (selected ? 8 : 6) * t.dpr, 0, Math.PI * 2); context.fillStyle = selected ? "#fff" : "#f0965a"; context.fill(); context.strokeStyle = "#3b1b0b"; context.lineWidth = 2 * t.dpr; context.stroke(); }
     if (state.box) { const x = Math.min(state.box.start[0], state.box.end[0]), y = Math.min(state.box.start[1], state.box.end[1]), w = Math.abs(state.box.end[0] - state.box.start[0]), h = Math.abs(state.box.end[1] - state.box.start[1]); context.fillStyle = "rgba(80,180,255,.15)"; context.fillRect(x - t.rect.left, y - t.rect.top, w, h); context.strokeStyle = "#9bdcff"; context.setLineDash([6, 4]); context.strokeRect(x - t.rect.left, y - t.rect.top, w, h); context.setLineDash([]); }
     if (state.edgeStartId && state.edgeEndId) { const a = nodeById(state.edgeStartId), b = nodeById(state.edgeEndId); if (a && b) { drawPath(context, [previewNode(a), previewNode(b)], t); context.strokeStyle = "#ffe5a0"; context.lineWidth = 3 * t.dpr; context.setLineDash([7 * t.dpr, 4 * t.dpr]); context.stroke(); context.setLineDash([]); } }
     if (state.roadPlan) { const points = [state.roadPlan.start, ...(state.roadPlan.crossings || []), state.roadPlan.end]; drawPath(context, points, t); context.strokeStyle = "#ffe29a"; context.lineWidth = 3 * t.dpr; context.setLineDash([8*t.dpr, 5*t.dpr]); context.stroke(); context.setLineDash([]); for (const point of state.roadPlan.crossings || []) { const p = worldToScreen(point, t); context.beginPath(); context.arc(p[0], p[1], 5*t.dpr, 0, Math.PI*2); context.fillStyle = "#fff0b5"; context.fill(); } }
@@ -404,7 +466,6 @@
     image.src = `/api/layer?level=${encodeURIComponent(level.id)}&geometry_only=1`;
   }
   async function createNode(point) { const aerial = state.activeDomain === "aerial", z = finite(els.newPointZ.value, "Z"); await edit("add_node", { position_xyz: [point[0], point[1], z], ...(aerial ? {} : { level_id: state.currentLevel }), label: "", kind: "custom", edit_mode: aerial ? els.newPointMode.value : undefined }, "节点已创建"); }
-  async function createSemanticPoint(point) { await edit("add_semantic_point", { position_xyz: [point[0], point[1], finite(els.newPointZ.value, "Z")], edit_mode: els.newPointMode.value, label: "", kind: "custom", description: "", aliases: [], properties: {} }, "语义点已创建"); }
   function edgeNode(node) { if (!state.edgeStartId) { state.edgeStartId = node.id; state.edgeIdentity = identity(); select({ type: "node", id: node.id, domain: state.activeDomain }); updateToolUI(); return; } if (state.edgeStartId === node.id) { showError("边的起点和终点必须不同"); return; } state.edgeEndId = node.id; updateToolUI(); draw(); }
   function roadPoint(world) { return [world[0], world[1], finite(els.newPointZ.value, "Z")]; }
   function roadEnd(world, start) {
@@ -453,10 +514,10 @@
     event.preventDefault(); const selection = state.selection, savedDraft = state.inspectorDraft, record = savedDraft ? savedDraft.record : recordFor(), expected = savedDraft ? savedDraft.identity : identity(); if (!selection || !record || !toolAllows(selection.type) || selection.type === "node" && state.server.editor_tool === "add-edge") return; let fresh;
     if (selection.type === "node") { fresh = await edit("update_node", { id: record.id, position_xyz: [finite(els.fieldX.value, "X"), finite(els.fieldY.value, "Y"), finite(els.fieldZ.value, "Z")], label: els.fieldLabel.value.trim(), kind: els.fieldKind.value.trim() || "custom", ...(state.activeDomain === "ground" ? { level_id: els.fieldLevel.value || null } : {}), ...(state.activeDomain === "aerial" ? { edit_mode: els.fieldEditMode.value } : {}) }, "节点属性已更新", expected); }
     else if (selection.type === "edge") fresh = await edit("update_edge", { id: record.id, directed: els.fieldDirected.checked, traversal_mode: els.fieldTraversal.value }, "边属性已更新", expected);
-    else fresh = await edit("update_semantic_point", { id: record.id, position_xyz: [finite(els.fieldX.value, "X"), finite(els.fieldY.value, "Y"), finite(els.fieldZ.value, "Z")], edit_mode: els.fieldEditMode.value, label: els.fieldLabel.value.trim(), kind: els.fieldKind.value.trim() || "custom", description: els.fieldDescription.value, aliases: [...new Set(els.fieldAliases.value.split(",").map((value) => value.trim()).filter(Boolean))], properties: parseProperties() }, "语义点属性已更新", expected);
+    else fresh = await edit("update_semantic_point", { id: record.id, label: els.fieldLabel.value.trim(), kind: els.fieldKind.value.trim() || "custom", description: els.fieldDescription.value, aliases: [...new Set(els.fieldAliases.value.split(",").map((value) => value.trim()).filter(Boolean))], properties: parseProperties() }, "语义点属性已更新", expected);
     if (fresh) { state.inspectorDraft = null; renderInspector(); }
   }
-  async function deleteSelection() { const items = selectionItems(); if (!items.length || state.server.editor_tool === "add-edge") return; const fresh = await edit("remove_selection", { items: items.map((item) => ({ kind: item.type, id: item.id })) }, "已删除；可撤销恢复"); if (fresh) { state.selectionItems = []; clearSelection(); } }
+  async function deleteSelection() { const items = selectionItems(); if (!items.length || state.server.editor_tool === "add-edge") return; if (items.some(i => i.type === "semantic_point") && !globalThis.confirm("删除整条语义将移除其全部导航绑定（共 " + items.reduce((n, i) => n + ((pointById(i.id) || {}).navigation_bindings || []).length, 0) + " 个），是否继续？")) return; const fresh = await edit("remove_selection", { items: items.map((item) => ({ kind: item.type, id: item.id })) }, "已删除；可撤销恢复"); if (fresh) { state.selectionItems = []; clearSelection(); } }
   async function applyNavigationBindings() {
     const value = state.selection, draft = state.navigationBindingDraft;
     if (!value || value.type !== "semantic_point" || !draft || draft.id !== value.id) return;
@@ -535,7 +596,7 @@
     }
     if (state.bindingPickMode) return;
     if (hit && hit.type === "node" && mode === "add-edge") { edgeNode(hit.record); return; }
-    if (hit && (hit.type === "node" || hit.type === "semantic_point")) {
+    if (hit && hit.type === "node") {
       select({
         type: hit.type, id: hit.id,
         ...(hit.type === "node" ? { domain: state.activeDomain } : {})
@@ -560,7 +621,7 @@
       els.mapCanvas.setPointerCapture(event.pointerId);
       return;
     }
-    if (mode === "add-node" || mode === "add-semantic-point") {
+    if (mode === "add-node") {
       state.box = { start: [event.clientX, event.clientY], end: [event.clientX, event.clientY] };
       state.drag = { kind: "box", screenStart: [event.clientX, event.clientY], moved: false, world };
       els.mapCanvas.setPointerCapture(event.pointerId);
@@ -600,11 +661,6 @@
         kind: "node", id: state.drag.id, domain: state.drag.domain,
         position: [state.drag.origin[0] + delta[0], state.drag.origin[1] + delta[1], state.drag.origin[2]]
       };
-    } else if (state.drag.kind === "semantic_point") {
-      state.preview = {
-        kind: "semantic_point", id: state.drag.id,
-        position: [state.drag.origin[0] + delta[0], state.drag.origin[1] + delta[1], state.drag.origin[2]]
-      };
     } else if (state.drag.kind === "edge") {
       state.drag.delta = delta;
       state.preview = { kind: "edge", id: state.drag.id, delta };
@@ -619,8 +675,7 @@
     if (drag && drag.kind === "box") {
       if (!drag.moved) {
         state.box = null;
-        if (state.activeLayer === "semantic_points") createSemanticPoint(drag.world).catch(showError);
-        else createNode(drag.world).catch(showError);
+        if (state.activeLayer !== "semantic_points") createNode(drag.world).catch(showError);
       } else {
         const items = boxSelection(drag.screenStart, [event.clientX, event.clientY]);
         setSelectionItems(items);
@@ -642,8 +697,6 @@
     state.preview = null;
     if (drag.kind === "node") {
       await edit("move_node_xy", { id: drag.id, position_xy: preview.position.slice(0, 2) }, "节点已移动", drag.identity);
-    } else if (drag.kind === "semantic_point") {
-      await edit("move_semantic_point_xy", { id: drag.id, position_xy: preview.position.slice(0, 2) }, "语义点已移动", drag.identity);
     } else if (drag.kind === "edge") {
       await edit("translate_edge_xy", { id: drag.id, delta_xy: preview.delta }, "边及关联节点已移动", drag.identity);
     }
@@ -694,6 +747,7 @@
     setContext({ new_point_settings: { [layer]: settings } }).catch(showError);
   }
   function bindEvents() {
+    bindAnnotationEvents();
     els.closeErrorBtn.addEventListener("click", clearError); els.layerToggle.addEventListener("click", (event) => { const button = event.target.closest("[data-layer]"); if (!button) return; setContext({ active_layer: button.dataset.layer }).catch(showError); }); els.floorList.addEventListener("click", (event) => { const button = event.target.closest("[data-level]"); if (button) setContext({ active_layer: "ground", active_domain: "ground", level_id: button.dataset.level }).catch(showError); }); els.referenceLevel.addEventListener("change", () => setContext({ reference_level: els.referenceLevel.value || null }).catch(showError));
     [[els.showGround, "layer:ground"], [els.showAerial, "layer:aerial"], [els.showSemanticPoints, "layer:semantic_points"], [els.showNodes, "type:nodes"], [els.showEdges, "type:edges"], [els.showPointType, "type:semantic_points"]].forEach(([input, type]) => input.addEventListener("change", () => setVisibility(type, input.checked)));
     els.modeTools.addEventListener("click", (event) => { const button = event.target.closest("[data-mode]"); if (button) { const mode = button.dataset.mode; const activeLayer = mode === "add-semantic-point" ? "semantic_points" : mode === "build-ground-road" || mode === "delete-ground-edge" ? "ground" : mode === "build-aerial-road" || mode === "delete-aerial-edge" ? "aerial" : state.activeLayer === "semantic_points" ? state.activeDomain : state.activeLayer; setContext({ tool: mode, active_layer: activeLayer }).catch(showError); } });

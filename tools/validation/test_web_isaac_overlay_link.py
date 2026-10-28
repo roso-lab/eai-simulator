@@ -81,7 +81,7 @@ def _populate(url, token):
         "scene_key": context["scene_key"], "scene_generation": context["scene_generation"],
         "context_generation": context["context_generation"], "domain": "ground",
         "active_layer": "semantic_points", "operation": "add_semantic_point",
-        "id": "semantic:0001", "position_xyz": [0.25, 0.25, 0.5],
+        "id": "semantic:0001",
         "label": "Desk", "kind": "furniture"})
     assert code == 200, body
     revision = body["revision"]
@@ -145,9 +145,9 @@ def test_context_serves_document_snapshot_and_web_selection(tmp_path):
         assert snapshot["semantics"] == {
             "regions": [], "entities": [], "interaction_poses": [], "routes": []}
         assert context["semantic_points"] == [{
-            "id": "semantic:0001", "position_xyz": [0.25, 0.25, 0.5],
+            "id": "semantic:0001",
             "label": "Desk", "kind": "furniture", "description": "",
-            "aliases": [], "properties": {}, "edit_mode": "3d"}]
+            "aliases": [], "properties": {}}]
 
         dumped = json.dumps(snapshot)
         for heavy in ("profiles", "properties", "aliases", "entrance_node_ids", "source_ref"):

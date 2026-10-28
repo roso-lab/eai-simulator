@@ -364,9 +364,10 @@ def test_result_state_with_web_document_keys_refreshes_native_data_immediately()
         "kind": "semantic_point", "collection": None, "id": "s1"}
     controller.handle_result(("edit", {"state": semantic_state}, None))
     assert controller.semantic_point("s1")["label"] == "Desk"
-    assert controller.point_for_selection()["id"] == "s1"
+    assert controller.semantic_point("s1")["id"] == "s1"
+    assert controller.point_for_selection() is None
     assert controller.set_selected_semantic_point_properties(
-        [4., 5., 6.], label="immediate", kind="furniture", properties={})
+        label="immediate", kind="furniture", properties={})
 
 
 def test_dispatcher_keeps_completed_result_pending_until_drain():
@@ -619,39 +620,29 @@ def test_isaac_selection_items_replace_single_selection_and_clear_on_empty_box()
     assert controller.selection is None
     assert controller.selection_items == []
 
-def test_semantic_point_add_properties_modes_and_delete_use_frozen_identity():
+def test_annotation_creation_and_binding_preserve_navigation_selection():
     dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
-    controller.update_context(_context(active_layer="semantic_points"))
-    assert controller.add_semantic_point([3, 4, 2.5])
-    assert dispatcher.calls[-1][0][2] == "add_semantic_point"
-    assert dispatcher.calls[-1][1]["edit_mode"] == "2.5d"
-    controller.select({"kind": "semantic_point", "collection": None, "id": "s1"})
-    assert controller.set_selected_semantic_point_properties(
-        [5, 6, 7], label=" Desk ", kind="furniture", description="work",
-        aliases=[" table ", ""], properties={"a": 1})
+    controller.update_context(_context(active_layer="aerial"))
+    controller.select({"kind": "node", "id": "n1"})
+    assert controller.save_annotation(label="Desk", kind="furniture")
     args, kwargs = dispatcher.calls[-1]
-    assert args[2] == "update_semantic_point"
-    assert kwargs["aliases"] == ["table"] and kwargs["properties"] == {"a": 1}
-    assert controller.set_selected_edit_mode("2.5d")
-    assert controller.delete_selected()
-    assert dispatcher.calls[-1][0][2] == "remove_semantic_point"
+    assert args[2] == "create_node_annotation"
+    assert kwargs["node_id"] == kwargs["annotation_node_id"] == "n1"
+    assert "position_xyz" not in kwargs
+    assert controller.bind_annotation("s1")
+    assert dispatcher.calls[-1][1]["bindings"] == [{"domain": "aerial", "node_id": "n1"}]
+    assert controller.selection == {"kind": "node", "id": "n1"}
+    assert controller.active_layer == "aerial"
 
 
-def test_semantic_point_25d_and_3d_axis_drag_freeze_grab_delta():
+def test_spatial_semantic_creation_and_drag_are_disabled():
     dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
     controller.update_context(_context(active_layer="semantic_points"))
-    controller.begin_drag({"kind": "semantic-point", "id": "s2"}, [6.2, 1.1, 2.5])
-    controller.update_drag([7.2, 3.1, 9.])
-    assert controller.preview["position_xyz"] == [7., 3., 2.5]
-    assert controller.end_drag()
-    assert dispatcher.calls[-1][0][2] == "move_semantic_point_xy"
-    dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
-    controller.update_context(_context(active_layer="semantic_points"))
-    controller.begin_drag({"kind": "semantic-point", "id": "s1"}, [4., 1., 1.8], axis="z")
-    controller.update_drag([4., 1., 2.1])
-    assert controller.preview["position_xyz"] == pytest.approx([4., 1., 1.8])
-    assert controller.end_drag()
-    assert dispatcher.calls[-1][0][2] == "move_semantic_point"
+    assert not controller.add_semantic_point([1, 2, 3])
+    controller.begin_drag({"kind": "semantic-point", "id": "s1"}, [1, 2, 3])
+    assert controller.gesture is None
+    assert controller.preview is None
+    assert not dispatcher.calls
 
 
 def test_drag_ending_without_motion_clears_gesture_without_editing_or_deselecting():
@@ -692,7 +683,7 @@ def test_hit_isolation_uses_active_layer_and_visible_type():
     hit = nearest_projected_hit(snapshot, viewport, (4., 1.),
         active_layer="semantic_points", semantic_points=context["semantic_points"],
         tolerance_px=.1)
-    assert hit["kind"] == "semantic-point" and hit["id"] == "s1"
+    assert hit is None
     assert nearest_projected_hit(snapshot, viewport, (4., 1.),
         active_layer="semantic_points", semantic_points=context["semantic_points"],
         visible_types={"semantic_points": False}, tolerance_px=.1) is None
@@ -737,7 +728,7 @@ def test_hit_candidates_are_isolated_by_editor_tool():
         snapshot, viewport, (4., 1.), active_layer="semantic_points",
         semantic_points=context["semantic_points"],
         editor_tool="add-semantic-point", tolerance_px=.1)
-    assert semantic["kind"] == "semantic-point" and semantic["id"] == "s1"
+    assert semantic is None
     assert nearest_projected_hit(
         snapshot, viewport, (0., 0.), active_layer="semantic_points",
         semantic_points=context["semantic_points"],
@@ -758,12 +749,12 @@ def test_gesture_routes_semantic_click_without_region_paths(monkeypatch):
     gesture.controller, gesture.viewport_api, gesture._drag_target = controller, object(), None
     gesture._world_point = lambda *_args, **_kwargs: [4., 1., 1.5]
     gesture.handle("began", [0., 0.])
-    assert controller.selection == {"kind": "semantic_point", "collection": None, "id": "s1"}
+    assert controller.selection is None
     assert controller.gesture is None
     gesture.handle("click", [0., 0.])
     assert controller.gesture is None
     assert not dispatcher.calls
-    assert picker_kwargs[0]["visible_layers"] == controller.context["visible_layers"]
+    assert picker_kwargs == []
     assert not hasattr(controller, "region_draft")
 
 
@@ -846,7 +837,7 @@ def test_unified_overlay_has_three_layers_and_no_region_specs():
     paths = [row["path"] for row in specs["prims"]]
     assert any("/Layers/Ground/Nodes/" in path for path in paths)
     assert any("/Layers/Aerial/Edges/" in path for path in paths)
-    assert any("/Layers/SemanticPoints/" in path for path in paths)
+    assert not any("/Layers/SemanticPoints/" in path for path in paths)
     assert not any("Region" in path for path in paths)
     ground = next(row for row in specs["prims"] if "/Layers/Ground/Nodes/" in row["path"])
     aerial = next(row for row in specs["prims"] if "/Layers/Aerial/Nodes/" in row["path"])

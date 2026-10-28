@@ -277,13 +277,14 @@ class MapProject:
             if point_product not in export["files"]:
                 raise ValueError("semantic points must be covered by revision digests")
             payload = read_json(child(current, point_product))
-            if (payload.get("schema") != POINT_SCHEMA or payload.get("version") not in {1, 2}
+            if (payload.get("schema") != POINT_SCHEMA or payload.get("version") not in {1, 2, 3}
                     or payload.get("scene_key") != self.manifest["scene_key"]
                     or payload.get("coordinate_frame") != "scene_world"
                     or type(payload.get("meters_per_unit")) not in (int, float)
                     or payload["meters_per_unit"] != 1 or payload.get("up_axis") != "Z"):
                 raise ValueError("unsupported or mismatched semantic point product")
-            self.semantic_points = migrate_points(payload["points"])
+            self.semantic_points = (migrate_points(payload["points"])
+                                    if payload["version"] < 3 else payload["points"])
         self.grids = {}
         for entry in self.manifest["base_grids"]:
             path = child(self.root, entry["file"])
@@ -556,6 +557,18 @@ class MapProject:
     def edit(self, operation, *, revision=None, domain="ground", **args):
         self._expect(revision)
         self.document_for(domain)
+        if operation == "create_node_annotation":
+            node_id = args.pop("node_id")
+            self.document_for(domain).node(node_id)
+            points = edit_points(self.semantic_points, "add_semantic_point", args)
+            points[-1]["navigation_bindings"] = [{"domain": domain, "node_id": node_id}]
+            self._check_semantic_bindings(points=points)
+            self._undo.append(self._snapshot())
+            self._undo = self._undo[-100:]
+            self._redo.clear()
+            self.semantic_points = points
+            self.revision += 1
+            return
         if operation == "remove_selection":
             items = args.get("items")
             if not isinstance(items, list) or not items:
@@ -613,8 +626,7 @@ class MapProject:
             self.documents[domain] = candidate
             self.revision += 1
             return
-        if operation in {"add_semantic_point", "update_semantic_point", "move_semantic_point_xy",
-                         "move_semantic_point", "remove_semantic_point",
+        if operation in {"add_semantic_point", "update_semantic_point", "remove_semantic_point",
                          "set_semantic_point_navigation_bindings"}:
             points = edit_points(self.semantic_points, operation, args)
             self._check_semantic_bindings(points=points)
@@ -1008,7 +1020,7 @@ class MapProject:
             for row in semantics["regions"]]
         save_draft(destination / "topology-aerial.json", aerial)
         write_json(destination / "semantic-points.json", {
-            "schema": POINT_SCHEMA, "version": 2, "scene_key": export_doc.scene_key,
+            "schema": POINT_SCHEMA, "version": 3, "scene_key": export_doc.scene_key,
             "coordinate_frame": "scene_world", "meters_per_unit": 1, "up_axis": "Z",
             "points": deepcopy(self.semantic_points)})
         write_json(destination / "semantic-footprints.geojson", {"type": "FeatureCollection", "features": features})

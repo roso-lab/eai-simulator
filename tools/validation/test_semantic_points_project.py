@@ -25,7 +25,59 @@ def project(tmp_path):
 
 
 def add_point(p, **kwargs):
-    p.edit("add_semantic_point", id="s1", position_xyz=[0, 0, 1.5], kind="seat", **kwargs)
+    p.edit("add_semantic_point", id="s1", kind="seat", **kwargs)
+
+
+@pytest.mark.parametrize("domain", ["ground", "aerial"])
+def test_create_node_annotation_is_atomic_undoable_and_nonspatial(project, domain):
+    project.edit("add_node", domain=domain, position_xyz=[0, 0, 4],
+                 **({"level_id": "1F"} if domain == "ground" else {}))
+    before, revision = project._snapshot(), project.revision
+    project.edit("create_node_annotation", domain=domain, node_id="node:0001", id="desk",
+                 label="Desk", kind="furniture", revision=revision)
+    assert project.revision == revision + 1
+    row = deepcopy(project.semantic_points[0])
+    assert row["navigation_bindings"] == [{"domain": domain, "node_id": "node:0001"}]
+    assert not ({"position_xyz", "edit_mode"} & row.keys())
+    project.undo()
+    assert project._snapshot() == before
+    project.redo()
+    assert project.semantic_points == [row]
+    snapshot, history = project._snapshot(), len(project._undo)
+    with pytest.raises((ValueError, KeyError)):
+        project.edit("create_node_annotation", domain=domain, node_id="missing", id="bad")
+    assert project._snapshot() == snapshot and len(project._undo) == history
+    with pytest.raises(ValueError):
+        project.edit("create_node_annotation", domain=domain, node_id="node:0001", id="desk")
+    assert project._snapshot() == snapshot and len(project._undo) == history
+    project.edit("move_node", domain=domain, id="node:0001", position_xyz=[1, 1, 9])
+    assert project.semantic_points == [row]
+    with pytest.raises(ValueError, match="semantic point"):
+        project.edit("remove_node", domain=domain, id="node:0001")
+    project.save()
+    assert MapProject(project.root).semantic_points == [row]
+
+
+def test_http_node_annotation_preserves_layer_selection_and_validates_floor(api):
+    request, _ = api
+    _, state = request("/api/state")
+    code, state = request("/api/edit", {**identity(state), "operation": "add_node",
+        "position_xyz": [0, 0, 0], "level_id": "1F"})
+    assert code == 200
+    request("/api/web/selection", {**identity(state), "selection": {
+        "kind": "node", "id": "node:0001", "domain": "ground"}})
+    old = identity(state)
+    code, state = request("/api/edit", {**old, "operation": "create_node_annotation",
+        "node_id": "node:0001", "annotation_node_id": "node:0001", "id": "desk"})
+    assert code == 200, state
+    assert state["revision"] == old["revision"] + 1
+    assert state["active_layer"] == "ground"
+    assert state["web_selection"]["id"] == "node:0001"
+    assert request("/api/edit", {**old, "operation": "create_node_annotation",
+        "node_id": "node:0001", "annotation_node_id": "node:0001"})[0] == 409
+    state = switch(request, state, level_id="2F")
+    assert request("/api/edit", {**identity(state), "operation": "create_node_annotation",
+        "node_id": "node:0001", "annotation_node_id": "node:0001"})[0] == 400
 
 
 def test_points_preserve_modes_coordinates_navigation_bindings_and_graph_identity(project):
@@ -34,10 +86,9 @@ def test_points_preserve_modes_coordinates_navigation_bindings_and_graph_identit
     digest = project.product_digest
     add_point(project, label="Chair", description="Sitting place", aliases=["seat"], properties={"action": "sit"})
     assert project.product_digest != digest
-    project.edit("update_semantic_point", id="s1", edit_mode="2.5d")
-    project.edit("move_semantic_point_xy", id="s1", position_xy=[1, 2])
-    assert project.semantic_points[0]["position_xyz"] == [1, 2, 1.5]
-    project.edit("update_semantic_point", id="s1", position_xyz=[1, 2, 6])
+    assert "position_xyz" not in project.semantic_points[0]
+    assert "edit_mode" not in project.semantic_points[0]
+    project.edit("update_semantic_point", id="s1", label="Updated chair")
     saved = project._snapshot()
     project.edit("set_semantic_point_navigation_bindings", id="s1",
                  bindings=[{"domain": "ground", "node_id": "node:0001"}])
@@ -45,8 +96,7 @@ def test_points_preserve_modes_coordinates_navigation_bindings_and_graph_identit
     project.undo()
     assert project._snapshot() == saved
     project.redo()
-    project.edit("update_semantic_point", id="s1", edit_mode="3d")
-    assert project.semantic_points[0]["position_xyz"] == bound["position_xyz"]
+    assert "position_xyz" not in project.semantic_points[0]
     assert project.semantic_points[0]["navigation_bindings"] == bound["navigation_bindings"]
     project.save()
     reopened = MapProject(project.root)
@@ -77,7 +127,7 @@ def test_legacy_isaac_binding_is_dropped_on_load_and_save(project, version, bind
     revision = project.root / project.saved_revision
     payload = read_json(revision / "semantic-points.json")
     payload["version"] = version
-    payload["points"][0]["isaac_binding"] = binding
+    payload["points"][0].update(isaac_binding=binding, position_xyz=[1, 2, 3], edit_mode="3d")
     if version == 1:
         payload["points"][0].pop("navigation_bindings")
     (revision / "semantic-points.json").write_text(
@@ -95,7 +145,8 @@ def test_legacy_isaac_binding_is_dropped_on_load_and_save(project, version, bind
     assert read_json(revision / "semantic-points.json")["points"][0]["isaac_binding"] == binding
     reopened.save()
     payload = read_json(reopened.root / reopened.saved_revision / "semantic-points.json")
-    assert "isaac_binding" not in payload["points"][0]
+    assert payload["version"] == 3
+    assert not ({"isaac_binding", "position_xyz", "edit_mode"} & payload["points"][0].keys())
     assert MapProject(project.root)._snapshot() == expected
 
 
@@ -275,7 +326,7 @@ def test_http_layers_type_isolation_modes_context_and_region_rejection(api):
     code,_ = request("/api/edit", {**stale,"operation":"add_node","position_xyz":[0,0,7]})
     assert code == 409
     state = switch(request,state,tool="add-semantic-point")
-    code,state = request("/api/edit",{**identity(state),"operation":"add_semantic_point","position_xyz":[0,0,7]})
+    code,state = request("/api/edit",{**identity(state),"operation":"add_semantic_point"})
     assert code == 200 and state["active_layer"] == "semantic_points"
     code,_ = request("/api/edit",{**identity(state),"operation":"add_node","position_xyz":[0,0,7]})
     assert code == 400
@@ -322,7 +373,7 @@ def test_http_rejects_isaac_binding_and_accepts_navigation_binding(api):
     _,state = request("/api/edit", {**identity(state), "operation":"add_node",
                                      "position_xyz":[0,0,0], "level_id":"1F"})
     state = switch(request,state,tool="add-semantic-point")
-    _,state = request("/api/edit",{**identity(state),"operation":"add_semantic_point","id":"s1","position_xyz":[0,0,1]})
+    _,state = request("/api/edit",{**identity(state),"operation":"add_semantic_point","id":"s1"})
     bind = {**identity(state),"operation":"bind_semantic_point","id":"s1",
             "binding":{"source_usd":"scene/Test/scene/scene.usda","prim_path":"/World/Chair"}}
     assert request("/api/edit",bind)[0] == 400
@@ -352,7 +403,7 @@ def test_navigation_binding_context_stays_on_semantic_layer(api):
                                       "position_xyz": [0, 0, 2]})
     state = switch(request, state, active_layer="semantic_points", tool="add-semantic-point")
     _, state = request("/api/edit", {**identity(state), "operation": "add_semantic_point",
-                                      "id": "s1", "position_xyz": [1, 1, 1]})
+                                      "id": "s1"})
     state = switch(request, state,
                    binding_target_mode="semantic_navigation",
                    binding_target_id="s1",

@@ -12,10 +12,13 @@ function editor() {
   let nextTimer = 0;
   const document = {
     activeElement: null,
+    createElement() { return { value: "", textContent: "" }; },
     getElementById(id) {
       if (!elements.has(id)) elements.set(id, {
         value: "", textContent: "", disabled: false,
         classList: { toggle(name, value) { this[name] = value; } },
+        replaceChildren() { this.children = []; },
+        appendChild(child) { (this.children ||= []).push(child); },
         querySelectorAll: () => []
       });
       return elements.get(id);
@@ -32,7 +35,7 @@ function editor() {
     const calls = [];
     write = async (path, body) => { calls.push({path, body}); return null; };
     globalThis.editor = { state, els, calls, renderPointSettings, updateToolUI,
-      renderInspector, applyInspector, createNode, createSemanticPoint, syncPointSettings,
+      renderInspector, applyInspector, createNode, syncPointSettings, startAnnotation, saveAnnotation, bindAnnotation,
       renderPending, showError, clearError, notice, timers, roadEnd, adjustRoadEndHeight,
       adjustAerialRoadStartHeight, toggleNavigationBindingFromMap,
       applyNavigationBindings };
@@ -101,30 +104,36 @@ test("remote floor switch resets ground height even while the input has focus", 
   assert.equal(api.state.server.new_point_settings.semantic_points.z, 8);
 });
 
-test("aerial and semantic point settings and creation remain independent", async () => {
+test("node annotation creation carries a node binding and no coordinates", async () => {
   const api = editor();
-  api.state.activeLayer = api.state.activeDomain = "aerial";
-  api.renderPointSettings(); api.updateToolUI();
-  assert.equal(api.els.newPointZ.value, "7");
-  assert.equal(api.els.newPointModeGroup.classList.hidden, false);
-  await api.createNode([1, 2]);
-  let body = plain(api.calls.at(-1).body);
-  assert.deepEqual(body.position_xyz, [1, 2, 7]);
-  assert.equal(body.edit_mode, "2.5d");
-  assert.ok(!Object.hasOwn(body, "level_id"));
-  api.state.activeLayer = "semantic_points";
-  api.state.server.editor_tool = "add-semantic-point";
-  api.renderPointSettings(); api.updateToolUI();
-  assert.equal(api.els.newPointZ.value, "8");
-  await api.createSemanticPoint([1, 2]);
-  body = plain(api.calls.at(-1).body);
-  assert.deepEqual(body.position_xyz, [1, 2, 8]);
-  assert.equal(body.edit_mode, "3d");
-  api.state.activeLayer = api.state.activeDomain = "ground";
-  delete api.state.server.new_point_settings.ground;
-  api.renderPointSettings();
-  assert.equal(api.els.newPointZ.value, "3");
+  api.state.selection = { type: "node", id: "g1", domain: "ground" };
+  api.startAnnotation(true);
+  api.els.annotationLabel.value = "Desk";
+  await api.saveAnnotation({ preventDefault() {} });
+  const body = api.calls.at(-1).body;
+  assert.equal(body.operation, "create_node_annotation");
+  assert.equal(body.node_id, "g1");
+  assert.equal(body.annotation_node_id, "g1");
+  assert.ok(!("position_xyz" in body));
+  assert.equal(api.state.activeLayer, "ground");
 });
+
+test("binding and unbinding preserve other nodes and the active navigation layer", async () => {
+  const api = editor();
+  api.state.selection = { type: "node", id: "g1", domain: "ground" };
+  api.state.server.semantic_points = [{ id: "desk", label: "Desk", kind: "furniture",
+    navigation_bindings: [{ domain: "aerial", node_id: "a1" }] }];
+  api.els.annotationChoice.value = "desk";
+  await api.bindAnnotation(false);
+  assert.deepEqual(plain(api.calls.at(-1).body.bindings), [
+    { domain: "aerial", node_id: "a1" }, { domain: "ground", node_id: "g1" }]);
+  api.state.server.semantic_points[0].navigation_bindings = plain(api.calls.at(-1).body.bindings);
+  await api.bindAnnotation(true);
+  assert.deepEqual(plain(api.calls.at(-1).body.bindings), [{ domain: "aerial", node_id: "a1" }]);
+  assert.equal(api.state.activeLayer, "ground");
+  assert.equal(api.state.selection.id, "g1");
+});
+
 
 test("aerial road uses the configured start Z and adjusts only its endpoint by 0.1m", () => {
   const api = editor();
@@ -198,11 +207,11 @@ test("semantic navigation map picking edits a draft across both graph domains", 
 test("semantic binding controls and copy describe explicit map connection mode", () => {
   const html = readFileSync(join(__dirname, "../topology_authoring/web/index.html"), "utf8");
   const app = readFileSync(join(__dirname, "../topology_authoring/web/app.js"), "utf8");
-  assert.match(html, /点击“连接导航点”后，在地图上逐个点选/);
+  assert.match(html, /在导航图层选择节点即可新建或绑定语义/);
   assert.match(html, /id="pickNavigationBtn"[^>]*>连接导航点/);
   assert.match(app, /连接模式：点击地面或空中导航节点加入\/移除绑定/);
   assert.match(app, /bindingKeys\.has\(`/);
-  assert.match(app, /bound \? "#ffd166"/);
+  assert.match(app, /annotated.has/);
 });
 
 test("semantic binding mode keeps the semantic layer active while exposing both navigation graphs", () => {

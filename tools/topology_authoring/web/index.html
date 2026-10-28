@@ -37,7 +37,7 @@
         <div id="layerToggle" class="layer-toggle" role="group" aria-label="编辑图层">
           <button type="button" data-layer="ground">地面</button>
           <button type="button" data-layer="aerial">空中</button>
-          <button type="button" data-layer="semantic_points">语义点</button>
+          <button type="button" data-layer="semantic_points">语义管理</button>
         </div>
         <label class="field-group compact-field"><span>参考底图</span><select id="referenceLevel"><option value="">无底图</option></select></label>
         <div id="floorList" class="floor-list" role="listbox" aria-label="地面工作楼层"></div>
@@ -78,7 +78,7 @@
           <button class="tool hidden" type="button" data-mode="delete-ground-edge">删除边</button>
           <button class="tool hidden" type="button" data-mode="build-aerial-road">修路</button>
           <button class="tool hidden" type="button" data-mode="delete-aerial-edge">删除边</button>
-          <button class="tool" type="button" data-mode="add-semantic-point">语义点</button>
+          <button class="tool" type="button" data-mode="add-semantic-point">语义管理</button>
         </div>
         <label id="newPointZGroup" class="new-node-mode hidden">新点 Z<input id="newPointZ" type="number" value="1.5" step="0.1"></label>
         <label id="newPointModeGroup" class="new-node-mode hidden">模式<select id="newPointMode"><option value="3d">3D</option><option value="2.5d">2.5D</option></select></label>
@@ -108,6 +108,26 @@
     <aside class="side-panel inspector-panel">
       <section class="panel-section inspector-title"><div><span id="selectionType" class="eyebrow">未选择</span><h2 id="selectionTitle">属性检查器</h2></div><button id="clearSelectionBtn" class="icon-button hidden" type="button">×</button></section>
       <div id="emptyInspector" class="empty-inspector"><div class="empty-icon">⌖</div><p>选择活动图层中的节点、边或语义点。拖动操作先在本地预览，释放后只提交一次。</p></div>
+      <section id="nodeAnnotations" class="panel-section hidden">
+        <h2>语义信息</h2>
+        <p>选择导航节点后，新建或绑定已有语义。修改共享语义会影响所有关联节点。</p>
+        <input id="annotationSearch" type="search" placeholder="搜索 ID、名称、类别或别名">
+        <select id="annotationChoice" aria-label="已有语义"></select>
+        <div class="binding-actions">
+          <button id="annotationNew" type="button">新建语义</button>
+          <button id="annotationEdit" type="button">编辑语义</button>
+          <button id="annotationBind" type="button">绑定已有语义</button>
+          <button id="annotationUnbind" type="button">解除当前节点绑定</button>
+        </div>
+        <form id="annotationForm" class="hidden">
+          <label>名称<input id="annotationLabel"></label>
+          <label>类别<input id="annotationKind" value="custom"></label>
+          <label>描述<textarea id="annotationDescription"></textarea></label>
+          <label>别名（逗号分隔）<input id="annotationAliases"></label>
+          <label>属性 JSON<textarea id="annotationProperties">{}</textarea></label>
+          <button type="submit">应用语义</button><button id="annotationCancel" type="button">取消</button>
+        </form>
+      </section>
       <form id="inspectorForm" class="inspector-form hidden" novalidate>
         <div class="field-group"><label for="fieldId">稳定 ID</label><input id="fieldId" class="mono" readonly></div>
         <div id="labelGroup" class="field-group"><label for="fieldLabel">名称</label><input id="fieldLabel" autocomplete="off"></div>
@@ -121,7 +141,7 @@
         <div id="edgeGroup" class="edge-fields hidden"><div class="field-group"><label>起点</label><input id="fieldFrom" class="mono" readonly></div><div class="field-group"><label>终点</label><input id="fieldTo" class="mono" readonly></div><label class="toggle-row"><input id="fieldDirected" type="checkbox"><span>有向边</span></label><div class="field-group"><label for="fieldTraversal">通行方式</label><select id="fieldTraversal"><option value="walk">平面</option><option value="stairs">楼梯</option><option value="ramp">坡道</option></select></div></div>
         <section id="bindingGroup" class="binding-card hidden">
           <div class="binding-heading"><strong>导航点绑定</strong><span id="navigationBindingStatus" class="binding-status">未绑定</span></div>
-          <p class="binding-hint">点击“连接导航点”后，在地图上逐个点选地面或空中节点；再次点击可移除。节点列表也可辅助编辑，点击“应用绑定”后统一保存。</p>
+          <p class="binding-hint">语义信息可由多个节点共享，修改会影响所有关联节点。在导航图层选择节点即可新建或绑定语义；此列表可管理已有绑定，点击“应用绑定”保存。</p>
           <label class="search-box"><span>⌕</span><input id="navigationBindingSearch" type="search" placeholder="搜索节点 ID、名称或图域"></label>
           <div id="navigationBindingList" class="binding-node-list"></div>
           <div class="binding-actions"><button id="pickNavigationBtn" class="button subtle" type="button">连接导航点</button><button id="clearNavigationBtn" class="button danger-ghost" type="button">清空</button><button id="applyNavigationBtn" class="button primary" type="button">应用绑定</button></div>
