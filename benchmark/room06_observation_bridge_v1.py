@@ -141,8 +141,13 @@ class Room06ObservationBridge:
         )
         self._assignment_digest: str | None = None
         self._assignment_robot_ids: tuple[str, ...] = ()
-        self._session_digests: dict[str, str] = {}
+        self._session_digests: dict[tuple[str, str], str] = {}
+        self._session_identity: dict[str, tuple[Any, ...]] = {}
         self._delivery_targets: set[str] = set()
+        self._book_destinations = runtime.individual_book_destinations
+        self._picked_books: dict[str, int] = {}
+        self._handed_books: dict[str, int] = {}
+        self._delivered_books: set[str] = set()
         self._holders: set[str] = set()
         self._last_tick = -1
         self._observed_events: list[dict[str, Any]] = []
@@ -178,18 +183,20 @@ class Room06ObservationBridge:
         assigned = tuple(
             sorted(_text(item, "assigned_robot_id") for item in assigned_robot_ids)
         )
-        if not assigned or len(set(assigned)) != len(assigned):
+        if len(set(assigned)) != len(assigned):
             raise Room06ObservationBridgeError(
-                "assigned_robot_ids must be unique and non-empty"
+                "assigned_robot_ids must be unique"
             )
         if not set(assigned).issubset(self._robot_ids):
             raise Room06ObservationBridgeError(
                 "assignment contains a robot outside the frozen runtime roster"
             )
+        digest = _digest(decision_digest, "decision_digest")
         tick = self._advance(tick)
-        self._assignment_digest = _digest(decision_digest, "decision_digest")
+        if assigned:
+            self._runtime.record_assignment(tick)
+        self._assignment_digest = digest
         self._assignment_robot_ids = assigned
-        self._runtime.record_assignment(tick)
 
     def observe_skill_event(self, value: Mapping[str, Any]) -> None:
         event = normalize_skill_event(value)
@@ -202,7 +209,11 @@ class Room06ObservationBridge:
                 "skill event robot is outside the observed assignment"
             )
         session_digest = _canonical_digest(event)
-        previous = self._session_digests.get(event["session_id"])
+        identity = (event["tick"], event["robot_id"], event["evidence_digest"], event["status"])
+        if event["session_id"] in self._session_identity and self._session_identity[event["session_id"]] != identity:
+            raise Room06ObservationBridgeError("skill session was replayed with different evidence")
+        session_key = (event["session_id"], event["event_type"])
+        previous = self._session_digests.get(session_key)
         if previous is not None:
             if previous != session_digest:
                 raise Room06ObservationBridgeError(
@@ -210,12 +221,19 @@ class Room06ObservationBridge:
                 )
             return
         tick = self._advance(event["tick"])
-        self._session_digests[event["session_id"]] = session_digest
 
         event_type = event["event_type"]
         object_id = event["object_id"]
         target_ref = event["target_ref"]
         try:
+            if self._book_destinations and event_type in {
+                "relay_pickup_completed", "topology_handoff_completed", "relay_delivery_completed"
+            }:
+                self._observe_individual_book(event_type, object_id, target_ref, tick)
+                self._session_identity[event["session_id"]] = identity
+                self._session_digests[session_key] = session_digest
+                self._observed_events.append(deepcopy(event))
+                return
             if event_type == "relay_pickup_completed":
                 if object_id != BOOK_BATCH_ID or target_ref != "floor1-bookshelf":
                     raise Room06ObservationBridgeError(
@@ -259,7 +277,44 @@ class Room06ObservationBridge:
                 self._runtime.record_milestone("accepted", tick)
         except Room06TaskRuntimeError as exc:
             raise Room06ObservationBridgeError(str(exc)) from exc
+        # Only accepted events are idempotent. A rejected observation must
+        # still raise on replay, never appear to have succeeded from a cache.
+        self._session_identity[event["session_id"]] = identity
+        self._session_digests[session_key] = session_digest
         self._observed_events.append(deepcopy(event))
+
+    def _observe_individual_book(self, event_type: str, book: str, target: str, tick: int) -> None:
+        if book not in self._book_destinations:
+            raise Room06ObservationBridgeError("relay evidence must identify an individual registered book")
+        if event_type == "relay_pickup_completed":
+            if target != "floor1-bookshelf" or book in self._picked_books:
+                raise Room06ObservationBridgeError("individual book pickup is duplicated or at the wrong source")
+            if not self._picked_books:
+                self._runtime.record_milestone("relay_started", tick)
+            self._picked_books[book] = tick
+        elif event_type == "topology_handoff_completed":
+            if book not in self._picked_books or book in self._handed_books:
+                raise Room06ObservationBridgeError("individual book handoff needs one prior pickup")
+            if tick <= self._picked_books[book]:
+                raise Room06ObservationBridgeError("individual book handoff must strictly follow pickup")
+            if target != self._runtime.transition_handoff_node_id:
+                raise Room06ObservationBridgeError("individual book handoff target mismatch")
+            if not self._handed_books:
+                self._runtime.record_transition_handoff(
+                    tick=tick, observed_node_id=target,
+                    runtime_binding_digest=self._runtime_binding_digest,
+                )
+            self._handed_books[book] = tick
+        else:
+            if book not in self._handed_books or book in self._delivered_books:
+                raise Room06ObservationBridgeError("individual book delivery needs a unique prior handoff")
+            if tick <= self._handed_books[book]:
+                raise Room06ObservationBridgeError("individual book delivery must strictly follow handoff")
+            if target != self._book_destinations[book]:
+                raise Room06ObservationBridgeError("individual book delivered to the wrong shelf")
+            self._delivered_books.add(book)
+            if self._delivered_books == set(self._book_destinations):
+                self._runtime.record_milestone("relay_complete", tick)
 
     def sample_holds(self, *, tick: int, held_objects: Mapping[str, str | None]) -> None:
         """Consume a complete roster snapshot from held_object/skill-session state."""

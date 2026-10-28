@@ -16,6 +16,8 @@ from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from typing import Any
 
+from .room06_task_instance_v2 import book_members
+
 from .room06_runtime_preflight_v1 import (
     FORMAL_GATES,
     PREFLIGHT_SCHEMA,
@@ -147,7 +149,7 @@ def normalize_task_definition(entity_id: str, value: Mapping[str, Any]) -> dict[
     definition = _mapping(value, f"{entity_id}.definition")
     _canonical_bytes(definition)
     if entity_id == BOOK_BATCH_ID:
-        if set(definition) != _BOOK_FIELDS:
+        if set(definition) not in (_BOOK_FIELDS, _BOOK_FIELDS | {"books"}):
             raise Room06TaskRuntimeError("book_batch_01 definition schema mismatch")
         if definition.get("kind") != "book_batch":
             raise Room06TaskRuntimeError("book_batch_01.kind must be book_batch")
@@ -170,25 +172,30 @@ def normalize_task_definition(entity_id: str, value: Mapping[str, Any]) -> dict[
             raise Room06TaskRuntimeError(
                 "book_batch_01 destinations must be the three floor2 bookshelves"
             )
-        return {
+        result = {
             "kind": "book_batch",
             "count": count,
             "book_ids": sorted(book_ids),
             "source_semantic_point": "floor1-bookshelf",
             "destination_semantic_points": list(BOOK_DESTINATIONS),
         }
+        if "books" in definition:
+            try:
+                result["books"] = book_members(definition)
+            except ValueError as exc:
+                raise Room06TaskRuntimeError(str(exc)) from exc
+        return result
     if entity_id == HEAVY_OBJECT_ID:
-        if set(definition) != _HEAVY_FIELDS:
+        if set(definition) not in (_HEAVY_FIELDS, _HEAVY_FIELDS - {"size_xyz_m"}):
             raise Room06TaskRuntimeError("heavy_object definition schema mismatch")
         if definition.get("kind") != "logical_load":
             raise Room06TaskRuntimeError("heavy_object.kind must be logical_load")
-        size = definition.get("size_xyz_m")
-        if not isinstance(size, list) or len(size) != 3:
-            raise Room06TaskRuntimeError("heavy_object.size_xyz_m must have 3 values")
-        normalized_size = [
-            _finite_positive(item, f"heavy_object.size_xyz_m[{index}]")
-            for index, item in enumerate(size)
-        ]
+        normalized_size = None
+        if "size_xyz_m" in definition:  # Read historical definitions only.
+            size = definition["size_xyz_m"]
+            if not isinstance(size, list) or len(size) != 3:
+                raise Room06TaskRuntimeError("heavy_object.size_xyz_m must have 3 values")
+            normalized_size = [_finite_positive(item, "legacy size") for item in size]
         mass = _finite_positive(definition.get("mass_kg"), "heavy_object.mass_kg")
         source = _text(
             definition.get("source_semantic_point"),
@@ -206,14 +213,16 @@ def normalize_task_definition(entity_id: str, value: Mapping[str, Any]) -> dict[
             raise Room06TaskRuntimeError(
                 "heavy_object.minimum_holders must be exactly 2"
             )
-        return {
+        result = {
             "kind": "logical_load",
-            "size_xyz_m": normalized_size,
             "mass_kg": mass,
             "source_semantic_point": source,
             "destination_semantic_point": destination,
             "minimum_holders": MINIMUM_HOLDERS,
         }
+        if normalized_size is not None:
+            result["size_xyz_m"] = normalized_size
+        return result
     raise Room06TaskRuntimeError(f"unsupported task-generated entity: {entity_id}")
 
 
@@ -453,6 +462,16 @@ class Room06TaskRuntime:
     @property
     def state(self) -> str:
         return self._state
+
+    @property
+    def individual_book_destinations(self) -> dict[str, str]:
+        """Return frozen member identities without exposing private ledger state."""
+        batch = next(row["definition"] for row in self._task_setup["objects"] if row["entity_id"] == BOOK_BATCH_ID)
+        return {row["entity_id"]: row["destination_semantic_point"] for row in batch.get("books", [])}
+
+    @property
+    def transition_handoff_node_id(self) -> str:
+        return self._transition_node_id
 
     def _advance(self, tick: int) -> int:
         tick = _tick(tick, "tick")

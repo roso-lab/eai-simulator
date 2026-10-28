@@ -1,139 +1,68 @@
-"""Production registration seam for the room06 task driver.
-
-This module deliberately contains no navigation, manipulation, or success
-simulation.  The simulator owns the live scene and a case runner must attach a
-``room06_task_driver`` to the environment.  The driver is the only component
-allowed to issue skills and report completed sessions.  The source verifies
-the generated USD bodies and forwards the driver's observer callbacks to the
-fail-closed collector in :mod:`EAI.room06_runtime_hook`.
-"""
-
-from __future__ import annotations
-
+"""Room06 source backed only by host skill sessions and the logical ledger."""
 from collections.abc import Mapping
+from copy import deepcopy
 from typing import Any
 
-from .room06_runtime_hook import CallbackRoom06RuntimeHookSource, HOOK_SOURCE_SCHEMA
+from EAI.room06_runtime_hook import CallbackRoom06RuntimeHookSource
+from benchmark.records_v3 import canonical_digest
+from benchmark.room06_task_instance_v2 import logical_object_definitions
+from benchmark.room06_task_runtime_v1 import normalize_room06_task_setup
+from task.logical_objects import LogicalObjectRuntime
 
 
 class Room06RuntimeSourceError(RuntimeError):
-    """Raised when the live room06 driver or object bindings are incomplete."""
+    """Missing or inconsistent host runtime bindings."""
 
 
-def _task_object_paths(package: Mapping[str, Any]) -> dict[str, str]:
-    bindings = package.get("task_object_bindings")
-    if not isinstance(bindings, Mapping):
-        raise Room06RuntimeSourceError("task_object_bindings are unavailable")
-    rows = bindings.get("objects")
-    if not isinstance(rows, list) or not rows:
-        raise Room06RuntimeSourceError("task_object_bindings.objects must be non-empty")
-    result: dict[str, str] = {}
-    for row in rows:
-        if not isinstance(row, Mapping):
-            raise Room06RuntimeSourceError("task object binding must be an object")
-        entity_id = row.get("entity_id")
-        if not isinstance(entity_id, str) or not entity_id.strip():
-            raise Room06RuntimeSourceError("task object binding entity_id is invalid")
-        # The case-owned generated objects have stable names under env_0.  A
-        # driver may return a more specific path later, but it may not replace
-        # this identity with command metadata or a basename guess.
-        if entity_id == "book_batch_01":
-            path = "/World/envs/env_0/room06_task/book_batch_01"
-        elif entity_id == "heavy_object":
-            path = "/World/envs/env_0/room06_task/heavy_object"
-        else:
-            raise Room06RuntimeSourceError(f"unsupported room06 task object: {entity_id}")
-        if entity_id in result:
-            raise Room06RuntimeSourceError(f"duplicate room06 task object: {entity_id}")
-        result[entity_id] = path
-    return result
-
-
-def _require_driver(base_env: Any) -> Any:
-    driver = getattr(base_env, "room06_task_driver", None)
-    if driver is None:
-        raise Room06RuntimeSourceError(
-            "room06_task_driver is not registered; refusing synthetic task execution"
-        )
-    if not callable(getattr(driver, "collect_room06", None)):
-        raise Room06RuntimeSourceError(
-            "room06_task_driver.collect_room06 is required"
-        )
-    return driver
-
-
-def create_room06_runtime_source(
-    *,
-    base_env: Any,
-    package: Mapping[str, Any],
-    instance_agent_map: Mapping[str, str],
-    **_: Any,
-) -> CallbackRoom06RuntimeHookSource:
-    """Create the source attached by ``SimulatorLaunchConfig``.
-
-    ``collect_room06`` delegates to the driver, while all event/hold/schema
-    validation remains in ``collect_room06_runtime_hook``.  The returned
-    object intentionally does not expose a fallback driver.
-    """
-
+def create_room06_runtime_source(*, base_env: Any, package: Mapping[str, Any],
+                                instance_agent_map: Mapping[str, str], **_: Any):
     if not isinstance(package, Mapping):
         raise Room06RuntimeSourceError("package must be an object")
-    paths = _task_object_paths(package)
+    frozen = deepcopy(dict(package))
+    body = dict(frozen)
+    if body.pop("package_digest", None) != canonical_digest(body):
+        raise Room06RuntimeSourceError("package_digest does not bind the task package")
+    try:
+        normalize_room06_task_setup(frozen["task_setup"], frozen["task_object_bindings"])
+        objects = logical_object_definitions(frozen["task_setup"])
+    except (ValueError, KeyError) as exc:
+        raise Room06RuntimeSourceError(str(exc)) from exc
+    pinned = canonical_digest(frozen)
+    agents = dict(instance_agent_map)
 
-    def object_path_bindings(**kwargs: Any) -> dict[str, str]:
-        if kwargs.get("package") != package:
-            # The probe passes a detached copy.  Compare the stable object
-            # binding rather than object identity, while still rejecting a
-            # changed task package.
-            candidate = kwargs.get("package")
-            if not isinstance(candidate, Mapping) or _task_object_paths(candidate) != paths:
-                raise Room06RuntimeSourceError("task package changed before object binding")
-        stage = getattr(base_env, "stage", None)
-        if stage is None:
-            sim = getattr(base_env, "sim", None)
-            stage = getattr(sim, "stage", None)
-        if stage is None:
-            # Isaac exposes the stage through omni.usd; importing it lazily
-            # keeps CPU preflight and unit tests independent of Kit.
-            try:
-                import omni.usd
-                stage = omni.usd.get_context().get_stage()
-            except Exception as exc:  # pragma: no cover - native-only branch
-                raise Room06RuntimeSourceError("live USD stage is unavailable") from exc
-        result: dict[str, str] = {}
-        for entity_id, path in paths.items():
-            prim = stage.GetPrimAtPath(path)
-            if prim is None or not prim.IsValid():
-                raise Room06RuntimeSourceError(f"generated task rigid body is unavailable: {path}")
-            result[entity_id] = path
-        return result
+    def require_binding(kwargs):
+        candidate = kwargs.get("package")
+        if not isinstance(candidate, Mapping) or canonical_digest(candidate) != pinned:
+            raise Room06RuntimeSourceError("task package changed before runtime observation")
+        if kwargs.get("instance_agent_map") != agents:
+            raise Room06RuntimeSourceError("room06 roster binding changed")
+        runtime = getattr(base_env, "logical_object_runtime", None)
+        if not isinstance(runtime, LogicalObjectRuntime):
+            raise Room06RuntimeSourceError("host logical_object_runtime is not registered")
+        if runtime.scene_id != "room_06" or runtime.robot_ids != tuple(sorted(agents)):
+            raise Room06RuntimeSourceError("logical ledger scene/roster differs from the package")
+        if runtime.definitions != {row["entity_id"]: row for row in objects}:
+            raise Room06RuntimeSourceError("logical ledger object definitions differ from the package")
+        return runtime
 
-    def collect_room06(**kwargs: Any) -> Mapping[str, Any]:
-        driver = _require_driver(base_env)
-        if kwargs.get("package") is None or kwargs.get("instance_agent_map") != dict(instance_agent_map):
-            raise Room06RuntimeSourceError("room06 driver package or roster binding changed")
+    def object_bindings(**kwargs):
+        require_binding(kwargs)
+        return deepcopy(objects)
+
+    def collect_room06(**kwargs):
+        require_binding(kwargs)
+        driver = getattr(base_env, "room06_task_driver", None)
+        if not callable(getattr(driver, "collect_room06", None)):
+            raise Room06RuntimeSourceError("room06_task_driver is not registered; refusing synthetic task execution")
         collector = kwargs.get("collector")
         if collector is None:
             raise Room06RuntimeSourceError("room06 collector is unavailable")
-        result = driver.collect_room06(
-            package=kwargs["package"],
-            instance_agent_map=dict(instance_agent_map),
-            collector=collector,
-        )
+        result = driver.collect_room06(package=deepcopy(frozen), instance_agent_map=dict(agents), collector=collector)
         if not isinstance(result, Mapping):
             raise Room06RuntimeSourceError("room06 task driver returned no source result")
         return dict(result)
 
-    source = CallbackRoom06RuntimeHookSource(
-        object_path_bindings=object_path_bindings,
-        collect_room06=collect_room06,
-    )
-    if source.schema != HOOK_SOURCE_SCHEMA:  # defensive contract assertion
-        raise Room06RuntimeSourceError("room06 source schema is unsupported")
-    return source
+    return CallbackRoom06RuntimeHookSource(object_bindings=object_bindings, collect_room06=collect_room06)
 
 
-__all__ = [
-    "Room06RuntimeSourceError",
-    "create_room06_runtime_source",
-]
+__all__ = ["Room06RuntimeSourceError", "create_room06_runtime_source"]

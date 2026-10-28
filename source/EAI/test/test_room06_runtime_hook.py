@@ -1,294 +1,141 @@
-from __future__ import annotations
-
-import hashlib
+"""The production observer consumes benchmark sessions, never task-object prims."""
 from types import SimpleNamespace
+from copy import deepcopy
+import json
+from pathlib import Path
 
 import pytest
 
 from EAI.room06_runtime_hook import (
-    CallbackRoom06RuntimeHookSource,
-    HOOK_CAPTURE_SCHEMA,
-    HOOK_SOURCE_SCHEMA,
-    Room06RuntimeHookError,
-    collect_room06_runtime_hook,
+    CallbackRoom06RuntimeHookSource, Room06RuntimeHookError, collect_room06_runtime_hook,
 )
+from benchmark.room06_task_instance_v2 import logical_object_definitions
+from task.tests.test_logical_objects import make_runtime
+
+ROOT = Path(__file__).resolve().parents[3]
+INPUTS = ROOT / "artifacts/project_runtime/room06-deployment-v2-20261028/inputs"
 
 
-def test_callback_source_wrapper_requires_explicit_callbacks_and_preserves_identity():
-    bindings = lambda **kwargs: dict(PATHS)
-    collector = lambda **kwargs: {"assignment": _assignment(), "terminal_inputs": _terminal_inputs()}
-    source = CallbackRoom06RuntimeHookSource(
-        object_path_bindings=bindings, collect_room06=collector
-    )
-    assert source.schema == HOOK_SOURCE_SCHEMA
-    assert source.object_path_bindings(package=_package()) == PATHS
-    assert source.collect_room06(package=_package()) == {
-        "assignment": _assignment(), "terminal_inputs": _terminal_inputs()
-    }
+def _fixture(action=None):
+    package = json.loads((INPUTS / "room06-fixed-package.json").read_text())
+    ids = package["plan"]["selected_robot_ids"]
+    objects = logical_object_definitions(package["task_setup"])
+    runtime, host = make_runtime(objects=objects, robots=ids)
+    env = SimpleNamespace(num_envs=1, common_step_counter=0, logical_object_runtime=runtime)
+    agents = dict(zip(ids, ["pepper_1", "go2_1", "scout_1", "pegasus_1", "microduck_1"]))
 
-
-@pytest.mark.parametrize("name", ["object_path_bindings", "collect_room06"])
-def test_callback_source_wrapper_rejects_missing_callback(name):
-    kwargs = {
-        "object_path_bindings": lambda **_: dict(PATHS),
-        "collect_room06": lambda **_: {"assignment": _assignment(), "terminal_inputs": _terminal_inputs()},
-    }
-    kwargs[name] = None
-    with pytest.raises(TypeError, match="callback must be callable"):
-        CallbackRoom06RuntimeHookSource(**kwargs)
-from tools.validation.room06_livt04_gpu_probe import normalize_runtime_hook_capture
-
-
-ROBOTS = ("hc-rt-006", "hc-rt-020", "hc-rt-021")
-AGENTS = {robot: f"runtime_{index}" for index, robot in enumerate(ROBOTS)}
-PATHS = {
-    "book_batch_01": "/World/Task/book_batch_01",
-    "heavy_object": "/World/Task/heavy_object",
-}
-
-
-def _package():
-    return {
-        "plan": {"selected_robot_ids": list(ROBOTS)},
-        "task_object_bindings": {
-            "objects": [
-                {"entity_id": "book_batch_01"},
-                {"entity_id": "heavy_object"},
-            ]
-        },
-    }
-
-
-def _event(*, status="completed", tick=1, robot_id=ROBOTS[0]):
-    return {
-        "schema": "heterocoord.observed-skill-event.v1",
-        "session_id": "observer-session-1",
-        "event_type": "relay_pickup_completed",
-        "status": status,
-        "tick": tick,
-        "robot_id": robot_id,
-        "object_id": "book_batch_01",
-        "target_ref": "floor1-bookshelf",
-        "evidence_digest": hashlib.sha256(b"real-observer-record").hexdigest(),
-    }
-
-
-def _assignment():
-    return {
-        "tick": 0,
-        "assigned_robot_ids": list(ROBOTS),
-        "decision_digest": hashlib.sha256(b"decision").hexdigest(),
-    }
-
-
-def _terminal_inputs():
-    return {
-        "episode": {},
-        "d1": {},
-        "d4_first_event_observation": {},
-        "d6_measurement": {},
-    }
-
-
-class _Runtime:
-    def __init__(self):
-        self.holds = {agent: None for agent in AGENTS.values()}
-
-    def held_object(self, robot_name, *, env_id=0):
-        assert env_id == 0
-        return self.holds[robot_name]
-
-
-class _Source:
-    schema = HOOK_SOURCE_SCHEMA
-
-    def __init__(self, action=None, *, close=True):
-        self.action = action
-        self.should_close = close
-
-    def object_path_bindings(self, **_kwargs):
-        return dict(PATHS)
-
-    def collect_room06(self, *, collector, **_kwargs):
-        if self.action is None:
-            collector.observe_completed_skill_session(_event())
-            collector._base_env.common_step_counter = 2
-            collector.sample_holds()
+    def collect(*, collector, **kwargs):
+        record = runtime.execute(request_id="book-pick", operation="pick", object_id="book_01",
+                                 robot_ids=[ids[1]], semantic_point="floor1-bookshelf")
+        event = {
+            "schema": "heterocoord.observed-skill-event.v1",
+            "session_id": record["session_id"], "event_type": "relay_pickup_completed",
+            "status": "completed", "tick": 0, "robot_id": ids[1], "object_id": "book_01",
+            "target_ref": "floor1-bookshelf", "evidence_digest": record["evidence_digest"],
+        }
+        if action:
+            action(env, collector, event)
         else:
-            self.action(collector)
-        if self.should_close:
+            collector.observe_completed_skill_session(event)
+            collector.sample_holds()
             collector.close()
-        return {"assignment": _assignment(), "terminal_inputs": _terminal_inputs()}
+        return {
+            "assignment": {"tick": 0, "assigned_robot_ids": [ids[1]], "decision_digest": "d" * 64},
+            "terminal_inputs": {"episode": {}, "d1": {}, "d4_first_event_observation": {}, "d6_measurement": {}},
+        }
 
-
-def _session(source=None):
-    runtime = _Runtime()
-    env = SimpleNamespace(
-        num_envs=1,
-        common_step_counter=0,
-        _idealized_manipulation_runtime=runtime,
+    env.room06_runtime_hook_source = CallbackRoom06RuntimeHookSource(
+        object_bindings=lambda **_: deepcopy(objects), collect_room06=collect,
     )
-    if source is not None:
-        env.room06_runtime_hook_source = source
-    return SimpleNamespace(base_env=env), runtime
+    return SimpleNamespace(base_env=env), package, agents
 
 
-def test_factory_emits_probe_capture_from_observer_events_and_live_holds():
-    def collect(collector):
-        collector.observe_completed_skill_session(_event())
-        collector._base_env.common_step_counter = 2
-        collector._base_env._idealized_manipulation_runtime.holds.update(
-            {
-                AGENTS[ROBOTS[0]]: SimpleNamespace(object_body_path=PATHS["heavy_object"]),
-                AGENTS[ROBOTS[1]]: SimpleNamespace(object_body_path=PATHS["heavy_object"]),
-            }
-        )
-        collector.sample_holds()
-
-    session, _runtime = _session(_Source(collect))
-    capture = collect_room06_runtime_hook(
-        session=session, package=_package(), instance_agent_map=AGENTS
-    )
-    assert capture["schema"] == HOOK_CAPTURE_SCHEMA
+def test_session_and_hold_capture_requires_no_usd_stage_or_attachment():
+    session, package, agents = _fixture()
+    capture = collect_room06_runtime_hook(session=session, package=package, instance_agent_map=agents)
     assert capture["collector_closed"] is True
-    assert capture["observations"] == [
-        {"kind": "skill_event", "event": _event()},
-        {
-            "kind": "held_object_snapshot",
-            "tick": 2,
-            "held_objects": {
-                ROBOTS[0]: "heavy_object",
-                ROBOTS[1]: "heavy_object",
-                ROBOTS[2]: None,
-            },
-        },
-    ]
-    assert "success" not in capture and "terminal_payload" not in capture
-    assert normalize_runtime_hook_capture(
-        capture, selected_robot_ids=ROBOTS
-    ) == capture
+    assert capture["observations"][1]["held_objects"] == {
+        "hc-rt-004": None, "hc-rt-006": "book_01", "hc-rt-015": None,
+        "hc-rt-021": None, "hc-rt-027": None,
+    }
+    assert not hasattr(session.base_env, "stage")
+    assert not hasattr(session.base_env, "_idealized_manipulation_runtime")
 
 
-def test_missing_production_observer_source_fails_closed():
-    session, _runtime = _session()
-    with pytest.raises(Room06RuntimeHookError, match="observer source is unavailable"):
-        collect_room06_runtime_hook(
-            session=session, package=_package(), instance_agent_map=AGENTS
-        )
-
-
-def test_instance_agent_map_must_cover_exact_frozen_roster():
-    session, _runtime = _session(_Source())
-    partial = dict(AGENTS)
-    partial.pop(ROBOTS[-1])
-    with pytest.raises(Room06RuntimeHookError, match="exactly cover"):
-        collect_room06_runtime_hook(
-            session=session, package=_package(), instance_agent_map=partial
-        )
-
-
-def test_noncompleted_skill_session_is_not_observer_evidence():
-    def collect(collector):
-        collector.observe_completed_skill_session(_event(status="running"))
-
-    session, _runtime = _session(_Source(collect))
-    with pytest.raises(Room06RuntimeHookError, match="only completed"):
-        collect_room06_runtime_hook(
-            session=session, package=_package(), instance_agent_map=AGENTS
-        )
-
-
-def test_completed_event_robot_must_be_in_observed_assignment():
-    class PartialAssignment(_Source):
-        def collect_room06(self, *, collector, **_kwargs):
-            collector.observe_completed_skill_session(_event(robot_id=ROBOTS[-1]))
-            collector._base_env.common_step_counter = 2
-            collector.sample_holds()
-            collector.close()
-            assignment = _assignment()
-            assignment["assigned_robot_ids"] = list(ROBOTS[:-1])
-            return {"assignment": assignment, "terminal_inputs": _terminal_inputs()}
-
-    session, _runtime = _session(PartialAssignment())
-    with pytest.raises(Room06RuntimeHookError, match="outside the observed assignment"):
-        collect_room06_runtime_hook(
-            session=session, package=_package(), instance_agent_map=AGENTS
-        )
-
-
-def test_unclosed_collector_fails_even_if_source_returns_material():
-    session, _runtime = _session(_Source(close=False))
-    with pytest.raises(Room06RuntimeHookError, match="did not close"):
-        collect_room06_runtime_hook(
-            session=session, package=_package(), instance_agent_map=AGENTS
-        )
-
-
-def test_missing_idealized_hold_reader_fails_closed():
-    session, _runtime = _session(_Source())
-    del session.base_env._idealized_manipulation_runtime
-    with pytest.raises(Room06RuntimeHookError, match="held_object readback is unavailable"):
-        collect_room06_runtime_hook(
-            session=session, package=_package(), instance_agent_map=AGENTS
-        )
-
-
-def test_unbound_held_body_path_is_not_guessed_from_its_name():
-    def collect(collector):
-        collector.observe_completed_skill_session(_event())
-        collector._base_env.common_step_counter = 2
-        collector._base_env._idealized_manipulation_runtime.holds[
-            AGENTS[ROBOTS[0]]
-        ] = SimpleNamespace(object_body_path="/World/LooksLike/heavy_object")
-        collector.sample_holds()
-
-    session, _runtime = _session(_Source(collect))
-    with pytest.raises(Room06RuntimeHookError, match="no exact logical object binding"):
-        collect_room06_runtime_hook(
-            session=session, package=_package(), instance_agent_map=AGENTS
-        )
-
-
-def test_source_exception_is_retained_as_collection_failure():
-    class Broken(_Source):
-        def collect_room06(self, **_kwargs):
-            raise ValueError("native runner stopped")
-
-    session, _runtime = _session(Broken())
-    with pytest.raises(
-        Room06RuntimeHookError,
-        match="production room06 observer collection failed: native runner stopped",
-    ):
-        collect_room06_runtime_hook(
-            session=session, package=_package(), instance_agent_map=AGENTS
-        )
-
-
-@pytest.mark.parametrize("missing", ["event", "hold"])
-def test_event_and_hold_observations_are_both_required(missing):
-    def collect(collector):
-        if missing != "event":
-            collector.observe_completed_skill_session(_event())
-        if missing != "hold":
-            collector._base_env.common_step_counter = 2
-            collector.sample_holds()
-
-    session, _runtime = _session(_Source(collect))
-    with pytest.raises(Room06RuntimeHookError, match="emitted no"):
-        collect_room06_runtime_hook(
-            session=session, package=_package(), instance_agent_map=AGENTS
-        )
-
-
-def test_horizon_is_accepted_only_from_live_tick_15000():
-    def too_early(collector):
-        collector.observe_completed_skill_session(_event())
-        collector._base_env.common_step_counter = 2
-        collector.sample_holds()
+@pytest.mark.parametrize("assigned", [[], ["hc-rt-027"]])
+def test_live_horizon_without_any_successful_skill_is_valid_failure_capture(assigned):
+    from EAI.room06_runtime_hook import Room06RuntimeHookCollector
+    session, package, agents = _fixture()
+    objects = logical_object_definitions(package["task_setup"])
+    runtime, host = make_runtime(objects=objects, robots=list(agents))
+    session.base_env.logical_object_runtime = runtime
+    collector = Room06RuntimeHookCollector(base_env=session.base_env,
+        selected_robot_ids=list(agents), instance_agent_map=agents,
+        object_bindings={r["entity_id"]: r for r in objects})
+    collector.sample_holds()
+    with pytest.raises(Room06RuntimeHookError, match="live tick"):
         collector.observe_horizon()
+    host.tick = session.base_env.common_step_counter = 15000
+    collector.sample_holds()
+    collector.observe_horizon()
+    collector.close()
+    result = collector.capture(assignment={"tick": 0, "assigned_robot_ids": assigned, "decision_digest": "d"*64},
+        terminal_inputs={"episode": {}, "d1": {}, "d4_first_event_observation": {}, "d6_measurement": {}})
+    assert [r["kind"] for r in result["observations"]] == ["held_object_snapshot", "held_object_snapshot", "horizon_reached"]
+    assert all(runtime.object_state(i)["state"] == "at_point" for i in runtime.definitions)
+    assert result["assignment"]["assigned_robot_ids"] == assigned
 
-    session, _runtime = _session(_Source(too_early))
-    with pytest.raises(Room06RuntimeHookError, match="requires live tick 15000"):
-        collect_room06_runtime_hook(
-            session=session, package=_package(), instance_agent_map=AGENTS
-        )
+
+@pytest.mark.parametrize("mutation", ["session", "object", "point", "digest", "tick"])
+def test_algorithm_cannot_forge_a_completed_skill_event(mutation):
+    def action(env, collector, event):
+        if mutation == "session": event["session_id"] = "invented"
+        elif mutation == "object": event["object_id"] = "book_02"
+        elif mutation == "point": event["target_ref"] = "floor2-bookshelf-1"
+        elif mutation == "digest": event["evidence_digest"] = "e" * 64
+        else: event["tick"] = 1
+        collector.observe_completed_skill_session(event)
+    session, package, agents = _fixture(action)
+    with pytest.raises(Room06RuntimeHookError):
+        collect_room06_runtime_hook(session=session, package=package, instance_agent_map=agents)
+
+
+def test_attachment_reader_does_not_replace_missing_logical_ledger():
+    def action(env, collector, event):
+        del env.logical_object_runtime
+        env._idealized_manipulation_runtime = SimpleNamespace(held_object=lambda *_: None)
+        collector.sample_holds()
+    session, package, agents = _fixture(action)
+    with pytest.raises(Room06RuntimeHookError, match="logical object ledger is unavailable"):
+        collect_room06_runtime_hook(session=session, package=package, instance_agent_map=agents)
+
+
+def test_missing_source_fails_closed():
+    session, package, agents = _fixture()
+    del session.base_env.room06_runtime_hook_source
+    with pytest.raises(Room06RuntimeHookError, match="observer source is unavailable"):
+        collect_room06_runtime_hook(session=session, package=package, instance_agent_map=agents)
+
+
+def test_unclosed_collector_is_rejected():
+    def action(env, collector, event):
+        collector.observe_completed_skill_session(event)
+        collector.sample_holds()
+    session, package, agents = _fixture(action)
+    with pytest.raises(Room06RuntimeHookError, match="did not close"):
+        collect_room06_runtime_hook(session=session, package=package, instance_agent_map=agents)
+
+
+def test_wrong_ledger_definitions_rejected():
+    session, package, agents = _fixture()
+    session.base_env.logical_object_runtime.definitions["book_01"]["metadata"]["mass_kg"] = 4
+    with pytest.raises(Room06RuntimeHookError, match="ledger identity"):
+        collect_room06_runtime_hook(session=session, package=package, instance_agent_map=agents)
+
+
+@pytest.mark.parametrize("name", ["object_bindings", "collect_room06"])
+def test_wrapper_requires_callable_callbacks(name):
+    args = {"object_bindings": lambda **_: [], "collect_room06": lambda **_: {}}
+    args[name] = None
+    with pytest.raises(TypeError, match="callback"):
+        CallbackRoom06RuntimeHookSource(**args)

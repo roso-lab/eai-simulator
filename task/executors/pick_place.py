@@ -24,7 +24,8 @@ _LOG = logging.getLogger(__name__)
 class PickPlaceExecutor:
     def __init__(self, *, advance, simulation_time, resources=None,
                  snapshot_validator=None, max_snapshot_age_s=.5,
-                 max_steps=100_000, stop_steps=120, transport_admission=None):
+                 max_steps=100_000, stop_steps=120, transport_admission=None,
+                 logical_runtime=None, physical_object_experiment_authorization=None):
         if not callable(advance) or not callable(simulation_time):
             raise ValueError("advance and simulation_time must be host callbacks")
         if type(max_steps) is not int or max_steps <= 0 or type(stop_steps) is not int or stop_steps <= 0:
@@ -36,6 +37,12 @@ class PickPlaceExecutor:
         self._snapshot_validator = snapshot_validator
         self._max_age, self._max_steps, self._stop_steps = max_snapshot_age_s, max_steps, stop_steps
         self._transport_admission = transport_admission
+        self._logical_runtime = logical_runtime
+        if physical_object_experiment_authorization is not None and (
+            not isinstance(physical_object_experiment_authorization, str) or not physical_object_experiment_authorization.strip()
+        ):
+            raise ValueError("physical object experiments require an explicit host authorization reference")
+        self._physical_authorization = physical_object_experiment_authorization
         self._adapters, self._machines, self._object_leases = {}, {}, {}
         self._results = {}
         self._lock, self._cancel = Lock(), Event()
@@ -143,6 +150,8 @@ class PickPlaceExecutor:
         Replaying the identical request id is idempotent. Use a new request id
         to retry a failed operation or perform the next operation.
         """
+        if self._physical_authorization is None:
+            return self._execute_logical(request, cancelled=cancelled)
         if get_ident() != self._thread or not self._lock.acquire(blocking=False):
             return False
         self._cancel.clear()
@@ -272,6 +281,33 @@ class PickPlaceExecutor:
                     self._results[command.request_id] = command, bool(result)
                 self._lock.release()
         return bool(result)
+
+    def _execute_logical(self, request, *, cancelled=None):
+        from task.logical_objects import LogicalObjectRuntime
+        from algorithm.skills.simulator_schema import PICK_PLACE_SKILL_ID, validate_simulator_skill_request
+        if not isinstance(self._logical_runtime, LogicalObjectRuntime):
+            _LOG.warning("benchmark logical object runtime is unavailable; physical fallback is disabled")
+            return False
+        if get_ident() != self._thread or not self._lock.acquire(blocking=False):
+            return False
+        try:
+            if cancelled is not None and cancelled():
+                return False
+            validate_simulator_skill_request(request)
+            if request.skill_id != PICK_PLACE_SKILL_ID:
+                raise ValueError("request is not a logical object skill")
+            params = request.parameters
+            result = self._logical_runtime.execute(
+                request_id=request.request_id, operation=params["operation"],
+                object_id=params["object_ref"], robot_ids=params.get("robot_ids", [request.robot_id]),
+                semantic_point=params["semantic_point"],
+            )
+            return result["status"] == "completed"
+        except (ValueError, KeyError, TypeError) as exc:
+            _LOG.warning("logical pick/place rejected: %s", exc)
+            return False
+        finally:
+            self._lock.release()
 
 
 __all__ = ["PickPlaceExecutor"]

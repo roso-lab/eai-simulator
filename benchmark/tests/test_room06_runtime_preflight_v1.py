@@ -408,7 +408,7 @@ def test_unknown_robot_is_rejected(valid_inputs):
     assert "selected robots are absent from roster" in result["failures"][0]
 
 
-def test_missing_required_robot_skill_is_rejected(valid_inputs):
+def test_resident_without_manipulation_is_not_filtered_from_pool(valid_inputs):
     _, _, roster_path, spec, _ = valid_inputs
     roster = json.loads(roster_path.read_text())
     robot = roster["robots"][1]
@@ -422,18 +422,18 @@ def test_missing_required_robot_skill_is_rejected(valid_inputs):
 
     result = _audit(valid_inputs)
 
-    assert "lacks liv-t-04 skills" in result["failures"][0]
+    assert result["preflight_passed"] is True
 
 
 @pytest.mark.parametrize(
     "mutation, expected",
     [
-        ("restriction", "restrictions conflict with liv-t-04"),
-        ("controller", "has no frozen stair controller"),
+        ("restriction", None),
+        ("controller", None),
         ("digest", "capability digest mismatch"),
     ],
 )
-def test_robot_restriction_controller_and_capability_digest_fail_closed(
+def test_pool_retains_limitations_but_rejects_tampered_capability_digest(
     valid_inputs, mutation, expected
 ):
     _, _, roster_path, spec, _ = valid_inputs
@@ -453,7 +453,10 @@ def test_robot_restriction_controller_and_capability_digest_fail_closed(
 
     result = _audit(valid_inputs)
 
-    assert expected in result["failures"][0]
+    if expected is None:
+        assert result["preflight_passed"] is True
+    else:
+        assert expected in result["failures"][0]
 
 
 def test_missing_or_tampered_task_definition_digest_is_rejected(valid_inputs):

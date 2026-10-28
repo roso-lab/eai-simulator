@@ -114,6 +114,22 @@ def test_missing_roster_hold_sample_fails_closed():
         bridge.sample_holds(tick=7, held_objects={ROBOTS[0]: "heavy_object"})
 
 
+def test_one_real_delivery_session_can_also_support_task_acceptance():
+    bridge = _bridge()
+    _relay(bridge)
+    bridge.sample_holds(tick=7, held_objects={ROBOTS[0]: "heavy_object", ROBOTS[1]: "heavy_object", ROBOTS[2]: None})
+    bridge.observe_skill_event(_event("final-session", "heavy_carry_completed", 9, ROBOTS[1], "heavy_object", "floor1-reading desk"))
+    accepted = _event("final-session", "task_accepted", 9, ROBOTS[1], "liv-t-04", "accepted")
+    changed = dict(accepted, evidence_digest="f" * 64)
+    with pytest.raises(Room06ObservationBridgeError, match="different evidence"):
+        bridge.observe_skill_event(changed)
+    bridge.observe_skill_event(accepted)
+    bridge.observe_skill_event(accepted)
+    material = bridge.evidence_material()
+    assert material["runtime_evidence"]["runtime_state"] == "complete"
+    assert len([e for e in material["observed_skill_events"] if e["session_id"] == "final-session"]) == 2
+
+
 def test_single_holder_records_safety_failure_and_cannot_become_success():
     bridge = _bridge()
     _relay(bridge)
@@ -164,6 +180,32 @@ def test_command_or_noncompleted_event_cannot_advance_milestones():
     event["status"] = "commanded"
     with pytest.raises(Room06ObservationBridgeError, match="only completed"):
         bridge.observe_skill_event(event)
+
+
+def test_rejected_event_replay_is_not_a_cached_success():
+    bridge = _bridge()
+    bridge.observe_assignment(tick=0, assigned_robot_ids=ROBOTS, decision_digest=_digest("decision"))
+    event = _event("bad-pick", "relay_pickup_completed", 1, ROBOTS[0],
+                   "book_batch_01", "wrong-source")
+    for _ in range(2):
+        with pytest.raises(Room06ObservationBridgeError, match="relay pickup"):
+            bridge.observe_skill_event(event)
+    bridge.finalize_at_horizon()
+    evidence = bridge.evidence_material()
+    assert evidence["observed_skill_events"] == []
+    assert evidence["runtime_evidence"]["streams"]["milestones"] == [{"label": "assigned", "tick": 0}]
+
+
+def test_empty_decision_cannot_authorize_events_or_joint_holds():
+    bridge = _bridge()
+    bridge.observe_assignment(tick=0, assigned_robot_ids=[], decision_digest=_digest("no-choice"))
+    with pytest.raises(Room06ObservationBridgeError, match="outside the observed assignment"):
+        bridge.observe_skill_event(_event("pick", "relay_pickup_completed", 1,
+            ROBOTS[0], "book_batch_01", "floor1-bookshelf"))
+    with pytest.raises(Room06ObservationBridgeError, match="outside the observed assignment"):
+        bridge.sample_holds(tick=1, held_objects={ROBOTS[0]: "heavy_object", ROBOTS[1]: "heavy_object", ROBOTS[2]: None})
+    bridge.finalize_at_horizon()
+    assert bridge.evidence_material()["runtime_evidence"]["streams"]["milestones"] == []
 
 
 def test_unassigned_robot_cannot_contribute_event_or_joint_hold_evidence():

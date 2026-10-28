@@ -342,12 +342,6 @@ def _robot_rows(
             raise Room06RuntimePreflightError(
                 f"selected robot restrictions are malformed: {instance_id}"
             )
-        conflicts = sorted(set(restrictions) & CONFLICTING_RESTRICTIONS)
-        if conflicts:
-            raise Room06RuntimePreflightError(
-                f"selected robot restrictions conflict with liv-t-04: "
-                f"{instance_id} {conflicts}"
-            )
         capability = row.get("capability_binding")
         if not isinstance(capability, Mapping):
             raise Room06RuntimePreflightError(
@@ -371,25 +365,21 @@ def _robot_rows(
             raise Room06RuntimePreflightError(
                 f"selected robot skill bindings are malformed: {instance_id}"
             )
-        skills = {
-            item.get("skill_id")
-            for item in skill_rows
-            if isinstance(item, Mapping) and isinstance(item.get("skill_id"), str)
-        }
-        missing_skills = sorted(REQUIRED_SKILL_IDS - skills)
-        if missing_skills:
-            raise Room06RuntimePreflightError(
-                f"selected robot lacks liv-t-04 skills: {instance_id} {missing_skills}"
-            )
+        # Validate factual roster structure, never solve task allocation here.
+        # Residents without manipulation/stair skills remain selectable. The
+        # executor records invalid calls as failures; it never substitutes a
+        # more capable robot or supplies a recommended coalition.
+        for item in skill_rows:
+            if not isinstance(item, Mapping):
+                raise Room06RuntimePreflightError("robot skill binding must be an object")
+            _text(item.get("skill_id"), "robot skill ID")
+        skills = {item["skill_id"] for item in skill_rows}
         controller = source_input.get("motion_controller")
-        if instance_id in cross_floor_ids and controller not in CROSS_FLOOR_CONTROLLERS:
-            raise Room06RuntimePreflightError(
-                f"cross-floor robot has no frozen stair controller: {instance_id}"
-            )
         results.append(
             {
                 "instance_id": instance_id,
-                "required_skills": sorted(REQUIRED_SKILL_IDS),
+                "available_skills": sorted(skills),
+                "task_suitability_evaluated": False,
                 "restrictions": list(restrictions),
                 "cross_floor_role": instance_id in cross_floor_ids,
                 "motion_controller": controller,
@@ -585,7 +575,7 @@ def audit_room06_runtime_preflight(
             spec.get("selected_robot_ids"), "selected_robot_ids", minimum=2
         )
         cross_floor = _unique_text_list(
-            spec.get("cross_floor_robot_ids"), "cross_floor_robot_ids"
+            spec.get("cross_floor_robot_ids"), "cross_floor_robot_ids", minimum=0
         )
         if not set(cross_floor).issubset(selected):
             raise Room06RuntimePreflightError(

@@ -17,6 +17,7 @@ from typing import Any
 
 from .case_manifest_builder_v1 import CaseManifestBuildError, build_case_manifest
 from .records_v3 import canonical_digest
+from .room06_task_instance_v2 import logical_object_definitions
 from .scorebook_v3 import PAPER_COMMIT
 from .room06_runtime_preflight_v1 import (
     FORMAL_GATES,
@@ -143,6 +144,14 @@ def _deployment(value: Mapping[str, Any] | str | Path, selected: Sequence[str]) 
         raise Room06FixedPackageError("deployment robot IDs do not match selected_robot_ids")
     normalized.sort(key=lambda row: row["instance_id"])
     result = {"schema": DEPLOYMENT_SCHEMA, "robots": normalized}
+    policy = deployment.get("binding_policy")
+    if isinstance(policy, Mapping) and "selection_authority" in policy:
+        if policy.get("selection_authority") != "tested_system" or policy.get("coalition_preassigned") is not False:
+            raise Room06FixedPackageError("deployment must leave coalition selection to the tested system")
+        for key in ("operating_roles", "spawn_bindings"):
+            if not isinstance(policy.get(key), Mapping) or set(policy[key]) != set(selected):
+                raise Room06FixedPackageError(f"deployment policy {key} must cover the deployed pool")
+        result["binding_policy"] = dict(policy)
     return result, source_digest, source_kind
 
 
@@ -510,6 +519,9 @@ def build_room06_fixed_package(
     plan_digest = canonical_digest(plan)
     domain = "living_public"
     relation_signature = ["P2", "P3-J"]
+    logical_objects = None
+    if any("books" in row["definition"] for row in setup["objects"]):
+        logical_objects = logical_object_definitions(setup)
     manifest_binding = {
         "case_id": case_id,
         "task_id": TASK_ID,
@@ -518,13 +530,17 @@ def build_room06_fixed_package(
         "relation_signature": relation_signature,
         "base_instance_id": f"{case_id}/base",
         "scene_digest": scene_digest,
-        "entity_ids": list(ENTITY_IDS),
+        "entity_ids": [row["entity_id"] for row in logical_objects] if logical_objects else list(ENTITY_IDS),
         "zone_ids": [],
         "horizon": HORIZON_TICKS,
         "tau_stable": TAU_STABLE,
         "units": "meters+ticks",
         "format_contract_version": "2.1",
-        "object_bindings": task_objects,
+        "object_bindings": {
+            "schema": "heterocoord.logical-task-object-bindings.v1",
+            "scene_digest": scene_digest,
+            "objects": logical_objects,
+        } if logical_objects else task_objects,
         "pool_id": "promoted-27-v3.1",
         "resume_ids": list(selected),
         "contract": {

@@ -338,6 +338,52 @@ def test_noncompleted_skill_event_is_not_evidence():
         probe.normalize_runtime_hook_capture(capture, selected_robot_ids=ROBOTS)
 
 
+@pytest.mark.parametrize("assigned", [[], list(ROBOTS)])
+def test_zero_success_horizon_capture_remains_valid_without_invented_milestones(assigned):
+    capture = _capture([
+        {"kind": "held_object_snapshot", "tick": 0, "held_objects": dict.fromkeys(ROBOTS)},
+        {"kind": "held_object_snapshot", "tick": 15000, "held_objects": dict.fromkeys(ROBOTS)},
+        {"kind": "horizon_reached", "tick": 15000, "source": "observer"},
+    ])
+    capture["assignment"]["assigned_robot_ids"] = assigned
+    result = probe.normalize_runtime_hook_capture(capture, selected_robot_ids=ROBOTS)
+    from benchmark.tests.test_room06_observation_bridge_v1 import _bridge, _digest
+    from benchmark.tests.test_room06_terminal_material_v1 import (
+        _assemble, _job, OBLIGATION_BINDING,
+    )
+    from benchmark.evaluator.room06_livt04 import Room06LivT04Evaluator
+    bridge = _bridge()
+    bridge.observe_assignment(tick=0, assigned_robot_ids=assigned, decision_digest=_digest("failed-decision"))
+    for row in result["observations"]:
+        if row["kind"] == "horizon_reached":
+            bridge.finalize_at_horizon()
+        else:
+            bridge.sample_holds(tick=row["tick"], held_objects=row["held_objects"])
+    evidence = bridge.evidence_material()
+    assert evidence["runtime_evidence"]["runtime_state"] == "incomplete"
+    assert evidence["observed_skill_events"] == []
+    assert not evidence["runtime_evidence"]["streams"]["hold_intervals"]
+    assert evidence["runtime_evidence"]["streams"]["milestones"] == (
+        [{"label": "assigned", "tick": 0}] if assigned else []
+    )
+    # Synthetic CPU inputs exercise the complete reduction seam, not GPU
+    # evidence. Missing task events must become a failed task, not an exception
+    # or a fabricated milestone. D1 remains an independently measured input.
+    payload = _assemble(evidence["runtime_evidence"],
+        d1={"validity": 0.0, "organization": 0.0, "infeasible": 0.0, "complete_plan": False})
+    material = Room06LivT04Evaluator(
+        obligation_binding=OBLIGATION_BINDING,
+        runtime_binding=payload["runtime_binding"],
+    ).collect_receipt_material(payload, _job())
+    assert material["facts"]["success"] is False
+    assert material["facts"]["d6"]["success"] is False
+    assert material["facts"]["d1"]["complete_plan"] is False
+    assert payload["formal_gates"] and not any(payload["formal_gates"].values())
+    capture["observations"].append(capture["observations"][-1])
+    with pytest.raises(probe.Room06GpuProbeError, match="duplicate"):
+        probe.normalize_runtime_hook_capture(capture, selected_robot_ids=ROBOTS)
+
+
 def test_incomplete_held_object_snapshot_is_rejected():
     capture = _capture(
         [

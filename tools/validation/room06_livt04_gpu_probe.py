@@ -45,6 +45,9 @@ from benchmark.room06_runtime_preflight_v1 import (  # noqa: E402
     FORMAL_GATES,
     audit_room06_runtime_preflight,
 )
+from benchmark.room06_task_instance_v2 import public_task_package  # noqa: E402
+from task.contracts import RobotState  # noqa: E402
+from algorithm.common_coordination.contract import RobotCapability  # noqa: E402
 
 
 INPUT_SCHEMA = "heterocoord.room06-livt04-gpu-probe-input.v1"
@@ -701,6 +704,37 @@ def build_frozen_selection(prepared: Mapping[str, Any]) -> tuple[dict[str, Any],
     }, agents
 
 
+def assemble_public_room06_task(prepared: Mapping[str, Any]) -> tuple[Any, dict[str, str]]:
+    """Build the algorithm-visible contract from the same frozen inputs.
+
+    Capabilities come from the promoted roster's skill bindings and positions
+    from deployment. No private package keys, oracle bindings or coalition are
+    forwarded. The returned agent map is host-only.
+    """
+    paths, fresh = _fresh_preflight(prepared["request"]["preflight_inputs"])
+    if fresh != prepared["preflight"] or fresh != prepared["package"]["preflight"]:
+        raise Room06GpuProbeError("public task inputs changed since package freeze")
+    if paths["robot_roster"] != prepared["paths"]["robot_roster"]:
+        raise Room06GpuProbeError("public task roster path changed")
+    _selection, agent_map = build_frozen_selection(prepared)
+    deployment = {row["instance_id"]: row for row in prepared["package"]["scene_deployment"]["robots"]}
+    robots = []
+    for row in _selected_roster_rows(prepared):
+        instance = row["instance_id"]
+        source = row["capability_binding"]["source_input"]
+        skills = tuple(item["skill_id"] for item in source.get("skills", []) if isinstance(item, Mapping))
+        robots.append(RobotState(
+            capability=RobotCapability(instance, frozenset(skills)),
+            position=tuple(deployment[instance]["position_m"]),
+            metadata={"platform_type": row["platform_type"], "configuration_role": row["configuration_role"]},
+        ))
+    audit_path = prepared["preflight"]["semantic_input_audit"]["manifest_path"]
+    points_path = Path(audit_path).resolve().parent / "semantic-points.json"
+    points = json.loads(points_path.read_text(encoding="utf-8")).get("points")
+    task = public_task_package(prepared["package"], robots=robots, semantic_points=points)
+    return task, agent_map
+
+
 def normalize_runtime_hook_capture(
     value: Any,
     *,
@@ -722,8 +756,8 @@ def normalize_runtime_hook_capture(
     if isinstance(assigned, (str, bytes)) or not isinstance(assigned, Sequence):
         raise Room06GpuProbeError("assignment.assigned_robot_ids must be a sequence")
     assigned_ids = [_text(item, "assigned_robot_id") for item in assigned]
-    if not assigned_ids or len(set(assigned_ids)) != len(assigned_ids):
-        raise Room06GpuProbeError("assignment robot IDs must be unique and non-empty")
+    if len(set(assigned_ids)) != len(assigned_ids):
+        raise Room06GpuProbeError("assignment robot IDs must be unique")
     if not set(assigned_ids).issubset(set(selected_robot_ids)):
         raise Room06GpuProbeError("assignment contains an instance outside the frozen roster")
     _digest(assignment.get("decision_digest"), "assignment.decision_digest")
@@ -736,6 +770,7 @@ def normalize_runtime_hook_capture(
     normalized_records: list[dict[str, Any]] = []
     event_count = 0
     snapshot_count = 0
+    horizon_count = 0
     for index, record in enumerate(observations):
         if not isinstance(record, Mapping):
             raise Room06GpuProbeError(f"observations[{index}] must be an object")
@@ -770,18 +805,21 @@ def normalize_runtime_hook_capture(
             snapshot_count += 1
         elif kind == "horizon_reached":
             _exact(record, {"kind", "tick", "source"}, f"observations[{index}]")
-            if record.get("tick") != 15_000 or record.get("source") != "observer":
+            if type(record.get("tick")) is not int or record.get("tick") != 15_000 or record.get("source") != "observer":
                 raise Room06GpuProbeError(
                     "horizon record must be observer-owned at tick 15000"
                 )
             normalized_records.append(
                 {"kind": kind, "tick": 15_000, "source": "observer"}
             )
+            horizon_count += 1
+            if horizon_count > 1:
+                raise Room06GpuProbeError("duplicate observer horizon")
         else:
             raise Room06GpuProbeError(
                 f"unsupported runtime observer record kind: {kind!r}"
             )
-    if event_count == 0:
+    if event_count == 0 and horizon_count == 0:
         raise Room06GpuProbeError("runtime hooks emitted no completed skill-session events")
     if snapshot_count == 0:
         raise Room06GpuProbeError("runtime hooks emitted no held_object snapshots")
@@ -955,6 +993,7 @@ def _session_config(
     selection: Mapping[str, Any],
     runtime_source_factory: Callable[..., Any] | None = None,
     env_cfg_hook: Callable[[Any], None] | None = None,
+    room06_runtime_setup: Callable[..., Any] | None = None,
 ) -> Any:
     from simulator import SimulatorLaunchConfig
 
@@ -969,6 +1008,7 @@ def _session_config(
         selection_data=deepcopy(dict(selection)),
         room06_runtime_hook_source_factory=runtime_source_factory,
         env_cfg_hook=env_cfg_hook,
+        room06_runtime_setup=room06_runtime_setup,
         app_launcher_args={
             "headless": request["headless"],
             "enable_cameras": True,
@@ -978,11 +1018,10 @@ def _session_config(
 
 
 def _room06_task_object_env_cfg_hook(package: Mapping[str, Any]) -> Callable[[Any], None]:
-    """Attach the case-owned logical objects before Isaac creates the scene."""
+    """Validate semantic object definitions; never mutate the simulator scene."""
 
     def configure(env_cfg: Any) -> None:
         from EAI_assets.scene.room06_task_objects import (
-            build_room06_task_object_configs,
             build_room06_task_object_plan,
         )
 
@@ -995,18 +1034,7 @@ def _room06_task_object_env_cfg_hook(package: Mapping[str, Any]) -> Callable[[An
             for row in points_payload.get("points", [])
             if isinstance(row, Mapping) and isinstance(row.get("label"), str)
         }
-        plan = build_room06_task_object_plan(package["task_setup"], points)
-        configs = build_room06_task_object_configs(plan)
-        scene_cls = type(env_cfg.scene)
-        annotations = getattr(scene_cls, "__annotations__", {})
-        for entity_id, config in configs.items():
-            # RigidObjectCfg uses an environment regex; the observer later
-            # resolves env_0 to the exact logical USD binding.
-            config.prim_path = config.prim_path.replace(
-                "/World/envs/env_0", "{ENV_REGEX_NS}"
-            )
-            annotations[entity_id] = type(config)
-            setattr(env_cfg.scene, entity_id, config)
+        build_room06_task_object_plan(package["task_setup"], points)
 
     return configure
 
@@ -1060,6 +1088,7 @@ def run_full_task(
     evaluator_result: Mapping[str, Any] | None = None,
     parameters: Mapping[str, Any] | None = None,
     orchestration_result: Any | None = None,
+    room06_runtime_setup: Callable[..., Any] | None = None,
 ) -> dict[str, Any]:
     handoff_values = (terminal_job, evaluator_result, parameters)
     if any(value is not None for value in handoff_values) and not all(
@@ -1081,17 +1110,51 @@ def run_full_task(
     # Imports and callable checks must complete before any simulator process.
     hook = _load_runtime_hook(prepared["runtime_hook_ref"])
     source_provider = _load_runtime_hook(prepared["runtime_source_ref"])
+    production_package = isinstance(prepared.get("package"), Mapping) and {
+        "package_digest", "plan", "task_setup", "scene_deployment", "preflight"
+    }.issubset(prepared["package"])
+    if production_package and room06_runtime_setup is None:
+        raise Room06GpuProbeError(
+            "full-task requires a production room06_runtime_setup with real decision/step/session callbacks"
+        )
     from simulator import open_simulator_session
 
     selection, instance_agent_map = build_frozen_selection(prepared)
+    if production_package:
+        public_task, public_agent_map = assemble_public_room06_task(prepared)
+        if public_agent_map != instance_agent_map:
+            raise Room06GpuProbeError("public task agent binding differs from frozen host binding")
+    else:
+        public_task = None
     source_factory = partial(
         source_provider,
         package=deepcopy(prepared["package"]),
         instance_agent_map=dict(instance_agent_map),
     )
+    def setup_wrapper(**kwargs):
+        if not production_package:
+            return None
+        result = room06_runtime_setup(
+            **kwargs, package=deepcopy(prepared["package"]),
+            public_task=public_task, instance_agent_map=dict(instance_agent_map),
+        )
+        if result is not None:
+            raise Room06GpuProbeError("room06_runtime_setup must return None")
+        base_env = kwargs.get("base_env")
+        required_host_state = (
+            "logical_object_runtime", "room06_task_driver",
+            "room06_navigation_bridge", "room06_execution_coordinator",
+        )
+        missing = [name for name in required_host_state if getattr(base_env, name, None) is None]
+        if missing:
+            raise Room06GpuProbeError(
+                "room06_runtime_setup did not install required production seams: "
+                + ", ".join(missing)
+            )
     with open_simulator_session(_session_config(
         request, selection=selection, runtime_source_factory=source_factory,
         env_cfg_hook=_room06_task_object_env_cfg_hook(prepared["package"]),
+        room06_runtime_setup=setup_wrapper,
     )) as session:
         identity = _query_device_identity(request)
         readback: dict[str, Any] | None = None

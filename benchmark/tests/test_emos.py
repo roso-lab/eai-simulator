@@ -3,7 +3,9 @@ from algorithm.skills.contracts import SkillCommand, SkillPlan, SkillRequest
 from benchmark.evidence import EvaluationReport, EvaluationStatus, EvidenceRecord, EvidenceStatus
 import pytest
 
-from benchmark.emos import EmosDecisionAdapter, emos_fallback_assign, package_from_fire_rescue_request
+from benchmark.emos import EmosDecisionAdapter, EaiTaskRoundRobinAdapter, emos_fallback_assign, package_from_fire_rescue_request
+from task.contracts import EaiTaskPackage, RobotState
+from algorithm.common_coordination.contract import CoordinationTask, RobotCapability, TaskGraph
 from benchmark.protocol import BranchRole, ProtocolContract, RunKey
 from benchmark.runtime import EpisodeRunner, RuntimeTaskBinding
 from task.fixtures.fire_rescue import build_fire_rescue_assignment_request
@@ -28,6 +30,21 @@ def test_emos_adapter_does_not_claim_execution_success() -> None:
 
     assert not hasattr(decision, "success")
     assert "physical_success" not in decision.provenance
+
+
+def test_typed_room06_baseline_adapter_uses_public_roster_and_tasks_only():
+    package = EaiTaskPackage(
+        task_id="liv-t-04", scene_id="room_06",
+        graph=TaskGraph(tasks=(CoordinationTask("transport:a", "move a"),
+                               CoordinationTask("transport:b", "move b")), source="fixture"),
+        robots=tuple(RobotState(RobotCapability(robot, frozenset())) for robot in ("r1", "r2")),
+    )
+    adapter = EaiTaskRoundRobinAdapter()
+    adapter.initialize({"checkpoint": "public"}, {"robot_positions": {"r1": [0, 0, 0], "r2": [1, 0, 0]}})
+    decision = adapter(package, package.robots)
+    assert {item.task_id for item in decision.assignments} == {"transport:a", "transport:b"}
+    assert all(item.robot_id in {"r1", "r2"} for item in decision.assignments)
+    assert decision.provenance["initialized"] is True
 
 
 def test_emos_decision_enters_runtime_but_external_evidence_owns_verdict() -> None:

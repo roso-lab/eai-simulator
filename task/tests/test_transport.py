@@ -161,7 +161,7 @@ def test_pick_place_executor_short_circuits_before_backend_on_failed_admission()
     assert executor.execute(request) is False
 
 
-def test_pick_place_keeps_controller_call_but_ignores_geometry_lifecycle_flags():
+def test_pick_place_default_requires_host_logical_session_instead_of_native_backend():
     calls = []
 
     class Adapter:
@@ -196,12 +196,12 @@ def test_pick_place_keeps_controller_call_but_ignores_geometry_lifecycle_flags()
         transport_admission=lambda command: True,
     )
     executor.register_adapter(Adapter())
-    assert executor.execute(request) is True
-    assert calls == [("controller.start", "box-a")]
+    assert executor.execute(request) is False
+    assert calls == []
 
 
-def test_idealized_manipulator_does_not_run_legacy_geometry_backend():
-    """Semantic transport succeeds even when the physical arm path rejects geometry."""
+def test_idealized_flag_cannot_manufacture_success_without_logical_session():
+    """An adapter flag is not controller arrival or a successful host session."""
     calls = []
 
     class Adapter:
@@ -234,5 +234,5 @@ def test_idealized_manipulator_does_not_run_legacy_geometry_backend():
         transport_admission=lambda command: True,
     )
     executor.register_adapter(Adapter())
-    assert executor.execute(request) is True
+    assert executor.execute(request) is False
     assert calls == []

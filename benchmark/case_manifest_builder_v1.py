@@ -16,8 +16,15 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from .case_input_audit_v1 import CaseInputAuditError, audit_case_inputs
-from .case_manifest_v1 import (OBJECT_BINDINGS_SCHEMA, TASK_OBJECT_BINDINGS_SCHEMA,
-                               CaseManifestError, bind_case_manifest, validate_task_object_bindings)
+from .case_manifest_v1 import (
+    LOGICAL_TASK_OBJECT_BINDINGS_SCHEMA,
+    OBJECT_BINDINGS_SCHEMA,
+    TASK_OBJECT_BINDINGS_SCHEMA,
+    CaseManifestError,
+    bind_case_manifest,
+    validate_logical_task_object_bindings,
+    validate_task_object_bindings,
+)
 from .robot_resume.runtime_qualification_receipt import RuntimeReceiptError, validate_receipt
 
 
@@ -77,8 +84,14 @@ def _explicit_list(value: Any, name: str, *, allow_empty: bool = False) -> list[
     return list(value)
 
 
-def _object_bindings(value: Any, *, scene_digest: str, entity_ids: list[str]) -> dict[str, Any]:
-    """Normalize one explicit case-owned entity-to-USD binding book."""
+def _object_bindings(
+    value: Any,
+    *,
+    scene_digest: str,
+    entity_ids: list[str],
+    physical_object_experiment_authorization: str | None = None,
+) -> dict[str, Any]:
+    """Normalize one explicit physical or logical task-object binding book."""
 
     if not isinstance(value, Mapping):
         raise CaseManifestBuildError("binding.object_bindings must be an object")
@@ -87,6 +100,21 @@ def _object_bindings(value: Any, *, scene_digest: str, entity_ids: list[str]) ->
             return validate_task_object_bindings(value, scene_digest=scene_digest, entity_ids=entity_ids)
         except CaseManifestError as exc:
             raise CaseManifestBuildError(str(exc)) from exc
+    if value.get("schema") == LOGICAL_TASK_OBJECT_BINDINGS_SCHEMA:
+        try:
+            return validate_logical_task_object_bindings(
+                value, scene_digest=scene_digest, entity_ids=entity_ids
+            )
+        except CaseManifestError as exc:
+            raise CaseManifestBuildError(str(exc)) from exc
+    if value.get("schema") == OBJECT_BINDINGS_SCHEMA and (
+        not isinstance(physical_object_experiment_authorization, str)
+        or not physical_object_experiment_authorization.strip()
+    ):
+        raise CaseManifestBuildError(
+            "physical object bindings require explicit "
+            "physical_object_experiment_authorization"
+        )
     if set(value) != {"schema", "scene_digest", "confirmation", "objects"}:
         raise CaseManifestBuildError("binding.object_bindings schema mismatch")
     if value.get("schema") != OBJECT_BINDINGS_SCHEMA:
@@ -140,7 +168,12 @@ def _object_bindings(value: Any, *, scene_digest: str, entity_ids: list[str]) ->
     }
 
 
-def _semantic_ids(root: Path, spec: Mapping[str, Any]) -> tuple[dict[str, Any], set[str], set[str]]:
+def _semantic_ids(
+    root: Path,
+    spec: Mapping[str, Any],
+    *,
+    physical_object_experiment_authorization: str | None = None,
+) -> tuple[dict[str, Any], set[str], set[str]]:
     """Return scene fields and IDs explicitly present in semantic products."""
 
     manifest = _load_json(root / "manifest.json", "semantic map manifest")
@@ -211,7 +244,10 @@ def _semantic_ids(root: Path, spec: Mapping[str, Any]) -> tuple[dict[str, Any], 
     object_binding = None
     if object_binding_value is not None:
         object_binding = _object_bindings(
-            object_binding_value, scene_digest=scene_digest, entity_ids=entity_ids
+            object_binding_value,
+            scene_digest=scene_digest,
+            entity_ids=entity_ids,
+            physical_object_experiment_authorization=physical_object_experiment_authorization,
         )
     elif requires_case_objects:
         raise CaseManifestBuildError(
@@ -338,6 +374,7 @@ def build_case_manifest(
     semantic_root: str | Path,
     robot_pool_path: str | Path,
     binding: Mapping[str, Any],
+    physical_object_experiment_authorization: str | None = None,
 ) -> dict[str, Any]:
     """Audit inputs and build a validated, digest-bound case manifest."""
 
@@ -352,7 +389,11 @@ def build_case_manifest(
         raise CaseManifestBuildError("case inputs are not ready: " + "; ".join(audit.get("failures", [])))
     root = Path(semantic_root).resolve()
     pool_path = Path(robot_pool_path).resolve()
-    scene, _, _ = _semantic_ids(root, binding)
+    scene, _, _ = _semantic_ids(
+        root,
+        binding,
+        physical_object_experiment_authorization=physical_object_experiment_authorization,
+    )
     pool_digest = _sha256(pool_path)
     pool_id, robots = _runtime_robots(pool_path, binding, pool_digest)
     contract = binding.get("contract")
@@ -436,6 +477,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--binding", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument(
+        "--physical-object-experiment-authorization",
+        help="explicit nonempty authorization for a legacy physical-object experiment",
+    )
+    parser.add_argument(
         "--audit-output",
         type=Path,
         help="optional path for the non-authorizing input audit report",
@@ -452,7 +497,12 @@ def main(argv: list[str] | None = None) -> int:
                     binding=binding,
                 ),
             )
-        result = build_case_manifest(semantic_root=args.semantic_root, robot_pool_path=args.robot_pool, binding=binding)
+        result = build_case_manifest(
+            semantic_root=args.semantic_root,
+            robot_pool_path=args.robot_pool,
+            binding=binding,
+            physical_object_experiment_authorization=args.physical_object_experiment_authorization,
+        )
         _write_json(args.output, result)
     except (CaseManifestBuildError, OSError) as exc:
         parser.error(str(exc))

@@ -3,8 +3,9 @@
 Uses the existing CheckpointableComponent protocol. This component cannot
 recreate a running task in a new process or roll back scheduler history/budgets.
 Leases must remain authentic and unchanged throughout a rewind. Physics is
-restored first by the replay backend; a readback callback then reconciles held
-objects and robot state before the caller may resume stepping.
+restored first for the robots by the replay backend; the reconciliation
+callback checks skill sessions and logical ownership before stepping resumes.
+Task-object geometry and attachment state are never required.
 """
 from __future__ import annotations
 
@@ -78,7 +79,7 @@ class SkillRuntimeComponent:
             for name, adapter in self.skills.items():
                 adapter.restore_state(deepcopy(state["skills"][name]))
             if self.reconcile(deepcopy(state)) is not True:
-                raise RuntimeError("restored skill/held-object state disagrees with physical readback")
+                raise RuntimeError("restored skill/logical-object state disagrees with session reconciliation")
         except BaseException:
             self.on_restore_failed()
             raise

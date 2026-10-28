@@ -7,10 +7,9 @@ an observer-owned ``room06_runtime_hook_source`` to ``session.base_env``.  That
 source drives the real task and reports completed skill-session observations
 through the collector passed to ``collect_room06``.
 
-The collector reads logical holds only from the environment's existing
-``_idealized_manipulation_runtime.held_object`` API.  The source must provide
-an explicit logical-object-to-USD-path binding; basename or command metadata
-is never used to guess an object identity.
+The collector reads benchmark-owned logical object state after real controller
+arrival and completed host skill sessions. USD task-object identity is never
+required and tested-system messages cannot set the ledger.
 """
 
 from __future__ import annotations
@@ -62,23 +61,23 @@ class CallbackRoom06RuntimeHookSource:
     """Explicit registration wrapper for a host-owned room06 observer.
 
     The wrapper contains no task semantics and never fabricates observations.
-    Hosts provide the USD object binding reader and the skill-session collector
+    Hosts provide the logical object definition reader and the skill-session collector
     as separate callbacks; :func:`collect_room06_runtime_hook` continues to
     enforce all identity, hold, event, and terminal-input invariants.
     """
 
     schema = HOOK_SOURCE_SCHEMA
 
-    def __init__(self, *, object_path_bindings: Any, collect_room06: Any) -> None:
-        if not callable(object_path_bindings):
-            raise TypeError("object_path_bindings callback must be callable")
+    def __init__(self, *, object_bindings: Any, collect_room06: Any) -> None:
+        if not callable(object_bindings):
+            raise TypeError("object_bindings callback must be callable")
         if not callable(collect_room06):
             raise TypeError("collect_room06 callback must be callable")
-        self._object_path_bindings = object_path_bindings
+        self._object_bindings = object_bindings
         self._collect_room06 = collect_room06
 
-    def object_path_bindings(self, **kwargs: Any) -> Any:
-        return self._object_path_bindings(**kwargs)
+    def object_bindings(self, **kwargs: Any) -> Any:
+        return self._object_bindings(**kwargs)
 
     def collect_room06(self, **kwargs: Any) -> Any:
         return self._collect_room06(**kwargs)
@@ -141,6 +140,15 @@ def _selected_robot_ids(package: Mapping[str, Any]) -> tuple[str, ...]:
 
 
 def _task_object_ids(package: Mapping[str, Any]) -> tuple[str, ...]:
+    from benchmark.room06_task_instance_v2 import logical_task_objects
+
+    setup = package.get("task_setup")
+    if isinstance(setup, Mapping):
+        try:
+            rows = logical_task_objects(setup, require_individual_books=False)
+        except ValueError as exc:
+            raise Room06RuntimeHookError(str(exc)) from exc
+        return tuple(row["entity_id"] for row in rows)
     bindings = _mapping(package.get("task_object_bindings"), "task_object_bindings")
     rows = bindings.get("objects")
     if not isinstance(rows, list) or not rows:
@@ -171,26 +179,13 @@ def _runtime_agent_map(
     return result
 
 
-def _object_path_bindings(
-    value: Any, object_ids: Sequence[str]
-) -> dict[str, str]:
-    mapping = _mapping(value, "object_path_bindings")
-    if set(mapping) != set(object_ids):
-        raise Room06RuntimeHookError(
-            "object_path_bindings must exactly cover task-generated objects"
-        )
-    result: dict[str, str] = {}
-    for object_id in object_ids:
-        path = _text(mapping[object_id], f"object_path_bindings[{object_id!r}]")
-        if not path.startswith("/") or path == "/" or "//" in path or path.endswith("/"):
-            raise Room06RuntimeHookError(
-                f"object_path_bindings[{object_id!r}] must be an absolute USD prim path"
-            )
-        result[object_id] = path
-    if len(set(result.values())) != len(result):
-        raise Room06RuntimeHookError("object_path_bindings paths must be unique")
-    return result
-
+def _object_bindings(value: Any, object_ids: Sequence[str]) -> dict[str, Any]:
+    if not isinstance(value, list) or any(not isinstance(row, Mapping) for row in value):
+        raise Room06RuntimeHookError("logical object bindings must be definition rows")
+    rows = {row.get("entity_id"): dict(row) for row in value}
+    if len(rows) != len(value) or set(rows) != set(object_ids):
+        raise Room06RuntimeHookError("logical object bindings must exactly cover task objects")
+    return rows
 
 def _physics_tick(base_env: Any) -> int:
     value = getattr(base_env, "common_step_counter", None)
@@ -233,7 +228,7 @@ def _normalize_event(value: Any) -> dict[str, Any]:
 
 
 class Room06RuntimeHookCollector:
-    """Observer sink whose hold rows come only from live EAI readback."""
+    """Observer sink whose hold rows come only from benchmark-owned logical skill state."""
 
     def __init__(
         self,
@@ -241,16 +236,14 @@ class Room06RuntimeHookCollector:
         base_env: Any,
         selected_robot_ids: Sequence[str],
         instance_agent_map: Mapping[str, str],
-        object_path_bindings: Mapping[str, str],
+        object_bindings: Mapping[str, Any],
     ) -> None:
         self._base_env = base_env
         self._selected_robot_ids = tuple(selected_robot_ids)
         self._instance_agent_map = dict(instance_agent_map)
-        self._object_by_path = {
-            path: object_id for object_id, path in object_path_bindings.items()
-        }
+        self._object_definitions = dict(object_bindings)
         self._observations: list[dict[str, Any]] = []
-        self._session_ids: set[str] = set()
+        self._session_ids: set[tuple[str, str]] = set()
         self._event_robot_ids: set[str] = set()
         self._first_tick: int | None = None
         self._last_tick = -1
@@ -276,19 +269,50 @@ class Room06RuntimeHookCollector:
             self._first_tick = tick
         self._last_tick = tick
 
+    def _logical_runtime(self):
+        from task.logical_objects import LogicalObjectRuntime
+        runtime = getattr(self._base_env, "logical_object_runtime", None)
+        if not isinstance(runtime, LogicalObjectRuntime):
+            raise Room06RuntimeHookError("benchmark logical object ledger is unavailable")
+        if runtime.definitions != self._object_definitions or set(runtime.robot_ids) != set(self._selected_robot_ids):
+            raise Room06RuntimeHookError("logical object ledger identity differs from the frozen case")
+        return runtime
+
     def observe_completed_skill_session(self, value: Mapping[str, Any]) -> None:
         """Retain one observer-owned completion without deriving its semantics."""
 
         self._require_open()
         event = _normalize_event(value)
+        runtime = self._logical_runtime()
+        try:
+            record = runtime.session_record(event["session_id"])
+        except KeyError as exc:
+            raise Room06RuntimeHookError("event has no benchmark-owned successful skill session") from exc
+        if (record["status"] != "completed" or event["robot_id"] not in record["robot_ids"]
+                or record["tick"] != event["tick"] or record["evidence_digest"] != event["evidence_digest"]):
+            raise Room06RuntimeHookError("event differs from benchmark-owned skill-session evidence")
+        operations = {
+            "relay_pickup_completed": {"pick", "load"},
+            "topology_handoff_completed": {"receive"},
+            "relay_delivery_completed": {"place", "deliver", "store"},
+            "heavy_carry_completed": {"place", "deliver", "store"},
+        }
+        if event["event_type"] == "task_accepted":
+            if any(runtime.object_state(entity)["state"] != "delivered" for entity in runtime.definitions):
+                raise Room06RuntimeHookError("task acceptance requires all logical objects delivered")
+        elif (record["operation"] not in operations[event["event_type"]]
+              or record["object_id"] != event["object_id"]
+              or record["semantic_point"] != event["target_ref"]):
+            raise Room06RuntimeHookError("event semantics differ from the completed skill session")
         if event["robot_id"] not in self._selected_robot_ids:
             raise Room06RuntimeHookError(
                 "completed skill-session robot is outside the frozen roster"
             )
-        if event["session_id"] in self._session_ids:
+        session_event = (event["session_id"], event["event_type"])
+        if session_event in self._session_ids:
             raise Room06RuntimeHookError("completed skill-session ID was duplicated")
         self._advance(event["tick"])
-        self._session_ids.add(event["session_id"])
+        self._session_ids.add(session_event)
         self._event_robot_ids.add(event["robot_id"])
         self._observations.append({"kind": "skill_event", "event": event})
         self._event_count += 1
@@ -299,30 +323,15 @@ class Room06RuntimeHookCollector:
         self._require_open()
         tick = _physics_tick(self._base_env)
         self._advance(tick)
-        runtime = getattr(self._base_env, "_idealized_manipulation_runtime", None)
-        held_object = getattr(runtime, "held_object", None)
-        if runtime is None or not callable(held_object):
-            raise Room06RuntimeHookError(
-                "idealized manipulation held_object readback is unavailable"
-            )
-        held_objects: dict[str, str | None] = {}
-        for robot_id in self._selected_robot_ids:
-            runtime_name = self._instance_agent_map[robot_id]
-            try:
-                held = held_object(runtime_name, env_id=0)
-            except Exception as exc:
-                raise Room06RuntimeHookError(
-                    f"held_object readback failed for {robot_id}: {exc}"
-                ) from exc
-            if held is None:
-                held_objects[robot_id] = None
-                continue
-            path = getattr(held, "object_body_path", None)
-            if not isinstance(path, str) or path not in self._object_by_path:
-                raise Room06RuntimeHookError(
-                    f"held_object for {robot_id} has no exact logical object binding"
-                )
-            held_objects[robot_id] = self._object_by_path[path]
+        runtime = self._logical_runtime()
+        try:
+            held_objects = runtime.sample_holds()
+        except (ValueError, KeyError) as exc:
+            raise Room06RuntimeHookError(f"logical holding observation failed: {exc}") from exc
+        if set(held_objects) != set(self._selected_robot_ids):
+            raise Room06RuntimeHookError("logical holding snapshot must cover the deployed roster")
+        if any(value is not None and value not in self._object_definitions for value in held_objects.values()):
+            raise Room06RuntimeHookError("unknown task object in logical holding snapshot")
         self._observations.append(
             {"kind": "held_object_snapshot", "tick": tick, "held_objects": held_objects}
         )
@@ -362,9 +371,9 @@ class Room06RuntimeHookCollector:
             raise Room06RuntimeHookError(
                 "room06 runtime hook source did not close its collector"
             )
-        if self._event_count == 0:
+        if self._event_count == 0 and self._horizon_count == 0:
             raise Room06RuntimeHookError(
-                "room06 runtime hook source emitted no completed skill-session observations"
+                "room06 runtime hook source emitted no completed skill-session observations or live horizon"
             )
         if self._hold_count == 0:
             raise Room06RuntimeHookError(
@@ -384,12 +393,11 @@ class Room06RuntimeHookCollector:
             raise Room06RuntimeHookError("assignment.assigned_robot_ids must be a sequence")
         assigned_ids = tuple(_text(item, "assigned_robot_id") for item in assigned)
         if (
-            not assigned_ids
-            or len(set(assigned_ids)) != len(assigned_ids)
+            len(set(assigned_ids)) != len(assigned_ids)
             or not set(assigned_ids).issubset(self._selected_robot_ids)
         ):
             raise Room06RuntimeHookError(
-                "assignment robot IDs must be a unique non-empty frozen-roster subset"
+                "assignment robot IDs must be a unique frozen-roster subset"
             )
         if not self._event_robot_ids.issubset(assigned_ids):
             raise Room06RuntimeHookError(
@@ -427,9 +435,8 @@ def collect_room06_runtime_hook(
     room_06 runner): ``session.base_env.room06_runtime_hook_source`` with
     ``schema == HOOK_SOURCE_SCHEMA`` and two callables:
 
-    - ``object_path_bindings(package=..., instance_agent_map=...)`` returns an
-      exact mapping from every task-generated logical object ID to its live USD
-      rigid-body path.
+    - ``object_bindings(package=..., instance_agent_map=...)`` returns an
+      independent logical object definitions matching the case ledger.
     - ``collect_room06(package=..., instance_agent_map=..., collector=...)``
       drives/observes the real task, calls the collector methods, explicitly
       closes it, and returns exactly ``assignment`` plus ``terminal_inputs``.
@@ -451,7 +458,7 @@ def collect_room06_runtime_hook(
         raise Room06RuntimeHookError(
             "production room06 skill-session observer source is unavailable"
         )
-    binding_reader = getattr(source, "object_path_bindings", None)
+    binding_reader = getattr(source, "object_bindings", None)
     collect = getattr(source, "collect_room06", None)
     if not callable(binding_reader) or not callable(collect):
         raise Room06RuntimeHookError("room06 runtime hook source interface is incomplete")
@@ -462,14 +469,14 @@ def collect_room06_runtime_hook(
         )
     except Exception as exc:
         raise Room06RuntimeHookError(
-            f"room06 object binding readback failed: {exc}"
+            f"room06 logical object binding failed: {exc}"
         ) from exc
-    bindings = _object_path_bindings(raw_bindings, object_ids)
+    bindings = _object_bindings(raw_bindings, object_ids)
     collector = Room06RuntimeHookCollector(
         base_env=base_env,
         selected_robot_ids=selected,
         instance_agent_map=agents,
-        object_path_bindings=bindings,
+        object_bindings=bindings,
     )
     try:
         source_result = collect(

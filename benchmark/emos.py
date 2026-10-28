@@ -16,7 +16,7 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass, field, replace
 import math
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Sequence
 
 from algorithm.common_coordination.contract import AlgorithmCondition, Assignment, TaskGraph
 from algorithm.heterocoord.fire_rescue_bridge import build_fire_rescue_records
@@ -28,6 +28,61 @@ from task.contracts import AlgorithmDecision, EaiTaskPackage, RobotState
 
 AssignmentPolicy = Callable[[AssignmentRequest], Mapping[str, str]]
 ModelEndpoint = Callable[[Mapping[str, object]], Mapping[str, str]]
+
+
+@dataclass
+class EaiTaskRoundRobinAdapter:
+    """Minimal executable EMOS adapter for any typed task package.
+
+    It is a deterministic baseline, not a paper score claim. Initialization
+    consumes only public history/observation, then each pending task is mapped
+    to the next active robot. The host still owns all physical execution.
+    """
+
+    algorithm_id: str = "EMOS-room06-baseline"
+    plan_version: str = "emos-eai-task-round-robin-v1"
+    _initialized: bool = False
+    _history: Mapping[str, Any] = field(default_factory=dict)
+    _observation: Mapping[str, Any] = field(default_factory=dict)
+
+    def initialize(self, H_r: Mapping[str, Any], o_r: Mapping[str, Any]) -> None:
+        if self._initialized:
+            raise RuntimeError("EMOS typed adapter is already initialized")
+        if not isinstance(H_r, Mapping) or not isinstance(o_r, Mapping):
+            raise TypeError("H_r and o_r must be mappings")
+        positions = o_r.get("robot_positions")
+        if not isinstance(positions, Mapping) or not positions:
+            raise ValueError("o_r.robot_positions is required")
+        if any(not isinstance(key, str) for key in positions):
+            raise ValueError("robot position IDs must be strings")
+        for robot_id, position in positions.items():
+            if not isinstance(position, (list, tuple)) or len(position) != 3:
+                raise ValueError(f"o_r.robot_positions[{robot_id!r}] must be a 3-vector")
+            if any(isinstance(value, bool) or not isinstance(value, (int, float))
+                   or not math.isfinite(value) for value in position):
+                raise ValueError("robot positions must be finite numeric vectors")
+        self._history = deepcopy(dict(H_r))
+        self._observation = deepcopy(dict(o_r))
+        self._initialized = True
+
+    def __call__(self, task: EaiTaskPackage, robots: Sequence[RobotState]) -> AlgorithmDecision:
+        if not self._initialized:
+            raise RuntimeError("EMOS typed adapter requires initialize before decision")
+        if {r.capability.robot_id for r in robots} != set(self._observation["robot_positions"]):
+            raise ValueError("public observation roster differs from runtime roster")
+        active = sorted(r.capability.robot_id for r in robots if r.capability.active)
+        if not active:
+            raise ValueError("no active robot in public roster")
+        tasks = sorted(task.graph.tasks, key=lambda row: row.task_id)
+        assignments = tuple(Assignment(row.task_id, active[i % len(active)], self.algorithm_id, self.plan_version)
+                            for i, row in enumerate(tasks))
+        return AlgorithmDecision(
+            condition=AlgorithmCondition(self.algorithm_id, "benchmark.emos", self.plan_version,
+                                         "eai_runtime", "round_robin", notes="diagnostic baseline"),
+            assignments=assignments, provenance={
+                "adapter": "benchmark.emos.EaiTaskRoundRobinAdapter",
+                "initialized": True, "history_keys": sorted(self._history),
+            })
 
 
 @dataclass(frozen=True)
@@ -489,6 +544,7 @@ __all__ = [
     "case_round_robin_assign",
     "EmosDecisionAdapter",
     "EmosCaseDecisionAdapter",
+    "EaiTaskRoundRobinAdapter",
     "emos_fallback_assign",
     "package_from_fire_rescue_request",
 ]

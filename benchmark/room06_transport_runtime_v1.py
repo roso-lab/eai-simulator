@@ -24,6 +24,7 @@ from copy import deepcopy
 from typing import Any
 
 from task.executors.transport_runtime import TransportOrchestrationExecutor
+from .room06_task_instance_v2 import logical_task_objects
 
 
 ROOM06_TRANSPORT_BINDING_SCHEMA = "heterocoord.room06-transport-runtime-binding.v1"
@@ -161,6 +162,11 @@ def _task_objects(package: Mapping[str, Any]) -> tuple[dict[str, Any], ...]:
     rows = setup.get("objects")
     if not isinstance(rows, list) or not rows:
         raise Room06TransportRuntimeError("package.task_setup.objects must be non-empty")
+    if any(isinstance(row, Mapping) and isinstance(row.get("definition"), Mapping) and "books" in row["definition"] for row in rows):
+        try:
+            rows = logical_task_objects(setup)
+        except ValueError as exc:
+            raise Room06TransportRuntimeError(str(exc)) from exc
     objects: list[dict[str, Any]] = []
     seen: set[str] = set()
     for index, row in enumerate(rows):

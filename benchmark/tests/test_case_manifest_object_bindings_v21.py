@@ -10,6 +10,7 @@ import pytest
 from benchmark import case_manifest_builder_v1 as builder
 from benchmark.case_manifest_builder_v1 import CaseManifestBuildError, build_case_manifest
 from benchmark.case_manifest_v1 import (
+    LOGICAL_TASK_OBJECT_BINDINGS_SCHEMA,
     OBJECT_BINDINGS_SCHEMA,
     TASK_OBJECT_BINDINGS_SCHEMA,
     CaseManifestError,
@@ -28,6 +29,143 @@ def _generated_bindings():
                          "definition_ref": "task-setup:room06-v3/" + entity,
                          "definition_digest": "e" * 64}
                         for entity in ("book-batch", "heavy-object")]}
+
+
+def _logical_bindings():
+    return {
+        "schema": LOGICAL_TASK_OBJECT_BINDINGS_SCHEMA,
+        "scene_digest": SCENE_DIGEST,
+        "objects": [
+            {
+                "entity_id": "book-batch",
+                "category": "book",
+                "metadata": {
+                    "mass_kg": 0.2,
+                    "batch_id": "book-batch-01",
+                    "allowed_receivers": ["shelf-1", "shelf-2", "shelf-3"],
+                },
+                "initial_semantic_point": "floor1-bookshelf",
+                "target_semantic_point": "floor2-bookshelf-1",
+            },
+            {
+                "entity_id": "heavy-object",
+                "category": "heavy-object",
+                "metadata": {"mass_kg": 2.2, "minimum_holders": 2},
+                "initial_semantic_point": "floor1-heavy-object",
+                "target_semantic_point": "floor2-heavy-object-target",
+            },
+        ],
+    }
+
+
+def test_logical_task_objects_need_no_prim_confirmation_or_readback():
+    scene = _scene(object_bindings=False)
+    scene["object_bindings"] = _logical_bindings()
+
+    result = bind_case_manifest(_manifest(scene))
+
+    assert result["scene"]["object_bindings"] == _logical_bindings()
+    assert builder._object_bindings(
+        _logical_bindings(),
+        scene_digest=SCENE_DIGEST,
+        entity_ids=scene["entity_ids"],
+    ) == _logical_bindings()
+
+
+@pytest.mark.parametrize(
+    "mutate, message",
+    [
+        (
+            lambda value: value["objects"][0].update(prim_path="/World/Book"),
+            "schema mismatch",
+        ),
+        (
+            lambda value: value["objects"][0]["metadata"].clear(),
+            None,
+        ),
+        (
+            lambda value: value["objects"][0]["metadata"].update(mass_kg=0.0),
+            "positive finite number",
+        ),
+        (
+            lambda value: value["objects"][0]["metadata"].update(mass_kg=float("nan")),
+            "positive finite number",
+        ),
+        (
+            lambda value: value["objects"][0]["metadata"].update(mass_kg=True),
+            "positive finite number",
+        ),
+        (
+            lambda value: value["objects"][1]["metadata"].update(minimum_holders=0),
+            "minimum_holders must be a positive integer",
+        ),
+        (
+            lambda value: value["objects"][1]["metadata"].update(minimum_holders=True),
+            "minimum_holders must be a positive integer",
+        ),
+        (
+            lambda value: value["objects"][0]["metadata"].update(prim_path="/World/Book"),
+            "physical dependency key",
+        ),
+        (
+            lambda value: value["objects"][0]["metadata"].update(
+                skill={"attachment_ref": "joint-1"}
+            ),
+            "physical dependency key",
+        ),
+        (
+            lambda value: value["objects"][0]["metadata"].update(
+                runtime={"primPath": "/World/Book"}
+            ),
+            "physical dependency key",
+        ),
+        (
+            lambda value: value["objects"][0]["metadata"].update(
+                size_xyz_m=[0.1, 0.2, 0.3]
+            ),
+            "physical dependency key",
+        ),
+        (
+            lambda value: value["objects"][0]["metadata"].update(
+                render={"mesh-path": "book.obj"}
+            ),
+            "physical dependency key",
+        ),
+        (
+            lambda value: value["objects"][0].update(category=""),
+            "category must be non-empty text",
+        ),
+        (
+            lambda value: value["objects"].pop(),
+            "exactly cover entity_ids",
+        ),
+        (
+            lambda value: value["objects"][1].update(entity_id="book-batch"),
+            "without duplicates",
+        ),
+    ],
+)
+def test_logical_task_object_bindings_reject_invalid_rows(mutate, message):
+    scene = _scene(object_bindings=False)
+    value = _logical_bindings()
+    mutate(value)
+    scene["object_bindings"] = value
+
+    if message is None:
+        assert bind_case_manifest(_manifest(scene))["scene"]["object_bindings"] == value
+    else:
+        with pytest.raises(CaseManifestError, match=message):
+            bind_case_manifest(_manifest(scene))
+
+
+def test_logical_task_object_rows_are_bound_into_manifest_digest():
+    scene = _scene(object_bindings=False)
+    scene["object_bindings"] = _logical_bindings()
+    result = bind_case_manifest(_manifest(scene))
+    result["scene"]["object_bindings"]["objects"][0]["metadata"]["mass_kg"] = 0.3
+
+    with pytest.raises(CaseManifestError, match="manifest_digest"):
+        validate_case_manifest(result)
 
 
 def test_task_generated_identity_needs_no_prim_or_human_confirmation():
@@ -232,11 +370,49 @@ def test_v21_builder_accepts_case_owned_objects_and_no_zones(
     _patch_upstream(monkeypatch)
 
     result = build_case_manifest(
-        semantic_root=tmp_path, robot_pool_path=pool, binding=_binding()
+        semantic_root=tmp_path,
+        robot_pool_path=pool,
+        binding=_binding(),
+        physical_object_experiment_authorization="fixture-physical-experiment",
     )
 
     assert result["scene"]["zone_ids"] == []
     assert result["scene"]["object_bindings"] == _object_bindings()
+    assert validate_case_manifest(result) == result
+
+
+def test_v21_builder_rejects_physical_object_bindings_by_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write_semantic_bundle(tmp_path, entities=[])
+    pool = tmp_path / "pool.json"
+    pool.write_text("{}", encoding="utf-8")
+    _patch_upstream(monkeypatch)
+
+    with pytest.raises(
+        CaseManifestBuildError,
+        match="physical_object_experiment_authorization",
+    ):
+        build_case_manifest(
+            semantic_root=tmp_path, robot_pool_path=pool, binding=_binding()
+        )
+
+
+def test_v21_builder_accepts_logical_objects_without_prim_bindings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write_semantic_bundle(tmp_path, entities=[])
+    pool = tmp_path / "pool.json"
+    pool.write_text("{}", encoding="utf-8")
+    _patch_upstream(monkeypatch)
+    binding = _binding()
+    binding["object_bindings"] = _logical_bindings()
+
+    result = build_case_manifest(
+        semantic_root=tmp_path, robot_pool_path=pool, binding=binding
+    )
+
+    assert result["scene"]["object_bindings"] == _logical_bindings()
     assert validate_case_manifest(result) == result
 
 
@@ -330,6 +506,7 @@ def test_builder_rejects_untrusted_object_binding_books(mutate, message: str) ->
             value,
             scene_digest=SCENE_DIGEST,
             entity_ids=["book-batch", "heavy-object"],
+            physical_object_experiment_authorization="fixture-physical-experiment",
         )
 
 

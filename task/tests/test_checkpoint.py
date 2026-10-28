@@ -57,10 +57,10 @@ def test_changed_ownership_or_session_rejected_before_writes():
         other.restore_state(saved)
 
 
-def test_failed_physical_reconciliation_quarantines_and_latches_failure():
+def test_failed_logical_reconciliation_quarantines_and_latches_failure():
     component, adapter, resources, lease = fixture(reconcile=lambda state: False)
     saved = component.capture_state()
-    with pytest.raises(RuntimeError, match='physical readback'):
+    with pytest.raises(RuntimeError, match='session reconciliation'):
         component.restore_state(saved)
     with pytest.raises(ResourceQuarantinedError):
         resources.release(lease)

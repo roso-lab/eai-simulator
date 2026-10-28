@@ -12,7 +12,7 @@ SCHEMA = "heterocoord.eai-room06-runtime-hook-source.v1"
 def _source(schema: str = SCHEMA):
     return SimpleNamespace(
         schema=schema,
-        object_path_bindings=lambda **_: {},
+        object_bindings=lambda **_: [],
         collect_room06=lambda **_: None,
     )
 
@@ -45,6 +45,27 @@ def test_room06_registration_is_fail_closed_for_invalid_source():
 
     with pytest.raises(RuntimeError, match="did not return a valid"):
         simulator._register_room06_runtime_hook_source(**_args(config=config))
+
+
+def test_legacy_prim_reader_cannot_replace_logical_bindings():
+    source = SimpleNamespace(schema=SCHEMA, object_path_bindings=lambda **_: {},
+                             collect_room06=lambda **_: None)
+    config = SimpleNamespace(room06_runtime_hook_source_factory=lambda **_: source)
+    with pytest.raises(RuntimeError, match="logical object_bindings"):
+        simulator._register_room06_runtime_hook_source(**_args(config=config))
+
+
+def test_actual_source_factory_registers_and_reads_frozen_logical_objects():
+    from EAI.room06_runtime_source import create_room06_runtime_source
+    from test_room06_runtime_hook import _fixture
+    session, package, agents = _fixture()
+    del session.base_env.room06_runtime_hook_source
+    config = SimpleNamespace(room06_runtime_hook_source_factory=lambda **kwargs:
+        create_room06_runtime_source(package=package, instance_agent_map=agents, **kwargs))
+    simulator._register_room06_runtime_hook_source(**_args(
+        config=config, base_env=session.base_env, possible_agents=list(agents.values())))
+    source = session.base_env.room06_runtime_hook_source
+    assert len(source.object_bindings(package=package, instance_agent_map=agents)) == 7
 
 
 def test_room06_registration_does_not_synthesize_source_when_factory_missing():

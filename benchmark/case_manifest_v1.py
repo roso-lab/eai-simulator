@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 from typing import Any, Mapping
 
@@ -18,7 +19,46 @@ from typing import Any, Mapping
 CASE_MANIFEST_SCHEMA = "heterocoord.case-manifest.v1"
 OBJECT_BINDINGS_SCHEMA = "heterocoord.case-object-bindings.v1"
 TASK_OBJECT_BINDINGS_SCHEMA = "heterocoord.task-object-bindings.v1"
+LOGICAL_TASK_OBJECT_BINDINGS_SCHEMA = "heterocoord.logical-task-object-bindings.v1"
 _DIGEST_RE = re.compile(r"^[0-9a-f]{64}$")
+_PHYSICAL_METADATA_KEYS = {
+    "attachment",
+    "attachment_ref",
+    "attachments",
+    "body_path",
+    "geometry",
+    "geometry_ref",
+    "physics_handle",
+    "prim",
+    "prim_path",
+    "prim_paths",
+    "readback",
+    "rigid_body",
+    "rigid_body_path",
+    "size_xyz_m",
+    "usd",
+    "usd_handle",
+    "usd_prim",
+    "usd_prim_path",
+    "usd_path",
+}
+_PHYSICAL_METADATA_KEY_STEMS = {
+    "attachment",
+    "bodypath",
+    "collider",
+    "collisiongeometry",
+    "collisionshape",
+    "geometry",
+    "meshpath",
+    "physicshandle",
+    "primpath",
+    "readback",
+    "rigidbody",
+    "sizexyzm",
+    "usdhandle",
+    "usdpath",
+    "usdprim",
+}
 _TOP_KEYS = {
     "schema", "manifest_digest", "case_id", "task_id", "anchor_id", "domain",
     "relation_signature", "base_instance_id", "scene", "robot_pool", "contract",
@@ -54,6 +94,49 @@ def _digest_body(manifest: Mapping[str, Any]) -> str:
     return hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
 
 
+def _validate_logical_metadata(value: Any, name: str, active: set[int]) -> None:
+    """Require finite canonical-JSON state and reject physical object handles."""
+
+    if value is None or type(value) in (bool, int, str):
+        return
+    if type(value) is float:
+        if not math.isfinite(value):
+            raise CaseManifestError(f"{name} must contain only finite JSON values")
+        return
+    if not isinstance(value, (Mapping, list)):
+        raise CaseManifestError(f"{name} must contain only canonical JSON values")
+    identity = id(value)
+    if identity in active:
+        raise CaseManifestError(f"{name} must not be cyclic")
+    active.add(identity)
+    try:
+        if isinstance(value, Mapping):
+            for key, item in value.items():
+                if not isinstance(key, str):
+                    raise CaseManifestError(f"{name} keys must be strings")
+                normalized_key = re.sub(
+                    r"[^a-z0-9]+",
+                    "_",
+                    re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", key.strip()).lower(),
+                ).strip("_")
+                compact_key = normalized_key.replace("_", "")
+                if normalized_key in _PHYSICAL_METADATA_KEYS or any(
+                    compact_key == stem
+                    or compact_key.startswith(stem)
+                    or compact_key.endswith(stem)
+                    for stem in _PHYSICAL_METADATA_KEY_STEMS
+                ):
+                    raise CaseManifestError(
+                        f"{name} must not contain physical dependency key {key!r}"
+                    )
+                _validate_logical_metadata(item, f"{name}.{key}", active)
+        else:
+            for index, item in enumerate(value):
+                _validate_logical_metadata(item, f"{name}[{index}]", active)
+    finally:
+        active.remove(identity)
+
+
 def _validate_object_bindings(scene: Mapping[str, Any]) -> None:
     """Validate case-owned USD identities without claiming asset existence.
 
@@ -67,6 +150,13 @@ def _validate_object_bindings(scene: Mapping[str, Any]) -> None:
         raise CaseManifestError("scene.object_bindings must be an object")
     if value.get("schema") == TASK_OBJECT_BINDINGS_SCHEMA:
         validate_task_object_bindings(value, scene_digest=scene["scene_digest"], entity_ids=scene["entity_ids"])
+        return
+    if value.get("schema") == LOGICAL_TASK_OBJECT_BINDINGS_SCHEMA:
+        validate_logical_task_object_bindings(
+            value,
+            scene_digest=scene["scene_digest"],
+            entity_ids=scene["entity_ids"],
+        )
         return
     _exact(value, {"schema", "scene_digest", "confirmation", "objects"}, "scene.object_bindings")
     if value["schema"] != OBJECT_BINDINGS_SCHEMA:
@@ -142,6 +232,86 @@ def validate_task_object_bindings(value: Mapping[str, Any], *, scene_digest: str
         _digest(row["definition_digest"], "task object.definition_digest")
     if len(set(ids)) != len(ids) or set(ids) != set(entity_ids):
         raise CaseManifestError("task objects must exactly cover entity_ids without duplicates")
+    return json.loads(json.dumps(value, ensure_ascii=False, allow_nan=False))
+
+
+def validate_logical_task_object_bindings(
+    value: Mapping[str, Any], *, scene_digest: str, entity_ids: list[str]
+) -> dict[str, Any]:
+    """Validate task objects represented only by benchmark logical state.
+
+    Logical objects have no USD prim, attachment, physics-readback, or human
+    confirmation identity.  The semantic endpoints and positive finite mass
+    are authored facts covered by the enclosing case-manifest digest.
+    """
+
+    _exact(value, {"schema", "scene_digest", "objects"}, "logical task object bindings")
+    if value["schema"] != LOGICAL_TASK_OBJECT_BINDINGS_SCHEMA:
+        raise CaseManifestError("unsupported logical task object bindings schema")
+    _digest(value["scene_digest"], "logical task object bindings.scene_digest")
+    if value["scene_digest"] != scene_digest:
+        raise CaseManifestError("logical task object bindings scene digest mismatch")
+    rows = value["objects"]
+    if not isinstance(rows, list) or not rows:
+        raise CaseManifestError("logical task object bindings.objects must be non-empty")
+    ids: list[str] = []
+    required = {
+        "entity_id",
+        "category",
+        "metadata",
+        "initial_semantic_point",
+        "target_semantic_point",
+    }
+    for index, row in enumerate(rows):
+        if not isinstance(row, Mapping):
+            raise CaseManifestError(
+                f"logical task object bindings.objects[{index}] must be an object"
+            )
+        _exact(row, required, f"logical task object bindings.objects[{index}]")
+        ids.append(
+            _text(
+                row["entity_id"],
+                f"logical task object bindings.objects[{index}].entity_id",
+            )
+        )
+        _text(row["category"], f"logical task object bindings.objects[{index}].category")
+        _text(
+            row["initial_semantic_point"],
+            f"logical task object bindings.objects[{index}].initial_semantic_point",
+        )
+        _text(
+            row["target_semantic_point"],
+            f"logical task object bindings.objects[{index}].target_semantic_point",
+        )
+        metadata = row["metadata"]
+        if not isinstance(metadata, Mapping):
+            raise CaseManifestError(
+                f"logical task object bindings.objects[{index}].metadata must be an object"
+            )
+        metadata_name = f"logical task object bindings.objects[{index}].metadata"
+        mass_kg = metadata.get("mass_kg")
+        if mass_kg is not None and (
+            isinstance(mass_kg, bool)
+            or not isinstance(mass_kg, (int, float))
+            or not math.isfinite(float(mass_kg))
+            or mass_kg <= 0
+        ):
+            raise CaseManifestError(
+                f"{metadata_name}.mass_kg "
+                "must be a positive finite number"
+            )
+        minimum_holders = metadata.get("minimum_holders")
+        if minimum_holders is not None and (
+            type(minimum_holders) is not int or minimum_holders <= 0
+        ):
+            raise CaseManifestError(
+                f"{metadata_name}.minimum_holders must be a positive integer"
+            )
+        _validate_logical_metadata(metadata, metadata_name, set())
+    if len(set(ids)) != len(ids) or set(ids) != set(entity_ids):
+        raise CaseManifestError(
+            "logical task objects must exactly cover entity_ids without duplicates"
+        )
     return json.loads(json.dumps(value, ensure_ascii=False, allow_nan=False))
 
 
@@ -244,6 +414,8 @@ def bind_case_manifest(value: Mapping[str, Any]) -> dict[str, Any]:
 
 
 __all__ = [
-    "CASE_MANIFEST_SCHEMA", "OBJECT_BINDINGS_SCHEMA", "CaseManifestError",
+    "CASE_MANIFEST_SCHEMA", "LOGICAL_TASK_OBJECT_BINDINGS_SCHEMA",
+    "OBJECT_BINDINGS_SCHEMA", "TASK_OBJECT_BINDINGS_SCHEMA", "CaseManifestError",
     "bind_case_manifest", "validate_case_manifest",
+    "validate_logical_task_object_bindings", "validate_task_object_bindings",
 ]

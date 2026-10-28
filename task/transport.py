@@ -13,6 +13,7 @@ belong to this contract.  Locations are semantic-map references.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
 from typing import Any, Callable, Mapping, Sequence
 
 from algorithm.common_coordination.contract import ExecutionFeedback, FailureCode
@@ -167,24 +168,31 @@ class TransportAdmissionResult:
 
 def _mass_from_record(record: Mapping[str, Any]) -> float | None:
     value = record.get("mass_kg")
+    metadata = record.get("metadata")
+    if value is None and isinstance(metadata, Mapping):
+        value = metadata.get("mass_kg")
     physics = record.get("physics")
     if value is None and isinstance(physics, Mapping):
         value = physics.get("mass_kg")
+    if isinstance(value, bool):
+        return None
     try:
         value = float(value)
     except (TypeError, ValueError):
         return None
-    return value if value > 0 else None
+    return value if math.isfinite(value) and value > 0 else None
 
 
 def _payload_from_record(record: Mapping[str, Any]) -> float | None:
     manipulation = record.get("manipulation")
     value = manipulation.get("payload_kg") if isinstance(manipulation, Mapping) else record.get("payload_kg")
+    if isinstance(value, bool):
+        return None
     try:
         value = float(value)
     except (TypeError, ValueError):
         return None
-    return value if value >= 0 else None
+    return value if math.isfinite(value) and value >= 0 else None
 
 
 class TransportAdmissionResolver:
@@ -259,7 +267,7 @@ class TransportAdmissionResolver:
 
         return cls(
             index(scene_document, ("entities", "objects", "composition"),
-                  ("id", "ref", "object_ref")),
+                  ("id", "ref", "object_ref", "entity_id")),
             index(robot_document, ("resumes", "configuration_profiles", "robots"),
                   ("robot_id", "resume_id", "profile_id", "id")),
             allowed_robot_ids=allowed_robot_ids,
@@ -374,6 +382,8 @@ class TransportAdmissionResolver:
         robot_record = self.robots.get(command.robot_id)
         mass = _mass_from_record(object_record) if isinstance(object_record, Mapping) else None
         payload = _payload_from_record(robot_record) if isinstance(robot_record, Mapping) else None
+        definition = object_record.get("definition", object_record.get("metadata", {})) if isinstance(object_record, Mapping) else {}
+        minimum_holders = definition.get("minimum_holders", 1) if isinstance(definition, Mapping) else 1
         if self.allowed_robot_ids is not None and command.robot_id not in self.allowed_robot_ids:
             result = TransportAdmissionResult(
                 False,
@@ -387,6 +397,12 @@ class TransportAdmissionResolver:
             result = TransportAdmissionResult(False, mass, None, "robot payload_kg is unavailable")
         elif mass > payload:
             result = TransportAdmissionResult(False, mass, payload, "object mass exceeds robot payload")
+        elif type(minimum_holders) is not int or minimum_holders < 1:
+            result = TransportAdmissionResult(False, mass, payload, "object minimum_holders is invalid")
+        elif minimum_holders > 1:
+            # This command authorizes one robot only. A larger payload never
+            # waives an object's explicit multi-holder lifting restriction.
+            result = TransportAdmissionResult(False, mass, payload, "object requires joint holding; single-robot transport is forbidden")
         else:
             result = TransportAdmissionResult(True, mass, payload, "admitted")
         self.records.append({"request_id": command.request_id,
