@@ -1,6 +1,6 @@
 {
   "schema": "eai.semantic_points",
-  "version": 1,
+  "version": 2,
   "scene_key": "production_candy_shop",
   "coordinate_frame": "scene_world",
   "meters_per_unit": 1,

@@ -2,7 +2,7 @@
   "schema": "eai.semantic_footprints",
   "version": 1,
   "scene_id": "production_candy_shop",
-  "project_revision": "bdf0acde22a542e19d698e459ba6723b",
+  "project_revision": "f9214bb4ed594d23987b4f061071199f",
   "coordinate_frame": "scene_world",
   "objects": [],
   "semantics": {
