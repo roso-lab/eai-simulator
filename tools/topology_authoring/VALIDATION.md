@@ -469,3 +469,11 @@ Prim 点击和框选，桥接层同时忽略并清空迟到的 USD selection，�
 回归验证：Isaac 桥接、拓扑手势和 overlay 共 76 项通过；Isaac Sim 5.1 headless
 启动 `living_room_06` 正常到达 app ready，未出现 semantics 扩展导入错误，作者 USD
 未被写入。
+
+## Millimetre coordinates and road axis snapping (2026-10-28)
+
+- Python regression: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q tools/validation/test_topology_*.py tools/validation/test_semantic_points_project.py tools/validation/test_semantic_topology_authoring.py tools/validation/test_isaac_bridge.py tools/validation/test_web_isaac_overlay*.py --tb=short`: **318 passed, 5 skipped, 5 failed**. All five failures are USD surface tests importing unavailable `pxr`; none reach the changed geometry/interaction code. Plugin autoload is disabled because the host ROS pytest plugin requires unavailable `lark`.
+- Web regression: `node --test tools/validation/test_topology_ground_height_web.cjs`: **27 passed**. Covers multiple viewport sizes/DPR values, frozen starts, raw endpoint requests, C toggles, stale asynchronous responses, failed final preview, and height adjustment while start snapping is pending.
+- New precision regressions cover symmetric half-millimetre rounding, negative zero/nonfinite values, axis threshold boundaries, off-axis node rejection, diagonal-edge intersection snapping, fixed-start identity, ground/aerial edits, undo/redo, legacy load/save digest integrity and idempotence, collision rollback and collapsed segments.
+- `python -m compileall -q tools/topology_authoring`, `node --check tools/topology_authoring/web/app.js`, DOM-ID reference checks and `git diff --check` pass.
+- Native controller/viewport behavior is covered by automated tests. **Real Isaac GUI and live browser pointer interaction were not manually verified in this environment.** Existing scene map edits were not saved or migrated by this task.

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 import math
+from .precision import point_mm, quantize_geometry
 
 Z_TOLERANCE_M = 0.20
 AERIAL_Z_TOLERANCE_M = 0.10
@@ -27,7 +28,7 @@ def _eligible_edge(edge, nodes, level_id, domain):
     return level_id in levels or None in levels
 
 
-def _snap(point, nodes, edges, level_id, radius, *, domain, z_tolerance_m, disabled=False):
+def _snap(point, nodes, edges, level_id, radius, *, domain, z_tolerance_m, disabled=False, axis=None):
     if disabled:
         return {"position_xyz": list(point), "node_id": None, "edge_id": None}
     candidates = []
@@ -35,6 +36,8 @@ def _snap(point, nodes, edges, level_id, radius, *, domain, z_tolerance_m, disab
         if domain == "ground" and node.get("level_id") not in (None, level_id):
             continue
         p = node["position_xyz"]
+        if axis is not None and point_mm(p)[axis] != point_mm(point)[axis]:
+            continue
         if abs(p[2] - point[2]) <= z_tolerance_m + EPSILON_M and _dist2(p, point) <= radius * radius:
             candidates.append((_dist2(p, point), 0, node["id"], list(p), None))
     if candidates:
@@ -46,6 +49,17 @@ def _snap(point, nodes, edges, level_id, radius, *, domain, z_tolerance_m, disab
         points = edge["polyline_xyz"]
         for index, (a, b) in enumerate(zip(points, points[1:])):
             t, projected = _project(point, a, b)
+            if axis is not None:
+                delta = b[axis] - a[axis]
+                if abs(delta) <= EPSILON_M:
+                    if point_mm(a)[axis] != point_mm(point)[axis]:
+                        continue
+                else:
+                    t = (point[axis] - a[axis]) / delta
+                    if not 0 <= t <= 1:
+                        continue
+                    projected = [a[i] + t*(b[i]-a[i]) for i in range(3)]
+                projected[axis] = point[axis]
             if abs(projected[2] - point[2]) <= z_tolerance_m + EPSILON_M and _dist2(projected, point) <= radius * radius:
                 candidates.append((_dist2(projected, point), 1, edge["id"], projected, (index, t)))
     if candidates:
@@ -74,13 +88,35 @@ def _intersection(a, b, c, d):
     return None
 
 
+def snap_road_start(document, point, *, level_id=None, snap_radius_m=0.0, disable_snap=False):
+    source = document.to_dict() if hasattr(document, "to_dict") else document
+    radius = float(snap_radius_m)
+    if not math.isfinite(radius) or radius < 0:
+        raise ValueError("snap radius must be finite and non-negative")
+    domain = source.get("domain")
+    if domain not in {"ground", "aerial"}:
+        raise ValueError("invalid road domain")
+    if domain == "ground" and level_id not in {r['id'] for r in source.get('levels', [])}:
+        raise ValueError("unknown active ground level")
+    # Quantized geometry is used for snapping so the persisted axis matches preview.
+    geometry = quantize_geometry(source)
+    snap = _snap(point_mm(point), {n['id']: n for n in geometry['nodes']}, geometry['edges'],
+                 level_id, radius, domain=domain,
+                 z_tolerance_m=AERIAL_Z_TOLERANCE_M if domain == "aerial" else Z_TOLERANCE_M,
+                 disabled=disable_snap)
+    snap['position_xyz'] = point_mm(snap['position_xyz'])
+    return snap
+
+
 def plan_navigation_road(document, start_xyz, end_xyz, *, level_id=None, snap_radius_m=0.0,
-                         disable_snap=False, connect_intersections=True, z_tolerance_m=None):
+                         disable_snap=False, connect_intersections=True, z_tolerance_m=None,
+                         axis_snap=False, fixed_start=None):
     """Return a preview plus a candidate document; never mutates the input."""
     source = document.to_dict() if hasattr(document, "to_dict") else deepcopy(document)
     domain = source.get("domain")
     if domain not in {"ground", "aerial"}:
         raise ValueError("road construction requires a navigation topology")
+    source = quantize_geometry(source)
     nodes = {row["id"]: row for row in source["nodes"]}
     edges = source["edges"]
     levels = {row["id"] for row in source.get("levels", [])}
@@ -95,11 +131,52 @@ def plan_navigation_road(document, start_xyz, end_xyz, *, level_id=None, snap_ra
         raise ValueError("road endpoints must contain finite XYZ coordinates")
     if _dist2(start, end) <= EPSILON_M ** 2:
         raise ValueError("道路长度必须大于零")
-    start_snap = _snap(start, nodes, edges, level_id, snap_radius_m, domain=domain,
-                       z_tolerance_m=tolerance, disabled=disable_snap)
-    end_snap = _snap(end, nodes, edges, level_id, snap_radius_m, domain=domain,
-                     z_tolerance_m=tolerance, disabled=disable_snap)
-    start, end = start_snap["position_xyz"], end_snap["position_xyz"]
+    radius = float(snap_radius_m)
+    if not math.isfinite(radius) or radius < 0:
+        raise ValueError("snap radius must be finite and non-negative")
+    start_snap = snap_road_start(source, start, level_id=level_id,
+                                snap_radius_m=radius, disable_snap=disable_snap)
+    if fixed_start is not None:
+        if not isinstance(fixed_start, dict):
+            raise ValueError("invalid fixed road start")
+        position = point_mm(fixed_start.get("position_xyz"))
+        if fixed_start.get("node_id"):
+            node = nodes.get(fixed_start['node_id'])
+            if node is None or node['position_xyz'] != position:
+                raise ValueError("fixed start node changed")
+            if domain == "ground" and node.get('level_id') not in (None, level_id):
+                raise ValueError("fixed start node outside active floor")
+        elif fixed_start.get('edge_id'):
+            edge = next((e for e in edges if e['id'] == fixed_start['edge_id']), None)
+            if edge is None or not _eligible_edge(edge, nodes, level_id, domain):
+                raise ValueError("fixed start edge changed")
+            segment = fixed_start.get('segment')
+            if not isinstance(segment, (list, tuple)) or len(segment) != 2:
+                raise ValueError("invalid fixed start segment")
+            index, u = segment
+            if type(index) is not int or not 0 <= index < len(edge['polyline_xyz'])-1 or not 0 <= u <= 1:
+                raise ValueError("invalid fixed start segment")
+            a, b = edge['polyline_xyz'][index:index+2]
+            if point_mm([a[i]+u*(b[i]-a[i]) for i in range(3)]) != position:
+                raise ValueError("fixed start edge position changed")
+        start_snap = deepcopy(fixed_start)
+        start_snap['position_xyz'] = position
+    start = point_mm(start_snap['position_xyz'])
+    axis = None
+    if axis_snap and not disable_snap:
+        angle = math.atan2(abs(end[1]-start[1]), abs(end[0]-start[0]))
+        if angle <= math.pi/18:
+            axis = 1
+        elif math.pi/2-angle <= math.pi/18:
+            axis = 0
+        if axis is not None:
+            end[axis] = start[axis]
+    end_snap = _snap(end, nodes, edges, level_id, radius, domain=domain,
+                     z_tolerance_m=tolerance, disabled=disable_snap, axis=axis)
+    end = point_mm(end_snap['position_xyz'])
+    if axis is not None:
+        end[axis] = start[axis]
+    start_snap['position_xyz'], end_snap['position_xyz'] = start, end
     if _dist2(start, end) <= EPSILON_M ** 2:
         raise ValueError("道路长度必须大于零")
 
@@ -246,8 +323,10 @@ def plan_navigation_road(document, start_xyz, end_xyz, *, level_id=None, snap_ra
                 route_nodes.append(route["node_ids"][index+1]); route_edges.append(edge_id)
         route["edge_ids"], route["node_ids"] = route_edges, route_nodes
     candidate["semantics"] = semantics
+    candidate = quantize_geometry(candidate)
     return {"document": candidate, "start": start, "end": end, "start_node_id": start_id,
-            "end_node_id": end_id, "crossings": [row["point"] for row in grouped], "edge_ids": road_edge_ids,
+            "end_node_id": end_id, "crossings": [point_mm(row["point"]) for row in grouped], "edge_ids": road_edge_ids,
+            "axis": "x" if axis == 1 else "y" if axis == 0 else None,
             "snap": {"start": start_snap, "end": end_snap}}
 
 

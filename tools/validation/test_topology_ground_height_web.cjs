@@ -6,7 +6,7 @@ const { join } = require("node:path");
 const { test } = require("node:test");
 const vm = require("node:vm");
 
-function editor() {
+function editor(dpr = 1, width = 400) {
   const elements = new Map();
   const timers = new Map();
   let nextTimer = 0;
@@ -18,19 +18,20 @@ function editor() {
     }; },
     getElementById(id) {
       if (!elements.has(id)) elements.set(id, {
-        value: "", textContent: "", disabled: false,
+        value: "", textContent: "", disabled: false, style: {}, offsetWidth: 180, offsetHeight: 40,
+        setPointerCapture() {}, releasePointerCapture() {},
         classList: { toggle(name, value) { this[name] = value; } },
         replaceChildren() { this.children = []; },
         addEventListener() {},
         appendChild(child) { (this.children ||= []).push(child); },
-        getBoundingClientRect: () => ({left: 0, top: 0, width: 400, height: 400}),
+        getBoundingClientRect: () => ({left: 0, top: 0, width, height: 400}),
         querySelectorAll: () => []
       });
       return elements.get(id);
     }
   };
   const sandbox = {
-    document, timers,
+    document, timers, devicePixelRatio: dpr,
     setTimeout(callback) { const id = ++nextTimer; timers.set(id, callback); return id; },
     clearTimeout(id) { timers.delete(id); }
   };
@@ -50,6 +51,8 @@ function editor() {
       renderInspector, applyInspector, createNode, syncPointSettings, startAnnotation, saveAnnotation, cancelAnnotation, cancelNavigationBindings,
       toggleNavigationPick, acceptState, onPointerDown, worldToScreen, hitTest,
       respondWith: (value) => { reply = value; },
+      network: (handler) => { request = handler; }, refreshRoadPlan, onPointerUp, chooseRoadBuild, cancelGesture,
+      mm,
       renderPending, showError, clearError, notice, timers, roadEnd, adjustRoadEndHeight,
       adjustAerialRoadStartHeight, toggleNavigationBindingFromMap,
       applyNavigationBindings };
@@ -179,7 +182,7 @@ test("aerial road uses the configured start Z and adjusts only its endpoint by 0
   assert.equal(api.adjustRoadEndHeight(.1), true);
   assert.deepEqual(plain(api.roadEnd([1, 2, 99], api.state.roadDraft.start)), [1, 2, 7.1]);
   assert.deepEqual(plain(api.state.roadDraft.start), [0, 0, 7]);
-  assert.equal(api.els.roadHeightStatus.textContent, "终点 Z 7.10 m");
+  assert.equal(api.els.roadHeightStatus.textContent, "自由方向 · 终点 Z 7.100 m");
   api.state.roadDraft.domain = "ground";
   assert.equal(api.adjustRoadEndHeight(.1), false);
   assert.equal(api.state.roadDraft.endZ, 7.1);
@@ -354,3 +357,93 @@ for (const change of [{active_level: "lower"}, {active_layer: "aerial", editor_t
     assert.equal(api.state.navigationBindingDraft, null);
   });
 }
+
+
+for (const [dpr, width] of [[1,400],[2,400],[1.5,800]]) {
+  test(`road start is frozen before axis preview at DPR ${dpr} width ${width}`, async () => {
+    const api = editor(dpr,width), requests=[];
+    api.state.server.editor_tool = "build-ground-road";
+    api.els.newPointZ.value = "3";
+    api.network(async (path, options) => {
+      requests.push({path, body: plain(options.body)});
+      if (path.endsWith("start")) return {position_xyz:[0,0,3],node_id:"g1",edge_id:null};
+      return {start:[0,0,3],end:[2,0,3],crossings:[],axis:"x"};
+    });
+    const [clientX,clientY]=api.worldToScreen([.03,.02]);
+    api.onPointerDown({clientX:clientX/dpr,clientY:clientY/dpr,button:0,pointerId:1});
+    await api.state.roadDraft.startReady;
+    assert.deepEqual(plain(api.state.roadDraft.start),[0,0,3]);
+    await api.refreshRoadPlan([2,.02]);
+    assert.deepEqual(requests.at(-1).body.fixed_start.position_xyz,[0,0,3]);
+    assert.deepEqual(requests.at(-1).body.end_xyz,[2,.02,3]); // Server owns axis decision.
+    assert.equal(requests.at(-1).body.axis_snap,true);
+    api.state.cHeld=true;
+    await api.refreshRoadPlan([2,.02]);
+    assert.equal(requests.at(-1).body.disable_snap,true);
+    assert.deepEqual(requests.at(-1).body.fixed_start.position_xyz,[0,0,3]);
+    api.state.cHeld=false; api.state.drag.moved=true;
+    const [x,y]=api.worldToScreen([2.1,.03]);
+    await api.onPointerUp({clientX:x/dpr,clientY:y/dpr,pointerId:1});
+    assert.equal(api.state.roadDraft.frozen,true);
+    const before=requests.length;
+    await api.refreshRoadPlan([9,9]);
+    assert.equal(requests.length,before);
+    await api.chooseRoadBuild("no-connect");
+    const body=plain(api.calls.at(-1).body);
+    assert.equal(body.connect_intersections,false);
+    assert.equal(body.axis_snap,true);
+    assert.deepEqual(body.fixed_start.position_xyz,[0,0,3]);
+    assert.ok(Math.abs(body.end_xyz[0]-2.1)<1e-9);
+  });
+}
+
+test("older asynchronous preview never replaces the final frozen road", async () => {
+  const api=editor(), pending=[];
+  api.state.server.editor_tool="build-ground-road";
+  api.state.roadDraft={start:[0,0,0],endZ:0,identity:{revision:1},fixedStart:{position_xyz:[0,0,0]}};
+  api.network((_path, options)=>new Promise(resolve=>pending.push({resolve,options})));
+  const first=api.refreshRoadPlan([1,.01]);
+  await Promise.resolve();
+  const final=api.refreshRoadPlan([2,.02],true);
+  await Promise.resolve();
+  pending[1].resolve({start:[0,0,0],end:[2,0,0],axis:"x",crossings:[]});
+  await final;
+  api.state.roadDraft.frozen=true;
+  pending[0].resolve({start:[0,0,0],end:[1,0,0],axis:"x",crossings:[]});
+  await first;
+  assert.deepEqual(plain(api.state.roadPlan.end),[2,0,0]);
+  assert.deepEqual(plain(api.state.roadDraft.request.end_xyz),[2,.02,0]);
+});
+
+test("coordinate display uses symmetric millimetre rounding",()=>{
+  const api=editor();
+  assert.equal(api.mm(-1.2345),-1.235);
+  assert.equal(api.mm(1.2345),1.235);
+  assert.equal(Object.is(api.mm(-.0004),-0),false);
+});
+
+test("failed final preview discards an older valid road instead of opening confirmation", async () => {
+  const api=editor();
+  api.state.server.editor_tool="build-ground-road";
+  api.state.roadDraft={start:[0,0,0],endZ:0,identity:{revision:1},fixedStart:{position_xyz:[0,0,0]}};
+  api.state.roadPlan={start:[0,0,0],end:[1,0,0],crossings:[],axis:"x"};
+  api.state.drag={kind:"road",moved:true};
+  api.network(async ()=>{throw new Error("stale revision");});
+  await api.onPointerUp({clientX:200,clientY:200,pointerId:1});
+  assert.equal(api.state.roadDraft,null);
+  assert.equal(api.state.roadPlan,null);
+  assert.equal(api.calls.length,0);
+});
+
+test("height keys during a pending start snap preserve the requested height delta", async () => {
+  const api=editor(); let finish;
+  api.state.activeLayer="aerial"; api.state.activeDomain="aerial";
+  api.state.server.editor_tool="build-aerial-road";
+  api.els.newPointZ.value="3";
+  api.network(()=>new Promise(resolve=>{finish=resolve;}));
+  api.onPointerDown({clientX:200,clientY:200,button:0,pointerId:1});
+  api.state.roadDraft.endZ+=.1;
+  finish({position_xyz:[0,0,3.05],node_id:"a1",edge_id:null});
+  await api.state.roadDraft.startReady;
+  assert.equal(api.state.roadDraft.endZ,3.15);
+});

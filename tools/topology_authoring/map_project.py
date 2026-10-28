@@ -25,6 +25,7 @@ from PIL import Image, ImageDraw, ImageFont
 from shapely.geometry import box, mapping
 from shapely.ops import unary_union
 
+from .precision import quantize_geometry
 from .model import TopologyDocument
 from .road_builder import plan_navigation_road
 from .product import load_product, save_draft, validate_document, _unique_object, _reject_constant
@@ -632,7 +633,8 @@ class MapProject:
             plan = plan_navigation_road(candidate, args["start_xyz"], args["end_xyz"],
                 level_id=args.get("level_id"), snap_radius_m=args.get("snap_radius_m", 0.0),
                 disable_snap=args.get("disable_snap", False),
-                connect_intersections=args.get("connect_intersections", True))
+                connect_intersections=args.get("connect_intersections", True),
+                axis_snap=args.get("axis_snap", False), fixed_start=args.get("fixed_start"))
             candidate = TopologyDocument.from_dict(plan["document"])
         # Both clients share this transaction authority. Delete atomically together
         # with dependent bindings; leave the strict document API unchanged.
@@ -814,6 +816,8 @@ class MapProject:
         else:
             raise ValueError(f"unknown edit operation: {operation}")
         candidates = {key: TopologyDocument.from_dict(doc.to_dict()) for key, doc in self.documents.items()}
+        candidate = TopologyDocument.from_dict(quantize_geometry(
+            candidate.to_dict(), self.document_for(domain).to_dict()))
         candidates[domain] = candidate
         shared_edit = (operation in {"update_region", "insert_region_vertex", "move_region_vertex"} or
                        operation in {"upsert_semantic", "remove_semantic"} and args.get("collection") == "regions")
@@ -898,8 +902,9 @@ class MapProject:
                 "warnings": warnings, "saved_revision": self.saved_revision,
                 "can_undo": bool(self._undo), "can_redo": bool(self._redo)}
 
-    def _preview(self, lid, derived):
+    def _preview(self, lid, derived, document=None):
         """Portable annotated PNG, with the same axes and masks as browser view."""
+        document = document or self.document
         grid = self.grids[lid]
         image = self.layer_image(lid, derived)
         scale = min(4., 1400/max(image.size))
@@ -914,12 +919,12 @@ class MapProject:
         def xy(point):
             return (margin+(point[0]-xmin)/(xmax-xmin)*image.width,
                     margin+(ymax-point[1])/(ymax-ymin)*image.height)
-        nodes = {row["id"]: row for row in self.document.nodes}
-        for edge in self.document.edges:
+        nodes = {row["id"]: row for row in document.nodes}
+        for edge in document.edges:
             a, b = nodes[edge["from"]], nodes[edge["to"]]
             if a.get("level_id") != lid or b.get("level_id") != lid:
                 continue
-            draw.line([xy(a["position_xyz"]), xy(b["position_xyz"])], fill="#258468", width=2)
+            draw.line([xy(point) for point in edge["polyline_xyz"]], fill="#258468", width=2)
         for node in nodes.values():
             if node.get("level_id") == lid:
                 px, py = xy(node["position_xyz"])
@@ -931,14 +936,14 @@ class MapProject:
                 if len(cells):
                     labels.append((row, [float(grid["x"][cells[:,1]].mean()), float(grid["y"][cells[:,0]].mean())]))
         records = {row["id"]: row for key in ("regions", "entities", "interaction_poses")
-                   for row in (self.document.semantics or empty_semantics())[key]}
-        for row in (self.document.semantics or empty_semantics())["interaction_poses"]:
+                   for row in (document.semantics or empty_semantics())[key]}
+        for row in (document.semantics or empty_semantics())["interaction_poses"]:
             if semantic_level(row, records) == lid:
                 labels.append((row, row["position_xyz"]))
                 px, py = xy(row["position_xyz"])
                 draw.ellipse((px-5, py-5, px+5, py+5), fill="#cb3c86")
         bound = {row["id"] for row, _ in derived[lid]["entities"]}
-        for row in (self.document.semantics or empty_semantics())["entities"]:
+        for row in (document.semantics or empty_semantics())["entities"]:
             if row["id"] not in bound and semantic_level(row, records) == lid and row.get("position_xyz"):
                 labels.append((row, row["position_xyz"]))
                 px, py = xy(row["position_xyz"])
@@ -949,13 +954,13 @@ class MapProject:
             bbox = draw.textbbox(point, label, font=font)
             draw.rectangle(bbox, fill="white")
             draw.text(point, label, fill=color(row["id"]), font=font)
-        draw.text((margin, 12), f"{self.document.scene_key} / {lid}", fill="#21364b", font=font)
+        draw.text((margin, 12), f"{document.scene_key} / {lid}", fill="#21364b", font=font)
         draw.text((margin, image.height+60), "X →  Y ↑  / metres / routes: unvalidated draft", fill="#21364b", font=font)
         return canvas
 
     def _export(self, destination, revision_id, derived):
         destination.mkdir(parents=True, exist_ok=False)
-        export_doc = TopologyDocument.from_dict(self.document.to_dict())
+        export_doc = TopologyDocument.from_dict(quantize_geometry(self.document.to_dict()))
         semantics = export_doc.semantics or empty_semantics()
         doc_entities = {row["id"]: row for row in semantics["entities"]}
         doc_regions = {row["id"]: row for row in semantics["regions"]}
@@ -984,7 +989,7 @@ class MapProject:
                     else:
                         doc_regions[row["id"]].setdefault("properties", {})["raster_region_id"] = number
             self.layer_image(lid, derived).save(destination / (base+"-layer.png"))
-            self._preview(lid, derived).save(destination / (base+"-semantic-map.png"))
+            self._preview(lid, derived, export_doc).save(destination / (base+"-semantic-map.png"))
             level_info.append({"level_id": lid, "grid": gridname, "preview": base+"-semantic-map.png",
                                "layer": base+"-layer.png", "extent_xy": extent(grid)})
         # Point-only objects and task poses are also included in GeoJSON.
@@ -996,11 +1001,10 @@ class MapProject:
                     features.append({"type": "Feature", "geometry": geometry,
                                      "properties": {**deepcopy(row), "feature_type": group}})
         for edge in export_doc.edges:
-            features.append({"type": "Feature", "geometry": {"type": "LineString", "coordinates": [
-                export_doc.node(edge["from"])["position_xyz"], export_doc.node(edge["to"])["position_xyz"]]},
+            features.append({"type": "Feature", "geometry": {"type": "LineString", "coordinates": deepcopy(edge["polyline_xyz"])},
                 "properties": {**deepcopy(edge), "feature_type": "topology_edge", "robot_validated": False}})
         save_draft(destination / "topology.json", export_doc)
-        aerial = TopologyDocument.from_dict(self.documents["aerial"].to_dict())
+        aerial = TopologyDocument.from_dict(quantize_geometry(self.documents["aerial"].to_dict()))
         aerial.semantics = aerial.semantics or empty_semantics()
         entrances = {row["id"]: row.get("entrance_node_ids", []) for row in aerial.semantics["regions"]}
         aerial.semantics["regions"] = [
@@ -1043,7 +1047,9 @@ class MapProject:
         """Publish one complete current package; keep revision tokens for conflicts."""
         self._expect(revision)
         validate_points(self.semantic_points)
-        derived = self._check_all(self.documents)
+        normalized = {d: TopologyDocument.from_dict(quantize_geometry(doc.to_dict()))
+                      for d, doc in self.documents.items()}
+        derived = self._check_all(normalized)
         with (self.root / ".write.lock").open("a") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
             _recover_publication(self.root)

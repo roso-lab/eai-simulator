@@ -463,3 +463,26 @@ def test_deleting_label_clears_active_binding_context(api):
     code, state = request("/api/undo", identity(state))
     assert code == 200
     assert any(row["id"] == "desk" for row in state["semantic_points"])
+
+
+def test_road_start_preview_and_commit_share_frozen_axis_geometry(api):
+    request, _ = api
+    _, state = request("/api/state")
+    for point in ([0,0,0], [2,.04,0]):
+        code, state = request("/api/edit", {**identity(state), "operation": "add_node", "position_xyz": point, "level_id": "1F"})
+        assert code == 200
+    state = switch(request, state, active_layer="ground", tool="build-ground-road")
+    ident = identity(state)
+    code, start = request("/api/road/start", {**ident, "start_xyz": [.03,.02,0], "snap_radius_m": .1})
+    assert code == 200 and start["position_xyz"] == [0,0,0]
+    args = dict(start_xyz=start["position_xyz"], end_xyz=[2,.02,0], fixed_start=start,
+                axis_snap=True, snap_radius_m=.1, level_id="1F")
+    code, plan = request("/api/road/preview", {**ident, **args})
+    assert code == 200 and plan["end"] == [2,0,0]
+    _, before = request("/api/state")
+    assert before["revision"] == state["revision"]
+    code, after = request("/api/edit", {**ident, **args, "operation": "build_ground_road"})
+    assert code == 200, after
+    assert after["revision"] == state["revision"] + 1
+    assert after["documents"]["ground"]["edges"][-1]["polyline_xyz"] == [plan["start"], plan["end"]]
+    assert request("/api/road/preview", {**ident, **args})[0] == 409

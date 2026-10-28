@@ -24,6 +24,10 @@
   ].forEach((id) => { els[id] = $(id); });
 
   class ConflictError extends Error {}
+  const mm = value => { const x = Number(value); const scaled = Math.abs(x)*1000;
+    const rounded = Math.floor(scaled + .5 + Number.EPSILON*scaled)*Math.sign(x)/1000;
+    return rounded === 0 ? 0 : rounded;
+  };
   const clone = (value) => value == null ? value : JSON.parse(JSON.stringify(value));
   const hidden = (element, value) => element.classList.toggle("hidden", Boolean(value));
   const finite = (value, name) => {
@@ -315,7 +319,7 @@
     const record = recordFor(); hidden(els.emptyInspector, Boolean(record) || state.activeLayer === "semantic_points"); hidden(els.inspectorForm, !record); hidden(els.clearSelectionBtn, !record); if (!record) { els.selectionType.textContent = "未选择"; els.selectionTitle.textContent = "属性检查器"; return; }
     const type = state.selection.type, point = type === "semantic_point" ? null : type === "node" ? (state.preview && state.preview.kind === "node" && state.preview.id === record.id ? state.preview.position : record.position_xyz) : null;
     els.fieldId.value = record.id; els.fieldLabel.value = record.label || ""; els.fieldKind.value = record.kind || ""; els.fieldLevel.value = record.level_id || ""; setGroup(els.labelGroup, type !== "edge"); setGroup(els.kindGroup, type !== "edge"); setGroup(els.levelGroup, type === "node" && state.activeDomain === "ground"); setGroup(els.coordinateGroup, type === "node"); setGroup(els.editModeGroup, type === "node" && state.activeDomain === "aerial"); setGroup(els.descriptionGroup, type === "semantic_point"); setGroup(els.aliasesGroup, type === "semantic_point"); setGroup(els.propertiesGroup, type === "semantic_point"); setGroup(els.edgeGroup, type === "edge"); setGroup(els.bindingGroup, type === "semantic_point");
-    if (type === "node") { [els.fieldX.value, els.fieldY.value, els.fieldZ.value] = point.map((value) => String(Number(value))); els.fieldEditMode.value = record.edit_mode || "3d"; }
+    if (type === "node") { [els.fieldX.value, els.fieldY.value, els.fieldZ.value] = point.map((value) => String(mm(value))); els.fieldEditMode.value = record.edit_mode || "3d"; }
     if (type === "edge") { els.fieldFrom.value = record.from; els.fieldTo.value = record.to; els.fieldDirected.checked = Boolean(record.directed); els.fieldTraversal.value = state.activeDomain === "aerial" ? "walk" : record.traversal_mode || "walk"; els.fieldTraversal.disabled = state.activeDomain === "aerial"; }
     if (type === "semantic_point") { els.fieldDescription.value = record.description || ""; els.fieldAliases.value = (record.aliases || []).join(", "); els.fieldProperties.value = JSON.stringify(record.properties || {}, null, 2); els.pickNavigationBtn.textContent = state.bindingPickMode ? "结束连接" : "连接导航点"; renderNavigationBindings(record); }
     els.selectionType.textContent = type === "node" ? (state.activeDomain === "aerial" ? "空中节点" : "地面节点") : type === "edge" ? "拓扑边" : "语义标签"; els.selectionTitle.textContent = (record.label || record.id) + (type === "semantic_point" && !(record.navigation_bindings || []).length ? " · 未绑定语义" : "");
@@ -329,7 +333,7 @@
     const draft = state.inspectorDraft; if (draft && draft.selection.type === type && draft.selection.id === record.id) for (const [key, value] of Object.entries(draft.values)) { if (key === "fieldDirected") els[key].checked = value; else els[key].value = value; }
   }
   function captureInspector() { const record = recordFor(); if (!record || !state.selection) return; if (!state.inspectorDraft) state.inspectorDraft = { selection: clone(state.selection), record: clone(record), identity: identity() }; state.inspectorDraft.values = {}; for (const key of ["fieldLabel", "fieldKind", "fieldLevel", "fieldX", "fieldY", "fieldZ", "fieldEditMode", "fieldDescription", "fieldAliases", "fieldProperties", "fieldTraversal"]) state.inspectorDraft.values[key] = els[key].value; state.inspectorDraft.values.fieldDirected = els.fieldDirected.checked; }
-  function updateToolUI() { const mode = state.server && state.server.editor_tool || "add-node", pointSettings = mode === "add-node" || isRoadTool(mode); [...els.modeTools.querySelectorAll("[data-mode]")].forEach((button) => { button.classList.toggle("active", button.dataset.mode === mode); const groundTool = button.dataset.mode === "build-ground-road" || button.dataset.mode === "delete-ground-edge", aerialTool = button.dataset.mode === "build-aerial-road" || button.dataset.mode === "delete-aerial-edge"; if (groundTool || aerialTool) hidden(button, state.activeLayer !== (groundTool ? "ground" : "aerial")); }); els.modeHint.textContent = state.bindingPickMode ? "连接模式：点击地面或空中导航节点加入/移除绑定；完成后应用绑定" : state.edgeEndId ? "连线预览已就绪，点击确认连线" : state.edgeStartId ? `已选择起点 ${state.edgeStartId}，请选择终点` : hints[mode] || hints["add-node"]; const showRoadHeight = mode === "build-aerial-road" && state.roadDraft; hidden(els.roadHeightStatus, !showRoadHeight); if (showRoadHeight) els.roadHeightStatus.textContent = `终点 Z ${state.roadDraft.endZ.toFixed(2)} m`; hidden(els.cancelDraftBtn, !(state.edgeStartId || state.edgeEndId || state.preview || state.roadDraft)); hidden(els.confirmEdgeBtn, !state.edgeEndId); hidden(els.newPointZGroup, !pointSettings); hidden(els.newPointModeGroup, !pointSettings || state.activeLayer === "ground"); hidden(els.newEdgeTraversalGroup, !(mode === "add-edge" && state.activeDomain === "ground")); }
+  function updateToolUI() { const mode = state.server && state.server.editor_tool || "add-node", pointSettings = mode === "add-node" || isRoadTool(mode); [...els.modeTools.querySelectorAll("[data-mode]")].forEach((button) => { button.classList.toggle("active", button.dataset.mode === mode); const groundTool = button.dataset.mode === "build-ground-road" || button.dataset.mode === "delete-ground-edge", aerialTool = button.dataset.mode === "build-aerial-road" || button.dataset.mode === "delete-aerial-edge"; if (groundTool || aerialTool) hidden(button, state.activeLayer !== (groundTool ? "ground" : "aerial")); }); els.modeHint.textContent = state.bindingPickMode ? "连接模式：点击地面或空中导航节点加入/移除绑定；完成后应用绑定" : state.edgeEndId ? "连线预览已就绪，点击确认连线" : state.edgeStartId ? `已选择起点 ${state.edgeStartId}，请选择终点` : hints[mode] || hints["add-node"]; const showRoadHeight = isRoadTool(mode) && state.roadDraft; hidden(els.roadHeightStatus, !showRoadHeight); if (showRoadHeight) els.roadHeightStatus.textContent = `${state.roadPlan && state.roadPlan.axis ? state.roadPlan.axis.toUpperCase()+" 轴" : "自由方向"} · 终点 Z ${state.roadDraft.endZ.toFixed(3)} m`; hidden(els.cancelDraftBtn, !(state.edgeStartId || state.edgeEndId || state.preview || state.roadDraft)); hidden(els.confirmEdgeBtn, !state.edgeEndId); hidden(els.newPointZGroup, !pointSettings); hidden(els.newPointModeGroup, !pointSettings || state.activeLayer === "ground"); hidden(els.newEdgeTraversalGroup, !(mode === "add-edge" && state.activeDomain === "ground")); }
   async function setContext(changes) { if (!state.server) return; const activeLayer = changes.active_layer || state.activeLayer, activeDomain = activeLayer === "aerial" ? "aerial" : activeLayer === "ground" ? "ground" : state.activeDomain; const body = identity({ active_layer: activeLayer, active_domain: changes.active_domain || activeDomain, tool: changes.tool || state.server.editor_tool, level_id: changes.level_id || state.currentLevel }); for (const key of ["reference_level", "visible_layers", "visible_types", "new_point_settings", "binding_target_mode", "binding_target_id", "binding_target_draft"]) if (Object.prototype.hasOwnProperty.call(changes, key)) body[key] = changes[key]; await write("/api/editor/context", body); }
   function selectionPayload() { const value = state.selection; if (!value) return null; if (value.type === "semantic_point") return { kind: "semantic_point", collection: null, id: value.id }; return { kind: value.type, collection: null, id: value.id, domain: value.domain || state.activeDomain }; }
   async function pushSelection() { if (!state.server || state.suppressSelectionPush) return; const selection = selectionPayload(), signature = JSON.stringify(selection); if (signature === state.selectionSent) return; try { await request("/api/web/selection", { method: "POST", body: identity({ selection }) }); state.selectionSent = signature; } catch (error) { if (!(error instanceof ConflictError)) showError(error); } }
@@ -358,10 +362,10 @@
   function worldToScreen(point, t = transform()) { return [t.cx + (point[0] - t.mx) * t.scale, t.cy - (point[1] - t.my) * t.scale]; }
   function screenToWorld(clientX, clientY) { const t = transform(), x = (clientX - t.rect.left) * t.dpr, y = (clientY - t.rect.top) * t.dpr; return [t.mx + (x - t.cx) / t.scale, t.my - (y - t.cy) / t.scale]; }
   function previewNode(node, domain = state.activeDomain) {
-    if (state.preview && state.preview.kind === "node" && state.preview.id === node.id && state.preview.domain === domain) return state.preview.position;
+    if (state.preview && state.preview.kind === "node" && state.preview.id === node.id && state.preview.domain === domain) return state.preview.position.map(mm);
     if (state.preview && state.preview.kind === "edge" && domain === state.activeDomain) {
       const edge = edgeById(state.preview.id, domain);
-      if (edge && (edge.from === node.id || edge.to === node.id)) return [node.position_xyz[0] + state.preview.delta[0], node.position_xyz[1] + state.preview.delta[1], node.position_xyz[2]];
+      if (edge && (edge.from === node.id || edge.to === node.id)) return [node.position_xyz[0] + state.preview.delta[0], node.position_xyz[1] + state.preview.delta[1], node.position_xyz[2]].map(mm);
     }
     return node.position_xyz;
   }
@@ -418,7 +422,7 @@
       ? state.navigationBindingDraft.bindings.map((row) => `${row.domain}:${row.node_id}`) : []);
     const annotated = new Set(semanticPoints().flatMap(p => (p.navigation_bindings || []).map(b => `${b.domain}:${b.node_id}`)));
     const selectedKeys = new Set(selectionItems().map((item) => `${item.type}:${item.id}:${item.domain || ""}`));
-    for (const domain of ["ground", "aerial"]) { if (!layerVisible(domain) && !state.bindingPickMode) continue; for (const edge of edges(domain)) { if (!visibleEdge(edge, domain) && !state.bindingPickMode) continue; const a = nodeById(edge.from, domain), b = nodeById(edge.to, domain); if (!a || !b) continue; let line = edge.polyline_xyz && edge.polyline_xyz.length > 1 ? clone(edge.polyline_xyz) : [a.position_xyz, b.position_xyz]; if (state.preview && state.preview.kind === "edge" && state.preview.id === edge.id && domain === state.activeDomain) line = line.map((point) => [point[0] + state.preview.delta[0], point[1] + state.preview.delta[1], point[2]]); else { line[0] = previewNode(a, domain); line[line.length - 1] = previewNode(b, domain); } drawPath(context, line, t); const selected = selectedKeys.has(`edge:${edge.id}:${domain}`); context.strokeStyle = selected ? "#e8fff8" : domain === "aerial" ? "#6ab5ff" : "#2dd4a7"; context.lineWidth = (selected ? 4 : 2.5) * t.dpr; context.stroke(); }
+    for (const domain of ["ground", "aerial"]) { if (!layerVisible(domain) && !state.bindingPickMode) continue; for (const edge of edges(domain)) { if (!visibleEdge(edge, domain) && !state.bindingPickMode) continue; const a = nodeById(edge.from, domain), b = nodeById(edge.to, domain); if (!a || !b) continue; let line = edge.polyline_xyz && edge.polyline_xyz.length > 1 ? clone(edge.polyline_xyz) : [a.position_xyz, b.position_xyz]; if (state.preview && state.preview.kind === "edge" && state.preview.id === edge.id && domain === state.activeDomain) line = line.map((point) => [point[0] + state.preview.delta[0], point[1] + state.preview.delta[1], point[2]].map(mm)); else { line[0] = previewNode(a, domain); line[line.length - 1] = previewNode(b, domain); } drawPath(context, line, t); const selected = selectedKeys.has(`edge:${edge.id}:${domain}`); context.strokeStyle = selected ? "#e8fff8" : domain === "aerial" ? "#6ab5ff" : "#2dd4a7"; context.lineWidth = (selected ? 4 : 2.5) * t.dpr; context.stroke(); }
       for (const node of nodes(domain)) { if (!(state.bindingPickMode ? bindingNodeVisible(node, domain) : visibleNode(node, domain))) continue; const point = worldToScreen(previewNode(node, domain), t), selected = selectedKeys.has(`node:${node.id}:${domain}`), bound = bindingKeys.has(`${domain}:${node.id}`); context.globalAlpha = state.bindingPickMode && !bound ? .28 : 1; context.beginPath(); context.arc(point[0], point[1], (bound || selected ? 7 : 5) * t.dpr, 0, Math.PI * 2); context.fillStyle = bound || !state.bindingPickMode && annotated.has(`${domain}:${node.id}`) ? "#ffd166" : selected ? "#fff" : domain === "aerial" ? "#6ab5ff" : "#43dfb8"; context.fill(); context.strokeStyle = bound ? "#fff4cc" : "#07150f"; context.lineWidth = (bound ? 2.5 : 2) * t.dpr; context.stroke(); context.globalAlpha = 1; }
     }
     if (state.box) { const x = Math.min(state.box.start[0], state.box.end[0]), y = Math.min(state.box.start[1], state.box.end[1]), w = Math.abs(state.box.end[0] - state.box.start[0]), h = Math.abs(state.box.end[1] - state.box.start[1]); context.fillStyle = "rgba(80,180,255,.15)"; context.fillRect(x - t.rect.left, y - t.rect.top, w, h); context.strokeStyle = "#9bdcff"; context.setLineDash([6, 4]); context.strokeRect(x - t.rect.left, y - t.rect.top, w, h); context.setLineDash([]); }
@@ -456,15 +460,11 @@
   function edgeNode(node) { if (!state.edgeStartId) { state.edgeStartId = node.id; state.edgeIdentity = identity(); select({ type: "node", id: node.id, domain: state.activeDomain }); updateToolUI(); return; } if (state.edgeStartId === node.id) { showError("边的起点和终点必须不同"); return; } state.edgeEndId = node.id; updateToolUI(); draw(); }
   function roadPoint(world) { return [world[0], world[1], finite(els.newPointZ.value, "Z")]; }
   function roadEnd(world, start) {
-    const point = [world[0], world[1], state.roadDraft ? state.roadDraft.endZ : start[2]]; if (state.cHeld) return point;
-    const dx = point[0]-start[0], dy = point[1]-start[1], angle = Math.atan2(Math.abs(dy), Math.abs(dx));
-    if (angle <= Math.PI/18) point[1] = start[1];
-    else if (Math.PI/2-angle <= Math.PI/18) point[0] = start[0];
-    return point;
+    return [world[0], world[1], state.roadDraft ? state.roadDraft.endZ : start[2]];
   }
   function adjustRoadEndHeight(delta) {
-    if (!state.roadDraft || state.roadDraft.domain !== "aerial") return false;
-    state.roadDraft.endZ += delta;
+    if (!state.roadDraft || state.roadDraft.frozen || state.roadDraft.finishing || state.roadDraft.domain !== "aerial") return false;
+    state.roadDraft.endZ = Math.round((state.roadDraft.endZ + delta)*1000)/1000;
     if (state.roadDraft.screenEnd) refreshRoadPlan(screenToWorld(...state.roadDraft.screenEnd));
     updateToolUI();
     return true;
@@ -475,14 +475,29 @@
     syncPointSettings();
     return true;
   }
-  async function refreshRoadPlan(endWorld) {
-    const draft = state.roadDraft; if (!draft) return;
-    const sequence = ++state.roadRequest, start = draft.start, end = roadEnd(endWorld, start), t = transform();
-    const body = identity({ start_xyz: start, end_xyz: end,
-      ...(state.activeDomain === "ground" ? { level_id: state.currentLevel } : {}),
-      snap_radius_m: 10*t.dpr/t.scale, disable_snap: state.cHeld, connect_intersections: true });
-    try { const plan = await request("/api/road/preview", { method: "POST", body }); if (sequence === state.roadRequest && state.roadDraft) { state.roadPlan = plan; state.roadDraft.end = end; state.roadDraft.screenEnd = draft.screenEnd; draw(); return plan; } }
-    catch (error) { if (sequence === state.roadRequest && error.status !== 409) { state.roadPlan = null; draw(); } }
+  async function refreshRoadPlan(endWorld, final = false) {
+    const draft = state.roadDraft;
+    if (!draft || draft.frozen || draft.finishing && !final) return null;
+    const sequence = ++state.roadRequest;
+    draft.rawEnd = endWorld.slice();
+    const free = state.cHeld, radius = 10*transform().dpr/transform().scale;
+    try {
+      await draft.startReady;
+      if (draft !== state.roadDraft || sequence !== state.roadRequest) return null;
+      const body = { ...draft.identity, start_xyz: draft.start,
+        end_xyz: [endWorld[0], endWorld[1], draft.endZ], fixed_start: draft.fixedStart,
+        axis_snap: true, snap_radius_m: radius, disable_snap: free, connect_intersections: true };
+      const plan = await request("/api/road/preview", { method: "POST", body });
+      if (sequence !== state.roadRequest || draft !== state.roadDraft || draft.frozen) return null;
+      state.roadPlan = plan;
+      draft.request = body; draft.end = plan.end;
+      updateToolUI(); draw(); return plan;
+    } catch (error) {
+      if (sequence === state.roadRequest && draft === state.roadDraft) {
+        state.roadPlan = null; draw(); if (final) showError(error);
+      }
+      return null;
+    }
   }
   function showRoadMenu(clientX, clientY) { const stage = els.mapStage.getBoundingClientRect(), menu = els.roadBuildMenu; hidden(menu, false); const width = menu.offsetWidth, height = menu.offsetHeight; menu.style.left = `${Math.max(4, Math.min(stage.width-width-4, clientX-stage.left))}px`; menu.style.top = `${Math.max(4, Math.min(stage.height-height-4, clientY-stage.top))}px`; }
   async function chooseRoadBuild(choice) {
@@ -490,9 +505,7 @@
     if (choice === "cancel") { cancelGesture(); return; }
     const connect = choice === "connect", end = draft.end;
     const operation = draft.domain === "aerial" ? "build_aerial_road" : "build_ground_road";
-    const fresh = await edit(operation, { start_xyz: draft.start, end_xyz: end,
-      ...(draft.domain === "ground" ? { level_id: state.currentLevel } : {}), snap_radius_m: draft.snapRadius, disable_snap: draft.disableSnap,
-      connect_intersections: connect }, "道路已建设", draft.identity);
+    const fresh = await edit(operation, { ...draft.request, connect_intersections: connect }, "道路已建设", draft.identity);
     if (fresh) cancelGesture();
   }
   async function confirmEdge() { if (!state.edgeStartId || !state.edgeEndId) return; const traversal = state.activeDomain === "ground" ? els.newEdgeTraversal.value : "walk"; const fresh = await edit("add_edge", { from_id: state.edgeStartId, to_id: state.edgeEndId, directed: false, traversal_mode: traversal }, "边已创建", state.edgeIdentity); if (fresh) cancelGesture(); }
@@ -575,6 +588,15 @@
       const start = roadPoint(world);
       state.roadDraft = { start, endZ: start[2], domain: state.activeDomain, screenStart: screen, moved: false, identity: identity(),
         snapRadius: 10*transform().dpr/transform().scale, disableSnap: state.cHeld };
+      const draft = state.roadDraft;
+      draft.startReady = request("/api/road/start", { method: "POST", body: {
+        ...draft.identity, start_xyz: start, snap_radius_m: draft.snapRadius, disable_snap: draft.disableSnap
+      }}).then(snap => {
+        if (draft !== state.roadDraft) return;
+        const heightDelta = draft.endZ - draft.start[2];
+        draft.fixedStart = snap; draft.start = snap.position_xyz; draft.endZ = mm(snap.position_xyz[2] + heightDelta);
+      });
+      draft.startReady.catch(error => { if (draft === state.roadDraft) { showError(error); cancelGesture(); } });
       state.drag = { kind: "road", screenStart: screen, moved: false };
       updateToolUI(); els.mapCanvas.setPointerCapture(event.pointerId); return;
     }
@@ -623,7 +645,7 @@
   }
   function onPointerMove(event) {
     const world = screenToWorld(event.clientX, event.clientY);
-    els.cursorCoords.textContent = `X ${world[0].toFixed(2)} · Y ${world[1].toFixed(2)} · ${state.currentLevel || "—"}`;
+    els.cursorCoords.textContent = `X ${world[0].toFixed(3)} · Y ${world[1].toFixed(3)} · ${state.currentLevel || "—"}`;
     if (!state.drag) return;
     const dxPx = event.clientX - state.drag.screenStart[0];
     const dyPx = event.clientY - state.drag.screenStart[1];
@@ -652,7 +674,7 @@
     if (state.drag.kind === "node") {
       state.preview = {
         kind: "node", id: state.drag.id, domain: state.drag.domain,
-        position: [state.drag.origin[0] + delta[0], state.drag.origin[1] + delta[1], state.drag.origin[2]]
+        position: [state.drag.origin[0] + delta[0], state.drag.origin[1] + delta[1], state.drag.origin[2]].map(mm)
       };
     } else if (state.drag.kind === "edge") {
       state.drag.delta = delta;
@@ -676,10 +698,12 @@
       state.box = null; draw(); return;
     }
     if (drag && drag.kind === "road") {
-      if (drag.moved && event) await refreshRoadPlan(screenToWorld(event.clientX, event.clientY));
-      if (!drag.moved || !state.roadPlan || !state.roadDraft) { cancelGesture(); return; }
-      state.roadDraft.end = state.roadPlan.end; state.roadDraft.disableSnap = state.cHeld;
-      state.roadDraft.snapRadius = 10*transform().dpr/transform().scale;
+      const draft = state.roadDraft;
+      if (!drag.moved || !draft) { cancelGesture(); return; }
+      draft.finishing = true;
+      const plan = await refreshRoadPlan(screenToWorld(event.clientX, event.clientY), true);
+      if (!plan || draft !== state.roadDraft) { if (draft === state.roadDraft) cancelGesture(); return; }
+      draft.frozen = true;
       showRoadMenu(event.clientX, event.clientY); return;
     }
     if (!drag || drag.kind === "pan" || !drag.moved || !preview) {

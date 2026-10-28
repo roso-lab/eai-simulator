@@ -1167,3 +1167,53 @@ def test_binding_draft_is_discarded_when_editing_scope_changes(change):
     controller.update_context({**context, **change, "context_generation": 3, "web_selection": None})
     assert not controller.navigation_binding_mode
     assert controller.navigation_binding_draft is None
+
+
+@pytest.mark.parametrize("layer", ["ground", "aerial"])
+def test_native_road_uses_raw_pointer_c_recalculation_and_frozen_commit(layer):
+    controller = IsaacTopologyController(_Dispatcher())
+    context = _context(active_layer=layer)
+    context["editor_tool"] = "build-ground-road" if layer == "ground" else "build-aerial-road"
+    controller.update_context(context)
+    controller.gesture = {"target": {"kind": "road"}, "identity": controller.dispatcher.client.identity(),
+                          "original": [5,5,2], "snap_radius_m": .01}
+    controller._road_end_z = 2.123456
+    controller.update_road_drag([8,5.12,2])
+    assert controller.preview["axis"] == "x"
+    assert controller.preview["position_xyz"][1] == 5
+    assert controller._road_last_point == [8,5.12,2]
+    controller.road_free_snap = True
+    controller.update_road_drag(controller._road_last_point)
+    assert controller.preview["axis"] is None
+    assert controller.preview["position_xyz"][1] == 5.12
+    controller.road_free_snap = False
+    controller.update_road_drag(controller._road_last_point)
+    assert controller.preview["position_xyz"][1] == 5
+    preview = deepcopy(controller.preview)
+    assert controller.end_drag()
+    controller.road_free_snap = True  # Modifier after release must not change confirmation.
+    assert controller.confirm_road()
+    _, args = controller.dispatcher.calls[-1]
+    assert args["axis_snap"] and not args["disable_snap"]
+    from tools.topology_authoring.road_builder import plan_navigation_road
+    final = plan_navigation_road(controller.road_document(),
+        args["start_xyz"], args["end_xyz"], fixed_start=args["fixed_start"],
+        level_id="ground" if layer == "ground" else None,
+        snap_radius_m=args["snap_radius_m"], axis_snap=args["axis_snap"])
+    assert final["end"] == preview["position_xyz"]
+
+
+def test_native_road_press_freezes_start_before_c_changes():
+    controller = IsaacTopologyController(_Dispatcher())
+    context = _context(active_layer="ground")
+    context["editor_tool"] = "build-ground-road"
+    controller.update_context(context)
+    pointer = _pointer(controller, {})
+    pointer._road_snap_radius = lambda *_: .1
+    pointer.handle("began", (.03,2.02))
+    assert pointer._press["road_start"]["position_xyz"] == [0,2,0]
+    controller.road_free_snap = True
+    pointer.handle("changed", (20.,2.02))
+    assert controller.gesture["original"] == [0,2,0]
+    pointer.handle("changed", (21.,2.02))
+    assert controller.preview["position_xyz"][1] == 2.02

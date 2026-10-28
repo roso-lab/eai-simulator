@@ -846,6 +846,17 @@ class _TopologyEditorGesture:
             editor_tool=context.get("editor_tool", "add-node"),
             meters_per_unit=self.controller.meters_per_unit)
 
+    def _road_snap_radius(self, mouse_ndc, point):
+        # Convert ten texture pixels on the current editing plane to metres.
+        probe = (mouse_ndc[0] + .01, mouse_ndc[1])
+        world = self._world_point(probe)
+        pixel, _ = self.viewport_api.map_ndc_to_texture_pixel(mouse_ndc)
+        other, _ = self.viewport_api.map_ndc_to_texture_pixel(probe)
+        if world is None or pixel is None or other is None:
+            return 0.0
+        pixels = math.hypot(other[0]-pixel[0], other[1]-pixel[1])
+        return 10 * math.hypot(world[0]-point[0], world[1]-point[1]) / pixels if pixels else 0.0
+
     def _box_select(self, start_ndc, end_ndc):
         first, _ = self.viewport_api.map_ndc_to_texture_pixel(start_ndc)
         last, _ = self.viewport_api.map_ndc_to_texture_pixel(end_ndc)
@@ -921,6 +932,21 @@ class _TopologyEditorGesture:
                 self._drag_target = hit
                 self._press = {"ndc": tuple(mouse_ndc), "hit": hit,
                                "context": self._context_key()}
+                if is_road_tool:
+                    from .road_builder import snap_road_start
+                    point = self._world_point(mouse_ndc)
+                    if point is not None:
+                        point[2] = self.controller.active_z()
+                        radius = self._road_snap_radius(mouse_ndc, point)
+                        domain = self.controller.active_layer
+                        try:
+                            snap = snap_road_start(self.controller.road_document(),
+                                point, level_id=context.get("active_level") if domain == "ground" else None,
+                                snap_radius_m=radius, disable_snap=self.controller.road_free_snap)
+                            self._press["road_start"] = snap
+                            self._press["snap_radius_m"] = radius
+                        except ValueError as error:
+                            self.controller.last_error = str(error)
                 self._moved = False
                 self._box_start = self._box_end = None
                 # Select on press so Kit's competing selection gesture cannot
@@ -988,18 +1014,14 @@ class _TopologyEditorGesture:
                     return
                 self._moved = True
                 if tool in {"build-ground-road", "build-aerial-road"} and self.controller.active_layer in {"ground", "aerial"}:
-                    hit_is_start_snap = bool(hit and hit.get("kind") in {"node", "edge"})
-                    if (hit_is_start_snap and self.controller.active_layer == "aerial"
-                            and abs(hit["position_xyz"][2] - self.controller.active_z()) > .10):
-                        hit_is_start_snap = False
-                    start = (list(hit.get("position_xyz")) if hit_is_start_snap
-                             else self._world_point(press["ndc"]))
-                    if start is not None:
-                        if not hit_is_start_snap:
-                            start[2] = self.controller.active_z()
+                    snap = press.get("road_start")
+                    if snap is not None:
+                        start = snap["position_xyz"]
                         self.controller._road_end_z = start[2]
                         self.controller._road_last_point = list(start)
-                        self.controller.gesture = {"target": {"kind": "road"}, "identity": self.controller.dispatcher.client.identity(), "original": list(start)}
+                        self.controller.gesture = {"target": {"kind": "road"},
+                            "identity": self.controller.dispatcher.client.identity(), "original": list(start),
+                            "fixed_start": snap, "snap_radius_m": press.get("snap_radius_m", 0.0)}
                     return
                 if hit is None:
                     if tool in {"add-node", "add-semantic-point"}:
@@ -1021,14 +1043,8 @@ class _TopologyEditorGesture:
                     axis=hit.get("axis"))
             if self.controller.gesture is not None:
                 is_road_tool = tool in {"build-ground-road", "build-aerial-road"}
-                endpoint_hit = (None if is_road_tool and self.controller.road_free_snap
-                                else self._pick(mouse_ndc))
-                point = (list(endpoint_hit["position_xyz"]) if is_road_tool
-                         and endpoint_hit and endpoint_hit.get("kind") in {"node", "edge"}
-                         else self._world_point(mouse_ndc, hit))
+                point = self._world_point(mouse_ndc, None if is_road_tool else hit)
                 if is_road_tool and point is not None and self.controller.active_layer == "aerial":
-                    if endpoint_hit and abs(endpoint_hit["position_xyz"][2] - self.controller._road_end_z) > .10:
-                        point = self._world_point(mouse_ndc, hit)
                     point[2] = self.controller._road_end_z
                 if point is not None:
                     if is_road_tool:
@@ -1046,14 +1062,8 @@ class _TopologyEditorGesture:
                 self.controller.set_box_preview(None)
             elif self.controller.gesture is not None:
                 is_road_tool = tool in {"build-ground-road", "build-aerial-road"}
-                endpoint_hit = (None if is_road_tool and self.controller.road_free_snap
-                                else self._pick(mouse_ndc))
-                point = (list(endpoint_hit["position_xyz"]) if is_road_tool
-                         and endpoint_hit and endpoint_hit.get("kind") in {"node", "edge"}
-                         else self._world_point(mouse_ndc, hit))
+                point = self._world_point(mouse_ndc, None if is_road_tool else hit)
                 if is_road_tool and point is not None and self.controller.active_layer == "aerial":
-                    if endpoint_hit and abs(endpoint_hit["position_xyz"][2] - self.controller._road_end_z) > .10:
-                        point = self._world_point(mouse_ndc, hit)
                     point[2] = self.controller._road_end_z
                 if point is not None:
                     self._complete_drag(point)

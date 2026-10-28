@@ -17,7 +17,7 @@ from .map_project import MapProject, read_json
 from .product import _unique_object, _reject_constant
 from .scene_catalog import discover_scene_projects, scene_metadata, source_usd, resolve_scene
 from .web_overlay import compact_document_snapshot, normalize_web_selection
-from .road_builder import plan_navigation_road
+from .road_builder import plan_navigation_road, snap_road_start
 
 
 def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_linked=False):
@@ -528,14 +528,22 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                     domain = self.pop_context(body)
                     if type(body.get("revision")) is not int:
                         raise ValueError("expected editor revision is required")
-                    if route == "/api/road/preview":
+                    if route in {"/api/road/preview", "/api/road/start"}:
+                        project._expect(body["revision"])
                         if editor["editor_tool"] not in {"build-ground-road", "build-aerial-road"} or editor["active_layer"] != editor["active_domain"]:
                             raise ValueError("road preview requires an active navigation road tool")
+                        if route == "/api/road/start":
+                            snap = snap_road_start(project.document_for(editor["active_domain"]), body["start_xyz"],
+                                level_id=editor["active_level"] if editor["active_domain"] == "ground" else None,
+                                snap_radius_m=body.get("snap_radius_m", 0.0), disable_snap=body.get("disable_snap", False))
+                            self.reply(200, snap)
+                            return
                         plan = plan_navigation_road(project.document_for(editor["active_domain"]), body["start_xyz"], body["end_xyz"],
                             level_id=editor["active_level"] if editor["active_domain"] == "ground" else None,
                             snap_radius_m=body.get("snap_radius_m", 0.0),
                             disable_snap=body.get("disable_snap", False),
-                            connect_intersections=body.get("connect_intersections", True))
+                            connect_intersections=body.get("connect_intersections", True),
+                            axis_snap=body.get("axis_snap", False), fixed_start=body.get("fixed_start"))
                         self.reply(200, {key: value for key, value in plan.items() if key != "document"})
                         return
                     if route == "/api/edit":

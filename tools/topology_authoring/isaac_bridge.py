@@ -21,6 +21,7 @@ import uuid
 from typing import Any, Callable, Iterable
 
 from .web_overlay import WEB_OVERLAY_ROOT
+from .precision import point_mm, millimetres
 
 
 class IsaacBridgeError(RuntimeError):
@@ -1403,13 +1404,20 @@ class IsaacTopologyController:
             args["level_id"] = (self.context or {}).get("active_level")
         return self._submit_frozen_edit(("add-node", position), "add_node", **args)
 
+    def road_document(self):
+        domain = self.active_layer
+        snapshot = self.document_snapshots.get(domain, self.snapshot)
+        if snapshot.get("truncated"):
+            raise ValueError("road editing requires a complete navigation snapshot")
+        return {**snapshot, "domain": domain, "levels": (self.context or {}).get("levels", [])}
+
     def preview_road(self, start: Iterable[float], end: Iterable[float], *,
                      connect_intersections: bool = True) -> dict[str, Any]:
         from .road_builder import plan_navigation_road
         if self.active_layer not in {"ground", "aerial"}:
             raise IsaacBridgeError("road construction requires a navigation layer")
         domain = self.active_layer
-        snapshot = self.document_snapshots.get(domain, self.snapshot)
+        snapshot = self.road_document()
         return {key: value for key, value in plan_navigation_road(
             snapshot, list(_finite_xyz(start)), list(_finite_xyz(end)),
             level_id=(self.context or {}).get("active_level") if domain == "ground" else None,
@@ -1588,7 +1596,7 @@ class IsaacTopologyController:
         gesture, target = self.gesture, self.gesture["target"]
         delta = [value[i] - gesture["grab_point"][i] for i in range(3)]
         if target["kind"] == "edge":
-            points = [[p[0] + delta[0], p[1] + delta[1], p[2]]
+            points = [point_mm([p[0] + delta[0], p[1] + delta[1], p[2]])
                       for p in gesture["original"]]
             edge = self.edge(target["id"]) or {}
             associated = []
@@ -1597,8 +1605,8 @@ class IsaacTopologyController:
                 if node is not None:
                     source = node["position_xyz"]
                     associated.append({"id": node_id,
-                                       "position_xyz": [source[0] + delta[0],
-                                                        source[1] + delta[1], source[2]]})
+                                       "position_xyz": point_mm([source[0] + delta[0],
+                                                        source[1] + delta[1], source[2]])})
             self.preview = {"kind": "edge", "id": target["id"],
                             "delta_xy": delta[:2], "points": points,
                             "associated_nodes": associated}
@@ -1616,7 +1624,7 @@ class IsaacTopologyController:
                   or record.get("edit_mode", "3d") == "2.5d"):
                 position[2] = original[2]
             self.preview = {"kind": target["kind"], "id": target["id"],
-                            "position_xyz": position}
+                            "position_xyz": point_mm(position)}
         self._changed()
 
     def end_drag(self) -> bool:
@@ -1625,10 +1633,10 @@ class IsaacTopologyController:
         if self.gesture.get("target", {}).get("kind") == "road":
             gesture, preview = self.gesture, self.preview
             self.gesture = None
-            if preview and preview.get("kind") == "road-draft":
+            if preview and preview.get("kind") == "road-draft" and not preview.get("invalid"):
                 self.road_draft = {"start_xyz": gesture["original"], "end_xyz": preview["position_xyz"],
                                    "identity": gesture["identity"], "disable_snap": self.road_free_snap,
-                                   "domain": self.active_layer}
+                                   "domain": self.active_layer, "request": gesture.get("road_request", {})}
                 self.preview = None
                 self._changed()
                 return True
@@ -1675,23 +1683,31 @@ class IsaacTopologyController:
             end[2] = self._road_end_z
         if disable_axis_snap is None:
             disable_axis_snap = self.road_free_snap
-        if not disable_axis_snap:
-            angle = math.atan2(abs(end[1]-start[1]), abs(end[0]-start[0]))
-            if angle <= math.pi/18:
-                end[1] = start[1]
-            elif math.pi/2-angle <= math.pi/18:
-                end[0] = start[0]
         try:
             domain = self.active_layer
-            snapshot = self.document_snapshots.get(domain, self.snapshot)
-            self._road_last_point = end
+            snapshot = self.road_document()
+            self._road_last_point = list(point)  # Raw pointer, before axis projection.
+            fixed = self.gesture.get("fixed_start")
+            if fixed is None:
+                from .road_builder import snap_road_start
+                fixed = snap_road_start(snapshot, start,
+                    level_id=(self.context or {}).get("active_level") if domain == "ground" else None,
+                    snap_radius_m=self.gesture.get("snap_radius_m", 0.0),
+                    disable_snap=self.gesture.get("start_free", self.road_free_snap))
+                self.gesture["fixed_start"] = fixed
+                self.gesture["original"] = start = fixed["position_xyz"]
             plan = plan_navigation_road(snapshot, start, end,
                 level_id=(self.context or {}).get("active_level") if domain == "ground" else None,
-                snap_radius_m=0.0,
-                disable_snap=self.road_free_snap)
-            self.preview = {"kind": "road-draft", "position_xyz": plan["end"], "points": [plan["start"], *plan["crossings"], plan["end"]]}
-        except (ValueError, KeyError):
+                snap_radius_m=self.gesture.get("snap_radius_m", 0.0), fixed_start=fixed,
+                axis_snap=not disable_axis_snap, disable_snap=self.road_free_snap)
+            self.gesture["road_request"] = {"start_xyz": start, "end_xyz": end,
+                "fixed_start": fixed, "axis_snap": not disable_axis_snap,
+                "snap_radius_m": self.gesture.get("snap_radius_m", 0.0), "disable_snap": self.road_free_snap}
+            self.preview = {"kind": "road-draft", "position_xyz": plan["end"],
+                            "axis": plan["axis"], "points": [plan["start"], *plan["crossings"], plan["end"]]}
+        except (ValueError, KeyError) as error:
             self.preview = {"kind": "road-draft", "position_xyz": end, "points": [start, end], "invalid": True}
+            self.last_error = str(error)
         self._changed()
 
     def adjust_road_end_height(self, delta: float) -> bool:
@@ -1700,7 +1716,7 @@ class IsaacTopologyController:
                 or self._road_last_point is None):
             return False
         value = self._road_end_z if self._road_end_z is not None else self.gesture["original"][2]
-        self._road_end_z = float(value) + float(delta)
+        self._road_end_z = millimetres(float(value) + float(delta))
         self.update_road_drag(self._road_last_point, disable_axis_snap=self.road_free_snap)
         return True
 
@@ -1722,6 +1738,7 @@ class IsaacTopologyController:
             snap_radius_m=0.0,
             disable_snap=draft.get("disable_snap", False),
             connect_intersections=connect_intersections)
+        args.update(draft.get("request", {}))
         if domain == "ground":
             args["level_id"] = (self.context or {}).get("active_level")
         submitted = self._submit_frozen_edit(("build-road", domain), operation, **args)
@@ -1906,9 +1923,11 @@ class IsaacTopologyWindow:
         road_height = ""
         if self.controller.active_layer == "aerial" and context.get("editor_tool") == "build-aerial-road":
             if self.controller.gesture is not None and self.controller._road_end_z is not None:
-                road_height = f" | road end Z {self.controller._road_end_z:.2f} m"
+                road_height = f" | road end Z {self.controller._road_end_z:.3f} m"
             else:
-                road_height = f" | road start Z {self.controller.new_point_settings['aerial']['z']:.2f} m"
+                road_height = f" | road start Z {self.controller.new_point_settings['aerial']['z']:.3f} m"
+        if self.controller.preview and self.controller.preview.get("kind") == "road-draft":
+            road_height += " | " + ((self.controller.preview.get("axis") or "free").upper())
         self._status.text = (
             f"layer {self.controller.active_layer} | tool {context.get('editor_tool', '?')} | "
             f"floor {context.get('active_level', '?')} | reference "
@@ -1962,7 +1981,7 @@ class IsaacTopologyWindow:
                     self._set_model(self._node_kind_model, node.get("kind", "custom"))
                     self._set_model(self._node_level_model, node.get("level_id") or "")
                     for model, value in zip(self._node_xyz_models, node.get("position_xyz", ())):
-                        self._set_model(model, float(value))
+                        self._set_model(model, millimetres(float(value)))
             elif selection and selection.get("kind") == "semantic_point":
                 point = self.controller.semantic_point(selection.get("id"))
                 if point:

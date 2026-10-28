@@ -111,7 +111,7 @@ def test_ground_visual_height_survives_edits_history_and_export(project):
     assert restored.semantic_points == points_before
     geojson = read_json(project.root / "current" / "semantic-footprints.geojson")
     edges = [row for row in geojson["features"] if row["properties"]["feature_type"] == "topology_edge"]
-    assert edges[0]["geometry"]["coordinates"] == [[-.25, .25, 2.5], [1.25, -.25, 3]]
+    assert edges[0]["geometry"]["coordinates"] == [[-.25, .25, 2.5], [.25, 0, 4], [1.25, -.25, 3]]
 
 
 @pytest.mark.parametrize("patch", [
