@@ -2,7 +2,7 @@
   "schema": "eai.semantic_footprints",
   "version": 1,
   "scene_id": "production_bar",
-  "project_revision": "f746aeed89284ce0a0db6d4eb5bcc018",
+  "project_revision": "923f0b6b977f4b01921252b6bcbe5548",
   "coordinate_frame": "scene_world",
   "objects": [],
   "semantics": {

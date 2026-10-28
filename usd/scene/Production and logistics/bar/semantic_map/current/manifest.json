@@ -1,7 +1,7 @@
 {
   "schema": "eai.semantic_map.revision",
   "version": 2,
-  "revision": "f746aeed89284ce0a0db6d4eb5bcc018",
+  "revision": "923f0b6b977f4b01921252b6bcbe5548",
   "scene_key": "production_bar",
   "levels": [
     {
@@ -22,15 +22,16 @@
     "aerial": "topology-aerial.json"
   },
   "semantic_point_product": "semantic-points.json",
+  "semantic_binding_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": {
     "level-000-layer.png": "3201caa0425be918ab368f7365c21887f89fd2d590e93e0ab692966effc54fa3",
     "level-000-semantic-grid.npz": "d3db56e976f5e5d3503299fb8ed8742e63aff76d4e8066060a06edb395364d4a",
-    "level-000-semantic-map.png": "14862d4541affc12b2308f06315461c7e6c737007331bd165c2cb628c1acda4a",
-    "semantic-footprints.geojson": "b3049ad7a1062091e169bd352424d59721a26b8b6229942aef26d11b0c6a96e1",
-    "semantic-footprints.json": "365277a73d60aa02c8bfbd2efb792a5d212ae082909281b001615a2fab399d0f",
-    "semantic-points.json": "104460263da6904a63a1ab129c94c8c62b0b16900d0198c875e6b74c9779bef6",
+    "level-000-semantic-map.png": "f65ebf1b43611a28f5bc0b2e071c5031a127c6673d071c54bc30dd25a0a7825f",
+    "semantic-footprints.geojson": "3139725f97b1faafad6666e6f9c24b8d2d9a02e125a9250f8f882c170bc7768b",
+    "semantic-footprints.json": "abfcc9c2a13eda71c41efe8ee0e59fc2c00a73f0c102c3c758867248f8faa32c",
+    "semantic-points.json": "97e0785f52b4f8614032151d054ac70973bf615f67556304a75fe5e1b039607a",
     "topology-aerial.json": "2c9586bf54b1ea13741f4dca5c751b6151dedf76f2aede6ab72c1e72f5274680",
-    "topology.json": "a992bd88f2b4e2a14a551bfbb9ed880bb78d5657bd2fac1648ad5d9c5e70b904"
+    "topology.json": "5a90f37bd3ebcd1d12585b5ef6129e7d6dadc6d66bf9153b47a8ea24330333ce"
   },
   "robot_validated": false
 }
