@@ -178,3 +178,11 @@ Navigation bridge 接受后续新 assignment，但同一 leg/robot 不得重复�
 接手者必须完成：在 Simulator setup 中为五台公开部署机器人注册真实 `NavigationControllerAdapter`，绑定语义操作点和 `NavigationExecutor`；将真实 tested-system adapter 接入多轮公开 decision/feedback；由 live controller/session 事件生成 D1、D4、D6 terminal measurements；再接入 checkpoint/replay 的 bridge/coordinator/session restore。缺少任一项时保持 fail-closed，不得用空对象、常量或 CPU fixture 生成 GPU/论文证据。完成这些接缝后，才可执行 room06 × liv-t-04 full-task 并生成 receipt；本阶段没有声称该结果已通过。
 
 本阶段推送前验证按“受影响集日常、全量一次”执行。若全量存在与本阶段无关的既有失败，应在交接中保留原始退出码和失败项，不得把 focused 结果升级为全量绿。工作树中未纳入提交的语义地图、机器人 skill、论文和其他协作者改动保持原样，后续由相应负责人继续处理。
+
+### 推送确认
+
+- 本阶段实现提交：`91afbd07`（`feat(room06): close logical execution seams and hand off runtime`）。
+- 远端协作者提交：`617fa82d`（D1 挂载标定）；经合并提交 `d7f155d8` 整合并已推送 `origin/HeteroCoord`。
+- 受影响集：`262 passed`；compileall 与 `git diff --check` 退出码 0。
+- 推送边界 benchmark 全量：`1109 passed / 6 failed`，退出码 1。6 项均为历史机器人收据校验，原因是工作树中未纳入本阶段的 `source/EAI_assets/EAI_assets/robots/d1_mount.py` GUI 标定版本与收据记录的提交字节摘要不一致；本阶段提交未修改该文件，失败未被隐藏或重跑。
+- 当前正式资格门、认证 flags、GPU full-task receipt 仍为 false/未生成；可交接给后续协作者继续完成真实 adapter、multi-round feedback、D1/D4/D6 measurement 与 full-task source。
