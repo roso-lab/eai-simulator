@@ -18,42 +18,12 @@
   },
   "nodes": [
     {
-      "id": "node:production_candy_shop:1F:component-001:route-start",
+      "id": "node:0002",
       "kind": "custom",
       "position_xyz": [
-        -5.15,
-        0.8499999999999996,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "1F",
-      "label": "几何路线起点",
-      "aliases": []
-    },
-    {
-      "id": "node:production_candy_shop:1F:component-001:route-end",
-      "kind": "custom",
-      "position_xyz": [
-        5.15,
-        -0.8500000000000005,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "1F",
-      "label": "几何路线终点",
-      "aliases": []
-    },
-    {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0001",
-      "kind": "custom",
-      "position_xyz": [
-        -5.050000000000001,
-        0.75,
-        0.0
+        1.1260046068528733,
+        -2.2040106304623097,
+        0.4
       ],
       "target_refs": [],
       "source_ref": null,
@@ -63,12 +33,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0002",
+      "id": "node:0003",
       "kind": "custom",
       "position_xyz": [
-        -5.050000000000001,
-        -2.35,
-        0.0
+        0.8938728508710881,
+        -1.5774263624701153,
+        0.4
       ],
       "target_refs": [],
       "source_ref": null,
@@ -78,12 +48,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0003",
+      "id": "node:0004",
       "kind": "custom",
       "position_xyz": [
-        -4.3500000000000005,
-        -3.0500000000000003,
-        0.0
+        0.8719281663516064,
+        0.8,
+        0.4
       ],
       "target_refs": [],
       "source_ref": null,
@@ -93,12 +63,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0004",
+      "id": "node:0005",
       "kind": "custom",
       "position_xyz": [
-        -4.3500000000000005,
-        -3.2500000000000004,
-        0.0
+        0.8837085277980455,
+        -0.33,
+        0.4
       ],
       "target_refs": [],
       "source_ref": null,
@@ -108,12 +78,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0005",
+      "id": "node:0006",
       "kind": "custom",
       "position_xyz": [
-        -3.6500000000000004,
-        -3.2500000000000004,
-        0.0
+        0.17903811731206254,
+        1.309930948676251,
+        0.3999999999999999
       ],
       "target_refs": [],
       "source_ref": null,
@@ -123,12 +93,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0006",
+      "id": "node:0007",
       "kind": "custom",
       "position_xyz": [
-        -2.75,
-        -4.15,
-        0.0
+        -0.09907445560294567,
+        -2.6109715053159808,
+        0.3999999999999999
       ],
       "target_refs": [],
       "source_ref": null,
@@ -138,12 +108,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0007",
+      "id": "node:0008",
       "kind": "custom",
       "position_xyz": [
-        -2.6500000000000004,
-        -4.15,
-        0.0
+        -0.10633270321361103,
+        -3.8013941398865794,
+        0.4
       ],
       "target_refs": [],
       "source_ref": null,
@@ -153,12 +123,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0008",
+      "id": "node:0009",
       "kind": "custom",
       "position_xyz": [
-        -2.5500000000000003,
-        -4.25,
-        0.0
+        -0.08506616257088892,
+        0.8240784499054816,
+        0.4
       ],
       "target_refs": [],
       "source_ref": null,
@@ -168,12 +138,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0009",
+      "id": "node:0010",
       "kind": "custom",
       "position_xyz": [
-        -2.25,
-        -4.25,
-        0.0
+        -0.08973202037463528,
+        -0.33,
+        0.39999999999999997
       ],
       "target_refs": [],
       "source_ref": null,
@@ -183,12 +153,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0010",
+      "id": "node:0011",
       "kind": "custom",
       "position_xyz": [
-        -2.1500000000000004,
-        -4.3500000000000005,
-        0.0
+        -0.09483899939648538,
+        -1.5768776440415644,
+        0.3999999999999999
       ],
       "target_refs": [],
       "source_ref": null,
@@ -198,12 +168,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0011",
+      "id": "node:0012",
       "kind": "custom",
       "position_xyz": [
-        1.9500000000000002,
-        -4.3500000000000005,
-        0.0
+        -2.19,
+        0.8375412098527099,
+        0.4
       ],
       "target_refs": [],
       "source_ref": null,
@@ -213,12 +183,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0012",
+      "id": "node:0013",
       "kind": "custom",
       "position_xyz": [
-        2.05,
-        -4.25,
-        0.0
+        -0.09740016951780664,
+        -2.2021917001987386,
+        0.3999999999999999
       ],
       "target_refs": [],
       "source_ref": null,
@@ -228,12 +198,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0013",
+      "id": "node:0014",
       "kind": "custom",
       "position_xyz": [
-        2.3499999999999996,
-        -4.25,
-        0.0
+        -2.5952327092218805,
+        -2.3399819079415276,
+        0.3999999999999999
       ],
       "target_refs": [],
       "source_ref": null,
@@ -243,12 +213,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0014",
+      "id": "node:0015",
       "kind": "custom",
       "position_xyz": [
-        2.45,
-        -4.15,
-        0.0
+        -2.870074215934119,
+        -2.376800358546509,
+        0.3999999999999999
       ],
       "target_refs": [],
       "source_ref": null,
@@ -258,12 +228,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0015",
+      "id": "node:0016",
       "kind": "custom",
       "position_xyz": [
-        2.55,
-        -4.15,
-        0.0
+        -3.039984576749814,
+        -2.4622776049442803,
+        0.3999999999999999
       ],
       "target_refs": [],
       "source_ref": null,
@@ -273,12 +243,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0016",
+      "id": "node:0017",
       "kind": "custom",
       "position_xyz": [
-        3.4499999999999993,
-        -3.2500000000000004,
-        0.0
+        -3.2471830620185664,
+        -2.5129122773456447,
+        0.3999999999999999
       ],
       "target_refs": [],
       "source_ref": null,
@@ -288,12 +258,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0017",
+      "id": "node:0018",
       "kind": "custom",
       "position_xyz": [
-        4.15,
-        -3.2500000000000004,
-        0.0
+        -3.427329753897912,
+        -2.4168163004662024,
+        0.3999999999999999
       ],
       "target_refs": [],
       "source_ref": null,
@@ -303,12 +273,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0018",
+      "id": "node:0019",
       "kind": "custom",
       "position_xyz": [
-        4.15,
-        -2.95,
-        0.0
+        -3.5177961825553474,
+        -2.24378966921102,
+        0.3999999999999999
       ],
       "target_refs": [],
       "source_ref": null,
@@ -318,12 +288,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0019",
+      "id": "node:0020",
       "kind": "custom",
       "position_xyz": [
-        4.25,
-        -2.85,
-        0.0
+        -3.5426635443413703,
+        -2.031789918309578,
+        0.3999999999999999
       ],
       "target_refs": [],
       "source_ref": null,
@@ -333,12 +303,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0020",
+      "id": "node:0021",
       "kind": "custom",
       "position_xyz": [
-        4.25,
-        -2.75,
-        0.0
+        -0.09799830209116392,
+        -2.3482267887905204,
+        0.3999999999999999
       ],
       "target_refs": [],
       "source_ref": null,
@@ -348,12 +318,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0021",
+      "id": "node:0022",
       "kind": "custom",
       "position_xyz": [
-        4.35,
-        -2.6500000000000004,
-        0.0
+        -1.2301825968576043,
+        0.8314023987119947,
+        0.4
       ],
       "target_refs": [],
       "source_ref": null,
@@ -363,12 +333,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0022",
+      "id": "node:0023",
       "kind": "custom",
       "position_xyz": [
-        4.35,
-        -2.5500000000000003,
-        0.0
+        -1.2301294102831735,
+        -2.344488939405686,
+        0.3999999999999999
       ],
       "target_refs": [],
       "source_ref": null,
@@ -378,12 +348,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0023",
+      "id": "node:0024",
       "kind": "custom",
       "position_xyz": [
-        4.450000000000001,
-        -2.45,
-        0.0
+        -3.54089782339581,
+        2.6660798886562684,
+        2.92
       ],
       "target_refs": [],
       "source_ref": null,
@@ -393,12 +363,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0024",
+      "id": "node:0025",
       "kind": "custom",
       "position_xyz": [
-        4.450000000000001,
-        -2.35,
-        0.0
+        -3.067225088248563,
+        3.2574706949880303,
+        2.92
       ],
       "target_refs": [],
       "source_ref": null,
@@ -408,12 +378,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0025",
+      "id": "node:0026",
       "kind": "custom",
       "position_xyz": [
-        4.550000000000001,
-        -2.25,
-        0.0
+        -1.8571010896232352,
+        3.2574706949880303,
+        3.2770416694155076
       ],
       "target_refs": [],
       "source_ref": null,
@@ -423,12 +393,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0026",
+      "id": "node:0029",
       "kind": "custom",
       "position_xyz": [
-        4.550000000000001,
-        -2.1500000000000004,
-        0.0
+        -3.531173365129853,
+        2.813673858451763,
+        2.92
       ],
       "target_refs": [],
       "source_ref": null,
@@ -438,12 +408,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0027",
+      "id": "node:0032",
       "kind": "custom",
       "position_xyz": [
-        4.65,
-        -2.0500000000000003,
-        0.0
+        -3.49571026405192,
+        2.938502972841384,
+        2.92
       ],
       "target_refs": [],
       "source_ref": null,
@@ -453,12 +423,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0028",
+      "id": "node:0035",
       "kind": "custom",
       "position_xyz": [
-        4.65,
-        -1.85,
-        0.0
+        -3.42053360131182,
+        3.0592431340308375,
+        2.92
       ],
       "target_refs": [],
       "source_ref": null,
@@ -468,12 +438,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0029",
+      "id": "node:0038",
       "kind": "custom",
       "position_xyz": [
-        4.75,
-        -1.75,
-        0.0
+        -3.325924388183044,
+        3.1611507072970944,
+        2.92
       ],
       "target_refs": [],
       "source_ref": null,
@@ -483,192 +453,12 @@
       "aliases": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0030",
+      "id": "node:0039",
       "kind": "custom",
       "position_xyz": [
-        4.75,
-        -1.6500000000000004,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "1F",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0031",
-      "kind": "custom",
-      "position_xyz": [
-        4.85,
-        -1.5500000000000003,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "1F",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0032",
-      "kind": "custom",
-      "position_xyz": [
-        4.85,
-        -1.4500000000000002,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "1F",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0033",
-      "kind": "custom",
-      "position_xyz": [
-        4.950000000000001,
-        -1.3500000000000005,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "1F",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0034",
-      "kind": "custom",
-      "position_xyz": [
-        4.950000000000001,
-        -1.25,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "1F",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0035",
-      "kind": "custom",
-      "position_xyz": [
-        5.050000000000001,
-        -1.1500000000000004,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "1F",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:point:0036",
-      "kind": "custom",
-      "position_xyz": [
-        5.050000000000001,
-        -0.9500000000000002,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "1F",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "node:production_candy_shop:1F:component-002:route-start",
-      "kind": "custom",
-      "position_xyz": [
-        -3.2500000000000004,
-        2.8499999999999996,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "1F",
-      "label": "几何路线起点",
-      "aliases": []
-    },
-    {
-      "id": "node:production_candy_shop:1F:component-002:route-end",
-      "kind": "custom",
-      "position_xyz": [
-        -4.050000000000001,
-        3.75,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "1F",
-      "label": "几何路线终点",
-      "aliases": []
-    },
-    {
-      "id": "route:production_candy_shop:1F:component-002:free-centerline:point:0001",
-      "kind": "custom",
-      "position_xyz": [
-        -4.050000000000001,
-        3.6500000000000004,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "1F",
-      "label": "",
-      "aliases": []
-    },
-    {
-      "id": "node:production_candy_shop:1F:component-003:route-start",
-      "kind": "custom",
-      "position_xyz": [
-        -2.95,
-        2.8499999999999996,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "1F",
-      "label": "几何路线起点",
-      "aliases": []
-    },
-    {
-      "id": "node:production_candy_shop:1F:component-003:route-end",
-      "kind": "custom",
-      "position_xyz": [
-        -3.0500000000000003,
-        3.75,
-        0.0
-      ],
-      "target_refs": [],
-      "source_ref": null,
-      "locked": false,
-      "level_id": "1F",
-      "label": "几何路线终点",
-      "aliases": []
-    },
-    {
-      "id": "route:production_candy_shop:1F:component-003:free-centerline:point:0001",
-      "kind": "custom",
-      "position_xyz": [
-        -2.95,
-        3.75,
-        0.0
+        -3.215222571009255,
+        3.2263121905050833,
+        2.92
       ],
       "target_refs": [],
       "source_ref": null,
@@ -680,1271 +470,720 @@
   ],
   "edges": [
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0001",
+      "id": "edge:0001",
       "kind": "custom_connection",
-      "from": "node:production_candy_shop:1F:component-001:route-start",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0001",
+      "from": "node:0007",
+      "to": "node:0008",
       "directed": false,
       "polyline_xyz": [
         [
-          -5.15,
-          0.8499999999999996,
-          0.0
+          -0.09907445560294567,
+          -2.6109715053159808,
+          0.3999999999999999
         ],
         [
-          -5.050000000000001,
-          0.75,
-          0.0
+          -0.10633270321361103,
+          -3.8013941398865794,
+          0.4
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0002",
+      "id": "edge:0002",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0001",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0002",
+      "from": "node:0007",
+      "to": "node:0021",
       "directed": false,
       "polyline_xyz": [
         [
-          -5.050000000000001,
-          0.75,
-          0.0
+          -0.09907445560294567,
+          -2.6109715053159808,
+          0.3999999999999999
         ],
         [
-          -5.050000000000001,
-          -2.35,
-          0.0
+          -0.09799830209116392,
+          -2.3482267887905204,
+          0.3999999999999999
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0003",
+      "id": "edge:0018",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0002",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0003",
+      "from": "node:0021",
+      "to": "node:0013",
       "directed": false,
       "polyline_xyz": [
         [
-          -5.050000000000001,
-          -2.35,
-          0.0
+          -0.09799830209116392,
+          -2.3482267887905204,
+          0.3999999999999999
         ],
         [
-          -4.3500000000000005,
-          -3.0500000000000003,
-          0.0
+          -0.09740016951780664,
+          -2.2021917001987386,
+          0.3999999999999999
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0004",
+      "id": "edge:0010",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0003",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0004",
+      "from": "node:0013",
+      "to": "node:0011",
       "directed": false,
       "polyline_xyz": [
         [
-          -4.3500000000000005,
-          -3.0500000000000003,
-          0.0
+          -0.09740016951780664,
+          -2.2021917001987386,
+          0.3999999999999999
         ],
         [
-          -4.3500000000000005,
-          -3.2500000000000004,
-          0.0
+          -0.09483899939648538,
+          -1.5768776440415644,
+          0.3999999999999999
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0005",
+      "id": "edge:0005",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0004",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0005",
+      "from": "node:0011",
+      "to": "node:0010",
       "directed": false,
       "polyline_xyz": [
         [
-          -4.3500000000000005,
-          -3.2500000000000004,
-          0.0
+          -0.09483899939648538,
+          -1.5768776440415644,
+          0.3999999999999999
         ],
         [
-          -3.6500000000000004,
-          -3.2500000000000004,
-          0.0
+          -0.08973202037463528,
+          -0.33,
+          0.39999999999999997
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0006",
+      "id": "edge:0003",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0005",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0006",
+      "from": "node:0010",
+      "to": "node:0009",
       "directed": false,
       "polyline_xyz": [
         [
-          -3.6500000000000004,
-          -3.2500000000000004,
-          0.0
+          -0.08973202037463528,
+          -0.33,
+          0.39999999999999997
         ],
         [
-          -2.75,
-          -4.15,
-          0.0
+          -0.08506616257088892,
+          0.8240784499054816,
+          0.4
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0007",
+      "id": "edge:0004",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0006",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0007",
+      "from": "node:0005",
+      "to": "node:0010",
       "directed": false,
       "polyline_xyz": [
         [
-          -2.75,
-          -4.15,
-          0.0
+          0.8837085277980455,
+          -0.33,
+          0.4
         ],
         [
-          -2.6500000000000004,
-          -4.15,
-          0.0
+          -0.08973202037463528,
+          -0.33,
+          0.39999999999999997
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0008",
+      "id": "edge:0006",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0007",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0008",
+      "from": "node:0003",
+      "to": "node:0011",
       "directed": false,
       "polyline_xyz": [
         [
-          -2.6500000000000004,
-          -4.15,
-          0.0
+          0.8938728508710881,
+          -1.5774263624701153,
+          0.4
         ],
         [
-          -2.5500000000000003,
-          -4.25,
-          0.0
+          -0.09483899939648538,
+          -1.5768776440415644,
+          0.3999999999999999
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0009",
+      "id": "edge:0007",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0008",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0009",
+      "from": "node:0009",
+      "to": "node:0006",
       "directed": false,
       "polyline_xyz": [
         [
-          -2.5500000000000003,
-          -4.25,
-          0.0
+          -0.08506616257088892,
+          0.8240784499054816,
+          0.4
         ],
         [
-          -2.25,
-          -4.25,
-          0.0
+          0.17903811731206254,
+          1.309930948676251,
+          0.3999999999999999
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0010",
+      "id": "edge:0008",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0009",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0010",
+      "from": "node:0009",
+      "to": "node:0022",
       "directed": false,
       "polyline_xyz": [
         [
-          -2.25,
-          -4.25,
-          0.0
+          -0.08506616257088892,
+          0.8240784499054816,
+          0.4
         ],
         [
-          -2.1500000000000004,
-          -4.3500000000000005,
-          0.0
+          -1.2301825968576043,
+          0.8314023987119947,
+          0.4
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0011",
+      "id": "edge:0020",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0010",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0011",
+      "from": "node:0022",
+      "to": "node:0012",
       "directed": false,
       "polyline_xyz": [
         [
-          -2.1500000000000004,
-          -4.3500000000000005,
-          0.0
+          -1.2301825968576043,
+          0.8314023987119947,
+          0.4
         ],
         [
-          1.9500000000000002,
-          -4.3500000000000005,
-          0.0
+          -2.19,
+          0.8375412098527099,
+          0.4
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0012",
+      "id": "edge:0009",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0011",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0012",
+      "from": "node:0009",
+      "to": "node:0004",
       "directed": false,
       "polyline_xyz": [
         [
-          1.9500000000000002,
-          -4.3500000000000005,
-          0.0
+          -0.08506616257088892,
+          0.8240784499054816,
+          0.4
         ],
         [
-          2.05,
-          -4.25,
-          0.0
+          0.8719281663516064,
+          0.8,
+          0.4
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0013",
+      "id": "edge:0011",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0012",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0013",
+      "from": "node:0002",
+      "to": "node:0013",
       "directed": false,
       "polyline_xyz": [
         [
-          2.05,
-          -4.25,
-          0.0
+          1.1260046068528733,
+          -2.2040106304623097,
+          0.4
         ],
         [
-          2.3499999999999996,
-          -4.25,
-          0.0
+          -0.09740016951780664,
+          -2.2021917001987386,
+          0.3999999999999999
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0014",
+      "id": "edge:0012",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0013",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0014",
+      "from": "node:0014",
+      "to": "node:0015",
       "directed": false,
       "polyline_xyz": [
         [
-          2.3499999999999996,
-          -4.25,
-          0.0
+          -2.5952327092218805,
+          -2.3399819079415276,
+          0.3999999999999999
         ],
         [
-          2.45,
-          -4.15,
-          0.0
+          -2.870074215934119,
+          -2.376800358546509,
+          0.3999999999999999
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0015",
+      "id": "edge:0013",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0014",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0015",
+      "from": "node:0015",
+      "to": "node:0016",
       "directed": false,
       "polyline_xyz": [
         [
-          2.45,
-          -4.15,
-          0.0
+          -2.870074215934119,
+          -2.376800358546509,
+          0.3999999999999999
         ],
         [
-          2.55,
-          -4.15,
-          0.0
+          -3.039984576749814,
+          -2.4622776049442803,
+          0.3999999999999999
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0016",
+      "id": "edge:0014",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0015",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0016",
+      "from": "node:0016",
+      "to": "node:0017",
       "directed": false,
       "polyline_xyz": [
         [
-          2.55,
-          -4.15,
-          0.0
+          -3.039984576749814,
+          -2.4622776049442803,
+          0.3999999999999999
         ],
         [
-          3.4499999999999993,
-          -3.2500000000000004,
-          0.0
+          -3.2471830620185664,
+          -2.5129122773456447,
+          0.3999999999999999
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0017",
+      "id": "edge:0015",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0016",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0017",
+      "from": "node:0017",
+      "to": "node:0018",
       "directed": false,
       "polyline_xyz": [
         [
-          3.4499999999999993,
-          -3.2500000000000004,
-          0.0
+          -3.2471830620185664,
+          -2.5129122773456447,
+          0.3999999999999999
         ],
         [
-          4.15,
-          -3.2500000000000004,
-          0.0
+          -3.427329753897912,
+          -2.4168163004662024,
+          0.3999999999999999
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0018",
+      "id": "edge:0016",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0017",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0018",
+      "from": "node:0018",
+      "to": "node:0019",
       "directed": false,
       "polyline_xyz": [
         [
-          4.15,
-          -3.2500000000000004,
-          0.0
+          -3.427329753897912,
+          -2.4168163004662024,
+          0.3999999999999999
         ],
         [
-          4.15,
-          -2.95,
-          0.0
+          -3.5177961825553474,
+          -2.24378966921102,
+          0.3999999999999999
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0019",
+      "id": "edge:0017",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0018",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0019",
+      "from": "node:0019",
+      "to": "node:0020",
       "directed": false,
       "polyline_xyz": [
         [
-          4.15,
-          -2.95,
-          0.0
+          -3.5177961825553474,
+          -2.24378966921102,
+          0.3999999999999999
         ],
         [
-          4.25,
-          -2.85,
-          0.0
+          -3.5426635443413703,
+          -2.031789918309578,
+          0.3999999999999999
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0020",
+      "id": "edge:0019",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0019",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0020",
+      "from": "node:0014",
+      "to": "node:0023",
       "directed": false,
       "polyline_xyz": [
         [
-          4.25,
-          -2.85,
-          0.0
+          -2.5952327092218805,
+          -2.3399819079415276,
+          0.3999999999999999
         ],
         [
-          4.25,
-          -2.75,
-          0.0
+          -1.2301294102831735,
+          -2.344488939405686,
+          0.3999999999999999
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0021",
+      "id": "edge:0021",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0020",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0021",
+      "from": "node:0023",
+      "to": "node:0021",
       "directed": false,
       "polyline_xyz": [
         [
-          4.25,
-          -2.75,
-          0.0
+          -1.2301294102831735,
+          -2.344488939405686,
+          0.3999999999999999
         ],
         [
-          4.35,
-          -2.6500000000000004,
-          0.0
+          -0.09799830209116392,
+          -2.3482267887905204,
+          0.3999999999999999
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0022",
+      "id": "edge:0022",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0021",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0022",
+      "from": "node:0022",
+      "to": "node:0023",
       "directed": false,
       "polyline_xyz": [
         [
-          4.35,
-          -2.6500000000000004,
-          0.0
+          -1.2301825968576043,
+          0.8314023987119947,
+          0.4
         ],
         [
-          4.35,
-          -2.5500000000000003,
-          0.0
+          -1.2301294102831735,
+          -2.344488939405686,
+          0.3999999999999999
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0023",
+      "id": "edge:0023",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0022",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0023",
+      "from": "node:0020",
+      "to": "node:0024",
       "directed": false,
       "polyline_xyz": [
         [
-          4.35,
-          -2.5500000000000003,
-          0.0
+          -3.5426635443413703,
+          -2.031789918309578,
+          0.3999999999999999
         ],
         [
-          4.450000000000001,
-          -2.45,
-          0.0
+          -3.54089782339581,
+          2.6660798886562684,
+          2.92
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0024",
+      "id": "edge:0024",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0023",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0024",
+      "from": "node:0025",
+      "to": "node:0026",
       "directed": false,
       "polyline_xyz": [
         [
-          4.450000000000001,
-          -2.45,
-          0.0
+          -3.067225088248563,
+          3.2574706949880303,
+          2.92
         ],
         [
-          4.450000000000001,
-          -2.35,
-          0.0
+          -1.8571010896232352,
+          3.2574706949880303,
+          3.2770416694155076
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0025",
+      "id": "edge:0025",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0024",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0025",
+      "from": "node:0024",
+      "to": "node:0029",
       "directed": false,
       "polyline_xyz": [
         [
-          4.450000000000001,
-          -2.35,
-          0.0
+          -3.54089782339581,
+          2.6660798886562684,
+          2.92
         ],
         [
-          4.550000000000001,
-          -2.25,
-          0.0
+          -3.531173365129853,
+          2.813673858451763,
+          2.92
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0026",
+      "id": "edge:0026",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0025",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0026",
+      "from": "node:0029",
+      "to": "node:0032",
       "directed": false,
       "polyline_xyz": [
         [
-          4.550000000000001,
-          -2.25,
-          0.0
+          -3.531173365129853,
+          2.813673858451763,
+          2.92
         ],
         [
-          4.550000000000001,
-          -2.1500000000000004,
-          0.0
+          -3.49571026405192,
+          2.938502972841384,
+          2.92
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0027",
+      "id": "edge:0029",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0026",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0027",
+      "from": "node:0032",
+      "to": "node:0035",
       "directed": false,
       "polyline_xyz": [
         [
-          4.550000000000001,
-          -2.1500000000000004,
-          0.0
+          -3.49571026405192,
+          2.938502972841384,
+          2.92
         ],
         [
-          4.65,
-          -2.0500000000000003,
-          0.0
+          -3.42053360131182,
+          3.0592431340308375,
+          2.92
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0028",
+      "id": "edge:0032",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0027",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0028",
+      "from": "node:0035",
+      "to": "node:0038",
       "directed": false,
       "polyline_xyz": [
         [
-          4.65,
-          -2.0500000000000003,
-          0.0
+          -3.42053360131182,
+          3.0592431340308375,
+          2.92
         ],
         [
-          4.65,
-          -1.85,
-          0.0
+          -3.325924388183044,
+          3.1611507072970944,
+          2.92
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0029",
+      "id": "edge:0035",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0028",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0029",
+      "from": "node:0038",
+      "to": "node:0039",
       "directed": false,
       "polyline_xyz": [
         [
-          4.65,
-          -1.85,
-          0.0
+          -3.325924388183044,
+          3.1611507072970944,
+          2.92
         ],
         [
-          4.75,
-          -1.75,
-          0.0
+          -3.215222571009255,
+          3.2263121905050833,
+          2.92
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
       "required_controller_capabilities": []
     },
     {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0030",
+      "id": "edge:0038",
       "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0029",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0030",
+      "from": "node:0039",
+      "to": "node:0025",
       "directed": false,
       "polyline_xyz": [
         [
-          4.75,
-          -1.75,
-          0.0
+          -3.215222571009255,
+          3.2263121905050833,
+          2.92
         ],
         [
-          4.75,
-          -1.6500000000000004,
-          0.0
+          -3.067225088248563,
+          3.2574706949880303,
+          2.92
         ]
       ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0031",
-      "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0030",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0031",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          4.75,
-          -1.6500000000000004,
-          0.0
-        ],
-        [
-          4.85,
-          -1.5500000000000003,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0032",
-      "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0031",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0032",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          4.85,
-          -1.5500000000000003,
-          0.0
-        ],
-        [
-          4.85,
-          -1.4500000000000002,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0033",
-      "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0032",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0033",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          4.85,
-          -1.4500000000000002,
-          0.0
-        ],
-        [
-          4.950000000000001,
-          -1.3500000000000005,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0034",
-      "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0033",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0034",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          4.950000000000001,
-          -1.3500000000000005,
-          0.0
-        ],
-        [
-          4.950000000000001,
-          -1.25,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0035",
-      "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0034",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0035",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          4.950000000000001,
-          -1.25,
-          0.0
-        ],
-        [
-          5.050000000000001,
-          -1.1500000000000004,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0036",
-      "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0035",
-      "to": "route:production_candy_shop:1F:component-001:free-centerline:point:0036",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          5.050000000000001,
-          -1.1500000000000004,
-          0.0
-        ],
-        [
-          5.050000000000001,
-          -0.9500000000000002,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:production_candy_shop:1F:component-001:free-centerline:edge:0037",
-      "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-001:free-centerline:point:0036",
-      "to": "node:production_candy_shop:1F:component-001:route-end",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          5.050000000000001,
-          -0.9500000000000002,
-          0.0
-        ],
-        [
-          5.15,
-          -0.8500000000000005,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:production_candy_shop:1F:component-002:free-centerline:edge:0001",
-      "kind": "custom_connection",
-      "from": "node:production_candy_shop:1F:component-002:route-start",
-      "to": "route:production_candy_shop:1F:component-002:free-centerline:point:0001",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -3.2500000000000004,
-          2.8499999999999996,
-          0.0
-        ],
-        [
-          -4.050000000000001,
-          3.6500000000000004,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:production_candy_shop:1F:component-002:free-centerline:edge:0002",
-      "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-002:free-centerline:point:0001",
-      "to": "node:production_candy_shop:1F:component-002:route-end",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -4.050000000000001,
-          3.6500000000000004,
-          0.0
-        ],
-        [
-          -4.050000000000001,
-          3.75,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:production_candy_shop:1F:component-003:free-centerline:edge:0001",
-      "kind": "custom_connection",
-      "from": "node:production_candy_shop:1F:component-003:route-start",
-      "to": "route:production_candy_shop:1F:component-003:free-centerline:point:0001",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -2.95,
-          2.8499999999999996,
-          0.0
-        ],
-        [
-          -2.95,
-          3.75,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:production_candy_shop:1F:component-003:free-centerline:edge:0002",
-      "kind": "custom_connection",
-      "from": "route:production_candy_shop:1F:component-003:free-centerline:point:0001",
-      "to": "node:production_candy_shop:1F:component-003:route-end",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -2.95,
-          3.75,
-          0.0
-        ],
-        [
-          -3.0500000000000003,
-          3.75,
-          0.0
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
+      "profiles": {},
       "source_ref": null,
       "locked_geometry": false,
       "traversal_mode": "walk",
