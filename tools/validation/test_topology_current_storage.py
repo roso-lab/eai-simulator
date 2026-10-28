@@ -24,7 +24,7 @@ def test_saves_replace_one_directory_and_stale_process_cannot_overwrite(project)
     old_id = project.manifest["save_id"]
     project.edit("add_node", domain="aerial", position_xyz=[0, 0, 2])
     assert project.save() == path
-    project.edit("add_semantic_point", position_xyz=[0, 1, 3], label="Target")
+    project.edit("add_semantic_point", label="Target")
     assert project.save() == path
     assert project.manifest["save_id"] != old_id
     assert MapProject(project.root)._snapshot() == project._snapshot()
@@ -66,7 +66,7 @@ def test_index_failure_rolls_back_bytes_all_products_and_pending_edits(project, 
 @pytest.mark.parametrize("commit_index", [False, True])
 def test_reopen_recovers_process_interruption_before_or_after_commit(project, monkeypatch, commit_index):
     previous = MapProject(project.root)._snapshot()
-    project.edit("add_semantic_point", position_xyz=[0, 0, 2], label="New")
+    project.edit("add_semantic_point", label="New")
     pending = project._snapshot()
     write = storage.write_json
 
@@ -115,7 +115,7 @@ def test_legacy_revision_migrates_only_after_complete_publication(project, monke
 def test_interrupted_rollback_resumes_even_after_new_index_was_written(project, monkeypatch):
     previous = project._snapshot()
     original_index = (project.root / "project.json").read_bytes()
-    project.edit("add_semantic_point", position_xyz=[0, 0, 2], label="Pending")
+    project.edit("add_semantic_point", label="Pending")
     write, write_text = storage.write_json, storage._write_text
 
     def fail_after_index(path, value):
@@ -146,7 +146,7 @@ def test_committed_cleanup_warning_is_visible_and_retried(project, monkeypatch):
             raise OSError("cleanup unavailable")
         return remove(path, *args, **kwargs)
     monkeypatch.setattr(storage.shutil, "rmtree", fail_cleanup)
-    project.edit("add_semantic_point", position_xyz=[0, 0, 2], label="Saved")
+    project.edit("add_semantic_point", label="Saved")
     project.save()
     assert any("cleanup pending" in warning for warning in project.state()["warnings"])
     monkeypatch.setattr(storage.shutil, "rmtree", remove)

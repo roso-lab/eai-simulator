@@ -180,6 +180,10 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
             web_selection["selection"] = normalize_selection(web_selection["selection"])
         except (ValueError, KeyError):
             web_selection["selection"] = None
+        if editor.get("binding_target_mode") == "semantic_navigation":
+            selected = web_selection["selection"] or {}
+            if selected.get("kind") != "semantic_point" or selected.get("id") != editor.get("binding_target_id"):
+                editor.update(binding_target_mode=None, binding_target_id=None, binding_target_draft=None)
 
     def update_runtime(generation, status, error=None):
         with lock:
@@ -536,8 +540,8 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                         return
                     if route == "/api/edit":
                         operation = body.pop("operation")
-                        semantic_operations = {"add_semantic_point", "update_semantic_point", "move_semantic_point_xy",
-                                               "move_semantic_point", "remove_semantic_point",
+                        semantic_operations = {"add_semantic_point", "update_semantic_point",
+                                               "remove_semantic_point",
                                                "set_semantic_point_navigation_bindings"}
                         allowed = semantic_operations | {"add_node", "update_node", "move_node_xy", "move_node",
                                                          "remove_node", "add_edge", "update_edge", "remove_edge",
@@ -567,6 +571,11 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                         if required_layer and editor["active_layer"] != required_layer:
                             raise ValueError(f"{required_layer} road tools require the {required_layer} layer")
                         project.edit(operation, domain=domain, **body)
+                        if operation == "add_semantic_point":
+                            web_selection["selection"] = {
+                                "kind": "semantic_point", "id": project.semantic_points[-1]["id"]}
+                            editor.update(binding_target_mode=None, binding_target_id=None,
+                                          binding_target_draft=None)
                         if operation == "set_semantic_point_navigation_bindings" and editor.get("binding_target_mode"):
                             editor.update(binding_target_mode=None, binding_target_id=None,
                                          binding_target_draft=None)

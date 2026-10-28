@@ -587,6 +587,8 @@ def nearest_projected_hit(snapshot, viewport_api, mouse_ndc, *,
     road_tools = {"build-ground-road", "delete-ground-edge", "build-aerial-road", "delete-aerial-edge"}
     pick_tolerance = 10.0 if editor_tool in road_tools else tolerance_px
     layer = active_layer or domain
+    if layer == "semantic_points":
+        return None
     if not bool((visible_layers or {}).get(layer, True)):
         return None
     enabled = {"nodes": True, "edges": True, "semantic_points": True,
@@ -613,10 +615,6 @@ def nearest_projected_hit(snapshot, viewport_api, mouse_ndc, *,
         selected_point = next((row for row in snapshot.get("nodes") or []
                                if row.get("id") == selection.get("id")), None)
         selected_kind = "node"
-    elif selection and selection.get("kind") == "semantic_point" and layer == "semantic_points":
-        selected_point = next((row for row in semantic_points
-                               if row.get("id") == selection.get("id")), None)
-        selected_kind = "semantic-point"
     selected_visible = (selected_kind == "node" and enabled["nodes"]) or (
         selected_kind == "semantic-point" and enabled["semantic_points"])
     if (editor_tool != "add-edge" and selected_point and selected_visible
@@ -678,19 +676,6 @@ def nearest_projected_hit(snapshot, viewport_api, mouse_ndc, *,
                                   for index in range(3)]
             candidates.append((distance + 1.0, {"kind": "edge", "id": edge["id"],
                                                "position_xyz": projected_position}))
-    if layer == "semantic_points" and enabled["semantic_points"]:
-        for point_row in semantic_points:
-            point = world_to_viewport_pixel(
-                viewport_api, point_row.get("position_xyz"),
-                meters_per_unit=meters_per_unit)
-            if point is None:
-                continue
-            distance = math.hypot(cursor[0] - point[0], cursor[1] - point[1])
-            if distance <= tolerance_px:
-                candidates.append((distance - tolerance_px - 4.0, {
-                    "kind": "semantic-point", "id": point_row["id"],
-                    "position_xyz": list(point_row["position_xyz"]),
-                }))
     return min(candidates, key=lambda row: row[0])[1] if candidates else None
 
 
@@ -836,7 +821,7 @@ class _TopologyEditorGesture:
                     active_level=context.get("active_level"), domain=domain,
                     active_layer=domain, semantic_points=(),
                     visible_layers=binding_layers,
-                    visible_types={"nodes": (context.get("visible_types") or {}).get("nodes", True),
+                    visible_types={"nodes": True,
                                    "edges": False, "semantic_points": False},
                     editor_tool="add-node", meters_per_unit=self.controller.meters_per_unit)
                 if hit is not None and pixel is not None:
@@ -872,10 +857,6 @@ class _TopologyEditorGesture:
         layer = self.controller.active_layer
         result = []
         if layer == "semantic_points":
-            for row in self.controller.semantic_points:
-                point = world_to_viewport_pixel(self.viewport_api, row.get("position_xyz"), meters_per_unit=self.controller.meters_per_unit)
-                if point and left <= point[0] <= right and top <= point[1] <= bottom:
-                    result.append({"kind": "semantic_point", "id": row["id"]})
             return result
         domain = self.controller.active_domain
         snapshot = self.controller.document_snapshots.get(domain, self.controller.snapshot)
@@ -914,6 +895,23 @@ class _TopologyEditorGesture:
             return
         context = self.controller.context or {}
         tool = context.get("editor_tool", "add-node")
+        if self.controller.active_layer == "semantic_points":
+            # Labels have no spatial gestures. Only explicit binding mode may
+            # consume a press, without selecting or moving a navigation object.
+            if phase == "began" and getattr(self.controller, "navigation_binding_mode", False):
+                if getattr(self, "_press", None) is None:
+                    self._press = {"binding": True, "ndc": tuple(mouse_ndc)}
+                    self._moved = False
+                    self._last_mouse = tuple(mouse_ndc)
+                    hit = self._pick(mouse_ndc)
+                    if hit and hit.get("kind") == "node":
+                        self.controller.toggle_navigation_binding(hit["domain"], hit["id"])
+            elif phase in {"click", "ended", "cancelled"}:
+                self._press = self._drag_target = None
+            return
+        if (getattr(self, "_press", None) or {}).get("binding"):
+            self._press = self._drag_target = None
+            self._moved = False
         if phase == "began":
             self._last_mouse = tuple(mouse_ndc)
             if getattr(self, "_press", None) is None or self._press.get("released"):

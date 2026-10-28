@@ -364,9 +364,10 @@ def test_result_state_with_web_document_keys_refreshes_native_data_immediately()
         "kind": "semantic_point", "collection": None, "id": "s1"}
     controller.handle_result(("edit", {"state": semantic_state}, None))
     assert controller.semantic_point("s1")["label"] == "Desk"
-    assert controller.point_for_selection()["id"] == "s1"
+    assert controller.semantic_point("s1")["id"] == "s1"
+    assert controller.point_for_selection() is None
     assert controller.set_selected_semantic_point_properties(
-        [4., 5., 6.], label="immediate", kind="furniture", properties={})
+        label="immediate", kind="furniture", properties={})
 
 
 def test_dispatcher_keeps_completed_result_pending_until_drain():
@@ -619,39 +620,53 @@ def test_isaac_selection_items_replace_single_selection_and_clear_on_empty_box()
     assert controller.selection is None
     assert controller.selection_items == []
 
-def test_semantic_point_add_properties_modes_and_delete_use_frozen_identity():
+def test_label_creation_needs_no_node_and_accepts_server_label_selection():
     dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
-    controller.update_context(_context(active_layer="semantic_points"))
-    assert controller.add_semantic_point([3, 4, 2.5])
-    assert dispatcher.calls[-1][0][2] == "add_semantic_point"
-    assert dispatcher.calls[-1][1]["edit_mode"] == "2.5d"
-    controller.select({"kind": "semantic_point", "collection": None, "id": "s1"})
-    assert controller.set_selected_semantic_point_properties(
-        [5, 6, 7], label=" Desk ", kind="furniture", description="work",
-        aliases=[" table ", ""], properties={"a": 1})
+    context = _context(active_layer="semantic_points")
+    controller.update_context(context)
+    assert controller.selection is None
+    assert controller.save_label(label="Desk", kind="furniture")
     args, kwargs = dispatcher.calls[-1]
-    assert args[2] == "update_semantic_point"
-    assert kwargs["aliases"] == ["table"] and kwargs["properties"] == {"a": 1}
-    assert controller.set_selected_edit_mode("2.5d")
-    assert controller.delete_selected()
-    assert dispatcher.calls[-1][0][2] == "remove_semantic_point"
+    assert args[2] == "add_semantic_point"
+    assert not {"node_id", "annotation_node_id", "position_xyz"} & kwargs.keys()
+    context["web_selection"] = {"kind": "semantic_point", "id": "s1"}
+    controller.selection_dirty = True
+    controller.handle_result((args[0], {"state": context}, None))
+    assert controller.selection["id"] == "s1"
+    assert controller.active_layer == "semantic_points"
+    assert controller.begin_navigation_binding()
+    assert controller.toggle_navigation_binding("aerial", "n1")
+    assert controller.commit_navigation_bindings()
+    assert dispatcher.calls[-1][0][2] == "set_semantic_point_navigation_bindings"
+    assert dispatcher.calls[-1][1]["bindings"] == [{"domain": "aerial", "node_id": "n1"}]
 
 
-def test_semantic_point_25d_and_3d_axis_drag_freeze_grab_delta():
+def test_label_binding_list_clear_and_discard_only_change_draft():
+    dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
+    context = _context(active_layer="semantic_points")
+    context["semantic_points"][0]["navigation_bindings"] = [{"domain": "ground", "node_id": "g1"}]
+    context["web_selection"] = {"kind": "semantic_point", "id": "s1"}
+    controller.update_context(context)
+    assert controller.toggle_navigation_binding_draft("aerial", "n2")
+    assert len(controller.navigation_binding_draft) == 2
+    assert not controller.navigation_binding_mode
+    assert not dispatcher.calls
+    assert controller.clear_navigation_bindings()
+    assert controller.navigation_binding_draft == []
+    controller.cancel_navigation_binding()
+    assert controller.navigation_binding_draft is None
+    assert controller.semantic_point("s1")["navigation_bindings"] == [{"domain": "ground", "node_id": "g1"}]
+    assert all(args[1] != "edit" for args, _ in dispatcher.calls)
+
+
+def test_spatial_semantic_creation_and_drag_are_disabled():
     dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
     controller.update_context(_context(active_layer="semantic_points"))
-    controller.begin_drag({"kind": "semantic-point", "id": "s2"}, [6.2, 1.1, 2.5])
-    controller.update_drag([7.2, 3.1, 9.])
-    assert controller.preview["position_xyz"] == [7., 3., 2.5]
-    assert controller.end_drag()
-    assert dispatcher.calls[-1][0][2] == "move_semantic_point_xy"
-    dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
-    controller.update_context(_context(active_layer="semantic_points"))
-    controller.begin_drag({"kind": "semantic-point", "id": "s1"}, [4., 1., 1.8], axis="z")
-    controller.update_drag([4., 1., 2.1])
-    assert controller.preview["position_xyz"] == pytest.approx([4., 1., 1.8])
-    assert controller.end_drag()
-    assert dispatcher.calls[-1][0][2] == "move_semantic_point"
+    assert not controller.add_semantic_point([1, 2, 3])
+    controller.begin_drag({"kind": "semantic-point", "id": "s1"}, [1, 2, 3])
+    assert controller.gesture is None
+    assert controller.preview is None
+    assert not dispatcher.calls
 
 
 def test_drag_ending_without_motion_clears_gesture_without_editing_or_deselecting():
@@ -692,7 +707,7 @@ def test_hit_isolation_uses_active_layer_and_visible_type():
     hit = nearest_projected_hit(snapshot, viewport, (4., 1.),
         active_layer="semantic_points", semantic_points=context["semantic_points"],
         tolerance_px=.1)
-    assert hit["kind"] == "semantic-point" and hit["id"] == "s1"
+    assert hit is None
     assert nearest_projected_hit(snapshot, viewport, (4., 1.),
         active_layer="semantic_points", semantic_points=context["semantic_points"],
         visible_types={"semantic_points": False}, tolerance_px=.1) is None
@@ -737,7 +752,7 @@ def test_hit_candidates_are_isolated_by_editor_tool():
         snapshot, viewport, (4., 1.), active_layer="semantic_points",
         semantic_points=context["semantic_points"],
         editor_tool="add-semantic-point", tolerance_px=.1)
-    assert semantic["kind"] == "semantic-point" and semantic["id"] == "s1"
+    assert semantic is None
     assert nearest_projected_hit(
         snapshot, viewport, (0., 0.), active_layer="semantic_points",
         semantic_points=context["semantic_points"],
@@ -758,12 +773,12 @@ def test_gesture_routes_semantic_click_without_region_paths(monkeypatch):
     gesture.controller, gesture.viewport_api, gesture._drag_target = controller, object(), None
     gesture._world_point = lambda *_args, **_kwargs: [4., 1., 1.5]
     gesture.handle("began", [0., 0.])
-    assert controller.selection == {"kind": "semantic_point", "collection": None, "id": "s1"}
+    assert controller.selection is None
     assert controller.gesture is None
     gesture.handle("click", [0., 0.])
     assert controller.gesture is None
     assert not dispatcher.calls
-    assert picker_kwargs[0]["visible_layers"] == controller.context["visible_layers"]
+    assert picker_kwargs == []
     assert not hasattr(controller, "region_draft")
 
 
@@ -846,7 +861,7 @@ def test_unified_overlay_has_three_layers_and_no_region_specs():
     paths = [row["path"] for row in specs["prims"]]
     assert any("/Layers/Ground/Nodes/" in path for path in paths)
     assert any("/Layers/Aerial/Edges/" in path for path in paths)
-    assert any("/Layers/SemanticPoints/" in path for path in paths)
+    assert not any("/Layers/SemanticPoints/" in path for path in paths)
     assert not any("Region" in path for path in paths)
     ground = next(row for row in specs["prims"] if "/Layers/Ground/Nodes/" in row["path"])
     aerial = next(row for row in specs["prims"] if "/Layers/Aerial/Nodes/" in row["path"])
@@ -1067,3 +1082,88 @@ def test_escape_and_tool_switch_invalidate_held_pointer():
     pointer.handle("changed", (30., 0.))
     pointer.handle("ended", (30., 0.))
     assert len(dispatcher.calls) == count and controller.gesture is None
+
+
+def test_semantic_binding_press_toggles_once_and_edges_or_blank_do_nothing():
+    dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
+    controller.update_context(_context(active_layer="semantic_points"))
+    controller.select({"kind": "semantic_point", "id": "s1"})
+    assert controller.begin_navigation_binding()
+    pointer = _pointer(controller, {
+        (0., 0.): {"kind": "node", "id": "g1", "domain": "ground"},
+        (20., 0.): {"kind": "node", "id": "n2", "domain": "aerial"},
+        (10., 0.): {"kind": "edge", "id": "e1", "domain": "aerial"}})
+    for position in ((0., 0.), (20., 0.), (10., 0.), (99., 99.)):
+        pointer.handle("began", position)
+        pointer.handle("began", position)  # Companion Kit gesture, same press.
+        pointer.handle("changed", position)
+        pointer.cancel_from_scene()
+        pointer.handle("click", position)
+    assert controller.navigation_binding_draft == [
+        {"domain": "aerial", "node_id": "n2"}, {"domain": "ground", "node_id": "g1"}]
+    assert controller.selection["id"] == "s1"
+    assert controller.active_layer == "semantic_points"
+    assert all(args[1] != "edit" for args, _ in dispatcher.calls)
+    assert controller.finish_navigation_binding()
+    pointer.handle("began", (0., 0.)); pointer.handle("click", (0., 0.))
+    assert len(controller.navigation_binding_draft) == 2
+
+
+def test_binding_draft_dimming_wins_over_previously_annotated_node_color():
+    context = _context(active_layer="semantic_points")
+    context["semantic_points"][0]["navigation_bindings"] = [{"domain": "ground", "node_id": "g1"}]
+    specs = build_unified_overlay_specs(context["document_snapshots"], context["semantic_points"],
+        active_layer="semantic_points", active_level="ground", binding_mode=True,
+        binding_target_id="s1", binding_target_draft=[], visible_types={"nodes": False})
+    ground = next(p for p in specs["prims"] if p["category"] == "ground:node")
+    assert ground["color"] == [.025, .035, .045]
+
+
+def test_native_label_form_create_cancel_failure_and_success():
+    dispatcher = _Dispatcher(); controller = IsaacTopologyController(dispatcher)
+    context = _context(active_layer="semantic_points")
+    context["web_selection"] = {"kind": "semantic_point", "id": "s1"}
+    controller.update_context(context)
+    window = IsaacTopologyWindow(controller)
+    window._status = SimpleNamespace(text="")
+    for field in ("label", "kind", "description", "aliases", "properties"):
+        setattr(window, f"_semantic_{field}_model", _ValueModel())
+    controller.on_change = window.refresh
+    window.refresh()
+    window._start_label()
+    assert window._creating_label
+    assert controller.selection is None
+    assert not any(args[1] == "edit" for args, _ in dispatcher.calls)
+    window._cancel_label()
+    assert not window._creating_label
+    window._start_label()
+    window._semantic_label_model.value = "New tag"
+    window._apply_semantic_properties()
+    args, kwargs = dispatcher.calls[-1]
+    assert args[2] == "add_semantic_point" and kwargs["label"] == "New tag"
+    controller.handle_result((args[0], None, ValueError("invalid property")))
+    window.refresh()
+    assert window._creating_label
+    assert window._semantic_label_model.value == "New tag"
+    context["semantic_points"].append({"id": "new", "label": "New tag", "kind": "custom"})
+    context["web_selection"] = {"kind": "semantic_point", "id": "new"}
+    controller.handle_result((args[0], {"state": context}, None))
+    window.refresh()
+    assert not window._creating_label
+    assert controller.selection["id"] == "new"
+    assert controller.selection_items[0]["id"] == "new"
+
+
+@pytest.mark.parametrize("change", [
+    {"active_layer": "aerial", "editor_tool": "add-node"},
+    {"active_level": "upper"}, {"scene_generation": 3}, {"editor_tool": "add-edge"}])
+def test_binding_draft_is_discarded_when_editing_scope_changes(change):
+    controller = IsaacTopologyController(_Dispatcher())
+    context = _context(active_layer="semantic_points")
+    context["web_selection"] = {"kind": "semantic_point", "id": "s1"}
+    controller.update_context(context)
+    assert controller.begin_navigation_binding()
+    assert controller.toggle_navigation_binding("ground", "g1")
+    controller.update_context({**context, **change, "context_generation": 3, "web_selection": None})
+    assert not controller.navigation_binding_mode
+    assert controller.navigation_binding_draft is None

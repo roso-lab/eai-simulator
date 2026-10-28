@@ -336,12 +336,13 @@ def build_unified_overlay_specs(document_snapshots, semantic_points, *,
         # highlighted/dimmed node overlay and native viewport picking.
         visible_layers["ground"] = True
         visible_layers["aerial"] = True
+        visible_types["nodes"] = True
     prims = []
     for layer in ("ground", "aerial"):
         if not visible_layers[layer]:
             continue
         snapshot = (document_snapshots or {}).get(layer) or {}
-        level = (active_level if active_layer == "ground" and layer == "ground"
+        level = (active_level if (active_layer == "ground" or binding_mode) and layer == "ground"
                  else reference_level if layer == "ground" else None)
         planned = build_overlay_specs(
             snapshot, active_level=level, layer=layer,
@@ -370,20 +371,12 @@ def build_unified_overlay_specs(document_snapshots, semantic_points, *,
             layer, _category = spec["category"].split(":", 1)
             spec["color"] = ([1.0, .76, .25] if (layer, spec.get("key")) in bound
                              else [.025, .035, .045])
-    if visible_layers["semantic_points"] and visible_types["semantic_points"]:
-        color = SEMANTIC_POINT_COLOR
-        if active_layer != "semantic_points":
-            color = tuple(value * REFERENCE_FACTOR for value in color)
-        for index, row in enumerate(semantic_points or []):
-            position = _finite_point(row.get("position_xyz"))
-            if position is None:
-                continue
-            prims.append({
-                "path": f"{WEB_OVERLAY_ROOT}/Layers/SemanticPoints/P{index:05d}",
-                "category": "semantic_point", "key": row.get("id"),
-                "shape": "sphere", "position": position, "radius": .075,
-                "color": list(color),
-            })
+    annotated = {(b["domain"], b["node_id"]) for row in semantic_points or []
+                 for b in row.get("navigation_bindings", [])}
+    for spec in prims:
+        category = spec.get("category", "")
+        if not binding_mode and category in {"ground:node", "aerial:node"} and (category.split(":")[0], spec.get("key")) in annotated:
+            spec["color"] = list(SEMANTIC_POINT_COLOR)
     return {"root": WEB_OVERLAY_ROOT, "prims": prims, "route_members": {}}
 
 
@@ -613,7 +606,7 @@ class WebOverlayRenderer:
                             .16, HIGHLIGHT_COLOR, None, None)
                         if arrow is not None:
                             self._define(arrow)
-            if selection and selection.get("kind") in {"node", "semantic_point"}:
+            if selection and selection.get("kind") == "node":
                 kind = selection.get("kind")
                 record = (nodes.get(selection.get("id")) if kind == "node"
                           else semantic_by_id.get(selection.get("id")))
@@ -653,7 +646,7 @@ class WebOverlayRenderer:
                         points = [_finite_point(point) for point in edge.get("polyline_xyz") or []]
                         if len(points) >= 2 and all(point is not None for point in points):
                             self._define({"path": f"{root_path}/SelectedEdge/{identifier.replace(':', '_')}", "shape": "polyline", "points": points, "width": .045, "color": list(HIGHLIGHT_COLOR), "category": None, "key": None})
-                elif record is not None:
+                elif kind == "node" and record is not None:
                     position = _finite_point(record.get("position_xyz"))
                     if position is not None:
                         self._define({"path": f"{root_path}/SelectedItems/{identifier.replace(':', '_')}", "shape": "sphere", "position": position, "radius": .095, "color": list(HIGHLIGHT_COLOR), "category": None, "key": None})
