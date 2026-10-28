@@ -557,18 +557,6 @@ class MapProject:
     def edit(self, operation, *, revision=None, domain="ground", **args):
         self._expect(revision)
         self.document_for(domain)
-        if operation == "create_node_annotation":
-            node_id = args.pop("node_id")
-            self.document_for(domain).node(node_id)
-            points = edit_points(self.semantic_points, "add_semantic_point", args)
-            points[-1]["navigation_bindings"] = [{"domain": domain, "node_id": node_id}]
-            self._check_semantic_bindings(points=points)
-            self._undo.append(self._snapshot())
-            self._undo = self._undo[-100:]
-            self._redo.clear()
-            self.semantic_points = points
-            self.revision += 1
-            return
         if operation == "remove_selection":
             items = args.get("items")
             if not isinstance(items, list) or not items:

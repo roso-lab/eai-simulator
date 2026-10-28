@@ -29,27 +29,31 @@ def add_point(p, **kwargs):
 
 
 @pytest.mark.parametrize("domain", ["ground", "aerial"])
-def test_create_node_annotation_is_atomic_undoable_and_nonspatial(project, domain):
-    project.edit("add_node", domain=domain, position_xyz=[0, 0, 4],
-                 **({"level_id": "1F"} if domain == "ground" else {}))
+def test_label_creation_then_binding_are_separate_undoable_transactions(project, domain):
     before, revision = project._snapshot(), project.revision
-    project.edit("create_node_annotation", domain=domain, node_id="node:0001", id="desk",
-                 label="Desk", kind="furniture", revision=revision)
+    project.edit("add_semantic_point", id="desk", label="Desk", kind="furniture", revision=revision)
     assert project.revision == revision + 1
-    row = deepcopy(project.semantic_points[0])
-    assert row["navigation_bindings"] == [{"domain": domain, "node_id": "node:0001"}]
-    assert not ({"position_xyz", "edit_mode"} & row.keys())
+    unbound = deepcopy(project.semantic_points[0])
+    assert unbound["navigation_bindings"] == []
+    assert not ({"position_xyz", "edit_mode"} & unbound.keys())
     project.undo()
     assert project._snapshot() == before
     project.redo()
-    assert project.semantic_points == [row]
+    assert project.semantic_points == [unbound]
+    project.edit("add_node", domain=domain, position_xyz=[0, 0, 4],
+                 **({"level_id": "1F"} if domain == "ground" else {}))
     snapshot, history = project._snapshot(), len(project._undo)
-    with pytest.raises((ValueError, KeyError)):
-        project.edit("create_node_annotation", domain=domain, node_id="missing", id="bad")
-    assert project._snapshot() == snapshot and len(project._undo) == history
     with pytest.raises(ValueError):
-        project.edit("create_node_annotation", domain=domain, node_id="node:0001", id="desk")
+        project.edit("set_semantic_point_navigation_bindings", id="desk",
+                     bindings=[{"domain": domain, "node_id": "missing"}])
     assert project._snapshot() == snapshot and len(project._undo) == history
+    project.edit("set_semantic_point_navigation_bindings", id="desk",
+                 bindings=[{"domain": domain, "node_id": "node:0001"}])
+    row = deepcopy(project.semantic_points[0])
+    project.undo()
+    assert project._snapshot() == snapshot
+    project.redo()
+    assert project.semantic_points == [row]
     project.edit("move_node", domain=domain, id="node:0001", position_xyz=[1, 1, 9])
     assert project.semantic_points == [row]
     with pytest.raises(ValueError, match="semantic point"):
@@ -58,26 +62,24 @@ def test_create_node_annotation_is_atomic_undoable_and_nonspatial(project, domai
     assert MapProject(project.root).semantic_points == [row]
 
 
-def test_http_node_annotation_preserves_layer_selection_and_validates_floor(api):
+def test_http_label_creation_selects_label_without_navigation_node(api):
     request, _ = api
     _, state = request("/api/state")
-    code, state = request("/api/edit", {**identity(state), "operation": "add_node",
-        "position_xyz": [0, 0, 0], "level_id": "1F"})
-    assert code == 200
-    request("/api/web/selection", {**identity(state), "selection": {
-        "kind": "node", "id": "node:0001", "domain": "ground"}})
+    state = switch(request, state, active_layer="semantic_points", tool="add-semantic-point")
     old = identity(state)
-    code, state = request("/api/edit", {**old, "operation": "create_node_annotation",
-        "node_id": "node:0001", "annotation_node_id": "node:0001", "id": "desk"})
+    code, state = request("/api/edit", {**old, "operation": "add_semantic_point", "id": "desk"})
     assert code == 200, state
     assert state["revision"] == old["revision"] + 1
-    assert state["active_layer"] == "ground"
-    assert state["web_selection"]["id"] == "node:0001"
-    assert request("/api/edit", {**old, "operation": "create_node_annotation",
-        "node_id": "node:0001", "annotation_node_id": "node:0001"})[0] == 409
-    state = switch(request, state, level_id="2F")
+    assert state["active_layer"] == "semantic_points"
+    assert state["web_selection"]["id"] == "desk"
+    assert next(row for row in state["semantic_points"] if row["id"] == "desk").get("navigation_bindings", []) == []
+    assert request("/api/edit", {**old, "operation": "add_semantic_point", "id": "stale"})[0] == 409
     assert request("/api/edit", {**identity(state), "operation": "create_node_annotation",
-        "node_id": "node:0001", "annotation_node_id": "node:0001"})[0] == 400
+                               "node_id": "node:0001"})[0] == 400
+    assert request("/api/edit", {**identity(state), "operation": "add_semantic_point",
+                               "position_xyz": [1, 2, 3]})[0] == 400
+    state = switch(request, state, active_layer="ground", tool="add-node")
+    assert request("/api/edit", {**identity(state), "operation": "add_semantic_point"})[0] == 400
 
 
 def test_points_preserve_modes_coordinates_navigation_bindings_and_graph_identity(project):
@@ -425,3 +427,39 @@ def test_navigation_binding_context_stays_on_semantic_layer(api):
     _, state = request("/api/state")
     assert state["active_layer"] == "semantic_points"
     assert state["binding_target_mode"] == "semantic_navigation"
+
+
+def test_shared_labels_many_to_many_and_duplicate_binding_rollback(project):
+    for domain in ("ground", "aerial"):
+        project.edit("add_node", domain=domain, position_xyz=[0, 0, 0],
+                     **({"level_id": "1F"} if domain == "ground" else {}))
+    bindings = [{"domain": d, "node_id": "node:0001"} for d in ("ground", "aerial")]
+    for identifier in ("desk", "room"):
+        project.edit("add_semantic_point", id=identifier)
+        project.edit("set_semantic_point_navigation_bindings", id=identifier, bindings=bindings)
+    before, history = project._snapshot(), len(project._undo)
+    with pytest.raises(ValueError):
+        project.edit("set_semantic_point_navigation_bindings", id="desk", bindings=bindings + bindings[:1])
+    assert project._snapshot() == before and len(project._undo) == history
+    project.edit("update_semantic_point", id="desk", label="Shared desk")
+    project.edit("set_semantic_point_navigation_bindings", id="desk", bindings=bindings[1:])
+    assert project.semantic_points[0]["navigation_bindings"] == bindings[1:]
+    assert len(project.semantic_points[1]["navigation_bindings"]) == 2
+    with pytest.raises(ValueError, match="semantic point"):
+        project.edit("remove_node", id="node:0001")
+
+
+def test_deleting_label_clears_active_binding_context(api):
+    request, _ = api
+    _, state = request("/api/state")
+    state = switch(request, state, active_layer="semantic_points", tool="add-semantic-point")
+    _, state = request("/api/edit", {**identity(state), "operation": "add_semantic_point", "id": "desk"})
+    state = switch(request, state, binding_target_mode="semantic_navigation",
+                   binding_target_id="desk", binding_target_draft=[])
+    code, state = request("/api/edit", {**identity(state), "operation": "remove_semantic_point", "id": "desk"})
+    assert code == 200
+    assert state["binding_target_mode"] is None
+    assert state["web_selection"] is None
+    code, state = request("/api/undo", identity(state))
+    assert code == 200
+    assert any(row["id"] == "desk" for row in state["semantic_points"])

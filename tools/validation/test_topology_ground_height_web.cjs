@@ -12,13 +12,18 @@ function editor() {
   let nextTimer = 0;
   const document = {
     activeElement: null,
-    createElement() { return { value: "", textContent: "" }; },
+    createElement() { return {
+      value: "", textContent: "", dataset: {}, classList: { toggle() {} },
+      append() {}, appendChild() {}, addEventListener() {}, querySelector: () => ({ textContent: "" })
+    }; },
     getElementById(id) {
       if (!elements.has(id)) elements.set(id, {
         value: "", textContent: "", disabled: false,
         classList: { toggle(name, value) { this[name] = value; } },
         replaceChildren() { this.children = []; },
+        addEventListener() {},
         appendChild(child) { (this.children ||= []).push(child); },
+        getBoundingClientRect: () => ({left: 0, top: 0, width: 400, height: 400}),
         querySelectorAll: () => []
       });
       return elements.get(id);
@@ -33,9 +38,18 @@ function editor() {
   assert.ok(source.includes("  init();"));
   vm.runInNewContext(source.replace("  init();", `
     const calls = [];
-    write = async (path, body) => { calls.push({path, body}); return null; };
+    let reply = null;
+    write = async (path, body) => {
+      calls.push({path, body});
+      if (reply) { const fresh = reply; reply = null; acceptState(fresh, {preserveSelection: true}); return fresh; }
+      return null;
+    };
+    draw = () => {};
+    renderAll = () => renderInspector();
     globalThis.editor = { state, els, calls, renderPointSettings, updateToolUI,
-      renderInspector, applyInspector, createNode, syncPointSettings, startAnnotation, saveAnnotation, bindAnnotation,
+      renderInspector, applyInspector, createNode, syncPointSettings, startAnnotation, saveAnnotation, cancelAnnotation, cancelNavigationBindings,
+      toggleNavigationPick, acceptState, onPointerDown, worldToScreen, hitTest,
+      respondWith: (value) => { reply = value; },
       renderPending, showError, clearError, notice, timers, roadEnd, adjustRoadEndHeight,
       adjustAerialRoadStartHeight, toggleNavigationBindingFromMap,
       applyNavigationBindings };
@@ -104,36 +118,57 @@ test("remote floor switch resets ground height even while the input has focus", 
   assert.equal(api.state.server.new_point_settings.semantic_points.z, 8);
 });
 
-test("node annotation creation carries a node binding and no coordinates", async () => {
+test("label creation needs no node and submits no spatial or binding fields", async () => {
   const api = editor();
-  api.state.selection = { type: "node", id: "g1", domain: "ground" };
-  api.startAnnotation(true);
+  api.state.activeLayer = api.state.server.active_layer = "semantic_points";
+  api.state.server.editor_tool = "add-semantic-point";
+  api.startAnnotation();
+  assert.equal(api.state.selection, null);
   api.els.annotationLabel.value = "Desk";
   await api.saveAnnotation({ preventDefault() {} });
   const body = api.calls.at(-1).body;
-  assert.equal(body.operation, "create_node_annotation");
-  assert.equal(body.node_id, "g1");
-  assert.equal(body.annotation_node_id, "g1");
-  assert.ok(!("position_xyz" in body));
-  assert.equal(api.state.activeLayer, "ground");
+  assert.equal(body.operation, "add_semantic_point");
+  assert.equal(body.label, "Desk");
+  for (const key of ["position_xyz", "node_id", "annotation_node_id", "navigation_bindings"])
+    assert.ok(!(key in body));
+  assert.equal(api.state.activeLayer, "semantic_points");
+  assert.ok(api.state.annotationDraft); // Failed/no response preserves the form.
+  api.cancelAnnotation();
+  assert.equal(api.state.annotationDraft, null);
+  assert.equal(api.calls.length, 1);
 });
 
-test("binding and unbinding preserve other nodes and the active navigation layer", async () => {
+test("label creation is unavailable outside semantic management", () => {
   const api = editor();
   api.state.selection = { type: "node", id: "g1", domain: "ground" };
-  api.state.server.semantic_points = [{ id: "desk", label: "Desk", kind: "furniture",
-    navigation_bindings: [{ domain: "aerial", node_id: "a1" }] }];
-  api.els.annotationChoice.value = "desk";
-  await api.bindAnnotation(false);
-  assert.deepEqual(plain(api.calls.at(-1).body.bindings), [
-    { domain: "aerial", node_id: "a1" }, { domain: "ground", node_id: "g1" }]);
-  api.state.server.semantic_points[0].navigation_bindings = plain(api.calls.at(-1).body.bindings);
-  await api.bindAnnotation(true);
-  assert.deepEqual(plain(api.calls.at(-1).body.bindings), [{ domain: "aerial", node_id: "a1" }]);
-  assert.equal(api.state.activeLayer, "ground");
-  assert.equal(api.state.selection.id, "g1");
+  api.startAnnotation();
+  assert.equal(api.state.annotationDraft, null);
+  api.renderInspector();
+  assert.equal(api.els.labelCreation.classList.hidden, true);
 });
 
+test("binding entry is visible and finish preserves draft while discard restores saved bindings", async () => {
+  const api = editor();
+  api.state.activeLayer = api.state.server.active_layer = "semantic_points";
+  api.state.server.editor_tool = "add-semantic-point";
+  api.state.server.semantic_points = [{ id: "desk", label: "Desk", kind: "furniture",
+    navigation_bindings: [{ domain: "aerial", node_id: "a1" }] }];
+  api.state.selection = { type: "semantic_point", id: "desk" };
+  api.renderInspector();
+  assert.equal(api.els.pickNavigationBtn.classList.hidden, false);
+  api.toggleNavigationPick();
+  assert.equal(api.state.bindingPickMode, true);
+  api.toggleNavigationBindingFromMap({type: "node", id: "g1", domain: "ground"});
+  assert.equal(api.state.navigationBindingDraft.bindings.length, 2);
+  api.toggleNavigationPick();
+  assert.equal(api.state.bindingPickMode, false);
+  assert.equal(api.state.navigationBindingDraft.bindings.length, 2);
+  api.cancelNavigationBindings();
+  assert.deepEqual(plain(api.state.navigationBindingDraft.bindings), [{ domain: "aerial", node_id: "a1" }]);
+  assert.equal(api.state.selection.id, "desk");
+  assert.equal(api.state.activeLayer, "semantic_points");
+  assert.ok(api.calls.every(call => call.path !== "/api/edit"));
+});
 
 test("aerial road uses the configured start Z and adjusts only its endpoint by 0.1m", () => {
   const api = editor();
@@ -207,7 +242,7 @@ test("semantic navigation map picking edits a draft across both graph domains", 
 test("semantic binding controls and copy describe explicit map connection mode", () => {
   const html = readFileSync(join(__dirname, "../topology_authoring/web/index.html"), "utf8");
   const app = readFileSync(join(__dirname, "../topology_authoring/web/app.js"), "utf8");
-  assert.match(html, /在导航图层选择节点即可新建或绑定语义/);
+  assert.match(html, /先创建标签/);
   assert.match(html, /id="pickNavigationBtn"[^>]*>连接导航点/);
   assert.match(app, /连接模式：点击地面或空中导航节点加入\/移除绑定/);
   assert.match(app, /bindingKeys\.has\(`/);
@@ -254,3 +289,68 @@ test("error and pending draft take priority over transient success notices", () 
   api.renderPending();
   assert.equal(api.els.noticeBanner.classList.hidden, false);
 });
+
+
+test("creation response selects the new label even with an old inspector draft", async () => {
+  const api = editor();
+  api.state.activeLayer = api.state.server.active_layer = "semantic_points";
+  api.state.server.editor_tool = "add-semantic-point";
+  api.state.server.active_level = "upper";
+  api.state.server.semantic_points = [{id: "old", label: "Old", kind: "custom"}];
+  api.state.selection = {type: "semantic_point", id: "old"};
+  api.state.inspectorDraft = {selection: plain(api.state.selection), values: {fieldLabel: "unsaved"}};
+  api.startAnnotation();
+  api.els.annotationLabel.value = "New";
+  const fresh = plain(api.state.server);
+  fresh.revision += 1;
+  fresh.semantic_points.push({id: "new", label: "New", kind: "custom"});
+  fresh.web_selection = {kind: "semantic_point", id: "new"};
+  api.respondWith(fresh);
+  await api.saveAnnotation({preventDefault() {}});
+  assert.equal(api.state.selection.id, "new");
+  assert.equal(api.state.selectionItems[0].id, "new");
+  assert.equal(api.state.annotationDraft, null);
+  assert.equal(api.els.fieldLabel.value, "New");
+});
+
+test("actual canvas hit and pointer handlers bind both domains without selecting an edge", () => {
+  const api = editor();
+  api.state.activeLayer = api.state.server.active_layer = "semantic_points";
+  api.state.server.editor_tool = "add-semantic-point";
+  api.state.server.visible_layers = {ground: false, aerial: false};
+  api.state.server.visible_types = {nodes: false};
+  api.state.server.documents.aerial = {nodes: [{id: "a1", position_xyz: [-2, -2, 7]}], edges: []};
+  api.state.server.documents.ground.edges = [{id: "e1", from: "g1", to: "g2", polyline_xyz: [[1, 2, 0], [5, 2, 0]]}];
+  api.state.server.semantic_points = [{id: "s1", kind: "custom"}];
+  api.state.selection = {type: "semantic_point", id: "s1"};
+  api.renderInspector();
+  const click = (point) => { const [clientX, clientY] = api.worldToScreen(point); api.onPointerDown({clientX, clientY, button: 0}); };
+  click([1, 2]);
+  assert.equal(api.state.navigationBindingDraft.bindings.length, 0);
+  api.toggleNavigationPick();
+  click([1, 2]); click([-2, -2]); click([3, 2]); click([9, 9]);
+  assert.deepEqual(plain(api.state.navigationBindingDraft.bindings), [
+    {domain: "aerial", node_id: "a1"}, {domain: "ground", node_id: "g1"}]);
+  assert.equal(api.state.selection.id, "s1");
+  assert.equal(api.state.activeLayer, "semantic_points");
+  click([1, 2]);
+  assert.deepEqual(plain(api.state.navigationBindingDraft.bindings), [{domain: "aerial", node_id: "a1"}]);
+});
+
+for (const change of [{active_level: "lower"}, {active_layer: "aerial", editor_tool: "add-node"},
+                       {scene_generation: 3}, {editor_tool: "add-edge"}]) {
+  test("context switch discards label binding draft: " + JSON.stringify(change), () => {
+    const api = editor();
+    api.state.activeLayer = api.state.server.active_layer = "semantic_points";
+    api.state.server.editor_tool = "add-semantic-point";
+    api.state.server.active_level = "upper";
+    api.state.server.semantic_points = [{id: "s1", kind: "custom"}];
+    api.state.selection = {type: "semantic_point", id: "s1"};
+    api.state.navigationBindingDraft = {id: "s1", bindings: [{domain: "ground", node_id: "g1"}]};
+    api.state.bindingPickMode = true;
+    const fresh = {...plain(api.state.server), ...change, context_generation: 1, web_selection: null};
+    api.acceptState(fresh);
+    assert.equal(api.state.bindingPickMode, false);
+    assert.equal(api.state.navigationBindingDraft, null);
+  });
+}

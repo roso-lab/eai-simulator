@@ -35,9 +35,9 @@
 }
 
 * { box-sizing: border-box; }
-#nodeAnnotations label { display: block; margin: 8px 0; }
-#nodeAnnotations input, #nodeAnnotations select, #nodeAnnotations textarea { width: 100%; }
-#nodeAnnotations .binding-actions { flex-wrap: wrap; }
+#labelCreation label { display: block; margin: 8px 0; }
+#labelCreation input, #labelCreation select, #labelCreation textarea { width: 100%; }
+.binding-actions { flex-wrap: wrap; }
 html, body { height: 100%; }
 body { margin: 0; overflow: hidden; display: flex; flex-direction: column; color: var(--text); background: var(--bg); font-size: 14px; line-height: 1.5; }
 ::selection { background: rgba(45, 212, 167, .32); }

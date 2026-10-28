@@ -821,7 +821,7 @@ class _TopologyEditorGesture:
                     active_level=context.get("active_level"), domain=domain,
                     active_layer=domain, semantic_points=(),
                     visible_layers=binding_layers,
-                    visible_types={"nodes": (context.get("visible_types") or {}).get("nodes", True),
+                    visible_types={"nodes": True,
                                    "edges": False, "semantic_points": False},
                     editor_tool="add-node", meters_per_unit=self.controller.meters_per_unit)
                 if hit is not None and pixel is not None:
@@ -896,7 +896,22 @@ class _TopologyEditorGesture:
         context = self.controller.context or {}
         tool = context.get("editor_tool", "add-node")
         if self.controller.active_layer == "semantic_points":
+            # Labels have no spatial gestures. Only explicit binding mode may
+            # consume a press, without selecting or moving a navigation object.
+            if phase == "began" and getattr(self.controller, "navigation_binding_mode", False):
+                if getattr(self, "_press", None) is None:
+                    self._press = {"binding": True, "ndc": tuple(mouse_ndc)}
+                    self._moved = False
+                    self._last_mouse = tuple(mouse_ndc)
+                    hit = self._pick(mouse_ndc)
+                    if hit and hit.get("kind") == "node":
+                        self.controller.toggle_navigation_binding(hit["domain"], hit["id"])
+            elif phase in {"click", "ended", "cancelled"}:
+                self._press = self._drag_target = None
             return
+        if (getattr(self, "_press", None) or {}).get("binding"):
+            self._press = self._drag_target = None
+            self._moved = False
         if phase == "began":
             self._last_mouse = tuple(mouse_ndc)
             if getattr(self, "_press", None) is None or self._press.get("released"):

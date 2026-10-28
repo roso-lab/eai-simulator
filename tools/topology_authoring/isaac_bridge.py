@@ -903,7 +903,8 @@ class IsaacTopologyController:
                     self.edge_start = self.edge_end = self.edge_identity = None
                 else:
                     self.preview = preview
-            same_binding_context = same_scene and previous[4:6] == current[4:6]
+            same_binding_context = (same_scene and previous[4:6] == current[4:6]
+                                    and self.context.get("editor_tool") == context.get("editor_tool"))
             if not same_binding_context:
                 self.navigation_binding_mode = False
                 self.navigation_binding_target_id = None
@@ -963,6 +964,7 @@ class IsaacTopologyController:
         if (incoming != self.selection and self.gesture is None
                 and not self.selection_dirty):
             self.selection = incoming
+            self.selection_items = [dict(incoming)] if incoming else []
             self.selection_dirty = False
         if (self.navigation_binding_target_id
                 and (not self.selection or self.selection.get("kind") != "semantic_point"
@@ -1287,7 +1289,38 @@ class IsaacTopologyController:
         self._changed()
 
     def toggle_navigation_binding(self, domain: str, node_id: str) -> bool:
-        if not self.navigation_binding_mode or domain not in {"ground", "aerial"}:
+        if not self.navigation_binding_mode:
+            return False
+        return self.toggle_navigation_binding_draft(domain, node_id)
+
+    def _ensure_binding_draft(self) -> bool:
+        if not self.selection or self.selection.get("kind") != "semantic_point":
+            return False
+        row = self.semantic_point(self.selection["id"])
+        if row is None:
+            return False
+        if self.navigation_binding_target_id != row["id"] or self.navigation_binding_draft is None:
+            self.navigation_binding_target_id = row["id"]
+            self.navigation_binding_draft = json.loads(json.dumps(row.get("navigation_bindings", [])))
+        return True
+
+    def clear_navigation_bindings(self) -> bool:
+        if not self._ensure_binding_draft():
+            return False
+        self.navigation_binding_draft = []
+        self._sync_binding_draft()
+        return True
+
+    def _sync_binding_draft(self):
+        if self.navigation_binding_mode:
+            self._submit_context(("navigation-binding-draft", self.navigation_binding_target_id),
+                                 binding_target_mode="semantic_navigation",
+                                 binding_target_id=self.navigation_binding_target_id,
+                                 binding_target_draft=self.navigation_binding_draft)
+        self._changed()
+
+    def toggle_navigation_binding_draft(self, domain: str, node_id: str) -> bool:
+        if domain not in {"ground", "aerial"} or not self._ensure_binding_draft():
             return False
         if not any(row.get("id") == node_id for row in (self.document_snapshots.get(domain, {}).get("nodes") or [])):
             return False
@@ -1298,14 +1331,7 @@ class IsaacTopologyController:
         else:
             draft.append({"domain": domain, "node_id": node_id})
         self.navigation_binding_draft = sorted(draft, key=lambda row: (row["domain"], row["node_id"]))
-        point_id = self.selection.get("id") if self.selection else None
-        if point_id:
-            self.navigation_binding_target_id = point_id
-            self._submit_context(("navigation-binding-draft", point_id),
-                                 binding_target_mode="semantic_navigation",
-                                 binding_target_id=point_id,
-                                 binding_target_draft=self.navigation_binding_draft)
-        self._changed()
+        self._sync_binding_draft()
         return True
 
     def commit_navigation_bindings(self) -> bool:
@@ -1418,36 +1444,17 @@ class IsaacTopologyController:
         return self.build_road(start, end, connect_intersections=connect_intersections)
 
     def add_semantic_point(self, point: Iterable[float]) -> bool:
-        return False  # Annotations are created from navigation nodes only.
+        return False  # Labels are created in the form, never at a map position.
 
-    def save_annotation(self, identifier=None, *, identity=None, **fields):
-        node = self.selection if self.selection and self.selection.get("kind") == "node" else None
-        if node and (self.context or {}).get("editor_tool") == "add-node":
-            fields["annotation_node_id"] = node["id"]
-            if identifier is None:
-                fields["node_id"] = node["id"]
-        elif not identifier or self.active_layer != "semantic_points":
+    def save_label(self, identifier=None, *, identity=None, **fields):
+        if self.active_layer != "semantic_points":
             return False
         if identifier:
             fields["id"] = identifier
         return self._submit_frozen_edit(
-            ("semantic-point-properties", identifier), "update_semantic_point" if identifier else "create_node_annotation",
+            ("semantic-point-properties", identifier) if identifier else ("add-semantic-point",),
+            "update_semantic_point" if identifier else "add_semantic_point",
             identity=identity, **fields)
-
-    def bind_annotation(self, identifier, *, remove=False):
-        if not self.selection or self.selection.get("kind") != "node":
-            return False
-        row = self.semantic_point(identifier)
-        if row is None:
-            return False
-        node_id, domain = self.selection["id"], self.active_domain
-        bindings = [dict(b) for b in row.get("navigation_bindings", [])
-                    if (b["domain"], b["node_id"]) != (domain, node_id)]
-        if not remove:
-            bindings.append({"domain": domain, "node_id": node_id})
-        return self._submit_frozen_edit(
-            ("semantic-navigation-bindings", identifier), "set_semantic_point_navigation_bindings",
-            id=identifier, bindings=bindings, annotation_node_id=node_id)
 
     def activate_node_for_edge(self, identifier: str) -> None:
         if self.active_layer not in {"ground", "aerial"}:
@@ -1807,6 +1814,10 @@ class IsaacTopologyController:
                 self.navigation_binding_mode = False
                 self.navigation_binding_target_id = None
                 self.navigation_binding_draft = None
+            if tag and tag[0] == "add-semantic-point":
+                # The server selects the newly created label atomically with
+                # creation; do not let a pending old selection override it.
+                self.selection_dirty = False
             if isinstance(payload, dict):
                 fresh = payload.get("context") or payload.get("state")
                 if isinstance(fresh, dict) and "context_generation" in fresh:
@@ -1833,7 +1844,10 @@ class IsaacTopologyWindow:
         self._semantic_description_model = self._semantic_aliases_model = None
         self._semantic_properties_model = None
         self._semantic_xyz_models = []
-        self._annotation_id = None
+        self._creating_label = False
+        self._semantic_controls = self._semantic_form = self._binding_controls = None
+        self._binding_list = self._binding_search = None
+        self._binding_list_token = None
         self._annotation_list = self._annotation_search = None
         self._annotation_list_token = None
         self._delete_annotation_dialog = None
@@ -1910,7 +1924,10 @@ class IsaacTopologyWindow:
             self._node_level_controls.visible = self.controller.active_layer == "ground"
         if self.controller.result_serial != self._seen_result_serial:
             self._seen_result_serial = self.controller.result_serial
-            if self.controller.last_result_succeeded:
+            if (self.controller.last_result_succeeded
+                    and self.controller.last_result_tag
+                    and self.controller.last_result_tag[0] in {"add-semantic-point", "semantic-point-properties", "node-properties"}):
+                self._creating_label = False
                 self._property_dirty = False
                 self._property_revision = None
         token = (context.get("scene_key"), context.get("scene_generation"),
@@ -1919,12 +1936,21 @@ class IsaacTopologyWindow:
                  (selection.get("kind"), selection.get("id")))
         revision = context.get("revision")
         self._refresh_annotations()
-        if token == self._property_token and (self._property_dirty or revision == self._property_revision):
-            return
+        self._refresh_binding_list()
         if token != self._property_token:
             self._property_dirty = False
-            self._annotation_id = None
+            self._creating_label = False
             self._load_annotation(None)
+        if self._semantic_controls is not None:
+            self._semantic_controls.visible = self.controller.active_layer == "semantic_points"
+        if self._binding_controls is not None:
+            self._binding_controls.enabled = bool(not self._creating_label and selection
+                                                 and selection.get("kind") == "semantic_point")
+        if self._semantic_form is not None:
+            self._semantic_form.enabled = bool(self._creating_label or selection
+                                              and selection.get("kind") == "semantic_point")
+        if token == self._property_token and (self._property_dirty or revision == self._property_revision):
+            return
         self._property_token, self._property_revision = token, revision
         self._property_identity = self.controller.dispatcher.client.identity()
         self._property_setting = True
@@ -1948,9 +1974,6 @@ class IsaacTopologyWindow:
                                     ", ".join(point.get("aliases") or []))
                     self._set_model(self._semantic_properties_model,
                                     json.dumps(point.get("properties") or {}, sort_keys=True))
-                    for model, value in zip(self._semantic_xyz_models,
-                                            point.get("position_xyz", ())):
-                        self._set_model(model, float(value))
             for layer, model in self._new_z_models.items():
                 self._set_model(model, self.controller.new_point_settings[layer]["z"])
         finally:
@@ -1983,8 +2006,11 @@ class IsaacTopologyWindow:
             return
         aliases = [value.strip() for value in
                    self._string(self._semantic_aliases_model).split(",") if value.strip()]
-        identifier = (self.controller.selection or {}).get("id") if self.controller.active_layer == "semantic_points" else self._annotation_id
-        self.controller.save_annotation(identifier,
+        selection = self.controller.selection or {}
+        if not self._creating_label and selection.get("kind") != "semantic_point":
+            return
+        identifier = None if self._creating_label else selection["id"]
+        self.controller.save_label(identifier,
             identity=self._property_identity,
             label=self._string(self._semantic_label_model),
             kind=self._string(self._semantic_kind_model, "custom"),
@@ -1994,8 +2020,23 @@ class IsaacTopologyWindow:
     def _apply_new_z(self, layer):
         self.controller.set_new_point_z(layer, self._new_z_models[layer].get_value_as_float())
 
+    def _start_label(self):
+        if self.controller.active_layer != "semantic_points":
+            return
+        self.controller.select(None)
+        self.refresh()
+        self._load_annotation(None)
+        self._creating_label = True
+        self._property_dirty = True
+        self.refresh()
+
+    def _cancel_label(self):
+        self._creating_label = False
+        self._property_dirty = False
+        self._property_revision = None
+        self.refresh()
+
     def _load_annotation(self, identifier):
-        self._annotation_id = identifier
         row = self.controller.semantic_point(identifier) or {}
         self._property_setting = True
         try:
@@ -2014,11 +2055,10 @@ class IsaacTopologyWindow:
         if self._annotation_list is None:
             return
         import omni.ui as ui
-        selection = self.controller.selection or {}
-        node_id = selection.get("id") if selection.get("kind") == "node" else None
         query = self._string(self._annotation_search).lower()
+        selected_id = (self.controller.selection or {}).get("id")
         token = (json.dumps(self.controller.semantic_points, sort_keys=True),
-                 node_id, self.controller.active_layer, query)
+                 self.controller.active_layer, selected_id, query)
         if token == self._annotation_list_token:
             return
         self._annotation_list_token = token
@@ -2028,22 +2068,59 @@ class IsaacTopologyWindow:
                     for row in self.controller.semantic_points:
                         if query not in " ".join([row["id"], row.get("label", ""), row.get("kind", ""), *row.get("aliases", [])]).lower():
                             continue
-                        bound = any(b["domain"] == self.controller.active_domain and b["node_id"] == node_id
-                                    for b in row.get("navigation_bindings", []))
                         with ui.HStack(height=28):
-                            ui.Label(("Bound: " if bound else "Unbound: " if not row.get("navigation_bindings") else "") + (row.get("label") or row["id"]))
+                            ui.Label(("Selected: " if row["id"] == selected_id else "")
+                                     + ("Unbound: " if not row.get("navigation_bindings") else "")
+                                     + (row.get("label") or row["id"]))
                             def edit_row(identifier=row["id"]):
-                                if self.controller.active_layer == "semantic_points":
-                                    self.controller.select({"kind": "semantic_point", "id": identifier})
+                                self._creating_label = False
+                                self.controller.select({"kind": "semantic_point", "id": identifier})
                                 self._load_annotation(identifier)
-                            ui.Button("Edit", width=45, clicked_fn=edit_row)
-                            if node_id:
-                                ui.Button("Unbind" if bound else "Bind", width=65,
-                                          clicked_fn=lambda identifier=row["id"], remove=bound:
-                                          self.controller.bind_annotation(identifier, remove=remove))
+                            ui.Button("Select", width=55, clicked_fn=edit_row)
                             if self.controller.active_layer == "semantic_points":
                                 ui.Button("Delete", width=55, clicked_fn=lambda identifier=row["id"]:
                                           self._confirm_annotation_delete(identifier))
+
+    def _refresh_binding_list(self):
+        if self._binding_list is None:
+            return
+        import omni.ui as ui
+        selection = self.controller.selection or {}
+        row = (self.controller.semantic_point(selection.get("id")) or {}) if selection.get("kind") == "semantic_point" else {}
+        draft = (self.controller.navigation_binding_draft
+                 if self.controller.navigation_binding_target_id == row.get("id")
+                 and self.controller.navigation_binding_draft is not None
+                 else row.get("navigation_bindings", []))
+        query = self._string(self._binding_search).lower()
+        token = (row.get("id"), json.dumps(draft, sort_keys=True), query,
+                 json.dumps(self.controller.document_snapshots, sort_keys=True))
+        if token == self._binding_list_token:
+            return
+        self._binding_list_token = token
+        keys = {(b["domain"], b["node_id"]) for b in draft}
+        with self._binding_list:
+            with ui.ScrollingFrame():
+                with ui.VStack(height=0):
+                    if row:
+                        for domain in ("ground", "aerial"):
+                            for node in self.controller.document_snapshots.get(domain, {}).get("nodes", []):
+                                text = f"{domain} | {node['id']} | {node.get('label', '')}"
+                                if query not in text.lower():
+                                    continue
+                                with ui.HStack(height=25):
+                                    checkbox = ui.CheckBox(width=22)
+                                    checkbox.model.set_value((domain, node["id"]) in keys)
+                                    checkbox.model.add_value_changed_fn(
+                                        lambda _model, d=domain, n=node["id"]:
+                                        self.controller.toggle_navigation_binding_draft(d, n))
+                                    ui.Label(text)
+
+    def _delete_selection(self):
+        selection = self.controller.selection or {}
+        if selection.get("kind") == "semantic_point":
+            self._confirm_annotation_delete(selection["id"])
+        else:
+            self.controller.delete_selected()
 
     def _confirm_annotation_delete(self, identifier):
         import omni.ui as ui
@@ -2093,7 +2170,7 @@ class IsaacTopologyWindow:
                                               "visible_layers") or {}).get(name, True))))
                     with ui.HStack(height=30, width=ui.Fraction(1)):
                         for kind, label in (("nodes", "Nodes"), ("edges", "Edges"),
-                                            ("semantic_points", "Semantic points")):
+                                            ("semantic_points", "Semantic labels")):
                             ui.Button(label, width=0, clicked_fn=lambda name=kind:
                                       self.controller.set_type_visible(
                                           name, not bool(((self.controller.context or {}).get(
@@ -2146,7 +2223,7 @@ class IsaacTopologyWindow:
                         ui.Button("Cancel / Esc", width=0,
                                   clicked_fn=self.controller.cancel_gesture)
                         ui.Button("Delete", width=0,
-                                  clicked_fn=self.controller.delete_selected)
+                                  clicked_fn=self._delete_selection)
                     with ui.HStack(height=30, width=ui.Fraction(1)):
                         ui.Button("Undirected", width=0,
                                   clicked_fn=lambda: self.controller.set_directed(False))
@@ -2204,32 +2281,51 @@ class IsaacTopologyWindow:
                         with ui.HStack(height=30, width=ui.Fraction(1)):
                             ui.Button("Apply navigation point", width=0,
                                       clicked_fn=self._apply_node_properties)
-                    ui.Label("Semantic annotations: changes affect all bound nodes")
-                    self._annotation_search = ui.StringField().model
-                    self._annotation_search.add_value_changed_fn(lambda *_: self._refresh_annotations())
-                    self._annotation_list = ui.Frame(height=180)
-                    ui.Button("New annotation on selected node", clicked_fn=lambda: self._load_annotation(None))
-                    with ui.HStack(height=30, width=ui.Fraction(1), spacing=4):
-                        ui.Label("Name", width=45)
-                        semantic_label = ui.StringField(width=210)
-                        self._semantic_label_model = semantic_label.model
-                        ui.Label("Kind", width=40)
-                        semantic_kind = ui.StringField(width=210)
-                        self._semantic_kind_model = semantic_kind.model
-                    with ui.HStack(height=30, width=ui.Fraction(1), spacing=4):
-                        ui.Label("Description", width=75)
-                        value = ui.StringField(width=ui.Fraction(1))
-                        self._semantic_description_model = value.model
-                    with ui.HStack(height=30, width=ui.Fraction(1), spacing=4):
-                        ui.Label("Aliases", width=75)
-                        value = ui.StringField(width=ui.Fraction(1))
-                        self._semantic_aliases_model = value.model
-                    with ui.HStack(height=30, width=ui.Fraction(1), spacing=4):
-                        ui.Label("Properties JSON", width=100)
-                        value = ui.StringField(width=ui.Fraction(1))
-                        self._semantic_properties_model = value.model
-                        ui.Button("Apply semantic", width=120,
-                                  clicked_fn=self._apply_semantic_properties)
+                    self._semantic_controls = ui.VStack(height=0)
+                    with self._semantic_controls:
+                        ui.Label("Semantic labels: changes affect all bound nodes")
+                        self._annotation_search = ui.StringField().model
+                        self._annotation_search.add_value_changed_fn(lambda *_: self._refresh_annotations())
+                        self._annotation_list = ui.Frame(height=180)
+                        with ui.HStack(height=30):
+                            ui.Button("New label", clicked_fn=self._start_label)
+                            ui.Button("Cancel label edits", clicked_fn=self._cancel_label)
+                        self._semantic_form = ui.VStack(height=0)
+                        with self._semantic_form:
+                            with ui.HStack(height=30, width=ui.Fraction(1), spacing=4):
+                                ui.Label("Name", width=45)
+                                semantic_label = ui.StringField(width=210)
+                                self._semantic_label_model = semantic_label.model
+                                ui.Label("Kind", width=40)
+                                semantic_kind = ui.StringField(width=210)
+                                self._semantic_kind_model = semantic_kind.model
+                            with ui.HStack(height=30, width=ui.Fraction(1), spacing=4):
+                                ui.Label("Description", width=75)
+                                value = ui.StringField(width=ui.Fraction(1))
+                                self._semantic_description_model = value.model
+                            with ui.HStack(height=30, width=ui.Fraction(1), spacing=4):
+                                ui.Label("Aliases", width=75)
+                                value = ui.StringField(width=ui.Fraction(1))
+                                self._semantic_aliases_model = value.model
+                            with ui.HStack(height=30, width=ui.Fraction(1), spacing=4):
+                                ui.Label("Properties JSON", width=100)
+                                value = ui.StringField(width=ui.Fraction(1))
+                                self._semantic_properties_model = value.model
+                                ui.Button("Apply label", width=120,
+                                          clicked_fn=self._apply_semantic_properties)
+                        ui.Label("Create a label, select it, then connect navigation nodes. Apply bindings to save.", word_wrap=True)
+                        self._binding_controls = ui.VStack(height=0)
+                        with self._binding_controls:
+                            with ui.HStack(height=30):
+                                ui.Button("Connect navigation nodes", clicked_fn=self.controller.begin_navigation_binding)
+                                ui.Button("Finish connecting", clicked_fn=self.controller.finish_navigation_binding)
+                            self._binding_search = ui.StringField().model
+                            self._binding_search.add_value_changed_fn(lambda *_: self._refresh_binding_list())
+                            self._binding_list = ui.Frame(height=140)
+                            with ui.HStack(height=30):
+                                ui.Button("Clear bindings", clicked_fn=self.controller.clear_navigation_bindings)
+                                ui.Button("Apply bindings", clicked_fn=self.controller.commit_navigation_bindings)
+                                ui.Button("Discard draft", clicked_fn=self.controller.cancel_navigation_binding)
                     with ui.HStack(height=30, width=ui.Fraction(1)):
                         ui.Button("Undo", width=0, clicked_fn=self.controller.undo)
                         ui.Button("Redo", width=0, clicked_fn=self.controller.redo)
@@ -2267,7 +2363,7 @@ class IsaacTopologyWindow:
                 delete_key = getattr(carb.input.KeyboardInput, "DELETE", None)
                 if event.type == carb.input.KeyboardEventType.KEY_PRESS:
                     if event.input == delete_key:
-                        self.controller.delete_selected()
+                        self._delete_selection()
                         return True
                     if event.input == page_up:
                         if not self.controller.adjust_road_end_height(.1):

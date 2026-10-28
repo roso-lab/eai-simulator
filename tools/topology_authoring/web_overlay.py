@@ -336,12 +336,13 @@ def build_unified_overlay_specs(document_snapshots, semantic_points, *,
         # highlighted/dimmed node overlay and native viewport picking.
         visible_layers["ground"] = True
         visible_layers["aerial"] = True
+        visible_types["nodes"] = True
     prims = []
     for layer in ("ground", "aerial"):
         if not visible_layers[layer]:
             continue
         snapshot = (document_snapshots or {}).get(layer) or {}
-        level = (active_level if active_layer == "ground" and layer == "ground"
+        level = (active_level if (active_layer == "ground" or binding_mode) and layer == "ground"
                  else reference_level if layer == "ground" else None)
         planned = build_overlay_specs(
             snapshot, active_level=level, layer=layer,
@@ -374,7 +375,7 @@ def build_unified_overlay_specs(document_snapshots, semantic_points, *,
                  for b in row.get("navigation_bindings", [])}
     for spec in prims:
         category = spec.get("category", "")
-        if category in {"ground:node", "aerial:node"} and (category.split(":")[0], spec.get("key")) in annotated:
+        if not binding_mode and category in {"ground:node", "aerial:node"} and (category.split(":")[0], spec.get("key")) in annotated:
             spec["color"] = list(SEMANTIC_POINT_COLOR)
     return {"root": WEB_OVERLAY_ROOT, "prims": prims, "route_members": {}}
 

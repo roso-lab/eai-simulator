@@ -116,7 +116,8 @@ def test_context_serves_document_snapshot_and_web_selection(tmp_path):
                       "runtime", "levels", "csrf_token"):
             assert field in context, field
         assert context["scene_key"] == "office"
-        assert context["web_selection"] is None
+        assert context["web_selection"] == {
+            "kind": "semantic_point", "collection": None, "id": "semantic:0001"}
 
         snapshot = context["document_snapshot"]
         state = json.load(urlopen(url + "/api/state"))

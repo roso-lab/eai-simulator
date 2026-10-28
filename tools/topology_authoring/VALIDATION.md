@@ -1,5 +1,35 @@
 # Topology authoring and node-route validation
 
+## Label-first semantic navigation binding — 2026-10-28
+
+Web and Isaac now create labels from the semantic management form without a
+navigation selection or a map position. Creation selects the new, initially
+unbound label. The original explicit navigation connection mode, searchable
+binding list, clear/apply/discard actions and cross-domain node picking are
+available again. Finish keeps the draft; discard restores saved bindings.
+Navigation edges and blank map clicks never select another layer in this mode.
+
+Version 3 semantic products and legacy integrity-checked migration are retained.
+Creation and binding are separate undoable transactions. The node-first creation
+API and UI introduced in the preceding implementation have been removed.
+
+Validation in this worktree:
+
+- Python topology, semantic, navigation, storage, Isaac bridge/viewport and overlay
+  regression: **285 passed, 5 skipped, 5 failed**. All failures are the pre-existing
+  USD surface tests importing unavailable `pxr`; the affected surface code was
+  not changed.
+- Web JavaScript handler tests: **20 passed**, including form creation/cancel,
+  authoritative selection after creation, real canvas hit/pointer handlers with
+  simulated events, both navigation domains, finish/discard and scope switches.
+- Python compilation, JavaScript syntax, all 101 frontend DOM references and
+  `git diff --check` passed.
+
+Isaac controls and gesture callbacks were tested with test doubles. No real Isaac
+GUI mouse session or browser visual inspection was performed in this validation.
+The previous node-first results below are historical and do not describe the
+current interaction.
+
 ## Nonspatial node annotations — 2026-10-28
 
 Semantic product v3 omits position_xyz and edit_mode. Legacy v1/v2 products

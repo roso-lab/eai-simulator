@@ -180,6 +180,10 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
             web_selection["selection"] = normalize_selection(web_selection["selection"])
         except (ValueError, KeyError):
             web_selection["selection"] = None
+        if editor.get("binding_target_mode") == "semantic_navigation":
+            selected = web_selection["selection"] or {}
+            if selected.get("kind") != "semantic_point" or selected.get("id") != editor.get("binding_target_id"):
+                editor.update(binding_target_mode=None, binding_target_id=None, binding_target_draft=None)
 
     def update_runtime(generation, status, error=None):
         with lock:
@@ -537,7 +541,7 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                     if route == "/api/edit":
                         operation = body.pop("operation")
                         semantic_operations = {"add_semantic_point", "update_semantic_point",
-                                               "create_node_annotation", "remove_semantic_point",
+                                               "remove_semantic_point",
                                                "set_semantic_point_navigation_bindings"}
                         allowed = semantic_operations | {"add_node", "update_node", "move_node_xy", "move_node",
                                                          "remove_node", "add_edge", "update_edge", "remove_edge",
@@ -546,7 +550,7 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                         if operation not in allowed:
                             raise ValueError("operation is unavailable in the unified editor")
                         operations_by_tool = {
-                            "add-node": {"add_node", "update_node", "move_node_xy", "move_node", "remove_node", "remove_selection"} | semantic_operations,
+                            "add-node": {"add_node", "update_node", "move_node_xy", "move_node", "remove_node", "remove_selection"},
                             "add-edge": {"add_edge", "update_edge", "remove_edge", "translate_edge_xy"},
                             "add-semantic-point": semantic_operations | {"remove_selection"},
                             "build-ground-road": {"build_ground_road"},
@@ -559,28 +563,19 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                         semantic_operation = operation in semantic_operations
                         if operation == "remove_selection":
                             semantic_operation = editor["active_layer"] == "semantic_points"
-                        node_annotation = semantic_operation and editor["active_layer"] in {"ground", "aerial"}
-                        if not node_annotation and semantic_operation != (editor["active_layer"] == "semantic_points"):
+                        if semantic_operation != (editor["active_layer"] == "semantic_points"):
                             raise ValueError("operation is outside the active editor layer")
-                        if node_annotation:
-                            node_id = body.pop("annotation_node_id", None)
-                            if not node_id:
-                                raise ValueError("annotation_node_id is required")
-                            node = project.document_for(domain).node(node_id)
-                            if domain == "ground" and node.get("level_id") not in (None, editor["active_level"]):
-                                raise ValueError("annotation node is outside the active floor")
-                            if operation == "add_semantic_point":
-                                raise ValueError("use create_node_annotation to create and bind atomically")
-                            if operation == "create_node_annotation" and body.get("node_id") != node_id:
-                                raise ValueError("annotation node does not match creation target")
-                        elif operation == "create_node_annotation":
-                            raise ValueError("select a navigation node to create an annotation")
                         required_layer = ("ground" if editor["editor_tool"] in {"build-ground-road", "delete-ground-edge"}
                                           else "aerial" if editor["editor_tool"] in {"build-aerial-road", "delete-aerial-edge"}
                                           else None)
                         if required_layer and editor["active_layer"] != required_layer:
                             raise ValueError(f"{required_layer} road tools require the {required_layer} layer")
                         project.edit(operation, domain=domain, **body)
+                        if operation == "add_semantic_point":
+                            web_selection["selection"] = {
+                                "kind": "semantic_point", "id": project.semantic_points[-1]["id"]}
+                            editor.update(binding_target_mode=None, binding_target_id=None,
+                                          binding_target_draft=None)
                         if operation == "set_semantic_point_navigation_bindings" and editor.get("binding_target_mode"):
                             editor.update(binding_target_mode=None, binding_target_id=None,
                                          binding_target_draft=None)

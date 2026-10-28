@@ -164,8 +164,8 @@ revision_directory = project.save()
 `move_node_xy` 保留 Z；`translate_edge_xy(id, delta_xy)` 一次移动边和端点。
 
 语义属性通过 `update_semantic_point/remove_semantic_point` 编辑；
-从导航节点创建使用 `create_node_annotation(node_id, ...)`，一次创建并绑定，支持单步撤销。
-HTTP 导航图层操作语义时必须提供 `annotation_node_id`，服务端校验当前图域和楼层。
+在语义管理图层调用 `add_semantic_point(label, kind, ...)` 创建无坐标标签；不需要导航节点，初始绑定为空，响应自动选中新标签。
+创建与后续绑定分别是一次可撤销事务；HTTP 语义编辑仅允许在语义管理工具中提交，旧的节点优先创建接口已移除。
 语义管理列表可以编辑、解绑和删除；坐标及移动操作被拒绝。
 导航绑定使用原子操作 `set_semantic_point_navigation_bindings`，传空数组表示全部解绑。
 旧版产品经过文件完整性校验后，读取时丢弃 `position_xyz`、`edit_mode` 和 `isaac_binding`；下一次保存写出 v3。未绑定记录保留，不自动推断绑定。
