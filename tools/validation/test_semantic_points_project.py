@@ -476,11 +476,16 @@ def test_road_start_preview_and_commit_share_frozen_axis_geometry(api):
     code, start = request("/api/road/start", {**ident, "start_xyz": [.03,.02,0], "snap_radius_m": .1})
     assert code == 200 and start["position_xyz"] == [0,0,0]
     args = dict(start_xyz=start["position_xyz"], end_xyz=[2,.02,0], fixed_start=start,
-                axis_snap=True, snap_radius_m=.1, level_id="1F")
+                axis_snap=True, snap_radius_m=.1)
     code, plan = request("/api/road/preview", {**ident, **args})
     assert code == 200 and plan["end"] == [2,0,0]
     _, before = request("/api/state")
     assert before["revision"] == state["revision"]
+    # Match the browser: reuse the preview body without supplying level_id.
+    code, rejected = request("/api/edit", {**ident, **args, "operation": "build_ground_road", "level_id": "other-floor"})
+    assert code == 400
+    _, unchanged = request("/api/state")
+    assert unchanged["revision"] == state["revision"]
     code, after = request("/api/edit", {**ident, **args, "operation": "build_ground_road"})
     assert code == 200, after
     assert after["revision"] == state["revision"] + 1

@@ -578,6 +578,12 @@ def make_server(project, port=8765, catalog=None, *, asset_root=None, isaac_link
                                           else None)
                         if required_layer and editor["active_layer"] != required_layer:
                             raise ValueError(f"{required_layer} road tools require the {required_layer} layer")
+                        if operation == "build_ground_road":
+                            # Preview and commit must use the same authoritative floor.
+                            # Browser frozen preview requests need not carry level_id.
+                            if body.get("level_id", editor["active_level"]) != editor["active_level"]:
+                                raise ValueError("road level is outside the active ground floor")
+                            body["level_id"] = editor["active_level"]
                         project.edit(operation, domain=domain, **body)
                         if operation == "add_semantic_point":
                             web_selection["selection"] = {
