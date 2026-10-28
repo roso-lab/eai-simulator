@@ -9,7 +9,7 @@
     {
       "level_id": "terrain",
       "file": "base/level-000.npz",
-      "sha256": "da08c4568bbf326e796827a18d1579bdc5b7284f32efe4100bb411c7c71cca97"
+      "sha256": "e4aa3f772c83a1c063103bda738cf2d6e2935974b7e7ff2e9d9c2f709d828863"
     }
   ],
   "provenance": {
@@ -19545,5 +19545,6 @@
     "ground": "topology.json",
     "aerial": "topology-aerial.json"
   },
-  "save_id": "4b9b449206b744a6b5cecc7983ffc60d"
+  "save_id": "3e59caf3139f4b1984201f2523f8dd51",
+  "semantic_binding_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
 }
