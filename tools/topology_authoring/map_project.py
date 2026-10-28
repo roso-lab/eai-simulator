@@ -1012,11 +1012,15 @@ class MapProject:
             "coordinate_frame": "scene_world", "meters_per_unit": 1, "up_axis": "Z",
             "points": deepcopy(self.semantic_points)})
         write_json(destination / "semantic-footprints.geojson", {"type": "FeatureCollection", "features": features})
+        provenance = self.manifest.get("provenance", {})
+        if "semantic-footprints.json" not in provenance and isinstance(provenance.get("original_provenance"), dict):
+            # A rescaled project keeps the imported provenance under original_provenance.
+            provenance = provenance["original_provenance"]
         write_json(destination / "semantic-footprints.json", {
             "schema": "eai.semantic_footprints", "version": 1, "scene_id": export_doc.scene_key,
             "project_revision": revision_id, "coordinate_frame": "scene_world", "objects": objects,
             "semantics": semantics, "robot_validated": False,
-            "visual_review": (self.manifest.get("provenance", {}).get("semantic-footprints.json", {}).get("visual_review", {})
+            "visual_review": (provenance.get("semantic-footprints.json", {}).get("visual_review", {})
                               if semantics["regions"] or semantics["entities"] else {})})
         files = {path.name: sha256(path) for path in sorted(destination.iterdir()) if path.is_file()}
         write_json(destination / "manifest.json", {"schema": "eai.semantic_map.revision", "version": 2,

@@ -28,8 +28,14 @@ def discover_scene_projects(asset_root):
 
 def source_usd(manifest):
     provenance = manifest.get("provenance", {})
-    for row in (provenance, provenance.get("semantic-footprints.json", {}),
-                provenance.get("semantic-manifest.json", {})):
+    # A rescaled project keeps the imported provenance under original_provenance.
+    rows = [provenance, provenance.get("semantic-footprints.json", {}),
+            provenance.get("semantic-manifest.json", {})]
+    original = provenance.get("original_provenance")
+    if isinstance(original, dict):
+        rows += [original, original.get("semantic-footprints.json", {}),
+                 original.get("semantic-manifest.json", {})]
+    for row in rows:
         if row.get("source_usd"):
             return str(row["source_usd"])
     return None
