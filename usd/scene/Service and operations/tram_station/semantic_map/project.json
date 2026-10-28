@@ -9,7 +9,7 @@
     {
       "level_id": "ground",
       "file": "base/level-000.npz",
-      "sha256": "a08f47a35d98f415eaec31d08728f50f5f4363e06f83428fedf18749b25bd895"
+      "sha256": "f700fd5836ee441d279aafe3eb06f3a78c47c5cbd52571c9068df89133e08263"
     }
   ],
   "provenance": {
@@ -27040,5 +27040,6 @@
     "ground": "topology.json",
     "aerial": "topology-aerial.json"
   },
-  "save_id": "f4767ba9231b4c86bb4d9f00a1f43630"
+  "save_id": "dfe3c6cc98ae4218b08a7b08856cd489",
+  "semantic_binding_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
 }

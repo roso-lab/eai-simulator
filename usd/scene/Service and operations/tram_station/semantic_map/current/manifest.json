@@ -1,7 +1,7 @@
 {
   "schema": "eai.semantic_map.revision",
   "version": 2,
-  "revision": "f4767ba9231b4c86bb4d9f00a1f43630",
+  "revision": "dfe3c6cc98ae4218b08a7b08856cd489",
   "scene_key": "service_tram_station",
   "levels": [
     {
@@ -10,10 +10,10 @@
       "preview": "level-000-semantic-map.png",
       "layer": "level-000-layer.png",
       "extent_xy": [
-        -176.4,
-        176.4,
-        -176.4,
-        176.4
+        -176.0,
+        176.0,
+        -176.0,
+        176.0
       ]
     }
   ],
@@ -22,13 +22,14 @@
     "aerial": "topology-aerial.json"
   },
   "semantic_point_product": "semantic-points.json",
+  "semantic_binding_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
   "files": {
-    "level-000-layer.png": "de2fd171cbd5108e2ea5f18a726358446cca62de805979f166ac486d5419e991",
-    "level-000-semantic-grid.npz": "b907ec68cbdb42c226fb4553690bec96fcb785df3a79e6aaf2c86cd29dd09818",
-    "level-000-semantic-map.png": "f796134a1dcf0db87521dc589fe59b5f8fe4542094c3155c2ceec9a44416325e",
+    "level-000-layer.png": "efa33a5f6daff1f1655cdee6c63757daaf7b854b236b8033b0a920b4ed1d2c62",
+    "level-000-semantic-grid.npz": "6cf0566fbfbe6a33e8758ae3603e5303a3dba82e26eb58d2c87c3f20ff7292a4",
+    "level-000-semantic-map.png": "b20c01dece3bbc8bcd0a30553e325f4ee7e81b8d6aa19d07cd7195425fa81e96",
     "semantic-footprints.geojson": "3262bbcf281d1990059456864c22cf2fa687f22274d0243925ca665601367e4d",
-    "semantic-footprints.json": "b35533a9ee80adf6d92db7812e5b7ae9d59b775ebe3639ad53d82f881d870c78",
-    "semantic-points.json": "6c887b60b45115cd5108319f476d9244b1662ffcedd829c786a91e0874722a6e",
+    "semantic-footprints.json": "b18a12c8410fd480c34c026314b4773f8d7acd78b5ec8c10aa214639c66d8474",
+    "semantic-points.json": "e232c776fd3c38176437939ca066bee6a04c1cb30fce231e3d063aee36928761",
     "topology-aerial.json": "2ee177d7c0969726bdbd0820cf61cb1d42e18fb06af827d28cc51223744d297d",
     "topology.json": "f26c3f95be72bc4f0f1f8075bb8c68bbfe6def4a88e3e5b2de4d05e263d54676"
   },
