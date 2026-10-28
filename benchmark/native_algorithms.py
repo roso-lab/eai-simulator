@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import replace
 import importlib
 import json
+import time
 from pathlib import Path
 from typing import Any
 
@@ -43,22 +44,32 @@ class VerifiedNativeAdapter:
         self.source_root = Path(source_root).expanduser().resolve()
         self.source_receipt = verify_source(self.source_root, self.spec["commit"])
         self.calls = 0
+        self.attempts = 0
+        self.last_call_metrics = None
 
     def __getattr__(self, name: str) -> Any:
         # Only lifecycle operations actually implemented by the native adapter
         # exist; this envelope never synthesizes a feedback/replan policy.
         value = getattr(self.provider, name)
         if name == "replan":
-            return lambda *args: self._run(value, *args)
+            return lambda *args, **kwargs: self._run(value, *args, _allow_stop=True, **kwargs)
         return value
 
-    def _run(self, callback, *args):
+    def _run(self, callback, *args, _allow_stop=False, **kwargs):
+        started = time.perf_counter()
+        self.attempts += 1
         before = verify_source(self.source_root, self.spec["commit"])
         module = importlib.import_module(type(self.provider).__module__)
         adapter_hash = sha256_file(module.__file__)
         register_hash = sha256_file(REGISTER)
+        checked = time.perf_counter()
+        metrics = {"attempt": self.attempts,
+                   "operation": "replan" if _allow_stop else "decision",
+                   "scope": "provider_wall_includes_mapping_imports_rpc_and_internal_checks_not_pure_solver"}
         try:
-            decision = callback(*args)
+            decision = callback(*args, **kwargs)
+            if not isinstance(decision, AlgorithmDecision) and not (_allow_stop and decision is None):
+                raise TypeError("native adapter must return AlgorithmDecision (or None from replan)")
         except Exception as exc:
             # Rejected native output is evidence too. Preserve the original
             # exception and decision while recording the exact source boundary.
@@ -68,14 +79,23 @@ class VerifiedNativeAdapter:
                 "adapter_source_sha256": adapter_hash,
                 "source_register_sha256": register_hash,
                 "decision_is_physical_evidence": False,
+                "call_timing": metrics,
             }
             raise
         finally:
-            after = verify_source(self.source_root, self.spec["commit"])
+            returned = time.perf_counter()
+            try:
+                after = verify_source(self.source_root, self.spec["commit"])
+            finally:
+                finished = time.perf_counter()
+                metrics.update(provider_wall_s=returned - checked,
+                               envelope_checks_wall_s=(checked - started) + (finished - returned),
+                               total_wall_s=finished - started)
+                self.last_call_metrics = dict(metrics)
             if before != after:
                 raise RuntimeError("upstream changed during native algorithm call")
-        if not isinstance(decision, AlgorithmDecision):
-            raise TypeError("native adapter must return AlgorithmDecision")
+        if decision is None:
+            return None
         self.calls += 1
         provenance = {
             **decision.provenance,
@@ -85,6 +105,7 @@ class VerifiedNativeAdapter:
             "source_register_sha256": register_hash,
             "native_adapter_call": self.calls,
             "decision_is_physical_evidence": False,
+            "call_timing": dict(metrics),
         }
         return replace(decision, provenance=provenance)
 
