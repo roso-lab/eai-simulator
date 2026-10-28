@@ -1,9 +1,346 @@
 {
   "schema": "eai.semantic_points",
-  "version": 2,
+  "version": 3,
   "scene_key": "production_bar",
   "coordinate_frame": "scene_world",
   "meters_per_unit": 1,
   "up_axis": "Z",
-  "points": []
+  "points": [
+    {
+      "id": "semantic:7a3a02b61b054926a67e13c35f4f8872",
+      "label": "floor2-dining_table-1",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0053"
+        }
+      ]
+    },
+    {
+      "id": "semantic:b009392b442f4a9eb5c2c4fc9cfd3b83",
+      "label": "floor2-dining_table-2",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0054"
+        }
+      ]
+    },
+    {
+      "id": "semantic:8195d185af31415abdeaf8ff4193bb87",
+      "label": "floor1-dining_table-1",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0033"
+        }
+      ]
+    },
+    {
+      "id": "semantic:6d92b67f8f6543a5894a6ae18d9cccdb",
+      "label": "floor1-dining_table-2",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0035"
+        }
+      ]
+    },
+    {
+      "id": "semantic:f6ddc76b113349aba54f5f01af217775",
+      "label": "floor1-dining_table-3",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0036"
+        }
+      ]
+    },
+    {
+      "id": "semantic:2a0590c902af49a0b0b450d1a4410d6c",
+      "label": "floor1-dining_table-4",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0034"
+        }
+      ]
+    },
+    {
+      "id": "semantic:d386bbeffb7d42ad8ab878b6f50b686c",
+      "label": "floor1-dining_table-5",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0040"
+        }
+      ]
+    },
+    {
+      "id": "semantic:7f33824c5c604b73990d2390066d3fe7",
+      "label": "floor1-dining_table-6",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0043"
+        }
+      ]
+    },
+    {
+      "id": "semantic:aa752b9b37714e178364f49aea7dbf77",
+      "label": "floor1-charging_point",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0066"
+        }
+      ]
+    },
+    {
+      "id": "semantic:f38d3039303945bab917c41b447cf6c5",
+      "label": "floor1-bar_counter-1-external",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0031"
+        }
+      ]
+    },
+    {
+      "id": "semantic:24417bc0590f40bd97d9ccd8ac81524c",
+      "label": "floor1-bar_counter-1-inner",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0064"
+        }
+      ]
+    },
+    {
+      "id": "semantic:7530ab02f3e9442caf9ab282bcd7f909",
+      "label": "floor1-bar_counter-2-external",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0029"
+        }
+      ]
+    },
+    {
+      "id": "semantic:5bde5962b0c84e24af8c1ea17a6ce294",
+      "label": "floor1-bar_counter-2-inner",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0059"
+        }
+      ]
+    },
+    {
+      "id": "semantic:48f90a7aceb341f0aeb5fee2209586df",
+      "label": "floor1-bar_counter-3-external",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0028"
+        }
+      ]
+    },
+    {
+      "id": "semantic:3c5ed77597c4457b8b5276da8364f34b",
+      "label": "floor1-bar_counter-4-external",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0025"
+        }
+      ]
+    },
+    {
+      "id": "semantic:43ca6632635e4b10894378d57e307b44",
+      "label": "floor1-bar_counter-5-external",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0073"
+        }
+      ]
+    },
+    {
+      "id": "semantic:963d57ac434046c08445ae6aeef7f8b9",
+      "label": "floor1-bar_counter-3-inner",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0086"
+        }
+      ]
+    },
+    {
+      "id": "semantic:05aabd06ead847d6858232d2ea06ebb1",
+      "label": "floor1-bar_counter-4-inner",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0076"
+        }
+      ]
+    },
+    {
+      "id": "semantic:0d78a736f1034cf5bd9e27e12faef040",
+      "label": "floor1-bar_counter-5-inner",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0008"
+        }
+      ]
+    },
+    {
+      "id": "semantic:b2c975a5c40844d1a3413360306c8548",
+      "label": "workbench-1",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0063"
+        }
+      ]
+    },
+    {
+      "id": "semantic:b25ea3e7533e46489eea3eaa7e38296c",
+      "label": "workbench-2",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0058"
+        }
+      ]
+    },
+    {
+      "id": "semantic:7afa86eccd3643d7bea78a63200e8ce0",
+      "label": "workbench-3",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0069"
+        }
+      ]
+    },
+    {
+      "id": "semantic:92bdf3c31ead4ee6ba32c139b689ae5f",
+      "label": "refrigerator",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0018"
+        }
+      ]
+    },
+    {
+      "id": "semantic:620fe62d7b4a4d39b5d0ff2c2da531b0",
+      "label": "floor1-storage_area",
+      "kind": "custom",
+      "description": "",
+      "aliases": [],
+      "properties": {},
+      "navigation_bindings": [
+        {
+          "domain": "ground",
+          "node_id": "node:0004"
+        }
+      ]
+    }
+  ]
 }
