@@ -2112,815 +2112,279 @@
       "level_id": "3F",
       "label": "几何路线终点",
       "aliases": []
+    },
+    {
+      "id": "node:0001",
+      "kind": "custom",
+      "position_xyz": [
+        -0.7650549725137431,
+        2.458808095952024,
+        0.1095316
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0002",
+      "kind": "custom",
+      "position_xyz": [
+        -0.7641304347826087,
+        1.3908514492753623,
+        0.1095316
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0003",
+      "kind": "custom",
+      "position_xyz": [
+        0.46458020989505244,
+        2.4927848575712144,
+        0.1095316
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0004",
+      "kind": "custom",
+      "position_xyz": [
+        -1.4838830584707645,
+        1.4041416791604198,
+        0.1095316
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0005",
+      "kind": "custom",
+      "position_xyz": [
+        -0.7644899012952584,
+        1.8060802046997595,
+        0.1095316
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0006",
+      "kind": "custom",
+      "position_xyz": [
+        -1.2619940029985006,
+        2.0767428785607196,
+        0.1095316
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0007",
+      "kind": "custom",
+      "position_xyz": [
+        -0.9786688066948437,
+        1.6864144105797065,
+        0.1095316
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0008",
+      "kind": "custom",
+      "position_xyz": [
+        0.020802098950524737,
+        2.6453335832083957,
+        0.1095316
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0009",
+      "kind": "custom",
+      "position_xyz": [
+        -1.2132246376811593,
+        1.0221920289855073,
+        0.1095316
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0010",
+      "kind": "custom",
+      "position_xyz": [
+        -0.5085326581046644,
+        1.9490883441336502,
+        0.1095316
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0011",
+      "kind": "custom",
+      "position_xyz": [
+        -0.7643224409856326,
+        1.6126426145435397,
+        0.1095316
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0012",
+      "kind": "custom",
+      "position_xyz": [
+        -0.8465828982449347,
+        1.5044436894445607,
+        0.1095316
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0013",
+      "kind": "custom",
+      "position_xyz": [
+        -0.5893928035982009,
+        -1.6052286356821588,
+        0.1095316
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0014",
+      "kind": "custom",
+      "position_xyz": [
+        -1.3035982008995501,
+        1.979666416791604,
+        0.1095316
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0015",
+      "kind": "custom",
+      "position_xyz": [
+        -0.8246042402186003,
+        -0.4246042402186003,
+        0.1095316
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0016",
+      "kind": "custom",
+      "position_xyz": [
+        -0.8578300466702133,
+        -0.25783004667021325,
+        0.1095316
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0017",
+      "kind": "custom",
+      "position_xyz": [
+        -1.1336867483775306,
+        1.1268099026762237,
+        0.1095316
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
+    },
+    {
+      "id": "node:0018",
+      "kind": "custom",
+      "position_xyz": [
+        -1.2184808501149305,
+        1.5524268987756007,
+        0.1095316
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "level_id": "1F",
+      "label": "",
+      "aliases": []
     }
   ],
   "edges": [
-    {
-      "id": "route:living_office:1F:region-link:001:edge:0001",
-      "kind": "custom_connection",
-      "from": "node:living_office:1F:region:region:living_office:1F:office-1F-main-block",
-      "to": "route:living_office:1F:region-link:001:point:0001",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -0.44999999999999973,
-          -0.04999999999999982,
-          0.1095316
-        ],
-        [
-          -0.04999999999999982,
-          -0.04999999999999982,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:region-link:001:edge:0002",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:region-link:001:point:0001",
-      "to": "route:living_office:1F:region-link:001:point:0002",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -0.04999999999999982,
-          -0.04999999999999982,
-          0.1095316
-        ],
-        [
-          0.050000000000000266,
-          -0.1499999999999999,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:region-link:001:edge:0003",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:region-link:001:point:0002",
-      "to": "route:living_office:1F:region-link:001:point:0003",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          0.050000000000000266,
-          -0.1499999999999999,
-          0.1095316
-        ],
-        [
-          0.25,
-          -0.1499999999999999,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:region-link:001:edge:0004",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:region-link:001:point:0003",
-      "to": "route:living_office:1F:region-link:001:point:0004",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          0.25,
-          -0.1499999999999999,
-          0.1095316
-        ],
-        [
-          0.3500000000000001,
-          -0.25,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:region-link:001:edge:0005",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:region-link:001:point:0004",
-      "to": "route:living_office:1F:region-link:001:point:0005",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          0.3500000000000001,
-          -0.25,
-          0.1095316
-        ],
-        [
-          1.0500000000000003,
-          -0.25,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:region-link:001:edge:0006",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:region-link:001:point:0005",
-      "to": "route:living_office:1F:region-link:001:point:0006",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          1.0500000000000003,
-          -0.25,
-          0.1095316
-        ],
-        [
-          1.15,
-          -0.3500000000000001,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:region-link:001:edge:0007",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:region-link:001:point:0006",
-      "to": "node:living_office:1F:region:region:living_office:1F:office-1F-se-entrance-alcove",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          1.15,
-          -0.3500000000000001,
-          0.1095316
-        ],
-        [
-          1.35,
-          -0.3500000000000001,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:region-link:002:edge:0001",
-      "kind": "custom_connection",
-      "from": "node:living_office:1F:region:region:living_office:1F:office-1F-se-entrance-alcove",
-      "to": "route:living_office:1F:region-link:002:point:0001",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          1.35,
-          -0.3500000000000001,
-          0.1095316
-        ],
-        [
-          1.2500000000000004,
-          -0.25,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:region-link:002:edge:0002",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:region-link:002:point:0001",
-      "to": "route:living_office:1F:region-link:002:point:0002",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          1.2500000000000004,
-          -0.25,
-          0.1095316
-        ],
-        [
-          1.15,
-          -0.25,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:region-link:002:edge:0003",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:region-link:002:point:0002",
-      "to": "route:living_office:1F:region-link:002:point:0003",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          1.15,
-          -0.25,
-          0.1095316
-        ],
-        [
-          1.0500000000000003,
-          -0.1499999999999999,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:region-link:002:edge:0004",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:region-link:002:point:0003",
-      "to": "route:living_office:1F:region-link:002:point:0004",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          1.0500000000000003,
-          -0.1499999999999999,
-          0.1095316
-        ],
-        [
-          0.050000000000000266,
-          -0.1499999999999999,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:region-link:002:edge:0005",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:region-link:002:point:0004",
-      "to": "route:living_office:1F:region-link:002:point:0005",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          0.050000000000000266,
-          -0.1499999999999999,
-          0.1095316
-        ],
-        [
-          0.050000000000000266,
-          0.1499999999999999,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:region-link:002:edge:0006",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:region-link:002:point:0005",
-      "to": "route:living_office:1F:region-link:002:point:0006",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          0.050000000000000266,
-          0.1499999999999999,
-          0.1095316
-        ],
-        [
-          0.1499999999999999,
-          0.25,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:region-link:002:edge:0007",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:region-link:002:point:0006",
-      "to": "route:living_office:1F:region-link:002:point:0007",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          0.1499999999999999,
-          0.25,
-          0.1095316
-        ],
-        [
-          0.1499999999999999,
-          0.34999999999999964,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:region-link:002:edge:0008",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:region-link:002:point:0007",
-      "to": "route:living_office:1F:region-link:002:point:0008",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          0.1499999999999999,
-          0.34999999999999964,
-          0.1095316
-        ],
-        [
-          0.8500000000000001,
-          1.0499999999999998,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:region-link:002:edge:0009",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:region-link:002:point:0008",
-      "to": "route:living_office:1F:region-link:002:point:0009",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          0.8500000000000001,
-          1.0499999999999998,
-          0.1095316
-        ],
-        [
-          1.0500000000000003,
-          1.0499999999999998,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:region-link:002:edge:0010",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:region-link:002:point:0009",
-      "to": "route:living_office:1F:region-link:002:point:0010",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          1.0500000000000003,
-          1.0499999999999998,
-          0.1095316
-        ],
-        [
-          1.65,
-          1.6500000000000004,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:region-link:002:edge:0011",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:region-link:002:point:0010",
-      "to": "route:living_office:1F:region-link:002:point:0011",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          1.65,
-          1.6500000000000004,
-          0.1095316
-        ],
-        [
-          1.7500000000000004,
-          1.6500000000000004,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:region-link:002:edge:0012",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:region-link:002:point:0011",
-      "to": "node:living_office:1F:region:region:living_office:1F:office-1F-tower-wing",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          1.7500000000000004,
-          1.6500000000000004,
-          0.1095316
-        ],
-        [
-          1.85,
-          1.75,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:region-link:003:edge:0001",
-      "kind": "custom_connection",
-      "from": "node:living_office:1F:region:region:living_office:1F:office-1F-main-block",
-      "to": "route:living_office:1F:region-link:003:point:0001",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -0.44999999999999973,
-          -0.04999999999999982,
-          0.1095316
-        ],
-        [
-          -1.25,
-          -0.8500000000000001,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:region-link:003:edge:0002",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:region-link:003:point:0001",
-      "to": "route:living_office:1F:region-link:003:point:0002",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -1.25,
-          -0.8500000000000001,
-          0.1095316
-        ],
-        [
-          -1.45,
-          -0.8500000000000001,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:region-link:003:edge:0003",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:region-link:003:point:0002",
-      "to": "route:living_office:1F:region-link:003:point:0003",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -1.45,
-          -0.8500000000000001,
-          0.1095316
-        ],
-        [
-          -1.65,
-          -1.0499999999999998,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:region-link:003:edge:0004",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:region-link:003:point:0003",
-      "to": "route:living_office:1F:region-link:003:point:0004",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -1.65,
-          -1.0499999999999998,
-          0.1095316
-        ],
-        [
-          -1.65,
-          -1.5500000000000003,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:region-link:003:edge:0005",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:region-link:003:point:0004",
-      "to": "route:living_office:1F:region-link:003:point:0005",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -1.65,
-          -1.5500000000000003,
-          0.1095316
-        ],
-        [
-          -1.75,
-          -1.65,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:region-link:003:edge:0006",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:region-link:003:point:0005",
-      "to": "route:living_office:1F:region-link:003:point:0006",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -1.75,
-          -1.65,
-          0.1095316
-        ],
-        [
-          -1.75,
-          -1.75,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:region-link:003:edge:0007",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:region-link:003:point:0006",
-      "to": "route:living_office:1F:region-link:003:point:0007",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -1.75,
-          -1.75,
-          0.1095316
-        ],
-        [
-          -1.85,
-          -1.85,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
     {
       "id": "route:living_office:1F:region-link:003:edge:0008",
       "kind": "custom_connection",
@@ -2953,719 +2417,6 @@
       "required_controller_capabilities": []
     },
     {
-      "id": "route:living_office:1F:region-link:003:edge:0009",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:region-link:003:point:0008",
-      "to": "route:living_office:1F:region-link:003:point:0009",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -1.85,
-          -1.9500000000000002,
-          0.1095316
-        ],
-        [
-          -1.95,
-          -2.05,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:region-link:003:edge:0010",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:region-link:003:point:0009",
-      "to": "node:living_office:1F:region:region:living_office:1F:office-1F-w-entrance-recess",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -1.95,
-          -2.05,
-          0.1095316
-        ],
-        [
-          -1.95,
-          -2.1500000000000004,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:component-001:free-centerline:edge:0001",
-      "kind": "custom_connection",
-      "from": "node:living_office:1F:component-001:route-start",
-      "to": "route:living_office:1F:component-001:free-centerline:point:0001",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -1.95,
-          -3.45,
-          0.1095316
-        ],
-        [
-          -1.85,
-          -3.35,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:component-001:free-centerline:edge:0002",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:component-001:free-centerline:point:0001",
-      "to": "route:living_office:1F:component-001:free-centerline:point:0002",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -1.85,
-          -3.35,
-          0.1095316
-        ],
-        [
-          -1.85,
-          -3.25,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:component-001:free-centerline:edge:0003",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:component-001:free-centerline:point:0002",
-      "to": "route:living_office:1F:component-001:free-centerline:point:0003",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -1.85,
-          -3.25,
-          0.1095316
-        ],
-        [
-          -1.65,
-          -3.0500000000000003,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:component-001:free-centerline:edge:0004",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:component-001:free-centerline:point:0003",
-      "to": "route:living_office:1F:component-001:free-centerline:point:0004",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -1.65,
-          -3.0500000000000003,
-          0.1095316
-        ],
-        [
-          -1.65,
-          -1.0499999999999998,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:component-001:free-centerline:edge:0005",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:component-001:free-centerline:point:0004",
-      "to": "route:living_office:1F:component-001:free-centerline:point:0005",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          -1.65,
-          -1.0499999999999998,
-          0.1095316
-        ],
-        [
-          0.9499999999999997,
-          1.5499999999999998,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:component-001:free-centerline:edge:0006",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:component-001:free-centerline:point:0005",
-      "to": "route:living_office:1F:component-001:free-centerline:point:0006",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          0.9499999999999997,
-          1.5499999999999998,
-          0.1095316
-        ],
-        [
-          1.15,
-          1.5499999999999998,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:component-001:free-centerline:edge:0007",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:component-001:free-centerline:point:0006",
-      "to": "route:living_office:1F:component-001:free-centerline:point:0007",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          1.15,
-          1.5499999999999998,
-          0.1095316
-        ],
-        [
-          1.9500000000000006,
-          2.3500000000000005,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:component-001:free-centerline:edge:0008",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:component-001:free-centerline:point:0007",
-      "to": "route:living_office:1F:component-001:free-centerline:point:0008",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          1.9500000000000006,
-          2.3500000000000005,
-          0.1095316
-        ],
-        [
-          2.0500000000000003,
-          2.3500000000000005,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:component-001:free-centerline:edge:0009",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:component-001:free-centerline:point:0008",
-      "to": "route:living_office:1F:component-001:free-centerline:point:0009",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          2.0500000000000003,
-          2.3500000000000005,
-          0.1095316
-        ],
-        [
-          2.15,
-          2.45,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:component-001:free-centerline:edge:0010",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:component-001:free-centerline:point:0009",
-      "to": "route:living_office:1F:component-001:free-centerline:point:0010",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          2.15,
-          2.45,
-          0.1095316
-        ],
-        [
-          2.4500000000000006,
-          2.45,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:component-001:free-centerline:edge:0011",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:component-001:free-centerline:point:0010",
-      "to": "node:living_office:1F:component-001:route-end",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          2.4500000000000006,
-          2.45,
-          0.1095316
-        ],
-        [
-          2.4500000000000006,
-          2.55,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:component-002:free-centerline:edge:0001",
-      "kind": "custom_connection",
-      "from": "node:living_office:1F:component-002:route-start",
-      "to": "route:living_office:1F:component-002:free-centerline:point:0001",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          1.4499999999999997,
-          0.1499999999999999,
-          0.1095316
-        ],
-        [
-          1.5500000000000003,
-          0.25,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:component-002:free-centerline:edge:0002",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:component-002:free-centerline:point:0001",
-      "to": "route:living_office:1F:component-002:free-centerline:point:0002",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          1.5500000000000003,
-          0.25,
-          0.1095316
-        ],
-        [
-          1.85,
-          0.25,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:component-002:free-centerline:edge:0003",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:component-002:free-centerline:point:0002",
-      "to": "route:living_office:1F:component-002:free-centerline:point:0003",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          1.85,
-          0.25,
-          0.1095316
-        ],
-        [
-          1.9500000000000006,
-          0.34999999999999964,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:component-002:free-centerline:edge:0004",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:component-002:free-centerline:point:0003",
-      "to": "route:living_office:1F:component-002:free-centerline:point:0004",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          1.9500000000000006,
-          0.34999999999999964,
-          0.1095316
-        ],
-        [
-          1.9500000000000006,
-          0.75,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:component-002:free-centerline:edge:0005",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:component-002:free-centerline:point:0004",
-      "to": "node:living_office:1F:component-002:route-end",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          1.9500000000000006,
-          0.75,
-          0.1095316
-        ],
-        [
-          2.0500000000000003,
-          0.75,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:component-003:free-centerline:edge:0001",
-      "kind": "custom_connection",
-      "from": "node:living_office:1F:component-003:route-start",
-      "to": "route:living_office:1F:component-003:free-centerline:point:0001",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          2.4500000000000006,
-          3.05,
-          0.1095316
-        ],
-        [
-          2.4500000000000006,
-          3.1500000000000004,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:component-003:free-centerline:edge:0002",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:component-003:free-centerline:point:0001",
-      "to": "route:living_office:1F:component-003:free-centerline:point:0002",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          2.4500000000000006,
-          3.1500000000000004,
-          0.1095316
-        ],
-        [
-          2.2500000000000004,
-          3.3500000000000005,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:component-003:free-centerline:edge:0003",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:component-003:free-centerline:point:0002",
-      "to": "route:living_office:1F:component-003:free-centerline:point:0003",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          2.2500000000000004,
-          3.3500000000000005,
-          0.1095316
-        ],
-        [
-          2.15,
-          3.3500000000000005,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:component-003:free-centerline:edge:0004",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:component-003:free-centerline:point:0003",
-      "to": "route:living_office:1F:component-003:free-centerline:point:0004",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          2.15,
-          3.3500000000000005,
-          0.1095316
-        ],
-        [
-          2.0500000000000003,
-          3.45,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:component-003:free-centerline:edge:0005",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:component-003:free-centerline:point:0004",
-      "to": "node:living_office:1F:component-003:route-end",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          2.0500000000000003,
-          3.45,
-          0.1095316
-        ],
-        [
-          1.9500000000000006,
-          3.45,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
       "id": "route:living_office:1F:component-004:free-centerline:edge:0001",
       "kind": "custom_connection",
       "from": "node:living_office:1F:component-004:route-start",
@@ -3680,99 +2431,6 @@
         [
           1.5500000000000003,
           3.45,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:component-004:free-centerline:edge:0002",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:component-004:free-centerline:point:0001",
-      "to": "route:living_office:1F:component-004:free-centerline:point:0002",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          1.5500000000000003,
-          3.45,
-          0.1095316
-        ],
-        [
-          1.5500000000000003,
-          3.3500000000000005,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:component-004:free-centerline:edge:0003",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:component-004:free-centerline:point:0002",
-      "to": "route:living_office:1F:component-004:free-centerline:point:0003",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          1.5500000000000003,
-          3.3500000000000005,
-          0.1095316
-        ],
-        [
-          1.4499999999999997,
-          3.25,
-          0.1095316
-        ]
-      ],
-      "profiles": {
-        "ground_small": {
-          "clearance_m": 0.8
-        },
-        "ground_large": {
-          "clearance_m": 1.4
-        }
-      },
-      "source_ref": null,
-      "locked_geometry": false,
-      "traversal_mode": "walk",
-      "required_controller_capabilities": []
-    },
-    {
-      "id": "route:living_office:1F:component-004:free-centerline:edge:0004",
-      "kind": "custom_connection",
-      "from": "route:living_office:1F:component-004:free-centerline:point:0003",
-      "to": "node:living_office:1F:component-004:route-end",
-      "directed": false,
-      "polyline_xyz": [
-        [
-          1.4499999999999997,
-          3.25,
-          0.1095316
-        ],
-        [
-          1.4499999999999997,
-          3.1500000000000004,
           0.1095316
         ]
       ],
@@ -6037,6 +4695,37 @@
           1.2500000000000004,
           3.55,
           2.1140029
+        ]
+      ],
+      "profiles": {
+        "ground_small": {
+          "clearance_m": 0.8
+        },
+        "ground_large": {
+          "clearance_m": 1.4
+        }
+      },
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    },
+    {
+      "id": "edge:0018",
+      "kind": "custom_connection",
+      "from": "node:0017",
+      "to": "node:0009",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -1.1336867483775306,
+          1.1268099026762237,
+          0.1095316
+        ],
+        [
+          -1.2132246376811593,
+          1.0221920289855073,
+          0.1095316
         ]
       ],
       "profiles": {
