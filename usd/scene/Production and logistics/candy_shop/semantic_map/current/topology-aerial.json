@@ -16,8 +16,62 @@
   "source": {
     "usd_layer_0000": "b35f6e56df719d1ee50d3b0d10fce062486052633cf7d799a574410c5a147c7f"
   },
-  "nodes": [],
-  "edges": [],
+  "nodes": [
+    {
+      "id": "node:0001",
+      "kind": "custom",
+      "position_xyz": [
+        -0.15,
+        0.878,
+        1.5
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "label": "",
+      "edit_mode": "3d"
+    },
+    {
+      "id": "node:0002",
+      "kind": "custom",
+      "position_xyz": [
+        -0.15,
+        0.878,
+        5.3
+      ],
+      "target_refs": [],
+      "source_ref": null,
+      "locked": false,
+      "label": "",
+      "edit_mode": "3d"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge:0001",
+      "kind": "custom_connection",
+      "from": "node:0001",
+      "to": "node:0002",
+      "directed": false,
+      "polyline_xyz": [
+        [
+          -0.15,
+          0.878,
+          1.5
+        ],
+        [
+          -0.15,
+          0.878,
+          5.3
+        ]
+      ],
+      "profiles": {},
+      "source_ref": null,
+      "locked_geometry": false,
+      "traversal_mode": "walk",
+      "required_controller_capabilities": []
+    }
+  ],
   "semantics": {
     "schema": "eai.scene.semantics",
     "version": 1,

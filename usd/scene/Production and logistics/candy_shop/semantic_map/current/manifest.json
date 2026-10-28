@@ -1,7 +1,7 @@
 {
   "schema": "eai.semantic_map.revision",
   "version": 2,
-  "revision": "f9214bb4ed594d23987b4f061071199f",
+  "revision": "4a7812c169654a24939c18ca3787f2b6",
   "scene_key": "production_candy_shop",
   "levels": [
     {
@@ -26,12 +26,12 @@
   "files": {
     "level-000-layer.png": "400a753bd1d461cf6d3df390deef334ac703f5cafa83c7807f23bdff2f07b989",
     "level-000-semantic-grid.npz": "a656035d9645d6dea81495abe66de5e25d08028debbeee2d2dbdc2ed3022e659",
-    "level-000-semantic-map.png": "d2942ec501f6c134863af7224c08cffeb41963f56cf0d90e5a2529ef098e8f1f",
-    "semantic-footprints.geojson": "e3b6ca2c5df776e66e08556a2e6f8d827c703920a167248c32196a1823833b5c",
-    "semantic-footprints.json": "f6850ae232f22452c7ab0691d54eac9da15234f0610dcfa01bfc00166aadfe6f",
+    "level-000-semantic-map.png": "bd26c3709424439c61ddef04bea25be622bb42b84f3e887b385190fb76fa5df1",
+    "semantic-footprints.geojson": "7e67561c9d729c678a21125e360ba27c71451cbe9f41432ebe5011a38591d13e",
+    "semantic-footprints.json": "2053e15b7eebf3ea8f6e1f11964a8f12382e94dcbb617f517646152cad70a58a",
     "semantic-points.json": "8735306caaf4dbafe665a31ec591d550734085d67ae3c61de6848ad592839476",
-    "topology-aerial.json": "2fb8c14376daa33fab89eca6531cd5f759b99dbe313d990cb0f1a7cf35761985",
-    "topology.json": "3905c464bf1ac91b518e25e92dbe66c9a313c6a5e6ea01cc6bc4a3caf4d4f1fc"
+    "topology-aerial.json": "999ec63b841c54617948a08cf70eaf74d19d54a68cdc568193f657769e497cf5",
+    "topology.json": "68376b2e37d848cda92fd2fdf9b470147dbd897ff126d9ed0c7878b589c56396"
   },
   "robot_validated": false
 }
